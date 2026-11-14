@@ -723,6 +723,7 @@ export const datasets: Record<string, string> = {
   // DWD MOSMIX
   small: 'MOSMIX-S',
   large: 'MOSMIX-L',
+  snow: 'MOSMIX-SNOW',
   // DWD DMO (numerische Wettervorhersage)
   icon: 'ICON (global)',
   icon_eu: 'ICON-EU',

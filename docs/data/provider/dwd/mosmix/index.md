@@ -14,11 +14,17 @@ and is published every hour while MOSMIX-L has a set of 114 parameters and is re
 The dataset `hourly/snow` is [MOSMIX-SNOW](https://www.dwd.de/EN/ourservices/met_application_mosmix_snow/met_application_mosmix_snow.html),
 a forecast of new snow, of the probability of new snow above a depth and of the snow depth for 15 stations in the
 Bavarian Alps (`Z901` Hörmoos to `Z946` Kühroint, including `Z914` Zugspitzplatt). A run is published every hour with 48
-hourly steps (about 10 KB). The stations of the dataset are those 15: the MOSMIX catalogue lists 37 `Z9xx` stations,
-and `stations` lists the ones the product forecasts for.
+hourly steps (about 10 KB). The stations of the dataset are those the newest run names (the 15 of the run of
+2026-11-14, read from the 10 KB file once per request); the MOSMIX catalogue lists 37 `Z9xx` stations and cannot say
+which they are, so a station DWD adds to the run is reachable. Where no run is listed (out of season) or it cannot
+be read, `stations` lists those 15.
 
-- DWD publishes it from November to April only (and while there is snow). From May to October the directory is empty
-  and a request for values is a 404 (`IssueNotFoundError`) that names the season, which is no failure of the request.
+- DWD publishes it from November to April only, and while there is snow. Where no run is listed a request for values
+  is a 404, a `ProductOutOfSeasonError` (an `IssueNotFoundError`, so a `NotFoundError` and an `IndexError` as well):
+  from May to October it names the season, from November to April it says that no run is listed. It is no failure
+  of the request.
+- Request `snow` on its own. A request that mixes it with `small` or `large` is answered as a whole, so out of season
+  it is the 404 and no rows of the other datasets; DWD says that the products are not to be mixed.
 - The depths are in m in the file and come back in cm (`snow_depth`, `snow_depth_new_last_*h`), the probabilities in
   percent. Each is the window that ends at the timestamp (`end`), the snow depth the state at it.
 - The new snow, its probabilities and the snow depth are given at the 00, 03, 06, ..., 21 UTC steps for every station and

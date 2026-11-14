@@ -449,6 +449,7 @@ const GLOSSARY_SAME: Record<string, Same> = {
   'parameters.temperature_humidex': { en: ['cs', 'da', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'datasets.small': { en: ['cs', 'da', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'datasets.large': { en: ['cs', 'da', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
+  'datasets.snow': { en: ['cs', 'da', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'datasets.icon': { en: ['da', 'de', 'de-hh', 'es', 'fr', 'lb'], why: NAME },
   'datasets.icon_eu': { en: ['cs', 'da', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'datasets.synop': { en: ['cs', 'da', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },

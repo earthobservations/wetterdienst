@@ -9,6 +9,7 @@ stations, 48 hourly steps), unchanged. DWD publishes the product from November t
 from __future__ import annotations
 
 import datetime as dt
+import zipfile
 from io import BytesIO
 from pathlib import Path
 
@@ -17,7 +18,7 @@ import pytest
 
 from tests.provider.value_stubs import _options, _settings, stations_result
 from wetterdienst import Options, Settings
-from wetterdienst.exceptions import DownloadError, IssueNotFoundError
+from wetterdienst.exceptions import DownloadError, IssueNotFoundError, ProductOutOfSeasonError
 from wetterdienst.provider.dwd import catalogue
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, api
 from wetterdienst.provider.dwd.mosmix.api import MOSMIX_SNOW_STATION_IDS, DwdMosmixMetadata
@@ -175,28 +176,44 @@ def test_mosmix_snow_keeps_what_the_file_does_not_say_as_a_gap(run_of_the_14th: 
     assert wind.item(0, "value") is not None
 
 
-def test_mosmix_snow_has_the_15_stations_and_the_other_datasets_all_of_them(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The stations of `snow` are the 15 the product forecasts for, not the 37 `Z9xx` of the catalogue or all of it.
+CATALOGUE = (
+    "ID    ICAO NAME                 LAT    LON     ELEV\n"
+    "----- ---- -------------------- -----  ------- -----\n"
+    "01001 ENJA JAN MAYEN             70.56   -8.40    10\n"
+    " Z901 ---- HOERMOOS              47.30   10.00  1280\n"
+    " Z902 ---- HOCHGRATBAHN          47.30   10.04  1720\n"
+    " Z914 ---- ZUGSPITZPLATT         47.24   10.59  2420\n"
+)
 
-    The rows are those of `mosmix_stationskatalog.cfg`: `Z902` is a station of the catalogue that MOSMIX-SNOW does not
-    forecast for. `large` keeps every station of the catalogue, and a request for both datasets lists each as it is.
-    """
-    body = (
-        "ID    ICAO NAME                 LAT    LON     ELEV\n"
-        "----- ---- -------------------- -----  ------- -----\n"
-        "01001 ENJA JAN MAYEN             70.56   -8.40    10\n"
-        " Z901 ---- HOERMOOS              47.30   10.00  1280\n"
-        " Z902 ---- HOCHGRATBAHN          47.30   10.04  1720\n"
-        " Z914 ---- ZUGSPITZPLATT         47.24   10.59  2420\n"
-    )
+
+def _serve_catalogue(monkeypatch: pytest.MonkeyPatch, body: str = CATALOGUE) -> None:
+    """Serve `mosmix_stationskatalog.cfg` with these rows, as DWD writes it."""
     monkeypatch.setattr(
         catalogue,
         "download_file",
         lambda *, url, **_: File(url=url, content=BytesIO(body.encode("latin-1")), status=200),
     )
-    settings = Settings(cache_disable=True)
+
+
+def _snow_stations() -> list[str]:
+    request = DwdMosmixRequest(parameters=[("hourly", "snow")], settings=_settings())
+    return request.all().df["station_id"].to_list()
+
+
+def test_mosmix_snow_has_the_stations_of_the_run_and_the_other_datasets_all_of_them(
+    monkeypatch: pytest.MonkeyPatch,
+    run_of_the_14th: list[str],
+) -> None:
+    """The stations of `snow` are those the newest run names, not the 37 `Z9xx` of the catalogue or all of it.
+
+    The rows are those of `mosmix_stationskatalog.cfg`: `Z902` is a station of the catalogue that the run does not
+    name. `large` keeps every station of the catalogue, and a request for both datasets lists each as it is.
+    """
+    _serve_catalogue(monkeypatch)
+    settings = _settings()
 
     snow = DwdMosmixRequest(parameters=[("hourly", "snow")], settings=settings).all().df
+    assert run_of_the_14th == [LISTING[1]]
     assert snow["station_id"].to_list() == ["Z901", "Z914"]
     assert snow["dataset"].unique().to_list() == ["snow"]
     zugspitzplatt = snow.filter(pl.col("station_id") == "Z914").row(0, named=True)
@@ -210,29 +227,127 @@ def test_mosmix_snow_has_the_15_stations_and_the_other_datasets_all_of_them(monk
         {"dataset": "small", "station_id": ["01001", "Z901", "Z902", "Z914"]},
         {"dataset": "snow", "station_id": ["Z901", "Z914"]},
     ]
-    # a station the product does not forecast for is none of it, whichever way it is asked for
+    # a station the run does not name is none of the dataset, whichever way it is asked for
     assert (
         DwdMosmixRequest(parameters=[("hourly", "snow")], settings=settings).filter_by_station_id("Z902").df.is_empty()
     )
 
 
+def _run_with_a_station_more() -> bytes:
+    """Give the run of the 14th with a copy of the placemark of `Z914` named `Z999`, as DWD would add a station."""
+    with zipfile.ZipFile(RUN) as archive:
+        name = archive.namelist()[0]
+        kml = archive.read(name).decode("latin-1")
+    start = kml.index("<kml:Placemark>\n            <kml:name>Z914")
+    end = kml.index("</kml:Placemark>", start) + len("</kml:Placemark>")
+    added = kml[start:end].replace("Z914", "Z999").replace("ZUGSPITZPLATT", "NEUE STATION")
+    out = BytesIO()
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr(name, (kml[:end] + "\n        " + added + kml[end:]).encode("latin-1"))
+    return out.getvalue()
+
+
+def test_mosmix_snow_a_station_dwd_adds_to_the_run_is_reachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A station the newest run names and the catalogue lists is a station of the dataset, with its values.
+
+    `Z999` stands for a station DWD adds: the catalogue lists it and the run names it, and it is not one of the 15 the
+    constant holds. `Z903` is in the catalogue and not in the run.
+    """
+    body = (
+        CATALOGUE
+        + " Z999 ---- NEUE STATION          47.20   10.50  1500\n"
+        + " Z903 ---- ANDERE STATION        47.10   10.40  1400\n"
+    )
+    _serve_catalogue(monkeypatch, body)
+    run = _run_with_a_station_more()
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: LISTING)
+    monkeypatch.setattr(api.KMLReader, "download", lambda _self, _url: BytesIO(run))
+    assert "Z999" not in MOSMIX_SNOW_STATION_IDS
+
+    request = DwdMosmixRequest(parameters=[("hourly", "snow")], settings=_settings(), options=_options(drop_nulls=True))
+    assert request.all().df["station_id"].to_list() == ["Z901", "Z914", "Z999"]
+    values = request.filter_by_station_id("Z999").values().all().df
+    assert values["station_id"].unique().to_list() == ["Z999"]
+    assert values.filter(pl.col("parameter") == "snow_depth").sort("timestamp")["value"][0] == pytest.approx(46.0)
+
+
+def test_mosmix_snow_without_a_run_lists_the_stations_known(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Out of season the directory is empty and the stations are the 15 known, those of them the catalogue lists."""
+    _serve_catalogue(monkeypatch)
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
+
+    assert _snow_stations() == ["Z901", "Z914"]
+    assert "Unable to read the stations" not in caplog.text
+
+
+def test_mosmix_snow_a_run_that_cannot_be_read_lists_the_stations_known_and_says_so(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A run that fails to list or to read is not the reason for no stations at all."""
+    _serve_catalogue(monkeypatch)
+
+    def fail(*_args: object, **_kwargs: object) -> list[str]:
+        msg = "boom"
+        raise OSError(msg)
+
+    monkeypatch.setattr(api, "list_remote_files_fsspec", fail)
+    assert _snow_stations() == ["Z901", "Z914"]
+    assert "Unable to read the stations the newest MOSMIX-SNOW run names" in caplog.text
+
+    caplog.clear()
+    monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: LISTING)
+
+    def not_a_run(_self: api.KMLReader, _url: str) -> BytesIO:
+        return BytesIO(b"not a zip")
+
+    monkeypatch.setattr(api.KMLReader, "download", not_a_run)
+    assert _snow_stations() == ["Z901", "Z914"]
+    assert "Unable to read the stations the newest MOSMIX-SNOW run names" in caplog.text
+
+
 def test_mosmix_snow_out_of_season_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
-    """From May to October the directory is empty, which is no `StopIteration` but a 404 that names the season.
+    """With no run listed the answer is a `ProductOutOfSeasonError`: a 404, still an `IssueNotFoundError`.
 
     Raised inside `query()`'s generator, a `StopIteration` surfaced as `RuntimeError: generator raised StopIteration`
     (PEP 479); the answer is an `IssueNotFoundError`, which is a `NotFoundError` (404) and still an `IndexError`.
     """
+    from wetterdienst.ui.core import failure_status  # noqa: PLC0415
+
     monkeypatch.setattr(api, "list_remote_files_fsspec", lambda *_args, **_kwargs: [])
     request = DwdMosmixRequest(parameters=[("hourly", "snow")], settings=_settings(), options=_options(drop_nulls=True))
     values = stations_result(request, "hourly", "snow", "Z914").values()
 
-    with pytest.raises(IssueNotFoundError, match=r"No MOSMIX-SNOW run is listed within .*November to April"):
+    with pytest.raises(ProductOutOfSeasonError, match=r"No MOSMIX-SNOW run is listed within") as raised:
         list(values.query())
-    with pytest.raises(IssueNotFoundError, match="November to April"):
+    assert isinstance(raised.value, IssueNotFoundError)
+    assert isinstance(raised.value, IndexError)
+    assert failure_status(raised.value) == 404
+    with pytest.raises(ProductOutOfSeasonError):
         values.all()
     # the season is the snow dataset's: MOSMIX-S answers as it did, with its own message
-    with pytest.raises(IndexError, match="a missing directory lists as empty"):
+    with pytest.raises(IndexError, match="a missing directory lists as empty") as plain:
         values.get_url_for_date("https://example.com/kml/", api.DwdForecastDate.LATEST, one_station_only=False)
+    assert not isinstance(plain.value, ProductOutOfSeasonError)
+
+
+@pytest.mark.parametrize("month", [5, 7, 10])
+def test_mosmix_snow_out_of_season_names_the_season_from_may_to_october(month: int) -> None:
+    """From May to October the season is the reason, and when to come back."""
+    message = api.out_of_season_message("https://example.com/kml/", month)
+    assert "from November to April only" in message
+    assert "until the winter" in message
+
+
+@pytest.mark.parametrize("month", [11, 12, 1, 4])
+def test_mosmix_snow_with_no_run_in_winter_does_not_name_the_season_as_the_reason(month: int) -> None:
+    """From November to April no run is listed, and DWD publishes it while there is snow: no "try again in winter"."""
+    message = api.out_of_season_message("https://example.com/kml/", month)
+    assert "No MOSMIX-SNOW run is listed within https://example.com/kml/" in message
+    assert "only while there is snow" in message
+    assert "winter" not in message
+    assert "November" not in message
 
 
 def test_mosmix_snow_directory_that_is_empty_on_the_server_is_out_of_season_and_an_outage_page_is_not() -> None:
@@ -246,7 +361,7 @@ def test_mosmix_snow_directory_that_is_empty_on_the_server_is_out_of_season_and_
         server.pages["/outage/"] = ("text/html", b"<html><title>503 - CDN</title><a href='/x'>s</a></html>")
         server.pages["/outage"] = ("text/html", b"<html><title>503 - CDN</title><a href='/x'>s</a></html>")
 
-        with pytest.raises(IssueNotFoundError, match="November to April"):
+        with pytest.raises(ProductOutOfSeasonError, match="No MOSMIX-SNOW run is listed"):
             values.get_url_for_date(
                 f"{server.base}/empty/", api.DwdForecastDate.LATEST, one_station_only=False, seasonal=True
             )
@@ -271,10 +386,12 @@ def test_dwd_mosmix_snow(options_humanize_false_convert_units_false: Options) ->
         settings=Settings(cache_disable=True),
         options=options_humanize_false_convert_units_false,
     )
-    assert sorted(request.all().df["station_id"]) == sorted(MOSMIX_SNOW_STATION_IDS)
-    values = request.filter_by_station_id(list(MOSMIX_SNOW_STATION_IDS)).values().all()
-    # the 15 stations of the run are the 15 of the library (`MOSMIX_SNOW_STATION_IDS`), whichever one DWD adds
-    assert sorted(values.df["station_id"].unique()) == sorted(MOSMIX_SNOW_STATION_IDS)
+    # the stations are those the live run names, and the values are of those
+    stations = sorted(request.all().df["station_id"])
+    values = request.filter_by_station_id(stations).values().all()
+    assert sorted(values.df["station_id"].unique()) == stations
+    # and the 15 of the constant, which only an out-of-season answer is read from: a change in the run is noticed here
+    assert stations == sorted(MOSMIX_SNOW_STATION_IDS), "DWD changed the stations of MOSMIX-SNOW: update the constant"
     assert set(values.df["parameter"]) == {
         parameter.name_original for parameter in DwdMosmixMetadata.hourly.snow.parameters
     }

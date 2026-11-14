@@ -702,6 +702,7 @@ export const datasets: Record<string, string> = {
   urban_wind: 'Wiatr miejski',
   small: 'MOSMIX-S',
   large: 'MOSMIX-L',
+  snow: 'MOSMIX-SNOW',
   icon: 'ICON (globalny)',
   icon_eu: 'ICON-EU',
   radiation_global: 'Promieniowanie całkowite',

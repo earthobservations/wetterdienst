@@ -21,10 +21,10 @@ Types of changes:
 - `dwd/mosmix` serves DWD's snow forecast MOSMIX-SNOW as the dataset `hourly/snow`: new snow over
   3, 6, 12 and 24 hours (`snow_depth_new_last_3h` ... `_24h`, in cm), the probability of more than
   5 to 50 cm of it (`probability_snow_depth_new_gt_10cm_last_24h` ..., in %), `snow_depth` (cm),
-  air and dew point temperature, wind and precipitation, hourly for 48 hours for 15 stations in
-  the Bavarian Alps (`Z901` to `Z946`, which `stations` lists). DWD publishes it from November to
-  April only: out of season a request for values is a 404 (`IssueNotFoundError`) that says so
-  (GH-4091)
+  air and dew point temperature, wind and precipitation, hourly for 48 hours for the 15 stations
+  of the run in the Bavarian Alps (`Z901` to `Z946`, which `stations` lists). DWD publishes it
+  from November to April only: where no run is listed a request for values is a 404, the new
+  `ProductOutOfSeasonError` (an `IssueNotFoundError`), whose message says why (GH-4091)
 
 ### Fixed
 

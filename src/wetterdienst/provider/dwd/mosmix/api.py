@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import contextlib
+import dataclasses
 import datetime as dt
 import logging
 import re
@@ -16,7 +17,14 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 
-from wetterdienst.exceptions import InvalidEnumerationError, InvalidTimeIntervalError, IssueNotFoundError
+from wetterdienst.exceptions import (
+    InvalidEnumerationError,
+    InvalidTimeIntervalError,
+    IssueNotFoundError,
+    NoInternetError,
+    ProductOutOfSeasonError,
+    ProviderRateLimitError,
+)
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel
 from wetterdienst.model.quality_flags import join_quality_flags, unpivot_with_raw
@@ -38,11 +46,12 @@ DWD_MOSMIX_L_PATH = "weather/local_forecasts/mos/MOSMIX_L/all_stations/kml/"
 DWD_MOSMIX_L_SINGLE_PATH = "weather/local_forecasts/mos/MOSMIX_L/single_stations/{station_id}/kml/"
 DWD_MOSMIX_SNOW_PATH = "weather/local_forecasts/mos/MOSMIX-SNOW_S/all_stations/kml/"
 
-#: The 15 stations MOSMIX-SNOW forecasts for, all in the Bavarian Alps (read from the run of 2026-11-14 19 UTC, which is
-#: the offline fixture, `tests/provider/dwd/mosmix/MOSMIX-SNOW_S_2026111419_48.kmz`). They are 15 of the 37 `Z9xx`
-#: stations of the MOSMIX catalogue, which cannot say which, and the product has no station listing of its own: its
-#: `all_stations` directory is the one source, and it is empty from May to October, when a list read from it would be
-#: none. `test_dwd_mosmix_snow` holds this list to the live run.
+#: The 15 stations of the MOSMIX-SNOW run of 2026-11-14 19 UTC (the offline fixture,
+#: `tests/provider/dwd/mosmix/MOSMIX-SNOW_S_2026111419_48.kmz`), all in the Bavarian Alps. Not what the stations of the
+#: dataset are: those are the stations the newest run names (`DwdMosmixRequest._snow_station_ids`), so that a station
+#: DWD adds is reachable. This is the answer only where no run can be read, which is out of season (the directory is
+#: empty from May to October) or when it could not be listed or read. The MOSMIX catalogue lists 37 `Z9xx` stations and
+#: cannot say which are the run's. `test_dwd_mosmix_snow` holds this list to the live run, so a change is noticed.
 MOSMIX_SNOW_STATION_IDS = (
     "Z901",
     "Z905",
@@ -115,6 +124,27 @@ def _run_stamp(urls: pl.Expr) -> pl.Expr:
     makes this the kind of thing to settle while the rule is being written rather than after.
     """
     return urls.str.split("/").list.last().str.extract(rf"(?i)_(\d{{10}})(?:_[^.]*)?{_FORECAST_FILE}", 1)
+
+
+def out_of_season_message(url: str, month: int) -> str:
+    """Say why no MOSMIX-SNOW run is listed within `url`, in the month it is asked in.
+
+    DWD publishes it from November to April only, and while there is snow: from May to October the season is the
+    reason and says when to come back, from November to April the season is no reason and the message only says that
+    no run is listed (and that DWD publishes it only while there is snow).
+    """
+    if 5 <= month <= 10:
+        return (
+            f"No MOSMIX-SNOW run is listed within {url}: DWD publishes it from November to April only, so there is "
+            "no snow forecast to read until the winter."
+        )
+    return f"No MOSMIX-SNOW run is listed within {url}: DWD publishes it only while there is snow."
+
+
+def _newest_run(urls: list[str]) -> str | None:
+    """Give the newest run of a listing by the stamp its name carries, or None where it names no run."""
+    runs = sorted((stamp, url) for url, stamp in ((u, _run_stamp_of(u)) for u in urls) if stamp is not None)
+    return runs[-1][1] if runs else None
 
 
 class DwdMosmixValues(TimeseriesValues[DatasetModel]):
@@ -281,11 +311,7 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
             # (GH-2640) -- so what is empty here is a directory that holds nothing or that does not
             # exist, as the 404 of a station id that does not exist
             if seasonal:
-                msg = (
-                    f"No MOSMIX-SNOW run is listed within {url}: DWD publishes it from November to April only "
-                    "(and while there is snow), so out of season there is no forecast to read. Try again in winter."
-                )
-                raise IssueNotFoundError(msg)
+                raise ProductOutOfSeasonError(out_of_season_message(url, dt.datetime.now(dt.UTC).month))
             message = f"No file listed within {url}; a missing directory lists as empty"
             if not one_station_only:
                 raise IndexError(message)
@@ -373,6 +399,8 @@ class DwdMosmixRequest(TimeseriesRequest):
     station_group: DwdMosmixStationGroup = DwdMosmixStationGroup.SINGLE_STATIONS
 
     _url = MOSMIX_STATION_CATALOGUE_URL
+    # per request, not per class: the stations of the newest MOSMIX-SNOW run, read once (`_snow_station_ids`)
+    _snow_stations: set[str] | None = dataclasses.field(default=None, repr=False, compare=False)
 
     @classmethod
     def available_issues(cls, station_id: str, settings: Settings) -> list[dt.datetime]:
@@ -457,6 +485,38 @@ class DwdMosmixRequest(TimeseriesRequest):
             narrowed.append((f"the run issued {self.issue:%Y-%m-%d %H} UTC", None))
         return narrowed
 
+    def _snow_station_ids(self, catalogue_ids: list[str]) -> set[str]:
+        """Give the stations MOSMIX-SNOW forecasts for: those the newest run names that the catalogue lists.
+
+        The run is 10 KB, read once per request (the listing for five minutes, a named run for twelve hours, as every
+        MOSMIX run is held). Where no run is listed, as from May to October, or it could not be listed or read, the 15
+        stations of `MOSMIX_SNOW_STATION_IDS` are the answer, with a warning for a failure: the dataset has stations
+        out of season, and a request for values then says why it has no run. A station the run names that the
+        catalogue does not list has no position and is none of the stations.
+        """
+        from typing import cast  # noqa: PLC0415
+
+        if self._snow_stations is not None:
+            return self._snow_stations
+        settings = cast("Settings", self.settings)
+        url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_SNOW_PATH)
+        named: set[str] = set()
+        try:
+            newest = _newest_run(list_remote_files_fsspec(url, settings, CacheExpiry.FILEINDEX))
+            if newest is not None:
+                reader = KMLReader(station_ids=catalogue_ids, settings=settings)
+                reader.read(newest)
+                named = set(reader.data)
+        except (NoInternetError, ProviderRateLimitError):
+            raise
+        except Exception as ex:  # noqa: BLE001
+            log.warning(
+                f"Unable to read the stations the newest MOSMIX-SNOW run names within {url} ({ex!r}); "
+                "listing the 15 stations known from the run of 2026-11-14"
+            )
+        self._snow_stations = named or set(MOSMIX_SNOW_STATION_IDS)
+        return self._snow_stations
+
     def _all(self) -> pl.LazyFrame:
         """Read the MOSMIX station catalog from the DWD server and return a DataFrame."""
         from typing import cast  # noqa: PLC0415
@@ -468,13 +528,14 @@ class DwdMosmixRequest(TimeseriesRequest):
         }:
             # one catalogue for every dataset: the core copies it over the request's datasets
             return catalogue.lazy()
-        # MOSMIX-SNOW forecasts for 15 of the stations, which the catalogue does not say (`MOSMIX_SNOW_STATION_IDS`),
-        # so its stations are those and not the 5,000 of the catalogue that can only answer with no rows. A frame
-        # per dataset, as a provider whose stations differ per dataset hands them (`TimeseriesRequest._all`)
+        # MOSMIX-SNOW forecasts for a few of the stations, which the catalogue does not say (`_snow_station_ids`), so
+        # its stations are those and not the 5,000 of the catalogue that can only answer with no rows. A frame per
+        # dataset, as a provider whose stations differ per dataset hands them (`TimeseriesRequest._all`)
+        snow_stations = self._snow_station_ids(catalogue.get_column("station_id").to_list())
         frames = [
-            (
-                catalogue.filter(pl.col("station_id").is_in(MOSMIX_SNOW_STATION_IDS)) if name == "snow" else catalogue
-            ).with_columns(pl.lit(resolution, pl.String).alias("resolution"), pl.lit(name, pl.String).alias("dataset"))
+            (catalogue.filter(pl.col("station_id").is_in(snow_stations)) if name == "snow" else catalogue).with_columns(
+                pl.lit(resolution, pl.String).alias("resolution"), pl.lit(name, pl.String).alias("dataset")
+            )
             for resolution, name in self._requested_datasets
         ]
         return pl.concat(frames).lazy()
