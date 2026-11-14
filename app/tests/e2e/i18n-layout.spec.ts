@@ -334,7 +334,7 @@ LONG_LANGUAGES.forEach((language) => {
 // labels and the table's headers are the longest texts on the page. The backend is the accessibility
 // spec's, answered in the browser.
 const METEOGRAM_VIEWS = [
-  { view: 'chart', ready: '.js-plotly-plot .main-svg' },
+  { view: 'chart', ready: '.mg-canvas[data-drawn="true"]' },
   { view: 'compact', ready: '[role="radio"][aria-checked="true"]' },
   { view: 'table', ready: 'table' },
 ] as const

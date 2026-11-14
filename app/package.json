@@ -41,6 +41,7 @@
     "@vueuse/core": "^14.4.0",
     "@vueuse/nuxt": "^14.4.0",
     "apache-arrow": "^17.0.0",
+    "echarts": "^6.1.0",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
     "luxon": "^3.7.2",

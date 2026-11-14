@@ -6,12 +6,9 @@ import Meteogram from '~/components/Meteogram.vue'
 // The day rows of the map's panel (GH-3650): the meteogram with no chart, no controls, and nothing remembered or
 // written to the address.
 
-const plotly = vi.hoisted(() => ({
-  newPlot: vi.fn(async () => {}),
-  relayout: vi.fn(async () => {}),
-  purge: vi.fn(),
-}))
-vi.mock('plotly.js-basic-dist-min', () => plotly)
+// the chart's code, which these rows never ask for: its loader is a spy
+const echarts = vi.hoisted(() => ({ loadEcharts: vi.fn(() => ({ init: vi.fn() })) }))
+vi.mock('~/utils/echarts-loader', () => echarts)
 
 // three days of hourly temperatures
 const values = Array.from({ length: 72 }, (_, hour) => ({
@@ -38,7 +35,7 @@ async function mountRows(props: Record<string, unknown> = {}, route = '/') {
 beforeEach(() => {
   // the first of October, as the values start on it: the rows start at today, which is a day of the run
   vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-01T10:00:00Z') })
-  plotly.newPlot.mockClear()
+  echarts.loadEcharts.mockClear()
 })
 afterEach(async () => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
@@ -47,14 +44,14 @@ afterEach(async () => {
 })
 
 describe('the meteogram as day rows (days-only)', () => {
-  it('is a list of days, each with its temperatures, and no chart, no view choice and no Plotly', async () => {
+  it('is a list of days, each with its temperatures, and no chart, no view choice and no chart code', async () => {
     const wrapper = await mountRows()
     const rows = wrapper.findAll('[data-testid="day-rows"] li')
     expect(rows.length).toBeGreaterThanOrEqual(3)
     expect(rows[0]!.text()).toMatch(/\d+ \/ \d+/)
     expect(wrapper.find('[role="figure"]').exists()).toBe(false)
     expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false)
-    await vi.waitFor(() => expect(plotly.newPlot).not.toHaveBeenCalled())
+    await vi.waitFor(() => expect(echarts.loadEcharts).not.toHaveBeenCalled())
   })
 
   // the weather of a row is a Phosphor icon, hidden from a screen reader, with its words beside it (GH-3527)

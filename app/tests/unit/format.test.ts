@@ -1,7 +1,7 @@
 import type { ChromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
 import { DateTime } from 'luxon'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { formatDate, formatDayMonth, formatHour, formatNumber, formatRunTime, plotlyDateLocale, plotlyHoverFormat, plotlySeparators, weekdayShort, withData } from '../../app/utils/format'
+import { formatDate, formatDayMonth, formatHour, formatNumber, formatRunTime, plotlyDateLocale, plotlySeparators, weekdayShort, withData } from '../../app/utils/format'
 import { chromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
 
 describe('date formatting utilities', () => {
@@ -216,10 +216,9 @@ describe('a language the browser has no data for', () => {
     expect(formatDayMonth(DateTime.fromISO('2026-10-05'), 'lb-LU')).toBe('05.10.')
   })
 
-  it('writes the run and the hover heading of Luxembourgish as German, and hands Intl no Luxembourgish', () => {
+  it('writes the run and the hour of Luxembourgish as German, and hands Intl no Luxembourgish', () => {
     expect(formatRunTime('2026-10-15T04:00:00+00:00', 'lb-LU')).toBe('15.10.2026, 04:00 UTC')
     expect(formatHour(Date.UTC(2026, 9, 15, 4, 0), 'lb-LU')).toBe('04:00')
-    expect(plotlyHoverFormat('lb')).toBe('%a %d.%m. %H:%M')
     expect(chrome.passed).toContain('de-LU')
     expect(chrome.passed.filter(language => language.startsWith('lb'))).toEqual([])
   })
@@ -266,26 +265,25 @@ describe('the locale codes of the app that are no language', () => {
 })
 
 // Thursday the 15th of October 2026, as the languages of the app's locales write it (nuxt.config.ts)
-describe('weekdays and the hover heading in the language', () => {
+describe('weekdays in the language', () => {
   const thursday = DateTime.fromISO('2026-10-15')
   afterEach(() => {
     vi.restoreAllMocks()
   })
 
   it.each([
-    ['en-GB', 'Thu', '%a %d/%m %H:%M'],
-    ['de-DE', 'Do', '%a %d.%m. %H:%M'],
-    ['fr-FR', 'jeu.', '%a %d/%m %H:%M'],
-    ['es-ES', 'jue', '%a %d/%m %H:%M'],
-    ['it-IT', 'gio', '%a %d/%m %H:%M'],
-    ['pl-PL', 'czw.', '%a %d.%m %H:%M'],
-    ['nl-NL', 'do', '%a %d-%m %H:%M'],
-    ['cs-CZ', 'čt', '%a %d. %m. %H:%M'],
-    ['da-DK', 'tors.', '%a %d.%m %H:%M'],
-    ['lb-LU', 'Don', '%a %d.%m. %H:%M'],
-  ])('writes %s as %s with the heading format %s', (language, weekday, hoverformat) => {
+    ['en-GB', 'Thu'],
+    ['de-DE', 'Do'],
+    ['fr-FR', 'jeu.'],
+    ['es-ES', 'jue'],
+    ['it-IT', 'gio'],
+    ['pl-PL', 'czw.'],
+    ['nl-NL', 'do'],
+    ['cs-CZ', 'čt'],
+    ['da-DK', 'tors.'],
+    ['lb-LU', 'Don'],
+  ])('writes %s as %s', (language, weekday) => {
     expect(weekdayShort(thursday, language)).toBe(weekday)
-    expect(plotlyHoverFormat(language)).toBe(hoverformat)
     const { format } = plotlyDateLocale(language)
     // Sunday first, as Plotly has it
     expect(format.shortDays[4]).toBe(weekday)
@@ -299,7 +297,6 @@ describe('weekdays and the hover heading in the language', () => {
     vi.spyOn(Intl.DateTimeFormat, 'supportedLocalesOf').mockReturnValue([])
     expect(weekdayShort(thursday, 'lb-LU')).toBe('Do')
     expect(plotlyDateLocale('lb-LU').format.shortDays[4]).toBe('Do')
-    expect(plotlyHoverFormat('lb-LU')).toBe('%a %d.%m. %H:%M')
   })
 
   it('names the days from Sunday and the months from January', () => {

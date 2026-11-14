@@ -361,13 +361,13 @@
   --app-chart-modebar-active: var(--app-focus-ring);
 }
 
-/* The width of a Plotly chart is capped (GH-3558): a printed chart is scaled to the width of the paper, so the
+/* The width of a chart is capped (GH-3558): a printed chart is scaled to the width of the paper, so the
    wider it is drawn on the screen the smaller its type comes out on the sheet. At 820 px the Explorer's 12 px tick
    labels print at 6.3 pt on A4 with 1 in margins (5.2 pt from a window with a 980 px column, uncapped). The chart
    stays in the middle of its column. A chart in a box of its own (the Explorer's facets: 34 px of padding and border)
    is narrower (760 px, `--app-chart-max-width`: the print is scaled to the box, which is 34 px narrower, so a width of
    820 - 34 prints at 6.1 pt), so that it prints as large as the others. The widget's chart
-   is not capped (it fills its frame). The sizes are measured
+   is not capped (it fills its frame). The forecast's chart (`MeteogramChart`) is capped the same way. The sizes are measured
    in a printed PDF by tests/e2e/chart-print.spec.ts. */
 .app-chart {
   width: 100%;
@@ -385,10 +385,41 @@
 
 /* A printed chart is always the light one (the screen's dark chart is white on a printer's white, or
    unreadable text on it). The charts are drawn light for it (useChartTheme), which is asynchronous for
-   some of them: a chart that says it is drawn dark (data-chart-scheme, set after each drawing) and is
-   printed before it is redrawn prints with a transparent paper, black text and black wind barbs. A chart
-   drawn light is left as it was drawn, with its series colours and its own marks. */
+   some of them: a Plotly chart that says it is drawn dark (data-chart-scheme, set after each drawing) and is
+   printed before it is redrawn prints with a transparent paper and black text. A chart drawn light is left
+   as it was drawn, with its series colours and its own marks. The forecast's chart (ECharts, SVG) is drawn
+   again before the print is laid out, and is printed as it shows: the window of time on the screen, scaled
+   to the width of the sheet like a picture, without the crosshair and the readout. */
 @media print {
+  .mg-scroller {
+    overflow: visible !important;
+  }
+  .mg-track,
+  .mg-stage,
+  .mg-canvas {
+    width: 100% !important;
+    height: auto !important;
+    position: static !important;
+  }
+  /* the box ECharts makes round its SVG has the chart's size in px, as the SVG has */
+  .mg-canvas > div {
+    width: 100% !important;
+    height: auto !important;
+    position: static !important;
+  }
+  .mg-canvas svg {
+    width: 100% !important;
+    height: auto !important;
+    display: block;
+  }
+  .mg-cursor,
+  .mg-selection,
+  .mg-readout {
+    display: none !important;
+  }
+  .meteogram-chart {
+    break-inside: avoid;
+  }
   .js-plotly-plot[data-chart-scheme="dark"] .main-svg {
     background: transparent !important;
   }
@@ -398,9 +429,6 @@
   .js-plotly-plot[data-chart-scheme="dark"] .main-svg text,
   .js-plotly-plot[data-chart-scheme="dark"] .main-svg tspan {
     fill: black !important;
-  }
-  .js-plotly-plot[data-chart-scheme="dark"] .meteogram-overlay-canvas {
-    filter: invert(1);
   }
   .js-plotly-plot .modebar-container {
     display: none !important;

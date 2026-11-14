@@ -114,6 +114,9 @@ const EXPLORER_WITH_STATION = `${EXPLORER}&stations=00011`
 /** The chart Plotly drew: its SVG is in the container once it has */
 const plotly = (page: Page) => page.locator('.js-plotly-plot .main-svg').first()
 
+/** The forecast's chart (ECharts): its SVG is in the container once it has */
+const forecastChart = (page: Page) => page.locator('.mg-canvas svg').first()
+
 /** A map with markers: Leaflet puts one icon, or a cluster, in the page for each */
 async function mapWithStations(page: Page) {
   await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible()
@@ -363,7 +366,33 @@ const STATES: State[] = [
     state: 'chart-drawn',
     path: '/meteogram?station=01001',
     reach: async (page) => {
-      await expect(plotly(page)).toBeVisible()
+      await expect(forecastChart(page)).toBeVisible()
+    },
+  },
+  {
+    // the readout the keys open, with the focus on the chart (the ring is drawn, the readout lies over the panels)
+    page: 'meteogram',
+    state: 'readout-shown',
+    keepFocus: true,
+    path: '/meteogram?station=01001',
+    reach: async (page) => {
+      await expect(forecastChart(page)).toBeVisible()
+      await page.getByRole('figure').focus()
+      await page.keyboard.press('ArrowRight')
+      await expect(page.getByTestId('meteogram-readout')).toBeVisible()
+    },
+  },
+  {
+    // a phone's window, which opens on the day cards: the chart is asked for, and the strip scrolls under its axes
+    page: 'meteogram',
+    state: 'chart-phone',
+    path: '/meteogram?station=01001&view=chart',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await expect(forecastChart(page)).toBeVisible()
+      await page.getByTestId('meteogram-scroller').evaluate((element) => {
+        element.scrollLeft = 200
+      })
     },
   },
   {
@@ -382,7 +411,7 @@ const STATES: State[] = [
     state: 'table-shown',
     path: '/meteogram?station=01001',
     reach: async (page, locale) => {
-      await expect(plotly(page)).toBeVisible()
+      await expect(forecastChart(page)).toBeVisible()
       await page.getByRole('radio', { name: message(locale, 'meteogram.chart.viewTable'), exact: true }).click()
       await expect(page.getByRole('table')).toBeVisible()
     },
@@ -400,7 +429,7 @@ const STATES: State[] = [
     state: 'table-shown',
     path: '/widget?station=01001',
     reach: async (page, locale) => {
-      await expect(plotly(page)).toBeVisible()
+      await expect(forecastChart(page)).toBeVisible()
       await page.getByRole('button', { name: message(locale, 'dataViewer.viewTable'), exact: true }).click()
       await expect(page.getByRole('table')).toBeVisible()
     },
@@ -447,7 +476,7 @@ const STATES: State[] = [
     state: 'chart-drawn',
     path: '/widget?station=01001',
     reach: async (page) => {
-      await expect(plotly(page)).toBeVisible()
+      await expect(forecastChart(page)).toBeVisible()
     },
   },
   {
@@ -1034,7 +1063,7 @@ test.describe('chart controls by keyboard', () => {
       await expect(plotly(page)).toBeVisible()
     } },
     { page: 'widget', path: '/widget?station=01001', ready: async (page: Page) => {
-      await expect(plotly(page)).toBeVisible()
+      await expect(forecastChart(page)).toBeVisible()
     } },
   ]) {
     test(`the chart of the ${name} page has its values as a table, opened and read by keys`, async ({ page, baseURL }) => {
@@ -1045,7 +1074,8 @@ test.describe('chart controls by keyboard', () => {
       // the chart is described by a sentence that exists, and the table is not in the page before it is asked for
       const figure = page.getByRole('figure')
       await expect(figure).toHaveAttribute('aria-describedby', /\S/)
-      const described = (await figure.getAttribute('aria-describedby'))!
+      // the sentence first, and for the forecast's chart the keys it answers to after it
+      const described = (await figure.getAttribute('aria-describedby'))!.split(' ')[0]!
       await expect(page.locator(`[id="${described}"]`)).toHaveText(/\S/)
       await expect(page.getByRole('table')).toHaveCount(0)
 
@@ -1079,11 +1109,11 @@ test.describe('chart controls by keyboard', () => {
   test('the forecast of the meteogram page has its values as a view of its own, chosen and read by keys', async ({ page, baseURL }) => {
     await mockBackend(page, baseURL!)
     await open(page, '/meteogram?station=01001', variant)
-    await expect(plotly(page)).toBeVisible()
+    await expect(forecastChart(page)).toBeVisible()
 
     // the chart is described by a sentence that exists, and there is no table until the view is chosen
     const figure = page.getByRole('figure')
-    const described = (await figure.getAttribute('aria-describedby'))!
+    const described = (await figure.getAttribute('aria-describedby'))!.split(' ')[0]!
     await expect(page.locator(`[id="${described}"]`)).toHaveText(/\S/)
     await expect(page.getByRole('table')).toHaveCount(0)
     await expect(page.getByRole('button', { name: message('en', 'dataViewer.viewTable'), exact: true })).toHaveCount(0)
@@ -1123,40 +1153,61 @@ test.describe('chart controls by keyboard', () => {
     await tableView.focus()
     await page.keyboard.press('Home')
     await expect(chart).toBeChecked()
-    await expect(plotly(page)).toBeVisible()
+    await expect(forecastChart(page)).toBeVisible()
     await expect(page.getByRole('table')).toHaveCount(0)
   })
 
-  // Plotly's hover label comes with the pointer and goes with it; Escape takes it away without moving the
-  // pointer, until the pointer moves on (WCAG 1.4.13). Hoverable it cannot be, see utils/chart-hover.ts.
-  test('the hover label of the forecast chart is dismissed by Escape, until the pointer moves', async ({ page, baseURL }) => {
+  // The forecast's readout is an element of the page, not a Plotly label: it is hoverable, dismissible and persistent
+  // (WCAG 1.4.13), and the chart is one tab stop that steps through the hours by keys (2.1.1)
+  test('the readout of the forecast chart is hoverable, dismissed by Escape, and persistent', async ({ page, baseURL }) => {
     await mockBackend(page, baseURL!)
     await open(page, '/meteogram?station=01001', variant)
-    await expect(plotly(page)).toBeVisible()
+    await expect(forecastChart(page)).toBeVisible()
 
-    // the chart lies below the fold of the window
-    await page.locator('.js-plotly-plot').scrollIntoViewIfNeeded()
-    const box = (await page.locator('.js-plotly-plot .main-svg').first().boundingBox())!
-    const x = box.x + box.width / 2
-    const y = box.y + box.height / 4
-    const label = page.locator('.js-plotly-plot .hoverlayer')
+    await page.locator('.mg-stage').scrollIntoViewIfNeeded()
+    const box = (await page.locator('.mg-stage').boundingBox())!
+    const x = box.x + 68 + (box.width - 78) * 0.3
+    const y = box.y + box.height * 0.6
+    const readout = page.getByTestId('meteogram-readout')
     await page.mouse.move(x - 20, y)
     await page.mouse.move(x, y, { steps: 4 })
-    await expect(label).toContainText(/\S/)
-    await expect(label.locator('text').first()).toBeVisible()
+    await expect(readout).toBeVisible()
+    await expect(readout).toContainText(/\d{2}[:.]\d{2}/)
 
-    // focus is nowhere near the chart: the pointer is what Escape is about
+    // hoverable: the pointer moves onto it, and it stays
+    const over = (await readout.boundingBox())!
+    await page.mouse.move(over.x + over.width / 2, y, { steps: 6 })
+    await expect(readout).toBeVisible()
+    // persistent: it stays while the pointer rests
+    await page.waitForTimeout(800)
+    await expect(readout).toBeVisible()
+
+    // dismissible: Escape takes it away without moving the pointer, and it stays away while the pointer rests
     await page.keyboard.press('Escape')
-    await expect(page.locator('.js-plotly-plot')).toHaveAttribute('data-hover-dismissed', 'true')
-    await expect(label).toBeHidden()
-    // it stays away while the pointer rests
+    await expect(readout).toHaveCount(0)
     await page.waitForTimeout(500)
-    await expect(label).toBeHidden()
+    await expect(readout).toHaveCount(0)
 
     // a new move is a new hover
-    await page.mouse.move(x + 40, y, { steps: 4 })
-    await expect(page.locator('.js-plotly-plot')).not.toHaveAttribute('data-hover-dismissed', /.*/)
-    await expect(label.locator('text').first()).toBeVisible()
+    await page.mouse.move(x + 60, y, { steps: 4 })
+    await expect(readout).toBeVisible()
+  })
+
+  test('the forecast chart is one tab stop, steps through the hours by the arrow keys and zooms by +, - and 0', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/meteogram?station=01001', variant)
+    await expect(forecastChart(page)).toBeVisible()
+    const figure = page.getByRole('figure')
+    await expect(figure).toHaveAttribute('tabindex', '0')
+    await figure.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(page.getByTestId('meteogram-readout')).toBeVisible()
+    await expect(page.getByTestId('meteogram-announce')).toHaveText(/\S/)
+    await page.keyboard.press('+')
+    await page.keyboard.press('0')
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('meteogram-readout')).toHaveCount(0)
+    await expect(figure).toBeFocused()
   })
 
   test('the names of the modebar buttons on hover are dismissed by Escape too', async ({ page, baseURL }) => {
@@ -1235,7 +1286,7 @@ test.describe('reflow at 320 px', () => {
         const wide = [...document.body.querySelectorAll('*')]
           .filter(node => node.getBoundingClientRect().right > width + 1 && node.getBoundingClientRect().width > 0)
           // what scrolls inside a box of its own does not widen the page
-          .filter(node => !node.closest('.overflow-x-auto, .overflow-auto, .overflow-hidden, .leaflet-container, .js-plotly-plot, [style*="overflow"]'))
+          .filter(node => !node.closest('.overflow-x-auto, .overflow-auto, .overflow-hidden, .leaflet-container, .js-plotly-plot, .mg-scroller, [style*="overflow"]'))
           .slice(0, 5)
           .map(node => `${node.tagName.toLowerCase()}.${[...node.classList].slice(0, 3).join('.')} (${Math.round(node.getBoundingClientRect().right)} px)`)
         return { scrolls: document.documentElement.scrollWidth - width, wide }
