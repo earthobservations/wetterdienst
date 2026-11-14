@@ -60,10 +60,10 @@ The same pages and states (in light/English and dark/German) are scanned twice m
 
 Beside the scans, `accessibility.spec.ts` drives widgets by keys alone (`keyboard operation`: the station
 picker, a collapsible, a menu, and the narrow layout's menu, which is a dialog that keeps the focus and gives
-it back; `chart controls by keyboard`: Plotly's modebar, the table of values that stands for the stripes
-and the meteogram, opened, reached and scrolled by keys, the forecast chart's readout (hoverable, dismissed by
-Escape, persistent, 1.4.13) and its keys, and the names of Plotly's modebar buttons, which Escape dismisses
-until the pointer moves, 1.4.13), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
+it back; `chart controls by keyboard`: the stripes' toolbar, their keys and their readout, the forecast chart's readout
+(hoverable, dismissed by Escape, persistent, 1.4.13) and its keys, Plotly's modebar in the explorer, the table of values that
+stands for the stripes and the meteogram, opened, reached and scrolled by keys, and the names of the explorer's modebar
+buttons, which Escape dismisses until the pointer moves, 1.4.13), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
 4.1.3) and that no page scrolls sideways at 320 px (`reflow at 320 px`, 1.4.10).
 
 ## The baseline
@@ -153,21 +153,36 @@ a touch; it returns when the pointer moves on or a key steps. `prefers-reduced-m
 `tests/nuxt/components/MeteogramChart.test.ts`, `tests/unit/meteogram-*.test.ts` and, in a browser,
 `tests/e2e/meteogram-chart.spec.ts` and the scans of the meteogram and the widget.
 
-The Plotly charts (the explorer's and the stripes') take their chrome from the same tokens as the page (GH-3528): paper, plot, text, grid,
+The climate stripes (GH-4068) are Apache ECharts, drawn as SVG, and take the colours of their text from the same tokens
+(`useChartTheme()`, which a switch of the scheme and a print read again; the availability label is the gold of
+`SERIES_LABEL`); the stripes and the lines over them are data and the same in both. The chart is one tab stop
+(`role="figure"`, named, described by the sentence of what it shows and by its keys); Left and Right step through the
+years that have a stripe (Page Up and Page Down ten at a time, Home and End the ends), `+`, `-` and `0` zoom in, out and
+back, and a live region says each year and its value. Where the pointer can do more than the keyboard the keyboard can
+do the same (2.1.1, 2.5.7): the toolbar's buttons (zoom in and out, earlier and later years, reset, the camera) do what a
+dragged box, a pinch and Ctrl with the wheel do. The readout is an element of the page, level with the pointer and next to
+its stripe, so that the pointer moves onto it from the stripe without crossing another; it stays until the pointer or the
+focus leaves, Escape closes it wherever they are without being consumed, and a Close button is the way for a touch (1.4.13).
+The stripe it is for is marked by a black ring in a white one, which reads on every colour of the scale. The chart draws no
+animation, so `prefers-reduced-motion` has nothing to switch off. Held by `tests/nuxt/components/StripesChart.test.ts`,
+`tests/unit/stripes-*.test.ts` and, in a browser, `tests/e2e/stripes-chart.spec.ts` and the stripes' tests of
+`accessibility.spec.ts`.
+
+The Plotly chart (the explorer's) takes its chrome from the same tokens as the page (GH-3528): paper, plot, text, grid,
 zero line, hover label and modebar are the `--app-chart-*` properties of `main.css`, made of Nuxt UI's
 `--ui-*` tokens, which switch with the colour mode. `utils/chart-theme.ts` reads them with
 `getComputedStyle` (resolved to `rgb()` by the browser's computed colour of a probe element, as Plotly does
 not parse `oklch()`; no canvas, whose pixels a browser that resists fingerprinting scrambles), and
 `useChartTheme()` reads them again when the class of `<html>` changes, so a chart follows a switch
-without a reload. A chart that is saved (the download menus, and the camera of the modebar) or printed is
+without a reload. A chart that is saved (the download menus, and the camera of the modebar or the stripes' toolbar) or printed is
 always the light one, whatever the screen shows: it is drawn again, off screen, in the light theme
-(`utils/chart-export.ts`), and a print is drawn light for as long as it lasts (a light page is printed as
+(`utils/chart-export.ts`, and for the stripes `save()` of `StripesChart.vue`), and a print is drawn light for as long as it lasts (a light page is printed as
 it is, and a zoom is kept), with a `@media print` rule in `main.css` for a chart that says it is still drawn dark
 (`data-chart-scheme="dark"`) when the print comes before the redraw: transparent paper and black text; a chart drawn
 light is left as drawn. The forecast's chart is printed as it shows, scaled to the sheet. On the themed chrome (the
 Explorer, the stripes, the Forecast's hour labels) text and tick labels are the page's text and muted text (4.5:1 or more on the page
 in both modes) and the zero line the muted text colour (3:1 or more), checked on the drawn charts by
-`tests/e2e/chart-theme.spec.ts`; the grid is decoration. The series and the stripes' palette are data and
+`tests/e2e/chart-theme.spec.ts`, which also holds the focus ring of a modebar button to the page's own (2 px, 3:1 on the dark paper, 1.4.11; Plotly's is black, 1.2:1 there), on the explorer's chart; the grid is decoration. The series and the stripes' palette are data and
 keep their colours, and the text that names a series is the series' hue at 4.5:1 or more on the paper
 (`SERIES_LABEL` in `utils/chart-theme.ts`, GH-3618): the Forecast's y-axis titles and tick labels and its
 weekend day labels, and the stripes' "data availability" label. On white that is a darker step of the
@@ -243,7 +258,7 @@ WCAG 2.2 first, as axe has no rule for most of them.
 | --- | --- |
 | 2.4.7 Focus visible, 1.4.11 Non-text contrast of the focus indicator | The keyboard scan measures it at every stop. **Was failing** nearly everywhere: 382 stops, counted per page so that the header links count on each, in 27 of the light/English scans had under 3:1; see above. |
 | 2.4.11 Focus not obscured (minimum) | The keyboard scan checks it on every page and state. The sticky header hides no focused element. Leaflet draws markers beyond what the map shows and lets Tab reach them: a marker that takes the focus now pans the map until it is in view (`MapStations.vue`). The toasts stand over the foot of the page: while one is shown the page has room for it below the footer and a focused element scrolls clear of it (`useToastInset`, `html { scroll-padding-bottom }`; the footer's licences link was under the error toast at 1280x720, GH-3575). Tested (`keyboard operation`). |
-| 2.5.7 Dragging movements | The map pans by drag, and by the arrow keys with the map focused, and zooms by its buttons and `+`/`-`; a station is also chosen in the list beside it. Plotly's charts (explorer, stripes) zoom and pan by drag, with the modebar's buttons (zoom in, out, reset) as the single-pointer way. The forecast's chart zooms by a dragged box and a pinch and scrolls by its scroll bar or a touch, with buttons in its toolbar (earlier and later hours, zoom in and out, reset) as the single-pointer way, and keys on the chart itself. The chooser of the phone bar's tools is dragged by a handle and moved by an up and a down button on each row, which do all that dragging does (see "The phone bar and its chooser"). |
+| 2.5.7 Dragging movements | The map pans by drag, and by the arrow keys with the map focused, and zooms by its buttons and `+`/`-`; a station is also chosen in the list beside it. Plotly's chart (the explorer's) zooms and pans by drag, with the modebar's buttons (zoom in, out, reset) as the single-pointer way. The stripes zoom by a dragged box and a pinch, with the buttons of their toolbar (earlier and later years, zoom in and out, reset) as the single-pointer way, and keys on the chart itself. The forecast's chart zooms by a dragged box and a pinch and scrolls by its scroll bar or a touch, with buttons in its toolbar (earlier and later hours, zoom in and out, reset) as the single-pointer way, and keys on the chart itself. The chooser of the phone bar's tools is dragged by a handle and moved by an up and a down button on each row, which do all that dragging does (see "The phone bar and its chooser"). |
 | 2.5.8 Target size (minimum) | axe's `target-size` is among the tags scanned (wcag22aa), on every page and state in both modes: no entry. |
 | 3.2.6 Consistent help | The support and documentation links are in the footer of every page, in the same order, and support is also a heart in the header from 80 rem; the narrow layout has them in its menu sheet, and the search finds them. The widget has no header or footer by design. |
 | 3.3.7 Redundant entry | Nothing is asked twice in a process. The explorer, forecast and stripes keep their selection in the URL, the settings in local storage. |
@@ -306,21 +321,21 @@ The charts' text alternatives and keyboard access (#3145), checked on 2026-10-19
 | --- | --- |
 | 1.1.1, 1.3.1 Text alternative of the climate stripes | **Was failing**: a `figure` with a name and nothing of what it shows. The figure is described (`aria-describedby`) by a sentence, the span of the years with the lowest and the highest value, and a "Show as table" button below it opens a table of every year drawn with its value and its class (the fifth of the range between the lowest and the highest year that gives its colour, named for temperature or precipitation). |
 | 1.1.1, 1.3.1 Text alternative of the meteogram (also the widget) | **Was failing**: the same. The figure is described by the span of the forecast and its temperatures, and "Show as table" opens the values of the series the shown panels plot (as far as the horizon chosen reaches), one row for each time, in the station's time zone. The compact view is day cards with their own text (the weekday, the temperatures, the rain), and has no table. |
-| 2.1.1 Plotly's modebar (explorer, stripes) | Not failing in the Plotly the app ships (3.7.0): the hand audit recorded `a` elements without `href`, but its buttons are native `button`s with an `aria-label`, in the tab order, operated by Enter and Space, and the toggles (zoom, pan) say so by their `active` class. The meteogram has none (its zoom is in its toolbar and on the keys of the chart). Tested (`chart controls by keyboard`), so an upgrade that changes it fails. |
+| 2.1.1 Plotly's modebar (explorer) | Not failing in the Plotly the app ships (3.7.0): the hand audit recorded `a` elements without `href`, but its buttons are native `button`s with an `aria-label`, in the tab order, operated by Enter and Space, and the toggles (zoom, pan) say so by their `active` class. The meteogram and the stripes have none (their zoom is in their toolbars and on the keys of the chart). Tested on the explorer's chart (`chart controls by keyboard`: the buttons in the tab order, named, walked by Tab, Enter on the pan toggle, Enter on zoom in changing the range and Space on reset axes putting it back), so an upgrade that changes it fails. |
 | 1.1.1 Text alternative of the meteogram's compact day cards | **Was failing**: the weather of a day was an emoji, and a drop before the rain's amount, with no text. Both symbols are hidden from assistive technology (`aria-hidden`); the card holds the words for the weather, visually hidden (`meteogram.chart.weather.*`: thunderstorm, rain, snow, sleet, drizzle, fog, windy, dust or sand storm, blowing snow, cloudy, partly cloudy, sunny), in the language of the page, and "Precipitation:" before the amount. The name is held to the WMO's present-weather table: every code 0 to 99 has its kind in `tests/unit/weather-kind.test.ts`, and a code that names no weather the card can (haze, hail, a funnel cloud) is judged from the cloud cover and the rain. Tested for weather codes and for the cloud-cover heuristic, and in all eleven languages. |
 | 1.4.13 Content on hover or focus, the forecast chart's readout | **Was failing** (as Plotly's hover label, which the forecast had): met since GH-4059. The readout is an element of the page that the pointer moves onto (hoverable), that stays until the pointer or the focus leaves or it is dismissed (persistent), and that Escape closes without moving either and without being consumed (dismissible); its Close button is the way for a touch. A keyboard puts it there by stepping the crosshair, so the focus case is covered too. Tested (`MeteogramChart.test.ts`; in a browser, `meteogram-chart.spec.ts` and `chart controls by keyboard`). |
-| 1.4.13 Content on hover or focus, Plotly's hover label and the names of its modebar buttons (explorer, stripes) | **Was failing**: nothing dismissed them. With the pointer over a chart, Escape hides the label (and the names of the modebar's buttons) until the pointer moves (`utils/chart-hover.ts`, `main.css`); the label stays while the pointer rests (persistent). Escape is not consumed, so it still closes a dialog. Tested (`chart-hover.test.ts`; in a browser, `chart controls by keyboard`). Hoverable: not met, see below. No hover of a chart starts with the focus, so that case does not arise. |
+| 1.4.13 Content on hover or focus, the stripes' readout | **Was failing** (as Plotly's hover label, which the stripes had): met since GH-4068. The readout is an element of the page that the pointer moves onto (hoverable), that stays until the pointer or the focus leaves or it is dismissed (persistent), and that Escape closes without moving either and without being consumed (dismissible); its Close button is the way for a touch. A key puts it there by stepping, so the focus case is covered too. Tested (`StripesChart.test.ts`; in a browser, `accessibility.spec.ts`, `chart controls by keyboard`). |
+| 1.4.13 Content on hover or focus, Plotly's hover label and the names of its modebar buttons (explorer) | **Was failing**: nothing dismissed them. With the pointer over a chart, Escape hides the label (and the names of the modebar's buttons) until the pointer moves (`utils/chart-hover.ts`, `main.css`); the label stays while the pointer rests (persistent). Escape is not consumed, so it still closes a dialog. Tested (`chart-hover.test.ts`; in a browser, on the explorer's chart, `chart controls by keyboard`: the names of the modebar's buttons). Hoverable: not met, see below. No hover of a chart starts with the focus, so that case does not arise. |
 
 ### Known not to conform
 
-- **The hover label of the Plotly charts, 1.4.13, hoverable**: Plotly's hover label (the explorer's and the
-  stripes') is dismissible (Escape) and persistent, but it cannot be moved onto. Plotly draws
+- **The hover label of the Plotly chart, 1.4.13, hoverable**: Plotly's hover label (the explorer's) is dismissible (Escape) and persistent, but it cannot be moved onto. Plotly draws
   it in the chart's SVG without pointer events and takes it away as soon as the pointer leaves the point it
   belongs to, and its API has no option to keep it (`hoverlabel` styles it, `hovermode` and the
   `plotly_hover`/`plotly_unhover` events only choose and report the point). The values are in the table that
-  stands for the chart ("Show as table": stripes, explorer), so the table is what the criterion's
+  stands for the chart ("Show as table": explorer), so the table is what the criterion's
   intent (a reader who magnifies the screen can reach what the label says) is met by. Not met to the letter, until
-  those charts move to ECharts and the readout of the forecast (GH-4058).
+  the explorer moves to ECharts and gets a readout like the stripes' and the forecast's (GH-4058).
 - **The station map, 1.1.1 and 2.1.1**: markers are reachable by Tab and named by their station, but a map of
   hundreds of them is no way to choose a station by keyboard; the picker beside it is. Clusters are named by
   their count only.
