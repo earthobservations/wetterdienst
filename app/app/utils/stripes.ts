@@ -62,7 +62,7 @@ export const COLOR_MAPS: Record<StripesKind, Array<[number, string]>> = {
 }
 
 /**
- * The colour of a point of a scale, 0 to 1, mixed between the two stops around it, as Plotly draws it.
+ * The colour of a point of a scale, 0 to 1, mixed between the two stops around it (the scale's colours in RGB, as the stripes have always been drawn).
  *
  * @example
  * stripeColour(COLOR_MAPS.temperature, 0.5) // 'rgb(247, 247, 247)'

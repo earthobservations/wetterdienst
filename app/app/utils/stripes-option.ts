@@ -38,6 +38,9 @@ export interface StripesDisplay {
   showTrendline: boolean
 }
 
+/** The range of the y axis where the availability line lies in the margin below the stripes, which run from 0 to 1 */
+const Y_RANGE_WITH_AVAILABILITY = [-0.05, 1.05]
+
 /** The gold of the availability line, which is data and the same in both schemes */
 const GOLD = '#FFD700'
 
@@ -60,6 +63,8 @@ export interface StripesOptionInput {
 /** Where everything is, in px from the chart's top left */
 export interface StripesLayout {
   plot: { left: number, top: number, width: number, height: number }
+  /** where the stripes are in the plot's height: with the availability line the plot reaches a little above and below them */
+  stripes: { top: number, height: number }
   /** the first line of the title, and each one after it */
   titleTop: number
   yearsTop: number
@@ -77,9 +82,13 @@ export function stripesLayout(display: StripesDisplay, width: number, height: nu
   const sourceOffset = display.showYears ? 48 : 28
   const bottom = display.showSource ? Math.max(60, sourceOffset + 32) : 60
   const plot = { left: 20, top, width: Math.max(1, width - 40), height: Math.max(1, height - top - bottom) }
+  const range = display.showDataAvailability ? Y_RANGE_WITH_AVAILABILITY : [0, 1]
+  const span = range[1]! - range[0]!
+  const stripes = { top: plot.top + ((range[1]! - 1) / span) * plot.height, height: (1 / span) * plot.height }
   const titleTop = lines > 1 ? 24 + titleDrop : (display.showDataAvailability ? 24 : 6)
   return {
     plot,
+    stripes,
     titleTop,
     yearsTop: plot.top + plot.height + 20,
     availabilityBottom: plot.top + plot.height + 14,
@@ -208,7 +217,7 @@ export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption
     grid: [{ left: layout.plot.left, top: layout.plot.top, width: layout.plot.width, height: layout.plot.height, show: false }],
     xAxis: [{ type: 'value', gridIndex: 0, min: bounds.start, max: bounds.end, show: false }],
     // the stripes run from 0 to 1; the availability line lies in the margin below them
-    yAxis: [{ type: 'value', gridIndex: 0, min: display.showDataAvailability ? -0.05 : 0, max: display.showDataAvailability ? 1.05 : 1, show: false }],
+    yAxis: [{ type: 'value', gridIndex: 0, min: display.showDataAvailability ? Y_RANGE_WITH_AVAILABILITY[0] : 0, max: display.showDataAvailability ? Y_RANGE_WITH_AVAILABILITY[1] : 1, show: false }],
     dataZoom: [{
       id: 'zoom',
       type: 'inside',

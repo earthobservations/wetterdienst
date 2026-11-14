@@ -38,14 +38,26 @@ vi.mock('~/utils/echarts-loader', async () => {
 
 // the saved image: its rasterising needs a canvas, which the test's document has not
 const image = vi.hoisted(() => ({
-  svgToBlob: vi.fn(async () => new Blob(['image'])),
-  downloadBlob: vi.fn(),
+  svgToBlob: vi.fn(async (_svg: string, _options: Record<string, unknown>) => new Blob(['image'])),
+  downloadBlob: vi.fn((_blob: Blob, _filename: string) => {}),
 }))
 vi.mock('~/utils/chart-image', () => image)
 
 // the toast that tells a failure
 const { toastAdd } = vi.hoisted(() => ({ toastAdd: vi.fn() }))
 mockNuxtImport('useToast', () => () => ({ add: toastAdd }))
+
+// the light theme a saved image is drawn in: its text is a colour of its own, which the theme of the page (dark, as the test has it) is not
+const LIGHT_TEXT = 'rgb(1, 2, 3)'
+vi.mock('~/utils/chart-theme', async (importOriginal) => {
+  const original = await importOriginal<typeof import('~/utils/chart-theme')>()
+  return {
+    ...original,
+    readDocumentChartTheme: vi.fn((scheme?: 'light' | 'dark') => scheme === 'light'
+      ? { ...original.EMPTY_CHART_THEME, text: LIGHT_TEXT, textMuted: LIGHT_TEXT, paper: 'rgb(255, 255, 255)' }
+      : { ...original.EMPTY_CHART_THEME, dark: true, text: 'rgb(250, 250, 250)', textMuted: 'rgb(250, 250, 250)', paper: 'rgb(0, 0, 0)' }),
+  }
+})
 
 // Nuxt's reload of the page: the test's document does not take it
 const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
@@ -137,7 +149,8 @@ describe('drawing', () => {
     await showChart()
     const canvas = document.body.querySelector<HTMLElement>('.sc-canvas')!
     expect(canvas.dataset.drawn).toBe('true')
-    expect(canvas.dataset.chartScheme).toBe('light')
+    // the page of the test is dark (the theme it reads is the mock's)
+    expect(canvas.dataset.chartScheme).toBe('dark')
   })
 
   it('is a named figure with one tab stop, described by its keys', async () => {
@@ -223,13 +236,14 @@ describe('the readout', () => {
     expect(readout()).toBeNull()
   })
 
-  it('stays where the pointer moves onto it, away from the crosshair, and is closed by Escape without the pointer moving (WCAG 1.4.13)', async () => {
+  it('is next to the stripe it is for, where a pointer moves onto it without crossing another, and is closed by Escape without the pointer moving (WCAG 1.4.13)', async () => {
     await showChart()
     movePointerTo(xOfYear(2010))
     await nextTick()
     const element = readout()!
-    // the crosshair is on the right: the readout is docked on the left, where a pointer can reach it
-    expect(Number.parseFloat(element.style.left)).toBeLessThan(400)
+    const ring = document.body.querySelector<HTMLElement>('.sc-cursor')!
+    // the stripe is near the right edge, which leaves no room: the readout ends a few px inside the stripe, and has no gap to it
+    expect(Number.parseFloat(element.style.left) + Number.parseFloat(element.style.width)).toBeCloseTo(Number.parseFloat(ring.style.left) + 4, 0)
     // a pointer over the readout leaves the crosshair where it was and keeps the readout
     element.dispatchEvent(pointer('pointermove', { clientX: 60 }))
     await nextTick()
@@ -463,6 +477,18 @@ describe('the image', () => {
     expect(svg).toContain('width="1400" height="700"')
     expect(svg).toContain(TITLE)
     expect(image.downloadBlob.mock.calls[0]![1]).toBe('climate_stripes_temperature_00011.png')
+  })
+
+  it('is drawn in the light theme whatever the page shows, on the light paper', async () => {
+    await showChart()
+    // the page is dark: the chart on it says so
+    expect(document.body.querySelector<HTMLElement>('.sc-canvas')!.dataset.chartScheme).toBe('dark')
+    buttonNamed('Download plot as a PNG').click()
+    await vi.waitFor(() => expect(image.downloadBlob).toHaveBeenCalled())
+    const [svg, options] = image.svgToBlob.mock.calls[0] as unknown as [string, { background: string }]
+    expect(options.background).toBe('rgb(255, 255, 255)')
+    expect(svg).toContain(`fill="${LIGHT_TEXT}"`)
+    expect(svg).not.toContain('rgb(250, 250, 250)')
   })
 
   it('is 600 px high where the title is off', async () => {
