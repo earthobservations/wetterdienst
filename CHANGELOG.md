@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `dwd/derived`: a period whose archive (or both archives of `hourly/radiation_global`) is a 404 on
+  the server, listed and then withdrawn, answers the `file-skipped` warning and no rows, where it
+  failed with a `ValueError` (an `IndexError` for `hourly/radiation_global`) and took the whole
+  request with it (GH-4056)
+
 ## [0.188.0] - 2026-11-13
 
 ### Changed
