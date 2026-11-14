@@ -205,5 +205,5 @@
     "smhi/observation": "wetterdienst.provider.smhi.observation.SmhiObservationRequest",
     "wsv/pegel": "wetterdienst.provider.wsv.pegel.WsvPegelRequest"
   },
-  "x-release": "0.187.1"
+  "x-release": "0.188.0"
 }

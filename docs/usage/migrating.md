@@ -1,7 +1,7 @@
 # Migrating from 0.139.0
 
-What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.187.1, collected from
-the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.187.1), grouped
+What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.188.0, collected from
+the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.188.0), grouped
 by what you touch, and checked against the code. The numbers are the issues the changelog names (`GH-2626`); the
 version says the release that made the change. For what stays stable from 1.0 on, see
 [Compatibility](compatibility.md).
@@ -13,7 +13,7 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 [Values, units and timestamps](#values-units-and-timestamps) and [Failures](#failures). If you come from a release
 before 0.139.0, read the **Breaking** entries up to it first.
 
-The web app is released as a pair with the backend: `app-v0.49.0` is the app of 0.187.1 (it asks no more of
+The web app is released as a pair with the backend: `app-v0.49.0` is the app of 0.187.1 and 0.188.0 (it asks no more of
 the backend than `app-v0.47.0`, the app of 0.186.0, which needs it: it asks for `unit_targets` on the stripes and reads
 the separate `providers` and `coverage`; `app-v0.48.0` went with 0.187.0 and `app-v0.46.0` with 0.185.0). Upgrade both
 ([The web app and the image](compatibility.md#the-web-app-and-the-image)).
@@ -132,7 +132,8 @@ needs a new `except`. The classes are those of [Errors](python-api.md#errors).
 | a timeout, a dropped connection, a cut-short body or a 5xx in the values of `aemet`, `knmi`, `smhi` (0.155.0) and `metno/frost` and the station lists of AEMET and KNMI (0.157.0) was logged and read as no data; a TLS failure too | `DownloadError`; REST 502 (504 after a timeout), the command line exits 1. A 404, a 412 and other 4xx but a refused credential stay the empty result | 0.155.0 (GH-2965), 0.157.0 (GH-3022) |
 | the token exchange of `metoffice/observation` that did not answer was a warning and an empty result | `DownloadError` | 0.158.0, GH-3022 |
 | AEMET's rate limit that outlasts the retries (429) skipped the chunk | `DownloadError`, the 429 its `__cause__`; retry later | 0.159.0, GH-2989 |
-| a 429 of AEMET, of a download or of a listing was a `DownloadError` with the 429 as its `__cause__`, REST 502 `upstream-failed`; at `metno/frost`, `smhi/observation` and the CEDA token exchange of `metoffice/observation` it was a warning and an empty result (SMHI skipped the file, CEDA gave no token, so no data) | `ProviderRateLimitError`, which is a `DownloadError`: `retry_after` holds the wait the provider sent (`Retry-After` as seconds or a date, `RateLimit-Reset`, `X-RateLimit-Reset`) or 60 seconds; REST answers 503 `upstream-quota-exhausted` with that `Retry-After`. A 429 is still not retried; wait `retry_after` and ask again. `wetterdienst.util.network.read_refusal` and `read_refusal_answer` are gone: a refused download keeps its body (64 KiB at most) and the wait in `File.refusal` | unreleased, GH-4048 |
+| a 429 of AEMET, of a download or of a listing was a `DownloadError` with the 429 as its `__cause__`, REST 502 `upstream-failed`; at `metno/frost`, `smhi/observation` and the CEDA token exchange of `metoffice/observation` it was a warning and an empty result (SMHI skipped the file, CEDA gave no token, so no data) | `ProviderRateLimitError`, which is a `DownloadError`: `retry_after` holds the wait the provider sent (`Retry-After` as seconds or a date, `RateLimit-Reset`, `X-RateLimit-Reset`) or 60 seconds; REST answers 503 `upstream-quota-exhausted` with that `Retry-After`. A 429 is still not retried; wait `retry_after` and ask again. `wetterdienst.util.network.read_refusal` and `read_refusal_answer` are gone: a refused download keeps its body (64 KiB at most) and the wait in `File.refusal` | 0.188.0, GH-4048 |
+| a 429 among the files of a `dwd/road` group, in `dwd/dmo`'s read of the stations a product covers (and of the run that describes the stations its catalogue omits) and in Hubeau's referential of elevations was let go: the readings of the other files with a `file-skipped` warning, the shared catalogue of both products, stations without elevation, each with a log line; with fetch-ahead (`dwd/observation`, `dwd/derived`, `chmi`, `imgw/meteorology`, `smhi`) a 429 met ahead was swallowed and the same URL asked again at the station's turn | `ProviderRateLimitError` (a `DownloadError`) with the provider's wait in `retry_after`, REST 503 `upstream-quota-exhausted`; nothing of the partial answer is returned. A walk that fetches ahead ends with it at the station whose file was refused at the latest, and that URL is requested once. Wait `retry_after` and ask again | 0.188.0, GH-4053 |
 | a remote listing that was reset, dropped, timed out or was refused raised the raw aiohttp error; a TLS failure the bare `ssl.SSLError` | `DownloadError` naming the URL, the original on `__cause__`. A connection that cannot be made stays `NoInternetError` | 0.159.0 (GH-3004), 0.160.0 (GH-3099) |
 | reading a `dwd/mosmix` or `dwd/dmo` run that failed raised a bare `ssl.SSLError` (TLS), the aiohttp or fsspec error (a reset, timeout, 5xx or cut-short body) or `FileNotFoundError` (a missing run, or any failure with the cache disabled) | `DownloadError`, or `NoInternetError` where no connection could be made, the failure on `__cause__`; REST answers 502, 503 or 504, not 500 | 0.161.0, GH-3120 |
 | a credential the provider rejects (401, 403) gave an empty result and a warning | `CredentialRejectedError`, a `ConfigurationError` and a `PermissionError`, in the values and station lists of `metno/frost`, `aemet`, `knmi`, `metoffice` | 0.157.0, GH-3018 |
@@ -150,9 +151,9 @@ this dataset`); the same applies to a name in a request, in a `parameter` filter
 `geo_station_distance` key. A name the source itself uses still selects its row (`wind_speed` of `metno/frost`,
 `wind_direction` of `eccc/observation` and of the Met Office hourly weather) and comes back under the new name. The
 rule is [The statistic in a name](../data/parameters.md#the-statistic-in-a-name), and its page lists every row of the
-0.187.1 renames by network, resolution and dataset.
+0.188.0 renames by network, resolution and dataset.
 
-Moves of the same parameter between 0.145.0 and 0.187.1 are shown from the name of 0.139.0 to the name of 0.187.1.
+Moves of the same parameter between 0.145.0 and 0.188.0 are shown from the name of 0.139.0 to the name of 0.188.0.
 
 These are hard breaks of the 0.x releases and stay refused, with their hint, after 1.0. A rename after 1.0 is different:
 the old name keeps working as an alias, with a warning, for at least two minor releases and goes only in a major

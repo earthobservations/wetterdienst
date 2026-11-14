@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.188.0] - 2026-11-13
+
 ### Changed
 
 - **Breaking**: a 429 from any provider is a `ProviderRateLimitError` (a `DownloadError`) with the
@@ -26,6 +28,13 @@ Types of changes:
   result. It is still not retried. A refused request is no longer asked a second time to read its
   body: `File.refusal` keeps it (64 KiB at most); `read_refusal` is gone. Catch
   `ProviderRateLimitError` to wait, and `DownloadError` as before (GH-4048)
+- **Breaking**: a 429 is no longer let go where a failed file or listing was. A group of `dwd/road`
+  with a 429 among its files, `dwd/dmo`'s read of the stations a product covers and Hubeau's
+  elevations raise `ProviderRateLimitError` where they answered from the rest and warned; the
+  walks that fetch ahead (`dwd/observation`, `dwd/derived`, `chmi`, `imgw/meteorology`, `smhi`) end
+  with it, and the refused URL is asked once, not again at the station's turn. A batch of files
+  (`download_files`) asks no queued file after a 429, and `meteofrance/observation` no longer asks
+  a 429 a second time. Wait `retry_after` and ask again (GH-4053)
 
 ## [0.187.1] - 2026-11-13
 
@@ -8064,7 +8073,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.187.1...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.188.0...HEAD
+[0.188.0]: https://github.com/earthobservations/wetterdienst/compare/v0.187.1...v0.188.0
 [0.187.1]: https://github.com/earthobservations/wetterdienst/compare/v0.187.0...v0.187.1
 [0.187.0]: https://github.com/earthobservations/wetterdienst/compare/v0.186.0...v0.187.0
 [0.186.0]: https://github.com/earthobservations/wetterdienst/compare/v0.185.0...v0.186.0

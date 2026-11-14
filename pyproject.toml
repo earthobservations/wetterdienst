@@ -1,6 +1,6 @@
 [project]
 name = "wetterdienst"
-version = "0.187.1"
+version = "0.188.0"
 authors = [
     { name = "Benjamin Gutzmann", email = "benjamin@eobs.org" },
     { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
@@ -499,7 +499,7 @@ DEP001 = ["mcp_types", "tabula"]
 DEP003 = ["mcp_types"]
 
 [tool.pytest.ini_options]
-addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError --only-rerun HungTestError --only-rerun ImageTimeoutError"
+addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError --only-rerun HungTestError --only-rerun ImageTimeoutError --rerun-except ^ProviderRateLimitError:"
 #log_cli = true
 #log_cli_level = "DEBUG"
 log_date_format = "%Y-%m-%dT%H:%M:%S"
@@ -521,7 +521,9 @@ testpaths = ["tests"]
 
 # Retry flaky tests, thereby improving the consistency of the test suite results.
 # --only-rerun flags in addopts restrict retries to transient network errors, a hung test and a Kaleido image
-# that a loaded runner did not draw in time (GH-3918).
+# that a loaded runner did not draw in time (GH-3918). A `ProviderRateLimitError` is never rerun (--rerun-except, anchored on the name, GH-4053):
+# its cause is the 429's `ClientResponseError`, which --only-rerun matches along the cause chain, and a rerun would ask a
+# provider that limits how fast it is asked again, after 5 s.
 reruns = 2
 reruns_delay = 5
 

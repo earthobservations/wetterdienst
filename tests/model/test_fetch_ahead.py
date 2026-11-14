@@ -22,7 +22,7 @@ import pytest
 import stamina
 from polars.testing import assert_frame_equal
 
-from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError, ProviderRateLimitError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model import fetch_ahead
 from wetterdienst.model.fetch_ahead import FetchAhead, FilesAhead
@@ -44,6 +44,8 @@ PARAMETERS = [("daily", "climate_summary", "temperature_air_mean_2m")]
 THREADS = "wetterdienst-fetch-ahead"
 #: where a connection is refused: nothing listens on port 1 of a test host
 REFUSED = "http://127.0.0.1:1"
+#: the seconds the upstream asks to wait when it answers 429
+RATE_LIMIT_WAIT = 7
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -72,6 +74,8 @@ class _Handler(BaseHTTPRequestHandler):
         status = server.statuses.get(self.path, 200)
         body = self.path.removeprefix("/").replace("/", ":").encode() if status == 200 else b"error"
         self.send_response(status)
+        if status == 429:
+            self.send_header("Retry-After", str(RATE_LIMIT_WAIT))
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
@@ -491,6 +495,112 @@ def test_a_failure_is_met_at_its_station_and_after_the_stations_before_it(
     assert answered == [["00000"], ["00001"], ["00002"]]
     assert failure is not None
     assert failure[0] is (DownloadError if failing == "outage" else NoInternetError)
+
+
+@pytest.mark.parametrize("depth", [0, 4])
+def test_a_429_ends_the_walk_with_the_rate_limit_error_and_its_file_is_asked_once(
+    depth: int, upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A 429 met ahead is not swallowed to be asked again at the station's turn (GH-4053).
+
+    The walk answers the stations before it, then raises the `ProviderRateLimitError` with the wait the provider sent,
+    at the latest at the station whose file was refused, and the refused file is requested once, with and without
+    fetching ahead.
+    """
+    upstream.statuses = {"/3/0": 429}
+    reader = _reader(monkeypatch, tmp_path, stations=8, urls_of=_files(upstream, 1), depth=depth)
+
+    results = reader.query()
+    answered = []
+    with pytest.raises(ProviderRateLimitError) as raised:
+        answered.extend(_station_ids([next(results)]) for _ in range(8))
+    upstream.settle()
+
+    assert raised.value.retry_after == RATE_LIMIT_WAIT
+    # the walk ended at the station whose file was refused, or before it
+    assert answered == [["00000"], ["00001"], ["00002"]][: len(answered)]
+    assert upstream.requests.count("/3/0") == 1
+
+
+def test_nothing_more_is_fetched_ahead_after_a_429(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A provider that says to wait is not asked for the files of the next stations by the threads of the walk."""
+    upstream.statuses = {"/1/0": 429}
+    reader = _reader(monkeypatch, tmp_path, stations=6, urls_of=_files(upstream, 3), depth=1)
+
+    results = reader.query()
+    next(results)
+    with pytest.raises(ProviderRateLimitError):
+        next(results)
+    upstream.settle()
+
+    # not the next stations, and not the other files of the station that was refused
+    assert upstream.stations_asked() == {0, 1}
+    assert upstream.asked(1) == ["/1/0"]
+
+
+def test_the_other_threads_stop_at_the_429_before_the_walk_comes_to_raise_it(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The walk raises the 429 at the next station; until then the threads ahead do not go on asking the provider."""
+    upstream.statuses = {"/1/0": 429}
+    # the file of station 2 that is under way when the 429 comes is the last one it asks for
+    upstream.delay = lambda path: 0.3 if path.startswith("/2/") else 0.0
+    reader = _reader(monkeypatch, tmp_path, stations=6, urls_of=_files(upstream, 3), depth=2)
+
+    results = reader.query()
+    next(results)
+    upstream.settle({1, 2})
+
+    assert upstream.asked(2) == ["/2/0"]
+    results.close()
+
+
+def test_a_429_noted_while_planning_does_not_wait_for_the_download_of_the_station_in_hand(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """The walk is raising the limit: the files of the station it came to are not waited for, as nobody reads them."""
+
+    def named(station_id: str) -> list[str]:
+        if int(station_id) == 3:
+            raise ProviderRateLimitError(upstream.url, "limited", RATE_LIMIT_WAIT)
+        return _files(upstream, 1)(station_id)
+
+    upstream.delay = lambda path: 3.0 if path.startswith("/1/") else 0.0
+    reader = _reader(monkeypatch, tmp_path, stations=6, urls_of=_files(upstream, 1), depth=2, named=named)
+
+    results = reader.query()
+    next(results)
+    started = time.monotonic()
+    with pytest.raises(ProviderRateLimitError):
+        next(results)
+
+    # the file of station 1 takes 3 s; the walk that raises for station 3, planned from station 1, does not wait for it
+    assert time.monotonic() - started < 1.5
+
+
+def test_a_429_met_by_the_hook_that_names_the_files_ends_the_walk(
+    upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A provider whose hook lists a directory to name the files meets a 429 there: the walk is not left to ask on."""
+
+    def named(station_id: str) -> list[str]:
+        if int(station_id) == 3:
+            raise ProviderRateLimitError(upstream.url, "limited", RATE_LIMIT_WAIT)
+        return _files(upstream, 1)(station_id)
+
+    reader = _reader(monkeypatch, tmp_path, stations=8, urls_of=_files(upstream, 1), depth=4, named=named)
+
+    results = reader.query()
+    answered = []
+    with pytest.raises(ProviderRateLimitError) as raised:
+        answered.extend(_station_ids([next(results)]) for _ in range(8))
+
+    assert raised.value.retry_after == RATE_LIMIT_WAIT
+    assert answered == [["00000"], ["00001"], ["00002"]][: len(answered)]
+    # the station that the hook was refused for was not read, which would have asked what the hook was refused
+    assert "/3/0" not in upstream.requests
 
 
 def test_a_failure_after_the_last_station_read_is_not_raised(
