@@ -258,7 +258,8 @@ test.describe('by keyboard', () => {
     await page.keyboard.press('-')
     await page.keyboard.press('-')
     await page.keyboard.press('0')
-    await expect.poll(() => labelSpacing(page)).toBe(initial)
+    // back to the spacing it had, to a fraction of a pixel: a browser's layout of the labels is not exact to the last bit (Firefox: 60.0000 against 59.9992)
+    await expect.poll(() => labelSpacing(page)).toBeCloseTo(initial, 0)
   })
 
   test('has buttons for the zoom, the scroll and the reset, named by what they do', async ({ page, baseURL }) => {
@@ -270,7 +271,8 @@ test.describe('by keyboard', () => {
     await group.getByRole('button', { name: 'Zoom in' }).click()
     await expect.poll(() => labelSpacing(page)).toBeGreaterThan(initial)
     await group.getByRole('button', { name: 'Reset zoom' }).click()
-    await expect.poll(() => labelSpacing(page)).toBe(initial)
+    // back to the spacing it had, to a fraction of a pixel: a browser's layout of the labels is not exact to the last bit (Firefox: 60.0000 against 59.9992)
+    await expect.poll(() => labelSpacing(page)).toBeCloseTo(initial, 0)
     const first = await hourLabels(page).allTextContents()
     await group.getByRole('button', { name: 'Later hours' }).click()
     await expect.poll(async () => (await hourLabels(page).allTextContents()).join()).not.toBe(first.join())
@@ -387,7 +389,8 @@ test.describe('the zoom', () => {
     await expect.poll(() => labelSpacing(page)).toBeGreaterThan(initial * 2)
     // a double click goes back
     await page.locator('.mg-stage').dblclick({ position: { x: 300, y: 300 } })
-    await expect.poll(() => labelSpacing(page)).toBe(initial)
+    // back to the spacing it had, to a fraction of a pixel: a browser's layout of the labels is not exact to the last bit (Firefox: 60.0000 against 59.9992)
+    await expect.poll(() => labelSpacing(page)).toBeCloseTo(initial, 0)
   })
 })
 
