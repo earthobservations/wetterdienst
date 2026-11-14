@@ -55,6 +55,14 @@ describe('the layout', () => {
     expect(layout.availabilityBottom - (layout.plot.top + layout.plot.height)).toBe(14)
   })
 
+  it('knows where the stripes are in the plot: all of it, or between the margins the availability line lies in', () => {
+    const plain = stripesLayout({ ...DISPLAY, showDataAvailability: false }, 704, 600, 1)
+    expect(plain.stripes).toEqual({ top: plain.plot.top, height: plain.plot.height })
+    const withLine = stripesLayout(DISPLAY, 704, 600, 1)
+    expect(withLine.stripes.top).toBeCloseTo(withLine.plot.top + (0.05 / 1.1) * withLine.plot.height)
+    expect(withLine.stripes.height).toBeCloseTo(withLine.plot.height / 1.1)
+  })
+
   it('has a smaller top margin without a title, and more room below for a source that has none of the years above it', () => {
     expect(stripesLayout({ ...DISPLAY, showTitle: false }, 704, 550, 1).plot.top).toBe(20)
     const noYears = stripesLayout({ ...DISPLAY, showYears: false }, 704, 600, 1)

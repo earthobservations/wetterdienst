@@ -54,7 +54,8 @@ const readoutId = useId()
 // the year the crosshair stands at, and whether the pointer, a key or a touch put it there
 const cursor = ref<number | null>(null)
 const cursorSource = ref<'pointer' | 'keyboard' | 'touch'>('pointer')
-const readoutSide = ref<'left' | 'right' | null>(null)
+// where the pointer is in the chart, in px from its top, which the readout is level with
+const pointerY = ref<number | null>(null)
 const dismissed = ref(false)
 const announcement = ref('')
 
@@ -68,6 +69,9 @@ const stripes = computed(() => (model.value?.years ?? []).map((year, index) => (
 // what the column gives the chart, in px; the width of a window that has none to measure (a test's) is a desktop's
 const width = ref(0)
 function measure() {
+  // laid out for paper, the column is another width: the chart is scaled to the sheet by CSS (main.css) and is not drawn again for it
+  if (window.matchMedia?.('print').matches)
+    return
   const measured = rootEl.value?.clientWidth ?? 0
   width.value = measured > 0 ? measured : 800
 }
@@ -153,7 +157,7 @@ const cursorBox = computed(() => {
     return null
   const x0 = Math.max(plot.left, left)
   const x1 = Math.min(plot.left + plot.width, right)
-  return { left: x0, width: Math.max(2, x1 - x0), top: plot.top, height: plot.height }
+  return { left: x0, width: Math.max(2, x1 - x0), top: layout.value.stripes.top, height: layout.value.stripes.height }
 })
 
 const readout = computed(() => {
@@ -173,19 +177,32 @@ const readout = computed(() => {
 })
 
 const READOUT_WIDTH = 200
+/** What the readout's three rows and its year are high, which a readout that is level with the pointer is kept clear of the chart's foot by */
+const READOUT_HEIGHT = 108
+const READOUT_OVERLAP = 4
 const readoutPx = computed(() => Math.min(READOUT_WIDTH, Math.max(120, Math.round(outerPx.value * 0.5))))
-// docked at the side of the plot the crosshair is not on, and at its top: a pointer can move onto it
+/**
+ * Next to the stripe it is for, on the side that has room, and level with the pointer: the pointer moves onto it from the
+ * stripe's edge without crossing another stripe, which would change what it says (1.4.13, hoverable). A key puts it at the
+ * top of the stripes.
+ */
 const readoutStyle = computed(() => {
+  const box = cursorBox.value
+  const stripes = layout.value.stripes
   const plot = layout.value.plot
-  const side = readoutSide.value ?? 'right'
-  const left = side === 'left' ? plot.left + 8 : plot.left + plot.width - 8 - readoutPx.value
-  return { top: `${plot.top + 8}px`, left: `${left}px`, width: `${readoutPx.value}px` }
+  const width = readoutPx.value
+  const edge = outerPx.value - 4
+  // a few px over the stripe's own edge: a pointer that leaves the stripe is on the readout and not on its neighbour, however the
+  // edge falls on the pixels
+  const left = box
+    ? (box.left + box.width + width - READOUT_OVERLAP <= edge ? box.left + box.width - READOUT_OVERLAP : Math.max(4, box.left - width + READOUT_OVERLAP))
+    : plot.left
+  const byPointer = cursorSource.value !== 'keyboard' && pointerY.value !== null
+  const top = byPointer
+    ? Math.min(stripes.top + stripes.height - READOUT_HEIGHT, Math.max(stripes.top, pointerY.value! - 20))
+    : stripes.top + 8
+  return { top: `${top}px`, left: `${Math.min(left, edge - width)}px`, width: `${width}px` }
 })
-
-function sideAwayFrom(year: number): 'left' | 'right' {
-  const x = xOfYear(year, layout.value, win.value)
-  return x > outerPx.value / 2 ? 'left' : 'right'
-}
 
 /**
  * Puts the crosshair at a year. A pointer's move to the year it is at already brings nothing back that Escape took away:
@@ -193,18 +210,10 @@ function sideAwayFrom(year: number): 'left' | 'right' {
  */
 function select(year: number | null, source: 'pointer' | 'keyboard' | 'touch') {
   const same = year === cursor.value && source === cursorSource.value
-  // a pointer keeps the side it found, which it has been moving away from; a key puts the readout on the side the crosshair is not on
-  const keep = source === 'pointer' && readoutSide.value !== null
   cursor.value = year
   cursorSource.value = source
-  if (year === null) {
-    readoutSide.value = null
-    return
-  }
-  if (!same || source !== 'pointer')
+  if (year !== null && (!same || source !== 'pointer'))
     dismissed.value = false
-  if (!keep)
-    readoutSide.value = sideAwayFrom(year)
 }
 function dismiss() {
   dismissed.value = true
@@ -269,6 +278,7 @@ function onPointerMove(event: PointerEvent) {
     return
   const x = stageX(event)
   const plot = layout.value.plot
+  pointerY.value = event.clientY - (stageEl.value?.getBoundingClientRect().top ?? 0)
   if (drag.value) {
     const clamped = Math.min(plot.left + plot.width, Math.max(plot.left, x))
     drag.value = { ...drag.value, x1: clamped, active: drag.value.active || Math.abs(clamped - drag.value.x0) >= 6 }
@@ -310,6 +320,7 @@ function onClick(event: MouseEvent) {
   if (!insidePlot(x))
     return
   const year = stripeAt(x)
+  pointerY.value = event.clientY - (stageEl.value?.getBoundingClientRect().top ?? 0)
   // a tap stays until it is closed or tapped away: there is no leaving a touch
   if (year !== null)
     select(year, (event as PointerEvent).pointerType === 'touch' ? 'touch' : 'pointer')

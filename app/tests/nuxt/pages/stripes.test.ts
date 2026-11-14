@@ -69,8 +69,8 @@ vi.mock('~/utils/echarts-loader', async () => {
 
 // the saved image: its rasterising needs a canvas, which the test's document has not
 const image = vi.hoisted(() => ({
-  svgToBlob: vi.fn(async () => new Blob(['image'])),
-  downloadBlob: vi.fn(),
+  svgToBlob: vi.fn(async (_svg: string, _options: Record<string, unknown>) => new Blob(['image'])),
+  downloadBlob: vi.fn((_blob: Blob, _filename: string) => {}),
 }))
 vi.mock('~/utils/chart-image', () => image)
 

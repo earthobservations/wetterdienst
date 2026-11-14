@@ -406,7 +406,10 @@
     height: auto !important;
     position: static !important;
   }
+  /* ECharts positions its SVG absolutely in a box of the chart's size in px: on paper it is in the flow, so that the sheet
+     makes room for it and a page break falls before the chart and not through it */
   .sc-canvas svg {
+    position: static !important;
     width: 100% !important;
     height: auto !important;
     display: block;
