@@ -197,3 +197,40 @@
 | {term}`wind_gust_max_last_3h`                                    | fx3           | Maximum wind gust within the last 3 hours                                           | m/s   | >=0         |
 | {term}`wind_gust_max_last_12h`                                   | fxh           | Maximum wind gust within the last 12 hours                                          | m/s   | >=0         |
 | {term}`wind_speed`                                               | ff            | Wind speed                                                                          | m/s   | >=0         |
+
+### Snow
+
+#### Metadata
+
+| property         | value |
+|------------------|-------|
+| name             | snow |
+| original name    | mosmix_snow_s |
+| description      | MOSMIX-SNOW: forecast of new snow, the probability of new snow above a depth and snow depth for 15 stations in the Bavarian Alps, 24 times a day with a lead-time of 48 hours. DWD publishes it from November to April only: out of season there is no run and a request for values is a 404. |
+| description file | [here](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml) |
+| access           | [here](https://opendata.dwd.de/weather/local_forecasts/mos/MOSMIX-SNOW_S/) |
+
+#### parameters
+
+| name                                                     | original name | description | unit  | constraints |
+|----------------------------------------------------------|---------------|---|-------|-------------|
+| {term}`snow_depth_new_last_3h`                           | sa3           | Accumulated new snow amount in 3 hours, in m. Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them (the run of 2026-11-14 19 UTC). | m     | >=0         |
+| {term}`snow_depth_new_last_6h`                           | sa6           | Accumulated new snow amount in 6 hours (amount of 3h values), in m. Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them (the run of 2026-11-14 19 UTC). | m     | >=0         |
+| {term}`snow_depth_new_last_12h`                          | sah           | Accumulated new snow amount in 12 hours (amount of 6h values), in m. Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them (the run of 2026-11-14 19 UTC). | m     | >=0         |
+| {term}`snow_depth_new_last_24h`                          | sad           | Accumulated new snow amount in 24 hours (amount of 12h values), in m. Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them (the run of 2026-11-14 19 UTC). | m     | >=0         |
+| {term}`snow_depth`                                       | sncv          | Snow depth, in m. Given at the 00, 03, 06, ..., 21 UTC steps only (the run of 2026-11-14 19 UTC). | m     | >=0         |
+| {term}`probability_snow_depth_new_gt_5cm_last_6h`        | sa605         | Probability of > 5cm new snow amount in 6 hours, in % (0..100). Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them (the run of 2026-11-14 19 UTC). | %     | >=0,<=100   |
+| {term}`probability_snow_depth_new_gt_10cm_last_6h`       | sa610         | Probability of > 10cm new snow amount in 6 hours, in % (0..100). Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them (the run of 2026-11-14 19 UTC). | %     | >=0,<=100   |
+| {term}`probability_snow_depth_new_gt_20cm_last_6h`       | sa620         | Probability of > 20cm new snow amount in 6 hours, in % (0..100). Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them (the run of 2026-11-14 19 UTC). | %     | >=0,<=100   |
+| {term}`probability_snow_depth_new_gt_5cm_last_12h`       | sah05         | Probability of > 5cm new snow amount in 12 hours, in % (0..100). Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them (the run of 2026-11-14 19 UTC). | %     | >=0,<=100   |
+| {term}`probability_snow_depth_new_gt_10cm_last_12h`      | sah10         | Probability of > 10cm new snow amount in 12 hours, in % (0..100). Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them (the run of 2026-11-14 19 UTC). | %     | >=0,<=100   |
+| {term}`probability_snow_depth_new_gt_30cm_last_12h`      | sah30         | Probability of > 30cm new snow amount in 12 hours, in % (0..100). Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them (the run of 2026-11-14 19 UTC). | %     | >=0,<=100   |
+| {term}`probability_snow_depth_new_gt_10cm_last_24h`      | sad10         | Probability of > 10cm new snow amount in 24 hours, in % (0..100). Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them (the run of 2026-11-14 19 UTC). | %     | >=0,<=100   |
+| {term}`probability_snow_depth_new_gt_30cm_last_24h`      | sad30         | Probability of > 30cm new snow amount in 24 hours, in % (0..100). Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them (the run of 2026-11-14 19 UTC). | %     | >=0,<=100   |
+| {term}`probability_snow_depth_new_gt_50cm_last_24h`      | sad50         | Probability of > 50cm new snow amount in 24 hours, in % (0..100). Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them (the run of 2026-11-14 19 UTC). | %     | >=0,<=100   |
+| {term}`precipitation_amount_significant_weather_last_1h` | rr1c          | Total precipitation during the last hour consistent with significant weather | kg/m² | >=0         |
+| {term}`temperature_air_2m`                               | ttt           | Temperature 2m above surface | K     | -           |
+| {term}`temperature_dew_point_2m`                         | td            | Dewpoint 2m above surface | K     | -           |
+| {term}`wind_direction`                                   | dd            | Wind direction | °     | >=0,<=360   |
+| {term}`wind_gust_max_last_1h`                            | fx1           | Maximum wind gust within the last hour | m/s   | >=0         |
+| {term}`wind_speed`                                       | ff            | Wind speed | m/s   | >=0         |
