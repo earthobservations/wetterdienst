@@ -82,7 +82,17 @@ def _errors(model: type[Any], values: dict[str, Any]) -> list[tuple[str, tuple, 
 
 _ONE_OF_RANK_OR_DISTANCE = {"one_of": [["rank"], ["distance"]]}
 _ONE_OF_SELECTIONS = {
-    "one_of": [["all"], ["stations"], ["name"], ["latitude", "longitude"], ["left", "bottom", "right", "top"], ["sql"]]
+    "one_of": [
+        ["all"],
+        ["stations"],
+        ["wmo_id"],
+        ["wigos_id"],
+        ["icao_id"],
+        ["name"],
+        ["latitude", "longitude"],
+        ["left", "bottom", "right", "top"],
+        ["sql"],
+    ]
 }
 
 
@@ -150,15 +160,15 @@ def test_station_selection_refused(
         (
             {},
             (
-                "Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql "
-                "is required"
+                "Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), "
+                "(left, bottom, right and top) or sql is required"
             ),
         ),
         (
             {"stations": "01048", "name": "Hamburg"},
             (
-                "Cannot be combined with name, give exactly one of all, stations, name, (latitude and longitude), "
-                "(left, bottom, right and top) or sql"
+                "Cannot be combined with name, give exactly one of all, stations, wmo_id, wigos_id, icao_id, name, "
+                "(latitude and longitude), (left, bottom, right and top) or sql"
             ),
         ),
         ({"latitude": 51.0, "rank": 5}, "Field required with latitude"),

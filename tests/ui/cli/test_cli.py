@@ -623,15 +623,16 @@ _RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo-
         (
             ["stations", *_DWD_KL],
             (
-                "Error: Missing option: one of '--all', '--stations', '--name', ('--latitude' and '--longitude'), "
-                "('--left', '--bottom', '--right' and '--top') or '--sql'.\n"
+                "Error: Missing option: one of '--all', '--stations', '--wmo-id', '--wigos-id', '--icao-id', "
+                "'--name', ('--latitude' and '--longitude'), ('--left', '--bottom', '--right' and '--top') "
+                "or '--sql'.\n"
             ),
         ),
         (
             ["stations", *_DWD_KL, "--stations=01048", "--name=Hamburg"],
             (
                 "Error: Options '--stations' and '--name' cannot be used together, give exactly one of '--all', "
-                "'--stations', '--name', ('--latitude' and '--longitude'), "
+                "'--stations', '--wmo-id', '--wigos-id', '--icao-id', '--name', ('--latitude' and '--longitude'), "
                 "('--left', '--bottom', '--right' and '--top') or '--sql'.\n"
             ),
         ),

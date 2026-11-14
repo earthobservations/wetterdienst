@@ -23,6 +23,17 @@ Types of changes:
   failed with a `ValueError` (an `IndexError` for `hourly/radiation_global`) and took the whole
   request with it (GH-4056)
 
+### Changed
+
+- **Breaking**: every provider's stations have three more columns after `region`, `wmo_id`,
+  `wigos_id` and `icao_id` (`01001`, `0-56-101-01002`, `EDDH`; null where none is published), so
+  a provider's own columns (dmi `country`, `dwd/road`, hubeau, both `imgw`, `wsv/pegel`) move three
+  places back, `icao_id` of `dwd/mosmix`, `dmo` and `poi` goes to the end and `knmi` `wigos_id` by
+  one. Select columns by name; a SQL table `to_target` wrote before takes no append of them: write
+  it anew. `stations` and `values` select by them (`filter_by_wmo_id`, `--wmo-id`, `wmo_id=`; each
+  station that has the id). Filled for mosmix, dmo, poi, `knmi` (`wmo_id` of the `0-20000-0-`
+  stations), `meteofrance/synop`, `geosphere`, `noaa/ghcn` (GH-4070)
+
 ## [0.188.0] - 2026-11-13
 
 ### Changed

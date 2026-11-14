@@ -47,6 +47,9 @@ SNAPSHOT: dict[str, list[tuple[str, str]]] = {
         ("elevation", "Float64"),
         ("name", "String"),
         ("region", "String"),
+        ("wmo_id", "String"),
+        ("wigos_id", "String"),
+        ("icao_id", "String"),
     ],
     "LONG_SCHEMA": [
         ("station_id", "String"),

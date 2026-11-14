@@ -49,6 +49,9 @@ def test_the_minimum_a_provider_delivers_becomes_the_stations_frame() -> None:
         "elevation": None,
         "name": None,
         "region": None,
+        "wmo_id": None,
+        "wigos_id": None,
+        "icao_id": None,
     }
 
 
@@ -96,11 +99,11 @@ def test_a_column_of_the_request_the_provider_left_out_is_a_null() -> None:
 def test_a_surplus_column_is_dropped_with_a_debug_line(caplog: pytest.LogCaptureFixture) -> None:
     """The columns the request does not list are dropped, and one debug line names them."""
     with caplog.at_level(logging.DEBUG, logger="wetterdienst.model.request"):
-        result = _shape(_frame(created=["2026-01-01"], icao_id=["EDDH"]))
+        result = _shape(_frame(created=["2026-01-01"], gauge_zero=[1.5]))
 
     assert result.columns == list(COLUMNS)
     assert [record.getMessage() for record in caplog.records if "dropped" in record.getMessage()] == [
-        "TestRequest: dropped the column(s) created, icao_id, which the stations frame does not have",
+        "TestRequest: dropped the column(s) created, gauge_zero, which the stations frame does not have",
     ]
 
 
@@ -251,3 +254,34 @@ def test_all_names_the_request_in_the_message_of_a_frame_that_does_not_fit(monke
 def test_the_columns_the_core_shapes_by_are_the_requests_base_columns() -> None:
     """A provider adds a column of its own to `_base_columns`, and the base columns are the schema's."""
     assert TimeseriesRequest._base_columns == COLUMNS  # noqa: SLF001
+
+
+def test_the_ids_of_a_station_come_out_in_their_notation_whichever_way_the_provider_wrote_them() -> None:
+    """`wmo_id`, `wigos_id` and `icao_id` are read as the core writes them: a junk value is null (GH-4070)."""
+    df = (
+        _frame()
+        .vstack(_frame(station_id=["00002"]))
+        .with_columns(
+            pl.Series("wmo_id", ["01001", "400"]),
+            pl.Series("wigos_id", ["0-056-101-01002", "01002"]),
+            pl.Series("icao_id", ["eddh", "----"]),
+        )
+    )
+
+    result = _shape(df)
+
+    assert result.select("wmo_id", "wigos_id", "icao_id").rows() == [
+        ("01001", "0-56-101-01002", "EDDH"),
+        (None, None, None),
+    ]
+    assert result.schema == STATIONS_SCHEMA
+
+
+def test_a_number_the_provider_gave_as_an_integer_is_no_wmo_id_until_it_is_padded() -> None:
+    """The core does not make up a WMO number from `1001`: a source that drops the zero pads it (`zfill(5)`)."""
+    result = _shape(_frame().with_columns(wmo_id=pl.Series([1001])))
+
+    assert result.get_column("wmo_id").to_list() == [None]
+    assert _shape(_frame().with_columns(wmo_id=pl.Series([1001]).cast(pl.String).str.zfill(5))).get_column(
+        "wmo_id"
+    ).to_list() == ["01001"]

@@ -186,7 +186,7 @@ wetterdienst values --provider=dwd --network=observation \
   --format=csv --target=file://zinnwald.csv
 ```
 
-`wetterdienst stations` takes the same selections (`--stations`, `--name`, `--latitude` and `--longitude`
+`wetterdienst stations` takes the same selections (`--stations`, `--wmo-id`, `--wigos-id`, `--icao-id`, `--name`, `--latitude` and `--longitude`
 with `--rank` or `--distance`, `--left` `--bottom` `--right` `--top`, `--sql`) and `--format`. The
 settings are `WD_*` variables here, the options `WD_TS_*` ones as in Python. `wetterdienst values --help`
 lists every option with its default.

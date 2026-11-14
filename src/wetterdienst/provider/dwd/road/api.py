@@ -1007,16 +1007,7 @@ class DwdRoadRequest(TimeseriesRequest):
     _values = DwdRoadValues
 
     _base_columns: ClassVar = (
-        "resolution",
-        "dataset",
-        "station_id",
-        "start_timestamp",
-        "end_timestamp",
-        "latitude",
-        "longitude",
-        "elevation",
-        "name",
-        "region",
+        *TimeseriesRequest._base_columns,  # noqa: SLF001
         "station_group",
         "road_name",
         "road_sector",

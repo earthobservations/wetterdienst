@@ -516,9 +516,10 @@ Usage: wetterdienst stations [OPTIONS]
 
   Acquire stations.
 
-  Select them with exactly one of --all, --stations, --name, --latitude/--longitude with --rank or
-  --distance, --left/--bottom/--right/--top, or --sql. Given a window, with --timestamp or --start /
-  --end, only the stations whose record overlaps it are listed.
+  Select them with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id, --name,
+  --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql. Given a
+  window, with --timestamp or --start / --end, only the stations whose record overlaps it are
+  listed.
 
   A selection that finds no station is no failure: the list is empty, the command says so on stderr
   and exits 0. A station id of --stations the network has no station for is named in a warning and
@@ -551,6 +552,13 @@ Options:
   --end TEXT                      End of a time window. Given alone, it is read as --timestamp.
   --all BOOLEAN                   Select all stations. Default: false
   --stations TEXT                 Select stations by id, comma-separated. Example: 01048,04411
+  --wmo-id TEXT                   Select stations by WMO number (five digits), comma-separated:
+                                  every station that has one of them. Example: 10381,10147
+  --wigos-id TEXT                 Select stations by WIGOS station identifier, comma-separated:
+                                  every station that has one of them. Example: 0-20000-0-10381
+  --icao-id TEXT                  Select stations by ICAO location indicator (four letters, any
+                                  case), comma-separated: every station that has one of them.
+                                  Example: EDDH,EDDB
   --name TEXT                     Select stations by fuzzy name match: the best five for `stations`,
                                   which lists candidates, the best one for `values`, unless --rank
                                   says, among the stations with a record in --timestamp if given.
@@ -613,6 +621,11 @@ Options:
   # stations by id, or by fuzzy name
   wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --stations=1048,4411
   wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --name=Dresden
+
+  # stations by the ids they have besides their station id: WMO number, ICAO code or WIGOS identifier
+  wetterdienst stations --provider=dwd --network=mosmix --parameters=hourly/large --wmo-id=10381
+  wetterdienst stations --provider=dwd --network=mosmix --parameters=hourly/large --icao-id=EDDH
+  wetterdienst stations --provider=knmi --network=observation --parameters=daily/data --wigos-id=0-20000-0-06260
 
   # the five stations closest to a point, or those within 25 km of it
   wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
@@ -829,8 +842,8 @@ Usage: wetterdienst values [OPTIONS]
 
   Acquire data.
 
-  Select the stations with exactly one of --all, --stations, --name, --latitude/--longitude with
-  --rank or --distance, --left/--bottom/--right/--top, or --sql.
+  Select the stations with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id,
+  --name, --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql.
 
 Options:
   --provider TEXT                 Data provider/organisation. List the provider/network combinations
@@ -858,6 +871,13 @@ Options:
                                   wetterdienst issues. Default: the latest
   --all BOOLEAN                   Select all stations. Default: false
   --stations TEXT                 Select stations by id, comma-separated. Example: 01048,04411
+  --wmo-id TEXT                   Select stations by WMO number (five digits), comma-separated:
+                                  every station that has one of them. Example: 10381,10147
+  --wigos-id TEXT                 Select stations by WIGOS station identifier, comma-separated:
+                                  every station that has one of them. Example: 0-20000-0-10381
+  --icao-id TEXT                  Select stations by ICAO location indicator (four letters, any
+                                  case), comma-separated: every station that has one of them.
+                                  Example: EDDH,EDDB
   --name TEXT                     Select stations by fuzzy name match: the best five for `stations`,
                                   which lists candidates, the best one for `values`, unless --rank
                                   says, among the stations with a record in --timestamp if given.
