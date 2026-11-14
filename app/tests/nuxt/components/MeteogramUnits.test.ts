@@ -8,12 +8,24 @@ import Meteogram from '~/components/Meteogram.vue'
 // reports for each parameter, and what the code judges (rain or snow, the weather of a day, the wind barbs, the freezing
 // point) is judged in canonical units, so the same weather is the same in every unit.
 
-const plotly = vi.hoisted(() => ({
-  newPlot: vi.fn(async () => {}),
-  relayout: vi.fn(async () => {}),
-  purge: vi.fn(),
-}))
-vi.mock('plotly.js-basic-dist-min', () => plotly)
+// ECharts draws in these tests as it does in a browser, to an SVG string, and every call is recorded
+// (`tests/helpers/ssr-echarts.ts`)
+const echarts = vi.hoisted(() => ({ ssr: null as any }))
+vi.mock('~/utils/echarts-loader', async () => {
+  const { createSsrEcharts } = await import('../../helpers/ssr-echarts')
+  echarts.ssr = createSsrEcharts()
+  return { loadEcharts: () => echarts.ssr }
+})
+const ssr = () => echarts.ssr as ReturnType<typeof import('../../helpers/ssr-echarts').createSsrEcharts>
+const clearDrawn = () => echarts.ssr?.clear()
+async function waitDrawn() {
+  await vi.waitFor(() => expect(ssr().calls.setOption).toHaveBeenCalled(), { timeout: 5000 })
+  await flushPromises()
+}
+/** The series of the last drawing by id */
+const seriesOf = (id: string) => ssr().option().series.find((series: { id: string }) => series.id === id)
+/** The sum of what the stacks of a kind of precipitation hold */
+const total = (id: string) => seriesOf(id).data.reduce((sum: number, point: [number, number | null]) => sum + (point[1] ?? 0), 0)
 
 // the units, as the metadata of an answer states them: the same weather in each
 interface Units { temperature: string, speed: string, pressure: string, fraction: string, angle: string, precipitation: string }
@@ -75,7 +87,7 @@ async function mountMeteogram(props: Record<string, unknown> & { values: unknown
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-01T10:00:00Z') })
-  plotly.newPlot.mockClear()
+  clearDrawn()
 })
 afterEach(async () => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
@@ -121,66 +133,66 @@ describe('the chart in each unit', () => {
   async function draw(units: Units, temperature?: (hour: number) => number) {
     const wrapper = await mountMeteogram({ values: [], units: unitsOf(units) })
     await wrapper.setProps({ values: forecast(units, temperature) })
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
-    await flushPromises()
-    const [, traces, layout] = plotly.newPlot.mock.calls[0] as unknown as [unknown, { name: string, hovertemplate?: string, y: number[] }[], any]
-    return { wrapper, traces, layout }
+    await waitDrawn()
+    return { wrapper, option: ssr().option() }
   }
+  // the axes of the panels in the order of the chart: the days above, then the wind, the precipitation, the clouds, the temperature and the pressure
+  const AXES = { wind: 1, precip: 2, cloud: 3, temp: 4, pressure: 5 }
 
-  it('titles the axes and the traces with the unit the answer reports, in the hover texts as well', async () => {
-    const { traces, layout } = await draw(IMPERIAL)
+  it('titles the axes with the unit the answer reports, and the readout of an hour writes the values in it', async () => {
+    await draw(IMPERIAL)
     // a title too long for its panel is broken in two lines
-    const title = (axis: string) => layout[axis].title.text.replace('<br>', ' ')
-    expect(title('yaxis3')).toBe('Temp °F')
-    expect(title('yaxis')).toBe('Wind km/h')
-    expect(title('yaxis2')).toBe('Precip l/m²')
-    expect(title('yaxis4')).toBe('Pressure kPa')
+    // (drawn by a series of the chart's own, top panel first)
+    const title = (panel: keyof typeof AXES) => ssr().axisTitles()[AXES[panel] - 1]!.text
+    expect(title('temp')).toBe('Temp °F')
+    expect(title('wind')).toBe('Wind km/h')
+    expect(title('precip')).toBe('Precip l/m²')
+    expect(title('pressure')).toBe('Pressure kPa')
     // a fraction as a decimal is named by what it ranges over
-    expect(title('yaxis5')).toBe('Cloud 0–1')
-    const hover = (name: string) => traces.find(trace => trace.name === name)!.hovertemplate
-    expect(hover('Temperature °F')).toBe('<b>Temperature</b>: %{y:.1f}°F<extra></extra>')
-    expect(hover('Wind km/h')).toBe('<b>Wind</b> %{y:.1f} km/h → %{customdata:.2f}rad<extra></extra>'.replace('rad', ' rad'))
-    expect(hover('Pressure kPa')).toBe('<b>Pressure</b><br>%{y:.2f} kPa<extra></extra>')
-    expect(hover('Total Cloud Cover 0–1')).toBe('<b>Total Cloud Cover</b><br>%{y:.2f}<extra></extra>')
-    expect(traces.map(trace => trace.name).join('|')).not.toMatch(/°C|m\/s|hPa|mm\b/)
+    expect(title('cloud')).toBe('Cloud 0–1')
+    document.body.querySelector('[role="figure"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true }))
+    await vi.waitFor(() => expect(document.body.querySelector('[data-testid="meteogram-readout"]')).not.toBeNull())
+    const readout = document.body.querySelector('[data-testid="meteogram-readout"]')!.textContent!
+    for (const unit of ['°F', 'km/h', 'kPa', 'rad'])
+      expect(readout, unit).toContain(unit)
+    expect(readout).not.toMatch(/°C|m\/s|hPa|\bmm\b/)
   })
 
   it('draws the cloud cover over the whole of its scale, whichever it is written in', async () => {
-    expect((await draw(METRIC)).layout.yaxis5.range).toEqual([0, 100])
-    plotly.newPlot.mockClear()
+    expect((await draw(METRIC)).option.yAxis[AXES.cloud].max).toBe(100)
+    clearDrawn()
     mounted.splice(0).forEach(wrapper => wrapper.unmount())
-    expect((await draw(IMPERIAL)).layout.yaxis5.range[1]).toBeCloseTo(1, 9)
-    plotly.newPlot.mockClear()
+    expect((await draw(IMPERIAL)).option.yAxis[AXES.cloud].max).toBeCloseTo(1, 9)
+    clearDrawn()
     mounted.splice(0).forEach(wrapper => wrapper.unmount())
-    expect((await draw(ODD)).layout.yaxis5.range[1]).toBeCloseTo(8, 9)
+    expect((await draw(ODD)).option.yAxis[AXES.cloud].max).toBeCloseTo(8, 9)
   })
 
-  it('keeps Plotly\'s zero line for degrees Celsius, and draws the freezing point of the other units as a line of its own', async () => {
-    const celsius = (await draw(METRIC)).layout
-    expect(celsius.yaxis3.zeroline).toBe(true)
-    expect(celsius.shapes.some((shape: any) => shape.yref === 'y3')).toBe(false)
-    plotly.newPlot.mockClear()
+  it('draws the freezing point as a line of its own in the unit of the answer, and the axis holds it', async () => {
+    const freezing = () => seriesOf('backdrop-temp').data.filter((row: number[]) => row[0] === 3).map((row: number[]) => row[3])
+    const celsius = (await draw(METRIC)).option
+    expect(freezing()).toEqual([0])
+    expect(celsius.yAxis[AXES.temp].min).toBeLessThan(0)
+    clearDrawn()
     mounted.splice(0).forEach(wrapper => wrapper.unmount())
-    const fahrenheit = (await draw(IMPERIAL)).layout
-    expect(fahrenheit.yaxis3.zeroline).toBe(false)
-    expect(fahrenheit.shapes.filter((shape: any) => shape.yref === 'y3').map((shape: any) => [shape.y0, shape.y1])).toEqual([[32, 32]])
+    const fahrenheit = (await draw(IMPERIAL)).option
+    expect(freezing()).toEqual([32])
     // the axis holds the freezing point and reaches a degree below it: 1.8 Fahrenheit
-    expect(fahrenheit.yaxis3.range[0]).toBeCloseTo(32 - 1.8, 9)
-    plotly.newPlot.mockClear()
+    expect(fahrenheit.yAxis[AXES.temp].min).toBeCloseTo(32 - 1.8, 9)
+    clearDrawn()
     mounted.splice(0).forEach(wrapper => wrapper.unmount())
-    const kelvin = (await draw(ODD)).layout
-    expect(kelvin.shapes.filter((shape: any) => shape.yref === 'y3').map((shape: any) => shape.y0)).toEqual([273.15])
-    expect(kelvin.yaxis3.range[0]).toBeCloseTo(273.15 - 1, 9)
+    const kelvin = (await draw(ODD)).option
+    expect(freezing()).toEqual([273.15])
+    expect(kelvin.yAxis[AXES.temp].min).toBeCloseTo(273.15 - 1, 9)
   })
 
   it('draws a cold day under the freezing point as such in any unit, and the rain on it as snow', async () => {
     const cold = (hour: number) => -3 + (hour % 24) / 24
     const snow = async (units: Units) => {
-      plotly.newPlot.mockClear()
+      clearDrawn()
       mounted.splice(0).forEach(wrapper => wrapper.unmount())
-      const { traces } = await draw(units, cold)
-      const amount = (name: string) => traces.find(trace => trace.name === name)!.y.reduce((sum, value) => sum + value, 0)
-      return [amount('Rain'), amount('Mixed'), amount('Snow')]
+      await draw(units, cold)
+      return ['rain', 'mixed', 'snow'].map(total)
     }
     const metric = await snow(METRIC)
     expect(metric[2]).toBeGreaterThan(0)
@@ -210,7 +222,7 @@ describe('the table and the sentences in each unit', () => {
   it('say the temperatures of the sentence that describes the figure in the unit, from 10 to 15.75 degrees Celsius', async () => {
     const wrapper = await mountMeteogram({ values: forecast(ODD), units: unitsOf(ODD) })
     await vi.waitFor(() => expect(wrapper.find('[role="figure"]').exists()).toBe(true))
-    const sentence = document.getElementById(wrapper.find('[role="figure"]').attributes('aria-describedby')!)!.textContent!
+    const sentence = document.getElementById(wrapper.find('[role="figure"]').attributes('aria-describedby')!.split(' ')[0]!)!.textContent!
     const [, min, max] = /Temperature from ([\d.]+) to ([\d.]+) K\./.exec(sentence)!
     expect(Number(min)).toBeCloseTo(283.15, 0)
     expect(Number(max)).toBeCloseTo(288.9, 0)
@@ -242,71 +254,35 @@ describe('the table and the sentences in each unit', () => {
   })
 })
 
-describe('the wind barbs and arrows in each unit', () => {
-  // the first barb drawn, as the point it starts at and the point of its shaft's other end: a barb is a drawing of the wind,
-  // so it has the same shaft in every unit of speed and of direction
-  async function firstBarb(units: Units) {
-    const calls: Array<[string, number[]]> = []
-    const context = new Proxy({} as Record<string, unknown>, {
-      get: (target, property: string) => property === 'moveTo' || property === 'lineTo' ? (...args: number[]) => { calls.push([property, args]) } : (property in target ? target[property] : vi.fn()),
-      set: (target, property: string, value) => {
-        target[property] = value
-        return true
-      },
-    })
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((() => context) as any)
-    plotly.newPlot.mockClear()
+describe('the wind barbs in each unit', () => {
+  // the barbs as the chart is given them: where the wind comes from in degrees, and the knots of its speed. A barb is a drawing
+  // of the wind, so it is the same in every unit of speed and of direction
+  async function barbsIn(units: Units) {
+    clearDrawn()
     mounted.splice(0).forEach(wrapper => wrapper.unmount())
     const wrapper = await mountMeteogram({ values: [], units: unitsOf(units) })
     await wrapper.setProps({ values: forecast(units) })
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
-    await flushPromises()
-    const start = calls.find(([name]) => name === 'moveTo')![1] as [number, number]
-    const end = calls.find(([name]) => name === 'lineTo')![1] as [number, number]
-    const traces = (plotly.newPlot.mock.calls[0] as unknown as [unknown, Array<{ name: string, text?: string[] }>])[1]
-    return { dx: end[0] - start[0], dy: end[1] - start[1], arrows: traces.find(trace => trace.name.startsWith('Direction'))!.text! }
+    await waitDrawn()
+    return seriesOf('barbs').data as [number, number, number, number][]
   }
 
-  it('are drawn from the west for a wind from 270 degrees, written in degrees, radians or gradians, and in any unit of speed', async () => {
+  it('are from the west for a wind from 270 degrees, written in degrees, radians or gradians, and in any unit of speed', async () => {
     for (const units of [METRIC, IMPERIAL, ODD]) {
-      const { dx, dy } = await firstBarb(units)
-      // the shaft is 20 px long and points west, whence the wind comes: a direction taken for degrees would point it north
-      expect(dx, `${units.angle}`).toBeCloseTo(-20, 5)
-      expect(dy, `${units.angle}`).toBeCloseTo(0, 5)
-    }
-  })
-
-  it('has the arrows of the direction point the way a wind from 270 degrees does, whichever unit the direction is in', async () => {
-    for (const units of [METRIC, IMPERIAL, ODD]) {
-      const { arrows } = await firstBarb(units)
-      expect(arrows.length, `${units.angle}`).toBeGreaterThan(0)
-      expect(new Set(arrows), `${units.angle}`).toEqual(new Set(['→']))
+      const barbs = await barbsIn(units)
+      expect(barbs.length, units.angle).toBeGreaterThan(0)
+      // a direction taken for degrees would be 4.71 or 300
+      for (const barb of barbs)
+        expect(barb[2], units.angle).toBeCloseTo(270, 4)
     }
   })
 
   it('has the barb the force of the speed in knots, whatever unit it is in: 6 m/s is one full barb', async () => {
-    const barbs = async (units: Units) => {
-      const calls: string[] = []
-      const context = new Proxy({} as Record<string, unknown>, {
-        get: (target, property: string) => property === 'lineTo' ? () => { calls.push(property) } : (property in target ? target[property] : vi.fn()),
-        set: (target, property: string, value) => {
-          target[property] = value
-          return true
-        },
-      })
-      vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((() => context) as any)
-      plotly.newPlot.mockClear()
-      mounted.splice(0).forEach(wrapper => wrapper.unmount())
-      const wrapper = await mountMeteogram({ values: [], units: unitsOf(units) })
-      await wrapper.setProps({ values: forecast(units) })
-      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
-      await flushPromises()
-      return calls.length
+    const metric = await barbsIn(METRIC)
+    expect(metric[0]![3]).toBeCloseTo(11.66, 2)
+    for (const units of [IMPERIAL, ODD]) {
+      const barbs = await barbsIn(units)
+      expect(barbs[0]![3], units.speed).toBeCloseTo(metric[0]![3], 2)
     }
-    const metric = await barbs(METRIC)
-    expect(metric).toBeGreaterThan(0)
-    expect(await barbs(IMPERIAL)).toBe(metric)
-    expect(await barbs(ODD)).toBe(metric)
   })
 })
 
@@ -329,18 +305,19 @@ describe('the dew point and the precipitation type from the humidity in each uni
     ]
   }
   async function draw(units: Units, celsius: (hour: number) => number) {
-    plotly.newPlot.mockClear()
+    clearDrawn()
     mounted.splice(0).forEach(wrapper => wrapper.unmount())
     const wrapper = await mountMeteogram({ values: [], units: { ...unitsOf(units), humidity_relative: units.fraction } })
     await wrapper.setProps({ values: humid(units, celsius) })
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
-    await flushPromises()
-    return (plotly.newPlot.mock.calls[0] as unknown as [unknown, Array<{ name: string, y: number[] }>])[1]
+    await waitDrawn()
   }
 
   it('draws the same dew point, in the unit of the temperature, whichever the units of the temperature and the humidity', async () => {
     const warm = (hour: number) => 10 + (hour % 24) / 4
-    const dew = async (units: Units) => (await draw(units, warm)).find(trace => trace.name === 'Dew Point')!.y
+    const dew = async (units: Units) => {
+      await draw(units, warm)
+      return seriesOf('dew').data.map((point: [number, number]) => point[1])
+    }
     const metric = await dew(METRIC)
     expect(metric.length).toBeGreaterThan(0)
     // 80 percent at 10 degrees Celsius: the dew point is a few degrees under the temperature
@@ -348,7 +325,7 @@ describe('the dew point and the precipitation type from the humidity in each uni
     expect(metric[0]!).toBeLessThan(10)
     const fahrenheit = await dew(IMPERIAL)
     const kelvin = await dew(ODD)
-    metric.forEach((value, i) => {
+    metric.forEach((value: number, i: number) => {
       expect(fahrenheit[i]!).toBeCloseTo(value * 1.8 + 32, 5)
       expect(kelvin[i]!).toBeCloseTo(value + 273.15, 5)
     })
@@ -357,8 +334,8 @@ describe('the dew point and the precipitation type from the humidity in each uni
   it('tells snow from rain by the wet bulb in any unit', async () => {
     const cold = (hour: number) => -3 + (hour % 24) / 24
     const amounts = async (units: Units) => {
-      const traces = await draw(units, cold)
-      return ['Rain', 'Mixed', 'Snow'].map(name => traces.find(trace => trace.name === name)!.y.reduce((sum, value) => sum + value, 0))
+      await draw(units, cold)
+      return ['rain', 'mixed', 'snow'].map(total)
     }
     const metric = await amounts(METRIC)
     expect(metric[2]).toBeGreaterThan(0)

@@ -4,8 +4,8 @@ import { mockBackend } from './accessibility/mock-backend'
 import { pdfTextRuns } from './pdf-text'
 
 // The charts on paper (GH-3558, GH-3518). A printed chart is scaled to the printable width of the sheet, so the type
-// that is 11 px on the screen is as small on paper as the chart is wide on the screen: the three Plotly charts (the
-// forecast's meteogram, the Explorer's chart and the climate stripes) are capped at 820 px (`.app-chart`, main.css).
+// that is 11 px on the screen is as small on paper as the chart is wide on the screen: the three charts (the forecast's
+// meteogram, the Explorer's chart and the climate stripes) are capped at 820 px (`.app-chart`, main.css).
 // This measures the size of the chart's text in the PDF Chromium prints (`page.pdf`, which only Chromium has: the
 // playwright config runs this spec in a Chromium project), on A4 and Letter with 0.4 in and 1 in margins, rather than
 // estimating it from the zoom. The API is answered by the mock backend, so the spec needs nothing but the app.
@@ -52,16 +52,18 @@ const CHARTS: Chart[] = [
       await expect(plotly(page)).toBeVisible()
     },
   },
-  {
-    name: 'the forecast\'s meteogram',
-    path: '/meteogram?station=01001',
-    // the ticks and axis titles are 12 px since GH-3558 (9 px before: 4.7 pt, and 3.9 pt without the cap)
-    floor: 6.2,
-    reach: async (page) => {
-      await expect(plotly(page)).toBeVisible()
-    },
-  },
 ]
+
+/** The forecast's chart: ECharts, drawn as SVG into `.mg-canvas`, and scaled to the sheet like a picture when it is printed */
+const FORECAST: Pick<Chart, 'name' | 'path' | 'reach'> & { floor: number } = {
+  name: 'the forecast\'s meteogram',
+  path: '/meteogram?station=01001',
+  // the ticks and axis titles are 12 px of a chart of at most 820 px
+  floor: 6.2,
+  reach: async (page) => {
+    await expect(page.locator('.mg-canvas svg').first()).toBeVisible()
+  },
+}
 
 const SHEETS = [
   { format: 'A4', margin: '0.4in' },
@@ -85,6 +87,16 @@ async function chartTexts(page: Page): Promise<string[]> {
     return [...found]
   })
   return texts
+}
+
+/**
+ * The texts of the forecast's chart that the PDF reader of this spec finds once the picture is scaled to the sheet: the day
+ * names and the hours, which are 12 px like every other text of the chart. (The axes' numbers and their rotated titles are
+ * 12 px as well, and are not found in a scaled print by `pdf-text.ts`, which reads one run for each piece of text.)
+ */
+async function forecastTexts(page: Page): Promise<string[]> {
+  const texts = await page.locator('.mg-canvas svg text').evaluateAll(texts => [...new Set(texts.map(text => text.textContent?.trim()).filter((value): value is string => !!value))])
+  return texts.filter(text => /^(?:[A-Z][a-z]{2}(?: \d{2}\/\d{2})?|\d{2}:\d{2})$/.test(text))
 }
 
 /** Prints the page on every sheet and holds the smallest of `texts` to `floor` points (and finds every one of them) */
@@ -143,6 +155,38 @@ for (const chart of CHARTS) {
   })
 }
 
+test.describe(FORECAST.name, () => {
+  test.beforeEach(async ({ context }) => {
+    await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+  })
+
+  for (const width of [1100, 1440, 1920, 2560]) {
+    test(`is at most ${MAX_WIDTH} px wide in a ${width} px window, and the page does not overflow`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width, height: 1080 })
+      await mockBackend(page, baseURL!)
+      await page.goto(FORECAST.path)
+      await FORECAST.reach(page)
+      const box = await page.locator('.meteogram-chart').first().boundingBox()
+      expect(box!.width).toBeLessThanOrEqual(MAX_WIDTH)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+    })
+  }
+
+  for (const width of [1100, 1920]) {
+    test(`prints its text at a size that is read on paper, from a ${width} px window`, async ({ page, baseURL, browserName }) => {
+      test.skip(browserName !== 'chromium', 'page.pdf is Chromium\'s')
+      await page.setViewportSize({ width, height: 1080 })
+      await mockBackend(page, baseURL!)
+      await page.goto(FORECAST.path)
+      await FORECAST.reach(page)
+      const texts = await forecastTexts(page)
+      expect(texts.length).toBeGreaterThan(0)
+
+      await expectPrintedAtLeast(page, texts, FORECAST.floor)
+    })
+  }
+})
+
 test('the explorer\'s faceted charts are capped as well, and print as large as the single one', async ({ page, baseURL, browserName }) => {
   await page.setViewportSize({ width: 1920, height: 1080 })
   await mockBackend(page, baseURL!)
@@ -169,6 +213,8 @@ async function printedStyles(page: Page, baseURL: string, theme: 'light' | 'dark
   // the charts are drawn light for the print, which takes a drawing for some of them
   if (await page.locator('.js-plotly-plot').count())
     await expect(page.locator('.js-plotly-plot').first()).toHaveAttribute('data-chart-scheme', 'light')
+  if (await page.locator('.mg-canvas').count())
+    await expect(page.locator('.mg-canvas').first()).toHaveAttribute('data-chart-scheme', 'light')
   // the semantic colours (an alert, a badge, a link): probes that wear them, where the page has no such state to reach
   await page.evaluate(() => {
     const probes = document.createElement('div')
@@ -199,7 +245,7 @@ async function printedStyles(page: Page, baseURL: string, theme: 'light' | 'dark
   })
 }
 
-for (const chart of [...CHARTS, { name: 'the home page', path: '/', reach: async (page: Page) => page.waitForLoadState('networkidle') }] as Pick<Chart, 'name' | 'path' | 'reach'>[]) {
+for (const chart of [...CHARTS, FORECAST, { name: 'the home page', path: '/', reach: async (page: Page) => page.waitForLoadState('networkidle') }] as Pick<Chart, 'name' | 'path' | 'reach'>[]) {
   test(`${chart.name} prints the same from the dark theme as from the light one`, async ({ browser, baseURL }) => {
     const light = await printedStyles(await (await browser.newContext()).newPage(), baseURL!, 'light', chart)
     const dark = await printedStyles(await (await browser.newContext()).newPage(), baseURL!, 'dark', chart)

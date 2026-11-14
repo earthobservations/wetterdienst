@@ -254,4 +254,16 @@ describe('the file', () => {
     expect(text).toContain('b@2.0.0\nLicence: ISC\n\nThe package ships no licence file')
     expect(text.endsWith('\n')).toBe(true)
   })
+
+  it('ends with the credit and the licence of the weather symbols, which are files of the app and no package (GH-4059)', () => {
+    const text = renderNotices([])
+    expect(text).toContain('Yr weather symbols, served as files of public/yr-symbols')
+    expect(text).toContain('Licence: CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/)')
+    expect(text).toContain('Credit: Yr weather symbols (c) 2015 by Yr/NRK, licensed under Attribution 4.0 International.')
+    // the licence's own text follows, as the repository has it
+    expect(text).toContain('Creative Commons Attribution 4.0 International Public License')
+    expect(text.lastIndexOf('Yr weather symbols, served')).toBeGreaterThan(text.indexOf('0 packages.'))
+    // it is no entry of a package: the e2e listing of the lockfile's packages does not read it as one
+    expect(text).not.toMatch(/^={78}\n@?[^@\s]+@\S+\nLicence: CC-BY/m)
+  })
 })

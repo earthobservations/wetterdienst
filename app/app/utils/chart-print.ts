@@ -9,10 +9,7 @@ interface Scaled {
   container: HTMLElement
   style: string | null
   layers: { svg: SVGSVGElement, viewBox: string | null, preserve: string | null, style: string | null }[]
-  /**
-   * The chart's own box, which a page may have given the chart's height in pixels, and what is drawn over the chart
-   * in a canvas of its size (the forecast's wind barbs), with their styles
-   */
+  /** The chart's own box, which a page may have given the chart's height in pixels, with its style */
   boxes: { element: HTMLElement, style: string | null }[]
 }
 
@@ -29,20 +26,15 @@ export function fitChartsToPaper(root: ParentNode = document) {
     if (!width || !height)
       continue
     const plot = container.closest<HTMLElement>('.js-plotly-plot')
-    const overlays = plot ? [...plot.querySelectorAll<HTMLCanvasElement>(':scope > canvas')] : []
     scaled.push({
       container,
       style: container.getAttribute('style'),
       layers: layers.map(svg => ({ svg, viewBox: svg.getAttribute('viewBox'), preserve: svg.getAttribute('preserveAspectRatio'), style: svg.getAttribute('style') })),
-      boxes: [plot, ...overlays].filter(element => !!element).map(element => ({ element: element!, style: element!.getAttribute('style') })),
+      boxes: [plot].filter(element => !!element).map(element => ({ element: element!, style: element!.getAttribute('style') })),
     })
-    // the box takes the height of the scaled chart, and a canvas over it is scaled with it, from the same corner
+    // the box takes the height of the scaled chart
     plot?.style.setProperty('height', 'auto', 'important')
     plot?.style.setProperty('min-height', '0', 'important')
-    for (const canvas of overlays) {
-      canvas.style.setProperty('width', '100%', 'important')
-      canvas.style.setProperty('height', 'auto', 'important')
-    }
     container.style.setProperty('width', '100%', 'important')
     container.style.setProperty('height', 'auto', 'important')
     container.style.setProperty('aspect-ratio', `${width} / ${height}`)
