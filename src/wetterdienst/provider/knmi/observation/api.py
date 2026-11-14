@@ -22,6 +22,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.request import TimeseriesRequest
+from wetterdienst.model.station_ids import wigos_id_expr
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.knmi.observation import edr
 from wetterdienst.provider.knmi.observation.grid import CALENDAR_RESOLUTIONS, floor
@@ -429,9 +430,14 @@ class KnmiObservationRequest(TimeseriesRequest):
             _stations_of(stations, resolution).with_columns(
                 pl.lit(resolution_name, dtype=pl.String).alias("resolution"),
                 pl.lit(dataset, dtype=pl.String).alias("dataset"),
-                # the id of a KNMI station is its WMO number (`station_id` is the tail of the WIGOS identifier
-                # where the list gives none, which for the stations of issuer 528 is the number as well)
-                pl.col("station_id").alias("wmo_id"),
+                # the id of a KNMI station is its WMO number only where its WIGOS identifier says so: the issuer
+                # 20000 is the WMO's own, `0-20000-0-<WMO number>`. A station of the issuer 528 (Assendelft `06233`,
+                # Horst `06392`) has a number of the Dutch scheme that only looks like one, so it has none
+                pl.when(wigos_id_expr("wigos_id") == pl.format("0-20000-0-{}", pl.col("station_id")))
+                .then(pl.col("station_id"))
+                .alias("wmo_id")
+                if "wigos_id" in stations.columns
+                else pl.lit(None, dtype=pl.String).alias("wmo_id"),
             )
             for resolution, resolution_name, dataset in requested
         ]

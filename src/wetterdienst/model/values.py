@@ -490,10 +490,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         """Walk the stations in order, each one collected, cut to the window and shaped, as `query` yields them."""
         # the stations that returned values, which `filter_by_rank` counts its slots in
         stations_collected = 0
-        # an explicit list of ids is the one selection whose empty stations are told (`station-without-rows`, GH-3828)
+        # an explicit list of ids, `station_id`s or the WMO, WIGOS or ICAO ids of stations, is the one kind of selection
+        # whose empty stations are told (`station-without-rows`, GH-3828, GH-4070)
         asked = (
             [cast("str", station_id) for (station_id,), _ in groups]
-            if self.sr._stations_filter == StationsFilter.BY_STATION_ID  # noqa: SLF001
+            if self.sr._stations_filter  # noqa: SLF001
+            in {
+                StationsFilter.BY_STATION_ID,
+                StationsFilter.BY_WMO_ID,
+                StationsFilter.BY_WIGOS_ID,
+                StationsFilter.BY_ICAO_ID,
+            }
             else None
         )
         rows = ParameterRows(

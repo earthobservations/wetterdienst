@@ -16,22 +16,23 @@ Types of changes:
 
 ## [Unreleased]
 
-### Added
+### Fixed
 
-- Every station has three more columns, `wmo_id`, `wigos_id` and `icao_id` (text, null where the
-  provider publishes none), and `stations` and `values` select by them, each station that has the
-  id (`filter_by_wmo_id`, `filter_by_wigos_id`, `filter_by_icao_id`; `--wmo-id`; `wmo_id=` in REST
-  and MCP; one of the exclusive selections). Notation: `01001`, `0-56-101-01002` (no zeros in the
-  issuer), `EDDH`; a search pads and upper-cases what it is given and refuses what is no id. Filled
-  for `dwd/mosmix`, `dwd/dmo`, `dwd/poi`, `knmi`, `meteofrance/synop`, `geosphere`, `noaa/ghcn`
-  (GH-4070)
+- `dwd/derived`: a period whose archive (or both archives of `hourly/radiation_global`) is a 404 on
+  the server, listed and then withdrawn, answers the `file-skipped` warning and no rows, where it
+  failed with a `ValueError` (an `IndexError` for `hourly/radiation_global`) and took the whole
+  request with it (GH-4056)
 
 ### Changed
 
-- The `icao_id` of `dwd/mosmix`, `dwd/dmo` and `dwd/poi` moves from after `station_id` to the end
-  of the frame, with `wmo_id` and `wigos_id` before it, the order of `STATIONS_SCHEMA` for every
-  provider; the same column, text, `----` null as before. Read it by name, not by position, in the
-  frame, the CSV and the GeoJSON properties (GH-4070)
+- **Breaking**: every provider's stations have three more columns after `region`, `wmo_id`,
+  `wigos_id` and `icao_id` (`01001`, `0-56-101-01002`, `EDDH`; null where none is published), so
+  a provider's own columns (dmi `country`, `dwd/road`, hubeau, both `imgw`, `wsv/pegel`) move three
+  places back, `icao_id` of `dwd/mosmix`, `dmo` and `poi` goes to the end and `knmi` `wigos_id` by
+  one. Select columns by name; a SQL table `to_target` wrote before takes no append of them: write
+  it anew. `stations` and `values` select by them (`filter_by_wmo_id`, `--wmo-id`, `wmo_id=`; each
+  station that has the id). Filled for mosmix, dmo, poi, `knmi` (`wmo_id` of the `0-20000-0-`
+  stations), `meteofrance/synop`, `geosphere`, `noaa/ghcn` (GH-4070)
 
 ## [0.188.0] - 2026-11-13
 

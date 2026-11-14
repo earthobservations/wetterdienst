@@ -380,8 +380,8 @@ def shape_stations_frame(
         target = STATIONS_SCHEMA.get(column)
         if column not in df.columns:
             # a column of the schema has its dtype; one of the provider's own, which no schema declares, is an untyped
-            # null as it always was (the frames snapshot of KNMI's `wigos_id` holds it), where a frame without a row
-            # has a String for it. Typing it String is a change of that snapshot, left for a change of its own
+            # null as it always was, where a frame without a row has a String for it. Typing it String is a change of
+            # the frames snapshot, left for a change of its own
             expressions.append(pl.lit(None, dtype=target).alias(column))
         elif target is None:
             expressions.append(pl.col(column))

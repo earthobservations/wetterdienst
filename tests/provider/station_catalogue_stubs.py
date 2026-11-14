@@ -1642,9 +1642,11 @@ KNMI_EXPECTED: dict[str, dict[str, Any]] = {
     "06344": {"name": "Rotterdam Airport", "elevation": -5.14},
     "06392": {"wigos_id": "0-528-0-06392", "name": "Horst", "latitude": 51.4869, "longitude": 6.0561},
 }
-# the WMO number of a station is its id, which the list's `wmoId` (or the end of the WSI) gives (GH-4070); no ICAO code
+# the WMO number of a station is its id where its WSI is `0-20000-0-<id>`, the WMO's own issuer (GH-4070): Assendelft
+# and Horst are of the issuer 528, whose number only looks like one, so they have none; no ICAO code
 for _station_id, _fields in KNMI_EXPECTED.items():
-    _fields.update({"wmo_id": _station_id, "icao_id": None})
+    _is_issuer_528 = _fields.get("wigos_id", "").startswith("0-528-")
+    _fields.update({"wmo_id": None if _is_issuer_528 else _station_id, "icao_id": None})
 
 
 def _knmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:

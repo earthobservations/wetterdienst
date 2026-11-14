@@ -139,27 +139,21 @@ _StationsField = Annotated[
 _WmoIdField = Annotated[
     list[str] | None,
     Field(
-        description="Select stations by WMO number: five digits, comma-separated, e.g. '10381' or '10381,10147'. "
-        "A number of one to four digits is read with its leading zeros ('1001' is '01001'). Every station that "
-        "has one of the numbers is answered (a number can be on several), and only the stations of a provider "
-        "that publishes WMO numbers can be found this way. The `wmo_id` column of `stations` says which have one."
+        description="WMO station numbers, comma-separated, e.g. '10381,10147'; '1001' is read as '01001'. "
+        "Answers every station with one of them."
     ),
 ]
 _WigosIdField = Annotated[
     list[str] | None,
     Field(
-        description="Select stations by WIGOS station identifier, comma-separated, e.g. '0-20000-0-10381' or "
-        "'0-56-101-01002': series, issuer, issue number and local id, the first three without leading zeros "
-        "('0-056-101-01002' is read as '0-56-101-01002'). Every station that has one of the identifiers is "
-        "answered. The `wigos_id` column of `stations` says which have one."
+        description="WIGOS station ids, comma-separated, e.g. '0-20000-0-10381'; '0-056-…' is read as '0-56-…'. "
+        "Answers every station with one of them."
     ),
 ]
 _IcaoIdField = Annotated[
     list[str] | None,
     Field(
-        description="Select stations by ICAO location indicator, four letters, comma-separated, e.g. 'EDDH' or "
-        "'EDDH,EDDB'; the case does not matter. Every station that has one of the codes is answered (a code can "
-        "be on several). The `icao_id` column of `stations` says which have one."
+        description="ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. Answers every station with one of them."
     ),
 ]
 _StationIdField = Annotated[str, Field(description="Station id used as the reference location, e.g. '01048'.")]

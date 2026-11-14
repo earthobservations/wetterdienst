@@ -309,3 +309,31 @@ def test_the_id_search_ignores_the_window_of_the_request_as_a_search_by_station_
     request = DwdObservationRequest(parameters=PARAMETER, start="1900-01-01", end="1900-01-02", settings=Settings())
 
     assert request.filter_by_wmo_id(10381).df.get_column("station_id").to_list() == ["00001", "00002"]
+
+
+@pytest.mark.parametrize(
+    ("column", "value", "empty", "full"),
+    [("wmo_id", 10381, "00002", "00001"), ("icao_id", "EDDH", "00005", "00004")],
+)
+def test_a_station_found_by_an_id_that_returned_no_rows_is_told_as_one_named_by_its_station_id_is(
+    monkeypatch: pytest.MonkeyPatch, column: str, value: str | int, empty: str, full: str
+) -> None:
+    """`values` of a station selected by `wmo_id` or `icao_id` that has no reading while its sibling has."""
+    from wetterdienst.util.response_warnings import begin_response, recorded_warnings  # noqa: PLC0415
+
+    original = DwdObservationValues._collect_station_parameter_or_dataset  # noqa: SLF001
+
+    def collect(self: object, station_id: str, parameter_or_dataset: Any) -> pl.DataFrame:  # noqa: ANN401
+        frame = original(self, station_id, parameter_or_dataset)
+        return frame.clear() if station_id == empty else frame
+
+    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", collect)
+    begin_response()
+    request = DwdObservationRequest(parameters=PARAMETER, start="2020-05-01", end="2020-05-03", settings=Settings())
+
+    result = getattr(request, f"filter_by_{column}")(value).values().all()
+
+    assert result.df.get_column("station_id").unique().to_list() == [full]
+    (warning,) = [w for w in recorded_warnings() if w["code"] == "station-without-rows"]
+    assert empty in warning["message"]
+    assert full not in warning["message"]
