@@ -29,8 +29,6 @@ Types of changes:
 
 ### Fixed
 
-- `[Forecast]` The printed forecast shows the whole chart with its axes and labels; before, the
-  chart printed as an empty box and its day names and symbols landed on the next page (GH-4080)
 - `[All pages]` On iPhone, while the search, the place dialog of "Ask the weather" or the menu sheet
   is open, the page behind is held fixed where it stood (it aims for no bounce and no
   pull-to-refresh, to be confirmed on a device) and gets its scroll position back when the dialog

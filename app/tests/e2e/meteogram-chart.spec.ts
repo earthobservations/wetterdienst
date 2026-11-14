@@ -429,9 +429,9 @@ test.describe('on paper', () => {
       const chart = document.querySelector('.mg-canvas svg')!
       const box = chart.parentElement!.getBoundingClientRect()
       const drawn = chart.getBoundingClientRect()
-      // the numbers of the axes: 0, 5, 10, 0.5, 50
+      // the numbers of the axes: 0, 5, 10, 0.5, 50, and the pressure's 1,010 and 1,015
       const ticks = [...chart.querySelectorAll('text')]
-        .filter(text => /^-?\d+(?:\.\d+)?$/.test(text.textContent?.trim() ?? ''))
+        .filter(text => /^-?\d{1,3}(?:,\d{3})*(?:\.\d+)?$/.test(text.textContent?.trim() ?? ''))
         .map(text => text.getBoundingClientRect())
       return {
         position: getComputedStyle(chart).position,
@@ -439,7 +439,8 @@ test.describe('on paper', () => {
         drawnHeight: drawn.height,
         ticks: ticks.length,
         // the labels the box does not hold: clipped by it (`overflow: hidden`) when it is shorter than the SVG
-        outside: ticks.filter(tick => tick.top < box.top - 1 || tick.bottom > box.bottom + 1).length,
+        // (4 px of slack: the text box of the lowest label, which sits on the bottom edge, is 2 px taller than its digits)
+        outside: ticks.filter(tick => tick.top < box.top - 4 || tick.bottom > box.bottom + 4).length,
       }
     })
     expect(layout.position, 'the SVG is in the flow, not absolute').toBe('static')

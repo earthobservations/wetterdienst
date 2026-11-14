@@ -91,8 +91,8 @@ async function chartTexts(page: Page): Promise<string[]> {
 
 /**
  * The texts of the forecast's chart that the PDF reader of this spec finds once the picture is scaled to the sheet: the day
- * names and the hours, which are 12 px like every other text of the chart. (The axes' numbers and their rotated titles are
- * 12 px as well, and are not found in a scaled print by `pdf-text.ts`, which reads one run for each piece of text.)
+ * names and the hours, which are 12 px like every other text of the chart. (The axes' numbers are 12 px as well; that they
+ * are in the PDF at all is held by "prints the numbers of its axes" below, GH-4080.)
  */
 async function forecastTexts(page: Page): Promise<string[]> {
   const texts = await page.locator('.mg-canvas svg text').evaluateAll(texts => [...new Set(texts.map(text => text.textContent?.trim()).filter((value): value is string => !!value))])
@@ -200,8 +200,9 @@ test.describe('the forecast\'s meteogram has its whole chart on paper (GH-4080)'
     await FORECAST.reach(page)
   })
 
-  // the numbers on the axes: 0, 5, 10, 0.5, 50 (the day names and the hours are the other texts of the chart)
-  const AXIS_NUMBER = /^-?\d+(?:\.\d+)?$/
+  // the numbers on the axes: 0, 5, 10, 0.5, 50, and the pressure's 1,010 and 1,015 (the day names and the hours are
+  // the other texts of the chart)
+  const AXIS_NUMBER = /^-?\d{1,3}(?:,\d{3})*(?:\.\d+)?$/
 
   // the PDF Chromium prints: every number of the axes is in it, on the page that carries the chart
   test('prints the numbers of its axes', async ({ page, browserName }) => {
