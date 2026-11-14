@@ -216,6 +216,10 @@ function select(year: number | null, source: 'pointer' | 'keyboard' | 'touch') {
     dismissed.value = false
 }
 function dismiss() {
+  // the Close button is what has the focus where it is used (a click, Enter, or Escape while it has it), and it goes with the
+  // readout: the focus is handed to the chart first, or it falls to the page's body
+  if (readoutEl.value?.contains(document.activeElement))
+    stageEl.value?.focus()
   dismissed.value = true
 }
 

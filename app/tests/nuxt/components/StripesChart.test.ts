@@ -277,6 +277,29 @@ describe('the readout', () => {
     expect(readout()).toBeNull()
   })
 
+  it('gives the focus back to the chart where its Close button, which had it, goes with the readout', async () => {
+    await showChart()
+    // by a click (or Enter, which is one)
+    key('ArrowRight')
+    await nextTick()
+    const close = () => readout()!.querySelector<HTMLButtonElement>('.sc-close')!
+    close().focus()
+    expect(document.activeElement).toBe(close())
+    close().click()
+    await nextTick()
+    expect(readout()).toBeNull()
+    expect(document.activeElement).toBe(stage())
+
+    // by Escape while it has the focus
+    key('ArrowRight')
+    await nextTick()
+    close().focus()
+    document.activeElement!.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await nextTick()
+    expect(readout()).toBeNull()
+    expect(document.activeElement).toBe(stage())
+  })
+
   it('stays for a tap until it is closed, and a pointer that leaves does not take it away', async () => {
     await showChart()
     const tap = pointer('click', { clientX: xOfYear(1990), pointerType: 'touch' })
