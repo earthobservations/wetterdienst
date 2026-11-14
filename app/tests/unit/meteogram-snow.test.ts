@@ -207,6 +207,8 @@ describe('the snow panel of the model', () => {
     expect(axes.snow!.range[1]).toBeLessThan(10)
     expect(axes.snowDepth!.range[1]).toBeGreaterThan(120)
     expect(axes.snowChance!.range).toEqual([0, 100])
+    // a tenth of a centimetre of new snow is written; the depth and the chance are whole numbers
+    expect([axes.snow!.decimals, axes.snowDepth!.decimals, axes.snowChance!.decimals]).toEqual([1, 0, 0])
     expect(axes.snow).toMatchObject({ label: 'indigo', title: 'meteogram.chart.axisSnowNew\ncm' })
     expect(axes.snowDepth).toMatchObject({ label: 'teal', title: 'meteogram.chart.axisSnowDepth\ncm' })
     // the threshold on the first line and the unit of the chance on the second, like every other title

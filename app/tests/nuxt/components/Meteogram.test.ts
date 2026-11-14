@@ -1060,7 +1060,7 @@ describe('meteogram snow panel', { timeout: 15_000 }, () => {
   const snowValues = snowForecastValues({ hours: 23, offGrid: true })
   const toggles = () => [...document.body.querySelectorAll<HTMLButtonElement>('button[data-panel]')]
   const toggle = (panel: string) => toggles().find(button => button.dataset.panel === panel)!
-  const ids = () => ssr().option().series.map((series: { id: string }) => series.id)
+  const ids = (): string[] => ssr().option().series.map((series: { id: string }) => series.id)
   const credit = () => document.body.querySelector('[data-testid="meteogram-snow-credit"]')
 
   async function show(props: Record<string, unknown> = {}) {

@@ -54,30 +54,32 @@ async function bars(page: Page, colour: string) {
 }
 
 // WCAG 2.x relative luminance, and the contrast ratio of two colours
-const channels = (color: string) => {
+function channels(color: string) {
   const hex = /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(color)
   if (hex)
     return [1, 2, 3].map(i => Number.parseInt(hex[i]!, 16))
   const rgb = /^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/.exec(color)!
   return [1, 2, 3].map(i => Number(rgb[i]))
 }
-const luminance = (color: string) => {
+function luminance(color: string) {
   const [r, g, b] = channels(color).map(c => c / 255).map(c => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4))
   return 0.2126 * r! + 0.7152 * g! + 0.0722 * b!
 }
-const contrast = (a: string, b: string) => {
+function contrast(a: string, b: string) {
   const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x)
   return (hi! + 0.05) / (lo! + 0.05)
 }
 /** What the chart lies on: the background of the card that holds it, as the browser paints it */
-const paperOf = (page: Page) => page.locator('.mg-canvas').evaluate((canvas) => {
-  for (let element: Element | null = canvas; element; element = element.parentElement) {
-    const color = getComputedStyle(element).backgroundColor
-    if (color && color !== 'rgba(0, 0, 0, 0)' && color !== 'transparent')
-      return color
-  }
-  return 'rgb(255, 255, 255)'
-})
+function paperOf(page: Page) {
+  return page.locator('.mg-canvas').evaluate((canvas) => {
+    for (let element: Element | null = canvas; element; element = element.parentElement) {
+      const color = getComputedStyle(element).backgroundColor
+      if (color && color !== 'rgba(0, 0, 0, 0)' && color !== 'transparent')
+        return color
+    }
+    return 'rgb(255, 255, 255)'
+  })
+}
 
 test.describe('at a station that has a snow forecast', () => {
   test('draws the three plots, titled and in their colours, with the toggle on and the source named under the chart', async ({ page, baseURL }) => {
@@ -118,13 +120,15 @@ test.describe('at a station that has a snow forecast', () => {
 
   test('zooms with the other panels: the bars widen with the hours, as the keys zoom the whole chart', async ({ page, baseURL }) => {
     await open(page, baseURL!, SNOW_STATION, { width: 1280, height: 900 })
-    const before = (await bars(page, INDIGO.light))[0]!
+    // the widest bar: one at the edge of the window is cut by it
+    const widest = async () => Math.max(0, ...(await bars(page, INDIGO.light)).map(bar => bar.width))
+    const before = await widest()
     await figure(page).focus()
     await page.keyboard.press('+')
     await page.keyboard.press('+')
-    await expect.poll(async () => (await bars(page, INDIGO.light))[0]?.width ?? 0).toBeGreaterThan(before.width * 1.8)
+    await expect.poll(widest).toBeGreaterThan(before * 1.8)
     await page.keyboard.press('0')
-    await expect.poll(async () => (await bars(page, INDIGO.light))[0]?.width ?? 0).toBeCloseTo(before.width, 0)
+    await expect.poll(widest).toBeCloseTo(before, 0)
   })
 
   test('reads the three values of an hour that has them in the readout, and none of an hour between', async ({ page, baseURL }) => {
@@ -254,7 +258,7 @@ test.describe('the colours', () => {
       expect(contrast(INDIGO[scheme], paper), `bars on ${paper}`).toBeGreaterThanOrEqual(3)
       // the lines: the colours the series are drawn in, read from the SVG
       const strokes = await svg(page).locator('path[stroke]').evaluateAll(paths => [...new Set(paths.map(path => path.getAttribute('stroke') ?? ''))])
-      for (const stroke of strokes.filter(color => /^#/.test(color) && ['#0f766e', '#2dd4bf', '#b45309', '#daa520'].includes(color)))
+      for (const stroke of strokes.filter(color => color.startsWith('#') && ['#0f766e', '#2dd4bf', '#b45309', '#daa520'].includes(color)))
         expect(contrast(stroke, paper), `${stroke} on ${paper}`).toBeGreaterThanOrEqual(3)
       expect(strokes.some(color => ['#0f766e', '#2dd4bf'].includes(color)), 'the snow depth line').toBe(true)
       expect(strokes.some(color => ['#b45309', '#daa520'].includes(color)), 'the chance line').toBe(true)
