@@ -98,14 +98,16 @@ function lastZoom() {
 }
 
 // a pointer event as a browser gives it; happy-dom has the class and not every field
-function pointer(type: string, init: { clientX?: number, pointerType?: string, button?: number } = {}) {
-  const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: init.clientX ?? 0, clientY: 0, button: init.button ?? 0 })
+// the stripes of a chart of 600 px with a title and the availability line run from 52 to 497 px
+const STRIPES_MIDDLE = 300
+function pointer(type: string, init: { clientX?: number, clientY?: number, pointerType?: string, button?: number } = {}) {
+  const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: init.clientX ?? 0, clientY: init.clientY ?? STRIPES_MIDDLE, button: init.button ?? 0 })
   Object.defineProperty(event, 'pointerType', { value: init.pointerType ?? 'mouse' })
   Object.defineProperty(event, 'pointerId', { value: 1 })
   return event
 }
-function movePointerTo(x: number) {
-  stage().dispatchEvent(pointer('pointermove', { clientX: x }))
+function movePointerTo(x: number, y = STRIPES_MIDDLE) {
+  stage().dispatchEvent(pointer('pointermove', { clientX: x, clientY: y }))
 }
 function key(name: string, init: KeyboardEventInit = {}) {
   stage().dispatchEvent(new KeyboardEvent('keydown', { key: name, bubbles: true, cancelable: true, ...init }))
@@ -224,6 +226,38 @@ describe('the readout', () => {
     movePointerTo(xOfYear(2000))
     await nextTick()
     expect(rows().map(([name]) => name)).toEqual(['Value', 'Trend', 'Class'])
+  })
+
+  it('has none over the title, the years and the source, or the margin above the stripes, which are no stripes', async () => {
+    await showChart()
+    // the stripes: 30 px of margin and the title above the plot, the blank of the availability line's range to 52, 497 below
+    for (const y of [10, 40, 51, 498, 540, 590]) {
+      movePointerTo(xOfYear(1992), y)
+      await nextTick()
+      expect(readout(), `the pointer at ${y} px`).toBeNull()
+    }
+    movePointerTo(xOfYear(1992), 60)
+    await nextTick()
+    expect(readout()).not.toBeNull()
+    // leaving them upwards takes it away again
+    movePointerTo(xOfYear(1992), 10)
+    await nextTick()
+    expect(readout()).toBeNull()
+    // a tap there selects nothing either
+    stage().dispatchEvent(pointer('click', { clientX: xOfYear(1990), clientY: 560, pointerType: 'touch' }))
+    await nextTick()
+    expect(readout()).toBeNull()
+  })
+
+  it('starts no zoom box over the title or the years', async () => {
+    await showChart()
+    stage().dispatchEvent(pointer('pointerdown', { clientX: xOfYear(1970), clientY: 560 }))
+    stage().dispatchEvent(pointer('pointermove', { clientX: xOfYear(1980), clientY: 560 }))
+    await nextTick()
+    expect(document.body.querySelector('.sc-selection')).toBeNull()
+    stage().dispatchEvent(pointer('pointerup', { clientX: xOfYear(1980), clientY: 560 }))
+    await nextTick()
+    expect(buttonNamed('Reset zoom').disabled).toBe(true)
   })
 
   it('has none for a year without a value, or the margin', async () => {

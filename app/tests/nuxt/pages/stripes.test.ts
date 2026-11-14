@@ -298,7 +298,8 @@ const readoutRows = () => [...(readout()?.querySelectorAll('dt') ?? [])].map((dt
 /** Moves the pointer over the stripe of `year` in a chart that shows the years `first` to `last` */
 function hoverYear(year: number, first: number, last: number) {
   const x = 20 + ((year - (first - 0.5)) / (last - first + 1)) * 760
-  const event = new MouseEvent('pointermove', { bubbles: true, cancelable: true, clientX: x })
+  // in the middle of the stripes (the chart is 600 px high, and they run from 52 to 497 px)
+  const event = new MouseEvent('pointermove', { bubbles: true, cancelable: true, clientX: x, clientY: 300 })
   Object.defineProperty(event, 'pointerType', { value: 'mouse' })
   stage().dispatchEvent(event)
 }

@@ -259,7 +259,15 @@ function yearAtX(x: number): number {
   const w = win.value
   return w.start + ((x - plot.left) / plot.width) * (w.end - w.start)
 }
+function stageY(event: PointerEvent | MouseEvent): number {
+  return event.clientY - (stageEl.value?.getBoundingClientRect().top ?? 0)
+}
 const insidePlot = (x: number) => x >= layout.value.plot.left && x <= layout.value.plot.left + layout.value.plot.width
+/** Whether a point is on the stripes: the title, the years and the source around them, and the margin the availability line lies in, are not */
+function onStripes(x: number, y: number): boolean {
+  const { top, height } = layout.value.stripes
+  return insidePlot(x) && y >= top && y <= top + height
+}
 const onReadout = (event: Event) => !!readoutEl.value && event.target instanceof Node && readoutEl.value.contains(event.target)
 /** The year of the stripe at `x`, which a year without a value has none of */
 function stripeAt(x: number): number | null {
@@ -272,7 +280,7 @@ function onPointerDown(event: PointerEvent) {
   if (event.pointerType !== 'mouse' || event.button !== 0 || onReadout(event))
     return
   const x = stageX(event)
-  if (!insidePlot(x))
+  if (!onStripes(x, stageY(event)))
     return
   drag.value = { x0: x, x1: x, active: false }
   ;(event.currentTarget as HTMLElement).setPointerCapture?.(event.pointerId)
@@ -282,13 +290,14 @@ function onPointerMove(event: PointerEvent) {
     return
   const x = stageX(event)
   const plot = layout.value.plot
-  pointerY.value = event.clientY - (stageEl.value?.getBoundingClientRect().top ?? 0)
+  const y = stageY(event)
+  pointerY.value = y
   if (drag.value) {
     const clamped = Math.min(plot.left + plot.width, Math.max(plot.left, x))
     drag.value = { ...drag.value, x1: clamped, active: drag.value.active || Math.abs(clamped - drag.value.x0) >= 6 }
     return
   }
-  const year = insidePlot(x) ? stripeAt(x) : null
+  const year = onStripes(x, y) ? stripeAt(x) : null
   if (year === null) {
     if (cursorSource.value === 'pointer')
       select(null, 'pointer')
@@ -321,10 +330,11 @@ function onClick(event: MouseEvent) {
   if (onReadout(event))
     return
   const x = stageX(event)
-  if (!insidePlot(x))
+  const y = stageY(event)
+  if (!onStripes(x, y))
     return
   const year = stripeAt(x)
-  pointerY.value = event.clientY - (stageEl.value?.getBoundingClientRect().top ?? 0)
+  pointerY.value = y
   // a tap stays until it is closed or tapped away: there is no leaving a touch
   if (year !== null)
     select(year, (event as PointerEvent).pointerType === 'touch' ? 'touch' : 'pointer')
