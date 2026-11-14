@@ -27,6 +27,15 @@ Types of changes:
   Yr's (CC BY 4.0, credited under the chart). The wind arrows above the wind panel are gone; the
   barbs show the direction. (GH-4059)
 
+### Fixed
+
+- `[All pages]` On iPhone, while the search, the place dialog of "Ask the weather" or the menu sheet
+  is open, the page behind is held fixed where it stood (it aims for no bounce and no
+  pull-to-refresh, to be confirmed on a device) and gets its scroll position back when the dialog
+  closes; a back swipe with the search open closes it and leaves each page at its own position. The
+  search and the place dialog fit the part of the screen the keyboard leaves, so the field is not
+  panned away and the list's last entry stays above the keyboard (GH-3761)
+
 ## [0.49.0] - 2026-11-13
 
 ### Fixed
