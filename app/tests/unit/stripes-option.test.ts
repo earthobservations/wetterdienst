@@ -177,6 +177,12 @@ describe('the option', () => {
     expect(fills(draw(light.input, light.option))).toEqual(fills(draw(dark.input, dark.option)))
   })
 
+  it('names the first year with a stripe in the window where it starts in a gap', () => {
+    const { input } = build({ window: { start: 1961.6, end: 1989.5 } })
+    const layout = stripesLayout(input.display, input.width, input.height, 1)
+    expect(stripesTexts(input, layout).filter(spec => /^\d{4}$/.test(spec.text)).map(spec => spec.text)).toEqual(['1965', '1989'])
+  })
+
   it('names the first and the last year in the window, and puts the availability label at the first', () => {
     const { input } = build({ window: { start: 1969.5, end: 1989.5 } })
     const layout = stripesLayout(input.display, input.width, input.height, 1)

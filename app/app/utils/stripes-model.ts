@@ -114,11 +114,19 @@ export function revealYear(window: YearWindow, year: number, bounds: YearWindow)
   return clampWindow({ start, end: start + span }, bounds)
 }
 
-/** The years whose stripes' middle is in `window`: the first and the last */
-export function visibleYears(window: YearWindow, model: Pick<StripesModel, 'minYear' | 'maxYear'>): [number, number] {
-  const first = Math.max(model.minYear, Math.ceil(window.start - 1e-9))
-  const last = Math.min(model.maxYear, Math.floor(window.end + 1e-9))
-  return [first, Math.max(first, last)]
+/**
+ * The first and the last year that has a stripe whose middle is in `window`, which the chart names at its ends. Where the window
+ * starts in a gap (years without a value) the first is the first year with a stripe after it, not a year that has none. Where
+ * the model lists no years, or none is in the window, the first and the last year the window reaches.
+ */
+export function visibleYears(window: YearWindow, model: Pick<StripesModel, 'minYear' | 'maxYear'> & { years?: readonly number[] }): [number, number] {
+  const low = Math.ceil(window.start - 1e-9)
+  const high = Math.floor(window.end + 1e-9)
+  const inView = (model.years ?? []).filter(year => year >= low && year <= high)
+  if (inView.length)
+    return [Math.min(...inView), Math.max(...inView)]
+  const first = Math.max(model.minYear, low)
+  return [first, Math.max(first, Math.min(model.maxYear, high))]
 }
 
 /** Whether two windows are the same to a hundredth of a year */

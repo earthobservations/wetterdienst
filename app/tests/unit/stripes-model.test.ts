@@ -78,6 +78,18 @@ describe('the window of years', () => {
     expect(visibleYears({ start: 1959.5, end: 1979.5 }, model)).toEqual([1960, 1979])
   })
 
+  it('names a year that has a stripe at either end, not one in a gap', () => {
+    const years = Array.from({ length: 75 }, (_, i) => 1950 + i).filter(year => year < 1962 || year > 1964)
+    const full = { minYear: 1950, maxYear: 2024, years }
+    // starts at 1961.6: the stripe of 1962 is not there, and the first that is is 1965; ends in the gap the same way
+    expect(visibleYears({ start: 1961.6, end: 1990.5 }, full)).toEqual([1965, 1990])
+    expect(visibleYears({ start: 1955.5, end: 1963.4 }, full)).toEqual([1956, 1961])
+    // a window with no stripe in it names the years it reaches
+    expect(visibleYears({ start: 1961.6, end: 1964.4 }, full)).toEqual([1962, 1964])
+    // and years in any order
+    expect(visibleYears({ start: 1960, end: 1970 }, { ...full, years: [...years].reverse() })).toEqual([1960, 1970])
+  })
+
   it('clamps a window into the bounds', () => {
     expect(clampWindow({ start: 1900, end: 1910 }, bounds)).toEqual({ start: 1949.5, end: 1959.5 })
     expect(clampWindow({ start: 1900, end: 2100 }, bounds)).toEqual(bounds)
