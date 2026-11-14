@@ -141,7 +141,6 @@ const CASES: Case[] = [
       await expect(plotly(page)).toBeVisible()
     },
   },
-  },
 ]
 
 for (const chart of CASES) {
@@ -322,7 +321,6 @@ test.describe('a saved chart is the light one', () => {
     await expect(page.locator('.js-plotly-plot')).toHaveCount(2)
     await expectLight(page, await menu('PNG'))
   })
-
 })
 
 // printing: the charts are drawn light for as long as the page is printed, and a print that comes before they

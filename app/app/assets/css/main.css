@@ -448,8 +448,6 @@
   .stripes-chart {
     break-inside: avoid;
   }
-    break-inside: avoid;
-  }
   .js-plotly-plot[data-chart-scheme="dark"] .main-svg {
     background: transparent !important;
   }
