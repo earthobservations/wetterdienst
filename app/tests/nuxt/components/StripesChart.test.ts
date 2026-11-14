@@ -196,6 +196,38 @@ describe('drawing', () => {
     expect(document.body.querySelector('[role="alert"]')).toBeNull()
   })
 
+  it('puts the toolbar and the chart out of reach while it could not be drawn, and back where it is', async () => {
+    echarts.state.loadFails = true
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const shown = await mountSuspended(StripesChart, {
+      props: { values: VALUES, kind: 'temperature', unit: '°C', title: TITLE, display: DISPLAY, cameraFile: 'f' },
+      attachTo: document.body,
+    })
+    await vi.waitFor(() => expect((shown.vm as any).renderFailed).toBe(true))
+    const toolbar = document.body.querySelector('.sc-toolbar')!
+    const scroller = document.body.querySelector('.sc-scroller')!
+    expect(toolbar.hasAttribute('inert')).toBe(true)
+    expect(scroller.hasAttribute('inert')).toBe(true)
+    // the notice and its Retry are not
+    expect(document.body.querySelector('[role="alert"]')!.closest('[inert]')).toBeNull()
+
+    echarts.state.loadFails = false
+    const retry = [...document.body.querySelectorAll('button')].find(button => button.textContent?.includes('Retry'))!
+    retry.click()
+    await vi.waitFor(() => expect((shown.vm as any).renderFailed).toBe(false))
+    await nextTick()
+    expect(toolbar.hasAttribute('inert')).toBe(false)
+    expect(scroller.hasAttribute('inert')).toBe(false)
+  })
+
+  it('names the keys of the chart as ARIA writes them: the plus key is Plus, since + is the separator', async () => {
+    await showChart()
+    const shortcuts = stage().getAttribute('aria-keyshortcuts')!.split(' ')
+    expect(shortcuts).toContain('Plus')
+    expect(shortcuts.some(key => key.includes('+'))).toBe(false)
+    expect(shortcuts).toEqual(expect.arrayContaining(['ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', 'Home', 'End', '-', '0', 'Escape']))
+  })
+
   it('draws nothing where there is no year with a value', async () => {
     await mountSuspended(StripesChart, {
       props: { values: [{ timestamp: '2000-01-01T00:00:00+00:00', value: null }], kind: 'temperature', unit: '°C', title: TITLE, display: DISPLAY, cameraFile: 'f' },

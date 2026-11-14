@@ -668,7 +668,8 @@ const selectionStyle = computed(() => {
     </div>
 
     <!-- the single-pointer ways to what a drag, a pinch and the keys do (WCAG 2.5.7), named by what they do -->
-    <div class="sc-toolbar" role="group" :aria-label="t('stripes.chart.zoomGroup')">
+    <!-- inert while the chart could not be drawn: nothing to zoom, read or save of an empty chart -->
+    <div class="sc-toolbar" role="group" :aria-label="t('stripes.chart.zoomGroup')" :inert="renderFailed || undefined">
       <UButton
         icon="i-ph-caret-left" size="sm" variant="outline" color="neutral" class="shrink-0"
         :title="t('stripes.chart.earlier')" :aria-label="t('stripes.chart.earlier')" :disabled="atStart" @click="shift(-0.5)"
@@ -695,7 +696,7 @@ const selectionStyle = computed(() => {
       />
     </div>
 
-    <div class="sc-scroller" :style="{ height: `${height}px` }">
+    <div class="sc-scroller" :style="{ height: `${height}px` }" :inert="renderFailed || undefined">
       <!-- a figure, as the app's other charts, and no landmark; one tab stop for the whole chart (Chartability) -->
       <div
         ref="stageEl"
@@ -704,7 +705,7 @@ const selectionStyle = computed(() => {
         tabindex="0"
         :aria-label="label"
         :aria-describedby="[describedBy, hintId].filter(Boolean).join(' ')"
-        aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End + - 0 Escape"
+        aria-keyshortcuts="ArrowLeft ArrowRight PageUp PageDown Home End Plus - 0 Escape"
         :style="{ width: `${width}px`, height: `${height}px` }"
         @keydown="onKeydown"
         @blur.capture="onBlur"
