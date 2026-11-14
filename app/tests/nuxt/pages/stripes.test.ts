@@ -1,4 +1,7 @@
 import type { H3Event } from 'h3'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import process from 'node:process'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { createError, getQuery, setResponseStatus } from 'h3'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,9 +10,9 @@ import { UApp } from '#components'
 import { clearNuxtData, useSettings, useToast } from '#imports'
 import MapStations from '~/components/MapStations.vue'
 import StationPicker from '~/components/StationPicker.vue'
+import StripesChart from '~/components/StripesChart.vue'
 import StripesPage from '~/pages/stripes.vue'
 import { SERIES_LABEL } from '~/utils/chart-theme'
-import { plotlyLocaleConfig } from '~/utils/plotly-locale'
 
 // the placeholder of the tool before a result (GH-3850), where the result card has nothing to show yet
 const PLACEHOLDER = 'Search for a station or pick one on the map, then click “Show” to create climate stripes'
@@ -32,25 +35,68 @@ vi.mock('@vue-leaflet/vue-leaflet', async () => {
   }
 })
 
-// Plotly draws nothing in the test's document: its calls are recorded
-const plotly = vi.hoisted(() => ({
-  newPlot: vi.fn(async () => {}),
-  relayout: vi.fn(async () => {}),
-  purge: vi.fn(),
-  downloadImage: vi.fn(async () => 'stripes'),
-  Icons: { camera: { width: 1000, height: 1000, path: '' } },
-}))
-vi.mock('plotly.js-basic-dist-min', () => plotly)
-
-// The language's config as it is, a call of it that a test holds back where it is the chunk of a language that is late
-vi.mock('~/utils/plotly-locale', async (importOriginal) => {
-  const original = await importOriginal<typeof import('~/utils/plotly-locale')>()
-  return { ...original, plotlyLocaleConfig: vi.fn(original.plotlyLocaleConfig) }
+// ECharts draws nothing in the test's document: the chart on the page is a recorder, held to the option it is given. A chart
+// that has no element to draw into (the copy a saved image is made of) is the real library, drawing to an SVG string.
+const echarts = vi.hoisted(() => {
+  const chart = {
+    on: vi.fn(),
+    resize: vi.fn(),
+    setOption: vi.fn(),
+    getDom: vi.fn(),
+    dispose: vi.fn(),
+  }
+  const state = { realInit: null as null | ((...args: any[]) => any), loadFails: false }
+  const init = vi.fn((element: HTMLElement | null, ...rest: unknown[]) => {
+    if (element === null)
+      return state.realInit!(null, ...rest)
+    chart.getDom.mockReturnValue(element)
+    return chart
+  })
+  return { chart, init, state }
 })
+vi.mock('~/utils/echarts-loader', async () => {
+  const actual = await vi.importActual<typeof import('~/utils/echarts-loader')>('~/utils/echarts-loader')
+  const real = actual.loadEcharts()
+  echarts.state.realInit = (element: null, theme: unknown, options: unknown) => real.init(element as any, theme as any, options as any)
+  return {
+    loadEcharts: () => {
+      if (echarts.state.loadFails)
+        throw new Error('chunk gone')
+      return { init: echarts.init }
+    },
+  }
+})
+
+// the saved image: its rasterising needs a canvas, which the test's document has not
+const image = vi.hoisted(() => ({
+  svgToBlob: vi.fn(async () => new Blob(['image'])),
+  downloadBlob: vi.fn(),
+}))
+vi.mock('~/utils/chart-image', () => image)
 
 // Nuxt's reload of the page: the test's document does not take it
 const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
 mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
+
+// the messages of a language as its file has them (the build compiles an imported JSON of the locales)
+const messagesOf = (code: string) => JSON.parse(readFileSync(join(process.cwd(), 'i18n', 'locales', `${code}.json`), 'utf8'))
+const de = messagesOf('de')
+const deHh = messagesOf('de-hh')
+const en = messagesOf('en')
+const fr = messagesOf('fr')
+const lb = messagesOf('lb')
+
+// every test starts with a chart that has drawn nothing, and a chart whose code loads
+beforeEach(() => {
+  echarts.chart.setOption.mockReset()
+  echarts.chart.on.mockClear()
+  echarts.chart.resize.mockClear()
+  echarts.chart.dispose.mockClear()
+  echarts.init.mockClear()
+  echarts.state.loadFails = false
+  image.svgToBlob.mockClear()
+  image.downloadBlob.mockClear()
+})
 
 describe('stripes Page', () => {
   beforeEach(() => {
@@ -224,6 +270,45 @@ describe('stripes Page station map', () => {
   })
 })
 
+// the chart's drawings, and what they drew
+const drawnOptions = () => echarts.chart.setOption.mock.calls.filter(([, flags]) => flags?.notMerge).map(([option]) => option as any)
+const draws = () => drawnOptions().length
+const drawnOption = () => drawnOptions().at(-1)!
+/** The texts of an option, drawn as the library draws them */
+function textsOf(option: unknown, width = 800, height = 600) {
+  const chart = echarts.state.realInit!(null, null, { renderer: 'svg', ssr: true, width, height })
+  chart.setOption(option)
+  const svg = chart.renderToSVGString() as string
+  chart.dispose()
+  return [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1]!)
+}
+/** The fills of the stripes of an option, in the order of its years */
+function fillsOf(option: unknown) {
+  const chart = echarts.state.realInit!(null, null, { renderer: 'svg', ssr: true, width: 800, height: 600 })
+  chart.setOption(option)
+  const svg = chart.renderToSVGString() as string
+  chart.dispose()
+  return [...svg.matchAll(/<path d="M[^"]*" fill="(rgb\([^"]*\))"/g)].map(match => match[1]!)
+}
+
+// the test's document has no layout: the chart is 800 px wide, its plot from 20 to 780 px
+const stage = () => document.body.querySelector<HTMLElement>('.sc-stage')!
+const readout = () => document.body.querySelector<HTMLElement>('[data-testid="stripes-readout"]')
+const readoutRows = () => [...(readout()?.querySelectorAll('dt') ?? [])].map((dt, i) => [dt.textContent!.trim(), readout()!.querySelectorAll('dd')[i]!.textContent!.trim()])
+/** Moves the pointer over the stripe of `year` in a chart that shows the years `first` to `last` */
+function hoverYear(year: number, first: number, last: number) {
+  const x = 20 + ((year - (first - 0.5)) / (last - first + 1)) * 760
+  const event = new MouseEvent('pointermove', { bubbles: true, cancelable: true, clientX: x })
+  Object.defineProperty(event, 'pointerType', { value: 'mouse' })
+  stage().dispatchEvent(event)
+}
+const zoomButton = (name: string) => document.body.querySelector<HTMLButtonElement>(`.sc-toolbar button[aria-label="${name}"]`)!
+
+const TWO_YEARS = [
+  { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
+  { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
+]
+
 describe('stripes Page years', () => {
   const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
 
@@ -249,110 +334,67 @@ describe('stripes Page years', () => {
       process.env.TZ = zone
   })
 
-  it('labels each year as the backend gives it', async () => {
+  // the page with the station chosen and Show clicked, whatever language its button is written in
+  async function show(route: string) {
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    // as the backend writes each year's value: at the year's first moment in UTC
-    registerEndpoint('/api/stripes/values', () => ({
-      series: { station },
-      values: [
-        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
-        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
-      ],
-    }))
-    wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation&show_years=true' })
+    registerEndpoint('/api/stripes/values', () => ({ series: { station }, values: TWO_YEARS }))
+    wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
     vm.selectedStation = station
     await nextTick()
-    plotly.newPlot.mockClear()
+    echarts.chart.setOption.mockClear()
+    await vm.fetchAndPlotStripes()
+    await vi.waitFor(() => expect(draws()).toBeGreaterThan(0))
+    return vm
+  }
 
-    await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
-
-    const [, traces, layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, Array<{ x: number[] }>, { annotations: Array<{ text: string }> }]
-    expect(traces[0]!.x).toEqual([2019, 2020])
-    expect(layout.annotations.map(a => a.text)).toEqual(expect.arrayContaining(['2019', '2020']))
-  })
-
-  it('names the value and the trend of the hover texts in the active language', async () => {
-    // they read "Value:" and "Trend:" in every language (GH-2610)
-    const harness = await mountSuspended(defineComponent({
-      setup: () => ({ setLocale: useI18n().setLocale }),
-      render: () => h('div'),
-    }))
-    await (harness.vm as any).setLocale('de')
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({
-      series: { station },
-      values: [
-        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
-        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
-      ],
-    }))
-    try {
-      wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=temperature&show_timeseries=true&show_trendline=true' })
-      const vm = wrapper.vm as any
-      await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
-      vm.selectedStation = station
-      await nextTick()
-      plotly.newPlot.mockClear()
-
-      await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Anzeigen')!.trigger('click')
-      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
-
-      const [, traces] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, Array<{ hovertemplate?: string }>]
-      const hovers = traces.map(trace => trace.hovertemplate).filter(Boolean)
-      // the bar's too is formatted, as Plotly writes an unformatted number with a point in every language
-      expect(hovers).toContain('<b>%{x}</b><br>Wert: %{customdata:.2f}<extra></extra>')
-      expect(hovers).toContain('<b>%{x}</b><br>Trend: %{customdata:.2f}<extra></extra>')
-      expect(hovers.join()).not.toContain('Value')
-    }
-    finally {
-      await (harness.vm as any).setLocale('en')
-      harness.unmount()
-    }
-  })
-
-  // Plotly writes the numbers of its hover texts with the layout's separators, and a point where
-  // there are none (GH-2971)
-  it.each([
-    ['en', 'Show', /^\.,$/],
-    ['de', 'Anzeigen', /^,\.$/],
-    // the group is a no-break space, which differs by language, so only its kind is pinned
-    ['fr', 'Afficher', /^,\s$/],
-    ['pl', 'Pokaż', /^,\s$/],
-  ])('draws the chart with the separators of %s', async (language, show, separators) => {
+  async function withLocale(language: string, body: () => Promise<void>) {
     const harness = await mountSuspended(defineComponent({
       setup: () => ({ setLocale: useI18n().setLocale }),
       render: () => h('div'),
     }))
     await (harness.vm as any).setLocale(language)
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({
-      series: { station },
-      values: [
-        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
-        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
-      ],
-    }))
     try {
-      wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=temperature' })
-      const vm = wrapper.vm as any
-      await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
-      vm.selectedStation = station
-      await nextTick()
-      plotly.newPlot.mockClear()
-
-      await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === show)!.trigger('click')
-      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
-
-      const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, { separators: string }]
-      expect(layout.separators).toMatch(separators)
+      await body()
     }
     finally {
       await (harness.vm as any).setLocale('en')
       harness.unmount()
     }
+  }
+
+  it('labels each year as the backend gives it', async () => {
+    await show('/stripes?kind=precipitation&show_years=true')
+    // each year's value comes at its first moment in UTC, which is the year before in a zone west of it
+    expect(drawnOption().series[0].data.map((point: number[]) => point[0])).toEqual([2019, 2020])
+    expect(textsOf(drawnOption())).toEqual(expect.arrayContaining(['2019', '2020']))
+  })
+
+  it('names the value and the trend of the readout in the active language', async () => {
+    // they read "Value:" and "Trend:" in every language (GH-2610)
+    await withLocale('de', async () => {
+      await show('/stripes?kind=temperature&show_timeseries=true&show_trendline=true')
+      hoverYear(2019, 2019, 2020)
+      await nextTick()
+      expect(readoutRows().map(([name]) => name)).toEqual(['Wert', 'Trend', 'Klasse'])
+      expect(readout()!.textContent).not.toContain('Value')
+    })
+  })
+
+  // the numbers of the readout are written with the language's separators (GH-2971)
+  it.each([
+    ['en', '9.10'],
+    ['de', '9,10'],
+    ['fr', '9,10'],
+    ['pl', '9,10'],
+  ])('writes the numbers of the readout as %s does', async (language, expected) => {
+    await withLocale(language, async () => {
+      await show('/stripes?kind=temperature')
+      hoverYear(2019, 2019, 2020)
+      await nextTick()
+      expect(readoutRows()[0]![1]).toBe(expected)
+    })
   })
 
   it('draws the chart again in the language it is switched to', async () => {
@@ -360,28 +402,13 @@ describe('stripes Page years', () => {
       setup: () => ({ setLocale: useI18n().setLocale }),
       render: () => h('div'),
     }))
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({
-      series: { station },
-      values: [
-        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
-        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
-      ],
-    }))
     try {
-      wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=temperature' })
-      const vm = wrapper.vm as any
-      await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
-      vm.selectedStation = station
-      await nextTick()
-      plotly.newPlot.mockClear()
-      await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
-      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-      expect((plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { separators: string }])[2].separators).toBe('.,')
-
+      await show('/stripes?kind=temperature')
+      expect(textsOf(drawnOption())).toContain('Source: Deutscher Wetterdienst')
+      const before = draws()
       await (harness.vm as any).setLocale('de')
-      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
-      expect((plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { separators: string }])[2].separators).toBe(',.')
+      await vi.waitFor(() => expect(draws()).toBeGreaterThan(before))
+      expect(textsOf(drawnOption())).toContain('Quelle: Deutscher Wetterdienst')
     }
     finally {
       await (harness.vm as any).setLocale('en')
@@ -390,7 +417,7 @@ describe('stripes Page years', () => {
   })
 })
 
-// a failing Plotly load can take seconds on a busy runner, past the default test timeout
+// the loading of the chart's code can take seconds on a busy runner, past the default test timeout
 describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () => {
   const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
 
@@ -401,31 +428,25 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
   const toasts = () => [...document.body.querySelectorAll('[data-slot="title"]')].map(title => title.textContent?.trim())
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
-  afterEach(async () => {
-    // Plotly mocked back, and that mock taken up at once: vitest resolves the mocks queued for the
-    // next import in parallel, so this one, still queued, could win over the next test's own
-    vi.doMock('plotly.js-basic-dist-min', () => plotly)
-    await import('plotly.js-basic-dist-min')
+  afterEach(() => {
     vi.restoreAllMocks()
+    echarts.state.loadFails = false
     wrapper?.unmount()
     wrapper = undefined
     useToast().clear()
+    document.documentElement.classList.remove('dark')
     document.body.innerHTML = ''
   })
 
   // the page in the app's UApp, which shows its toasts, with the station chosen and Show clicked
-  async function showStripes() {
+  async function showStripes(values: Array<{ timestamp: string, value: number | null }> = TWO_YEARS) {
+    // what a test left in the settings by the options it switched does not decide what is drawn
+    const route = '/stripes?kind=precipitation&show_years=true&show_title=true&show_source=true&show_data_availability=true'
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({
-      series: { station },
-      values: [
-        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
-        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
-      ],
-    }))
+    registerEndpoint('/api/stripes/values', () => ({ series: { station }, values }))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
-    }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
+    }), { attachTo: document.body, route })
     const vm = wrapper.findComponent(StripesPage).vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
     vm.selectedStation = station
@@ -433,46 +454,44 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
     return vm
   }
+  const failDrawings = () => echarts.chart.setOption.mockImplementation(() => {
+    throw new Error('drawing failed')
+  })
+  const drawAgain = () => echarts.chart.setOption.mockReset()
+  const twenty = Array.from({ length: 20 }, (_, i) => ({ timestamp: `${2001 + i}-01-01T00:00:00+00:00`, value: i }))
 
-  it('says so where Plotly failed to load, and loads it again on Retry', async () => {
-    vi.doMock('plotly.js-basic-dist-min', () => {
-      throw new Error('chunk failed to load')
-    })
+  it('says so where the chart\'s code failed to load, and loads it again on Retry', async () => {
+    echarts.state.loadFails = true
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
-    plotly.newPlot.mockClear()
     await showStripes()
-    // the failing module loaded, which a busy runner can take a while over
     await vi.waitFor(() => expect(retry()).toBeDefined(), { timeout: 5000 })
     expect(note()).toBe('The chart could not be drawn. Its code could not be loaded. If trying again does not help, reload the page.')
     expect(logged).toHaveBeenCalledWith('The chart could not be drawn', expect.any(Error))
     // no image of stripes that are not drawn
     expect(downloadMenu()).toBeNull()
 
-    vi.doMock('plotly.js-basic-dist-min', () => plotly)
+    echarts.state.loadFails = false
     retry()!.click()
-    // the module loaded anew, which a busy runner can take a while over
     await vi.waitFor(() => expect(retry()).toBeUndefined(), { timeout: 5000 })
-    expect(plotly.newPlot).toHaveBeenCalledOnce()
+    expect(draws()).toBe(1)
     expect(downloadMenu()).not.toBeNull()
   })
 
   it('says so where drawing fails, and draws the stripes on Retry', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    plotly.newPlot.mockClear()
-    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    failDrawings()
     await showStripes()
     await vi.waitFor(() => expect(retry()).toBeDefined())
     expect(note()).toBe('The chart could not be drawn')
 
+    drawAgain()
     retry()!.click()
     await vi.waitFor(() => expect(retry()).toBeUndefined())
-    expect(plotly.newPlot).toHaveBeenCalledTimes(2)
+    expect(draws()).toBe(1)
   })
 
-  it('takes the note away with the stripes on Reset where Plotly failed to load', async () => {
-    vi.doMock('plotly.js-basic-dist-min', () => {
-      throw new Error('chunk failed to load')
-    })
+  it('takes the note away with the stripes on Reset where the code failed to load', async () => {
+    echarts.state.loadFails = true
     vi.spyOn(console, 'error').mockImplementation(() => {})
     await showStripes()
     await vi.waitFor(() => expect(retry()).toBeDefined(), { timeout: 5000 })
@@ -484,9 +503,10 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
 
   it('takes the note, and its Retry of the earlier values, away as Show fetches the stripes anew', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    failDrawings()
     const vm = await showStripes()
     await vi.waitFor(() => expect(retry()).toBeDefined())
+    drawAgain()
     // the next values held, so the fetch is still under way
     let answer!: () => void
     const answered = new Promise<void>((resolve) => {
@@ -504,30 +524,16 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     await vi.waitFor(() => expect(vm.isLoading).toBe(false))
   })
 
-  it('draws nothing where Reset came while Plotly loaded', async () => {
-    // Plotly's load held until after Reset
-    let load!: () => void
-    const loaded = new Promise<void>((resolve) => {
-      load = resolve
-    })
-    vi.doMock('plotly.js-basic-dist-min', async () => {
-      await loaded
-      return plotly
-    })
-    plotly.newPlot.mockClear()
-    plotly.purge.mockClear()
-    const vm = await showStripes()
-    // the values fetched, and their drawing waiting for Plotly
-    await vi.waitFor(() => expect(vm.hasPlot).toBe(true))
+  it('takes the chart away on Reset, and draws nothing into the cleared chart area', async () => {
+    await showStripes()
+    await vi.waitFor(() => expect(draws()).toBe(1))
+    echarts.chart.dispose.mockClear()
 
     await wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Reset')!.trigger('click')
-    load()
-
-    // the load done, and nothing drawn into the cleared chart area
-    await import('plotly.js-basic-dist-min')
+    expect(echarts.chart.dispose).toHaveBeenCalled()
     await new Promise(resolve => setTimeout(resolve, 50))
-    expect(plotly.purge).not.toHaveBeenCalled()
-    expect(plotly.newPlot).not.toHaveBeenCalled()
+    expect(draws()).toBe(1)
+    expect(document.querySelector('.sc-stage')).toBeNull()
   })
 
   it('draws the stripes again from the values it has where a display option changes, and fetches nothing', async () => {
@@ -535,150 +541,103 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
     // a request is sent as the fetch starts, so one sent for the option is seen by the redraw
     const fetched = vi.spyOn(globalThis, '$fetch')
-    plotly.newPlot.mockClear()
+    const before = draws()
 
     vm.showYears = false
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-    const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, { annotations: Array<{ text: string }> }]
-    expect(layout.annotations.map(a => a.text)).not.toContain('2020')
+    await vi.waitFor(() => expect(draws()).toBe(before + 1))
+    expect(textsOf(drawnOption())).not.toContain('2020')
     expect(fetched).not.toHaveBeenCalled()
     expect(vm.isLoading).toBe(false)
   })
 
-  it('saves the stripes drawn again off screen, the light chart whatever the page shows, and leaves the chart as it is', async () => {
+  it('saves the stripes from a copy drawn off screen, in the light theme whatever the page shows, and leaves the chart as it is', async () => {
     const vm = await showStripes()
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
-    const [shown, , shownLayout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, { annotations: Array<{ text: string }> }]
-    plotly.newPlot.mockClear()
-    plotly.purge.mockClear()
-    plotly.downloadImage.mockClear()
+    const before = echarts.chart.setOption.mock.calls.length
+    echarts.chart.dispose.mockClear()
+    echarts.init.mockClear()
+    image.svgToBlob.mockClear()
+    image.downloadBlob.mockClear()
 
     await vm.downloadStripes('png')
 
-    const [copy, traces, layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown[], { annotations: Array<{ text: string }> }]
-    expect(copy).not.toBe(shown)
-    expect(copy.getAttribute('aria-hidden')).toBe('true')
-    // the same stripes, with the same labels
-    expect(traces.length).toBeGreaterThan(0)
-    expect(layout.annotations.map(a => a.text)).toEqual(shownLayout.annotations.map(a => a.text))
-    expect(plotly.downloadImage).toHaveBeenCalledWith(copy, expect.objectContaining({ format: 'png' }))
-    // the copy is gone once saved, and the chart shown was not touched
-    expect(plotly.purge).toHaveBeenCalledWith(copy)
-    expect(copy.isConnected).toBe(false)
-    expect(plotly.purge).not.toHaveBeenCalledWith(shown)
+    // a chart of its own, with no element, which is gone once saved; the one shown was not touched
+    expect(echarts.init).toHaveBeenCalledTimes(1)
+    expect(echarts.init.mock.calls[0]![0]).toBeNull()
+    expect(echarts.chart.setOption.mock.calls.length).toBe(before)
+    expect(echarts.chart.dispose).not.toHaveBeenCalled()
+    const [svg, options] = image.svgToBlob.mock.calls[0] as unknown as [string, { format: string, width: number, height: number, scale: number }]
+    expect(options).toMatchObject({ format: 'png', width: 800, height: 600, scale: 3 })
+    expect(svg).toContain('Climate stripes (Precipitation) for Berlin-Tempelhof, Germany (1048)')
+    expect(image.downloadBlob.mock.calls[0]![1]).toBe('climate_stripes_precipitation_1048_Berlin-Tempelhof.png')
   })
 
-  // zoomed in: Plotly holds the ranges it shows, which the layout built from the data does not know
-  const zoomed = { _fullLayout: { xaxis: { range: [2019.5, 2019.9] }, yaxis: { range: [0.2, 0.8] } } }
-  const rangesOf = (layout: unknown) => layout as { xaxis: { range: number[], autorange?: boolean }, yaxis: { range: number[] } }
+  it('names the files of the menu for each format, and saves a vector at the scale of one', async () => {
+    const vm = await showStripes()
+    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
+    image.svgToBlob.mockClear()
+    image.downloadBlob.mockClear()
+    await vm.downloadStripes('jpeg')
+    await vm.downloadStripes('svg')
+    expect(image.svgToBlob.mock.calls.map(call => (call as unknown as [string, { format: string, scale: number }])[1])).toMatchObject([{ format: 'jpeg', scale: 3 }, { format: 'svg', scale: 1 }])
+    expect(image.downloadBlob.mock.calls.map(call => call[1])).toEqual([
+      'climate_stripes_precipitation_1048_Berlin-Tempelhof.jpeg',
+      'climate_stripes_precipitation_1048_Berlin-Tempelhof.svg',
+    ])
+  })
 
   it('saves the stripes at the zoom they are shown in', async () => {
-    const vm = await showStripes()
+    const vm = await showStripes(twenty)
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
-    Object.assign((plotly.newPlot.mock.lastCall as unknown as [HTMLElement])[0], zoomed)
-    plotly.newPlot.mockClear()
+    zoomButton('Zoom in').click()
+    await nextTick()
+    zoomButton('Later years').click()
+    await nextTick()
+    image.svgToBlob.mockClear()
 
     await vm.downloadStripes('png')
 
-    const [copy, , layout] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, unknown]
-    expect(copy.getAttribute('aria-hidden')).toBe('true')
-    expect(rangesOf(layout).xaxis).toMatchObject({ range: [2019.5, 2019.9], autorange: false })
-    expect(rangesOf(layout).yaxis.range).toEqual([0.2, 0.8])
+    const svg = (image.svgToBlob.mock.calls[0] as unknown as [string])[0]
+    const years = [...svg.matchAll(/<text[^>]*>(\d{4})<\/text>/g)].map(match => match[1])
+    expect(years).toHaveLength(2)
+    expect(years).not.toContain('2001')
+    expect(years.at(-1)).toBe('2020')
   })
 
-  it('draws the stripes again at the zoom they are shown in where the colour scheme switches, which a reset still goes back from', async () => {
-    await showStripes()
+  it('draws the stripes again in the dark scheme in the zoom they are shown in', async () => {
+    await showStripes(twenty)
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
-    const [shown] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
-    Object.assign(shown, zoomed)
-    plotly.newPlot.mockClear()
-    plotly.relayout.mockClear()
+    zoomButton('Zoom in').click()
+    await nextTick()
+    const before = draws()
+    const canvas = () => document.body.querySelector<HTMLElement>('.sc-canvas')!
+    expect(canvas().dataset.chartScheme).toBe('light')
+
     document.documentElement.classList.add('dark')
-    try {
-      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-      // plotted in the range of its own (Plotly takes that for the one a reset goes back to), then moved
-      expect(rangesOf((plotly.newPlot.mock.lastCall as unknown as unknown[])[2]).xaxis.range).not.toEqual([2019.5, 2019.9])
-      await vi.waitFor(() => expect(plotly.relayout).toHaveBeenCalledWith(shown, expect.objectContaining({ 'xaxis.range': [2019.5, 2019.9], 'yaxis.range': [0.2, 0.8] })))
-      expect(shown.dataset.chartScheme).toBe('dark')
-    }
-    finally {
-      document.documentElement.classList.remove('dark')
-    }
+    await vi.waitFor(() => expect(draws()).toBe(before + 1))
+    expect(canvas().dataset.chartScheme).toBe('dark')
+    // the zoom is the chart's own state: a reset is still there to go back from
+    expect(zoomButton('Reset zoom').disabled).toBe(false)
+    expect(drawnOption().dataZoom[0].endValue - drawnOption().dataZoom[0].startValue).toBeLessThan(20)
   })
 
-  it('says the scheme the chart is drawn in whatever the relayout after the plot does', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
+  it('has the camera of the toolbar save the PNG the modebar\'s had, named for the station', async () => {
     await showStripes()
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
-    const [shown] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
-    expect(shown.dataset.chartScheme).toBe('light')
-    Object.assign(shown, zoomed)
-    plotly.newPlot.mockClear()
-    plotly.relayout.mockClear()
-    // the move to the zoom fails after the chart was plotted in the colours of the dark scheme
-    plotly.relayout.mockRejectedValueOnce(new Error('relayout failed'))
-    document.documentElement.classList.add('dark')
-    try {
-      await vi.waitFor(() => expect(plotly.relayout).toHaveBeenCalledOnce())
-      await vi.waitFor(() => expect(shown.dataset.chartScheme).toBe('dark'))
-    }
-    finally {
-      document.documentElement.classList.remove('dark')
-    }
-  })
-
-  it('moves nothing of a drawing that a newer one has replaced', async () => {
-    await showStripes()
-    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
-    const [shown] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
-    Object.assign(shown, zoomed)
-    plotly.newPlot.mockClear()
-    plotly.relayout.mockClear()
-    // the drawing for the dark scheme held in Plotly, and the scheme switched back, which draws the chart again
-    let release!: () => void
-    const held = new Promise<void>((resolve) => {
-      release = resolve
-    })
-    plotly.newPlot.mockImplementationOnce(async () => {
-      await held
-    })
-    document.documentElement.classList.add('dark')
-    try {
-      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-      document.documentElement.classList.remove('dark')
-      await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
-      await vi.waitFor(() => expect(plotly.relayout).toHaveBeenCalledOnce())
-      release()
-      await new Promise(resolve => setTimeout(resolve, 50))
-      // the newer drawing's move, and none of the older one's
-      expect(plotly.relayout).toHaveBeenCalledOnce()
-      // and the scheme the chart is drawn in, not the one of the drawing that came too late
-      expect(shown.dataset.chartScheme).toBe('light')
-    }
-    finally {
-      document.documentElement.classList.remove('dark')
-    }
-  })
-
-  it('has the camera of the modebar save the same, in the place of Plotly\'s own', async () => {
-    await showStripes()
-    await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
-    const [, , , config] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement, unknown, unknown, { modeBarButtonsToRemove: string[], modeBarButtonsToAdd: { name: string, title: string, click: () => void }[], toImageButtonOptions?: unknown }]
-    expect(config.modeBarButtonsToRemove).toContain('toImage')
-    const [camera] = config.modeBarButtonsToAdd
-    expect([camera!.name, camera!.title]).toEqual(['toImage', 'Download plot as a PNG'])
-    plotly.downloadImage.mockClear()
-    camera!.click()
-    await vi.waitFor(() => expect(plotly.downloadImage).toHaveBeenCalledOnce())
-    // the size Plotly's own camera had saved, 1400 px wide at twice the size
-    expect(plotly.downloadImage).toHaveBeenCalledWith(expect.any(HTMLElement), expect.objectContaining({ format: 'png', width: 1400, scale: 2 }))
+    image.svgToBlob.mockClear()
+    image.downloadBlob.mockClear()
+    zoomButton('Download plot as a PNG').click()
+    await vi.waitFor(() => expect(image.downloadBlob).toHaveBeenCalledOnce())
+    // the size the camera has always saved, 1400 px wide at twice the size
+    expect((image.svgToBlob.mock.calls[0] as unknown as [string, unknown])[1]).toMatchObject({ format: 'png', width: 1400, height: 700, scale: 2 })
+    expect(image.downloadBlob.mock.calls[0]![1]).toBe('climate_stripes_precipitation_1048.png')
   })
 
   it('says the stripes image could not be saved where its export fails', async () => {
     const vm = await showStripes()
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
     const failed = new Error('export failed')
-    plotly.downloadImage.mockRejectedValueOnce(failed)
+    image.svgToBlob.mockRejectedValueOnce(failed)
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
 
     await vm.downloadStripes('png')
@@ -737,15 +696,21 @@ describe('stripes Page units', () => {
     if (years)
       Object.assign(vm, years)
     await nextTick()
-    plotly.newPlot.mockClear()
+    echarts.chart.setOption.mockClear()
     await showButton().trigger('click')
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    await vi.waitFor(() => expect(draws()).toBeGreaterThan(0))
     return vm
   }
-  const hovers = () => (plotly.newPlot.mock.lastCall as unknown as [HTMLElement, Array<{ hovertemplate?: string }>])[1].map(trace => trace.hovertemplate).filter(Boolean)
-  const colours = () => (plotly.newPlot.mock.lastCall as unknown as [HTMLElement, Array<{ marker?: { color?: number[] } }>])[1][0]!.marker!.color
+  // the readout of the first of the two years, which names the unit the answer says its values are in
+  async function hoveredValue() {
+    hoverYear(2019, 2019, 2020)
+    await nextTick()
+    return readoutRows()[0]![1]
+  }
+  // the colours of the stripes, which are relative to the values and do not change with the unit
+  const colours = () => fillsOf(drawnOption())
   // the sentence the figure is described by, and the head of the table of the years, behind its button
-  const sentence = () => document.getElementById(document.body.querySelector('[role="figure"]')?.getAttribute('aria-describedby') ?? '')?.textContent?.trim() ?? ''
+  const sentence = () => document.getElementById(document.body.querySelector('[role="figure"]')?.getAttribute('aria-describedby')?.split(' ')[0] ?? '')?.textContent?.trim() ?? ''
   async function tableHead() {
     await vi.waitFor(() => expect(sentence()).not.toBe(''))
     if (!document.body.querySelector('table'))
@@ -754,13 +719,13 @@ describe('stripes Page units', () => {
     return [...document.body.querySelectorAll('table thead th')].map(th => th.textContent?.trim())
   }
 
-  it('asks for degree Celsius by default, and says it in the sentence, the table and the hover text', async () => {
+  it('asks for degree Celsius by default, and says it in the sentence, the table and the readout', async () => {
     await show('/stripes?kind=temperature&show_timeseries=true')
     expect(asked.map(query => JSON.parse(query.unit_targets!))).toEqual([{ temperature: 'degree_celsius' }])
     await vi.waitFor(() => expect(sentence()).toContain('Lowest value 9.00 °C in 2019, highest value 11.00 °C in 2020.'))
     expect(await tableHead()).toContain('Value (°C)')
-    expect(hovers()).toContain('<b>%{x}</b><br>Value: %{customdata:.2f} °C<extra></extra>')
-    expect(colours()).toEqual([0, 1])
+    expect(await hoveredValue()).toBe('9.00 °C')
+    expect(colours()).toEqual(['rgb(5, 48, 97)', 'rgb(178, 24, 43)'])
   })
 
   it('asks for degree Fahrenheit where the settings choose it, and says it everywhere it writes a number', async () => {
@@ -769,9 +734,9 @@ describe('stripes Page units', () => {
     expect(asked.map(query => JSON.parse(query.unit_targets!))).toEqual([{ temperature: 'degree_fahrenheit' }])
     await vi.waitFor(() => expect(sentence()).toContain('Lowest value 48.20 °F in 2019, highest value 51.80 °F in 2020.'))
     expect(await tableHead()).toContain('Value (°F)')
-    expect(hovers()).toContain('<b>%{x}</b><br>Value: %{customdata:.2f} °F<extra></extra>')
+    expect(await hoveredValue()).toBe('48.20 °F')
     // the colours are relative, the same as in degree Celsius
-    expect(colours()).toEqual([0, 1])
+    expect(colours()).toEqual(['rgb(5, 48, 97)', 'rgb(178, 24, 43)'])
   })
 
   it('asks the precipitation stripes for the unit of precipitation', async () => {
@@ -912,7 +877,7 @@ describe('stripes Page values that could not be fetched', () => {
     await show(vm, tempelhof)
     expect(document.querySelector('[data-testid="tool-placeholder"]')).toBeNull()
     expect(document.body.textContent).toContain('Visualization')
-    expect(document.querySelector('[role="figure"]'), 'the chart\'s container is there before anything is drawn').not.toBeNull()
+    expect(document.body.textContent, 'the loading has its place in the card').toContain('Loading data')
   })
 
   it('tells the backend\'s reason in the chart area', async () => {
@@ -945,11 +910,11 @@ describe('stripes Page values that could not be fetched', () => {
       throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
     })
     registerEndpoint('/api/stripes/values', failing.handler)
-    plotly.purge.mockClear()
+    echarts.chart.dispose.mockClear()
     await show(vm, potsdam)
     // Tempelhof's stripes gone while Potsdam's are fetched
     expect(vm.hasPlot).toBe(false)
-    expect(plotly.purge).toHaveBeenCalled()
+    expect(echarts.chart.dispose).toHaveBeenCalled()
     expect(downloadMenu()).toBeNull()
 
     failing.release()
@@ -961,7 +926,9 @@ describe('stripes Page values that could not be fetched', () => {
   it('offers no image of stripes that could not be drawn, while or after they are fetched anew in vain', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     registerEndpoint('/api/stripes/values', () => values(tempelhof))
-    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    echarts.chart.setOption.mockImplementation(() => {
+      throw new Error('drawing failed')
+    })
     const vm = await mountPage()
     await show(vm, tempelhof)
     await vi.waitFor(() => expect(vm.plotFailed).toBe(true))
@@ -1006,7 +973,7 @@ describe('stripes Page values that could not be fetched', () => {
     recordRequests()
     const answer = held(() => values(tempelhof))
     registerEndpoint('/api/stripes/values', answer.handler)
-    plotly.newPlot.mockClear()
+    echarts.chart.setOption.mockClear()
     await show(vm, tempelhof)
     expect(vm.isLoading).toBe(true)
     expect(button('Reset').attributes('disabled')).toBeUndefined()
@@ -1015,7 +982,7 @@ describe('stripes Page values that could not be fetched', () => {
 
     answer.release()
     await settled()
-    expect(plotly.newPlot).not.toHaveBeenCalled()
+    expect(draws()).toBe(0)
     expect(vm.hasPlot).toBe(false)
     expect(document.body.textContent).toContain(PLACEHOLDER)
   })
@@ -1046,7 +1013,7 @@ describe('stripes Page values that could not be fetched', () => {
     recordRequests()
     const answer = held(() => values(tempelhof))
     registerEndpoint('/api/stripes/values', answer.handler)
-    plotly.newPlot.mockClear()
+    echarts.chart.setOption.mockClear()
     await show(vm, tempelhof)
     expect(vm.isLoading).toBe(true)
 
@@ -1057,7 +1024,7 @@ describe('stripes Page values that could not be fetched', () => {
     expect(button('Show').attributes('disabled')).toBeUndefined()
     answer.release()
     await settled()
-    expect(plotly.newPlot).not.toHaveBeenCalled()
+    expect(draws()).toBe(0)
     expect(vm.hasPlot).toBe(false)
     expect(vm.lastFetchedData).toBeNull()
     expect(vm.isLoading).toBe(false)
@@ -1086,8 +1053,8 @@ describe('stripes Page values that could not be fetched', () => {
   })
 })
 
-describe('stripes Page chart whose Plotly chunk a redeploy replaced', { timeout: 15_000 }, () => {
-  // A redeploy replaces Plotly's hashed chunk under an open tab: every Retry asks for the gone chunk
+describe('stripes Page chart whose code a redeploy replaced', { timeout: 15_000 }, () => {
+  // A redeploy replaces the chart's hashed chunk under an open tab: every Retry asks for the gone chunk
   // again and fails, and only reloading the page loads the new one
   const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
   const button = (label: string) => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === label)
@@ -1095,43 +1062,32 @@ describe('stripes Page chart whose Plotly chunk a redeploy replaced', { timeout:
   const hint = 'If trying again does not help, reload the page.'
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
-  afterEach(async () => {
-    // Plotly mocked back, and that mock taken up at once, as the tests above do
-    vi.doMock('plotly.js-basic-dist-min', () => plotly)
-    await import('plotly.js-basic-dist-min')
+  afterEach(() => {
     vi.restoreAllMocks()
+    echarts.state.loadFails = false
     reloadNuxtApp.mockClear()
     wrapper?.unmount()
     wrapper = undefined
     document.body.innerHTML = ''
   })
 
-  // the page with the station chosen and Show clicked, while Plotly's chunk fails to load
-  async function shownWithoutPlotly() {
-    vi.doMock('plotly.js-basic-dist-min', () => {
-      throw new Error('chunk failed to load')
-    })
+  // the page with the station chosen and Show clicked, while the chart's chunk fails to load
+  async function shownWithoutCode() {
+    echarts.state.loadFails = true
     vi.spyOn(console, 'error').mockImplementation(() => {})
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({
-      series: { station },
-      values: [
-        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
-        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
-      ],
-    }))
+    registerEndpoint('/api/stripes/values', () => ({ series: { station }, values: TWO_YEARS }))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation' })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
     vm.selectedStation = station
     await nextTick()
     button('Show')!.click()
-    // the failing module loaded, which a busy runner can take a while over
     await vi.waitFor(() => expect(button('Retry')).toBeDefined(), { timeout: 5000 })
   }
 
-  it('says to reload the page, and reloads it, where Plotly failed to load', async () => {
-    await shownWithoutPlotly()
+  it('says to reload the page, and reloads it, where the chart\'s code failed to load', async () => {
+    await shownWithoutCode()
     // the two apart, as a screen reader reads the alert
     expect(note()).toBe(`The chart could not be drawn. Its code could not be loaded. ${hint}`)
     button('Reload page')!.click()
@@ -1139,15 +1095,15 @@ describe('stripes Page chart whose Plotly chunk a redeploy replaced', { timeout:
     expect(reloadNuxtApp).toHaveBeenCalledExactlyOnceWith({ force: true })
   })
 
-  it('offers no reload once Plotly loaded and only its drawing failed', async () => {
+  it('offers no reload once the code loaded and only its drawing failed', async () => {
     // a reload loads nothing the drawing needs: Retry is the way
-    await shownWithoutPlotly()
-    vi.doMock('plotly.js-basic-dist-min', () => plotly)
-    plotly.newPlot.mockClear()
-    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    await shownWithoutCode()
+    echarts.state.loadFails = false
+    echarts.chart.setOption.mockImplementationOnce(() => {
+      throw new Error('drawing failed')
+    })
     button('Retry')!.click()
-    // the module loaded anew, which a busy runner can take a while over
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    await vi.waitFor(() => expect(echarts.chart.setOption).toHaveBeenCalledOnce(), { timeout: 5000 })
     await vi.waitFor(() => expect(note()).toBe('The chart could not be drawn'))
     expect(button('Reload page')).toBeUndefined()
   })
@@ -1285,17 +1241,14 @@ describe('stripes Page chart after a Retry', { timeout: 15_000 }, () => {
     document.body.innerHTML = ''
   })
 
-  // the stripes shown, their drawing failed, and Retry focused and pressed, its drawing held on a
-  // gate that lets it draw or fail again
+  // the stripes shown, their drawing failed, and Retry focused: what its press brings is up to the test
   async function retried() {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    plotly.newPlot.mockClear()
-    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
+    echarts.chart.setOption.mockImplementation(() => {
+      throw new Error('drawing failed')
+    })
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({
-      series: { station },
-      values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }],
-    }))
+    registerEndpoint('/api/stripes/values', () => ({ series: { station }, values: TWO_YEARS }))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
     }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
@@ -1305,35 +1258,27 @@ describe('stripes Page chart after a Retry', { timeout: 15_000 }, () => {
     await nextTick()
     await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
     await vi.waitFor(() => expect(retry()).toBeDefined())
-    let settle!: (failure?: Error) => void
-    plotly.newPlot.mockImplementationOnce(() => new Promise<void>((resolve, reject) => {
-      settle = failure => failure ? reject(failure) : resolve()
-    }))
     const button = retry()!
     button.focus()
-    button.click()
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
-    // the mock takes no arguments in its type, so its call is read as Plotly's (element)
-    const [chart] = plotly.newPlot.mock.calls[1] as unknown as [HTMLElement]
-    return { vm, button, chart, settle }
+    return { vm, button, chart: () => wrapper!.findComponent(StripesChart).vm as any }
   }
 
   it('hands the focus on to the stripes once they are drawn', async () => {
-    const { chart, settle } = await retried()
-
-    settle()
+    const { button } = await retried()
+    echarts.chart.setOption.mockReset()
+    button.click()
     await vi.waitFor(() => expect(retry()).toBeUndefined())
-    await vi.waitFor(() => expect(document.activeElement).toBe(chart))
-    // a browser focuses a div only with a tabindex, which the test's document does not ask for
-    expect(chart.getAttribute('tabindex')).toBe('-1')
+    await vi.waitFor(() => expect(document.activeElement).toBe(stage()))
+    expect(stage().getAttribute('tabindex')).toBe('0')
   })
 
   it('leaves the focus where it was moved to meanwhile', async () => {
-    const { vm, settle } = await retried()
+    const { vm, button } = await retried()
     const elsewhere = document.body.appendChild(document.createElement('button'))
+    echarts.chart.setOption.mockReset()
+    button.click()
     elsewhere.focus()
 
-    settle()
     await vi.waitFor(() => expect(vm.plotFailed).toBe(false))
     await nextTick()
     expect(retry()).toBeUndefined()
@@ -1341,10 +1286,10 @@ describe('stripes Page chart after a Retry', { timeout: 15_000 }, () => {
   })
 
   it('keeps the focus on Retry where the stripes fail again', async () => {
-    const { vm, button, settle } = await retried()
-
-    settle(new Error('drawing failed again'))
-    await vi.waitFor(() => expect(vm.plotFailures).toBe(2))
+    const { button, chart } = await retried()
+    const failures = chart().renderFailures
+    button.click()
+    await vi.waitFor(() => expect(chart().renderFailures).toBeGreaterThan(failures))
     await nextTick()
     expect(retry()).toBe(button)
     expect(document.activeElement).toBe(button)
@@ -1363,12 +1308,8 @@ describe('stripes Page chart name', { timeout: 15_000 }, () => {
   })
 
   it('names the stripes by their kind and station, as a figure', async () => {
-    plotly.newPlot.mockClear()
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({
-      series: { station },
-      values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }],
-    }))
+    registerEndpoint('/api/stripes/values', () => ({ series: { station }, values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }] }))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
     }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
@@ -1376,13 +1317,12 @@ describe('stripes Page chart name', { timeout: 15_000 }, () => {
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
     vm.selectedStation = station
     await nextTick()
+    echarts.chart.setOption.mockClear()
     await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
+    await vi.waitFor(() => expect(draws()).toBe(1))
 
-    // the mock takes no arguments in its type, so its call is read as Plotly's (element)
-    const [chart] = plotly.newPlot.mock.calls[0] as unknown as [HTMLElement]
-    expect(chart.getAttribute('role')).toBe('figure')
-    expect(chart.getAttribute('aria-label')).toBe('Climate stripes (Precipitation) for Berlin-Tempelhof, Germany (1048)')
+    expect(stage().getAttribute('role')).toBe('figure')
+    expect(stage().getAttribute('aria-label')).toBe('Climate stripes (Precipitation) for Berlin-Tempelhof, Germany (1048)')
   })
 })
 
@@ -1443,9 +1383,9 @@ describe('stripes Page text alternative', () => {
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
     vm.selectedStation = station
     await nextTick()
-    plotly.newPlot.mockClear()
+    echarts.chart.setOption.mockClear()
     await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    await vi.waitFor(() => expect(draws()).toBeGreaterThan(0))
     await vi.waitFor(() => expect(document.body.querySelector('[role="figure"]')?.getAttribute('aria-describedby')).toBeTruthy())
   }
 
@@ -1454,7 +1394,7 @@ describe('stripes Page text alternative', () => {
 
   it('describes the figure by what the stripes show, in words a screen reader reads', async () => {
     await showStripes()
-    const description = document.getElementById(figure().getAttribute('aria-describedby')!)
+    const description = document.getElementById(figure().getAttribute('aria-describedby')!.split(' ')[0]!)
     expect(description?.textContent?.trim()).toBe(
       'From 2018 to 2021. Lowest value 8.00 °C in 2018, highest value 10.00 °C in 2021. The values are in the table below the chart.',
     )
@@ -1515,7 +1455,7 @@ describe('stripes Page text alternative', () => {
   })
 })
 
-describe('stripes Page chart in the language of the page, readable, and purged at its end', () => {
+describe('stripes Page chart in the language of the page, and disposed of at its end', () => {
   const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
@@ -1539,95 +1479,58 @@ describe('stripes Page chart in the language of the page, readable, and purged a
   // what Show does, whatever language its button is written in
   async function showStripes(query = 'kind=temperature') {
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({
-      series: { station },
-      values: [
-        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
-        { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
-      ],
-    }))
+    registerEndpoint('/api/stripes/values', () => ({ series: { station }, values: TWO_YEARS }))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: `/stripes?${query}` })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
     vm.selectedStation = station
     await nextTick()
-    plotly.newPlot.mockClear()
+    echarts.chart.setOption.mockClear()
     await vm.fetchAndPlotStripes()
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    await vi.waitFor(() => expect(draws()).toBeGreaterThan(0))
   }
 
-  interface Config { locale: string, locales: Record<string, { dictionary?: Record<string, string>, format: { shortMonths: string[] } }> }
-  const configDrawn = () => (plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, unknown, Config])[3]
-
-  // Plotly's own translation of the modebar's buttons, for the language of the page (GH-3625)
+  // the title is the page's own text, and the source and the availability label are the chart's, in the language of the page
   it.each([
-    ['en', 'en-GB', undefined],
-    ['de', 'de-DE', 'Verschieben'],
-    ['de-hh', 'de-DE', 'Verschieben'],
-    ['lb', 'lb-LU', 'Verschieben'],
-  ] as const)('gives Plotly the language of %s', async (code, language, pan) => {
+    ['en', en],
+    ['de', de],
+    ['de-hh', deHh],
+    ['lb', lb],
+  ] as const)('writes the chart in the language of %s', async (code, messages) => {
     await setLocale(code)
-    await showStripes()
-    expect(configDrawn().locale).toBe(language)
-    expect(configDrawn().locales[language]!.dictionary?.Pan).toBe(pan)
-    expect(configDrawn().locales[language]!.format.shortMonths).toHaveLength(12)
-    // Plotly translates its own buttons, and the camera is the page's: it is written in the language too
-    const [added] = (configDrawn() as unknown as { modeBarButtonsToAdd: { title: string }[] }).modeBarButtonsToAdd
-    expect(added!.title).toBe(pan ? 'Graphen als PNG herunterladen' : 'Download plot as a PNG')
+    await showStripes('kind=temperature&show_data_availability=true')
+    const texts = textsOf(drawnOption())
+    expect(texts).toContain(messages.stripes.plotSource)
+    expect(texts).toContain(messages.stripes.plotDataAvailability)
+    // the buttons of the toolbar are named in it as well
+    expect(zoomButton(messages.stripes.chart.zoomIn)).not.toBeNull()
+    expect(zoomButton(messages.stripes.chart.savePng)).not.toBeNull()
   })
 
   it('draws the stripes again, with the buttons of the language it is switched to', async () => {
     await showStripes()
-    expect(configDrawn().locale).toBe('en-GB')
-    plotly.newPlot.mockClear()
+    expect(zoomButton('Zoom in')).not.toBeNull()
     await setLocale('fr')
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
-    expect(configDrawn().locale).toBe('fr-FR')
-    expect(configDrawn().locales['fr-FR']!.dictionary?.Pan).toBe('Translation')
+    await vi.waitFor(() => expect(zoomButton(fr.stripes.chart.zoomIn)).not.toBeNull())
+    expect(textsOf(drawnOption())).toContain(fr.stripes.plotSource)
   })
 
   // the label of the line of years with data is gold, which on white is 2.2:1 (GH-3618)
   it('writes the availability label in the gold that reads on the paper', async () => {
     await showStripes('kind=temperature&show_data_availability=true')
-    const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { annotations: { text: string, font: { color: string } }[] }]
-    const label = layout.annotations.find(annotation => annotation.text === 'Data availability')
-    expect(label?.font.color).toBe(SERIES_LABEL.gold.light)
+    const chart = echarts.state.realInit!(null, null, { renderer: 'svg', ssr: true, width: 800, height: 600 })
+    chart.setOption(drawnOption())
+    const svg = chart.renderToSVGString() as string
+    chart.dispose()
+    expect(svg).toMatch(new RegExp(`fill="${SERIES_LABEL.gold.light}">Data availability<`))
   })
 
-  // Plotly keeps a window `resize` listener for a chart drawn with `responsive`, which holds the chart until it is purged (GH-3619)
-  it('purges the stripes where the page goes', async () => {
+  it('disposes the chart where the page goes', async () => {
     await showStripes()
-    const [chart] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
-    plotly.purge.mockClear()
+    echarts.chart.dispose.mockClear()
     wrapper!.unmount()
     wrapper = undefined
-    expect(plotly.purge).toHaveBeenCalledWith(chart)
-  })
-
-  // The language's chunk of an older drawing comes late, after a newer drawing has drawn: the older one draws
-  // nothing (it put its language over the newer chart's), and the chart is not blank while the chunk loads
-  it('draws nothing for an older drawing whose language comes after the newer one has drawn', async () => {
-    await showStripes()
-    const vm = wrapper!.vm as any
-    const late = Promise.withResolvers<Awaited<ReturnType<typeof plotlyLocaleConfig>>>()
-    vi.mocked(plotlyLocaleConfig).mockImplementationOnce(() => late.promise)
-    plotly.newPlot.mockClear()
-    plotly.purge.mockClear()
-
-    const older = vm.plotStripes(vm.lastFetchedData)
-    await nextTick()
-    // the chart is not blank while the language loads
-    expect(plotly.purge).not.toHaveBeenCalled()
-    const newer = vm.plotStripes(vm.lastFetchedData)
-    await newer
-    expect(plotly.newPlot).toHaveBeenCalledOnce()
-    const drawn = configDrawn()
-
-    late.resolve(await (await import('~/utils/plotly-locale')).plotlyLocaleConfig('de', 'de-DE'))
-    await older
-    expect(plotly.newPlot).toHaveBeenCalledOnce()
-    expect(configDrawn()).toBe(drawn)
-    expect(plotly.purge).toHaveBeenCalledOnce()
+    expect(echarts.chart.dispose).toHaveBeenCalled()
   })
 
   // the image that is saved is in the language of the page, as the chart is
@@ -1635,22 +1538,17 @@ describe('stripes Page chart in the language of the page, readable, and purged a
     await setLocale('de')
     await showStripes()
     const vm = wrapper!.vm as any
-    plotly.newPlot.mockClear()
-    plotly.downloadImage.mockClear()
+    image.svgToBlob.mockClear()
     await vm.downloadStripes('png')
-    expect(plotly.downloadImage).toHaveBeenCalledOnce()
-    // the copy, out of sight, is the one drawn static
-    const [, , , config] = plotly.newPlot.mock.calls.find(call => (call as unknown as unknown[])[3] && ((call as unknown as unknown[])[3] as { staticPlot?: boolean }).staticPlot) as unknown as [unknown, unknown, unknown, Config & { staticPlot: boolean }]
-    expect(config.locale).toBe('de-DE')
-    expect(config.locales['de-DE']!.format.shortMonths).toHaveLength(12)
+    expect((image.svgToBlob.mock.calls[0] as unknown as [string])[0]).toContain(de.stripes.plotSource)
   })
 
-  it('purges nothing where no stripes were drawn', async () => {
+  it('disposes nothing where no stripes were drawn', async () => {
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body })
-    plotly.purge.mockClear()
+    echarts.chart.dispose.mockClear()
     wrapper.unmount()
     wrapper = undefined
-    expect(plotly.purge).not.toHaveBeenCalled()
+    expect(echarts.chart.dispose).not.toHaveBeenCalled()
   })
 })
