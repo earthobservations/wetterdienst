@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Forecast, Widget]` The forecast chart is drawn with Apache ECharts instead of Plotly, which the
+  forecast routes no longer load (160 KB less JavaScript, gzip). Every panel has a fixed height
+  and every hour a fixed width, so on a phone the chart scrolls sideways with its axes in view and
+  a rotation changes how much is seen, not its shape. All panels zoom together (a dragged box, a
+  pinch, the new buttons, `+`, `-` and `0`), the arrow keys step through the hours, and the values
+  of an hour are a readout the pointer can move onto and Escape closes. The weather symbols are
+  Yr's (CC BY 4.0, credited under the chart). The wind arrows above the wind panel are gone; the
+  barbs show the direction. (GH-4059)
+
 ### Fixed
 
 - `[All pages]` On iPhone, while the search, the place dialog of "Ask the weather" or the menu sheet

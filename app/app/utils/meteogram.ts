@@ -109,7 +109,7 @@ export function extremeWindowHours(key: string): number {
  * at `fromMs` and `toMs`, the span the chart shows. Each date has one point, the value of the window
  * that ends at or after it, so a hover at the stamp reads the window that ends there, and between a
  * window's ends it has a point at each multiple of `stepMs`, as the curve it is drawn with has, so a
- * hover finds the bound at any hour. Drawn with Plotly's `vh` line shape, each point's value is held
+ * hover finds the bound at any hour. Drawn as a step line (ECharts' `step: 'start'`), each point's value is held
  * back to the point before it and the step is at the stamp. Two windows with a window left out
  * between them (a stamp without a value) are parted by a null, which breaks the line.
  * @param dates Sorted dates of the stamps
