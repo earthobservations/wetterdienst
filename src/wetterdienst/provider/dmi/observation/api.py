@@ -113,6 +113,7 @@ _STATION_VALUE_SCHEMA = pl.Schema(
                             "value": pl.Float64,
                             "qcStatus": pl.String,
                             "validity": pl.Boolean,
+                            "noValuesInCalculation": pl.Int64,
                         }
                     ),
                 }
@@ -417,12 +418,18 @@ def _quality_flags(raw: pl.Expr) -> pl.Expr:
     ``validity`` as "whether or not the value is considered valid by the climatologists. Invalid data is
     generally not correct", and sets it ``false`` for Greenland and, rarely, Denmark. The value of such a
     record is kept and flagged ``suspect:source`` (the check ``source``, which nulls it in the mode ``hard``), unless
-    it is outside the physical range of its parameter (GH-2797). ``raw`` is the text a mapped sentinel or an
-    impossible value was written with (``raw:0`` of a calm
+    it is outside the physical range of its parameter (GH-2797). ``noValuesInCalculation``, the number of readings
+    an aggregate was computed from, follows as ``n:<count>`` (``n:2`` of a day computed from two hourly values):
+    DMI computes the values of Greenland and the Faroe Islands from however many exist, even one, so the check
+    ``source`` judges a daily, monthly or yearly value of fewer than half the readings of its period like
+    ``validity:false`` (``SOURCE_COUNTS`` in ``model/source_flags.py``, GH-4027). ``raw`` is the text a mapped
+    sentinel or an impossible value was written with (``raw:0`` of a calm
     wind, GH-2794; ``raw:-0.1`` of a trace of precipitation, GH-3621; ``raw:17802`` of a month of rain, GH-2797),
     which closes the column.
     """
-    return join_quality_flags(pl.col("qcStatus"), validity=pl.col("validity"), raw=raw)
+    return join_quality_flags(
+        pl.col("qcStatus"), validity=pl.col("validity"), n=pl.col("noValuesInCalculation"), raw=raw
+    )
 
 
 @dataclass
