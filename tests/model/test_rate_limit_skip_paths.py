@@ -13,8 +13,10 @@ meets is counted: what is held is "asked once", read off the server and not off 
 
 from __future__ import annotations
 
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from urllib.parse import urljoin, urlsplit
 
 import polars as pl
@@ -31,6 +33,7 @@ from wetterdienst.provider.dwd.derived.download import download_climate_derived_
 from wetterdienst.provider.dwd.dmo import DwdDmoRequest
 from wetterdienst.provider.dwd.observation import DwdObservationRequest, fileindex
 from wetterdienst.provider.dwd.road.api import DwdRoadRequest
+from wetterdienst.util import network
 from wetterdienst.util.network import (
     File,
     download_file,
@@ -42,6 +45,7 @@ from wetterdienst.util.response_warnings import SkipCause, begin_response, colle
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
+    from concurrent.futures import Future
     from pathlib import Path
 
 _DWD = "https://opendata.dwd.de"
@@ -295,6 +299,10 @@ def road(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> Iterator[_Dwd]:
     """Serve a road group of two files from the local server: each is a 10 byte file, which the reader leaves out."""
     from wetterdienst.provider.dwd.road import api  # noqa: PLC0415
 
+    # what is held here is the download of the group and what is skipped of it, not the decoding: the 10 byte files
+    # never reach the reader, so the check that eccodes and pdbufr are installed (`DwdRoadValues.__post_init__`) is
+    # all of BUFR these tests would otherwise need, and they run where the `bufr` extra is not installed
+    monkeypatch.setattr(api, "require_bufr", lambda _what: None)
     with serving() as server:
         settings = Settings(cache_dir=str(tmp_path / "cache"))
         for name in _ROAD_FILES:
@@ -487,31 +495,87 @@ def test_a_429_in_a_batch_of_meteofrance_resources_stops_the_retries_and_the_nex
 # --- download_files: the files that are queued are not asked once one of them is a 429 ----------------------------
 
 
-def test_the_files_still_to_begin_are_not_asked_once_a_download_is_a_429(road: _Dwd) -> None:
-    """A group of many files (a road group, the archives of a station): the queue behind a 429 is not sent."""
-    from concurrent.futures import ThreadPoolExecutor  # noqa: PLC0415
+class _GatedPool(ThreadPoolExecutor):
+    """A pool that says when a worker has taken a file and does nothing else: which worker takes which is its own."""
 
-    workers = ThreadPoolExecutor()._max_workers  # noqa: SLF001 -- how many downloads begin at once
-    names = [f"/many/{n:03d}.zip" for n in range(workers * 3)]
+    def __init__(self, max_workers: int, on_taken: Callable[[str], None]) -> None:
+        super().__init__(max_workers=max_workers)
+        self._on_taken = on_taken
+
+    def submit(self, fn: Callable[[str], File], url: str) -> Future[File]:  # ty: ignore[invalid-method-override]
+        """Tell `on_taken` the url of the file at the moment a worker takes it, before `download_files` looks at it."""
+
+        def taken() -> File:
+            self._on_taken(url)
+            return fn(url)
+
+        return super().submit(taken)
+
+
+def test_the_files_still_to_begin_are_not_asked_once_a_download_is_a_429(
+    monkeypatch: pytest.MonkeyPatch, road: _Dwd
+) -> None:
+    """A group of many files (a road group, the archives of a station): the queue behind a 429 is not sent.
+
+    How many downloads begin before the refusal is not left to how fast the threads start. The pool has `HELD + 1`
+    workers, and while every one of them has a file in hand nothing is queued past them: the first file is the 429 and
+    is answered only once the other `HELD` have been asked and are holding their answer. So the files that had begun
+    when the 429 came are known (the first `HELD + 1`), the 429 is the only worker that is free, and every file after
+    them is taken by that worker once it has recorded the refusal: the others are let go only when the last file has
+    been taken. What is read off the server is that those later files are never asked.
+    """
+    held = 2
+    names = [f"/many/{n:03d}.zip" for n in range(held + 1 + 6)]
+    begun, unbegun = names[: held + 1], names[held + 1 :]
     road.limit(names[0])
     for name in names[1:]:
-        # under way for long enough that the 429 is known before any worker comes for the next file
         road.server.contents[name] = b"x"
-        road.server.delays[name] = 0.3
     urls = [road.server.base + name for name in names]
+
+    lock = threading.Lock()
+    taken: list[str] = []
+    answered = {name: threading.Event() for name in begun[1:]}
+    release = threading.Event()
+    asked_when_released: list[list[str]] = []
+    real_download_file = download_file
+
+    def on_taken(url: str) -> None:
+        with lock:
+            taken.append(urlsplit(url).path)
+            last = len(taken) == len(names)
+        if last:
+            # the worker that took it is the one that met the 429: every file before this one was asked or was not
+            asked_when_released.append([name for name in names if road.asked(name)])
+            release.set()
+
+    def gated(url: str, **kwargs: Any) -> File:  # noqa: ANN401
+        path = urlsplit(url).path
+        file = real_download_file(url, **kwargs)
+        if path == names[0]:
+            # the answer of the 429 comes once the others have theirs and hold it
+            assert all(event.wait(30) for event in answered.values()), "the files in hand were not all asked"
+        elif path in answered:
+            answered[path].set()
+            assert release.wait(30), "the last file was never taken"
+        return file
+
+    monkeypatch.setattr(network, "ThreadPoolExecutor", lambda: _GatedPool(held + 1, on_taken))
+    monkeypatch.setattr(network, "download_file", gated)
 
     files = download_files(urls=urls, cache_dir=road.settings.cache_dir, ttl=CacheExpiry.NO_CACHE)
 
-    asked = [name for name in names if road.asked(name)]
-    assert asked == names[:workers], "only what had begun when the 429 came was asked"
+    # only what had begun when the 429 came was asked, and each of it once; the rest were taken and not asked
+    assert asked_when_released == [begun]
+    assert [road.asked(name) for name in names] == [1] * len(begun) + [0] * len(unbegun)
+    assert sorted(taken) == names
     assert [file.url for file in files] == urls
-    assert all(file.is_rate_limited for file in files[workers:])
+    assert all(file.is_rate_limited for file in [files[0], *files[len(begun) :]])
     for file in (files[0], files[-1]):
         with pytest.raises(ProviderRateLimitError) as raised:
             file.raise_if_exception()
         assert raised.value.retry_after == WAIT
     # the ones that were under way arrived
-    assert all(isinstance(file.content, BytesIO) for file in files[1:workers])
+    assert all(isinstance(file.content, BytesIO) for file in files[1 : len(begun)])
 
 
 # --- aemet: the link of the data that is refused with a 429 is no chunk let go ---------------------------------------
