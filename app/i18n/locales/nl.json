@@ -634,6 +634,18 @@
     "plotSource": "Bron: Deutscher Wetterdienst",
     "hoverValue": "Waarde",
     "hoverTrend": "Trend",
+    "chart": {
+      "zoomGroup": "De strepen zoomen en verschuiven",
+      "earlier": "Eerdere jaren",
+      "later": "Latere jaren",
+      "zoomOut": "Uitzoomen",
+      "zoomIn": "Inzoomen",
+      "resetZoom": "Zoom herstellen",
+      "savePng": "Grafiek downloaden als PNG",
+      "readoutFor": "Klimaatstreep van {year}",
+      "readoutClose": "Waarden sluiten",
+      "keysHint": "De pijltjestoetsen lopen door de jaren, Page Up en Page Down per tien jaar, Home en End naar de eerste en de laatste. Plus, min en 0 zoomen in, zoomen uit en herstellen. Escape sluit de waarden."
+    },
     "summary": "Van {from} tot {to}. Laagste waarde {min} in {minYear}, hoogste waarde {max} in {maxYear}.",
     "table": {
       "year": "Jaar",

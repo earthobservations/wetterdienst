@@ -389,6 +389,34 @@
    printed before it is redrawn prints with a transparent paper, black text and black wind barbs. A chart
    drawn light is left as it was drawn, with its series colours and its own marks. */
 @media print {
+  /* The climate stripes (ECharts, SVG) are drawn again in the light theme before the print is laid out, and are printed as
+     they show: the range of years on the screen, scaled to the width of the sheet like a picture, without the buttons, the
+     crosshair and the readout */
+  .sc-toolbar,
+  .sc-cursor,
+  .sc-selection,
+  .sc-readout {
+    display: none !important;
+  }
+  .sc-scroller,
+  .sc-stage,
+  .sc-canvas,
+  .sc-canvas > div {
+    width: 100% !important;
+    height: auto !important;
+    position: static !important;
+  }
+  /* ECharts positions its SVG absolutely in a box of the chart's size in px: on paper it is in the flow, so that the sheet
+     makes room for it and a page break falls before the chart and not through it */
+  .sc-canvas svg {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    display: block;
+  }
+  .stripes-chart {
+    break-inside: avoid;
+  }
   .js-plotly-plot[data-chart-scheme="dark"] .main-svg {
     background: transparent !important;
   }

@@ -634,6 +634,18 @@
     "plotSource": "Quelle: Deutscher Wetterdienst",
     "hoverValue": "Wert",
     "hoverTrend": "Trend",
+    "chart": {
+      "zoomGroup": "Streifen zoomen und verschieben",
+      "earlier": "Frühere Jahre",
+      "later": "Spätere Jahre",
+      "zoomOut": "Herauszoomen",
+      "zoomIn": "Hineinzoomen",
+      "resetZoom": "Zoom zurücksetzen",
+      "savePng": "Diagramm als PNG herunterladen",
+      "readoutFor": "Klimastreifen für {year}",
+      "readoutClose": "Werte schließen",
+      "keysHint": "Mit den Pfeiltasten gehst du jahresweise durch die Streifen, mit Bild auf und Bild ab in Zehnerschritten, mit Pos1 und Ende zum ersten und zum letzten. Plus, Minus und 0 vergrößern, verkleinern und setzen zurück. Esc schließt die Werte."
+    },
     "summary": "Von {from} bis {to}. Niedrigster Wert {min} im Jahr {minYear}, höchster Wert {max} im Jahr {maxYear}.",
     "table": {
       "year": "Jahr",

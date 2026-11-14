@@ -3,9 +3,10 @@ import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 import { mockBackend } from './accessibility/mock-backend'
 
-// The Plotly charts take the colours of the page (GH-3528): their paper, plot, text, grid, axis lines and
-// hover label come from the app's CSS tokens (utils/chart-theme.ts), in dark mode too, and follow a switch
-// of the colour scheme without a reload. The data colours (the series, the stripes) are not the theme's.
+// The Plotly charts (the explorer's and the forecast's) take the colours of the page (GH-3528): their paper, plot, text,
+// grid, axis lines and hover label come from the app's CSS tokens (utils/chart-theme.ts), in dark mode too, and follow a
+// switch of the colour scheme without a reload. The data colours (the series) are not the theme's. The climate stripes are
+// ECharts' and have their own spec of their colours, their image and their layout (stripes-chart.spec.ts).
 // The API is answered by the mock backend, so the spec needs nothing but the app.
 
 interface Chrome {
@@ -65,7 +66,6 @@ async function chromeOf(page: Page): Promise<Chrome> {
       plot: full.plot_bgcolor,
       svg: getComputedStyle(svg).backgroundColor,
       text: full.font.color,
-      // the stripes draw no tick labels, so their axis holds no font of its own
       tick: full.xaxis.tickfont?.color ?? null,
       // a chart that draws no zero line holds no colour for it
       zeroline: full.yaxis.zerolinecolor ?? null,
@@ -135,16 +135,6 @@ const CASES: Case[] = [
       await fetchButton(page).click()
       await expect(page.getByRole('table').first()).toBeVisible()
       await page.getByRole('button', { name: 'Show as chart', exact: true }).click()
-      await expect(plotly(page)).toBeVisible()
-    },
-  },
-  {
-    name: 'the stripes',
-    path: '/stripes?kind=temperature&station=00011',
-    zeroLine: false,
-    seriesFixed: true,
-    reach: async (page) => {
-      await fetchButton(page).click()
       await expect(plotly(page)).toBeVisible()
     },
   },
@@ -252,31 +242,6 @@ test('a zoomed chart of the explorer stays zoomed when the scheme switches', asy
   expect(await range()).toEqual(zoomed)
 })
 
-test('the focus ring of a modebar button is the page\'s own, 3:1 on the dark paper (WCAG 1.4.11)', async ({ page, baseURL, context }) => {
-  // Plotly's own is a black outline: 21:1 on white, 1.2:1 on the dark paper
-  await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'dark'))
-  await mockBackend(page, baseURL!)
-  await page.goto('/stripes?kind=temperature&station=00011')
-  await fetchButton(page).click()
-  await expect(plotly(page)).toBeVisible()
-
-  const button = page.locator('.js-plotly-plot .modebar-btn[data-attr="zoom"][data-val="reset"]')
-  await button.focus()
-  await page.keyboard.press('Shift+Tab')
-  await page.keyboard.press('Tab')
-  await expect(button).toBeFocused()
-  const ring = await button.evaluate((element) => {
-    const style = getComputedStyle(element)
-    const context = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!
-    context.fillStyle = style.outlineColor
-    context.fillRect(0, 0, 1, 1)
-    const [r, g, b] = context.getImageData(0, 0, 1, 1).data
-    return { color: `rgb(${r}, ${g}, ${b})`, width: Number.parseFloat(style.outlineWidth) }
-  })
-  expect(ring.width).toBeGreaterThanOrEqual(2)
-  expect(contrast(ring.color, (await chromeOf(page)).paper)).toBeGreaterThanOrEqual(3)
-})
-
 /** Every Plotly chart of the page: its paper, as Plotly holds it */
 const papers = (page: Page) => page.locator('.js-plotly-plot').evaluateAll(charts => charts.map(chart => (chart as any)._fullLayout.paper_bgcolor as string))
 
@@ -362,24 +327,6 @@ test.describe('a saved chart is the light one', () => {
     await expect(page.locator('.js-plotly-plot')).toHaveCount(2)
     await expectLight(page, await menu('PNG'))
   })
-
-  test('the stripes\' download menu and the camera of its modebar', async ({ page, baseURL }) => {
-    await mockBackend(page, baseURL!)
-    await page.goto('/stripes?kind=temperature&station=00011')
-    await fetchButton(page).click()
-    await expect(plotly(page)).toBeVisible()
-
-    await page.getByRole('button', { name: 'Download image' }).click()
-    const menuSaved = page.waitForEvent('download')
-    await page.getByRole('menuitem', { name: 'Download as PNG' }).click()
-    await expectLight(page, await menuSaved)
-
-    const camera = page.locator('.js-plotly-plot .modebar-btn[aria-label="Download plot as a PNG"]')
-    await expect(camera).toHaveCount(1)
-    const saved = page.waitForEvent('download')
-    await camera.click()
-    await expectLight(page, await saved)
-  })
 })
 
 // printing: the charts are drawn light for as long as the page is printed, and a print that comes before they
@@ -450,42 +397,6 @@ test('the print rules make a chart that is still dark readable, and leave one dr
   }, `chart-${scheme}`)
   expect(await styleOf('dark')).toEqual({ background: 'rgba(0, 0, 0, 0)', text: 'rgb(0, 0, 0)', barbs: 'invert(1)' })
   expect(await styleOf('light')).toEqual({ background: 'rgb(15, 23, 43)', text: 'rgb(226, 232, 240)', barbs: 'none' })
-})
-
-test('zoomed stripes stay zoomed where the scheme switches or the page is printed, and are saved as shown', async ({ page, baseURL, context }) => {
-  await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
-  await mockBackend(page, baseURL!)
-  await page.goto('/stripes?kind=temperature&station=00011')
-  await fetchButton(page).click()
-  await expect(plotly(page)).toBeVisible()
-
-  const range = () => page.locator('.js-plotly-plot').first().evaluate(chart => (chart as any)._fullLayout.xaxis.range as number[])
-  const full = await range()
-  const area = page.locator('.js-plotly-plot .nsewdrag').first()
-  await area.scrollIntoViewIfNeeded()
-  const box = (await area.boundingBox())!
-  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.5)
-  await page.mouse.down()
-  await page.mouse.move(box.x + box.width * 0.6, box.y + box.height * 0.5, { steps: 5 })
-  await page.mouse.up()
-  await expect.poll(range).not.toEqual(full)
-  const zoomed = await range()
-  const initial = () => page.locator('.js-plotly-plot').first().evaluate(chart => [(chart as any)._fullLayout.xaxis._rangeInitial0, (chart as any)._fullLayout.xaxis._rangeInitial1] as number[])
-  expect(await initial(), 'the range a reset goes back to is the full one').toEqual(full)
-
-  // the scheme switched: drawn again, in the range it was in
-  await setColorScheme(page, 'Dark')
-  await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
-  expect(await range()).toEqual(zoomed)
-  // and a reset still goes back to the full view, not to the zoom the chart was redrawn at
-  expect(await initial()).toEqual(full)
-  // printed: light, and in that range still
-  await page.emulateMedia({ media: 'print' })
-  await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeGreaterThan(0.9)
-  expect(await range()).toEqual(zoomed)
-  await page.emulateMedia({ media: 'screen' })
-  await expect.poll(async () => luminance((await chromeOf(page)).paper)).toBeLessThan(0.05)
-  expect(await range()).toEqual(zoomed)
 })
 
 test('a zoomed Forecast stays zoomed where the scheme switches, and its reset still goes back to the full view', async ({ page, baseURL, context }) => {
@@ -640,93 +551,6 @@ test('the Forecast\'s panel toggles and summary icons reach contrast in both sch
     await expect(page.locator('button[data-panel][aria-pressed="true"]')).toHaveCount(5)
   }
 })
-
-test('the stripes\' "data availability" label reaches contrast in both schemes', async ({ page, baseURL, context }) => {
-  await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
-  await mockBackend(page, baseURL!)
-  await page.goto('/stripes?kind=temperature&station=00011&show_data_availability=true')
-  await fetchButton(page).click()
-  await expect(plotly(page)).toBeVisible()
-
-  const label = () => page.locator('.js-plotly-plot').first().evaluate((chart) => {
-    const full = (chart as any)._fullLayout
-    const annotation = (full.annotations as { text: string, font: { color: string } }[]).find(a => a.text === 'Data availability')
-    return { paper: full.paper_bgcolor as string, color: annotation?.font.color }
-  })
-  for (const scheme of ['light', 'dark'] as const) {
-    if (scheme === 'dark') {
-      await setColorScheme(page, 'Dark')
-      await expect.poll(async () => luminance((await label()).paper)).toBeLessThan(0.05)
-    }
-    const { paper, color } = await label()
-    expect(color, `${scheme}: the label is drawn`).toBeTruthy()
-    expect(contrast(color!, paper), `${scheme}: ${color}`).toBeGreaterThanOrEqual(4.5)
-  }
-})
-
-// The stripes' title and source on a phone (GH-3961): the title is broken into lines where it is wider than the chart, and the
-// source has a row of its own below the years. Measured on the boxes of the drawn text, in the window sizes of a phone and a tablet.
-interface Box { left: number, top: number, right: number, bottom: number }
-
-for (const [width, scheme, availability] of [[320, 'light', true], [320, 'dark', true], [320, 'light', false], [390, 'light', true], [768, 'light', true]] as const) {
-  test(`the stripes' title is whole and their source clears the years, in a ${width} px window (${scheme}, data availability ${availability ? 'on' : 'off'})`, async ({ page, baseURL, context }) => {
-    await context.addInitScript(mode => localStorage.setItem('nuxt-color-mode', mode), scheme)
-    await page.setViewportSize({ width, height: 900 })
-    await mockBackend(page, baseURL!)
-    await page.goto(`/stripes?kind=temperature&station=00011&show_data_availability=${availability}`)
-    await fetchButton(page).click()
-    await expect(plotly(page)).toBeVisible()
-    // the title is set after the chart is drawn
-    await expect(page.locator('.js-plotly-plot text.gtitle').first()).toContainText('Climate stripes')
-
-    const boxes = await page.locator('.js-plotly-plot').first().evaluate((chart) => {
-      const box = (element: Element) => {
-        const { left, top, right, bottom } = element.getBoundingClientRect()
-        return { left, top, right, bottom }
-      }
-      const annotations = [...chart.querySelectorAll('g.annotation')].map(element => ({ text: element.textContent ?? '', box: box(element) }))
-      const title = chart.querySelector('text.gtitle')!
-      const lines = [...title.querySelectorAll('tspan')].filter(line => line.textContent?.trim())
-      return {
-        chart: box(chart),
-        // the stripes draw no tick labels: the years are annotations at the ends of the x axis
-        years: annotations.filter(annotation => /^\d{4}$/.test(annotation.text)).map(annotation => annotation.box),
-        source: annotations.find(annotation => annotation.text.startsWith('Source:'))?.box,
-        availability: annotations.find(annotation => annotation.text === 'Data availability')?.box,
-        title: lines.length ? lines.map(box) : [box(title)],
-        modebar: [...chart.querySelectorAll('.modebar-btn')].map(box),
-      }
-    })
-    const intersects = (a: Box, b: Box) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
-
-    expect(boxes.years).toHaveLength(2)
-    expect(boxes.source, 'the source is drawn').toBeTruthy()
-    for (const year of boxes.years)
-      expect(intersects(boxes.source!, year), `the source and a year: ${JSON.stringify([boxes.source, year])}`).toBe(false)
-    if (availability)
-      expect(intersects(boxes.source!, boxes.availability!), 'the source and "Data availability"').toBe(false)
-    // the source is whole inside the chart, the years above it
-    expect(boxes.source!.left).toBeGreaterThanOrEqual(boxes.chart.left)
-    expect(boxes.source!.right).toBeLessThanOrEqual(boxes.chart.right)
-    expect(boxes.source!.bottom).toBeLessThanOrEqual(boxes.chart.bottom)
-
-    for (const line of boxes.title) {
-      expect(line.left, 'the title is not cut at the left').toBeGreaterThanOrEqual(boxes.chart.left)
-      expect(line.right, 'the title is not cut at the right').toBeLessThanOrEqual(boxes.chart.right)
-      expect(line.top).toBeGreaterThanOrEqual(boxes.chart.top)
-      // a title of several lines, which a narrow chart has, is below the buttons of the modebar
-      if (boxes.title.length > 1) {
-        for (const button of boxes.modebar)
-          expect(intersects(line, button), `a line of the title and a button of the modebar: ${JSON.stringify([line, button])}`).toBe(false)
-      }
-    }
-    // the narrow chart breaks its title; a chart that holds it in one line does not
-    if (width <= 390)
-      expect(boxes.title.length, 'the title is broken into lines').toBeGreaterThan(1)
-    else
-      expect(boxes.title).toHaveLength(1)
-  })
-}
 
 // The widget's ?theme= is the widget's alone (GH-3619): the colour-mode module saves a preference to localStorage,
 // which the app reads on the same origin
