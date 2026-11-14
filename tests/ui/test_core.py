@@ -808,6 +808,7 @@ _STATUS_OF = {
     "NotFoundError": 404,
     "ParameterNotCarriedError": 400,
     "ProductFileNotFoundError": 502,
+    "ProductOutOfSeasonError": 404,
     "ProviderContractError": 500,
     "ProviderNotFoundError": 404,
     "ProviderRateLimitError": 503,
