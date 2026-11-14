@@ -156,6 +156,15 @@ class IssueNotFoundError(NotFoundError, IndexError):
     """Raised when a forecast run is asked for by an issue time the source does not list."""
 
 
+class ProductOutOfSeasonError(IssueNotFoundError):
+    """Raised when a product that DWD publishes in one season only has no run listed.
+
+    MOSMIX-SNOW (`dwd/mosmix` `hourly/snow`) is published from November to April, while there is snow, and its directory
+    is empty otherwise. Still an `IssueNotFoundError`, so a 404 and an `IndexError` as before; a caller that wants to
+    tell the season from an issue that does not exist catches this one.
+    """
+
+
 class NotEnoughDataError(RequestError):
     """Raised when what a request selects holds too little data to answer it."""
 
