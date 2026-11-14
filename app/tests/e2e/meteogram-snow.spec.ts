@@ -22,6 +22,9 @@ const CHANCE = '>10\u00A0cm new'
 const READOUT_CHANCE = 'Chance of > 10\u00A0cm new snow in 24\u00A0h'
 const READOUT_NEW = 'New snow, 3\u00A0h'
 
+// room a title keeps in its plot for a wider font than the one measured (Chrome's): 8 %
+const HEADROOM = 1.08
+
 const INDIGO = { light: '#4f46e5', dark: '#818cf8' }
 
 async function open(page: Page, baseURL: string, path = SNOW_STATION, size?: { width: number, height: number }, override: Parameters<typeof mockBackend>[2] = {}) {
@@ -336,7 +339,7 @@ test.describe('on a phone', () => {
         expect(title!.left, `${name} is cut at the left`).toBeGreaterThanOrEqual(stage.x - 0.5)
         expect(title!.right - stage.x, `${name} is under the labels`).toBeLessThanOrEqual(2 + 2 * 14 + 2)
       }
-      // each title lies inside the rows of its own plot (72, 72 and 64 px high), and never on the plot above or below
+      // each title lies inside the rows of its own plot (72 px high each), and never on the plot above or below
       const rows = await page.evaluate((chance) => {
         const texts = [...document.querySelectorAll<SVGTextElement>('.mg-canvas svg text')]
         const unit = (label: string) => texts.find(text => text.textContent === label)!.getBoundingClientRect()
@@ -344,7 +347,7 @@ test.describe('on a phone', () => {
       }, CHANCE)
       expect(rows.snow.height, 'New snow').toBeLessThanOrEqual(72)
       expect(rows.depth.height, 'Snow depth').toBeLessThanOrEqual(72)
-      expect(rows.chance.height, CHANCE).toBeLessThanOrEqual(64)
+      expect(rows.chance.height, CHANCE).toBeLessThanOrEqual(72)
       expect(rows.snow.bottom).toBeLessThan(rows.depth.top)
       expect(rows.depth.bottom).toBeLessThan(rows.chance.top)
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
@@ -391,7 +394,8 @@ test.describe('on a phone', () => {
 })
 
 // A title is turned to read up the plot, so its length is bounded by the height of the plot it names: 72 px for the new snow and the
-// depth, 64 for the chance. The longest words of the 11 languages must fit them (a title that is longer runs onto the plot next to it)
+// depth and the chance. The longest words of the 11 languages must fit them (a title that is longer runs onto the plot next to it), with
+// 8 % to spare: Firefox's font is about 6 % wider than Chrome's (the snow spec failed there at 66.8 px against a plot of 64)
 test.describe('the titles in every language, at 320 px', () => {
   const LANGUAGES = ['en', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl', 'cs', 'da']
   for (const language of LANGUAGES) {
@@ -416,9 +420,9 @@ test.describe('the titles in every language, at 320 px', () => {
         return [...byCentre.entries()].sort(([a], [b]) => a - b).map(([, height]) => height)
       })
       expect(plots).toHaveLength(8)
-      expect(plots[2]!, 'the new snow').toBeLessThanOrEqual(72)
-      expect(plots[3]!, 'the depth').toBeLessThanOrEqual(72)
-      expect(plots[4]!, 'the chance').toBeLessThanOrEqual(64)
+      expect(plots[2]!, 'the new snow').toBeLessThanOrEqual(72 / HEADROOM)
+      expect(plots[3]!, 'the depth').toBeLessThanOrEqual(72 / HEADROOM)
+      expect(plots[4]!, 'the chance').toBeLessThanOrEqual(72 / HEADROOM)
     })
   }
 })

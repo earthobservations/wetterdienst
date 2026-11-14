@@ -582,7 +582,7 @@
       "axisPressure": "Tlak {unit}",
       "axisSnowNew": "Nový sníh {unit}",
       "axisSnowDepth": "Výška {unit}",
-      "axisSnowChance": ">{amount}",
+      "axisSnowChance": ">{amount} nový",
       "tableTime": "Čas ({zone})",
       "summaryRange": "Předpověď od {from} do {to}.",
       "summaryTemperature": "Teplota od {min} do {max} {unit}.",

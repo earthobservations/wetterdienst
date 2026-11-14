@@ -239,8 +239,8 @@ describe('the snow panel of the model', () => {
   it('has the plots at their own heights in the layout, one grid for each', () => {
     const layout = chartLayout(model().panels, true)
     expect(layout.rows.map(row => row.id)).toEqual(['wind', 'precip', 'snow', 'snowDepth', 'snowChance', 'cloud', 'temp', 'pressure'])
-    expect(layout.rows.map(row => row.height)).toEqual([124, 88, 72, 72, 64, 80, 156, 84])
-    expect(PANEL_HEIGHT.snow + PANEL_HEIGHT.snowDepth + PANEL_HEIGHT.snowChance).toBe(208)
+    expect(layout.rows.map(row => row.height)).toEqual([124, 88, 72, 72, 72, 80, 156, 84])
+    expect(PANEL_HEIGHT.snow + PANEL_HEIGHT.snowDepth + PANEL_HEIGHT.snowChance).toBe(216)
   })
 
   it('is in the table of the values with a column for each series, the three steps of an hour alone having a value', () => {
@@ -301,7 +301,7 @@ describe('the snow panel drawn', () => {
   it('has a grid and an axis for each plot, in the series\' own label colours', () => {
     const { option } = build()
     // the header, then wind, precip, snow, snowDepth, snowChance, cloud, temp, pressure
-    expect(option.grid.map((g: any) => g.height).slice(1)).toEqual([124, 88, 72, 72, 64, 80, 156, 84])
+    expect(option.grid.map((g: any) => g.height).slice(1)).toEqual([124, 88, 72, 72, 72, 80, 156, 84])
     expect(option.yAxis[3].axisLabel.color).toBe(SERIES_LABEL.indigo.light)
     expect(option.yAxis[4].axisLabel.color).toBe(SERIES_LABEL.teal.light)
     expect(option.yAxis[5].axisLabel.color).toBe(SERIES_LABEL.gold.light)
