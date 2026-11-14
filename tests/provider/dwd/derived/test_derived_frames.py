@@ -247,23 +247,29 @@ def test_a_value_that_is_no_number_is_null_and_counted_not_an_error(
 
 
 @pytest.mark.parametrize(
-    ("dataset", "columns"),
+    ("dataset", "columns", "archives"),
     [
-        # the datasets that are concatenated, and the one that is joined (two files for a station), whose reader had no
-        # way to say that it has none
-        pytest.param("sunshine_duration", ("hourly", "sunshine_duration"), id="concatenated"),
-        pytest.param("radiation_global", ("hourly", "radiation_global"), id="joined"),
+        # most derived datasets have one archive for a station and period; the radiation has two, which it joins
+        pytest.param("sunshine_duration", ("hourly", "sunshine_duration"), 1, id="one-archive"),
+        pytest.param("sunshine_duration", ("hourly", "sunshine_duration"), 2, id="two-archives-concatenated"),
+        pytest.param("radiation_global", ("hourly", "radiation_global"), 2, id="two-archives-joined"),
     ],
 )
-def test_a_period_whose_every_archive_is_a_404_answers_no_rows_and_the_warnings(
-    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, dataset: str, columns: tuple[str, str]
+def test_a_period_whose_archives_are_all_a_404_answers_no_rows_and_the_warnings(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    dataset: str,
+    columns: tuple[str, str],
+    archives: int,
 ) -> None:
-    """Every archive that the listing names is gone (404): the answer is the one of a single missing archive (GH-4056).
+    """A period whose archive, or every one of its archives, is gone (404) answers no rows and the warning (GH-4056).
 
-    The reader ended in `pl.concat([])`, a `ValueError` (and in an `IndexError` for the radiation, which joins its two
-    files), where the one missing archive of a period answers no rows and the `file-skipped` warning.
+    The listing named the archives and the server then answered each with a 404. The reader went on to parse an empty
+    list and raised `ValueError` (`cannot concat empty list`), and `IndexError` for the radiation, which joins its two
+    files, so a station whose one archive was withdrawn failed the whole request instead of answering the
+    `file-skipped` warning and no rows.
     """
-    urls = [f"https://example.invalid/produkt_{dataset}_{number}.zip" for number in (1, 2)]
+    urls = [f"https://example.invalid/produkt_{dataset}_{number}.zip" for number in range(archives)]
     monkeypatch.setattr(
         dwd_derived_api, "create_file_list_for_climate_derived", lambda *_args, **_kwargs: pl.Series(urls)
     )

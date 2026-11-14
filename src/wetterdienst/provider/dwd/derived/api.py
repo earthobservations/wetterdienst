@@ -668,8 +668,8 @@ class DwdDerivedValues(TimeseriesValues):
                 remote_files, cast("Settings", stations.settings), period
             )
             if not filenames_and_files:
-                # every file of the period was a 404 (the download warned of each): the period has no rows, as one whose
-                # only file is missing has none, and there is nothing to parse or to concatenate (GH-4056)
+                # every archive of the period was a 404 (the download warned of each): the period has no rows, and
+                # there is nothing to parse or to concatenate (GH-4056)
                 dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}/{period.value}"
                 log.info(f"No data downloaded for {dataset_identifier}. Skipping period.")
                 continue
