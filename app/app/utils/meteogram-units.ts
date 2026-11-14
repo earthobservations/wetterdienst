@@ -42,6 +42,11 @@ export interface MeteogramUnits {
   digits: (quantity: Quantity) => number
   /** A name that carries the unit of its quantity (the translation has the place `{unit}` for it), trimmed where there is none */
   named: (key: string, quantity: Quantity) => string
+  /**
+   * The title of an axis, always by one rule: the name on the first line and the unit on its own second line, whatever the
+   * language, the width and the panel; a title with no unit (the translation has the place `{unit}` for it) is one line
+   */
+  title: (key: string, quantity: Quantity) => string
 }
 
 /**
@@ -76,5 +81,10 @@ export function meteogramUnits(units: Record<string, string> | undefined, t: Tra
     unitName,
     digits: quantity => digitsOf(quantity, unitOf(quantity)),
     named: (key, quantity) => t(key, { unit: unitName(quantity) }).trim(),
+    title: (key, quantity) => {
+      const unit = unitName(quantity).trim()
+      const name = t(key, { unit: '' }).trim()
+      return unit ? `${name}\n${unit}` : name
+    },
   }
 }

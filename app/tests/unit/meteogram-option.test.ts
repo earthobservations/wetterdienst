@@ -137,19 +137,19 @@ describe('the option', () => {
     expect(dark.lineStyle.color).toBe('#fca5a5')
   })
 
-  it('has a gutter as wide as the titles, the widest tick labels and the room between', () => {
+  it('has a gutter as wide as the titles (two lines, in every panel), the widest tick labels and the room between', () => {
     const { model } = build()
-    const short = (lines: 1 | 2) => ({ ...model, axes: { wind: { ...model.axes.wind!, titleLines: lines, range: [0, 18] as [number, number] } } })
+    const wind = (range: [number, number]) => ({ ...model, axes: { wind: { ...model.axes.wind!, range } } })
     // short labels fit the minimum
-    expect(gutterLeftFor(short(1))).toBe(68)
-    expect(gutterLeftFor(short(2))).toBe(68)
+    expect(gutterLeftFor(wind([0, 18]))).toBe(68)
     // the pressure's four digits and a separator: 1,013 and 1.013 have the same width
-    const wide = (lines: 1 | 2, locale: string) => gutterLeftFor({ ...model, axes: { pressure: { ...model.axes.pressure!, titleLines: lines, range: [981, 1021] as [number, number] } } }, locale)
-    expect(wide(1, 'en')).toBe(2 + 14 + 6 + Math.ceil(5.5 * 7) + 8)
-    expect(wide(2, 'de')).toBe(2 + 28 + 6 + Math.ceil(5.5 * 7) + 8)
-    expect(wide(2, 'de')).toBeGreaterThan(wide(1, 'de'))
+    const pressure = (locale: string, titleLines: 1 | 2 = 2) => gutterLeftFor({ ...model, axes: { pressure: { ...model.axes.pressure!, titleLines, range: [981, 1021] as [number, number] } } }, locale)
+    expect(pressure('en')).toBe(2 + 2 * 14 + 6 + Math.ceil(5.5 * 7) + 8)
+    expect(pressure('de')).toBe(pressure('en'))
+    // two lines everywhere: a title with no unit, of one line, does not narrow it
+    expect(pressure('en', 1)).toBe(pressure('en'))
     // and the widest of the panels decides for all
-    expect(gutterLeftFor({ ...model, axes: { wind: short(1).axes.wind, pressure: { ...model.axes.pressure!, titleLines: 1, range: [981, 1021] as [number, number] } } })).toBe(wide(1, 'en'))
+    expect(gutterLeftFor({ ...model, axes: { wind: wind([0, 18]).axes.wind, pressure: { ...model.axes.pressure!, range: [981, 1021] as [number, number] } } })).toBe(pressure('en'))
   })
 
   describe('the axes\' titles', () => {
@@ -195,6 +195,30 @@ describe('the option', () => {
       const xOf = (centres: typeof all, text: string) => centres.find(entry => entry.text === text)?.x
       expect(xOf(all, 'Wind')).toBe(xOf(narrow, 'Wind'))
     })
+
+    for (const width of [320, 390, 800]) {
+      for (const locale of ['de', 'en']) {
+        it(`have the unit on a line of its own, after the name, in every panel, at ${width} px in ${locale === 'de' ? 'German' : 'English'}`, () => {
+          const built = build({ width, locale, translate: locale === 'de' ? german : t })
+          // every line of the titles, turned to read upwards: matrix(0,-1,1,0,x,y), the lines of a title at the one y of its panel
+          const lines = [...draw(built).matchAll(/<text[^>]*transform="matrix\(0,-1,1,0,([\d.-]+),([\d.-]+)\)"[^>]*>([^<]*)<\/text>/g)]
+            .map(match => ({ x: Number(match[1]), y: Math.round(Number(match[2])), text: match[3]! }))
+            .filter(line => line.x < 40)
+          const panels = new Map<number, typeof lines>()
+          for (const line of lines)
+            panels.set(line.y, [...(panels.get(line.y) ?? []), line].sort((a, b) => a.x - b.x))
+          // the five panels, each of exactly two lines: the name, then the unit, side by side
+          expect(panels.size).toBe(5)
+          const units = ['m/s', 'mm', '%', '°C', 'hPa']
+          expect([...panels.entries()].sort(([a], [b]) => a - b).map(([, parts]) => parts.map(part => part.text).at(-1))).toEqual(units)
+          for (const parts of panels.values()) {
+            expect(parts.map(part => part.text), JSON.stringify(parts)).toHaveLength(2)
+            expect(units).not.toContain(parts[0]!.text)
+            expect(parts[1]!.x - parts[0]!.x).toBe(14)
+          }
+        })
+      }
+    }
 
     it('are written along their panels, upwards, in the colour of their series', () => {
       const svg = draw(build({ locale: 'de', translate: german }))

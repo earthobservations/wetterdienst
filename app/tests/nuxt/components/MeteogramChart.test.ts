@@ -393,7 +393,8 @@ describe('the readout', { timeout: 15_000 }, () => {
 
   it('stays after a tap, until it is closed', async () => {
     await showChart()
-    const tap = pointer('click', { clientX: 168, clientY: 200, pointerType: 'touch' })
+    // 100 px into the plot
+    const tap = pointer('click', { clientX: gutter() + 100, clientY: 200, pointerType: 'touch' })
     stage().dispatchEvent(tap)
     await flushPromises()
     expect(readout()!.textContent).toContain('Thu 01/10 12:00')
@@ -431,12 +432,12 @@ describe('the readout', { timeout: 15_000 }, () => {
     await showChart()
     // the element under the pointer gets each move: a readout beside the crosshair would be under the pointer after a few pixels,
     // and the moves over it are the readout's, which froze the crosshair
-    for (let x = 118; x <= 230; x += 3) {
+    for (let x = gutter() + 50; x <= gutter() + 162; x += 3) {
       movePointerTo(x, 300)
       await nextTick()
     }
     await flushPromises()
-    // 230 px is 16.2 hours in: the 16th hour, 18:00 in Berlin
+    // 162 px into the plot is 16.2 hours in: the 16th hour, 18:00 in Berlin
     expect(readout()!.textContent).toContain('Thu 01/10 18:00')
   })
 

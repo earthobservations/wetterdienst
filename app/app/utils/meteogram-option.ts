@@ -25,6 +25,8 @@ export const HOUR_LABEL_HALF_WIDTH = 18
 /** The titles of the axes: the left of their block, and the width of a line of them; and what the tick labels are made of */
 export const TITLE_LEFT = 2
 export const TITLE_LINE_PX = 14
+/** The lines of the block of the titles in every panel, language and width: the name, and the unit on its own line */
+export const TITLE_LINES = 2
 export const TITLE_TO_LABELS = 6
 export const LABEL_MARGIN = 8
 export const LABEL_CHAR_PX = 7
@@ -200,7 +202,7 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
   // The axes' titles, along their panels at the very left of the chart: the same place whatever the width of the tick labels, which
   // the gutter is made as wide as (`gutterLeftFor`), so that no title is pushed out of the chart or onto a label
   if (rows.length) {
-    const blockLines = Math.max(...rows.map(row => model.axes[row.id]!.titleLines))
+    const blockLines = TITLE_LINES
     series.push({
       id: 'axis-titles',
       type: 'custom',
@@ -412,14 +414,14 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
 }
 
 /**
- * The width of the left gutter: the titles (a block of one or two lines at the very left), the tick labels (as wide as the widest of
+ * The width of the left gutter: the titles (a block of two lines at the very left, the same everywhere), the tick labels (as wide as the widest of
  * all the panels', in the language's digits and separators) and the room between. At least `GUTTER_LEFT`.
  */
 export function gutterLeftFor(model: MeteogramModel, locale = 'en'): number {
   const axes = Object.values(model.axes).filter((axis): axis is NonNullable<typeof axis> => !!axis)
   if (!axes.length)
     return GUTTER_LEFT
-  const lines = Math.max(...axes.map(axis => axis.titleLines))
+  const lines = TITLE_LINES
   const tag = withData(locale, Intl.NumberFormat.supportedLocalesOf)
   let chars = 0
   for (const axis of axes) {

@@ -14,9 +14,8 @@ import type { Sky } from './weather-symbols'
 import { DateTime } from 'luxon'
 import { formatDayMonth, weekdayShort } from './format'
 import { extremeWindowHours, extremeWindowSteps, findNearestIndex, interpSeries, METEOGRAM_SERIES, resampleCadenceMs, wetBulbApprox } from './meteogram'
-import { HOUR_MS, PANEL_HEIGHT, PANEL_ORDER } from './meteogram-geometry'
+import { HOUR_MS, PANEL_ORDER } from './meteogram-geometry'
 import { findFirstAvailable } from './meteogram-series'
-import { fitAxisTitle } from './meteogram-ticks'
 import { weatherCodeToKind } from './weather-kind'
 
 /** The sun, as `suncalc` has it: loaded when the chart is first drawn */
@@ -221,7 +220,7 @@ function thinning(times: number[], zone: string): { cadence: number, index: numb
 /** Everything the chart draws; null where the forecast has no value to draw */
 export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   const { series, panels: shownPanels, horizonHours, zone, language, coords, sun, units, t } = input
-  const { canon, shown, stretch, named } = units
+  const { canon, shown, stretch, named, title } = units
   const available = new Set(series.keys())
   const key = (names: readonly string[]) => findFirstAvailable(names, available)
 
@@ -538,13 +537,13 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   range.temp = [tempMinY - degree, tempMaxY + 3 * degree]
   range.pressure = [pressureMin - 2 * hectopascal, pressureMax + 2 * hectopascal]
 
-  // the axes' titles: along their panel, which a long one does not fit (German "Niederschlag mm"): broken into two lines
+  // the axes' titles: along their panel, the name on the first line and the unit on its own second line in every panel
   const titleTexts: Record<PanelName, string> = {
-    wind: named('meteogram.chart.axisWind', 'speed'),
-    precip: named('meteogram.chart.axisPrecip', 'precipitation'),
-    cloud: named('meteogram.chart.axisCloud', 'fraction'),
-    temp: named('meteogram.chart.axisTemp', 'temperature'),
-    pressure: named('meteogram.chart.axisPressure', 'pressure'),
+    wind: title('meteogram.chart.axisWind', 'speed'),
+    precip: title('meteogram.chart.axisPrecip', 'precipitation'),
+    cloud: title('meteogram.chart.axisCloud', 'fraction'),
+    temp: title('meteogram.chart.axisTemp', 'temperature'),
+    pressure: title('meteogram.chart.axisPressure', 'pressure'),
   }
   const labelColour: Record<PanelName, AxisSpec['label']> = { wind: 'cyan', precip: 'blue', cloud: 'slate', temp: 'red', pressure: 'lime' }
   const decimalsOf = (panel: PanelName, quantity: Quantity) => ({ wind: Math.min(1, units.digits(quantity)), precip: Math.min(2, units.digits(quantity) + 1), cloud: 0, temp: 0, pressure: 0 })[panel]
@@ -552,12 +551,11 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   const splitsOf: Record<PanelName, number> = { wind: 3, precip: 2, cloud: 2, temp: 3, pressure: 2 }
   const axes: Partial<Record<PanelName, AxisSpec>> = {}
   for (const panel of panels) {
-    const fit = fitAxisTitle(titleTexts[panel], PANEL_HEIGHT[panel], 12)
     axes[panel] = {
       panel,
       range: range[panel]!,
-      title: fit.text.replace('<br>', '\n'),
-      titleLines: fit.lines,
+      title: titleTexts[panel],
+      titleLines: titleTexts[panel].includes('\n') ? 2 : 1,
       label: labelColour[panel],
       decimals: decimalsOf(panel, quantityOf[panel]),
       splits: splitsOf[panel],
