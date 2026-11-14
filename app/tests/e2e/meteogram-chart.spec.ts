@@ -417,3 +417,36 @@ test.describe('the colours', () => {
     await expect(credit.getByRole('link', { name: 'Yr' })).toHaveAttribute('href', 'https://github.com/nrkno/yr-weather-symbols')
   })
 })
+
+// A chart that prints as an empty box (GH-4080): ECharts lays its SVG out `position: absolute` in a box that has no
+// height of its own, so on paper the box was 0 px high with `overflow: hidden` and the panels, bars and tick labels
+// were clipped away. The print medium is emulated, which Firefox does as well; the PDF is held in chart-print.spec.ts.
+test.describe('on paper', () => {
+  test('the chart has a box of its own height, with its y-axis tick labels inside it', async ({ page, baseURL }) => {
+    await open(page, baseURL!, PAGE, { width: 1440, height: 1000 })
+    await page.emulateMedia({ media: 'print' })
+    const layout = await page.evaluate(() => {
+      const chart = document.querySelector('.mg-canvas svg')!
+      const box = chart.parentElement!.getBoundingClientRect()
+      const drawn = chart.getBoundingClientRect()
+      // the numbers of the axes: 0, 5, 10, 0.5, 50
+      const ticks = [...chart.querySelectorAll('text')]
+        .filter(text => /^-?\d+(?:\.\d+)?$/.test(text.textContent?.trim() ?? ''))
+        .map(text => text.getBoundingClientRect())
+      return {
+        position: getComputedStyle(chart).position,
+        boxHeight: box.height,
+        drawnHeight: drawn.height,
+        ticks: ticks.length,
+        // the labels the box does not hold: clipped by it (`overflow: hidden`) when it is shorter than the SVG
+        outside: ticks.filter(tick => tick.top < box.top - 1 || tick.bottom > box.bottom + 1).length,
+      }
+    })
+    expect(layout.position, 'the SVG is in the flow, not absolute').toBe('static')
+    // the panels of the chart, not the 26 px of the credit line
+    expect(layout.boxHeight, 'the height of the chart box in print').toBeGreaterThan(200)
+    expect(layout.boxHeight).toBeGreaterThanOrEqual(layout.drawnHeight - 1)
+    expect(layout.ticks, 'tick labels of the y axes').toBeGreaterThan(5)
+    expect(layout.outside, 'tick labels outside the chart box').toBe(0)
+  })
+})
