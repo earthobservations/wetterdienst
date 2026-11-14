@@ -22,6 +22,12 @@ export const LABEL_SPACING = 46
 export const SYMBOL_SIZE = 30
 /** Half the width of a label of the time axis, in px */
 export const HOUR_LABEL_HALF_WIDTH = 18
+/** The titles of the axes: the left of their block, and the width of a line of them; and what the tick labels are made of */
+export const TITLE_LEFT = 2
+export const TITLE_LINE_PX = 14
+export const TITLE_TO_LABELS = 6
+export const LABEL_MARGIN = 8
+export const LABEL_CHAR_PX = 7
 
 /** The colours of the series: the line and the wash under it, in the light and the dark scheme */
 const TONES: Record<Tone, { light: string, dark: string, fillLight?: string, fillDark?: string }> = {
@@ -126,17 +132,12 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
         color: labelColour,
         fontSize: 12,
         fontFamily,
-        margin: 8,
+        margin: LABEL_MARGIN,
         // the top of a panel is where the panel above ends: its label would touch that one's bottom label, and the
         // ticks that remain are round numbers
         showMaxLabel: false,
         formatter: (value: number) => format.format(value),
       },
-      name: axis.title,
-      nameLocation: 'middle',
-      nameRotate: 90,
-      nameGap: axis.titleLines === 2 ? 60 : 52,
-      nameTextStyle: { color: labelColour, fontSize: 12, fontFamily, lineHeight: 14 },
     })
   })
 
@@ -150,14 +151,14 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
       if (day.light)
         data.push([BACKDROP.band, day.light[0], day.light[1], day.cloud])
       if (day.start > model.minTime)
-        data.push([BACKDROP.midnight, day.start, 0, 0])
+        data.push([BACKDROP.midnight, day.start, day.start, 0])
     }
     if (now !== null)
-      data.push([BACKDROP.now, now, 0, 0])
+      data.push([BACKDROP.now, now, now, 0])
     if (row.id === 'temp' && model.freezing !== null)
-      data.push([BACKDROP.freeze, 0, model.freezing, 0])
+      data.push([BACKDROP.freeze, bounds.start, bounds.end, model.freezing])
     if (i < rows.length - 1)
-      data.push([BACKDROP.divider, 0, 0, 0])
+      data.push([BACKDROP.divider, bounds.start, bounds.end, 0])
     series.push({
       id: `backdrop-${row.id}`,
       type: 'custom',
@@ -166,6 +167,8 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
       silent: true,
       z: 1,
       animation: false,
+      // the time of a row is its second and third dimension: the zoom keeps a row that is in the window at either
+      encode: { x: [1, 2], y: 3 },
       data,
       renderItem: (params: any, api: any) => {
         const cs = params.coordSys
@@ -184,7 +187,7 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
           return { type: 'line', silent: true, shape: { x1: x, y1: cs.y, x2: x, y2: cs.y + cs.height }, style: { stroke: isNow ? nowColour : midnightColour, lineWidth: isNow ? 1.5 : 1, lineDash: isNow ? undefined : [2, 3] } }
         }
         if (kind === BACKDROP.freeze) {
-          const y = api.coord([0, api.value(2)])[1]
+          const y = api.coord([0, api.value(3)])[1]
           return { type: 'line', silent: true, shape: { x1: left, y1: y, x2: right, y2: y }, style: { stroke: theme.zeroline, lineWidth: 1 } }
         }
         // the divider under the panel, from the edge of the chart to the edge
@@ -193,6 +196,43 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
       },
     })
   })
+
+  // The axes' titles, along their panels at the very left of the chart: the same place whatever the width of the tick labels, which
+  // the gutter is made as wide as (`gutterLeftFor`), so that no title is pushed out of the chart or onto a label
+  if (rows.length) {
+    const blockLines = Math.max(...rows.map(row => model.axes[row.id]!.titleLines))
+    series.push({
+      id: 'axis-titles',
+      type: 'custom',
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+      silent: true,
+      z: 5,
+      animation: false,
+      // a row for the whole forecast, which every window holds some of
+      encode: { x: [1, 2], y: 0 },
+      data: rows.map((_row, i) => [i, bounds.start, bounds.end]),
+      renderItem: (_params: any, api: any) => {
+        const row = rows[api.value(0)]!
+        const axis = model.axes[row.id]!
+        const colour = axis.label === 'slate' ? theme.textMuted : seriesLabelColor(axis.label, dark)
+        const lines = axis.title.split('\n')
+        // the lines side by side in a block as wide as the widest title has lines, a shorter title in the middle of it
+        const first = TITLE_LEFT + (TITLE_LINE_PX * (blockLines - lines.length)) / 2 + TITLE_LINE_PX / 2
+        return {
+          type: 'group',
+          silent: true,
+          children: lines.map((line, k) => ({
+            type: 'group',
+            x: first + k * TITLE_LINE_PX,
+            y: row.top + row.height / 2,
+            rotation: Math.PI / 2,
+            children: [{ type: 'text', silent: true, style: { text: line, x: 0, y: 0, fill: colour, font: `12px ${fontFamily}`, textAlign: 'center', textVerticalAlign: 'middle' } }],
+          })),
+        }
+      },
+    })
+  }
 
   // the lines and bars
   const lineSeries = (s: DrawnSeries): any => {
@@ -272,6 +312,7 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
     silent: true,
     z: 5,
     animation: false,
+    encode: { x: [1, 2], y: 3 },
     data: model.days.map((d, i) => [d.noon, d.start, d.end, i]),
     renderItem: (params: any, api: any) => {
       const cs = params.coordSys
@@ -355,7 +396,9 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
       xAxisIndex: xIndexes,
       startValue: win.start,
       endValue: win.end,
-      filterMode: 'none',
+      // the data outside the window is dropped but for the point on each side that the lines reach, so that a scroll or a
+      // zoom does the work of the hours that are shown and not of the ten days (a series is kept where any of its time dimensions is in)
+      filterMode: 'weakFilter',
       // a drag is a zoom box or the scroll, a wheel the page's: a pinch, and Ctrl and the wheel (a trackpad's pinch), zoom
       zoomOnMouseWheel: 'ctrl',
       moveOnMouseMove: false,
@@ -368,7 +411,21 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
   }
 }
 
-/** The label of the left gutter: wider where an axis title takes two lines */
-export function gutterLeftFor(model: MeteogramModel): number {
-  return GUTTER_LEFT + (Object.values(model.axes).some(axis => axis?.titleLines === 2) ? 16 : 0)
+/**
+ * The width of the left gutter: the titles (a block of one or two lines at the very left), the tick labels (as wide as the widest of
+ * all the panels', in the language's digits and separators) and the room between. At least `GUTTER_LEFT`.
+ */
+export function gutterLeftFor(model: MeteogramModel, locale = 'en'): number {
+  const axes = Object.values(model.axes).filter((axis): axis is NonNullable<typeof axis> => !!axis)
+  if (!axes.length)
+    return GUTTER_LEFT
+  const lines = Math.max(...axes.map(axis => axis.titleLines))
+  const tag = withData(locale, Intl.NumberFormat.supportedLocalesOf)
+  let chars = 0
+  for (const axis of axes) {
+    const format = new Intl.NumberFormat(tag, { maximumFractionDigits: axis.decimals })
+    chars = Math.max(chars, format.format(axis.range[0]).length, format.format(axis.range[1]).length)
+  }
+  const labels = Math.ceil((chars + 0.5) * LABEL_CHAR_PX)
+  return Math.max(GUTTER_LEFT, TITLE_LEFT + lines * TITLE_LINE_PX + TITLE_TO_LABELS + labels + LABEL_MARGIN)
 }

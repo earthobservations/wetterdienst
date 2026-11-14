@@ -59,6 +59,23 @@ export function createSsrEcharts() {
     svg: () => svg,
     /** The texts of the last drawing, in order */
     texts: () => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1]!.replaceAll('&amp;', '&')),
+    /**
+     * The titles of the axes of the last drawing, from the top panel down: the words turned to read upwards, the lines of a
+     * title that is broken in two joined by a space, and the colour of the first
+     */
+    axisTitles: () => {
+      const lines = [...svg.matchAll(/<text([^>]*)>([^<]*)<\/text>/g)]
+        .map(match => ({ attributes: match[1]!, text: match[2]!.replaceAll('&amp;', '&') }))
+        .map(({ attributes, text }) => {
+          const turned = /transform="translate\(([\d.-]+) ([\d.-]+)\)[^"]*rotate\(/.exec(attributes) ?? /transform="matrix\(0,-1,1,0,([\d.-]+),([\d.-]+)\)/.exec(attributes)
+          return turned ? { x: Number(turned[1]), y: Math.round(Number(turned[2])), text, fill: /fill="([^"]*)"/.exec(attributes)?.[1] ?? '' } : null
+        })
+        .filter((line): line is NonNullable<typeof line> => line !== null)
+      const panels = new Map<number, typeof lines>()
+      for (const line of lines)
+        panels.set(line.y, [...(panels.get(line.y) ?? []), line].sort((a, b) => a.x - b.x))
+      return [...panels.entries()].sort(([a], [b]) => a - b).map(([, parts]) => ({ text: parts.map(part => part.text).join(' '), fill: parts[0]!.fill }))
+    },
     /** The option of the last drawing */
     option: () => setOption.mock.lastCall![0] as any,
     clear: () => {

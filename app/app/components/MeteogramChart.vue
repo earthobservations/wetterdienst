@@ -89,7 +89,7 @@ const model = computed<MeteogramModel | null>(() => buildMeteogramModel({
 const bounds = computed<TimeWindow | null>(() => model.value ? { start: model.value.minTime, end: model.value.maxTime } : null)
 const hours = computed(() => bounds.value ? (bounds.value.end - bounds.value.start) / HOUR_MS : 0)
 const layout = computed(() => model.value ? chartLayout(model.value.panels, model.value.symbols.length > 0) : null)
-const gutterLeft = computed(() => model.value ? gutterLeftFor(model.value) : GUTTER_LEFT)
+const gutterLeft = computed(() => model.value ? gutterLeftFor(model.value, locale.value) : GUTTER_LEFT)
 
 // -- the size: fixed panel heights, a fixed width for the hour ----------------------------------------------------
 
@@ -171,15 +171,21 @@ watch(bounds, (next, previous) => {
 
 const strip = computed(() => bounds.value ? scrollStrip(win.value, bounds.value, plotPx.value, outerPx.value) : { width: 0, left: 0 })
 
+// one move of the window for each frame, whatever the number of scroll events that came since the last
+let scrollFrame = 0
 function onScroll() {
-  const scroller = scrollerEl.value
-  const b = bounds.value
-  if (!scroller || !b || Math.abs(scroller.scrollLeft - strip.value.left) <= 1)
+  if (scrollFrame)
     return
-  // a scroll of the reader's: the window follows
-  const span = win.value.end - win.value.start
-  const next = windowFromScroll(scroller.scrollLeft, span, b, plotPx.value)
-  startMs.value = next.start
+  scrollFrame = requestAnimationFrame(() => {
+    scrollFrame = 0
+    const scroller = scrollerEl.value
+    const b = bounds.value
+    if (!scroller || !b || Math.abs(scroller.scrollLeft - strip.value.left) <= 1)
+      return
+    // a scroll of the reader's: the window follows
+    const span = win.value.end - win.value.start
+    startMs.value = windowFromScroll(scroller.scrollLeft, span, b, plotPx.value).start
+  })
 }
 
 // the window moved by anything else: the strip follows
@@ -626,12 +632,13 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
   observer?.disconnect()
+  cancelAnimationFrame(scrollFrame)
   clearInterval(clock)
   document.removeEventListener('keydown', onDocumentKeydown)
   disposeChart()
 })
 
-defineExpose({ resetZoom, zoomIn, zoomOut, shift, win, atStart, atEnd, atMaxZoom, atMinZoom, renderFailed, renderFailures })
+defineExpose({ resetZoom, zoomIn, zoomOut, shift, win, atStart, atEnd, atMaxZoom, atMinZoom, renderFailed, renderFailures, gutterLeft, plotPx })
 
 const selectionStyle = computed(() => {
   const d = drag.value

@@ -140,9 +140,10 @@ describe('the chart in each unit', () => {
   const AXES = { wind: 1, precip: 2, cloud: 3, temp: 4, pressure: 5 }
 
   it('titles the axes with the unit the answer reports, and the readout of an hour writes the values in it', async () => {
-    const { option } = await draw(IMPERIAL)
+    await draw(IMPERIAL)
     // a title too long for its panel is broken in two lines
-    const title = (panel: keyof typeof AXES) => option.yAxis[AXES[panel]].name.replace('\n', ' ')
+    // (drawn by a series of the chart's own, top panel first)
+    const title = (panel: keyof typeof AXES) => ssr().axisTitles()[AXES[panel] - 1]!.text
     expect(title('temp')).toBe('Temp °F')
     expect(title('wind')).toBe('Wind km/h')
     expect(title('precip')).toBe('Precip l/m²')
@@ -168,7 +169,7 @@ describe('the chart in each unit', () => {
   })
 
   it('draws the freezing point as a line of its own in the unit of the answer, and the axis holds it', async () => {
-    const freezing = () => seriesOf('backdrop-temp').data.filter((row: number[]) => row[0] === 3).map((row: number[]) => row[2])
+    const freezing = () => seriesOf('backdrop-temp').data.filter((row: number[]) => row[0] === 3).map((row: number[]) => row[3])
     const celsius = (await draw(METRIC)).option
     expect(freezing()).toEqual([0])
     expect(celsius.yAxis[AXES.temp].min).toBeLessThan(0)

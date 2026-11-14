@@ -338,7 +338,8 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     const expected = { 1: 'blue', 2: 'red' } as const
     for (const [index, series] of Object.entries(expected)) {
       expect(yAxis[Number(index)].axisLabel.color, `axis ${index}`).toBe(SERIES_LABEL[series].light)
-      expect(yAxis[Number(index)].nameTextStyle.color, `axis ${index}`).toBe(SERIES_LABEL[series].light)
+      // the titles are drawn by the chart's own series, top panel first: the rain, then the temperature
+      expect(ssr().axisTitles()[Number(index) - 1]!.fill, `title ${index}`).toBe(SERIES_LABEL[series].light)
     }
   })
 

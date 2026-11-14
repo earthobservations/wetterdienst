@@ -157,6 +157,67 @@ test.describe('the shape of the chart', () => {
   })
 })
 
+test.describe('on a phone, in German (the longest labels), with every panel on', () => {
+  const WIDTHS = [320, 390]
+
+  test.beforeEach(async ({ context, baseURL }) => {
+    await context.addCookies([{ name: 'wd_lang', value: 'de', url: baseURL! }])
+  })
+
+  for (const width of WIDTHS) {
+    test(`keeps every title of an axis inside the chart and left of the tick labels at ${width} px, whatever the width of the labels`, async ({ page, baseURL }) => {
+      await open(page, baseURL!, PAGE_CHART, { width, height: 844 })
+      const found = await page.evaluate(() => {
+        const stage = document.querySelector('.mg-stage')!.getBoundingClientRect()
+        const texts = [...document.querySelectorAll('.mg-canvas svg text')].map((text) => {
+          const box = text.getBoundingClientRect()
+          return { text: text.textContent ?? '', left: box.left - stage.left, right: box.right - stage.left, tall: box.height > box.width }
+        })
+        // the titles are the words turned to read upwards; the labels of the axes are numbers
+        // (a two-letter day name is as tall as it is wide, so only what is in the gutter counts)
+        const titles = texts.filter(entry => entry.tall && entry.left < 100 && /[A-ZÄÖÜß%°]/i.test(entry.text))
+        const labels = texts.filter(entry => !entry.tall && /^[-\d.,]+$/.test(entry.text) && entry.right < 100)
+        return { titles, labels, stage: stage.width }
+      })
+      // a title for each of the five panels, of one or two lines
+      expect(found.titles.length, JSON.stringify(found.titles)).toBeGreaterThanOrEqual(5)
+      expect(found.labels.length).toBeGreaterThanOrEqual(3)
+      const labelsLeft = Math.min(...found.labels.map(entry => entry.left))
+      for (const title of found.titles) {
+        expect(title.left, `${title.text} is cut at the left`).toBeGreaterThanOrEqual(0)
+        expect(title.right, `${title.text} is under the labels`).toBeLessThanOrEqual(labelsLeft + 0.5)
+      }
+      // and they stand where they stand whatever the width of the labels of their panel: in a block of two lines' width at the very left
+      // (a title of one line in the middle of it), never moved by the four digits of the pressure
+      for (const title of found.titles)
+        expect(title.right, `${title.text} stands off the block of the titles: ${JSON.stringify(found.titles)}`).toBeLessThanOrEqual(2 + 2 * 14 + 2)
+    })
+  }
+
+  for (const width of WIDTHS) {
+    for (const view of ['chart', 'compact', 'table']) {
+      test(`has a toolbar that stays inside its card at ${width} px in the ${view} view`, async ({ page, baseURL }) => {
+        await mockBackend(page, baseURL!)
+        await page.setViewportSize({ width, height: 844 })
+        await page.goto(`/meteogram?station=10384&view=${view}`)
+        await expect(page.getByRole('radiogroup', { name: 'Ansicht' })).toBeVisible()
+        const outside = await page.evaluate(() => {
+          const card = document.querySelector('[role="radiogroup"]')!.closest('[data-slot="root"]')!.getBoundingClientRect()
+          const toolbar = document.querySelector('[role="radiogroup"][aria-label="Ansicht"]')!.parentElement!.parentElement!.parentElement!
+          return [...toolbar.querySelectorAll('button, [role="radiogroup"], [role="radio"]')]
+            .map((element) => {
+              const box = element.getBoundingClientRect()
+              return { name: element.getAttribute('aria-label') ?? element.textContent?.trim().slice(0, 20), left: Math.round(box.left - card.left), right: Math.round(box.right - card.right) }
+            })
+            .filter(entry => entry.left < 0 || entry.right > 0)
+        })
+        expect(outside, 'controls that stick out of the card').toEqual([])
+        expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+      })
+    }
+  }
+})
+
 test.describe('by keyboard', () => {
   test('steps the crosshair through the hours and reads them out, one tab stop for the whole chart', async ({ page, baseURL }) => {
     await open(page, baseURL!)

@@ -17,8 +17,8 @@ const t = (key: string, named?: Record<string, unknown>) => key + (named?.unit ?
 const LIGHT = { ...EMPTY_CHART_THEME, text: 'rgb(15, 23, 43)', textStrong: 'rgb(0, 0, 0)', textMuted: 'rgb(90, 100, 120)', zeroline: 'rgb(90, 100, 120)' }
 const DARK = { ...LIGHT, dark: true, text: 'rgb(226, 232, 240)', textStrong: 'rgb(255, 255, 255)' }
 
-function build(options: { width?: number, hours?: number, theme?: typeof LIGHT, window?: { start: number, end: number }, now?: number | null, without?: string[] } = {}) {
-  const { width = 800, hours = 240, theme = LIGHT, now = null, without = [] } = options
+function build(options: { width?: number, hours?: number, theme?: typeof LIGHT, window?: { start: number, end: number }, now?: number | null, without?: string[], locale?: string, translate?: typeof t } = {}) {
+  const { width = 800, hours = 240, theme = LIGHT, now = null, without = [], locale = 'en', translate = t } = options
   const model = buildMeteogramModel({
     series: buildSeries(forecastValues({ hours, without }) as any),
     panels: { temp: true, wind: true, precip: true, cloud: true, pressure: true },
@@ -27,11 +27,11 @@ function build(options: { width?: number, hours?: number, theme?: typeof LIGHT, 
     language: 'en-GB',
     coords: { latitude: 52.5, longitude: 13.4 },
     sun: SunCalc as any,
-    units: meteogramUnits(FORECAST_UNITS, t),
-    t,
+    units: meteogramUnits(FORECAST_UNITS, translate),
+    t: translate,
   })!
   const layout = chartLayout(model.panels, model.symbols.length > 0)
-  const gutterLeft = gutterLeftFor(model)
+  const gutterLeft = gutterLeftFor(model, locale)
   const plotPx = plotWidthFor(width, (model.maxTime - model.minTime) / HOUR_MS, gutterLeft)
   const window = options.window ?? defaultWindow({ start: model.minTime, end: model.maxTime }, plotPx)
   const input: OptionInput = {
@@ -44,7 +44,7 @@ function build(options: { width?: number, hours?: number, theme?: typeof LIGHT, 
     window,
     now,
     fontFamily: 'sans-serif',
-    locale: 'en',
+    locale,
     hourLabel: hourFormatter('en-GB', 'Europe/Berlin'),
     symbolUrl: (symbol, dark) => `/s/${dark ? 'd' : 'l'}/${symbol}.svg`,
   }
@@ -76,7 +76,7 @@ describe('the option', () => {
     const window = { start: Date.UTC(2026, 9, 2), end: Date.UTC(2026, 9, 3) }
     const { option } = build({ window })
     expect(option.dataZoom).toHaveLength(1)
-    expect(option.dataZoom[0]).toMatchObject({ type: 'inside', xAxisIndex: [0, 1, 2, 3, 4, 5], startValue: window.start, endValue: window.end, filterMode: 'none' })
+    expect(option.dataZoom[0]).toMatchObject({ type: 'inside', xAxisIndex: [0, 1, 2, 3, 4, 5], startValue: window.start, endValue: window.end, filterMode: 'weakFilter' })
     for (const axis of option.xAxis)
       expect(axis).toMatchObject({ type: 'value', min: build().model.minTime, max: build().model.maxTime })
   })
@@ -137,10 +137,69 @@ describe('the option', () => {
     expect(dark.lineStyle.color).toBe('#fca5a5')
   })
 
-  it('has a gutter that grows by a line where an axis title is broken in two', () => {
+  it('has a gutter as wide as the titles, the widest tick labels and the room between', () => {
     const { model } = build()
-    expect(gutterLeftFor({ ...model, axes: { wind: { ...model.axes.wind!, titleLines: 1 } } })).toBe(68)
-    expect(gutterLeftFor({ ...model, axes: { wind: { ...model.axes.wind!, titleLines: 2 } } })).toBe(84)
+    const short = (lines: 1 | 2) => ({ ...model, axes: { wind: { ...model.axes.wind!, titleLines: lines, range: [0, 18] as [number, number] } } })
+    // short labels fit the minimum
+    expect(gutterLeftFor(short(1))).toBe(68)
+    expect(gutterLeftFor(short(2))).toBe(68)
+    // the pressure's four digits and a separator: 1,013 and 1.013 have the same width
+    const wide = (lines: 1 | 2, locale: string) => gutterLeftFor({ ...model, axes: { pressure: { ...model.axes.pressure!, titleLines: lines, range: [981, 1021] as [number, number] } } }, locale)
+    expect(wide(1, 'en')).toBe(2 + 14 + 6 + Math.ceil(5.5 * 7) + 8)
+    expect(wide(2, 'de')).toBe(2 + 28 + 6 + Math.ceil(5.5 * 7) + 8)
+    expect(wide(2, 'de')).toBeGreaterThan(wide(1, 'de'))
+    // and the widest of the panels decides for all
+    expect(gutterLeftFor({ ...model, axes: { wind: short(1).axes.wind, pressure: { ...model.axes.pressure!, titleLines: 1, range: [981, 1021] as [number, number] } } })).toBe(wide(1, 'en'))
+  })
+
+  describe('the axes\' titles', () => {
+    // German titles and a pressure of four digits: the widest labels and the longest titles
+    const GERMAN: Record<string, string> = {
+      'meteogram.chart.axisWind': 'Wind',
+      'meteogram.chart.axisPrecip': 'Niederschlag',
+      'meteogram.chart.axisCloud': 'Bewölkung',
+      'meteogram.chart.axisTemp': 'Temperatur',
+      'meteogram.chart.axisPressure': 'Luftdruck',
+    }
+    const german = (key: string, named?: Record<string, unknown>) => key in GERMAN ? `${GERMAN[key]} ${named?.unit}` : t(key, named)
+
+    /** The centre of each line of each title in the SVG, as the stage's x, with the text */
+    function titleCentres(svg: string) {
+      const titles = new Set(Object.values(GERMAN).flatMap(word => [word, 'mm', 'hPa', '%', 'm/s', '°C']))
+      // turned a quarter the other way round than the clock goes, so that it reads upwards: matrix(0,-1,1,0,x,y), x the centre of the line
+      return [...svg.matchAll(/<text[^>]*transform="matrix\(0,-1,1,0,([\d.-]+),([\d.-]+)\)"[^>]*>([^<]*)<\/text>/g)]
+        .map(match => ({ x: Number(match[1]), y: Number(match[2]), text: match[3]! }))
+        .filter(entry => titles.has(entry.text))
+    }
+
+    for (const width of [320, 390, 800]) {
+      for (const locale of ['de', 'en']) {
+        it(`are inside the chart, left of the tick labels, at ${width} px in ${locale === 'de' ? 'German' : 'English'}, with every panel on`, () => {
+          const built = build({ width, locale, translate: locale === 'de' ? german : t })
+          const centres = titleCentres(draw(built))
+          // five panels, a title of one or two lines each
+          expect(centres.length).toBeGreaterThanOrEqual(5)
+          // the chart's own left edge is 0: a line of 12 px type is 14 px wide, and the labels are right-aligned to the gutter's edge less their margin
+          const labelsLeft = built.input.gutterLeft - 8 - 4 * 7
+          for (const { x, text } of centres) {
+            expect(x - 7, `${text} at ${x}`).toBeGreaterThanOrEqual(0)
+            expect(x + 7, `${text} at ${x}`).toBeLessThan(labelsLeft)
+          }
+        })
+      }
+    }
+
+    it('stand at the same places whatever the width of the tick labels: the pressure\'s four digits move no title', () => {
+      const narrow = titleCentres(draw(build({ locale: 'de', translate: german, without: ['pressure_air_sea_level'] })))
+      const all = titleCentres(draw(build({ locale: 'de', translate: german })))
+      const xOf = (centres: typeof all, text: string) => centres.find(entry => entry.text === text)?.x
+      expect(xOf(all, 'Wind')).toBe(xOf(narrow, 'Wind'))
+    })
+
+    it('are written along their panels, upwards, in the colour of their series', () => {
+      const svg = draw(build({ locale: 'de', translate: german }))
+      expect(svg).toMatch(/<text[^>]*transform="matrix\(0,-1,1,0,[^"]*"[^>]*fill="#dc2626"[^>]*>Temperatur/)
+    })
   })
 
   it('has no symbols\' series where the forecast has none to draw them from', () => {
@@ -176,6 +235,26 @@ describe('the chart drawn', () => {
     expect(all).toContain('06:00')
     expect(all).toContain('18:00')
     expect(all).not.toContain('07:00')
+  })
+
+  it('draws all that belongs to a window in the middle of the forecast, though the zoom drops the data outside it', () => {
+    // the window of 12 hours across the middle of the ten days: the titles, the day names, the bands, the freezing line and the lines
+    // that reach the window from both sides are all there, as they are at the start
+    const day = Date.UTC(2026, 9, 5, 6)
+    const built = build({ window: { start: day, end: day + 12 * HOUR_MS } })
+    const svg = draw(built)
+    const all = texts(svg)
+    expect(all).toContain('Mon 05/10')
+    expect(all.filter(text => /^\d{2}:00$/.test(text)).length).toBeGreaterThan(6)
+    expect(all.some(text => text.startsWith('meteogram.chart.axisWind'))).toBe(true)
+    expect(svg).toContain('fill="rgb(253,244,180)"')
+    expect(count(svg, /<image/g)).toBeGreaterThanOrEqual(8)
+    // the temperature curve runs through the window from edge to edge: its path has points all along the plot
+    const paths = [...svg.matchAll(/<path d="(M[^"C]*C[^"]*)"[^>]*stroke="#ef4444"/g)].map(match => match[1]!)
+    expect(paths.length).toBeGreaterThan(0)
+    const xs = (paths[0]!.match(/[\d.]+/g) ?? []).map(Number).filter((_, i) => i % 2 === 0)
+    expect(Math.min(...xs)).toBeLessThanOrEqual(built.input.gutterLeft + 1)
+    expect(Math.max(...xs)).toBeGreaterThanOrEqual(built.input.gutterLeft + built.input.plotPx - 1)
   })
 
   it('draws the days\' names in the red of the weekend in the colour that reads on the page', () => {
@@ -226,7 +305,7 @@ describe('the chart drawn', () => {
 
   it('draws the line of now where the forecast spans it, and none where it does not', () => {
     const marked = (now: number) => build({ now }).option.series.find((s: any) => s.id === 'backdrop-wind').data.filter((row: number[]) => row[0] === 2)
-    expect(marked(Date.UTC(2026, 9, 1, 12))).toEqual([[2, Date.UTC(2026, 9, 1, 12), 0, 0]])
+    expect(marked(Date.UTC(2026, 9, 1, 12))).toEqual([[2, Date.UTC(2026, 9, 1, 12), Date.UTC(2026, 9, 1, 12), 0]])
     expect(marked(Date.UTC(2027, 0, 1))).toEqual([])
     // and it is drawn
     expect(draw(build({ now: Date.UTC(2026, 9, 1, 12) }))).toContain('stroke-width="1.5"')

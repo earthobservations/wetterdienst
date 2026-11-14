@@ -205,7 +205,7 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
         </div>
 
         <!-- View Controls & Zoom Reset: the view first on a narrow screen, where the toolbar stacks -->
-        <div class="flex items-center gap-2 md:ml-auto shrink-0 order-first md:order-last">
+        <div class="flex flex-wrap items-center gap-2 md:ml-auto min-w-0 max-w-full order-first md:order-last">
           <!-- the single-pointer ways to what a drag, a pinch and the scroll bar do (WCAG 2.5.7), named by what they do -->
           <div v-if="view === 'chart'" class="flex items-center gap-1" role="group" :aria-label="t('meteogram.chart.zoomGroup')">
             <UButton

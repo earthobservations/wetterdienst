@@ -56,6 +56,9 @@ async function showChart(props: Record<string, unknown> = {}) {
   return wrapper
 }
 
+/** The widths the chart worked out: its left gutter, which the labels' width decides, and the plot */
+const gutter = () => (wrapper!.vm as any).gutterLeft as number
+const plotPx = () => (wrapper!.vm as any).plotPx as number
 const stage = () => document.body.querySelector<HTMLElement>('.mg-stage')!
 const readout = () => document.body.querySelector<HTMLElement>('[data-testid="meteogram-readout"]')
 const announce = () => document.body.querySelector('[data-testid="meteogram-announce"]')!.textContent?.trim()
@@ -142,7 +145,7 @@ describe('the chart is drawn', { timeout: 15_000 }, () => {
       const [, , options] = echarts.init.mock.calls[0] as any
       const dataZoom = lastOption().dataZoom[0]
       // the hours across the plot, and with them the width of one
-      const plot = width - 68 - 10
+      const plot = width - gutter() - 10
       seen.push({ height: options.height, window: plot / ((dataZoom.endValue - dataZoom.startValue) / HOUR_MS) })
       mounted.unmount()
       wrapper = undefined
@@ -158,11 +161,11 @@ describe('the chart is drawn', { timeout: 15_000 }, () => {
     await showChart()
     const dataZoom = lastOption().dataZoom[0]
     expect(dataZoom.startValue).toBe(t0)
-    // 722 px of plot at 10 px for an hour
-    expect((dataZoom.endValue - dataZoom.startValue) / HOUR_MS).toBeCloseTo(72.2, 5)
+    // the plot at 10 px for an hour
+    expect((dataZoom.endValue - dataZoom.startValue) / HOUR_MS).toBeCloseTo(plotPx() / 10, 5)
     const track = document.body.querySelector<HTMLElement>('.mg-track')!
     // the forecast's 240 hours at that spacing, and the gutters
-    expect(Number.parseInt(track.style.width)).toBe(240 * 10 + 68 + 10)
+    expect(Number.parseInt(track.style.width)).toBe(240 * 10 + gutter() + 10)
     expect(stage().style.width).toBe('800px')
   })
 
@@ -277,16 +280,16 @@ describe('the keyboard', { timeout: 15_000 }, () => {
     const span = () => (zoomWindow().end - zoomWindow().start) / HOUR_MS
     key('+')
     await flushPromises()
-    expect(span()).toBeCloseTo(72.2 / 1.5, 3)
+    expect(span()).toBeCloseTo(plotPx() / 10 / 1.5, 3)
     key('+')
     await flushPromises()
-    expect(span()).toBeCloseTo(72.2 / 1.5 / 1.5, 3)
+    expect(span()).toBeCloseTo(plotPx() / 10 / 1.5 / 1.5, 3)
     key('-')
     await flushPromises()
-    expect(span()).toBeCloseTo(72.2 / 1.5, 3)
+    expect(span()).toBeCloseTo(plotPx() / 10 / 1.5, 3)
     key('0')
     await flushPromises()
-    expect(span()).toBeCloseTo(72.2, 3)
+    expect(span()).toBeCloseTo(plotPx() / 10, 3)
     expect(zoomWindow().start).toBe(t0)
   })
 
@@ -341,17 +344,17 @@ describe('the readout', { timeout: 15_000 }, () => {
 
   it('follows the pointer from hour to hour and stays while the pointer is over the chart', async () => {
     await showChart()
-    stage().dispatchEvent(pointer('pointermove', { clientX: 68 + 10 * 5, clientY: 300 }))
+    stage().dispatchEvent(pointer('pointermove', { clientX: gutter() + 10 * 5, clientY: 300 }))
     await flushPromises()
     expect(readout()!.textContent).toContain('Thu 01/10 07:00')
-    stage().dispatchEvent(pointer('pointermove', { clientX: 68 + 10 * 30 + 2, clientY: 300 }))
+    stage().dispatchEvent(pointer('pointermove', { clientX: gutter() + 10 * 30 + 2, clientY: 300 }))
     await flushPromises()
     expect(readout()!.textContent).toContain('Fri 02/10 08:00')
   })
 
   it('can be moved onto, and stays and keeps its hour while the pointer is over it', async () => {
     await showChart()
-    stage().dispatchEvent(pointer('pointermove', { clientX: 68 + 10 * 5, clientY: 300 }))
+    stage().dispatchEvent(pointer('pointermove', { clientX: gutter() + 10 * 5, clientY: 300 }))
     await flushPromises()
     const element = readout()!
     // the pointer moves over the readout, whose own move events reach the chart's handler and are no news
@@ -402,7 +405,7 @@ describe('the readout', { timeout: 15_000 }, () => {
   it('writes the weather of the hour as words, and no symbol for assistive technology', async () => {
     await showChart()
     // hour 44 of the fixture is a thunderstorm
-    stage().dispatchEvent(pointer('pointermove', { clientX: 68 + 10 * 44, clientY: 300 }))
+    stage().dispatchEvent(pointer('pointermove', { clientX: gutter() + 10 * 44, clientY: 300 }))
     await flushPromises()
     // the window shows 72 hours: hour 44 is in view
     expect(readout()!.textContent).toContain('Thunderstorm')
@@ -548,17 +551,17 @@ describe('the window', { timeout: 15_000 }, () => {
 
   it('zooms to the box a mouse drags', async () => {
     await showChart()
-    stage().dispatchEvent(pointer('pointerdown', { clientX: 68 + 100, clientY: 200 }))
-    stage().dispatchEvent(pointer('pointermove', { clientX: 68 + 200, clientY: 200 }))
+    stage().dispatchEvent(pointer('pointerdown', { clientX: gutter() + 100, clientY: 200 }))
+    stage().dispatchEvent(pointer('pointermove', { clientX: gutter() + 200, clientY: 200 }))
     await flushPromises()
     expect(document.body.querySelector('.mg-selection')).not.toBeNull()
-    stage().dispatchEvent(pointer('pointerup', { clientX: 68 + 200, clientY: 200 }))
+    stage().dispatchEvent(pointer('pointerup', { clientX: gutter() + 200, clientY: 200 }))
     await flushPromises()
     const { start, end } = zoomWindow()
     expect(start).toBeCloseTo(t0 + 10 * HOUR_MS, -3)
     expect(end).toBeCloseTo(t0 + 20 * HOUR_MS, -3)
     // the click that ends a drag is no tap
-    stage().dispatchEvent(pointer('click', { clientX: 68 + 200, clientY: 200 }))
+    stage().dispatchEvent(pointer('click', { clientX: gutter() + 200, clientY: 200 }))
     await flushPromises()
     expect(readout()).toBeNull()
   })
@@ -582,7 +585,7 @@ describe('the window', { timeout: 15_000 }, () => {
     ;(mounted.vm as any).resetZoom()
     await flushPromises()
     expect(zoomWindow().start).toBe(t0)
-    expect((zoomWindow().end - zoomWindow().start) / HOUR_MS).toBeCloseTo(72.2, 3)
+    expect((zoomWindow().end - zoomWindow().start) / HOUR_MS).toBeCloseTo(plotPx() / 10, 3)
   })
 
   it('starts over where the horizon changes', async () => {
