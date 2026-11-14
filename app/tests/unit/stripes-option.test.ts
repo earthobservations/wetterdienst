@@ -147,6 +147,16 @@ describe('the option', () => {
     expect(build({ display: { showTrendline: true } }).option.series.map((s: any) => s.id)).not.toContain('trend')
   })
 
+  it('has no paper of its own on the page, and the paper it is given in a saved image', () => {
+    const background = (svg: string) => /^<svg[^>]*>\s*<rect[^>]*fill="([^"]*)"/.exec(svg)?.[1]
+    const onPage = build()
+    expect(onPage.option.backgroundColor).toBe('transparent')
+    expect(background(draw(onPage.input, onPage.option))).toBe('none')
+    const saved = build({ background: 'rgb(255, 255, 255)' })
+    expect(saved.option.backgroundColor).toBe('rgb(255, 255, 255)')
+    expect(background(draw(saved.input, saved.option))).toBe('rgb(255, 255, 255)')
+  })
+
   it('draws no animation and no tooltip: the readout is the component\'s own', () => {
     const { option } = build()
     expect(option.animation).toBe(false)

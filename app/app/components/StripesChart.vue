@@ -592,7 +592,9 @@ async function save(options: { format: ImageFormat, filename: string, width: num
   const { format, filename, width: imageWidth, height: imageHeight, scale } = options
   const light = readDocumentChartTheme('light')
   const lines = props.display.showTitle ? wrapChartTitle(props.title, imageWidth - 2 * TITLE_PADDING, font).text.split('<br>') : []
-  const input = optionInput({ theme: light, width: imageWidth, height: imageHeight, titleLines: lines })
+  // the paper is part of the image: a vector with dark text on nothing is unreadable on a dark page that shows it
+  const paper = light.paper || '#ffffff'
+  const input = optionInput({ theme: light, width: imageWidth, height: imageHeight, titleLines: lines, background: paper })
   if (!input)
     return
   const lib = await loadChartCode()
@@ -605,7 +607,7 @@ async function save(options: { format: ImageFormat, filename: string, width: num
   finally {
     copy.dispose()
   }
-  const blob = await svgToBlob(svg, { format, width: imageWidth, height: imageHeight, scale: format === 'svg' ? 1 : scale, background: light.paper || '#ffffff' })
+  const blob = await svgToBlob(svg, { format, width: imageWidth, height: imageHeight, scale: format === 'svg' ? 1 : scale, background: paper })
   downloadBlob(blob, `${filename}.${format}`)
 }
 

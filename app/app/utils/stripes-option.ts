@@ -58,6 +58,8 @@ export interface StripesOptionInput {
   availabilityText: string
   sourceText: string
   fontFamily?: string
+  /** The paper behind the chart: the page's own shows through on the page (none), a saved image has its own */
+  background?: string
 }
 
 /** Where everything is, in px from the chart's top left */
@@ -212,7 +214,7 @@ export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption
   return {
     // none: the stripes are the data and an animation of them is a motion nobody asked for (`prefers-reduced-motion` has nothing to switch off)
     animation: false,
-    backgroundColor: 'transparent',
+    backgroundColor: input.background ?? 'transparent',
     textStyle: { fontFamily: input.fontFamily ?? STRIPES_FONT_FAMILY, color: input.theme.text },
     grid: [{ left: layout.plot.left, top: layout.plot.top, width: layout.plot.width, height: layout.plot.height, show: false }],
     xAxis: [{ type: 'value', gridIndex: 0, min: bounds.start, max: bounds.end, show: false }],

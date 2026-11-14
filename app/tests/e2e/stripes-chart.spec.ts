@@ -212,6 +212,10 @@ test.describe('a saved stripes chart', () => {
     const svg = readFileSync((await download.path())!, 'utf8')
     expect(svg).toMatch(/<svg width="\d+" height="600"/)
     expect(svg).toContain('Climate stripes')
+    // on the light paper: the first thing the vector draws is a rect that is neither empty nor transparent, and it is light
+    const paper = /^<svg[^>]*>\s*<rect[^>]*fill="([^"]*)"/.exec(svg)?.[1]
+    expect(paper, 'the vector draws its paper').toMatch(/^(rgb|#)/)
+    expect(luminance(paper!)).toBeGreaterThan(0.9)
     // the dark theme's text colour is not in it
     const dark = (await paintOf(page)).texts.find(text => text.text === '2024')!.fill
     expect(svg).not.toContain(dark.replaceAll(' ', ''))

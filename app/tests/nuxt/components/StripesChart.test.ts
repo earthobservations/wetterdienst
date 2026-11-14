@@ -511,6 +511,8 @@ describe('the image', () => {
     const [svg, options] = image.svgToBlob.mock.calls[0] as unknown as [string, { background: string }]
     expect(options.background).toBe('rgb(255, 255, 255)')
     expect(svg).toContain(`fill="${LIGHT_TEXT}"`)
+    // on the light paper, in the file too: the first thing the vector draws is the paper
+    expect(svg).toMatch(/^<svg[^>]*>\s*<rect[^>]*fill="rgb\(255, 255, 255\)"/)
     expect(svg).not.toContain('rgb(250, 250, 250)')
   })
 
