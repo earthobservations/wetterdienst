@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
-import { useDialogTouchGuard } from '../../app/composables/useDialogTouchGuard'
+import { useModalDialogHold } from '../../app/composables/useModalDialogHold'
 import { createDialogTouchHandlers, holdDialogTouch, shouldCancelDialogTouch } from '../../app/utils/dialog-touch'
 
 // reka-ui's own guard is on iOS only (`isIOS` of vueuse), and so is this one: the tests that go through the default
@@ -274,8 +274,8 @@ describe('the guard is held while a modal dialog is open, on iOS (GH-3761)', () 
     const sheet = ref(false)
     // the settings popover has a `role="dialog"` and no modal: it does not call the composable, so it has no ref here
     scope.run(() => {
-      useDialogTouchGuard(search)
-      useDialogTouchGuard(sheet)
+      useModalDialogHold(search)
+      useModalDialogHold(sheet)
     })
     await nextTick()
     expect(added).toEqual([])
@@ -298,7 +298,7 @@ describe('the guard is held while a modal dialog is open, on iOS (GH-3761)', () 
 
   it('is held by a modal that is open from the start', () => {
     const scope = effectScope()
-    scope.run(() => useDialogTouchGuard(ref(true)))
+    scope.run(() => useModalDialogHold(ref(true)))
     expect(added).toHaveLength(3)
     scope.stop()
     expect(removed).toHaveLength(3)
