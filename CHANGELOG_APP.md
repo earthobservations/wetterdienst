@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.50.0] - 2026-11-14
+
 ### Changed
 
 - `[Forecast, Widget]` The forecast chart is drawn with Apache ECharts instead of Plotly, which the
@@ -31,7 +33,7 @@ Types of changes:
 
 - `[All pages]` On iPhone, while the search, the place dialog of "Ask the weather" or the menu sheet
   is open, the page behind is held fixed where it stood (it aims for no bounce and no
-  pull-to-refresh, to be confirmed on a device) and gets its scroll position back when the dialog
+  pull-to-refresh) and gets its scroll position back when the dialog
   closes; a back swipe with the search open closes it and leaves each page at its own position. The
   search and the place dialog fit the part of the screen the keyboard leaves, so the field is not
   panned away and the list's last entry stays above the keyboard (GH-3761)
@@ -2159,7 +2161,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.49.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.50.0...HEAD
+[0.50.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.49.0...app-v0.50.0
 [0.49.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.48.0...app-v0.49.0
 [0.48.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.47.0...app-v0.48.0
 [0.47.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.46.0...app-v0.47.0
