@@ -28,6 +28,13 @@ Types of changes:
   of an hour are a readout the pointer can move onto and Escape closes. The weather symbols are
   Yr's (CC BY 4.0, credited under the chart). The wind arrows above the wind panel are gone; the
   barbs show the direction. (GH-4059)
+- `[Climate stripes]` The stripes are drawn with Apache ECharts instead of Plotly, which this page
+  no longer loads (161 KB less JavaScript, gzip). They look the same, and the image saved from the
+  menu or the camera has the size and the file name it had. The chart's buttons are a toolbar above
+  it (zoom, move, reset, camera); a box dragged with a mouse, a pinch and Ctrl with the wheel zoom,
+  and a double click resets. The arrow keys step through the years, Page Up and Page Down by ten, and
+  `+`, `-` and `0` zoom; a year's value is a readout the pointer can move onto and Escape closes.
+  Zoomed, the years at the ends are those of the stripes in view. (GH-4068)
 
 ### Fixed
 

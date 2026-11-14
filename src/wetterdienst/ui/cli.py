@@ -330,13 +330,41 @@ end_opt = click.option(
 start_date_renamed_opt = _renamed_opt("--start-date", "--start")
 end_date_renamed_opt = _renamed_opt("--end-date", "--end")
 
-# station selection for `stations` and `values`: exactly one of --all, --stations, --name, a point
+# station selection for `stations` and `values`: exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id,
+# --name, a point
 # or a bounding box, --sql. The request models enforce it, so the CLI, REST API and MCP share it
 all_opt = _bool_opt("--all", dest="all_", default=False, help="Select all stations. Default: false")
 stations_opt = click.option(
     "--stations",
     type=click.STRING,
     help="Select stations by id, comma-separated. Example: 01048,04411",
+)
+wmo_id_opt = click.option(
+    "--wmo-id",
+    "wmo_id",
+    type=click.STRING,
+    help=(
+        "Select stations by WMO number (five digits), comma-separated: every station that has one of them. "
+        "Example: 10381,10147"
+    ),
+)
+wigos_id_opt = click.option(
+    "--wigos-id",
+    "wigos_id",
+    type=click.STRING,
+    help=(
+        "Select stations by WIGOS station identifier, comma-separated: every station that has one of them. "
+        "Example: 0-20000-0-10381"
+    ),
+)
+icao_id_opt = click.option(
+    "--icao-id",
+    "icao_id",
+    type=click.STRING,
+    help=(
+        "Select stations by ICAO location indicator (four letters, any case), comma-separated: every station that "
+        "has one of them. Example: EDDH,EDDB"
+    ),
 )
 name_opt = click.option(
     "--name",
@@ -961,6 +989,11 @@ STATIONS_EXAMPLES = r"""
     # stations by id, or by fuzzy name
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --stations=1048,4411
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --name=Dresden
+
+    # stations by the ids they have besides their station id: WMO number, ICAO code or WIGOS identifier
+    wetterdienst stations --provider=dwd --network=mosmix --parameters=hourly/large --wmo-id=10381
+    wetterdienst stations --provider=dwd --network=mosmix --parameters=hourly/large --icao-id=EDDH
+    wetterdienst stations --provider=knmi --network=observation --parameters=daily/data --wigos-id=0-20000-0-06260
 
     # the five stations closest to a point, or those within 25 km of it
     wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
@@ -1854,6 +1887,9 @@ def fields(
 @end_opt
 @all_opt
 @stations_opt
+@wmo_id_opt
+@wigos_id_opt
+@icao_id_opt
 @name_opt
 @name_threshold_opt
 @latitude_opt
@@ -1885,6 +1921,9 @@ def stations(
     end: str,
     all_: bool,  # noqa: FBT001
     stations: list[str],
+    wmo_id: str,
+    wigos_id: str,
+    icao_id: str,
     name: str,
     name_threshold: float,
     latitude: float,
@@ -1909,9 +1948,9 @@ def stations(
 ) -> None:
     """Acquire stations.
 
-    Select them with exactly one of --all, --stations, --name, --latitude/--longitude with --rank or
-    --distance, --left/--bottom/--right/--top, or --sql. Given a window, with --timestamp or --start /
-    --end, only the stations whose record overlaps it are listed.
+    Select them with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id, --name,
+    --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql. Given a
+    window, with --timestamp or --start / --end, only the stations whose record overlaps it are listed.
 
     A selection that finds no station is no failure: the list is empty, the command says so on stderr
     and exits 0. A station id of --stations the network has no station for is named in a warning and left out.
@@ -1931,6 +1970,9 @@ def stations(
             "timestamp": timestamp_resolved,
             "all": all_,
             "stations": stations,
+            "wmo_id": wmo_id,
+            "wigos_id": wigos_id,
+            "icao_id": icao_id,
             "name": name,
             "name_threshold": name_threshold,
             "latitude": latitude,
@@ -2193,6 +2235,9 @@ def history(
 @issue_opt
 @all_opt
 @stations_opt
+@wmo_id_opt
+@wigos_id_opt
+@icao_id_opt
 @name_opt
 @name_threshold_opt
 @latitude_opt
@@ -2267,6 +2312,9 @@ def values(
     issue: str,
     all_: bool,  # noqa: FBT001
     stations: list[str],
+    wmo_id: str,
+    wigos_id: str,
+    icao_id: str,
     name: str,
     name_threshold: float,
     latitude: float,
@@ -2312,8 +2360,8 @@ def values(
 ) -> None:
     """Acquire data.
 
-    Select the stations with exactly one of --all, --stations, --name, --latitude/--longitude with
-    --rank or --distance, --left/--bottom/--right/--top, or --sql.
+    Select the stations with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id, --name,
+    --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql.
     """
     from wetterdienst import Settings
     from wetterdienst.ui.core import PLAUSIBILITY_OPTIONS, ValuesRequest
@@ -2332,6 +2380,9 @@ def values(
             "issue": issue,
             "all": all_,
             "stations": stations,
+            "wmo_id": wmo_id,
+            "wigos_id": wigos_id,
+            "icao_id": icao_id,
             "name": name,
             "name_threshold": name_threshold,
             "latitude": latitude,

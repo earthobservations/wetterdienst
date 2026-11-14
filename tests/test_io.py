@@ -332,6 +332,9 @@ def test_stations_to_ogc_feature_collection(df_stations: pl.DataFrame) -> None:
             "end_timestamp": "1995-11-30T00:00:00.000000+00:00",
             "name": "Freyung vorm Wald",
             "region": "Bayern",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
         "type": "Feature",
     }
@@ -446,6 +449,9 @@ def test_values_to_ogc_feature_collection(df_values: pl.DataFrame, stations_resu
             "region": "Bayern",
             "start_timestamp": "1957-05-01T00:00:00.000000+00:00",
             "end_timestamp": "1995-11-30T00:00:00.000000+00:00",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
         "type": "Feature",
         "values": [
@@ -3356,6 +3362,9 @@ def test_values_to_ogc_feature_collection_wide_rows_spanning_datasets() -> None:
         "region": "Sachsen",
         "start_timestamp": None,
         "end_timestamp": None,
+        "wmo_id": None,
+        "wigos_id": None,
+        "icao_id": None,
     }
 
 

@@ -66,6 +66,12 @@ from wetterdienst.model.schema import (
     TIMESTAMP_DTYPE,
     coerce,
 )
+from wetterdienst.model.station_ids import (
+    STATION_ID_COLUMNS,
+    search_icao_id,
+    search_wigos_id,
+    search_wmo_id,
+)
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string
 from wetterdienst.options import resolve_options
@@ -259,6 +265,17 @@ def _count_unreadable_numbers(df: pl.DataFrame, column: str, provider: str) -> N
         log.debug("%s: %d of %d %s cells are no number and are null", provider, unreadable, df.height, column)
 
 
+def _count_unreadable_ids(df: pl.DataFrame, column: str, provider: str) -> None:
+    """Say in one debug line how many cells of an id column are not in its notation (null now), counted, not named."""
+    series = df.get_column(column).cast(pl.String)
+    unreadable = (
+        series.to_frame(column).select(STATION_ID_COLUMNS[column](column).alias(column)).get_column(column).null_count()
+    )
+    unreadable -= series.null_count()
+    if unreadable:
+        log.debug("%s: %d of %d %s cells are not in its notation and are null", provider, unreadable, df.height, column)
+
+
 def add_resolution_and_dataset(
     df: pl.DataFrame,
     datasets: Sequence[tuple[str, str]],
@@ -363,14 +380,18 @@ def shape_stations_frame(
         target = STATIONS_SCHEMA.get(column)
         if column not in df.columns:
             # a column of the schema has its dtype; one of the provider's own, which no schema declares, is an untyped
-            # null as it always was (the frames snapshot of KNMI's `wigos_id` holds it), where a frame without a row
-            # has a String for it. Typing it String is a change of that snapshot, left for a change of its own
+            # null as it always was, where a frame without a row has a String for it. Typing it String is a change of
+            # the frames snapshot, left for a change of its own
             expressions.append(pl.lit(None, dtype=target).alias(column))
         elif target is None:
             expressions.append(pl.col(column))
         elif target == pl.Float64:
             _count_unreadable_numbers(df, column, provider)
             expressions.append(pl.col(column).cast(pl.Float64, strict=False))
+        elif column in STATION_ID_COLUMNS:
+            # whichever notation the source wrote the id in, the frame has the one of the column (`station_ids`)
+            _count_unreadable_ids(df, column, provider)
+            expressions.append(STATION_ID_COLUMNS[column](column).alias(column))
         else:
             expressions.append(pl.col(column).cast(target))
     return df.select(expressions)
@@ -1083,6 +1104,98 @@ class TimeseriesRequest:
             df=df_station_id,
             _df_all=df,
             _stations_filter=StationsFilter.BY_STATION_ID,
+        )
+
+    def filter_by_wmo_id(self, wmo_id: str | int | Sequence[str | int]) -> StationsResult:
+        """Filter stations by the WMO number they report under (the ``wmo_id`` column).
+
+        Every station that has the number comes back, with a row for each requested dataset: one number may be
+        on several stations (NOAA lists the same station under more than one id), so a search is not one answer.
+        The stations come back in the order of the catalogue. A number the request has no station for is left out
+        and named in an ``unknown-station`` warning, and the result may be empty; a provider that publishes no WMO
+        numbers (the column is null) has none to find.
+
+        As `filter_by_station_id`, it selects among the whole list, whatever the window of the request.
+
+        Args:
+            wmo_id: One WMO number or several, as text or as numbers. One to five digits are read as the number
+                with its leading zeros: ``1001`` and ``"01001"`` are Jan Mayen.
+
+        Returns:
+            StationsResult: The stations that have a number, in catalogue order.
+
+        Raises:
+            ValueError: a number is no WMO number (not digits, or more than five).
+            TypeError: a number is neither a text nor a number.
+
+        """
+        return self._filter_by_identifier("wmo_id", search_wmo_id(wmo_id), StationsFilter.BY_WMO_ID)
+
+    def filter_by_wigos_id(self, wigos_id: str | Sequence[str]) -> StationsResult:
+        """Filter stations by their WIGOS station identifier (the ``wigos_id`` column).
+
+        As `filter_by_wmo_id`, for ``<series>-<issuer>-<issue number>-<local id>``. The identifier is read as the
+        column writes it, with the issuer and the numbers without leading zeros: ``0-056-101-01002`` finds
+        ``0-56-101-01002``.
+
+        Args:
+            wigos_id: One identifier or several.
+
+        Returns:
+            StationsResult: The stations that have an identifier, in catalogue order.
+
+        Raises:
+            ValueError: an identifier is no WIGOS station identifier.
+            TypeError: an identifier is not a text.
+
+        """
+        return self._filter_by_identifier("wigos_id", search_wigos_id(wigos_id), StationsFilter.BY_WIGOS_ID)
+
+    def filter_by_icao_id(self, icao_id: str | Sequence[str]) -> StationsResult:
+        """Filter stations by their ICAO location indicator (the ``icao_id`` column).
+
+        As `filter_by_wmo_id`, for the four letters of an aerodrome. The case does not matter: ``eddh`` finds
+        ``EDDH``. One code may be on several stations (DWD lists five of its MOSMIX codes twice).
+
+        Args:
+            icao_id: One code or several.
+
+        Returns:
+            StationsResult: The stations that have a code, in catalogue order.
+
+        Raises:
+            ValueError: a code is not four letters.
+            TypeError: a code is not a text.
+
+        """
+        return self._filter_by_identifier("icao_id", search_icao_id(icao_id), StationsFilter.BY_ICAO_ID)
+
+    def _filter_by_identifier(self, column: str, ids: list[str], selection: StationsFilter) -> StationsResult:
+        """Select the stations whose ``column`` is one of ``ids`` (already in the notation of the column)."""
+        df = self._stations_to_select_among()
+
+        log.info(f"Filtering for {column}={ids}")
+
+        df_found = df.filter(pl.col(column).is_in(ids))
+
+        # an id the request has no station for leaves it out of the result, which would otherwise be an empty or a
+        # shorter one with no word on why (GH-2635)
+        found = set(df_found.get_column(column))
+        if unknown := [identifier for identifier in ids if identifier not in found]:
+            warn_response(
+                log,
+                "unknown-station",
+                f"No station with {column} {', '.join(unknown)} for the requested parameters and "
+                f"periods of {type(self).__name__}.",
+            )
+
+        self._warn_unplaced(df_found, named=True)
+
+        return StationsResult(
+            request=self,
+            df=df_found,
+            _df_all=df,
+            _stations_filter=selection,
         )
 
     def filter_by_name(

@@ -37,8 +37,10 @@ TIMESTAMP_DTYPE = pl.Datetime(time_unit="us", time_zone="UTC")
 IDENTITY_COLUMNS = ("station_id", "resolution", "dataset", "parameter")
 
 #: what a request's stations are described by (``StationsResult.df``). A provider may add columns of
-#: its own, such as WSV's ``gauge_zero`` or the ``icao_id`` of the DWD forecast networks, among or after
-#: these; these columns keep their dtypes and their order relative to each other.
+#: its own, such as WSV's ``gauge_zero``, among or after these; these columns keep their dtypes and their
+#: order relative to each other. ``wmo_id``, ``wigos_id`` and ``icao_id`` are the identifiers a station may
+#: have besides its ``station_id``, null where the provider has none, each in one notation
+#: (`wetterdienst.model.station_ids`) and searchable on every surface (GH-4070).
 STATIONS_SCHEMA = pl.Schema(
     {
         "resolution": pl.String,
@@ -51,6 +53,9 @@ STATIONS_SCHEMA = pl.Schema(
         "elevation": pl.Float64,
         "name": pl.String,
         "region": pl.String,
+        "wmo_id": pl.String,
+        "wigos_id": pl.String,
+        "icao_id": pl.String,
     },
 )
 

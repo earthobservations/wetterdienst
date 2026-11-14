@@ -672,6 +672,9 @@ def test_metoffice_station_list_bounds_a_station_by_the_years_of_its_first_and_l
             "elevation": 22.0,
             "name": "FOULA",  # the blank the catalogue pads the name with is gone
             "region": "shetland",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
         {
             "resolution": "daily",
@@ -684,6 +687,9 @@ def test_metoffice_station_list_bounds_a_station_by_the_years_of_its_first_and_l
             "elevation": None,
             "name": "NO POSITION",
             "region": "shetland",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
     ]
 

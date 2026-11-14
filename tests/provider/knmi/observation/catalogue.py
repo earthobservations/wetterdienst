@@ -67,7 +67,11 @@ OPEN = [station for station in LOCATIONS if station not in ENDS]
 
 
 def feature(station_id: str) -> dict:
-    """Write the row of a station as the EDR API's list does."""
+    """Write the row of a station as the EDR API's list does.
+
+    `wmoId` is written for every row, issuer 528 included: that is this stub's assumption, not read from the live list
+    (a key is needed), and the `wmo_id` column does not depend on it (the WSI says whether the id is a WMO number).
+    """
     wsi, name, kind, height, longitude, latitude = LOCATIONS[station_id]
     return {
         "type": "Feature",

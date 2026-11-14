@@ -44,6 +44,9 @@ STATION_COLUMNS = [
     "elevation",
     "name",
     "region",
+    "wmo_id",
+    "wigos_id",
+    "icao_id",
 ]
 
 
@@ -79,6 +82,9 @@ def stations_of(
             "elevation": 100.0 + i,
             "name": f"Station {station_id}",
             "region": "Hessen",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         }
         for i, station_id in enumerate(ids)
         for dataset in datasets
@@ -96,6 +102,9 @@ def stations_of(
             "elevation": pl.Float64,
             "name": pl.String,
             "region": pl.String,
+            "wmo_id": pl.String,
+            "wigos_id": pl.String,
+            "icao_id": pl.String,
         },
     )
     return StationsResult(

@@ -7,7 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 import polars as pl
 import polars.selectors as cs
@@ -542,13 +542,6 @@ class NoaaGhcnRequest(TimeseriesRequest):
 
     metadata = NoaaGhcnMetadata
     _values = NoaaGhcnValues
-
-    # extend base columns of core class with the station's WMO number, which cross-references it with
-    # the WMO lists and with the other providers' stations
-    _base_columns: ClassVar = (
-        *TimeseriesRequest._base_columns,  # noqa: SLF001
-        "wmo_id",
-    )
 
     def _all(self) -> pl.LazyFrame:
         from typing import cast  # noqa: PLC0415
