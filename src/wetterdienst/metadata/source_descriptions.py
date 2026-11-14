@@ -2291,7 +2291,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "from the hourly mean temperature and mean relative humidity. The source marks some values 0.0 "
             "with validity false. Not checked itself; for Greenland and the Faroe Islands it is computed from "
             "however many hourly values exist, even one, and the record's `noValuesInCalculation` says how many "
-            "(the token `n:<count>` of `quality_flags`; fewer than 12 is `suspect:source`)."
+            "(the token `n:<count>` of `quality_flags`; fewer than 4, half of the 8 three-hourly synoptic readings "
+            "of older Greenland days, is `suspect:source`)."
         ),
         ("monthly", "data", "mean_vapour_pressure"): (
             "Mean vapour pressure of the month, in hPa: the average of the underlying daily values. For Greenland and "

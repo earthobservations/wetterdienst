@@ -5,13 +5,14 @@
 Every record of DMI's `stationValue` answer carries `noValuesInCalculation`, the number of readings an aggregate was
 computed from. For Greenland and the Faroe Islands DMI computes a value from however many exist, even one (DMI customer
 service, 2026-11-12), so the reader serves the count as the token `n:<count>` and the core judges a daily value of
-fewer than 12 readings, a monthly one of fewer than 14 and a yearly one of fewer than 183 (half of the shortest
-period) as the check `source` does a `validity:false`: `suspect:source`, null in the mode `hard`.
+fewer than 4 readings (half of the 8 three-hourly synoptic readings of the days of Greenland before the automation,
+which DMI marks valid; modern days have 24 hourly), a monthly one of fewer than 14 and a yearly one of fewer than 183
+(half of the shortest period) as the check `source` does a `validity:false`: `suspect:source`, null in the mode `hard`.
 
 The daily records are those of 04219 (Qeqertarsuaq Heliport, `mean_vapour_pressure`) that the issue names (read key-less
 2026-11-12 by DMI customer service and the maintainer): 2026-01-08 0.0 with `validity:false` from 1 value, 2026-03-03
 16.8 with `validity:true` from 2, 2026-04-20 0.0 with `validity:false` from 7. The others are made up, to hold the
-threshold on both sides of it.
+threshold on both sides of it; the `n:8` days stand for 04360 (Tasiilaq) of 1975, 1995 and 2005, which DMI marks valid.
 """
 
 from __future__ import annotations
@@ -72,7 +73,7 @@ def _read(
     )
     request = DmiObservationRequest(
         parameters=[(resolution, "data")],
-        start=dt.datetime(2020, 1, 1, tzinfo=_UTC),
+        start=dt.datetime(1970, 1, 1, tzinfo=_UTC),
         end=dt.datetime(2026, 12, 31, tzinfo=_UTC),
         settings=_settings(),
         options=Options(drop_nulls=False, plausibility=plausibility or {}),
@@ -88,10 +89,15 @@ _DAYS = [
     _day("2026-01-08", _VAPOUR, 0.0, 1, valid=False),
     _day("2026-03-03", _VAPOUR, 16.8, 2),
     _day("2026-04-20", _VAPOUR, 0.0, 7, valid=False),
-    # a full day, the last count that is half of it, and the one below
+    # a full day, a day of the 8 synoptic readings that older Greenland days are computed from (valid, not suspect),
+    # the last count that is half of them, and the one below
     _day("2026-03-05", _VAPOUR, 4.1, 24),
-    _day("2026-03-06", _VAPOUR, 4.2, 12),
-    _day("2026-03-07", _VAPOUR, 4.0, 11),
+    _day("2026-03-06", _VAPOUR, 4.2, 8),
+    _day("2026-03-07", _VAPOUR, 4.0, 4),
+    _day("2026-03-09", _VAPOUR, 4.3, 3),
+    # the days of 04360 before the automation: the mean temperature of 8 readings, valid
+    _day("1975-06-01", "mean_temp", 2.1, 8),
+    _day("1975-06-02", "mean_temp", 2.6, 8),
     # DMI wrote no count
     _day("2026-03-08", _VAPOUR, 3.9, None),
     # the snow depth is read by hand once a day: its count is not the hours of the day, so it is not judged by it
@@ -104,17 +110,21 @@ def test_the_count_is_a_token_of_the_quality_flags(monkeypatch: pytest.MonkeyPat
     found = _read(monkeypatch, "daily", _DAYS, plausibility={"source": "soft"})
     flags = {key[1]: flags for key, (_, flags) in found.items() if key[0] == "pressure_vapor_mean"}
     assert flags["2026-03-05"] == "manual,validity:true,n:24"
-    assert flags["2026-03-06"] == "manual,validity:true,n:12"
+    assert flags["2026-03-06"] == "manual,validity:true,n:8"
     assert flags["2026-03-08"] == "manual,validity:true"
 
 
-def test_a_day_of_fewer_than_half_the_hours_is_suspect_and_a_full_day_is_not(monkeypatch: pytest.MonkeyPatch) -> None:
-    """2026-03-03 of 04219, 16.8 hPa `validity:true` from 2 values, is `suspect:source`; 12 and 24 values are not."""
+def test_a_day_of_fewer_than_4_readings_is_suspect_and_a_synoptic_day_is_not(monkeypatch: pytest.MonkeyPatch) -> None:
+    """2026-03-03 of 04219, 16.8 hPa `validity:true` from 2 values, is `suspect:source`; 4, 8 and 24 values are not."""
     found = _read(monkeypatch, "daily", _DAYS)
     vapour = {key[1]: row for key, row in found.items() if key[0] == "pressure_vapor_mean"}
     assert vapour["2026-03-03"] == (16.8, "manual,validity:true,n:2,suspect:source")
-    assert vapour["2026-03-07"] == (4.0, "manual,validity:true,n:11,suspect:source")
-    assert vapour["2026-03-06"] == (4.2, "manual,validity:true,n:12")
+    assert vapour["2026-03-09"] == (4.3, "manual,validity:true,n:3,suspect:source")
+    assert vapour["2026-03-07"] == (4.0, "manual,validity:true,n:4")
+    # a day of 8 synoptic readings is a valid day of the old Greenland data, not a suspect one
+    assert vapour["2026-03-06"] == (4.2, "manual,validity:true,n:8")
+    assert found[("temperature_air_mean_2m", "1975-06-01")] == (2.1, "manual,validity:true,n:8")
+    assert found[("temperature_air_mean_2m", "1975-06-02")] == (2.6, "manual,validity:true,n:8")
     assert vapour["2026-03-05"] == (4.1, "manual,validity:true,n:24")
     assert vapour["2026-03-08"] == (3.9, "manual,validity:true")
     # `validity:false` is judged as before, and the count is told beside it
@@ -131,7 +141,8 @@ def test_the_mode_hard_of_source_nulls_a_value_of_too_few_readings_and_keeps_its
     found = _read(monkeypatch, "daily", _DAYS, plausibility={"source": "hard"})
     vapour = {key[1]: row for key, row in found.items() if key[0] == "pressure_vapor_mean"}
     assert vapour["2026-03-03"] == (None, "manual,validity:true,n:2,rejected:source,raw:16.8")
-    assert vapour["2026-03-06"] == (4.2, "manual,validity:true,n:12")
+    assert vapour["2026-03-06"] == (4.2, "manual,validity:true,n:8")
+    assert found[("temperature_air_mean_2m", "1975-06-01")] == (2.1, "manual,validity:true,n:8")
     assert found[("snow_depth_manual", "2026-03-03")] == (12.0, "manual,validity:true,n:1")
 
 

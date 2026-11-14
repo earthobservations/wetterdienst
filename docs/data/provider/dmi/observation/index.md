@@ -248,17 +248,23 @@ out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-s
 
 Every record of the `stationValue` answer carries `noValuesInCalculation`, the number of values the daily, monthly or
 yearly value was computed from (hourly values for a day, daily values for a month or a year, as DMI's calculation
-table says). The library writes it as the token `n:<count>` after `validity` (`manual,validity:true,n:2`), at every
+table says; the daily values of Greenland before its stations were automated are computed from the 8 three-hourly
+synoptic readings of the day, `n:8`, and DMI marks them valid). The library writes it as the token `n:<count>` after `validity` (`manual,validity:true,n:2`), at every
 resolution. DMI's [climate data page](https://www.dmi.dk/friedata/dokumentation/climate-data) says that "derived
 values contain information on the amount of data behind the calculations", names no minimum count but that of the daily
 cloud cover ("provided that there has to be at least 12 hourly values and there are not more than 2 hourly values
 missing in a row"), and DMI customer service said (2026-11-12) that the values of Greenland and the Faroe Islands are
 computed from however many values exist, even one.
 
-The check `source` therefore judges a value computed from **fewer than half the readings of the shortest period of its
-resolution**, the library's own rule, which DMI does not state: a daily value from fewer than 12 hourly values, a
-monthly value from fewer than 14 daily values and a yearly value from fewer than 183. The 12 of 24 hours is DMI's own
-for the cloud cover; the 14 of 28 days and the 183 of 365 days are the same share of the shortest month and year.
+The check `source` therefore judges a value computed from **fewer than half the readings its period has at least**, the
+library's own rule, which DMI does not state: a daily value from fewer than **4** readings, a monthly value from fewer
+than **14** daily values and a yearly value from fewer than **183**. A day has 24 hourly values in modern data, but the
+daily values of Greenland before the automation are the mean, extreme or sum of the 8 three-hourly synoptic readings
+(`n:8` for the temperature, pressure, humidity, wind, vapour pressure and cloud cover of 04360 Tasiilaq on
+1975-06-01/02, 1995-06-01/02 and 2005-06-01/02, all `validity:true`), so half of 8 is the threshold, and it still
+catches the days of 04219 from 1 or 2 readings. The 14 of 28 days and the 183 of 365 days are half of the shortest month
+and year. A value soft-flagged `suspect:source` is a row without a value in `interpolate`, `summarize` and the climate
+stripes, as every `suspect:` value is.
 The value is kept as `suspect:source` (`manual,validity:true,n:2,suspect:source`, the 16.8 hPa of 04219 on 2026-03-03)
 and null as `rejected:source,raw:<text>` with `plausibility={"source": "hard"}`, the same switch as `validity:false`.
 

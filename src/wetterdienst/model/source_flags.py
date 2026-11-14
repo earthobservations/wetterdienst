@@ -37,9 +37,9 @@ value in a flag the reader returns has no entry, and the check judges nothing th
 
 A count is no code. DMI computes the daily, monthly and yearly value of Greenland and the Faroe Islands from however
 many readings exist, even one, and publishes how many in ``noValuesInCalculation``, which the reader writes as the token
-``n:<count>``. ``SourceCount`` (``SOURCE_COUNTS``) judges a value computed from fewer readings than half of its period
-by the same check, as the erroneous level: the DMI documentation names no minimum, so the rule is the library's, and
-its threshold is stated beside the rule, not cited as the provider's word (GH-4027).
+``n:<count>``. ``SourceCount`` (``SOURCE_COUNTS``) judges a value computed from fewer readings than half of those its
+period has at least by the same check, as the erroneous level: the DMI documentation names no minimum, so the rule is
+the library's, and its threshold is stated beside the rule, not cited as the provider's word (GH-4027).
 """
 
 from __future__ import annotations
@@ -655,13 +655,15 @@ _DMI_COUNT_QUOTE = (
 
 #: the counts of readings behind an aggregate, which the library judges as the check ``source`` where the source
 #: computes a value from however many readings it has: the rule is the library's, a value from fewer readings than
-#: half of the shortest period of its resolution (12 of the 24 hours of a day, 14 of the 28 days of a month, 183 of the
-#: 365 days of a year; GH-4027). DMI documents 12 of 24 for its daily cloud cover, and no count for any other value
+#: half of the readings its period has at least (GH-4027). A day has 24 hourly values, but the days of Greenland before
+#: the automation are the 8 three-hourly synoptic readings, which DMI marks valid (04360 Tasiilaq, 1975, 1995 and 2005:
+#: ``noValuesInCalculation`` 8), so the daily threshold is 4, half of 8; a month has 28 days at least (14) and a year
+#: 365 (183). DMI documents 12 hourly values for its daily cloud cover and no count for any other value
 SOURCE_COUNTS: dict[str, tuple[SourceCount, ...]] = {
     "dmi/observation": (
         SourceCount(
             datasets=("daily/data",),
-            below=12,
+            below=4,
             parameters=_DMI_DAILY_FROM_HOURS,
             url=_DMI_CLIMATE_DATA,
             quote=_DMI_COUNT_QUOTE,

@@ -20,9 +20,10 @@ Types of changes:
 
 - `dmi/observation`: `quality_flags` carries `n:<count>`, the number of readings a value was
   computed from (`noValuesInCalculation`), and the check `source` flags a daily value of fewer than
-  12 readings, a monthly one of fewer than 14 and a yearly one of fewer than 183 (half the shortest
-  period) as `suspect:source`, null with `plausibility={"source": "hard"}`: DMI computes Greenland
-  and Faroe values from any count, even one (GH-4027)
+  4 readings (half of the 8 synoptic readings of older Greenland days), a monthly one of fewer than
+  14 and a yearly one of fewer than 183 as `suspect:source`, null with `plausibility={"source":
+  "hard"}`; DMI computes Greenland and Faroe values from any count, even one. Soft-flagged values
+  drop out of interpolate, summarize and stripes (GH-4027)
 
 ### Fixed
 
