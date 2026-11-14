@@ -25,6 +25,8 @@ Types of changes:
   looks as before. From May to October DWD publishes no snow forecast, and then no station has the
   panel (and none says why). Needs a backend with the dataset `hourly/snow`. (GH-4091)
 
+## [0.50.0] - 2026-11-14
+
 ### Changed
 
 - `[Forecast, Widget]` The forecast chart is drawn with Apache ECharts instead of Plotly, which the
@@ -39,9 +41,9 @@ Types of changes:
   no longer loads (161 KB less JavaScript, gzip). They look the same, and the image saved from the
   menu or the camera has the size and the file name it had. The chart's buttons are a toolbar above
   it (zoom, move, reset, camera); a box dragged with a mouse, a pinch and Ctrl with the wheel zoom,
-  and a double click resets. The arrow keys step through the years, Page Up and Page Down by ten, and
-  `+`, `-` and `0` zoom; a year's value is a readout the pointer can move onto and Escape closes.
-  Zoomed, the years at the ends are those of the stripes in view. (GH-4068)
+  and a double click resets. The arrow keys step through the years, Page Up and Page Down by ten,
+  and `+`, `-` and `0` zoom; a year's value is a readout the pointer can move onto and Escape
+  closes. Zoomed, the years at the ends are those of the stripes in view. (GH-4068)
 
 ### Fixed
 
@@ -52,10 +54,10 @@ Types of changes:
   same place in every plot. The values in the readout and the table are unchanged. (GH-4091)
 - `[All pages]` On iPhone, while the search, the place dialog of "Ask the weather" or the menu sheet
   is open, the page behind is held fixed where it stood (it aims for no bounce and no
-  pull-to-refresh, to be confirmed on a device) and gets its scroll position back when the dialog
-  closes; a back swipe with the search open closes it and leaves each page at its own position. The
-  search and the place dialog fit the part of the screen the keyboard leaves, so the field is not
-  panned away and the list's last entry stays above the keyboard (GH-3761)
+  pull-to-refresh) and gets its scroll position back when the dialog closes; a back swipe with the
+  search open closes it and leaves each page at its own position. The search and the place dialog
+  fit the part of the screen the keyboard leaves, so the field is not panned away and the list's
+  last entry stays above the keyboard (GH-3761)
 
 ## [0.49.0] - 2026-11-13
 
@@ -2180,7 +2182,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.49.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.50.0...HEAD
+[0.50.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.49.0...app-v0.50.0
 [0.49.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.48.0...app-v0.49.0
 [0.48.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.47.0...app-v0.48.0
 [0.47.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.46.0...app-v0.47.0
