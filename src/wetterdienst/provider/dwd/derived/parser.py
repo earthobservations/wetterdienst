@@ -82,6 +82,8 @@ def parse_climate_derived_data(
     dataset: DatasetModel,
 ) -> pl.LazyFrame:
     """Parse the climate observations data from the DWD."""
+    if not files:
+        return pl.LazyFrame()
     if dataset == DwdDerivedMetadata.hourly.radiation_global:
         data = [_parse_climate_derived_data(file, dataset) for file in files]
         try:

@@ -667,6 +667,12 @@ class DwdDerivedValues(TimeseriesValues):
             filenames_and_files = download_climate_derived_data(
                 remote_files, cast("Settings", stations.settings), period
             )
+            if not filenames_and_files:
+                # every file of the period was a 404 (the download warned of each): the period has no rows, as one whose
+                # only file is missing has none, and there is nothing to parse or to concatenate (GH-4056)
+                dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}/{period.value}"
+                log.info(f"No data downloaded for {dataset_identifier}. Skipping period.")
+                continue
             period_df = parse_climate_derived_data(filenames_and_files, dataset)
             written[rank] = [file.last_modified for file in filenames_and_files]
             parameter_data.append(period_df.with_columns(pl.lit(rank, dtype=pl.UInt8).alias(_PERIOD_RANK)))

@@ -28,8 +28,10 @@ from wetterdienst.model.schema import LONG_SCHEMA
 from wetterdienst.model.values import shape_provider_frame
 from wetterdienst.provider.dwd.derived import DwdDerivedRequest
 from wetterdienst.provider.dwd.derived import api as dwd_derived_api
+from wetterdienst.provider.dwd.derived import download as dwd_derived_download
 from wetterdienst.provider.dwd.derived.metadata import DwdDerivedMetadata
 from wetterdienst.util.network import File
+from wetterdienst.util.response_warnings import FILE_SKIPPED, begin_response, recorded_warnings
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -242,3 +244,50 @@ def test_a_value_that_is_no_number_is_null_and_counted_not_an_error(
     assert [record.getMessage() for record in caplog.records if "no number" in record.getMessage()] == [
         "DwdDerivedValues: 1 of 4 value cells are no number and are null"
     ]
+
+
+@pytest.mark.parametrize(
+    ("dataset", "columns"),
+    [
+        # the datasets that are concatenated, and the one that is joined (two files for a station), whose reader had no
+        # way to say that it has none
+        pytest.param("sunshine_duration", ("hourly", "sunshine_duration"), id="concatenated"),
+        pytest.param("radiation_global", ("hourly", "radiation_global"), id="joined"),
+    ],
+)
+def test_a_period_whose_every_archive_is_a_404_answers_no_rows_and_the_warnings(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, dataset: str, columns: tuple[str, str]
+) -> None:
+    """Every archive that the listing names is gone (404): the answer is the one of a single missing archive (GH-4056).
+
+    The reader ended in `pl.concat([])`, a `ValueError` (and in an `IndexError` for the radiation, which joins its two
+    files), where the one missing archive of a period answers no rows and the `file-skipped` warning.
+    """
+    urls = [f"https://example.invalid/produkt_{dataset}_{number}.zip" for number in (1, 2)]
+    monkeypatch.setattr(
+        dwd_derived_api, "create_file_list_for_climate_derived", lambda *_args, **_kwargs: pl.Series(urls)
+    )
+    monkeypatch.setattr(
+        dwd_derived_download,
+        "download_files",
+        lambda urls, **_kwargs: [File(url=url, content=FileNotFoundError(url), status=404) for url in urls],
+    )
+    request = DwdDerivedRequest(
+        parameters=[columns],
+        periods={Period.RECENT},
+        start=_day(2025, 4, 9),
+        end=_day(2025, 4, 9, 23),
+        settings=_settings(),
+        options=_options(drop_nulls=False),
+    )
+    begin_response()
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.provider.dwd.derived.download"):
+        df = stations_result(request, *columns, "18001").values().all().df
+
+    assert df.is_empty()
+    assert df.schema == pl.Schema(LONG_SCHEMA)
+    # one log line for each archive, and one `file-skipped` for the station that they were of
+    assert [record.getMessage().split()[2] for record in caplog.records if "(404)" in record.getMessage()] == urls
+    (warning,) = [warning for warning in recorded_warnings() if warning["code"] == FILE_SKIPPED]
+    assert warning["stations"] == ["18001"]
+    assert f"(hourly/{dataset})" in warning["message"]
