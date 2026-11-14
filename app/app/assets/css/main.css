@@ -407,7 +407,10 @@
     height: auto !important;
     position: static !important;
   }
+  /* ECharts lays its SVG out `position: absolute` in the box above, which has no height of its own, so it is
+     static here: the SVG gives the box its height, and the whole chart prints, not an empty box (GH-4080) */
   .mg-canvas svg {
+    position: static !important;
     width: 100% !important;
     height: auto !important;
     display: block;

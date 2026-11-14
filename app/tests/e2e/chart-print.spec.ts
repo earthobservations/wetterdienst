@@ -101,8 +101,8 @@ async function chartTexts(page: Page, chart: Pick<Chart, 'root' | 'texts'> = CHA
 
 /**
  * The texts of the forecast's chart that the PDF reader of this spec finds once the picture is scaled to the sheet: the day
- * names and the hours, which are 12 px like every other text of the chart. (The axes' numbers and their rotated titles are
- * 12 px as well, and are not found in a scaled print by `pdf-text.ts`, which reads one run for each piece of text.)
+ * names and the hours, which are 12 px like every other text of the chart. (The axes' numbers are 12 px as well; that they
+ * are in the PDF at all is held by "prints the numbers of its axes" below, GH-4080.)
  */
 async function forecastTexts(page: Page): Promise<string[]> {
   const texts = await page.locator('.mg-canvas svg text').evaluateAll(texts => [...new Set(texts.map(text => text.textContent?.trim()).filter((value): value is string => !!value))])
@@ -195,6 +195,39 @@ test.describe(FORECAST.name, () => {
       await expectPrintedAtLeast(page, texts, FORECAST.floor)
     })
   }
+})
+
+// A chart that prints as an empty box passes the size checks above, which only measure the text that reaches the PDF
+// (GH-4080): ECharts lays its SVG out `position: absolute` in a box that has no height of its own, so on paper the
+// box was 0 px high with `overflow: hidden`, and the panels, bars and tick labels were gone. (The layout under the print
+// medium, which Firefox emulates as well, is held in meteogram-chart.spec.ts.)
+test.describe('the forecast\'s meteogram has its whole chart on paper (GH-4080)', () => {
+  test.beforeEach(async ({ context, page, baseURL }) => {
+    await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await mockBackend(page, baseURL!)
+    await page.goto(FORECAST.path)
+    await FORECAST.reach(page)
+  })
+
+  // the numbers on the axes: 0, 5, 10, 0.5, 50, and the pressure's 1,010 and 1,015 (the day names and the hours are
+  // the other texts of the chart)
+  const AXIS_NUMBER = /^-?\d{1,3}(?:,\d{3})*(?:\.\d+)?$/
+
+  // the PDF Chromium prints: every number of the axes is in it, on the page that carries the chart
+  test('prints the numbers of its axes', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf is Chromium\'s; the layout under the print medium is held in every browser by meteogram-chart.spec.ts')
+    const numbers = await page.locator('.mg-canvas svg text').evaluateAll(
+      (texts, axisNumber) => [...new Set(texts.map(text => text.textContent?.trim() ?? '').filter(value => new RegExp(axisNumber).test(value)))],
+      AXIS_NUMBER.source,
+    )
+    expect(numbers.length, 'distinct numbers on the axes').toBeGreaterThan(3)
+    for (const sheet of SHEETS) {
+      const margin = { top: sheet.margin, right: sheet.margin, bottom: sheet.margin, left: sheet.margin }
+      const found = new Set(pdfTextRuns(await page.pdf({ format: sheet.format, margin })).map(run => run.text.trim()))
+      expect(numbers.filter(value => !found.has(value)), `${sheet.format} ${sheet.margin}: axis numbers not in the PDF`).toEqual([])
+    }
+  })
 })
 
 test('the explorer\'s faceted charts are capped as well, and print as large as the single one', async ({ page, baseURL, browserName }) => {
