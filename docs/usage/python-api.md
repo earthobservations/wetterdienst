@@ -543,6 +543,8 @@ df = stations.df
 df
 ```
 
+(the-ids-of-a-station)=
+
 #### The ids of a station
 
 The columns of `STATIONS_SCHEMA` are the same on every provider, but not always filled: `region` is the
