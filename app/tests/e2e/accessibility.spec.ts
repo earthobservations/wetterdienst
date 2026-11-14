@@ -1130,6 +1130,60 @@ test.describe('chart controls by keyboard', () => {
     await expect(buttons.first()).toBeFocused()
   })
 
+  // opens the explorer's chart, which the modebar's tests below are of (the stripes' was Plotly's until GH-4068)
+  async function openExplorerChart(page: Page, baseURL: string) {
+    await mockBackend(page, baseURL)
+    await open(page, EXPLORER_WITH_STATION, variant)
+    await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
+    await expect(page.getByRole('table').first()).toBeVisible()
+    await page.getByRole('button', { name: message('en', 'dataViewer.viewChart'), exact: true }).click()
+    await expect(plotly(page)).toBeVisible()
+  }
+
+  test('the modebar of the explorer\'s chart is walked by Tab in order, and operated by Enter and Space', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+
+    // the buttons; the Plotly logo is a link, which is not one of them
+    const buttons = page.locator('.js-plotly-plot .modebar-btn:not(.modebar-btn--logo)')
+    const count = await buttons.count()
+    expect(count).toBeGreaterThan(3)
+    const names = await buttons.evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')))
+    expect(new Set(names).size, 'every button has a name of its own').toBe(count)
+
+    // Tab walks through the modebar, button by button in order
+    const focusedName = () => page.evaluate(() => document.activeElement?.closest('.modebar') ? document.activeElement.getAttribute('aria-label') : null)
+    await buttons.first().focus()
+    const reached = [await focusedName()]
+    for (let stop = 1; stop < count; stop++) {
+      await page.keyboard.press('Tab')
+      reached.push(await focusedName())
+    }
+    expect(reached).toEqual(names)
+
+    // "Pan" is a toggle: Enter turns it on, and the button says so by its class
+    const pan = page.locator('.js-plotly-plot .modebar-btn[data-attr="dragmode"][data-val="pan"]')
+    await pan.focus()
+    await page.keyboard.press('Enter')
+    await expect(pan).toHaveClass(/active/)
+    // Reset axes by Space leaves the chart drawn
+    await page.locator('.js-plotly-plot .modebar-btn[data-attr="zoom"][data-val="reset"]').focus()
+    await page.keyboard.press('Space')
+    await expect(plotly(page)).toBeVisible()
+  })
+
+  // the names of the modebar's buttons come with the pointer, as Plotly draws them in a ::after, and Escape takes them away (WCAG 1.4.13)
+  test('the names of the explorer\'s modebar buttons on hover are dismissed by Escape too', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+
+    const button = page.locator('.js-plotly-plot .modebar-btn[data-attr="zoom"][data-val="reset"]')
+    const nameShown = () => button.evaluate(node => getComputedStyle(node, '::after').display)
+    await expect(button).toBeVisible()
+    await button.hover()
+    await expect.poll(nameShown).toBe('block')
+    await page.keyboard.press('Escape')
+    await expect.poll(nameShown).toBe('none')
+  })
+
   // what the stripes and the widget's forecast draw, in a table a keyboard and a screen reader read (WCAG 1.1.1, 1.3.1)
   for (const { page: name, path, ready } of [
     { page: 'stripes', path: '/stripes?kind=temperature&station=00011', ready: async (page: Page) => {
