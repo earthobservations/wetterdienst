@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, cast
 
 import polars as pl
 
@@ -190,20 +190,6 @@ class DwdPoiRequest(TimeseriesRequest):
 
     metadata = DwdPoiMetadata
     _values = DwdPoiValues
-
-    _base_columns: ClassVar = (
-        "resolution",
-        "dataset",
-        "station_id",
-        "icao_id",
-        "start_timestamp",
-        "end_timestamp",
-        "latitude",
-        "longitude",
-        "elevation",
-        "name",
-        "region",
-    )
 
     def _all(self) -> pl.LazyFrame:
         """Return the MOSMIX catalogue stations that currently have a POI file."""

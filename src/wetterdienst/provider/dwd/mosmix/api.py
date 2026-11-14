@@ -10,7 +10,7 @@ import logging
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
@@ -322,20 +322,6 @@ class DwdMosmixRequest(TimeseriesRequest):
     station_group: DwdMosmixStationGroup = DwdMosmixStationGroup.SINGLE_STATIONS
 
     _url = MOSMIX_STATION_CATALOGUE_URL
-
-    _base_columns: ClassVar = [
-        "resolution",
-        "dataset",
-        "station_id",
-        "icao_id",
-        "start_timestamp",
-        "end_timestamp",
-        "latitude",
-        "longitude",
-        "elevation",
-        "name",
-        "region",
-    ]
 
     @classmethod
     def available_issues(cls, station_id: str, settings: Settings) -> list[dt.datetime]:

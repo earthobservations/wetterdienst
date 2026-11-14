@@ -13,7 +13,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, ClassVar, cast
+from typing import TYPE_CHECKING, cast
 
 import polars as pl
 
@@ -364,13 +364,6 @@ class KnmiObservationRequest(TimeseriesRequest):
     metadata = KnmiObservationMetadata
     _values = KnmiObservationValues
 
-    # extend base columns of core class with the station's full WIGOS station identifier, of which
-    # `station_id` is the trailing WMO number
-    _base_columns: ClassVar = (
-        *TimeseriesRequest._base_columns,  # noqa: SLF001
-        "wigos_id",
-    )
-
     @classmethod
     def is_configured(cls) -> bool:  # noqa: D102
         return bool(Settings().auth.knmi_edr)
@@ -436,6 +429,9 @@ class KnmiObservationRequest(TimeseriesRequest):
             _stations_of(stations, resolution).with_columns(
                 pl.lit(resolution_name, dtype=pl.String).alias("resolution"),
                 pl.lit(dataset, dtype=pl.String).alias("dataset"),
+                # the id of a KNMI station is its WMO number (`station_id` is the tail of the WIGOS identifier
+                # where the list gives none, which for the stations of issuer 528 is the number as well)
+                pl.col("station_id").alias("wmo_id"),
             )
             for resolution, resolution_name, dataset in requested
         ]

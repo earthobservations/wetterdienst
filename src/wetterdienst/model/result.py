@@ -73,6 +73,9 @@ class StationsFilter(Enum):
     ALL = "all"
     BY_STATION_ID = "by_station_id"
     BY_NAME = "by_name"
+    BY_WMO_ID = "by_wmo_id"
+    BY_WIGOS_ID = "by_wigos_id"
+    BY_ICAO_ID = "by_icao_id"
     BY_RANK = "by_rank"
     BY_DISTANCE = "by_distance"
     BY_BBOX = "by_bbox"
@@ -141,6 +144,10 @@ class _Station(TypedDict):
     elevation: float | None
     name: str | None
     region: str | None
+    # null where the provider publishes none; each in one notation (`wetterdienst.model.station_ids`)
+    wmo_id: str | None
+    wigos_id: str | None
+    icao_id: str | None
 
 
 class _EstimateStation(_Station):
@@ -177,6 +184,11 @@ class _OgcFeatureProperties(TypedDict):
     region: str | None
     start_timestamp: str | None
     end_timestamp: str | None
+    # the identifiers the station may have besides its id: null where the provider publishes none, each in one
+    # notation (`wetterdienst.model.station_ids`)
+    wmo_id: str | None
+    wigos_id: str | None
+    icao_id: str | None
 
 
 class _OgcFeatureGeometry(TypedDict):
@@ -592,6 +604,10 @@ class StationsResult(_EqualByFields, ExportMixin):
                 "region": station["region"],
                 "start_timestamp": station["start_timestamp"],
                 "end_timestamp": station["end_timestamp"],
+                # a frame a caller built by hand may lack them, as the core columns are filled by `all()`
+                "wmo_id": station.get("wmo_id"),
+                "wigos_id": station.get("wigos_id"),
+                "icao_id": station.get("icao_id"),
                 **{column: station[column] for column in extra_columns},
             },
             "geometry": geometry,

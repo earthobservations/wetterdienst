@@ -56,6 +56,7 @@ from wetterdienst.model.request import (
     require_window,
 )
 from wetterdienst.model.result import _Station  # noqa: TC001, needed at runtime by pydantic
+from wetterdienst.model.station_ids import search_icao_id, search_wigos_id, search_wmo_id
 from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.util.datetime import format_timestamp, parse_date_window
@@ -134,6 +135,32 @@ _AllField = Annotated[bool | None, Field(description="Return all stations. Not c
 _StationsField = Annotated[
     list[str] | None,
     Field(description="Station ids, comma-separated, e.g. '01048' or '01048,04411'."),
+]
+_WmoIdField = Annotated[
+    list[str] | None,
+    Field(
+        description="Select stations by WMO number: five digits, comma-separated, e.g. '10381' or '10381,10147'. "
+        "A number of one to four digits is read with its leading zeros ('1001' is '01001'). Every station that "
+        "has one of the numbers is answered (a number can be on several), and only the stations of a provider "
+        "that publishes WMO numbers can be found this way. The `wmo_id` column of `stations` says which have one."
+    ),
+]
+_WigosIdField = Annotated[
+    list[str] | None,
+    Field(
+        description="Select stations by WIGOS station identifier, comma-separated, e.g. '0-20000-0-10381' or "
+        "'0-56-101-01002': series, issuer, issue number and local id, the first three without leading zeros "
+        "('0-056-101-01002' is read as '0-56-101-01002'). Every station that has one of the identifiers is "
+        "answered. The `wigos_id` column of `stations` says which have one."
+    ),
+]
+_IcaoIdField = Annotated[
+    list[str] | None,
+    Field(
+        description="Select stations by ICAO location indicator, four letters, comma-separated, e.g. 'EDDH' or "
+        "'EDDH,EDDB'; the case does not matter. Every station that has one of the codes is answered (a code can "
+        "be on several). The `icao_id` column of `stations` says which have one."
+    ),
 ]
 _StationIdField = Annotated[str, Field(description="Station id used as the reference location, e.g. '01048'.")]
 _StationIdOptField = Annotated[
@@ -562,6 +589,17 @@ def _read_items(value: str | list | None) -> list[str] | None:
     return ids or None
 
 
+def _read_station_codes(value: str | int | list | None, search: Callable[[list[str]], list[str]]) -> list[str] | None:
+    """Read the ids of `wmo_id`, `wigos_id` or `icao_id` as `_read_items` reads station ids, in their notation.
+
+    A number is read as the text of it (JSON gives a number a client wrote as one); an id that is no id of the column
+    is a 422, with the notation in its message, and not an empty answer.
+    """
+    items = value if isinstance(value, list) else [value]
+    ids = _read_items([str(item) for item in items if item is not None])
+    return search(ids) if ids else None
+
+
 def _load_json(text: str) -> Any:  # noqa: ANN401
     """Read a mapping a query gives as JSON, refusing one nested deeper than Python reads as a plain value error.
 
@@ -885,9 +923,20 @@ class Selection:
         return document
 
 
-#: the stations of `stations` and `values`: all, ids, a name, a point (with a rank or a distance), a box or SQL
+#: the stations of `stations` and `values`: all, ids, the WMO, WIGOS or ICAO ids, a name, a point (with a rank or a
+#: distance), a box or SQL
 STATION_SELECTION = Selection(
-    exactly_one_of=(("all",), ("stations",), ("name",), _POINT, ("left", "bottom", "right", "top"), ("sql",)),
+    exactly_one_of=(
+        ("all",),
+        ("stations",),
+        ("wmo_id",),
+        ("wigos_id",),
+        ("icao_id",),
+        ("name",),
+        _POINT,
+        ("left", "bottom", "right", "top"),
+        ("sql",),
+    ),
     then=((_POINT, _POINT_MEASURES),),
     # a `rank` goes with a name as well as with a point: there it caps the fuzzy matches
     requires=(("distance", (_POINT,)), ("rank", (_POINT, ("name",)))),
@@ -907,6 +956,9 @@ STRIPES_SELECTION = Selection(exactly_one_of=(("station",), ("name",)))
 SELECTION_EXAMPLES: dict[str, Any] = {
     "all": True,
     "stations": ["01048", "04411"],
+    "wmo_id": ["10381", "10147"],
+    "wigos_id": ["0-20000-0-10381"],
+    "icao_id": ["EDDB", "EDDH"],
     "name": "Hamburg Fuhlsbüttel",
     "latitude": 53.63,
     "longitude": 10.0,
@@ -1009,6 +1061,29 @@ class StationsRequest(_RefusesRenamedParameters):
     def validate_stations(cls, v: str | list | None) -> list[str] | None:
         """Validate stations."""
         return _read_items(v)
+
+    # the WMO, WIGOS and ICAO ids a station may have besides its station id
+    wmo_id: _WmoIdField = None
+    wigos_id: _WigosIdField = None
+    icao_id: _IcaoIdField = None
+
+    @field_validator("wmo_id", mode="before")
+    @classmethod
+    def validate_wmo_id(cls, v: str | int | list | None) -> list[str] | None:
+        """Read the WMO numbers, five digits each."""
+        return _read_station_codes(v, search_wmo_id)
+
+    @field_validator("wigos_id", mode="before")
+    @classmethod
+    def validate_wigos_id(cls, v: str | list | None) -> list[str] | None:
+        """Read the WIGOS station identifiers, in the notation of the `wigos_id` column."""
+        return _read_station_codes(v, search_wigos_id)
+
+    @field_validator("icao_id", mode="before")
+    @classmethod
+    def validate_icao_id(cls, v: str | list | None) -> list[str] | None:
+        """Read the ICAO codes, in upper case."""
+        return _read_station_codes(v, search_icao_id)
 
     # station name
     name: _NameField = None
@@ -1178,6 +1253,29 @@ class ValuesRequest(_RefusesRenamedParameters):
     def validate_stations(cls, v: str | list | None) -> list[str] | None:
         """Validate stations."""
         return _read_items(v)
+
+    # the WMO, WIGOS and ICAO ids a station may have besides its station id
+    wmo_id: _WmoIdField = None
+    wigos_id: _WigosIdField = None
+    icao_id: _IcaoIdField = None
+
+    @field_validator("wmo_id", mode="before")
+    @classmethod
+    def validate_wmo_id(cls, v: str | int | list | None) -> list[str] | None:
+        """Read the WMO numbers, five digits each."""
+        return _read_station_codes(v, search_wmo_id)
+
+    @field_validator("wigos_id", mode="before")
+    @classmethod
+    def validate_wigos_id(cls, v: str | list | None) -> list[str] | None:
+        """Read the WIGOS station identifiers, in the notation of the `wigos_id` column."""
+        return _read_station_codes(v, search_wigos_id)
+
+    @field_validator("icao_id", mode="before")
+    @classmethod
+    def validate_icao_id(cls, v: str | list | None) -> list[str] | None:
+        """Read the ICAO codes, in upper case."""
+        return _read_station_codes(v, search_icao_id)
 
     # station name
     name: _NameField = None
@@ -2239,6 +2337,19 @@ def _get_stations_request(
     return api(**kwargs, settings=settings, options=options)
 
 
+def _filter_by_station_code(
+    r: TimeseriesRequest, request: StationsRequest | ValuesRequest | HistoryRequest
+) -> StationsResult | None:
+    """Select the stations by the WMO number, WIGOS identifier or ICAO code the request names, None if it names none."""
+    if wmo_id := getattr(request, "wmo_id", None):
+        return r.filter_by_wmo_id(wmo_id)
+    if wigos_id := getattr(request, "wigos_id", None):
+        return r.filter_by_wigos_id(wigos_id)
+    if icao_id := getattr(request, "icao_id", None):
+        return r.filter_by_icao_id(icao_id)
+    return None
+
+
 def get_stations(
     api: type[TimeseriesRequest],
     request: StationsRequest | ValuesRequest | HistoryRequest,
@@ -2262,6 +2373,9 @@ def get_stations(
 
         if request.stations:
             return r.filter_by_station_id(request.stations)
+
+        if (by_id := _filter_by_station_code(r, request)) is not None:
+            return by_id
 
         name: str | None = getattr(request, "name", None)
         if name:

@@ -70,6 +70,9 @@ def test_lhmt_observation_stations_have_a_position_and_no_period_or_elevation(mo
             "elevation": None,
             "name": "Vilniaus AMS",
             "region": None,
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
     ]
 

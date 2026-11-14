@@ -323,6 +323,35 @@ line and the REST API do the same for a list of `--stations` ids.
 The stations come back in the order of the catalogue, not in the order the ids are given
 (`("00003", "00001")` is `00001`, then `00003`): sort the frame for another order.
 
+#### filter by WMO number, WIGOS identifier or ICAO code
+
+A station may have identifiers besides its `station_id`, in the columns `wmo_id`, `wigos_id` and `icao_id` of the
+stations frame (see [the station columns](#the-ids-of-a-station)). `filter_by_wmo_id`,
+`filter_by_wigos_id` and `filter_by_icao_id` select the stations that have one of the ids given, which is more than
+one station where an id is on several (NOAA lists a station that was registered anew under two ids; DWD lists
+five of its MOSMIX ICAO codes twice). Each station comes back with a row for every requested dataset, in the order
+of the catalogue, and an id that no station has is left out with an `unknown-station` warning, so that the result may
+be empty. Like `filter_by_station_id` they select among the whole list, whatever the window of the request.
+
+```python
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
+
+request = DwdMosmixRequest(parameters=("hourly", "large"))
+request.filter_by_wmo_id(10381)  # Berlin-Dahlem; "10381" and ("10381", "10147") do too
+request.filter_by_icao_id("eddh")  # the case does not matter
+request.filter_by_wigos_id("0-20000-0-10381")  # an issuer written "056" finds the "56"
+```
+
+What is given is read in the notation of the column before it is compared: one to five digits of a WMO number get
+their leading zeros (`1001` finds `01001`), an ICAO code is upper-cased, and the numbers of a WIGOS identifier
+lose theirs. An id that cannot be one of the column (`"abc"`, six digits, `"ED"`) raises a `ValueError` that names
+the notation, rather than answering as if no station had it. A provider whose station list carries no such ids
+(`dwd/observation` today) has the column null, so a search finds nothing there.
+
+The command line (`--wmo-id`, `--wigos-id`, `--icao-id`), the REST API and MCP (`wmo_id`, `wigos_id`, `icao_id`)
+take them for `stations` and `values`, comma-separated, as one of the ways to select stations: not with `stations`,
+`name` or another of the selections.
+
 #### filter by name
 
 Station name filtering uses fuzzy matching (case-insensitive, via rapidfuzz's `WRatio`
@@ -514,25 +543,36 @@ df = stations.df
 df
 ```
 
-#### Station columns of a provider
+#### The ids of a station
 
 The columns of `STATIONS_SCHEMA` are the same on every provider, but not always filled: `region` is the
 sub-national unit the source names (a state, province, county, canton or département), whatever it is called
-there, and null where the source names none. Behind them, a provider adds the
-columns of its own that its station list has, null for a station the source gives none:
+there, and null where the source names none. The last three are the identifiers a station may have besides its
+`station_id`, each in one notation whichever provider lists it, and null where the provider publishes none:
+
+| Column | Notation | Filled by |
+| --- | --- | --- |
+| `wmo_id` | the WMO station number: five digits with leading zeros, `01001` or `10381`; a value that is not that (a source's junk, an id of another scheme) is null | `dwd/mosmix`, `dwd/dmo` and `dwd/poi` for the stations whose `station_id` is the number (the others carry an id of DWD's own, `A191`), `geosphere/observation`, `knmi/observation`, `meteofrance/synop`, `noaa/ghcn` |
+| `wigos_id` | the WIGOS station identifier, `<series>-<issuer>-<issue number>-<local id>`, the first three numbers without leading zeros (`0-20000-0-10381`, `0-56-101-01002`), the local id as published | `knmi/observation` |
+| `icao_id` | the ICAO location indicator of the aerodrome, four upper-case letters (`EDDH`) | `dwd/mosmix`, `dwd/dmo`, `dwd/poi` |
+
+A provider that does not publish one of them has it null, which is no statement that the station has none:
+`dwd/observation`'s stations are keyed by DWD's own number, which is not the WMO number. Search by them with
+`filter_by_wmo_id`, `filter_by_wigos_id` and `filter_by_icao_id` (see above).
+
+#### Station columns of a provider
+
+Behind the columns of the schema, a provider adds the columns of its own that its station list has, null for a
+station the source gives none:
 
 | Provider and network | Column | What it holds |
 | --- | --- | --- |
 | `dmi/observation` | `country` | DMI's three-letter code of the country the station is in: `DNK`, `GRL` or `FRO` |
-| `dwd/mosmix`, `dwd/dmo`, `dwd/poi` | `icao_id` | the ICAO location indicator of the station, where it has one |
 | `dwd/road` | `station_group`, `road_name`, `road_sector`, `road_type`, `road_surface_type`, `road_surroundings_type` | the road a station is on and its surroundings, as DWD's list gives them |
 | `eaufrance/hubeau` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero and the reference system it is given in |
-| `geosphere/observation` | `wmo_id` | the WMO station number, five digits |
 | `imgw/hydrology` | `river`, `river_kilometer` | the river the gauge is on, with its hydrographic code as IMGW lists it (`Odra (1)`), and its position along it in kilometres, counted from the mouth |
 | `imgw/hydrology` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero in metres above sea level, and the datum, which IMGW's list does not state, so it is null |
 | `imgw/meteorology` | `river` | the river catchment the station is listed under, with its hydrographic code (`Odra (1)`) |
-| `knmi/observation` | `wigos_id` | the WIGOS station identifier (`0-20000-0-06260`), of which `station_id` is the WMO number at the end |
-| `noaa/ghcn` | `wmo_id` | the WMO station number, five digits, null for a station without one |
 | `wsv/pegel` | `river`, `river_kilometer` | the river the gauge is on, as Pegelonline publishes it (`ELBE`), and its position along it in kilometres, the waterway kilometre, which grows downstream |
 | `wsv/pegel` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero and the datum it is given in |
 | `wsv/pegel` | `m_i`, `m_ii`, `m_iii`, `mnw`, `mw`, `mhw`, `hhw`, `hsw` | the characteristic water levels of the gauge, in metres, converted from the unit Pegelonline lists them in, as `stage` is by default |

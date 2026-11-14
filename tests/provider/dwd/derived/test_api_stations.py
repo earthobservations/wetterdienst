@@ -48,6 +48,9 @@ def expected_data() -> list[dict]:
             "elevation": 48.0,
             "name": "Berlin-Tempelhof",
             "region": "Berlin",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
     ]
 
@@ -74,6 +77,9 @@ def test_dwd_derived_soil_stations_filter(default_settings: Settings) -> None:
             "elevation": 215.0,
             "name": "Alzey",
             "region": "Rheinland-Pfalz",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
         {
             "resolution": "monthly",
@@ -86,6 +92,9 @@ def test_dwd_derived_soil_stations_filter(default_settings: Settings) -> None:
             "elevation": 97.0,
             "name": "Doberlug-Kirchhain",
             "region": "Brandenburg",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
     ]
     assert stations.df.to_dicts() == expected_data
@@ -113,6 +122,9 @@ def test_dwd_derived_radiation_stations_filter(default_settings: Settings) -> No
             "elevation": 680.0,
             "name": "Donaueschingen (Landeplatz)_DUETT",
             "region": "Baden-Württemberg",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
         {
             "resolution": "hourly",
@@ -125,6 +137,9 @@ def test_dwd_derived_radiation_stations_filter(default_settings: Settings) -> No
             "elevation": 48.0,
             "name": "Wacken_DUETT",
             "region": "Schleswig-Holstein",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
     ]
     assert stations.df.to_dicts() == expected_data
@@ -198,6 +213,9 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "elevation": 42.0,
                 "name": "Arkona",
                 "region": "Mecklenburg-Vorpommern",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             },
         ),
         IsDict(
@@ -212,6 +230,9 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "elevation": 453.0,
                 "name": "Michelstadt-Vielbrunn",
                 "region": "Hessen",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             },
         ),
         IsDict(
@@ -226,6 +247,9 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "elevation": 370.0,
                 "name": "Stadtilm",
                 "region": "Thüringen",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             },
         ),
         IsDict(
@@ -240,6 +264,9 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "elevation": 48.0,
                 "name": "Wacken",
                 "region": "Schleswig-Holstein",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             },
         ),
     ]
@@ -315,8 +342,8 @@ def test_get_raw_station_data_from_plz_generator() -> None:
         _get_raw_station_data_from_plz_generator(),
         DwdDerivedMetadata.monthly.climate_correction_factor,
     )
-    assert stations.shape == (10**5, 10)
-    assert stations.drop("resolution", "dataset", "station_id").null_count().row(0) == (10**5,) * 7
+    assert stations.shape == (10**5, 13)
+    assert stations.drop("resolution", "dataset", "station_id").null_count().row(0) == (10**5,) * 10
 
 
 def test_read_meta_df_fixed_width_station_list() -> None:
@@ -373,10 +400,16 @@ def test_read_meta_df_fixed_width_station_list() -> None:
             "longitude": [8.8493, 8.2370, 8.7287, 8.1933],
             "name": ["Aach", "Großenkneten", "Liebenzell, Bad/ Nagold", "Titisee-Neustadt-Neustadt"],
             "region": ["Baden-Württemberg", "Niedersachsen", "Baden-Württemberg", "Baden-Württemberg"],
+            "wmo_id": [None] * 4,
+            "wigos_id": [None] * 4,
+            "icao_id": [None] * 4,
         },
         schema_overrides={
             "start_timestamp": pl.Datetime(time_zone="UTC"),
             "end_timestamp": pl.Datetime(time_zone="UTC"),
+            "wmo_id": pl.String,
+            "wigos_id": pl.String,
+            "icao_id": pl.String,
         },
     )
     assert_frame_equal(df, expected, check_column_order=False)

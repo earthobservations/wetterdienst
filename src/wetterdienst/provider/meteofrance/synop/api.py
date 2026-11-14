@@ -432,5 +432,7 @@ class MeteoFranceSynopRequest(TimeseriesRequest):
         df = df.lazy()
         return df.with_columns(
             pl.col("start_timestamp").str.to_datetime("%Y-%m-%d", strict=False),
+            # the `Id` of the list is the WMO number (`07002`), which the value files call `geo_id_wmo`
+            pl.col("station_id").alias("wmo_id"),
         )
         # one catalogue for every dataset: the core copies it over the request's datasets

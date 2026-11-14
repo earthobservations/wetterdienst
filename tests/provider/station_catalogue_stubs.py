@@ -449,6 +449,17 @@ MOSMIX_CATALOGUE = (
 )
 
 
+# the ids the reader must give a station of the MOSMIX catalogue (GH-4070): the `ICAO` column, `----` being none, and
+# the `station_id` as the WMO number where it is five digits. `A191` is an id of DWD's own, which is no WMO number
+MOSMIX_IDS: dict[str, dict[str, Any]] = {
+    "01001": {"wmo_id": "01001", "icao_id": "ENJA", "wigos_id": None},
+    "10147": {"wmo_id": "10147", "icao_id": "EDDH", "wigos_id": None},
+    "72520": {"wmo_id": "72520", "icao_id": "KPIT", "wigos_id": None},
+    "23205": {"wmo_id": "23205", "icao_id": None, "wigos_id": None},
+    "A191": {"wmo_id": None, "icao_id": None, "wigos_id": None},
+}
+
+
 def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     _serve(monkeypatch, dwd_catalogue, {"mosmix_stationskatalog": MOSMIX_CATALOGUE.encode("latin-1")})
     return _stations(DwdMosmixRequest, ("hourly", "small"))
@@ -808,10 +819,22 @@ DMO_POSITIONS: dict[str, tuple[float, float]] = {
     "F9424": (-22.15, -49.07),  # BAURU, published 22.15 north for south
     "P0563": (51.87, -0.37),  # LONDON LUTON, published `.22` east for 0.37 west
 }
-DMO_EXPECTED = {
+DMO_EXPECTED: dict[str, dict[str, Any]] = {
     station_id: {"latitude": latitude, "longitude": longitude}
     for station_id, (latitude, longitude) in DMO_POSITIONS.items()
 }
+# the ids it must give (GH-4070): the ICAO column, and the station id as the WMO number where it is five digits; the
+# alphanumeric ids of DWD's own (`F9424`, `P0563`) are no WMO numbers
+for _station_id, (_wmo_id, _icao_id) in {
+    "01001": ("01001", "ENJA"),
+    "01025": ("01025", None),
+    "03377": ("03377", None),
+    "10147": ("10147", "EDDH"),
+    "82106": ("82106", "SBUA"),
+    "F9424": (None, "SBAE"),
+    "P0563": (None, "EGGW"),
+}.items():
+    DMO_EXPECTED.setdefault(_station_id, {}).update({"wmo_id": _wmo_id, "icao_id": _icao_id, "wigos_id": None})
 
 
 def _dwd_dmo(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
@@ -1619,6 +1642,9 @@ KNMI_EXPECTED: dict[str, dict[str, Any]] = {
     "06344": {"name": "Rotterdam Airport", "elevation": -5.14},
     "06392": {"wigos_id": "0-528-0-06392", "name": "Horst", "latitude": 51.4869, "longitude": 6.0561},
 }
+# the WMO number of a station is its id, which the list's `wmoId` (or the end of the WSI) gives (GH-4070); no ICAO code
+for _station_id, _fields in KNMI_EXPECTED.items():
+    _fields.update({"wmo_id": _station_id, "icao_id": None})
 
 
 def _knmi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
@@ -1722,7 +1748,15 @@ STUBS = [
     Stub("wsv/pegel 10_minutes+15_minutes/data", _wsv, (WSV_NO_POSITION, WSV_TIEL)),
     Stub("nws/observation hourly/data", _nws),
     Stub("meteofrance/observation daily/core", _meteofrance_observation, expected=METEOFRANCE_EXPECTED),
-    Stub("meteofrance/synop subdaily/data", _meteofrance_synop),
+    # the `Id` of the list is the WMO number (GH-4070)
+    Stub(
+        "meteofrance/synop subdaily/data",
+        _meteofrance_synop,
+        expected={
+            station_id: {"wmo_id": station_id, "wigos_id": None, "icao_id": None}
+            for station_id in ("07002", "07149", "61968", "78897", "89642")
+        },
+    ),
     Stub(
         "eccc/observation hourly/data",
         _eccc_hourly,
@@ -1738,8 +1772,14 @@ STUBS = [
         expected={"52": {"start_timestamp": dt.datetime(1957, 10, 1, tzinfo=dt.UTC)}},
     ),
     Stub("eccc/observation monthly/data", _eccc_monthly),
-    Stub("dwd/mosmix hourly/small", _dwd_mosmix, (DWD_NAMES,)),
-    Stub("dwd/poi hourly/data", _dwd_poi, (DWD_NAMES,)),
+    Stub("dwd/mosmix hourly/small", _dwd_mosmix, (DWD_NAMES,), expected=MOSMIX_IDS),
+    # the stations of the catalogue that have a report file: not `72520`
+    Stub(
+        "dwd/poi hourly/data",
+        _dwd_poi,
+        (DWD_NAMES,),
+        expected={station_id: fields for station_id, fields in MOSMIX_IDS.items() if station_id != "72520"},
+    ),
     Stub("dwd/dmo hourly/icon", _dwd_dmo, expected=DMO_EXPECTED),
     Stub("dwd/observation daily/climate_summary", _dwd_observation, expected=OBSERVATION_EXPECTED),
     Stub("dwd/derived hourly/radiation_global", _dwd_derived),
@@ -1750,13 +1790,29 @@ STUBS = [
     Stub("knmi/observation daily/data", _knmi, expected=KNMI_EXPECTED),
     Stub("metno/frost hourly/data", _metno_frost, (FROST_NO_POSITION,), expected=FROST_EXPECTED),
     Stub("metoffice/observation daily/rain", _metoffice),
-    Stub("noaa/ghcn hourly/data", _ghcn_hourly, (GHCN_NO_POSITION, GHCN_NAMES)),
+    Stub(
+        "noaa/ghcn hourly/data",
+        _ghcn_hourly,
+        (GHCN_NO_POSITION, GHCN_NAMES),
+        # the `WMO_ID` column of the list (GH-4070)
+        expected={"ARM00087500": {"wmo_id": "87500"}, "GMI0000EDDH": {"wmo_id": None}},
+    ),
     Stub(
         "noaa/ghcn daily/data",
         _ghcn_daily,
         (GHCN_NAMES,),
+        # the `WMO ID` column of the list (GH-4070), not the number in the GHCN id; none for a station without one
+        expected={
+            "GM000010147": {"wmo_id": "10147", "icao_id": None, "wigos_id": None},
+            "BR000269000": {"wmo_id": "82200", "icao_id": None, "wigos_id": None},
+        },
     ),
-    Stub("geosphere/observation daily/data", _geosphere),
+    # the `Synopstationsnummer` of the list: the composite series `1` has none (GH-4070)
+    Stub(
+        "geosphere/observation daily/data",
+        _geosphere,
+        expected={"500": {"wmo_id": "11021"}, "1": {"wmo_id": None}, "12": {"wmo_id": None}},
+    ),
     Stub(
         "chmi/observation daily/data",
         _chmi,

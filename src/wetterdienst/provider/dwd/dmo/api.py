@@ -14,7 +14,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 from io import StringIO
-from typing import TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, Literal
 from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
@@ -33,7 +33,7 @@ from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_para
 from wetterdienst.model.quality_flags import join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import UPDATED, TimeseriesValues
-from wetterdienst.provider.dwd.catalogue import correct_station_positions
+from wetterdienst.provider.dwd.catalogue import correct_station_positions, with_wmo_id_of_station_id
 from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -690,19 +690,6 @@ class DwdDmoRequest(TimeseriesRequest):
         "https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/"
         "dmo_stationsliste_txt.asc?__blob=publicationFile&v=1"
     )
-    _base_columns: ClassVar = [
-        "resolution",
-        "dataset",
-        "station_id",
-        "icao_id",
-        "start_timestamp",
-        "end_timestamp",
-        "latitude",
-        "longitude",
-        "elevation",
-        "name",
-        "region",
-    ]
 
     @staticmethod
     def adjust_datetime(datetime_: dt.datetime) -> dt.datetime:
@@ -1096,4 +1083,4 @@ class DwdDmoRequest(TimeseriesRequest):
                 ),
             )
         # after the stations the catalogue omits are added: Tripoli is described by the run alone (GH-2646)
-        return correct_station_positions(pl.concat(data)).lazy()
+        return with_wmo_id_of_station_id(correct_station_positions(pl.concat(data))).lazy()

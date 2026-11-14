@@ -107,6 +107,9 @@ def test_chmi_observation_stations_collapse_a_relocated_station(monkeypatch: pyt
             "elevation": 483.0,
             "name": "Cheb",
             "region": None,
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
         {
             "resolution": "daily",
@@ -119,6 +122,9 @@ def test_chmi_observation_stations_collapse_a_relocated_station(monkeypatch: pyt
             "elevation": 300.0,
             "name": "Closed",  # the trailing blank of the name is gone
             "region": None,
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
     ]
 
@@ -486,6 +492,9 @@ def test_chmi_observation_stations() -> None:
             "station_id": CHEB,
             "name": "Cheb",
             "region": None,
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
     ]
     assert df["latitude"].item() == pytest.approx(50.068333)

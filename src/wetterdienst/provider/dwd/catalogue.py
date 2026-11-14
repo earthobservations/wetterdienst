@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING
 import polars as pl
 
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.station_ids import wmo_id_expr
 from wetterdienst.util.geo import convert_dm_to_dd
 from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_fwf_from_df
@@ -83,6 +84,17 @@ STATION_POSITION_CORRECTIONS: dict[str, tuple[tuple[float, float], tuple[float, 
 _POSITION_TOLERANCE = 0.005
 
 
+def with_wmo_id_of_station_id(df: pl.DataFrame) -> pl.DataFrame:
+    """Add ``wmo_id`` to a catalogue of the forecast networks: the ``station_id`` where that is a WMO number.
+
+    DWD's catalogues (MOSMIX, DMO, and POI, which reads MOSMIX's) key a station by its WMO number where it has one
+    (`10147`, `01001`: five digits), and by an id DWD assigns where it has not (`A191`, `F9424`, `P0563`: 52 % of the
+    MOSMIX list). The five digits are the number, so ``wmo_id`` is that and the others are null, since an id of
+    DWD's own is no WMO number however much it looks like one.
+    """
+    return df.with_columns(wmo_id_expr("station_id").alias("wmo_id"))
+
+
 def correct_station_positions(df: pl.DataFrame) -> pl.DataFrame:
     """Move the stations of ``STATION_POSITION_CORRECTIONS`` that DWD still publishes at the wrong position."""
     for station_id, ((published_lat, published_lon), (lat, lon)) in STATION_POSITION_CORRECTIONS.items():
@@ -132,4 +144,4 @@ def read_mosmix_station_catalogue(settings: Settings, url: str = MOSMIX_STATION_
         convert_dm_to_dd(pl.col("latitude").cast(float)),
         convert_dm_to_dd(pl.col("longitude").cast(float)),
     )
-    return correct_station_positions(df)
+    return with_wmo_id_of_station_id(correct_station_positions(df))

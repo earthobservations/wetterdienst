@@ -854,14 +854,17 @@ def test_values_dwd_no_station(client: TestClient) -> None:
             "type": "missing_one_of",
             "loc": ["query"],
             "msg": (
-                "Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql "
-                "is required"
+                "Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), "
+                "(left, bottom, right and top) or sql is required"
             ),
             "input": None,
             "ctx": {
                 "one_of": [
                     ["all"],
                     ["stations"],
+                    ["wmo_id"],
+                    ["wigos_id"],
+                    ["icao_id"],
                     ["name"],
                     ["latitude", "longitude"],
                     ["left", "bottom", "right", "top"],
@@ -3655,13 +3658,17 @@ def test_a_raw_network_exception_of_the_alerts_feed_is_a_500_that_does_not_repea
 _STATION_SELECTIONS = [
     ["all"],
     ["stations"],
+    ["wmo_id"],
+    ["wigos_id"],
+    ["icao_id"],
     ["name"],
     ["latitude", "longitude"],
     ["left", "bottom", "right", "top"],
     ["sql"],
 ]
 _GIVE_ONE_STATION_SELECTION = (
-    "give exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql"
+    "give exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), "
+    "(left, bottom, right and top) or sql"
 )
 
 
@@ -4193,6 +4200,9 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
         "elevation": 228.0,
         "name": "Dresden-Klotzsche",
         "region": "Sachsen",
+        "wmo_id": None,
+        "wigos_id": None,
+        "icao_id": None,
     }
     df_stations = pl.DataFrame(
         [{**station, "dataset": "climate_summary"}, {**station, "dataset": "precipitation_more"}],
@@ -4207,6 +4217,9 @@ def _values_result_of_shape(shape: str) -> "ValuesResult":
             "elevation": pl.Float64,
             "name": pl.String,
             "region": pl.String,
+            "wmo_id": pl.String,
+            "wigos_id": pl.String,
+            "icao_id": pl.String,
         },
         orient="row",
     )
@@ -6944,8 +6957,12 @@ def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: li
                 "elevation": 228.0,
                 "name": "Dresden-Klotzsche",
                 "region": "Sachsen",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             },
         ],
+        schema_overrides={"wmo_id": pl.String, "wigos_id": pl.String, "icao_id": pl.String},
     )
 
     def _all(self: DwdObservationRequest) -> StationsResult:
