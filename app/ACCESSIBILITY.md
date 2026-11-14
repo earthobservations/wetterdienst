@@ -193,6 +193,13 @@ series' own colours already read (7.3:1, 4.9:1, 4.7:1, 9.0:1) and gold is #daa52
 temperature zero line is the muted text colour like the Explorer's (3:1 or more). Not held to those ratios:
 the Plotly logo of the modebar, Plotly's own black tile with coloured dots.
 
+The Forecast's snow panel (GH-4091, only at the 15 stations that have MOSMIX-SNOW) is three plots with one switch, each with its
+own axis because their numbers differ in size: the new snow as bars, the snow depth and the chance of more than 10 cm as lines. Their
+colours are the label colours of `SERIES_LABEL` themselves (indigo, teal and gold), so the bars and lines have 3:1 on the paper (1.4.11)
+and the titles and tick labels 4.5:1 (1.4.3) in both schemes, held by `tests/unit/meteogram-snow.test.ts` and measured in the drawn
+chart by `tests/e2e/meteogram-snow.spec.ts`. The readout, the live region and the table give the three values for the 3-hourly steps
+that have them; the source (MOSMIX-SNOW, DWD) is text under the chart and prints with it.
+
 Every chart speaks the language of the page (GH-3625, 3.1.2): the names of the modebar's buttons and of
 the weekdays and months of a date axis, through `plotly.js-locales` and Intl (`utils/plotly-locale.ts`,
 which follows a switch of the language like a switch of the scheme). Plotly has no button names in Polish

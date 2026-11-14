@@ -75,3 +75,50 @@ export const FORECAST_UNITS: Record<string, string> = {
   precipitation_amount_significant_weather_last_1h: 'mm',
   pressure_air_sea_level: 'hPa',
 }
+
+/** The units the snow request's answer reports its three series in */
+export const SNOW_UNITS: Record<string, string> = {
+  snow_depth_new_last_3h: 'cm',
+  snow_depth: 'cm',
+  probability_snow_depth_new_gt_10cm_last_24h: '%',
+}
+
+export interface SnowOptions {
+  /** the first stamp, ISO: on a 3-hourly UTC step */
+  start?: string
+  /** the hours the run covers: DWD's is 48 */
+  hours?: number
+  /** also stamp the hours between the steps, as DWD does for some stations (rolling windows) */
+  offGrid?: boolean
+  /** the series to leave out, by the parameter name */
+  without?: string[]
+}
+
+/**
+ * The snow forecast of a MOSMIX-SNOW station as `/api/values` answers it (Zugspitzplatt, `Z914`): the new snow of the 3 hours
+ * before each step, the snow depth and the chance of more than 10 cm within 24 hours at the 00, 03, ..., 21 UTC steps, and,
+ * with `offGrid`, a value of each at the hours between, which are no steps of the product and are left out of the panel.
+ * Snow falls from hour 12 to 27 of the run.
+ */
+export function snowForecastValues({ start = FORECAST_START, hours = 48, offGrid = false, without = [] }: SnowOptions = {}): ForecastValue[] {
+  const t0 = new Date(start).getTime()
+  const out: ForecastValue[] = []
+  const add = (parameter: string, h: number, value: number | null) => {
+    if (without.includes(parameter))
+      return
+    out.push({ station_id: 'Z914', resolution: 'hourly', dataset: 'snow', parameter, timestamp: new Date(t0 + h * 3_600_000).toISOString().replace('Z', '+00:00'), value, quality_flags: null })
+  }
+  let depth = 120
+  for (let h = 0; h <= hours; h++) {
+    const step = new Date(t0 + h * 3_600_000).getUTCHours() % 3 === 0
+    if (!step && !offGrid)
+      continue
+    const fresh = h >= 12 && h < 27 ? Math.round((1 + 3 * Math.sin((h - 12) / 15 * Math.PI)) * 10) / 10 : 0
+    if (step)
+      depth += fresh
+    add('snow_depth_new_last_3h', h, step ? fresh : 99)
+    add('snow_depth', h, step ? Math.round(depth * 10) / 10 : 999)
+    add('probability_snow_depth_new_gt_10cm_last_24h', h, step ? Math.round(Math.min(100, Math.max(0, (h - 6) * 4))) : 77)
+  }
+  return out
+}

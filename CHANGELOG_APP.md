@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Forecast]` For the 15 stations of DWD's snow forecast MOSMIX-SNOW (Bavarian Alps, Zugspitzplatt
+  among them), the chart has a snow panel with its own switch: the new snow of each 3 hours as bars,
+  the snow depth as a line, and the chance of more than 10 cm of new snow within 24 hours, with the
+  source named under the chart and the values in the readout and the table. Every other station
+  looks as before. From May to October DWD publishes no snow forecast, and then no station has the
+  panel (and none says why). Needs a backend with the dataset `hourly/snow`. (GH-4091)
+
 ### Changed
 
 - `[Forecast, Widget]` The forecast chart is drawn with Apache ECharts instead of Plotly, which the

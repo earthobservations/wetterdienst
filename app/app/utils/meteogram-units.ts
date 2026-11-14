@@ -4,7 +4,7 @@
  */
 import type { Quantity } from './units'
 import { METEOGRAM_SERIES } from './meteogram'
-import { CANONICAL_UNITS, differenceIn, digitsOf, fromCanonical, toCanonical, unitText } from './units'
+import { CANONICAL_UNITS, differenceIn, digitsOf, fromCanonical, toCanonical, unitText, withUnit } from './units'
 
 /** The quantity each group of series is of: what the unit of a series is looked up by */
 const GROUP_QUANTITY: Partial<Record<keyof typeof METEOGRAM_SERIES, Quantity>> = {
@@ -22,6 +22,9 @@ const GROUP_QUANTITY: Partial<Record<keyof typeof METEOGRAM_SERIES, Quantity>> =
   cloudCoverMid: 'fraction',
   cloudCoverHigh: 'fraction',
   pressure: 'pressure',
+  snowNew: 'length_short',
+  snowDepth: 'length_short',
+  snowChance: 'fraction',
 }
 
 /** The translation function the helpers write names with */
@@ -87,4 +90,12 @@ export function meteogramUnits(units: Record<string, string> | undefined, t: Tra
       return unit ? `${name}\n${unit}` : name
     },
   }
+}
+
+/**
+ * The depth the snow forecast's chance is of (more than 10 cm of new snow within 24 hours), in the unit of the answer as the
+ * names write it: `10 cm`, `100 mm`, `0.1 m`
+ */
+export function snowChanceAmount(units: Pick<MeteogramUnits, 'shown' | 'unitOf'>): string {
+  return withUnit(String(Number(units.shown('length_short', 10).toPrecision(3))), units.unitOf('length_short'))
 }

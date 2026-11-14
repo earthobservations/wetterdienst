@@ -2,6 +2,7 @@
  * The forecast's values as series: what the meteogram's chart, its day cards, its summary and its table are all made from.
  */
 import type { Value } from '#shared/types/api'
+import { METEOGRAM_SERIES } from './meteogram'
 
 /** One parameter's values in time order: the dates and the values at them */
 export interface Series { x: Date[], y: number[] }
@@ -48,4 +49,40 @@ export function seriesSpan(series: SeriesMap): { min: number, max: number } | nu
     max = Math.max(max, s.x.at(-1)!.getTime())
   }
   return Number.isFinite(min) ? { min, max } : null
+}
+
+/** The steps MOSMIX-SNOW gives every element at, in hours UTC: 00, 03, ..., 21 (it has more for some stations, which are rolling windows) */
+export const SNOW_STEP_HOURS = 3
+
+/** Whether a time is one of the steps every snow element is given at: on the hour, at a multiple of three hours UTC */
+export function isSnowStep(time: Date): boolean {
+  return time.getUTCMinutes() === 0 && time.getUTCSeconds() === 0 && time.getUTCHours() % SNOW_STEP_HOURS === 0
+}
+
+/**
+ * The snow forecast's series (the three of the snow panel, `METEOGRAM_SERIES.snow*`), kept at the 3-hourly steps and to the span
+ * of the forecast they join. DWD gives the new snow, its probabilities and the snow depth at the 00, 03, ..., 21 UTC steps for
+ * every station and, for some stations, at further hours: those are windows that overlap the ones before and would be bars
+ * on top of each other. The run is its own, so it may start before the forecast it is drawn with or reach past it; what is
+ * outside `span` is left out, so that the panel never moves the chart's first and last hour.
+ * @param values The values of the snow request
+ * @param span The first and last time of the forecast it is drawn with, in ms
+ */
+export function snowSeries(values: Value[], span: { min: number, max: number } | null): SeriesMap {
+  const wanted = new Set<string>([...METEOGRAM_SERIES.snowNew, ...METEOGRAM_SERIES.snowDepth, ...METEOGRAM_SERIES.snowChance])
+  const kept = buildSeries(values.filter(v => wanted.has(String(v.parameter))))
+  const snow: SeriesMap = new Map()
+  for (const [name, series] of kept) {
+    const x: Date[] = []
+    const y: number[] = []
+    series.x.forEach((time, i) => {
+      if (!isSnowStep(time) || (span && (time.getTime() < span.min || time.getTime() > span.max)))
+        return
+      x.push(time)
+      y.push(series.y[i]!)
+    })
+    if (x.length)
+      snow.set(name, { x, y })
+  }
+  return snow
 }

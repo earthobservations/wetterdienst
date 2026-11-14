@@ -5,7 +5,7 @@
  * held by tests; `meteogram-option.ts` turns it into the chart's option.
  */
 import type { SunTimes } from 'suncalc'
-import type { PanelName } from './meteogram-geometry'
+import type { PanelName, PanelToggle } from './meteogram-geometry'
 import type { Series, SeriesMap } from './meteogram-series'
 import type { MeteogramUnits, Translate } from './meteogram-units'
 import type { Quantity } from './units'
@@ -14,8 +14,9 @@ import type { Sky } from './weather-symbols'
 import { DateTime } from 'luxon'
 import { formatDayMonth, weekdayShort } from './format'
 import { extremeWindowHours, extremeWindowSteps, findNearestIndex, interpSeries, METEOGRAM_SERIES, resampleCadenceMs, wetBulbApprox } from './meteogram'
-import { HOUR_MS, PANEL_ORDER } from './meteogram-geometry'
+import { HOUR_MS, PANEL_ORDER, toggleOf } from './meteogram-geometry'
 import { findFirstAvailable } from './meteogram-series'
+import { snowChanceAmount } from './meteogram-units'
 import { weatherCodeToKind } from './weather-kind'
 
 /** The sun, as `suncalc` has it: loaded when the chart is first drawn */
@@ -25,7 +26,7 @@ export interface SunLibrary {
 }
 
 /** The colours of the series: each is a key of the table in `meteogram-option.ts` */
-export type Tone = 'temp' | 'tempMax' | 'tempMin' | 'dew' | 'rain' | 'mixed' | 'snow' | 'wind' | 'gust' | 'pressure' | 'cloudHigh' | 'cloudMid' | 'cloudLow' | 'cloudTotal'
+export type Tone = 'temp' | 'tempMax' | 'tempMin' | 'dew' | 'rain' | 'mixed' | 'snow' | 'wind' | 'gust' | 'pressure' | 'snowNew' | 'snowDepth' | 'snowChance' | 'cloudHigh' | 'cloudMid' | 'cloudLow' | 'cloudTotal'
 
 /** A series drawn in a panel, as points of time (ms) and value, a null value breaking the line */
 export interface DrawnSeries {
@@ -93,7 +94,7 @@ export interface AxisSpec {
   title: string
   titleLines: 1 | 2
   /** the label colour is the series' (key of `SERIES_LABEL`), or the muted text's for the clouds */
-  label: 'cyan' | 'blue' | 'slate' | 'red' | 'lime'
+  label: 'cyan' | 'blue' | 'slate' | 'red' | 'lime' | 'indigo' | 'teal' | 'gold'
   /** the decimals the labels are written with at most */
   decimals: number
   /** the number of divisions the axis aims at */
@@ -168,7 +169,7 @@ export interface MeteogramModel {
 
 export interface ModelInput {
   series: SeriesMap
-  panels: Record<PanelName, boolean>
+  panels: Record<PanelToggle, boolean>
   horizonHours: number | null
   zone: string
   language: string
@@ -220,7 +221,7 @@ function thinning(times: number[], zone: string): { cadence: number, index: numb
 /** Everything the chart draws; null where the forecast has no value to draw */
 export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   const { series, panels: shownPanels, horizonHours, zone, language, coords, sun, units, t } = input
-  const { canon, shown, stretch, named, title } = units
+  const { canon, shown, stretch, named, title, unitName } = units
   const available = new Set(series.keys())
   const key = (names: readonly string[]) => findFirstAvailable(names, available)
 
@@ -236,6 +237,9 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   const humidityKey = key(METEOGRAM_SERIES.humidity)
   const dewKey = key(METEOGRAM_SERIES.dewPoint)
   const pressureKey = key(METEOGRAM_SERIES.pressure)
+  const snowNewKey = key(METEOGRAM_SERIES.snowNew)
+  const snowDepthKey = key(METEOGRAM_SERIES.snowDepth)
+  const snowChanceKey = key(METEOGRAM_SERIES.snowChance)
   const txKey = key(METEOGRAM_SERIES.temperatureMax)
   const tnKey = key(METEOGRAM_SERIES.temperatureMin)
   const weatherKey = key(METEOGRAM_SERIES.weather)
@@ -264,9 +268,9 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   const points = (s: Series): [number, number][] => s.x.map((d, i) => [d.getTime(), s.y[i]!])
 
   const panels = PANEL_ORDER.filter((panel) => {
-    if (!shownPanels[panel])
+    if (!shownPanels[toggleOf(panel)])
       return false
-    return { wind: !!windKey, precip: !!precipKey, cloud: !!cloudKey, temp: !!tempKey, pressure: !!pressureKey }[panel]
+    return { wind: !!windKey, precip: !!precipKey, snow: !!snowNewKey, snowDepth: !!snowDepthKey, snowChance: !!snowChanceKey, cloud: !!cloudKey, temp: !!tempKey, pressure: !!pressureKey }[panel]
   })
 
   const drawn: DrawnSeries[] = []
@@ -429,6 +433,73 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
     range.precip = [0, shown('precipitation', 1)]
   }
 
+  // -- the snow forecast (MOSMIX-SNOW, GH-4091): the new snow of the 3 hours before each step as bars, the snow depth as a line and
+  // the chance of more than 10 cm of new snow within 24 hours as a line, each in a plot of its own, as their numbers are of
+  // different sizes. Given at the 3-hourly steps only, and the readout says them for those hours alone
+  const centimetres = (canonical: number) => shown('length_short', canonical)
+  const snowNewSeries = at(snowNewKey)
+  const snowDepthSeries = at(snowDepthKey)
+  const snowChanceSeries = at(snowChanceKey)
+  if (snowNewKey && snowNewSeries && shownPanels.snow) {
+    const amounts = points(snowNewSeries)
+    // a bar of no height is no element, as in the precipitation: the stamp keeps its point and the readout still says 0
+    const unseenAmounts: [number, number | null][] = amounts.map(([time, amount]) => [time, amount || null])
+    push({
+      id: 'snowNew',
+      panel: 'snow',
+      kind: 'bar',
+      tone: 'snowNew',
+      name: named('meteogram.chart.seriesSnowNew', 'length_short'),
+      hover: t('meteogram.chart.hoverSnowNew'),
+      dashed: false,
+      width: 0,
+      area: false,
+      data: unseenAmounts,
+      quantity: 'length_short',
+      digits: units.digits('length_short'),
+    }, unitOfQ('length_short'), 'exact', amounts)
+    range.snow = [0, Math.max(centimetres(2), Math.max(0, ...snowNewSeries.y) * 1.15)]
+  }
+  if (snowDepthKey && snowDepthSeries && shownPanels.snow) {
+    push({
+      id: 'snowDepth',
+      panel: 'snowDepth',
+      kind: 'line',
+      tone: 'snowDepth',
+      name: named('meteogram.chart.seriesSnowDepth', 'length_short'),
+      hover: t('meteogram.chart.hoverSnowDepth'),
+      dashed: false,
+      width: 2,
+      area: true,
+      data: points(snowDepthSeries),
+      quantity: 'length_short',
+      digits: units.digits('length_short'),
+    }, unitOfQ('length_short'), 'exact')
+    range.snowDepth = [0, Math.max(centimetres(10), Math.max(0, ...snowDepthSeries.y) * 1.15)]
+  }
+  // the threshold of the chance as the unit of the answer writes it: `10 cm`, `100 mm`
+  const chanceAmount = snowChanceAmount(units)
+  if (snowChanceKey && snowChanceSeries && shownPanels.snow) {
+    push({
+      id: 'snowChance',
+      panel: 'snowChance',
+      kind: 'line',
+      tone: 'snowChance',
+      name: t('meteogram.chart.seriesSnowChance', { amount: chanceAmount, unit: unitName('fraction') }).trim(),
+      hover: t('meteogram.chart.hoverSnowChance', { amount: chanceAmount }),
+      dashed: false,
+      width: 1.6,
+      area: true,
+      data: points(snowChanceSeries),
+      quantity: 'fraction',
+      digits: units.digits('fraction'),
+    }, unitOfQ('fraction'), 'exact')
+  }
+  range.snow ??= [0, centimetres(2)]
+  range.snowDepth ??= [0, centimetres(10)]
+  // a chance is the whole of the scale, 0 to 100 %, 0 to 1 or 0 to 8 oktas, as the cloud cover is
+  range.snowChance = [0, shown('fraction', 100)]
+
   // -- pressure
   let pressureMin = shown('pressure', 1000)
   let pressureMax = shown('pressure', 1020)
@@ -544,11 +615,15 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
     cloud: title('meteogram.chart.axisCloud', 'fraction'),
     temp: title('meteogram.chart.axisTemp', 'temperature'),
     pressure: title('meteogram.chart.axisPressure', 'pressure'),
+    snow: title('meteogram.chart.axisSnowNew', 'length_short'),
+    snowDepth: title('meteogram.chart.axisSnowDepth', 'length_short'),
+    // the threshold on the first line and the unit of the chance on the second, as every other title: the words of it are in the readout and the table
+    snowChance: `> ${chanceAmount}${unitName('fraction').trim() ? `\n${unitName('fraction').trim()}` : ''}`,
   }
-  const labelColour: Record<PanelName, AxisSpec['label']> = { wind: 'cyan', precip: 'blue', cloud: 'slate', temp: 'red', pressure: 'lime' }
-  const decimalsOf = (panel: PanelName, quantity: Quantity) => ({ wind: Math.min(1, units.digits(quantity)), precip: Math.min(2, units.digits(quantity) + 1), cloud: 0, temp: 0, pressure: 0 })[panel]
-  const quantityOf: Record<PanelName, Quantity> = { wind: 'speed', precip: 'precipitation', cloud: 'fraction', temp: 'temperature', pressure: 'pressure' }
-  const splitsOf: Record<PanelName, number> = { wind: 3, precip: 2, cloud: 2, temp: 3, pressure: 2 }
+  const labelColour: Record<PanelName, AxisSpec['label']> = { wind: 'cyan', precip: 'blue', snow: 'indigo', snowDepth: 'teal', snowChance: 'gold', cloud: 'slate', temp: 'red', pressure: 'lime' }
+  const decimalsOf = (panel: PanelName, quantity: Quantity) => ({ wind: Math.min(1, units.digits(quantity)), precip: Math.min(2, units.digits(quantity) + 1), snow: Math.min(1, units.digits(quantity)), snowDepth: 0, snowChance: 0, cloud: 0, temp: 0, pressure: 0 })[panel]
+  const quantityOf: Record<PanelName, Quantity> = { wind: 'speed', precip: 'precipitation', snow: 'length_short', snowDepth: 'length_short', snowChance: 'fraction', cloud: 'fraction', temp: 'temperature', pressure: 'pressure' }
+  const splitsOf: Record<PanelName, number> = { wind: 3, precip: 2, snow: 2, snowDepth: 2, snowChance: 2, cloud: 2, temp: 3, pressure: 2 }
   const axes: Partial<Record<PanelName, AxisSpec>> = {}
   for (const panel of panels) {
     axes[panel] = {

@@ -9,13 +9,18 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import MeteogramChart from '~/components/MeteogramChart.vue'
 import { panelToggleStyle, seriesLabelColor } from '~/utils/chart-theme'
 import { meteogramDays } from '~/utils/meteogram-days'
-import { buildSeries, seriesSpan } from '~/utils/meteogram-series'
+import { buildSeries, seriesSpan, snowSeries } from '~/utils/meteogram-series'
 import { meteogramSummary, meteogramTable } from '~/utils/meteogram-summary'
 import { meteogramUnits } from '~/utils/meteogram-units'
 import { WEATHER_ICONS } from '~/utils/weather-kind'
 
 const props = defineProps<{
   values: Value[]
+  /**
+   * The snow forecast of the station (MOSMIX-SNOW, GH-4091), where it has one: the answer of the page's request of its own,
+   * which the forecast does not wait for. Without it, or where it holds no value of the 3-hourly steps, there is no snow panel.
+   */
+  snowValues?: Value[]
   stationName?: string | null
   stationCoords?: { latitude: number | null, longitude: number | null } | null
   widget?: boolean
@@ -42,8 +47,13 @@ const formatLanguage = useFormatLanguage()
 // The chart's colours are read from the app's CSS tokens for the colour scheme in force (utils/chart-theme.ts)
 const { isDark } = useChartTheme()
 
+// The forecast's series, and the snow forecast's, which join them at the 3-hourly steps and within their span (`snowSeries`)
+const forecastSeries = computed(() => buildSeries(props.values ?? []))
+const snow = computed(() => snowSeries(props.snowValues ?? [], seriesSpan(forecastSeries.value)))
+const hasSnow = computed(() => snow.value.size > 0)
+
 // What the reader chose: the view (remembered, and in the address), the panels, the horizon
-const { view, compact, visiblePanels, horizonHours, chooseView } = useMeteogramView(props)
+const { view, compact, visiblePanels, horizonHours, chooseView } = useMeteogramView(props, () => hasSnow.value)
 const viewOptions = computed<{ value: MeteogramView, label: string, icon: string }[]>(() => [
   { value: 'chart', label: t('meteogram.chart.viewChart'), icon: 'i-ph-chart-line' },
   { value: 'compact', label: t('meteogram.chart.viewCompact'), icon: 'i-ph-squares-four' },
@@ -53,13 +63,16 @@ const viewOptions = computed<{ value: MeteogramView, label: string, icon: string
 // The panel toggles, in the order of the panels: the colour of each is that of its series' labels
 // `icon` is the outline, `iconOn` the filled variant of the same icon: a toggle that is on draws the filled one, so that on
 // and off differ by shape and not by colour alone (WCAG 1.4.1, GH-3951)
-const panelToggles: { panel: PanelId, icon: string, iconOn: string, title: string, series: SeriesLabel }[] = [
+const allPanelToggles: { panel: PanelId, icon: string, iconOn: string, title: string, series: SeriesLabel }[] = [
   { panel: 'temp', icon: 'i-ph-thermometer', iconOn: 'i-ph-thermometer-fill', title: 'meteogram.chart.panelTemperature', series: 'red' },
   { panel: 'wind', icon: 'i-ph-wind', iconOn: 'i-ph-wind-fill', title: 'meteogram.chart.panelWind', series: 'cyan' },
   { panel: 'precip', icon: 'i-ph-cloud-rain', iconOn: 'i-ph-cloud-rain-fill', title: 'meteogram.chart.panelPrecipitation', series: 'blue' },
+  { panel: 'snow', icon: 'i-ph-snowflake', iconOn: 'i-ph-snowflake-fill', title: 'meteogram.chart.panelSnow', series: 'indigo' },
   { panel: 'cloud', icon: 'i-ph-cloud', iconOn: 'i-ph-cloud-fill', title: 'meteogram.chart.panelCloud', series: 'slate' },
   { panel: 'pressure', icon: 'i-ph-gauge', iconOn: 'i-ph-gauge-fill', title: 'meteogram.chart.panelPressure', series: 'lime' },
 ]
+// the snow panel has a switch only at a station that has a snow forecast
+const panelToggles = computed(() => allPanelToggles.filter(toggle => toggle.panel !== 'snow' || hasSnow.value))
 // a toggle that is on: the icon in the label colour, on a wash and in an edge of it
 const activeToggleStyle = (series: SeriesLabel) => panelToggleStyle(seriesLabelColor(series, isDark.value))
 
@@ -70,7 +83,7 @@ const horizonOptions = computed(() => [
   { label: t('meteogram.chart.horizonAll'), value: null },
 ])
 
-const seriesCache = computed(() => buildSeries(props.values ?? []))
+const seriesCache = computed(() => hasSnow.value ? new Map([...forecastSeries.value, ...snow.value]) : forecastSeries.value)
 const units = computed(() => meteogramUnits(props.units, t))
 
 // The chart: its zoom, which the toolbar's buttons and the reset move

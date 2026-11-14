@@ -16,6 +16,8 @@ export const CANONICAL_UNITS = {
   pressure: 'hPa',
   angle: '°',
   fraction: '%',
+  // the depth of snow, new or lying (the backend's type for it is `length_short`): the Alps are told in centimetres
+  length_short: 'cm',
 } as const
 
 export type Quantity = keyof typeof CANONICAL_UNITS
@@ -58,6 +60,15 @@ const SCALES: Record<Quantity, Record<string, Scale>> = {
     '%': identity,
     '-': linear(100),
     '1/8': { toCanonical: v => v * 12.5, fromCanonical: v => v / 12.5 },
+  },
+  // the symbols of the backend's lengths, in centimetres: the mile is 1609.344 m and the nautical mile 1852 m exactly
+  length_short: {
+    mm: linear(0.1),
+    cm: identity,
+    m: linear(100),
+    km: linear(100_000),
+    mi: linear(160_934.4),
+    nmi: linear(185_200),
   },
 }
 
@@ -125,6 +136,8 @@ export function digitsOf(quantity: Quantity, unit: string): number {
     case 'pressure': return unit === 'Pa' ? 0 : unit === 'kPa' ? 2 : 1
     case 'angle': return unit === 'rad' ? 2 : 0
     case 'fraction': return unit === '-' ? 2 : unit === '1/8' ? 1 : 0
+    // a tenth of a centimetre of new snow is what the forecast gives; the same depth in a larger unit needs more places
+    case 'length_short': return unit === 'mm' ? 0 : unit === 'cm' ? 1 : unit === 'm' ? 3 : 6
   }
 }
 

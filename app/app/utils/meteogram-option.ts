@@ -10,7 +10,7 @@ import type { ChartTheme } from './chart-theme'
 import type { ChartLayout, TimeWindow } from './meteogram-geometry'
 import type { DrawnSeries, MeteogramModel, Tone } from './meteogram-model'
 import type { YrSymbol } from './weather-symbols'
-import { seriesLabelColor, withAlpha } from './chart-theme'
+import { SERIES_LABEL, seriesLabelColor, withAlpha } from './chart-theme'
 import { withData } from './format'
 import { every, GUTTER_LEFT, HOUR_MS, labelStepHours, MIN_SPAN_HOURS, windBarb } from './meteogram-geometry'
 import { yrSymbolFor, yrSymbolUrl } from './weather-symbols'
@@ -40,6 +40,11 @@ const TONES: Record<Tone, { light: string, dark: string, fillLight?: string, fil
   rain: { light: '#3b82f6', dark: '#3b82f6' },
   mixed: { light: '#0ea5e9', dark: '#0ea5e9' },
   snow: { light: '#cbd5e1', dark: '#9ca3af' },
+  // the snow forecast's: the colours of the text that names them (SERIES_LABEL), which read at 4.5:1 on the paper, so that the bars and
+  // the lines have the 3:1 a graphic needs (WCAG 1.4.11): `tests/unit/meteogram-option.test.ts` holds it
+  snowNew: { light: SERIES_LABEL.indigo.light, dark: SERIES_LABEL.indigo.dark },
+  snowDepth: { light: SERIES_LABEL.teal.light, dark: SERIES_LABEL.teal.dark, fillLight: 'rgba(15,118,110,0.08)', fillDark: 'rgba(45,212,191,0.06)' },
+  snowChance: { light: SERIES_LABEL.gold.light, dark: SERIES_LABEL.gold.dark, fillLight: 'rgba(180,83,9,0.08)', fillDark: 'rgba(218,165,32,0.06)' },
   wind: { light: '#06b6d4', dark: '#06b6d4', fillLight: 'rgba(6,182,212,0.08)', fillDark: 'rgba(6,182,212,0.04)' },
   gust: { light: '#06b6d4', dark: '#06b6d4' },
   pressure: { light: '#84cc16', dark: '#84cc16', fillLight: 'rgba(132,204,22,0.04)', fillDark: 'rgba(132,204,22,0.02)' },
@@ -243,7 +248,8 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
     const index = gridOf(s.panel)
     const common = { id: s.id, xAxisIndex: index, yAxisIndex: index, silent: true, data: s.data, animation: false }
     if (s.kind === 'bar') {
-      return { ...common, type: 'bar', stack: 'precipitation', barWidth: '90%', itemStyle: { color: colour }, z: 3 }
+      // a stack for each panel: the rain, mixed and snow of the precipitation are one, the new snow of the snow panel is another
+      return { ...common, type: 'bar', stack: s.panel, barWidth: '90%', itemStyle: { color: colour }, z: 3 }
     }
     return {
       ...common,

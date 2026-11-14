@@ -237,6 +237,11 @@ export const METEOGRAM_SERIES = {
   cloudCoverLow: ['cloud_cover_below_2km', 'nl'],
   cloudCoverMid: ['cloud_cover_between_2km_and_7km', 'cloud_cover_2_7km', 'nm'],
   cloudCoverHigh: ['cloud_cover_above_7km', 'nh'],
+  // MOSMIX-SNOW's, from a request of its own (`MOSMIX_SNOW_METEOGRAM`): the new snow of the 3 hours before each step, the snow
+  // depth, and the chance of more than 10 cm of new snow within the 24 hours before it
+  snowNew: ['snow_depth_new_last_3h'],
+  snowDepth: ['snow_depth'],
+  snowChance: ['probability_snow_depth_new_gt_10cm_last_24h'],
   pressure: ['pressure_air_sea_level', 'pressure_air_site_reduced', 'air_pressure_at_sea_level', 'mslp', 'pressure', 'pmsl', 'pressure_mean', 'pppp'],
 } as const satisfies Record<string, readonly string[]>
 
@@ -313,6 +318,41 @@ export const MOSMIX_METEOGRAM = {
   dataset: 'large',
   parameters: ['ttt', 'td', 'ff', 'dd', 'fx1', 'n', 'nl', 'nm', 'nh', 'rr1c', 'ww', 'pppp', 'tx', 'tn'],
 } as const
+
+/**
+ * The snow forecast of a meteogram (GH-4091): MOSMIX-SNOW, DWD's forecast of new snow for 15 stations in the Bavarian Alps,
+ * which is a dataset of its own (`hourly/snow`) and so a request of its own, apart from the one for small or large. The
+ * three series the snow panel draws, by their canonical names.
+ */
+export const MOSMIX_SNOW_METEOGRAM = {
+  provider: 'dwd',
+  network: 'mosmix',
+  resolution: 'hourly',
+  dataset: 'snow',
+  parameters: [...METEOGRAM_SERIES.snowNew, ...METEOGRAM_SERIES.snowDepth, ...METEOGRAM_SERIES.snowChance],
+} as const
+
+/**
+ * The query of `/api/stations` for the stations that have a snow forecast: the stations of the dataset, which are the 15 of
+ * the newest run, or, where DWD publishes none (from May to October), the 15 known. Asked once for the whole list rather than
+ * the station's values for each station shown: see `utils/snow-stations.ts`.
+ */
+export function snowStationsQuery(): Record<string, string> {
+  const { provider, network, resolution, dataset } = MOSMIX_SNOW_METEOGRAM
+  return { provider, network, parameters: `${resolution}/${dataset}`, all: 'true' }
+}
+
+/** The query of `/api/values` for the snow forecast of a station, in the units the app settings choose */
+export function meteogramSnowQuery(stationId: string, settings: Parameters<typeof meteogramValuesSettings>[0]): Record<string, string> {
+  const { provider, network, resolution, dataset, parameters } = MOSMIX_SNOW_METEOGRAM
+  return {
+    provider,
+    network,
+    parameters: parameters.map(parameter => `${resolution}/${dataset}/${parameter}`).join(','),
+    stations: stationId,
+    ...meteogramValuesSettings(settings),
+  }
+}
 
 /** The query of `/api/values` for the meteogram of a MOSMIX station, in the units the app settings choose */
 export function meteogramValuesQuery(stationId: string, settings: Parameters<typeof meteogramValuesSettings>[0]): Record<string, string> {
