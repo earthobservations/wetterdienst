@@ -169,14 +169,19 @@ test.describe('on a phone, in German (the longest labels), with every panel on',
       await open(page, baseURL!, PAGE_CHART, { width, height: 844 })
       const found = await page.evaluate(() => {
         const stage = document.querySelector('.mg-stage')!.getBoundingClientRect()
-        const texts = [...document.querySelectorAll('.mg-canvas svg text')].map((text) => {
+        const texts = [...document.querySelectorAll<SVGTextElement>('.mg-canvas svg text')].map((text) => {
           const box = text.getBoundingClientRect()
-          return { text: text.textContent ?? '', left: box.left - stage.left, right: box.right - stage.left, tall: box.height > box.width }
+          // ECharts turns a title to read upwards with `transform="matrix(0,-1,1,0,x,y)"` on the text: the turn is read from the
+          // matrix that draws it (a quarter turn has the sine at 1, whatever the scale), never from the shape of its box, which
+          // a two-letter day name such as "Sa" can have as well (taller than wide in Firefox's font)
+          const matrix = text.getScreenCTM()
+          const turned = !!matrix && Math.abs(matrix.b) / Math.hypot(matrix.a, matrix.b) > 0.9
+          return { text: text.textContent ?? '', left: box.left - stage.left, right: box.right - stage.left, turned }
         })
         // the titles are the words turned to read upwards; the labels of the axes are numbers
-        // (a two-letter day name is as tall as it is wide, so only what is in the gutter counts)
-        const titles = texts.filter(entry => entry.tall && entry.left < 100 && /[A-ZÄÖÜß%°]/i.test(entry.text))
-        const labels = texts.filter(entry => !entry.tall && /^[-\d.,]+$/.test(entry.text) && entry.right < 100)
+        // (only what is in the gutter counts: the first day name is at the left as well)
+        const titles = texts.filter(entry => entry.turned && entry.left < 100)
+        const labels = texts.filter(entry => !entry.turned && /^[-\d.,]+$/.test(entry.text) && entry.right < 100)
         return { titles, labels, stage: stage.width }
       })
       // a title for each of the five panels, of one or two lines
