@@ -6,7 +6,7 @@ import { EMPTY_CHART_THEME, SERIES_LABEL } from '../../app/utils/chart-theme'
 import { loadEcharts } from '../../app/utils/echarts-loader'
 import { hourFormatter } from '../../app/utils/format'
 import { METEOGRAM_SERIES, meteogramSnowQuery, meteogramUnitsKey, MOSMIX_SNOW_METEOGRAM, snowStationsQuery } from '../../app/utils/meteogram'
-import { chartLayout, defaultWindow, GUTTER_RIGHT, HOUR_MS, PANEL_HEIGHT, plotWidthFor } from '../../app/utils/meteogram-geometry'
+import { chartLayout, GUTTER_RIGHT, HOUR_MS, PANEL_HEIGHT, plotWidthFor } from '../../app/utils/meteogram-geometry'
 import { buildMeteogramModel, readoutValue } from '../../app/utils/meteogram-model'
 import { buildMeteogramOption, gutterLeftFor, toneColor } from '../../app/utils/meteogram-option'
 import { buildSeries, isSnowStep, snowSeries } from '../../app/utils/meteogram-series'
@@ -20,7 +20,9 @@ import { FORECAST_START, FORECAST_UNITS, forecastValues, SNOW_UNITS, snowForecas
 // The snow panel of the forecast (GH-4091): MOSMIX-SNOW's new snow as bars, its snow depth as a line and the chance of more than
 // 10 cm as a line, for the stations that have a forecast of it, at the 3-hourly steps DWD gives all three at.
 
-const t = (key: string, named?: Record<string, unknown>) => key + (named?.unit ? ` ${named.unit}` : '')
+// a name carries the unit; the title of the chance carries the threshold, as the catalogue's "> {amount} new" does
+const NB = '\u00A0'
+const t = (key: string, named?: Record<string, unknown>) => key === 'meteogram.chart.axisSnowChance' ? `>${named?.amount} new` : key + (named?.unit ? ` ${named.unit}` : '')
 const UNITS = { ...FORECAST_UNITS, ...SNOW_UNITS }
 const t0 = new Date(FORECAST_START).getTime()
 const all = { temp: true, wind: true, precip: true, snow: true, cloud: true, pressure: true }
@@ -138,9 +140,9 @@ describe('the units of the snow', () => {
   })
 
   it('writes the threshold of the chance in the unit of the answer', () => {
-    expect(snowChanceAmount(meteogramUnits(UNITS, t))).toBe('10 cm')
-    expect(snowChanceAmount(meteogramUnits({ ...UNITS, snow_depth: 'mm', snow_depth_new_last_3h: 'mm' }, t))).toBe('100 mm')
-    expect(snowChanceAmount(meteogramUnits({ ...UNITS, snow_depth: 'm', snow_depth_new_last_3h: 'm' }, t))).toBe('0.1 m')
+    expect(snowChanceAmount(meteogramUnits(UNITS, t))).toBe(`10${NB}cm`)
+    expect(snowChanceAmount(meteogramUnits({ ...UNITS, snow_depth: 'mm', snow_depth_new_last_3h: 'mm' }, t))).toBe(`100${NB}mm`)
+    expect(snowChanceAmount(meteogramUnits({ ...UNITS, snow_depth: 'm', snow_depth_new_last_3h: 'm' }, t))).toBe(`0.1${NB}m`)
   })
 })
 
@@ -212,13 +214,14 @@ describe('the snow panel of the model', () => {
     expect(axes.snow).toMatchObject({ label: 'indigo', title: 'meteogram.chart.axisSnowNew\ncm' })
     expect(axes.snowDepth).toMatchObject({ label: 'teal', title: 'meteogram.chart.axisSnowDepth\ncm' })
     // the threshold on the first line and the unit of the chance on the second, like every other title
-    expect(axes.snowChance).toMatchObject({ label: 'gold', title: '> 10 cm\n%' })
+    expect(axes.snowChance).toMatchObject({ label: 'gold', title: `>10${NB}cm new\n%` })
   })
 
   it('writes the threshold in the unit the answer has', () => {
     const m = model({ units: { ...UNITS, snow_depth: 'mm', snow_depth_new_last_3h: 'mm' } })
-    expect(m.axes.snowChance!.title).toBe('> 100 mm\n%')
-    expect(m.series.find(s => s.id === 'snowChance')!.hover).toBe('meteogram.chart.hoverSnowChance')
+    expect(m.axes.snowChance!.title).toBe(`>100${NB}mm new\n%`)
+    expect(m.series.find(s => s.id === 'snowDepth')!.straight).toBe(true)
+    expect(m.series.find(s => s.id === 'snowChance')!.straight).toBe(true)
   })
 
   it('does not move the chart\'s first and last hour, which are the forecast\'s', () => {
@@ -255,8 +258,8 @@ describe('the snow panel drawn', () => {
   const LIGHT = { ...EMPTY_CHART_THEME, text: 'rgb(15, 23, 43)', textStrong: 'rgb(0, 0, 0)', textMuted: 'rgb(90, 100, 120)', zeroline: 'rgb(90, 100, 120)' }
   const DARK = { ...LIGHT, dark: true, text: 'rgb(226, 232, 240)', textStrong: 'rgb(255, 255, 255)' }
 
-  function build(theme: typeof LIGHT = LIGHT, width = 800) {
-    const m = model()
+  function build(theme: typeof LIGHT = LIGHT, width = 800, overrides: Parameters<typeof model>[0] = {}) {
+    const m = model(overrides)
     const layout = chartLayout(m.panels, m.symbols.length > 0)
     const gutterLeft = gutterLeftFor(m, 'en')
     const plotPx = plotWidthFor(width, (m.maxTime - m.minTime) / HOUR_MS, gutterLeft)
@@ -267,7 +270,8 @@ describe('the snow panel drawn', () => {
       outerPx: plotPx + gutterLeft + GUTTER_RIGHT,
       plotPx,
       gutterLeft,
-      window: defaultWindow({ start: m.minTime, end: m.maxTime }, plotPx),
+      // the whole forecast in the window, so that a pixel is a fixed share of the forecast
+      window: { start: m.minTime, end: m.maxTime },
       now: null,
       fontFamily: 'sans-serif',
       locale: 'en',
@@ -283,6 +287,16 @@ describe('the snow panel drawn', () => {
     chart.dispose()
     return svg
   }
+  /** The chart drawn, with the pixel an instant is at in the plot of a grid (0 is the header's, 1 the first plot's) */
+  const drawn = (b: ReturnType<typeof build>) => {
+    const chart = echarts.init(null as any, null, { renderer: 'svg', ssr: true, width: b.built.outerPx, height: b.layout.height })
+    chart.setOption(b.option)
+    const svg = chart.renderToSVGString()
+    const px = (time: number, grid: number) => chart.convertToPixel({ xAxisIndex: grid } as any, time) as unknown as number
+    return { svg, px, chart }
+  }
+  /** The boxes (left, width) of the bars painted in `colour` in the SVG: `M136.9 392l15.9 0l0 -16.1l-15.9 0Z` */
+  const barBoxes = (svg: string, colour: string) => [...svg.matchAll(new RegExp(`<path d="M([\\d.]+) [\\d.]+l([\\d.]+) 0[^"]*" fill="${colour}"`, 'g'))].map(match => ({ left: Number(match[1]), width: Number(match[2]) }))
 
   it('has a grid and an axis for each plot, in the series\' own label colours', () => {
     const { option } = build()
@@ -295,6 +309,77 @@ describe('the snow panel drawn', () => {
     expect(option.dataZoom[0].xAxisIndex).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 8])
   })
 
+  // GH-4091: ECharts 6 makes room for the bars at the ends of a value axis that carries them (`containShape`), which widened the x
+  // extent of the plot of the bars and put its hours up to 15 px off the others'; the bars of a step were centred on its end
+  it('has no axis that makes room for its bars: the same instant is at the same pixel in every plot', () => {
+    const b = build()
+    expect(b.option.xAxis.every((axis: any) => axis.containShape === false)).toBe(true)
+    const { px } = drawn(b)
+    const span = b.m.maxTime - b.m.minTime
+    for (const time of [b.m.minTime, b.m.minTime + 5 * HOUR_MS, b.m.minTime + 30 * HOUR_MS, b.m.maxTime]) {
+      const expected = b.built.gutterLeft + (time - b.m.minTime) / span * b.built.plotPx
+      const xs = Array.from({ length: b.option.grid.length }, (_, grid) => px(time, grid))
+      for (const [grid, x] of xs.entries())
+        expect(x, `${new Date(time).toISOString()} in grid ${grid}`).toBeCloseTo(expected, 3)
+    }
+  })
+
+  it('draws a bar of the new snow over the 3 hours it covers: centred on the middle of them, 0.9 of them wide', () => {
+    const b = build()
+    const { svg, px } = drawn(b)
+    const bars = barBoxes(svg, toneColor('snowNew', false))
+    // a bar for each step it snowed in, over (T - 3 h, T]
+    const steps = b.m.readout.find(r => r.id === 'snowNew')!.x.filter((time, i) => b.m.readout.find(r => r.id === 'snowNew')!.y[i]! > 0)
+    expect(bars).toHaveLength(steps.length)
+    expect(steps.length).toBeGreaterThan(3)
+    steps.forEach((time, i) => {
+      const grid = 1 + b.m.panels.indexOf('snow')
+      const centre = bars[i]!.left + bars[i]!.width / 2
+      expect(centre, `bar of ${new Date(time).toISOString()}`).toBeCloseTo(px(time - 1.5 * HOUR_MS, grid), 0)
+      expect(bars[i]!.width).toBeCloseTo(0.9 * (px(time, grid) - px(time - 3 * HOUR_MS, grid)), 0)
+    })
+  })
+
+  it('draws a bar of the precipitation over the hour it covers: centred on T - 30 minutes, 0.9 of an hour wide', () => {
+    const b = build()
+    const { svg, px } = drawn(b)
+    const grid = 1 + b.m.panels.indexOf('precip')
+    let counted = 0
+    for (const id of ['rain', 'mixed', 'snow'] as const) {
+      const readout = b.m.readout.find(r => r.id === id)!
+      const steps = readout.x.filter((_, i) => readout.y[i]! > 0)
+      const bars = barBoxes(svg, toneColor(id, false))
+      expect(bars, id).toHaveLength(steps.length)
+      steps.forEach((time, i) => {
+        counted++
+        expect(bars[i]!.left + bars[i]!.width / 2, `${id} of ${new Date(time).toISOString()}`).toBeCloseTo(px(time - 0.5 * HOUR_MS, grid), 0)
+        expect(bars[i]!.width).toBeCloseTo(0.9 * (px(time, grid) - px(time - HOUR_MS, grid)), 0)
+      })
+    }
+    expect(counted).toBeGreaterThan(5)
+  })
+
+  it('writes the axes of the snow in the decimals of the unit: metres are not rounded to a whole number', () => {
+    const scaled = joined().entries()
+    const series = new Map([...scaled].map(([name, s]) => [name, name.startsWith('snow_depth') ? { x: s.x, y: s.y.map(v => v / 100) } : s]))
+    const { option, m } = build(LIGHT, 800, { series, units: { ...UNITS, snow_depth: 'm', snow_depth_new_last_3h: 'm' } })
+    expect([m.axes.snow!.decimals, m.axes.snowDepth!.decimals]).toEqual([3, 2])
+    const label = (index: number, value: number) => option.yAxis[index].axisLabel.formatter(value)
+    expect(label(3, 0.025)).toBe('0.025')
+    expect(label(4, 1.75)).toBe('1.75')
+    // in millimetres a whole number, in centimetres a tenth for the new snow and a whole number for the depth
+    expect(build().m.axes.snow!.decimals).toBe(1)
+  })
+
+  it('draws the snow depth and the chance as straight segments and not as a smooth curve', () => {
+    const { option } = build()
+    const byId = (id: string) => option.series.find((s: any) => s.id === id)
+    expect(byId('snowDepth').smooth).toBe(false)
+    expect(byId('snowChance').smooth).toBe(false)
+    // the others keep theirs
+    expect(byId('temp').smooth).toBe(0.4)
+  })
+
   it('stacks the bars of the new snow apart from the precipitation\'s, and in the grid of the snow plot', () => {
     const { option } = build()
     const byId = (id: string) => option.series.find((s: any) => s.id === id)
@@ -303,7 +388,8 @@ describe('the snow panel drawn', () => {
     expect(byId('snowDepth')).toMatchObject({ type: 'line', xAxisIndex: 4 })
     expect(byId('snowChance')).toMatchObject({ type: 'line', xAxisIndex: 5 })
     // each stamp of the bars has a point, so that a bar is as wide as the steps are apart (three hours)
-    expect(byId('snowNew').data.map((p: number[]) => p[0]).slice(0, 3)).toEqual([t0, t0 + 3 * HOUR_MS, t0 + 6 * HOUR_MS])
+    // each bar over the 3 hours it covers, which end at the step: centred on T - 1.5 h
+    expect(byId('snowNew').data.map((p: number[]) => p[0]).slice(0, 3)).toEqual([t0 - 1.5 * HOUR_MS, t0 + 1.5 * HOUR_MS, t0 + 4.5 * HOUR_MS])
   })
 
   // WCAG 1.4.11: the bars and the lines are graphics that carry the information, 3:1 on the paper (the card)
@@ -337,7 +423,7 @@ describe('the snow panel drawn', () => {
     expect(turned).toEqual(expect.arrayContaining([
       { colour: SERIES_LABEL.indigo.light, text: 'meteogram.chart.axisSnowNew' },
       { colour: SERIES_LABEL.teal.light, text: 'meteogram.chart.axisSnowDepth' },
-      { colour: SERIES_LABEL.gold.light, text: '> 10 cm' },
+      { colour: SERIES_LABEL.gold.light, text: `>10${NB}cm new` },
     ]))
   })
 })

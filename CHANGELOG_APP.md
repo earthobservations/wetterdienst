@@ -18,7 +18,7 @@ Types of changes:
 
 ### Added
 
-- `[Forecast]` For the 15 stations of DWD's snow forecast MOSMIX-SNOW (Bavarian Alps, Zugspitzplatt
+- `[Forecast]` For the stations of DWD's snow forecast MOSMIX-SNOW (15 in the Bavarian Alps today, Zugspitzplatt
   among them), the chart has a snow panel with its own switch: the new snow of each 3 hours as bars,
   the snow depth as a line, and the chance of more than 10 cm of new snow within 24 hours, with the
   source named under the chart and the values in the readout and the table. Every other station
@@ -45,6 +45,11 @@ Types of changes:
 
 ### Fixed
 
+- `[Forecast, Widget]` The precipitation bars of the forecast chart are drawn over the hour they
+  cover, not centred on the hour that ends it, which put each half an hour late against the hour
+  labels. The plots that carry bars also no longer start up to 5 px off the other plots' hours (the
+  day bands, the midnight lines and the line of now moved with them), so the same hour is at the
+  same place in every plot. The values in the readout and the table are unchanged. (GH-4091)
 - `[All pages]` On iPhone, while the search, the place dialog of "Ask the weather" or the menu sheet
   is open, the page behind is held fixed where it stood (it aims for no bounce and no
   pull-to-refresh, to be confirmed on a device) and gets its scroll position back when the dialog

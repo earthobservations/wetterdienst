@@ -97,5 +97,6 @@ export function meteogramUnits(units: Record<string, string> | undefined, t: Tra
  * names write it: `10 cm`, `100 mm`, `0.1 m`
  */
 export function snowChanceAmount(units: Pick<MeteogramUnits, 'shown' | 'unitOf'>): string {
-  return withUnit(String(Number(units.shown('length_short', 10).toPrecision(3))), units.unitOf('length_short'))
+  // a no-break space between the number and its unit: the amount is not broken across two lines of the readout
+  return withUnit(String(Number(units.shown('length_short', 10).toPrecision(3))), units.unitOf('length_short')).replace(' ', '\u00A0')
 }

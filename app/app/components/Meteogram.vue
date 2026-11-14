@@ -19,8 +19,9 @@ const props = defineProps<{
   /**
    * The snow forecast of the station (MOSMIX-SNOW, GH-4091), where it has one: the answer of the page's request of its own,
    * which the forecast does not wait for. Without it, or where it holds no value of the 3-hourly steps, there is no snow panel.
+   * `null` is a request that is still under way: the panel is not there yet, and a view of it (`panels=snow`) is kept until it is.
    */
-  snowValues?: Value[]
+  snowValues?: Value[] | null
   stationName?: string | null
   stationCoords?: { latitude: number | null, longitude: number | null } | null
   widget?: boolean
@@ -51,9 +52,11 @@ const { isDark } = useChartTheme()
 const forecastSeries = computed(() => buildSeries(props.values ?? []))
 const snow = computed(() => snowSeries(props.snowValues ?? [], seriesSpan(forecastSeries.value)))
 const hasSnow = computed(() => snow.value.size > 0)
+// the snow panel is there, or is on its way: what a link to it and a view of it alone are kept for
+const snowExpected = computed(() => hasSnow.value || props.snowValues === null)
 
 // What the reader chose: the view (remembered, and in the address), the panels, the horizon
-const { view, compact, visiblePanels, horizonHours, chooseView } = useMeteogramView(props, () => hasSnow.value)
+const { view, compact, visiblePanels, horizonHours, chooseView } = useMeteogramView(props, () => snowExpected.value)
 const viewOptions = computed<{ value: MeteogramView, label: string, icon: string }[]>(() => [
   { value: 'chart', label: t('meteogram.chart.viewChart'), icon: 'i-ph-chart-line' },
   { value: 'compact', label: t('meteogram.chart.viewCompact'), icon: 'i-ph-squares-four' },

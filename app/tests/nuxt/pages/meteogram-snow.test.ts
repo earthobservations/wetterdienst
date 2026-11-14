@@ -96,6 +96,8 @@ describe('the forecast page\'s snow panel', () => {
     expect(requests.filter(request => request.kind === 'snow')).toEqual([])
     expect(toggles()).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
     expect(wrapper!.text()).not.toContain('MOSMIX-SNOW')
+    // answered with none: `[]`, which is not the `null` of a request that is under way
+    expect((wrapper!.vm as any).snowValues).toEqual([])
   })
 
   it('asks which stations have a snow forecast once, for as many stations as are shown', async () => {
@@ -168,6 +170,8 @@ describe('the forecast page\'s snow panel', () => {
     await vi.waitFor(() => expect(drawnIds()).toContain('temp'))
     expect(toggles()).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
     expect(drawnIds()).not.toContain('snowNew')
+    // the request is under way: the page says so (`null`), so a link to the snow panel is kept until it answers
+    expect((wrapper!.vm as any).snowValues).toBeNull()
     release()
     await vi.waitFor(() => expect(toggles()).toContain('snow'))
     await vi.waitFor(() => expect(drawnIds()).toContain('snowNew'))

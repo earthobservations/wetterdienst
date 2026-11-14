@@ -116,7 +116,7 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
   const numberTag = withData(locale, Intl.NumberFormat.supportedLocalesOf)
 
   const grids: any[] = [{ left: gutterLeft, width: plotPx, top: layout.header.top, height: layout.header.height, show: false, outerBoundsMode: 'none' }]
-  const xAxes: any[] = [{ type: 'value', gridIndex: 0, min: bounds.start, max: bounds.end, show: false }]
+  const xAxes: any[] = [{ type: 'value', gridIndex: 0, min: bounds.start, max: bounds.end, show: false, containShape: false }]
   const yAxes: any[] = [{ type: 'value', gridIndex: 0, min: 0, max: 1, show: false }]
   rows.forEach((row, i) => {
     const axis = model.axes[row.id]!
@@ -124,7 +124,7 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
     const format = new Intl.NumberFormat(numberTag, { maximumFractionDigits: axis.decimals })
     // outerBoundsMode: the plot is where the gutters say, whatever the labels' width: a grid that shrinks for a long label puts its hours out of line with the others'
     grids.push({ left: gutterLeft, width: plotPx, top: row.top, height: row.height, show: false, outerBoundsMode: 'none' })
-    xAxes.push({ type: 'value', gridIndex: i + 1, min: bounds.start, max: bounds.end, show: false })
+    xAxes.push({ type: 'value', gridIndex: i + 1, min: bounds.start, max: bounds.end, show: false, containShape: false })
     yAxes.push({
       type: 'value',
       gridIndex: i + 1,
@@ -255,7 +255,7 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
       ...common,
       type: 'line',
       showSymbol: false,
-      smooth: s.kind === 'line' ? 0.4 : false,
+      smooth: s.kind === 'line' && !s.straight ? 0.4 : false,
       smoothMonotone: 'x',
       step: s.kind === 'step' ? 'start' : false,
       connectNulls: false,

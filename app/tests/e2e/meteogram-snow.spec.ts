@@ -17,6 +17,11 @@ const announced = (page: Page) => page.getByTestId('meteogram-announce')
 const credit = (page: Page) => page.getByTestId('meteogram-snow-credit')
 const toggle = (page: Page, panel: string) => page.locator(`button[data-panel="${panel}"]`)
 
+// the threshold and its unit are one word (no-break space), as the readout, the table and the titles write them
+const CHANCE = '>10\u00A0cm new'
+const READOUT_CHANCE = 'Chance of > 10\u00A0cm new snow in 24\u00A0h'
+const READOUT_NEW = 'New snow, 3\u00A0h'
+
 const INDIGO = { light: '#4f46e5', dark: '#818cf8' }
 
 async function open(page: Page, baseURL: string, path = SNOW_STATION, size?: { width: number, height: number }, override: Parameters<typeof mockBackend>[2] = {}) {
@@ -87,7 +92,7 @@ test.describe('at a station that has a snow forecast', () => {
     await expect(toggle(page, 'snow')).toHaveAttribute('aria-pressed', 'true')
     await expect(toggle(page, 'snow')).toHaveAccessibleName('Snow')
     const found = await titles(page)
-    expect(found.map(entry => entry.text)).toEqual(expect.arrayContaining(['New snow', 'Snow depth', '> 10 cm']))
+    expect(found.map(entry => entry.text)).toEqual(expect.arrayContaining(['New snow', 'Snow depth', CHANCE]))
     // the titles are in the colours of the label of the series, which the chart's axes' text has
     expect(found.find(entry => entry.text === 'New snow')!.fill).toBe(INDIGO.light)
     await expect(credit(page)).toHaveText('Snow forecast from MOSMIX-SNOW, DWD.')
@@ -107,14 +112,61 @@ test.describe('at a station that has a snow forecast', () => {
       // the 3 hours of a step at the width of an hour, less a tenth between the bars: 10 px each
       expect(bar.width, JSON.stringify(bar)).toBeGreaterThan(24)
       expect(bar.width, JSON.stringify(bar)).toBeLessThan(31)
-      // the hours between the steps have a "40 cm" in the mock, which would be a bar as tall as the plot
       expect(bar.height, JSON.stringify(bar)).toBeLessThan(72)
     }
+    // the hours between the steps have "40 cm" of new snow in the mock: drawn, they would stretch the axis to 46 cm and the real
+    // bars (5.4 cm at most) would be 8 px high. The tallest stands over half the plot
+    expect(Math.max(...drawn.map(bar => bar.height))).toBeGreaterThan(40)
     // the bars stand 3 hours apart
     const lefts = drawn.map(bar => bar.left).sort((a, b) => a - b)
     for (let i = 1; i < lefts.length; i++) {
       const steps = (lefts[i]! - lefts[i - 1]!) / 30
       expect(Math.abs(steps - Math.round(steps)), `${lefts[i]! - lefts[i - 1]!} px apart`).toBeLessThan(0.1)
+    }
+  })
+
+  // ECharts 6 widened the x extent of the plots that carry bars (`containShape`), which put the snow plot's hours up to 15 px off
+  // the others' at the start of a 72 h chart (and the precipitation's 5 px): the same instant must be at the same pixel in every plot
+  test('puts the same instant at the same pixel in every plot: the line of now, which each plot has', async ({ page, baseURL }) => {
+    for (const width of [800, 1280]) {
+      await open(page, baseURL!, SNOW_STATION, { width, height: 900 })
+      const xs = await svg(page).locator('path[stroke="rgb(234,88,12)"]').evaluateAll(paths => paths.map(path => path.getBoundingClientRect().left + path.getBoundingClientRect().width / 2))
+      // a line in each of the 8 plots (the header has none)
+      expect(xs.length, `${width} px`).toBe(8)
+      expect(Math.max(...xs) - Math.min(...xs), `${width} px: ${xs.join(', ')}`).toBeLessThan(0.6)
+    }
+  })
+
+  test('draws each bar over the hours it covers: it ends where the hour label of its step is, and fills its window', async ({ page, baseURL }) => {
+    await open(page, baseURL!, SNOW_STATION, { width: 1280, height: 900 })
+    // zoomed to a few hours round the 12th hour, where it snows in the mock (the zoom keeps the crosshair where it is): the axis labels
+    // every hour
+    await figure(page).focus()
+    await page.keyboard.press('Home')
+    for (let i = 0; i < 12; i++)
+      await page.keyboard.press('ArrowRight')
+    for (let i = 0; i < 5; i++)
+      await page.keyboard.press('+')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(400)
+    const hourPx = await svg(page).locator('text').filter({ hasText: /^\d{2}[:.]\d{2}$/ }).evaluateAll((texts) => {
+      const xs = texts.map(text => text.getBoundingClientRect().left + text.getBoundingClientRect().width / 2).sort((a, b) => a - b)
+      return xs[1]! - xs[0]!
+    })
+    expect(hourPx, 'the labels are an hour apart').toBeGreaterThan(40)
+    const labelXs = await svg(page).locator('text').filter({ hasText: /^\d{2}[:.]\d{2}$/ }).evaluateAll(texts => texts.map(text => text.getBoundingClientRect().left + text.getBoundingClientRect().width / 2))
+    const whole = (all: { left: number, right: number, width: number }[], hours: number) => all.filter(bar => Math.abs(bar.width - 0.9 * hours * hourPx) < 1)
+    const snow = whole(await bars(page, INDIGO.light), 3)
+    // the precipitation is rain, mixed or snow by the temperature of the hour: the bars of all three
+    const rain = whole([...await bars(page, '#3b82f6'), ...await bars(page, '#0ea5e9'), ...await bars(page, '#cbd5e1')], 1)
+    expect(snow.length, 'whole bars of the new snow in the window').toBeGreaterThan(0)
+    expect(rain.length, 'whole bars of the precipitation in the window').toBeGreaterThan(0)
+    // a bar of a window (T - w, T] ends a tenth of its window before the label of T (it is 0.9 of it, centred on its middle)
+    for (const [bars, hours] of [[snow, 3], [rain, 1]] as const) {
+      for (const bar of bars) {
+        const gap = Math.min(...labelXs.map(x => Math.abs(x - (bar.right + 0.05 * hours * hourPx))))
+        expect(gap, `a bar of ${hours} h ends at ${bar.right}, labels at ${labelXs.join(', ')}`).toBeLessThan(2)
+      }
     }
   })
 
@@ -141,15 +193,15 @@ test.describe('at a station that has a snow forecast', () => {
       await expect(readout(page)).toBeVisible()
       const text = (await readout(page).textContent())!
       const sentence = (await announced(page).textContent())!
-      const has = text.includes('New snow, 3 h')
+      const has = text.includes(READOUT_NEW)
       hours.push(has)
-      expect(sentence.includes('New snow, 3 h'), sentence).toBe(has)
+      expect(sentence.includes(READOUT_NEW), sentence).toBe(has)
       if (has) {
         expect(text).toContain('Snow depth')
-        expect(text).toContain('Chance of > 10 cm in 24 h')
+        expect(text).toContain(READOUT_CHANCE)
         // in the units of the answer: centimetres, and percent
         expect(text).toMatch(/Snow depth\s*\d+(\.\d)? cm/)
-        expect(text).toMatch(/Chance of > 10 cm in 24 h\s*\d+%/)
+        expect(text).toMatch(new RegExp(`${READOUT_CHANCE}\\s*\\d+%`))
       }
       else {
         expect(text).not.toContain('Snow depth')
@@ -190,7 +242,7 @@ test.describe('at a station that has a snow forecast', () => {
     await expect(table).toBeVisible()
     await expect(table.getByRole('columnheader', { name: 'New snow cm' })).toBeVisible()
     await expect(table.getByRole('columnheader', { name: 'Snow depth cm' })).toBeVisible()
-    await expect(table.getByRole('columnheader', { name: 'Chance of > 10 cm new snow in 24 h %' })).toBeVisible()
+    await expect(table.getByRole('columnheader', { name: /Chance of > 10\s*cm new snow in 24\s*h %/ })).toBeVisible()
   })
 })
 
@@ -278,21 +330,21 @@ test.describe('on a phone', () => {
       await open(page, baseURL!, SNOW_STATION, { width, height: 844 })
       const found = await titles(page)
       const stage = (await page.locator('.mg-stage').boundingBox())!
-      for (const name of ['New snow', 'Snow depth', '> 10 cm']) {
+      for (const name of ['New snow', 'Snow depth', CHANCE]) {
         const title = found.find(entry => entry.text === name)
         expect(title, name).toBeDefined()
         expect(title!.left, `${name} is cut at the left`).toBeGreaterThanOrEqual(stage.x - 0.5)
         expect(title!.right - stage.x, `${name} is under the labels`).toBeLessThanOrEqual(2 + 2 * 14 + 2)
       }
       // each title lies inside the rows of its own plot (72, 72 and 64 px high), and never on the plot above or below
-      const rows = await page.evaluate(() => {
+      const rows = await page.evaluate((chance) => {
         const texts = [...document.querySelectorAll<SVGTextElement>('.mg-canvas svg text')]
         const unit = (label: string) => texts.find(text => text.textContent === label)!.getBoundingClientRect()
-        return { snow: unit('New snow'), depth: unit('Snow depth'), chance: unit('> 10 cm') }
-      })
+        return { snow: unit('New snow'), depth: unit('Snow depth'), chance: unit(chance) }
+      }, CHANCE)
       expect(rows.snow.height, 'New snow').toBeLessThanOrEqual(72)
       expect(rows.depth.height, 'Snow depth').toBeLessThanOrEqual(72)
-      expect(rows.chance.height, '> 10 cm').toBeLessThanOrEqual(64)
+      expect(rows.chance.height, CHANCE).toBeLessThanOrEqual(64)
       expect(rows.snow.bottom).toBeLessThan(rows.depth.top)
       expect(rows.depth.bottom).toBeLessThan(rows.chance.top)
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
@@ -313,9 +365,9 @@ test.describe('on a phone', () => {
       await expect(readout(page)).toBeVisible()
       text = (await readout(page).textContent())!
     }
-    expect(text).toContain('New snow, 3 h')
+    expect(text).toContain(READOUT_NEW)
     expect(text).toContain('Snow depth')
-    expect(text).toContain('Chance of > 10 cm in 24 h')
+    expect(text).toContain(READOUT_CHANCE)
     const stage = (await page.locator('.mg-stage').boundingBox())!
     const box = (await readout(page).boundingBox())!
     expect(box.x).toBeGreaterThanOrEqual(stage.x - 0.5)
@@ -375,7 +427,7 @@ test.describe('on paper', () => {
   test('has the whole snow panel in its chart box, with its tick labels and its credit', async ({ page, baseURL }) => {
     await open(page, baseURL!, SNOW_STATION, { width: 1440, height: 1000 })
     await page.emulateMedia({ media: 'print' })
-    const layout = await page.evaluate(() => {
+    const layout = await page.evaluate((chance) => {
       const chart = document.querySelector('.mg-canvas svg')!
       const box = chart.parentElement!.getBoundingClientRect()
       const drawn = chart.getBoundingClientRect()
@@ -385,11 +437,11 @@ test.describe('on paper', () => {
       return {
         boxHeight: box.height,
         drawnHeight: drawn.height,
-        titles: ['New snow', 'Snow depth', '> 10 cm'].map(label => ({ label, rect: find(label) ? { top: find(label)!.top, bottom: find(label)!.bottom } : null })),
+        titles: ['New snow', 'Snow depth', chance].map(label => ({ label, rect: find(label) ? { top: find(label)!.top, bottom: find(label)!.bottom } : null })),
         box: { top: box.top, bottom: box.bottom },
         credit: { top: snowCredit.top, height: snowCredit.height, width: snowCredit.width },
       }
-    })
+    }, CHANCE)
     expect(layout.boxHeight).toBeGreaterThanOrEqual(layout.drawnHeight - 1)
     for (const { label, rect } of layout.titles) {
       expect(rect, `${label} is drawn`).not.toBeNull()

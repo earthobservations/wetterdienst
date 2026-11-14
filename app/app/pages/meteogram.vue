@@ -26,7 +26,8 @@ const values = ref<any[]>([])
 const units = ref<Record<string, string>>({})
 // The snow forecast (MOSMIX-SNOW, GH-4091) of a station that has one: its own request, which the forecast does not wait for
 // and whose failure it does not show. The units are those of its answer, which the chart reads with the forecast's
-const snowValues = ref<Value[]>([])
+// `null` while the request is under way (or the station is not known to have a snow forecast yet), `[]` where there is none
+const snowValues = ref<Value[] | null>(null)
 const snowUnits = ref<Record<string, string>>({})
 const unitsOfForecast = computed(() => ({ ...units.value, ...snowUnits.value }))
 
@@ -139,24 +140,31 @@ function onPick(picked: Station[]) {
  * break, and a station with no snow forecast in summer is no fault.
  */
 async function fetchSnow(station: Station, ticket: number) {
+  // what the request comes to: none, until its answer says otherwise
+  let found: Value[] = []
+  let units: Record<string, string> = {}
   try {
     const ids = await snowStationIds(() => $fetch<{ stations: Station[] }>('/api/stations', { query: snowStationsQuery(), ...API_FETCH }))
-    if (ticket !== valuesTicket || !ids.has(station.station_id))
-      return
-    const rawParams = meteogramSnowQuery(station.station_id, unitSettings.value)
-    if (selectedIssue.value)
-      rawParams.issue = selectedIssue.value
-    const res = await fetch(`/api/values?${new URLSearchParams(rawParams)}`)
-    if (ticket !== valuesTicket || !res.ok)
-      return
-    const json = await readJsonAnswer<ValuesResponse>('/api/values', res)
-    if (ticket === valuesTicket) {
-      snowUnits.value = unitsOfAnswer(json)
-      snowValues.value = json.values ?? []
+    if (ticket === valuesTicket && ids.has(station.station_id)) {
+      const rawParams = meteogramSnowQuery(station.station_id, unitSettings.value)
+      if (selectedIssue.value)
+        rawParams.issue = selectedIssue.value
+      const res = await fetch(`/api/values?${new URLSearchParams(rawParams)}`)
+      if (ticket === valuesTicket && res.ok) {
+        const json = await readJsonAnswer<ValuesResponse>('/api/values', res)
+        units = unitsOfAnswer(json)
+        found = json.values ?? []
+      }
     }
   }
   catch {
     // no snow panel: the rest of the forecast stands
+  }
+  // answered, with none or with the snow: the chart stops expecting it (`null` is a request under way). The answer of a station
+  // that was left meanwhile is not applied
+  if (ticket === valuesTicket) {
+    snowUnits.value = units
+    snowValues.value = found
   }
 }
 
@@ -165,7 +173,7 @@ async function fetchMeteogram(station: Station) {
   pending.value = true
   failure.value = null
   values.value = []
-  snowValues.value = []
+  snowValues.value = null
   snowUnits.value = {}
   void fetchSnow(station, ticket)
 

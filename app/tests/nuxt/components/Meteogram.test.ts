@@ -1106,7 +1106,9 @@ describe('meteogram snow panel', { timeout: 15_000 }, () => {
     await show({ snowValues })
     const draws = ssr().option().series as { id: string, data: [number, number | null][] }[]
     for (const id of ['snowNew', 'snowDepth', 'snowChance']) {
-      const hours = draws.find(series => series.id === id)!.data.map(([time]) => new Date(time).getUTCHours())
+      // a bar is drawn over the hours it covers, centred on the middle of them: the 3 h of a step before it
+      const shift = id === 'snowNew' ? 1.5 * 3_600_000 : 0
+      const hours = draws.find(series => series.id === id)!.data.map(([time]) => new Date(time + shift).getUTCHours())
       // the day of the forecast has the steps 0, 3, ..., 21
       expect(hours, id).toEqual([0, 3, 6, 9, 12, 15, 18, 21])
     }
@@ -1134,7 +1136,7 @@ describe('meteogram snow panel', { timeout: 15_000 }, () => {
     ;(wrapper!.vm as unknown as { view: string }).view = 'table'
     await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
     const headers = [...document.body.querySelectorAll('th')].map(th => th.textContent?.trim())
-    expect(headers).toEqual(expect.arrayContaining(['New snow cm', 'Snow depth cm', 'Chance of > 10 cm new snow in 24 h %']))
+    expect(headers).toEqual(expect.arrayContaining(['New snow cm', 'Snow depth cm', 'Chance of > 10\u00A0cm new snow in 24\u00A0h %']))
     // a switched-off panel is a link that says so: all six are the default, and need no `panels`
     expect(useRouter().currentRoute.value.query.panels).toBeUndefined()
   })
@@ -1164,5 +1166,76 @@ describe('meteogram snow panel', { timeout: 15_000 }, () => {
     await nextTick()
     await nextTick()
     expect(toggles().filter(button => button.getAttribute('aria-pressed') === 'true').map(button => button.dataset.panel)).toEqual(['snow'])
+  })
+})
+
+// A link to the snow panel, or a view of the snow alone, is kept while the snow request is under way: the page has no snow for the
+// forecast until it answers, which is not the same as a station with none (GH-4091)
+describe('meteogram snow panel that is on its way', { timeout: 15_000 }, () => {
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+
+  afterEach(async () => {
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+    await useRouter().replace({ query: {} })
+  })
+
+  const snowValues = snowForecastValues({ hours: 23 })
+  const toggle = (panel: string) => document.body.querySelector<HTMLButtonElement>(`button[data-panel="${panel}"]`)
+  const ids = (): string[] => ssr().option().series.map((series: { id: string }) => series.id)
+  const query = () => useRouter().currentRoute.value.query.panels
+  const pressed = () => (wrapper!.vm as unknown as { visiblePanels: Record<string, boolean> }).visiblePanels
+
+  async function showSnowLink(snow: any) {
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Zugspitzplatt', snowValues: snow }, route: '/meteogram?panels=snow', attachTo: document.body })
+    await flushPromises()
+    await nextTick()
+    return wrapper
+  }
+
+  it('keeps `panels=snow` while the snow is pending, and draws the snow alone when it arrives', async () => {
+    await showSnowLink(null)
+    expect(pressed()).toMatchObject({ snow: true, temp: false, wind: false })
+    expect(query()).toBe('snow')
+    await wrapper!.setProps({ snowValues } as any)
+    await vi.waitFor(() => expect(ids()).toContain('snowNew'))
+    expect(ids()).not.toContain('temp')
+    expect(toggle('snow')!.getAttribute('aria-pressed')).toBe('true')
+    expect(toggle('temp')!.getAttribute('aria-pressed')).toBe('false')
+    expect(query()).toBe('snow')
+  })
+
+  it('keeps it through a new request for the same station (the snow is pending again), as for the first', async () => {
+    await showSnowLink(snowValues)
+    await vi.waitFor(() => expect(ids()).toContain('snowNew'))
+    await wrapper!.setProps({ snowValues: null } as any)
+    await flushPromises()
+    await nextTick()
+    expect(pressed()).toMatchObject({ snow: true, temp: false })
+    expect(query()).toBe('snow')
+    await wrapper!.setProps({ snowValues } as any)
+    await vi.waitFor(() => expect(ids()).toContain('snowNew'))
+    expect(query()).toBe('snow')
+  })
+
+  it('rewrites the address when the snow panel turns out not to be there: the panels it names are the station\'s', async () => {
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Berlin', snowValues: null }, attachTo: document.body })
+    await flushPromises()
+    toggle('wind')!.click()
+    // while the snow is on its way the panel counts, as a panel of the station
+    await vi.waitFor(() => expect(query()).toBe('temp,precip,snow,cloud,pressure'))
+    await wrapper.setProps({ snowValues: [] } as any)
+    await vi.waitFor(() => expect(query()).toBe('temp,precip,cloud,pressure'))
+  })
+
+  it('turns it into the temperature once the answer is that the station has none', async () => {
+    await showSnowLink(null)
+    expect(query()).toBe('snow')
+    await wrapper!.setProps({ snowValues: [] } as any)
+    await vi.waitFor(() => expect(pressed().temp).toBe(true))
+    await vi.waitFor(() => expect(query()).toBe('temp'))
   })
 })

@@ -38,6 +38,8 @@ function storedView(): MeteogramView | null {
  * The widget reads and writes no address; the day rows alone (`daysOnly`) choose nothing, and keep nothing.
  */
 export function useMeteogramView(options: { daysOnly?: boolean, widget?: boolean }, hasSnow: () => boolean = () => false) {
+  // `hasSnow` is true where the station has a snow forecast, and while it is not yet known whether it has (the request is under
+  // way): a `panels=snow` link, or a view of the snow alone, is not turned into the temperature's while the snow is on its way
   const view = ref<MeteogramView>(options.daysOnly ? 'compact' : 'chart')
   const compact = computed(() => view.value === 'compact')
 
@@ -129,7 +131,9 @@ export function useMeteogramView(options: { daysOnly?: boolean, widget?: boolean
       })
     })
 
-    watch(visiblePanels, (panels) => {
+    // also where the snow panel turns out to be there or not: the panels the address names are those of the station
+    watch([visiblePanels, hasSnow], () => {
+      const panels = visiblePanels.value
       // of the panels the station has: the snow's switch is none at a station without a snow forecast, and no link names it
       const present = PANEL_IDS.filter(available)
       const visible = present.filter(k => panels[k])
