@@ -178,8 +178,8 @@ PROBLEMS: dict[ProblemKind, ProblemSpec] = {
     ),
     ProblemKind.IMAGE_TIMEOUT: ProblemSpec(
         504,
-        "The browser that draws a chart as an image did not finish in time and was closed. The request was valid; "
-        "retry it. Whoever runs the server should look at Chrome if it keeps happening.",
+        "A chart was not drawn as an image in time. The request was valid; retry it. Nothing raises it since the "
+        "images are drawn without a browser (GH-3238); it stays for a client that matches the kind.",
     ),
     ProblemKind.INTERNAL_ERROR: ProblemSpec(500, "The server's own error, a defect. The cause is in the server log."),
 }

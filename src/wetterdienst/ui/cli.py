@@ -158,10 +158,6 @@ def _remember_quiet(ctx: click.Context, param: click.Parameter, value: bool) -> 
     return value
 
 
-#: the loggers of the libraries behind an image, which write what they cleaned up as the interpreter ends
-_IMAGE_LIBRARIES = ("choreographer", "kaleido")
-
-
 class _QuietFilter(logging.Filter):
     """Let a handler write errors, the warnings about the answer and `NOTHING_WRITTEN`: what `--quiet` leaves."""
 
@@ -179,8 +175,7 @@ def _apply_log_level(*, debug: bool) -> None:
     rest: the progress (logged at INFO), the other warnings of the package and everything the libraries underneath
     write below ERROR. The levels of the root logger and of `wetterdienst` are set to INFO (`station-skipped` is
     logged there) and the handlers they have are given a filter for the rest, both for the length of the command.
-    The libraries that draw an image (`choreographer`, `kaleido`) write their INFO lines when the interpreter ends,
-    after the command, so they are kept at WARNING for good. The data on stdout, a usage error that click writes
+    The data on stdout, a usage error that click writes
     itself and the exit code are untouched. With `--debug` it is a usage error, which of the two wins is not for
     the command to guess.
     """
@@ -195,8 +190,6 @@ def _apply_log_level(*, debug: bool) -> None:
     levels = [logger.level for logger in loggers]
     handlers = list({id(h): h for logger in loggers for h in logger.handlers}.values())
     quiet = _QuietFilter()
-    for name in _IMAGE_LIBRARIES:
-        logging.getLogger(name).setLevel(logging.WARNING)
     for logger in loggers:
         logger.setLevel(logging.INFO)
     for handler in handlers:
@@ -546,7 +539,7 @@ stream_format_opt = click.option(
     help=f"Output format: {_or_list(names_of('data'))} (the metadata, a line for each row, then the end) "
     f"for data, {_or_list(names_of('chart'))} for a chart. Default: json",
 )
-# the size of a chart, for --format of html, png, jpg, webp, svg or pdf
+# the size of a chart, for --format of html, png, jpg, svg or pdf
 width_opt = click.option("--width", type=click.IntRange(min=1), help="Width of a rendered chart in pixels.")
 height_opt = click.option("--height", type=click.IntRange(min=1), help="Height of a rendered chart in pixels.")
 scale_opt = click.option(
@@ -1530,7 +1523,8 @@ class _Cli(_Group):
             log.error(str(e))  # noqa: TRY400
             sys.exit(1)
         except ImageTimeoutError as e:
-            # whatever image the command was drawing: the browser did not finish, and was closed. One line, as
+            # whatever image the command was drawing, if it was not drawn in time (nothing raises it since the images
+            # are drawn without a browser, GH-3238). One line, as
             # for an outage, where a traceback says nothing the line does not (GH-3723)
             log.error(str(e))  # noqa: TRY400
             sys.exit(1)
@@ -3092,7 +3086,7 @@ def stripes_image(
     Select the station with exactly one of --station or --name.
     """
     from wetterdienst import Settings
-    from wetterdienst.io.export import render_image, require_kaleido
+    from wetterdienst.io.export import render_image, require_vl_convert
     from wetterdienst.ui.core import StripesImageRequest
 
     # the image is written with `Path.write_bytes`, so only a local path is a target: a URI, `file://` included,
@@ -3130,7 +3124,7 @@ def stripes_image(
     # checked here first, a malformed `WD_*` setting is told by its variable
     Settings()
     try:
-        fig = _plot_stripes(request)
+        chart = _plot_stripes(request)
     except Exception as e:
         # a station that is not found, or years holding too little data, is told in one line, as
         # `/api/stripes/image` answers it with a 4xx; an upstream failure keeps its traceback
@@ -3138,12 +3132,12 @@ def stripes_image(
         log.exception("Error while plotting warming stripes")
         raise click.ClickException(str(e)) from e
 
-    require_kaleido()
-    image = render_image(fig, fmt, scale=dpi / 100)
+    require_vl_convert()
+    image = render_image(chart, fmt, scale=dpi / 100)
 
     if target_path is not None:
-        # rendered outside the handler: talking to the renderer's browser can raise an `OSError` of its own
-        # (choreographer's `ChannelClosedError`), which says nothing about --target
+        # rendered outside the handler: the renderer can raise an `OSError` of its own, which says nothing about
+        # --target
         try:
             target_path.write_bytes(image)
         except OSError as e:

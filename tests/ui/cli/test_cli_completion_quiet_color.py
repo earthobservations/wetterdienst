@@ -478,10 +478,10 @@ def test_the_server_is_told_not_to_colour_with_no_color(
 
 # --- an image under --quiet ---------------------------------------------------------------------------------------
 
-#: a command of its own that draws a figure as `render_image` does, as `stripes image` and a PNG of `values` do
+#: a command of its own that draws a chart as `render_image` does, as `stripes image` and a PNG of `values` do
 _DRAW = textwrap.dedent(
     """
-    import plotly.graph_objects as go
+    import altair as alt
 
     from wetterdienst.io.export import render_image
     from wetterdienst.ui.cli import _apply_log_level, cli, debug_opt
@@ -491,7 +491,9 @@ _DRAW = textwrap.dedent(
     @debug_opt
     def draw(debug: bool) -> None:
         _apply_log_level(debug=debug)
-        print(len(render_image(go.Figure(go.Scatter(x=[1, 2], y=[1, 2])), "png")))
+        data = alt.InlineData(values=[{"x": 1, "y": 1}, {"x": 2, "y": 2}])
+        chart = alt.Chart(data).mark_point().encode(x="x:Q", y="y:Q")
+        print(len(render_image(chart, "png")))
 
 
     cli(prog_name="wetterdienst")
@@ -500,12 +502,10 @@ _DRAW = textwrap.dedent(
 
 
 def test_quiet_leaves_no_line_of_the_image_libraries_when_the_interpreter_ends() -> None:
-    """Kaleido and its browser write what they cleaned up as the process ends, after the command: not under --quiet."""
-    pytest.importorskip("kaleido")
-    pytest.importorskip("plotly")
+    """An image under --quiet writes nothing to stderr, as the process ends or before (Kaleido wrote lines then)."""
+    pytest.importorskip("altair")
+    pytest.importorskip("vl_convert")
     quiet = _run(["draw", "--quiet"], source=_DRAW)
-    if quiet.returncode != 0 and "Chrome" in quiet.stderr:
-        pytest.skip("no browser for Kaleido")
 
     assert quiet.returncode == 0, quiet.stderr
     assert quiet.stdout.strip().isdigit(), quiet.stdout

@@ -35,7 +35,17 @@ BASELINE = DIRECTORY / "mcp.baseline.json"
 SHAPED_BY = ("fastapi", "pydantic", "fastmcp")
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {}
+_WEBP = (
+    "`webp` is dropped with Plotly and Kaleido, which wrote it: the images are drawn by vl-convert, which has "
+    "png, jpg, svg and pdf (GH-3238, decision of 2026-11-14). Ask for `png` and convert it where webp is needed."
+)
+
+ACCEPTED_BREAKS: dict[str, str] = {
+    'tool interpolate: argument format: enum members "webp" were removed': _WEBP,
+    'tool stations: argument format: enum members "webp" were removed': _WEBP,
+    'tool summarize: argument format: enum members "webp" were removed': _WEBP,
+    'tool values: argument format: enum members "webp" were removed': _WEBP,
+}
 
 #: the keys of a schema that describe it for a reader and promise nothing
 _PROSE = frozenset({"description", "title", "examples", "example"})

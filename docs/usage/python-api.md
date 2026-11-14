@@ -953,6 +953,39 @@ values = stations.values().all()
 print(values.to_csv())
 ```
 
+### Charts and images
+
+`to_plot()` returns an [Altair](https://altair-viz.github.io/) chart, a Vega-Lite specification that holds all of its
+data, and `to_image(fmt=...)` draws it. Both need the `plotting` extra (`pip install "wetterdienst[plotting]"`:
+Altair and [vl-convert](https://github.com/vega/vl-convert), which renders in the process, with no browser):
+
+```python
+chart = values.to_plot()  # a stations result gives a map, the values results a chart with a row for each parameter
+chart.save("values.html")  # an interactive page; chart.to_dict() is the Vega-Lite specification
+png = values.to_image(fmt="png", width=1000, height=600, scale=2)  # bytes: an image of 2000 x 1200 pixels
+```
+
+- **The formats** are `html`, `png`, `jpg`, `svg` and `pdf`. `webp` is gone with Plotly and Kaleido: write a PNG and
+  convert it (with Pillow, say) where the format is needed.
+- **The size is the size asked for.** `width` and `height` are the pixels of the whole picture, the axes and the legend
+  included, 700 wide and 500 high by default (300 high for each row of parameters in a chart of values). `scale`
+  multiplies it. A `png` and a `jpg` have that many pixels, an `svg` says it in its root (it is a vector), and the page
+  of a `pdf` is that many points at 96 pixels to the inch, as it was (700 x 500 pixels, a page of 525 x 375 points).
+  A picture too small for its legend and labels is the smallest that holds them.
+- **The rows of a chart are no limit.** A series of years of hourly values is drawn: the data goes in as the text of a CSV file,
+  so that Altair's limit of 5000 rows, which `alt.data_transformers` would lift for the whole process, is not reached,
+  and no file is written. Polars frames need no pandas.
+- **The station map** draws the stations on the borders and coastlines of the countries of Natural Earth 1:110m, which
+  the package ships (96 KB) and which nothing fetches while it draws. There are no map tiles, and at the scale of a
+  town the borders are those of a world map.
+- **The text** is set in Liberation Sans, which vl-convert carries, so that an image is the same on every system.
+- **A caller of the earlier releases** who took the Plotly figure that `to_plot()` returned (`to_plot().update_layout(...)`,
+  `to_plot().write_image(...)`) takes the Altair chart now: `chart.properties(...)`, `chart.save("name.png")`
+  (vl-convert writes it) or `result.to_image(...)`. A Plotly figure is no longer made.
+
+The map's borders are Natural Earth data, public domain: "Made with Natural Earth. Free vector and raster map data at
+[naturalearthdata.com](https://www.naturalearthdata.com)".
+
 ### SQL
 
 Querying data using SQL is provided by an in-memory [DuckDB](https://duckdb.org/) database.
@@ -1017,7 +1050,7 @@ below it say what kind of failure it is:
 | `ConfigurationError` | this installation cannot serve it: a missing credential or optional package | |
 | `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError` (`ProviderRateLimitError`: the provider answered 429 or the quota of the key is used up, retry later after `retry_after` seconds), `NoInternetError`, `StationListingIncompleteError` (a station is not found, and the lookup of the stations of `dwd/observation` or `dwd/derived` went without a directory it may be in) | |
 | `ExportRefusedError` | a sink will not perform the export, for a reason the caller can act on | |
-| `ImageTimeoutError` | the browser that draws an image did not finish in `wetterdienst.io.export.IMAGE_TIMEOUT` (120) seconds, start included, and was closed with its processes | `TimeoutError` |
+| `ImageTimeoutError` | an image was not drawn in time; the library raises none since the images are drawn without a browser (GH-3238) | `TimeoutError` |
 
 ```python
 from wetterdienst import RequestError, UpstreamError, WetterdienstError

@@ -13,7 +13,7 @@ command line can tell what to answer from the class instead of keeping a list of
     ├── ConfigurationError  this installation is not set up to serve it
     ├── UpstreamError     the provider's side failed or sent what the parser does not expect
     ├── ExportRefusedError  a sink will not perform the export it was asked for
-    └── ImageTimeoutError   the browser that draws an image did not finish in time (also a `TimeoutError`)
+    └── ImageTimeoutError   an image was not drawn in time (also a `TimeoutError`); no longer raised, GH-3238
 
 Each class that was an exception of its own before keeps the built-in classes it derived from, so an
 `except ValueError`, `except OSError`, `except FileNotFoundError` or `except IndexError` that caught
@@ -359,15 +359,13 @@ class ImageTooLargeError(RequestError):
 
 
 class ImageTimeoutError(WetterdienstError, TimeoutError):
-    """Raised when a chart was not rendered to an image in time, and the browser that draws it was closed (GH-3723).
+    """Raised when a chart was not rendered to an image in time (GH-3723). The library no longer raises it (GH-3238).
 
-    Kaleido draws an image in a Chrome of its own. One that is stuck (a start that does not end, a page that is
-    never ready) used to hold the caller for ever. The render has `IMAGE_TIMEOUT` seconds, the start of the browser
-    included, and then the browser is shut down, its processes with it, so that nothing is left behind.
-
-    Neither the caller's mistake nor the provider's: the request was valid, the renderer of this machine did not
-    answer, and the same one can succeed on a retry. The REST API answers it with a 504 of the kind `image-timeout`
-    and the command line with one line, exit 1. A `TimeoutError` too.
+    Images were drawn in a Chrome that Kaleido started, and one that was stuck (a start that does not end, a page that
+    is never ready) held the caller for ever, so the render had a clock and this was its error. vl-convert draws in the
+    process and starts no browser, so nothing is left to hang and nothing raises this. It stays for a caller that
+    catches it, and the REST API still answers it with a 504 of the kind `image-timeout`, the command line with one
+    line, exit 1, should a renderer ever raise it. A `TimeoutError` too.
     """
 
     def __init__(self, timeout: float | None) -> None:
@@ -375,8 +373,8 @@ class ImageTimeoutError(WetterdienstError, TimeoutError):
         self.timeout = timeout
         limit = "" if timeout is None else f" (the limit is {timeout:g} seconds)"
         super().__init__(
-            f"The image was not rendered in time{limit}: the browser that draws it did not finish and was closed. "
-            "Try again; if it keeps happening, check that Chrome starts on this machine."
+            f"The image was not rendered in time{limit}. Try again; if it keeps happening, check what draws it on this "
+            "machine."
         )
 
     def __reduce__(self) -> tuple:

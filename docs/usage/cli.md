@@ -83,8 +83,7 @@ them. It keeps one more sentence, `Nothing was written to --target.`, which a co
 `--target` says: a scheduled run that wrote nothing must not look like one that did (the `--target` is left as it
 was, and the exit code is `0`). What it drops is the progress, the notes (the cache that is enabled), the other warnings
 of the package and everything the libraries underneath write below an error, among them the sentence that a request
-returned no data or no stations: an empty answer is empty on stdout. The libraries behind an image (Kaleido, its
-browser) are kept at warnings for good, since they write what they cleaned up as the process ends. `--quiet` and
+returned no data or no stations: an empty answer is empty on stdout. `--quiet` and
 `--debug` are a usage error together, `--quiet=false` being no `--quiet`. The server, `restapi`, has `--debug` alone:
 its log is also uvicorn's, which `--quiet` would not reach.
 

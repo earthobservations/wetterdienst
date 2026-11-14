@@ -197,7 +197,6 @@ def test_cli_summarize_custom_units() -> None:
     [
         "png",
         "jpg",
-        "webp",
         "svg",
     ],
 )

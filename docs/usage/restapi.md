@@ -1023,20 +1023,18 @@ for clients you trust with that.
 
 ## Image size
 
-A chart in an image format (`png`, `jpg`, `webp`, `svg`, `pdf`) is refused with a 400 when a side of
+A chart in an image format (`png`, `jpg`, `svg`, `pdf`) is refused with a 400 when a side of
 the image is longer than 8192 px, `scale` applied; for `/api/stripes/image` the size is 700 x 500 px
 times `dpi / 100`. A chart of several parameters is 300 px tall for each, and is measured as drawn.
 The limit holds for the REST API and the MCP tools; the library and the CLI have none.
 
-A chart is drawn by a Chrome that Kaleido starts for the image, and the start of that browser and the
-drawing have 120 seconds, on every surface (a normal image takes 1 to 4 seconds; the heaviest this server lets
-through, a PDF of 8192 x 8192 px with 100000 points, took 24 to 31). A browser that does not finish is closed, and
-killed with its processes if closing it does not end it, and the request is a 504 problem of the kind
-`image-timeout` with `Retry-After`. Unlike the
-[request timeout](#timeout), which answers the client and leaves the work running, this one ends the work, so a
-stuck Chrome keeps its thread and its place in the [limit on requests served at once](#concurrency) for at most
-about 130 seconds (the limit and up to 10 seconds to close the browser), not for ever. Under the default request
-timeout of 60 seconds the client is answered `request-timeout` first, and the work ends on its own after that.
+A chart is drawn to an image by vl-convert, in the process of the server: there is no browser to start, and a
+normal image takes 0.1 to 1 second. The image is exactly as large as `width` and `height` say, `scale` times as
+large: a request for 700 x 500 px is an image of 700 x 500 px. While vl-convert 1.9 draws, it holds the
+interpreter's lock (the GIL): the other requests of the process wait for the drawing, 0.1 to 1 second for a normal
+image and a few seconds for a chart of 100000 points. vl-convert 2.0 releases the lock, and the cap of the
+`plotting` extra is raised to it then (GH-4095). The image of a chart of more than 5000 rows is drawn like any
+other: there is no limit on rows.
 
 ## Limits
 
@@ -1371,7 +1369,7 @@ are these, and a kind keeps its status:
 | `urn:wetterdienst:problem:upstream-quota-exhausted` | 503 | The data provider refused the request because the quota or the rate limit of the key this server uses is used up for now. The key is accepted and the request was valid; retry it after `Retry-After`. |
 | `urn:wetterdienst:problem:upstream-timeout` | 504 | The data provider did not answer in time. The request was valid; retry it. |
 | `urn:wetterdienst:problem:request-timeout` | 504 | The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached. |
-| `urn:wetterdienst:problem:image-timeout` | 504 | The browser that draws a chart as an image did not finish within `120` seconds and was closed. The request was valid; retry it. Whoever runs the server should look at Chrome if it keeps happening. |
+| `urn:wetterdienst:problem:image-timeout` | 504 | A chart was not drawn as an image in time. The request was valid; retry it. Nothing raises it since the images are drawn without a browser (GH-3238); it stays for a client that matches the kind. |
 | `urn:wetterdienst:problem:internal-error` | 500 | The server's own error, a defect. The cause is in the server log. |
 
 Every problem has `instance`, `urn:wetterdienst:request:<id>`, and `request_id`, the id of the request. The id

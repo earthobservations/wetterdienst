@@ -30,6 +30,11 @@ render_plugin = "myst"
 no_index = true
 ```
 
+```{autodoc2-object} wetterdienst.io.charts
+render_plugin = "myst"
+no_index = true
+```
+
 ```{autodoc2-object} wetterdienst.settings
 render_plugin = "myst"
 no_index = true

@@ -57,7 +57,17 @@ from typing import Any
 CLOSED_RESPONSE_ENUMS = frozenset({"aggregation", "timestamp_position"})
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {}
+_WEBP = (
+    "`webp` is dropped with Plotly and Kaleido, which wrote it: the images are drawn by vl-convert, which has "
+    "png, jpg, svg and pdf (GH-3238, decision of 2026-11-14). Ask for `png` and convert it where webp is needed."
+)
+
+ACCEPTED_BREAKS: dict[str, str] = {
+    'GET /api/v1/interpolate: parameter format (query): enum members "webp" were removed': _WEBP,
+    'GET /api/v1/stations: parameter format (query): enum members "webp" were removed': _WEBP,
+    'GET /api/v1/summarize: parameter format (query): enum members "webp" were removed': _WEBP,
+    'GET /api/v1/values: parameter format (query): enum members "webp" were removed': _WEBP,
+}
 
 _METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
 

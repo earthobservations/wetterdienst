@@ -31,22 +31,21 @@ from pydantic import ConfigDict, with_config
 from typing_extensions import TypedDict
 
 from wetterdienst.exceptions import UnknownFormatError
+from wetterdienst.io import charts
+from wetterdienst.io.charts import DEFAULT_HEIGHT, DEFAULT_WIDTH
 from wetterdienst.io.export import (
-    _DEFAULT_IMAGE_HEIGHT,
-    _DEFAULT_IMAGE_WIDTH,
     ExportMixin,
+    chart_to_html,
     check_image_size,
-    figure_to_html,
     render_data_format,
     render_image,
-    require_kaleido,
+    require_vl_convert,
 )
-from wetterdienst.io.formats import names_of, renders_with_kaleido
+from wetterdienst.io.formats import is_image, names_of
 from wetterdienst.model.processing_note import processing_note
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
-from wetterdienst.util.extras import import_optional
 from wetterdienst.util.json_util import dumps_json, json_indent
 
 if TYPE_CHECKING:
@@ -54,7 +53,7 @@ if TYPE_CHECKING:
     from collections.abc import Set as AbstractSet
     from types import FunctionType
 
-    import plotly.graph_objects as go
+    import altair as alt
 
     from wetterdienst import Settings
     from wetterdienst.model.history import History, TimeseriesHistory
@@ -401,15 +400,53 @@ class _EqualByFields:
         return all(_same(getattr(self, f.name), getattr(other, f.name)) for f in fields(cast("Any", self)))
 
 
-#: margin around the station map, in pixels; at the top room for the legend, which plotly would make by itself and
-#: take from the height of the map
+def _draw_chart(
+    chart: alt.TopLevelMixin,
+    fmt: str,
+    *,
+    width: int | None,
+    height: int | None,
+    scale: float | None,
+    max_side: int | None,
+) -> bytes | str:
+    """Write a chart in a format of the registry: the html page, or an image drawn by vl-convert.
+
+    The size of an image is checked first, before anything is drawn, and the `plotting` extra is asked for.
+    """
+    if fmt == "html":
+        return chart_to_html(chart)
+    if is_image(fmt):
+        check_image_size(chart, width, height, scale, max_side)
+        require_vl_convert()
+        return render_image(chart, fmt, width=width, height=height, scale=scale)
+    raise UnknownFormatError(fmt, names_of("chart"))
+
+
+def _chart_rows(df: pl.DataFrame, units: pl.Expr, *, keep: tuple[str, ...] = ()) -> pl.DataFrame:
+    """Give the frame of a values chart: the label of each row of parameters, the unit in brackets, and what is kept.
+
+    The label is the parameter and its unit, and the dataset (and the resolution) before them, a line break between
+    each, where the result has more than one.
+    """
+    n_resolutions = df["resolution"].n_unique()
+    n_datasets = df["dataset"].n_unique()
+    label = pl.concat_str(pl.col("parameter"), pl.lit(" ("), units, pl.lit(")"))
+    if n_datasets > 1:
+        label = pl.concat_str(pl.col("dataset"), pl.lit("\n"), label)
+    if n_resolutions > 1:
+        label = pl.concat_str(pl.col("resolution"), pl.lit("\n"), label)
+    return df.select("station_id", label.alias("parameter"), "timestamp", "value", *keep)
+
+
+#: margin around the station map, in pixels, which the zoom is fitted inside of; at the top room for the legend, which
+#: the chart makes by itself and takes from the height of the map
 _MAP_MARGIN = {"l": 10, "r": 10, "t": 50, "b": 10}
 #: the share of the map the extent of the stations fills at most, which leaves room for their labels
 _MAP_FILL = 0.85
 #: the zoom of a single station or of stations next to each other: a town, not a street
 _MAP_MAX_ZOOM = 10.0
-#: width in pixels of the whole world at zoom 0 (MapLibre draws 512 px tiles)
-_MAP_WORLD_PIXELS = 512
+#: width in pixels of the whole world at zoom 0 (the zoom counts 512 px tiles, as web maps do)
+_MAP_WORLD_PIXELS = charts.MAP_WORLD_PIXELS
 #: the latitude at which the Mercator projection ends
 _MERCATOR_MAX_LATITUDE = 85.05
 
@@ -634,62 +671,25 @@ class StationsResult(_EqualByFields, ExportMixin):
             return {"metadata": _metadata_of(self), "data": collection}
         return {"data": collection}
 
-    def to_plot(self) -> go.Figure:
-        """Create a plotly figure from the stations DataFrame."""
-        px = import_optional("plotly.express", "Plotting", extra="plotting")
-        go = import_optional("plotly.graph_objects", "Plotting", extra="plotting")
+    def to_plot(self) -> alt.TopLevelMixin:
+        """Create an Altair chart of the stations: points on the borders of the countries, a colour for each dataset."""
+        return self._map(DEFAULT_WIDTH, DEFAULT_HEIGHT)
 
+    def _map(self, width: int, height: int) -> alt.TopLevelMixin:
+        """Draw the station map for a picture of `width` x `height` pixels, which the stations are fitted to."""
         df = self.df
         if df.is_empty():
-            return go.Figure()
-        center, zoom = self._map_view(_DEFAULT_IMAGE_WIDTH, _DEFAULT_IMAGE_HEIGHT)
-        # for coloring of resolutions/datasets
-        n_resolutions = df["resolution"].n_unique()
-        n_datasets = df["dataset"].n_unique()
-        # rename resolution and dataset to keep "dataset" name free
-        df = df.rename({"resolution": "resolution_", "dataset": "dataset_"})
-        df = df.with_columns(
-            pl.lit(None, dtype=pl.String).alias("dataset"),
-            pl.concat_str(
-                pl.col("name"),
-                pl.lit(" ("),
-                pl.col("station_id"),
-                pl.lit(")"),
-            ).alias("name"),
+            return charts.empty_chart()
+        # in a fixed order: the stations of several datasets are joined in the order the lists came, and the one drawn
+        # last is on top where they overlap
+        df = df.sort("resolution", "dataset", "station_id", descending=[False, True, False]).select(
+            "longitude",
+            "latitude",
+            pl.concat_str(pl.col("name"), pl.lit(" ("), pl.col("station_id"), pl.lit(")")).alias("name"),
+            pl.concat_str(pl.col("resolution"), pl.lit("/"), pl.col("dataset")).alias("dataset"),
         )
-        if n_datasets and n_resolutions:
-            df = df.with_columns(
-                pl.concat_str(
-                    pl.col("resolution_"),
-                    pl.lit("/"),
-                    pl.col("dataset_"),
-                ).alias("dataset"),
-            )
-        elif n_datasets:
-            df = df.with_columns(
-                pl.col("dataset_").alias("dataset"),
-            )
-        elif n_resolutions:
-            df = df.with_columns(
-                pl.col("resolution_").alias("dataset"),
-            )
-        fig = px.scatter_map(
-            df,
-            lat="latitude",
-            lon="longitude",
-            text="name",
-            color="dataset",
-            zoom=zoom,
-            center=center,
-        )
-        return fig.update_layout(
-            legend={
-                "orientation": "h",
-                "yanchor": "bottom",
-                "y": 1.01,
-            },
-            margin=_MAP_MARGIN,
-        )
+        center, zoom = self._map_view(width, height)
+        return charts.stations_chart(df, center=center, zoom=zoom, width=width, height=height)
 
     def _map_view(self, width: int, height: int) -> tuple[dict[str, float], float]:
         """Centre and zoom of the station map that show every station in a picture of `width` x `height` pixels."""
@@ -704,30 +704,19 @@ class StationsResult(_EqualByFields, ExportMixin):
 
     def _to_image(
         self,
-        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        fmt: Literal["html", "png", "jpg", "svg", "pdf"],
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
     ) -> bytes | str:
-        """Create an image from the plotly figure.
+        """Create an image from the station map, or an html page.
 
-        This method is used by ``.to_image()`` to create an image for stations from the plotly figure.
+        This method is used by ``.to_image()``. A picture of another size than the default is fitted again: the
+        stations fill the same share of it.
         """
-        fig = self.to_plot()
-        if fmt == "html":
-            img = figure_to_html(fig)
-        elif renders_with_kaleido(fmt):
-            check_image_size(fig, width, height, scale, max_side)
-            require_kaleido()
-            if (width or height) and not self.df.is_empty():
-                # the zoom of `to_plot` fits the default size: a picture of another size is fitted again
-                center, zoom = self._map_view(width or _DEFAULT_IMAGE_WIDTH, height or _DEFAULT_IMAGE_HEIGHT)
-                fig.update_layout(map={"center": center, "zoom": zoom})
-            img = render_image(fig, fmt, width=width, height=height, scale=scale)
-        else:
-            raise UnknownFormatError(fmt, names_of("chart"))
-        return img
+        chart = self._map(width or DEFAULT_WIDTH, height or DEFAULT_HEIGHT)
+        return _draw_chart(chart, fmt, width=width, height=height, scale=scale, max_side=max_side)
 
 
 class _ValuesItemDict(TypedDict):
@@ -1101,70 +1090,15 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
             }
         return {"data": collection}
 
-    def to_plot(self) -> go.Figure:
-        """Create a plotly figure from the values DataFrame."""
-        px = import_optional("plotly.express", "Plotting", extra="plotting")
-        go = import_optional("plotly.graph_objects", "Plotting", extra="plotting")
-
+    def to_plot(self) -> alt.TopLevelMixin:
+        """Create an Altair chart of the values: lines and markers, a row for each parameter, a colour for a station."""
         df = self.df
         if "parameter" not in df.columns:
             df = self._lengthen(df)
         if df.is_empty():
-            return go.Figure()
-        # create unit mapping for title
-        units = self._unit_symbols()
-        # used for subplots
-        n = df.select(["resolution", "dataset", "parameter"]).n_unique()
-        # used for name
-        n_resolutions = df["resolution"].n_unique()
-        n_datasets = df["dataset"].n_unique()
-        df = df.with_columns(
-            # add unit in brackets to parameter
-            pl.concat_str(
-                pl.col("parameter"),
-                pl.lit(" ("),
-                self._unit_symbol_key().replace(units),
-                pl.lit(")"),
-            ).alias("parameter"),
-        )
-        if n_datasets > 1:
-            df = df.with_columns(
-                pl.concat_str(
-                    pl.col("dataset"),
-                    pl.lit("<br>"),
-                    pl.col("parameter"),
-                ).alias("parameter"),
-            )
-        if n_resolutions > 1:
-            df = df.with_columns(
-                pl.concat_str(
-                    pl.col("resolution"),
-                    pl.lit("<br>"),
-                    pl.col("parameter"),
-                ).alias("parameter"),
-            )
-        fig = px.line(
-            df,
-            x="timestamp",
-            y="value",
-            color="station_id",
-            facet_row="parameter",
-            height=300 * n,  # scale height with number of subplots
-        )
-        fig = fig.update_traces(
-            mode="markers+lines",
-        )
-        fig = fig.update_yaxes(matches=None)
-        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
-        fig.update_layout(
-            legend={
-                "orientation": "h",
-                "yanchor": "bottom",
-                "y": 1.01,
-            },
-            margin={"l": 10, "r": 10 + (n_resolutions + n_datasets) * 10, "t": 10, "b": 10},
-        )
-        return fig
+            return charts.empty_chart()
+        rows = _chart_rows(df, self._unit_symbol_key().replace(self._unit_symbols()))
+        return charts.values_chart(rows)
 
     def _lengthen(self, df: pl.DataFrame) -> pl.DataFrame:
         """Turn a wide values frame back into the long one `to_plot` draws.
@@ -1231,26 +1165,17 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
 
     def _to_image(
         self,
-        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        fmt: Literal["html", "png", "jpg", "svg", "pdf"],
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
     ) -> bytes | str:
-        """Create an image from the plotly figure.
+        """Create an image from the values chart, or an html page.
 
-        This method is used by ``.to_image()`` to create an image for values from the plotly figure.
+        This method is used by ``.to_image()``.
         """
-        fig = self.to_plot()
-        if fmt == "html":
-            img = figure_to_html(fig)
-        elif renders_with_kaleido(fmt):
-            check_image_size(fig, width, height, scale, max_side)
-            require_kaleido()
-            img = render_image(fig, fmt, width=width, height=height, scale=scale)
-        else:
-            raise UnknownFormatError(fmt, names_of("chart"))
-        return img
+        return _draw_chart(self.to_plot(), fmt, width=width, height=height, scale=scale, max_side=max_side)
 
 
 # One history as the `History` model of `model/history.py` dumps it, with its timestamps written as text
@@ -1638,93 +1563,28 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
             }
         return {"data": collection}
 
-    def to_plot(self) -> go.Figure:
-        """Create a plotly figure from the values DataFrame."""
-        px = import_optional("plotly.express", "Plotting", extra="plotting")
-        go = import_optional("plotly.graph_objects", "Plotting", extra="plotting")
-
+    def to_plot(self) -> alt.TopLevelMixin:
+        """Create an Altair chart of the interpolated values: the stations taken are in the tooltip of a marker."""
         df = self.df
         if df.is_empty():
-            return go.Figure()
-        # create unit mapping for title
-        units = self._unit_symbols()
-        # used for subplots
-        n = df.select(["dataset", "parameter"]).n_unique()
-        # used for name
-        n_resolutions = df["resolution"].n_unique()
-        n_datasets = df["dataset"].n_unique()
-        df = df.with_columns(
-            # add unit in brackets to parameter
-            pl.concat_str(
-                pl.col("parameter"),
-                pl.lit(" ("),
-                self._unit_symbol_key().replace(units),
-                pl.lit(")"),
-            ).alias("parameter"),
-            pl.col("taken_station_ids").list.join(",").alias("taken_station_ids"),
-        )
-        if n_datasets > 1:
-            df = df.with_columns(
-                pl.concat_str(
-                    pl.col("dataset"),
-                    pl.lit("<br>"),
-                    pl.col("parameter"),
-                ).alias("parameter"),
-            )
-        if n_resolutions > 1:
-            df = df.with_columns(
-                pl.concat_str(
-                    pl.col("resolution"),
-                    pl.lit("<br>"),
-                    pl.col("parameter"),
-                ).alias("parameter"),
-            )
-        fig = px.line(
-            df,
-            x="timestamp",
-            y="value",
-            color="station_id",
-            facet_row="parameter",
-            height=300 * n,  # scale height with number of subplots
-            text="taken_station_ids",
-        )
-        fig = fig.update_traces(
-            mode="markers+lines",
-        )
-        fig = fig.update_yaxes(matches=None)
-        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
-        fig.update_layout(
-            legend={
-                "orientation": "h",
-                "yanchor": "bottom",
-                "y": 1.01,
-            },
-            margin={"l": 10, "r": 10 + (n_resolutions + n_datasets) * 10, "t": 10, "b": 10},
-        )
-        return fig
+            return charts.empty_chart()
+        df = df.with_columns(pl.col("taken_station_ids").list.join(",").alias("taken_station_ids"))
+        rows = _chart_rows(df, self._unit_symbol_key().replace(self._unit_symbols()), keep=("taken_station_ids",))
+        return charts.values_chart(rows, tooltip="taken_station_ids")
 
     def _to_image(
         self,
-        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        fmt: Literal["html", "png", "jpg", "svg", "pdf"],
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
     ) -> bytes | str:
-        """Create an image from the plotly figure.
+        """Create an image from the chart of the interpolated values, or an html page.
 
-        This method is used by ``.to_image()`` to create an image for interpolated values from the plotly figure.
+        This method is used by ``.to_image()``.
         """
-        fig = self.to_plot()
-        if fmt == "html":
-            img = figure_to_html(fig)
-        elif renders_with_kaleido(fmt):
-            check_image_size(fig, width, height, scale, max_side)
-            require_kaleido()
-            img = render_image(fig, fmt, width=width, height=height, scale=scale)
-        else:
-            raise UnknownFormatError(fmt, names_of("chart"))
-        return img
+        return _draw_chart(self.to_plot(), fmt, width=width, height=height, scale=scale, max_side=max_side)
 
 
 class _SummarizedValuesItemDict(TypedDict):
@@ -1841,92 +1701,27 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
             }
         return {"data": collection}
 
-    def to_plot(self) -> go.Figure:
-        """Create a plotly figure from the values DataFrame."""
-        px = import_optional("plotly.express", "Plotting", extra="plotting")
-        go = import_optional("plotly.graph_objects", "Plotting", extra="plotting")
-
+    def to_plot(self) -> alt.TopLevelMixin:
+        """Create an Altair chart of the summarized values: the station taken is in the tooltip of a marker."""
         df = self.df
         if df.is_empty():
-            return go.Figure()
-        # create unit mapping for title
-        units = self._unit_symbols()
-        # used for subplots
-        n = df.select(["dataset", "parameter"]).n_unique()
-        # used for name
-        n_resolutions = df["resolution"].n_unique()
-        n_datasets = df["dataset"].n_unique()
-        df = df.with_columns(
-            # add unit in brackets to parameter
-            pl.concat_str(
-                pl.col("parameter"),
-                pl.lit(" ("),
-                self._unit_symbol_key().replace(units),
-                pl.lit(")"),
-            ).alias("parameter"),
-        )
-        if n_datasets > 1:
-            df = df.with_columns(
-                pl.concat_str(
-                    pl.col("dataset"),
-                    pl.lit("<br>"),
-                    pl.col("parameter"),
-                ).alias("parameter"),
-            )
-        if n_resolutions > 1:
-            df = df.with_columns(
-                pl.concat_str(
-                    pl.col("resolution"),
-                    pl.lit("<br>"),
-                    pl.col("parameter"),
-                ).alias("parameter"),
-            )
-        fig = px.line(
-            df,
-            x="timestamp",
-            y="value",
-            color="station_id",
-            facet_row="parameter",
-            height=300 * n,  # scale height with number of subplots
-            text="taken_station_id",
-        )
-        fig = fig.update_traces(
-            mode="markers+lines",
-        )
-        fig = fig.update_yaxes(matches=None)
-        fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
-        fig.update_layout(
-            legend={
-                "orientation": "h",
-                "yanchor": "bottom",
-                "y": 1.01,
-            },
-            margin={"l": 10, "r": 10 + (n_resolutions + n_datasets) * 10, "t": 10, "b": 10},
-        )
-        return fig
+            return charts.empty_chart()
+        rows = _chart_rows(df, self._unit_symbol_key().replace(self._unit_symbols()), keep=("taken_station_id",))
+        return charts.values_chart(rows, tooltip="taken_station_id")
 
     def _to_image(
         self,
-        fmt: Literal["html", "png", "jpg", "webp", "svg", "pdf"],
+        fmt: Literal["html", "png", "jpg", "svg", "pdf"],
         width: int | None = None,
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
     ) -> bytes | str:
-        """Create an image from the plotly figure.
+        """Create an image from the chart of the summarized values, or an html page.
 
-        This method is used by ``.to_image()`` to create an image for summarized values from the plotly figure.
+        This method is used by ``.to_image()``.
         """
-        fig = self.to_plot()
-        if fmt == "html":
-            img = figure_to_html(fig)
-        elif renders_with_kaleido(fmt):
-            check_image_size(fig, width, height, scale, max_side)
-            require_kaleido()
-            img = render_image(fig, fmt, width=width, height=height, scale=scale)
-        else:
-            raise UnknownFormatError(fmt, names_of("chart"))
-        return img
+        return _draw_chart(self.to_plot(), fmt, width=width, height=height, scale=scale, max_side=max_side)
 
 
 @runtime_checkable

@@ -4,9 +4,10 @@
 
 The command line (``wetterdienst stripes image``) and the REST API draw the same stripes with
 their own margins and a source line, at a size of their own, and take no width or height. There is
-no public way to the bare band, so this example takes the figure they are made of
-(``wetterdienst.ui.core._plot_stripes``, private, it may change) and strips the annotations and
-the margins. It needs the ``plotting`` extra.
+no public way to the bare band, so this example takes the data and the chart they are made of
+(``wetterdienst.ui.core._get_stripes_data`` and ``wetterdienst.io.charts.stripes_chart``, private,
+they may change) and leaves out the text, the margins and the background. It needs the ``plotting``
+extra.
 
 Set ``SAVE_PLOT`` to write the image to ``docs/assets/readme-stripes.png``, where the README takes
 it from. A test runs the example without writing it.
@@ -14,7 +15,9 @@ it from. A test runs the example without writing it.
 
 from pathlib import Path
 
-from wetterdienst.ui.core import StripesImageRequest, _plot_stripes
+from wetterdienst.io.charts import stripes_chart
+from wetterdienst.io.export import render_image
+from wetterdienst.ui.core import CLIMATE_STRIPES_CONFIG, StripesImageRequest, _get_stripes_data
 
 HERE = Path(__file__).parent
 PLOT_PATH = HERE.parents[3] / "docs" / "assets" / "readme-stripes.png"
@@ -34,16 +37,19 @@ def draw_band() -> bytes:
         show_years=False,
         show_data_availability=False,
     )
-    fig = _plot_stripes(request)
-    # the source line and the other annotations, then the margins and the background
-    fig.layout.annotations = ()
-    fig.update_layout(
-        width=WIDTH,
-        height=HEIGHT,
-        margin={"l": 0, "r": 0, "t": 0, "b": 0},
-        paper_bgcolor="rgba(0,0,0,0)",
+    data = _get_stripes_data(request)
+    # no source line and no other text, no margins and no background
+    chart = stripes_chart(
+        data.df,
+        colors=CLIMATE_STRIPES_CONFIG["temperature"]["colors"],
+        title=None,
+        source=None,
+        show_years=False,
+        show_data_availability=False,
+        padding=0,
+        background="transparent",
     )
-    return fig.to_image("png", scale=SCALE)
+    return render_image(chart, "png", width=WIDTH, height=HEIGHT, scale=SCALE)
 
 
 def main() -> None:

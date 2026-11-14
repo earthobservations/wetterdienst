@@ -69,7 +69,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
     from types import ModuleType
 
-    import plotly.graph_objs as go
+    import altair as alt
 
     from wetterdienst.api import StandaloneRequest
     from wetterdienst.model.result import (
@@ -276,14 +276,14 @@ _WithEstimateStationsField = Annotated[
     ),
 ]
 _FormatField = Annotated[
-    Literal["json", "geojson", "csv", "html", "png", "jpg", "webp", "svg", "pdf"],
-    Field(description="Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf)."),
+    Literal["json", "geojson", "csv", "html", "png", "jpg", "svg", "pdf"],
+    Field(description="Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf)."),
 ]
 # of the stations and values requests, whose csv is streamed too, and which have a stream of their own (GH-3065)
 _StreamFormatField = Annotated[
-    Literal["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"],
+    Literal["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "svg", "pdf"],
     Field(
-        description="Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, "
+        description="Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, "
         "svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to "
         "the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the "
         "limits of the server."
@@ -1856,7 +1856,7 @@ def failure_status(e: BaseException) -> int:
         NoInternetError                      503  no connection to the provider could be made
         ProviderRateLimitError               503  a 429 of the provider, or the key's quota is used up
         UpstreamError after a timeout        504  the provider did not answer in time
-        ImageTimeoutError                    504  the browser that draws an image did not finish in time
+        ImageTimeoutError                    504  an image was not drawn in time (no longer raised, GH-3238)
         any other UpstreamError              502  the provider failed, or sent what the parser does not expect
         anything else                        500  our bug
 
@@ -1874,7 +1874,8 @@ def failure_status(e: BaseException) -> int:
     `UpstreamError` -- a `DownloadError`, a file in a layout the parser does not expect -- is the
     provider's, not the caller's to fix and not a defect of ours: a 502, or a 504 where the failure
     underneath (its `__cause__`) was a timeout. An `ImageTimeoutError` is a 504 as well: no provider is involved,
-    the server's own renderer did not answer, and the same request can succeed on a retry (GH-3723). What is left
+    the server's own renderer did not answer, and the same request can succeed on a retry (GH-3723; the library
+    draws without a browser now and raises none). What is left
     is a 500, an unclassified `WetterdienstError` among it, so a class added to the hierarchy without a place here is
     the server's error until it is given one.
 
@@ -2704,7 +2705,8 @@ class StripesConfigItem(TypedDict):
     """Configuration item for climate stripes."""
 
     request: Callable[..., DwdObservationRequest]
-    color_map: str
+    #: the colours of the stripes as hex, evenly spaced stops from `value_scaled` 0, the highest year, to 1, the lowest
+    colors: tuple[str, ...]
 
 
 class StripesConfig(TypedDict):
@@ -2752,15 +2754,45 @@ def _get_stripes_precipitation_request(
     )
 
 
+#: ColorBrewer's 11-class RdBu, from the dark red of the highest year to the dark blue of the lowest: the ramp the
+#: stripes always had (Plotly's `RdBu`), which Vega's schemes of the like names are not
+_RD_BU = (
+    "#67001f",
+    "#b2182b",
+    "#d6604d",
+    "#f4a582",
+    "#fddbc7",
+    "#f7f7f7",
+    "#d1e5f0",
+    "#92c5de",
+    "#4393c3",
+    "#2166ac",
+    "#053061",
+)
+#: ColorBrewer's 11-class BrBG from brown to teal (Plotly's `BrBG`), which the precipitation stripes take reversed
+_BR_BG = (
+    "#543005",
+    "#8c510a",
+    "#bf812d",
+    "#dfc27d",
+    "#f6e8c3",
+    "#f5f5f5",
+    "#c7eae5",
+    "#80cdc1",
+    "#35978f",
+    "#01665e",
+    "#003c30",
+)
+
 CLIMATE_STRIPES_CONFIG: StripesConfig = {
     "temperature": {
         "request": _get_stripes_temperature_request,
-        "color_map": "RdBu",
+        "colors": _RD_BU,
     },
     "precipitation": {
         "request": _get_stripes_precipitation_request,
         # reversed, as `value_scaled` puts the wettest year at 0: brown for dry, teal for wet (GH-2063)
-        "color_map": "BrBG_r",
+        "colors": _BR_BG[::-1],
     },
 }
 
@@ -2870,113 +2902,41 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
 
 
 def _require_plotting() -> ModuleType:
-    """Give plotly's graph objects, or raise the `MissingDependencyError` that says to install the `plotting` extra.
+    """Give Altair, or raise the `MissingDependencyError` that says to install the `plotting` extra.
 
     Asked before a station's record is downloaded, so that a server without the extra refuses at once (GH-3581).
     """
-    return import_optional("plotly.graph_objects", "Plotting warming stripes", extra="plotting")
+    return import_optional("altair", "Plotting warming stripes", extra="plotting")
 
 
-def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
+def _plot_stripes(stripes: StripesImageRequest) -> alt.TopLevelMixin:
     """Create warming stripes for station in Germany, for a request its model has checked."""
     _require_plotting()
     return _draw_stripes(_get_stripes_data(stripes), stripes)
 
 
-def _draw_stripes(stripes_data: StripesData, stripes: StripesImageRequest) -> go.Figure:
+def _draw_stripes(stripes_data: StripesData, stripes: StripesImageRequest) -> alt.TopLevelMixin:
     """Draw the warming stripes of data `_get_stripes_data` has read, so that the caller can tell whose they are.
 
     Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
     """
-    go = _require_plotting()
+    _require_plotting()
+    from wetterdienst.io.charts import stripes_chart  # noqa: PLC0415 -- the `plotting` extra
 
-    kind = stripes.kind
-    show_title, show_years, show_data_availability = (
-        stripes.show_title,
-        stripes.show_years,
-        stripes.show_data_availability,
-    )
-
-    df = stripes_data.df
-    station_dict = stripes_data.series.station
-    cmap = CLIMATE_STRIPES_CONFIG[kind]["color_map"]
-
-    df_without_nulls = df.drop_nulls("value")
-
-    fig = go.Figure()
-
-    # Add bar trace
-    fig.add_trace(
-        go.Bar(
-            x=df_without_nulls.get_column("timestamp").dt.year(),
-            y=[1.0] * len(df_without_nulls),
-            marker={"color": df_without_nulls.get_column("value_scaled"), "colorscale": cmap, "cmin": 0, "cmax": 1},
-            width=1.0,
+    station = stripes_data.series.station
+    config = CLIMATE_STRIPES_CONFIG[stripes.kind]
+    return stripes_chart(
+        stripes_data.df,
+        colors=config["colors"],
+        title=(
+            f"Climate stripes ({stripes.kind}) for {station['name']}, Germany ({station['station_id']})"
+            if stripes.show_title
+            else None
         ),
+        source="Source: Deutscher Wetterdienst",
+        show_years=stripes.show_years,
+        show_data_availability=stripes.show_data_availability,
     )
-
-    # Add scatter trace for data availability
-    if show_data_availability:
-        fig.add_trace(
-            go.Scatter(
-                x=df.get_column("timestamp").dt.year(),
-                y=df.get_column("availability"),
-                mode="lines",
-                marker={"color": "gold", "size": 5},
-                line={"color": "gold"},
-            ),
-        )
-        fig.add_annotation(
-            x=df.get_column("timestamp").dt.year().min(),
-            xanchor="left",
-            y=-0.05,
-            text="data availability",
-            showarrow=False,
-            align="right",
-            font={"color": "gold"},
-        )
-    # Add source text
-    fig.add_annotation(
-        x=0.5,
-        y=-0.05,
-        text="Source: Deutscher Wetterdienst",
-        showarrow=False,
-        xref="paper",
-        yref="paper",
-    )
-    if show_title:
-        fig.update_layout(
-            title=f"Climate stripes ({kind}) for {station_dict['name']}, Germany ({station_dict['station_id']})",
-        )
-    if show_years:
-        fig.add_annotation(
-            x=0.05,
-            y=-0.05,
-            text=str(df.get_column("timestamp").dt.year().min()),
-            showarrow=False,
-            xref="paper",
-            yref="paper",
-            xanchor="right",
-        )
-        fig.add_annotation(
-            x=0.95,
-            y=-0.05,
-            text=str(df.get_column("timestamp").dt.year().max()),
-            showarrow=False,
-            xref="paper",
-            yref="paper",
-            xanchor="left",
-        )
-    fig.update_layout(
-        plot_bgcolor="white",
-        xaxis={
-            "showticklabels": False,
-        },
-        yaxis={"range": [None, 1], "showticklabels": False},
-        showlegend=False,
-        margin={"l": 10, "r": 10, "t": 30, "b": 30},
-    )
-    return fig
 
 
 def set_logging_level(*, debug: bool) -> None:

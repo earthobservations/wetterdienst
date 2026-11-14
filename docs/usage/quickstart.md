@@ -34,7 +34,7 @@ pip install "wetterdienst[interpolation,export]"
 | `export` | files (Zarr, NetCDF, Excel) and SQL databases as export targets, see [Export](export.md) |
 | `duckdb`, `postgresql`, `mysql`, `cratedb`, `influxdb` | the one database of that name as an export target, without the rest of `export` |
 | `excel` | Excel (`.xlsx`) as an export target |
-| `plotting` | charts and images of a result (`to_plot`, `to_image`) and the climate stripes images |
+| `plotting` | charts and images of a result (`to_plot`, `to_image`) and the climate stripes images: Altair draws them, vl-convert renders them, no browser is needed |
 | `radar` | the DWD radar products that are HDF5 or NetCDF |
 | `radarplus` | the packages that radar data is worked with (wradlib, xradar), as in the radar examples |
 | `bufr`, `eccodes` | decoding BUFR, which DWD road weather is (`bufr` brings the reader, `eccodes` only the library) |

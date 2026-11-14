@@ -1869,16 +1869,15 @@
                 "html",
                 "png",
                 "jpg",
-                "webp",
                 "svg",
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -2773,16 +2772,15 @@
                 "html",
                 "png",
                 "jpg",
-                "webp",
                 "svg",
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
+              "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server.",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, webp, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
+            "description": "Output format: data (json, geojson, csv, ndjson) or a rendered chart (html, png, jpg, svg, pdf). Over the REST API, ndjson and csv are streamed station by station, so they are allowed up to the higher `stream_rows` limit; an MCP tool gets one body in every format, capped at `rows`: see the limits of the server."
           },
           {
             "name": "pretty",
@@ -3765,16 +3763,15 @@
                 "html",
                 "png",
                 "jpg",
-                "webp",
                 "svg",
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf).",
+              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf).",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf)."
+            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf)."
           },
           {
             "name": "with_metadata",
@@ -4317,16 +4314,15 @@
                 "html",
                 "png",
                 "jpg",
-                "webp",
                 "svg",
                 "pdf"
               ],
               "type": "string",
-              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf).",
+              "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf).",
               "default": "json",
               "title": "Format"
             },
-            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, webp, svg, pdf)."
+            "description": "Output format: data (json, geojson, csv) or a rendered chart (html, png, jpg, svg, pdf)."
           },
           {
             "name": "with_metadata",
@@ -10033,7 +10029,7 @@
         }
       },
       "GatewayTimeout": {
-        "description": "Gateway Timeout. The body is a problem (`Problem`) of one of the kinds:\n\n- `upstream-timeout`: The data provider did not answer in time. The request was valid; retry it.\n- `request-timeout`: The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached.\n- `image-timeout`: The browser that draws a chart as an image did not finish in time and was closed. The request was valid; retry it. Whoever runs the server should look at Chrome if it keeps happening.",
+        "description": "Gateway Timeout. The body is a problem (`Problem`) of one of the kinds:\n\n- `upstream-timeout`: The data provider did not answer in time. The request was valid; retry it.\n- `request-timeout`: The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached.\n- `image-timeout`: A chart was not drawn as an image in time. The request was valid; retry it. Nothing raises it since the images are drawn without a browser (GH-3238); it stays for a client that matches the kind.",
         "content": {
           "application/problem+json": {
             "schema": {

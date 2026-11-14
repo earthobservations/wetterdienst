@@ -65,9 +65,9 @@ def _formatter(result: object, format_name: str) -> Callable[..., object]:
 
 def test_the_formats_are_the_ones_the_docs_listed_before_the_registry() -> None:
     """The formats of `to_format`, in the order the surfaces list them, are the data formats, then the charts."""
-    assert list(FORMATS) == ["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "webp", "svg", "pdf"]
+    assert list(FORMATS) == ["json", "geojson", "csv", "ndjson", "html", "png", "jpg", "svg", "pdf"]
     assert names_of("data") == ("json", "geojson", "csv", "ndjson")
-    assert names_of("chart") == ("html", "png", "jpg", "webp", "svg", "pdf")
+    assert names_of("chart") == ("html", "png", "jpg", "svg", "pdf")
 
 
 @pytest.mark.parametrize("format_name", list(FORMATS))
@@ -149,8 +149,9 @@ def test_a_chart_in_a_format_it_has_not_is_an_unknown_format_error_listing_the_c
 ) -> None:
     """`_to_image` raised a bare `KeyError("Invalid format")`; it names the format and the charts there are."""
     result: Any = _every_result()[name]
-    # the figure is built before the format is looked at, and the frame of the fixture has no chart to make of it
+    # the chart is built before the format is looked at, and the frame of the fixture has no chart to make of it
     monkeypatch.setattr(type(result), "to_plot", lambda _self: object())
+    monkeypatch.setattr(type(result), "_map", lambda _self, *_a: object(), raising=False)
     with pytest.raises(UnknownFormatError, match="'bmp'") as error:
         result._to_image("bmp")  # noqa: SLF001
     assert error.value.supported == names_of("chart")
@@ -336,43 +337,48 @@ def test_the_table_holds_each_surface_to_the_formats_it_takes(surface: str, colu
 # --- a chart format is the registry's to decide --------------------------------------------------------------------
 
 
+def _stand_in_for_the_chart(result: Any, monkeypatch: pytest.MonkeyPatch, drawn: dict[str, object]) -> None:  # noqa: ANN401
+    """Give a result a chart that is a name and a renderer that writes down what it was asked, for what it holds."""
+    from wetterdienst.model import result as result_module  # noqa: PLC0415
+
+    chart = SimpleNamespace(to_dict=dict)
+    monkeypatch.setattr(type(result), "to_plot", lambda _self: chart)
+    monkeypatch.setattr(type(result), "_map", lambda _self, *_a: chart, raising=False)
+    monkeypatch.setattr(result_module, "require_vl_convert", lambda: None)
+    monkeypatch.setattr(result_module, "chart_to_html", lambda _chart: "<html>")
+
+    def render_image(_chart: object, fmt: str, **kwargs: object) -> bytes:
+        drawn.update(kwargs, fmt=fmt)
+        return fmt.encode()
+
+    monkeypatch.setattr(result_module, "render_image", render_image)
+
+
 @pytest.mark.parametrize("name", _WITH_FORMATS)
-@pytest.mark.usefixtures("figure_draws_itself")
 @pytest.mark.parametrize("format_name", list(names_of("chart")))
 def test_every_chart_format_of_the_registry_is_rendered(
     name: str, format_name: str, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """`_to_image` renders each chart format the registry lists and raises `UnknownFormatError` for none of them."""
-    from wetterdienst.model import result as result_module  # noqa: PLC0415
-
     result: Any = _every_result()[name]
-    figure = SimpleNamespace(
-        to_image=lambda **_: b"image", to_html=lambda **_: "<html>", layout=SimpleNamespace(width=None, height=None)
-    )
-    monkeypatch.setattr(type(result), "to_plot", lambda _self: figure)
-    monkeypatch.setattr(result_module, "require_kaleido", lambda: None)
-    assert result._to_image(format_name) in (b"image", "<html>")  # noqa: SLF001
+    _stand_in_for_the_chart(result, monkeypatch, {})
+    assert result._to_image(format_name) in (format_name.encode(), "<html>")  # noqa: SLF001
 
 
-@pytest.mark.usefixtures("figure_draws_itself")
 def test_a_format_added_to_the_registry_is_rendered_and_guarded_without_another_list(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """A chart format added to `FORMATS` reaches `to_format`, and the size guard of a surface covers it (GH-3449)."""
     from wetterdienst.io import formats  # noqa: PLC0415
-    from wetterdienst.model import result as result_module  # noqa: PLC0415
 
-    monkeypatch.setitem(FORMATS, "gif", formats.Format("gif", "chart", "to_image", FORMATS["png"].takes, kaleido=True))
+    monkeypatch.setitem(FORMATS, "gif", formats.Format("gif", "chart", "to_image", FORMATS["png"].takes, image=True))
     result: Any = _every_result()["values"]
     seen: dict[str, object] = {}
-    figure = SimpleNamespace(
-        to_image=lambda **kwargs: seen.update(kwargs) or b"gif", layout=SimpleNamespace(width=None, height=None)
-    )
-    monkeypatch.setattr(type(result), "to_plot", lambda _self: figure)
-    monkeypatch.setattr(result_module, "require_kaleido", lambda: None)
+    _stand_in_for_the_chart(result, monkeypatch, seen)
 
     assert result.to_format("gif", width=3) == b"gif"
-    assert seen["format"] == "gif"
+    assert seen["fmt"] == "gif"
+    assert seen["width"] == 3
     request = SimpleNamespace(format="gif", with_metadata=False, pretty=False, width=1, height=2, scale=1.0)
     assert render_kwargs(request, max_side=100)["max_side"] == 100  # ty: ignore[invalid-argument-type]
 

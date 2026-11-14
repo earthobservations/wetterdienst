@@ -11,7 +11,7 @@ import pytest
 from click.testing import CliRunner
 
 from tests.conftest import IS_WINDOWS
-from tests.ui.test_restapi import _without_plotly
+from tests.ui.test_restapi import _without_altair
 from wetterdienst.exceptions import NotEnoughDataError, StationNotFoundError
 from wetterdienst.ui.cli import cli
 
@@ -134,7 +134,7 @@ def test_climate_stripes_target_wrong_dpi() -> None:
     assert "Error: Invalid value for '--dpi': 0 is not in the range x>0.\n" in result.stderr
 
 
-@pytest.mark.usefixtures("figure_draws_itself")
+@pytest.mark.usefixtures("chart_draws_itself")
 def test_stripes_image_target_in_missing_directory_is_a_readable_error(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -192,7 +192,7 @@ class _StubFigure:
         pytest.param("pdf", "stripes.pdf", id="pdf"),
     ],
 )
-@pytest.mark.usefixtures("figure_draws_itself")
+@pytest.mark.usefixtures("chart_draws_itself")
 def test_stripes_image_target_with_the_format_suffix_is_written(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -330,14 +330,11 @@ def test_stripes_image_empty_target_is_refused_not_written_to_stdout(monkeypatch
     assert "Invalid value for --target: must have extension '.png'\n" in result.output
 
 
-def test_stripes_image_without_kaleido_is_one_logged_line(
+def test_stripes_image_without_vl_convert_is_one_logged_line(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """Test `stripes image` without Kaleido says what to install, exit 1, and not a traceback (GH-2667).
-
-    Plotly raises a `RuntimeError` from `to_image`, which ended the command in a traceback.
-    """
-    monkeypatch.setitem(sys.modules, "kaleido", None)
+    """Test `stripes image` without vl-convert says what to install, exit 1, and not a traceback (GH-2667)."""
+    monkeypatch.setitem(sys.modules, "vl_convert", None)
     monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", lambda _request: _StubFigure())
 
     with caplog.at_level(logging.ERROR):
@@ -346,22 +343,22 @@ def test_stripes_image_without_kaleido_is_one_logged_line(
     assert result.exit_code == 1
     assert isinstance(result.exception, SystemExit)
     message = (
-        "Rendering an image requires kaleido, which is not installed. "
+        "Rendering an image requires vl_convert, which is not installed. "
         "Install it with: pip install wetterdienst[plotting]"
     )
     assert [record.getMessage() for record in caplog.records if record.levelno >= logging.ERROR] == [message]
     assert all(record.exc_info is None for record in caplog.records)
 
 
-def test_stripes_image_without_plotly_reads_nothing_first(
+def test_stripes_image_without_altair_reads_nothing_first(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     """Without the `plotting` extra the command says what to install before it reads a record (GH-3581)."""
 
     def read(_request: object) -> None:
-        pytest.fail("read the record although plotly is missing")
+        pytest.fail("read the record although altair is missing")
 
-    _without_plotly(monkeypatch)
+    _without_altair(monkeypatch)
     monkeypatch.setattr("wetterdienst.ui.core._get_stripes_data", read)
 
     with caplog.at_level(logging.ERROR):

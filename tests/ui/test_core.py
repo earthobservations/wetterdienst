@@ -425,17 +425,15 @@ def test_stripes_are_coloured_the_same_in_any_unit(monkeypatch: pytest.MonkeyPat
     ("kind", "highest", "lowest"),
     [
         # warm is red, cool is blue
-        ("temperature", "rgb(103,0,31)", "rgb(5,48,97)"),
+        ("temperature", "#67001f", "#053061"),
         # wet is teal, dry is brown: reversed, the wettest year took brown (GH-2063)
-        ("precipitation", "rgb(0,60,48)", "rgb(84,48,5)"),
+        ("precipitation", "#003c30", "#543005"),
     ],
 )
 def test_stripes_colour_the_highest_and_lowest_years_as_their_kind_reads(kind: str, highest: str, lowest: str) -> None:
     """Test the colour map puts each kind's highest year, scaled to 0, and its lowest, scaled to 1, at the right end."""
-    # plotly is the `plotting` extra, which a stripes image needs and a stripes request does not
-    colors = pytest.importorskip("plotly.colors")
-    colours = colors.get_colorscale(core.CLIMATE_STRIPES_CONFIG[kind]["color_map"])
-    assert (colours[0][1], colours[-1][1]) == (highest, lowest)
+    colours = core.CLIMATE_STRIPES_CONFIG[kind]["colors"]
+    assert (colours[0], colours[-1]) == (highest, lowest)
 
 
 def test_stripes_match_a_name_as_stations_and_values_do() -> None:

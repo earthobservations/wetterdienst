@@ -4,7 +4,7 @@
 
 The tools are the routes of the REST API run in process. FastMCP reads a route's answer as JSON: a text body (csv,
 ndjson, html, svg) it passed on without structured content, which the output schema of the tool refuses ("has an
-output schema but did not return structured content"), and a binary one (png, jpg, webp, pdf) it failed to decode. And
+output schema but did not return structured content"), and a binary one (png, jpg, pdf) it failed to decode. And
 the refusal of a row limit told an assistant to use `format=ndjson` or `format=csv`, which it could not.
 
 Offline: the selection of the stations and the reader are stood in for, as in `test_operations.py`.
@@ -53,7 +53,6 @@ _BLOCK_OF_FORMAT: dict[str, type] = {
     "svg": TextContent,
     "png": ImageContent,
     "jpg": ImageContent,
-    "webp": ImageContent,
     "pdf": EmbeddedResource,
 }
 
@@ -117,9 +116,8 @@ def test_a_tool_that_advertises_a_format_answers_in_it(tool: str, monkeypatch: p
     have no body for the `metadata` block, and, for `values`, the warning the reader raised.
     """
     _stub_stream(monkeypatch, [_values_result_of_shape("long")])
-    # Every image format of the map of the stations is drawn by Kaleido/Chrome, which on a loaded runner under xdist
-    # outlasted the server's 60 s and was answered 504 (GH-3586). The test holds the format of each answer, not how
-    # long a render takes, so the server may take as long as a slow provider is given in a remote test.
+    # The test holds the format of each answer, not how long a render takes, so the server may take as long as a
+    # slow provider is given in a remote test.
     monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "300")
     arguments = {**_VALUES, "parameters": "daily/climate_summary/temperature_air_mean_2m"}
     if tool == "stations":
@@ -274,7 +272,7 @@ def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.Monkey
 
 
 @pytest.mark.parametrize(("fmt", "block"), [("png", ImageContent), ("svg", TextContent), ("pdf", EmbeddedResource)])
-@pytest.mark.usefixtures("figure_draws_itself")
+@pytest.mark.usefixtures("chart_draws_itself")
 def test_the_stripes_image_tool_reports_the_licence_the_attribution_and_the_warnings(
     fmt: str, block: type, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -452,35 +450,35 @@ def test_the_sentence_of_a_repeated_body_says_it_follows_and_does_not_send_a_rea
     )
 
 
-def test_the_tool_wrapper_sets_plotly_to_the_cdn_for_its_request_only() -> None:
+def test_the_tool_wrapper_sets_vega_to_the_cdn_for_its_request_only() -> None:
     """The handler sees the CDN, and the caller's context has the default again once the request is done."""
     import httpx2  # noqa: PLC0415
 
-    from wetterdienst.io.export import HTML_PLOTLYJS  # noqa: PLC0415
+    from wetterdienst.io.export import HTML_INLINE  # noqa: PLC0415
 
     app = FastAPI()
-    seen: list[bool | str] = []
+    seen: list[bool] = []
 
     @app.get("/page")
     def page() -> dict[str, str]:
-        seen.append(HTML_PLOTLYJS.get())
+        seen.append(HTML_INLINE.get())
         return {}
 
-    async def request() -> bool | str:
+    async def request() -> bool:
         async with httpx2.AsyncClient(
             transport=httpx2.ASGITransport(app=_mark_tool_requests(app)), base_url="http://t"
         ) as client:
             await client.get("/page")
-        return HTML_PLOTLYJS.get()
+        return HTML_INLINE.get()
 
     after = asyncio.run(request())
 
-    assert seen == ["cdn"]
+    assert seen == [False]
     assert after is True
 
 
-def test_an_html_chart_through_a_tool_does_not_carry_plotly_inline(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Plotly.js is 4.8 MB inline; a tool's page loads it from the CDN, and the REST page is as it was."""
+def test_an_html_chart_through_a_tool_does_not_carry_vega_inline(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vega is 1 MB inline; a tool's page loads it from the CDN, and the REST page is as it was."""
     from fastapi.testclient import TestClient  # noqa: PLC0415
 
     _stub_stream(monkeypatch, [_values_result_of_shape("long")])
@@ -491,8 +489,8 @@ def test_an_html_chart_through_a_tool_does_not_carry_plotly_inline(monkeypatch: 
     )
 
     assert len(result.content[0].text) < 100_000
-    assert "cdn.plot.ly" in result.content[0].text
-    assert len(rest.text) > 1_000_000
+    assert "cdn.jsdelivr.net/npm/vega" in result.content[0].text
+    assert len(rest.text) > 500_000
 
 
 # --- an answer that fails is a tool error, not a short answer ------------------------------------------------------

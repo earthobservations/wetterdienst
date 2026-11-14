@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Annotated, Any, Literal, TypeAlias, TypeVar
 
 from pydantic import BaseModel, ConfigDict, Field, WithJsonSchema
 
-from wetterdienst.io.formats import renders_with_kaleido
+from wetterdienst.io.formats import is_image
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.limits import Limit  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means
@@ -267,7 +267,7 @@ def render_kwargs(
     kwargs: dict[str, Any] = {"fmt": request.format, "with_metadata": request.with_metadata}
     if request.format in ("json", "geojson"):
         kwargs["indent"] = request.pretty
-    if renders_with_kaleido(request.format):
+    if is_image(request.format):
         kwargs["width"] = request.width
         kwargs["height"] = request.height
         kwargs["scale"] = request.scale

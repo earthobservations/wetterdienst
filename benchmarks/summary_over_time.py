@@ -58,7 +58,7 @@ def main() -> None:
         import plotly.graph_objects as go  # noqa: PLC0415
         from plotly.subplots import make_subplots  # noqa: PLC0415
     except ImportError as e:
-        msg = "Please install extra `plotting` with wetterdienst[plotting]"
+        msg = "The picture of this benchmark is drawn with Plotly, which no extra installs: pip install plotly"
         raise ImportError(msg) from e
 
     fig = make_subplots(rows=5, shared_xaxes=True, subplot_titles=("Summarized", "01050", "01051", "01048", "05282"))

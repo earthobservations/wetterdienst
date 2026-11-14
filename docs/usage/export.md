@@ -184,7 +184,6 @@ out, or the other way round, fails it.
 | `html` | yes | no | all | all | all |
 | `png` | yes | no | all | all | all |
 | `jpg` | yes | no | all | all | all |
-| `webp` | yes | no | all | all | all |
 | `svg` | yes | no | all | all | all |
 | `pdf` | yes | no | all | all | all |
 | `xlsx` | no | `.xlsx` | no | no | no |

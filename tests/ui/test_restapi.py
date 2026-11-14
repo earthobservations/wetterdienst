@@ -57,7 +57,6 @@ if TYPE_CHECKING:
 _IMAGE_MEDIA_TYPES = {
     "png": "image/png",
     "jpg": "image/jpeg",
-    "webp": "image/webp",
     "svg": "image/svg+xml",
     "pdf": "application/pdf",
 }
@@ -611,7 +610,7 @@ def test_stations_wrong_format(client: TestClient) -> None:
     assert response.status_code == 422
     assert (
         response.json()["errors"][0]["msg"]
-        == "Input should be 'json', 'geojson', 'csv', 'ndjson', 'html', 'png', 'jpg', 'webp', 'svg' or 'pdf'"
+        == "Input should be 'json', 'geojson', 'csv', 'ndjson', 'html', 'png', 'jpg', 'svg' or 'pdf'"
     )
 
 
@@ -712,7 +711,6 @@ def test_stations_dwd_sql(client: TestClient, monkeypatch: pytest.MonkeyPatch) -
     [
         "png",
         "jpg",
-        "webp",
         "svg",
     ],
 )
@@ -1229,7 +1227,6 @@ def test_interpolate_dwd_custom_unit(client: TestClient) -> None:
     [
         "png",
         "jpg",
-        "webp",
         "svg",
     ],
 )
@@ -1438,7 +1435,6 @@ def test_summarize_dwd_custom_unit(client: TestClient) -> None:
     [
         "png",
         "jpg",
-        "webp",
         "svg",
     ],
 )
@@ -1845,7 +1841,6 @@ def test_values_dwd_observation_climate_summary_custom_units(client: TestClient)
     [
         "png",
         "jpg",
-        "webp",
         "svg",
     ],
 )
@@ -2016,7 +2011,7 @@ def test_every_image_format_has_its_media_type(fmt: str) -> None:
         ("pdf", "application/pdf"),
     ],
 )
-@pytest.mark.usefixtures("figure_draws_itself")
+@pytest.mark.usefixtures("chart_draws_itself")
 def test_stripes_image_is_sent_as_its_media_type(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -2039,29 +2034,29 @@ def test_stripes_image_is_sent_as_its_media_type(
     assert response.headers["content-type"] == media_type
 
 
-def _without_plotly(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Make plotly not installed: its import raises what a missing package raises, imported before or not."""
+def _without_altair(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make altair not installed: its import raises what a missing package raises, imported before or not."""
     import importlib  # noqa: PLC0415
 
     real = importlib.import_module
 
     def import_module(name: str, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        if name.split(".", maxsplit=1)[0] == "plotly":
-            msg = "No module named 'plotly'"
-            raise ModuleNotFoundError(msg, name="plotly")
+        if name.split(".", maxsplit=1)[0] == "altair":
+            msg = "No module named 'altair'"
+            raise ModuleNotFoundError(msg, name="altair")
         return real(name, *args, **kwargs)
 
     monkeypatch.setattr(importlib, "import_module", import_module)
 
 
-def test_stripes_image_without_plotly_is_a_501_before_anything_is_fetched(
+def test_stripes_image_without_altair_is_a_501_before_anything_is_fetched(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """A server without the `plotting` extra refuses at once: the record of the station is not downloaded (GH-3581).
 
     An unknown station would otherwise be a 404 and a known one a download, for the same 501 at the end.
     """
-    _without_plotly(monkeypatch)
+    _without_altair(monkeypatch)
     monkeypatch.setattr(restapi, "_get_stripes_data", _unreached)
 
     response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "99999"})
@@ -2070,21 +2065,18 @@ def test_stripes_image_without_plotly_is_a_501_before_anything_is_fetched(
     assert "optional dependency" in response.json()["detail"]
 
 
-def test_stripes_image_without_kaleido_is_a_501(
+def test_stripes_image_without_vl_convert_is_a_501(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Test `/api/stripes/image` without Kaleido is a 501 with the install line in the log (GH-2667).
-
-    Plotly's `RuntimeError` out of `to_image` was a bare 500.
-    """
+    """Test `/api/stripes/image` without vl-convert is a 501 with the install line in the log (GH-2667)."""
 
     def draw(*_args: object, **_kwargs: object) -> bytes:
-        pytest.fail("rendered although Kaleido is missing")
+        pytest.fail("rendered although vl-convert is missing")
 
-    monkeypatch.setitem(sys.modules, "kaleido", None)
-    monkeypatch.setattr("wetterdienst.io.export._draw", draw)
+    monkeypatch.setitem(sys.modules, "vl_convert", None)
+    monkeypatch.setattr("wetterdienst.ui.restapi.render_image", draw)
     _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
     monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: object())
 
@@ -2093,7 +2085,7 @@ def test_stripes_image_without_kaleido_is_a_501(
 
     assert response.status_code == 501
     assert "pip install" not in response.json()["detail"]
-    assert "Rendering an image requires kaleido, which is not installed" in caplog.text
+    assert "Rendering an image requires vl_convert, which is not installed" in caplog.text
     assert "pip install wetterdienst[plotting]" in caplog.text
 
 
@@ -9159,14 +9151,14 @@ def test_an_optional_dependency_missing_outside_the_endpoint_handlers_is_a_501_t
     client: TestClient,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Rendering an image without plotly is a 501 as well, though no endpoint handler wraps it (GH-2637).
+    """Rendering an image without altair is a 501 as well, though no endpoint handler wraps it (GH-2637).
 
     `to_format` runs after the values were collected, outside the `try` that `_failure` serves, and
     answered a bare 500. The app's own handler for `MissingDependencyError` covers every such place.
     """
     from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
 
-    msg = "Plotting requires plotly, which is not installed. Install it with: pip install wetterdienst[plotting]"
+    msg = "Plotting requires altair, which is not installed. Install it with: pip install wetterdienst[plotting]"
 
     def render() -> None:
         raise MissingDependencyError(msg)
@@ -9466,7 +9458,7 @@ def test_image_routes_cover_every_route_rendering_an_image() -> None:
         {"width": 100_000},
         {"height": 8_193},
         {"width": 1_000, "height": 1_000, "scale": 9},
-        # no size at all, scaled: plotly's 700 x 500 times 12 is 8400 x 6000
+        # no size at all, scaled: the default 700 x 500 times 12 is 8400 x 6000
         {"scale": 12},
     ],
     ids=["width", "height", "scaled", "default-size-scaled"],
@@ -9489,7 +9481,7 @@ def test_oversized_image_is_refused_before_anything_is_fetched(
     assert "Lower width, height or scale" in detail
 
 
-@pytest.mark.parametrize("fmt", ["png", "jpg", "webp", "svg", "pdf"])
+@pytest.mark.parametrize("fmt", ["png", "jpg", "svg", "pdf"])
 def test_oversized_image_is_refused_in_every_image_format(monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
     """Each format the browser renders is measured."""
     monkeypatch.setattr(restapi, "Wetterdienst", _unreached)
@@ -9529,7 +9521,7 @@ def test_image_within_the_limit_goes_on_to_the_provider(size: dict[str, int]) ->
 
 
 def test_oversized_stripes_image_is_refused_before_anything_is_fetched(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The stripes image is plotly's 700 x 500 times `dpi / 100`, and is refused above 8192 px on a side."""
+    """The stripes image is 700 x 500 times `dpi / 100`, and is refused above 8192 px on a side."""
     monkeypatch.setattr(restapi, "_get_stripes_data", _unreached)
     client = TestClient(restapi.app, raise_server_exceptions=False)
     params = {"kind": "temperature", "station": "01048"}
@@ -9570,10 +9562,10 @@ def test_image_is_measured_as_the_chart_is_drawn(client: TestClient, monkeypatch
     """A chart is 300 px tall for each parameter, which the request cannot know: it is measured once drawn.
 
     Three parameters make the chart 900 px tall, so a `scale` of 10 passes the check of the request
-    (7000 x 5000) and not that of the figure (7000 x 9000). The refusal comes before the browser is
-    started, which `export._draw` (what starts it) is stubbed to fail on.
+    (7000 x 5000) and not that of the chart (7000 x 9000). The refusal comes before the chart is
+    drawn, which `render_image` is stubbed to fail on.
     """
-    monkeypatch.setattr("wetterdienst.io.export._draw", _unreached)
+    monkeypatch.setattr("wetterdienst.model.result.render_image", _unreached)
     response = client.get(
         "/api/values",
         params={
@@ -9592,24 +9584,28 @@ def test_image_is_measured_as_the_chart_is_drawn(client: TestClient, monkeypatch
     )
 
 
-def test_check_image_size_measures_the_figure_then_the_default() -> None:
-    """The caller's size wins over the figure's, which wins over plotly's 700 x 500; no limit, no check."""
-    import plotly.graph_objects as go  # noqa: PLC0415
+def _chart_of_height(height: int | None) -> object:
+    """Stand in for a chart that says its own default height, as the charts of the library do in their `usermeta`."""
+    meta = {} if height is None else {"height": height}
+    return SimpleNamespace(to_dict=lambda: {"usermeta": {"wetterdienst": meta}})
 
+
+def test_check_image_size_measures_the_chart_then_the_default() -> None:
+    """The caller's size wins over the chart's, which wins over the default 700 x 500; no limit, no check."""
     from wetterdienst.exceptions import ImageTooLargeError  # noqa: PLC0415
     from wetterdienst.io.export import check_image_size  # noqa: PLC0415
 
-    figure = go.Figure(layout={"height": 9_000})
+    chart: Any = _chart_of_height(9_000)
     with pytest.raises(ImageTooLargeError, match=r"7000 x 90000 px.*no side longer than 8192 px"):
-        check_image_size(figure, None, None, 10, 8_192)
-    # the caller's height replaces the figure's
-    check_image_size(figure, None, 800, 10, 8_192)
-    # a figure of its own size is measured at plotly's default without it
-    check_image_size(go.Figure(), None, None, 11, 8_192)
+        check_image_size(chart, None, None, 10, 8_192)
+    # the caller's height replaces the chart's
+    check_image_size(chart, None, 800, 10, 8_192)
+    # a chart of no size of its own is measured at the default without it
+    check_image_size(_chart_of_height(None), None, None, 11, 8_192)  # ty: ignore[invalid-argument-type]
     with pytest.raises(ImageTooLargeError):
-        check_image_size(go.Figure(), None, None, 12, 8_192)
+        check_image_size(_chart_of_height(None), None, None, 12, 8_192)  # ty: ignore[invalid-argument-type]
     # the library and the CLI set no limit
-    check_image_size(figure, 100_000, 100_000, 100, None)
+    check_image_size(chart, 100_000, 100_000, 100, None)
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -9618,8 +9614,6 @@ def test_chart_taller_than_its_request_is_refused_on_every_data_endpoint(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, endpoint: str
 ) -> None:
     """Each endpoint hands the limit to the chart it draws: a chart 900 px tall is refused at `scale=10`."""
-    import plotly.graph_objects as go  # noqa: PLC0415
-
     from wetterdienst.model.result import (  # noqa: PLC0415
         InterpolatedValuesResult,
         SummarizedValuesResult,
@@ -9628,8 +9622,8 @@ def test_chart_taller_than_its_request_is_refused_on_every_data_endpoint(
 
     _stub_result(monkeypatch, endpoint)
     for result_class in (ValuesResult, InterpolatedValuesResult, SummarizedValuesResult):
-        monkeypatch.setattr(result_class, "to_plot", lambda *_args, **_kwargs: go.Figure(layout={"height": 900}))
-    monkeypatch.setattr("wetterdienst.io.export._draw", _unreached)
+        monkeypatch.setattr(result_class, "to_plot", lambda *_args, **_kwargs: _chart_of_height(900))
+    monkeypatch.setattr("wetterdienst.model.result.render_image", _unreached)
     response = client.get(
         endpoint,
         params={
