@@ -634,6 +634,18 @@
     "plotSource": "Quell: Deutscher Wetterdienst",
     "hoverValue": "Weert",
     "hoverTrend": "Trend",
+    "chart": {
+      "zoomGroup": "Streifen zoomen un verschuven",
+      "earlier": "Fröhere Johren",
+      "later": "Lattere Johren",
+      "zoomOut": "Rutzoomen",
+      "zoomIn": "Rinzoomen",
+      "resetZoom": "Zoom torüchsetten",
+      "savePng": "Diagramm as PNG daalladen",
+      "readoutFor": "Klimastreven för {year}",
+      "readoutClose": "Weerten tomaken",
+      "keysHint": "Mit de Pieltasten gahst du johrwies dör de Streven, mit Bild rop un Bild dal in Tehnerschritten, mit Pos1 un Enn na den eersten un den lesten. Plus, Minus un 0 maakt grötter, lütter un sett torüch. Esc maakt de Weerten to."
+    },
     "summary": "Vun {from} bit {to}. Leegste Weert {min} in {minYear}, hööchste Weert {max} in {maxYear}.",
     "table": {
       "year": "Johr",

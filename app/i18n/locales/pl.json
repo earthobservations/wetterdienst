@@ -634,6 +634,18 @@
     "plotSource": "Źródło: Deutscher Wetterdienst",
     "hoverValue": "Wartość",
     "hoverTrend": "Trend",
+    "chart": {
+      "zoomGroup": "Powiększ i przesuń paski",
+      "earlier": "Wcześniejsze lata",
+      "later": "Późniejsze lata",
+      "zoomOut": "Pomniejsz",
+      "zoomIn": "Powiększ",
+      "resetZoom": "Resetuj powiększenie",
+      "savePng": "Pobierz wykres jako PNG",
+      "readoutFor": "Pasek klimatyczny dla roku {year}",
+      "readoutClose": "Zamknij wartości",
+      "keysHint": "Strzałki przechodzą po latach, Page Up i Page Down co dziesięć lat, Home i End do pierwszego i ostatniego. Plus, minus i 0 powiększają, pomniejszają i resetują. Escape zamyka wartości."
+    },
     "summary": "Od {from} do {to}. Najniższa wartość {min} w roku {minYear}, najwyższa {max} w roku {maxYear}.",
     "table": {
       "year": "Rok",

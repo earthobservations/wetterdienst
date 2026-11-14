@@ -634,6 +634,18 @@
     "plotSource": "Fuente: Deutscher Wetterdienst",
     "hoverValue": "Valor",
     "hoverTrend": "Tendencia",
+    "chart": {
+      "zoomGroup": "Ampliar y mover las franjas",
+      "earlier": "Años anteriores",
+      "later": "Años posteriores",
+      "zoomOut": "Alejar",
+      "zoomIn": "Acercar",
+      "resetZoom": "Restablecer el zoom",
+      "savePng": "Descargar el gráfico como PNG",
+      "readoutFor": "Franja climática de {year}",
+      "readoutClose": "Cerrar los valores",
+      "keysHint": "Las teclas de flecha recorren los años, Re Pág y Av Pág de diez en diez, Inicio y Fin van al primero y al último. Más, menos y 0 acercan, alejan y restablecen. Escape cierra los valores."
+    },
     "summary": "De {from} a {to}. Valor más bajo: {min} en {minYear}; valor más alto: {max} en {maxYear}.",
     "table": {
       "year": "Año",

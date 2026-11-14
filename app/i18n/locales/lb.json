@@ -634,6 +634,18 @@
     "plotSource": "Quell: Deutscher Wetterdienst",
     "hoverValue": "Wäert",
     "hoverTrend": "Trend",
+    "chart": {
+      "zoomGroup": "D'Sträifen zoomen a verschiben",
+      "earlier": "Fréier Joren",
+      "later": "Méi spéider Joren",
+      "zoomOut": "Erauszoomen",
+      "zoomIn": "Eranzoomen",
+      "resetZoom": "Zoom zrécksetzen",
+      "savePng": "Diagramm als PNG eroflueden",
+      "readoutFor": "Klimasträif fir {year}",
+      "readoutClose": "Wäerter zoumaachen",
+      "keysHint": "Mat de Feiltaste gitt Der jorweis duerch d'Sträifen, mat Bild erop a Bild erof a Schrëtt vun zéng, mat Pos1 an Enn un deen éischten an un deen leschten. Plus, Minus an 0 vergréisseren, verklengeren a setzen zréck. Esc mécht d'Wäerter zou."
+    },
     "summary": "Vun {from} bis {to}. Niddregste Wäert {min} am Joer {minYear}, héchste Wäert {max} am Joer {maxYear}.",
     "table": {
       "year": "Joer",

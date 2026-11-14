@@ -634,6 +634,18 @@
     "plotSource": "Fonte: Deutscher Wetterdienst",
     "hoverValue": "Valore",
     "hoverTrend": "Tendenza",
+    "chart": {
+      "zoomGroup": "Ingrandisci e sposta le strisce",
+      "earlier": "Anni precedenti",
+      "later": "Anni successivi",
+      "zoomOut": "Riduci",
+      "zoomIn": "Ingrandisci",
+      "resetZoom": "Reimposta lo zoom",
+      "savePng": "Scarica il grafico come PNG",
+      "readoutFor": "Striscia climatica del {year}",
+      "readoutClose": "Chiudi i valori",
+      "keysHint": "I tasti freccia scorrono gli anni, Pag su e Pag giù di dieci in dieci, Home e Fine vanno al primo e all'ultimo. Più, meno e 0 ingrandiscono, riducono e reimpostano. Esc chiude i valori."
+    },
     "summary": "Da {from} a {to}. Valore più basso: {min} nel {minYear}; valore più alto: {max} nel {maxYear}.",
     "table": {
       "year": "Anno",

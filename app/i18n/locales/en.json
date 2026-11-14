@@ -634,6 +634,18 @@
     "plotSource": "Source: Deutscher Wetterdienst",
     "hoverValue": "Value",
     "hoverTrend": "Trend",
+    "chart": {
+      "zoomGroup": "Zoom and move the stripes",
+      "earlier": "Earlier years",
+      "later": "Later years",
+      "zoomOut": "Zoom out",
+      "zoomIn": "Zoom in",
+      "resetZoom": "Reset zoom",
+      "savePng": "Download plot as a PNG",
+      "readoutFor": "Climate stripe for {year}",
+      "readoutClose": "Close the values",
+      "keysHint": "The arrow keys step through the years, Page Up and Page Down by ten years, Home and End to the first and the last. Plus, minus and 0 zoom in, zoom out and reset. Escape closes the values."
+    },
     "summary": "From {from} to {to}. Lowest value {min} in {minYear}, highest value {max} in {maxYear}.",
     "table": {
       "year": "Year",

@@ -1,46 +1,17 @@
 <script setup lang="ts">
-import type { ChartTheme } from '~/utils/chart-theme'
-import type { PlotlyLocaleConfig } from '~/utils/plotly-locale'
+import type StripesChart from '~/components/StripesChart.vue'
+import type { StripesDisplay } from '~/utils/stripes-option'
 import { describeFetchError } from '~/utils/api-error'
-import { formatNumber, plotlySeparators } from '~/utils/format'
-import { plotlyLocaleConfig, plotlyText } from '~/utils/plotly-locale'
-import { COLOR_MAPS, stripesSummaryParams, stripeYears, wrapChartTitle } from '~/utils/stripes'
+import { formatNumber } from '~/utils/format'
+import { stripesSummaryParams, stripeYears } from '~/utils/stripes'
+import { MENU_SCALE, STRIPES_HEIGHT, STRIPES_HEIGHT_TITLE } from '~/utils/stripes-option'
 import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
-const { t, locale, localeProperties } = useI18n()
+const { t, locale } = useI18n()
 
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('stripes.title') })
 const toast = useToast()
-
-// Plotly instance (loaded client-side only)
-let Plotly: typeof import('plotly.js-basic-dist-min') | null = null
-// The import under way, shared by its callers, and dropped where it fails, so that a later drawing
-// loads Plotly again rather than await the same failure
-let plotlyImport: Promise<typeof import('plotly.js-basic-dist-min')> | null = null
-// Plotly's newest import failed. Where a redeploy has replaced its chunk, a Retry asks for the same
-// chunk again and fails every time, and only reloading the page loads the new one: the chart area
-// says so, and offers the reload
-const plotlyNotLoaded = ref(false)
-
-async function ensurePlotly(): Promise<typeof import('plotly.js-basic-dist-min')> {
-  if (Plotly)
-    return Plotly
-  plotlyImport ??= import('plotly.js-basic-dist-min').catch((error) => {
-    plotlyImport = null
-    plotlyNotLoaded.value = true
-    throw error
-  })
-  Plotly = await plotlyImport
-  plotlyNotLoaded.value = false
-  return Plotly
-}
-
-function reloadPage() {
-  // forced: the user's click, not a reload loop, which is what Nuxt's guard stops. Unforced, a
-  // second click within ten seconds of a first that did not help would do nothing
-  reloadNuxtApp({ force: true })
-}
 
 const kind = ref<StripesKind>('temperature')
 
@@ -58,8 +29,6 @@ const endYear = ref<number | null>(null)
 // Display toggles default to the user's saved stripes preferences; an explicit
 // URL query (e.g. from a shared link) still overrides these below.
 const { settings } = useSettings()
-// the chart's chrome, read from the app's CSS tokens for the colour scheme in force
-const { theme } = useChartTheme()
 const showTitle = ref(settings.value.stripes.showTitle)
 const showYears = ref(settings.value.stripes.showYears)
 const showDataAvailability = ref(settings.value.stripes.showDataAvailability)
@@ -86,7 +55,8 @@ function onPick(picked: StripesStation[]) {
 }
 
 const showSettings = ref(true)
-const plotContainer = ref<HTMLElement | null>(null)
+// the chart, drawn by its component once the stripes are fetched: the page asks it for the image
+const chart = useTemplateRef<InstanceType<typeof StripesChart>>('chart')
 const isLoading = ref(false)
 const hasPlot = ref(false)
 const lastFetchedData = ref<StripesValuesResponse | null>(null)
@@ -128,14 +98,19 @@ const tableRows = computed(() => stripeRows.value.map(year => [
   formatNumber(year.value, locale.value, 2),
   t(`stripes.table.classes.${kind.value}.${year.class}`),
 ]))
-// The stripes' drawings, numbered as they start. Failed: the newest threw -- Plotly's import or its
-// drawing -- and the chart area says so; failures counted, so a Retry that fails too is told again
-let plotsStarted = 0
-const plotFailed = ref(false)
-const plotFailures = ref(0)
-// a Retry that works hands its focus on to the stripes it drew
-const plotNotice = useTemplateRef<HTMLElement>('plotNotice')
-useFocusAfterRetry(() => hasPlot.value && plotFailed.value, plotNotice, plotContainer)
+// the stripes could not be drawn: the chart says so itself, with its Retry, and the table and the image are not offered
+const plotFailed = computed(() => chart.value?.renderFailed ?? false)
+// the options the page offers, as the chart draws them
+const display = computed<StripesDisplay>(() => ({
+  showTitle: showTitle.value,
+  showYears: showYears.value,
+  showSource: showSource.value,
+  showDataAvailability: showDataAvailability.value,
+  showTimeseries: showTimeseries.value,
+  showTrendline: showTrendline.value,
+}))
+// the name of the camera's file: the kind and the station of the stripes shown
+const cameraFile = computed(() => `climate_stripes_${kind.value}_${lastFetchedData.value?.series.station.station_id ?? ''}`)
 // The values' fetches, numbered as they start, so that only the newest, not stopped by a Reset, shows
 // what it fetched. Failed: why the newest could not fetch the values, told in the chart area
 let fetchesStarted = 0
@@ -192,16 +167,10 @@ async function fetchAndPlotStripes(target?: ShownStripes) {
     if (started !== fetchesStarted)
       return
 
-    // Wait for next tick to ensure DOM is updated
-    await nextTick()
-
-    // Show the container before plotting so Plotly can measure its width
+    // the stripes are drawn from the answer by their component, which mounts with it
     hasPlot.value = true
-    await nextTick()
-
     lastFetchedData.value = response
     shown = asked
-    await plotStripes(response)
   }
   catch (error) {
     if (started !== fetchesStarted)
@@ -220,395 +189,21 @@ async function fetchAndPlotStripes(target?: ShownStripes) {
   }
 }
 
-// `keepZoom`: drawn again in other colours (the scheme switched, a print), so the range the stripes are shown in stays
-async function plotStripes(data: StripesValuesResponse, keepZoom = false) {
-  const plot = ++plotsStarted
-  try {
-    await ensurePlotly()
-    // a newer drawing, or a Reset, came while Plotly loaded: this one draws nothing
-    if (plot !== plotsStarted)
-      return
-    await drawStripes(data, keepZoom, () => plot === plotsStarted)
-    if (plot === plotsStarted)
-      plotFailed.value = false
-  }
-  catch (error) {
-    console.error('The chart could not be drawn', error)
-    if (plot !== plotsStarted)
-      return
-    plotFailed.value = true
-    plotFailures.value++
-  }
-}
-
-interface StripesFigure {
-  traces: Plotly.Data[]
-  layout: Partial<Plotly.Layout>
-  config: Partial<Plotly.Config>
-  /** Plotly v3 draws it from a relayout after the plot, not from the layout it is plotted with */
-  title: object | null
-}
-
-// The page's language as Plotly takes it: the buttons' names and the dates (utils/plotly-locale.ts)
-function plotLocaleOfPage() {
-  return plotlyLocaleConfig(locale.value, localeProperties.value.language ?? locale.value)
-}
-
-// the stripes' title: its type size, the line it takes and the room it leaves at either side, in px
-const TITLE_SIZE = 16
-const TITLE_LINE = 20
-const TITLE_PADDING = 10
-const TITLE_DROP = 18
-const STRIPES_HEIGHT = 600
-const FONT_FAMILY = 'Arial, sans-serif'
-
-// What the stripes are drawn from, in the colours of `theme` and `width` px wide: on the page, in the
-// theme the page is in, and for a saved image in the light one (see saveStripes)
-function stripesFigure(data: StripesValuesResponse, theme: ChartTheme, width: number, plotLocale: PlotlyLocaleConfig): StripesFigure | null {
-  // Filter out null values and prepare data
-  const validData = data.values.filter(v => v.value !== null && v.timestamp !== null)
-
-  if (validData.length === 0) {
-    console.warn('No valid data to plot')
-    return null
-  }
-
-  // Extract years and values: each year's value comes at its first moment in UTC, read in UTC, as
-  // in a browser west of UTC that moment is still the year before
-  const years = validData.map(v => new Date(v.timestamp!).getUTCFullYear())
-  const values = validData.map(v => v.value!)
-
-  // Calculate min and max for normalization
-  const minValue = Math.min(...values)
-  const maxValue = Math.max(...values)
-
-  // Normalize values to 0-1 range
-  const normalizedValues = values.map(v => (v - minValue) / (maxValue - minValue))
-
-  const minYear = Math.min(...years)
-  const maxYear = Math.max(...years)
-
-  // below the plot, in px from its bottom edge, so that they keep their distances in an image of another height:
-  // the years (18 px type) from 20 px down, the source under them (14 px type, in a margin of a line of 20 px)
-  const yearsOffset = 20
-  const sourceOffset = showYears.value ? 48 : 28
-  const marginBottom = showSource.value ? Math.max(60, sourceOffset + 32) : 60
-
-  // Create annotations array BEFORE creating layout
-  const annotations: Partial<Plotly.Annotations>[] = []
-
-  // Add year annotations at the bottom
-  if (showYears.value) {
-    annotations.push(
-      {
-        x: minYear,
-        y: 0,
-        yshift: -yearsOffset,
-        xref: 'x',
-        yref: 'paper',
-        text: String(minYear),
-        showarrow: false,
-        xanchor: 'left',
-        yanchor: 'top',
-        font: { size: 18, color: theme.text },
-      },
-      {
-        x: maxYear,
-        y: 0,
-        yshift: -yearsOffset,
-        xref: 'x',
-        yref: 'paper',
-        text: String(maxYear),
-        showarrow: false,
-        xanchor: 'right',
-        yanchor: 'top',
-        font: { size: 18, color: theme.text },
-      },
-    )
-  }
-
-  // Add data availability label
-  if (showDataAvailability.value) {
-    annotations.push({
-      x: minYear,
-      y: 0,
-      yshift: -14,
-      xref: 'x',
-      yref: 'paper',
-      text: t('stripes.plotDataAvailability'),
-      showarrow: false,
-      xanchor: 'left',
-      yanchor: 'bottom',
-      font: { color: seriesLabelColor('gold', theme.dark), size: 12 },
-    })
-  }
-
-  // Add source annotation: on a row of its own below the years (GH-3961), which are on the plot's bottom edge
-  // and 18 px high, as it is on a chart too narrow to hold the two side by side
-  if (showSource.value) {
-    annotations.push({
-      x: 0.5,
-      y: 0,
-      yshift: -sourceOffset,
-      text: t('stripes.plotSource'),
-      showarrow: false,
-      xref: 'paper',
-      yref: 'paper',
-      xanchor: 'center',
-      yanchor: 'top',
-      font: { size: 14, color: theme.textMuted },
-    })
-  }
-
-  // the hover texts name the unit the answer says its values are in, as the sentence and the table do
-  const unitSuffix = data.series.unit ? ` ${unitSymbol(data.series.unit)}` : ''
-
-  // Create bar trace
-  const trace = {
-    x: years,
-    y: Array.from<number>({ length: years.length }).fill(1),
-    type: 'bar' as const,
-    marker: {
-      color: normalizedValues,
-      colorscale: COLOR_MAPS[kind.value],
-      cmin: 0,
-      cmax: 1,
-      showscale: false,
-      line: { width: 0 },
-    },
-    width: 1.0,
-    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}${t('common.colon')} %{customdata:.2f}${unitSuffix}<extra></extra>`,
-    customdata: values,
-    showlegend: false,
-  }
-
-  // Data availability trace (golden line at bottom)
-  const allYears = Array.from({ length: maxYear - minYear + 1 }, (_, i) => minYear + i)
-  const availability = allYears.map(year => years.includes(year) ? -0.02 : null)
-
-  const availabilityTrace = {
-    x: allYears,
-    y: availability,
-    type: 'scatter' as const,
-    mode: 'lines' as const,
-    line: { color: 'gold', width: 3 },
-    showlegend: false,
-    hoverinfo: 'skip' as const,
-  }
-
-  // Timeseries trace (line overlay showing normalized values)
-  const normalizedTimeseriesY = values.map(v => (v - minValue) / (maxValue - minValue))
-  const timeseriesTrace = {
-    x: years,
-    y: normalizedTimeseriesY,
-    type: 'scatter' as const,
-    mode: 'lines' as const,
-    line: { color: 'black', width: 2 },
-    showlegend: false,
-    hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverValue')}${t('common.colon')} %{customdata:.2f}${unitSuffix}<extra></extra>`,
-    customdata: values,
-  }
-
-  // Calculate trendline using linear regression
-  let trendlineTrace
-  if (showTrendline.value && showTimeseries.value) {
-    // Simple linear regression: y = mx + b
-    const n = years.length
-    const sumX = years.reduce((a, b) => a + b, 0)
-    const sumY = values.reduce((a, b) => a + b, 0)
-    const sumXY = years.reduce((sum, x, i) => sum + x * (values[i] ?? 0), 0)
-    const sumX2 = years.reduce((sum, x) => sum + x * x, 0)
-
-    const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX)
-    const intercept = (sumY - slope * sumX) / n
-
-    const trendlineValues = years.map(x => slope * x + intercept)
-    const normalizedTrendline = trendlineValues.map(v => (v - minValue) / (maxValue - minValue))
-
-    trendlineTrace = {
-      x: years,
-      y: normalizedTrendline,
-      type: 'scatter' as const,
-      mode: 'lines' as const,
-      line: { color: 'black', width: 4, dash: 'dash' },
-      showlegend: false,
-      hovertemplate: `<b>%{x}</b><br>${t('stripes.hoverTrend')}${t('common.colon')} %{customdata:.2f}${unitSuffix}<extra></extra>`,
-      customdata: trendlineValues,
-    }
-  }
-
-  const traces: Plotly.Data[] = [trace]
-  if (showDataAvailability.value)
-    traces.push(availabilityTrace as Plotly.Data)
-  if (showTimeseries.value)
-    traces.push(timeseriesTrace as Plotly.Data)
-  if (trendlineTrace)
-    traces.push(trendlineTrace as Plotly.Data)
-
-  // Layout configuration
-  // a title that does not fit the chart's width is broken into lines (GH-3961), and the top margin holds them
-  const wrapped = wrapChartTitle(plotTitle(data), width - 2 * TITLE_PADDING, `${TITLE_SIZE}px ${FONT_FAMILY}`)
-  const titleText = wrapped.text
-  // Plotly puts the first line of a title of several lines 10 px above where a single line is (10-27 px), under the
-  // modebar (22 px high, y 2-24, seven buttons over 184 px, so as wide as a narrow chart): a wrapped title's first
-  // line is at one place whatever else is drawn, lowered by what clears the modebar
-  const titleDrop = wrapped.lines > 1 ? TITLE_DROP : 0
-
-  const layout: Partial<Plotly.Layout> = {
-    // the hover texts write the language's decimal separator, as Plotly writes a point otherwise
-    separators: plotlySeparators(locale.value),
-    font: {
-      family: FONT_FAMILY,
-      size: 14,
-    },
-    xaxis: {
-      showgrid: false,
-      zeroline: false,
-      showticklabels: false,
-      showline: false,
-      range: [minYear - 0.5, maxYear + 0.5],
-    },
-    yaxis: {
-      showgrid: false,
-      zeroline: false,
-      showticklabels: false,
-      showline: false,
-      range: showDataAvailability.value ? [-0.05, 1.05] : [0, 1],
-    },
-    bargap: 0,
-    bargroupgap: 0,
-    margin: {
-      l: 20,
-      r: 20,
-      t: showTitle.value ? 30 + (wrapped.lines - 1) * TITLE_LINE + titleDrop : 20,
-      b: marginBottom,
-    },
-    showlegend: false,
-    autosize: false,
-    width,
-    height: showTitle.value ? STRIPES_HEIGHT : 550,
-    annotations,
-  }
-
-  const config: Partial<Plotly.Config> = {
-    // the buttons' names and the dates in the page's language
-    ...plotLocale,
-    responsive: true,
-    displayModeBar: true,
-    displaylogo: false,
-    // the camera is Plotly's with one difference: what it saves is the light chart, as everything saved is
-    modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toImage'],
-    modeBarButtonsToAdd: [{
-      name: 'toImage',
-      // Plotly translates the names of its own buttons, not of one that is added to it
-      title: plotlyText(plotLocale, 'Download plot as a PNG'),
-      icon: Plotly!.Icons.camera as Plotly.Icon,
-      click: () => void saveStripes({
-        format: 'png',
-        filename: `climate_stripes_${kind.value}_${data.series.station.station_id}`,
-        height: showTitle.value ? 700 : 600,
-        width: 1400,
-        scale: 2,
-      }).catch((error: unknown) => {
-        console.error('The chart image could not be saved', error)
-        toast.add({ title: t('dataViewer.chartImageNotSaved'), color: 'error' })
-      }),
-    }],
-  }
-
-  return {
-    traces,
-    layout: themedLayout(layout, theme),
-    config,
-    title: showTitle.value
-      ? {
-          text: titleText,
-          font: { size: TITLE_SIZE, color: theme.text },
-          y: wrapped.lines > 1 ? 0.96 - titleDrop / STRIPES_HEIGHT : (showDataAvailability.value ? 0.96 : 0.99),
-          x: 0.5,
-          xanchor: 'center',
-          yanchor: 'top',
-        }
-      : null,
-  }
-}
-
-async function drawStripes(data: StripesValuesResponse, keepZoom = false, newest: () => boolean = () => true) {
-  if (!plotContainer.value || !Plotly)
-    return
-
-  // The language's buttons come first, which can take a chunk's load: a newer drawing, or a Reset, came
-  // meanwhile and this one draws nothing (an older drawing must not put its language over the newer chart's),
-  // and the chart stays as it is while the chunk loads instead of being blank
-  const plotLocale = await plotLocaleOfPage()
-  if (!newest() || !plotContainer.value)
-    return
-  // the range shown now, which a purge forgets
-  const zoom = keepZoom ? drawnRanges(plotContainer.value) : {}
-  // Purge any existing plot first to ensure clean render
-  Plotly.purge(plotContainer.value)
-
-  // the theme it is drawn in is taken before the drawing, which a switch of the scheme can come in the middle of
-  const drawnIn = theme.value
-  const figure = stripesFigure(data, drawnIn, plotContainer.value.clientWidth, plotLocale)
-  if (!figure)
-    return
-  await Plotly.newPlot(plotContainer.value, figure.traces as any, figure.layout as any, figure.config)
-  // a newer drawing, or a Reset, came meanwhile: it purges, draws and marks the chart itself, and this one neither
-  // marks nor moves anything
-  if (!newest())
-    return
-  // said at once, before anything after it can fail: the chart is drawn in these colours whatever follows
-  markChartScheme(plotContainer.value, drawnIn)
-  // drawn in the range of its own, which a reset of the chart goes back to, and then moved to the one it was in
-  const moves = { ...rangesRelayout(zoom), ...(figure.title ? { title: figure.title } : {}) }
-  if (Object.keys(moves).length > 0)
-    await Plotly.relayout(plotContainer.value, moves)
-}
-
-// A saved image is always the light one, whatever the page shows: the stripes are drawn again, off screen,
-// in the light theme (utils/chart-export.ts), and that copy is exported
-async function saveStripes(options: { format: 'png' | 'jpeg' | 'svg', filename: string, width: number, height: number, scale: number }) {
-  if (!Plotly || !lastFetchedData.value || !plotContainer.value)
-    return
-  const { format, filename, width, height, scale } = options
-  // laid out for the width of the image: its title is broken into lines where the image is narrow, not where the page is
-  const figure = stripesFigure(lastFetchedData.value, readDocumentChartTheme('light'), width, await plotLocaleOfPage())
-  if (!figure)
-    return
-  // as the page shows them: the range the stripes are zoomed to is the image's
-  const layout = mergeLayouts(figure.layout, drawnRanges(plotContainer.value))
-  // in the language of the page, as the chart is
-  const { locale: copyLocale, locales } = figure.config
-  const copy = await drawOffscreen(Plotly, figure.traces, layout, { width, height: plotContainer.value.clientHeight }, { locale: copyLocale, locales })
-  try {
-    if (figure.title)
-      await Plotly.relayout(copy.element, { title: figure.title })
-    await Plotly.downloadImage(copy.element, { format, filename, width, height, scale })
-  }
-  finally {
-    copy.dispose()
-  }
-}
-
+/** Saves the stripes as a file: the size of the chart on the page, at a scale for a sharp raster image */
 async function downloadStripes(format: 'png' | 'jpeg' | 'svg' = 'png') {
-  if (!plotContainer.value || !Plotly || !lastFetchedData.value)
+  const shownChart = chart.value
+  const data = lastFetchedData.value
+  if (!shownChart || !data)
     return
-
-  // Get the current dimensions of the plot container
-  const containerWidth = plotContainer.value.clientWidth
-  const containerHeight = plotContainer.value.clientHeight
-
-  // Use current dimensions with a scale factor for high resolution
-  // This preserves aspect ratio AND scales text/annotations proportionally
-  const station = lastFetchedData.value.series.station
+  const station = data.series.station
   try {
-    await saveStripes({
+    await shownChart.save({
       format,
       filename: `climate_stripes_${kind.value}_${station.station_id}_${station.name}`,
-      height: containerHeight,
-      width: containerWidth,
-      scale: format === 'svg' ? 1 : 3, // Scale factor of 3 for high-quality raster images
+      width: shownChart.width,
+      height: showTitle.value ? STRIPES_HEIGHT_TITLE : STRIPES_HEIGHT,
+      // a scale of 3 for high-quality raster images, which keep the proportions and scale the text with them
+      scale: format === 'svg' ? 1 : MENU_SCALE,
     })
   }
   catch (error) {
@@ -618,13 +213,7 @@ async function downloadStripes(format: 'png' | 'jpeg' | 'svg' = 'png') {
 }
 
 function clearStripes() {
-  // with Plotly not loaded there is no drawing to purge, but the chart area is still cleared
-  if (plotContainer.value && Plotly)
-    Plotly.purge(plotContainer.value)
   hasPlot.value = false
-  // a drawing still under way is no longer the newest, so its failure is not told after the next Show
-  plotsStarted++
-  plotFailed.value = false
   lastFetchedData.value = null
   shown = null
   refetchShownAfter = false
@@ -708,32 +297,14 @@ watch(stations, () => {
   }
 })
 
-// Re-plot where the colour scheme changes: the paper, the years and the title are the chart's chrome
-// and follow it (utils/chart-theme.ts); the stripes' own colours are the data and do not
-watch(theme, async () => {
-  if (lastFetchedData.value && hasPlot.value) {
-    await plotStripes(lastFetchedData.value, true)
-  }
-})
-
-// Re-plot where the language changes: the hover texts and their separators are drawn in it
-watch(locale, async () => {
-  if (lastFetchedData.value && hasPlot.value) {
-    await plotStripes(lastFetchedData.value)
-  }
-})
-
-// Re-plot when display settings change and persist toggles to settings store
-watch([showTitle, showYears, showDataAvailability, showTimeseries, showTrendline, showSource], async () => {
+// Persist the display toggles to the settings store; the chart draws what they say as they change
+watch([showTitle, showYears, showDataAvailability, showTimeseries, showTrendline, showSource], () => {
   settings.value.stripes.showTitle = showTitle.value
   settings.value.stripes.showYears = showYears.value
   settings.value.stripes.showDataAvailability = showDataAvailability.value
   settings.value.stripes.showTimeseries = showTimeseries.value
   settings.value.stripes.showTrendline = showTrendline.value
   settings.value.stripes.showSource = showSource.value
-  if (lastFetchedData.value && hasPlot.value) {
-    await plotStripes(lastFetchedData.value)
-  }
 })
 
 // Update URL query when relevant options change
@@ -778,18 +349,6 @@ watch([
   // rejected navigation (e.g. superseded by a subsequent replace() before
   // this one resolves) would otherwise be an unhandled promise rejection.
   router.replace({ query: stripesToQuery() }).catch(() => {})
-})
-
-// Load Plotly dynamically on mount; a failure is told where the stripes are drawn
-onMounted(() => {
-  ensurePlotly().catch(() => {})
-})
-
-// Plotly keeps a `resize` listener of the window for a chart drawn with `responsive`, which holds the
-// chart until it is purged (GH-3619). Before the unmount, as the template ref is cleared by then
-onBeforeUnmount(() => {
-  if (plotContainer.value && Plotly)
-    Plotly.purge(plotContainer.value)
 })
 </script>
 
@@ -919,30 +478,18 @@ onBeforeUnmount(() => {
                 <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
                 <span class="text-sm">{{ fetchError }}</span>
               </div>
-              <div
-                v-if="hasPlot && plotFailed"
-                ref="plotNotice"
-                class="flex flex-wrap items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
-              >
-                <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
-               button stays, and keeps its focus -->
-                <span :key="plotFailures" role="alert" class="text-center">
-                  <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
-                  <!-- a sentence apart from the note, which ends with no full stop: the alert's text, as
-                 a screen reader reads it, otherwise runs the two together -->
-                  <template v-if="plotlyNotLoaded">
-                    <span class="sr-only">{{ '. ' }}</span>
-                    <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
-                  </template>
-                </span>
-                <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="lastFetchedData && plotStripes(lastFetchedData)" />
-                <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-ph-arrows-clockwise" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
-              </div>
-              <!-- a figure, not an image: Plotly's own controls in it stay reachable; nor a landmark -->
-              <div
-                ref="plotContainer" tabindex="-1" role="figure" :aria-label="plotLabel"
-                :aria-describedby="hasPlot && plotSummary ? summaryId : undefined" :class="{ hidden: !hasPlot }"
-                class="app-chart overflow-hidden" style="min-height: 400px;"
+              <!-- the chart tells its own failure, with its Retry -->
+              <StripesChart
+                v-if="hasPlot && lastFetchedData"
+                ref="chart"
+                :values="lastFetchedData.values"
+                :kind="kind"
+                :unit="valueUnit"
+                :title="plotLabel ?? ''"
+                :display="display"
+                :label="plotLabel"
+                :described-by="plotSummary ? summaryId : undefined"
+                :camera-file="cameraFile"
               />
               <p v-if="hasPlot && plotSummary" :id="summaryId" class="sr-only">
                 {{ plotSummary }}

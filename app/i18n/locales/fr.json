@@ -634,6 +634,18 @@
     "plotSource": "Source : Deutscher Wetterdienst",
     "hoverValue": "Valeur",
     "hoverTrend": "Tendance",
+    "chart": {
+      "zoomGroup": "Zoomer et déplacer les bandes",
+      "earlier": "Années précédentes",
+      "later": "Années suivantes",
+      "zoomOut": "Dézoomer",
+      "zoomIn": "Zoomer",
+      "resetZoom": "Réinitialiser le zoom",
+      "savePng": "Télécharger le graphique en PNG",
+      "readoutFor": "Bande climatique de {year}",
+      "readoutClose": "Fermer les valeurs",
+      "keysHint": "Les flèches parcourent les années, Page précédente et Page suivante de dix en dix, Début et Fin vont à la première et à la dernière. Plus, moins et 0 zooment, dézooment et réinitialisent. Échap ferme les valeurs."
+    },
     "summary": "De {from} à {to}. Valeur la plus basse : {min} en {minYear}, la plus haute : {max} en {maxYear}.",
     "table": {
       "year": "Année",

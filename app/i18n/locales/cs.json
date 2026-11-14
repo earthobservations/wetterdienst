@@ -634,6 +634,18 @@
     "plotSource": "Zdroj: Deutscher Wetterdienst",
     "hoverValue": "Hodnota",
     "hoverTrend": "Trend",
+    "chart": {
+      "zoomGroup": "Přiblížit a posunout pruhy",
+      "earlier": "Dřívější roky",
+      "later": "Pozdější roky",
+      "zoomOut": "Oddálit",
+      "zoomIn": "Přiblížit",
+      "resetZoom": "Obnovit zvětšení",
+      "savePng": "Stáhnout graf jako PNG",
+      "readoutFor": "Klimatický pruh pro rok {year}",
+      "readoutClose": "Zavřít hodnoty",
+      "keysHint": "Šipky procházejí roky, Page Up a Page Down po deseti letech, Home a End na první a poslední. Plus, mínus a 0 přibližují, oddalují a obnovují. Escape zavře hodnoty."
+    },
     "summary": "Od {from} do {to}. Nejnižší hodnota {min} v roce {minYear}, nejvyšší {max} v roce {maxYear}.",
     "table": {
       "year": "Rok",

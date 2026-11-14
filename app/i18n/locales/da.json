@@ -634,6 +634,18 @@
     "plotSource": "Kilde: Deutscher Wetterdienst",
     "hoverValue": "Værdi",
     "hoverTrend": "Tendens",
+    "chart": {
+      "zoomGroup": "Zoom og flyt striberne",
+      "earlier": "Tidligere år",
+      "later": "Senere år",
+      "zoomOut": "Zoom ud",
+      "zoomIn": "Zoom ind",
+      "resetZoom": "Nulstil zoom",
+      "savePng": "Download diagrammet som PNG",
+      "readoutFor": "Klimastribe for {year}",
+      "readoutClose": "Luk værdierne",
+      "keysHint": "Piletasterne går gennem årene, Page Up og Page Down ti år ad gangen, Home og End til det første og det sidste. Plus, minus og 0 zoomer ind, zoomer ud og nulstiller. Escape lukker værdierne."
+    },
     "summary": "Fra {from} til {to}. Laveste værdi {min} i {minYear}, højeste værdi {max} i {maxYear}.",
     "table": {
       "year": "År",
