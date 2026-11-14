@@ -1165,9 +1165,16 @@ test.describe('chart controls by keyboard', () => {
     await pan.focus()
     await page.keyboard.press('Enter')
     await expect(pan).toHaveClass(/active/)
-    // Reset axes by Space leaves the chart drawn
+
+    // Zoom in, which is no toggle, by Enter: the x range of the chart changes. Reset axes, by Space, puts it back
+    const range = () => page.locator('.js-plotly-plot').first().evaluate(chart => JSON.stringify((chart as any)._fullLayout.xaxis.range))
+    const original = await range()
+    await page.locator('.js-plotly-plot .modebar-btn[data-attr="zoom"][data-val="in"]').focus()
+    await page.keyboard.press('Enter')
+    await expect.poll(range, { message: 'Enter on Zoom in changes the range' }).not.toBe(original)
     await page.locator('.js-plotly-plot .modebar-btn[data-attr="zoom"][data-val="reset"]').focus()
     await page.keyboard.press('Space')
+    await expect.poll(range, { message: 'Space on Reset axes goes back to the range it started at' }).toBe(original)
     await expect(plotly(page)).toBeVisible()
   })
 

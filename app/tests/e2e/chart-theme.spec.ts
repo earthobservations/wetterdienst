@@ -255,7 +255,9 @@ test('the focus ring of a modebar button is the page\'s own, 3:1 on the dark pap
     return { color: `rgb(${r}, ${g}, ${b})`, width: Number.parseFloat(style.outlineWidth) }
   })
   expect(ring.width).toBeGreaterThanOrEqual(2)
-  expect(contrast(ring.color, (await chromeOf(page)).paper)).toBeGreaterThanOrEqual(3)
+  const { paper } = await chromeOf(page)
+  expect(luminance(paper), `the paper is the dark one (${paper})`).toBeLessThan(0.05)
+  expect(contrast(ring.color, paper)).toBeGreaterThanOrEqual(3)
 })
 
 /** Every Plotly chart of the page: its paper, as Plotly holds it */
