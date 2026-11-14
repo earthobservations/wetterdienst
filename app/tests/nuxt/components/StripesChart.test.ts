@@ -78,7 +78,8 @@ async function showChart(props: Record<string, unknown> = {}) {
     props: { values: VALUES, kind: 'temperature', unit: '°C', title: TITLE, display: DISPLAY, label: TITLE, cameraFile: 'climate_stripes_temperature_00011', ...props },
     attachTo: document.body,
   })
-  await vi.waitFor(() => expect(echarts.chart.setOption).toHaveBeenCalled())
+  // the first mount of the file loads the language and the component's parts, which a loaded machine takes longer over than vitest's second
+  await vi.waitFor(() => expect(echarts.chart.setOption).toHaveBeenCalled(), { timeout: 5000 })
   await flushPromises()
   return wrapper
 }
@@ -117,7 +118,7 @@ const buttonNamed = (name: string) => document.body.querySelector<HTMLButtonElem
 
 beforeEach(() => {
   echarts.chart.on.mockClear()
-  echarts.chart.setOption.mockClear()
+  echarts.chart.setOption.mockReset()
   echarts.chart.dispose.mockClear()
   echarts.init.mockClear()
   echarts.state.loadFails = false
@@ -142,7 +143,7 @@ describe('drawing', () => {
     const shown = await showChart()
     const before = drawn()
     await shown.setProps({ display: { ...DISPLAY, showTitle: false, showTimeseries: true } })
-    await vi.waitFor(() => expect(drawn()).toBe(before + 1))
+    await vi.waitFor(() => expect(drawn()).toBe(before + 1), { timeout: 5000 })
     expect(echarts.chart.resize).toHaveBeenLastCalledWith({ width: 800, height: 550 })
     expect(lastOption().series.map((s: any) => s.id)).toEqual(['stripes', 'availability', 'timeseries', 'labels'])
   })
@@ -218,6 +219,42 @@ describe('drawing', () => {
     await nextTick()
     expect(toolbar.hasAttribute('inert')).toBe(false)
     expect(scroller.hasAttribute('inert')).toBe(false)
+  })
+
+  it('moves the focus to Retry where a drawing fails while it is in the toolbar or on the chart, which the notice puts out of reach', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const shown = await showChart()
+    const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.includes('Retry'))
+    const failAfter = async (focus: () => void) => {
+      focus()
+      echarts.chart.setOption.mockImplementation(() => {
+        throw new Error('drawing failed')
+      })
+      await shown.setProps({ display: { ...DISPLAY, showTitle: !(shown.props('display') as typeof DISPLAY).showTitle } })
+      await vi.waitFor(() => expect((shown.vm as any).renderFailed).toBe(true))
+      await nextTick()
+    }
+    const recover = async () => {
+      echarts.chart.setOption.mockReset()
+      retry()!.click()
+      await vi.waitFor(() => expect((shown.vm as any).renderFailed).toBe(false))
+      await nextTick()
+    }
+
+    // in the toolbar
+    await failAfter(() => buttonNamed('Zoom in').focus())
+    expect(document.activeElement).toBe(retry())
+    await recover()
+
+    // on the chart
+    await failAfter(() => stage().focus())
+    expect(document.activeElement).toBe(retry())
+    await recover()
+
+    // elsewhere: it stays
+    const elsewhere = document.body.appendChild(document.createElement('button'))
+    await failAfter(() => elsewhere.focus())
+    expect(document.activeElement).toBe(elsewhere)
   })
 
   it('names the keys of the chart as ARIA writes them: the plus key is Plus, since + is the separator', async () => {
@@ -351,10 +388,13 @@ describe('the readout', () => {
     const close = () => readout()!.querySelector<HTMLButtonElement>('.sc-close')!
     close().focus()
     expect(document.activeElement).toBe(close())
+    // without scrolling the page to the chart, which is where the focus already is in the page
+    const focus = vi.spyOn(stage(), 'focus')
     close().click()
     await nextTick()
     expect(readout()).toBeNull()
     expect(document.activeElement).toBe(stage())
+    expect(focus).toHaveBeenCalledWith({ preventScroll: true })
 
     // by Escape while it has the focus
     key('ArrowRight')

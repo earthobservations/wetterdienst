@@ -47,6 +47,8 @@ const stageEl = ref<HTMLElement | null>(null)
 const chartEl = ref<HTMLElement | null>(null)
 const readoutEl = ref<HTMLElement | null>(null)
 const noticeEl = useTemplateRef<HTMLElement>('chartNotice')
+const toolbarEl = ref<HTMLElement | null>(null)
+const scrollerEl = ref<HTMLElement | null>(null)
 
 const hintId = useId()
 const readoutId = useId()
@@ -219,7 +221,7 @@ function dismiss() {
   // the Close button is what has the focus where it is used (a click, Enter, or Escape while it has it), and it goes with the
   // readout: the focus is handed to the chart first, or it falls to the page's body
   if (readoutEl.value?.contains(document.activeElement))
-    stageEl.value?.focus()
+    stageEl.value?.focus({ preventScroll: true })
   dismissed.value = true
 }
 
@@ -442,6 +444,14 @@ const chartCodeNotLoaded = ref(false)
 let codeImportFailed = false
 // a Retry that works hands its focus on to the chart it drew
 useFocusAfterRetry(renderFailed, noticeEl, stageEl)
+// A drawing that fails while the focus is in the toolbar or on the chart puts both out of reach (inert), which would drop the focus
+// to the page's body: it goes to the notice's Retry button instead. A focus anywhere else stays where it is.
+watch(renderFailed, async (failed) => {
+  if (!failed || ![toolbarEl.value, scrollerEl.value].some(element => element?.contains(document.activeElement)))
+    return
+  await nextTick()
+  noticeEl.value?.querySelector('button')?.focus()
+}, { flush: 'pre' })
 
 async function loadChartCode() {
   try {
@@ -669,7 +679,7 @@ const selectionStyle = computed(() => {
 
     <!-- the single-pointer ways to what a drag, a pinch and the keys do (WCAG 2.5.7), named by what they do -->
     <!-- inert while the chart could not be drawn: nothing to zoom, read or save of an empty chart -->
-    <div class="sc-toolbar" role="group" :aria-label="t('stripes.chart.zoomGroup')" :inert="renderFailed || undefined">
+    <div ref="toolbarEl" class="sc-toolbar" role="group" :aria-label="t('stripes.chart.zoomGroup')" :inert="renderFailed || undefined">
       <UButton
         icon="i-ph-caret-left" size="sm" variant="outline" color="neutral" class="shrink-0"
         :title="t('stripes.chart.earlier')" :aria-label="t('stripes.chart.earlier')" :disabled="atStart" @click="shift(-0.5)"
@@ -696,7 +706,7 @@ const selectionStyle = computed(() => {
       />
     </div>
 
-    <div class="sc-scroller" :style="{ height: `${height}px` }" :inert="renderFailed || undefined">
+    <div ref="scrollerEl" class="sc-scroller" :style="{ height: `${height}px` }" :inert="renderFailed || undefined">
       <!-- a figure, as the app's other charts, and no landmark; one tab stop for the whole chart (Chartability) -->
       <div
         ref="stageEl"
