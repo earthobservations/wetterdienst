@@ -82,8 +82,12 @@ def stations(monkeypatch: pytest.MonkeyPatch) -> None:
                 "elevation": 228.0,
                 "name": "Dresden-Klotzsche",
                 "region": "Sachsen",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             }
-        ]
+        ],
+        schema_overrides={"wmo_id": pl.String, "wigos_id": pl.String, "icao_id": pl.String},
     )
 
     def _all(self: DwdObservationRequest) -> StationsResult:

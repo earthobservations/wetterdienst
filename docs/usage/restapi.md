@@ -65,6 +65,14 @@ What the endpoints share about which stations a request names:
   warning of the response's `metadata`, and in the server's log. The one reference station
   of `interpolate` and `summarize` is a lookup, not a list: unknown, it is a 404 (a 502 for `dwd/observation` and
   `dwd/derived` where a directory of the lookup was skipped, below).
+- **A WMO number, a WIGOS identifier or an ICAO code** (`wmo_id=10381`, `wigos_id=0-20000-0-10381`,
+  `icao_id=EDDH`, each a comma-separated list) selects every station that has one of them, which is more than one
+  station where an id is on several, as the library's `filter_by_wmo_id`, `filter_by_wigos_id` and `filter_by_icao_id`
+  do. They are read in the notation of the station columns of the same names (`1001` is `01001`, `eddh` is `EDDH`,
+  `0-056-101-01002` is `0-56-101-01002`); a value that is none of them is a 422 that names the notation. An id no
+  station has is left out and named in an `unknown-station` warning, as for `stations`, and a provider that
+  publishes no such ids (the columns are null) finds nothing. Like `stations` and `name` they are one of the
+  exclusive selections: giving two is a 422. A `stations` listing is cut to the window like any other selection.
 - **An empty result** -- a window without readings, a name nothing is called -- is a 200 with an empty
   `values` or `stations`, on the command line exit 0 with the sentence on stderr. A 4xx or a non-zero
   exit means the request failed.
@@ -293,7 +301,7 @@ what the answer is missing:
   a GeoJSON position, the elevation in metres above mean sea level.
 - **`warnings`** is what the answer is missing but did not fail on, so that a partial answer can be told
   from a whole one. Each has a `code` that stays and a `message` that may be improved. The codes are
-  `unknown-station` (an id of `stations` the network has no station for), `station-skipped` (a station with too
+  `unknown-station` (an id of `stations`, `wmo_id`, `wigos_id` or `icao_id` the network has no station for), `station-skipped` (a station with too
   few readings, by `skip_empty` and `skip_threshold`, whether `drop_nulls` is on or off), `period-not-published`
   and `period-not-narrowing` (a period that was asked for and does not apply), `elevation-unknown` (the stations of unknown
   elevation that an estimate at an elevation had to leave out), `missing-value-marker` (readings that are
@@ -624,12 +632,12 @@ release commit, with `uv run poe contracts:baseline`.
   `sql` and the rest, which the check against the last release counts as removed, and the MCP tool would take one
   argument `selection` instead of them. So the parameters stay as they are, and each operation says it in three ways:
     - the extension `x-wetterdienst-selection` of the operation lists the groups: `exactly_one_of` (for `stations`
-      and `values`: `["all"]`, `["stations"]`, `["name"]`, `["latitude", "longitude"]`,
-      `["left", "bottom", "right", "top"]`, `["sql"]`), `then` (with a point, exactly one of `rank` and
+      and `values`: `["all"]`, `["stations"]`, `["wmo_id"]`, `["wigos_id"]`, `["icao_id"]`, `["name"]`,
+      `["latitude", "longitude"]`, `["left", "bottom", "right", "top"]`, `["sql"]`), `then` (with a point, exactly one of `rank` and
       `distance`) and `requires` (a `distance` needs a point, a `rank` a point or a `name`);
     - the `description` of each parameter it names ends with the sentences of the refusal that are about it, such as
-      `Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is
-      required.`, and for a point also `Exactly one of rank or distance is required with latitude and longitude.`;
+      `Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), (left, bottom,
+      right and top) or sql is required.`, and for a point also `Exactly one of rank or distance is required with latitude and longitude.`;
     - its `examples` hold one value the parameter takes, such as `stations=01048,04411` and
       `name=Hamburg Fuhlsbüttel`, or a point of `latitude=53.63`, `longitude=10.0` and `rank=3`. A list is a list
       there, which a client writes comma-separated (`explode: false`). The limits of the server still apply to a
@@ -698,11 +706,11 @@ learnt on one holds on the others:
   stations of a forecast network are the same for every run, which is chosen for `values`, `interpolate` and
   `summarize`. `/api/stations` answers either with a 422 like any parameter it does not know, as
   `wetterdienst stations` and the `stations` tool do.
-- **The stations are named by exactly one of** `all`, `stations`, `name`, a point (`latitude` and
-  `longitude`, with `rank` or `distance`), a bounding box (`left`, `bottom`, `right` and `top`) or
+- **The stations are named by exactly one of** `all`, `stations`, `wmo_id`, `wigos_id`, `icao_id`, `name`, a point
+  (`latitude` and `longitude`, with `rank` or `distance`), a bounding box (`left`, `bottom`, `right` and `top`) or
   `sql`. None, or two, is refused the same way everywhere, a `missing_one_of` or a `mutually_exclusive`
   error that names the alternatives: `Cannot be combined with name, give exactly one of all,
-  stations, name, (latitude and longitude), (left, bottom, right and top) or sql` as the answer of a
+  stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), (left, bottom, right and top) or sql` as the answer of a
   422, as the message of a tool error and, in the options' names, as the usage error of the
   command. The OpenAPI document states the alternatives and gives an example of each parameter, see
   [The OpenAPI document](#the-openapi-document).

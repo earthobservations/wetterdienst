@@ -151,7 +151,9 @@ and one for the daily values of each (8 on 2026-11-12), for every resolution, ke
   values and no annual ones (the annual collection answers 404, read 2026-11-12), and a station that closed
   before a collection began (the 10-minute data starts in 2012) is not listed for it.
 
-Each station's `station_id` is the WMO station number (`06260`) and its `wigos_id` the full identifier.
+Each station's `station_id` is the WMO station number (`06260`) and its `wigos_id` the full identifier. `wmo_id` is
+the number only where the identifier is `0-20000-0-<station_id>`, the WMO's own issuer; a station of the issuer 528
+(Assendelft `06233`, Horst `06392`) has a number of the Dutch scheme and a null `wmo_id`.
 
 ## License
 
