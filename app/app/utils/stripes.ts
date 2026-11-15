@@ -124,8 +124,8 @@ export const measureWithCanvas: TextMeasure = (text, font) => {
 
 /**
  * `text` broken into lines no wider than `width` px in `font` (a CSS font shorthand such as `16px Arial, sans-serif`),
- * joined with the `<br>` Plotly's titles take: a title as wide as the chart is cut off by its edges where the chart is
- * narrow (320 px: GH-3961). Breaks at spaces. A word wider than a line is broken after its `-` and `/` (kept at the end
+ * joined with `<br>`, which the stripes' chart splits again: a title as wide as the chart is cut off by its edges where
+ * the chart is narrow (320 px: GH-3961). Breaks at spaces. A word wider than a line is broken after its `-` and `/` (kept at the end
  * of the line: `Mallersdorf-` / `Pfaffenberg-`), and one without either stays whole on a line of its own. The width is
  * measured with `measure` (the canvas's, in the font the chart draws with); where that has none the width of a
  * character is estimated at 0.5 em, a little above what a title in Arial measures (0.47 em), so that a line is rather

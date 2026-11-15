@@ -133,7 +133,7 @@ async function scan(page: Page): Promise<Scan> {
     }
 
     for (const element of document.querySelectorAll('#__nuxt *')) {
-      if (element.closest('svg, .leaflet-container, .js-plotly-plot') || !visible(element))
+      if (element.closest('svg, .leaflet-container') || !visible(element))
         continue
       const style = getComputedStyle(element)
       if (element.classList.contains('iconify')) {
