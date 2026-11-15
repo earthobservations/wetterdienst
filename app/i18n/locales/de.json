@@ -143,6 +143,7 @@
     "title": "Wetterdienst – offene Wetter- und Klimadaten von nationalen Wetterdiensten",
     "description": "Offene Wetter- und Klimadaten nationaler Wetterdienste, einheitlich abrufbar: Explorer, Vorhersage, Klimastreifen, REST-API und MCP-Server. Quelloffen und kostenlos.",
     "noscript": "Wetterdienst braucht JavaScript, um Daten anzuzeigen.",
+    "providerDescription": "{provider} bei Wetterdienst: {kinds}, mit Lizenz und Quellenangabe. Im Explorer oder über die REST-API öffnen.",
     "pages": {
       "explorer": "Anbieter, Parameter und Stationen auf der Karte wählen, Messwerte lesen, einen Punkt interpolieren und das Ergebnis als CSV, JSON oder GeoJSON herunterladen.",
       "meteogram": "Die MOSMIX-Vorhersage einer DWD-Station als Meteogramm: Temperatur, Wind, Niederschlag, Bewölkung und Luftdruck.",

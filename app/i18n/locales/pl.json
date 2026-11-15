@@ -143,6 +143,7 @@
     "title": "Wetterdienst – otwarte dane pogodowe i klimatyczne krajowych służb meteorologicznych",
     "description": "Otwarte dane pogodowe i klimatyczne krajowych służb meteorologicznych w jednym formacie: eksplorator, prognoza, paski klimatyczne, REST API i serwer MCP. Otwarte oprogramowanie i bezpłatne.",
     "noscript": "Wetterdienst potrzebuje JavaScriptu, aby wyświetlać dane.",
+    "providerDescription": "{provider} w Wetterdienst: {kinds}, z licencją i podaniem źródła. Otwórz w Eksploratorze lub przez REST API.",
     "pages": {
       "explorer": "Wybierz dostawcę, parametry i stacje na mapie, odczytaj pomiary, zinterpoluj punkt i pobierz wynik jako CSV, JSON lub GeoJSON.",
       "meteogram": "Prognoza MOSMIX dla stacji DWD jako meteogram: temperatura, wiatr, opady, zachmurzenie i ciśnienie.",

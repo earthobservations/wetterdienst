@@ -143,6 +143,7 @@
     "title": "Wetterdienst – otevřená data o počasí a klimatu od národních meteorologických služeb",
     "description": "Otevřená data o počasí a klimatu od národních meteorologických služeb v jednotném formátu: průzkumník, předpověď, klimatické pruhy, REST API a server MCP. Open source a zdarma.",
     "noscript": "Wetterdienst potřebuje k zobrazení dat JavaScript.",
+    "providerDescription": "{provider} ve Wetterdienstu: {kinds}, s licencí a uvedením zdroje. Otevři v Průzkumníku nebo přes REST API.",
     "pages": {
       "explorer": "Vyber poskytovatele, parametry a stanice na mapě, přečti si měření, interpoluj bod a stáhni výsledek jako CSV, JSON nebo GeoJSON.",
       "meteogram": "Předpověď MOSMIX pro stanici DWD jako meteogram: teplota, vítr, srážky, oblačnost a tlak.",

@@ -143,6 +143,7 @@
     "title": "Wetterdienst – datos meteorológicos y climáticos abiertos de los servicios meteorológicos nacionales",
     "description": "Datos meteorológicos y climáticos abiertos de los servicios meteorológicos nacionales, en un único formato: explorador, pronóstico, franjas climáticas, API REST y servidor MCP. De código abierto y gratuito.",
     "noscript": "Wetterdienst necesita JavaScript para mostrar los datos.",
+    "providerDescription": "{provider} en Wetterdienst: {kinds}, con licencia y atribución. Ábrelo en el Explorador o con la API REST.",
     "pages": {
       "explorer": "Elige un proveedor, parámetros y estaciones en el mapa, lee las mediciones, interpola un punto y descarga el resultado como CSV, JSON o GeoJSON.",
       "meteogram": "El pronóstico MOSMIX de una estación del DWD como meteograma: temperatura, viento, precipitación, nubosidad y presión.",

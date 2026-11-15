@@ -143,6 +143,7 @@
     "title": "Wetterdienst – apen Wedder- un Klimadaten vun nationale Wedderdeenste",
     "description": "Apen Wedder- un Klimadaten vun nationale Wedderdeenste in een Format: Explorer, Wedderutsicht, Klimastrepen, REST-API un MCP-Server. Apen Quelltext un gratis.",
     "noscript": "Wetterdienst bruukt JavaScript, üm Daten to wiesen.",
+    "providerDescription": "{provider} bi Wetterdienst: {kinds}, mit Lizenz un Quellenangaav. In'n Explorer oder över de REST-API opmaken.",
     "pages": {
       "explorer": "Söök een Anbeder, Parameter un Stationen op de Kaart ut, lees de Meetweerten, interpolier een Punkt un laad dat Resultat as CSV, JSON oder GeoJSON runner.",
       "meteogram": "De MOSMIX-Wedderutsicht för een DWD-Station as Meteogramm: Temperatur, Wind, Nedderslag, Wulken un Luftdruck.",

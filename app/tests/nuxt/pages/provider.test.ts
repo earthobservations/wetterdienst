@@ -220,4 +220,48 @@ describe('provider Page', () => {
     expect(wrapper.text()).toContain('The backend could not be reached.')
     expect(wrapper.text()).not.toContain('There is no provider')
   })
+
+  // the head the script leaves for a crawler that runs it (GH-4119); the server writes the same into the shell
+  // (tests/unit/seo-providers.test.ts), and app/app.vue's tags for the path are overridden by these, once each
+  describe('head', () => {
+    const SITE = 'https://wetterdienst.eobs.org'
+    const metaContent = (selector: string) => [...document.head.querySelectorAll<HTMLMetaElement>(selector)].map(element => element.content)
+    const canonical = () => [...document.head.querySelectorAll('link[rel="canonical"]')].map(element => element.getAttribute('href'))
+    const DESCRIPTION = 'German Weather Service (Germany) on Wetterdienst: Measurements and Radar, with licence and credit line. Open it in the Explorer or via the REST API.'
+
+    it('names the provider, describes it and gives it a canonical link of its own, once the provider is known', async () => {
+      await useNuxtApp().$i18n.setLocale('en')
+      await mountProvider('dwd')
+
+      await vi.waitFor(() => expect(document.title).toBe('German Weather Service'))
+      await vi.waitFor(() => expect(metaContent('meta[name="description"]')).toEqual([DESCRIPTION]))
+      expect(canonical()).toEqual([`${SITE}/providers/dwd`])
+      expect(metaContent('meta[property="og:title"]')).toEqual(['German Weather Service - Wetterdienst'])
+      expect(metaContent('meta[property="og:description"]')).toEqual([DESCRIPTION])
+      expect(metaContent('meta[property="og:url"]')).toEqual([`${SITE}/providers/dwd`])
+      expect(metaContent('meta[name="twitter:title"]')).toEqual(['German Weather Service - Wetterdienst'])
+      expect(metaContent('meta[name="twitter:description"]')).toEqual([DESCRIPTION])
+    })
+
+    it('says its sentence in the language of the visitor', async () => {
+      await useNuxtApp().$i18n.setLocale('de')
+      try {
+        await mountProvider('dwd')
+
+        await vi.waitFor(() => expect(metaContent('meta[name="description"]')).toEqual([
+          'German Weather Service (Deutschland) bei Wetterdienst: Messwerte und Radar, mit Lizenz und Quellenangabe. Im Explorer oder über die REST-API öffnen.',
+        ]))
+      }
+      finally {
+        await useNuxtApp().$i18n.setLocale('en')
+      }
+    })
+
+    it('gives an id that is no provider no canonical link', async () => {
+      await mountProvider('nowhere')
+
+      expect(canonical()).toEqual([])
+      expect(metaContent('meta[property="og:url"]')).toEqual([])
+    })
+  })
 })
