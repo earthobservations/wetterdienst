@@ -285,6 +285,76 @@ def test_actual_percentage_measures_against_the_requested_window() -> None:
     assert _percentage(_hourly_values(start_date, end_date), df) == 0.75
 
 
+def _hours(*hours: int, minute: int = 0) -> pl.Series:
+    """Give the UTC stamps of hours of 2026-01-01, as a provider names the steps it gives a parameter at."""
+    return pl.Series([dt.datetime(2026, 1, 1, hour, minute, tzinfo=ZoneInfo("UTC")) for hour in hours])
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [
+        # the grid holds four hours and the station has a value at two of them, which are the ones the source gives
+        (_hours(0, 2), 1.0),
+        # at a third the station has no value at
+        (_hours(0, 2, 3), 2 / 3),
+        # a step outside the window is no step of the request, and the stamp's minute does not move its slot
+        (_hours(0, 2, 10), 1.0),
+        (_hours(0, 2, minute=40), 1.0),
+        # no step given, as a parameter that came back with nothing
+        (pl.Series([], dtype=pl.Datetime("us", "UTC")), 0.0),
+        # a provider that does not say is measured against the grid: two of four hours
+        (None, 0.5),
+    ],
+)
+def test_actual_percentage_measures_a_parameter_at_the_steps_the_provider_names(
+    monkeypatch: pytest.MonkeyPatch, given: pl.Series | None, expected: float
+) -> None:
+    """Test that a provider that names the steps of a parameter has it measured against those (GH-4093).
+
+    The station has a value at the hours 0 and 2 and none at the hour 1 of a window of four hours;
+    `_given_timestamps` is the hook, and None is what a provider that does not implement it answers.
+    """
+    start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2026, 1, 1, 3, tzinfo=ZoneInfo("UTC"))
+    df = _hourly_long(
+        [
+            dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 2, tzinfo=ZoneInfo("UTC")),
+            dt.datetime(2026, 1, 1, 1, tzinfo=ZoneInfo("UTC")),
+        ]
+    )
+    # the hour 1 holds no value, which only the steps that include it count against the station
+    df = df.with_columns(
+        pl.when(pl.col("timestamp").dt.hour() == 1).then(None).otherwise(pl.col("value")).alias("value")
+    )
+    values = _hourly_values(start_date, end_date)
+    if given is not None:
+        monkeypatch.setattr(values, "_given_timestamps", lambda _parameter: given)
+
+    assert _percentage(values, df) == pytest.approx(expected)
+
+
+def test_actual_percentage_without_a_window_measures_the_steps_within_the_stations_span(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the steps a provider names are cut to the span of the station's series where no window was asked."""
+    df = _hourly_long([dt.datetime(2026, 1, 1, hour, tzinfo=ZoneInfo("UTC")) for hour in (3, 4)])
+    values = _hourly_values(None, None)  # ty: ignore[invalid-argument-type]
+    monkeypatch.setattr(values, "_given_timestamps", lambda _parameter: _hours(0, 3, 4, 20))
+
+    assert _percentage(values, df) == 1.0
+
+
+def test_given_timestamps_names_nothing_unless_a_provider_implements_it() -> None:
+    """Test that the default is the grid: a provider that does not name its steps is measured as it always was."""
+    values = _hourly_values(
+        dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC")), dt.datetime(2026, 1, 1, 3, tzinfo=ZoneInfo("UTC"))
+    )
+    parameter = values.sr.parameters[0]
+
+    assert values._given_timestamps(parameter) is None  # noqa: SLF001
+
+
 def test_actual_percentage_counts_readings_that_miss_the_grid() -> None:
     """Test that a station reporting off the hour is counted as reporting.
 

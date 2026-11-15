@@ -83,12 +83,17 @@ class _ParsedRun:
     metadata: dict[str, Any]
     timesteps: list[str]
     data: dict[str, dict[str, list[float | None]]]
+    #: the steps at which some station of the file has a value, per element (lower case); None where the reader was not
+    #: asked to collect them (`collect_steps`)
+    given: dict[str, list[str]] | None = None
 
 
 class KMLReader:
     """Read DWD XML Weather Forecast File of Type KML."""
 
-    def __init__(self, station_ids: list[str], settings: Settings, *, keep_parsed: int = 1) -> None:
+    def __init__(
+        self, station_ids: list[str], settings: Settings, *, keep_parsed: int = 1, collect_steps: bool = False
+    ) -> None:
         """Initialize KMLReader.
 
         Args:
@@ -99,11 +104,18 @@ class KMLReader:
                 file parses the other's again at the next station (MOSMIX-S is 36 MB). The one held longest ago is
                 dropped for a new one, so the memory is that of `keep_parsed` files' stations and never grows with
                 the request.
+            collect_steps: Whether to note, per element, the steps at which some station of the file has a value
+                (`given_timesteps`), of every station of the file and not only of the ones asked for. The file writes
+                `-` for a step a product does not give just as for a value that is missing, and a step that no station
+                has a value at is the former. Off by default (`dwd/dmo` shares this class and does not use it): it
+                costs a look at the elements of the stations not asked for, until every step of an element is seen.
 
         """
         self.station_ids = station_ids
+        self._collect_steps = collect_steps
         self.metadata = {}
         self.data = {}
+        self.given: dict[str, list[str]] | None = None
         self.timesteps = []
         self.nsmap = None
         self.iter_elems = None
@@ -258,7 +270,7 @@ class KMLReader:
         run = self._parsed.get(url)
         if run is not None:
             self._parsed.move_to_end(url)
-            self.metadata, self.timesteps, self.data = run.metadata, run.timesteps, run.data
+            self.metadata, self.timesteps, self.data, self.given = run.metadata, run.timesteps, run.data, run.given
             return
 
         log.info(f"Downloading KMZ file {Path(url).name}")
@@ -304,7 +316,7 @@ class KMLReader:
         # release the head subtree before iterating placemarks
         prod_definition.clear()
         self._store_station_forecasts()
-        self._parsed[url] = _ParsedRun(self.metadata, self.timesteps, self.data)
+        self._parsed[url] = _ParsedRun(self.metadata, self.timesteps, self.data, self.given)
         while len(self._parsed) > self._keep_parsed:
             self._parsed.popitem(last=False)
 
@@ -340,29 +352,71 @@ class KMLReader:
 
         """
         self.data = {}
+        self.given = None
         nsmap = self.nsmap
         if nsmap is None:
             return
+        # per element, the steps no station has had a value at so far: an element given at every step is done at the
+        # first station that has it, and one given at some steps only (MOSMIX-L's `TX`, MOSMIX-SNOW's `SnCv`) has its
+        # stations' strings split until the file ends
+        unseen: dict[str, set[int]] | None = {} if self._collect_steps else None
         for station_forecast in self.iter_items():
             station_id = station_forecast.find("kml:name", nsmap)
             if station_id is None:
                 continue
             station_id = station_id.text
-            if station_id not in self.station_ids:
+            requested = station_id in self.station_ids
+            if not requested and unseen is None:
                 continue
-            self.data[station_id] = {}
-            measurement_list = station_forecast.findall("kml:ExtendedData/dwd:Forecast", nsmap)
-            for measurement_item in measurement_list:
-                measurement_parameter = measurement_item.get(f"{{{nsmap['dwd']}}}elementName")
-                if measurement_parameter is None:
-                    continue
-                measurement_string = next(iter(measurement_item)).text
-                if measurement_string is None:
-                    continue
-                # str.split() already collapses the whitespace-separated value list
-                measurement_values = [None if i == MISSING_VALUE else float(i) for i in measurement_string.split()]
-                self.data[station_id][measurement_parameter.lower()] = measurement_values
+            if requested:
+                self.data[station_id] = {}
+            for element, measurement_string in self._elements_of(station_forecast, nsmap):
+                tokens = self._note_steps(unseen, element, measurement_string) if unseen is not None else None
+                if requested:
+                    # str.split() already collapses the whitespace-separated value list
+                    tokens = tokens if tokens is not None else measurement_string.split()
+                    self.data[station_id][element] = [None if i == MISSING_VALUE else float(i) for i in tokens]
             station_forecast.clear()
+        if unseen is not None:
+            self.given = {
+                element: [step for i, step in enumerate(self.timesteps) if i not in pending]
+                for element, pending in unseen.items()
+            }
+
+    def _note_steps(self, unseen: dict[str, set[int]], element: str, measurement_string: str) -> list[str] | None:
+        """Strike the steps a station has a value of off those of the element that no station has had one at yet.
+
+        Gives the split values where they were read, None where every step of the element was seen already.
+        """
+        pending = unseen.setdefault(element, set(range(len(self.timesteps))))
+        if not pending:
+            return None
+        tokens = measurement_string.split()
+        pending.difference_update(i for i in tuple(pending) if i < len(tokens) and tokens[i] != MISSING_VALUE)
+        return tokens
+
+    @staticmethod
+    def _elements_of(station_forecast: Element, nsmap: dict[str, str]) -> Iterator[tuple[str, str]]:
+        """Give the elements a station's placemark holds, by lower-case name, with the string of its values."""
+        for measurement_item in station_forecast.findall("kml:ExtendedData/dwd:Forecast", nsmap):
+            measurement_parameter = measurement_item.get(f"{{{nsmap['dwd']}}}elementName")
+            if measurement_parameter is None:
+                continue
+            measurement_string = next(iter(measurement_item)).text
+            if measurement_string is None:
+                continue
+            yield measurement_parameter.lower(), measurement_string
+
+    def given_timesteps(self, url: str, element: str) -> list[str] | None:
+        """Give the steps of a parsed file at which some station of it has a value of the element.
+
+        An element no station has a value of is given at no step (an empty list). None where the file is not held
+        (never read, or dropped for a newer one) or the reader was not asked to collect the steps.
+        """
+        run = self._parsed.get(url)
+        if run is None or run.given is None:
+            return None
+        return run.given.get(element.lower(), [])
 
     def get_station_forecast(self, station_id: str) -> pl.DataFrame:
         """Get forecasts as DataFrame."""
