@@ -55,6 +55,13 @@ Types of changes:
 
 ### Fixed
 
+- **Breaking**: `dmi/observation` marks the monthly or annual value of a month or year that has not
+  ended (DMI serves 2026's annual mean from 319 days unmarked) `completeness:Incomplete` in
+  `quality_flags`, after `n:` and before `raw:`, with a `window-not-closed` warning, as
+  `metno/frost` does; `interpolate` and `summarize` leave it out and tell it in
+  `source-data-left-out`. Such a value is no longer judged by its count (`suspect:source`). Split
+  the tokens rather than compare the whole string, or end the window before the current period
+  (GH-4087)
 - `dwd/derived`: a period whose archive (or both archives of `hourly/radiation_global`) is a 404 on
   the server, listed and then withdrawn, answers the `file-skipped` warning and no rows, where it
   failed with a `ValueError` (an `IndexError` for `hourly/radiation_global`) and took the whole

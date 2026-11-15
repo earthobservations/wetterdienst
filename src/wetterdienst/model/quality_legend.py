@@ -186,7 +186,18 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "day, daily values for a month or a year). DMI computes the values of Greenland and the Faroe Islands "
             "from however many exist, even one; a daily value from fewer than 4 readings (half of the 8 three-hourly "
             "synoptic observations that older Greenland days have; modern days have 24 hourly), a monthly from fewer "
-            "than 14 and a yearly from fewer than 183 is judged by the check `source` like `validity:false`.",
+            "than 14 and a yearly from fewer than 183 is judged by the check `source` like `validity:false`, unless "
+            "the period had not ended (`completeness:Incomplete`), whose count is the readings so far.",
+        ),
+        _kind(
+            "completeness",
+            "Incomplete",
+            "The monthly or annual value of a period that had not ended when the request was served (the current "
+            "month or year, which DMI serves from the readings so far, `validity:true` and not yet controlled): it is "
+            "partial and may still change. DMI marks no such value, so this library does, by the "
+            "`to` of the record against the time of the request. A value of a ended period has no token, which is no "
+            "claim that it is final. A daily or hourly value is not judged.",
+            codes=_codes(Incomplete="Based on a period that had not ended"),
         ),
         SUSPECT,
         REJECTED,

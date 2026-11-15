@@ -281,7 +281,33 @@ year. It leaves out the parameters whose count is not the hours of the day or th
 precipitation (some Greenland stations measure it by hand), snow depth, snow cover, the largest 30 minute
 precipitation, the clear and cloudy days, the heating degree days of a day and the leaf wetness (which DMI computes
 only from 22 hourly values itself), and every count of days and the greatest snow depth of a month and a year. The
-hourly values carry the token and are not judged by it.
+hourly values carry the token and are not judged by it. A monthly or yearly value of a period that has not ended is not
+judged either: its count is the readings so far, fewer than the period needs by construction, and the token
+`completeness:Incomplete` says so (below).
+
+## The month and the year still running (`completeness`)
+
+DMI serves the monthly and the annual value of the month or year that is still running as the value of that month or
+year, from the readings it has so far, and nothing in the record says so: it has `validity:true` and a `qcStatus` of
+`none` (not controlled yet), which says that the value is not controlled and not that its period is running (read
+key-less on 2026-11-15: the annual `mean_temp` of 06180 for 2026 from 319 days, the one of November from 15). The value is partial and changes with every day that comes in, a mean of the year so far where a
+caller expects the mean of the year.
+
+`values` returns such a value, marked `completeness:Incomplete` in `quality_flags` after the count and before `raw`
+(`manual,validity:true,n:319,completeness:Incomplete`), with a `window-not-closed` warning that says how many values
+are marked, at which stations, and when the earliest period ends. It is the mark `metno/frost` writes for the same case
+(maintainer decision of 2026-11-15, GH-4087) and the one the Environment Agency's readings use; DMI writes only
+`Incomplete`, never `Complete`, so a period that has ended has no token, which is no claim that it is final. To keep
+the ended periods only, drop the rows whose `quality_flags` contain `completeness:Incomplete`, or end the window before
+the current month or year. `interpolate` and `summarize` cannot carry the mark, so they leave such a value out and tell
+it as a cause of `source-data-left-out`.
+
+A period has ended when the `to` of its record, which carries the offset of the place (`2026-12-01T00:00:00+01:00` for
+the month of November at the Danish 06180, `2026-12-01T06:00:00+00:00` at the Greenland 04220: DMI counts the days of
+Greenland from 06:00 UTC), is not after the time of the request, in UTC: at that instant the period has ended, a
+microsecond before it has not. The time is the one the answer was asked for, or the one its cached copy was made at if
+that was before: the answer is kept for five minutes. Hourly and daily values are not judged: they are first published
+when their period is over.
 
 ## License
 

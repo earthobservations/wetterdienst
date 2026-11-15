@@ -18,6 +18,7 @@ from aiohttp import encode_basic_auth
 from wetterdienst.exceptions import CredentialMissingError, DownloadError, InvalidTimeIntervalError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, ParameterModel, build_metadata_model
+from wetterdienst.model.open_window import incomplete_flag, no_open_window, served_at, tell_open_window
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
     Sentinel,
@@ -38,7 +39,7 @@ from wetterdienst.util.network import (
     drop_cached_file,
     raise_if_credential_rejected,
 )
-from wetterdienst.util.response_warnings import SkipCause, note_left_out, note_open_window, note_skipped_download
+from wetterdienst.util.response_warnings import SkipCause, note_left_out, note_skipped_download
 
 if TYPE_CHECKING:
     from io import BytesIO
@@ -692,9 +693,6 @@ _OPEN = "__open"
 # is read: Frost's snow depth, one reading a day at 06 UTC. The aggregates of a window (mean, maximum, minimum, sum) are
 # not
 _INSTANTANEOUS = ("surface_snow_thickness",)
-# the code of the token `completeness` for such a value, the one the Environment Agency's own flag uses for a value
-# based on incomplete data (`quality_legend.py`)
-_INCOMPLETE = "Incomplete"
 
 
 #: the fields of the sources list that the catalogue reads, and the ids it asks for besides them (GH-4070)
@@ -894,20 +892,6 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
-def _served_at(file: File, asked_at: datetime) -> datetime:
-    """Give the time the answer in hand is of: when it was asked for, or when its copy was made if that was before.
-
-    ``asked_at`` is `_now` taken before the download began. An answer is cached for five minutes
-    (`CacheExpiry.FIVE_MINUTES`), so one read after a window closed may have been fetched before: Frost's state at 17:57
-    is no final value of a window that closes at 18:00, whoever reads it at 18:01. A copy that has no time (the cache is
-    off, a save was skipped, a download that is stubbed) is of the time the download began, and not of the time it
-    ended: a window that closes while the answer is on its way is not closed in it.
-    """
-    if file.cached_at is None:
-        return asked_at
-    return min(asked_at, datetime.fromtimestamp(file.cached_at, UTC))
-
-
 def _closes(df: pl.DataFrame, resolution: str) -> pl.Expr:
     """Give, for each observation of a daily, monthly or annual element, the time its value's window closes (GH-3856).
 
@@ -992,7 +976,7 @@ def _tell_left_out(
     (`resolution/dataset/parameter`) of each parameter that was asked for by the name Frost gives it, ``start`` and
     ``end`` the window the core cuts the answer to, and ``resolution`` the name of the resolution they were asked for.
     A date the returned series has is no date left out, and neither is one the returned series has but for its window
-    not having closed (``open_window``, the frame `_read_observations` gave, which `_tell_open_window` tells). The dates
+    not having closed (``open_window``, the frame `_read_observations` gave, which `tell_open_window` tells). The dates
     are compared by the key of the date (`_stamp_keys`) on both sides, and the window is cut on it: a stamp of the
     other series that is off midnight is the date of the returned one (GH-3865). The warning is `other-window-left-out`,
     and is why `parameter-without-rows` says nothing of such a parameter.
@@ -1010,32 +994,6 @@ def _tell_left_out(
     for parameter, count in left_out.group_by("parameter").len().iter_rows():
         if parameter in names:
             note_left_out(names[parameter], count, _LEFT_OUT_BECAUSE[parameter])
-
-
-def _tell_open_window(
-    open_window: pl.DataFrame, names: dict[str, str], start: datetime, end: datetime, *, returned: bool
-) -> None:
-    """Tell the walk of the values, of the parameters asked for, whose window had not closed (GH-3856).
-
-    ``open_window`` is what `_read_observations` gave: the `parameter`, the `timestamp` (the key of the date) and the
-    time the window `closes`, one row for each. ``returned`` is whether they are in the answer (marked, `_OPEN`) or left
-    out of it (`_leaves_open_out`), so the warning says which. A value the core cuts off (beyond the window of the
-    request) is not counted. The warning is `window-not-closed`.
-    """
-    if open_window.is_empty():
-        return
-    inside = open_window.filter(pl.col("timestamp").is_between(start, end))
-    summary = inside.group_by("parameter").agg(pl.len().alias("count"), pl.col("closes").min())
-    for parameter, count, closes in summary.iter_rows():
-        if parameter in names:
-            note_open_window(names[parameter], count, closes, returned=returned)
-
-
-def _no_open_window() -> pl.DataFrame:
-    """Give the frame of the values of a window that had not closed (`_Read.open_window`) with none."""
-    return pl.DataFrame(
-        schema={"parameter": pl.String, "timestamp": pl.Datetime("us", "UTC"), "closes": pl.Datetime("us", "UTC")}
-    )
 
 
 def _leaves_open_out(resolution: str, *, estimate: bool) -> bool:
@@ -1058,7 +1016,7 @@ def _tell_not_returned(
     *,
     estimate: bool,
 ) -> None:
-    """Tell what a read of the observations left out of the answer or marked (`_tell_left_out`, `_tell_open_window`).
+    """Tell what a read of the observations left out of the answer or marked (`_tell_left_out`, `tell_open_window`).
 
     ``kept`` is the frame the station returns (all the series of a discovery), whose dates a date left out is not.
     ``estimate`` is whether the values are read for `interpolate` or `summarize` (`_leaves_open_out`).
@@ -1066,7 +1024,7 @@ def _tell_not_returned(
     leaves_out = _leaves_open_out(resolution, estimate=estimate)
     # a value of a window not closed that is left out is no date left out for another series (GH-3856)
     _tell_left_out(read.left_out, kept, names, start, end, resolution, read.open_window if leaves_out else None)
-    _tell_open_window(read.open_window, names, start, end, returned=not leaves_out)
+    tell_open_window(read.open_window, names, start, end, returned=not leaves_out)
 
 
 def _level(df: pl.DataFrame) -> pl.Expr:
@@ -1084,7 +1042,7 @@ class _Read(NamedTuple):
     frame: pl.DataFrame
     #: the dates of another series that was left out (`_left_out_dates`)
     left_out: pl.DataFrame
-    #: the values of a window that had not closed (`parameter`, `timestamp`, `closes`; `_tell_open_window`)
+    #: the values of a window that had not closed (`parameter`, `timestamp`, `closes`; `tell_open_window`)
     open_window: pl.DataFrame
 
 
@@ -1103,13 +1061,13 @@ def _read_observations(
     the expression of the name the rows are given, ``resolution`` the name of the resolution they were asked for and
     ``station_id`` the station they are of. The frame has the columns parameter, timestamp, value and quality flags.
     The other two are `_left_out_dates` and the values of a window that had not closed at ``served_at``, the time of
-    the answer (`_served_at`; GH-3856): of a daily one, which is left out, and of a monthly or annual one, which stays
+    the answer (`served_at`; GH-3856): of a daily one, which is left out, and of a monthly or annual one, which stays
     and has `completeness:Incomplete` in its quality flags, unless ``estimate``, which leaves it out too
     (`_leaves_open_out`).
     """
     left_out = _left_out_dates(df, parameter, resolution)
     df = _keep_standard_offset(df)
-    open_window = _no_open_window()
+    open_window = no_open_window()
     if not df.is_empty() and resolution in _PERIODS:
         df = df.with_columns(_closes(df, resolution).alias(_CLOSES))
         is_open = (pl.col(_CLOSES) > served_at).fill_null(value=False)
@@ -1280,9 +1238,7 @@ def _decode_sentinels(df: pl.DataFrame, station_id: str | None = None) -> pl.Dat
     )
     quality = pl.col("quality_flags") if "quality_flags" in df.columns else None
     # a value of a window that had not closed (`_read_observations`) is incomplete; none that has is marked as complete
-    incomplete = (
-        pl.when(pl.col(_OPEN)).then(pl.lit(_INCOMPLETE)) if _OPEN in df.columns else pl.lit(None, dtype=pl.String)
-    )
+    incomplete = incomplete_flag(pl.col(_OPEN)) if _OPEN in df.columns else pl.lit(None, dtype=pl.String)
     decoded = df.with_columns(value.alias("value"), join_quality_flags(quality, completeness=incomplete, raw=raw))
     return decoded.drop(SPEED_BESIDE, _LEVEL, _OPEN, strict=False)
 
@@ -1407,7 +1363,7 @@ class MetnoFrostValues(TimeseriesValues):
             pl.col("elementId"),
             dataset.resolution.name,
             station_id,
-            _served_at(file, asked_at),
+            served_at(file, asked_at),
             estimate=self._left_out_of_estimate is not None,
         )
         # the batch holds the whole dataset: what is told is of the parameters asked for
@@ -1528,7 +1484,7 @@ class MetnoFrostValues(TimeseriesValues):
             pl.lit(parameter.name_original, dtype=pl.String),
             parameter.dataset.resolution.name,
             station_id,
-            _served_at(file, asked_at),
+            served_at(file, asked_at),
             estimate=self._left_out_of_estimate is not None,
         )
         _tell_not_returned(
@@ -1664,7 +1620,7 @@ class MetnoFrostValues(TimeseriesValues):
                 pl.lit(element, dtype=pl.String),
                 resolution_name,
                 station_id,
-                _served_at(obs_file, asked_at),
+                served_at(obs_file, asked_at),
                 estimate=self._left_out_of_estimate is not None,
             )
             left_outs.append(read.left_out)
@@ -1682,7 +1638,7 @@ class MetnoFrostValues(TimeseriesValues):
             pl.concat([frame for frame in left_outs if not frame.is_empty()] or [pl.DataFrame()]).unique(),
             pl.concat(open_windows).group_by("parameter", "timestamp").agg(pl.col("closes").min())
             if open_windows
-            else _no_open_window(),
+            else no_open_window(),
         )
         _tell_not_returned(
             read,
