@@ -391,7 +391,10 @@ def test_dwd_mosmix_snow(options_humanize_false_convert_units_false: Options) ->
     values = request.filter_by_station_id(stations).values().all()
     assert sorted(values.df["station_id"].unique()) == stations
     # and the 15 of the constant, which only an out-of-season answer is read from: a change in the run is noticed here
-    assert stations == sorted(MOSMIX_SNOW_STATION_IDS), "DWD changed the stations of MOSMIX-SNOW: update the constant"
+    assert stations == sorted(MOSMIX_SNOW_STATION_IDS), (
+        "DWD changed the stations of MOSMIX-SNOW: update the constant, and re-check the extent of `hourly/snow` in "
+        "`metadata.py` (national DE; an Austrian station makes it regional DE/AT)"
+    )
     assert set(values.df["parameter"]) == {
         parameter.name_original for parameter in DwdMosmixMetadata.hourly.snow.parameters
     }

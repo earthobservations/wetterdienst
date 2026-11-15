@@ -165,7 +165,7 @@ def test_a_dataset_narrower_than_its_network_declares_its_own_extent() -> None:
     # MOSMIX-SNOW lists Alpine stations, all in Bavaria (GH-4111): one country's, so national, in a global network
     snow = declared["dwd/mosmix", "hourly/snow"]
     assert (snow.scope, snow.continents, snow.country_codes) == ("national", ("europe",), ("DE",))
-    assert snow.bbox == (9.0, 46.0, 14.0, 49.0)
+    assert snow.bbox == (9.0, 47.2, 14.0, 49.0)
     mosmix = Wetterdienst.resolve("dwd", "mosmix").metadata
     assert mosmix.extent.scope == "global"
     assert mosmix.hourly.small.extent is None

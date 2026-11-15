@@ -459,7 +459,7 @@ def test_the_coverage_of_the_snow_forecast_is_the_alps_and_the_rest_of_mosmix_th
     assert datasets["snow"]["extent"] == {
         "scope": "national",
         "continents": ["europe"],
-        "bbox": [9, 46, 14, 49],
+        "bbox": [9, 47.2, 14, 49],
     }
     assert datasets["small"]["extent"]["scope"] == "global"
     assert datasets["large"]["extent"]["scope"] == "global"
