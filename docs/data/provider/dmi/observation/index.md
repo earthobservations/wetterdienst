@@ -19,6 +19,12 @@ that this local/UTC offset never drops a boundary period from the result.
 Each station's `country` is DMI's three-letter code for the country it is in: `DNK`, `GRL` or `FRO`.
 DMI gives no region within a country, so `region` is null.
 
+Each station's `wmo_id` is DMI's `wmoStationId` (`06180` for Copenhagen Airport), which DMI gives 901 of its
+1,065 stations and always writes as the `station_id`. Only the numbers of the WMO blocks of Greenland (`04`),
+Denmark and the Faroe Islands (`06`) are read: the 774 others (`05xxx`, `20xxx` to `34xxx`) are DMI's own numbers, mostly of its
+automatic stations, which WMO's register (OSCAR) does not list, and would collide with real stations of other
+countries. Their `wmo_id` is null.
+
 Each value carries DMI's `qcStatus` in `quality_flags`, `manual` (quality controlled by DMI's
 climatologists) or `none` (not controlled), followed by `validity:true` or `validity:false`. DMI
 documents `validity` as whether the climatologists consider the value valid: "Invalid data is

@@ -730,7 +730,8 @@ class AemetObservationRequest(TimeseriesRequest):
             log.warning(f"Failed to fetch AEMET stations: {_without_url_secrets_in(str(payload))}")
             return pl.LazyFrame()
 
-        df = pl.DataFrame(json.loads(payload.decode("latin-1"))).select(
+        inventory = pl.DataFrame(json.loads(payload.decode("latin-1")))
+        df = inventory.select(
             pl.col("indicativo").alias("station_id"),
             # the inventory pads some names with blanks (`PORTOCOLOM  `), which a comparison of the name misses
             pl.col("nombre").str.strip_chars().alias("name"),
@@ -738,6 +739,9 @@ class AemetObservationRequest(TimeseriesRequest):
             pl.col("altitud").alias("elevation"),
             parse_dms_coordinate("latitud").alias("latitude"),
             parse_dms_coordinate("longitud").alias("longitude"),
+            # the synoptic indicative is the WMO number (five digits, `08222`), blank for a station that is no
+            # synoptic one (GH-4070)
+            (pl.col("indsinop") if "indsinop" in inventory.columns else pl.lit(None, pl.String)).alias("wmo_id"),
         )
         # one catalogue for every dataset: the core copies it over the request's datasets
         return df.lazy()

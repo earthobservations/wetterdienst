@@ -16,6 +16,7 @@ import polars as pl
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.quality_flags import calm, clear_sentinels, join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
+from wetterdienst.model.station_ids import wmo_id_of_wigos_expr
 from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.meteoswiss.observation.metadata import MeteoswissObservationMetadata
 from wetterdienst.util.network import download_file, fetchable_link
@@ -194,6 +195,10 @@ class MeteoswissObservationRequest(TimeseriesRequest):
             pl.col("station_abbr").alias("station_id"),
             pl.col("station_name").alias("name"),
             pl.col("station_canton").alias("region"),
+            # a WSI on every station: `0-20000-0-<WMO number>` on 156 of 158, MeteoSwiss's own issuer (`0-756-0-BIA`)
+            # on two, which has no WMO number (GH-4070)
+            pl.col("station_wigos_id").alias("wigos_id"),
+            wmo_id_of_wigos_expr("station_wigos_id").alias("wmo_id"),
             pl.col("station_coordinates_wgs84_lat").alias("latitude"),
             pl.col("station_coordinates_wgs84_lon").alias("longitude"),
             pl.col("station_height_masl").alias("elevation"),

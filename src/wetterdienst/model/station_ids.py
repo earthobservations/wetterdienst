@@ -167,5 +167,15 @@ def wigos_id_expr(column: str | pl.Expr) -> pl.Expr:
     )
 
 
+def wmo_id_of_wigos_expr(column: str | pl.Expr) -> pl.Expr:
+    """Give the expression that reads the WMO number out of a column of WIGOS identifiers: five digits, else null.
+
+    A WIGOS identifier of WMO's own issuer, ``0-20000-0-<WMO number>``, has the WMO number as its local identifier
+    (``0-20000-0-06735`` is ``06735``). One of a national issuer (``0-756-0-BIA``, ``0-528-0-06233``, ``0-203-0-11406``)
+    has none, even where its local identifier looks like one: it is a number of that country's own scheme.
+    """
+    return wigos_id_expr(column).str.extract(r"^0-20000-0-([0-9]{5})$", 1)
+
+
 #: the expression that reads a column of `STATION_ID_COLUMNS` in its notation; `shape_stations_frame` applies it
 STATION_ID_COLUMNS = {"wmo_id": wmo_id_expr, "wigos_id": wigos_id_expr, "icao_id": icao_id_expr}

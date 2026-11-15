@@ -18,6 +18,12 @@ Types of changes:
 
 ### Added
 
+- The station columns `wmo_id`, `wigos_id` and `icao_id` are filled from what the provider's list
+  publishes: `wmo_id` for `dmi` (blocks 04 and 06 only, DMI's own 20xxx to 34xxx are no WMO
+  numbers), `eccc`, `fmi`, `nws`, `aemet` and `metno/frost`; `wigos_id` for `meteoswiss`, `rmi`,
+  `chmi` and `metno/frost`; `wmo_id` also from a WIGOS id of the issuer 20000 (`meteoswiss`, `rmi`,
+  `chmi`), never from a national one; `icao_id` for `fmi`, `nws`, `metno/frost` and `noaa/ghcn`
+  hourly. `eccc` has `climate_id` and `tc_id` and `chmi` `gh_id`, their own ids (GH-4070)
 - `dmi/observation`: `quality_flags` carries `n:<count>`, the number of readings a value was
   computed from (`noValuesInCalculation`), and the check `source` flags a daily value of fewer than
   4 readings (half of the 8 synoptic readings of older Greenland days), a monthly one of fewer than

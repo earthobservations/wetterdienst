@@ -122,6 +122,9 @@ _STATION_VALUE_SCHEMA = pl.Schema(
     }
 )
 
+#: the blocks of the WMO numbers of Greenland (04) and of Denmark and the Faroe Islands (06)
+_WMO_BLOCKS = r"^0[46][0-9]{3}$"
+
 _STATION_SCHEMA = pl.Schema(
     {
         "features": pl.List(
@@ -133,6 +136,7 @@ _STATION_SCHEMA = pl.Schema(
                             "stationId": pl.String,
                             "name": pl.String,
                             "country": pl.String,
+                            "wmoStationId": pl.String,
                             "stationHeight": pl.Float64,
                             "validFrom": pl.String,
                             "validTo": pl.String,
@@ -475,6 +479,12 @@ class DmiObservationRequest(TimeseriesRequest):
             pl.col("properties").struct.field("stationId").alias("station_id"),
             pl.col("properties").struct.field("name").alias("name"),
             pl.col("properties").struct.field("country").alias("country"),
+            # `wmoStationId` is `stationId` on every station that has one (901 of 1065), but only the numbers of the
+            # WMO blocks of Greenland (04), Denmark and the Faroe Islands (06) are WMO numbers: 20xxx to 32xxx, DMI's
+            # own numbers of its automatic stations, are no station of WMO's register (OSCAR, GH-4070)
+            pl.when(pl.col("properties").struct.field("wmoStationId").str.contains(_WMO_BLOCKS))
+            .then(pl.col("properties").struct.field("wmoStationId"))
+            .alias("wmo_id"),
             pl.col("geometry").struct.field("coordinates").list.get(1).alias("latitude"),
             pl.col("geometry").struct.field("coordinates").list.get(0).alias("longitude"),
             pl.col("properties").struct.field("stationHeight").alias("elevation"),
@@ -514,6 +524,7 @@ class DmiObservationRequest(TimeseriesRequest):
         df = df.group_by("station_id", maintain_order=True).agg(
             newest("name"),
             newest("country"),
+            newest("wmo_id"),
             newest("latitude"),
             newest("longitude"),
             newest("elevation"),

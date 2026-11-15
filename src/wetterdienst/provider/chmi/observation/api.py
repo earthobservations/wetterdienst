@@ -378,6 +378,13 @@ class ChmiObservationRequest(TimeseriesRequest):
 
     _endpoint: ClassVar[str] = f"{_BASE_URL}/metadata/meta1.csv"
 
+    # `gh_id` is CHMI's own code of the station (`L3CHEB01`, a letter for the region first), `GH_ID` of `meta1.csv`; the
+    # `station_id` is its WSI (GH-4070)
+    _base_columns: ClassVar = (
+        *TimeseriesRequest._base_columns,  # noqa: SLF001
+        "gh_id",
+    )
+
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
         file = download_file(

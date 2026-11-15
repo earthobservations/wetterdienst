@@ -46,6 +46,11 @@ SOURCES: dict = {
             "masl": 94,
             "validFrom": "1931-01-01T00:00:00.000Z",
             "county": "OSLO",
+            # the ids are as the `Source` schema of Frost words them (`wmoId` a number, 1492 for 01492; `wigosId` of
+            # Norway's issuer, `0-578-0-18700`; `icaoCodes` a list), not read from a live answer: the list needs a key
+            "wmoId": 1492,
+            "wigosId": "0-578-0-18700",
+            "icaoCodes": [],
         },
         {
             "id": "SN46380",

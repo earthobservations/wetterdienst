@@ -1746,7 +1746,7 @@ class MetnoFrostRequest(TimeseriesRequest):
     # now only (2,234 of the 4,179 on 2026-11-07), and `ids=` of a closed station is a 404 either way (GH-3847)
     _sources_url = (
         "https://frost.met.no/sources/v0.jsonld?types=SensorSystem&validtime=1700-01-01/now"
-        "&fields=id,name,validFrom,validTo,geometry,county,countryCode,masl"
+        "&fields=id,name,validFrom,validTo,geometry,county,countryCode,masl,wmoId,wigosId,icaoCodes"
     )
     # the series Frost lists for the elements and resolutions the network declares: one request for every station,
     # 71,363 rows and 13.2 MB on 2026-11-07, about 30 s of which the server computes 8 and does not compress
@@ -1850,6 +1850,17 @@ class MetnoFrostRequest(TimeseriesRequest):
             # a station still in service has no validTo, which parses to null
             pl.col("validTo").str.to_datetime(format=_FROST_STAMP, time_unit="us").alias("_source_to"),
         )
+        # the ids of the `Source` schema (GH-4070): `wmoId` is the WMO number, a number or a text depending on the row
+        # (1492 for 01492), `wigosId` the WSI (`0-578-0-18700`: of Norway's issuer, so its local part is no WMO number),
+        # `icaoCodes` a list, of which the first is read. A column no source has is no column of the answer
+        for column, dtype in (("wmoId", pl.String), ("wigosId", pl.String), ("icaoCodes", pl.List(pl.String))):
+            if column not in df.columns:
+                df = df.with_columns(pl.lit(None, dtype=dtype).alias(column))
+        df = df.with_columns(
+            pl.col("wmoId").cast(pl.String).str.strip_chars().str.zfill(5).alias("wmo_id"),
+            pl.col("wigosId").alias("wigos_id"),
+            pl.col("icaoCodes").list.first().alias("icao_id"),
+        )
         df = self._with_series_bounds(df.rename({"id": "station_id"}), settings, client_kwargs)
         df = df.rename({"name": "name", "county": "region", "countryCode": "country"})
         # Frost pads some names with a blank (`KVANNDALEN `), which a comparison of the name misses
@@ -1862,6 +1873,9 @@ class MetnoFrostRequest(TimeseriesRequest):
             "elevation",
             "start_timestamp",
             "end_timestamp",
+            "wmo_id",
+            "wigos_id",
+            "icao_id",
         )
         # one catalogue for every dataset: the core copies it over the request's datasets
         return df.lazy()

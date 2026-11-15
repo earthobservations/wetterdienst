@@ -639,6 +639,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
                 "STATE",
                 "NAME",
                 "WMO_ID",
+                "ICAO",
             ]
         )
         df = df.rename(
@@ -650,6 +651,7 @@ class NoaaGhcnRequest(TimeseriesRequest):
                 "STATE": "region",
                 "NAME": "name",
                 "WMO_ID": "wmo_id",
+                "ICAO": "icao_id",
             }
         )
         df = df.with_columns(
@@ -657,7 +659,8 @@ class NoaaGhcnRequest(TimeseriesRequest):
             pl.lit("data", dtype=pl.String).alias("dataset"),
             cs.string().str.strip_chars().replace("", None),
         )
-        # a WMO number is five digits, as the daily list writes it. The hourly list also has `400` on 445 Spanish
+        # `ICAO` is on 6505 of 38870 stations, four letters (GH-4070). A WMO number is five digits, as the daily list
+        # writes it. The hourly list also has `400` on 445 Spanish
         # stations such as SPN00000293 BEGUR (CAP), and `of`, `unkno`, `resol`, `260` and `open` on a dozen more:
         # not numbers of a station
         df = df.with_columns(
