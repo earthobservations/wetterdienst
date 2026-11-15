@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.51.0] - 2026-11-15
+
 ### Added
 
 - `[Forecast]` For the stations of DWD's snow forecast MOSMIX-SNOW (15 in the Bavarian Alps today, Zugspitzplatt
@@ -2206,7 +2208,8 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.50.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.0...HEAD
+[0.51.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.50.0...app-v0.51.0
 [0.50.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.49.0...app-v0.50.0
 [0.49.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.48.0...app-v0.49.0
 [0.48.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.47.0...app-v0.48.0
