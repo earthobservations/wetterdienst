@@ -1,13 +1,9 @@
 import type { NetworkKind } from '#shared/types/api'
+import { NETWORK_KIND_KEYS } from '#shared/utils/seo'
 
-/** The catalog key of each kind of network, reusing the names the home page gives the kinds of data */
-const KEYS: Record<NetworkKind, string> = {
-  observation: 'home.kindObservationsTitle',
-  forecast: 'home.kindForecastsTitle',
-  derived: 'providers.kindDerived',
-  radar: 'home.kindRadarTitle',
-  alerts: 'home.kindAlertsTitle',
-}
+// the catalog key of each kind is shared with the head of a provider's page (`shared/utils/seo.ts`); a kind the
+// backend gains and this list lacks fails the type check here
+const KEYS = NETWORK_KIND_KEYS satisfies Record<NetworkKind, string>
 
 /** Names what a network serves -- measurements, forecasts, radar -- in the active language. */
 export function useNetworkKindLabel() {

@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { NetworkKind, ProviderNetwork } from '#shared/types/api'
+import { canonicalUrl, providerPath, providerSeoText } from '#shared/utils/seo'
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const route = useRoute()
+const config = useRuntimeConfig()
 const { networkKindLabel } = useNetworkKindLabel()
 
 const { data, pending, error, refresh } = useProviders()
@@ -11,8 +13,24 @@ const id = computed(() => String(route.params.provider ?? '').toLowerCase())
 const provider = computed(() => data.value?.providers.find(candidate => candidate.provider === id.value))
 const failure = computed(() => error.value ? describeFetchError(error.value) : '')
 
-// the title says which provider this is (WCAG 2.4.2), once the provider is known
-useHead({ title: () => provider.value?.name_english })
+// The title says which provider this is (WCAG 2.4.2), once the provider is known. The description, the canonical link
+// and the og and twitter tags say the same as the server's shell does for this path (`server/utils/seoHead.ts`,
+// GH-4119): the text of both is `providerSeoText`. Until the provider is known, and for an id that is not one, they are
+// left to `app/app.vue`, which tells the path as the site with no canonical link.
+const seoText = computed(() => provider.value ? providerSeoText(provider.value, locale.value, t) : undefined)
+const canonical = computed(() => provider.value ? canonicalUrl(config.public.siteUrl, providerPath(provider.value.provider)) : undefined)
+useHead(() => ({
+  title: provider.value?.name_english,
+  link: canonical.value ? [{ rel: 'canonical', href: canonical.value }] : [],
+}))
+useSeoMeta({
+  description: () => seoText.value?.description,
+  ogTitle: () => seoText.value?.title,
+  ogDescription: () => seoText.value?.description,
+  ogUrl: canonical,
+  twitterTitle: () => seoText.value?.title,
+  twitterDescription: () => seoText.value?.description,
+})
 
 // the networks that have stations and values, which the explorer can be opened on
 const TIMESERIES: NetworkKind[] = ['observation', 'forecast', 'derived']

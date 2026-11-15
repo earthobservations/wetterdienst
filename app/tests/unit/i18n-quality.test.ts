@@ -345,6 +345,7 @@ const UI_SAME: Record<string, Same> = {
   'dataViewer.limitStationsCount': { en: ['fr', 'nl'], why: COGNATE },
   'dataViewer.limitParametersCount': { en: ['nl'], why: COGNATE },
   'home.kindRadarTitle': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: COGNATE },
+  'seo.kinds.radar': { en: ['cs', 'da', 'es', 'fr', 'it', 'nl', 'pl'], why: COGNATE },
   'about.linksTitle': { en: ['da', 'de-hh', 'de', 'nl'], why: COGNATE },
   'about.linkDocs': { en: ['fr'], de: ['da'], why: COGNATE },
   'nav.home': { en: ['it'], de: ['da', 'nl'], why: COGNATE },
