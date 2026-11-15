@@ -119,7 +119,7 @@
   "tests/provider/dmi/observation/test_running_periods.py::test_an_estimate_leaves_the_running_value_out_and_tells_it[annual-records2-running2]": [["DmiObservationValues annual/data", "d9b22919", 1, "79519d997f86f006"]],
   "tests/provider/dmi/observation/test_running_periods.py::test_an_estimate_leaves_the_running_value_out_and_tells_it[daily-records0-running0]": [["DmiObservationValues daily/data", "d9b22919", 1, "308bc9dfeeea279d"]],
   "tests/provider/dmi/observation/test_running_periods.py::test_an_estimate_leaves_the_running_value_out_and_tells_it[monthly-records1-running1]": [["DmiObservationValues monthly/data", "d9b22919", 1, "b3ee12b375d6c326"]],
-  "tests/provider/dmi/observation/test_running_periods.py::test_an_hourly_value_is_not_judged": [["DmiObservationValues hourly/data", "d9b22919", 2, "bc3018a056497e57"]],
+  "tests/provider/dmi/observation/test_running_periods.py::test_an_hourly_value_is_not_judged": [["DmiObservationValues hourly/data", "d9b22919", 3, "8b5c163f8dad7b45"]],
   "tests/provider/dmi/observation/test_running_periods.py::test_summarize_over_closed_periods_says_nothing": [["DmiObservationValues annual/data", "d9b22919", 2, "c5967f9e7ba7c593"]],
   "tests/provider/dmi/observation/test_running_periods.py::test_summarize_takes_the_closed_value_and_none_of_the_running_one[annual-records2-running2]": [["DmiObservationValues annual/data", "d9b22919", 1, "79519d997f86f006"]],
   "tests/provider/dmi/observation/test_running_periods.py::test_summarize_takes_the_closed_value_and_none_of_the_running_one[daily-records0-running0]": [["DmiObservationValues daily/data", "d9b22919", 1, "308bc9dfeeea279d"]],

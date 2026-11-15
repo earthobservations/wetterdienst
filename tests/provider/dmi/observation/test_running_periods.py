@@ -370,24 +370,26 @@ def test_a_closed_day_is_still_judged_by_its_count_and_the_open_one_is_gone(monk
 
 
 def test_an_hourly_value_is_not_judged(monkeypatch: pytest.MonkeyPatch) -> None:
-    """DMI publishes an hour when it is over (the latest `to` of 06180 at 16:18 UTC was 16:00): no token, no warning."""
+    """An hour is kept whatever its `to` is: no token and no warning, even for one that ends after the request.
+
+    DMI publishes an hour when it is over (the latest `to` of 06180 at 16:18 UTC was 16:00), so no such record is
+    served; the one that ends at 16:00 is made up, and holds the reader to not judging an hour at all.
+    """
     _at(monkeypatch, NOW)
     begin_response()
+    hours = [(13, CLOSED), (14, RUNNING), (15, 11.0)]
     records = [
-        _record("mean_temp", "2026-11-15T13:00:00+00:00", "2026-11-15T14:00:00+00:00", CLOSED, 6),
-        _record("mean_temp", "2026-11-15T14:00:00+00:00", "2026-11-15T15:00:00+00:00", RUNNING, 6),
+        _record("mean_temp", f"2026-11-15T{hour:02d}:00:00+00:00", f"2026-11-15T{hour + 1:02d}:00:00+00:00", value, 6)
+        for hour, value in hours
     ]
-
-    found = _read(
-        monkeypatch,
-        "hourly",
-        records,
-        start=dt.datetime(2026, 11, 15, tzinfo=UTC),
-        end=dt.datetime(2026, 11, 16, tzinfo=UTC),
+    request = _request(
+        monkeypatch, "hourly", records, dt.datetime(2026, 11, 15, tzinfo=UTC), dt.datetime(2026, 11, 16, tzinfo=UTC)
     )
 
-    assert [value for value, _ in found.values()] != []
-    assert all(flags == "manual,validity:true,n:6" for _, flags in found.values())
+    df = stations_result(request, "hourly", "data", DANISH, country="DNK").values().all().df.sort("timestamp")
+
+    assert df["value"].to_list() == [value for _, value in hours]
+    assert df["quality_flags"].to_list() == ["manual,validity:true,n:6"] * 3
     assert [w for w in recorded_warnings() if w["code"] == CODE] == []
 
 

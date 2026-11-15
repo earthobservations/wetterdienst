@@ -352,7 +352,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: of a window that had not closed were left out, which the estimate tells once as `source-data-left-out` when its
     #: walk is over (`EstimateLeftOut`, GH-3848, GH-3883). It also says that the values are read for an estimate:
     #: `metno/frost` leaves the monthly and annual value of an open window out of one, as it does a daily value,
-    #: and `dmi/observation` the month and the year still running (`model/open_window.py`)
+    #: and `dmi/observation` the day, the month and the year still running (`model/open_window.py`)
     _left_out_of_estimate: EstimateLeftOut | None = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
