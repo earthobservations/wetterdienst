@@ -188,6 +188,12 @@ export default defineNuxtConfig({
     // carries it, and set at run time by `NUXT_API_BASE` (GH-3096). Empty means: the old `NUXT_PUBLIC_API_BASE`
     // if that is set (deprecated), else `http://localhost:7890/api`.
     apiBase: '',
+    // The name Google Search Console gives for the verification file of an HTML-file property, `google54ae9a07758f51bd`
+    // (a trailing `.html` is accepted): the server then answers `/<name>.html` with the line Google expects
+    // (`server/middleware/google-site-verification.ts`, GH-4108). Private and set at run time by
+    // `NUXT_GOOGLE_SITE_VERIFICATION`; empty, nothing is answered, and a value that is no name is ignored with a warning.
+    // Not a file of `public/`, which every build and every self-hosted instance would serve as its own.
+    googleSiteVerification: '',
     public: {
       // The address the app is reached at, for what names the pages to the outside: the canonical link and `og:url` of
       // each page, the sitemap and `robots.txt` (`shared/utils/seo.ts`, GH-3497). Public, because the page writes the
