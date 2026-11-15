@@ -101,7 +101,7 @@ locale to the number of forms and to `{count}` in each of them. A count that nee
 
 ## Numbers, dates and coordinates
 
-A number the app shows is written in the language of the page: `formatNumber`. The day and month
+A number the app shows is written in the language of the page: `formatNumber` for text, and `valueFormat`/`tickFormat` (`utils/explorer-option.ts`) for the Explorer chart's readout and axes. The day and month
 of the Meteogram's day cards come from the language's tag (`en-GB`, `de-DE`, as `nuxt.config.ts` has
 them), as the bare `en` is American. The moment of a forecast run (the Meteogram's run list) is
 written by `formatRunTime`, in the language's order ("15.10.2026, 04:00 UTC", "15/10/2026,

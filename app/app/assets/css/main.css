@@ -1091,7 +1091,7 @@
 
 /* ---- Print ------------------------------------------------------------------------------------------------------
    A printed page is the page's content in light colours: no header, tab bar, footer, skip link or buttons that
-   only work on a screen. The charts are scaled to the width of the paper (see the charts' own rules below);
+   only work on a screen. The charts are scaled to the width of the paper (see the charts' own rules above, in the `@media print` block after `.app-chart`);
    a chart, a card and a table row are not cut across two sheets. */
 @media print {
   :root,

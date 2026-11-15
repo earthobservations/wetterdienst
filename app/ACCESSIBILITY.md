@@ -193,7 +193,7 @@ the same hues on both pages, the light page's a step darker where the hue is und
 button, a legend item and the chart: 2 px, 3:1 on the dark paper) and `chart-print.spec.ts`.
 
 The charts take their chrome from the same tokens as the page (GH-3528): paper, plot, text, grid,
-zero line, hover label and toolbar are the `--app-chart-*` properties of `main.css`, made of Nuxt UI's
+axis and zero line are the `--app-chart-*` properties of `main.css`, made of Nuxt UI's
 `--ui-*` tokens, which switch with the colour mode. `utils/chart-theme.ts` reads them with
 `getComputedStyle` (resolved to `rgb()` by the browser's computed colour of a probe element, as a chart library
 does not parse `oklch()`; no canvas, whose pixels a browser that resists fingerprinting scrambles), and
@@ -201,9 +201,8 @@ does not parse `oklch()`; no canvas, whose pixels a browser that resists fingerp
 without a reload. A chart that is saved (the download menus, and the camera of the explorer's or the stripes' toolbar) or printed is
 always the light one, whatever the screen shows: it is drawn again, off screen, in the light theme
 (`save()` of `ExplorerChart.vue` and of `StripesChart.vue`; the explorer's image is as large as the chart on the page, one pixel to a pixel, and its facets are stacked into one), and a print is drawn light for as long as it lasts (a light page is printed as
-it is, and a zoom is kept), with a `@media print` rule in `main.css` for a chart that says it is still drawn dark
-(`data-chart-scheme="dark"`) when the print comes before the redraw: transparent paper and black text; a chart drawn
-light is left as drawn. The forecast's chart is printed as it shows, scaled to the sheet. On the themed chrome (the
+it is, and a zoom is kept): `useChartTheme()` hands the light theme from `beforeprint` to `afterprint`, and each chart
+is drawn again before the print is laid out. The forecast's chart is printed as it shows, scaled to the sheet. On the themed chrome (the
 Explorer, the stripes, the Forecast's hour labels) text and tick labels are the page's text and muted text (4.5:1 or more on the page
 in both modes) and the zero line the muted text colour (3:1 or more), checked on the drawn charts by
 `tests/e2e/explorer-chart.spec.ts` (the Explorer's), `stripes-chart.spec.ts` and `meteogram-chart.spec.ts`, and `tests/e2e/chart-theme.spec.ts`, which also holds the focus ring of the explorer's toolbar button, legend item and chart to the page's own (2 px, 3:1 on the dark paper, 1.4.11; Plotly's modebar had a black one, 1.2:1 there); the grid is decoration. The series and the stripes' palette are data and
