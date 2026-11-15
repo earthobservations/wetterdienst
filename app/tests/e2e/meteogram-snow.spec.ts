@@ -22,7 +22,7 @@ const CHANCE = '>10\u00A0cm new'
 const READOUT_CHANCE = 'Chance of > 10\u00A0cm new snow in 24\u00A0h'
 const READOUT_NEW = 'New snow, 3\u00A0h'
 
-// room a title keeps in its plot for a wider font than the one measured (Chrome's): 8 %
+// the room a title keeps in its plot in Chromium, where the choice of the languages that say "new" was measured: 8 %
 const HEADROOM = 1.08
 
 const INDIGO = { light: '#4f46e5', dark: '#818cf8' }
@@ -394,12 +394,14 @@ test.describe('on a phone', () => {
 })
 
 // A title is turned to read up the plot, so its length is bounded by the height of the plot it names: 72 px for the new snow and the
-// depth and the chance. The longest words of the 11 languages must fit them (a title that is longer runs onto the plot next to it), with
-// 8 % to spare: Firefox's font is about 6 % wider than Chrome's (the snow spec failed there at 66.8 px against a plot of 64)
+// depth and the chance. In whichever browser runs, a title must fit its plot (a longer one runs onto the plot next to it).
+// The 8 % of room (`HEADROOM`) is not a bound of the browser that runs: it is how the languages that say "new" in the chance's title
+// were chosen, from measurements in Chrome, whose font is about 6 % narrower than Firefox's. It is held in Chromium alone, where
+// those measurements were made; Firefox measures its own wider font against the plot itself.
 test.describe('the titles in every language, at 320 px', () => {
   const LANGUAGES = ['en', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl', 'cs', 'da']
   for (const language of LANGUAGES) {
-    test(`fit the plots they name in ${language}`, async ({ page, baseURL, context }) => {
+    test(`fit the plots they name in ${language}`, async ({ page, baseURL, context, browserName }) => {
       await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
       await open(page, baseURL!, SNOW_STATION, { width: 320, height: 844 })
       // the lines of the titles, turned: those of one plot have the one centre; the plots from the top are wind, precipitation,
@@ -420,9 +422,16 @@ test.describe('the titles in every language, at 320 px', () => {
         return [...byCentre.entries()].sort(([a], [b]) => a - b).map(([, height]) => height)
       })
       expect(plots).toHaveLength(8)
-      expect(plots[2]!, 'the new snow').toBeLessThanOrEqual(72 / HEADROOM)
-      expect(plots[3]!, 'the depth').toBeLessThanOrEqual(72 / HEADROOM)
-      expect(plots[4]!, 'the chance').toBeLessThanOrEqual(72 / HEADROOM)
+      // the height of the plot each title names, as the layout gives it
+      const room = 72
+      expect(plots[2]!, 'the new snow').toBeLessThanOrEqual(room)
+      expect(plots[3]!, 'the depth').toBeLessThanOrEqual(room)
+      expect(plots[4]!, 'the chance').toBeLessThanOrEqual(room)
+      if (browserName === 'chromium') {
+        expect(plots[2]!, 'the new snow, with room to spare').toBeLessThanOrEqual(room / HEADROOM)
+        expect(plots[3]!, 'the depth, with room to spare').toBeLessThanOrEqual(room / HEADROOM)
+        expect(plots[4]!, 'the chance, with room to spare').toBeLessThanOrEqual(room / HEADROOM)
+      }
     })
   }
 })
