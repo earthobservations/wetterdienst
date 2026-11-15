@@ -1268,6 +1268,80 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "small", "wwm"): "Probability for fog within the last hour",
         ("hourly", "small", "wwm6"): "Probability for fog within the last 6 hours",
         ("hourly", "small", "wwmh"): "Probability for fog within the last 12 hours",
+        ("hourly", "snow", "dd"): "Wind direction",
+        ("hourly", "snow", "ff"): "Wind speed",
+        ("hourly", "snow", "fx1"): "Maximum wind gust within the last hour",
+        ("hourly", "snow", "rr1c"): "Total precipitation during the last hour consistent with significant weather",
+        ("hourly", "snow", "sa3"): (
+            "Accumulated new snow amount in 3 hours, in m. "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sa6"): (
+            "Accumulated new snow amount in 6 hours (amount of 3h values), in m. "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sah"): (
+            "Accumulated new snow amount in 12 hours (amount of 6h values), in m. "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sad"): (
+            "Accumulated new snow amount in 24 hours (amount of 12h values), in m. "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sa605"): (
+            "Probability of > 5cm new snow amount in 6 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sa610"): (
+            "Probability of > 10cm new snow amount in 6 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sa620"): (
+            "Probability of > 20cm new snow amount in 6 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sah05"): (
+            "Probability of > 5cm new snow amount in 12 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sah10"): (
+            "Probability of > 10cm new snow amount in 12 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sah30"): (
+            "Probability of > 30cm new snow amount in 12 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sad10"): (
+            "Probability of > 10cm new snow amount in 24 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sad30"): (
+            "Probability of > 30cm new snow amount in 24 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sad50"): (
+            "Probability of > 50cm new snow amount in 24 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sncv"): (
+            "Snow depth, in m. Given at the 00, 03, 06, ..., 21 UTC steps only (the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "td"): "Dewpoint 2m above surface",
+        ("hourly", "snow", "ttt"): "Temperature 2m above surface",
     },
     "DwdObservationMetadata": {
         ("hourly", "urban_pressure", "luftdruck_nn"): (
@@ -4615,6 +4689,11 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "either, and the probabilities `rd..` come at 06 and 07 UTC for Berlin, 06, 11 and 12 UTC for Los "
             "Angeles. An element a station has no value of is an answer with no rows, not an error. The hours in "
             "the parameter descriptions are DWD's, for Germany (run of 2026-10-28 09 UTC)."
+        ),
+        ("hourly", "snow"): (
+            "MOSMIX-SNOW: forecast of new snow, the probability of new snow above a depth and snow depth for 15 "
+            "stations in the Bavarian Alps, 24 times a day with a lead-time of 48 hours. DWD publishes it from "
+            "November to April only: out of season there is no run and a request for values is a 404."
         ),
     },
     "DwdRoadMetadata": {

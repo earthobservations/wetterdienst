@@ -91,6 +91,7 @@ const identical: Record<GlossaryRecord, Record<string, { why: string, locales?: 
   datasets: {
     small: { why: '"MOSMIX-S" is the name of the DWD product' },
     large: { why: '"MOSMIX-L" is the name of the DWD product' },
+    snow: { why: '"MOSMIX-SNOW" is the name of the DWD product' },
     icon: { why: '"ICON (global)" is the name of the model, whose qualifier these languages share with English', locales: ['da', 'de', 'de-hh', 'es', 'fr', 'lb'] },
     icon_eu: { why: '"ICON-EU" is the name of the model' },
     synop: { why: '"SYNOP" is the WMO name of the report type' },
