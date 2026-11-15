@@ -4,15 +4,17 @@
 
 The reader of each provider runs on the rows of its catalogue stub (`station_catalogue_stubs.py`), so what the search
 finds is what the reader gave each station, not a hand-built frame: the WMO number and the WIGOS id of MeteoSwiss (a
-WSI of WMO's issuer and one of its own), the WMO number and the ICAO code of the MADIS table of NWS.
+WSI of WMO's issuer and one of its own), the WMO number of the MADIS table of NWS, whose station id is no ICAO
+code, and the ICAO code of FMI.
 """
 
 from __future__ import annotations
 
 import pytest
 
-from tests.provider.station_catalogue_stubs import _meteoswiss, _nws
+from tests.provider.station_catalogue_stubs import _fmi, _meteoswiss, _nws
 from wetterdienst import Settings
+from wetterdienst.provider.fmi.observation import FmiObservationRequest
 from wetterdienst.provider.meteoswiss.observation import MeteoswissObservationRequest
 from wetterdienst.provider.nws.observation import NwsObservationRequest
 
@@ -29,6 +31,13 @@ def nws(monkeypatch: pytest.MonkeyPatch) -> NwsObservationRequest:
     """Give the request of NWS, whose catalogue is served from the stub."""
     _nws(monkeypatch)
     return NwsObservationRequest(parameters=[("hourly", "data")], settings=Settings(cache_disable=True))
+
+
+@pytest.fixture
+def fmi(monkeypatch: pytest.MonkeyPatch) -> FmiObservationRequest:
+    """Give the request of FMI, whose catalogue is served from the stub."""
+    _fmi(monkeypatch)
+    return FmiObservationRequest(parameters=[("hourly", "data")], settings=Settings(cache_disable=True))
 
 
 def _ids(result: object) -> list[str]:
@@ -60,18 +69,21 @@ def test_a_wigos_id_finds_its_station_whichever_way_the_issuer_is_written(
         assert _ids(meteoswiss.filter_by_wigos_id(wigos_id)) == ["SMA"]
 
 
-def test_an_icao_id_finds_the_station_whose_id_is_that_code(nws: NwsObservationRequest) -> None:
-    """The id of the MADIS table is an ICAO code for most of the stations, so `icao_id` is filled from it."""
-    for icao_id in ("KDEN", "kden"):
-        assert _ids(nws.filter_by_icao_id(icao_id)) == ["KDEN"]
+def test_an_icao_id_finds_the_station_that_lists_it(fmi: FmiObservationRequest) -> None:
+    """FMI lists the ICAO code of Mariehamn's airport in its own code space, whatever case it is searched in."""
+    for icao_id in ("EFMA", "efma"):
+        assert _ids(fmi.filter_by_icao_id(icao_id)) == ["100907"]
 
 
-def test_an_faa_identifier_is_no_icao_id_and_its_station_has_none(nws: NwsObservationRequest) -> None:
-    """`03PS` has a digit, so it is an FAA location identifier: the station keeps it as its id and has no ICAO code."""
+def test_a_text_that_is_no_icao_code_is_refused_not_searched(fmi: FmiObservationRequest) -> None:
+    """`03PS` has a digit, so it is no ICAO code: a ValueError, not an answer of no station."""
     with pytest.raises(ValueError, match="is no icao_id"):
-        nws.filter_by_icao_id("03PS")
-    row = nws.filter_by_station_id("03PS").df.row(0, named=True)
-    assert (row["station_id"], row["icao_id"]) == ("03PS", None)
+        fmi.filter_by_icao_id("03PS")
+
+
+def test_the_stations_of_nws_have_no_icao_id_as_their_station_id_is_no_code(nws: NwsObservationRequest) -> None:
+    """MADIS's station id is an ICAO code for most, but also a road-weather site or a radar: `icao_id` stays null."""
+    assert nws.all().df.get_column("icao_id").null_count() == nws.all().df.height
 
 
 def test_the_wmo_number_of_the_madis_table_is_read_without_its_padding(nws: NwsObservationRequest) -> None:

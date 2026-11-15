@@ -552,9 +552,9 @@ class NwsObservationRequest(TimeseriesRequest):
             pl.when(pl.col("wmo_id").str.contains(r"^00000[0-9]{5}$") & (pl.col("wmo_id") != _NO_WMO_ID))
             .then(pl.col("wmo_id").str.slice(5))
             .alias("wmo_id"),
-            # the id is an ICAO code for 2584 of the 3123 stations and an FAA location identifier (`03PS`, which has
-            # a digit) for the rest: the core keeps the four-letter ones as `icao_id`
-            pl.col("station_id").alias("icao_id"),
+            # `icao_id` stays null: column 2 is the METAR station id of MADIS, which is an ICAO code for most of the
+            # stations but also a road-weather site (KBIT), a radar (KEWX), a forecast office (KFGF, PHFO) or an alias
+            # (KANC for PANC), about 370 of its 2584 four-letter ids that are no aerodrome code (GH-4070)
             # a station of unknown elevation reads as null rather than as standing 9999 m up,
             # which interpolation would otherwise take at its word when it moves a reading by elevation: the
             # number it is judged by is the text read as one (the latitude and the longitude the core reads)

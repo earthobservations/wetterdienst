@@ -479,9 +479,11 @@ class DmiObservationRequest(TimeseriesRequest):
             pl.col("properties").struct.field("stationId").alias("station_id"),
             pl.col("properties").struct.field("name").alias("name"),
             pl.col("properties").struct.field("country").alias("country"),
-            # `wmoStationId` is `stationId` on every station that has one (901 of 1065), but only the numbers of the
-            # WMO blocks of Greenland (04), Denmark and the Faroe Islands (06) are WMO numbers: 20xxx to 32xxx, DMI's
-            # own numbers of its automatic stations, are no station of WMO's register (OSCAR, GH-4070)
+            # `wmoStationId` is `stationId` on every station that has one (901 of 1065), and a documented field is taken
+            # as published unless WMO's register shows it is not WMO: of the 127 numbers in the blocks of Greenland (04)
+            # and Denmark and the Faroe Islands (06), OSCAR has 115 as `0-20000-0-<number>`, of the other 774 (05xxx,
+            # 20xxx to 34xxx, DMI's own numbers of its automatic, snow and pluvio stations) none. So only the two
+            # blocks are read, a documented exception (GH-4070)
             pl.when(pl.col("properties").struct.field("wmoStationId").str.contains(_WMO_BLOCKS))
             .then(pl.col("properties").struct.field("wmoStationId"))
             .alias("wmo_id"),

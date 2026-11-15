@@ -533,6 +533,16 @@ def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
             "availableTimeSeries/v0.jsonld": json.dumps(frost_rows.SERIES).encode("utf8"),
         },
     )
+    served = frost_api.download_file
+
+    def download_file(*, url: str, **kwargs: Any) -> File:  # noqa: ANN401
+        # the ids are in the answer only if the request names them in its `fields` (GH-4070)
+        if "sources/v0.jsonld" in url:
+            missing = [name for name in ("wmoId", "wigosId", "icaoCodes") if name not in url]
+            assert not missing, f"the sources request does not ask for {missing}: {url}"
+        return served(url=url, **kwargs)
+
+    monkeypatch.setattr(frost_api, "download_file", download_file)
     request = MetnoFrostRequest(
         parameters=[("hourly", "data")],
         settings=Settings(cache_disable=True, auth={"metno_frost": ("stub-client", "stub-secret")}),
@@ -1702,8 +1712,8 @@ def _nws(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     # `METARTable.txt` of MADIS (2026-10-15), tab-separated with the columns padded: the world's METAR stations, of
     # which the reader keeps those of `US` and the three of the Virgin Islands and Hawaii it files under a state
     # code (PHBK, TIST, TISX); a missing elevation is 9999. The first column is the WMO number zero-padded to ten
-    # digits, `0000000000` where there is none; the id of the second is an ICAO code, or for 539 of the 3123 stations an
-    # FAA location identifier with a digit (`03PS`) (GH-4070)
+    # digits, `0000000000` where there is none; the id of the second is MADIS's station id, not an ICAO code: it is
+    # also an FAA identifier (`03PS`), a road-weather site or a radar, so `icao_id` is null (GH-4070)
     catalogue = (
         "0000072565\tKDEN\t39.83\t-104.66\t 1655\tDENVER/DENVER INTER, CO\tUS\tMTR\n"
         "0000074486\tKJFK\t40.65\t -73.78\t    7\tNEW YORK/JF KENN, NY\tUS\tMTR\n"
@@ -1823,8 +1833,8 @@ FROST_EXPECTED: dict[str, dict[str, Any]] = {
     }
     for station_id, (start, end) in frost_rows.EXPECTED.items()
 }
-# the ids of Oslo - Blindern: the `wmoId` 1492 padded to five digits, the WIGOS id of Norway's issuer, whose local part
-# is no WMO number, and an empty `icaoCodes` (GH-4070)
+# the ids of Oslo - Blindern: the `wmoId`, an integer, 1492 padded to five digits, the WIGOS id of Norway's issuer,
+# whose local part is no WMO number, and no `icaoCodes` (a list, on 164 of the 4,183 sources, GH-4070)
 FROST_EXPECTED["SN18700"].update({"wmo_id": "01492", "wigos_id": "0-578-0-18700", "icao_id": None})
 
 # the ids of the stations of the ECCC list that carry them: Esquimalt Harbour has the three, Chemainus Bare Point only
@@ -1905,10 +1915,10 @@ STUBS = [
         "nws/observation hourly/data",
         _nws,
         expected={
-            "KDEN": {"wmo_id": "72565", "icao_id": "KDEN", "wigos_id": None},
-            "PANC": {"wmo_id": "70273", "icao_id": "PANC"},
-            "K37W": {"wmo_id": None, "icao_id": None},
-            "03PS": {"wmo_id": None, "icao_id": None},
+            "KDEN": {"wmo_id": "72565", "icao_id": None, "wigos_id": None},
+            "PANC": {"wmo_id": "70273"},
+            "K37W": {"wmo_id": None},
+            "03PS": {"wmo_id": None},
         },
     ),
     Stub("meteofrance/observation daily/core", _meteofrance_observation, expected=METEOFRANCE_EXPECTED),

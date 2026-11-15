@@ -739,8 +739,10 @@ class AemetObservationRequest(TimeseriesRequest):
             pl.col("altitud").alias("elevation"),
             parse_dms_coordinate("latitud").alias("latitude"),
             parse_dms_coordinate("longitud").alias("longitude"),
-            # the synoptic indicative is the WMO number (five digits, `08222`), blank for a station that is no
-            # synoptic one (GH-4070)
+            # the synoptic indicative is the WMO number (five digits, `08222`, OSCAR has Madrid Retiro as
+            # `0-20000-0-08222`), blank for a station that is no synoptic one (GH-4070). Not read from the live list
+            # (it needs a key): if AEMET wrote it as a number without its zero (`8222`), the core would null it, as it
+            # does not pad a text, and `wmo_id` would be empty for the stations that have it
             (pl.col("indsinop") if "indsinop" in inventory.columns else pl.lit(None, pl.String)).alias("wmo_id"),
         )
         # one catalogue for every dataset: the core copies it over the request's datasets

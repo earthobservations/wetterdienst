@@ -697,6 +697,45 @@ _INSTANTANEOUS = ("surface_snow_thickness",)
 _INCOMPLETE = "Incomplete"
 
 
+#: the fields of the sources list that the catalogue reads, and the ids it asks for besides them (GH-4070)
+_SOURCE_FIELDS = "id,name,validFrom,validTo,geometry,county,countryCode,masl"
+_SOURCE_ID_FIELDS = "wmoId,wigosId,icaoCodes"
+
+
+def _source_ids(df: pl.DataFrame) -> pl.DataFrame:
+    """Add `wmo_id`, `wigos_id` and `icao_id` to the sources, read from what Frost types them as (GH-4070).
+
+    Read live 2026-11-15 (4,183 sources): `wmoId` is an integer on 1,029 sources (4 digits on 863, 5 on 166, never 0),
+    which is the WMO number without its leading zero, so it is padded to five digits; `wigosId` a text on 1,621
+    (issuer 578 on 1,350, 20000 on 265, 22000 on 6) and `icaoCodes` a list on 164 (one code on 163, two on one), of
+    which the first is read. A column that is not typed so (a text in `icaoCodes`, a decimal in `wmoId`) is read as no
+    id, not guessed at, and a column no source has is a column of nulls.
+    """
+    columns = []
+    wmo = df.schema.get("wmoId")
+    if wmo is not None and (wmo.is_integer() or wmo == pl.String):
+        text = pl.col("wmoId").cast(pl.String).str.strip_chars()
+        columns.append(
+            pl.when(text.str.contains(r"^[0-9]{1,5}$") & text.str.contains(r"[1-9]"))
+            .then(text.str.zfill(5))
+            .alias("wmo_id")
+        )
+    else:
+        columns.append(pl.lit(None, dtype=pl.String).alias("wmo_id"))
+    columns.append(
+        pl.col("wigosId").alias("wigos_id")
+        if df.schema.get("wigosId") == pl.String
+        else pl.lit(None, dtype=pl.String).alias("wigos_id")
+    )
+    icao = df.schema.get("icaoCodes")
+    columns.append(
+        pl.col("icaoCodes").list.first().cast(pl.String).alias("icao_id")
+        if isinstance(icao, pl.List)
+        else pl.lit(None, dtype=pl.String).alias("icao_id")
+    )
+    return df.with_columns(columns)
+
+
 def _raise_if_rejected(file: File) -> None:
     """Raise the `CredentialRejectedError` of a download that Frost answered with a 401 or a 403 (GH-2665, GH-3018)."""
     raise_if_credential_rejected(file, "Frost API", "METNO_FROST", "client ID")
@@ -1746,7 +1785,11 @@ class MetnoFrostRequest(TimeseriesRequest):
     # now only (2,234 of the 4,179 on 2026-11-07), and `ids=` of a closed station is a 404 either way (GH-3847)
     _sources_url = (
         "https://frost.met.no/sources/v0.jsonld?types=SensorSystem&validtime=1700-01-01/now"
-        "&fields=id,name,validFrom,validTo,geometry,county,countryCode,masl,wmoId,wigosId,icaoCodes"
+        f"&fields={_SOURCE_FIELDS},{_SOURCE_ID_FIELDS}"
+    )
+    # the same list without the ids, which is asked once if Frost answers the request above with a 400
+    _sources_url_without_ids = (
+        f"https://frost.met.no/sources/v0.jsonld?types=SensorSystem&validtime=1700-01-01/now&fields={_SOURCE_FIELDS}"
     )
     # the series Frost lists for the elements and resolutions the network declares: one request for every station,
     # 71,363 rows and 13.2 MB on 2026-11-07, about 30 s of which the server computes 8 and does not compress
@@ -1811,6 +1854,22 @@ class MetnoFrostRequest(TimeseriesRequest):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        if file.status == HTTPStatus.BAD_REQUEST and self._sources_url != self._sources_url_without_ids:
+            # a field name Frost does not know is a 400 for the whole list: ask again without the ids, which are the
+            # only fields added after the catalogue worked, rather than lose every station (GH-4070)
+            log.warning(
+                "Frost refused the sources request with its ids (%s), asking again without them: "
+                "wmo_id, wigos_id and icao_id are null",
+                _SOURCE_ID_FIELDS,
+            )
+            file = download_file(
+                url=self._sources_url_without_ids,
+                cache_dir=settings.cache_dir,
+                ttl=CacheExpiry.METAINDEX,
+                client_kwargs=client_kwargs,
+                cache_disable=settings.cache_disable,
+                use_certifi=settings.use_certifi,
+            )
         _raise_if_rejected(file)
         # the catalogue is one required file, so any other failure of it -- a 404 included -- is an
         # outage, which swallowed would read as a network without stations (GH-2599). A failed
@@ -1850,17 +1909,9 @@ class MetnoFrostRequest(TimeseriesRequest):
             # a station still in service has no validTo, which parses to null
             pl.col("validTo").str.to_datetime(format=_FROST_STAMP, time_unit="us").alias("_source_to"),
         )
-        # the ids of the `Source` schema (GH-4070): `wmoId` is the WMO number, a number or a text depending on the row
-        # (1492 for 01492), `wigosId` the WSI (`0-578-0-18700`: of Norway's issuer, so its local part is no WMO number),
-        # `icaoCodes` a list, of which the first is read. A column no source has is no column of the answer
-        for column, dtype in (("wmoId", pl.String), ("wigosId", pl.String), ("icaoCodes", pl.List(pl.String))):
-            if column not in df.columns:
-                df = df.with_columns(pl.lit(None, dtype=dtype).alias(column))
-        df = df.with_columns(
-            pl.col("wmoId").cast(pl.String).str.strip_chars().str.zfill(5).alias("wmo_id"),
-            pl.col("wigosId").alias("wigos_id"),
-            pl.col("icaoCodes").list.first().alias("icao_id"),
-        )
+        # the ids of the `Source` schema: `wmoId` is the WMO number as an integer (1492 for 01492), `wigosId` the WSI
+        # (`0-578-0-18700`: of Norway's issuer, so its local part is no WMO number), `icaoCodes` a list (GH-4070)
+        df = _source_ids(df)
         df = self._with_series_bounds(df.rename({"id": "station_id"}), settings, client_kwargs)
         df = df.rename({"name": "name", "county": "region", "countryCode": "country"})
         # Frost pads some names with a blank (`KVANNDALEN `), which a comparison of the name misses
