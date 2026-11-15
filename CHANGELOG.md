@@ -18,6 +18,13 @@ Types of changes:
 
 ### Added
 
+- The station columns `wmo_id`, `wigos_id` and `icao_id` are filled from what the provider's list
+  publishes: `wmo_id` for `dmi` (only the blocks 04 and 06: OSCAR lists none of its 05xxx and 20xxx
+  to 34xxx, DMI's own numbers), `eccc`, `fmi`, `nws`, `aemet` and `metno/frost`; `wigos_id` for
+  `meteoswiss`, `rmi`, `chmi` and `metno/frost`; `wmo_id` also from a WIGOS id of the issuer 20000
+  (`meteoswiss`, `rmi`, `chmi`), never from a national one; `icao_id` for `fmi`, `metno/frost` and
+  `noaa/ghcn` hourly (not `nws`, whose station id is no ICAO code). `eccc` has `climate_id` and
+  `tc_id` and `chmi` `gh_id`, their own ids (GH-4070)
 - `dmi/observation`: `quality_flags` carries `n:<count>`, the number of readings a value was
   computed from (`noValuesInCalculation`), and the check `source` flags a daily value of fewer than
   4 readings (half of the 8 synoptic readings of older Greenland days), a monthly one of fewer than
@@ -34,6 +41,9 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: the stations of `eccc/observation` have the new columns `climate_id` and `tc_id` and
+  those of `chmi/observation` `gh_id`, after the three id columns. A SQL table `to_target` wrote
+  before takes no append of them: write it anew (GH-4070)
 - **Breaking**: every provider's stations have three more columns after `region`, `wmo_id`,
   `wigos_id` and `icao_id` (`01001`, `0-56-101-01002`, `EDDH`; null where none is published), so
   a provider's own columns (dmi `country`, `dwd/road`, hubeau, both `imgw`, `wsv/pegel`) move three

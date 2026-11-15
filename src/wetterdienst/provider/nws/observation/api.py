@@ -35,6 +35,9 @@ log = logging.getLogger(__name__)
 # bearing (GH-2794).
 _CALM_WIND = Sentinel("0", where=pl.col("parameter").eq("winddirection"))
 
+# column 1 of the station table, where the station has no WMO number
+_NO_WMO_ID = "0000000000"
+
 # The endpoint serves every observation it holds, about 12 an hour: the 5-minute ASOS rows (minutes 0, 5, 10, ...; whole
 # degrees Celsius, no sea level pressure, no precipitation) and beside them the routine METAR, one an hour at a minute
 # of the station's own (:54 at KBOS, :53 at KDEN, :51 at KORD), and the SPECI and other reports filed between (GH-2857).
@@ -525,6 +528,7 @@ class NwsObservationRequest(TimeseriesRequest):
             | pl.col("column_2").str.strip_chars().is_in(self._stations_filed_under_a_state_code),
         )
         df = df.select(
+            pl.col("column_1"),
             pl.col("column_2"),
             pl.col("column_3"),
             pl.col("column_4"),
@@ -533,6 +537,7 @@ class NwsObservationRequest(TimeseriesRequest):
         )
         df = df.rename(
             mapping={
+                "column_1": "wmo_id",
                 "column_2": "station_id",
                 "column_3": "latitude",
                 "column_4": "longitude",
@@ -542,6 +547,14 @@ class NwsObservationRequest(TimeseriesRequest):
         )
         df = df.with_columns(pl.all().str.strip_chars())
         return df.with_columns(
+            # column 1 is the WMO number zero-padded to ten digits (`0000072565` is 72565), `0000000000` where the
+            # station has none; one number is on several stations in the table (GH-4070)
+            pl.when(pl.col("wmo_id").str.contains(r"^00000[0-9]{5}$") & (pl.col("wmo_id") != _NO_WMO_ID))
+            .then(pl.col("wmo_id").str.slice(5))
+            .alias("wmo_id"),
+            # `icao_id` stays null: column 2 is the METAR station id of MADIS, which is an ICAO code for most of the
+            # stations but also a road-weather site (KBIT), a radar (KEWX), a forecast office (KFGF, PHFO) or an alias
+            # (KANC for PANC), about 370 of its 2584 four-letter ids that are no aerodrome code (GH-4070)
             # a station of unknown elevation reads as null rather than as standing 9999 m up,
             # which interpolation would otherwise take at its word when it moves a reading by elevation: the
             # number it is judged by is the text read as one (the latitude and the longitude the core reads)

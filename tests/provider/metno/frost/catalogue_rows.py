@@ -46,6 +46,10 @@ SOURCES: dict = {
             "masl": 94,
             "validFrom": "1931-01-01T00:00:00.000Z",
             "county": "OSLO",
+            # the ids as Frost types them (read live 2026-11-15, 4,183 sources): `wmoId` an integer, 1492 for 01492, on
+            # 1,029; `wigosId` a text on 1,621, here of Norway's issuer; no `icaoCodes`, a list that 164 sources have
+            "wmoId": 1492,
+            "wigosId": "0-578-0-18700",
         },
         {
             "id": "SN46380",

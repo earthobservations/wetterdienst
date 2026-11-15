@@ -16,6 +16,7 @@ import logging
 import polars as pl
 
 from wetterdienst.model.quality_flags import join_quality_flags
+from wetterdienst.model.station_ids import wmo_id_of_wigos_expr
 
 # CHMI encodes timestamps without seconds, e.g. ``1863-10-01T00:00Z``.
 _DATE_FORMAT = "%Y-%m-%dT%H:%MZ"
@@ -60,6 +61,7 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
     )
     df = df.group_by("WSI", maintain_order=True).agg(
         pl.col("FULL_NAME").sort_by("END_DATE").last().alias("name"),
+        pl.col("GH_ID").sort_by("END_DATE").last().alias("gh_id"),
         pl.col("GEOGR2").sort_by("END_DATE").last().alias("latitude"),
         pl.col("GEOGR1").sort_by("END_DATE").last().alias("longitude"),
         pl.col("ELEVATION").sort_by("END_DATE").last().alias("elevation"),
@@ -68,6 +70,11 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
     )
     return df.select(
         pl.col("WSI").alias("station_id"),
+        # the id is a WSI (GH-4070): the WMO number is its local part where the issuer is WMO's (`0-20000-0-11406`, 43
+        # of 1605), none for the 1562 of the Czech issuer (`0-203-0-20303032003`, 268 of them with a five-digit local
+        # part that is no WMO number)
+        pl.col("WSI").alias("wigos_id"),
+        wmo_id_of_wigos_expr("WSI").alias("wmo_id"),
         # some names end in a blank (`Třinec  Oldřichovice  Javorový `),
         # which an exact comparison of the name then misses
         pl.col("name").str.strip_chars(),
@@ -79,6 +86,7 @@ def parse_chmi_stations(content: bytes) -> pl.DataFrame:
         .then(None)
         .otherwise(pl.col("end_timestamp"))
         .alias("end_timestamp"),
+        pl.col("gh_id"),
     )
 
 

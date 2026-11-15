@@ -554,9 +554,9 @@ there, and null where the source names none. The last three are the identifiers 
 
 | Column | Notation | Filled by |
 | --- | --- | --- |
-| `wmo_id` | the WMO station number: five digits with leading zeros, `01001` or `10381`; a value that is not that (a source's junk, an id of another scheme) is null | `dwd/mosmix`, `dwd/dmo` and `dwd/poi` for the stations whose `station_id` is the number (the others carry an id of DWD's own, `A191`), `geosphere/observation`, `knmi/observation`, `meteofrance/synop`, `noaa/ghcn` |
-| `wigos_id` | the WIGOS station identifier, `<series>-<issuer>-<issue number>-<local id>`, the first three numbers without leading zeros (`0-20000-0-10381`, `0-56-101-01002`), the local id as published | `knmi/observation` |
-| `icao_id` | the ICAO location indicator of the aerodrome, four upper-case letters (`EDDH`) | `dwd/mosmix`, `dwd/dmo`, `dwd/poi` |
+| `wmo_id` | the WMO station number: five digits with leading zeros, `01001` or `10381`; a value that is not that (a source's junk, an id of another scheme) is null | `dwd/mosmix`, `dwd/dmo` and `dwd/poi` for the stations whose `station_id` is the number (the others carry an id of DWD's own, `A191`), `geosphere/observation`, `knmi/observation`, `meteofrance/synop`, `noaa/ghcn`; from the number the list publishes: `aemet/observation` (`indsinop`), `dmi/observation` (`wmoStationId`, only in the blocks of Greenland, Denmark and the Faroe Islands), `nws/observation` (column 1 of the MADIS table; its station id is no ICAO code, so `icao_id` is null there), `eccc/observation`, `fmi/observation`, `metno/frost`; from a WIGOS id of the issuer 20000 (`0-20000-0-<number>`): `chmi/observation`, `meteoswiss/observation`, `rmi/observation` |
+| `wigos_id` | the WIGOS station identifier, `<series>-<issuer>-<issue number>-<local id>`, the first three numbers without leading zeros (`0-20000-0-10381`, `0-56-101-01002`), the local id as published | `chmi/observation`, `knmi/observation`, `meteoswiss/observation`, `metno/frost`, `rmi/observation` |
+| `icao_id` | the ICAO location indicator of the aerodrome, four upper-case letters (`EDDH`) | `dwd/mosmix`, `dwd/dmo`, `dwd/poi`, `fmi/observation`, `metno/frost`, `noaa/ghcn` (hourly) |
 
 A provider that does not publish one of them has it null, which is no statement that the station has none:
 `dwd/observation`'s stations are keyed by DWD's own number, which is not the WMO number. Search by them with
@@ -569,9 +569,11 @@ station the source gives none:
 
 | Provider and network | Column | What it holds |
 | --- | --- | --- |
+| `chmi/observation` | `gh_id` | CHMI's own code of the station, `L3CHEB01` (the `station_id` is its WIGOS identifier) |
 | `dmi/observation` | `country` | DMI's three-letter code of the country the station is in: `DNK`, `GRL` or `FRO` |
 | `dwd/road` | `station_group`, `road_name`, `road_sector`, `road_type`, `road_surface_type`, `road_surroundings_type` | the road a station is on and its surroundings, as DWD's list gives them |
 | `eaufrance/hubeau` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero and the reference system it is given in |
+| `eccc/observation` | `climate_id`, `tc_id` | the seven-character Climate ID the station has in ECCC's Climate Data Online, and Transport Canada's three-letter identifier of an airport (`YVR`), which is no ICAO code |
 | `imgw/hydrology` | `river`, `river_kilometer` | the river the gauge is on, with its hydrographic code as IMGW lists it (`Odra (1)`), and its position along it in kilometres, counted from the mouth |
 | `imgw/hydrology` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero in metres above sea level, and the datum, which IMGW's list does not state, so it is null |
 | `imgw/meteorology` | `river` | the river catchment the station is listed under, with its hydrographic code (`Odra (1)`) |

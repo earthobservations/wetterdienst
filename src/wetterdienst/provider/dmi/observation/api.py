@@ -122,6 +122,9 @@ _STATION_VALUE_SCHEMA = pl.Schema(
     }
 )
 
+#: the blocks of the WMO numbers of Greenland (04) and of Denmark and the Faroe Islands (06)
+_WMO_BLOCKS = r"^0[46][0-9]{3}$"
+
 _STATION_SCHEMA = pl.Schema(
     {
         "features": pl.List(
@@ -133,6 +136,7 @@ _STATION_SCHEMA = pl.Schema(
                             "stationId": pl.String,
                             "name": pl.String,
                             "country": pl.String,
+                            "wmoStationId": pl.String,
                             "stationHeight": pl.Float64,
                             "validFrom": pl.String,
                             "validTo": pl.String,
@@ -475,6 +479,14 @@ class DmiObservationRequest(TimeseriesRequest):
             pl.col("properties").struct.field("stationId").alias("station_id"),
             pl.col("properties").struct.field("name").alias("name"),
             pl.col("properties").struct.field("country").alias("country"),
+            # `wmoStationId` is `stationId` on every station that has one (901 of 1065), and a documented field is taken
+            # as published unless WMO's register shows it is not WMO: of the 127 numbers in the blocks of Greenland (04)
+            # and Denmark and the Faroe Islands (06), OSCAR has 115 as `0-20000-0-<number>`, of the other 774 (05xxx,
+            # 20xxx to 34xxx, DMI's own numbers of its automatic, snow and pluvio stations) none. So only the two
+            # blocks are read, a documented exception (GH-4070)
+            pl.when(pl.col("properties").struct.field("wmoStationId").str.contains(_WMO_BLOCKS))
+            .then(pl.col("properties").struct.field("wmoStationId"))
+            .alias("wmo_id"),
             pl.col("geometry").struct.field("coordinates").list.get(1).alias("latitude"),
             pl.col("geometry").struct.field("coordinates").list.get(0).alias("longitude"),
             pl.col("properties").struct.field("stationHeight").alias("elevation"),
@@ -514,6 +526,7 @@ class DmiObservationRequest(TimeseriesRequest):
         df = df.group_by("station_id", maintain_order=True).agg(
             newest("name"),
             newest("country"),
+            newest("wmo_id"),
             newest("latitude"),
             newest("longitude"),
             newest("elevation"),
