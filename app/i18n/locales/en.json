@@ -144,6 +144,14 @@
     "description": "Open weather and climate data from national weather services, in one format: explorer, forecast, climate stripes, REST API and MCP server. Open source and free.",
     "noscript": "Wetterdienst needs JavaScript to show data.",
     "providerDescription": "{provider} on Wetterdienst: {kinds}, with licence and credit line. Open it in the Explorer or via the REST API.",
+    "kinds": {
+      "observation": "measurements",
+      "forecast": "forecasts",
+      "derived": "derived data",
+      "radar": "radar",
+      "alerts": "weather warnings"
+    },
+    "kindsAnd": "and",
     "pages": {
       "explorer": "Pick a provider, parameters and stations on a map, read the measurements, interpolate a point and download the result as CSV, JSON or GeoJSON.",
       "meteogram": "The MOSMIX forecast of a DWD station as a meteogram: temperature, wind, precipitation, cloud cover and pressure.",

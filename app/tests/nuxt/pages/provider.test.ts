@@ -227,7 +227,7 @@ describe('provider Page', () => {
     const SITE = 'https://wetterdienst.eobs.org'
     const metaContent = (selector: string) => [...document.head.querySelectorAll<HTMLMetaElement>(selector)].map(element => element.content)
     const canonical = () => [...document.head.querySelectorAll('link[rel="canonical"]')].map(element => element.getAttribute('href'))
-    const DESCRIPTION = 'German Weather Service (Germany) on Wetterdienst: Measurements and Radar, with licence and credit line. Open it in the Explorer or via the REST API.'
+    const DESCRIPTION = 'German Weather Service (Germany) on Wetterdienst: measurements and radar, with licence and credit line. Open it in the Explorer or via the REST API.'
 
     it('names the provider, describes it and gives it a canonical link of its own, once the provider is known', async () => {
       await useNuxtApp().$i18n.setLocale('en')

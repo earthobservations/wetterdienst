@@ -144,6 +144,14 @@
     "description": "Dati meteorologici e climatici aperti dei servizi meteorologici nazionali, in un unico formato: esploratore, previsioni, strisce climatiche, API REST e server MCP. Open source e gratuito.",
     "noscript": "Wetterdienst ha bisogno di JavaScript per mostrare i dati.",
     "providerDescription": "{provider} su Wetterdienst: {kinds}, con licenza e attribuzione. Aprilo nell'Esploratore o tramite l'API REST.",
+    "kinds": {
+      "observation": "misurazioni",
+      "forecast": "previsioni",
+      "derived": "dati derivati",
+      "radar": "radar",
+      "alerts": "allerte meteo"
+    },
+    "kindsAnd": "e",
     "pages": {
       "explorer": "Scegli un fornitore, i parametri e le stazioni sulla mappa, leggi le misurazioni, interpola un punto e scarica il risultato come CSV, JSON o GeoJSON.",
       "meteogram": "Le previsioni MOSMIX di una stazione del DWD come meteogramma: temperatura, vento, precipitazioni, nuvolosità e pressione.",

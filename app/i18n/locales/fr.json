@@ -143,7 +143,15 @@
     "title": "Wetterdienst – données météorologiques et climatiques ouvertes des services météorologiques nationaux",
     "description": "Données météorologiques et climatiques ouvertes des services météorologiques nationaux, dans un seul format : explorateur, prévisions, bandes climatiques, API REST et serveur MCP. Open source et gratuit.",
     "noscript": "Wetterdienst a besoin de JavaScript pour afficher les données.",
-    "providerDescription": "{provider} dans Wetterdienst : {kinds}, avec licence et mention de la source. À ouvrir dans l'Explorateur ou via l'API REST.",
+    "providerDescription": "{provider} dans Wetterdienst : {kinds}, avec licence et mention de la source. Ouvrir dans l'Explorateur ou l'API REST.",
+    "kinds": {
+      "observation": "mesures",
+      "forecast": "prévisions",
+      "derived": "données dérivées",
+      "radar": "radar",
+      "alerts": "alertes météo"
+    },
+    "kindsAnd": "et",
     "pages": {
       "explorer": "Choisis un fournisseur, des paramètres et des stations sur la carte, lis les mesures, interpole un point et télécharge le résultat en CSV, JSON ou GeoJSON.",
       "meteogram": "Les prévisions MOSMIX d'une station du DWD sous forme de météogramme : température, vent, précipitations, nébulosité et pression.",

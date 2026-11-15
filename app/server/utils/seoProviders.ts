@@ -49,9 +49,11 @@ async function read(apiBase: string): Promise<SeoProvider[]> {
     throw new Error(`the backend answered ${response.status}`)
   const body = await response.json() as { providers?: unknown }
   // a 200 of another kind (a page of a proxy, an answer of another API) is no list: it must not empty the one held
-  if (!Array.isArray(body.providers) || body.providers.length === 0)
+  const rows = Array.isArray(body.providers) ? body.providers.filter(isProvider) : []
+  // the rows that are kept, not the rows that came: a list of rows that are none is no list either
+  if (rows.length === 0)
     throw new Error('the backend answered no list of providers')
-  return body.providers.filter(isProvider).map(row => ({
+  return rows.map(row => ({
     provider: row.provider,
     name_english: row.name_english,
     country: row.country,
@@ -69,7 +71,7 @@ function refresh(apiBase: string, now: number): Promise<void> {
       held = { providers, readAt: now, nextTryAt: now + FRESH_MS }
     })
     .catch((error: unknown) => {
-      console.warn(`The list of providers for the head and the sitemap could not be read (${error instanceof Error ? error.message : String(error)})); the list held, if there is one, is used.`)
+      console.warn(`The list of providers for the head and the sitemap could not be read (${error instanceof Error ? error.message : String(error)}); the list held, if there is one, is used.`)
     })
     .finally(() => {
       inFlight = undefined

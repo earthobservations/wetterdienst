@@ -207,8 +207,9 @@ server writes German, or English for a visitor who chose it or whose browser ask
 the pages worth finding (the explorer, the forecast, the climate stripes, the API, the providers, the glossary, the
 project and legal pages, and the page of each provider) and `/robots.txt` names it. The page of a provider
 (`/providers/dwd`) has its own title and description; the server reads the list of providers from the backend's
-`/api/providers`, keeps it for an hour and, while the backend cannot be reached, writes the generic head and lists the
-fixed pages only. `/widget` and `/settings` ask not to be indexed, and a path
+`/api/providers` and keeps it for an hour. While the backend cannot be reached it goes on with the list it read last;
+only a server that has read none since it started writes the generic head and lists the fixed pages only.
+`/widget` and `/settings` ask not to be indexed, and a path
 that ends in `.xml` or `.txt` and is none of the app's files is a 404.
 
 Both files, and the canonical links, use the address that `NUXT_PUBLIC_SITE_URL` gives, which is

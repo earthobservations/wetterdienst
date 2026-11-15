@@ -23,7 +23,7 @@ export interface SeoRoute {
 
 /**
  * The pages that are in the index and in the sitemap. A page of `app/pages` is either here or in `NOT_INDEXED`
- * (or is `/providers/[provider]`, whose paths the backend's list of providers makes, `PROVIDER_PAGE` below):
+ * (or is `/providers/[provider]`, whose paths the backend's list of providers makes, `providerIds` below):
  * `tests/unit/seo.test.ts` holds the pages to that, so a new page cannot forget to say what it is.
  */
 export const SEO_ROUTES: readonly SeoRoute[] = [
@@ -85,6 +85,9 @@ export const NETWORK_KIND_KEYS = {
 
 /** The key of the catalog of the description of a provider's page; `{provider}` and `{kinds}` are filled in */
 export const PROVIDER_DESCRIPTION_KEY = 'seo.providerDescription'
+
+/** The key of the catalog of the word that joins the last two kinds of data: "and" */
+const KINDS_AND_KEY = 'seo.kindsAnd'
 
 /** The part of a provider as `GET /api/providers` answers it that its page's head is made of */
 export interface SeoProvider {
@@ -151,7 +154,7 @@ function countryName(provider: SeoProvider, language: string): string {
  * provider keeps its name; the sentence around it, the country and the kinds of data are in the language.
  *
  * @param provider The provider
- * @param language The language code of the locale, `de`
+ * @param language The code of the locale, `de` or `de-hh`: the country's name is written in it
  * @param translate The catalog of the locale: a key and the values for its `{slots}`, as `t` of vue-i18n takes them
  * @returns The title as a page of the app is titled, and the description
  */
@@ -161,14 +164,13 @@ export function providerSeoText(
   translate: (key: string, values?: Record<string, string>) => string,
 ): { title: string, description: string } {
   const country = countryName(provider, language)
-  const keys: Readonly<Record<string, string>> = NETWORK_KIND_KEYS
+  // the kinds as nouns in the middle of a sentence (`seo.kinds.*`), not the capitalised names of the home page
   const kinds = [...new Set(provider.networks.map(network => network.kind))]
-    .map(kind => keys[kind] ? translate(keys[kind]) : kind)
-  let list = kinds.join(', ')
-  try {
-    list = new Intl.ListFormat([language], { type: 'conjunction' }).format(kinds)
-  }
-  catch {}
+    .map(kind => Object.hasOwn(NETWORK_KIND_KEYS, kind) ? translate(`seo.kinds.${kind}`) : kind)
+  // joined by the catalog's own word for "and", with no comma before it; `Intl.ListFormat` is not used, since its
+  // patterns for some of the app's languages are not words (Luxembourgish prints `a(n)`)
+  const last = kinds.pop()
+  const list = kinds.length > 0 ? `${kinds.join(', ')} ${translate(KINDS_AND_KEY)} ${last}` : (last ?? '')
   return {
     title: `${provider.name_english} - Wetterdienst`,
     description: translate(PROVIDER_DESCRIPTION_KEY, {

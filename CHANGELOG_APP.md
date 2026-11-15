@@ -29,12 +29,13 @@ Types of changes:
   verify the site by its HTML file. Empty by default, nothing changes; a value that is no such name
   is ignored with a warning at start. See docs/usage/app.md (GH-4108).
 - `[Server]` Each provider's page (`/providers/dwd`, ...) has a title, description, canonical link
-  and `og:*` tags of its own (German and English in the server's head, every language of the app once
-  the script has run), and is in `sitemap.xml`; before, a
-  crawler saw the home page's head on all 22 and none in the sitemap. The list comes from the
-  backend's `/api/providers`, kept for an hour: a provider the backend gains is in at once, an id it
-  does not have is as before, and a backend that is down leaves the generic head and the fixed
-  pages. The `<noscript>` text of these pages names the provider (GH-4119).
+  and `og:*` tags of its own (German and English in the server's head, every language of the app
+  once the script has run), and is in `sitemap.xml`; before, a crawler saw the home page's head on
+  all 22 and none in the sitemap. The list comes from the backend's `/api/providers`, kept for an
+  hour: a provider the backend gains is in within the hour or at the next restart, and an id it does
+  not have is as before. If the backend is down, the list read last is used; only a server that has
+  read none since it started writes the generic head and lists the fixed pages. The `<noscript>`
+  text of these pages names the provider (GH-4119).
 
 ### Changed
 

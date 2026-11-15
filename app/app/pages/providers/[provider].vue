@@ -17,7 +17,7 @@ const failure = computed(() => error.value ? describeFetchError(error.value) : '
 // and the og and twitter tags say the same as the server's shell does for this path (`server/utils/seoHead.ts`,
 // GH-4119): the text of both is `providerSeoText`. Until the provider is known, and for an id that is not one, they are
 // left to `app/app.vue`, which tells the path as the site with no canonical link.
-const seoText = computed(() => provider.value ? providerSeoText(provider.value, locale.value.split('-')[0]!, t) : undefined)
+const seoText = computed(() => provider.value ? providerSeoText(provider.value, locale.value, t) : undefined)
 const canonical = computed(() => provider.value ? canonicalUrl(config.public.siteUrl, providerPath(provider.value.provider)) : undefined)
 useHead(() => ({
   title: provider.value?.name_english,

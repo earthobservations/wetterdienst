@@ -143,7 +143,15 @@
     "title": "Wetterdienst – oppen Wieder- a Klimadaten vun nationale Wiederdéngschter",
     "description": "Oppen Wieder- a Klimadaten vun nationale Wiederdéngschter an engem eenzege Format: Explorer, Wiederprognos, Klimasträifen, REST-API an MCP-Server. Open Source a gratis.",
     "noscript": "Wetterdienst brauch JavaScript fir Daten unzeweisen.",
-    "providerDescription": "{provider} bei Wetterdienst: {kinds}, mat Lizenz an Nennung vun der Quell. Am Explorer oder iwwer d'REST-API opmaachen.",
+    "providerDescription": "{provider} bei Wetterdienst: {kinds}, mat Lizenz an Nennung vun der Quell. Am Explorer oder iwwer REST-API opmaachen.",
+    "kinds": {
+      "observation": "Miessungen",
+      "forecast": "Prognosen",
+      "derived": "ofgeleet Daten",
+      "radar": "Radar",
+      "alerts": "Wiederwarnungen"
+    },
+    "kindsAnd": "an",
     "pages": {
       "explorer": "Wiel en Ubidder, Parameteren a Statioune op der Kaart, liest d'Miessungen, interpoléier e Punkt an luet d'Resultat als CSV, JSON oder GeoJSON erof.",
       "meteogram": "D'MOSMIX-Prognos vun enger DWD-Statioun als Meteogram: Temperatur, Wand, Nidderschlag, Wolleken a Loftdrock.",
