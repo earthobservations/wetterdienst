@@ -1411,8 +1411,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         share is then the distinct slots of the resolution among them that the station has a value at, of those that
         lie in the window (or the span of the station's series). An empty series is a parameter given at no step at all,
         which counts as zero, as a parameter that came back with nothing does. A parameter given at steps, none of them
-        in the window, is not measured: there is nothing to share, so it is left out of the coverage (a source that
-        gives an element at 06 and 18 UTC has no say about a window of 07 to 17).
+        in the window, is not measured: there is nothing to share, so it is left out of `skip_criteria`'s min, mean and
+        max beside the parameters that are measured (a source that gives an element at 06 and 18 UTC has no say about a
+        window of 07 to 17). A station whose every parameter is left out has nothing in the window and is skipped, as
+        it is whatever `drop_nulls` and the shape are.
 
         Not implemented, which is what a provider that does not name its steps does, the steps are every slot of the
         resolution's grid over the window, as they always were.
@@ -1527,10 +1529,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             percentages.append(min(covered / expected, 1.0))
         measured = [percentage for percentage in percentages if percentage is not None]
         if not measured:
-            # every parameter was left unmeasured (`_given_timestamps` names none in the window): the share is
-            # undefined whatever `skip_criteria` is, and a station is not skipped for one that is not there. No
-            # parameter at all is still zero
-            return 1.0 if percentages else 0.0
+            # every parameter was left unmeasured (`_given_timestamps` names none in the window), or there is none: the
+            # station has nothing in the window and is skipped, as it is with the nulls dropped (an empty frame) and
+            # as it was before the steps were named. Not measured only means a parameter has no say beside the others
+            return 0.0
         if self.sr.options.skip_criteria == "min":
             return min(measured)
         if self.sr.options.skip_criteria == "mean":

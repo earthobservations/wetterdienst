@@ -354,14 +354,14 @@ def test_actual_percentage_without_a_window_measures_the_steps_within_the_statio
 
 
 @pytest.mark.parametrize("criteria", ["min", "mean", "max"])
-def test_actual_percentage_leaves_out_a_parameter_given_at_no_step_of_the_window(
+def test_actual_percentage_of_a_station_with_every_parameter_given_at_no_step_of_the_window_is_zero(
     monkeypatch: pytest.MonkeyPatch, criteria: str
 ) -> None:
-    """Test that a parameter given at steps, none in the window, is not measured, whichever `skip_criteria` (GH-4093).
+    """Test that a station whose every parameter has no given step in the window has nothing in it, whichever criteria.
 
-    A source that gives an element at 05 and 18 UTC has no say about a window of 00 to 03: the share is undefined, and a
-    station whose every parameter is undefined is not skipped for it (1.0). The mosmix tests have it beside a parameter
-    that is measured, which then alone decides.
+    A source that gives an element at 05 and 18 UTC has no say about a window of 00 to 03, and the station has nothing
+    in the window: the coverage is 0, so it is skipped as it is with the nulls dropped (an empty frame), and not kept as
+    a frame of nulls under `drop_nulls=False` or the wide shape (GH-4093). An element given at no step at all is 0 too.
     """
     start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
     end_date = dt.datetime(2026, 1, 1, 3, tzinfo=ZoneInfo("UTC"))
@@ -369,10 +369,44 @@ def test_actual_percentage_leaves_out_a_parameter_given_at_no_step_of_the_window
     values = _hourly_values(start_date, end_date)
     monkeypatch.setattr(values, "_given_timestamps", lambda _parameter: _hours(5, 18))
 
-    assert _percentage(values, df, criteria) == 1.0
-    # an element given at no step at all is a station without it
+    assert _percentage(values, df, criteria) == 0.0
     monkeypatch.setattr(values, "_given_timestamps", lambda _parameter: pl.Series([], dtype=pl.Datetime("us", "UTC")))
     assert _percentage(values, df, criteria) == 0.0
+
+
+@pytest.mark.parametrize("criteria", ["min", "mean", "max"])
+def test_actual_percentage_leaves_a_parameter_given_at_no_step_of_the_window_out_beside_the_others(
+    monkeypatch: pytest.MonkeyPatch, criteria: str
+) -> None:
+    """Test that a parameter with no given step in the window has no say in min, mean and max beside a measured one.
+
+    `tt_tu` is given at 05 and 18 UTC, `rf_tu` at every hour of the window of four, and the station has `rf_tu` at two
+    of them: 0.5 whichever criteria, which `tt_tu` counted as 0 or as 1 would move (GH-4093).
+    """
+    start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2026, 1, 1, 3, tzinfo=ZoneInfo("UTC"))
+    request = DwdObservationRequest(
+        parameters=[
+            ("hourly", "temperature_air", "temperature_air_2m"),
+            ("hourly", "temperature_air", "humidity_relative"),
+        ],
+        start=start_date,
+        end=end_date,
+    )
+    values = DwdObservationValues(
+        sr=StationsResult(
+            request=request, df=pl.DataFrame(), _df_all=pl.DataFrame(), _stations_filter=StationsFilter.ALL
+        ),
+    )
+    hours = [dt.datetime(2026, 1, 1, hour, tzinfo=ZoneInfo("UTC")) for hour in (0, 1)]
+    df = pl.concat([_hourly_long(hours), _hourly_long(hours).with_columns(pl.lit("rf_tu").alias("parameter"))])
+    monkeypatch.setattr(
+        values,
+        "_given_timestamps",
+        lambda parameter: _hours(5, 18) if parameter.name_original == "tt_tu" else _hours(*range(4)),
+    )
+
+    assert _percentage(values, df, criteria) == 0.5
 
 
 def test_given_timestamps_names_nothing_unless_a_provider_implements_it() -> None:

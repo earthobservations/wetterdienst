@@ -12,9 +12,9 @@ import datetime as dt
 import re
 import zipfile
 from io import BytesIO
-from typing import TYPE_CHECKING
 
 import polars as pl
+import pytest
 
 from tests.provider.dwd.mosmix.test_products import LARGE, RUNS, SMALL, _kml, parses
 from tests.provider.dwd.mosmix.test_snow import LISTING, RUN, run_of_the_14th
@@ -24,9 +24,6 @@ from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, api
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.provider.dwd.mosmix.metadata import DwdMosmixMetadata
-
-if TYPE_CHECKING:
-    import pytest
 
 __all__ = ["parses", "run_of_the_14th"]  # the fixtures, used by name
 
@@ -205,18 +202,37 @@ def test_skip_empty_off_is_the_answer_it_was(run_of_the_14th: list[str]) -> None
     assert values._steps_of(DwdMosmixMetadata.hourly.snow) is None  # noqa: SLF001
 
 
-def test_a_window_between_the_steps_of_an_element_does_not_skip_the_station(
+#: how the answer is shaped must not change which stations are skipped (`docs/usage/settings.md`)
+SHAPES = [
+    pytest.param(Options(skip_empty=True, skip_threshold=0.95), id="defaults"),
+    pytest.param(Options(skip_empty=True, skip_threshold=0.95, drop_nulls=False), id="nulls-kept"),
+    pytest.param(Options(skip_empty=True, skip_threshold=0.95, shape="wide"), id="wide"),
+]
+
+
+@pytest.mark.parametrize("options", SHAPES)
+def test_a_window_between_the_steps_of_an_element_skips_a_station_with_nothing_else(
     run_of_the_14th: list[str],  # noqa: ARG001
+    options: Options,
 ) -> None:
-    """`SnCv` is given at 21:00 and 00:00: a window of 22:00 to 23:00 has no step of it, so it is not measured."""
+    """`SnCv` is given at 21:00 and 00:00: a window of 22:00 to 23:00 has no step of it, and the station nothing.
+
+    The element has no say in the share, and alone there is nothing in the window: the station is skipped under every
+    setting, not an empty frame with the defaults and a frame of nulls with `drop_nulls=False` or the wide shape.
+    """
     window = (dt.datetime(2026, 11, 14, 22, tzinfo=UTC), dt.datetime(2026, 11, 14, 23, tzinfo=UTC))
 
-    # alone, with the nulls kept (the frame of nulls is the station's answer: nothing is said of it by the share)
-    alone = _snow("Z914", Options(drop_nulls=False, skip_empty=True, skip_threshold=0.95), window=window)
-    assert len(alone) == 1
-    assert alone[0]["value"].is_null().all()
-    # beside a dense element, which is measured and complete
+    assert _snow("Z914", options, window=window) == []
+
+
+def test_a_window_between_the_steps_of_an_element_leaves_it_out_beside_a_dense_one(
+    run_of_the_14th: list[str],  # noqa: ARG001
+) -> None:
+    """Beside `temperature_air_2m`, which is measured and complete, the station is kept and the element has no rows."""
+    window = (dt.datetime(2026, 11, 14, 22, tzinfo=UTC), dt.datetime(2026, 11, 14, 23, tzinfo=UTC))
+
     both = _snow("Z914", parameters=("snow_depth", "temperature_air_2m"), window=window)
+
     assert len(both) == 1
     assert set(both[0]["parameter"]) == {"temperature_air_2m"}
 
@@ -240,22 +256,42 @@ def _serve_large(monkeypatch: pytest.MonkeyPatch, tx: str) -> None:
     monkeypatch.setattr(api.DwdMosmixValues, "get_url_for_date", lambda *_args, **_kwargs: LARGE)
 
 
-def test_tx_given_at_two_steps_has_no_say_about_a_window_between_them(
+@pytest.mark.parametrize("options", SHAPES)
+def test_tx_given_at_two_steps_alone_skips_the_station_for_a_window_between_them(
+    monkeypatch: pytest.MonkeyPatch,
+    parses: list[str],  # noqa: ARG001
+    options: Options,
+) -> None:
+    """`TX` is given at 12 and 22 UTC: a window of 13:00 to 21:00 holds none of it, and the station nothing: skipped."""
+    _serve_large(monkeypatch, " ".join("281.15" if hour in {12, 22} else "-" for hour in range(10, 24)))
+    request = DwdMosmixRequest(
+        parameters=[("hourly", "large", "tx")],
+        start=dt.datetime(2026, 10, 10, 13, tzinfo=UTC),
+        end=dt.datetime(2026, 10, 10, 21, tzinfo=UTC),
+        settings=_settings(),
+        options=options,
+    )
+
+    assert list(stations_result(request, "hourly", "large", "01001").values().query()) == []
+
+
+def test_tx_given_at_two_steps_has_no_say_in_the_share_beside_a_dense_element(
     monkeypatch: pytest.MonkeyPatch,
     parses: list[str],  # noqa: ARG001
 ) -> None:
-    """`TX` is given at 12 and 22 UTC: a window of 13:00 to 21:00 holds none of it, and the station is not skipped."""
+    """Beside `TTT`, at every hour, the station is kept for a window that holds none of the steps of `TX`."""
     _serve_large(monkeypatch, " ".join("281.15" if hour in {12, 22} else "-" for hour in range(10, 24)))
-    window = {"start": dt.datetime(2026, 10, 10, 13, tzinfo=UTC), "end": dt.datetime(2026, 10, 10, 21, tzinfo=UTC)}
+    request = DwdMosmixRequest(
+        parameters=[("hourly", "large", "tx"), ("hourly", "large", "ttt")],
+        start=dt.datetime(2026, 10, 10, 13, tzinfo=UTC),
+        end=dt.datetime(2026, 10, 10, 21, tzinfo=UTC),
+        settings=_settings(),
+        options=Options(skip_empty=True, skip_threshold=0.95),
+    )
 
-    def read(parameters: list[tuple[str, str, str]], options: Options) -> pl.DataFrame:
-        request = DwdMosmixRequest(parameters=parameters, settings=_settings(), options=options, **window)
-        return stations_result(request, "hourly", "large", "01001").values().all().df
+    df = stations_result(request, "hourly", "large", "01001").values().all().df
 
-    alone = read([("hourly", "large", "tx")], Options(drop_nulls=False, skip_empty=True, skip_threshold=0.95))
-    assert alone["station_id"].unique().to_list() == ["01001"]
-    both = read([("hourly", "large", "tx"), ("hourly", "large", "ttt")], Options(skip_empty=True, skip_threshold=0.95))
-    assert set(both["parameter"]) == {"temperature_air_2m"}
+    assert set(df["parameter"]) == {"temperature_air_2m"}
 
 
 def test_each_dataset_of_a_mixed_request_is_measured_by_its_own_file(

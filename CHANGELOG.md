@@ -66,9 +66,10 @@ Types of changes:
   every hour: a step counts if some station of the file has a value there. `TX`, `TN`, `TM` and
   MOSMIX-SNOW's `snow_depth` (every 3rd hour) no longer skip a station that has all of them (`Z914`
   was 0.33), and a window past the forecast's horizon no longer counts against any element (`TTT`
-  over 96 h of a 48 h run was skipped). An element given at no step of the window is not measured.
-  A station that lacks values at the file's steps is still skipped. A single-station MOSMIX-L file
-  is its own cadence, so only an element that is null throughout skips it (GH-4093)
+  over 96 h of a 48 h run was skipped). An element given at no step of the window has no say in
+  the share beside the others; a station with nothing in the window is skipped as before. A station
+  that lacks values at the file's steps is still skipped. A single-station MOSMIX-L file is its own
+  cadence, so only an element that is null throughout skips it (GH-4093)
 - **Breaking**: `dmi/observation` serves the day, month and year still running unmarked (2026's
   annual mean from 319 days). A daily value of a day that has not ended is now left out, with a
   `window-not-closed` warning; a monthly or annual one is returned with
