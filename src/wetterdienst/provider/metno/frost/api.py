@@ -1910,7 +1910,8 @@ class MetnoFrostRequest(TimeseriesRequest):
             pl.col("validTo").str.to_datetime(format=_FROST_STAMP, time_unit="us").alias("_source_to"),
         )
         # the ids of the `Source` schema: `wmoId` is the WMO number as an integer (1492 for 01492), `wigosId` the WSI
-        # (`0-578-0-18700`: of Norway's issuer, so its local part is no WMO number), `icaoCodes` a list (GH-4070)
+        # (`0-20000-0-01492` of WMO's issuer for Oslo - Blindern; one of Norway's issuer 578 has a local part that is
+        # no WMO number), `icaoCodes` a list (GH-4070)
         df = _source_ids(df)
         df = self._with_series_bounds(df.rename({"id": "station_id"}), settings, client_kwargs)
         df = df.rename({"name": "name", "county": "region", "countryCode": "country"})

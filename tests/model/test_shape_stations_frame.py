@@ -285,3 +285,37 @@ def test_a_number_the_provider_gave_as_an_integer_is_no_wmo_id_until_it_is_padde
     assert _shape(_frame().with_columns(wmo_id=pl.Series([1001]).cast(pl.String).str.zfill(5))).get_column(
         "wmo_id"
     ).to_list() == ["01001"]
+
+
+@pytest.mark.parametrize("column", ["wmo_id", "wigos_id", "icao_id"])
+def test_a_blank_id_is_no_id_and_is_not_counted_as_one_that_is_unreadable(
+    column: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A blank or whitespace-only text is null like a null (AEMET's `indsinop` is blank for 625 of 926 stations).
+
+    Only a text that is none of the notations is counted, in the debug line, and never named (GH-4115).
+    """
+    junk = {"wmo_id": "400", "wigos_id": "01002", "icao_id": "----"}[column]
+    df = pl.DataFrame(
+        {
+            "resolution": ["daily"] * 6,
+            "dataset": ["data"] * 6,
+            "station_id": ["1", "2", "3", "4", "5", "6"],
+            column: ["", "  ", "\t", None, junk, None],
+        }
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.model.request"):
+        result = _shape(df)
+
+    assert result.get_column(column).to_list() == [None] * 6
+    messages = [record.getMessage() for record in caplog.records if "notation" in record.getMessage()]
+    assert messages == [f"TestRequest: 1 of 6 {column} cells are not in its notation and are null"]
+
+
+def test_a_column_of_blank_ids_leaves_no_line_in_the_log(caplog: pytest.LogCaptureFixture) -> None:
+    """Nothing is unreadable where every id is blank or null (GH-4115)."""
+    with caplog.at_level(logging.DEBUG, logger="wetterdienst.model.request"):
+        _shape(_frame(wmo_id=[" "]))
+
+    assert not [record for record in caplog.records if "notation" in record.getMessage()]

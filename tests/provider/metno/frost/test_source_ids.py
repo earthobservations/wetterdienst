@@ -46,8 +46,8 @@ def test_an_icao_id_is_the_first_of_a_list_and_a_text_is_no_list() -> None:
 
 
 def test_a_wigos_id_is_read_only_as_a_text_and_a_column_no_source_has_is_null() -> None:
-    """The WSI is kept as written (issuer 578 is Norway's, its local part no WMO number); an absent column is null."""
-    assert _read({"wigosId": ["0-578-0-18700", None], "id": ["a", "b"]})["wigos_id"] == ["0-578-0-18700", None]
+    """The WSI is kept as written (the issuer is not read out of it); an absent column is null."""
+    assert _read({"wigosId": ["0-20000-0-01492", None], "id": ["a", "b"]})["wigos_id"] == ["0-20000-0-01492", None]
     assert _read({"id": ["a"]}) == {"wmo_id": [None], "wigos_id": [None], "icao_id": [None]}
 
 
