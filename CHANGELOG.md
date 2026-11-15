@@ -59,6 +59,9 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/mosmix`: `coverage` gives the snow forecast `hourly/snow` its own `extent` (national, DE,
+  Europe, box 9 to 14 E and 47.2 to 49 N: its stations are all in the Bavarian Alps), where it said
+  the world's; `small` and `large` and `providers` (one extent per network) stay global (GH-4111)
 - `dwd/mosmix`: a request for several datasets (`small` and `large`, `snow`) parses each run file
   once, where it parsed the other dataset's file again at every station (36 MB for MOSMIX-S); the
   reader keeps one parsed file per dataset of the request (GH-4093)
