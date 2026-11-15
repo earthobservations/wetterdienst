@@ -15,7 +15,7 @@ LLM agents -- which otherwise guess parameters and thrash -- this module adds:
 - the refusal of an argument a tool does not take, which FastMCP would drop,
 - an argument that is an object (``unit_targets``, ``limits``, the station distances) sent to the endpoint as the
   JSON text it reads, where FastMCP would send it as one query parameter for each of its keys (GH-3737),
-- an answer in a format that is not JSON (csv, ndjson, html, svg, and the png, jpg, webp and pdf of a chart) as
+- an answer in a format that is not JSON (csv, ndjson, html, svg, and the png, jpg and pdf of a chart) as
   content of the tool result: FastMCP answers a text body without structured content, which the output schema of
   the tool refuses, and fails on a binary one (GH-3464),
 - an error that reads as prose: the REST API answers a tool's request with the text of its problem,
@@ -83,15 +83,15 @@ def _mark_tool_requests(app: ASGIApp) -> ASGIApp:
     """Wrap the REST app so each request the tools send it carries the scope key `is_tool_request` checks."""
 
     async def marked(scope: Scope, receive: Receive, send: Send) -> None:
-        from wetterdienst.io.export import HTML_PLOTLYJS  # noqa: PLC0415
+        from wetterdienst.io.export import HTML_INLINE  # noqa: PLC0415
 
         scope[_TOOL_REQUEST_SCOPE_KEY] = True
-        # a chart as html carries plotly.js from the CDN, not inline: 4.8 MB less for an assistant to read (GH-3464)
-        token = HTML_PLOTLYJS.set("cdn")
+        # a chart as html carries Vega from the CDN, not inline: 1 MB less for an assistant to read (GH-3464)
+        token = HTML_INLINE.set(False)
         try:
             await app(scope, receive, send)
         finally:
-            HTML_PLOTLYJS.reset(token)
+            HTML_INLINE.reset(token)
 
     return marked
 
@@ -595,8 +595,8 @@ def _envelope_of(result: ToolResult) -> dict[str, Any] | None:
 def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
     """Build the middleware that makes the body of an answer that is not JSON the content of the tool result.
 
-    A text body (csv, ndjson, html, svg) is a text content block, as the REST API answers it; an image (png, jpg,
-    webp) an image content block and any other binary body (pdf) an embedded resource. The structured content, which
+    A text body (csv, ndjson, html, svg) is a text content block, as the REST API answers it; an image (png, jpg)
+    an image content block and any other binary body (pdf) an embedded resource. The structured content, which
     the output schema of a tool requires, is a sentence about the answer, with its licence, attribution,
     processing note and warnings, which the REST API sends in headers for these formats: the schema of every tool that
     has one admits a string as its `result` (the `str` of the REST route's response model). For data (csv, ndjson) the

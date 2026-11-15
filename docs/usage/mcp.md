@@ -109,14 +109,14 @@ does not take is refused with the name of the one it takes where the tool had th
 
 Every `format` a tool offers is answered, as one body held to the `rows` limit. `json` and `geojson` are the
 structured content of the result. The other formats are content blocks: `csv`, `ndjson`, `html` and `svg` are text, as
-the REST API sends them; `png`, `jpg` and `webp` are image content and `pdf` is an embedded resource. The structured
+the REST API sends them; `png` and `jpg` are image content and `pdf` is an embedded resource. The structured
 content that the output schema of the tool requires is then one sentence about the answer: its media type and size in
 bytes, and the licence, the attribution, the note on what wetterdienst did to the
 data and the warnings that the REST API sends in headers for these formats (the same
 in the `_meta` of the result, under `wetterdienst`). For data (`csv` and `ndjson`) the body follows the sentence in the
-structured content, since a client may hand the model that alone; a chart is not repeated. An `html` chart loads plotly.js
-from the CDN, so the page is a few kilobytes (9 KB for one station) where the REST API sends it inline, about 4.8 MB,
-and the page needs the network to draw. The default is `json` (`png` for `stripes_image`, which only draws), which
+structured content, since a client may hand the model that alone; a chart is not repeated. An `html` chart loads Vega
+from the CDN, so the page is a few kilobytes (a CSV of the rows and the chart's few lines) where the REST API sends
+it inline, about 1 MB, and the page needs the network to draw. The default is `json` (`png` for `stripes_image`, which only draws), which
 the assistant reads without further ado: a chart is for a client that shows it, and a long `csv` goes through the
 context of the assistant.
 

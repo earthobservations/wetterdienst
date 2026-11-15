@@ -34,6 +34,26 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `to_plot()` returns an Altair chart (`alt.TopLevelMixin`: a `FacetChart` for values, a
+  `LayerChart` for the map and the stripes), no longer a Plotly figure. The `plotting` extra is
+  `altair` and `vl-convert-python` now, with no Chrome. Where you called Plotly methods on the
+  figure (`update_layout`, `write_image`), use `result.to_image(...)`, which makes the image exactly
+  `width` x `height`, or `chart.properties(...)` and `chart.to_dict()`. `format=html` is a Vega-Embed
+  page with zoom and pan along time. vl-convert has no wheel for musllinux, Windows ARM64 or a
+  free-threaded Python (GH-3238)
+- **Breaking**: `webp` is no longer an image format: REST `format=`, `--format`, `to_format` and
+  the MCP tools take `html`, `png`, `jpg`, `svg` and `pdf`. Ask for `png` and convert it (GH-3238)
+- **Breaking**: `ImageTimeoutError`, the REST problem `image-timeout`, `render_image(timeout=)`
+  and `IMAGE_TIMEOUT` are removed: there is no browser that can hang. `require_kaleido` is
+  `require_vl_convert` (GH-3238)
+- REST and the MCP tools refuse a chart of more than 100,000 points (an image or `html`, which
+  embeds them) with a 400 `limit-exceeded`, `limit` `image_points`: vl-convert 1.9 holds the
+  interpreter while it draws. The Python API and the CLI have no limit (GH-3238)
+- Images are drawn in the process by vl-convert, in 0.1 to 1 s where Kaleido started a Chrome for
+  each: the Docker image installs none. They are exactly `width` x `height` pixels (times `scale`),
+  and a series of more than 5000 rows is drawn. The look changes: Liberation Sans for all text,
+  and the station map draws the country borders of Natural Earth 1:50m (shipped, nothing fetched)
+  where it drew OpenStreetMap tiles (GH-3238)
 - **Breaking**: every provider's stations have three more columns after `region`, `wmo_id`,
   `wigos_id` and `icao_id` (`01001`, `0-56-101-01002`, `EDDH`; null where none is published), so
   a provider's own columns (dmi `country`, `dwd/road`, hubeau, both `imgw`, `wsv/pegel`) move three
@@ -45,6 +65,8 @@ Types of changes:
 
 ### Fixed
 
+- A command that drew an image no longer hangs when it exits: the images are drawn without
+  Kaleido, so there is no Chrome to close (GH-3742)
 - `dwd/derived`: a period whose archive (or both archives of `hourly/radiation_global`) is a 404 on
   the server, listed and then withdrawn, answers the `file-skipped` warning and no rows, where it
   failed with a `ValueError` (an `IndexError` for `hourly/radiation_global`) and took the whole

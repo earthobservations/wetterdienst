@@ -592,7 +592,7 @@ def test_stations_are_not_cached(client: TestClient, monkeypatch: pytest.MonkeyP
     assert _cache_headers(response) == {}
 
 
-@pytest.mark.usefixtures("figure_draws_itself")
+@pytest.mark.usefixtures("chart_draws_itself")
 def test_the_stripes_are_not_cached(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """The stripes of a station end with the year being recorded, and the image is drawn from them."""
 

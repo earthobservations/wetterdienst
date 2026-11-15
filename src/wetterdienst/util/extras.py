@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 _DISTRIBUTION_OF_MODULE = {
     "MySQLdb": "mysqlclient",
     "influxdb_client_3": "influxdb3-python",
+    "vl_convert": "vl-convert-python",
 }
 
 
@@ -96,7 +97,7 @@ def import_optional(module_name: str, what: str, *, extra: str | None = None) ->
     always the same exception: a `MissingDependencyError`, whose message is the whole of what there
     is to say and which the command line prints as one line and the REST API answers with a 501.
     Without it the absence arrives as whatever the import raised -- a bare `ModuleNotFoundError`
-    from DuckDB, an `ImportError` with a hint of its own from plotly -- and each reader of the
+    from DuckDB, an `ImportError` with a hint of its own from a package -- and each reader of the
     error has to guess which of them is an instruction and which a defect.
 
     Only a package that is not installed counts. A module missing inside a package that is
@@ -104,7 +105,7 @@ def import_optional(module_name: str, what: str, *, extra: str | None = None) ->
     absence (a name the installed version lacks, a cycle), are defects and keep their traceback.
 
     Args:
-        module_name: the module to import, dotted where it is a submodule (`plotly.express`).
+        module_name: the module to import, dotted where it is a submodule (`pyarrow.parquet`).
         what: what the caller was trying to do, as it should read at the start of a sentence.
         extra: the extra the caller belongs to, where several install the package; see
             `missing_dependency_message`.

@@ -62,7 +62,7 @@ log = logging.getLogger(__name__)
 #: what the client adds, and the same for every host
 ANSWER_BUDGET = 40_000
 
-#: the formats whose body a model reads as data, which the budget holds. A chart (html, svg, png, jpg, webp, pdf) is
+#: the formats whose body a model reads as data, which the budget holds. A chart (html, svg, png, jpg, pdf) is
 #: markup or an image that is not read as rows and is not repeated in the structured content
 BUDGETED_FORMATS = frozenset({"json", "geojson", "csv", "ndjson"})
 

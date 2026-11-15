@@ -24,7 +24,8 @@ from wetterdienst.util.extras import (
     ("module_name", "expected"),
     [
         ("utm", ["interpolation"]),
-        ("plotly", ["plotting"]),
+        ("altair", ["plotting"]),
+        ("vl_convert", ["plotting"]),
         ("fastapi", ["restapi"]),
         ("h5py", ["radar"]),
         ("h5netcdf", ["export", "radar"]),

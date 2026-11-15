@@ -1023,20 +1023,21 @@ for clients you trust with that.
 
 ## Image size
 
-A chart in an image format (`png`, `jpg`, `webp`, `svg`, `pdf`) is refused with a 400 when a side of
+A chart in an image format (`png`, `jpg`, `svg`, `pdf`) is refused with a 400 when a side of
 the image is longer than 8192 px, `scale` applied; for `/api/stripes/image` the size is 700 x 500 px
 times `dpi / 100`. A chart of several parameters is 300 px tall for each, and is measured as drawn.
 The limit holds for the REST API and the MCP tools; the library and the CLI have none.
 
-A chart is drawn by a Chrome that Kaleido starts for the image, and the start of that browser and the
-drawing have 120 seconds, on every surface (a normal image takes 1 to 4 seconds; the heaviest this server lets
-through, a PDF of 8192 x 8192 px with 100000 points, took 24 to 31). A browser that does not finish is closed, and
-killed with its processes if closing it does not end it, and the request is a 504 problem of the kind
-`image-timeout` with `Retry-After`. Unlike the
-[request timeout](#timeout), which answers the client and leaves the work running, this one ends the work, so a
-stuck Chrome keeps its thread and its place in the [limit on requests served at once](#concurrency) for at most
-about 130 seconds (the limit and up to 10 seconds to close the browser), not for ever. Under the default request
-timeout of 60 seconds the client is answered `request-timeout` first, and the work ends on its own after that.
+A chart is drawn to an image by vl-convert, in the process of the server: there is no browser to start. The image is
+exactly as large as `width` and `height` say, `scale` times as large: a request for 700 x 500 px is an image of
+700 x 500 px. A normal image takes 0.1 to 1 second, but the time and the memory grow with the points the chart draws:
+87,000 points take 3.4 s, and 262,000 take 10 s and 2.6 GB. While vl-convert 1.9 draws, it holds the interpreter's
+lock (the GIL), so the other requests of the process wait for the drawing. Hence a chart of more than 100,000 points,
+an image or the page (`format=html` embeds every point), is refused with a 400 of the kind `limit-exceeded`
+(`limit` is `image_points`) once the data is read and before anything is drawn; `detail` says to ask for fewer
+stations or parameters, or a shorter `timestamp` window. The MCP tools hold the same limit. The Python API and the
+command line have none: they draw what they are given, as many rows as there are. vl-convert 2.0 releases the lock,
+and the cap of the `plotting` extra is raised to it then (GH-4095).
 
 ## Limits
 
@@ -1063,6 +1064,7 @@ to (`limit`, `maximum`, `requested`), and `detail` says how to narrow it:
 | `stations` | `WD_RESTAPI_MAX_STATIONS` | 100 | the stations one `values` or `history` request reads; a `rank` counts as that many. For `interpolate` and `summarize`, the stations with a record in the window within the widest radius of the request, which it reads outwards from the point (the radius is bounded as well, see [Interpolation](interpolation.md#rest-api)) |
 | `rows` | `WD_RESTAPI_MAX_ROWS` | 500,000 | the rows of an answer sent as one body: `json`, `geojson`, a chart, and the answer of `interpolate`, `summarize` and the listing of `stations` |
 | `stream_rows` | `WD_RESTAPI_MAX_STREAM_ROWS` | 10,000,000 | the rows of a streamed answer, `format=ndjson` and `format=csv` of `stations` and `values` |
+| `image_points` | none | 100,000 | the points of a chart, an image (`png`, `jpg`, `svg`, `pdf`) or the page (`format=html`, which embeds them), counted from the rows the chart is drawn from once the data is read. A fixed limit, see [Image size](#image-size) |
 
 The host sets them with the settings of the same names (`restapi_max_stations`, ...; see [Settings](settings.md)),
 and `0` switches a limit off. They hold for the REST API and the MCP tools; the library and the command line have
@@ -1351,7 +1353,7 @@ are these, and a kind keeps its status:
 | --- | --- | --- |
 | `urn:wetterdienst:problem:invalid-parameters` | 422 | A query parameter is unknown, malformed or invalid, or a selection that needs exactly one of several does not. `errors` has an entry for each invalid parameter. |
 | `urn:wetterdienst:problem:request-refused` | 400 | The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range. |
-| `urn:wetterdienst:problem:limit-exceeded` | 400 | The request would return more than the server allows. `limit` names the limit (`stations`, `rows` or `stream_rows`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it, and [Getting more than the limit](large-requests.md) how to get the data anyway. |
+| `urn:wetterdienst:problem:limit-exceeded` | 400 | The request would return more than the server allows. `limit` names the limit (`stations`, `rows`, `stream_rows` or `image_points`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it, and [Getting more than the limit](large-requests.md) how to get the data anyway. |
 | `urn:wetterdienst:problem:image-too-large` | 400 | A chart would be longer than 8192 px on a side. |
 | `urn:wetterdienst:problem:host-not-allowed` | 400 | The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists. |
 | `urn:wetterdienst:problem:origin-not-allowed` | 400 | The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint. |
@@ -1371,7 +1373,6 @@ are these, and a kind keeps its status:
 | `urn:wetterdienst:problem:upstream-quota-exhausted` | 503 | The data provider refused the request because the quota or the rate limit of the key this server uses is used up for now. The key is accepted and the request was valid; retry it after `Retry-After`. |
 | `urn:wetterdienst:problem:upstream-timeout` | 504 | The data provider did not answer in time. The request was valid; retry it. |
 | `urn:wetterdienst:problem:request-timeout` | 504 | The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached. |
-| `urn:wetterdienst:problem:image-timeout` | 504 | The browser that draws a chart as an image did not finish within `120` seconds and was closed. The request was valid; retry it. Whoever runs the server should look at Chrome if it keeps happening. |
 | `urn:wetterdienst:problem:internal-error` | 500 | The server's own error, a defect. The cause is in the server log. |
 
 Every problem has `instance`, `urn:wetterdienst:request:<id>`, and `request_id`, the id of the request. The id

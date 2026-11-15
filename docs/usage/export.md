@@ -184,7 +184,6 @@ out, or the other way round, fails it.
 | `html` | yes | no | all | all | all |
 | `png` | yes | no | all | all | all |
 | `jpg` | yes | no | all | all | all |
-| `webp` | yes | no | all | all | all |
 | `svg` | yes | no | all | all | all |
 | `pdf` | yes | no | all | all | all |
 | `xlsx` | no | `.xlsx` | no | no | no |
@@ -206,7 +205,7 @@ row of its CSV is, and what the files hold, is on the [alerts page](../data/prov
 
 `to_format` takes one set of arguments for any format and gives each format those it takes: `with_metadata`,
 `with_stations` and `indent` for JSON (a stations result has no `with_stations`), `with_metadata` and `indent` for
-GeoJSON, `width`, `height`, `scale` and `max_side` for a chart, and none for CSV and NDJSON. A name that is none of
+GeoJSON, `width`, `height`, `scale`, `max_side` and `max_points` for a chart, and none for CSV and NDJSON. A name that is none of
 these is a `TypeError` listing them. A format it does not know is an `UnknownFormatError`, which names the format and lists the
 supported ones; it is a `KeyError` and a `ValueError` both, so either `except` catches it.
 

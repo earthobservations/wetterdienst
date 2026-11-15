@@ -433,7 +433,6 @@ def test_cli_interpolate_custom_units() -> None:
     [
         "png",
         "jpg",
-        "webp",
         "svg",
     ],
 )

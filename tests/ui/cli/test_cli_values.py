@@ -599,7 +599,6 @@ def test_cli_values_custom_units() -> None:
     [
         "png",
         "jpg",
-        "webp",
         "svg",
     ],
 )
@@ -1395,14 +1394,14 @@ def test_cli_a_package_missing_after_the_values_were_collected_is_one_line(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    """Rendering an image without plotly is one logged line and exit 1, wherever the command reached for it (GH-2637).
+    """Rendering an image without altair is one logged line and exit 1, wherever the command reached for it (GH-2637).
 
     `--format=png` calls `to_format` after the values were collected, outside every handler of the
     command, so the error reached the user as a traceback.
     """
     from wetterdienst.exceptions import MissingDependencyError  # noqa: PLC0415
 
-    msg = "Plotting requires plotly, which is not installed. Install it with: pip install wetterdienst[plotting]"
+    msg = "Plotting requires altair, which is not installed. Install it with: pip install wetterdienst[plotting]"
 
     def render(**_kwargs: object) -> None:
         raise MissingDependencyError(msg)
