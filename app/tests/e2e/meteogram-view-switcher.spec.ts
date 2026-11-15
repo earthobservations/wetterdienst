@@ -24,13 +24,23 @@ async function placeOf(page: Page) {
   return place
 }
 
+type Place = Awaited<ReturnType<typeof placeOf>>
+
+// Tailwind's `md`, where the toolbar leaves the stacked layout
+const MD = 768
+
 /**
- * The same place: to less than a pixel, since the chosen option is set in a heavier weight, which makes the whole switcher a
- * fraction of a pixel wider (its right edge stays where it is); a move that a reader could see is many times that.
+ * The same place, to less than a pixel. The chosen option is set in a heavier weight, which makes the switcher a little
+ * wider (by 0.5 px in English, up to 1.5 px in Polish and Czech) on the side that is free: from `md` up the switcher is
+ * pinned to the right edge of the toolbar, so its right edge is what stays (x + width); below it, where it starts at the
+ * left edge, its x. The top (y) and the height are the same at every width.
  */
-function expectSamePlace(place: Awaited<ReturnType<typeof placeOf>>, chart: Awaited<ReturnType<typeof placeOf>>, view: string) {
-  for (const key of ['x', 'y', 'width', 'height'] as const)
-    expect(Math.abs(place[key] - chart[key]), `${key} of the switcher in the ${view} view: ${JSON.stringify(place)} against the chart view's ${JSON.stringify(chart)}`).toBeLessThan(1)
+function expectSamePlace(place: Place, chart: Place, view: string, width: number) {
+  const edge = (p: Place) => (width >= MD ? p.x + p.width : p.x)
+  const where = `the switcher in the ${view} view: ${JSON.stringify(place)} against the chart view's ${JSON.stringify(chart)}`
+  expect(Math.abs(edge(place) - edge(chart)), `${width >= MD ? 'right edge' : 'x'} of ${where}`).toBeLessThan(1)
+  expect(Math.abs(place.y - chart.y), `y of ${where}`).toBeLessThan(1)
+  expect(Math.abs(place.height - chart.height), `height of ${where}`).toBeLessThan(1)
 }
 
 for (const width of WIDTHS) {
@@ -53,7 +63,7 @@ for (const width of WIDTHS) {
       // the toolbar of the view is there: the zoom buttons are the chart's alone
       await expect(zoomGroup(page)).toHaveCount(view === 'Chart' ? 1 : 0)
       seen.add(view)
-      expectSamePlace(await placeOf(page), chart, view)
+      expectSamePlace(await placeOf(page), chart, view, width)
     }
     expect([...seen].sort()).toEqual([...VIEWS].sort())
 
@@ -64,7 +74,7 @@ for (const width of WIDTHS) {
       return { top: box.top + window.scrollY, right: box.right + window.scrollX }
     })
     expect(chart.y - card.top, 'the switcher sits in the first row of the toolbar').toBeLessThan(20)
-    if (width >= 768)
+    if (width >= MD)
       expect(card.right - (chart.x + chart.width), 'the switcher sits at the right edge of the toolbar').toBeLessThan(20)
     expect(backend.unanswered).toEqual([])
   })

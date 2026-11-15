@@ -160,6 +160,7 @@ const chartTable = computed(() => meteogramTable(seriesCache.value, {
 }))
 const summaryId = useId()
 const chartLabel = computed(() => props.stationName ? t('meteogram.chart.label', { name: props.stationName }) : t('meteogram.chart.labelNoStation'))
+const daysLabel = computed(() => props.stationName ? t('meteogram.chart.daysLabel', { name: props.stationName }) : t('meteogram.chart.daysLabelNoStation'))
 
 // Calculate summary statistics for the loaded forecast period
 const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.value, locale.value))
@@ -223,6 +224,15 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
           </div>
         </div>
 
+        <div class="order-1 md:order-none md:col-start-2 md:row-start-1 self-start justify-self-start md:justify-self-end min-w-0 max-w-full">
+          <SegmentedControl
+            :model-value="view"
+            :options="viewOptions"
+            :label="t('meteogram.chart.viewLabel')"
+            @update:model-value="chooseView"
+          />
+        </div>
+
         <!-- the single-pointer ways to what a drag, a pinch and the scroll bar do (WCAG 2.5.7), named by what they do -->
         <div v-if="view === 'chart'" class="order-2 md:order-none md:col-start-2 md:row-start-2 md:justify-self-end flex flex-wrap items-center gap-1 min-w-0 max-w-full" role="group" :aria-label="t('meteogram.chart.zoomGroup')">
           <UButton
@@ -278,14 +288,6 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
             :aria-label="t('meteogram.chart.resetZoom')"
             class="shrink-0"
             @click="resetChart"
-          />
-        </div>
-        <div class="order-1 md:order-none md:col-start-2 md:row-start-1 self-start justify-self-start md:justify-self-end min-w-0 max-w-full">
-          <SegmentedControl
-            :model-value="view"
-            :options="viewOptions"
-            :label="t('meteogram.chart.viewLabel')"
-            @update:model-value="chooseView"
           />
         </div>
       </div>
@@ -385,7 +387,8 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
       <!-- Premium Compact Overview Grid -->
       <div v-else class="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-md p-4">
         <!-- relative: the cards' visually hidden texts are positioned, and would otherwise lie outside the box that scrolls and make the page scroll sideways (WCAG 1.4.10) -->
-        <div class="relative flex items-center justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">
+        <!-- the strip of ten or eleven cards scrolls sideways at any width: a named region that takes the focus, so that a keyboard can scroll it (WCAG 2.1.1; Safari does not focus a scroll container; the ring is the global one) -->
+        <div role="region" tabindex="0" :aria-label="daysLabel" data-testid="compact-days" class="relative flex items-center justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">
           <template v-for="(d, idx) in compactDays" :key="idx">
             <div
               class="inline-flex flex-col items-center justify-center text-center p-4 rounded-2xl border transition-all duration-300 min-w-[105px] flex-shrink-0" :class="[

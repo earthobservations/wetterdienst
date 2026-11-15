@@ -516,6 +516,8 @@
       "noData": "Keen Daten för de utsöchte Afraag verfögbar",
       "label": "Utsichtdiagramm för {name}",
       "labelNoStation": "Utsichtdiagramm",
+      "daysLabel": "Dagesutsicht för {name}",
+      "daysLabelNoStation": "Dagesutsicht",
       "panels": "Bereiche",
       "panelTemperature": "Temperatur",
       "panelWind": "Wind",

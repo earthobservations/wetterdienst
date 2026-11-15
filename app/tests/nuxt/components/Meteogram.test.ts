@@ -332,6 +332,18 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(cards).toContain(weekday)
   })
 
+  // the strip of cards scrolls sideways once it holds every day of the run (GH-4127), and a keyboard reaches a scroll
+  // container only through a focusable element (Safari: not at all): a named region in the tab order (WCAG 2.1.1)
+  it.each([['en', 'Forecast by day for Berlin'], ['de', 'Tagesvorhersage für Berlin']])('puts the strip of day cards in the tab order as a region of its own in %s', async (code, name) => {
+    await inLanguage(code)
+    await showMeteogram()
+    await showCompact()
+    const strip = document.body.querySelector('[data-testid="compact-days"]')!
+    expect(strip.getAttribute('role')).toBe('region')
+    expect(strip.getAttribute('tabindex')).toBe('0')
+    expect(strip.getAttribute('aria-label')).toBe(name)
+  })
+
   it('names the series of the y axes in colours that read on the paper (GH-3618)', async () => {
     await showMeteogram()
     // the panels the values have: the rain, the temperature

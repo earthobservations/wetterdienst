@@ -516,6 +516,8 @@
       "noData": "Keine Daten für die gewählte Abfrage verfügbar",
       "label": "Vorhersagediagramm für {name}",
       "labelNoStation": "Vorhersagediagramm",
+      "daysLabel": "Tagesvorhersage für {name}",
+      "daysLabelNoStation": "Tagesvorhersage",
       "panels": "Bereiche",
       "panelTemperature": "Temperatur",
       "panelWind": "Wind",

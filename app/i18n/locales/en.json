@@ -516,6 +516,8 @@
       "noData": "No data available for the selected query",
       "label": "Forecast chart for {name}",
       "labelNoStation": "Forecast chart",
+      "daysLabel": "Forecast by day for {name}",
+      "daysLabelNoStation": "Forecast by day",
       "panels": "Panels",
       "panelTemperature": "Temperature",
       "panelWind": "Wind",

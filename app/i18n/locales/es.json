@@ -516,6 +516,8 @@
       "noData": "No hay datos disponibles para la consulta seleccionada",
       "label": "Gráfico de pronóstico para {name}",
       "labelNoStation": "Gráfico de pronóstico",
+      "daysLabel": "Pronóstico por días para {name}",
+      "daysLabelNoStation": "Pronóstico por días",
       "panels": "Paneles",
       "panelTemperature": "Temperatura",
       "panelWind": "Viento",

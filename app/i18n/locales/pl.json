@@ -516,6 +516,8 @@
       "noData": "Brak dostępnych danych dla wybranego zapytania",
       "label": "Wykres prognozy dla {name}",
       "labelNoStation": "Wykres prognozy",
+      "daysLabel": "Prognoza dzienna dla {name}",
+      "daysLabelNoStation": "Prognoza dzienna",
       "panels": "Panele",
       "panelTemperature": "Temperatura",
       "panelWind": "Wiatr",
