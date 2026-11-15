@@ -598,6 +598,28 @@
           "wind_gust_max_last_1h",
           "wind_gust_max_last_3h",
           "wind_speed"
+        ],
+        "snow": [
+          "precipitation_amount_significant_weather_last_1h",
+          "probability_snow_depth_new_gt_10cm_last_12h",
+          "probability_snow_depth_new_gt_10cm_last_24h",
+          "probability_snow_depth_new_gt_10cm_last_6h",
+          "probability_snow_depth_new_gt_20cm_last_6h",
+          "probability_snow_depth_new_gt_30cm_last_12h",
+          "probability_snow_depth_new_gt_30cm_last_24h",
+          "probability_snow_depth_new_gt_50cm_last_24h",
+          "probability_snow_depth_new_gt_5cm_last_12h",
+          "probability_snow_depth_new_gt_5cm_last_6h",
+          "snow_depth",
+          "snow_depth_new_last_12h",
+          "snow_depth_new_last_24h",
+          "snow_depth_new_last_3h",
+          "snow_depth_new_last_6h",
+          "temperature_air_2m",
+          "temperature_dew_point_2m",
+          "wind_direction",
+          "wind_gust_max_last_1h",
+          "wind_speed"
         ]
       }
     },
@@ -3596,5 +3618,5 @@
     "parameters": {},
     "in_dataset": {}
   },
-  "x-release": "0.188.0"
+  "x-release": "0.189.0"
 }
