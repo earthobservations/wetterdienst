@@ -120,7 +120,7 @@ The processes that share a cache directory take turns on its metadata file and i
 ### Export / interpolation
 
 - `ExportMixin` (`io/export.py`): export to CSV/JSON/Excel/Zarr files, SQLite/PostgreSQL/CrateDB/InfluxDB, and DuckDB SQL (`[export]` extra).
-- `io/charts.py`: `to_plot()` returns an Altair chart and `to_image` renders `png`, `jpg`, `svg` and `pdf` with vl-convert, in the process, with no browser (`[plotting]` extra; imported where a chart is drawn, never at import). A chart is exactly the size asked (`sized_spec`), its data goes in as CSV text so that Altair's 5000-row limit is not reached, its text is set in the Liberation Sans that vl-convert carries, and the station map draws the borders of `natural_earth_110m_countries.topojson` (Natural Earth, public domain; nothing is fetched). `tests/test_charts.py` holds it.
+- `io/charts.py`: `to_plot()` returns an Altair chart and `to_image` renders `png`, `jpg`, `svg` and `pdf` with vl-convert, in the process, with no browser (`[plotting]` extra; imported where a chart is drawn, never at import). A chart is exactly the size asked (`sized_spec`), its data goes in as CSV text so that Altair's 5000-row limit is not reached, its text is set in the Liberation Sans that vl-convert carries, and the station map draws the borders of `natural_earth_50m_countries.topojson` (Natural Earth, public domain; nothing is fetched). `tests/test_charts.py` holds it.
 - `core/interpolate.py` and `core/summarize.py`: spatial interpolation and weighted summarization for a target point (`interpolate()` needs the `[interpolation]` extra: scipy, shapely, utm; `summarize()` needs no extra).
 
 Optional dependency groups include `export`, `interpolation`, `restapi`, `sql`, `mcp`, `bufr`.

@@ -9863,7 +9863,7 @@
         "properties": {
           "type": {
             "type": "string",
-            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `host-not-allowed`, `origin-not-allowed`, `sql-disabled`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `not-ready`, `upstream-unreachable`, `upstream-quota-exhausted`, `upstream-timeout`, `request-timeout`, `image-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
+            "description": "`urn:wetterdienst:problem:<kind>`, the kind being one of `invalid-parameters`, `request-refused`, `limit-exceeded`, `image-too-large`, `host-not-allowed`, `origin-not-allowed`, `sql-disabled`, `not-found`, `unknown-network`, `method-not-allowed`, `not-implemented`, `dependency-missing`, `credential-missing`, `credential-rejected`, `not-configured`, `upstream-failed`, `server-busy`, `not-ready`, `upstream-unreachable`, `upstream-quota-exhausted`, `upstream-timeout`, `request-timeout`, `internal-error`. A client branches on it; the docs list when each is answered."
           },
           "title": {
             "type": "string",
@@ -9897,7 +9897,8 @@
             "enum": [
               "stations",
               "rows",
-              "stream_rows"
+              "stream_rows",
+              "image_points"
             ],
             "description": "Of `limit-exceeded`: the limit the request passes."
           },
@@ -9943,7 +9944,7 @@
     },
     "responses": {
       "BadRequest": {
-        "description": "Bad Request. The body is a problem (`Problem`) of one of the kinds:\n\n- `request-refused`: The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range.\n- `limit-exceeded`: The request would return more than the server allows. `limit` names the limit (`stations`, `rows` or `stream_rows`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it.\n- `image-too-large`: A chart would be longer than 8192 px on a side.\n- `host-not-allowed`: The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists.\n- `origin-not-allowed`: The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint.",
+        "description": "Bad Request. The body is a problem (`Problem`) of one of the kinds:\n\n- `request-refused`: The request is understood and cannot be served as phrased: a window that ends before it starts, a parameter the network does not have, a point out of range.\n- `limit-exceeded`: The request would return more than the server allows. `limit` names the limit (`stations`, `rows`, `stream_rows` or `image_points`), `maximum` its value and `requested` what the request comes to; `detail` says how to narrow it.\n- `image-too-large`: A chart would be longer than 8192 px on a side.\n- `host-not-allowed`: The `Host` of the request is not one the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). Reach the server by a name it lists.\n- `origin-not-allowed`: The `Origin` of a request to the MCP endpoint is not a host the server answers to (`WD_RESTAPI_ALLOWED_HOSTS`). A page of another origin cannot use the endpoint.",
         "content": {
           "application/problem+json": {
             "schema": {
@@ -10029,7 +10030,7 @@
         }
       },
       "GatewayTimeout": {
-        "description": "Gateway Timeout. The body is a problem (`Problem`) of one of the kinds:\n\n- `upstream-timeout`: The data provider did not answer in time. The request was valid; retry it.\n- `request-timeout`: The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached.\n- `image-timeout`: A chart was not drawn as an image in time. The request was valid; retry it. Nothing raises it since the images are drawn without a browser (GH-3238); it stays for a client that matches the kind.",
+        "description": "Gateway Timeout. The body is a problem (`Problem`) of one of the kinds:\n\n- `upstream-timeout`: The data provider did not answer in time. The request was valid; retry it.\n- `request-timeout`: The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached.",
         "content": {
           "application/problem+json": {
             "schema": {

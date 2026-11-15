@@ -803,8 +803,8 @@ What a request answers is a result, and the results are what a caller reads:
 - **The formats take the arguments they have, and no others.** `to_json`, `to_geojson`,
   `to_ogc_feature_collection` and `to_plot` raise a `TypeError` for a keyword they do not know, so a typo such as
   `to_geojson(with_metdata=True)` is an error, and a type checker reports it. `to_csv` and `to_image` pass their
-  keywords on (`to_csv` to polars' `write_csv`, `to_image` to the image: `fmt`, `width`, `height`, `scale` and
-  `max_side`). `to_format(fmt, **kwargs)` takes one set of arguments for any format and gives each format those
+  keywords on (`to_csv` to polars' `write_csv`, `to_image` to the image: `fmt`, `width`, `height`, `scale`,
+  `max_side` and `max_points`). `to_format(fmt, **kwargs)` takes one set of arguments for any format and gives each format those
   it takes (CSV none), which is what the command line, the REST API and MCP rely on. A name that no format takes
   is a `TypeError` listing the ones that are, and a format it does not know an `UnknownFormatError`.
 - **A result is built by the library, and by keyword.** The constructors take keyword arguments only
@@ -844,7 +844,7 @@ format takes is a `TypeError` too, and the formats by surface are in the table o
 | `to_ogc_feature_collection` | `with_metadata` | `with_metadata` | none |
 | `to_csv` | `**kwargs` of polars' `write_csv` | the same | none |
 | `to_ndjson` | none | none | none |
-| `to_image` | `**kwargs`: `fmt`, `width`, `height`, `scale`, `max_side` | the same | none |
+| `to_image` | `**kwargs`: `fmt`, `width`, `height`, `scale`, `max_side`, `max_points` | the same | none |
 | `to_plot` | none | none | none |
 | `to_format` | `fmt`, `**kwargs` | the same | `fmt`, `**kwargs`: JSON only |
 
@@ -975,9 +975,9 @@ png = values.to_image(fmt="png", width=1000, height=600, scale=2)  # bytes: an i
 - **The rows of a chart are no limit.** A series of years of hourly values is drawn: the data goes in as the text of a CSV file,
   so that Altair's limit of 5000 rows, which `alt.data_transformers` would lift for the whole process, is not reached,
   and no file is written. Polars frames need no pandas.
-- **The station map** draws the stations on the borders and coastlines of the countries of Natural Earth 1:110m, which
-  the package ships (96 KB) and which nothing fetches while it draws. There are no map tiles, and at the scale of a
-  town the borders are those of a world map.
+- **The station map** draws the stations on the borders and coastlines of the countries of Natural Earth 1:50m, which
+  the package ships (733 KB) and which nothing fetches while it draws. There are no map tiles, and at the scale of a
+  town the borders are those of a map of the world at 1:50 million.
 - **The text** is set in Liberation Sans, which vl-convert carries, so that an image is the same on every system.
 - **A caller of the earlier releases** who took the Plotly figure that `to_plot()` returned (`to_plot().update_layout(...)`,
   `to_plot().write_image(...)`) takes the Altair chart now: `chart.properties(...)`, `chart.save("name.png")`
@@ -1050,7 +1050,6 @@ below it say what kind of failure it is:
 | `ConfigurationError` | this installation cannot serve it: a missing credential or optional package | |
 | `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError` (`ProviderRateLimitError`: the provider answered 429 or the quota of the key is used up, retry later after `retry_after` seconds), `NoInternetError`, `StationListingIncompleteError` (a station is not found, and the lookup of the stations of `dwd/observation` or `dwd/derived` went without a directory it may be in) | |
 | `ExportRefusedError` | a sink will not perform the export, for a reason the caller can act on | |
-| `ImageTimeoutError` | an image was not drawn in time; the library raises none since the images are drawn without a browser (GH-3238) | `TimeoutError` |
 
 ```python
 from wetterdienst import RequestError, UpstreamError, WetterdienstError
@@ -1075,7 +1074,7 @@ credential you configured) a `ConfigurationError` and a `PermissionError`. The R
 and the command line decide by the class what to answer: a `RequestError` is a 400 or a usage error
 (exit 2), a `NotFoundError` a 404, a `ConfigurationError` a 501, a `NoInternetError` a 503, a
 `ProviderRateLimitError` (a 429 of any provider or the quota of the key used up, a `DownloadError`) a 503, any other
-`UpstreamError` a 502 (a 504 where a timeout was its cause), an `ImageTimeoutError` a 504 (exit 1), and anything else, an unclassified
+`UpstreamError` a 502 (a 504 where a timeout was its cause), and anything else, an unclassified
 `WetterdienstError` included, the server's error, a 500. See [REST API](restapi.md#errors) for the body.
 
 ### Offline

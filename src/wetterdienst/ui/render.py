@@ -251,6 +251,12 @@ def _applied_settings(model: type[_M], options: Options) -> _M:
     )
 
 
+#: the most points a chart of the REST API or an MCP tool draws, an image or a page (GH-3238): 87,000 points take
+#: 3.4 s to draw and 262,000 take 10 s and 2.6 GB, during which vl-convert 1.9 holds the interpreter. The library
+#: and the command line draw what they are given
+MAX_IMAGE_POINTS = 100_000
+
+
 def render_kwargs(
     request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest,
     *,
@@ -262,7 +268,9 @@ def render_kwargs(
     adds it (`render`).
 
     `max_side` is the largest side of a rendered chart that is let through, which the REST API sets
-    and the command line, whose caller is at the keyboard, does not.
+    and the command line, whose caller is at the keyboard, does not. Where it is set, a chart (an image or the
+    page) of more than `MAX_IMAGE_POINTS` points is refused as well: vl-convert holds the interpreter while it draws,
+    and the page embeds every point.
     """
     kwargs: dict[str, Any] = {"fmt": request.format, "with_metadata": request.with_metadata}
     if request.format in ("json", "geojson"):
@@ -273,6 +281,8 @@ def render_kwargs(
         kwargs["scale"] = request.scale
         if max_side is not None:
             kwargs["max_side"] = max_side
+    if (is_image(request.format) or request.format == "html") and max_side is not None:
+        kwargs["max_points"] = MAX_IMAGE_POINTS
     return kwargs
 
 

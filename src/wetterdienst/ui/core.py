@@ -26,7 +26,6 @@ from wetterdienst.exceptions import (
     ApiNotFoundError,
     ConfigurationError,
     DateRequiredError,
-    ImageTimeoutError,
     InvalidEnumerationError,
     InvalidTimeIntervalError,
     NoInternetError,
@@ -1856,7 +1855,6 @@ def failure_status(e: BaseException) -> int:
         NoInternetError                      503  no connection to the provider could be made
         ProviderRateLimitError               503  a 429 of the provider, or the key's quota is used up
         UpstreamError after a timeout        504  the provider did not answer in time
-        ImageTimeoutError                    504  an image was not drawn in time (no longer raised, GH-3238)
         any other UpstreamError              502  the provider failed, or sent what the parser does not expect
         anything else                        500  our bug
 
@@ -1873,9 +1871,7 @@ def failure_status(e: BaseException) -> int:
     (GH-4046, GH-4048). Any other
     `UpstreamError` -- a `DownloadError`, a file in a layout the parser does not expect -- is the
     provider's, not the caller's to fix and not a defect of ours: a 502, or a 504 where the failure
-    underneath (its `__cause__`) was a timeout. An `ImageTimeoutError` is a 504 as well: no provider is involved,
-    the server's own renderer did not answer, and the same request can succeed on a retry (GH-3723; the library
-    draws without a browser now and raises none). What is left
+    underneath (its `__cause__`) was a timeout. What is left
     is a 500, an unclassified `WetterdienstError` among it, so a class added to the hierarchy without a place here is
     the server's error until it is given one.
 
@@ -1891,8 +1887,6 @@ def failure_status(e: BaseException) -> int:
         return 501
     if isinstance(e, (NoInternetError, ProviderRateLimitError)):
         return 503
-    if isinstance(e, ImageTimeoutError):
-        return 504
     if isinstance(e, UpstreamError):
         return 504 if timed_out(e) else 502
     return 500

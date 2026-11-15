@@ -83,7 +83,16 @@ def test_a_format_takes_every_argument_one_of_the_results_gives_it(format_name: 
 
 def test_the_arguments_are_what_the_formats_take() -> None:
     """The arguments `to_format` accepts are the union of what the formats take."""
-    assert {"with_metadata", "with_stations", "indent", "width", "height", "scale", "max_side"} == ARGUMENTS
+    assert {
+        "with_metadata",
+        "with_stations",
+        "indent",
+        "width",
+        "height",
+        "scale",
+        "max_side",
+        "max_points",
+    } == ARGUMENTS
 
 
 @pytest.mark.parametrize("name", _WITH_FORMATS)

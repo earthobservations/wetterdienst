@@ -9640,6 +9640,84 @@ def test_chart_taller_than_its_request_is_refused_on_every_data_endpoint(
     assert "The image would be 7000 x 9000 px" in response.json()["detail"]
 
 
+def _chart_of_points(points: int) -> object:
+    """Stand in for a chart whose data has `points` rows, as the CSV text the charts of the library hold it as."""
+    csv = "x\n" + "1\n" * points
+    return SimpleNamespace(to_dict=lambda: {"datasets": {"data": csv}})
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("fmt", ["png", "jpg", "svg", "pdf", "html"])
+@pytest.mark.parametrize("endpoint", ["/api/values", "/api/interpolate", "/api/summarize"])
+def test_a_chart_of_more_than_100000_points_is_refused_in_every_format_and_route(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, endpoint: str, fmt: str
+) -> None:
+    """The page embeds the points and an image draws them, holding the interpreter: both are refused above 100,000."""
+    from wetterdienst.model.result import (  # noqa: PLC0415
+        InterpolatedValuesResult,
+        SummarizedValuesResult,
+        ValuesResult,
+    )
+
+    _stub_result(monkeypatch, endpoint)
+    for result_class in (ValuesResult, InterpolatedValuesResult, SummarizedValuesResult):
+        monkeypatch.setattr(result_class, "to_plot", lambda *_args, **_kwargs: _chart_of_points(100_001))
+    monkeypatch.setattr("wetterdienst.model.result.render_image", _unreached)
+    monkeypatch.setattr("wetterdienst.model.result.chart_to_html", _unreached)
+    response = client.get(
+        endpoint,
+        params={
+            "provider": "dwd",
+            "network": "observation",
+            "parameters": "daily/kl/temperature_air_mean_2m",
+            _station_of(endpoint): "01048",
+            "timestamp": "2020-06-30",
+            "format": fmt,
+        },
+    )
+    assert response.status_code == 400, response.text
+    problem = response.json()
+    assert problem["type"] == "urn:wetterdienst:problem:limit-exceeded"
+    assert (problem["limit"], problem["maximum"], problem["requested"]) == ("image_points", 100_000, 100_001)
+    assert "100,001 points" in problem["detail"]
+    assert "fewer stations or parameters, or a shorter `timestamp` window" in problem["detail"]
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_a_chart_of_100000_points_is_drawn_and_the_data_formats_have_no_such_limit(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The limit is on the chart: 100,000 points pass, and the rows of a csv are the limits of the rows."""
+    from wetterdienst.model.result import ValuesResult  # noqa: PLC0415
+
+    _stub_result(monkeypatch, "/api/values")
+    monkeypatch.setattr(ValuesResult, "to_plot", lambda *_args, **_kwargs: _chart_of_points(100_000))
+    monkeypatch.setattr("wetterdienst.model.result.require_vl_convert", lambda: None)
+    monkeypatch.setattr("wetterdienst.model.result.render_image", lambda *_args, **_kwargs: b"drawn")
+    params = {
+        "provider": "dwd",
+        "network": "observation",
+        "parameters": "daily/kl/temperature_air_mean_2m",
+        "stations": "01048",
+        "timestamp": "2020-06-30",
+    }
+    assert client.get("/api/values", params={**params, "format": "png"}).content == b"drawn"
+    monkeypatch.setattr(ValuesResult, "to_plot", lambda *_args, **_kwargs: _chart_of_points(10**6))
+    assert client.get("/api/values", params={**params, "format": "csv"}).status_code == 200
+
+
+def test_the_python_api_and_the_command_line_draw_any_number_of_points() -> None:
+    """The limit is the REST API's: `render_kwargs` hands it to a result only where `max_side` is set (the server)."""
+    from wetterdienst.ui.render import MAX_IMAGE_POINTS, render_kwargs  # noqa: PLC0415
+
+    request = SimpleNamespace(format="png", with_metadata=False, pretty=False, width=None, height=None, scale=None)
+    assert "max_points" not in render_kwargs(request)  # ty: ignore[invalid-argument-type]
+    assert render_kwargs(request, max_side=8192)["max_points"] == MAX_IMAGE_POINTS  # ty: ignore[invalid-argument-type]
+    assert MAX_IMAGE_POINTS == 100_000
+    html = SimpleNamespace(format="html", with_metadata=False, pretty=False, width=None, height=None, scale=None)
+    assert render_kwargs(html, max_side=8192)["max_points"] == MAX_IMAGE_POINTS  # ty: ignore[invalid-argument-type]
+
+
 # ---------------------------------------------------------------------------------------------
 # one error body, an RFC 9457 problem, for every status (GH-2634)
 # ---------------------------------------------------------------------------------------------

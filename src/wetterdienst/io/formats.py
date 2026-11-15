@@ -39,7 +39,7 @@ class Format:
     image: bool = False
 
 
-_IMAGE_ARGUMENTS = frozenset({"width", "height", "scale", "max_side"})
+_IMAGE_ARGUMENTS = frozenset({"width", "height", "scale", "max_side", "max_points"})
 
 #: the formats of `to_format`, in the order the surfaces list them
 FORMATS: dict[str, Format] = {

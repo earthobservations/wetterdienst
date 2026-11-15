@@ -698,3 +698,26 @@ def test_the_timeout_text_of_the_other_routes_is_unchanged() -> None:
     assert not any(is_point_route(path) for path in ("/api/v1/values", "/api/v1/stations", "/api/v1/interpolate/x"))
     assert "fewer stations or parameters, or format=ndjson or csv" in timeout_detail(30)
     assert "fewer stations or parameters." in timeout_detail(30, tool=True)
+
+
+@pytest.mark.parametrize("fmt", ["png", "html"])
+def test_a_chart_of_more_than_100000_points_is_a_tool_error_that_says_how_to_narrow_it(
+    monkeypatch: pytest.MonkeyPatch, fmt: str
+) -> None:
+    """The tools are the REST API's routes and are held to its limit on a chart: an error that names the way out."""
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from wetterdienst.model.result import ValuesResult  # noqa: PLC0415
+
+    _stub_stream(monkeypatch, [_values_result_of_shape("long")])
+    csv = "x\n" + "1\n" * 100_001
+    monkeypatch.setattr(
+        ValuesResult, "to_plot", lambda *_a, **_k: SimpleNamespace(to_dict=lambda: {"datasets": {"d": csv}})
+    )
+
+    result, _ = _call(restapi.app, "values", {**_VALUES, "format": fmt})
+
+    assert result.is_error
+    text = " ".join(getattr(block, "text", "") for block in result.content)
+    assert "100,001 points" in text
+    assert "fewer stations or parameters, or a shorter `timestamp` window" in text

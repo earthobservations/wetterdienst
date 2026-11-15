@@ -12,8 +12,7 @@ command line can tell what to answer from the class instead of keeping a list of
     ├── NotFoundError     what the request names does not exist (a `LookupError`)
     ├── ConfigurationError  this installation is not set up to serve it
     ├── UpstreamError     the provider's side failed or sent what the parser does not expect
-    ├── ExportRefusedError  a sink will not perform the export it was asked for
-    └── ImageTimeoutError   an image was not drawn in time (also a `TimeoutError`); no longer raised, GH-3238
+    └── ExportRefusedError  a sink will not perform the export it was asked for
 
 Each class that was an exception of its own before keeps the built-in classes it derived from, so an
 `except ValueError`, `except OSError`, `except FileNotFoundError` or `except IndexError` that caught
@@ -358,28 +357,25 @@ class ImageTooLargeError(RequestError):
         return type(self), (self.width, self.height, self.max_side), self.__dict__
 
 
-class ImageTimeoutError(WetterdienstError, TimeoutError):
-    """Raised when a chart was not rendered to an image in time (GH-3723). The library no longer raises it (GH-3238).
+class ImageTooManyPointsError(RequestError):
+    """Raised when a chart would draw more points than the caller allows (`max_points`).
 
-    Images were drawn in a Chrome that Kaleido started, and one that was stuck (a start that does not end, a page that
-    is never ready) held the caller for ever, so the render had a clock and this was its error. vl-convert draws in the
-    process and starts no browser, so nothing is left to hang and nothing raises this. It stays for a caller that
-    catches it, and the REST API still answers it with a 504 of the kind `image-timeout`, the command line with one
-    line, exit 1, should a renderer ever raise it. A `TimeoutError` too.
+    The REST API and the MCP tools set the limit and answer it with a 400 of the kind `limit-exceeded`: vl-convert
+    holds the interpreter while it draws, and a page embeds every point it draws. The library and the command line
+    set none. Counted from the data of the chart once it is built, before it is drawn.
     """
 
-    def __init__(self, timeout: float | None) -> None:
-        """Keep the limit of the render, in seconds; None where a shorter wait of the browser's own ran out first."""
-        self.timeout = timeout
-        limit = "" if timeout is None else f" (the limit is {timeout:g} seconds)"
+    def __init__(self, points: int, max_points: int) -> None:
+        """Keep the points the chart would draw and the limit it exceeds."""
+        self.points = points
+        self.max_points = max_points
         super().__init__(
-            f"The image was not rendered in time{limit}. Try again; if it keeps happening, check what draws it on this "
-            "machine."
+            f"The chart would draw {points:,} points, more than the {max_points:,} this server draws in a chart."
         )
 
     def __reduce__(self) -> tuple:
-        """Rebuild from the seconds, not from the message in `args`, so the error pickles."""
-        return type(self), (self.timeout,), self.__dict__
+        """Rebuild from the counts, not from the message in `args`, so the error pickles."""
+        return type(self), (self.points, self.max_points), self.__dict__
 
 
 class UnknownFormatError(RequestError, KeyError):

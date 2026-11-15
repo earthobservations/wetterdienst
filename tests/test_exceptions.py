@@ -20,8 +20,8 @@ from wetterdienst.exceptions import (
     DateRequiredError,
     DownloadError,
     ExportRefusedError,
-    ImageTimeoutError,
     ImageTooLargeError,
+    ImageTooManyPointsError,
     InvalidBoundingBoxError,
     InvalidEnumerationError,
     InvalidParameterError,
@@ -91,7 +91,7 @@ _BASES: dict[type[BaseException], tuple[type[WetterdienstError], tuple[type[Base
     NoStationsWithElevationError: (RequestError, (ValueError,)),
     ParameterNotCarriedError: (RequestError, (ValueError,)),
     ImageTooLargeError: (RequestError, (Exception,)),
-    ImageTimeoutError: (WetterdienstError, (TimeoutError,)),
+    ImageTooManyPointsError: (RequestError, (Exception,)),
     UnknownFormatError: (RequestError, (KeyError, ValueError)),
     ExportRefusedError: (WetterdienstError, (Exception,)),
     ProviderContractError: (WetterdienstError, (Exception,)),
@@ -179,8 +179,8 @@ def test_the_os_errors_keep_the_layout_of_their_built_in_class() -> None:
 _CONSTRUCTOR_ARGS: dict[type[BaseException], tuple] = {
     DownloadError: ("https://example.com/a", "timed out"),
     ProviderRateLimitError: ("https://example.com/a", "the quota is used up", 900),
-    ImageTimeoutError: (120.0,),
     ImageTooLargeError: (1, 2, 3),
+    ImageTooManyPointsError: (100_001, 100_000),
     StationListingIncompleteError: ("00044", {"`a/`": "its listing came back empty or missing"}),
     UnknownFormatError: ("xml", ("csv", "json")),
 }

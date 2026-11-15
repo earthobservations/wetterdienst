@@ -36,6 +36,7 @@ from wetterdienst.io.charts import DEFAULT_HEIGHT, DEFAULT_WIDTH
 from wetterdienst.io.export import (
     ExportMixin,
     chart_to_html,
+    check_image_points,
     check_image_size,
     render_data_format,
     render_image,
@@ -408,14 +409,18 @@ def _draw_chart(
     height: int | None,
     scale: float | None,
     max_side: int | None,
+    max_points: int | None = None,
 ) -> bytes | str:
     """Write a chart in a format of the registry: the html page, or an image drawn by vl-convert.
 
-    The size of an image is checked first, before anything is drawn, and the `plotting` extra is asked for.
+    The points and the size of an image are checked first, before anything is drawn, and the `plotting` extra is
+    asked for.
     """
     if fmt == "html":
+        check_image_points(chart, max_points)
         return chart_to_html(chart)
     if is_image(fmt):
+        check_image_points(chart, max_points)
         check_image_size(chart, width, height, scale, max_side)
         require_vl_convert()
         return render_image(chart, fmt, width=width, height=height, scale=scale)
@@ -709,6 +714,7 @@ class StationsResult(_EqualByFields, ExportMixin):
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
+        max_points: int | None = None,
     ) -> bytes | str:
         """Create an image from the station map, or an html page.
 
@@ -716,7 +722,9 @@ class StationsResult(_EqualByFields, ExportMixin):
         stations fill the same share of it.
         """
         chart = self._map(width or DEFAULT_WIDTH, height or DEFAULT_HEIGHT)
-        return _draw_chart(chart, fmt, width=width, height=height, scale=scale, max_side=max_side)
+        return _draw_chart(
+            chart, fmt, width=width, height=height, scale=scale, max_side=max_side, max_points=max_points
+        )
 
 
 class _ValuesItemDict(TypedDict):
@@ -1170,12 +1178,15 @@ class ValuesResult(_ValuesResult[list[_ValuesItemDict] | list[_ValuesWideItemDic
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
+        max_points: int | None = None,
     ) -> bytes | str:
         """Create an image from the values chart, or an html page.
 
         This method is used by ``.to_image()``.
         """
-        return _draw_chart(self.to_plot(), fmt, width=width, height=height, scale=scale, max_side=max_side)
+        return _draw_chart(
+            self.to_plot(), fmt, width=width, height=height, scale=scale, max_side=max_side, max_points=max_points
+        )
 
 
 # One history as the `History` model of `model/history.py` dumps it, with its timestamps written as text
@@ -1579,12 +1590,15 @@ class InterpolatedValuesResult(_ValuesResult[list[_InterpolatedValuesItemDict], 
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
+        max_points: int | None = None,
     ) -> bytes | str:
         """Create an image from the chart of the interpolated values, or an html page.
 
         This method is used by ``.to_image()``.
         """
-        return _draw_chart(self.to_plot(), fmt, width=width, height=height, scale=scale, max_side=max_side)
+        return _draw_chart(
+            self.to_plot(), fmt, width=width, height=height, scale=scale, max_side=max_side, max_points=max_points
+        )
 
 
 class _SummarizedValuesItemDict(TypedDict):
@@ -1716,12 +1730,15 @@ class SummarizedValuesResult(_ValuesResult[list[_SummarizedValuesItemDict], _Sum
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
+        max_points: int | None = None,
     ) -> bytes | str:
         """Create an image from the chart of the summarized values, or an html page.
 
         This method is used by ``.to_image()``.
         """
-        return _draw_chart(self.to_plot(), fmt, width=width, height=height, scale=scale, max_side=max_side)
+        return _draw_chart(
+            self.to_plot(), fmt, width=width, height=height, scale=scale, max_side=max_side, max_points=max_points
+        )
 
 
 @runtime_checkable

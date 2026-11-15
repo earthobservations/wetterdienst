@@ -129,8 +129,9 @@ What the server enforces itself (`docs/usage/restapi.md`, `ui/middleware.py`; `t
   the data answers, where it has nothing to guard, nor with `pdf` and the other images, nor with `/docs` and `/redoc`,
   which load Swagger UI and ReDoc from a CDN, nor with `format=html`: that is a Vega-Embed page whose script is in the
   page, so a policy that lets it run guards little and was not checked in a browser. The backend's origin holds no
-  cookie or credential, so this is hardening: Altair escapes `<` in the JSON of a chart, and no free text of the
-  caller is drawn into one. HSTS, `Referrer-Policy` and a policy for the rest are for a reverse proxy.
+  cookie or credential, so this is hardening: Altair writes the JSON of a chart into the page as it is, so the
+  library writes it with `<`, `>` and `&` as `\u003c`, `\u003e` and `\u0026` (`_HtmlSafeEncoder` of `io/charts.py`; a
+  station named `</script><script>...` is data, `tests/test_charts.py`). HSTS, `Referrer-Policy` and a policy for the rest are for a reverse proxy.
 
 What it does not do:
 

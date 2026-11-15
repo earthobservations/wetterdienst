@@ -7,8 +7,8 @@
 
 ## Third-party data in the package
 
-The country borders of the station map (`wetterdienst/io/natural_earth_110m_countries.topojson`) are the countries of
-Natural Earth 1:110m, in the TopoJSON of [world-atlas](https://github.com/topojson/world-atlas) 2.0.2: Natural Earth data
+The country borders of the station map (`wetterdienst/io/natural_earth_50m_countries.topojson`) are the countries of
+Natural Earth 1:50m, in the TopoJSON of [world-atlas](https://github.com/topojson/world-atlas) 2.0.2: Natural Earth data
 is public domain, "Made with Natural Earth. Free vector and raster map data at
 [naturalearthdata.com](https://www.naturalearthdata.com)".
 

@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, Literal, Self
 
 import polars as pl
 
-from wetterdienst.exceptions import ImageTooLargeError, UnknownFormatError
+from wetterdienst.exceptions import ImageTooLargeError, ImageTooManyPointsError, UnknownFormatError
 from wetterdienst.io import charts
 from wetterdienst.io.file_metadata import require_block, write_sidecar
 from wetterdienst.io.formats import IMAGE_FORMATS, find_format, refuse_unknown_arguments
@@ -63,6 +63,19 @@ def check_image_size(
     rendered_height = (height or default_height) * factor
     if max(rendered_width, rendered_height) > max_side:
         raise ImageTooLargeError(rendered_width, rendered_height, max_side)
+
+
+def check_image_points(chart: alt.TopLevelMixin, max_points: int | None) -> None:
+    """Raise `ImageTooManyPointsError` when `chart` would draw more than `max_points` points.
+
+    The points are the rows of the data of the chart, which a page embeds as well. Nothing is checked without
+    `max_points`, which is what the library and the CLI do.
+    """
+    if max_points is None:
+        return
+    points = charts.count_points(chart)
+    if points > max_points:
+        raise ImageTooManyPointsError(points, max_points)
 
 
 def require_vl_convert() -> None:
@@ -262,6 +275,7 @@ class ExportMixin(RefusesRenamedMembers):
         height: int | None = None,
         scale: float | None = None,
         max_side: int | None = None,
+        max_points: int | None = None,
     ) -> bytes | str:
         """Create an image from the Altair chart."""
 
@@ -269,8 +283,8 @@ class ExportMixin(RefusesRenamedMembers):
         """Create an image from the Altair chart, or an html page.
 
         Args:
-            **kwargs: The arguments of the image creation method: `fmt`, `width`, `height`, `scale`
-                and `max_side`. Any other is a `TypeError`.
+            **kwargs: The arguments of the image creation method: `fmt`, `width`, `height`, `scale`,
+                `max_side` and `max_points`. Any other is a `TypeError`.
 
         Returns:
             Image data as bytes or string

@@ -24,7 +24,6 @@ from wetterdienst.exceptions import (
     CredentialRejectedError,
     DateRequiredError,
     ExportRefusedError,
-    ImageTimeoutError,
     InvalidTimeIntervalError,
     MetadataNotFoundError,
     MissingDependencyError,
@@ -1520,12 +1519,6 @@ class _Cli(_Group):
         except MissingDependencyError as e:
             # whatever the command was doing when it reached for a package that is not installed,
             # such as rendering an image: the message names what to install, and is the whole of it
-            log.error(str(e))  # noqa: TRY400
-            sys.exit(1)
-        except ImageTimeoutError as e:
-            # whatever image the command was drawing, if it was not drawn in time (nothing raises it since the images
-            # are drawn without a browser, GH-3238). One line, as
-            # for an outage, where a traceback says nothing the line does not (GH-3723)
             log.error(str(e))  # noqa: TRY400
             sys.exit(1)
         except NoInternetError as e:

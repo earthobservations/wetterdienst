@@ -166,6 +166,40 @@ def _stations_result(count: int = 6) -> StationsResult:
     return StationsResult(request=request, df=df, _df_all=df, _stations_filter=StationsFilter.BY_STATION_ID)
 
 
+def _coast_result() -> StationsResult:
+    """Eight stations from the Danish border to the Weser, around the bay of Kiel and the estuary of the Elbe."""
+    points = [
+        (54.3774, 10.1436),
+        (54.5275, 9.5486),
+        (53.8712, 8.7058),
+        (53.6332, 9.9881),
+        (54.5297, 11.0617),
+        (54.5, 10.27),
+        (53.5333, 8.5833),
+        (53.8053, 10.7192),
+    ]
+    rows = [
+        {
+            "resolution": "hourly",
+            "dataset": "temperature_air",
+            "station_id": f"{index:05d}",
+            "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.UTC),
+            "end_timestamp": None,
+            "latitude": latitude,
+            "longitude": longitude,
+            "elevation": 10.0,
+            "name": f"Station {index}",
+            "region": "Schleswig-Holstein",
+        }
+        for index, (latitude, longitude) in enumerate(points)
+    ]
+    df = pl.DataFrame(rows, schema=STATIONS_SCHEMA)
+    request = DwdObservationRequest(
+        parameters=[("hourly", "temperature_air", "temperature_air_2m")], settings=Settings(cache_disable=True)
+    )
+    return StationsResult(request=request, df=df, _df_all=df, _stations_filter=StationsFilter.BY_STATION_ID)
+
+
 def _values_result(*, hours: int = 48) -> ValuesResult:
     rows = []
     for station in ("01048", "00044"):
@@ -455,37 +489,60 @@ def test_no_pandas_is_needed_and_no_file_is_written(tmp_path: Any) -> None:  # n
     assert list(tmp_path.iterdir()) == []
 
 
-def test_a_chart_that_asks_for_an_address_is_refused_and_the_address_is_not_asked() -> None:
-    """A specification holds its data, so no address is let through: a URL in one is an error, not a request."""
-    import threading  # noqa: PLC0415
-    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # noqa: PLC0415
+_SERVER = """
+import http.server
+import sys
+
+log, port = sys.argv[1], int(sys.argv[2])
+
+
+class Handler(http.server.BaseHTTPRequestHandler):
+    def do_GET(self):
+        with open(log, "a") as handle:
+            handle.write(self.path + "\\n")
+        self.send_response(200)
+        self.send_header("Content-Type", "text/csv")
+        self.end_headers()
+        self.wfile.write(b"a\\n1\\n2\\n")
+
+    def log_message(self, *args):
+        pass
+
+
+http.server.ThreadingHTTPServer(("127.0.0.1", port), Handler).serve_forever()
+"""
+
+
+def test_a_chart_that_asks_for_an_address_is_refused_and_the_address_is_not_asked(tmp_path: Any) -> None:  # noqa: ANN401
+    """A specification holds its data, so no address is let through: a URL in one is an error, not a request.
+
+    The server that would be asked runs in a process of its own: vl-convert 1.9 holds the interpreter while it draws,
+    so a server in a thread of this one could not answer, and a render that let the address through would hang the
+    test instead of failing it.
+    """
+    import socket  # noqa: PLC0415
+    import time  # noqa: PLC0415
 
     import altair as alt  # noqa: PLC0415
 
-    asked: list[str] = []
-
-    class Handler(BaseHTTPRequestHandler):
-        def do_GET(self) -> None:
-            asked.append(self.path)
-            self.send_response(200)
-            self.send_header("Content-Type", "text/csv")
-            self.end_headers()
-            self.wfile.write(b"a\n1\n2\n")
-
-        def log_message(self, *_args: object) -> None:
-            pass
-
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
+    with socket.socket() as probe:
+        probe.bind(("127.0.0.1", 0))
+        port = probe.getsockname()[1]
+    log = tmp_path / "asked.log"
+    server = subprocess.Popen([sys.executable, "-c", _SERVER, str(log), str(port)])  # noqa: S603
     try:
-        chart = alt.Chart(f"http://127.0.0.1:{server.server_port}/secret.csv").mark_point().encode(x="a:Q")
+        for _ in range(100):  # until it listens
+            with socket.socket() as client:
+                if client.connect_ex(("127.0.0.1", port)) == 0:
+                    break
+            time.sleep(0.1)
+        chart = alt.Chart(f"http://127.0.0.1:{port}/secret.csv").mark_point().encode(x="a:Q")
         with pytest.raises(Exception, match=r"(?i)allowed|url|http|127"):
             render_image(chart, "png")
     finally:
-        server.shutdown()
-        server.server_close()
-    assert asked == []
+        server.kill()
+        server.wait()
+    assert not log.exists()
 
 
 def test_the_map_has_the_borders_and_the_stations_and_fetches_nothing() -> None:
@@ -496,7 +553,12 @@ def test_the_map_has_the_borders_and_the_stations_and_fetches_nothing() -> None:
     assert land["data"]["format"] == {"type": "topojson", "feature": "countries"}
     border = land["data"]["values"]
     assert border["type"] == "Topology"
-    assert len(border["objects"]["countries"]["geometries"]) > 150
+    # a map of 3 degrees holds the countries that reach into it, with the arcs they need and no others
+    kept = border["objects"]["countries"]["geometries"]
+    assert 1 <= len(kept) < 10
+    used = [index if index >= 0 else ~index for geometry in kept for index in charts._arcs_of(geometry["arcs"])]  # noqa: SLF001
+    assert max(used) < len(border["arcs"])
+    assert len(border["arcs"]) < 500
     assert dots["mark"]["type"] == "circle"
     # the labels of the left half to the right of their stations and the right half to the left, a halo under each
     assert [layer["mark"]["type"] for layer in labels] == ["text"] * 4
@@ -504,6 +566,39 @@ def test_the_map_has_the_borders_and_the_stations_and_fetches_nothing() -> None:
     assert spec["projection"]["type"] == "mercator"
     assert "url" not in land["data"]
     assert "http" not in json.dumps(land)
+
+
+def test_the_borders_of_a_region_are_the_same_drawing_as_those_of_the_world() -> None:
+    """Cutting the file down to the countries of the view leaves the picture as it is, and is much less to draw."""
+    result = _stations_result()
+    chart = result.to_plot()
+    cut = chart.to_dict()["layer"][0]["data"]["values"]
+    whole = charts.world_borders().to_dict()["values"]
+    assert len(whole["objects"]["countries"]["geometries"]) == 241
+    assert len(json.dumps(cut)) < len(json.dumps(whole)) / 5
+
+    full = chart.to_dict()
+    full["layer"][0]["data"]["values"] = whole
+    # the same picture, pixel for pixel: what was left out was outside the view
+    assert render_image(chart, "png") == render_image(_Raw(full), "png")
+
+
+class _Raw:
+    """A chart that is a specification as it is, which `render_image` takes through its `to_dict`."""
+
+    def __init__(self, spec: dict[str, Any]) -> None:
+        self.spec = spec
+
+    def to_dict(self) -> dict[str, Any]:
+        return self.spec
+
+
+def test_a_german_coast_map_has_the_bay_of_kiel_and_the_elbe() -> None:
+    """The 50m borders hold the coast of a region at the scale of a Land: the estuary and the bay are in the picture."""
+    svg = render_image(_coast_result().to_plot(), "svg").decode()
+    # the land is one path of the countries that reach into the view, with the coast in it: many points
+    longest = max(len(path) for path in re.findall(r'<path[^>]*\sd="([^"]+)"', svg))
+    assert longest > 1_500
 
 
 def test_the_borders_are_drawn_where_they_are_on_the_map() -> None:
@@ -515,17 +610,17 @@ def test_the_borders_are_drawn_where_they_are_on_the_map() -> None:
     assert "http://" not in re.sub(r"xmlns(:\w+)?=\"[^\"]+\"", "", svg)
 
 
-def test_the_world_file_is_small_and_is_natural_earth_110m() -> None:
-    """96 KB of TopoJSON: the 177 countries of Natural Earth 1:110m, with no name and no id."""
-    path = resources.files("wetterdienst.io").joinpath("natural_earth_110m_countries.topojson")
+def test_the_world_file_is_small_and_is_natural_earth_50m() -> None:
+    """733 KB of TopoJSON: the 241 countries of Natural Earth 1:50m, with no name and no id."""
+    path = resources.files("wetterdienst.io").joinpath("natural_earth_50m_countries.topojson")
     text = path.read_text("utf-8")
-    assert len(text.encode()) < 150_000
+    assert len(text.encode()) < 800_000
     topology = json.loads(text)
     assert topology["type"] == "Topology"
     assert list(topology["objects"]) == ["countries"]
     geometries = topology["objects"]["countries"]["geometries"]
-    assert len(geometries) == 177
-    assert all(set(geometry) <= {"type", "arcs"} for geometry in geometries)
+    assert len(geometries) == 241
+    assert all(set(geometry) <= {"type", "arcs", "bbox"} for geometry in geometries)
 
 
 def test_the_font_is_the_one_vl_convert_carries_and_it_draws_text() -> None:
@@ -698,3 +793,119 @@ def test_a_missing_package_is_a_missing_dependency_error_naming_the_extra(monkey
     monkeypatch.setitem(sys.modules, "altair", None)
     with pytest.raises(MissingDependencyError, match=r"altair.*pip install wetterdienst\[plotting\]"):
         _stations_result().to_plot()
+
+
+def test_a_series_with_nulls_and_an_outlier_is_as_large_as_asked() -> None:
+    """A null sorts first and was taken for the lowest value: the thinned data lost the range of the axes (GH-3238).
+
+    A year of hourly data with gaps came out 705 x 305 for 700 x 300, and an outlier in the middle of a line 830 x 610
+    for 800 x 600.
+    """
+    frame = _values(stations=("01048", "00044"), parameters=("a", "b"), hours=3_000)
+    frame = (
+        frame.with_row_index("_row")
+        .with_columns(
+            pl.when(pl.col("_row") % 7 == 0)
+            .then(None)
+            .when(pl.col("_row") == 1_500)
+            .then(9_876.0)
+            .when(pl.col("_row") == 700)
+            .then(-98_765.0)
+            .otherwise(pl.col("value"))
+            .alias("value")
+        )
+        .drop("_row")
+    )
+    assert frame.height > 10_000
+    chart = charts.values_chart(frame)
+    for width, height in ((700, 300 * 2), (800, 600), (1000, 700)):
+        assert _png_size(render_image(chart, "png", width=width, height=height)) == (width, height)
+    spec = charts.sized_spec(chart, 800, 600)
+    assert charts._measure(charts._thinned(spec)) == charts._measure(spec)  # noqa: SLF001
+
+
+@pytest.mark.parametrize("inline", [True, False])
+def test_a_station_name_cannot_end_the_script_of_the_page(inline: bool) -> None:  # noqa: FBT001
+    """Altair writes the specification into the page as it is: `<`, `>` and `&` are escaped, so a name is data."""
+    from wetterdienst.io.export import HTML_INLINE  # noqa: PLC0415
+
+    evil = "</script><script>alert(1)</script>&"
+    frame = _values(hours=3).with_columns(pl.col("station_id").replace({"01048": evil}))
+    token = HTML_INLINE.set(inline)
+    try:
+        page = chart_to_html(charts.values_chart(frame))
+        harmless = chart_to_html(charts.values_chart(_values(hours=3)))
+    finally:
+        HTML_INLINE.reset(token)
+    assert "</script><script>" not in page
+    assert page.count("<script") == harmless.count("<script")
+    assert page.count("</script>") == harmless.count("</script>")
+    assert "\\u003c/script\\u003e\\u003cscript\\u003ealert(1)\\u003c/script\\u003e\\u0026" in page
+    # and it is the same data: the page's JSON reads back to the name
+    match = re.search(r"(?:var|const) spec = (.*?);\s*(?:var|const) embedOpt", page, flags=re.DOTALL)
+    assert match
+    spec = json.loads(match.group(1))
+    assert evil in next(iter(spec["datasets"].values()))
+
+
+def test_the_values_chart_zooms_and_pans_along_time_in_the_page_only() -> None:
+    """The time axis is bound to the wheel and a drag (a double click resets); the values keep their ranges."""
+    spec = charts.values_chart(_values()).to_dict()
+    (param,) = spec["params"]
+    assert param["select"] == {"type": "interval", "encodings": ["x"]}
+    assert param["bind"] == "scales"
+    # the image is the same size with it, and an image has no pointer
+    assert _png_size(render_image(charts.values_chart(_values()), "png")) == (700, 600)
+
+
+def test_the_row_labels_are_drawn_as_lines_and_the_picture_is_as_large_as_asked() -> None:
+    """Vega draws a line break of a string as a space; the header splits it, and the two lines are measured."""
+    frame = _values(parameters=("a",)).with_columns(
+        pl.concat_str(pl.lit("hourly\n"), pl.col("parameter")).alias("parameter")
+    )
+    chart = charts.values_chart(frame)
+    assert chart.to_dict()["facet"]["row"]["header"]["labelExpr"] == "split(datum.value, '\\n')"
+    svg = render_image(chart, "svg").decode()
+    lines = re.findall(r"<tspan[^>]*>([^<]*)</tspan>", svg)
+    assert lines[0] == "hourly"
+    assert lines[1].startswith("a (")
+    assert _png_size(render_image(chart, "png", width=640, height=400)) == (640, 400)
+
+
+def test_without_vl_convert_the_html_with_vega_inline_is_a_missing_dependency(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Vega is bundled by vl-convert: its absence is a 501, not a `ModuleNotFoundError`; the CDN page needs none."""
+    monkeypatch.setitem(sys.modules, "vl_convert", None)
+    chart = charts.values_chart(_values(hours=3))
+    with pytest.raises(MissingDependencyError, match=r"vl_convert.*pip install wetterdienst\[plotting\]"):
+        chart_to_html(chart)
+    assert "cdn.jsdelivr.net" in charts.chart_to_html(chart, inline=False)
+
+
+def test_the_thinned_data_keeps_the_lowest_and_highest_values_where_a_line_has_nulls() -> None:
+    """A null sorts first, and was kept as the lowest point: the thin data lost the real extremes of every line."""
+    frame = _values(stations=("01048", "00044"), parameters=("a", "b"), hours=2_000)
+    frame = (
+        frame.with_row_index("_row")
+        .with_columns(
+            pl.when(pl.col("_row") % 7 == 0)
+            .then(None)
+            .when(pl.col("_row") % 2_000 == 701)
+            .then(-12.5)
+            .when(pl.col("_row") % 2_000 == 1_501)
+            .then(5_000.5)
+            .otherwise(pl.col("value"))
+            .alias("value")
+        )
+        .drop("_row")
+    )
+    spec = charts.sized_spec(charts.values_chart(frame), 800, 600)
+    (name,) = spec["datasets"]
+    thin = pl.read_csv(
+        io.StringIO(charts._thinned(spec)["datasets"][name]),  # noqa: SLF001
+        schema_overrides={"station_id": pl.String, "parameter": pl.String},
+    )
+    assert thin.height < 200
+    for (station, parameter), group in frame.group_by("station_id", "parameter"):
+        kept = thin.filter((pl.col("station_id") == station) & (pl.col("parameter") == parameter))
+        assert kept["value"].min() == group["value"].min() == -12.5
+        assert kept["value"].max() == group["value"].max() == 5_000.5

@@ -36,8 +36,8 @@ from wetterdienst.exceptions import (
     CredentialRejectedError,
     DateRequiredError,
     DownloadError,
-    ImageTimeoutError,
     ImageTooLargeError,
+    ImageTooManyPointsError,
     MissingDependencyError,
     MissingTimeIntervalError,
     NoInternetError,
@@ -663,6 +663,24 @@ async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) ->
         400,
         f"{exc} Lower scale, give a smaller height, or ask for fewer parameters.",
         ProblemKind.IMAGE_TOO_LARGE,
+    )
+
+
+@app.exception_handler(ImageTooManyPointsError)
+async def _refuse_too_many_points(request: Request, exc: ImageTooManyPointsError) -> JSONResponse:
+    """Answer a chart of more points than the server draws with a 400 of the kind `limit-exceeded` (GH-3238).
+
+    Raised once the chart is built, which is where its points are counted, and before it is drawn. The page is a
+    chart as well, since it embeds the points.
+    """
+    log.info(f"Refused {request.url.path}: {exc}")
+    narrow = "Ask for fewer stations or parameters, or a shorter `timestamp` window."
+    return _problem_response(
+        request,
+        400,
+        f"{exc} {narrow} The Python API and the command line draw any number.",
+        ProblemKind.LIMIT_EXCEEDED,
+        extra={"limit": "image_points", "maximum": exc.max_points, "requested": exc.points},
     )
 
 
@@ -1298,7 +1316,7 @@ def _declare_problem_schema(schema: dict[str, Any]) -> None:
             },
             "limit": {
                 "type": "string",
-                "enum": ["stations", "rows", "stream_rows"],
+                "enum": ["stations", "rows", "stream_rows", "image_points"],
                 "description": "Of `limit-exceeded`: the limit the request passes.",
             },
             "maximum": {"type": "integer", "description": "Of `limit-exceeded`: the value of that limit."},
@@ -2326,21 +2344,6 @@ def _quota_exhausted(e: ProviderRateLimitError, what: str) -> HTTPException:
     )
 
 
-def _image_timeout(e: ImageTimeoutError, what: str) -> HTTPException:
-    """Answer a chart that was not drawn in time with a 504 of the kind `image-timeout` (GH-3723, no longer raised).
-
-    No provider is involved and the request was well formed: the renderer of this server did not answer, was closed,
-    and the same request can succeed on a retry, so the client is told that and nothing of the server's machine. The
-    seconds are the server's own limit and go to the log.
-    """
-    log.warning(f"Failed to {what}: {e}")
-    return ProblemError(
-        504,
-        "The image was not rendered in time. The request was valid; try again later.",
-        ProblemKind.IMAGE_TIMEOUT,
-    )
-
-
 def _server_error(e: Exception) -> HTTPException:
     """Answer a failure that is the server's with a 500 that names its type and nothing else (GH-2767).
 
@@ -2409,8 +2412,6 @@ def _server_side_failure(e: Exception, request: BaseModel, what: str) -> HTTPExc
         return _credential_rejected_on_the_server(e, request, what)
     if isinstance(e, ConfigurationError):
         return _configuration_missing_on_the_server(e, what)
-    if isinstance(e, ImageTimeoutError):
-        return _image_timeout(e, what)
     if isinstance(e, UpstreamError):
         return _upstream_failure(e, what)
     if failure_status(e) == 501:

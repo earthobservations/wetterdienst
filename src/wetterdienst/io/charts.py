@@ -10,7 +10,7 @@ Three charts, one for each thing the library plots:
 
 A chart is a Vega-Lite specification and holds all its data, so the same chart is a page (`to_html`) or an image
 (`render_image`), and drawing one needs no browser and fetches nothing: the map's borders come with the package
-(`natural_earth_110m_countries.topojson`, Natural Earth, public domain). Altair and vl-convert are the `plotting`
+(`natural_earth_50m_countries.topojson`, Natural Earth, public domain). Altair and vl-convert are the `plotting`
 extra and are imported where a chart is drawn, never at import.
 
 The data goes into a chart as the text of a CSV file, written by polars in one call (`_inline_data`): Altair raises a
@@ -21,6 +21,7 @@ does not apply, 87,000 points build in a tenth of a second, and nothing is share
 
 from __future__ import annotations
 
+import functools
 import io
 import json
 import math
@@ -33,7 +34,7 @@ import polars as pl
 from wetterdienst.util.extras import import_optional
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
 
     import altair as alt
 
@@ -110,8 +111,8 @@ def values_chart(df: pl.DataFrame, *, tooltip: str | None = None) -> alt.TopLeve
     r"""Draw the values chart: lines and markers, a row for each parameter with an y axis of its own.
 
     Args:
-        df: The long frame with `station_id`, `parameter` (the label of the row, a line break written `\\n`),
-            `timestamp` (a datetime) and `value`, and the column `tooltip` names where the markers say more.
+        df: The long frame with `station_id`, `parameter` (the label of the row; a line break written `\\n` is drawn
+            as one), `timestamp` (a datetime) and `value`, and the column `tooltip` names where the markers say more.
         tooltip: The column of `df` the marker shows beside the station, the time and the value.
 
     Returns:
@@ -158,12 +159,22 @@ def values_chart(df: pl.DataFrame, *, tooltip: str | None = None) -> alt.TopLeve
             tooltip=shown,
         )
         .properties(width=cell_width, height=cell_height)
+        # zoom and pan along the time with the wheel and a drag, a double click resets: the page only, an image has
+        # no pointer. The values are not bound, each row keeps its own range
+        .interactive(bind_y=False)
         .facet(
             row=alt.Row(
                 "parameter:N",
                 title=None,
                 sort=rows,
-                header=alt.Header(labelOrient="top", labelAnchor="start", labelAngle=0, labelLimit=0),
+                header=alt.Header(
+                    labelOrient="top",
+                    labelAnchor="start",
+                    labelAngle=0,
+                    labelLimit=0,
+                    # Vega draws a line break of a string as a space: an array of lines is drawn as lines
+                    labelExpr="split(datum.value, '\\n')",
+                ),
             )
         )
         .resolve_scale(y="independent")
@@ -221,7 +232,10 @@ def stations_chart(
     datasets = frame.get_column("dataset").unique(maintain_order=True).to_list()
     position = {"longitude": "longitude:Q", "latitude": "latitude:Q"}
     # the countries, drawn from the file that comes with the package: no tile is fetched
-    land = alt.Chart(world_borders()).mark_geoshape(fill="#f4f1ea", stroke="#a9a49a", strokeWidth=0.6)
+    scale = MAP_WORLD_PIXELS * 2**zoom / (2 * math.pi)
+    land = alt.Chart(world_borders(_visible(center, scale, width, height))).mark_geoshape(
+        fill="#f4f1ea", stroke="#a9a49a", strokeWidth=0.6
+    )
     dots = points.mark_circle(size=60, opacity=0.95, stroke="white", strokeWidth=0.8).encode(
         **position,
         color=alt.Color(
@@ -250,7 +264,7 @@ def stations_chart(
         .project(
             type="mercator",
             center=[center["lon"], center["lat"]],
-            scale=MAP_WORLD_PIXELS * 2**zoom / (2 * math.pi),
+            scale=scale,
         )
         .properties(
             width=width,
@@ -264,14 +278,74 @@ def stations_chart(
     return _style(chart)
 
 
-def world_borders() -> Any:  # noqa: ANN401
-    """Give the borders and coastlines of the world as a dataset: Natural Earth 1:110m, public domain.
+@functools.cache
+def _world() -> dict[str, Any]:
+    """Read the countries of the world from the file of the package, once."""
+    text = resources.files("wetterdienst.io").joinpath("natural_earth_50m_countries.topojson").read_text("utf-8")
+    return json.loads(text)
 
-    The file is the countries of `ne_110m_admin_0_countries` as TopoJSON (96 KB), and is read from the package.
+
+def _renumbered(node: Any, new: dict[int, int]) -> Any:  # noqa: ANN401
+    """Give a TopoJSON geometry the numbers its arcs have in a list of fewer arcs; a reversed arc is `~index`."""
+    if isinstance(node, int):
+        return new[node] if node >= 0 else ~new[~node]
+    return [_renumbered(child, new) for child in node]
+
+
+def _arcs_of(node: Any) -> Iterable[int]:  # noqa: ANN401
+    """Give the indexes of the arcs of a TopoJSON geometry."""
+    if isinstance(node, int):
+        yield node if node >= 0 else ~node
+    else:
+        for child in node:
+            yield from _arcs_of(child)
+
+
+def world_borders(view: tuple[float, float, float, float] | None = None) -> Any:  # noqa: ANN401
+    """Give the borders and coastlines of the world as a dataset: Natural Earth 1:50m, public domain.
+
+    The file is the countries of `ne_50m_admin_0_countries` as TopoJSON (742 KB), and is read from the package. Each
+    country has its bounding box in it: of a `view` (west, south, east, north, in degrees) only the countries that
+    reach into it are given, with the arcs they need, as the whole file is 20 times what a map of a region draws and
+    drawing it takes seconds.
     """
     alt = altair()
-    text = resources.files("wetterdienst.io").joinpath("natural_earth_110m_countries.topojson").read_text("utf-8")
-    return alt.Data(values=json.loads(text), format=alt.DataFormat(type="topojson", feature="countries"))
+    topology = _world()
+    if view is not None:
+        west, south, east, north = view
+        countries = topology["objects"]["countries"]
+        kept = [
+            geometry
+            for geometry in countries["geometries"]
+            if geometry["bbox"][0] <= east
+            and geometry["bbox"][2] >= west
+            and geometry["bbox"][1] <= north
+            and geometry["bbox"][3] >= south
+        ]
+        used = sorted({index for geometry in kept for index in _arcs_of(geometry["arcs"])})
+        new = {old: position for position, old in enumerate(used)}
+        topology = {
+            **topology,
+            "objects": {
+                "countries": {
+                    **countries,
+                    "geometries": [{**geometry, "arcs": _renumbered(geometry["arcs"], new)} for geometry in kept],
+                }
+            },
+            "arcs": [topology["arcs"][index] for index in used],
+        }
+    return alt.Data(values=topology, format=alt.DataFormat(type="topojson", feature="countries"))
+
+
+def _visible(center: dict[str, float], scale: float, width: int, height: int) -> tuple[float, float, float, float]:
+    """Give the longitudes and latitudes a mercator map of `scale` pixels to the radian shows, with room to spare."""
+    spare = 1.3
+    half_width = math.degrees(width / 2 / scale) * spare
+    middle = math.log(math.tan(math.pi / 4 + math.radians(max(-85.0, min(85.0, center["lat"]))) / 2))
+    half_height = height / 2 / scale * spare
+    north = math.degrees(math.atan(math.sinh(middle + half_height)))
+    south = math.degrees(math.atan(math.sinh(middle - half_height)))
+    return center["lon"] - half_width, south, center["lon"] + half_width, north
 
 
 def stripes_chart(
@@ -329,7 +403,11 @@ def stripes_chart(
                 "value_scaled:Q",
                 legend=None,
                 # a scale with a stop for each colour: Vega's own schemes are not the ColorBrewer ramps
-                scale=alt.Scale(domain=[index / (len(colors) - 1) for index in range(len(colors))], range=list(colors)),
+                scale=alt.Scale(
+                    domain=[index / (len(colors) - 1) for index in range(len(colors))],
+                    range=list(colors),
+                    interpolate="rgb",
+                ),
             ),
         )
     ]
@@ -408,8 +486,15 @@ _PDF_POINTS_PER_PIXEL = 0.75
 _FIT = {"type": "fit", "contains": "padding"}
 #: the root of an SVG: its size, in pixels
 _SVG_ROOT = re.compile(r'(<svg\b[^>]*?)\swidth="([\d.]+)"\sheight="([\d.]+)"')
-#: the rows of the data a measuring render is kept to, for each row of parameters and station
+#: the lines of the data (all of them, the header included) above which a measuring render is given a cut down copy
 _MEASURED_ROWS = 4000
+
+
+def count_points(chart: alt.TopLevelMixin) -> int:
+    """Count the points a chart draws: the rows of its largest inline dataset, which a page embeds as well."""
+    spec = chart.to_dict()
+    sizes = [data.count("\n") - 1 for data in spec.get("datasets", {}).values() if isinstance(data, str)]
+    return max(sizes, default=0)
 
 
 def default_size(chart: alt.TopLevelMixin) -> tuple[int, int]:
@@ -450,9 +535,9 @@ def _fit_rows(spec: dict[str, Any], width: int, height: int, rows: int) -> None:
     legend["columns"] = _legend_columns(cell["encoding"]["color"]["scale"]["domain"], width)
     spec["padding"] = {"left": 5, "right": 5, "top": 5, "bottom": 5}
     measuring = _thinned(spec)
+    measured_width, measured_height = _measure(measuring)
     # drawing again after a change of the plot area, which can change how the legend wraps: a few rounds settle it
     for _ in range(4):
-        measured_width, measured_height = _measure(measuring)
         missing_width, missing_height = width - measured_width, height - measured_height
         if not missing_width and not missing_height:
             break
@@ -460,7 +545,7 @@ def _fit_rows(spec: dict[str, Any], width: int, height: int, rows: int) -> None:
         # the rows share what is missing, and what does not divide goes to the padding below
         cell["height"] = max(1, cell["height"] + missing_height // rows)
         measuring["spec"].update(width=cell["width"], height=cell["height"])
-    measured_width, measured_height = _measure(measuring)
+        measured_width, measured_height = _measure(measuring)
     # the whole numbers of pixels may leave a few: they are padding, as are those a chart too small for its
     # legend and axes cannot lose (the plot area is not less than a pixel)
     spec["padding"]["right"] += max(0, math.ceil(width - measured_width))
@@ -496,8 +581,9 @@ def _thinned(spec: dict[str, Any]) -> dict[str, Any]:
         .agg(
             pl.col("_row").first().alias("first"),
             pl.col("_row").last().alias("last"),
-            pl.col("_row").sort_by(value).first().alias("lowest"),
-            pl.col("_row").sort_by(value, descending=True).first().alias("highest"),
+            # a null sorts first, and is no lowest value
+            pl.col("_row").sort_by(value, nulls_last=True).first().alias("lowest"),
+            pl.col("_row").sort_by(value, descending=True, nulls_last=True).first().alias("highest"),
         )
         .select(pl.concat_list("first", "last", "lowest", "highest").explode().unique().alias("_row"))
     )
@@ -510,9 +596,26 @@ def _thinned(spec: dict[str, Any]) -> dict[str, Any]:
 # --------------------------------------------------------------------------------------------------------------
 
 
+class _HtmlSafeEncoder(json.JSONEncoder):
+    r"""Write JSON that cannot end the script it is put in: `<`, `>`, `&` are written as `\u003c`, `\u003e`, `\u0026`.
+
+    Altair puts the specification into the page as it is, so a station named `</script><script>...` would be
+    markup. These characters are in the strings of the JSON only, where the escapes read as the characters.
+    """
+
+    def encode(self, o: object) -> str:
+        """Encode as JSON, with no character that is markup."""
+        return super().encode(o).replace("&", "\\u0026").replace("<", "\\u003c").replace(">", "\\u003e")
+
+
 def chart_to_html(chart: alt.TopLevelMixin, *, inline: bool = True) -> str:
-    """Write a chart as an html page, with Vega inline, which works offline, or from the CDN (a few kilobytes)."""
-    return chart.to_html(inline=inline)
+    """Write a chart as an html page, with Vega inline, which works offline, or from the CDN (a few kilobytes).
+
+    Vega inline is bundled by vl-convert, so that is needed for it and not for the page that loads Vega.
+    """
+    if inline:
+        import_optional("vl_convert", "Rendering an html page", extra="plotting")
+    return chart.to_html(inline=inline, json_kwds={"cls": _HtmlSafeEncoder})
 
 
 def render(chart: alt.TopLevelMixin, fmt: str, *, width: int | None, height: int | None, scale: float | None) -> bytes:
