@@ -25,6 +25,18 @@ Types of changes:
   looks as before. From May to October DWD publishes no snow forecast, and then no station has the
   panel (and none says why). Needs a backend with the dataset `hourly/snow`. (GH-4091)
 
+### Changed
+
+- `[Explorer]` The Explorer's chart is drawn with Apache ECharts instead of Plotly, which the
+  Explorer route no longer loads (159 KB less JavaScript, gzip). Its toolbar (earlier, later, zoom
+  out, zoom in, reset, camera) sits above the chart, and the legend turns a series off and on, also
+  from the keyboard (one series at a time: Plotly's double-click to isolate one is gone). The arrow
+  keys step through the values, `+`, `-` and `0` zoom, and the values at a moment are in a box that
+  the pointer can move onto and that Escape closes. The y axis follows the zoom, a missing value
+  breaks the line, and ten years of hourly values draw in about 60 % of the time with every peak
+  kept. Saved images keep their size and names; on the light page green, amber, cyan, lime and
+  orange are a step darker, so every line reads on white (GH-4096).
+
 ## [0.50.0] - 2026-11-14
 
 ### Changed
