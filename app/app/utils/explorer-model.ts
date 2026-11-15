@@ -34,7 +34,7 @@ export const LARGE_THRESHOLD = 500
  * The colours of the stations, in the order they are given out. A series' colour is data, and the same hue on the
  * light page and on the dark one; where the hue itself is under 3:1 on the white paper (WCAG 1.4.11: green 2.3, amber
  * 2.2, cyan 2.4, lime 2.0, orange 2.8) the light page has the same hue one step darker (Tailwind 600), at 3.1:1 to
- * 3.7:1. On the dark paper every one is 4.0:1 or more. `tests/unit/explorer-model.test.ts` holds both.
+ * 3.7:1. On the dark paper (`--ui-bg`, #12233f) every one is 3.5:1 or more (indigo 3.5, violet 3.7). `tests/unit/explorer-model.test.ts` holds both.
  */
 export const SERIES_COLOURS = [
   { light: '#3b82f6', dark: '#3b82f6' },

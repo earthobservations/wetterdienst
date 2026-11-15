@@ -109,19 +109,6 @@ function resetZoom() {
   custom.value = null
   dismissed.value = false
 }
-/** One step of the zoom buttons and keys: a third more or less of the time across */
-const ZOOM_STEP = 1.5
-function anchorOf(): number {
-  return cursor.value ?? (win.value.start + win.value.end) / 2
-}
-function zoomIn() {
-  if (bounds.value)
-    applyWindow(zoomExplorerWindow(win.value, 1 / ZOOM_STEP, anchorOf(), bounds.value, minSpan.value))
-}
-function zoomOut() {
-  if (bounds.value)
-    applyWindow(zoomExplorerWindow(win.value, ZOOM_STEP, anchorOf(), bounds.value, minSpan.value))
-}
 /** Moves the window by `fraction` of its width */
 function shift(fraction: number) {
   if (bounds.value)
@@ -191,6 +178,20 @@ const readout = computed(() => {
   }
 })
 
+/** One step of the zoom buttons and keys: a third more or less of the time across */
+const ZOOM_STEP = 1.5
+function anchorOf(): number {
+  // the crosshair's moment where it is in view; one behind the window (cursorX is null then) is no place to zoom round
+  return cursor.value !== null && cursorX.value !== null ? cursor.value : (win.value.start + win.value.end) / 2
+}
+function zoomIn() {
+  if (bounds.value)
+    applyWindow(zoomExplorerWindow(win.value, 1 / ZOOM_STEP, anchorOf(), bounds.value, minSpan.value))
+}
+function zoomOut() {
+  if (bounds.value)
+    applyWindow(zoomExplorerWindow(win.value, ZOOM_STEP, anchorOf(), bounds.value, minSpan.value))
+}
 // docked at an edge of the chart, on the side the crosshair is not on (`readoutPlacement`), and at the top of the plot
 const readoutStyle = computed(() => {
   const placement = readoutPlacement(cursorX.value ?? 0, width.value, readoutSide.value, READOUT_WIDTH)
@@ -522,8 +523,10 @@ function disposeChart() {
 
 /** The crosshair of the moment: what is drawn over the lines, merged into the option and not a drawing of its own */
 const crosshair = computed(() => {
-  const time = dismissed.value || cursorX.value === null ? null : cursor.value
-  return { time, rows: time === null ? [] : readoutRows(shown.value, time) }
+  const at = dismissed.value || cursorX.value === null ? null : cursor.value
+  const rows = at === null ? [] : readoutRows(shown.value, at)
+  // no series that is shown has a value there: no crosshair either, which would stand alone with nothing to say
+  return rows.length ? { time: at, rows } : { time: null, rows: [] }
 })
 function drawCrosshair() {
   if (!chart)

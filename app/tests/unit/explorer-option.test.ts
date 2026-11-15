@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { EMPTY_CHART_THEME } from '../../app/utils/chart-theme'
 import { loadEcharts } from '../../app/utils/echarts-loader'
 import { boundsOf, seriesColour } from '../../app/utils/explorer-model'
-import { buildExplorerOption, cursorUpdate, EXPLORER_FONT_FAMILY, explorerFrame, fitText, hasTimeOfDay, legendLayout, momentLabel, tickLabel, timeAtX, valueFormat, xOfTime } from '../../app/utils/explorer-option'
+import { buildExplorerOption, cursorUpdate, EXPLORER_FONT_FAMILY, explorerFrame, fitText, hasTimeOfDay, legendLayout, momentLabel, tickLabel, timeAtX, timeTicks, valueFormat, xOfTime } from '../../app/utils/explorer-option'
 
 const echarts = loadEcharts()
 
@@ -275,5 +275,52 @@ describe('the times', () => {
     expect(hasTimeOfDay([series('h', [1, 2], {}, HOUR)])).toBe(true)
     expect(momentLabel(START, 'en', false)).toBe('Sep 1, 2026')
     expect(momentLabel(START + 14 * HOUR, 'en', true)).toBe('Sep 1, 2026, 14:00 UTC')
+  })
+})
+
+describe('the ticks of the time axis', () => {
+  const YEAR = 365 * DAY
+
+  it('are at the beginnings of the hours, days, Mondays, months or years of UTC, about one for each 90 px', () => {
+    const hours = timeTicks({ start: START + 5 * 60_000, end: START + 11 * HOUR }, 700)
+    expect(hours.every(t => t % HOUR === 0)).toBe(true)
+    expect(timeTicks({ start: START, end: START + 12 * DAY }, 700).every(t => t % DAY === 0)).toBe(true)
+    // a window of 40 days: weeks, from a Monday (1 Sept 2026 is a Tuesday)
+    const weeks = timeTicks({ start: START, end: START + 40 * DAY }, 700)
+    expect(weeks.every(t => new Date(t).getUTCDay() === 1)).toBe(true)
+    const months = timeTicks({ start: Date.UTC(2026, 0, 15), end: Date.UTC(2026, 11, 20) }, 700)
+    expect(months.every(t => new Date(t).getUTCDate() === 1)).toBe(true)
+    expect(months.length).toBeLessThanOrEqual(7)
+    const years = timeTicks({ start: Date.UTC(2016, 0, 1), end: Date.UTC(2025, 11, 30) }, 700)
+    expect(years.map(t => new Date(t).getUTCFullYear())).toEqual([2016, 2018, 2020, 2022, 2024])
+    expect(YEAR).toBeGreaterThan(0)
+  })
+
+  it('are each moment once, in order, inside the window, and fewer where the plot is narrow', () => {
+    const win = { start: Date.UTC(2026, 0, 3), end: Date.UTC(2026, 6, 9) }
+    const wide = timeTicks(win, 900)
+    const narrow = timeTicks(win, 300)
+    for (const ticks of [wide, narrow]) {
+      expect(ticks).toEqual([...new Set(ticks)].sort((a, b) => a - b))
+      expect(ticks.every(t => t >= win.start && t <= win.end)).toBe(true)
+    }
+    expect(narrow.length).toBeLessThan(wide.length)
+  })
+
+  it('make the grid lines of the drawing the same ones, evenly spaced, with none a few px from another (month starts and the end of the axis are no extra)', () => {
+    // a window of three months in the middle of a longer chart: the library's own ticks had added every month start and the axis end
+    const long = series('m', Array.from({ length: 400 }, (_, i) => i % 9), {}, DAY)
+    const bounds = boundsOf([long])!
+    const win = { start: bounds.start + 20 * DAY + 5 * HOUR, end: bounds.start + 140 * DAY + 7 * HOUR }
+    const { input: i, frame, option } = build([long], { window: win, bounds })
+    const svg = svgOf(i, option)
+    const verticals = [...svg.matchAll(/<path d="M([\d.]+) ([\d.]+)L\1 ([\d.]+)"[^>]*stroke="rgb\(200, 205, 215\)"/g)].map(match => Number(match[1])).sort((a, b) => a - b)
+    const ticks = timeTicks(win, frame.plot.width)
+    expect(verticals).toHaveLength(ticks.length)
+    for (const [index, x] of verticals.entries())
+      expect(Math.abs(x - xOfTime(ticks[index]!, frame, win))).toBeLessThan(1)
+    const gaps = verticals.slice(1).map((x, k) => x - verticals[k]!)
+    // weeks are all of a length, and no two lines are closer than a week
+    expect(Math.min(...gaps)).toBeGreaterThan(0.95 * Math.max(...gaps))
   })
 })

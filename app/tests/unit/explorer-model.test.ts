@@ -47,9 +47,9 @@ describe('series colours', () => {
       expect(contrast(colour.light, '#ffffff'), colour.light).toBeGreaterThanOrEqual(3)
   })
 
-  it('are on the dark paper (the card, #0f172b) at 3:1 or more', () => {
+  it('are on the dark paper (`--ui-bg`, #12233f) at 3.5:1 or more, which the 3:1 of a mark has to spare', () => {
     for (const colour of SERIES_COLOURS)
-      expect(contrast(colour.dark, '#0f172b'), colour.dark).toBeGreaterThanOrEqual(3)
+      expect(contrast(colour.dark, '#12233f'), colour.dark).toBeGreaterThanOrEqual(3.5)
   })
 
   it('keep the hue of the stations: the light colour is the dark one where that reaches 3:1, else the same hue a step darker', () => {

@@ -637,6 +637,44 @@ describe('the keys', () => {
     expect(lastZoom().start).toBeGreaterThan(win.start)
   })
 
+  it('zoom round the middle of the window where the crosshair is out of it, and round the crosshair where it is in', async () => {
+    await showChart()
+    key('ArrowRight')
+    await flushPromises()
+    // in view: the window stays round the crosshair, the first moment, at the left edge
+    buttonNamed('Zoom in').click()
+    buttonNamed('Zoom in').click()
+    buttonNamed('Zoom in').click()
+    await flushPromises()
+    expect(lastZoom().start).toBeCloseTo(START, -4)
+    // moved away from it: the crosshair is behind the window
+    buttonNamed('Later').click()
+    buttonNamed('Later').click()
+    await flushPromises()
+    expect(readout()).toBeNull()
+    const before = lastZoom()
+    buttonNamed('Zoom in').click()
+    await flushPromises()
+    const after = lastZoom()
+    const middle = (window: { start: number, end: number }) => (window.start + window.end) / 2
+    // round the middle of the window, as with no crosshair, and not drawn towards a moment that is out of sight
+    expect(Math.abs(middle(after) - middle(before))).toBeLessThan(0.01 * (before.end - before.start))
+    expect(after.end - after.start).toBeLessThan(before.end - before.start)
+  })
+
+  it('has no crosshair where no series that is shown has a value at its moment', async () => {
+    const noons = daily('noon', 'Noon', 2, 5, 30, DAY, START + 12 * HOUR)
+    await showChart({ series: [A, noons] })
+    key('ArrowRight')
+    key('ArrowRight')
+    await flushPromises()
+    expect(crosshair()).toBe(START + 12 * HOUR)
+    // the series that has the noon is turned off: the moment stays, and there is nothing to mark
+    legendButtons()[1]!.click()
+    await flushPromises()
+    expect(crosshair()).toBeNull()
+  })
+
   it('leave Escape and the keys with a modifier alone', async () => {
     await showChart()
     const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })

@@ -407,6 +407,64 @@ test('a zoomed chart stays zoomed where the scheme switches, and its reset still
   await expect.poll(window).toBe(whole)
 })
 
+// The vertical grid lines are the ticks of the time axis: evenly spaced, and none a few px from another (the library's own ticks added
+// every month start and the end of the axis, which a label hides and a grid line does not)
+async function gridXs(page: Page) {
+  return chartSvg(page).evaluate((svg) => {
+    // the lines of the grid are the paths of one colour that run from the top of the plot to its foot, and the horizontal ones are the other way
+    const lines = [...svg.querySelectorAll('path')].flatMap((path) => {
+      const match = /^M([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)$/.exec(path.getAttribute('d') ?? '')
+      return match && match[1] === match[3] && Math.abs(Number(match[4]) - Number(match[2])) > 100 ? [{ x: Number(match[1]), stroke: path.getAttribute('stroke') }] : []
+    })
+    const common = lines.map(line => line.stroke).sort((a, b) => lines.filter(l => l.stroke === b).length - lines.filter(l => l.stroke === a).length)[0]
+    return lines.filter(line => line.stroke === common).map(line => line.x).sort((a, b) => a - b)
+  })
+}
+
+function expectEvenlySpaced(xs: number[], what: string) {
+  expect(xs.length, `${what}: the grid lines`).toBeGreaterThanOrEqual(2)
+  const gaps = xs.slice(1).map((x, i) => x - xs[i]!)
+  // a month is 28 to 31 days: calendar steps differ by a tenth, a doubled line is a few px from its neighbour
+  expect(Math.min(...gaps), `${what}: the closest two lines of ${JSON.stringify(xs)}`).toBeGreaterThan(0.8 * Math.max(...gaps))
+  expect(Math.min(...gaps)).toBeGreaterThan(40)
+}
+
+test('the grid lines are evenly spaced, whole, zoomed by a box, and by the keys', async ({ page, baseURL, context }) => {
+  await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+  // a year of days, so that zooming passes the month starts and the end of the axis
+  const year = (url: URL) => ({
+    values: Array.from({ length: 365 }, (_, day) => ({
+      station_id: '00011',
+      resolution: 'daily',
+      dataset: 'climate_summary',
+      parameter: (url.searchParams.get('parameters') ?? '').split(',')[0]!.split('/')[2],
+      timestamp: new Date(Date.UTC(2025, 0, day + 1)).toISOString(),
+      value: Math.round((10 + 8 * Math.sin(day / 58) + (day % 5)) * 10) / 10,
+      quality_flags: null,
+    })),
+  })
+  await showChart(page, baseURL!, PATH, { values: year })
+  expectEvenlySpaced(await gridXs(page), 'the whole year')
+
+  await page.locator('.xc-stage').scrollIntoViewIfNeeded()
+  const plot = (await page.locator('.xc-stage').boundingBox())!
+  const before = await canvas(page).getAttribute('data-window')
+  await page.mouse.move(plot.x + plot.width * 0.3, plot.y + plot.height * 0.5)
+  await page.mouse.down()
+  await page.mouse.move(plot.x + plot.width * 0.65, plot.y + plot.height * 0.5, { steps: 5 })
+  await page.mouse.up()
+  await expect.poll(() => canvas(page).getAttribute('data-window')).not.toBe(before)
+  expectEvenlySpaced(await gridXs(page), 'zoomed by a box')
+
+  await page.locator('.xc-stage').focus()
+  for (const keys of [['+'], ['+'], ['-'], ['-', '-']]) {
+    for (const key of keys)
+      await page.keyboard.press(key)
+    await page.waitForTimeout(150)
+    expectEvenlySpaced(await gridXs(page), `after ${keys.join('')}`)
+  }
+})
+
 test('the chart takes a zoom by the wheel with Ctrl, a y axis that follows the window, and a reset by the key', async ({ page, baseURL, context }) => {
   await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
   await showChart(page, baseURL!)
@@ -485,6 +543,11 @@ test.describe('a long series', () => {
       quality_flags: null,
     })),
   })
+  /** The span of the window the chart shows, in ms */
+  const windowSpan = async (page: Page) => {
+    const [start, end] = (await canvas(page).getAttribute('data-window'))!.split('/').map(Number)
+    return end! - start!
+  }
   const LONG = '/explorer?provider=dwd&network=observation&resolution=hourly&dataset=temperature_air&parameters=temperature_air_mean_2m&mode=station&stations=00011'
 
   test('is cut to what the plot can tell apart, keeps its highest and lowest value, and is drawn in a moment', async ({ page, baseURL, context }) => {
@@ -499,28 +562,47 @@ test.describe('a long series', () => {
     })
     expect(drawn, `the first drawing took ${Math.round(drawn)} ms`).toBeLessThan(2000)
 
-    const { points, labels } = await chartSvg(page).evaluate((svg) => {
+    // what the chart draws of the series: the points of its line, and the y pixel of each value on the axis (from two of its labels)
+    const drawing = () => chartSvg(page).evaluate((svg) => {
       const lines = [...svg.querySelectorAll('path')].filter(path => path.getAttribute('stroke') === '#3b82f6' && (path.getAttribute('d') ?? '').includes('L'))
-      return {
-        points: Math.max(...lines.map(path => ((path.getAttribute('d') ?? '').match(/[ML]/g) ?? []).length)),
-        labels: [...svg.querySelectorAll('text')].map(text => text.textContent ?? ''),
-      }
+      const d = lines.map(path => path.getAttribute('d') ?? '').sort((a, b) => b.length - a.length)[0] ?? ''
+      const ys = [...d.matchAll(/[ML][\d.-]+ ([\d.-]+)/g)].map(match => Number(match[1]))
+      // the labels of the y axis are the ones that end at the plot's left edge (the time labels are in the middle of theirs)
+      const axis = [...svg.querySelectorAll('text')]
+        .filter(text => text.getAttribute('text-anchor') === 'end')
+        .map(text => ({ value: Number(text.textContent), y: Number(/translate\([\d.-]+ ([\d.-]+)\)/.exec(text.getAttribute('transform') ?? '')?.[1]) }))
+        .filter(label => Number.isFinite(label.value) && Number.isFinite(label.y))
+      return { points: ys.length, topY: Math.min(...ys), bottomY: Math.max(...ys), axis }
     })
+    const yOf = (axis: { value: number, y: number }[], value: number) => {
+      const [a, b] = [axis[0]!, axis.at(-1)!]
+      return a.y + (value - a.value) / (b.value - a.value) * (b.y - a.y)
+    }
+    const whole = await drawing()
     // 87,648 points were a drawing of as many; 4 for each px of the plot (800 px) at most are now
-    expect(points).toBeLessThan(4 * 800)
-    expect(points).toBeGreaterThan(800)
-    // the axis reaches the spike and the dip
-    const numbers = labels.map(label => Number(label.replace(/[^\d.-]/g, ''))).filter(value => Number.isFinite(value))
-    expect(Math.max(...numbers)).toBeGreaterThanOrEqual(61.7)
-    expect(Math.min(...numbers)).toBeLessThanOrEqual(-48.3)
+    expect(whole.points).toBeLessThan(4 * 800)
+    expect(whole.points).toBeGreaterThan(800)
+    // the labels of the y axis (not the years) reach the spike and the dip, and the line reaches them: its highest point is at the spike's pixel
+    expect(Math.max(...whole.axis.map(label => label.value))).toBeGreaterThanOrEqual(61.7)
+    expect(Math.min(...whole.axis.map(label => label.value))).toBeLessThanOrEqual(-48.3)
+    expect(Math.abs(whole.topY - yOf(whole.axis, 61.7)), 'the line reaches the spike').toBeLessThan(1.5)
+    expect(Math.abs(whole.bottomY - yOf(whole.axis, -48.3)), 'the line reaches the dip').toBeLessThan(1.5)
 
-    // zoomed to the days round the spike, the series is its own points again
+    // zoomed to a month, the series is its own points again: one for each hour of the window, and the one beyond each edge
     const stage = page.locator('.xc-stage')
     await stage.focus()
-    await page.keyboard.press('Home')
-    for (let i = 0; i < 6; i++)
+    // at the end of the ten years, so that the spike and the dip are far out of the window
+    await page.keyboard.press('End')
+    for (let i = 0; i < 12; i++)
       await page.keyboard.press('+')
-    await expect.poll(() => canvas(page).getAttribute('data-window')).not.toBeNull()
+    await expect.poll(async () => (await windowSpan(page)) < 40 * 24 * 3_600_000).toBe(true)
+    const hours = (await windowSpan(page)) / 3_600_000
+    expect(hours).toBeGreaterThan(200)
+    await expect.poll(async () => Math.abs((await drawing()).points - (hours + 2)), { message: `the points drawn of ${Math.round(hours)} hours` }).toBeLessThanOrEqual(3)
+    // and the axis is the window's: the spike and the dip, which are out of it, are not in its range
+    const zoomed = await drawing()
+    expect(Math.max(...zoomed.axis.map(label => label.value))).toBeLessThan(40)
+    expect(Math.min(...zoomed.axis.map(label => label.value))).toBeGreaterThan(-20)
   })
 
   test('has a table of every value, and the keys step through them one at a time', async ({ page, baseURL, context }) => {
@@ -540,12 +622,23 @@ test.describe('a long series', () => {
 
 test('the explorer loads no Plotly, with the table or the chart, single or faceted', async ({ page, baseURL, context }) => {
   await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
-  const requested: string[] = []
-  page.on('request', request => requested.push(request.url()))
+  // the script files are hashed, so what is asked for cannot be told by its name: what is in them can. `plotly-notifier` is the class of
+  // Plotly's own notifications, in its code and in no other's
+  const plotly: string[] = []
+  let scripts = 0
+  page.on('response', async (response) => {
+    if (!/\.js(?:\?|$)/.test(response.url()))
+      return
+    scripts++
+    if ((await response.text().catch(() => '')).includes('plotly-notifier'))
+      plotly.push(response.url())
+  })
   await showChart(page, baseURL!)
   await page.getByLabel('Facet by parameter').check()
   await expect(page.locator('.xc-canvas[data-drawn="true"]')).toHaveCount(2)
-  expect(requested.filter(url => /plotly/i.test(url))).toEqual([])
+  await page.waitForLoadState('networkidle')
+  expect(scripts, 'the scripts the page was served').toBeGreaterThan(20)
+  expect(plotly, 'a script with Plotly in it').toEqual([])
   expect(await page.locator('.js-plotly-plot').count()).toBe(0)
   expect(await page.evaluate(() => 'Plotly' in window)).toBe(false)
 })

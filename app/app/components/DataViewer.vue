@@ -855,8 +855,8 @@ function rowDate(row: Value): Date | null {
 // A value is a finite number, or an integer past 2^53 as plainRows writes it, its digits: any other
 // text a query puts under `value`, `CAST(value AS VARCHAR)` or 'n/a', the trendline added up as
 // text, drawing nothing, and text that is no number turned the y axis into one of categories.
-// None while the table is shown, the view a Fetch opens: the render watchers below and `chartShown`
-// read the chart's computeds whatever the view, so every answer was read row by row once more for a
+// None while the table is shown, the view a Fetch opens: `chartShown` and the series read the
+// chart's computeds whatever the view, so every answer was read row by row once more for a
 // chart that was not on screen (GH-2560). The rows are read when the view moves to the chart
 const chartRows = computed(() => viewMode.value !== 'graph'
   ? []

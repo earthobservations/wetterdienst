@@ -339,7 +339,7 @@ export function renderNotices(notices: Notice[]): string {
       'build holds (modules/third-party-licenses); the app itself is MIT-licensed. The weather symbols of the forecast chart',
       'are not a package: their credit and licence are the last entry.',
       '',
-      'The entries of @duckdb/duckdb-wasm, plotly.js-basic-dist-min and leaflet.markercluster (QuickHull) also',
+      'The entries of @duckdb/duckdb-wasm and leaflet.markercluster (QuickHull) also',
       'reproduce the licences of the code that is inside their files, and say what they cover. This file lists',
       'the notices found by this process and is not a legal guarantee of completeness.',
       '',

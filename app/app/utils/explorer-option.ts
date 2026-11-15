@@ -107,6 +107,60 @@ export function tickLabel(ms: number, span: number, locale: string): string {
   return timeFormat(locale, 'hour-minute', { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(ms)
 }
 
+const HOUR_MS = 3_600_000
+
+/** The steps the ticks of the time axis go by, from an hour to a century: a length in ms, or in months (calendar steps, which are not all as long) */
+const TICK_STEPS: ({ ms: number } | { months: number })[] = [
+  { ms: HOUR_MS },
+  { ms: 3 * HOUR_MS },
+  { ms: 6 * HOUR_MS },
+  { ms: 12 * HOUR_MS },
+  { ms: DAY },
+  { ms: 2 * DAY },
+  { ms: 7 * DAY },
+  { months: 1 },
+  { months: 3 },
+  { months: 6 },
+  { months: 12 },
+  { months: 24 },
+  { months: 60 },
+  { months: 120 },
+  { months: 240 },
+  { months: 600 },
+  { months: 1200 },
+]
+
+/**
+ * The moments of the ticks (and so of the labels and the vertical grid lines) of a time axis showing `win` on a plot `plotPx`
+ * wide: one every `plotPx / 90` or so, at the beginnings of hours, days, weeks (Mondays), months or years of UTC, each once. The
+ * library's own ticks add one at the start of every month and one at the end of the axis, which a label hides but a grid line
+ * does not, so the grid had pairs of lines a few px apart in a zoomed chart.
+ */
+export function timeTicks(win: { start: number, end: number }, plotPx: number): number[] {
+  const span = win.end - win.start
+  const most = Math.max(2, Math.floor(plotPx / 90))
+  const step = TICK_STEPS.find(candidate => span / ('ms' in candidate ? candidate.ms : candidate.months * 30.4 * DAY) <= most) ?? TICK_STEPS[TICK_STEPS.length - 1]!
+  const ticks: number[] = []
+  if ('ms' in step) {
+    // weeks start on a Monday, which is 4 days after the epoch's Thursday
+    const offset = step.ms === 7 * DAY ? 4 * DAY : 0
+    for (let t = Math.ceil((win.start - offset) / step.ms) * step.ms + offset; t <= win.end; t += step.ms)
+      ticks.push(t)
+    return ticks
+  }
+  const first = new Date(win.start)
+  let months = first.getUTCFullYear() * 12 + first.getUTCMonth()
+  months = Math.ceil(months / step.months) * step.months
+  for (; ; months += step.months) {
+    const t = Date.UTC(Math.floor(months / 12), months % 12, 1)
+    if (t > win.end)
+      break
+    if (t >= win.start)
+      ticks.push(t)
+  }
+  return ticks
+}
+
 /**
  * The moment a readout and a screen reader name, in UTC: the day where every reading of the chart is at midnight (a daily
  * series, a monthly one), the day and the time with "UTC" where any is not.
@@ -385,6 +439,7 @@ export function buildExplorerOption(input: ExplorerOptionInput, frame: ExplorerF
   const ink = inksOf(theme)
   const fontFamily = input.fontFamily ?? EXPLORER_FONT_FAMILY
   const span = win.end - win.start
+  const ticks = timeTicks(win, frame.plot.width)
   const base = { xAxisIndex: 0, yAxisIndex: 0, silent: true, animation: false, clip: true }
 
   const lines: Record<string, unknown>[] = []
@@ -433,9 +488,9 @@ export function buildExplorerOption(input: ExplorerOptionInput, frame: ExplorerF
       gridIndex: 0,
       min: bounds.start,
       max: bounds.end,
-      splitNumber: Math.max(2, Math.floor(frame.plot.width / 100)),
       axisLine: { show: false },
-      axisTick: { show: false },
+      // the ticks are ours, so that the labels and the grid lines are the same moments and evenly spaced (`timeTicks`)
+      axisTick: { show: false, customValues: ticks },
       splitLine: { show: true, lineStyle: { color: ink.grid, width: 1 } },
       axisLabel: {
         color: ink.muted,
@@ -443,6 +498,7 @@ export function buildExplorerOption(input: ExplorerOptionInput, frame: ExplorerF
         fontFamily,
         margin: 10,
         hideOverlap: true,
+        customValues: ticks,
         // one format for the window, from what it spans: Intl in UTC, in the language of the page
         formatter: (value: number) => tickLabel(value, span, locale),
       },
