@@ -55,6 +55,9 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/mosmix`: `coverage` gives the snow forecast `hourly/snow` its own `extent` (national, DE,
+  Europe, box 9 to 14 E and 46 to 49 N: its stations are all in the Bavarian Alps), where it said
+  the world's; `small` and `large` and `providers` (one extent per network) stay global (GH-4111)
 - `dwd/derived`: a period whose archive (or both archives of `hourly/radiation_global`) is a 404 on
   the server, listed and then withdrawn, answers the `file-skipped` warning and no rows, where it
   failed with a `ValueError` (an `IndexError` for `hourly/radiation_global`) and took the whole

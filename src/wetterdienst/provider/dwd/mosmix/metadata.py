@@ -938,6 +938,17 @@ _DwdMosmixMetadataSpec = {
                     "name": "snow",
                     "name_original": "snow",
                     "grouped": True,
+                    # MOSMIX-SNOW is a list of Alpine ski areas, where `small` and `large` are the world's: the 15
+                    # stations of the run of 2026-11-14 are all in the Bavarian Alps (47.33 to 47.75 N, 10.0 to 12.97 E)
+                    # and so are the 37 `Z9xx` stations of the catalogue (to 13.02 E). The box is theirs, a degree out
+                    # on each side as `dwd/dmo`'s `icon_eu`. All of them are Germany's, so the extent is national
+                    # (a regional one is bound to no single country) (GH-4111)
+                    "extent": {
+                        "scope": "national",
+                        "continents": ["europe"],
+                        "country_codes": ["DE"],
+                        "bbox": [9.0, 46.0, 14.0, 49.0],
+                    },
                     "parameters": [
                         {
                             "name": "snow_depth_new_last_3h",

@@ -157,11 +157,19 @@ def _datasets_with_an_extent() -> list[tuple[str, str, Any]]:
 def test_a_dataset_narrower_than_its_network_declares_its_own_extent() -> None:
     """`dwd/dmo` is global and its `icon_eu` list is Europe's; a dataset that declares none has its network's."""
     declared = {(key, label): extent for key, label, extent in _datasets_with_an_extent()}
-    assert set(declared) == {("dwd/dmo", "hourly/icon_eu")}
+    assert set(declared) == {("dwd/dmo", "hourly/icon_eu"), ("dwd/mosmix", "hourly/snow")}
     icon_eu = declared["dwd/dmo", "hourly/icon_eu"]
     assert icon_eu.scope == "regional"
     assert "europe" in icon_eu.continents
     assert Wetterdienst.resolve("dwd", "dmo").metadata.hourly.icon.extent is None
+    # MOSMIX-SNOW lists Alpine stations, all in Bavaria (GH-4111): one country's, so national, in a global network
+    snow = declared["dwd/mosmix", "hourly/snow"]
+    assert (snow.scope, snow.continents, snow.country_codes) == ("national", ("europe",), ("DE",))
+    assert snow.bbox == (9.0, 46.0, 14.0, 49.0)
+    mosmix = Wetterdienst.resolve("dwd", "mosmix").metadata
+    assert mosmix.extent.scope == "global"
+    assert mosmix.hourly.small.extent is None
+    assert mosmix.hourly.large.extent is None
 
 
 def test_the_extent_of_a_dataset_lies_within_its_network() -> None:
