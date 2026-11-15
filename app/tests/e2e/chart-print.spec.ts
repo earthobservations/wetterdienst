@@ -15,7 +15,8 @@ const EXPLORER = '/explorer?provider=dwd&network=observation&resolution=daily&da
 /** The widest a chart is drawn (`.app-chart` in main.css) */
 const MAX_WIDTH = 820
 
-const plotly = (page: Page) => page.locator('.js-plotly-plot .main-svg').first()
+/** The Explorer's chart (ECharts, SVG): the whole of it is in `.explorer-chart`, and its SVG in the canvas once it is drawn */
+const explorerChart = (page: Page) => page.locator('.xc-canvas[data-drawn="true"] svg').first()
 
 /** The climate stripes' chart (ECharts, SVG): the whole of it, with its toolbar, and the canvas it is drawn in */
 const stripesChart = (page: Page) => page.locator('.sc-canvas[data-drawn="true"] svg').first()
@@ -38,8 +39,8 @@ interface Chart {
 const CHARTS: Chart[] = [
   {
     name: 'the explorer\'s chart',
-    root: '.js-plotly-plot',
-    texts: 'svg.main-svg text',
+    root: '.explorer-chart',
+    texts: '.xc-canvas svg text',
     path: EXPLORER,
     // the tick labels, 12 px (5.2 pt from a 1100 px window without the cap)
     floor: 6.2,
@@ -47,7 +48,7 @@ const CHARTS: Chart[] = [
       await page.getByRole('button', { name: 'Show', exact: true }).click()
       await expect(page.getByRole('table').first()).toBeVisible()
       await page.getByRole('button', { name: 'Show as chart', exact: true }).click()
-      await expect(plotly(page)).toBeVisible()
+      await expect(explorerChart(page)).toBeVisible()
     },
   },
   {
@@ -236,8 +237,9 @@ test('the explorer\'s faceted charts are capped as well, and print as large as t
   await page.goto(EXPLORER)
   await CHARTS[0]!.reach(page)
   await page.getByLabel('Facet by parameter').check()
-  await expect(page.locator('.js-plotly-plot')).toHaveCount(2)
-  for (const chart of await page.locator('.js-plotly-plot').all())
+  await expect(page.locator('.explorer-chart')).toHaveCount(2)
+  await expect(page.locator('.xc-canvas[data-drawn="true"] svg')).toHaveCount(2)
+  for (const chart of await page.locator('.explorer-chart').all())
     expect((await chart.boundingBox())!.width).toBeLessThanOrEqual(MAX_WIDTH - 34)
   // the box of a facet has 34 px of padding and border, which the print is scaled with: the chart is narrower by them
   test.skip(browserName !== 'chromium', 'page.pdf is Chromium\'s')
@@ -254,8 +256,8 @@ async function printedStyles(page: Page, baseURL: string, theme: 'light' | 'dark
   await chart.reach(page)
   await page.emulateMedia({ media: 'print' })
   // the charts are drawn light for the print, which takes a drawing for some of them
-  if (await page.locator('.js-plotly-plot').count())
-    await expect(page.locator('.js-plotly-plot').first()).toHaveAttribute('data-chart-scheme', 'light')
+  if (await page.locator('.xc-canvas').count())
+    await expect(page.locator('.xc-canvas').first()).toHaveAttribute('data-chart-scheme', 'light')
   if (await page.locator('.mg-canvas').count())
     await expect(page.locator('.mg-canvas').first()).toHaveAttribute('data-chart-scheme', 'light')
   if (await page.locator('.sc-canvas').count())

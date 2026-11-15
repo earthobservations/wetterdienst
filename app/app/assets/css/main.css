@@ -451,6 +451,34 @@
   .stripes-chart {
     break-inside: avoid;
   }
+  /* The Explorer's chart (ECharts, SVG) is drawn again in the light theme before the print is laid out, and is printed as it
+     shows: the window of time on the screen, the series its legend has on, scaled to the width of the sheet like a picture,
+     without the buttons, the legend's buttons (the legend itself is in the SVG), the crosshair and the readout */
+  .xc-toolbar,
+  .xc-legend,
+  .xc-selection,
+  .xc-readout {
+    display: none !important;
+  }
+  .xc-frame,
+  .xc-stage,
+  .xc-canvas,
+  .xc-canvas > div {
+    width: 100% !important;
+    height: auto !important;
+    position: static !important;
+  }
+  /* ECharts positions its SVG absolutely in a box of the chart's size in px: on paper it is in the flow, so that the sheet
+     makes room for it and a page break falls before the chart and not through it (GH-4080) */
+  .xc-canvas svg {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    display: block;
+  }
+  .explorer-chart {
+    break-inside: avoid;
+  }
   .js-plotly-plot[data-chart-scheme="dark"] .main-svg {
     background: transparent !important;
   }
