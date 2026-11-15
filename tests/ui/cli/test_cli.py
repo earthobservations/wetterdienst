@@ -596,8 +596,9 @@ def test_issues_mosmix_without_a_dataset_leaves_the_product_to_mosmix_l(monkeypa
 @pytest.mark.parametrize(
     ("network", "station", "dataset", "message"),
     [
-        ("dmo", "10147", "snow", "dataset applies to DWD MOSMIX only"),
-        ("swsmos", "A006", "small", "dataset applies to DWD DMO only"),
+        ("dmo", "10147", "snow", "dataset 'snow' is a DWD MOSMIX product; DWD DMO lists icon or icon_eu"),
+        ("mosmix", "10147", "icon", "dataset 'icon' is a DWD DMO product; DWD MOSMIX lists large, small or snow"),
+        ("swsmos", "A006", "small", "dataset does not apply to DWD SWSMOS"),
     ],
 )
 def test_issues_refuses_a_product_of_the_other_network(network: str, station: str, dataset: str, message: str) -> None:
@@ -1280,24 +1281,18 @@ def test_issues_help_says_which_products_the_dataset_names() -> None:
     assert f"large, small or snow (default {mosmix_default})" in option.help
 
 
-@pytest.mark.parametrize(("option", "value"), [("dataset", "icon"), ("lead_time", "long")])
 @pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006")])
-def test_issues_refuses_the_dmo_options_for_mosmix_and_swsmos(
-    option: str, value: str, network: str, station: str
-) -> None:
-    """Test `issues` refuses --dataset and --lead-time for MOSMIX and SWSMOS, as its help says (GH-2347)."""
+def test_issues_refuses_the_lead_time_for_mosmix_and_swsmos(network: str, station: str) -> None:
+    """Test `issues` refuses --lead-time for MOSMIX and SWSMOS, as its help says (GH-2347).
+
+    --dataset is refused by what the network accepts: `test_issues_refuses_a_product_of_the_other_network`.
+    """
     result = CliRunner().invoke(
         cli,
-        [
-            "issues",
-            "--provider=dwd",
-            f"--network={network}",
-            f"--station={station}",
-            f"--{option.replace('_', '-')}={value}",
-        ],
+        ["issues", "--provider=dwd", f"--network={network}", f"--station={station}", "--lead-time=long"],
     )
     assert result.exit_code == 2, result.output
-    assert f"{option} applies to DWD DMO only" in result.stderr
+    assert "lead_time applies to DWD DMO only" in result.stderr
 
 
 @pytest.mark.parametrize(

@@ -100,6 +100,8 @@ class DwdForecastDate(Enum):
 # first; until then the rule matches what can actually be read
 _FORECAST_FILE = r"\.kmz$"
 _LATEST_FILE = re.compile(r"LATEST.*" + _FORECAST_FILE, re.IGNORECASE)
+# the alias of any product, for what a listing is counted as: MOSMIX-SNOW's is `aktuell`, which no run is read from
+_ALIAS_FILE = re.compile(r"(?:LATEST|aktuell).*" + _FORECAST_FILE, re.IGNORECASE)
 
 
 def _run_stamp_of(url: str) -> str | None:
@@ -466,7 +468,8 @@ class DwdMosmixRequest(TimeseriesRequest):
             # only its alias tomorrow is a retention change worth seeing -- not because `info`
             # would go unheard, which it would not: `setup_logging` runs `basicConfig(level=INFO)`
             # for both the CLI and the REST API, so `info` reaches exactly those two
-            aliases = sum(1 for listed in urls if _LATEST_FILE.search(listed.rsplit("/", 1)[-1]))
+            # MOSMIX-SNOW names its alias `..._aktuell_48.kmz`, MOSMIX-S and -L `..._LATEST_...`
+            aliases = sum(1 for listed in urls if _ALIAS_FILE.search(listed.rsplit("/", 1)[-1]))
             log.warning(
                 f"No dated run listed within {url} ({len(urls)} entries, {aliases} of them the LATEST alias)",
             )

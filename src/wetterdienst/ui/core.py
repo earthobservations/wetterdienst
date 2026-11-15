@@ -2164,29 +2164,28 @@ def get_issues(
     from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
 
     options = {"dataset": request.dataset, "lead_time": request.lead_time}
-    given = sorted(name for name, value in options.items() if value is not None)
-    # what each network does not list: the lead time is DMO's alone, and a product is named by the network that has it
-    not_listed = [
-        name
-        for name in given
-        if name == "lead_time"
-        or issubclass(api, DwdSwsmosRequest)
-        or (issubclass(api, DwdMosmixRequest) and request.dataset not in MOSMIX_ISSUE_DATASETS)
-    ]
-    if issubclass(api, (DwdMosmixRequest, DwdSwsmosRequest)) and not_listed:
-        # named rather than ignored: silently answering a different question than the one asked is
-        # the fault this whole path is being fixed for
-        msg = f"{', '.join(not_listed)} applies to DWD DMO only (got {api.__name__})"
+    # named rather than ignored: silently answering a different question than the one asked is
+    # the fault this whole path is being fixed for. The lead time is DMO's alone; a product is named by the network
+    # that has it, and what each accepts is told
+    if request.lead_time is not None and issubclass(api, (DwdMosmixRequest, DwdSwsmosRequest)):
+        msg = f"lead_time applies to DWD DMO only (got {api.__name__})"
         raise InvalidEnumerationError(msg)
+    if request.dataset is not None:
+        if issubclass(api, DwdSwsmosRequest):
+            msg = "dataset does not apply to DWD SWSMOS"
+            raise InvalidEnumerationError(msg)
+        if issubclass(api, DwdMosmixRequest) and request.dataset not in MOSMIX_ISSUE_DATASETS:
+            msg = f"dataset '{request.dataset}' is a DWD DMO product; DWD MOSMIX lists large, small or snow"
+            raise InvalidEnumerationError(msg)
+        if issubclass(api, DwdDmoRequest) and request.dataset in MOSMIX_ISSUE_DATASETS:
+            msg = f"dataset '{request.dataset}' is a DWD MOSMIX product; DWD DMO lists icon or icon_eu"
+            raise InvalidEnumerationError(msg)
     if issubclass(api, DwdMosmixRequest):
         # passed only where given, so that the default is `available_issues`' own: MOSMIX-L
         issues = DwdMosmixRequest.available_issues(
             request.station, settings, **({"dataset": request.dataset} if request.dataset is not None else {})
         )
     elif issubclass(api, DwdDmoRequest):
-        if request.dataset in MOSMIX_ISSUE_DATASETS:
-            msg = f"dataset applies to DWD MOSMIX only, DMO lists icon or icon_eu (got {request.dataset})"
-            raise InvalidEnumerationError(msg)
         issues = DwdDmoRequest.available_issues(
             request.station,
             settings,

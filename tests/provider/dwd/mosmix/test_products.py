@@ -96,6 +96,21 @@ def test_available_issues_refuses_a_dataset_the_network_does_not_have() -> None:
         DwdMosmixRequest.available_issues("01001", Settings(), dataset="icon")
 
 
+def test_available_issues_of_snow_counts_its_alias_as_one(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """MOSMIX-SNOW's alias is `aktuell`, and a directory pruned back to it says one entry of one is the alias."""
+    caplog.set_level(logging.WARNING)
+    monkeypatch.setattr(
+        api,
+        "list_remote_files_fsspec",
+        lambda *_args, **_kwargs: _names("MOSMIX-SNOW_S/all_stations/kml/", ["MOSMIX-SNOW_S_aktuell_48.kmz"]),
+    )
+
+    assert DwdMosmixRequest.available_issues("Z914", Settings(), dataset="snow") == []
+    assert "(1 entries, 1 of them the LATEST alias)" in caplog.text
+
+
 def test_available_issues_of_snow_out_of_season_says_so(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -110,9 +125,13 @@ def test_available_issues_of_snow_out_of_season_says_so(
 # --- one parse per file in a mixed request
 
 
-def _kml(stations: dict[str, dict[str, str]], run: str = "2026-10-10T09:00:00.000Z") -> bytes:
-    """Build a run of three hours holding the given stations, each with its elements as the file writes them."""
-    steps = "".join(f"<dwd:TimeStep>2026-10-10T{hour}:00:00.000Z</dwd:TimeStep>" for hour in (10, 11, 12))
+def _kml(
+    stations: dict[str, dict[str, str]],
+    run: str = "2026-10-10T09:00:00.000Z",
+    hours: tuple[int, ...] = (10, 11, 12),
+) -> bytes:
+    """Build a run of the given hours holding the given stations, each with its elements as the file writes them."""
+    steps = "".join(f"<dwd:TimeStep>2026-10-10T{hour}:00:00.000Z</dwd:TimeStep>" for hour in hours)
     placemarks = "".join(
         f"<kml:Placemark><kml:name>{station_id}</kml:name><kml:ExtendedData>"
         + "".join(
@@ -138,7 +157,12 @@ LARGE = "https://example.invalid/MOSMIX_L_2026101009.kmz"
 
 RUNS = {
     SMALL: _kml({"01001": {"TTT": "275.15 276.15 277.15"}, "01002": {"TTT": "270.15 271.15 272.15"}}),
-    SNOW: _kml({"01001": {"SnCv": "0.10 0.20 0.30"}, "01002": {"SnCv": "0.40 0.50 0.60"}}, "2026-10-10T08:00:00.000Z"),
+    # other steps than the others, in hours and in number, so that a reader that keeps the wrong ones shows
+    SNOW: _kml(
+        {"01001": {"SnCv": "0.10 0.20 0.30 0.35"}, "01002": {"SnCv": "0.40 0.50 0.60 0.65"}},
+        "2026-10-10T08:00:00.000Z",
+        hours=(20, 21, 22, 23),
+    ),
     LARGE: _kml({"01001": {"TX": "- - 280.15"}, "01002": {"TX": "- - 281.15"}}, "2026-10-10T03:00:00.000Z"),
 }
 
@@ -169,9 +193,13 @@ def test_reader_parses_each_file_once_when_read_in_turn(parses: list[str]) -> No
         reader.read(SMALL)
         assert reader.get_station_forecast("01002")["ttt"].to_list() == [270.15, 271.15, 272.15]
         assert reader.metadata["issue_time"] == dt.datetime(2026, 10, 10, 9, tzinfo=UTC)
+        assert [step[11:13] for step in reader.timesteps] == ["10", "11", "12"]
+        assert [step[11:13] for step in reader.get_station_forecast("01002")["timestamp"]] == ["10", "11", "12"]
         reader.read(SNOW)
-        assert reader.get_station_forecast("01002")["sncv"].to_list() == [0.40, 0.50, 0.60]
+        assert reader.get_station_forecast("01002")["sncv"].to_list() == [0.40, 0.50, 0.60, 0.65]
         assert reader.metadata["issue_time"] == dt.datetime(2026, 10, 10, 8, tzinfo=UTC)
+        assert [step[11:13] for step in reader.timesteps] == ["20", "21", "22", "23"]
+        assert [step[11:13] for step in reader.get_station_forecast("01002")["timestamp"]] == ["20", "21", "22", "23"]
 
     assert parses == [SMALL, SNOW]
 
@@ -251,10 +279,10 @@ def test_mixed_request_parses_each_file_once_for_all_stations(
     assert parses == [SMALL, SNOW]
     assert df.group_by("station_id", "dataset").len().sort("station_id", "dataset").rows() == [
         ("01001", "small", 3),
-        ("01001", "snow", 3),
+        ("01001", "snow", 4),
         ("01002", "small", 3),
-        ("01002", "snow", 3),
+        ("01002", "snow", 4),
     ]
     # each value is the file's own: the small run's temperature and the snow run's depth, at both stations
     sncv = df.filter(pl.col("dataset") == "snow", pl.col("station_id") == "01002").sort("timestamp")["value"].to_list()
-    assert sncv == pytest.approx([40.0, 50.0, 60.0])
+    assert sncv == pytest.approx([40.0, 50.0, 60.0, 65.0])

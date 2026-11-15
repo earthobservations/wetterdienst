@@ -6325,18 +6325,26 @@ def test_reported_choices_are_the_settings_choices(field: str, option: str) -> N
     assert reported == set(get_args(Options.model_fields[option].annotation))
 
 
-@pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006")])
-@pytest.mark.parametrize(("option", "value"), [("dataset", "icon"), ("lead_time", "long")])
-def test_issues_refuses_the_dmo_options_for_mosmix_and_swsmos(
-    client: TestClient, network: str, station: str, option: str, value: str
+@pytest.mark.parametrize(
+    ("network", "station", "option", "value", "message"),
+    [
+        ("mosmix", "10147", "lead_time", "long", "lead_time applies to DWD DMO only"),
+        ("swsmos", "A006", "lead_time", "long", "lead_time applies to DWD DMO only"),
+        ("mosmix", "10147", "dataset", "icon", "dataset 'icon' is a DWD DMO product; DWD MOSMIX lists"),
+        ("dmo", "10147", "dataset", "snow", "dataset 'snow' is a DWD MOSMIX product; DWD DMO lists"),
+        ("swsmos", "A006", "dataset", "small", "dataset does not apply to DWD SWSMOS"),
+    ],
+)
+def test_issues_refuses_the_options_the_network_does_not_list(
+    client: TestClient, network: str, station: str, option: str, value: str, message: str
 ) -> None:
-    """/api/issues refuses a DMO-only option for MOSMIX and SWSMOS, as its description says (GH-2347)."""
+    """/api/issues refuses a lead time for MOSMIX and SWSMOS and a product of the other network (GH-2347, GH-4093)."""
     response = client.get(
         "/api/issues",
         params={"provider": "dwd", "network": network, "station": station, option: value},
     )
     assert response.status_code == 400
-    assert response.json()["detail"].startswith(f"{option} applies to DWD DMO only")
+    assert response.json()["detail"].startswith(message)
 
 
 def test_mcp_issues_tool_describes_the_dmo_options_as_refused() -> None:
