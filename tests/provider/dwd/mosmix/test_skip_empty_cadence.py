@@ -8,6 +8,7 @@ share measured against every hour would skip each station at 0.33.
 
 from __future__ import annotations
 
+import datetime as dt
 import re
 import zipfile
 from io import BytesIO
@@ -15,25 +16,39 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 
-from tests.provider.dwd.mosmix.test_products import LARGE, RUNS, SMALL, parses
+from tests.provider.dwd.mosmix.test_products import LARGE, RUNS, SMALL, _kml, parses
 from tests.provider.dwd.mosmix.test_snow import LISTING, RUN, run_of_the_14th
 from tests.provider.value_stubs import _settings, stations_result
 from wetterdienst import Options
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest, api
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
+from wetterdienst.provider.dwd.mosmix.metadata import DwdMosmixMetadata
 
 if TYPE_CHECKING:
     import pytest
 
 __all__ = ["parses", "run_of_the_14th"]  # the fixtures, used by name
 
+UTC = dt.UTC
+
 SKIP_EMPTY = Options(skip_empty=True, skip_threshold=0.95)
 
 
-def _snow(station_id: str, options: Options = SKIP_EMPTY) -> list[pl.DataFrame]:
-    """Give the frames of the stations answered for the snow depth of one station."""
-    request = DwdMosmixRequest(parameters=[("hourly", "snow", "snow_depth")], settings=_settings(), options=options)
+def _snow(
+    station_id: str,
+    options: Options = SKIP_EMPTY,
+    parameters: tuple[str, ...] = ("snow_depth",),
+    window: tuple[dt.datetime, dt.datetime] | None = None,
+) -> list[pl.DataFrame]:
+    """Give the frames of the stations answered for the parameters of the snow dataset at one station."""
+    request = DwdMosmixRequest(
+        parameters=[("hourly", "snow", parameter) for parameter in parameters],
+        start=window[0] if window else None,
+        end=window[1] if window else None,
+        settings=_settings(),
+        options=options,
+    )
     return [result.df for result in stations_result(request, "hourly", "snow", station_id).values().query()]
 
 
@@ -64,10 +79,12 @@ def _tokens(station_id: str, element: str) -> list[str]:
     return match.group(1).split()
 
 
-def test_reader_collects_the_steps_of_every_station_only_when_asked(run_of_the_14th: list[str]) -> None:  # noqa: ARG001
-    """The steps come from the 15 stations of the file though one is asked for, and the reader is off by default."""
-    reader = KMLReader(station_ids=["Z914"], settings=_settings(), collect_steps=True)
-    reader.read(LISTING[1])
+def test_reader_collects_the_steps_of_the_elements_asked_for_at_every_station(
+    run_of_the_14th: list[str],  # noqa: ARG001
+) -> None:
+    """The steps come from the 15 stations of the file though one is asked for, of the elements named only."""
+    reader = KMLReader(station_ids=["Z914"], settings=_settings())
+    reader.read(LISTING[1], steps_of=["SnCv", "TTT", "nosuchelement"])
 
     assert sorted(reader.data) == ["Z914"]
     sncv = reader.given_timesteps(LISTING[1], "SnCv")
@@ -76,6 +93,8 @@ def test_reader_collects_the_steps_of_every_station_only_when_asked(run_of_the_1
     # an element given at every step, and one no station has
     assert reader.given_timesteps(LISTING[1], "TTT") == reader.timesteps
     assert reader.given_timesteps(LISTING[1], "nosuchelement") == []
+    # an element not named is not noted, though the file has it
+    assert reader.given_timesteps(LISTING[1], "FF") == []
     # a file never read is not held
     assert reader.given_timesteps("https://example.invalid/other.kmz", "SnCv") is None
 
@@ -83,6 +102,32 @@ def test_reader_collects_the_steps_of_every_station_only_when_asked(run_of_the_1
     default.read(LISTING[1])
     assert default.given_timesteps(LISTING[1], "SnCv") is None
     assert default.data == reader.data
+
+
+def test_reader_looks_at_no_other_station_once_every_step_of_the_elements_is_seen(
+    monkeypatch: pytest.MonkeyPatch,
+    run_of_the_14th: list[str],  # noqa: ARG001
+) -> None:
+    """`TTT` is complete at the first station of the file: the placemarks after it are not looked into for it."""
+    looked: list[str] = []
+    original = KMLReader._elements_of  # noqa: SLF001
+
+    def counting(station_forecast: object, nsmap: dict[str, str]) -> object:
+        looked.append("looked")
+        return original(station_forecast, nsmap)  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(KMLReader, "_elements_of", staticmethod(counting))
+    reader = KMLReader(station_ids=["Z946"], settings=_settings())
+    reader.read(LISTING[1], steps_of=["TTT"])
+    # the first station completes the element, and the last, asked for, is read as always
+    assert len(looked) == 2
+    assert reader.given_timesteps(LISTING[1], "TTT") == reader.timesteps
+
+    looked.clear()
+    reader = KMLReader(station_ids=["Z946"], settings=_settings())
+    reader.read(LISTING[1], steps_of=["SnCv"])
+    # every station is looked into for an element given at some steps only, until all of its steps were seen
+    assert len(looked) > 2
 
 
 def test_station_that_has_every_step_its_file_gives_is_not_skipped(run_of_the_14th: list[str]) -> None:  # noqa: ARG001
@@ -132,7 +177,10 @@ def test_an_element_no_station_has_a_value_of_is_a_station_without_it(
     monkeypatch: pytest.MonkeyPatch,
     run_of_the_14th: list[str],  # noqa: ARG001
 ) -> None:
-    """The file gives no step of an element that is `-` at every station of it: nothing is measured, and zero is."""
+    """The file gives no step of an element that is `-` at every station of it: nothing is measured, and zero is.
+
+    A no-regression check: the station was skipped for this before the cadence was read from the file and still is.
+    """
     blank = " ".join(["-"] * 48)
     stations = ("Z901", "Z905", "Z908", "Z912", "Z914", "Z916", "Z917", "Z919", "Z928", "Z932", "Z934", "Z936")
     stations += ("Z943", "Z944", "Z946")
@@ -145,11 +193,69 @@ def test_an_element_no_station_has_a_value_of_is_a_station_without_it(
 
 def test_skip_empty_off_is_the_answer_it_was(run_of_the_14th: list[str]) -> None:  # noqa: ARG001
     """Without `skip_empty` the reader collects nothing and the answer is the same station's values."""
-    kept = _snow("Z914", Options())
+    request = DwdMosmixRequest(parameters=[("hourly", "snow", "snow_depth")], settings=_settings(), options=Options())
+    values = stations_result(request, "hourly", "snow", "Z914").values()
+    kept = [result.df for result in values.query()]
     skipping = _snow("Z914")
 
     assert len(kept) == 1
     assert kept[0].equals(skipping[0])
+    # nothing was noted of the file's steps, and nothing is asked of the reader for them
+    assert values.kml._parsed[LISTING[1]].given is None  # noqa: SLF001
+    assert values._steps_of(DwdMosmixMetadata.hourly.snow) is None  # noqa: SLF001
+
+
+def test_a_window_between_the_steps_of_an_element_does_not_skip_the_station(
+    run_of_the_14th: list[str],  # noqa: ARG001
+) -> None:
+    """`SnCv` is given at 21:00 and 00:00: a window of 22:00 to 23:00 has no step of it, so it is not measured."""
+    window = (dt.datetime(2026, 11, 14, 22, tzinfo=UTC), dt.datetime(2026, 11, 14, 23, tzinfo=UTC))
+
+    # alone, with the nulls kept (the frame of nulls is the station's answer: nothing is said of it by the share)
+    alone = _snow("Z914", Options(drop_nulls=False, skip_empty=True, skip_threshold=0.95), window=window)
+    assert len(alone) == 1
+    assert alone[0]["value"].is_null().all()
+    # beside a dense element, which is measured and complete
+    both = _snow("Z914", parameters=("snow_depth", "temperature_air_2m"), window=window)
+    assert len(both) == 1
+    assert set(both[0]["parameter"]) == {"temperature_air_2m"}
+
+
+def test_steps_past_the_horizon_of_the_run_do_not_count_against_the_station(
+    run_of_the_14th: list[str],  # noqa: ARG001
+) -> None:
+    """A dense element over 96 hours of a run of 48 hours: its 48 steps are all the file gives, and all are there."""
+    window = (dt.datetime(2026, 11, 14, 20, tzinfo=UTC), dt.datetime(2026, 11, 18, 20, tzinfo=UTC))
+
+    frames = _snow("Z914", parameters=("temperature_air_2m",), window=window)
+
+    assert len(frames) == 1
+    assert frames[0]["value"].is_not_null().sum() == 48
+
+
+def _serve_large(monkeypatch: pytest.MonkeyPatch, tx: str) -> None:
+    """Serve a MOSMIX-L run of 14 hours (10 to 23 UTC) of one station with the given `TX` and `TTT` at every hour."""
+    run = _kml({"01001": {"TX": tx, "TTT": " ".join(["280.15"] * 14)}}, hours=tuple(range(10, 24)))
+    monkeypatch.setitem(RUNS, LARGE, run)
+    monkeypatch.setattr(api.DwdMosmixValues, "get_url_for_date", lambda *_args, **_kwargs: LARGE)
+
+
+def test_tx_given_at_two_steps_has_no_say_about_a_window_between_them(
+    monkeypatch: pytest.MonkeyPatch,
+    parses: list[str],  # noqa: ARG001
+) -> None:
+    """`TX` is given at 12 and 22 UTC: a window of 13:00 to 21:00 holds none of it, and the station is not skipped."""
+    _serve_large(monkeypatch, " ".join("281.15" if hour in {12, 22} else "-" for hour in range(10, 24)))
+    window = {"start": dt.datetime(2026, 10, 10, 13, tzinfo=UTC), "end": dt.datetime(2026, 10, 10, 21, tzinfo=UTC)}
+
+    def read(parameters: list[tuple[str, str, str]], options: Options) -> pl.DataFrame:
+        request = DwdMosmixRequest(parameters=parameters, settings=_settings(), options=options, **window)
+        return stations_result(request, "hourly", "large", "01001").values().all().df
+
+    alone = read([("hourly", "large", "tx")], Options(drop_nulls=False, skip_empty=True, skip_threshold=0.95))
+    assert alone["station_id"].unique().to_list() == ["01001"]
+    both = read([("hourly", "large", "tx"), ("hourly", "large", "ttt")], Options(skip_empty=True, skip_threshold=0.95))
+    assert set(both["parameter"]) == {"temperature_air_2m"}
 
 
 def test_each_dataset_of_a_mixed_request_is_measured_by_its_own_file(

@@ -37,6 +37,8 @@ from wetterdienst.util.enumeration import parse_enumeration_from_template
 from wetterdienst.util.network import list_remote_files_fsspec
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.settings import Settings
 
@@ -172,11 +174,35 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
             station_ids=self.sr.station_id.to_list(),
             settings=cast("Settings", self.sr.request.settings),
             keep_parsed=len(self.sr.request._requested_datasets),  # noqa: SLF001
-            # `skip_empty` measures an element at the steps its file gives it at (`_given_timestamps`)
-            collect_steps=self.sr.options.skip_empty,
         )
-        # the file each dataset was last read from, which is that of the station in hand
+        # the file each dataset was read from for the station in hand (`_collect_station_data` starts it afresh)
         self._file_urls: dict[str, str] = {}
+
+    def _collect_station_data(self, station_id: str, available_datasets: list[DatasetModel]) -> pl.DataFrame:
+        """Collect the station's data, forgetting the files of the station before it.
+
+        A dataset that is not available for this station is never read, and would keep the file of the station before
+        it for `_given_timestamps`.
+        """
+        self._file_urls.clear()
+        return super()._collect_station_data(station_id, available_datasets)
+
+    def _read_run(self, file_url: str, dataset: DatasetModel) -> None:
+        """Read the run of a dataset and remember it as the file of the station in hand (`_given_timestamps`)."""
+        steps_of = self._steps_of(dataset)
+        if steps_of is None:
+            self.kml.read(file_url)
+        else:
+            self.kml.read(file_url, steps_of)
+        self._file_urls[dataset.name] = file_url
+
+    def _steps_of(self, dataset: DatasetModel) -> list[str] | None:
+        """Name the elements of a dataset whose steps `skip_empty` needs from the file, or None for none."""
+        from typing import cast  # noqa: PLC0415
+
+        if not self.sr.options.skip_empty:
+            return None
+        return [p.name_original for p in cast("Iterable[ParameterModel]", self.sr.parameters) if p.dataset == dataset]
 
     def _given_timestamps(self, parameter: ParameterModel) -> pl.Series | None:
         """Name the steps at which some station of the file the station was read from has a value of the element.
@@ -252,8 +278,6 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
 
     def read_mosmix(self, station_id: str, dataset: DatasetModel, date: dt.datetime | DwdForecastDate) -> pl.DataFrame:
         """Read MOSMIX data from the DWD server."""
-        # forgotten before the read: a station with no file must not be judged by the file of the one before it
-        self._file_urls.pop(dataset.name, None)
         if dataset == DwdMosmixMetadata.hourly.small:
             return self.read_mosmix_small(station_id, date)
         if dataset == DwdMosmixMetadata.hourly.large:
@@ -272,8 +296,7 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
         # -- and `one_station_only=False` raises rather than answering `None`, which is why there
         # is no empty-frame branch here where `read_mosmix_large` has one
         file_url = cast("str", self.get_url_for_date(url, date, one_station_only=False))
-        self.kml.read(file_url)
-        self._file_urls[DwdMosmixMetadata.hourly.small.name] = file_url
+        self._read_run(file_url, DwdMosmixMetadata.hourly.small)
         return self.kml.get_station_forecast(station_id)
 
     def read_mosmix_large(
@@ -292,8 +315,7 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
         file_url = self.get_url_for_date(url, date, one_station_only=not all_stations)
         if not file_url:
             return pl.DataFrame()
-        self.kml.read(file_url)
-        self._file_urls[DwdMosmixMetadata.hourly.large.name] = file_url
+        self._read_run(file_url, DwdMosmixMetadata.hourly.large)
         return self.kml.get_station_forecast(station_id)
 
     def read_mosmix_snow(self, station_id: str, date: DwdForecastDate | dt.datetime) -> pl.DataFrame:
@@ -306,8 +328,7 @@ class DwdMosmixValues(TimeseriesValues[DatasetModel]):
 
         url = urljoin("https://opendata.dwd.de", DWD_MOSMIX_SNOW_PATH)
         file_url = cast("str", self.get_url_for_date(url, date, one_station_only=False, seasonal=True))
-        self.kml.read(file_url)
-        self._file_urls[DwdMosmixMetadata.hourly.snow.name] = file_url
+        self._read_run(file_url, DwdMosmixMetadata.hourly.snow)
         return self.kml.get_station_forecast(station_id)
 
     def get_url_for_date(

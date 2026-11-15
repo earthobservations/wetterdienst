@@ -1409,8 +1409,10 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         timestamps (a UTC datetime series, or None for no say) of the readings the file the station was read from
         gives, whether this station has a value there or not, in the timezone of the frames the provider returns; the
         share is then the distinct slots of the resolution among them that the station has a value at, of those that
-        lie in the window (or the span of the station's series). An empty series is a parameter given at no step, which
-        counts as zero, as a parameter that came back with nothing does.
+        lie in the window (or the span of the station's series). An empty series is a parameter given at no step at all,
+        which counts as zero, as a parameter that came back with nothing does. A parameter given at steps, none of them
+        in the window, is not measured: there is nothing to share, so it is left out of the coverage (a source that
+        gives an element at 06 and 18 UTC has no say about a window of 07 to 17).
 
         Not implemented, which is what a provider that does not name its steps does, the steps are every slot of the
         resolution's grid over the window, as they always were.
@@ -1423,15 +1425,20 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         given: pl.Series,
         interval: str,
         window: tuple[dt.datetime | None, dt.datetime | None],
-    ) -> float:
-        """Give the share of the slots the source gives a parameter at, in the window, the station has a value at."""
+    ) -> float | None:
+        """Give the share of the slots the source gives a parameter at, in the window, the station has a value at.
+
+        None where the source gives the parameter at steps and none of them lies in the window: nothing to measure.
+        """
+        if given.is_empty():
+            return 0.0
         slots = given.cast(df_parameter.schema["timestamp"]).to_frame("timestamp")
         start_date, end_date = window
         if start_date is not None and end_date is not None:
             slots = slots.filter(pl.col("timestamp").is_between(start_date, end_date, closed="both"))
         expected = slots.select(pl.col("timestamp").dt.truncate(interval).unique()).get_column("timestamp")
         if expected.is_empty():
-            return 0.0
+            return None
         covered = df_parameter.drop_nulls("value").get_column("timestamp").dt.truncate(interval)
         return min(covered.filter(covered.is_in(expected.implode())).n_unique() / expected.len(), 1.0)
 
@@ -1473,7 +1480,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # whatever the mode (GH-3676). As it was where the check used to null the value; a road sensor that stopped,
         # which kept its value and counted, no longer counts
         df = leave_out_suspect(df)
-        percentages = []
+        # None for a parameter that is not measured (`_share_of_given_steps`)
+        percentages: list[float | None] = []
         for parameter in cast("Iterable[ParameterModel]", self.sr.parameters):
             resolution = parameter.dataset.resolution
             # the dataset frame carries the fallback window below. Read per dataset rather than
@@ -1517,13 +1525,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # of an hourly window would cover it twice over and read as complete
             covered = df_parameter.drop_nulls("value").get_column("timestamp").dt.truncate(interval).n_unique()
             percentages.append(min(covered / expected, 1.0))
-        if not percentages:
-            return 0.0
+        measured = [percentage for percentage in percentages if percentage is not None]
+        if not measured:
+            # every parameter was left unmeasured (`_given_timestamps` names none in the window): the share is
+            # undefined whatever `skip_criteria` is, and a station is not skipped for one that is not there. No
+            # parameter at all is still zero
+            return 1.0 if percentages else 0.0
         if self.sr.options.skip_criteria == "min":
-            return min(percentages)
+            return min(measured)
         if self.sr.options.skip_criteria == "mean":
-            return sum(percentages) / len(percentages)
+            return sum(measured) / len(measured)
         if self.sr.options.skip_criteria == "max":
-            return max(percentages)
+            return max(measured)
         msg = "skip_criteria must be one of min, mean, max"
         raise KeyError(msg)

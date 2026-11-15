@@ -32,7 +32,7 @@ from wetterdienst.util.network import DownloadRefusedError, File, NetworkFilesys
 from wetterdienst.util.xml import iterparse_xml
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterable, Iterator
     from typing import BinaryIO
     from xml.etree.ElementTree import Element
 
@@ -84,16 +84,14 @@ class _ParsedRun:
     timesteps: list[str]
     data: dict[str, dict[str, list[float | None]]]
     #: the steps at which some station of the file has a value, per element (lower case); None where the reader was not
-    #: asked to collect them (`collect_steps`)
+    #: asked to collect them (`read(steps_of=...)`)
     given: dict[str, list[str]] | None = None
 
 
 class KMLReader:
     """Read DWD XML Weather Forecast File of Type KML."""
 
-    def __init__(
-        self, station_ids: list[str], settings: Settings, *, keep_parsed: int = 1, collect_steps: bool = False
-    ) -> None:
+    def __init__(self, station_ids: list[str], settings: Settings, *, keep_parsed: int = 1) -> None:
         """Initialize KMLReader.
 
         Args:
@@ -104,15 +102,9 @@ class KMLReader:
                 file parses the other's again at the next station (MOSMIX-S is 36 MB). The one held longest ago is
                 dropped for a new one, so the memory is that of `keep_parsed` files' stations and never grows with
                 the request.
-            collect_steps: Whether to note, per element, the steps at which some station of the file has a value
-                (`given_timesteps`), of every station of the file and not only of the ones asked for. The file writes
-                `-` for a step a product does not give just as for a value that is missing, and a step that no station
-                has a value at is the former. Off by default (`dwd/dmo` shares this class and does not use it): it
-                costs a look at the elements of the stations not asked for, until every step of an element is seen.
 
         """
         self.station_ids = station_ids
-        self._collect_steps = collect_steps
         self.metadata = {}
         self.data = {}
         self.given: dict[str, list[str]] | None = None
@@ -264,8 +256,19 @@ class KMLReader:
         self._zip_refs = (buffer, zfs, handle)
         return handle
 
-    def read(self, url: str) -> None:
-        """Download and read DWD XML Weather Forecast File of Type KML."""
+    def read(self, url: str, steps_of: Iterable[str] | None = None) -> None:
+        """Download and read DWD XML Weather Forecast File of Type KML.
+
+        Args:
+            url: The file.
+            steps_of: The elements (any casing) to note the steps of at which some station of the file has a value
+                (`given_timesteps`), of every station of the file and not only of the ones asked for. The file writes
+                `-` for a step a product does not give just as for a value that is missing, and a step that no station
+                has a value at is the former. None, which `dwd/dmo` shares this class with, notes none. Only these
+                elements are looked at for a station not asked for, and not at all once every step of every one of
+                them has been seen (an element the file does not have is never complete).
+
+        """
         # Skip if this URL's forecasts are already parsed: made the current ones again, and the newest of those held
         run = self._parsed.get(url)
         if run is not None:
@@ -315,7 +318,7 @@ class KMLReader:
         self.nsmap = nsmap
         # release the head subtree before iterating placemarks
         prod_definition.clear()
-        self._store_station_forecasts()
+        self._store_station_forecasts(None if steps_of is None else frozenset(e.lower() for e in steps_of))
         self._parsed[url] = _ParsedRun(self.metadata, self.timesteps, self.data, self.given)
         while len(self._parsed) > self._keep_parsed:
             self._parsed.popitem(last=False)
@@ -339,7 +342,7 @@ class KMLReader:
         """Get metadata as DataFrame."""
         return pl.DataFrame([self.metadata], orient="row")
 
-    def _store_station_forecasts(self) -> None:
+    def _store_station_forecasts(self, steps_of: frozenset[str] | None = None) -> None:
         """Store station forecasts in self.data.
 
         For mosmix we want the reader to only go once through the file and store
@@ -356,22 +359,22 @@ class KMLReader:
         nsmap = self.nsmap
         if nsmap is None:
             return
-        # per element, the steps no station has had a value at so far: an element given at every step is done at the
-        # first station that has it, and one given at some steps only (MOSMIX-L's `TX`, MOSMIX-SNOW's `SnCv`) has its
-        # stations' strings split until the file ends
-        unseen: dict[str, set[int]] | None = {} if self._collect_steps else None
+        # per element asked for, the steps no station has had a value at so far: an element given at every step is done
+        # at the first station that has it, and one given at some steps only (MOSMIX-L's `TX`, MOSMIX-SNOW's `SnCv`)
+        # has its stations' strings split until the file ends
+        unseen = None if steps_of is None else {element: set(range(len(self.timesteps))) for element in steps_of}
         for station_forecast in self.iter_items():
             station_id = station_forecast.find("kml:name", nsmap)
             if station_id is None:
                 continue
             station_id = station_id.text
             requested = station_id in self.station_ids
-            if not requested and unseen is None:
+            if not requested and not (unseen and any(unseen.values())):
                 continue
             if requested:
                 self.data[station_id] = {}
             for element, measurement_string in self._elements_of(station_forecast, nsmap):
-                tokens = self._note_steps(unseen, element, measurement_string) if unseen is not None else None
+                tokens = self._note_steps(unseen, element, measurement_string) if unseen else None
                 if requested:
                     # str.split() already collapses the whitespace-separated value list
                     tokens = tokens if tokens is not None else measurement_string.split()
@@ -388,7 +391,7 @@ class KMLReader:
 
         Gives the split values where they were read, None where every step of the element was seen already.
         """
-        pending = unseen.setdefault(element, set(range(len(self.timesteps))))
+        pending = unseen.get(element)
         if not pending:
             return None
         tokens = measurement_string.split()

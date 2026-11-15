@@ -337,12 +337,42 @@ def test_actual_percentage_measures_a_parameter_at_the_steps_the_provider_names(
 def test_actual_percentage_without_a_window_measures_the_steps_within_the_stations_span(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Test that the steps a provider names are cut to the span of the station's series where no window was asked."""
-    df = _hourly_long([dt.datetime(2026, 1, 1, hour, tzinfo=ZoneInfo("UTC")) for hour in (3, 4)])
+    """Test that the steps a provider names are cut to the span of the station's series where no window was asked.
+
+    The station has the hours 3 and 5, a span of three slots of the grid (two thirds); the source gives the parameter
+    at 3 and 5 and, outside the span, at 0 and 20, which are no step of the station's series.
+    """
+    df = _hourly_long([dt.datetime(2026, 1, 1, hour, tzinfo=ZoneInfo("UTC")) for hour in (3, 5)])
     values = _hourly_values(None, None)  # ty: ignore[invalid-argument-type]
-    monkeypatch.setattr(values, "_given_timestamps", lambda _parameter: _hours(0, 3, 4, 20))
+    assert _percentage(values, df) == pytest.approx(2 / 3)
+    monkeypatch.setattr(values, "_given_timestamps", lambda _parameter: _hours(0, 3, 5, 20))
 
     assert _percentage(values, df) == 1.0
+    # the span is the series' own, and a step of the source in it that the station lacks counts against it
+    monkeypatch.setattr(values, "_given_timestamps", lambda _parameter: _hours(0, 3, 4, 5, 20))
+    assert _percentage(values, df) == pytest.approx(2 / 3)
+
+
+@pytest.mark.parametrize("criteria", ["min", "mean", "max"])
+def test_actual_percentage_leaves_out_a_parameter_given_at_no_step_of_the_window(
+    monkeypatch: pytest.MonkeyPatch, criteria: str
+) -> None:
+    """Test that a parameter given at steps, none in the window, is not measured, whichever `skip_criteria` (GH-4093).
+
+    A source that gives an element at 05 and 18 UTC has no say about a window of 00 to 03: the share is undefined, and a
+    station whose every parameter is undefined is not skipped for it (1.0). The mosmix tests have it beside a parameter
+    that is measured, which then alone decides.
+    """
+    start_date = dt.datetime(2026, 1, 1, 0, tzinfo=ZoneInfo("UTC"))
+    end_date = dt.datetime(2026, 1, 1, 3, tzinfo=ZoneInfo("UTC"))
+    df = _hourly_long([dt.datetime(2026, 1, 1, hour, tzinfo=ZoneInfo("UTC")) for hour in (0, 1)])
+    values = _hourly_values(start_date, end_date)
+    monkeypatch.setattr(values, "_given_timestamps", lambda _parameter: _hours(5, 18))
+
+    assert _percentage(values, df, criteria) == 1.0
+    # an element given at no step at all is a station without it
+    monkeypatch.setattr(values, "_given_timestamps", lambda _parameter: pl.Series([], dtype=pl.Datetime("us", "UTC")))
+    assert _percentage(values, df, criteria) == 0.0
 
 
 def test_given_timestamps_names_nothing_unless_a_provider_implements_it() -> None:
