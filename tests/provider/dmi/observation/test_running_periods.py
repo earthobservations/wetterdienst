@@ -265,29 +265,129 @@ def test_a_copy_of_the_answer_made_before_the_period_ended_is_not_final(monkeypa
 # --- the other resolutions and the other tokens -----------------------------------------------------------------------
 
 
-@pytest.mark.parametrize("resolution", ["daily", "hourly"])
-def test_a_daily_and_an_hourly_value_are_not_judged(monkeypatch: pytest.MonkeyPatch, resolution: str) -> None:
-    """The day of the request has a `to` after now, and is read as it was: no token, no warning."""
+YESTERDAY, TODAY = dt.date(2026, 11, 14), dt.date(2026, 11, 15)
+DAYS = [_day(YESTERDAY, CLOSED), _day(TODAY, RUNNING)]
+
+
+def _read_days(monkeypatch: pytest.MonkeyPatch, records: list[dict[str, object]] = DAYS, **kwargs: object) -> dict:
+    return _read(
+        monkeypatch,
+        "daily",
+        records,
+        start=dt.datetime(2026, 11, 13, tzinfo=UTC),
+        end=dt.datetime(2026, 11, 16, tzinfo=UTC),
+        **kwargs,
+    )
+
+
+def test_a_day_that_has_not_ended_is_left_out_and_told_and_a_closed_one_is_kept(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """06180 at 15:00 UTC: the day in progress is partial and looks like the day's, so it has no row (GH-3856)."""
     _at(monkeypatch, NOW)
     begin_response()
-    if resolution == "daily":
-        records = [_day(dt.date(2026, 11, 14), CLOSED), _day(dt.date(2026, 11, 15), RUNNING)]
-    else:
-        records = [
-            _record("mean_temp", "2026-11-15T14:00:00+00:00", "2026-11-15T15:00:00+00:00", RUNNING, 6),
-            _record("mean_temp", "2026-11-15T16:00:00+00:00", "2026-11-15T17:00:00+00:00", RUNNING, 6),
-        ]
+
+    found = _read_days(monkeypatch)
+
+    assert found == {YESTERDAY: (CLOSED, "manual,validity:true,n:24")}
+    (warning,) = [w for w in recorded_warnings() if w["code"] == CODE]
+    assert warning["parameter"] == "daily/data/temperature_air_mean_2m"
+    assert warning["stations"] == [DANISH]
+    message = warning["message"]
+    assert f"1 value of daily/data/temperature_air_mean_2m ({DANISH} 1) is left out of the answer" in message
+    # the day of 06180 ends at the local midnight, 23:00 UTC
+    assert "the earliest closes at 2026-11-15 23:00 UTC" in message
+    # the source has the value: no `parameter-without-rows`, no `station-without-rows`
+    assert {w["code"] for w in recorded_warnings()} == {CODE}
+
+
+@pytest.mark.parametrize(
+    ("moment", "left_out"),
+    [
+        # the day of the 15th at 06180 ends at 2026-11-16T00:00:00+01:00, 23:00 UTC
+        pytest.param(dt.datetime(2026, 11, 15, 22, 59, 59, 999999, tzinfo=UTC), True, id="a microsecond before"),
+        pytest.param(dt.datetime(2026, 11, 15, 23, 0, tzinfo=UTC), False, id="at the instant"),
+        pytest.param(dt.datetime(2026, 11, 15, 23, 0, 0, 1, tzinfo=UTC), False, id="a microsecond after"),
+    ],
+)
+def test_a_day_has_ended_at_its_to_and_not_before(
+    monkeypatch: pytest.MonkeyPatch, moment: dt.datetime, *, left_out: bool
+) -> None:
+    """The same boundary as the month: at the instant of `to` the day is closed and kept, unmarked."""
+    _at(monkeypatch, moment)
+    begin_response()
+
+    found = _read_days(monkeypatch)
+
+    assert (TODAY not in found) is left_out
+    if not left_out:
+        assert found[TODAY] == (RUNNING, "manual,validity:true,n:24")
+    assert bool([w for w in recorded_warnings() if w["code"] == CODE]) is left_out
+
+
+def test_a_greenland_day_ends_at_0600_utc(monkeypatch: pytest.MonkeyPatch) -> None:
+    """04220 counts its days from 06:00 UTC: the day of the 15th is still open at 03:00 UTC on the 16th."""
+    day = _record("mean_temp", "2026-11-15T06:00:00+00:00", "2026-11-16T06:00:00+00:00", RUNNING, 24)
+    _at(monkeypatch, dt.datetime(2026, 11, 16, 3, 0, tzinfo=UTC))
+    assert TODAY not in _read_days(monkeypatch, [day], station=GREENLAND)
+
+    _at(monkeypatch, dt.datetime(2026, 11, 16, 6, 0, tzinfo=UTC))
+    assert TODAY in _read_days(monkeypatch, [day], station=GREENLAND)
+
+
+def test_a_copy_of_the_daily_answer_made_before_the_day_ended_is_not_final(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The answer is cached for five minutes: a copy of 22:58 UTC is no final day for the request of 23:01."""
+    _at(monkeypatch, dt.datetime(2026, 11, 15, 23, 1, tzinfo=UTC))
+    request = _request(
+        monkeypatch, "daily", DAYS, dt.datetime(2026, 11, 13, tzinfo=UTC), dt.datetime(2026, 11, 16, tzinfo=UTC)
+    )
+    download = dmi_api.download_file
+
+    def cached(**kwargs: object) -> object:
+        file = download(**kwargs)
+        file.cached_at = dt.datetime(2026, 11, 15, 22, 58, tzinfo=UTC).timestamp()
+        return file
+
+    monkeypatch.setattr(dmi_api, "download_file", cached)
+    result = stations_result(request, "daily", "data", DANISH, country="DNK")
+
+    days = {row.date() for row in result.values().all().df["timestamp"]}
+
+    assert days == {YESTERDAY}
+
+
+def test_a_closed_day_is_still_judged_by_its_count_and_the_open_one_is_gone(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A closed day of 3 readings is `suspect:source`, as before; the open day has no row to judge."""
+    _at(monkeypatch, NOW)
+    records = [
+        _record("mean_temp", "2026-11-14T00:00:00.001000+01:00", "2026-11-15T00:00:00+01:00", CLOSED, 3),
+        _record("mean_temp", "2026-11-15T00:00:00.001000+01:00", "2026-11-16T00:00:00+01:00", RUNNING, 3),
+    ]
+
+    found = _read_days(monkeypatch, records)
+
+    assert found == {YESTERDAY: (CLOSED, "manual,validity:true,n:3,suspect:source")}
+
+
+def test_an_hourly_value_is_not_judged(monkeypatch: pytest.MonkeyPatch) -> None:
+    """DMI publishes an hour when it is over (the latest `to` of 06180 at 16:18 UTC was 16:00): no token, no warning."""
+    _at(monkeypatch, NOW)
+    begin_response()
+    records = [
+        _record("mean_temp", "2026-11-15T13:00:00+00:00", "2026-11-15T14:00:00+00:00", CLOSED, 6),
+        _record("mean_temp", "2026-11-15T14:00:00+00:00", "2026-11-15T15:00:00+00:00", RUNNING, 6),
+    ]
 
     found = _read(
         monkeypatch,
-        resolution,
+        "hourly",
         records,
-        start=dt.datetime(2026, 11, 14, tzinfo=UTC),
+        start=dt.datetime(2026, 11, 15, tzinfo=UTC),
         end=dt.datetime(2026, 11, 16, tzinfo=UTC),
     )
 
-    assert found
-    assert all("completeness" not in (flags or "") for _, flags in found.values())
+    assert [value for value, _ in found.values()] != []
+    assert all(flags == "manual,validity:true,n:6" for _, flags in found.values())
     assert [w for w in recorded_warnings() if w["code"] == CODE] == []
 
 
@@ -370,7 +470,8 @@ def test_a_running_period_stays_in_the_hard_mode(monkeypatch: pytest.MonkeyPatch
 
 
 @pytest.mark.parametrize(
-    ("resolution", "records", "running"), [("monthly", MONTHS, NOVEMBER), ("annual", YEARS, Y2026)]
+    ("resolution", "records", "running"),
+    [("daily", DAYS, TODAY), ("monthly", MONTHS, NOVEMBER), ("annual", YEARS, Y2026)],
 )
 def test_an_estimate_leaves_the_running_value_out_and_tells_it(
     monkeypatch: pytest.MonkeyPatch, resolution: str, records: list[dict[str, object]], running: dt.date
@@ -395,7 +496,9 @@ def test_an_estimate_leaves_the_running_value_out_and_tells_it(
     (warning,) = recorded_warnings()
     assert warning["code"] == "source-data-left-out"
     assert "was of a window that had not closed yet" in warning["message"]
-    assert "for this month" in warning["message"] if resolution == "monthly" else "for this year" in warning["message"]
+    assert {"daily": "for today", "monthly": "for this month", "annual": "for this year"}[resolution] in warning[
+        "message"
+    ]
 
 
 def _summarize(monkeypatch: pytest.MonkeyPatch, resolution: str, records: list[dict[str, object]]) -> pl.DataFrame:
@@ -431,7 +534,8 @@ def _summarize(monkeypatch: pytest.MonkeyPatch, resolution: str, records: list[d
 
 
 @pytest.mark.parametrize(
-    ("resolution", "records", "running"), [("monthly", MONTHS, NOVEMBER), ("annual", YEARS, Y2026)]
+    ("resolution", "records", "running"),
+    [("daily", DAYS, TODAY), ("monthly", MONTHS, NOVEMBER), ("annual", YEARS, Y2026)],
 )
 def test_summarize_takes_the_closed_value_and_none_of_the_running_one(
     monkeypatch: pytest.MonkeyPatch, resolution: str, records: list[dict[str, object]], running: dt.date

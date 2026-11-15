@@ -2,13 +2,13 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """What `metno/frost` and `dmi/observation` share about a value whose period has not ended (GH-3856, GH-3883, GH-4087).
 
-Both sources serve the monthly and annual value of the month or year still running and mark nothing. `values` returns
-such a value marked `completeness:Incomplete` in `quality_flags` (`incomplete_flag`), with a `window-not-closed`
-warning (`tell_open_window`); an estimate (`interpolate`, `summarize`) cannot carry the mark, so the provider leaves it
-out of the walk (the provider asks `TimeseriesValues._left_out_of_estimate`) and tells it with the same call, with
+Both sources serve the daily, monthly and annual value of the day, month or year still running and mark nothing. A
+daily one is left out of `values` and told (`leaves_open_out`). A monthly or annual one is returned marked
+`completeness:Incomplete` in `quality_flags` (`incomplete_flag`), with a `window-not-closed` warning
+(`tell_open_window`). An estimate (`interpolate`, `summarize`) cannot carry the mark, so the provider leaves such a
+value out of the walk (it asks `TimeseriesValues._left_out_of_estimate`) and tells it with the same call, with
 ``returned`` false, as a cause of `source-data-left-out`. What differs between the providers is when a window closes
-(Frost: the `timeOffset` of the series; DMI: the `to` of the record) and the daily value, which Frost leaves out in
-`values` too.
+(Frost: the `timeOffset` of the series; DMI: the `to` of the record).
 """
 
 from __future__ import annotations
@@ -35,6 +35,16 @@ def incomplete_flag(is_open: pl.Expr) -> pl.Expr:
     either, and a closed period is no claim that it is final.
     """
     return pl.when(is_open).then(pl.lit(INCOMPLETE))
+
+
+def leaves_open_out(*, daily: bool, estimate: bool) -> bool:
+    """Give whether a value of a window that had not closed is left out of the answer, and not returned marked.
+
+    A daily one always is: it looks like the day's (GH-3856, GH-4087). A monthly or annual one is returned marked
+    `completeness:Incomplete`, which an estimate cannot carry, so it is left out of an estimate (``estimate``) and told
+    as such (GH-3883); `values` still returns it.
+    """
+    return daily or estimate
 
 
 def served_at(file: File, asked_at: datetime) -> datetime:

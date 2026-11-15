@@ -18,7 +18,7 @@ from aiohttp import encode_basic_auth
 from wetterdienst.exceptions import CredentialMissingError, DownloadError, InvalidTimeIntervalError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DATASET_NAME_DEFAULT, LicenseModel, ParameterModel, build_metadata_model
-from wetterdienst.model.open_window import incomplete_flag, no_open_window, served_at, tell_open_window
+from wetterdienst.model.open_window import incomplete_flag, leaves_open_out, no_open_window, served_at, tell_open_window
 from wetterdienst.model.quality_flags import (
     SPEED_BESIDE,
     Sentinel,
@@ -1001,9 +1001,9 @@ def _leaves_open_out(resolution: str, *, estimate: bool) -> bool:
 
     A daily one always is: it looks like the day's (GH-3856). A monthly or annual one is returned marked
     `completeness:Incomplete` in `quality_flags`, which an estimate drops, so it is left out of an estimate and told as
-    such (GH-3883); `values` still returns it.
+    such (GH-3883); `values` still returns it (`leaves_open_out`).
     """
-    return resolution == _DAILY or (estimate and resolution in _PERIODS)
+    return resolution in _PERIODS and leaves_open_out(daily=resolution == _DAILY, estimate=estimate)
 
 
 def _tell_not_returned(

@@ -397,10 +397,11 @@ what the answer is missing:
 
   `window-not-closed` says that the source served values of a window that had not closed when the request was served,
   and does not mark them: `metno/frost` serves the day's maximum, minimum, sum or mean before the day (or its 06 UTC and
-  18 UTC offset) has ended, and the month so far. `dmi/observation` serves the month and the year so far. A daily value is left out of the answer, a monthly or annual one is
-  returned with `completeness:Incomplete` as a token of its `quality_flags` (an estimate leaves all of them out and tells them
-  as a cause of `source-data-left-out`, above); the message says which, how many values at which
-  stations (the first ten) and when the earliest window closes (UTC). It carries `parameter`
+  18 UTC offset) has ended, and the month so far. `dmi/observation` serves the day, the month and the year so far. A
+  daily value is left out of the answer, a monthly or annual one is returned with `completeness:Incomplete` as a token
+  of its `quality_flags` (an estimate leaves all of them out and tells them as a cause of `source-data-left-out`,
+  above); the message says which, how many values at which stations (the first ten) and when the earliest window
+  closes (UTC). It carries `parameter`
   (`resolution/dataset/parameter`) and `stations`. The values are not missing at the source: ask again after the
   window has closed, which is no failure and no `parameter-without-rows`. One for each parameter and request.
 

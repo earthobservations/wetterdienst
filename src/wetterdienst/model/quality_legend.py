@@ -194,9 +194,10 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "Incomplete",
             "The monthly or annual value of a period that had not ended when the request was served (the current "
             "month or year, which DMI serves from the readings so far, `validity:true` and not yet controlled): it is "
-            "partial and may still change. DMI marks no such value, so this library does, by the "
-            "`to` of the record against the time of the request. A value of a ended period has no token, which is no "
-            "claim that it is final. A daily or hourly value is not judged.",
+            "partial and may still change. DMI marks no such value, so this library does, by the `to` of the record "
+            "against the time of the request. A value of a period that has ended has no token, which is no claim that "
+            "it is final. A daily value of a day that had not ended is not returned at all (`window-not-closed`), and "
+            "an hourly one is not judged: DMI publishes an hour when it is over.",
             codes=_codes(Incomplete="Based on a period that had not ended"),
         ),
         SUSPECT,

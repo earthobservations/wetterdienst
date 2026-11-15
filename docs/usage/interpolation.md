@@ -187,9 +187,9 @@ enough. A station can lose something on the way: the provider lets a file go (a 
 withdrawn since the listing, a maintenance page, a file that would not parse, a directory found empty), so its values
 may be missing; the provider leaves out the dates of another series of the source (`metno/frost` keeps two series of a
 precipitation sum or a temperature extreme, and a date only the other one has would be a value of another window under
-the parameter's name); the values of a day, month or year that has not closed yet are left out (`metno/frost` serves
-them unmarked, and `dmi/observation` the month and the year still running, and an estimate cannot carry the `completeness:Incomplete` mark that `values` puts on a partial month or
-year); or a hard [plausibility check](../data/plausibility.md) rejects a value, which the estimate then
+the parameter's name); the values of a day, month or year that has not closed yet are left out (`metno/frost` and
+`dmi/observation` serve them unmarked, and an estimate cannot carry the `completeness:Incomplete` mark that `values`
+puts on a partial month or year); or a hard [plausibility check](../data/plausibility.md) rejects a value, which the estimate then
 does not use (a value a soft check flags is left out in every mode and is not told). None is a station without a
 reading, and the estimate is made from the other stations and the other values all the same. The answer says so once,
 with a `source-data-left-out` warning: how many of the stations read were affected, by which cause, and the first ten

@@ -20,7 +20,7 @@ from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
-from wetterdienst.model.open_window import incomplete_flag, served_at, tell_open_window
+from wetterdienst.model.open_window import incomplete_flag, leaves_open_out, served_at, tell_open_window
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -51,15 +51,17 @@ _WINDOW_SPAN: dict[Resolution, dt.timedelta] = {
     Resolution.DAILY: dt.timedelta(days=3650),
 }
 _DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
-# DMI serves the aggregate of a month or a year that is still running as the value of the month or year, from the
-# readings it has so far (read 2026-11-15: 2026's annual mean of 06180 from 319 days, the month of November from 15,
-# both `validity: true`, `qcStatus` `none` where the closed months before them are `manual`, which says the value is
-# not controlled yet and not that the period is running, GH-4087). Its
-# `to` is the instant the period ends, with the offset of the place (`2026-12-01T00:00:00+01:00` at the Danish
-# station 06180, `2026-12-01T06:00:00+00:00` at the Greenland one 04220), so a period has closed when its `to` is not
-# after the time the request was served. A daily or hourly value is the aggregate of a period that is over when it is
-# first published and is not judged
-_PERIODS = (Resolution.MONTHLY, Resolution.ANNUAL)
+# DMI serves the aggregate of a day, a month or a year that is still running as the value of that day, month or year,
+# from the readings it has so far, and marks nothing (read 2026-11-15: 06180's daily record of the day in progress from
+# 16 readings at 15:17 UTC, 2026's annual mean from 319 days and the month of November from 15, all `validity: true`
+# with `qcStatus` `none` where the closed periods before them are `manual`, which says the value is not controlled yet
+# and not that the period is running, GH-4087). The `to` of a record is the instant its period ends, with the offset of
+# the place (`2026-12-01T00:00:00+01:00` at the Danish station 06180, `2026-12-01T06:00:00+00:00` at the Greenland one
+# 04220), so a period has closed when its `to` is not after the time the request was served. A daily value of a day
+# that has not ended is left out of `values` and told, as `metno/frost` does (GH-3856), and a monthly or annual one is
+# returned marked `completeness:Incomplete` (GH-3883). An hourly value is not judged: DMI publishes an hour when it is
+# over (read 2026-11-15 at 16:18 UTC: the latest `to` of 72 hourly records of 06180 was 16:00)
+_PERIODS = (Resolution.DAILY, Resolution.MONTHLY, Resolution.ANNUAL)
 _TO_FORMAT = "%Y-%m-%dT%H:%M:%S%.f%z"
 # the columns of a record that carry the instant its period ends and whether that was after the request was served
 _CLOSES = "__closes"
@@ -461,15 +463,18 @@ class DmiObservationValues(TimeseriesValues):
         start: dt.datetime,
         end: dt.datetime,
     ) -> pl.DataFrame:
-        """Add the column `_OPEN`: whether the period of a monthly or annual record had not ended when it was served.
+        """Add the column `_OPEN`: whether the period of a daily, monthly or annual record had not ended when served.
 
         ``df`` holds the records of the station (`from`, `to`, `parameterId`, ...). The period ends at the record's
         `to` (`_PERIODS`) and has not ended while that is after ``served`` (UTC): at the instant itself it has. A
-        running record is kept and marked `completeness:Incomplete` (GH-4087), as `metno/frost` marks it
-        (`model/open_window.py`); an estimate (`interpolate`, `summarize`) cannot carry the mark, so it is left out of
-        the frame there. Either way the walk says so for the parameters asked for (`window-not-closed`).
+        running monthly or annual record is kept and marked `completeness:Incomplete` (GH-4087), as `metno/frost`
+        marks it (`model/open_window.py`). A running daily record looks like the day's and is left out of the frame
+        (`leaves_open_out`), and so is any running record for an estimate (`interpolate`, `summarize`), which cannot
+        carry the mark. Either way the walk says so for the parameters asked for (`window-not-closed`).
         """
-        estimate = self._left_out_of_estimate is not None
+        leaves_out = leaves_open_out(
+            daily=resolution == Resolution.DAILY, estimate=self._left_out_of_estimate is not None
+        )
         closes = pl.col("to").str.to_datetime(_TO_FORMAT, time_unit="us").dt.convert_time_zone("UTC")
         df = df.with_columns(closes.alias(_CLOSES)).with_columns(
             (pl.col(_CLOSES) > served).fill_null(value=False).alias(_OPEN)
@@ -487,8 +492,8 @@ class DmiObservationValues(TimeseriesValues):
                 self._date_expression(resolution).alias("timestamp"),
                 pl.col(_CLOSES).alias("closes"),
             )
-            tell_open_window(open_window, names, start, end, returned=not estimate)
-        if estimate:
+            tell_open_window(open_window, names, start, end, returned=not leaves_out)
+        if leaves_out:
             df = df.filter(~pl.col(_OPEN))
         return df.drop(_CLOSES)
 
