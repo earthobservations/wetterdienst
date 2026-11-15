@@ -38,6 +38,10 @@ Types of changes:
   of the run in the Bavarian Alps (`Z901` to `Z946`, which `stations` lists). DWD publishes it
   from November to April only: where no run is listed a request for values is a 404, the new
   `ProductOutOfSeasonError` (an `IssueNotFoundError`), whose message says why (GH-4091)
+- `issues` for `dwd/mosmix` takes `dataset` (`--dataset`, `dataset=`): `small` and `snow` list the
+  runs of MOSMIX-S and MOSMIX-SNOW (one all-stations file per run, so any station id lists them),
+  `large` those of MOSMIX-L, the default, so a call without it answers as before. `dataset=icon`
+  is still refused for MOSMIX, a MOSMIX product for DMO and SWSMOS (GH-4093)
 
 ### Changed
 
@@ -55,6 +59,9 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/mosmix`: a request for several datasets (`small` and `large`, `snow`) parses each run file
+  once, where it parsed the other dataset's file again at every station (36 MB for MOSMIX-S); the
+  reader keeps one parsed file per dataset of the request (GH-4093)
 - **Breaking**: `dmi/observation` serves the day, month and year still running unmarked (2026's
   annual mean from 319 days). A daily value of a day that has not ended is now left out, with a
   `window-not-closed` warning; a monthly or annual one is returned with

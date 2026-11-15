@@ -419,24 +419,28 @@ Usage: wetterdienst issues [OPTIONS]
 
   Currently supported: --provider dwd --network mosmix|dmo|swsmos
 
-  A DMO run exists for a product, so --dataset and --lead-time decide which runs are listed. They
-  default to what a `values` request defaults to, which is what makes the answer one that request
-  accepts.
+  A run exists for a product, so --dataset (and for DMO --lead-time) decide which runs are listed.
+  They default to what a `values` request defaults to, which is what makes the answer one that
+  request accepts. For MOSMIX-S and MOSMIX-SNOW one run is every station's, so the station only has
+  to be an id; MOSMIX-L has a directory per station.
 
 Options:
-  --provider TEXT           Data provider/organisation. List the provider/network combinations with:
-                            wetterdienst providers. Examples: dwd, eccc, noaa, wsv, ea, eaufrance,
-                            nws, geosphere  [required]
-  --network TEXT            Data network of the provider. Examples: observation, mosmix, radar,
-                            ghcn, pegel, hydrology  [required]
-  --station TEXT            Station id to list the model runs of.  [required]
-  --dataset [icon|icon_eu]  DWD DMO product; DMO only, refused for MOSMIX and SWSMOS. Default: icon
-  --lead-time [short|long]  DWD DMO forecast lead time; DMO only, refused for MOSMIX and SWSMOS.
-                            Default: short
-  --debug BOOLEAN           Log at debug level. Default: false
-  --quiet BOOLEAN           Log errors and warnings about the answer only: no progress. Not with
-                            --debug. Default: false
-  --help                    Show this message and exit.
+  --provider TEXT                 Data provider/organisation. List the provider/network combinations
+                                  with: wetterdienst providers. Examples: dwd, eccc, noaa, wsv, ea,
+                                  eaufrance, nws, geosphere  [required]
+  --network TEXT                  Data network of the provider. Examples: observation, mosmix,
+                                  radar, ghcn, pegel, hydrology  [required]
+  --station TEXT                  Station id to list the model runs of.  [required]
+  --dataset [icon|icon_eu|large|small|snow]
+                                  DWD product: DMO icon or icon_eu (default icon), MOSMIX large,
+                                  small or snow (default large); refused for SWSMOS and for the
+                                  other network's product.
+  --lead-time [short|long]        DWD DMO forecast lead time; DMO only, refused for MOSMIX and
+                                  SWSMOS. Default: short
+  --debug BOOLEAN                 Log at debug level. Default: false
+  --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
+                                  with --debug. Default: false
+  --help                          Show this message and exit.
 
 
 $ wetterdienst providers --help

@@ -2531,6 +2531,32 @@ def test_issues_takes_the_ids_of_the_stations(
     assert asked == [station]
 
 
+@pytest.mark.parametrize("dataset", ["large", "small", "snow"])
+def test_issues_of_mosmix_takes_the_product(client: TestClient, monkeypatch: pytest.MonkeyPatch, dataset: str) -> None:
+    """`dataset` names the MOSMIX product whose runs are listed, and a DMO product is a 400 (GH-4093)."""
+    asked: list[str] = []
+
+    def available_issues(_cls: type, _station_id: str, _settings: object, dataset: str) -> list[dt.datetime]:
+        asked.append(dataset)
+        return [dt.datetime(2026, 11, 14, 19, tzinfo=dt.UTC)]
+
+    monkeypatch.setattr(DwdMosmixRequest, "available_issues", classmethod(available_issues))
+
+    response = client.get(
+        "/api/issues", params={"provider": "dwd", "network": "mosmix", "station": "Z914", "dataset": dataset}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["issues"] == ["2026-11-14T19:00:00.000000+00:00"]
+    assert asked == [dataset]
+
+    refused = client.get(
+        "/api/issues", params={"provider": "dwd", "network": "mosmix", "station": "Z914", "dataset": "icon"}
+    )
+    assert refused.status_code == 400
+    assert asked == [dataset]
+
+
 @pytest.mark.parametrize(
     ("path", "params"),
     [
@@ -6310,18 +6336,26 @@ def test_reported_choices_are_the_settings_choices(field: str, option: str) -> N
     assert reported == set(get_args(Options.model_fields[option].annotation))
 
 
-@pytest.mark.parametrize(("network", "station"), [("mosmix", "10147"), ("swsmos", "A006")])
-@pytest.mark.parametrize(("option", "value"), [("dataset", "icon"), ("lead_time", "long")])
-def test_issues_refuses_the_dmo_options_for_mosmix_and_swsmos(
-    client: TestClient, network: str, station: str, option: str, value: str
+@pytest.mark.parametrize(
+    ("network", "station", "option", "value", "message"),
+    [
+        ("mosmix", "10147", "lead_time", "long", "lead_time applies to DWD DMO only"),
+        ("swsmos", "A006", "lead_time", "long", "lead_time applies to DWD DMO only"),
+        ("mosmix", "10147", "dataset", "icon", "dataset 'icon' is a DWD DMO product; DWD MOSMIX lists"),
+        ("dmo", "10147", "dataset", "snow", "dataset 'snow' is a DWD MOSMIX product; DWD DMO lists"),
+        ("swsmos", "A006", "dataset", "small", "dataset does not apply to DWD SWSMOS"),
+    ],
+)
+def test_issues_refuses_the_options_the_network_does_not_list(
+    client: TestClient, network: str, station: str, option: str, value: str, message: str
 ) -> None:
-    """/api/issues refuses a DMO-only option for MOSMIX and SWSMOS, as its description says (GH-2347)."""
+    """/api/issues refuses a lead time for MOSMIX and SWSMOS and a product of the other network (GH-2347, GH-4093)."""
     response = client.get(
         "/api/issues",
         params={"provider": "dwd", "network": network, "station": station, option: value},
     )
     assert response.status_code == 400
-    assert response.json()["detail"].startswith(f"{option} applies to DWD DMO only")
+    assert response.json()["detail"].startswith(message)
 
 
 def test_mcp_issues_tool_describes_the_dmo_options_as_refused() -> None:
@@ -6337,6 +6371,7 @@ def test_mcp_issues_tool_describes_the_dmo_options_as_refused() -> None:
     from fastmcp import Client  # noqa: PLC0415
 
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
     from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
     async def _schemas() -> dict[str, dict]:
@@ -6345,11 +6380,17 @@ def test_mcp_issues_tool_describes_the_dmo_options_as_refused() -> None:
 
     schemas = asyncio.run(_schemas())
     defaults = inspect.signature(DwdDmoRequest.available_issues).parameters
-    for name in ("dataset", "lead_time"):
-        description = schemas["issues"][name]["description"]
-        assert description.endswith("; DMO only, refused for MOSMIX and SWSMOS."), name
-        # an enum member for lead_time (SHORT = 78), named in a request by its lowercased name
-        assert f", default '{getattr(defaults[name].default, 'name', defaults[name].default).lower()}';" in description
+    lead_time = schemas["issues"]["lead_time"]["description"]
+    assert lead_time.endswith("; DMO only, refused for MOSMIX and SWSMOS.")
+    # an enum member for lead_time (SHORT = 78), named in a request by its lowercased name
+    assert f", default '{getattr(defaults['lead_time'].default, 'name', defaults['lead_time'].default).lower()}';" in (
+        lead_time
+    )
+    # the dataset is the product of DMO (icon, icon_eu) and of MOSMIX (large, small, snow), each with its default
+    dataset = schemas["issues"]["dataset"]["description"]
+    assert f"'icon' or 'icon_eu' (default '{defaults['dataset'].default}')" in dataset
+    mosmix_default = inspect.signature(DwdMosmixRequest.available_issues).parameters["dataset"].default
+    assert f"'snow' (MOSMIX-SNOW), default '{mosmix_default}'" in dataset
     # the data endpoints keep the shared description: there a lead time outside DMO is ignored
     assert schemas["values"]["lead_time"]["description"].endswith("; ignored for other networks.")
 

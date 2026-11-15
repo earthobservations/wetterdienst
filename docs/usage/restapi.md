@@ -908,6 +908,10 @@ http localhost:7890/api/stations provider==dwd network==dmo parameters==hourly/i
 # List available MOSMIX-L run datetimes for a station.
 http localhost:7890/api/issues provider==dwd network==mosmix station==10147
 
+# List available MOSMIX-S or MOSMIX-SNOW run datetimes; one run holds every station, so any station lists them.
+http localhost:7890/api/issues provider==dwd network==mosmix station==10147 dataset==small
+http localhost:7890/api/issues provider==dwd network==mosmix station==Z914 dataset==snow
+
 # List available DMO ICON run datetimes for a station.
 http localhost:7890/api/issues provider==dwd network==dmo station==10147
 
