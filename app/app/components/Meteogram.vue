@@ -175,9 +175,12 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
 
     <div v-if="values && values.length > 0" class="space-y-5">
       <!-- Premium Overhauled Filter / Controls Toolbar -->
-      <div v-if="!widget" class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50/70 dark:bg-gray-800/40 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
+      <!-- A grid, so that the view switcher keeps its place in every view (GH-4124): the first row's right corner, whatever else
+           is shown. The left group takes the left of both rows, the pan/zoom buttons (chart view only) the second row's right,
+           under the switcher, so they never push it. Stacked on a narrow screen: the switcher, the zoom buttons, the rest. -->
+      <div v-if="!widget" class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-3 md:gap-y-2 bg-gray-50/70 dark:bg-gray-800/40 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
         <!-- Left group: panel toggles + horizon selector (wraps as a unit on narrow viewports) -->
-        <div v-if="!compact" class="flex flex-wrap items-center gap-2 min-w-0">
+        <div v-if="!compact" class="order-3 md:order-none md:col-start-1 md:row-start-1 md:row-span-2 md:self-center flex flex-wrap items-center gap-2 min-w-0">
           <!-- Interactive Panel Selectors -->
           <div class="flex items-center gap-1">
             <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mr-1 select-none">{{ t('meteogram.chart.panels') }}</span>
@@ -220,65 +223,64 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
           </div>
         </div>
 
-        <!-- View Controls & Zoom Reset: the view first on a narrow screen, where the toolbar stacks -->
-        <div class="flex flex-wrap items-center gap-2 md:ml-auto min-w-0 max-w-full order-first md:order-last">
-          <!-- the single-pointer ways to what a drag, a pinch and the scroll bar do (WCAG 2.5.7), named by what they do -->
-          <div v-if="view === 'chart'" class="flex items-center gap-1" role="group" :aria-label="t('meteogram.chart.zoomGroup')">
-            <UButton
-              icon="i-ph-caret-left"
-              size="sm"
-              variant="outline"
-              color="neutral"
-              :title="t('meteogram.chart.earlier')"
-              :aria-label="t('meteogram.chart.earlier')"
-              :disabled="chart?.atStart"
-              class="shrink-0"
-              @click="chart?.shift(-0.5)"
-            />
-            <UButton
-              icon="i-ph-caret-right"
-              size="sm"
-              variant="outline"
-              color="neutral"
-              :title="t('meteogram.chart.later')"
-              :aria-label="t('meteogram.chart.later')"
-              :disabled="chart?.atEnd"
-              class="shrink-0"
-              @click="chart?.shift(0.5)"
-            />
-            <UButton
-              icon="i-ph-magnifying-glass-minus"
-              size="sm"
-              variant="outline"
-              color="neutral"
-              :title="t('meteogram.chart.zoomOut')"
-              :aria-label="t('meteogram.chart.zoomOut')"
-              :disabled="chart?.atMinZoom"
-              class="shrink-0"
-              @click="chart?.zoomOut()"
-            />
-            <UButton
-              icon="i-ph-magnifying-glass-plus"
-              size="sm"
-              variant="outline"
-              color="neutral"
-              :title="t('meteogram.chart.zoomIn')"
-              :aria-label="t('meteogram.chart.zoomIn')"
-              :disabled="chart?.atMaxZoom"
-              class="shrink-0"
-              @click="chart?.zoomIn()"
-            />
-            <UButton
-              icon="i-ph-arrow-counter-clockwise"
-              size="sm"
-              variant="outline"
-              color="neutral"
-              :title="t('meteogram.chart.resetZoom')"
-              :aria-label="t('meteogram.chart.resetZoom')"
-              class="shrink-0"
-              @click="resetChart"
-            />
-          </div>
+        <!-- the single-pointer ways to what a drag, a pinch and the scroll bar do (WCAG 2.5.7), named by what they do -->
+        <div v-if="view === 'chart'" class="order-2 md:order-none md:col-start-2 md:row-start-2 md:justify-self-end flex flex-wrap items-center gap-1 min-w-0 max-w-full" role="group" :aria-label="t('meteogram.chart.zoomGroup')">
+          <UButton
+            icon="i-ph-caret-left"
+            size="sm"
+            variant="outline"
+            color="neutral"
+            :title="t('meteogram.chart.earlier')"
+            :aria-label="t('meteogram.chart.earlier')"
+            :disabled="chart?.atStart"
+            class="shrink-0"
+            @click="chart?.shift(-0.5)"
+          />
+          <UButton
+            icon="i-ph-caret-right"
+            size="sm"
+            variant="outline"
+            color="neutral"
+            :title="t('meteogram.chart.later')"
+            :aria-label="t('meteogram.chart.later')"
+            :disabled="chart?.atEnd"
+            class="shrink-0"
+            @click="chart?.shift(0.5)"
+          />
+          <UButton
+            icon="i-ph-magnifying-glass-minus"
+            size="sm"
+            variant="outline"
+            color="neutral"
+            :title="t('meteogram.chart.zoomOut')"
+            :aria-label="t('meteogram.chart.zoomOut')"
+            :disabled="chart?.atMinZoom"
+            class="shrink-0"
+            @click="chart?.zoomOut()"
+          />
+          <UButton
+            icon="i-ph-magnifying-glass-plus"
+            size="sm"
+            variant="outline"
+            color="neutral"
+            :title="t('meteogram.chart.zoomIn')"
+            :aria-label="t('meteogram.chart.zoomIn')"
+            :disabled="chart?.atMaxZoom"
+            class="shrink-0"
+            @click="chart?.zoomIn()"
+          />
+          <UButton
+            icon="i-ph-arrow-counter-clockwise"
+            size="sm"
+            variant="outline"
+            color="neutral"
+            :title="t('meteogram.chart.resetZoom')"
+            :aria-label="t('meteogram.chart.resetZoom')"
+            class="shrink-0"
+            @click="resetChart"
+          />
+        </div>
+        <div class="order-1 md:order-none md:col-start-2 md:row-start-1 self-start justify-self-start md:justify-self-end min-w-0 max-w-full">
           <SegmentedControl
             :model-value="view"
             :options="viewOptions"

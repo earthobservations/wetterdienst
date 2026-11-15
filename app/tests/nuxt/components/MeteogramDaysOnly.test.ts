@@ -160,12 +160,19 @@ describe('the days the rows list', () => {
     expect(whole.find('[data-testid="partial-day"]').exists()).toBe(false)
   })
 
-  it('does not mark a day that is the last one it lists but not the last of the run', async () => {
-    // eight days of hourly values: the rows are cut at seven, and the eighth day, which the run has, is not listed
-    const long = Array.from({ length: 8 * 24 - 5 }, (_, hour) => ({ ...values[0]!, timestamp: new Date(Date.UTC(2026, 9, 1, hour)).toISOString() }))
+  it('lists every day of a long run, with no cap (GH-4127)', async () => {
+    // ten whole days of hourly values, the length of a MOSMIX-L run: ten rows, none partial
+    const long = Array.from({ length: 10 * 24 }, (_, hour) => ({ ...values[0]!, timestamp: new Date(Date.UTC(2026, 9, 1, hour)).toISOString() }))
     const wrapper = await mountRows({ values: long, stationCoords: null })
-    expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(7)
+    expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(10)
     expect(wrapper.findAll('[data-testid="partial-day"]')).toHaveLength(0)
+  })
+
+  it('lists an eleventh day that the run only starts, and marks it as partial', async () => {
+    const long = Array.from({ length: 10 * 24 + 6 }, (_, hour) => ({ ...values[0]!, timestamp: new Date(Date.UTC(2026, 9, 1, hour)).toISOString() }))
+    const wrapper = await mountRows({ values: long, stationCoords: null })
+    expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(11)
+    expect(wrapper.findAll('[data-testid="partial-day"]')).toHaveLength(1)
   })
 
   // hourly values from the 1st of October 00:00 UTC for `hours` hours, then 3-hourly ones for `coarse` more

@@ -49,6 +49,14 @@ Types of changes:
   kept. Saved images keep their size and names; on the light page green, amber, cyan, lime and
   orange are a step darker, so every line reads on white (GH-4096).
 
+### Fixed
+
+- `[Meteogram]` The compact view and the map panel's day list show every day the forecast has (10
+  for MOSMIX-L, 11 rows when the last day is only begun), not the first 7. The cards scroll sideways as before (GH-4127).
+- `[Meteogram]` The view switcher (chart, compact, table) stays in the top right corner of the
+  toolbar in every view and at every width, so it can be clicked again and again without moving the
+  pointer. The chart's pan and zoom buttons moved to a row of their own under it (GH-4124).
+
 ## [0.50.0] - 2026-11-14
 
 ### Changed
