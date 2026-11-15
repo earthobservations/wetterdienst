@@ -37,6 +37,8 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "name": "ST JOHNS COOLIDGE FLD",
                 "region": None,
                 "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             },
             {
                 "resolution": "daily",
@@ -49,6 +51,8 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "name": "ST JOHNS",
                 "region": None,
                 "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             },
             {
                 "resolution": "daily",
@@ -61,6 +65,8 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "name": "SHARJAH INTER. AIRP",
                 "region": None,
                 "wmo_id": "41196",
+                "wigos_id": None,
+                "icao_id": None,
             },
             {
                 "resolution": "daily",
@@ -73,6 +79,8 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "name": "DUBAI INTL",
                 "region": None,
                 "wmo_id": "41194",
+                "wigos_id": None,
+                "icao_id": None,
             },
             {
                 "resolution": "daily",
@@ -85,6 +93,8 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
                 "name": "ABU DHABI INTL",
                 "region": None,
                 "wmo_id": "41217",
+                "wigos_id": None,
+                "icao_id": None,
             },
         ],
         schema={
@@ -98,6 +108,8 @@ def test_noaa_ghcn_stations(default_settings: Settings) -> None:
             "name": pl.String,
             "region": pl.String,
             "wmo_id": pl.String,
+            "wigos_id": pl.String,
+            "icao_id": pl.String,
         },
         orient="row",
     )

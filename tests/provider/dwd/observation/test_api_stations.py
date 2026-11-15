@@ -17,6 +17,9 @@ from wetterdienst.provider.dwd.observation import (
 )
 from wetterdienst.provider.dwd.observation.api import DwdObservationRequest
 
+# the id columns are null for DWD, and a column of nulls only is of no type until it is given one
+STATION_ID_DTYPES = {"wmo_id": pl.String, "wigos_id": pl.String, "icao_id": pl.String}
+
 
 @pytest.fixture
 def expected_df() -> pl.DataFrame:
@@ -34,8 +37,12 @@ def expected_df() -> pl.DataFrame:
                 "elevation": 478.0,
                 "name": "Aach",
                 "region": "Baden-Württemberg",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             },
         ],
+        schema_overrides=STATION_ID_DTYPES,
         orient="row",
     )
 
@@ -56,8 +63,12 @@ def expected_df_name() -> pl.DataFrame:
                 "elevation": 478.0,
                 "name": "Aach",
                 "region": "Baden-Württemberg",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             },
         ],
+        schema_overrides=STATION_ID_DTYPES,
         orient="row",
     )
 
@@ -135,6 +146,9 @@ def test_dwd_observations_stations_geojson(default_settings: Settings) -> None:
         "end_timestamp": "1986-06-30T00:00:00.000000+00:00",
         "name": "Aach",
         "region": "Baden-Württemberg",
+        "wmo_id": None,
+        "wigos_id": None,
+        "icao_id": None,
     }
     assert geometry == {
         "type": "Point",
@@ -165,8 +179,12 @@ def test_dwd_observations_stations_minute_1(default_settings: Settings) -> None:
                 "elevation": 202.0,
                 "name": "Aachen",
                 "region": "Nordrhein-Westfalen",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             },
         ],
+        schema_overrides=STATION_ID_DTYPES,
         orient="row",
     )
     assert_frame_equal(given_df, expected_df)
@@ -194,6 +212,9 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "elevation": 234.0,
                 "name": "Kubschütz, Kr. Bautzen",
                 "region": "Sachsen",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             },
         ),
         IsDict(
@@ -208,6 +229,9 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "elevation": 187.0,
                 "name": "Cölbe, Kr. Marburg-Biedenkopf",
                 "region": "Hessen",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             },
         ),
         IsDict(
@@ -222,6 +246,9 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "elevation": 284.0,
                 "name": "Salzungen, Bad-Gräfen-Nitzendorf",
                 "region": "Thüringen",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
             },
         ),
     ]

@@ -64,6 +64,9 @@ def test_meta_index_1mph_creation(default_settings: Settings) -> None:
             202.00,
             "Aachen",
             "Nordrhein-Westfalen",
+            None,
+            None,
+            None,
         )
     )
 
