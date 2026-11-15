@@ -857,6 +857,20 @@ holds a code the map does not list (a letter the documentation does not word as 
 
 <!-- source:end -->
 
+**The count behind a value (DMI).** A count is no code, so it is not in the table above, but the check reads it in the
+same way: DMI computes the daily, monthly and yearly value of Greenland and the Faroe Islands from however many readings
+exist, even one, and publishes the number as `noValuesInCalculation`, which the library writes as the token `n:<count>`.
+A value computed from **fewer than half the readings its period has at least** is `suspect:source`
+(null with `rejected:source` where you set `source` hard): a daily value from fewer than **4** readings, a monthly
+value from fewer than **14** daily values and a yearly value from fewer than **183**. DMI documents no minimum but
+"at least 12 hourly values" for the daily cloud cover, and the threshold is the library's own: half of the 8
+three-hourly synoptic readings that the days of Greenland before the automation are computed from (modern days have 24
+hourly values, and DMI marks the 8 valid), and half of the shortest month (28 days) and year (365 days), so that no
+month or year with at least half its days is flagged. It covers the averages, extremes and sums of the hourly values of a day and of the daily values of a month
+and a year, and leaves out the parameters whose count is not that number (the daily precipitation, the snow, the
+counts of days, the heating degree days of a day); the hourly values are not judged by it. See
+[DMI](provider/dmi/observation/index.md#the-count-behind-a-value-n).
+
 The tests hold this table to the map of the code (`wetterdienst.model.source_flags.SOURCE_FLAGS`) and to the pages of
 the providers, and a test of each provider's reader pins its codes on a row of the source. What is **not** read, and why:
 

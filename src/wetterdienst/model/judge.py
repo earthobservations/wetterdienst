@@ -62,7 +62,7 @@ from wetterdienst.model.quality_flags import RAW_TOKEN
 from wetterdienst.model.rate_of_change import StepRule
 from wetterdienst.model.rate_of_change import rule_for as step_rule_for
 from wetterdienst.model.relations import DAYLIGHT_MARGIN, Relation, daylight_for, relations_for
-from wetterdienst.model.source_flags import SourceFlags, flags_of
+from wetterdienst.model.source_flags import SourceCount, SourceFlags, flags_of
 from wetterdienst.model.source_flags import hits as source_hits
 from wetterdienst.model.sun import daylight_hours
 from wetterdienst.model.unit import UnitConverter
@@ -250,7 +250,7 @@ class Plan:
     runs: tuple[tuple[str, ...], str | None] = ((), None)
     by_name: dict[str, str] = field(default_factory=dict)
     #: the codes of the source's own quality flag that mark a value as erroneous or doubtful (check ``source``)
-    source: tuple[SourceFlags, ...] = ()
+    source: tuple[SourceFlags | SourceCount, ...] = ()
     #: the quantities of which a run of one value above zero is a sensor that does not work (check ``stuck``)
     runs_from_zero: tuple[str, ...] = ()
     #: the parameters (as the source names them) a jump between consecutive readings is judged for, with their limits

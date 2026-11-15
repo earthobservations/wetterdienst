@@ -143,6 +143,9 @@ export const SERIES_LABEL = {
   red: { light: '#dc2626', dark: '#f25b5b' },
   gold: { light: '#b45309', dark: '#daa520' },
   slate: { light: '#475569', dark: '#94a3b8' },
+  // the snow panel's (GH-4091): the new snow's bars, which are also this colour (3:1 on the paper: 1.4.11), the snow depth's line and the chance's line
+  indigo: { light: '#4f46e5', dark: '#818cf8' },
+  teal: { light: '#0f766e', dark: '#2dd4bf' },
 } as const
 
 export type SeriesLabel = keyof typeof SERIES_LABEL

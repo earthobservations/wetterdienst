@@ -230,6 +230,44 @@ test.describe('the forecast\'s meteogram has its whole chart on paper (GH-4080)'
   })
 })
 
+// The snow panel (GH-4091) is three plots more in the chart of a station that has a snow forecast, which the sheet scales with the rest
+// of the picture: its text is as large on paper as the chart's, its numbers are in the PDF and its source is printed under it
+test.describe('the forecast\'s snow panel on paper (GH-4091)', () => {
+  const SNOW = { ...FORECAST, path: '/meteogram?station=Z914&view=chart' }
+  test.beforeEach(async ({ context, page, baseURL }) => {
+    await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await mockBackend(page, baseURL!)
+    await page.goto(SNOW.path)
+    await SNOW.reach(page)
+    await expect(page.getByTestId('meteogram-snow-credit')).toBeVisible()
+  })
+
+  test('prints its text at a size that is read on paper, and names its source', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf is Chromium\'s')
+    await expectPrintedAtLeast(page, await forecastTexts(page), SNOW.floor)
+    for (const sheet of SHEETS) {
+      const margin = { top: sheet.margin, right: sheet.margin, bottom: sheet.margin, left: sheet.margin }
+      const runs = pdfTextRuns(await page.pdf({ format: sheet.format, margin }))
+      expect(runs.some(run => run.text.includes('MOSMIX-SNOW')), `${sheet.format} ${sheet.margin}: the source is in the PDF`).toBe(true)
+    }
+  })
+
+  test('prints every number of its axes, those of the snow plots included', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf is Chromium\'s')
+    // the numbers of the three plots: the new snow's 0 and 2, the depth's 0 and 100, the chance's 0 and 50 are among them
+    const numbers = await page.locator('.mg-canvas svg text').evaluateAll(
+      texts => [...new Set(texts.map(text => text.textContent?.trim() ?? '').filter(value => /^-?\d{1,3}(?:,\d{3})*(?:\.\d+)?$/.test(value)))],
+    )
+    expect(numbers.length, 'distinct numbers on the axes').toBeGreaterThan(3)
+    for (const sheet of SHEETS) {
+      const margin = { top: sheet.margin, right: sheet.margin, bottom: sheet.margin, left: sheet.margin }
+      const found = new Set(pdfTextRuns(await page.pdf({ format: sheet.format, margin })).map(run => run.text.trim()))
+      expect(numbers.filter(value => !found.has(value)), `${sheet.format} ${sheet.margin}: axis numbers not in the PDF`).toEqual([])
+    }
+  })
+})
+
 test('the explorer\'s faceted charts are capped as well, and print as large as the single one', async ({ page, baseURL, browserName }) => {
   await page.setViewportSize({ width: 1920, height: 1080 })
   await mockBackend(page, baseURL!)

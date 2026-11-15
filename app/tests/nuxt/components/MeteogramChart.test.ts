@@ -31,7 +31,7 @@ const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
 mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
 
 const t0 = new Date(FORECAST_START).getTime()
-const ALL_PANELS = { temp: true, wind: true, precip: true, cloud: true, pressure: true }
+const ALL_PANELS = { temp: true, wind: true, precip: true, snow: true, cloud: true, pressure: true }
 const units = meteogramUnits(FORECAST_UNITS, (key, named) => key + (named ? JSON.stringify(named) : ''))
 
 type Mounted = Awaited<ReturnType<typeof mountSuspended>>
