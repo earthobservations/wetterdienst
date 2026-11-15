@@ -123,10 +123,13 @@
     "discover": "(resolutions=None, datasets=None)",
     "filter_by_bbox": "(self, left, bottom, right, top)",
     "filter_by_distance": "(self, latlon, distance, unit='km', *, df_all=None)",
+    "filter_by_icao_id": "(self, icao_id)",
     "filter_by_name": "(self, name, rank=1, threshold=0.8, *, df_all=None)",
     "filter_by_rank": "(self, latlon, rank, *, df_all=None)",
     "filter_by_sql": "(self, sql)",
     "filter_by_station_id": "(self, station_id)",
+    "filter_by_wigos_id": "(self, wigos_id)",
+    "filter_by_wmo_id": "(self, wmo_id)",
     "interpolate": "(self, latlon, elevation=None)",
     "interpolate_by_station_id": "(self, station_id, elevation=None)",
     "is_configured": "()",
@@ -142,7 +145,7 @@
     "dwd/alerts": "(granularity=..., language=..., timestamp=None, settings=None, latitude=None, longitude=None, name=None, **kwargs)",
     "dwd/derived": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "dwd/dmo": "(parameters, start=None, end=None, settings=..., periods=None, issue=..., station_group=None, lead_time=None, _coverage_cache=..., _placemark_cache=..., *, options=None, on_unknown='raise', _lead_time_asked=None)",
-    "dwd/mosmix": "(parameters, start=None, end=None, settings=..., periods=None, issue=..., station_group=..., *, options=None, on_unknown='raise')",
+    "dwd/mosmix": "(parameters, start=None, end=None, settings=..., periods=None, issue=..., station_group=..., _snow_stations=None, *, options=None, on_unknown='raise')",
     "dwd/observation": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "dwd/phenology": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "dwd/poi": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
@@ -205,5 +208,5 @@
     "smhi/observation": "wetterdienst.provider.smhi.observation.SmhiObservationRequest",
     "wsv/pegel": "wetterdienst.provider.wsv.pegel.WsvPegelRequest"
   },
-  "x-release": "0.188.0"
+  "x-release": "0.189.0"
 }

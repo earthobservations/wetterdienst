@@ -559,7 +559,10 @@
               "type": "string",
               "enum": [
                 "icon",
-                "icon_eu"
+                "icon_eu",
+                "large",
+                "small",
+                "snow"
               ]
             },
             {
@@ -648,6 +651,45 @@
           "default": false
         },
         "stations": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wmo_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wigos_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "icao_id": {
           "anyOf": [
             {
               "items": {
@@ -1397,6 +1439,45 @@
             }
           ]
         },
+        "wmo_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wigos_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "icao_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "name": {
           "anyOf": [
             {
@@ -1794,5 +1875,5 @@
       ]
     }
   },
-  "x-release": "0.188.0"
+  "x-release": "0.189.0"
 }
