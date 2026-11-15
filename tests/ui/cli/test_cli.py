@@ -556,6 +556,60 @@ def test_issues_dmo_passes_the_product_and_lead_time_through(monkeypatch: pytest
     assert asked == {"station_id": "01001", "dataset": "icon_eu", "lead_time": "long"}
 
 
+@pytest.mark.parametrize("dataset", ["large", "small", "snow"])
+def test_issues_mosmix_passes_the_product_through(monkeypatch: pytest.MonkeyPatch, dataset: str) -> None:
+    """`--dataset` names the MOSMIX product whose runs are listed, and none names MOSMIX-L (GH-4093)."""
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
+
+    asked: dict[str, object] = {}
+
+    def available_issues(station_id: str, _settings: object, **kwargs: object) -> list:
+        asked.update({"station_id": station_id, **kwargs})
+        return []
+
+    monkeypatch.setattr(DwdMosmixRequest, "available_issues", available_issues)
+    result = CliRunner().invoke(
+        cli, ["issues", "--provider=dwd", "--network=mosmix", "--station=Z914", f"--dataset={dataset}"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert asked == {"station_id": "Z914", "dataset": dataset}
+
+
+def test_issues_mosmix_without_a_dataset_leaves_the_product_to_mosmix_l(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No `--dataset` passes none on, so the answer is the one callers had before the product could be named."""
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
+
+    asked: dict[str, object] = {}
+
+    def available_issues(station_id: str, _settings: object, **kwargs: object) -> list:
+        asked.update({"station_id": station_id, **kwargs})
+        return []
+
+    monkeypatch.setattr(DwdMosmixRequest, "available_issues", available_issues)
+    result = CliRunner().invoke(cli, ["issues", "--provider=dwd", "--network=mosmix", "--station=10147"])
+
+    assert result.exit_code == 0, result.output
+    assert asked == {"station_id": "10147"}
+
+
+@pytest.mark.parametrize(
+    ("network", "station", "dataset", "message"),
+    [
+        ("dmo", "10147", "snow", "dataset applies to DWD MOSMIX only"),
+        ("swsmos", "A006", "small", "dataset applies to DWD DMO only"),
+    ],
+)
+def test_issues_refuses_a_product_of_the_other_network(network: str, station: str, dataset: str, message: str) -> None:
+    """A product of MOSMIX asked of DMO is refused, as one of DMO asked of MOSMIX is, and none is SWSMOS's (GH-4093)."""
+    result = CliRunner().invoke(
+        cli, ["issues", "--provider=dwd", f"--network={network}", f"--station={station}", f"--dataset={dataset}"]
+    )
+
+    assert result.exit_code == 2, result.output
+    assert message in result.stderr
+
+
 def test_issues_mosmix_says_the_dmo_options_do_not_apply() -> None:
     """Named rather than ignored: answering a different question than the one asked is the fault here."""
     runner = CliRunner()
@@ -1193,23 +1247,37 @@ def test_issues_dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> None:
     assert json.loads(result.output)["issues"] == ["2026-10-04T06:00:00.000000+00:00"]
 
 
-@pytest.mark.parametrize("option", ["dataset", "lead_time"])
-def test_issues_help_says_what_the_dmo_options_do(option: str) -> None:
-    """Test `issues` describes --dataset and --lead-time as refused for MOSMIX and SWSMOS (GH-2347).
+def test_issues_help_says_what_the_lead_time_does() -> None:
+    """Test `issues` describes --lead-time as refused for MOSMIX and SWSMOS (GH-2347).
 
     The help said "ignored by other networks", which `values` says of its own --lead-time and is true
-    there, but `issues` refuses either option for MOSMIX and SWSMOS. The default it names is the one
+    there, but `issues` refuses the option for MOSMIX and SWSMOS. The default it names is the one
     `available_issues` lists when the option is left out.
     """
     import inspect  # noqa: PLC0415
 
     from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
 
-    help_text = next(param.help for param in cli.commands["issues"].params if param.name == option)
+    help_text = next(param.help for param in cli.commands["issues"].params if param.name == "lead_time")
     assert "; DMO only, refused for MOSMIX and SWSMOS." in help_text
-    default = inspect.signature(DwdDmoRequest.available_issues).parameters[option].default
+    default = inspect.signature(DwdDmoRequest.available_issues).parameters["lead_time"].default
     # an enum member for lead_time (SHORT = 78), named on the command line by its lowercased name
     assert help_text.endswith(f"Default: {getattr(default, 'name', default).lower()}")
+
+
+def test_issues_help_says_which_products_the_dataset_names() -> None:
+    """Test `issues` names the product of each network and the default `available_issues` lists (GH-4093)."""
+    import inspect  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.dmo import DwdDmoRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
+
+    option = next(param for param in cli.commands["issues"].params if param.name == "dataset")
+    assert list(option.type.choices) == ["icon", "icon_eu", "large", "small", "snow"]
+    dmo_default = inspect.signature(DwdDmoRequest.available_issues).parameters["dataset"].default
+    mosmix_default = inspect.signature(DwdMosmixRequest.available_issues).parameters["dataset"].default
+    assert f"icon or icon_eu (default {dmo_default})" in option.help
+    assert f"large, small or snow (default {mosmix_default})" in option.help
 
 
 @pytest.mark.parametrize(("option", "value"), [("dataset", "icon"), ("lead_time", "long")])

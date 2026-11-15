@@ -2042,9 +2042,10 @@ def stations(
 @click.option("--station", type=click.STRING, required=True, help="Station id to list the model runs of.")
 @click.option(
     "--dataset",
-    type=click.Choice(["icon", "icon_eu"]),
+    type=click.Choice(["icon", "icon_eu", "large", "small", "snow"]),
     default=None,
-    help="DWD DMO product; DMO only, refused for MOSMIX and SWSMOS. Default: icon",
+    help="DWD product: DMO icon or icon_eu (default icon), MOSMIX large, small or snow (default large); "
+    "refused for SWSMOS and for the other network's product.",
 )
 @click.option(
     "--lead-time",
@@ -2065,9 +2066,10 @@ def issues_cmd(
 
     Currently supported: --provider dwd --network mosmix|dmo|swsmos
 
-    A DMO run exists for a product, so --dataset and --lead-time decide which runs are listed. They
-    default to what a `values` request defaults to, which is what makes the answer one that request
-    accepts.
+    A run exists for a product, so --dataset (and for DMO --lead-time) decide which runs are listed.
+    They default to what a `values` request defaults to, which is what makes the answer one that
+    request accepts. For MOSMIX-S and MOSMIX-SNOW one run is every station's, so the station only
+    has to be an id; MOSMIX-L has a directory per station.
     """
     from wetterdienst import Settings
     from wetterdienst.ui.core import IssuesRequest
