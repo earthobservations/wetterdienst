@@ -48,7 +48,7 @@ def test_metno_frost_stations() -> None:
                 "name": "OSLO - BLINDERN",
                 "region": "OSLO",
                 "wmo_id": "01492",
-                "wigos_id": "0-578-0-18700",
+                "wigos_id": "0-20000-0-01492",
                 "icao_id": None,
             }
         ],
