@@ -21,7 +21,7 @@ describe('the accessibility baseline', () => {
   })
 
   // an entry that links no issue says whose the cause is in its reason, so that "no issue" is not "nobody's"
-  const OWNERS = ['Nuxt UI', 'Reka UI', 'Leaflet', 'Plotly', 'Tailwind', 'the app']
+  const OWNERS = ['Nuxt UI', 'Reka UI', 'Leaflet', 'Tailwind', 'the app']
   const ownerNamed = (entry: Entry) => entry.issue !== null || OWNERS.some(owner => entry.reason?.includes(owner))
 
   it('names an owner in every reason that links no issue', () => {

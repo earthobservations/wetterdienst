@@ -11,7 +11,7 @@ import { mockBackend } from './accessibility/mock-backend'
 type Rgb = [number, number, number]
 
 function channels(color: string): Rgb {
-  // a series' label colour is written as hex, which Plotly holds as it was given
+  // a series' label colour is written as hex
   const hex = /^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i.exec(color)
   if (hex)
     return [Number.parseInt(hex[1]!, 16), Number.parseInt(hex[2]!, 16), Number.parseInt(hex[3]!, 16)]
@@ -152,33 +152,6 @@ test.describe('the focus ring of the controls of the explorer\'s chart is the pa
     expect(ring.width).toBeGreaterThanOrEqual(2)
     expect(contrast(ring.color, await behindChart(page))).toBeGreaterThanOrEqual(3)
   })
-})
-
-test('the print rules make a chart that is still dark readable, and leave one drawn light as it is', async ({ page, baseURL }) => {
-  // the redraw for a print is asynchronous for some charts, so a print that comes before it is made readable by
-  // main.css, for the charts that say they are drawn dark; the rules are tried on stand-ins for the charts' parts
-  await mockBackend(page, baseURL!)
-  await page.goto('/')
-  await page.evaluate(() => {
-    for (const scheme of ['dark', 'light']) {
-      const chart = document.createElement('div')
-      chart.className = 'js-plotly-plot'
-      chart.id = `chart-${scheme}`
-      chart.dataset.chartScheme = scheme
-      chart.innerHTML = '<svg class="main-svg" style="background: rgb(15, 23, 43)"><text style="fill: rgb(226, 232, 240)">Mo</text></svg>'
-      document.body.appendChild(chart)
-    }
-  })
-  await page.emulateMedia({ media: 'print' })
-  const styleOf = (scheme: string) => page.evaluate((id) => {
-    const chart = document.getElementById(id)!
-    return {
-      background: getComputedStyle(chart.querySelector('.main-svg')!).backgroundColor,
-      text: getComputedStyle(chart.querySelector('text')!).fill,
-    }
-  }, `chart-${scheme}`)
-  expect(await styleOf('dark')).toEqual({ background: 'rgba(0, 0, 0, 0)', text: 'rgb(0, 0, 0)' })
-  expect(await styleOf('light')).toEqual({ background: 'rgb(15, 23, 43)', text: 'rgb(226, 232, 240)' })
 })
 
 // The text that names a series (GH-3618): the Forecast's y axes, as its temperature axis, its weekend day labels, and its

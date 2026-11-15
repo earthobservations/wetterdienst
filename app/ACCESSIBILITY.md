@@ -193,7 +193,7 @@ the same hues on both pages, the light page's a step darker where the hue is und
 button, a legend item and the chart: 2 px, 3:1 on the dark paper) and `chart-print.spec.ts`.
 
 The charts take their chrome from the same tokens as the page (GH-3528): paper, plot, text, grid,
-zero line, hover label and toolbar are the `--app-chart-*` properties of `main.css`, made of Nuxt UI's
+axis and zero line are the `--app-chart-*` properties of `main.css`, made of Nuxt UI's
 `--ui-*` tokens, which switch with the colour mode. `utils/chart-theme.ts` reads them with
 `getComputedStyle` (resolved to `rgb()` by the browser's computed colour of a probe element, as a chart library
 does not parse `oklch()`; no canvas, whose pixels a browser that resists fingerprinting scrambles), and
@@ -201,9 +201,8 @@ does not parse `oklch()`; no canvas, whose pixels a browser that resists fingerp
 without a reload. A chart that is saved (the download menus, and the camera of the explorer's or the stripes' toolbar) or printed is
 always the light one, whatever the screen shows: it is drawn again, off screen, in the light theme
 (`save()` of `ExplorerChart.vue` and of `StripesChart.vue`; the explorer's image is as large as the chart on the page, one pixel to a pixel, and its facets are stacked into one), and a print is drawn light for as long as it lasts (a light page is printed as
-it is, and a zoom is kept), with a `@media print` rule in `main.css` for a chart that says it is still drawn dark
-(`data-chart-scheme="dark"`) when the print comes before the redraw: transparent paper and black text; a chart drawn
-light is left as drawn. The forecast's chart is printed as it shows, scaled to the sheet. On the themed chrome (the
+it is, and a zoom is kept): `useChartTheme()` hands the light theme from `beforeprint` to `afterprint`, and each chart
+is drawn again before the print is laid out. The forecast's chart is printed as it shows, scaled to the sheet. On the themed chrome (the
 Explorer, the stripes, the Forecast's hour labels) text and tick labels are the page's text and muted text (4.5:1 or more on the page
 in both modes) and the zero line the muted text colour (3:1 or more), checked on the drawn charts by
 `tests/e2e/explorer-chart.spec.ts` (the Explorer's), `stripes-chart.spec.ts` and `meteogram-chart.spec.ts`, and `tests/e2e/chart-theme.spec.ts`, which also holds the focus ring of the explorer's toolbar button, legend item and chart to the page's own (2 px, 3:1 on the dark paper, 1.4.11; Plotly's modebar had a black one, 1.2:1 there); the grid is decoration. The series and the stripes' palette are data and
@@ -226,8 +225,8 @@ that have them; the source (MOSMIX-SNOW, DWD) is text under the chart and prints
 Every chart speaks the language of the page (GH-3625, 3.1.2): the names of the toolbars' buttons, the legend's group, the readout and the keys' hint are
 the page's own messages (`dataViewer.chart.*`, `stripes.chart.*`, `meteogram.chart.*`, in all eleven languages), and the
 weekdays, months and numbers are Intl's, which follows a switch of the language like a switch of the scheme; Luxembourgish and
-Hamburg's German take German's. (Plotly's own button names, through `plotly.js-locales` and `utils/plotly-locale.ts`, were the
-explorer's until GH-4096; no chart draws with Plotly any more, and step 4 of GH-4058 takes the library out.)
+Hamburg's German take German's. (Plotly's own button names, through `plotly.js-locales`, were the explorer's until GH-4096; the
+library is out of the app since GH-4102.)
 
 There is no sepia mode. `main.css` once held a `html.sepia` block that redefined the `--ui-*` tokens, which
 nothing in the app ever set (`colorMode` knows `light`, `dark` and `system`, and the settings offer those
@@ -356,7 +355,7 @@ The charts' text alternatives and keyboard access (#3145), checked on 2026-10-19
 | 1.1.1 Text alternative of the meteogram's compact day cards | **Was failing**: the weather of a day was an emoji, and a drop before the rain's amount, with no text. Both symbols are hidden from assistive technology (`aria-hidden`); the card holds the words for the weather, visually hidden (`meteogram.chart.weather.*`: thunderstorm, rain, snow, sleet, drizzle, fog, windy, dust or sand storm, blowing snow, cloudy, partly cloudy, sunny), in the language of the page, and "Precipitation:" before the amount. The name is held to the WMO's present-weather table: every code 0 to 99 has its kind in `tests/unit/weather-kind.test.ts`, and a code that names no weather the card can (haze, hail, a funnel cloud) is judged from the cloud cover and the rain. Tested for weather codes and for the cloud-cover heuristic, and in all eleven languages. |
 | 1.4.13 Content on hover or focus, the forecast chart's readout | **Was failing** (as Plotly's hover label, which the forecast had): met since GH-4059. The readout is an element of the page that the pointer moves onto (hoverable), that stays until the pointer or the focus leaves or it is dismissed (persistent), and that Escape closes without moving either and without being consumed (dismissible); its Close button is the way for a touch. A keyboard puts it there by stepping the crosshair, so the focus case is covered too. Tested (`MeteogramChart.test.ts`; in a browser, `meteogram-chart.spec.ts` and `chart controls by keyboard`). |
 | 1.4.13 Content on hover or focus, the stripes' readout | **Was failing** (as Plotly's hover label, which the stripes had): met since GH-4068. The readout is an element of the page that the pointer moves onto (hoverable), that stays until the pointer or the focus leaves or it is dismissed (persistent), and that Escape closes without moving either and without being consumed (dismissible); its Close button is the way for a touch. A key puts it there by stepping, so the focus case is covered too. Tested (`StripesChart.test.ts`; in a browser, `accessibility.spec.ts`, `chart controls by keyboard`). |
-| 1.4.13 Content on hover or focus, the explorer's readout | **Was failing** (as Plotly's hover label, which the explorer had, and the names of its modebar's buttons): met since GH-4096. The readout is an element of the page that the pointer moves onto (hoverable: docked at the edge of the chart that the crosshair is not on, so that the pointer does not meet it on the way), that stays until the pointer or the focus leaves or it is dismissed (persistent), and that Escape closes without moving either and without being consumed (dismissible); its Close button is the way for a touch and gives the focus back to the chart. A key puts it there by stepping, so the focus case is covered too. The names of the toolbar's buttons are the browser's own `title`, which the browser draws and the page does not change. Tested (`ExplorerChart.test.ts`; in a browser, `accessibility.spec.ts`, `chart controls by keyboard`). `utils/chart-hover.ts`, which dismissed Plotly's labels, goes with Plotly (GH-4058, step 4). |
+| 1.4.13 Content on hover or focus, the explorer's readout | **Was failing** (as Plotly's hover label, which the explorer had, and the names of its modebar's buttons): met since GH-4096. The readout is an element of the page that the pointer moves onto (hoverable: docked at the edge of the chart that the crosshair is not on, so that the pointer does not meet it on the way), that stays until the pointer or the focus leaves or it is dismissed (persistent), and that Escape closes without moving either and without being consumed (dismissible); its Close button is the way for a touch and gives the focus back to the chart. A key puts it there by stepping, so the focus case is covered too. The names of the toolbar's buttons are the browser's own `title`, which the browser draws and the page does not change. Tested (`ExplorerChart.test.ts`; in a browser, `accessibility.spec.ts`, `chart controls by keyboard`). |
 
 ### Known not to conform
 
