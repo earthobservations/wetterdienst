@@ -7,6 +7,7 @@ import { defineComponent, h, nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import { panelToggleStyle, SERIES_LABEL, seriesLabelColor } from '~/utils/chart-theme'
 import { chromeWithoutLuxembourgish } from '../../helpers/chrome-without-luxembourgish'
+import { snowForecastValues } from '../../helpers/meteogram-forecast'
 
 // ECharts draws in these tests as it does in a browser, to an SVG string, and every call is recorded: a test reads the
 // option the component gave it, or what that option drew (`tests/helpers/ssr-echarts.ts`)
@@ -1040,5 +1041,201 @@ describe('meteogram panel toggles, summary icons and today\'s card', { timeout: 
     expect(today, 'the card of today').toBeDefined()
     expect(today!.classList.contains('border-blue-600')).toBe(true)
     expect(today!.classList.contains('dark:border-blue-400')).toBe(true)
+  })
+})
+
+// The snow panel (GH-4091): MOSMIX-SNOW for the stations that have it, from a request of its own, in a panel of three plots with one
+// switch, its source named under the chart. Another station looks as it did.
+describe('meteogram snow panel', { timeout: 15_000 }, () => {
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+
+  afterEach(async () => {
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+    await useRouter().replace({ query: {} })
+  })
+
+  // the day of `values`, hourly, and the snow forecast of the same day with the hours between its steps that DWD stamps for some stations
+  const snowValues = snowForecastValues({ hours: 23, offGrid: true })
+  const toggles = () => [...document.body.querySelectorAll<HTMLButtonElement>('button[data-panel]')]
+  const toggle = (panel: string) => toggles().find(button => button.dataset.panel === panel)!
+  const ids = (): string[] => ssr().option().series.map((series: { id: string }) => series.id)
+  const credit = () => document.body.querySelector('[data-testid="meteogram-snow-credit"]')
+
+  async function show(props: Record<string, unknown> = {}) {
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Zugspitzplatt', ...props }, attachTo: document.body })
+    await waitDrawn()
+    return wrapper
+  }
+
+  it('has a snow toggle and draws the three plots for a station that has a snow forecast', async () => {
+    await show({ snowValues })
+    expect(toggles().map(button => button.dataset.panel)).toEqual(['temp', 'wind', 'precip', 'snow', 'cloud', 'pressure'])
+    expect(ids()).toEqual(expect.arrayContaining(['snowNew', 'snowDepth', 'snowChance']))
+    expect(toggle('snow').getAttribute('aria-pressed')).toBe('true')
+    expect(toggle('snow').getAttribute('aria-label')).toBe('Snow')
+    // in the colours of the others: the label colour of the snow's series, the filled icon while it is on
+    const probe = document.createElement('span')
+    Object.assign(probe.style, panelToggleStyle(SERIES_LABEL.indigo.light))
+    expect(toggle('snow').getAttribute('style')).toBe(probe.getAttribute('style'))
+    expect(toggle('snow').querySelector('[class*="i-ph"]')?.className).toMatch(/snowflake-fill/)
+  })
+
+  it('has none for another station: no toggle, no snow series, no credit', async () => {
+    await show()
+    expect(toggles().map(button => button.dataset.panel)).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
+    expect(ids().filter(id => id.startsWith('snow'))).toEqual([])
+    expect(credit()).toBeNull()
+  })
+
+  it('has none where the snow request gave no value (an empty answer), as for another station', async () => {
+    await show({ snowValues: [] })
+    expect(toggles().map(button => button.dataset.panel)).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
+    expect(ids()).not.toContain('snowNew')
+  })
+
+  it('has none where all the answer holds is other than the 3-hourly steps', async () => {
+    await show({ snowValues: snowValues.filter(value => new Date(value.timestamp).getUTCHours() % 3 !== 0) })
+    expect(ids()).not.toContain('snowNew')
+    expect(toggle('snow')).toBeUndefined()
+  })
+
+  it('draws the 3-hourly steps only, though the answer has the hours between', async () => {
+    await show({ snowValues })
+    const draws = ssr().option().series as { id: string, data: [number, number | null][] }[]
+    for (const id of ['snowNew', 'snowDepth', 'snowChance']) {
+      // a bar is drawn over the hours it covers, centred on the middle of them: the 3 h of a step before it
+      const shift = id === 'snowNew' ? 1.5 * 3_600_000 : 0
+      const hours = draws.find(series => series.id === id)!.data.map(([time]) => new Date(time + shift).getUTCHours())
+      // the day of the forecast has the steps 0, 3, ..., 21
+      expect(hours, id).toEqual([0, 3, 6, 9, 12, 15, 18, 21])
+    }
+  })
+
+  it('names its source under the chart, MOSMIX-SNOW and DWD, beside the symbols\' credit', async () => {
+    await show({ snowValues })
+    expect(credit()?.textContent?.trim()).toBe('Snow forecast from MOSMIX-SNOW, DWD.')
+  })
+
+  it('takes the plots and the credit away with its toggle, and gives them back', async () => {
+    await show({ snowValues })
+    toggle('snow').click()
+    await nextTick()
+    await vi.waitFor(() => expect(ids()).not.toContain('snowNew'))
+    expect(toggle('snow').getAttribute('aria-pressed')).toBe('false')
+    expect(credit()).toBeNull()
+    toggle('snow').click()
+    await vi.waitFor(() => expect(ids()).toContain('snowNew'))
+    expect(credit()).not.toBeNull()
+  })
+
+  it('writes the snow to the table of the values, as three columns, and to the address with the other panels', async () => {
+    await show({ snowValues })
+    ;(wrapper!.vm as unknown as { view: string }).view = 'table'
+    await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
+    const headers = [...document.body.querySelectorAll('th')].map(th => th.textContent?.trim())
+    expect(headers).toEqual(expect.arrayContaining(['New snow cm', 'Snow depth cm', 'Chance of > 10\u00A0cm new snow in 24\u00A0h %']))
+    // a switched-off panel is a link that says so: all six are the default, and need no `panels`
+    expect(useRouter().currentRoute.value.query.panels).toBeUndefined()
+  })
+
+  it('is part of the address once another panel is off, which a link opens as it was', async () => {
+    await show({ snowValues })
+    toggle('wind').click()
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.panels).toBe('temp,precip,snow,cloud,pressure'))
+    toggle('snow').click()
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.panels).toBe('temp,precip,cloud,pressure'))
+  })
+
+  it('keeps a panel on for a station without snow when the others are all off: its switch is not one', async () => {
+    await show()
+    for (const panel of ['wind', 'precip', 'cloud', 'pressure', 'temp'])
+      toggle(panel).click()
+    await nextTick()
+    await nextTick()
+    // temperature is the one that is left on, as before there was a snow panel
+    expect(toggles().filter(button => button.getAttribute('aria-pressed') === 'true').map(button => button.dataset.panel)).toEqual(['temp'])
+  })
+
+  it('does not count as the panel that is left on where the station has no snow forecast, and does where it has', async () => {
+    await show({ snowValues })
+    for (const panel of ['wind', 'precip', 'cloud', 'pressure', 'temp'])
+      toggle(panel).click()
+    await nextTick()
+    await nextTick()
+    expect(toggles().filter(button => button.getAttribute('aria-pressed') === 'true').map(button => button.dataset.panel)).toEqual(['snow'])
+  })
+})
+
+// A link to the snow panel, or a view of the snow alone, is kept while the snow request is under way: the page has no snow for the
+// forecast until it answers, which is not the same as a station with none (GH-4091)
+describe('meteogram snow panel that is on its way', { timeout: 15_000 }, () => {
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+
+  afterEach(async () => {
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+    await useRouter().replace({ query: {} })
+  })
+
+  const snowValues = snowForecastValues({ hours: 23 })
+  const toggle = (panel: string) => document.body.querySelector<HTMLButtonElement>(`button[data-panel="${panel}"]`)
+  const ids = (): string[] => ssr().option().series.map((series: { id: string }) => series.id)
+  const query = () => useRouter().currentRoute.value.query.panels
+  const pressed = () => (wrapper!.vm as unknown as { visiblePanels: Record<string, boolean> }).visiblePanels
+
+  async function showSnowLink(snow: any) {
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Zugspitzplatt', snowValues: snow }, route: '/meteogram?panels=snow', attachTo: document.body })
+    await flushPromises()
+    await nextTick()
+    return wrapper
+  }
+
+  it('keeps `panels=snow` while the snow is pending, and draws the snow alone when it arrives', async () => {
+    await showSnowLink(null)
+    expect(pressed()).toMatchObject({ snow: true, temp: false, wind: false })
+    expect(query()).toBe('snow')
+    await wrapper!.setProps({ snowValues } as any)
+    await vi.waitFor(() => expect(ids()).toContain('snowNew'))
+    expect(ids()).not.toContain('temp')
+    expect(toggle('snow')!.getAttribute('aria-pressed')).toBe('true')
+    expect(toggle('temp')!.getAttribute('aria-pressed')).toBe('false')
+    expect(query()).toBe('snow')
+  })
+
+  it('keeps it through a new request for the same station (the snow is pending again), as for the first', async () => {
+    await showSnowLink(snowValues)
+    await vi.waitFor(() => expect(ids()).toContain('snowNew'))
+    await wrapper!.setProps({ snowValues: null } as any)
+    await flushPromises()
+    await nextTick()
+    expect(pressed()).toMatchObject({ snow: true, temp: false })
+    expect(query()).toBe('snow')
+    await wrapper!.setProps({ snowValues } as any)
+    await vi.waitFor(() => expect(ids()).toContain('snowNew'))
+    expect(query()).toBe('snow')
+  })
+
+  it('rewrites the address when the snow panel turns out not to be there: the panels it names are the station\'s', async () => {
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Berlin', snowValues: null }, attachTo: document.body })
+    await flushPromises()
+    toggle('wind')!.click()
+    // while the snow is on its way the panel counts, as a panel of the station
+    await vi.waitFor(() => expect(query()).toBe('temp,precip,snow,cloud,pressure'))
+    await wrapper.setProps({ snowValues: [] } as any)
+    await vi.waitFor(() => expect(query()).toBe('temp,precip,cloud,pressure'))
+  })
+
+  it('turns it into the temperature once the answer is that the station has none', async () => {
+    await showSnowLink(null)
+    expect(query()).toBe('snow')
+    await wrapper!.setProps({ snowValues: [] } as any)
+    await vi.waitFor(() => expect(pressed().temp).toBe(true))
+    await vi.waitFor(() => expect(query()).toBe('temp'))
   })
 })

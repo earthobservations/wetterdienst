@@ -1,7 +1,11 @@
 import type { MeteogramView } from '~/utils/meteogram'
+import type { PanelToggle } from '~/utils/meteogram-geometry'
 import { meteogramView, meteogramViewFromQuery } from '~/utils/meteogram'
 
-export type PanelId = 'temp' | 'wind' | 'precip' | 'cloud' | 'pressure'
+export type PanelId = PanelToggle
+
+/** Every panel the reader can switch, in the order of the toggles */
+const PANEL_IDS: readonly PanelId[] = ['temp', 'wind', 'precip', 'snow', 'cloud', 'pressure']
 
 const LOCAL_STORAGE_KEY = 'meteogram.view'
 // the key from before the table was a view: `true` for the compact overview, `false` for the chart
@@ -33,7 +37,9 @@ function storedView(): MeteogramView | null {
  * (`?view=table&panels=temp,wind&horizon=72`) and read from it on load, so that a link opens what it was copied from.
  * The widget reads and writes no address; the day rows alone (`daysOnly`) choose nothing, and keep nothing.
  */
-export function useMeteogramView(options: { daysOnly?: boolean, widget?: boolean }) {
+export function useMeteogramView(options: { daysOnly?: boolean, widget?: boolean }, hasSnow: () => boolean = () => false) {
+  // `hasSnow` is true where the station has a snow forecast, and while it is not yet known whether it has (the request is under
+  // way): a `panels=snow` link, or a view of the snow alone, is not turned into the temperature's while the snow is on its way
   const view = ref<MeteogramView>(options.daysOnly ? 'compact' : 'chart')
   const compact = computed(() => view.value === 'compact')
 
@@ -41,15 +47,19 @@ export function useMeteogramView(options: { daysOnly?: boolean, widget?: boolean
     temp: true,
     wind: true,
     precip: true,
+    snow: true,
     cloud: true,
     pressure: true,
   })
+  // the panels there is something to draw for: the snow panel only at a station that has a snow forecast
+  const available = (panel: PanelId) => panel !== 'snow' || hasSnow()
   // Forecast horizon filter: null = show all data
   const horizonHours = ref<number | null>(null)
 
-  // Ensure at least one panel is always active
-  watch(visiblePanels, (newVal) => {
-    if (!Object.values(newVal).some(v => v))
+  // Ensure at least one panel is always active: of those the station has, so that the snow panel's switch, which a station
+  // without a snow forecast does not offer, never counts for one
+  watch([visiblePanels, hasSnow], () => {
+    if (!PANEL_IDS.some(panel => available(panel) && visiblePanels.value[panel]))
       visiblePanels.value.temp = true
   }, { deep: true })
 
@@ -94,6 +104,7 @@ export function useMeteogramView(options: { daysOnly?: boolean, widget?: boolean
         temp: names.includes('temp'),
         wind: names.includes('wind'),
         precip: names.includes('precip'),
+        snow: names.includes('snow'),
         cloud: names.includes('cloud'),
         pressure: names.includes('pressure'),
       }
@@ -120,10 +131,15 @@ export function useMeteogramView(options: { daysOnly?: boolean, widget?: boolean
       })
     })
 
-    watch(visiblePanels, (panels) => {
-      const visible = (Object.keys(panels) as PanelId[]).filter(k => panels[k])
+    // also where the snow panel turns out to be there or not: the panels the address names are those of the station
+    watch([visiblePanels, hasSnow], () => {
+      const panels = visiblePanels.value
+      // of the panels the station has: the snow's switch is none at a station without a snow forecast, and no link names it
+      const present = PANEL_IDS.filter(available)
+      const visible = present.filter(k => panels[k])
       write((query) => {
-        if (visible.length < 5)
+        // all of them is what a link without `panels` has
+        if (visible.length < present.length)
           query.panels = visible.join(',')
         else
           delete query.panels

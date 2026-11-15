@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import type { Station, ValuesResponse } from '#shared/types/api'
+import type { Station, Value, ValuesResponse } from '#shared/types/api'
 import type { RequestError } from '~/utils/request-error'
 import { nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import StationPicker from '~/components/StationPicker.vue'
 import { formatRunTime } from '~/utils/format'
-import { meteogramUnitsKey, meteogramValuesQuery, MOSMIX_METEOGRAM } from '~/utils/meteogram'
+import { meteogramSnowQuery, meteogramUnitsKey, meteogramValuesQuery, MOSMIX_METEOGRAM, snowStationsQuery } from '~/utils/meteogram'
 import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
+import { snowStationIds } from '~/utils/snow-stations'
 import { unitsOfAnswer } from '~/utils/units'
 
 // Auto-composed MOSMIX parameters – user never configures these; the map's panel asks for the same
@@ -23,6 +24,12 @@ const selectedStation = ref<Station | null>(null)
 const values = ref<any[]>([])
 // the unit of each parameter of the values, as the answer says (GH-3980)
 const units = ref<Record<string, string>>({})
+// The snow forecast (MOSMIX-SNOW, GH-4091) of a station that has one: its own request, which the forecast does not wait for
+// and whose failure it does not show. The units are those of its answer, which the chart reads with the forecast's
+// `null` while the request is under way (or the station is not known to have a snow forecast yet), `[]` where there is none
+const snowValues = ref<Value[] | null>(null)
+const snowUnits = ref<Record<string, string>>({})
+const unitsOfForecast = computed(() => ({ ...units.value, ...snowUnits.value }))
 
 // The units the app settings choose (GH-3980), read at each request. Where they change while a forecast is shown (in
 // the header's settings, or in another tab) the forecast is fetched again in them, as the charts and the table say the
@@ -126,11 +133,49 @@ function onPick(picked: Station[]) {
   selectedStation.value = picked[0] ?? null
 }
 
+/**
+ * The snow forecast of a station, for the stations that have one (the list is asked for once, `snow-stations.ts`). Out of
+ * season the backend answers a 404 (`ProductOutOfSeasonError`: DWD publishes it from November to April only), and then, as
+ * for any other failure of this request, there is no snow panel and nothing is said of it: the forecast is not the snow's to
+ * break, and a station with no snow forecast in summer is no fault.
+ */
+async function fetchSnow(station: Station, ticket: number) {
+  // what the request comes to: none, until its answer says otherwise
+  let found: Value[] = []
+  let units: Record<string, string> = {}
+  try {
+    const ids = await snowStationIds(() => $fetch<{ stations: Station[] }>('/api/stations', { query: snowStationsQuery(), ...API_FETCH }))
+    if (ticket === valuesTicket && ids.has(station.station_id)) {
+      const rawParams = meteogramSnowQuery(station.station_id, unitSettings.value)
+      if (selectedIssue.value)
+        rawParams.issue = selectedIssue.value
+      const res = await fetch(`/api/values?${new URLSearchParams(rawParams)}`)
+      if (ticket === valuesTicket && res.ok) {
+        const json = await readJsonAnswer<ValuesResponse>('/api/values', res)
+        units = unitsOfAnswer(json)
+        found = json.values ?? []
+      }
+    }
+  }
+  catch {
+    // no snow panel: the rest of the forecast stands
+  }
+  // answered, with none or with the snow: the chart stops expecting it (`null` is a request under way). The answer of a station
+  // that was left meanwhile is not applied
+  if (ticket === valuesTicket) {
+    snowUnits.value = units
+    snowValues.value = found
+  }
+}
+
 async function fetchMeteogram(station: Station) {
   const ticket = ++valuesTicket
   pending.value = true
   failure.value = null
   values.value = []
+  snowValues.value = null
+  snowUnits.value = {}
+  void fetchSnow(station, ticket)
 
   const rawParams = meteogramValuesQuery(station.station_id, unitSettings.value)
   if (selectedIssue.value)
@@ -192,6 +237,8 @@ watch(selectedStation, (station) => {
     // no answer of an earlier request is applied to the empty page
     issuesTicket++
     values.value = []
+    snowValues.value = []
+    snowUnits.value = {}
     failure.value = null
     availableIssues.value = []
     // A rejected navigation (e.g. superseded by a subsequent replace() before
@@ -401,9 +448,10 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
             </template>
             <Meteogram
               :values="values"
+              :snow-values="snowValues"
               :station-name="selectedStation.name"
               :station-coords="{ latitude: selectedStation.latitude, longitude: selectedStation.longitude }"
-              :units="units"
+              :units="unitsOfForecast"
             />
           </UCard>
 

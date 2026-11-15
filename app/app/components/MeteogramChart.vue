@@ -13,7 +13,7 @@
  * onto it, it stays until the pointer or the focus leaves, and Escape closes it (WCAG 1.4.13).
  */
 import type { ECharts } from 'echarts/core'
-import type { PanelName, ReadoutSide, TimeWindow } from '~/utils/meteogram-geometry'
+import type { PanelToggle, ReadoutSide, TimeWindow } from '~/utils/meteogram-geometry'
 import type { MeteogramModel, SunLibrary } from '~/utils/meteogram-model'
 import type { SeriesMap } from '~/utils/meteogram-series'
 import type { MeteogramUnits } from '~/utils/meteogram-units'
@@ -21,7 +21,7 @@ import { DateTime } from 'luxon'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { formatDayMonth, formatNumber, hourFormatter, weekdayShort } from '~/utils/format'
 import { findNearestIndex } from '~/utils/meteogram'
-import { chartLayout, clampWindow, GUTTER_LEFT, GUTTER_RIGHT, HOUR_MS, hourWidth, MIN_SPAN_HOURS, panWindow, plotWidthFor, readoutPlacement, revealInstant, scrollStrip, windowFromScroll, zoomWindow } from '~/utils/meteogram-geometry'
+import { chartLayout, clampWindow, GUTTER_LEFT, GUTTER_RIGHT, HOUR_MS, hourWidth, MIN_SPAN_HOURS, panWindow, plotWidthFor, readoutPlacement, revealInstant, scrollStrip, toggleOf, windowFromScroll, zoomWindow } from '~/utils/meteogram-geometry'
 import { buildMeteogramModel, readoutValue } from '~/utils/meteogram-model'
 import { buildMeteogramOption, gutterLeftFor, toneColor } from '~/utils/meteogram-option'
 import { withUnit } from '~/utils/units'
@@ -29,7 +29,7 @@ import { yrSymbolFor, yrSymbolUrl } from '~/utils/weather-symbols'
 
 const props = defineProps<{
   series: SeriesMap
-  panels: Record<PanelName, boolean>
+  panels: Record<PanelToggle, boolean>
   /** the hours of the run that are shown, from its start; null for all of it */
   horizonHours: number | null
   /** the station's time zone */
@@ -86,6 +86,8 @@ const model = computed<MeteogramModel | null>(() => buildMeteogramModel({
   units: props.units,
   t,
 }))
+// whether the chart draws the snow panel, whose source is named under it
+const snowShown = computed(() => !!model.value?.panels.some(panel => toggleOf(panel) === 'snow'))
 const bounds = computed<TimeWindow | null>(() => model.value ? { start: model.value.minTime, end: model.value.maxTime } : null)
 const hours = computed(() => bounds.value ? (bounds.value.end - bounds.value.start) / HOUR_MS : 0)
 const layout = computed(() => model.value ? chartLayout(model.value.panels, model.value.symbols.length > 0) : null)
@@ -746,15 +748,22 @@ const selectionStyle = computed(() => {
         </div>
       </div>
     </div>
-    <!-- the symbols are the work of Yr, under CC BY 4.0, which asks for this credit where they are shown -->
-    <i18n-t v-if="model?.symbols.length" keypath="meteogram.chart.symbolsCredit" tag="p" scope="global" class="px-2 pb-1.5 pt-1 text-xs text-muted" data-testid="meteogram-credit">
-      <template #yr>
-        <a href="https://github.com/nrkno/yr-weather-symbols" target="_blank" rel="noopener" class="underline underline-offset-2">Yr</a>
-      </template>
-      <template #licence>
-        <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" class="underline underline-offset-2">CC BY 4.0</a>
-      </template>
-    </i18n-t>
+    <!-- the credits, side by side where the width allows: the symbols' and the snow forecast's -->
+    <div v-if="model?.symbols.length || snowShown" class="flex flex-wrap gap-x-4 gap-y-0.5 px-2 pb-1.5 pt-1 text-xs text-muted">
+      <!-- the symbols are the work of Yr, under CC BY 4.0, which asks for this credit where they are shown -->
+      <i18n-t v-if="model?.symbols.length" keypath="meteogram.chart.symbolsCredit" tag="p" scope="global" data-testid="meteogram-credit">
+        <template #yr>
+          <a href="https://github.com/nrkno/yr-weather-symbols" target="_blank" rel="noopener" class="underline underline-offset-2">Yr</a>
+        </template>
+        <template #licence>
+          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" class="underline underline-offset-2">CC BY 4.0</a>
+        </template>
+      </i18n-t>
+      <!-- the snow forecast is DWD's MOSMIX-SNOW, a product of its own that only some stations have: named where it is drawn -->
+      <p v-if="snowShown" data-testid="meteogram-snow-credit">
+        {{ t('meteogram.chart.snowCredit') }}
+      </p>
+    </div>
     <p :id="hintId" class="sr-only">
       {{ t('meteogram.chart.keysHint') }}
     </p>
