@@ -316,7 +316,7 @@ async function printedStyles(page: Page, baseURL: string, theme: 'light' | 'dark
       const style = getComputedStyle(element)
       const box = element.getBoundingClientRect()
       // a chart's own drawing, a map and a hidden element are not the page's chrome
-      if (style.display === 'none' || element.matches('svg, .leaflet-container, .js-plotly-plot'))
+      if (style.display === 'none' || element.matches('svg, .leaflet-container'))
         return
       if (box.width > 1 && box.height > 1)
         styles[path] = [style.color, style.backgroundColor, style.borderTopColor, style.outlineColor].join(' ')

@@ -331,14 +331,13 @@
   outline-color: var(--color-brand-500);
 }
 
-/* The chrome of the Plotly charts (paper, plot, text, grid, axis lines, hover label, modebar), which
+/* The chrome of the charts (paper, plot, text, grid, axis lines), which
    utils/chart-theme.ts reads at runtime with getComputedStyle: one place to restyle every chart. Each is
    a Nuxt UI token, and those switch with .dark (and .light, for the probe that asks what a light chart
    is, as a saved or printed one is), so nothing is redefined for .dark here. The series and the stripes'
    palette are data, not chrome, and are not in this list. Measured on the Explorer's drawn chart, light
    and dark: text 10.4:1 and 14.5:1 on the paper; muted text (tick labels) 5.4:1 and 6.8:1; the zero
-   line and the modebar's icons, which are the muted colour, the same, past the 3:1 of non-text; the
-   hover label's text 9.5:1 and 11.9:1 on its fill. The grid (1.5:1 and 1.7:1) is decoration. That is the
+   line, which is the muted colour, the same, past the 3:1 of non-text. The grid (1.5:1 and 1.7:1) is decoration. That is the
    themed chrome (the Explorer, the stripes, the Forecast's hour labels and zero line). The text that
    names a series (the Forecast's axis titles and tick labels, its weekend day labels, the stripes'
    availability label) is the series' hue at 4.5:1 or more (`SERIES_LABEL` in utils/chart-theme.ts,
@@ -354,11 +353,6 @@
   --app-chart-grid: var(--ui-border-accented);
   --app-chart-axis: var(--ui-text-muted);
   --app-chart-zeroline: var(--ui-text-muted);
-  --app-chart-hover-bg: var(--ui-bg-elevated);
-  --app-chart-hover-border: var(--ui-border-accented);
-  --app-chart-hover-text: var(--ui-text);
-  --app-chart-modebar: var(--ui-text-muted);
-  --app-chart-modebar-active: var(--app-focus-ring);
 }
 
 /* The width of a chart is capped (GH-3558): a printed chart is scaled to the width of the paper, so the
@@ -375,21 +369,10 @@
   margin-inline: auto;
 }
 
-/* The focus of a modebar button: Plotly draws a 1 px black outline, 21:1 on its white paper and 1.2:1 on the
-   dark paper (WCAG 1.4.11, 3:1), where it is the page's own ring instead (--app-focus-ring). One class more
-   than Plotly's own rule, which is injected after this sheet. */
-.js-plotly-plot .plotly .modebar .modebar-btn:focus-visible {
-  outline: 2px solid var(--app-focus-ring);
-  outline-offset: 1px;
-}
-
 /* A printed chart is always the light one (the screen's dark chart is white on a printer's white, or
-   unreadable text on it). The charts are drawn light for it (useChartTheme), which is asynchronous for
-   some of them: a Plotly chart that says it is drawn dark (data-chart-scheme, set after each drawing) and is
-   printed before it is redrawn prints with a transparent paper and black text. A chart drawn light is left
-   as it was drawn, with its series colours and its own marks. The forecast's chart (ECharts, SVG) is drawn
-   again before the print is laid out, and is printed as it shows: the window of time on the screen, scaled
-   to the width of the sheet like a picture, without the crosshair and the readout. */
+   unreadable text on it). The charts (ECharts, SVG) are drawn light for it (useChartTheme) and drawn again
+   before the print is laid out, and are printed as they show, scaled to the width of the sheet like a picture:
+   the forecast's the window of time on the screen, without the crosshair and the readout. */
 @media print {
   .mg-scroller {
     overflow: visible !important;
@@ -478,19 +461,6 @@
   }
   .explorer-chart {
     break-inside: avoid;
-  }
-  .js-plotly-plot[data-chart-scheme="dark"] .main-svg {
-    background: transparent !important;
-  }
-  .js-plotly-plot[data-chart-scheme="dark"] .main-svg .bg {
-    fill: transparent !important;
-  }
-  .js-plotly-plot[data-chart-scheme="dark"] .main-svg text,
-  .js-plotly-plot[data-chart-scheme="dark"] .main-svg tspan {
-    fill: black !important;
-  }
-  .js-plotly-plot .modebar-container {
-    display: none !important;
   }
 }
 
@@ -1090,34 +1060,6 @@
   }
 }
 
-/* ---- Plotly -------------------------------------------------------------------------------------------------------
-   Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout. Plotly layers multiple <svg class="main-svg">
-   that must overlap; Tailwind's `svg { display: block }` causes them to stack vertically. */
-.svg-container > .main-svg {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  max-width: 100%;
-}
-
-.plot-container.plotly {
-  max-width: 100%;
-}
-
-.svg-container {
-  max-width: 100% !important;
-  overflow: hidden;
-}
-
-/* Escape dismisses the hover label of a Plotly chart under the pointer (WCAG 1.4.13): the label with
-   its spike lines, and the names of the modebar's buttons, which are shown on hover too. The mark is
-   set and removed by utils/chart-hover.ts. */
-.js-plotly-plot[data-hover-dismissed] .hoverlayer,
-.js-plotly-plot[data-hover-dismissed] .modebar-btn::before,
-.js-plotly-plot[data-hover-dismissed] .modebar-btn::after {
-  display: none !important;
-}
-
 /* Guide newcomers to the next thing they need to do: a gentle pulsing ring
    around the input/select that is still awaiting a selection. Applied via the
    `needs-input` class, which callers toggle off once the field has a value.
@@ -1149,8 +1091,8 @@
 
 /* ---- Print ------------------------------------------------------------------------------------------------------
    A printed page is the page's content in light colours: no header, tab bar, footer, skip link or buttons that
-   only work on a screen. The charts are redrawn at the width of the paper before printing
-   (`plugins/chart-print.client.ts`); a chart, a card and a table row are not cut across two sheets. */
+   only work on a screen. The charts are scaled to the width of the paper (see the charts' own rules below);
+   a chart, a card and a table row are not cut across two sheets. */
 @media print {
   :root,
   .dark {
@@ -1205,7 +1147,6 @@
   }
   [data-print="hide"],
   .skip-link,
-  .modebar-container,
   .leaflet-control-container {
     display: none !important;
   }
@@ -1222,7 +1163,6 @@
     max-height: none !important;
     overflow: visible !important;
   }
-  .js-plotly-plot,
   figure,
   tr,
   [data-print="keep"] {

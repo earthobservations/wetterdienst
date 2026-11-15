@@ -1,7 +1,7 @@
 import type { ChartTheme } from '~/utils/chart-theme'
 import { EMPTY_CHART_THEME, readDocumentChartTheme } from '~/utils/chart-theme'
 
-// The theme of the Plotly charts for the colour scheme the page is in (see utils/chart-theme.ts), one
+// The theme of the charts for the colour scheme the page is in (see utils/chart-theme.ts), one
 // for all charts. It is read from the CSS tokens once the colour mode has put its class on <html>, and
 // again whenever that class changes, so a chart that watches `theme` follows a switch of light, dark and
 // system without a reload. A page being printed is light whatever the screen shows: for as long as the

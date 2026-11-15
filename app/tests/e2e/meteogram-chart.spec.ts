@@ -58,12 +58,21 @@ for (const [name, path] of [['the forecast page', PAGE], ['the widget', WIDGET]]
   })
 
   test(`${name} does not load Plotly`, async ({ page, baseURL }) => {
-    const requested: string[] = []
-    page.on('request', request => requested.push(request.url()))
+    // the script files are hashed, so what is asked for cannot be told by its name: what is in them can. `plotly-notifier` is the class of
+    // Plotly's own notifications, in its code and in no other's
+    const plotly: string[] = []
+    let scripts = 0
+    page.on('response', async (response) => {
+      if (!/\.js(?:\?|$)/.test(response.url()))
+        return
+      scripts++
+      if ((await response.text().catch(() => '')).includes('plotly-notifier'))
+        plotly.push(response.url())
+    })
     await open(page, baseURL!, path)
     await page.waitForLoadState('networkidle')
-    // the library and its locales: `utils/plotly-locale.ts` is the app's own small module, which asks for them only when a Plotly chart is drawn
-    expect(requested.filter(url => /plotly\.js/i.test(url))).toEqual([])
+    expect(scripts, 'the scripts the page was served').toBeGreaterThan(20)
+    expect(plotly, 'a script with Plotly in it').toEqual([])
     expect(await page.locator('.js-plotly-plot').count()).toBe(0)
     expect(await page.evaluate(() => 'Plotly' in window)).toBe(false)
   })

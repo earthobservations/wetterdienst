@@ -201,7 +201,7 @@ export default defineNuxtConfig({
       tailwindcss() as any,
     ],
     optimizeDeps: {
-      include: ['leaflet', 'leaflet.markercluster', 'plotly.js-basic-dist-min'],
+      include: ['leaflet', 'leaflet.markercluster'],
     },
     build: {
       rollupOptions: {
@@ -261,7 +261,7 @@ export default defineNuxtConfig({
         // No script, worker or request goes to a CDN (GH-3094): DuckDB-wasm (`QueryPanel.vue`) and Swagger UI
         // (`/docs`) are the app's own files, and the browser calls only this origin; the backend is reached by
         // the server's proxies, and the icons come from `/_nuxt_icon` (GH-3111).
-        // No `'unsafe-eval'`: nothing evaluates a string (Plotly, Leaflet, Vue and the i18n messages run under
+        // No `'unsafe-eval'`: nothing evaluates a string (ECharts, Leaflet, Vue and the i18n messages run under
         // this policy; Zod probed it, see `useSettings.ts`). `'wasm-unsafe-eval'` is for DuckDB's module, which
         // the worker compiles: Chrome gives a worker the policy of its script, which has none, but a browser
         // that gives it the page's needs it, and it allows WebAssembly, no string.

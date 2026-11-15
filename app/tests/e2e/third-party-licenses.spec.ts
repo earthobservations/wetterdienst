@@ -21,9 +21,6 @@ const NOT_IN_THE_BUNDLE: Record<string, string> = {
   '@tailwindcss/vite': 'a Vite plugin that runs in the build; the CSS it makes is tailwindcss\'s',
   '@vueuse/nuxt': 'a Nuxt module that registers the auto-imports of @vueuse/core; the code that runs is @vueuse/core\'s',
   'nuxt-security': 'a Nuxt module whose headers and middleware run on the server',
-  // no chart draws with Plotly any more (GH-4096), so nothing the browser is served imports it; GH-4058 step 4 removes both
-  'plotly.js-basic-dist-min': 'the last chart that drew with it, the Explorer\'s, is ECharts now, and nothing imports it until it is removed',
-  'plotly.js-locales': 'only Plotly asked for its button names, and nothing imports them until it is removed',
 }
 
 /** Whether the lockfile has a package of exactly this name and version (a key of its `packages:` section) */

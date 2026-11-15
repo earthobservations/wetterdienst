@@ -1,7 +1,7 @@
 import type { ChromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
 import { DateTime } from 'luxon'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { formatDate, formatDayMonth, formatHour, formatNumber, formatRunTime, plotlyDateLocale, plotlySeparators, weekdayShort, withData } from '../../app/utils/format'
+import { formatDate, formatDayMonth, formatHour, formatNumber, formatRunTime, weekdayShort, withData } from '../../app/utils/format'
 import { chromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
 
 describe('date formatting utilities', () => {
@@ -74,38 +74,6 @@ describe('formatNumber', () => {
 
   it('rounds to the places asked for', () => {
     expect(formatNumber(2.345, 'en', 1)).toBe('2.3')
-  })
-})
-
-describe('plotlySeparators', () => {
-  // the codes the app's locales have, as `useI18n().locale` gives them (nuxt.config.ts): the decimal
-  // character first, then the group's
-  it.each([
-    ['en', '.,'],
-    ['de', ',.'],
-    ['de-hh', ',.'],
-    ['nl', ',.'],
-    ['da', ',.'],
-    ['es', ',.'],
-    ['it', ',.'],
-    ['lb', ',.'],
-  ])('writes %s with the separators %s', (locale, expected) => {
-    expect(plotlySeparators(locale)).toBe(expected)
-  })
-
-  it.each(['fr', 'pl', 'cs'])('writes a comma and a space to group in %s', (locale) => {
-    // the space is a no-break one, which differs by language, so only its kind is pinned
-    expect(plotlySeparators(locale)).toMatch(/^,\s$/)
-  })
-
-  it('is two characters in every language the app has, as Plotly reads them', () => {
-    for (const locale of ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb'])
-      expect(plotlySeparators(locale)).toHaveLength(2)
-  })
-
-  it('agrees with formatNumber on the decimal', () => {
-    for (const locale of ['en', 'de', 'fr', 'pl'])
-      expect(formatNumber(1.5, locale, 1)).toContain(plotlySeparators(locale)[0])
   })
 })
 
@@ -211,7 +179,6 @@ describe('a language the browser has no data for', () => {
   it('asks for German in its place, with its separators and day', () => {
     expect(withData('lb', Intl.NumberFormat.supportedLocalesOf)).toBe('de-LU')
     expect(withData('lb-LU', Intl.DateTimeFormat.supportedLocalesOf)).toBe('de-LU')
-    expect(plotlySeparators('lb')).toBe(',.')
     expect(formatNumber(1234.5, 'lb', 2)).toBe('1.234,50')
     expect(formatDayMonth(DateTime.fromISO('2026-10-05'), 'lb-LU')).toBe('05.10.')
   })
@@ -251,7 +218,6 @@ describe('the locale codes of the app that are no language', () => {
 
   it('writes Hamburgisch with the separators and the order of German', () => {
     expect(formatNumber(1234.5, 'de-hh', 2)).toBe('1.234,50')
-    expect(plotlySeparators('de-hh')).toBe(',.')
     expect(formatHour(Date.UTC(2026, 9, 15, 4, 0), 'de-hh')).toBe('04:00')
     expect(formatRunTime('2026-10-15T04:00:00+00:00', 'de-hh')).toBe('15.10.2026, 04:00 UTC')
     expect(formatDayMonth(DateTime.fromISO('2026-10-05'), 'de-hh')).toBe('05.10.')
@@ -284,26 +250,10 @@ describe('weekdays in the language', () => {
     ['lb-LU', 'Don'],
   ])('writes %s as %s', (language, weekday) => {
     expect(weekdayShort(thursday, language)).toBe(weekday)
-    const { format } = plotlyDateLocale(language)
-    // Sunday first, as Plotly has it
-    expect(format.shortDays[4]).toBe(weekday)
-    expect(format.shortDays).toHaveLength(7)
-    expect(format.days).toHaveLength(7)
-    expect(format.months).toHaveLength(12)
-    expect(format.shortMonths).toHaveLength(12)
   })
 
   it('writes Luxembourgish as German where the browser has no data for it', () => {
     vi.spyOn(Intl.DateTimeFormat, 'supportedLocalesOf').mockReturnValue([])
     expect(weekdayShort(thursday, 'lb-LU')).toBe('Do')
-    expect(plotlyDateLocale('lb-LU').format.shortDays[4]).toBe('Do')
-  })
-
-  it('names the days from Sunday and the months from January', () => {
-    const { format } = plotlyDateLocale('de-DE')
-    expect(format.days[0]).toBe('Sonntag')
-    expect(format.days[6]).toBe('Samstag')
-    expect(format.months[0]).toBe('Januar')
-    expect(format.months[9]).toBe('Oktober')
   })
 })

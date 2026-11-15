@@ -115,14 +115,11 @@ const UNDECLARED: Record<string, { license?: string, textFile?: string }> = {
  * has a licence of its own. Each file of `fallbacks/` says in its header where its texts are from and at which version.
  * - @duckdb/duckdb-wasm: DuckDB's LICENSE, those of its `third_party/` and ICU, which the WASM modules link
  *   statically, and js-sha256 and ws, which the worker bundles.
- * - plotly.js-basic-dist-min: the libraries bundled in the file that can be identified in it; the header of the
- *   file says which others are not reproduced.
  * - vaul-vue is a port of Vaul (Emil Kowalski, MIT), which its README says; the repository's LICENSE of the port does
  *   not carry Vaul's.
  */
 const EXTRA_TEXTS: Record<string, { file: string, label: string }[]> = {
   '@duckdb/duckdb-wasm': [{ file: 'duckdb-wasm-third-party.txt', label: 'the code inside the DuckDB files' }],
-  'plotly.js-basic-dist-min': [{ file: 'plotly-third-party.txt', label: 'the libraries bundled in the file' }],
   'vaul-vue': [{ file: 'vaul.LICENSE', label: 'Vaul\'s, of which vaul-vue is a port' }],
 }
 
@@ -132,15 +129,6 @@ const EXTRA_TEXTS: Record<string, { file: string, label: string }[]> = {
  */
 const SIDECARS: Record<string, string[]> = {
   'swagger-ui-dist': ['swagger-ui-bundle.js.LICENSE.txt'],
-}
-
-/**
- * Packages that are one file with libraries bundled in, which end it with a block of their licence comments
- * (`/*! Bundled license information: ... *` + `/`): the file to read it from. plotly.js-basic-dist-min is one, and
- * the minifier of the app drops that block from the chunk.
- */
-const BUNDLED_COMMENT: Record<string, string> = {
-  'plotly.js-basic-dist-min': 'plotly-basic.min.js',
 }
 
 /**
@@ -165,15 +153,6 @@ const FALLBACKS = join(dirname(fileURLToPath(import.meta.url)), 'fallbacks')
 /** A text as the file has it: line ends as `\n`, no blank lines before or after, and the indentation of its first line kept */
 export function exactText(text: string): string {
   return text.replaceAll('\r\n', '\n').replace(/^(?:[ \t]*\n)+/, '').replace(/\s+$/, '')
-}
-
-/** The block of licence comments at the end of a bundled file, or null */
-export function bundledLicenseComment(source: string): string | null {
-  const start = source.lastIndexOf('/*! Bundled license information')
-  if (start === -1)
-    return null
-  const end = source.indexOf('\n*/', start)
-  return end === -1 ? null : source.slice(start + 3, end).trim()
 }
 
 /** The notice of the package in a directory: what its package.json declares and the texts it ships */
@@ -201,10 +180,6 @@ export function readNotice(dir: string): Notice {
   const embeddedText = embedded && existsSync(join(dir, embedded.file)) ? commentAround(read(embedded.file), embedded.marker) : null
   if (embedded && embeddedText)
     texts.push({ file: embedded.label, text: embeddedText })
-  const bundled = BUNDLED_COMMENT[notice.name]
-  const comment = bundled ? bundledLicenseComment(read(bundled)) : null
-  if (comment)
-    texts.push({ file: `${bundled} (the libraries bundled in the file)`, text: comment })
   return notice
 }
 
