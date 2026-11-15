@@ -143,6 +143,15 @@
     "title": "Wetterdienst – åbne vejr- og klimadata fra nationale vejrtjenester",
     "description": "Åbne vejr- og klimadata fra nationale vejrtjenester i ét format: udforsker, vejrudsigt, klimastriber, REST-API og MCP-server. Open source og gratis.",
     "noscript": "Wetterdienst kræver JavaScript for at vise data.",
+    "providerDescription": "{provider} i Wetterdienst: {kinds}, med licens og kildeangivelse. Åbn i Udforsker eller via REST API'et.",
+    "kinds": {
+      "observation": "målinger",
+      "forecast": "prognoser",
+      "derived": "afledte data",
+      "radar": "radar",
+      "alerts": "vejrvarsler"
+    },
+    "kindsAnd": "og",
     "pages": {
       "explorer": "Vælg en udbyder, parametre og stationer på kortet, læs målingerne, interpolér et punkt og download resultatet som CSV, JSON eller GeoJSON.",
       "meteogram": "MOSMIX-udsigten for en DWD-station som meteogram: temperatur, vind, nedbør, skydække og lufttryk.",

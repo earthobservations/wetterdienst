@@ -366,7 +366,7 @@ what the answer is missing:
     today, this month, this year): the day's, month's or year's value is partial and may still change, and the source
     does not mark it. They are not missing at the source and come back once the window has closed. An estimate cannot
     carry the `completeness:Incomplete` mark that `values` puts on a monthly or annual value of an open window, so it
-    leaves those out as it leaves a daily one out (`metno/frost`);
+    leaves those out as it leaves a daily one out (`metno/frost`, `dmi/observation`);
   - values a hard [plausibility check](../data/plausibility.md) rejected (the case of `rejected-by-plausibility`,
     counted in values and by check, a value several checks rejected counted under each): the source wrote a number
     there, which the check made null and the estimate does not use. A value a soft check flags `suspect:` is left out
@@ -397,10 +397,11 @@ what the answer is missing:
 
   `window-not-closed` says that the source served values of a window that had not closed when the request was served,
   and does not mark them: `metno/frost` serves the day's maximum, minimum, sum or mean before the day (or its 06 UTC and
-  18 UTC offset) has ended, and the month so far. A daily value is left out of the answer, a monthly or annual one is
-  returned with `completeness:Incomplete` as a token of its `quality_flags` (an estimate leaves all of them out and tells them
-  as a cause of `source-data-left-out`, above); the message says which, how many values at which
-  stations (the first ten) and when the earliest window closes (UTC). It carries `parameter`
+  18 UTC offset) has ended, and the month so far. `dmi/observation` serves the day, the month and the year so far. A
+  daily value is left out of the answer, a monthly or annual one is returned with `completeness:Incomplete` as a token
+  of its `quality_flags` (an estimate leaves all of them out and tells them as a cause of `source-data-left-out`,
+  above); the message says which, how many values at which stations (the first ten) and when the earliest window
+  closes (UTC). It carries `parameter`
   (`resolution/dataset/parameter`) and `stations`. The values are not missing at the source: ask again after the
   window has closed, which is no failure and no `parameter-without-rows`. One for each parameter and request.
 
@@ -906,6 +907,10 @@ http localhost:7890/api/stations provider==dwd network==dmo parameters==hourly/i
 ```bash
 # List available MOSMIX-L run datetimes for a station.
 http localhost:7890/api/issues provider==dwd network==mosmix station==10147
+
+# List available MOSMIX-S or MOSMIX-SNOW run datetimes; one run holds every station, so any station lists them.
+http localhost:7890/api/issues provider==dwd network==mosmix station==10147 dataset==small
+http localhost:7890/api/issues provider==dwd network==mosmix station==Z914 dataset==snow
 
 # List available DMO ICON run datetimes for a station.
 http localhost:7890/api/issues provider==dwd network==dmo station==10147

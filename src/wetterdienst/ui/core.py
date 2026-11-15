@@ -1648,10 +1648,11 @@ class IssuesRequest(_RefusesRenamedParameters):
     network: _NetworkField
     station: _StationIdField
     dataset: Annotated[
-        Literal["icon", "icon_eu"] | None,
+        Literal["icon", "icon_eu", "large", "small", "snow"] | None,
         Field(
-            description="DWD DMO product to list issues for ('icon' or 'icon_eu'), default 'icon'; "
-            "DMO only, refused for MOSMIX and SWSMOS.",
+            description="DWD product to list issues for: for DMO 'icon' or 'icon_eu' (default 'icon'), for MOSMIX "
+            "'large' (MOSMIX-L), 'small' (MOSMIX-S) or 'snow' (MOSMIX-SNOW), default 'large'; refused for SWSMOS "
+            "and where it names the product of the other network.",
         ),
     ] = None
     # not the shared `_LeadTimeField`: the data requests ignore a lead time outside DMO, but `get_issues`
@@ -2136,6 +2137,11 @@ def get_glossary(
     return entries
 
 
+#: The products `issues` lists for DWD MOSMIX, the datasets of the network; the other values of `IssuesRequest.dataset`
+#: are DMO's.
+MOSMIX_ISSUE_DATASETS = ("large", "small", "snow")
+
+
 def get_issues(
     api: type,
     request: IssuesRequest,
@@ -2143,8 +2149,10 @@ def get_issues(
 ) -> list[str]:
     """Return available issue datetimes as UTC ISO strings for provider/network/station.
 
-    Supported: DWD MOSMIX (MOSMIX_L single-station), DWD DMO (ICON single-station) and DWD SWSMOS.
-    One SWSMOS run file holds every road station, so its runs are the same whatever the station.
+    Supported: DWD MOSMIX (`dataset` large, the default, small or snow), DWD DMO (ICON single-station) and DWD
+    SWSMOS. One SWSMOS run file holds every road station, so its runs are the same whatever the station, and so are
+    those of MOSMIX-S and MOSMIX-SNOW; MOSMIX-L has a directory per station. The MOSMIX product is passed through
+    as the DMO product is, rather than left to chance (GH-4093).
 
     The DMO product and lead time are passed through rather than left to chance: a run exists for a
     product, and this listed one product's directory whatever the caller went on to ask for, so it
@@ -2155,20 +2163,33 @@ def get_issues(
     from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
 
-    dmo_only = {"dataset": request.dataset, "lead_time": request.lead_time}
-    given = sorted(name for name, value in dmo_only.items() if value is not None)
-    if given and issubclass(api, (DwdMosmixRequest, DwdSwsmosRequest)):
-        # named rather than ignored: silently answering a different question than the one asked is
-        # the fault this whole path is being fixed for
-        msg = f"{', '.join(given)} applies to DWD DMO only (got {api.__name__})"
+    options = {"dataset": request.dataset, "lead_time": request.lead_time}
+    # named rather than ignored: silently answering a different question than the one asked is
+    # the fault this whole path is being fixed for. The lead time is DMO's alone; a product is named by the network
+    # that has it, and what each accepts is told
+    if request.lead_time is not None and issubclass(api, (DwdMosmixRequest, DwdSwsmosRequest)):
+        msg = f"lead_time applies to DWD DMO only (got {api.__name__})"
         raise InvalidEnumerationError(msg)
+    if request.dataset is not None:
+        if issubclass(api, DwdSwsmosRequest):
+            msg = "dataset does not apply to DWD SWSMOS"
+            raise InvalidEnumerationError(msg)
+        if issubclass(api, DwdMosmixRequest) and request.dataset not in MOSMIX_ISSUE_DATASETS:
+            msg = f"dataset '{request.dataset}' is a DWD DMO product; DWD MOSMIX lists large, small or snow"
+            raise InvalidEnumerationError(msg)
+        if issubclass(api, DwdDmoRequest) and request.dataset in MOSMIX_ISSUE_DATASETS:
+            msg = f"dataset '{request.dataset}' is a DWD MOSMIX product; DWD DMO lists icon or icon_eu"
+            raise InvalidEnumerationError(msg)
     if issubclass(api, DwdMosmixRequest):
-        issues = DwdMosmixRequest.available_issues(request.station, settings)
+        # passed only where given, so that the default is `available_issues`' own: MOSMIX-L
+        issues = DwdMosmixRequest.available_issues(
+            request.station, settings, **({"dataset": request.dataset} if request.dataset is not None else {})
+        )
     elif issubclass(api, DwdDmoRequest):
         issues = DwdDmoRequest.available_issues(
             request.station,
             settings,
-            **{name: value for name, value in dmo_only.items() if value is not None},
+            **{name: value for name, value in options.items() if value is not None},
         )
     elif issubclass(api, DwdSwsmosRequest):
         issues = DwdSwsmosRequest.available_issues(settings)

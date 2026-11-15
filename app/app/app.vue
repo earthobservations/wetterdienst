@@ -10,8 +10,8 @@ useToastInset()
 
 // What a search engine and a link preview are told about the page (GH-3497). The server writes the same tags into the
 // shell for a crawler that runs no script (`server/plugins/seo-head.ts`); these replace them, in the language the
-// visitor chose. The pages are listed in `shared/utils/seo.ts`; a path that is not one (a provider's page, a 404) is
-// told as the site, with no canonical link of its own.
+// visitor chose. The pages are listed in `shared/utils/seo.ts`; a path that is not one (a 404) is told as the site,
+// with no canonical link of its own. The page of a provider tells itself (`app/pages/providers/[provider].vue`).
 const config = useRuntimeConfig()
 const seoRoute = computed(() => findSeoRoute(route.path))
 const homeTitle = computed(() => t(HOME_TITLE_KEY))

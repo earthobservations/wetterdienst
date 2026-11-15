@@ -44,6 +44,9 @@ def expected_stations_df() -> pl.DataFrame:
                 "elevation": 108.0,
                 "name": "Kahl/Main",
                 "region": "Bayern",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
                 "distance": 9.759384982994229,
             },
             {
@@ -56,6 +59,9 @@ def expected_stations_df() -> pl.DataFrame:
                 "elevation": 155.0,
                 "name": "Schaafheim-Schlierbach",
                 "region": "Hessen",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
                 "distance": 10.160326,
             },
             {
@@ -68,6 +74,9 @@ def expected_stations_df() -> pl.DataFrame:
                 "elevation": 119.0,
                 "name": "Offenbach-Wetterpark",
                 "region": "Hessen",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
                 "distance": 12.891318342515483,
             },
         ],
@@ -81,6 +90,9 @@ def expected_stations_df() -> pl.DataFrame:
             "elevation": pl.Float64,
             "name": pl.String,
             "region": pl.String,
+            "wmo_id": pl.String,
+            "wigos_id": pl.String,
+            "icao_id": pl.String,
             "distance": pl.Float64,
         },
         orient="row",
@@ -316,6 +328,9 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
         "elevation": 78.0,
         "name": "Holzdorf-Bernsdorf",
         "region": "Brandenburg",
+        "wmo_id": None,
+        "wigos_id": None,
+        "icao_id": None,
     }
     # station in climate_summary and temperature_air
     assert df_stations.filter(pl.col("station_id") == "01050").sort(["resolution"]).select(
@@ -331,6 +346,9 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
             "elevation": 112.0,
             "name": "Dresden-Hosterwitz",
             "region": "Sachsen",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
         {
             "resolution": "hourly",
@@ -342,6 +360,9 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
             "elevation": 112.0,
             "name": "Dresden-Hosterwitz",
             "region": "Sachsen",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
     ]
     # station in temperature_air
@@ -356,6 +377,9 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
             "elevation": 278.0,
             "name": "Gotha",
             "region": "Thüringen",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
     ]
     df_values = request.values().all().df

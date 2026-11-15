@@ -2087,7 +2087,8 @@ def issues(
 ) -> Response:
     """Return available issue datetimes for a provider/network/station combination.
 
-    Currently supported: provider=dwd, network=mosmix|dmo|swsmos.
+    Currently supported: provider=dwd, network=mosmix|dmo|swsmos. `dataset` names the product whose runs are
+    listed: MOSMIX large (default), small or snow, DMO icon (default) or icon_eu.
     """
     begin_response()
 

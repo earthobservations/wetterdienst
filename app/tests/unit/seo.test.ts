@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { applySeoHead, message, pageTitle, pickLocale, seoHead } from '../../server/utils/seoHead'
+import { resetProviders } from '../../server/utils/seoProviders'
 import {
   canonicalUrl,
   DEFAULT_SITE_URL,
@@ -398,12 +399,17 @@ describe('text files that are none', () => {
 
 describe('the routes of sitemap.xml and robots.txt', () => {
   afterEach(() => {
+    vi.restoreAllMocks()
     vi.unstubAllGlobals()
     vi.resetModules()
   })
 
   async function serve(module: string, siteUrl: string) {
     const headers: Record<string, string> = {}
+    // the sitemap asks the backend for its providers (GH-4119; tests/unit/seo-providers.test.ts): here it has none
+    resetProviders()
+    vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new TypeError('fetch failed'))))
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
     vi.stubGlobal('defineEventHandler', (handler: unknown) => handler)
     vi.stubGlobal('useRuntimeConfig', () => ({ public: { siteUrl } }))
     vi.stubGlobal('setResponseHeader', recordHeaders(headers))

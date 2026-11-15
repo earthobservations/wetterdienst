@@ -547,8 +547,15 @@ def test_get_issues_lists_the_swsmos_runs(monkeypatch: pytest.MonkeyPatch) -> No
     ]
 
 
-@pytest.mark.parametrize("option", [{"dataset": "icon"}, {"lead_time": "long"}])
-def test_get_issues_refuses_dmo_options_for_swsmos(option: dict[str, str]) -> None:
+@pytest.mark.parametrize(
+    ("option", "message"),
+    [
+        ({"dataset": "icon"}, "dataset does not apply to DWD SWSMOS"),
+        ({"dataset": "small"}, "dataset does not apply to DWD SWSMOS"),
+        ({"lead_time": "long"}, "lead_time applies to DWD DMO only"),
+    ],
+)
+def test_get_issues_refuses_dmo_options_for_swsmos(option: dict[str, str], message: str) -> None:
     """Test a DMO-only option asked of dwd/swsmos is refused, as for MOSMIX, rather than ignored (GH-2319)."""
     from wetterdienst.exceptions import InvalidEnumerationError  # noqa: PLC0415
     from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest  # noqa: PLC0415
@@ -558,7 +565,7 @@ def test_get_issues_refuses_dmo_options_for_swsmos(option: dict[str, str]) -> No
         {"provider": "dwd", "network": "swsmos", "station": "A006", **option},
     )
 
-    with pytest.raises(InvalidEnumerationError, match="applies to DWD DMO only"):
+    with pytest.raises(InvalidEnumerationError, match=message):
         core.get_issues(api=DwdSwsmosRequest, request=request, settings=Settings())
 
 

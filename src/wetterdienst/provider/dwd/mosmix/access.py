@@ -10,9 +10,11 @@ import datetime as dt
 import logging
 import os
 import time
+from collections import OrderedDict
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from zipfile import BadZipFile
 
 import polars as pl
@@ -74,15 +76,29 @@ def _failure_under_fsspec(error: Exception) -> Exception:
     return error
 
 
+@dataclass
+class _ParsedRun:
+    """What one parsed file holds for the stations asked: the head of the run, its steps and the elements by station."""
+
+    metadata: dict[str, Any]
+    timesteps: list[str]
+    data: dict[str, dict[str, list[float | None]]]
+
+
 class KMLReader:
     """Read DWD XML Weather Forecast File of Type KML."""
 
-    def __init__(self, station_ids: list[str], settings: Settings) -> None:
+    def __init__(self, station_ids: list[str], settings: Settings, *, keep_parsed: int = 1) -> None:
         """Initialize KMLReader.
 
         Args:
             station_ids: List of station IDs to read.
             settings: Settings object.
+            keep_parsed: How many parsed files the reader holds at once, the files of one request: a request for
+                several datasets reads one file per dataset at every station, and a reader that holds one parsed
+                file parses the other's again at the next station (MOSMIX-S is 36 MB). The one held longest ago is
+                dropped for a new one, so the memory is that of `keep_parsed` files' stations and never grows with
+                the request.
 
         """
         self.station_ids = station_ids
@@ -91,9 +107,11 @@ class KMLReader:
         self.timesteps = []
         self.nsmap = None
         self.iter_elems = None
-        # Remember the last fully parsed URL to avoid re-parsing; keep the zip buffer/handle alive
-        # while lxml streams from it.
-        self._current_url = None
+        # `metadata`, `timesteps` and `data` are those of the file `read` was last asked for; every file parsed
+        # is kept by its URL, up to `keep_parsed` of them, least recently read dropped first
+        self._keep_parsed = max(keep_parsed, 1)
+        self._parsed: OrderedDict[str, _ParsedRun] = OrderedDict()
+        # keep the zip buffer/handle alive while lxml streams from it.
         self._zip_refs = None
 
         # how long a forecast may be held is a property of the URL, not of the reader. A run named
@@ -236,8 +254,11 @@ class KMLReader:
 
     def read(self, url: str) -> None:
         """Download and read DWD XML Weather Forecast File of Type KML."""
-        # Skip if this URL's forecasts are already parsed into self.data.
-        if self._current_url == url:
+        # Skip if this URL's forecasts are already parsed: made the current ones again, and the newest of those held
+        run = self._parsed.get(url)
+        if run is not None:
+            self._parsed.move_to_end(url)
+            self.metadata, self.timesteps, self.data = run.metadata, run.timesteps, run.data
             return
 
         log.info(f"Downloading KMZ file {Path(url).name}")
@@ -283,7 +304,9 @@ class KMLReader:
         # release the head subtree before iterating placemarks
         prod_definition.clear()
         self._store_station_forecasts()
-        self._current_url = url
+        self._parsed[url] = _ParsedRun(self.metadata, self.timesteps, self.data)
+        while len(self._parsed) > self._keep_parsed:
+            self._parsed.popitem(last=False)
 
     def iter_items(self) -> Iterator[Element]:
         """Iterate over station forecasts, pruning parsed elements to bound memory."""

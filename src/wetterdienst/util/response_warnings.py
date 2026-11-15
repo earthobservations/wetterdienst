@@ -94,8 +94,9 @@ OTHER_WINDOW_LEFT_OUT = "other-window-left-out"
 #: the code of the warning that counts the values whose window had not closed when the request was served (GH-3856):
 #: Frost serves the daily, monthly and annual value of a period that is still going on and marks nothing, so a
 #: value of a day is left out (`note_open_window`, `returned` false) and one of the month or the year is returned,
-#: marked `completeness:Incomplete` in its `quality_flags` (`returned` true). Not missing data: ask again once the
-#: window has closed
+#: marked `completeness:Incomplete` in its `quality_flags` (`returned` true); DMI serves the day, the month and the
+#: year still running the same way (GH-4087: the day left out, the month and the year marked). Not missing data: ask
+#: again once the window has closed
 WINDOW_NOT_CLOSED = "window-not-closed"
 
 #: the code of the one warning an estimate (`interpolate`, `summarize`) tells of the source data its walk left out
@@ -265,11 +266,12 @@ def note_open_window(parameter: str, count: int, closes: datetime, *, returned: 
     """Tell that `count` values of `parameter` at the station being collected are of a window that had not closed.
 
     For a source that serves the value of a period that is still going on and does not mark it (Frost: the day's
-    extreme, sum or mean before the window ends, the month so far): a daily value of it is a partial extreme, sum or
-    mean that comes back looking like the day's. ``returned`` is whether the provider handed the values over (marked in
-    their `quality_flags`) or left them out of the answer. `WINDOW_NOT_CLOSED` says so once the walk is over
-    (`ParameterRows.warn`), with the number of values and the time the earliest window closes, ``closes``, which is
-    UTC. A parameter whose values were left out is no "the source has no values" (`parameter-without-rows`).
+    extreme, sum or mean before the window ends, the month so far; DMI: the day, the month and the year so far): a
+    daily value of it is a partial extreme, sum or mean that comes back looking like the day's. ``returned`` is
+    whether the provider handed the values over (marked in their `quality_flags`) or left them out of the answer.
+    `WINDOW_NOT_CLOSED` says so once the walk is over (`ParameterRows.warn`), with the number of values and the time
+    the earliest window closes, ``closes``, which is UTC. A parameter whose values were left out is no "the source has
+    no values" (`parameter-without-rows`).
 
     ``parameter`` is `resolution/dataset/parameter`. Nothing happens outside the collection of a station.
     """
