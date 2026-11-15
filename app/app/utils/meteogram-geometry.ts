@@ -8,11 +8,20 @@
  */
 
 /** The panels, from the top of the chart to its foot */
-export const PANEL_ORDER = ['wind', 'precip', 'cloud', 'temp', 'pressure'] as const
+export const PANEL_ORDER = ['wind', 'precip', 'snow', 'snowDepth', 'snowChance', 'cloud', 'temp', 'pressure'] as const
 export type PanelName = typeof PANEL_ORDER[number]
+/**
+ * The panels the reader switches on and off. The snow panel (GH-4091) is three plots on the one time axis, each with its own
+ * axis because their numbers are of different sizes (3 cm of new snow, 200 cm of snow depth, a chance in percent), and one toggle.
+ */
+export type PanelToggle = 'wind' | 'precip' | 'snow' | 'cloud' | 'temp' | 'pressure'
+/** The toggle that shows a panel */
+export function toggleOf(panel: PanelName): PanelToggle {
+  return panel === 'snowDepth' || panel === 'snowChance' ? 'snow' : panel
+}
 
 /** The height of each panel's plot in px, whatever the screen */
-export const PANEL_HEIGHT: Record<PanelName, number> = { wind: 124, precip: 88, cloud: 80, temp: 156, pressure: 84 }
+export const PANEL_HEIGHT: Record<PanelName, number> = { wind: 124, precip: 88, snow: 72, snowDepth: 72, snowChance: 72, cloud: 80, temp: 156, pressure: 84 }
 /** The room between two panels, in which the lower one's top label sits */
 export const PANEL_GAP = 14
 /** The strip above the panels: the day names, the hours and the weather symbols */

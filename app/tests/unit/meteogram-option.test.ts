@@ -21,7 +21,7 @@ function build(options: { width?: number, hours?: number, theme?: typeof LIGHT, 
   const { width = 800, hours = 240, theme = LIGHT, now = null, without = [], locale = 'en', translate = t } = options
   const model = buildMeteogramModel({
     series: buildSeries(forecastValues({ hours, without }) as any),
-    panels: { temp: true, wind: true, precip: true, cloud: true, pressure: true },
+    panels: { temp: true, wind: true, precip: true, snow: true, cloud: true, pressure: true },
     horizonHours: null,
     zone: 'Europe/Berlin',
     language: 'en-GB',
@@ -120,8 +120,8 @@ describe('the option', () => {
     const byId = (id: string) => option.series.find((s: any) => s.id === id)
     expect(byId('temp')).toMatchObject({ type: 'line', smooth: 0.4, smoothMonotone: 'x', step: false })
     expect(byId('tempMax')).toMatchObject({ type: 'line', step: 'start', lineStyle: { type: 'dashed' } })
-    expect(byId('rain')).toMatchObject({ type: 'bar', stack: 'precipitation' })
-    expect(byId('mixed')).toMatchObject({ type: 'bar', stack: 'precipitation' })
+    expect(byId('rain')).toMatchObject({ type: 'bar', stack: 'precip' })
+    expect(byId('mixed')).toMatchObject({ type: 'bar', stack: 'precip' })
     for (const id of ['barbs', 'day-names', 'hours', 'symbols', 'backdrop-wind', 'backdrop-temp'])
       expect(byId(id), id).toMatchObject({ type: 'custom' })
     // each series in the grid of its panel

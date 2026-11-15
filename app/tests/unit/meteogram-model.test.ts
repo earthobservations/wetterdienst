@@ -14,7 +14,7 @@ function input(overrides: Partial<ModelInput> & { values?: ReturnType<typeof for
   const { values = forecastValues(), units = FORECAST_UNITS, ...rest } = overrides
   return {
     series: buildSeries(values as any),
-    panels: { temp: true, wind: true, precip: true, cloud: true, pressure: true },
+    panels: { temp: true, wind: true, precip: true, snow: true, cloud: true, pressure: true },
     horizonHours: null,
     zone: 'Europe/Berlin',
     language: 'en-GB',

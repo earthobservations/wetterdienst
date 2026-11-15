@@ -2,12 +2,14 @@
  * What the meteogram says in words and numbers besides the chart: the summary row, and the table of the values the
  * chart draws with the sentence that describes it (WCAG 1.1.1, 1.3.1).
  */
+import type { PanelToggle } from './meteogram-geometry'
 import type { SeriesMap } from './meteogram-series'
 import type { MeteogramUnits, Translate } from './meteogram-units'
 import { DateTime } from 'luxon'
 import { formatNumber } from './format'
 import { METEOGRAM_SERIES } from './meteogram'
 import { findFirstAvailable } from './meteogram-series'
+import { snowChanceAmount } from './meteogram-units'
 import { withUnit } from './units'
 
 export interface MeteogramSummary {
@@ -63,7 +65,7 @@ export interface MeteogramTable {
 }
 
 export interface TableContext {
-  panels: Record<'temp' | 'wind' | 'precip' | 'cloud' | 'pressure', boolean>
+  panels: Record<PanelToggle, boolean>
   /** the hours of the run that are shown, from its start; null for all of it */
   horizonHours: number | null
   zone: string
@@ -95,6 +97,10 @@ export function meteogramTable(series: SeriesMap, { panels, horizonHours, zone, 
     { shown: panels.wind, key: pick(METEOGRAM_SERIES.windDirection), label: `${t('meteogram.chart.seriesDirection')} ${unitName('angle')}`, digits: digits('angle') },
     { shown: panels.wind, key: pick(METEOGRAM_SERIES.gust), label: named('meteogram.chart.seriesWindGust', 'speed'), digits: digits('speed') },
     { shown: panels.precip, key: pick(METEOGRAM_SERIES.precipitation), label: `${t('meteogram.chart.panelPrecipitation')} ${unitName('precipitation')}`, digits: digits('precipitation') },
+    // the snow forecast (GH-4091), whose steps are the 3-hourly ones: a row of another hour has a dash
+    { shown: panels.snow, key: pick(METEOGRAM_SERIES.snowNew), label: named('meteogram.chart.seriesSnowNew', 'length_short'), digits: digits('length_short') },
+    { shown: panels.snow, key: pick(METEOGRAM_SERIES.snowDepth), label: named('meteogram.chart.seriesSnowDepth', 'length_short'), digits: digits('length_short') },
+    { shown: panels.snow, key: pick(METEOGRAM_SERIES.snowChance), label: t('meteogram.chart.seriesSnowChance', { amount: snowChanceAmount(units), unit: unitName('fraction') }).trim(), digits: digits('fraction') },
     { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCover), label: named('meteogram.chart.seriesTotalCloud', 'fraction'), digits: digits('fraction') },
     { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCoverLow), label: named('meteogram.chart.seriesLowClouds', 'fraction'), digits: digits('fraction') },
     { shown: panels.cloud, key: pick(METEOGRAM_SERIES.cloudCoverMid), label: named('meteogram.chart.seriesMidClouds', 'fraction'), digits: digits('fraction') },

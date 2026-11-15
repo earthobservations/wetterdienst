@@ -16,16 +16,26 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Forecast]` For the stations of DWD's snow forecast MOSMIX-SNOW (15 in the Bavarian Alps today, Zugspitzplatt
+  among them), the chart has a snow panel with its own switch: the new snow of each 3 hours as bars,
+  the snow depth as a line, and the chance of more than 10 cm of new snow within 24 hours, with the
+  source named under the chart and the values in the readout and the table. Every other station
+  looks as before. From May to October DWD publishes no snow forecast, and then no station has the
+  panel (and none says why). Needs a backend with the dataset `hourly/snow`. (GH-4091)
+
 ### Changed
 
 - `[Explorer]` The Explorer's chart is drawn with Apache ECharts instead of Plotly, which the
   Explorer route no longer loads (159 KB less JavaScript, gzip). Its toolbar (earlier, later, zoom
   out, zoom in, reset, camera) sits above the chart, and the legend turns a series off and on, also
-  from the keyboard. The arrow keys step through the values, `+`, `-` and `0` zoom, and the values
-  at a moment are in a box that the pointer can move onto, that stays, and that Escape closes. The
-  y axis follows the zoom, a missing value breaks the line, and ten years of hourly values draw in
-  about 60 % of the time with every peak kept. Saved images keep their size and names; on the light
-  page green, amber, cyan, lime and orange are a step darker, so every line reads on white (GH-4096).
+  from the keyboard (one series at a time: Plotly's double-click to isolate one is gone). The arrow
+  keys step through the values, `+`, `-` and `0` zoom, and the values at a moment are in a box that
+  the pointer can move onto and that Escape closes. The y axis follows the zoom, a missing value
+  breaks the line, and ten years of hourly values draw in about 60 % of the time with every peak
+  kept. Saved images keep their size and names; on the light page green, amber, cyan, lime and
+  orange are a step darker, so every line reads on white (GH-4096).
 
 ## [0.50.0] - 2026-11-14
 
@@ -49,6 +59,11 @@ Types of changes:
 
 ### Fixed
 
+- `[Forecast, Widget]` The precipitation bars of the forecast chart are drawn over the hour they
+  cover, not centred on the hour that ends it, which put each half an hour late against the hour
+  labels. The plots that carry bars also no longer start up to 5 px off the other plots' hours (the
+  day bands, the midnight lines and the line of now moved with them), so the same hour is at the
+  same place in every plot. The values in the readout and the table are unchanged. (GH-4091)
 - `[All pages]` On iPhone, while the search, the place dialog of "Ask the weather" or the menu sheet
   is open, the page behind is held fixed where it stood (it aims for no bounce and no
   pull-to-refresh) and gets its scroll position back when the dialog closes; a back swipe with the

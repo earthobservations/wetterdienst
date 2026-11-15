@@ -216,6 +216,13 @@ lime (5.0:1; 2.0:1) and #b45309 for the availability's gold (5.0:1; 2.2:1); on t
 series' own colours already read (7.3:1, 4.9:1, 4.7:1, 9.0:1) and gold is #daa520 (8.0:1). The Forecast's
 temperature zero line is the muted text colour like the Explorer's (3:1 or more).
 
+The Forecast's snow panel (GH-4091, only at the 15 stations that have MOSMIX-SNOW) is three plots with one switch, each with its
+own axis because their numbers differ in size: the new snow as bars, the snow depth and the chance of more than 10 cm as lines. Their
+colours are the label colours of `SERIES_LABEL` themselves (indigo, teal and gold), so the bars and lines have 3:1 on the paper (1.4.11)
+and the titles and tick labels 4.5:1 (1.4.3) in both schemes, held by `tests/unit/meteogram-snow.test.ts` and measured in the drawn
+chart by `tests/e2e/meteogram-snow.spec.ts`. The readout, the live region and the table give the three values for the 3-hourly steps
+that have them; the source (MOSMIX-SNOW, DWD) is text under the chart and prints with it.
+
 Every chart speaks the language of the page (GH-3625, 3.1.2): the names of the toolbars' buttons, the legend's group, the readout and the keys' hint are
 the page's own messages (`dataViewer.chart.*`, `stripes.chart.*`, `meteogram.chart.*`, in all eleven languages), and the
 weekdays, months and numbers are Intl's, which follows a switch of the language like a switch of the scheme; Luxembourgish and
