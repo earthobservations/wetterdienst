@@ -190,8 +190,8 @@ _RADIATION_SUM = {
 # computed from) from however many values exist, even one, and publishes how many in the field
 # `noValuesInCalculation` of every record (DMI customer service, 2026-11-12): at 04219 (Qeqertarsuaq Heliport) the
 # five daily records between 2026-01-08 and 2026-01-15 hold 0.0 hPa, marked `validity:false`, from 1 or 2 values, and
-# that of 2026-04-20 from 7. The reader does not read the count (`_STATION_VALUE_SCHEMA` in `api.py`): serving it, or
-# flagging by it, is the maintainer's to decide (GH-3762).
+# that of 2026-04-20 from 7. The reader serves the count as the token `n:<count>` of `quality_flags` and the check
+# `source` flags a value of too few of them (`SOURCE_COUNTS` in `model/source_flags.py`, GH-4027).
 _VAPOUR_PRESSURE = {
     "name": "pressure_vapor_mean",
     "name_original": "mean_vapour_pressure",

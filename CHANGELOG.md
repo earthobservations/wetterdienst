@@ -18,6 +18,12 @@ Types of changes:
 
 ### Added
 
+- `dmi/observation`: `quality_flags` carries `n:<count>`, the number of readings a value was
+  computed from (`noValuesInCalculation`), and the check `source` flags a daily value of fewer than
+  4 readings (half of the 8 synoptic readings of older Greenland days), a monthly one of fewer than
+  14 and a yearly one of fewer than 183 as `suspect:source`, null with `plausibility={"source":
+  "hard"}`; DMI computes Greenland and Faroe values from any count, even one. Soft-flagged values
+  drop out of interpolate, summarize and stripes (GH-4027)
 - `dwd/mosmix` serves DWD's snow forecast MOSMIX-SNOW as the dataset `hourly/snow`: new snow over
   3, 6, 12 and 24 hours (`snow_depth_new_last_3h` ... `_24h`, in cm), the probability of more than
   5 to 50 cm of it (`probability_snow_depth_new_gt_10cm_last_24h` ..., in %), `snow_depth` (cm),
@@ -25,13 +31,6 @@ Types of changes:
   of the run in the Bavarian Alps (`Z901` to `Z946`, which `stations` lists). DWD publishes it
   from November to April only: where no run is listed a request for values is a 404, the new
   `ProductOutOfSeasonError` (an `IssueNotFoundError`), whose message says why (GH-4091)
-
-### Fixed
-
-- `dwd/derived`: a period whose archive (or both archives of `hourly/radiation_global`) is a 404 on
-  the server, listed and then withdrawn, answers the `file-skipped` warning and no rows, where it
-  failed with a `ValueError` (an `IndexError` for `hourly/radiation_global`) and took the whole
-  request with it (GH-4056)
 
 ### Changed
 
@@ -43,6 +42,13 @@ Types of changes:
   it anew. `stations` and `values` select by them (`filter_by_wmo_id`, `--wmo-id`, `wmo_id=`; each
   station that has the id). Filled for mosmix, dmo, poi, `knmi` (`wmo_id` of the `0-20000-0-`
   stations), `meteofrance/synop`, `geosphere`, `noaa/ghcn` (GH-4070)
+
+### Fixed
+
+- `dwd/derived`: a period whose archive (or both archives of `hourly/radiation_global`) is a 404 on
+  the server, listed and then withdrawn, answers the `file-skipped` warning and no rows, where it
+  failed with a `ValueError` (an `IndexError` for `hourly/radiation_global`) and took the whole
+  request with it (GH-4056)
 
 ## [0.188.0] - 2026-11-13
 

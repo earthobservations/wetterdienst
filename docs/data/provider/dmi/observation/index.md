@@ -206,10 +206,11 @@ The mean vapour pressure (`pressure_vapor_mean`) is not checked itself: DMI comp
 temperature and mean relative humidity (DMI customer service, 2026-11-12), and its records still carry `qcStatus`
 `manual`, which here refers to those two inputs. For Greenland and the Faroe Islands the daily, monthly and yearly
 values (and the hourly ones they are computed from) are computed from however many values exist, even from a single one, and DMI
-publishes the number of values behind each in the field `noValuesInCalculation` of the record. The library does not
-read the field. At 04219 (Qeqertarsuaq Heliport), whose count has fallen and which is inactive for parts of the year, the
+publishes the number of values behind each in the field `noValuesInCalculation` of the record. The library serves it as the
+token `n:<count>` of `quality_flags` and judges a value of too few of them as the check `source` (see
+[the count behind a value](#the-count-behind-a-value-n)). At 04219 (Qeqertarsuaq Heliport), whose count has fallen and which is inactive for parts of the year, the
 five daily records between 2026-01-08 and 2026-01-15 hold 0.0 hPa from 1 or 2 values (with `validity:false`), the one of 2026-03-03
-16.8 from 2 values and the one of 2026-04-20 0.0 from 7, so a value that cannot be real can stand on one reading.
+16.8 from 2 values and the one of 2026-04-20 0.0 from 7, so a value that cannot be real can stand on one reading (`manual,validity:true,n:2,suspect:source` for the 16.8).
 
 ## Parameters DMI lists that are not served
 
@@ -242,6 +243,37 @@ progress at the Faroe and Greenland stations 06014, 06009, 04390, 04208 and 0420
 With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the
 default is `soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes leave it
 out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
+
+## The count behind a value (`n`)
+
+Every record of the `stationValue` answer carries `noValuesInCalculation`, the number of values the daily, monthly or
+yearly value was computed from (hourly values for a day, daily values for a month or a year, as DMI's calculation
+table says; the daily values of Greenland before its stations were automated are computed from the 8 three-hourly
+synoptic readings of the day, `n:8`, and DMI marks them valid). The library writes it as the token `n:<count>` after `validity` (`manual,validity:true,n:2`), at every
+resolution. DMI's [climate data page](https://www.dmi.dk/friedata/dokumentation/climate-data) says that "derived
+values contain information on the amount of data behind the calculations", names no minimum count but that of the daily
+cloud cover ("provided that there has to be at least 12 hourly values and there are not more than 2 hourly values
+missing in a row"), and DMI customer service said (2026-11-12) that the values of Greenland and the Faroe Islands are
+computed from however many values exist, even one.
+
+The check `source` therefore judges a value computed from **fewer than half the readings its period has at least**, the
+library's own rule, which DMI does not state: a daily value from fewer than **4** readings, a monthly value from fewer
+than **14** daily values and a yearly value from fewer than **183**. A day has 24 hourly values in modern data, but the
+daily values of Greenland before the automation are the mean, extreme or sum of the 8 three-hourly synoptic readings
+(`n:8` for the temperature, pressure, humidity, wind, vapour pressure and cloud cover of 04360 Tasiilaq on
+1975-06-01/02, 1995-06-01/02 and 2005-06-01/02, all `validity:true`), so half of 8 is the threshold, and it still
+catches the days of 04219 from 1 or 2 readings. The 14 of 28 days and the 183 of 365 days are half of the shortest month
+and year. A value soft-flagged `suspect:source` is a row without a value in `interpolate`, `summarize` and the climate
+stripes, as every `suspect:` value is.
+The value is kept as `suspect:source` (`manual,validity:true,n:2,suspect:source`, the 16.8 hPa of 04219 on 2026-03-03)
+and null as `rejected:source,raw:<text>` with `plausibility={"source": "hard"}`, the same switch as `validity:false`.
+
+The rule covers the averages, extremes and sums of the hourly values of a day and of the daily values of a month and a
+year. It leaves out the parameters whose count is not the hours of the day or the days of the period: the daily
+precipitation (some Greenland stations measure it by hand), snow depth, snow cover, the largest 30 minute
+precipitation, the clear and cloudy days, the heating degree days of a day and the leaf wetness (which DMI computes
+only from 22 hourly values itself), and every count of days and the greatest snow depth of a month and a year. The
+hourly values carry the token and are not judged by it.
 
 ## License
 
