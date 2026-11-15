@@ -179,6 +179,15 @@ LEGENDS: dict[str, list[QualityKind]] = {
             "`source` flags the value `suspect:source` (soft, the default) or nulls it as `rejected:source` (hard).",
             codes=_codes(true="Considered valid", false="Considered not valid"),
         ),
+        _kind(
+            "n",
+            "<count>",
+            "DMI's `noValuesInCalculation`: the number of readings the value was computed from (hourly values for a "
+            "day, daily values for a month or a year). DMI computes the values of Greenland and the Faroe Islands "
+            "from however many exist, even one; a daily value from fewer than 4 readings (half of the 8 three-hourly "
+            "synoptic observations that older Greenland days have; modern days have 24 hourly), a monthly from fewer "
+            "than 14 and a yearly from fewer than 183 is judged by the check `source` like `validity:false`.",
+        ),
         SUSPECT,
         REJECTED,
         RAW,
