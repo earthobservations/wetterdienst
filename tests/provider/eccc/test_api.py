@@ -45,8 +45,14 @@ def test_eccc_api_stations(options_convert_units_false: Options) -> None:
                 "elevation": 4.0,
                 "name": "ACTIVE PASS",
                 "region": "BC",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
+                "climate_id": "1010066",
+                "tc_id": None,
             },
         ],
+        schema_overrides={"wmo_id": pl.String, "wigos_id": pl.String, "icao_id": pl.String, "tc_id": pl.String},
         orient="row",
     )
     assert_frame_equal(given_df, expected_df)

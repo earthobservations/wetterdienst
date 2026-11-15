@@ -143,6 +143,15 @@
     "title": "Wetterdienst – open weer- en klimaatdata van nationale weerdiensten",
     "description": "Open weer- en klimaatdata van nationale weerdiensten in één formaat: verkenner, weersverwachting, klimaatstrepen, REST-API en MCP-server. Open source en gratis.",
     "noscript": "Wetterdienst heeft JavaScript nodig om data te tonen.",
+    "providerDescription": "{provider} in Wetterdienst: {kinds}, met licentie en bronvermelding. Open in de Verkenner of via de REST API.",
+    "kinds": {
+      "observation": "metingen",
+      "forecast": "verwachtingen",
+      "derived": "afgeleide gegevens",
+      "radar": "radar",
+      "alerts": "weerwaarschuwingen"
+    },
+    "kindsAnd": "en",
     "pages": {
       "explorer": "Kies een aanbieder, parameters en stations op de kaart, lees de metingen, interpoleer een punt en download het resultaat als CSV, JSON of GeoJSON.",
       "meteogram": "De MOSMIX-verwachting van een DWD-station als meteogram: temperatuur, wind, neerslag, bewolking en luchtdruk.",

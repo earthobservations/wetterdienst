@@ -24,6 +24,18 @@ Types of changes:
   source named under the chart and the values in the readout and the table. Every other station
   looks as before. From May to October DWD publishes no snow forecast, and then no station has the
   panel (and none says why). Needs a backend with the dataset `hourly/snow`. (GH-4091)
+- `[Server]` With `NUXT_GOOGLE_SITE_VERIFICATION` set to the name Google Search Console gives
+  (`google54ae9a07758f51bd`), the server answers `/<name>.html` with the line Google looks for, to
+  verify the site by its HTML file. Empty by default, nothing changes; a value that is no such name
+  is ignored with a warning at start. See docs/usage/app.md (GH-4108).
+- `[Server]` Each provider's page (`/providers/dwd`, ...) has a title, description, canonical link
+  and `og:*` tags of its own (German and English in the server's head, every language of the app
+  once the script has run), and is in `sitemap.xml`; before, a crawler saw the home page's head on
+  all 22 and none in the sitemap. The list comes from the backend's `/api/providers`, kept for an
+  hour: a provider the backend gains is in within the hour or at the next restart, and an id it does
+  not have is as before. If the backend is down, the list read last is used; only a server that has
+  read none since it started writes the generic head and lists the fixed pages. The `<noscript>`
+  text of these pages names the provider (GH-4119).
 
 ### Changed
 

@@ -641,6 +641,9 @@ def test_stations_dwd_basic(client: TestClient) -> None:
         "elevation": 680.0,
         "name": "Donaueschingen (Landeplatz)",
         "region": "Baden-Württemberg",
+        "wmo_id": None,
+        "wigos_id": None,
+        "icao_id": None,
     }
 
 
@@ -672,6 +675,9 @@ def test_stations_dwd_geo(client: TestClient) -> None:
         "elevation": 806.0,
         "name": "Oberstdorf",
         "region": "Bayern",
+        "wmo_id": None,
+        "wigos_id": None,
+        "icao_id": None,
         "distance": 207.0831,
     }
 
@@ -703,6 +709,9 @@ def test_stations_dwd_sql(client: TestClient, monkeypatch: pytest.MonkeyPatch) -
         "elevation": 228.0,
         "name": "Dresden-Klotzsche",
         "region": "Sachsen",
+        "wmo_id": None,
+        "wigos_id": None,
+        "icao_id": None,
     }
 
 
@@ -1549,7 +1558,6 @@ def test_stations_missing_null(client: TestClient) -> None:
         "resolution": "hourly",
         "dataset": "small",
         "station_id": "01025",
-        "icao_id": None,
         "start_timestamp": None,
         "end_timestamp": None,
         "latitude": 69.68,
@@ -1557,6 +1565,9 @@ def test_stations_missing_null(client: TestClient) -> None:
         "elevation": 10.0,
         "name": "TROMSOE",
         "region": None,
+        "wmo_id": "01025",
+        "wigos_id": None,
+        "icao_id": None,
     }
 
 
