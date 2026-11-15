@@ -2,7 +2,7 @@ import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { createServer } from 'node:http'
 import { createRequire } from 'node:module'
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { verificationFile, verificationName, verificationWarning } from '../../server/utils/googleSiteVerification'
 
 // Google Search Console's HTML-file verification (GH-4108): the name is a setting of the instance, never a file of
@@ -53,40 +53,36 @@ const nuxtRequire = createRequire(createRequire(import.meta.url).resolve('nuxt/p
 const h3 = nuxtRequire('h3') as typeof import('h3')
 
 const config: { googleSiteVerification: unknown } = { googleSiteVerification: '' }
-const servers: Server[] = []
-let app: string
-let shell: ReturnType<typeof vi.fn>
-
-beforeAll(async () => {
-  for (const [name, value] of Object.entries({
-    defineEventHandler: h3.defineEventHandler,
-    setResponseHeader: h3.setResponseHeader,
-    useRuntimeConfig: () => config,
-    verificationName,
-    verificationFile,
-  }))
-    vi.stubGlobal(name, value)
-  const { default: middleware } = await import('../../server/middleware/google-site-verification')
-  shell = vi.fn(() => '<html>the shell</html>')
-  const router = h3.createApp()
-  router.use(middleware)
-  router.use(h3.defineEventHandler(event => shell(event)))
-  const server = createServer(h3.toNodeListener(router))
-  servers.push(server)
-  app = await new Promise<string>(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`)))
-})
-
-afterEach(() => {
-  config.googleSiteVerification = ''
-  shell.mockClear()
-})
-
-afterAll(async () => {
-  vi.unstubAllGlobals()
-  await Promise.all(servers.map(server => new Promise(resolve => server.close(resolve))))
-})
 
 describe('the middleware', () => {
+  let server: Server
+  let app: string
+  let shell: ReturnType<typeof vi.fn>
+
+  // The globals Nitro provides are stubbed for each test and removed after it, so that no other describe of the
+  // file (the warning's stubs `useRuntimeConfig` too) can take them from this one, whatever order the tests run in.
+  beforeEach(async () => {
+    for (const [name, value] of Object.entries({
+      defineEventHandler: h3.defineEventHandler,
+      setResponseHeader: h3.setResponseHeader,
+      useRuntimeConfig: () => config,
+    }))
+      vi.stubGlobal(name, value)
+    const { default: middleware } = await import('../../server/middleware/google-site-verification')
+    shell = vi.fn(() => '<html>the shell</html>')
+    const router = h3.createApp()
+    router.use(middleware)
+    router.use(h3.defineEventHandler(event => shell(event)))
+    server = createServer(h3.toNodeListener(router))
+    app = await new Promise<string>(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`)))
+  })
+
+  afterEach(async () => {
+    config.googleSiteVerification = ''
+    vi.unstubAllGlobals()
+    await new Promise(resolve => server.close(resolve))
+  })
+
   it('answers /<name>.html with exactly the line Google expects, as HTML', async () => {
     config.googleSiteVerification = NAME
     const response = await fetch(`${app}/${NAME}.html`)
@@ -95,6 +91,17 @@ describe('the middleware', () => {
     expect(response.headers.get('content-type')).toBe('text/html; charset=utf-8')
     expect(await response.text()).toBe(LINE)
     expect(shell).not.toHaveBeenCalled()
+  })
+
+  it('answers a file and not the shell: cached for an hour, with none of the headers the shell\'s hooks add', async () => {
+    config.googleSiteVerification = NAME
+    const response = await fetch(`${app}/${NAME}.html`)
+
+    expect(response.headers.get('cache-control')).toBe('public, max-age=3600')
+    // seo-head's `render:html` hook adds `Vary: Cookie, Accept-Language` and, for some paths, `X-Robots-Tag`
+    expect(response.headers.get('vary')).toBeNull()
+    expect(response.headers.get('x-robots-tag')).toBeNull()
+    expect(await response.text()).toBe(LINE)
   })
 
   it('takes the name with the .html Google shows, and a query string', async () => {
@@ -150,26 +157,6 @@ describe('the middleware', () => {
     const response = await fetch(`${app}/${NAME}.html`, { method: 'POST' })
 
     expect(await response.text()).toBe('<html>the shell</html>')
-  })
-})
-
-describe('the plugin that writes the shell', () => {
-  // `render:html` is called by the renderer of the shell, which the middleware answers in front of
-  it('is not asked about the answer, which is no page', async () => {
-    const hook = vi.fn()
-    vi.stubGlobal('defineNitroPlugin', (plugin: (app: any) => void) => plugin({ hooks: { hook } }))
-    vi.stubGlobal('getCookie', () => undefined)
-    vi.stubGlobal('getRequestHeader', () => undefined)
-    vi.stubGlobal('useRuntimeConfig', () => ({ public: { siteUrl: 'https://wetterdienst.eobs.org' } }))
-    vi.stubGlobal('appendResponseHeader', vi.fn())
-    vi.stubGlobal('setResponseHeader', vi.fn())
-    await import('../../server/plugins/seo-head')
-    vi.unstubAllGlobals()
-
-    // the hook is registered for the rendered shell; the answer of the middleware never reaches `render:html`,
-    // and what it sends holds none of the tags that hook writes
-    expect(hook).toHaveBeenCalledWith('render:html', expect.any(Function))
-    expect(LINE).not.toMatch(/<|canonical|og:/)
   })
 })
 

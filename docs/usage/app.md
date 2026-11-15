@@ -216,9 +216,10 @@ starts, no rebuild.
 To verify the site in Google Search Console with the HTML-file method, set `NUXT_GOOGLE_SITE_VERIFICATION` to the
 name Google gives for the file (`google54ae9a07758f51bd`; a trailing `.html` is accepted). The server then answers
 `/google54ae9a07758f51bd.html` with the one line Google looks for, and nothing else; any other path, and every
-path while the variable is empty (the default), is answered as before. A value that is not `google` and lower-case hex is ignored, and the server logs
-a warning when it starts. The variable is read when the server starts, no rebuild. It is a setting and not a file
-of the build so that an instance does not serve the token of another's Google account.
+path while the variable is empty (the default), is answered as before. A value that is not `google` and lower-case
+hex is ignored, and the server logs a warning when it starts. The variable is read when the server starts, no
+rebuild. It is a setting and not a file of the build so that an instance does not serve the token of another's
+Google account.
 
 ## Rate limit
 
