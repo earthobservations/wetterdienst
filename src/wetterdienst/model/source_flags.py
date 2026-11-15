@@ -49,6 +49,8 @@ from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 
+from wetterdienst.model.open_window import INCOMPLETE
+
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
 
@@ -146,6 +148,10 @@ class SourceFlags:
         return {self.reading()} | ({(self.beside[0], None)} if self.beside is not None else set())
 
 
+#: the token that says a value is of a period that had not ended (`model/open_window.py`): a count is not judged in it
+_COMPLETENESS: Reading = ("completeness", None)
+
+
 @dataclass(frozen=True)
 class SourceCount:
     """A value the source computed from fewer readings than its period needs, read in the token ``n:<count>``.
@@ -193,15 +199,18 @@ class SourceCount:
         hit = count.cast(pl.Int64, strict=False).lt(self.below) & pl.col("parameter").is_in(
             [names.get(name, name) for name in self.parameters]
         )
-        return hit.fill_null(value=False)
+        # a value of a period that had not ended is computed from the readings so far, which is fewer than the period
+        # needs by construction: `completeness:Incomplete` says so, and it is no gap in the readings (GH-4087)
+        running = columns[_COMPLETENESS] if _COMPLETENESS in columns else _code_of(*_COMPLETENESS)
+        return (hit & running.eq(INCOMPLETE).fill_null(value=False).not_()).fill_null(value=False)
 
     def reading(self) -> Reading:
         """Name what the count is read in: the kind of token, no digit."""
         return (self.kind, None)
 
     def readings(self) -> set[Reading]:
-        """Name the tokens this rule reads."""
-        return {self.reading()}
+        """Name the tokens this rule reads: the count, and the completeness of the period it is of."""
+        return {self.reading(), _COMPLETENESS}
 
 
 def _code_of(kind: str | None, digit: int | None = None) -> pl.Expr:

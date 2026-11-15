@@ -51,8 +51,9 @@ The usual reasons:
 - **Values are left out, or marked incomplete, because their window has not closed.** The answer carries a
   `window-not-closed` warning (`metno/frost`: the daily maximum and minimum temperature until 18 UTC of the date, the
   precipitation sum until 06 UTC, the mean and every other daily element until the end of the date; the monthly values
-  until the last day of the month at the same hours). Frost serves them as they stand and marks nothing, so a daily value
-  of such a window is left out, and a monthly one is returned with `completeness:Incomplete` in its `quality_flags`.
+  until the last day of the month at the same hours; `dmi/observation`: the day, the month and the year still
+  running). The sources serve them as they stand and mark nothing, so a daily value of such a window is left out, and
+  a monthly one is returned with `completeness:Incomplete` in its `quality_flags`.
   The warning names the parameter, the stations and when the earliest window closes. Ask again after that time for the
   daily value, or end the window before the current month; the answer is not partial for a failure. `interpolate` and
   `summarize` cannot carry the mark, so they leave the monthly and annual value of an open window out too and tell it as
@@ -85,8 +86,8 @@ The usual reasons:
   does: try again later for a download, a page or a directory that may be back; for a refused download or a file that
   would not parse, a retry gets the same, so report it); dates of another series of the source (`metno/frost`, as
   `other-window-left-out` says for `values`), which are not read and are not missing at the source, so do not try
-  again; values of a window that had not closed yet (`metno/frost`: today, this month or this year, as
-  `window-not-closed` says for `values`), which are partial and left out, and come back once the window has closed (ask
+  again; values of a window that had not closed yet (`metno/frost` and `dmi/observation`: today, this month or this
+  year, as `window-not-closed` says for `values`), which are partial and left out, and come back once the window has closed (ask
   again then, or end the window before the current period); and values a hard plausibility check rejected, which the
   estimate does not use. It is one warning, whatever the number of stations or causes, and an estimate tells none of
   `file-skipped`, `other-window-left-out` and `window-not-closed` of a station.

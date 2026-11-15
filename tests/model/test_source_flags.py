@@ -24,6 +24,7 @@ from wetterdienst.model.plausibility import COVERAGE, Plausibility
 from wetterdienst.model.source_flags import (
     SOURCE_FLAGS,
     SourceCode,
+    SourceCount,
     SourceFlags,
     flags_of,
     hits,
@@ -54,6 +55,9 @@ PARAMETER_FLAGS = SourceFlags(
     beside=("source", ("345",)),
     parameters=("humidity_relative", "wind_speed"),
 )
+
+
+COUNT = SourceCount(datasets=("a/b",), below=14, parameters=("temperature",), url="u", quote="q")
 
 
 def _hits(flags: SourceFlags, texts: list[str | None], parameters: list[str] | None = None) -> list[bool]:
@@ -525,3 +529,26 @@ def test_the_docstring_of_the_map_names_every_suspect_level() -> None:
     for word in _SUSPECT_WORDS:
         assert f"``{word}``" in docstring, word
         assert f'"{word}"' in comment, word
+
+
+def test_a_count_is_not_judged_in_a_period_that_had_not_ended_and_is_in_one_that_has() -> None:
+    """Only `completeness:Incomplete` exempts a low count: `Complete`, another code or no token does not (GH-4087)."""
+    texts = [
+        "manual,validity:true,n:5,completeness:Incomplete",
+        "manual,validity:true,n:5,completeness:Complete",
+        "manual,validity:true,n:5,completeness:Other",
+        "manual,validity:true,n:5",
+        "manual,validity:true,n:20,completeness:Complete",
+        "manual,validity:true,n:20",
+        "manual,validity:true,completeness:Complete",
+        None,
+    ]
+    expected = [False, True, True, True, False, False, False, False]
+    frame = pl.DataFrame({"quality_flags": texts, "parameter": ["temperature"] * len(texts)})
+    frame = frame.cast({"quality_flags": pl.String})
+
+    assert frame.select(COUNT.hit()).to_series().to_list() == expected
+    # the core extracts the tokens once for all the rules (`hits`), and judges the same
+    erroneous, suspect = hits(frame, [COUNT])
+    assert erroneous.to_list() == expected
+    assert suspect.to_list() == [False] * len(texts)
