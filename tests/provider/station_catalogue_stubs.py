@@ -1833,9 +1833,11 @@ FROST_EXPECTED: dict[str, dict[str, Any]] = {
     }
     for station_id, (start, end) in frost_rows.EXPECTED.items()
 }
-# the ids of Oslo - Blindern: the `wmoId`, an integer, 1492 padded to five digits, the WIGOS id of Norway's issuer,
-# whose local part is no WMO number, and no `icaoCodes` (a list, on 164 of the 4,183 sources, GH-4070)
-FROST_EXPECTED["SN18700"].update({"wmo_id": "01492", "wigos_id": "0-578-0-18700", "icao_id": None})
+# the ids of Oslo - Blindern as live Frost answers them (the live frame of the main `Tests` run 43707983274, GH-4114):
+# the `wmoId`, an integer, 1492 padded to five digits, the WIGOS id of WMO's own issuer, `0-20000-0-01492`, and no
+# `icaoCodes` (a list, on 164 of the 4,183 sources, GH-4070). No row of Norway's issuer 578 (1,350 of the sources) is in
+# the stub: no station of it is verified live from the repo, so none is made up
+FROST_EXPECTED["SN18700"].update({"wmo_id": "01492", "wigos_id": "0-20000-0-01492", "icao_id": None})
 
 # the ids of the stations of the ECCC list that carry them: Esquimalt Harbour has the three, Chemainus Bare Point only
 # the Climate ID (GH-4070); the TC id is no ICAO code, so `icao_id` stays null

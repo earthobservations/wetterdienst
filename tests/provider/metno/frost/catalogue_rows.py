@@ -47,9 +47,11 @@ SOURCES: dict = {
             "validFrom": "1931-01-01T00:00:00.000Z",
             "county": "OSLO",
             # the ids as Frost types them (read live 2026-11-15, 4,183 sources): `wmoId` an integer, 1492 for 01492, on
-            # 1,029; `wigosId` a text on 1,621, here of Norway's issuer; no `icaoCodes`, a list that 164 sources have
+            # 1,029; `wigosId` a text on 1,621, here of WMO's own issuer 20000 (265 sources; Norway's 578 has 1,350),
+            # as the live frame of the main `Tests` run 43707983274 has it (GH-4114); no `icaoCodes`, a list that 164
+            # sources have
             "wmoId": 1492,
-            "wigosId": "0-578-0-18700",
+            "wigosId": "0-20000-0-01492",
         },
         {
             "id": "SN46380",

@@ -62,7 +62,9 @@ _ISSUE_PATHS = {
 #: dataset are: those are the stations the newest run names (`DwdMosmixRequest._snow_station_ids`), so that a station
 #: DWD adds is reachable. This is the answer only where no run can be read, which is out of season (the directory is
 #: empty from May to October) or when it could not be listed or read. The MOSMIX catalogue lists 37 `Z9xx` stations and
-#: cannot say which are the run's. `test_dwd_mosmix_snow` holds this list to the live run, so a change is noticed.
+#: cannot say which are the run's. `test_dwd_mosmix_snow` holds this list to the live run, so a change is noticed;
+#: re-check then the extent of `hourly/snow` in `metadata.py` (national DE; an Austrian station makes it regional
+#: DE/AT), which the live catalogue check would not notice, since its box covers Austrian border areas.
 MOSMIX_SNOW_STATION_IDS = (
     "Z901",
     "Z905",

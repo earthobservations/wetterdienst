@@ -266,12 +266,18 @@ def _count_unreadable_numbers(df: pl.DataFrame, column: str, provider: str) -> N
 
 
 def _count_unreadable_ids(df: pl.DataFrame, column: str, provider: str) -> None:
-    """Say in one debug line how many cells of an id column are not in its notation (null now), counted, not named."""
+    """Say in one debug line how many cells of an id column are not in its notation (null now), counted, not named.
+
+    A blank or whitespace-only text is no id and no unreadable one: a source that writes nothing for a station that has
+    none (AEMET's `indsinop`, blank for 625 of 926 stations) has no id there, as a null has, and is not counted. The
+    expressions of `STATION_ID_COLUMNS` already shape it to null, for every provider, so no reader strips it.
+    """
     series = df.get_column(column).cast(pl.String)
+    absent = series.is_null() | series.str.strip_chars().eq("")
     unreadable = (
-        series.to_frame(column).select(STATION_ID_COLUMNS[column](column).alias(column)).get_column(column).null_count()
-    )
-    unreadable -= series.null_count()
+        series.to_frame(column).select(STATION_ID_COLUMNS[column](column).alias(column)).get_column(column).is_null()
+        & ~absent
+    ).sum()
     if unreadable:
         log.debug("%s: %d of %d %s cells are not in its notation and are null", provider, unreadable, df.height, column)
 

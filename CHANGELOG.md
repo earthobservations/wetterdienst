@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.189.0] - 2026-11-15
+
 ### Added
 
 - The station columns `wmo_id`, `wigos_id` and `icao_id` are filled from what the provider's list
@@ -59,6 +61,9 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/mosmix`: `coverage` gives the snow forecast `hourly/snow` its own `extent` (national, DE,
+  Europe, box 9 to 14 E and 47.2 to 49 N: its stations are all in the Bavarian Alps), where it said
+  the world's; `small` and `large` and `providers` (one extent per network) stay global (GH-4111)
 - `dwd/mosmix`: a request for several datasets (`small` and `large`, `snow`) parses each run file
   once, where it parsed the other dataset's file again at every station (36 MB for MOSMIX-S); the
   reader keeps one parsed file per dataset of the request (GH-4093)
@@ -8139,7 +8144,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.188.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.189.0...HEAD
+[0.189.0]: https://github.com/earthobservations/wetterdienst/compare/v0.188.0...v0.189.0
 [0.188.0]: https://github.com/earthobservations/wetterdienst/compare/v0.187.1...v0.188.0
 [0.187.1]: https://github.com/earthobservations/wetterdienst/compare/v0.187.0...v0.187.1
 [0.187.0]: https://github.com/earthobservations/wetterdienst/compare/v0.186.0...v0.187.0
