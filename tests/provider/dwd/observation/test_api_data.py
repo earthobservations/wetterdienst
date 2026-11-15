@@ -26,6 +26,18 @@ from wetterdienst.provider.dwd.observation.metadata import (
 )
 from wetterdienst.util.network import File
 
+# the columns every DWD station has: wmo_id, wigos_id and icao_id are null for all of them
+STATION_COLUMNS = [
+    "station_id",
+    "start_timestamp",
+    "end_timestamp",
+    "latitude",
+    "longitude",
+    "elevation",
+    "name",
+    "region",
+]
+
 
 @pytest.fixture
 def dwd_climate_summary_wide_columns() -> list[str]:
@@ -1814,7 +1826,7 @@ def test_dwd_observation_weather_phenomena(options_humanize_false_convert_units_
         end=dt.datetime(year=2022, month=3, day=31, tzinfo=ZoneInfo("UTC")),
         options=options_humanize_false_convert_units_false,
     )
-    given_df = request.all().df.drop_nulls()
+    given_df = request.all().df.drop_nulls(subset=STATION_COLUMNS)
     assert len(given_df) > 0
 
 
@@ -2221,7 +2233,7 @@ def test_dwd_observation_datasets_high_resolution(default_settings: Settings, da
         settings=default_settings,
     ).all()
     df_stations = request.df
-    assert not df_stations.drop_nulls().is_empty()
+    assert not df_stations.drop_nulls(subset=STATION_COLUMNS).is_empty()
     given_df = next(request.values().query()).df
     assert not given_df.is_empty()
     assert given_df.get_column("quality_flags").is_not_null().mean() >= 0.99
@@ -2245,7 +2257,7 @@ def test_dwd_observation_datasets_low_resolution(default_settings: Settings, dat
         settings=default_settings,
     ).all()
     df_stations = request.df
-    assert not df_stations.drop_nulls().is_empty()
+    assert not df_stations.drop_nulls(subset=STATION_COLUMNS).is_empty()
     given_df = next(request.values().query()).df
     assert not given_df.is_empty()
     assert given_df.get_column("quality_flags").is_not_null().mean() >= 0.99

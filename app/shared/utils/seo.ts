@@ -23,8 +23,8 @@ export interface SeoRoute {
 
 /**
  * The pages that are in the index and in the sitemap. A page of `app/pages` is either here or in `NOT_INDEXED`
- * (or is `/providers/[provider]`, whose paths the backend's list of providers makes): `tests/unit/seo.test.ts`
- * holds the pages to that, so a new page cannot forget to say what it is.
+ * (or is `/providers/[provider]`, whose paths the backend's list of providers makes, `providerIds` below):
+ * `tests/unit/seo.test.ts` holds the pages to that, so a new page cannot forget to say what it is.
  */
 export const SEO_ROUTES: readonly SeoRoute[] = [
   { path: '/', title: 'seo.title', description: 'seo.description' },
@@ -72,6 +72,112 @@ export function findSeoRoute(path: string): SeoRoute | undefined {
   // the router takes `/About` for `/about`, so the lookup does; the canonical link is the route's own path
   const wanted = normalizePath(path).toLowerCase()
   return SEO_ROUTES.find(route => route.path === wanted || route.aliases?.includes(wanted))
+}
+
+/** The catalog key of each kind of network, reusing the names the home page gives the kinds of data */
+export const NETWORK_KIND_KEYS = {
+  observation: 'home.kindObservationsTitle',
+  forecast: 'home.kindForecastsTitle',
+  derived: 'providers.kindDerived',
+  radar: 'home.kindRadarTitle',
+  alerts: 'home.kindAlertsTitle',
+} as const
+
+/** The key of the catalog of the description of a provider's page; `{provider}` and `{kinds}` are filled in */
+export const PROVIDER_DESCRIPTION_KEY = 'seo.providerDescription'
+
+/** The key of the catalog of the word that joins the last two kinds of data: "and" */
+const KINDS_AND_KEY = 'seo.kindsAnd'
+
+/** The part of a provider as `GET /api/providers` answers it that its page's head is made of */
+export interface SeoProvider {
+  /** The id in the path: `dwd` */
+  provider: string
+  name_english: string
+  country: string
+  country_code: string | null
+  networks: readonly { kind: string }[]
+}
+
+// the ids the backend has are lower case words; the one that is read from a path or an answer is held to that, so
+// nothing else (a `..`, a `%`, markup) can become a sitemap entry or a canonical link
+const PROVIDER_ID = /^[a-z][a-z0-9_-]*$/
+
+/**
+ * The id a provider's page path names (`/providers/dwd`), lower case as the page reads it, whether or not the
+ * provider exists.
+ *
+ * @param path A request path or a route's path
+ * @returns The id, or `undefined` for a path that is not one level under `/providers`
+ */
+export function providerIdOfPath(path: string): string | undefined {
+  const id = /^\/providers\/([^/]+)$/.exec(normalizePath(path).toLowerCase())?.[1]
+  return id && PROVIDER_ID.test(id) ? id : undefined
+}
+
+/** The path of a provider's page, which is also its canonical path and its sitemap entry. */
+export function providerPath(id: string): string {
+  return `/providers/${id}`
+}
+
+/**
+ * The provider whose page a path is.
+ *
+ * @param path A request path or a route's path
+ * @param providers The providers of the backend
+ * @returns The provider, or `undefined` for a path that is no provider's page (an unknown id included)
+ */
+export function findProvider(path: string, providers: readonly SeoProvider[]): SeoProvider | undefined {
+  const id = providerIdOfPath(path)
+  return id === undefined ? undefined : providers.find(provider => provider.provider === id)
+}
+
+/** The ids of a list the backend answered, those that can be paths, in the order of the list. */
+export function providerIds(providers: readonly SeoProvider[]): string[] {
+  return providers.map(provider => provider.provider).filter(id => PROVIDER_ID.test(id))
+}
+
+/** The name of a country in a language, as the browser and Node know it; the backend's English one if they do not. */
+function countryName(provider: SeoProvider, language: string): string {
+  if (!provider.country_code)
+    return ''
+  try {
+    return new Intl.DisplayNames([language], { type: 'region' }).of(provider.country_code) ?? provider.country
+  }
+  catch {
+    return provider.country
+  }
+}
+
+/**
+ * The title and the description of a provider's page, the one text for the server's shell and the script's head. The
+ * provider keeps its name; the sentence around it, the country and the kinds of data are in the language.
+ *
+ * @param provider The provider
+ * @param language The code of the locale, `de` or `de-hh`: the country's name is written in it
+ * @param translate The catalog of the locale: a key and the values for its `{slots}`, as `t` of vue-i18n takes them
+ * @returns The title as a page of the app is titled, and the description
+ */
+export function providerSeoText(
+  provider: SeoProvider,
+  language: string,
+  translate: (key: string, values?: Record<string, string>) => string,
+): { title: string, description: string } {
+  const country = countryName(provider, language)
+  // the kinds as nouns in the middle of a sentence (`seo.kinds.*`), not the capitalised names of the home page
+  const kinds = [...new Set(provider.networks.map(network => network.kind))]
+    .map(kind => Object.hasOwn(NETWORK_KIND_KEYS, kind) ? translate(`seo.kinds.${kind}`) : kind)
+  // joined by the catalog's own word for "and", with no comma before it; `Intl.ListFormat` is not used, since its
+  // patterns for some of the app's languages are not words (Luxembourgish prints `a(n)`)
+  const last = kinds.pop()
+  const list = kinds.length > 0 ? `${kinds.join(', ')} ${translate(KINDS_AND_KEY)} ${last}` : (last ?? '')
+  return {
+    title: `${provider.name_english} - Wetterdienst`,
+    description: translate(PROVIDER_DESCRIPTION_KEY, {
+      provider: country ? `${provider.name_english} (${country})` : provider.name_english,
+      kinds: list,
+    }),
+  }
 }
 
 /**
@@ -136,10 +242,13 @@ export function escapeXml(text: string): string {
  * `lastmod`, `changefreq` or `priority`, which the app has no true value for.
  *
  * @param siteUrl The `siteUrl` of the runtime configuration
+ * @param providers The ids of the providers of the backend, each with a page of its own (`providerIds`); none if the
+ * list is not known, which leaves the fixed pages
  * @returns The XML document
  */
-export function sitemapXml(siteUrl: unknown): string {
-  const urls = SEO_ROUTES.map(route => `  <url><loc>${escapeXml(canonicalUrl(siteUrl, route.path))}</loc></url>`)
+export function sitemapXml(siteUrl: unknown, providers: readonly string[] = []): string {
+  const paths = [...SEO_ROUTES.map(route => route.path), ...providers.filter(id => PROVIDER_ID.test(id)).map(providerPath)]
+  const urls = paths.map(path => `  <url><loc>${escapeXml(`${siteOrigin(siteUrl)}${path}`)}</loc></url>`)
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',

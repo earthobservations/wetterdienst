@@ -38,6 +38,10 @@ Types of changes:
   of the run in the Bavarian Alps (`Z901` to `Z946`, which `stations` lists). DWD publishes it
   from November to April only: where no run is listed a request for values is a 404, the new
   `ProductOutOfSeasonError` (an `IssueNotFoundError`), whose message says why (GH-4091)
+- `issues` for `dwd/mosmix` takes `dataset` (`--dataset`, `dataset=`): `small` and `snow` list the
+  runs of MOSMIX-S and MOSMIX-SNOW (one all-stations file per run, so any station id lists them),
+  `large` those of MOSMIX-L, the default, so a call without it answers as before. `dataset=icon`
+  is still refused for MOSMIX, a MOSMIX product for DMO and SWSMOS (GH-4093)
 
 ### Changed
 
@@ -58,6 +62,16 @@ Types of changes:
 - `dwd/mosmix`: `coverage` gives the snow forecast `hourly/snow` its own `extent` (national, DE,
   Europe, box 9 to 14 E and 47.2 to 49 N: its stations are all in the Bavarian Alps), where it said
   the world's; `small` and `large` and `providers` (one extent per network) stay global (GH-4111)
+- `dwd/mosmix`: a request for several datasets (`small` and `large`, `snow`) parses each run file
+  once, where it parsed the other dataset's file again at every station (36 MB for MOSMIX-S); the
+  reader keeps one parsed file per dataset of the request (GH-4093)
+- **Breaking**: `dmi/observation` serves the day, month and year still running unmarked (2026's
+  annual mean from 319 days). A daily value of a day that has not ended is now left out, with a
+  `window-not-closed` warning; a monthly or annual one is returned with
+  `completeness:Incomplete` in `quality_flags` (after `n:`, before `raw:`) and the same warning,
+  as `metno/frost` does. `interpolate` and `summarize` leave all of them out and tell it in
+  `source-data-left-out`. A running period is no longer `suspect:source` for its count. Ask again
+  once the period has ended, split the tokens rather than compare the string (GH-4087)
 - `dwd/derived`: a period whose archive (or both archives of `hourly/radiation_global`) is a 404 on
   the server, listed and then withdrawn, answers the `file-skipped` warning and no rows, where it
   failed with a `ValueError` (an `IndexError` for `hourly/radiation_global`) and took the whole

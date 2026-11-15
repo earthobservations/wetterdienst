@@ -205,7 +205,11 @@ HTML it sends: the title, the description, the canonical link and the `og:` and 
 `<noscript>` text with links to the pages. The script then sets the same tags in the language of the visitor; the
 server writes German, or English for a visitor who chose it or whose browser asks for it first. `/sitemap.xml` lists
 the pages worth finding (the explorer, the forecast, the climate stripes, the API, the providers, the glossary, the
-project and legal pages) and `/robots.txt` names it. `/widget` and `/settings` ask not to be indexed, and a path
+project and legal pages, and the page of each provider) and `/robots.txt` names it. The page of a provider
+(`/providers/dwd`) has its own title and description; the server reads the list of providers from the backend's
+`/api/providers` and keeps it for an hour. While the backend cannot be reached it goes on with the list it read last;
+only a server that has read none since it started writes the generic head and lists the fixed pages only.
+`/widget` and `/settings` ask not to be indexed, and a path
 that ends in `.xml` or `.txt` and is none of the app's files is a 404.
 
 Both files, and the canonical links, use the address that `NUXT_PUBLIC_SITE_URL` gives, which is

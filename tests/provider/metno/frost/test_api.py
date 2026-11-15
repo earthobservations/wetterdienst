@@ -47,6 +47,9 @@ def test_metno_frost_stations() -> None:
                 "elevation": 94.0,
                 "name": "OSLO - BLINDERN",
                 "region": "OSLO",
+                "wmo_id": "01492",
+                "wigos_id": "0-20000-0-01492",
+                "icao_id": None,
             }
         ],
         schema={
@@ -60,6 +63,9 @@ def test_metno_frost_stations() -> None:
             "elevation": pl.Float64,
             "name": pl.String,
             "region": pl.String,
+            "wmo_id": pl.String,
+            "wigos_id": pl.String,
+            "icao_id": pl.String,
         },
         orient="row",
     )

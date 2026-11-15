@@ -126,6 +126,9 @@ def test_aemet_observation_stations() -> None:
                 "elevation": 667.0,
                 "name": "MADRID, RETIRO",
                 "region": "MADRID",
+                "wmo_id": "08222",
+                "wigos_id": None,
+                "icao_id": None,
             }
         ],
         schema={
@@ -139,6 +142,9 @@ def test_aemet_observation_stations() -> None:
             "elevation": pl.Float64,
             "name": pl.String,
             "region": pl.String,
+            "wmo_id": pl.String,
+            "wigos_id": pl.String,
+            "icao_id": pl.String,
         },
         orient="row",
     )

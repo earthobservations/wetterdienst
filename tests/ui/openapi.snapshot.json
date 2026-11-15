@@ -2094,7 +2094,7 @@
           "Stations"
         ],
         "summary": "Issues",
-        "description": "Return available issue datetimes for a provider/network/station combination.\n\nCurrently supported: provider=dwd, network=mosmix|dmo|swsmos.",
+        "description": "Return available issue datetimes for a provider/network/station combination.\n\nCurrently supported: provider=dwd, network=mosmix|dmo|swsmos. `dataset` names the product whose runs are\nlisted: MOSMIX large (default), small or snow, DMO icon (default) or icon_eu.",
         "operationId": "issues_api_issues_get",
         "parameters": [
           {
@@ -2139,7 +2139,10 @@
                 {
                   "enum": [
                     "icon",
-                    "icon_eu"
+                    "icon_eu",
+                    "large",
+                    "small",
+                    "snow"
                   ],
                   "type": "string"
                 },
@@ -2147,10 +2150,10 @@
                   "type": "null"
                 }
               ],
-              "description": "DWD DMO product to list issues for ('icon' or 'icon_eu'), default 'icon'; DMO only, refused for MOSMIX and SWSMOS.",
+              "description": "DWD product to list issues for: for DMO 'icon' or 'icon_eu' (default 'icon'), for MOSMIX 'large' (MOSMIX-L), 'small' (MOSMIX-S) or 'snow' (MOSMIX-SNOW), default 'large'; refused for SWSMOS and where it names the product of the other network.",
               "title": "Dataset"
             },
-            "description": "DWD DMO product to list issues for ('icon' or 'icon_eu'), default 'icon'; DMO only, refused for MOSMIX and SWSMOS."
+            "description": "DWD product to list issues for: for DMO 'icon' or 'icon_eu' (default 'icon'), for MOSMIX 'large' (MOSMIX-L), 'small' (MOSMIX-S) or 'snow' (MOSMIX-SNOW), default 'large'; refused for SWSMOS and where it names the product of the other network."
           },
           {
             "name": "lead_time",
