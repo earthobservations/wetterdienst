@@ -387,14 +387,28 @@ def test_hubeau_station_belongs_to_exactly_one_resolution(default_settings: Sett
     assert len(listed) > 1000
 
 
+#: how many of the stations listed at fifteen minutes the remote test below measures, spread over the list
+_CADENCE_SAMPLE_SIZE = 10
+#: the share of the measured stations that must keep the cadence they are listed under: a station on its grid is the
+#: rule, one that is not an upstream accident (GH-4146), so one is allowed to be off and ten of ten are not asked for
+_CADENCE_SAMPLE_SHARE = 0.8
+
+
 @pytest.mark.remote
-def test_hubeau_values_arrive_at_the_interval_the_station_is_listed_under(default_settings: Settings) -> None:
-    """Test that a station listed at fifteen minutes actually returns a fifteen-minute series.
+def test_hubeau_values_arrive_at_the_interval_the_stations_are_listed_under(default_settings: Settings) -> None:
+    """Test that stations listed at fifteen minutes actually return a fifteen-minute series.
 
     Measured over the whole served window rather than a few hours of it: a gauge that misses a
     transmission leaves a double-length interval behind, and over a short window those gaps can
     outnumber the intervals they interrupt without the station being anything but fifteen-minutely.
     Gaps are multiples of the interval, so the grid shows through them.
+
+    A sample of the list and not its first station, and most of the sample rather than all of it: the first
+    station was 5061000101, whose feed carried a second, "Corrigee" series 3 min 45 s out of phase with its
+    raw one from 2026-10-16 to 2026-11-14, so that for thirty days 28 % of its intervals were off the grid
+    while it was still a fifteen-minute station and the listing was right (GH-4146). One station's accident
+    upstream must not turn the test red for a month, a sniff that files stations under the wrong interval
+    still does: it would take most of the sample with it.
     """
     end_date = dt.datetime.now(ZoneInfo("UTC"))
     request = HubeauRequest(
@@ -403,15 +417,27 @@ def test_hubeau_values_arrive_at_the_interval_the_station_is_listed_under(defaul
         end=end_date,
         settings=default_settings,
     )
-    station_id = request.all().df.get_column("station_id")[0]
+    station_ids = sorted(request.all().df.get_column("station_id").to_list())
+    assert len(station_ids) >= 10 * _CADENCE_SAMPLE_SIZE
+    # evenly spread over the sorted ids, starting inside the list and not at its first station
+    stride = len(station_ids) // _CADENCE_SAMPLE_SIZE
+    sample = station_ids[stride // 2 :: stride][:_CADENCE_SAMPLE_SIZE]
 
-    df = request.filter_by_station_id(station_id).values().all().df
+    df = request.filter_by_station_id(sample).values().all().df
 
-    steps = df.get_column("timestamp").diff().drop_nulls().dt.total_minutes().to_list()
-    assert steps, f"{station_id} returned no values to measure"
-    assert max(set(steps), key=steps.count) == 15
-    on_grid = sum(step % 15 == 0 for step in steps) / len(steps)
-    assert on_grid > 0.9, f"{station_id}: only {on_grid:.0%} of its intervals fall on a 15-minute grid"
+    kept: dict[str, bool] = {}
+    for station_id, group in df.group_by("station_id"):
+        steps = group.get_column("timestamp").unique().sort().diff().drop_nulls().dt.total_minutes().to_list()
+        if steps:
+            on_grid = sum(step % 15 == 0 for step in steps) / len(steps)
+            kept[station_id[0]] = max(set(steps), key=steps.count) == 15 and on_grid > 0.9
+    # a sample that mostly returned nothing measures nothing
+    assert len(kept) >= _CADENCE_SAMPLE_SIZE // 2, f"only {sorted(kept)} of {sample} returned values to measure"
+    share = sum(kept.values()) / len(kept)
+    assert share >= _CADENCE_SAMPLE_SHARE, (
+        f"only {share:.0%} of {len(kept)} stations listed at fifteen minutes arrive on a 15-minute grid: "
+        f"{sorted(s for s, ok in kept.items() if not ok)} do not"
+    )
 
 
 def test_all_reports_the_gauge_datum_as_gauge_zero_not_as_elevation(monkeypatch: pytest.MonkeyPatch) -> None:
