@@ -350,18 +350,20 @@ function localCadence(steps: Float64Array): Float64Array {
     }
     window.splice(low, 1)
   }
-  for (let i = 1; i <= Math.min(CADENCE_RADIUS, steps.length - 1); i++) {
+  for (let i = 1; i < Math.min(CADENCE_RADIUS, steps.length); i++) {
     if (steps[i]! > 0)
       insert(steps[i]!)
   }
   for (let i = 1; i < steps.length; i++) {
-    const entering = i + CADENCE_RADIUS
+    // the window is of an even number of steps, CADENCE_RADIUS either side, so that the lower median is the same in every place of a pattern
+    const entering = i + CADENCE_RADIUS - 1
     if (entering < steps.length && steps[entering]! > 0)
       insert(steps[entering]!)
     const leaving = i - CADENCE_RADIUS - 1
     if (leaving >= 1 && steps[leaving]! > 0)
       remove(steps[leaving]!)
-    cadence[i] = window.length ? window[Math.floor(window.length / 2)]! : 0
+    // the lower median: readings in pairs far apart are steps of an hour and of days, and the days are not the cadence
+    cadence[i] = window.length ? window[(window.length - 1) >> 1]! : 0
   }
   return cadence
 }
@@ -399,7 +401,7 @@ function computeGaps(x: readonly number[], resolution: string | null | undefined
       if (months <= 0)
         continue
       steps++
-      // a whole number of months or years is a series with some of them missing, not one of events
+      // a whole number of years is a series with some of them missing, not one of events that fall in other months (every step is one of months)
       if (months % unit === 0)
         regular++
     }
@@ -424,10 +426,12 @@ function computeGaps(x: readonly number[], resolution: string | null | undefined
   // same time of day on the days round it where there are some (06, 12 and 18 UTC are 6, 6 and 12 h apart, and no step of 12 h is a gap there),
   // else the cadence round it
   const usual = new Float64Array(x.length)
+  // what the regularity of the series is judged by: the usual step, but for a step alone at its time of day the cadence round it only, since a step is always its own
+  const reference = new Float64Array(x.length)
   const exact = new Uint8Array(x.length)
   if (nominal > 0) {
     for (let i = 1; i < x.length; i++)
-      usual[i] = Math.max(nominal, cadence[i]!)
+      usual[i] = reference[i] = Math.max(nominal, cadence[i]!)
   }
   else {
     const days = new Map<number, number[]>()
@@ -444,11 +448,14 @@ function computeGaps(x: readonly number[], resolution: string | null | undefined
     for (const group of days.values()) {
       group.forEach((i, place) => {
         if (group.length < 3) {
-          usual[i] = cadence[i]!
+          // too few days to tell by the time of day: the cadence round it, but never less than the steps there are from this time of day
+          // (the one step of 12 h from 18:00 of a series of two days is the usual one, not a gap)
+          usual[i] = Math.max(cadence[i]!, median(group.map(at => steps[at]!)))
+          reference[i] = cadence[i]!
           return
         }
         const near = group.slice(Math.max(0, place - TIME_OF_DAY_RADIUS), place + TIME_OF_DAY_RADIUS + 1).map(at => steps[at]!)
-        usual[i] = median(near)
+        usual[i] = reference[i] = median(near)
         exact[i] = 1
       })
     }
@@ -457,10 +464,10 @@ function computeGaps(x: readonly number[], resolution: string | null | undefined
   let regular = 0
   const stride = Math.max(1, Math.floor((x.length - 1) / SAMPLE_STEPS))
   for (let i = 1; i < x.length; i += stride) {
-    if (steps[i]! <= 0 || usual[i] === 0)
+    if (steps[i]! <= 0 || reference[i] === 0)
       continue
     counted++
-    if (Math.abs(steps[i]! - usual[i]!) <= usual[i]! * REGULAR_TOLERANCE)
+    if (Math.abs(steps[i]! - reference[i]!) <= reference[i]! * REGULAR_TOLERANCE)
       regular++
   }
   // fewer than half the steps are the usual one, and the moments are not on the grid of the resolution either: events, not readings
@@ -507,7 +514,7 @@ export function gapRuleOf(series: Pick<ExplorerSeries, 'x'> & Partial<Pick<Explo
     return kept.rule
   const flags = computeGaps(series.x, series.resolution)
   const x = series.x
-  const rule: GapRule | null = flags ? (previous, next, index) => flags[index !== undefined && x[index] === next ? index : indexOfMoment(x, next)] === 1 : null
+  const rule: GapRule | null = flags ? (previous, next, index) => next > previous && flags[index !== undefined && x[index] === next ? index : indexOfMoment(x, next)] === 1 : null
   gapRules.set(series.x, { resolution: series.resolution, rule })
   return rule
 }

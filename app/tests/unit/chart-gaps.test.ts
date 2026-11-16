@@ -59,10 +59,11 @@ describe('the rule of a gap', () => {
     expect(gapsOf(at(month(2018, 0), month(2019, 0), month(2020, 0), month(2022, 0), month(2023, 0)), 'annual')).toEqual([3])
   })
 
-  it('goes by the median step where the resolution names no interval', () => {
-    const steps = hours(0, 3, 6, 9, 12, 24, 27, 30)
-    expect(gapsOf(steps, 'subdaily')).toEqual([5])
-    expect(gapsOf(steps)).toEqual([5])
+  it('goes by the steps of the same time of day where the resolution names no interval', () => {
+    // every 3 hours for 20 days, the 12:00 to the 15:00 of the 10th missing
+    const x = Array.from({ length: 20 * 8 }, (_, i) => START + i * 3 * HOUR).filter(t => t < START + 10 * DAY + 12 * HOUR || t > START + 10 * DAY + 15 * HOUR)
+    expect(gapsOf(at(...x), 'subdaily')).toHaveLength(1)
+    expect(gapsOf(at(...x))).toHaveLength(1)
   })
 
   it('holds a station that reports less often than its resolution to what it does: three-hourly readings of an hourly series are no gaps', () => {
@@ -92,6 +93,14 @@ describe('the rule of a gap', () => {
 
   it('has none for a trendline', () => {
     expect(gapRuleOf({ ...hours(0, 1, 100), kind: 'trend', resolution: 'hourly' })).toBeNull()
+  })
+
+  it('has no gap in a step of no length, where the rule is asked with no place', () => {
+    // two readings of the 5th hour, the first of them after a gap
+    const data = hours(0, 1, 2, 3, 4, 8, 8, 9, 10, 11)
+    const rule = gapRuleOf({ x: data.x, resolution: 'hourly' })!
+    expect(rule(START + 4 * HOUR, START + 8 * HOUR)).toBe(true)
+    expect(rule(START + 8 * HOUR, START + 8 * HOUR)).toBe(false)
   })
 
   it('is the same rule for the same moments, not worked out again with each drag of the window', () => {
@@ -247,6 +256,10 @@ describe('the usual step of a series that reports at fixed times, or less often,
     }
   })
 
+  it.each([[2, [6, 12, 18]], [3, [6, 12, 18]], [2, [6, 13]], [3, [6, 13]], [4, [6, 13]]])('has no gap in a subdaily answer of %s days with readings at %j UTC: a step alone at its time of day is the usual one', (days, hoursOfDay) => {
+    expect(gapsOf(at(...stamps(days, hoursOfDay)), 'subdaily')).toEqual([])
+  })
+
   it('has no gap in readings at 07 and 17 (steps of 10 and 14 hours), and one where a day is missing', () => {
     expect(gapsOf(at(...stamps(300, [7, 17])), 'subdaily')).toEqual([])
     expect(gapsOf(at(...stamps(300, [7, 17], day => day === 100)), 'subdaily')).toHaveLength(1)
@@ -271,6 +284,11 @@ describe('the usual step of a series that reports at fixed times, or less often,
   it('shows the gaps of a monthly series with half of its months missing', () => {
     const months = Array.from({ length: 120 }, (_, i) => i).filter(i => i % 2 === 0 || i % 7 === 0).map(i => month(2010, i))
     expect(gapsOf(at(...months), 'monthly')!.length).toBeGreaterThan(10)
+  })
+
+  it('has the gaps of readings in pairs an hour apart that are ten days from the next pair: the days are not the cadence', () => {
+    const pairs = Array.from({ length: 50 }, (_, k) => [START + k * 10 * DAY, START + k * 10 * DAY + HOUR]).flat()
+    expect(gapsOf(at(...pairs), 'hourly')).toHaveLength(49)
   })
 
   it('takes a change of cadence for none: a series that was 3-hourly and became hourly has no gap at the change, and has one in either era', () => {

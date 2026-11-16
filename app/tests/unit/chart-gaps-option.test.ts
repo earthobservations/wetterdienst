@@ -30,7 +30,10 @@ describe('the option of a chart with a gap', () => {
   })
 
   it('has it by the series\' own steps where the answer names no resolution', () => {
-    expect(empty(lines(build([gappy({ resolution: undefined })]))[0])).toHaveLength(1)
+    // ten days of hours, three of the fifth day missing
+    const hoursOf = Array.from({ length: 240 }, (_, i) => i).filter(i => i < 100 || i > 102)
+    const long = gappy({ resolution: undefined, x: hoursOf.map(o => START + o * HOUR), y: hoursOf.map(o => o) })
+    expect(empty(lines(build([long]))[0])).toHaveLength(1)
   })
 
   it('does not break a series that is whole, nor a trendline', () => {
