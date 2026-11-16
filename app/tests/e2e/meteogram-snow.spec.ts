@@ -354,7 +354,9 @@ test.describe('on a phone', () => {
         // that are in the plot's grid, where the layout puts it (a plot has two labels at least)
         const row = grids.find(candidate => ((title!.top + title!.bottom) / 2) >= stage.y + candidate.top && ((title!.top + title!.bottom) / 2) <= stage.y + candidate.top + candidate.height)
         expect(row, `${name} is in no plot`).toBeDefined()
-        const own = labelsOfGutter.filter(label => ((label.top + label.bottom) / 2) >= stage.y + row!.top && ((label.top + label.bottom) / 2) <= stage.y + row!.top + row!.height)
+        // within half a label below the grid as well: the lowest label sits on the grid's bottom line, and Firefox puts its middle a
+        // fraction of a px below it; the top needs none, as the axis' maximum is not labelled (as in meteogram-chart.spec.ts)
+        const own = labelsOfGutter.filter(label => ((label.top + label.bottom) / 2) >= stage.y + row!.top && ((label.top + label.bottom) / 2) <= stage.y + row!.top + row!.height + 9)
         expect(own.length, `${name} has fewer than two labels in its plot: ${JSON.stringify({ labelsOfGutter, stage, grids: grids.map(grid => ({ id: grid.id, top: stage.y + grid.top, bottom: stage.y + grid.top + grid.height })) })}`).toBeGreaterThanOrEqual(2)
         expect(title!.right, `${name} is under the labels`).toBeLessThanOrEqual(Math.min(...own.map(label => label.left)) + 0.5)
       }

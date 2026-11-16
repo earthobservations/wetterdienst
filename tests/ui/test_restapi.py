@@ -676,7 +676,7 @@ def test_stations_dwd_geo(client: TestClient) -> None:
         "elevation": 806.0,
         "name": "Oberstdorf",
         "region": "Bayern",
-        "wmo_id": None,
+        "wmo_id": "10948",
         "wigos_id": None,
         "icao_id": None,
         "distance": 207.0831,
@@ -710,7 +710,7 @@ def test_stations_dwd_sql(client: TestClient, monkeypatch: pytest.MonkeyPatch) -
         "elevation": 228.0,
         "name": "Dresden-Klotzsche",
         "region": "Sachsen",
-        "wmo_id": None,
+        "wmo_id": "10488",
         "wigos_id": None,
         "icao_id": None,
     }

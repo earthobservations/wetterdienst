@@ -329,7 +329,10 @@ what the answer is missing:
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
   `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
   `parameter-without-rows` (a requested parameter that the source holds no values for, see below),
-  `file-skipped` (the stations whose file the provider let go, see below), `other-window-left-out` (dates the
+  `file-skipped` (the stations whose file the provider let go, see below), `wmo-ids-unavailable` (the stations of
+  `dwd/observation` are listed without `wmo_id` because DWD's Stationslexikon could not be read or is no longer the
+  table, see [WMO numbers](../data/provider/dwd/observation/index.md#wmo-numbers-of-the-stations)),
+  `other-window-left-out` (dates the
   source has values for that the answer leaves out because they are of another series, see below),
   `window-not-closed` (values of a window that had not closed when the request was served, see below),
   `source-data-left-out` (what an estimate by `interpolate` or `summarize` left out at the stations it read, see
