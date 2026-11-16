@@ -206,7 +206,10 @@ test.describe('on a phone, in German (the longest labels), with every panel on',
         // the labels of its own panel: those in the same grid, of which a panel has two at least
         const row = rows.find(candidate => inRow(candidate, title))
         expect(row, `${title.text} is in no panel: ${JSON.stringify({ title, stageTop: found.stageTop })}`).toBeDefined()
-        const own = found.labels.filter(label => inRow(row!, label))
+        // a label is its panel's when its middle is in the grid or within half a label below it: the lowest label sits on the grid's
+        // bottom line, and Firefox puts its middle a fraction of a px below it (a panel of 0 and 0,5 then had one label). The top needs
+        // none: the axis' maximum is not labelled, so no label sits on a grid's top line, where the panel above ends
+        const own = found.labels.filter(label => inRow({ ...row!, height: row!.height + 9 }, label))
         expect(own.length, `${title.text} (${row!.id}) has fewer than two labels in its panel: ${JSON.stringify(found.labels)}`).toBeGreaterThanOrEqual(2)
         const middleOf = (entry: { top: number, bottom: number }) => (entry.top + entry.bottom) / 2
         const ownLeft = Math.min(...own.map(entry => entry.left))
