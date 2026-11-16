@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 from io import BytesIO
+from typing import TYPE_CHECKING
 
 import polars as pl
 import pytest
@@ -35,6 +36,9 @@ from wetterdienst.provider.dwd.observation.stationslexikon import (
 )
 from wetterdienst.util.network import File
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # lines of `KL_Tageswerte_Beschreibung_Stationen.txt` (daily/kl, 2026-11-16), cut at the blanks they are padded with:
 # Aachen (`SY` and `MN` have its number), Donaueschingen (they have an id of DWD's own), Berlin-Dahlem and Hamburg
@@ -277,24 +281,134 @@ def test_a_server_that_answers_badly_leaves_the_stations_without_wmo_id_and_says
     assert [w["code"] for w in recorded_warnings()] == [WMO_IDS_UNAVAILABLE]
 
 
-@pytest.mark.parametrize(
-    "error",
-    [
-        pytest.param(NoInternetError("No internet connection: could not reach www.dwd.de"), id="no-connection"),
-        pytest.param(ProviderRateLimitError(STATIONSLEXIKON_URL, "limited", 7), id="rate-limit"),
-    ],
-)
-def test_a_connection_that_cannot_be_made_and_a_rate_limit_are_raised(
-    error: Exception, monkeypatch: pytest.MonkeyPatch
+def test_a_connection_that_cannot_be_made_leaves_the_stations_without_wmo_id_and_says_so(
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """As `dwd/dmo` raises them: they are no property of this page, and the next request meets them too."""
+    """A proxy or a name that does not resolve for `www.dwd.de` must not fail every stations request (GH-4073)."""
+    refusal = NoInternetError("No internet connection: could not reach www.dwd.de")
 
     def fail(_settings: object) -> pl.DataFrame:
-        raise error
+        raise refusal
 
     monkeypatch.setattr(stationslexikon, "read_wmo_ids", fail)
-    with pytest.raises(type(error)):
+    begin_response()
+    stations = with_wmo_id(pl.LazyFrame({"station_id": ["00003"]}), Settings(cache_disable=True)).collect()
+    assert stations.to_dict(as_series=False) == {"station_id": ["00003"], "wmo_id": [None]}
+    assert [w["code"] for w in recorded_warnings()] == [WMO_IDS_UNAVAILABLE]
+
+
+def test_a_rate_limit_is_raised(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 429 is never let go, and the next request meets it too."""
+
+    def fail(_settings: object) -> pl.DataFrame:
+        raise ProviderRateLimitError(STATIONSLEXIKON_URL, "limited", 7)
+
+    monkeypatch.setattr(stationslexikon, "read_wmo_ids", fail)
+    with pytest.raises(ProviderRateLimitError):
         with_wmo_id(pl.LazyFrame({"station_id": ["00003"]}), Settings(cache_disable=True))
+
+
+# what the process remembers
+
+
+class _Clock:
+    """A clock the test sets, for the memory of the reader."""
+
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+@pytest.fixture
+def clock(monkeypatch: pytest.MonkeyPatch) -> _Clock:
+    """Replace the clock of the memory of the reader."""
+    fake = _Clock()
+    monkeypatch.setattr(stationslexikon, "_clock", fake)
+    return fake
+
+
+def _counting_download(monkeypatch: pytest.MonkeyPatch, answers: list) -> list[str]:
+    """Answer each download with the next of `answers` (a body, or an exception), and list the downloads made."""
+    asked: list[str] = []
+
+    def download_file(**kwargs: object) -> File:
+        asked.append(str(kwargs["url"]))
+        answer = answers[min(len(asked), len(answers)) - 1]
+        content = answer if isinstance(answer, Exception) else BytesIO(answer)
+        return File(url=str(kwargs["url"]), content=content, status=200 if isinstance(answer, bytes) else 0)
+
+    monkeypatch.setattr(stationslexikon, "download_file", download_file)
+    return asked
+
+
+def test_the_table_is_read_once_for_the_expiry_of_the_cache(monkeypatch: pytest.MonkeyPatch, clock: _Clock) -> None:
+    """A second lookup reads nothing, whether the cache is on or off; after the week it reads the page again."""
+    asked = _counting_download(monkeypatch, [STATIONSLEXIKON])
+    settings = Settings(cache_disable=True)
+    assert _wmo_ids(read_wmo_ids(settings)) == EXPECTED_WMO_IDS
+    assert _wmo_ids(read_wmo_ids(settings)) == EXPECTED_WMO_IDS
+    assert len(asked) == 1
+    clock.now += CacheExpiry.ONE_WEEK.value - 1
+    read_wmo_ids(settings)
+    assert len(asked) == 1
+    clock.now += 2
+    read_wmo_ids(settings)
+    assert len(asked) == 2
+
+
+def test_the_memory_is_for_the_cache_and_the_settings_the_table_was_read_with(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Another cache directory, or the cache on and off, is another read."""
+    asked = _counting_download(monkeypatch, [STATIONSLEXIKON])
+    read_wmo_ids(Settings(cache_disable=True))
+    read_wmo_ids(Settings(cache_disable=True))
+    assert len(asked) == 1
+    read_wmo_ids(Settings(cache_dir=tmp_path / "other", cache_disable=True))
+    assert len(asked) == 2
+    read_wmo_ids(Settings(cache_dir=tmp_path / "other", cache_disable=False))
+    assert len(asked) == 3
+
+
+def test_a_failure_is_remembered_for_a_few_minutes_and_then_asked_again(
+    monkeypatch: pytest.MonkeyPatch, clock: _Clock
+) -> None:
+    """A page that is down is not downloaded again by every request; once the minutes have passed it is."""
+    asked = _counting_download(monkeypatch, [TimeoutError(), STATIONSLEXIKON])
+    settings = Settings(cache_disable=True)
+    for _ in range(3):
+        with pytest.raises(DownloadError):
+            read_wmo_ids(settings)
+    assert len(asked) == 1
+    clock.now += stationslexikon.STATIONSLEXIKON_FAILURE_MEMORY - 1
+    with pytest.raises(DownloadError):
+        read_wmo_ids(settings)
+    assert len(asked) == 1
+    clock.now += 2
+    assert _wmo_ids(read_wmo_ids(settings)) == EXPECTED_WMO_IDS
+    assert len(asked) == 2
+
+
+def test_a_page_that_is_not_the_table_is_remembered_too_and_every_request_still_says_so(
+    monkeypatch: pytest.MonkeyPatch, clock: _Clock
+) -> None:
+    """The stations of each request come back with the warning, without the page being read for each."""
+    asked = _counting_download(monkeypatch, [b"<html><body>Wartung</body></html>", STATIONSLEXIKON])
+    monkeypatch.setattr(stationslexikon, "drop_cached_file", lambda *_args, **_kwargs: None)
+    settings = Settings(cache_disable=True)
+    for _ in range(2):
+        begin_response()
+        stations = with_wmo_id(pl.LazyFrame({"station_id": ["00003"]}), settings).collect()
+        assert stations["wmo_id"].to_list() == [None]
+        assert [w["code"] for w in recorded_warnings()] == [WMO_IDS_UNAVAILABLE]
+    assert len(asked) == 1
+    clock.now += stationslexikon.STATIONSLEXIKON_FAILURE_MEMORY + 1
+    begin_response()
+    stations = with_wmo_id(pl.LazyFrame({"station_id": ["00003"]}), settings).collect()
+    assert stations["wmo_id"].to_list() == ["10501"]
+    assert len(asked) == 2
 
 
 def test_a_download_that_failed_is_a_download_error(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -95,11 +95,13 @@ would be null and a warning in the log would say so. A number may belong to two 
 moved and kept it (`10427` is Altastenberg `00098` until 1954 and Kahler Asten `02483` after), and a search by
 `wmo_id` finds both.
 
-The table is kept for a week. It is a page and not a data format, so it is read by the names of its
+The table is kept for a week, in the cache and in the process, and a failure to read it for five minutes in the process,
+so that a page that is down is not asked for by every request. It is a page and not a data format, so it is read by the names of its
 headers, and a page that has changed (a header renamed, no row, no WMO number at all) is an error that names
 the address. The stations are the answer and the number an addition: when the page cannot be read or is no
-longer the table, the stations come back with `wmo_id` null and the warning `wmo-ids-unavailable`; a
-connection that cannot be made and a rate limit of the provider are raised.
+longer the table, or no connection can be made to `www.dwd.de` (a host other than the `opendata.dwd.de` the stations
+are listed from), the stations come back with `wmo_id` null and the warning `wmo-ids-unavailable`. A rate limit of
+the provider (a 429) is still raised.
 
 ## Stations that the station list does not carry
 

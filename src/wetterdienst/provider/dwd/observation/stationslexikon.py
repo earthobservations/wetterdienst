@@ -27,13 +27,17 @@ of its own rows, so a search by that number finds both.
 A page is no data format: the address, the columns and the notation of the table are DWD's to change. The columns are
 found by the name of their header (spelling and hyphenation of the header do not count) and not by position, and a page
 that has no header with the three names, no row, or no WMO number at all raises `StationslexikonLayoutError`, which
-names the address, rather than leave the column empty. What `with_wmo_id` does with that is its docstring's.
+names the address, rather than leave the column empty. The reader raises; `with_wmo_id` is what degrades (the stations
+come back with `wmo_id` null and a warning, see its docstring). The parsed table is kept in the process for the
+expiry of the cache, and a failure for a few minutes (`read_wmo_ids`).
 """
 
 from __future__ import annotations
 
 import logging
 import re
+import threading
+import time
 from typing import TYPE_CHECKING
 
 import polars as pl
@@ -61,6 +65,10 @@ STATIONSLEXIKON_URL = f"{STATIONSLEXIKON_PAGE_URL}?view=nasPublication"
 #: renumbered, a few times a year, and the table is 5.9 MB. The longest expiry that is bounded
 STATIONSLEXIKON_EXPIRY = CacheExpiry.ONE_WEEK
 
+#: How long a failure to read the table is remembered by the process: a few minutes, so that a page that is down or
+#: changed is asked for once and not by every request, and is asked for again soon after it is fixed
+STATIONSLEXIKON_FAILURE_MEMORY = 300.0
+
 #: The code of the warning an answer carries when the table could not be read and the stations have no `wmo_id`
 WMO_IDS_UNAVAILABLE = "wmo-ids-unavailable"
 
@@ -76,6 +84,14 @@ _ID_HEADER, _PRODUCT_HEADER, _NUMBER_HEADER = "stationsid", "kennung", "stations
 _HEADER_NAMES = {_ID_HEADER: "Stations_ID", _PRODUCT_HEADER: "Kennung", _NUMBER_HEADER: "Stations-kennung"}
 
 _SCHEMA = {"station_id": pl.String, "wmo_id": pl.String}
+
+
+#: what the process remembers of the table, by `_memory_key`: when it is forgotten (`_clock`), and the table or the
+#: error of the read that failed
+_MEMORY: dict[tuple, tuple[float, pl.DataFrame | Exception]] = {}
+_MEMORY_LOCK = threading.Lock()
+#: the clock the memory goes by, which a test replaces
+_clock = time.monotonic
 
 
 class StationslexikonLayoutError(MetaFileFormatError):
@@ -157,15 +173,8 @@ def parse_wmo_ids(content: bytes) -> pl.DataFrame:
     return pl.DataFrame({"station_id": list(unique), "wmo_id": list(unique.values())}, schema=_SCHEMA)
 
 
-def read_wmo_ids(settings: Settings) -> pl.DataFrame:
-    """Read the Stationslexikon, kept for a week, and give the WMO number of each station that has one.
-
-    Raises:
-        NoInternetError: no connection could be made. DownloadError: the server answered badly (a 429 is the
-            `ProviderRateLimitError`). StationslexikonLayoutError: what came is not the table; the copy of it is
-            dropped from the cache, so that the next call asks again rather than read the same page for a week.
-
-    """
+def _read_wmo_ids(settings: Settings) -> pl.DataFrame:
+    """Download and parse the Stationslexikon, see `read_wmo_ids`."""
     file = download_file(
         url=STATIONSLEXIKON_URL,
         cache_dir=settings.cache_dir,
@@ -192,22 +201,72 @@ def read_wmo_ids(settings: Settings) -> pl.DataFrame:
         raise
 
 
+def _memory_key(settings: Settings) -> tuple:
+    """Name what a copy of the table depends on: the cache it comes from and how it was asked for."""
+    return (
+        str(settings.cache_dir),
+        settings.cache_disable,
+        settings.use_certifi,
+        repr(sorted((settings.fsspec_client_kwargs or {}).items(), key=lambda item: str(item[0]))),
+    )
+
+
+def forget_wmo_ids() -> None:
+    """Forget what the process remembers of the table and of its failures (a test's, or a process that must reread)."""
+    with _MEMORY_LOCK:
+        _MEMORY.clear()
+
+
+def read_wmo_ids(settings: Settings) -> pl.DataFrame:
+    """Read the Stationslexikon and give the WMO number of each station that has one.
+
+    The table is 5.9 MB and a request reads the stations more than once (`history` twice, a filter and then a lookup),
+    each time parsing it for 0.2 s and, with the cache off, downloading it. So the process keeps what it read for the
+    expiry of the table (a week), for the cache and the settings it was read with, and keeps a failure for
+    `STATIONSLEXIKON_FAILURE_MEMORY` seconds: a table that is down or no longer the table is asked for once in that
+    time, not by every request, which then raises the same error without asking.
+
+    Raises:
+        NoInternetError: no connection could be made. DownloadError: the server answered badly (a 429 is the
+            `ProviderRateLimitError`). StationslexikonLayoutError: what came is not the table; the copy of it is
+            dropped from the cache, so that the next call asks again rather than read the same page for a week.
+
+    """
+    key = _memory_key(settings)
+    with _MEMORY_LOCK:
+        remembered = _MEMORY.get(key)
+        if remembered is not None and _clock() < remembered[0]:
+            if isinstance(remembered[1], Exception):
+                raise remembered[1]
+            return remembered[1]
+    try:
+        wmo_ids = _read_wmo_ids(settings)
+    except (NoInternetError, DownloadError, StationslexikonLayoutError) as error:
+        with _MEMORY_LOCK:
+            _MEMORY[key] = (_clock() + STATIONSLEXIKON_FAILURE_MEMORY, error)
+        raise
+    with _MEMORY_LOCK:
+        _MEMORY[key] = (_clock() + float(STATIONSLEXIKON_EXPIRY.value), wmo_ids)
+    return wmo_ids
+
+
 def with_wmo_id(stations: pl.LazyFrame, settings: Settings) -> pl.LazyFrame:
     """Add ``wmo_id`` to the stations of ``dwd/observation``, from the Stationslexikon, null for a station without one.
 
     The number is an enrichment of the station list, not the list: when the Stationslexikon cannot be read the stations
     still come back, with `wmo_id` null and a warning (`wmo-ids-unavailable`) in the log and in the answer, as
     `dwd/dmo` answers with the catalogue shared by both of its products when it cannot read which stations a product
-    covers. That is a page that is not the table (`StationslexikonLayoutError`) and a server that answers badly
-    (`DownloadError`). A connection that cannot be made (`NoInternetError`) and a rate limit
-    (`ProviderRateLimitError`) are raised, as `dwd/dmo` raises them: they are no property of this page, and the next
-    request meets them too.
+    covers (the maintainer's decision on GH-4073). That is a page that is not the table (`StationslexikonLayoutError`),
+    a server that answers badly (`DownloadError`) and a connection that cannot be made (`NoInternetError`): the page is
+    on `www.dwd.de`, a host other than the `opendata.dwd.de` the stations are listed from, so a proxy or a name that
+    does not resolve for it must not fail every request for them. A rate limit (`ProviderRateLimitError`, a 429) is
+    raised, as everywhere: the next request meets it too.
     """
     try:
         wmo_ids = read_wmo_ids(settings)
-    except (NoInternetError, ProviderRateLimitError):
+    except ProviderRateLimitError:
         raise
-    except (DownloadError, StationslexikonLayoutError) as error:
+    except (NoInternetError, DownloadError, StationslexikonLayoutError) as error:
         warn_response(
             log,
             WMO_IDS_UNAVAILABLE,
