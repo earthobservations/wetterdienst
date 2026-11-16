@@ -174,7 +174,7 @@ test.describe('on a phone, in German (the longest labels), with every panel on',
   })
 
   for (const width of WIDTHS) {
-    test(`keeps every title of an axis inside the chart and left of the tick labels at ${width} px, whatever the width of the labels`, async ({ page, baseURL }) => {
+    test(`keeps every title of an axis inside the chart, left of the tick labels of its panel and close to them at ${width} px (GH-4132)`, async ({ page, baseURL }) => {
       await open(page, baseURL!, PAGE_CHART, { width, height: 844 })
       const found = await page.evaluate(() => {
         const stage = document.querySelector('.mg-stage')!.getBoundingClientRect()
@@ -185,7 +185,7 @@ test.describe('on a phone, in German (the longest labels), with every panel on',
           // a two-letter day name such as "Sa" can have as well (taller than wide in Firefox's font)
           const matrix = text.getScreenCTM()
           const turned = !!matrix && Math.abs(matrix.b) / Math.hypot(matrix.a, matrix.b) > 0.9
-          return { text: text.textContent ?? '', left: box.left - stage.left, right: box.right - stage.left, turned }
+          return { text: text.textContent ?? '', left: box.left - stage.left, right: box.right - stage.left, top: box.top, bottom: box.bottom, turned }
         })
         // the titles are the words turned to read upwards; the labels of the axes are numbers
         // (only what is in the gutter counts: the first day name is at the left as well)
@@ -196,15 +196,23 @@ test.describe('on a phone, in German (the longest labels), with every panel on',
       // a title for each of the five panels, of one or two lines
       expect(found.titles.length, JSON.stringify(found.titles)).toBeGreaterThanOrEqual(5)
       expect(found.labels.length).toBeGreaterThanOrEqual(3)
-      const labelsLeft = Math.min(...found.labels.map(entry => entry.left))
       for (const title of found.titles) {
         expect(title.left, `${title.text} is cut at the left`).toBeGreaterThanOrEqual(0)
-        expect(title.right, `${title.text} is under the labels`).toBeLessThanOrEqual(labelsLeft + 0.5)
+        // the labels of its own panel: the two nearest to the middle of the title, which is the middle of the panel (every panel has two
+        // labels at least, the ones above and below that middle or nearest to it)
+        const middleOf = (entry: { top: number, bottom: number }) => (entry.top + entry.bottom) / 2
+        const own = [...found.labels].sort((a, b) => Math.abs(middleOf(a) - middleOf(title)) - Math.abs(middleOf(b) - middleOf(title))).slice(0, 2)
+        expect(own.length, `${title.text} has no labels beside it: ${JSON.stringify(found.labels)}`).toBeGreaterThan(0)
+        const ownLeft = Math.min(...own.map(entry => entry.left))
+        expect(title.right, `${title.text} is under the labels`).toBeLessThanOrEqual(ownLeft + 0.5)
+        // and it stands next to them, not at the far left of a gutter made for the widest labels of all: the room between is the 4 px
+        // of the layout and what the estimate of the labels' width has over their real width (a few px), where it was 33 px for the wind's
+        // (a title of two lines is two texts, with the same middle: the block's right edge is its last line's)
+        const blockRight = Math.max(...found.titles.filter(other => Math.abs(middleOf(other) - middleOf(title)) < 2).map(other => other.right))
+        expect(ownLeft - blockRight, `${title.text} stands off its labels: ${JSON.stringify({ title, own })}`).toBeLessThanOrEqual(14)
       }
-      // and they stand where they stand whatever the width of the labels of their panel: in a block of two lines' width at the very left
-      // (a title of one line in the middle of it), never moved by the four digits of the pressure
-      for (const title of found.titles)
-        expect(title.right, `${title.text} stands off the block of the titles: ${JSON.stringify(found.titles)}`).toBeLessThanOrEqual(2 + 2 * 14 + 2)
+      // the panel with the widest labels (the pressure's thousands separator) has its title at the very left edge
+      expect(Math.min(...found.titles.map(title => title.left))).toBeLessThanOrEqual(3)
     })
   }
 

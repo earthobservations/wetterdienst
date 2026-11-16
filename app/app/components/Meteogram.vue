@@ -177,13 +177,16 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
     <div v-if="values && values.length > 0" class="space-y-5">
       <!-- Premium Overhauled Filter / Controls Toolbar -->
       <!-- A grid, so that the view switcher keeps its place in every view (GH-4124): the first row's right corner, whatever else
-           is shown. The left group takes the left of both rows, the pan/zoom buttons (chart view only) the second row's right,
-           under the switcher, so they never push it. Stacked on a narrow screen: the switcher, the zoom buttons, the rest. -->
+           is shown. The left group takes the left of both rows and is pinned to the top of the first (GH-4138: centred over both
+           it moved up when the second row was empty), the pan/zoom buttons (chart view only) the second row's right, under the
+           switcher, so they never push it. Stacked on a narrow screen: the switcher, the panels and horizon, then the zoom buttons,
+           which come and go at the bottom, so that nothing above them moves. -->
       <div v-if="!widget" class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-3 md:gap-y-2 bg-gray-50/70 dark:bg-gray-800/40 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
         <!-- Left group: panel toggles + horizon selector (wraps as a unit on narrow viewports) -->
-        <div v-if="!compact" class="order-3 md:order-none md:col-start-1 md:row-start-1 md:row-span-2 md:self-center flex flex-wrap items-center gap-2 min-w-0">
+        <div v-if="!compact" class="order-2 md:order-none md:col-start-1 md:row-start-1 md:row-span-2 md:self-start flex flex-wrap items-center gap-2 min-w-0">
           <!-- Interactive Panel Selectors -->
-          <div class="flex items-center gap-1">
+          <!-- min-h-8: the height of the view switcher beside it, so that the buttons' middle is its middle in the first row -->
+          <div class="flex items-center gap-1 min-h-8">
             <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mr-1 select-none">{{ t('meteogram.chart.panels') }}</span>
 
             <!-- the colours are those of the series' labels (SERIES_LABEL, WCAG 1.4.11 and 1.4.3: tests/unit/button-contrast.test.ts), not the series' own -->
@@ -234,7 +237,7 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
         </div>
 
         <!-- the single-pointer ways to what a drag, a pinch and the scroll bar do (WCAG 2.5.7), named by what they do -->
-        <div v-if="view === 'chart'" class="order-2 md:order-none md:col-start-2 md:row-start-2 md:justify-self-end flex flex-wrap items-center gap-1 min-w-0 max-w-full" role="group" :aria-label="t('meteogram.chart.zoomGroup')">
+        <div v-if="view === 'chart'" class="order-3 md:order-none md:col-start-2 md:row-start-2 md:justify-self-end flex flex-wrap items-center gap-1 min-w-0 max-w-full" role="group" :aria-label="t('meteogram.chart.zoomGroup')">
           <UButton
             icon="i-ph-caret-left"
             size="sm"
@@ -388,10 +391,10 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
       <div v-else class="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-md p-4">
         <!-- relative: the cards' visually hidden texts are positioned, and would otherwise lie outside the box that scrolls and make the page scroll sideways (WCAG 1.4.10) -->
         <!-- the strip of ten or eleven cards scrolls sideways at any width: a named region that takes the focus, so that a keyboard can scroll it (WCAG 2.1.1; Safari does not focus a scroll container; the ring is the global one) -->
-        <div role="region" tabindex="0" :aria-label="daysLabel" data-testid="compact-days" class="relative flex items-center justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">
+        <div role="region" tabindex="0" :aria-label="daysLabel" data-testid="compact-days" class="relative flex items-stretch justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">
           <template v-for="(d, idx) in compactDays" :key="idx">
             <div
-              class="inline-flex flex-col items-center justify-center text-center p-4 rounded-2xl border transition-all duration-300 min-w-[105px] flex-shrink-0" :class="[
+              class="inline-flex flex-col items-center justify-start text-center p-4 rounded-2xl border transition-all duration-300 min-w-[105px] flex-shrink-0" :class="[
                 d.isToday
                   ? 'bg-blue-500/5 dark:bg-blue-500/10 border-blue-600 dark:border-blue-400 ring-1 ring-blue-400/20 shadow-md shadow-blue-500/5'
                   : 'bg-gray-50/50 dark:bg-gray-900/30 border-gray-100 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900/70 hover:border-gray-200 dark:hover:border-gray-700',
@@ -410,15 +413,20 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
               <div class="text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
                 {{ d.dayMonth }}
               </div>
-              <div v-if="d.partialHours" class="text-xs text-gray-600 dark:text-gray-400 mb-2" data-testid="partial-day">
-                {{ t('meteogram.chart.partialDay', { hours: d.partialHours }) }}
-              </div>
               <div v-if="d.tempLabel" class="text-xs font-extrabold text-gray-700 dark:text-gray-200 mt-1 bg-white dark:bg-gray-800/80 px-2 py-0.5 rounded-lg border border-gray-100 dark:border-gray-700 shadow-xs">
                 {{ d.tempLabel }}
               </div>
-              <div v-if="d.precipLabel" class="text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1 select-none">
+              <!-- The rows start at the top of the card and stretch to the tallest, so that the weekday, the icon, the date, the temperatures and the
+                   rain are at the same height in every card (GH-4138). A dry day keeps the rain row's height, empty and hidden from a screen reader,
+                   which would else read out an empty line. -->
+              <div v-if="d.precipLabel" class="h-4 text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1 select-none" data-testid="day-precip">
                 <UIcon name="i-ph-drop" class="size-3.5 align-text-bottom" aria-hidden="true" />
                 <span class="sr-only">{{ t('meteogram.chart.panelPrecipitation') }}{{ t('common.colon') }}{{ ' ' }}</span>{{ d.precipLabel }}
+              </div>
+              <div v-else class="h-4 mt-1" aria-hidden="true" data-testid="day-precip" />
+              <!-- under the rest, so that the last day's note moves none of the rows of the others -->
+              <div v-if="d.partialHours" class="text-xs text-gray-600 dark:text-gray-400 mt-2" data-testid="partial-day">
+                {{ t('meteogram.chart.partialDay', { hours: d.partialHours }) }}
               </div>
             </div>
           </template>

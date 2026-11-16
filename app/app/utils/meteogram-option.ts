@@ -8,7 +8,7 @@
 import type { EChartsCoreOption } from 'echarts/core'
 import type { ChartTheme } from './chart-theme'
 import type { ChartLayout, TimeWindow } from './meteogram-geometry'
-import type { DrawnSeries, MeteogramModel, Tone } from './meteogram-model'
+import type { AxisSpec, DrawnSeries, MeteogramModel, Tone } from './meteogram-model'
 import type { YrSymbol } from './weather-symbols'
 import { SERIES_LABEL, seriesLabelColor, withAlpha } from './chart-theme'
 import { withData } from './format'
@@ -22,14 +22,45 @@ export const LABEL_SPACING = 46
 export const SYMBOL_SIZE = 30
 /** Half the width of a label of the time axis, in px */
 export const HOUR_LABEL_HALF_WIDTH = 18
-/** The titles of the axes: the left of their block, and the width of a line of them; and what the tick labels are made of */
-export const TITLE_LEFT = 2
+/**
+ * The titles of the axes: the left of the widest block, the width of a line of them, and the room between a title and its own panel's
+ * tick labels (GH-4132); and what the tick labels are made of
+ */
+export const TITLE_LEFT = 1
 export const TITLE_LINE_PX = 14
 /** The lines of the block of the titles in every panel, language and width: the name, and the unit on its own line */
 export const TITLE_LINES = 2
-export const TITLE_TO_LABELS = 6
-export const LABEL_MARGIN = 8
-export const LABEL_CHAR_PX = 7
+export const TITLE_TO_LABELS = 4
+/** The room between the tick labels and the plot */
+export const LABEL_MARGIN = 6
+/**
+ * The width of each character a tick label is written with, at 12 px in the app's font (Atkinson Hyperlegible Next, measured with the
+ * canvas and rounded up to a tenth, so that a label is never wider than its estimate): the digits are proportional (a 1 is 4.9 px, a 0 is
+ * 7.8), a separator is 2.6, a hyphen 4.4, the minus sign 7.3, a space 3.4 (a narrow one 1.7). `DIGIT_PX`, the widest digit, is the width of any other
+ * character, the digits of another script among them
+ */
+export const DIGIT_PX = 7.8
+export const CHAR_PX: Readonly<Record<string, number>> = {
+  '0': 7.8,
+  '1': 4.9,
+  '2': 6.6,
+  '3': 7.0,
+  '4': 7.4,
+  '5': 7.1,
+  '6': 7.2,
+  '7': 6.2,
+  '8': 7.4,
+  '9': 7.2,
+  '.': 2.6,
+  ',': 2.6,
+  '’': 2.9,
+  '\'': 2.0,
+  '-': 4.4,
+  '−': 7.3,
+  ' ': 3.4,
+  ' ': 3.4,
+  ' ': 1.7,
+}
 
 /** The colours of the series: the line and the wash under it, in the light and the dark scheme */
 const TONES: Record<Tone, { light: string, dark: string, fillLight?: string, fillDark?: string }> = {
@@ -204,8 +235,9 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
     })
   })
 
-  // The axes' titles, along their panels at the very left of the chart: the same place whatever the width of the tick labels, which
-  // the gutter is made as wide as (`gutterLeftFor`), so that no title is pushed out of the chart or onto a label
+  // The axes' titles, along their panels, each next to its own panel's tick labels (`titleBlockLeft`): the gutter is as wide as the widest
+  // labels and a block of titles (`gutterLeftFor`), so that no title is pushed out of the chart or onto a label, and the room that the
+  // narrower panels leave is at the left edge and not between their titles and their labels
   if (rows.length) {
     const blockLines = TITLE_LINES
     series.push({
@@ -225,7 +257,7 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
         const colour = axis.label === 'slate' ? theme.textMuted : seriesLabelColor(axis.label, dark)
         const lines = axis.title.split('\n')
         // the lines side by side in a block as wide as the widest title has lines, a shorter title in the middle of it
-        const first = TITLE_LEFT + (TITLE_LINE_PX * (blockLines - lines.length)) / 2 + TITLE_LINE_PX / 2
+        const first = titleBlockLeft(gutterLeft, axis, locale) + (TITLE_LINE_PX * (blockLines - lines.length)) / 2 + TITLE_LINE_PX / 2
         return {
           type: 'group',
           silent: true,
@@ -419,21 +451,72 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
   }
 }
 
+/** The width of a tick label's text in px, character by character (`CHAR_PX`) */
+export function labelWidthOf(text: string): number {
+  let width = 0
+  for (const char of text)
+    width += CHAR_PX[char] ?? DIGIT_PX
+  // (a sum of tenths is a hair over its value: 30.000000000000004 is 30)
+  return Math.ceil(width - 1e-9)
+}
+
 /**
- * The width of the left gutter: the titles (a block of two lines at the very left, the same everywhere), the tick labels (as wide as the widest of
- * all the panels', in the language's digits and separators) and the room between. At least `GUTTER_LEFT`.
+ * The step between the ticks of an axis that is divided into `splits` as ECharts does it (`nice` with rounding): 1, 2, 3 or 5 times a power
+ * of ten
+ */
+export function tickInterval(span: number, splits: number): number {
+  const raw = span / Math.max(1, splits)
+  if (!(raw > 0) || !Number.isFinite(raw))
+    return 1
+  const exponent = Math.floor(Math.log10(raw))
+  const power = 10 ** exponent
+  const f = raw / power
+  const nice = f < 1.5 ? 1 : f < 2.5 ? 2 : f < 4 ? 3 : f < 7 ? 5 : 10
+  return nice * power
+}
+
+/**
+ * The labels an axis draws, as the chart writes them: the bottom of its range, and the multiples of the step between there and the top, which
+ * has no label (`showMaxLabel: false`). The room a title leaves for the labels is measured on these and not on the ends of the range, whose
+ * decimals the ticks do not have (a range of 0 to 17.4 has the ticks 0, 5, 10 and 15), and which may have more of them than the ends (0 to 1
+ * has the tick 0.5)
+ */
+export function tickLabelsOf(axis: AxisSpec, locale = 'en'): string[] {
+  const format = new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), { maximumFractionDigits: axis.decimals })
+  const [min, max] = axis.range
+  const step = tickInterval(max - min, axis.splits)
+  const labels = [format.format(min)]
+  // a bound on the loop: an axis has a few ticks
+  for (let k = Math.ceil(min / step), n = 0; k * step < max - step * 1e-9 && n < 50; k++, n++) {
+    if (k * step > min)
+      labels.push(format.format(k * step))
+  }
+  return labels
+}
+
+/** The room an axis' tick labels take in px: the widest of the labels it draws, in the language's digits and separators */
+export function labelWidthFor(axis: AxisSpec, locale = 'en'): number {
+  return Math.max(...tickLabelsOf(axis, locale).map(labelWidthOf))
+}
+
+/**
+ * Where the block of an axis' titles starts, as the chart's x: the title stands next to its own panel's tick labels, with `TITLE_TO_LABELS`
+ * between them, and not at the very left for every panel, so that the room a narrower panel leaves is at the left edge and not between its
+ * title and its labels (GH-4132). The block of the panel with the widest labels is at `TITLE_LEFT`.
+ */
+export function titleBlockLeft(gutterLeft: number, axis: AxisSpec, locale = 'en'): number {
+  return gutterLeft - LABEL_MARGIN - labelWidthFor(axis, locale) - TITLE_TO_LABELS - TITLE_LINES * TITLE_LINE_PX
+}
+
+/**
+ * The width of the left gutter: the titles (a block of two lines in every panel), the tick labels (as wide as the widest of all the panels',
+ * in the language's digits and separators) and the room between. At least `GUTTER_LEFT`. The plot has one left edge, so the gutter is one
+ * for all panels; each panel's title sits at its own labels (`titleBlockLeft`), the widest one's at the left edge.
  */
 export function gutterLeftFor(model: MeteogramModel, locale = 'en'): number {
   const axes = Object.values(model.axes).filter((axis): axis is NonNullable<typeof axis> => !!axis)
   if (!axes.length)
     return GUTTER_LEFT
-  const lines = TITLE_LINES
-  const tag = withData(locale, Intl.NumberFormat.supportedLocalesOf)
-  let chars = 0
-  for (const axis of axes) {
-    const format = new Intl.NumberFormat(tag, { maximumFractionDigits: axis.decimals })
-    chars = Math.max(chars, format.format(axis.range[0]).length, format.format(axis.range[1]).length)
-  }
-  const labels = Math.ceil((chars + 0.5) * LABEL_CHAR_PX)
-  return Math.max(GUTTER_LEFT, TITLE_LEFT + lines * TITLE_LINE_PX + TITLE_TO_LABELS + labels + LABEL_MARGIN)
+  const labels = Math.max(...axes.map(axis => labelWidthFor(axis, locale)))
+  return Math.max(GUTTER_LEFT, TITLE_LEFT + TITLE_LINES * TITLE_LINE_PX + TITLE_TO_LABELS + labels + LABEL_MARGIN)
 }
