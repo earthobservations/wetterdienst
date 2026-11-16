@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.52.0] - 2026-11-16
+
 ### Fixed
 
 - `[Explorer, Stripes, Forecast]` A chart's toolbar button that becomes unavailable while it has the
