@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 import { chartLayout } from '../../app/utils/meteogram-geometry'
 import { mockBackend } from './accessibility/mock-backend'
@@ -304,6 +304,54 @@ test.describe('by keyboard', () => {
     const first = await hourLabels(page).allTextContents()
     await group.getByRole('button', { name: 'Later hours' }).click()
     await expect.poll(async () => (await hourLabels(page).allTextContents()).join()).not.toBe(first.join())
+  })
+})
+
+// WCAG 2.4.3 (GH-4101): a toolbar button that turns off while it has the focus is off (`aria-disabled`) and keeps the focus; `disabled`
+// would drop it to the page, and a keyboard user would start again from the top. Pressed again, it does nothing.
+test.describe('a toolbar button that turns off while it has the focus', () => {
+  const focusedLabel = (page: Page) => page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName)
+  async function pressUntilOff(page: Page, button: Locator, key: string) {
+    for (let press = 0; press < 40; press++)
+      await page.keyboard.press(key)
+    await expect(button).toHaveAttribute('aria-disabled', 'true')
+  }
+
+  test('Zoom in keeps the focus at its limit, and does nothing when it is pressed again', async ({ page, baseURL }) => {
+    await open(page, baseURL!, PAGE, { width: 1280, height: 900 })
+    const group = page.getByRole('group', { name: 'Zoom and scroll the chart' })
+    const zoomIn = group.getByRole('button', { name: 'Zoom in' })
+    await expect(zoomIn).not.toHaveAttribute('aria-disabled', 'true')
+    await zoomIn.focus()
+    await pressUntilOff(page, zoomIn, 'Enter')
+    await expect(zoomIn).toBeFocused()
+    expect(await focusedLabel(page)).toBe('Zoom in')
+    // still a button in the tab order, not a disabled one
+    expect(await zoomIn.evaluate((button: HTMLButtonElement) => [button.disabled, button.tabIndex])).toEqual([false, 0])
+    const atLimit = await labelSpacing(page)
+    await page.keyboard.press('Enter')
+    await page.keyboard.press('Space')
+    await expect(zoomIn).toBeFocused()
+    await expect(zoomIn).toHaveAttribute('aria-disabled', 'true')
+    expect(await labelSpacing(page)).toBe(atLimit)
+  })
+
+  test('Later keeps the focus at the end of the forecast', async ({ page, baseURL }) => {
+    await open(page, baseURL!, PAGE, { width: 1280, height: 900 })
+    const group = page.getByRole('group', { name: 'Zoom and scroll the chart' })
+    await group.getByRole('button', { name: 'Zoom in' }).click()
+    const later = group.getByRole('button', { name: 'Later hours' })
+    await expect(later).not.toHaveAttribute('aria-disabled', 'true')
+    await later.focus()
+    await pressUntilOff(page, later, 'Space')
+    await expect(later).toBeFocused()
+    expect(await focusedLabel(page)).toBe('Later hours')
+    // the first hour on screen stays where the end of the forecast put it
+    const hours = (await hourLabels(page).allTextContents()).join()
+    await page.keyboard.press('Space')
+    await page.keyboard.press('Enter')
+    await expect(later).toBeFocused()
+    expect((await hourLabels(page).allTextContents()).join()).toBe(hours)
   })
 })
 

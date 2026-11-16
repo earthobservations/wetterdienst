@@ -1,4 +1,4 @@
-import type { Download, Page } from '@playwright/test'
+import type { Download, Locator, Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
 import { STRIPES_MAX_HEIGHT, STRIPES_MIN_HEIGHT, STRIPES_RATIO } from '../../app/utils/stripes-option'
@@ -253,6 +253,82 @@ test.describe('a saved stripes chart', () => {
     expect(years).toHaveLength(2)
     expect(years[0]).toBeGreaterThan(1955)
     expect(years[1]).toBeLessThan(2024)
+  })
+})
+
+// WCAG 2.4.3 (GH-4101): a toolbar button that turns off while it has the focus is off (`aria-disabled`) and keeps the focus; `disabled`
+// would drop it to the page, and a keyboard user would start again from the top. Pressed again, it does nothing.
+test.describe('a toolbar button that turns off while it has the focus', () => {
+  /** The years the axis names, which a zoom or a move changes */
+  const yearsOf = (page: Page) => chartSvg(page).locator('text').filter({ hasText: /^\d{4}$/ }).allTextContents()
+  const focusedLabel = (page: Page) => page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName)
+  async function pressUntilOff(page: Page, button: Locator, key: string) {
+    for (let press = 0; press < 40; press++)
+      await page.keyboard.press(key)
+    await expect(button).toHaveAttribute('aria-disabled', 'true')
+  }
+
+  test('Reset zoom keeps the focus on Space, and does nothing when it is pressed again', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!)
+    const reset = page.locator('.sc-toolbar button[aria-label="Reset zoom"]')
+    await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
+    await expect(reset).not.toHaveAttribute('aria-disabled', 'true')
+    const zoomed = await yearsOf(page)
+    await reset.focus()
+    await page.keyboard.press('Space')
+    await expect(reset).toHaveAttribute('aria-disabled', 'true')
+    await expect.poll(() => yearsOf(page)).not.toEqual(zoomed)
+    const whole = await yearsOf(page)
+    await expect(reset).toBeFocused()
+    expect(await focusedLabel(page)).toBe('Reset zoom')
+    // still a button in the tab order, not a disabled one
+    expect(await reset.evaluate((button: HTMLButtonElement) => [button.disabled, button.tabIndex])).toEqual([false, 0])
+    await page.keyboard.press('Space')
+    await page.keyboard.press('Enter')
+    await expect(reset).toBeFocused()
+    await expect(reset).toHaveAttribute('aria-disabled', 'true')
+    expect(await yearsOf(page)).toEqual(whole)
+  })
+
+  test('an unavailable Reset zoom does nothing when it is pressed: a readout dismissed by Escape stays closed', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!)
+    const readout = page.getByTestId('stripes-readout')
+    // the pointer's readout: one the keyboard put there goes when the focus leaves the chart, the pointer's stays
+    await page.locator('.sc-stage').scrollIntoViewIfNeeded()
+    const box = (await page.locator('.sc-stage').boundingBox())!
+    await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.5)
+    await expect(readout).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(readout).toHaveCount(0)
+    // a reset of the zoom would show the readout again: the whole chart is shown, so Reset zoom is off and must not
+    const reset = page.locator('.sc-toolbar button[aria-label="Reset zoom"]')
+    await expect(reset).toHaveAttribute('aria-disabled', 'true')
+    await reset.focus()
+    // read at once, not polled for: a readout that came back is drawn by the time the key press has returned (it goes again on its own, so a
+    // polled check would not see it)
+    await page.keyboard.press('Enter')
+    expect(await readout.count()).toBe(0)
+    await page.keyboard.press('Space')
+    expect(await readout.count()).toBe(0)
+    await expect(reset).toBeFocused()
+  })
+
+  test('Zoom in keeps the focus at its limit, and Later at the end of the chart', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!)
+    const zoomIn = page.locator('.sc-toolbar button[aria-label="Zoom in"]')
+    await zoomIn.focus()
+    await pressUntilOff(page, zoomIn, 'Enter')
+    await expect(zoomIn).toBeFocused()
+    const atLimit = await yearsOf(page)
+    await page.keyboard.press('Enter')
+    await expect(zoomIn).toBeFocused()
+    expect(await yearsOf(page)).toEqual(atLimit)
+
+    const later = page.locator('.sc-toolbar button[aria-label="Later years"]')
+    await later.focus()
+    await pressUntilOff(page, later, 'Space')
+    await expect(later).toBeFocused()
+    expect(await focusedLabel(page)).toBe('Later years')
   })
 })
 

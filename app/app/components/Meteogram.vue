@@ -238,48 +238,32 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
 
         <!-- the single-pointer ways to what a drag, a pinch and the scroll bar do (WCAG 2.5.7), named by what they do -->
         <div v-if="view === 'chart'" class="order-3 md:order-none md:col-start-2 md:row-start-2 md:justify-self-end flex flex-wrap items-center gap-1 min-w-0 max-w-full" role="group" :aria-label="t('meteogram.chart.zoomGroup')">
-          <UButton
+          <ChartToolButton
             icon="i-ph-caret-left"
-            size="sm"
-            variant="outline"
-            color="neutral"
             :title="t('meteogram.chart.earlier')"
             :aria-label="t('meteogram.chart.earlier')"
-            :disabled="chart?.atStart"
-            class="shrink-0"
+            :unavailable="!!chart?.atStart"
             @click="chart?.shift(-0.5)"
           />
-          <UButton
+          <ChartToolButton
             icon="i-ph-caret-right"
-            size="sm"
-            variant="outline"
-            color="neutral"
             :title="t('meteogram.chart.later')"
             :aria-label="t('meteogram.chart.later')"
-            :disabled="chart?.atEnd"
-            class="shrink-0"
+            :unavailable="!!chart?.atEnd"
             @click="chart?.shift(0.5)"
           />
-          <UButton
+          <ChartToolButton
             icon="i-ph-magnifying-glass-minus"
-            size="sm"
-            variant="outline"
-            color="neutral"
             :title="t('meteogram.chart.zoomOut')"
             :aria-label="t('meteogram.chart.zoomOut')"
-            :disabled="chart?.atMinZoom"
-            class="shrink-0"
+            :unavailable="!!chart?.atMinZoom"
             @click="chart?.zoomOut()"
           />
-          <UButton
+          <ChartToolButton
             icon="i-ph-magnifying-glass-plus"
-            size="sm"
-            variant="outline"
-            color="neutral"
             :title="t('meteogram.chart.zoomIn')"
             :aria-label="t('meteogram.chart.zoomIn')"
-            :disabled="chart?.atMaxZoom"
-            class="shrink-0"
+            :unavailable="!!chart?.atMaxZoom"
             @click="chart?.zoomIn()"
           />
           <UButton

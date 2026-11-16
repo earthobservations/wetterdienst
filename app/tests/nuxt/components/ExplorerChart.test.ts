@@ -137,6 +137,8 @@ function key(name: string, init: KeyboardEventInit = {}) {
 }
 const rows = () => [...readout()!.querySelectorAll('dt')].map((dt, i) => [dt.textContent!.trim(), readout()!.querySelectorAll('dd')[i]!.textContent!.trim()])
 const buttonNamed = (name: string) => document.body.querySelector<HTMLButtonElement>(`.xc-toolbar button[aria-label="${name}"]`)!
+/** Off: `aria-disabled`, never `disabled`, which would drop the focus of a button that turns off while it has it (WCAG 2.4.3, GH-4101) */
+const isOff = (name: string) => buttonNamed(name).getAttribute('aria-disabled') === 'true'
 const legendButtons = () => [...document.body.querySelectorAll<HTMLButtonElement>('.xc-legend button')]
 
 beforeEach(() => {
@@ -702,14 +704,14 @@ describe('the zoom', () => {
   it('has the buttons of what a drag and the keys do, which are off where they would do nothing', async () => {
     await showChart()
     expect(document.body.querySelector('.xc-toolbar')!.getAttribute('role')).toBe('group')
-    expect(buttonNamed('Zoom out').disabled).toBe(true)
-    expect(buttonNamed('Reset zoom').disabled).toBe(true)
-    expect(buttonNamed('Earlier').disabled).toBe(true)
-    expect(buttonNamed('Later').disabled).toBe(true)
+    expect(isOff('Zoom out')).toBe(true)
+    expect(isOff('Reset zoom')).toBe(true)
+    expect(isOff('Earlier')).toBe(true)
+    expect(isOff('Later')).toBe(true)
     buttonNamed('Zoom in').click()
     await flushPromises()
-    expect(buttonNamed('Zoom out').disabled).toBe(false)
-    expect(buttonNamed('Later').disabled).toBe(false)
+    expect(isOff('Zoom out')).toBe(false)
+    expect(isOff('Later')).toBe(false)
     buttonNamed('Later').click()
     await flushPromises()
     expect(lastZoom().end).toBeCloseTo(END, -3)
@@ -750,6 +752,46 @@ describe('the zoom', () => {
     expect(lastZoom()).toMatchObject({ start: START, end: END })
   })
 
+  it('swallows the press of an unavailable button: Reset zoom pressed at the whole chart does not bring a dismissed readout back (GH-4101)', async () => {
+    await showChart()
+    movePointerTo(xOf(START + 5 * DAY))
+    await flushPromises()
+    expect(readout()).not.toBeNull()
+    // dismissed by Escape (WCAG 1.4.13): what a reset of the zoom would undo, as it shows the readout again
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await flushPromises()
+    expect(readout()).toBeNull()
+    expect(isOff('Reset zoom')).toBe(true)
+    buttonNamed('Reset zoom').click()
+    await flushPromises()
+    expect(readout()).toBeNull()
+  })
+
+  it('keeps a button that turns off in the tab order with the focus, and does nothing when it is pressed (WCAG 2.4.3, GH-4101)', async () => {
+    await showChart()
+    buttonNamed('Zoom in').click()
+    await flushPromises()
+    const reset = buttonNamed('Reset zoom')
+    expect(isOff('Reset zoom')).toBe(false)
+    reset.focus()
+    reset.click()
+    await flushPromises()
+    // off, and still a button that can have the focus: a `disabled` one would hand it to the page
+    expect(isOff('Reset zoom')).toBe(true)
+    expect(reset.disabled).toBe(false)
+    expect(reset.tabIndex).toBeGreaterThanOrEqual(0)
+    expect(document.activeElement).toBe(reset)
+    // pressed again, it does nothing: the whole chart stays, and Zoom out (off too) does nothing either
+    const calls = echarts.chart.setOption.mock.calls.length
+    reset.click()
+    buttonNamed('Zoom out').click()
+    buttonNamed('Earlier').click()
+    await flushPromises()
+    expect(echarts.chart.setOption.mock.calls.length).toBe(calls)
+    expect(isOff('Reset zoom')).toBe(true)
+    expect(document.activeElement).toBe(reset)
+  })
+
   it('starts no zoom box over the legend or the labels', async () => {
     await showChart()
     stage().dispatchEvent(pointer('pointerdown', { clientX: xOf(START + 5 * DAY), clientY: 395 }))
@@ -758,7 +800,7 @@ describe('the zoom', () => {
     expect(document.body.querySelector('.xc-selection')).toBeNull()
     stage().dispatchEvent(pointer('pointerup', { clientX: xOf(START + 15 * DAY), clientY: 395 }))
     await flushPromises()
-    expect(buttonNamed('Reset zoom').disabled).toBe(true)
+    expect(isOff('Reset zoom')).toBe(true)
   })
 
   it('takes the zoom of the library\'s own gestures (a pinch), and not its echo of a window the component set', async () => {
@@ -780,11 +822,11 @@ describe('the zoom', () => {
     const zoomed = lastZoom()
     await shown.setProps({ series: [{ ...A, name: 'Renamed' }, B, TREND] })
     await flushPromises()
-    expect(buttonNamed('Reset zoom').disabled).toBe(false)
+    expect(isOff('Reset zoom')).toBe(false)
     expect(lastZoom()).toMatchObject({ start: zoomed.start, end: zoomed.end })
     await shown.setProps({ series: [daily('other', 'Other', 0, 5, 10)] })
     await flushPromises()
-    expect(buttonNamed('Reset zoom').disabled).toBe(true)
+    expect(isOff('Reset zoom')).toBe(true)
   })
 })
 
