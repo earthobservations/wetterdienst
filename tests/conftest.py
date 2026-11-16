@@ -404,6 +404,45 @@ def _no_fetch_ahead_unless_asked_for(request: pytest.FixtureRequest) -> Generato
     TimeseriesValues._fetch_ahead = original  # type: ignore[method-assign]  # noqa: SLF001
 
 
+@pytest.fixture(autouse=True)
+def _stationslexikon_of_the_stub(request: pytest.FixtureRequest) -> Generator[None]:
+    """Serve DWD's Stationslexikon to the offline tests from the stub of its rows (GH-4073).
+
+    The stations of `dwd/observation` are given their WMO number from a page of `www.dwd.de` that no description file
+    of the stations holds, so every test that lists them, whatever it stands in for, would reach for it. They get the
+    rows of `tests/provider/dwd/observation/stationslexikon_rows.py`; a test that is about the page serves its own
+    (`monkeypatch` after this) and the tests marked `remote` read the live one. Every other address goes where it
+    went. Not through the `monkeypatch` fixture, for the reason `_no_fetch_ahead_unless_asked_for` gives. The process
+    remembers the table it read, and its failures: each test starts and ends with none, so that one's page is not the
+    next one's.
+    """
+    from io import BytesIO  # noqa: PLC0415
+
+    from tests.provider.dwd.observation.stationslexikon_rows import STATIONSLEXIKON  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import stationslexikon  # noqa: PLC0415
+
+    stationslexikon.forget_wmo_ids()
+    if request.node.get_closest_marker("remote"):
+        yield
+        stationslexikon.forget_wmo_ids()
+        return
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    original = stationslexikon.download_file
+
+    def download_file(*, url: str, **kwargs: Any) -> File:  # noqa: ANN401
+        if url == stationslexikon.STATIONSLEXIKON_URL:
+            return File(url=url, content=BytesIO(STATIONSLEXIKON), status=200)
+        return original(url=url, **kwargs)
+
+    stationslexikon.download_file = download_file
+    try:
+        yield
+    finally:
+        stationslexikon.download_file = original
+        stationslexikon.forget_wmo_ids()
+
+
 def _is_local_address(address: object) -> bool:
     """Say whether a socket address points at this machine.
 

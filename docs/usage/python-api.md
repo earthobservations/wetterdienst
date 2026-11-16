@@ -345,8 +345,8 @@ request.filter_by_wigos_id("0-20000-0-10381")  # an issuer written "056" finds t
 What is given is read in the notation of the column before it is compared: one to five digits of a WMO number get
 their leading zeros (`1001` finds `01001`), an ICAO code is upper-cased, and the numbers of a WIGOS identifier
 lose theirs. An id that cannot be one of the column (`"abc"`, six digits, `"ED"`) raises a `ValueError` that names
-the notation, rather than answering as if no station had it. A provider whose station list carries no such ids
-(`dwd/observation` today) has the column null, so a search finds nothing there.
+the notation, rather than answering as if no station had it. A provider whose station list carries no such ids has
+the column null, so a search finds nothing there.
 
 The command line (`--wmo-id`, `--wigos-id`, `--icao-id`), the REST API and MCP (`wmo_id`, `wigos_id`, `icao_id`)
 take them for `stations` and `values`, comma-separated, as one of the ways to select stations: not with `stations`,
@@ -554,12 +554,13 @@ there, and null where the source names none. The last three are the identifiers 
 
 | Column | Notation | Filled by |
 | --- | --- | --- |
-| `wmo_id` | the WMO station number: five digits with leading zeros, `01001` or `10381`; a value that is not that (a source's junk, an id of another scheme) is null | `dwd/mosmix`, `dwd/dmo` and `dwd/poi` for the stations whose `station_id` is the number (the others carry an id of DWD's own, `A191`), `geosphere/observation`, `knmi/observation`, `meteofrance/synop`, `noaa/ghcn`; from the number the list publishes: `aemet/observation` (`indsinop`), `dmi/observation` (`wmoStationId`, only in the blocks of Greenland, Denmark and the Faroe Islands), `nws/observation` (column 1 of the MADIS table; its station id is no ICAO code, so `icao_id` is null there), `eccc/observation`, `fmi/observation`, `metno/frost`; from a WIGOS id of the issuer 20000 (`0-20000-0-<number>`): `chmi/observation`, `meteoswiss/observation`, `rmi/observation` |
+| `wmo_id` | the WMO station number: five digits with leading zeros, `01001` or `10381`; a value that is not that (a source's junk, an id of another scheme) is null | `dwd/mosmix`, `dwd/dmo` and `dwd/poi` for the stations whose `station_id` is the number (the others carry an id of DWD's own, `A191`), `geosphere/observation`, `knmi/observation`, `meteofrance/synop`, `noaa/ghcn`; from the number the list publishes: `dwd/observation` (the Stationslexikon's number of the products `SY` and `MN`, 314 of its 13,779 stations; the station descriptions have none), `aemet/observation` (`indsinop`), `dmi/observation` (`wmoStationId`, only in the blocks of Greenland, Denmark and the Faroe Islands), `nws/observation` (column 1 of the MADIS table; its station id is no ICAO code, so `icao_id` is null there), `eccc/observation`, `fmi/observation`, `metno/frost`; from a WIGOS id of the issuer 20000 (`0-20000-0-<number>`): `chmi/observation`, `meteoswiss/observation`, `rmi/observation` |
 | `wigos_id` | the WIGOS station identifier, `<series>-<issuer>-<issue number>-<local id>`, the first three numbers without leading zeros (`0-20000-0-10381`, `0-56-101-01002`), the local id as published | `chmi/observation`, `knmi/observation`, `meteoswiss/observation`, `metno/frost`, `rmi/observation` |
 | `icao_id` | the ICAO location indicator of the aerodrome, four upper-case letters (`EDDH`) | `dwd/mosmix`, `dwd/dmo`, `dwd/poi`, `fmi/observation`, `metno/frost`, `noaa/ghcn` (hourly) |
 
 A provider that does not publish one of them has it null, which is no statement that the station has none:
-`dwd/observation`'s stations are keyed by DWD's own number, which is not the WMO number. Search by them with
+the `station_id` of `dwd/observation` is DWD's own number, which is not the WMO number, and only 314 of its
+stations have a `wmo_id` (from the Stationslexikon). Search by them with
 `filter_by_wmo_id`, `filter_by_wigos_id` and `filter_by_icao_id` (see above).
 
 #### Station columns of a provider

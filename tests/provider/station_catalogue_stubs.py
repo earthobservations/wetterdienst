@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, Any
 import polars as pl
 
 from tests.provider import station_data_index as data_index
+from tests.provider.dwd.observation.stationslexikon_rows import STATIONSLEXIKON
 from tests.provider.metno.frost import catalogue_rows as frost_rows
 from tests.provider.station_catalogue import COUNTRY_BBOX, Accepted, Bbox, has_encoding_damage
 from wetterdienst import Settings
@@ -53,6 +54,7 @@ from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation import fileindex as dwd_fileindex
 from wetterdienst.provider.dwd.observation import metaindex as dwd_metaindex
+from wetterdienst.provider.dwd.observation import stationslexikon as dwd_stationslexikon
 from wetterdienst.provider.dwd.phenology import DwdPhenologyRequest
 from wetterdienst.provider.dwd.phenology import api as phenology_api
 from wetterdienst.provider.dwd.poi import DwdPoiRequest
@@ -893,7 +895,9 @@ OBSERVATION_EXPECTED: dict[str, dict[str, Any]] = {
         "latitude": 47.8413,
         "longitude": 8.8493,
     },
-    "00011": {"name": "Donaueschingen (Landeplatz)", "region": "Baden-Württemberg", "elevation": 680.0},
+    "00003": {"name": "Aachen", "wmo_id": "10501"},
+    # `SY` and `MN` carry an id of DWD's own (`Q870`), which is no WMO number
+    "00011": {"name": "Donaueschingen (Landeplatz)", "region": "Baden-Württemberg", "elevation": 680.0, "wmo_id": None},
     "00197": {"name": "Arolsen-Volkhardinghausen, Bad", "region": "Hessen", "latitude": 51.3219, "longitude": 9.0558},
     "00314": {"name": "Kubschütz, Kr. Bautzen", "region": "Sachsen", "latitude": 51.1604, "longitude": 14.5042},
     "01332": {"name": "Falkenberg,Kr.Rottal-Inn", "region": "Bayern", "latitude": 48.4832, "longitude": 12.7241},
@@ -939,6 +943,8 @@ def _dwd_observation(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     files.append(f"{base}tageswerte_KL_01018_19510101_20041231_hist.zip")
     monkeypatch.setattr(dwd_fileindex, "list_remote_files_fsspec", lambda *_args, **_kwargs: files)
     _serve(monkeypatch, dwd_metaindex, {"Beschreibung_Stationen": catalogue.encode("latin-1")})
+    # the WMO numbers come from the Stationslexikon, a page of its own (GH-4073): the rows of `stationslexikon_rows`
+    _serve(monkeypatch, dwd_stationslexikon, {"statlex_html": STATIONSLEXIKON})
     return _stations(DwdObservationRequest, ("daily", "climate_summary"), periods="historical")
 
 
