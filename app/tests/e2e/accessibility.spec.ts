@@ -1467,7 +1467,7 @@ test.describe('chart controls by keyboard', () => {
 
     await page.locator('.mg-stage').scrollIntoViewIfNeeded()
     const box = (await page.locator('.mg-stage').boundingBox())!
-    const x = box.x + 70 + (box.width - 80) * 0.3
+    const x = box.x + 71 + (box.width - 81) * 0.3
     const y = box.y + box.height * 0.6
     const readout = page.getByTestId('meteogram-readout')
     await page.mouse.move(x - 20, y)

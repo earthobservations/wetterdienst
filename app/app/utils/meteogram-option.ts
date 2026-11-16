@@ -24,9 +24,13 @@ export const SYMBOL_SIZE = 30
 export const HOUR_LABEL_HALF_WIDTH = 18
 /**
  * The titles of the axes: the left of the widest block, the width of a line of them, and the room between a title and its own panel's
- * tick labels (GH-4132); and what the tick labels are made of
+ * tick labels (GH-4132); and what the tick labels are made of.
+ *
+ * The rotated text of a title is drawn in a box a little wider than its 14 px line: its left edge is 1 px left of the line's in Chrome and
+ * 2 px in Firefox, where the first block would be cut at the edge of the chart (Luftdruck at -1 with a `TITLE_LEFT` of 1). So the block
+ * starts 3 px from the edge, which leaves a pixel in either engine
  */
-export const TITLE_LEFT = 1
+export const TITLE_LEFT = 3
 export const TITLE_LINE_PX = 14
 /** The lines of the block of the titles in every panel, language and width: the name, and the unit on its own line */
 export const TITLE_LINES = 2

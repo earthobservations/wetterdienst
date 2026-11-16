@@ -104,7 +104,7 @@ test.describe('the shape of the chart', () => {
     }
     expect(new Set(seen.map(entry => entry.height)).size, JSON.stringify(seen)).toBe(1)
     // the same strip on a phone, in landscape and on a desktop's card: the 71 hours between the first and the last stamp at 10 px,
-    // and the gutters of the axes (56 px at the least at the left, 70 with the pressure's labels, and 10 at the right)
+    // and the gutters of the axes (56 px at the least at the left, 71 with the pressure's labels, and 10 at the right)
     expect(new Set(seen.map(entry => entry.strip)).size, JSON.stringify(seen)).toBe(1)
     expect(seen[0]!.strip).toBeGreaterThanOrEqual(71 * 10 + 66)
     expect(seen[0]!.strip).toBeLessThanOrEqual(71 * 10 + 94)
@@ -201,7 +201,8 @@ test.describe('on a phone, in German (the longest labels), with every panel on',
       expect(found.titles.length, JSON.stringify(found.titles)).toBeGreaterThanOrEqual(5)
       expect(found.labels.length).toBeGreaterThanOrEqual(3)
       for (const title of found.titles) {
-        expect(title.left, `${title.text} is cut at the left`).toBeGreaterThanOrEqual(0)
+        // (a pixel to spare: the rotated box is 1 px further left in Firefox than in Chrome)
+        expect(title.left, `${title.text} is cut at the left`).toBeGreaterThanOrEqual(1)
         // the labels of its own panel: those in the same grid, of which a panel has two at least
         const row = rows.find(candidate => inRow(candidate, title))
         expect(row, `${title.text} is in no panel: ${JSON.stringify({ title, stageTop: found.stageTop })}`).toBeDefined()
@@ -217,7 +218,7 @@ test.describe('on a phone, in German (the longest labels), with every panel on',
         expect(ownLeft - blockRight, `${title.text} stands off its labels: ${JSON.stringify({ title, own })}`).toBeLessThanOrEqual(14)
       }
       // the panel with the widest labels (the pressure's thousands separator) has its title at the very left edge
-      expect(Math.min(...found.titles.map(title => title.left))).toBeLessThanOrEqual(3)
+      expect(Math.min(...found.titles.map(title => title.left))).toBeLessThanOrEqual(5)
     })
   }
 
@@ -310,9 +311,9 @@ test.describe('the readout (WCAG 1.4.13)', () => {
   // over a panel of the chart, in the middle of the plot
   async function overPlot(page: Page, fraction = 0.3) {
     const box = (await page.locator('.mg-stage').boundingBox())!
-    // the left gutter is 70 px with the pressure's labels (GH-4132; it was 68 before, and the pointer's place has to be one that the
+    // the left gutter is 71 px with the pressure's labels (GH-4132; it was 68 before, and the pointer's place has to be one that the
     // hour does not change a pixel to either side of: the next test moves it by one pixel), the right 10
-    return { x: box.x + 70 + (box.width - 80) * fraction, y: box.y + box.height * 0.6 }
+    return { x: box.x + 71 + (box.width - 81) * fraction, y: box.y + box.height * 0.6 }
   }
 
   test('appears under the pointer, is docked at the far edge, can be moved onto and holds its hour while the pointer is over it', async ({ page, baseURL }) => {
