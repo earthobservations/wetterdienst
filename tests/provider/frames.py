@@ -27,7 +27,9 @@ change to the snapshot in the same pull request, where a reviewer sees it as a d
 
     uv run poe frames:snapshot
 
-which runs the whole offline selection of `tests/provider` in one process and writes the file. What it holds is not
+which runs the whole offline selection of `tests/provider` in one process and writes the file from the tests that ran,
+so the entry of a test that was renamed or removed is dropped by it (the check that fails on such an entry when the
+snapshot is compared to, in `test_frames_snapshot.py`, stands aside in the run that writes). What it holds is not
 what the provider returned but what the core made of it, so a pull request that moves shaping from a provider into the
 core, and leaves the diff of this file empty, has shown that it changed nothing.
 
