@@ -1,4 +1,4 @@
-import type { Download, Page } from '@playwright/test'
+import type { Download, Locator, Page } from '@playwright/test'
 import type { Handlers } from './accessibility/mock-backend'
 import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
@@ -480,6 +480,59 @@ test('the chart takes a zoom by the wheel with Ctrl, a y axis that follows the w
   await page.locator('.xc-stage').focus()
   await page.keyboard.press('0')
   await expect.poll(window).toBe(whole)
+})
+
+// WCAG 2.4.3 (GH-4101): a toolbar button that turns off while it has the focus is off (`aria-disabled`) and keeps the focus; `disabled`
+// would drop it to the page, and a keyboard user would start again from the top. Pressed again, it does nothing.
+test.describe('a toolbar button that turns off while it has the focus', () => {
+  const windowOf = (page: Page) => canvas(page).getAttribute('data-window')
+  /** The key that is pressed on a focused button until it is off, then once more */
+  async function pressUntilOff(page: Page, button: Locator, key: string) {
+    for (let press = 0; press < 40; press++)
+      await page.keyboard.press(key)
+    await expect(button).toHaveAttribute('aria-disabled', 'true')
+  }
+  const focusedLabel = (page: Page) => page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.tagName)
+
+  test('Reset zoom keeps the focus on Space, and does nothing when it is pressed again', async ({ page, baseURL }) => {
+    await showChart(page, baseURL!)
+    const reset = page.locator('.xc-toolbar button[aria-label="Reset zoom"]')
+    await page.getByRole('button', { name: 'Zoom in', exact: true }).click()
+    await expect(reset).not.toHaveAttribute('aria-disabled', 'true')
+    const zoomed = await windowOf(page)
+    await reset.focus()
+    await page.keyboard.press('Space')
+    await expect(reset).toHaveAttribute('aria-disabled', 'true')
+    await expect.poll(() => windowOf(page)).not.toBe(zoomed)
+    const whole = await windowOf(page)
+    await expect(reset).toBeFocused()
+    expect(await focusedLabel(page)).toBe('Reset zoom')
+    // still a button in the tab order, not a disabled one
+    expect(await reset.evaluate((button: HTMLButtonElement) => [button.disabled, button.tabIndex])).toEqual([false, 0])
+    await page.keyboard.press('Space')
+    await page.keyboard.press('Enter')
+    await expect(reset).toBeFocused()
+    await expect(reset).toHaveAttribute('aria-disabled', 'true')
+    expect(await windowOf(page)).toBe(whole)
+  })
+
+  test('Zoom in keeps the focus at its limit, and Later at the end of the chart', async ({ page, baseURL }) => {
+    await showChart(page, baseURL!)
+    const zoomIn = page.locator('.xc-toolbar button[aria-label="Zoom in"]')
+    await zoomIn.focus()
+    await pressUntilOff(page, zoomIn, 'Enter')
+    await expect(zoomIn).toBeFocused()
+    const atLimit = await windowOf(page)
+    await page.keyboard.press('Enter')
+    await expect(zoomIn).toBeFocused()
+    expect(await windowOf(page)).toBe(atLimit)
+
+    const later = page.locator('.xc-toolbar button[aria-label="Later"]')
+    await later.focus()
+    await pressUntilOff(page, later, 'Space')
+    await expect(later).toBeFocused()
+    expect(await focusedLabel(page)).toBe('Later')
+  })
 })
 
 test('the chart has no animation, and draws as it is with reduced motion asked for', async ({ page, baseURL, context }) => {

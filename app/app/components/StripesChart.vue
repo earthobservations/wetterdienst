@@ -684,25 +684,25 @@ const selectionStyle = computed(() => {
     <!-- the single-pointer ways to what a drag, a pinch and the keys do (WCAG 2.5.7), named by what they do -->
     <!-- inert while the chart could not be drawn: nothing to zoom, read or save of an empty chart -->
     <div ref="toolbarEl" class="sc-toolbar" role="group" :aria-label="t('stripes.chart.zoomGroup')" :inert="renderFailed || undefined">
-      <UButton
-        icon="i-ph-caret-left" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('stripes.chart.earlier')" :aria-label="t('stripes.chart.earlier')" :disabled="atStart" @click="shift(-0.5)"
+      <ChartToolButton
+        icon="i-ph-caret-left"
+        :title="t('stripes.chart.earlier')" :aria-label="t('stripes.chart.earlier')" :unavailable="atStart" @click="shift(-0.5)"
       />
-      <UButton
-        icon="i-ph-caret-right" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('stripes.chart.later')" :aria-label="t('stripes.chart.later')" :disabled="atEnd" @click="shift(0.5)"
+      <ChartToolButton
+        icon="i-ph-caret-right"
+        :title="t('stripes.chart.later')" :aria-label="t('stripes.chart.later')" :unavailable="atEnd" @click="shift(0.5)"
       />
-      <UButton
-        icon="i-ph-magnifying-glass-minus" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('stripes.chart.zoomOut')" :aria-label="t('stripes.chart.zoomOut')" :disabled="atMinZoom" @click="zoomOut()"
+      <ChartToolButton
+        icon="i-ph-magnifying-glass-minus"
+        :title="t('stripes.chart.zoomOut')" :aria-label="t('stripes.chart.zoomOut')" :unavailable="atMinZoom" @click="zoomOut()"
       />
-      <UButton
-        icon="i-ph-magnifying-glass-plus" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('stripes.chart.zoomIn')" :aria-label="t('stripes.chart.zoomIn')" :disabled="atMaxZoom" @click="zoomIn()"
+      <ChartToolButton
+        icon="i-ph-magnifying-glass-plus"
+        :title="t('stripes.chart.zoomIn')" :aria-label="t('stripes.chart.zoomIn')" :unavailable="atMaxZoom" @click="zoomIn()"
       />
-      <UButton
-        icon="i-ph-arrow-counter-clockwise" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('stripes.chart.resetZoom')" :aria-label="t('stripes.chart.resetZoom')" :disabled="atMinZoom" @click="resetZoom()"
+      <ChartToolButton
+        icon="i-ph-arrow-counter-clockwise"
+        :title="t('stripes.chart.resetZoom')" :aria-label="t('stripes.chart.resetZoom')" :unavailable="atMinZoom" @click="resetZoom()"
       />
       <UButton
         icon="i-ph-camera" size="sm" variant="outline" color="neutral" class="shrink-0"
