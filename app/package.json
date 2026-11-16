@@ -45,7 +45,7 @@
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
     "luxon": "^3.7.2",
-    "nuxt": "^4.6.2",
+    "nuxt": "^4.6.4",
     "nuxt-security": "^2.6.0",
     "suncalc": "^2.1.0",
     "swagger-ui-dist": "^5.33.2",
