@@ -69,6 +69,31 @@ export function buildStripesModel(data: readonly StripesInput[]): StripesModel |
   }
 }
 
+/** A run of years that each have a value, from the first to the last (a lone year is a run of one) */
+export interface YearRun {
+  first: number
+  last: number
+}
+
+/**
+ * The runs of years with a value in `availability` (a value for a year that has one, `null` for one that has none, from
+ * `minYear` on), in order: the stretches the data-availability line covers, so that it spans exactly their stripes (GH-4153).
+ */
+export function availabilityRuns(availability: readonly (number | null)[], minYear: number): YearRun[] {
+  const runs: YearRun[] = []
+  availability.forEach((value, index) => {
+    if (value === null)
+      return
+    const year = minYear + index
+    const open = runs.at(-1)
+    if (open && open.last === year - 1)
+      open.last = year
+    else
+      runs.push({ first: year, last: year })
+  })
+  return runs
+}
+
 /** A span of years on the chart's axis: a stripe is the year plus and minus half */
 export interface YearWindow {
   start: number

@@ -1,17 +1,18 @@
 import type { EChartsCoreOption } from 'echarts/core'
 /**
  * The option of the climate stripes (Apache ECharts, drawn as SVG): a stripe for each year as a `custom` series on a
- * value axis of years (so that a year without a value is a gap, as before), the optional lines as the library's own
- * `line` series, and the title, the years, the source and the availability label as text elements of a `custom`
- * series without a coordinate system, placed in px. Pure: values, a theme, a size and a window in, an option out, so
+ * value axis of years (so that a year without a value is a gap, as before), the availability line as a `custom` series
+ * of one bar for each run of years with a value (it spans exactly their stripes), the optional lines of the timeseries and
+ * the trend as the library's own `line` series, and the title, the years, the source and the availability label as text
+ * elements of a `custom` series without a coordinate system, placed in px. Pure: values, a theme, a size and a window in, an option out, so
  * that tests and the image export build it without a browser (GH-4068).
  */
 import type { StripesKind } from '#shared/types/api'
 import type { ChartTheme } from './chart-theme'
-import type { StripesModel, YearWindow } from './stripes-model'
+import type { StripesModel, YearRun, YearWindow } from './stripes-model'
 import { seriesLabelColor } from './chart-theme'
 import { COLOR_MAPS, stripeColour } from './stripes'
-import { MIN_SPAN_STRIPES, visibleYears } from './stripes-model'
+import { availabilityRuns, MIN_SPAN_STRIPES, visibleYears } from './stripes-model'
 
 /** The font of the chart, on the page and in a saved image, which has no web font of the page's to draw with */
 export const STRIPES_FONT_FAMILY = 'Arial, sans-serif'
@@ -50,8 +51,9 @@ export interface StripesDisplay {
  */
 const AVAILABILITY_MARGIN = 20
 
-/** The gold of the availability line, which is data and the same in both schemes */
+/** The gold of the availability line, which is data and the same in both schemes, and how thick it is, in px */
 const GOLD = '#FFD700'
+const AVAILABILITY_WIDTH = 3
 
 export interface StripesOptionInput {
   model: StripesModel
@@ -202,6 +204,48 @@ export function windowUpdate(input: StripesOptionInput): EChartsCoreOption {
   }
 }
 
+/**
+ * The edges of the stripe of `year`, in whole pixels: it is at least a px wide, so that a stripe of a crowded chart is not
+ * lost, and two stripes that meet share an edge.
+ */
+function stripeEdges(year: number, coordOf: (year: number) => number): [number, number] {
+  const x0 = Math.round(coordOf(year - 0.5))
+  const x1 = Math.round(coordOf(year + 0.5))
+  return [x0, Math.max(x0 + 1, x1)]
+}
+
+/**
+ * The edges of the bar of a run of years, in whole pixels: the left edge of its first stripe to the right edge of its last,
+ * as they are drawn (a stripe is the run of its year), so that the bar ends where its stripes do, to the pixel, however
+ * narrow they are. A lone year is as wide as its stripe.
+ */
+export function runEdges(run: YearRun, coordOf: (year: number) => number): [number, number] {
+  return [stripeEdges(run.first, coordOf)[0], stripeEdges(run.last, coordOf)[1]]
+}
+
+/**
+ * The availability line: one bar of gold for each run of years with a value, in the middle of the margin below the stripes, so
+ * 10 px under them whatever their height (the model's own value is a proportion of it, which lies 3 px under them on a phone);
+ * the model says only which years have a value. Not a `line` series: that runs from the middle of the first year's stripe to the
+ * middle of the last's, half a stripe short at each end, and draws nothing for a run of one year (GH-4153).
+ */
+function availabilitySeries(model: StripesModel, layout: StripesLayout, base: Record<string, unknown>) {
+  const y = layout.yRange[0] / 2
+  return {
+    ...base,
+    id: 'availability',
+    type: 'custom',
+    z: 2,
+    encode: { x: [0, 1], y: 2 },
+    data: availabilityRuns(model.availability, model.minYear).map(run => [run.first, run.last, y]),
+    renderItem: (_params: unknown, api: any) => {
+      const [x0, x1] = runEdges({ first: api.value(0), last: api.value(1) }, year => api.coord([year, 0])[0])
+      const centre = api.coord([0, api.value(2)])[1]
+      return { type: 'rect', silent: true, shape: { x: x0, y: Math.round(centre - AVAILABILITY_WIDTH / 2), width: x1 - x0, height: AVAILABILITY_WIDTH }, style: { fill: GOLD } }
+    },
+  }
+}
+
 /** The option of the stripes in `input` */
 export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption {
   const { model, kind, display, window: win } = input
@@ -232,17 +276,14 @@ export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption
     renderItem: (params: any, api: any) => {
       const year = api.value(0)
       // whole pixels, so that two stripes that meet share an edge and no hairline of the paper shows between them
-      const x0 = Math.round(api.coord([year - 0.5, 0])[0])
-      const x1 = Math.round(api.coord([year + 0.5, 0])[0])
+      const [x0, x1] = runEdges({ first: year, last: year }, at => api.coord([at, 0])[0])
       const y0 = api.coord([0, 0])[1]
       const y1 = api.coord([0, 1])[1]
-      return { type: 'rect', silent: true, shape: { x: x0, y: y1, width: Math.max(1, x1 - x0), height: y0 - y1 }, style: { fill: colours[api.value(2)] } }
+      return { type: 'rect', silent: true, shape: { x: x0, y: y1, width: x1 - x0, height: y0 - y1 }, style: { fill: colours[api.value(2)] } }
     },
   }]
   if (display.showDataAvailability)
-    // in the middle of the margin below the stripes, so 10 px under them whatever their height (the model's own value is
-    // a proportion of it, which lies 3 px under them on a phone); the model says only which years have a value
-    series.push(line('availability', model.availability.map((value, index) => [model.minYear + index, value === null ? null : layout.yRange[0] / 2]), { color: GOLD, width: 3 }, 2))
+    series.push(availabilitySeries(model, layout, base))
   if (display.showTimeseries)
     series.push(line('timeseries', model.years.map((year, index) => [year, model.normalized[index]!]), { color: 'black', width: 2 }, 3))
   if (display.showTrendline && display.showTimeseries)
