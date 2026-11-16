@@ -76,6 +76,7 @@ from wetterdienst.provider.dwd.observation.parser import (
     mez_md_column,
     parse_climate_observations_data,
 )
+from wetterdienst.provider.dwd.observation.stationslexikon import with_wmo_id
 from wetterdienst.settings import Settings
 from wetterdienst.util.archive import open_zip
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -1127,4 +1128,6 @@ class DwdObservationRequest(TimeseriesRequest):
         stations_df = stations_df.unique(
             subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True
         )
-        return stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)
+        stations_df = stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)
+        # the WMO number is in none of the descriptions: DWD's Stationslexikon has it (GH-4073)
+        return with_wmo_id(stations_df, settings)

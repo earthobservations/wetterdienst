@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `dwd/observation`: stations carry `wmo_id`, read from DWD's Stationslexikon (the number of the
+  products `SY` and `MN`: 314 of 13,779 stations, 22 % of `daily/kl`), so `wmo_id=10147` finds
+  `01975`; the others stay null. The table is cached for a week; if it cannot be read the stations
+  still come back with `wmo_id` null and the warning `wmo-ids-unavailable` (GH-4073)
+
 ## [0.190.0] - 2026-11-16
 
 ### Changed
