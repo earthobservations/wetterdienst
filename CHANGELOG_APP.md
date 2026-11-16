@@ -19,7 +19,7 @@ Types of changes:
 ### Fixed
 
 - `[Stripes]` The climate stripes keep their shape on every screen: their height follows their
-  width at a fixed ratio (kept between 160 and 480 px), with the title, years and availability line
+  width at 16:9 (kept between 160 and 480 px), with the title, years and availability line
   on top, so a phone no longer gets a tall narrow block and a wide screen no flat band. The
   camera's image has the same ratio, and the menu's image the chart's size on the page (GH-4133).
 

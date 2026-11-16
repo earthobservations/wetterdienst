@@ -25,7 +25,7 @@ export const TITLE_DROP = 18
  * height follows the width of the column, so the stripes keep their shape on a phone and on a wide screen; the title, the
  * years, the availability line and the source are on top of it.
  */
-export const STRIPES_RATIO = 2
+export const STRIPES_RATIO = 16 / 9
 /** The least and the most the stripes are high on the page, in px: a narrow window keeps stripes that read as stripes, a wide one does not grow without end */
 export const STRIPES_MIN_HEIGHT = 160
 export const STRIPES_MAX_HEIGHT = 480
@@ -240,7 +240,9 @@ export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption
     },
   }]
   if (display.showDataAvailability)
-    series.push(line('availability', model.availability.map((value, index) => [model.minYear + index, value]), { color: GOLD, width: 3 }, 2))
+    // in the middle of the margin below the stripes, so 10 px under them whatever their height (the model's own value is
+    // a proportion of it, which lies 3 px under them on a phone); the model says only which years have a value
+    series.push(line('availability', model.availability.map((value, index) => [model.minYear + index, value === null ? null : layout.yRange[0] / 2]), { color: GOLD, width: 3 }, 2))
   if (display.showTimeseries)
     series.push(line('timeseries', model.years.map((year, index) => [year, model.normalized[index]!]), { color: 'black', width: 2 }, 3))
   if (display.showTrendline && display.showTimeseries)

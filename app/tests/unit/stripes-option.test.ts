@@ -97,16 +97,17 @@ describe('the height of the chart (GH-4133)', () => {
   it('puts the title, the years, the availability line and the source on top of the stripes, and not into them', () => {
     const plain = { ...DISPLAY, showTitle: false, showYears: false, showSource: false, showDataAvailability: false }
     // no title (20 px above), nothing below but its 60 px, no margins for the availability line: the stripes and nothing else
-    expect(stripesChartHeight(plain, 704, 0)).toBe(20 + (704 - 40) / STRIPES_RATIO + 60)
+    expect(stripesChartHeight(plain, 704, 0)).toBe(Math.round(20 + (704 - 40) / STRIPES_RATIO + 60))
     // each thing shown makes the chart higher and the stripes not
     for (const shown of [{ showTitle: true }, { showYears: true, showSource: true }, { showDataAvailability: true }]) {
       const display = { ...plain, ...shown }
       expect(stripesChartHeight(display, 704, 1), JSON.stringify(shown)).toBeGreaterThan(stripesChartHeight(plain, 704, 0))
-      expect(stripesOf(display, 704).height).toBeCloseTo((704 - 40) / STRIPES_RATIO, 0)
+      // within the px the chart's height is rounded to
+      expect(Math.abs(stripesOf(display, 704).height - (704 - 40) / STRIPES_RATIO)).toBeLessThanOrEqual(1)
     }
     // a title of three lines at a phone's width: the chart is higher by what the lines take, the stripes are the same
     expect(stripesChartHeight(DISPLAY, 390, 3) - stripesChartHeight(DISPLAY, 390, 1)).toBe(2 * 20 + 18)
-    expect(stripesOf(DISPLAY, 390, 3).height).toBeCloseTo(stripesOf(DISPLAY, 390, 1).height, 0)
+    expect(Math.abs(stripesOf(DISPLAY, 390, 3).height - stripesOf(DISPLAY, 390, 1).height)).toBeLessThanOrEqual(1)
   })
 
   it('does not let the stripes get thinner than a stripe reads at, in a narrow window, nor taller than the most, in a wide one', () => {
@@ -117,7 +118,7 @@ describe('the height of the chart (GH-4133)', () => {
   it('is not held to the least and the most for a saved image, which keeps the ratio at its own width', () => {
     // the camera's width: 1360 px of stripes over the ratio, a height that the page would not draw
     const stripes = stripesOf(DISPLAY, 1400, 1, false)
-    expect(stripes.height).toBeCloseTo(1360 / STRIPES_RATIO, 0)
+    expect(Math.abs(stripes.height - 1360 / STRIPES_RATIO)).toBeLessThanOrEqual(1)
     expect(stripes.height).toBeGreaterThan(STRIPES_MAX_HEIGHT)
     expect(stripesOf(DISPLAY, 200, 1, false).height).toBeLessThan(STRIPES_MIN_HEIGHT)
   })
@@ -189,6 +190,23 @@ describe('the option', () => {
     // the 20 px of margin above and below the stripes (450 px high here), in the units of the axis they run 0 to 1 in
     expect(option.yAxis[0].min).toBeCloseTo(-20 / 450)
     expect(option.yAxis[0].max).toBeCloseTo(1 + 20 / 450)
+  })
+
+  it('lays the availability line 10 px under the stripes, in the middle of the margin, whatever their height (GH-4133)', () => {
+    for (const stripesHeight of [STRIPES_MIN_HEIGHT, 300, STRIPES_MAX_HEIGHT]) {
+      // a chart whose stripes are `stripesHeight` px high: the title, the margin of 20 px each side and the years on top
+      const height = 30 + stripesHeight + 40 + 80
+      const { input, option } = build({ height })
+      const layout = stripesLayout(input.display, input.width, input.height, input.titleLines.length)
+      expect(layout.stripes.height).toBe(stripesHeight)
+      const points = option.series.find((s: any) => s.id === 'availability').data.filter((point: number[]) => point[1] !== null)
+      expect(points.length).toBeGreaterThan(0)
+      for (const [, y] of points) {
+        // the axis runs 0 to 1 over the stripes: a value of -v is v times their height under them
+        expect(-y * layout.stripes.height, `at ${stripesHeight} px of stripes`).toBeCloseTo(10, 5)
+        expect(y).toBeGreaterThan(option.yAxis[0].min)
+      }
+    }
   })
 
   it('draws the timeseries in black, and the trend dashed over it only where both are asked for', () => {

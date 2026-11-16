@@ -223,7 +223,7 @@ test.describe('a saved stripes chart', () => {
     expect(svg).not.toContain(dark.replaceAll(' ', ''))
   })
 
-  test('is 2800 by 1660 px (the stripes 2:1 at 1400 px wide) and light, from the camera of the toolbar, named for the station', async ({ page, baseURL }) => {
+  test('is 2800 by 1830 px (the stripes 16:9 at 1400 px wide) and light, from the camera of the toolbar, named for the station', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!)
     const saved = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download plot as a PNG' }).click()
@@ -231,16 +231,16 @@ test.describe('a saved stripes chart', () => {
     expect(download.suggestedFilename()).toBe('climate_stripes_temperature_00011.png')
     const image = await imageOf(page, download)
     expect(luminance(image.corner)).toBeGreaterThan(0.9)
-    expect([image.width, image.height]).toEqual([2800, 1660])
+    expect([image.width, image.height]).toEqual([2800, 1830])
     await expect(canvas(page)).toHaveAttribute('data-chart-scheme', 'dark')
   })
 
-  test('is 1400 by 820 times two without a title, the stripes keeping their height', async ({ page, baseURL }) => {
+  test('is 1400 by 905 times two without a title, the stripes keeping their height', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!, `${PATH}&show_title=false`)
     const saved = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download plot as a PNG' }).click()
     const image = await imageOf(page, await saved)
-    expect([image.width, image.height]).toEqual([2800, 1640])
+    expect([image.width, image.height]).toEqual([2800, 1810])
   })
 
   test('is the range the chart is zoomed to', async ({ page, baseURL }) => {
@@ -438,32 +438,37 @@ test('the readout stays inside the chart on a phone, and is closed by its button
 })
 
 // The stripes keep their shape (GH-4133): as high as they are wide over the ratio, between a least and a most, whatever the
-// window is, so that on a phone the chart, its years and its availability line are in the first screen and not a tall narrow
-// block, and on a wide screen it is no flat band. Measured on the drawn stripes (their paths), not on the chart's box, which has
-// the title and the years on top of them.
+// window is, so that on a phone the chart, its years and its availability line are no tall narrow block, and on a wide
+// screen it is no flat band. Measured on the drawn stripes (their paths), not on the chart's box, which has the title (of
+// as many lines as the width makes) and the years on top of them.
+async function measureStripes(page: Page) {
+  return page.locator('.sc-canvas svg').first().evaluate((svg) => {
+    const boxes = [...svg.querySelectorAll('path')]
+      .filter(path => (path.getAttribute('fill') ?? '').startsWith('rgb('))
+      .map(path => path.getBoundingClientRect())
+    const left = Math.min(...boxes.map(box => box.left))
+    const right = Math.max(...boxes.map(box => box.right))
+    const top = Math.min(...boxes.map(box => box.top))
+    const bottom = Math.max(...boxes.map(box => box.bottom))
+    return { stripes: { width: right - left, height: bottom - top }, chart: svg.getBoundingClientRect().toJSON() }
+  })
+}
+const stripesHeight = async (page: Page) => (await measureStripes(page)).stripes.height
+
 for (const [width, height] of [[320, 700], [390, 844], [768, 900], [1280, 900], [1600, 900]] as const) {
-  test(`the stripes are as high as they are wide over ${STRIPES_RATIO}, in a ${width} px window`, async ({ page, baseURL }) => {
+  test(`the stripes are as high as they are wide over ${STRIPES_RATIO.toFixed(2)}, in a ${width} px window`, async ({ page, baseURL }) => {
     await page.setViewportSize({ width, height })
     await showStripes(page, baseURL!)
-    const measured = await page.locator('.sc-canvas svg').first().evaluate((svg) => {
-      const boxes = [...svg.querySelectorAll('path')]
-        .filter(path => (path.getAttribute('fill') ?? '').startsWith('rgb('))
-        .map(path => path.getBoundingClientRect())
-      const left = Math.min(...boxes.map(box => box.left))
-      const right = Math.max(...boxes.map(box => box.right))
-      const top = Math.min(...boxes.map(box => box.top))
-      const bottom = Math.max(...boxes.map(box => box.bottom))
-      return { stripes: { width: right - left, height: bottom - top }, chart: svg.getBoundingClientRect().toJSON() }
-    })
+    const measured = await measureStripes(page)
     const expected = Math.min(STRIPES_MAX_HEIGHT, Math.max(STRIPES_MIN_HEIGHT, (measured.chart.width - 40) / STRIPES_RATIO))
     // the stripes span the plot, which is the chart's width less its 20 px at either side
     expect(measured.stripes.width).toBeGreaterThan(measured.chart.width - 40 - 3)
     expect(measured.stripes.width).toBeLessThan(measured.chart.width - 40 + 3)
     expect(measured.stripes.height, `the stripes' height at ${width} px, of a chart ${measured.chart.width} px wide`).toBeGreaterThan(expected - 3)
     expect(measured.stripes.height).toBeLessThan(expected + 3)
-    // and not the 600 px (550) block of before, at any width
-    expect(measured.chart.height).not.toBe(600)
     if (width <= 390) {
+      // a phone's stripes are held to the least, not the thinner 16:9 of their width
+      expect(measured.stripes.height, 'the least the stripes are high').toBeGreaterThan(STRIPES_MIN_HEIGHT - 3)
       // the whole chart, its years and its availability line, fits a screen of a phone with room to spare for the page's own bar
       // (the form is above it, so it is scrolled to): no tall block that the screen cannot hold
       expect(measured.chart.height, 'the chart is lower than the screen').toBeLessThanOrEqual(height - 200)
@@ -474,13 +479,14 @@ for (const [width, height] of [[320, 700], [390, 844], [768, 900], [1280, 900], 
 test('the stripes follow a change of the window: lower in a narrower one, held to the least in the narrowest', async ({ page, baseURL }) => {
   await page.setViewportSize({ width: 1280, height: 900 })
   await showStripes(page, baseURL!)
-  const heightOf = async () => (await page.locator('.sc-canvas').first().boundingBox())!.height
-  const wide = await heightOf()
+  const wide = await stripesHeight(page)
+  expect(wide).toBeGreaterThan(STRIPES_MIN_HEIGHT + 100)
+  // measured on the stripes: the chart's own height also depends on how many lines the title is broken into
   await page.setViewportSize({ width: 390, height: 844 })
-  await expect.poll(heightOf).toBeLessThan(wide - 100)
-  const phone = await heightOf()
+  await expect.poll(() => stripesHeight(page)).toBeLessThan(wide - 100)
+  expect(await stripesHeight(page)).toBeGreaterThan(STRIPES_MIN_HEIGHT - 3)
+  expect(await stripesHeight(page)).toBeLessThan(STRIPES_MIN_HEIGHT + 3)
   await page.setViewportSize({ width: 320, height: 700 })
-  await expect.poll(heightOf).toBeLessThanOrEqual(phone)
-  // the least the stripes are high is held, so that they are stripes still: the chart is that and the title, years and source more
-  expect(await heightOf()).toBeGreaterThan(STRIPES_MIN_HEIGHT)
+  await expect.poll(() => stripesHeight(page)).toBeLessThan(STRIPES_MIN_HEIGHT + 3)
+  expect(await stripesHeight(page)).toBeGreaterThan(STRIPES_MIN_HEIGHT - 3)
 })

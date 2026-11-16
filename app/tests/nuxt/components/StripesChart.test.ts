@@ -99,8 +99,8 @@ function lastZoom() {
 }
 
 // a pointer event as a browser gives it; happy-dom has the class and not every field
-// the stripes of a chart of 800 px with a title and the availability line are 530 px high (GH-4133: 2:1 stripes, 380 px, and the
-// margins on top of them) and run from 50 to 430 px
+// the stripes of a chart of 800 px with a title and the availability line are 578 px high (GH-4133: 16:9 stripes, 428 px, and the
+// margins on top of them) and run from 50 to 478 px
 const STRIPES_MIDDLE = 300
 function pointer(type: string, init: { clientX?: number, clientY?: number, pointerType?: string, button?: number } = {}) {
   const event = new MouseEvent(type, { bubbles: true, cancelable: true, clientX: init.clientX ?? 0, clientY: init.clientY ?? STRIPES_MIDDLE, button: init.button ?? 0 })
@@ -134,7 +134,7 @@ describe('drawing', () => {
   it('draws the stripes in an SVG chart as tall as its width gives it at the ratio of the stripes, and listens for the zoom of the library', async () => {
     await showChart()
     expect(echarts.init).toHaveBeenCalledTimes(1)
-    expect(echarts.init.mock.calls[0]![2]).toEqual({ renderer: 'svg', width: 800, height: 530 })
+    expect(echarts.init.mock.calls[0]![2]).toEqual({ renderer: 'svg', width: 800, height: 578 })
     expect(echarts.chart.on).toHaveBeenCalledWith('datazoom', expect.any(Function))
     expect(lastOption().series.map((s: any) => s.id)).toEqual(['stripes', 'availability', 'labels'])
     expect(lastOption().animation).toBe(false)
@@ -145,7 +145,7 @@ describe('drawing', () => {
     const before = drawn()
     await shown.setProps({ display: { ...DISPLAY, showTitle: false, showTimeseries: true } })
     await vi.waitFor(() => expect(drawn()).toBe(before + 1), { timeout: 5000 })
-    expect(echarts.chart.resize).toHaveBeenLastCalledWith({ width: 800, height: 520 })
+    expect(echarts.chart.resize).toHaveBeenLastCalledWith({ width: 800, height: 568 })
     expect(lastOption().series.map((s: any) => s.id)).toEqual(['stripes', 'availability', 'timeseries', 'labels'])
   })
 
@@ -300,8 +300,8 @@ describe('the readout', () => {
 
   it('has none over the title, the years and the source, or the margin above the stripes, which are no stripes', async () => {
     await showChart()
-    // the stripes: 30 px of margin and the title above the plot, the blank of the availability line's range to 50, 430 below
-    for (const y of [10, 40, 49, 431, 470, 520]) {
+    // the stripes: 30 px of margin and the title above the plot, the blank of the availability line's range to 50, 478 below
+    for (const y of [10, 40, 49, 479, 520, 570]) {
       movePointerTo(xOfYear(1992), y)
       await nextTick()
       expect(readout(), `the pointer at ${y} px`).toBeNull()
@@ -314,18 +314,18 @@ describe('the readout', () => {
     await nextTick()
     expect(readout()).toBeNull()
     // a tap there selects nothing either
-    stage().dispatchEvent(pointer('click', { clientX: xOfYear(1990), clientY: 480, pointerType: 'touch' }))
+    stage().dispatchEvent(pointer('click', { clientX: xOfYear(1990), clientY: 520, pointerType: 'touch' }))
     await nextTick()
     expect(readout()).toBeNull()
   })
 
   it('starts no zoom box over the title or the years', async () => {
     await showChart()
-    stage().dispatchEvent(pointer('pointerdown', { clientX: xOfYear(1970), clientY: 480 }))
-    stage().dispatchEvent(pointer('pointermove', { clientX: xOfYear(1980), clientY: 480 }))
+    stage().dispatchEvent(pointer('pointerdown', { clientX: xOfYear(1970), clientY: 520 }))
+    stage().dispatchEvent(pointer('pointermove', { clientX: xOfYear(1980), clientY: 520 }))
     await nextTick()
     expect(document.body.querySelector('.sc-selection')).toBeNull()
-    stage().dispatchEvent(pointer('pointerup', { clientX: xOfYear(1980), clientY: 480 }))
+    stage().dispatchEvent(pointer('pointerup', { clientX: xOfYear(1980), clientY: 520 }))
     await nextTick()
     expect(buttonNamed('Reset zoom').disabled).toBe(true)
   })
@@ -597,14 +597,14 @@ describe('the zoom', () => {
 })
 
 describe('the image', () => {
-  it('is saved as the camera does: a PNG of 1400 by 830 px (the stripes 2:1, 680 px, and the margins on top) at twice the size, in the light theme, named for the station', async () => {
+  it('is saved as the camera does: a PNG of 1400 by 915 px (the stripes 16:9, 765 px, and the margins on top) at twice the size, in the light theme, named for the station', async () => {
     await showChart()
     buttonNamed('Download plot as a PNG').click()
     await vi.waitFor(() => expect(image.downloadBlob).toHaveBeenCalled())
     const [svg, options] = image.svgToBlob.mock.calls[0] as unknown as [string, any]
-    expect(options).toMatchObject({ format: 'png', width: 1400, height: 830, scale: 2 })
+    expect(options).toMatchObject({ format: 'png', width: 1400, height: 915, scale: 2 })
     expect(options.background).toMatch(/^#|^rgb/)
-    expect(svg).toContain('width="1400" height="830"')
+    expect(svg).toContain('width="1400" height="915"')
     expect(svg).toContain(TITLE)
     expect(image.downloadBlob.mock.calls[0]![1]).toBe('climate_stripes_temperature_00011.png')
   })
@@ -623,11 +623,11 @@ describe('the image', () => {
     expect(svg).not.toContain('rgb(250, 250, 250)')
   })
 
-  it('is 820 px high where the title is off: the stripes keep their 680 px and lose the 10 px of the title', async () => {
+  it('is 905 px high where the title is off: the stripes keep their 765 px and lose the 10 px of the title', async () => {
     await showChart({ display: { ...DISPLAY, showTitle: false } })
     buttonNamed('Download plot as a PNG').click()
     await vi.waitFor(() => expect(image.svgToBlob).toHaveBeenCalled())
-    expect((image.svgToBlob.mock.calls[0] as unknown as [string, any])[1]).toMatchObject({ width: 1400, height: 820, scale: 2 })
+    expect((image.svgToBlob.mock.calls[0] as unknown as [string, any])[1]).toMatchObject({ width: 1400, height: 905, scale: 2 })
   })
 
   it('is saved for the menu at the size asked for, with the title broken for the width of the image, and in the range the stripes are zoomed to', async () => {
