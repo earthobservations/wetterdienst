@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `dwd/mosmix`: `skip_empty` measures an element at the steps its file gives it at, no longer at
+  every hour: a step counts if some station of the file has a value there. `TX`, `TN`, `TM` and
+  MOSMIX-SNOW's `snow_depth` (every 3rd hour) no longer skip a station that has all of them (`Z914`
+  was 0.33), and a window past the forecast's horizon no longer counts against any element (`TTT`
+  over 96 h of a 48 h run was skipped). An element given at no step of the window has no say in
+  the share beside the others; a station with nothing in the window is skipped as before. A station
+  that lacks values at the file's steps is still skipped. A single-station MOSMIX-L file is its own
+  cadence, so only an element that is null throughout skips it (GH-4093)
+
 ### Security
 
 - The lock holds the releases that fix advisories in the runtime install: dnspython 2.9.2 (extra
