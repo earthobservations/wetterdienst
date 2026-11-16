@@ -82,7 +82,8 @@ describe('the rule of a gap', () => {
     expect(gapsOf(at())).toBeNull()
     expect(gapsOf(at(START))).toBeNull()
     expect(gapsOf(at(START, START + 5 * DAY))).toEqual([])
-    expect(gapsOf(at(month(2026, 0), month(2026, 5)), 'monthly')).toBeNull()
+    // two months of a monthly series five months apart: four are missing
+    expect(gapsOf(at(month(2026, 0), month(2026, 5)), 'monthly')).toEqual([1])
   })
 
   it('has no gap in two points, whatever the resolution: their one step is the series\' own', () => {
@@ -170,13 +171,19 @@ describe('what is drawn of a gap', () => {
     // 144 points on 20 px: more than 4 to a px, so the columns are made
     const drawn = drawnPoints(data, whole(data), 20, gapRuleOf(data))
     expect(drawn.x.length).toBeLessThan(data.x.length)
-    expect(nulls(drawn)).toHaveLength(2)
-    // the points either side of a gap are the data's last before it and first after it
-    const [first, second] = nulls(drawn)
-    expect(drawn.x[first! - 1]).toBe(START + 47 * HOUR)
-    expect(drawn.x[first! + 1]).toBe(START + 54 * HOUR)
-    expect(drawn.x[second! - 1]).toBe(START + 125 * HOUR)
-    expect(drawn.x[second! + 1]).toBe(START + 198 * HOUR)
+    // a column is 11 hours: the gap of 6 hours is narrower than it and is not to be seen, the gap of 72 hours is
+    expect(nulls(drawn)).toHaveLength(1)
+    // the points either side of it are the data's last before it and first after it
+    const [at] = nulls(drawn)
+    expect(drawn.x[at! - 1]).toBe(START + 125 * HOUR)
+    expect(drawn.x[at! + 1]).toBe(START + 198 * HOUR)
+  })
+
+  it('keeps no break of a gap narrower than a column of the plot, whatever the points it parts', () => {
+    const data = gappy()
+    // 6 hours on a plot where a column is 11
+    const drawn = drawnPoints(data, whole(data), 20, gapRuleOf(data))
+    expect(drawn.x.some(t => t > START + 47 * HOUR && t < START + 54 * HOUR)).toBe(false)
   })
 
   it('is one break where a gap is also a run of missing values', () => {
@@ -186,17 +193,97 @@ describe('what is drawn of a gap', () => {
     expect(drawnPoints(sparse, whole(sparse), 700, gapRuleOf(sparse)).y).toEqual([1, 2, null, 5, 6])
   })
 
-  it('is done for a decade of hourly readings with scattered gaps in a few milliseconds, and keeps the gaps', () => {
-    const N = 87_600
-    const stamps = Array.from({ length: N }, (_, i) => START + i * HOUR).filter((_, i) => i % 5000 > 4)
-    const data: ExplorerSeries = { id: 'd', name: 'd', colorIndex: 0, kind: 'values', resolution: 'hourly', x: stamps, y: stamps.map((_, i) => Math.sin(i / 100)) }
+  const decade = (keep: (i: number) => boolean, resolution = 'hourly'): ExplorerSeries => {
+    const stamps = Array.from({ length: 87_600 }, (_, i) => START + i * HOUR).filter((_, i) => keep(i))
+    return { id: 'd', name: 'd', colorIndex: 0, kind: 'values', resolution, x: stamps, y: stamps.map((_, i) => Math.sin(i / 100)) }
+  }
+  const budget = 700 * POINTS_PER_PX
+  const drawnOf = (data: ExplorerSeries) => drawnPoints(data, boundsOf([data])!, 700, gapRuleOf(data))
+
+  it('is done for a decade of hourly readings in a few milliseconds, and keeps the gaps that are wide enough to see', () => {
+    // 17 gaps of 500 hours, four columns of the plot each, and short ones of 5 hours
+    const data = decade(i => i % 5000 > 499 && i % 1000 > 4)
     const win = boundsOf([data])!
     const began = performance.now()
     let drawn = drawnPoints(data, win, 700, gapRuleOf(data))
     for (let i = 0; i < 9; i++)
       drawn = drawnPoints(data, win, 700, gapRuleOf(data))
     expect((performance.now() - began) / 10).toBeLessThan(50)
-    expect(nulls(drawn).length).toBeGreaterThanOrEqual(17)
-    expect(drawn.x.length).toBeLessThanOrEqual(700 * POINTS_PER_PX + 100)
+    expect(nulls(drawn)).toHaveLength(17)
+    expect(drawn.x.length).toBeLessThanOrEqual(budget + 100)
+  })
+
+  it('stays within the budget of points for a decade of readings with a gap every night (sunshine duration: rows from 03 to 20 UTC only)', () => {
+    const data = decade(i => i % 24 >= 3 && i % 24 <= 20)
+    const drawn = drawnOf(data)
+    expect(drawn.x.length).toBeLessThanOrEqual(budget)
+    expect(nulls(drawn)).toHaveLength(0)
+  })
+
+  it.each([0.05, 0.2])('stays within the budget of points where %s of the hours are missing at random, and draws no dots for gaps nobody sees', (share) => {
+    let seed = 7
+    const random = () => (seed = (seed * 16_807) % 2_147_483_647) / 2_147_483_647
+    const data = decade(() => random() > share)
+    const drawn = drawnOf(data)
+    expect(drawn.x.length).toBeLessThanOrEqual(budget)
+    expect(nulls(drawn)).toHaveLength(0)
+  })
+})
+
+describe('the usual step of a series that reports at fixed times, or less often, or differently over time', () => {
+  const stamps = (days: number, hoursOfDay: number[], without: (day: number, hour: number) => boolean = () => false) =>
+    Array.from({ length: days }, (_, day) => hoursOfDay.map(hour => ({ day, hour }))).flat().filter(({ day, hour }) => !without(day, hour)).map(({ day, hour }) => START + day * DAY + hour * HOUR)
+
+  it('has no gap in readings at 06, 12 and 18 UTC (steps of 6, 6 and 12 hours), and one where the 12:00 is missing', () => {
+    expect(gapsOf(at(...stamps(300, [6, 12, 18])), 'subdaily')).toEqual([])
+    const x = stamps(300, [6, 12, 18], (day, hour) => day === 100 && hour === 12)
+    expect(gapsOf(at(...x), 'subdaily')).toEqual([x.indexOf(START + 100 * DAY + 18 * HOUR)])
+  })
+
+  it('has a gap for each of a missing 06:00, a missing 12:00 and a missing 18:00', () => {
+    for (const missing of [6, 12, 18]) {
+      const x = stamps(300, [6, 12, 18], (day, hour) => day === 100 && hour === missing)
+      expect(gapsOf(at(...x), 'subdaily'), `${missing}:00 missing`).toHaveLength(1)
+    }
+  })
+
+  it('has no gap in readings at 07 and 17 (steps of 10 and 14 hours), and one where a day is missing', () => {
+    expect(gapsOf(at(...stamps(300, [7, 17])), 'subdaily')).toEqual([])
+    expect(gapsOf(at(...stamps(300, [7, 17], day => day === 100)), 'subdaily')).toHaveLength(1)
+  })
+
+  it('has no gap in the same readings with no resolution named', () => {
+    expect(gapsOf(at(...stamps(300, [6, 12, 18])))).toEqual([])
+  })
+
+  it('shows the gaps of an hourly series with half of its readings missing, as it does with few', () => {
+    let seed = 3
+    const random = () => (seed = (seed * 16_807) % 2_147_483_647) / 2_147_483_647
+    const kept = Array.from({ length: 4000 }, (_, i) => START + i * HOUR).filter(() => random() > 0.5)
+    const gaps = gapsOf(at(...kept), 'hourly')
+    expect(gaps).not.toBeNull()
+    // a step is a gap where it is 1.5 times the cadence round it, which is of one or two hours: so a lone missing hour is one, and a step of one is none
+    expect(gaps!.length).toBeGreaterThan(0)
+    expect(gaps!.every(i => kept[i]! - kept[i - 1]! > HOUR)).toBe(true)
+    expect(gaps!.length).toBeLessThan(kept.length / 2)
+  })
+
+  it('shows the gaps of a monthly series with half of its months missing', () => {
+    const months = Array.from({ length: 120 }, (_, i) => i).filter(i => i % 2 === 0 || i % 7 === 0).map(i => month(2010, i))
+    expect(gapsOf(at(...months), 'monthly')!.length).toBeGreaterThan(10)
+  })
+
+  it('takes a change of cadence for none: a series that was 3-hourly and became hourly has no gap at the change, and has one in either era', () => {
+    const x: number[] = []
+    let t = START
+    for (let i = 0; i < 400; i++, t += 3 * HOUR)
+      x.push(t)
+    const change = x.length
+    for (let i = 0; i < 2000; i++, t += HOUR)
+      x.push(t)
+    expect(gapsOf(at(...x), 'hourly')).toEqual([])
+    // a 3-hourly reading missing, and an hourly one
+    const missed = x.filter((_, i) => i !== 200 && i !== change + 1000)
+    expect(gapsOf(at(...missed), 'hourly')).toEqual([200, change + 999])
   })
 })

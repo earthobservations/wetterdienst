@@ -273,8 +273,11 @@ export function readoutRows(series: readonly ExplorerSeries[], t: number): Reado
 
 // -- where rows are missing -----------------------------------------------------------------------------------------
 
-/** Whether the step between two consecutive moments (in ms) is a gap: a reading is missing there */
-export type GapRule = (previous: number, next: number) => boolean
+/**
+ * Whether the step between two consecutive moments (in ms) is a gap: a reading is missing there. `index` is the place of `next`
+ * in the series' moments where the caller has it, which saves the rule a search.
+ */
+export type GapRule = (previous: number, next: number, index?: number) => boolean
 
 /** The ms between two readings of a resolution that has a fixed interval; `subdaily`, `monthly` and `annual` have none */
 const RESOLUTION_STEPS: Readonly<Record<string, number>> = {
@@ -290,10 +293,22 @@ const RESOLUTION_STEPS: Readonly<Record<string, number>> = {
 
 /** A step longer than this many times the usual one is a gap: it is two steps long where one reading is missing */
 const GAP_FACTOR = 1.5
+/**
+ * Where the usual step is the one from the same time of day (readings at 06, 12 and 18 UTC are 6, 6 and 12 h apart) it is exact,
+ * and a step of one and a half of it, which is what a missing 06:00 leaves between the 18:00 and the 12:00 of the day after, is a gap
+ */
+const TIME_OF_DAY_GAP_FACTOR = 1.25
 /** A step is the usual one within this share of it; where fewer than half the steps are, the series is irregular */
 const REGULAR_TOLERANCE = 0.1
-/** A thousand steps are enough to tell what is usual */
+/** The usual step is the median of this many steps either side of a step (the local cadence), or of the same time of day on this many days */
+const CADENCE_RADIUS = 10
+const TIME_OF_DAY_RADIUS = 5
+/** A series that is not regular by its steps is still one of readings if this share of its moments lie on its resolution's grid */
+const GRID_SHARE = 0.8
+/** A thousand moments are enough to tell where a series lies */
 const SAMPLE_STEPS = 1000
+
+const DAY_MS = 86_400_000
 
 /** The calendar month (UTC) a moment is in, counted from year 0 */
 function monthOf(ms: number): number {
@@ -301,52 +316,188 @@ function monthOf(ms: number): number {
   return date.getUTCFullYear() * 12 + date.getUTCMonth()
 }
 
-function computeGapRule(x: readonly number[], resolution: string | null | undefined): GapRule | null {
+function median(values: number[]): number {
+  values.sort((a, b) => a - b)
+  return values[Math.floor(values.length / 2)]!
+}
+
+/** The median of the steps within `CADENCE_RADIUS` steps of each step: the cadence of the series where the step is, which a change of it moves and one gap does not */
+function localCadence(steps: Float64Array): Float64Array {
+  const cadence = new Float64Array(steps.length)
+  // the window's positive steps, sorted: one enters and one leaves as it moves
+  const window: number[] = []
+  const insert = (value: number) => {
+    let low = 0
+    let high = window.length
+    while (low < high) {
+      const middle = (low + high) >> 1
+      if (window[middle]! < value)
+        low = middle + 1
+      else
+        high = middle
+    }
+    window.splice(low, 0, value)
+  }
+  const remove = (value: number) => {
+    let low = 0
+    let high = window.length
+    while (low < high) {
+      const middle = (low + high) >> 1
+      if (window[middle]! < value)
+        low = middle + 1
+      else
+        high = middle
+    }
+    window.splice(low, 1)
+  }
+  for (let i = 1; i <= Math.min(CADENCE_RADIUS, steps.length - 1); i++) {
+    if (steps[i]! > 0)
+      insert(steps[i]!)
+  }
+  for (let i = 1; i < steps.length; i++) {
+    const entering = i + CADENCE_RADIUS
+    if (entering < steps.length && steps[entering]! > 0)
+      insert(steps[entering]!)
+    const leaving = i - CADENCE_RADIUS - 1
+    if (leaving >= 1 && steps[leaving]! > 0)
+      remove(steps[leaving]!)
+    cadence[i] = window.length ? window[Math.floor(window.length / 2)]! : 0
+  }
+  return cadence
+}
+
+/** Whether most of the moments lie on a grid of `interval` ms, as readings do whatever the steps between those that are there: the phases within a seventh of it of one another */
+function onGrid(x: readonly number[], interval: number): boolean {
+  const buckets = 20
+  const counts = Array.from<number>({ length: buckets }).fill(0)
+  const stride = Math.max(1, Math.floor(x.length / SAMPLE_STEPS))
+  let total = 0
+  for (let i = 0; i < x.length; i += stride) {
+    counts[Math.min(buckets - 1, Math.floor((((x[i]! % interval) + interval) % interval) / interval * buckets))]!++
+    total++
+  }
+  // three buckets in a row, wrapping round: 15 % of the interval
+  let best = 0
+  for (let b = 0; b < buckets; b++)
+    best = Math.max(best, counts[b]! + counts[(b + 1) % buckets]! + counts[(b + 2) % buckets]!)
+  return best / total >= GRID_SHARE
+}
+
+/** The gaps of a series as a flag for each step into a moment, or null where its steps are those of events and not of readings */
+function computeGaps(x: readonly number[], resolution: string | null | undefined): Uint8Array | null {
   if (x.length < 2)
     return null
-  const stride = Math.max(1, Math.floor((x.length - 1) / SAMPLE_STEPS))
+  const flags = new Uint8Array(x.length)
   // the calendar's months and years are not as long as each other: a month is missing where the next moment is two on
   if (resolution === 'monthly' || resolution === 'annual') {
     const unit = resolution === 'monthly' ? 1 : 12
     let steps = 0
-    let usual = 0
+    let regular = 0
+    const stride = Math.max(1, Math.floor((x.length - 1) / SAMPLE_STEPS))
     for (let i = 1; i < x.length; i += stride) {
       const months = monthOf(x[i]!) - monthOf(x[i - 1]!)
       if (months <= 0)
         continue
       steps++
-      if (months === unit)
-        usual++
+      // a whole number of months or years is a series with some of them missing, not one of events
+      if (months % unit === 0)
+        regular++
     }
-    return steps && usual / steps >= 0.5 ? (previous, next) => monthOf(next) - monthOf(previous) > unit : null
+    if (!steps || regular / steps < 0.5)
+      return null
+    let before = monthOf(x[0]!)
+    for (let i = 1; i < x.length; i++) {
+      const month = monthOf(x[i]!)
+      flags[i] = month - before > unit ? 1 : 0
+      before = month
+    }
+    return flags
   }
-  const steps: number[] = []
+
+  const steps = new Float64Array(x.length)
+  for (let i = 1; i < x.length; i++)
+    steps[i] = x[i]! - x[i - 1]!
+  const nominal = resolution ? RESOLUTION_STEPS[resolution] ?? 0 : 0
+  const cadence = localCadence(steps)
+  // the usual step of each: the interval of the resolution where it has one, never less than what the series does round there (a station that
+  // reports less often than its resolution is held to that, and one whose cadence changed to the one it has then); with none, the step from the
+  // same time of day on the days round it where there are some (06, 12 and 18 UTC are 6, 6 and 12 h apart, and no step of 12 h is a gap there),
+  // else the cadence round it
+  const usual = new Float64Array(x.length)
+  const exact = new Uint8Array(x.length)
+  if (nominal > 0) {
+    for (let i = 1; i < x.length; i++)
+      usual[i] = Math.max(nominal, cadence[i]!)
+  }
+  else {
+    const days = new Map<number, number[]>()
+    for (let i = 1; i < x.length; i++) {
+      if (steps[i]! <= 0)
+        continue
+      const key = Math.round((((x[i - 1]! % DAY_MS) + DAY_MS) % DAY_MS) / 60_000)
+      const group = days.get(key)
+      if (group)
+        group.push(i)
+      else
+        days.set(key, [i])
+    }
+    for (const group of days.values()) {
+      group.forEach((i, place) => {
+        if (group.length < 3) {
+          usual[i] = cadence[i]!
+          return
+        }
+        const near = group.slice(Math.max(0, place - TIME_OF_DAY_RADIUS), place + TIME_OF_DAY_RADIUS + 1).map(at => steps[at]!)
+        usual[i] = median(near)
+        exact[i] = 1
+      })
+    }
+  }
+  let counted = 0
+  let regular = 0
+  const stride = Math.max(1, Math.floor((x.length - 1) / SAMPLE_STEPS))
   for (let i = 1; i < x.length; i += stride) {
-    const step = x[i]! - x[i - 1]!
-    if (step > 0)
-      steps.push(step)
+    if (steps[i]! <= 0 || usual[i] === 0)
+      continue
+    counted++
+    if (Math.abs(steps[i]! - usual[i]!) <= usual[i]! * REGULAR_TOLERANCE)
+      regular++
   }
-  if (!steps.length)
+  // fewer than half the steps are the usual one, and the moments are not on the grid of the resolution either: events, not readings
+  if (!counted || (regular / counted < 0.5 && !(nominal > 0 && onGrid(x, nominal))))
     return null
-  steps.sort((a, b) => a - b)
-  const median = steps[Math.floor(steps.length / 2)]!
-  // a station that reports less often than its resolution is held to what it does
-  const usual = Math.max(median, resolution ? RESOLUTION_STEPS[resolution] ?? 0 : 0)
-  const regular = steps.filter(step => Math.abs(step - usual) <= usual * REGULAR_TOLERANCE).length
-  if (regular / steps.length < 0.5)
-    return null
-  const limit = usual * GAP_FACTOR
-  return (previous, next) => next - previous > limit
+  for (let i = 1; i < x.length; i++) {
+    if (steps[i]! > 0 && usual[i]! > 0)
+      flags[i] = steps[i]! > usual[i]! * (exact[i] ? TIME_OF_DAY_GAP_FACTOR : GAP_FACTOR) ? 1 : 0
+  }
+  return flags
 }
 
 const gapRules = new WeakMap<readonly number[], { resolution: string | null | undefined, rule: GapRule | null }>()
 
+/** The place of `moment` in the sorted `x` (the first at or after it) */
+function indexOfMoment(x: readonly number[], moment: number): number {
+  let low = 0
+  let high = x.length
+  while (low < high) {
+    const middle = (low + high) >> 1
+    if (x[middle]! < moment)
+      low = middle + 1
+    else
+      high = middle
+  }
+  return low
+}
+
 /**
- * Where a series has gaps: a step longer than one and a half times its usual spacing, which is a reading missing at the
- * least (GH-4100). The usual spacing is a calendar month or year for `monthly` and `annual`, the resolution's interval where
- * the answer names one (never less than the series' own median step), else the median step. A series where fewer than half
- * the steps are the usual one (events, not readings) has no gaps, and nor has a trendline or one of a single moment. The
- * steps are in UTC, so that a change of clocks is none. Kept for the series' moments, which a drag of the window does not change.
+ * Where a series has gaps: a step longer than one and a half times the usual one there, which is a reading missing at the least
+ * (GH-4100). The usual step is a calendar month or year for `monthly` and `annual`; the resolution's interval where the answer names
+ * one, never less than the series' own cadence round that step (the median of the steps either side, so that a station that reports
+ * less often than its resolution, or whose cadence changed once, has no gaps for it); with no interval, the step from the same time
+ * of day on the days round it (readings at 06, 12 and 18 UTC are 6, 6 and 12 h apart, and only a missing one is a gap), else the cadence
+ * round it. A series whose steps are not the usual ones for the most part, and whose moments are not on its resolution's grid
+ * (events, not readings), has no gaps, and nor has a trendline or one of a single moment. The steps are in UTC, so that a change of clocks
+ * is none. Kept for the series' moments, which a drag of the window does not change.
  */
 export function gapRuleOf(series: Pick<ExplorerSeries, 'x'> & Partial<Pick<ExplorerSeries, 'kind' | 'resolution'>>): GapRule | null {
   if (series.kind === 'trend')
@@ -354,7 +505,9 @@ export function gapRuleOf(series: Pick<ExplorerSeries, 'x'> & Partial<Pick<Explo
   const kept = gapRules.get(series.x)
   if (kept && kept.resolution === series.resolution)
     return kept.rule
-  const rule = computeGapRule(series.x, series.resolution)
+  const flags = computeGaps(series.x, series.resolution)
+  const x = series.x
+  const rule: GapRule | null = flags ? (previous, next, index) => flags[index !== undefined && x[index] === next ? index : indexOfMoment(x, next)] === 1 : null
   gapRules.set(series.x, { resolution: series.resolution, rule })
   return rule
 }
@@ -377,7 +530,9 @@ export interface DrawnPoints {
  * that picks the points that shape the line (`lttb`) does not promise. A gap is kept as one: a point without a value ends
  * the column before it and stays in the list, so the line is broken where the data is. So is a step that `gap` calls one,
  * where rows are missing: a point without a value is put between the two moments, before the columns are made, so that no
- * cutting down of the points joins what the data does not (GH-4100). A series that fits is otherwise not touched.
+ * cutting down of the points joins what the data does not (GH-4100). Where the points are cut down, only a gap that is a column
+ * wide or more is kept as one: a narrower one is not to be seen, and a break for each of the many a decade of readings has would
+ * keep nearly every point. A series that fits is otherwise not touched.
  */
 export function drawnPoints(series: Pick<ExplorerSeries, 'x' | 'y'>, win: ExplorerWindow, plotPx: number, gap: GapRule | null = null): DrawnPoints {
   const { x, y } = series
@@ -412,7 +567,7 @@ export function drawnPoints(series: Pick<ExplorerSeries, 'x' | 'y'>, win: Explor
     const keptX: number[] = []
     const keptY: (number | null)[] = []
     for (let i = from; i <= to; i++) {
-      if (i > from && y[i] !== null && keptY[keptY.length - 1] !== null && gap(x[i - 1]!, x[i]!)) {
+      if (i > from && y[i] !== null && keptY[keptY.length - 1] !== null && gap(x[i - 1]!, x[i]!, i)) {
         keptX.push(Math.round((x[i - 1]! + x[i]!) / 2))
         keptY.push(null)
       }
@@ -444,7 +599,8 @@ export function drawnPoints(series: Pick<ExplorerSeries, 'x' | 'y'>, win: Explor
   }
   for (let i = from; i <= to; i++) {
     const value = y[i]
-    if (gap && i > from && value !== null && value !== undefined && gap(x[i - 1]!, x[i]!)) {
+    // a gap narrower than a column of the plot is not to be seen, and a break for each would keep every point of a series with many of them
+    if (gap && i > from && value !== null && value !== undefined && x[i]! - x[i - 1]! >= span / columns && gap(x[i - 1]!, x[i]!, i)) {
       // the columns are cut at the gap, as at a missing value: nothing of one is joined to the next
       flush()
       if (outY.length > 0 && outY[outY.length - 1] !== null) {

@@ -637,6 +637,31 @@ test('rows that are missing are a gap in the line: the hours and the days with n
   await expect(page.getByTestId('explorer-announce')).toHaveText(/^Sep 2, 2026, 12:00/)
 })
 
+test('readings at fixed times are no gaps, and a missing reading is one: 06, 12 and 18 UTC with the 12:00 of one day missing (GH-4100)', async ({ page, baseURL, context }) => {
+  await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+  const first = Date.UTC(2026, 8, 1)
+  // fifteen days of three readings, whose steps are 6, 6 and 12 hours (the 12 of the night is the usual one), the 12:00 of the 8th missing
+  const readings = Array.from({ length: 15 }, (_, day) => [6, 12, 18].map(hour => ({ day, hour }))).flat().filter(({ day, hour }) => !(day === 7 && hour === 12))
+  const subdaily = (url: URL) => ({
+    values: readings.map(({ day, hour }) => ({
+      station_id: '00011',
+      resolution: 'subdaily',
+      dataset: 'climate_summary',
+      parameter: (url.searchParams.get('parameters') ?? '').split(',')[0]!.split('/')[2],
+      timestamp: new Date(first + day * 86_400_000 + hour * 3_600_000).toISOString(),
+      value: 10 + day / 2 + (hour === 12 ? 4 : 0),
+      quality_flags: null,
+    })),
+  })
+  await showChart(page, baseURL!, PATH, { values: subdaily })
+  const pieces = await chartSvg(page).evaluate((svg) => {
+    const line = [...svg.querySelectorAll('path')].filter(path => path.getAttribute('stroke') === '#3b82f6' && (path.getAttribute('d') ?? '').includes('L'))
+    return line.map(path => ((path.getAttribute('d') ?? '').match(/M/g) ?? []).length)
+  })
+  // two pieces: the one missing reading, not one piece for each day
+  expect(Math.max(...pieces)).toBe(2)
+})
+
 test.describe('a long series', () => {
   // ten years of hourly values of one station: 87,648 points, with a spike and a dip that a reader must still see
   const HOURS = 87_648
