@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Stripes]` The gold data-availability line spans exactly the stripes that have a value: each run
+  of years from the left edge of its first stripe to the right edge of its last, and a year between
+  two gaps gets a bar as wide as its stripe. It stopped half a stripe short at each end of a run
+  and was missing under a lone year, in the chart, the camera and the downloaded images
+  (GH-4153).
+
 ## [0.52.0] - 2026-11-16
 
 ### Fixed
