@@ -26,7 +26,7 @@ from wetterdienst.provider.dwd.observation.metadata import (
 )
 from wetterdienst.util.network import File
 
-# the columns every DWD station has: wmo_id, wigos_id and icao_id are null for all of them
+# the columns every DWD station has: wigos_id and icao_id are null for all of them, wmo_id for most
 STATION_COLUMNS = [
     "station_id",
     "start_timestamp",
