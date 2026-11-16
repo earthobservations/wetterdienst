@@ -12,7 +12,7 @@ import type { AxisSpec, DrawnSeries, MeteogramModel, Tone } from './meteogram-mo
 import type { YrSymbol } from './weather-symbols'
 import { SERIES_LABEL, seriesLabelColor, withAlpha } from './chart-theme'
 import { withData } from './format'
-import { every, GUTTER_LEFT, HOUR_MS, labelStepHours, MIN_SPAN_HOURS, windBarb } from './meteogram-geometry'
+import { every, GUTTER_LEFT, HOUR_MS, labelStepHours, MIN_SPAN_HOURS, PANEL_HEIGHT, windBarb } from './meteogram-geometry'
 import { yrSymbolFor, yrSymbolUrl } from './weather-symbols'
 
 /** The room a barb, a symbol and a label of the time axis need beside the next one, in px */
@@ -35,11 +35,16 @@ export const TITLE_TO_LABELS = 4
 export const LABEL_MARGIN = 6
 /**
  * The width of each character a tick label is written with, at 12 px in the app's font (Atkinson Hyperlegible Next, measured with the
- * canvas and rounded up to a tenth, so that a label is never wider than its estimate): the digits are proportional (a 1 is 4.9 px, a 0 is
- * 7.8), a separator is 2.6, a hyphen 4.4, the minus sign 7.3, a space 3.4 (a narrow one 1.7). `DIGIT_PX`, the widest digit, is the width of any other
- * character, the digits of another script among them
+ * canvas and rounded up to a tenth): the digits are proportional (a 1 is 4.9 px, a 0 is 7.8), a separator is 2.6, a hyphen 4.4, the minus
+ * sign 7.3, a space 3.4 (a narrow one 1.7). `DIGIT_PX`, the widest digit, is the width of any other character, the digits of another
+ * script among them. Until the font has loaded the labels are drawn in its metric-adjusted fallback, whose digits are 6.65 px all alike:
+ * a 1 is 1.8 px wider than here, so `LABEL_SLACK_PX` is added to what a panel's labels are estimated at
  */
 export const DIGIT_PX = 7.8
+/** What a panel's labels are estimated wider than the font's own widths, for the fallback font (a label of two or five digits is up to 2.5 px wider in it) */
+export const LABEL_SLACK_PX = 2
+/** The height of a line of tick labels in px: two labels nearer than this overlap */
+export const LABEL_HEIGHT_PX = 16
 export const CHAR_PX: Readonly<Record<string, number>> = {
   '0': 7.8,
   '1': 4.9,
@@ -53,13 +58,13 @@ export const CHAR_PX: Readonly<Record<string, number>> = {
   '9': 7.2,
   '.': 2.6,
   ',': 2.6,
-  '’': 2.9,
+  '\u2019': 2.9,
   '\'': 2.0,
   '-': 4.4,
-  '−': 7.3,
+  '\u2212': 7.3,
   ' ': 3.4,
-  ' ': 3.4,
-  ' ': 1.7,
+  '\u00A0': 3.4,
+  '\u202F': 1.7,
 }
 
 /** The colours of the series: the line and the wash under it, in the light and the dark scheme */
@@ -144,7 +149,6 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
   const nowColour = dark ? 'rgba(251,146,60,0.75)' : 'rgba(234,88,12,0.75)'
   const bounds = { start: model.minTime, end: model.maxTime }
   const now = nowInput !== null && nowInput > bounds.start && nowInput < bounds.end ? nowInput : null
-  const numberTag = withData(locale, Intl.NumberFormat.supportedLocalesOf)
 
   const grids: any[] = [{ left: gutterLeft, width: plotPx, top: layout.header.top, height: layout.header.height, show: false, outerBoundsMode: 'none' }]
   const xAxes: any[] = [{ type: 'value', gridIndex: 0, min: bounds.start, max: bounds.end, show: false, containShape: false }]
@@ -152,7 +156,8 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
   rows.forEach((row, i) => {
     const axis = model.axes[row.id]!
     const labelColour = axis.label === 'slate' ? theme.textMuted : seriesLabelColor(axis.label, dark)
-    const format = new Intl.NumberFormat(numberTag, { maximumFractionDigits: axis.decimals })
+    const format = tickFormatter(axis, locale)
+    const hideMin = minLabelHidden(axis)
     // outerBoundsMode: the plot is where the gutters say, whatever the labels' width: a grid that shrinks for a long label puts its hours out of line with the others'
     grids.push({ left: gutterLeft, width: plotPx, top: row.top, height: row.height, show: false, outerBoundsMode: 'none' })
     xAxes.push({ type: 'value', gridIndex: i + 1, min: bounds.start, max: bounds.end, show: false, containShape: false })
@@ -174,7 +179,9 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
         // the top of a panel is where the panel above ends: its label would touch that one's bottom label, and the
         // ticks that remain are round numbers
         showMaxLabel: false,
-        formatter: (value: number) => format.format(value),
+        // the bottom of the range has a label of its own where it is no multiple of the step, and one that lies nearer to the first tick than a
+        // line of labels is high is left out (GH-4132: the pressure's 1.008 was drawn over its 1.010)
+        formatter: (value: number) => hideMin && value === axis.range[0] ? '' : format(value),
       },
     })
   })
@@ -240,6 +247,8 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
   // narrower panels leave is at the left edge and not between their titles and their labels
   if (rows.length) {
     const blockLines = TITLE_LINES
+    // where each panel's block starts: computed once, since the title is redrawn with every zoom and scroll
+    const blockLeft = new Map(rows.map(row => [row.id, titleBlockLeft(gutterLeft, model.axes[row.id]!, locale)]))
     series.push({
       id: 'axis-titles',
       type: 'custom',
@@ -257,7 +266,7 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
         const colour = axis.label === 'slate' ? theme.textMuted : seriesLabelColor(axis.label, dark)
         const lines = axis.title.split('\n')
         // the lines side by side in a block as wide as the widest title has lines, a shorter title in the middle of it
-        const first = titleBlockLeft(gutterLeft, axis, locale) + (TITLE_LINE_PX * (blockLines - lines.length)) / 2 + TITLE_LINE_PX / 2
+        const first = blockLeft.get(row.id)! + (TITLE_LINE_PX * (blockLines - lines.length)) / 2 + TITLE_LINE_PX / 2
         return {
           type: 'group',
           silent: true,
@@ -475,28 +484,59 @@ export function tickInterval(span: number, splits: number): number {
   return nice * power
 }
 
-/**
- * The labels an axis draws, as the chart writes them: the bottom of its range, and the multiples of the step between there and the top, which
- * has no label (`showMaxLabel: false`). The room a title leaves for the labels is measured on these and not on the ends of the range, whose
- * decimals the ticks do not have (a range of 0 to 17.4 has the ticks 0, 5, 10 and 15), and which may have more of them than the ends (0 to 1
- * has the tick 0.5)
- */
-export function tickLabelsOf(axis: AxisSpec, locale = 'en'): string[] {
+/** The number of an axis' tick as the chart writes it: rounded to the axis' decimals, and never "-0" */
+export function tickFormatter(axis: AxisSpec, locale = 'en'): (value: number) => string {
   const format = new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), { maximumFractionDigits: axis.decimals })
+  // (a value that rounds to zero is zero: "-0" is what the library of the numbers writes for -0.3 at no decimals; `+ 0` turns -0 into 0)
+  return value => format.format(Number(value.toFixed(axis.decimals)) + 0)
+}
+
+/** The first tick above the bottom of the axis' range, or null where there is none below the top (which has no label) */
+function firstTickAbove(axis: AxisSpec): { value: number, step: number } | null {
   const [min, max] = axis.range
   const step = tickInterval(max - min, axis.splits)
-  const labels = [format.format(min)]
+  const value = Math.ceil(min / step - 1e-9) * step
+  return value < max - step * 1e-9 ? { value: value + 0, step } : null
+}
+
+/**
+ * Whether the label of the bottom of an axis' range is left out. The bottom is labelled even where it is no multiple of the step, and
+ * where it lies nearer to the first tick than the height of a line of labels (`LABEL_HEIGHT_PX`), the two overlap
+ */
+export function minLabelHidden(axis: AxisSpec, height = PANEL_HEIGHT[axis.panel]): boolean {
+  const first = firstTickAbove(axis)
+  if (!first)
+    return false
+  const [min, max] = axis.range
+  const gap = first.value - min
+  // the bottom is a tick itself
+  if (gap < first.step * 1e-9)
+    return false
+  return (gap / (max - min)) * height < LABEL_HEIGHT_PX
+}
+
+/**
+ * The labels an axis draws, as the chart writes them: the bottom of its range (unless it is left out, `minLabelHidden`), and the multiples
+ * of the step between there and the top, which has no label (`showMaxLabel: false`). The room a title leaves for the labels is measured on
+ * these and not on the ends of the range, whose decimals the ticks do not have (a range of 0 to 17.4 has the ticks 0, 5, 10 and 15), and
+ * which may have more of them than the ends (0 to 1 has the tick 0.5)
+ */
+export function tickLabelsOf(axis: AxisSpec, locale = 'en'): string[] {
+  const format = tickFormatter(axis, locale)
+  const [min, max] = axis.range
+  const step = tickInterval(max - min, axis.splits)
+  const labels = minLabelHidden(axis) ? [] : [format(min)]
   // a bound on the loop: an axis has a few ticks
   for (let k = Math.ceil(min / step), n = 0; k * step < max - step * 1e-9 && n < 50; k++, n++) {
     if (k * step > min)
-      labels.push(format.format(k * step))
+      labels.push(format(k * step))
   }
   return labels
 }
 
-/** The room an axis' tick labels take in px: the widest of the labels it draws, in the language's digits and separators */
+/** The room an axis' tick labels take in px: the widest of the labels it draws, in the language's digits and separators, and the slack for the fallback font */
 export function labelWidthFor(axis: AxisSpec, locale = 'en'): number {
-  return Math.max(...tickLabelsOf(axis, locale).map(labelWidthOf))
+  return Math.max(...tickLabelsOf(axis, locale).map(labelWidthOf)) + LABEL_SLACK_PX
 }
 
 /**

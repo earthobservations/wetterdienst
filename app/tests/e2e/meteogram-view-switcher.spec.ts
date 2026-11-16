@@ -137,6 +137,8 @@ for (const width of WIDTHS) {
 for (const width of [1280, 390]) {
   test(`has day cards of one height with their rows level, dry days and days with rain alike, at ${width} px`, async ({ page, baseURL }) => {
     const backend = await mockBackend(page, baseURL!, { values: alternatingRainValues() })
+    // the icons bounce once (4 px) when the page opens, which would put their tops off by the frame the test reads them in
+    await page.emulateMedia({ reducedMotion: 'reduce' })
     await page.setViewportSize({ width, height: 900 })
     await page.goto('/meteogram?station=10384&view=compact')
     const cards = page.getByTestId('compact-days').locator(':scope > div')

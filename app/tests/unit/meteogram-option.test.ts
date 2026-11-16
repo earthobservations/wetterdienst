@@ -6,7 +6,7 @@ import { loadEcharts } from '../../app/utils/echarts-loader'
 import { hourFormatter } from '../../app/utils/format'
 import { chartLayout, defaultWindow, GUTTER_LEFT, GUTTER_RIGHT, HOUR_MS, plotWidthFor } from '../../app/utils/meteogram-geometry'
 import { buildMeteogramModel } from '../../app/utils/meteogram-model'
-import { bandColour, buildMeteogramOption, clampSpan, DIGIT_PX, gutterLeftFor, LABEL_MARGIN, labelWidthFor, labelWidthOf, tickInterval, tickLabelsOf, TITLE_LEFT, TITLE_LINE_PX, TITLE_LINES, TITLE_TO_LABELS, titleBlockLeft } from '../../app/utils/meteogram-option'
+import { bandColour, buildMeteogramOption, clampSpan, DIGIT_PX, gutterLeftFor, LABEL_HEIGHT_PX, LABEL_MARGIN, LABEL_SLACK_PX, labelWidthFor, labelWidthOf, minLabelHidden, tickFormatter, tickInterval, tickLabelsOf, TITLE_LEFT, TITLE_LINE_PX, TITLE_LINES, TITLE_TO_LABELS, titleBlockLeft } from '../../app/utils/meteogram-option'
 import { buildSeries } from '../../app/utils/meteogram-series'
 import { meteogramUnits } from '../../app/utils/meteogram-units'
 import { FORECAST_UNITS, forecastValues } from '../helpers/meteogram-forecast'
@@ -17,10 +17,11 @@ const t = (key: string, named?: Record<string, unknown>) => key + (named?.unit ?
 const LIGHT = { ...EMPTY_CHART_THEME, text: 'rgb(15, 23, 43)', textStrong: 'rgb(0, 0, 0)', textMuted: 'rgb(90, 100, 120)', zeroline: 'rgb(90, 100, 120)' }
 const DARK = { ...LIGHT, dark: true, text: 'rgb(226, 232, 240)', textStrong: 'rgb(255, 255, 255)' }
 
-function build(options: { width?: number, hours?: number, theme?: typeof LIGHT, window?: { start: number, end: number }, now?: number | null, without?: string[], locale?: string, translate?: typeof t } = {}) {
-  const { width = 800, hours = 240, theme = LIGHT, now = null, without = [], locale = 'en', translate = t } = options
+function build(options: { width?: number, hours?: number, theme?: typeof LIGHT, window?: { start: number, end: number }, now?: number | null, without?: string[], locale?: string, translate?: typeof t, shift?: Record<string, number> } = {}) {
+  const { width = 800, hours = 240, theme = LIGHT, now = null, without = [], locale = 'en', translate = t, shift = {} } = options
   const model = buildMeteogramModel({
-    series: buildSeries(forecastValues({ hours, without }) as any),
+    // `shift`: a number added to every value of a parameter, so that the ends of its axis are not where the default forecast has them
+    series: buildSeries(forecastValues({ hours, without }).map(value => value.value !== null && shift[value.parameter] ? { ...value, value: value.value + shift[value.parameter]! } : value) as any),
     panels: { temp: true, wind: true, precip: true, snow: true, cloud: true, pressure: true },
     horizonHours: null,
     zone: 'Europe/Berlin',
@@ -144,7 +145,7 @@ describe('the option', () => {
     expect(gutterLeftFor(wind([0, 18]))).toBe(GUTTER_LEFT)
     // the pressure's four digits and a separator: 1,013 and 1.013 have the same width
     const pressure = (locale: string, titleLines: 1 | 2 = 2) => gutterLeftFor({ ...model, axes: { pressure: { ...model.axes.pressure!, titleLines, range: [981, 1021] as [number, number] } } }, locale)
-    expect(pressure('en')).toBe(TITLE_LEFT + TITLE_LINES * TITLE_LINE_PX + TITLE_TO_LABELS + labelWidthOf('1,000') + LABEL_MARGIN)
+    expect(pressure('en')).toBe(TITLE_LEFT + TITLE_LINES * TITLE_LINE_PX + TITLE_TO_LABELS + labelWidthOf('1,000') + LABEL_SLACK_PX + LABEL_MARGIN)
     expect(pressure('de')).toBe(pressure('en'))
     // two lines everywhere: a title with no unit, of one line, does not narrow it
     expect(pressure('en', 1)).toBe(pressure('en'))
@@ -157,10 +158,10 @@ describe('the option', () => {
     const axis = (panel: 'wind' | 'precip' | 'pressure', range: [number, number], decimals: number, splits: number) => ({ ...model.axes[panel]!, range, decimals, splits })
     // 0 to 17.4 m/s, divided in 3: the ticks are 0, 5, 10 and 15, which have no decimal, and the top has no label
     expect(tickLabelsOf(axis('wind', [0, 17.4], 1, 3), 'en')).toEqual(['0', '5', '10', '15'])
-    expect(labelWidthFor(axis('wind', [0, 17.4], 1, 3), 'en')).toBe(labelWidthOf('10'))
+    expect(labelWidthFor(axis('wind', [0, 17.4], 1, 3), 'en')).toBe(labelWidthOf('10') + LABEL_SLACK_PX)
     // 0 to 1 mm, in 2: the tick 0.5 has a decimal that the ends do not have, and it is the one that was measured too narrow
     expect(tickLabelsOf(axis('precip', [0, 1], 1, 2), 'de')).toEqual(['0', '0,5'])
-    expect(labelWidthFor(axis('precip', [0, 1], 1, 2), 'de')).toBe(labelWidthOf('0,5'))
+    expect(labelWidthFor(axis('precip', [0, 1], 1, 2), 'de')).toBe(labelWidthOf('0,5') + LABEL_SLACK_PX)
     // a range that does not begin at a multiple of the step: its bottom is labelled, and the ticks above it are multiples
     expect(tickLabelsOf(axis('pressure', [1008, 1016], 0, 2), 'de')).toEqual(['1.008', '1.010', '1.015'])
     expect(tickLabelsOf(axis('pressure', [981, 1021], 0, 2), 'en')).toEqual(['981', '1,000', '1,020'])
@@ -315,6 +316,70 @@ describe('the bands', () => {
 })
 
 describe('the chart drawn', () => {
+  /** The tick labels of the y axes in the SVG, by panel: the numbers that are not turned (`translate(x y)`), with the y of their middle */
+  function axisLabels(built: ReturnType<typeof build>) {
+    const found = [...draw(built).matchAll(/<text[^>]*transform="translate\(([\d.-]+) ([\d.-]+)\)"[^>]*>(-?[\d.,\u2212\u00A0\u202F\u2019']+)<\/text>/g)]
+      .map(match => ({ x: Number(match[1]), y: Number(match[2]), text: match[3]! }))
+      // the hours of the time axis are in the header, above the panels, and have a colon
+      .filter(entry => entry.x < built.input.gutterLeft)
+    return new Map(built.layout.rows.map(row => [row.id, found.filter(entry => entry.y >= row.top - 1 && entry.y <= row.top + row.height + 1)]))
+  }
+
+  // the ends of the axes where a forecast puts them: the pressure's 1.008 under its 1.010 was drawn over it (GH-4132)
+  const SHIFTS: Record<string, number>[] = [
+    {},
+    { pressure_air_sea_level: 0.7 },
+    { pressure_air_sea_level: 1.3, temperature_air_2m: 0.4 },
+    { pressure_air_sea_level: -2.6, temperature_air_2m: 0.9, wind_speed: 0.3 },
+    { pressure_air_sea_level: -5.1, temperature_air_2m: -1.7 },
+    { pressure_air_sea_level: 11.4, temperature_air_2m: 2.2, wind_speed: -0.8 },
+  ]
+  for (const hours of [48, 240]) {
+    for (const locale of ['en', 'de']) {
+      for (const [index, shift] of SHIFTS.entries()) {
+        it(`draws no two tick labels of a panel's axis over each other, and no label that the estimate of their width lacks (${hours} h, ${locale}, forecast ${index})`, () => {
+          const built = build({ hours, locale, shift })
+          const panels = axisLabels(built)
+          expect(panels.size).toBe(built.layout.rows.length)
+          for (const [panel, labels] of panels) {
+            const axis = built.model.axes[panel]!
+            expect(labels.length, `${panel} has labels`).toBeGreaterThan(0)
+            // every label drawn is one the estimate counted (it may count more, never fewer)
+            const known = tickLabelsOf(axis, locale)
+            for (const label of labels)
+              expect(known, `${panel}: ${label.text} of ${JSON.stringify(labels)}, range ${JSON.stringify(axis.range)}`).toContain(label.text)
+            // and no two are nearer than a line of labels is high
+            const ys = labels.map(label => label.y).sort((a, b) => a - b)
+            for (let i = 1; i < ys.length; i++)
+              expect(ys[i]! - ys[i - 1]!, `${panel}: ${JSON.stringify(labels)}, range ${JSON.stringify(axis.range)}`).toBeGreaterThanOrEqual(LABEL_HEIGHT_PX)
+          }
+        })
+      }
+    }
+  }
+
+  it('leaves out the label of the bottom of an axis that is no multiple of the step and is nearer to the first tick than a line of labels is high', () => {
+    const { model } = build()
+    const axis = (range: [number, number], panel: 'pressure' | 'wind' = 'pressure') => ({ ...model.axes[panel]!, range, decimals: 0, splits: 2 })
+    // 1008.4 to 1018, in 2: the ticks are 1.010 and 1.015, and the first is 1.6 of 9.6 of the 84 px above the bottom: 14 px
+    expect(minLabelHidden(axis([1008.4, 1018]))).toBe(true)
+    expect(tickLabelsOf(axis([1008.4, 1018]), 'de')).toEqual(['1.010', '1.015'])
+    // 1008 to 1016: the first tick is 21 px above it, and the bottom keeps its label
+    expect(minLabelHidden(axis([1008, 1016]))).toBe(false)
+    // a bottom that is a tick, a range with no tick above its bottom
+    expect(minLabelHidden(axis([1000, 1016]))).toBe(false)
+    expect(minLabelHidden(axis([1001, 1003]))).toBe(false)
+  })
+
+  it('writes a tick that rounds to zero as 0 and not as -0', () => {
+    const { model } = build()
+    const format = tickFormatter({ ...model.axes.temp!, decimals: 0 }, 'en')
+    expect(format(-0.3)).toBe('0')
+    expect(format(-0)).toBe('0')
+    expect(format(-1.4)).toBe('-1')
+    expect(tickLabelsOf({ ...model.axes.temp!, range: [-0.3, 9], decimals: 0, splits: 3 }, 'en')).not.toContain('-0')
+  })
+
   it('names the days, the weekend among them, and the hours on the clock of the station', () => {
     const svg = draw(build())
     const all = texts(svg)

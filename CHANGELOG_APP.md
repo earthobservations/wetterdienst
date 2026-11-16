@@ -20,7 +20,9 @@ Types of changes:
 
 - `[Forecast]` The chart's axis titles stand next to the tick labels of their own panel, and the
   labels are measured by the ticks they draw and by the width of each character, so the plot
-  gets 13 px more width (241 px instead of 228 on a 390 px phone, in German) (GH-4132).
+  gets 14 px more width (242 px instead of 228 on a 390 px phone, in German). The bottom label of
+  an axis that lies closer to the first tick than a line of labels is high is left out, so the
+  pressure's 1.008 is no longer drawn over its 1.010 (GH-4132).
 - `[Forecast]` The panels and the horizon stay at the top of the toolbar, beside the view
   switcher, in every view, and on a phone the pan and zoom buttons come last, so nothing above
   them moves. In the compact view the day cards are one height with the weekday, icon, date,

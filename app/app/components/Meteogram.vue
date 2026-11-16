@@ -416,14 +416,16 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
               <div v-if="d.tempLabel" class="text-xs font-extrabold text-gray-700 dark:text-gray-200 mt-1 bg-white dark:bg-gray-800/80 px-2 py-0.5 rounded-lg border border-gray-100 dark:border-gray-700 shadow-xs">
                 {{ d.tempLabel }}
               </div>
+              <!-- a day with no temperatures keeps the room of their pill, so that the rain below is level with the others' -->
+              <div v-else class="min-h-[22px] mt-1" aria-hidden="true" />
               <!-- The rows start at the top of the card and stretch to the tallest, so that the weekday, the icon, the date, the temperatures and the
                    rain are at the same height in every card (GH-4138). A dry day keeps the rain row's height, empty and hidden from a screen reader,
                    which would else read out an empty line. -->
-              <div v-if="d.precipLabel" class="h-4 text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1 select-none" data-testid="day-precip">
+              <div v-if="d.precipLabel" class="min-h-4 text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1 select-none" data-testid="day-precip">
                 <UIcon name="i-ph-drop" class="size-3.5 align-text-bottom" aria-hidden="true" />
                 <span class="sr-only">{{ t('meteogram.chart.panelPrecipitation') }}{{ t('common.colon') }}{{ ' ' }}</span>{{ d.precipLabel }}
               </div>
-              <div v-else class="h-4 mt-1" aria-hidden="true" data-testid="day-precip" />
+              <div v-else class="min-h-4 mt-1" aria-hidden="true" data-testid="day-precip" />
               <!-- under the rest, so that the last day's note moves none of the rows of the others -->
               <div v-if="d.partialHours" class="text-xs text-gray-600 dark:text-gray-400 mt-2" data-testid="partial-day">
                 {{ t('meteogram.chart.partialDay', { hours: d.partialHours }) }}

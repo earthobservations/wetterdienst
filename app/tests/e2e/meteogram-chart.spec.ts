@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import { chartLayout } from '../../app/utils/meteogram-geometry'
 import { mockBackend } from './accessibility/mock-backend'
 
 // The forecast chart (GH-4059): Apache ECharts, drawn as SVG at a fixed height for each panel and a fixed width for each
@@ -191,18 +192,22 @@ test.describe('on a phone, in German (the longest labels), with every panel on',
         // (only what is in the gutter counts: the first day name is at the left as well)
         const titles = texts.filter(entry => entry.turned && entry.left < 100)
         const labels = texts.filter(entry => !entry.turned && /^[-\d.,]+$/.test(entry.text) && entry.right < 100)
-        return { titles, labels, stage: stage.width }
+        return { titles, labels, stage: stage.width, stageTop: stage.top }
       })
+      // the panels' grids, where the layout puts them: each has its title and its labels in it
+      const rows = chartLayout(['wind', 'precip', 'cloud', 'temp', 'pressure'], true).rows
+      const inRow = (row: typeof rows[number], entry: { top: number, bottom: number }) => (entry.top + entry.bottom) / 2 >= found.stageTop + row.top && (entry.top + entry.bottom) / 2 <= found.stageTop + row.top + row.height
       // a title for each of the five panels, of one or two lines
       expect(found.titles.length, JSON.stringify(found.titles)).toBeGreaterThanOrEqual(5)
       expect(found.labels.length).toBeGreaterThanOrEqual(3)
       for (const title of found.titles) {
         expect(title.left, `${title.text} is cut at the left`).toBeGreaterThanOrEqual(0)
-        // the labels of its own panel: the two nearest to the middle of the title, which is the middle of the panel (every panel has two
-        // labels at least, the ones above and below that middle or nearest to it)
+        // the labels of its own panel: those in the same grid, of which a panel has two at least
+        const row = rows.find(candidate => inRow(candidate, title))
+        expect(row, `${title.text} is in no panel: ${JSON.stringify({ title, stageTop: found.stageTop })}`).toBeDefined()
+        const own = found.labels.filter(label => inRow(row!, label))
+        expect(own.length, `${title.text} (${row!.id}) has fewer than two labels in its panel: ${JSON.stringify(found.labels)}`).toBeGreaterThanOrEqual(2)
         const middleOf = (entry: { top: number, bottom: number }) => (entry.top + entry.bottom) / 2
-        const own = [...found.labels].sort((a, b) => Math.abs(middleOf(a) - middleOf(title)) - Math.abs(middleOf(b) - middleOf(title))).slice(0, 2)
-        expect(own.length, `${title.text} has no labels beside it: ${JSON.stringify(found.labels)}`).toBeGreaterThan(0)
         const ownLeft = Math.min(...own.map(entry => entry.left))
         expect(title.right, `${title.text} is under the labels`).toBeLessThanOrEqual(ownLeft + 0.5)
         // and it stands next to them, not at the far left of a gutter made for the widest labels of all: the room between is the 4 px

@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import { chartLayout } from '../../app/utils/meteogram-geometry'
 import { ApiFailure, defaultHandlers, isSnowRequest, mockBackend } from './accessibility/mock-backend'
 
 // The snow panel of the forecast (GH-4091): for the 15 stations that have DWD's MOSMIX-SNOW, the meteogram gets three plots on
@@ -333,6 +334,8 @@ test.describe('on a phone', () => {
       await open(page, baseURL!, SNOW_STATION, { width, height: 844 })
       const found = await titles(page)
       const stage = (await page.locator('.mg-stage').boundingBox())!
+      // the grids of the plots, where the layout puts them
+      const grids = chartLayout(['wind', 'precip', 'snow', 'snowDepth', 'snowChance', 'cloud', 'temp', 'pressure'], true).rows
       // the tick labels of the plots: the numbers that are not turned
       const numbers = await svg(page).locator('text').evaluateAll(texts => texts.map((text) => {
         const matrix = text.getScreenCTM()
@@ -344,11 +347,12 @@ test.describe('on a phone', () => {
         const title = found.find(entry => entry.text === name)
         expect(title, name).toBeDefined()
         expect(title!.left, `${name} is cut at the left`).toBeGreaterThanOrEqual(stage.x - 0.5)
-        // left of the tick labels of its own plot (GH-4132: each title is next to its own labels, not at the left edge for all): the two
-        // labels nearest to the middle of the title
-        const middleOf = (entry: { top: number, bottom: number }) => (entry.top + entry.bottom) / 2
-        const own = [...numbers].sort((a, b) => Math.abs(middleOf(a) - middleOf(title!)) - Math.abs(middleOf(b) - middleOf(title!))).slice(0, 2)
-        expect(own.length, `${name} has labels beside it`).toBe(2)
+        // left of the tick labels of its own plot (GH-4132: each title is next to its own labels, not at the left edge for all): the labels
+        // that are in the plot's grid, where the layout puts it (a plot has two labels at least)
+        const row = grids.find(candidate => ((title!.top + title!.bottom) / 2) >= stage.y + candidate.top && ((title!.top + title!.bottom) / 2) <= stage.y + candidate.top + candidate.height)
+        expect(row, `${name} is in no plot`).toBeDefined()
+        const own = numbers.filter(label => ((label.top + label.bottom) / 2) >= stage.y + row!.top && ((label.top + label.bottom) / 2) <= stage.y + row!.top + row!.height)
+        expect(own.length, `${name} has fewer than two labels in its plot: ${JSON.stringify(numbers)}`).toBeGreaterThanOrEqual(2)
         expect(title!.right, `${name} is under the labels`).toBeLessThanOrEqual(Math.min(...own.map(label => label.left)) + 0.5)
       }
       // each title lies inside the rows of its own plot (72 px high each), and never on the plot above or below
