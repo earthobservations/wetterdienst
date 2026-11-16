@@ -16,6 +16,20 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.51.1] - 2026-11-16
+
+### Changed
+
+- `[Forecast, Map]` The forecast's compact view and the map panel's day list show every day the
+  forecast has (10 for MOSMIX-L), not the first 7. The strip of cards scrolls sideways, and the
+  keyboard can scroll it: it is a region named after the station that takes the focus (GH-4127).
+
+### Fixed
+
+- `[Forecast]` The view switcher (chart, compact, table) keeps its place at the top of the toolbar
+  when the view changes, so it can be clicked again and again without moving the pointer. The
+  chart's pan and zoom buttons moved to a row of their own under it (GH-4124).
+
 ## [0.51.0] - 2026-11-15
 
 ### Added
@@ -50,15 +64,6 @@ Types of changes:
   breaks the line, and ten years of hourly values draw in about 60 % of the time with every peak
   kept. Saved images keep their size and names; on the light page green, amber, cyan, lime and
   orange are a step darker, so every line reads on white (GH-4096).
-- `[Forecast, Map]` The forecast's compact view and the map panel's day list show every day the
-  forecast has (10 for MOSMIX-L), not the first 7. The strip of cards scrolls sideways, and the
-  keyboard can scroll it: it is a region named after the station that takes the focus (GH-4127).
-
-### Fixed
-
-- `[Forecast]` The view switcher (chart, compact, table) keeps its place at the top of the toolbar
-  when the view changes, so it can be clicked again and again without moving the pointer. The
-  chart's pan and zoom buttons moved to a row of their own under it (GH-4124).
 
 ## [0.50.0] - 2026-11-14
 
