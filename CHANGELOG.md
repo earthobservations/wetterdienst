@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking**: the `dwd/mosmix` and `dwd/dmo` requests no longer accept `_snow_stations`,
+  `_coverage_cache`, `_placemark_cache` and `_lead_time_asked` as constructor arguments. They are
+  private state the request sets itself, recorded in the signature of the 0.189.0 baseline, and
+  were never meant to be passed: pass nothing instead. `DwdDmoRequest(...).lead_time` is now `None`
+  where no lead time was given (it was `SHORT`); the short run is read as before (GH-4128, GH-4142)
+
 ## [0.189.1] - 2026-11-16
 
 ### Fixed

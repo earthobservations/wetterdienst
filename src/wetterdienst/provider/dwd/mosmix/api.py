@@ -464,8 +464,9 @@ class DwdMosmixRequest(TimeseriesRequest):
     station_group: DwdMosmixStationGroup = DwdMosmixStationGroup.SINGLE_STATIONS
 
     _url = MOSMIX_STATION_CATALOGUE_URL
-    # per request, not per class: the stations of the newest MOSMIX-SNOW run, read once (`_snow_station_ids`)
-    _snow_stations: set[str] | None = dataclasses.field(default=None, repr=False, compare=False)
+    # per request, not per class: the stations of the newest MOSMIX-SNOW run, read once (`_snow_station_ids`); the
+    # request sets it, so it is no constructor argument (`init=False`)
+    _snow_stations: set[str] | None = dataclasses.field(default=None, init=False, repr=False, compare=False)
 
     @classmethod
     def available_issues(cls, station_id: str, settings: Settings, dataset: str = "large") -> list[dt.datetime]:
