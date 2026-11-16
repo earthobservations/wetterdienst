@@ -663,6 +663,7 @@
     "plotTitle": "Paski klimatyczne ({kind}) dla {name}, Niemcy ({id})",
     "plotDataAvailability": "Dostępność danych",
     "plotSource": "Źródło: Deutscher Wetterdienst",
+    "plotReference": "Kolory: średnia z {centre}, ±{sigma} σ z {spread}",
     "hoverValue": "Wartość",
     "hoverTrend": "Trend",
     "chart": {

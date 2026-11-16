@@ -663,6 +663,7 @@
     "plotTitle": "Klimastreifen ({kind}) für {name}, Deutschland ({id})",
     "plotDataAvailability": "Datenverfügbarkeit",
     "plotSource": "Quelle: Deutscher Wetterdienst",
+    "plotReference": "Farben: Mittel von {centre}, ±{sigma} σ von {spread}",
     "hoverValue": "Wert",
     "hoverTrend": "Trend",
     "chart": {

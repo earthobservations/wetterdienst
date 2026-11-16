@@ -181,8 +181,8 @@ An answer over the budget is cut, not refused, and says so:
   `rank`. A `rank` that fits is unchanged.
 - **`stripes_stations`** is cut like `stations`: the first stations of the list. It has nothing to select with, so the
   note says to give the place as `name` to `stripes_values` or `stripes_image`, which match it themselves, or to find a
-  station with `stations`. The list of the temperature stripes is 144,000 characters, that of the precipitation
-  stripes 640,000.
+  station with `stations`. The list of the temperature stripes is 175,000 characters, that of the precipitation
+  stripes 733,000.
 - **`coverage`** is not rows but resolutions, datasets and parameters with a description each, and noaa/ghcn (59,000
   characters), dwd/observation (89,000) and dwd/phenology (139,000) are over the budget. It is cut in steps, each only
   where the one before is still over: the answer as it is; the `description` of every parameter null (everything else

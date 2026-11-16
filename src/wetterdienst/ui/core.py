@@ -2798,8 +2798,20 @@ CLIMATE_STRIPES_CONFIG: StripesConfig = {
 
 
 def _get_stripes_stations(kind: StripesKind, *, active: bool = True) -> StationsResult:
+    """List the stations climate stripes are made for: those whose record can reach `MIN_RECORD_YEARS` (GH-4157).
+
+    A station whose description gives fewer years than that from its first to its last (`end - start + 1`, by
+    year) is left out, as a request for it is refused. The span is all the listing has: a record with gaps is
+    listed where its span is long enough, and is still refused where it has fewer than `MIN_RECORD_YEARS` years
+    with values, which is only known by reading it. Measured on 2026-11-16, of the active stations listed 5 of 489
+    for the temperature and 61 of 2039 for the precipitation are (23 of 1080 and 180 of 5697 of all of them). The
+    listing's dates and the data disagree the other way for 11 precipitation stations (none of them active), which
+    have 10 or more years with values and a shorter span, and so are not listed. A station with no end date is kept.
+    """
     request = CLIMATE_STRIPES_CONFIG[kind]["request"]
     stations = request(Period.HISTORICAL).all()
+    long_enough = pl.col("end_timestamp").dt.year() - pl.col("start_timestamp").dt.year() + 1 >= MIN_RECORD_YEARS
+    stations = replace(stations, df=stations.df.filter(long_enough | pl.col("end_timestamp").is_null()))
     if active:
         station_ids_active = request(Period.RECENT).all().df.select("station_id")
         stations = replace(stations, df=stations.df.join(station_ids_active, on="station_id"))
@@ -2810,7 +2822,8 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     """Get stripes data for station in Germany, for a request its model has checked.
 
     The `unit_targets` of a request for the values name the unit they are returned in, as for `/api/values`
-    (GH-3980); the colour of a year, scaled over the years, is the same in any unit. The image has none.
+    (GH-3980). The class of a year is relative to the station's whole record, never to the years asked for
+    (`start_year`, `end_year`), and so is the same in any unit (GH-4157). The image has no `unit_targets`.
 
     Returns StripesData with metadata and dataframe.
     """
@@ -2842,7 +2855,9 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     # a value a soft plausibility check flagged suspect is no year with data, whatever the mode (GH-3676)
     df = leave_out_suspect(stations.values().all().df).sort("timestamp")
     df = df.set_sorted("timestamp")
-    df = df.select("timestamp", "value")
+    # a value that is no finite number (NaN, an infinity) is no year with data: it would make the reference NaN, and
+    # the class of every year with it (GH-4157)
+    df = df.select("timestamp", pl.when(pl.col("value").is_finite()).then(pl.col("value")).alias("value"))
     # a station that returns no rows has no first and last year to upsample between (polars raises
     # `ComputeError`); left empty, it is refused below as having data for no year (GH-2369)
     if not df.is_empty():

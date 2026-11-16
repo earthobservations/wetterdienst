@@ -663,6 +663,7 @@
     "plotTitle": "Klimastriber ({kind}) for {name}, Tyskland ({id})",
     "plotDataAvailability": "Datatilgængelighed",
     "plotSource": "Kilde: Deutscher Wetterdienst",
+    "plotReference": "Farver: gennemsnit af {centre}, ±{sigma} σ af {spread}",
     "hoverValue": "Værdi",
     "hoverTrend": "Tendens",
     "chart": {

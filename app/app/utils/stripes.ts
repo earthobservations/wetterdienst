@@ -84,16 +84,18 @@ export interface StripesReferenceView {
  * @param reference - What the answer says the classes are relative to
  * @param t - Writes the sentence in the language of the page
  * @param format - Writes the number of standard deviations the scale reaches to either side, 2.6
+ * @param key - The sentence: the whole one under the chart (`stripes.reference`), or the short one of a saved image (`stripes.plotReference`)
  */
 export function stripesReferenceText(
   reference: StripesReferenceView,
   t: (key: string, params?: Record<string, unknown>) => string,
   format: (value: number) => string,
+  key: 'stripes.reference' | 'stripes.plotReference' = 'stripes.reference',
 ): string {
   const period = (stat: StripesReferenceStatView) => stat.fallback
     ? t('stripes.referenceWhole', { from: stat.first_year, to: stat.last_year })
     : `${stat.first_year}–${stat.last_year}`
-  return t('stripes.reference', { centre: period(reference.centre), spread: period(reference.spread), sigma: format(reference.range_sigma) })
+  return t(key, { centre: period(reference.centre), spread: period(reference.spread), sigma: format(reference.range_sigma) })
 }
 
 /**

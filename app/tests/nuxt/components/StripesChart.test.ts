@@ -642,16 +642,40 @@ describe('the zoom', () => {
 })
 
 describe('the image', () => {
-  it('is saved as the camera does: a PNG of 1400 by 915 px (the stripes 16:9, 765 px, and the margins on top) at twice the size, in the light theme, named for the station', async () => {
+  it('is saved as the camera does: a PNG of 1400 by 935 px (the stripes 16:9, 765 px, the margins on top and the line that says what the colours are relative to) at twice the size, in the light theme, named for the station', async () => {
     await showChart()
     buttonNamed('Download plot as a PNG').click()
     await vi.waitFor(() => expect(image.downloadBlob).toHaveBeenCalled())
     const [svg, options] = image.svgToBlob.mock.calls[0] as unknown as [string, any]
-    expect(options).toMatchObject({ format: 'png', width: 1400, height: 915, scale: 2 })
+    expect(options).toMatchObject({ format: 'png', width: 1400, height: 935, scale: 2 })
     expect(options.background).toMatch(/^#|^rgb/)
-    expect(svg).toContain('width="1400" height="915"')
+    expect(svg).toContain('width="1400" height="935"')
     expect(svg).toContain(TITLE)
     expect(image.downloadBlob.mock.calls[0]![1]).toBe('climate_stripes_temperature_00011.png')
+  })
+
+  it('says what its colours are relative to, under the source, in a line of its own that makes the image higher (GH-4157)', async () => {
+    await showChart()
+    buttonNamed('Download plot as a PNG').click()
+    await vi.waitFor(() => expect(image.downloadBlob).toHaveBeenCalled())
+    const [svg] = image.svgToBlob.mock.calls[0] as unknown as [string, any]
+    const texts = [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1])
+    // the mean of 1971 to 2000, and the standard deviation of the years of 1901 to 2000 the station has
+    expect(texts).toContain('Colours: mean of 1971–2000, ±2.6 σ of 1950–2000')
+    // the source stays on its row, and the reference is under it
+    const y = (text: string) => Number(new RegExp(`<text[^>]*y="([\\d.]+)"[^>]*>${text}</text>`).exec(svg)![1])
+    expect(y('Colours: mean of 1971–2000, ±2.6 σ of 1950–2000')).toBeGreaterThan(y('Source: Deutscher Wetterdienst'))
+    // the page's chart, which says it under the stripes in the page's own text, has no such line
+    expect(lastOption().series.at(-1).data.length).toBeLessThan(texts.length)
+  })
+
+  it('says the whole record where the station has too few years in a period, in the saved image too', async () => {
+    const short = stripesAnswer(recordOf(2000, 2020, year => (year - 2000) / 10))
+    await showChart({ values: short.values, reference: short.reference })
+    buttonNamed('Download plot as a PNG').click()
+    await vi.waitFor(() => expect(image.downloadBlob).toHaveBeenCalled())
+    const [svg] = image.svgToBlob.mock.calls[0] as unknown as [string, any]
+    expect(svg).toContain('Colours: mean of the whole record (2000–2020), ±2.6 σ of the whole record (2000–2020)')
   })
 
   it('is drawn in the light theme whatever the page shows, on the light paper', async () => {
@@ -668,11 +692,11 @@ describe('the image', () => {
     expect(svg).not.toContain('rgb(250, 250, 250)')
   })
 
-  it('is 905 px high where the title is off: the stripes keep their 765 px and lose the 10 px of the title', async () => {
+  it('is 925 px high where the title is off: the stripes keep their 765 px and lose the 10 px of the title', async () => {
     await showChart({ display: { ...DISPLAY, showTitle: false } })
     buttonNamed('Download plot as a PNG').click()
     await vi.waitFor(() => expect(image.svgToBlob).toHaveBeenCalled())
-    expect((image.svgToBlob.mock.calls[0] as unknown as [string, any])[1]).toMatchObject({ width: 1400, height: 905, scale: 2 })
+    expect((image.svgToBlob.mock.calls[0] as unknown as [string, any])[1]).toMatchObject({ width: 1400, height: 925, scale: 2 })
   })
 
   it('is saved for the menu at the size asked for, with the title broken for the width of the image, and in the range the stripes are zoomed to', async () => {
@@ -683,7 +707,9 @@ describe('the image', () => {
     await nextTick()
     await (shown.vm as any).save({ format: 'jpeg', filename: 'name', width: 320, height: 600, scale: 3 })
     const [svg, options] = image.svgToBlob.mock.calls[0] as unknown as [string, any]
-    expect(options).toMatchObject({ format: 'jpeg', width: 320, height: 600, scale: 3 })
+    // the 600 px of the page's chart and the rows that say what the colours are relative to, which a narrow image breaks into lines
+    expect(options).toMatchObject({ format: 'jpeg', width: 320, scale: 3 })
+    expect(options.height).toBeGreaterThanOrEqual(620)
     expect(image.downloadBlob.mock.calls[0]![1]).toBe('name.jpeg')
     // broken into lines where the image is narrow, not where the page is
     const texts = [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1])

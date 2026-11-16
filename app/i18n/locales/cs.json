@@ -663,6 +663,7 @@
     "plotTitle": "Klimatické pruhy ({kind}) pro {name}, Německo ({id})",
     "plotDataAvailability": "Dostupnost dat",
     "plotSource": "Zdroj: Deutscher Wetterdienst",
+    "plotReference": "Barvy: průměr z {centre}, ±{sigma} σ z {spread}",
     "hoverValue": "Hodnota",
     "hoverTrend": "Trend",
     "chart": {

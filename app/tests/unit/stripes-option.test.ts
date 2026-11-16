@@ -4,7 +4,7 @@ import { EMPTY_CHART_THEME, seriesLabelColor } from '../../app/utils/chart-theme
 import { loadEcharts } from '../../app/utils/echarts-loader'
 import { STRIPE_PALETTES, stripeColour } from '../../app/utils/stripes'
 import { buildStripesModel, fullWindow } from '../../app/utils/stripes-model'
-import { buildStripesOption, STRIPES_MAX_HEIGHT, STRIPES_MIN_HEIGHT, STRIPES_RATIO, stripesChartHeight, stripesLayout, stripesTexts, windowUpdate } from '../../app/utils/stripes-option'
+import { buildStripesOption, extraLinesHeight, STRIPES_MAX_HEIGHT, STRIPES_MIN_HEIGHT, STRIPES_RATIO, stripesChartHeight, stripesLayout, stripesTexts, windowUpdate } from '../../app/utils/stripes-option'
 import { recordOf, stripesAnswer } from '../helpers/stripes-answer'
 
 const echarts = loadEcharts()
@@ -51,6 +51,56 @@ function barsOf(svg: string) {
   return { stripes: bars(/#(?!FFD700)[0-9a-fA-F]{6}/), gold: bars(/#FFD700/) }
 }
 const fills = (svg: string) => [...svg.matchAll(/<path d="M[^"]*" fill="(#(?!FFD700)[0-9a-fA-F]{6})"/g)].map(match => match[1]!)
+
+describe('the rows of text a saved image has under its source (GH-4157)', () => {
+  const REFERENCE_LINES = ['Colours: mean of 1971–2000,', '±2.6 σ of 1901–2000']
+
+  it('takes 20 px a row, the first of them from the room the source leaves where there is none', () => {
+    expect(extraLinesHeight(DISPLAY, 0)).toBe(0)
+    expect(extraLinesHeight(DISPLAY, 1)).toBe(20)
+    expect(extraLinesHeight(DISPLAY, 2)).toBe(40)
+    // with no source row the rows are the whole of what is under the years: 60 px of room before, 80 px for one row
+    expect(extraLinesHeight({ ...DISPLAY, showSource: false }, 1)).toBe(20)
+    expect(extraLinesHeight({ ...DISPLAY, showSource: false, showYears: false }, 1)).toBe(0)
+    expect(extraLinesHeight({ ...DISPLAY, showSource: false, showYears: false }, 3)).toBe(40)
+  })
+
+  it('leaves the stripes as high as they were where the image is made as much higher as the rows take', () => {
+    const plain = stripesLayout(DISPLAY, 1400, 915, 1)
+    const taller = stripesLayout(DISPLAY, 1400, 915 + extraLinesHeight(DISPLAY, 2), 1, 2)
+    expect(taller.stripes).toEqual(plain.stripes)
+    expect(taller.plot.height).toBe(plain.plot.height)
+    expect(stripesChartHeight(DISPLAY, 1400, 1, { clamp: false, extraLines: 2 })).toBe(stripesChartHeight(DISPLAY, 1400, 1, { clamp: false }) + 40)
+  })
+
+  it('writes each row under the source, centred, in the muted text, 20 px apart', () => {
+    const { input } = build({ extraLines: REFERENCE_LINES })
+    const layout = stripesLayout(input.display, input.width, input.height, input.titleLines.length, REFERENCE_LINES.length)
+    const texts = stripesTexts(input, layout)
+    const source = texts.find(text => text.text === input.sourceText)!
+    const rows = REFERENCE_LINES.map(line => texts.find(text => text.text === line)!)
+    expect(rows.map(row => row.y)).toEqual([source.y + 20, source.y + 40])
+    for (const row of rows) {
+      expect(row.align).toBe('center')
+      expect(row.x).toBe(source.x)
+      expect(row.fill).toBe(input.theme.textMuted)
+    }
+  })
+
+  it('writes them where the source is not shown too, from where the source would be', () => {
+    const { input } = build({ extraLines: REFERENCE_LINES, display: { showSource: false } })
+    const layout = stripesLayout(input.display, input.width, input.height, input.titleLines.length, REFERENCE_LINES.length)
+    const texts = stripesTexts(input, layout)
+    expect(texts.some(text => text.text === input.sourceText)).toBe(false)
+    expect(texts.find(text => text.text === REFERENCE_LINES[0])!.y).toBe(layout.sourceTop)
+  })
+
+  it('draws no row on the page\'s chart, which has none', () => {
+    const { input } = build()
+    const layout = stripesLayout(input.display, input.width, input.height, input.titleLines.length)
+    expect(stripesTexts(input, layout).map(text => text.text)).not.toContain('Colours: mean of 1971–2000,')
+  })
+})
 
 describe('the layout', () => {
   it('keeps the margins and the rows below the plot the chart has always had', () => {

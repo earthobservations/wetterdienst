@@ -3,6 +3,8 @@
 """Tests for the request models the CLI, REST API and MCP share."""
 
 import datetime as dt
+import math
+import statistics
 from types import SimpleNamespace
 from typing import Any
 
@@ -381,6 +383,27 @@ def test_stripes_leave_out_a_value_a_soft_check_flagged_suspect(monkeypatch: pyt
     assert control.df.get_column("value").to_list() == list(values.values())
     assert control.reference.centre.years == 12
     assert control.reference.spread.value > 1000 > data.reference.spread.value
+
+
+def test_stripes_leave_out_a_value_that_is_not_a_finite_number(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A NaN or an infinity is a year without data: it does not make the reference, and every class, NaN (GH-4157)."""
+    values = {year: float(year - 1999) for year in range(2000, 2013)}
+    values[2003] = float("nan")
+    values[2007] = float("inf")
+    _stripes_of(monkeypatch, values)
+
+    data = _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048"))
+
+    df = data.df
+    assert df.get_column("value").is_null().to_list() == [year in (2003, 2007) for year in range(2000, 2013)]
+    assert df.get_column("stripe_class")[3] is None
+    assert df.get_column("stripe_class").null_count() == 2
+    assert data.reference.centre.years == data.reference.spread.years == 11
+    assert math.isfinite(data.reference.centre.value)
+    assert math.isfinite(data.reference.spread.value)
+    assert data.reference.centre.value == pytest.approx(
+        statistics.fmean(v for y, v in values.items() if y not in (2003, 2007))
+    )
 
 
 def test_stripes_of_a_record_too_short_to_scale_are_refused(monkeypatch: pytest.MonkeyPatch) -> None:

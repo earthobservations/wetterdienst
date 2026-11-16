@@ -663,6 +663,7 @@
     "plotTitle": "Franjas climáticas ({kind}) para {name}, Alemania ({id})",
     "plotDataAvailability": "Disponibilidad de datos",
     "plotSource": "Fuente: Deutscher Wetterdienst",
+    "plotReference": "Colores: media de {centre}, ±{sigma} σ de {spread}",
     "hoverValue": "Valor",
     "hoverTrend": "Tendencia",
     "chart": {

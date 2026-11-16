@@ -663,6 +663,7 @@
     "plotTitle": "Bandes climatiques ({kind}) pour {name}, Allemagne ({id})",
     "plotDataAvailability": "Disponibilité des données",
     "plotSource": "Source : Deutscher Wetterdienst",
+    "plotReference": "Couleurs : moyenne de {centre}, ±{sigma} σ de {spread}",
     "hoverValue": "Valeur",
     "hoverTrend": "Tendance",
     "chart": {

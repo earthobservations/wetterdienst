@@ -4501,7 +4501,7 @@
           "Climate stripes"
         ],
         "summary": "Stripes Stations",
-        "description": "Wrap get_climate_stripes_temperature_request to provide results via restapi.",
+        "description": "List the stations climate stripes are made for.\n\nA station whose first and last year are fewer than 10 years apart is left out, as stripes of fewer than 10 years\nwith data are refused. A station with gaps in a longer span is listed and may still be refused.",
         "operationId": "stripes_stations_api_stripes_stations_get",
         "parameters": [
           {

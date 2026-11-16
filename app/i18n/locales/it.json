@@ -663,6 +663,7 @@
     "plotTitle": "Strisce climatiche ({kind}) per {name}, Germania ({id})",
     "plotDataAvailability": "Disponibilità dei dati",
     "plotSource": "Fonte: Deutscher Wetterdienst",
+    "plotReference": "Colori: media di {centre}, ±{sigma} σ di {spread}",
     "hoverValue": "Valore",
     "hoverTrend": "Tendenza",
     "chart": {

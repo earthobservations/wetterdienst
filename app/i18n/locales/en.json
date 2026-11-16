@@ -663,6 +663,7 @@
     "plotTitle": "Climate stripes ({kind}) for {name}, Germany ({id})",
     "plotDataAvailability": "Data availability",
     "plotSource": "Source: Deutscher Wetterdienst",
+    "plotReference": "Colours: mean of {centre}, ±{sigma} σ of {spread}",
     "hoverValue": "Value",
     "hoverTrend": "Trend",
     "chart": {

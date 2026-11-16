@@ -313,6 +313,26 @@ def test_the_stripes_image_tool_reports_the_licence_the_attribution_and_the_warn
         assert sentence.endswith("Warnings: station-skipped.")
 
 
+def test_the_stripes_values_tool_in_csv_tells_the_reference_its_classes_are_relative_to(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A CSV has no `reference` of its own, so the tool's report and sentence carry it from the headers (GH-4157)."""
+    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
+
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
+
+    result, schema = _call(restapi.app, "stripes_values", {"kind": "temperature", "station": "01048", "format": "csv"})
+
+    assert not result.is_error, result.content
+    note = result.meta["wetterdienst"]["processing_note"]
+    assert "The anomaly and class of each year were calculated" in note
+    assert "for the mean the whole record (2000-2009, 10 years)" in note
+    if schema is not None:
+        sentence = result.structured_content["result"]
+        assert "timestamp,value,anomaly,stripe_class" in sentence
+        assert note in sentence
+
+
 def test_every_tool_with_a_format_that_is_no_json_admits_a_string_for_it() -> None:
     """The structured content of such an answer is a sentence, which the output schema of the tool has to admit.
 

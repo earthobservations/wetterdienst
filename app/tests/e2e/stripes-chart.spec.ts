@@ -186,6 +186,9 @@ test.describe('a saved stripes chart', () => {
     await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'dark'))
   })
 
+  // the line of text a saved image has under its source, 20 px, for what its colours are relative to (the chart is wide enough for one)
+  const REFERENCE_LINE = 20
+
   async function menu(page: Page, item: string) {
     await page.getByRole('button', { name: 'Download image' }).click()
     const saved = page.waitForEvent('download')
@@ -193,7 +196,7 @@ test.describe('a saved stripes chart', () => {
     return saved
   }
 
-  test('is the light one and the size of the chart on the page times three, from the menu (the height the page gives it, GH-4133)', async ({ page, baseURL }) => {
+  test('is the light one and the size of the chart on the page times three, from the menu (the height the page gives it, GH-4133), and a line higher for what the colours are relative to (GH-4157)', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!)
     const shown = (await page.locator('.sc-canvas').boundingBox())!
     for (const [item, extension] of [['Download as PNG', 'png'], ['Download as JPG', 'jpeg']] as const) {
@@ -202,7 +205,7 @@ test.describe('a saved stripes chart', () => {
       const image = await imageOf(page, download)
       expect(luminance(image.corner), `the saved image is light (its corner is ${image.corner})`).toBeGreaterThan(0.9)
       expect(image.width).toBe(Math.round(shown.width) * 3)
-      expect(image.height).toBe(Math.round(shown.height) * 3)
+      expect(image.height).toBe((Math.round(shown.height) + REFERENCE_LINE) * 3)
       // the chart on the page is as dark as it was
       await expect(canvas(page)).toHaveAttribute('data-chart-scheme', 'dark')
     }
@@ -214,8 +217,10 @@ test.describe('a saved stripes chart', () => {
     const download = await menu(page, 'Download as SVG')
     expect(download.suggestedFilename()).toMatch(/^climate_stripes_temperature_00011_.+\.svg$/)
     const svg = readFileSync((await download.path())!, 'utf8')
-    expect(svg).toMatch(new RegExp(`<svg width="\\d+" height="${Math.round(shown.height)}"`))
+    expect(svg).toMatch(new RegExp(`<svg width="\\d+" height="${Math.round(shown.height) + REFERENCE_LINE}"`))
     expect(svg).toContain('Climate stripes')
+    // and says what its colours are relative to, under the source (GH-4157)
+    expect(svg).toContain('Colours: mean of 1971–2000, ±2.6 σ of 1955–2000')
     // on the light paper: the first thing the vector draws is a rect that is neither empty nor transparent, and it is light
     const paper = /^<svg[^>]*>\s*<rect[^>]*fill="([^"]*)"/.exec(svg)?.[1]
     expect(paper, 'the vector draws its paper').toMatch(/^(rgb|#)/)
@@ -225,7 +230,7 @@ test.describe('a saved stripes chart', () => {
     expect(svg).not.toContain(dark.replaceAll(' ', ''))
   })
 
-  test('is 2800 by 1830 px (the stripes 16:9 at 1400 px wide) and light, from the camera of the toolbar, named for the station', async ({ page, baseURL }) => {
+  test('is 2800 by 1870 px (the stripes 16:9 at 1400 px wide, and a line for the colours\' reference) and light, from the camera of the toolbar, named for the station', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!)
     const saved = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download plot as a PNG' }).click()
@@ -233,16 +238,16 @@ test.describe('a saved stripes chart', () => {
     expect(download.suggestedFilename()).toBe('climate_stripes_temperature_00011.png')
     const image = await imageOf(page, download)
     expect(luminance(image.corner)).toBeGreaterThan(0.9)
-    expect([image.width, image.height]).toEqual([2800, 1830])
+    expect([image.width, image.height]).toEqual([2800, 1870])
     await expect(canvas(page)).toHaveAttribute('data-chart-scheme', 'dark')
   })
 
-  test('is 1400 by 905 times two without a title, the stripes keeping their height', async ({ page, baseURL }) => {
+  test('is 1400 by 925 times two without a title, the stripes keeping their height', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!, `${PATH}&show_title=false`)
     const saved = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download plot as a PNG' }).click()
     const image = await imageOf(page, await saved)
-    expect([image.width, image.height]).toEqual([2800, 1810])
+    expect([image.width, image.height]).toEqual([2800, 1850])
   })
 
   test('is the range the chart is zoomed to', async ({ page, baseURL }) => {

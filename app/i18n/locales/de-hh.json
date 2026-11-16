@@ -663,6 +663,7 @@
     "plotTitle": "Klimastrepen ({kind}) för {name}, Düütschland ({id})",
     "plotDataAvailability": "Datenverfögbarkeit",
     "plotSource": "Quell: Deutscher Wetterdienst",
+    "plotReference": "Klöör: Middel vun {centre}, ±{sigma} σ vun {spread}",
     "hoverValue": "Weert",
     "hoverTrend": "Trend",
     "chart": {

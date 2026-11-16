@@ -663,6 +663,7 @@
     "plotTitle": "Klimasträifen ({kind}) fir {name}, Däitschland ({id})",
     "plotDataAvailability": "Datverfügbarkeet",
     "plotSource": "Quell: Deutscher Wetterdienst",
+    "plotReference": "Faarwen: Duerchschnëtt vun {centre}, ±{sigma} σ vun {spread}",
     "hoverValue": "Wäert",
     "hoverTrend": "Trend",
     "chart": {

@@ -1929,7 +1929,7 @@ def test_stripes_stations_default(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.content
     data = response.json()
-    assert len(data["stations"]) >= 500
+    assert len(data["stations"]) >= 450
 
 
 @pytest.mark.remote
@@ -1945,7 +1945,7 @@ def test_stripes_stations_active_false(client: TestClient) -> None:
     assert response.status_code == 200
     assert response.content
     data = response.json()
-    assert len(data["stations"]) >= 1100
+    assert len(data["stations"]) >= 1000
 
 
 @pytest.mark.remote
@@ -7067,6 +7067,111 @@ def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: li
 
     monkeypatch.setattr(DwdObservationRequest, "all", _all)
     monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", _collect)
+
+
+# the stations of the listing the stripes are made from, by id: their first and last year (none: no end date)
+_STRIPES_LISTING: dict[str, tuple[int, int | None]] = {
+    "00001": (2001, 2009),  # 9 years: cannot reach the 10 a record needs
+    "00002": (2000, 2009),  # 10 years: just can
+    "00003": (1934, 2025),  # a long record
+    "00004": (2020, 2025),  # 6 years
+    "00005": (2015, None),  # no end date: kept, as nothing rules it out
+}
+_LISTED_STRIPES_STATIONS = ["00002", "00003", "00005"]
+
+
+def _stub_stripes_listing(monkeypatch: pytest.MonkeyPatch, kind: str) -> None:
+    """Serve `_STRIPES_LISTING` as the stations DWD lists for the stripes' parameter, whole period and recent alike."""
+    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    dataset = {"temperature": "climate_summary", "precipitation": "precipitation_more"}[kind]
+    stations = pl.DataFrame(
+        [
+            {
+                "resolution": "annual",
+                "dataset": dataset,
+                "station_id": station_id,
+                "start_timestamp": dt.datetime(first, 1, 1, tzinfo=dt.UTC),
+                "end_timestamp": None if last is None else dt.datetime(last, 12, 31, tzinfo=dt.UTC),
+                "latitude": 51.0,
+                "longitude": 13.0,
+                "elevation": 200.0,
+                "name": f"Station {station_id}",
+                "region": "Sachsen",
+                "wmo_id": None,
+                "wigos_id": None,
+                "icao_id": None,
+            }
+            for station_id, (first, last) in _STRIPES_LISTING.items()
+        ],
+        schema_overrides={
+            "end_timestamp": pl.Datetime("us", "UTC"),
+            "wmo_id": pl.String,
+            "wigos_id": pl.String,
+            "icao_id": pl.String,
+        },
+    )
+
+    def _all(self: DwdObservationRequest) -> StationsResult:
+        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.ALL)
+
+    monkeypatch.setattr(DwdObservationRequest, "all", _all)
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("kind", ["temperature", "precipitation"])
+@pytest.mark.parametrize("active", ["true", "false"])
+def test_stripes_stations_leave_out_the_stations_whose_record_cannot_reach_the_minimum(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch, kind: str, active: str
+) -> None:
+    """A station that lists fewer than 10 years is not offered for stripes, as a request for it is refused (GH-4157)."""
+    _stub_stripes_listing(monkeypatch, kind)
+
+    response = client.get("/api/stripes/stations", params={"kind": kind, "active": active})
+
+    assert response.status_code == 200, response.text
+    assert [station["station_id"] for station in response.json()["stations"]] == _LISTED_STRIPES_STATIONS
+    # and the minimum is the one the values are refused with: the same number, not a second one
+    assert ui_core.MIN_RECORD_YEARS == 10
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_mcp_stripes_stations_leave_out_the_stations_whose_record_cannot_reach_the_minimum(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The MCP tool lists what the endpoint does (GH-4157)."""
+    pytest.importorskip("fastmcp")
+    import asyncio  # noqa: PLC0415
+
+    from fastmcp import Client  # noqa: PLC0415
+
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    _stub_stripes_listing(monkeypatch, "temperature")
+
+    async def _call() -> dict:
+        async with Client(build_mcp_server(restapi.app)) as mcp_client:
+            result = await mcp_client.call_tool("stripes_stations", {"kind": "temperature", "active": False})
+        return json.loads(result.content[0].text)
+
+    data = asyncio.run(_call())["result"]
+    assert [station["station_id"] for station in data["stations"]] == _LISTED_STRIPES_STATIONS
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_the_command_line_lists_the_same_stripes_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`stripes stations` lists what the endpoint does (GH-4157)."""
+    from click.testing import CliRunner  # noqa: PLC0415
+
+    from wetterdienst.ui.cli import cli  # noqa: PLC0415
+
+    _stub_stripes_listing(monkeypatch, "temperature")
+
+    result = CliRunner().invoke(cli, ["stripes", "stations", "--kind=temperature", "--active=false"])
+
+    assert result.exit_code == 0, result.output
+    assert [station["station_id"] for station in json.loads(result.stdout)["stations"]] == _LISTED_STRIPES_STATIONS
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")

@@ -64,6 +64,15 @@ deviation each on its own:
 A record of fewer than **10 years** with data is refused (HTTP 400, as is one with fewer than two
 years in the years asked for). The standard deviation is the sample's (n - 1).
 
+`stripes stations` (REST, command line and MCP, and so the app's station list and map) lists only stations
+whose first and last year, as DWD's description of the stations gives them, are 10 or more years apart: one
+that is not could not be drawn. That is all the listing knows, so a station whose record has gaps is listed
+where its span is long enough and is still refused if it has fewer than 10 years with values: measured on
+2026-11-16, 5 of the 489 active temperature stations and 61 of the 2039 active precipitation stations
+(23 of 1080 and 180 of 5697 of all of them). The other way round, 11 precipitation stations (none of them
+active) have 10 or more years with values and a shorter span, and so are not listed; a request for one by its id
+is answered.
+
 Of the stations with annual data in DWD's historical files (`annual/climate_summary`,
 `annual/precipitation_more`; the stripes read these only, and the recent files add 3 stations of
 precipitation and no year), as measured on 2026-11-16:

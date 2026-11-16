@@ -663,6 +663,7 @@
     "plotTitle": "Klimaatstrepen ({kind}) voor {name}, Duitsland ({id})",
     "plotDataAvailability": "Gegevensbeschikbaarheid",
     "plotSource": "Bron: Deutscher Wetterdienst",
+    "plotReference": "Kleuren: gemiddelde van {centre}, ±{sigma} σ van {spread}",
     "hoverValue": "Waarde",
     "hoverTrend": "Trend",
     "chart": {
