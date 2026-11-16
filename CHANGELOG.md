@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.189.1] - 2026-11-16
+
 ### Fixed
 
 - `dwd/mosmix`: `skip_empty` measures an element at the steps its file gives it at, no longer at
@@ -8155,7 +8157,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.189.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.189.1...HEAD
+[0.189.1]: https://github.com/earthobservations/wetterdienst/compare/v0.189.0...v0.189.1
 [0.189.0]: https://github.com/earthobservations/wetterdienst/compare/v0.188.0...v0.189.0
 [0.188.0]: https://github.com/earthobservations/wetterdienst/compare/v0.187.1...v0.188.0
 [0.187.1]: https://github.com/earthobservations/wetterdienst/compare/v0.187.0...v0.187.1
