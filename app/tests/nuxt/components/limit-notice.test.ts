@@ -88,7 +88,12 @@ async function refused(selection?: StationSelectionState, body: Record<string, u
   return viewer
 }
 
+let clockSpy: { mockRestore: () => void } | undefined
+
 afterEach(() => {
+  clockSpy?.mockRestore()
+  clockSpy = undefined
+  vi.useRealTimers()
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   useToast().clear()
   document.body.innerHTML = ''
@@ -143,10 +148,15 @@ describe('limit notice', () => {
   })
 
   it('hands the window to the page, which writes it to the date fields and asks again', async () => {
+    // the clock stopped (`Date` only) just before midnight UTC: today is the same day for the test and for the page, as
+    // it was not for a run that crossed midnight (GH-4134). `vi.waitFor` moves a fake clock on at every poll, which would
+    // carry this instant over midnight: it is told there is none, so the clock stays where it is put
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-15T23:59:59.900Z') })
+    clockSpy = vi.spyOn(vi, 'isFakeTimers').mockReturnValue(false)
     const { wrapper, viewer } = await refused()
     await wrapper.find('[data-testid="limit-apply"]').trigger('click')
     const [range] = viewer.emitted('applyRange')![0] as [{ startDate: string, endDate: string }]
-    expect(range.endDate).toBe(new Date().toISOString().slice(0, 10))
+    expect(range.endDate).toBe('2026-11-15')
     expect(range.startDate).toMatch(/^\d{4}-\d{2}-\d{2}$/)
     expect(range.startDate < range.endDate).toBe(true)
   })

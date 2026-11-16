@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseStatus } from 'h3'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { UApp } from '#components'
 import { clearNuxtState, useRouter, useToast } from '#imports'
@@ -20,8 +20,18 @@ const ExplorerWithApp = defineComponent({
   },
 })
 
+// The clock is stopped (`Date` only: the timers the page and the test wait with still run) at an instant just before
+// and just after midnight UTC, so that "today" is one day for the test and for the page: read at two moments, as
+// `new Date()` in each did, a run that crossed midnight expected one day and got the next (GH-4134). `vi.waitFor`
+// moves a fake clock on by its interval at every poll, which would carry the instant before midnight over it within
+// 100 ms: it is told there is none (`isFakeTimers`), so the clock stays where it is put
+const CLOCKS = [
+  { at: '2026-11-15T23:59:59.900Z', today: '2026-11-15' },
+  { at: '2026-11-16T00:00:00.100Z', today: '2026-11-16' },
+]
+
 // today, which a record that is still going on ends at: the window ends there
-const TODAY = new Date().toISOString().slice(0, 10)
+let TODAY = CLOCKS[0]!.today
 
 // n stations of the daily record since 1891: 49,000 rows each, so that a few of them are over the limit
 function stations(count: number, start = '1891-01-01T00:00:00+00:00') {
@@ -38,7 +48,11 @@ function stations(count: number, start = '1891-01-01T00:00:00+00:00') {
 const mounted: { unmount: () => void }[] = []
 const endpoints: (() => void)[] = []
 
+const clockSpies: { mockRestore: () => void }[] = []
+
 afterEach(() => {
+  clockSpies.splice(0).forEach(spy => spy.mockRestore())
+  vi.useRealTimers()
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   endpoints.splice(0).forEach(remove => remove())
   clearNuxtState(EXPLORER_STATE)
@@ -86,7 +100,13 @@ async function typeDate(wrapper: Awaited<ReturnType<typeof open>>['wrapper'], in
   await input.setValue(value)
 }
 
-describe('explorer default date range', () => {
+describe.each(CLOCKS)('explorer default date range at $at', ({ at, today }) => {
+  beforeEach(() => {
+    TODAY = today
+    vi.useFakeTimers({ toFake: ['Date'], now: new Date(at) })
+    clockSpies.push(vi.spyOn(vi, 'isFakeTimers').mockReturnValue(false))
+  })
+
   it('starts the newest window that fits where the whole record of the selection is more than one answer', async () => {
     const { wrapper, vm, list } = await open()
     await select(wrapper, vm, list.slice(0, 30))
