@@ -38,6 +38,16 @@ ACCEPTED_BREAKS: dict[str, str] = {
     "requests.dwd/mosmix: parameter _snow_stations was removed": (
         "a private cache field that leaked into the constructor: the request sets it itself, no caller's argument"
     ),
+    # GH-4142: the same for `DwdDmoRequest`'s two caches and its flag of whether a lead time was named
+    "requests.dwd/dmo: parameter _coverage_cache was removed": (
+        "a private cache field that leaked into the constructor: the request sets it itself, no caller's argument"
+    ),
+    "requests.dwd/dmo: parameter _placemark_cache was removed": (
+        "a private cache field that leaked into the constructor: the request sets it itself, no caller's argument"
+    ),
+    "requests.dwd/dmo: parameter _lead_time_asked was removed": (
+        "a private flag that leaked into the constructor: the request works it out from the lead time given"
+    ),
 }
 
 

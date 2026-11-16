@@ -677,14 +677,15 @@ class DwdDmoRequest(TimeseriesRequest):
     issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST
     station_group: Literal["single_stations", "all_stations"] | DwdDmoStationGroup | None = None
     lead_time: Literal["short", "long"] | DwdDmoLeadTime | None = None
-    # per request, not per class: a listing read once should not outlive the settings it was read with
-    _coverage_cache: dict[str, set[str] | None] = dataclasses.field(default_factory=dict, repr=False)
-    _placemark_cache: dict[str, pl.DataFrame | None] = dataclasses.field(default_factory=dict, repr=False)
+    # per request, not per class: a listing read once should not outlive the settings it was read with. The request
+    # sets these three itself, so none is a constructor argument (`init=False`, GH-4142)
+    _coverage_cache: dict[str, set[str] | None] = dataclasses.field(default_factory=dict, init=False, repr=False)
+    _placemark_cache: dict[str, pl.DataFrame | None] = dataclasses.field(default_factory=dict, init=False, repr=False)
     # whether the caller named a lead time: the request reads the short one where none was named, which is no
-    # asking (`parameter-without-rows` says what was asked for). An argument so that `dataclasses.replace`, which
-    # hands over the lead time the request resolved to, hands this over as well; None, a request made by a caller,
-    # is worked out from the lead time given
-    _lead_time_asked: bool | None = dataclasses.field(default=None, repr=False, compare=False, kw_only=True)
+    # asking (`parameter-without-rows` says what was asked for). Worked out in `__post_init__` from the lead time
+    # given; `copy.copy` carries it over, `dataclasses.replace` (which no code of the library uses on a request)
+    # would work it out again from the lead time the request resolved to
+    _lead_time_asked: bool | None = dataclasses.field(default=None, init=False, repr=False, compare=False)
 
     _url = (
         "https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/"

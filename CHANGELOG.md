@@ -16,11 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
-### Fixed
+### Changed
 
-- `dwd/mosmix`: `DwdMosmixRequest` no longer takes `_snow_stations` as a constructor argument. The
-  private cache of the MOSMIX-SNOW stations leaked into the signature in 0.189.0; the request sets
-  it itself, so a call that never passed it is unaffected (GH-4128)
+- **Breaking**: the `dwd/mosmix` and `dwd/dmo` requests no longer accept `_snow_stations`,
+  `_coverage_cache`, `_placemark_cache` and `_lead_time_asked` as constructor arguments. They are
+  private state the request sets itself, which leaked into the signature in 0.189.0 and were never
+  meant to be passed: pass nothing instead (GH-4128, GH-4142)
 
 ## [0.189.1] - 2026-11-16
 
