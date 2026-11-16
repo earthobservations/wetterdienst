@@ -342,7 +342,10 @@ test.describe('on a phone', () => {
         const turned = !!matrix && Math.abs(matrix.b) / Math.hypot(matrix.a, matrix.b) > 0.9
         const box = text.getBoundingClientRect()
         return { text: text.textContent ?? '', turned, left: box.left, right: box.right, top: box.top, bottom: box.bottom }
-      }).filter(entry => !entry.turned && /^[-\d.,]+$/.test(entry.text) && entry.right < 100))
+      }).filter(entry => !entry.turned && /^[-\d.,]+$/.test(entry.text)))
+      // the labels of the gutter: within 100 px of the stage's left edge, which is not at the same x in every engine
+      const gutterRight = stage.x + 100
+      const labelsOfGutter = numbers.filter(entry => entry.right < gutterRight)
       for (const name of ['New snow', 'Snow depth', CHANCE]) {
         const title = found.find(entry => entry.text === name)
         expect(title, name).toBeDefined()
@@ -351,8 +354,8 @@ test.describe('on a phone', () => {
         // that are in the plot's grid, where the layout puts it (a plot has two labels at least)
         const row = grids.find(candidate => ((title!.top + title!.bottom) / 2) >= stage.y + candidate.top && ((title!.top + title!.bottom) / 2) <= stage.y + candidate.top + candidate.height)
         expect(row, `${name} is in no plot`).toBeDefined()
-        const own = numbers.filter(label => ((label.top + label.bottom) / 2) >= stage.y + row!.top && ((label.top + label.bottom) / 2) <= stage.y + row!.top + row!.height)
-        expect(own.length, `${name} has fewer than two labels in its plot: ${JSON.stringify(numbers)}`).toBeGreaterThanOrEqual(2)
+        const own = labelsOfGutter.filter(label => ((label.top + label.bottom) / 2) >= stage.y + row!.top && ((label.top + label.bottom) / 2) <= stage.y + row!.top + row!.height)
+        expect(own.length, `${name} has fewer than two labels in its plot: ${JSON.stringify({ labelsOfGutter, stage, grids: grids.map(grid => ({ id: grid.id, top: stage.y + grid.top, bottom: stage.y + grid.top + grid.height })) })}`).toBeGreaterThanOrEqual(2)
         expect(title!.right, `${name} is under the labels`).toBeLessThanOrEqual(Math.min(...own.map(label => label.left)) + 0.5)
       }
       // each title lies inside the rows of its own plot (72 px high each), and never on the plot above or below

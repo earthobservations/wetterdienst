@@ -308,12 +308,28 @@ test.describe('by keyboard', () => {
 })
 
 test.describe('the readout (WCAG 1.4.13)', () => {
-  // over a panel of the chart, in the middle of the plot
+  // over a panel of the chart, a third of the way along the plot, at the middle of an hour: the tests that move the pointer by a pixel
+  // or two need to stay in the hour, which a fixed x does not do (the gutter and the width of the chart differ by a few px between the
+  // engines and the widths of the labels). The middle is found where the hour under the pointer changes, a pixel at a time.
   async function overPlot(page: Page, fraction = 0.3) {
     const box = (await page.locator('.mg-stage').boundingBox())!
-    // the left gutter is 71 px with the pressure's labels (GH-4132; it was 68 before, and the pointer's place has to be one that the
-    // hour does not change a pixel to either side of: the next test moves it by one pixel), the right 10
-    return { x: box.x + 71 + (box.width - 81) * fraction, y: box.y + box.height * 0.6 }
+    const y = box.y + box.height * 0.6
+    const base = box.x + 71 + (box.width - 81) * fraction
+    const hourAt = async (x: number) => {
+      await page.mouse.move(x, y)
+      await expect(readout(page)).toBeVisible()
+      // the readout follows the pointer a frame later
+      await page.waitForTimeout(40)
+      return (await readout(page).locator('.font-semibold').textContent())!
+    }
+    const hour = await hourAt(base)
+    let first = base
+    while (base - first < 12 && (await hourAt(first - 1)) === hour)
+      first--
+    let last = base
+    while (last - base < 12 && (await hourAt(last + 1)) === hour)
+      last++
+    return { x: Math.round((first + last) / 2), y }
   }
 
   test('appears under the pointer, is docked at the far edge, can be moved onto and holds its hour while the pointer is over it', async ({ page, baseURL }) => {
