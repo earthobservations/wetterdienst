@@ -23,6 +23,16 @@ for (const width of [390, 1280]) {
       await expect(page.getByTestId('station-picker-chips')).toHaveCount(0)
       await expect(page.locator('[data-station-chip]')).toHaveCount(0)
       await expect(page.getByTestId('station-picker-selected')).toHaveCount(0)
+      // the label names the button "Station", so the station is its description, which only a screen reader gets: nothing new is seen
+      await expect(search).toHaveAccessibleDescription(/^Selected station: Donaueschingen.*\(00011\)$/)
+      const description = page.getByTestId('station-picker-selected-description')
+      await expect(description).toHaveCount(1)
+      const box = await description.evaluate((element) => {
+        const { width, height } = element.getBoundingClientRect()
+        return { width, height }
+      })
+      expect(box.width).toBeLessThanOrEqual(1)
+      expect(box.height).toBeLessThanOrEqual(1)
 
       await picker.getByRole('radio', { name: 'Map', exact: true }).click()
       await expect(page.locator('.leaflet-container')).toBeVisible({ timeout: 30_000 })
@@ -32,12 +42,27 @@ for (const width of [390, 1280]) {
       await expect(line).toContainText('Selected station:')
       await expect(line).toContainText('(00011)')
       await expect(line.getByRole('button')).toHaveCount(0)
+      // the search is gone, and its description with it
+      await expect(page.getByTestId('station-picker-selected-description')).toHaveCount(0)
       await expect(page.getByTestId('station-picker-chips')).toHaveCount(0)
 
       // and back in the list the search has it again
       await picker.getByRole('radio', { name: 'List', exact: true }).click()
       await expect(search).toContainText('(ID: 00011')
       await expect(page.getByTestId('station-picker-selected')).toHaveCount(0)
+    })
+
+    test('the forecast has no label to leave its station unnamed: the search names it, with no description', async ({ page, baseURL }) => {
+      await mockBackend(page, baseURL!)
+      await page.addInitScript(() => localStorage.setItem('wd-station-picker', JSON.stringify({ forecast: 'list' })))
+      await page.goto('/meteogram?station=10384')
+
+      const search = page.getByTestId('station-picker').getByRole('combobox').or(page.getByTestId('station-picker').locator('button[aria-haspopup="listbox"]')).first()
+      await expect(search).toHaveText(/\(ID: 10384/, { timeout: 30_000 })
+      await expect(search).toHaveAccessibleDescription('')
+      await expect(page.getByTestId('station-picker-selected-description')).toHaveCount(0)
+      await expect(page.getByTestId('station-picker-selected')).toHaveCount(0)
+      await expect(page.getByTestId('station-picker-chips')).toHaveCount(0)
     })
 
     test('the explorer keeps the chips of its several stations, in the list and on the map', async ({ page, baseURL }) => {

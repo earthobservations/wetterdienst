@@ -20,7 +20,9 @@ Types of changes:
 
 - `[Forecast, Stripes]` A single selected station is named once by the station picker: the search
   shows it, and the "Selected station" chip block under it is gone. On the map, which has no search,
-  one line names it. Several stations (Explorer, History) keep their chips (GH-4151).
+  one line names it, and a screen reader gets the station as the search's description. A single
+  station is replaced by another pick, no longer cleared by its chip. Several stations (Explorer,
+  History) keep their chips (GH-4151).
 
 ## [0.52.0] - 2026-11-16
 

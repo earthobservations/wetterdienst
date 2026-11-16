@@ -57,7 +57,7 @@ async function mountPicker(props: Partial<Props> = {}, options: Record<string, u
  * The picker as a page holds it: the picked stations are the page's, handed back as `selected`.
  * Returns the wrapper and the stations the page holds.
  */
-async function mountPage(props: { tool?: Props['tool'], multiple?: boolean, selected?: typeof stations } = {}) {
+async function mountPage(props: { tool?: Props['tool'], multiple?: boolean, selected?: typeof stations, label?: string } = {}) {
   const picked = ref(props.selected ?? [])
   const Host = defineComponent({
     setup: () => () => h(StationPicker as any, {
@@ -65,6 +65,7 @@ async function mountPage(props: { tool?: Props['tool'], multiple?: boolean, sele
       stations,
       'selected': picked.value,
       'multiple': props.multiple ?? true,
+      'label': props.label,
       'onUpdate:selected': (value: typeof stations) => {
         picked.value = value
       },
@@ -415,6 +416,38 @@ describe('the station picker for one station (GH-4151)', () => {
     await radio(wrapper, 'List').trigger('click')
     expect(selectedLine(wrapper).exists()).toBe(false)
     expect(picker(wrapper).selectedItems).toEqual({ label: 'Berlin-Tempelhof (ID: 00433, Berlin)', value: '00433' })
+  })
+
+  it('gives the search of a picker with a visible label the station as its description, which the label would leave unnamed', async () => {
+    const { wrapper } = await mountPage({ selected: [potsdam], multiple: false, label: 'Station' })
+    const label = wrapper.find('label')
+    // each mounted picker is an app of its own, whose ids start over: the elements are looked up in their wrapper
+    const search = wrapper.find(`[id="${label.attributes('for')}"]`)
+    // the label names the button "Station"; what is picked is its description, a line only a screen reader gets
+    const description = wrapper.find(`[id="${search.attributes('aria-describedby')}"]`)
+    expect(description.text()).toBe('Selected station: Potsdam (03987)')
+    expect(description.classes()).toContain('sr-only')
+    expect(description.attributes('data-testid')).toBe('station-picker-selected-description')
+    // it is no line of the map's: that one is visible, and not there in the list
+    expect(selectedLine(wrapper).exists()).toBe(false)
+
+    // nothing picked: nothing to describe
+    await mountPage({ multiple: false, label: 'Station' }).then(({ wrapper: empty }) => {
+      expect(empty.find('[data-testid="station-picker-selected-description"]').exists()).toBe(false)
+      expect(empty.find(`[id="${empty.find('label').attributes('for')}"]`).attributes('aria-describedby')).toBeUndefined()
+    })
+
+    // on the map the visible line says it, and the description is gone with the search
+    await radio(wrapper, 'Map').trigger('click')
+    await vi.waitFor(() => expect(mapStub(wrapper).exists()).toBe(true))
+    expect(wrapper.find('[data-testid="station-picker-selected-description"]').exists()).toBe(false)
+    expect(selectedLine(wrapper).text()).toBe('Selected station: Potsdam (03987)')
+  })
+
+  it('adds no description where there is no label (the forecast): the search\'s own text names the station', async () => {
+    const { wrapper } = await mountPage({ selected: [potsdam], multiple: false })
+    expect(wrapper.find('[data-testid="station-picker-selected-description"]').exists()).toBe(false)
+    expect(wrapper.find('[aria-describedby]').exists()).toBe(false)
   })
 
   it('has no line on the map before a station is picked', async () => {

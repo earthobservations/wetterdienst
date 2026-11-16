@@ -235,7 +235,7 @@ describe('stripes Page station map', () => {
     // a pick replaces the one before
     wrapper.findComponent(StationPicker).vm.$emit('update:selected', [potsdam])
     await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('3987'))
-    // and the picker clears it when it is handed none
+    // the page's handling of an empty pick, not a path of the UI: a single station is replaced, not cleared
     wrapper.findComponent(StationPicker).vm.$emit('update:selected', [])
     await vi.waitFor(() => expect(vm.selectedStation).toBeNull())
   })

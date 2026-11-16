@@ -286,7 +286,6 @@ test.describe('with the position refused', () => {
     await expect(alert).toHaveText(en.location.denied)
     expect(asked.filter(query => query.latitude)).toEqual([])
     // nothing is picked, and the search of stations is still there
-    await expect(page.getByTestId('station-picker-chips')).toHaveCount(0)
     await expect(page.getByRole('button', { name: en.location.button })).toBeEnabled()
     await expect(page.getByRole('button', { name: en.common.stationSearch })).toBeVisible()
   })

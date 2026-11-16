@@ -74,6 +74,10 @@ const root = ref<HTMLElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
 const panelId = useId()
 const selectId = useId()
+const selectedLineId = useId()
+
+// the station a visible label leaves unnamed: the search of one station, which the label (not its text) names
+const selectedForLabel = computed(() => !props.multiple && props.label && mode.value === 'list' ? props.selected[0] : undefined)
 
 const modeOptions = computed(() => [
   { value: 'list' as const, label: t('stationSelection.modeList'), icon: 'i-ph-list-magnifying-glass' },
@@ -329,6 +333,7 @@ async function clearAll() {
         class="w-full"
         :class="{ 'needs-input': selected.length === 0 }"
         :placeholder="t('common.stationSearch')"
+        :aria-describedby="selectedForLabel ? selectedLineId : undefined"
       />
       <div v-else data-print="hide">
         <ClientOnly>
@@ -387,10 +392,14 @@ async function clearAll() {
         </li>
       </ul>
     </div>
-    <!-- one station: the search shows it, so it is told once, by one line, only where there is no search: on the map -->
-    <p v-else-if="!multiple && mode === 'map' && selected[0]" class="text-sm break-words" data-testid="station-picker-selected" data-print="hide">
+    <!-- one station: the search shows it, so it is told once more by one line only where there is no search: on the map -->
+    <p v-else-if="!multiple && mode === 'map' && selected[0]" class="text-sm break-words" data-testid="station-picker-selected">
       <span class="font-medium">{{ t('stationSelection.selectedStation') }}</span>
       {{ stationShortLabel(selected[0]) }}
+    </p>
+    <!-- a visible label names the search's button "Station", no longer what it shows: the station is its description (GH-4151) -->
+    <p v-else-if="selectedForLabel" :id="selectedLineId" class="sr-only" data-testid="station-picker-selected-description">
+      {{ t('stationSelection.selectedStation') }} {{ stationShortLabel(selectedForLabel) }}
     </p>
 
     <!-- what a change of mode says to a screen reader -->
