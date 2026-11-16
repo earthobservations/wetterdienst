@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, visibleYears, zoomWindow } from '../../app/utils/stripes-model'
+import { availabilityRuns, buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, visibleYears, zoomWindow } from '../../app/utils/stripes-model'
 
 const answer = (years: number[], value = (year: number) => year / 100) => years.map(year => ({ timestamp: `${year}-01-01T00:00:00+00:00`, value: value(year) }))
 
@@ -98,5 +98,44 @@ describe('the window of years', () => {
   it('tells windows apart by a hundredth of a year', () => {
     expect(sameWindow({ start: 1, end: 2 }, { start: 1.001, end: 2 })).toBe(true)
     expect(sameWindow({ start: 1, end: 2 }, { start: 1.1, end: 2 })).toBe(false)
+  })
+})
+
+describe('availabilityRuns (GH-4153)', () => {
+  /** The runs of the years of an answer that has a value for `years` */
+  const runsOf = (years: number[]) => {
+    const model = buildStripesModel(answer(years))!
+    return availabilityRuns(model.availability, model.minYear)
+  }
+
+  it('is one run for years without a gap', () => {
+    expect(runsOf([2000, 2001, 2002, 2003])).toEqual([{ first: 2000, last: 2003 }])
+    expect(runsOf([2000])).toEqual([{ first: 2000, last: 2000 }])
+  })
+
+  it('has a run of one year for a lone year at the start, in the middle and at the end', () => {
+    // 1944, a gap, a run, a gap, a lone year, a gap, a run of two (the shape of the station of GH-4153), then a lone year at the end
+    expect(runsOf([1944, 1946, 1947, 1948, 1950, 1952, 1953, 1955])).toEqual([
+      { first: 1944, last: 1944 },
+      { first: 1946, last: 1948 },
+      { first: 1950, last: 1950 },
+      { first: 1952, last: 1953 },
+      { first: 1955, last: 1955 },
+    ])
+  })
+
+  it('has a run of two years that is two stripes wide, not a point', () => {
+    expect(runsOf([2000, 2001, 2003])).toEqual([{ first: 2000, last: 2001 }, { first: 2003, last: 2003 }])
+  })
+
+  it('has one run of one year where only one year has a value among years that have none', () => {
+    const availability = [null, null, -0.02, null, null]
+    expect(availabilityRuns(availability, 1990)).toEqual([{ first: 1992, last: 1992 }])
+  })
+
+  it('has no run where no year has a value, and tells every gap of years from a run (a gap of one year splits two runs)', () => {
+    expect(availabilityRuns([], 2000)).toEqual([])
+    expect(availabilityRuns([null, null], 2000)).toEqual([])
+    expect(availabilityRuns([-0.02, null, -0.02], 2000)).toEqual([{ first: 2000, last: 2000 }, { first: 2002, last: 2002 }])
   })
 })

@@ -44,6 +44,14 @@ function draw(input: StripesOptionInput, option: unknown) {
   return svg
 }
 const texts = (svg: string) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1]!)
+/** A bar of the chart, as it is drawn: its left edge, its width, its top and its height, in px */
+interface Bar { x: number, width: number, y: number, height: number }
+/** The stripes (each in the order of the years) and the bars of the availability line (gold) that the SVG draws */
+function barsOf(svg: string) {
+  const bars = (fill: RegExp) => [...svg.matchAll(new RegExp(`<path d="M(-?[\\d.]+) (-?[\\d.]+)l([\\d.]+) 0l0 ([\\d.]+)l-[\\d.]+ 0Z" fill="${fill.source}"`, 'g'))]
+    .map(match => ({ x: Number(match[1]), y: Number(match[2]), width: Number(match[3]), height: Number(match[4]) }) as Bar)
+  return { stripes: bars(/rgb\([^"]*\)/), gold: bars(/#FFD700/) }
+}
 const fills = (svg: string) => [...svg.matchAll(/<path d="M[^"]*" fill="(rgb\([^"]*\))"/g)].map(match => match[1]!)
 
 describe('the layout', () => {
@@ -182,11 +190,18 @@ describe('the option', () => {
     expect(texts(draw(input, option)).slice(0, 3)).toEqual(['Climate stripes (Temperature) for', 'Donaueschingen, Germany', '(00011)'])
   })
 
-  it('draws the availability line in gold with a gap for each missing year, in the margin under the stripes', () => {
-    const { option } = build()
+  it('draws the availability line in gold as one bar for each run of years with a value, in the margin under the stripes', () => {
+    const { input, option } = build()
     const availability = option.series.find((s: any) => s.id === 'availability')
-    expect(availability.lineStyle).toMatchObject({ color: '#FFD700', width: 3 })
-    expect(availability.data.filter((point: number[]) => point[1] === null).map((point: number[]) => point[0])).toEqual([1962, 1963, 1964])
+    // a bar (a rect), not a line, which is drawn from the middle of a stripe to the middle of another
+    expect(availability.type).toBe('custom')
+    expect(availability.lineStyle).toBeUndefined()
+    // 1950 to 1961 and 1965 to 2024: the gap of 1962 to 1964 is none of them
+    expect(availability.data.map((run: number[]) => run.slice(0, 2))).toEqual([[1950, 1961], [1965, 2024]])
+    const { gold } = barsOf(draw(input, option))
+    expect(gold).toHaveLength(2)
+    for (const bar of gold)
+      expect(bar.height).toBe(3)
     // the 20 px of margin above and below the stripes (450 px high here), in the units of the axis they run 0 to 1 in
     expect(option.yAxis[0].min).toBeCloseTo(-20 / 450)
     expect(option.yAxis[0].max).toBeCloseTo(1 + 20 / 450)
@@ -199,14 +214,104 @@ describe('the option', () => {
       const { input, option } = build({ height })
       const layout = stripesLayout(input.display, input.width, input.height, input.titleLines.length)
       expect(layout.stripes.height).toBe(stripesHeight)
-      const points = option.series.find((s: any) => s.id === 'availability').data.filter((point: number[]) => point[1] !== null)
-      expect(points.length).toBeGreaterThan(0)
-      for (const [, y] of points) {
-        // the axis runs 0 to 1 over the stripes: a value of -v is v times their height under them
-        expect(-y * layout.stripes.height, `at ${stripesHeight} px of stripes`).toBeCloseTo(10, 5)
-        expect(y).toBeGreaterThan(option.yAxis[0].min)
+      const { gold } = barsOf(draw(input, option))
+      expect(gold.length).toBeGreaterThan(0)
+      for (const bar of gold) {
+        // the middle of the bar, to the px it is rounded to
+        const middle = bar.y + bar.height / 2
+        expect(Math.abs(middle - (layout.stripes.top + layout.stripes.height + 10)), `at ${stripesHeight} px of stripes`).toBeLessThanOrEqual(0.5)
       }
     }
+  })
+
+  describe('spans exactly the stripes of its run, from edge to edge (GH-4153)', () => {
+    /** An answer with a value for each of `years` */
+    const modelOf = (years: number[]) => buildStripesModel(years.map(year => ({ timestamp: `${year}-01-01T00:00:00+00:00`, value: year % 7 })))!
+    const SHAPES: Record<string, number[]> = {
+      'a lone year at the start': [1944, 1946, 1947, 1948],
+      'a lone year at the end': [1944, 1945, 1946, 1948],
+      'a lone year in the middle': [1944, 1945, 1947, 1949, 1950],
+      'a run of two': [1944, 1945, 1947, 1948, 1949],
+      'no gaps': [1944, 1945, 1946, 1947, 1948],
+      'all gaps but one year': [1944, 1950, 1951],
+      'the shape of the issue: 1944, 1945 missing, a gap, a lone year near the end': [1944, ...Array.from({ length: 30 }, (_, i) => 1946 + i), ...Array.from({ length: 20 }, (_, i) => 1984 + i), 2019, 2022, 2023, 2024],
+    }
+    // the widths of a phone's chart down to one where a stripe is under a px, and a chart that does not fill its plot with whole stripes
+    const WIDTHS = [704, 390, 320, 140, 61]
+
+    /** The runs of `years` (ascending), each as [first, last]: counted here, not by the code under test */
+    const runsOf = (years: number[]) => {
+      const runs: [number, number][] = []
+      for (const year of years) {
+        const last = runs.at(-1)
+        if (last && last[1] === year - 1)
+          last[1] = year
+        else
+          runs.push([year, year])
+      }
+      return runs
+    }
+
+    for (const [name, years] of Object.entries(SHAPES)) {
+      for (const width of WIDTHS) {
+        it(`${name}, in a chart ${width} px wide`, () => {
+          const model = modelOf(years)
+          const { input, option } = build({ model, width, window: fullWindow(model) })
+          const { stripes, gold } = barsOf(draw(input, option))
+          const runs = runsOf(years)
+          expect(stripes).toHaveLength(years.length)
+          expect(gold).toHaveLength(runs.length)
+          runs.forEach(([first, last], index) => {
+            const firstStripe = stripes[years.indexOf(first)]!
+            const lastStripe = stripes[years.indexOf(last)]!
+            // to the px: the bar starts where the first stripe of the run does, and ends where the last one does
+            expect(gold[index]!.x, `${first} to ${last}: left`).toBe(firstStripe.x)
+            expect(gold[index]!.x + gold[index]!.width, `${first} to ${last}: right`).toBe(lastStripe.x + lastStripe.width)
+          })
+        })
+      }
+    }
+
+    it('is as wide as its stripe for a year between two gaps, which a line draws as nothing', () => {
+      const years = [1990, 1992, 1994]
+      const model = modelOf(years)
+      const { input, option } = build({ model, window: fullWindow(model) })
+      const { stripes, gold } = barsOf(draw(input, option))
+      expect(gold).toHaveLength(3)
+      gold.forEach((bar, index) => {
+        expect(bar.x).toBe(stripes[index]!.x)
+        expect(bar.width).toBe(stripes[index]!.width)
+        expect(bar.width).toBeGreaterThan(1)
+      })
+    })
+
+    it('covers a run from the left edge of its first stripe, not from its middle', () => {
+      // the centre-to-centre line of before: it would start half a stripe in and end half a stripe short
+      const model = modelOf([2000, 2001, 2002, 2003])
+      const { input, option } = build({ model, window: fullWindow(model) })
+      const { stripes, gold } = barsOf(draw(input, option))
+      expect(gold).toHaveLength(1)
+      const stripe = stripes[0]!
+      expect(gold[0]!.width).toBe(4 * stripe.width)
+    })
+
+    it('is cut at the edges of a zoomed window with the stripes, and keeps the ends of its run inside it', () => {
+      // 1950 to 2024 without 1962 to 1964, zoomed to 1958.5 to 1970.5: the run that ends at 1961 and the one that starts at 1965
+      const { input, option } = build({ window: { start: 1958.5, end: 1970.5 } })
+      const svg = draw(input, option)
+      const { stripes, gold } = barsOf(svg)
+      const edges = (list: Bar[]) => list.map(bar => [bar.x, bar.x + bar.width])
+      // the stripes and the bars are in groups clipped to the plot: what reaches out of the window is cut, not shortened
+      expect(svg.match(/<clipPath/g)!.length).toBeGreaterThanOrEqual(2)
+      const plotLeft = 20
+      const stripeOf = (year: number) => stripes[MODEL.years.indexOf(year)]!
+      // the run to 1961 ends at the right edge of its last stripe, and the one from 1965 starts at the left edge of its first
+      const ends = edges(gold)
+      expect(ends.some(([, right]) => right === stripeOf(1961).x + stripeOf(1961).width)).toBe(true)
+      expect(ends.some(([left]) => left === stripeOf(1965).x)).toBe(true)
+      // the first run starts far left of the plot (1950 is out of the window), so it is wider than the window's stripes are: clipped, not shortened
+      expect(Math.min(...ends.map(([left]) => left))).toBeLessThan(plotLeft)
+    })
   })
 
   it('draws the timeseries in black, and the trend dashed over it only where both are asked for', () => {
