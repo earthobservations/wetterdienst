@@ -566,3 +566,56 @@ test('the stripes follow a change of the window: lower in a narrower one, held t
   await expect.poll(() => stripesHeight(page)).toBeLessThan(STRIPES_MIN_HEIGHT + 3)
   expect(await stripesHeight(page)).toBeGreaterThan(STRIPES_MIN_HEIGHT - 3)
 })
+
+// The availability line covers exactly the stripes that have a value (GH-4153): a run from the left edge of its first stripe to the
+// right edge of its last, and a year between two gaps is a bar as wide as its stripe. It was a line from the middle of a stripe to the
+// middle of another, half a stripe short at each end and none at all for a lone year.
+const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, index) => from + index)
+for (const [width, height] of [[390, 844], [1280, 900]] as const) {
+  test(`the availability line lies under each stripe that has a value, and a lone year has its own bar, in a ${width} px window`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height })
+    // 1944; a gap (1945); a run to 1950; a gap; a lone year (1952); a gap; a run of two (1954, 1955); a long run; a gap of 2010 to 2012;
+    // a run; a gap; a lone year (2020) and a gap; a run at the end
+    const years = [1944, ...range(1946, 1950), 1952, 1954, 1955, ...range(1957, 2009), ...range(2013, 2018), 2020, 2022, 2023, 2024]
+    const runs = [[1944, 1944], [1946, 1950], [1952, 1952], [1954, 1955], [1957, 2009], [2013, 2018], [2020, 2020], [2022, 2024]]
+    await mockBackend(page, baseURL!, {
+      'stripes/values': () => ({
+        series: { station: { station_id: '00011', name: 'Donaueschingen (Landeplatz)', region: 'Baden-Württemberg', latitude: 47.97, longitude: 8.52, elevation: 680, start_timestamp: '1944-01-01T00:00:00+00:00', end_timestamp: null }, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
+        values: years.map(year => ({ timestamp: `${year}-01-01T00:00:00+00:00`, value: Math.round((8 + (year - 1944) * 0.03 + 0.8 * Math.sin(year / 3)) * 100) / 100 })),
+      }),
+    })
+    await page.goto(`${PATH}&show_data_availability=true&show_source=true&show_years=true&show_title=true`)
+    await fetchButton(page).click()
+    await expect(chartSvg(page)).toBeVisible()
+    const drawn = await chartSvg(page).evaluate((svg) => {
+      const box = (element: Element) => {
+        const { left, right, top, bottom } = element.getBoundingClientRect()
+        return { left, right, top, bottom }
+      }
+      const paths = [...svg.querySelectorAll('path')]
+      const fill = (element: Element) => (element.getAttribute('fill') ?? '').replaceAll(' ', '').toLowerCase()
+      return {
+        stripes: paths.filter(path => fill(path).startsWith('rgb(')).map(box),
+        gold: paths.filter(path => fill(path) === '#ffd700').map(box),
+      }
+    })
+    expect(drawn.stripes).toHaveLength(years.length)
+    // the line is one bar for each run, so a run of one year (1944, 1952, 2020) has one too
+    expect(drawn.gold).toHaveLength(runs.length)
+    // 2 px: what the browser measures, not what the option says, and the browsers round the SVG's px a little differently
+    runs.forEach(([first, last], index) => {
+      const bar = drawn.gold[index]!
+      const firstStripe = drawn.stripes[years.indexOf(first!)]!
+      const lastStripe = drawn.stripes[years.indexOf(last!)]!
+      expect(Math.abs(bar.left - firstStripe.left), `${first} to ${last}: left edge`).toBeLessThanOrEqual(2)
+      expect(Math.abs(bar.right - lastStripe.right), `${first} to ${last}: right edge`).toBeLessThanOrEqual(2)
+      // under the stripes, not over them
+      expect(bar.top).toBeGreaterThan(firstStripe.bottom)
+    })
+    // a lone year (1952) is as wide as its stripe, which was no line at all
+    const lone = drawn.gold[2]!
+    const stripe = drawn.stripes[years.indexOf(1952)]!
+    expect(lone.right - lone.left).toBeGreaterThan(0)
+    expect(Math.abs((lone.right - lone.left) - (stripe.right - stripe.left))).toBeLessThanOrEqual(2)
+  })
+}
