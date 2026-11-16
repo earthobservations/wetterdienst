@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.190.0] - 2026-11-16
+
 ### Changed
 
 - **Breaking**: the `dwd/mosmix` and `dwd/dmo` requests no longer accept `_snow_stations`,
@@ -8165,7 +8167,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.189.1...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.190.0...HEAD
+[0.190.0]: https://github.com/earthobservations/wetterdienst/compare/v0.189.1...v0.190.0
 [0.189.1]: https://github.com/earthobservations/wetterdienst/compare/v0.189.0...v0.189.1
 [0.189.0]: https://github.com/earthobservations/wetterdienst/compare/v0.188.0...v0.189.0
 [0.188.0]: https://github.com/earthobservations/wetterdienst/compare/v0.187.1...v0.188.0

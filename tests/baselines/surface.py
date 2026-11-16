@@ -32,23 +32,7 @@ from tests.public_surface import build_surface
 BASELINE = DIRECTORY / "surface.baseline.json"
 
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a caller
-ACCEPTED_BREAKS: dict[str, str] = {
-    # GH-4128: `DwdMosmixRequest._snow_stations` is a cache the request sets itself; as a plain dataclass field it
-    # leaked into the constructor (0.189.0). It is now `init=False`, so no caller has an argument of that name to pass.
-    "requests.dwd/mosmix: parameter _snow_stations was removed": (
-        "a private cache field that leaked into the constructor: the request sets it itself, no caller's argument"
-    ),
-    # GH-4142: the same for `DwdDmoRequest`'s two caches and its flag of whether a lead time was named
-    "requests.dwd/dmo: parameter _coverage_cache was removed": (
-        "a private cache field that leaked into the constructor: the request sets it itself, no caller's argument"
-    ),
-    "requests.dwd/dmo: parameter _placemark_cache was removed": (
-        "a private cache field that leaked into the constructor: the request sets it itself, no caller's argument"
-    ),
-    "requests.dwd/dmo: parameter _lead_time_asked was removed": (
-        "a private flag that leaked into the constructor: `lead_time` itself says whether one was given (None: no)"
-    ),
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 
 def read_baseline() -> dict[str, Any]:
