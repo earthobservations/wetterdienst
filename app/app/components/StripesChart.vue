@@ -3,7 +3,7 @@ import type { ECharts } from 'echarts/core'
 /**
  * The climate stripes (GH-4068), drawn by Apache ECharts as SVG: a stripe for each year, the optional availability line,
  * timeseries and trend, and the title, the years and the source. The chart is as wide as the column gives it (up to the
- * cap of `.app-chart`) and at a fixed height, as it always was.
+ * cap of `.app-chart`) and as high as that width gives it at a fixed ratio of the stripes (`STRIPES_RATIO`, GH-4133).
  *
  * Where the pointer can do more than the keyboard, the keyboard can do the same (WCAG 2.1.1, 2.5.7): the chart is one
  * tab stop whose arrow keys step through the years, whose `+`, `-` and `0` zoom, and whose toolbar's buttons do what a
@@ -22,7 +22,7 @@ import { readDocumentChartTheme } from '~/utils/chart-theme'
 import { formatNumber } from '~/utils/format'
 import { COLOR_MAPS, stripeClass, stripeColour, wrapChartTitle } from '~/utils/stripes'
 import { buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, zoomWindow } from '~/utils/stripes-model'
-import { buildStripesOption, CAMERA_SCALE, CAMERA_WIDTH, STRIPES_FONT_FAMILY, STRIPES_HEIGHT, STRIPES_HEIGHT_TITLE, stripesLayout, TITLE_PADDING, TITLE_SIZE, windowUpdate, xOfYear } from '~/utils/stripes-option'
+import { buildStripesOption, CAMERA_SCALE, CAMERA_WIDTH, STRIPES_FONT_FAMILY, stripesChartHeight, stripesLayout, TITLE_PADDING, TITLE_SIZE, windowUpdate, xOfYear } from '~/utils/stripes-option'
 
 const props = defineProps<{
   values: readonly StripesInput[]
@@ -77,10 +77,14 @@ function measure() {
   const measured = rootEl.value?.clientWidth ?? 0
   width.value = measured > 0 ? measured : 800
 }
-const height = computed(() => props.display.showTitle ? STRIPES_HEIGHT_TITLE : STRIPES_HEIGHT)
 const font = `${TITLE_SIZE}px ${STRIPES_FONT_FAMILY}`
 // a title that does not fit the chart's width is broken into lines (GH-3961)
-const titleLines = computed(() => props.display.showTitle ? wrapChartTitle(props.title, width.value - 2 * TITLE_PADDING, font).text.split('<br>') : [])
+function titleLinesFor(chartWidth: number): string[] {
+  return props.display.showTitle ? wrapChartTitle(props.title, chartWidth - 2 * TITLE_PADDING, font).text.split('<br>') : []
+}
+const titleLines = computed(() => titleLinesFor(width.value))
+// the stripes keep their shape: the chart is as high as its width gives it, the title and the years on top (GH-4133)
+const height = computed(() => stripesChartHeight(props.display, width.value, titleLines.value.length))
 const layout = computed(() => stripesLayout(props.display, width.value, height.value, titleLines.value.length))
 
 // -- the window of years the chart shows --------------------------------------------------------------------------
@@ -611,7 +615,7 @@ onBeforeUnmount(() => {
 async function save(options: { format: ImageFormat, filename: string, width: number, height: number, scale: number }) {
   const { format, filename, width: imageWidth, height: imageHeight, scale } = options
   const light = readDocumentChartTheme('light')
-  const lines = props.display.showTitle ? wrapChartTitle(props.title, imageWidth - 2 * TITLE_PADDING, font).text.split('<br>') : []
+  const lines = titleLinesFor(imageWidth)
   // the paper is part of the image: a vector with dark text on nothing is unreadable on a dark page that shows it
   const paper = light.paper || '#ffffff'
   const input = optionInput({ theme: light, width: imageWidth, height: imageHeight, titleLines: lines, background: paper })
@@ -631,13 +635,13 @@ async function save(options: { format: ImageFormat, filename: string, width: num
   downloadBlob(blob, `${filename}.${format}`)
 }
 
-/** The camera of the toolbar: a PNG of a fixed size, whatever the width of the page */
+/** The camera of the toolbar: a PNG of a fixed width, whatever the width of the page, with the stripes in the shape they have on the page (not held to its least and most) */
 function saveCamera() {
   void save({
     format: 'png',
     filename: props.cameraFile,
     width: CAMERA_WIDTH,
-    height: props.display.showTitle ? 700 : 600,
+    height: stripesChartHeight(props.display, CAMERA_WIDTH, titleLinesFor(CAMERA_WIDTH).length, { clamp: false }),
     scale: CAMERA_SCALE,
   }).catch((error: unknown) => {
     console.error('The chart image could not be saved', error)
@@ -645,7 +649,7 @@ function saveCamera() {
   })
 }
 
-defineExpose({ save, resetZoom, zoomIn, zoomOut, shift, win, atStart, atEnd, atMaxZoom, atMinZoom, renderFailed, renderFailures, width })
+defineExpose({ save, resetZoom, zoomIn, zoomOut, shift, win, atStart, atEnd, atMaxZoom, atMinZoom, renderFailed, renderFailures, width, height })
 
 const selectionStyle = computed(() => {
   const d = drag.value
