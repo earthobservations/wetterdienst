@@ -103,9 +103,9 @@ test.describe('the shape of the chart', () => {
     }
     expect(new Set(seen.map(entry => entry.height)).size, JSON.stringify(seen)).toBe(1)
     // the same strip on a phone, in landscape and on a desktop's card: the 71 hours between the first and the last stamp at 10 px,
-    // and the gutters of the axes (68 px at the left, 84 where a title is broken in two, and 10 at the right)
+    // and the gutters of the axes (56 px at the least at the left, 70 with the pressure's labels, and 10 at the right)
     expect(new Set(seen.map(entry => entry.strip)).size, JSON.stringify(seen)).toBe(1)
-    expect(seen[0]!.strip).toBeGreaterThanOrEqual(71 * 10 + 78)
+    expect(seen[0]!.strip).toBeGreaterThanOrEqual(71 * 10 + 66)
     expect(seen[0]!.strip).toBeLessThanOrEqual(71 * 10 + 94)
   })
 
@@ -305,7 +305,9 @@ test.describe('the readout (WCAG 1.4.13)', () => {
   // over a panel of the chart, in the middle of the plot
   async function overPlot(page: Page, fraction = 0.3) {
     const box = (await page.locator('.mg-stage').boundingBox())!
-    return { x: box.x + 68 + (box.width - 78) * fraction, y: box.y + box.height * 0.6 }
+    // the left gutter is 70 px with the pressure's labels (GH-4132; it was 68 before, and the pointer's place has to be one that the
+    // hour does not change a pixel to either side of: the next test moves it by one pixel), the right 10
+    return { x: box.x + 70 + (box.width - 80) * fraction, y: box.y + box.height * 0.6 }
   }
 
   test('appears under the pointer, is docked at the far edge, can be moved onto and holds its hour while the pointer is over it', async ({ page, baseURL }) => {

@@ -333,11 +333,23 @@ test.describe('on a phone', () => {
       await open(page, baseURL!, SNOW_STATION, { width, height: 844 })
       const found = await titles(page)
       const stage = (await page.locator('.mg-stage').boundingBox())!
+      // the tick labels of the plots: the numbers that are not turned
+      const numbers = await svg(page).locator('text').evaluateAll(texts => texts.map((text) => {
+        const matrix = text.getScreenCTM()
+        const turned = !!matrix && Math.abs(matrix.b) / Math.hypot(matrix.a, matrix.b) > 0.9
+        const box = text.getBoundingClientRect()
+        return { text: text.textContent ?? '', turned, left: box.left, right: box.right, top: box.top, bottom: box.bottom }
+      }).filter(entry => !entry.turned && /^[-\d.,]+$/.test(entry.text) && entry.right < 100))
       for (const name of ['New snow', 'Snow depth', CHANCE]) {
         const title = found.find(entry => entry.text === name)
         expect(title, name).toBeDefined()
         expect(title!.left, `${name} is cut at the left`).toBeGreaterThanOrEqual(stage.x - 0.5)
-        expect(title!.right - stage.x, `${name} is under the labels`).toBeLessThanOrEqual(2 + 2 * 14 + 2)
+        // left of the tick labels of its own plot (GH-4132: each title is next to its own labels, not at the left edge for all): the two
+        // labels nearest to the middle of the title
+        const middleOf = (entry: { top: number, bottom: number }) => (entry.top + entry.bottom) / 2
+        const own = [...numbers].sort((a, b) => Math.abs(middleOf(a) - middleOf(title!)) - Math.abs(middleOf(b) - middleOf(title!))).slice(0, 2)
+        expect(own.length, `${name} has labels beside it`).toBe(2)
+        expect(title!.right, `${name} is under the labels`).toBeLessThanOrEqual(Math.min(...own.map(label => label.left)) + 0.5)
       }
       // each title lies inside the rows of its own plot (72 px high each), and never on the plot above or below
       const rows = await page.evaluate((chance) => {
