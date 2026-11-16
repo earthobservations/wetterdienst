@@ -516,6 +516,8 @@
       "noData": "Ingen data tilgængelige for den valgte forespørgsel",
       "label": "Prognosediagram for {name}",
       "labelNoStation": "Prognosediagram",
+      "daysLabel": "Døgnprognose for {name}",
+      "daysLabelNoStation": "Døgnprognose",
       "panels": "Paneler",
       "panelTemperature": "Temperatur",
       "panelWind": "Vind",

@@ -516,6 +516,8 @@
       "noData": "Keng Daten verfügbar fir déi ausgewielten Ufro",
       "label": "Prognosediagramm fir {name}",
       "labelNoStation": "Prognosediagramm",
+      "daysLabel": "Prognos pro Dag fir {name}",
+      "daysLabelNoStation": "Prognos pro Dag",
       "panels": "Panelen",
       "panelTemperature": "Temperatur",
       "panelWind": "Wand",

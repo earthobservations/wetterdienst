@@ -516,6 +516,8 @@
       "noData": "Aucune donnée disponible pour la requête sélectionnée",
       "label": "Graphique de prévision pour {name}",
       "labelNoStation": "Graphique de prévision",
+      "daysLabel": "Prévision par jour pour {name}",
+      "daysLabelNoStation": "Prévision par jour",
       "panels": "Panneaux",
       "panelTemperature": "Température",
       "panelWind": "Vent",

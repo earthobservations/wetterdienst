@@ -516,6 +516,8 @@
       "noData": "Pro vybraný dotaz nejsou k dispozici žádná data",
       "label": "Graf předpovědi pro {name}",
       "labelNoStation": "Graf předpovědi",
+      "daysLabel": "Předpověď po dnech pro {name}",
+      "daysLabelNoStation": "Předpověď po dnech",
       "panels": "Panely",
       "panelTemperature": "Teplota",
       "panelWind": "Vítr",

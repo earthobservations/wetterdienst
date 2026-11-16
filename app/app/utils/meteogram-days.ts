@@ -12,9 +12,6 @@ import { findFirstAvailable } from './meteogram-series'
 import { withUnit } from './units'
 import { weatherCodeToKind } from './weather-kind'
 
-/** The days the compact overview lists at most, for readability */
-export const MAX_COMPACT_DAYS = 7
-
 export interface MeteogramDay {
   date: DateTime
   kind: WeatherKind
@@ -87,7 +84,7 @@ export interface DaysContext {
   language: string
 }
 
-/** One row for each day from today (the station's local day) to the end of the run, at most `MAX_COMPACT_DAYS` */
+/** One row for each day from today (the station's local day) to the end of the run: every day the forecast has (GH-4127) */
 export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units, locale, language }: DaysContext): MeteogramDay[] {
   const out: MeteogramDay[] = []
   const available = new Set(series.keys())
@@ -204,6 +201,5 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
     out.push({ date: dt, kind, weekday: weekdayShort(dt, language), dayMonth: formatDayMonth(dt, language), tempLabel, precipLabel, isToday, partialHours })
     dt = dt.plus({ days: 1 })
   }
-  // Limit number of days shown in compact mode for readability
-  return out.length > MAX_COMPACT_DAYS ? out.slice(0, MAX_COMPACT_DAYS) : out
+  return out
 }

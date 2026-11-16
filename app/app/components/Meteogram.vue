@@ -160,6 +160,7 @@ const chartTable = computed(() => meteogramTable(seriesCache.value, {
 }))
 const summaryId = useId()
 const chartLabel = computed(() => props.stationName ? t('meteogram.chart.label', { name: props.stationName }) : t('meteogram.chart.labelNoStation'))
+const daysLabel = computed(() => props.stationName ? t('meteogram.chart.daysLabel', { name: props.stationName }) : t('meteogram.chart.daysLabelNoStation'))
 
 // Calculate summary statistics for the loaded forecast period
 const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.value, locale.value))
@@ -175,9 +176,12 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
 
     <div v-if="values && values.length > 0" class="space-y-5">
       <!-- Premium Overhauled Filter / Controls Toolbar -->
-      <div v-if="!widget" class="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gray-50/70 dark:bg-gray-800/40 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
+      <!-- A grid, so that the view switcher keeps its place in every view (GH-4124): the first row's right corner, whatever else
+           is shown. The left group takes the left of both rows, the pan/zoom buttons (chart view only) the second row's right,
+           under the switcher, so they never push it. Stacked on a narrow screen: the switcher, the zoom buttons, the rest. -->
+      <div v-if="!widget" class="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-3 md:gap-y-2 bg-gray-50/70 dark:bg-gray-800/40 p-3.5 rounded-xl border border-gray-100 dark:border-gray-800 shadow-sm">
         <!-- Left group: panel toggles + horizon selector (wraps as a unit on narrow viewports) -->
-        <div v-if="!compact" class="flex flex-wrap items-center gap-2 min-w-0">
+        <div v-if="!compact" class="order-3 md:order-none md:col-start-1 md:row-start-1 md:row-span-2 md:self-center flex flex-wrap items-center gap-2 min-w-0">
           <!-- Interactive Panel Selectors -->
           <div class="flex items-center gap-1">
             <span class="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest mr-1 select-none">{{ t('meteogram.chart.panels') }}</span>
@@ -220,70 +224,70 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
           </div>
         </div>
 
-        <!-- View Controls & Zoom Reset: the view first on a narrow screen, where the toolbar stacks -->
-        <div class="flex flex-wrap items-center gap-2 md:ml-auto min-w-0 max-w-full order-first md:order-last">
-          <!-- the single-pointer ways to what a drag, a pinch and the scroll bar do (WCAG 2.5.7), named by what they do -->
-          <div v-if="view === 'chart'" class="flex items-center gap-1" role="group" :aria-label="t('meteogram.chart.zoomGroup')">
-            <UButton
-              icon="i-ph-caret-left"
-              size="sm"
-              variant="outline"
-              color="neutral"
-              :title="t('meteogram.chart.earlier')"
-              :aria-label="t('meteogram.chart.earlier')"
-              :disabled="chart?.atStart"
-              class="shrink-0"
-              @click="chart?.shift(-0.5)"
-            />
-            <UButton
-              icon="i-ph-caret-right"
-              size="sm"
-              variant="outline"
-              color="neutral"
-              :title="t('meteogram.chart.later')"
-              :aria-label="t('meteogram.chart.later')"
-              :disabled="chart?.atEnd"
-              class="shrink-0"
-              @click="chart?.shift(0.5)"
-            />
-            <UButton
-              icon="i-ph-magnifying-glass-minus"
-              size="sm"
-              variant="outline"
-              color="neutral"
-              :title="t('meteogram.chart.zoomOut')"
-              :aria-label="t('meteogram.chart.zoomOut')"
-              :disabled="chart?.atMinZoom"
-              class="shrink-0"
-              @click="chart?.zoomOut()"
-            />
-            <UButton
-              icon="i-ph-magnifying-glass-plus"
-              size="sm"
-              variant="outline"
-              color="neutral"
-              :title="t('meteogram.chart.zoomIn')"
-              :aria-label="t('meteogram.chart.zoomIn')"
-              :disabled="chart?.atMaxZoom"
-              class="shrink-0"
-              @click="chart?.zoomIn()"
-            />
-            <UButton
-              icon="i-ph-arrow-counter-clockwise"
-              size="sm"
-              variant="outline"
-              color="neutral"
-              :title="t('meteogram.chart.resetZoom')"
-              :aria-label="t('meteogram.chart.resetZoom')"
-              class="shrink-0"
-              @click="resetChart"
-            />
-          </div>
+        <div class="order-1 md:order-none md:col-start-2 md:row-start-1 self-start justify-self-start md:justify-self-end min-w-0 max-w-full">
           <SegmentedControl
             :model-value="view"
             :options="viewOptions"
             :label="t('meteogram.chart.viewLabel')"
             @update:model-value="chooseView"
+          />
+        </div>
+
+        <!-- the single-pointer ways to what a drag, a pinch and the scroll bar do (WCAG 2.5.7), named by what they do -->
+        <div v-if="view === 'chart'" class="order-2 md:order-none md:col-start-2 md:row-start-2 md:justify-self-end flex flex-wrap items-center gap-1 min-w-0 max-w-full" role="group" :aria-label="t('meteogram.chart.zoomGroup')">
+          <UButton
+            icon="i-ph-caret-left"
+            size="sm"
+            variant="outline"
+            color="neutral"
+            :title="t('meteogram.chart.earlier')"
+            :aria-label="t('meteogram.chart.earlier')"
+            :disabled="chart?.atStart"
+            class="shrink-0"
+            @click="chart?.shift(-0.5)"
+          />
+          <UButton
+            icon="i-ph-caret-right"
+            size="sm"
+            variant="outline"
+            color="neutral"
+            :title="t('meteogram.chart.later')"
+            :aria-label="t('meteogram.chart.later')"
+            :disabled="chart?.atEnd"
+            class="shrink-0"
+            @click="chart?.shift(0.5)"
+          />
+          <UButton
+            icon="i-ph-magnifying-glass-minus"
+            size="sm"
+            variant="outline"
+            color="neutral"
+            :title="t('meteogram.chart.zoomOut')"
+            :aria-label="t('meteogram.chart.zoomOut')"
+            :disabled="chart?.atMinZoom"
+            class="shrink-0"
+            @click="chart?.zoomOut()"
+          />
+          <UButton
+            icon="i-ph-magnifying-glass-plus"
+            size="sm"
+            variant="outline"
+            color="neutral"
+            :title="t('meteogram.chart.zoomIn')"
+            :aria-label="t('meteogram.chart.zoomIn')"
+            :disabled="chart?.atMaxZoom"
+            class="shrink-0"
+            @click="chart?.zoomIn()"
+          />
+          <UButton
+            icon="i-ph-arrow-counter-clockwise"
+            size="sm"
+            variant="outline"
+            color="neutral"
+            :title="t('meteogram.chart.resetZoom')"
+            :aria-label="t('meteogram.chart.resetZoom')"
+            class="shrink-0"
+            @click="resetChart"
           />
         </div>
       </div>
@@ -383,7 +387,8 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
       <!-- Premium Compact Overview Grid -->
       <div v-else class="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-md p-4">
         <!-- relative: the cards' visually hidden texts are positioned, and would otherwise lie outside the box that scrolls and make the page scroll sideways (WCAG 1.4.10) -->
-        <div class="relative flex items-center justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">
+        <!-- the strip of ten or eleven cards scrolls sideways at any width: a named region that takes the focus, so that a keyboard can scroll it (WCAG 2.1.1; Safari does not focus a scroll container; the ring is the global one) -->
+        <div role="region" tabindex="0" :aria-label="daysLabel" data-testid="compact-days" class="relative flex items-center justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">
           <template v-for="(d, idx) in compactDays" :key="idx">
             <div
               class="inline-flex flex-col items-center justify-center text-center p-4 rounded-2xl border transition-all duration-300 min-w-[105px] flex-shrink-0" :class="[

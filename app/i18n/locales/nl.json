@@ -516,6 +516,8 @@
       "noData": "Geen gegevens beschikbaar voor de geselecteerde zoekopdracht",
       "label": "Verwachtingsgrafiek voor {name}",
       "labelNoStation": "Verwachtingsgrafiek",
+      "daysLabel": "Verwachting per dag voor {name}",
+      "daysLabelNoStation": "Verwachting per dag",
       "panels": "Panelen",
       "panelTemperature": "Temperatuur",
       "panelWind": "Wind",
