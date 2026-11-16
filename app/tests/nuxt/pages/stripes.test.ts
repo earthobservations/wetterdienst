@@ -298,7 +298,7 @@ const readoutRows = () => [...(readout()?.querySelectorAll('dt') ?? [])].map((dt
 /** Moves the pointer over the stripe of `year` in a chart that shows the years `first` to `last` */
 function hoverYear(year: number, first: number, last: number) {
   const x = 20 + ((year - (first - 0.5)) / (last - first + 1)) * 760
-  // in the middle of the stripes (the chart is 600 px high, and they run from 52 to 497 px)
+  // in the middle of the stripes (the chart is 578 px high, and they run from 50 to 478 px)
   const event = new MouseEvent('pointermove', { bubbles: true, cancelable: true, clientX: x, clientY: 300 })
   Object.defineProperty(event, 'pointerType', { value: 'mouse' })
   stage().dispatchEvent(event)
@@ -568,7 +568,7 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     expect(echarts.chart.setOption.mock.calls.length).toBe(before)
     expect(echarts.chart.dispose).not.toHaveBeenCalled()
     const [svg, options] = image.svgToBlob.mock.calls[0] as unknown as [string, { format: string, width: number, height: number, scale: number }]
-    expect(options).toMatchObject({ format: 'png', width: 800, height: 600, scale: 3 })
+    expect(options).toMatchObject({ format: 'png', width: 800, height: 578, scale: 3 })
     expect(svg).toContain('Climate stripes (Precipitation) for Berlin-Tempelhof, Germany (1048)')
     expect(image.downloadBlob.mock.calls[0]![1]).toBe('climate_stripes_precipitation_1048_Berlin-Tempelhof.png')
   })
@@ -630,7 +630,7 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     zoomButton('Download plot as a PNG').click()
     await vi.waitFor(() => expect(image.downloadBlob).toHaveBeenCalledOnce())
     // the size the camera has always saved, 1400 px wide at twice the size
-    expect((image.svgToBlob.mock.calls[0] as unknown as [string, unknown])[1]).toMatchObject({ format: 'png', width: 1400, height: 700, scale: 2 })
+    expect((image.svgToBlob.mock.calls[0] as unknown as [string, unknown])[1]).toMatchObject({ format: 'png', width: 1400, height: 915, scale: 2 })
     expect(image.downloadBlob.mock.calls[0]![1]).toBe('climate_stripes_precipitation_1048.png')
   })
 

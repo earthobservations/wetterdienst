@@ -4,7 +4,7 @@ import type { StripesDisplay } from '~/utils/stripes-option'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber } from '~/utils/format'
 import { stripesSummaryParams, stripeYears } from '~/utils/stripes'
-import { MENU_SCALE, STRIPES_HEIGHT, STRIPES_HEIGHT_TITLE } from '~/utils/stripes-option'
+import { MENU_SCALE } from '~/utils/stripes-option'
 import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
 const { t, locale } = useI18n()
@@ -201,7 +201,7 @@ async function downloadStripes(format: 'png' | 'jpeg' | 'svg' = 'png') {
       format,
       filename: `climate_stripes_${kind.value}_${station.station_id}_${station.name}`,
       width: shownChart.width,
-      height: showTitle.value ? STRIPES_HEIGHT_TITLE : STRIPES_HEIGHT,
+      height: shownChart.height,
       // a scale of 3 for high-quality raster images, which keep the proportions and scale the text with them
       scale: format === 'svg' ? 1 : MENU_SCALE,
     })
