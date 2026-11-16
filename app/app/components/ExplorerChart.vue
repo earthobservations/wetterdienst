@@ -15,13 +15,13 @@ import type { SvgPart } from '~/utils/explorer-image'
  * it stays until the pointer or the focus leaves, and Escape closes it (WCAG 1.4.13).
  */
 import type { ExplorerSeries, ExplorerWindow } from '~/utils/explorer-model'
-import type { ExplorerOptionInput } from '~/utils/explorer-option'
+import type { ExplorerOptionInput, LegendItem } from '~/utils/explorer-option'
 import type { ReadoutSide } from '~/utils/meteogram-geometry'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { downloadBlob, svgToBlob } from '~/utils/chart-image'
 import { readDocumentChartTheme } from '~/utils/chart-theme'
 import { boundsOf, buildTimeline, clampExplorerWindow, minSpanOf, nearestIndex, panExplorerWindow, readoutRows, revealMoment, sameExplorerWindow, seriesColour, shownSeries, zoomExplorerWindow } from '~/utils/explorer-model'
-import { buildExplorerOption, cursorUpdate, explorerFrame, hasTimeOfDay, momentLabel, timeAtX, valueFormat, xOfTime } from '~/utils/explorer-option'
+import { buildExplorerOption, cursorUpdate, explorerFrame, hasTimeOfDay, legendButtonBox, momentLabel, timeAtX, valueFormat, xOfTime } from '~/utils/explorer-option'
 import { READOUT_WIDTH, readoutPlacement } from '~/utils/meteogram-geometry'
 
 const props = defineProps<{
@@ -60,6 +60,12 @@ const announcement = ref('')
 const readoutSide = ref<ReadoutSide | null>(null)
 
 // -- what is drawn ------------------------------------------------------------------------------------------------
+
+/** The place of the button over a legend item */
+function legendButtonStyle(item: LegendItem) {
+  const { left, top, width, height } = legendButtonBox(item)
+  return { left: `${left}px`, top: `${top}px`, width: `${width}px`, height: `${height}px` }
+}
 
 /** The series the legend turned off: replaced, never changed, so that a drawing sees it change */
 const hidden = shallowRef<ReadonlySet<string>>(new Set())
@@ -702,7 +708,7 @@ const selectionStyle = computed(() => {
           :aria-label="series[item.index]?.name"
           :title="series[item.index]?.name"
           :data-series="item.id"
-          :style="{ left: `${item.x - 4}px`, top: `${item.y - 1}px`, width: `${item.width + 8}px`, height: `${item.height}px` }"
+          :style="legendButtonStyle(item)"
           @click="toggleSeries(item.id)"
         />
       </div>
