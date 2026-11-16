@@ -667,7 +667,10 @@ for (const width of [320, 390]) {
         texts: [...svg.querySelectorAll('text')].map(text => ({ text: text.textContent ?? '', box: box(text) })),
       }
     })
-    const intersects = (a: Box, b: Box) => a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom
+    // The legend's two rows are laid out edge to edge (a button is a row high, the rows are a row apart: GH-4144). Firefox places boxes on
+    // a grid of 1/60 px and a fractional position of the chart on the page makes those that touch cross by that much, which nobody
+    // sees: only a box that is over another by more than half a px intersects it.
+    const intersects = (a: Box, b: Box) => a.left < b.right - 0.5 && b.left < a.right - 0.5 && a.top < b.bottom - 0.5 && b.top < a.bottom - 0.5
 
     // every text is whole inside the chart
     for (const { text, box } of boxes.texts) {
