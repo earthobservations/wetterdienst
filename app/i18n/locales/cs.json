@@ -678,13 +678,16 @@
       "keysHint": "Šipky procházejí roky, Page Up a Page Down po deseti letech, Home a End na první a poslední. Plus, mínus a 0 přibližují, oddalují a obnovují. Escape zavře hodnoty."
     },
     "summary": "Od {from} do {to}. Nejnižší hodnota {min} v roce {minYear}, nejvyšší {max} v roce {maxYear}.",
+    "reference": "Barvy: průměr z {centre} je středem stupnice, která zahrnuje ±{sigma} směrodatné odchylky z {spread} (metoda Eda Hawkinse).",
+    "referenceWhole": "celé řady ({from}–{to})",
     "table": {
       "year": "Rok",
       "value": "Hodnota",
+      "anomaly": "Odchylka",
       "class": "Třída",
       "note": {
-        "temperature": "Třída: kde rok leží mezi nejchladnějším a nejteplejším ze zobrazených let, v pětinách. Je to barva jeho pruhu, od tmavě modré (nejchladnější) po tmavě červenou (nejteplejší).",
-        "precipitation": "Třída: kde rok leží mezi nejsušším a nejvlhčím ze zobrazených let, v pětinách. Je to barva jeho pruhu, od hnědé (nejsušší) po tmavě zelenou (nejvlhčí)."
+        "temperature": "Třída: jak daleko rok leží od průměru reference. Pruhy mají 16 barev, jednu na každých 0,325 směrodatné odchylky, od tmavě modré (nejchladnější) po tmavě červenou (nejteplejší); třída je pojmenovává v pěti skupinách. Odchylka: vzdálenost od průměru v jednotce hodnoty.",
+        "precipitation": "Třída: jak daleko rok leží od průměru reference. Pruhy mají 16 barev, jednu na každých 0,325 směrodatné odchylky, od hnědé (nejsušší) po tmavě zelenou (nejvlhčí); třída je pojmenovává v pěti skupinách. Odchylka: vzdálenost od průměru v jednotce hodnoty."
       },
       "classes": {
         "temperature": {

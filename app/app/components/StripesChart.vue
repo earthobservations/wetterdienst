@@ -14,18 +14,20 @@ import type { ECharts } from 'echarts/core'
  */
 import type { StripesKind } from '#shared/types/api'
 import type { ImageFormat } from '~/utils/chart-image'
-import type { StripesInput, YearWindow } from '~/utils/stripes-model'
+import type { StripesInput, StripesReferenceInput, YearWindow } from '~/utils/stripes-model'
 import type { StripesDisplay, StripesOptionInput } from '~/utils/stripes-option'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { downloadBlob, svgToBlob } from '~/utils/chart-image'
 import { readDocumentChartTheme } from '~/utils/chart-theme'
-import { formatNumber } from '~/utils/format'
-import { COLOR_MAPS, stripeClass, stripeColour, wrapChartTitle } from '~/utils/stripes'
+import { formatNumber, formatSigned } from '~/utils/format'
+import { stripeBand, stripeColour, wrapChartTitle } from '~/utils/stripes'
 import { buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, zoomWindow } from '~/utils/stripes-model'
 import { buildStripesOption, CAMERA_SCALE, CAMERA_WIDTH, STRIPES_FONT_FAMILY, stripesChartHeight, stripesLayout, TITLE_PADDING, TITLE_SIZE, windowUpdate, xOfYear } from '~/utils/stripes-option'
 
 const props = defineProps<{
   values: readonly StripesInput[]
+  /** what the values' classes are relative to: the lines are placed on its scale */
+  reference: StripesReferenceInput
   kind: StripesKind
   /** the unit's symbol, which the readout names the values in */
   unit: string
@@ -63,7 +65,7 @@ const announcement = ref('')
 
 // -- what is drawn ------------------------------------------------------------------------------------------------
 
-const model = computed(() => buildStripesModel(props.values))
+const model = computed(() => buildStripesModel(props.values, props.reference))
 const bounds = computed<YearWindow | null>(() => model.value ? fullWindow(model.value) : null)
 /** The years that have a stripe, in order, with where each is in the model */
 const stripes = computed(() => (model.value?.years ?? []).map((year, index) => ({ year, index })).sort((a, b) => a.year - b.year))
@@ -147,7 +149,7 @@ function rowOf(year: number | null) {
   if (!m || year === null)
     return null
   const index = m.years.indexOf(year)
-  return index < 0 ? null : { year, index, value: m.values[index]!, trend: m.trend[index]! }
+  return index < 0 ? null : { year, index, value: m.values[index]!, trend: m.trend[index]!, stripeClass: m.classes[index]!, anomaly: m.anomalies[index]! }
 }
 
 const outerPx = computed(() => width.value)
@@ -174,10 +176,11 @@ const readout = computed(() => {
   const rows = [{ id: 'value', label: t('stripes.hoverValue'), value: formatValue(row.value) }]
   if (trendShown.value)
     rows.push({ id: 'trend', label: t('stripes.hoverTrend'), value: formatValue(row.trend) })
-  rows.push({ id: 'class', label: t('stripes.table.class'), value: t(`stripes.table.classes.${props.kind}.${stripeClass(row.value, m.min, m.max)}`) })
+  // the class as the backend gives it, with how far the year lies from the mean of the reference
+  rows.push({ id: 'class', label: t('stripes.table.class'), value: `${t(`stripes.table.classes.${props.kind}.${stripeBand(row.stripeClass)}`)} (${formatSigned(row.anomaly, locale.value, 1)} ${props.unit})`.trim() })
   return {
     year: String(row.year),
-    colour: stripeColour(COLOR_MAPS[props.kind], m.normalized[row.index]!),
+    colour: stripeColour(props.kind, row.stripeClass),
     rows,
   }
 })

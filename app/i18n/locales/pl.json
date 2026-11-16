@@ -678,13 +678,16 @@
       "keysHint": "Strzałki przechodzą po latach, Page Up i Page Down co dziesięć lat, Home i End do pierwszego i ostatniego. Plus, minus i 0 powiększają, pomniejszają i resetują. Escape zamyka wartości."
     },
     "summary": "Od {from} do {to}. Najniższa wartość {min} w roku {minYear}, najwyższa {max} w roku {maxYear}.",
+    "reference": "Kolory: średnia z {centre} jest środkiem skali, która obejmuje ±{sigma} odchylenia standardowego z {spread} (metoda Eda Hawkinsa).",
+    "referenceWhole": "całego szeregu ({from}–{to})",
     "table": {
       "year": "Rok",
       "value": "Wartość",
+      "anomaly": "Anomalia",
       "class": "Klasa",
       "note": {
-        "temperature": "Klasa: miejsce roku między najchłodniejszym a najcieplejszym z pokazanych lat, w piątych częściach. To kolor jego paska, od ciemnoniebieskiego (najchłodniejszy) do ciemnoczerwonego (najcieplejszy).",
-        "precipitation": "Klasa: miejsce roku między najsuchszym a najbardziej wilgotnym z pokazanych lat, w piątych częściach. To kolor jego paska, od brązowego (najsuchszy) do ciemnozielonego (najbardziej wilgotny)."
+        "temperature": "Klasa: jak daleko rok leży od średniej odniesienia. Paski mają 16 kolorów, po jednym na każde 0,325 odchylenia standardowego, od ciemnoniebieskiego (najchłodniejszy) do ciemnoczerwonego (najcieplejszy); klasa nazywa je w pięciu grupach. Anomalia: odległość od średniej w jednostce wartości.",
+        "precipitation": "Klasa: jak daleko rok leży od średniej odniesienia. Paski mają 16 kolorów, po jednym na każde 0,325 odchylenia standardowego, od brązowego (najsuchszy) do ciemnozielonego (najbardziej wilgotny); klasa nazywa je w pięciu grupach. Anomalia: odległość od średniej w jednostce wartości."
       },
       "classes": {
         "temperature": {

@@ -224,8 +224,8 @@ what the answer is missing:
 - **`processing_note`** says what wetterdienst did to the data, in the same words for every provider and licence:
   "Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ." Licences such as CC BY ask that changes be indicated. The answers of `interpolate` and `summarize` add
   "The values were selected or calculated from the provider's readings.", and the headers of `stripes/image` add
-  "The image is drawn from the provider's annual values."; `stripes/values` and `stripes/stations` have the plain note,
-  as their values are DWD's own annual values and a list of its stations. It is always there on an answer that holds
+  "The image is drawn from the provider's annual values."; `stripes/stations` has the plain note, as it is a list of
+  DWD's stations, and `stripes/values` adds a sentence on which reference its anomalies and classes were calculated against. It is always there on an answer that holds
   provider data (`issues` and `alerts` too, not `providers` or `coverage`), whatever `with_metadata` says, and it is a
   statement of fact about the processing: it does not replace the credit line, and it is not legal advice about what
   your licence asks of you. Where it does not go is on [licences and credit

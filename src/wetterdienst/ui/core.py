@@ -59,6 +59,14 @@ from wetterdienst.model.result import _Station  # noqa: TC001, needed at runtime
 from wetterdienst.model.station_ids import search_icao_id, search_wigos_id, search_wmo_id
 from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
+from wetterdienst.ui.stripes_scale import (
+    MIN_RECORD_YEARS,
+    PRECIPITATION_PALETTE,
+    TEMPERATURE_PALETTE,
+    StripesReference,
+    stripe_class,
+    stripes_reference,
+)
 from wetterdienst.util.datetime import format_timestamp, parse_date_window
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.geo import LATITUDE_MAX, LATITUDE_MIN, LONGITUDE_MAX, LONGITUDE_MIN
@@ -2606,6 +2614,8 @@ class StripesData(BaseModel):
     model_config = {"extra": "forbid", "arbitrary_types_allowed": True}
 
     series: StripesSeries
+    #: what the classes are relative to: the station's whole record, not the window of years shown
+    reference: StripesReference
     df: pl.DataFrame
 
 
@@ -2725,7 +2735,8 @@ class StripesConfigItem(TypedDict):
     """Configuration item for climate stripes."""
 
     request: Callable[..., DwdObservationRequest]
-    color_map: str
+    #: the 16 colours of the classes, from the lowest to the highest
+    palette: tuple[str, ...]
 
 
 class StripesConfig(TypedDict):
@@ -2776,12 +2787,12 @@ def _get_stripes_precipitation_request(
 CLIMATE_STRIPES_CONFIG: StripesConfig = {
     "temperature": {
         "request": _get_stripes_temperature_request,
-        "color_map": "RdBu",
+        "palette": TEMPERATURE_PALETTE,
     },
     "precipitation": {
         "request": _get_stripes_precipitation_request,
-        # reversed, as `value_scaled` puts the wettest year at 0: brown for dry, teal for wet (GH-2063)
-        "color_map": "BrBG_r",
+        # brown for dry, teal for wet (GH-2063)
+        "palette": PRECIPITATION_PALETTE,
     },
 }
 
@@ -2836,7 +2847,8 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     # `ComputeError`); left empty, it is refused below as having data for no year (GH-2369)
     if not df.is_empty():
         df = df.upsample("timestamp", every="1y")
-    recorded = df.filter(pl.col("value").is_not_null()).get_column("timestamp").dt.year()
+    record = df.filter(pl.col("value").is_not_null())
+    recorded = record.get_column("timestamp").dt.year()
     if start_year is not None:
         df = df.filter(pl.col("timestamp").dt.year().ge(start_year))
     if end_year is not None:
@@ -2846,27 +2858,33 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     # one colour
     years_with_data = df.filter(pl.col("value").is_not_null()).get_column("timestamp")
     if len(years_with_data) < 2:
-        record = f"from {recorded.min()} to {recorded.max()}" if len(recorded) else "for no year"
+        record_text = f"from {recorded.min()} to {recorded.max()}" if len(recorded) else "for no year"
         msg = (
             f"At least two years with data are required to create climate stripes; station "
-            f"{station['station_id']} has data {record}"
+            f"{station['station_id']} has data {record_text}"
+        )
+        raise NotEnoughDataError(msg)
+    if len(recorded) < MIN_RECORD_YEARS:
+        msg = (
+            f"At least {MIN_RECORD_YEARS} years with data are required to scale climate stripes; station "
+            f"{station['station_id']} has data for {len(recorded)} (from {recorded.min()} to {recorded.max()})"
         )
         raise NotEnoughDataError(msg)
     # from the first year with data to the last: a start or end year falling in a gap of the record
     # would otherwise label the stripes with a year none of them shows
     df = df.filter(pl.col("timestamp").is_between(years_with_data.min(), years_with_data.max()))
 
-    # scaled over the years asked for, so they span the whole colour map rather than the part the
-    # station's whole record would leave them; 0 is the highest value, 1 the lowest. Years all of one
-    # value take the middle of the map rather than dividing by a range of zero
-    value, lowest, highest = pl.col("value"), pl.col("value").min(), pl.col("value").max()
+    # the classes are relative to the station's whole record, never to the window asked for, so a year keeps its
+    # colour whatever `start_year` and `end_year` show (GH-4157)
+    reference = stripes_reference(recorded.to_list(), record.get_column("value").to_list())
+    value = pl.col("value")
     df = df.with_columns(
-        pl.when(value.is_null())
-        .then(None)
-        .when(highest == lowest)
-        .then(0.5)
-        .otherwise(1 - (value - lowest) / (highest - lowest))
-        .alias("value_scaled"),
+        (value - reference.centre.value).round(4).alias("anomaly"),
+        pl.Series(
+            "stripe_class",
+            [None if v is None else stripe_class(v, reference) for v in df.get_column("value")],
+            dtype=pl.Int64,
+        ),
         pl.when(value.is_not_null()).then(-0.02).otherwise(None).alias("availability"),
     )
 
@@ -2887,7 +2905,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         ),
     )
 
-    return StripesData(series=series, df=df)
+    return StripesData(series=series, reference=reference, df=df)
 
 
 def _require_plotting() -> ModuleType:
@@ -2902,6 +2920,14 @@ def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
     """Create warming stripes for station in Germany, for a request its model has checked."""
     _require_plotting()
     return _draw_stripes(_get_stripes_data(stripes), stripes)
+
+
+def _reference_caption(reference: StripesReference) -> str:
+    """Say on the image what its colours are relative to, the whole record where the station is short of a period."""
+    return (
+        f"Colours: mean {reference.centre.first_year}-{reference.centre.last_year}, "
+        f"+/-{reference.range_sigma:g} \u03c3 of {reference.spread.first_year}-{reference.spread.last_year}"
+    )
 
 
 def _draw_stripes(stripes_data: StripesData, stripes: StripesImageRequest) -> go.Figure:
@@ -2920,7 +2946,7 @@ def _draw_stripes(stripes_data: StripesData, stripes: StripesImageRequest) -> go
 
     df = stripes_data.df
     station_dict = stripes_data.series.station
-    cmap = CLIMATE_STRIPES_CONFIG[kind]["color_map"]
+    palette = CLIMATE_STRIPES_CONFIG[kind]["palette"]
 
     df_without_nulls = df.drop_nulls("value")
 
@@ -2931,7 +2957,7 @@ def _draw_stripes(stripes_data: StripesData, stripes: StripesImageRequest) -> go
         go.Bar(
             x=df_without_nulls.get_column("timestamp").dt.year(),
             y=[1.0] * len(df_without_nulls),
-            marker={"color": df_without_nulls.get_column("value_scaled"), "colorscale": cmap, "cmin": 0, "cmax": 1},
+            marker={"color": [palette[stripe] for stripe in df_without_nulls.get_column("stripe_class")]},
             width=1.0,
         ),
     )
@@ -2956,11 +2982,11 @@ def _draw_stripes(stripes_data: StripesData, stripes: StripesImageRequest) -> go
             align="right",
             font={"color": "gold"},
         )
-    # Add source text
+    # Add source text, and the reference the colours are relative to (GH-4157)
     fig.add_annotation(
         x=0.5,
         y=-0.05,
-        text="Source: Deutscher Wetterdienst",
+        text=f"Source: Deutscher Wetterdienst. {_reference_caption(stripes_data.reference)}",
         showarrow=False,
         xref="paper",
         yref="paper",

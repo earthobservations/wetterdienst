@@ -4,22 +4,94 @@ Climate stripes (also known as
 ["warming stripes"](https://en.wikipedia.org/wiki/Warming_stripes)) are a minimalistic
 visualization popularized by Ed Hawkins that encodes the long-term trend of a climate
 variable as a sequence of coloured bars — one bar per year, coloured from blue (cooler) to red
-(warmer) for temperature, and from brown (drier) to teal (wetter) for precipitation.
+(warmer) for temperature, and from brown (drier) to teal (wetter) for precipitation, relative to a
+reference (see [Method](#method)).
 
 Wetterdienst can generate climate stripes from **DWD** annual observations for two kinds:
 
 - `temperature` — based on the annual mean air temperature
 - `precipitation` — based on the annual precipitation sum
 
-The colours are scaled over the years shown: with `start_year` and `end_year`, the lowest and
-highest of those years take the two ends of the colour map, so the coolest is blue and the warmest
-red, or the driest brown and the wettest teal. At least two of the years must have data. The CSV of
-`/api/stripes/values` gives each year's `value_scaled`, from 0 for the highest to 1 for the lowest.
-Its JSON names the unit of the `value`s in `series.unit`, e.g. `degree_celsius`: `degree_celsius` and
-`millimeter` unless the request chooses another with `unit_targets` (see [REST API](#rest-api)), or the
-server's `WD_TS_CONVERT_UNITS` and `WD_TS_UNIT_TARGETS` do, the target of the quantity where the values are converted,
-the source's unit where not. The unit changes the numbers only: the colours are relative to the years shown and are
-the same in any unit.
+## Method
+
+The colours follow [Ed Hawkins' method](https://en.wikipedia.org/wiki/Warming_stripes), which the
+FAQ of [#ShowYourStripes](https://showyourstripes.info/) states (the page renders in the browser;
+[its capture of 2021-09-07](https://web.archive.org/web/20210907033708/https://showyourstripes.info/faq)
+has the text):
+
+> For each country, the average temperature in 1971-2000 is set as the boundary between blue and
+> red colours, and the colour scale varies from +/- 2.6 standard deviations of the annual average
+> temperatures between 1901-2000.
+
+So a year is not coloured by where it lies between the coolest and the warmest year shown, but by
+its distance from a fixed reference:
+
+- **Centre**: the mean of the station's annual values of 1971-2000. A year at it is on the boundary
+  between blue and red.
+- **Range**: ±2.6 standard deviations of the station's annual values of 1901-2000, in 16 classes
+  of 2.6 / 8 = 0.325 standard deviations each: 8 below the centre, 8 above. A value beyond ±2.6
+  standard deviations takes the end class. Hawkins' own published graphics hold exactly these 16
+  colours and no other (counted pixel by pixel in
+  [one of 2018](https://www.climate-lab-book.ac.uk/files/2018/05/globalcore.png)), and he said of the 2023 stripe that it
+  [was "off the end of the scale"](https://reading.ac.uk/news/2024/University-News/Climate-stripes-off-the-scale-for-hot-2023).
+- **Colours**: the 8 most saturated classes of ColorBrewer's 9-class
+  [Blues](https://colorbrewer2.org/#type=sequential&scheme=Blues&n=9) below the centre and
+  [Reds](https://colorbrewer2.org/#type=sequential&scheme=Reds&n=9) above it, as in Hawkins'
+  graphics: `#08306b #08519c #2171b5 #4292c6 #6baed6 #9ecae1 #c6dbef #deebf7` and
+  `#fee0d2 #fcbba1 #fc9272 #fb6a4a #ef3b2c #cb181d #a50f15 #67000d`.
+- **Precipitation** has no stripes of Hawkins' (his FAQ: "visual representations of the change in
+  temperature"), so this is our extension of the method: the same centre, range and 16 classes,
+  with the two halves of ColorBrewer's 11-class BrBG, brown for dry and teal for wet, 8 colours
+  sampled at even steps along each.
+
+The reference is calculated from the station's whole record and not from the years shown: a year
+keeps its colour whatever `start_year` and `end_year` are, and the colours are the same in any unit.
+The global graphic of Hawkins' is the exception (a fixed ±0.75 °C scale, its average
+[1961 to 2010](https://www.reading.ac.uk/planet/climate-resources/climate-stripes)), and no station
+here is.
+
+### A station with too few years
+
+Few of DWD's stations have 30 years in 1971-2000 or 100 in 1901-2000, so a period that has too few
+years with data is replaced by the station's **whole record**, for the mean and for the standard
+deviation each on its own:
+
+| | period of the method | years it needs | otherwise |
+|---|---|---|---|
+| mean (centre) | 1971-2000 | 20 | the mean of the whole record |
+| standard deviation (range) | 1901-2000 | 30 | the standard deviation of the whole record |
+
+A record of fewer than **10 years** with data is refused (HTTP 400, as is one with fewer than two
+years in the years asked for). The standard deviation is the sample's (n - 1).
+
+Of the stations with annual data in DWD's historical files (`annual/climate_summary`,
+`annual/precipitation_more`; the stripes read these only, and the recent files add 3 stations of
+precipitation and no year), as measured on 2026-11-16:
+
+| | temperature | precipitation |
+|---|---|---|
+| stations with annual values | 1161 | 6039 |
+| the method as it is (both periods) | 403 | 3234 |
+| whole record for the mean | 167 | 759 |
+| whole record for the standard deviation | 60 | 271 |
+| whole record for both | 427 | 1264 |
+| refused (fewer than 10 years) | 104 | 511 |
+| all 30 years of 1971-2000 | 214 | 1739 |
+
+Every answer says which was used: the `reference` of `/api/stripes/values` names, for the centre and
+for the spread, its `value`, the `first_year` and `last_year` and the number of `years` it is
+calculated from, and `fallback`. Its `processing_note`, the `X-Wetterdienst-Processing` header of the
+CSV and the image, says the same in a sentence, and the image prints the periods under the stripes.
+The values have their `anomaly` to the centre, in the unit of the `value`, and their `stripe_class`,
+0 (the lowest) to 15. The CSV of `/api/stripes/values` has the same two columns, and no longer
+`value_scaled` (a min-max over the years shown).
+
+At least two of the years asked for must have data. The JSON names the unit of the `value`s in
+`series.unit`, e.g. `degree_celsius`: `degree_celsius` and `millimeter` unless the request chooses
+another with `unit_targets` (see [REST API](#rest-api)), or the server's `WD_TS_CONVERT_UNITS` and
+`WD_TS_UNIT_TARGETS` do, the target of the quantity where the values are converted, the source's
+unit where not. The unit changes the numbers only (the reference and the anomaly are in it): the
+classes and so the colours are the same in any unit.
 
 The feature is exposed via the [command line interface](#command-line-interface) and the
 [REST API](#rest-api). The hosted [web app](https://wetterdienst.eobs.org) also
@@ -90,10 +162,13 @@ http --download localhost:7890/api/stripes/image kind==temperature station==1048
 ```
 
 The JSON answer of `values` has the `metadata` block every answer has, a `series` that says what the values
-are of (`station`, `resolution`, `dataset`, `parameter`, and the `unit` of `value`), and the `values`. The values are DWD's
-own annual values, the same numbers as `/api/values` gives for the parameter, so the `processing_note` of the block is
-the plain note every answer has. An image has no place for it in itself: the `X-Wetterdienst-Processing` header of
-`image` has it, and adds "The image is drawn from the provider's annual values."
+are of (`station`, `resolution`, `dataset`, `parameter`, and the `unit` of `value`), the `reference` the classes are
+relative to (see [Method](#method)), and the `values`, each with its `anomaly` and `stripe_class`. The `value`s are DWD's
+own annual values, the same numbers as `/api/values` gives for the parameter. The `processing_note` of the block is the
+plain note every answer has, and a sentence that says the anomalies and classes were calculated from them and which
+reference they are relative to, the whole record included where it stood in for a period. An image has no place for it
+in itself: the `X-Wetterdienst-Processing` header of `image` has it (as the CSV of `values` does), and adds "The image
+is drawn from the provider's annual values."
 
 `values` takes `unit_targets`, a JSON mapping of quantity to unit, as `/api/values` does, and refuses an unknown
 quantity or unit with the same 400:

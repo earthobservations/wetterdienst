@@ -313,17 +313,26 @@ def _stripes_of(
     monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period, **_: request)
 
 
-def test_stripes_are_scaled_over_the_years_asked_for(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the colours span the requested years, not the station's whole record (GH-2063).
+def test_stripes_keep_the_colour_of_a_year_whatever_window_is_shown(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the classes are relative to the station's whole record, not to the years asked for (GH-4157).
 
-    Scaled over 2000 to 2009 they left 2003 to 2005 in the middle of the colour map, a third of it
-    between them, and `value_scaled` went nowhere near 0 or 1 over the years returned.
+    The colours were scaled over the years shown (GH-2063), so a window of three years used the whole colour map and
+    the same year changed colour with `start_year` and `end_year`. The reference is the record's, and the window
+    only cuts the years that are returned.
     """
-    _stripes_of(monkeypatch, {year: float(year - 1999) for year in range(2000, 2010)})
-    request = StripesValuesRequest(kind="temperature", station="01048", start_year=2003, end_year=2005)
-    df = _get_stripes_data(request).df
-    assert df.get_column("timestamp").dt.year().to_list() == [2003, 2004, 2005]
-    assert df.get_column("value_scaled").to_list() == [1.0, 0.5, 0.0]
+    _stripes_of(monkeypatch, {year: float(year - 1999) for year in range(2000, 2012)})
+    whole = _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048"))
+    window = _get_stripes_data(
+        StripesValuesRequest(kind="temperature", station="01048", start_year=2003, end_year=2005)
+    )
+    assert window.df.get_column("timestamp").dt.year().to_list() == [2003, 2004, 2005]
+    assert window.reference == whole.reference
+    shown = whole.df.filter(pl.col("timestamp").dt.year().is_between(2003, 2005))
+    assert window.df.get_column("stripe_class").to_list() == shown.get_column("stripe_class").to_list()
+    assert window.df.get_column("anomaly").to_list() == shown.get_column("anomaly").to_list()
+    # three years of twelve are not spread over the 16 classes
+    assert len(set(window.df.get_column("stripe_class").to_list())) == 3
+    assert window.df.get_column("stripe_class").min() > whole.df.get_column("stripe_class").min()
 
 
 @pytest.mark.parametrize(
@@ -353,28 +362,43 @@ def test_stripes_need_two_years_with_data(
 def test_stripes_leave_out_a_value_a_soft_check_flagged_suspect(monkeypatch: pytest.MonkeyPatch) -> None:
     """A year whose value is flagged `suspect:` is a year without data, whatever the mode of the check (GH-3676).
 
-    The 4021 of 2002 would have set the scale of the whole series; flagged suspect, the colours are scaled over the
-    three years that are left, and the year shows as a gap. The flag of a code (`raw:`) and the station's own are no
-    suspicion.
+    The 4021 of 2002 would have set the scale of the whole series; flagged suspect, the reference is calculated from
+    the eleven years that are left, and the year shows as a gap. The flag of a code (`raw:`) and the station's own are
+    no suspicion.
     """
-    values = {2000: 1.0, 2001: 2.0, 2002: 4021.0, 2003: 3.0, 2004: 4.0}
+    values = {2000: 1.0, 2001: 2.0, 2002: 4021.0, **{year: float(year - 1999) for year in range(2003, 2012)}}
     _stripes_of(monkeypatch, values, {2002: "3,suspect:range", 2000: "3,raw:-999", 2001: "3"})
-    df = _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048")).df
-    assert df.get_column("timestamp").dt.year().to_list() == [2000, 2001, 2002, 2003, 2004]
-    assert df.get_column("value").to_list() == [1.0, 2.0, None, 3.0, 4.0]
-    assert df.get_column("value_scaled").to_list() == [1.0, pytest.approx(2 / 3), None, pytest.approx(1 / 3), 0.0]
+    data = _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048"))
+    df = data.df
+    assert df.get_column("timestamp").dt.year().to_list() == list(range(2000, 2012))
+    assert df.get_column("value").to_list()[:5] == [1.0, 2.0, None, 4.0, 5.0]
+    assert df.get_column("stripe_class")[2] is None
+    assert data.reference.centre.years == data.reference.spread.years == 11
+    assert data.reference.centre.value == pytest.approx(75 / 11)
     # the control: with no flag the value is a year of the series
     _stripes_of(monkeypatch, values)
-    assert _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048")).df.get_column(
-        "value"
-    ).to_list() == list(values.values())
+    control = _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048"))
+    assert control.df.get_column("value").to_list() == list(values.values())
+    assert control.reference.centre.years == 12
+    assert control.reference.spread.value > 1000 > data.reference.spread.value
 
 
-def test_stripes_of_one_value_take_the_middle_of_the_map(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test years all of one value are scaled to 0.5, not divided by a range of zero into NaN."""
-    _stripes_of(monkeypatch, {2019: 700.0, 2020: 700.0})
-    df = _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048")).df
-    assert df.get_column("value_scaled").to_list() == [0.5, 0.5]
+def test_stripes_of_a_record_too_short_to_scale_are_refused(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test a record too short for a spread is refused, with how many years it has (GH-4157)."""
+    from wetterdienst.exceptions import NotEnoughDataError  # noqa: PLC0415
+
+    _stripes_of(monkeypatch, dict.fromkeys(range(2012, 2021), 700.0))
+    with pytest.raises(NotEnoughDataError, match=r"At least 10 years with data are required to scale.*has data for 9"):
+        _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048"))
+
+
+def test_stripes_of_years_all_alike_have_no_spread_and_sit_in_the_upper_middle(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test years all of one value are in the class above the centre, not divided by a spread of zero into NaN."""
+    _stripes_of(monkeypatch, dict.fromkeys(range(2010, 2021), 700.0))
+    data = _get_stripes_data(StripesValuesRequest(kind="temperature", station="01048"))
+    assert data.reference.spread.value == 0
+    assert set(data.df.get_column("stripe_class").to_list()) == {8}
+    assert set(data.df.get_column("anomaly").to_list()) == {0.0}
 
 
 def test_stripes_start_and_end_at_a_year_with_data(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -383,21 +407,40 @@ def test_stripes_start_and_end_at_a_year_with_data(monkeypatch: pytest.MonkeyPat
     A start year of 1991 in a record with no data from 1991 to 1994 kept four empty years in front of
     the first stripe, and the image was labelled 1991.
     """
-    _stripes_of(monkeypatch, {1990: 1.0, 1991: None, 1992: None, 1993: None, 1994: None, 1995: 2.0, 1996: 3.0})
+    _stripes_of(
+        monkeypatch,
+        {
+            1980: 0.0,
+            1981: 0.5,
+            1982: 0.7,
+            1983: 0.9,
+            1984: 0.8,
+            1985: 0.6,
+            1986: 0.4,
+            1990: 1.0,
+            1991: None,
+            1992: None,
+            1993: None,
+            1994: None,
+            1995: 2.0,
+            1996: 3.0,
+        },
+    )
     request = StripesValuesRequest(kind="temperature", station="01048", start_year=1991, end_year=1999)
     df = _get_stripes_data(request).df
     assert df.get_column("timestamp").dt.year().to_list() == [1995, 1996]
 
 
 def test_stripes_are_coloured_the_same_in_any_unit(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test the colours, scaled over the years, and the order of the years do not change with the unit (GH-3980).
+    """Test the classes, relative to the record, and the order of the years do not change with the unit (GH-3980).
 
-    The values come back in the unit asked for, the series names it, and `value_scaled`, which the colours are
-    taken from, is the same in degree Celsius, degree Fahrenheit and kelvin up to the rounding of the conversion.
+    The values come back in the unit asked for, the series names it, and `stripe_class`, which the colours are
+    taken from, is the same in degree Celsius, degree Fahrenheit and kelvin, with the anomaly and the reference in the
+    unit asked for (a difference scales by 1.8 into Fahrenheit and not at all into kelvin).
     """
     from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
 
-    celsius = [1.23, 5.5, -2.1, 9.87, 7.0, 3.3, 8.8]
+    celsius = [1.23, 5.5, -2.1, 9.87, 7.0, 3.3, 8.8, 6.1, 4.4, 2.9, 7.7]
     _stub_stripes_station(monkeypatch, "temperature", celsius)
     request = {"kind": "temperature", "station": "01048"}
 
@@ -413,29 +456,51 @@ def test_stripes_are_coloured_the_same_in_any_unit(monkeypatch: pytest.MonkeyPat
     assert default.df.get_column("value").to_list() == pytest.approx(celsius)
     assert fahrenheit.df.get_column("value").to_list() == pytest.approx([c * 1.8 + 32 for c in celsius], abs=1e-3)
     for other in (fahrenheit, kelvin):
-        assert other.df.get_column("value_scaled").to_list() == pytest.approx(
-            default.df.get_column("value_scaled").to_list(), abs=1e-3
-        )
+        assert other.df.get_column("stripe_class").to_list() == default.df.get_column("stripe_class").to_list()
         assert other.df.get_column("timestamp").to_list() == default.df.get_column("timestamp").to_list()
         # the order of the years, which the colours rank
         assert other.df.get_column("value").arg_sort().to_list() == default.df.get_column("value").arg_sort().to_list()
+    assert fahrenheit.reference.spread.value == pytest.approx(default.reference.spread.value * 1.8, abs=1e-3)
+    assert kelvin.reference.spread.value == pytest.approx(default.reference.spread.value, abs=1e-3)
+    assert kelvin.reference.centre.value == pytest.approx(default.reference.centre.value + 273.15, abs=1e-3)
 
 
 @pytest.mark.parametrize(
-    ("kind", "highest", "lowest"),
+    ("kind", "lowest", "highest"),
     [
-        # warm is red, cool is blue
-        ("temperature", "rgb(103,0,31)", "rgb(5,48,97)"),
-        # wet is teal, dry is brown: reversed, the wettest year took brown (GH-2063)
-        ("precipitation", "rgb(0,60,48)", "rgb(84,48,5)"),
+        # cool is blue, warm is red: ColorBrewer's Blues 9-class #08306b and Reds 9-class #67000d
+        ("temperature", "#08306b", "#67000d"),
+        # dry is brown, wet is teal: BrBG's ends, #543005 and #003c30 (GH-2063)
+        ("precipitation", "#543005", "#003c30"),
     ],
 )
-def test_stripes_colour_the_highest_and_lowest_years_as_their_kind_reads(kind: str, highest: str, lowest: str) -> None:
-    """Test the colour map puts each kind's highest year, scaled to 0, and its lowest, scaled to 1, at the right end."""
-    # plotly is the `plotting` extra, which a stripes image needs and a stripes request does not
-    colors = pytest.importorskip("plotly.colors")
-    colours = colors.get_colorscale(core.CLIMATE_STRIPES_CONFIG[kind]["color_map"])
-    assert (colours[0][1], colours[-1][1]) == (highest, lowest)
+def test_stripes_colour_the_lowest_and_highest_years_as_their_kind_reads(kind: str, lowest: str, highest: str) -> None:
+    """Test the 16 colours of each kind run from the lowest class, at 0, to the highest, at 15."""
+    palette = core.CLIMATE_STRIPES_CONFIG[kind]["palette"]
+    assert (palette[0], palette[-1]) == (lowest, highest)
+    assert len(palette) == len(set(palette)) == 16
+
+
+def test_stripes_image_draws_the_discrete_colour_of_each_years_class(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test the bars of the image have the palette's colour of their class, and it names the reference (GH-4157)."""
+    pytest.importorskip("plotly")
+    values = {year: float(year - 1999) for year in range(2000, 2012)}
+    values[2005] = 40.0
+    _stripes_of(monkeypatch, values)
+    request = core.StripesImageRequest(kind="temperature", station="01048")
+    data = _get_stripes_data(request)
+    figure = core._draw_stripes(data, request)  # noqa: SLF001
+
+    palette = core.CLIMATE_STRIPES_CONFIG["temperature"]["palette"]
+    colours = list(figure.data[0].marker.color)
+    assert colours == [palette[stripe] for stripe in data.df.get_column("stripe_class")]
+    # a discrete colour of the 16, not a point on a continuous scale; the outlier is beyond 2.6 sigma, in the end class
+    assert set(colours) <= set(palette)
+    assert colours[2005 - 2000] == palette[15]
+    assert figure.data[0].marker.colorscale is None
+    # the image says what its colours are relative to, the whole record here: no year of it is in 1971-2000 but 2000
+    caption = next(a.text for a in figure.layout.annotations if a.text.startswith("Source: "))
+    assert caption == "Source: Deutscher Wetterdienst. Colours: mean 2000-2011, +/-2.6 \u03c3 of 2000-2011"
 
 
 def test_stripes_match_a_name_as_stations_and_values_do() -> None:
@@ -595,8 +660,8 @@ def test_stripes_read_the_whole_record_long_whatever_the_environment_says(
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
 
-    # two years of five missing, well below the 0.95 `skip_threshold` asks for by default
-    values = [1.0, None, None, 4.0, 5.0]
+    # two years of twelve missing, well below the 0.95 `skip_threshold` asks for by default
+    values = [1.0, None, None, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0]
     years = list(range(2000, 2000 + len(values)))
     stations = pl.DataFrame(
         [

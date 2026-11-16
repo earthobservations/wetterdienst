@@ -678,13 +678,16 @@
       "keysHint": "I tasti freccia scorrono gli anni, Pag su e Pag giù di dieci in dieci, Home e Fine vanno al primo e all'ultimo. Più, meno e 0 ingrandiscono, riducono e reimpostano. Esc chiude i valori."
     },
     "summary": "Da {from} a {to}. Valore più basso: {min} nel {minYear}; valore più alto: {max} nel {maxYear}.",
+    "reference": "Colori: la media di {centre} è il centro della scala, che copre ±{sigma} deviazioni standard di {spread} (metodo di Ed Hawkins).",
+    "referenceWhole": "tutta la serie ({from}–{to})",
     "table": {
       "year": "Anno",
       "value": "Valore",
+      "anomaly": "Anomalia",
       "class": "Classe",
       "note": {
-        "temperature": "Classe: dove si colloca l'anno tra il più fresco e il più caldo mostrati, in quinti. È il colore della sua striscia, dal blu scuro (più fresco) al rosso scuro (più caldo).",
-        "precipitation": "Classe: dove si colloca l'anno tra il più secco e il più piovoso mostrati, in quinti. È il colore della sua striscia, dal marrone (più secco) al verde scuro (più piovoso)."
+        "temperature": "Classe: a che distanza dalla media del riferimento si trova l'anno. Le strisce hanno 16 colori, uno ogni 0,325 deviazioni standard, dal blu scuro (più fresco) al rosso scuro (più caldo); la classe li indica in cinque gruppi. Anomalia: la distanza dalla media, nell'unità del valore.",
+        "precipitation": "Classe: a che distanza dalla media del riferimento si trova l'anno. Le strisce hanno 16 colori, uno ogni 0,325 deviazioni standard, dal marrone (più secco) al verde scuro (più piovoso); la classe li indica in cinque gruppi. Anomalia: la distanza dalla media, nell'unità del valore."
       },
       "classes": {
         "temperature": {

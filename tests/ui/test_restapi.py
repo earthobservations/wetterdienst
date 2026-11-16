@@ -45,6 +45,7 @@ from wetterdienst.ui.core import (
 from wetterdienst.ui.mcp import _TOOL_NAMES
 from wetterdienst.ui.response_metadata import metadata_to_dict, response_metadata
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
+from wetterdienst.ui.stripes_scale import stripes_reference
 
 if TYPE_CHECKING:
     from opentelemetry.sdk.metrics.export import InMemoryMetricReader
@@ -2043,7 +2044,7 @@ def test_stripes_image_is_sent_as_its_media_type(
         def to_image(self, *_args: object, **_kwargs: object) -> bytes:
             return b"image"
 
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
     monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
     response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
     assert response.status_code == 200
@@ -2096,7 +2097,7 @@ def test_stripes_image_without_kaleido_is_a_501(
 
     monkeypatch.setitem(sys.modules, "kaleido", None)
     monkeypatch.setattr("wetterdienst.io.export._draw", draw)
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
     monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: object())
 
     with caplog.at_level(logging.ERROR):
@@ -4731,8 +4732,18 @@ def test_stripes_values_write_their_timestamps_as_every_other_body_does(
 ) -> None:
     """Test the stripes' JSON stamps are written in the one format, not as `isoformat` makes them (GH-2633)."""
     df = pl.DataFrame(
-        {"timestamp": [dt.datetime(2019, 1, 1, tzinfo=dt.UTC), None], "value": [9.5, None]},
-        schema={"timestamp": pl.Datetime("us", "UTC"), "value": pl.Float64},
+        {
+            "timestamp": [dt.datetime(2019, 1, 1, tzinfo=dt.UTC), None],
+            "value": [9.5, None],
+            "anomaly": [1.5, None],
+            "stripe_class": [10, None],
+        },
+        schema={
+            "timestamp": pl.Datetime("us", "UTC"),
+            "value": pl.Float64,
+            "anomaly": pl.Float64,
+            "stripe_class": pl.Int64,
+        },
     )
     stripes = StripesSeries(
         station={"station_id": "01048"},
@@ -4741,17 +4752,21 @@ def test_stripes_values_write_their_timestamps_as_every_other_body_does(
         parameter="temperature_air_mean_2m",
         unit="degree_celsius",
     )
-    monkeypatch.setattr(restapi, "_get_stripes_data", lambda _request: StripesData(series=stripes, df=df))
+    reference = stripes_reference(list(range(2000, 2012)), [float(n) for n in range(12)])
+    monkeypatch.setattr(
+        restapi, "_get_stripes_data", lambda _request: StripesData(series=stripes, reference=reference, df=df)
+    )
 
     response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
 
     assert response.status_code == 200
     assert response.json()["values"] == [
-        {"timestamp": "2019-01-01T00:00:00.000000+00:00", "value": 9.5},
-        {"timestamp": None, "value": None},
+        {"timestamp": "2019-01-01T00:00:00.000000+00:00", "value": 9.5, "anomaly": 1.5, "stripe_class": 10},
+        {"timestamp": None, "value": None, "anomaly": None, "stripe_class": None},
     ]
     csv = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048", "format": "csv"})
-    assert csv.text.splitlines()[1] == "2019-01-01T00:00:00.000000+00:00,9.5"
+    assert csv.text.splitlines()[0] == "timestamp,value,anomaly,stripe_class"
+    assert csv.text.splitlines()[1] == "2019-01-01T00:00:00.000000+00:00,9.5,1.5,10"
 
 
 def test_stripes_values_send_the_station_as_it_is_with_the_document_describing_it_as_a_station(
@@ -4778,8 +4793,13 @@ def test_stripes_values_send_the_station_as_it_is_with_the_document_describing_i
         "region": "Sachsen",
     }
     df = pl.DataFrame(
-        {"timestamp": [dt.datetime(2019, 1, 1, tzinfo=dt.UTC)], "value": [9.5]},
-        schema={"timestamp": pl.Datetime("us", "UTC"), "value": pl.Float64},
+        {"timestamp": [dt.datetime(2019, 1, 1, tzinfo=dt.UTC)], "value": [9.5], "anomaly": [1.5], "stripe_class": [10]},
+        schema={
+            "timestamp": pl.Datetime("us", "UTC"),
+            "value": pl.Float64,
+            "anomaly": pl.Float64,
+            "stripe_class": pl.Int64,
+        },
     )
     stripes = StripesSeries(
         station=station,  # ty: ignore[invalid-argument-type]
@@ -4788,7 +4808,10 @@ def test_stripes_values_send_the_station_as_it_is_with_the_document_describing_i
         parameter="temperature_air_mean_2m",
         unit="degree_celsius",
     )
-    monkeypatch.setattr(restapi, "_get_stripes_data", lambda _request: StripesData(series=stripes, df=df))
+    reference = stripes_reference(list(range(2000, 2012)), [float(n) for n in range(12)])
+    monkeypatch.setattr(
+        restapi, "_get_stripes_data", lambda _request: StripesData(series=stripes, reference=reference, df=df)
+    )
 
     response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
 
@@ -7093,14 +7116,14 @@ def test_stripes_values_name_the_unit_the_server_converts_to(
     """
     for name, setting in environment.items():
         monkeypatch.setenv(name, setting)
-    _stub_stripes_station(monkeypatch, kind, [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, kind, [1.0 + year for year in range(10)])
 
     response = client.get("/api/stripes/values", params={"kind": kind, "station": "01048"})
 
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["series"]["unit"] == unit
-    assert [item["value"] for item in data["values"]] == expected
+    assert [item["value"] for item in data["values"]][:2] == expected
     # named by the parameter the unit is taken from
     assert (data["series"]["resolution"], data["series"]["dataset"], data["series"]["parameter"]) == {
         "temperature": ("annual", "climate_summary", "temperature_air_mean_2m"),
@@ -7119,7 +7142,7 @@ def test_mcp_stripes_values_name_the_unit(monkeypatch: pytest.MonkeyPatch) -> No
     from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
     monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit"}')
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
 
     async def _call() -> dict:
         async with Client(build_mcp_server(restapi.app)) as mcp_client:
@@ -7129,7 +7152,7 @@ def test_mcp_stripes_values_name_the_unit(monkeypatch: pytest.MonkeyPatch) -> No
     # the tool's answer is the endpoint's, as its output schema (a JSON object or text) has it wrapped
     data = asyncio.run(_call())["result"]
     assert data["series"]["unit"] == "degree_fahrenheit"
-    assert [item["value"] for item in data["values"]] == [33.8, 35.6]
+    assert [item["value"] for item in data["values"]][:2] == [33.8, 35.6]
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -7155,7 +7178,7 @@ def test_stripes_values_take_the_unit_targets_as_the_values_do(
     expected: list[float],
 ) -> None:
     """`unit_targets` of `/api/stripes/values` chooses the unit of the values, named in `series.unit` (GH-3980)."""
-    _stub_stripes_station(monkeypatch, kind, [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, kind, [1.0 + year for year in range(10)])
 
     response = client.get(
         "/api/stripes/values", params={"kind": kind, "station": "01048", "unit_targets": unit_targets}
@@ -7164,16 +7187,16 @@ def test_stripes_values_take_the_unit_targets_as_the_values_do(
     assert response.status_code == 200, response.text
     data = response.json()
     assert data["series"]["unit"] == unit
-    assert [item["value"] for item in data["values"]] == pytest.approx(expected)
+    assert [item["value"] for item in data["values"]][:2] == pytest.approx(expected)
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_stripes_values_without_unit_targets_are_unchanged(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """A request giving no `unit_targets` is answered in degree Celsius and millimetre, as before (GH-3980)."""
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
     data = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"}).json()
     assert data["series"]["unit"] == "degree_celsius"
-    assert [item["value"] for item in data["values"]] == [1.0, 2.0]
+    assert [item["value"] for item in data["values"]][:2] == [1.0, 2.0]
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
@@ -7182,7 +7205,7 @@ def test_stripes_values_unit_targets_win_over_the_servers_for_the_quantity(
 ) -> None:
     """A request's `unit_targets` entry replaces the server's `WD_TS_UNIT_TARGETS` one for its quantity (GH-3980)."""
     monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit"}')
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
     params = {"kind": "temperature", "station": "01048"}
     data = client.get("/api/stripes/values", params={**params, "unit_targets": '{"temperature": "degree_kelvin"}'})
     assert data.json()["series"]["unit"] == "degree_kelvin"
@@ -7205,7 +7228,7 @@ def test_stripes_values_refuse_unit_targets_as_the_values_route_does(
     client: TestClient, monkeypatch: pytest.MonkeyPatch, unit_targets: str, message: str
 ) -> None:
     """An unknown quantity or unit is the request's 400, worded as `/api/values` words it (GH-3980)."""
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
 
     response = client.get(
         "/api/stripes/values", params={"kind": "temperature", "station": "01048", "unit_targets": unit_targets}
@@ -7229,7 +7252,7 @@ def test_stripes_values_override_a_malformed_variable_for_their_options(
     The check of `unit_targets` built the server's options from the environment, which reads them, and answered 500.
     """
     monkeypatch.setenv(*variable)
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
     params = {"kind": "temperature", "station": "01048"}
     if unit_targets:
         params["unit_targets"] = unit_targets
@@ -7256,7 +7279,7 @@ def test_mcp_stripes_values_override_a_malformed_variable_for_their_options(
     from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
     monkeypatch.setenv(*variable)
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
 
     async def _call() -> dict:
         async with Client(build_mcp_server(restapi.app)) as mcp_client:
@@ -7290,7 +7313,7 @@ def test_mcp_stripes_values_take_unit_targets(monkeypatch: pytest.MonkeyPatch) -
 
     from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
 
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
 
     async def _call(arguments: dict) -> dict:
         async with Client(build_mcp_server(restapi.app)) as mcp_client:
@@ -7301,11 +7324,11 @@ def test_mcp_stripes_values_take_unit_targets(monkeypatch: pytest.MonkeyPatch) -
 
     data = asyncio.run(_call({"unit_targets": {"temperature": "degree_fahrenheit"}}))["result"]
     assert data["series"]["unit"] == "degree_fahrenheit"
-    assert [item["value"] for item in data["values"]] == [33.8, 35.6]
+    assert [item["value"] for item in data["values"]][:2] == [33.8, 35.6]
     # the default is unchanged
     data = asyncio.run(_call({}))["result"]
     assert data["series"]["unit"] == "degree_celsius"
-    assert [item["value"] for item in data["values"]] == [1.0, 2.0]
+    assert [item["value"] for item in data["values"]][:2] == [1.0, 2.0]
 
 
 def _stub_a_station_without_position(monkeypatch: pytest.MonkeyPatch) -> None:

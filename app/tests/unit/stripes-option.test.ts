@@ -2,9 +2,10 @@ import type { StripesDisplay, StripesOptionInput } from '../../app/utils/stripes
 import { describe, expect, it } from 'vitest'
 import { EMPTY_CHART_THEME, seriesLabelColor } from '../../app/utils/chart-theme'
 import { loadEcharts } from '../../app/utils/echarts-loader'
-import { COLOR_MAPS, stripeColour } from '../../app/utils/stripes'
+import { STRIPE_PALETTES, stripeColour } from '../../app/utils/stripes'
 import { buildStripesModel, fullWindow } from '../../app/utils/stripes-model'
 import { buildStripesOption, STRIPES_MAX_HEIGHT, STRIPES_MIN_HEIGHT, STRIPES_RATIO, stripesChartHeight, stripesLayout, stripesTexts, windowUpdate } from '../../app/utils/stripes-option'
+import { recordOf, stripesAnswer } from '../helpers/stripes-answer'
 
 const echarts = loadEcharts()
 
@@ -12,12 +13,9 @@ const LIGHT = { ...EMPTY_CHART_THEME, text: 'rgb(15, 23, 43)', textMuted: 'rgb(9
 const DARK = { ...LIGHT, dark: true, text: 'rgb(226, 232, 240)' }
 const DISPLAY: StripesDisplay = { showTitle: true, showYears: true, showSource: true, showDataAvailability: true, showTimeseries: false, showTrendline: false }
 
-// 1950 to 2024 with 1962 to 1964 missing
-const MODEL = buildStripesModel(
-  Array.from({ length: 75 }, (_, i) => 1950 + i)
-    .filter(year => year < 1962 || year > 1964)
-    .map(year => ({ timestamp: `${year}-01-01T00:00:00+00:00`, value: (year - 1950) / 10 })),
-)!
+// 1950 to 2024 with 1962 to 1964 missing, classed against the whole record as the backend does
+const ANSWER = stripesAnswer(recordOf(1950, 2024, year => (year - 1950) / 10, [1962, 1963, 1964]))
+const MODEL = buildStripesModel(ANSWER.values, ANSWER.reference)!
 
 function build(over: Partial<StripesOptionInput & { display: Partial<StripesDisplay> }> = {}) {
   const input: StripesOptionInput = {
@@ -50,9 +48,9 @@ interface Bar { x: number, width: number, y: number, height: number }
 function barsOf(svg: string) {
   const bars = (fill: RegExp) => [...svg.matchAll(new RegExp(`<path d="M(-?[\\d.]+) (-?[\\d.]+)l([\\d.]+) 0l0 ([\\d.]+)l-[\\d.]+ 0Z" fill="${fill.source}"`, 'g'))]
     .map(match => ({ x: Number(match[1]), y: Number(match[2]), width: Number(match[3]), height: Number(match[4]) }) as Bar)
-  return { stripes: bars(/rgb\([^"]*\)/), gold: bars(/#FFD700/) }
+  return { stripes: bars(/#(?!FFD700)[0-9a-fA-F]{6}/), gold: bars(/#FFD700/) }
 }
-const fills = (svg: string) => [...svg.matchAll(/<path d="M[^"]*" fill="(rgb\([^"]*\))"/g)].map(match => match[1]!)
+const fills = (svg: string) => [...svg.matchAll(/<path d="M[^"]*" fill="(#(?!FFD700)[0-9a-fA-F]{6})"/g)].map(match => match[1]!)
 
 describe('the layout', () => {
   it('keeps the margins and the rows below the plot the chart has always had', () => {
@@ -141,25 +139,37 @@ describe('the height of the chart (GH-4133)', () => {
 })
 
 describe('the option', () => {
-  it('draws a stripe for each year in the colour of its place on the scale, and none for a year without a value', () => {
+  it('draws a stripe for each year in the colour of its class, and none for a year without a value', () => {
     const { input, option } = build()
     const svg = draw(input, option)
     const drawn = fills(svg)
     expect(drawn).toHaveLength(MODEL.years.length)
-    const expected = MODEL.normalized.map(position => stripeColour(COLOR_MAPS.temperature, position).replaceAll(' ', ''))
-    expect(drawn.map(colour => colour.replaceAll(' ', ''))).toEqual(expected)
+    const expected = MODEL.classes.map(stripeClass => stripeColour('temperature', stripeClass))
+    expect(drawn.map(colour => colour.toLowerCase())).toEqual(expected)
+    // 16 colours at most, whatever the record: a discrete scale
+    expect(new Set(drawn).size).toBeLessThanOrEqual(16)
+  })
+
+  it('draws the colours of the answer and not of the years the window shows', () => {
+    const { input: whole, option: wholeOption } = build()
+    // the stripes of 1990 to 2010 with the classes of the whole record: the window of the chart changes none of them
+    const { input, option } = build({ window: { start: 1989.5, end: 2010.5 } })
+    const drawnWhole = fills(draw(whole, wholeOption))
+    const drawnWindow = fills(draw(input, option))
+    expect(drawnWindow).toEqual(drawnWhole)
   })
 
   it('uses the scale of the kind', () => {
     const { input, option } = build({ kind: 'precipitation' })
-    expect(fills(draw(input, option))[0]!.replaceAll(' ', '')).toBe('rgb(84,48,5)')
+    const first = MODEL.classes[0]!
+    expect(fills(draw(input, option))[0]!.toLowerCase()).toBe(STRIPE_PALETTES.precipitation[first])
   })
 
   it('makes stripes that meet share an edge, in whole pixels', () => {
     const { input, option } = build()
     const svg = draw(input, option)
     // a stripe is a path that starts at its left edge and runs its width to the right
-    const rects = [...svg.matchAll(/<path d="M([\d.]+) [\d.]+l([\d.]+) 0l0 [\d.]+l-[\d.]+ 0Z" fill="rgb/g)].map(match => [Number(match[1]), Number(match[2])] as const)
+    const rects = [...svg.matchAll(/<path d="M([\d.]+) [\d.]+l([\d.]+) 0l0 [\d.]+l-[\d.]+ 0Z" fill="#(?!FFD700)[0-9a-fA-F]{6}"/g)].map(match => [Number(match[1]), Number(match[2])] as const)
     expect(rects.length).toBeGreaterThan(10)
     for (const [x, width] of rects) {
       expect(Number.isInteger(x)).toBe(true)
@@ -226,7 +236,10 @@ describe('the option', () => {
 
   describe('spans exactly the stripes of its run, from edge to edge (GH-4153)', () => {
     /** An answer with a value for each of `years` */
-    const modelOf = (years: number[]) => buildStripesModel(years.map(year => ({ timestamp: `${year}-01-01T00:00:00+00:00`, value: year % 7 })))!
+    const modelOf = (years: number[]) => {
+      const data = stripesAnswer(years.map(year => ({ year, value: year % 7 })))
+      return buildStripesModel(data.values, data.reference)!
+    }
     const SHAPES: Record<string, number[]> = {
       'a lone year at the start': [1944, 1946, 1947, 1948],
       'a lone year at the end': [1944, 1945, 1946, 1948],

@@ -1,7 +1,9 @@
 import type { Download, Locator, Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
+import { STRIPE_PALETTES } from '../../app/utils/stripes'
 import { STRIPES_MAX_HEIGHT, STRIPES_MIN_HEIGHT, STRIPES_RATIO } from '../../app/utils/stripes-option'
+import { stripesAnswer } from '../helpers/stripes-answer'
 import { mockBackend } from './accessibility/mock-backend'
 
 // The climate stripes (GH-4068): Apache ECharts, drawn as SVG. Their chrome takes the colours of the page (the title, the
@@ -73,7 +75,7 @@ async function paintOf(page: Page) {
     }
     const svg = chart.querySelector('.sc-canvas svg')!
     const texts = [...svg.querySelectorAll('text')].map(text => ({ text: text.textContent ?? '', fill: getComputedStyle(text).fill, size: Number.parseFloat(getComputedStyle(text).fontSize) }))
-    const stripes = [...svg.querySelectorAll('path')].map(path => path.getAttribute('fill') ?? '').filter(fill => fill.startsWith('rgb('))
+    const stripes = [...svg.querySelectorAll('path')].map(path => path.getAttribute('fill') ?? '').filter(fill => /^#[\da-f]{6}$/i.test(fill) && fill.toLowerCase() !== '#ffd700')
     return { behind: behind || rgb(getComputedStyle(document.body).backgroundColor).text, texts, stripes }
   })
 }
@@ -520,7 +522,7 @@ test('the readout stays inside the chart on a phone, and is closed by its button
 async function measureStripes(page: Page) {
   return page.locator('.sc-canvas svg').first().evaluate((svg) => {
     const boxes = [...svg.querySelectorAll('path')]
-      .filter(path => (path.getAttribute('fill') ?? '').startsWith('rgb('))
+      .filter(path => /^#[\da-f]{6}$/i.test(path.getAttribute('fill') ?? '') && (path.getAttribute('fill') ?? '').toLowerCase() !== '#ffd700')
       .map(path => path.getBoundingClientRect())
     const left = Math.min(...boxes.map(box => box.left))
     const right = Math.max(...boxes.map(box => box.right))
@@ -581,7 +583,7 @@ for (const [width, height] of [[390, 844], [1280, 900]] as const) {
     await mockBackend(page, baseURL!, {
       'stripes/values': () => ({
         series: { station: { station_id: '00011', name: 'Donaueschingen (Landeplatz)', region: 'Baden-Württemberg', latitude: 47.97, longitude: 8.52, elevation: 680, start_timestamp: '1944-01-01T00:00:00+00:00', end_timestamp: null }, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
-        values: years.map(year => ({ timestamp: `${year}-01-01T00:00:00+00:00`, value: Math.round((8 + (year - 1944) * 0.03 + 0.8 * Math.sin(year / 3)) * 100) / 100 })),
+        ...stripesAnswer(years.map(year => ({ year, value: Math.round((8 + (year - 1944) * 0.03 + 0.8 * Math.sin(year / 3)) * 100) / 100 }))),
       }),
     })
     await page.goto(`${PATH}&show_data_availability=true&show_source=true&show_years=true&show_title=true`)
@@ -595,7 +597,7 @@ for (const [width, height] of [[390, 844], [1280, 900]] as const) {
       const paths = [...svg.querySelectorAll('path')]
       const fill = (element: Element) => (element.getAttribute('fill') ?? '').replaceAll(' ', '').toLowerCase()
       return {
-        stripes: paths.filter(path => fill(path).startsWith('rgb(')).map(box),
+        stripes: paths.filter(path => /^#[\da-f]{6}$/.test(fill(path)) && fill(path) !== '#ffd700').map(box),
         gold: paths.filter(path => fill(path) === '#ffd700').map(box),
       }
     })
@@ -619,3 +621,35 @@ for (const [width, height] of [[390, 844], [1280, 900]] as const) {
     expect(Math.abs((lone.right - lone.left) - (stripe.right - stripe.left))).toBeLessThanOrEqual(2)
   })
 }
+
+// The colours follow Ed Hawkins' method (GH-4157): the classes the backend gives each year against the station's whole record,
+// 16 discrete colours from blue to red, with the page saying what they are relative to. The mock backend classes a warming
+// record of 1955 to 2024 as the real one does: the mean of 1971 to 2000 is the centre, and the
+// record has the 46 years of 1955 to 2000 of the 100 of 1901 to 2000 the standard deviation is calculated from (30 are needed).
+const TEMPERATURE_PALETTE = STRIPE_PALETTES.temperature
+for (const [width, height] of [[390, 844], [1280, 900]] as const) {
+  test(`the stripes are discrete colours of the backend's classes, from blue to red, in a ${width} px window`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height })
+    await showStripes(page, baseURL!)
+    const { stripes } = await paintOf(page)
+    const drawn = stripes.map(fill => fill.toLowerCase())
+    expect(drawn).toHaveLength(70)
+    // a discrete scale: only colours of the palette, never one mixed between two of them
+    expect(drawn.filter(fill => !TEMPERATURE_PALETTE.includes(fill))).toEqual([])
+    // the record warms: it starts in the blue half and ends in the red half
+    expect(TEMPERATURE_PALETTE.indexOf(drawn[0]!)).toBeLessThan(8)
+    expect(TEMPERATURE_PALETTE.indexOf(drawn.at(-1)!)).toBeGreaterThanOrEqual(8)
+    // and says what the colours are relative to, in view
+    await expect(page.getByTestId('stripes-reference')).toContainText('Colours: the mean of 1971–2000 is the centre of the scale, which spans ±2.6 standard deviations of 1955–2000')
+  })
+}
+
+test('the table of the years has each one\'s anomaly and class', async ({ page, baseURL }) => {
+  await showStripes(page, baseURL!)
+  await page.getByRole('button', { name: 'Show as table' }).click()
+  await expect(page.locator('table thead th')).toHaveText(['Year', 'Value (°C)', 'Anomaly (°C)', 'Class'])
+  const first = page.locator('table tbody tr').first()
+  await expect(first.locator('th')).toHaveText('1955')
+  // the first year is below the mean of 1971 to 2000
+  await expect(first.locator('td').nth(1)).toHaveText(/^-\d/)
+})

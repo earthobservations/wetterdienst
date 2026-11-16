@@ -11,7 +11,7 @@ import type { StripesKind } from '#shared/types/api'
 import type { ChartTheme } from './chart-theme'
 import type { StripesModel, YearRun, YearWindow } from './stripes-model'
 import { seriesLabelColor } from './chart-theme'
-import { COLOR_MAPS, stripeColour } from './stripes'
+import { stripeColour } from './stripes'
 import { availabilityRuns, MIN_SPAN_STRIPES, visibleYears } from './stripes-model'
 
 /** The font of the chart, on the page and in a saved image, which has no web font of the page's to draw with */
@@ -250,8 +250,8 @@ function availabilitySeries(model: StripesModel, layout: StripesLayout, base: Re
 export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption {
   const { model, kind, display, window: win } = input
   const layout = stripesLayout(display, input.width, input.height, input.titleLines.length)
-  const scale = COLOR_MAPS[kind]
-  const colours = model.normalized.map(position => stripeColour(scale, position))
+  // the classes the backend gives the years, against the station's whole record and not the years shown (GH-4157)
+  const colours = model.classes.map(stripeClass => stripeColour(kind, stripeClass))
   const bounds = { start: model.minYear - 0.5, end: model.maxYear + 0.5 }
   const base = { xAxisIndex: 0, yAxisIndex: 0, silent: true, animation: false, clip: true }
   const line = (id: string, data: (number | null)[][], style: Record<string, unknown>, z: number) => ({

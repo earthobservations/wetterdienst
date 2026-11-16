@@ -283,7 +283,7 @@ def test_the_stripes_image_tool_reports_the_licence_the_attribution_and_the_warn
     from wetterdienst.ui import core  # noqa: PLC0415
     from wetterdienst.util.response_warnings import warn_response  # noqa: PLC0415
 
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
     read = core._get_stripes_data  # noqa: SLF001
 
     def read_and_warn(request: object) -> object:

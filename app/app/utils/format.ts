@@ -47,6 +47,17 @@ export function formatNumber(value: number, locale: string, digits: number): str
   return numberFormat(locale, digits).format(value)
 }
 
+/**
+ * A number with its sign written out for a rise, as an anomaly is (`+0.8`): the minus of a fall is the language's own.
+ * A value that rounds to zero is written without one.
+ * @example
+ * formatSigned(0.84, 'en', 1) // '+0.8'
+ */
+export function formatSigned(value: number, locale: string, digits: number): string {
+  const text = formatNumber(value, locale, digits)
+  return value > 0 && /[1-9]/.test(text) ? `+${text}` : text
+}
+
 // A table of 240 rows of 13 numbers is 3,000 calls, and a formatter is dear to make (it was 17 ms of the Meteogram's mount):
 // one for each language and number of digits, and none that outlives the `Intl` that made it (a test swaps it)
 const numberFormats = new Map<string, Intl.NumberFormat>()

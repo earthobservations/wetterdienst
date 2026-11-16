@@ -13,8 +13,15 @@ import StationPicker from '~/components/StationPicker.vue'
 import StripesChart from '~/components/StripesChart.vue'
 import StripesPage from '~/pages/stripes.vue'
 import { SERIES_LABEL } from '~/utils/chart-theme'
+import { stripeColour } from '~/utils/stripes'
+import { stripesAnswer } from '../../helpers/stripes-answer'
 
 // the placeholder of the tool before a result (GH-3850), where the result card has nothing to show yet
+/** What the backend answers for these years: the values with their anomaly and class, and the reference they are relative to */
+function answerOf(items: Array<{ timestamp: string, value: number | null }>) {
+  return stripesAnswer(items.map(item => ({ year: new Date(item.timestamp).getUTCFullYear(), value: item.value })))
+}
+
 const PLACEHOLDER = 'Search for a station or pick one on the map, then click “Show” to create climate stripes'
 
 // Real Leaflet draws nothing in happy-dom. The LMap stub holds a stand-in Leaflet map, as LMap
@@ -172,7 +179,7 @@ describe('stripes Page', () => {
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/stripes/values', () => ({
       series: { station },
-      values: [{ timestamp: '2000-01-01T00:00:00+00:00', value: 9.5 }],
+      ...answerOf([{ timestamp: '2000-01-01T00:00:00+00:00', value: 9.5 }]),
     }))
 
     const wrapper = await mountSuspended(StripesPage, { attachTo: document.body })
@@ -288,7 +295,7 @@ function fillsOf(option: unknown) {
   chart.setOption(option)
   const svg = chart.renderToSVGString() as string
   chart.dispose()
-  return [...svg.matchAll(/<path d="M[^"]*" fill="(rgb\([^"]*\))"/g)].map(match => match[1]!)
+  return [...svg.matchAll(/<path d="M[^"]*" fill="(#(?!FFD700)[0-9a-fA-F]{6})"/g)].map(match => match[1]!.toLowerCase())
 }
 
 // the test's document has no layout: the chart is 800 px wide, its plot from 20 to 780 px
@@ -338,7 +345,7 @@ describe('stripes Page years', () => {
   // the page with the station chosen and Show clicked, whatever language its button is written in
   async function show(route: string) {
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({ series: { station }, values: TWO_YEARS }))
+    registerEndpoint('/api/stripes/values', () => ({ series: { station }, ...answerOf(TWO_YEARS) }))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
@@ -444,7 +451,7 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     // what a test left in the settings by the options it switched does not decide what is drawn
     const route = '/stripes?kind=precipitation&show_years=true&show_title=true&show_source=true&show_data_availability=true'
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({ series: { station }, values }))
+    registerEndpoint('/api/stripes/values', () => ({ series: { station }, ...answerOf(values) }))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
     }), { attachTo: document.body, route })
@@ -515,7 +522,7 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     })
     registerEndpoint('/api/stripes/values', async () => {
       await answered
-      return { series: { station }, values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }] }
+      return { series: { station }, ...answerOf([{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }]) }
     })
 
     await wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
@@ -668,10 +675,10 @@ describe('stripes Page units', () => {
       const fahrenheit = targets.temperature === 'degree_fahrenheit'
       return {
         series: { station, unit: targets.precipitation ?? targets.temperature ?? 'degree_celsius' },
-        values: [
+        ...answerOf([
           { timestamp: '2019-01-01T00:00:00+00:00', value: fahrenheit ? 9 * 1.8 + 32 : 9 },
           { timestamp: '2020-01-01T00:00:00+00:00', value: fahrenheit ? 11 * 1.8 + 32 : 11 },
-        ],
+        ]),
       }
     })
   }
@@ -726,7 +733,7 @@ describe('stripes Page units', () => {
     await vi.waitFor(() => expect(sentence()).toContain('Lowest value 9.00 °C in 2019, highest value 11.00 °C in 2020.'))
     expect(await tableHead()).toContain('Value (°C)')
     expect(await hoveredValue()).toBe('9.00 °C')
-    expect(colours()).toEqual(['rgb(5, 48, 97)', 'rgb(178, 24, 43)'])
+    expect(colours()).toEqual([5, 10].map(stripeClass => stripeColour('temperature', stripeClass)))
   })
 
   it('asks for degree Fahrenheit where the settings choose it, and says it everywhere it writes a number', async () => {
@@ -737,7 +744,7 @@ describe('stripes Page units', () => {
     expect(await tableHead()).toContain('Value (°F)')
     expect(await hoveredValue()).toBe('48.20 °F')
     // the colours are relative, the same as in degree Celsius
-    expect(colours()).toEqual(['rgb(5, 48, 97)', 'rgb(178, 24, 43)'])
+    expect(colours()).toEqual([5, 10].map(stripeClass => stripeColour('temperature', stripeClass)))
   })
 
   it('asks the precipitation stripes for the unit of precipitation', async () => {
@@ -800,10 +807,10 @@ describe('stripes Page values that could not be fetched', () => {
   const potsdam = { station_id: '3987', name: 'Potsdam', region: 'Brandenburg', latitude: 52.38, longitude: 13.06, start_timestamp: '1893-01-01', end_timestamp: '2020-01-01' }
   const values = (station: typeof tempelhof) => ({
     series: { station },
-    values: [
+    ...answerOf([
       { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
       { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
-    ],
+    ]),
   })
 
   // the chart area's note of the failed fetch
@@ -1077,7 +1084,7 @@ describe('stripes Page chart whose code a redeploy replaced', { timeout: 15_000 
     echarts.state.loadFails = true
     vi.spyOn(console, 'error').mockImplementation(() => {})
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({ series: { station }, values: TWO_YEARS }))
+    registerEndpoint('/api/stripes/values', () => ({ series: { station }, ...answerOf(TWO_YEARS) }))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation' })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
@@ -1212,7 +1219,7 @@ describe('stripes Page requests answered with a 503 once', () => {
 
   it('asks /api/stripes/values once more, and plots what that answer brings', async () => {
     endpoints.push(registerEndpoint('/api/stripes/stations', () => ({ stations: [station] })))
-    const { asked, handler } = flaky({ series: { station }, values: [{ timestamp: '2000-01-01T00:00:00+00:00', value: 9.5 }] })
+    const { asked, handler } = flaky({ series: { station }, ...answerOf([{ timestamp: '2000-01-01T00:00:00+00:00', value: 9.5 }]) })
     endpoints.push(registerEndpoint('/api/stripes/values', handler))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
@@ -1249,7 +1256,7 @@ describe('stripes Page chart after a Retry', { timeout: 15_000 }, () => {
       throw new Error('drawing failed')
     })
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({ series: { station }, values: TWO_YEARS }))
+    registerEndpoint('/api/stripes/values', () => ({ series: { station }, ...answerOf(TWO_YEARS) }))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
     }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
@@ -1310,7 +1317,7 @@ describe('stripes Page chart name', { timeout: 15_000 }, () => {
 
   it('names the stripes by their kind and station, as a figure', async () => {
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({ series: { station }, values: [{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }] }))
+    registerEndpoint('/api/stripes/values', () => ({ series: { station }, ...answerOf([{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }]) }))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
     }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
@@ -1372,12 +1379,12 @@ describe('stripes Page text alternative', () => {
     registerEndpoint('/api/stripes/values', () => ({
       metadata: {},
       series: { station, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
-      values: [
+      ...answerOf([
         { timestamp: '2018-01-01T00:00:00+00:00', value: 8 },
         { timestamp: '2019-01-01T00:00:00+00:00', value: 9.25 },
         { timestamp: '2020-01-01T00:00:00+00:00', value: null },
         { timestamp: '2021-01-01T00:00:00+00:00', value: 10 },
-      ],
+      ]),
     }))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route })
     const vm = wrapper.vm as any
@@ -1397,7 +1404,7 @@ describe('stripes Page text alternative', () => {
     await showStripes()
     const description = document.getElementById(figure().getAttribute('aria-describedby')!.split(' ')[0]!)
     expect(description?.textContent?.trim()).toBe(
-      'From 2018 to 2021. Lowest value 8.00 °C in 2018, highest value 10.00 °C in 2021. The values are in the table below the chart.',
+      'From 2018 to 2021. Lowest value 8.00 °C in 2018, highest value 10.00 °C in 2021. Colours: the mean of the whole record (2018–2021) is the centre of the scale, which spans ±2.6 standard deviations of the whole record (2018–2021) (Ed Hawkins\' method). The values are in the table below the chart.',
     )
   })
 
@@ -1416,14 +1423,15 @@ describe('stripes Page text alternative', () => {
     expect([...table.querySelectorAll('thead th')].map(th => [th.textContent?.trim(), th.getAttribute('scope')])).toEqual([
       ['Year', 'col'],
       ['Value (°C)', 'col'],
+      ['Anomaly (°C)', 'col'],
       ['Class', 'col'],
     ])
     // the year with no value is not drawn, so it is not listed; each year is the header of its row
     const rows = [...table.querySelectorAll('tbody tr')].map(row => [...row.children].map(cell => `${cell.tagName.toLowerCase()}:${cell.textContent?.trim()}`))
     expect(rows).toEqual([
-      ['th:2018', 'td:8.00', 'td:Much cooler'],
-      ['th:2019', 'td:9.25', 'td:Warmer'],
-      ['th:2021', 'td:10.00', 'td:Much warmer'],
+      ['th:2018', 'td:8.00', 'td:-1.08', 'td:Cooler'],
+      ['th:2019', 'td:9.25', 'td:+0.17', 'td:Middle'],
+      ['th:2021', 'td:10.00', 'td:+0.92', 'td:Warmer'],
     ])
     expect(table.querySelector('caption')?.textContent?.trim()).toBe(figure().getAttribute('aria-label'))
   })
@@ -1436,14 +1444,21 @@ describe('stripes Page text alternative', () => {
     expect(region.getAttribute('tabindex')).toBe('0')
     expect(region.getAttribute('aria-label')).toBe(figure().getAttribute('aria-label'))
     expect(region.contains(document.body.querySelector('table'))).toBe(true)
-    expect(document.body.textContent).toContain('Class: where the year lies between the coolest and the warmest year shown')
+    expect(document.body.textContent).toContain('Class: how far the year lies from the mean of the reference. The stripes have 16 colours, one for each 0.325 standard deviations')
   })
 
   it('names the classes of a precipitation series by wet and dry', async () => {
     await showStripes('/stripes?kind=precipitation')
     toggle()!.click()
     await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
-    expect([...document.body.querySelectorAll('tbody tr')].map(row => row.lastElementChild?.textContent?.trim())).toEqual(['Much drier', 'Wetter', 'Much wetter'])
+    expect([...document.body.querySelectorAll('tbody tr')].map(row => row.lastElementChild?.textContent?.trim())).toEqual(['Drier', 'Middle', 'Wetter'])
+  })
+
+  it('says what the colours are relative to under the chart, in view, and the whole record where the station has too few years', async () => {
+    await showStripes()
+    expect(document.body.querySelector('[data-testid="stripes-reference"]')?.textContent?.trim()).toBe(
+      'Colours: the mean of the whole record (2018–2021) is the centre of the scale, which spans ±2.6 standard deviations of the whole record (2018–2021) (Ed Hawkins\' method).',
+    )
   })
 
   it('has no table and no description once the stripes are cleared', async () => {
@@ -1480,7 +1495,7 @@ describe('stripes Page chart in the language of the page, and disposed of at its
   // what Show does, whatever language its button is written in
   async function showStripes(query = 'kind=temperature') {
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({ series: { station }, values: TWO_YEARS }))
+    registerEndpoint('/api/stripes/values', () => ({ series: { station }, ...answerOf(TWO_YEARS) }))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: `/stripes?${query}` })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
