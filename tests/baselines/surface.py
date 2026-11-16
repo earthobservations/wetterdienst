@@ -46,7 +46,7 @@ ACCEPTED_BREAKS: dict[str, str] = {
         "a private cache field that leaked into the constructor: the request sets it itself, no caller's argument"
     ),
     "requests.dwd/dmo: parameter _lead_time_asked was removed": (
-        "a private flag that leaked into the constructor: the request works it out from the lead time given"
+        "a private flag that leaked into the constructor: `lead_time` itself says whether one was given (None: no)"
     ),
 }
 
