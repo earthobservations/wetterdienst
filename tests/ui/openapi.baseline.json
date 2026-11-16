@@ -12,7 +12,7 @@
       "name": "MIT",
       "identifier": "MIT"
     },
-    "version": "0.189.0",
+    "version": "0.189.1",
     "x-api-version": "1"
   },
   "servers": [
@@ -10082,5 +10082,5 @@
       "description": "This instance: its version and limits, its settings, and its health."
     }
   ],
-  "x-release": "0.189.0"
+  "x-release": "0.189.1"
 }
