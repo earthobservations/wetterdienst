@@ -28,12 +28,13 @@ A page is no data format: the address, the columns and the notation of the table
 found by the name of their header (spelling and hyphenation of the header do not count) and not by position, and a page
 that has no header with the three names, no row, or no WMO number at all raises `StationslexikonLayoutError`, which
 names the address, rather than leave the column empty. The reader raises; `with_wmo_id` is what degrades (the stations
-come back with `wmo_id` null and a warning, see its docstring). The parsed table is kept in the process for the
-expiry of the cache, and a failure for a few minutes (`read_wmo_ids`).
+come back with `wmo_id` null and a warning, see its docstring). The parsed table is kept in the process for a
+day, and a failure to read it for a few minutes, a rate limit not at all (`read_wmo_ids`).
 """
 
 from __future__ import annotations
 
+import copy
 import logging
 import re
 import threading
@@ -93,6 +94,10 @@ _MEMORY_LOCK = threading.Lock()
 #: the clock the memory goes by, which a test replaces
 _clock = time.monotonic
 
+#: How long the process keeps the table it read: a day, on top of the week the cache keeps it. A table is therefore at
+#: most eight days old (the week of the cache, then a day in the process), not two weeks
+STATIONSLEXIKON_MEMORY = 86400.0
+
 
 class StationslexikonLayoutError(MetaFileFormatError):
     """The page of the Stationslexikon is not the table this module reads: its layout has changed or it is no table."""
@@ -100,7 +105,12 @@ class StationslexikonLayoutError(MetaFileFormatError):
     def __init__(self, reason: str) -> None:
         """Say what is wrong with the page, naming its address."""
         self.url = STATIONSLEXIKON_URL
+        self.reason = reason
         super().__init__(f"DWD's Stationslexikon at {STATIONSLEXIKON_URL} is not the table that was read: {reason}")
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the reason, so that the error is copied and pickled as it is and not worded twice."""
+        return type(self), (self.reason,)
 
 
 def _key(text: str) -> str:
@@ -201,14 +211,39 @@ def _read_wmo_ids(settings: Settings) -> pl.DataFrame:
         raise
 
 
+def _canonical(value: object) -> object:
+    """Write a settings value so that equal ones are equal as keys: mappings by sorted key, sequences as tuples."""
+    if isinstance(value, dict):
+        return tuple(sorted(((str(key), _canonical(item)) for key, item in value.items()), key=lambda pair: pair[0]))
+    if isinstance(value, (list, tuple, set, frozenset)):
+        return tuple(_canonical(item) for item in value)
+    return repr(value)
+
+
 def _memory_key(settings: Settings) -> tuple:
     """Name what a copy of the table depends on: the cache it comes from and how it was asked for."""
     return (
         str(settings.cache_dir),
         settings.cache_disable,
         settings.use_certifi,
-        repr(sorted((settings.fsspec_client_kwargs or {}).items(), key=lambda item: str(item[0]))),
+        _canonical(settings.fsspec_client_kwargs or {}),
     )
+
+
+def _fresh(error: Exception) -> Exception:
+    """Copy an error without the frames it was raised through, so that what is remembered holds none of a request."""
+    fresh = copy.copy(error).with_traceback(None)
+    fresh.__cause__ = error.__cause__
+    return fresh
+
+
+def _remember(key: tuple, kept_for: float, what: pl.DataFrame | Exception) -> None:
+    """Keep what was read for `kept_for` seconds, and drop what has run out, so that the memory does not grow."""
+    now = _clock()
+    with _MEMORY_LOCK:
+        for old in [old for old, (until, _) in _MEMORY.items() if until <= now]:
+            del _MEMORY[old]
+        _MEMORY[key] = (now + kept_for, what)
 
 
 def forget_wmo_ids() -> None:
@@ -221,14 +256,15 @@ def read_wmo_ids(settings: Settings) -> pl.DataFrame:
     """Read the Stationslexikon and give the WMO number of each station that has one.
 
     The table is 5.9 MB and a request reads the stations more than once (`history` twice, a filter and then a lookup),
-    each time parsing it for 0.2 s and, with the cache off, downloading it. So the process keeps what it read for the
-    expiry of the table (a week), for the cache and the settings it was read with, and keeps a failure for
+    each time parsing it for 0.2 s and, with the cache off, downloading it. So the process keeps what it read for
+    `STATIONSLEXIKON_MEMORY` (a day), for the cache and the settings it was read with, and keeps a failure for
     `STATIONSLEXIKON_FAILURE_MEMORY` seconds: a table that is down or no longer the table is asked for once in that
-    time, not by every request, which then raises the same error without asking.
+    time, not by every request, which then raises the same error, a new one each time, without asking. A rate limit is
+    not kept: the next request asks again, and the wait it carries is the provider's of that answer.
 
     Raises:
-        NoInternetError: no connection could be made. DownloadError: the server answered badly (a 429 is the
-            `ProviderRateLimitError`). StationslexikonLayoutError: what came is not the table; the copy of it is
+        NoInternetError: no connection could be made. DownloadError: the server answered badly.
+            ProviderRateLimitError: a 429. StationslexikonLayoutError: what came is not the table; the copy of it is
             dropped from the cache, so that the next call asks again rather than read the same page for a week.
 
     """
@@ -237,16 +273,16 @@ def read_wmo_ids(settings: Settings) -> pl.DataFrame:
         remembered = _MEMORY.get(key)
         if remembered is not None and _clock() < remembered[0]:
             if isinstance(remembered[1], Exception):
-                raise remembered[1]
+                raise _fresh(remembered[1])
             return remembered[1]
     try:
         wmo_ids = _read_wmo_ids(settings)
-    except (NoInternetError, DownloadError, StationslexikonLayoutError) as error:
-        with _MEMORY_LOCK:
-            _MEMORY[key] = (_clock() + STATIONSLEXIKON_FAILURE_MEMORY, error)
+    except ProviderRateLimitError:
         raise
-    with _MEMORY_LOCK:
-        _MEMORY[key] = (_clock() + float(STATIONSLEXIKON_EXPIRY.value), wmo_ids)
+    except (NoInternetError, DownloadError, StationslexikonLayoutError) as error:
+        _remember(key, STATIONSLEXIKON_FAILURE_MEMORY, _fresh(error))
+        raise
+    _remember(key, STATIONSLEXIKON_MEMORY, wmo_ids)
     return wmo_ids
 
 

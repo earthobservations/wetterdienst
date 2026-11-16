@@ -17,6 +17,9 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 import pytest
+from aiohttp import ClientResponseError, RequestInfo
+from multidict import CIMultiDict, CIMultiDictProxy
+from yarl import URL
 
 from tests.provider.dwd.observation.stationslexikon_rows import EXPECTED_WMO_IDS, HEADERS, ROWS, STATIONSLEXIKON, page
 from tests.provider.station_catalogue_stubs import _serve
@@ -337,20 +340,21 @@ def _counting_download(monkeypatch: pytest.MonkeyPatch, answers: list) -> list[s
         asked.append(str(kwargs["url"]))
         answer = answers[min(len(asked), len(answers)) - 1]
         content = answer if isinstance(answer, Exception) else BytesIO(answer)
-        return File(url=str(kwargs["url"]), content=content, status=200 if isinstance(answer, bytes) else 0)
+        status = 200 if isinstance(answer, bytes) else getattr(answer, "status", 0)
+        return File(url=str(kwargs["url"]), content=content, status=status)
 
     monkeypatch.setattr(stationslexikon, "download_file", download_file)
     return asked
 
 
-def test_the_table_is_read_once_for_the_expiry_of_the_cache(monkeypatch: pytest.MonkeyPatch, clock: _Clock) -> None:
-    """A second lookup reads nothing, whether the cache is on or off; after the week it reads the page again."""
+def test_the_table_is_read_once_for_a_day(monkeypatch: pytest.MonkeyPatch, clock: _Clock) -> None:
+    """A second lookup reads nothing, whether the cache is on or off; after the day it reads the page again."""
     asked = _counting_download(monkeypatch, [STATIONSLEXIKON])
     settings = Settings(cache_disable=True)
     assert _wmo_ids(read_wmo_ids(settings)) == EXPECTED_WMO_IDS
     assert _wmo_ids(read_wmo_ids(settings)) == EXPECTED_WMO_IDS
     assert len(asked) == 1
-    clock.now += CacheExpiry.ONE_WEEK.value - 1
+    clock.now += stationslexikon.STATIONSLEXIKON_MEMORY - 1
     read_wmo_ids(settings)
     assert len(asked) == 1
     clock.now += 2
@@ -440,3 +444,65 @@ def test_the_live_stationslexikon_gives_the_numbers_of_the_issue() -> None:
     assert all(len(station_id) == 5 and station_id.isdigit() for station_id in found)
     # an id of DWD's own is no WMO number: Donaueschingen, which `SY` and `MN` give `Q870`
     assert "00011" not in found
+
+
+def test_a_rate_limit_is_not_remembered(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 429 carries the wait of its answer: the next lookup asks again, and is not served a stale one for minutes."""
+    url = URL(STATIONSLEXIKON_URL)
+    info = RequestInfo(url, "GET", CIMultiDictProxy(CIMultiDict()), url)
+    limited = ClientResponseError(info, (), status=429, message="Too Many Requests")
+    asked = _counting_download(monkeypatch, [limited, limited, STATIONSLEXIKON])
+    settings = Settings(cache_disable=True)
+    for expected in (1, 2):
+        with pytest.raises(ProviderRateLimitError):
+            read_wmo_ids(settings)
+        assert len(asked) == expected
+    assert _wmo_ids(read_wmo_ids(settings)) == EXPECTED_WMO_IDS
+    assert len(asked) == 3
+
+
+def test_a_remembered_failure_is_a_new_error_that_holds_no_frames_of_the_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Each lookup raises its own error, with its own traceback: none grows, none is shared, none keeps a request."""
+    _counting_download(monkeypatch, [b"<html><body>Wartung</body></html>"])
+    monkeypatch.setattr(stationslexikon, "drop_cached_file", lambda *_args, **_kwargs: None)
+    settings = Settings(cache_disable=True)
+    raised: list[StationslexikonLayoutError] = []
+    for _ in range(50):
+        with pytest.raises(StationslexikonLayoutError) as caught:
+            read_wmo_ids(settings)
+        raised.append(caught.value)
+
+    def depth(error: BaseException) -> int:
+        frames, trace = 0, error.__traceback__
+        while trace is not None:
+            frames, trace = frames + 1, trace.tb_next
+        return frames
+
+    assert len({id(error) for error in raised}) == 50
+    assert depth(raised[0]) >= 1
+    # the lookups from the memory are one depth, the first read has the frames of the download besides
+    assert {depth(error) for error in raised[1:]} == {depth(raised[1])}
+    assert depth(raised[1]) <= depth(raised[0])
+    assert {str(error) for error in raised} == {str(raised[0])}
+    (remembered,) = [error for _until, error in stationslexikon._MEMORY.values()]  # noqa: SLF001
+    assert isinstance(remembered, Exception)
+    assert remembered.__traceback__ is None
+
+
+def test_the_memory_drops_what_has_run_out_and_keys_equal_settings_alike(
+    monkeypatch: pytest.MonkeyPatch, clock: _Clock, tmp_path: Path
+) -> None:
+    """Entries past their time go when another is stored, so the memory does not grow with the caches asked for."""
+    _counting_download(monkeypatch, [STATIONSLEXIKON])
+    for number in range(5):
+        read_wmo_ids(Settings(cache_dir=tmp_path / str(number), cache_disable=True))
+    assert len(stationslexikon._MEMORY) == 5  # noqa: SLF001
+    clock.now += stationslexikon.STATIONSLEXIKON_MEMORY + 1
+    read_wmo_ids(Settings(cache_dir=tmp_path / "later", cache_disable=True))
+    assert len(stationslexikon._MEMORY) == 1  # noqa: SLF001
+    one = {"a": {"y": 1, "x": [2, 3]}, "b": 2}
+    other = {"b": 2, "a": {"x": [2, 3], "y": 1}}
+    assert stationslexikon._canonical(one) == stationslexikon._canonical(other)  # noqa: SLF001
+    assert stationslexikon._canonical(one) != stationslexikon._canonical({**one, "b": 3})  # noqa: SLF001
