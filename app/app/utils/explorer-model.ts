@@ -13,6 +13,11 @@ export interface ExplorerSeries {
   /** the place of its colour in the palette (`seriesColour`) */
   colorIndex: number
   kind: 'values' | 'trend'
+  /**
+   * The resolution the answer gave the series' rows (`hourly`, `monthly`, ...), where they all have one: what a line is
+   * broken by where rows are missing (`gapRuleOf`). Absent for a trendline and where the rows' resolutions differ.
+   */
+  resolution?: string | null
   /** the moments in ms since the epoch, in order */
   x: number[]
   /** the value at each, `null` where there is none: a gap, which the line does not join */
@@ -266,6 +271,94 @@ export function readoutRows(series: readonly ExplorerSeries[], t: number): Reado
   return rows
 }
 
+// -- where rows are missing -----------------------------------------------------------------------------------------
+
+/** Whether the step between two consecutive moments (in ms) is a gap: a reading is missing there */
+export type GapRule = (previous: number, next: number) => boolean
+
+/** The ms between two readings of a resolution that has a fixed interval; `subdaily`, `monthly` and `annual` have none */
+const RESOLUTION_STEPS: Readonly<Record<string, number>> = {
+  '1_minute': 60_000,
+  '5_minutes': 300_000,
+  '6_minutes': 360_000,
+  '10_minutes': 600_000,
+  '15_minutes': 900_000,
+  'hourly': 3_600_000,
+  '6_hours': 21_600_000,
+  'daily': 86_400_000,
+}
+
+/** A step longer than this many times the usual one is a gap: it is two steps long where one reading is missing */
+const GAP_FACTOR = 1.5
+/** A step is the usual one within this share of it; where fewer than half the steps are, the series is irregular */
+const REGULAR_TOLERANCE = 0.1
+/** A thousand steps are enough to tell what is usual */
+const SAMPLE_STEPS = 1000
+
+/** The calendar month (UTC) a moment is in, counted from year 0 */
+function monthOf(ms: number): number {
+  const date = new Date(ms)
+  return date.getUTCFullYear() * 12 + date.getUTCMonth()
+}
+
+function computeGapRule(x: readonly number[], resolution: string | null | undefined): GapRule | null {
+  if (x.length < 2)
+    return null
+  const stride = Math.max(1, Math.floor((x.length - 1) / SAMPLE_STEPS))
+  // the calendar's months and years are not as long as each other: a month is missing where the next moment is two on
+  if (resolution === 'monthly' || resolution === 'annual') {
+    const unit = resolution === 'monthly' ? 1 : 12
+    let steps = 0
+    let usual = 0
+    for (let i = 1; i < x.length; i += stride) {
+      const months = monthOf(x[i]!) - monthOf(x[i - 1]!)
+      if (months <= 0)
+        continue
+      steps++
+      if (months === unit)
+        usual++
+    }
+    return steps && usual / steps >= 0.5 ? (previous, next) => monthOf(next) - monthOf(previous) > unit : null
+  }
+  const steps: number[] = []
+  for (let i = 1; i < x.length; i += stride) {
+    const step = x[i]! - x[i - 1]!
+    if (step > 0)
+      steps.push(step)
+  }
+  if (!steps.length)
+    return null
+  steps.sort((a, b) => a - b)
+  const median = steps[Math.floor(steps.length / 2)]!
+  // a station that reports less often than its resolution is held to what it does
+  const usual = Math.max(median, resolution ? RESOLUTION_STEPS[resolution] ?? 0 : 0)
+  const regular = steps.filter(step => Math.abs(step - usual) <= usual * REGULAR_TOLERANCE).length
+  if (regular / steps.length < 0.5)
+    return null
+  const limit = usual * GAP_FACTOR
+  return (previous, next) => next - previous > limit
+}
+
+const gapRules = new WeakMap<readonly number[], { resolution: string | null | undefined, rule: GapRule | null }>()
+
+/**
+ * Where a series has gaps: a step longer than one and a half times its usual spacing, which is a reading missing at the
+ * least (GH-4100). The usual spacing is a calendar month or year for `monthly` and `annual`, the resolution's interval where
+ * the answer names one (never less than the series' own median step), else the median step. A series where fewer than half
+ * the steps are the usual one (events, not readings) has no gaps, and nor has a trendline or one of a single moment. The
+ * steps are in UTC, so that a change of clocks is none. Kept for the series' moments, which a drag of the window does not change.
+ */
+export function gapRuleOf(series: Pick<ExplorerSeries, 'x'> & Partial<Pick<ExplorerSeries, 'kind' | 'resolution'>>): GapRule | null {
+  if (series.kind === 'trend')
+    return null
+  const kept = gapRules.get(series.x)
+  if (kept && kept.resolution === series.resolution)
+    return kept.rule
+  const rule = computeGapRule(series.x, series.resolution)
+  gapRules.set(series.x, { resolution: series.resolution, rule })
+  return rule
+}
+
 // -- what is drawn of a long series ---------------------------------------------------------------------------------
 
 /** A chart of this many points per px of its width and fewer is drawn as it is */
@@ -282,9 +375,11 @@ export interface DrawnPoints {
  * 700 px: each px column of it keeps its first and last point and its lowest and highest (min-max with the ends, the
  * "M4" of time series charts), so the peaks and the troughs a reader looks for are all still there, which a sampling
  * that picks the points that shape the line (`lttb`) does not promise. A gap is kept as one: a point without a value ends
- * the column before it and stays in the list, so the line is broken where the data is. A series that fits is not touched.
+ * the column before it and stays in the list, so the line is broken where the data is. So is a step that `gap` calls one,
+ * where rows are missing: a point without a value is put between the two moments, before the columns are made, so that no
+ * cutting down of the points joins what the data does not (GH-4100). A series that fits is otherwise not touched.
  */
-export function drawnPoints(series: Pick<ExplorerSeries, 'x' | 'y'>, win: ExplorerWindow, plotPx: number): DrawnPoints {
+export function drawnPoints(series: Pick<ExplorerSeries, 'x' | 'y'>, win: ExplorerWindow, plotPx: number, gap: GapRule | null = null): DrawnPoints {
   const { x, y } = series
   // the first point at or after the window's start, and the last at or before its end
   let low = 0
@@ -311,8 +406,21 @@ export function drawnPoints(series: Pick<ExplorerSeries, 'x' | 'y'>, win: Explor
   if (count <= 0)
     return { x: [], y: [] }
   const columns = Math.max(1, Math.round(plotPx))
-  if (count <= columns * POINTS_PER_PX)
-    return { x: x.slice(from, to + 1), y: y.slice(from, to + 1) }
+  if (count <= columns * POINTS_PER_PX) {
+    if (!gap)
+      return { x: x.slice(from, to + 1), y: y.slice(from, to + 1) }
+    const keptX: number[] = []
+    const keptY: (number | null)[] = []
+    for (let i = from; i <= to; i++) {
+      if (i > from && y[i] !== null && keptY[keptY.length - 1] !== null && gap(x[i - 1]!, x[i]!)) {
+        keptX.push(Math.round((x[i - 1]! + x[i]!) / 2))
+        keptY.push(null)
+      }
+      keptX.push(x[i]!)
+      keptY.push(y[i]!)
+    }
+    return { x: keptX, y: keptY }
+  }
 
   const outX: number[] = []
   const outY: (number | null)[] = []
@@ -336,6 +444,15 @@ export function drawnPoints(series: Pick<ExplorerSeries, 'x' | 'y'>, win: Explor
   }
   for (let i = from; i <= to; i++) {
     const value = y[i]
+    if (gap && i > from && value !== null && value !== undefined && gap(x[i - 1]!, x[i]!)) {
+      // the columns are cut at the gap, as at a missing value: nothing of one is joined to the next
+      flush()
+      if (outY.length > 0 && outY[outY.length - 1] !== null) {
+        outX.push(Math.round((x[i - 1]! + x[i]!) / 2))
+        outY.push(null)
+      }
+      column = -1
+    }
     if (value === null || value === undefined) {
       flush()
       // a run of missing values is one gap

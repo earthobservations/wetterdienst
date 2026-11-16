@@ -605,6 +605,38 @@ test('a gap in the data is a gap in the line', async ({ page, baseURL, context }
   await expect(page.getByTestId('explorer-announce')).toHaveText(/^Sep 13, 2026: /)
 })
 
+test('rows that are missing are a gap in the line: the hours and the days with no row at all (GH-4100)', async ({ page, baseURL, context }) => {
+  await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+  // eight days of hourly values as the API answers them with the default settings: a value that is missing is no row. The hours 30 to 35 of
+  // the third day and the whole of the fifth day are not in the answer
+  const first = Date.UTC(2026, 8, 1)
+  const missing = (hour: number) => (hour >= 30 && hour <= 35) || (hour >= 96 && hour < 120)
+  const sparse = (url: URL) => ({
+    values: Array.from({ length: 8 * 24 }, (_, hour) => hour).filter(hour => !missing(hour)).map(hour => ({
+      station_id: '00011',
+      resolution: 'hourly',
+      dataset: 'temperature_air',
+      parameter: (url.searchParams.get('parameters') ?? '').split(',')[0]!.split('/')[2],
+      timestamp: new Date(first + hour * 3_600_000).toISOString(),
+      value: 10 + 5 * Math.sin(hour / 6),
+      quality_flags: null,
+    })),
+  })
+  await showChart(page, baseURL!, '/explorer?provider=dwd&network=observation&resolution=hourly&dataset=temperature_air&parameters=temperature_air_mean_2m&mode=station&stations=00011', { values: sparse })
+  // the line of the series is three pieces: a move for each, where it was one line joining the hours either side of the gaps
+  const pieces = await chartSvg(page).evaluate((svg) => {
+    const line = [...svg.querySelectorAll('path')].filter(path => path.getAttribute('stroke') === '#3b82f6' && (path.getAttribute('d') ?? '').includes('L'))
+    return line.map(path => ((path.getAttribute('d') ?? '').match(/M/g) ?? []).length)
+  })
+  expect(Math.max(...pieces)).toBe(3)
+  // and the readout still has what the answer has, no more: the keys step over the hours that have no row
+  await page.locator('.xc-stage').focus()
+  // the first press is the first hour: the 31st is the 30th, which has no row, so it is the 36th hour, 12:00 on the 2nd
+  for (let i = 0; i < 31; i++)
+    await page.keyboard.press('ArrowRight')
+  await expect(page.getByTestId('explorer-announce')).toHaveText(/^Sep 2, 2026, 12:00/)
+})
+
 test.describe('a long series', () => {
   // ten years of hourly values of one station: 87,648 points, with a spike and a dip that a reader must still see
   const HOURS = 87_648

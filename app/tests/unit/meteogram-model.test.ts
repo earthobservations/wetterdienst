@@ -57,6 +57,25 @@ describe('what the chart draws', () => {
     expect(m.stamps).toHaveLength(161)
   })
 
+  it('breaks a line where the forecast has no values for more than 3 hours, and keeps the stamps, the readout and the 3-hourly steps as they are (GH-4100)', () => {
+    const whole = forecastValues()
+    const stamp = (value: { timestamp: string }) => new Date(value.timestamp).getTime()
+    const first = stamp(whole[0]!)
+    // the wind of the hours 20 to 25 is missing: a step of 6 hours between the hours 19 and 26
+    const values = whole.filter(value => !(value.parameter === 'wind_speed' && stamp(value) >= first + 20 * HOUR && stamp(value) <= first + 25 * HOUR))
+    const m = model({ values })
+    const wind = m.series.find(s => s.id === 'wind')!
+    expect(wind.data.filter(p => p[1] === null)).toHaveLength(1)
+    expect(wind.data.findIndex(p => p[1] === null)).toBe(20)
+    // the gust, whose hours are all there, and the 3-hourly steps after the fifth day, are not broken
+    expect(m.series.find(s => s.id === 'gust')!.data.some(p => p[1] === null)).toBe(false)
+    expect(wind.data.slice(-40).some(p => p[1] === null)).toBe(false)
+    // the readout has the same values as with the whole forecast, less those missing, and none for the hours of the gap
+    const readout = m.readout.find(s => s.id === 'wind')!
+    expect(readout.x).toHaveLength(wind.data.filter(p => p[1] !== null).length)
+    expect(readoutValue(readout, first + 22 * HOUR)).toBeNull()
+  })
+
   it('cuts the forecast at the horizon', () => {
     const m = model({ horizonHours: 24 })
     expect(m.maxTime - m.minTime).toBe(24 * HOUR)

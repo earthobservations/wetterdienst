@@ -18,6 +18,12 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer, Forecast]` A chart's line breaks where rows are missing, not only where a row has an
+  empty value: a step of more than 1.5 times the series' usual spacing (its resolution's interval, a
+  calendar month or year, or its median step; an irregular series is left whole) draws nothing across
+  the gap. Before, the default settings (no row for a missing value) joined the points on either
+  side of hours or days with no data. The readout, the table and the downloads are unchanged
+  (GH-4100).
 - `[Stripes]` The gold data-availability line spans exactly the stripes that have a value: each run
   of years from the left edge of its first stripe to the right edge of its last, and a year between
   two gaps gets a bar as wide as its stripe. It stopped half a stripe short at each end of a run
