@@ -20,9 +20,15 @@ export const TITLE_SIZE = 16
 export const TITLE_LINE = 20
 export const TITLE_PADDING = 10
 export const TITLE_DROP = 18
-/** The height of the chart on the page: with a title, and without */
-export const STRIPES_HEIGHT_TITLE = 600
-export const STRIPES_HEIGHT = 550
+/**
+ * The shape of the stripes (GH-4133): their width over their height, the one number that sets how tall they are. The
+ * height follows the width of the column, so the stripes keep their shape on a phone and on a wide screen; the title, the
+ * years, the availability line and the source are on top of it.
+ */
+export const STRIPES_RATIO = 2
+/** The least and the most the stripes are high on the page, in px: a narrow window keeps stripes that read as stripes, a wide one does not grow without end */
+export const STRIPES_MIN_HEIGHT = 160
+export const STRIPES_MAX_HEIGHT = 480
 /** The size of the camera's image and its pixel ratio, and the ratio of the menu's raster images */
 export const CAMERA_WIDTH = 1400
 export const CAMERA_SCALE = 2
@@ -38,8 +44,11 @@ export interface StripesDisplay {
   showTrendline: boolean
 }
 
-/** The range of the y axis where the availability line lies in the margin below the stripes, which run from 0 to 1 */
-const Y_RANGE_WITH_AVAILABILITY = [-0.05, 1.05]
+/**
+ * The room above and below the stripes where the availability line lies, in px, so that the title keeps its distance to them
+ * and the years theirs on a small chart too (it was 5 % of the plot's height, which is 22 px at the chart's old height of 600 px)
+ */
+const AVAILABILITY_MARGIN = 20
 
 /** The gold of the availability line, which is data and the same in both schemes */
 const GOLD = '#FFD700'
@@ -65,8 +74,10 @@ export interface StripesOptionInput {
 /** Where everything is, in px from the chart's top left */
 export interface StripesLayout {
   plot: { left: number, top: number, width: number, height: number }
-  /** where the stripes are in the plot's height: with the availability line the plot reaches a little above and below them */
+  /** where the stripes are in the plot's height: with the availability line the plot reaches a margin above and below them */
   stripes: { top: number, height: number }
+  /** the range of the plot's y axis, in which the stripes run from 0 to 1 */
+  yRange: [number, number]
   /** the first line of the title, and each one after it */
   titleTop: number
   yearsTop: number
@@ -74,8 +85,8 @@ export interface StripesLayout {
   sourceTop: number
 }
 
-/** The room the years and the source take below the stripes, and the margins round them, as the chart has always had them */
-export function stripesLayout(display: StripesDisplay, width: number, height: number, titleLineCount: number): StripesLayout {
+/** The margins round the plot, in px: above it the title, below it the years and the source, as the chart has always had them */
+function plotMargins(display: StripesDisplay, titleLineCount: number) {
   const lines = Math.max(1, titleLineCount)
   const titleDrop = lines > 1 ? TITLE_DROP : 0
   const top = display.showTitle ? 30 + (lines - 1) * TITLE_LINE + titleDrop : 20
@@ -83,14 +94,39 @@ export function stripesLayout(display: StripesDisplay, width: number, height: nu
   // (18 px type) from 20 px down, the source under them (14 px type, in a margin of a line of 20 px)
   const sourceOffset = display.showYears ? 48 : 28
   const bottom = display.showSource ? Math.max(60, sourceOffset + 32) : 60
+  return { top, bottom, sourceOffset, lines, titleDrop }
+}
+
+/** The margin above and below the stripes in the plot: where the availability line lies, none without it */
+function stripesMargin(display: StripesDisplay): number {
+  return display.showDataAvailability ? AVAILABILITY_MARGIN : 0
+}
+
+/**
+ * How high the chart is for a width: the stripes are as high as they are wide (the plot's width) over `STRIPES_RATIO`, and
+ * the title, the years, the availability line and the source are on top of that. On the page the stripes are kept between
+ * `STRIPES_MIN_HEIGHT` and `STRIPES_MAX_HEIGHT`; a saved image is not (`clamp: false`), so that it has the ratio of the
+ * stripes at any width. Whole px, so that the chart's box and its drawing agree.
+ */
+export function stripesChartHeight(display: StripesDisplay, width: number, titleLineCount: number, options: { clamp?: boolean } = {}): number {
+  const { top, bottom } = plotMargins(display, titleLineCount)
+  const natural = Math.max(1, width - 40) / STRIPES_RATIO
+  const stripes = options.clamp === false ? natural : Math.min(STRIPES_MAX_HEIGHT, Math.max(STRIPES_MIN_HEIGHT, natural))
+  return Math.round(top + stripes + 2 * stripesMargin(display) + bottom)
+}
+
+/** The room the years and the source take below the stripes, and the margins round them */
+export function stripesLayout(display: StripesDisplay, width: number, height: number, titleLineCount: number): StripesLayout {
+  const { top, bottom, sourceOffset, lines, titleDrop } = plotMargins(display, titleLineCount)
   const plot = { left: 20, top, width: Math.max(1, width - 40), height: Math.max(1, height - top - bottom) }
-  const range = display.showDataAvailability ? Y_RANGE_WITH_AVAILABILITY : [0, 1]
-  const span = range[1]! - range[0]!
-  const stripes = { top: plot.top + ((range[1]! - 1) / span) * plot.height, height: (1 / span) * plot.height }
+  const margin = Math.min(stripesMargin(display), (plot.height - 1) / 2)
+  const stripes = { top: plot.top + margin, height: plot.height - 2 * margin }
+  const yRange: [number, number] = [0 - margin / stripes.height, 1 + margin / stripes.height]
   const titleTop = lines > 1 ? 24 + titleDrop : (display.showDataAvailability ? 24 : 6)
   return {
     plot,
     stripes,
+    yRange,
     titleTop,
     yearsTop: plot.top + plot.height + 20,
     availabilityBottom: plot.top + plot.height + 14,
@@ -219,7 +255,7 @@ export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption
     grid: [{ left: layout.plot.left, top: layout.plot.top, width: layout.plot.width, height: layout.plot.height, show: false }],
     xAxis: [{ type: 'value', gridIndex: 0, min: bounds.start, max: bounds.end, show: false }],
     // the stripes run from 0 to 1; the availability line lies in the margin below them
-    yAxis: [{ type: 'value', gridIndex: 0, min: display.showDataAvailability ? Y_RANGE_WITH_AVAILABILITY[0] : 0, max: display.showDataAvailability ? Y_RANGE_WITH_AVAILABILITY[1] : 1, show: false }],
+    yAxis: [{ type: 'value', gridIndex: 0, min: layout.yRange[0], max: layout.yRange[1], show: false }],
     dataZoom: [{
       id: 'zoom',
       type: 'inside',

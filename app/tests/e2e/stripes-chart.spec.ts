@@ -1,6 +1,7 @@
 import type { Download, Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { expect, test } from '@playwright/test'
+import { STRIPES_MAX_HEIGHT, STRIPES_MIN_HEIGHT, STRIPES_RATIO } from '../../app/utils/stripes-option'
 import { mockBackend } from './accessibility/mock-backend'
 
 // The climate stripes (GH-4068): Apache ECharts, drawn as SVG. Their chrome takes the colours of the page (the title, the
@@ -190,7 +191,7 @@ test.describe('a saved stripes chart', () => {
     return saved
   }
 
-  test('is the light one and the size of the chart on the page times three, from the menu', async ({ page, baseURL }) => {
+  test('is the light one and the size of the chart on the page times three, from the menu (the height the page gives it, GH-4133)', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!)
     const shown = (await page.locator('.sc-canvas').boundingBox())!
     for (const [item, extension] of [['Download as PNG', 'png'], ['Download as JPG', 'jpeg']] as const) {
@@ -199,7 +200,7 @@ test.describe('a saved stripes chart', () => {
       const image = await imageOf(page, download)
       expect(luminance(image.corner), `the saved image is light (its corner is ${image.corner})`).toBeGreaterThan(0.9)
       expect(image.width).toBe(Math.round(shown.width) * 3)
-      expect(image.height).toBe(600 * 3)
+      expect(image.height).toBe(Math.round(shown.height) * 3)
       // the chart on the page is as dark as it was
       await expect(canvas(page)).toHaveAttribute('data-chart-scheme', 'dark')
     }
@@ -207,10 +208,11 @@ test.describe('a saved stripes chart', () => {
 
   test('is a vector of the size of the chart from the menu, with the light chart\'s colours', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!)
+    const shown = (await page.locator('.sc-canvas').boundingBox())!
     const download = await menu(page, 'Download as SVG')
     expect(download.suggestedFilename()).toMatch(/^climate_stripes_temperature_00011_.+\.svg$/)
     const svg = readFileSync((await download.path())!, 'utf8')
-    expect(svg).toMatch(/<svg width="\d+" height="600"/)
+    expect(svg).toMatch(new RegExp(`<svg width="\\d+" height="${Math.round(shown.height)}"`))
     expect(svg).toContain('Climate stripes')
     // on the light paper: the first thing the vector draws is a rect that is neither empty nor transparent, and it is light
     const paper = /^<svg[^>]*>\s*<rect[^>]*fill="([^"]*)"/.exec(svg)?.[1]
@@ -221,7 +223,7 @@ test.describe('a saved stripes chart', () => {
     expect(svg).not.toContain(dark.replaceAll(' ', ''))
   })
 
-  test('is 2800 by 1400 px, and light, from the camera of the toolbar, named for the station', async ({ page, baseURL }) => {
+  test('is 2800 by 1660 px (the stripes 2:1 at 1400 px wide) and light, from the camera of the toolbar, named for the station', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!)
     const saved = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download plot as a PNG' }).click()
@@ -229,16 +231,16 @@ test.describe('a saved stripes chart', () => {
     expect(download.suggestedFilename()).toBe('climate_stripes_temperature_00011.png')
     const image = await imageOf(page, download)
     expect(luminance(image.corner)).toBeGreaterThan(0.9)
-    expect([image.width, image.height]).toEqual([2800, 1400])
+    expect([image.width, image.height]).toEqual([2800, 1660])
     await expect(canvas(page)).toHaveAttribute('data-chart-scheme', 'dark')
   })
 
-  test('is 1400 by 600 times two without a title', async ({ page, baseURL }) => {
+  test('is 1400 by 820 times two without a title, the stripes keeping their height', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!, `${PATH}&show_title=false`)
     const saved = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download plot as a PNG' }).click()
     const image = await imageOf(page, await saved)
-    expect([image.width, image.height]).toEqual([2800, 1200])
+    expect([image.width, image.height]).toEqual([2800, 1640])
   })
 
   test('is the range the chart is zoomed to', async ({ page, baseURL }) => {
@@ -433,4 +435,52 @@ test('the readout stays inside the chart on a phone, and is closed by its button
   expect(readoutBox.y + readoutBox.height).toBeLessThanOrEqual(box.y + box.height)
   await readout.getByRole('button', { name: 'Close the values' }).click()
   await expect(readout).toHaveCount(0)
+})
+
+// The stripes keep their shape (GH-4133): as high as they are wide over the ratio, between a least and a most, whatever the
+// window is, so that on a phone the chart, its years and its availability line are in the first screen and not a tall narrow
+// block, and on a wide screen it is no flat band. Measured on the drawn stripes (their paths), not on the chart's box, which has
+// the title and the years on top of them.
+for (const [width, height] of [[320, 700], [390, 844], [768, 900], [1280, 900], [1600, 900]] as const) {
+  test(`the stripes are as high as they are wide over ${STRIPES_RATIO}, in a ${width} px window`, async ({ page, baseURL }) => {
+    await page.setViewportSize({ width, height })
+    await showStripes(page, baseURL!)
+    const measured = await page.locator('.sc-canvas svg').first().evaluate((svg) => {
+      const boxes = [...svg.querySelectorAll('path')]
+        .filter(path => (path.getAttribute('fill') ?? '').startsWith('rgb('))
+        .map(path => path.getBoundingClientRect())
+      const left = Math.min(...boxes.map(box => box.left))
+      const right = Math.max(...boxes.map(box => box.right))
+      const top = Math.min(...boxes.map(box => box.top))
+      const bottom = Math.max(...boxes.map(box => box.bottom))
+      return { stripes: { width: right - left, height: bottom - top }, chart: svg.getBoundingClientRect().toJSON() }
+    })
+    const expected = Math.min(STRIPES_MAX_HEIGHT, Math.max(STRIPES_MIN_HEIGHT, (measured.chart.width - 40) / STRIPES_RATIO))
+    // the stripes span the plot, which is the chart's width less its 20 px at either side
+    expect(measured.stripes.width).toBeGreaterThan(measured.chart.width - 40 - 3)
+    expect(measured.stripes.width).toBeLessThan(measured.chart.width - 40 + 3)
+    expect(measured.stripes.height, `the stripes' height at ${width} px, of a chart ${measured.chart.width} px wide`).toBeGreaterThan(expected - 3)
+    expect(measured.stripes.height).toBeLessThan(expected + 3)
+    // and not the 600 px (550) block of before, at any width
+    expect(measured.chart.height).not.toBe(600)
+    if (width <= 390) {
+      // the whole chart, its years and its availability line, fits a screen of a phone with room to spare for the page's own bar
+      // (the form is above it, so it is scrolled to): no tall block that the screen cannot hold
+      expect(measured.chart.height, 'the chart is lower than the screen').toBeLessThanOrEqual(height - 200)
+    }
+  })
+}
+
+test('the stripes follow a change of the window: lower in a narrower one, held to the least in the narrowest', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 1280, height: 900 })
+  await showStripes(page, baseURL!)
+  const heightOf = async () => (await page.locator('.sc-canvas').first().boundingBox())!.height
+  const wide = await heightOf()
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect.poll(heightOf).toBeLessThan(wide - 100)
+  const phone = await heightOf()
+  await page.setViewportSize({ width: 320, height: 700 })
+  await expect.poll(heightOf).toBeLessThanOrEqual(phone)
+  // the least the stripes are high is held, so that they are stripes still: the chart is that and the title, years and source more
+  expect(await heightOf()).toBeGreaterThan(STRIPES_MIN_HEIGHT)
 })
