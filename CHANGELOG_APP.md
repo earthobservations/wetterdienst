@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer, Stripes, Forecast]` A chart's toolbar button that becomes unavailable while it has the
+  keyboard focus (Space on Reset zoom, Enter on Zoom in at its limit, Earlier or Later at an edge)
+  keeps the focus instead of dropping it to the top of the page. It is `aria-disabled`, looks as
+  before, and does nothing when pressed (GH-4101).
 - `[Forecast]` The chart's axis titles stand next to the tick labels of their own panel, and the
   labels are measured by the ticks they draw and by the width of each character, so the plot
   gets 12 px more width (240 px instead of 228 on a 390 px phone, in German). The bottom label of

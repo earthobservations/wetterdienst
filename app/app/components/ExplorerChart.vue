@@ -669,25 +669,25 @@ const selectionStyle = computed(() => {
     <!-- the single-pointer ways to what a drag, a pinch and the keys do (WCAG 2.5.7), named by what they do -->
     <!-- inert while the chart could not be drawn: nothing to zoom, read or save of an empty chart -->
     <div ref="toolbarEl" class="xc-toolbar" role="group" :aria-label="t('dataViewer.chart.zoomGroup')" :inert="renderFailed || undefined">
-      <UButton
-        icon="i-ph-caret-left" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('dataViewer.chart.earlier')" :aria-label="t('dataViewer.chart.earlier')" :disabled="atStart" @click="shift(-0.5)"
+      <ChartToolButton
+        icon="i-ph-caret-left"
+        :title="t('dataViewer.chart.earlier')" :aria-label="t('dataViewer.chart.earlier')" :unavailable="atStart" @click="shift(-0.5)"
       />
-      <UButton
-        icon="i-ph-caret-right" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('dataViewer.chart.later')" :aria-label="t('dataViewer.chart.later')" :disabled="atEnd" @click="shift(0.5)"
+      <ChartToolButton
+        icon="i-ph-caret-right"
+        :title="t('dataViewer.chart.later')" :aria-label="t('dataViewer.chart.later')" :unavailable="atEnd" @click="shift(0.5)"
       />
-      <UButton
-        icon="i-ph-magnifying-glass-minus" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('dataViewer.chart.zoomOut')" :aria-label="t('dataViewer.chart.zoomOut')" :disabled="atMinZoom" @click="zoomOut()"
+      <ChartToolButton
+        icon="i-ph-magnifying-glass-minus"
+        :title="t('dataViewer.chart.zoomOut')" :aria-label="t('dataViewer.chart.zoomOut')" :unavailable="atMinZoom" @click="zoomOut()"
       />
-      <UButton
-        icon="i-ph-magnifying-glass-plus" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('dataViewer.chart.zoomIn')" :aria-label="t('dataViewer.chart.zoomIn')" :disabled="atMaxZoom" @click="zoomIn()"
+      <ChartToolButton
+        icon="i-ph-magnifying-glass-plus"
+        :title="t('dataViewer.chart.zoomIn')" :aria-label="t('dataViewer.chart.zoomIn')" :unavailable="atMaxZoom" @click="zoomIn()"
       />
-      <UButton
-        icon="i-ph-arrow-counter-clockwise" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('dataViewer.chart.resetZoom')" :aria-label="t('dataViewer.chart.resetZoom')" :disabled="atMinZoom" @click="resetZoom()"
+      <ChartToolButton
+        icon="i-ph-arrow-counter-clockwise"
+        :title="t('dataViewer.chart.resetZoom')" :aria-label="t('dataViewer.chart.resetZoom')" :unavailable="atMinZoom" @click="resetZoom()"
       />
       <UButton
         icon="i-ph-camera" size="sm" variant="outline" color="neutral" class="shrink-0"

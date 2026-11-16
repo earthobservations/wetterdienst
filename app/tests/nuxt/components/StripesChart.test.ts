@@ -116,6 +116,8 @@ function key(name: string, init: KeyboardEventInit = {}) {
 }
 const rows = () => [...readout()!.querySelectorAll('dt')].map((dt, i) => [dt.textContent!.trim(), readout()!.querySelectorAll('dd')[i]!.textContent!.trim()])
 const buttonNamed = (name: string) => document.body.querySelector<HTMLButtonElement>(`.sc-toolbar button[aria-label="${name}"]`)!
+/** Off: `aria-disabled`, never `disabled`, which would drop the focus of a button that turns off while it has it (WCAG 2.4.3, GH-4101) */
+const isOff = (name: string) => buttonNamed(name).getAttribute('aria-disabled') === 'true'
 
 beforeEach(() => {
   echarts.chart.on.mockClear()
@@ -327,7 +329,7 @@ describe('the readout', () => {
     expect(document.body.querySelector('.sc-selection')).toBeNull()
     stage().dispatchEvent(pointer('pointerup', { clientX: xOfYear(1980), clientY: 520 }))
     await nextTick()
-    expect(buttonNamed('Reset zoom').disabled).toBe(true)
+    expect(isOff('Reset zoom')).toBe(true)
   })
 
   it('has none for a year without a value, or the margin', async () => {
@@ -522,14 +524,14 @@ describe('the zoom', () => {
   it('has the buttons of what a drag and the keys do, which are off where they would do nothing', async () => {
     await showChart()
     expect(document.body.querySelector('.sc-toolbar')!.getAttribute('role')).toBe('group')
-    expect(buttonNamed('Zoom out').disabled).toBe(true)
-    expect(buttonNamed('Reset zoom').disabled).toBe(true)
-    expect(buttonNamed('Earlier years').disabled).toBe(true)
-    expect(buttonNamed('Later years').disabled).toBe(true)
+    expect(isOff('Zoom out')).toBe(true)
+    expect(isOff('Reset zoom')).toBe(true)
+    expect(isOff('Earlier years')).toBe(true)
+    expect(isOff('Later years')).toBe(true)
     buttonNamed('Zoom in').click()
     await nextTick()
-    expect(buttonNamed('Zoom out').disabled).toBe(false)
-    expect(buttonNamed('Later years').disabled).toBe(false)
+    expect(isOff('Zoom out')).toBe(false)
+    expect(isOff('Later years')).toBe(false)
     buttonNamed('Later years').click()
     await nextTick()
     expect(lastZoom().end).toBeCloseTo(2024.5)
@@ -581,6 +583,46 @@ describe('the zoom', () => {
     expect(echarts.chart.setOption.mock.calls.length).toBe(calls)
   })
 
+  it('swallows the press of an unavailable button: Reset zoom pressed at the whole chart does not bring a dismissed readout back (GH-4101)', async () => {
+    await showChart()
+    movePointerTo(xOfYear(2010))
+    await nextTick()
+    expect(readout()).not.toBeNull()
+    // dismissed by Escape (WCAG 1.4.13): what a reset of the zoom would undo, as it shows the readout again
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await nextTick()
+    expect(readout()).toBeNull()
+    expect(isOff('Reset zoom')).toBe(true)
+    buttonNamed('Reset zoom').click()
+    await nextTick()
+    expect(readout()).toBeNull()
+  })
+
+  it('keeps a button that turns off in the tab order with the focus, and does nothing when it is pressed (WCAG 2.4.3, GH-4101)', async () => {
+    await showChart()
+    buttonNamed('Zoom in').click()
+    await nextTick()
+    const reset = buttonNamed('Reset zoom')
+    expect(isOff('Reset zoom')).toBe(false)
+    reset.focus()
+    reset.click()
+    await nextTick()
+    // off, and still a button that can have the focus: a `disabled` one would hand it to the page
+    expect(isOff('Reset zoom')).toBe(true)
+    expect(reset.disabled).toBe(false)
+    expect(reset.tabIndex).toBeGreaterThanOrEqual(0)
+    expect(document.activeElement).toBe(reset)
+    // pressed again, it does nothing: the whole chart stays, and Zoom out (off too) does nothing either
+    const calls = echarts.chart.setOption.mock.calls.length
+    reset.click()
+    buttonNamed('Zoom out').click()
+    buttonNamed('Earlier years').click()
+    await nextTick()
+    expect(echarts.chart.setOption.mock.calls.length).toBe(calls)
+    expect(isOff('Reset zoom')).toBe(true)
+    expect(document.activeElement).toBe(reset)
+  })
+
   it('keeps the zoom where the colours or the language change, and starts over for other years', async () => {
     const shown = await showChart()
     buttonNamed('Zoom in').click()
@@ -588,11 +630,11 @@ describe('the zoom', () => {
     const zoomed = lastZoom()
     await shown.setProps({ unit: '°F' })
     await nextTick()
-    expect(buttonNamed('Reset zoom').disabled).toBe(false)
+    expect(isOff('Reset zoom')).toBe(false)
     expect(lastZoom()).toMatchObject({ start: zoomed.start, end: zoomed.end })
     await shown.setProps({ values: VALUES.filter(item => !item.timestamp.startsWith('1950')) })
     await nextTick()
-    expect(buttonNamed('Reset zoom').disabled).toBe(true)
+    expect(isOff('Reset zoom')).toBe(true)
   })
 })
 
