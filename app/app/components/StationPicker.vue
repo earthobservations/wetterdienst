@@ -1,9 +1,11 @@
 <script setup lang="ts" generic="S extends StationPickerStation">
 import type { Point } from '~/utils/map-tool'
 // The one way to pick stations, for the explorer, the history, the forecast and the stripes (GH-3877): a toggle
-// "List | Map" over the one place where the choice is made, and the stations picked as chips under it, in both
-// modes, so that a switch never hides what was chosen. The list is the search field, the map is the map of the
-// stations. A station picked in one shows in the other: both read the same `selected`.
+// "List | Map" over the one place where the choice is made, and the stations picked under it, so that a switch never
+// hides what was chosen: for several stations as chips (each takes its station out), in both modes; for one station
+// (the forecast, the stripes) the search shows it, so it is told once more only on the map, in one line, where there is
+// no search (GH-4151). The list is the search field, the map is the map of the stations. A station picked in one
+// shows in the other: both read the same `selected`.
 //
 // The picker holds no list of its own and fetches nothing: the caller hands it the stations, and learns by
 // `update:open` (the search is open) and `update:mode` (the map is shown, which is also said once for the mode
@@ -358,12 +360,13 @@ async function clearAll() {
       {{ t('stationSelection.noneFound') }}
     </p>
 
-    <div v-if="selected.length > 0" data-testid="station-picker-chips">
+    <!-- several stations: the chips, in both modes, each to take one out -->
+    <div v-if="multiple && selected.length > 0" data-testid="station-picker-chips">
       <div class="flex items-center justify-between mb-2">
         <h3 class="text-sm font-medium">
-          {{ multiple ? t('stationSelection.selectedStations') : t('stationSelection.selectedStation') }}
+          {{ t('stationSelection.selectedStations') }}
         </h3>
-        <UButton v-if="multiple" size="xs" color="neutral" variant="ghost" @click="clearAll">
+        <UButton size="xs" color="neutral" variant="ghost" @click="clearAll">
           {{ t('stationSelection.clearAll') }}
         </UButton>
       </div>
@@ -384,6 +387,11 @@ async function clearAll() {
         </li>
       </ul>
     </div>
+    <!-- one station: the search shows it, so it is told once, by one line, only where there is no search: on the map -->
+    <p v-else-if="!multiple && mode === 'map' && selected[0]" class="text-sm break-words" data-testid="station-picker-selected" data-print="hide">
+      <span class="font-medium">{{ t('stationSelection.selectedStation') }}</span>
+      {{ stationShortLabel(selected[0]) }}
+    </p>
 
     <!-- what a change of mode says to a screen reader -->
     <p class="sr-only" role="status" aria-live="polite">
