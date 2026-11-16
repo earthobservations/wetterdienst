@@ -67,8 +67,12 @@ def test_every_entry_of_the_snapshot_belongs_to_a_test_that_exists(snapshot: dic
     """A test that is renamed or removed leaves its entry behind, and the entry would hold nothing to account.
 
     The file and the name of the function are looked up, which is what a rename or a removal changes; the parameters
-    of a test are not, so `uv run poe frames:snapshot` is what drops the entry of a case that is gone.
+    of a test are not, so `uv run poe frames:snapshot` is what drops the entry of a case that is gone. A write run
+    stands aside: it writes the entries of the tests it ran and no others (`pytest_sessionfinish` in `conftest.py`),
+    so the entries of tests that are gone are dropped by the very run this check would block (GH-4118).
     """
+    if frames.writing():
+        pytest.skip("a write run regenerates the snapshot from the tests that exist, without the entries of gone ones")
     gone = []
     for nodeid in sorted(set(snapshot["values"]) | set(snapshot["stations"])):
         path, _, name = nodeid.partition("::")
