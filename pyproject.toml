@@ -542,3 +542,9 @@ omit = [
 # Cooldown: ignore releases younger than this, so freshly published (and possibly
 # yanked or broken) versions never enter the lockfile.
 exclude-newer = "3 days"
+
+# The docs build needs Python 3.11.5 or later: every soupsieve release that fixes its advisories
+# (GHSA-7g44-g9rc-x53w, GHSA-6655-6qjp-jx7x, GHSA-mmhr-3c5m-f64f) does, and the package itself
+# stays on `>=3.11` (GH-4130)
+[tool.uv.dependency-groups]
+docs = { requires-python = ">=3.11.5" }
