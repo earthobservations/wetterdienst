@@ -618,7 +618,7 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     await vi.waitFor(() => expect(draws()).toBe(before + 1))
     expect(canvas().dataset.chartScheme).toBe('dark')
     // the zoom is the chart's own state: a reset is still there to go back from
-    expect(zoomButton('Reset zoom').disabled).toBe(false)
+    expect(zoomButton('Reset zoom').getAttribute('aria-disabled')).not.toBe('true')
     expect(drawnOption().dataZoom[0].endValue - drawnOption().dataZoom[0].startValue).toBeLessThan(20)
   })
 

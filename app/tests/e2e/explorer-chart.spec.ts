@@ -516,6 +516,30 @@ test.describe('a toolbar button that turns off while it has the focus', () => {
     expect(await windowOf(page)).toBe(whole)
   })
 
+  test('an unavailable Reset zoom does nothing when it is pressed: a readout dismissed by Escape stays closed', async ({ page, baseURL }) => {
+    await showChart(page, baseURL!)
+    const readout = page.getByTestId('explorer-readout')
+    // the pointer's readout: one the keyboard put there goes when the focus leaves the chart, the pointer's stays
+    await page.locator('.xc-stage').scrollIntoViewIfNeeded()
+    const box = (await page.locator('.xc-stage').boundingBox())!
+    await page.mouse.move(box.x + box.width * 0.25 - 12, box.y + box.height * 0.55)
+    await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.55, { steps: 4 })
+    await expect(readout).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(readout).toHaveCount(0)
+    // a reset of the zoom would show the readout again: the whole chart is shown, so Reset zoom is off and must not
+    const reset = page.locator('.xc-toolbar button[aria-label="Reset zoom"]')
+    await expect(reset).toHaveAttribute('aria-disabled', 'true')
+    await reset.focus()
+    // read at once, not polled for: a readout that came back is drawn by the time the key press has returned (it goes again on its own, so a
+    // polled check would not see it)
+    await page.keyboard.press('Enter')
+    expect(await readout.count()).toBe(0)
+    await page.keyboard.press('Space')
+    expect(await readout.count()).toBe(0)
+    await expect(reset).toBeFocused()
+  })
+
   test('Zoom in keeps the focus at its limit, and Later at the end of the chart', async ({ page, baseURL }) => {
     await showChart(page, baseURL!)
     const zoomIn = page.locator('.xc-toolbar button[aria-label="Zoom in"]')

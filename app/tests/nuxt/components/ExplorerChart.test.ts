@@ -752,6 +752,21 @@ describe('the zoom', () => {
     expect(lastZoom()).toMatchObject({ start: START, end: END })
   })
 
+  it('swallows the press of an unavailable button: Reset zoom pressed at the whole chart does not bring a dismissed readout back (GH-4101)', async () => {
+    await showChart()
+    movePointerTo(xOf(START + 5 * DAY))
+    await flushPromises()
+    expect(readout()).not.toBeNull()
+    // dismissed by Escape (WCAG 1.4.13): what a reset of the zoom would undo, as it shows the readout again
+    document.body.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    await flushPromises()
+    expect(readout()).toBeNull()
+    expect(isOff('Reset zoom')).toBe(true)
+    buttonNamed('Reset zoom').click()
+    await flushPromises()
+    expect(readout()).toBeNull()
+  })
+
   it('keeps a button that turns off in the tab order with the focus, and does nothing when it is pressed (WCAG 2.4.3, GH-4101)', async () => {
     await showChart()
     buttonNamed('Zoom in').click()
