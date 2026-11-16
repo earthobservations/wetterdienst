@@ -483,19 +483,21 @@ describe('the readout', { timeout: 15_000 }, () => {
 
   it('stays away after Escape where the pointer only trembles, and comes back for another hour', async () => {
     await showChart()
-    movePointerTo(200, 300)
+    // 117 px into the plot, 11.7 hours at 10 px an hour: a few pixels to either side are the same hour, whatever the gutter is
+    const x0 = gutter() + 117
+    movePointerTo(x0, 300)
     await flushPromises()
     expect(readout()).not.toBeNull()
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
     await flushPromises()
     expect(readout()).toBeNull()
     // a pixel to either side is the same hour
-    for (const x of [201, 199, 202, 200, 203])
+    for (const x of [x0 + 1, x0 - 1, x0 + 2, x0, x0 + 3])
       movePointerTo(x, 300)
     await flushPromises()
     expect(readout()).toBeNull()
     // the next hour is a new hover
-    movePointerTo(212, 300)
+    movePointerTo(x0 + 12, 300)
     await flushPromises()
     expect(readout()).not.toBeNull()
   })

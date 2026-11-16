@@ -35,7 +35,7 @@ export const HOUR_PX = 10
 /** The widest an hour is drawn, which a short forecast on a wide screen is stretched to */
 export const HOUR_MAX_PX = 22
 /** The widths the plot leaves at the left, for the axis' title and labels, and at the right */
-export const GUTTER_LEFT = 68
+export const GUTTER_LEFT = 56
 export const GUTTER_RIGHT = 10
 /** The hours the chart can be zoomed in to, across its plot */
 export const MIN_SPAN_HOURS = 6

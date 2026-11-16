@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import { chartLayout } from '../../app/utils/meteogram-geometry'
 import { ApiFailure, defaultHandlers, isSnowRequest, mockBackend } from './accessibility/mock-backend'
 
 // The snow panel of the forecast (GH-4091): for the 15 stations that have DWD's MOSMIX-SNOW, the meteogram gets three plots on
@@ -333,11 +334,29 @@ test.describe('on a phone', () => {
       await open(page, baseURL!, SNOW_STATION, { width, height: 844 })
       const found = await titles(page)
       const stage = (await page.locator('.mg-stage').boundingBox())!
+      // the grids of the plots, where the layout puts them
+      const grids = chartLayout(['wind', 'precip', 'snow', 'snowDepth', 'snowChance', 'cloud', 'temp', 'pressure'], true).rows
+      // the tick labels of the plots: the numbers that are not turned
+      const numbers = await svg(page).locator('text').evaluateAll(texts => texts.map((text) => {
+        const matrix = text.getScreenCTM()
+        const turned = !!matrix && Math.abs(matrix.b) / Math.hypot(matrix.a, matrix.b) > 0.9
+        const box = text.getBoundingClientRect()
+        return { text: text.textContent ?? '', turned, left: box.left, right: box.right, top: box.top, bottom: box.bottom }
+      }).filter(entry => !entry.turned && /^[-\d.,]+$/.test(entry.text)))
+      // the labels of the gutter: within 100 px of the stage's left edge, which is not at the same x in every engine
+      const gutterRight = stage.x + 100
+      const labelsOfGutter = numbers.filter(entry => entry.right < gutterRight)
       for (const name of ['New snow', 'Snow depth', CHANCE]) {
         const title = found.find(entry => entry.text === name)
         expect(title, name).toBeDefined()
         expect(title!.left, `${name} is cut at the left`).toBeGreaterThanOrEqual(stage.x - 0.5)
-        expect(title!.right - stage.x, `${name} is under the labels`).toBeLessThanOrEqual(2 + 2 * 14 + 2)
+        // left of the tick labels of its own plot (GH-4132: each title is next to its own labels, not at the left edge for all): the labels
+        // that are in the plot's grid, where the layout puts it (a plot has two labels at least)
+        const row = grids.find(candidate => ((title!.top + title!.bottom) / 2) >= stage.y + candidate.top && ((title!.top + title!.bottom) / 2) <= stage.y + candidate.top + candidate.height)
+        expect(row, `${name} is in no plot`).toBeDefined()
+        const own = labelsOfGutter.filter(label => ((label.top + label.bottom) / 2) >= stage.y + row!.top && ((label.top + label.bottom) / 2) <= stage.y + row!.top + row!.height)
+        expect(own.length, `${name} has fewer than two labels in its plot: ${JSON.stringify({ labelsOfGutter, stage, grids: grids.map(grid => ({ id: grid.id, top: stage.y + grid.top, bottom: stage.y + grid.top + grid.height })) })}`).toBeGreaterThanOrEqual(2)
+        expect(title!.right, `${name} is under the labels`).toBeLessThanOrEqual(Math.min(...own.map(label => label.left)) + 0.5)
       }
       // each title lies inside the rows of its own plot (72 px high each), and never on the plot above or below
       const rows = await page.evaluate((chance) => {
