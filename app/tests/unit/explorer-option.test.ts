@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest'
 import { EMPTY_CHART_THEME } from '../../app/utils/chart-theme'
 import { loadEcharts } from '../../app/utils/echarts-loader'
 import { boundsOf, seriesColour } from '../../app/utils/explorer-model'
-import { buildExplorerOption, cursorUpdate, EXPLORER_FONT_FAMILY, explorerFrame, fitText, hasTimeOfDay, legendLayout, momentLabel, tickLabel, timeAtX, timeTicks, valueFormat, xOfTime } from '../../app/utils/explorer-option'
+import { buildExplorerOption, cursorUpdate, EXPLORER_FONT_FAMILY, explorerFrame, fitText, hasTimeOfDay, legendButtonBox, legendLayout, momentLabel, tickLabel, timeAtX, timeTicks, valueFormat, xOfTime } from '../../app/utils/explorer-option'
 
 const echarts = loadEcharts()
 
@@ -218,6 +218,26 @@ describe('the legend', () => {
     for (const item of narrow.items) {
       expect(item.x).toBeGreaterThanOrEqual(0)
       expect(item.x + item.width).toBeLessThanOrEqual(320)
+    }
+  })
+
+  // GH-4144: Firefox reported the two buttons of a phone's legend as over each other (a 1/60 px that the rows touch by is no more than
+  // that); what holds in any engine, with any font, is the layout: a row apart, a row high, and the items of a row apart by the gap
+  it('puts no button over another: rows edge to edge, the items of a row 10 px apart, at any width of text', () => {
+    for (const perChar of [4, 7, 11]) {
+      const wide = (text: string) => text.length * perChar
+      for (const width of [320, 390, 704]) {
+        const many = Array.from({ length: 7 }, (_, i) => ({ id: `s${i}`, name: `00011 - Mean air temperature number ${i}` }))
+        const boxes = legendLayout(many, width, wide).items.map(legendButtonBox)
+        expect(boxes).toHaveLength(7)
+        for (const [i, a] of boxes.entries()) {
+          for (const b of boxes.slice(i + 1)) {
+            const apartInX = Math.max(b.left - (a.left + a.width), a.left - (b.left + b.width))
+            const apartInY = Math.max(b.top - (a.top + a.height), a.top - (b.top + b.height))
+            expect(Math.max(apartInX, apartInY), `${perChar} px a character, ${width} px wide`).toBeGreaterThanOrEqual(0)
+          }
+        }
+      }
     }
   })
 

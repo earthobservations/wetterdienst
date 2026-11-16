@@ -248,6 +248,15 @@ export function legendLayout(names: readonly { id: string, name: string }[], wid
   return { items, height: LEGEND_PAD * 2 + rows.length * LEGEND_ROW - 4 }
 }
 
+/**
+ * Where the button over a legend item is, in px from the chart's top left: the item with 4 px around it, a row high. The rows are a row
+ * apart, so the buttons of two rows touch and do not cross; those of a row are `LEGEND_BETWEEN - 8` apart. That is the same at any
+ * width of text, whichever font is drawn with (GH-4144).
+ */
+export function legendButtonBox(item: LegendItem): { left: number, top: number, width: number, height: number } {
+  return { left: item.x - 4, top: item.y - 1, width: item.width + 8, height: item.height }
+}
+
 export interface ExplorerFrame {
   width: number
   height: number
