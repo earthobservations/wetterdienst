@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseStatus } from 'h3'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { UApp } from '#components'
 import { clearNuxtState, useRouter, useToast } from '#imports'
@@ -20,11 +20,9 @@ const ExplorerWithApp = defineComponent({
   },
 })
 
-// The clock is stopped (`Date` only: the timers the page and the test wait with still run) at an instant just before
-// and just after midnight UTC, so that "today" is one day for the test and for the page: read at two moments, as
-// `new Date()` in each did, a run that crossed midnight expected one day and got the next (GH-4134). `vi.waitFor`
-// moves a fake clock on by its interval at every poll, which would carry the instant before midnight over it within
-// 100 ms: it is told there is none (`isFakeTimers`), so the clock stays where it is put
+// The clock is stopped (`vi.setSystemTime` without fake timers: `Date` only, so `vi.waitFor` does not move it on) at an
+// instant just before and just after midnight UTC, so that "today" is one day for the test and for the page: read at
+// two moments, as `new Date()` in each did, a run that crossed midnight expected one day and got the next (GH-4134)
 const CLOCKS = [
   { at: '2026-11-15T23:59:59.900Z', today: '2026-11-15' },
   { at: '2026-11-16T00:00:00.100Z', today: '2026-11-16' },
@@ -48,15 +46,28 @@ function stations(count: number, start = '1891-01-01T00:00:00+00:00') {
 const mounted: { unmount: () => void }[] = []
 const endpoints: (() => void)[] = []
 
-const clockSpies: { mockRestore: () => void }[] = []
+// a browser an hour east of UTC, where it is already the next day in local time at the first instant: today is UTC's
+let zone: string | undefined
+beforeAll(() => {
+  zone = process.env.TZ
+  process.env.TZ = 'Europe/Berlin'
+  // the zone taken up, else the tests pass in UTC against a day read in local time as well
+  expect(new Date(2020, 0, 1).getTimezoneOffset()).toBe(-60)
+})
 
 afterEach(() => {
-  clockSpies.splice(0).forEach(spy => spy.mockRestore())
   vi.useRealTimers()
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   endpoints.splice(0).forEach(remove => remove())
   clearNuxtState(EXPLORER_STATE)
   useToast().clear()
+})
+
+afterAll(() => {
+  if (zone === undefined)
+    delete process.env.TZ
+  else
+    process.env.TZ = zone
 })
 
 const query = () => useRouter().currentRoute.value.query
@@ -103,8 +114,7 @@ async function typeDate(wrapper: Awaited<ReturnType<typeof open>>['wrapper'], in
 describe.each(CLOCKS)('explorer default date range at $at', ({ at, today }) => {
   beforeEach(() => {
     TODAY = today
-    vi.useFakeTimers({ toFake: ['Date'], now: new Date(at) })
-    clockSpies.push(vi.spyOn(vi, 'isFakeTimers').mockReturnValue(false))
+    vi.setSystemTime(new Date(at))
   })
 
   it('starts the newest window that fits where the whole record of the selection is more than one answer', async () => {
