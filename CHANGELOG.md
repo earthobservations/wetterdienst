@@ -23,6 +23,11 @@ Types of changes:
   `wmo_id=10147` finds `01975`; the others stay null. The table is cached for a week; if it cannot
   be read (a changed page, a failed download or no connection) the stations still come back with
   `wmo_id` null and the warning `wmo-ids-unavailable`; a rate limit is raised (GH-4073)
+- `dwd/derived`: the stations of the datasets that use DWD's station ids carry `wmo_id` from the same
+  Stationslexikon: the degree days and degree hours (270 of 1,226 stations) and the soil (198 of
+  484), so `wmo_id=10384` finds `00433`. The DUETT radiation and sunshine duration (ids `18xxx`) and
+  the climate correction factor (postal codes) stay null, and asking for only those does not read
+  the Stationslexikon; the docs list it per dataset (GH-4162)
 
 ## [0.190.0] - 2026-11-16
 
