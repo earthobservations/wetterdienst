@@ -27,6 +27,14 @@ Types of changes:
   that lacks values at the file's steps is still skipped. A single-station MOSMIX-L file is its own
   cadence, so only an element that is null throughout skips it (GH-4093)
 
+### Security
+
+- The lock holds the releases that fix advisories in the runtime install: dnspython 2.9.2 (extra
+  `mcp`), opentelemetry-api 1.45.2 (extras `restapi` and `mcp`), and pypdf 6.21.4 (extra `pdf`,
+  whose floor rises from 6.21.2: seven denial-of-service advisories on a crafted PDF); the Docker
+  image takes the first two. An installation from PyPI resolves its own versions: upgrade them
+  there (GH-4130)
+
 ## [0.189.0] - 2026-11-15
 
 ### Added
