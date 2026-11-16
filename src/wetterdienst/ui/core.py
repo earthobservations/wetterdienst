@@ -2806,12 +2806,14 @@ def _get_stripes_stations(kind: StripesKind, *, active: bool = True) -> Stations
     with values, which is only known by reading it. Measured on 2026-11-16, of the active stations listed 5 of 489
     for the temperature and 61 of 2039 for the precipitation are (23 of 1080 and 180 of 5697 of all of them). The
     listing's dates and the data disagree the other way for 11 precipitation stations (none of them active), which
-    have 10 or more years with values and a shorter span, and so are not listed. A station with no end date is kept.
+    have 10 or more years with values and a shorter span, and so are not listed. A station with no start or end date
+    is kept.
     """
     request = CLIMATE_STRIPES_CONFIG[kind]["request"]
     stations = request(Period.HISTORICAL).all()
     long_enough = pl.col("end_timestamp").dt.year() - pl.col("start_timestamp").dt.year() + 1 >= MIN_RECORD_YEARS
-    stations = replace(stations, df=stations.df.filter(long_enough | pl.col("end_timestamp").is_null()))
+    unknown = pl.col("end_timestamp").is_null() | pl.col("start_timestamp").is_null()
+    stations = replace(stations, df=stations.df.filter(long_enough | unknown))
     if active:
         station_ids_active = request(Period.RECENT).all().df.select("station_id")
         stations = replace(stations, df=stations.df.join(station_ids_active, on="station_id"))

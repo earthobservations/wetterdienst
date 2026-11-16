@@ -2627,8 +2627,8 @@ def stripes_stations(
 ) -> Response:
     """List the stations climate stripes are made for.
 
-    A station whose first and last year are fewer than 10 years apart is left out, as stripes of fewer than 10 years
-    with data are refused. A station with gaps in a longer span is listed and may still be refused.
+    A station whose record spans fewer than 10 calendar years (first to last, inclusive) is left out, as stripes of
+    fewer than 10 years with data are refused. A station with gaps in a longer span is listed and may still be refused.
     """
     begin_response()
 

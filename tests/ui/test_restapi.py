@@ -7070,14 +7070,15 @@ def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: li
 
 
 # the stations of the listing the stripes are made from, by id: their first and last year (none: no end date)
-_STRIPES_LISTING: dict[str, tuple[int, int | None]] = {
+_STRIPES_LISTING: dict[str, tuple[int | None, int | None]] = {
     "00001": (2001, 2009),  # 9 years: cannot reach the 10 a record needs
     "00002": (2000, 2009),  # 10 years: just can
     "00003": (1934, 2025),  # a long record
     "00004": (2020, 2025),  # 6 years
     "00005": (2015, None),  # no end date: kept, as nothing rules it out
+    "00006": (None, 2025),  # no start date: kept as well
 }
-_LISTED_STRIPES_STATIONS = ["00002", "00003", "00005"]
+_LISTED_STRIPES_STATIONS = ["00002", "00003", "00005", "00006"]
 
 
 def _stub_stripes_listing(monkeypatch: pytest.MonkeyPatch, kind: str) -> None:
@@ -7092,7 +7093,7 @@ def _stub_stripes_listing(monkeypatch: pytest.MonkeyPatch, kind: str) -> None:
                 "resolution": "annual",
                 "dataset": dataset,
                 "station_id": station_id,
-                "start_timestamp": dt.datetime(first, 1, 1, tzinfo=dt.UTC),
+                "start_timestamp": None if first is None else dt.datetime(first, 1, 1, tzinfo=dt.UTC),
                 "end_timestamp": None if last is None else dt.datetime(last, 12, 31, tzinfo=dt.UTC),
                 "latitude": 51.0,
                 "longitude": 13.0,
@@ -7106,6 +7107,7 @@ def _stub_stripes_listing(monkeypatch: pytest.MonkeyPatch, kind: str) -> None:
             for station_id, (first, last) in _STRIPES_LISTING.items()
         ],
         schema_overrides={
+            "start_timestamp": pl.Datetime("us", "UTC"),
             "end_timestamp": pl.Datetime("us", "UTC"),
             "wmo_id": pl.String,
             "wigos_id": pl.String,

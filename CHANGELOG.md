@@ -30,7 +30,7 @@ Types of changes:
   `value_scaled`, a min-max over the years shown: read `stripe_class` (0 to 15) instead. A station
   with fewer than 10 years with data is refused (HTTP 400, it was 2), as its spread would say
   nothing, and `stripes stations` (REST, CLI, MCP, the app's picker and map) no longer lists a
-  station whose first and last year are fewer than 10 years apart (GH-4157)
+  station whose record spans fewer than 10 calendar years, first to last inclusive (GH-4157)
 
 ## [0.190.0] - 2026-11-16
 
