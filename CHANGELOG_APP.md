@@ -2377,7 +2377,7 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 [0.7.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.6.0...app-v0.7.0
 [0.6.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.5.0...app-v0.6.0
 [0.5.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.4.0...app-v0.5.0
-[0.4.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.3.0...app-v0.4.0
-[0.3.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.2.0...app-v0.3.0
-[0.2.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.1.0...app-v0.2.0
+[0.4.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.3.0...app-v0.4.0
+[0.3.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.2.0...app-v0.3.0
+[0.2.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.1.0...app-v0.2.0
 [0.1.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.1.0
