@@ -16,6 +16,10 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-11-17
+
+Paired with backend 0.191.0, which it needs for the stripes' classes and the stations' WMO numbers.
+
 ### Added
 
 - `[Map]` The stations of the map are grouped at the outer zooms: stations that lie close together
