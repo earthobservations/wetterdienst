@@ -146,7 +146,7 @@ const BACKDROP = { band: 0, midnight: 1, now: 2, freeze: 3, divider: 4, cadence:
  * height rises with it, so the two say the same and no cue is the colour alone. The lowest is still 3:1 against the paper for a graphic
  * (WCAG 1.4.11), which `tests/unit/meteogram-thunder.test.ts` holds.
  */
-export const THUNDER_ALPHA: Readonly<Record<1 | 2 | 3, number>> = { 1: 0.62, 2: 0.8, 3: 1 }
+export const THUNDER_ALPHA: Readonly<Record<1 | 2 | 3, number>> = { 1: 0.66, 2: 0.8, 3: 1 }
 
 /** How much of its window a block of precipitation fills: the rest is the gap between it and the next (the library's bars were 90 % wide) */
 const BLOCK_FILL = 0.9

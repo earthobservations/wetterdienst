@@ -603,7 +603,7 @@
       "axisSnowNew": "Neischnéi {unit}",
       "axisSnowDepth": "Héicht {unit}",
       "axisSnowChance": ">{amount} nei",
-      "axisThunder": "Donnerwieder {unit}",
+      "axisThunder": "Donner {unit}",
       "tableTime": "Zäit ({zone})",
       "summaryRange": "Prognos vum {from} bis {to}.",
       "summaryTemperature": "Temperatur vun {min} bis {max} {unit}.",

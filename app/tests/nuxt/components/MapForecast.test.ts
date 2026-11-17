@@ -69,6 +69,16 @@ describe('the forecast of the panel', () => {
     expect(wrapper.attributes('aria-busy')).toBe('false')
   })
 
+  it('asks for the series of the day rows and not for the thunderstorm probability, which only the chart reads (GH-4090)', async () => {
+    const wrapper = await mountForecast()
+    const url = new URL(String((globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0]![0]), 'http://localhost')
+    const asked = url.searchParams.get('parameters')!.split(',')
+    expect(asked).toContain('hourly/large/rr1c')
+    expect(asked.some(parameter => parameter.endsWith('/wwt'))).toBe(false)
+    held[10384]!.release({ status: 200, body: { values: values('10384') } })
+    await vi.waitFor(() => expect(shownFor(wrapper)).toBe('10384'))
+  })
+
   it('shows the answer of the station now shown, and not the late answer of the one before, whichever comes last', async () => {
     const wrapper = await mountForecast('10384')
     await wrapper.setProps({ station: station('10147', 'HAMBURG') })

@@ -603,7 +603,7 @@
       "axisSnowNew": "Neve {unit}",
       "axisSnowDepth": "Altezza {unit}",
       "axisSnowChance": ">{amount}",
-      "axisThunder": "Temporale {unit}",
+      "axisThunder": "Tempor. {unit}",
       "tableTime": "Ora ({zone})",
       "summaryRange": "Previsione dal {from} al {to}.",
       "summaryTemperature": "Temperatura da {min} a {max} {unit}.",

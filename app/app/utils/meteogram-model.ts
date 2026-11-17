@@ -754,7 +754,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
     snowChance: `${t('meteogram.chart.axisSnowChance', { amount: chanceAmount }).trim()}${unitName('fraction').trim() ? `\n${unitName('fraction').trim()}` : ''}`,
   }
   const labelColour: Record<PanelName, AxisSpec['label']> = { wind: 'cyan', precip: 'blue', thunder: 'fuchsia', snow: 'indigo', snowDepth: 'teal', snowChance: 'gold', cloud: 'slate', temp: 'red', pressure: 'lime' }
-  const decimalsOf = (panel: PanelName, quantity: Quantity) => ({ wind: Math.min(1, units.digits(quantity)), precip: Math.min(2, units.digits(quantity) + 1), thunder: 0, snow: units.digits(quantity), snowDepth: Math.max(0, units.digits(quantity) - 1), snowChance: 0, cloud: 0, temp: 0, pressure: 0 })[panel]
+  const decimalsOf = (panel: PanelName, quantity: Quantity) => ({ wind: Math.min(1, units.digits(quantity)), precip: Math.min(2, units.digits(quantity) + 1), thunder: Math.max(0, units.digits(quantity) - 1), snow: units.digits(quantity), snowDepth: Math.max(0, units.digits(quantity) - 1), snowChance: 0, cloud: 0, temp: 0, pressure: 0 })[panel]
   const quantityOf: Record<PanelName, Quantity> = { wind: 'speed', precip: 'precipitation', thunder: 'fraction', snow: 'length_short', snowDepth: 'length_short', snowChance: 'fraction', cloud: 'fraction', temp: 'temperature', pressure: 'pressure' }
   const splitsOf: Record<PanelName, number> = { wind: 3, precip: 2, thunder: 2, snow: 2, snowDepth: 2, snowChance: 2, cloud: 2, temp: 3, pressure: 2 }
   const axes: Partial<Record<PanelName, AxisSpec>> = {}

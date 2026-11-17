@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
+import { PANEL_HEIGHT } from '../../app/utils/meteogram-geometry'
 import { run10382Values } from '../helpers/mosmix-run'
 import { mockBackend } from './accessibility/mock-backend'
 
@@ -9,6 +10,8 @@ import { mockBackend } from './accessibility/mock-backend'
 // says; the page's clock is 05:30 at Berlin on the 17th. The API is answered by the mock backend.
 
 const NOW = new Date('2026-11-17T04:30:00Z')
+// the room a title keeps in its plot in Chromium: Firefox's font is about 6 % wider (as in meteogram-snow.spec.ts, which measured it: 8 %)
+const HEADROOM = 1.08
 const FUCHSIA = '#a21caf'
 // the hours after the issue (03 UTC on the 17th) that are given a probability: 17:00 to 21:00 UTC on the 18th
 const STORM: Record<number, number> = { 38: 12, 39: 35, 40: 70, 41: 25 }
@@ -116,4 +119,40 @@ test('goes with the precipitation\'s switch', async ({ page, baseURL }) => {
   await page.locator('button[data-panel="precip"]').click()
   await expect(bars(page)).toHaveCount(4)
   expect(backend.unanswered).toEqual([])
+})
+
+// The rotated title of an axis is as long as its word, and the thunderstorm panel is the thinnest plot: the title has to fit its height (44 px), or it
+// runs onto the plot above and below. The full words are in the readout, the legend and the table; the title is the short form. Held in every language.
+test.describe('the title of the panel, in every language', () => {
+  const LANGUAGES = ['en', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl', 'cs', 'da']
+  for (const language of LANGUAGES) {
+    test(`fits the panel in ${language}`, async ({ page, baseURL, context, browserName }) => {
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await page.setViewportSize({ width: 320, height: 844 })
+      await open(page, baseURL!, '/meteogram?station=10384&view=chart')
+      await expect(page.locator('.mg-canvas[data-drawn="true"]')).toBeVisible({ timeout: 60_000 })
+      const plots = await page.evaluate(() => {
+        const found = [...document.querySelectorAll<SVGTextElement>('.mg-canvas svg text')].flatMap((text) => {
+          const matrix = text.getScreenCTM()
+          if (!matrix || Math.abs(matrix.b) / Math.hypot(matrix.a, matrix.b) <= 0.9)
+            return []
+          const box = text.getBoundingClientRect()
+          return box.left < document.querySelector('.mg-stage')!.getBoundingClientRect().left + 40 ? [{ centre: Math.round((box.top + box.bottom) / 2), height: box.height, text: text.textContent }] : []
+        })
+        const byCentre = new Map<number, { height: number, text: string | null }>()
+        for (const { centre, height, text } of found) {
+          const key = [...byCentre.keys()].find(known => Math.abs(known - centre) <= 2) ?? centre
+          byCentre.set(key, { height: Math.max(byCentre.get(key)?.height ?? 0, height), text: height >= (byCentre.get(key)?.height ?? 0) ? text : byCentre.get(key)!.text })
+        }
+        return [...byCentre.entries()].sort(([a], [b]) => a - b).map(([, value]) => value)
+      })
+      // the plots from the top: wind, precipitation, thunderstorms, clouds, temperature, pressure
+      expect(plots).toHaveLength(6)
+      const title = plots[2]!
+      expect(title.height, `${title.text} is longer than its plot`).toBeLessThanOrEqual(PANEL_HEIGHT.thunder)
+      // with room to spare in Chromium, whose font is about 6 % narrower than Firefox's, so that Firefox fits as well
+      if (browserName === 'chromium')
+        expect(title.height, `${title.text}, with room to spare`).toBeLessThanOrEqual(PANEL_HEIGHT.thunder / HEADROOM)
+    })
+  }
 })

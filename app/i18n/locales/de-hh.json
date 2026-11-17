@@ -603,7 +603,7 @@
       "axisSnowNew": "Niesnee {unit}",
       "axisSnowDepth": "Höchte {unit}",
       "axisSnowChance": ">{amount} nie",
-      "axisThunder": "Dunnerwedder {unit}",
+      "axisThunder": "Dunner {unit}",
       "tableTime": "Tiet ({zone})",
       "summaryRange": "Utsicht vun {from} bit {to}.",
       "summaryTemperature": "Temperatur vun {min} bit {max} {unit}.",

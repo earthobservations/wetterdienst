@@ -360,9 +360,18 @@ export function meteogramSnowQuery(stationId: string, settings: Parameters<typeo
   }
 }
 
-/** The query of `/api/values` for the meteogram of a MOSMIX station, in the units the app settings choose */
-export function meteogramValuesQuery(stationId: string, settings: Parameters<typeof meteogramValuesSettings>[0]): Record<string, string> {
-  const { provider, network, resolution, dataset, parameters } = MOSMIX_METEOGRAM
+/**
+ * The request of the map's panel, whose day rows are the compact view's and draw no chart: the meteogram's without the hourly
+ * thunderstorm probability (`wwt`, GH-4090), which only the chart reads.
+ */
+export const MOSMIX_DAY_ROWS_PARAMETERS = MOSMIX_METEOGRAM.parameters.filter(parameter => parameter !== 'wwt')
+
+/**
+ * The query of `/api/values` for the meteogram of a MOSMIX station, in the units the app settings choose: the chart's parameters, or
+ * `parameters` (the map's day rows have `MOSMIX_DAY_ROWS_PARAMETERS`)
+ */
+export function meteogramValuesQuery(stationId: string, settings: Parameters<typeof meteogramValuesSettings>[0], parameters: readonly string[] = MOSMIX_METEOGRAM.parameters): Record<string, string> {
+  const { provider, network, resolution, dataset } = MOSMIX_METEOGRAM
   return {
     provider,
     network,

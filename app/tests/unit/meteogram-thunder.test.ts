@@ -9,7 +9,7 @@ import { hourFormatter } from '../../app/utils/format'
 import { METEOGRAM_SERIES, meteogramValuesQuery, MOSMIX_METEOGRAM } from '../../app/utils/meteogram'
 import { chartLayout, GUTTER_RIGHT, HOUR_MS, PANEL_HEIGHT, PANEL_ORDER, plotWidthFor, toggleOf } from '../../app/utils/meteogram-geometry'
 import { buildMeteogramModel, readoutValue } from '../../app/utils/meteogram-model'
-import { buildMeteogramOption, gutterLeftFor, THUNDER_ALPHA, toneColor } from '../../app/utils/meteogram-option'
+import { bandColour, buildMeteogramOption, gutterLeftFor, THUNDER_ALPHA, toneColor } from '../../app/utils/meteogram-option'
 import { buildSeries } from '../../app/utils/meteogram-series'
 import { meteogramTable } from '../../app/utils/meteogram-summary'
 import { planThunder, THUNDER_LEVELS, THUNDER_THRESHOLD, thunderLevel } from '../../app/utils/meteogram-thunder'
@@ -137,22 +137,35 @@ describe('the hours of the band', () => {
 describe('the real run: which of the four the forecast can be drawn from, and how late in the run', () => {
   const run = JSON.parse(readFileSync(new URL('../helpers/mosmix-thunder-runs.json', import.meta.url), 'utf8')) as { issue: string, stations: Record<string, Record<string, [number, number][]>> }
   const issue = new Date(run.issue).getTime()
-  const hoursOf = (station: string, parameter: string) => run.stations[station]![parameter]!.map(([hour]) => hour)
 
-  it('has the hourly probability at every hour from +1 h to +247 h, at both stations: it does not thin out late in the run', () => {
-    for (const station of ['10382', '10961'])
-      expect(hoursOf(station, 'probability_thunder_last_1h')).toEqual(Array.from({ length: 247 }, (_, i) => i + 1))
+  /** The run of a station as the page builds its series: the values of the answer by parameter */
+  const seriesOf = (station: string) => buildSeries(Object.entries(run.stations[station]!).flatMap(([parameter, steps]) => steps.map(([hour, value]) => ({ parameter, timestamp: new Date(issue + hour * HOUR_MS).toISOString(), value }))) as any)
+
+  it('gives the model the hourly probability at every hour from +1 h to +247 h, at both stations: it does not thin out late in the run', () => {
+    for (const station of ['10382', '10961']) {
+      const series = seriesOf(station)
+      const model = buildMeteogramModel({ ...input({ series }), panels: all })!
+      // no hour of the run is missing from the series the band is drawn from
+      expect(series.get(METEOGRAM_SERIES.thunder[0])!.x.map(date => (date.getTime() - issue) / HOUR_MS)).toEqual(Array.from({ length: 247 }, (_, i) => i + 1))
+      expect(model.maxTime).toBe(issue + 247 * HOUR_MS)
+    }
   })
 
-  it('has the 6 hour probability thin to every third hour at one station, and the 12 and 24 hour ones at 6 and 12 hours: the hourly one is the only complete series', () => {
-    const six = hoursOf('10382', 'probability_thunder_last_6h')
-    expect(six.slice(0, 12)).toEqual(Array.from({ length: 12 }, (_, i) => i + 1))
-    expect(six.at(-1)).toBe(246)
-    expect(six.length).toBeLessThan(120)
-    expect(hoursOf('10382', 'probability_thunder_last_12h').slice(0, 4)).toEqual([3, 9, 15, 21])
-    expect(hoursOf('10382', 'probability_thunder_last_24h').slice(0, 4)).toEqual([9, 21, 33, 45])
+  it('leaves the 6, 12 and 24 hour probabilities out of the band, which are thinner than the hourly one: a 6 hour value alone draws nothing', () => {
+    const { probability_thunder_last_6h: six, probability_thunder_last_12h: twelve, probability_thunder_last_24h: day } = Object.fromEntries(seriesOf('10382'))
+    // every third hour at 10382 late in the run, every 6 and 12 hours for the longer ones: fewer steps than hours, so no row of hours of its own
+    expect(six!.x.length).toBeLessThan(120)
+    expect(twelve!.x.length).toBeLessThan(45)
+    expect(day!.x.length).toBeLessThan(25)
+    // a high value of any of them is no thunderstorm hour: only the hourly element is read
+    const loud = new Map(seriesOf('10382'))
+    loud.set('probability_thunder_last_6h', { x: six!.x, y: six!.y.map(() => 90) })
+    loud.set('probability_thunder_last_12h', { x: twelve!.x, y: twelve!.y.map(() => 90) })
+    loud.set('probability_thunder_last_24h', { x: day!.x, y: day!.y.map(() => 90) })
+    expect(planThunder(loud, percent)).toBeNull()
+    expect(buildMeteogramModel({ ...input({ series: loud }), panels: all })!.thunder).toBeNull()
     // and a station can have none of the two longer ones
-    expect(run.stations['10961']!.probability_thunder_last_12h).toEqual([])
+    expect(seriesOf('10961').has('probability_thunder_last_12h')).toBe(false)
   })
 
   it('has no hour of 10 % or more at either station: a calm week has no band', () => {
@@ -220,10 +233,18 @@ describe('the thunderstorm panel of the model', () => {
     expect(m.series.some(s => s.id === 'thunder')).toBe(false)
   })
 
+  it('writes the ticks of its axis in the decimals of the unit: the middle tick is 50 %, 0.5 or 4/8, never rounded to a whole number that is not it', () => {
+    const decimals = (unit: string) => model({ units: { ...FORECAST_UNITS, probability_thunder_last_1h: unit, cloud_cover_total: unit } }).axes.thunder!.decimals
+    // a fraction written as a decimal has one decimal for its tick at 0.5, a percent and an okta none
+    expect(decimals('-')).toBe(1)
+    expect(decimals('%')).toBe(0)
+    expect(decimals('1/8')).toBe(0)
+  })
+
   it('stands in the layout at its own height, between the precipitation and the cloud cover', () => {
     const layout = chartLayout(model().panels, true)
     expect(layout.rows.map(row => row.id)).toEqual(['wind', 'precip', 'thunder', 'cloud', 'temp', 'pressure'])
-    expect(PANEL_HEIGHT.thunder).toBe(44)
+    expect(PANEL_HEIGHT.thunder).toBe(56)
     const [precip, thunder] = [layout.rows[1]!, layout.rows[2]!]
     expect(thunder.top).toBe(precip.top + precip.height + 14)
   })
@@ -307,10 +328,10 @@ describe('the thunderstorm band drawn', () => {
     return { svg, px, py }
   }
 
-  it('has a grid of 44 px and an axis in the label colour of the band, and the zoom over its x axis too', () => {
+  it('has a grid of 56 px and an axis in the label colour of the band, and the zoom over its x axis too', () => {
     const { option } = build()
     // the header, then wind, precip, thunder, cloud, temp, pressure
-    expect(option.grid.map((g: any) => g.height).slice(1)).toEqual([124, 88, 44, 80, 156, 84])
+    expect(option.grid.map((g: any) => g.height).slice(1)).toEqual([124, 88, 56, 80, 156, 84])
     expect(option.yAxis[3].axisLabel.color).toBe(SERIES_LABEL.fuchsia.light)
     expect([option.yAxis[3].min, option.yAxis[3].max]).toEqual([0, 100])
     expect(build(DARK).option.yAxis[3].axisLabel.color).toBe(SERIES_LABEL.fuchsia.dark)
@@ -388,6 +409,14 @@ describe('the thunderstorm band drawn', () => {
 
     it.each([1, 2, 3] as const)('draws the shade of class %s at 3:1 or more on the paper', (level) => {
       expect(contrast(over(toneColor('thunder', dark), THUNDER_ALPHA[level]), channels(paper))).toBeGreaterThanOrEqual(3)
+    })
+
+    // the daylight band is under the bars on a clear noon: the colour of a bar over the paper with the band on it (the band is a wash, `bandColour`)
+    it.each([1, 2, 3] as const)('draws the shade of class %s at 3:1 or more over the daylight band at a clear noon', (level) => {
+      const [r, g, b, a] = /rgba\((\d+),(\d+),(\d+),([\d.]+)\)/.exec(bandColour(0, dark))!.slice(1).map(Number)
+      const banded = [r!, g!, b!].map((c, i) => a! * c + (1 - a!) * channels(paper)[i]!)
+      const bar = banded.map((c, i) => THUNDER_ALPHA[level] * channels(toneColor('thunder', dark))[i]! + (1 - THUNDER_ALPHA[level]) * c)
+      expect(contrast(bar, banded)).toBeGreaterThanOrEqual(3)
     })
 
     it('writes the axis\' text at 4.5:1 or more on the paper', () => {
