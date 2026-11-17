@@ -18,11 +18,12 @@ Types of changes:
 
 ### Changed
 
-- `eaufrance/hubeau`: a `stations` answer of the whole list or a search by place carries the
-  warning `step-without-resolution` when stations were left out because they report at a step no
-  resolution has (20 or 30 minutes: 27 of 3,247 reporting stations on 2026-11-17). It gives the
-  count, the steps and the first five ids. Nothing changes in what is listed, and no resolution
-  is added; the docs say what is left out and why (GH-4184)
+- `eaufrance/hubeau`: every answer that selects stations (`stations`, `values`, `interpolate`,
+  `summarize`) carries the warning `step-without-resolution` when stations were left out because
+  they report at a step no resolution has (20 or 30 minutes: 27 of 3,247 reporting stations on
+  2026-11-17), with the count, the steps and the first ten ids. A selection by station id is told
+  only of the ids it asked for that were left out, beside `unknown-station`. Nothing changes in
+  what is listed and no resolution is added; the docs say what is left out and why (GH-4184)
 
 ### Fixed
 

@@ -23,6 +23,7 @@ from tests.provider.station_catalogue_stubs import HUBEAU_NOT_OPENED
 from wetterdienst import Options, Settings
 from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.parameter_rows import MAX_STATIONS_LISTED
 from wetterdienst.provider.eaufrance.hubeau import HubeauRequest, api
 from wetterdienst.provider.eaufrance.hubeau.api import (
     _RESOLUTION_TO_STEP,
@@ -611,8 +612,7 @@ def test_all_tells_how_many_stations_were_left_out_for_a_step_no_resolution_has(
     assert warning["stations"] == ["unmapped"]
     assert warning["message"] == (
         "1 station was left out of the list because it reports at a step that no resolution of Hub'Eau has "
-        "(1 at 30 minutes; the resolutions are 5 minutes, 6 minutes, 10 minutes, 15 minutes, 60 minutes), "
-        "among them unmapped (30 minutes)."
+        "(the resolutions are 5, 6, 10, 15 and 60 minutes): unmapped reports every 30 minutes."
     )
     lines = [record for record in caplog.records if getattr(record, "response_warning", None) == STEP_CODE]
     assert [record.levelno for record in lines] == [logging.INFO, logging.DEBUG]
@@ -694,37 +694,171 @@ def test_a_search_by_place_tells_the_stations_it_could_never_find() -> None:
 
 
 @pytest.mark.usefixtures("hubeau_network")
-def test_a_request_that_names_its_stations_is_not_told() -> None:
-    """Test that a selection by id, name or SQL asks for those stations and carries no warning."""
+def test_a_selection_by_name_or_sql_is_told_as_the_whole_list_is() -> None:
+    """Test that a name or an SQL filter, which can never hold the stations left out either, carries the warning."""
     for select in (
-        lambda request: request.filter_by_station_id("fast"),
         lambda request: request.filter_by_name("fast"),
+        lambda request: request.filter_by_sql("latitude > 45"),
         lambda request: request.filter_by_sql("station_id = 'fast'"),
     ):
         begin_response()
 
         select(HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()))
 
-        assert _step_warnings() == []
+        assert [warning["stations"] for warning in _step_warnings()] == [["unmapped"]]
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_a_selection_by_id_is_not_told_of_the_network() -> None:
+    """Test that asking for stations by id carries no warning about the stations that were not asked for."""
+    begin_response()
+
+    result = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).filter_by_station_id(["fast", "quiet"])
+
+    assert result.df.get_column("station_id").to_list() == ["fast", "quiet"]
+    assert _step_warnings() == []
+    assert [warning["code"] for warning in recorded_warnings()] == []
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_an_id_that_was_left_out_for_its_step_is_told_why_it_is_not_found() -> None:
+    """Test that the id of a station left out gets the warning with its step, beside `unknown-station`."""
+    begin_response()
+    request = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings())
+
+    result = request.filter_by_station_id(["fast", "unmapped", "no-such-station"])
+
+    assert result.df.get_column("station_id").to_list() == ["fast"]
+    assert [warning["code"] for warning in recorded_warnings()] == ["unknown-station", STEP_CODE]
+    (warning,) = _step_warnings()
+    assert warning["stations"] == ["unmapped"]
+    assert warning["message"] == (
+        "unmapped (30 minutes) was left out of the list because it reports at a step that no resolution of "
+        "Hub'Eau has (the resolutions are 5, 6, 10, 15 and 60 minutes), so no station is found for it."
+    )
+    # the selection by id is over, so the next selection is told of the network again
+    begin_response()
+    request.filter_by_sql("latitude > 45")
+    assert [warning["message"][:31] for warning in _step_warnings()] == ["1 station was left out of the l"]
+
+
+def test_the_asked_ids_are_told_with_their_steps(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that several ids that were left out are named with their steps, and the ones that were not are not."""
+    _serve_steps(monkeypatch, {"a": 30, "b": 20, "c": 5, "d": 30})
+    begin_response()
+
+    HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).filter_by_station_id(["d", "b", "c", "b"])
+
+    (warning,) = _step_warnings()
+    assert warning["stations"] == ["b", "d"]
+    assert warning["message"].startswith(
+        "b (20 minutes) and d (30 minutes) were left out of the list because they report "
+    )
+    assert warning["message"].endswith(", so no station is found for them.")
+
+
+def test_the_message_names_every_station_up_to_the_limit_and_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that up to ten stations the message says `namely`, a step is not written for each, and none is counted."""
+    steps = {f"S{index}": 30 for index in range(MAX_STATIONS_LISTED, 0, -1)}
+    _serve_steps(monkeypatch, steps | {"fine": 5})
+    begin_response()
+
+    HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all()
+
+    (warning,) = _step_warnings()
+    assert warning["stations"] == sorted(steps)
+    assert warning["message"] == (
+        "10 stations were left out of the list because they report at a step that no resolution of Hub'Eau has "
+        "(the resolutions are 5, 6, 10, 15 and 60 minutes): all at 30 minutes, "
+        "namely S1, S10, S2, S3, S4, S5, S6, S7, S8, S9."
+    )
 
 
 def test_the_message_counts_the_steps_and_names_the_first_stations(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that many stations at two steps are told by step, largest first, and five are named, the rest counted."""
-    steps = {f"S{index}": 30 for index in range(7, 0, -1)} | {"F1": 20, "F2": 20}
+    """Test that many stations at two steps are told by step, largest first, the first ten named, the rest counted."""
+    steps = {f"S{index}": 30 for index in range(12, 0, -1)} | {"F1": 20, "F2": 20}
 
     _serve_steps(monkeypatch, steps | {"fine": 5})
     begin_response()
     HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all()
 
     (warning,) = _step_warnings()
-    assert warning["stations"] == ["F1", "F2", "S1", "S2", "S3"]
+    assert warning["stations"] == ["F1", "F2", "S1", "S10", "S11", "S12", "S2", "S3", "S4", "S5"]
     assert warning["message"].startswith(
-        "9 stations were left out of the list because they report at a step that no resolution of Hub'Eau has "
-        "(7 at 30 minutes, 2 at 20 minutes; "
+        "14 stations were left out of the list because they report at a step that no resolution of Hub'Eau has "
+        "(the resolutions are 5, 6, 10, 15 and 60 minutes): 12 at 30 minutes and 2 at 20 minutes, among them "
     )
     assert warning["message"].endswith(
-        "among them F1 (20 minutes), F2 (20 minutes), S1 (30 minutes), S2 (30 minutes), S3 (30 minutes) and 4 more."
+        "F1 (20 minutes), F2 (20 minutes), S1 (30 minutes), S10 (30 minutes), S11 (30 minutes), S12 (30 minutes), "
+        "S2 (30 minutes), S3 (30 minutes), S4 (30 minutes), S5 (30 minutes) and 4 more."
     )
+
+
+def test_a_step_of_one_minute_is_not_plural() -> None:
+    """Test that a station at 1 minute is told as `1 minute`, in a list and by id."""
+    assert api._unmapped_message({"A": 1}).endswith("A reports every 1 minute.")  # noqa: SLF001
+    assert "A (1 minute) and B (30 minutes) were left out" in api._unmapped_asked_message({"A": 1, "B": 30})  # noqa: SLF001
+    assert "2 at 30 minutes and 1 at 1 minute" in api._unmapped_message({"A": 1, "B": 30, "C": 30})  # noqa: SLF001
+
+
+def test_a_reused_request_forgets_the_stations_the_last_listing_left_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a listing that finds no station left out does not keep the ones of the one before it."""
+    _serve_steps(monkeypatch, {"a": 5, "b": 30})
+    request = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings())
+    request.all()
+    assert request._unmapped_steps == {"b": 30}  # noqa: SLF001
+
+    _serve_steps(monkeypatch, {"a": 5, "b": 15})
+    begin_response()
+    request.all()
+
+    assert request._unmapped_steps == {}  # noqa: SLF001
+    assert _step_warnings() == []
+
+
+def test_a_listing_that_cannot_be_read_forgets_the_stations_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a referential with no station leaves no stations left out and none without a position."""
+    request = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings())
+    # the Blavet, listed in Algeria: in no area of France, swapped or not
+    unplaced = {**_station("blavet"), "longitude_station": 0.84, "latitude_station": 35.1}
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        if "referentiel" in url:
+            return [_station("b"), unplaced]
+        return _observations(_dates("b", 30, 8))
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+    request.all()
+    assert (request._unmapped_steps, list(request._unplaced_positions)) == ({"b": 30}, ["blavet"])  # noqa: SLF001
+
+    monkeypatch.setattr(api, "_paged_rows", lambda *args, **kwargs: [])  # noqa: ARG005
+    request.all()
+
+    assert (request._unmapped_steps, request._unplaced_positions) == ({}, {})  # noqa: SLF001
+
+
+@pytest.fixture
+def no_readings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let the stations have no readings, so that the answer of an estimate is empty and what it warns of is asked."""
+    monkeypatch.setattr(
+        api.HubeauValues, "_collect_station_parameter_or_dataset", lambda *_args, **_kwargs: pl.DataFrame()
+    )
+
+
+@pytest.mark.usefixtures("hubeau_network", "no_readings")
+@pytest.mark.parametrize("answer", ["interpolate", "summarize", "values"])
+def test_an_estimate_and_the_values_carry_the_warning_over_rest(answer: str) -> None:
+    """Test that `interpolate`, `summarize` and a `values` request by place tell the stations left out."""
+    place = {"latitude": "48.85", "longitude": "2.35", "timestamp": "2026-10-15"}
+    query = {**place, "rank": "2"} if answer == "values" else place
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        f"/api/{answer}",
+        params={"provider": "eaufrance", "network": "hubeau", "parameters": "5_minutes/data", **query},
+    )
+
+    assert response.status_code == 200, response.text
+    (warning,) = [w for w in response.json()["metadata"]["warnings"] if w["code"] == STEP_CODE]
+    assert warning["stations"] == ["unmapped"]
 
 
 @pytest.mark.usefixtures("hubeau_network")
