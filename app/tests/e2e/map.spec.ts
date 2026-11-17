@@ -590,6 +590,62 @@ test.describe('the map tool on a phone: groups of stations', () => {
   })
 })
 
+// A station carried across layers by its WMO number (GH-4077): the forecast point of Hamburg and the measuring station
+// that is the same station (the same number, 0.8 km apart), and a measuring station with no number that is nearer to the point
+const CARRIED_FORECAST = [
+  { station_id: '10147', name: 'HAMBURG-FUHLSBUETTEL', region: null, latitude: 53.63, longitude: 10.0, elevation: 11, wmo_id: '10147', start_timestamp: null, end_timestamp: null },
+]
+const RUNNING_END = new Date(Date.now() - 2 * 86_400_000).toISOString().replace(/T.*$/, 'T00:00:00+00:00')
+const CARRIED_MEASURED = [
+  { station_id: '01975', name: 'Hamburg-Fuhlsbüttel', region: 'Hamburg', latitude: 53.6332, longitude: 9.9881, elevation: 11, wmo_id: '10147', start_timestamp: '1891-01-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+  { station_id: '00999', name: 'Hamburg-Nahe', region: 'Hamburg', latitude: 53.6295, longitude: 10.0003, elevation: 10, wmo_id: null, start_timestamp: '1990-01-01T00:00:00+00:00', end_timestamp: RUNNING_END },
+]
+const CARRIED = { stations: (url: URL) => ({ stations: url.searchParams.get('network') === 'mosmix' ? CARRIED_FORECAST : CARRIED_MEASURED }) }
+
+test.describe('the map tool: the station picked across layers', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('is the same station in the other layer by its WMO number, though a nearer station has none, and says so', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?station=10147', CARRIED)
+    const panel = page.getByTestId('map-panel')
+    await expect(panel.getByRole('heading', { level: 2 })).toHaveText('HAMBURG-FUHLSBUETTEL')
+    await expect(page.getByTestId('map-same-station')).toHaveCount(0)
+
+    await page.getByRole('button', { name: en.mapTool.layerMeasured }).click()
+    await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Hamburg-Fuhlsbüttel')
+    await expect(page.getByTestId('map-same-station')).toHaveText('The same station, by its WMO number 10147.')
+    await expect(page.getByTestId('map-announcement')).toHaveText('Hamburg-Fuhlsbüttel chosen. The same station, by its WMO number 10147.')
+    await expect(page).toHaveURL(/\/map\?layer=measured&station=01975$/)
+    // the forecast card is the same station too, by the number, not "some way away"
+    await expect(page.getByTestId('map-card-same-forecast')).toContainText('HAMBURG-FUHLSBUETTEL')
+
+    // and back
+    await page.getByRole('button', { name: en.mapTool.layerForecast }).click()
+    await expect(panel.getByRole('heading', { level: 2 })).toHaveText('HAMBURG-FUHLSBUETTEL')
+    await expect(page.getByTestId('map-same-station')).toBeVisible()
+    await expect(page).toHaveURL(/\/map\?station=10147$/)
+  })
+
+  test('is carried by the keyboard alone: a layer chip pressed with Enter', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?station=10147', CARRIED)
+    const panel = page.getByTestId('map-panel')
+    await expect(panel.getByRole('heading', { level: 2 })).toHaveText('HAMBURG-FUHLSBUETTEL')
+    await page.getByRole('button', { name: en.mapTool.layerMeasured }).focus()
+    await page.keyboard.press('Enter')
+    await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Hamburg-Fuhlsbüttel')
+    await expect(page.getByTestId('map-same-station')).toBeVisible()
+  })
+
+  test('is the station for the place where it has no WMO number: the nearer station, and nothing said of the same', async ({ page, baseURL }) => {
+    const unnumbered = { stations: (url: URL) => ({ stations: url.searchParams.get('network') === 'mosmix' ? CARRIED_FORECAST.map(entry => ({ ...entry, wmo_id: null })) : CARRIED_MEASURED }) }
+    await open(page, baseURL!, '/map?station=10147', unnumbered)
+    await expect(page.getByTestId('map-panel').getByRole('heading', { level: 2 })).toHaveText('HAMBURG-FUHLSBUETTEL')
+    await page.getByRole('button', { name: en.mapTool.layerMeasured }).click()
+    await expect(page.getByTestId('map-panel').getByRole('heading', { level: 2 })).toHaveText('Hamburg-Nahe')
+    await expect(page.getByTestId('map-same-station')).toHaveCount(0)
+  })
+})
+
 test.describe('the map tool at 320 px', () => {
   test.use({ viewport: { width: 320, height: 700 } })
 

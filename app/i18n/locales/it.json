@@ -932,6 +932,7 @@
     "groupingCompulsory": "I livelli con più di {shown} stazioni sono sempre raggruppati.",
     "legendGroup": "Un numero è un gruppo di stazioni: clicca per ingrandire",
     "groupZoomed": "Ingrandito su un gruppo. Stazioni al suo interno: {shown}",
+    "sameStation": "La stessa stazione, riconosciuta dal suo numero OMM {wmo}.",
     "whyFarther": "La stazione più vicina ancora in funzione. Più vicina: {name}, a {distance}, fino al {year}.",
     "whyFartherNoEnd": "La stazione più vicina ancora in funzione. Più vicina: {name}, a {distance}, fine non nota.",
     "pickCloser": "Scegli invece {name}"

@@ -94,6 +94,39 @@ export function distanceKm(a: Point, b: Point): number {
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
+/**
+ * The WMO number of a station as it is compared (GH-4077): the five digits a number is written with, `01001` for a `1001`,
+ * or null where the station has none. Two stations of two lists that carry the same one are the same station, which their
+ * own ids, that number the stations of a network each its own way, are not.
+ */
+export function wmoNumber(station: { wmo_id?: string | null }): string | null {
+  const text = station.wmo_id?.trim()
+  if (!text)
+    return null
+  return /^\d{1,5}$/.test(text) ? text.padStart(5, '0') : text
+}
+
+/** The stations of a list that carry a WMO number: none, one (the same station), or several (which of them is not told) */
+export type WmoMatch<S> = { kind: 'none' } | { kind: 'one', station: S } | { kind: 'several', stations: S[] }
+
+/**
+ * The station of a list that has the WMO number a station of another list has. Only a number that is on exactly one
+ * station finds it: where the list has none, or the number is on several (it is not one place), the map goes by the
+ * position as it did, and takes no station for the same.
+ *
+ * @example
+ * matchByWmo(forecastPoints, '10147') // { kind: 'one', station: HAMBURG-FUHLSBUETTEL }
+ */
+export function matchByWmo<S extends { wmo_id?: string | null }>(stations: S[], wmoId: string | null | undefined): WmoMatch<S> {
+  const wanted = wmoId ? wmoNumber({ wmo_id: wmoId }) : null
+  if (!wanted)
+    return { kind: 'none' }
+  const found = stations.filter(station => wmoNumber(station) === wanted)
+  if (found.length === 1)
+    return { kind: 'one', station: found[0]! }
+  return found.length ? { kind: 'several', stations: found } : { kind: 'none' }
+}
+
 /** The stations that have a position, the only ones a map can show or a distance be taken to */
 export function placed(stations: Station[]): PlacedStation[] {
   return stations.filter((station): station is PlacedStation => station.latitude != null && station.longitude != null)

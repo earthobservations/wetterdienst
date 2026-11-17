@@ -932,6 +932,7 @@
     "groupingCompulsory": "Ebenen mit mehr als {shown} Stationen sind immer gruppiert.",
     "legendGroup": "Eine Zahl ist eine Gruppe von Stationen: Klicken zum Hineinzoomen",
     "groupZoomed": "Auf eine Gruppe gezoomt. Stationen darin: {shown}",
+    "sameStation": "Dieselbe Station, erkannt an ihrer WMO-Nummer {wmo}.",
     "whyFarther": "Die nächstgelegene Station, die noch Daten liefert. Näher: {name}, {distance}, bis {year}.",
     "whyFartherNoEnd": "Die nächstgelegene Station, die noch Daten liefert. Näher: {name}, {distance}, Ende unbekannt.",
     "pickCloser": "Stattdessen {name} wählen"

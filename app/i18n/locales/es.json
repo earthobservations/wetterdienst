@@ -932,6 +932,7 @@
     "groupingCompulsory": "Las capas con más de {shown} estaciones siempre están agrupadas.",
     "legendGroup": "Un número es un grupo de estaciones: haz clic para acercar",
     "groupZoomed": "Se acercó a un grupo. Estaciones que contiene: {shown}",
+    "sameStation": "La misma estación, reconocida por su número OMM {wmo}.",
     "whyFarther": "La estación más cercana que sigue informando. Más cerca: {name}, a {distance}, hasta {year}.",
     "whyFartherNoEnd": "La estación más cercana que sigue informando. Más cerca: {name}, a {distance}, fin desconocido.",
     "pickCloser": "Elegir {name} en su lugar"

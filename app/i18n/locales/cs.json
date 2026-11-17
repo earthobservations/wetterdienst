@@ -932,6 +932,7 @@
     "groupingCompulsory": "Vrstvy s více než {shown} stanicemi jsou vždy seskupené.",
     "legendGroup": "Číslo je skupina stanic: klikni pro přiblížení",
     "groupZoomed": "Přiblíženo na skupinu. Stanic v ní: {shown}",
+    "sameStation": "Stejná stanice, poznaná podle čísla WMO {wmo}.",
     "whyFarther": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, do {year}.",
     "whyFartherNoEnd": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, konec neznámý.",
     "pickCloser": "Místo toho vybrat {name}"

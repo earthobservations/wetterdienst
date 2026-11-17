@@ -25,6 +25,13 @@ Types of changes:
   station is its own dot); a layer of more than 10,000 stations is always grouped and says so.
   The groups are drawn on the map's canvas, so they are no stops of the keyboard: the map's keys
   and buttons zoom in on them. The station pickers split their groups at the same zoom (GH-4079).
+- `[Map]` A change of layer keeps the station picked where it has a WMO number and one station of
+  the other layer has the same: that station is picked (the forecast point and the measuring
+  station of one place, which are up to some kilometres apart and number their stations
+  differently), the panel says it is the same station and why, and its other cards take the same
+  station of their kind instead of the nearest. Where either has no number, or the number is on
+  several stations, the station is picked again by the place as before. Needs a backend that
+  answers `wmo_id` for the stations (GH-4077).
 
 ### Changed
 

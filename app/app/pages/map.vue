@@ -20,6 +20,7 @@ import {
   formatPosition,
   historyLink,
   HOME_VIEW,
+  matchByWmo,
   MEASURED_NETWORK,
   measurementsLink,
   nearestStations,
@@ -33,6 +34,7 @@ import {
   stationFor,
   STRIPES_KIND,
   stripesLink,
+  wmoNumber,
   yearOf,
 } from '~/utils/map-tool'
 
@@ -45,8 +47,9 @@ import {
 // The station the tool picks for a place is the nearest one within 100 km, a station that is still reporting before one
 // that has stopped (`reportingRule`: against the newest end of its own list), and the one under a click on its dot is
 // that station, whatever it is. A change of
-// layer or dataset picks again by the position of the place, never by the number of the station, which is another
-// station in another layer.
+// layer or dataset picks again by the WMO number of the station where it has one and one station of the new list has
+// the same (GH-4077), else by the position of the place, never by the id of the station, which is another station in
+// another layer.
 //
 // What is shown is in the address (`?layer=&resolution=&dataset=&station=&lat=&lon=`), so that a link opens the same
 // map, and so that the search of the header opens it on a station (`/map?station=10147`).
@@ -94,6 +97,14 @@ const keyOf = (shown: MapLayer, from: MeasuredSource) => shown === 'forecast' ? 
 const viewKey = computed(() => keyOf(layer.value, source.value))
 /** The view the station picked was picked in */
 let pickedIn = viewKey.value
+/**
+ * The WMO number of the station picked, kept through a change of layer (GH-4077): the layer after it has the same station
+ * where one of its stations carries that number. Not cleared by a layer that has none near, so that the next layer that has
+ * the station finds it again; cleared by Back and by an address that names another map.
+ */
+let pickedWmo: string | null = null
+/** The WMO number the station of the layer shown was found by, from the layer before: told in the panel */
+const sameStation = ref<string | null>(null)
 
 // ---- the lists of stations ------------------------------------------------------------------------------------
 
@@ -340,6 +351,8 @@ const reporting = computed(() => layer.value === 'measured' ? reportingRule(stat
 function choose(station: PlacedStation, options: { point?: Point, focus?: boolean, from?: PlaceOrigin } = {}) {
   selectedId.value = station.station_id
   pickedIn = viewKey.value
+  pickedWmo = wmoNumber(station)
+  sameStation.value = null
   anchor.value = options.point ?? { latitude: station.latitude, longitude: station.longitude }
   // a station chosen by name, from the list or by its dot, is a place of its own: no click was made
   origin.value = options.point ? options.from ?? POINT : { kind: 'station', name: stationName(station) }
@@ -364,6 +377,7 @@ function tellNoStationNear(point: Point, from: PlaceOrigin = POINT) {
   anchor.value = point
   origin.value = from
   unknownStation.value = null
+  sameStation.value = null
   noStationNear.value = true
   announcement.value = t('mapTool.noStationNear', { distance: reach.value })
 }
@@ -417,6 +431,8 @@ function onGroup(count: number) {
 function back() {
   const id = selectedId.value
   selectedId.value = null
+  pickedWmo = null
+  sameStation.value = null
   anchor.value = null
   reselect = false
   fromAddress = false
@@ -430,24 +446,48 @@ function back() {
   })
 }
 
-/** The station of a new view for the place picked, picked again by its position: the same station where it is under the place */
+/**
+ * The station of a new view for the place picked. Where the station picked before has a WMO number and one station of the
+ * new list has the same, that is the same station (GH-4077): the map takes it and says so, however far its position is from
+ * the old one (MOSMIX gives positions in whole minutes, so the two are a median 0.66 km apart). A number that the list has on
+ * none or on several stations finds nothing, and neither does a station with no number: the station is picked again by its
+ * position, as it was, the same station where it is under the place.
+ */
 function pickAgain(list: PlacedStation[]) {
   const point = anchor.value!
+  const same = matchByWmo(list, pickedWmo)
+  if (same.kind === 'one') {
+    const found = same.station
+    selectedId.value = found.station_id
+    pickedIn = viewKey.value
+    unknownStation.value = null
+    noStationNear.value = false
+    // the place was the position of the station before: it is the position of this one
+    if (origin.value.kind === 'station') {
+      anchor.value = { latitude: found.latitude, longitude: found.longitude }
+      origin.value = { kind: 'station', name: stationName(found) }
+    }
+    sameStation.value = wmoNumber(found)
+    announcement.value = `${t('mapTool.chosen', { name: stationName(found) })}. ${t('mapTool.sameStation', { wmo: sameStation.value })}`
+    return
+  }
+  sameStation.value = null
   const found = stationAt(list, point, SAME_PLACE_KM) ?? stationFor(list, point, reporting.value)?.station
   if (!found)
     return tellNoStationNear(point, origin.value)
   selectedId.value = found.station_id
   pickedIn = viewKey.value
+  pickedWmo = wmoNumber(found)
   unknownStation.value = null
   noStationNear.value = false
   // told, as a station that the reader chose is: it is another station than the one in the heading before
   announcement.value = chosenText(found, list, point)
 }
 
-// A change of layer or dataset, and the list that comes after it. The number of a station is the number in the list of
-// one view (DWD's forecast points and its measuring stations number their stations alike, and 59 of the numbers are
-// two stations), so a pick is never taken to another view by its number: it is picked again in the new list for the
-// place it was at. A list that has arrived with no change under it holds the station of the address, or the panel
+// A change of layer or dataset, and the list that comes after it. The id of a station is the id in the list of
+// one view (DWD's forecast points and its measuring stations number their stations alike, and 59 of the ids are
+// two stations), so a pick is never taken to another view by its id: it is picked again in the new list by its WMO number,
+// the same station wherever one has it (`pickAgain`), else for the place it was at. A list that has arrived with no change under it holds the station of the address, or the panel
 // says there is none.
 watch([viewKey, stations], ([key, list], [previousKey]) => {
   if (key !== previousKey && (selectedId.value || anchor.value) && pickedIn !== key) {
@@ -457,9 +497,11 @@ watch([viewKey, stations], ([key, list], [previousKey]) => {
     noStationNear.value = false
     fromAddress = false
   }
-  // the notice of a station that the view before did not have is not about this one
-  if (key !== previousKey)
+  // the notice of a station that the view before did not have is not about this one, nor is the word that it is the same
+  if (key !== previousKey) {
     unknownStation.value = null
+    sameStation.value = null
+  }
   if (!list.length)
     return
   if (reselect) {
@@ -481,6 +523,7 @@ watch([viewKey, stations], ([key, list], [previousKey]) => {
 watch(selected, (station) => {
   if (!station)
     return
+  pickedWmo = wmoNumber(station)
   if (!anchor.value) {
     anchor.value = { latitude: station.latitude, longitude: station.longitude }
     origin.value = { kind: 'station', name: stationName(station) }
@@ -503,7 +546,7 @@ watch(sourceKey, () => {
  * The station of a card: the station picked, for the layer it is of, and for the others the nearest within reach of
  * the place (`stationFor`), with its distance from the place, none where it is under half a kilometre.
  */
-function cardFor(list: PlacedStation[], isShown: boolean, running?: ReportingRule) {
+function cardFor(list: PlacedStation[], isShown: boolean, running?: ReportingRule): { station: PlacedStation, distance: number, same?: boolean } | null {
   if (!selected.value)
     return null
   const point = anchor.value ?? selected.value
@@ -511,6 +554,10 @@ function cardFor(list: PlacedStation[], isShown: boolean, running?: ReportingRul
     const distance = distanceKm(point, selected.value)
     return { station: selected.value, distance: distance > SAME_PLACE_KM ? distance : 0 }
   }
+  // the same station of another list, by its WMO number where both have one (GH-4077): not a station near the place
+  const same = matchByWmo(list, wmoNumber(selected.value))
+  if (same.kind === 'one')
+    return { station: same.station, distance: 0, same: true }
   return stationFor(list, point, running)
 }
 const forecastPoint = computed(() => cardFor(forecast.stations.value, layer.value === 'forecast'))
@@ -521,7 +568,8 @@ const measuredPoint = computed(() => cardFor(measured.stations.value, layer.valu
 
 /** The nearer station that has stopped, where the one the card offers is farther because it reports (GH-3875) */
 const measuredCloser = computed(() => {
-  if (!selected.value || !measuredPoint.value)
+  // the same station by its WMO number is no other station that was chosen for the place: nothing nearer to explain
+  if (!selected.value || !measuredPoint.value || measuredPoint.value.same)
     return null
   return closerStoppedStation(measured.stations.value, anchor.value ?? selected.value, measuredPoint.value.station, measuredRule.value)
 })
@@ -661,6 +709,10 @@ watch(() => route.query, (query) => {
                   <UIcon name="i-ph-map-pin" class="size-4 shrink-0" />
                   {{ placeText }}
                 </p>
+                <p v-if="sameStation" class="mt-2 inline-flex items-center gap-1.5 text-sm text-toned" data-testid="map-same-station">
+                  <UIcon name="i-ph-link" class="size-4 shrink-0" />
+                  {{ t('mapTool.sameStation', { wmo: sameStation }) }}
+                </p>
                 <!-- the station is the one found for the reader's position (GH-4011): the list that holds the button is
                      not in view, so the option to keep the position, or the control that says it is kept, is here; the
                      list and the card are never both in the page, so there is one of them to tab to -->
@@ -674,7 +726,10 @@ watch(() => route.query, (query) => {
                   {{ t('nav.meteogram') }}
                 </h3>
                 <template v-if="forecastPoint">
-                  <p v-if="forecastPoint.distance > 0" class="map-card-note">
+                  <p v-if="forecastPoint.same" class="map-card-note" data-testid="map-card-same-forecast">
+                    {{ stationName(forecastPoint.station) }} · {{ t('mapTool.sameStation', { wmo: wmoNumber(forecastPoint.station) }) }}
+                  </p>
+                  <p v-else-if="forecastPoint.distance > 0" class="map-card-note">
                     {{ t('mapTool.at', { name: stationName(forecastPoint.station), distance: formatDistance(forecastPoint.distance, formatLanguage) }) }}
                   </p>
                   <MapForecast :station="forecastPoint.station" />
@@ -701,7 +756,10 @@ watch(() => route.query, (query) => {
                   {{ t('nav.stripes') }}
                 </h3>
                 <template v-if="stripesPoint">
-                  <p v-if="stripesPoint.distance > 0" class="map-card-note">
+                  <p v-if="stripesPoint.same" class="map-card-note" data-testid="map-card-same-stripes">
+                    {{ stationName(stripesPoint.station) }} · {{ t('mapTool.sameStation', { wmo: wmoNumber(stripesPoint.station) }) }}
+                  </p>
+                  <p v-else-if="stripesPoint.distance > 0" class="map-card-note">
                     {{ t('mapTool.at', { name: stationName(stripesPoint.station), distance: formatDistance(stripesPoint.distance, formatLanguage) }) }}
                   </p>
                   <MapStripes :station-id="stripesPoint.station.station_id" :station-name="stationName(stripesPoint.station)" />
@@ -733,7 +791,10 @@ watch(() => route.query, (query) => {
                       · {{ measuredFor(measuredPoint.station) }}
                     </template>
                   </p>
-                  <p v-if="measuredPoint.distance > 0" class="map-card-note">
+                  <p v-if="measuredPoint.same" class="map-card-note" data-testid="map-card-same-measured">
+                    {{ stationName(measuredPoint.station) }} · {{ t('mapTool.sameStation', { wmo: wmoNumber(measuredPoint.station) }) }}
+                  </p>
+                  <p v-else-if="measuredPoint.distance > 0" class="map-card-note">
                     {{ t('mapTool.at', { name: stationName(measuredPoint.station), distance: formatDistance(measuredPoint.distance, formatLanguage) }) }}
                   </p>
                   <!-- the station is not the nearest: a nearer one has stopped (GH-3875) -->

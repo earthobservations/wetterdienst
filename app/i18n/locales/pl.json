@@ -932,6 +932,7 @@
     "groupingCompulsory": "Warstwy z ponad {shown} stacji są zawsze grupowane.",
     "legendGroup": "Liczba oznacza grupę stacji: kliknij, aby przybliżyć",
     "groupZoomed": "Przybliżono grupę. Stacji w niej: {shown}",
+    "sameStation": "Ta sama stacja, rozpoznana po numerze WMO {wmo}.",
     "whyFarther": "Najbliższa stacja, która nadal działa. Bliżej: {name}, {distance}, do {year}.",
     "whyFartherNoEnd": "Najbliższa stacja, która nadal działa. Bliżej: {name}, {distance}, koniec nieznany.",
     "pickCloser": "Wybierz zamiast tego {name}"

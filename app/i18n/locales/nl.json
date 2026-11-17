@@ -932,6 +932,7 @@
     "groupingCompulsory": "Lagen met meer dan {shown} stations worden altijd gegroepeerd.",
     "legendGroup": "Een getal is een groep stations: klik om in te zoomen",
     "groupZoomed": "Ingezoomd op een groep. Stations erin: {shown}",
+    "sameStation": "Hetzelfde station, herkend aan zijn WMO-nummer {wmo}.",
     "whyFarther": "Het dichtstbijzijnde station dat nog meldt. Dichterbij: {name}, {distance}, tot {year}.",
     "whyFartherNoEnd": "Het dichtstbijzijnde station dat nog meldt. Dichterbij: {name}, {distance}, einde onbekend.",
     "pickCloser": "Kies in plaats daarvan {name}"

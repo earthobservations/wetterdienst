@@ -11,6 +11,7 @@ import {
   formatPosition,
   historyLink,
   LIST_RUNNING_WITHIN_DAYS,
+  matchByWmo,
   measurementsLink,
   nearestStations,
   nearestWithin,
@@ -27,6 +28,7 @@ import {
   stationFor,
   stripesLink,
   TAP_RADIUS_PX,
+  wmoNumber,
   yearOf,
 } from '../../app/utils/map-tool'
 import { chromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
@@ -429,5 +431,52 @@ describe('why a farther station was picked (GH-3875)', () => {
     expect(yearOf(null)).toBeNull()
     expect(yearOf(undefined)).toBeNull()
     expect(yearOf('not a date')).toBeNull()
+  })
+})
+
+describe('the WMO number of a station (GH-4077)', () => {
+  it('is the five digits of the number, and none where the station has none', () => {
+    expect(wmoNumber({ wmo_id: '10147' })).toBe('10147')
+    expect(wmoNumber({ wmo_id: ' 10147 ' })).toBe('10147')
+    // the REST API reads '1001' as '01001': the number is compared as it is written with its padding
+    expect(wmoNumber({ wmo_id: '1001' })).toBe('01001')
+    expect(wmoNumber({ wmo_id: null })).toBeNull()
+    expect(wmoNumber({ wmo_id: '' })).toBeNull()
+    expect(wmoNumber({ wmo_id: '   ' })).toBeNull()
+    expect(wmoNumber({})).toBeNull()
+  })
+
+  it('leaves a number that is not digits as it is: no padding is made up for a text', () => {
+    expect(wmoNumber({ wmo_id: 'X379' })).toBe('X379')
+  })
+})
+
+describe('the station of a list that has a WMO number', () => {
+  const withWmo = (id: string, wmo: string | null, latitude = 50, longitude = 10) => ({ ...station(id, id, latitude, longitude), wmo_id: wmo })
+  const LIST = placed([withWmo('01975', '10147'), withWmo('02564', '10025', 54.4, 10.1), withWmo('03379', null, 48.2, 11.5), withWmo('09999', '10147', 53.6, 10.0)])
+
+  it('is the one station that has it, found by the number whatever the ids are', () => {
+    const match = matchByWmo(LIST, '10025')
+    expect(match).toEqual({ kind: 'one', station: LIST[1] })
+  })
+
+  it('finds nothing where the list has no station with the number, or the station has none', () => {
+    expect(matchByWmo(LIST, '99999')).toEqual({ kind: 'none' })
+    expect(matchByWmo(LIST, null)).toEqual({ kind: 'none' })
+    expect(matchByWmo(LIST, undefined)).toEqual({ kind: 'none' })
+    expect(matchByWmo(LIST, '')).toEqual({ kind: 'none' })
+    // a station with no number of its own is never found by "no number"
+    expect(matchByWmo(LIST, '  ')).toEqual({ kind: 'none' })
+  })
+
+  it('finds none of the stations where the number is on several: it is not one place, and no station is guessed', () => {
+    const match = matchByWmo(LIST, '10147')
+    expect(match.kind).toBe('several')
+    expect(match.kind === 'several' && match.stations.map(entry => entry.station_id)).toEqual(['01975', '09999'])
+  })
+
+  it('reads the number as the stations do: padded, trimmed', () => {
+    expect(matchByWmo(placed([withWmo('01001', '1001')]), '01001').kind).toBe('one')
+    expect(matchByWmo(placed([withWmo('01001', '01001')]), ' 1001').kind).toBe('one')
   })
 })
