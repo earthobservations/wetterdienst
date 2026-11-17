@@ -1036,7 +1036,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "small", "nl"): "Low cloud cover (lower than 2 km)",
         ("hourly", "large", "wwpd"): "Probability: Occurrence of any precipitation within the last 24 hours",
         ("hourly", "large", "dd"): "Wind direction",
-        ("hourly", "large", "drr1"): "Duration of precipitation within the last hour",
+        ("hourly", "large", "drr1"): (
+            "Duration of precipitation within the last hour. 0 for most rainy hours at 10382 (Berlin-Tegel) and not "
+            "given at all at some stations (10961, Zugspitze), which `skip_empty` then drops."
+        ),
         ("hourly", "large", "e_dd"): "Absolute error wind direction",
         ("hourly", "large", "e_ff"): "Absolute error wind speed 10m above surface",
         ("hourly", "large", "e_ppp"): "Absolute error surface pressure",
@@ -1104,20 +1107,39 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "rh02"): "Probability of precipitation > 0.2mm during the last 12 hours",
         ("hourly", "large", "rh10"): "Probability of precipitation > 1.0mm during the last 12 hours",
         ("hourly", "large", "rh50"): "Probability of precipitation > 5.0mm during the last 12 hours",
-        ("hourly", "large", "rr1c"): "Total precipitation during the last hour consistent with significant weather",
+        ("hourly", "large", "rr1c"): (
+            "Total precipitation during the last hour consistent with significant weather. At most German lowland "
+            "stations of the runs measured (2026-11-16/17) it is 0.0 from about +100 to +125 h of the run: real zeros, "
+            "not missing values, while the 12 and 24 h totals (`rrhc`, `rrdc`) and the probabilities still carry "
+            "rain; the 6 h total (`rr6c`) falls to zero early at some stations."
+        ),
         ("hourly", "large", "rr1o1"): "Probability of precipitation > 10.0 mm during the last hour",
         ("hourly", "large", "rr1u1"): "Probability of precipitation > 25.0 mm during the last hour",
         ("hourly", "large", "rr1w1"): "Probability of precipitation > 15.0 mm during the last hour",
-        ("hourly", "large", "rr3c"): "Total precipitation during the last 3 hours consistent with significant weather",
-        ("hourly", "large", "rr6c"): "Total precipitation during the last 6 hours consistent with significant weather",
+        ("hourly", "large", "rr3c"): (
+            "Total precipitation during the last 3 hours consistent with significant weather, given at the 00, 03, "
+            "..., 21 UTC steps. Often 0.0 late in the run at lowland stations of the runs measured (2026-11-16/17; "
+            "median last non-zero step +132 h in MOSMIX-S): real zeros, not missing values, while the 12 and 24 h "
+            "totals (`rrhc`, `rrdc`) still carry rain; the 6 h total (`rr6c`) falls to zero early at some stations."
+        ),
+        ("hourly", "large", "rr6c"): (
+            "Total precipitation during the last 6 hours consistent with significant weather, given at the 00, 06, 12 "
+            "and 18 UTC steps"
+        ),
         ("hourly", "large", "rrad1"): (
             "Global irradiance within the last hour as a percentage: the source gives % (0..80) and no "
             "reference. Rad1h over the extraterrestrial radiation on a horizontal surface in the same hour "
             "reproduces it roughly (mean difference under 3 points at 6 stations, single hours up to about 20 "
             "points apart), so it is read as a share of that."
         ),
-        ("hourly", "large", "rrdc"): "Total precipitation during the last 24 hours consistent with significant weather",
-        ("hourly", "large", "rrhc"): "Total precipitation during the last 12 hours consistent with significant weather",
+        ("hourly", "large", "rrdc"): (
+            "Total precipitation during the last 24 hours consistent with significant weather, given at the 06 UTC "
+            "steps"
+        ),
+        ("hourly", "large", "rrhc"): (
+            "Total precipitation during the last 12 hours consistent with significant weather, given at the 06 and 18 "
+            "UTC steps"
+        ),
         ("hourly", "large", "rrl1c"): (
             "Total liquid precipitation during the last hour consistent with significant weather"
         ),
@@ -1144,9 +1166,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "24 UTC, ending 6 hours before the step; 0.33 K, 10 stations, 100 values of the run of 2026-10-19) "
             "better than the 24 hours ending at the step (0.55 K); unconfirmed by DWD"
         ),
-        ("hourly", "large", "tn"): "Minimum temperature - within the last 12 hours, given at the 06 and 18 UTC steps",
+        ("hourly", "large", "tn"): (
+            "Minimum temperature - within the last 12 hours, given at the 06 and 18 UTC steps at most stations"
+        ),
         ("hourly", "large", "ttt"): "Temperature 2m above surface",
-        ("hourly", "large", "tx"): "Maximum temperature - within the last 12 hours, given at the 06 and 18 UTC steps",
+        ("hourly", "large", "tx"): (
+            "Maximum temperature - within the last 12 hours, given at the 06 and 18 UTC steps at most stations"
+        ),
         ("hourly", "large", "vv"): "Visibility",
         ("hourly", "large", "vv10"): "Probability: Visibility below 1000m",
         ("hourly", "large", "w1w2"): (
@@ -1239,8 +1265,19 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "small", "rh02"): "Probability of precipitation > 0.2mm during the last 12 hours",
         ("hourly", "small", "rh10"): "Probability of precipitation > 1.0mm during the last 12 hours",
         ("hourly", "small", "rh50"): "Probability of precipitation > 5.0mm during the last 12 hours",
-        ("hourly", "small", "rr1c"): "Total precipitation during the last hour consistent with significant weather",
-        ("hourly", "small", "rr3c"): "Total precipitation during the last 3 hours consistent with significant weather",
+        ("hourly", "small", "rr1c"): (
+            "Total precipitation during the last hour consistent with significant weather. At most German lowland "
+            "stations of the runs measured (2026-11-16/17) it is 0.0 from about +100 to +125 h of the run: real zeros, "
+            "not missing values, while the 12 and 24 h probabilities (`rh*`, `rd*`) are still above 0. About a "
+            "quarter of the stations lack the last 3 to 9 h of the run, and some a block of every day."
+        ),
+        ("hourly", "small", "rr3c"): (
+            "Total precipitation during the last 3 hours consistent with significant weather, given at the 00, 03, "
+            "..., 21 UTC steps. Often 0.0 late in the run at lowland stations of the runs measured (2026-11-16/17; "
+            "median last non-zero step +132 h): real zeros, not missing values, while the 12 and 24 h probabilities "
+            "(`rh*`, `rd*`) are still above 0. About a quarter of the stations lack the last 3 to 9 h of the run, "
+            "and some a block of every day."
+        ),
         ("hourly", "small", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "small", "rrs3c"): "Snow-Rain-Equivalent during the last 3 hours",
         ("hourly", "small", "sund1"): "Sunshine duration during the last Hour",
@@ -1250,13 +1287,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "hourly",
             "small",
             "tn",
-        ): "Minimum temperature - within the last 12 hours, given at the 00, 06, 12 and 18 UTC steps",
+        ): "Minimum temperature - within the last 12 hours, given at the 06 and 18 UTC steps at most stations",
         ("hourly", "small", "ttt"): "Temperature 2m above surface",
         (
             "hourly",
             "small",
             "tx",
-        ): "Maximum temperature - within the last 12 hours, given at the 00, 06, 12 and 18 UTC steps",
+        ): "Maximum temperature - within the last 12 hours, given at the 06 and 18 UTC steps at most stations",
         ("hourly", "small", "vv"): "Visibility",
         ("hourly", "small", "w1w2"): (
             "Past weather during the last 6 hours, as two digits W1 and W2 (two-digit values from 0 to 99, such "

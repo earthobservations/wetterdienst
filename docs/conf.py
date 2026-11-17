@@ -32,6 +32,7 @@ extensions = [
     "sphinx_copybutton",
     "parameter_glossary",
     "provider_licenses",
+    "mosmix_elements",
     "notebook_errors",
 ]
 

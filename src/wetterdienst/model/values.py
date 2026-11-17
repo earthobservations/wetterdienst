@@ -1416,6 +1416,13 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         window of 07 to 17). A station whose every parameter is left out has nothing in the window and is skipped, as
         it is whatever `drop_nulls` and the shape are.
 
+        The steps are the file's own, so an element that ends before the run does cannot be told from one that is given
+        so: its last step is whichever the file last gives, and a station that has them all is complete. No real file
+        has such an element (MOSMIX-L and MOSMIX-S, 2026-11-17: every element reaches the last step of its cadence),
+        and `docs/data/provider/dwd/mosmix/elements/index.md` lists them. An element the file gives at no step for the
+        station (`DRR1` at 10961, the Zugspitze) is an empty series: zero coverage, and `skip_empty` (with
+        `skip_criteria` "min") skips the station.
+
         Not implemented, which is what a provider that does not name its steps does, the steps are every slot of the
         resolution's grid over the window, as they always were.
         """
