@@ -8,7 +8,7 @@ import datetime as dt
 import json
 import logging
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, ClassVar
 from urllib.parse import urlencode
 
 import polars as pl
@@ -329,6 +329,17 @@ class EAHydrologyValues(TimeseriesValues[ParameterModel]):
         )
 
 
+def _first_id(value: Any) -> str | None:  # noqa: ANN401
+    """Give an id of the listing as one text: the lowest of those it lists where it lists more than one.
+
+    The listing writes an id that a station has twice as an array (`RLOIid` of 52 stations: `["3416", "3060"]`), which
+    is no order to rely on, so the lowest is taken to give the same one on every read. Anything but a text is no id.
+    """
+    if isinstance(value, list):
+        return min((entry for entry in value if isinstance(entry, str) and entry), default=None)
+    return value if isinstance(value, str) and value else None
+
+
 def _station_row(item: dict[str, Any]) -> dict[str, Any]:
     """Give the fields of one station of the listing that the reader keeps, each as a scalar.
 
@@ -345,6 +356,8 @@ def _station_row(item: dict[str, Any]) -> dict[str, Any]:
     return {
         "label": label,
         "notation": item.get("notation"),
+        "nrfaStationID": _first_id(item.get("nrfaStationID")),
+        "RLOIid": _first_id(item.get("RLOIid")),
         "lat": item.get("lat"),
         "long": item.get("long"),
         "dateOpened": item.get("dateOpened"),
@@ -363,6 +376,15 @@ class EAHydrologyRequest(TimeseriesRequest):
     _values = EAHydrologyValues
 
     _url = "https://environment.data.gov.uk/hydrology/id/stations.json"
+
+    # the national ids the listing gives a station besides its `notation` (GH-4070): `nrfa_id`, the number of the
+    # National River Flow Archive (`nrfaStationID`, `52017`, 850 of 9537 stations) and `rloi_id`, the id of the station
+    # in River Levels on the Internet (`RLOIid`, `3060`, 1808), which the listing links to "Check for flooding"
+    _base_columns: ClassVar = (
+        *TimeseriesRequest._base_columns,  # noqa: SLF001
+        "nrfa_id",
+        "rloi_id",
+    )
 
     def _all(self) -> pl.LazyFrame:
         """Acquire all stations and filter for stations that have wanted resolution and parameter combinations."""
@@ -392,6 +414,8 @@ class EAHydrologyRequest(TimeseriesRequest):
             schema={
                 "label": pl.String,
                 "notation": pl.String,
+                "nrfaStationID": pl.String,
+                "RLOIid": pl.String,
                 "lat": pl.Float64,
                 "long": pl.Float64,
                 "dateOpened": pl.String,
@@ -408,6 +432,8 @@ class EAHydrologyRequest(TimeseriesRequest):
                 "lat": "latitude",
                 "long": "longitude",
                 "notation": "station_id",
+                "nrfaStationID": "nrfa_id",
+                "RLOIid": "rloi_id",
                 "dateOpened": "start_timestamp",
                 "dateClosed": "end_timestamp",
                 "period": "resolution",
@@ -443,6 +469,8 @@ class EAHydrologyRequest(TimeseriesRequest):
             "latitude",
             "longitude",
             "name",
+            "nrfa_id",
+            "rloi_id",
         )
         # the listing carries one row per measure, so a station recording two of the requested
         # parameters (or the daily maximum and minimum) arrives once per measure. Left in, the

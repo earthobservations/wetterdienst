@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 
+import polars as pl
 import pytest
 
 from tests.provider.station_catalogue_stubs import EA_HYDROLOGY_LISTING
@@ -305,6 +306,7 @@ def test_ea_stations_are_asked_for_the_whole_listing(
             {
                 "fcdd7420-c000-4db7-99fa-3835a65372fe": ("Beach's Mill", None),
                 "ab5db73f-059e-4d10-9b92-5a640db3c1ab": ("Udford", dt.datetime(2024, 3, 14, tzinfo=dt.UTC)),
+                "959f3e4f-bb6e-4f4a-8082-0157eea99482": ("Iwood", None),
             },
         ),
         (
@@ -346,6 +348,26 @@ def test_ea_a_station_without_a_position_is_listed(
     df = EAHydrologyRequest(parameters=[("15_minutes", "data", "discharge")], settings=default_settings).all().df
     banks_road = df.filter(df.get_column("station_id") == "32f5b1ea-29f7-4d6c-b473-a9e5da0e59d1_U30028")
     assert banks_road.select("name", "latitude", "longitude").row(0) == ("Banks Road", None, None)
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [
+        ("52017", "52017"),
+        (["3416", "3060"], "3060"),
+        (["3060", "3416"], "3060"),
+        (["3060"], "3060"),
+        ([], None),
+        (None, None),
+        ("", None),
+        (3060, None),
+        ([3060, "3416"], "3416"),
+    ],
+)
+def test_ea_the_national_ids_of_the_listing_are_one_text_or_null(given: Any, expected: str | None) -> None:  # noqa: ANN401
+    """Test that an id given twice is the lowest, whichever comes first, and that a number is no id (GH-4070)."""
+    row = ea_api._station_row({"notation": "x", "nrfaStationID": given, "RLOIid": given})  # noqa: SLF001
+    assert (row["nrfaStationID"], row["RLOIid"]) == (expected, expected)
 
 
 def test_ea_a_listing_as_long_as_the_limit_is_reported_as_cut(
@@ -573,3 +595,24 @@ def test_ea_readings_are_not_read_at_a_measure_of_another_host(
     request = EAHydrologyRequest(parameters=[("15_minutes", "data", "discharge")], settings=default_settings, **WINDOW)
     with pytest.raises(DownloadError, match="the link was not fetched"):
         request.all().values().all()
+
+
+@pytest.mark.remote
+def test_ea_live_national_ids_are_digits_and_most_stations_have_the_rloi_one(default_settings: Settings) -> None:
+    """Test that the live listing gives the NRFA number as five or six digits and the RLOI id as digits (GH-4070).
+
+    2026-11-17: of the 4,056 stations of the 15-minute and the daily data, 849 had an NRFA number and 1,805 an RLOI id.
+    """
+    stations = (
+        EAHydrologyRequest(parameters=[("15_minutes", "data"), ("daily", "data")], settings=default_settings)
+        .all()
+        .df.unique("station_id")
+    )
+
+    assert stations.height > 3000
+    assert stations["nrfa_id"].count() > 500
+    assert stations["rloi_id"].count() > 1000
+    assert stations.filter(pl.col("nrfa_id").is_not_null() & ~pl.col("nrfa_id").str.contains(r"^\d{5,6}$")).is_empty()
+    assert stations.filter(
+        pl.col("rloi_id").is_not_null() & ~pl.col("rloi_id").str.contains(r"^[0-9A-Za-z]+$")
+    ).is_empty()
