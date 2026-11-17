@@ -43,8 +43,12 @@ or -0.02 m for a few hours (20 of 11,760 values in the 49 runs of 2026-11-15 to 
 the new snow, the amounts of precipitation, the radiation and the sunshine duration, which cannot be negative, are held
 to the [plausibility](../../../plausibility.md) check `floor`: by default (hard) the value is set to 0.0 and the number
 stays as `rejected:floor,raw:-0.02`; with `plausibility={"floor": "soft"}` the value is kept as DWD wrote it and
-flagged `suspect:floor`. The percentages and the wind that MOSMIX-L writes below 0 now and then (`RSunD` to -10 %, `N05`
-to -8 %, `FF` -0.51 m/s) are no round-off and are not corrected.
+flagged `suspect:floor`. Only round-off is clipped, down to a tolerance for each quantity (-0.2 mm for an amount of
+precipitation, -0.01 MJ/m2 for the radiation, -5 cm for a depth of snow, -0.02 h for a duration; the same as for
+[`dwd/dmo`](../dmo/index.md)): a snow depth of -15 m is no round-off and is not set to 0 but flagged `suspect:range`,
+the value kept, as every forecast value outside the range of its parameter. The percentages and the wind that MOSMIX-L
+writes below 0 now and then (`RSunD` to -10 %, `N05` to -8 %, `wwS` -1 %, `FF` -0.51 m/s) are not named by the floor and
+are held to the range, 0 at the low end: `suspect:range`. `E_DD`, a signed error, has no bound.
 
 ## Update date
 

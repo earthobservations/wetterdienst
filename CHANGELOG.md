@@ -20,10 +20,11 @@ Types of changes:
 
 - `dwd/mosmix`: the snow depth of MOSMIX-SNOW that the model writes a little below 0 (`sncv` -0.01
   and -0.02 m of a melting snow) is returned as 0.0, with the number kept as
-  `rejected:floor,raw:-0.02` in `quality_flags`, as `dwd/dmo` does for its precipitation. The new
-  snow, the precipitation amounts, the radiation and the sunshine duration of MOSMIX-S and -L are
-  held to the same check `floor`; `plausibility={"floor": "soft"}` keeps the number as written and
-  flags it `suspect:floor` (GH-4182)
+  `rejected:floor,raw:-0.02` in `quality_flags`, as `dwd/dmo` does for its precipitation. The
+  new snow of MOSMIX-SNOW and the precipitation (`RR*c`, `RRS*c`, `DRR1`), radiation and sunshine
+  durations of MOSMIX-S and -L are held to the same check `floor`. It clips round-off only, down to
+  -0.2 mm, -0.01 MJ/m2, -5 cm of snow or -0.02 h (`dwd/dmo` too); a value further below (-15 m of
+  snow) is not set to 0 but flagged `suspect:range`, the value kept (GH-4182)
 
 ## [0.191.0] - 2026-11-17
 
