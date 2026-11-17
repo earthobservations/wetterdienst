@@ -285,6 +285,15 @@ describe('the days', () => {
     expect(day.light).toEqual([day.start + 4 * HOUR, day.start + 20 * HOUR])
   })
 
+  it('has the barbs on the southern side south of the equator only: the equator and an unknown latitude are north', () => {
+    expect(model({ coords: { latitude: 52.5, longitude: 13.4 } }).southern).toBe(false)
+    expect(model({ coords: { latitude: -33.9, longitude: 151.2 } }).southern).toBe(true)
+    expect(model({ coords: { latitude: -0.0001, longitude: 0 } }).southern).toBe(true)
+    expect(model({ coords: { latitude: 0, longitude: 0 } }).southern).toBe(false)
+    expect(model({ coords: { latitude: null, longitude: 13.4 } }).southern).toBe(false)
+    expect(model({ coords: null }).southern).toBe(false)
+  })
+
   it('fades the band by the cloud at noon', () => {
     const clear = model({ values: forecastValues().map(v => v.parameter === 'cloud_cover_total' ? { ...v, value: 0 } : v) }).days[1]!
     const cloudy = model({ values: forecastValues().map(v => v.parameter === 'cloud_cover_total' ? { ...v, value: 100 } : v) }).days[1]!
