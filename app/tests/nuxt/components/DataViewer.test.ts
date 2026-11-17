@@ -1403,6 +1403,28 @@ describe('dataViewer chart of the rows it can plot', () => {
     expect(line.data).toEqual([[Date.UTC(2020, 0, 1), 1.5], [Date.UTC(2020, 0, 2), null], [Date.UTC(2020, 0, 3), 2.5]])
   })
 
+  it.each([false, true])('breaks the line where rows are missing, by the resolution the rows name, faceted: %s (GH-4100)', async (faceted) => {
+    forgetDrawings()
+    // daily rows of the 1st, 2nd, 3rd, then the 6th, 7th, 8th of January: the 4th and the 5th have no row at all
+    const present = [0, 1, 2, 5, 6, 7].map(day => ({ ...row, timestamp: new Date(Date.UTC(2020, 0, day + 1)).toISOString(), value: day }))
+    const { wrapper } = await withChartQuery(present)
+    await showChart(wrapper, faceted)
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    const [line] = linesOf(lastDrawn().option)
+    expect(line.data.map((point: [number, number | null]) => point[1])).toEqual([0, 1, 2, null, 5, 6, 7])
+    // the point of no value is between the two days, and every value the rows have is drawn
+    expect(line.data[3][0]).toBeGreaterThan(Date.UTC(2020, 0, 3))
+    expect(line.data[3][0]).toBeLessThan(Date.UTC(2020, 0, 6))
+  })
+
+  it('does not break the line of rows a day apart that name a resolution of months', async () => {
+    forgetDrawings()
+    const { wrapper } = await withChartQuery([0, 1, 2, 5, 6, 7].map(day => ({ ...row, resolution: 'monthly', timestamp: new Date(Date.UTC(2020, 0, day + 1)).toISOString(), value: day })))
+    await showChart(wrapper, false)
+    await vi.waitFor(() => expect(drawings().length).toBeGreaterThan(0))
+    expect(linesOf(lastDrawn().option)[0].data.map((point: [number, number | null]) => point[1])).toEqual([0, 1, 2, 5, 6, 7])
+  })
+
   it('draws a long series cut to what the plot can show, with every peak of it', async () => {
     // a year of ten-minute readings: 52,560 points, with one spike
     const start = Date.UTC(2020, 0, 1)

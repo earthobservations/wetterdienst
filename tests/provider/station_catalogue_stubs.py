@@ -1968,8 +1968,23 @@ STUBS = [
     ),
     Stub("dwd/dmo hourly/icon", _dwd_dmo, expected=DMO_EXPECTED),
     Stub("dwd/observation daily/climate_summary", _dwd_observation, expected=OBSERVATION_EXPECTED),
-    Stub("dwd/derived hourly/radiation_global", _dwd_derived),
-    Stub("dwd/derived daily/soil", _dwd_derived_soil),
+    # the DUETT ids (18xxx) are no ids of the Stationslexikon: no WMO number; the soil list has DWD's station ids, so
+    # Dresden-Klotzsche `01048` has its `10488` and Großenkneten and Doberlug-Kirchhain have none (GH-4162)
+    Stub(
+        "dwd/derived hourly/radiation_global",
+        _dwd_derived,
+        expected={station_id: {"wmo_id": None} for station_id in ("18000", "18001", "18008", "18020")},
+    ),
+    Stub(
+        "dwd/derived daily/soil",
+        _dwd_derived_soil,
+        expected={
+            "00044": {"wmo_id": None},
+            "00073": {"wmo_id": None},
+            "01001": {"wmo_id": None},
+            "01048": {"wmo_id": "10488"},
+        },
+    ),
     Stub("dwd/phenology annual/annual_apple", _dwd_phenology),
     Stub("ipma/observation hourly/data", _ipma),
     Stub("lhmt/observation hourly/data", _lhmt),

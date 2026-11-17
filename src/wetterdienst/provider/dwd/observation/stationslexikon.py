@@ -1,6 +1,6 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""The WMO numbers of the stations of ``dwd/observation``, read from DWD's Stationslexikon (GH-4073).
+"""The WMO numbers of the stations of ``dwd/observation`` and ``dwd/derived``, from DWD's Stationslexikon (GH-4073).
 
 The station descriptions the climate data come with (``*_Beschreibung_Stationen.txt``) carry no WMO number. DWD's
 Stationslexikon does: an HTML table with a row for every station and product (read 2026-11-16: 21,111 rows of 13,779
@@ -287,7 +287,10 @@ def read_wmo_ids(settings: Settings) -> pl.DataFrame:
 
 
 def with_wmo_id(stations: pl.LazyFrame, settings: Settings) -> pl.LazyFrame:
-    """Add ``wmo_id`` to the stations of ``dwd/observation``, from the Stationslexikon, null for a station without one.
+    """Add ``wmo_id`` to stations that have DWD's station ids, from the Stationslexikon, null for one without a number.
+
+    These are the stations of ``dwd/observation`` and, for the datasets whose ids are DWD station ids, those of
+    ``dwd/derived`` (GH-4162).
 
     The number is an enrichment of the station list, not the list: when the Stationslexikon cannot be read the stations
     still come back, with `wmo_id` null and a warning (`wmo-ids-unavailable`) in the log and in the answer, as

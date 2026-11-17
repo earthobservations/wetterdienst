@@ -41,6 +41,25 @@ export function overWindow(data: [number, number | null][], windowMs: number): [
   return data.map(([time, amount]) => [time - windowMs / 2, amount])
 }
 
+/** The longest step between two stamps of a line that is still drawn: no value is read across a longer one (`readoutValue`) */
+export const LINE_GAP_MS = 3 * HOUR_MS
+
+/**
+ * `points` with a point of no value between two stamps that are more than `maxStepMs` apart, so that a line is not drawn across
+ * hours the forecast has no value for, nor an area filled under it (GH-4100). The 3 hours of an element given every 3 hours
+ * are no gap, and the readout already says there is no value across a longer one.
+ */
+export function breakAtGaps(points: [number, number][], maxStepMs: number = LINE_GAP_MS): [number, number | null][] {
+  const out: [number, number | null][] = []
+  points.forEach((point, i) => {
+    const before = points[i - 1]
+    if (before && point[0] - before[0] > maxStepMs)
+      out.push([Math.round((before[0] + point[0]) / 2), null])
+    out.push(point)
+  })
+  return out
+}
+
 /** A series drawn in a panel, as points of time (ms) and value, a null value breaking the line */
 export interface DrawnSeries {
   id: string
@@ -150,7 +169,7 @@ export function readoutValue(series: ReadoutSeries, t: number): number | null {
   const next = x[lo + 1]
   if (x[lo] === t || next === undefined)
     return x[lo] === t ? (y[lo] ?? null) : null
-  if (series.mode === 'exact' || next - x[lo]! > 3 * HOUR_MS)
+  if (series.mode === 'exact' || next - x[lo]! > LINE_GAP_MS)
     return null
   if (series.mode === 'held')
     return y[lo] ?? null
@@ -330,7 +349,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
       dashed: false,
       width: 2,
       area: true,
-      data: points(tempSeries),
+      data: breakAtGaps(points(tempSeries)),
       quantity: 'temperature',
       digits: units.digits('temperature'),
     }, unitOfQ('temperature'))
@@ -386,7 +405,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
         dashed: false,
         width: 1.6,
         area: false,
-        data: dew,
+        data: breakAtGaps(dew),
         quantity: 'temperature',
         digits: units.digits('temperature'),
       }, unitOfQ('temperature'))
@@ -488,7 +507,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
       straight: true,
       width: 2,
       area: true,
-      data: points(snowDepthSeries),
+      data: breakAtGaps(points(snowDepthSeries)),
       quantity: 'length_short',
       digits: units.digits('length_short'),
     }, unitOfQ('length_short'), 'exact')
@@ -508,7 +527,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
       straight: true,
       width: 1.6,
       area: true,
-      data: points(snowChanceSeries),
+      data: breakAtGaps(points(snowChanceSeries)),
       quantity: 'fraction',
       digits: units.digits('fraction'),
     }, unitOfQ('fraction'), 'exact')
@@ -533,7 +552,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
       dashed: false,
       width: 1.6,
       area: true,
-      data: points(pressureSeries),
+      data: breakAtGaps(points(pressureSeries)),
       quantity: 'pressure',
       digits: units.digits('pressure'),
     }, unitOfQ('pressure'))
@@ -561,7 +580,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
       dashed: false,
       width: 2,
       area: true,
-      data: points(windSeries),
+      data: breakAtGaps(points(windSeries)),
       quantity: 'speed',
       digits: units.digits('speed'),
     }, unitOfQ('speed'))
@@ -576,7 +595,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
         dashed: true,
         width: 1.6,
         area: false,
-        data: points(gustSeries),
+        data: breakAtGaps(points(gustSeries)),
         quantity: 'speed',
         digits: units.digits('speed'),
       }, unitOfQ('speed'))
@@ -609,12 +628,12 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
       const s = at(k)
       if (!s)
         return
-      push({ id, panel: 'cloud', kind: 'line', tone, name, hover, dashed: false, width: 1, area: true, data: points(s), quantity: 'fraction', digits: units.digits('fraction') }, unitOfQ('fraction'))
+      push({ id, panel: 'cloud', kind: 'line', tone, name, hover, dashed: false, width: 1, area: true, data: breakAtGaps(points(s)), quantity: 'fraction', digits: units.digits('fraction') }, unitOfQ('fraction'))
     }
     layer('cloudHigh', 'cloudHigh', cloudHighKey, named('meteogram.chart.seriesHighClouds', 'fraction'), t('meteogram.chart.hoverHighClouds'))
     layer('cloudMid', 'cloudMid', cloudMidKey, named('meteogram.chart.seriesMidClouds', 'fraction'), t('meteogram.chart.hoverMidClouds'))
     layer('cloudLow', 'cloudLow', cloudLowKey, named('meteogram.chart.seriesLowClouds', 'fraction'), t('meteogram.chart.hoverLowClouds'))
-    push({ id: 'cloudTotal', panel: 'cloud', kind: 'line', tone: 'cloudTotal', name: named('meteogram.chart.seriesTotalCloud', 'fraction'), hover: t('meteogram.chart.hoverTotalCloud'), dashed: false, width: 2, area: false, data: points(cloudSeries), quantity: 'fraction', digits: units.digits('fraction') }, unitOfQ('fraction'))
+    push({ id: 'cloudTotal', panel: 'cloud', kind: 'line', tone: 'cloudTotal', name: named('meteogram.chart.seriesTotalCloud', 'fraction'), hover: t('meteogram.chart.hoverTotalCloud'), dashed: false, width: 2, area: false, data: breakAtGaps(points(cloudSeries)), quantity: 'fraction', digits: units.digits('fraction') }, unitOfQ('fraction'))
   }
 
   // the cloud cover's axis is the whole of the scale: 0 to 100 %, 0 to 1, 0 to 8 oktas
