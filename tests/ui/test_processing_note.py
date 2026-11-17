@@ -43,6 +43,7 @@ from wetterdienst.ui.response_metadata import (
     response_headers,
     response_metadata,
 )
+from wetterdienst.ui.stripes_scale import StripesReference
 from wetterdienst.util.response_warnings import _COUNTED, _RECORDED
 
 if TYPE_CHECKING:
@@ -188,26 +189,29 @@ def test_the_header_is_on_a_json_answer_too(client: TestClient, monkeypatch: pyt
 
 
 @pytest.mark.usefixtures("figure_draws_itself")
-def test_the_stripes_values_have_the_plain_note_and_the_image_says_it_is_drawn(
+def test_the_stripes_say_what_their_classes_are_relative_to_and_the_image_that_it_is_drawn(
     client: TestClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """The values are DWD's own annual values (the same numbers as `/api/values`); the image is drawn from them."""
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    """The values are DWD's own, with the anomaly and class calculated from them (GH-4157); the image is drawn."""
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
     monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
     params = {"kind": "temperature", "station": "01048"}
 
     values = client.get("/api/stripes/values", params=params)
     image = client.get("/api/stripes/image", params={**params, "format": "png"})
 
-    assert values.json()["metadata"]["processing_note"] == PROCESSING_NOTE
-    assert unquote(values.headers[PROCESSING_HEADER]) == PROCESSING_NOTE
+    reference = StripesReference.model_validate(values.json()["reference"])
+    assert values.json()["metadata"]["processing_note"] == processing_note(calculated=reference.note())
+    assert unquote(values.headers[PROCESSING_HEADER]) == processing_note(calculated=reference.note())
     assert image.status_code == 200, image.text
-    assert unquote(image.headers[PROCESSING_HEADER]) == processing_note(image=True)
+    assert unquote(image.headers[PROCESSING_HEADER]) == processing_note(calculated=reference.note(), image=True)
+    # a record this short has no years of the periods of the method: the whole record is named
+    assert "for the mean the whole record (2000-2009, 10 years)" in reference.note()
 
 
 def test_the_stripes_stations_have_the_plain_note(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """The stations climate stripes are made for are listed as they are: reshaped, nothing calculated or drawn."""
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
 
     response = client.get("/api/stripes/stations", params={"kind": "temperature", "active": "false"})
 

@@ -5,10 +5,11 @@ name: Tests
 # tests/test_docs.py checks the pages under docs against the metadata model and the settings, and
 # tests/test_docs_samples.py runs their code samples against the command line and the REST API -
 # and three root files: the README is doctested and CITATION.cff is tied to it and to the changelog.
-# The suite also reaches into the app, in one place: tests/metadata/test_resolution.py reads the
+# The suite also reaches into the app, in three places: tests/metadata/test_resolution.py reads the
 # resolution union in app/shared/types/api.ts, to catch a resolution that gained a name here but
 # not there, and tests/model/test_app_unit_target_defaults.py reads app/tests/unit/unit-target-defaults.json,
-# the app's default unit of each type. Those two entries are the whole of the app it reads - a test that
+# the app's default unit of each type, and tests/ui/test_stripes_scale.py reads the 16 colours of the stripes in
+# app/app/utils/stripes.ts. Those three entries are the whole of the app it reads - a test that
 # starts reading more has to widen them. The translation catalogs under app/i18n and the home page were read here too,
 # until app/tests/e2e/i18n-coverage.spec.ts began asking a running backend the same questions.
 on:
@@ -21,6 +22,8 @@ on:
       # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
       - 'docs/**'
       - 'app/shared/types/api.ts'
+      # tests/ui/test_stripes_scale.py reads the app's 16 colours of the stripes
+      - 'app/app/utils/stripes.ts'
       - 'app/tests/unit/unit-target-defaults.json'
       - 'pyproject.toml'
       - 'uv.lock'
@@ -41,6 +44,8 @@ on:
       # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
       - 'docs/**'
       - 'app/shared/types/api.ts'
+      # tests/ui/test_stripes_scale.py reads the app's 16 colours of the stripes
+      - 'app/app/utils/stripes.ts'
       - 'app/tests/unit/unit-target-defaults.json'
       - 'pyproject.toml'
       - 'uv.lock'

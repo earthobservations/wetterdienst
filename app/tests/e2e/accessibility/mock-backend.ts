@@ -11,6 +11,7 @@ import type {
   Value,
 } from '../../../shared/types/api'
 import { Buffer } from 'node:buffer'
+import { stripesAnswer } from '../../helpers/stripes-answer'
 
 // What the accessibility spec shows the app instead of a backend.
 //
@@ -332,11 +333,11 @@ function stripesValues(station: string | null): StripesValuesResponse {
   const found = STRIPES_STATIONS.find(candidate => candidate.station_id === station) ?? STRIPES_STATIONS[0]!
   return {
     series: { station: found, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
-    values: Array.from({ length: 70 }, (_, index) => ({
-      timestamp: `${1955 + index}-01-01T00:00:00+00:00`,
-      // a warming curve with a wobble, so the stripes run from blue to red
+    // a warming curve with a wobble, so the stripes run from blue to red, with the classes the backend gives them
+    ...stripesAnswer(Array.from({ length: 70 }, (_, index) => ({
+      year: 1955 + index,
       value: Math.round((7.5 + index * 0.03 + 0.8 * Math.sin(index / 3)) * 100) / 100,
-    })),
+    }))),
   }
 }
 

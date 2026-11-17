@@ -368,6 +368,23 @@ function localCadence(steps: Float64Array): Float64Array {
   return cadence
 }
 
+/** The share of the steps round a step that must be the cadence for the series to be one of a single cadence there: 06, 12 and 18 UTC of two days are 4 steps in 5, which are not; one gap in seven steps is 6 in 7, which is */
+const STEADY_SHARE = 0.85
+
+/** Whether the steps within the window of the cadence round the step at `i` are, nine in ten of them, the cadence there: a series of one cadence, not of readings at fixed times */
+function steadyCadence(steps: Float64Array, cadence: Float64Array, i: number): boolean {
+  let counted = 0
+  let steady = 0
+  for (let k = Math.max(1, i - CADENCE_RADIUS); k <= Math.min(steps.length - 1, i + CADENCE_RADIUS - 1); k++) {
+    if (steps[k]! <= 0)
+      continue
+    counted++
+    if (Math.abs(steps[k]! - cadence[i]!) <= cadence[i]! * REGULAR_TOLERANCE)
+      steady++
+  }
+  return counted > 0 && steady / counted >= STEADY_SHARE
+}
+
 /** Whether most of the moments lie on a grid of `interval` ms, as readings do whatever the steps between those that are there: the phases within a seventh of it of one another */
 function onGrid(x: readonly number[], interval: number): boolean {
   const buckets = 20
@@ -448,9 +465,11 @@ function computeGaps(x: readonly number[], resolution: string | null | undefined
     for (const group of days.values()) {
       group.forEach((i, place) => {
         if (group.length < 3) {
-          // too few days to tell by the time of day: the cadence round it, but never less than the steps there are from this time of day
-          // (the one step of 12 h from 18:00 of a series of two days is the usual one, not a gap)
-          usual[i] = Math.max(cadence[i]!, median(group.map(at => steps[at]!)))
+          // too few days to tell by the time of day: the cadence round it where it is the one cadence of the series there (nine in ten of
+          // the steps round it are within the tolerance of it: a short series of hours with an hour missing); where it is not, the readings
+          // are at fixed times, and the cadence is never less than the steps there are from this time of day, up to a day (the one step of
+          // 12 h from 18:00 of a series of two days is the usual one, not a gap, and a step of 84 h, over three days, is)
+          usual[i] = steadyCadence(steps, cadence, i) ? cadence[i]! : Math.max(cadence[i]!, Math.min(DAY_MS, median(group.map(at => steps[at]!))))
           reference[i] = cadence[i]!
           return
         }

@@ -36,6 +36,10 @@ describe('the option of a chart with a gap', () => {
     expect(empty(lines(build([long]))[0])).toHaveLength(1)
   })
 
+  it('has it for a short series of 20 hours with three missing, where the answer names no resolution', () => {
+    expect(empty(lines(build([gappy({ resolution: undefined })]))[0])).toHaveLength(1)
+  })
+
   it('does not break a series that is whole, nor a trendline', () => {
     const whole = gappy({ x: Array.from({ length: 20 }, (_, i) => START + i * HOUR), y: Array.from({ length: 20 }, (_, i) => i) })
     const trend: ExplorerSeries = { id: 'g:trend', name: 't', colorIndex: 0, kind: 'trend', x: [START, START + 40 * HOUR], y: [1, 2] }

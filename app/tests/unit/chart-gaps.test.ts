@@ -66,6 +66,31 @@ describe('the rule of a gap', () => {
     expect(gapsOf(at(...x))).toHaveLength(1)
   })
 
+  it('has the gap of a short series, where there are too few days to tell by the time of day: the steps round it are its cadence', () => {
+    expect(gapsOf(hours(0, 3, 6, 9, 12, 24, 27, 30), 'subdaily')).toEqual([5])
+    expect(gapsOf(hours(0, 3, 6, 9, 12, 24, 27, 30))).toEqual([5])
+    // 20 hours of an hourly series with three missing, with and without the resolution named
+    const hoursOf = [...Array.from({ length: 10 }, (_, i) => i), ...Array.from({ length: 10 }, (_, i) => 13 + i)]
+    expect(gapsOf(hours(...hoursOf))).toEqual([10])
+    expect(gapsOf(hours(...hoursOf), 'hourly')).toEqual([10])
+  })
+
+  it.each([24, 48, 71, 96])('has the gap of an hour missing from %s hours of readings that name no resolution', (count) => {
+    const kept = Array.from({ length: count }, (_, i) => i).filter(i => i !== Math.floor(count / 2))
+    expect(gapsOf(hours(...kept))).toEqual([Math.floor(count / 2)])
+  })
+
+  it('has the gap of an hour missing from two days of 10-minute readings that name no resolution', () => {
+    const x = Array.from({ length: 288 }, (_, i) => START + i * 600_000).filter((_, i) => i < 100 || i > 105)
+    expect(gapsOf(at(...x))).toEqual([100])
+  })
+
+  it('has the gap of three missing days in a short subdaily answer, and none in a missing reading of two days where that is the only step of its time of day', () => {
+    const readings = [6, 12, 18].flatMap(hour => [0, 1].map(day => START + day * DAY + hour * HOUR)).sort((a, b) => a - b)
+    expect(gapsOf(at(...readings, START + 5 * DAY + 6 * HOUR, START + 5 * DAY + 12 * HOUR), 'subdaily')).toEqual([6])
+    expect(gapsOf(at(...readings), 'subdaily')).toEqual([])
+  })
+
   it('holds a station that reports less often than its resolution to what it does: three-hourly readings of an hourly series are no gaps', () => {
     expect(gapsOf(hours(0, 3, 6, 9, 12, 15, 18, 30), 'hourly')).toEqual([7])
   })

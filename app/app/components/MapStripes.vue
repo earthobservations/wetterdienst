@@ -3,11 +3,11 @@ import type { StripesValuesResponse } from '#shared/types/api'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber } from '~/utils/format'
 import { STRIPES_KIND } from '~/utils/map-tool'
-import { COLOR_MAPS, stripeColour, stripesSummaryParams, stripeYears } from '~/utils/stripes'
+import { stripeColour, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
 import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
 // The climate stripes of a station, as a band of colour in the map's panel (GH-3650): one stripe a year, drawn in
-// plain elements with the stripes page's colour scale. The page, which the link under the band opens, has the chart,
+// plain elements, each in the colour of the class the backend gives its year (the stripes page's scale, GH-4157). The page, which the link under the band opens, has the chart,
 // its options and the table of the years. The band is a picture of what the sentence under it says, in words.
 
 const props = defineProps<{ stationId: string, stationName: string }>()
@@ -26,17 +26,13 @@ const { data, pending, error, refresh } = useFetch<StripesValuesResponse>('/api/
 })
 
 const years = computed(() => stripeYears(data.value?.values ?? []))
-const range = computed(() => {
-  const values = years.value.map(year => year.value)
-  return { min: Math.min(...values), max: Math.max(...values) }
-})
 const stripes = computed(() => years.value.map(year => ({
   year: year.year,
-  colour: stripeColour(COLOR_MAPS.temperature, range.value.max > range.value.min ? (year.value - range.value.min) / (range.value.max - range.value.min) : 0.5),
+  colour: stripeColour(STRIPES_KIND, year.stripeClass),
 })))
 const unit = computed(() => data.value?.series.unit ? unitSymbol(data.value.series.unit) : '')
-const summary = computed(() => years.value.length
-  ? t('stripes.summary', stripesSummaryParams(years.value, value => `${formatNumber(value, locale.value, 1)} ${unit.value}`.trim()))
+const summary = computed(() => years.value.length && data.value
+  ? `${t('stripes.summary', stripesSummaryParams(years.value, value => `${formatNumber(value, locale.value, 1)} ${unit.value}`.trim()))} ${stripesReferenceText(data.value.reference, t, value => formatNumber(value, locale.value, 1))}`
   : '')
 const descriptionId = useId()
 </script>

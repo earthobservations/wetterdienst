@@ -7,16 +7,33 @@
 export interface StripesInput {
   timestamp: string | null
   value: number | null
+  /** the value's distance from the mean of the reference, in the unit of the value */
+  anomaly: number | null
+  /** the class the backend puts the value in, 0 (the lowest) to 15: the colour of its stripe */
+  stripe_class: number | null
+}
+
+/**
+ * What the classes of an answer are relative to (its `reference`), as far as the lines over the stripes read it: the mean
+ * the anomaly is taken to, the standard deviation that sets the width of the classes, and how many of them the scale reaches
+ * to either side of the mean. The app calculates no class of its own: the backend's are the colours.
+ */
+export interface StripesReferenceInput {
+  centre: { value: number }
+  spread: { value: number }
+  range_sigma: number
 }
 
 export interface StripesModel {
   /** the years that have a value, in the order of the answer */
   years: number[]
   values: number[]
-  /** each value's place between the lowest and the highest year, 0 to 1: what its colour is chosen by, and the height of the lines */
+  /** each value's class, 0 to 15, as the backend classes it: what its colour is chosen by */
+  classes: number[]
+  /** each value's distance from the mean of the reference, as the backend has it, in the unit of the values */
+  anomalies: number[]
+  /** each value's place on the scale of the reference, 0 (its lowest edge, `range_sigma` standard deviations below the mean) to 1: the height of the lines */
   normalized: number[]
-  min: number
-  max: number
   minYear: number
   maxYear: number
   /** the least-squares line through the years, for each year */
@@ -29,19 +46,21 @@ export interface StripesModel {
 /**
  * The stripes of an answer: the years with a value (each year's value comes at its first moment in UTC, read in UTC, as in a
  * browser west of UTC that moment is still the year before). Null where there is none to draw.
+ *
+ * The lines are placed on the scale the colours are classed on, the reference's, so a value stands where its colour is: the
+ * mean in the middle and `range_sigma` standard deviations at an edge, a value beyond it (as its stripe, in the end class)
+ * on the edge. A reference with no spread (years all alike) puts everything in the middle.
  */
-export function buildStripesModel(data: readonly StripesInput[]): StripesModel | null {
-  const drawn = data.filter((item): item is { timestamp: string, value: number } => item.value !== null && item.timestamp !== null)
+export function buildStripesModel(data: readonly StripesInput[], reference: StripesReferenceInput): StripesModel | null {
+  const drawn = data.filter((item): item is { timestamp: string, value: number, anomaly: number, stripe_class: number } => item.value !== null && item.timestamp !== null && item.anomaly !== null && item.stripe_class !== null)
   if (!drawn.length)
     return null
   const years = drawn.map(item => new Date(item.timestamp).getUTCFullYear())
   const values = drawn.map(item => item.value)
-  const min = Math.min(...values)
-  const max = Math.max(...values)
   const minYear = Math.min(...years)
   const maxYear = Math.max(...years)
-  // years all alike have no range to place a value in: the middle of the scale
-  const place = (value: number) => max > min ? (value - min) / (max - min) : 0.5
+  const width = 2 * reference.range_sigma * reference.spread.value
+  const place = (value: number) => width > 0 ? Math.min(1, Math.max(0, 0.5 + (value - reference.centre.value) / width)) : 0.5
 
   // simple linear regression: y = slope * x + intercept
   const n = years.length
@@ -58,9 +77,9 @@ export function buildStripesModel(data: readonly StripesInput[]): StripesModel |
   return {
     years,
     values,
+    classes: drawn.map(item => item.stripe_class),
+    anomalies: drawn.map(item => item.anomaly),
     normalized: values.map(place),
-    min,
-    max,
     minYear,
     maxYear,
     trend,

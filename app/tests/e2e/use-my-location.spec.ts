@@ -56,8 +56,11 @@ test.describe('with the position allowed', () => {
     const forecast = page.waitForRequest(request => request.url().includes('/api/values') && request.url().includes('stations=10147'))
     await button.click()
 
-    const chip = page.getByTestId('station-picker-chips').getByRole('button', { name: /HAMBURG-FUHLSBUETTEL/ })
-    await expect(chip).toBeVisible()
+    // the station is named once by the picker, in its search (no chip for one station, GH-4151)
+    const search = page.getByTestId('station-picker').getByRole('button', { name: /HAMBURG-FUHLSBUETTEL/ })
+    await expect(search).toBeVisible()
+    await expect(page.getByTestId('station-picker-chips')).toHaveCount(0)
+    await expect(page.getByTestId('station-picker-selected')).toHaveCount(0)
     await expect(page.getByTestId('use-my-location-status')).toHaveText(/^Nearest station: HAMBURG-FUHLSBUETTEL \(10147\), \d+(\.\d)? km from your position\.$/)
     // a position is in hand and nothing is stored: the box, unticked, and the note, which the button is described by
     await expect(page.getByRole('checkbox', { name: en.location.remember })).not.toBeChecked()
@@ -283,7 +286,6 @@ test.describe('with the position refused', () => {
     await expect(alert).toHaveText(en.location.denied)
     expect(asked.filter(query => query.latitude)).toEqual([])
     // nothing is picked, and the search of stations is still there
-    await expect(page.getByTestId('station-picker-chips')).toHaveCount(0)
     await expect(page.getByRole('button', { name: en.location.button })).toBeEnabled()
     await expect(page.getByRole('button', { name: en.common.stationSearch })).toBeVisible()
   })
