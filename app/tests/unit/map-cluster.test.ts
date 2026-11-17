@@ -41,17 +41,17 @@ describe('the grouping of a layer', () => {
     expect(groupingFor('fine', 133_041)).toEqual({ choice: 'fine', compulsory: true, grouping: GROUPINGS.fine })
   })
 
-  it('has steps that group more and keep grouping to a closer zoom as they get coarser', () => {
-    expect(GROUPINGS.fine.radius).toBeLessThan(GROUPINGS.medium.radius)
-    expect(GROUPINGS.medium.radius).toBeLessThan(GROUPINGS.coarse.radius)
-    expect(GROUPINGS.fine.separateFrom).toBeLessThan(GROUPINGS.medium.separateFrom)
-    expect(GROUPINGS.medium.separateFrom).toBeLessThan(GROUPINGS.coarse.separateFrom)
+  it('has two steps, fine (the default) and coarse, that group more and keep grouping to a closer zoom as they get coarser', () => {
+    expect(Object.keys(GROUPINGS)).toEqual(['fine', 'coarse'])
+    expect(DEFAULT_GROUPING).toBe('fine')
+    expect(GROUPINGS.fine).toEqual({ radius: 30, separateFrom: 8 })
+    expect(GROUPINGS.coarse).toEqual({ radius: 80, separateFrom: 10 })
   })
 
   it('groups at the zooms before the one every station is its own dot from, and not at it or after', () => {
-    const { separateFrom } = GROUPINGS.medium
-    expect(isGroupedAt(GROUPINGS.medium, separateFrom - 1)).toBe(true)
-    expect(isGroupedAt(GROUPINGS.medium, separateFrom)).toBe(false)
+    const { separateFrom } = GROUPINGS.fine
+    expect(isGroupedAt(GROUPINGS.fine, separateFrom - 1)).toBe(true)
+    expect(isGroupedAt(GROUPINGS.fine, separateFrom)).toBe(false)
     expect(isGroupedAt(null, 2)).toBe(false)
   })
 })

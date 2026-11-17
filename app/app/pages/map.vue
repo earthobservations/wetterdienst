@@ -244,7 +244,7 @@ const groupingSelect = computed({
 })
 const groupingItems = computed(() => GROUPING_CHOICES.map(choice => ({
   value: choice,
-  label: { off: t('mapTool.groupingOff'), fine: t('mapTool.groupingFine'), medium: t('mapTool.groupingMedium'), coarse: t('mapTool.groupingCoarse') }[choice],
+  label: { off: t('mapTool.groupingOff'), fine: t('mapTool.groupingFine'), coarse: t('mapTool.groupingCoarse') }[choice],
   disabled: choice === 'off' && groupingInForce.value.compulsory,
 })))
 const groupingCompulsoryText = computed(() => t('mapTool.groupingCompulsory', { shown: formatNumber(GROUPING_COMPULSORY_ABOVE, formatLanguage.value, 0) }))
@@ -879,15 +879,16 @@ watch(() => route.query, (query) => {
               </div>
               <!-- how much is grouped (GH-4079), under the layers: a row of its own, where the note of a layer that cannot be left ungrouped has room -->
               <div v-if="listStatus === 'success' && stations.length" class="map-chips-row">
-                <USelect
-                  v-model="groupingSelect"
-                  :items="groupingItems"
-                  :aria-label="t('mapTool.grouping')"
-                  :aria-describedby="groupingInForce.compulsory ? 'map-grouping-note' : undefined"
-                  size="sm"
-                  class="map-select"
-                  data-testid="map-grouping"
-                />
+                <div class="map-grouping" data-testid="map-grouping-group">
+                  <span class="map-grouping-label" aria-hidden="true">{{ t('mapTool.grouping') }}</span>
+                  <SegmentedControl
+                    v-model="groupingSelect"
+                    :options="groupingItems"
+                    :label="t('mapTool.grouping')"
+                    :aria-describedby="groupingInForce.compulsory ? 'map-grouping-note' : undefined"
+                    data-testid="map-grouping"
+                  />
+                </div>
                 <p v-if="groupingInForce.compulsory" id="map-grouping-note" class="map-status map-note" data-testid="map-grouping-note">
                   {{ groupingCompulsoryText }}
                 </p>
@@ -959,6 +960,32 @@ watch(() => route.query, (query) => {
   .map-tool {
     grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
     gap: 2rem;
+  }
+}
+
+.map-grouping {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  max-width: 100%;
+  padding: 0.1875rem 0.375rem 0.1875rem 0.75rem;
+  border-radius: 999px;
+  background: var(--ui-bg);
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
+  pointer-events: auto;
+}
+.map-grouping-label {
+  color: var(--ui-text-toned);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+/* a label that does not fit beside the switch (320 px, the longer languages) stands over it, and the pill gives up its round ends */
+@media (max-width: 23.99rem) {
+  .map-grouping {
+    border-radius: 1.25rem;
+    padding-block: 0.375rem;
   }
 }
 

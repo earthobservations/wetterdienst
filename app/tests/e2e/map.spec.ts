@@ -420,10 +420,13 @@ async function canvasPixel(page: Page, x: number, y: number) {
   }, { x, y })
 }
 
-/** Chooses a step of the grouping control with the pointer */
-async function groupBy(page: Page, label: string) {
-  await page.getByTestId('map-grouping').click()
-  await page.getByRole('option', { name: label }).click()
+/** The grouping switch's option of a name */
+const groupingOption = (page: Page, name: string) => page.getByTestId('map-grouping').getByRole('radio', { name, exact: true })
+
+/** Chooses a step of the grouping switch with the pointer */
+async function groupBy(page: Page, name: string) {
+  await groupingOption(page, name).click()
+  await expect(groupingOption(page, name)).toHaveAttribute('aria-checked', 'true')
 }
 
 test.describe('the map tool: groups of stations at the outer zooms', () => {
@@ -446,8 +449,8 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
 
     await page.mouse.click(centre.x, centre.y)
     await expect(page.getByTestId('map-announcement')).toHaveText('Zoomed in on a group. Stations in it: 40')
-    // the stations are a few kilometres apart: the map goes in as far as the zoom they are separated from (9, for the medium step)
-    await expect.poll(() => zoomOf(page)).toBe(9)
+    // the stations are a few kilometres apart: the map goes in as far as the zoom they are separated from (8, for the fine step, the default)
+    await expect.poll(() => zoomOf(page)).toBe(8)
     // no place is picked by the click on a group, and no group is left: the stations are dots
     await expect(page.getByTestId('map-station-name')).toHaveCount(0)
     await expect(page).toHaveURL(/\/map$/)
@@ -469,11 +472,11 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
   test('is turned off by the control, which draws every station as a dot at the zoom of the opening', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map', GROUPED)
     await expect(page.getByTestId('map-count')).toBeVisible()
-    const control = page.getByTestId('map-grouping')
-    await expect(control).toContainText(en.mapTool.groupingMedium)
+    // three steps, Fine is the default
+    await expect(page.getByTestId('map-grouping').getByRole('radio')).toHaveText([en.mapTool.groupingOff, en.mapTool.groupingFine, en.mapTool.groupingCoarse])
+    await expect(groupingOption(page, en.mapTool.groupingFine)).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByTestId('map-legend')).toBeVisible()
     await groupBy(page, en.mapTool.groupingOff)
-    await expect(control).toContainText(en.mapTool.groupingOff)
     await expect(page.getByTestId('map-legend')).toHaveCount(0)
     // a click on the place is a pick of a station, not a zoom
     const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
@@ -487,7 +490,7 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     await open(page, baseURL!, '/map', GROUPED)
     await expect(page.getByTestId('map-count')).toBeVisible()
     await groupBy(page, en.mapTool.groupingCoarse)
-    // at zoom 9 the medium step has stopped grouping, the coarse one has not: the legend of the groups is there
+    // at zoom 8 the fine step has stopped grouping, the coarse one has not: the legend of the groups is there
     // one zoom at a time: Leaflet takes no press while it animates the one before
     for (const zoom of [7, 8, 9]) {
       await page.getByRole('button', { name: en.mapTool.zoomIn }).click()
@@ -502,8 +505,9 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
 
   test('keeps the station picked in view above the group it is in, and a click on its disc is still on that station', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map?station=G05', GROUPED)
-    // the map has moved to the station, at zoom 8, where the forty are still one group
+    // the map has moved to the station, at zoom 8, where the fine step has no groups left: the coarse one still has the forty as one
     await expect.poll(() => zoomOf(page)).toBe(8)
+    await groupBy(page, en.mapTool.groupingCoarse)
     await expect(page.getByTestId('map-legend')).toBeVisible()
     const disc = page.locator('.leaflet-station-marks-pane path[fill="#ffc93c"]')
     await expect(disc).toBeVisible()
@@ -530,7 +534,7 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     expect(stops.filter(stop => /marker|cluster|group/i.test(stop))).toEqual([])
     const map = page.getByRole('application', { name: /^Station map/ })
     await map.focus()
-    for (const zoom of [7, 8, 9]) {
+    for (const zoom of [7, 8]) {
       await page.keyboard.press('+')
       await expect.poll(() => zoomOf(page)).toBe(zoom)
       // Leaflet takes no press while it animates the one before
@@ -538,12 +542,12 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     }
     // at the zoom every station is its own dot from there are no groups to explain
     await expect(page.getByTestId('map-legend')).toHaveCount(0)
-    // and the control is a select that a keyboard sets
-    await page.getByTestId('map-grouping').focus()
-    await page.keyboard.press('Enter')
-    await page.getByRole('option', { name: en.mapTool.groupingFine }).focus()
-    await page.keyboard.press('Enter')
-    await expect(page.getByTestId('map-grouping')).toContainText(en.mapTool.groupingFine)
+    // and the switch is a radio group that a keyboard sets: one stop, the arrow keys move along it
+    await groupingOption(page, en.mapTool.groupingFine).focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(groupingOption(page, en.mapTool.groupingCoarse)).toHaveAttribute('aria-checked', 'true')
+    await expect(groupingOption(page, en.mapTool.groupingCoarse)).toBeFocused()
+    await expect(page.getByTestId('map-legend')).toBeVisible()
   })
 
   test('is always on for a layer of more than 10,000 stations, which the control does not turn off, and says why', async ({ page, baseURL }) => {
@@ -563,11 +567,12 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     await expect(note).toHaveText(en.mapTool.groupingCompulsory.replace('{shown}', '10,000'))
     const control = page.getByTestId('map-grouping')
     await expect(control).toHaveAttribute('aria-describedby', 'map-grouping-note')
-    await control.click()
-    // none is offered and cannot be chosen; the three steps can
-    await expect(page.getByRole('option', { name: en.mapTool.groupingOff })).toHaveAttribute('data-disabled', '')
-    await page.getByRole('option', { name: en.mapTool.groupingFine }).click()
-    await expect(control).toContainText(en.mapTool.groupingFine)
+    // none is offered and cannot be chosen; the steps can, and the arrow keys pass it
+    await expect(groupingOption(page, en.mapTool.groupingOff)).toBeDisabled()
+    await expect(groupingOption(page, en.mapTool.groupingFine)).toHaveAttribute('aria-checked', 'true')
+    await groupingOption(page, en.mapTool.groupingFine).focus()
+    await page.keyboard.press('ArrowLeft')
+    await expect(groupingOption(page, en.mapTool.groupingCoarse)).toHaveAttribute('aria-checked', 'true')
     await expect(page.getByTestId('map-legend')).toBeVisible()
   })
 })
@@ -585,9 +590,34 @@ test.describe('the map tool on a phone: groups of stations', () => {
     const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
     const at = offsetAtOpening(51.31, 10.41)
     await page.touchscreen.tap(box.x + box.width / 2 + at.x, box.y + box.height / 2 + at.y)
-    await expect.poll(() => zoomOf(page)).toBe(9)
+    await expect.poll(() => zoomOf(page)).toBe(8)
     await expect(page.getByTestId('map-station-name')).toHaveCount(0)
   })
+})
+
+// The grouping switch has a label and three words, which must fit the map's width in every language at 320 px
+test.describe('the grouping switch at 320 px', () => {
+  test.use({ viewport: { width: 320, height: 700 } })
+
+  for (const language of ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb']) {
+    test(`fits the map's width, whole, in ${language}`, async ({ page, baseURL }) => {
+      await page.context().addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await mockBackend(page, baseURL!, GROUPED)
+      await page.goto('/map')
+      await expect(page.getByTestId('map-grouping')).toBeVisible()
+      const place = await page.evaluate(() => {
+        const stage = document.querySelector('.map-stage')!.getBoundingClientRect()
+        const pill = document.querySelector('.map-grouping')!.getBoundingClientRect()
+        const cut = [...document.querySelectorAll<HTMLElement>('.map-grouping [role="radio"]')].filter(option => option.scrollWidth > option.clientWidth + 1).map(option => option.textContent)
+        return { stageLeft: stage.left, stageRight: stage.right, left: pill.left, right: pill.right, cut, sideways: document.documentElement.scrollWidth - document.documentElement.clientWidth }
+      })
+      // 1 px: what the browser measures, not what the CSS says
+      expect(place.right, 'the switch ends where the map does or before').toBeLessThanOrEqual(place.stageRight + 1)
+      expect(place.left).toBeGreaterThanOrEqual(place.stageLeft - 1)
+      expect(place.cut, 'each option is whole').toEqual([])
+      expect(place.sideways, 'the page does not scroll sideways').toBe(0)
+    })
+  }
 })
 
 test.describe('the map tool at 320 px', () => {

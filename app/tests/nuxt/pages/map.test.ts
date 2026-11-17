@@ -1852,29 +1852,34 @@ describe('the reader\'s own position', () => {
 })
 
 describe('the groups of stations at the outer zooms (GH-4079)', () => {
-  const MEDIUM = { radius: 50, separateFrom: 9 }
+  const FINE = { radius: 30, separateFrom: 8 }
 
-  it('opens with the medium step, and the reader chooses how much is grouped: none, or finer or coarser groups', async () => {
+  it('opens with the fine step, and the reader chooses how much is grouped: none, fine or coarse groups', async () => {
     const wrapper = await mountMap()
     await listed(wrapper)
-    expect(stage.props.grouping).toEqual(MEDIUM)
+    expect(stage.props.grouping).toEqual(FINE)
     expect(wrapper.find('[data-testid="map-grouping-note"]').exists()).toBe(false)
     ;(wrapper.vm as any).groupingSelect = 'coarse'
     await vi.waitFor(() => expect(stage.props.grouping).toEqual({ radius: 80, separateFrom: 10 }))
     ;(wrapper.vm as any).groupingSelect = 'fine'
-    await vi.waitFor(() => expect(stage.props.grouping).toEqual({ radius: 30, separateFrom: 8 }))
+    await vi.waitFor(() => expect(stage.props.grouping).toEqual(FINE))
     ;(wrapper.vm as any).groupingSelect = 'off'
     await vi.waitFor(() => expect(stage.props.grouping).toBeNull())
     // no groups, so nothing to say of them
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').exists()).toBe(false))
   })
 
-  it('is a control with a name of its own, that a keyboard and a screen reader reach like the other choices over the map', async () => {
+  it('is a radio group with a name of its own, whose steps a keyboard and a screen reader reach like the other switches', async () => {
     const wrapper = await mountMap()
     await listed(wrapper)
     const control = wrapper.find('[data-testid="map-grouping"]')
+    expect(control.attributes('role')).toBe('radiogroup')
     expect(control.attributes('aria-label')).toBe('Grouping')
-    expect(control.text()).toBe('Medium groups')
+    const radios = control.findAll('[role="radio"]')
+    expect(radios.map(radio => radio.text())).toEqual(['None', 'Fine', 'Coarse'])
+    expect(radios.map(radio => radio.attributes('aria-checked'))).toEqual(['false', 'true', 'false'])
+    await radios[2]!.trigger('click')
+    await vi.waitFor(() => expect(stage.props.grouping).toEqual({ radius: 80, separateFrom: 10 }))
   })
 
   it('cannot be turned off on a layer of more than 10,000 stations, which only sets how fine its groups are, and says why', async () => {
@@ -1888,8 +1893,9 @@ describe('the groups of stations at the outer zooms (GH-4079)', () => {
       ;(wrapper.vm as any).groupingSelect = 'off'
       // the choice is kept as the default step: the groups stay
       await nextTick()
-      expect(stage.props.grouping).toEqual(MEDIUM)
+      expect(stage.props.grouping).toEqual(FINE)
       expect((wrapper.vm as any).groupingItems.find((item: any) => item.value === 'off').disabled).toBe(true)
+      expect(wrapper.find('[data-testid="map-grouping"] [role="radio"]').attributes('disabled')).toBeDefined()
       ;(wrapper.vm as any).groupingSelect = 'coarse'
       await vi.waitFor(() => expect(stage.props.grouping).toEqual({ radius: 80, separateFrom: 10 }))
       // a layer of fewer stations follows the control again

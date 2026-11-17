@@ -5,7 +5,8 @@
 // says so (`aria-checked`) and by its look, which is not colour alone: it is raised.
 const props = defineProps<{
   modelValue: T
-  options: { value: T, label: string, icon?: string }[]
+  /** An option that is `disabled` is shown and cannot be chosen (the arrow keys pass it); the group says why by its own `aria-describedby` */
+  options: { value: T, label: string, icon?: string, disabled?: boolean }[]
   /** The group's name, which a screen reader announces with the option */
   label: string
   /** The id of what the group controls (`aria-controls` of each option): one element, which shows the chosen option */
@@ -41,13 +42,23 @@ function activate(index: number, event: MouseEvent) {
 
 function onKeydown(event: KeyboardEvent, index: number) {
   const last = props.options.length - 1
+  const enabled = (at: number) => !props.options[at]!.disabled
+  /** The nearest option that can be chosen from `from` in a direction, round the ends; where there is none, the option itself */
+  const step = (from: number, direction: 1 | -1) => {
+    for (let count = 1; count <= last + 1; count++) {
+      const at = (from + direction * count + last + 1) % (last + 1)
+      if (enabled(at))
+        return at
+    }
+    return from
+  }
   const target: Record<string, number> = {
-    ArrowRight: index === last ? 0 : index + 1,
-    ArrowDown: index === last ? 0 : index + 1,
-    ArrowLeft: index === 0 ? last : index - 1,
-    ArrowUp: index === 0 ? last : index - 1,
-    Home: 0,
-    End: last,
+    ArrowRight: step(index, 1),
+    ArrowDown: step(index, 1),
+    ArrowLeft: step(index, -1),
+    ArrowUp: step(index, -1),
+    Home: enabled(0) ? 0 : step(0, 1),
+    End: enabled(last) ? last : step(last, -1),
   }
   const next = target[event.key]
   if (next === undefined || event.altKey || event.ctrlKey || event.metaKey)
@@ -71,11 +82,13 @@ function onKeydown(event: KeyboardEvent, index: number) {
       role="radio"
       :aria-checked="option.value === modelValue"
       :aria-controls="controls"
+      :disabled="option.disabled || undefined"
       :tabindex="option.value === modelValue ? 0 : -1"
       class="inline-flex cursor-pointer select-none items-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-all duration-150"
       :class="option.value === modelValue
         ? 'bg-white font-semibold text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white'
-        : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300'"
+        : `text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-300${
+          option.disabled ? ' disabled:cursor-not-allowed disabled:opacity-60' : ''}`"
       @click="activate(index, $event)"
       @keydown="onKeydown($event, index)"
     >
