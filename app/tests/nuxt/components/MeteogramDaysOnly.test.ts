@@ -140,15 +140,19 @@ describe('the days the rows list', () => {
     expect(rows.some(row => /partial/.test(row))).toBe(false)
   })
 
-  it('marks the last day, which the run ends in, as partial with the hours it has', async () => {
-    // at Berlin the run ends at 01:00 on the 4th: the hours 00:00 and 01:00 of a day of their own
+  it('marks the first day, which the run starts in, and the last, which it ends in, as partial with the hours they have (GH-4175)', async () => {
+    // at Berlin the run starts at 02:00 on the 1st, the first 22 hours of the day being all it has of it (the first hour after the
+    // run's issue is the run's first), and ends at 01:00 on the 4th: the hours 00:00 and 01:00 of a day of their own
     const wrapper = await mountRows()
     const rows = wrapper.findAll('[data-testid="day-rows"] li')
+    const first = rows[0]!
+    expect(first.text()).toContain('01/10')
+    expect(first.find('[data-testid="partial-day"]').text()).toBe('partial, 22 h')
     const last = rows[rows.length - 1]!
     expect(last.text()).toContain('04/10')
     expect(last.find('[data-testid="partial-day"]').text()).toBe('partial, 2 h')
-    // and only it: the days before are whole
-    expect(wrapper.findAll('[data-testid="partial-day"]')).toHaveLength(1)
+    // and only those: the days between are whole
+    expect(wrapper.findAll('[data-testid="partial-day"]')).toHaveLength(2)
   })
 
   it('marks a last day of six hours as partial for six hours, and a day of its own that ends at 23:00 as whole', async () => {
@@ -175,14 +179,12 @@ describe('the days the rows list', () => {
     expect(wrapper.findAll('[data-testid="partial-day"]')).toHaveLength(1)
   })
 
-  // hourly values from the 1st of October 00:00 UTC for `hours` hours, then 3-hourly ones for `coarse` more
-  const run = (hours: number, coarse = 0) => [
-    ...Array.from({ length: hours }, (_, hour) => Date.UTC(2026, 9, 1, hour)),
-    ...Array.from({ length: coarse }, (_, step) => Date.UTC(2026, 9, 1, hours + 3 * (step + 1) - 3)),
-  ].map(time => ({ ...values[0]!, timestamp: new Date(time).toISOString() }))
+  // hourly values from the 1st of October 00:00 UTC for `hours` hours: MOSMIX-L is hourly to its last step, there is no coarser end to a run
+  const run = (hours: number) => Array.from({ length: hours }, (_, hour) => Date.UTC(2026, 9, 1, hour))
+    .map(time => ({ ...values[0]!, timestamp: new Date(time).toISOString() }))
 
-  it('counts the hours of the last day by the step of the run, in a run of more than 120 hours', async () => {
-    // hourly to the 6th 05:00: six hours of the last day, where a 3-hourly step would count eight
+  it('counts the hours of the last day by the hourly steps of the run, in a run of more than 120 hours', async () => {
+    // hourly to the 6th 05:00: six hours of the last day (GH-4176: it was counted by a 3-hourly step that no run has)
     const wrapper = await mountRows({ values: run(5 * 24 + 6), stationCoords: null })
     expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(6)
     expect(wrapper.find('[data-testid="partial-day"]').text()).toBe('partial, 6 h')
@@ -191,17 +193,6 @@ describe('the days the rows list', () => {
   it('marks a last day that an hourly run of more than 120 hours ends at 21:00, which is not whole', async () => {
     const wrapper = await mountRows({ values: run(5 * 24 + 22), stationCoords: null })
     expect(wrapper.find('[data-testid="partial-day"]').text()).toBe('partial, 22 h')
-  })
-
-  it('counts the hours of the last day by the 3-hourly step where an hourly run goes on in 3 hours', async () => {
-    // hourly for five days, then 3-hourly from the 6th 00:00 to the 7th 09:00: the 7th has 00, 03, 06 and 09
-    const wrapper = await mountRows({ values: run(5 * 24, 0).concat(Array.from({ length: 12 }, (_, step) => ({ ...values[0]!, timestamp: new Date(Date.UTC(2026, 9, 6, 3 * step)).toISOString() }))), stationCoords: null })
-    expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(7)
-    expect(wrapper.find('[data-testid="partial-day"]').text()).toBe('partial, 12 h')
-    // and the same run with its last sample at 21:00 is whole
-    mounted.splice(0).forEach(w => w.unmount())
-    const whole = await mountRows({ values: run(5 * 24, 0).concat(Array.from({ length: 16 }, (_, step) => ({ ...values[0]!, timestamp: new Date(Date.UTC(2026, 9, 6, 3 * step)).toISOString() }))), stationCoords: null })
-    expect(whole.find('[data-testid="partial-day"]').exists()).toBe(false)
   })
 
   it('says there is no data where every day of the run is before today', async () => {

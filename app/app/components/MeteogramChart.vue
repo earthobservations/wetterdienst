@@ -14,7 +14,7 @@
  */
 import type { ECharts } from 'echarts/core'
 import type { PanelToggle, ReadoutSide, TimeWindow } from '~/utils/meteogram-geometry'
-import type { MeteogramModel, SunLibrary } from '~/utils/meteogram-model'
+import type { MeteogramModel, ReadoutSeries, SunLibrary } from '~/utils/meteogram-model'
 import type { SeriesMap } from '~/utils/meteogram-series'
 import type { MeteogramUnits } from '~/utils/meteogram-units'
 import { DateTime } from 'luxon'
@@ -22,7 +22,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch 
 import { formatDayMonth, formatNumber, hourFormatter, weekdayShort } from '~/utils/format'
 import { findNearestIndex } from '~/utils/meteogram'
 import { chartLayout, clampWindow, GUTTER_LEFT, GUTTER_RIGHT, HOUR_MS, hourWidth, MIN_SPAN_HOURS, panWindow, plotWidthFor, readoutPlacement, revealInstant, scrollStrip, toggleOf, windowFromScroll, zoomWindow } from '~/utils/meteogram-geometry'
-import { buildMeteogramModel, readoutValue } from '~/utils/meteogram-model'
+import { buildMeteogramModel, readoutHours, readoutValue } from '~/utils/meteogram-model'
 import { buildMeteogramOption, gutterLeftFor, toneColor } from '~/utils/meteogram-option'
 import { withUnit } from '~/utils/units'
 import { yrSymbolFor, yrSymbolUrl } from '~/utils/weather-symbols'
@@ -225,6 +225,12 @@ function writeTime(ms: number): string {
   return `${weekdayShort(day, formatLanguage.value)} ${formatDayMonth(day, formatLanguage.value)} ${hourLabel.value(ms)}`
 }
 
+/** What a readout row is called: a value that covers more than an hour says so (`Rain (6 h)`), as it is no hour's own */
+function readoutLabel(series: ReadoutSeries, time: number): string {
+  const hours = readoutHours(series, time)
+  return hours > 1 ? `${series.hover} (${t('meteogram.chart.blockHours', { hours })})` : series.hover
+}
+
 const readout = computed(() => {
   const m = model.value
   const time = cursor.value
@@ -237,7 +243,7 @@ const readout = computed(() => {
       continue
     rows.push({
       id: series.id,
-      label: series.hover,
+      label: readoutLabel(series, time),
       value: withUnit(formatNumber(value, locale.value, series.digits), series.unit),
       colour: toneColor(series.tone, theme.value.dark),
     })
@@ -295,7 +301,7 @@ function readoutSentence(time: number): string {
   for (const series of m.readout) {
     const value = readoutValue(series, time)
     if (value !== null)
-      parts.push(`${series.hover}${t('common.colon')} ${withUnit(formatNumber(value, locale.value, series.digits), series.unit)}`)
+      parts.push(`${readoutLabel(series, time)}${t('common.colon')} ${withUnit(formatNumber(value, locale.value, series.digits), series.unit)}`)
   }
   return `${writeTime(time)}${t('common.colon')} ${parts.join('; ')}`
 }

@@ -8,6 +8,8 @@ import type { WeatherKind } from './weather-kind'
 import { DateTime } from 'luxon'
 import { formatDayMonth, formatNumber, weekdayShort } from './format'
 import { METEOGRAM_SERIES } from './meteogram'
+import { HOUR_MS } from './meteogram-geometry'
+import { planPrecipitation, precipitationOver } from './meteogram-precipitation'
 import { findFirstAvailable } from './meteogram-series'
 import { withUnit } from './units'
 import { weatherCodeToKind } from './weather-kind'
@@ -18,8 +20,21 @@ export interface MeteogramDay {
   weekday: string
   dayMonth: string
   tempLabel?: string | null
+  /**
+   * The rain of the day with its unit. `≈` before it: it is made of totals of more than one hour (6, 12 or 24), which a local day cuts
+   * evenly where a block crosses its midnight. `≥` before it: some hours of the day have no amount, which are not 0, so it is the least
+   * the forecast says. Null under 0.1 mm.
+   */
   precipLabel?: string | null
+  /** the hours of the longest block the rain of the day is made of, where it is more than an hour (the label has `≈`), else null */
+  precipBlockHours: number | null
+  /** the hours of the day, between the first and the last the forecast has an amount for, that it has none for (the label has `≥`) */
+  precipMissingHours: number
   isToday: boolean
+  /**
+   * The hours of the day the forecast reaches, where it is not all of it: the first day starts at the first hour after the run's issue,
+   * the last ends with the run (the minimum, maximum and rain are those of the hours it has). Null for a whole day.
+   */
   partialHours: number | null
 }
 
@@ -89,7 +104,6 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
   const out: MeteogramDay[] = []
   const available = new Set(series.keys())
   const weatherKey = findFirstAvailable(METEOGRAM_SERIES.weather, available)
-  const precipKey = findFirstAvailable(METEOGRAM_SERIES.precipitation, available)
   const tempKey = findFirstAvailable(METEOGRAM_SERIES.temperature, available)
   const cloudKey = findFirstAvailable(METEOGRAM_SERIES.cloudCover, available)
 
@@ -107,10 +121,8 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
   const first = DateTime.fromMillis(minTime, { zone }).startOf('day')
   let dt = first < today ? today : first
   const last = DateTime.fromMillis(maxTime, { zone }).startOf('day')
-  // the step the run ends with, from its last two times: the run is hourly and then 3-hourly, which the span says
-  // nothing of
-  const times = [...new Set(allTimes)].sort((a, b) => a - b)
-  const endStep = times.length > 1 ? times[times.length - 1]! - times[times.length - 2]! : 3_600_000
+  // the rain of the run, as the blocks of 1, 6, 12 or 24 hours that account for MOSMIX's totals (`planPrecipitation`)
+  const plan = planPrecipitation(series, amount => units.canon('precipitation', amount))
   while (dt.toMillis() <= last.toMillis()) {
     const startUTC = dt.toUTC().toMillis()
     const endUTC = dt.plus({ days: 1 }).toUTC().toMillis()
@@ -152,16 +164,10 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
       }
     }
 
-    // Precipitation total for the day (always computed)
-    let dayPrecip = 0
-    if (precipKey && series.has(precipKey)) {
-      const ps = series.get(precipKey)!
-      for (let i = 0; i < ps.x.length; i++) {
-        const time = ps.x[i]!.getTime()
-        if (time >= startUTC && time < endUTC)
-          dayPrecip += Number(ps.y[i] ?? 0)
-      }
-    }
+    // The rain of the day: each block adds the share of its hours that are in the day, and an hour with no amount adds nothing (it is
+    // not a 0: `precipMissingHours` counts them)
+    const over = plan ? precipitationOver(plan, startUTC, endUTC) : null
+    const dayPrecip = over?.amount ?? null
 
     // Fallback heuristics: cloud cover
     if (kind === null) {
@@ -180,7 +186,7 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
       }
       const avgCloud = cloudCount ? (cloudSum / cloudCount) : 0
       // judged in millimetres and degrees Celsius, whatever the units the day is shown in (GH-3980)
-      if (units.canon('precipitation', dayPrecip) > 0.5)
+      if (dayPrecip !== null && units.canon('precipitation', dayPrecip) > 0.5)
         kind = (Number.isFinite(minT) && units.canon('temperature', minT) <= 0.5) ? 'snow' : 'rain'
       else if (avgCloud >= 70)
         kind = 'cloudy'
@@ -191,14 +197,18 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
     }
 
     const tempLabel = Number.isFinite(minT) && Number.isFinite(maxT) ? withUnit(`${Math.round(minT)} / ${Math.round(maxT)}`, units.unitOf('temperature')) : null
-    const precipLabel = units.canon('precipitation', dayPrecip) >= 0.1 ? withUnit(formatNumber(dayPrecip, locale, 1), units.unitOf('precipitation')) : null
+    const precipBlockHours = over && over.longest > 1 ? over.longest : null
+    const precipMissingHours = Math.round(over?.missing ?? 0)
+    // a label of a figure that is not the whole day's own: the least it says, or made of totals of more than an hour
+    const precipMark = precipMissingHours > 0 ? '≥' : precipBlockHours !== null ? '≈' : ''
+    const precipLabel = dayPrecip !== null && units.canon('precipitation', dayPrecip) >= 0.1 ? `${precipMark}${withUnit(formatNumber(dayPrecip, locale, 1), units.unitOf('precipitation'))}` : null
     const isToday = dt.hasSame(today, 'day')
-    // The last day of the run, when the run ends before it does: its minimum and maximum are those of the hours
-    // the run reaches, so the row says how many they are, and is not read as a day's own
+    // A day the run does not reach all of, at its start (the first hour of the run is the one after its issue) or its end: its
+    // minimum, maximum and rain are those of the hours the run reaches, so the row says how many they are, and is not read as a day's own
     let partialHours: number | null = null
-    if (dt.toMillis() === last.toMillis() && maxTime + endStep < endUTC)
-      partialHours = Math.max(1, Math.round((maxTime + endStep - Math.max(startUTC, minTime)) / 3_600_000))
-    out.push({ date: dt, kind, weekday: weekdayShort(dt, language), dayMonth: formatDayMonth(dt, language), tempLabel, precipLabel, isToday, partialHours })
+    if (startUTC < minTime || maxTime + HOUR_MS < endUTC)
+      partialHours = Math.max(1, Math.round((Math.min(endUTC, maxTime + HOUR_MS) - Math.max(startUTC, minTime)) / HOUR_MS))
+    out.push({ date: dt, kind, weekday: weekdayShort(dt, language), dayMonth: formatDayMonth(dt, language), tempLabel, precipLabel, precipBlockHours, precipMissingHours, isToday, partialHours })
     dt = dt.plus({ days: 1 })
   }
   return out

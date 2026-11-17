@@ -137,7 +137,10 @@ export function bandColour(cloud: number, dark: boolean): string {
   return dark ? `rgba(250,204,21,${(alpha * 0.15).toFixed(3)})` : `rgba(253,244,180,${alpha.toFixed(3)})`
 }
 
-const BACKDROP = { band: 0, midnight: 1, now: 2, freeze: 3, divider: 4 } as const
+const BACKDROP = { band: 0, midnight: 1, now: 2, freeze: 3, divider: 4, cadence: 5 } as const
+
+/** How much of its window a block of precipitation fills: the rest is the gap between it and the next (the library's bars were 90 % wide) */
+const BLOCK_FILL = 0.9
 
 /** The option of the chart in `input` */
 export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
@@ -208,6 +211,9 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
       data.push([BACKDROP.freeze, bounds.start, bounds.end, model.freezing])
     if (i < rows.length - 1)
       data.push([BACKDROP.divider, bounds.start, bounds.end, 0])
+    // where the precipitation goes from blocks of one length to another: a line, and what the blocks after it are
+    if (row.id === 'precip')
+      model.precipChanges.forEach((change, k) => data.push([BACKDROP.cadence, change.t, change.t, k]))
     series.push({
       id: `backdrop-${row.id}`,
       type: 'custom',
@@ -234,6 +240,20 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
             return null
           const isNow = kind === BACKDROP.now
           return { type: 'line', silent: true, shape: { x1: x, y1: cs.y, x2: x, y2: cs.y + cs.height }, style: { stroke: isNow ? nowColour : midnightColour, lineWidth: isNow ? 1.5 : 1, lineDash: isNow ? undefined : [2, 3] } }
+        }
+        if (kind === BACKDROP.cadence) {
+          const x = api.coord([api.value(1), 0])[0]
+          if (x < left || x > right)
+            return null
+          // the label names the blocks after the line, at its top and on its right
+          return {
+            type: 'group',
+            silent: true,
+            children: [
+              { type: 'line', silent: true, shape: { x1: x, y1: cs.y, x2: x, y2: cs.y + cs.height }, style: { stroke: theme.textMuted, lineWidth: 1, lineDash: [5, 3] } },
+              { type: 'text', silent: true, style: { text: model.precipChanges[api.value(3)]!.label, x: x + 4, y: cs.y + 8, fill: theme.textMuted, font: `11px ${fontFamily}`, textAlign: 'left', textVerticalAlign: 'middle' } },
+            ],
+          }
         }
         if (kind === BACKDROP.freeze) {
           const y = api.coord([0, api.value(3)])[1]
@@ -292,6 +312,33 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
     const fill = dark ? TONES[s.tone].fillDark : TONES[s.tone].fillLight
     const index = gridOf(s.panel)
     const common = { id: s.id, xAxisIndex: index, yAxisIndex: index, silent: true, data: s.data, animation: false }
+    if (s.windows) {
+      // blocks over windows of different lengths (the precipitation: 1, 6, 12 or 24 hours), each a rectangle over its own hours, which
+      // the library's bars cannot be: their width is the one least distance between two stamps. One of no height is not drawn
+      // the dimensions are the block's first and last moment and its amount: the zoom keeps a block that is in the window at either end
+      const blocks = s.data.flatMap(([centre, amount], i) => amount ? [[centre - (s.windows![i]! * HOUR_MS) / 2, centre + (s.windows![i]! * HOUR_MS) / 2, amount]] : [])
+      return {
+        id: s.id,
+        type: 'custom',
+        xAxisIndex: index,
+        yAxisIndex: index,
+        silent: true,
+        clip: true,
+        animation: false,
+        z: 3,
+        encode: { x: [0, 1], y: 2 },
+        data: blocks,
+        renderItem: (params: any, api: any) => {
+          // a gap between the blocks, as the bars had
+          const gap = ((api.value(1) - api.value(0)) * (1 - BLOCK_FILL)) / 2
+          const [left, top] = api.coord([api.value(0) + gap, api.value(2)])
+          const [right, bottom] = api.coord([api.value(1) - gap, 0])
+          const cs = params.coordSys
+          const span = clampSpan(left, right, cs.x, cs.x + cs.width)
+          return span ? { type: 'rect', silent: true, shape: { x: span[0], y: top, width: span[1] - span[0], height: Math.max(1, bottom - top) }, style: { fill: colour } } : null
+        },
+      }
+    }
     if (s.kind === 'bar') {
       // a stack for each panel: the rain, mixed and snow of the precipitation are one, the new snow of the snow panel is another
       return { ...common, type: 'bar', stack: s.panel, barWidth: '90%', itemStyle: { color: colour }, z: 3 }
