@@ -9,7 +9,7 @@ import type { EChartsCoreOption } from 'echarts/core'
  * The same years can be drawn as bars (GH-4156): a bar for each year, as high as its anomaly (the backend's, from the mean of the
  * reference) and in the colour of its class, on a range with zero in it (the zero line is drawn); with a scale, a y axis in the unit
  * of the anomaly (grid lines and labels, and a subtitle that says what the bars are relative to), and a year axis with round ticks
- * in place of the first and the last year. The window, the title, the availability line, and the source carry over.
+ * in place of the first and the last year. The window, the title, the availability line and the source carry over.
  */
 import type { StripesKind } from '#shared/types/api'
 import type { ChartTheme } from './chart-theme'

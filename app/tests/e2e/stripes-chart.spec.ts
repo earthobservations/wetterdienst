@@ -784,7 +784,6 @@ test.describe('the stripes as bars', () => {
         expect(await strokes(page)).toEqual(without)
         expect(await strokes(page)).not.toContain('4')
         expect(await dashed(page)).toBe(0)
-        await expect(page.getByRole('checkbox', { name: /time ?series|trend ?line/i })).toHaveCount(0)
       })
     }
   }

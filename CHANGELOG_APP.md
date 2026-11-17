@@ -22,18 +22,17 @@ Types of changes:
   above the chart (kept in the link as `variant`). A bar is the year's anomaly from the mean the
   colours are centred on (1971–2000, or the station's whole record), up for warm or wet, in the
   colour of its class; with a scale it has a y axis in the unit, round years along the x axis and a
-  line saying what the bars are relative to. Window, title, availability line, source,
-  camera, downloads and print follow the variant shown (GH-4156).
+  line saying what the bars are relative to. Window, title, availability line, source, camera,
+  downloads and print follow the variant shown (GH-4156).
 
 ### Changed
 
 - `[Stripes]` The stripes' colours follow Ed Hawkins' method, as the backend classes them: 16
-  discrete colours from the mean of 1971-2000 in steps of 0.325 standard deviations of 1901-2000,
-  no longer a point between the coolest and the warmest year shown, so a year keeps its colour
-  whatever years the form asks for. A line under the chart says what the colours are relative to
-  (the station's whole record where it has too few years in a period); the table has an anomaly
-  column; the readout and the map panel's band follow. Needs the
-  backend that answers `reference` (GH-4157).
+  discrete colours from the mean of 1971–2000 in steps of 0.325 standard deviations of 1901–2000, no
+  longer a point between the coolest and the warmest year shown, so a year keeps its colour whatever
+  years the form asks for. A line under the chart says what the colours are relative to (the
+  station's whole record where it has too few years in a period); the table has an anomaly column;
+  the readout and the map panel's band follow. Needs the backend that answers `reference` (GH-4157).
 
 ### Removed
 
