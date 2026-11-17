@@ -50,6 +50,8 @@ const selectedIcon = L.icon({
 
 /** The zoom from which every station of the picker is its own marker: the map tool's default one, so that the two group alike */
 const PICKER_SEPARATE_FROM = GROUPINGS[DEFAULT_GROUPING].separateFrom
+/** The radius of a group of the picker at a zoom, in pixels: leaflet.markercluster's 80 outside the separation zoom, and one pixel from it, which only markers on one place share */
+const pickerClusterRadius = (zoom: number): number => zoom < PICKER_SEPARATE_FROM ? 80 : 1
 
 const { t } = useI18n()
 
@@ -123,9 +125,10 @@ async function createMarkers() {
   try {
     result = await useLMarkerCluster({
       leafletObject: { addLayer: () => leafletMap } as unknown as L.Map,
-      // the groups of the map tool (GH-4079) split up at the same zoom: from it every station is its own marker. The radius
-      // is leaflet.markercluster's own 80 px
-      options: { maxClusterRadius: 80, disableClusteringAtZoom: PICKER_SEPARATE_FROM },
+      // the groups of the map tool (GH-4079) split up at the same zoom: from it a group is only what lies on one place, within a
+      // pixel. Not `disableClusteringAtZoom`, which would draw such markers over each other, past the zoom where a click on
+      // their group spiderfies them (`spiderfyOnMaxZoom`, on by default). The radius is leaflet.markercluster's own 80 px
+      options: { maxClusterRadius: pickerClusterRadius, spiderfyOnMaxZoom: true },
       markers: stations.map(station => ({
         name: station.name,
         lat: station.latitude,

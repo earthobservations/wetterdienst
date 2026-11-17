@@ -425,7 +425,12 @@ function pickCentre() {
 
 /** A click on a group of stations has zoomed the map in on them: said, as a pick is */
 function onGroup(count: number) {
-  announcement.value = t('mapTool.groupZoomed', { shown: formatNumber(count, formatLanguage.value, 0) })
+  const said = t('mapTool.groupZoomed', { shown: formatNumber(count, formatLanguage.value, 0) })
+  // a status that says the same again is not read again: it is emptied first, and said in the next tick
+  announcement.value = ''
+  void nextTick(() => {
+    announcement.value = said
+  })
 }
 
 function back() {

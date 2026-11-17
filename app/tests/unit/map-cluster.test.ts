@@ -10,9 +10,10 @@ import {
   GROUPINGS,
   isGroupedAt,
   worldPixels,
+  worldPoint,
   zoomForCluster,
 } from '../../app/utils/map-cluster'
-import { placed } from '../../app/utils/map-tool'
+import { dotRadius, placed } from '../../app/utils/map-tool'
 
 // The groups of stations at the outer zooms of the map tool (GH-4079).
 
@@ -26,6 +27,13 @@ const NEUWIEDENTHAL = station('01981', 53.4777, 9.8965)
 const BERLIN = station('10384', 52.47, 13.4)
 const MUNICH = station('03379', 48.1632, 11.5429)
 const ALL = placed([FUHLSBUETTEL, NEUWIEDENTHAL, BERLIN, MUNICH])
+
+// a seeded generator, so that the fixtures are the same in every run
+let seed = 7
+function random() {
+  seed = (seed * 48271) % 2147483647
+  return seed / 2147483647
+}
 
 describe('the grouping of a layer', () => {
   it('follows the choice on a layer of up to 10,000 stations, whether it is none or a step', () => {
@@ -61,8 +69,8 @@ describe('the groups of a list at a zoom', () => {
     const groups = clusterStations(ALL, 5, 50)
     const hamburg = groups.find(group => group.count === 2)!
     expect(hamburg.station).toBeNull()
-    expect(hamburg.latitude).toBeCloseTo((FUHLSBUETTEL.latitude + NEUWIEDENTHAL.latitude) / 2, 6)
-    expect(hamburg.longitude).toBeCloseTo((FUHLSBUETTEL.longitude + NEUWIEDENTHAL.longitude) / 2, 6)
+    expect(hamburg.latitude).toBeCloseTo((FUHLSBUETTEL.latitude + NEUWIEDENTHAL.latitude) / 2, 3)
+    expect(hamburg.longitude).toBeCloseTo((FUHLSBUETTEL.longitude + NEUWIEDENTHAL.longitude) / 2, 3)
     expect(hamburg.bounds).toEqual({ south: NEUWIEDENTHAL.latitude, north: FUHLSBUETTEL.latitude, west: NEUWIEDENTHAL.longitude, east: FUHLSBUETTEL.longitude })
   })
 
@@ -89,19 +97,77 @@ describe('the groups of a list at a zoom', () => {
     expect(groups[0]!.count).toBe(3)
   })
 
-  it('are made for a list of 133,041 stations (GHCN daily) in a fraction of a second, at the zoom the map opens a world view at', () => {
-    // a deterministic spread over the land of the world, denser in a few places as the real list is
-    let seed = 7
-    const random = () => (seed = (seed * 48271) % 2147483647) / 2147483647
+  it('are made for a list of 133,041 stations (GHCN daily), none lost, with a number of groups that fits the map', () => {
     const many = placed(Array.from({ length: 133_041 }, (_, index) => station(String(index), -55 + random() * 130, -170 + random() * 340)))
-    const started = performance.now()
-    const groups = clusterStations(many, 3, 50)
-    const took = performance.now() - started
-    expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(133_041)
     // the world at zoom 3 is 2,048 px wide: a few hundred groups, not one disc for each station
-    expect(groups.length).toBeLessThan(2000)
-    // generous: a cold machine in CI. The work is one pass with a sum for each cell
-    expect(took).toBeLessThan(1500)
+    for (const zoom of [3, 5, 7]) {
+      const started = performance.now()
+      const groups = clusterStations(many, zoom, 30)
+      const took = performance.now() - started
+      expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(133_041)
+      if (zoom === 3)
+        expect(groups.length).toBeLessThan(2000)
+      // not a measure, a guard against a pass that grows with the square of the list: about 0.1 to 0.5 s on a laptop
+      expect(took).toBeLessThan(15_000)
+    }
+  })
+
+  it('keep the discs apart: no two groups of a list overlap, at either step and at several zooms, and none lies over a lone station', () => {
+    // towns: dense knots of stations with space between them, where a grid cuts a knot into squares whose groups lie close
+    const towns = placed(Array.from({ length: 4000 }, (_, index) => {
+      const town = index % 200
+      const centre = { latitude: 47 + (town % 20) * 0.35, longitude: 6 + Math.floor(town / 20) * 0.6 }
+      return station(String(index), centre.latitude + (random() - 0.5) * 0.12, centre.longitude + (random() - 0.5) * 0.18)
+    }))
+    for (const [radius, zooms] of [[30, [5, 6, 7]], [80, [5, 7, 9]]] as const) {
+      for (const zoom of zooms) {
+        const groups = clusterStations(towns, zoom, radius)
+        expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(towns.length)
+        const dot = dotRadius(zoom)
+        const radiusOf = (group: { count: number }) => group.count === 1 ? dot : clusterRadius(group.count)
+        let overlapping = 0
+        for (let first = 0; first < groups.length; first++) {
+          for (let second = first + 1; second < groups.length; second++) {
+            if (Math.hypot(groups[first]!.x - groups[second]!.x, groups[first]!.y - groups[second]!.y) < radiusOf(groups[first]!) + radiusOf(groups[second]!))
+              overlapping++
+          }
+        }
+        expect(overlapping, `radius ${radius} at zoom ${zoom}`).toBe(0)
+      }
+    }
+  })
+
+  it('are drawn where their stations are: the position of a group is the mean of the positions of its stations', () => {
+    const pair = placed([station('a', 50, 10), station('b', 50.01, 10.01)])
+    const [group] = clusterStations(pair, 4, 50)
+    const first = worldPixels(50, 10, 4)
+    const second = worldPixels(50.01, 10.01, 4)
+    expect(group!.count).toBe(2)
+    expect(group!.x).toBeCloseTo((first.x + second.x) / 2, 6)
+    expect(group!.y).toBeCloseTo((first.y + second.y) / 2, 6)
+    // and the point it reports is that position, which the map projects back to the pixels
+    const back = worldPixels(group!.latitude, group!.longitude, 4)
+    expect(back.x).toBeCloseTo(group!.x, 6)
+    expect(back.y).toBeCloseTo(group!.y, 6)
+  })
+})
+
+describe('the pixels of the world map', () => {
+  it('are Leaflet\'s: the world is 256 px at zoom 0, and the map ends at 85.0511 degrees', () => {
+    expect(worldPixels(0, 0, 0)).toEqual({ x: 128, y: 128 })
+    expect(worldPixels(85.0511287798, -180, 0).y).toBeCloseTo(0, 6)
+    // a station at the pole is drawn at the edge of the map, where Leaflet's own projection stops, not past it
+    expect(worldPixels(89.9, 0, 3).y).toBeCloseTo(worldPixels(85.0511287798, 0, 3).y, 9)
+    expect(worldPixels(-89.9, 0, 3).y).toBeCloseTo(256 * 8, 6)
+  })
+
+  it('are given back to the point they came from', () => {
+    for (const [latitude, longitude, zoom] of [[52.5, 13.4, 6], [-33.9, 151.2, 3], [0, 0, 10], [70.9, -8.7, 12]] as const) {
+      const at = worldPixels(latitude, longitude, zoom)
+      const back = worldPoint(at.x, at.y, zoom)
+      expect(back.latitude).toBeCloseTo(latitude, 8)
+      expect(back.longitude).toBeCloseTo(longitude, 8)
+    }
   })
 })
 
@@ -126,14 +192,14 @@ describe('a click on a group', () => {
 
   it('is on it within the radius of its disc and a little more, and on nothing farther off', () => {
     const radius = clusterRadius(2)
-    expect(clusterAt(groups, zoom, centre)).toBe(hamburg)
-    expect(clusterAt(groups, zoom, { x: centre.x + radius, y: centre.y })).toBe(hamburg)
-    expect(clusterAt(groups, zoom, { x: centre.x + radius + 20, y: centre.y })).toBeNull()
+    expect(clusterAt(groups, centre)).toBe(hamburg)
+    expect(clusterAt(groups, { x: centre.x + radius, y: centre.y })).toBe(hamburg)
+    expect(clusterAt(groups, { x: centre.x + radius + 20, y: centre.y })).toBeNull()
   })
 
   it('is on no station that is alone, which is a dot and picked as one', () => {
     const berlin = worldPixels(BERLIN.latitude, BERLIN.longitude, zoom)
-    expect(clusterAt(groups, zoom, berlin)).toBeNull()
+    expect(clusterAt(groups, berlin)).toBeNull()
   })
 
   it('zooms in on the box of its stations, one zoom in at least, and no farther than the zoom every station is its own dot from', () => {

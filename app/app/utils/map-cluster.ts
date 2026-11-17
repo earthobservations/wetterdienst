@@ -1,4 +1,5 @@
 import type { PlacedStation } from './map-tool'
+import { dotRadius } from './map-tool'
 
 /**
  * Groups of stations on the map tool (GH-4079): at the outer zooms the stations that lie close together are drawn as one
@@ -70,6 +71,9 @@ export function isGroupedAt(grouping: Grouping | null, zoom: number): boolean {
 export interface Cluster {
   latitude: number
   longitude: number
+  /** Where it is drawn at the zoom, in pixels of the world map: the middle of its stations, which a click is tested against */
+  x: number
+  y: number
   count: number
   /** The box of its stations, which a click zooms to */
   bounds: { south: number, west: number, north: number, east: number }
@@ -79,29 +83,122 @@ export interface Cluster {
 
 const TILE = 256
 
+/** The latitude Leaflet's Web Mercator map ends at: a point beyond it is drawn at it */
+const MAX_LATITUDE = 85.0511287798
+
 /** The position of a point at a zoom in pixels of the world map (Web Mercator, tiles of 256 px, as Leaflet draws them) */
 export function worldPixels(latitude: number, longitude: number, zoom: number): { x: number, y: number } {
   const size = TILE * 2 ** zoom
-  const sin = Math.sin(Math.max(-0.9999, Math.min(0.9999, latitude * Math.PI / 180)))
+  const sin = Math.sin(Math.max(-MAX_LATITUDE, Math.min(MAX_LATITUDE, latitude)) * Math.PI / 180)
   return {
     x: (longitude + 180) / 360 * size,
     y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * size,
   }
 }
 
+/** The point at a position in pixels of the world map at a zoom: the inverse of `worldPixels` */
+export function worldPoint(x: number, y: number, zoom: number): { latitude: number, longitude: number } {
+  const size = TILE * 2 ** zoom
+  return {
+    latitude: 90 - 360 * Math.atan(Math.exp((y / size - 0.5) * 2 * Math.PI)) / Math.PI,
+    longitude: x / size * 360 - 180,
+  }
+}
+
+interface Group {
+  count: number
+  /** The sums of the positions in pixels, whose mean is where the group is drawn */
+  sx: number
+  sy: number
+  south: number
+  west: number
+  north: number
+  east: number
+  first: PlacedStation
+  alive: boolean
+}
+
+/** The edge of the squares the neighbours of a group are looked for in: more than the two largest discs side by side */
+const NEIGHBOUR_CELL = 64
+
 /**
- * The groups of a list at a zoom: the stations in one square of 2 x `radius` pixels (so each is within `radius` of the
- * middle of it) are one group. A square with one station is that station.
+ * Joins the groups whose discs would overlap, until none do: a group is drawn at the middle of its stations, which is not
+ * the middle of the square of the grid it was cut in, so the discs of two neighbouring squares can reach over each other
+ * and hide each other's number. A lone station counts as the dot it is drawn as. The joined group is bigger (a larger
+ * disc) and has moved to the middle of all its stations, so another may now overlap it: the pass is made again until a pass
+ * joins nothing.
+ */
+function mergeOverlapping(groups: Group[], dot: number): Group[] {
+  const radiusOf = (group: Group) => group.count === 1 ? dot : clusterRadius(group.count)
+  const keyOf = (column: number, row: number) => column * 1_000_003 + row
+  let alive = groups
+  for (let pass = 0; pass < 32; pass++) {
+    const index = new Map<number, Group[]>()
+    for (const group of alive) {
+      const key = keyOf(Math.floor(group.sx / group.count / NEIGHBOUR_CELL), Math.floor(group.sy / group.count / NEIGHBOUR_CELL))
+      const cell = index.get(key)
+      if (cell)
+        cell.push(group)
+      else
+        index.set(key, [group])
+    }
+    let joined = false
+    for (const group of alive) {
+      if (!group.alive)
+        continue
+      let again = true
+      while (again) {
+        again = false
+        const x = group.sx / group.count
+        const y = group.sy / group.count
+        const column = Math.floor(x / NEIGHBOUR_CELL)
+        const row = Math.floor(y / NEIGHBOUR_CELL)
+        for (let dc = -1; dc <= 1; dc++) {
+          for (let dr = -1; dr <= 1; dr++) {
+            for (const other of index.get(keyOf(column + dc, row + dr)) ?? []) {
+              if (other === group || !other.alive)
+                continue
+              if (Math.hypot(other.sx / other.count - x, other.sy / other.count - y) >= radiusOf(group) + radiusOf(other))
+                continue
+              group.count += other.count
+              group.sx += other.sx
+              group.sy += other.sy
+              group.south = Math.min(group.south, other.south)
+              group.north = Math.max(group.north, other.north)
+              group.west = Math.min(group.west, other.west)
+              group.east = Math.max(group.east, other.east)
+              other.alive = false
+              again = joined = true
+            }
+          }
+        }
+      }
+    }
+    if (!joined)
+      break
+    alive = alive.filter(group => group.alive)
+  }
+  return alive.filter(group => group.alive)
+}
+
+/**
+ * The groups of a list at a zoom: the stations in one square of 2 x `radius` pixels of a grid (so each is within `radius`
+ * of the middle of it) are one group, and groups whose discs would overlap are joined (`mergeOverlapping`), so that every
+ * disc is over its own stations and no number is hidden by another. A group of one is that station, drawn as a dot of
+ * `dot` pixels.
  *
- * The list is gone through once and nothing is kept for a group but sums, so a list of 133,041 stations is a few
- * milliseconds, and the same at every zoom.
+ * The list is gone through once for the grid, with a sum for each square, and the squares (not the stations) are then
+ * joined. Measured on 133,041 stations (a laptop, 2026-11-17): 6 to 40 ms at the outer zooms (2 to 5) of a list that is in
+ * towns, 10 to 17 ms at zoom 7; of one spread evenly over the world, where the groups are most, 14 ms at zoom 2 to 5
+ * for the coarse step and 121 ms at zoom 6 and 407 ms at zoom 7 for the fine one (84,000 groups, which no map shows).
+ * A group is made once for a zoom and kept until the list or the step changes.
  *
  * @example
- * clusterStations(stations, 5, 50) // [{ count: 38, latitude: 52.4, longitude: 9.9, ... }, { count: 1, station, ... }]
+ * clusterStations(stations, 5, 50) // [{ count: 38, latitude: 52.4, longitude: 9.9, x, y, ... }, { count: 1, station, ... }]
  */
-export function clusterStations(stations: PlacedStation[], zoom: number, radius: number): Cluster[] {
+export function clusterStations(stations: PlacedStation[], zoom: number, radius: number, dot = dotRadius(zoom)): Cluster[] {
   const cell = radius * 2
-  const cells = new Map<number, { count: number, lat: number, lon: number, south: number, west: number, north: number, east: number, first: PlacedStation }>()
+  const cells = new Map<number, Group>()
   for (const station of stations) {
     const at = worldPixels(station.latitude, station.longitude, zoom)
     // a number for the cell: the columns of the widest world (zoom 16) fit under a million
@@ -109,28 +206,29 @@ export function clusterStations(stations: PlacedStation[], zoom: number, radius:
     const group = cells.get(key)
     if (group) {
       group.count++
-      group.lat += station.latitude
-      group.lon += station.longitude
+      group.sx += at.x
+      group.sy += at.y
       group.south = Math.min(group.south, station.latitude)
       group.north = Math.max(group.north, station.latitude)
       group.west = Math.min(group.west, station.longitude)
       group.east = Math.max(group.east, station.longitude)
     }
     else {
-      cells.set(key, { count: 1, lat: station.latitude, lon: station.longitude, south: station.latitude, west: station.longitude, north: station.latitude, east: station.longitude, first: station })
+      cells.set(key, { count: 1, sx: at.x, sy: at.y, south: station.latitude, west: station.longitude, north: station.latitude, east: station.longitude, first: station, alive: true })
     }
   }
-  const clusters: Cluster[] = []
-  for (const group of cells.values()) {
-    clusters.push({
-      latitude: group.lat / group.count,
-      longitude: group.lon / group.count,
+  return mergeOverlapping([...cells.values()], dot).map((group) => {
+    const x = group.sx / group.count
+    const y = group.sy / group.count
+    return {
+      ...worldPoint(x, y, zoom),
+      x,
+      y,
       count: group.count,
       bounds: { south: group.south, west: group.west, north: group.north, east: group.east },
       station: group.count === 1 ? group.first : null,
-    })
-  }
-  return clusters
+    }
+  })
 }
 
 /** The radius of the disc of a group in pixels: it grows with the logarithm of its number, from 11 px for two stations to 23 px for ten thousand */
@@ -150,18 +248,17 @@ export function clusterText(count: number): string {
 }
 
 /**
- * The group of a list that a click at a pixel of the map is on, the one drawn on top where two overlap (the last of the list
- * is); a lone station is no group. `at` is the pixel clicked from the world's origin at the zoom, `slop` how far outside the
- * disc a click still is on it, in pixels.
+ * The group of a list that a click at a pixel of the map is on: the one whose disc, as drawn, holds the pixel. Discs of a list
+ * do not overlap (`clusterStations` joins them), so there is one; a lone station is no group. `at` is the pixel clicked from
+ * the world's origin at the zoom of the list, `slop` how far outside the disc a click still is on it, in pixels.
  */
-export function clusterAt(clusters: Cluster[], zoom: number, at: { x: number, y: number }, slop = 2): Cluster | null {
+export function clusterAt(clusters: Cluster[], at: { x: number, y: number }, slop = 2): Cluster | null {
   let hit: Cluster | null = null
   let nearest = Number.POSITIVE_INFINITY
   for (const cluster of clusters) {
     if (cluster.count < 2)
       continue
-    const centre = worldPixels(cluster.latitude, cluster.longitude, zoom)
-    const distance = Math.hypot(centre.x - at.x, centre.y - at.y)
+    const distance = Math.hypot(cluster.x - at.x, cluster.y - at.y)
     if (distance <= clusterRadius(cluster.count) + slop && distance < nearest) {
       nearest = distance
       hit = cluster

@@ -27,6 +27,12 @@ const emit = defineEmits<{
 
 const buttons: (HTMLButtonElement | null)[] = []
 
+/** The option that is the group's one stop of Tab: the chosen one, or, where that is a disabled one (a native `disabled` button takes no focus), the first that can be chosen */
+const tabStop = computed(() => {
+  const chosen = props.options.findIndex(option => option.value === props.modelValue && !option.disabled)
+  return chosen !== -1 ? chosen : props.options.findIndex(option => !option.disabled)
+})
+
 function choose(index: number) {
   emit('update:modelValue', props.options[index]!.value)
   void nextTick(() => buttons[index]?.focus())
@@ -83,7 +89,7 @@ function onKeydown(event: KeyboardEvent, index: number) {
       :aria-checked="option.value === modelValue"
       :aria-controls="controls"
       :disabled="option.disabled || undefined"
-      :tabindex="option.value === modelValue ? 0 : -1"
+      :tabindex="index === tabStop ? 0 : -1"
       class="inline-flex cursor-pointer select-none items-center gap-1.5 rounded-md px-3 py-1.5 text-xs transition-all duration-150"
       :class="option.value === modelValue
         ? 'bg-white font-semibold text-gray-900 shadow-sm dark:bg-gray-700 dark:text-white'
