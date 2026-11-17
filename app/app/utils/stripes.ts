@@ -92,10 +92,23 @@ export function stripesReferenceText(
   format: (value: number) => string,
   key: 'stripes.reference' | 'stripes.plotReference' = 'stripes.reference',
 ): string {
-  const period = (stat: StripesReferenceStatView) => stat.fallback
+  return t(key, { centre: referencePeriod(reference.centre, t), spread: referencePeriod(reference.spread, t), sigma: format(reference.range_sigma) })
+}
+
+/** The years one number of the reference was calculated from: the period of the method (`1971–2000`), or the whole record where the station had too few years in it */
+export function referencePeriod(stat: StripesReferenceStatView, t: (key: string, params?: Record<string, unknown>) => string): string {
+  return stat.fallback
     ? t('stripes.referenceWhole', { from: stat.first_year, to: stat.last_year })
     : `${stat.first_year}–${stat.last_year}`
-  return t(key, { centre: period(reference.centre), spread: period(reference.spread), sigma: format(reference.range_sigma) })
+}
+
+/**
+ * What the bars with a scale are relative to, written under their title (`stripes.barsRelativeTo`): the mean of the reference's
+ * period, the same the colours are centred on, with the unit of the anomalies in brackets, `[°C]`, where there is one.
+ */
+export function barsSubtitle(reference: StripesReferenceView, unit: string, t: (key: string, params?: Record<string, unknown>) => string): string {
+  const text = t('stripes.barsRelativeTo', { period: referencePeriod(reference.centre, t) })
+  return unit ? `${text} [${unit}]` : text
 }
 
 /**

@@ -664,6 +664,13 @@
     "plotDataAvailability": "Data availability",
     "plotSource": "Source: Deutscher Wetterdienst",
     "plotReference": "Colours: mean of {centre}, ±{sigma} σ of {spread}",
+    "barsRelativeTo": "Relative to the mean of {period}",
+    "variant": {
+      "label": "Chart style",
+      "stripes": "Stripes",
+      "bars": "Bars",
+      "barsScale": "Bars with scale"
+    },
     "hoverValue": "Value",
     "hoverTrend": "Trend",
     "chart": {
