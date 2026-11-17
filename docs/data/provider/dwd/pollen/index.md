@@ -26,8 +26,9 @@ them (`partregion_id`, such as Mainfranken); a region that has no parts is a sta
   (`Mecklenburg-Vorpommern`). The `region` column is the region (`Bayern`).
 - **There is no position.** DWD ships no shape and no coordinates of the regions, and the library invents none:
   `latitude`, `longitude` and `elevation` are null. A region is found by its name (`name`, a fuzzy match, the best
-  `rank` of them) or its id (`station`), or by `sql`; a search by `latitude` and `longitude` with `rank` or `distance`,
-  or by a bounding box, finds none of them and answers an empty list, as it does for any station without a position.
+  `rank` of them) or its id (`stations`), or by `sql`; a search by `latitude` and `longitude` with `rank` or `distance`,
+  or by a bounding box, finds none of them and answers an empty list with the warning `positions-unavailable`, which
+  names the way to find them (`name` and `stations`).
   A region has no point to estimate at, so `interpolate` and `summarize` refuse it. In a GeoJSON answer the feature of
   a region has a null `geometry`. The table of the regions, with the numbers and names as the file writes them, is
   `provider/dwd/pollen/regions.py`.

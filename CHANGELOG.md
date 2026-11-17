@@ -21,12 +21,13 @@ Types of changes:
 - `dwd/pollen`: DWD's pollen forecast (Pollenflug-Gefahrenindex), a daily forecast network of eight
   parameters, `pollen_load_hazel`, `_alder`, `_ash`, `_birch`, `_grass`, `_rye`, `_mugwort` and
   `_ragweed`, for today, tomorrow and the day after, from `s31fg.json`. The 27 regions are the
-  stations, with DWD's own number as the id (`124` is Bayern, Mainfranken, `20`
-  Mecklenburg-Vorpommern); DWD gives them no position, so latitude and longitude are null and a
-  region is found by name or id, a search by place finds none. The steps `0`, `0-1`, ..., `3` are
-  served as 0, 0.5, ..., 3, and any other text, `-1` included, as null with the text kept as
-  `raw:`. A region of the file that is not known is skipped with a warning that names it, and a
-  changed file is a `DownloadError` (GH-4088)
+  stations, with DWD's own number as the id (`124` is Bayern, Mainfranken); DWD gives them no
+  position, so latitude and longitude are null and a region is found by name or id. A search by
+  place (`rank`, `distance`, a box, `interpolate`, `summarize`) answers empty with the new warning
+  `positions-unavailable` that names this way; a network declares it with
+  `stations_have_positions = False`. The steps `0`, `0-1`, ..., `3` are 0, 0.5, ..., 3, any other
+  text, `-1` included, is null with the text kept as `raw:`, and a changed file is a
+  `DownloadError` (GH-4088)
 
 ### Fixed
 

@@ -327,6 +327,10 @@ what the answer is missing:
   `summarize`, had to leave it out, which is every search by place of a resolution that lists it;
   for a `timestamp`, the whole list and a search by place tell it, in a listing, in the values and in
   an estimate, only if the station has a record in the window),
+  `positions-unavailable` (a search by place, a `rank`, a `distance` or a bounding box, or an estimate by
+  `interpolate` or `summarize` by a point, on a network whose source gives its stations no position, which is
+  `dwd/pollen`: the answer is empty by the nature of the network, and the message names the way to find the stations,
+  the `name` and `stations` parameters; a search by name or id and the whole list do not have it),
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
   `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
   `parameter-without-rows` (a requested parameter that the source holds no values for, see below),

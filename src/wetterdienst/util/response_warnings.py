@@ -121,6 +121,12 @@ ANSWER_TRUNCATED = "answer-truncated"
 #: `X-Wetterdienst-Forecast-From-Now` header too
 FORECAST_FROM_NOW = "forecast-from-now"
 
+#: the code of the warning a search by place (`rank`, `distance`, a bounding box, and so `interpolate` and `summarize`
+#: by a point) carries on a network whose source gives its stations no position (`dwd/pollen`, GH-4088): the answer is
+#: empty by the nature of the network, not because no station is near, and the `message` names the way to find them,
+#: by name or id. Not told for a search by name or id
+POSITIONS_UNAVAILABLE = "positions-unavailable"
+
 
 class SkipCause(Enum):
     """Why a provider let a file go (`note_skipped_download`), which decides what `file-skipped` advises.

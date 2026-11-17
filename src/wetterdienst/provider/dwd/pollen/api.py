@@ -301,6 +301,8 @@ class DwdPollenRequest(TimeseriesRequest):
 
     metadata = DwdPollenMetadata
     _values = DwdPollenValues
+    # DWD ships no shape and no position of the regions: a search by place says so (`positions-unavailable`)
+    stations_have_positions = False
 
     def _all(self) -> pl.LazyFrame:
         """Return the 27 regions of the forecast: the table of `regions.py`, which needs no request and no position."""
