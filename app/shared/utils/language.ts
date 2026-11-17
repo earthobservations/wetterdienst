@@ -1,0 +1,44 @@
+// The language a visitor is shown (GH-4106). `@nuxtjs/i18n` chooses it when the app starts, as nuxt.config.ts
+// configures it (`detectBrowserLanguage`): the language of the `wd_lang` cookie if it names a locale of the app,
+// else the first of the browser's languages (`navigator.languages`) that a locale matches, else German. The server
+// cannot read `navigator.languages`, but the browser sends the same list as `Accept-Language`, so it asks the
+// same question of it, with the module's own matcher (`findBrowserLocale`) over the same table of locales. A
+// visitor that sends no header (a crawler) gets what the app falls back to.
+import type { LocaleCode } from './locales'
+import { findBrowserLocale } from '#i18n-kit/browser'
+import { DEFAULT_LOCALE, isLocaleCode, LOCALES } from './locales'
+
+/**
+ * The languages of an `Accept-Language` header, the preferred first: by weight (`q`), and in the order the header
+ * names them where the weights are equal, as a browser lists `navigator.languages`. A language of weight 0 is one the
+ * visitor does not want, and `*` is no language.
+ *
+ * @param header The header, if any
+ * @returns The language tags
+ */
+export function parseAcceptLanguage(header: string | undefined): string[] {
+  const entries = (header ?? '').split(',').flatMap((part, index) => {
+    const [tag = '', ...params] = part.split(';').map(piece => piece.trim())
+    if (tag === '' || tag === '*')
+      return []
+    const weight = params.map(param => /^q=(\d+(?:\.\d*)?|\.\d+)$/i.exec(param)?.[1]).find(match => match !== undefined)
+    const q = weight === undefined ? 1 : Number(weight)
+    return q > 0 ? [{ tag, q, index }] : []
+  })
+  return entries.sort((a, b) => b.q - a.q || a.index - b.index).map(entry => entry.tag)
+}
+
+/**
+ * The language the app opens in for a visitor, as `@nuxtjs/i18n` chooses it in the browser.
+ *
+ * @param cookie The `wd_lang` cookie, if any; a value that is no locale of the app is ignored
+ * @param languages The languages of the browser, the preferred first (`navigator.languages`, or `parseAcceptLanguage`
+ * of the header on the server)
+ * @returns The code of a locale of the app
+ */
+export function pickLocale(cookie: string | undefined, languages: readonly string[]): LocaleCode {
+  if (isLocaleCode(cookie))
+    return cookie
+  const found = findBrowserLocale(LOCALES.map(({ code, language }) => ({ code, language })), languages)
+  return isLocaleCode(found) ? found : DEFAULT_LOCALE
+}

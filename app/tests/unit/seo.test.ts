@@ -1,8 +1,9 @@
 import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { applySeoHead, message, pageTitle, pickLocale, seoHead } from '../../server/utils/seoHead'
+import { applySeoHead, message, pageTitle, seoHead } from '../../server/utils/seoHead'
 import { resetProviders } from '../../server/utils/seoProviders'
+import { LOCALES } from '../../shared/utils/locales'
 import {
   canonicalUrl,
   DEFAULT_SITE_URL,
@@ -66,8 +67,8 @@ describe('the list of pages', () => {
       expect(pages.has(path), path).toBe(true)
   })
 
-  it('has a title and a description in German and English for every page', () => {
-    for (const locale of ['de', 'en'] as const) {
+  it('has a title and a description in every language of the app for every page', () => {
+    for (const { code: locale } of LOCALES) {
       for (const route of SEO_ROUTES) {
         expect(message(locale, route.title), `${locale} ${route.title}`).not.toBe(route.title)
         expect(message(locale, route.description), `${locale} ${route.description}`).not.toBe(route.description)
@@ -285,25 +286,6 @@ describe('the tags of the shell', () => {
   })
 })
 
-describe('the language of the shell', () => {
-  it('is the one the visitor chose, else English for a browser that asks for it first, else German', () => {
-    expect(pickLocale('en', undefined)).toBe('en')
-    expect(pickLocale('fr', 'en')).toBe('de')
-    expect(pickLocale('de', 'en-GB,en;q=0.9')).toBe('de')
-    expect(pickLocale(undefined, 'en-GB,en;q=0.9,de;q=0.8')).toBe('en')
-    expect(pickLocale(undefined, 'en')).toBe('en')
-    expect(pickLocale(undefined, 'de-DE,de;q=0.9,en;q=0.8')).toBe('de')
-    expect(pickLocale(undefined, 'fr-FR')).toBe('de')
-    // a weight on the first entry is not part of its tag
-    expect(pickLocale(undefined, 'en;q=0.9')).toBe('en')
-    expect(pickLocale(undefined, 'en;q=1.0,de;q=0.5')).toBe('en')
-    expect(pickLocale(undefined, 'de;q=0.9')).toBe('de')
-    expect(pickLocale(undefined, 'en-GB;q=0.8, de')).toBe('en')
-    // a crawler sends neither
-    expect(pickLocale(undefined, undefined)).toBe('de')
-  })
-})
-
 describe('the plugin that writes the shell', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -319,6 +301,8 @@ describe('the plugin that writes the shell', () => {
     vi.stubGlobal('useRuntimeConfig', () => ({ public: { siteUrl: options.siteUrl ?? DEFAULT_SITE_URL } }))
     vi.stubGlobal('appendResponseHeader', recordHeaders(headers))
     vi.stubGlobal('setResponseHeader', recordHeaders(headers))
+    // a plugin registers once per import, and a test may render more than one request
+    vi.resetModules()
     await import('../../server/plugins/seo-head')
     const html = { head: ['<title>Wetterdienst</title>'], bodyPrepend: [] as string[], htmlAttrs: [] as string[] }
     hook!(html, { event: { path } })
@@ -343,11 +327,48 @@ describe('the plugin that writes the shell', () => {
     expect(html.htmlAttrs).toEqual(['lang="en"'])
   })
 
+  it('answers in English for a browser that asks for English, German for one that asks for none', async () => {
+    const english = await render('/about', { acceptLanguage: 'en-GB,en;q=0.9,de;q=0.8' })
+    const none = await render('/about')
+    const unsupported = await render('/about', { acceptLanguage: 'pt-BR,pt;q=0.9' })
+    const german = await render('/about', { acceptLanguage: 'de-DE,de;q=0.9,en;q=0.8' })
+
+    expect(english.html.htmlAttrs).toEqual(['lang="en"'])
+    expect(english.html.head.join('')).toContain('<title>About - Wetterdienst</title>')
+    expect(english.html.bodyPrepend.join('')).toContain('<h1>About - Wetterdienst</h1>')
+    expect(english.html.head.join('')).toContain('<meta property="og:locale" content="en_GB">')
+    for (const { html } of [none, unsupported, german]) {
+      expect(html.htmlAttrs).toEqual(['lang="de"'])
+      expect(html.head.join('')).toContain('<title>Über uns - Wetterdienst</title>')
+      expect(html.head.join('')).toContain('<meta property="og:locale" content="de_DE">')
+    }
+  })
+
+  it('answers in the language of the cookie over the header, and ignores a cookie that is no language of the app', async () => {
+    const french = await render('/about', { cookie: 'fr', acceptLanguage: 'en-GB' })
+    const hamburg = await render('/about', { cookie: 'de-hh' })
+    const stale = await render('/about', { cookie: 'xx', acceptLanguage: 'en-GB' })
+
+    expect(french.html.htmlAttrs).toEqual(['lang="fr"'])
+    expect(french.html.head.join('')).toContain(`<title>${message('fr', 'about.title')} - Wetterdienst</title>`)
+    expect(hamburg.html.htmlAttrs).toEqual(['lang="de-hh"'])
+    expect(hamburg.html.head.join('')).toContain('<meta property="og:locale" content="de_DE">')
+    expect(stale.html.htmlAttrs).toEqual(['lang="en"'])
+  })
+
   it('asks, by header as well, for the widget to be left out of the index', async () => {
     const { html, headers } = await render('/widget?station=10381')
 
     expect(headers['x-robots-tag']).toBe('noindex')
     expect(html.head.join('')).toContain('<meta name="robots" content="noindex">')
+  })
+
+  it('keeps the widget out of the index in every language', async () => {
+    for (const options of [{}, { acceptLanguage: 'en' }, { cookie: 'fr' }]) {
+      const { html, headers } = await render('/widget', options)
+      expect(headers['x-robots-tag']).toBe('noindex')
+      expect(html.head.join('')).toContain('<meta name="robots" content="noindex">')
+    }
   })
 
   it('does the same for the widget written /Widget, which the router shows as well', async () => {

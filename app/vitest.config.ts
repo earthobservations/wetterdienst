@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { defineVitestProject } from '@nuxt/test-utils/config'
 import { defineConfig } from 'vitest/config'
 
@@ -5,6 +6,11 @@ export default defineConfig({
   test: {
     projects: [
       {
+        // `shared/utils/language.ts` takes the matcher of @nuxtjs/i18n from the module's own name for its runtime
+        // (`#i18n-kit`), which Nuxt sets for the app and the server and the plain Node project does not know
+        resolve: {
+          alias: { '#i18n-kit': fileURLToPath(new URL('./node_modules/@nuxtjs/i18n/dist/runtime/kit', import.meta.url)) },
+        },
         test: {
           name: 'unit',
           include: ['tests/unit/*.{test,spec}.ts'],
