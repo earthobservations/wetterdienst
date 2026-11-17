@@ -60,8 +60,8 @@ station that has a number):
 The other stations of the first two rows have no WMO number in the Stationslexikon (it gives them an id of DWD's own
 such as `E426` for Großenkneten, or only the number of another product), so `wmo_id` is null for them as for
 `dwd/observation`. A postal code that equals the id of a station with a number (314 of the 100,000 do) is no such
-station, so the climate correction factor has no `wmo_id` whatever
-its codes are, and a request for the DUETT or the postal-code datasets does not read the Stationslexikon at all.
+station, so the climate correction factor has no `wmo_id` whatever its codes are, and a request for the DUETT or
+the postal-code datasets does not read the Stationslexikon at all.
 
 ```{toctree}
 :hidden:
