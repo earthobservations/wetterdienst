@@ -140,19 +140,26 @@ describe('the days the rows list', () => {
     expect(rows.some(row => /partial/.test(row))).toBe(false)
   })
 
-  it('marks the first day, which the run starts in, and the last, which it ends in, as partial with the hours they have (GH-4175)', async () => {
+  it('marks the last day, which the run ends in, as partial with the hours it has, and not the first, of which it has 22 hours (GH-4175)', async () => {
     // at Berlin the run starts at 02:00 on the 1st, the first 22 hours of the day being all it has of it (the first hour after the
-    // run's issue is the run's first), and ends at 01:00 on the 4th: the hours 00:00 and 01:00 of a day of their own
+    // run's issue is the run's first): a day of 20 hours or more is not marked. It ends at 01:00 on the 4th: the hours 00:00 and 01:00
+    // of a day of their own
     const wrapper = await mountRows()
     const rows = wrapper.findAll('[data-testid="day-rows"] li')
-    const first = rows[0]!
-    expect(first.text()).toContain('01/10')
-    expect(first.find('[data-testid="partial-day"]').text()).toBe('partial, 22 h')
+    expect(rows[0]!.text()).toContain('01/10')
+    expect(rows[0]!.find('[data-testid="partial-day"]').exists()).toBe(false)
     const last = rows[rows.length - 1]!
     expect(last.text()).toContain('04/10')
     expect(last.find('[data-testid="partial-day"]').text()).toBe('partial, 2 h')
-    // and only those: the days between are whole
-    expect(wrapper.findAll('[data-testid="partial-day"]')).toHaveLength(2)
+    expect(wrapper.findAll('[data-testid="partial-day"]')).toHaveLength(1)
+  })
+
+  it('marks a first day the run has fewer than 20 hours of, with them', async () => {
+    // from 10:00 UTC, 12:00 at Berlin: 12 hours of the day
+    const late = values.filter(value => new Date(value.timestamp).getUTCHours() >= 10 || new Date(value.timestamp).getUTCDate() > 1)
+    const wrapper = await mountRows({ values: late })
+    const first = wrapper.findAll('[data-testid="day-rows"] li')[0]!
+    expect(first.find('[data-testid="partial-day"]').text()).toBe('partial, 12 h')
   })
 
   it('marks a last day of six hours as partial for six hours, and a day of its own that ends at 23:00 as whole', async () => {
@@ -190,9 +197,13 @@ describe('the days the rows list', () => {
     expect(wrapper.find('[data-testid="partial-day"]').text()).toBe('partial, 6 h')
   })
 
-  it('marks a last day that an hourly run of more than 120 hours ends at 21:00, which is not whole', async () => {
-    const wrapper = await mountRows({ values: run(5 * 24 + 22), stationCoords: null })
-    expect(wrapper.find('[data-testid="partial-day"]').text()).toBe('partial, 22 h')
+  it('marks a last day that an hourly run of more than 120 hours ends at 18:00, which has fewer than 20 hours', async () => {
+    const wrapper = await mountRows({ values: run(5 * 24 + 19), stationCoords: null })
+    expect(wrapper.find('[data-testid="partial-day"]').text()).toBe('partial, 19 h')
+    // and one of 22 hours, which is 20 or more, is not marked
+    mounted.splice(0).forEach(w => w.unmount())
+    const nearly = await mountRows({ values: run(5 * 24 + 22), stationCoords: null })
+    expect(nearly.find('[data-testid="partial-day"]').exists()).toBe(false)
   })
 
   it('says there is no data where every day of the run is before today', async () => {

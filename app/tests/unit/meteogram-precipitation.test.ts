@@ -123,9 +123,23 @@ describe('the runs the late days were found dry in', () => {
     expect(plan.blocks).toHaveLength(247)
   })
 
-  it('takes a window\'s 6 hour totals where one hourly day falls short, and goes back to the hourly amounts after it (Zugspitze, the run of 15 UTC)', () => {
+  it('takes a window\'s 6 hour totals where one hourly day falls short, and stays with them: once coarser, a window never goes back to finer blocks (Zugspitze, the run of 15 UTC)', () => {
     const plan = planPrecipitation(seriesOf('10961@2026-11-16 15 UTC'))!
-    expect(plan.changes.map(change => change.hours)).toEqual([6, 1])
+    expect(plan.changes.map(change => change.hours)).toEqual([6])
+    // the cadence never gets finer from one block to the next, in any of the twelve runs
+    for (const key of precipitationRunKeys()) {
+      const hours = planPrecipitation(seriesOf(key))!.blocks.map(block => block.hours)
+      expect(hours.every((h, i) => i === 0 || h >= hours[i - 1]!), key).toBe(true)
+    }
+  })
+
+  it('keeps the cadence through the window with 0.3 mm that no series but the 24 hour total has (10147, the run of 03 UTC, +150 h)', () => {
+    // DWD's total for the 24 hours to +150 h is 0.3 mm, the 6 and 12 hour totals are all 0.0: it is a trace, dry in every series, and the
+    // window takes the 6 hour blocks the window before it had, with no 24 hour block for 0.3 mm
+    const plan = planPrecipitation(seriesOf('10147@2026-11-17 03 UTC'))!
+    const inWindow = plan.blocks.filter(block => block.end > T(126) && block.end <= T(150))
+    expect(inWindow.map(block => block.hours)).toEqual([6, 6, 6, 6])
+    expect(inWindow.every(block => block.amount === 0)).toBe(true)
   })
 
   it('does not take the whole run for hourly because one hourly amount is no 0 late in it (P0489, the run of 15 UTC: 0.4 mm at +222 h)', () => {
@@ -135,7 +149,7 @@ describe('the runs the late days were found dry in', () => {
     for (const end of [150, 174, 198]) {
       const over = precipitationOver(plan, T(end) - 24 * HOUR, T(end))
       expect(over.amount, `+${end}`).toBeGreaterThan(1.3)
-      expect(over.longest).toBe(6)
+      expect(over.longest).toBeGreaterThanOrEqual(6)
     }
     expect(hourlySum(key, T(198) - 24 * HOUR, T(198))).toBe(0)
   })

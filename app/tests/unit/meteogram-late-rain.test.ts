@@ -12,7 +12,7 @@ import { buildSeries } from '../../app/utils/meteogram-series'
 import { meteogramSummary, meteogramTable } from '../../app/utils/meteogram-summary'
 import { meteogramUnits } from '../../app/utils/meteogram-units'
 import { FORECAST_UNITS } from '../helpers/meteogram-forecast'
-import { PRECIPITATION, run10382Values } from '../helpers/mosmix-run'
+import { PRECIPITATION, precipitationRunValues, run10382Values } from '../helpers/mosmix-run'
 
 // The precipitation panel, the readout, the table and the summary of a run whose hourly amount is 0.0 late in it: blocks of 1, 6 and 12
 // hours (GH-4175). The run is MOSMIX-L at 10382 (Berlin-Tegel) of 2026-11-17 03 UTC.
@@ -63,14 +63,38 @@ describe('the precipitation panel of a run with a dry hourly tail', () => {
     ])
   })
 
-  it('cuts the changes off at the horizon, with the blocks', () => {
+  it('cuts the changes off at the horizon, with the blocks, and keeps a block that crosses it', () => {
     const short = model(run10382Values(), { horizonHours: 72 })
     expect(short.precipChanges).toEqual([])
     expect(series(short, 'rain').windows!.every(hours => hours === 1)).toBe(true)
-    // a horizon of 100 hours: the 6 hour blocks that end by then, and the change into them
+    // a horizon of 100 hours: the 6 hour blocks that begin by then, and the change into them
     const mid = model(run10382Values(), { horizonHours: 100 })
     expect(mid.precipChanges.map(change => change.hours)).toEqual([6])
-    expect(Math.max(...series(mid, 'rain').data.map(point => point[0]))).toBeLessThanOrEqual(mid.maxTime)
+    expect(series(mid, 'rain').windows!.at(-1)).toBe(6)
+  })
+
+  // 10147 at 03 UTC: the 12 hour block of +159 to +171 h after the issue crosses the 7 day horizon (168 h from the run's first hour),
+  // which the chart cut off, leaving 10 hours of the panel blank (GH-4175 review)
+  it.each([24, 72, 168])('has no gap in the blocks up to a horizon of %i hours, and keeps the block that crosses it', (horizon) => {
+    const values = precipitationRunValues('10147@2026-11-17 03 UTC')
+    const m = model(values, { horizonHours: horizon })
+    const blocks = ['rain', 'mixed', 'snow'].map(id => series(m, id)).flatMap(s => s.data.map((point, i) => ({ end: point[0] + (s.windows![i]! * HOUR) / 2, start: point[0] - (s.windows![i]! * HOUR) / 2 })))
+    const readout = ['rain', 'mixed', 'snow'].map(id => m.readout.find(r => r.id === id)!)
+    // the readout has every hour to the horizon in a block of the plan (the amounts of nothing are in it as 0)
+    for (let time = m.minTime; time <= m.maxTime; time += HOUR)
+      expect(readout.some(r => readoutValue(r, time) !== null), `${horizon} h, hour ${(time - m.minTime) / HOUR}`).toBe(true)
+    const last = Math.max(...blocks.map(block => block.end))
+    expect(last).toBeGreaterThanOrEqual(m.maxTime)
+    // and a change of cadence has the blocks after it
+    for (const change of m.precipChanges)
+      expect(blocks.some(block => block.start >= change.t - 1 && block.start < m.maxTime)).toBe(true)
+    if (horizon === 168) {
+      expect(m.maxTime).toBe(m.minTime + 168 * HOUR)
+      expect(last).toBeGreaterThan(m.maxTime)
+    }
+    // the table has the block that crosses it as a row
+    const table = meteogramTable(buildSeries(values as any), { panels: { temp: false, wind: false, precip: true, snow: false, cloud: false, pressure: false }, horizonHours: horizon, zone: 'Europe/Berlin', formatLanguage: 'en-GB', locale: 'en', units: meteogramUnits(FORECAST_UNITS, t), t, widget: false })!
+    expect(table.rows.length).toBe(m.series.find(s => s.id === 'rain')!.data.length)
   })
 
   it('has the axis up to a seventh above the largest block, which is a total of more hours than an hour', () => {

@@ -10,8 +10,9 @@
  *
  * So the amount of each window of the coarsest total is taken from the finest series that still accounts for it: the hourly
  * amounts while their sum is within rounding of the coarse total, then the 6 hour totals, then the 12 hour ones, then the 24 hour
- * one. A plan is those blocks, in time order, and where the cadence changes. What it picks depends on what the series agree on,
- * and never on how much rain there is: a dry window is 0 in every series and so takes the cadence the window before it had.
+ * one, and once a window has gone to coarser totals the later ones never go back to finer ones. A plan is those blocks, in time
+ * order, and where the cadence changes. What it picks depends on what the series agree on, and never on how much rain there is: a
+ * dry window (a total of 0.3 mm or less) is the same in every series and so takes the cadence the window before it had.
  */
 import type { SeriesMap } from './meteogram-series'
 import { METEOGRAM_SERIES } from './meteogram'
@@ -52,8 +53,6 @@ export const AGREE_ROUNDING_MM = 0.06
 export const AGREE_SHARE = 0.05
 /** A window whose total is no more than this is dry: the rounding says nothing of it, every series agrees with it, and it keeps the cadence of the window before */
 export const TRACE_MM = 0.3
-/** A window with less than this in the finest series that agrees is "dry" there: it keeps the cadence of the window before it */
-const QUIET_MM = 0.05
 
 interface Level {
   hours: number
@@ -140,10 +139,11 @@ export function planPrecipitation(series: SeriesMap, canon: (amount: number) => 
         agreeing.push({ level, sum })
     }
     agreeing.push({ level: anchor, sum: total })
-    let chosen = agreeing[0]!
-    // a dry window is the same in every series that agrees: it does not change the cadence
-    if (previous !== null && chosen.level.hours < previous && chosen.sum < QUIET_MM)
-      chosen = agreeing.find(candidate => candidate.level.hours === previous) ?? chosen
+    // Once coarser, always: a window never goes back to finer blocks than the window before it had, so the panel changes its cadence at
+    // most three times and the late days are of one kind. A dry window (a total of `TRACE_MM` or less) is the same in every series, so
+    // it takes the cadence of the window before it, or the finest one that is complete where it is the first
+    const pool = previous !== null && previous > 1 ? agreeing.filter(candidate => candidate.level.hours >= previous!) : agreeing
+    const chosen = pool[0]!
     for (const stamp of stampsIn(chosen.level.hours, start, end))
       blocks.push(block(chosen.level, stamp))
     previous = chosen.level.hours

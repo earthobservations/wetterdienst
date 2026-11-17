@@ -43,16 +43,49 @@ describe('the rain of the days of a run whose hourly amount is 0.0 late in it (1
     expect(rows['2026-11-23']!.precipLabel).toBeNull()
   })
 
-  it('has no rain figure that a missing hour makes smaller: no day of the run has an hour left out', () => {
-    expect(run.map(row => row.precipMissingHours)).toEqual(Array.from({ length: 11 }).fill(0))
+  it('has the last day say its rain covers fewer hours than the run does: the totals end 4 hours before the run, and the figure is the least', () => {
+    // the 12 hour totals end at 06:00 UTC on the 27th, the temperatures at 10:00: 4 hours of the day the rain has no amount for
+    expect(run.slice(0, -1).map(row => row.precipMissingHours)).toEqual(Array.from({ length: 10 }).fill(0))
+    expect(run.at(-1)!.precipMissingHours).toBe(4)
+    expect(run.at(-1)!.precipLabel).toMatch(/^≥/)
+    // and no other day is marked as the least
+    expect(run.slice(0, -1).some(row => row.precipLabel?.startsWith('≥'))).toBe(false)
   })
 
-  it('marks the first day, which starts at the first hour after the issue, and the last, which the run ends in, as partial', () => {
+  it('marks the first day, which starts at the first hour after the issue, and the last, which the run ends in, as partial, as they have fewer than 20 hours', () => {
     // the first hour of the run is the one that ends at 04:00 UTC, 05:00 at Berlin; the day began at 00:00: 19 of its hours are the run's
     expect(run[0]).toMatchObject({ partialHours: 19, isToday: true })
     // the last stamp is 10:00 UTC on the 27th, 11:00 at Berlin: hours 00:00 to 11:00
     expect(run.at(-1)!.partialHours).toBe(12)
     expect(run.slice(1, -1).map(row => row.partialHours)).toEqual(Array.from({ length: 9 }).fill(null))
+  })
+
+  it('does not mark a day it has 20 hours of: a run issued an hour earlier has a first day of 20 hours, and none is partial there', () => {
+    const earlier = days(run10382Values({ shiftHours: -1 }), { today: '2026-11-17' })
+    expect(earlier[0]!.partialHours).toBeNull()
+    // the last day has 11 hours
+    expect(earlier.at(-1)!.partialHours).toBe(11)
+  })
+
+  it('draws the icon of a day of rain where its rain is the 6, 12 or 24 hour totals\' and 0.5 mm or more, and the codes of the tail say it is dry', () => {
+    // 2026-11-25 (1.2 mm from the 12 hour totals) and 2026-11-24 (0.5 mm), where the hourly ww codes are 2 and 3: the icon says cloud
+    // without the totals, and rain with them
+    const hourlyOnly = byDate(days(run10382Values({ without: [PRECIPITATION.six, PRECIPITATION.twelve, PRECIPITATION.day] }), { today: '2026-11-17' }))
+    expect(hourlyOnly['2026-11-25']!.kind).toBe('cloudy')
+    expect(rows['2026-11-25']!.kind).toBe('rain')
+    expect(rows['2026-11-26']!.kind).toBe('rain')
+    // a day of 0.45 mm (the label says 0.5) is under the threshold and keeps its sky
+    expect(rows['2026-11-24']!.kind).toBe('cloudy')
+    // a day under 0.5 mm of the totals keeps its sky (0.0 mm on the 23rd, and the day's own codes are cloudy)
+    expect(rows['2026-11-23']!.kind).toBe('cloudy')
+    // the days of the hourly amounts keep what their codes say
+    expect(rows['2026-11-18']!.kind).toBe(hourlyOnly['2026-11-18']!.kind)
+  })
+
+  it('draws snow where the mean temperature of the day is as cold as the panel\'s snow', () => {
+    const colder = (degrees: number) => run10382Values().map(value => value.parameter === 'temperature_air_2m' ? { ...value, value: value.value! - 7 + degrees } : value)
+    // the late days are about 4 degrees: 10 degrees colder gives -6 and snow, 6 colder -2... judged on the day's mean temperature
+    expect(byDate(days(colder(-4), { today: '2026-11-17' }))['2026-11-25']!.kind).toBe('snow')
   })
 })
 
@@ -135,8 +168,9 @@ describe('the rain of a day when hours are missing', () => {
 
   it('says how many hours of the first and the last day the run has, and none of the whole days between', () => {
     const rows = days(hourly, { today: '2026-10-01' })
-    // the run starts at 00:00 UTC, which is 02:00 at Berlin: the day has 22 of its hours; it ends at 00:00 UTC on the 5th, 02:00 there
-    expect(rows[0]!.partialHours).toBe(22)
+    // the run starts at 00:00 UTC, which is 02:00 at Berlin: the day has 22 of its hours, which is 20 or more and no stub; it ends at
+    // 00:00 UTC on the 5th, 02:00 there, 3 hours of a day of its own
+    expect(rows[0]!.partialHours).toBeNull()
     expect(rows.at(-1)!.partialHours).toBe(3)
     expect(rows.slice(1, -1).every(row => row.partialHours === null)).toBe(true)
   })

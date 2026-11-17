@@ -7,12 +7,15 @@ import type { MeteogramUnits } from './meteogram-units'
 import type { WeatherKind } from './weather-kind'
 import { DateTime } from 'luxon'
 import { formatDayMonth, formatNumber, weekdayShort } from './format'
-import { METEOGRAM_SERIES } from './meteogram'
+import { classifyPrecip, METEOGRAM_SERIES } from './meteogram'
 import { HOUR_MS } from './meteogram-geometry'
 import { planPrecipitation, precipitationOver } from './meteogram-precipitation'
 import { findFirstAvailable } from './meteogram-series'
 import { withUnit } from './units'
 import { weatherCodeToKind } from './weather-kind'
+
+/** A day the run reaches fewer hours of than this is marked partial, with the hours it has */
+const PARTIAL_BELOW_HOURS = 20
 
 export interface MeteogramDay {
   date: DateTime
@@ -32,8 +35,9 @@ export interface MeteogramDay {
   precipMissingHours: number
   isToday: boolean
   /**
-   * The hours of the day the forecast reaches, where it is not all of it: the first day starts at the first hour after the run's issue,
-   * the last ends with the run (the minimum, maximum and rain are those of the hours it has). Null for a whole day.
+   * The hours of the day the forecast reaches, where it is less than 20 of them: the first day starts at the first hour after the
+   * run's issue, the last ends with the run (the minimum, maximum and rain are those of the hours it has). Null for a day it has 20 or
+   * more hours of.
    */
   partialHours: number | null
 }
@@ -150,6 +154,8 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
 
     let minT = Number.POSITIVE_INFINITY
     let maxT = Number.NEGATIVE_INFINITY
+    let sumT = 0
+    let countT = 0
     if (tempKey && series.has(tempKey)) {
       const ts = series.get(tempKey)!
       for (let i = 0; i < ts.x.length; i++) {
@@ -159,6 +165,8 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
           if (!Number.isNaN(val)) {
             minT = Math.min(minT, val)
             maxT = Math.max(maxT, val)
+            sumT += val
+            countT++
           }
         }
       }
@@ -196,18 +204,33 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
         kind = 'clear'
     }
 
+    // A day whose rain is the 6, 12 or 24 hour totals' and is 0.5 mm or more is a day of rain, which its weather codes (dry in the tail of a
+    // run, where the hourly amount is 0.0) do not say: the icon follows the amount, as snow or sleet where the mean temperature of the day
+    // is as cold as it is for the hours of the panel (GH-4175)
+    if (over && over.longest > 1 && dayPrecip !== null && units.canon('precipitation', dayPrecip) >= 0.5 && (kind === 'clear' || kind === 'partlyCloudy' || kind === 'cloudy')) {
+      const phase = countT ? classifyPrecip(units.canon('temperature', sumT / countT)) : 'rain'
+      kind = phase === 'snow' ? 'snow' : phase === 'mixed' ? 'sleet' : 'rain'
+    }
+
     const tempLabel = Number.isFinite(minT) && Number.isFinite(maxT) ? withUnit(`${Math.round(minT)} / ${Math.round(maxT)}`, units.unitOf('temperature')) : null
     const precipBlockHours = over && over.longest > 1 ? over.longest : null
-    const precipMissingHours = Math.round(over?.missing ?? 0)
+    // the hours the hourly series reaches that the plan has no block for are missing too: where the plan goes to 6 or 12 hour totals it ends
+    // with the last of them (4 h before the run does), and the day it ends in has the rain of fewer hours than the temperatures of
+    const planEnd = plan ? plan.blocks[plan.blocks.length - 1]!.end : 0
+    const beyondPlan = over && over.given > 0 ? Math.max(0, Math.min(endUTC, maxTime) - Math.max(startUTC, planEnd)) / HOUR_MS : 0
+    const precipMissingHours = Math.round((over?.missing ?? 0) + beyondPlan)
     // a label of a figure that is not the whole day's own: the least it says, or made of totals of more than an hour
     const precipMark = precipMissingHours > 0 ? '≥' : precipBlockHours !== null ? '≈' : ''
     const precipLabel = dayPrecip !== null && units.canon('precipitation', dayPrecip) >= 0.1 ? `${precipMark}${withUnit(formatNumber(dayPrecip, locale, 1), units.unitOf('precipitation'))}` : null
     const isToday = dt.hasSame(today, 'day')
     // A day the run does not reach all of, at its start (the first hour of the run is the one after its issue) or its end: its
     // minimum, maximum and rain are those of the hours the run reaches, so the row says how many they are, and is not read as a day's own
+    // A day with 20 or more of its hours is not marked: the note is for a stub of a day, not for four hours missing at an end (GH-4175)
     let partialHours: number | null = null
-    if (startUTC < minTime || maxTime + HOUR_MS < endUTC)
-      partialHours = Math.max(1, Math.round((Math.min(endUTC, maxTime + HOUR_MS) - Math.max(startUTC, minTime)) / HOUR_MS))
+    if (startUTC < minTime || maxTime + HOUR_MS < endUTC) {
+      const hours = Math.max(1, Math.round((Math.min(endUTC, maxTime + HOUR_MS) - Math.max(startUTC, minTime)) / HOUR_MS))
+      partialHours = hours < PARTIAL_BELOW_HOURS ? hours : null
+    }
     out.push({ date: dt, kind, weekday: weekdayShort(dt, language), dayMonth: formatDayMonth(dt, language), tempLabel, precipLabel, precipBlockHours, precipMissingHours, isToday, partialHours })
     dt = dt.plus({ days: 1 })
   }

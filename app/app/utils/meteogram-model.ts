@@ -476,7 +476,9 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   }
 
   // -- precipitation: the blocks of the plan, each over the hours it covers
-  const precipBlocks = precipPlan?.blocks.filter(block => block.end <= displayMax) ?? []
+  // the blocks that begin within the horizon: one that crosses it is drawn as far as the axis goes (the clip cuts it), and the readout
+  // and the range of the axis have it
+  const precipBlocks = precipPlan?.blocks.filter(block => block.start < displayMax) ?? []
   const precipChanges = (precipPlan?.changes ?? []).filter(change => change.at < displayMax).map(change => ({ t: change.at, hours: change.hours, label: t('meteogram.chart.precipBlocks', { hours: change.hours }) }))
   // The kind of a block is the kind of the mean wet bulb temperature of its hours, by the thresholds an hour is judged by (an hour is
   // its own wet bulb): the amounts of the hours of a longer block are not known, so each hour counts the same

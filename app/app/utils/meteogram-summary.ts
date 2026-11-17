@@ -131,12 +131,15 @@ export function meteogramTable(series: SeriesMap, { panels, horizonHours, zone, 
 
   const firstTime = Math.min(...[...series.values()].flatMap(s => s.x.map(d => d.getTime())))
   const lastShown = horizonHours !== null ? firstTime + horizonHours * 3_600_000 : Number.POSITIVE_INFINITY
+  // a block that begins within the horizon is a row of the table, as the chart draws it, though its stamp is after it
+  const blocksShown = new Set((plan?.blocks ?? []).filter(block => block.start < lastShown).map(block => block.end))
   const byTime = new Map<number, (number | null)[]>()
   columns.forEach((column, index) => {
     const s = withPlan.get(column.key)!
+    const ofPlan = column.key === PLAN_AMOUNT || column.key === PLAN_HOURS
     s.x.forEach((date, i) => {
       const ms = date.getTime()
-      if (ms > lastShown)
+      if (ms > lastShown && !(ofPlan && blocksShown.has(ms)))
         return
       const row = byTime.get(ms) ?? Array.from<number | null>({ length: columns.length }).fill(null)
       row[index] = s.y[i]!

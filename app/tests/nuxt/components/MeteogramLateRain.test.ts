@@ -69,6 +69,13 @@ describe('the compact view of a run with a dry hourly tail', () => {
     expect(rain(all[6]).text()).toBe('')
   })
 
+  it('draws the icon of rain on a late day whose rain is the totals\' (GH-4175)', async () => {
+    const wrapper = await compact()
+    const icon = (index: number) => cards(wrapper)[index]!.find('[data-weather]').attributes('data-weather')
+    // 2026-11-25 and 26 (1.2 and 1.1 mm), where the weather codes say cloudy; the 23rd has none
+    expect([icon(8), icon(9), icon(6)]).toEqual(['rain', 'rain', 'cloudy'])
+  })
+
   it('says of the first day, which the run starts in after its midnight, and of the last, which it ends in, how many hours they have', async () => {
     const wrapper = await compact()
     const all = cards(wrapper)

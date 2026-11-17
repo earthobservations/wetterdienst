@@ -38,7 +38,7 @@ export interface RunValue {
   quality_flags: null
 }
 
-const stamp = (issue: string, hours: number, shiftDays: number) => new Date(Date.parse(issue) + (hours + shiftDays * 24) * 3_600_000).toISOString().replace('.000Z', '+00:00')
+const stamp = (issue: string, hours: number, shiftDays: number, shiftHours = 0) => new Date(Date.parse(issue) + (hours + shiftDays * 24 + shiftHours) * 3_600_000).toISOString().replace('.000Z', '+00:00')
 
 /** The four precipitation series of a station in a run (`10382@2026-11-17 03 UTC`), as `Value`s of the answer */
 export function precipitationRunValues(key: string, shiftDays = 0): RunValue[] {
@@ -59,6 +59,8 @@ export function precipitationRunKeys(): string[] {
 export interface FullRunOptions {
   /** every stamp moved by this many whole days, which keeps the hours on the 00, 06, 12, 18 UTC grid */
   shiftDays?: number
+  /** every stamp moved by this many hours as well: a run issued that much earlier (-1: at 02 UTC, a first day of 20 hours at Berlin), off the 6 hour grid of DWD's but alike in itself */
+  shiftHours?: number
   /** the series to leave out, by the parameter name */
   without?: string[]
   /** the station id the values carry */
@@ -69,9 +71,9 @@ export interface FullRunOptions {
 export const RUN_10382_ISSUE = '2026-11-17T03:00:00+00:00'
 
 /** Every series the forecast asks for in the run of 10382 at 03 UTC on 2026-11-17, 247 hours, as `Value`s of the answer in the app's default units */
-export function run10382Values({ shiftDays = 0, without = [], stationId }: FullRunOptions = {}): RunValue[] {
+export function run10382Values({ shiftDays = 0, shiftHours = 0, without = [], stationId }: FullRunOptions = {}): RunValue[] {
   const run = read<FullRun>('./mosmix-10382-run.json')
   return Object.entries(run.series)
     .filter(([parameter]) => !without.includes(parameter))
-    .flatMap(([parameter, steps]) => steps.map(([hours, value]) => ({ station_id: stationId ?? run.station_id, resolution: 'hourly' as const, dataset: 'large' as const, parameter, timestamp: stamp(run.issue, hours, shiftDays), value, quality_flags: null })))
+    .flatMap(([parameter, steps]) => steps.map(([hours, value]) => ({ station_id: stationId ?? run.station_id, resolution: 'hourly' as const, dataset: 'large' as const, parameter, timestamp: stamp(run.issue, hours, shiftDays, shiftHours), value, quality_flags: null })))
 }
