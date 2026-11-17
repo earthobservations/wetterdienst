@@ -55,6 +55,9 @@ from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.provider.dwd.observation import api as dwd_observation_api
 from wetterdienst.provider.dwd.poi import DwdPoiRequest
 from wetterdienst.provider.dwd.poi import api as dwd_poi_api
+from wetterdienst.provider.dwd.pollen import DwdPollenRequest
+from wetterdienst.provider.dwd.pollen import api as dwd_pollen_api
+from wetterdienst.provider.dwd.pollen.metadata import POLLEN_TYPES
 from wetterdienst.provider.dwd.road import api as dwd_road_api
 from wetterdienst.provider.dwd.road.api import DwdRoadRequest
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
@@ -1684,6 +1687,36 @@ def _dwd_poi(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.Dat
     serve(monkeypatch, dwd_poi_api, {"10147-BEOB.csv": csv})
     request = DwdPoiRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
     return stations_result(request, "hourly", "data", "10147").values().all().df
+
+
+def _dwd_pollen(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # s31fg.json as DWD serves it (read 2026-11-17): the level of each pollen type of a region for today, tomorrow and
+    # the day after, one of the seven steps of the legend (`0`, `0-1`, `1`, `1-2`, `2`, `2-3`, `3`). The description
+    # (`Beschreibung_pollen_s31fg.pdf`) says "Fehlende Werte werden mit einer -1 gekennzeichnet", and the file read has
+    # none, so the day of the birch with the -1 is worded by the stub: the reader takes it for none and keeps what the
+    # file wrote as `raw:`
+    days = {"today": "-1", "tomorrow": "1-2", "dayafter_to": "3"}
+    body = json.dumps(
+        {
+            "last_update": "2026-11-17 11:00 Uhr",
+            "next_update": "2026-11-18 11:00 Uhr",
+            "name": "Pollenflug-Gefahrenindex fuer Deutschland ausgegeben vom Deutschen Wetterdienst",
+            "sender": "Deutscher Wetterdienst - Medizin-Meteorologie",
+            "legend": {"id1": "0", "id1_desc": "keine Belastung", "id7": "3", "id7_desc": "hohe Belastung"},
+            "content": [
+                {
+                    "region_id": 120,
+                    "partregion_id": 124,
+                    "region_name": "Bayern",
+                    "partregion_name": "Mainfranken",
+                    "Pollen": {name: days if name == "Birke" else dict.fromkeys(days, "0") for name in POLLEN_TYPES},
+                }
+            ],
+        }
+    ).encode()
+    serve(monkeypatch, dwd_pollen_api, {"s31fg.json": body})
+    request = DwdPollenRequest(parameters=[("daily", "data")], settings=_settings(), options=_options(drop_nulls))
+    return request.filter_by_station_id(["124"]).values().all().df
 
 
 def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -3553,6 +3586,14 @@ STUBS = [
             ("precipitation_amount_last_1h", "-0.02", "floor"),
             ("radiation_global", "-0.16", "floor"),
         ),
+    ),
+    ValueStub(
+        "dwd/pollen daily/data",
+        _dwd_pollen,
+        reading=("pollen_load_birch", 1.5),
+        # DWD's marker of a day without a value, which is outside the 0 to 3 of the scale
+        sentinels=(("pollen_load_birch", -1.0),),
+        tokens=(("pollen_load_birch", "-1", None),),
     ),
     ValueStub(
         "dwd/poi hourly/data",

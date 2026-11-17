@@ -99,6 +99,13 @@ render_plugin = "myst"
 no_index = true
 ```
 
+### Pollen
+
+```{autodoc2-object} wetterdienst.provider.dwd.pollen.api.DwdPollenRequest
+render_plugin = "myst"
+no_index = true
+```
+
 ## EA
 
 ### Hydrology

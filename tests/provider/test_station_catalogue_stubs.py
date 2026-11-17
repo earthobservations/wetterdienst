@@ -5,7 +5,7 @@
 import polars as pl
 import pytest
 
-from tests.provider.station_catalogue import assert_in_extent, assert_sound, extent_of
+from tests.provider.station_catalogue import NO_POSITIONS, assert_in_extent, assert_sound, extent_of
 from tests.provider.station_catalogue_stubs import STUBS, Stub
 from wetterdienst import Wetterdienst
 from wetterdienst.model.schema import STATIONS_SCHEMA
@@ -44,6 +44,8 @@ def test_a_stub_catalogue_is_sound(stub: Stub, monkeypatch: pytest.MonkeyPatch) 
     # names, is held to the live list
     key, label = stub.catalogue.split(" ")
     provider, network = key.split("/")
+    if stub.catalogue in NO_POSITIONS and stations["latitude"].null_count() == stations.height:
+        return  # no station has a position, by the source's design: nothing to hold to the extent
     assert_in_extent(stations, stub.catalogue, extent_of(Wetterdienst.resolve(provider, network).metadata, label))
 
 

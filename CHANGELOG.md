@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `dwd/pollen`: DWD's pollen forecast (Pollenflug-Gefahrenindex), a daily forecast network of eight
+  parameters, `pollen_load_hazel`, `_alder`, `_ash`, `_birch`, `_grass`, `_rye`, `_mugwort` and
+  `_ragweed`, for today, tomorrow and the day after, from `s31fg.json`. The 27 regions are the
+  stations, with DWD's own number as the id (`124` is Bayern, Mainfranken, `20`
+  Mecklenburg-Vorpommern); DWD gives them no position, so latitude and longitude are null and a
+  region is found by name or id, a search by place finds none. The steps `0`, `0-1`, ..., `3` are
+  served as 0, 0.5, ..., 3, and any other text, `-1` included, as null with the text kept as
+  `raw:`. A region of the file that is not known is skipped with a warning that names it, and a
+  changed file is a `DownloadError` (GH-4088)
+
 ### Fixed
 
 - `dwd/mosmix`: the snow depth of MOSMIX-SNOW that the model writes a little below 0 (`sncv` -0.01

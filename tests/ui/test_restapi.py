@@ -328,6 +328,7 @@ def test_providers_lists_every_provider_and_its_networks(client: TestClient) -> 
         "swsmos",
         "poi",
         "phenology",
+        "pollen",
         "radar",
         "alerts",
         "derived",

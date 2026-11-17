@@ -35,6 +35,9 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - POI
         - current weather reports, the observed counterpart to MOSMIX
         - hourly, roughly the last day, for the MOSMIX stations that report
+    - Pollen
+        - forecast of the pollen load of eight pollen types for 27 regions of Germany
+        - daily, today, tomorrow and the day after; no coordinates, the regions are found by name or id
     - Phenology
         - observed plant development dates from the phenological network, reaching back to 1925
         - annual resolution; 110 plant datasets across the annual and immediate reporter groups

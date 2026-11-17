@@ -194,6 +194,15 @@ def _phase(event: str) -> str:
     return f"Day {event}, as DWD's Jultag count (not always the day of the year)."
 
 
+def _pollen(plant: str) -> str:
+    """Describe the load of the pollen of a plant, which is DWD's seven-step class and no concentration."""
+    return (
+        f"Forecast load of {plant} pollen in the air, DWD's class of the Pollenflug-Gefahrenindex: 0 none, 1 low, "
+        "2 medium and 3 high, with 0.5, 1.5 and 2.5 where DWD gives the range between two classes. No number of "
+        "grains per cubic metre."
+    )
+
+
 # Two words of a name that say what the number is, where it is neither a reading nor the total of the interval
 # (GH-2614):
 #
@@ -1150,6 +1159,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         _phase("on which the crop reached yellow ripeness"),
         aggregation="date",
     ),
+    CanonicalParameter("pollen_load_alder", "dimensionless", _pollen("alder (Erle)")),
+    CanonicalParameter("pollen_load_ash", "dimensionless", _pollen("ash (Esche)")),
+    CanonicalParameter("pollen_load_birch", "dimensionless", _pollen("birch (Birke)")),
+    CanonicalParameter("pollen_load_grass", "dimensionless", _pollen("grass (Gräser)")),
+    CanonicalParameter("pollen_load_hazel", "dimensionless", _pollen("hazel (Hasel)")),
+    CanonicalParameter("pollen_load_mugwort", "dimensionless", _pollen("mugwort (Beifuß)")),
+    CanonicalParameter("pollen_load_ragweed", "dimensionless", _pollen("ragweed (Ambrosia)")),
+    CanonicalParameter("pollen_load_rye", "dimensionless", _pollen("rye (Roggen)")),
     CanonicalParameter(
         "precipitation_duration",
         "duration",

@@ -930,6 +930,7 @@ DATA_UPDATED_STATED: set[tuple[str, str]] = {
     ("dwd", "observation"),
     ("dwd", "phenology"),
     ("dwd", "poi"),
+    ("dwd", "pollen"),
     ("dwd", "road"),
     ("dwd", "swsmos"),
     ("imgw", "hydrology"),
