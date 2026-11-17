@@ -25,9 +25,11 @@ What a scan is:
 | Size | an empty scan is 4 KB of XML, a cell about 17 KB; of JSON a cell with outline and track is 3.5 to 5 KB |
 | Latest | there is **no `latest` file**: the newest is found in the directory listing, which is cached for a minute |
 
-A cell has **no stable identifier**. DWD numbers the cells of a scan and reuses a number after a cell has died; `*` after
-a number says the cell split off in this scan, `#` that cells merged into it. So a cell is told by its `code` (22 digits,
-unique) in a scan, and from one scan to the next by `predecessor_code`, the `code` it had in the scan before.
+The **`cell_id` is not an identifier**: DWD numbers the cells of a scan and reuses a number after a cell has died; `*`
+after a number says the cell split off in this scan, `#` that cells merged into it. A cell is told by its **`code`**,
+which DWD calls the unique identifier of the cell and which a cell **keeps from scan to scan** (the real files show a
+continuing cell with the `code` of its predecessor); a split or a merger gets a new one. So one cell is followed through
+the scans by its `code`, and a split is followed to the cell it split off by `predecessor_code`.
 
 ## A place
 
@@ -64,8 +66,8 @@ One row per cell, 26 columns, DWD's attributes in DWD's units with the unit in t
 | --- | --- | --- |
 | `reference_time` | the scan the cell is of: the start of its radar scan cycle | UTC |
 | `cell_id` | the identifier DWD gives the cell, without the `*` or `#`. **Not unique** (it is reused) | |
-| `code` | 22 digits, unique: `YYYYMMDDhhmm`, the lead time, 0 for measured, the ensemble member, and a number | |
-| `predecessor_code` | the `code` the cell had in the scan before; of a merger, that of the predecessor DWD is surest of. Null for a new cell | |
+| `code` | DWD's unique identifier of the cell, 22 digits: `YYYYMMDDhhmm` of the scan that gave the cell this code (its birth, or the split or merger that made it a new cell), the lead time, 0 for measured, the ensemble member, and a number. **The same in every scan while the cell lives** | |
+| `predecessor_code` | the `code` of the cell's predecessor in the scan before: its own `code` for a cell that goes on, that of the cell it split off for a split; of a merger, the predecessor DWD is surest of. Null for a new cell | |
 | `split_event`, `merge_event` | the cell split off its predecessor in this scan, or cells merged into it (DWD's `split_event` and `merge_event`, which `*` and `#` after the identifier say too) | |
 | `first_detection` | when the cell was first detected | UTC |
 | `number_detections` | in how many scans it has been found | |
@@ -96,8 +98,8 @@ a cell it could not judge, for one.
 ahead. It is a forecast and not an observation, and the cell's polygon and intensity are not forecast. Each point has
 its `time`, `latitude` and `longitude` and the 1 sigma ellipse of the uncertainty of the position: `uncertainty_major_km`,
 `uncertainty_minor_km` and `uncertainty_angle_degrees` (clockwise from north). The ellipse grows from about 3 km at
-5 minutes to tens of km at an hour. Where DWD's track is not enough, the files before give the track so far: a cell is
-followed back by its `predecessor_code`.
+5 minutes to tens of km at an hour. Where DWD's track is not enough, the files before give the track so far: ask for
+the `timestamp` of an earlier scan and find the cell by its `code`.
 
 DWD gives the speed of a cell and no direction. `direction_degrees` is **calculated**: the bearing from the first
 to the second forecast position, so it is the direction the cell is going in the next minutes, null where a cell has not

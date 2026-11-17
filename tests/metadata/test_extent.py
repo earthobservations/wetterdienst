@@ -306,8 +306,8 @@ def test_the_extent_of_a_network_is_hashable() -> None:
     assert copy == mosmix
     assert hash(copy) == hash(mosmix)
     assert hash(Extent.model_validate(_declared())) == hash(Extent.model_validate(_declared()))
-    # the terms of both standalone networks hash, and are equal to themselves
-    for network in ("radar", "alerts"):
+    # the terms of the standalone networks hash, and are equal to themselves
+    for network in ("radar", "alerts", "storm_cells"):
         terms = Wetterdienst.resolve_standalone("dwd", network).terms
         assert isinstance(hash(terms), int)
         assert hash(terms) == hash(Wetterdienst.resolve_standalone("dwd", network).terms)
@@ -330,7 +330,7 @@ def test_discover_gives_the_extent_as_the_dict_its_annotation_says() -> None:
 
 
 def test_every_network_of_the_list_has_the_same_members_in_the_same_order() -> None:
-    """The standalone networks (radar, alerts) are listed as the timeseries ones are, down to the order of the keys."""
+    """The standalone networks (radar, alerts, storm_cells) are listed as the timeseries ones are, key by key."""
     orders = {
         f"{provider}/{network}": list(entry)
         for provider, networks in Wetterdienst.discover().items()

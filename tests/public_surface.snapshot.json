@@ -152,7 +152,7 @@
     "dwd/poi": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "dwd/radar": "(parameter, site=None, fmt=None, subset=None, elevation=None, start=None, end=None, resolution=None, period=None, settings=None, polarization=None)",
     "dwd/road": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
-    "dwd/storm_cells": "(timestamp=None, latitude=None, longitude=None, distance=None, left=None, bottom=None, right=None, top=None, min_severity=None, *, track=True, geometry='outline', settings=None)",
+    "dwd/storm_cells": "(*, timestamp=None, latitude=None, longitude=None, distance=None, left=None, bottom=None, right=None, top=None, min_severity=None, track=True, geometry='outline', settings=None)",
     "dwd/swsmos": "(parameters, start=None, end=None, settings=..., periods=None, issue=..., *, options=None, on_unknown='raise')",
     "ea/hydrology": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",
     "eaufrance/hubeau": "(parameters, start=None, end=None, settings=..., periods=None, *, options=None, on_unknown='raise')",

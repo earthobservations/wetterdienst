@@ -7,7 +7,8 @@ for the next hour. DWD publishes one XML file every five minutes at https://open
 named for the reference time of the run, and keeps about 48 hours of them. This module reads the newest, or the newest
 at or before a time, into one row per cell with its severity, its warning flags, its outline and its forecast track.
 
-Cells do not fit the station/timeseries model (a cell has no stable id: DWD reuses the identifiers), so -- like
+Cells do not fit the station/timeseries model (a cell is an object with an outline that lives for some scans, its
+identifier is reused after it dies, and it has no history to read), so -- like
 `DwdWeatherAlertRequest` -- this is a standalone request class returning its own result object. The raw files stay
 available through `DwdRadarValues` (`RadarParameter.KONRAD3D_CONVECTIVE_CELLS`).
 """
@@ -346,6 +347,7 @@ class DwdStormCellsRequest:
 
     def __init__(
         self,
+        *,
         timestamp: str | dt.datetime | None = None,
         latitude: float | None = None,
         longitude: float | None = None,
@@ -355,12 +357,11 @@ class DwdStormCellsRequest:
         right: float | None = None,
         top: float | None = None,
         min_severity: int | None = None,
-        *,
         track: bool = True,
         geometry: GeometryKind = "outline",
         settings: Settings | None = None,
     ) -> None:
-        """Initialize the request.
+        """Initialize the request. Every argument is a keyword: a point and a box are easily mixed up by position.
 
         Args:
             timestamp: point in time to select the scan for. ``None`` (default) uses the newest scan. Otherwise the

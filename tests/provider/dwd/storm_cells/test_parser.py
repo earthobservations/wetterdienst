@@ -100,6 +100,10 @@ def test_a_split_has_its_predecessor() -> None:
     assert split["predecessor_code"] == "2026111719550000000000"
     assert split["number_detections"] == 7
     assert cells["38"]["split_event"] is False
+    # a cell that goes on has the code of its predecessor: the code is the cell's, from scan to scan
+    assert cells["38"]["predecessor_code"] == cells["38"]["code"] == "2026111720200000000001"
+    assert cells["32"]["predecessor_code"] == cells["32"]["code"]
+    assert split["predecessor_code"] != split["code"]
 
 
 def test_two_polygons_and_two_blocks_of_cells_are_both_read() -> None:
