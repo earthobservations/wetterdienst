@@ -161,7 +161,9 @@ ELEMENTS: dict[str, Cadence] = {
     "TG": Cadence(12, (6,), (3, 243), None),
     "TN": Cadence(12, (6, 18), (3, 243), (3, 231), extra=(0, 12), note=_TX_TN),
     "TX": Cadence(12, (6, 18), (3, 243), (3, 231), extra=(0, 12), note=_TX_TN),
-    "WPch1": Cadence(12, EVERY_6, (9, 243), None),
+    "WPch1": Cadence(
+        12, EVERY_6, (9, 243), None, note="the first step is +9 h at 03 UTC, though a 06 UTC step comes sooner (+3 h)"
+    ),
     "wwCh": Cadence(12, EVERY_6, (3, 243), None),
     "wwDh": Cadence(12, EVERY_6, (3, 243), None),
     "wwFh": Cadence(12, EVERY_6, (3, 243), None),

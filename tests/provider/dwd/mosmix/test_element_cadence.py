@@ -396,6 +396,7 @@ def test_the_latest_run_gives_every_element_at_the_hours_of_the_table() -> None:
     )
     df = next(request.values().query()).df
 
+    assert df["parameter"].n_unique() > 100
     by_lower = {element.lower(): cadence for element, cadence in mosmix_cadence.ELEMENTS.items()}
     problems = []
     for parameter, frame in df.group_by("parameter"):

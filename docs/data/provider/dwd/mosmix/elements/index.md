@@ -22,9 +22,10 @@ two trimmed runs of those files, and the table and its columns are built from th
 - The steps fall at fixed **UTC clock hours**, not at fixed distances from the run: `RR6c` is given at 00, 06, 12 and 18
   UTC, `RRhc` at 06 and 18 UTC, `RRdc` at 06 UTC. A run at 09 UTC has its first `RR6c` at 12 UTC, 3 h after the issue.
 - The UTC hours of the steps are the same in every run; only the offsets change. The first step is the next of an
-  element's listed UTC hours after the issue, the last the last listed hour within +247 h (MOSMIX-L) or +240 h
-  (MOSMIX-S). The table gives both for the run of 03 UTC, as measured. A step an element is not given at is a `-` in the file
-  (a null with `raw:-` in `quality_flags`, and no row by default).
+  element's listed UTC hours after the issue (except `WPch1` and `WPcd1`, which start later), the last the last listed
+  hour within +247 h (+246 h for some hourly elements; see the table) in MOSMIX-L or +240 h in MOSMIX-S. The table gives
+  both for the run of 03 UTC, as measured. A step an element is not given at is a `-` in the file (a null with `raw:-`
+  in `quality_flags`, and no row by default).
 - Which elements a station gets, and at which hours, depends on the station: `TX` and `TN` are at 06 and 18 UTC at
   about 70 % of the MOSMIX-S stations (run of 03 UTC: `TX` 4,022, `TN` 3,948 of 5,648); at the others at one of
   them (687 `TX` at 18 only, 766 `TN` at 06 only), at all four of 00/06/12/18 (307, 290), or at 00 or 12 UTC (166 at 12
@@ -40,8 +41,8 @@ At most German lowland stations of the runs measured (2026-11-16/17) `RR1c` is e
 (MOSMIX-S, stations below 300 m: the last non-zero step is at +125 h or sooner at 85 % of the German stations and 39 %
 of the others), and `RR3c` is often (65 % and 36 %; the median last non-zero step is +132 h). The 12 and 24 h totals
 (`RRhc`, `RRdc`) and the probabilities (`R101` to `R150`, `R602`, `Rd02`) still carry rain; the 6 h total (`RR6c`) falls
-to zero early at some stations (at `10147` its last non-zero step is +117 h, and its 6 h sums are 0.0 on 4 of 6 late
-days where `RRdc` is 0.5 to 1.3 mm). The zeros
+to zero early at some stations (at `10147` its last non-zero step is +117 h in the run of 03 UTC of the 17th, and in
+the run of 09 UTC of the 16th its 6 h sums are 0.0 on 4 of 6 late days where `RRdc` is 0.5 to 1.3 mm). The zeros
 are **real values, not missing ones**, so they are returned as `0.0` and no option drops them. A forecast for the
 coming days that sums or plots `precipitation_amount_significant_weather_last_1h` therefore shows the days from the
 sixth on as dry where DWD's own 24 h total has rain; use
