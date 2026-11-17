@@ -74,7 +74,7 @@ def expected_stations_df() -> pl.DataFrame:
                 "elevation": 119.0,
                 "name": "Offenbach-Wetterpark",
                 "region": "Hessen",
-                "wmo_id": None,
+                "wmo_id": "10641",
                 "wigos_id": None,
                 "icao_id": None,
                 "distance": 12.891318342515483,
@@ -328,7 +328,7 @@ def test_dwd_observation_multiple_datasets(default_settings: Settings) -> None:
         "elevation": 78.0,
         "name": "Holzdorf-Bernsdorf",
         "region": "Brandenburg",
-        "wmo_id": None,
+        "wmo_id": "10476",
         "wigos_id": None,
         "icao_id": None,
     }

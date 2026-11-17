@@ -259,12 +259,14 @@ def describe_provider(
     *,
     derived: bool = False,
     image: bool = False,
+    calculated: str | None = None,
 ) -> _Metadata:
     """Give the `provider` and `producer` blocks of an answer: who published the data, under which terms, and us.
 
     And `data_updated_at`, the date the source states for the data, where the answer has one, and the
     `processing_note` that says what wetterdienst did to it, with `derived` for values that were selected or calculated
-    and `image` for an image drawn from them (GH-2567).
+    and `image` for an image drawn from them (GH-2567); `calculated` adds the sentence of numbers calculated from them
+    besides (the climate stripes' classes, GH-4157).
     """
     return {
         "provider": {
@@ -278,7 +280,7 @@ def describe_provider(
         },
         "producer": describe_producer(),
         "data_updated_at": None if data_updated_at is None else format_timestamp(data_updated_at),
-        "processing_note": processing_note(derived=derived, image=image),
+        "processing_note": processing_note(derived=derived, image=image, calculated=calculated),
     }
 
 

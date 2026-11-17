@@ -47,19 +47,30 @@ export function formatNumber(value: number, locale: string, digits: number): str
   return numberFormat(locale, digits).format(value)
 }
 
+/**
+ * A number with its sign written out for a rise, as an anomaly is (`+0.8`): the minus of a fall is the language's own.
+ * A value that rounds to zero is written without a sign, whichever way it rounds from (`0.0`, not `-0.0`).
+ * @example
+ * formatSigned(0.84, 'en', 1) // '+0.8'
+ * formatSigned(-0.004, 'en', 1) // '0.0'
+ */
+export function formatSigned(value: number, locale: string, digits: number): string {
+  return numberFormat(locale, digits, true).format(value)
+}
+
 // A table of 240 rows of 13 numbers is 3,000 calls, and a formatter is dear to make (it was 17 ms of the Meteogram's mount):
-// one for each language and number of digits, and none that outlives the `Intl` that made it (a test swaps it)
+// one for each language, number of digits and way of writing the sign, and none that outlives the `Intl` that made it (a test swaps it)
 const numberFormats = new Map<string, Intl.NumberFormat>()
 let numberFormatClass = Intl.NumberFormat
-function numberFormat(locale: string, digits: number): Intl.NumberFormat {
+function numberFormat(locale: string, digits: number, signed = false): Intl.NumberFormat {
   if (Intl.NumberFormat !== numberFormatClass) {
     numberFormats.clear()
     numberFormatClass = Intl.NumberFormat
   }
-  const key = `${locale}|${digits}`
+  const key = `${locale}|${digits}|${signed}`
   let format = numberFormats.get(key)
   if (!format) {
-    format = new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), { minimumFractionDigits: digits, maximumFractionDigits: digits })
+    format = new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), { minimumFractionDigits: digits, maximumFractionDigits: digits, ...(signed ? { signDisplay: 'exceptZero' as const } : {}) })
     numberFormats.set(key, format)
   }
   return format

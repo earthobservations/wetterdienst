@@ -34,7 +34,7 @@ SETTINGS_STATIONS = (
             "elevation": 228.0,
             "name": "Dresden-Klotzsche",
             "region": "Sachsen",
-            "wmo_id": None,
+            "wmo_id": "10488",
             "wigos_id": None,
             "icao_id": None,
             "distance": IsFloat(ge=0.0),

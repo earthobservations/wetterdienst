@@ -600,7 +600,7 @@ def test_the_stripes_are_not_cached(client: TestClient, monkeypatch: pytest.Monk
         def to_image(self, *_args: object, **_kwargs: object) -> bytes:
             return b"image"
 
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
     monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
 
     values = client.get("/api/v1/stripes/values", params={"kind": "temperature", "station": "01048"})

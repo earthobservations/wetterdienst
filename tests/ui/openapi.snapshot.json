@@ -4501,7 +4501,7 @@
           "Climate stripes"
         ],
         "summary": "Stripes Stations",
-        "description": "Wrap get_climate_stripes_temperature_request to provide results via restapi.",
+        "description": "List the stations climate stripes are made for.\n\nA station whose record spans fewer than 10 calendar years (first to last, inclusive) is left out, as stripes of\nfewer than 10 years with data are refused. A station with gaps in a longer span is listed and may still be refused.",
         "operationId": "stripes_stations_api_stripes_stations_get",
         "parameters": [
           {
@@ -4620,7 +4620,7 @@
           "Climate stripes"
         ],
         "summary": "Stripes Values",
-        "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for\n`/api/values`, e.g. {\"temperature\": \"degree_fahrenheit\"}; the server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the\nquantity where the values are converted, the source's unit where not. The colours of the stripes\n(`/api/stripes/image`) are relative to the years' own range and are the same in any unit.",
+        "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for\n`/api/values`, e.g. {\"temperature\": \"degree_fahrenheit\"}; the server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the\nquantity where the values are converted, the source's unit where not.\n\nThe colours follow Ed Hawkins' method: each value has its `anomaly` to the mean of 1971-2000 and its\n`stripe_class`, 0 (the lowest) to 15, in steps of 0.325 standard deviations of the annual values of\n1901-2000 (+/-2.6 standard deviations in 16 classes, the outermost taking what lies beyond). The `reference`\nnames the mean and the standard deviation, in the unit of the values, and the years they are calculated from;\na station with too few years in a period takes its whole record for it (`fallback`). A year's class\ndoes not depend on `start_year` and `end_year`, and is the same in any unit.",
         "operationId": "stripes_values_api_stripes_values_get",
         "parameters": [
           {
@@ -6891,7 +6891,7 @@
           "processing_note": {
             "type": "string",
             "title": "Processing Note",
-            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, and the headers of the climate stripes' image that it is drawn from the provider's annual values. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
+            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, those of the climate stripes what their anomalies and classes are relative to, and the headers of the stripes' image that it is drawn from the annual values. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
           },
           "request": {
             "$ref": "#/components/schemas/ResolvedRequest"
@@ -7098,6 +7098,78 @@
         ],
         "title": "StationsSelected",
         "description": "The stations an answer is about."
+      },
+      "StripesReference": {
+        "properties": {
+          "centre": {
+            "$ref": "#/components/schemas/StripesReferenceStat",
+            "description": "The mean the anomaly is taken to: the blue/red boundary."
+          },
+          "spread": {
+            "$ref": "#/components/schemas/StripesReferenceStat",
+            "description": "The standard deviation of the annual values the classes span."
+          },
+          "range_sigma": {
+            "type": "number",
+            "title": "Range Sigma",
+            "description": "The scale reaches this many standard deviations to either side of the centre."
+          },
+          "classes": {
+            "type": "integer",
+            "title": "Classes",
+            "description": "The number of classes, from the lowest value (0) to the highest."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "centre",
+          "spread",
+          "range_sigma",
+          "classes"
+        ],
+        "title": "StripesReference",
+        "description": "What the colour classes of the stripes are relative to, and so which scale a year's class is read on."
+      },
+      "StripesReferenceStat": {
+        "properties": {
+          "value": {
+            "type": "number",
+            "title": "Value",
+            "description": "The mean (centre) or the standard deviation (spread), in the unit of the values."
+          },
+          "first_year": {
+            "type": "integer",
+            "title": "First Year",
+            "description": "The first year the number was calculated from."
+          },
+          "last_year": {
+            "type": "integer",
+            "title": "Last Year",
+            "description": "The last year the number was calculated from."
+          },
+          "years": {
+            "type": "integer",
+            "title": "Years",
+            "description": "How many years with data it was calculated from."
+          },
+          "fallback": {
+            "type": "boolean",
+            "title": "Fallback",
+            "description": "True where the station has too few years with data in the period of the method (1971-2000 for the mean, 1901-2000 for the standard deviation) and the whole record stands in for it."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "value",
+          "first_year",
+          "last_year",
+          "years",
+          "fallback"
+        ],
+        "title": "StripesReferenceStat",
+        "description": "One number of the reference, and which years it was calculated from."
       },
       "StripesSeries": {
         "properties": {
@@ -9297,12 +9369,36 @@
               }
             ],
             "title": "Value"
+          },
+          "anomaly": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Anomaly"
+          },
+          "stripe_class": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stripe Class"
           }
         },
         "type": "object",
         "required": [
           "timestamp",
-          "value"
+          "value",
+          "anomaly",
+          "stripe_class"
         ],
         "title": "_StripesValue"
       },
@@ -9313,6 +9409,9 @@
           },
           "series": {
             "$ref": "#/components/schemas/StripesSeries"
+          },
+          "reference": {
+            "$ref": "#/components/schemas/StripesReference"
           },
           "values": {
             "items": {
@@ -9326,6 +9425,7 @@
         "required": [
           "metadata",
           "series",
+          "reference",
           "values"
         ],
         "title": "_StripesValuesWithMetadataDict"

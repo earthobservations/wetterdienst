@@ -179,7 +179,7 @@ def test_dwd_observations_stations_minute_1(default_settings: Settings) -> None:
                 "elevation": 202.0,
                 "name": "Aachen",
                 "region": "Nordrhein-Westfalen",
-                "wmo_id": None,
+                "wmo_id": "10501",
                 "wigos_id": None,
                 "icao_id": None,
             },

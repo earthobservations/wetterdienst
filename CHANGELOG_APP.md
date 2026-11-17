@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Stripes]` The stripes' colours follow Ed Hawkins' method, as the backend classes them: 16
+  discrete colours from the mean of 1971-2000 in steps of 0.325 standard deviations of 1901-2000,
+  no longer a point between the coolest and the warmest year shown, so a year keeps its colour
+  whatever years the form asks for. A line under the chart says what the colours are relative to
+  (the station's whole record where it has too few years in a period); the table has an anomaly
+  column; the readout, the map panel's band and the lines over the stripes follow. Needs the
+  backend that answers `reference` (GH-4157).
+
 ### Fixed
 
 - `[Stripes]` The gold data-availability line spans exactly the stripes that have a value: each run

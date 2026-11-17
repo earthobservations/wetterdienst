@@ -26,11 +26,17 @@ DERIVED_NOTE = "The values were selected or calculated from the provider's readi
 IMAGE_NOTE = "The image is drawn from the provider's annual values."
 
 
-def processing_note(*, derived: bool = False, image: bool = False) -> str:
-    """Give the note of an answer: `PROCESSING_NOTE`, then `DERIVED_NOTE` and `IMAGE_NOTE` where they apply."""
+def processing_note(*, derived: bool = False, image: bool = False, calculated: str | None = None) -> str:
+    """Give the note of an answer: `PROCESSING_NOTE`, then `DERIVED_NOTE` and `IMAGE_NOTE` where they apply.
+
+    `calculated` is the sentence of an answer that holds numbers calculated from the values besides them, which says
+    what they are relative to: the climate stripes' anomalies and classes (`StripesReference.note`).
+    """
     parts = [PROCESSING_NOTE]
     if derived:
         parts.append(DERIVED_NOTE)
+    if calculated:
+        parts.append(calculated)
     if image:
         parts.append(IMAGE_NOTE)
     return " ".join(parts)

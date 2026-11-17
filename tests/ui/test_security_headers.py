@@ -127,7 +127,7 @@ def test_stripes_image_answers_nosniff_in_every_image_format(
         def to_image(self, *_args: object, **_kwargs: object) -> bytes:
             return b"image"
 
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
     monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
     response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
 
@@ -297,7 +297,7 @@ def test_stripes_svg_has_the_policy_and_the_other_images_none(
         def to_image(self, *_args: object, **_kwargs: object) -> bytes:
             return b"image"
 
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
     monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
     policies = {}
     for fmt in ("png", "jpg", "svg", "pdf"):

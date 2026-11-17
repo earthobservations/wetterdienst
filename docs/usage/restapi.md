@@ -224,8 +224,8 @@ what the answer is missing:
 - **`processing_note`** says what wetterdienst did to the data, in the same words for every provider and licence:
   "Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ." Licences such as CC BY ask that changes be indicated. The answers of `interpolate` and `summarize` add
   "The values were selected or calculated from the provider's readings.", and the headers of `stripes/image` add
-  "The image is drawn from the provider's annual values."; `stripes/values` and `stripes/stations` have the plain note,
-  as their values are DWD's own annual values and a list of its stations. It is always there on an answer that holds
+  "The image is drawn from the provider's annual values."; `stripes/stations` has the plain note, as it is a list of
+  DWD's stations, and `stripes/values` adds a sentence on which reference its anomalies and classes were calculated against. It is always there on an answer that holds
   provider data (`issues` and `alerts` too, not `providers` or `coverage`), whatever `with_metadata` says, and it is a
   statement of fact about the processing: it does not replace the credit line, and it is not legal advice about what
   your licence asks of you. Where it does not go is on [licences and credit
@@ -329,7 +329,10 @@ what the answer is missing:
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
   `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
   `parameter-without-rows` (a requested parameter that the source holds no values for, see below),
-  `file-skipped` (the stations whose file the provider let go, see below), `other-window-left-out` (dates the
+  `file-skipped` (the stations whose file the provider let go, see below), `wmo-ids-unavailable` (the stations of
+  `dwd/observation` are listed without `wmo_id` because DWD's Stationslexikon could not be read or is no longer the
+  table, see [WMO numbers](../data/provider/dwd/observation/index.md#wmo-numbers-of-the-stations)),
+  `other-window-left-out` (dates the
   source has values for that the answer leaves out because they are of another series, see below),
   `window-not-closed` (values of a window that had not closed when the request was served, see below),
   `source-data-left-out` (what an estimate by `interpolate` or `summarize` left out at the stations it read, see
