@@ -663,6 +663,7 @@
     "plotTitle": "Franjas climáticas ({kind}) para {name}, Alemania ({id})",
     "plotDataAvailability": "Disponibilidad de datos",
     "plotSource": "Fuente: Deutscher Wetterdienst",
+    "plotReference": "Colores: media de {centre}, ±{sigma} σ de {spread}",
     "hoverValue": "Valor",
     "hoverTrend": "Tendencia",
     "chart": {
@@ -678,13 +679,16 @@
       "keysHint": "Las teclas de flecha recorren los años, Re Pág y Av Pág de diez en diez, Inicio y Fin van al primero y al último. Más, menos y 0 acercan, alejan y restablecen. Escape cierra los valores."
     },
     "summary": "De {from} a {to}. Valor más bajo: {min} en {minYear}; valor más alto: {max} en {maxYear}.",
+    "reference": "Colores: la media de {centre} es el centro de la escala, que abarca ±{sigma} desviaciones típicas de {spread} (método de Ed Hawkins).",
+    "referenceWhole": "toda la serie ({from}–{to})",
     "table": {
       "year": "Año",
       "value": "Valor",
+      "anomaly": "Anomalía",
       "class": "Clase",
       "note": {
-        "temperature": "Clase: dónde se sitúa el año entre el año más fresco y el más cálido mostrados, en quintos. Es el color de su franja, del azul oscuro (más fresco) al rojo oscuro (más cálido).",
-        "precipitation": "Clase: dónde se sitúa el año entre el año más seco y el más húmedo mostrados, en quintos. Es el color de su franja, del marrón (más seco) al verde oscuro (más húmedo)."
+        "temperature": "Clase: a qué distancia de la media de la referencia queda el año. Las franjas tienen 16 colores, uno por cada 0,325 desviaciones típicas, del azul oscuro (más fresco) al rojo oscuro (más cálido); la clase los nombra en cinco grupos. Anomalía: la distancia a la media, en la unidad del valor.",
+        "precipitation": "Clase: a qué distancia de la media de la referencia queda el año. Las franjas tienen 16 colores, uno por cada 0,325 desviaciones típicas, del marrón (más seco) al verde oscuro (más húmedo); la clase los nombra en cinco grupos. Anomalía: la distancia a la media, en la unidad del valor."
       },
       "classes": {
         "temperature": {

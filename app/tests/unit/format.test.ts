@@ -1,7 +1,7 @@
 import type { ChromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
 import { DateTime } from 'luxon'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { formatDate, formatDayMonth, formatHour, formatNumber, formatRunTime, weekdayShort, withData } from '../../app/utils/format'
+import { formatDate, formatDayMonth, formatHour, formatNumber, formatRunTime, formatSigned, weekdayShort, withData } from '../../app/utils/format'
 import { chromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
 
 describe('date formatting utilities', () => {
@@ -255,5 +255,22 @@ describe('weekdays in the language', () => {
   it('writes Luxembourgish as German where the browser has no data for it', () => {
     vi.spyOn(Intl.DateTimeFormat, 'supportedLocalesOf').mockReturnValue([])
     expect(weekdayShort(thursday, 'lb-LU')).toBe('Do')
+  })
+})
+
+describe('formatSigned', () => {
+  it('writes the plus of a rise and the minus of a fall, in the language\'s digits', () => {
+    expect(formatSigned(0.84, 'en', 1)).toBe('+0.8')
+    expect(formatSigned(-0.84, 'en', 1)).toBe('-0.8')
+    expect(formatSigned(0.84, 'de', 1)).toBe('+0,8')
+  })
+
+  it('writes a value that rounds to zero without a sign, whichever way it rounds from, and zero itself', () => {
+    expect(formatSigned(0.004, 'en', 1)).toBe('0.0')
+    expect(formatSigned(-0.004, 'en', 1)).toBe('0.0')
+    expect(formatSigned(-0, 'en', 2)).toBe('0.00')
+    expect(formatSigned(0, 'de', 2)).toBe('0,00')
+    // a value that keeps a digit keeps its sign
+    expect(formatSigned(-0.006, 'en', 2)).toBe('-0.01')
   })
 })

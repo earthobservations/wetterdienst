@@ -24,6 +24,22 @@ Types of changes:
   be read (a changed page, a failed download or no connection) the stations still come back with
   `wmo_id` null and the warning `wmo-ids-unavailable`; a rate limit is raised (GH-4073)
 
+### Changed
+
+- Climate stripes follow Ed Hawkins' method: a year's colour is its class on a scale of 16 (the 8
+  most saturated ColorBrewer Blues below the mean of 1971-2000, the Reds above it, ±2.6 standard
+  deviations of the annual values of 1901-2000), no longer a point between the coolest and the
+  warmest year shown. A year keeps its colour whatever `start_year` and `end_year` show. A station
+  short of either period takes its whole record for it. `/api/stripes/values` and the MCP tool
+  `stripes_values` add `reference` (mean, standard deviation, the years they are from, `fallback`)
+  and `anomaly` and `stripe_class` to each value; the headers of the CSV and the image say which
+  reference was used. Precipitation uses 16 BrBG classes the same way (GH-4157)
+- **Breaking**: the CSV of `/api/stripes/values` has `anomaly` and `stripe_class` where it had
+  `value_scaled`, a min-max over the years shown: read `stripe_class` (0 to 15) instead. A station
+  with fewer than 10 years with data is refused (HTTP 400, it was 2), as its spread would say
+  nothing, and `stripes stations` (REST, CLI, MCP, the app's picker and map) no longer lists a
+  station whose record spans fewer than 10 calendar years, first to last inclusive (GH-4157)
+
 ## [0.190.0] - 2026-11-16
 
 ### Changed

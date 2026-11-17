@@ -663,6 +663,7 @@
     "plotTitle": "Bandes climatiques ({kind}) pour {name}, Allemagne ({id})",
     "plotDataAvailability": "Disponibilité des données",
     "plotSource": "Source : Deutscher Wetterdienst",
+    "plotReference": "Couleurs : moyenne de {centre}, ±{sigma} σ de {spread}",
     "hoverValue": "Valeur",
     "hoverTrend": "Tendance",
     "chart": {
@@ -678,13 +679,16 @@
       "keysHint": "Les flèches parcourent les années, Page précédente et Page suivante de dix en dix, Début et Fin vont à la première et à la dernière. Plus, moins et 0 zooment, dézooment et réinitialisent. Échap ferme les valeurs."
     },
     "summary": "De {from} à {to}. Valeur la plus basse : {min} en {minYear}, la plus haute : {max} en {maxYear}.",
+    "reference": "Couleurs : la moyenne de {centre} est le centre de l'échelle, qui couvre ±{sigma} écarts types de {spread} (méthode d'Ed Hawkins).",
+    "referenceWhole": "toute la série ({from}–{to})",
     "table": {
       "year": "Année",
       "value": "Valeur",
+      "anomaly": "Écart",
       "class": "Classe",
       "note": {
-        "temperature": "Classe : position de l'année entre l'année la plus fraîche et la plus chaude affichées, en cinquièmes. C'est la couleur de sa bande, du bleu foncé (la plus fraîche) au rouge foncé (la plus chaude).",
-        "precipitation": "Classe : position de l'année entre l'année la plus sèche et la plus humide affichées, en cinquièmes. C'est la couleur de sa bande, du brun (la plus sèche) au vert foncé (la plus humide)."
+        "temperature": "Classe : distance de l'année à la moyenne de la référence. Les bandes ont 16 couleurs, une par 0,325 écart type, du bleu foncé (la plus fraîche) au rouge foncé (la plus chaude) ; la classe les nomme en cinq groupes. Écart : la distance à la moyenne, dans l'unité de la valeur.",
+        "precipitation": "Classe : distance de l'année à la moyenne de la référence. Les bandes ont 16 couleurs, une par 0,325 écart type, du brun (la plus sèche) au vert foncé (la plus humide) ; la classe les nomme en cinq groupes. Écart : la distance à la moyenne, dans l'unité de la valeur."
       },
       "classes": {
         "temperature": {

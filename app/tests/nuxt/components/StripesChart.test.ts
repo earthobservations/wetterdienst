@@ -3,6 +3,7 @@ import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import StripesChart from '~/components/StripesChart.vue'
+import { recordOf, stripesAnswer } from '../../helpers/stripes-answer'
 
 // ECharts draws nothing in the test's document: the chart on the page is a recorder, held to the option it is given. A chart
 // that has no element to draw into (the copy a saved image is made of) is the real library, drawing to an SVG string.
@@ -63,10 +64,11 @@ vi.mock('~/utils/chart-theme', async (importOriginal) => {
 const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
 mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
 
-// 1950 to 2024 without 1962 to 1964; the value of a year is its distance from 1950 in tenths of a degree
-const VALUES = Array.from({ length: 75 }, (_, i) => 1950 + i)
-  .filter(year => year < 1962 || year > 1964)
-  .map(year => ({ timestamp: `${year}-01-01T00:00:00+00:00`, value: (year - 1950) / 10 }))
+// 1950 to 2024 without 1962 to 1964; the value of a year is its distance from 1950 in tenths of a degree, classed against the
+// whole record as the backend does (the mean of 1971 to 2000 is the centre)
+const ANSWER = stripesAnswer(recordOf(1950, 2024, year => (year - 1950) / 10, [1962, 1963, 1964]))
+const VALUES = ANSWER.values
+const REFERENCE = ANSWER.reference
 const DISPLAY = { showTitle: true, showYears: true, showSource: true, showDataAvailability: true, showTimeseries: false, showTrendline: false }
 const TITLE = 'Climate stripes (Temperature) for Donaueschingen, Germany (00011)'
 
@@ -75,7 +77,7 @@ let wrapper: Mounted | undefined
 
 async function showChart(props: Record<string, unknown> = {}) {
   wrapper = await mountSuspended(StripesChart, {
-    props: { values: VALUES, kind: 'temperature', unit: '°C', title: TITLE, display: DISPLAY, label: TITLE, cameraFile: 'climate_stripes_temperature_00011', ...props },
+    props: { values: VALUES, reference: REFERENCE, kind: 'temperature', unit: '°C', title: TITLE, display: DISPLAY, label: TITLE, cameraFile: 'climate_stripes_temperature_00011', ...props },
     attachTo: document.body,
   })
   // the first mount of the file loads the language and the component's parts, which a loaded machine takes longer over than vitest's second
@@ -180,7 +182,7 @@ describe('drawing', () => {
     echarts.state.loadFails = true
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const shown = await mountSuspended(StripesChart, {
-      props: { values: VALUES, kind: 'temperature', unit: '°C', title: TITLE, display: DISPLAY, cameraFile: 'f' },
+      props: { values: VALUES, reference: REFERENCE, kind: 'temperature', unit: '°C', title: TITLE, display: DISPLAY, cameraFile: 'f' },
       attachTo: document.body,
     })
     await vi.waitFor(() => expect(document.body.querySelector('[role="alert"]')).not.toBeNull())
@@ -204,7 +206,7 @@ describe('drawing', () => {
     echarts.state.loadFails = true
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const shown = await mountSuspended(StripesChart, {
-      props: { values: VALUES, kind: 'temperature', unit: '°C', title: TITLE, display: DISPLAY, cameraFile: 'f' },
+      props: { values: VALUES, reference: REFERENCE, kind: 'temperature', unit: '°C', title: TITLE, display: DISPLAY, cameraFile: 'f' },
       attachTo: document.body,
     })
     await vi.waitFor(() => expect((shown.vm as any).renderFailed).toBe(true))
@@ -270,7 +272,7 @@ describe('drawing', () => {
 
   it('draws nothing where there is no year with a value', async () => {
     await mountSuspended(StripesChart, {
-      props: { values: [{ timestamp: '2000-01-01T00:00:00+00:00', value: null }], kind: 'temperature', unit: '°C', title: TITLE, display: DISPLAY, cameraFile: 'f' },
+      props: { values: [{ timestamp: '2000-01-01T00:00:00+00:00', value: null, anomaly: null, stripe_class: null }], reference: REFERENCE, kind: 'temperature', unit: '°C', title: TITLE, display: DISPLAY, cameraFile: 'f' },
       attachTo: document.body,
     })
     await flushPromises()
@@ -285,7 +287,8 @@ describe('the readout', () => {
     movePointerTo(xOfYear(1992))
     await nextTick()
     expect(readout()!.textContent).toContain('1992')
-    expect(rows()).toEqual([['Value', '4.20 °C'], ['Class', 'Middle']])
+    // 1992 lies 0.7 °C above the mean of the reference (the mean of 1971 to 2000): in the band `Warmer`, with its anomaly
+    expect(rows()).toEqual([['Value', '4.20 °C'], ['Class', 'Warmer (+0.7 °C)']])
     expect(readout()!.getAttribute('role')).toBe('group')
     expect(readout()!.getAttribute('aria-label')).toBe('Climate stripe for 1992')
     stage().dispatchEvent(pointer('pointerleave'))
@@ -632,23 +635,47 @@ describe('the zoom', () => {
     await nextTick()
     expect(isOff('Reset zoom')).toBe(false)
     expect(lastZoom()).toMatchObject({ start: zoomed.start, end: zoomed.end })
-    await shown.setProps({ values: VALUES.filter(item => !item.timestamp.startsWith('1950')) })
+    await shown.setProps({ values: VALUES.filter(item => !item.timestamp!.startsWith('1950')) })
     await nextTick()
     expect(isOff('Reset zoom')).toBe(true)
   })
 })
 
 describe('the image', () => {
-  it('is saved as the camera does: a PNG of 1400 by 915 px (the stripes 16:9, 765 px, and the margins on top) at twice the size, in the light theme, named for the station', async () => {
+  it('is saved as the camera does: a PNG of 1400 by 935 px (the stripes 16:9, 765 px, the margins on top and the line that says what the colours are relative to) at twice the size, in the light theme, named for the station', async () => {
     await showChart()
     buttonNamed('Download plot as a PNG').click()
     await vi.waitFor(() => expect(image.downloadBlob).toHaveBeenCalled())
     const [svg, options] = image.svgToBlob.mock.calls[0] as unknown as [string, any]
-    expect(options).toMatchObject({ format: 'png', width: 1400, height: 915, scale: 2 })
+    expect(options).toMatchObject({ format: 'png', width: 1400, height: 935, scale: 2 })
     expect(options.background).toMatch(/^#|^rgb/)
-    expect(svg).toContain('width="1400" height="915"')
+    expect(svg).toContain('width="1400" height="935"')
     expect(svg).toContain(TITLE)
     expect(image.downloadBlob.mock.calls[0]![1]).toBe('climate_stripes_temperature_00011.png')
+  })
+
+  it('says what its colours are relative to, under the source, in a line of its own that makes the image higher (GH-4157)', async () => {
+    await showChart()
+    buttonNamed('Download plot as a PNG').click()
+    await vi.waitFor(() => expect(image.downloadBlob).toHaveBeenCalled())
+    const [svg] = image.svgToBlob.mock.calls[0] as unknown as [string, any]
+    const texts = [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1])
+    // the mean of 1971 to 2000, and the standard deviation of the years of 1901 to 2000 the station has
+    expect(texts).toContain('Colours: mean of 1971–2000, ±2.6 σ of 1950–2000')
+    // the source stays on its row, and the reference is under it
+    const y = (text: string) => Number(new RegExp(`<text[^>]*y="([\\d.]+)"[^>]*>${text}</text>`).exec(svg)![1])
+    expect(y('Colours: mean of 1971–2000, ±2.6 σ of 1950–2000')).toBeGreaterThan(y('Source: Deutscher Wetterdienst'))
+    // the page's chart, which says it under the stripes in the page's own text, has no such line
+    expect(lastOption().series.at(-1).data.length).toBeLessThan(texts.length)
+  })
+
+  it('says the whole record where the station has too few years in a period, in the saved image too', async () => {
+    const short = stripesAnswer(recordOf(2000, 2020, year => (year - 2000) / 10))
+    await showChart({ values: short.values, reference: short.reference })
+    buttonNamed('Download plot as a PNG').click()
+    await vi.waitFor(() => expect(image.downloadBlob).toHaveBeenCalled())
+    const [svg] = image.svgToBlob.mock.calls[0] as unknown as [string, any]
+    expect(svg).toContain('Colours: mean of the whole record (2000–2020), ±2.6 σ of the whole record (2000–2020)')
   })
 
   it('is drawn in the light theme whatever the page shows, on the light paper', async () => {
@@ -665,11 +692,11 @@ describe('the image', () => {
     expect(svg).not.toContain('rgb(250, 250, 250)')
   })
 
-  it('is 905 px high where the title is off: the stripes keep their 765 px and lose the 10 px of the title', async () => {
+  it('is 925 px high where the title is off: the stripes keep their 765 px and lose the 10 px of the title', async () => {
     await showChart({ display: { ...DISPLAY, showTitle: false } })
     buttonNamed('Download plot as a PNG').click()
     await vi.waitFor(() => expect(image.svgToBlob).toHaveBeenCalled())
-    expect((image.svgToBlob.mock.calls[0] as unknown as [string, any])[1]).toMatchObject({ width: 1400, height: 905, scale: 2 })
+    expect((image.svgToBlob.mock.calls[0] as unknown as [string, any])[1]).toMatchObject({ width: 1400, height: 925, scale: 2 })
   })
 
   it('is saved for the menu at the size asked for, with the title broken for the width of the image, and in the range the stripes are zoomed to', async () => {
@@ -680,7 +707,9 @@ describe('the image', () => {
     await nextTick()
     await (shown.vm as any).save({ format: 'jpeg', filename: 'name', width: 320, height: 600, scale: 3 })
     const [svg, options] = image.svgToBlob.mock.calls[0] as unknown as [string, any]
-    expect(options).toMatchObject({ format: 'jpeg', width: 320, height: 600, scale: 3 })
+    // the 600 px of the page's chart and the rows that say what the colours are relative to, which a narrow image breaks into lines
+    expect(options).toMatchObject({ format: 'jpeg', width: 320, scale: 3 })
+    expect(options.height).toBeGreaterThanOrEqual(620)
     expect(image.downloadBlob.mock.calls[0]![1]).toBe('name.jpeg')
     // broken into lines where the image is narrow, not where the page is
     const texts = [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1])

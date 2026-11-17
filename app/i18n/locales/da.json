@@ -663,6 +663,7 @@
     "plotTitle": "Klimastriber ({kind}) for {name}, Tyskland ({id})",
     "plotDataAvailability": "Datatilgængelighed",
     "plotSource": "Kilde: Deutscher Wetterdienst",
+    "plotReference": "Farver: gennemsnit af {centre}, ±{sigma} σ af {spread}",
     "hoverValue": "Værdi",
     "hoverTrend": "Tendens",
     "chart": {
@@ -678,13 +679,16 @@
       "keysHint": "Piletasterne går gennem årene, Page Up og Page Down ti år ad gangen, Home og End til det første og det sidste. Plus, minus og 0 zoomer ind, zoomer ud og nulstiller. Escape lukker værdierne."
     },
     "summary": "Fra {from} til {to}. Laveste værdi {min} i {minYear}, højeste værdi {max} i {maxYear}.",
+    "reference": "Farver: gennemsnittet af {centre} er skalaens midte, som spænder over ±{sigma} standardafvigelser af {spread} (Ed Hawkins' metode).",
+    "referenceWhole": "hele rækken ({from}–{to})",
     "table": {
       "year": "År",
       "value": "Værdi",
+      "anomaly": "Afvigelse",
       "class": "Klasse",
       "note": {
-        "temperature": "Klasse: hvor året ligger mellem det køligste og det varmeste viste år, i femtedele. Det er farven på årets stribe, fra mørkeblå (køligst) til mørkerød (varmest).",
-        "precipitation": "Klasse: hvor året ligger mellem det tørreste og det vådeste viste år, i femtedele. Det er farven på årets stribe, fra brun (tørrest) til mørkegrøn (vådest)."
+        "temperature": "Klasse: hvor langt året ligger fra referencens gennemsnit. Striberne har 16 farver, én for hver 0,325 standardafvigelse, fra mørkeblå (køligst) til mørkerød (varmest); klassen navngiver dem i fem grupper. Afvigelse: afstanden til gennemsnittet i værdiens enhed.",
+        "precipitation": "Klasse: hvor langt året ligger fra referencens gennemsnit. Striberne har 16 farver, én for hver 0,325 standardafvigelse, fra brun (tørrest) til mørkegrøn (vådest); klassen navngiver dem i fem grupper. Afvigelse: afstanden til gennemsnittet i værdiens enhed."
       },
       "classes": {
         "temperature": {

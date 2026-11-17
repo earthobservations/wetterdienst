@@ -663,6 +663,7 @@
     "plotTitle": "Klimastrepen ({kind}) för {name}, Düütschland ({id})",
     "plotDataAvailability": "Datenverfögbarkeit",
     "plotSource": "Quell: Deutscher Wetterdienst",
+    "plotReference": "Klöör: Middel vun {centre}, ±{sigma} σ vun {spread}",
     "hoverValue": "Weert",
     "hoverTrend": "Trend",
     "chart": {
@@ -678,13 +679,16 @@
       "keysHint": "Mit de Pieltasten gahst du johrwies dör de Streven, mit Bild rop un Bild dal in Tehnerschritten, mit Pos1 un Enn na den eersten un den lesten. Plus, Minus un 0 maakt grötter, lütter un sett torüch. Esc maakt de Weerten to."
     },
     "summary": "Vun {from} bit {to}. Leegste Weert {min} in {minYear}, hööchste Weert {max} in {maxYear}.",
+    "reference": "Klöör: Dat Middel vun {centre} is de Mitt vun de Skala, de ±{sigma} Standardafwieken vun {spread} umfaat (Methood vun Ed Hawkins).",
+    "referenceWhole": "de heele Tietreeg ({from}–{to})",
     "table": {
       "year": "Johr",
       "value": "Weert",
+      "anomaly": "Afwieken",
       "class": "Klass",
       "note": {
-        "temperature": "Klass: Wo dat Johr twüschen dat köhlste un dat wärmste wiest Johr liggt, in Fiefteln. Dat is de Klöör vun sien Streep, vun Düsterblau (köhlst) bit Düsterrot (wärmst).",
-        "precipitation": "Klass: Wo dat Johr twüschen dat dröögste un dat natste wiest Johr liggt, in Fiefteln. Dat is de Klöör vun sien Streep, vun Bruun (dröögst) bit Düstergröön (natst)."
+        "temperature": "Klass: wo wiet dat Johr vun dat Middel vun de Bezugstiet af liggt. De Streepen hebbt 16 Klören, een för elk 0,325 Standardafwieken, vun Düsterblau (köhlst) bit Düsterrot (wärmst); de Klass fatt se in fief Gruppen tosamen. Afwieken: de Afstand to dat Middel in de Eenheit vun den Weert.",
+        "precipitation": "Klass: wo wiet dat Johr vun dat Middel vun de Bezugstiet af liggt. De Streepen hebbt 16 Klören, een för elk 0,325 Standardafwieken, vun Bruun (dröögst) bit Düstergröön (natst); de Klass fatt se in fief Gruppen tosamen. Afwieken: de Afstand to dat Middel in de Eenheit vun den Weert."
       },
       "classes": {
         "temperature": {
