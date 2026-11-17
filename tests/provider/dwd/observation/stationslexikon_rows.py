@@ -14,7 +14,9 @@ ones, with their markup: the number has a line break after it, the end date one 
   DWD's own (`H808`, `Q870`, `L131`), which is no WMO number (3247 of the 3760 rows of the two products are like it);
 - Altastenberg `00098` and Kahler Asten `02483`: two ids that have the one number `10427`, as the station moved in
   1954;
-- Aach `00001` and Altenau `00106`: a station with no row of `SY` or `MN`.
+- Aach `00001` and Altenau `00106`: a station with no row of `SY` or `MN`;
+- Berlin-Tempelhof `00433`, Dresden-Klotzsche `01048` (a number) and Großenkneten `00044` (an id of DWD's own), which
+  the stations of `dwd/derived` (the degree days, the soil) have as ids too (GH-4162).
 """
 
 from __future__ import annotations
@@ -55,12 +57,18 @@ ROWS: tuple[str, ...] = (
     "Berlin-Dahlem (FU)|403|KL|03319|52.454|13.302|51|467270|BE|01.01.1950|14.11.2026",
     "Berlin-Dahlem (FU)|403|RR|46552|52.454|13.302|51|467270|BE|01.01.1950|14.11.2026",
     "Berlin-Dahlem (FU)|403|SY|10381|52.454|13.302|51|467270|BE|01.01.1955|14.11.2026",
+    "Berlin-Tempelhof|433|MN|10384|52.4676|13.402|48|467420|BE|17.11.2008|15.11.2026",
+    "Berlin-Tempelhof|433|SY|10384|52.4676|13.402|48|467420|BE|01.01.1949|14.11.2026",
+    "Dresden-Klotzsche|1048|MN|10488|51.1278|13.7543|228|415390|SN|03.11.2008|15.11.2026",
+    "Dresden-Klotzsche|1048|SY|10488|51.1278|13.7543|228|415390|SN|01.07.1975|14.11.2026",
     "Donaueschingen (Landeplatz)|11|FF|02937|47.974|8.521|680||BW|01.09.1980|14.11.2026",
     "Donaueschingen (Landeplatz)|11|MN|Q870|47.974|8.521|680||BW|03.12.2008|15.11.2026",
     "Donaueschingen (Landeplatz)|11|SY|Q870|47.974|8.521|680||BW|01.01.2009|14.11.2026",
     "Falkenberg,Kr.Rottal-Inn|1332|KL|04524|48.483|12.724|471|922320|BY|01.07.1966|14.11.2026",
     "Falkenberg,Kr.Rottal-Inn|1332|MN|P674|48.483|12.724|471|922320|BY|08.12.2004|15.11.2026",
     "Falkenberg,Kr.Rottal-Inn|1332|SY|P674|48.483|12.724|471|922320|BY|01.03.2005|14.11.2026",
+    "Gro&szlig;enkneten|44|MN|E426|52.934|8.237|44|564030|NI|08.02.2007|15.11.2026",
+    "Gro&szlig;enkneten|44|SY|E426|52.934|8.237|44|564030|NI|01.01.1979|14.11.2026",
     "Hamburg-Fuhlsb&uuml;ttel|1975|KL|01459|53.633|9.988|11|487580|HH|01.01.1936|14.11.2026",
     "Hamburg-Fuhlsb&uuml;ttel|1975|MN|10147|53.633|9.988|11|487580|HH|30.04.2008|15.11.2026",
     "Hamburg-Fuhlsb&uuml;ttel|1975|RR|48558|53.633|9.988|11|487580|HH|01.01.1936|14.11.2026",
@@ -120,4 +128,12 @@ def page(
 STATIONSLEXIKON = page()
 
 #: the WMO number the reader must give each station of the stub, by `Stations_ID` padded to five digits
-EXPECTED_WMO_IDS = {"00003": "10501", "00098": "10427", "00403": "10381", "01975": "10147", "02483": "10427"}
+EXPECTED_WMO_IDS = {
+    "00003": "10501",
+    "00098": "10427",
+    "00403": "10381",
+    "00433": "10384",
+    "01048": "10488",
+    "01975": "10147",
+    "02483": "10427",
+}
