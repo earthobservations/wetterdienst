@@ -652,8 +652,6 @@
     "showYears": "Johren wiesen",
     "showSource": "Quell wiesen",
     "showDataAvailability": "Datenverfögbarkeit wiesen",
-    "showTimeseries": "Tietenreeg wiesen",
-    "showTrendline": "Trendlinie wiesen",
     "visualizationTitle": "Visualisatschoon",
     "loadingViz": "Daten warrt laadt un de Visualisatschoon warrt maakt …",
     "downloadImage": "Bild runnerladen",
@@ -672,7 +670,6 @@
       "barsScale": "Balken mit Skaal"
     },
     "hoverValue": "Weert",
-    "hoverTrend": "Trend",
     "chart": {
       "zoomGroup": "Streifen zoomen un verschuven",
       "earlier": "Fröhere Johren",

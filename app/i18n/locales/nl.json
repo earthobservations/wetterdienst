@@ -652,8 +652,6 @@
     "showYears": "Jaren tonen",
     "showSource": "Bron tonen",
     "showDataAvailability": "Gegevensbeschikbaarheid tonen",
-    "showTimeseries": "Tijdreeks tonen",
-    "showTrendline": "Trendlijn tonen",
     "visualizationTitle": "Visualisatie",
     "loadingViz": "Gegevens laden en visualisatie genereren …",
     "downloadImage": "Afbeelding downloaden",
@@ -672,7 +670,6 @@
       "barsScale": "Staven met schaal"
     },
     "hoverValue": "Waarde",
-    "hoverTrend": "Trend",
     "chart": {
       "zoomGroup": "De strepen zoomen en verschuiven",
       "earlier": "Eerdere jaren",

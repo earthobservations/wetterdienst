@@ -14,17 +14,6 @@ export interface StripesInput {
 }
 
 /**
- * What the classes of an answer are relative to (its `reference`), as far as the lines over the stripes read it: the mean
- * the anomaly is taken to, the standard deviation that sets the width of the classes, and how many of them the scale reaches
- * to either side of the mean. The app calculates no class of its own: the backend's are the colours.
- */
-export interface StripesReferenceInput {
-  centre: { value: number }
-  spread: { value: number }
-  range_sigma: number
-}
-
-/**
  * The ways the same years are drawn (GH-4156): as stripes, as bars (the year's anomaly as the height, in the colour of its
  * class, with no axes) and as bars with a scale (a y axis in the unit of the anomaly, and a year axis with round ticks).
  */
@@ -39,15 +28,8 @@ export interface StripesModel {
   classes: number[]
   /** each value's distance from the mean of the reference, as the backend has it, in the unit of the values */
   anomalies: number[]
-  /** each value's place on the scale of the reference, 0 (its lowest edge, `range_sigma` standard deviations below the mean) to 1: the height of the lines */
-  normalized: number[]
   minYear: number
   maxYear: number
-  /** the least-squares line through the years, for each year */
-  trend: number[]
-  normalizedTrend: number[]
-  /** the trend's distance from the mean of the reference, in the unit of the values: the trend line of the bars */
-  trendAnomalies: number[]
   /** every year from the first to the last, `null` where there is no value: the data-availability line breaks there */
   availability: (number | null)[]
 }
@@ -56,11 +38,10 @@ export interface StripesModel {
  * The stripes of an answer: the years with a value (each year's value comes at its first moment in UTC, read in UTC, as in a
  * browser west of UTC that moment is still the year before). Null where there is none to draw.
  *
- * The lines are placed on the scale the colours are classed on, the reference's, so a value stands where its colour is: the
- * mean in the middle and `range_sigma` standard deviations at an edge, a value beyond it (as its stripe, in the end class)
- * on the edge. A reference with no spread (years all alike) puts everything in the middle.
+ * The app calculates nothing of its own beyond the years: the classes and the anomalies are the backend's, and the stripes
+ * draw no line over them (no time series, no trend), as in Ed Hawkins' design (GH-4170).
  */
-export function buildStripesModel(data: readonly StripesInput[], reference: StripesReferenceInput): StripesModel | null {
+export function buildStripesModel(data: readonly StripesInput[]): StripesModel | null {
   const drawn = data.filter((item): item is { timestamp: string, value: number, anomaly: number, stripe_class: number } => item.value !== null && item.timestamp !== null && item.anomaly !== null && item.stripe_class !== null)
   if (!drawn.length)
     return null
@@ -68,19 +49,6 @@ export function buildStripesModel(data: readonly StripesInput[], reference: Stri
   const values = drawn.map(item => item.value)
   const minYear = Math.min(...years)
   const maxYear = Math.max(...years)
-  const width = 2 * reference.range_sigma * reference.spread.value
-  const place = (value: number) => width > 0 ? Math.min(1, Math.max(0, 0.5 + (value - reference.centre.value) / width)) : 0.5
-
-  // simple linear regression: y = slope * x + intercept
-  const n = years.length
-  const sumX = years.reduce((a, b) => a + b, 0)
-  const sumY = values.reduce((a, b) => a + b, 0)
-  const sumXY = years.reduce((sum, x, i) => sum + x * values[i]!, 0)
-  const sumX2 = years.reduce((sum, x) => sum + x * x, 0)
-  const divisor = n * sumX2 - sumX * sumX
-  const slope = divisor === 0 ? 0 : (n * sumXY - sumX * sumY) / divisor
-  const intercept = (sumY - slope * sumX) / n
-  const trend = years.map(year => slope * year + intercept)
 
   const present = new Set(years)
   return {
@@ -88,12 +56,8 @@ export function buildStripesModel(data: readonly StripesInput[], reference: Stri
     values,
     classes: drawn.map(item => item.stripe_class),
     anomalies: drawn.map(item => item.anomaly),
-    normalized: values.map(place),
     minYear,
     maxYear,
-    trend,
-    normalizedTrend: trend.map(place),
-    trendAnomalies: trend.map(value => value - reference.centre.value),
     availability: Array.from({ length: maxYear - minYear + 1 }, (_, i) => present.has(minYear + i) ? -0.02 : null),
   }
 }
@@ -161,13 +125,9 @@ export function anomalyAxis(anomalies: readonly number[]): AnomalyAxis {
   }
 }
 
-/**
- * The axis of the bars of `model`: the anomalies of the years and the anomalies of the trend line, so that the trend (a fit,
- * which at an end of the record can lie beyond every year's anomaly) is inside the plot whether it is shown or not, and the
- * axis does not move with the option.
- */
-export function barAxis(model: Pick<StripesModel, 'anomalies' | 'trendAnomalies'>): AnomalyAxis {
-  return anomalyAxis([...model.anomalies, ...model.trendAnomalies])
+/** The axis of the bars of `model`: the range of the anomalies of the years, which no window moves */
+export function barAxis(model: Pick<StripesModel, 'anomalies'>): AnomalyAxis {
+  return anomalyAxis(model.anomalies)
 }
 
 /** The steps the ticks of the year axis are a multiple of: the finest that leaves the labels room is taken */
@@ -186,32 +146,6 @@ export function yearTicks(window: YearWindow, plotWidth: number, spacing = 48): 
   const first = Math.ceil((window.start - 1e-9) / step)
   const last = Math.floor((window.end + 1e-9) / step)
   return Array.from({ length: Math.max(0, last - first + 1) }, (_, index) => (first + index) * step)
-}
-
-/** A point of a line over the stripes: the year and the height, `null` where the year has no value (the line breaks there) */
-export interface LinePoint {
-  year: number
-  height: number | null
-  /** a year that has a value and whose neighbours (the years before and after) have none: a line cannot draw it, a dot does */
-  lone: boolean
-}
-
-/**
- * The points of a line over the stripes that breaks at every year without a value (GH-4164), as the stripes and the
- * availability line do: one point for each year from the first to the last, `height: null` for a year that has none, and
- * `lone` for a year that stands alone. `heights` are those of the years in `years`, in the order of the answer.
- */
-export function brokenLine(years: readonly number[], heights: readonly number[]): LinePoint[] {
-  if (!years.length)
-    return []
-  const at = new Map(years.map((year, index) => [year, heights[index]!]))
-  const first = Math.min(...years)
-  const last = Math.max(...years)
-  return Array.from({ length: last - first + 1 }, (_, index) => {
-    const year = first + index
-    const height = at.get(year) ?? null
-    return { year, height, lone: height !== null && !at.has(year - 1) && !at.has(year + 1) }
-  })
 }
 
 /** A span of years on the chart's axis: a stripe is the year plus and minus half */

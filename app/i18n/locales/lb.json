@@ -652,8 +652,6 @@
     "showYears": "Joren weisen",
     "showSource": "Quell weisen",
     "showDataAvailability": "Datverfügbarkeet weisen",
-    "showTimeseries": "Zäitrei weisen",
-    "showTrendline": "Trendlinn weisen",
     "visualizationTitle": "Visualiséierung",
     "loadingViz": "Daten ginn gelueden a Visualiséierung gëtt generéiert …",
     "downloadImage": "Bild eroflueden",
@@ -672,7 +670,6 @@
       "barsScale": "Balken mat Skala"
     },
     "hoverValue": "Wäert",
-    "hoverTrend": "Trend",
     "chart": {
       "zoomGroup": "D'Sträifen zoomen a verschiben",
       "earlier": "Fréier Joren",
