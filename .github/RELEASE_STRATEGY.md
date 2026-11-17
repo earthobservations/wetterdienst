@@ -359,7 +359,8 @@ An app that ships against a backend it was not run with is how app 0.21.0 got a 
 released after step 3, never in the same PR as the backend.
 
 - [ ] `app/package.json` `version` the next 0.x app version after 0.53.0 (`X.Y.Z` below); `CHANGELOG_APP.md` gets its
-  `## [X.Y.Z] - YYYY-MM-DD` section cut from `[Unreleased]`; `.github/RELEASE_STRATEGY.md` "currently" line for the
+  `## [X.Y.Z] - YYYY-MM-DD` section cut from `[Unreleased]`, and at its foot the `[X.Y.Z]` compare link with
+  `[Unreleased]` repointed at `app-vX.Y.Z` (`tests/test_changelog.py`); `.github/RELEASE_STRATEGY.md` "currently" line for the
   app; `docs/usage/migrating.md` (the pair sentence in the intro) names `app-vX.Y.Z` with 1.0.0. Land it.
 - [ ] `git tag app-vX.Y.Z && git push origin app-vX.Y.Z` (starts `docker-publish-app.yml`), then
   `gh release create app-vX.Y.Z --title "App vX.Y.Z" --notes-file <scratch file>` (starts `app-release.yml`, which
