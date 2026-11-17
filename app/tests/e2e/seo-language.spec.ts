@@ -54,9 +54,20 @@ for (const { name, languages, cookie } of visits) {
   })
 }
 
+// Deliberate, and for crawlers: a request with no `Accept-Language` at all gets the English head, since a crawler
+// sends no header and the page it renders is English (Googlebot's browser has navigator.languages of en-US). A
+// browser always sends the header, so no visitor is in this case. A header that names no language of the app gets
+// German, as the page does.
 test.describe('a request with no language at all', () => {
-  test('gets the German head, as the app falls back to German', async ({ request }) => {
+  test('gets the English head, as the page a crawler renders is English', async ({ request }) => {
     const html = await (await request.get('/about', { headers: { 'Accept-Language': '' } })).text()
+
+    expect(html).toContain('<html lang="en"')
+    expect(html).toContain('<title>About - Wetterdienst</title>')
+  })
+
+  test('with a language the app has none of gets the German head, as the app falls back', async ({ request }) => {
+    const html = await (await request.get('/about', { headers: { 'Accept-Language': 'pt-BR' } })).text()
 
     expect(html).toContain('<html lang="de"')
     expect(html).toContain('<title>Über uns - Wetterdienst</title>')

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseAcceptLanguage, pickLocale } from '../../shared/utils/language'
+import { NO_HEADER_LOCALE, parseAcceptLanguage, pickLocale, pickRequestLocale } from '../../shared/utils/language'
 import { DEFAULT_LOCALE, isLocaleCode, LANGUAGE_COOKIE, LOCALES } from '../../shared/utils/locales'
 
 // The language the app opens in (GH-4106), which the server writes the head of the shell in. The rule is the one
@@ -24,7 +24,7 @@ describe('the languages of an Accept-Language header', () => {
 })
 
 describe('the language the app opens in', () => {
-  it('is German for a visitor that sends no language, as a crawler does', () => {
+  it('is German for a browser with no language at all, which is the app\'s fallback', () => {
     expect(pickLocale(undefined, parseAcceptLanguage(undefined))).toBe('de')
     expect(DEFAULT_LOCALE).toBe('de')
   })
@@ -64,5 +64,32 @@ describe('the language the app opens in', () => {
     for (const { code } of LOCALES)
       expect(isLocaleCode(pickLocale(code, []))).toBe(true)
     expect(LANGUAGE_COOKIE).toBe('wd_lang')
+  })
+})
+
+describe('the language the server writes the head in', () => {
+  it('is English for a request with no header, as a crawler sends (deliberate: its rendered page is English)', () => {
+    expect(NO_HEADER_LOCALE).toBe('en')
+    expect(pickRequestLocale(undefined, undefined)).toBe('en')
+    expect(pickRequestLocale(undefined, '')).toBe('en')
+    expect(pickRequestLocale(undefined, '  ')).toBe('en')
+  })
+
+  it('is German for a header that names no language the app has, as the app falls back', () => {
+    expect(pickRequestLocale(undefined, 'pt-BR,pt;q=0.9')).toBe('de')
+    expect(pickRequestLocale(undefined, '*')).toBe('de')
+  })
+
+  it('is the app\'s answer for a header that names a language', () => {
+    expect(pickRequestLocale(undefined, 'de')).toBe('de')
+    expect(pickRequestLocale(undefined, 'en-GB,en;q=0.9,de;q=0.8')).toBe('en')
+    expect(pickRequestLocale(undefined, 'fr-CH,de;q=0.8')).toBe('fr')
+  })
+
+  it('is the language of the cookie over both', () => {
+    expect(pickRequestLocale('de', undefined)).toBe('de')
+    expect(pickRequestLocale('fr', 'pt-BR')).toBe('fr')
+    expect(pickRequestLocale('xx', undefined)).toBe('en')
+    expect(pickRequestLocale('xx', 'pt-BR')).toBe('de')
   })
 })

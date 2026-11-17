@@ -3,7 +3,8 @@
 // else the first of the browser's languages (`navigator.languages`) that a locale matches, else German. The server
 // cannot read `navigator.languages`, but the browser sends the same list as `Accept-Language`, so it asks the
 // same question of it, with the module's own matcher (`findBrowserLocale`) over the same table of locales. A
-// visitor that sends no header (a crawler) gets what the app falls back to.
+// visitor that names no language the app has gets what the app falls back to. A request with no header at all is
+// the one place the server decides differently from the app (`pickRequestLocale`).
 import type { LocaleCode } from './locales'
 import { findBrowserLocale } from '#i18n-kit/browser'
 import { DEFAULT_LOCALE, isLocaleCode, LOCALES } from './locales'
@@ -41,4 +42,27 @@ export function pickLocale(cookie: string | undefined, languages: readonly strin
     return cookie
   const found = findBrowserLocale(LOCALES.map(({ code, language }) => ({ code, language })), languages)
   return isLocaleCode(found) ? found : DEFAULT_LOCALE
+}
+
+/** The language of a request that sends no `Accept-Language` at all, which the app's rule has no answer for. */
+export const NO_HEADER_LOCALE: LocaleCode = 'en'
+
+/**
+ * The language the server writes the head of the shell in for a request: the language the app opens in
+ * (`pickLocale`), except that a request with no `Accept-Language` header, and no cookie that names a locale, gets
+ * English. That is deliberate and for crawlers: they send no header, and the page they render (Googlebot's browser
+ * has `navigator.languages` of `en-US`) is English, so the HTML they read first agrees with it. A browser always
+ * sends the header, so a visitor is never in this case. A header that names no language the app has is not
+ * "no header": the app falls back to German there, and so does the server.
+ *
+ * @param cookie The `wd_lang` cookie, if any
+ * @param acceptLanguage The `Accept-Language` header, if any
+ * @returns The code of a locale of the app
+ */
+export function pickRequestLocale(cookie: string | undefined, acceptLanguage: string | undefined): LocaleCode {
+  if (isLocaleCode(cookie))
+    return cookie
+  if (acceptLanguage === undefined || acceptLanguage.trim() === '')
+    return NO_HEADER_LOCALE
+  return pickLocale(undefined, parseAcceptLanguage(acceptLanguage))
 }

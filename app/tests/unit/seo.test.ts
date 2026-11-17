@@ -310,7 +310,7 @@ describe('the plugin that writes the shell', () => {
   }
 
   it('answers the path with its own tags, and says that the answer depends on the cookie and the header', async () => {
-    const { html, headers } = await render('/stripes?station=1048')
+    const { html, headers } = await render('/stripes?station=1048', { acceptLanguage: 'de-DE,de;q=0.9' })
 
     expect(html.head.join('')).toContain('<title>Klimastreifen - Wetterdienst</title>')
     expect(html.head.join('')).toContain('<link rel="canonical" href="https://wetterdienst.eobs.org/stripes">')
@@ -327,7 +327,7 @@ describe('the plugin that writes the shell', () => {
     expect(html.htmlAttrs).toEqual(['lang="en"'])
   })
 
-  it('answers in English for a browser that asks for English, German for one that asks for none', async () => {
+  it('answers in English for a request with no header, as a crawler sends, and in German for a language the app has none of', async () => {
     const english = await render('/about', { acceptLanguage: 'en-GB,en;q=0.9,de;q=0.8' })
     const none = await render('/about')
     const unsupported = await render('/about', { acceptLanguage: 'pt-BR,pt;q=0.9' })
@@ -337,7 +337,11 @@ describe('the plugin that writes the shell', () => {
     expect(english.html.head.join('')).toContain('<title>About - Wetterdienst</title>')
     expect(english.html.bodyPrepend.join('')).toContain('<h1>About - Wetterdienst</h1>')
     expect(english.html.head.join('')).toContain('<meta property="og:locale" content="en_GB">')
-    for (const { html } of [none, unsupported, german]) {
+    // a crawler sends no header, and the page it renders is English
+    expect(none.html.htmlAttrs).toEqual(['lang="en"'])
+    expect(none.html.head.join('')).toContain('<title>About - Wetterdienst</title>')
+    expect((await render('/about', { acceptLanguage: '' })).html.htmlAttrs).toEqual(['lang="en"'])
+    for (const { html } of [unsupported, german]) {
       expect(html.htmlAttrs).toEqual(['lang="de"'])
       expect(html.head.join('')).toContain('<title>Über uns - Wetterdienst</title>')
       expect(html.head.join('')).toContain('<meta property="og:locale" content="de_DE">')
@@ -347,6 +351,8 @@ describe('the plugin that writes the shell', () => {
   it('answers in the language of the cookie over the header, and ignores a cookie that is no language of the app', async () => {
     const french = await render('/about', { cookie: 'fr', acceptLanguage: 'en-GB' })
     const hamburg = await render('/about', { cookie: 'de-hh' })
+    const germanCookie = await render('/about', { cookie: 'de' })
+    const unsupportedCookie = await render('/about', { cookie: 'fr', acceptLanguage: 'pt-BR' })
     const stale = await render('/about', { cookie: 'xx', acceptLanguage: 'en-GB' })
 
     expect(french.html.htmlAttrs).toEqual(['lang="fr"'])
@@ -354,6 +360,9 @@ describe('the plugin that writes the shell', () => {
     expect(hamburg.html.htmlAttrs).toEqual(['lang="de-hh"'])
     expect(hamburg.html.head.join('')).toContain('<meta property="og:locale" content="de_DE">')
     expect(stale.html.htmlAttrs).toEqual(['lang="en"'])
+    // the cookie beats the English of no header, and the German of a language that is none of the app's
+    expect(germanCookie.html.htmlAttrs).toEqual(['lang="de"'])
+    expect(unsupportedCookie.html.htmlAttrs).toEqual(['lang="fr"'])
   })
 
   it('asks, by header as well, for the widget to be left out of the index', async () => {

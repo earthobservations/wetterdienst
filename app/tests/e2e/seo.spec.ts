@@ -6,6 +6,8 @@ import { mockBackend } from './accessibility/mock-backend'
 // the files are read without a browser (what a crawler that runs no script gets); the takeover needs one.
 
 const HOST = 'https://wetterdienst.eobs.org'
+// a German browser: a request with no language at all is told in English (tests/e2e/seo-language.spec.ts)
+const GERMAN = { 'Accept-Language': 'de-DE,de;q=0.9' }
 
 test.describe('the files', () => {
   test('serves a sitemap of the public pages, as XML, and not the widget', async ({ request }) => {
@@ -39,7 +41,7 @@ test.describe('the files', () => {
 
 test.describe('the shell', () => {
   test('carries the title, description, canonical link and social tags of the path, without a script', async ({ request }) => {
-    const html = await (await request.get('/about')).text()
+    const html = await (await request.get('/about', { headers: GERMAN })).text()
 
     expect(html).toContain('<title>Über uns - Wetterdienst</title>')
     expect(html).toMatch(/<meta name="description" content="[^"]+">/)
@@ -130,12 +132,12 @@ test.describe('the pages of the providers', () => {
   test('has a title, a description, a canonical link and a sitemap entry of its own for every provider', async ({ request }) => {
     const { providers } = await (await request.get('/api/providers')).json() as { providers: { provider: string, name_english: string }[] }
     const sitemap = await (await request.get('/sitemap.xml')).text()
-    const home = await (await request.get('/')).text()
+    const home = await (await request.get('/', { headers: GERMAN })).text()
     expect(providers.length).toBeGreaterThan(0)
 
     for (const { provider, name_english: name } of providers) {
       expect(sitemap, provider).toContain(`<loc>${HOST}/providers/${provider}</loc>`)
-      const response = await request.get(`/providers/${provider}`)
+      const response = await request.get(`/providers/${provider}`, { headers: GERMAN })
       expect(response.status(), provider).toBe(200)
       const html = await response.text()
       expect(html, provider).toContain(`<title>${escape(name)} - Wetterdienst</title>`)
