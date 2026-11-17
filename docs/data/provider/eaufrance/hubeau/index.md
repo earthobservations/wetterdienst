@@ -63,11 +63,29 @@ transmit on a grid — and each station is listed under the interval it was meas
 five in eight French gauges transmit every five minutes, most of the rest every ten or fifteen,
 and about a hundred hourly.
 
-Two consequences are worth knowing. A station that has published nothing recent cannot be
+The stage of every station over the last two hours is read in one go; a station quiet in them is
+asked for by name over the last 24 hours, and one that has published only discharge is measured on
+that. Its interval is the commonest spacing of its records (the shorter on a tie), but only if
+its records settle on it: at least 90 % of the spacings must be multiples of that interval (a
+missed transmission leaves twice the interval, which counts for it), and that interval must be at
+least 50 % of the spacings, from at least three spacings. A station that fails the test in the two
+hours is measured again over 24 hours under the same test. A sparse gauge that sends in bursts
+has a commonest spacing that means nothing, and listing it at that spacing put it under a
+different resolution from one lookup to the next (H502301401 was listed at 5, 10, 15 and 60
+minutes by turns over 30 days, measured on 2026-11-17).
+
+Three consequences are worth knowing. A station that has published nothing recent cannot be
 measured and is listed under no resolution until it transmits again, which is the state of most
-of the thousand-odd gauges the referential still marks as in service. And a station transmitting
+of the thousand-odd gauges the referential still marks as in service. A station whose steps don't
+settle is served under no resolution until they do: it is not listed at its commonest spacing,
+and the log says once per process how many there are. Of the 267 stations listed at 15 minutes
+on 2026-11-17, 7 did not keep that cadence; three of them are 60 to 80 % regular, so their steps
+settle in some windows and not in others. And a station transmitting
 on its own phase rather than on the wall clock — hourly at seven minutes past, say — is described
 correctly by its interval even though its timestamps do not land on the wall-clock hour.
+A station whose cadence changes (one was half-hourly until 2026-10-22 and quarter-hourly since)
+is listed under the new one once its recent records settle on it. A half-hourly station is
+served under no resolution, as no resolution covers that interval.
 
 ## The source's own verdict (`source`)
 
