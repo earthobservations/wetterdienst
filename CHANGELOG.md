@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `eaufrance/hubeau`: a station is listed at its commonest step only if at least 90 % of its
+  intervals are multiples of it and it covers at least 50 % of them (a missed transmission still
+  counts for it), over 2 h and, failing that, over 24 h. A sparse gauge that sends in bursts was
+  listed at 5, 10, 15 and 60 minutes by turns (H502301401); such a station, 7 of the 267 at
+  15 minutes, is now served under no resolution until its steps settle (GH-4166)
+
 ## [0.191.0] - 2026-11-17
 
 ### Added
