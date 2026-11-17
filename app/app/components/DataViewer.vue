@@ -872,7 +872,13 @@ function trendlineName(series: string) {
   return `${series} (${t('dataViewer.trendline')})`
 }
 
-interface SeriesData { name: string, x: number[], y: (number | null)[] }
+// `resolution` is the one every row of the series has (undefined before its first row, null where they differ): the line is
+// broken by it where rows are missing (GH-4100)
+interface SeriesData { name: string, x: number[], y: (number | null)[], resolution?: string | null }
+
+function noteResolution(series: SeriesData, resolution: string) {
+  series.resolution = series.resolution === undefined || series.resolution === resolution ? resolution : null
+}
 
 // The series a chart draws, from what was gathered of the rows: each sorted by time, those with no value at all left out, and a
 // trendline after each of them (collected apart, to be drawn on top) where it is on. `colorOf` is the place of a series'
@@ -888,6 +894,7 @@ function drawnSeries(gathered: Iterable<[string, SeriesData]>, colorOf: (key: st
       name: data.name,
       colorIndex: colorOf(id, values.length),
       kind: 'values',
+      resolution: data.resolution,
       x: order.map(i => data.x[i]!),
       y: order.map(i => data.y[i]!),
     }
@@ -926,6 +933,7 @@ const chartSeries = computed((): ExplorerSeries[] => {
     }
     series.x.push(moment)
     series.y.push(y)
+    noteResolution(series, value.resolution)
   }
 
   return drawnSeries(seriesMap, (_, index) => index)
@@ -972,6 +980,7 @@ const facetedChartData = computed((): FacetedChart[] => {
     const series = stationMap.get(stationKey)!
     series.x.push(moment)
     series.y.push(y)
+    noteResolution(series, value.resolution)
   }
 
   const result: FacetedChart[] = []

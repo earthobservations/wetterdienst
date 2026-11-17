@@ -93,7 +93,7 @@ def test_an_id_of_dwds_own_and_the_numbers_of_other_products_are_no_wmo_number()
     """`H808`, `Q870` of `SY` and `MN` and the `03319` and `46552` of the other products of Berlin-Dahlem are none."""
     found = parse_wmo_ids(STATIONSLEXIKON)["wmo_id"].to_list()
     assert not {"03319", "46552", "01459", "02205"} & set(found)
-    assert set(found) == {"10501", "10427", "10381", "10147"}
+    assert set(found) == {"10501", "10427", "10381", "10384", "10488", "10147"}
 
 
 def test_a_number_that_moved_with_the_station_belongs_to_both_its_ids() -> None:
