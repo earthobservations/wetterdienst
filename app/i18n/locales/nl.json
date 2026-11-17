@@ -934,7 +934,9 @@
     "groupingCoarse": "Grof",
     "groupingCompulsory": "Lagen met meer dan {shown} stations worden altijd gegroepeerd.",
     "legendGroup": "Een getal is een groep stations: klik om in te zoomen",
+    "legendGroupShare": "Een getal is een groep stations: klik om in te zoomen. Het gevulde deel van de ring toont hoeveel er nog meten.",
     "groupZoomed": "Ingezoomd op een groep. Stations erin: {shown}",
+    "groupZoomedReporting": "Ingezoomd op een groep. Stations erin: {shown}, waarvan actief: {reporting}",
     "whyFarther": "Het dichtstbijzijnde station dat nog meldt. Dichterbij: {name}, {distance}, tot {year}.",
     "whyFartherNoEnd": "Het dichtstbijzijnde station dat nog meldt. Dichterbij: {name}, {distance}, einde onbekend.",
     "pickCloser": "Kies in plaats daarvan {name}"

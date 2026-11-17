@@ -934,7 +934,9 @@
     "groupingCoarse": "Coarse",
     "groupingCompulsory": "Layers of more than {shown} stations are always grouped.",
     "legendGroup": "A number is a group of stations: click to zoom in",
+    "legendGroupShare": "A number is a group of stations: click to zoom in. The filled part of its ring shows how many still report.",
     "groupZoomed": "Zoomed in on a group. Stations in it: {shown}",
+    "groupZoomedReporting": "Zoomed in on a group. Stations in it: {shown}, of them reporting: {reporting}",
     "whyFarther": "The nearest station that still reports. Closer: {name}, {distance}, until {year}.",
     "whyFartherNoEnd": "The nearest station that still reports. Closer: {name}, {distance}, no end date known.",
     "pickCloser": "Pick {name} instead"

@@ -1078,7 +1078,7 @@ describe('why a farther station was picked, and which place the pick is for (GH-
       const legend = wrapper.find('[data-testid="map-legend"]')
       expect(legend.attributes('aria-label')).toBe('Legend')
       // the map opens at an outer zoom, where the stations are grouped: the legend says what a number is
-      expect(legend.findAll('li').map(item => item.text())).toEqual(['Still reporting', 'Stopped reporting', '12 A number is a group of stations: click to zoom in'])
+      expect(legend.findAll('li').map(item => item.text())).toEqual(['Still reporting', 'Stopped reporting', '12 A number is a group of stations: click to zoom in. The filled part of its ring shows how many still report.'])
       // the two swatches are different shapes (filled and hollow), and no colour alone
       expect(legend.find('[data-testid="map-legend-reporting"]').classes()).not.toContain('map-legend-dot-stopped')
       expect(legend.find('[data-testid="map-legend-stopped"]').classes()).toContain('map-legend-dot-stopped')
@@ -1911,18 +1911,28 @@ describe('the groups of stations at the outer zooms (GH-4079)', () => {
   it('says what a click on a group did: the map has zoomed in on it', async () => {
     const wrapper = await mountMap()
     await listed(wrapper)
-    stage.emit('group', 1234)
+    stage.emit('group', 1234, null)
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-announcement"]').text()).toBe('Zoomed in on a group. Stations in it: 1,234'))
+  })
+
+  it('says how many of the stations of a group report where the layer has a status for its stations', async () => {
+    const wrapper = await mountMap('/map?layer=measured')
+    await vi.waitFor(() => expect(stage.props.stations).toHaveLength(3))
+    stage.emit('group', 1234, 800)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-announcement"]').text()).toBe('Zoomed in on a group. Stations in it: 1,234, of them reporting: 800'))
+    // and a group none of whose stations report says so
+    stage.emit('group', 12, 0)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-announcement"]').text()).toBe('Zoomed in on a group. Stations in it: 12, of them reporting: 0'))
   })
 
   it('says it again for a second click on the same group: the status is emptied first, or a screen reader would not read the same text twice', async () => {
     const wrapper = await mountMap()
     await listed(wrapper)
     const spoken = () => wrapper.find('[data-testid="map-announcement"]').text()
-    stage.emit('group', 40)
+    stage.emit('group', 40, null)
     await vi.waitFor(() => expect(spoken()).toBe('Zoomed in on a group. Stations in it: 40'))
-    stage.emit('group', 40)
-    // emptied at once, then said again
+    stage.emit('group', 40, null)
+    // emptied at once, and said again after a moment, not in the same frame
     await nextTick()
     expect(spoken()).toBe('')
     await vi.waitFor(() => expect(spoken()).toBe('Zoomed in on a group. Stations in it: 40'))

@@ -3,7 +3,7 @@ import type { Cluster, Grouping } from '~/utils/map-cluster'
 import type { PlacedStation, Point, ReportingRule } from '~/utils/map-tool'
 import * as L from 'leaflet'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { clusterAt, clusterRadius, clusterStations, clusterText, isGroupedAt, worldPixels, zoomForCluster } from '~/utils/map-cluster'
+import { clusterAt, clusterRadius, clusterStations, clusterText, isGroupedAt, reportingSweep, worldPixels, zoomForCluster } from '~/utils/map-cluster'
 import { OSM_ATTRIBUTION, OSM_TILES } from '~/utils/map-tiles'
 import { clickReach, dotRadius, HOME_VIEW, SELECTED_EDGE_PX, SELECTED_RADIUS_PX } from '~/utils/map-tool'
 
@@ -49,8 +49,8 @@ const emit = defineEmits<{
   pick: [point: Point & { tolerance: number, tap: number, disc: number }]
   /** The view of the map after each move: its centre, which the panel lists the nearest stations of, and its zoom */
   view: [view: Point & { zoom: number }]
-  /** A click on a group of `count` stations: the map has zoomed in on them */
-  group: [count: number]
+  /** A click on a group of `count` stations, `reporting` of them reporting (null where the layer has no status): the map has zoomed in on them */
+  group: [count: number, reporting: number | null]
 }>()
 
 const container = ref<HTMLDivElement | null>(null)
@@ -80,25 +80,23 @@ const DOT = { fill: '#2358a8', halo: '#ffffff' }
 const NAVY = '#17335f'
 const SUN = '#ffc93c'
 
-/** The groups of the stations that report, and of those that have stopped, by zoom: made once for a zoom, until the list or the grouping changes */
+/** The groups of the stations at a zoom, those of every status together: made once for a zoom, until the list or the grouping changes */
 let clusterCache = new Map<string, Cluster[]>()
-let splitCache: { running: PlacedStation[], stopped: PlacedStation[] } | null = null
+/** Whether each station reports, asked of the rule once for the list (it reads a date), not once for each zoom */
+let statusCache: Map<PlacedStation, boolean> | null = null
 
-function clustersFor(kind: 'running' | 'stopped', zoom: number): Cluster[] {
+function clustersFor(zoom: number): Cluster[] {
   const grouping = props.grouping
   if (!grouping)
     return []
-  const key = `${kind}:${zoom}`
+  const key = String(zoom)
   let found = clusterCache.get(key)
   if (!found) {
-    // the status of every station, asked once for the list (it reads a date), not once for each zoom
-    if (!splitCache) {
-      const rule = props.reporting
-      splitCache = rule
-        ? { running: props.stations.filter(station => rule(station)), stopped: props.stations.filter(station => !rule(station)) }
-        : { running: props.stations, stopped: [] }
-    }
-    found = clusterStations(splitCache[kind], zoom, grouping.radius)
+    const rule = props.reporting
+    if (rule && !statusCache)
+      statusCache = new Map(props.stations.map(station => [station, rule(station)]))
+    const status = statusCache
+    found = clusterStations(props.stations, zoom, grouping.radius, undefined, status ? station => status.get(station) ?? true : undefined)
     clusterCache.set(key, found)
   }
   return found
@@ -106,29 +104,42 @@ function clustersFor(kind: 'running' | 'stopped', zoom: number): Cluster[] {
 
 function forgetClusters() {
   clusterCache = new Map()
-  splitCache = null
+  statusCache = null
 }
 
-/** A group: a disc with its number, filled where its stations report and hollow where they have stopped, as their dots are */
-function drawCluster(context: CanvasRenderingContext2D, x: number, y: number, count: number, stopped: boolean) {
+/**
+ * A group: a disc with its number, as filled as its stations report. All of them report: a filled disc with a light number, as
+ * a dot that reports is filled. None does: a hollow disc, a ring with a number in the dot's blue. A mix: the hollow disc with
+ * a band round its edge, filled from the top clockwise for the share that reports (`reportingSweep`), a number in the dot's blue
+ * on the light of the middle. The edges are the dots' (blue on the map's light halo), so the share is a difference of shape,
+ * not of colour alone (WCAG 1.4.1, 1.4.11).
+ */
+function drawCluster(context: CanvasRenderingContext2D, x: number, y: number, count: number, reporting: number) {
   const radius = clusterRadius(count)
+  const sweep = reportingSweep(reporting, count)
+  const filled = sweep >= 2 * Math.PI
   context.beginPath()
   context.arc(x, y, radius, 0, Math.PI * 2)
-  if (stopped) {
-    context.fillStyle = DOT.halo
+  context.fillStyle = filled ? DOT.fill : DOT.halo
+  context.strokeStyle = filled ? DOT.halo : DOT.fill
+  context.lineWidth = filled ? 2 : 2.5
+  context.fill()
+  context.stroke()
+  if (!filled && sweep > 0) {
+    // the band is inside the edge (2.5 px), as wide as the middle can spare for its number: 2 px for a small group, 5 for a large
+    const band = Math.min(5, Math.max(2, radius - 10))
+    context.beginPath()
+    context.arc(x, y, radius - 1.25 - band / 2, -Math.PI / 2, -Math.PI / 2 + sweep)
     context.strokeStyle = DOT.fill
-    context.lineWidth = 2.5
-    context.fill()
+    context.lineWidth = band
+    context.stroke()
+    // and the inner edge of the band, so that the part of it that is hollow is told from the middle
+    context.beginPath()
+    context.arc(x, y, radius - 1.25 - band, 0, Math.PI * 2)
+    context.lineWidth = 1
     context.stroke()
   }
-  else {
-    context.fillStyle = DOT.fill
-    context.strokeStyle = DOT.halo
-    context.lineWidth = 2
-    context.fill()
-    context.stroke()
-  }
-  context.fillStyle = stopped ? DOT.fill : DOT.halo
+  context.fillStyle = filled ? DOT.halo : DOT.fill
   context.font = '700 12px system-ui, sans-serif'
   context.textAlign = 'center'
   context.textBaseline = 'middle'
@@ -158,16 +169,16 @@ const DotLayer = L.GridLayer.extend({
     const northWest = owner.unproject(origin.subtract([pad, pad]), coords.z)
     const southEast = owner.unproject(origin.add(size).add([pad, pad]), coords.z)
     const inBox = (point: Point) => !(point.latitude > northWest.lat || point.latitude < southEast.lat || point.longitude < northWest.lng || point.longitude > southEast.lng)
-    const groups = (kind: 'running' | 'stopped') => clustersFor(kind, coords.z).filter(cluster => inBox(cluster))
-    const stoppedGroups = grouped && props.reporting ? groups('stopped') : []
-    const runningGroups = grouped ? groups('running') : []
+    const groups = grouped ? clustersFor(coords.z).filter(cluster => inBox(cluster)) : []
     // the stations in this tile, the ones that have stopped first so that those that report are drawn over them
     const inTile = grouped ? [] : props.stations.filter(station => inBox(station))
+    // a station that is alone keeps its own kind, as a dot
+    const alone = groups.filter(group => group.station)
     const stopped = grouped
-      ? stoppedGroups.filter(group => group.station).map(group => group.station!)
+      ? alone.filter(group => group.reporting === 0).map(group => group.station!)
       : props.reporting ? inTile.filter(station => !props.reporting!(station)) : []
     const running = grouped
-      ? runningGroups.filter(group => group.station).map(group => group.station!)
+      ? alone.filter(group => group.reporting > 0).map(group => group.station!)
       : props.reporting ? inTile.filter(station => props.reporting!(station)) : inTile
     // a station that has stopped is a hollow dot: a ring in the dot's blue (5.7:1 against the map) round the light of the
     // map's halo, so that it differs from a dot that reports by its shape, not by its colour alone (WCAG 1.4.1, 1.4.11).
@@ -195,14 +206,12 @@ const DotLayer = L.GridLayer.extend({
       if (r > 2)
         context.stroke()
     }
-    // the groups over the dots, those that have stopped under those that report
-    for (const [list, isStopped] of [[stoppedGroups, true], [runningGroups, false]] as const) {
-      for (const group of list) {
-        if (group.count < 2)
-          continue
-        const at = owner.project([group.latitude, group.longitude], coords.z).subtract(origin)
-        drawCluster(context, at.x, at.y, group.count, isStopped)
-      }
+    // the groups over the dots
+    for (const group of groups) {
+      if (group.count < 2)
+        continue
+      const at = owner.project([group.latitude, group.longitude], coords.z).subtract(origin)
+      drawCluster(context, at.x, at.y, group.count, group.reporting)
     }
     return tile
   },
@@ -313,8 +322,7 @@ function groupAt(latlng: L.LatLng): Cluster | null {
     if (Math.hypot(disc.x - pixel.x, disc.y - pixel.y) <= clickReach(zoom, false).disc)
       return null
   }
-  // those that report are drawn over those that have stopped: they are tried first
-  return clusterAt(clustersFor('running', zoom), pixel) ?? clusterAt(clustersFor('stopped', zoom), pixel)
+  return clusterAt(clustersFor(zoom), pixel)
 }
 
 /** A click on a group zooms in on its stations (no more than to where every station is its own dot); it is no pick of a place */
@@ -326,7 +334,7 @@ function zoomInOnGroup(latlng: L.LatLng): boolean {
   const bounds = L.latLngBounds([group.bounds.south, group.bounds.west], [group.bounds.north, group.bounds.east])
   const zoom = zoomForCluster(owner.getBoundsZoom(bounds, false, L.point(48, 48)), owner.getZoom(), props.grouping.separateFrom, owner.getMaxZoom())
   owner.setView(bounds.getCenter(), zoom, { animate: !reducedMotion.value })
-  emit('group', group.count)
+  emit('group', group.count, props.reporting ? group.reporting : null)
   return true
 }
 

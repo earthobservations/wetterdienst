@@ -934,7 +934,9 @@
     "groupingCoarse": "Grov",
     "groupingCompulsory": "Lag med mere end {shown} stationer er altid grupperet.",
     "legendGroup": "Et tal er en gruppe af stationer: klik for at zoome ind",
+    "legendGroupShare": "Et tal er en gruppe af stationer: klik for at zoome ind. Den udfyldte del af ringen viser, hvor mange der stadig leverer data.",
     "groupZoomed": "Zoomet ind på en gruppe. Stationer i den: {shown}",
+    "groupZoomedReporting": "Zoomet ind på en gruppe. Stationer i den: {shown}, heraf i drift: {reporting}",
     "whyFarther": "Den nærmeste station, der stadig måler. Tættere på: {name}, {distance}, til {year}.",
     "whyFartherNoEnd": "Den nærmeste station, der stadig måler. Tættere på: {name}, {distance}, slutdato ukendt.",
     "pickCloser": "Vælg {name} i stedet"

@@ -24,8 +24,9 @@ Types of changes:
   grouped (None, Fine, Coarse: the radius of a group and the zoom from which every station is its
   own dot; Fine by default); a layer of more than 10,000 stations is always grouped, cannot be set
   to None, and says so. The groups are drawn on the map's canvas, so they are no stops of the
-  keyboard: the map's keys and buttons zoom in on them. The station pickers split their groups at
-  the same zoom (GH-4079).
+  keyboard: the map's keys and buttons zoom in on them. On the measurements a place is one group
+  of the stations that report and those that have stopped, a ring filled for the share that
+  reports. The station pickers split their groups at the same zoom (GH-4079).
 - `[Stripes]` The climate stripes can be drawn as bars, and as bars with a scale, with a switch
   above the chart (kept in the link as `variant`). A bar is the year's anomaly from the mean the
   colours are centred on (1971–2000, or the station's whole record), up for warm or wet, in the

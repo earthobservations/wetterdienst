@@ -293,7 +293,7 @@ test.describe('the map tool: what a pick moves, and what a click reaches', () =>
     await expect.poll(() => zoomOf(page)).toBe(6)
     const legend = page.getByTestId('map-legend')
     await expect(legend).toBeVisible()
-    await expect(legend.getByRole('listitem')).toHaveText([en.mapTool.legendReporting, en.mapTool.legendStopped, `12 ${en.mapTool.legendGroup}`])
+    await expect(legend.getByRole('listitem')).toHaveText([en.mapTool.legendReporting, en.mapTool.legendStopped, `12 ${en.mapTool.legendGroupShare}`])
     const map = page.getByRole('application', { name: /^Station map/ })
     const box = (await map.boundingBox())!
     const centre = (latitude: number, longitude: number) => {
@@ -467,6 +467,31 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     await page.mouse.click(box.x + box.width / 2 + at.x, box.y + box.height / 2 + at.y)
     await expect(page.getByTestId('map-station-name')).toHaveText('BERLIN-TEMPELHOF')
     expect(await zoomOf(page)).toBe(6)
+  })
+
+  test('draws a place that has stations that report and stations that have stopped as one group, a ring filled for the share that reports, and says it on a click', async ({ page, baseURL }) => {
+    // forty stations on one place, half of them reporting: the first twenty, the others stopped in 2010
+    const running = new Date(Date.now() - 2 * 86_400_000).toISOString().replace(/T.*$/, 'T00:00:00+00:00')
+    const mixed = dense(53.6, 9.99).map((entry, index) => ({ ...entry, start_timestamp: '1990-01-01T00:00:00+00:00', end_timestamp: index < 20 ? running : '2010-12-31T00:00:00+00:00' }))
+    await open(page, baseURL!, '/map?layer=measured', { stations: () => ({ stations: [...mixed, BERLIN_ALONE] }) })
+    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 41')
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
+    const at = offsetAtOpening(53.611, 9.998)
+    const centre = { x: box.x + box.width / 2 + at.x, y: box.y + box.height / 2 + at.y }
+    // a group of forty is 16 px in radius; its band, 5 px wide, is 12.25 px from the middle. Half report: the band is filled from
+    // the top clockwise, so the right of it is the dot's blue and the left of it the light of the hollow ring
+    await expect.poll(() => canvasPixel(page, centre.x + 12.25, centre.y)).toEqual([0x23, 0x58, 0xA8])
+    const left = await canvasPixel(page, centre.x - 12.25, centre.y)
+    expect(left!.every(channel => channel >= 220), 'the band is hollow where the stations have stopped').toBe(true)
+    // the middle of the disc is light, for the number
+    // and the legend says what the filled part of the ring is
+    await expect(page.getByTestId('map-legend').getByRole('listitem').last()).toHaveText(`12 ${en.mapTool.legendGroupShare}`)
+
+    // one group for the place, whatever the status: a click zooms in on all forty
+    await page.mouse.click(centre.x, centre.y)
+    await expect(page.getByTestId('map-announcement')).toHaveText('Zoomed in on a group. Stations in it: 40, of them reporting: 20')
+    await expect.poll(() => zoomOf(page)).toBe(8)
   })
 
   test('is turned off by the control, which draws every station as a dot at the zoom of the opening', async ({ page, baseURL }) => {
