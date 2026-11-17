@@ -21,8 +21,8 @@ vi.mock('~/components/StationMap.vue', async () => {
   return {
     __esModule: true,
     default: defineComponent({
-      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate'],
-      emits: ['pick', 'view'],
+      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping'],
+      emits: ['pick', 'view', 'group'],
       setup(props, { emit }) {
         stage.props = props
         stage.emit = emit as (...args: any[]) => void
@@ -1077,21 +1077,28 @@ describe('why a farther station was picked, and which place the pick is for (GH-
       expect(reporting(CLOSED)).toBe(false)
       const legend = wrapper.find('[data-testid="map-legend"]')
       expect(legend.attributes('aria-label')).toBe('Legend')
-      expect(legend.findAll('li').map(item => item.text())).toEqual(['Still reporting', 'Stopped reporting'])
+      // the map opens at an outer zoom, where the stations are grouped: the legend says what a number is
+      expect(legend.findAll('li').map(item => item.text())).toEqual(['Still reporting', 'Stopped reporting', '12 A number is a group of stations: click to zoom in'])
       // the two swatches are different shapes (filled and hollow), and no colour alone
       expect(legend.find('[data-testid="map-legend-reporting"]').classes()).not.toContain('map-legend-dot-stopped')
       expect(legend.find('[data-testid="map-legend-stopped"]').classes()).toContain('map-legend-dot-stopped')
-      expect(legend.findAll('span[aria-hidden="true"]')).toHaveLength(2)
+      expect(legend.findAll('span[aria-hidden="true"]')).toHaveLength(3)
+      // from the zoom where every station is its own dot there are no groups, and the legend has the two dots only
+      stage.emit('view', { latitude: 53, longitude: 10, zoom: 9 })
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').findAll('li').map(item => item.text())).toEqual(['Still reporting', 'Stopped reporting']))
     })
 
-    it('are not told apart on the forecast layer, whose points have no status: no rule, no legend', async () => {
+    it('are not told apart on the forecast layer, whose points have no status: no rule, and a legend of the groups only', async () => {
       const wrapper = await mountMap()
       await listed(wrapper)
       expect(stage.props.reporting).toBeUndefined()
-      expect(wrapper.find('[data-testid="map-legend"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="map-legend"]').findAll('li').map(item => item.text())).toEqual(['12 A number is a group of stations: click to zoom in'])
       await layerButton(wrapper, 'measured').trigger('click')
-      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').exists()).toBe(true))
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').findAll('li')).toHaveLength(3))
       await layerButton(wrapper, 'forecast').trigger('click')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').findAll('li')).toHaveLength(1))
+      // at the zoom where no station is grouped the forecast's points need no legend
+      stage.emit('view', { latitude: 53, longitude: 10, zoom: 10 })
       await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').exists()).toBe(false))
     })
   })
@@ -1841,5 +1848,64 @@ describe('the reader\'s own position', () => {
     expect(wrapper.find('[data-testid="map-place"]').exists()).toBe(false)
     expect(stage.props.place).toBeNull()
     expect(wrapper.text()).not.toContain('Your position')
+  })
+})
+
+describe('the groups of stations at the outer zooms (GH-4079)', () => {
+  const MEDIUM = { radius: 50, separateFrom: 9 }
+
+  it('opens with the medium step, and the reader chooses how much is grouped: none, or finer or coarser groups', async () => {
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    expect(stage.props.grouping).toEqual(MEDIUM)
+    expect(wrapper.find('[data-testid="map-grouping-note"]').exists()).toBe(false)
+    ;(wrapper.vm as any).groupingSelect = 'coarse'
+    await vi.waitFor(() => expect(stage.props.grouping).toEqual({ radius: 80, separateFrom: 10 }))
+    ;(wrapper.vm as any).groupingSelect = 'fine'
+    await vi.waitFor(() => expect(stage.props.grouping).toEqual({ radius: 30, separateFrom: 8 }))
+    ;(wrapper.vm as any).groupingSelect = 'off'
+    await vi.waitFor(() => expect(stage.props.grouping).toBeNull())
+    // no groups, so nothing to say of them
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').exists()).toBe(false))
+  })
+
+  it('is a control with a name of its own, that a keyboard and a screen reader reach like the other choices over the map', async () => {
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    const control = wrapper.find('[data-testid="map-grouping"]')
+    expect(control.attributes('aria-label')).toBe('Grouping')
+    expect(control.text()).toBe('Medium groups')
+  })
+
+  it('cannot be turned off on a layer of more than 10,000 stations, which only sets how fine its groups are, and says why', async () => {
+    const extra = Array.from({ length: 10_000 }, (_, index) => station(`X${index}`, `Point ${index}`, 40 + (index % 100) / 10, index % 90))
+    FORECAST_STATIONS.push(...extra)
+    try {
+      const wrapper = await mountMap()
+      await listed(wrapper)
+      expect(wrapper.find('[data-testid="map-grouping-note"]').text()).toBe('Layers of more than 10,000 stations are always grouped.')
+      expect(wrapper.find('[data-testid="map-grouping"]').attributes('aria-describedby')).toBe('map-grouping-note')
+      ;(wrapper.vm as any).groupingSelect = 'off'
+      // the choice is kept as the default step: the groups stay
+      await nextTick()
+      expect(stage.props.grouping).toEqual(MEDIUM)
+      expect((wrapper.vm as any).groupingItems.find((item: any) => item.value === 'off').disabled).toBe(true)
+      ;(wrapper.vm as any).groupingSelect = 'coarse'
+      await vi.waitFor(() => expect(stage.props.grouping).toEqual({ radius: 80, separateFrom: 10 }))
+      // a layer of fewer stations follows the control again
+      await layerButton(wrapper, 'measured').trigger('click')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-grouping-note"]').exists()).toBe(false))
+      expect((wrapper.vm as any).groupingItems.find((item: any) => item.value === 'off').disabled).toBe(false)
+    }
+    finally {
+      FORECAST_STATIONS.splice(FORECAST_STATIONS.length - extra.length, extra.length)
+    }
+  })
+
+  it('says what a click on a group did: the map has zoomed in on it', async () => {
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    stage.emit('group', 1234)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-announcement"]').text()).toBe('Zoomed in on a group. Stations in it: 1,234'))
   })
 })

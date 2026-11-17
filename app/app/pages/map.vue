@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ProviderNetworkCoverageResponse, Station, StripesStationsResponse } from '#shared/types/api'
+import type { GroupingChoice } from '~/utils/map-cluster'
 import type { CloserStation, MapLayer, MapState, MeasuredSource, PlacedStation, PlaceOrigin, Point, ReportingRule } from '~/utils/map-tool'
 import { defineAsyncComponent } from 'vue'
 import MapForecast from '~/components/MapForecast.vue'
@@ -8,6 +9,7 @@ import MapStripes from '~/components/MapStripes.vue'
 import UseMyLocation from '~/components/UseMyLocation.vue'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber } from '~/utils/format'
+import { DEFAULT_GROUPING, GROUPING_CHOICES, GROUPING_COMPULSORY_ABOVE, groupingFor, isGroupedAt } from '~/utils/map-cluster'
 import {
   closerStoppedStation,
   DEFAULT_MEASURED,
@@ -227,6 +229,28 @@ const entries = computed(() => searching.value ? found.value : near.value)
 const countLabel = computed(() => t('mapTool.count', { count: stations.value.length, shown: formatNumber(stations.value.length, formatLanguage.value, 0) }))
 const mapLabel = computed(() => t('mapTool.mapLabel', { layer: layerLabel.value }))
 
+// ---- the groups of stations at the outer zooms (GH-4079) ----------------------------------------------------------
+
+// How much is grouped is the reader's choice (a step of the control over the map: the radius of a group and the zoom from
+// which every station is its own dot), except on a layer of more than `GROUPING_COMPULSORY_ABOVE` stations, which is
+// always grouped: there the control only sets how fine the groups are, and says why
+const groupingChoice = ref<GroupingChoice>(DEFAULT_GROUPING)
+const groupingInForce = computed(() => groupingFor(groupingChoice.value, stations.value.length))
+const groupingSelect = computed({
+  get: () => groupingInForce.value.choice,
+  set: (choice: GroupingChoice) => {
+    groupingChoice.value = choice
+  },
+})
+const groupingItems = computed(() => GROUPING_CHOICES.map(choice => ({
+  value: choice,
+  label: { off: t('mapTool.groupingOff'), fine: t('mapTool.groupingFine'), medium: t('mapTool.groupingMedium'), coarse: t('mapTool.groupingCoarse') }[choice],
+  disabled: choice === 'off' && groupingInForce.value.compulsory,
+})))
+const groupingCompulsoryText = computed(() => t('mapTool.groupingCompulsory', { shown: formatNumber(GROUPING_COMPULSORY_ABOVE, formatLanguage.value, 0) }))
+/** Whether the stations are grouped at the zoom the map is at, which the legend says */
+const groupedNow = computed(() => isGroupedAt(groupingInForce.value.grouping, view.value.zoom))
+
 // ---- the station picked ---------------------------------------------------------------------------------------
 
 const selected = computed<PlacedStation | null>(() => selectedId.value ? stations.value.find(station => station.station_id === selectedId.value) ?? null : null)
@@ -383,6 +407,11 @@ function onPick(point: Point & { tolerance: number, tap?: number, disc?: number 
  */
 function pickCentre() {
   pickAt({ latitude: view.value.latitude, longitude: view.value.longitude }, SAME_PLACE_KM, true, 0, 0, { kind: 'centre' })
+}
+
+/** A click on a group of stations has zoomed the map in on them: said, as a pick is */
+function onGroup(count: number) {
+  announcement.value = t('mapTool.groupZoomed', { shown: formatNumber(count, formatLanguage.value, 0) })
 }
 
 function back() {
@@ -848,6 +877,21 @@ watch(() => route.query, (query) => {
                   {{ t('mapTool.loadingStations') }}
                 </span>
               </div>
+              <!-- how much is grouped (GH-4079), under the layers: a row of its own, where the note of a layer that cannot be left ungrouped has room -->
+              <div v-if="listStatus === 'success' && stations.length" class="map-chips-row">
+                <USelect
+                  v-model="groupingSelect"
+                  :items="groupingItems"
+                  :aria-label="t('mapTool.grouping')"
+                  :aria-describedby="groupingInForce.compulsory ? 'map-grouping-note' : undefined"
+                  size="sm"
+                  class="map-select"
+                  data-testid="map-grouping"
+                />
+                <p v-if="groupingInForce.compulsory" id="map-grouping-note" class="map-status map-note" data-testid="map-grouping-note">
+                  {{ groupingCompulsoryText }}
+                </p>
+              </div>
               <UAlert
                 v-if="listStatus === 'error'"
                 class="map-failure"
@@ -870,21 +914,29 @@ watch(() => route.query, (query) => {
                 :locate="locateCount"
                 :place="place"
                 :reporting="reporting"
+                :grouping="groupingInForce.grouping"
                 :label="mapLabel"
                 @pick="onPick"
                 @view="view = $event"
+                @group="onGroup"
               />
             </ClientOnly>
 
             <!-- what the two kinds of dot are, on the measured layer: a filled dot reports, a hollow one has stopped -->
-            <ul v-if="reporting && listStatus === 'success' && stations.length" class="map-legend" :aria-label="t('mapTool.legend')" data-testid="map-legend">
-              <li>
-                <span class="map-legend-dot" aria-hidden="true" data-testid="map-legend-reporting" />
-                {{ t('mapTool.legendReporting') }}
-              </li>
-              <li>
-                <span class="map-legend-dot map-legend-dot-stopped" aria-hidden="true" data-testid="map-legend-stopped" />
-                {{ t('mapTool.legendStopped') }}
+            <ul v-if="(reporting || groupedNow) && listStatus === 'success' && stations.length" class="map-legend" :aria-label="t('mapTool.legend')" data-testid="map-legend">
+              <template v-if="reporting">
+                <li>
+                  <span class="map-legend-dot" aria-hidden="true" data-testid="map-legend-reporting" />
+                  {{ t('mapTool.legendReporting') }}
+                </li>
+                <li>
+                  <span class="map-legend-dot map-legend-dot-stopped" aria-hidden="true" data-testid="map-legend-stopped" />
+                  {{ t('mapTool.legendStopped') }}
+                </li>
+              </template>
+              <li v-if="groupedNow">
+                <span class="map-legend-dot map-legend-group" aria-hidden="true" data-testid="map-legend-group">12</span>
+                {{ t('mapTool.legendGroup') }}
               </li>
             </ul>
           </div>
@@ -1043,6 +1095,13 @@ watch(() => route.query, (query) => {
     display: none;
   }
 }
+.map-note {
+  /* why the groups cannot be turned off, on its own line under the chips */
+  align-self: flex-start;
+  max-width: 28rem;
+  border-radius: var(--ui-radius);
+  pointer-events: auto;
+}
 .map-failure {
   max-width: 28rem;
   background: var(--ui-bg);
@@ -1082,6 +1141,18 @@ watch(() => route.query, (query) => {
   border-radius: 50%;
   background: #2358a8;
   box-shadow: 0 0 0 1px #2358a8;
+}
+.map-legend-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-inline: -0.1875rem;
+  color: #ffffff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
 }
 .map-legend-dot-stopped {
   border: 2px solid #2358a8;

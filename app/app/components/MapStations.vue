@@ -4,6 +4,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png'
 import markerIcon from 'leaflet/dist/images/marker-icon.png'
 import markerShadow from 'leaflet/dist/images/marker-shadow.png'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { DEFAULT_GROUPING, GROUPINGS } from '~/utils/map-cluster'
 import { OSM_ATTRIBUTION, OSM_TILES } from '~/utils/map-tiles'
 
 const props = defineProps<{
@@ -46,6 +47,9 @@ const selectedIcon = L.icon({
   shadowSize: [54, 54],
   className: 'wd-marker-selected',
 })
+
+/** The zoom from which every station of the picker is its own marker: the map tool's default one, so that the two group alike */
+const PICKER_SEPARATE_FROM = GROUPINGS[DEFAULT_GROUPING].separateFrom
 
 const { t } = useI18n()
 
@@ -119,6 +123,9 @@ async function createMarkers() {
   try {
     result = await useLMarkerCluster({
       leafletObject: { addLayer: () => leafletMap } as unknown as L.Map,
+      // the groups of the map tool (GH-4079) split up at the same zoom: from it every station is its own marker. The radius
+      // is leaflet.markercluster's own 80 px
+      options: { maxClusterRadius: 80, disableClusteringAtZoom: PICKER_SEPARATE_FROM },
       markers: stations.map(station => ({
         name: station.name,
         lat: station.latitude,

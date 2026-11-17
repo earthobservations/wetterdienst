@@ -2,6 +2,7 @@ import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import MapStations from '~/components/MapStations.vue'
+import { DEFAULT_GROUPING, GROUPINGS } from '~/utils/map-cluster'
 
 // The markers handed to leaflet.markercluster; the map itself is left to the e2e tests. Like
 // useLMarkerCluster(), it adds its cluster to the map it is handed before returning.
@@ -53,6 +54,27 @@ describe('mapStations', () => {
     ])
     // Leaflet names a marker for a screen reader by its `alt`, "Marker" unless it is given one
     expect(markers.map(m => m.options.alt)).toEqual(markers.map(m => m.options.title))
+  })
+})
+
+describe('mapStations groups', () => {
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    markerCluster.mockClear()
+  })
+
+  it('splits at the zoom the map tool does (GH-4079), so that the picker and the map group alike', async () => {
+    wrapper = await mountSuspended(MapStations, {
+      props: { stations: [{ station_id: '00001', name: 'Test Station', region: 'Berlin', latitude: 52.5, longitude: 13.4 }], selectedStations: [] },
+    })
+    const vm = wrapper.vm as any
+    vm.map = { leafletObject: { getContainer: () => document.createElement('div'), addLayer: () => {}, removeLayer: () => {}, fitBounds: () => {} } }
+    await vm.onMapReady()
+    const { options } = markerCluster.mock.calls[0]![0] as unknown as { options: Record<string, number> }
+    expect(options).toEqual({ maxClusterRadius: 80, disableClusteringAtZoom: GROUPINGS[DEFAULT_GROUPING].separateFrom })
   })
 })
 

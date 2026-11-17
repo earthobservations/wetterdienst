@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Map]` The stations of the map are grouped at the outer zooms: stations that lie close together
+  are one disc with their number, which a click or tap zooms in on; a station that is alone stays a
+  dot, and the one picked stays in view above its group. A control under the layers sets how much
+  is grouped (none, fine, medium, coarse: the radius of a group and the zoom from which every
+  station is its own dot); a layer of more than 10,000 stations is always grouped and says so.
+  The groups are drawn on the map's canvas, so they are no stops of the keyboard: the map's keys
+  and buttons zoom in on them. The station pickers split their groups at the same zoom (GH-4079).
+
 ### Changed
 
 - `[Stripes]` The stripes' colours follow Ed Hawkins' method, as the backend classes them: 16
