@@ -53,10 +53,14 @@ class Cadence(NamedTuple):
 
 
 _ZERO_TAIL = (
-    "almost always 0.0 after about +100 to +125 h at lowland stations, a real zero and no gap: "
-    "the totals of 6, 12 and 24 h (`RR6c`, `RRhc`, `RRdc`) still carry rain"
+    "0.0 from about +100 to +125 h at most German lowland stations (`RR3c`: often, median last non-zero +132 h), "
+    "a real zero and no gap: the totals of 12 and 24 h (`RRhc`, `RRdc`) still carry rain, `RR6c` falls to zero early "
+    "at some stations"
 )
-_TX_TN = "some stations give it at 00 and 12 UTC instead (Tokyo)"
+_TX_TN = (
+    "06 and 18 UTC at about 70 % of the stations; at the others at one of them, at all four of 00/06/12/18, "
+    "or at 00 or 12 UTC (Tokyo)"
+)
 _RD = "06 UTC; 07 UTC as well at 3 of the 4 MOSMIX-L stations and at 1,976 of 5,648 MOSMIX-S stations"
 
 #: every element of MOSMIX-L (114), under the name DWD writes it; ordered by window, then by name

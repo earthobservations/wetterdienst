@@ -2,9 +2,10 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """The windows and the steps of the MOSMIX elements, held to two runs of DWD's files (GH-4176).
 
-`docs/_ext/mosmix_cadence.py` is the table behind `docs/data/provider/dwd/mosmix/elements/index.md`: for each element its
-window, the UTC hours at which its steps fall and its first and last step. It was measured on 2026-11-17 (MOSMIX-L of
-four stations, MOSMIX-S of all 5,648), and these tests hold it to the part of those runs kept beside this file:
+`docs/_ext/mosmix_cadence.py` is the table behind `docs/data/provider/dwd/mosmix/elements/index.md`: for each
+element its window, the UTC hours at which its steps fall and its first and last step. It was measured on 2026-11-17
+(MOSMIX-L of four stations, MOSMIX-S of all 5,648), and these tests hold it to the part of those runs kept beside
+this file:
 
 - `MOSMIX_L_2026111703_2_stations.kmz`: the run of 2026-11-17 03 UTC of MOSMIX-L for `10382` (Berlin-Tegel) and `10961`
   (Zugspitze), the two placemarks as DWD wrote them, in one file (32 KB).
@@ -192,7 +193,7 @@ def test_the_zero_tail_is_in_the_description_of_the_elements_the_table_names_it_
         for parameter in dataset.parameters:
             if parameter.name_original in named:
                 assert "real zeros, not missing values" in parameter.description
-                assert "+100 to +125 h" in parameter.description
+                assert "2026-11-16/17" in parameter.description
 
 
 def test_the_description_of_the_duration_of_precipitation_says_which_station_skip_empty_drops() -> None:
@@ -350,6 +351,20 @@ def test_the_steps_of_mosmix_s_fall_at_the_hours_of_the_table(small: Run) -> Non
     assert not problems, "\n".join(problems)
 
 
+def test_the_range_of_the_complete_station_of_mosmix_s_is_the_range_of_the_table(small: Run) -> None:
+    """`10382` has every element it carries at its first and last step of the table's `s_range`, as most stations do."""
+    problems = []
+    for element, steps in small["10382"].items():
+        given = _given(steps)
+        cadence = mosmix_cadence.ELEMENTS[element]
+        if not given or cadence.subset:
+            continue
+        assert cadence.s_range is not None
+        if (given[0][0], given[-1][0]) != cadence.s_range:
+            problems.append(f"{element}: {(given[0][0], given[-1][0])}, table {cadence.s_range}")
+    assert not problems, "\n".join(problems)
+
+
 def _missing_rr1c(steps: list[tuple[int, str]]) -> list[int]:
     return [step for step, value in steps if value == "-"]
 
@@ -371,6 +386,27 @@ def test_mosmix_s_has_no_precipitation_total_of_6_12_or_24_hours(small: Run) -> 
 
     assert {"RR1c", "RR3c", "R602", "Rd02", "Rh00"} <= elements
     assert not elements & {"RR6c", "RRhc", "RRdc", "DRR1"}
+
+
+@pytest.mark.remote
+def test_the_latest_run_gives_every_element_at_the_hours_of_the_table() -> None:
+    """The newest MOSMIX-L run, whichever hour it is of: an element is at the UTC hours of the table in every run."""
+    request = DwdMosmixRequest(parameters=[("hourly", "large")], options=Options(humanize=False)).filter_by_station_id(
+        station_id=["10382"]
+    )
+    df = next(request.values().query()).df
+
+    by_lower = {element.lower(): cadence for element, cadence in mosmix_cadence.ELEMENTS.items()}
+    problems = []
+    for parameter, frame in df.group_by("parameter"):
+        cadence = by_lower[parameter[0]]
+        seen = set(frame["timestamp"].dt.hour().to_list())
+        allowed = set(cadence.hours) | set(cadence.extra)
+        if not seen <= allowed:
+            problems.append(f"{parameter[0]}: {sorted(seen)} outside {sorted(allowed)}")
+        if not cadence.subset and not set(cadence.hours) <= seen:
+            problems.append(f"{parameter[0]}: {sorted(seen)} lacks {sorted(set(cadence.hours) - seen)}")
+    assert not problems, "\n".join(problems)
 
 
 # --- what the provider makes of it ---------------------------------------------------------------------------------

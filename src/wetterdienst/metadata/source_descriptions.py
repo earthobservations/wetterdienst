@@ -1102,17 +1102,19 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "rh10"): "Probability of precipitation > 1.0mm during the last 12 hours",
         ("hourly", "large", "rh50"): "Probability of precipitation > 5.0mm during the last 12 hours",
         ("hourly", "large", "rr1c"): (
-            "Total precipitation during the last hour consistent with significant weather. Almost always 0.0 after "
-            "about +100 to +125 h of the run at lowland stations: real zeros, not missing values, while the 6, 12 and "
-            "24 h totals (`rr6c`, `rrhc`, `rrdc`) and the probabilities still carry rain."
+            "Total precipitation during the last hour consistent with significant weather. At most German lowland "
+            "stations of the runs measured (2026-11-16/17) it is 0.0 from about +100 to +125 h of the run: real zeros, "
+            "not missing values, while the 12 and 24 h totals (`rrhc`, `rrdc`) and the probabilities still carry "
+            "rain; the 6 h total (`rr6c`) falls to zero early at some stations."
         ),
         ("hourly", "large", "rr1o1"): "Probability of precipitation > 10.0 mm during the last hour",
         ("hourly", "large", "rr1u1"): "Probability of precipitation > 25.0 mm during the last hour",
         ("hourly", "large", "rr1w1"): "Probability of precipitation > 15.0 mm during the last hour",
         ("hourly", "large", "rr3c"): (
             "Total precipitation during the last 3 hours consistent with significant weather, given at the 00, 03, "
-            "..., 21 UTC steps. Almost always 0.0 after about +100 to +125 h of the run at lowland stations: real "
-            "zeros, not missing values, while the 6, 12 and 24 h totals (`rr6c`, `rrhc`, `rrdc`) still carry rain."
+            "..., 21 UTC steps. Often 0.0 late in the run at lowland stations of the runs measured (2026-11-16/17; "
+            "median last non-zero step +132 h in MOSMIX-S): real zeros, not missing values, while the 12 and 24 h "
+            "totals (`rrhc`, `rrdc`) still carry rain; the 6 h total (`rr6c`) falls to zero early at some stations."
         ),
         ("hourly", "large", "rr6c"): (
             "Total precipitation during the last 6 hours consistent with significant weather, given at the 00, 06, 12 "
@@ -1258,16 +1260,17 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "small", "rh10"): "Probability of precipitation > 1.0mm during the last 12 hours",
         ("hourly", "small", "rh50"): "Probability of precipitation > 5.0mm during the last 12 hours",
         ("hourly", "small", "rr1c"): (
-            "Total precipitation during the last hour consistent with significant weather. Almost always 0.0 after "
-            "about +100 to +125 h of the run at lowland stations: real zeros, not missing values, while the 12 and "
-            "24 h probabilities (`rh*`, `rd*`) still carry rain. About a quarter of the stations lack the last 3 to "
-            "9 h of the run, and some a block of every day."
+            "Total precipitation during the last hour consistent with significant weather. At most German lowland "
+            "stations of the runs measured (2026-11-16/17) it is 0.0 from about +100 to +125 h of the run: real zeros, "
+            "not missing values, while the 12 and 24 h probabilities (`rh*`, `rd*`) are still above 0. About a "
+            "quarter of the stations lack the last 3 to 9 h of the run, and some a block of every day."
         ),
         ("hourly", "small", "rr3c"): (
             "Total precipitation during the last 3 hours consistent with significant weather, given at the 00, 03, "
-            "..., 21 UTC steps. Almost always 0.0 after about +100 to +125 h of the run at lowland stations: real "
-            "zeros, not missing values, while the 12 and 24 h probabilities (`rh*`, `rd*`) still carry rain. About a "
-            "quarter of the stations lack the last 3 to 9 h of the run, and some a block of every day."
+            "..., 21 UTC steps. Often 0.0 late in the run at lowland stations of the runs measured (2026-11-16/17; "
+            "median last non-zero step +132 h): real zeros, not missing values, while the 12 and 24 h probabilities "
+            "(`rh*`, `rd*`) are still above 0. About a quarter of the stations lack the last 3 to 9 h of the run, "
+            "and some a block of every day."
         ),
         ("hourly", "small", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "small", "rrs3c"): "Snow-Rain-Equivalent during the last 3 hours",

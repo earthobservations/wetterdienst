@@ -21,11 +21,14 @@ two trimmed runs of those files, and the table and its columns are built from th
   then 3-hourly" any more: every precipitation element reaches the last step of its cadence, like `TTT` and `FF`.
 - The steps fall at fixed **UTC clock hours**, not at fixed distances from the run: `RR6c` is given at 00, 06, 12 and 18
   UTC, `RRhc` at 06 and 18 UTC, `RRdc` at 06 UTC. A run at 09 UTC has its first `RR6c` at 12 UTC, 3 h after the issue.
-- The first and the last step are given for the run of 03 UTC and are measured; a run at another hour moves them by
-  the difference. MOSMIX-L goes to +247 h and MOSMIX-S to +240 h. A step an element is not given at is a `-` in the file
+- The UTC hours of the steps are the same in every run; only the offsets change. The first step is the next of an
+  element's listed UTC hours after the issue, the last the last listed hour within +247 h (MOSMIX-L) or +240 h
+  (MOSMIX-S). The table gives both for the run of 03 UTC, as measured. A step an element is not given at is a `-` in the file
   (a null with `raw:-` in `quality_flags`, and no row by default).
 - Which elements a station gets, and at which hours, depends on the station: `TX` and `TN` are at 06 and 18 UTC at
-  most, and at 00 and 12 UTC at some. MOSMIX-S carries 40 of the 114 elements, and a quarter of its stations lack some
+  about 70 % of the MOSMIX-S stations (run of 03 UTC: `TX` 4,022, `TN` 3,948 of 5,648); at the others at one of
+  them (687 `TX` at 18 only, 766 `TN` at 06 only), at all four of 00/06/12/18 (307, 290), or at 00 or 12 UTC (166 at 12
+  only for `TX`, 34 at 00 only). MOSMIX-S carries 40 of the 114 elements, and a quarter of its stations lack some
   steps of `RR1c` (see below).
 
 ```{mosmix-elements}
@@ -33,14 +36,18 @@ two trimmed runs of those files, and the table and its columns are built from th
 
 ## `RR1c` and `RR3c` are zero late in the run
 
-At lowland stations `RR1c` and `RR3c` are almost always exactly `0.0` after about +100 to +125 h, while the 6, 12 and 24
-h totals (`RR6c`, `RRhc`, `RRdc`) and the probabilities (`R101` to `R150`, `R602`, `Rd02`) still carry rain. The zeros
+At most German lowland stations of the runs measured (2026-11-16/17) `RR1c` is exactly `0.0` from about +100 to +125 h
+(MOSMIX-S, stations below 300 m: the last non-zero step is at +125 h or sooner at 85 % of the German stations and 39 %
+of the others), and `RR3c` is often (65 % and 36 %; the median last non-zero step is +132 h). The 12 and 24 h totals
+(`RRhc`, `RRdc`) and the probabilities (`R101` to `R150`, `R602`, `Rd02`) still carry rain; the 6 h total (`RR6c`) falls
+to zero early at some stations (at `10147` its last non-zero step is +117 h, and its 6 h sums are 0.0 on 4 of 6 late
+days where `RRdc` is 0.5 to 1.3 mm). The zeros
 are **real values, not missing ones**, so they are returned as `0.0` and no option drops them. A forecast for the
 coming days that sums or plots `precipitation_amount_significant_weather_last_1h` therefore shows the days from the
 sixth on as dry where DWD's own 24 h total has rain; use
-{term}`precipitation_amount_significant_weather_last_6h`, {term}`precipitation_amount_significant_weather_last_12h` or
-{term}`precipitation_amount_significant_weather_last_24h` for them, which are stamped at 00/06/12/18, 06/18 and 06 UTC
-(see the table) and so do not line up with a local day.
+{term}`precipitation_amount_significant_weather_last_12h` or {term}`precipitation_amount_significant_weather_last_24h`
+for them (and {term}`precipitation_amount_significant_weather_last_6h` where it still has rain), which are stamped at
+06/18 and 06 UTC (00/06/12/18 for the 6 h total; see the table) and so do not line up with a local day.
 
 DWD describes `RR1c` as "consistent with significant weather". That the hourly amounts are quantised to 0.1 mm, or
 set to zero where the hourly weather is dry, would explain it, but DWD documents neither. The evidence, measured on

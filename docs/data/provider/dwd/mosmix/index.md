@@ -7,7 +7,7 @@ the DWD that is based on global weather models and that uses statistical downsca
 based on their historical observations to provide more precise, local forecast. Mosmix is available for more than 5000
 stations worldwide and is available in two versions, Mosmix-S and Mosmix-L. Mosmix-S comes with a set of 40 parameters 
 and is published every hour while MOSMIX-L has a set of 114 parameters and is released every 6 hours 
-(3am, 9am, 3pm, 9pm). Both versions have a forecast limit of 240h.
+(3am, 9am, 3pm, 9pm). MOSMIX-L has steps to +247 h and MOSMIX-S to +240 h (DWD says "bis +240h" for both).
 
 Each element has its own window (1, 3, 6, 12 or 24 h), its own UTC steps and its own last step, and `RR1c` and
 `RR3c` are zero late in a run while the 6, 12 and 24 h totals still carry rain: see [the elements](elements/index.md).
