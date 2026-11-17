@@ -223,6 +223,8 @@ export interface MeteogramModel {
   axes: Partial<Record<PanelName, AxisSpec>>
   series: DrawnSeries[]
   barbs: BarbPoint[]
+  /** whether the station is south of the equator, where the barbs are drawn on the other side of the shaft */
+  southern: boolean
   symbols: SymbolPoint[]
   hours: HourLabel[]
   days: DayBand[]
@@ -871,6 +873,8 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
     axes,
     series: drawn,
     barbs,
+    // the equator counts as north, and a station without a latitude has the northern convention
+    southern: lat !== null && lat < 0,
     symbols: hasSymbols ? symbols : [],
     hours,
     days,

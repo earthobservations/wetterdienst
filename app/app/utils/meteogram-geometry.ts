@@ -186,10 +186,12 @@ export interface Barb {
 /**
  * The barb of a wind from `dirFrom` degrees of `knots` knots: standard meteorological barbs, the tip at the point,
  * the shaft towards the direction the wind comes from, a pennant for 50 kt, a full barb for 10 and a half for 5, the
- * barbs on the left of the wind (the northern hemisphere's convention), under 2.5 kt a circle. The speed is the one
- * in knots whatever unit the chart shows: a barb is a drawing of the wind, not of a number.
+ * barbs on the clockwise side of the shaft, seen from the tip towards the tail, north of the equator (for a wind from
+ * the west they stand north of the shaft, above it, as on a weather map and in matplotlib) and on the other side south
+ * of it (`flip_barb`), under 2.5 kt a circle. The speed is the one in knots whatever unit the chart shows: a barb is a
+ * drawing of the wind, not of a number.
  */
-export function windBarb(dirFrom: number, knots: number, scale = 1): Barb {
+export function windBarb(dirFrom: number, knots: number, scale = 1, southern = false): Barb {
   const lineWidth = Math.max(1, 1.5 * scale)
   if (knots < 2.5)
     return { calm: Math.round(4 * scale), shaft: null, ticks: [], pennants: [], lineWidth }
@@ -200,9 +202,11 @@ export function windBarb(dirFrom: number, knots: number, scale = 1): Barb {
   const tailY = -shaftLen * Math.cos(rad)
   const ux = tailX / shaftLen
   const uy = tailY / shaftLen
-  // 90 degrees clockwise from the tip towards the tail: the left of the wind
-  const px = -Math.cos(rad)
-  const py = -Math.sin(rad)
+  // 90 degrees clockwise from the shaft (tip towards the tail) on screen, where y grows downwards: for a wind from the
+  // west the shaft runs to the left and this is up, north of it. South of the equator it is the other side
+  const side = southern ? -1 : 1
+  const px = side * Math.cos(rad)
+  const py = side * Math.sin(rad)
   const barbLen = Math.round(8 * scale)
   const spacing = Math.round(5 * scale)
 
