@@ -16,6 +16,10 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-11-17
+
+Paired with backend 0.191.0, which it needs for the stripes' classes and the stations' WMO numbers.
+
 ### Added
 
 - `[Map]` The stations of the map are grouped at the outer zooms: stations that lie close together
@@ -62,6 +66,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Forecast]` The wind barbs of the chart stand on the side of the station's hemisphere, as on a
+  weather map: for a wind from the west north of the equator they are above the shaft (they were
+  below it), south of the equator below it. A station without a position has the northern side
+  (GH-4063).
 - `[Forecast, Map, Home]` The late days of a forecast no longer look dry. MOSMIX's hourly rain
   amount is 0.0 from about +100 h at most lowland stations, while its 6, 12 and 24 h totals still
   carry rain, so days 6 to 10 showed none where DWD's own total has 1 to 2 mm. Each 24 h window
