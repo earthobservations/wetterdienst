@@ -1606,10 +1606,12 @@ def _dwd_mosmix(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
 def _dwd_mosmix_snow(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
     # MOSMIX-SNOW writes the depths in m and `-` where an element has no value at a step (the new snow and the snow
     # depth are given at the 3-hourly steps, the first hour has none): the file has no numeric sentinel. The
-    # depth of 0.46 m is 46 cm, the new snow of 0.03 m 3 cm
+    # depth of 0.46 m is 46 cm, the new snow of 0.03 m 3 cm. The last of a melting snow is written a little below
+    # 0 (`SnCv` -0.02 m in 20 of 11,760 values of the 49 runs of 2026-11-15 to -17, at Z901 and Z934): the core sets it
+    # to 0.0 and keeps the number as `raw:` (GH-4182)
     return dwd_mosmix_values(
         monkeypatch,
-        {"SnCv": "- 0.46 -", "Sa3": "- 0.03 0.00", "Sad10": "- 15.00 -"},
+        {"SnCv": "- 0.46 -0.02", "Sa3": "- 0.03 0.00", "Sad10": "- 15.00 -"},
         [("hourly", "snow", "sncv"), ("hourly", "snow", "sa3"), ("hourly", "snow", "sad10")],
         options=_options(drop_nulls),
     )
@@ -3530,7 +3532,12 @@ STUBS = [
         "dwd/mosmix hourly/snow",
         _dwd_mosmix_snow,
         reading=("snow_depth", 46.0),
-        tokens=(("snow_depth", "-", None), ("snow_depth_new_last_3h", "-", None)),
+        tokens=(
+            ("snow_depth", "-", None),
+            ("snow_depth", "-0.02", 0.0),
+            ("snow_depth_new_last_3h", "-", None),
+        ),
+        verdicts=(("snow_depth", "-0.02", "floor"),),
     ),
     ValueStub(
         "dwd/dmo hourly/icon",

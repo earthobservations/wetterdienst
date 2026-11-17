@@ -16,7 +16,7 @@ from pathlib import Path
 import polars as pl
 import pytest
 
-from tests.provider.value_stubs import _options, _settings, stations_result
+from tests.provider.value_stubs import _options, _settings, dwd_mosmix_values, stations_result
 from wetterdienst import Options, Settings
 from wetterdienst.exceptions import DownloadError, IssueNotFoundError, ProductOutOfSeasonError
 from wetterdienst.provider.dwd import catalogue
@@ -370,6 +370,65 @@ def test_mosmix_snow_directory_that_is_empty_on_the_server_is_out_of_season_and_
             values.get_url_for_date(
                 f"{server.base}/outage/", api.DwdForecastDate.LATEST, one_station_only=False, seasonal=True
             )
+
+
+def test_a_snow_depth_a_little_below_zero_is_zero_and_keeps_the_number_written(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The last of a melting snow is `SnCv` -0.01 and -0.02 m in the run: 0.0 with `raw:`, as DMO's rain (GH-4182)."""
+    elements = {"SnCv": "0.05 -0.01 -0.02", "Sa3": "0.03 0.00 0.01"}
+    parameters = [("hourly", "snow", "sncv"), ("hourly", "snow", "sa3")]
+    df = dwd_mosmix_values(monkeypatch, elements, parameters, options=Options(drop_nulls=False, convert_units=False))
+    depth = df.filter(pl.col("parameter") == "snow_depth").sort("timestamp")
+    assert depth["value"].to_list() == [0.05, 0.0, 0.0]
+    assert depth["quality_flags"].to_list() == [None, "rejected:floor,raw:-0.01", "rejected:floor,raw:-0.02"]
+    # the depth of a snow that stays is untouched, and so is the new snow
+    assert df.filter(pl.col("parameter") == "snow_depth_new_last_3h").sort("timestamp")["value"].to_list() == [
+        0.03,
+        0.0,
+        0.01,
+    ]
+    assert df.filter(pl.col("parameter") == "snow_depth_new_last_3h")["quality_flags"].is_null().all()
+    # the check does not reject, so the answer has no null where the model wrote a number
+    assert depth["value"].null_count() == 0
+
+    # in the units of the library it is cm, and the range of a depth, which allows -10 cm, does not decide
+    df = dwd_mosmix_values(monkeypatch, elements, parameters, options=Options(drop_nulls=False))
+    depth = df.filter(pl.col("parameter") == "snow_depth").sort("timestamp")
+    assert depth["value"].to_list() == [5.0, 0.0, 0.0]
+    assert depth["quality_flags"].to_list() == [None, "rejected:floor,raw:-0.01", "rejected:floor,raw:-0.02"]
+
+
+def test_a_snow_depth_below_zero_is_kept_and_flagged_where_the_floor_is_soft(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`plausibility={"floor": "soft"}` returns the number as DWD wrote it, flagged `suspect:floor` (GH-4182)."""
+    df = dwd_mosmix_values(
+        monkeypatch,
+        {"SnCv": "0.05 -0.01 -0.02"},
+        [("hourly", "snow", "sncv")],
+        options=Options(drop_nulls=False, convert_units=False, plausibility={"floor": "soft"}),
+    ).sort("timestamp")
+    assert df["value"].to_list() == [0.05, -0.01, -0.02]
+    assert df["quality_flags"].to_list() == [None, "suspect:floor", "suspect:floor"]
+
+
+def test_the_amounts_of_mosmix_s_that_cannot_be_negative_are_held_to_the_floor(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A round-off below 0 of the precipitation, the radiation and the sunshine of MOSMIX-S is 0.0 with `raw:`."""
+    df = dwd_mosmix_values(
+        monkeypatch,
+        {"RR1c": "-0.02 0.40 0.00", "Rad1h": "-0.16 0.00 142.09", "SunD1": "-0.5 3600.0 0.0"},
+        [("hourly", "small", "rr1c"), ("hourly", "small", "rad1h"), ("hourly", "small", "sund1")],
+        options=Options(drop_nulls=False, convert_units=False),
+    )
+    floored = df.filter(pl.col("quality_flags").str.starts_with("rejected:floor"))
+    assert sorted(floored["parameter"].to_list()) == [
+        "precipitation_amount_significant_weather_last_1h",
+        "radiation_global",
+        "sunshine_duration",
+    ]
+    assert floored["value"].to_list() == [0.0, 0.0, 0.0]
+    assert sorted(floored["quality_flags"].to_list()) == [
+        "rejected:floor,raw:-0.02",
+        "rejected:floor,raw:-0.16",
+        "rejected:floor,raw:-0.5",
+    ]
 
 
 @pytest.mark.remote

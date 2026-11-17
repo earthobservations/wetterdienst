@@ -146,6 +146,19 @@ const compactDays = computed(() => meteogramDays(seriesCache.value, {
   language: formatLanguage.value,
 }))
 
+/**
+ * What a day's rain figure is not: the first words of its label's mark. `≥` (hours of the day with no amount, which are not 0) and `≈` (made
+ * of totals of more than an hour, cut evenly where one crosses the day's midnight) are said in words, as a symbol is not read alike by every
+ * screen reader, and as the hover of the label.
+ */
+function precipNote(day: { precipBlockHours: number | null, precipMissingHours: number }): string | null {
+  if (day.precipMissingHours > 0)
+    return t('meteogram.chart.precipAtLeast', { hours: day.precipMissingHours })
+  if (day.precipBlockHours !== null)
+    return t('meteogram.chart.precipFromBlocks', { hours: day.precipBlockHours })
+  return null
+}
+
 // What the chart draws, as a table and a sentence (WCAG 1.1.1, 1.3.1, and 1.4.13 for the values that appear
 // on hover only)
 const chartTable = computed(() => meteogramTable(seriesCache.value, {
@@ -294,7 +307,8 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
         </div>
         <div class="flex items-center gap-1.5">
           <UIcon name="i-ph-cloud-rain" class="w-4 h-4 shrink-0" data-summary-icon="precip" :style="{ color: seriesLabelColor('blue', isDark) }" />
-          <span class="font-semibold text-gray-800 dark:text-gray-100">{{ summaryStats.precip.value }}</span>
+          <span class="font-semibold text-gray-800 dark:text-gray-100" :title="summaryStats.precip.atLeast ? t('meteogram.chart.precipRunAtLeast') : undefined">{{ summaryStats.precip.atLeast ? '≥' : '' }}{{ summaryStats.precip.value }}</span>
+          <span v-if="summaryStats.precip.atLeast" class="sr-only">{{ t('meteogram.chart.precipRunAtLeast') }}</span>
           <span class="text-gray-500 dark:text-gray-400 text-xs">{{ summaryStats.precip.unit }}</span>
         </div>
         <div class="flex items-center gap-1.5">
@@ -361,8 +375,8 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
           <UIcon :name="WEATHER_ICONS[d.kind]" class="size-6 text-toned" aria-hidden="true" :data-weather="d.kind" />
           <span class="text-sm text-toned">
             <span class="sr-only">{{ t(`meteogram.chart.weather.${d.kind}`) }}</span>
-            <span v-if="d.precipLabel" class="text-blue-700 dark:text-blue-300 tabular-nums">
-              <span class="sr-only">{{ ', ' }}{{ t('meteogram.chart.panelPrecipitation') }}{{ t('common.colon') }}{{ ' ' }}</span>{{ d.precipLabel }}
+            <span v-if="d.precipLabel" class="text-blue-700 dark:text-blue-300 tabular-nums" :title="precipNote(d) ?? undefined" data-testid="row-precip">
+              <span class="sr-only">{{ ', ' }}{{ t('meteogram.chart.panelPrecipitation') }}{{ t('common.colon') }}{{ ' ' }}</span>{{ d.precipLabel }}<span v-if="precipNote(d)" class="sr-only">{{ ', ' }}{{ precipNote(d) }}</span>
             </span>
           </span>
           <span v-if="d.tempLabel" class="text-sm font-bold text-highlighted tabular-nums text-end">{{ d.tempLabel }}</span>
@@ -405,9 +419,9 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
               <!-- The rows start at the top of the card and stretch to the tallest, so that the weekday, the icon, the date, the temperatures and the
                    rain are at the same height in every card (GH-4138). A dry day keeps the rain row's height, empty and hidden from a screen reader,
                    which would else read out an empty line. -->
-              <div v-if="d.precipLabel" class="min-h-4 text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1 select-none" data-testid="day-precip">
+              <div v-if="d.precipLabel" class="min-h-4 text-xs font-semibold text-blue-600 dark:text-blue-400 mt-1 select-none" data-testid="day-precip" :title="precipNote(d) ?? undefined">
                 <UIcon name="i-ph-drop" class="size-3.5 align-text-bottom" aria-hidden="true" />
-                <span class="sr-only">{{ t('meteogram.chart.panelPrecipitation') }}{{ t('common.colon') }}{{ ' ' }}</span>{{ d.precipLabel }}
+                <span class="sr-only">{{ t('meteogram.chart.panelPrecipitation') }}{{ t('common.colon') }}{{ ' ' }}</span>{{ d.precipLabel }}<span v-if="precipNote(d)" class="sr-only">{{ ', ' }}{{ precipNote(d) }}</span>
               </div>
               <div v-else class="min-h-4 mt-1" aria-hidden="true" data-testid="day-precip" />
               <!-- under the rest, so that the last day's note moves none of the rows of the others -->

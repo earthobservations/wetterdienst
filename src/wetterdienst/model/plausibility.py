@@ -341,6 +341,7 @@ COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
     },
     "floor": {
         "dwd/dmo": ("hourly/icon", "hourly/icon_eu"),
+        "dwd/mosmix": ("hourly/small", "hourly/large", "hourly/snow"),
     },
     # the networks whose source marks a value as erroneous or doubtful in a quality flag the reader returns, and the
     # datasets that flag is in: derived from the map of the codes (`model/source_flags.py`, GH-3677)

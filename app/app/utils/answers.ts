@@ -1,5 +1,8 @@
 import type { Provider, ProviderNetworkCoverageResponse } from '#shared/types/api'
 import { DateTime } from 'luxon'
+import { METEOGRAM_SERIES } from './meteogram'
+import { planPrecipitation, precipitationOver } from './meteogram-precipitation'
+import { buildSeries } from './meteogram-series'
 import { CANONICAL_UNITS, differenceIn, fromCanonical, toCanonical } from './units'
 
 // The answers of the home page's questions (components/AnswerPanel.vue), worked out from the values the backend
@@ -40,6 +43,10 @@ export interface Bar {
 /** MOSMIX's hourly precipitation (the hour before the timestamp) and the chance of more than 0.1 mm in that hour */
 export const RAIN_AMOUNT = 'precipitation_amount_significant_weather_last_1h'
 export const RAIN_CHANCE = 'probability_precipitation_amount_gt_0_1mm_last_1h'
+
+/** The precipitation series the day's rain is worked out from: the hourly amount and its 6, 12 and 24 hour totals (`rr1c`, `rr6c`, `rrhc`, `rrdc`) */
+export const RAIN_AMOUNTS = ['rr1c', 'rr6c', 'rrhc', 'rrdc'] as const
+const AMOUNTS = new Set<string>([...METEOGRAM_SERIES.precipitation, ...METEOGRAM_SERIES.precipitation6h, ...METEOGRAM_SERIES.precipitation12h, ...METEOGRAM_SERIES.precipitation24h])
 
 export type RainVerdict = 'yes' | 'maybe' | 'no'
 
@@ -82,36 +89,31 @@ export function rainTomorrow(
   const asShare = (chance: number) => toCanonical('fraction', units.fraction ?? '-', chance) / 100
   const start = now.setZone(zone).startOf('day').plus({ days: 1 })
   const end = start.plus({ days: 1 })
-  const amountAt = new Map<number, number>()
   const chanceAt = new Map<number, number>()
   for (const reading of readings) {
-    if (reading.value === null)
-      continue
-    const at = DateTime.fromISO(reading.timestamp).toMillis()
-    if (reading.parameter === RAIN_AMOUNT)
-      amountAt.set(at, reading.value)
-    else if (reading.parameter === RAIN_CHANCE)
-      chanceAt.set(at, reading.value)
+    if (reading.value !== null && reading.parameter === RAIN_CHANCE)
+      chanceAt.set(DateTime.fromISO(reading.timestamp).toMillis(), reading.value)
   }
+  // the rain of the day is the one the forecast's day rows have (GH-4175): the plan of blocks of 1, 6, 12 or 24 hours that account for
+  // MOSMIX's 24 hour total, with each block's share of the hours in the day. Tomorrow is within the hourly amounts' reach, so these are
+  // hours; where they were not, the hours of a longer block have its share each, and only an hour's own amount is "wet" or "wettest"
+  const plan = planPrecipitation(buildSeries(readings.filter(reading => AMOUNTS.has(reading.parameter)) as never), inMillimeters)
+  const blockOf = (stamp: number) => plan?.blocks.find(block => block.start < stamp && stamp <= block.end)
+  const over = plan ? precipitationOver(plan, start.toMillis(), end.toMillis()) : null
 
   const hours: Bar[] = []
-  let total = 0
-  let totalMillimeters = 0
   let wetHours = 0
-  let covered = 0
   let maxChance: number | null = null
   let wettest: RainAnswer['wettest'] = null
   // the value at a full hour is the precipitation of the hour before it, so the day's first is the one at 01:00
   for (let hour = start; hour < end; hour = hour.plus({ hours: 1 })) {
     const at = hour.plus({ hours: 1 }).toMillis()
-    const amount = amountAt.get(at) ?? null
+    const block = blockOf(at)
+    const amount = block ? block.amount / block.hours : null
     const chance = chanceAt.get(at)
     if (chance !== undefined)
       maxChance = Math.max(maxChance ?? 0, asShare(chance))
-    if (amount !== null) {
-      covered++
-      total += amount
-      totalMillimeters += inMillimeters(amount)
+    if (amount !== null && block!.hours === 1) {
       if (inMillimeters(amount) >= 0.1)
         wetHours++
       if (amount > 0 && (!wettest || amount > wettest.amount))
@@ -119,8 +121,10 @@ export function rainTomorrow(
     }
     hours.push({ key: hour.toISO()!, label: hour.toFormat('HH'), value: amount })
   }
-  if (covered < RAIN_MIN_HOURS)
+  if (!over || over.given < RAIN_MIN_HOURS)
     return null
+  let total = over.amount ?? 0
+  let totalMillimeters = inMillimeters(total)
 
   total = Math.round(total * 10) / 10
   totalMillimeters = Math.round(totalMillimeters * 10) / 10

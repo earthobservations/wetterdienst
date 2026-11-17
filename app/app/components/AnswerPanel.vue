@@ -4,7 +4,7 @@ import type { Bar, RainAnswer, SummerAnswer, TemperatureSource, WindAnswer } fro
 import type { QuestionId } from '~/utils/questions'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
-import { COVERAGE_REQUESTS_AT_ONCE, hourlyNetworks, hourlyTemperatureIn, lastSummer, mapLimited, RAIN_AMOUNT, RAIN_CHANCE, rainTomorrow, WIND_GUST, WIND_MEAN, windOnDay, windWindow } from '~/utils/answers'
+import { COVERAGE_REQUESTS_AT_ONCE, hourlyNetworks, hourlyTemperatureIn, lastSummer, mapLimited, RAIN_AMOUNT, RAIN_AMOUNTS, RAIN_CHANCE, rainTomorrow, WIND_GUST, WIND_MEAN, windOnDay, windWindow } from '~/utils/answers'
 import { describeFetchError } from '~/utils/api-error'
 import { flagEmoji } from '~/utils/country'
 import { formatNumber } from '~/utils/format'
@@ -85,7 +85,7 @@ async function answerRain(turn: number): Promise<Status> {
   const { readings, units } = await values({
     provider: 'dwd',
     network: 'mosmix',
-    parameters: 'hourly/large/rr1c,hourly/large/r101',
+    parameters: [...RAIN_AMOUNTS, 'r101'].map(parameter => `hourly/large/${parameter}`).join(','),
     stations: point.station_id,
     unit_targets: JSON.stringify({ precipitation: chosen('precipitation'), fraction: 'decimal' }),
   })

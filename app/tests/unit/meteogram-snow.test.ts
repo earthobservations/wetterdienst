@@ -384,7 +384,7 @@ describe('the snow panel drawn', () => {
     const { option } = build()
     const byId = (id: string) => option.series.find((s: any) => s.id === id)
     expect(byId('snowNew')).toMatchObject({ type: 'bar', stack: 'snow', xAxisIndex: 3, yAxisIndex: 3 })
-    expect(byId('rain')).toMatchObject({ type: 'bar', stack: 'precip', xAxisIndex: 2 })
+    expect(byId('rain')).toMatchObject({ type: 'custom', xAxisIndex: 2 })
     expect(byId('snowDepth')).toMatchObject({ type: 'line', xAxisIndex: 4 })
     expect(byId('snowChance')).toMatchObject({ type: 'line', xAxisIndex: 5 })
     // each stamp of the bars has a point, so that a bar is as wide as the steps are apart (three hours)
