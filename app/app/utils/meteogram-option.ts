@@ -381,7 +381,7 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
         const cs = params.coordSys
         if (outsidePlot(x, cs.x, cs.x + cs.width, 30))
           return null
-        const barb = windBarb(api.value(2), api.value(3))
+        const barb = windBarb(api.value(2), api.value(3), 1, model.southern)
         const style = { stroke: theme.textStrong, fill: theme.textStrong, lineWidth: barb.lineWidth }
         const children: any[] = []
         if (barb.calm !== null)
