@@ -652,8 +652,6 @@
     "showYears": "Pokaż lata",
     "showSource": "Pokaż źródło",
     "showDataAvailability": "Pokaż dostępność danych",
-    "showTimeseries": "Pokaż szereg czasowy",
-    "showTrendline": "Pokaż linię trendu",
     "visualizationTitle": "Wizualizacja",
     "loadingViz": "Ładowanie danych i generowanie wizualizacji …",
     "downloadImage": "Pobierz obraz",
@@ -672,7 +670,6 @@
       "barsScale": "Słupki ze skalą"
     },
     "hoverValue": "Wartość",
-    "hoverTrend": "Trend",
     "chart": {
       "zoomGroup": "Powiększ i przesuń paski",
       "earlier": "Wcześniejsze lata",

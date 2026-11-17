@@ -652,8 +652,6 @@
     "showYears": "Zobrazit roky",
     "showSource": "Zobrazit zdroj",
     "showDataAvailability": "Zobrazit dostupnost dat",
-    "showTimeseries": "Zobrazit časovou řadu",
-    "showTrendline": "Zobrazit trendovou čáru",
     "visualizationTitle": "Vizualizace",
     "loadingViz": "Načítání dat a generování vizualizace …",
     "downloadImage": "Stáhnout obrázek",
@@ -672,7 +670,6 @@
       "barsScale": "Sloupce se stupnicí"
     },
     "hoverValue": "Hodnota",
-    "hoverTrend": "Trend",
     "chart": {
       "zoomGroup": "Přiblížit a posunout pruhy",
       "earlier": "Dřívější roky",

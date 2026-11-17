@@ -652,8 +652,6 @@
     "showYears": "Jahre anzeigen",
     "showSource": "Quelle anzeigen",
     "showDataAvailability": "Datenverfügbarkeit anzeigen",
-    "showTimeseries": "Zeitreihe anzeigen",
-    "showTrendline": "Trendlinie anzeigen",
     "visualizationTitle": "Visualisierung",
     "loadingViz": "Daten werden geladen und die Visualisierung wird erstellt …",
     "downloadImage": "Bild herunterladen",
@@ -672,7 +670,6 @@
       "barsScale": "Balken mit Skala"
     },
     "hoverValue": "Wert",
-    "hoverTrend": "Trend",
     "chart": {
       "zoomGroup": "Streifen zoomen und verschieben",
       "earlier": "Frühere Jahre",

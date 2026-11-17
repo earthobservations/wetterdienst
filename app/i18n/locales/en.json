@@ -652,8 +652,6 @@
     "showYears": "Show years",
     "showSource": "Show source",
     "showDataAvailability": "Show data availability",
-    "showTimeseries": "Show timeseries",
-    "showTrendline": "Show trendline",
     "visualizationTitle": "Visualization",
     "loadingViz": "Loading data and generating visualization …",
     "downloadImage": "Download image",
@@ -672,7 +670,6 @@
       "barsScale": "Bars with scale"
     },
     "hoverValue": "Value",
-    "hoverTrend": "Trend",
     "chart": {
       "zoomGroup": "Zoom and move the stripes",
       "earlier": "Earlier years",

@@ -156,7 +156,7 @@ a touch; it returns when the pointer moves on or a key steps. `prefers-reduced-m
 
 The climate stripes (GH-4068) are Apache ECharts, drawn as SVG, and take the colours of their text from the same tokens
 (`useChartTheme()`, which a switch of the scheme and a print read again; the availability label is the gold of
-`SERIES_LABEL`); the stripes and the lines over them are data and the same in both. The chart is one tab stop
+`SERIES_LABEL`); the stripes are data and the same in both. The chart is one tab stop
 (`role="figure"`, named, described by the sentence of what it shows and by its keys); Left and Right step through the
 years that have a stripe (Page Up and Page Down ten at a time, Home and End the ends), `+`, `-` and `0` zoom in, out and
 back, and a live region says each year and its value. Where the pointer can do more than the keyboard the keyboard can
