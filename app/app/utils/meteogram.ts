@@ -239,6 +239,8 @@ export const METEOGRAM_SERIES = {
   snowNew: ['snow_depth_new_last_3h'],
   snowDepth: ['snow_depth'],
   snowChance: ['probability_snow_depth_new_gt_10cm_last_24h'],
+  // the probability of a thunderstorm within the hour before each step (`wwT`), given for every hour of the run (GH-4090)
+  thunder: ['probability_thunder_last_1h', 'wwt'],
   pressure: ['pressure_air_sea_level', 'pressure_air_site_reduced', 'air_pressure_at_sea_level', 'mslp', 'pressure', 'pmsl', 'pressure_mean', 'pppp'],
 } as const satisfies Record<string, readonly string[]>
 
@@ -311,8 +313,8 @@ export function meteogramViewFromQuery(query: Record<string, unknown>): Meteogra
 /**
  * The MOSMIX request of a meteogram, as the forecast page makes it, and the map's panel with it (GH-3650). The
  * parameters are the series the chart and the day cards draw: temperature, dew point, wind, gusts, cloud cover by
- * layer, precipitation (the hourly amount and its 6, 12 and 24 hour totals), significant weather, pressure, and the day's
- * maximum and minimum. It is for MOSMIX-L (`large`), the only dataset the meteogram asks for: MOSMIX-S has no `rr6c`, `rrhc` or
+ * layer, precipitation (the hourly amount and its 6, 12 and 24 hour totals), significant weather, the hourly probability of a
+ * thunderstorm, pressure, and the day's maximum and minimum. It is for MOSMIX-L (`large`), the only dataset the meteogram asks for: MOSMIX-S has no `rr6c`, `rrhc` or
  * `rrdc`, and the meteogram never requests it.
  */
 export const MOSMIX_METEOGRAM = {
@@ -320,7 +322,7 @@ export const MOSMIX_METEOGRAM = {
   network: 'mosmix',
   resolution: 'hourly',
   dataset: 'large',
-  parameters: ['ttt', 'td', 'ff', 'dd', 'fx1', 'n', 'nl', 'nm', 'nh', 'rr1c', 'rr6c', 'rrhc', 'rrdc', 'ww', 'pppp', 'tx', 'tn'],
+  parameters: ['ttt', 'td', 'ff', 'dd', 'fx1', 'n', 'nl', 'nm', 'nh', 'rr1c', 'rr6c', 'rrhc', 'rrdc', 'ww', 'wwt', 'pppp', 'tx', 'tn'],
 } as const
 
 /**

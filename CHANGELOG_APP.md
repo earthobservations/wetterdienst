@@ -18,6 +18,15 @@ Types of changes:
 
 ### Added
 
+- `[Forecast]` The forecast chart shows MOSMIX's thunderstorm probability: a thin panel under the
+  precipitation (it goes with the Precipitation switch) draws each hour with a probability of 10 %
+  or more as a bar, as high as the probability and in one of three shades (from 10, 30 and 60 %),
+  so that colour is not the only cue. Hours under 10 %, which MOSMIX gives on calm days, are not
+  drawn, and a forecast with none has no panel. The readout says the probability of every hour, a
+  line under the chart says what the bars are, the table has a column for it and the chart's
+  description names the likeliest hour. It is the hourly probability (`wwt`), which MOSMIX gives
+  for every hour of the run; the 6, 12 and 24 hour ones are not used. The compact day cards are
+  unchanged (GH-4090).
 - `[Map]` The stations of the map are grouped at the outer zooms: stations that lie close together
   are one disc with their number, which a click or tap zooms in on; a station that is alone stays a
   dot, and the one picked stays in view above its group. A switch over the map sets how much is
