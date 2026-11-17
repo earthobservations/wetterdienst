@@ -13,8 +13,9 @@ import type { WeatherKind } from './weather-kind'
 import type { Sky } from './weather-symbols'
 import { DateTime } from 'luxon'
 import { formatDayMonth, weekdayShort } from './format'
-import { extremeWindowHours, extremeWindowSteps, findNearestIndex, interpSeries, METEOGRAM_SERIES, resampleCadenceMs, wetBulbApprox } from './meteogram'
+import { extremeWindowHours, extremeWindowSteps, findNearestIndex, interpSeries, METEOGRAM_SERIES, wetBulbApprox } from './meteogram'
 import { HOUR_MS, PANEL_ORDER, toggleOf } from './meteogram-geometry'
+import { planPrecipitation } from './meteogram-precipitation'
 import { findFirstAvailable } from './meteogram-series'
 import { snowChanceAmount } from './meteogram-units'
 import { weatherCodeToKind } from './weather-kind'
@@ -28,8 +29,7 @@ export interface SunLibrary {
 /** The colours of the series: each is a key of the table in `meteogram-option.ts` */
 export type Tone = 'temp' | 'tempMax' | 'tempMin' | 'dew' | 'rain' | 'mixed' | 'snow' | 'wind' | 'gust' | 'pressure' | 'snowNew' | 'snowDepth' | 'snowChance' | 'cloudHigh' | 'cloudMid' | 'cloudLow' | 'cloudTotal'
 
-/** The hours the amount of a precipitation bar and of a snow bar covers: the 1 h of `rr1c` and the 3 h of `Sa3` */
-export const PRECIP_WINDOW_MS = HOUR_MS
+/** The hours the amount of a snow bar covers: the 3 h of `Sa3`. A precipitation bar covers the hours of its block (1, 6, 12 or 24: `meteogram-precipitation.ts`) */
 export const SNOW_WINDOW_MS = 3 * HOUR_MS
 
 /**
@@ -80,6 +80,8 @@ export interface DrawnSeries {
   quantity: Quantity
   /** the decimals the readout writes its value with */
   digits: number
+  /** for a bar of blocks of different lengths (the precipitation): the hours each of `data` covers, in the same order */
+  windows?: number[]
 }
 
 export interface DayBand {
@@ -148,6 +150,11 @@ export interface ReadoutSeries {
   y: number[]
   /** between two stamps: the line's own value (`line`), the stamp before's (`held`, a direction), or none (`exact`, a bar) */
   mode: 'line' | 'held' | 'exact'
+  /**
+   * For blocks of 1, 6, 12 or 24 hours (the precipitation): the hours each value covers, in the order of `x`, which are the stamps
+   * at the end of them. A block of more than an hour is read at every time it covers; one of an hour at its stamp.
+   */
+  windows?: number[]
 }
 
 /**
@@ -156,6 +163,10 @@ export interface ReadoutSeries {
  */
 export function readoutValue(series: ReadoutSeries, t: number): number | null {
   const { x, y } = series
+  if (series.windows) {
+    const i = blockAt(series, t)
+    return i < 0 ? null : y[i]!
+  }
   if (!x.length || t < x[0]! || t > x.at(-1)!)
     return null
   let lo = 0
@@ -177,12 +188,33 @@ export function readoutValue(series: ReadoutSeries, t: number): number | null {
   return y[lo]! + frac * (y[lo + 1]! - y[lo]!)
 }
 
+/** The index of the block of a series of blocks that covers `t`, or -1: an hour at its stamp, a longer block over the whole of its window */
+function blockAt(series: ReadoutSeries, t: number): number {
+  const { x, windows } = series
+  let lo = 0
+  let hi = x.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (x[mid]! < t)
+      lo = mid + 1
+    else hi = mid
+  }
+  const hours = windows![lo]
+  if (hours === undefined)
+    return -1
+  return hours === 1 ? (x[lo] === t ? lo : -1) : t > x[lo]! - hours * HOUR_MS ? lo : -1
+}
+
+/** The hours of the block a readout series has at `t`: 1 for a value that is not a block's, and where it has none */
+export function readoutHours(series: ReadoutSeries, t: number): number {
+  const i = series.windows ? blockAt(series, t) : -1
+  return i < 0 ? 1 : series.windows![i]!
+}
+
 export interface MeteogramModel {
   /** the first and last time shown, in ms */
   minTime: number
   maxTime: number
-  /** the grid the series are on, in ms: an hour, and three past 5 days */
-  stepMs: number
   /** every time of the grid, which the arrow keys step through */
   stamps: number[]
   panels: PanelName[]
@@ -194,6 +226,8 @@ export interface MeteogramModel {
   days: DayBand[]
   /** the freezing point in the unit of the chart, a line in the temperature panel where it is on the axis */
   freezing: number | null
+  /** where the precipitation panel goes from blocks of one length to another (an hour to 6): the first moment of the new blocks */
+  precipChanges: { t: number, hours: number, label: string }[]
   /** the readout's series, and the weather of each stamp */
   readout: ReadoutSeries[]
   weather: Map<number, WeatherKind>
@@ -223,7 +257,11 @@ export function dewPointMagnus(celsius: number, humidityPercent: number): number
 
 /** The kind of precipitation of an hour: snow at a wet bulb of 0.5 degrees or less, mixed up to 2, else rain. In degrees Celsius and percent */
 export function precipPhase(celsius: number, humidityPercent: number | null): 'rain' | 'mixed' | 'snow' {
-  const wet = humidityPercent === null ? celsius : wetBulbApprox(celsius, humidityPercent)
+  return phaseOfWetBulb(humidityPercent === null ? celsius : wetBulbApprox(celsius, humidityPercent))
+}
+
+/** The kind of precipitation at a wet bulb temperature in degrees Celsius: snow at 0.5 or less, mixed up to 2, else rain */
+function phaseOfWetBulb(wet: number): 'rain' | 'mixed' | 'snow' {
   if (wet <= 0.5)
     return 'snow'
   if (wet <= 2)
@@ -288,7 +326,6 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
     maxTime = Math.max(maxTime, time)
   }
   const displayMax = horizonHours !== null ? Math.min(maxTime, minTime + horizonHours * HOUR_MS) : maxTime
-  const stepMs = resampleCadenceMs(minTime, displayMax)
 
   // The forecast's own stamps, as far as the horizon reaches: nothing is resampled, so every hourly rain amount is a
   // bar and a direction is never the mean of two compass points
@@ -301,19 +338,23 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   }
   const points = (s: Series): [number, number][] => s.x.map((d, i) => [d.getTime(), s.y[i]!])
 
+  // The precipitation as blocks of 1, 6, 12 or 24 hours: the finest series that accounts for MOSMIX's coarse totals gives each stretch
+  // (`planPrecipitation`), and the chart draws each block over the hours it covers
+  const precipPlan = planPrecipitation(series, amount => canon('precipitation', amount))
+
   const panels = PANEL_ORDER.filter((panel) => {
     if (!shownPanels[toggleOf(panel)])
       return false
-    return { wind: !!windKey, precip: !!precipKey, snow: !!snowNewKey, snowDepth: !!snowDepthKey, snowChance: !!snowChanceKey, cloud: !!cloudKey, temp: !!tempKey, pressure: !!pressureKey }[panel]
+    return { wind: !!windKey, precip: !!precipPlan, snow: !!snowNewKey, snowDepth: !!snowDepthKey, snowChance: !!snowChanceKey, cloud: !!cloudKey, temp: !!tempKey, pressure: !!pressureKey }[panel]
   })
 
   const drawn: DrawnSeries[] = []
   const readout: ReadoutSeries[] = []
   const lookup = (s: Series) => new Map(s.x.map((d, i) => [d.getTime(), s.y[i]!]))
-  const push = (spec: DrawnSeries, unit: string, mode: ReadoutSeries['mode'] = 'line', readFrom: DrawnSeries['data'] = spec.data) => {
+  const push = (spec: DrawnSeries, unit: string, mode: ReadoutSeries['mode'] = 'line', readFrom: DrawnSeries['data'] = spec.data, readWindows?: number[]) => {
     drawn.push(spec)
-    const valid = readFrom.filter((p): p is [number, number] => p[1] !== null)
-    readout.push({ id: spec.id, panel: spec.panel, tone: spec.tone, hover: spec.hover, digits: spec.digits, unit, x: valid.map(p => p[0]), y: valid.map(p => p[1]), mode })
+    const valid = readFrom.flatMap((p, i) => p[1] === null ? [] : [{ time: p[0], value: p[1], hours: readWindows?.[i] }])
+    readout.push({ id: spec.id, panel: spec.panel, tone: spec.tone, hover: spec.hover, digits: spec.digits, unit, x: valid.map(p => p.time), y: valid.map(p => p.value), mode, ...(readWindows ? { windows: valid.map(p => p.hours!) } : {}) })
   }
   const unitOfQ = (q: Quantity) => units.unitOf(q)
 
@@ -333,7 +374,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
     // stamps, which let the curve out of the band (GH-2647)
     const extremeSteps = (k: string | undefined) => {
       const raw = k ? series.get(k) : undefined
-      return raw ? extremeWindowSteps(raw.x, raw.y, extremeWindowHours(k!) * HOUR_MS, minTime, displayMax, stepMs) : null
+      return raw ? extremeWindowSteps(raw.x, raw.y, extremeWindowHours(k!) * HOUR_MS, minTime, displayMax, HOUR_MS) : null
     }
     const sTx = extremeSteps(txKey)
     const sTn = extremeSteps(tnKey)
@@ -414,36 +455,57 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
     }
   }
 
-  // the stamps of the grid, and the precipitation of each, whether or not its panel is shown: the symbols read it
+  // the humidity and the temperature the kind of precipitation is judged by, and the hourly amount, which the symbols are drawn with:
+  // they read an hour's own amount, and a block of more hours says nothing of any one of its hours
   const precipSeries = at(precipKey)
   const humiditySeries = at(humidityKey)
-  const phaseAt = (time: number): 'rain' | 'mixed' | 'snow' => {
+  // the wet bulb temperature at an hour, in degrees Celsius: the air's where there is no humidity; null where there is no temperature
+  const wetBulbAt = (time: number): number | null => {
     if (!tempSeries)
-      return 'rain'
+      return null
     const reading = interpSeries(tempSeries.x, tempSeries.y, time)
     if (reading === null || Number.isNaN(reading))
-      return 'rain'
+      return null
     const rh = humiditySeries ? interpSeries(humiditySeries.x, humiditySeries.y, time) : null
-    return precipPhase(canon('temperature', reading), rh === null ? null : canon('fraction', rh))
+    const celsius = canon('temperature', reading)
+    return rh === null ? celsius : wetBulbApprox(celsius, canon('fraction', rh))
+  }
+  const phaseAt = (time: number): 'rain' | 'mixed' | 'snow' => {
+    const wet = wetBulbAt(time)
+    return wet === null ? 'rain' : phaseOfWetBulb(wet)
   }
 
-  // -- precipitation
-  if (precipKey && precipSeries && shownPanels.precip) {
+  // -- precipitation: the blocks of the plan, each over the hours it covers
+  // the blocks that begin within the horizon: one that crosses it is drawn as far as the axis goes (the clip cuts it), and the readout
+  // and the range of the axis have it
+  const precipBlocks = precipPlan?.blocks.filter(block => block.start < displayMax) ?? []
+  const precipChanges = (precipPlan?.changes ?? []).filter(change => change.at < displayMax).map(change => ({ t: change.at, hours: change.hours, label: t('meteogram.chart.precipBlocks', { hours: change.hours }) }))
+  // The kind of a block is the kind of the mean wet bulb temperature of its hours, by the thresholds an hour is judged by (an hour is
+  // its own wet bulb): the amounts of the hours of a longer block are not known, so each hour counts the same
+  const phaseOfBlock = (block: { start: number, end: number }): 'rain' | 'mixed' | 'snow' => {
+    const wets: number[] = []
+    for (let time = block.start + HOUR_MS; time <= block.end; time += HOUR_MS) {
+      const wet = wetBulbAt(time)
+      if (wet !== null)
+        wets.push(wet)
+    }
+    return wets.length ? phaseOfWetBulb(wets.reduce((sum, wet) => sum + wet, 0) / wets.length) : 'rain'
+  }
+  if (precipPlan && shownPanels.precip) {
     const rain: [number, number | null][] = []
     const mixed: [number, number | null][] = []
     const snow: [number, number | null][] = []
-    precipSeries.x.forEach((d, i) => {
-      const time = d.getTime()
-      const amount = precipSeries.y[i] ?? 0
-      const phase = phaseAt(time)
-      // every stamp has a point, null where it is no part of the stack: the bars are as wide as the stamps are apart
-      rain.push([time, phase === 'rain' ? amount : null])
-      mixed.push([time, phase === 'mixed' ? amount : null])
-      snow.push([time, phase === 'snow' ? amount : null])
-    })
-    // a bar of no height is no element: the stamp keeps its point (the bars are as wide as the stamps are apart) with no value, and the readout still says 0
-    // each over the hour it covers, the amount of the hour before its stamp (the readout reads it at the stamp)
-    const unseen = (data: [number, number | null][]): [number, number | null][] => overWindow(data.map(([time, amount]) => [time, amount || null]), PRECIP_WINDOW_MS)
+    const windows = precipBlocks.map(block => block.hours)
+    for (const block of precipBlocks) {
+      const phase = phaseOfBlock(block)
+      // every block has a point, null where it is no part of the stack: the readout reads the amount at the block's stamp
+      rain.push([block.end, phase === 'rain' ? block.amount : null])
+      mixed.push([block.end, phase === 'mixed' ? block.amount : null])
+      snow.push([block.end, phase === 'snow' ? block.amount : null])
+    }
+    // a bar of no height is no element: the block keeps its point with no value, and the readout still says 0
+    // each over the hours it covers, the amount of the hours before its stamp (the readout reads it at the stamp), centred on the middle of them
+    const unseen = (data: [number, number | null][]): [number, number | null][] => data.map(([time, amount], i) => [time - (windows[i]! * HOUR_MS) / 2, amount || null])
     const bar = (id: string, tone: Tone, data: [number, number | null][], name: string, hover: string): DrawnSeries => ({
       id,
       panel: 'precip',
@@ -457,11 +519,12 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
       data,
       quantity: 'precipitation',
       digits: units.digits('precipitation'),
+      windows,
     })
-    push(bar('rain', 'rain', unseen(rain), t('meteogram.chart.seriesRain'), t('meteogram.chart.hoverRain')), unitOfQ('precipitation'), 'exact', rain)
-    push(bar('mixed', 'mixed', unseen(mixed), t('meteogram.chart.seriesMixed'), t('meteogram.chart.hoverMixed')), unitOfQ('precipitation'), 'exact', mixed)
-    push(bar('snow', 'snow', unseen(snow), t('meteogram.chart.seriesSnow'), t('meteogram.chart.hoverSnow')), unitOfQ('precipitation'), 'exact', snow)
-    const pMax = Math.max(0, ...precipSeries.y.map(v => v ?? 0))
+    push(bar('rain', 'rain', unseen(rain), t('meteogram.chart.seriesRain'), t('meteogram.chart.hoverRain')), unitOfQ('precipitation'), 'exact', rain, windows)
+    push(bar('mixed', 'mixed', unseen(mixed), t('meteogram.chart.seriesMixed'), t('meteogram.chart.hoverMixed')), unitOfQ('precipitation'), 'exact', mixed, windows)
+    push(bar('snow', 'snow', unseen(snow), t('meteogram.chart.seriesSnow'), t('meteogram.chart.hoverSnow')), unitOfQ('precipitation'), 'exact', snow, windows)
+    const pMax = Math.max(0, ...precipBlocks.map(block => block.amount))
     range.precip = [0, Math.max(shown('precipitation', 1), pMax * 1.15)]
   }
   else {
@@ -732,7 +795,9 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   const weatherLookup = weatherSeries ? lookup(weatherSeries) : new Map<number, number>()
   const hasSymbols = !!(weatherSeries || cloudSeries || precipSeries)
   const weather = new Map<number, WeatherKind>()
-  const symbolStamps = (precipSeries ?? cloudSeries ?? weatherSeries ?? windSeries ?? tempSeries)?.x.map(d => d.getTime()) ?? []
+  // a symbol for every stamp of the grid, so that an hour the hourly amount lacks (MOSMIX-S has some) has its symbol, drawn from the
+  // weather and the clouds, and no amount, which is not a dry hour (GH-4175)
+  const symbolStamps = hasSymbols ? stamps : []
   const precipLookup = precipSeries ? lookup(precipSeries) : new Map<number, number>()
   const symbolThin = thinning(symbolStamps, zone)
   const symbols: SymbolPoint[] = []
@@ -745,7 +810,9 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   symbolStamps.forEach((time, i) => {
     const cloudShare = cloudSeries ? cloudAt(time) * 100 : null
     const sky: Sky = cloudShare === null ? 'partlyCloudy' : cloudShare >= 70 ? 'cloudy' : cloudShare >= 30 ? 'partlyCloudy' : 'clear'
-    const mm = precipSeries ? canon('precipitation', precipLookup.get(time) ?? 0) : null
+    // an hour the forecast gives no amount for has none: it is not a dry hour (GH-4175)
+    const amount = precipLookup.get(time)
+    const mm = amount === undefined ? null : canon('precipitation', amount)
     const code = weatherLookup.get(time)
     const fromCode = code === undefined ? null : weatherCodeToKind(code)
     let kind: WeatherKind
@@ -768,7 +835,6 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   return {
     minTime,
     maxTime: displayMax,
-    stepMs,
     stamps,
     panels,
     axes,
@@ -777,6 +843,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
     symbols: hasSymbols ? symbols : [],
     hours,
     days,
+    precipChanges,
     freezing: freezing >= range.temp[0] && freezing <= range.temp[1] && panels.includes('temp') ? freezing : null,
     readout,
     weather,

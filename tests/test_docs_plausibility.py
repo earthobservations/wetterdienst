@@ -253,6 +253,9 @@ def _derived() -> dict[str, dict[str, set[str]]]:
         },
         "floor": {
             "dwd/dmo": _datasets_of("dwd/dmo", has=lambda _, dataset: bool(plan_for("dwd/dmo", dataset).floors)),
+            "dwd/mosmix": _datasets_of(
+                "dwd/mosmix", has=lambda _, dataset: bool(plan_for("dwd/mosmix", dataset).floors)
+            ),
         },
         # the datasets whose plan holds the flags of the source (`SOURCE_FLAGS`), which the reader of each returns
         "source": {

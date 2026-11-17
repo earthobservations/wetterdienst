@@ -6,7 +6,10 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import logging
 from io import BytesIO
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -22,6 +25,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.eaufrance.hubeau import HubeauRequest, api
 from wetterdienst.provider.eaufrance.hubeau.api import (
     _RESOLUTION_TO_STEP,
+    _SNIFF_ANCHOR,
     _SNIFF_MIN_INTERVALS,
     _STEP_TO_RESOLUTION,
     _modal_steps,
@@ -40,6 +44,16 @@ def _dates(station_id: str, step: int, count: int, *, offset: int = 0) -> list[t
     """Build ``count`` observations of one station, ``step`` minutes apart."""
     start = _utc(4, offset)
     return [(station_id, start + dt.timedelta(minutes=step * index)) for index in range(count)]
+
+
+def _series(station_id: str, intervals: list[int]) -> list[tuple[str, dt.datetime]]:
+    """Build the observations of one station whose consecutive spacings are ``intervals`` minutes."""
+    stamp = _utc(4)
+    rows = [(station_id, stamp)]
+    for interval in intervals:
+        stamp += dt.timedelta(minutes=interval)
+        rows.append((station_id, stamp))
+    return rows
 
 
 def _frame(*rows: tuple[str, dt.datetime]) -> pl.DataFrame:
@@ -85,7 +99,7 @@ def test_modal_steps_needs_enough_intervals_to_name_a_station() -> None:
 
 def test_modal_steps_breaks_a_tie_toward_the_shorter_interval() -> None:
     """Test that a station with no majority interval is named the same way on every run."""
-    rows = [*_dates("A", 5, 3), *_dates("A", 10, 3, offset=30)]
+    rows = _series("A", [5, 5, 10, 10])
 
     result = _modal_steps(_frame(*rows))
 
@@ -97,6 +111,60 @@ def test_modal_steps_measures_each_station_on_its_own() -> None:
     result = _modal_steps(_frame(*_dates("A", 5, 8), *_dates("B", 60, 8))).sort("station_id")
 
     assert result.rows() == [("A", 5), ("B", 60)]
+
+
+def test_modal_steps_keeps_a_station_that_missed_one_transmission_at_its_interval() -> None:
+    """Test that a regular 15 minute station that lost a transmission is still a 15 minute station (GH-4166).
+
+    The missed one leaves 30 minutes behind, which is on the grid of 15, so it counts for the interval
+    and not against it.
+    """
+    result = _modal_steps(_frame(*_series("A", [15, 15, 15, 30, 15, 15, 15, 15])))
+
+    assert result.rows() == [("A", 15)]
+
+
+def test_modal_steps_keeps_a_gauge_whose_intervals_are_multiples_of_five_minutes() -> None:
+    """Test that intervals that are all multiples of the modal one still name the station (GH-4166).
+
+    Two thirds of these are 5 minutes, and the 10, 15 and 20 minutes are transmissions it did not make.
+    """
+    result = _modal_steps(_frame(*_series("A", [5, 5, 10, 5, 15, 5, 5, 5, 20])))
+
+    assert result.rows() == [("A", 5)]
+
+
+def test_modal_steps_leaves_out_a_station_whose_intervals_do_not_settle() -> None:
+    """Test that a sparse gauge that sends in bursts is named by no interval (GH-4166).
+
+    Its commonest spacing is 5 minutes, but it is a third of them and the 7 and 13 minutes are on no
+    grid of it: a mode that means nothing, which listed the station under whichever resolution it
+    happened to fall in.
+    """
+    result = _modal_steps(_frame(*_series("A", [5, 5, 7, 13, 25, 40])))
+
+    assert result.is_empty()
+
+
+@pytest.mark.parametrize(
+    ("counts", "settled"),
+    [
+        # the share of the modal interval, with every other spacing on its grid: 49 of 100 against 50 of 100
+        ({5: 49, 10: 26, 15: 25}, False),
+        ({5: 50, 10: 26, 15: 24}, True),
+        # the share on the grid, the modal interval being 60 of 100: 89 on it against 90 on it
+        ({5: 60, 10: 29, 7: 11}, False),
+        ({5: 60, 10: 30, 7: 10}, True),
+    ],
+)
+def test_modal_steps_settles_at_the_shares_of_the_decision(counts: dict[int, int], settled: bool) -> None:  # noqa: FBT001
+    """Test the boundaries of the two shares, 50 % of the intervals on the mode and 90 % on its grid (GH-4166)."""
+    intervals = [step for step, count in counts.items() for _ in range(count)]
+    assert len(intervals) == 100
+
+    result = _modal_steps(_frame(*_series("A", intervals)))
+
+    assert result.rows() == ([("A", 5)] if settled else [])
 
 
 def test_every_declared_resolution_has_an_interval() -> None:
@@ -309,6 +377,136 @@ def test_hubeau_douteuse_is_the_verdict_of_the_check_source_and_no_other_code_is
     else:
         assert flags[3] == "12,rejected:source,raw:400"
         assert values == [0.1, 0.2, 0.3, None, 0.5, 0.6, 0.7]
+
+
+def _read_h502301401() -> list[dt.datetime]:
+    """Read the stage timestamps Hub'Eau had for H502301401 on 2026-11-17 (691, of 30 days; GH-4166)."""
+    payload = json.loads((Path(__file__).parent / "h502301401_stage.json").read_text(encoding="utf-8"))
+    return [
+        dt.datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=ZoneInfo("UTC"))
+        for stamp in payload["timestamps"]
+    ]
+
+
+def _parse_utc(text: str) -> dt.datetime:
+    return dt.datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=ZoneInfo("UTC"))
+
+
+class _Upstream:
+    """Answer the observation queries of the sniff from the timestamps of some stations, and keep the queries."""
+
+    def __init__(
+        self, stage: dict[str, list[dt.datetime]], discharge: dict[str, list[dt.datetime]] | None = None
+    ) -> None:
+        self.series = {"H": stage, "Q": discharge or {}}
+        self.queries: list[tuple[str, bool]] = []
+
+    def __call__(self, url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG002
+        query = {key: values[0] for key, values in parse_qs(urlparse(url).query).items()}
+        named = "code_entite" in query
+        grandeur = query["grandeur_hydro"]
+        self.queries.append((grandeur, named))
+        start, end = _parse_utc(query["date_debut_obs"]), _parse_utc(query["date_fin_obs"])
+        wanted = set(query["code_entite"].split(",")) if named else None
+        return [
+            {"code_station": station_id, "date_obs": stamp.strftime("%Y-%m-%dT%H:%M:%SZ")}
+            for station_id, stamps in self.series[grandeur].items()
+            if wanted is None or station_id in wanted
+            for stamp in sorted(stamps)
+            if start <= stamp <= end
+        ]
+
+
+def _sniff(
+    monkeypatch: pytest.MonkeyPatch,
+    upstream: _Upstream,
+    station_ids: list[str],
+    now: dt.datetime,
+) -> dict[str, int]:
+    """Run the sniff of ``_station_steps`` at ``now`` against ``upstream``."""
+    monkeypatch.setattr(api, "_paged_rows", upstream)
+    monkeypatch.setattr(api, "_now", lambda: now)
+    steps = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings())._station_steps(station_ids)  # noqa: SLF001
+    return dict(steps.iter_rows())
+
+
+def test_the_irregular_station_h502301401_is_listed_in_3_of_115_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the station whose listing was arbitrary is listed in 3 of the 115 windows it was replayed at (GH-4166).
+
+    Over the 30 days to 2026-11-17 the sniff named H502301401 at 5, 10, 15 and 60 minutes by turns, and
+    at an interval no resolution covers in 39 of 115 windows. Under the decision it is named in 3 (at 5
+    minutes), and never at any other step.
+    """
+    upstream = _Upstream({"H502301401": _read_h502301401()})
+    # the anchors of six hours from 2026-10-19T18:00 to 2026-11-17T06:00, a day after the first record on
+    first = dt.datetime(2026, 10, 19, 18, tzinfo=ZoneInfo("UTC"))
+    anchors = [first + index * _SNIFF_ANCHOR for index in range(115)]
+    assert anchors[-1] == dt.datetime(2026, 11, 17, 6, tzinfo=ZoneInfo("UTC"))
+
+    listed = [
+        _sniff(monkeypatch, upstream, ["H502301401"], anchor + dt.timedelta(hours=1)).get("H502301401")
+        for anchor in anchors
+    ]
+
+    assert [step for step in listed if step is not None] == [5, 5, 5]
+
+
+def test_a_station_that_does_not_settle_over_two_hours_is_asked_again_over_a_day(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the 24 hour pass, by name, names a station whose last two hours were no guide (GH-4166).
+
+    The station is on a 15 minute grid for the day and sends four transmissions at odd minutes in the
+    last two hours, which settle on nothing; the day does.
+    """
+    anchor = dt.datetime(2026, 11, 17, 6, tzinfo=ZoneInfo("UTC"))
+    grid = [anchor - dt.timedelta(hours=24) + dt.timedelta(minutes=15 * index) for index in range(4 * 22 + 1)]
+    burst = [anchor - dt.timedelta(minutes=minutes) for minutes in (100, 90, 83, 70)]
+    upstream = _Upstream({"S": [*grid, *burst]})
+
+    steps = _sniff(monkeypatch, upstream, ["S"], anchor + dt.timedelta(minutes=30))
+
+    assert steps == {"S": 15}
+    assert upstream.queries == [("H", False), ("H", True)]
+
+
+def test_a_station_that_does_not_settle_in_either_window_stays_unlisted(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that a station that settles on no step in the day either is listed under none, and said once (GH-4166).
+
+    It is not asked for discharge, a second series for what its stage did not say; the other stations of
+    the network are measured as before.
+    """
+    anchor = dt.datetime(2026, 11, 17, 6, tzinfo=ZoneInfo("UTC"))
+    irregular = [anchor - dt.timedelta(minutes=minutes) for minutes in (1400, 1390, 1100, 1000, 640, 400, 380, 100, 5)]
+    regular = [anchor - dt.timedelta(minutes=5 * index) for index in range(24)]
+    discharge = {"irregular": [anchor - dt.timedelta(minutes=10 * index) for index in range(50)]}
+    upstream = _Upstream({"irregular": irregular, "regular": regular}, discharge)
+    monkeypatch.setattr(api, "_reported_unsettled", set())
+
+    with caplog.at_level(logging.INFO):
+        steps = _sniff(monkeypatch, upstream, ["irregular", "regular"], anchor)
+        again = _sniff(monkeypatch, upstream, ["irregular", "regular"], anchor)
+
+    assert steps == again == {"regular": 5}
+    assert ("Q", True) not in upstream.queries
+    assert caplog.text.count("transmit at no steady interval") == 1
+
+
+def test_a_station_with_no_stage_is_still_named_by_its_discharge(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the discharge pass still names a station that published no stage, under the same test (GH-4166)."""
+    anchor = dt.datetime(2026, 11, 17, 6, tzinfo=ZoneInfo("UTC"))
+    discharge = {
+        "steady": [anchor - dt.timedelta(minutes=10 * index) for index in range(30)],
+        "bursts": [anchor - dt.timedelta(minutes=minutes) for minutes in (1400, 1390, 1100, 1000, 640, 400, 380, 5)],
+    }
+    upstream = _Upstream({}, discharge)
+
+    steps = _sniff(monkeypatch, upstream, ["steady", "bursts"], anchor)
+
+    assert steps == {"steady": 10}
 
 
 @pytest.mark.usefixtures("hubeau_network")

@@ -31,7 +31,8 @@ is the same however often the run is read, and `retrieved_at` less `data_updated
 The `rr1`, `rr3`, `rad1h` and `rads3` of ICON, which the model writes a little below 0 now and then, are held to the
 [plausibility](../../../plausibility.md) check `floor`: by default (hard) the value is set to 0.0 and the number stays as
 `rejected:floor,raw:-0.1`; with `plausibility={"floor": "soft"}` the value is kept as ICON wrote it and flagged
-`suspect:floor`.
+`suspect:floor`. Only round-off is clipped (down to -0.2 mm of precipitation, -0.01 MJ/m2, that is -1 J/cm2, of radiation):
+a value further below is no round-off, is not set to 0 and is flagged `suspect:range`.
 
 ```{toctree}
 :hidden:
