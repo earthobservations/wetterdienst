@@ -2323,7 +2323,10 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.53.0...HEAD
+[0.53.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.52.0...app-v0.53.0
+[0.52.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.1...app-v0.52.0
+[0.51.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.0...app-v0.51.1
 [0.51.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.50.0...app-v0.51.0
 [0.50.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.49.0...app-v0.50.0
 [0.49.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.48.0...app-v0.49.0
