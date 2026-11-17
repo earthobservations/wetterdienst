@@ -10,7 +10,7 @@ import type { ChartTheme } from './chart-theme'
 import type { DrawnPoints, ExplorerSeries, ExplorerWindow, Scale } from './explorer-model'
 import type { TextMeasure } from './stripes'
 import { withAlpha } from './chart-theme'
-import { drawnPoints, minSpanOf, niceScale, seriesColour, shownSeries, valueExtent } from './explorer-model'
+import { drawnPoints, gapRuleOf, minSpanOf, niceScale, seriesColour, shownSeries, valueExtent } from './explorer-model'
 import { withData } from './format'
 import { measureWithCanvas } from './stripes'
 
@@ -36,6 +36,13 @@ const AXIS_FONT_SIZE = 12
 
 /** The size of the marker of a point, in px, where a series has few enough to be marked */
 const MARKER_SIZE = 6
+/** The size of the dot of a point that has no line to it on either side, in a chart of many points that has no markers */
+const ISOLATED_SIZE = 3
+
+/** Whether the point at `index` has a value and the points on both sides have none (or there is none): no line is drawn to it */
+function isolated(y: readonly (number | null)[], index: number): boolean {
+  return y[index] !== null && (index === 0 || y[index - 1] === null) && (index === y.length - 1 || y[index + 1] === null)
+}
 
 export interface ExplorerOptionInput {
   /** every series, those the legend turned off too */
@@ -281,7 +288,8 @@ export function explorerFrame(input: ExplorerOptionInput): ExplorerFrame {
   const drawn = new Map<string, DrawnPoints>()
   const extents: [number, number][] = []
   for (const item of shown) {
-    const points = drawnPoints(item, win, estimate)
+    // where rows are missing the line is broken as where a value is (GH-4100); the readout and the table are not touched
+    const points = drawnPoints(item, win, estimate, gapRuleOf(item))
     drawn.set(item.id, points)
     const extent = valueExtent([points])
     if (extent && item.kind === 'values')
@@ -472,6 +480,21 @@ export function buildExplorerOption(input: ExplorerOptionInput, frame: ExplorerF
       itemStyle: { color: colour },
       lineStyle: { color: colour, width: trend ? 4 : large ? 1 : 2, type: trend ? 'dashed' : 'solid' },
     })
+    // a chart of many points has no markers, and a point between two gaps has no line to be drawn by: it is a dot of its own
+    if (large && !trend && points.y.some((_, index) => isolated(points.y, index))) {
+      lines.push({
+        ...base,
+        id: `${item.id}:isolated`,
+        type: 'line',
+        z: 2,
+        data: points.x.map((moment, index) => [moment, isolated(points.y, index) ? points.y[index] : null]),
+        showSymbol: true,
+        symbol: 'circle',
+        symbolSize: ISOLATED_SIZE,
+        lineStyle: { width: 0 },
+        itemStyle: { color: colour },
+      })
+    }
   }
   if (frame.hasZero) {
     lines.push({

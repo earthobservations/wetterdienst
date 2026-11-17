@@ -28,6 +28,13 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer, Forecast]` A chart's line breaks where rows are missing, not only where a row has an
+  empty value: a step of more than 1.5 times the usual one there (the resolution's interval, a
+  calendar month or year, or the series' own cadence, also by time of day for readings at fixed
+  hours; an irregular series is left whole) draws nothing across the gap. Before, the default
+  settings (no row for a missing value) joined the points on either side of hours or days with no
+  data. The forecast breaks at a fixed step of more than 3 h. The readout, the table and the
+  downloads are unchanged (GH-4100).
 - `[Forecast, Stripes]` A single selected station is named once by the station picker: the search
   shows it, and the "Selected station" chip block under it is gone. On the map, which has no search,
   one line names it, and a screen reader gets the station as the search's description. A single
