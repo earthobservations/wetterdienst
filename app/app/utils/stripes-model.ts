@@ -24,6 +24,13 @@ export interface StripesReferenceInput {
   range_sigma: number
 }
 
+/**
+ * The ways the same years are drawn (GH-4156): as stripes, as bars (the year's anomaly as the height, in the colour of its
+ * class, with no axes) and as bars with a scale (a y axis in the unit of the anomaly, and a year axis with round ticks).
+ */
+export const STRIPES_VARIANTS = ['stripes', 'bars', 'barsScale'] as const
+export type StripesVariant = (typeof STRIPES_VARIANTS)[number]
+
 export interface StripesModel {
   /** the years that have a value, in the order of the answer */
   years: number[]
@@ -39,6 +46,8 @@ export interface StripesModel {
   /** the least-squares line through the years, for each year */
   trend: number[]
   normalizedTrend: number[]
+  /** the trend's distance from the mean of the reference, in the unit of the values: the trend line of the bars */
+  trendAnomalies: number[]
   /** every year from the first to the last, `null` where there is no value: the data-availability line breaks there */
   availability: (number | null)[]
 }
@@ -84,6 +93,7 @@ export function buildStripesModel(data: readonly StripesInput[], reference: Stri
     maxYear,
     trend,
     normalizedTrend: trend.map(place),
+    trendAnomalies: trend.map(value => value - reference.centre.value),
     availability: Array.from({ length: maxYear - minYear + 1 }, (_, i) => present.has(minYear + i) ? -0.02 : null),
   }
 }
@@ -111,6 +121,62 @@ export function availabilityRuns(availability: readonly (number | null)[], minYe
       runs.push({ first: year, last: year })
   })
   return runs
+}
+
+/** The y axis of the bars: the range of the anomalies (zero in it) rounded out to the ticks that mark it */
+export interface AnomalyAxis {
+  min: number
+  max: number
+  step: number
+  /** from `min` to `max`, a tick every `step` */
+  ticks: number[]
+  /** the decimals a tick is written with, so that no two read alike (a step of 0.5 needs one) */
+  decimals: number
+}
+
+/**
+ * The range the bars of `anomalies` are drawn on: from the lowest to the highest of them, zero included, rounded out to a
+ * step of 1, 2 or 5 times a power of ten that gives about five intervals. It lies on the years of the whole answer and not on
+ * those in the window, so that the bars keep their height as the chart is zoomed. The anomalies are the backend's; this
+ * sets only where the axis runs.
+ */
+export function anomalyAxis(anomalies: readonly number[]): AnomalyAxis {
+  const low = Math.min(0, ...anomalies)
+  const high = Math.max(0, ...anomalies)
+  const raw = (high - low || 1) / 5
+  const magnitude = 10 ** Math.floor(Math.log10(raw))
+  const step = [1, 2, 5, 10].map(factor => factor * magnitude).find(candidate => candidate >= raw * (1 - 1e-9))!
+  const min = Math.floor(low / step + 1e-9) * step
+  let max = Math.ceil(high / step - 1e-9) * step
+  if (max <= min)
+    max = min + step
+  const count = Math.round((max - min) / step)
+  const clean = (value: number) => Number(value.toPrecision(12))
+  return {
+    min: clean(min),
+    max: clean(max),
+    step: clean(step),
+    ticks: Array.from({ length: count + 1 }, (_, index) => clean(min + index * step)),
+    decimals: Math.max(0, -Math.floor(Math.log10(step) + 1e-9)),
+  }
+}
+
+/** The steps the ticks of the year axis are a multiple of: the finest that leaves the labels room is taken */
+const YEAR_TICK_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200]
+
+/**
+ * The years the year axis of the bars with a scale labels: the multiples of a round step (5, 10, 20, 25, 50, ...) whose
+ * bar's middle is in `window`, the step the finest that leaves each label `spacing` px (a label is four digits at 14 px: about
+ * 48 with the room between). They move with the window, so a zoomed chart gets finer ticks.
+ */
+export function yearTicks(window: YearWindow, plotWidth: number, spacing = 48): number[] {
+  const span = window.end - window.start
+  if (!(span > 0) || !(plotWidth > 0))
+    return []
+  const step = YEAR_TICK_STEPS.find(candidate => plotWidth / (span / candidate) >= spacing) ?? YEAR_TICK_STEPS.at(-1)!
+  const first = Math.ceil((window.start - 1e-9) / step)
+  const last = Math.floor((window.end + 1e-9) / step)
+  return Array.from({ length: Math.max(0, last - first + 1) }, (_, index) => (first + index) * step)
 }
 
 /** A point of a line over the stripes: the year and the height, `null` where the year has no value (the line breaks there) */

@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import type StripesChart from '~/components/StripesChart.vue'
+import type { StripesVariant } from '~/utils/stripes-model'
 import type { StripesDisplay } from '~/utils/stripes-option'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber, formatSigned } from '~/utils/format'
 import { stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
+import { STRIPES_VARIANTS } from '~/utils/stripes-model'
 import { MENU_SCALE } from '~/utils/stripes-option'
 import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
@@ -23,6 +25,9 @@ const kindItems = computed(() => [
 function kindLabel(k: StripesKind) {
   return k === 'precipitation' ? t('stripes.typePrecipitation') : t('stripes.typeTemperature')
 }
+// How the years are drawn (GH-4156): in the link as `variant` (`stripes`, `bars`, `bars_scale`), not in the saved settings
+const VARIANT_QUERY: Record<StripesVariant, string> = { stripes: 'stripes', bars: 'bars', barsScale: 'bars_scale' }
+const variant = ref<StripesVariant>('stripes')
 const selectedStation = ref<StripesStation | null>(null)
 const startYear = ref<number | null>(null)
 const endYear = ref<number | null>(null)
@@ -238,6 +243,8 @@ const initialStationId = ref<string | null>(route.query.station?.toString() ?? n
 // Initialize simple options from URL if present
 if (route.query.kind)
   kind.value = route.query.kind.toString() as StripesKind
+// a name that is none of the three is no choice: the stripes
+variant.value = STRIPES_VARIANTS.find(name => VARIANT_QUERY[name] === route.query.variant?.toString()) ?? 'stripes'
 if (route.query.show_title !== undefined && route.query.show_title !== null)
   showTitle.value = route.query.show_title?.toString() === 'true'
 if (route.query.show_years !== undefined && route.query.show_years !== null)
@@ -318,6 +325,7 @@ function stripesToQuery(): Record<string, string> {
   const q: Record<string, string> = {}
   if (kind.value)
     q.kind = kind.value
+  q.variant = VARIANT_QUERY[variant.value]
   if (selectedStation.value)
     q.station = selectedStation.value.station_id
   if (showTitle.value !== undefined)
@@ -342,6 +350,7 @@ function stripesToQuery(): Record<string, string> {
 watch([
   () => selectedStation?.value?.station_id,
   () => kind.value,
+  () => variant.value,
   () => showTitle.value,
   () => showYears.value,
   () => showDataAvailability.value,
@@ -488,6 +497,7 @@ watch([
               <StripesChart
                 v-if="hasPlot && lastFetchedData"
                 ref="chart"
+                v-model:variant="variant"
                 :values="lastFetchedData.values"
                 :reference="lastFetchedData.reference"
                 :kind="kind"

@@ -15,17 +15,17 @@ import type { ECharts } from 'echarts/core'
 import type { StripesKind } from '#shared/types/api'
 import type { ImageFormat } from '~/utils/chart-image'
 import type { StripesReferenceView } from '~/utils/stripes'
-import type { StripesInput, StripesReferenceInput, YearWindow } from '~/utils/stripes-model'
+import type { StripesInput, StripesReferenceInput, StripesVariant, YearWindow } from '~/utils/stripes-model'
 import type { StripesDisplay, StripesOptionInput } from '~/utils/stripes-option'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { downloadBlob, svgToBlob } from '~/utils/chart-image'
 import { readDocumentChartTheme } from '~/utils/chart-theme'
 import { formatNumber, formatSigned } from '~/utils/format'
-import { stripeBand, stripeColour, stripesReferenceText, wrapChartTitle } from '~/utils/stripes'
-import { buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, zoomWindow } from '~/utils/stripes-model'
-import { buildStripesOption, CAMERA_SCALE, CAMERA_WIDTH, extraLinesHeight, STRIPES_FONT_FAMILY, stripesChartHeight, stripesLayout, TITLE_PADDING, TITLE_SIZE, windowUpdate, xOfYear } from '~/utils/stripes-option'
+import { barsSubtitle, stripeBand, stripeColour, stripesReferenceText, wrapChartTitle } from '~/utils/stripes'
+import { buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, STRIPES_VARIANTS, zoomWindow } from '~/utils/stripes-model'
+import { buildStripesOption, CAMERA_SCALE, CAMERA_WIDTH, extraLinesHeight, frameOf, STRIPES_FONT_FAMILY, stripesChartHeight, stripesLayout, SUBTITLE_SIZE, TITLE_PADDING, TITLE_SIZE, windowUpdate, xOfYear } from '~/utils/stripes-option'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   values: readonly StripesInput[]
   /** what the values' classes are relative to: the lines are placed on its scale */
   reference: StripesReferenceInput & StripesReferenceView
@@ -34,12 +34,15 @@ const props = defineProps<{
   unit: string
   title: string
   display: StripesDisplay
+  /** how the years are drawn: stripes, bars, or bars with a scale (GH-4156); the switch above the chart asks the page to change it */
+  variant?: StripesVariant
   /** the figure's name, and the element that describes it */
   label?: string
   describedBy?: string
   /** the name of the camera's file, without its extension */
   cameraFile: string
-}>()
+}>(), { variant: 'stripes' })
+const emit = defineEmits<{ 'update:variant': [variant: StripesVariant] }>()
 
 const { t, locale } = useI18n()
 const toast = useToast()
@@ -86,9 +89,19 @@ function titleLinesFor(chartWidth: number): string[] {
   return props.display.showTitle ? wrapChartTitle(props.title, chartWidth - 2 * TITLE_PADDING, font).text.split('<br>') : []
 }
 const titleLines = computed(() => titleLinesFor(width.value))
-// the stripes keep their shape: the chart is as high as its width gives it, the title and the years on top (GH-4133)
-const height = computed(() => stripesChartHeight(props.display, width.value, titleLines.value.length))
-const layout = computed(() => stripesLayout(props.display, width.value, height.value, titleLines.value.length))
+// what the bars with a scale are relative to, under the title and broken into the lines its width needs (the others have none)
+const subtitleFont = `${SUBTITLE_SIZE}px ${STRIPES_FONT_FAMILY}`
+function subtitleLinesFor(chartWidth: number): string[] {
+  return props.variant === 'barsScale' ? wrapChartTitle(barsSubtitle(props.reference, props.unit, t), chartWidth - 2 * TITLE_PADDING, subtitleFont).text.split('<br>') : []
+}
+const subtitleLines = computed(() => subtitleLinesFor(width.value))
+const frame = computed(() => frameOf({ variant: props.variant, subtitleLines: subtitleLines.value }))
+// the stripes keep their shape: the chart is as high as its width gives it, the title and the years on top (GH-4133); the bars are as high
+const height = computed(() => stripesChartHeight(props.display, width.value, titleLines.value.length, { frame: frame.value }))
+const layout = computed(() => stripesLayout(props.display, width.value, height.value, titleLines.value.length, 0, frame.value))
+const variantOptions = computed(() => STRIPES_VARIANTS.map(value => ({ value, label: t(`stripes.variant.${value}`) })))
+/** The numbers of the bars' y axis, with their sign, in the language of the page */
+const formatTick = (value: number, decimals: number) => value === 0 ? formatNumber(0, locale.value, 0) : formatSigned(value, locale.value, decimals)
 
 // -- the window of years the chart shows --------------------------------------------------------------------------
 
@@ -491,6 +504,9 @@ function optionInput(over: Partial<StripesOptionInput> = {}): StripesOptionInput
     titleLines: titleLines.value,
     availabilityText: t('stripes.plotDataAvailability'),
     sourceText: t('stripes.plotSource'),
+    variant: props.variant,
+    subtitleLines: subtitleLines.value,
+    formatTick,
     ...over,
   }
 }
@@ -499,7 +515,7 @@ let isRendering = false
 let renderPending = false
 // what the chart on the page was drawn from: a drawing for the same is none
 let drawnFrom: unknown[] | null = null
-const drawInputs = () => [model.value, props.kind, theme.value, props.display, width.value, height.value, titleLines.value.join('\n'), locale.value]
+const drawInputs = () => [model.value, props.kind, theme.value, props.display, width.value, height.value, titleLines.value.join('\n'), locale.value, props.variant, subtitleLines.value.join('\n')]
 
 async function render() {
   if (isRendering) {
@@ -586,7 +602,7 @@ async function draw() {
   performance.mark('stripes:drawn')
 }
 
-watch(() => [model.value, props.kind, theme.value, props.display, width.value, height.value, titleLines.value.join('\n'), locale.value], () => void render())
+watch(() => [model.value, props.kind, theme.value, props.display, width.value, height.value, titleLines.value.join('\n'), locale.value, props.variant, subtitleLines.value.join('\n')], () => void render())
 // the window moves without drawing the chart again: the zoom, and the years named at the ends of it
 watch(win, () => {
   const input = optionInput()
@@ -630,7 +646,7 @@ async function save(options: { format: ImageFormat, filename: string, width: num
   const imageHeight = options.height + extraLinesHeight(props.display, extraLines.length)
   // the paper is part of the image: a vector with dark text on nothing is unreadable on a dark page that shows it
   const paper = light.paper || '#ffffff'
-  const input = optionInput({ theme: light, width: imageWidth, height: imageHeight, titleLines: lines, background: paper, extraLines })
+  const input = optionInput({ theme: light, width: imageWidth, height: imageHeight, titleLines: lines, background: paper, extraLines, subtitleLines: subtitleLinesFor(imageWidth) })
   if (!input)
     return
   const lib = await loadChartCode()
@@ -653,7 +669,7 @@ function saveCamera() {
     format: 'png',
     filename: props.cameraFile,
     width: CAMERA_WIDTH,
-    height: stripesChartHeight(props.display, CAMERA_WIDTH, titleLinesFor(CAMERA_WIDTH).length, { clamp: false }),
+    height: stripesChartHeight(props.display, CAMERA_WIDTH, titleLinesFor(CAMERA_WIDTH).length, { clamp: false, frame: frameOf({ variant: props.variant, subtitleLines: subtitleLinesFor(CAMERA_WIDTH) }) }),
     scale: CAMERA_SCALE,
   }).catch((error: unknown) => {
     console.error('The chart image could not be saved', error)
@@ -693,33 +709,42 @@ const selectionStyle = computed(() => {
       <UButton v-if="chartCodeNotLoaded" :label="t('common.reloadPage')" icon="i-ph-arrows-clockwise" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
     </div>
 
-    <!-- the single-pointer ways to what a drag, a pinch and the keys do (WCAG 2.5.7), named by what they do -->
-    <!-- inert while the chart could not be drawn: nothing to zoom, read or save of an empty chart -->
-    <div ref="toolbarEl" class="sc-toolbar" role="group" :aria-label="t('stripes.chart.zoomGroup')" :inert="renderFailed || undefined">
-      <ChartToolButton
-        icon="i-ph-caret-left"
-        :title="t('stripes.chart.earlier')" :aria-label="t('stripes.chart.earlier')" :unavailable="atStart" @click="shift(-0.5)"
+    <!-- the way to draw the years (GH-4156) and the buttons to the chart: on one row where they fit, the switch at the left -->
+    <div class="sc-controls">
+      <SegmentedControl
+        :model-value="variant"
+        :options="variantOptions"
+        :label="t('stripes.variant.label')"
+        @update:model-value="emit('update:variant', $event)"
       />
-      <ChartToolButton
-        icon="i-ph-caret-right"
-        :title="t('stripes.chart.later')" :aria-label="t('stripes.chart.later')" :unavailable="atEnd" @click="shift(0.5)"
-      />
-      <ChartToolButton
-        icon="i-ph-magnifying-glass-minus"
-        :title="t('stripes.chart.zoomOut')" :aria-label="t('stripes.chart.zoomOut')" :unavailable="atMinZoom" @click="zoomOut()"
-      />
-      <ChartToolButton
-        icon="i-ph-magnifying-glass-plus"
-        :title="t('stripes.chart.zoomIn')" :aria-label="t('stripes.chart.zoomIn')" :unavailable="atMaxZoom" @click="zoomIn()"
-      />
-      <ChartToolButton
-        icon="i-ph-arrow-counter-clockwise"
-        :title="t('stripes.chart.resetZoom')" :aria-label="t('stripes.chart.resetZoom')" :unavailable="atMinZoom" @click="resetZoom()"
-      />
-      <UButton
-        icon="i-ph-camera" size="sm" variant="outline" color="neutral" class="shrink-0"
-        :title="t('stripes.chart.savePng')" :aria-label="t('stripes.chart.savePng')" @click="saveCamera()"
-      />
+      <!-- the single-pointer ways to what a drag, a pinch and the keys do (WCAG 2.5.7), named by what they do -->
+      <!-- inert while the chart could not be drawn: nothing to zoom, read or save of an empty chart -->
+      <div ref="toolbarEl" class="sc-toolbar" role="group" :aria-label="t('stripes.chart.zoomGroup')" :inert="renderFailed || undefined">
+        <ChartToolButton
+          icon="i-ph-caret-left"
+          :title="t('stripes.chart.earlier')" :aria-label="t('stripes.chart.earlier')" :unavailable="atStart" @click="shift(-0.5)"
+        />
+        <ChartToolButton
+          icon="i-ph-caret-right"
+          :title="t('stripes.chart.later')" :aria-label="t('stripes.chart.later')" :unavailable="atEnd" @click="shift(0.5)"
+        />
+        <ChartToolButton
+          icon="i-ph-magnifying-glass-minus"
+          :title="t('stripes.chart.zoomOut')" :aria-label="t('stripes.chart.zoomOut')" :unavailable="atMinZoom" @click="zoomOut()"
+        />
+        <ChartToolButton
+          icon="i-ph-magnifying-glass-plus"
+          :title="t('stripes.chart.zoomIn')" :aria-label="t('stripes.chart.zoomIn')" :unavailable="atMaxZoom" @click="zoomIn()"
+        />
+        <ChartToolButton
+          icon="i-ph-arrow-counter-clockwise"
+          :title="t('stripes.chart.resetZoom')" :aria-label="t('stripes.chart.resetZoom')" :unavailable="atMinZoom" @click="resetZoom()"
+        />
+        <UButton
+          icon="i-ph-camera" size="sm" variant="outline" color="neutral" class="shrink-0"
+          :title="t('stripes.chart.savePng')" :aria-label="t('stripes.chart.savePng')" @click="saveCamera()"
+        />
+      </div>
     </div>
 
     <div ref="scrollerEl" class="sc-scroller" :style="{ height: `${height}px` }" :inert="renderFailed || undefined">
@@ -798,12 +823,20 @@ const selectionStyle = computed(() => {
 .stripes-chart {
   position: relative;
 }
+.sc-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding-bottom: 0.5rem;
+}
 .sc-toolbar {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 0.25rem;
-  padding-bottom: 0.5rem;
+  margin-left: auto;
 }
 .sc-scroller {
   position: relative;

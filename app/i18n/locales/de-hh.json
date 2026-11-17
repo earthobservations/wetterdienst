@@ -664,6 +664,13 @@
     "plotDataAvailability": "Datenverfögbarkeit",
     "plotSource": "Quell: Deutscher Wetterdienst",
     "plotReference": "Klöör: Middel vun {centre}, ±{sigma} σ vun {spread}",
+    "barsRelativeTo": "Relativ to dat Middel vun {period}",
+    "variant": {
+      "label": "Ansicht",
+      "stripes": "Striepen",
+      "bars": "Balken",
+      "barsScale": "Balken mit Skaal"
+    },
     "hoverValue": "Weert",
     "hoverTrend": "Trend",
     "chart": {

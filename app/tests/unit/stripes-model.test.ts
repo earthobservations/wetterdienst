@@ -1,6 +1,6 @@
 import type { StripesInput, StripesReferenceInput } from '../../app/utils/stripes-model'
 import { describe, expect, it } from 'vitest'
-import { availabilityRuns, brokenLine, buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, visibleYears, zoomWindow } from '../../app/utils/stripes-model'
+import { anomalyAxis, availabilityRuns, brokenLine, buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, visibleYears, yearTicks, zoomWindow } from '../../app/utils/stripes-model'
 import { recordOf, stripesAnswer } from '../helpers/stripes-answer'
 
 // a reference with its centre at 10 and 1 standard deviation: the scale reaches from 7.4 to 12.6
@@ -173,6 +173,73 @@ describe('brokenLine (GH-4164)', () => {
     const forward = brokenLine([2000, 2001, 2003], [1, 2, 3])
     const backward = brokenLine([2003, 2001, 2000], [3, 2, 1])
     expect(backward).toEqual(forward)
+  })
+})
+
+describe('anomalyAxis (GH-4156)', () => {
+  it('runs from the lowest to the highest anomaly rounded out to a round step, zero in it', () => {
+    const axis = anomalyAxis([-1.7, 0.3, 2.04, -0.6])
+    expect(axis).toMatchObject({ min: -2, max: 3, step: 1, decimals: 0 })
+    expect(axis.ticks).toEqual([-2, -1, 0, 1, 2, 3])
+    // a step of a half is written with a decimal
+    const fine = anomalyAxis([-0.7, 1.2, 0.1])
+    expect(fine).toMatchObject({ min: -1, max: 1.5, step: 0.5, decimals: 1 })
+    expect(fine.ticks).toEqual([-1, -0.5, 0, 0.5, 1, 1.5])
+  })
+
+  it('has about five intervals whatever the unit: millimetres of precipitation step in hundreds and need no decimals', () => {
+    const axis = anomalyAxis([-310, 250, 40])
+    expect(axis).toMatchObject({ min: -400, max: 400, step: 200, decimals: 0 })
+    expect(axis.ticks).toEqual([-400, -200, 0, 200, 400])
+  })
+
+  it('takes zero as an end where the anomalies are all on one side of it', () => {
+    expect(anomalyAxis([0.4, 1.1, 2.2])).toMatchObject({ min: 0, max: 2.5 })
+    expect(anomalyAxis([-0.4, -1.1])).toMatchObject({ min: -1.5, max: 0 })
+  })
+
+  it('still has a range where every anomaly is nought', () => {
+    const axis = anomalyAxis([0, 0])
+    expect(axis.max).toBeGreaterThan(axis.min)
+    expect(axis.ticks).toContain(0)
+  })
+
+  it('writes a step below a tenth with the decimals it needs', () => {
+    expect(anomalyAxis([-0.03, 0.04]).decimals).toBe(2)
+    expect(anomalyAxis([-0.03, 0.04]).step).toBeCloseTo(0.02)
+  })
+})
+
+describe('yearTicks (GH-4156)', () => {
+  it('names the multiples of ten in a record of seventy-five years on a phone and a desktop', () => {
+    expect(yearTicks({ start: 1949.5, end: 2024.5 }, 664)).toEqual([1950, 1960, 1970, 1980, 1990, 2000, 2010, 2020])
+    // a narrower plot makes the step coarser, never a label on top of another
+    expect(yearTicks({ start: 1949.5, end: 2024.5 }, 320)).toEqual([1960, 1980, 2000, 2020])
+  })
+
+  it('names a year only where the middle of its bar is in the window', () => {
+    // 2020 is the middle of a bar that ends at 2020.5, which is the window's end: in; 1950 ends at 1950.5: out
+    expect(yearTicks({ start: 1950.5, end: 2020.5 }, 600)).toEqual([1960, 1970, 1980, 1990, 2000, 2010, 2020])
+  })
+
+  it('gets finer as the window is zoomed in, down to every year', () => {
+    expect(yearTicks({ start: 1999.5, end: 2020.5 }, 664)).toEqual([2000, 2002, 2004, 2006, 2008, 2010, 2012, 2014, 2016, 2018, 2020])
+    const zoomed = yearTicks({ start: 2009.5, end: 2019.5 }, 664)
+    expect(zoomed).toEqual([2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019])
+  })
+
+  it('is empty where there is no window or no room', () => {
+    expect(yearTicks({ start: 2000, end: 2000 }, 600)).toEqual([])
+    expect(yearTicks({ start: 1950, end: 2000 }, 0)).toEqual([])
+  })
+})
+
+describe('the model for the bars (GH-4156)', () => {
+  it('has the trend as its distance from the mean of the reference, in the unit of the values', () => {
+    const { values, reference } = answer([2000, 2001, 2002, 2003])
+    const model = buildStripesModel(values, reference)!
+    expect(model.trendAnomalies).toHaveLength(4)
+    model.trendAnomalies.forEach((anomaly, index) => expect(anomaly).toBeCloseTo(model.trend[index]! - reference.centre.value))
   })
 })
 

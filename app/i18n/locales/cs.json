@@ -664,6 +664,13 @@
     "plotDataAvailability": "Dostupnost dat",
     "plotSource": "Zdroj: Deutscher Wetterdienst",
     "plotReference": "Barvy: průměr z {centre}, ±{sigma} σ z {spread}",
+    "barsRelativeTo": "Vzhledem k průměru z {period}",
+    "variant": {
+      "label": "Zobrazení",
+      "stripes": "Pruhy",
+      "bars": "Sloupce",
+      "barsScale": "Sloupce se stupnicí"
+    },
     "hoverValue": "Hodnota",
     "hoverTrend": "Trend",
     "chart": {
