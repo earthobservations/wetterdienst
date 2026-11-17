@@ -942,6 +942,7 @@
     "legendGroup": "Eine Zahl ist eine Gruppe von Stationen: Klicken zum Hineinzoomen",
     "legendGroupShare": "Eine Zahl ist eine Gruppe von Stationen: Klicken zum Hineinzoomen. Der gefüllte Teil ihres Rings zeigt, wie viele noch Daten liefern.",
     "groupZoomed": "Auf eine Gruppe gezoomt. Stationen darin: {shown}",
+    "sameStation": "Dieselbe Station, erkannt an ihrer WMO-Nummer {wmo}.",
     "groupZoomedReporting": "Auf eine Gruppe gezoomt. Stationen darin: {shown}, davon liefern Daten: {reporting}",
     "whyFarther": "Die nächstgelegene Station, die noch Daten liefert. Näher: {name}, {distance}, bis {year}.",
     "whyFartherNoEnd": "Die nächstgelegene Station, die noch Daten liefert. Näher: {name}, {distance}, Ende unbekannt.",

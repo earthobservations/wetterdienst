@@ -942,6 +942,7 @@
     "legendGroup": "En Tall is en Gruppe vun Stationen: Klick, un du kummst dichter ran",
     "legendGroupShare": "En Tall is en Gruppe vun Stationen: Klick, un du kummst dichter ran. De füllte Deel vun ehren Ring wiest, woveel noch melden.",
     "groupZoomed": "Op en Gruppe rinzoomt. Stationen dorin: {shown}",
+    "sameStation": "De sülve Station, wiel se de WMO-Nummer {wmo} hett.",
     "groupZoomedReporting": "Op en Gruppe rinzoomt. Stationen dorin: {shown}, dorvun melden: {reporting}",
     "whyFarther": "De dichtste Station, de noch meldt. Dichter bi: {name}, {distance}, bit {year}.",
     "whyFartherNoEnd": "De dichtste Station, de noch meldt. Dichter bi: {name}, {distance}, Enn nich bekannt.",

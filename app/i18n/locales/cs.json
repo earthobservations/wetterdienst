@@ -942,6 +942,7 @@
     "legendGroup": "Číslo je skupina stanic: klikni pro přiblížení",
     "legendGroupShare": "Číslo je skupina stanic: klikni pro přiblížení. Vyplněná část jejího prstence ukazuje, kolik jich stále hlásí.",
     "groupZoomed": "Přiblíženo na skupinu. Stanic v ní: {shown}",
+    "sameStation": "Stejná stanice, poznaná podle čísla WMO {wmo}.",
     "groupZoomedReporting": "Přiblíženo na skupinu. Stanic v ní: {shown}, z toho hlásí: {reporting}",
     "whyFarther": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, do {year}.",
     "whyFartherNoEnd": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, konec neznámý.",

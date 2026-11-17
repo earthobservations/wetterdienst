@@ -101,7 +101,7 @@ export type CoverageQuery = Query<'coverage_api_coverage_get'>
 // Stations API
 // ============================================================================
 /** A station of the stations listing; the backend's rows carry more fields where the provider has them */
-export type Station = Reads<Pick<Schemas['_Station'], 'station_id' | 'name' | 'region' | 'latitude' | 'longitude' | 'elevation' | 'start_timestamp' | 'end_timestamp'>, 'station_id' | 'name' | 'region' | 'latitude' | 'longitude' | 'elevation'>
+export type Station = Reads<Pick<Schemas['_Station'], 'station_id' | 'name' | 'region' | 'latitude' | 'longitude' | 'elevation' | 'wmo_id' | 'start_timestamp' | 'end_timestamp'>, 'station_id' | 'name' | 'region' | 'latitude' | 'longitude' | 'elevation'>
 
 /** The answer of `GET /api/stations` as far as the app reads it: its `metadata` block is not read */
 export interface StationsResponse {

@@ -942,6 +942,7 @@
     "legendGroup": "Liczba oznacza grupę stacji: kliknij, aby przybliżyć",
     "legendGroupShare": "Liczba oznacza grupę stacji: kliknij, aby przybliżyć. Wypełniona część pierścienia pokazuje, ile z nich nadal działa.",
     "groupZoomed": "Przybliżono grupę. Stacji w niej: {shown}",
+    "sameStation": "Ta sama stacja, rozpoznana po numerze WMO {wmo}.",
     "groupZoomedReporting": "Przybliżono grupę. Stacji w niej: {shown}, z tego działających: {reporting}",
     "whyFarther": "Najbliższa stacja, która nadal działa. Bliżej: {name}, {distance}, do {year}.",
     "whyFartherNoEnd": "Najbliższa stacja, która nadal działa. Bliżej: {name}, {distance}, koniec nieznany.",

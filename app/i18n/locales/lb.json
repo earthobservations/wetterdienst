@@ -942,6 +942,7 @@
     "legendGroup": "Eng Zuel ass eng Grupp vu Statioune: klickt fir anzezoomen",
     "legendGroupShare": "Eng Zuel ass eng Grupp vu Statioune: klick fir anzezoomen. Dee gefëllten Deel vum Ring weist, wéi vill nach mellen.",
     "groupZoomed": "Op eng Grupp gezoomt. Statioune dran: {shown}",
+    "sameStation": "Déi selwecht Statioun, erkannt un hirer WMO-Nummer {wmo}.",
     "groupZoomedReporting": "Op eng Grupp gezoomt. Statioune dran: {shown}, dovun mellen: {reporting}",
     "whyFarther": "Déi nootst Statioun, déi nach mellt. Méi no: {name}, {distance}, bis {year}.",
     "whyFartherNoEnd": "Déi nootst Statioun, déi nach mellt. Méi no: {name}, {distance}, Enn onbekannt.",

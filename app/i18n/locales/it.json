@@ -942,6 +942,7 @@
     "legendGroup": "Un numero è un gruppo di stazioni: clicca per ingrandire",
     "legendGroupShare": "Un numero è un gruppo di stazioni: clicca per ingrandire. La parte piena del suo anello mostra quante sono ancora in funzione.",
     "groupZoomed": "Ingrandito su un gruppo. Stazioni al suo interno: {shown}",
+    "sameStation": "La stessa stazione, riconosciuta dal suo numero OMM {wmo}.",
     "groupZoomedReporting": "Ingrandito su un gruppo. Stazioni al suo interno: {shown}, di cui in funzione: {reporting}",
     "whyFarther": "La stazione più vicina ancora in funzione. Più vicina: {name}, a {distance}, fino al {year}.",
     "whyFartherNoEnd": "La stazione più vicina ancora in funzione. Più vicina: {name}, a {distance}, fine non nota.",

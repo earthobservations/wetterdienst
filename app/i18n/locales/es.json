@@ -942,6 +942,7 @@
     "legendGroup": "Un número es un grupo de estaciones: haz clic para acercar",
     "legendGroupShare": "Un número es un grupo de estaciones: haz clic para acercar. La parte rellena de su anillo muestra cuántas siguen informando.",
     "groupZoomed": "Se acercó a un grupo. Estaciones que contiene: {shown}",
+    "sameStation": "La misma estación, reconocida por su número OMM {wmo}.",
     "groupZoomedReporting": "Se acercó a un grupo. Estaciones que contiene: {shown}, de ellas informan: {reporting}",
     "whyFarther": "La estación más cercana que sigue informando. Más cerca: {name}, a {distance}, hasta {year}.",
     "whyFartherNoEnd": "La estación más cercana que sigue informando. Más cerca: {name}, a {distance}, fin desconocido.",

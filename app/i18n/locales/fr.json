@@ -942,6 +942,7 @@
     "legendGroup": "Un nombre est un groupe de stations : clique pour zoomer",
     "legendGroupShare": "Un nombre est un groupe de stations : clique pour zoomer. La partie pleine de son anneau montre combien transmettent encore.",
     "groupZoomed": "Zoom sur un groupe. Stations qu'il contient : {shown}",
+    "sameStation": "La même station, reconnue par son numéro OMM {wmo}.",
     "groupZoomedReporting": "Zoom sur un groupe. Stations qu'il contient : {shown}, dont transmettent encore : {reporting}",
     "whyFarther": "La station la plus proche qui transmet encore. Plus près : {name}, à {distance}, jusqu'en {year}.",
     "whyFartherNoEnd": "La station la plus proche qui transmet encore. Plus près : {name}, à {distance}, fin inconnue.",
