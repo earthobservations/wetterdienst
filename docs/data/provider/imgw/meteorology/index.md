@@ -24,7 +24,7 @@ is an inference), and `wmo_id`, `wigos_id` and `icao_id` are null.
 
 The code comes from a second list, which the synop stations are picked by. For `synop` a list that cannot be read is
 an error. For the other datasets it is an addition: the stations come back with `short_code` null and the warning
-`station-codes-unavailable` (see [the warnings of an answer](../../../usage/restapi.md)).
+`station-codes-unavailable` (see [the warnings of an answer](../../../../usage/restapi.md)).
 
 Five synop stations have daily synop archives and are in no station list that gives a position, so they
 are not listed and their history cannot be requested: Zgorzelec (351150405), Gdańsk-Port Północny
