@@ -26,6 +26,13 @@ Types of changes:
   check `floor`. It clips round-off only, down to
   -0.2 mm, -0.01 MJ/m2, -5 cm of snow or -0.02 h (`dwd/dmo` too); a value further below (-15 m of
   snow) is not set to 0 but flagged `suspect:range`, the value kept (GH-4182)
+- `eaufrance/hubeau`: a station is listed at its commonest step only if at least 90 % of its
+  intervals are multiples of it and it covers at least 50 % of them (a missed transmission still
+  counts for it), over 2 h and, failing that, over 24 h. A sparse gauge that sends in bursts was
+  listed at 5, 10, 15 and 60 minutes by turns (H502301401); such a station is now served under no
+  resolution while its steps don't settle. Of the 7 of 267 stations listed at 15 minutes that did
+  not keep that cadence, 4 were unlisted at the last lookup and the others in about two thirds of
+  the windows (GH-4166)
 
 ## [0.191.0] - 2026-11-17
 

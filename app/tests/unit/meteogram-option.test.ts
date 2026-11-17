@@ -121,9 +121,8 @@ describe('the option', () => {
     const byId = (id: string) => option.series.find((s: any) => s.id === id)
     expect(byId('temp')).toMatchObject({ type: 'line', smooth: 0.4, smoothMonotone: 'x', step: false })
     expect(byId('tempMax')).toMatchObject({ type: 'line', step: 'start', lineStyle: { type: 'dashed' } })
-    expect(byId('rain')).toMatchObject({ type: 'bar', stack: 'precip' })
-    expect(byId('mixed')).toMatchObject({ type: 'bar', stack: 'precip' })
-    for (const id of ['barbs', 'day-names', 'hours', 'symbols', 'backdrop-wind', 'backdrop-temp'])
+    // the precipitation is blocks of 1, 6, 12 or 24 hours, which the library's bars (one width for every bar) cannot be (GH-4175)
+    for (const id of ['rain', 'mixed', 'snow', 'barbs', 'day-names', 'hours', 'symbols', 'backdrop-wind', 'backdrop-temp'])
       expect(byId(id), id).toMatchObject({ type: 'custom' })
     // each series in the grid of its panel
     expect(byId('temp').xAxisIndex).toBe(4)

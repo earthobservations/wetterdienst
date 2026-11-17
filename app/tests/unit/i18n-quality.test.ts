@@ -443,6 +443,7 @@ const UI_SAME: Record<string, Same> = {
   'history.colParameter': { en: ['da', 'de-hh', 'de', 'lb', 'nl'], why: COGNATE },
   'history.colDescription': { en: ['fr'], why: COGNATE },
   'history.colMethod': { de: ['nl'], why: COGNATE },
+  'meteogram.chart.blockHours': { en: ['cs', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'pl'], why: UNIT },
 }
 
 const GLOSSARY_SAME: Record<string, Same> = {

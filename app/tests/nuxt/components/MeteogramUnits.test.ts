@@ -112,8 +112,10 @@ describe('the day rows in each unit', () => {
       const label = rows(wrapper)[0]!.find('.font-bold.tabular-nums').text()
       // the minimum and the maximum of the day, rounded, with the unit of the answer
       expect(label).toMatch(units.temperature === 'K' ? / K$/ : units.temperature === '°F' ? /°F$/ : /°C$/)
-      // the 22 hours of the first day at the station, a quarter of a millimetre each, in the unit of the answer
-      expect(rows(wrapper)[0]!.text()).toContain(`5.5 ${units.precipitation}`)
+      // the 23 hours of the first day at the station, a quarter of a millimetre each, in the unit of the answer: the amount at a stamp
+      // is the hour before it, so the hour that ends at 00:00 UTC, which the run gives, is the day's first, and the day ends with the
+      // hour that ends at its midnight, 22:00 UTC (GH-4175)
+      expect(rows(wrapper)[0]!.text()).toContain(`5.8 ${units.precipitation}`)
       wrapper.unmount()
       mounted.pop()
     }

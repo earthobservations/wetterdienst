@@ -172,6 +172,27 @@ _VALUES_SCHEMA = {
 }
 # Three intervals is the least that can carry a majority, so it is the least that names a station.
 _SNIFF_MIN_INTERVALS = 3
+# A station is named by its modal interval only where its intervals settle on it, in whichever window
+# they are measured (GH-4166): at least `_SNIFF_MIN_GRID_PERCENT` of them are multiples of the modal
+# interval (a transmission missed leaves 2 x the step, which is on the grid), and the modal interval
+# is at least `_SNIFF_MIN_MODAL_PERCENT` of them. A sparse gauge sends in bursts, so every window of
+# it has a mode that means nothing: H502301401 (stage, 30 days to 2026-11-17, 691 records) replayed at
+# 115 anchors of six hours was named 5 minutes 17 times, 10 minutes 11, 15 minutes 10 and hourly 33,
+# dropped 39 times for a modal interval no resolution covers and named nothing 5 times, so every
+# resolution listed it by turns. Of the 267 stations listed at 15 minutes on that day 7 (2.6 %) did
+# not keep that cadence; 4 of 29 sampled hourly ones did not, and none of 80 at 5, 6 and 10
+# minutes. A longer window or more intervals does not tell them apart: 24 h lists them in as many
+# windows and costs 34 requests per network lookup instead of 6, a minimum of 12 intervals still lists
+# 83 % of their windows at 11 requests. The two shares do: replayed over 7 days, the regular 15 minute
+# stations stay named (0.3 % of their windows unlisted and 0.2 % at another interval, against 0.0 %
+# and 0.4 % with no test) while the irregular ones are named in 33 % of their windows instead of 100 %
+# (H502301401 in 3 of 115), and at the latest lookup the test changed none of the 260 regular stations.
+# Either share alone is not enough: a modal share of 80 % alone would have unlisted three regular
+# stations that had just lost a transmission. The requests stay at 6, at most one more for the
+# stations the 2 h window now sends to the 24 h pass by name. A station that does not settle in
+# either window is served under no resolution until it does.
+_SNIFF_MIN_GRID_PERCENT = 90
+_SNIFF_MIN_MODAL_PERCENT = 50
 # Every query here is cursor-driven, and a cursor that stopped advancing would loop forever. Two
 # hours of the network is three pages and the referential is one; this is a backstop, not a limit
 # anyone should reach.
@@ -200,6 +221,22 @@ def _log_unmapped_steps(df: pl.DataFrame) -> None:
     log.info(
         f"Hubeau stations transmitting every {', '.join(f'{step} minutes' for step in sorted(new))} "
         f"are served under no resolution, as no resolution covers those intervals.",
+    )
+
+
+# reported once per process, as the unmapped intervals are
+_reported_unsettled: set[str] = set()
+
+
+def _log_unsettled(count: int) -> None:
+    """Report the stations whose intervals did not settle on one, which are served under no resolution."""
+    if not count or _reported_unsettled:
+        return
+    _reported_unsettled.add("unsettled")
+    log.info(
+        f"Hubeau: {count} stations transmit at no steady interval (less than {_SNIFF_MIN_GRID_PERCENT} % of their "
+        f"intervals are multiples of the commonest one, or it is less than {_SNIFF_MIN_MODAL_PERCENT} % of them), "
+        f"and are served under no resolution until they do.",
     )
 
 
@@ -404,18 +441,22 @@ def _paged_rows(url: str, settings: Settings, *, ttl: CacheExpiry, timeout: int)
     return rows
 
 
-def _modal_steps(df: pl.DataFrame) -> pl.DataFrame:
-    """Reduce observation timestamps to one interval per station.
+def _step_verdicts(df: pl.DataFrame) -> pl.DataFrame:
+    """Measure the interval of each station that has enough of them, and whether they settle on it.
 
     Args:
         df: Frame of ``station_id`` and ``timestamp``, one row per observation.
 
     Returns:
-        Frame of ``station_id`` and ``step``, the station's modal interval in minutes.
+        Frame of ``station_id``, ``step`` (the station's modal interval in minutes) and ``settled``,
+        for every station with at least ``_SNIFF_MIN_INTERVALS`` intervals. ``settled`` is true where
+        ``_SNIFF_MIN_GRID_PERCENT`` of the intervals are multiples of the modal one and the modal
+        one is ``_SNIFF_MIN_MODAL_PERCENT`` of them. A station with fewer intervals is absent.
 
     """
+    schema = {"station_id": pl.String, "step": pl.Int64, "settled": pl.Boolean}
     if df.is_empty():
-        return pl.DataFrame(schema={"station_id": pl.String, "step": pl.Int64})
+        return pl.DataFrame(schema=schema)
     df = df.unique(subset=["station_id", "timestamp"]).sort("station_id", "timestamp")
     # rounded to the nearest minute rather than truncated: a gauge whose transmissions drift by
     # seconds spaces them 4 m 55 s apart as readily as 5 m 00 s, and truncation would call that a
@@ -427,17 +468,47 @@ def _modal_steps(df: pl.DataFrame) -> pl.DataFrame:
     # records at one timestamp, which `unique` above has already ruled out
     df = df.drop_nulls("step").filter(pl.col("step") > 0)
     counts = df.group_by("station_id", "step").len()
+    # ties go to the shorter interval, so that a station is named the same way on every run rather
+    # than by whichever step the grouping happened to emit first
+    modal = (
+        counts.sort("station_id", "len", "step", descending=[False, True, False])
+        .group_by("station_id", maintain_order=True)
+        .agg(pl.col("step").first().alias("modal"), pl.col("len").first().alias("modal_len"))
+    )
+    # integers throughout, so that a share of exactly 90 % or 50 % is not at the mercy of a float
     return (
-        counts.group_by("station_id")
+        counts.join(modal, on="station_id")
+        .group_by("station_id")
         .agg(
-            # ties go to the shorter interval, so that a station is named the same way on every
-            # run rather than by whichever step the grouping happened to emit first
-            pl.col("step").sort_by(pl.col("len"), pl.col("step"), descending=[True, False]).first(),
+            pl.col("modal").first().alias("step"),
             pl.col("len").sum().alias("intervals"),
+            pl.col("len").filter(pl.col("step") % pl.col("modal") == 0).sum().alias("on_grid"),
+            pl.col("modal_len").first(),
         )
         .filter(pl.col("intervals") >= _SNIFF_MIN_INTERVALS)
-        .select("station_id", "step")
+        .with_columns(
+            (
+                (pl.col("on_grid") * 100 >= pl.col("intervals") * _SNIFF_MIN_GRID_PERCENT)
+                & (pl.col("modal_len") * 100 >= pl.col("intervals") * _SNIFF_MIN_MODAL_PERCENT)
+            ).alias("settled"),
+        )
+        .select("station_id", "step", "settled")
     )
+
+
+def _modal_steps(df: pl.DataFrame) -> pl.DataFrame:
+    """Reduce observation timestamps to one interval per station that settles on one.
+
+    Args:
+        df: Frame of ``station_id`` and ``timestamp``, one row per observation.
+
+    Returns:
+        Frame of ``station_id`` and ``step``, the station's modal interval in minutes. A station
+        with too few intervals, or whose intervals do not settle on its modal one (see
+        ``_SNIFF_MIN_GRID_PERCENT``), is absent.
+
+    """
+    return _step_verdicts(df).filter("settled").select("station_id", "step")
 
 
 _PARAMETERS = [
@@ -671,17 +742,25 @@ class HubeauRequest(TimeseriesRequest):
 
         Returns:
             Frame of ``station_id`` and ``step``, the station's interval in minutes. A station
-            that published nothing to measure is absent.
+            that published nothing to measure, or whose intervals do not settle on one (see
+            ``_SNIFF_MIN_GRID_PERCENT``) in the first window or the second, is absent.
 
         """
         # floored to the anchor so that the window, and with it every URL below, stays the same
         # for six hours at a time and the cache can hold what they returned
-        now = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
+        now = _now().replace(tzinfo=None)
         anchor = now - (now - now.replace(hour=0, minute=0, second=0, microsecond=0)) % _SNIFF_ANCHOR
         window = self._observations_url(start=anchor - _SNIFF_WINDOW, end=anchor, grandeur="H")
-        steps = _modal_steps(self._observation_dates(window))
+        verdicts = _step_verdicts(self._observation_dates(window))
+        steps = verdicts.filter("settled").select("station_id", "step")
+        # a station that does not settle over 2 h is asked about again over 24 h, as one with too
+        # few intervals is, and under the same test
         missing = sorted(set(station_ids) - set(steps.get_column("station_id")))
+        # a station that published stage and did not settle on it is not asked for discharge: that
+        # would name it by a second series for what its first one did not say
+        unsettled: set[str] = set()
         for grandeur in ("H", "Q"):
+            missing = [station for station in missing if station not in unsettled]
             if not missing:
                 break
             frames = [
@@ -695,9 +774,12 @@ class HubeauRequest(TimeseriesRequest):
                 )
                 for batch in range(0, len(missing), _SNIFF_QUIET_BATCH)
             ]
-            quiet = _modal_steps(pl.concat(frames))
+            quiet_verdicts = _step_verdicts(pl.concat(frames))
+            quiet = quiet_verdicts.filter("settled").select("station_id", "step")
             steps = pl.concat([steps, quiet])
+            unsettled |= set(quiet_verdicts.filter(~pl.col("settled")).get_column("station_id"))
             missing = sorted(set(missing) - set(quiet.get_column("station_id")))
+        _log_unsettled(len(unsettled))
         _log_unmapped_steps(steps)
         return steps
 

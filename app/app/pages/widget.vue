@@ -4,17 +4,12 @@ import type { RequestError } from '~/utils/request-error'
 import Meteogram from '~/components/Meteogram.vue'
 import { UnexpectedAnswerError } from '~/utils/api-answer'
 import { describeFetchError } from '~/utils/api-error'
-import { FORECAST_QUANTITIES, meteogramUnitsKey, meteogramValuesSettings } from '~/utils/meteogram'
+import { FORECAST_QUANTITIES, meteogramUnitsKey, meteogramValuesSettings, MOSMIX_METEOGRAM } from '~/utils/meteogram'
 import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
 import { unitsOfAnswer } from '~/utils/units'
 
-const MOSMIX = {
-  provider: 'dwd',
-  network: 'mosmix',
-  resolution: 'hourly',
-  dataset: 'large',
-  parameters: ['ttt', 'td', 'ff', 'dd', 'fx1', 'n', 'nl', 'nm', 'nh', 'rr1c', 'ww', 'pppp', 'tx', 'tn'],
-}
+// the request of the forecast page, which the map's panel and the widget make as well
+const MOSMIX = MOSMIX_METEOGRAM
 
 const { t } = useI18n()
 
