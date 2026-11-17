@@ -404,8 +404,9 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     // not the fixed `dd.MM` it was written in, whatever the language
     if (['en', 'fr', 'nl', 'cs'].includes(language))
       expect(wrapper!.text()).not.toContain('15.10')
-    // the rain, 24 times 0.25 mm, with the language's decimal separator
-    expect(wrapper!.text()).toContain(language === 'en' ? '6.0 mm' : '6,0 mm')
+    // the rain, 0.25 mm of each hour: the amount at a stamp is that of the hour before it, so the day has the 23 hours that end at 01:00 to
+    // 23:00 (the stamp at 00:00 is the hour before the day), with the language's decimal separator
+    expect(wrapper!.text()).toContain(language === 'en' ? '5.8 mm' : '5,8 mm')
   })
 
   // the 14th from 18:00 to the 16th 05:00 UTC: a stub of yesterday above today, and a last day of six hours

@@ -8,13 +8,15 @@ import type { MeteogramUnits, Translate } from './meteogram-units'
 import { DateTime } from 'luxon'
 import { formatNumber } from './format'
 import { METEOGRAM_SERIES } from './meteogram'
+import { planPrecipitation, precipitationTotal } from './meteogram-precipitation'
 import { findFirstAvailable } from './meteogram-series'
 import { snowChanceAmount } from './meteogram-units'
 import { withUnit } from './units'
 
 export interface MeteogramSummary {
   temp: { min: string, max: string } | null
-  precip: { value: string, unit: string }
+  /** `atLeast`: some hours of the run have no amount, which are not 0, so the total is the least the forecast says */
+  precip: { value: string, unit: string, atLeast: boolean }
   gust: { value: string, unit: string }
   cloud: { value: string, unit: string }
   pressure: { range: string, unit: string } | null
@@ -30,7 +32,10 @@ export function meteogramSummary(series: SeriesMap, units: MeteogramUnits, local
   const temperatures = valid(findFirstAvailable(METEOGRAM_SERIES.temperature, available))
   const minTemp = temperatures.length ? Math.min(...temperatures) : Number.POSITIVE_INFINITY
   const maxTemp = temperatures.length ? Math.max(...temperatures) : Number.NEGATIVE_INFINITY
-  const totalPrecip = valid(findFirstAvailable(METEOGRAM_SERIES.precipitation, available)).reduce((sum, v) => sum + v, 0)
+  // the rain of the run: the sum of the blocks that account for MOSMIX's totals (`planPrecipitation`), where the hourly amount alone left the late days dry
+  const plan = planPrecipitation(series, amount => units.canon('precipitation', amount))
+  const runEnd = Math.max(...[...series.values()].flatMap(s => s.x.map(d => d.getTime())))
+  const totalPrecip = plan ? precipitationTotal(plan, runEnd) : { amount: 0, missing: 0 }
   const maxGust = Math.max(0, ...valid(findFirstAvailable(METEOGRAM_SERIES.gust, available)))
   const clouds = valid(findFirstAvailable(METEOGRAM_SERIES.cloudCover, available))
   const avgCloud = clouds.length ? clouds.reduce((sum, v) => sum + v, 0) / clouds.length : 0
@@ -50,13 +55,17 @@ export function meteogramSummary(series: SeriesMap, units: MeteogramUnits, local
           max: withUnit(String(Math.round(maxTemp)), temperature),
         }
       : null,
-    precip: { value: rounded(totalPrecip, 1), unit: units.unitName('precipitation') },
+    precip: { value: rounded(totalPrecip.amount, 1), unit: units.unitName('precipitation'), atLeast: totalPrecip.missing > 0 },
     gust: { value: rounded(maxGust, 1), unit: units.unitName('speed') },
     // nothing after a number that is a decimal, as everywhere a number is written with its unit
     cloud: { value: rounded(avgCloud, units.digits('fraction')), unit: units.unitOf('fraction') === '-' ? '' : units.unitName('fraction') },
     pressure: Number.isFinite(minPres) ? { range: `${rounded(minPres, pressureDigits)}–${rounded(maxPres, pressureDigits)}`, unit: units.unitName('pressure') } : null,
   }
 }
+
+/** The table's columns of the rain as the chart draws it: the amount of each block, and the hours it covers */
+const PLAN_AMOUNT = 'precipitation (blocks)'
+const PLAN_HOURS = 'precipitation (hours of a block)'
 
 export interface MeteogramTable {
   columns: string[]
@@ -86,7 +95,16 @@ export function meteogramTable(series: SeriesMap, { panels, horizonHours, zone, 
   if (!series.size)
     return null
   const { named, digits, unitName } = units
-  const available = new Set(series.keys())
+  // The rain is the blocks the chart draws (`planPrecipitation`), one value at the end of each: the hourly amounts while they carry
+  // the rain, then the 6, 12 or 24 hour totals, with a column that says how many hours each covers where there are any
+  const plan = planPrecipitation(series, amount => units.canon('precipitation', amount))
+  const withPlan: SeriesMap = new Map(series)
+  if (plan) {
+    withPlan.set(PLAN_AMOUNT, { x: plan.blocks.map(block => new Date(block.end)), y: plan.blocks.map(block => block.amount) })
+    if (plan.longest > 1)
+      withPlan.set(PLAN_HOURS, { x: plan.blocks.map(block => new Date(block.end)), y: plan.blocks.map(block => block.hours) })
+  }
+  const available = new Set(withPlan.keys())
   const pick = (names: readonly string[]) => findFirstAvailable(names, available)
   const specs: { shown: boolean, key: string | undefined, label: string, digits: number, main?: boolean }[] = [
     { shown: panels.temp, key: pick(METEOGRAM_SERIES.temperature), label: named('meteogram.chart.seriesTemperature', 'temperature'), digits: digits('temperature'), main: true },
@@ -96,7 +114,8 @@ export function meteogramTable(series: SeriesMap, { panels, horizonHours, zone, 
     { shown: panels.wind, key: pick(METEOGRAM_SERIES.windSpeed), label: named('meteogram.chart.seriesWind', 'speed'), digits: digits('speed') },
     { shown: panels.wind, key: pick(METEOGRAM_SERIES.windDirection), label: `${t('meteogram.chart.seriesDirection')} ${unitName('angle')}`, digits: digits('angle') },
     { shown: panels.wind, key: pick(METEOGRAM_SERIES.gust), label: named('meteogram.chart.seriesWindGust', 'speed'), digits: digits('speed') },
-    { shown: panels.precip, key: pick(METEOGRAM_SERIES.precipitation), label: `${t('meteogram.chart.panelPrecipitation')} ${unitName('precipitation')}`, digits: digits('precipitation') },
+    { shown: panels.precip, key: pick([PLAN_AMOUNT]), label: `${t('meteogram.chart.panelPrecipitation')} ${unitName('precipitation')}`, digits: digits('precipitation') },
+    { shown: panels.precip, key: pick([PLAN_HOURS]), label: t('meteogram.chart.tableBlockHours'), digits: 0 },
     // the snow forecast (GH-4091), whose steps are the 3-hourly ones: a row of another hour has a dash
     { shown: panels.snow, key: pick(METEOGRAM_SERIES.snowNew), label: named('meteogram.chart.seriesSnowNew', 'length_short'), digits: digits('length_short') },
     { shown: panels.snow, key: pick(METEOGRAM_SERIES.snowDepth), label: named('meteogram.chart.seriesSnowDepth', 'length_short'), digits: digits('length_short') },
@@ -113,12 +132,15 @@ export function meteogramTable(series: SeriesMap, { panels, horizonHours, zone, 
 
   const firstTime = Math.min(...[...series.values()].flatMap(s => s.x.map(d => d.getTime())))
   const lastShown = horizonHours !== null ? firstTime + horizonHours * 3_600_000 : Number.POSITIVE_INFINITY
+  // a block that begins within the horizon is a row of the table, as the chart draws it, though its stamp is after it
+  const blocksShown = new Set((plan?.blocks ?? []).filter(block => block.start < lastShown).map(block => block.end))
   const byTime = new Map<number, (number | null)[]>()
   columns.forEach((column, index) => {
-    const s = series.get(column.key)!
+    const s = withPlan.get(column.key)!
+    const ofPlan = column.key === PLAN_AMOUNT || column.key === PLAN_HOURS
     s.x.forEach((date, i) => {
       const ms = date.getTime()
-      if (ms > lastShown)
+      if (ms > lastShown && !(ofPlan && blocksShown.has(ms)))
         return
       const row = byTime.get(ms) ?? Array.from<number | null>({ length: columns.length }).fill(null)
       row[index] = s.y[i]!
