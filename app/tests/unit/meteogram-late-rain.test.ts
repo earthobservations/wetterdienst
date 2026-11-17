@@ -206,7 +206,9 @@ describe('the table and the summary of a run with blocks', () => {
     const hourlyOnly = meteogramSummary(buildSeries(values.filter(v => v.parameter === PRECIPITATION.hour || !v.parameter.startsWith('precipitation')) as any), m, 'en')!
     // the hourly amounts alone have 23.1 mm; the blocks add what the 6 and 12 hour totals have for days 5 to 10
     expect(Number(withTotals.precip.value)).toBeGreaterThan(Number(hourlyOnly.precip.value) + 3)
-    expect(withTotals.precip.atLeast).toBe(false)
+    // the totals end 4 hours before the run does, which the last day's `≥` says, and so the run's total is the least as well
+    expect(withTotals.precip.atLeast).toBe(true)
+    expect(hourlyOnly.precip.atLeast).toBe(false)
   })
 })
 

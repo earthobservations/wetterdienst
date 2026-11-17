@@ -54,18 +54,13 @@ Types of changes:
 
 ### Fixed
 
-- `[Forecast, Map]` The late days of a forecast no longer look dry. MOSMIX's hourly rain amount is
-  0.0 from about +100 h at most lowland stations, while its 6, 12 and 24 h totals still carry rain,
-  so days 6 to 10 showed none where DWD's own total has 1 to 2 mm. The forecast now asks for the
-  totals as well and takes each 24 h window from the finest series that still adds up to DWD's 24 h
-  total: the hourly amounts, else the 6 or 12 h totals (once coarser, never finer again), drawn as
-  blocks of that many hours with a dashed line and a label where the blocks change. A day's rain is
-  its share of each block (`≈` in front: made of totals of more than an hour), counts the hour
-  before each stamp, and is never made smaller by an hour with no value (`≥`). A day of 0.5 mm or
-  more from the totals gets a rain (or snow) icon, as the amount says. "Will it rain tomorrow?"
-  takes the same rain. A day is marked partial only under 20 of its hours, the first one too. The
-  weather symbols no longer read a missing amount as 0, and the 3-hourly grid of the retired
-  MOSMIX layout is gone. (GH-4175)
+- `[Forecast, Map, Home]` The late days of a forecast no longer look dry. MOSMIX's hourly rain
+  amount is 0.0 from about +100 h at most lowland stations, while its 6, 12 and 24 h totals still
+  carry rain, so days 6 to 10 showed none where DWD's own total has 1 to 2 mm. Each 24 h window
+  now takes the finest series that adds up to DWD's total (hourly, then 6 or 12 h, never finer
+  again), drawn as blocks with a label where they change. A day's rain is its share of each block
+  (`≈`; `≥` where hours have no total), a day of 0.5 mm or more from the totals gets a rain icon,
+  "Will it rain tomorrow?" uses the same rain, and a day is partial only under 20 hours. (GH-4175)
 - `[Explorer, Forecast]` A chart's line breaks where rows are missing, not only where a row has an
   empty value: a step of more than 1.5 times the usual one there (the resolution's interval, a
   calendar month or year, or the series' own cadence, also by time of day for readings at fixed

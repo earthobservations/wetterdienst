@@ -210,10 +210,15 @@ export function precipitationOver(plan: PrecipPlan, from: number, to: number): P
   return { amount: given > 0 ? amount : null, given, longest, missing: missing < 1e-6 ? 0 : missing }
 }
 
-/** The sum of the plan's amounts: the rain of the whole run, and the hours of its blocks it has no amount for */
-export function precipitationTotal(plan: PrecipPlan): { amount: number, missing: number } {
+/**
+ * The sum of the plan's amounts: the rain of the whole run, and the hours it has no amount for: those between its blocks, and, where the
+ * run's last hour (`runEnd`, ms) is after the plan's last block (the 6 and 12 hour totals end before the run does, and the hourly zeros
+ * after them are no amounts), those too
+ */
+export function precipitationTotal(plan: PrecipPlan, runEnd?: number): { amount: number, missing: number } {
+  const end = plan.blocks[plan.blocks.length - 1]!.end
   return {
     amount: plan.blocks.reduce((sum, block) => sum + block.amount, 0),
-    missing: precipitationOver(plan, plan.blocks[0]!.start, plan.blocks[plan.blocks.length - 1]!.end).missing,
+    missing: precipitationOver(plan, plan.blocks[0]!.start, end).missing + (runEnd === undefined ? 0 : Math.max(0, runEnd - end) / HOUR_MS),
   }
 }

@@ -88,7 +88,9 @@ describe('the compact view of a run with a dry hourly tail', () => {
     const wrapper = await mountForecast()
     // the hourly amounts of the run add up to 23.1 mm; the 6 and 12 hour totals of the days after the fourth have 5.5 mm more
     const summary = wrapper.find('[data-summary-icon="precip"]').element.parentElement!.textContent!
-    expect(Number.parseFloat(summary)).toBeGreaterThan(26)
+    // the totals end before the run does: the least the forecast says, `≥`
+    expect(summary.startsWith('≥')).toBe(true)
+    expect(Number.parseFloat(summary.slice(1))).toBeGreaterThan(26)
   })
 })
 

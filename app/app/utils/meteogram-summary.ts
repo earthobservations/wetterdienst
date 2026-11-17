@@ -34,7 +34,8 @@ export function meteogramSummary(series: SeriesMap, units: MeteogramUnits, local
   const maxTemp = temperatures.length ? Math.max(...temperatures) : Number.NEGATIVE_INFINITY
   // the rain of the run: the sum of the blocks that account for MOSMIX's totals (`planPrecipitation`), where the hourly amount alone left the late days dry
   const plan = planPrecipitation(series, amount => units.canon('precipitation', amount))
-  const totalPrecip = plan ? precipitationTotal(plan) : { amount: 0, missing: 0 }
+  const runEnd = Math.max(...[...series.values()].flatMap(s => s.x.map(d => d.getTime())))
+  const totalPrecip = plan ? precipitationTotal(plan, runEnd) : { amount: 0, missing: 0 }
   const maxGust = Math.max(0, ...valid(findFirstAvailable(METEOGRAM_SERIES.gust, available)))
   const clouds = valid(findFirstAvailable(METEOGRAM_SERIES.cloudCover, available))
   const avgCloud = clouds.length ? clouds.reduce((sum, v) => sum + v, 0) / clouds.length : 0

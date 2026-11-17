@@ -7,7 +7,7 @@ import type { MeteogramUnits } from './meteogram-units'
 import type { WeatherKind } from './weather-kind'
 import { DateTime } from 'luxon'
 import { formatDayMonth, formatNumber, weekdayShort } from './format'
-import { classifyPrecip, METEOGRAM_SERIES } from './meteogram'
+import { classifyPrecip, METEOGRAM_SERIES, wetBulbApprox } from './meteogram'
 import { HOUR_MS } from './meteogram-geometry'
 import { planPrecipitation, precipitationOver } from './meteogram-precipitation'
 import { findFirstAvailable } from './meteogram-series'
@@ -109,6 +109,7 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
   const available = new Set(series.keys())
   const weatherKey = findFirstAvailable(METEOGRAM_SERIES.weather, available)
   const tempKey = findFirstAvailable(METEOGRAM_SERIES.temperature, available)
+  const humidityKey = findFirstAvailable(METEOGRAM_SERIES.humidity, available)
   const cloudKey = findFirstAvailable(METEOGRAM_SERIES.cloudCover, available)
 
   // the start of today at the station: where the rows start, and the row that is marked as today
@@ -156,6 +157,8 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
     let maxT = Number.NEGATIVE_INFINITY
     let sumT = 0
     let countT = 0
+    const humidity = humidityKey ? series.get(humidityKey) : undefined
+    const humidityAt = humidity ? new Map(humidity.x.map((d, i) => [d.getTime(), humidity.y[i]!])) : undefined
     if (tempKey && series.has(tempKey)) {
       const ts = series.get(tempKey)!
       for (let i = 0; i < ts.x.length; i++) {
@@ -165,7 +168,10 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
           if (!Number.isNaN(val)) {
             minT = Math.min(minT, val)
             maxT = Math.max(maxT, val)
-            sumT += val
+            // the wet bulb of the hour as the panel judges its blocks by: with the humidity where the forecast has it, else the air's
+            const rh = humidityAt?.get(time)
+            const celsius = units.canon('temperature', val)
+            sumT += rh === undefined ? celsius : wetBulbApprox(celsius, units.canon('fraction', rh))
             countT++
           }
         }
@@ -205,10 +211,10 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
     }
 
     // A day whose rain is the 6, 12 or 24 hour totals' and is 0.5 mm or more is a day of rain, which its weather codes (dry in the tail of a
-    // run, where the hourly amount is 0.0) do not say: the icon follows the amount, as snow or sleet where the mean temperature of the day
-    // is as cold as it is for the hours of the panel (GH-4175)
-    if (over && over.longest > 1 && dayPrecip !== null && units.canon('precipitation', dayPrecip) >= 0.5 && (kind === 'clear' || kind === 'partlyCloudy' || kind === 'cloudy')) {
-      const phase = countT ? classifyPrecip(units.canon('temperature', sumT / countT)) : 'rain'
+    // run, where the hourly amount is 0.0) do not say: the icon follows the amount (as the label writes it: a day of 0.45 mm reads 0.5), as
+    // snow or sleet where the mean wet bulb of the day's hours is as cold as it is for the blocks of the panel (GH-4175)
+    if (over && over.longest > 1 && dayPrecip !== null && units.canon('precipitation', Number(formatNumber(dayPrecip, 'en', 1).replaceAll(',', ''))) >= 0.5 && (kind === 'clear' || kind === 'partlyCloudy' || kind === 'cloudy')) {
+      const phase = countT ? classifyPrecip(sumT / countT) : 'rain'
       kind = phase === 'snow' ? 'snow' : phase === 'mixed' ? 'sleet' : 'rain'
     }
 

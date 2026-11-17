@@ -74,18 +74,24 @@ describe('the rain of the days of a run whose hourly amount is 0.0 late in it (1
     expect(hourlyOnly['2026-11-25']!.kind).toBe('cloudy')
     expect(rows['2026-11-25']!.kind).toBe('rain')
     expect(rows['2026-11-26']!.kind).toBe('rain')
-    // a day of 0.45 mm (the label says 0.5) is under the threshold and keeps its sky
-    expect(rows['2026-11-24']!.kind).toBe('cloudy')
+    // a day of 0.45 mm reads 0.5 in its label, which is what the threshold is judged on: the icon agrees with the label
+    expect(rows['2026-11-24']!.precipLabel).toBe('≈0.5 mm')
+    // (a day of a mean of 1 degree, which is sleet by the panel's thresholds)
+    expect(rows['2026-11-24']!.kind).toBe('sleet')
     // a day under 0.5 mm of the totals keeps its sky (0.0 mm on the 23rd, and the day's own codes are cloudy)
     expect(rows['2026-11-23']!.kind).toBe('cloudy')
     // the days of the hourly amounts keep what their codes say
     expect(rows['2026-11-18']!.kind).toBe(hourlyOnly['2026-11-18']!.kind)
   })
 
-  it('draws snow where the mean temperature of the day is as cold as the panel\'s snow', () => {
+  it('draws snow where the mean wet bulb of the day\'s hours is as cold as the panel\'s snow, which the humidity lowers below the air\'s', () => {
     const colder = (degrees: number) => run10382Values().map(value => value.parameter === 'temperature_air_2m' ? { ...value, value: value.value! - 7 + degrees } : value)
-    // the late days are about 4 degrees: 10 degrees colder gives -6 and snow, 6 colder -2... judged on the day's mean temperature
     expect(byDate(days(colder(-4), { today: '2026-11-17' }))['2026-11-25']!.kind).toBe('snow')
+    // an air of 1.5 degrees is sleet by itself (the panel's thresholds are 0.5 and 2), and snow where the air is dry: the wet bulb at 40 % is below 0.5
+    const constant = run10382Values().map(value => value.parameter === 'temperature_air_2m' ? { ...value, value: 1.5 } : value)
+    const dry = [...constant, ...constant.filter(value => value.parameter === 'temperature_air_2m').map(value => ({ ...value, parameter: 'humidity_relative', value: 40 }))]
+    expect(byDate(days(constant, { today: '2026-11-17' }))['2026-11-25']!.kind).toBe('sleet')
+    expect(byDate(days(dry, { today: '2026-11-17' }))['2026-11-25']!.kind).toBe('snow')
   })
 })
 
