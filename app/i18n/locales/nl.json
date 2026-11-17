@@ -664,6 +664,13 @@
     "plotDataAvailability": "Gegevensbeschikbaarheid",
     "plotSource": "Bron: Deutscher Wetterdienst",
     "plotReference": "Kleuren: gemiddelde van {centre}, ±{sigma} σ van {spread}",
+    "barsRelativeTo": "Ten opzichte van het gemiddelde van {period}",
+    "variant": {
+      "label": "Weergave",
+      "stripes": "Strepen",
+      "bars": "Staven",
+      "barsScale": "Staven met schaal"
+    },
     "hoverValue": "Waarde",
     "hoverTrend": "Trend",
     "chart": {

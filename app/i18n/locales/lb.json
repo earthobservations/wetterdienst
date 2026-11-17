@@ -664,6 +664,13 @@
     "plotDataAvailability": "Datverfügbarkeet",
     "plotSource": "Quell: Deutscher Wetterdienst",
     "plotReference": "Faarwen: Duerchschnëtt vun {centre}, ±{sigma} σ vun {spread}",
+    "barsRelativeTo": "Relativ zum Duerchschnëtt vun {period}",
+    "variant": {
+      "label": "Usiicht",
+      "stripes": "Sträifen",
+      "bars": "Balken",
+      "barsScale": "Balken mat Skala"
+    },
     "hoverValue": "Wäert",
     "hoverTrend": "Trend",
     "chart": {
