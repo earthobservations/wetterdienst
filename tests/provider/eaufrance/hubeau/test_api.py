@@ -15,6 +15,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 from aiohttp import ServerDisconnectedError
+from fastapi.testclient import TestClient
 from fsspec.exceptions import FSTimeoutError
 
 from tests.provider.station_catalogue import Violation
@@ -30,7 +31,9 @@ from wetterdienst.provider.eaufrance.hubeau.api import (
     _STEP_TO_RESOLUTION,
     _modal_steps,
 )
+from wetterdienst.ui import restapi
 from wetterdienst.util.network import File
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 ALL_PARAMETERS = [(resolution, "data", "stage") for resolution in _STEP_TO_RESOLUTION.values()]
 
@@ -567,6 +570,175 @@ def test_all_serves_only_the_resolutions_asked_for() -> None:
     df = HubeauRequest(parameters=[("hourly", "data", "stage")], settings=Settings()).all().df
 
     assert df.get_column("station_id").to_list() == ["quiet"]
+
+
+# the stations left out for a step no resolution has are told by the answer (GH-4184)
+
+STEP_CODE = "step-without-resolution"
+
+
+def _serve_steps(monkeypatch: pytest.MonkeyPatch, steps: dict[str, int]) -> None:
+    """Serve a referential of the stations named in ``steps``, each transmitting every ``steps[station]`` minutes."""
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        if "referentiel" in url:
+            return [_station(name) for name in steps]
+        return _observations([row for name, step in steps.items() for row in _dates(name, step, 8)])
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+    monkeypatch.setattr(api, "_reported_unmapped", set())
+
+
+def _step_warnings() -> list[dict]:
+    return [warning for warning in recorded_warnings() if warning["code"] == STEP_CODE]
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_all_tells_how_many_stations_were_left_out_for_a_step_no_resolution_has(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that the whole list carries the warning, with the count, the step and the station, and logs it once."""
+    monkeypatch.setattr(api, "_reported_unmapped", set())
+    begin_response()
+
+    with caplog.at_level(logging.DEBUG):
+        HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all()
+        begin_response()
+        HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all()
+
+    (warning,) = _step_warnings()
+    assert warning["stations"] == ["unmapped"]
+    assert warning["message"] == (
+        "1 station was left out of the list because it reports at a step that no resolution of Hub'Eau has "
+        "(1 at 30 minutes; the resolutions are 5 minutes, 6 minutes, 10 minutes, 15 minutes, 60 minutes), "
+        "among them unmapped (30 minutes)."
+    )
+    lines = [record for record in caplog.records if getattr(record, "response_warning", None) == STEP_CODE]
+    assert [record.levelno for record in lines] == [logging.INFO, logging.DEBUG]
+
+
+@pytest.mark.usefixtures("hubeau_network")
+@pytest.mark.parametrize("resolution", sorted(set(_STEP_TO_RESOLUTION.values())))
+def test_the_warning_does_not_depend_on_the_resolution_asked_for(resolution: str) -> None:
+    """Test that the stations, which are in no resolution, are told whichever resolution the list is of."""
+    begin_response()
+
+    HubeauRequest(parameters=[(resolution, "data", "stage")], settings=Settings()).all()
+
+    assert [warning["stations"] for warning in _step_warnings()] == [["unmapped"]]
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_the_stations_that_map_are_listed_as_before_the_warning() -> None:
+    """Test that telling the stations left out changes none that is listed."""
+    begin_response()
+
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert _step_warnings() != []
+    assert dict(df.select("station_id", "resolution").iter_rows()) == {
+        "fast": "5_minutes",
+        "1011000101": "15_minutes",
+        "quiet": "hourly",
+        "discharge_only": "10_minutes",
+    }
+
+
+def test_nothing_left_out_is_no_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a network whose stations all map, or report nothing to measure, carries no warning."""
+    _serve_steps(monkeypatch, {"a": 5, "b": 10, "c": 60})
+    begin_response()
+
+    request = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings())
+    request.all()
+    request.filter_by_rank((48.85, 2.35), 2)
+    request.filter_by_bbox(2.0, 48.0, 3.0, 49.0)
+
+    assert _step_warnings() == []
+
+
+def test_a_station_that_does_not_settle_is_not_one_left_out_for_its_step(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a station with no steady step is no station of this warning: it has no step to name."""
+    anchor = _utc(6)
+    stamps = [anchor - dt.timedelta(minutes=minutes) for minutes in (110, 100, 70, 61, 33, 7)]
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        if "referentiel" in url:
+            return [_station("irregular")]
+        return _observations([("irregular", stamp) for stamp in stamps])
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+    monkeypatch.setattr(api, "_now", lambda: anchor.replace(tzinfo=ZoneInfo("UTC")))
+    begin_response()
+
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert df.is_empty()
+    assert _step_warnings() == []
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_a_search_by_place_tells_the_stations_it_could_never_find() -> None:
+    """Test that a rank, a distance and a bounding box carry the warning, as the whole list does."""
+    for search in (
+        lambda request: request.filter_by_rank((48.85, 2.35), 2),
+        lambda request: request.filter_by_distance((48.85, 2.35), 10),
+        lambda request: request.filter_by_bbox(2.0, 48.0, 3.0, 49.0),
+    ):
+        begin_response()
+
+        search(HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()))
+
+        assert [warning["stations"] for warning in _step_warnings()] == [["unmapped"]]
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_a_request_that_names_its_stations_is_not_told() -> None:
+    """Test that a selection by id, name or SQL asks for those stations and carries no warning."""
+    for select in (
+        lambda request: request.filter_by_station_id("fast"),
+        lambda request: request.filter_by_name("fast"),
+        lambda request: request.filter_by_sql("station_id = 'fast'"),
+    ):
+        begin_response()
+
+        select(HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()))
+
+        assert _step_warnings() == []
+
+
+def test_the_message_counts_the_steps_and_names_the_first_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that many stations at two steps are told by step, largest first, and five are named, the rest counted."""
+    steps = {f"S{index}": 30 for index in range(7, 0, -1)} | {"F1": 20, "F2": 20}
+
+    _serve_steps(monkeypatch, steps | {"fine": 5})
+    begin_response()
+    HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all()
+
+    (warning,) = _step_warnings()
+    assert warning["stations"] == ["F1", "F2", "S1", "S2", "S3"]
+    assert warning["message"].startswith(
+        "9 stations were left out of the list because they report at a step that no resolution of Hub'Eau has "
+        "(7 at 30 minutes, 2 at 20 minutes; "
+    )
+    assert warning["message"].endswith(
+        "among them F1 (20 minutes), F2 (20 minutes), S1 (30 minutes), S2 (30 minutes), S3 (30 minutes) and 4 more."
+    )
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_rest_carries_the_warning_in_the_metadata_of_a_stations_answer() -> None:
+    """Test that the REST answer of the whole list names the stations left out in its `metadata`."""
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        "/api/stations",
+        params={"provider": "eaufrance", "network": "hubeau", "parameters": "5_minutes/data", "all": "true"},
+    )
+
+    assert response.status_code == 200, response.text
+    (warning,) = [w for w in response.json()["metadata"]["warnings"] if w["code"] == STEP_CODE]
+    assert warning["stations"] == ["unmapped"]
+    assert "1 station was left out" in warning["message"]
 
 
 @pytest.mark.remote

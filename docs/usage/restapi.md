@@ -326,6 +326,12 @@ what the answer is missing:
   `summarize`, had to leave it out, which is every search by place of a resolution that lists it;
   for a `timestamp`, the whole list and a search by place tell it, in a listing, in the values and in
   an estimate, only if the station has a record in the window),
+  `step-without-resolution` (stations left out of the list because the step they report at, 20 or
+  30 minutes, is one no resolution of the network has: `eaufrance/hubeau`; the message gives how many,
+  at which steps and names a few, which `stations` carries too. The whole list and a search by place
+  tell it, whatever the resolution asked for; a request by `stations`, `name` or `sql` does not, and
+  none is told where no station is left out, see
+  [Hub'Eau](../data/provider/eaufrance/hubeau/index.md#stations-at-a-step-no-resolution-has)),
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
   `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
   `parameter-without-rows` (a requested parameter that the source holds no values for, see below),

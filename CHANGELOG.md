@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `eaufrance/hubeau`: a `stations` answer of the whole list or a search by place carries the
+  warning `step-without-resolution` when stations were left out because they report at a step no
+  resolution has (20 or 30 minutes: 27 of 3,247 reporting stations on 2026-11-17). It gives the
+  count, the steps and the first five ids. Nothing changes in what is listed, and no resolution
+  is added; the docs say what is left out and why (GH-4184)
+
 ### Fixed
 
 - `dwd/mosmix`: the snow depth of MOSMIX-SNOW that the model writes a little below 0 (`sncv` -0.01

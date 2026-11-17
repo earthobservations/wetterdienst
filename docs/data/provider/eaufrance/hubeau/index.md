@@ -84,8 +84,37 @@ settle in some windows and not in others. And a station transmitting
 on its own phase rather than on the wall clock — hourly at seven minutes past, say — is described
 correctly by its interval even though its timestamps do not land on the wall-clock hour.
 A station whose cadence changes (one was half-hourly until 2026-10-22 and quarter-hourly since)
-is listed under the new one once its recent records settle on it. A half-hourly station is
-served under no resolution, as no resolution covers that interval.
+is listed under the new one once its recent records settle on it. A station that settles on a
+step no resolution covers, such as a half-hourly one, is served under no resolution; see below.
+
+## Stations at a step no resolution has
+
+Hub'Eau has resolutions of 5, 6, 10, 15 and 60 minutes. A station that settles on any other step
+(20 or 30 minutes, say) is left out of the list, under every resolution, rather than filed under
+a neighbour: under `hourly` it would give two readings an hour, under `15_minutes` half the
+readings its coverage is judged by. Measured on 2026-11-17 (all 4,213 stations in service, read
+over 28 days in windows of 2 hours, and 30 days of stage by name for the slower ones), 3,247 of
+them reported at all in the last 30 days, and 27 of those, 0.8 %, were left out for an unmapped
+step: 25 at 30 minutes and 2 at 20 minutes. None was steady at 45, 90, 120 or 180 minutes. Only 10
+of the 27 kept 30 minutes all month; the others had settled on it only in the last days or moved
+in and out of it, and cadences change within days (A201010001 and H216301001 went from 30 minutes
+to 10 or 15, Y553571701 from 5 or 15 to 30). A `30_minutes` resolution is not planned, and would be
+reconsidered only if the count grows: a resolution cannot be taken back once 1.0 is out, and it
+would serve a few dozen stations of one provider.
+
+The `stations` answer of `eaufrance/hubeau` says so. Where it lists the whole network or searches
+by place (the whole list, a rank, a distance, a bounding box, an interpolation or a summary) its
+`metadata` carries the warning `step-without-resolution`: how many stations were left out, at which
+steps, and the first five by id with theirs, as `stations` too, for example `27 stations were left
+out of the list because they report at a step that no resolution of Hub'Eau has (25 at 30 minutes,
+2 at 20 minutes; ...)`. It is whatever the resolution asked for, since the stations are in none, and
+absent where no station is left out. A request by `stations`, `name` or `sql` does not carry it. In
+the Python library it is a log line once per process.
+
+A station's listing describes its last hours, not the 30 days `values` reads. A `values` request
+spans the whole window at the cadences the station had in it, so a station listed at 15 minutes that
+was on 30 minutes for half of it comes back with both cadences, and with `skip_empty` it may be
+dropped, as it covers about two thirds of the slots of its resolution, below the default 95 %.
 
 ## The source's own verdict (`source`)
 

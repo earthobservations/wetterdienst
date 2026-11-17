@@ -38,7 +38,8 @@ class ResponseWarning(TypedDict):
     #: `other-window-left-out` and `window-not-closed`
     parameter: NotRequired[str]
     #: the stations the warning is about, as many as it lists (`parameter-without-rows`, `file-skipped`,
-    #: `other-window-left-out`, `window-not-closed`, `station-without-rows`, `source-data-left-out`)
+    #: `other-window-left-out`, `window-not-closed`, `station-without-rows`, `source-data-left-out`,
+    #: `step-without-resolution`)
     stations: NotRequired[list[str]]
 
 
