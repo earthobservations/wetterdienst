@@ -1,6 +1,6 @@
 import type { StripesInput, StripesReferenceInput } from '../../app/utils/stripes-model'
 import { describe, expect, it } from 'vitest'
-import { availabilityRuns, buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, visibleYears, zoomWindow } from '../../app/utils/stripes-model'
+import { availabilityRuns, brokenLine, buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, visibleYears, zoomWindow } from '../../app/utils/stripes-model'
 import { recordOf, stripesAnswer } from '../helpers/stripes-answer'
 
 // a reference with its centre at 10 and 1 standard deviation: the scale reaches from 7.4 to 12.6
@@ -147,6 +147,32 @@ describe('the window of years', () => {
   it('tells windows apart by a hundredth of a year', () => {
     expect(sameWindow({ start: 1, end: 2 }, { start: 1.001, end: 2 })).toBe(true)
     expect(sameWindow({ start: 1, end: 2 }, { start: 1.1, end: 2 })).toBe(false)
+  })
+})
+
+describe('brokenLine (GH-4164)', () => {
+  it('has a point for each year from the first to the last, none (null) for a year without a value', () => {
+    const line = brokenLine([2000, 2001, 2004], [0.1, 0.2, 0.3])
+    expect(line.map(point => point.year)).toEqual([2000, 2001, 2002, 2003, 2004])
+    expect(line.map(point => point.height)).toEqual([0.1, 0.2, null, null, 0.3])
+  })
+
+  it('marks the year that stands alone, and no year of a run, in the middle or at the ends', () => {
+    const line = brokenLine([2000, 2001, 2003, 2005, 2006, 2007], [0, 0, 0, 0, 0, 0])
+    expect(line.filter(point => point.lone).map(point => point.year)).toEqual([2003])
+    // the run of two and the run of three are not lone
+    expect(brokenLine([2000, 2001], [0, 0]).some(point => point.lone)).toBe(false)
+  })
+
+  it('takes a record of one year as one lone year, and an empty one as no points', () => {
+    expect(brokenLine([1999], [0.5])).toEqual([{ year: 1999, height: 0.5, lone: true }])
+    expect(brokenLine([], [])).toEqual([])
+  })
+
+  it('does not depend on the order of the years', () => {
+    const forward = brokenLine([2000, 2001, 2003], [1, 2, 3])
+    const backward = brokenLine([2003, 2001, 2000], [3, 2, 1])
+    expect(backward).toEqual(forward)
   })
 })
 

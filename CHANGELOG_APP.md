@@ -28,6 +28,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Stripes]` The optional time series line over the stripes breaks at every year without a value,
+  as the stripes and the availability line do, instead of joining the years on either side of the
+  gap; a year that stands alone gets a dot. The trend line stays continuous: it is a fit over the
+  years. In the chart, the camera and the downloaded images (GH-4164).
 - `[Forecast, Stripes]` A single selected station is named once by the station picker: the search
   shows it, and the "Selected station" chip block under it is gone. On the map, which has no search,
   one line names it, and a screen reader gets the station as the search's description. A single
