@@ -81,8 +81,9 @@ describe('the rain of the days of a run whose hourly amount is 0.0 late in it (1
     // a day under 0.5 mm of the totals keeps its sky (0.0 mm on the 23rd): by its cloud cover, a mean of 69.7 %, not by its codes 2 and 3,
     // DWD's cloud development (GH-4190)
     expect(rows['2026-11-23']!.kind).toBe('partlyCloudy')
-    // the days of the hourly amounts keep what their codes say
-    expect(rows['2026-11-18']!.kind).toBe(hourlyOnly['2026-11-18']!.kind)
+    // a day of the hourly amounts, whose hours are all rain (code 61), is rain with the totals and without them
+    expect(rows['2026-11-18']!.kind).toBe('rain')
+    expect(hourlyOnly['2026-11-18']!.kind).toBe('rain')
   })
 
   it('draws snow where the mean wet bulb of the day\'s hours is as cold as the panel\'s snow, which the humidity lowers below the air\'s', () => {

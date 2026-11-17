@@ -816,7 +816,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
     const code = weatherLookup.get(time)
     const fromCode = code === undefined ? null : weatherCodeToKind(code)
     let kind: WeatherKind
-    if (fromCode && fromCode !== 'clear' && fromCode !== 'partlyCloudy' && fromCode !== 'cloudy') {
+    if (fromCode) {
       // a phenomenon the code names
       kind = fromCode
     }

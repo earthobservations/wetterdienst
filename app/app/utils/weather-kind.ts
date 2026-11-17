@@ -33,6 +33,12 @@ export const WEATHER_ICONS: Record<WeatherKind, string> = {
 }
 
 /**
+ * The kinds a weather code can name: every kind but the sky's, which only the cloud cover gives (`skyOfCloudCover`), so that a
+ * mapping of a code to a sky fails the type check (GH-4190)
+ */
+export type WeatherCodeKind = Exclude<WeatherKind, Sky>
+
+/**
  * The kind of weather a WMO present-weather code `ww` (table 4677, 0..99) stands for, null where it
  * stands for none the card can name (haze, smoke, dust in suspension, lightning without thunder,
  * precipitation in sight but not at the station, hail): the card then judges from the cloud cover and the
@@ -57,7 +63,7 @@ export const WEATHER_ICONS: Record<WeatherKind, string> = {
  * - 80-82 rain showers; 83-84 rain and snow showers: sleet; 85-86 snow showers; 87-90 showers of hail: none
  * - 91-99 thunderstorm, at the observation or in the hour before
  */
-export function weatherCodeToKind(code: number | null | undefined): WeatherKind | null {
+export function weatherCodeToKind(code: number | null | undefined): WeatherCodeKind | null {
   if (code === null || code === undefined || !Number.isFinite(code))
     return null
   const c = Math.round(code)
