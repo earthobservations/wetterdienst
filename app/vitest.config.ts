@@ -7,7 +7,10 @@ export default defineConfig({
     projects: [
       {
         // `shared/utils/language.ts` takes the matcher of @nuxtjs/i18n from the module's own name for its runtime
-        // (`#i18n-kit`), which Nuxt sets for the app and the server and the plain Node project does not know
+        // (`#i18n-kit`), which Nuxt sets for the app and the server and the plain Node project does not know. The path
+        // is the module's `dist/runtime/kit`, which is `@internal`: a minor release of @nuxtjs/i18n may move it, and
+        // this is the one place to follow it (the build and the typecheck use the module's own alias and would
+        // catch the move first)
         resolve: {
           alias: { '#i18n-kit': fileURLToPath(new URL('./node_modules/@nuxtjs/i18n/dist/runtime/kit', import.meta.url)) },
         },

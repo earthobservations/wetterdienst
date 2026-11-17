@@ -6,6 +6,9 @@
 // visitor that names no language the app has gets what the app falls back to. A request with no header at all is
 // the one place the server decides differently from the app (`pickRequestLocale`).
 import type { LocaleCode } from './locales'
+// `#i18n-kit/browser` is `@internal` in @nuxtjs/i18n. Reusing the module's own matcher is what keeps the server and
+// the app picking the same language; a minor release of the module may move it, which the build and `pnpm typecheck`
+// would catch (and `tests/unit/language.test.ts` and `tests/e2e/seo-language.spec.ts` would then fail).
 import { findBrowserLocale } from '#i18n-kit/browser'
 import { DEFAULT_LOCALE, isLocaleCode, LOCALES } from './locales'
 

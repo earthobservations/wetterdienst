@@ -46,6 +46,18 @@ for (const { name, languages, cookie } of visits) {
       expect(rawLang, 'the shell says its language').toBeTruthy()
       expect(rawTitle, 'the shell has a title').toBeTruthy()
 
+      // The page is loaded with the same header and cookie, so the shell it gets already says the server's language
+      // and title, and an assertion on them would pass before the app has run. The shell is rewritten to values no
+      // language has, so that only the mounted app (its i18n, `useHead`) can set the expected ones.
+      await page.route(url => url.pathname === '/about', async (route) => {
+        if (route.request().resourceType() !== 'document')
+          return route.continue()
+        const response = await route.fetch()
+        const body = (await response.text())
+          .replace(/(<html[^>]* lang=")[^"]*"/, '$1zz"')
+          .replace(/<title>[^<]*<\/title>/, '<title>__shell__</title>')
+        return route.fulfill({ response, body })
+      })
       await page.goto('/about')
       await expect(page.locator('html')).toHaveAttribute('lang', rawLang!)
       // the title is plain text in the shell, and escaped as HTML there
