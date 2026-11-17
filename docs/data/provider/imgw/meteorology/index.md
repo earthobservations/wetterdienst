@@ -17,9 +17,14 @@ A station's `station_id` is IMGW's nine-digit code (`349190600`). `short_code` i
 Bielsko-Biała, the number of its per-station files in `dobowe/synop`), four or five for the others (`5409`, `95414`),
 which the maps of the archives (`mapa_zawartosci_synop.pdf`, `_klimat.pdf`, `_opad.pdf`) key their stations by. The
 list names 573 of the 800 stations of the catalogue (read 2026-11-17); the others have no `short_code`. Three stations
-have two codes, a climate and a precipitation one (BABIMOST: `3152` and `93152`), and the first is read. Find a
-station by it with `filter_by_sql("short_code = '375'")`. IMGW does not state the code as a WMO number, so it is no `wmo_id` (the three-digit code plus `12` matches the WMO number of the stations compared, but that
+of the list have two codes, a climate and a precipitation one, and it is not told which is the station's: BABIMOST
+(`252150270`: `3152` and `93152`), Bydgoszcz-Szwederowo (`253170260`: `2351` and `92367`) and Dąbrówka Stara
+(`251200270`: `4611` and `94660`). Their `short_code` is null (two of them are in the catalogue, so 571 stations have one). Find a station by it with `filter_by_sql("short_code = '375'")`. IMGW does not state the code as a WMO number, so it is no `wmo_id` (the three-digit code plus `12` matches the WMO number of the stations compared, but that
 is an inference), and `wmo_id`, `wigos_id` and `icao_id` are null.
+
+The code comes from a second list, which the synop stations are picked by. For `synop` a list that cannot be read is
+an error. For the other datasets it is an addition: the stations come back with `short_code` null and the warning
+`station-codes-unavailable` (see [the warnings of an answer](../../../usage/restapi.md)).
 
 Five synop stations have daily synop archives and are in no station list that gives a position, so they
 are not listed and their history cannot be requested: Zgorzelec (351150405), Gdańsk-Port Północny

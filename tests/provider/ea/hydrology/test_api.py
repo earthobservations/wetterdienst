@@ -362,10 +362,13 @@ def test_ea_a_station_without_a_position_is_listed(
         ("", None),
         (3060, None),
         ([3060, "3416"], "3416"),
+        (["1020TH", "7040"], "7040"),
+        (["7033", "0890TH"], "7033"),
+        (["0890TH", "1020TH"], "0890TH"),
     ],
 )
 def test_ea_the_national_ids_of_the_listing_are_one_text_or_null(given: Any, expected: str | None) -> None:  # noqa: ANN401
-    """Test that an id given twice is the lowest, whichever comes first, and that a number is no id (GH-4070)."""
+    """Test that of an id given twice the all-digit one, then the lowest, is read, and a number is no id (GH-4070)."""
     row = ea_api._station_row({"notation": "x", "nrfaStationID": given, "RLOIid": given})  # noqa: SLF001
     assert (row["nrfaStationID"], row["RLOIid"]) == (expected, expected)
 

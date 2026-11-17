@@ -330,13 +330,19 @@ class EAHydrologyValues(TimeseriesValues[ParameterModel]):
 
 
 def _first_id(value: Any) -> str | None:  # noqa: ANN401
-    """Give an id of the listing as one text: the lowest of those it lists where it lists more than one.
+    """Give an id of the listing as one text: where it lists more than one, the all-digit one, then the lowest.
 
     The listing writes an id that a station has twice as an array (`RLOIid` of 52 stations: `["3416", "3060"]`), which
-    is no order to rely on, so the lowest is taken to give the same one on every read. Anything but a text is no id.
+    is no order to rely on, so one is picked to give the same on every read. Of 6 arrays one is a code of letters
+    (`["1020TH", "7040"]`, `["7033", "0890TH"]`): the RLOI id is the all-digit one, so that comes first, and a plain
+    `min` would pick `0890TH`. Anything but a text is no id.
     """
     if isinstance(value, list):
-        return min((entry for entry in value if isinstance(entry, str) and entry), default=None)
+        ids: list[str] = sorted(
+            (entry for entry in value if isinstance(entry, str) and entry),
+            key=lambda entry: (not (entry.isascii() and entry.isdigit()), entry),
+        )
+        return ids[0] if ids else None
     return value if isinstance(value, str) and value else None
 
 

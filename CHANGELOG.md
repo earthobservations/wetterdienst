@@ -29,12 +29,13 @@ Types of changes:
   and the climate correction factor (postal codes) stay null, and asking for only those does not
   read the Stationslexikon; the docs list it per dataset (GH-4162)
 - The stations of `ea/hydrology` have `nrfa_id` (National River Flow Archive, 850 of 9,537
-  stations) and `rloi_id` (River Levels on the Internet, 1,808; the lowest where the listing gives
-  two), those of `eaufrance/hubeau` `site_id` (the 8-character site of the station, on all) and
-  those of `imgw/meteorology` `short_code` (IMGW's code from `wykaz_stacji.csv`, 573 of 800: `375`
-  for a synop station; that list is now read for every dataset, not only the synop one). They are
-  the providers' own ids and no WMO number, so `wmo_id` stays null; find a station by one with an
-  SQL filter (GH-4070)
+  stations) and `rloi_id` (River Levels on the Internet, 1,808; of two ids the all-digit one, then
+  the lowest), those of `eaufrance/hubeau` `site_id` (the 8-character site of the station, on all)
+  and those of `imgw/meteorology` `short_code` (IMGW's code from `wykaz_stacji.csv`, 571 of 800:
+  `375` for a synop station; null for the 3 stations the list gives two codes). They are the
+  providers' own ids and no WMO number; find a station by one with an SQL filter. IMGW's list is
+  now read for every dataset: where it cannot be read, the stations of the datasets but `synop`
+  come back with `short_code` null and the warning `station-codes-unavailable` (GH-4070)
 
 ### Changed
 

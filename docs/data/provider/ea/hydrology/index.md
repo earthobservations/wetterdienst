@@ -22,7 +22,8 @@ also gives some stations the ids they have in the Environment Agency's other ser
   850 of the 9,537 stations (read 2026-11-17).
 - `rloi_id`, `RLOIid`, the id of the station in River Levels on the Internet, which the listing links to
   [Check for flooding](https://check-for-flooding.service.gov.uk/) (`3060`): 1,808 stations. 52 of them have two ids
-  (an array in the listing, `["3416", "3060"]`); the lowest is taken, so that the same one is read every time.
+  (an array in the listing, `["3416", "3060"]`); one is picked so that the same is read every time: the all-digit id, then the lowest (6 of the arrays pair a 4-digit id
+  with a code such as `0890TH`, and the 4-digit one is read).
 
 An id can name more than one station (2 NRFA numbers and 64 RLOI ids are on two stations or more). The listing
 has two more ids of the station, `wiskiID` (7,588 stations) and `stationReference` (3,520), which are not read.

@@ -239,8 +239,8 @@ def _imgw_meteorology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 # Pszczyna, Strzyżów and Starnin, whose ids end in 010 as the ids of two synop stations of the list end in the code of
 # their per-station files (so that a code alone does not tell them apart); and Wrocław 351160425, a station of the
 # catalogue that the archives do not hold (the synop station of the city is 351160424, which the stub leaves out).
-# The wykaz also holds the row of GOŁYMIN-OŚRODEK as it is published, with a comma inside the quotes of its name and no
-# code of its own, which the reader must leave alone.
+# The wykaz also holds the row of GOŁYMIN-OŚRODEK as it is published: malformed, the name and the code `93668` in one
+# pair of quotes with a quote missing, which the reader must leave alone.
 def _imgw_meteorology_synop(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     catalogue = (
         "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
@@ -2083,7 +2083,8 @@ STUBS = [
         "ea/hydrology 15_minutes/data",
         _ea_hydrology,
         (EA_NO_POSITION,),
-        # the national ids (GH-4070): one text each, the lowest where the listing gives two, null where it gives none
+        # the national ids (GH-4070): one text each, the all-digit then the lowest where the listing gives two, null
+        # where it gives none
         expected={
             "fcdd7420-c000-4db7-99fa-3835a65372fe": {"nrfa_id": "37006", "rloi_id": "6149"},
             "ab5db73f-059e-4d10-9b92-5a640db3c1ab": {"nrfa_id": "76003", "rloi_id": "5141"},
@@ -2095,13 +2096,13 @@ STUBS = [
     Stub(
         "imgw/meteorology daily/climate",
         _imgw_meteorology,
-        # `short_code` as `wykaz_stacji.csv` writes it, without its blanks; the first of two, and none for a station
-        # the list does not name
+        # `short_code` as `wykaz_stacji.csv` writes it, without its blanks; none for a station with two codes
+        # (BABIMOST) and for one the list does not name
         expected={
             "249170080": {"short_code": None},
             "249180010": {"short_code": "5409"},
             "249190890": {"short_code": "6552"},
-            "252150270": {"short_code": "3152"},
+            "252150270": {"short_code": None},
             "252180290": {"short_code": None},
         },
     ),

@@ -332,6 +332,8 @@ what the answer is missing:
   `file-skipped` (the stations whose file the provider let go, see below), `wmo-ids-unavailable` (the stations of
   `dwd/observation` and `dwd/derived` are listed without `wmo_id` because DWD's Stationslexikon could not be read or
   is no longer the table, see [WMO numbers](../data/provider/dwd/observation/index.md#wmo-numbers-of-the-stations)),
+  `station-codes-unavailable` (the stations of `imgw/meteorology` are listed without `short_code` because IMGW's
+  `wykaz_stacji.csv` could not be read or is no longer the list; not for `synop`, which it picks the stations of),
   `other-window-left-out` (dates the
   source has values for that the answer leaves out because they are of another series, see below),
   `window-not-closed` (values of a window that had not closed when the request was served, see below),

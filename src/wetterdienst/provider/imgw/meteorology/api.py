@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, ClassVar
 import polars as pl
 import portion
 
-from wetterdienst.exceptions import MetaFileFormatError
+from wetterdienst.exceptions import DownloadError, MetaFileFormatError, NoInternetError, ProviderRateLimitError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.fetch_ahead import FilesAhead
@@ -32,6 +32,7 @@ from wetterdienst.util.archive import open_zip
 from wetterdienst.util.geo import convert_dms_string_to_dd
 from wetterdienst.util.network import File, download_file
 from wetterdienst.util.polars_util import read_csv_without_header
+from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -39,6 +40,9 @@ if TYPE_CHECKING:
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+#: The code of the warning an answer carries when `wykaz_stacji.csv` could not be read: no station has a `short_code`
+STATION_CODES_UNAVAILABLE = "station-codes-unavailable"
 
 # The names _file_schema maps that are not measurements, and so have no status column beside them.
 _STRUCTURAL_COLUMNS = frozenset({"station_id", "year", "month", "day"})
@@ -897,7 +901,7 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
     # extend base columns of core class with the river catchment a station is listed under, as published, and with
     # `short_code`, IMGW's five-character code of the station from `wykaz_stacji.csv` (GH-4070): `375` for a synop
     # station (Warszawa), four or five digits for the others (`5409`, `95414`), which the maps of the archives
-    # (`mapa_zawartosci_*.pdf`) key their stations by. 573 of the 800 stations of the catalogue have one; it is no WMO
+    # (`mapa_zawartosci_*.pdf`) key their stations by. 571 of the 800 stations of the catalogue have one; it is no WMO
     # number, so it fills no `wmo_id`
     _base_columns: ClassVar = (
         *TimeseriesRequest._base_columns,  # noqa: SLF001
@@ -917,10 +921,13 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
         # synop stations alone, so a synop request lists those (GH-3944), and the stations of the other datasets stay
         # as the list gives them. The core copies a frame without ``resolution`` and ``dataset`` once per dataset, so
         # the frames are tagged here, as the stations differ.
-        codes = _station_codes(settings)
-        # a station the list names twice (three of them: a climate and a precipitation code) has the first code
+        codes = self._codes(settings)
+        # a station the list names with two codes (three of them: a climate and a precipitation one) has none: which
+        # of the two is its code is not told
         catalogue = catalogue.join(
-            codes.unique("station_id", keep="first", maintain_order=True),
+            codes.group_by("station_id", maintain_order=True).agg(
+                pl.when(pl.col("short_code").n_unique() == 1).then(pl.col("short_code").first()).alias("short_code")
+            ),
             on="station_id",
             how="left",
             maintain_order="left",
@@ -940,6 +947,30 @@ class ImgwMeteorologyRequest(TimeseriesRequest):
                 )
             )
         return pl.concat(frames).lazy() if frames else catalogue.lazy()
+
+    def _codes(self, settings: Settings) -> pl.DataFrame:
+        """Read `wykaz_stacji.csv`; for a request without the synop dataset a list that cannot be read is no failure.
+
+        The synop stations are picked by it, so for `synop` a list that is unreadable is raised, whatever the reason.
+        For the other datasets it is an addition to the stations, as the Stationslexikon is to those of
+        `dwd/observation` (GH-4073): a server that answers badly (`DownloadError`) or a list that is no longer the one
+        (`MetaFileFormatError`) leaves `short_code` null, with the warning `station-codes-unavailable` in the log and in
+        the answer. A connection that cannot be made (`NoInternetError`) and a rate limit (`ProviderRateLimitError`) are
+        raised, as everywhere: `kody_stacji.csv` would not have been read either, or the next request meets it too.
+        """
+        try:
+            return _station_codes(settings)
+        except (NoInternetError, ProviderRateLimitError):
+            raise
+        except (DownloadError, MetaFileFormatError) as error:
+            if any(dataset == "synop" for _, dataset in self._requested_datasets):
+                raise
+            warn_response(
+                log,
+                STATION_CODES_UNAVAILABLE,
+                f"IMGW's list of station codes could not be read, so the stations have no short_code: {error}",
+            )
+            return pl.DataFrame(schema={"station_id": pl.String, "short_code": pl.String})
 
     def _catalogue(self, settings: Settings) -> pl.DataFrame:
         """Read `kody_stacji.csv`, the list of the stations with their positions."""
@@ -1024,8 +1055,8 @@ def _station_codes(settings: Settings) -> pl.DataFrame:
     gives it with the code. One small file, kept as long as the catalogue, and no directory is listed for it.
 
     The code is also the column `short_code` of every dataset's stations (GH-4070). A row of the list that does not
-    have the shape of the others is left out: that of GOŁYMIN-OŚRODEK has a comma inside the quotes of its name and
-    no code of its own.
+    have the shape of the others is left out: that of GOŁYMIN-OŚRODEK is malformed (its name and the code `93668` are
+    in one pair of quotes, with a comma between them and a quote missing).
     """
     file = download_file(
         url=_STATION_LIST_URL,

@@ -573,8 +573,8 @@ station the source gives none:
 | `chmi/observation` | `gh_id` | CHMI's own code of the station, `L3CHEB01` (the `station_id` is its WIGOS identifier) |
 | `dmi/observation` | `country` | DMI's three-letter code of the country the station is in: `DNK`, `GRL` or `FRO` |
 | `dwd/road` | `station_group`, `road_name`, `road_sector`, `road_type`, `road_surface_type`, `road_surroundings_type` | the road a station is on and its surroundings, as DWD's list gives them |
-| `ea/hydrology` | `nrfa_id`, `rloi_id` | the station's number in the National River Flow Archive (`52017`) and its id in River Levels on the Internet (`3060`; the lowest where the listing gives two) |
-| `eaufrance/hubeau` | `gauge_zero`, `gauge_zero_datum`, `site_id` | the altitude of the gauge's zero and the reference system it is given in, and the eight-digit code of the hydrometric site the station is one of (`10110001` for `1011000101`) |
+| `ea/hydrology` | `nrfa_id`, `rloi_id` | the station's number in the National River Flow Archive (`52017`) and its id in River Levels on the Internet (`3060`; the all-digit, then the lowest, where the listing gives two) |
+| `eaufrance/hubeau` | `gauge_zero`, `gauge_zero_datum`, `site_id` | the altitude of the gauge's zero and the reference system it is given in, and the eight-character code of the hydrometric site the station is one of (`10110001` for `1011000101`) |
 | `eccc/observation` | `climate_id`, `tc_id` | the seven-character Climate ID the station has in ECCC's Climate Data Online, and Transport Canada's three-letter identifier of an airport (`YVR`), which is no ICAO code |
 | `imgw/hydrology` | `river`, `river_kilometer` | the river the gauge is on, with its hydrographic code as IMGW lists it (`Odra (1)`), and its position along it in kilometres, counted from the mouth |
 | `imgw/hydrology` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero in metres above sea level, and the datum, which IMGW's list does not state, so it is null |
