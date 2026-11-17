@@ -18,6 +18,14 @@ Types of changes:
 
 ### Fixed
 
+- `dwd/mosmix`: the snow depth of MOSMIX-SNOW that the model writes a little below 0 (`sncv` -0.01
+  and -0.02 m of a melting snow) is returned as 0.0, with the number kept as
+  `rejected:floor,raw:-0.02` in `quality_flags`, as `dwd/dmo` does for its precipitation. The
+  new snow of MOSMIX-SNOW, the precipitation amounts (`RR*c`, `RRS*c`), the precipitation and
+  sunshine durations (`DRR1`, `SunD*`) and the radiation of MOSMIX-S and -L are held to the same
+  check `floor`. It clips round-off only, down to
+  -0.2 mm, -0.01 MJ/m2, -5 cm of snow or -0.02 h (`dwd/dmo` too); a value further below (-15 m of
+  snow) is not set to 0 but flagged `suspect:range`, the value kept (GH-4182)
 - `eaufrance/hubeau`: a station is listed at its commonest step only if at least 90 % of its
   intervals are multiples of it and it covers at least 50 % of them (a missed transmission still
   counts for it), over 2 h and, failing that, over 24 h. A sparse gauge that sends in bursts was
