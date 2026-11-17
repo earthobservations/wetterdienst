@@ -76,6 +76,16 @@ Types of changes:
   of `eaufrance/hubeau` `site_id` and those of `imgw/meteorology` `short_code`, after their own
   columns. A SQL table `to_target` wrote before takes no append of them: write it anew (GH-4070)
 
+### Fixed
+
+- `dwd/mosmix`: the descriptions said that `tn` and `tx` of `small` are given at 00, 06, 12 and 18
+  UTC at every station; in the run of 2026-11-17 03 UTC about 70 % of the stations give them at 06
+  and 18 UTC, the others at one of the two, at all four hours or at 00 or 12 UTC (`large` is
+  worded alike). `rr1c` and `rr3c` say that late in a run they are often a real `0.0`, no gap, at
+  German lowland stations while `rrhc` and `rrdc` still carry rain (`rr6c` falls to zero early at
+  some), and `drr1` that `skip_empty` drops a station given no duration (Zugspitze). The docs list
+  every element's window and steps (GH-4176)
+
 ## [0.190.0] - 2026-11-16
 
 ### Changed
