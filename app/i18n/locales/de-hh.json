@@ -150,7 +150,7 @@
       "derived": "afleidde Daten",
       "radar": "Radar",
       "alerts": "Wedderwarnungen",
-      "storm_cells": "Gewitterzellen"
+      "storm_cells": "Dunnerwedder-Zellen"
     },
     "kindsAnd": "un",
     "pages": {
@@ -471,7 +471,7 @@
     "allKinds": "All Oorden vun Daten",
     "kindLabel": "Oort vun Daten",
     "kindDerived": "Afleidde Daten",
-    "kindStormCells": "Gewitterzellen",
+    "kindStormCells": "Dunnerwedder-Zellen",
     "shown": "{shown} vun {count} wiest",
     "noResults": "Keen Anbeder passt to de Söök.",
     "notFound": "Dat gifft keen Anbeder mit'n Naam „{provider}“.",

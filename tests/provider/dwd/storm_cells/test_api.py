@@ -245,7 +245,7 @@ def test_a_request_without_the_track_leaves_the_column_out_and_keeps_the_directi
     df = DwdStormCellsRequest(track=False).query().df
 
     assert "track" not in df.columns
-    assert df["direction_degrees"].to_list() == [71.4, pytest.approx(df["direction_degrees"][1])]
+    assert df["direction_degrees"].to_list() == [71.4, 73.3]
     assert df["direction_degrees"].null_count() == 0
 
 
@@ -340,7 +340,7 @@ def test_a_point_far_from_every_cell_finds_none_and_says_so() -> None:
     (warning,) = recorded_warnings()
     assert warning["code"] == "no-storm-cells-for-place"
     assert "within 10 km of the point 51.05, 13.74" in warning["message"]
-    assert "3 cells are elsewhere" in warning["message"]
+    assert "3 cells of the scan left out by the request" in warning["message"]
     assert "not an error" in warning["message"]
 
 
@@ -452,6 +452,19 @@ def test_a_timestamp_is_measured_against_itself_and_not_the_clock(monkeypatch: p
     assert _codes() == []
 
     DwdStormCellsRequest(timestamp="2026-11-17T22:40:00").query()  # 25 minutes after the scan, and none between
+    assert _codes() == ["scan-stale"]
+
+
+def test_a_timestamp_in_the_future_is_measured_as_now(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A local time read as UTC is hours ahead: a fresh scan is no stale scan for it."""
+    serve(monkeypatch, {"KONRAD3D_20261117T221500.xml": TWO_CELLS_SCAN})
+    _stale(monkeypatch, 4)
+
+    DwdStormCellsRequest(timestamp="2026-11-18T01:15:00").query()
+    assert _codes() == []
+
+    _stale(monkeypatch, 45)
+    DwdStormCellsRequest(timestamp="2026-11-18T01:15:00").query()
     assert _codes() == ["scan-stale"]
 
 

@@ -468,10 +468,16 @@ class DwdStormCellsRequest:
             MetaFileNotFoundError: the listing holds no scan at all, which is no time's doing.
 
         """
+        try:
+            entries = list_remote_directory_fsspec(
+                self._directory_url, settings=self.settings, cache_expiry=CacheExpiry.ONE_MINUTE
+            )
+        except FileNotFoundError as e:
+            # a directory that is not there is DWD's to answer for (a 502), no defect of ours
+            msg = f"no KONRAD3D directory at {self._directory_url}"
+            raise MetaFileNotFoundError(msg) from e
         scans: list[tuple[dt.datetime, str]] = []
-        for entry in list_remote_directory_fsspec(
-            self._directory_url, settings=self.settings, cache_expiry=CacheExpiry.ONE_MINUTE
-        ):
+        for entry in entries:
             name = entry["name"].rsplit("/", 1)[-1]
             match = _FILE_PATTERN.search(name)
             if match:
@@ -497,8 +503,13 @@ class DwdStormCellsRequest:
         return f"{self._directory_url}{name}", reference_time
 
     def _warn_if_stale(self, reference_time: dt.datetime) -> None:
-        """Warn where the scan is more than `SCAN_STALE_AFTER` older than the time asked for (now, or the timestamp)."""
-        asked = self.timestamp or _now()
+        """Warn where the scan is more than `SCAN_STALE_AFTER` older than the time asked for (now, or the timestamp).
+
+        A `timestamp` in the future (a local time read as UTC) is measured as now: no scan can be newer than that, and a
+        fresh one is no stale scan.
+        """
+        now = _now()
+        asked = now if self.timestamp is None else min(self.timestamp, now)
         age = asked - reference_time
         if age <= SCAN_STALE_AFTER:
             return
@@ -609,10 +620,10 @@ class DwdStormCellsRequest:
             asked.append(f"in the box {self.left}, {self.bottom}, {self.right}, {self.top}")
         if self.min_severity is not None:
             asked.append(f"of severity {self.min_severity} ({SEVERITY_LABELS[self.min_severity]}) or more")
-        cells = "1 cell is" if count == 1 else f"{count} cells are"
+        cells = "1 cell" if count == 1 else f"{count} cells"
         return (
-            f"No storm cell of the scan is {' and '.join(asked)}. That is the answer, not an error: {cells} "
-            "elsewhere in the scan, which the request leaves out."
+            f"No storm cell of the scan is {' and '.join(asked)}. That is the answer, not an error: {cells} of the "
+            "scan left out by the request (its place or min_severity)."
         )
 
     def _build_dataframe(self, cells: list[dict[str, Any]]) -> pl.DataFrame:

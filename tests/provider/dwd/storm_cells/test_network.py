@@ -134,6 +134,16 @@ def test_a_scan_that_is_gone_since_the_listing_is_a_download_error(dwd: _Dwd) ->
         dwd.request().query()
 
 
+def test_a_directory_that_is_not_there_is_a_missing_file_of_dwd(dwd: _Dwd) -> None:
+    """A 404 for the directory is DWD's (a 502), and no bare `FileNotFoundError` for a 500."""
+    dwd.server.missing.add(DIRECTORY)
+
+    with pytest.raises(MetaFileNotFoundError, match="no KONRAD3D directory") as raised:
+        dwd.request().query()
+
+    assert isinstance(raised.value.__cause__, FileNotFoundError)
+
+
 def test_a_directory_with_no_scan_is_a_missing_file(dwd: _Dwd) -> None:
     """An empty listing is DWD's to answer for, as the missing file it is."""
     dwd.server.directories[DIRECTORY] = []

@@ -137,7 +137,7 @@ def test_rest_a_place_without_a_cell_is_a_200_with_the_reason(client: TestClient
     assert data["metadata"]["counts"]["rows"] == 0
     (warning,) = data["metadata"]["warnings"]
     assert warning["code"] == "no-storm-cells-for-place"
-    assert "3 cells are elsewhere" in warning["message"]
+    assert "3 cells of the scan left out by the request" in warning["message"]
 
 
 @pytest.mark.parametrize(("fmt", "key"), [("json", "cells"), ("geojson", "features")])

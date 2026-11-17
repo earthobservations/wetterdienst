@@ -17,9 +17,10 @@ DWD_STORM_CELLS_BASE_URL = "https://opendata.dwd.de/weather/radar/konrad3d"
 #: DWD's description of the XML format, which the documentation links to for what the answer leaves out
 DWD_STORM_CELLS_FORMAT_URL = "https://www.dwd.de/DE/leistungen/radarprodukte/formatbeschreibung_konrad3d.html"
 
-#: how much older than the time asked for (now, or the `timestamp`) the scan may be before the answer says so: four
-#: runs of five minutes missed. The longest delay between a scan's reference time and its file that was seen is
-#: 9 minutes, so a scan is never this late in the normal course
+#: how much older than the time asked for (now, or the `timestamp`) the scan may be before the answer says so. It is
+#: counted from the reference time of the scan, and a file is on the server 4.7 to 9.4 minutes after it (the cadence
+#: is 5 minutes and the listing is cached for one), so the newest scan is up to about 15 minutes old in the normal
+#: course and the warning comes after about two runs are missing
 SCAN_STALE_AFTER = dt.timedelta(minutes=20)
 
 #: the severity of a cell (0 to 3) as DWD names it: "weak" (green), "moderate" (yellow), "severe" (red), "extreme"

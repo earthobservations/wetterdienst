@@ -20,7 +20,7 @@ What a scan is:
 | --- | --- |
 | Files | `KONRAD3D_YYYYMMDDThhmmss.xml`, in UTC, named for the **reference time**, the start of the radar scan cycle, always on a multiple of five minutes |
 | Cadence | one every 5 minutes, and none missing in the 48 hours that were read (576 files) |
-| Delay | a file is on the server 5.5 to 10.5 minutes after its reference time (median 5.5, longest 9.4 minutes of the 48 hours read on 2026-11-17), so the newest scan is that old |
+| Delay | a file is published 4.7 to 9.4 minutes after its reference time (median 5.5, of the 48 hours read on 2026-11-17), so the newest scan is about 5 to 15 minutes old |
 | Empty scans | most: 460 of those 576 were a complete file with no cell. DWD's `<cells/>` with no `feature` is the usual answer, not a failure |
 | Size | an empty scan is 4 KB of XML, a cell about 17 KB; of JSON a cell with outline and track is 3.5 to 5 KB |
 | Latest | there is **no `latest` file**: the newest is found in the directory listing, which is cached for a minute |
@@ -28,7 +28,8 @@ What a scan is:
 The **`cell_id` is not an identifier**: DWD numbers the cells of a scan and reuses a number after a cell has died; `*`
 after a number says the cell split off in this scan, `#` that cells merged into it. A cell is told by its **`code`**,
 which DWD calls the unique identifier of the cell and which a cell **keeps from scan to scan** (the real files show a
-continuing cell with the `code` of its predecessor); a split or a merger gets a new one. So one cell is followed through
+continuing cell with the `code` of its predecessor); a split gets a new one (what a merger gets is not known: no scan
+with a `#` merger in its current step has been read). So one cell is followed through
 the scans by its `code`, and a split is followed to the cell it split off by `predecessor_code`.
 
 ## A place
@@ -66,7 +67,7 @@ One row per cell, 26 columns, DWD's attributes in DWD's units with the unit in t
 | --- | --- | --- |
 | `reference_time` | the scan the cell is of: the start of its radar scan cycle | UTC |
 | `cell_id` | the identifier DWD gives the cell, without the `*` or `#`. **Not unique** (it is reused) | |
-| `code` | DWD's unique identifier of the cell, 22 digits: `YYYYMMDDhhmm` of the scan that gave the cell this code (its birth, or the split or merger that made it a new cell), the lead time, 0 for measured, the ensemble member, and a number. **The same in every scan while the cell lives** | |
+| `code` | DWD's unique identifier of the cell, 22 digits: `YYYYMMDDhhmm` of the scan that gave the cell this code (its birth, or the split that made it a new cell), the lead time, 0 for measured, the ensemble member, and a number. **The same in every scan while the cell lives** | |
 | `predecessor_code` | the `code` of the cell's predecessor in the scan before: its own `code` for a cell that goes on, that of the cell it split off for a split; of a merger, the predecessor DWD is surest of. Null for a new cell | |
 | `split_event`, `merge_event` | the cell split off its predecessor in this scan, or cells merged into it (DWD's `split_event` and `merge_event`, which `*` and `#` after the identifier say too) | |
 | `first_detection` | when the cell was first detected | UTC |
@@ -121,13 +122,14 @@ column can be added later; the first list is kept small because removing one is 
 Most scans hold no cell, so an empty answer has to be unambiguous, and a feed that has stopped must not look like a quiet
 sky. The answer carries the `reference_time` of the scan it is of, and warnings in `metadata.warnings`:
 
-- **no warning**: the scan holds no cell. That is the all-clear, as of `reference_time` (5 to 10 minutes ago).
+- **no warning**: the scan holds no cell. That is the all-clear, as of `reference_time` (about 5 to 15 minutes ago).
 - `no-storm-cells-for-place`: the scan holds cells, and the place or `min_severity` leaves none of them. The message says
-  what was asked and how many cells are elsewhere. An answer, not an error.
+  what was asked and how many cells of the scan the request leaves out. An answer, not an error.
 - `scan-stale`: the newest scan is more than **20 minutes** older than the time asked for (now, or the `timestamp`):
-  DWD's run or its files have stopped, scans are missing, and an empty answer is then **no all-clear**. The longest delay seen
-  is 9.4 minutes, so a scan is never this late in the normal course. For a `timestamp` it is told when no scan lies within
-  20 minutes before it.
+  DWD's run or its files have stopped, scans are missing, and an empty answer is then **no all-clear**. The age is counted
+  from the reference time, and a scan is published 4.7 to 9.4 minutes after it, so the warning comes after about two runs
+  are missing. For a `timestamp` it is told when no scan lies within 20 minutes before it; a `timestamp` in the future
+  (a local time read as UTC) is measured as now.
 
 The code of a warning is in the `X-Wetterdienst-Warnings` header of a CSV answer, which has no block.
 
