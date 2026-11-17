@@ -130,3 +130,23 @@ def test_mosmix_l_percentages_wind_and_probabilities_below_zero_are_the_ranges(m
     values, flags = _flags(df, "error_absolute_wind_direction")
     assert values == [-4.0, 10.0, 20.0]
     assert flags == [None, None, None]
+
+
+def test_each_tolerance_is_pinned_at_its_edge(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The last value that is round-off is the floor's, the next one is the range's: 0.2 mm, 10 kJ/m2, 72 s (GH-4182).
+
+    The tolerances are in the canonical unit (mm, MJ/m2, h) and the file writes seconds and kJ/m2, so a tolerance given
+    in the unit of the file instead would move these edges by a factor of 3,600 or 1,000.
+    """
+    df = dwd_mosmix_values(
+        monkeypatch,
+        {"SunD1": "-72 -73 3600", "RR1c": "-0.2 -0.21 0.00", "Rad1h": "-10 -10.5 0.00"},
+        [("hourly", "small", "sund1"), ("hourly", "small", "rr1c"), ("hourly", "small", "rad1h")],
+        options=Options(**KEEP),
+    )
+    assert _flags(df, "sunshine_duration") == ([0.0, -73.0, 3600.0], ["rejected:floor,raw:-72", "suspect:range", None])
+    assert _flags(df, "precipitation_amount_significant_weather_last_1h") == (
+        [0.0, -0.21, 0.0],
+        ["rejected:floor,raw:-0.2", "suspect:range", None],
+    )
+    assert _flags(df, "radiation_global") == ([0.0, -10.5, 0.0], ["rejected:floor,raw:-10", "suspect:range", None])

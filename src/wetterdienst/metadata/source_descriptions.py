@@ -946,23 +946,27 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). ICON writes "
             "a little below 0 in the night hours (mostly above -0.2 J/cm2, at a few stations to about -0.8); "
             "that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -1 J/cm2 is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon", "radl3"): "Long wave radiation balance during the last 3 hours",
         ("hourly", "icon", "rads3"): (
             "Short wave radiation balance during the last 3 hours. ICON writes a little below 0 in the "
             "night hours (to about -0.5 J/cm2); that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -1 J/cm2 is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon", "rr1"): (
             "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
             "that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -0.2 mm is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon", "rr3"): (
             "Total precipitation during the last 3 hours. ICON writes a little below 0 now and then (to about "
             "-0.04 mm); that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -0.2 mm is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon", "rrs3c"): "Snow-Rain-Equivalent during the last 3 hours",
@@ -998,12 +1002,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). ICON writes "
             "a little below 0 in the night hours (mostly above -0.2 J/cm2, at a few stations to about -0.8); "
             "that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -1 J/cm2 is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon_eu", "rr1"): (
             "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
             "that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -0.2 mm is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon_eu", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon_eu", "t5cm"): "Temperature 5cm above surface",
@@ -1339,9 +1345,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("hourly", "snow", "sncv"): (
             "Snow depth, in m. Given at the 00, 03, 06, ..., 21 UTC steps only (the run of 2026-11-14 19 UTC). "
-            "The model writes the last of a melting snow a little below 0 (-0.01 and -0.02 m); that is returned as 0.0, "
-            "with the number kept as `raw:` in `quality_flags` (the check `floor`: `rejected:floor,raw:`), down to "
-            "-5 cm; a lower value is flagged `suspect:range`."
+            "The model writes the last of a melting snow a little below 0 (-0.01 and -0.02 m); that is returned as "
+            "0.0, with the number kept as `raw:` in `quality_flags` (the check `floor`: `rejected:floor,raw:`), "
+            "down to -5 cm; a lower value is flagged `suspect:range`."
         ),
         ("hourly", "snow", "td"): "Dewpoint 2m above surface",
         ("hourly", "snow", "ttt"): "Temperature 2m above surface",
