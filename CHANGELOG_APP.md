@@ -16,10 +16,6 @@ Types of changes:
 
 ## [Unreleased]
 
-## [0.53.0] - 2026-11-17
-
-Paired with backend 0.191.0, which it needs for the stripes' classes and the stations' WMO numbers.
-
 ### Added
 
 - `[Forecast]` The forecast chart shows MOSMIX's thunderstorm probability: a thin panel under the
@@ -31,6 +27,13 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
   description names the likeliest hour. It is the hourly probability (`wwt`), which MOSMIX gives
   for every hour of the run; the 6, 12 and 24 hour ones are not used. The compact day cards are
   unchanged (GH-4090).
+
+## [0.53.0] - 2026-11-17
+
+Paired with backend 0.191.0, which it needs for the stripes' classes and the stations' WMO numbers.
+
+### Added
+
 - `[Map]` The stations of the map are grouped at the outer zooms: stations that lie close together
   are one disc with their number, which a click or tap zooms in on; a station that is alone stays a
   dot, and the one picked stays in view above its group. A switch over the map sets how much is
