@@ -62,6 +62,12 @@ Types of changes:
 
 ### Fixed
 
+- `[Forecast, Map, Home]` A day's icon takes its sky from the day's mean cloud cover (cloudy from
+  70 %, partly cloudy from 30 %, as the chart's hours do), no longer from MOSMIX's weather codes 0
+  to 3. DWD defines those as how the clouds change (none, dissolving, unchanged, forming), not how
+  much sky is covered, so a day of code 3 at 56 to 74 % cover showed a plain cloud over a chart of
+  partly cloudy hours. A day that has 0.5 mm of rain or more and no code that names weather shows
+  rain, snow or sleet; an hour or a day with no cloud cover is partly cloudy (GH-4190).
 - `[Forecast, Map, Home]` The late days of a forecast no longer look dry. MOSMIX's hourly rain
   amount is 0.0 from about +100 h at most lowland stations, while its 6, 12 and 24 h totals still
   carry rain, so days 6 to 10 showed none where DWD's own total has 1 to 2 mm. Each 24 h window

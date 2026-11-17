@@ -18,7 +18,7 @@ import { HOUR_MS, PANEL_ORDER, toggleOf } from './meteogram-geometry'
 import { planPrecipitation } from './meteogram-precipitation'
 import { findFirstAvailable } from './meteogram-series'
 import { snowChanceAmount } from './meteogram-units'
-import { weatherCodeToKind } from './weather-kind'
+import { skyOfCloudCover, weatherCodeToKind } from './weather-kind'
 
 /** The sun, as `suncalc` has it: loaded when the chart is first drawn */
 export interface SunLibrary {
@@ -809,7 +809,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   }
   symbolStamps.forEach((time, i) => {
     const cloudShare = cloudSeries ? cloudAt(time) * 100 : null
-    const sky: Sky = cloudShare === null ? 'partlyCloudy' : cloudShare >= 70 ? 'cloudy' : cloudShare >= 30 ? 'partlyCloudy' : 'clear'
+    const sky: Sky = skyOfCloudCover(cloudShare)
     // an hour the forecast gives no amount for has none: it is not a dry hour (GH-4175)
     const amount = precipLookup.get(time)
     const mm = amount === undefined ? null : canon('precipitation', amount)
@@ -825,8 +825,9 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
       kind = phase === 'snow' ? 'snow' : phase === 'mixed' ? 'sleet' : 'rain'
     }
     else {
-      // the sky: the cloud cover where there is one, else what the code says of it
-      kind = cloudShare !== null ? sky : (fromCode ?? 'partlyCloudy')
+      // the sky: the cloud cover's, partly cloudy where there is none (the codes 0 to 3 say how the clouds change, not how much sky
+      // they cover: GH-4190)
+      kind = sky
     }
     weather.set(time, kind)
     symbols.push({ t: time, kind, night: nightAt(time), precipitationMm: mm, sky, ...symbolThin[i]! })

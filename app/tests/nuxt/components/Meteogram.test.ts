@@ -467,9 +467,6 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
   it.each([
     [61, 'rain', 'i-ph:cloud-rain', 'Rain'],
     [95, 'thunderstorm', 'i-ph:cloud-lightning', 'Thunderstorm'],
-    [0, 'clear', 'i-ph:sun', 'Sunny'],
-    [2, 'partlyCloudy', 'i-ph:cloud-sun', 'Partly cloudy'],
-    [3, 'cloudy', 'i-ph:cloud', 'Cloudy'],
     [18, 'wind', 'i-ph:wind', 'Windy'],
     [20, 'drizzle', 'i-ph:drop-half', 'Drizzle'],
     [53, 'drizzle', 'i-ph:drop-half', 'Drizzle'],
@@ -498,6 +495,19 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     }
     expect(wordsOf()).toContain(words)
     expect(document.body.textContent).not.toMatch(/\p{Extended_Pictographic}/u)
+  })
+
+  // the codes 0 to 3 are DWD's cloud development (none, dissolving, unchanged, forming), no sky: the card has its sky from the cloud cover
+  // of the day, whichever of them its hours carry (GH-4190)
+  it.each([[0, 95, 'cloudy'], [1, 95, 'cloudy'], [2, 10, 'clear'], [3, 10, 'clear'], [3, 55, 'partlyCloudy']])('draws the sky of a day card from the cloud cover, not from the code %i: %i %% is %s', async (code, cover, kind) => {
+    const coded = day.map(value => ({ ...value, parameter: 'weather_significant', value: code }))
+    const clouds = day.map(value => ({ ...value, parameter: 'cloud_cover_total', value: cover }))
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values: [...day, ...coded, ...clouds] })
+    await waitDrawn()
+    await showCompact()
+    expect(new Set(iconsOf())).toEqual(new Set([kind]))
   })
 
   // in every language, in its own word for the rain

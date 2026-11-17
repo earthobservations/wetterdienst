@@ -335,6 +335,15 @@ describe('the weather of each hour', () => {
     expect(clearHour?.kind).toBe('clear')
   })
 
+  it('is partly cloudy for an hour with no cloud cover, whatever the code 0 to 3 says: they are DWD\'s cloud development, not the sky (GH-4190)', () => {
+    const noCloud = ['cloud_cover_total', 'cloud_cover_below_2km', 'cloud_cover_between_2km_and_7km', 'cloud_cover_above_7km']
+    const withCodes = forecastValues({ without: noCloud }).map(v => v.parameter === 'weather_significant' && v.value !== 95 && v.value !== 61 ? { ...v, value: Number(v.timestamp.slice(11, 13)) % 4 } : v)
+    const m = model({ values: withCodes })
+    const dry = m.symbols.filter(s => s.precipitationMm === 0 && s.kind !== 'thunderstorm')
+    expect(dry.length).toBeGreaterThan(100)
+    expect(new Set(dry.map(s => s.kind))).toEqual(new Set(['partlyCloudy']))
+  })
+
   it('is snow, not rain, for the rain of a cold hour, by the wet bulb', () => {
     const cold = forecastValues().map(v => v.parameter === 'temperature_air_2m' ? { ...v, value: -4 } : v.parameter === 'weather_significant' ? { ...v, value: null } : v)
     const m = model({ values: cold })
