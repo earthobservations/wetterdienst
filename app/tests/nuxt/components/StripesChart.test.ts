@@ -3,6 +3,7 @@ import { flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import StripesChart from '~/components/StripesChart.vue'
+import { extraLinesHeight, frameOf, stripesChartHeight } from '~/utils/stripes-option'
 import { recordOf, stripesAnswer } from '../../helpers/stripes-answer'
 
 // ECharts draws nothing in the test's document: the chart on the page is a recorder, held to the option it is given. A chart
@@ -132,6 +133,129 @@ beforeEach(() => {
   reloadNuxtApp.mockClear()
   toastAdd.mockClear()
   document.body.innerHTML = ''
+})
+
+describe('the variants (GH-4156)', () => {
+  const switcher = () => document.body.querySelector<HTMLElement>('[role="radiogroup"]')!
+  const radio = (name: string) => [...switcher().querySelectorAll<HTMLButtonElement>('[role="radio"]')].find(button => button.textContent?.trim() === name)!
+  const svgOf = () => (image.svgToBlob.mock.calls.at(-1) as unknown as [string, any])[0]
+  const textsOf = (svg: string) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1]!)
+
+  it('has a switch of the three, the stripes the one chosen where nothing else is asked for, which asks the page for another', async () => {
+    const shown = await showChart()
+    expect(switcher().getAttribute('aria-label')).toBe('Chart style')
+    expect([...switcher().querySelectorAll('[role="radio"]')].map(button => [button.textContent?.trim(), button.getAttribute('aria-checked')])).toEqual([['Stripes', 'true'], ['Bars', 'false'], ['Bars with scale', 'false']])
+    radio('Bars with scale').click()
+    expect(shown.emitted('update:variant')).toEqual([['barsScale']])
+    // the page owns the choice: the chart draws what it is given
+    expect(radio('Stripes').getAttribute('aria-checked')).toBe('true')
+  })
+
+  it('keeps the switch where the chart could not be drawn, outside what is out of reach (inert)', async () => {
+    echarts.state.loadFails = true
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await mountSuspended(StripesChart, {
+      props: { values: VALUES, reference: REFERENCE, kind: 'temperature', unit: '°C', title: TITLE, display: DISPLAY, cameraFile: 'f' },
+      attachTo: document.body,
+    })
+    await vi.waitFor(() => expect(document.body.querySelector('[role="alert"]')).not.toBeNull())
+    expect(document.body.querySelector('.sc-toolbar')!.hasAttribute('inert')).toBe(true)
+    expect(switcher().closest('[inert]')).toBeNull()
+  })
+
+  it.each([
+    ['stripes', ['stripes', 'availability', 'labels']],
+    ['bars', ['bars', 'zeroline', 'availability', 'labels']],
+    ['barsScale', ['bars', 'grid', 'zeroline', 'availability', 'labels']],
+  ])('draws %s for the variant it is given, and draws again where it changes', async (variant, ids) => {
+    const shown = await showChart({ variant })
+    expect(lastOption().series.map((s: any) => s.id)).toEqual(ids)
+    expect(radio({ stripes: 'Stripes', bars: 'Bars', barsScale: 'Bars with scale' }[variant]!).getAttribute('aria-checked')).toBe('true')
+    const before = drawn()
+    await shown.setProps({ variant: variant === 'stripes' ? 'bars' : 'stripes' })
+    await vi.waitFor(() => expect(drawn()).toBe(before + 1))
+    expect(lastOption().series[0].id).toBe(variant === 'stripes' ? 'bars' : 'stripes')
+  })
+
+  it('is as high as the stripes for the bars, and as high as the scale needs for the bars with one (its room left of the plot, its subtitle)', async () => {
+    const shown = await showChart()
+    const stripes = (echarts.init.mock.calls[0]![2] as { height: number }).height
+    await shown.setProps({ variant: 'bars' })
+    await vi.waitFor(() => expect(echarts.chart.resize).toHaveBeenLastCalledWith({ width: 800, height: stripes }))
+    await shown.setProps({ variant: 'barsScale' })
+    const scaled = stripesChartHeight(DISPLAY, 800, 1, { frame: frameOf({ variant: 'barsScale', subtitleLines: ['x'] }) })
+    await vi.waitFor(() => expect(echarts.chart.resize).toHaveBeenLastCalledWith({ width: 800, height: scaled }))
+    // the stripes of the scale are as high as the plot is wide over their ratio, and the subtitle's row is on top of that
+    expect(scaled).not.toBe(stripes)
+  })
+
+  it('moves the ticks of the bars with a scale with the zoom: the grid and the labels are the window\'s update', async () => {
+    await showChart({ variant: 'barsScale' })
+    document.body.querySelector<HTMLButtonElement>('.sc-toolbar button[aria-label="Zoom in"]')!.click()
+    await nextTick()
+    const update = echarts.chart.setOption.mock.calls.filter(([option]) => option.dataZoom && !option.grid).at(-1)![0]
+    expect(update.series.map((s: any) => s.id)).toEqual(['labels', 'grid'])
+  })
+
+  it('saves the bars as the page shows them: the camera and the menu, with the title, the source and what the colours are relative to', async () => {
+    const shown = await showChart({ variant: 'bars' })
+    await (shown.vm as any).save({ format: 'png', filename: 'name', width: 800, height: 578, scale: 3 })
+    const svg = svgOf()
+    // bars, not stripes: the stripes' rectangles would be as high as the plot
+    const heights = [...svg.matchAll(/<path d="M[\d.-]+ [\d.-]+l[\d.]+ 0l0 ([\d.]+)l/g)].map(match => Number(match[1]))
+    expect(new Set(heights).size).toBeGreaterThan(10)
+    const texts = textsOf(svg)
+    expect(texts).toContain(TITLE)
+    expect(texts).toContain('Source: Deutscher Wetterdienst')
+    expect(texts.some(text => text.startsWith('Colours:'))).toBe(true)
+    // the zero line is in the saved image
+    expect(svg).toContain('stroke=')
+  })
+
+  it('saves the bars with a scale with their axis, the years along it and the subtitle, in the language of the page', async () => {
+    const shown = await showChart({ variant: 'barsScale' })
+    await (shown.vm as any).save({ format: 'svg', filename: 'name', width: 800, height: 600, scale: 1 })
+    const texts = textsOf(svgOf())
+    expect(texts).toContain('Relative to the mean of 1971–2000 [°C]')
+    expect(texts).toContain('0')
+    // the ticks with their sign: a minus is the language's own, a plus is written out
+    expect(texts.some(text => /^[+\-−]\d/.test(text))).toBe(true)
+    // round years, not the first and the last
+    const years = texts.filter(text => /^\d{4}$/.test(text)).map(Number)
+    expect(years.length).toBeGreaterThan(3)
+    expect(years.every(year => year % 5 === 0)).toBe(true)
+  })
+
+  it('says the whole record where the station has too few years in the period, in the subtitle', async () => {
+    const short = stripesAnswer(recordOf(2005, 2024, year => (year - 2005) / 10))
+    const shown = await showChart({ variant: 'barsScale', values: short.values, reference: short.reference })
+    await (shown.vm as any).save({ format: 'svg', filename: 'name', width: 800, height: 600, scale: 1 })
+    expect(textsOf(svgOf())).toContain('Relative to the mean of the whole record (2005–2024) [°C]')
+  })
+
+  it('has the camera save the bars with a scale at the width it has always had, as high as its scale needs, with the subtitle', async () => {
+    await showChart({ variant: 'barsScale' })
+    image.svgToBlob.mockClear()
+    document.body.querySelector<HTMLButtonElement>('.sc-controls button[aria-label="Download plot as a PNG"]')!.click()
+    await vi.waitFor(() => expect(image.downloadBlob).toHaveBeenCalled())
+    const options = (image.svgToBlob.mock.calls[0] as unknown as [string, any])[1]
+    expect(options).toMatchObject({ format: 'png', width: 1400, scale: 2 })
+    // the stripes of the camera are as high as 1400 px less the room of the scale is wide over their ratio, and the subtitle's row and the line of the colours are on top
+    const frame = frameOf({ variant: 'barsScale', subtitleLines: ['Relative to the mean of 1971–2000 [°C]'] })
+    expect(options.height).toBe(stripesChartHeight(DISPLAY, 1400, 1, { clamp: false, frame }) + extraLinesHeight(DISPLAY, 1))
+    expect(svgOf()).toContain(`height="${options.height}"`)
+    expect(textsOf(svgOf())).toContain('Relative to the mean of 1971–2000 [°C]')
+  })
+
+  it('breaks a long subtitle into lines for a narrow image, which make it higher', async () => {
+    const shown = await showChart({ variant: 'barsScale' })
+    await (shown.vm as any).save({ format: 'svg', filename: 'wide', width: 800, height: 600, scale: 1 })
+    const wide = textsOf(svgOf()).filter(text => text.includes('Relative to'))
+    await (shown.vm as any).save({ format: 'svg', filename: 'narrow', width: 200, height: 600, scale: 1 })
+    const narrow = textsOf(svgOf()).filter(text => /Relative|mean|1971|°C/.test(text))
+    expect(wide).toHaveLength(1)
+    expect(narrow.length).toBeGreaterThan(1)
+  })
 })
 
 describe('drawing', () => {

@@ -664,6 +664,13 @@
     "plotDataAvailability": "Datenverfögbarkeit",
     "plotSource": "Quell: Deutscher Wetterdienst",
     "plotReference": "Klöör: Middel vun {centre}, ±{sigma} σ vun {spread}",
+    "barsRelativeTo": "Relativ to dat Middel vun {period}",
+    "variant": {
+      "label": "Ansicht",
+      "stripes": "Striepen",
+      "bars": "Balken",
+      "barsScale": "Balken mit Skaal"
+    },
     "hoverValue": "Weert",
     "hoverTrend": "Trend",
     "chart": {
@@ -925,10 +932,9 @@
     "legendReporting": "Meldt noch",
     "legendStopped": "Meldt nich mehr",
     "grouping": "Gruppen",
-    "groupingOff": "Keen Gruppen",
-    "groupingFine": "Fien Gruppen",
-    "groupingMedium": "Middel Gruppen",
-    "groupingCoarse": "Grove Gruppen",
+    "groupingOff": "Keen",
+    "groupingFine": "Fien",
+    "groupingCoarse": "Grov",
     "groupingCompulsory": "Ebenen mit mehr as {shown} Stationen sünd jümmers in Gruppen tohoopfaat.",
     "legendGroup": "En Tall is en Gruppe vun Stationen: Klick, un du kummst dichter ran",
     "groupZoomed": "Op en Gruppe rinzoomt. Stationen dorin: {shown}",

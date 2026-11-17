@@ -664,6 +664,13 @@
     "plotDataAvailability": "Dostupnost dat",
     "plotSource": "Zdroj: Deutscher Wetterdienst",
     "plotReference": "Barvy: průměr z {centre}, ±{sigma} σ z {spread}",
+    "barsRelativeTo": "Vzhledem k průměru z {period}",
+    "variant": {
+      "label": "Zobrazení",
+      "stripes": "Pruhy",
+      "bars": "Sloupce",
+      "barsScale": "Sloupce se stupnicí"
+    },
     "hoverValue": "Hodnota",
     "hoverTrend": "Trend",
     "chart": {
@@ -925,10 +932,9 @@
     "legendReporting": "Stále hlásí",
     "legendStopped": "Přestala hlásit",
     "grouping": "Seskupení",
-    "groupingOff": "Bez skupin",
-    "groupingFine": "Jemné skupiny",
-    "groupingMedium": "Střední skupiny",
-    "groupingCoarse": "Hrubé skupiny",
+    "groupingOff": "Žádné",
+    "groupingFine": "Jemné",
+    "groupingCoarse": "Hrubé",
     "groupingCompulsory": "Vrstvy s více než {shown} stanicemi jsou vždy seskupené.",
     "legendGroup": "Číslo je skupina stanic: klikni pro přiblížení",
     "groupZoomed": "Přiblíženo na skupinu. Stanic v ní: {shown}",

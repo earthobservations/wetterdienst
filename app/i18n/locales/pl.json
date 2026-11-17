@@ -664,6 +664,13 @@
     "plotDataAvailability": "Dostępność danych",
     "plotSource": "Źródło: Deutscher Wetterdienst",
     "plotReference": "Kolory: średnia z {centre}, ±{sigma} σ z {spread}",
+    "barsRelativeTo": "W odniesieniu do średniej z {period}",
+    "variant": {
+      "label": "Widok",
+      "stripes": "Paski",
+      "bars": "Słupki",
+      "barsScale": "Słupki ze skalą"
+    },
     "hoverValue": "Wartość",
     "hoverTrend": "Trend",
     "chart": {
@@ -925,10 +932,9 @@
     "legendReporting": "Nadal działa",
     "legendStopped": "Przestała działać",
     "grouping": "Grupowanie",
-    "groupingOff": "Bez grup",
-    "groupingFine": "Drobne grupy",
-    "groupingMedium": "Średnie grupy",
-    "groupingCoarse": "Duże grupy",
+    "groupingOff": "Brak",
+    "groupingFine": "Drobne",
+    "groupingCoarse": "Duże",
     "groupingCompulsory": "Warstwy z ponad {shown} stacji są zawsze grupowane.",
     "legendGroup": "Liczba oznacza grupę stacji: kliknij, aby przybliżyć",
     "groupZoomed": "Przybliżono grupę. Stacji w niej: {shown}",

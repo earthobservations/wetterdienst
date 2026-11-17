@@ -664,6 +664,13 @@
     "plotDataAvailability": "Datenverfügbarkeit",
     "plotSource": "Quelle: Deutscher Wetterdienst",
     "plotReference": "Farben: Mittel von {centre}, ±{sigma} σ von {spread}",
+    "barsRelativeTo": "Relativ zum Mittel von {period}",
+    "variant": {
+      "label": "Darstellung",
+      "stripes": "Streifen",
+      "bars": "Balken",
+      "barsScale": "Balken mit Skala"
+    },
     "hoverValue": "Wert",
     "hoverTrend": "Trend",
     "chart": {
@@ -925,10 +932,9 @@
     "legendReporting": "Liefert noch Daten",
     "legendStopped": "Liefert keine Daten mehr",
     "grouping": "Gruppierung",
-    "groupingOff": "Keine Gruppen",
-    "groupingFine": "Feine Gruppen",
-    "groupingMedium": "Mittlere Gruppen",
-    "groupingCoarse": "Grobe Gruppen",
+    "groupingOff": "Keine",
+    "groupingFine": "Fein",
+    "groupingCoarse": "Grob",
     "groupingCompulsory": "Ebenen mit mehr als {shown} Stationen sind immer gruppiert.",
     "legendGroup": "Eine Zahl ist eine Gruppe von Stationen: Klicken zum Hineinzoomen",
     "groupZoomed": "Auf eine Gruppe gezoomt. Stationen darin: {shown}",

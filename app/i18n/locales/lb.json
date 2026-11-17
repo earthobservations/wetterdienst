@@ -664,6 +664,13 @@
     "plotDataAvailability": "Datverfügbarkeet",
     "plotSource": "Quell: Deutscher Wetterdienst",
     "plotReference": "Faarwen: Duerchschnëtt vun {centre}, ±{sigma} σ vun {spread}",
+    "barsRelativeTo": "Relativ zum Duerchschnëtt vun {period}",
+    "variant": {
+      "label": "Usiicht",
+      "stripes": "Sträifen",
+      "bars": "Balken",
+      "barsScale": "Balken mat Skala"
+    },
     "hoverValue": "Wäert",
     "hoverTrend": "Trend",
     "chart": {
@@ -925,10 +932,9 @@
     "legendReporting": "Mellt nach",
     "legendStopped": "Huet opgehalen",
     "grouping": "Gruppéierung",
-    "groupingOff": "Keng Gruppen",
-    "groupingFine": "Fein Gruppen",
-    "groupingMedium": "Mëttelgrouss Gruppen",
-    "groupingCoarse": "Grouss Gruppen",
+    "groupingOff": "Keng",
+    "groupingFine": "Fein",
+    "groupingCoarse": "Grouss",
     "groupingCompulsory": "Schichte mat méi wéi {shown} Statioune si ëmmer gruppéiert.",
     "legendGroup": "Eng Zuel ass eng Grupp vu Statioune: klickt fir anzezoomen",
     "groupZoomed": "Op eng Grupp gezoomt. Statioune dran: {shown}",

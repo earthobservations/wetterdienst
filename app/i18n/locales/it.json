@@ -664,6 +664,13 @@
     "plotDataAvailability": "Disponibilità dei dati",
     "plotSource": "Fonte: Deutscher Wetterdienst",
     "plotReference": "Colori: media di {centre}, ±{sigma} σ di {spread}",
+    "barsRelativeTo": "Relativo alla media di {period}",
+    "variant": {
+      "label": "Vista",
+      "stripes": "Strisce",
+      "bars": "Barre",
+      "barsScale": "Barre con scala"
+    },
     "hoverValue": "Valore",
     "hoverTrend": "Tendenza",
     "chart": {
@@ -925,10 +932,9 @@
     "legendReporting": "Ancora in funzione",
     "legendStopped": "Non più in funzione",
     "grouping": "Raggruppamento",
-    "groupingOff": "Nessun gruppo",
-    "groupingFine": "Gruppi fini",
-    "groupingMedium": "Gruppi medi",
-    "groupingCoarse": "Gruppi ampi",
+    "groupingOff": "Nessuno",
+    "groupingFine": "Stretto",
+    "groupingCoarse": "Ampio",
     "groupingCompulsory": "I livelli con più di {shown} stazioni sono sempre raggruppati.",
     "legendGroup": "Un numero è un gruppo di stazioni: clicca per ingrandire",
     "groupZoomed": "Ingrandito su un gruppo. Stazioni al suo interno: {shown}",

@@ -664,6 +664,13 @@
     "plotDataAvailability": "Datatilgængelighed",
     "plotSource": "Kilde: Deutscher Wetterdienst",
     "plotReference": "Farver: gennemsnit af {centre}, ±{sigma} σ af {spread}",
+    "barsRelativeTo": "Relativt til gennemsnittet af {period}",
+    "variant": {
+      "label": "Visning",
+      "stripes": "Striber",
+      "bars": "Søjler",
+      "barsScale": "Søjler med skala"
+    },
     "hoverValue": "Værdi",
     "hoverTrend": "Tendens",
     "chart": {
@@ -925,10 +932,9 @@
     "legendReporting": "Måler stadig",
     "legendStopped": "Er stoppet",
     "grouping": "Gruppering",
-    "groupingOff": "Ingen grupper",
-    "groupingFine": "Fine grupper",
-    "groupingMedium": "Mellemstore grupper",
-    "groupingCoarse": "Grove grupper",
+    "groupingOff": "Ingen",
+    "groupingFine": "Fin",
+    "groupingCoarse": "Grov",
     "groupingCompulsory": "Lag med mere end {shown} stationer er altid grupperet.",
     "legendGroup": "Et tal er en gruppe af stationer: klik for at zoome ind",
     "groupZoomed": "Zoomet ind på en gruppe. Stationer i den: {shown}",

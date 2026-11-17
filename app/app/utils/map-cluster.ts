@@ -10,14 +10,14 @@ import type { PlacedStation } from './map-tool'
  * build and nothing to keep but the groups of the zoom in view.
  */
 
-/** How much is grouped, as the control on the map offers it: no groups, or one of three steps */
-export type GroupingChoice = 'off' | 'fine' | 'medium' | 'coarse'
+/** How much is grouped, as the switch on the map offers it: no groups, or one of two steps (the maintainer's decision on #4172: None, Fine, Coarse) */
+export type GroupingChoice = 'off' | 'fine' | 'coarse'
 
-export const GROUPING_CHOICES: GroupingChoice[] = ['off', 'fine', 'medium', 'coarse']
+export const GROUPING_CHOICES: GroupingChoice[] = ['off', 'fine', 'coarse']
 
 /**
  * What a step of the control sets, the two settings behind it: the radius of a group in screen pixels (every station of
- * a group is within it of the group's cell centre), and the zoom from which every station is its own dot. A coarser step
+ * a group is within it of the group's cell centre), and the zoom from which every station is its own dot. The coarse step
  * groups more, and keeps grouping to a closer zoom.
  */
 export interface Grouping {
@@ -27,12 +27,11 @@ export interface Grouping {
 
 export const GROUPINGS: Record<Exclude<GroupingChoice, 'off'>, Grouping> = {
   fine: { radius: 30, separateFrom: 8 },
-  medium: { radius: 50, separateFrom: 9 },
   coarse: { radius: 80, separateFrom: 10 },
 }
 
 /** The step the map opens with, and the one the pickers take their separation zoom from */
-export const DEFAULT_GROUPING: Exclude<GroupingChoice, 'off'> = 'medium'
+export const DEFAULT_GROUPING: Exclude<GroupingChoice, 'off'> = 'fine'
 
 /**
  * A layer whose list has more stations than this is always grouped, whatever the control says (maintainer, 2026-11-14):
@@ -54,7 +53,7 @@ export interface GroupingInForce {
  *
  * @example
  * groupingFor('off', 5_600) // { choice: 'off', compulsory: false, grouping: null }
- * groupingFor('off', 133_041) // { choice: 'medium', compulsory: true, grouping: { radius: 50, separateFrom: 9 } }
+ * groupingFor('off', 133_041) // { choice: 'fine', compulsory: true, grouping: { radius: 30, separateFrom: 8 } }
  */
 export function groupingFor(choice: GroupingChoice, count: number): GroupingInForce {
   const compulsory = count > GROUPING_COMPULSORY_ABOVE

@@ -664,6 +664,13 @@
     "plotDataAvailability": "Gegevensbeschikbaarheid",
     "plotSource": "Bron: Deutscher Wetterdienst",
     "plotReference": "Kleuren: gemiddelde van {centre}, ±{sigma} σ van {spread}",
+    "barsRelativeTo": "Ten opzichte van het gemiddelde van {period}",
+    "variant": {
+      "label": "Weergave",
+      "stripes": "Strepen",
+      "bars": "Staven",
+      "barsScale": "Staven met schaal"
+    },
     "hoverValue": "Waarde",
     "hoverTrend": "Trend",
     "chart": {
@@ -925,10 +932,9 @@
     "legendReporting": "Meldt nog",
     "legendStopped": "Is gestopt",
     "grouping": "Groepering",
-    "groupingOff": "Geen groepen",
-    "groupingFine": "Fijne groepen",
-    "groupingMedium": "Middelgrote groepen",
-    "groupingCoarse": "Grove groepen",
+    "groupingOff": "Geen",
+    "groupingFine": "Fijn",
+    "groupingCoarse": "Grof",
     "groupingCompulsory": "Lagen met meer dan {shown} stations worden altijd gegroepeerd.",
     "legendGroup": "Een getal is een groep stations: klik om in te zoomen",
     "groupZoomed": "Ingezoomd op een groep. Stations erin: {shown}",

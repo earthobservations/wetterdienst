@@ -20,11 +20,12 @@ Types of changes:
 
 - `[Map]` The stations of the map are grouped at the outer zooms: stations that lie close together
   are one disc with their number, which a click or tap zooms in on; a station that is alone stays a
-  dot, and the one picked stays in view above its group. A control under the layers sets how much
-  is grouped (none, fine, medium, coarse: the radius of a group and the zoom from which every
-  station is its own dot); a layer of more than 10,000 stations is always grouped and says so.
-  The groups are drawn on the map's canvas, so they are no stops of the keyboard: the map's keys
-  and buttons zoom in on them. The station pickers split their groups at the same zoom (GH-4079).
+  dot, and the one picked stays in view above its group. A switch over the map sets how much is
+  grouped (None, Fine, Coarse: the radius of a group and the zoom from which every station is its
+  own dot; Fine by default); a layer of more than 10,000 stations is always grouped, cannot be set
+  to None, and says so. The groups are drawn on the map's canvas, so they are no stops of the
+  keyboard: the map's keys and buttons zoom in on them. The station pickers split their groups at
+  the same zoom (GH-4079).
 - `[Map]` A change of layer keeps the station picked where it has a WMO number and one station of
   the other layer has the same: that station is picked (the forecast point and the measuring
   station of one place, which are up to some kilometres apart and number their stations
@@ -32,6 +33,12 @@ Types of changes:
   station of their kind instead of the nearest. Where either has no number, or the number is on
   several stations, the station is picked again by the place as before. Needs a backend that
   answers `wmo_id` for the stations (GH-4077).
+- `[Stripes]` The climate stripes can be drawn as bars, and as bars with a scale, with a switch
+  above the chart (kept in the link as `variant`). A bar is the year's anomaly from the mean the
+  colours are centred on (1971–2000, or the station's whole record), up for warm or wet, in the
+  colour of its class; with a scale it has a y axis in the unit, round years along the x axis and a
+  line saying what the bars are relative to. Window, title, availability line, source, lines,
+  camera, downloads and print follow the variant shown (GH-4156).
 
 ### Changed
 
