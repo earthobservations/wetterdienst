@@ -12,7 +12,7 @@ import type { ChartTheme } from './chart-theme'
 import type { StripesModel, YearRun, YearWindow } from './stripes-model'
 import { seriesLabelColor } from './chart-theme'
 import { stripeColour } from './stripes'
-import { availabilityRuns, MIN_SPAN_STRIPES, visibleYears } from './stripes-model'
+import { availabilityRuns, brokenLine, MIN_SPAN_STRIPES, visibleYears } from './stripes-model'
 
 /** The font of the chart, on the page and in a saved image, which has no web font of the page's to draw with */
 export const STRIPES_FONT_FAMILY = 'Arial, sans-serif'
@@ -54,6 +54,8 @@ const AVAILABILITY_MARGIN = 20
 /** The gold of the availability line, which is data and the same in both schemes, and how thick it is, in px */
 const GOLD = '#FFD700'
 const AVAILABILITY_WIDTH = 3
+/** The dot of a year that stands alone in the time series line, in px: wider than the line (2 px), so that it reads as a point */
+export const TIMESERIES_DOT = 6
 
 export interface StripesOptionInput {
   model: StripesModel
@@ -269,17 +271,23 @@ export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption
   const colours = model.classes.map(stripeClass => stripeColour(kind, stripeClass))
   const bounds = { start: model.minYear - 0.5, end: model.maxYear + 0.5 }
   const base = { xAxisIndex: 0, yAxisIndex: 0, silent: true, animation: false, clip: true }
-  const line = (id: string, data: (number | null)[][], style: Record<string, unknown>, z: number) => ({
+  const line = (id: string, data: unknown[], style: Record<string, unknown>, z: number) => ({
     ...base,
     id,
     type: 'line',
     z,
     data,
-    showSymbol: false,
+    // the symbols are shown and none by default: only a year that stands alone has one (a dot), which a line cannot draw
+    showSymbol: true,
     symbol: 'none',
     connectNulls: false,
     lineStyle: { cap: 'butt', ...style },
   })
+  // the time series breaks at every year without a value, as the stripes do; a lone year is a dot (GH-4164). The trend is a fit
+  // over the years and stays one line.
+  const timeseriesPoints = brokenLine(model.years, model.normalized).map(point => point.lone
+    ? { value: [point.year, point.height], symbol: 'circle', symbolSize: TIMESERIES_DOT, itemStyle: { color: 'black' } }
+    : [point.year, point.height])
 
   const series: any[] = [{
     ...base,
@@ -300,7 +308,7 @@ export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption
   if (display.showDataAvailability)
     series.push(availabilitySeries(model, layout, base))
   if (display.showTimeseries)
-    series.push(line('timeseries', model.years.map((year, index) => [year, model.normalized[index]!]), { color: 'black', width: 2 }, 3))
+    series.push(line('timeseries', timeseriesPoints, { color: 'black', width: 2 }, 3))
   if (display.showTrendline && display.showTimeseries)
     series.push(line('trend', model.years.map((year, index) => [year, model.normalizedTrend[index]!]), { color: 'black', width: 4, type: [12, 12] }, 4))
   series.push(labelsSeries(input, layout))

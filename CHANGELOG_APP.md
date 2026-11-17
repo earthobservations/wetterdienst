@@ -28,6 +28,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Stripes]` The optional time series line over the stripes breaks at every year without a value,
+  as the stripes and the availability line do, instead of joining the years on either side of the
+  gap; a year that stands alone gets a dot. The trend line stays continuous: it is a fit over the
+  years. In the chart, the camera and the downloaded images (GH-4164).
 - `[Explorer, Forecast]` A chart's line breaks where rows are missing, not only where a row has an
   empty value: a step of more than 1.5 times the usual one there (the resolution's interval, a
   calendar month or year, or the series' own cadence, also by time of day for readings at fixed

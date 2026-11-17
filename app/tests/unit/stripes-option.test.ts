@@ -389,6 +389,80 @@ describe('the option', () => {
     expect(build({ display: { showTrendline: true } }).option.series.map((s: any) => s.id)).not.toContain('trend')
   })
 
+  describe('the lines at a year without a value (GH-4164)', () => {
+    // 2000 and 2001 (a run of two), 2003 (alone), 2005 to 2008 (a run of four); 2002 and 2004 have no value
+    const GAPPED = stripesAnswer(recordOf(2000, 2008, year => (year - 2000) / 3, [2002, 2004]))
+    const GAPPED_MODEL = buildStripesModel(GAPPED.values, GAPPED.reference)!
+    const lines = (over: Partial<StripesOptionInput> = {}) => {
+      const { input, option } = build({ model: GAPPED_MODEL, window: fullWindow(GAPPED_MODEL), display: { showTimeseries: true, showTrendline: true, showDataAvailability: false }, ...over })
+      const svg = draw(input, option)
+      // the path of a line, by its stroke width: the time series is 2 px, the trend 4 px dashed
+      const pathOf = (width: number) => [...svg.matchAll(/<path d="([^"]*)"[^>]*stroke="black" stroke-width="(\d+)"/g)].find(match => match[2] === String(width))?.[1]
+      // the segments of a path: its points, from each move to the next
+      const segments = (d: string | undefined) => (d ?? '').split('M').filter(Boolean).map(segment => segment.split('L').length)
+      // the dots: a filled circle drawn as a path of its own, scaled to its radius
+      const dots = [...svg.matchAll(/<path d="M1 0A[^"]*" transform="matrix\(([\d.]+),0,0,[\d.]+,([\d.]+),([\d.]+)\)" fill="black"/g)].map(match => ({ radius: Number(match[1]), x: Number(match[2]), y: Number(match[3]) }))
+      return { svg, option, input, timeseries: segments(pathOf(2)), trend: segments(pathOf(4)), timeseriesPath: pathOf(2), dots }
+    }
+
+    it('breaks the time series at each year without a value: a run of two and a run of four are two segments of 2 and 4 points', () => {
+      const { timeseries } = lines()
+      // 2000-2001, 2003 (alone: one point), 2005-2008
+      expect(timeseries).toEqual([2, 1, 4])
+    })
+
+    it('puts a null where a year has none, in the data', () => {
+      const { option } = lines()
+      const series = option.series.find((s: any) => s.id === 'timeseries')
+      const valueOf = (point: any) => Array.isArray(point) ? point : point.value
+      expect(series.data.map((point: any) => valueOf(point)[0])).toEqual([2000, 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008])
+      expect(series.data.map((point: any) => valueOf(point)[1] === null)).toEqual([false, false, true, false, true, false, false, false, false])
+      expect(series.connectNulls).toBe(false)
+    })
+
+    it('draws a dot, in the line\'s black and wider than it is, at the year that stands alone and nowhere else', () => {
+      const { dots, option } = lines()
+      expect(dots).toHaveLength(1)
+      // the radius is half the dot's size, and the dot is wider than the 2 px line
+      expect(dots[0]!.radius * 2).toBeGreaterThan(2)
+      const series = option.series.find((s: any) => s.id === 'timeseries')
+      expect(series.data.filter((point: any) => !Array.isArray(point)).map((point: any) => point.value[0])).toEqual([2003])
+    })
+
+    it('puts the dot where the line would have its point for the year: the lone segment of the path', () => {
+      const { dots, timeseriesPath } = lines()
+      const lone = /M([\d.]+) ([\d.]+)(?=M)/.exec(timeseriesPath!)!
+      expect(dots[0]!.x).toBeCloseTo(Number(lone[1]), 0)
+      expect(dots[0]!.y).toBeCloseTo(Number(lone[2]), 0)
+    })
+
+    it('keeps the line whole, and draws no dot, for a record without a gap', () => {
+      const whole = stripesAnswer(recordOf(2000, 2008, year => (year - 2000) / 3))
+      const model = buildStripesModel(whole.values, whole.reference)!
+      const { timeseries, dots } = lines({ model, window: fullWindow(model) })
+      expect(timeseries).toEqual([9])
+      expect(dots).toEqual([])
+    })
+
+    it('gives each lone year of several a dot of its own', () => {
+      const sparse = stripesAnswer(recordOf(2000, 2008, year => year % 4, [2001, 2003, 2004, 2006, 2007]))
+      const model = buildStripesModel(sparse.values, sparse.reference)!
+      // 2000, 2002 and 2005 stand alone, 2008 too
+      const { timeseries, dots } = lines({ model, window: fullWindow(model) })
+      expect(timeseries).toEqual([1, 1, 1, 1])
+      expect(dots).toHaveLength(4)
+    })
+
+    it('keeps the trend line continuous over the gaps: it is a fit over the years, not data, and has no dot', () => {
+      const { trend } = lines()
+      // one segment through the seven years that have a value
+      expect(trend).toEqual([GAPPED_MODEL.years.length])
+      const { option } = lines()
+      const series = option.series.find((s: any) => s.id === 'trend')
+      expect(series.data.every((point: any) => Array.isArray(point) && point[1] !== null)).toBe(true)
+    })
+  })
+
   it('has no paper of its own on the page, and the paper it is given in a saved image', () => {
     const background = (svg: string) => /^<svg[^>]*>\s*<rect[^>]*fill="([^"]*)"/.exec(svg)?.[1]
     const onPage = build()

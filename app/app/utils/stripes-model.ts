@@ -113,6 +113,32 @@ export function availabilityRuns(availability: readonly (number | null)[], minYe
   return runs
 }
 
+/** A point of a line over the stripes: the year and the height, `null` where the year has no value (the line breaks there) */
+export interface LinePoint {
+  year: number
+  height: number | null
+  /** a year that has a value and whose neighbours (the years before and after) have none: a line cannot draw it, a dot does */
+  lone: boolean
+}
+
+/**
+ * The points of a line over the stripes that breaks at every year without a value (GH-4164), as the stripes and the
+ * availability line do: one point for each year from the first to the last, `height: null` for a year that has none, and
+ * `lone` for a year that stands alone. `heights` are those of the years in `years`, in the order of the answer.
+ */
+export function brokenLine(years: readonly number[], heights: readonly number[]): LinePoint[] {
+  if (!years.length)
+    return []
+  const at = new Map(years.map((year, index) => [year, heights[index]!]))
+  const first = Math.min(...years)
+  const last = Math.max(...years)
+  return Array.from({ length: last - first + 1 }, (_, index) => {
+    const year = first + index
+    const height = at.get(year) ?? null
+    return { year, height, lone: height !== null && !at.has(year - 1) && !at.has(year + 1) }
+  })
+}
+
 /** A span of years on the chart's axis: a stripe is the year plus and minus half */
 export interface YearWindow {
   start: number
