@@ -206,9 +206,22 @@ def _imgw_meteorology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         "1;249170080;Dzierżkowice;Opawa (112);2024;49 59 32;17 50 47;270\r\n"
         "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;270\r\n"
         "84;249190890;RADZIECHOWY ;Soła (2132);2008;49 38 55;19 09 20;395\r\n"
+        "516;252150270;BABIMOST;Gniła Obra (1568);2007;52 08 37;15 48 12;57\r\n"
         "539;252180290;Tuliszków ;Powa (18352);2005;52 04 04;18 16 07;111\r\n"
     )
-    _serve(monkeypatch, imgw_meteorology_api, {"kody_stacji": catalogue.encode("utf8")})
+    # the codes of `wykaz_stacji.csv` as published (GH-4070): BABIMOST has two, a climate and a precipitation one, and
+    # Dzierżkowice and Tuliszków none (573 of the 800 stations of the catalogue have one)
+    codes = (
+        '"249180010","PSZCZYNA"," 5409"\r\n'
+        '"249190890","RADZIECHOWY"," 6552"\r\n'
+        '"252150270","BABIMOST"," 3152"\r\n'
+        '"252150270","BABIMOST","93152"\r\n'
+    )
+    _serve(
+        monkeypatch,
+        imgw_meteorology_api,
+        {"kody_stacji": catalogue.encode("utf8"), "wykaz_stacji": codes.encode("cp1250")},
+    )
     return _stations(ImgwMeteorologyRequest, ("daily", "climate"))
 
 
@@ -226,8 +239,8 @@ def _imgw_meteorology(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
 # Pszczyna, Strzyżów and Starnin, whose ids end in 010 as the ids of two synop stations of the list end in the code of
 # their per-station files (so that a code alone does not tell them apart); and Wrocław 351160425, a station of the
 # catalogue that the archives do not hold (the synop station of the city is 351160424, which the stub leaves out).
-# The wykaz also holds the row of GOŁYMIN-OŚRODEK as it is published, with a comma inside the quotes of its name and no
-# code of its own, which the reader must leave alone.
+# The wykaz also holds the row of GOŁYMIN-OŚRODEK as it is published: malformed, the name and the code `93668` in one
+# pair of quotes with a quote missing, which the reader must leave alone.
 def _imgw_meteorology_synop(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     catalogue = (
         "LP.;Kod 9-znakowy;Nazwa stacji;Rzeka;Rok założenia;Szerokość geograficzna;Długość geograficzna;"
@@ -596,6 +609,8 @@ EA_HYDROLOGY_LISTING = [
     {
         "label": ["Beach's Mill", "Beach'S Mill"],
         "notation": "fcdd7420-c000-4db7-99fa-3835a65372fe",
+        "nrfaStationID": "37006",
+        "RLOIid": "6149",
         "easting": 569009,
         "northing": 207165,
         "lat": 51.737703,
@@ -649,6 +664,8 @@ EA_HYDROLOGY_LISTING = [
     {
         "label": "Udford",
         "notation": "ab5db73f-059e-4d10-9b92-5a640db3c1ab",
+        "nrfaStationID": "76003",
+        "RLOIid": "5141",
         "easting": 357570,
         "northing": 530450,
         "lat": 54.667313,
@@ -700,6 +717,33 @@ EA_HYDROLOGY_LISTING = [
                 "parameter": "flow",
                 "period": 86400,
                 "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/minimum"},
+            },
+        ],
+    },
+    # a station that is two stations of River Levels on the Internet: `RLOIid` is an array of two there (52 of the 1808
+    # stations that have one), in no order the reader may rely on (GH-4070)
+    {
+        "label": "Iwood",
+        "notation": "959f3e4f-bb6e-4f4a-8082-0157eea99482",
+        "nrfaStationID": "52017",
+        "RLOIid": ["3416", "3060"],
+        "easting": 345173,
+        "northing": 163064,
+        "lat": 51.363977,
+        "long": -2.78889,
+        "dateOpened": "1973-03-12",
+        "measures": [
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/959f3e4f-bb6e-4f4a-8082-0157eea99482-level-i-900-m-qualified",
+                "parameter": "level",
+                "period": 900,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/instantaneous"},
+            },
+            {
+                "@id": "http://environment.data.gov.uk/hydrology/id/measures/959f3e4f-bb6e-4f4a-8082-0157eea99482-flow-i-900-m3s-qualified",
+                "parameter": "flow",
+                "period": 900,
+                "valueStatistic": {"@id": "http://environment.data.gov.uk/reference/def/core/instantaneous"},
             },
         ],
     },
@@ -1650,6 +1694,11 @@ HUBEAU_NOT_OPENED = Accepted(
     ),
 )
 HUBEAU_EXPECTED = {
+    # `site_id`, the `code_site` of the referential (GH-4070): a station's code is its site's and two digits, and
+    # the Seine at Austerlitz has two stations on one site
+    "F700000102": {"site_id": "F7000001"},
+    "F700000103": {"site_id": "F7000001"},
+    "1011000101": {"site_id": "10110001"},
     # the positions after the reader swapped them: Anor in Nord, Planioles in Lot, Le Tech in the Pyrenees-Orientales
     "H000000201": {"latitude": 49.989435, "longitude": 4.099322},
     "O831000201": {"latitude": 44.633866, "longitude": 2.028415},
@@ -2030,15 +2079,39 @@ STUBS = [
     ),
     Stub("dwd/road 15_minutes/data", _dwd_road),
     Stub("dwd/swsmos hourly/data", _dwd_swsmos),
-    Stub("ea/hydrology 15_minutes/data", _ea_hydrology, (EA_NO_POSITION,)),
+    Stub(
+        "ea/hydrology 15_minutes/data",
+        _ea_hydrology,
+        (EA_NO_POSITION,),
+        # the national ids (GH-4070): one text each, the all-digit then the lowest where the listing gives two, null
+        # where it gives none
+        expected={
+            "fcdd7420-c000-4db7-99fa-3835a65372fe": {"nrfa_id": "37006", "rloi_id": "6149"},
+            "ab5db73f-059e-4d10-9b92-5a640db3c1ab": {"nrfa_id": "76003", "rloi_id": "5141"},
+            "959f3e4f-bb6e-4f4a-8082-0157eea99482": {"nrfa_id": "52017", "rloi_id": "3060"},
+            "3e7d8886-824c-4c3b-80d3-038758ba3179": {"nrfa_id": None, "rloi_id": None},
+        },
+    ),
     Stub("imgw/hydrology daily/hydrology", _imgw_hydrology),
-    Stub("imgw/meteorology daily/climate", _imgw_meteorology),
+    Stub(
+        "imgw/meteorology daily/climate",
+        _imgw_meteorology,
+        # `short_code` as `wykaz_stacji.csv` writes it, without its blanks; none for a station with two codes
+        # (BABIMOST) and for one the list does not name
+        expected={
+            "249170080": {"short_code": None},
+            "249180010": {"short_code": "5409"},
+            "249190890": {"short_code": "6552"},
+            "252150270": {"short_code": None},
+            "252180290": {"short_code": None},
+        },
+    ),
     Stub(
         "imgw/meteorology daily/synop",
         _imgw_meteorology_synop,
         expected={
-            "349190600": {"name": "Bielsko-Biała", "elevation": 396.0},
-            "352200375": {"name": "Warszawa", "latitude": 52.1628, "longitude": 20.9611},
+            "349190600": {"name": "Bielsko-Biała", "elevation": 396.0, "short_code": "600"},
+            "352200375": {"name": "Warszawa", "latitude": 52.1628, "longitude": 20.9611, "short_code": "375"},
         },
     ),
 ]

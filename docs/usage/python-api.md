@@ -573,11 +573,12 @@ station the source gives none:
 | `chmi/observation` | `gh_id` | CHMI's own code of the station, `L3CHEB01` (the `station_id` is its WIGOS identifier) |
 | `dmi/observation` | `country` | DMI's three-letter code of the country the station is in: `DNK`, `GRL` or `FRO` |
 | `dwd/road` | `station_group`, `road_name`, `road_sector`, `road_type`, `road_surface_type`, `road_surroundings_type` | the road a station is on and its surroundings, as DWD's list gives them |
-| `eaufrance/hubeau` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero and the reference system it is given in |
+| `ea/hydrology` | `nrfa_id`, `rloi_id` | the station's number in the National River Flow Archive (`52017`) and its id in River Levels on the Internet (`3060`; the all-digit, then the lowest, where the listing gives two) |
+| `eaufrance/hubeau` | `gauge_zero`, `gauge_zero_datum`, `site_id` | the altitude of the gauge's zero and the reference system it is given in, and the eight-character code of the hydrometric site the station is one of (`10110001` for `1011000101`) |
 | `eccc/observation` | `climate_id`, `tc_id` | the seven-character Climate ID the station has in ECCC's Climate Data Online, and Transport Canada's three-letter identifier of an airport (`YVR`), which is no ICAO code |
 | `imgw/hydrology` | `river`, `river_kilometer` | the river the gauge is on, with its hydrographic code as IMGW lists it (`Odra (1)`), and its position along it in kilometres, counted from the mouth |
 | `imgw/hydrology` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero in metres above sea level, and the datum, which IMGW's list does not state, so it is null |
-| `imgw/meteorology` | `river` | the river catchment the station is listed under, with its hydrographic code (`Odra (1)`) |
+| `imgw/meteorology` | `river`, `short_code` | the river catchment the station is listed under, with its hydrographic code (`Odra (1)`), and IMGW's code of the station from `wykaz_stacji.csv` (`375`, `5409`), which is no WMO number |
 | `wsv/pegel` | `river`, `river_kilometer` | the river the gauge is on, as Pegelonline publishes it (`ELBE`), and its position along it in kilometres, the waterway kilometre, which grows downstream |
 | `wsv/pegel` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero and the datum it is given in |
 | `wsv/pegel` | `m_i`, `m_ii`, `m_iii`, `mnw`, `mw`, `mhw`, `hhw`, `hsw` | the characteristic water levels of the gauge, in metres, converted from the unit Pegelonline lists them in, as `stage` is by default |

@@ -938,3 +938,18 @@ def test_the_swapped_position_of_an_area_is_in_none(area: str) -> None:
     ]
 
     assert not overlapping, f"the swapped positions of {area} overlap {overlapping}"
+
+
+@pytest.mark.remote
+def test_hubeau_live_site_id_is_the_site_of_every_station() -> None:
+    """Test that every live station has a `site_id`, and that its code is the site's plus two characters (GH-4070)."""
+    stations = (
+        HubeauRequest(parameters=[("15_minutes", "data"), ("5_minutes", "data")], settings=Settings(cache_disable=True))
+        .all()
+        .df.unique("station_id")
+    )
+
+    assert stations.height > 1000
+    assert stations["site_id"].null_count() == 0
+    assert stations.filter(pl.col("site_id").str.len_chars() != 8).is_empty()
+    assert stations.filter(pl.col("site_id") != pl.col("station_id").str.slice(0, 8)).is_empty()

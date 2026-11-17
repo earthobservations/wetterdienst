@@ -49,6 +49,13 @@ differ in it, mainland ones too, so compare two gauge zeros only where their dat
 a datum: two stations labelled `Système altimétrique inconnu` (unknown) or
 `Système local - hauteur relative` (each a gauge's own local reference) share no datum.
 
+A station's `station_id` is its `code_station`, ten characters (`1011000101`). `site_id` is the `code_site` of the
+referential, the eight characters of the hydrometric site the station is one of (`10110001`): a station's code is its
+site's and two digits, and a site can have more than one station (the Seine at Austerlitz, `F7000001`, has two), so
+it names a place and no single station. All 6,543 stations of the referential have one (read 2026-11-14). Find the
+stations of a site with `filter_by_sql("site_id = 'F7000001'")`. The referential has no WMO, WIGOS or ICAO id:
+those columns are null.
+
 The recording interval is a property of the station rather than of the network, and unlike most
 services Hubeau publishes it nowhere: neither the station referential nor the observations carry
 it. It is therefore measured from the timestamps a station has just published — the network does
