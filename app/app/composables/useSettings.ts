@@ -50,13 +50,15 @@ export const unitSettingsSchema = z.object({
 })
 export type UnitSettings = z.infer<typeof unitSettingsSchema>
 
+// The time series and the trend line over the stripes were options here (`showTimeseries`, `showTrendline`) and are gone
+// (GH-4170). A blob that still holds them is read as it is: an object schema drops a key it does not know, so they are not
+// in what `coerceSettings` returns, and the next write to the storage no longer holds them. No version bump: it would
+// reset nothing a reader chose, and everything else stays.
 export const stripesDisplaySchema = z.object({
   showTitle: z.boolean(),
   showYears: z.boolean(),
   showSource: z.boolean(),
   showDataAvailability: z.boolean(),
-  showTimeseries: z.boolean(),
-  showTrendline: z.boolean(),
 })
 export type StripesDisplaySettings = z.infer<typeof stripesDisplaySchema>
 
@@ -112,8 +114,6 @@ export const SETTINGS_DEFAULTS: WdSettings = {
     showYears: true,
     showSource: true,
     showDataAvailability: true,
-    showTimeseries: false,
-    showTrendline: false,
   },
   tabBar: [...DEFAULT_TOOL_ORDER],
   seededFromServer: true,

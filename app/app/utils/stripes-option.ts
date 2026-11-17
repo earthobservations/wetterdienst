@@ -2,22 +2,21 @@ import type { EChartsCoreOption } from 'echarts/core'
 /**
  * The option of the climate stripes (Apache ECharts, drawn as SVG): a stripe for each year as a `custom` series on a
  * value axis of years (so that a year without a value is a gap, as before), the availability line as a `custom` series
- * of one bar for each run of years with a value (it spans exactly their stripes), the optional lines of the timeseries and
- * the trend as the library's own `line` series, and the title, the years, the source and the availability label as text
- * elements of a `custom` series without a coordinate system, placed in px. Pure: values, a theme, a size and a window in, an option out, so
+ * of one bar for each run of years with a value (it spans exactly their stripes), and the title, the years, the source and
+ * the availability label as text elements of a `custom` series without a coordinate system, placed in px. Pure: values, a theme, a size and a window in, an option out, so
  * that tests and the image export build it without a browser (GH-4068).
  *
  * The same years can be drawn as bars (GH-4156): a bar for each year, as high as its anomaly (the backend's, from the mean of the
  * reference) and in the colour of its class, on a range with zero in it (the zero line is drawn); with a scale, a y axis in the unit
  * of the anomaly (grid lines and labels, and a subtitle that says what the bars are relative to), and a year axis with round ticks
- * in place of the first and the last year. The window, the title, the availability line, the source and the lines carry over.
+ * in place of the first and the last year. The window, the title, the availability line, and the source carry over.
  */
 import type { StripesKind } from '#shared/types/api'
 import type { ChartTheme } from './chart-theme'
 import type { StripesModel, StripesVariant, YearRun, YearWindow } from './stripes-model'
 import { seriesLabelColor } from './chart-theme'
 import { stripeColour } from './stripes'
-import { availabilityRuns, barAxis, brokenLine, MIN_SPAN_STRIPES, visibleYears, yearTicks } from './stripes-model'
+import { availabilityRuns, barAxis, MIN_SPAN_STRIPES, visibleYears, yearTicks } from './stripes-model'
 
 /** The font of the chart, on the page and in a saved image, which has no web font of the page's to draw with */
 export const STRIPES_FONT_FAMILY = 'Arial, sans-serif'
@@ -46,8 +45,6 @@ export interface StripesDisplay {
   showYears: boolean
   showSource: boolean
   showDataAvailability: boolean
-  showTimeseries: boolean
-  showTrendline: boolean
 }
 
 /**
@@ -59,8 +56,6 @@ const AVAILABILITY_MARGIN = 20
 /** The gold of the availability line, which is data and the same in both schemes, and how thick it is, in px */
 const GOLD = '#FFD700'
 const AVAILABILITY_WIDTH = 3
-/** The dot of a year that stands alone in the time series line, in px: wider than the line (2 px), so that it reads as a point */
-export const TIMESERIES_DOT = 6
 
 export interface StripesOptionInput {
   model: StripesModel
@@ -242,7 +237,7 @@ function defaultTick(value: number, decimals: number): string {
 
 /**
  * Where on the stripes' height (0 at their foot, 1 at their top) an anomaly of the bars is: on the range the axis runs over,
- * which the anomalies of the whole answer (and its trend) set and not the window.
+ * which the anomalies of the whole answer set and not the window.
  */
 function barHeights(model: StripesModel) {
   const axis = barAxis(model)
@@ -250,7 +245,7 @@ function barHeights(model: StripesModel) {
   return { axis, place }
 }
 
-/** The px of a height on the stripes' height, rounded to the pixel: bars and lines that meet share the edge */
+/** The px of a height on the stripes' height, rounded to the pixel: a bar and the zero line that meet share the edge */
 function pixelOfHeight(height: number, layout: StripesLayout): number {
   return Math.round(layout.stripes.top + layout.stripes.height * (1 - height))
 }
@@ -431,33 +426,6 @@ export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption
   const colours = model.classes.map(stripeClass => stripeColour(kind, stripeClass))
   const bounds = { start: model.minYear - 0.5, end: model.maxYear + 0.5 }
   const base = { xAxisIndex: 0, yAxisIndex: 0, silent: true, animation: false, clip: true }
-  const line = (id: string, data: unknown[], style: Record<string, unknown>, z: number) => ({
-    ...base,
-    id,
-    type: 'line',
-    z,
-    data,
-    // the symbols are shown and none by default: only a year that stands alone has one (a dot), which a line cannot draw
-    showSymbol: true,
-    symbol: 'none',
-    connectNulls: false,
-    lineStyle: { cap: 'butt', ...style },
-  })
-  // the time series breaks at every year without a value, as the stripes do; a lone year is a dot (GH-4164). The trend is a fit
-  // over the years and stays one line.
-  // the lines lie where the colours are on the stripes (the scale of the reference); on the bars they lie where the bars' tops are
-  const lineHeights = bars ? model.anomalies.map(barPlace) : model.normalized
-  const trendHeights = bars ? model.trendAnomalies.map(barPlace) : model.normalizedTrend
-  // The lines are black on the stripes, which are coloured. Over the bars they run over the paper, which is dark in the dark scheme
-  // (black on it is about 1.3:1: the dashed trend vanishes between the bars): the text colour of the theme, which a saved image
-  // has light-scheme dark.
-  const lineColour = bars ? (input.theme.text || 'black') : 'black'
-  // a dot is kept inside the plot by its radius: a lone year at the lowest or the highest place would be half outside it
-  const dotMargin = TIMESERIES_DOT / 2 / Math.max(1, layout.stripes.height)
-  const timeseriesPoints = brokenLine(model.years, lineHeights).map(point => point.lone
-    ? { value: [point.year, Math.min(1 - dotMargin, Math.max(dotMargin, point.height!))], symbol: 'circle', symbolSize: TIMESERIES_DOT, itemStyle: { color: lineColour } }
-    : [point.year, point.height])
-
   const series: any[] = []
   if (bars) {
     // a bar for each year with a value (none for a year without): from the zero line to the year's anomaly, in the colour of its class
@@ -506,10 +474,6 @@ export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption
     series.push(linesSeries('zeroline', stripesZeroLine(input, layout), 2))
   if (display.showDataAvailability)
     series.push(availabilitySeries(model, layout, base))
-  if (display.showTimeseries)
-    series.push(line('timeseries', timeseriesPoints, { color: lineColour, width: 2 }, 3))
-  if (display.showTrendline && display.showTimeseries)
-    series.push(line('trend', model.years.map((year, index) => [year, trendHeights[index]!]), { color: lineColour, width: 4, type: [12, 12] }, 4))
   series.push(labelsSeries(input, layout))
 
   return {

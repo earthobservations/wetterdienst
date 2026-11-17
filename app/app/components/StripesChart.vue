@@ -2,7 +2,7 @@
 import type { ECharts } from 'echarts/core'
 /**
  * The climate stripes (GH-4068), drawn by Apache ECharts as SVG: a stripe for each year, the optional availability line,
- * timeseries and trend, and the title, the years and the source. The chart is as wide as the column gives it (up to the
+ * and the title, the years and the source. The chart is as wide as the column gives it (up to the
  * cap of `.app-chart`) and as high as that width gives it at a fixed ratio of the stripes (`STRIPES_RATIO`, GH-4133).
  *
  * Where the pointer can do more than the keyboard, the keyboard can do the same (WCAG 2.1.1, 2.5.7): the chart is one
@@ -15,7 +15,7 @@ import type { ECharts } from 'echarts/core'
 import type { StripesKind } from '#shared/types/api'
 import type { ImageFormat } from '~/utils/chart-image'
 import type { StripesReferenceView } from '~/utils/stripes'
-import type { StripesInput, StripesReferenceInput, StripesVariant, YearWindow } from '~/utils/stripes-model'
+import type { StripesInput, StripesVariant, YearWindow } from '~/utils/stripes-model'
 import type { StripesDisplay, StripesOptionInput } from '~/utils/stripes-option'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { downloadBlob, svgToBlob } from '~/utils/chart-image'
@@ -27,8 +27,8 @@ import { buildStripesOption, CAMERA_SCALE, CAMERA_WIDTH, extraLinesHeight, frame
 
 const props = withDefaults(defineProps<{
   values: readonly StripesInput[]
-  /** what the values' classes are relative to: the lines are placed on its scale */
-  reference: StripesReferenceInput & StripesReferenceView
+  /** what the values' classes are relative to: what the line under the chart, the bars' subtitle and the image's caption say */
+  reference: StripesReferenceView
   kind: StripesKind
   /** the unit's symbol, which the readout names the values in */
   unit: string
@@ -69,7 +69,7 @@ const announcement = ref('')
 
 // -- what is drawn ------------------------------------------------------------------------------------------------
 
-const model = computed(() => buildStripesModel(props.values, props.reference))
+const model = computed(() => buildStripesModel(props.values))
 const bounds = computed<YearWindow | null>(() => model.value ? fullWindow(model.value) : null)
 /** The years that have a stripe, in order, with where each is in the model */
 const stripes = computed(() => (model.value?.years ?? []).map((year, index) => ({ year, index })).sort((a, b) => a.year - b.year))
@@ -156,14 +156,13 @@ watch(bounds, (next, previous) => {
 function formatValue(value: number): string {
   return `${formatNumber(value, locale.value, 2)} ${props.unit}`.trim()
 }
-const trendShown = computed(() => props.display.showTrendline && props.display.showTimeseries)
 
 function rowOf(year: number | null) {
   const m = model.value
   if (!m || year === null)
     return null
   const index = m.years.indexOf(year)
-  return index < 0 ? null : { year, index, value: m.values[index]!, trend: m.trend[index]!, stripeClass: m.classes[index]!, anomaly: m.anomalies[index]! }
+  return index < 0 ? null : { year, index, value: m.values[index]!, stripeClass: m.classes[index]!, anomaly: m.anomalies[index]! }
 }
 
 const outerPx = computed(() => width.value)
@@ -188,8 +187,6 @@ const readout = computed(() => {
   if (!m || !row || !cursorBox.value)
     return null
   const rows = [{ id: 'value', label: t('stripes.hoverValue'), value: formatValue(row.value) }]
-  if (trendShown.value)
-    rows.push({ id: 'trend', label: t('stripes.hoverTrend'), value: formatValue(row.trend) })
   // the class as the backend gives it, with how far the year lies from the mean of the reference
   rows.push({ id: 'class', label: t('stripes.table.class'), value: `${t(`stripes.table.classes.${props.kind}.${stripeBand(row.stripeClass)}`)} (${formatSigned(row.anomaly, locale.value, 1)} ${props.unit})`.trim() })
   return {
@@ -250,10 +247,7 @@ function readoutSentence(year: number): string {
   const row = rowOf(year)
   if (!row)
     return ''
-  const parts = [`${t('stripes.hoverValue')}${t('common.colon')} ${formatValue(row.value)}`]
-  if (trendShown.value)
-    parts.push(`${t('stripes.hoverTrend')}${t('common.colon')} ${formatValue(row.trend)}`)
-  return `${row.year}${t('common.colon')} ${parts.join('; ')}`
+  return `${row.year}${t('common.colon')} ${t('stripes.hoverValue')}${t('common.colon')} ${formatValue(row.value)}`
 }
 
 // Escape closes the readout wherever the pointer or the focus is, and is left to whatever else it closes (a dialog)
