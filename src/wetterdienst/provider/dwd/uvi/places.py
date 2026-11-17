@@ -12,18 +12,20 @@ gives the places no number: it is stable for as long as DWD writes the name the 
 file is keyed by. A place DWD adds to the file is skipped with a warning naming it (`DwdUviValues`) until it is
 added here; the id of a place that is already here never changes.
 
-The position is that of a DWD station of the place, the one `source` names (DWD's id and name of it in the
+The position is the library's pick of the city's main DWD station, and not DWD's: the file names places and DWD says
+only that it forecasts "für ausgewählte Stationen" (``Beschreibung_uvi.pdf``), without naming them, so it is not known
+which place or station a forecast is of. `source` of each row names the DWD station picked (its id and name in the
 Stationslexikon as ``dwd/observation`` serves it: latitude and longitude in degrees, height in metres). Many names of
 the file are DWD's station names (``List auf Sylt``, ``Marienleuchte``, ``Kahler Asten``, ``Weinbiet``, ``Hahn``,
-``Frankfurt/Main``). Where a city has several stations the one that is DWD's reference of the city stands for it:
-Berlin-Tempelhof, Hamburg-Fuhlsbüttel, München-Stadt, Stuttgart (Schnarrenberg), Dresden-Hosterwitz, Kiel-Holtenau,
-Leipzig-Holzhausen and Rostock-Warnemünde, which is a choice (DWD does not say which station its forecast is of).
-Where the station has been closed since (Marienleuchte, Neubrandenburg, Osnabrück, Kassel, Weimar, Ulm), the
-Stationslexikon still holds its position, which is the place's. The one exception is Bonn, whose station of that name
-was closed and renamed: its position and its height (the SRTM value of the gazetteer) are GeoNames' for the city.
+``Frankfurt/Main``), which is the reason to pick a station at all. Where a city has several stations the pick is the
+library's: Berlin-Tempelhof, Hamburg-Fuhlsbüttel, München-Stadt, Stuttgart (Schnarrenberg), Dresden-Klotzsche,
+Kiel-Holtenau, Leipzig-Holzhausen and Rostock-Warnemünde. Where the station has been closed since (Marienleuchte,
+Neubrandenburg, Osnabrück, Kassel, Weimar, Ulm), the Stationslexikon still holds its position, which is used. The one
+exception is Bonn, whose station of that name was closed and renamed: its position and its height (the SRTM value of
+the gazetteer) are GeoNames' for the city.
 
-The forecast is of the city and not of a station, so a position that is a few kilometres from the centre (an airport,
-a hill above the town) is the position of a place, never a claim that the forecast was made for that station.
+A position is therefore where the library puts the place, a few kilometres from the centre of a city at most (an
+airport, a hill above the town), and no claim of DWD's about where its forecast was made.
 """
 
 from __future__ import annotations
@@ -65,7 +67,7 @@ PLACES: tuple[UviPlace, ...] = (
     UviPlace("Bonn", 50.73438, 7.09549, 64.0, _GEONAMES),
     UviPlace("Bremen", 53.0451, 8.7981, 4.0, "DWD 00691 Bremen"),
     UviPlace("Cottbus", 51.7759, 14.3168, 69.0, "DWD 00880 Cottbus"),
-    UviPlace("Dresden", 51.0221, 13.8470, 112.0, "DWD 01050 Dresden-Hosterwitz"),
+    UviPlace("Dresden", 51.1278, 13.7543, 228.0, "DWD 01048 Dresden-Klotzsche"),
     UviPlace("Düsseldorf", 51.2960, 6.7686, 37.0, "DWD 01078 Düsseldorf"),
     UviPlace("Frankfurt/Main", 50.0259, 8.5213, 100.0, "DWD 01420 Frankfurt/Main"),
     UviPlace("Freiburg", 48.0232, 7.8343, 237.0, "DWD 01443 Freiburg"),

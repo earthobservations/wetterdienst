@@ -197,7 +197,7 @@ class DwdUviValues(TimeseriesValues):
         days = None if place is None else forecast.cities.get(place.name)
         if place is None or days is None:
             # a station of the table that the file does not hold: DWD has dropped the place, or renamed it
-            note_skipped_download(SkipCause.UNPARSEABLE)
+            note_skipped_download(SkipCause.NO_FORECAST)
             log.warning(f"The UV index forecast of {station_id} is not in the file of {forecast.day}")
             return pl.DataFrame()
         columns = [parameter.name_original for parameter in dataset.parameters]

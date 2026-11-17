@@ -68,7 +68,7 @@ The usual reasons:
   is empty.
 - **Some stations' files were let go.** The answer carries a `file-skipped` warning that names the stations whose file
   the provider could not use (a refused download, a file withdrawn since the listing, a maintenance page, a file that
-  would not parse): their values may be missing from an answer that is otherwise whole. The message names the cause
+  would not parse, a file with no forecast of the station): their values may be missing from an answer that is otherwise whole. The message names the cause
   and advises by it: try again later for a failed download, a withdrawn file, an error page or an empty body, or an empty directory;
   for a refused download or a file that would not parse a retry gets the same, so report it to the provider. Only the
   providers the [response metadata](restapi.md#response-metadata) lists tell it (`chmi`, `imgw`, `lhmt`, `metoffice` and

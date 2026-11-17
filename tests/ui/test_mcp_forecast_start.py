@@ -167,7 +167,7 @@ def test_a_run_that_is_all_past_returns_no_row_and_says_so(monkeypatch: pytest.M
     assert answer["metadata"]["counts"] == {"stations": 0, "rows": 0}
     assert answer["metadata"]["data_updated_at"] is None
     note = _note_of(answer)
-    assert "model run ends before the current hour" in note
+    assert "forecast ends before the current hour" in note
     assert "none is returned" in note
     first, last = _window_of(note)
     assert parse_date_window(first)[0] == _HOUR - dt.timedelta(hours=30)
@@ -403,7 +403,7 @@ def test_a_single_timestamp_left_out_is_told_in_the_singular(monkeypatch: pytest
 
     note = _note_of(_tool_client().get("/api/values", params=_MOSMIX).json())
 
-    assert "the earlier timestamp (2 rows) of the model run is left out" in note
+    assert "the earlier timestamp (2 rows) of the forecast is left out" in note
     assert "For it, ask again" in note
     assert "1 earlier" not in note
     one = forecast_start._amount  # noqa: SLF001

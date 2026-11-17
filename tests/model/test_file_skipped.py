@@ -510,7 +510,7 @@ def test_swsmos_names_every_station_of_a_rank_walk_whose_run_could_not_be_fetche
 # the advice is worded by the cause the provider tells (GH-3874)
 
 _HEALING = (SkipCause.FAILED, SkipCause.WITHDRAWN, SkipCause.MAINTENANCE, SkipCause.EMPTY_DIRECTORY)
-_LASTING = (SkipCause.REFUSED, SkipCause.UNPARSEABLE)
+_LASTING = (SkipCause.REFUSED, SkipCause.UNPARSEABLE, SkipCause.NO_FORECAST)
 
 
 def _told_for(*causes: SkipCause, whole_request: bool = False) -> str:

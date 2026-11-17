@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
+import re
 from io import BytesIO
 from pathlib import Path
 from typing import Any
@@ -80,15 +81,14 @@ def test_the_places_are_the_cities_of_the_file() -> None:
 
 
 def test_a_station_id_is_the_slug_of_the_name() -> None:
-    """The id is documented as the name's slug, and is unique and safe in a path and in a command line."""
+    """The id is unique and safe in a path and in a command line; the names of the slug test below say what it is."""
     ids = [place.station_id for place in PLACES]
     assert len(set(ids)) == len(ids)
     for place in PLACES:
-        assert place.station_id == slug(place.name)
-        assert place.station_id.replace("-", "").isalnum()
-        assert place.station_id.isascii()
-        assert place.station_id == place.station_id.lower()
-        assert not place.station_id.startswith("-")
+        # lower-case ASCII words joined by single hyphens: no umlaut, slash, blank or edge hyphen is left of the name
+        assert re.fullmatch(r"[a-z0-9]+(-[a-z0-9]+)*", place.station_id), place.name
+        # and the id is the name's, not a number: each of its words is a word of the name
+        assert set(place.station_id.split("-")) <= set(slug(place.name).split("-")), place.name
 
 
 @pytest.mark.parametrize(
@@ -361,6 +361,10 @@ def test_a_place_of_the_table_that_the_file_does_not_hold_is_told(
     assert any("zugspitze" in record.getMessage() for record in caplog.records)
     (skipped,) = [warning for warning in recorded_warnings() if warning["code"] == "file-skipped"]
     assert skipped["stations"] == ["zugspitze"]
+    # the file was read and holds nothing of the place, which is no file that "would not parse"
+    assert ": the file holds no forecast of it." in skipped["message"]
+    assert "would not parse" not in skipped["message"]
+    assert "try again" not in skipped["message"].lower()
 
 
 @pytest.mark.parametrize(
@@ -412,13 +416,17 @@ def test_the_value_stub_serves_by_name(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.mark.remote
-def test_dwd_uvi_live() -> None:
+def test_dwd_uvi_live(caplog: pytest.LogCaptureFixture) -> None:
     """The live file holds the 38 places of the table and a forecast for today, tomorrow and the day after.
 
     Live by design, not guarded by an xfail: a place DWD renames or adds, or a layout it changes, is what this is for.
+    A place the file lists that the table does not hold is only logged and skipped, so it is asked for here: the
+    request names no place of the file that has no position (the warning), and every place of the table has its rows.
     """
     request = DwdUviRequest(parameters=[("daily", "data")])
-    result = request.all().values().all()
+    with caplog.at_level(logging.WARNING, logger=dwd_uvi_api.__name__):
+        result = request.all().values().all()
+    assert [record.getMessage() for record in caplog.records if "no position here" in record.getMessage()] == []
     df = result.df
     assert df["station_id"].n_unique() == 38
     assert df.height == 38 * 3

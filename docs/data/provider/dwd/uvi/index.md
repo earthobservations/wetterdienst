@@ -14,12 +14,12 @@ and described in
 It holds no earlier day and no other run, so there is no `issue`: the network is the latest forecast, with one daily
 value for each of the three days. No authentication is required.
 
-The 38 places are the stations. The file names a place by its city and gives no id and no position, so the library
-keeps the places: the id is the name as a slug (`Frankfurt/Main` is `frankfurt-main`, `Großer Arber` is
-`grosser-arber`, `München` is `muenchen`), and the position is that of a DWD station of the place (a mountain, a
-lighthouse or an airfield for many of them) or, for Bonn, of the gazetteer GeoNames. Where a city has several DWD
-stations, which of them stands for it is a choice of the library: DWD does not say which place its forecast is of. The
-table, with the source of each position, is `provider/dwd/uvi/places.py`.
+The 38 places are the stations. The file names a place by its city and gives no id and no position, and DWD says only
+that it forecasts "für ausgewählte Stationen" without naming them. So the library keeps the places: the id is the name
+as a slug (`Frankfurt/Main` is `frankfurt-main`, `Großer Arber` is `grosser-arber`, `München` is `muenchen`), and the
+position is the library's pick of the city's main DWD station (a mountain, a lighthouse or an airfield for many of
+them), or, for Bonn, of the gazetteer GeoNames. It is not DWD's reference of the forecast, which is not known. The
+table, with the station each position is of, is `provider/dwd/uvi/places.py`.
 
 A place that DWD adds to the file is skipped, with a warning that names it, until it is added to the table; a place of
 the table that is not in the file has no values and is named in the `file-skipped` warning of the answer. A file that is

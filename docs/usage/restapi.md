@@ -510,7 +510,9 @@ what the answer is missing:
   in a request, so files that stay a 404 cost one more listing of it for the request, not one for each file.
   `dwd/swsmos` tells the cause of the run it could not read, the newest one the request names: a 404 is a withdrawn
   run, a zero-byte 200 an empty body, a body that would not parse an unreadable one, a directory that lists files and
-  no run a file the reader cannot use, and an empty or missing one an empty directory.
+  no run a file the reader cannot use, and an empty or missing one an empty directory. `dwd/uvi` tells a place of its
+  table that the file does not hold (a place DWD has renamed or dropped) as a file with no forecast of the station,
+  which a retry does not change.
 
   `dwd/observation` and `dwd/derived` tell it too, for a directory of DWD's server that is missing (a 404) or empty
   (an index page with no link) while the stations were looked up, which `stations`, `values` and `history` all do
@@ -1001,7 +1003,7 @@ The plausibility checks `range`, `elevation`, `stuck`, `consistency`, `floor`, `
 `plausibility_consistency`, `plausibility_floor`, `plausibility_limits`, `plausibility_source` (soft by default: the
 verdict of the source's own quality flag, such as GHCN-Daily `QFLAG` or DMI `validity:false`), `plausibility_step` (soft by default: a jump between consecutive readings) and `plausibility_relations` (soft by default: two readings of one file that contradict each other, or a day of sunshine longer than the day; not `plausibility_consistency`, which is the hard check of a provider's own rules; the environment variable of a server is
 `WD_TS_PLAUSIBILITY__RANGE` and so on). A hard check nulls the value and writes `rejected:<check>,raw:<number>` into
-`quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode. On a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`: `kind` `forecast`) every check but `floor` and `limits` is soft whatever the mode, so `hard` there flags `suspect:<check>` and nulls nothing (`limits` follows its mode).
+`quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode. On a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/uvi`: `kind` `forecast`) every check but `floor` and `limits` is soft whatever the mode, so `hard` there flags `suspect:<check>` and nulls nothing (`limits` follows its mode).
 See [plausibility checks](../data/plausibility.md). `interpolate` and `summarize` take no mode: they leave out a
 suspect value in any case, and so do `stripes/values` and `stripes/image`.
 
