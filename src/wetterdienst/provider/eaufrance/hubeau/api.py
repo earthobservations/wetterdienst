@@ -225,14 +225,14 @@ def _log_unmapped_steps(df: pl.DataFrame) -> None:
 
 
 # reported once per process, as the unmapped intervals are
-_reported_unsettled: list[bool] = []
+_reported_unsettled: set[str] = set()
 
 
 def _log_unsettled(count: int) -> None:
     """Report the stations whose intervals did not settle on one, which are served under no resolution."""
     if not count or _reported_unsettled:
         return
-    _reported_unsettled.append(True)
+    _reported_unsettled.add("unsettled")
     log.info(
         f"Hubeau: {count} stations transmit at no steady interval (less than {_SNIFF_MIN_GRID_PERCENT} % of their "
         f"intervals are multiples of the commonest one, or it is less than {_SNIFF_MIN_MODAL_PERCENT} % of them), "

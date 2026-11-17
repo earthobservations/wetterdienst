@@ -484,7 +484,7 @@ def test_a_station_that_does_not_settle_in_either_window_stays_unlisted(
     regular = [anchor - dt.timedelta(minutes=5 * index) for index in range(24)]
     discharge = {"irregular": [anchor - dt.timedelta(minutes=10 * index) for index in range(50)]}
     upstream = _Upstream({"irregular": irregular, "regular": regular}, discharge)
-    monkeypatch.setattr(api, "_reported_unsettled", [])
+    monkeypatch.setattr(api, "_reported_unsettled", set())
 
     with caplog.at_level(logging.INFO):
         steps = _sniff(monkeypatch, upstream, ["irregular", "regular"], anchor)

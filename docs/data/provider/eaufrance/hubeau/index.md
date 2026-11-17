@@ -79,7 +79,8 @@ measured and is listed under no resolution until it transmits again, which is th
 of the thousand-odd gauges the referential still marks as in service. A station whose steps don't
 settle is served under no resolution until they do: it is not listed at its commonest spacing,
 and the log says once per process how many there are. Of the 267 stations listed at 15 minutes
-on 2026-11-17, 7 did not keep that cadence. And a station transmitting
+on 2026-11-17, 7 did not keep that cadence; three of them are 60 to 80 % regular, so their steps
+settle in some windows and not in others. And a station transmitting
 on its own phase rather than on the wall clock — hourly at seven minutes past, say — is described
 correctly by its interval even though its timestamps do not land on the wall-clock hour.
 A station whose cadence changes (one was half-hourly until 2026-10-22 and quarter-hourly since)
