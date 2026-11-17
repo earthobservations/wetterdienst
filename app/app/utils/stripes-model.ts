@@ -161,6 +161,15 @@ export function anomalyAxis(anomalies: readonly number[]): AnomalyAxis {
   }
 }
 
+/**
+ * The axis of the bars of `model`: the anomalies of the years and the anomalies of the trend line, so that the trend (a fit,
+ * which at an end of the record can lie beyond every year's anomaly) is inside the plot whether it is shown or not, and the
+ * axis does not move with the option.
+ */
+export function barAxis(model: Pick<StripesModel, 'anomalies' | 'trendAnomalies'>): AnomalyAxis {
+  return anomalyAxis([...model.anomalies, ...model.trendAnomalies])
+}
+
 /** The steps the ticks of the year axis are a multiple of: the finest that leaves the labels room is taken */
 const YEAR_TICK_STEPS = [1, 2, 5, 10, 20, 25, 50, 100, 200]
 

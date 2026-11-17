@@ -17,7 +17,7 @@ import type { ChartTheme } from './chart-theme'
 import type { StripesModel, StripesVariant, YearRun, YearWindow } from './stripes-model'
 import { seriesLabelColor } from './chart-theme'
 import { stripeColour } from './stripes'
-import { anomalyAxis, availabilityRuns, brokenLine, MIN_SPAN_STRIPES, visibleYears, yearTicks } from './stripes-model'
+import { availabilityRuns, barAxis, brokenLine, MIN_SPAN_STRIPES, visibleYears, yearTicks } from './stripes-model'
 
 /** The font of the chart, on the page and in a saved image, which has no web font of the page's to draw with */
 export const STRIPES_FONT_FAMILY = 'Arial, sans-serif'
@@ -242,10 +242,10 @@ function defaultTick(value: number, decimals: number): string {
 
 /**
  * Where on the stripes' height (0 at their foot, 1 at their top) an anomaly of the bars is: on the range the axis runs over,
- * which the anomalies of the whole answer set and not the window.
+ * which the anomalies of the whole answer (and its trend) set and not the window.
  */
 function barHeights(model: StripesModel) {
-  const axis = anomalyAxis(model.anomalies)
+  const axis = barAxis(model)
   const place = (anomaly: number) => (anomaly - axis.min) / (axis.max - axis.min)
   return { axis, place }
 }
@@ -448,8 +448,14 @@ export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption
   // the lines lie where the colours are on the stripes (the scale of the reference); on the bars they lie where the bars' tops are
   const lineHeights = bars ? model.anomalies.map(barPlace) : model.normalized
   const trendHeights = bars ? model.trendAnomalies.map(barPlace) : model.normalizedTrend
+  // The lines are black on the stripes, which are coloured. Over the bars they run over the paper, which is dark in the dark scheme
+  // (black on it is about 1.3:1: the dashed trend vanishes between the bars): the text colour of the theme, which a saved image
+  // has light-scheme dark.
+  const lineColour = bars ? (input.theme.text || 'black') : 'black'
+  // a dot is kept inside the plot by its radius: a lone year at the lowest or the highest place would be half outside it
+  const dotMargin = TIMESERIES_DOT / 2 / Math.max(1, layout.stripes.height)
   const timeseriesPoints = brokenLine(model.years, lineHeights).map(point => point.lone
-    ? { value: [point.year, point.height], symbol: 'circle', symbolSize: TIMESERIES_DOT, itemStyle: { color: 'black' } }
+    ? { value: [point.year, Math.min(1 - dotMargin, Math.max(dotMargin, point.height!))], symbol: 'circle', symbolSize: TIMESERIES_DOT, itemStyle: { color: lineColour } }
     : [point.year, point.height])
 
   const series: any[] = []
@@ -464,11 +470,14 @@ export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption
       data: model.years.map((year, index) => [year, barPlace(model.anomalies[index]!), index]),
       renderItem: (_params: unknown, api: any) => {
         const [x0, x1] = runEdges({ first: api.value(0), last: api.value(0) }, at => api.coord([at, 0])[0])
-        // whole pixels, as the zero line is: a bar of a small anomaly is at least a px high, one of none is none
+        // whole pixels, as the zero line is, which lies on the row `zero`: a bar of a small anomaly is at least a px high, one of
+        // none is none. A bar above the line fills the rows over it, one below it the rows under it, so that the two are as high
+        // as their anomalies say and a 1 px bar is not hidden by the line.
         const zero = Math.round(api.coord([0, barPlace(0)])[1])
         const top = Math.round(api.coord([0, api.value(1)])[1])
+        const up = api.value(1) > barPlace(0)
         const height = Math.abs(zero - top) || (api.value(1) === barPlace(0) ? 0 : 1)
-        const y = top <= zero ? top : zero
+        const y = up ? zero - height : zero + 1
         return { type: 'rect', silent: true, shape: { x: x0, y, width: x1 - x0, height }, style: { fill: colours[api.value(2)] } }
       },
     })
@@ -498,9 +507,9 @@ export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption
   if (display.showDataAvailability)
     series.push(availabilitySeries(model, layout, base))
   if (display.showTimeseries)
-    series.push(line('timeseries', timeseriesPoints, { color: 'black', width: 2 }, 3))
+    series.push(line('timeseries', timeseriesPoints, { color: lineColour, width: 2 }, 3))
   if (display.showTrendline && display.showTimeseries)
-    series.push(line('trend', model.years.map((year, index) => [year, trendHeights[index]!]), { color: 'black', width: 4, type: [12, 12] }, 4))
+    series.push(line('trend', model.years.map((year, index) => [year, trendHeights[index]!]), { color: lineColour, width: 4, type: [12, 12] }, 4))
   series.push(labelsSeries(input, layout))
 
   return {

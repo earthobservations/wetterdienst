@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { EMPTY_CHART_THEME } from '../../app/utils/chart-theme'
 import { loadEcharts } from '../../app/utils/echarts-loader'
 import { STRIPE_PALETTES, stripeColour } from '../../app/utils/stripes'
-import { anomalyAxis, buildStripesModel, fullWindow } from '../../app/utils/stripes-model'
+import { barAxis, buildStripesModel, fullWindow } from '../../app/utils/stripes-model'
 import { buildStripesOption, frameOf, stripesChartHeight, stripesGridLines, stripesLayout, stripesTexts, stripesZeroLine, windowUpdate } from '../../app/utils/stripes-option'
 import { recordOf, stripesAnswer } from '../helpers/stripes-answer'
 
@@ -19,7 +19,7 @@ const SUBTITLE = ['Relative to the mean of 1971–2000 [°C]']
 // 1950 to 2024, cooler to warmer with a wobble, 1962 to 1964 missing; the classes and anomalies as the backend gives them
 const ANSWER = stripesAnswer(recordOf(1950, 2024, year => 8 + (year - 1987) / 20 + Math.sin(year), [1962, 1963, 1964]))
 const MODEL = buildStripesModel(ANSWER.values, ANSWER.reference)!
-const AXIS = anomalyAxis(MODEL.anomalies)
+const AXIS = barAxis(MODEL)
 
 function build(over: Partial<StripesOptionInput & { display: Partial<StripesDisplay> }> = {}) {
   const input: StripesOptionInput = {
@@ -123,7 +123,7 @@ describe('the bars', () => {
         warm++
       }
       if (anomaly < -0.05) {
-        expect(bar.y).toBe(zero)
+        expect(bar.y).toBe(zero + 1)
         cool++
       }
     })
@@ -288,11 +288,135 @@ describe('the bars with a scale', () => {
   })
 })
 
+/** A model of the years `first` on whose anomalies are `anomalies` (the centre of the reference is 10; the class is the middle one) */
+function modelOf(anomalies: (number | null)[], first = 2000) {
+  const items = anomalies.map((anomaly, index) => ({ timestamp: `${first + index}-01-01T00:00:00+00:00`, value: anomaly === null ? null : 10 + anomaly, anomaly, stripe_class: anomaly === null ? null : 8 }))
+  return buildStripesModel(items, { centre: { value: 10 }, spread: { value: 1 }, range_sigma: 2.6 })!
+}
+
+describe('the lines over the bars, in the dark scheme (GH-4156)', () => {
+  const DARK = { ...THEME, dark: true, text: 'rgb(226, 232, 240)', textMuted: 'rgb(160, 170, 190)' }
+  // 2000 to 2002 (a run), 2004 (alone), 2006 and 2007
+  const gapped = modelOf([-1, 0.5, 1, null, -0.5, null, 1.5, 2])
+  const lines = (over: Partial<StripesOptionInput & { display: Partial<StripesDisplay> }> = {}) => {
+    const { option } = build({ model: gapped, window: fullWindow(gapped), display: { showTimeseries: true, showTrendline: true }, ...over })
+    return Object.fromEntries(option.series.map((s: any) => [s.id, s]))
+  }
+
+  it('draws the time series, its dot and the trend in the text colour of the theme, which is light on the dark paper', () => {
+    const series = lines({ theme: DARK })
+    expect(series.timeseries.lineStyle.color).toBe(DARK.text)
+    expect(series.trend.lineStyle.color).toBe(DARK.text)
+    const dot = series.timeseries.data.find((point: any) => !Array.isArray(point))
+    expect(dot.itemStyle.color).toBe(DARK.text)
+    // the bars' scale too
+    expect(lines({ theme: DARK, variant: 'barsScale', subtitleLines: SUBTITLE }).trend.lineStyle.color).toBe(DARK.text)
+  })
+
+  it('draws them in the dark text of the light theme in a saved image, so that they read on the white paper', () => {
+    expect(lines({ theme: { ...THEME, text: 'rgb(15, 23, 43)' } }).timeseries.lineStyle.color).toBe('rgb(15, 23, 43)')
+  })
+
+  it('keeps them black over the stripes, which are coloured, in either scheme', () => {
+    const series = lines({ theme: DARK, variant: 'stripes' })
+    expect(series.timeseries.lineStyle.color).toBe('black')
+    expect(series.trend.lineStyle.color).toBe('black')
+    expect(series.timeseries.data.find((point: any) => !Array.isArray(point)).itemStyle.color).toBe('black')
+  })
+
+  it('falls back to black where the theme has no text colour (no stylesheet)', () => {
+    expect(lines({ theme: EMPTY_CHART_THEME }).timeseries.lineStyle.color).toBe('black')
+  })
+})
+
+describe('a bar of a tiny anomaly and the zero line (GH-4156)', () => {
+  // one bar a pixel high above the zero line, one a pixel high below it, and two of 2 and -2 to set the range
+  const tiny = modelOf([2, -2, 0.001, -0.001])
+  const rows = () => {
+    const { input, option } = build({ model: tiny, window: fullWindow(tiny), display: { showDataAvailability: false } })
+    const svg = draw(input, option)
+    const layout = stripesLayout(input.display, input.width, input.height, 1, 0, frameOf(input))
+    const axis = barAxis(tiny)
+    const zero = Math.round(layout.stripes.top + layout.stripes.height * (1 - (0 - axis.min) / (axis.max - axis.min)))
+    return { bars: barsOf(svg), zero }
+  }
+
+  it('is a px high, in the row over the zero line for a positive anomaly and in the row under it for a negative one', () => {
+    const { bars, zero } = rows()
+    expect(bars[2]!.height).toBe(1)
+    expect(bars[2]!.y).toBe(zero - 1)
+    expect(bars[3]!.height).toBe(1)
+    expect(bars[3]!.y).toBe(zero + 1)
+  })
+
+  it('has the bars above and below as high as their anomalies, from the rows next to the line', () => {
+    const { bars, zero } = rows()
+    expect(bars[0]!.y + bars[0]!.height).toBe(zero)
+    expect(bars[1]!.y).toBe(zero + 1)
+    // the same number of px for the same anomaly up and down
+    expect(bars[0]!.height).toBe(bars[1]!.height)
+  })
+
+  it('draws no bar of an anomaly of nought', () => {
+    const none = modelOf([2, -2, 0])
+    const { input, option } = build({ model: none, window: fullWindow(none) })
+    expect(barsOf(draw(input, option))[2]!.height).toBe(0)
+  })
+})
+
+describe('the axis of the bars holds the trend (GH-4156)', () => {
+  // zeros and a jump at the end: the fit lies at -2 in 2000 and at 6 in 2004, beyond the anomalies (0 to 10 are in 0 to 10)
+  const jump = modelOf([0, 0, 0, 0, 10])
+
+  it('has the trend line\'s anomalies inside the range, which those of the years alone would leave', () => {
+    expect(Math.min(...jump.trendAnomalies)).toBeLessThan(0 - 1e-9)
+    expect(barAxis(jump).min).toBeLessThanOrEqual(Math.min(...jump.trendAnomalies))
+    expect(barAxis(jump).max).toBeGreaterThanOrEqual(10)
+  })
+
+  it('places every point of the trend line inside the plot', () => {
+    const { option } = build({ model: jump, window: fullWindow(jump), display: { showTimeseries: true, showTrendline: true } })
+    const trend = option.series.find((s: any) => s.id === 'trend')
+    for (const [, height] of trend.data)
+      expect(height).toBeGreaterThanOrEqual(0)
+    for (const [, height] of trend.data)
+      expect(height).toBeLessThanOrEqual(1)
+  })
+
+  it('moves with neither the option nor the window: the same axis with the trend hidden', () => {
+    const shown = build({ model: jump, window: fullWindow(jump), display: { showTimeseries: true, showTrendline: true } })
+    const hidden = build({ model: jump, window: fullWindow(jump), display: { showTimeseries: false, showTrendline: false } })
+    expect(shown.option.series.find((s: any) => s.id === 'bars').data).toEqual(hidden.option.series.find((s: any) => s.id === 'bars').data)
+  })
+})
+
+describe('the dot of a lone year stays inside the plot (GH-4164)', () => {
+  it('is kept a radius from the top and the foot, where the year\'s place is the edge', () => {
+    // 2000 and 2001, then a lone year at the top of the scale (beyond +2.6 σ: the end class) and one at the foot
+    const stripes = modelOf([0, 0, null, 5, null, -5], 2000)
+    const { input, option } = build({ model: stripes, window: fullWindow(stripes), variant: 'stripes', display: { showTimeseries: true } })
+    const layout = stripesLayout(input.display, input.width, input.height, 1, 0, frameOf(input))
+    const dots = option.series.find((s: any) => s.id === 'timeseries').data.filter((point: any) => !Array.isArray(point)).map((point: any) => point.value[1] as number)
+    const margin = 3 / layout.stripes.height
+    expect(dots).toHaveLength(2)
+    expect(Math.max(...dots)).toBeCloseTo(1 - margin, 10)
+    expect(Math.min(...dots)).toBeCloseTo(margin, 10)
+  })
+
+  it('is left where it is where it is inside', () => {
+    const inside = modelOf([0, null, 0.5, null, -0.5], 2000)
+    const { option } = build({ model: inside, window: fullWindow(inside), variant: 'stripes', display: { showTimeseries: true } })
+    const dots = option.series.find((s: any) => s.id === 'timeseries').data.filter((point: any) => !Array.isArray(point))
+    expect(dots).toHaveLength(3)
+    expect(dots.map((dot: any) => dot.value[1])).toEqual(inside.normalized)
+  })
+})
+
 describe('precipitation as bars', () => {
   // the deviation from the reference, in mm: wet above the zero line, dry below it
   const answer = stripesAnswer(recordOf(1950, 2020, year => 900 + 40 * Math.sin(year / 3) * 5 + (year - 1985) * 3))
   const model = buildStripesModel(answer.values, answer.reference)!
-  const axis = anomalyAxis(model.anomalies)
+  const axis = barAxis(model)
 
   it('colours the bars by the BrBG classes, brown for dry and teal for wet', () => {
     const { input, option } = build({ kind: 'precipitation', model, window: fullWindow(model) })
@@ -311,7 +435,7 @@ describe('precipitation as bars', () => {
     const driest = model.anomalies.indexOf(Math.min(...model.anomalies))
     expect(model.anomalies[wettest]).toBeGreaterThan(0)
     expect(bars[wettest]!.y + bars[wettest]!.height).toBe(zero)
-    expect(bars[driest]!.y).toBe(zero)
+    expect(bars[driest]!.y).toBe(zero + 1)
     // millimetres need no decimals
     expect(axis.decimals).toBe(0)
     expect(texts(svg)).toContain('0')

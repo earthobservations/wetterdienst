@@ -831,6 +831,20 @@ const selectionStyle = computed(() => {
   gap: 0.5rem;
   padding-bottom: 0.5rem;
 }
+/* The switch is as wide as its three labels need, and no wider than the chart: a long label ("Barres avec échelle", "Sloupce se
+   stupnicí") on a phone of 320 px takes less room round its text, and wraps where that is still too much, instead of running past the
+   chart's edge */
+.sc-controls :deep([role='radiogroup']) {
+  max-width: 100%;
+}
+.sc-controls :deep([role='radio']) {
+  min-width: 0;
+}
+@media (max-width: 26rem) {
+  .sc-controls :deep([role='radio']) {
+    padding-inline: 0.5rem;
+  }
+}
 .sc-toolbar {
   display: flex;
   flex-wrap: wrap;

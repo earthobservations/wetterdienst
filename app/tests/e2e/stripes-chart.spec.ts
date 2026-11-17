@@ -1,5 +1,6 @@
 import type { Download, Locator, Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
 import { STRIPE_PALETTES } from '../../app/utils/stripes'
 import { CAMERA_SCALE, CAMERA_WIDTH, extraLinesHeight, frameOf, STRIPES_MAX_HEIGHT, STRIPES_MIN_HEIGHT, STRIPES_RATIO, stripesChartHeight } from '../../app/utils/stripes-option'
@@ -770,18 +771,55 @@ test.describe('the stripes as bars', () => {
     expect([image.width, image.height]).toEqual([CAMERA_WIDTH * CAMERA_SCALE, high * CAMERA_SCALE])
   })
 
-  test('carry the time series and the trend line over them', async ({ page, baseURL }) => {
-    await showStripes(page, baseURL!, `${PATH}&variant=bars&show_timeseries=true&show_trendline=true`)
-    const lines = await chartSvg(page).evaluate(svg => [...svg.querySelectorAll('path[stroke="black"]')].map(path => path.getAttribute('stroke-width')))
-    expect(lines).toEqual(['2', '4'])
-  })
+  for (const scheme of ['light', 'dark'] as const) {
+    test(`carry the time series and the trend line over them, in the text colour of the page so that they read on its paper (${scheme})`, async ({ page, baseURL, context }) => {
+      await context.addInitScript(mode => localStorage.setItem('nuxt-color-mode', mode), scheme)
+      await showStripes(page, baseURL!, `${PATH}&variant=bars&show_timeseries=true&show_trendline=true`)
+      const lines = await chartSvg(page).evaluate(svg => [...svg.querySelectorAll('path[stroke-width]')].map(path => ({ width: path.getAttribute('stroke-width'), stroke: getComputedStyle(path).stroke })))
+      expect(lines.map(line => line.width)).toEqual(['2', '4'])
+      // light lines on the dark paper and dark ones on the light paper (black on dark is 1.3:1)
+      const { behind } = await paintOf(page)
+      for (const line of lines)
+        expect(contrast(line.stroke, behind), `the line of ${line.width} px (${line.stroke}) on ${behind}`).toBeGreaterThan(4.5)
+    })
+  }
 
   test('keep the numbers of their y axis where the chart is zoomed: a zoom changes the years, not the axis', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!, `${PATH}&variant=bars_scale`)
-    const ticks = (page: Page) => chartSvg(page).evaluate(svg => [...svg.querySelectorAll('text')].map(text => text.textContent ?? '').filter(text => /^[+\-−]?\d$/.test(text)))
+    // the numbers of the y axis are the texts right-aligned at the plot's edge (the years along the x axis are centred)
+    const ticks = (page: Page) => chartSvg(page).evaluate(svg => [...svg.querySelectorAll('text[text-anchor="end"]')].map(text => text.textContent ?? ''))
     const before = await ticks(page)
+    // an axis with a zero and ticks of both signs, with or without decimals: the list is not empty
+    expect(before.length).toBeGreaterThan(2)
+    expect(before).toContain('0')
     await page.getByRole('button', { name: 'Zoom in' }).click()
     await expect(page.getByRole('button', { name: 'Reset zoom' })).toBeEnabled()
     await expect.poll(async () => (await ticks(page)).join(',')).toBe(before.join(','))
   })
+
+  // The switch has the longest labels in French and Czech ("Barres avec échelle", "Sloupce se stupnicí"), and ran 3 to 5 px past the
+  // chart's block on a phone of 320 px
+  for (const language of ['fr', 'cs', 'de', 'nl', 'pl', 'it', 'lb', 'de-hh'] as const) {
+    test(`has a switch that fits the chart's block in ${language}, in a 320 px window`, async ({ page, baseURL, context }) => {
+      const catalog = JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${language}.json`, import.meta.url)), 'utf-8'))
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await page.setViewportSize({ width: 320, height: 844 })
+      await mockBackend(page, baseURL!)
+      await page.goto(`${PATH}&variant=bars_scale`)
+      await page.getByRole('button', { name: catalog.common.fetch, exact: true }).click()
+      await expect(chartSvg(page)).toBeVisible()
+      const place = await page.locator('.sc-controls').evaluate((controls) => {
+        const box = controls.getBoundingClientRect()
+        const group = controls.querySelector('[role="radiogroup"]')!.getBoundingClientRect()
+        return { left: box.left, right: box.right, groupLeft: group.left, groupRight: group.right }
+      })
+      // 1 px: what the browser measures, not what the CSS says
+      expect(place.groupRight, 'the switch ends where the chart\'s block does or before').toBeLessThanOrEqual(place.right + 1)
+      expect(place.groupLeft).toBeGreaterThanOrEqual(place.left - 1)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'the page does not scroll sideways').toBe(true)
+      // each of the three options is whole: its text is not cut by its own box
+      const cut = await variantSwitch(page).getByRole('radio').evaluateAll(options => options.filter(option => option.scrollWidth > option.clientWidth + 1).map(option => option.textContent))
+      expect(cut).toEqual([])
+    })
+  }
 })
