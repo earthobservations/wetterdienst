@@ -28,6 +28,14 @@ Types of changes:
   of 484), so `wmo_id=10384` finds `00433`. The DUETT radiation and sunshine duration (ids `18xxx`)
   and the climate correction factor (postal codes) stay null, and asking for only those does not
   read the Stationslexikon; the docs list it per dataset (GH-4162)
+- The stations of `ea/hydrology` have `nrfa_id` (National River Flow Archive, 850 of 9,537
+  stations) and `rloi_id` (River Levels on the Internet, 1,808; of two ids the all-digit one, then
+  the lowest), those of `eaufrance/hubeau` `site_id` (the 8-character site of the station, on all)
+  and those of `imgw/meteorology` `short_code` (IMGW's code from `wykaz_stacji.csv`, 571 of 800:
+  `375` for a synop station; null for the 3 stations the list gives two codes). They are the
+  providers' own ids and no WMO number; find a station by one with an SQL filter. IMGW's list is
+  now read for every dataset: where it cannot be read, the stations of the datasets but `synop`
+  come back with `short_code` null and the warning `station-codes-unavailable` (GH-4070)
 
 ### Changed
 
@@ -44,6 +52,9 @@ Types of changes:
   with fewer than 10 years with data is refused (HTTP 400, it was 2), as its spread would say
   nothing, and `stripes stations` (REST, CLI, MCP, the app's picker and map) no longer lists a
   station whose record spans fewer than 10 calendar years, first to last inclusive (GH-4157)
+- **Breaking**: the stations of `ea/hydrology` have the new columns `nrfa_id` and `rloi_id`, those
+  of `eaufrance/hubeau` `site_id` and those of `imgw/meteorology` `short_code`, after their own
+  columns. A SQL table `to_target` wrote before takes no append of them: write it anew (GH-4070)
 
 ## [0.190.0] - 2026-11-16
 

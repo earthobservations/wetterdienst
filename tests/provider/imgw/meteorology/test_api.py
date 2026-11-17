@@ -15,20 +15,25 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
+from aiohttp import ClientResponseError, RequestInfo
+from multidict import CIMultiDict, CIMultiDictProxy
 from polars.testing import assert_frame_equal
+from yarl import URL
 
-from wetterdienst.exceptions import DownloadError, MetaFileFormatError
+from wetterdienst.exceptions import DownloadError, MetaFileFormatError, NoInternetError, ProviderRateLimitError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.provider.imgw.meteorology.api import (
     _ABSENT_DAY_NO_PHENOMENON,
     _STATUSLESS_COLUMNS,
     _STRUCTURAL_COLUMNS,
+    STATION_CODES_UNAVAILABLE,
     ImgwMeteorologyMetadata,
     ImgwMeteorologyRequest,
     ImgwMeteorologyValues,
 )
 from wetterdienst.util.network import File
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 
 def _numbers(values: pl.DataFrame) -> pl.DataFrame:
@@ -49,10 +54,7 @@ def test_imgw_meteorology_station_list_gives_no_region(monkeypatch: pytest.Monke
         "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;270\r\n"
         "4;249180030;Chałupki;Odra (1);1948;49 55 33;18 19 39;198\r\n"
     )
-    monkeypatch.setattr(
-        "wetterdienst.provider.imgw.meteorology.api.download_file",
-        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue.encode("utf8")), status=200),
-    )
+    _serve_station_lists(monkeypatch, kody=catalogue)
 
     df = ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all().df
 
@@ -73,10 +75,7 @@ def test_imgw_meteorology_station_list_trims_the_river_and_gives_none_as_null(mo
         "2;249180010;Pszczyna; ;1954;49 59 44;18 55 09;270\r\n"
         "4;249180030;Chałupki;;1948;49 55 33;18 19 39;198\r\n"
     )
-    monkeypatch.setattr(
-        "wetterdienst.provider.imgw.meteorology.api.download_file",
-        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue.encode("utf8")), status=200),
-    )
+    _serve_station_lists(monkeypatch, kody=catalogue)
 
     df = ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all().df
 
@@ -97,10 +96,7 @@ def test_imgw_meteorology_station_list_reads_the_elevation_as_a_number_and_what_
         "1;249170080;Dzierżkowice;Opawa (112);2024;49 59 32;17 50 47;1 987\r\n"
         "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;brak\r\n"
     )
-    monkeypatch.setattr(
-        "wetterdienst.provider.imgw.meteorology.api.download_file",
-        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue.encode("utf8")), status=200),
-    )
+    _serve_station_lists(monkeypatch, kody=catalogue)
 
     df = ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all().df
 
@@ -120,10 +116,7 @@ def test_imgw_meteorology_station_list_returns_every_row(monkeypatch: pytest.Mon
         "1;249170080;Dzierżkowice;Opawa (112);2024;49 59 32;17 50 47;270\r\n"
         "2;249180010;Pszczyna;Pszczynka (2116);1954;49 59 44;18 55 09;270\r\n"
     )
-    monkeypatch.setattr(
-        "wetterdienst.provider.imgw.meteorology.api.download_file",
-        lambda **kwargs: File(url=kwargs["url"], content=BytesIO(catalogue.encode("utf8")), status=200),
-    )
+    _serve_station_lists(monkeypatch, kody=catalogue)
 
     request = ImgwMeteorologyRequest(parameters=[("daily", "climate")])
 
@@ -155,6 +148,7 @@ def test_imgw_meteorology_api_daily() -> None:
                 "wigos_id": None,
                 "icao_id": None,
                 "river": "Drawa (1888)",
+                "short_code": "2202",
             },
         ],
         schema={
@@ -172,6 +166,7 @@ def test_imgw_meteorology_api_daily() -> None:
             "wigos_id": pl.String,
             "icao_id": pl.String,
             "river": pl.String,
+            "short_code": pl.String,
         },
         orient="row",
     )
@@ -290,6 +285,7 @@ def test_imgw_meteorology_api_monthly() -> None:
                 "wigos_id": None,
                 "icao_id": None,
                 "river": "Biała (2114)",
+                "short_code": "600",
             },
         ],
         schema={
@@ -307,6 +303,7 @@ def test_imgw_meteorology_api_monthly() -> None:
             "wigos_id": pl.String,
             "icao_id": pl.String,
             "river": pl.String,
+            "short_code": pl.String,
         },
         orient="row",
     )
@@ -1488,6 +1485,7 @@ _WYKAZ = (
     '"349190600","BIELSKO-BIAŁA","  600"\r\n'
     '"352200375","WARSZAWA","  375"\r\n'
 )
+_WYKAZ_URL = "https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_meteorologiczne/wykaz_stacji.csv"
 _SOMEWHERE = "800;349200010;Somewhere;Wisła (2);1950;50 00 00;20 00 00;200\r\n"
 _SYNOP_IDS = ["349190600", "352200375"]
 _ALL_IDS = ["249180010", "250240010", "253150010", "349190600", "352200375"]
@@ -1531,11 +1529,10 @@ def test_imgw_meteorology_synop_leaves_the_stations_of_the_other_datasets_as_the
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Climate and precipitation keep every station of the list, and a request for both gets each its own (GH-3944)."""
-    asked = _serve_station_lists(monkeypatch)
+    _serve_station_lists(monkeypatch)
 
     climate = ImgwMeteorologyRequest(parameters=[("daily", "climate"), ("daily", "precipitation")]).all().df
     assert climate["station_id"].to_list() == _ALL_IDS * 2
-    assert not [url for url in asked if "wykaz_stacji" in url], "the list of the synop stations is read for synop only"
 
     mixed = ImgwMeteorologyRequest(parameters=[("daily", "climate"), ("daily", "synop")]).all().df
     assert mixed.filter(pl.col("dataset") == "climate")["station_id"].to_list() == _ALL_IDS
@@ -1572,8 +1569,102 @@ def test_imgw_meteorology_synop_raises_for_a_list_that_names_no_synop_station(
 
     with pytest.raises(MetaFileFormatError, match=r"wykaz_stacji\.csv"):
         ImgwMeteorologyRequest(parameters=[("daily", "synop")]).all()
-    # the other datasets do not read it
+    # the other datasets have their stations, a list without a synop code is no change of layout for them
     assert len(ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all().df) == len(_ALL_IDS)
+
+
+def test_imgw_meteorology_stations_carry_the_short_code_of_the_list_of_stations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`short_code` is the five-character code of `wykaz_stacji.csv`, without its blanks, for every dataset (GH-4070).
+
+    Three digits for a synop station, four or five for the others as the list writes them. A station the list does
+    not name has none, and one it names with two codes (a climate and a precipitation one) has none, Strzyżów here.
+    The row of GOŁYMIN-OŚRODEK is malformed (a quote missing) and is no code.
+    """
+    wykaz = _WYKAZ + '"250240010","STRZYŻÓW","95927"\r\n' + '"252200360","GOŁYMIN-OŚRODEK,93668"               \r\n'
+    kody = _KODY + "800;252200360;Gołymin-Ośrodek;Orzyc (1);1950;52 53 00;20 50 00;110\r\n" + _SOMEWHERE
+    _serve_station_lists(monkeypatch, wykaz, kody=kody)
+
+    for dataset in ("climate", "synop"):
+        stations = ImgwMeteorologyRequest(parameters=[("daily", dataset)]).all().df
+        assert stations.schema["short_code"] == pl.String
+        codes = dict(stations.select("station_id", "short_code").iter_rows())
+        expected = {
+            "249180010": "5409",
+            "250240010": None,
+            "253150010": "92143",
+            "349190600": "600",
+            "352200375": "375",
+            "252200360": None,
+            "349200010": None,
+        }
+        assert codes == {station_id: expected[station_id] for station_id in codes}
+        assert len(codes) == (2 if dataset == "synop" else len(expected))
+
+
+def _serve_kody_and_a_failed_wykaz(monkeypatch: pytest.MonkeyPatch, failure: Exception | str, status: int) -> None:
+    """Serve `kody_stacji.csv`, and for `wykaz_stacji.csv` a download that failed (an exception) or a body (a text)."""
+
+    def download_file(**kwargs: object) -> File:
+        url = str(kwargs["url"])
+        if "kody_stacji" in url:
+            return File(url=url, content=BytesIO(_KODY.encode("utf8")), status=200)
+        content = BytesIO(failure.encode("cp1250")) if isinstance(failure, str) else failure
+        return File(url=url, content=content, status=status)
+
+    monkeypatch.setattr("wetterdienst.provider.imgw.meteorology.api.download_file", download_file)
+
+
+def _response_error(status: int) -> ClientResponseError:
+    url = URL(_WYKAZ_URL)
+    info = RequestInfo(url, "GET", CIMultiDictProxy(CIMultiDict()), url)
+    return ClientResponseError(info, (), status=status, message="no")
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        pytest.param((_response_error(404), 404), id="404"),
+        pytest.param((_response_error(503), 503), id="503"),
+        pytest.param(("LP.;Kod 9-znakowy;Nazwa stacji\r\n1;249180010;Pszczyna\r\n", 200), id="another-layout"),
+    ],
+)
+def test_imgw_meteorology_stations_come_without_short_code_when_the_list_of_codes_cannot_be_read(
+    monkeypatch: pytest.MonkeyPatch, failure: tuple[Exception | str, int]
+) -> None:
+    """A list of codes that is a 404, a 5xx or of another layout leaves `short_code` null, and says so (GH-4070).
+
+    The stations are the answer and the code an addition, as the Stationslexikon is to `wmo_id`.
+
+    The synop stations are picked by that list, so `synop` still raises, and so does a request for both.
+    """
+    _serve_kody_and_a_failed_wykaz(monkeypatch, *failure)
+    begin_response()
+
+    stations = ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all().df
+
+    assert stations["station_id"].to_list() == _ALL_IDS
+    assert stations["short_code"].null_count() == stations.height
+    assert stations.schema["short_code"] == pl.String
+    (warning,) = [w for w in recorded_warnings() if w["code"] == STATION_CODES_UNAVAILABLE]
+    assert "wykaz_stacji.csv" in warning["message"]
+    for datasets in ([("daily", "synop")], [("daily", "climate"), ("daily", "synop")]):
+        with pytest.raises((DownloadError, MetaFileFormatError), match=r"wykaz_stacji\.csv"):
+            ImgwMeteorologyRequest(parameters=datasets).all()
+
+
+def test_imgw_meteorology_a_rate_limit_or_no_connection_of_the_list_of_codes_is_raised(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 429 is never let go and a connection that cannot be made is no list that is not there (GH-4070)."""
+    _serve_kody_and_a_failed_wykaz(monkeypatch, _response_error(429), 429)
+    with pytest.raises(ProviderRateLimitError):
+        ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all()
+
+    _serve_kody_and_a_failed_wykaz(monkeypatch, NoInternetError("No internet connection: could not reach imgw.pl"), 0)
+    with pytest.raises(NoInternetError):
+        ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all()
 
 
 @pytest.mark.remote
@@ -1602,3 +1693,22 @@ def test_imgw_meteorology_live_synop_stations_are_the_stations_of_the_synop_arch
         f"stations with a file of 2025 that are not listed: {set(codes) - set(suffixes)}"
     )
     assert len(ids) < 100, "the list is no longer the synop stations alone"
+
+
+@pytest.mark.remote
+def test_imgw_meteorology_live_short_code_is_three_digits_for_synop_and_four_or_five_for_the_others() -> None:
+    """Test that the live list gives every synop station a three-digit code and most of the others one (GH-4070).
+
+    2026-11-17: 573 of the 800 stations of the catalogue had a code, 63 of them three digits (the synop stations).
+    """
+    synop = ImgwMeteorologyRequest(parameters=[("daily", "synop")]).all().df
+    climate = ImgwMeteorologyRequest(parameters=[("daily", "climate")]).all().df
+
+    assert synop["short_code"].str.contains(r"^\d{3}$").all()
+    assert climate["short_code"].count() > 400
+    assert climate.filter(
+        pl.col("short_code").is_not_null() & ~pl.col("short_code").str.contains(r"^\d{3,5}$")
+    ).is_empty()
+    # a code names one station
+    codes = climate.drop_nulls("short_code")
+    assert codes["short_code"].n_unique() == codes.height

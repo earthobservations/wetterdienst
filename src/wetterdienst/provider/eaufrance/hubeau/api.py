@@ -611,10 +611,14 @@ class HubeauRequest(TimeseriesRequest):
     # station stands on. It goes in `gauge_zero`, as Pegelonline's does, and `elevation` is the
     # altitude of the station's site, from the sites referential. `gauge_zero_datum` names the
     # vertical reference system `gauge_zero` is given in, which differs between stations.
+    # `site_id` is the `code_site` of the referential, the eight-character code of the hydrometric site the station is
+    # one of (`10110001` for the station `1011000101`: a station's code is its site's and two digits). A site can have
+    # more than one station, so it is no id of the station (GH-4070)
     _base_columns: ClassVar = (
         *TimeseriesRequest._base_columns,  # noqa: SLF001
         "gauge_zero",
         "gauge_zero_datum",
+        "site_id",
     )
 
     def _warn_unplaced(self, df: pl.DataFrame, *, named: bool) -> None:
@@ -793,7 +797,10 @@ class HubeauRequest(TimeseriesRequest):
             pl.col("step").replace_strict(_STEP_TO_RESOLUTION, default=None).alias("resolution"),
             pl.lit(DATASET_NAME_DEFAULT, pl.String).alias("dataset"),
         )
-        # what the join needed and the stations frame has no column for
+        # what the join needed and the stations frame has no column for; the site's code is the column `site_id`
         return (
-            df.filter(pl.col("resolution").is_in(requested)).drop("code_site", "code_systeme_alti_site", "step").lazy()
+            df.filter(pl.col("resolution").is_in(requested))
+            .drop("code_systeme_alti_site", "step")
+            .rename({"code_site": "site_id"})
+            .lazy()
         )
