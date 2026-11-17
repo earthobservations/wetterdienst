@@ -127,6 +127,41 @@ export function matchByWmo<S extends { wmo_id?: string | null }>(stations: S[], 
   return found.length ? { kind: 'several', stations: found } : { kind: 'none' }
 }
 
+/** What the map remembers of the station picked, to find it again in the list of another layer */
+export interface PickedStation {
+  station_id: string
+  /** Its WMO number as it is compared (`wmoNumber`), null where it has none */
+  wmo: string | null
+  /** Whether the layer it was picked in is DWD's observations, whose stations are numbered by one scheme */
+  observation: boolean
+  /** Whether it reports: a forecast point, which has no status, does */
+  reports: boolean
+}
+
+/**
+ * The same station in the list of another layer or dataset, for the station a reader picked: by its id where both lists are
+ * DWD's observations (one network numbers its stations by one id, the same station in every dataset), else by its WMO number
+ * where exactly one station of the list has it (`matchByWmo`). A number is not taken for a station that has stopped when the
+ * station picked reports: the Stationslexikon keeps a number on a closed predecessor (10427 was Altastenberg, 00098, until
+ * 1954 and is Kahler Asten, 02483, after), and a list that holds only the one that has closed would give the reader that
+ * one for the station that reports, past the rule that prefers one that reports. Null where there is none.
+ *
+ * `inObservation` is whether the list is DWD's observations, `reporting` the status of its stations where it has one.
+ */
+export function findSameStation<S extends PlacedStation>(list: S[], picked: PickedStation, inObservation: boolean, reporting?: ReportingRule): { station: S, by: 'id' | 'wmo' } | null {
+  if (picked.observation && inObservation) {
+    const byId = list.find(station => station.station_id === picked.station_id)
+    if (byId)
+      return { station: byId, by: 'id' }
+  }
+  const match = matchByWmo(list, picked.wmo)
+  if (match.kind !== 'one')
+    return null
+  if (picked.reports && reporting && !reporting(match.station))
+    return null
+  return { station: match.station, by: 'wmo' }
+}
+
 /** The stations that have a position, the only ones a map can show or a distance be taken to */
 export function placed(stations: Station[]): PlacedStation[] {
   return stations.filter((station): station is PlacedStation => station.latitude != null && station.longitude != null)

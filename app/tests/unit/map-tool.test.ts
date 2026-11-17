@@ -6,6 +6,7 @@ import {
   distanceKm,
   DOT_SLOP_PX,
   dotRadius,
+  findSameStation,
   forecastLink,
   formatDistance,
   formatPosition,
@@ -478,5 +479,42 @@ describe('the station of a list that has a WMO number', () => {
   it('reads the number as the stations do: padded, trimmed', () => {
     expect(matchByWmo(placed([withWmo('01001', '1001')]), '01001').kind).toBe('one')
     expect(matchByWmo(placed([withWmo('01001', '01001')]), ' 1001').kind).toBe('one')
+  })
+})
+
+describe('the same station in the list of another layer (GH-4077)', () => {
+  const NOW = Date.now()
+  const day = (days: number) => new Date(NOW - days * 86_400_000).toISOString()
+  const withWmo = (id: string, wmo: string | null, end: string | null = day(1)) => ({ ...station(id, id, 50, 10), wmo_id: wmo, start_timestamp: null, end_timestamp: end })
+  const picked = (overrides = {}) => ({ station_id: '02483', wmo: '10427', observation: false, reports: true, ...overrides })
+
+  it('is the station that has the number of the one picked', () => {
+    const list = placed([withWmo('X1', '10427'), withWmo('X2', '10999')])
+    expect(findSameStation(list, picked(), true)).toEqual({ station: list[0], by: 'wmo' })
+  })
+
+  it('is the station of the same id where both lists are the observations, before any number', () => {
+    const list = placed([withWmo('02483', null), withWmo('X1', '10427')])
+    expect(findSameStation(list, picked({ observation: true }), true)).toEqual({ station: list[0], by: 'id' })
+    // an id of another network is no station of this one
+    expect(findSameStation(list, picked({ observation: false }), true)).toEqual({ station: list[1], by: 'wmo' })
+    expect(findSameStation(list, picked({ observation: true }), false)).toEqual({ station: list[1], by: 'wmo' })
+  })
+
+  it('is not a station that has stopped where the station picked reports: a closed predecessor keeps the number', () => {
+    // 10427 was Altastenberg (00098) until 1954 and is Kahler Asten (02483) after
+    const closed = placed([withWmo('00098', '10427', '1954-12-31T00:00:00+00:00'), withWmo('X1', null)])
+    const reporting = reportingRule(closed, NOW)
+    expect(findSameStation(closed, picked(), true, reporting)).toBeNull()
+    // where the station picked has stopped too, or the list has no status, it is taken
+    expect(findSameStation(closed, picked({ reports: false }), true, reporting)).toEqual({ station: closed[0], by: 'wmo' })
+    expect(findSameStation(closed, picked(), false)).toEqual({ station: closed[0], by: 'wmo' })
+  })
+
+  it('is none where the number is on several stations or on none, or the station has none', () => {
+    const list = placed([withWmo('A', '10427'), withWmo('B', '10427')])
+    expect(findSameStation(list, picked(), true)).toBeNull()
+    expect(findSameStation(list, picked({ wmo: '99999' }), true)).toBeNull()
+    expect(findSameStation(list, picked({ wmo: null }), true)).toBeNull()
   })
 })

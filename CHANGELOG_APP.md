@@ -30,9 +30,10 @@ Types of changes:
   the other layer has the same: that station is picked (the forecast point and the measuring
   station of one place, which are up to some kilometres apart and number their stations
   differently), the panel says it is the same station and why, and its other cards take the same
-  station of their kind instead of the nearest. Where either has no number, or the number is on
-  several stations, the station is picked again by the place as before. Needs a backend that
-  answers `wmo_id` for the stations (GH-4077).
+  station of their kind instead of the nearest; between DWD's observations the station's id comes
+  first. A number that a station that has stopped keeps is not taken for the station that reports.
+  Where either has no number, or the number is on several stations, the station is picked again by
+  the place as before. Needs a backend that answers `wmo_id` for the stations (GH-4077).
 - `[Stripes]` The climate stripes can be drawn as bars, and as bars with a scale, with a switch
   above the chart (kept in the link as `variant`). A bar is the year's anomaly from the mean the
   colours are centred on (1971–2000, or the station's whole record), up for warm or wet, in the

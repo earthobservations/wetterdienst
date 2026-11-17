@@ -2073,3 +2073,141 @@ describe('a pick that is carried across layers by its WMO number (GH-4077)', () 
     expect(wrapper.find('[data-testid="map-card-same-measured"]').exists()).toBe(false)
   })
 })
+
+describe('what a pick carries across layers is the pick the reader made last (GH-4077)', () => {
+  const headingOf = (wrapper: Awaited<ReturnType<typeof mountMap>>) => wrapper.find('[data-testid="map-station-name"]')
+  const undo: Array<() => void> = []
+  function numbered(list: Array<Record<string, any>>, stationId: string, wmo: string | null) {
+    const entry = list.find(candidate => candidate.station_id === stationId)!
+    entry.wmo_id = wmo
+    undo.push(() => {
+      delete entry.wmo_id
+    })
+  }
+  function added(list: Array<Record<string, any>>, entry: Record<string, any>) {
+    list.push(entry)
+    undo.push(() => {
+      list.splice(list.indexOf(entry), 1)
+    })
+  }
+  afterEach(() => {
+    while (undo.length)
+      undo.pop()!()
+  })
+  // a click on the Gulf of Guinea, where no station is within reach
+  const SEA = { latitude: 0, longitude: 0, tolerance: 0.5, tap: 0, disc: 0.5 }
+
+  it('is no station after a click on the sea: the number of the station before is not carried to the next layer for a place with none', async () => {
+    numbered(FORECAST_STATIONS, '10147', '10147')
+    numbered(DAILY_STATIONS, '01975', '10147')
+    const wrapper = await mountMap('/map?station=10147')
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('HAMBURG-FUHLSBUETTEL'))
+    // a click on the sea: the reader's pick is a place with no station
+    stage.emit('pick', SEA)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(true))
+    await layerButton(wrapper, 'measured').trigger('click')
+    // the place is where it was clicked: no station, and no "same station" at 6,000 km
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(true))
+    expect(headingOf(wrapper).exists()).toBe(false)
+    expect(wrapper.find('[data-testid="map-same-station"]').exists()).toBe(false)
+    expect(stage.props.selected).toBeNull()
+  })
+
+  it('is the station of an address that was named after a pick of the sea, and is not the one before it: the address is a new pick', async () => {
+    numbered(FORECAST_STATIONS, '10147', '10147')
+    numbered(DAILY_STATIONS, '01975', '10147')
+    const wrapper = await mountMap('/map?station=10147')
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('HAMBURG-FUHLSBUETTEL'))
+    stage.emit('pick', SEA)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(true))
+    // back in the history to the address of the plain map, and a layer chosen: nothing is picked, and nothing said of the same
+    await useRouter().push('/map')
+    await layerButton(wrapper, 'measured').trigger('click')
+    await nextTick()
+    expect(headingOf(wrapper).exists()).toBe(false)
+    expect(wrapper.find('[data-testid="map-same-station"]').exists()).toBe(false)
+  })
+
+  it('forgets the station of an address that is another pick: the number is the one of the new station when its list brings it', async () => {
+    numbered(FORECAST_STATIONS, '10147', '10147')
+    numbered(DAILY_STATIONS, '01975', '10147')
+    // Munich has no measuring station within reach in the mock, and no number
+    const wrapper = await mountMap('/map?station=10147')
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('HAMBURG-FUHLSBUETTEL'))
+    await useRouter().push('/map?station=10865')
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('MUENCHEN-STADT'))
+    await layerButton(wrapper, 'measured').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(true))
+    expect(wrapper.find('[data-testid="map-same-station"]').exists()).toBe(false)
+  })
+
+  it('keeps the number of the pick through a layer that has no station near, and finds the station again in the next that has it', async () => {
+    // Jan Mayen's number is on a forecast point; the measuring list has a station of the same id with another number
+    // (59 ids are two stations), and a decoy that carries that other number, in another place
+    const DECOY = station('10999', 'DECOY', 48.2, 11.5, { wmo_id: '99992' })
+    added(FORECAST_STATIONS, DECOY)
+    addCollision()
+    undo.push(removeCollision)
+    numbered(FORECAST_STATIONS, '01001', '99991')
+    numbered(DAILY_STATIONS, '01001', '99992')
+    const wrapper = await mountMap('/map?station=01001')
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('JAN MAYEN'))
+    await layerButton(wrapper, 'measured').trigger('click')
+    // nothing of Jan Mayen's number in the measuring list, and no station within reach of it
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(true))
+    // back: the number that was remembered is Jan Mayen's, not that of the station of the same id in the list between (which
+    // would have taken the decoy, 6,000 km away)
+    await layerButton(wrapper, 'forecast').trigger('click')
+    await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('JAN MAYEN'))
+    expect(wrapper.find('[data-testid="map-same-station"]').text()).toBe('The same station, by its WMO number 99991.')
+  })
+
+  describe('a number that a closed station keeps (the Stationslexikon, 10427: Altastenberg until 1954, Kahler Asten after)', () => {
+    const CLOSED_PREDECESSOR = station('00098', 'Altastenberg', 53.6333, 9.9881, { wmo_id: '10147', start_timestamp: '1900-01-01T00:00:00+00:00', end_timestamp: '1954-12-31T00:00:00+00:00' })
+
+    it('is not taken for the station that reports where the list has only the closed one: the station is picked again by the place', async () => {
+      numbered(FORECAST_STATIONS, '10147', '10147')
+      // the closed station holds the number, the one that reports (and is nearer to nothing else) has none
+      added(DAILY_STATIONS, CLOSED_PREDECESSOR)
+      const wrapper = await mountMap('/map?station=10147')
+      await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('HAMBURG-FUHLSBUETTEL'))
+      await layerButton(wrapper, 'measured').trigger('click')
+      // the station for the place: the one that reports within reach, before the closed one that is nearer
+      await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('Hamburg-Fuhlsbüttel'))
+      expect(wrapper.find('[data-testid="map-same-station"]').exists()).toBe(false)
+    })
+
+    it('is taken in a list that has no status, the forecast\'s points: a closed station of the observations is still the same station', async () => {
+      numbered(DAILY_STATIONS, '00011', '10148')
+      // a forecast point of the same number: the layer is a forecast, whose points have no status; Donaueschingen closed in 2001
+      added(FORECAST_STATIONS, station('10148', 'DONAUESCHINGEN', 47.98, 8.52, { wmo_id: '10148' }))
+      const wrapper = await mountMap('/map?layer=measured&station=00011')
+      await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('Donaueschingen (Landeplatz)'))
+      await layerButton(wrapper, 'forecast').trigger('click')
+      await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('DONAUESCHINGEN'))
+    })
+
+    it('has the cards go by the id first where the station picked is one of the observations: the stripes of that station, not of a station that has its number', async () => {
+      numbered(DAILY_STATIONS, '01975', '10147')
+      // the stripes list holds another station with the same number, nearer to the place than the station itself is
+      stripesStations = [
+        { ...STRIPES_STATIONS[0]!, station_id: '77777', name: 'Same number, other id', latitude: 53.6333, longitude: 9.9882, wmo_id: '10147' } as any,
+        STRIPES_STATIONS[0]!,
+      ]
+      const wrapper = await mountMap('/map?layer=measured&station=01975')
+      await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('Hamburg-Fuhlsbüttel'))
+      const card = () => wrapper.find('[data-testid="map-card-stripes"]')
+      await vi.waitFor(() => expect(card().find('a').exists()).toBe(true))
+      expect(card().find('a').attributes('href')).toContain('station=01975')
+    })
+
+    it('has the card of a station that reports skip a closed station that has its number: the one nearest that reports is offered', async () => {
+      numbered(FORECAST_STATIONS, '10147', '10147')
+      added(DAILY_STATIONS, CLOSED_PREDECESSOR)
+      const wrapper = await mountMap('/map?station=10147')
+      await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('HAMBURG-FUHLSBUETTEL'))
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-card-measured"]').text()).toContain('Hamburg-Fuhlsbüttel'))
+      expect(wrapper.find('[data-testid="map-card-same-measured"]').exists()).toBe(false)
+    })
+  })
+})

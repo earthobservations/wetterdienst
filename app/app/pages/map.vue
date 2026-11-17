@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ProviderNetworkCoverageResponse, Station, StripesStationsResponse } from '#shared/types/api'
 import type { GroupingChoice } from '~/utils/map-cluster'
-import type { CloserStation, MapLayer, MapState, MeasuredSource, PlacedStation, PlaceOrigin, Point, ReportingRule } from '~/utils/map-tool'
+import type { CloserStation, MapLayer, MapState, MeasuredSource, PickedStation, PlacedStation, PlaceOrigin, Point, ReportingRule } from '~/utils/map-tool'
 import { defineAsyncComponent } from 'vue'
 import MapForecast from '~/components/MapForecast.vue'
 import MapStationsNotLoaded from '~/components/MapStationsNotLoaded.vue'
@@ -14,13 +14,13 @@ import {
   closerStoppedStation,
   DEFAULT_MEASURED,
   distanceKm,
+  findSameStation,
   FORECAST_STATIONS_QUERY,
   forecastLink,
   formatDistance,
   formatPosition,
   historyLink,
   HOME_VIEW,
-  matchByWmo,
   MEASURED_NETWORK,
   measurementsLink,
   nearestStations,
@@ -98,11 +98,12 @@ const viewKey = computed(() => keyOf(layer.value, source.value))
 /** The view the station picked was picked in */
 let pickedIn = viewKey.value
 /**
- * The WMO number of the station picked, kept through a change of layer (GH-4077): the layer after it has the same station
- * where one of its stations carries that number. Not cleared by a layer that has none near, so that the next layer that has
- * the station finds it again; cleared by Back and by an address that names another map.
+ * The station picked, as it is found again in another layer (GH-4077): by its WMO number, and by its id where both layers are
+ * DWD's observations. Kept through a change of layer that has no station near, so that the next layer that has the station
+ * finds it again. Cleared by Back, by a click or the centre of the map that finds no station (the reader's pick is then a
+ * place with none), and by an address that names another pick; replaced by any pick.
  */
-let pickedWmo: string | null = null
+let picked: PickedStation | null = null
 /** The WMO number the station of the layer shown was found by, from the layer before: told in the panel */
 const sameStation = ref<string | null>(null)
 
@@ -348,10 +349,21 @@ let reselect = false
 /** Which stations of the layer shown have stopped, by the clock of its list: only the measuring ones have */
 const reporting = computed(() => layer.value === 'measured' ? reportingRule(stations.value) : undefined)
 
+/** What `picked` is for a station of the layer shown */
+function remember(station: PlacedStation): PickedStation {
+  return {
+    station_id: station.station_id,
+    wmo: wmoNumber(station),
+    observation: layer.value === 'measured',
+    // a forecast point has no status, and counts as current
+    reports: layer.value === 'measured' && reporting.value ? reporting.value(station) : true,
+  }
+}
+
 function choose(station: PlacedStation, options: { point?: Point, focus?: boolean, from?: PlaceOrigin } = {}) {
   selectedId.value = station.station_id
   pickedIn = viewKey.value
-  pickedWmo = wmoNumber(station)
+  picked = remember(station)
   sameStation.value = null
   anchor.value = options.point ?? { latitude: station.latitude, longitude: station.longitude }
   // a station chosen by name, from the list or by its dot, is a place of its own: no click was made
@@ -401,10 +413,14 @@ function pickAt(point: Point, tolerance: number, focus = false, tap = 0, disc = 
   if (touched)
     return choose(touched.station, { point, focus, from })
   const found = stationFor(stations.value, point, reporting.value)
-  if (found)
+  if (found) {
     choose(found.station, { point, focus, from })
-  else
+  }
+  else {
+    // the pick is a place with no station: the station before is not carried to the next layer for it
+    picked = null
     tellNoStationNear(point, from)
+  }
 }
 
 /**
@@ -436,7 +452,7 @@ function onGroup(count: number) {
 function back() {
   const id = selectedId.value
   selectedId.value = null
-  pickedWmo = null
+  picked = null
   sameStation.value = null
   anchor.value = null
   reselect = false
@@ -460,11 +476,12 @@ function back() {
  */
 function pickAgain(list: PlacedStation[]) {
   const point = anchor.value!
-  const same = matchByWmo(list, pickedWmo)
-  if (same.kind === 'one') {
+  const same = picked ? findSameStation(list, picked, layer.value === 'measured', reporting.value) : null
+  if (same?.by === 'wmo') {
     const found = same.station
     selectedId.value = found.station_id
     pickedIn = viewKey.value
+    picked = remember(found)
     unknownStation.value = null
     noStationNear.value = false
     // the place was the position of the station before: it is the position of this one
@@ -477,12 +494,13 @@ function pickAgain(list: PlacedStation[]) {
     return
   }
   sameStation.value = null
-  const found = stationAt(list, point, SAME_PLACE_KM) ?? stationFor(list, point, reporting.value)?.station
+  // by its id where both lists are DWD's observations (another dataset), else by the place
+  const found = same?.station ?? stationAt(list, point, SAME_PLACE_KM) ?? stationFor(list, point, reporting.value)?.station
   if (!found)
     return tellNoStationNear(point, origin.value)
   selectedId.value = found.station_id
   pickedIn = viewKey.value
-  pickedWmo = wmoNumber(found)
+  picked = remember(found)
   unknownStation.value = null
   noStationNear.value = false
   // told, as a station that the reader chose is: it is another station than the one in the heading before
@@ -528,7 +546,10 @@ watch([viewKey, stations], ([key, list], [previousKey]) => {
 watch(selected, (station) => {
   if (!station)
     return
-  pickedWmo = wmoNumber(station)
+  // what is remembered is the station of the view it was picked in: with the list of another view under the same id (59 ids
+  // are two stations) the station is not the one picked, and the watch of the list does not depend on running before this
+  if (pickedIn === viewKey.value)
+    picked = remember(station)
   if (!anchor.value) {
     anchor.value = { latitude: station.latitude, longitude: station.longitude }
     origin.value = { kind: 'station', name: stationName(station) }
@@ -551,7 +572,7 @@ watch(sourceKey, () => {
  * The station of a card: the station picked, for the layer it is of, and for the others the nearest within reach of
  * the place (`stationFor`), with its distance from the place, none where it is under half a kilometre.
  */
-function cardFor(list: PlacedStation[], isShown: boolean, running?: ReportingRule): { station: PlacedStation, distance: number, same?: boolean } | null {
+function cardFor(list: PlacedStation[], isShown: boolean, running?: ReportingRule, inObservation = false): { station: PlacedStation, distance: number, same?: boolean } | null {
   if (!selected.value)
     return null
   const point = anchor.value ?? selected.value
@@ -559,17 +580,19 @@ function cardFor(list: PlacedStation[], isShown: boolean, running?: ReportingRul
     const distance = distanceKm(point, selected.value)
     return { station: selected.value, distance: distance > SAME_PLACE_KM ? distance : 0 }
   }
-  // the same station of another list, by its WMO number where both have one (GH-4077): not a station near the place
-  const same = matchByWmo(list, wmoNumber(selected.value))
-  if (same.kind === 'one')
-    return { station: same.station, distance: 0, same: true }
+  // the same station of another list (GH-4077): by its id where both lists are DWD's observations, by its WMO number where
+  // exactly one station of the list has it and does not report less than the station picked. Not a station near the place
+  const same = findSameStation(list, remember(selected.value), inObservation, running)
+  if (same)
+    return { station: same.station, distance: 0, same: same.by === 'wmo' || undefined }
   return stationFor(list, point, running)
 }
 const forecastPoint = computed(() => cardFor(forecast.stations.value, layer.value === 'forecast'))
 const stripesRule = computed(() => reportingRule(stripes.stations.value))
 const measuredRule = computed(() => reportingRule(measured.stations.value))
-const stripesPoint = computed(() => cardFor(stripes.stations.value, false, stripesRule.value))
-const measuredPoint = computed(() => cardFor(measured.stations.value, layer.value === 'measured', measuredRule.value))
+// the stripes' stations are DWD's observations: the same id is the same station where the station picked is one too
+const stripesPoint = computed(() => cardFor(stripes.stations.value, false, stripesRule.value, true))
+const measuredPoint = computed(() => cardFor(measured.stations.value, layer.value === 'measured', measuredRule.value, true))
 
 /** The nearer station that has stopped, where the one the card offers is farther because it reports (GH-3875) */
 const measuredCloser = computed(() => {
@@ -654,6 +677,9 @@ watch(() => route.query, (query) => {
   noStationNear.value = false
   if (newPick) {
     selectedId.value = named.stationId
+    // another pick than the one remembered: the station of the address is remembered when its list brings it
+    picked = null
+    sameStation.value = null
     unknownStation.value = null
     announcement.value = ''
     fromAddress = Boolean(named.stationId)
