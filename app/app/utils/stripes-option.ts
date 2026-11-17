@@ -11,7 +11,7 @@ import type { StripesKind } from '#shared/types/api'
 import type { ChartTheme } from './chart-theme'
 import type { StripesModel, YearRun, YearWindow } from './stripes-model'
 import { seriesLabelColor } from './chart-theme'
-import { COLOR_MAPS, stripeColour } from './stripes'
+import { stripeColour } from './stripes'
 import { availabilityRuns, MIN_SPAN_STRIPES, visibleYears } from './stripes-model'
 
 /** The font of the chart, on the page and in a saved image, which has no web font of the page's to draw with */
@@ -71,6 +71,11 @@ export interface StripesOptionInput {
   fontFamily?: string
   /** The paper behind the chart: the page's own shows through on the page (none), a saved image has its own */
   background?: string
+  /**
+   * Rows of text under the source, each on a line of its own: what a saved image says of its colours (what they are relative
+   * to), which the page says under the chart. The chart on the page has none (GH-4157).
+   */
+  extraLines?: readonly string[]
 }
 
 /** Where everything is, in px from the chart's top left */
@@ -88,15 +93,22 @@ export interface StripesLayout {
 }
 
 /** The margins round the plot, in px: above it the title, below it the years and the source, as the chart has always had them */
-function plotMargins(display: StripesDisplay, titleLineCount: number) {
+function plotMargins(display: StripesDisplay, titleLineCount: number, extraLines = 0) {
   const lines = Math.max(1, titleLineCount)
   const titleDrop = lines > 1 ? TITLE_DROP : 0
   const top = display.showTitle ? 30 + (lines - 1) * TITLE_LINE + titleDrop : 20
   // below the plot, in px from its bottom edge, so that they keep their distances in an image of another height: the years
   // (18 px type) from 20 px down, the source under them (14 px type, in a margin of a line of 20 px)
   const sourceOffset = display.showYears ? 48 : 28
-  const bottom = display.showSource ? Math.max(60, sourceOffset + 32) : 60
+  // a row of text is 20 px; the source and the extra rows (of a saved image) are the rows, the first at `sourceOffset`
+  const rows = (display.showSource ? 1 : 0) + extraLines
+  const bottom = rows > 0 ? Math.max(60, sourceOffset + 12 + 20 * rows) : 60
   return { top, bottom, sourceOffset, lines, titleDrop }
+}
+
+/** How much more room below the plot `extraLines` rows of text take, in px: what a saved image is made higher by */
+export function extraLinesHeight(display: StripesDisplay, extraLines: number): number {
+  return plotMargins(display, 1, extraLines).bottom - plotMargins(display, 1).bottom
 }
 
 /** The margin above and below the stripes in the plot: where the availability line lies, none without it */
@@ -110,16 +122,16 @@ function stripesMargin(display: StripesDisplay): number {
  * `STRIPES_MIN_HEIGHT` and `STRIPES_MAX_HEIGHT`; a saved image is not (`clamp: false`), so that it has the ratio of the
  * stripes at any width. Whole px, so that the chart's box and its drawing agree.
  */
-export function stripesChartHeight(display: StripesDisplay, width: number, titleLineCount: number, options: { clamp?: boolean } = {}): number {
-  const { top, bottom } = plotMargins(display, titleLineCount)
+export function stripesChartHeight(display: StripesDisplay, width: number, titleLineCount: number, options: { clamp?: boolean, extraLines?: number } = {}): number {
+  const { top, bottom } = plotMargins(display, titleLineCount, options.extraLines)
   const natural = Math.max(1, width - 40) / STRIPES_RATIO
   const stripes = options.clamp === false ? natural : Math.min(STRIPES_MAX_HEIGHT, Math.max(STRIPES_MIN_HEIGHT, natural))
   return Math.round(top + stripes + 2 * stripesMargin(display) + bottom)
 }
 
 /** The room the years and the source take below the stripes, and the margins round them */
-export function stripesLayout(display: StripesDisplay, width: number, height: number, titleLineCount: number): StripesLayout {
-  const { top, bottom, sourceOffset, lines, titleDrop } = plotMargins(display, titleLineCount)
+export function stripesLayout(display: StripesDisplay, width: number, height: number, titleLineCount: number, extraLines = 0): StripesLayout {
+  const { top, bottom, sourceOffset, lines, titleDrop } = plotMargins(display, titleLineCount, extraLines)
   const plot = { left: 20, top, width: Math.max(1, width - 40), height: Math.max(1, height - top - bottom) }
   const margin = Math.min(stripesMargin(display), (plot.height - 1) / 2)
   const stripes = { top: plot.top + margin, height: plot.height - 2 * margin }
@@ -170,6 +182,9 @@ export function stripesTexts(input: StripesOptionInput, layout: StripesLayout): 
   // on a row of its own below the years, as it is on a chart too narrow to hold the two side by side
   if (display.showSource)
     texts.push({ text: input.sourceText, x: layout.plot.left + layout.plot.width / 2, y: layout.sourceTop, fill: theme.textMuted, size: 14, align: 'center', baseline: 'top' })
+  // what a saved image says of its colours, under the source (or in its place where the source is not shown)
+  const first_row = display.showSource ? 1 : 0
+  input.extraLines?.forEach((text, index) => texts.push({ text, x: layout.plot.left + layout.plot.width / 2, y: layout.sourceTop + 20 * (first_row + index), fill: theme.textMuted, size: 14, align: 'center', baseline: 'top' }))
   return texts
 }
 
@@ -197,7 +212,7 @@ function labelsSeries(input: StripesOptionInput, layout: StripesLayout) {
 
 /** The part of the option that a move of the window changes: the zoom and the years named at the ends. Merged into the chart's option. */
 export function windowUpdate(input: StripesOptionInput): EChartsCoreOption {
-  const layout = stripesLayout(input.display, input.width, input.height, input.titleLines.length)
+  const layout = stripesLayout(input.display, input.width, input.height, input.titleLines.length, input.extraLines?.length ?? 0)
   return {
     dataZoom: [{ id: 'zoom', startValue: input.window.start, endValue: input.window.end }],
     series: [labelsSeries(input, layout)],
@@ -249,9 +264,9 @@ function availabilitySeries(model: StripesModel, layout: StripesLayout, base: Re
 /** The option of the stripes in `input` */
 export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption {
   const { model, kind, display, window: win } = input
-  const layout = stripesLayout(display, input.width, input.height, input.titleLines.length)
-  const scale = COLOR_MAPS[kind]
-  const colours = model.normalized.map(position => stripeColour(scale, position))
+  const layout = stripesLayout(display, input.width, input.height, input.titleLines.length, input.extraLines?.length ?? 0)
+  // the classes the backend gives the years, against the station's whole record and not the years shown (GH-4157)
+  const colours = model.classes.map(stripeClass => stripeColour(kind, stripeClass))
   const bounds = { start: model.minYear - 0.5, end: model.maxYear + 0.5 }
   const base = { xAxisIndex: 0, yAxisIndex: 0, silent: true, animation: false, clip: true }
   const line = (id: string, data: (number | null)[][], style: Record<string, unknown>, z: number) => ({

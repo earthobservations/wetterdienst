@@ -663,6 +663,7 @@
     "plotTitle": "Klimaatstrepen ({kind}) voor {name}, Duitsland ({id})",
     "plotDataAvailability": "Gegevensbeschikbaarheid",
     "plotSource": "Bron: Deutscher Wetterdienst",
+    "plotReference": "Kleuren: gemiddelde van {centre}, ±{sigma} σ van {spread}",
     "hoverValue": "Waarde",
     "hoverTrend": "Trend",
     "chart": {
@@ -678,13 +679,16 @@
       "keysHint": "De pijltjestoetsen lopen door de jaren, Page Up en Page Down per tien jaar, Home en End naar de eerste en de laatste. Plus, min en 0 zoomen in, zoomen uit en herstellen. Escape sluit de waarden."
     },
     "summary": "Van {from} tot {to}. Laagste waarde {min} in {minYear}, hoogste waarde {max} in {maxYear}.",
+    "reference": "Kleuren: het gemiddelde van {centre} is het midden van de schaal, die ±{sigma} standaardafwijkingen van {spread} omvat (methode van Ed Hawkins).",
+    "referenceWhole": "de hele reeks ({from}–{to})",
     "table": {
       "year": "Jaar",
       "value": "Waarde",
+      "anomaly": "Afwijking",
       "class": "Klasse",
       "note": {
-        "temperature": "Klasse: waar het jaar ligt tussen het koelste en het warmste getoonde jaar, in vijfden. Het is de kleur van de streep, van donkerblauw (koelste) tot donkerrood (warmste).",
-        "precipitation": "Klasse: waar het jaar ligt tussen het droogste en het natste getoonde jaar, in vijfden. Het is de kleur van de streep, van bruin (droogste) tot donkergroen (natste)."
+        "temperature": "Klasse: hoe ver het jaar van het gemiddelde van de referentie ligt. De strepen hebben 16 kleuren, één per 0,325 standaardafwijking, van donkerblauw (koelste) tot donkerrood (warmste); de klasse noemt ze in vijf groepen. Afwijking: de afstand tot het gemiddelde, in de eenheid van de waarde.",
+        "precipitation": "Klasse: hoe ver het jaar van het gemiddelde van de referentie ligt. De strepen hebben 16 kleuren, één per 0,325 standaardafwijking, van bruin (droogste) tot donkergroen (natste); de klasse noemt ze in vijf groepen. Afwijking: de afstand tot het gemiddelde, in de eenheid van de waarde."
       },
       "classes": {
         "temperature": {

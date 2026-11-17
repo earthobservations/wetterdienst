@@ -14,18 +14,21 @@ import type { ECharts } from 'echarts/core'
  */
 import type { StripesKind } from '#shared/types/api'
 import type { ImageFormat } from '~/utils/chart-image'
-import type { StripesInput, YearWindow } from '~/utils/stripes-model'
+import type { StripesReferenceView } from '~/utils/stripes'
+import type { StripesInput, StripesReferenceInput, YearWindow } from '~/utils/stripes-model'
 import type { StripesDisplay, StripesOptionInput } from '~/utils/stripes-option'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { downloadBlob, svgToBlob } from '~/utils/chart-image'
 import { readDocumentChartTheme } from '~/utils/chart-theme'
-import { formatNumber } from '~/utils/format'
-import { COLOR_MAPS, stripeClass, stripeColour, wrapChartTitle } from '~/utils/stripes'
+import { formatNumber, formatSigned } from '~/utils/format'
+import { stripeBand, stripeColour, stripesReferenceText, wrapChartTitle } from '~/utils/stripes'
 import { buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, zoomWindow } from '~/utils/stripes-model'
-import { buildStripesOption, CAMERA_SCALE, CAMERA_WIDTH, STRIPES_FONT_FAMILY, stripesChartHeight, stripesLayout, TITLE_PADDING, TITLE_SIZE, windowUpdate, xOfYear } from '~/utils/stripes-option'
+import { buildStripesOption, CAMERA_SCALE, CAMERA_WIDTH, extraLinesHeight, STRIPES_FONT_FAMILY, stripesChartHeight, stripesLayout, TITLE_PADDING, TITLE_SIZE, windowUpdate, xOfYear } from '~/utils/stripes-option'
 
 const props = defineProps<{
   values: readonly StripesInput[]
+  /** what the values' classes are relative to: the lines are placed on its scale */
+  reference: StripesReferenceInput & StripesReferenceView
   kind: StripesKind
   /** the unit's symbol, which the readout names the values in */
   unit: string
@@ -63,7 +66,7 @@ const announcement = ref('')
 
 // -- what is drawn ------------------------------------------------------------------------------------------------
 
-const model = computed(() => buildStripesModel(props.values))
+const model = computed(() => buildStripesModel(props.values, props.reference))
 const bounds = computed<YearWindow | null>(() => model.value ? fullWindow(model.value) : null)
 /** The years that have a stripe, in order, with where each is in the model */
 const stripes = computed(() => (model.value?.years ?? []).map((year, index) => ({ year, index })).sort((a, b) => a.year - b.year))
@@ -147,7 +150,7 @@ function rowOf(year: number | null) {
   if (!m || year === null)
     return null
   const index = m.years.indexOf(year)
-  return index < 0 ? null : { year, index, value: m.values[index]!, trend: m.trend[index]! }
+  return index < 0 ? null : { year, index, value: m.values[index]!, trend: m.trend[index]!, stripeClass: m.classes[index]!, anomaly: m.anomalies[index]! }
 }
 
 const outerPx = computed(() => width.value)
@@ -174,10 +177,11 @@ const readout = computed(() => {
   const rows = [{ id: 'value', label: t('stripes.hoverValue'), value: formatValue(row.value) }]
   if (trendShown.value)
     rows.push({ id: 'trend', label: t('stripes.hoverTrend'), value: formatValue(row.trend) })
-  rows.push({ id: 'class', label: t('stripes.table.class'), value: t(`stripes.table.classes.${props.kind}.${stripeClass(row.value, m.min, m.max)}`) })
+  // the class as the backend gives it, with how far the year lies from the mean of the reference
+  rows.push({ id: 'class', label: t('stripes.table.class'), value: `${t(`stripes.table.classes.${props.kind}.${stripeBand(row.stripeClass)}`)} (${formatSigned(row.anomaly, locale.value, 1)} ${props.unit})`.trim() })
   return {
     year: String(row.year),
-    colour: stripeColour(COLOR_MAPS[props.kind], m.normalized[row.index]!),
+    colour: stripeColour(props.kind, row.stripeClass),
     rows,
   }
 })
@@ -604,21 +608,29 @@ onBeforeUnmount(() => {
   disposeChart()
 })
 
+/** What the colours are relative to, in the short form a saved image carries under its source */
+function referenceCaption() {
+  return stripesReferenceText(props.reference, t, value => formatNumber(value, locale.value, 1), 'stripes.plotReference')
+}
+
 // -- saving the image ---------------------------------------------------------------------------------------------
 
 /**
  * Saves the stripes as a file of `width` by `height` px (times `scale`, for a raster image). A saved image is always the
  * light one, whatever the page shows: the stripes are drawn again, off screen, in the light theme, laid out for the width
  * of the image (its title is broken into lines where the image is narrow, not where the page is), in the range the stripes
- * are zoomed to.
+ * are zoomed to. It says what its colours are relative to under the source, in lines as many as its width needs, which
+ * make it higher than `height` (the image's own, from the title to the source) by their room (GH-4157).
  */
 async function save(options: { format: ImageFormat, filename: string, width: number, height: number, scale: number }) {
-  const { format, filename, width: imageWidth, height: imageHeight, scale } = options
+  const { format, filename, width: imageWidth, scale } = options
   const light = readDocumentChartTheme('light')
   const lines = titleLinesFor(imageWidth)
+  const extraLines = wrapChartTitle(referenceCaption(), imageWidth - 40, `14px ${STRIPES_FONT_FAMILY}`).text.split('<br>')
+  const imageHeight = options.height + extraLinesHeight(props.display, extraLines.length)
   // the paper is part of the image: a vector with dark text on nothing is unreadable on a dark page that shows it
   const paper = light.paper || '#ffffff'
-  const input = optionInput({ theme: light, width: imageWidth, height: imageHeight, titleLines: lines, background: paper })
+  const input = optionInput({ theme: light, width: imageWidth, height: imageHeight, titleLines: lines, background: paper, extraLines })
   if (!input)
     return
   const lib = await loadChartCode()

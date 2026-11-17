@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { nextTick } from 'vue'
 import { clearNuxtData, clearNuxtState, useMyLocation, useRouter } from '#imports'
 import MapPage from '~/pages/map.vue'
+import { stripesAnswer } from '../../helpers/stripes-answer'
 
 // The map tool (GH-3650): the layers the chips choose, the station a click or the list picks and what the panel shows
 // of it, the answers that are empty or fail, the address, and the order of the map and its panel on a phone. The map
@@ -118,7 +119,8 @@ function stripesValuesOf(event: H3Event) {
   return {
     metadata: {},
     series: { station: STRIPES_STATIONS[0], resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
-    values: Array.from({ length: 20 }, (_, index) => ({ timestamp: `${2000 + index}-01-01T00:00:00+00:00`, value: 8 + index * 0.05 })),
+    // with the classes the backend gives them
+    ...stripesAnswer(Array.from({ length: 20 }, (_, index) => ({ year: 2000 + index, value: 8 + index * 0.05 }))),
   }
 }
 
@@ -379,7 +381,7 @@ describe('a station picked', () => {
     expect(card().find('[role="img"]').attributes('aria-label')).toBe('Climate stripes of Hamburg-Fuhlsbüttel')
     expect(card().findAll('.map-stripes span')).toHaveLength(20)
     // the figure is described in words: the span of the years, the lowest and the highest
-    expect(card().find('figcaption').text()).toMatch(/^From 2000 to 2019\. Lowest value 8\.0 .+ in 2000, highest value 9\.0 .+ in 2019\.$/)
+    expect(card().find('figcaption').text()).toMatch(/^From 2000 to 2019\. Lowest value 8\.0 .+ in 2000, highest value 9\.0 .+ in 2019\. Colours: the mean of the whole record \(2000–2019\) .+ \(Ed Hawkins. method\)\.$/)
     expect(card().find('a').attributes('href')).toBe('/stripes?kind=temperature&station=01975')
     expect(asked.stripesValues).toEqual(['01975'])
   })

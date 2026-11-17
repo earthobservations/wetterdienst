@@ -663,6 +663,7 @@
     "plotTitle": "Klimastreifen ({kind}) für {name}, Deutschland ({id})",
     "plotDataAvailability": "Datenverfügbarkeit",
     "plotSource": "Quelle: Deutscher Wetterdienst",
+    "plotReference": "Farben: Mittel von {centre}, ±{sigma} σ von {spread}",
     "hoverValue": "Wert",
     "hoverTrend": "Trend",
     "chart": {
@@ -678,13 +679,16 @@
       "keysHint": "Mit den Pfeiltasten gehst du jahresweise durch die Streifen, mit Bild auf und Bild ab in Zehnerschritten, mit Pos1 und Ende zum ersten und zum letzten. Plus, Minus und 0 vergrößern, verkleinern und setzen zurück. Esc schließt die Werte."
     },
     "summary": "Von {from} bis {to}. Niedrigster Wert {min} im Jahr {minYear}, höchster Wert {max} im Jahr {maxYear}.",
+    "reference": "Farben: Das Mittel von {centre} ist die Mitte der Skala, die ±{sigma} Standardabweichungen von {spread} umfasst (Methode von Ed Hawkins).",
+    "referenceWhole": "der gesamten Zeitreihe ({from}–{to})",
     "table": {
       "year": "Jahr",
       "value": "Wert",
+      "anomaly": "Abweichung",
       "class": "Klasse",
       "note": {
-        "temperature": "Klasse: Wo das Jahr zwischen dem kühlsten und dem wärmsten gezeigten Jahr liegt, in Fünfteln. Das ist die Farbe seines Streifens, von Dunkelblau (kühlstes) bis Dunkelrot (wärmstes).",
-        "precipitation": "Klasse: Wo das Jahr zwischen dem trockensten und dem nassesten gezeigten Jahr liegt, in Fünfteln. Das ist die Farbe seines Streifens, von Braun (trockenstes) bis Dunkelgrün (nassestes)."
+        "temperature": "Klasse: wie weit das Jahr vom Mittel der Bezugsperiode entfernt liegt. Die Streifen haben 16 Farben, eine je 0,325 Standardabweichungen, von Dunkelblau (kühlstes) bis Dunkelrot (wärmstes); die Klasse fasst sie in fünf Gruppen zusammen. Abweichung: der Abstand zum Mittel in der Einheit des Werts.",
+        "precipitation": "Klasse: wie weit das Jahr vom Mittel der Bezugsperiode entfernt liegt. Die Streifen haben 16 Farben, eine je 0,325 Standardabweichungen, von Braun (trockenstes) bis Dunkelgrün (nassestes); die Klasse fasst sie in fünf Gruppen zusammen. Abweichung: der Abstand zum Mittel in der Einheit des Werts."
       },
       "classes": {
         "temperature": {

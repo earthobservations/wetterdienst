@@ -128,7 +128,8 @@ function onPickerWants(wanted: boolean) {
     void loadStations()
 }
 
-// Single-station picker: the picker hands over the one station picked, or none where its chip is removed
+// Single-station picker: the picker hands over the one station picked; a pick replaces the one before, and none is
+// only handed over by code (the picker has no way to clear a single station)
 function onPick(picked: Station[]) {
   selectedStation.value = picked[0] ?? null
 }

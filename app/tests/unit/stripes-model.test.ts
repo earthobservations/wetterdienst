@@ -1,43 +1,92 @@
+import type { StripesInput, StripesReferenceInput } from '../../app/utils/stripes-model'
 import { describe, expect, it } from 'vitest'
 import { availabilityRuns, buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, visibleYears, zoomWindow } from '../../app/utils/stripes-model'
+import { recordOf, stripesAnswer } from '../helpers/stripes-answer'
 
-const answer = (years: number[], value = (year: number) => year / 100) => years.map(year => ({ timestamp: `${year}-01-01T00:00:00+00:00`, value: value(year) }))
+// a reference with its centre at 10 and 1 standard deviation: the scale reaches from 7.4 to 12.6
+const REFERENCE: StripesReferenceInput = { centre: { value: 10 }, spread: { value: 1 }, range_sigma: 2.6 }
+const input = (timestamp: string | null, value: number | null, anomaly: number | null = null, stripe_class: number | null = null): StripesInput => ({ timestamp, value, anomaly, stripe_class })
+
+function answer(years: number[], value = (year: number) => year / 100) {
+  const items = stripesAnswer(years.map(year => ({ year, value: value(year) })))
+  return { values: items.values, reference: items.reference }
+}
 
 describe('buildStripesModel', () => {
   it('has no model where nothing can be drawn', () => {
-    expect(buildStripesModel([])).toBeNull()
-    expect(buildStripesModel([{ timestamp: '2000-01-01T00:00:00+00:00', value: null }, { timestamp: null, value: 3 }])).toBeNull()
+    expect(buildStripesModel([], REFERENCE)).toBeNull()
+    expect(buildStripesModel([input('2000-01-01T00:00:00+00:00', null), input(null, 3, 0, 8)], REFERENCE)).toBeNull()
   })
 
-  it('reads each year in UTC, from the years with a value, and places the values between the lowest and the highest', () => {
+  it('reads each year in UTC, from the years with a value, with the anomaly and class the answer gives them', () => {
     const model = buildStripesModel([
-      { timestamp: '2001-01-01T00:00:00+00:00', value: 10 },
-      { timestamp: '2002-01-01T00:00:00+00:00', value: null },
-      { timestamp: '2003-01-01T00:00:00+00:00', value: 20 },
-      { timestamp: '2004-01-01T00:00:00+00:00', value: 15 },
-    ])!
+      input('2001-01-01T00:00:00+00:00', 10, 0, 8),
+      input('2002-01-01T00:00:00+00:00', null),
+      input('2003-01-01T00:00:00+00:00', 11, 1, 11),
+      input('2004-01-01T00:00:00+00:00', 9, -1, 4),
+    ], REFERENCE)!
     expect(model.years).toEqual([2001, 2003, 2004])
-    expect(model.normalized).toEqual([0, 1, 0.5])
-    expect([model.minYear, model.maxYear, model.min, model.max]).toEqual([2001, 2004, 10, 20])
+    expect(model.classes).toEqual([8, 11, 4])
+    expect(model.anomalies).toEqual([0, 1, -1])
+    expect([model.minYear, model.maxYear]).toEqual([2001, 2004])
     // the availability line is broken where a year has no value
     expect(model.availability).toEqual([-0.02, null, -0.02, -0.02])
   })
 
-  it('puts years that are all alike in the middle of the scale, not at NaN', () => {
-    const model = buildStripesModel(answer([2000, 2001], () => 7))!
+  it('places the values on the scale of the reference: the centre in the middle, 2.6 standard deviations at an edge', () => {
+    const model = buildStripesModel([
+      input('2001-01-01T00:00:00+00:00', 10, 0, 8),
+      input('2002-01-01T00:00:00+00:00', 12.6, 2.6, 15),
+      input('2003-01-01T00:00:00+00:00', 7.4, -2.6, 0),
+      input('2004-01-01T00:00:00+00:00', 11.3, 1.3, 12),
+    ], REFERENCE)!
+    expect(model.normalized.map(value => Math.round(value * 1e9) / 1e9)).toEqual([0.5, 1, 0, 0.75])
+  })
+
+  it('puts a value beyond the scale on its edge, as its stripe is in the end class', () => {
+    const model = buildStripesModel([input('2001-01-01T00:00:00+00:00', 40, 30, 15), input('2002-01-01T00:00:00+00:00', -20, -30, 0)], REFERENCE)!
+    expect(model.normalized).toEqual([1, 0])
+    expect(model.classes).toEqual([15, 0])
+  })
+
+  it('does not place a value by the years shown: a window of the record leaves the lines where the whole record has them', () => {
+    const record = recordOf(1950, 2020, year => 8 + (year - 1950) * 0.04 + (year % 2 ? 0.3 : -0.3))
+    const whole = stripesAnswer(record)
+    const window = stripesAnswer(record, { start: 2005, end: 2015 })
+    const modelOf = (data: typeof whole) => buildStripesModel(data.values, data.reference)!
+    const all = modelOf(whole)
+    const part = modelOf(window)
+    expect(part.years).toEqual(Array.from({ length: 11 }, (_, index) => 2005 + index))
+    expect(part.classes).toEqual(all.classes.slice(all.years.indexOf(2005), all.years.indexOf(2015) + 1))
+    expect(part.normalized).toEqual(all.normalized.slice(all.years.indexOf(2005), all.years.indexOf(2015) + 1))
+  })
+
+  it('puts years of no spread in the middle of the scale, not at NaN', () => {
+    const model = buildStripesModel([input('2000-01-01T00:00:00+00:00', 7, 0, 8), input('2001-01-01T00:00:00+00:00', 7, 0, 8)], { centre: { value: 7 }, spread: { value: 0 }, range_sigma: 2.6 })!
     expect(model.normalized).toEqual([0.5, 0.5])
     expect(model.normalizedTrend.every(Number.isFinite)).toBe(true)
   })
 
-  it('draws the least-squares line through the years', () => {
-    const model = buildStripesModel(answer([2000, 2001, 2002, 2003], year => 2 * (year - 2000) + 1))!
-    expect(model.trend.map(value => Math.round(value * 1e6) / 1e6)).toEqual([1, 3, 5, 7])
-    expect(model.normalizedTrend.map(value => Math.round(value * 1e6) / 1e6)).toEqual([0, 1 / 3, 2 / 3, 1].map(value => Math.round(value * 1e6) / 1e6))
+  it('draws the least-squares line through the years, on the same scale', () => {
+    const items = [2000, 2001, 2002, 2003].map((year, index) => input(`${year}-01-01T00:00:00+00:00`, 9 + index, -1 + index, 4 + index * 3))
+    const model = buildStripesModel(items, REFERENCE)!
+    expect(model.trend.map(value => Math.round(value * 1e6) / 1e6)).toEqual([9, 10, 11, 12])
+    // 1 standard deviation is 1 / 5.2 of the scale
+    expect(model.normalizedTrend.map(value => Math.round(value * 1e6) / 1e6)).toEqual([0.5 - 1 / 5.2, 0.5, 0.5 + 1 / 5.2, 0.5 + 2 / 5.2].map(value => Math.round(value * 1e6) / 1e6))
   })
 
   it('does not divide by nothing for a single year', () => {
-    const model = buildStripesModel(answer([2000]))!
+    const model = buildStripesModel([input('2000-01-01T00:00:00+00:00', 20, 10, 15)], REFERENCE)!
     expect(model.trend).toEqual([20])
+  })
+
+  it('draws the classes of a long record as the backend would give them', () => {
+    const data = answer(Array.from({ length: 120 }, (_, index) => 1901 + index), year => 8 + (year - 1901) * 0.02)
+    const model = buildStripesModel(data.values, data.reference)!
+    // warming from below the mean of 1971 to 2000 to above it, with the classes rising with it
+    expect(model.classes[0]).toBe(0)
+    expect(model.classes.at(-1)).toBeGreaterThan(8)
+    expect(model.classes).toEqual([...model.classes].sort((a, b) => a - b))
   })
 })
 
@@ -104,7 +153,8 @@ describe('the window of years', () => {
 describe('availabilityRuns (GH-4153)', () => {
   /** The runs of the years of an answer that has a value for `years` */
   const runsOf = (years: number[]) => {
-    const model = buildStripesModel(answer(years))!
+    const data = answer(years)
+    const model = buildStripesModel(data.values, data.reference)!
     return availabilityRuns(model.availability, model.minYear)
   }
 

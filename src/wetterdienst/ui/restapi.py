@@ -94,6 +94,7 @@ from wetterdienst.ui.core import (
     SettingsRequest,
     StationsRequest,
     StripesImageRequest,
+    StripesReference,
     StripesSeries,
     StripesStationsRequest,
     StripesValuesRequest,
@@ -788,11 +789,14 @@ class _AlertsWithMetadataOgcFeatureCollection(TypedDict):
 class _StripesValue(TypedDict):
     timestamp: str | None
     value: float | None
+    anomaly: float | None
+    stripe_class: int | None
 
 
 class _StripesValuesWithMetadataDict(TypedDict):
     metadata: ResponseMetadata
     series: StripesSeries
+    reference: StripesReference
     values: list[_StripesValue]
 
 
@@ -2621,7 +2625,11 @@ def stripes_stations(
     request: Annotated[StripesStationsRequest, Query()],
     http_request: Request,
 ) -> Response:
-    """Wrap get_climate_stripes_temperature_request to provide results via restapi."""
+    """List the stations climate stripes are made for.
+
+    A station whose record spans fewer than 10 calendar years (first to last, inclusive) is left out, as stripes of
+    fewer than 10 years with data are refused. A station with gaps in a longer span is listed and may still be refused.
+    """
     begin_response()
 
     # the provider request below builds its settings from the environment inside the handler: checked
@@ -2659,8 +2667,14 @@ def stripes_values(
     "degree_celsius"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for
     `/api/values`, e.g. {"temperature": "degree_fahrenheit"}; the server's
     WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the
-    quantity where the values are converted, the source's unit where not. The colours of the stripes
-    (`/api/stripes/image`) are relative to the years' own range and are the same in any unit.
+    quantity where the values are converted, the source's unit where not.
+
+    The colours follow Ed Hawkins' method: each value has its `anomaly` to the mean of 1971-2000 and its
+    `stripe_class`, 0 (the lowest) to 15, in steps of 0.325 standard deviations of the annual values of
+    1901-2000 (+/-2.6 standard deviations in 16 classes, the outermost taking what lies beyond). The `reference`
+    names the mean and the standard deviation, in the unit of the values, and the years they are calculated from;
+    a station with too few years in a period takes its whole record for it (`fallback`). A year's class
+    does not depend on `start_year` and `end_year`, and is the same in any unit.
     """
     begin_response()
 

@@ -254,9 +254,10 @@ class ResponseMetadata(BaseModel):
     processing_note: str = Field(
         description="What wetterdienst did to the data: it was reshaped into a uniform table and its units "
         "converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected "
-        "or calculated from the provider's readings, and the headers of the climate stripes' image that it is drawn "
-        "from the provider's annual values. The same text for every provider and licence, so that a licence that asks "
-        "for changes to be indicated has them said; no legal advice.",
+        "or calculated from the provider's readings, those of the climate stripes what their anomalies and classes "
+        "are relative to, and the headers of the stripes' image that it is drawn from the annual values. The same "
+        "text for every provider and licence, so that a licence that asks for changes to be indicated has them said; "
+        "no legal advice.",
     )
     request: ResolvedRequest
     counts: Counts
@@ -415,17 +416,19 @@ def _block_without_result(
     rows: int,
     data_updated_at: dt.datetime | None = None,
     image: bool = False,
+    calculated: str | None = None,
 ) -> ResponseMetadata:
     """Build the block of an answer that is made from no stations result: the provider's terms and the request.
 
     The date the source states for the data is the caller's to give, for an answer that has one (the warnings), and
-    so is whether the answer is an `image` drawn from the values (the climate stripes' image).
+    so is whether the answer is an `image` drawn from the values (the climate stripes' image) and the `calculated`
+    sentence of numbers calculated from them besides (the stripes' classes).
     """
     return ResponseMetadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
-        **describe_provider(_provider_terms(api), data_updated_at, image=image),
+        **describe_provider(_provider_terms(api), data_updated_at, image=image, calculated=calculated),
         request=request,
         counts=Counts(stations=stations, rows=rows),
         crs=Crs(),
@@ -454,8 +457,9 @@ def issues_metadata(api: object, request: IssuesRequest, issues: Sequence[str]) 
 def stripes_metadata(data: StripesData, request: StripesRequest, *, image: bool = False) -> ResponseMetadata:
     """Build the block of climate stripes (`/api/stripes/values` and `/image`), made of DWD observation's values.
 
-    The values are DWD's own annual values, so the block has the plain note; `image` is for the headers of the image,
-    which add that it is drawn from them.
+    The values are DWD's own annual values, and the anomalies and classes calculated from them say what they are
+    relative to (GH-4157), which the CSV's and the image's headers carry; `image` is for the headers of the image, which
+    add that it is drawn from them.
     """
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 
@@ -478,6 +482,7 @@ def stripes_metadata(data: StripesData, request: StripesRequest, *, image: bool 
         stations=1,
         rows=data.df.height,
         image=image,
+        calculated=data.reference.note(),
     )
 
 

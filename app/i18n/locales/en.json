@@ -663,6 +663,7 @@
     "plotTitle": "Climate stripes ({kind}) for {name}, Germany ({id})",
     "plotDataAvailability": "Data availability",
     "plotSource": "Source: Deutscher Wetterdienst",
+    "plotReference": "Colours: mean of {centre}, ±{sigma} σ of {spread}",
     "hoverValue": "Value",
     "hoverTrend": "Trend",
     "chart": {
@@ -678,13 +679,16 @@
       "keysHint": "The arrow keys step through the years, Page Up and Page Down by ten years, Home and End to the first and the last. Plus, minus and 0 zoom in, zoom out and reset. Escape closes the values."
     },
     "summary": "From {from} to {to}. Lowest value {min} in {minYear}, highest value {max} in {maxYear}.",
+    "reference": "Colours: the mean of {centre} is the centre of the scale, which spans ±{sigma} standard deviations of {spread} (Ed Hawkins' method).",
+    "referenceWhole": "the whole record ({from}–{to})",
     "table": {
       "year": "Year",
       "value": "Value",
+      "anomaly": "Anomaly",
       "class": "Class",
       "note": {
-        "temperature": "Class: where the year lies between the coolest and the warmest year shown, in fifths. It is the colour of its stripe, from dark blue (coolest) to dark red (warmest).",
-        "precipitation": "Class: where the year lies between the driest and the wettest year shown, in fifths. It is the colour of its stripe, from brown (driest) to dark green (wettest)."
+        "temperature": "Class: how far the year lies from the mean of the reference. The stripes have 16 colours, one for each 0.325 standard deviations, from dark blue (coolest) to dark red (warmest); the class names them in five groups. Anomaly: the distance from the mean, in the unit of the value.",
+        "precipitation": "Class: how far the year lies from the mean of the reference. The stripes have 16 colours, one for each 0.325 standard deviations, from brown (driest) to dark green (wettest); the class names them in five groups. Anomaly: the distance from the mean, in the unit of the value."
       },
       "classes": {
         "temperature": {

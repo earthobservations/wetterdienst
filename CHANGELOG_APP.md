@@ -16,8 +16,23 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Stripes]` The stripes' colours follow Ed Hawkins' method, as the backend classes them: 16
+  discrete colours from the mean of 1971-2000 in steps of 0.325 standard deviations of 1901-2000,
+  no longer a point between the coolest and the warmest year shown, so a year keeps its colour
+  whatever years the form asks for. A line under the chart says what the colours are relative to
+  (the station's whole record where it has too few years in a period); the table has an anomaly
+  column; the readout, the map panel's band and the lines over the stripes follow. Needs the
+  backend that answers `reference` (GH-4157).
+
 ### Fixed
 
+- `[Forecast, Stripes]` A single selected station is named once by the station picker: the search
+  shows it, and the "Selected station" chip block under it is gone. On the map, which has no search,
+  one line names it, and a screen reader gets the station as the search's description. A single
+  station is replaced by another pick, no longer cleared by its chip. Several stations (Explorer,
+  History) keep their chips (GH-4151).
 - `[Stripes]` The gold data-availability line spans exactly the stripes that have a value: each run
   of years from the left edge of its first stripe to the right edge of its last, and a year between
   two gaps gets a bar as wide as its stripe. It stopped half a stripe short at each end of a run

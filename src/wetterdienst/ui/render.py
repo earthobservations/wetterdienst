@@ -441,13 +441,24 @@ def render_stripes_stations(result: StationsResult, request: StripesStationsRequ
 
 
 def render_stripes_values(data: StripesData, request: StripesValuesRequest, metadata: ResponseMetadata) -> str:
-    """Write the values of climate stripes as JSON: the `metadata` block, the `series` they are of, and the `values`."""
+    """Write the values of climate stripes as JSON (GH-4157).
+
+    The `metadata` block, the `series` they are of, the `reference` their classes are relative to, and the `values`,
+    each with its anomaly to the centre of the reference and its class.
+    """
     values = [
         {
             "timestamp": format_timestamp(row["timestamp"]) if row["timestamp"] else None,
             "value": row["value"],
+            "anomaly": row["anomaly"],
+            "stripe_class": row["stripe_class"],
         }
-        for row in data.df.select("timestamp", "value").iter_rows(named=True)
+        for row in data.df.select("timestamp", "value", "anomaly", "stripe_class").iter_rows(named=True)
     ]
-    answer = {"metadata": metadata_to_dict(metadata), "series": data.series.model_dump(), "values": values}
+    answer = {
+        "metadata": metadata_to_dict(metadata),
+        "series": data.series.model_dump(),
+        "reference": data.reference.model_dump(),
+        "values": values,
+    }
     return dumps_json(answer, indent=4 if request.pretty else None)

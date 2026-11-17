@@ -2,8 +2,8 @@
 import type StripesChart from '~/components/StripesChart.vue'
 import type { StripesDisplay } from '~/utils/stripes-option'
 import { describeFetchError } from '~/utils/api-error'
-import { formatNumber } from '~/utils/format'
-import { stripesSummaryParams, stripeYears } from '~/utils/stripes'
+import { formatNumber, formatSigned } from '~/utils/format'
+import { stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
 import { MENU_SCALE } from '~/utils/stripes-option'
 import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
@@ -82,20 +82,26 @@ const valueUnit = computed(() => {
 function formatValue(value: number) {
   return `${formatNumber(value, locale.value, 2)} ${valueUnit.value}`.trim()
 }
+// what the colours are relative to, as the backend calculated it for the station's whole record (GH-4157)
+const referenceText = computed(() => lastFetchedData.value
+  ? stripesReferenceText(lastFetchedData.value.reference, t, value => formatNumber(value, locale.value, 1))
+  : '')
 const plotSummary = computed(() => {
   const years = stripeRows.value
   if (!years.length)
     return undefined
-  return `${t('stripes.summary', stripesSummaryParams(years, formatValue))} ${t('common.chartTableHint')}`
+  return `${t('stripes.summary', stripesSummaryParams(years, formatValue))} ${referenceText.value} ${t('common.chartTableHint')}`
 })
 const tableColumns = computed(() => [
   t('stripes.table.year'),
   valueUnit.value ? `${t('stripes.table.value')} (${valueUnit.value})` : t('stripes.table.value'),
+  valueUnit.value ? `${t('stripes.table.anomaly')} (${valueUnit.value})` : t('stripes.table.anomaly'),
   t('stripes.table.class'),
 ])
 const tableRows = computed(() => stripeRows.value.map(year => [
   String(year.year),
   formatNumber(year.value, locale.value, 2),
+  formatSigned(year.anomaly, locale.value, 2),
   t(`stripes.table.classes.${kind.value}.${year.class}`),
 ]))
 // the stripes could not be drawn: the chart says so itself, with its Retry, and the table and the image are not offered
@@ -483,6 +489,7 @@ watch([
                 v-if="hasPlot && lastFetchedData"
                 ref="chart"
                 :values="lastFetchedData.values"
+                :reference="lastFetchedData.reference"
                 :kind="kind"
                 :unit="valueUnit"
                 :title="plotLabel ?? ''"
@@ -493,6 +500,9 @@ watch([
               />
               <p v-if="hasPlot && plotSummary" :id="summaryId" class="sr-only">
                 {{ plotSummary }}
+              </p>
+              <p v-if="hasPlot && !plotFailed && referenceText" data-testid="stripes-reference" class="mt-2 text-sm text-muted">
+                {{ referenceText }}
               </p>
               <ChartTable
                 v-if="hasPlot && !plotFailed && tableRows.length"

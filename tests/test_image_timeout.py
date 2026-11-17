@@ -403,7 +403,7 @@ def test_the_rest_api_answers_a_stuck_image_with_a_504_and_closes_the_browser(
     """`/api/stripes/image` was held by a browser that never answered; now it is a 504 problem to retry."""
     events = _fake_kaleido(monkeypatch, stuck=("open",))
     monkeypatch.setattr(export, "IMAGE_TIMEOUT", _SHORT)
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
     client = TestClient(restapi.app, raise_server_exceptions=False)
 
     with caplog.at_level(logging.WARNING):

@@ -663,6 +663,7 @@
     "plotTitle": "Klimasträifen ({kind}) fir {name}, Däitschland ({id})",
     "plotDataAvailability": "Datverfügbarkeet",
     "plotSource": "Quell: Deutscher Wetterdienst",
+    "plotReference": "Faarwen: Duerchschnëtt vun {centre}, ±{sigma} σ vun {spread}",
     "hoverValue": "Wäert",
     "hoverTrend": "Trend",
     "chart": {
@@ -678,13 +679,16 @@
       "keysHint": "Mat de Feiltaste gees du jorweis duerch d'Sträifen, mat Bild erop a Bild erof a Schrëtt vun zéng, mat Pos1 an Enn un deen éischten an un deen leschten. Plus, Minus an 0 vergréisseren, verklengeren a setzen zréck. Esc mécht d'Wäerter zou."
     },
     "summary": "Vun {from} bis {to}. Niddregste Wäert {min} am Joer {minYear}, héchste Wäert {max} am Joer {maxYear}.",
+    "reference": "Faarwen: den Duerchschnëtt vun {centre} ass d'Mëtt vun der Skala, déi ±{sigma} Standardofwäichunge vun {spread} ëmfaasst (Method vum Ed Hawkins).",
+    "referenceWhole": "der ganzer Rei ({from}–{to})",
     "table": {
       "year": "Joer",
       "value": "Wäert",
+      "anomaly": "Ofwäichung",
       "class": "Klass",
       "note": {
-        "temperature": "Klass: Wou d'Joer tëscht dem kéelste an dem waarmste gewisenen Joer läit, a Fënneftel. Et ass d'Faarf vu sengem Sträif, vun Donkelblo (kéelst) bis Donkelrout (waarmst).",
-        "precipitation": "Klass: Wou d'Joer tëscht dem dréchenste an dem naasste gewisenen Joer läit, a Fënneftel. Et ass d'Faarf vu sengem Sträif, vu Brong (dréchenst) bis Donkelgréng (naasst)."
+        "temperature": "Klass: wéi wäit d'Joer vum Duerchschnëtt vun der Referenz ewech läit. D'Sträife hunn 16 Faarwen, eng fir all 0,325 Standardofwäichungen, vun Donkelblo (kéelst) bis Donkelrout (waarmst); d'Klass fasst si a fënnef Gruppen zesummen. Ofwäichung: den Ofstand vum Duerchschnëtt an der Eenheet vum Wäert.",
+        "precipitation": "Klass: wéi wäit d'Joer vum Duerchschnëtt vun der Referenz ewech läit. D'Sträife hunn 16 Faarwen, eng fir all 0,325 Standardofwäichungen, vu Brong (dréchenst) bis Donkelgréng (naasst); d'Klass fasst si a fënnef Gruppen zesummen. Ofwäichung: den Ofstand vum Duerchschnëtt an der Eenheet vum Wäert."
       },
       "classes": {
         "temperature": {
