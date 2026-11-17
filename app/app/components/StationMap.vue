@@ -314,7 +314,7 @@ function groupAt(latlng: L.LatLng): Cluster | null {
       return null
   }
   // those that report are drawn over those that have stopped: they are tried first
-  return clusterAt(clustersFor('running', zoom), zoom, pixel) ?? clusterAt(clustersFor('stopped', zoom), zoom, pixel)
+  return clusterAt(clustersFor('running', zoom), pixel) ?? clusterAt(clustersFor('stopped', zoom), pixel)
 }
 
 /** A click on a group zooms in on its stations (no more than to where every station is its own dot); it is no pick of a place */

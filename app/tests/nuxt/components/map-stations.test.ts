@@ -73,8 +73,14 @@ describe('mapStations groups', () => {
     const vm = wrapper.vm as any
     vm.map = { leafletObject: { getContainer: () => document.createElement('div'), addLayer: () => {}, removeLayer: () => {}, fitBounds: () => {} } }
     await vm.onMapReady()
-    const { options } = markerCluster.mock.calls[0]![0] as unknown as { options: Record<string, number> }
-    expect(options).toEqual({ maxClusterRadius: 80, disableClusteringAtZoom: GROUPINGS[DEFAULT_GROUPING].separateFrom })
+    const { options } = markerCluster.mock.calls[0]![0] as unknown as { options: { maxClusterRadius: (zoom: number) => number, spiderfyOnMaxZoom: boolean } }
+    const separateFrom = GROUPINGS[DEFAULT_GROUPING].separateFrom
+    // 80 px before the zoom, and from it only what lies on one place is a group
+    expect(options.maxClusterRadius(separateFrom - 1)).toBe(80)
+    expect(options.maxClusterRadius(separateFrom)).toBe(1)
+    expect(options.maxClusterRadius(18)).toBe(1)
+    // markers on one place stay a group down to the deepest zoom, where a click on it spiderfies them
+    expect(options.spiderfyOnMaxZoom).toBe(true)
   })
 })
 
