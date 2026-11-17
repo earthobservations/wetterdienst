@@ -36,6 +36,16 @@ be read, `stations` lists those 15.
 - The units and the meaning of the elements are those of DWD's
   [MetElementDefinition.xml](https://opendata.dwd.de/weather/lib/MetElementDefinition.xml).
 
+## Negative round-off
+
+The model melts the last of a snow cover a little past zero: `SnCv`, the snow depth of MOSMIX-SNOW, is written as -0.01
+or -0.02 m for a few hours (20 of 11,760 values in the 49 runs of 2026-11-15 to 2026-11-17, at `Z901` and `Z934`). That,
+the new snow, the amounts of precipitation, the radiation and the sunshine duration, which cannot be negative, are held
+to the [plausibility](../../../plausibility.md) check `floor`: by default (hard) the value is set to 0.0 and the number
+stays as `rejected:floor,raw:-0.02`; with `plausibility={"floor": "soft"}` the value is kept as DWD wrote it and
+flagged `suspect:floor`. The percentages and the wind that MOSMIX-L writes below 0 now and then (`RSunD` to -10 %, `N05`
+to -8 %, `FF` -0.51 m/s) are no round-off and are not corrected.
+
 ## Update date
 
 A forecast is dated by its model run: the `data_updated_at` of the

@@ -114,6 +114,32 @@ FLOORS: dict[str, tuple[str, ...]] = {
         "radiation_global",
         "radiation_short_wave_net_last_3h",
     ),
+    # MOSMIX writes the depth of the snow a little below 0 when the model melts the last of it (-0.01 and -0.02 m of
+    # `SnCv`, 20 of 11,760 values in the 49 runs of MOSMIX-SNOW of 2026-11-15 to 2026-11-17, at Z901 and Z934). The
+    # other amounts that cannot be negative by definition are named with it, so that the same round-off in one of them
+    # is the same answer; no negative of them was read in MOSMIX-L and MOSMIX-S of 2026-11-16/17 (GH-4182). The
+    # percentages (`RSunD` to -10, `N05` to -8) and the wind that MOSMIX-L writes below 0 are no round-off and are
+    # not named here
+    "dwd/mosmix": (
+        "precipitation_amount_liquid_significant_weather_last_1h",
+        "precipitation_amount_significant_weather_last_1h",
+        "precipitation_amount_significant_weather_last_3h",
+        "precipitation_amount_significant_weather_last_6h",
+        "precipitation_amount_significant_weather_last_12h",
+        "precipitation_amount_significant_weather_last_24h",
+        "precipitation_duration",
+        "radiation_global",
+        "snow_depth",
+        "snow_depth_new_last_3h",
+        "snow_depth_new_last_6h",
+        "snow_depth_new_last_12h",
+        "snow_depth_new_last_24h",
+        "sunshine_duration",
+        "sunshine_duration_last_3h",
+        "sunshine_duration_yesterday",
+        "water_equivalent_snow_depth_new_last_1h",
+        "water_equivalent_snow_depth_new_last_3h",
+    ),
 }
 #: a sensor that holds one value for as long as the weather cannot is a sensor that has stopped (check ``stuck``): for
 #: every observation network, the quantities and resolutions of ``model/persistence.py`` (GH-3681), whose limits are
