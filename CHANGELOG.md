@@ -66,6 +66,16 @@ Types of changes:
   were never meant to be passed: pass nothing instead. `DwdDmoRequest(...).lead_time` is now `None`
   where no lead time was given (it was `SHORT`); the short run is read as before (GH-4128, GH-4142)
 
+### Fixed
+
+- `dwd/mosmix`: the descriptions said that `tn` and `tx` of `small` are given at 00, 06, 12 and 18
+  UTC at every station; at 71 % of the stations of the run of 2026-11-17 03 UTC they are given at
+  06 and 18 UTC, at the others at 00 or 12 UTC (`large` is now worded alike). `rr1c` and `rr3c` say
+  that they are almost always a real `0.0`, no gap, after about +100 to +125 h of a run at lowland
+  stations while `rr6c`, `rrhc` and `rrdc` still carry rain, and `drr1` that `skip_empty` drops a
+  station that is given no duration (Zugspitze). The docs list every element's window and steps
+  (GH-4176)
+
 ## [0.189.1] - 2026-11-16
 
 ### Fixed

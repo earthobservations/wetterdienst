@@ -9,6 +9,9 @@ stations worldwide and is available in two versions, Mosmix-S and Mosmix-L. Mosm
 and is published every hour while MOSMIX-L has a set of 114 parameters and is released every 6 hours 
 (3am, 9am, 3pm, 9pm). Both versions have a forecast limit of 240h.
 
+Each element has its own window (1, 3, 6, 12 or 24 h), its own UTC steps and its own last step, and `RR1c` and
+`RR3c` are zero late in a run while the 6, 12 and 24 h totals still carry rain: see [the elements](elements/index.md).
+
 ## MOSMIX-SNOW
 
 The dataset `hourly/snow` is [MOSMIX-SNOW](https://www.dwd.de/EN/ourservices/met_application_mosmix_snow/met_application_mosmix_snow.html),
@@ -46,4 +49,5 @@ is the same however often the run is read, and `retrieved_at` less `data_updated
 :hidden:
 
 hourly.md
+elements/index.md
 ```
