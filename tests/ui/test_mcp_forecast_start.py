@@ -378,8 +378,8 @@ def test_a_mixed_frame_is_cut_by_each_rows_resolution() -> None:
     )
 
 
-def test_every_forecast_network_has_an_hourly_resolution_today() -> None:
-    """The networks the cut applies to are found through their metadata, by `kind`; each is hourly."""
+def test_every_forecast_network_has_an_hourly_resolution_but_the_uv_index() -> None:
+    """The networks the cut applies to are found through their metadata, by `kind`; each is hourly, `dwd/uvi` daily."""
     from wetterdienst import Wetterdienst  # noqa: PLC0415
 
     found = {
@@ -388,11 +388,13 @@ def test_every_forecast_network_has_an_hourly_resolution_today() -> None:
         for network, listing in networks.items()
         if listing["kind"] == "forecast"
     }
-    assert found == {"dwd/mosmix", "dwd/dmo", "dwd/swsmos"}
+    assert found == {"dwd/mosmix", "dwd/dmo", "dwd/swsmos", "dwd/uvi"}
     for name in found:
         provider, _, network = name.partition("/")
         metadata = Wetterdienst.resolve(provider, network).metadata
-        assert {resolution.name for resolution in metadata.resolutions} == {"hourly"}
+        assert {resolution.name for resolution in metadata.resolutions} == (
+            {"daily"} if name == "dwd/uvi" else {"hourly"}
+        )
 
 
 def test_a_single_timestamp_left_out_is_told_in_the_singular(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -254,6 +254,7 @@ LEGENDS: dict[str, list[QualityKind]] = {
         RAW,
     ],
     "dwd/swsmos": [SUSPECT, RAW],
+    "dwd/uvi": [SUSPECT, RAW],
     "dwd/poi": [SUSPECT, REJECTED, RAW],
     "dwd/phenology": [
         _plain(

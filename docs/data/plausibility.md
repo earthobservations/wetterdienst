@@ -1063,6 +1063,7 @@ unless you set [bounds of your own](#bounds-of-your-own-limits), which any netwo
 | `range` | `dwd/poi` | `*` |
 | `range` | `dwd/road` | `*` |
 | `range` | `dwd/swsmos` | `*` |
+| `range` | `dwd/uvi` | `*` |
 | `range` | `eccc/observation` | `*` |
 | `range` | `fmi/observation` | `*` |
 | `range` | `geosphere/observation` | `*` |

@@ -49,6 +49,7 @@ class Wetterdienst:
             "road": "wetterdienst.provider.dwd.road.DwdRoadRequest",
             "swsmos": "wetterdienst.provider.dwd.swsmos.DwdSwsmosRequest",
             "poi": "wetterdienst.provider.dwd.poi.DwdPoiRequest",
+            "uvi": "wetterdienst.provider.dwd.uvi.DwdUviRequest",
             "phenology": "wetterdienst.provider.dwd.phenology.DwdPhenologyRequest",
             "radar": "wetterdienst.provider.dwd.radar.DwdRadarValues",
             "alerts": "wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest",

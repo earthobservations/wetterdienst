@@ -47,6 +47,7 @@ from wetterdienst.provider.dwd.phenology import DwdPhenologyMetadata
 from wetterdienst.provider.dwd.poi import DwdPoiMetadata
 from wetterdienst.provider.dwd.road import DwdRoadMetadata, DwdRoadRequest
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosMetadata
+from wetterdienst.provider.dwd.uvi import DwdUviMetadata
 from wetterdienst.provider.ea.hydrology import EAHydrologyMetadata, EAHydrologyRequest
 from wetterdienst.provider.eaufrance.hubeau import HubeauMetadata, HubeauRequest
 from wetterdienst.provider.eccc.observation import EcccObservationMetadata, EcccObservationRequest
@@ -83,6 +84,7 @@ ALL_METADATA = [
     DwdPoiMetadata,
     DwdRoadMetadata,
     DwdSwsmosMetadata,
+    DwdUviMetadata,
     EAHydrologyMetadata,
     EcccObservationMetadata,
     FmiObservationMetadata,

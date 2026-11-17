@@ -255,7 +255,8 @@ what the answer is missing:
     file refreshed since by up to that time.
   - **A forecast** (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`): the model run the forecast is of, not the file it was
     published in, so it is the same for a run read again later, and `retrieved_at` less `data_updated_at` is how old the
-    run is. This is the age of a forecast only: for a file it is not the age of the data.
+    run is. This is the age of a forecast only: for a file it is not the age of the data. `dwd/uvi` has no run, and its
+    date is when DWD last wrote the one file it serves (its `Last-Modified`).
   - **The warnings of `dwd/alerts`**: the newest `sent` of the warnings of the whole snapshot, which DWD states in each of them,
     also for an answer filtered by a place, which may hold a few warnings or none; a snapshot with no warning has none.
 
@@ -436,7 +437,7 @@ what the answer is missing:
   query parameters" and 412 "No available time series for the query parameters", an AEMET `estado` of 404,
   Pegelonline's 404 "Timeseries does not exist.") or a month file of `dwd/derived` that the index never listed.
   This is done for `aemet/observation`, `dwd/derived`, `dwd/observation`, `dwd/poi`, `dwd/road`, `dwd/swsmos`,
-  `fmi/observation`, `knmi/observation`, `meteofrance/observation`, `meteofrance/synop`, `metno/frost`,
+  `dwd/uvi`, `fmi/observation`, `knmi/observation`, `meteofrance/observation`, `meteofrance/synop`, `metno/frost`,
   `smhi/observation` and `wsv/pegel`, each at the places where it lets a file go and no other; for any other
   provider a file it lets go without telling is not known, so the warning may name a station whose file was let go.
   The message says nothing of the stations that were let go: `file-skipped` does (below). A parameter

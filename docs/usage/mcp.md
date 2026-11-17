@@ -131,7 +131,7 @@ the current hour, in UTC, and the row stamped at the current hour stays. A `fore
 hours of the run; for `csv` and `ndjson`, whose headers are in the sentence and the `_meta` of the result, it is the
 `X-Wetterdienst-Forecast-From-Now` header and the sentence of the tool (an `ndjson` answer also has the block as its
 first line). No row is left out, and no note is attached, where the run begins at or after the current
-hour. The cut is made before the size budget below, so that the characters of the budget go to hours that are still to
+hour. `dwd/uvi`, the one daily forecast network, is cut by the day: a value stamped before today is left out and the one of today stays. The cut is made before the size budget below, so that the characters of the budget go to hours that are still to
 come.
 
 Which requests are cut:
