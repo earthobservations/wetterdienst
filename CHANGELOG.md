@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `dwd/mosmix`: the snow depth of MOSMIX-SNOW that the model writes a little below 0 (`sncv` -0.01
+  and -0.02 m of a melting snow) is returned as 0.0, with the number kept as
+  `rejected:floor,raw:-0.02` in `quality_flags`, as `dwd/dmo` does for its precipitation. The new
+  snow, the precipitation amounts, the radiation and the sunshine duration of MOSMIX-S and -L are
+  held to the same check `floor`; `plausibility={"floor": "soft"}` keeps the number as written and
+  flags it `suspect:floor` (GH-4182)
+
 ## [0.191.0] - 2026-11-17
 
 ### Added
@@ -57,15 +66,6 @@ Types of changes:
 - **Breaking**: the stations of `ea/hydrology` have the new columns `nrfa_id` and `rloi_id`, those
   of `eaufrance/hubeau` `site_id` and those of `imgw/meteorology` `short_code`, after their own
   columns. A SQL table `to_target` wrote before takes no append of them: write it anew (GH-4070)
-
-### Fixed
-
-- `dwd/mosmix`: the snow depth of MOSMIX-SNOW that the model writes a little below 0 (`sncv` -0.01
-  and -0.02 m of a melting snow) is returned as 0.0, with the number kept as
-  `rejected:floor,raw:-0.02` in `quality_flags`, as `dwd/dmo` does for its precipitation. The new
-  snow, the precipitation amounts, the radiation and the sunshine duration of MOSMIX-S and -L are
-  held to the same check `floor`; `plausibility={"floor": "soft"}` keeps the number as written and
-  flags it `suspect:floor` (GH-4182)
 
 ## [0.190.0] - 2026-11-16
 
