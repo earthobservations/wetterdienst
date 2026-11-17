@@ -149,7 +149,8 @@
       "forecast": "previsioni",
       "derived": "dati derivati",
       "radar": "radar",
-      "alerts": "allerte meteo"
+      "alerts": "allerte meteo",
+      "storm_cells": "celle temporalesche"
     },
     "kindsAnd": "e",
     "pages": {
@@ -470,6 +471,7 @@
     "allKinds": "Tutti i tipi di dati",
     "kindLabel": "Tipo di dati",
     "kindDerived": "Dati derivati",
+    "kindStormCells": "Celle temporalesche",
     "shown": "Visualizzati {shown} di {count}",
     "noResults": "Nessun fornitore corrisponde alla ricerca.",
     "notFound": "Non esiste alcun fornitore chiamato «{provider}».",

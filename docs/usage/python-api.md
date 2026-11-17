@@ -34,8 +34,8 @@ coverage
 
 Each network says what it is: `name_short`, `country`, `url`, `kind` and `scope` (how far it reaches: `global`,
 `national` or `regional`), `auth`, `configured` and `date_required`, where `observation`, `forecast` and
-`derived` are the timeseries networks, which have stations and values, and `radar` and `alerts`
-(`dwd/radar`, `dwd/alerts`) are standalone, with request classes and results of their own. Nothing is
+`derived` are the timeseries networks, which have stations and values, and `radar`, `alerts` and `storm_cells`
+(`dwd/radar`, `dwd/alerts`, `dwd/storm_cells`) are standalone, with request classes and results of their own. Nothing is
 downloaded, so whether a provider accepts the credentials you have is not part of it:
 `Wetterdienst.is_valid(Wetterdienst.resolve("aemet", "observation"))` asks for one network. `discover()` is the
 Python counterpart of the REST route [`/api/providers`](restapi.md#providers), which lists the same networks
@@ -56,8 +56,8 @@ from wetterdienst import Wetterdienst
 Wetterdienst.resolve(provider="dwd", network="observation")
 ```
 
-`resolve` is for the networks that have stations and values. The two that have not, `dwd/radar` and
-`dwd/alerts` (`Wetterdienst.standalone`), take other arguments and give other results, so they have an entry
+`resolve` is for the networks that have stations and values. The three that have not, `dwd/radar`,
+`dwd/alerts` and `dwd/storm_cells` (`Wetterdienst.standalone`), take other arguments and give other results, so they have an entry
 point of their own, `Wetterdienst.resolve_standalone`, and `resolve` refuses them with an
 `ApiNotFoundError` that says so. Both are typed: `resolve` gives a `type[TimeseriesRequest]`, and
 `resolve_standalone("dwd", "radar")` the `DwdRadarValues` class. The classes can also be imported, which is

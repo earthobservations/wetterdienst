@@ -330,6 +330,7 @@ def test_providers_lists_every_provider_and_its_networks(client: TestClient) -> 
         "phenology",
         "radar",
         "alerts",
+        "storm_cells",
         "derived",
     ]
     for network_info in dwd.values():
@@ -3128,6 +3129,7 @@ def test_a_provider_the_server_cannot_reach_is_a_503(
     ("endpoint", "target", "params"),
     [
         ("/api/alerts", "wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest.query", {}),
+        ("/api/storm-cells", "wetterdienst.provider.dwd.storm_cells.DwdStormCellsRequest.query", {}),
         ("/api/stripes/stations", "wetterdienst.ui.restapi._get_stripes_stations", {"kind": "temperature"}),
     ],
 )
@@ -8201,7 +8203,10 @@ def test_mcp_renamed_argument_is_named_beside_an_unknown_one(monkeypatch: pytest
 
 def _debug_path(tool: str) -> str:
     """Give the route of a tool: its name, with the stripes' sub-routes as paths."""
-    return tool.replace("_", "/", 1) if tool.startswith("stripes_") else tool
+    if tool.startswith("stripes_"):
+        return tool.replace("_", "/", 1)
+    # `storm_cells` is served at `/storm-cells`
+    return tool.replace("_", "-")
 
 
 @pytest.mark.parametrize("tool", sorted(_TOOL_NAMES.values()))
@@ -8214,6 +8219,7 @@ def test_debug_is_refused_and_leaves_the_log_level_alone(
     """
     monkeypatch.setattr(restapi, "Wetterdienst", _fail_to_fetch)
     monkeypatch.setattr("wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest", _refuse_to_fetch_alerts)
+    monkeypatch.setattr("wetterdienst.provider.dwd.storm_cells.DwdStormCellsRequest", _refuse_to_fetch_alerts)
     log = logging.getLogger("wetterdienst")  # the logger `set_logging_level` sets (GH-3388)
     monkeypatch.setattr(log, "level", logging.WARNING)
 

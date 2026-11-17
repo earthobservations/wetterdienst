@@ -715,7 +715,7 @@ _PROVIDERS_HINT = "`wetterdienst providers` lists the available ones."
 
 
 def get_api(provider: str, network: str) -> type[TimeseriesRequest] | StandaloneRequest:
-    """Get API for provider and network, of a standalone network (dwd/radar, dwd/alerts) too.
+    """Get API for provider and network, of a standalone network (dwd/radar, dwd/alerts, dwd/storm_cells) too.
 
     A provider or network that does not exist is the command line's mistake, so it is a usage error
     naming where the existing ones are listed, as the REST API answers it with a 404 and that hint.
@@ -732,7 +732,7 @@ def get_api(provider: str, network: str) -> type[TimeseriesRequest] | Standalone
 def get_timeseries_api(provider: str, network: str, *, history: bool = False) -> type[TimeseriesRequest]:
     """Get the API of a network the timeseries commands serve, refusing one they cannot.
 
-    A standalone network (dwd/radar, dwd/alerts) or, with `history`, a network without station
+    A standalone network (dwd/radar, dwd/alerts, dwd/storm_cells) or, with `history`, a network without station
     history is the command line's mistake, so a usage error naming the cause, as the REST API answers
     it with a 404.
     """
@@ -1154,6 +1154,23 @@ ALERTS_EXAMPLES = r"""
     wetterdienst alerts --format=geojson --target=file://alerts.geojson
 """
 
+STORM_CELLS_EXAMPLES = r"""
+    # the cells of the newest radar scan, as JSON: every cell of Germany, and most scans have none
+    wetterdienst storm-cells
+
+    # the cells over a place or within 25 km of it, without the track: a few KB
+    wetterdienst storm-cells --latitude=52.52 --longitude=13.40 --distance=25 --track=false
+
+    # the cells in a box (left, bottom, right, top), severe ones and above, as points of their centres
+    wetterdienst storm-cells --left=8 --bottom=47.5 --right=13.8 --top=50.6 --min-severity=2 --geometry=centroid
+
+    # the cells of a past scan: replace YYYY-MM-DDTHH:MM with a time within the last ~48 hours, all DWD keeps
+    wetterdienst storm-cells --timestamp=YYYY-MM-DDTHH:MM
+
+    # to a GeoJSON file
+    wetterdienst storm-cells --format=geojson --target=file://cells.geojson
+"""
+
 STRIPES_EXAMPLES = r"""
     # warming stripes for a station, by id or by name
     wetterdienst stripes image --kind=temperature --station=1048 > warming_stripes.png
@@ -1351,8 +1368,17 @@ def _target_path(target: str) -> str:
         raise click.ClickException(str(e)) from e
 
 
-def _alerts_target(target: str | None, fmt: str, *, with_metadata: bool) -> str | None:
-    """Check the `--target` of `alerts` before the fetch and give it as `to_target` takes it, a `file://` URI.
+def _alerts_target(
+    target: str | None,
+    fmt: str,
+    *,
+    with_metadata: bool,
+    formats: Mapping[str, str] | None = None,
+    noun: str = "alerts",
+) -> str | None:
+    """Check the `--target` of `alerts` (`storm-cells` too: its `formats` and `noun`) before the fetch.
+
+    It is given back as `to_target` takes it, a `file://` URI.
 
     The extension decides what is written, as it does for `stations` and `values`, so an explicit `--format` that
     names another format is a usage error instead of one of the two silently winning. `--with-metadata` writes beside
@@ -1365,6 +1391,7 @@ def _alerts_target(target: str | None, fmt: str, *, with_metadata: bool) -> str 
     """
     from wetterdienst.io.sinks import ALERT_FILE_FORMATS
 
+    formats = ALERT_FILE_FORMATS if formats is None else formats
     if not target:
         if with_metadata:
             msg = (
@@ -1374,21 +1401,18 @@ def _alerts_target(target: str | None, fmt: str, *, with_metadata: bool) -> str 
             raise click.UsageError(msg)
         return None
     path = _target_path(target)
-    extension = next((ext for ext in ALERT_FILE_FORMATS if path.lower().endswith(ext)), None)
+    extension = next((ext for ext in formats if path.lower().endswith(ext)), None)
     if extension is None:
         msg = (
-            f"{path!r} is none of the files alerts are written as ({', '.join(ALERT_FILE_FORMATS)}): the extension "
+            f"{path!r} is none of the files {noun} are written as ({', '.join(formats)}): the extension "
             "decides the format. Leave out --target to write to stdout"
         )
         raise click.BadParameter(msg, param_hint="--target")
     context = click.get_current_context()
-    if (
-        context.get_parameter_source("fmt") is not ParameterSource.DEFAULT
-        and fmt.lower() != ALERT_FILE_FORMATS[extension]
-    ):
+    if context.get_parameter_source("fmt") is not ParameterSource.DEFAULT and fmt.lower() != formats[extension]:
         msg = (
             f"--format={fmt.lower()} does not match {extension}, which is written as "
-            f"{ALERT_FILE_FORMATS[extension]}: the extension decides what --target holds"
+            f"{formats[extension]}: the extension decides what --target holds"
         )
         raise click.BadParameter(msg, param_hint="--format")
     # a file named without the scheme is read as a path, `%` and all: only the two characters the URI reads are written
@@ -1645,7 +1669,8 @@ def coverage(
 
     --provider and --network are required; `providers` lists the providers and their networks, with
     their `kind` (`observation`, `forecast` or `derived` for a timeseries network, which has stations and
-    values, and `radar` or `alerts` for a standalone one, which `stations` and `values` refuse) and whether
+    values, and `radar`, `alerts` or `storm_cells` for a standalone one, which `stations` and `values`
+    refuse) and whether
     they need credentials and have them. A parameter's `unit` is the unit its values come
     back in when no unit target is given (the one `glossary` gives; `degree_celsius`, `percent` for a
     percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `one_eighth`), is there
@@ -3004,6 +3029,208 @@ def alerts(
         return
 
     output, _ = render_alerts(result, fmt, pretty=pretty)
+    print(output)  # noqa: T201
+
+
+@cli.command("storm-cells", epilog=_examples(STORM_CELLS_EXAMPLES))
+@click.option(
+    "--timestamp",
+    type=click.STRING,
+    default=None,
+    help=(
+        "Point in time (ISO 8601, UTC if no offset): the newest scan at or before it. Defaults to the newest scan. "
+        "Must fall within DWD's rolling ~48-hour window."
+    ),
+)
+@click.option(
+    "--latitude",
+    type=click.FloatRange(-90, 90),
+    help=(
+        "With --longitude, only the cells whose outline contains this point (an edge counts as inside) or comes "
+        "within --distance of it."
+    ),
+)
+@click.option("--longitude", type=click.FloatRange(-180, 180), help="Longitude of the point; given with --latitude.")
+@click.option(
+    "--distance",
+    type=click.FloatRange(min=0),
+    help=(
+        "With a point, the kilometres from it within which the outline of a cell counts as near. Default: 0, the "
+        "cells over the point."
+    ),
+)
+@click.option(
+    "--left",
+    type=click.FloatRange(-180, 180),
+    help="Western longitude of a box: with --bottom, --right and --top, only the cells whose outline reaches into it.",
+)
+@click.option("--bottom", type=click.FloatRange(-90, 90), help="Southern latitude of the box.")
+@click.option("--right", type=click.FloatRange(-180, 180), help="Eastern longitude of the box.")
+@click.option("--top", type=click.FloatRange(-90, 90), help="Northern latitude of the box.")
+@click.option(
+    "--min-severity",
+    type=click.IntRange(0, 3),
+    help="Only the cells of this severity and above: 0 weak, 1 moderate, 2 severe, 3 extreme.",
+)
+@_bool_opt(
+    "--track",
+    default=True,
+    help=(
+        "Give each cell its forecast track, 12 positions to 60 minutes ahead (1.6 KB of JSON a cell). "
+        "--track=false leaves it out. Default: true"
+    ),
+)
+@click.option(
+    "--geometry",
+    type=click.Choice(["outline", "centroid"], case_sensitive=False),
+    default="outline",
+    help="The geometry of each cell: its outline polygon, or the point of its centre. Default: outline",
+)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["json", "geojson", "csv"], case_sensitive=False),
+    default="json",
+    help="Output format. Default: json",
+)
+@click.option(
+    "--target",
+    type=click.STRING,
+    help=(
+        "Write the cells to this file instead of stdout, in the format its extension names: .json, .geojson or "
+        ".csv. Databases are refused. A scan without a cell still writes the file. Example: file://cells.geojson"
+    ),
+)
+@click.option(
+    "--if-exists",
+    type=click.Choice(["replace", "append", "fail", "skip"]),
+    default="replace",
+    help=(
+        "What to do when the --target file is there: 'replace' (default), 'fail' or 'skip'. A file takes "
+        "no 'append'. Default: replace"
+    ),
+)
+@pretty_opt
+@_bool_opt(
+    "--with-metadata",
+    default=False,
+    help=(
+        "Write the metadata block (provider, licence, credit line, date of the data) beside the --target file as "
+        "<file>.metadata.json. A .json or .geojson file holds it already; a .csv file does not. Needs --target. "
+        "Default: false"
+    ),
+)
+@debug_opt
+def storm_cells(
+    timestamp: str | None,
+    latitude: float | None,
+    longitude: float | None,
+    distance: float | None,
+    left: float | None,
+    bottom: float | None,
+    right: float | None,
+    top: float | None,
+    min_severity: int | None,
+    track: bool,  # noqa: FBT001
+    geometry: str,
+    fmt: str,
+    target: str,
+    if_exists: Literal["replace", "append", "fail", "skip"],
+    pretty: bool,  # noqa: FBT001
+    with_metadata: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Acquire DWD's thunderstorm cells (KONRAD3D).
+
+    Returns the cells of the newest radar scan (or of the newest at or before --timestamp), one row per cell: its
+    severity, warning flags for hail, heavy rain and gusts, size, speed, the direction of its motion, its outline
+    and its forecast track. Every cell of Germany, unless --latitude, --longitude and --distance, or --left,
+    --bottom, --right and --top name a place. An empty result is an answer: no cell was there (most scans hold
+    none), or none is in the place; its warnings say which, and that the scan is old.
+
+    With --target the extension decides the format (.json, .geojson, .csv), as for the other commands.
+    """
+    from wetterdienst import Settings
+    from wetterdienst.io.sinks import STORM_CELLS_FILE_FORMATS
+    from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest
+    from wetterdienst.ui.core import StormCellsRequest
+    from wetterdienst.ui.render import render_storm_cells
+
+    _apply_log_level(debug=debug)
+    begin_response()
+
+    _refuse_non_file_target(target, "storm-cells")
+    target_url = _alerts_target(
+        target, fmt, with_metadata=with_metadata, formats=STORM_CELLS_FILE_FORMATS, noun="storm cells"
+    )
+
+    # outside the handler below, as in `stations` and `values`: the `ValidationError` of a malformed `WD_*`
+    # variable is a `ValueError`, and not the command line's to fix
+    settings = Settings()
+    # the place, told in the terms of the options (a half point, a point and a box together, a distance of no point)
+    asked = {
+        "timestamp": timestamp,
+        "latitude": latitude,
+        "longitude": longitude,
+        "distance": distance,
+        "left": left,
+        "bottom": bottom,
+        "right": right,
+        "top": top,
+        "min_severity": min_severity,
+        "track": track,
+        "geometry": geometry.lower(),
+        "format": fmt.lower(),
+        "pretty": pretty,
+    }
+    validated = _validate_request(StormCellsRequest, {key: value for key, value in asked.items() if value is not None})
+    try:
+        request = DwdStormCellsRequest(
+            timestamp=validated.timestamp,
+            latitude=validated.latitude,
+            longitude=validated.longitude,
+            distance=validated.distance,
+            left=validated.left,
+            bottom=validated.bottom,
+            right=validated.right,
+            top=validated.top,
+            min_severity=validated.min_severity,
+            track=validated.track,
+            geometry=validated.geometry,
+            settings=settings,
+        )
+    except (ValueError, OverflowError) as e:
+        # a timestamp that does not parse, one an offset carries out of what a datetime holds, or a box that is no box
+        raise click.UsageError(str(e)) from e
+
+    try:
+        result = request.query()
+    except InvalidTimeIntervalError as e:
+        # a time before DWD's rolling window, the one refusal of the request's own `query` raises;
+        # any other `ValueError` comes from DWD's files (a time or a polygon it cannot read)
+        raise click.BadParameter(str(e), param_hint="--timestamp") from e
+    except NoInternetError:
+        # told by `_Cli.invoke` in one line
+        raise
+    except Exception as e:
+        log.exception("Failed to acquire storm cells")
+        raise click.ClickException(str(e)) from e
+
+    if target_url:
+        # a scan without a cell is written as it is, as no cell is an answer a file should say, where a table of
+        # stations or values is left alone (a schedule that rewrites the file must not keep the cells of the run before)
+        try:
+            result.to_target(target_url, if_exists=if_exists, with_metadata=with_metadata, pretty=pretty)
+        except (ExportRefusedError, MissingDependencyError) as e:
+            # a refusal, the message the whole of it: `--if-exists=fail` on a file that is there, `append`
+            raise click.ClickException(str(e)) from e
+        except OSError as e:
+            # a directory that does not exist or cannot be written, or a path naming a directory
+            msg = f"Could not write --target: {e}"
+            raise click.ClickException(msg) from e
+        return
+
+    output, _ = render_storm_cells(result, fmt, pretty=pretty)
     print(output)  # noqa: T201
 
 

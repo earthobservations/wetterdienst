@@ -31,6 +31,9 @@ The data as offered by the DWD through ``wetterdienst`` includes:
 - [Alerts](alerts/index.md) — public weather warnings in Common Alerting Protocol (CAP) format
     - all currently active warnings, one row per alert, with GeoJSON MultiPolygon geometry
     - community (Gemeinde) or district (Landkreis) granularity, several languages
+- [Storm cells](storm_cells/index.md) — the thunderstorm cells KONRAD3D detects in the radar data
+    - the newest scan, or one of the last 48 hours, one row per cell, every 5 minutes
+    - severity, hail, heavy rain and gust flags, speed, direction, GeoJSON outline and forecast track
 - [Phenology](phenology/index.md) — observed plant development dates from the phenological network
     - annual resolution: the day (`Jultag`) a plant reached a phase (flowering, leaf unfolding, harvest)
     - 110 plant datasets across two reporter groups, reaching back to 1925
@@ -48,6 +51,7 @@ states of when the data was last updated, by network:
 - **Forecasts** (`mosmix`, `dmo`, `swsmos`): the model run the forecast is of, which the file states (`IssueTime`) or
   its name does, and not when the run was published as a file.
 - **Alerts**: the newest `sent` of the warnings in the answer.
+- **Storm cells**: when DWD wrote the file of the scan, about 5 minutes after the scan it is of.
 
 For a quick overview of the work of the DWD check the current
 [dwd report](https://www.dwd.de/SharedDocs/downloads/DE/allgemein/zahlen_und_fakten.pdf?__blob=publicationFile&v=14)
@@ -91,4 +95,5 @@ phenology/index.md
 radar/index.md
 derived/index.md
 alerts/index.md
+storm_cells/index.md
 ```

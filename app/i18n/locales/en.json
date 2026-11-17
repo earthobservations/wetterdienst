@@ -149,7 +149,8 @@
       "forecast": "forecasts",
       "derived": "derived data",
       "radar": "radar",
-      "alerts": "weather warnings"
+      "alerts": "weather warnings",
+      "storm_cells": "thunderstorm cells"
     },
     "kindsAnd": "and",
     "pages": {
@@ -470,6 +471,7 @@
     "allKinds": "All kinds of data",
     "kindLabel": "Kind of data",
     "kindDerived": "Derived data",
+    "kindStormCells": "Thunderstorm cells",
     "shown": "Showing {shown} of {count}",
     "noResults": "No provider matches your search.",
     "notFound": "There is no provider called “{provider}”.",

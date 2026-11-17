@@ -1689,7 +1689,7 @@ class IssuesRequest(_RefusesRenamedParameters):
         return v
 
 
-# the query parameters of `/api/auth`, `/api/coverage`, `/api/glossary` and `/api/alerts`, and of
+# the query parameters of `/api/auth`, `/api/coverage`, `/api/glossary`, `/api/alerts` and `/api/storm-cells`, and of
 # `/api/stripes/stations` below, each a model forbidding others as the other endpoints' requests
 # are: taken loose, a parameter the endpoint does not know was passed over, and the request answered
 # as if it had not been given it (GH-2479)
@@ -1850,6 +1850,129 @@ class AlertsRequest(_RefusesRenamedParameters):
                 self,
                 [_rule_error("missing_with", f"Field required with {given[0]}", (other,), required_with=given)],
             )
+        return self
+
+
+_BOX = ("left", "bottom", "right", "top")
+
+
+class StormCellsRequest(_RefusesRenamedParameters):
+    """Request model for the thunderstorm cells of DWD (KONRAD3D)."""
+
+    route: ClassVar[str] = "storm_cells"
+
+    model_config = {"extra": "forbid"}
+
+    timestamp: Annotated[
+        str | None,
+        Field(
+            description="Instant in ISO 8601 (UTC if no offset): the newest scan at or before it, from DWD's rolling "
+            "window of about 48 hours. Without it, the newest scan, which is 5 to 10 minutes old when it appears."
+        ),
+    ] = None
+    latitude: Annotated[
+        float | None,
+        Field(
+            ge=LATITUDE_MIN,
+            le=LATITUDE_MAX,
+            description="With longitude, only the cells whose outline contains this point (an edge counts as "
+            "inside) or comes within `distance` of it: the reliable way to ask about one place.",
+        ),
+    ] = None
+    longitude: Annotated[
+        float | None,
+        Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Longitude of the point; given with latitude."),
+    ] = None
+    distance: Annotated[
+        float | None,
+        Field(
+            ge=0,
+            description="With a point, the kilometres from it within which the outline of a cell counts as near; 0 "
+            "(the default) for the cells that are over the point. Not given without a point.",
+        ),
+    ] = None
+    left: Annotated[
+        float | None,
+        Field(
+            ge=LONGITUDE_MIN,
+            le=LONGITUDE_MAX,
+            description="Western longitude of a box: with bottom, right and top, only the cells whose outline "
+            "reaches into it. Not with a point.",
+        ),
+    ] = None
+    bottom: Annotated[
+        float | None, Field(ge=LATITUDE_MIN, le=LATITUDE_MAX, description="Southern latitude of the box.")
+    ] = None
+    right: Annotated[
+        float | None, Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Eastern longitude of the box.")
+    ] = None
+    top: Annotated[
+        float | None, Field(ge=LATITUDE_MIN, le=LATITUDE_MAX, description="Northern latitude of the box.")
+    ] = None
+    min_severity: Annotated[
+        int | None,
+        Field(
+            ge=0,
+            le=3,
+            description="Only the cells of this severity and above: 0 weak, 1 moderate, 2 severe, 3 extreme.",
+        ),
+    ] = None
+    track: Annotated[
+        bool,
+        Field(
+            description="Give each cell its forecast `track`: 12 positions of its centre, 5 to 60 minutes ahead, "
+            "with their uncertainty (about 1.6 KB of JSON a cell). False leaves it out; `direction_degrees` stays."
+        ),
+    ] = True
+    geometry: Annotated[
+        Literal["outline", "centroid"],
+        Field(
+            description="The `geometry` of each cell: 'outline' (the polygon of its outline, some hundred to two "
+            "thousand characters) or 'centroid' (the point of its centre, which a long list fits in). A place is "
+            "always matched against the outline."
+        ),
+    ] = "outline"
+    format: Annotated[
+        Literal["json", "geojson", "csv"],
+        Field(description="Output format: json, geojson (a feature collection) or csv."),
+    ] = "json"
+    pretty: _PrettyField = False
+
+    @model_validator(mode="after")
+    def check_place(self) -> StormCellsRequest:
+        """Check the place: a point and a box are whole, not given together, and `distance` is of a point."""
+        errors: list[InitErrorDetails] = []
+        point = [field for field in _POINT if _is_set(self, field)]
+        box = [field for field in _BOX if _is_set(self, field)]
+        for given, group in ((point, _POINT), (box, _BOX)):
+            if given and len(given) < len(group):
+                errors.extend(
+                    _rule_error(
+                        "missing_with", f"Field required with {join_names(given)}", (field,), required_with=given
+                    )
+                    for field in group
+                    if field not in given
+                )
+        if self.distance is not None and not point:
+            needs = [list(_POINT)]
+            errors.append(
+                _rule_error("requires", requires_message((_POINT,)), ("distance",), self.distance, requires=needs)
+            )
+        if point and box:
+            one_of = [list(_POINT), list(_BOX)]
+            for field, other in ((point[0], box[0]), (box[0], point[0])):
+                message = f"Cannot be combined with {other}, give a point or a box"
+                errors.append(
+                    _rule_error(
+                        "mutually_exclusive",
+                        message,
+                        (field,),
+                        getattr(self, field),
+                        conflicts_with=[other],
+                        one_of=one_of,
+                    )
+                )
+        _raise_rule_errors(self, errors)
         return self
 
 
@@ -2209,9 +2332,9 @@ def get_issues(
 
 
 def resolve_network(provider: str, network: str) -> type[TimeseriesRequest] | StandaloneRequest:
-    """Resolve the network a UI is asked about, a standalone one (dwd/radar, dwd/alerts) too.
+    """Resolve the network a UI is asked about, a standalone one (dwd/radar, dwd/alerts, dwd/storm_cells) too.
 
-    `Wetterdienst.resolve` is for the timeseries networks and `resolve_standalone` for the other two.
+    `Wetterdienst.resolve` is for the timeseries networks and `resolve_standalone` for the other three.
     The surfaces take both kinds by name -- `providers` lists them, `auth` and `issues` answer for them, and
     the timeseries commands refuse them (`check_timeseries_api`) -- so this picks the one that applies.
 
@@ -2235,7 +2358,7 @@ def check_timeseries_api(
 ) -> type[TimeseriesRequest]:
     """Refuse a network the timeseries commands cannot serve, before any request is built.
 
-    A standalone network (dwd/radar, dwd/alerts) has no metadata model, so there are no parameters to
+    A standalone network (dwd/radar, dwd/alerts, dwd/storm_cells) has no metadata model, so there are no parameters to
     resolve: `ApiNotFoundError`, which the callers word with where the networks are listed. With
     `history`, a network without station history is refused with `NotImplementedError` before its
     station catalogue is downloaded to find that out.

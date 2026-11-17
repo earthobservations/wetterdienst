@@ -203,6 +203,9 @@ only, `.json`, `.geojson` and `.csv` (the table above lists them, but those are 
 alerts have writers of their own, which read the extension before the file is looked for): an
 alert is nested, so a database target and every other file type is an `ExportRefusedError` naming the three. What a
 row of its CSV is, and what the files hold, is on the [alerts page](../data/provider/dwd/alerts/index.md#to-a-file).
+The storm cells result of `dwd/storm_cells` is the same: `json`, `geojson` and `csv`, files only, with its `to_target`
+and `wetterdienst storm-cells --target` as the alerts have them, a scan with no cell written as it is
+([storm cells page](../data/provider/dwd/storm_cells/index.md#to-a-file)).
 
 `to_format` takes one set of arguments for any format and gives each format those it takes: `with_metadata`,
 `with_stations` and `indent` for JSON (a stations result has no `with_stations`), `with_metadata` and `indent` for
