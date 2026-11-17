@@ -440,14 +440,21 @@ function pickCentre() {
 }
 
 /** A click on a group of stations has zoomed the map in on them: said, as a pick is */
-function onGroup(count: number) {
-  const said = t('mapTool.groupZoomed', { shown: formatNumber(count, formatLanguage.value, 0) })
-  // a status that says the same again is not read again: it is emptied first, and said in the next tick
+let groupAnnouncement: ReturnType<typeof setTimeout> | undefined
+function onGroup(count: number, reportingCount: number | null) {
+  const shown = formatNumber(count, formatLanguage.value, 0)
+  const said = reportingCount === null
+    ? t('mapTool.groupZoomed', { shown })
+    : t('mapTool.groupZoomedReporting', { shown, reporting: formatNumber(reportingCount, formatLanguage.value, 0) })
+  // a status that says the same again is not read again: it is emptied first and said again after a moment (a screen reader
+  // takes the emptying and the new text of one frame for no change)
   announcement.value = ''
-  void nextTick(() => {
+  clearTimeout(groupAnnouncement)
+  groupAnnouncement = setTimeout(() => {
     announcement.value = said
-  })
+  }, 100)
 }
+onBeforeUnmount(() => clearTimeout(groupAnnouncement))
 
 function back() {
   const id = selectedId.value
@@ -1028,8 +1035,8 @@ watch(() => route.query, (query) => {
                 </li>
               </template>
               <li v-if="groupedNow">
-                <span class="map-legend-dot map-legend-group" aria-hidden="true" data-testid="map-legend-group">12</span>
-                {{ t('mapTool.legendGroup') }}
+                <span class="map-legend-dot map-legend-group" :class="{ 'map-legend-group-share': reporting }" aria-hidden="true" data-testid="map-legend-group">12</span>
+                {{ reporting ? t('mapTool.legendGroupShare') : t('mapTool.legendGroup') }}
               </li>
             </ul>
           </div>
@@ -1272,6 +1279,24 @@ watch(() => route.query, (query) => {
   font-size: 0.6875rem;
   font-weight: 700;
   line-height: 1;
+}
+.map-legend-group-share {
+  /* a group of stations that report and stations that have stopped: a ring filled for the share that reports, round a light middle */
+  position: relative;
+  border: 1.5px solid #2358a8;
+  background: conic-gradient(#2358a8 0 62%, #ffffff 62% 100%);
+  box-shadow: none;
+  color: #2358a8;
+  z-index: 0;
+}
+.map-legend-group-share::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  z-index: -1;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #2358a8;
 }
 .map-legend-dot-stopped {
   border: 2px solid #2358a8;

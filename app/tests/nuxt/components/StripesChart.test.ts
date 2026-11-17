@@ -70,7 +70,7 @@ mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
 const ANSWER = stripesAnswer(recordOf(1950, 2024, year => (year - 1950) / 10, [1962, 1963, 1964]))
 const VALUES = ANSWER.values
 const REFERENCE = ANSWER.reference
-const DISPLAY = { showTitle: true, showYears: true, showSource: true, showDataAvailability: true, showTimeseries: false, showTrendline: false }
+const DISPLAY = { showTitle: true, showYears: true, showSource: true, showDataAvailability: true }
 const TITLE = 'Climate stripes (Temperature) for Donaueschingen, Germany (00011)'
 
 type Mounted = Awaited<ReturnType<typeof mountSuspended>>
@@ -271,10 +271,10 @@ describe('drawing', () => {
   it('is shorter without a title (the title is on top of the stripes, which keep their height), and draws again for what the page switches', async () => {
     const shown = await showChart()
     const before = drawn()
-    await shown.setProps({ display: { ...DISPLAY, showTitle: false, showTimeseries: true } })
+    await shown.setProps({ display: { ...DISPLAY, showTitle: false } })
     await vi.waitFor(() => expect(drawn()).toBe(before + 1), { timeout: 5000 })
     expect(echarts.chart.resize).toHaveBeenLastCalledWith({ width: 800, height: 568 })
-    expect(lastOption().series.map((s: any) => s.id)).toEqual(['stripes', 'availability', 'timeseries', 'labels'])
+    expect(lastOption().series.map((s: any) => s.id)).toEqual(['stripes', 'availability', 'labels'])
   })
 
   it('says it is drawn, and in which scheme', async () => {
@@ -420,11 +420,11 @@ describe('the readout', () => {
     expect(readout()).toBeNull()
   })
 
-  it('names the trend too where the page draws it', async () => {
-    await showChart({ display: { ...DISPLAY, showTimeseries: true, showTrendline: true } })
+  it('names no trend, even where the display of an older version asks for it (GH-4170)', async () => {
+    await showChart({ display: { ...DISPLAY, showTimeseries: true, showTrendline: true } as typeof DISPLAY })
     movePointerTo(xOfYear(2000))
     await nextTick()
-    expect(rows().map(([name]) => name)).toEqual(['Value', 'Trend', 'Class'])
+    expect(rows().map(([name]) => name)).toEqual(['Value', 'Class'])
   })
 
   it('has none over the title, the years and the source, or the margin above the stripes, which are no stripes', async () => {
@@ -581,11 +581,11 @@ describe('the keys', () => {
     expect(announce()).toBe('1965: Value: 1.50 °C')
   })
 
-  it('jump ten years with Page Up and Page Down and to the ends with Home and End, and say the trend where it is drawn', async () => {
-    await showChart({ display: { ...DISPLAY, showTimeseries: true, showTrendline: true } })
+  it('jump ten years with Page Up and Page Down and to the ends with Home and End', async () => {
+    await showChart()
     key('End')
     await nextTick()
-    expect(announce()).toMatch(/^2024: Value: 7\.40 °C; Trend: .* °C$/)
+    expect(announce()).toBe('2024: Value: 7.40 °C')
     key('PageUp')
     await nextTick()
     expect(announce()).toContain('2014:')

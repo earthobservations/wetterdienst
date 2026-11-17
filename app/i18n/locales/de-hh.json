@@ -652,8 +652,6 @@
     "showYears": "Johren wiesen",
     "showSource": "Quell wiesen",
     "showDataAvailability": "Datenverfögbarkeit wiesen",
-    "showTimeseries": "Tietenreeg wiesen",
-    "showTrendline": "Trendlinie wiesen",
     "visualizationTitle": "Visualisatschoon",
     "loadingViz": "Daten warrt laadt un de Visualisatschoon warrt maakt …",
     "downloadImage": "Bild runnerladen",
@@ -672,7 +670,6 @@
       "barsScale": "Balken mit Skaal"
     },
     "hoverValue": "Weert",
-    "hoverTrend": "Trend",
     "chart": {
       "zoomGroup": "Streifen zoomen un verschuven",
       "earlier": "Fröhere Johren",
@@ -937,8 +934,10 @@
     "groupingCoarse": "Grov",
     "groupingCompulsory": "Ebenen mit mehr as {shown} Stationen sünd jümmers in Gruppen tohoopfaat.",
     "legendGroup": "En Tall is en Gruppe vun Stationen: Klick, un du kummst dichter ran",
+    "legendGroupShare": "En Tall is en Gruppe vun Stationen: Klick, un du kummst dichter ran. De füllte Deel vun ehren Ring wiest, woveel noch melden.",
     "groupZoomed": "Op en Gruppe rinzoomt. Stationen dorin: {shown}",
     "sameStation": "De sülve Station, wiel se de WMO-Nummer {wmo} hett.",
+    "groupZoomedReporting": "Op en Gruppe rinzoomt. Stationen dorin: {shown}, dorvun melden: {reporting}",
     "whyFarther": "De dichtste Station, de noch meldt. Dichter bi: {name}, {distance}, bit {year}.",
     "whyFartherNoEnd": "De dichtste Station, de noch meldt. Dichter bi: {name}, {distance}, Enn nich bekannt.",
     "pickCloser": "{name} statts disse nehmen"

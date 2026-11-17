@@ -652,8 +652,6 @@
     "showYears": "Zobrazit roky",
     "showSource": "Zobrazit zdroj",
     "showDataAvailability": "Zobrazit dostupnost dat",
-    "showTimeseries": "Zobrazit časovou řadu",
-    "showTrendline": "Zobrazit trendovou čáru",
     "visualizationTitle": "Vizualizace",
     "loadingViz": "Načítání dat a generování vizualizace …",
     "downloadImage": "Stáhnout obrázek",
@@ -672,7 +670,6 @@
       "barsScale": "Sloupce se stupnicí"
     },
     "hoverValue": "Hodnota",
-    "hoverTrend": "Trend",
     "chart": {
       "zoomGroup": "Přiblížit a posunout pruhy",
       "earlier": "Dřívější roky",
@@ -937,8 +934,10 @@
     "groupingCoarse": "Hrubé",
     "groupingCompulsory": "Vrstvy s více než {shown} stanicemi jsou vždy seskupené.",
     "legendGroup": "Číslo je skupina stanic: klikni pro přiblížení",
+    "legendGroupShare": "Číslo je skupina stanic: klikni pro přiblížení. Vyplněná část jejího prstence ukazuje, kolik jich stále hlásí.",
     "groupZoomed": "Přiblíženo na skupinu. Stanic v ní: {shown}",
     "sameStation": "Stejná stanice, poznaná podle čísla WMO {wmo}.",
+    "groupZoomedReporting": "Přiblíženo na skupinu. Stanic v ní: {shown}, z toho hlásí: {reporting}",
     "whyFarther": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, do {year}.",
     "whyFartherNoEnd": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, konec neznámý.",
     "pickCloser": "Místo toho vybrat {name}"

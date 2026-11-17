@@ -75,6 +75,8 @@ export interface Cluster {
   x: number
   y: number
   count: number
+  /** How many of its stations report: all of them where the layer has no status (the forecast's points), none for a group of stopped ones */
+  reporting: number
   /** The box of its stations, which a click zooms to */
   bounds: { south: number, west: number, north: number, east: number }
   /** The station, for a group of one */
@@ -107,6 +109,8 @@ export function worldPoint(x: number, y: number, zoom: number): { latitude: numb
 
 interface Group {
   count: number
+  /** How many of the stations report */
+  reporting: number
   /** The sums of the positions in pixels, whose mean is where the group is drawn */
   sx: number
   sy: number
@@ -127,6 +131,11 @@ const NEIGHBOUR_CELL = 64
  * and hide each other's number. A lone station counts as the dot it is drawn as. The joined group is bigger (a larger
  * disc) and has moved to the middle of all its stations, so another may now overlap it: the pass is made again until a pass
  * joins nothing.
+ *
+ * The cascade is not capped (no limit on how far a joined group may reach beyond its square): a cap would leave discs lying on
+ * each other where the stations are denser than a disc, which is what the pass is for, and the cost is small (the squares are
+ * joined, not the stations: 14 to 17 ms at zoom 7 of a list in towns, 407 ms at most). At the outer zooms a group is large
+ * because a place is, not because the pass ran on: 153 groups at zoom 2 for 133,041 stations spread over the world.
  */
 function mergeOverlapping(groups: Group[], dot: number): Group[] {
   const radiusOf = (group: Group) => group.count === 1 ? dot : clusterRadius(group.count)
@@ -161,6 +170,7 @@ function mergeOverlapping(groups: Group[], dot: number): Group[] {
               if (Math.hypot(other.sx / other.count - x, other.sy / other.count - y) >= radiusOf(group) + radiusOf(other))
                 continue
               group.count += other.count
+              group.reporting += other.reporting
               group.sx += other.sx
               group.sy += other.sy
               group.south = Math.min(group.south, other.south)
@@ -185,7 +195,8 @@ function mergeOverlapping(groups: Group[], dot: number): Group[] {
  * The groups of a list at a zoom: the stations in one square of 2 x `radius` pixels of a grid (so each is within `radius`
  * of the middle of it) are one group, and groups whose discs would overlap are joined (`mergeOverlapping`), so that every
  * disc is over its own stations and no number is hidden by another. A group of one is that station, drawn as a dot of
- * `dot` pixels.
+ * `dot` pixels. The stations of every kind are grouped together (`reports` says which report): one group for a place, whatever
+ * its stations' status, with the number of those that report.
  *
  * The list is gone through once for the grid, with a sum for each square, and the squares (not the stations) are then
  * joined. Measured on 133,041 stations (a laptop, 2026-11-17): 6 to 40 ms at the outer zooms (2 to 5) of a list that is in
@@ -196,16 +207,18 @@ function mergeOverlapping(groups: Group[], dot: number): Group[] {
  * @example
  * clusterStations(stations, 5, 50) // [{ count: 38, latitude: 52.4, longitude: 9.9, x, y, ... }, { count: 1, station, ... }]
  */
-export function clusterStations(stations: PlacedStation[], zoom: number, radius: number, dot = dotRadius(zoom)): Cluster[] {
+export function clusterStations(stations: PlacedStation[], zoom: number, radius: number, dot = dotRadius(zoom), reports?: (station: PlacedStation) => boolean): Cluster[] {
   const cell = radius * 2
   const cells = new Map<number, Group>()
   for (const station of stations) {
     const at = worldPixels(station.latitude, station.longitude, zoom)
     // a number for the cell: the columns of the widest world (zoom 16) fit under a million
     const key = Math.floor(at.x / cell) * 1_000_003 + Math.floor(at.y / cell)
+    const reporting = !reports || reports(station) ? 1 : 0
     const group = cells.get(key)
     if (group) {
       group.count++
+      group.reporting += reporting
       group.sx += at.x
       group.sy += at.y
       group.south = Math.min(group.south, station.latitude)
@@ -214,7 +227,7 @@ export function clusterStations(stations: PlacedStation[], zoom: number, radius:
       group.east = Math.max(group.east, station.longitude)
     }
     else {
-      cells.set(key, { count: 1, sx: at.x, sy: at.y, south: station.latitude, west: station.longitude, north: station.latitude, east: station.longitude, first: station, alive: true })
+      cells.set(key, { count: 1, reporting, sx: at.x, sy: at.y, south: station.latitude, west: station.longitude, north: station.latitude, east: station.longitude, first: station, alive: true })
     }
   }
   return mergeOverlapping([...cells.values()], dot).map((group) => {
@@ -225,15 +238,35 @@ export function clusterStations(stations: PlacedStation[], zoom: number, radius:
       x,
       y,
       count: group.count,
+      reporting: group.reporting,
       bounds: { south: group.south, west: group.west, north: group.north, east: group.east },
       station: group.count === 1 ? group.first : null,
     }
   })
 }
 
-/** The radius of the disc of a group in pixels: it grows with the logarithm of its number, from 11 px for two stations to 23 px for ten thousand */
+/** The radius of the disc of a group in pixels: it grows with the logarithm of its number, from 12 px for two stations to 24 px for ten thousand */
 export function clusterRadius(count: number): number {
-  return Math.round(10 + 3.2 * Math.log10(Math.max(count, 1)))
+  return Math.round(11 + 3.2 * Math.log10(Math.max(count, 1)))
+}
+
+/** The least a part of a group's ring is drawn at, in radians (12 degrees): a share of 1 in 100 is still seen */
+const MIN_SWEEP = Math.PI / 15
+
+/**
+ * How much of the ring of a group is filled for the stations that report, in radians from the top clockwise: nothing for
+ * a group of stopped stations, the whole circle for one that all report (a filled disc, no ring), and for a mix the share,
+ * at least `MIN_SWEEP` and at most a full circle less that, so that a mix never reads as all or none.
+ *
+ * @example
+ * reportingSweep(20, 40) // Math.PI: half the ring
+ */
+export function reportingSweep(reporting: number, count: number): number {
+  if (reporting <= 0)
+    return 0
+  if (reporting >= count)
+    return 2 * Math.PI
+  return Math.min(2 * Math.PI - MIN_SWEEP, Math.max(MIN_SWEEP, reporting / count * 2 * Math.PI))
 }
 
 /**

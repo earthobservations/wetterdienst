@@ -652,8 +652,6 @@
     "showYears": "Afficher les années",
     "showSource": "Afficher la source",
     "showDataAvailability": "Afficher la disponibilité des données",
-    "showTimeseries": "Afficher la série temporelle",
-    "showTrendline": "Afficher la ligne de tendance",
     "visualizationTitle": "Visualisation",
     "loadingViz": "Chargement des données et génération de la visualisation …",
     "downloadImage": "Télécharger l'image",
@@ -672,7 +670,6 @@
       "barsScale": "Barres avec échelle"
     },
     "hoverValue": "Valeur",
-    "hoverTrend": "Tendance",
     "chart": {
       "zoomGroup": "Zoomer et déplacer les bandes",
       "earlier": "Années précédentes",
@@ -937,8 +934,10 @@
     "groupingCoarse": "Large",
     "groupingCompulsory": "Les couches de plus de {shown} stations sont toujours regroupées.",
     "legendGroup": "Un nombre est un groupe de stations : clique pour zoomer",
+    "legendGroupShare": "Un nombre est un groupe de stations : clique pour zoomer. La partie pleine de son anneau montre combien transmettent encore.",
     "groupZoomed": "Zoom sur un groupe. Stations qu'il contient : {shown}",
     "sameStation": "La même station, reconnue par son numéro OMM {wmo}.",
+    "groupZoomedReporting": "Zoom sur un groupe. Stations qu'il contient : {shown}, dont transmettent encore : {reporting}",
     "whyFarther": "La station la plus proche qui transmet encore. Plus près : {name}, à {distance}, jusqu'en {year}.",
     "whyFartherNoEnd": "La station la plus proche qui transmet encore. Plus près : {name}, à {distance}, fin inconnue.",
     "pickCloser": "Choisir {name} à la place"

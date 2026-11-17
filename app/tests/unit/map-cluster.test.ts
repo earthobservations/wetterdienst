@@ -9,6 +9,7 @@ import {
   groupingFor,
   GROUPINGS,
   isGroupedAt,
+  reportingSweep,
   worldPixels,
   worldPoint,
   zoomForCluster,
@@ -209,5 +210,80 @@ describe('a click on a group', () => {
     // stations at one place fit at the deepest zoom: the one they are separated from
     expect(zoomForCluster(16, 5, 9, 16)).toBe(9)
     expect(zoomForCluster(Number.POSITIVE_INFINITY, 5, 20, 16)).toBe(16)
+  })
+})
+
+describe('groups of stations that report and stations that have stopped (GH-4079)', () => {
+  // 500 stations that report and 600 that have stopped, spread over Germany and mixed: a place has both, as the real list's do
+  const mixed = placed(Array.from({ length: 1100 }, (_, index) => station(String(index), 47.5 + random() * 7.5, 6 + random() * 9)))
+  const stopped = new Set(mixed.filter((_, index) => index % 11 < 6).map(entry => entry.station_id))
+  const reports = (entry: { station_id: string }) => !stopped.has(entry.station_id)
+
+  it('are one group for a place: the stations of both kinds are grouped together, and the numbers add up', () => {
+    for (const zoom of [5, 6, 7]) {
+      const groups = clusterStations(mixed, zoom, 30, undefined, reports)
+      expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(mixed.length)
+      expect(groups.reduce((sum, group) => sum + group.reporting, 0)).toBe(mixed.length - stopped.size)
+      // a group of both kinds is the place's one disc
+      expect(groups.some(group => group.reporting > 0 && group.reporting < group.count)).toBe(true)
+      // a group of one keeps its own kind, as its dot
+      for (const group of groups.filter(entry => entry.station))
+        expect(group.reporting).toBe(reports(group.station!) ? 1 : 0)
+    }
+  })
+
+  it('do not overlap, across the kinds, at either step and at several zooms', () => {
+    for (const [radius, zooms] of [[30, [5, 6, 7]], [80, [5, 6, 8]]] as const) {
+      for (const zoom of zooms) {
+        const groups = clusterStations(mixed, zoom, radius, undefined, reports)
+        const dot = dotRadius(zoom)
+        const radiusOf = (group: { count: number }) => group.count === 1 ? dot : clusterRadius(group.count)
+        let overlapping = 0
+        for (let first = 0; first < groups.length; first++) {
+          for (let second = first + 1; second < groups.length; second++) {
+            if (Math.hypot(groups[first]!.x - groups[second]!.x, groups[first]!.y - groups[second]!.y) < radiusOf(groups[first]!) + radiusOf(groups[second]!))
+              overlapping++
+          }
+        }
+        expect(overlapping, `radius ${radius} at zoom ${zoom}`).toBe(0)
+      }
+    }
+  })
+
+  it('count every station as reporting where the layer has no status', () => {
+    const groups = clusterStations(mixed, 5, 50)
+    expect(groups.reduce((sum, group) => sum + group.reporting, 0)).toBe(mixed.length)
+    expect(groups.every(group => group.reporting === group.count)).toBe(true)
+  })
+
+  it('are clicked on as one, which zooms to the box of all its stations, those that report and those that have stopped', () => {
+    const groups = clusterStations(mixed, 6, 30, undefined, reports)
+    const biggest = groups.reduce((best, group) => group.count > best.count ? group : best)
+    expect(clusterAt(groups, { x: biggest.x, y: biggest.y })).toBe(biggest)
+    // the box holds every station of the group, the stopped ones and the reporting ones
+    const inside = mixed.filter(entry => entry.latitude >= biggest.bounds.south && entry.latitude <= biggest.bounds.north && entry.longitude >= biggest.bounds.west && entry.longitude <= biggest.bounds.east)
+    expect(inside.length).toBeGreaterThanOrEqual(biggest.count)
+    expect(biggest.reporting).toBeGreaterThan(0)
+    expect(biggest.reporting).toBeLessThan(biggest.count)
+  })
+})
+
+describe('the share of a group that reports, as the angle of its ring', () => {
+  it('is nothing for stopped stations and the whole circle for stations that all report, a hollow disc and a filled one', () => {
+    expect(reportingSweep(0, 40)).toBe(0)
+    expect(reportingSweep(40, 40)).toBe(2 * Math.PI)
+  })
+
+  it('is the share of the circle for a mix, from the top clockwise', () => {
+    expect(reportingSweep(20, 40)).toBeCloseTo(Math.PI, 9)
+    expect(reportingSweep(10, 40)).toBeCloseTo(Math.PI / 2, 9)
+    expect(reportingSweep(30, 40)).toBeCloseTo(1.5 * Math.PI, 9)
+  })
+
+  it('never reads as all or none for a mix: a sliver of 12 degrees at least, and a gap of 12 degrees at most', () => {
+    expect(reportingSweep(1, 1000)).toBeCloseTo(Math.PI / 15, 9)
+    expect(reportingSweep(999, 1000)).toBeCloseTo(2 * Math.PI - Math.PI / 15, 9)
+    expect(reportingSweep(1, 1000)).toBeGreaterThan(0)
+    expect(reportingSweep(999, 1000)).toBeLessThan(2 * Math.PI)
   })
 })

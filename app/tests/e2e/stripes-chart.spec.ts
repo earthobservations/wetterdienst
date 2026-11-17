@@ -766,22 +766,26 @@ test.describe('the stripes as bars', () => {
     expect(download.suggestedFilename()).toBe('climate_stripes_temperature_00011.png')
     const image = await imageOf(page, download)
     const frame = frameOf({ variant: 'barsScale', subtitleLines: ['Relative to the mean of 1971–2000 [°C]'] })
-    const display = { showTitle: true, showYears: true, showSource: true, showDataAvailability: true, showTimeseries: false, showTrendline: false }
+    const display = { showTitle: true, showYears: true, showSource: true, showDataAvailability: true }
     const high = stripesChartHeight(display, CAMERA_WIDTH, 1, { clamp: false, frame }) + extraLinesHeight(display, 1)
     expect([image.width, image.height]).toEqual([CAMERA_WIDTH * CAMERA_SCALE, high * CAMERA_SCALE])
   })
 
-  for (const scheme of ['light', 'dark'] as const) {
-    test(`carry the time series and the trend line over them, in the text colour of the page so that they read on its paper (${scheme})`, async ({ page, baseURL, context }) => {
-      await context.addInitScript(mode => localStorage.setItem('nuxt-color-mode', mode), scheme)
-      await showStripes(page, baseURL!, `${PATH}&variant=bars&show_timeseries=true&show_trendline=true`)
-      const lines = await chartSvg(page).evaluate(svg => [...svg.querySelectorAll('path[stroke-width]')].map(path => ({ width: path.getAttribute('stroke-width'), stroke: getComputedStyle(path).stroke })))
-      expect(lines.map(line => line.width)).toEqual(['2', '4'])
-      // light lines on the dark paper and dark ones on the light paper (black on dark is 1.3:1)
-      const { behind } = await paintOf(page)
-      for (const line of lines)
-        expect(contrast(line.stroke, behind), `the line of ${line.width} px (${line.stroke}) on ${behind}`).toBeGreaterThan(4.5)
-    })
+  // GH-4170: Hawkins' design has no line over the years; a link made while the page had them still loads, and draws none
+  for (const variant of ['stripes', 'bars', 'bars_scale']) {
+    for (const scheme of ['light', 'dark'] as const) {
+      test(`draw no time series or trend line, also for a link that asks for them (${variant}, ${scheme})`, async ({ page, baseURL, context }) => {
+        await context.addInitScript(mode => localStorage.setItem('nuxt-color-mode', mode), scheme)
+        const strokes = (page: Page) => chartSvg(page).evaluate(svg => [...svg.querySelectorAll('path[stroke-width]')].map(path => path.getAttribute('stroke-width')))
+        const dashed = (page: Page) => chartSvg(page).evaluate(svg => svg.querySelectorAll('path[stroke-dasharray]').length)
+        await showStripes(page, baseURL!, `${PATH}&variant=${variant}`)
+        const without = await strokes(page)
+        await showStripes(page, baseURL!, `${PATH}&variant=${variant}&show_timeseries=true&show_trendline=true`)
+        expect(await strokes(page)).toEqual(without)
+        expect(await strokes(page)).not.toContain('4')
+        expect(await dashed(page)).toBe(0)
+      })
+    }
   }
 
   test('keep the numbers of their y axis where the chart is zoomed: a zoom changes the years, not the axis', async ({ page, baseURL }) => {

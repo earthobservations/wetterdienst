@@ -652,8 +652,6 @@
     "showYears": "Jahre anzeigen",
     "showSource": "Quelle anzeigen",
     "showDataAvailability": "Datenverfügbarkeit anzeigen",
-    "showTimeseries": "Zeitreihe anzeigen",
-    "showTrendline": "Trendlinie anzeigen",
     "visualizationTitle": "Visualisierung",
     "loadingViz": "Daten werden geladen und die Visualisierung wird erstellt …",
     "downloadImage": "Bild herunterladen",
@@ -672,7 +670,6 @@
       "barsScale": "Balken mit Skala"
     },
     "hoverValue": "Wert",
-    "hoverTrend": "Trend",
     "chart": {
       "zoomGroup": "Streifen zoomen und verschieben",
       "earlier": "Frühere Jahre",
@@ -937,8 +934,10 @@
     "groupingCoarse": "Grob",
     "groupingCompulsory": "Ebenen mit mehr als {shown} Stationen sind immer gruppiert.",
     "legendGroup": "Eine Zahl ist eine Gruppe von Stationen: Klicken zum Hineinzoomen",
+    "legendGroupShare": "Eine Zahl ist eine Gruppe von Stationen: Klicken zum Hineinzoomen. Der gefüllte Teil ihres Rings zeigt, wie viele noch Daten liefern.",
     "groupZoomed": "Auf eine Gruppe gezoomt. Stationen darin: {shown}",
     "sameStation": "Dieselbe Station, erkannt an ihrer WMO-Nummer {wmo}.",
+    "groupZoomedReporting": "Auf eine Gruppe gezoomt. Stationen darin: {shown}, davon liefern Daten: {reporting}",
     "whyFarther": "Die nächstgelegene Station, die noch Daten liefert. Näher: {name}, {distance}, bis {year}.",
     "whyFartherNoEnd": "Die nächstgelegene Station, die noch Daten liefert. Näher: {name}, {distance}, Ende unbekannt.",
     "pickCloser": "Stattdessen {name} wählen"

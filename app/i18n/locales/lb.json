@@ -652,8 +652,6 @@
     "showYears": "Joren weisen",
     "showSource": "Quell weisen",
     "showDataAvailability": "Datverfügbarkeet weisen",
-    "showTimeseries": "Zäitrei weisen",
-    "showTrendline": "Trendlinn weisen",
     "visualizationTitle": "Visualiséierung",
     "loadingViz": "Daten ginn gelueden a Visualiséierung gëtt generéiert …",
     "downloadImage": "Bild eroflueden",
@@ -672,7 +670,6 @@
       "barsScale": "Balken mat Skala"
     },
     "hoverValue": "Wäert",
-    "hoverTrend": "Trend",
     "chart": {
       "zoomGroup": "D'Sträifen zoomen a verschiben",
       "earlier": "Fréier Joren",
@@ -937,8 +934,10 @@
     "groupingCoarse": "Grouss",
     "groupingCompulsory": "Schichte mat méi wéi {shown} Statioune si ëmmer gruppéiert.",
     "legendGroup": "Eng Zuel ass eng Grupp vu Statioune: klickt fir anzezoomen",
+    "legendGroupShare": "Eng Zuel ass eng Grupp vu Statioune: klick fir anzezoomen. Dee gefëllten Deel vum Ring weist, wéi vill nach mellen.",
     "groupZoomed": "Op eng Grupp gezoomt. Statioune dran: {shown}",
     "sameStation": "Déi selwecht Statioun, erkannt un hirer WMO-Nummer {wmo}.",
+    "groupZoomedReporting": "Op eng Grupp gezoomt. Statioune dran: {shown}, dovun mellen: {reporting}",
     "whyFarther": "Déi nootst Statioun, déi nach mellt. Méi no: {name}, {distance}, bis {year}.",
     "whyFartherNoEnd": "Déi nootst Statioun, déi nach mellt. Méi no: {name}, {distance}, Enn onbekannt.",
     "pickCloser": "{name} amplaz huelen"

@@ -7,7 +7,7 @@ import { createError, getQuery, setResponseStatus } from 'h3'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import { UApp } from '#components'
-import { clearNuxtData, useSettings, useToast } from '#imports'
+import { clearNuxtData, useRouter, useSettings, useToast } from '#imports'
 import MapStations from '~/components/MapStations.vue'
 import StationPicker from '~/components/StationPicker.vue'
 import StripesChart from '~/components/StripesChart.vue'
@@ -382,15 +382,41 @@ describe('stripes Page years', () => {
     expect(textsOf(drawnOption())).toEqual(expect.arrayContaining(['2019', '2020']))
   })
 
-  it('names the value and the trend of the readout in the active language', async () => {
-    // they read "Value:" and "Trend:" in every language (GH-2610)
+  it('names the value and the class of the readout in the active language', async () => {
+    // they read "Value:" in every language (GH-2610); a trend is no longer among them (GH-4170)
     await withLocale('de', async () => {
-      await show('/stripes?kind=temperature&show_timeseries=true&show_trendline=true')
+      await show('/stripes?kind=temperature')
       hoverYear(2019, 2019, 2020)
       await nextTick()
-      expect(readoutRows().map(([name]) => name)).toEqual(['Wert', 'Trend', 'Klasse'])
+      expect(readoutRows().map(([name]) => name)).toEqual(['Wert', 'Klasse'])
       expect(readout()!.textContent).not.toContain('Value')
     })
+  })
+
+  it('loads a link that still has the time series and the trend line as it always did, draws no line, and writes neither parameter back (GH-4170)', async () => {
+    const vm = await show('/stripes?kind=temperature&show_timeseries=true&show_trendline=true')
+    expect(vm.showTimeseries).toBeUndefined()
+    expect(vm.showTrendline).toBeUndefined()
+    expect(drawnOption().series.map((s: any) => s.id)).toEqual(['stripes', 'availability', 'labels'])
+    hoverYear(2019, 2019, 2020)
+    await nextTick()
+    expect(readoutRows().map(([name]) => name)).toEqual(['Value', 'Class'])
+    // another choice rewrites the link from the page's own options, which have no such parameters
+    vm.startYear = 2000
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.start_year).toBe('2000'))
+    expect(Object.keys(useRouter().currentRoute.value.query)).not.toContain('show_timeseries')
+    expect(Object.keys(useRouter().currentRoute.value.query)).not.toContain('show_trendline')
+    expect(Object.keys(useSettings().settings.value.stripes).sort()).toEqual(['showDataAvailability', 'showSource', 'showTitle', 'showYears'])
+  })
+
+  it('offers no checkbox for either line', async () => {
+    await show('/stripes?kind=temperature')
+    const settingsButton = [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Settings')!
+    settingsButton.click()
+    await vi.waitFor(() => expect(document.body.textContent).toContain('Show data availability'))
+    const labels = [...document.body.querySelectorAll('label')].map(label => label.textContent?.trim())
+    expect(labels).toEqual(expect.arrayContaining(['Show title', 'Show years', 'Show source', 'Show data availability']))
+    expect(labels.some(label => /timeseries|trendline/i.test(label ?? ''))).toBe(false)
   })
 
   // the numbers of the readout are written with the language's separators (GH-2971)
@@ -731,7 +757,7 @@ describe('stripes Page units', () => {
   }
 
   it('asks for degree Celsius by default, and says it in the sentence, the table and the readout', async () => {
-    await show('/stripes?kind=temperature&show_timeseries=true')
+    await show('/stripes?kind=temperature')
     expect(asked.map(query => JSON.parse(query.unit_targets!))).toEqual([{ temperature: 'degree_celsius' }])
     await vi.waitFor(() => expect(sentence()).toContain('Lowest value 9.00 °C in 2019, highest value 11.00 °C in 2020.'))
     expect(await tableHead()).toContain('Value (°C)')
@@ -741,7 +767,7 @@ describe('stripes Page units', () => {
 
   it('asks for degree Fahrenheit where the settings choose it, and says it everywhere it writes a number', async () => {
     useSettings().settings.value.units.temperature = 'degree_fahrenheit'
-    await show('/stripes?kind=temperature&show_timeseries=true')
+    await show('/stripes?kind=temperature')
     expect(asked.map(query => JSON.parse(query.unit_targets!))).toEqual([{ temperature: 'degree_fahrenheit' }])
     await vi.waitFor(() => expect(sentence()).toContain('Lowest value 48.20 °F in 2019, highest value 51.80 °F in 2020.'))
     expect(await tableHead()).toContain('Value (°F)')

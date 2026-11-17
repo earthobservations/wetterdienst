@@ -53,6 +53,34 @@ describe('settings schema', () => {
     expect(result.units.duration).toBe('hour')
   })
 
+  describe('the stripes\' time series and trend line, which are no options any more (GH-4170)', () => {
+    // what a browser that visited before the change holds: the two choices beside the four that stay
+    const stored = (version: number) => ({
+      ...structuredClone(SETTINGS_DEFAULTS),
+      version,
+      friendlyLabels: false,
+      stripes: { showTitle: false, showYears: true, showSource: false, showDataAvailability: true, showTimeseries: true, showTrendline: true },
+    })
+
+    it('has neither choice in the defaults', () => {
+      expect(SETTINGS_DEFAULTS.stripes).toEqual({ showTitle: true, showYears: true, showSource: true, showDataAvailability: true })
+    })
+
+    it.each([SETTINGS_VERSION, 1, 99])('reads settings of version %i that still hold them, drops the two and keeps every other choice', (version) => {
+      const result = coerceSettings(stored(version))
+      expect(result.stripes).toEqual({ showTitle: false, showYears: true, showSource: false, showDataAvailability: true })
+      expect(Object.keys(result.stripes)).not.toContain('showTimeseries')
+      expect(Object.keys(result.stripes)).not.toContain('showTrendline')
+      expect(result.friendlyLabels).toBe(false)
+      expect(result.version).toBe(SETTINGS_VERSION)
+    })
+
+    it('does not reset the stripes\' other choices for the two it no longer has', () => {
+      expect(coerceSettings(stored(SETTINGS_VERSION)).stripes.showTitle).toBe(false)
+      expect(wdSettingsSchema.safeParse(stored(SETTINGS_VERSION)).success).toBe(true)
+    })
+  })
+
   it('names the backend\'s default of the unit types whose default changed (GH-3702)', () => {
     // UnitConverter().targets: sunshine and the like in hours, a sum of radiation in MJ/m², a share in percent
     expect(SETTINGS_DEFAULTS.units).toMatchObject({

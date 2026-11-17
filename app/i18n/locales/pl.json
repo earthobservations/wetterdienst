@@ -652,8 +652,6 @@
     "showYears": "Pokaż lata",
     "showSource": "Pokaż źródło",
     "showDataAvailability": "Pokaż dostępność danych",
-    "showTimeseries": "Pokaż szereg czasowy",
-    "showTrendline": "Pokaż linię trendu",
     "visualizationTitle": "Wizualizacja",
     "loadingViz": "Ładowanie danych i generowanie wizualizacji …",
     "downloadImage": "Pobierz obraz",
@@ -672,7 +670,6 @@
       "barsScale": "Słupki ze skalą"
     },
     "hoverValue": "Wartość",
-    "hoverTrend": "Trend",
     "chart": {
       "zoomGroup": "Powiększ i przesuń paski",
       "earlier": "Wcześniejsze lata",
@@ -937,8 +934,10 @@
     "groupingCoarse": "Duże",
     "groupingCompulsory": "Warstwy z ponad {shown} stacji są zawsze grupowane.",
     "legendGroup": "Liczba oznacza grupę stacji: kliknij, aby przybliżyć",
+    "legendGroupShare": "Liczba oznacza grupę stacji: kliknij, aby przybliżyć. Wypełniona część pierścienia pokazuje, ile z nich nadal działa.",
     "groupZoomed": "Przybliżono grupę. Stacji w niej: {shown}",
     "sameStation": "Ta sama stacja, rozpoznana po numerze WMO {wmo}.",
+    "groupZoomedReporting": "Przybliżono grupę. Stacji w niej: {shown}, z tego działających: {reporting}",
     "whyFarther": "Najbliższa stacja, która nadal działa. Bliżej: {name}, {distance}, do {year}.",
     "whyFartherNoEnd": "Najbliższa stacja, która nadal działa. Bliżej: {name}, {distance}, koniec nieznany.",
     "pickCloser": "Wybierz zamiast tego {name}"

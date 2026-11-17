@@ -652,8 +652,6 @@
     "showYears": "Jaren tonen",
     "showSource": "Bron tonen",
     "showDataAvailability": "Gegevensbeschikbaarheid tonen",
-    "showTimeseries": "Tijdreeks tonen",
-    "showTrendline": "Trendlijn tonen",
     "visualizationTitle": "Visualisatie",
     "loadingViz": "Gegevens laden en visualisatie genereren …",
     "downloadImage": "Afbeelding downloaden",
@@ -672,7 +670,6 @@
       "barsScale": "Staven met schaal"
     },
     "hoverValue": "Waarde",
-    "hoverTrend": "Trend",
     "chart": {
       "zoomGroup": "De strepen zoomen en verschuiven",
       "earlier": "Eerdere jaren",
@@ -937,8 +934,10 @@
     "groupingCoarse": "Grof",
     "groupingCompulsory": "Lagen met meer dan {shown} stations worden altijd gegroepeerd.",
     "legendGroup": "Een getal is een groep stations: klik om in te zoomen",
+    "legendGroupShare": "Een getal is een groep stations: klik om in te zoomen. Het gevulde deel van de ring toont hoeveel er nog meten.",
     "groupZoomed": "Ingezoomd op een groep. Stations erin: {shown}",
     "sameStation": "Hetzelfde station, herkend aan zijn WMO-nummer {wmo}.",
+    "groupZoomedReporting": "Ingezoomd op een groep. Stations erin: {shown}, waarvan actief: {reporting}",
     "whyFarther": "Het dichtstbijzijnde station dat nog meldt. Dichterbij: {name}, {distance}, tot {year}.",
     "whyFartherNoEnd": "Het dichtstbijzijnde station dat nog meldt. Dichterbij: {name}, {distance}, einde onbekend.",
     "pickCloser": "Kies in plaats daarvan {name}"

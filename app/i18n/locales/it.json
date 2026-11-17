@@ -652,8 +652,6 @@
     "showYears": "Mostra gli anni",
     "showSource": "Mostra la fonte",
     "showDataAvailability": "Mostra la disponibilità dei dati",
-    "showTimeseries": "Mostra la serie temporale",
-    "showTrendline": "Mostra la linea di tendenza",
     "visualizationTitle": "Visualizzazione",
     "loadingViz": "Caricamento dei dati e generazione della visualizzazione …",
     "downloadImage": "Scarica l'immagine",
@@ -672,7 +670,6 @@
       "barsScale": "Barre con scala"
     },
     "hoverValue": "Valore",
-    "hoverTrend": "Tendenza",
     "chart": {
       "zoomGroup": "Ingrandisci e sposta le strisce",
       "earlier": "Anni precedenti",
@@ -937,8 +934,10 @@
     "groupingCoarse": "Ampio",
     "groupingCompulsory": "I livelli con più di {shown} stazioni sono sempre raggruppati.",
     "legendGroup": "Un numero è un gruppo di stazioni: clicca per ingrandire",
+    "legendGroupShare": "Un numero è un gruppo di stazioni: clicca per ingrandire. La parte piena del suo anello mostra quante sono ancora in funzione.",
     "groupZoomed": "Ingrandito su un gruppo. Stazioni al suo interno: {shown}",
     "sameStation": "La stessa stazione, riconosciuta dal suo numero OMM {wmo}.",
+    "groupZoomedReporting": "Ingrandito su un gruppo. Stazioni al suo interno: {shown}, di cui in funzione: {reporting}",
     "whyFarther": "La stazione più vicina ancora in funzione. Più vicina: {name}, a {distance}, fino al {year}.",
     "whyFartherNoEnd": "La stazione più vicina ancora in funzione. Più vicina: {name}, a {distance}, fine non nota.",
     "pickCloser": "Scegli invece {name}"
