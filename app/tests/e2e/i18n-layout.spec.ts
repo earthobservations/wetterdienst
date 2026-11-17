@@ -305,7 +305,8 @@ LONG_LANGUAGES.forEach((language) => {
       await page.goto(path)
       await expect(page.locator('.leaflet-container')).toBeVisible({ timeout: 30_000 })
       await expect(page.locator('[data-testid="map-center"]')).toBeVisible()
-      await expect(page.locator('[data-station-chip]').first()).toBeVisible()
+      // what names the picked station: the explorer's chip, and for one station (the forecast, the stripes) the line on the map
+      await expect(page.locator('[data-station-chip], [data-testid="station-picker-selected"]').first()).toBeVisible()
       await settle(page)
       // The picker itself, not the page around it (the explorer's date range and result table have their own 320 px,
       // GH-3845): nothing of it overflows its box or reaches past the window. The map's tiles reach past its box by design.

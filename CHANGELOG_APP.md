@@ -28,6 +28,11 @@ Types of changes:
 
 ### Fixed
 
+- `[Forecast, Stripes]` A single selected station is named once by the station picker: the search
+  shows it, and the "Selected station" chip block under it is gone. On the map, which has no search,
+  one line names it, and a screen reader gets the station as the search's description. A single
+  station is replaced by another pick, no longer cleared by its chip. Several stations (Explorer,
+  History) keep their chips (GH-4151).
 - `[Stripes]` The gold data-availability line spans exactly the stripes that have a value: each run
   of years from the left edge of its first stripe to the right edge of its last, and a year between
   two gaps gets a bar as wide as its stripe. It stopped half a stripe short at each end of a run

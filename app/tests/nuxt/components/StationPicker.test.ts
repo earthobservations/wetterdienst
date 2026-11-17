@@ -57,7 +57,7 @@ async function mountPicker(props: Partial<Props> = {}, options: Record<string, u
  * The picker as a page holds it: the picked stations are the page's, handed back as `selected`.
  * Returns the wrapper and the stations the page holds.
  */
-async function mountPage(props: { tool?: Props['tool'], multiple?: boolean, selected?: typeof stations } = {}) {
+async function mountPage(props: { tool?: Props['tool'], multiple?: boolean, selected?: typeof stations, label?: string } = {}) {
   const picked = ref(props.selected ?? [])
   const Host = defineComponent({
     setup: () => () => h(StationPicker as any, {
@@ -65,6 +65,7 @@ async function mountPage(props: { tool?: Props['tool'], multiple?: boolean, sele
       stations,
       'selected': picked.value,
       'multiple': props.multiple ?? true,
+      'label': props.label,
       'onUpdate:selected': (value: typeof stations) => {
         picked.value = value
       },
@@ -378,17 +379,94 @@ describe('the station picker\'s chips', () => {
     await vi.waitFor(() => expect(document.activeElement).toBe(radio(wrapper, 'List').element))
   })
 
-  it('are one chip for one station, with no clearing of all', async () => {
-    const { wrapper } = await mountPage({ selected: [potsdam], multiple: false })
-    expect(wrapper.find('[data-testid="station-picker-chips"] h3').text()).toBe('Selected station:')
-    expect(chips(wrapper)).toEqual(['Potsdam (03987) ×'])
-    expect(wrapper.findAll('button').some(b => b.text() === 'Clear all')).toBe(false)
-  })
-
   it('name a station without a name by its id', async () => {
     const postcode = { station_id: '01067', name: null, region: null, latitude: null, longitude: null }
     const wrapper = await mountPicker({ selected: [postcode] as any })
     expect(chips(wrapper)).toEqual(['01067 ×'])
+  })
+})
+
+describe('the station picker for one station (GH-4151)', () => {
+  const selectedLine = (wrapper: VueWrapper) => wrapper.find('[data-testid="station-picker-selected"]')
+
+  it('names the station once in the list, in the search, with no chip block and no line of its own', async () => {
+    const { wrapper } = await mountPage({ selected: [potsdam], multiple: false })
+    expect(wrapper.find('[data-testid="station-picker-chips"]').exists()).toBe(false)
+    expect(wrapper.find('[data-station-chip]').exists()).toBe(false)
+    expect(selectedLine(wrapper).exists()).toBe(false)
+    expect(picker(wrapper).selectedItems).toEqual({ label: 'Potsdam (ID: 03987, Brandenburg)', value: '03987' })
+    expect(wrapper.text()).not.toContain('Selected station')
+  })
+
+  it('names the station once on the map, in one line with no button, and in the list again after a switch back', async () => {
+    const { wrapper, picked } = await mountPage({ selected: [potsdam], multiple: false })
+    await radio(wrapper, 'Map').trigger('click')
+    await vi.waitFor(() => expect(mapStub(wrapper).exists()).toBe(true))
+    expect(selectedLine(wrapper).text()).toBe('Selected station: Potsdam (03987)')
+    expect(selectedLine(wrapper).find('button').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="station-picker-chips"]').exists()).toBe(false)
+    expect(wrapper.text().split('Potsdam (03987)')).toHaveLength(2)
+
+    // a pick on the map replaces the one before, and the line follows it
+    mapStub(wrapper).vm.$emit('update:selectedStations', [berlin])
+    await nextTick()
+    expect(picked.value).toEqual([berlin])
+    expect(selectedLine(wrapper).text()).toBe('Selected station: Berlin-Tempelhof (00433)')
+
+    await radio(wrapper, 'List').trigger('click')
+    expect(selectedLine(wrapper).exists()).toBe(false)
+    expect(picker(wrapper).selectedItems).toEqual({ label: 'Berlin-Tempelhof (ID: 00433, Berlin)', value: '00433' })
+  })
+
+  it('gives the search of a picker with a visible label the station as its description, which the label would leave unnamed', async () => {
+    const { wrapper } = await mountPage({ selected: [potsdam], multiple: false, label: 'Station' })
+    const label = wrapper.find('label')
+    // each mounted picker is an app of its own, whose ids start over: the elements are looked up in their wrapper
+    const search = wrapper.find(`[id="${label.attributes('for')}"]`)
+    // the label names the button "Station"; what is picked is its description, a line only a screen reader gets
+    const description = wrapper.find(`[id="${search.attributes('aria-describedby')}"]`)
+    expect(description.text()).toBe('Selected station: Potsdam (03987)')
+    expect(description.classes()).toContain('sr-only')
+    expect(description.attributes('data-testid')).toBe('station-picker-selected-description')
+    // it is no line of the map's: that one is visible, and not there in the list
+    expect(selectedLine(wrapper).exists()).toBe(false)
+
+    // nothing picked: nothing to describe
+    await mountPage({ multiple: false, label: 'Station' }).then(({ wrapper: empty }) => {
+      expect(empty.find('[data-testid="station-picker-selected-description"]').exists()).toBe(false)
+      expect(empty.find(`[id="${empty.find('label').attributes('for')}"]`).attributes('aria-describedby')).toBeUndefined()
+    })
+
+    // on the map the visible line says it, and the description is gone with the search
+    await radio(wrapper, 'Map').trigger('click')
+    await vi.waitFor(() => expect(mapStub(wrapper).exists()).toBe(true))
+    expect(wrapper.find('[data-testid="station-picker-selected-description"]').exists()).toBe(false)
+    expect(selectedLine(wrapper).text()).toBe('Selected station: Potsdam (03987)')
+  })
+
+  it('adds no description where there is no label (the forecast): the search\'s own text names the station', async () => {
+    const { wrapper } = await mountPage({ selected: [potsdam], multiple: false })
+    expect(wrapper.find('[data-testid="station-picker-selected-description"]').exists()).toBe(false)
+    expect(wrapper.find('[aria-describedby]').exists()).toBe(false)
+  })
+
+  it('has no line on the map before a station is picked', async () => {
+    const { wrapper } = await mountPage({ multiple: false })
+    await radio(wrapper, 'Map').trigger('click')
+    await vi.waitFor(() => expect(mapStub(wrapper).exists()).toBe(true))
+    expect(selectedLine(wrapper).exists()).toBe(false)
+  })
+
+  it('keeps the chips, with their heading and the clearing of all, for several stations, in both modes', async () => {
+    const { wrapper } = await mountPage({ selected: [potsdam], multiple: true })
+    expect(wrapper.find('[data-testid="station-picker-chips"] h3').text()).toBe('Selected Stations:')
+    expect(chips(wrapper)).toEqual(['Potsdam (03987) ×'])
+    expect(selectedLine(wrapper).exists()).toBe(false)
+
+    await radio(wrapper, 'Map').trigger('click')
+    await vi.waitFor(() => expect(mapStub(wrapper).exists()).toBe(true))
+    expect(chips(wrapper)).toEqual(['Potsdam (03987) ×'])
+    expect(selectedLine(wrapper).exists()).toBe(false)
   })
 })
 

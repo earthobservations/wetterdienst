@@ -220,7 +220,7 @@ describe('stripes Page station map', () => {
     leafletMap.fitBounds.mockClear()
   })
 
-  it('picks its station with the shared station picker, for one station, which a pick on the map shows as a chip in the list', async () => {
+  it('picks its station with the shared station picker, for one station, which the search shows in the list and the map in one line', async () => {
     registerEndpoint('/api/stripes/stations', () => ({ stations: [tempelhof, potsdam] }))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation' })
     const vm = wrapper.vm as any
@@ -235,12 +235,15 @@ describe('stripes Page station map', () => {
     await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('1048'))
 
     await wrapper.findAll('[role="radio"]').find((radio: { text: () => string }) => radio.text() === 'List')!.trigger('click')
-    expect(wrapper.findAll('[data-station-chip]').map((chip: { text: () => string }) => chip.text())).toEqual(['Berlin-Tempelhof (1048) ×'])
+    // the station is named once, by the search, in the list: no chip (GH-4151)
+    expect(wrapper.findAll('[data-station-chip]')).toHaveLength(0)
+    expect(wrapper.find('[data-testid="station-picker-chips"]').exists()).toBe(false)
+    expect((wrapper.findComponent(StationPicker).vm as any).selectedItems).toEqual({ label: 'Berlin-Tempelhof (ID: 1048, Berlin)', value: '1048' })
     // a pick replaces the one before
     wrapper.findComponent(StationPicker).vm.$emit('update:selected', [potsdam])
     await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe('3987'))
-    // and the chip clears it
-    await wrapper.find('[data-station-chip]').trigger('click')
+    // the page's handling of an empty pick, not a path of the UI: a single station is replaced, not cleared
+    wrapper.findComponent(StationPicker).vm.$emit('update:selected', [])
     await vi.waitFor(() => expect(vm.selectedStation).toBeNull())
   })
 
