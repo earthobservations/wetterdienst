@@ -22,25 +22,29 @@ Types of changes:
   above the chart (kept in the link as `variant`). A bar is the year's anomaly from the mean the
   colours are centred on (1971–2000, or the station's whole record), up for warm or wet, in the
   colour of its class; with a scale it has a y axis in the unit, round years along the x axis and a
-  line saying what the bars are relative to. Window, title, availability line, source, lines,
-  camera, downloads and print follow the variant shown (GH-4156).
+  line saying what the bars are relative to. Window, title, availability line, source, camera,
+  downloads and print follow the variant shown (GH-4156).
 
 ### Changed
 
 - `[Stripes]` The stripes' colours follow Ed Hawkins' method, as the backend classes them: 16
-  discrete colours from the mean of 1971-2000 in steps of 0.325 standard deviations of 1901-2000,
-  no longer a point between the coolest and the warmest year shown, so a year keeps its colour
-  whatever years the form asks for. A line under the chart says what the colours are relative to
-  (the station's whole record where it has too few years in a period); the table has an anomaly
-  column; the readout, the map panel's band and the lines over the stripes follow. Needs the
-  backend that answers `reference` (GH-4157).
+  discrete colours from the mean of 1971–2000 in steps of 0.325 standard deviations of 1901–2000, no
+  longer a point between the coolest and the warmest year shown, so a year keeps its colour whatever
+  years the form asks for. A line under the chart says what the colours are relative to (the
+  station's whole record where it has too few years in a period); the table has an anomaly column;
+  the readout and the map panel's band follow. Needs the backend that answers `reference` (GH-4157).
+
+### Removed
+
+- `[Stripes]` The two options that drew a time series line and a trend line over the stripes and
+  the bars are gone, with their settings and the `show_timeseries` and `show_trendline` link
+  parameters (old links and stored settings still load; the lines are not drawn, and the readout no
+  longer has a trend row). As in Ed Hawkins' design: "All other superfluous information is removed
+  so that the changes in temperature are seen simply and undeniably" (Climate Lab Book, 2018). The
+  image of the backend already had none (GH-4170).
 
 ### Fixed
 
-- `[Stripes]` The optional time series line over the stripes breaks at every year without a value,
-  as the stripes and the availability line do, instead of joining the years on either side of the
-  gap; a year that stands alone gets a dot. The trend line stays continuous: it is a fit over the
-  years. In the chart, the camera and the downloaded images (GH-4164).
 - `[Explorer, Forecast]` A chart's line breaks where rows are missing, not only where a row has an
   empty value: a step of more than 1.5 times the usual one there (the resolution's interval, a
   calendar month or year, or the series' own cadence, also by time of day for readings at fixed

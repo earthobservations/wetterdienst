@@ -652,8 +652,6 @@
     "showYears": "Vis år",
     "showSource": "Vis kilde",
     "showDataAvailability": "Vis datatilgængelighed",
-    "showTimeseries": "Vis tidsserie",
-    "showTrendline": "Vis tendenslinje",
     "visualizationTitle": "Visualisering",
     "loadingViz": "Indlæser data og genererer visualisering …",
     "downloadImage": "Download billede",
@@ -672,7 +670,6 @@
       "barsScale": "Søjler med skala"
     },
     "hoverValue": "Værdi",
-    "hoverTrend": "Tendens",
     "chart": {
       "zoomGroup": "Zoom og flyt striberne",
       "earlier": "Tidligere år",

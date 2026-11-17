@@ -37,8 +37,6 @@ const { settings } = useSettings()
 const showTitle = ref(settings.value.stripes.showTitle)
 const showYears = ref(settings.value.stripes.showYears)
 const showDataAvailability = ref(settings.value.stripes.showDataAvailability)
-const showTimeseries = ref(settings.value.stripes.showTimeseries)
-const showTrendline = ref(settings.value.stripes.showTrendline)
 const showSource = ref(settings.value.stripes.showSource)
 
 const { data: stationsData, pending: stationsPending } = useFetch<StripesStationsResponse>(
@@ -117,8 +115,6 @@ const display = computed<StripesDisplay>(() => ({
   showYears: showYears.value,
   showSource: showSource.value,
   showDataAvailability: showDataAvailability.value,
-  showTimeseries: showTimeseries.value,
-  showTrendline: showTrendline.value,
 }))
 // the name of the camera's file: the kind and the station of the stripes shown
 const cameraFile = computed(() => `climate_stripes_${kind.value}_${lastFetchedData.value?.series.station.station_id ?? ''}`)
@@ -251,10 +247,6 @@ if (route.query.show_years !== undefined && route.query.show_years !== null)
   showYears.value = route.query.show_years?.toString() === 'true'
 if (route.query.show_data_availability !== undefined && route.query.show_data_availability !== null)
   showDataAvailability.value = route.query.show_data_availability?.toString() === 'true'
-if (route.query.show_timeseries !== undefined && route.query.show_timeseries !== null)
-  showTimeseries.value = route.query.show_timeseries?.toString() === 'true'
-if (route.query.show_trendline !== undefined && route.query.show_trendline !== null)
-  showTrendline.value = route.query.show_trendline?.toString() === 'true'
 if (route.query.show_source !== undefined && route.query.show_source !== null)
   showSource.value = route.query.show_source?.toString() === 'true'
 if (route.query.start_year)
@@ -311,12 +303,10 @@ watch(stations, () => {
 })
 
 // Persist the display toggles to the settings store; the chart draws what they say as they change
-watch([showTitle, showYears, showDataAvailability, showTimeseries, showTrendline, showSource], () => {
+watch([showTitle, showYears, showDataAvailability, showSource], () => {
   settings.value.stripes.showTitle = showTitle.value
   settings.value.stripes.showYears = showYears.value
   settings.value.stripes.showDataAvailability = showDataAvailability.value
-  settings.value.stripes.showTimeseries = showTimeseries.value
-  settings.value.stripes.showTrendline = showTrendline.value
   settings.value.stripes.showSource = showSource.value
 })
 
@@ -334,10 +324,6 @@ function stripesToQuery(): Record<string, string> {
     q.show_years = String(showYears.value)
   if (showDataAvailability.value !== undefined)
     q.show_data_availability = String(showDataAvailability.value)
-  if (showTimeseries.value !== undefined)
-    q.show_timeseries = String(showTimeseries.value)
-  if (showTrendline.value !== undefined)
-    q.show_trendline = String(showTrendline.value)
   if (showSource.value !== undefined)
     q.show_source = String(showSource.value)
   if (startYear.value !== null && startYear.value !== undefined)
@@ -354,8 +340,6 @@ watch([
   () => showTitle.value,
   () => showYears.value,
   () => showDataAvailability.value,
-  () => showTimeseries.value,
-  () => showTrendline.value,
   () => showSource.value,
   () => startYear.value,
   () => endYear.value,
@@ -457,8 +441,6 @@ watch([
                 <UCheckbox v-model="showYears" :label="t('stripes.showYears')" />
                 <UCheckbox v-model="showSource" :label="t('stripes.showSource')" />
                 <UCheckbox v-model="showDataAvailability" :label="t('stripes.showDataAvailability')" />
-                <UCheckbox v-model="showTimeseries" :label="t('stripes.showTimeseries')" />
-                <UCheckbox v-model="showTrendline" :disabled="!showTimeseries" :label="t('stripes.showTrendline')" />
               </div>
             </template>
           </UCollapsible>
