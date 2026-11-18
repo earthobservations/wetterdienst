@@ -41,6 +41,25 @@ Types of changes:
 
 ### Fixed
 
+- `[Forecast]` The wind barbs of the chart stand on the side of the station's hemisphere, as on a
+  weather map: for a wind from the west north of the equator they are above the shaft (they were
+  below it), south of the equator below it. A station without a position has the northern side
+  (GH-4063).
+- `[SEO]` The HTML the server sends for a page is in the language the page then shows: its
+  `<html lang>`, title, description, `og:` tags and `<noscript>` text follow the visitor's
+  language cookie, else the first language of the browser's `Accept-Language` that the app has
+  (any of its 11, no longer only German and English), else German, as the app picks it at
+  startup. A request with no `Accept-Language` at all, which a crawler sends and a browser never
+  does, gets English, the language of the page a crawler renders. Before, a request in French or
+  with a cookie for it got German, and the page then showed another language than the HTML under
+  the same URL (GH-4106).
+- `[Forecast]` Under the fraction unit `0–1`, the cloud and snow-chance panels' middle tick is
+  written 0.5 and no longer as 1, which read as the top of the axis; `%` and oktas are unchanged
+  (GH-4197).
+- `[Widget]` Docs: the embedded widget's chart is 674 px high, 744 px with the thunderstorm panel,
+  not 540 px, and the frame needs about 850 to 950 px, so the example iframe is 1000 px high where
+  it was 700 and had a scroll bar; the day cards of a frame 40 rem wide or less are about 350 px
+  (GH-4197).
 - `[Map]` A click on a group of stations centres the map on the group. It centred on the middle of
   the stations' box, which is far from the disc where they are not spread evenly (a town with
   outliers to one side); it now centres on the disc, with the box grown round it so that all of the
@@ -98,10 +117,6 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 
 ### Fixed
 
-- `[Forecast]` The wind barbs of the chart stand on the side of the station's hemisphere, as on a
-  weather map: for a wind from the west north of the equator they are above the shaft (they were
-  below it), south of the equator below it. A station without a position has the northern side
-  (GH-4063).
 - `[Forecast, Map, Home]` The late days of a forecast no longer look dry. MOSMIX's hourly rain
   amount is 0.0 from about +100 h at most lowland stations, while its 6, 12 and 24 h totals still
   carry rain, so days 6 to 10 showed none where DWD's own total has 1 to 2 mm. Each 24 h window

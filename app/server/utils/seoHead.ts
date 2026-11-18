@@ -3,20 +3,30 @@
 // script, which a link preview (Slack, Mastodon, a messenger) and some search engines do not run. The server writes
 // the tags of the path into the shell as it sends it (`server/plugins/seo-head.ts`), and a `<noscript>` block with
 // the page's name, what it is about and links to the other pages. The script then replaces them in the language
-// the visitor chose (`app/app.vue`).
+// the visitor is shown (`app/app.vue`).
 //
-// Only German and English are written here: the default locale, and the language a crawler or a preview asks for if
-// it asks for any. The other languages of the app are the visitor's own choice and need the script anyway.
+// The head is written in the language the app will render for the request (GH-4106): the rule that picks it is the
+// app's own (`shared/utils/language.ts`), over the same locales (`shared/utils/locales.ts`) and catalogs, so the
+// shell and the page agree about the language of one URL.
+import type { LocaleCode } from '../../shared/utils/locales'
 import type { SeoProvider } from '../../shared/utils/seo'
+import cs from '../../i18n/locales/cs.json'
+import da from '../../i18n/locales/da.json'
+import deHh from '../../i18n/locales/de-hh.json'
 import de from '../../i18n/locales/de.json'
 import en from '../../i18n/locales/en.json'
+import es from '../../i18n/locales/es.json'
+import fr from '../../i18n/locales/fr.json'
+import it from '../../i18n/locales/it.json'
+import lb from '../../i18n/locales/lb.json'
+import nl from '../../i18n/locales/nl.json'
+import pl from '../../i18n/locales/pl.json'
+import { LOCALES } from '../../shared/utils/locales'
 import { canonicalUrl, findProvider, findSeoRoute, HOME_TITLE_KEY, isNotIndexed, normalizePath, providerPath, providerSeoText, SEO_ROUTES, siteOrigin } from '../../shared/utils/seo'
 
-export type SeoLocale = 'de' | 'en'
+export type SeoLocale = LocaleCode
 
-const MESSAGES: Record<SeoLocale, unknown> = { de, en }
-// `og:locale` takes a language and a territory with an underscore (the app's `de-DE`, `en-GB` of nuxt.config.ts)
-const OG_LOCALE: Record<SeoLocale, string> = { de: 'de_DE', en: 'en_GB' }
+const MESSAGES: Record<SeoLocale, unknown> = { 'de': de, 'en': en, 'fr': fr, 'es': es, 'it': it, 'pl': pl, 'nl': nl, 'cs': cs, 'da': da, 'lb': lb, 'de-hh': deHh }
 const SITE_NAME = 'Wetterdienst'
 
 /** The text under a dotted key (`seo.pages.api`) of a catalog, or the key if there is none: a hole shows. */
@@ -35,21 +45,9 @@ function translate(locale: SeoLocale, key: string, values: Record<string, string
   return message(locale, key).replace(/\{(\w+)\}/g, (slot, name: string) => values[name] ?? slot)
 }
 
-/**
- * The language of the page a request gets: the one the visitor chose (the cookie of the app's language
- * setting), else the one the browser prefers if that is English, else German, the app's default. A crawler sends
- * neither and gets German.
- *
- * @param cookie The `wd_lang` cookie, if any
- * @param acceptLanguage The `Accept-Language` header, if any
- * @returns `de` or `en`
- */
-export function pickLocale(cookie: string | undefined, acceptLanguage: string | undefined): SeoLocale {
-  if (cookie)
-    return cookie.toLowerCase() === 'en' ? 'en' : 'de'
-  // the first entry's tag, without its weight (`en;q=0.9`)
-  const first = (acceptLanguage ?? '').split(',', 1)[0]?.split(';', 1)[0]?.trim().toLowerCase() ?? ''
-  return first === 'en' || first.startsWith('en-') ? 'en' : 'de'
+/** `og:locale` takes a language and a territory with an underscore: the locale's `de-DE`, as `de_DE` (`app/app.vue`) */
+function ogLocale(locale: SeoLocale): string {
+  return (LOCALES.find(entry => entry.code === locale)?.language ?? 'de-DE').replace('-', '_')
 }
 
 /** Text as it may stand in HTML, in an attribute as well. */
@@ -127,7 +125,7 @@ export function seoHead(path: string, locale: SeoLocale, siteUrl: unknown, provi
     meta('property', 'og:title', title),
     meta('property', 'og:description', description),
     ...(canonicalPath ? [meta('property', 'og:url', canonicalUrl(siteUrl, canonicalPath))] : []),
-    meta('property', 'og:locale', OG_LOCALE[locale]),
+    meta('property', 'og:locale', ogLocale(locale)),
     meta('property', 'og:image', image),
     meta('name', 'twitter:card', 'summary'),
     meta('name', 'twitter:title', title),
