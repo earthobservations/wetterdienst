@@ -116,13 +116,21 @@ setting for it):
 <iframe
   src="https://wetterdienst.eobs.org/widget?station=<station-id>&theme=light"
   title="Weather forecast"
-  width="100%" height="700"
+  width="100%" height="1000"
   style="border: 0"
   loading="lazy"
   referrerpolicy="strict-origin-when-cross-origin"></iframe>
 ```
 
-- The chart is 540 px high and the frame holds a header and a footer around it: 700 px leaves no scroll bar.
+- The height of the frame depends on what the forecast shows. In a frame wider than 40 rem (640 px at the usual text
+  size) the widget draws the chart, whose height is that of the panels it shows: 674 px for the wind, the
+  precipitation, the cloud cover, the temperature and the pressure with the weather symbols above them, and 744 px
+  where a thunderstorm has a probability of 10 % or more in the forecast, which adds a panel of 70 px (its plot and
+  the gap above it). With the frame's header, the credits and the legend under the chart, and its footer, the frame
+  needs about 850 px without that panel and about 950 px with it: `height="1000"` holds both with no scroll bar. In a
+  frame of 40 rem or less the widget shows the day cards, which are about 350 px high, so a page that sets its frame's
+  height by the frame's width (CSS) can use the room better. A larger text size in the visitor's browser makes the
+  text under the chart taller.
 - `theme=dark` or `theme=light` sets the colours; leave it out to follow the visitor's setting. The browser keeps the
   colours it was last given in the frame's own storage, so a visitor who has seen `theme=dark` keeps it until a
   `theme` says otherwise, even if you drop the parameter later.

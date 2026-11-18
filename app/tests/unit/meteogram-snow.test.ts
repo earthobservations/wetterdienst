@@ -8,7 +8,7 @@ import { hourFormatter } from '../../app/utils/format'
 import { METEOGRAM_SERIES, meteogramSnowQuery, meteogramUnitsKey, MOSMIX_SNOW_METEOGRAM, snowStationsQuery } from '../../app/utils/meteogram'
 import { chartLayout, GUTTER_RIGHT, HOUR_MS, PANEL_HEIGHT, plotWidthFor } from '../../app/utils/meteogram-geometry'
 import { buildMeteogramModel, readoutValue } from '../../app/utils/meteogram-model'
-import { buildMeteogramOption, gutterLeftFor, toneColor } from '../../app/utils/meteogram-option'
+import { buildMeteogramOption, gutterLeftFor, tickFormatter, tickLabelsOf, toneColor } from '../../app/utils/meteogram-option'
 import { buildSeries, isSnowStep, snowSeries } from '../../app/utils/meteogram-series'
 import { meteogramTable } from '../../app/utils/meteogram-summary'
 import { meteogramUnits, snowChanceAmount } from '../../app/utils/meteogram-units'
@@ -369,6 +369,30 @@ describe('the snow panel drawn', () => {
     expect(label(4, 1.75)).toBe('1.75')
     // in millimetres a whole number, in centimetres a tenth for the new snow and a whole number for the depth
     expect(build().m.axes.snow!.decimals).toBe(1)
+  })
+
+  it('writes the ticks of the cloud and the chance in the decimals of the unit: 0.5 under the fraction is not "1" (GH-4197)', () => {
+    const fractionUnits = (unit: string) => ({ ...UNITS, ...Object.fromEntries(['cloud_cover_total', 'cloud_cover_below_2km', 'cloud_cover_between_2km_and_7km', 'cloud_cover_above_7km', 'probability_snow_depth_new_gt_10cm_last_24h'].map(name => [name, unit])) })
+    const ticks = (unit: string) => {
+      const { axes } = model({ units: fractionUnits(unit) })
+      return [axes.cloud!, axes.snowChance!].map(axis => ({ decimals: axis.decimals, range: axis.range, ticks: [axis.range[0], (axis.range[0] + axis.range[1]) / 2, axis.range[1]].map(tickFormatter(axis)), labels: tickLabelsOf(axis) }))
+    }
+    // the axis is [0, 1] and its middle gridline is 0.5: written with no decimals it would read "1", the same as the top
+    for (const axis of ticks('-')) {
+      expect(axis.range).toEqual([0, 1])
+      expect(axis.decimals).toBe(1)
+      expect(axis.ticks).toEqual(['0', '0.5', '1'])
+      expect(axis.labels).toEqual(['0', '0.5'])
+    }
+    // a percent has none: 0, 50 and 100
+    for (const axis of ticks('%')) {
+      expect(axis.decimals).toBe(0)
+      expect(axis.ticks).toEqual(['0', '50', '100'])
+    }
+    // the okta: 0, 4 and 8 (the chance is no okta: it has no unit of eighths, and the cloud cover alone is shown in them)
+    const okta = model({ units: { ...UNITS, cloud_cover_total: '1/8', cloud_cover_below_2km: '1/8', cloud_cover_between_2km_and_7km: '1/8', cloud_cover_above_7km: '1/8' } }).axes.cloud!
+    expect(okta.decimals).toBe(0)
+    expect([0, 4, 8].map(tickFormatter(okta))).toEqual(['0', '4', '8'])
   })
 
   it('draws the snow depth and the chance as straight segments and not as a smooth curve', () => {
