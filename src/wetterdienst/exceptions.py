@@ -331,6 +331,22 @@ class NoStationsWithElevationError(RequestError):
     """Raised when an elevation is asked about and no station in reach reports one of its own."""
 
 
+class NoStationPositionsError(RequestError):
+    """Raised when a map of stations is asked for and none of the stations has a position to be drawn at.
+
+    The REST API answers it with a 422 (`failure_status`): the request is well formed, and the format asked for
+    is one these stations cannot be given in. The ones that can are json, csv and geojson. Stations of which only
+    some have a position are drawn without the others, which is no error.
+    """
+
+    def __init__(
+        self,
+        message: str = "These stations have no position, so no map can be drawn; ask for json, csv or geojson instead.",
+    ) -> None:
+        """Say that no map can be drawn and which formats to ask for instead."""
+        super().__init__(message)
+
+
 class ParameterNotCarriedError(RequestError):
     """Raised when a parameter is asked for by name of a forecast run that never carries it."""
 

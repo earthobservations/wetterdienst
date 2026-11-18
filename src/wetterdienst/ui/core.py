@@ -31,6 +31,7 @@ from wetterdienst.exceptions import (
     InvalidTimeIntervalError,
     NoInternetError,
     NoParametersFoundError,
+    NoStationPositionsError,
     NotEnoughDataError,
     NotFoundError,
     ProviderRateLimitError,
@@ -1983,6 +1984,7 @@ def failure_status(e: BaseException) -> int:
     The one table every surface reads (REST, the MCP tools through REST, the command line)::
 
         RequestError, OverflowError          400  the request cannot be served as phrased
+        NoStationPositionsError              422  a map of stations none of which has a position
         NotFoundError                        404  a provider, network, station or issue that does not exist
         ConfigurationError                   501  a credential or optional dependency this installation lacks
         NotImplementedError                  501  something wetterdienst does not do for a network, e.g. history
@@ -1994,7 +1996,9 @@ def failure_status(e: BaseException) -> int:
         anything else                        500  our bug
 
     A `RequestError` -- a date, period, parameter, bounding box, point or issue that cannot be
-    served as given -- is a 400, and a `NotFoundError` a 404. An `OverflowError` is a 400 as well: it
+    served as given -- is a 400, and a `NotFoundError` a 404. A `NoStationPositionsError` is the one request error
+    that is a 422: the request is well formed and its `format` is one these stations cannot be given in, as a
+    parameter a network does not take would be (GH-4206). An `OverflowError` is a 400 as well: it
     is a date at the edge of what a datetime holds -- `9999-12-31T23:00Z` once a provider converts it
     to its own zone, an issue a negative offset carries past year 9999 -- and the dates on the way
     that come that close are the request's. A `ConfigurationError`, a credential or an optional
@@ -2017,6 +2021,8 @@ def failure_status(e: BaseException) -> int:
     """
     if isinstance(e, NotFoundError):
         return 404
+    if isinstance(e, NoStationPositionsError):
+        return 422
     if isinstance(e, (RequestError, OverflowError)):
         return 400
     if isinstance(e, (ConfigurationError, NotImplementedError)):
@@ -2064,7 +2070,7 @@ def _caller_refusal_status(e: Exception, request: BaseModel) -> int | None:
     optional, and an error of its can only be raised once it has been imported.
     """
     status = failure_status(e)
-    if status in (400, 404):
+    if status in (400, 404, 422):
         return status
     duckdb = sys.modules.get("duckdb")
     if duckdb is None:
