@@ -26,6 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from wetterdienst.metadata.parameter_table import Aggregation  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.metadata.period import Period
 from wetterdienst.model.metadata import TimestampPosition, is_quality_flag
+from wetterdienst.model.processing_note import IMAGE_NOTE
 from wetterdienst.model.quality_legend import QualityKind, quality_legend
 from wetterdienst.model.result import (
     StationsFilter,
@@ -419,6 +420,7 @@ def _block_without_result(
     data_updated_at: dt.datetime | None = None,
     image: bool = False,
     calculated: str | None = None,
+    image_note: str = IMAGE_NOTE,
 ) -> ResponseMetadata:
     """Build the block of an answer that is made from no stations result: the provider's terms and the request.
 
@@ -430,7 +432,9 @@ def _block_without_result(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
-        **describe_provider(_provider_terms(api), data_updated_at, image=image, calculated=calculated),
+        **describe_provider(
+            _provider_terms(api), data_updated_at, image=image, calculated=calculated, image_note=image_note
+        ),
         request=request,
         counts=Counts(stations=stations, rows=rows),
         crs=Crs(),
@@ -468,6 +472,7 @@ def stripes_metadata(data: StripesData, request: StripesRequest, *, image: bool 
     stripes = data.series
     calculated = data.reference.note()
     if (request.provider, request.network) == STRIPES_GHCN_SOURCE:
+        from wetterdienst.model.processing_note import IMAGE_OF_CALCULATED_NOTE  # noqa: PLC0415
         from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest  # noqa: PLC0415
         from wetterdienst.ui.stripes_annual import annual_note  # noqa: PLC0415
 
@@ -476,12 +481,15 @@ def stripes_metadata(data: StripesData, request: StripesRequest, *, image: bool 
         parameters = [
             f"{stripes.resolution}/{stripes.dataset}/{name}" for name in GHCN_STRIPES_PARAMETERS[request.kind]
         ]
-        calculated = f"{annual_note(request.kind)} {calculated}"
+        reference = data.reference.note("the annual values calculated above")
+        calculated = f"{annual_note(request.kind, data.annual_method)} {reference}"
+        image_note = IMAGE_OF_CALCULATED_NOTE
     else:
         from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
 
         api = DwdObservationRequest
         parameters = [f"{stripes.resolution}/{stripes.dataset}/{stripes.parameter}"]
+        image_note = IMAGE_NOTE
     return _block_without_result(
         api,
         ResolvedRequest(
@@ -501,6 +509,7 @@ def stripes_metadata(data: StripesData, request: StripesRequest, *, image: bool 
         rows=data.df.height,
         image=image,
         calculated=calculated,
+        image_note=image_note,
     )
 
 

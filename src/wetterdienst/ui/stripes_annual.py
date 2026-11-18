@@ -6,12 +6,21 @@ DWD publishes annual values, which the stripes read as they are. GHCN-Daily has 
 from the days, by the rules of the WMO Guidelines on the Calculation of Climate Normals (WMO-No. 1203):
 
 - Temperature: a month counts with at most `MAX_MISSING_DAYS` days missing and at most `MAX_MISSING_IN_A_ROW` of them in
-  a row. A day's mean is the source's own TAVG where it gives one, else (TMAX + TMIN) / 2, and a day with neither has
-  no mean and is missing. The month's mean is the mean of the days' means, and a year with all 12 months counting is the
-  mean of the 12 monthly means (each month weighs the same, whatever its length).
+  a row. A day's mean is the midrange (TMAX + TMIN) / 2, and a day without both TMAX and TMIN is missing. The month's
+  mean is the mean of the days' means, and a year with all 12 months counting is the mean of the 12 monthly means
+  (each month weighs the same, whatever its length).
 - Precipitation: a month counts only when complete, every one of its days has a value. A year with all 12 months
   counting is the sum of the 12 monthly sums.
 - A year that fails is a gap, as a year DWD has no value for is, and is never filled.
+
+The midrange is no 24-hour mean, and it is used for every day, never mixed with the source's TAVG: GHCN's TAVG covers
+only part of most records (mostly the 1990s on) and differs systematically from the midrange (at Los Angeles the
+recent years read about 0.4 degrees cooler by it), so a series that took TAVG where it is given and the midrange
+elsewhere would change its method along the record and show it as a false step. A steady method matters more for the
+anomalies than the accuracy of each day: a constant bias cancels against the station's own reference. TAVG is used only
+at a station whose data has no day with both TMAX and TMIN (`temperature_method`), for every day, and the note of the
+answer names which of the two the series used. That is decided from the days that were read, not from the inventory
+of the station, whose spans of TAVG are stale.
 
 A day the source has no row for, or whose value is null, is missing: that is what a station that did not report looks
 like in the daily files. A value whose quality flag names a check it failed (`leave_out_failed`) is no value either, as
@@ -52,13 +61,61 @@ def leave_out_failed(df: pl.DataFrame) -> pl.DataFrame:
     return df.with_columns(pl.when(failed).then(None).otherwise(pl.col("value")).alias("value"))
 
 
-def annual_note(kind: Literal["temperature", "precipitation"]) -> str:
-    """Say in one ASCII sentence how the annual values were calculated from the daily ones, for the note."""
+#: how the days of a temperature series were calculated: the midrange of TMAX and TMIN, or the source's TAVG
+MIDRANGE = "midrange"
+TAVG = "tavg"
+Method = Literal["midrange", "tavg"]
+METHOD_TEXT = {MIDRANGE: "midrange of TMAX and TMIN", TAVG: "TAVG"}
+
+
+def _usable(daily: pl.DataFrame) -> pl.DataFrame:
+    """Give the long frame as `date`, `parameter` and `value`, a value that is no finite number left null."""
+    value = pl.col("value")
+    finite = pl.when(value.is_finite()).then(value).alias("value")
+    return daily.select(pl.col("timestamp").dt.date().alias("date"), "parameter", finite)
+
+
+def _wide(daily: pl.DataFrame) -> pl.DataFrame:
+    """Give the days of a temperature series with a column for each of TAVG, TMAX and TMIN, null where it has none."""
+    wide = _usable(daily).pivot(on="parameter", index="date", values="value", aggregate_function="first")
+    for parameter in (TEMPERATURE_MEAN, TEMPERATURE_MAX, TEMPERATURE_MIN):
+        if parameter not in wide.columns:
+            wide = wide.with_columns(pl.lit(None, dtype=pl.Float64).alias(parameter))
+    return wide
+
+
+def _method_of(wide: pl.DataFrame) -> Method | None:
+    """Give the method of the days of `_wide`: the midrange where a day has both TMAX and TMIN, else TAVG, else none."""
+    if wide.filter(pl.col(TEMPERATURE_MAX).is_not_null() & pl.col(TEMPERATURE_MIN).is_not_null()).height:
+        return MIDRANGE
+    return TAVG if wide.filter(pl.col(TEMPERATURE_MEAN).is_not_null()).height else None
+
+
+def temperature_method(daily: pl.DataFrame) -> Method | None:
+    """Say which method the days of a temperature series are calculated by, from the days that were read.
+
+    The midrange of TMAX and TMIN where the station has a day with both, else its TAVG where it has one, else `None`.
+    """
+    return None if daily.is_empty() else _method_of(_wide(daily))
+
+
+def annual_note(kind: Literal["temperature", "precipitation"], method: Method | None = None) -> str:
+    """Say in one ASCII sentence how the annual values were calculated from the daily ones, for the note.
+
+    A temperature says which `method` its days were made by (`METHOD_TEXT`), and that it is the whole record's and not
+    the day's.
+    """
     if kind == "temperature":
+        if method == TAVG:
+            day = "a day is the source's TAVG, as the station has no day with both TMAX and TMIN"
+        else:
+            day = (
+                "a day is the midrange of TMAX and TMIN, which is no 24-hour mean, used for every day so that the "
+                "method does not change along the record (TAVG is not used)"
+            )
         rule = (
-            f"a month counts with at most {MAX_MISSING_DAYS} days missing and at most {MAX_MISSING_IN_A_ROW} in a row, "
-            "its mean is the mean of the days' means (the source's TAVG, else (TMAX + TMIN) / 2), and a year with "
-            "all 12 months counting is the mean of its monthly means"
+            f"{day}; a month counts with at most {MAX_MISSING_DAYS} days missing and at most "
+            f"{MAX_MISSING_IN_A_ROW} in a row, and a year with all 12 months counting is the mean of its monthly means"
         )
     else:
         rule = (
@@ -72,19 +129,13 @@ def annual_note(kind: Literal["temperature", "precipitation"]) -> str:
 
 def _daily_values(daily: pl.DataFrame, kind: Literal["temperature", "precipitation"]) -> pl.DataFrame:
     """Give one value per day: `date` and `value`, null for a day the source has no usable value of."""
-    value = pl.col("value")
-    finite = pl.when(value.is_finite()).then(value).alias("value")
-    frame = daily.select(pl.col("timestamp").dt.date().alias("date"), "parameter", finite)
     if kind == "precipitation":
+        frame = _usable(daily)
         return frame.filter(pl.col("parameter") == PRECIPITATION).group_by("date").agg(pl.col("value").first())
-    wide = frame.pivot(on="parameter", index="date", values="value", aggregate_function="first")
-    for parameter in (TEMPERATURE_MEAN, TEMPERATURE_MAX, TEMPERATURE_MIN):
-        if parameter not in wide.columns:
-            wide = wide.with_columns(pl.lit(None, dtype=pl.Float64).alias(parameter))
-    return wide.select(
-        "date",
-        pl.coalesce(TEMPERATURE_MEAN, (pl.col(TEMPERATURE_MAX) + pl.col(TEMPERATURE_MIN)) / 2).alias("value"),
-    )
+    wide = _wide(daily)
+    if _method_of(wide) == TAVG:
+        return wide.select("date", pl.col(TEMPERATURE_MEAN).alias("value"))
+    return wide.select("date", ((pl.col(TEMPERATURE_MAX) + pl.col(TEMPERATURE_MIN)) / 2).alias("value"))
 
 
 def annual_from_daily(daily: pl.DataFrame, kind: Literal["temperature", "precipitation"]) -> pl.DataFrame:

@@ -69,7 +69,7 @@ from wetterdienst.model.result import _Station  # noqa: TC001, needed at runtime
 from wetterdienst.model.station_ids import search_icao_id, search_wigos_id, search_wmo_id
 from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst.ui.stripes_annual import annual_from_daily, leave_out_failed
+from wetterdienst.ui.stripes_annual import annual_from_daily, leave_out_failed, temperature_method
 from wetterdienst.ui.stripes_scale import (
     MIN_RECORD_YEARS,
     PRECIPITATION_PALETTE,
@@ -2759,6 +2759,9 @@ class StripesData(BaseModel):
     #: what the classes are relative to: the station's whole record, not the window of years shown
     reference: StripesReference
     df: pl.DataFrame
+    #: how the days of a temperature were calculated where the years were built from them (`noaa/ghcn`): `midrange` of
+    #: TMAX and TMIN or `tavg`, which the note of the answer names; none for DWD's values and the precipitation
+    annual_method: Literal["midrange", "tavg"] | None = None
 
 
 # Type definitions for CLIMATE_STRIPES_CONFIG
@@ -2978,13 +2981,14 @@ def _get_stripes_options(unit_targets: Mapping[str, str] | None = None) -> Optio
     `_get_stripes_data` takes the `value` column of a long frame and draws the gaps in a station's
     record itself. The rest comes from the environment as for any request, but `WD_TS_SHAPE=wide`
     left no `value` column (`ColumnNotFoundError`), and `WD_TS_SKIP_EMPTY=true` dropped a station
-    with gaps, leaving no years to draw (GH-2348). Those two are fixed here, as arguments, which
-    outrank the environment's variables, a malformed one included.
+    with gaps, leaving no years to draw (GH-2348). So did `WD_TS_HUMANIZE=false` for GHCN, whose years are built from
+    the days by the canonical names of their parameters, which it turns into the source's (GH-4222). Those three are
+    fixed here, as arguments, which outrank the environment's variables, a malformed one included.
 
     `unit_targets` is laid over the ones the environment sets, as for `/api/values`, an entry it gives
     winning (GH-3980). The colours are relative, so the unit changes the numbers of the answer, not the stripes.
     """
-    options = Options(shape="long", skip_empty=False)
+    options = Options(shape="long", skip_empty=False, humanize=True)
     return overlay_options(options, {"unit_targets": dict(unit_targets)}) if unit_targets else options
 
 
@@ -3037,7 +3041,7 @@ def _get_stripes_ghcn_request(
     """Give the request the stripes of GHCN daily list their stations and read their days with, the whole record.
 
     The dataset needs a window (`date_required`) to read days, so with `window` they are asked from before the first
-    record of the network (1750) to now; the station's file is read whole either way. A listing needs none.
+    record of the network (1700) to now; the station's file is read whole either way. A listing needs none.
     """
     from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest  # noqa: PLC0415
 
@@ -3189,6 +3193,21 @@ def _find_stripes_station(stripes: StripesRequest, request: Any) -> tuple[Statio
     return stations, found[0]
 
 
+def _annual_values_from_days(
+    df: pl.DataFrame, kind: StripesKind
+) -> tuple[pl.DataFrame, Literal["midrange", "tavg"] | None]:
+    """Build the annual values of GHCN from the daily values of a station, and say by which method of day (GH-4222)."""
+    if kind == "temperature":
+        # the three are read to tell which the station has (`temperature_method`), and one that it has none of, most
+        # often TAVG, is not a gap in the answer to warn of
+        for name in GHCN_STRIPES_PARAMETERS[kind]:
+            forget_response_warning(PARAMETER_WITHOUT_ROWS, f"daily/data/{name}")
+    # and a day whose value failed a quality check of the source is a missing day; the year is built from the rest
+    df = leave_out_failed(df)
+    method = temperature_method(df) if kind == "temperature" else None
+    return annual_from_daily(df, kind), method
+
+
 def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     """Get stripes data for a station of the source the request names, for a request its model has checked.
 
@@ -3214,12 +3233,9 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
 
     # a value a soft plausibility check flagged suspect is no year with data, whatever the mode (GH-3676)
     df = leave_out_suspect(stations.values().all().df)
+    annual_method = None
     if from_days:
-        if kind == "temperature":
-            # most stations have no TAVG, which the days are read without: not a gap in the answer to warn of
-            forget_response_warning(PARAMETER_WITHOUT_ROWS, f"daily/data/{GHCN_STRIPES_PARAMETERS[kind][0]}")
-        # and a day whose value failed a quality check of the source is a missing day; the year is built from the rest
-        df = annual_from_daily(leave_out_failed(df), kind)
+        df, annual_method = _annual_values_from_days(df, kind)
     df = df.sort("timestamp")
     df = df.set_sorted("timestamp")
     # a value that is no finite number (NaN, an infinity) is no year with data: it would make the reference NaN, and
@@ -3292,7 +3308,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         ),
     )
 
-    return StripesData(series=series, reference=reference, df=df)
+    return StripesData(series=series, reference=reference, df=df, annual_method=annual_method)
 
 
 def _require_plotting() -> ModuleType:
@@ -3336,7 +3352,9 @@ def _draw_stripes(stripes_data: StripesData, stripes: StripesImageRequest) -> go
     palette = CLIMATE_STRIPES_CONFIG[kind]["palette"]
     # DWD's stations are in Germany, which the title says; the stations of GHCN are worldwide and name no country
     if (stripes.provider, stripes.network) == STRIPES_GHCN_SOURCE:
-        source_text, place = "Source: NOAA NCEI, GHCN-Daily (annual values calculated from daily values).", ""
+        from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest  # noqa: PLC0415
+
+        source_text, place = f"Source: {NoaaGhcnRequest.metadata.attribution}.", ""
     else:
         source_text, place = "Source: Deutscher Wetterdienst.", ", Germany"
 

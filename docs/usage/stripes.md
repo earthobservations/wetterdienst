@@ -39,24 +39,34 @@ and is never filled.
 
 | | temperature | precipitation |
 |---|---|---|
-| a day | the source's own **TAVG** where it gives one, else (**TMAX** + **TMIN**) / 2; a day with neither, or with one of the two alone, is missing | the **PRCP** |
+| a day | the **midrange** (**TMAX** + **TMIN**) / 2; a day with one of the two alone is missing. **TAVG** only at a station with no day that has both | the **PRCP** |
 | a month counts | with at most 10 days missing, and at most 4 of them in a row | only when **complete**: every day has a value |
 | the month's value | the mean of the days | the sum of the days |
 | a year counts | with all 12 months counting | with all 12 months counting |
 | the year's value | the mean of the 12 monthly means (each month weighs the same, whatever its length) | the sum of the 12 monthly sums |
 
-A day with no row in the station's file is missing, as a day with no value is. TAVG is taken day by day: a month
-with TAVG on some days and TMAX and TMIN on the others is the mean of both kinds of day. A value whose quality flag
+A day with no row in the station's file is missing, as a day with no value is. A value whose quality flag
 names a check it failed (NOAA's `QFLAG`, which the readme asks to treat as missing), and a value the
 [plausibility checks](../data/plausibility.md) flag `suspect`, are missing days. A run of missing days is counted in
 its month, so 3 missing days at the end of one month and 3 at the start of the next are two runs of 3. The first year of
 a record that starts mid-year, and the year still running, have fewer than 12 months and are gaps.
 
+**The day's temperature is the midrange, never mixed with TAVG.** The midrange of the daily maximum and minimum is not
+a 24-hour mean, and the stripes do not claim it is. It is used for every day of a station that has TMAX and TMIN, and
+the source's TAVG is not used there at all, even on the days that have it; TAVG is used (for every day) only at a
+station whose data has no day with both. Which of the two a station's data has is decided from the days that were
+read, not from the inventory, whose spans of TAVG are stale (for Los Angeles, USW00023174, it lists TAVG to 2005 and
+the data runs to 2025). The reason is that a steady method over the whole record matters more for anomalies than the
+accuracy of each day: a constant bias cancels against the station's own reference, while a change of method would show
+as a false step. GHCN's TAVG covers only part of most records, mostly the 1990s on, and differs systematically from the
+midrange: where the choice was made day by day, Los Angeles switched method four times and its recent years read about
+0.4 °C cooler. The `processing_note` names the method the series used, "midrange of TMAX and TMIN" or "TAVG".
+
 The answer says so: the `processing_note` of `/api/stripes/values` (and the `X-Wetterdienst-Processing` header of the CSV
 and the image) says that the annual values were calculated from the provider's daily values by these rules, before the
 sentence on the reference. The `series` names the daily parameter the years were built from
 (`daily/data/temperature_air_mean_2m` or `daily/data/precipitation_amount`), and the `request` of the `metadata` all of
-them (for the temperature also `temperature_air_max_2m` and `temperature_air_min_2m`).
+them (for the temperature also `temperature_air_max_2m` and `temperature_air_min_2m`, which the day is made of, and `temperature_air_mean_2m`, the TAVG, which only a station without them is read from).
 
 A station's file holds its whole record and is one download per request, with the cache expiry of the values of GHCN
 (5 minutes).
@@ -65,7 +75,8 @@ A station's file holds its whole record and is one download per request, with th
 
 `stripes stations` lists the stations whose record can reach the 10 years, as for DWD: the span from the first to the last
 year that `ghcnd-inventory.txt` lists for the elements the kind is made from, that is TAVG together with the span TMAX
-and TMIN have in common for the temperature, and PRCP for the precipitation, not the span of any element the
+and TMIN have in common for the temperature (the listing is generous: the day is the midrange wherever there is both),
+and PRCP for the precipitation, not the span of any element the
 station has. As for DWD, a record with gaps is listed where its span is long enough and is still refused where it has
 fewer than 10 years with values. `start_timestamp` and `end_timestamp` of the list are that span, and
 `end_timestamp` is empty for a station whose last year is the current one. `active` (default `true`) keeps the
@@ -266,7 +277,8 @@ daily values (see [Sources](#sources)), and `series` names the daily parameter. 
 plain note every answer has, and a sentence that says the anomalies and classes were calculated from them and which
 reference they are relative to, the whole record included where it stood in for a period. An image has no place for it
 in itself: the `X-Wetterdienst-Processing` header of `image` has it (as the CSV of `values` does), and adds "The image
-is drawn from the provider's annual values."
+is drawn from the provider's annual values." (for GHCN, whose note has said before that the years were calculated: "The
+image is drawn from the annual values calculated above.")
 
 `values` takes `unit_targets`, a JSON mapping of quantity to unit, as `/api/values` does, and refuses an unknown
 quantity or unit with the same 400:

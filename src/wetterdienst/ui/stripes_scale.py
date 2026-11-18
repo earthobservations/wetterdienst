@@ -114,10 +114,14 @@ class StripesReference(BaseModel):
     )
     classes: int = Field(description="The number of classes, from the lowest value (0) to the highest.")
 
-    def note(self) -> str:
-        """Say in one ASCII sentence which reference the classes are relative to, and where the whole record is used."""
+    def note(self, values: str = "the provider's annual values") -> str:
+        """Say in one ASCII sentence which reference the classes are relative to, and where the whole record is used.
+
+        `values` says what the years are: the provider's own, or, for years calculated from its days, the ones the note
+        has said so of before (GH-4222).
+        """
         text = (
-            f"The anomaly and class of each year were calculated from the provider's annual values: the mean of "
+            f"The anomaly and class of each year were calculated from {values}: the mean of "
             f"{_years(self.centre)} is the centre and the scale spans +/-{self.range_sigma:g} standard deviations of "
             f"{_years(self.spread)} in {self.classes} classes (Hawkins' method)"
         )

@@ -22,6 +22,7 @@ from wetterdienst.ui.stripes_annual import (
     annual_from_daily,
     annual_note,
     leave_out_failed,
+    temperature_method,
 )
 
 if TYPE_CHECKING:
@@ -81,20 +82,17 @@ def test_a_temperature_year_is_the_mean_of_the_monthly_means_not_of_the_days() -
     assert value != pytest.approx(20.0 * 29 / 366, abs=0.01)
 
 
-def test_a_day_is_the_source_own_mean_where_it_gives_one_else_the_mean_of_tmax_and_tmin() -> None:
-    """Test TAVG is taken on the days that have it, (TMAX + TMIN) / 2 on the others; one of the two alone is missing."""
+def test_a_day_is_the_midrange_and_a_day_with_one_of_tmax_and_tmin_is_missing() -> None:
+    """Test (TMAX + TMIN) / 2 makes the day, and one of the two alone makes none."""
     year = _year(2001)
-    january = [day for day in year if day.month == 1]
     march = [day for day in year if day.month == 3]
-    # TAVG of 5 on the first 10 days of January, whose (TMAX + TMIN) / 2 would be 20
-    tavg = _frame(TEMPERATURE_MEAN, january[:10], 5.0)
     tmax = _frame(TEMPERATURE_MAX, year, 30.0)
-    # no TMIN on 3 days of March: TMAX alone is no mean, those days are missing (3 of 31, so the month still counts)
+    # no TMIN on 3 days of March: TMAX alone is no mean, those days are missing (3 of 31, so the month still counts),
+    # and 11 would fail it
     tmin = _frame(TEMPERATURE_MIN, _without(year, *march[:3]), 10.0)
-    (value,) = annual_from_daily(pl.concat([tavg, tmax, tmin]), "temperature").get_column("value").to_list()
-    # January: 10 days of 5 and 21 of 20; the other months 20
-    january_mean = (10 * 5.0 + 21 * 20.0) / 31
-    assert value == pytest.approx((january_mean + 11 * 20.0) / 12, abs=1e-3)
+    assert _values(annual_from_daily(pl.concat([tmax, tmin]), "temperature")) == {2001: 20.0}
+    fewer = _frame(TEMPERATURE_MIN, _without(year, *march[:22:2]), 10.0)
+    assert _values(annual_from_daily(pl.concat([tmax, fewer]), "temperature")) == {2001: None}
 
 
 def test_tavg_alone_makes_the_days() -> None:
@@ -103,11 +101,32 @@ def test_tavg_alone_makes_the_days() -> None:
     assert _values(annual_from_daily(frame, "temperature")) == {1999: 7.5}
 
 
-def test_a_tavg_beside_a_tmax_and_tmin_wins_on_its_day() -> None:
-    """Test a day with all three is the TAVG, which the midrange of the two would differ from."""
+def test_a_tavg_beside_a_tmax_and_tmin_is_never_used_even_on_the_days_it_has() -> None:
+    """Test the midrange makes every day of a station that has both, and a TAVG beside them changes nothing."""
     year = _year(1999)
     frame = pl.concat([_temperature(year, tmax=30.0, tmin=10.0), _frame(TEMPERATURE_MEAN, year, 12.0)])
-    assert _values(annual_from_daily(frame, "temperature")) == {1999: 12.0}
+    assert _values(annual_from_daily(frame, "temperature")) == {1999: 20.0}
+
+
+def test_a_tavg_that_covers_part_of_the_record_makes_no_step_in_the_series() -> None:
+    """Test TAVG on the second year only, 8 degrees under the midrange, does not show in that year's value."""
+    days = _year(2000) + _year(2001) + _year(2002)
+    frame = pl.concat([_temperature(days, tmax=30.0, tmin=10.0), _frame(TEMPERATURE_MEAN, _year(2001), 12.0)])
+    assert _values(annual_from_daily(frame, "temperature")) == {2000: 20.0, 2001: 20.0, 2002: 20.0}
+
+
+def test_the_method_is_the_midrange_where_a_day_has_both_else_tavg_else_none() -> None:
+    """Test the method is told from the days read: a day with TMAX and TMIN, a TAVG alone, nothing."""
+    year = _year(2003)
+    assert temperature_method(_temperature(year)) == "midrange"
+    assert temperature_method(pl.concat([_temperature(year), _frame(TEMPERATURE_MEAN, year, 1.0)])) == "midrange"
+    assert temperature_method(_frame(TEMPERATURE_MEAN, year, 1.0)) == "tavg"
+    # TMAX and TMIN that never fall on the same day have no midrange: the TAVG is what is left
+    apart = pl.concat([_frame(TEMPERATURE_MAX, year[:100], 10.0), _frame(TEMPERATURE_MIN, year[100:], 0.0)])
+    assert temperature_method(apart) is None
+    assert temperature_method(pl.concat([apart, _frame(TEMPERATURE_MEAN, year, 5.0)])) == "tavg"
+    assert temperature_method(_frame(PRECIPITATION, year, 1.0)) is None
+    assert temperature_method(_temperature(year).clear()) is None
 
 
 @pytest.mark.parametrize(
@@ -288,17 +307,26 @@ def test_a_frame_without_quality_flags_is_kept_as_it_is() -> None:
     assert leave_out_failed(frame).equals(frame)
 
 
-@pytest.mark.parametrize("kind", ["temperature", "precipitation"])
-def test_the_note_says_the_rules_in_ascii(kind: Literal["temperature", "precipitation"]) -> None:
-    """Test the sentence names the standard, the rule of the kind and that a year that fails is a gap."""
-    note = annual_note(kind)
+@pytest.mark.parametrize(
+    ("kind", "method"),
+    [("temperature", "midrange"), ("temperature", "tavg"), ("precipitation", None)],
+)
+def test_the_note_says_the_rules_in_ascii(
+    kind: Literal["temperature", "precipitation"], method: Literal["midrange", "tavg"] | None
+) -> None:
+    """Test the sentence names the standard, the rule of the kind, the method and that a year that fails is a gap."""
+    note = annual_note(kind, method)
     assert note.isascii()
     assert "WMO-No. 1203" in note
     assert "a year that fails is a gap" in note
-    if kind == "temperature":
-        assert "at most 10 days missing and at most 4 in a row" in note
-        assert "TAVG, else (TMAX + TMIN) / 2" in note
-        assert "mean of its monthly means" in note
-    else:
+    if kind == "precipitation":
         assert "only when complete" in note
         assert "sum of its monthly sums" in note
+        return
+    assert "at most 10 days missing and at most 4 in a row" in note
+    assert "mean of its monthly means" in note
+    if method == "midrange":
+        assert "a day is the midrange of TMAX and TMIN, which is no 24-hour mean" in note
+        assert "(TAVG is not used)" in note
+    else:
+        assert "a day is the source's TAVG, as the station has no day with both TMAX and TMIN" in note

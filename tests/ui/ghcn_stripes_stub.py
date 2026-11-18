@@ -35,15 +35,17 @@ JUST_ENOUGH_2010 = frozenset(
 )
 #: the days the stub station has no row for, in the years 2000, 2005 and 2010
 MISSING_DAYS = TOO_MANY_DAYS_2000 | TOO_LONG_A_RUN_2005 | JUST_ENOUGH_2010
-#: the year that has a TAVG on every day, 1.0 degree below the (TMAX + TMIN) / 2 of the year (still between the two,
-#: as the core's plausibility check wants it); it swings around that, so it is no series that has stopped
+#: the one year that has a TAVG on every day, 1.0 degree below the (TMAX + TMIN) / 2 of the year (still between the two,
+#: as the core's plausibility check wants it); it swings around that, so it is no series that has stopped. The series
+#: is the midrange all the same, so this year is no step in it
 TAVG_YEAR = 2015
+#: the station that has TAVG and no TMAX and TMIN (its file is `station_csv(..., only_tavg=True)`)
+TAVG_ONLY_STATION = "USW00000002"
 
 
 def mean_temperature(year: int) -> float:
     """Give the annual mean the stub station has in `year`, by the rules, where its days make it valid."""
-    midrange = 10.0 + 0.2 * (year - FIRST_YEAR)
-    return midrange - 1.0 if year == TAVG_YEAR else midrange
+    return 10.0 + 0.2 * (year - FIRST_YEAR)
 
 
 def _attributes(flag: str = "") -> str:
@@ -52,22 +54,28 @@ def _attributes(flag: str = "") -> str:
 
 
 def station_csv(
-    station: str = STATION, *, failed: Iterable[dt.date] = (), last_year: int = LAST_YEAR, tavg: bool = True
+    station: str = STATION,
+    *,
+    failed: Iterable[dt.date] = (),
+    last_year: int = LAST_YEAR,
+    tavg: bool = True,
+    only_tavg: bool = False,
 ) -> bytes:
     """Write the by-station file of the stub station, as NOAA writes them (values in tenths, attributes beside).
 
     `failed` are days whose TMAX and PRCP carry a quality flag, a check they failed. The record runs to `last_year`.
-    A station that has no TAVG at all (`tavg=False`) has no column of it, as the files of NOAA have none.
+    A station that has no TAVG at all (`tavg=False`) has no column of it, as the files of NOAA have none. One that has
+    TAVG alone (`only_tavg`) has it on every day, and no TMAX and TMIN.
     """
     failed = set(failed)
-    columns = ["PRCP", *(["TAVG"] if tavg else []), "TMAX", "TMIN"]
+    columns = ["PRCP", *(["TAVG"] if tavg or only_tavg else []), *([] if only_tavg else ["TMAX", "TMIN"])]
     head = ["STATION", "DATE", "LATITUDE", "LONGITUDE", "ELEVATION", "NAME"]
     head += [name for column in columns for name in (column, f"{column}_ATTRIBUTES")]
     lines = [",".join(f'"{name}"' for name in head)]
     day = dt.date(FIRST_YEAR, 1, 1)
     while day.year <= last_year:
         if day not in MISSING_DAYS:
-            lines.append(_row(station, day, day in failed, tavg=tavg))
+            lines.append(_row(station, day, day in failed, tavg=tavg, only_tavg=only_tavg))
         day += dt.timedelta(days=1)
     return "\n".join(lines).encode("utf8")
 
@@ -83,7 +91,15 @@ def rain_of(year: int) -> float:
     return sum(rain_on(day) for day in days if day.year == year)
 
 
-def _row(station: str, day: dt.date, failed: bool, *, tavg: bool) -> str:  # noqa: FBT001
+def _tavg(day: dt.date, midrange: int, *, only_tavg: bool) -> int | None:
+    """Give the TAVG of a day in tenths: of every day at a station that has it alone, of `TAVG_YEAR` at the others."""
+    swing = (-10, 0, 10, 0)[day.toordinal() % 4]
+    if only_tavg:
+        return midrange + swing
+    return midrange - 10 + swing if day.year == TAVG_YEAR else None
+
+
+def _row(station: str, day: dt.date, failed: bool, *, tavg: bool, only_tavg: bool) -> str:  # noqa: FBT001
     steps = day.year - FIRST_YEAR
     # the two swing against each other, so that the mean of the day is the same every day (and no series is "stuck",
     # which the core's plausibility check would leave out as a sensor that has stopped)
@@ -93,13 +109,13 @@ def _row(station: str, day: dt.date, failed: bool, *, tavg: bool) -> str:  # noq
     quality = "G" if failed else ""
     cells = {
         "PRCP": (round(rain_on(day) * 10), quality),
-        "TAVG": (tmax_tmin_mean - 10 + (-10, 0, 10, 0)[day.toordinal() % 4] if day.year == TAVG_YEAR else None, ""),
+        "TAVG": (_tavg(day, tmax_tmin_mean, only_tavg=only_tavg), ""),
         "TMAX": (tmax, quality),
         "TMIN": (tmin, ""),
     }
     values = [f'"{station}"', f'"{day.isoformat()}"', '"40.7789"', '"-73.9692"', '"42.7"', '"STUB STATION, NY US"']
     for name, (value, flag) in cells.items():
-        if name == "TAVG" and not tavg:
+        if (name == "TAVG" and not (tavg or only_tavg)) or (name in ("TMAX", "TMIN") and only_tavg):
             continue
         values += [
             f'"{value:>5}"' if value is not None else '""',
@@ -175,5 +191,6 @@ def serve_ghcn(monkeypatch: pytest.MonkeyPatch, *, failed: Iterable[dt.date] = (
             "ghcnd-stations": stations_text().encode("utf8"),
             "ghcnd-inventory": inventory_text().encode("utf8"),
             f"access/{STATION}": station_csv(failed=failed, tavg=tavg),
+            f"access/{TAVG_ONLY_STATION}": station_csv(TAVG_ONLY_STATION, only_tavg=True),
         },
     )

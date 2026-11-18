@@ -20,6 +20,7 @@ from pydantic import ValidationError
 
 from tests.ui import ghcn_stripes_stub as stub
 from wetterdienst.exceptions import NotEnoughDataError, StationNotFoundError
+from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 from wetterdienst.ui import core, restapi
 from wetterdienst.ui.cli import cli
 from wetterdienst.ui.core import (
@@ -71,7 +72,7 @@ def _years(data: core.StripesData) -> dict[int, float | None]:
 
 
 def test_the_temperature_years_are_built_from_the_days_by_the_rules() -> None:
-    """Test each year is the mean of its months, a year a rule fails is a gap, and TAVG wins on its days."""
+    """Test each year is the mean of its months, a year a rule fails is a gap, and a partial TAVG makes no step."""
     data = _get_stripes_data(StripesValuesRequest(**TEMPERATURE))
 
     years = _years(data)
@@ -81,9 +82,12 @@ def test_the_temperature_years_are_built_from_the_days_by_the_rules() -> None:
     assert years[2005] is None
     # 10 missing days, never more than 4 in a row, is a month that counts
     assert years[2010] == pytest.approx(stub.mean_temperature(2010), abs=1e-3)
-    # a year of TAVG is its own 14.0 (which swings around it), not the 15.0 of (TMAX + TMIN) / 2
-    assert years[stub.TAVG_YEAR] == pytest.approx(stub.mean_temperature(stub.TAVG_YEAR), abs=0.1)
-    assert years[stub.TAVG_YEAR] == pytest.approx(14.0, abs=0.1)
+    # the one year that has a TAVG, 1 degree under the midrange, is the midrange like the others: no step
+    assert years[stub.TAVG_YEAR] == pytest.approx(15.0, abs=1e-3)
+    assert years[stub.TAVG_YEAR] == pytest.approx(stub.mean_temperature(stub.TAVG_YEAR), abs=1e-3)
+    assert all(
+        years[year] == pytest.approx(stub.mean_temperature(year), abs=1e-3) for year in years if years[year] is not None
+    )
     assert years[1990] == pytest.approx(10.0)
     assert years[1999] == pytest.approx(11.8, abs=1e-3)
     gaps = {year for year, value in years.items() if value is None}
@@ -168,9 +172,45 @@ def test_a_station_without_tavg_has_its_years_and_no_warning_of_it(monkeypatch: 
 
     years = _years(_get_stripes_data(StripesValuesRequest(**TEMPERATURE)))
 
-    # no year of TAVG: the 2015 that has the TAVG in the stub is the mean of TMAX and TMIN
     assert years[stub.TAVG_YEAR] == pytest.approx(15.0, abs=1e-3)
     assert recorded_warnings() == []
+
+
+def test_a_station_with_only_tavg_has_its_years_from_the_tavg_and_names_it() -> None:
+    """Test TAVG makes the days at a station with no TMAX and TMIN, with no warning of the two it has none of."""
+    from wetterdienst.util.response_warnings import begin_response, recorded_warnings  # noqa: PLC0415
+
+    begin_response()
+
+    data = _get_stripes_data(StripesValuesRequest(**{**TEMPERATURE, "station": stub.TAVG_ONLY_STATION}))
+
+    years = _years(data)
+    assert data.annual_method == "tavg"
+    # the TAVG swings around the midrange of the stub, a tenth of a degree at most over a month
+    assert years[1990] == pytest.approx(10.0, abs=0.1)
+    assert years[1999] == pytest.approx(11.8, abs=0.1)
+    assert {year for year, value in years.items() if value is None} == {2000, 2005}
+    assert recorded_warnings() == []
+
+
+def test_a_station_with_tmax_and_tmin_names_the_midrange() -> None:
+    """Test the series says which method made its days, for the note of the answer."""
+    assert _get_stripes_data(StripesValuesRequest(**TEMPERATURE)).annual_method == "midrange"
+    assert _get_stripes_data(StripesValuesRequest(**PRECIPITATION)).annual_method is None
+
+
+def test_the_environment_cannot_turn_the_names_of_the_parameters_into_the_sources(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test `WD_TS_HUMANIZE=false`, which names the parameters as the source does, leaves the years as they are."""
+    monkeypatch.setenv("WD_TS_HUMANIZE", "false")
+
+    temperature = _get_stripes_data(StripesValuesRequest(**TEMPERATURE))
+    precipitation = _get_stripes_data(StripesValuesRequest(**PRECIPITATION))
+
+    assert _years(temperature)[1999] == pytest.approx(11.8, abs=1e-3)
+    assert _years(precipitation)[1991] == pytest.approx(stub.rain_of(1991))
+    assert temperature.series.parameter == "temperature_air_mean_2m"
 
 
 def test_a_station_by_name() -> None:
@@ -397,6 +437,7 @@ def test_rest_values_say_where_the_years_come_from_and_how(client: TestClient) -
     ]
     note = body["metadata"]["processing_note"]
     assert "annual values were calculated from the provider's daily values by the rules of WMO-No. 1203" in note
+    assert "a day is the midrange of TMAX and TMIN, which is no 24-hour mean" in note
     assert "at most 10 days missing and at most 4 in a row" in note
     assert "a year that fails is a gap" in note
     # and what the classes are relative to, as for DWD
@@ -450,7 +491,12 @@ def test_rest_image_says_the_rules_in_its_headers(client: TestClient, monkeypatc
     assert seen == [(stub.STATION, "noaa", "ghcn")]
     processing = response.headers["X-Wetterdienst-Processing"]
     assert "annual values were calculated from the provider's daily values" in processing
-    assert "drawn from" in processing
+    assert "a day is the midrange of TMAX and TMIN" in processing
+    # the image is of the years calculated above, not of the provider's own annual values, which the note denied
+    assert processing.endswith(" The image is drawn from the annual values calculated above.")
+    assert "provider's annual values" not in processing
+    assert "of each year were calculated from the annual values calculated above: the mean of" in processing
+    assert processing.count("The image is drawn") == 1
 
 
 def test_the_image_names_the_source_and_no_country() -> None:
@@ -458,7 +504,7 @@ def test_the_image_names_the_source_and_no_country() -> None:
     ghcn = StripesImageRequest(**TEMPERATURE)
     figure = core._draw_stripes(_get_stripes_data(ghcn), ghcn)  # noqa: SLF001
     credit = next(a.text for a in figure.layout.annotations if a.text.startswith("Source:"))
-    assert credit.startswith("Source: NOAA NCEI, GHCN-Daily")
+    assert credit.startswith(f"Source: {NoaaGhcnRequest.metadata.attribution}. Colours: ")
     assert figure.layout.title.text == f"Climate stripes (temperature) for STUB STATION ({stub.STATION})"
 
 

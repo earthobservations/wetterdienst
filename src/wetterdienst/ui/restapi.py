@@ -2733,11 +2733,13 @@ def stripes_values(
 
     `provider` and `network` choose the source: `dwd`/`observation` (the default) reads DWD's annual values, and
     `noaa`/`ghcn` builds each year from the station's daily values by the WMO rules (WMO-No. 1203). Temperature: a
-    month counts with at most 10 days missing and at most 4 in a row, its mean is that of the days' means (TAVG where
-    the source gives it, else (TMAX + TMIN) / 2), and a year with all 12 months counting is the mean of the monthly
-    means. Precipitation: a month counts only when complete, and a year with all 12 months counting is the sum. A year
-    that fails is a gap, and a value that failed a quality check of the source is a missing day. `series` names the
-    daily parameter the years were built from.
+    day is the midrange of TMAX and TMIN, which is no 24-hour mean, for every day of the series; TAVG is used only at a
+    station with no day that has both, so that the method does not change along the record and show as a false step. A
+    month counts with at most 10 days missing and at most 4 in a row, and a year with all 12 months counting is the
+    mean of the monthly means. Precipitation: a month counts only when complete, and a year with all 12 months
+    counting is the sum. A year that fails is a gap, and a value that failed a quality check of the source is a missing
+    day. The `processing_note` names the method of the series (midrange of TMAX and TMIN, or TAVG), and `series` names
+    the daily parameter the years were built from.
     """
     begin_response()
 
