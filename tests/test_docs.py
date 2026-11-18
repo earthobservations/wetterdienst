@@ -30,8 +30,9 @@ EXCLUDE_PROVIDER_NETWORKS_FILES_STARTSWITH = ["_", ".", "metadata"]
 # compare. Named rather than merely skipped: the skip is keyed on an attribute, so a rename would drop
 # a provider out of all four comparisons *and*, because it lands in `skipped`, exempt its published
 # pages from the page side of `test_docs_cover_every_resolution` -- all 88 pages could go to none
-# checked with every test still passing. `dwd/alerts` is a CAP warnings feed with no timeseries model.
-NETWORKS_WITHOUT_A_METADATA_MODEL = {("dwd", "alerts")}
+# checked with every test still passing. `dwd/alerts` is a CAP warnings feed and `dwd/storm_cells` a feed of
+# KONRAD3D scans, neither with a timeseries model.
+NETWORKS_WITHOUT_A_METADATA_MODEL = {("dwd", "alerts"), ("dwd", "storm_cells")}
 
 # Providers that are excluded from the docs. "*" is a wildcard.
 EXCLUDE_PROVIDER_NETWORKS = {
