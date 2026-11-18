@@ -1,3 +1,5 @@
+import type { Sky } from './weather-symbols'
+
 /**
  * What a day card of the compact view shows for the weather: an icon, and the words it stands for
  * (`meteogram.chart.weather.<kind>`), which the card gives to a screen reader as the icon is hidden
@@ -31,12 +33,24 @@ export const WEATHER_ICONS: Record<WeatherKind, string> = {
 }
 
 /**
+ * The kinds a weather code can name: every kind but the sky's, which only the cloud cover gives (`skyOfCloudCover`), so that a
+ * mapping of a code to a sky fails the type check (GH-4190)
+ */
+export type WeatherCodeKind = Exclude<WeatherKind, Sky>
+
+/**
  * The kind of weather a WMO present-weather code `ww` (table 4677, 0..99) stands for, null where it
  * stands for none the card can name (haze, smoke, dust in suspension, lightning without thunder,
  * precipitation in sight but not at the station, hail): the card then judges from the cloud cover and the
  * rain of the day.
  *
- * - 00-03 the state of the sky; 04-06 haze, smoke, dust in suspension: none
+ * - 00-03 name no weather and no cover of the sky but how the clouds change, in DWD's list of the codes of
+ *   MOSMIX (`mosmix_element_weather_xls.xlsx`, as of 15.03.2021): 0 no cloud development, 1 clouds dissolving,
+ *   2 state of sky unchanged, 3 clouds forming (WMO 4677 reads them the same way: a change of the sky since the
+ *   hour before). DWD gives a symbol to no one of them, and says of the classes 0-3 in the W1W2 sheet that they
+ *   are "not reliable and can be seen as 'no thunderstorms, no precipitation and no fog'": none, so that the sky
+ *   is the cloud cover's (`skyOfCloudCover`, GH-4190)
+ * - 04-06 haze, smoke, dust in suspension: none
  * - 07-09 blowing dust or sand, dust whirls, a dust or sand storm in sight: dust
  * - 10-12 mist, shallow fog: fog; 13 lightning, 14-16 precipitation in sight: none;
  *   17 thunderstorm without precipitation: thunderstorm; 18 squalls: wind; 19 funnel cloud (tornado or
@@ -49,16 +63,10 @@ export const WEATHER_ICONS: Record<WeatherKind, string> = {
  * - 80-82 rain showers; 83-84 rain and snow showers: sleet; 85-86 snow showers; 87-90 showers of hail: none
  * - 91-99 thunderstorm, at the observation or in the hour before
  */
-export function weatherCodeToKind(code: number | null | undefined): WeatherKind | null {
+export function weatherCodeToKind(code: number | null | undefined): WeatherCodeKind | null {
   if (code === null || code === undefined || !Number.isFinite(code))
     return null
   const c = Math.round(code)
-  if (c === 0)
-    return 'clear'
-  if (c === 1 || c === 2)
-    return 'partlyCloudy'
-  if (c === 3)
-    return 'cloudy'
   if (c >= 7 && c <= 9)
     return 'dust'
   if (c >= 10 && c <= 12)
@@ -104,4 +112,15 @@ export function weatherCodeToKind(code: number | null | undefined): WeatherKind 
   if (c >= 91 && c <= 99)
     return 'thunderstorm'
   return null
+}
+
+/**
+ * The sky of a cloud cover in percent: cloudy from 70 %, partly cloudy from 30 %, else clear. Partly cloudy where there is no cloud
+ * cover (null). The one place the chart's hours and the days of the compact view and the map's panel have their sky from, so that they
+ * cannot disagree (GH-4190).
+ */
+export function skyOfCloudCover(percent: number | null | undefined): Sky {
+  if (percent === null || percent === undefined || !Number.isFinite(percent))
+    return 'partlyCloudy'
+  return percent >= 70 ? 'cloudy' : percent >= 30 ? 'partlyCloudy' : 'clear'
 }

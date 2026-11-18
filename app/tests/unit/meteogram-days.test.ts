@@ -78,10 +78,12 @@ describe('the rain of the days of a run whose hourly amount is 0.0 late in it (1
     expect(rows['2026-11-24']!.precipLabel).toBe('≈0.5 mm')
     // (a day of a mean of 1 degree, which is sleet by the panel's thresholds)
     expect(rows['2026-11-24']!.kind).toBe('sleet')
-    // a day under 0.5 mm of the totals keeps its sky (0.0 mm on the 23rd, and the day's own codes are cloudy)
-    expect(rows['2026-11-23']!.kind).toBe('cloudy')
-    // the days of the hourly amounts keep what their codes say
-    expect(rows['2026-11-18']!.kind).toBe(hourlyOnly['2026-11-18']!.kind)
+    // a day under 0.5 mm of the totals keeps its sky (0.0 mm on the 23rd): by its cloud cover, a mean of 69.7 %, not by its codes 2 and 3,
+    // DWD's cloud development (GH-4190)
+    expect(rows['2026-11-23']!.kind).toBe('partlyCloudy')
+    // a day of the hourly amounts, whose hours are all rain (code 61), is rain with the totals and without them
+    expect(rows['2026-11-18']!.kind).toBe('rain')
+    expect(hourlyOnly['2026-11-18']!.kind).toBe('rain')
   })
 
   it('draws snow where the mean wet bulb of the day\'s hours is as cold as the panel\'s snow, which the humidity lowers below the air\'s', () => {
@@ -179,5 +181,72 @@ describe('the rain of a day when hours are missing', () => {
     expect(rows[0]!.partialHours).toBeNull()
     expect(rows.at(-1)!.partialHours).toBe(3)
     expect(rows.slice(1, -1).every(row => row.partialHours === null)).toBe(true)
+  })
+})
+
+describe('the sky of a day whose codes are DWD\'s cloud development 0 to 3 (GH-4190)', () => {
+  const zone = 'Europe/Berlin'
+  /** The hours of 2026-11-20 at the station (CET, one hour ahead of UTC), `hour` to its ww code and its total cloud cover */
+  const day = (hours: Record<number, [number, number]>, extra: unknown[] = []) => {
+    const stamp = (hour: number) => new Date(Date.UTC(2026, 10, 20, hour - 1)).toISOString().replace('.000Z', '+00:00')
+    return [
+      ...Object.entries(hours).flatMap(([hour, [code, cover]]) => [
+        { station_id: 'C720', resolution: 'hourly', dataset: 'large', parameter: 'weather_significant', timestamp: stamp(Number(hour)), value: code, quality_flags: null },
+        { station_id: 'C720', resolution: 'hourly', dataset: 'large', parameter: 'cloud_cover_total', timestamp: stamp(Number(hour)), value: cover, quality_flags: null },
+      ]),
+      ...extra,
+    ]
+  }
+  const kindOf = (values: unknown[]) => byDate(days(values, { zone, today: '2026-11-20' }))['2026-11-20']!.kind
+
+  // Hamburg-Neuwiedenthal (C720), Friday 20.11.: ww 3 at 62-74 %, 2 at 57-63 %, 1 at 56-57 %, MOSMIX run of 2026-11-17. The most frequent
+  // code is 3, which DWD names clouds forming: no cover of the sky. The chart draws the hours as partly cloudy, and so does the card.
+  const friday: Record<number, [number, number]> = {}
+  const threes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 23]
+  const covers3 = [74, 74, 73, 72, 71, 70, 69, 68, 66, 65, 64, 63, 62, 66]
+  threes.forEach((hour, i) => friday[hour] = [3, covers3[i]!])
+  ;[13, 14, 15, 16, 17, 20, 21, 22].forEach((hour, i) => friday[hour] = [2, [63, 62, 61, 60, 59, 58, 58, 57][i]!])
+  ;[18, 19].forEach(hour => friday[hour] = [1, 56])
+
+  it('is partly cloudy for the Friday of C720, whose most frequent code is 3 and whose cloud cover is 56 to 74 %', () => {
+    const covers = Object.values(friday).map(([, cover]) => cover)
+    expect(covers.reduce((sum, v) => sum + v, 0) / covers.length).toBeGreaterThan(60)
+    expect(covers.reduce((sum, v) => sum + v, 0) / covers.length).toBeLessThan(70)
+    expect(kindOf(day(friday))).toBe('partlyCloudy')
+  })
+
+  it('is cloudy for a day of only the codes 0 to 3 whose cloud cover is high, and clear where it is low', () => {
+    const codes = [0, 1, 2, 3]
+    const of = (cover: number) => Object.fromEntries(Array.from({ length: 24 }, (_, hour) => [hour, [codes[hour % 4]!, cover] as [number, number]]))
+    expect(kindOf(day(of(92)))).toBe('cloudy')
+    expect(kindOf(day(of(70)))).toBe('cloudy')
+    expect(kindOf(day(of(45)))).toBe('partlyCloudy')
+    expect(kindOf(day(of(10)))).toBe('clear')
+  })
+
+  it('has a day of code 0 and a cover of 100 % cloudy, and a day of code 3 and a cover of 0 % clear: the code says nothing of the sky', () => {
+    expect(kindOf(day(Object.fromEntries(Array.from({ length: 24 }, (_, hour) => [hour, [0, 100] as [number, number]]))))).toBe('cloudy')
+    expect(kindOf(day(Object.fromEntries(Array.from({ length: 24 }, (_, hour) => [hour, [3, 0] as [number, number]]))))).toBe('clear')
+  })
+
+  it('is partly cloudy for a day of the codes 0 to 3 that has no cloud cover, as the chart\'s hours are', () => {
+    const values = day(friday).filter(value => (value as { parameter: string }).parameter === 'weather_significant')
+    expect(kindOf(values)).toBe('partlyCloudy')
+  })
+
+  it('is still rain for a day of rain codes, whatever its cloud cover', () => {
+    const rain = Object.fromEntries(Array.from({ length: 24 }, (_, hour) => [hour, [hour < 10 ? 3 : 61, 30] as [number, number]]))
+    expect(kindOf(day(rain))).toBe('rain')
+  })
+
+  it('keeps the phenomenon of a day by severity, where the codes 0 to 3 are more frequent', () => {
+    const thunder = Object.fromEntries(Array.from({ length: 24 }, (_, hour) => [hour, [hour >= 14 && hour < 16 ? 95 : 3, 90] as [number, number]]))
+    expect(kindOf(day(thunder))).toBe('thunderstorm')
+  })
+
+  it('is rain for a day of the codes 0 to 3 whose rain amounts add up to 0.5 mm or more', () => {
+    const rain = Array.from({ length: 24 }, (_, hour) => ({ station_id: 'C720', resolution: 'hourly', dataset: 'large', parameter: PRECIPITATION.hour, timestamp: new Date(Date.UTC(2026, 10, 20, hour - 1)).toISOString().replace('.000Z', '+00:00'), value: 0.3, quality_flags: null }))
+    const cloudy = Object.fromEntries(Array.from({ length: 24 }, (_, hour) => [hour, [3, 90] as [number, number]]))
+    expect(kindOf(day(cloudy, rain))).toBe('rain')
   })
 })

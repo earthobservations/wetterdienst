@@ -3,7 +3,7 @@ import type { Cluster, Grouping } from '~/utils/map-cluster'
 import type { PlacedStation, Point, ReportingRule } from '~/utils/map-tool'
 import * as L from 'leaflet'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { clusterAt, clusterRadius, clusterStations, clusterText, isGroupedAt, reportingSweep, worldPixels, zoomForCluster } from '~/utils/map-cluster'
+import { clusterAt, clusterRadius, clusterStations, clusterText, isGroupedAt, reportingSweep, viewForCluster, worldPixels } from '~/utils/map-cluster'
 import { OSM_ATTRIBUTION, OSM_TILES } from '~/utils/map-tiles'
 import { clickReach, dotRadius, HOME_VIEW, SELECTED_EDGE_PX, SELECTED_RADIUS_PX } from '~/utils/map-tool'
 
@@ -38,6 +38,8 @@ const props = defineProps<{
   locate?: number
   /** How the stations are grouped at the outer zooms (GH-4079), null for none: every station is its own dot */
   grouping?: Grouping | null
+  /** Whether the panel of the layers button is open: a press on the map then closes it, and its click is no pick of a place and no zoom on a group (GH-4209) */
+  panelOpen?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -331,14 +333,22 @@ function zoomInOnGroup(latlng: L.LatLng): boolean {
   const group = groupAt(latlng)
   if (!owner || !group || !props.grouping)
     return false
-  const bounds = L.latLngBounds([group.bounds.south, group.bounds.west], [group.bounds.north, group.bounds.east])
-  const zoom = zoomForCluster(owner.getBoundsZoom(bounds, false, L.point(48, 48)), owner.getZoom(), props.grouping.separateFrom, owner.getMaxZoom())
-  owner.setView(bounds.getCenter(), zoom, { animate: !reducedMotion.value })
+  // centred on the disc, not on the middle of its stations' box, which is somewhere else for a group that is lopsided (GH-4209)
+  const view = viewForCluster(
+    group,
+    box => owner.getBoundsZoom(L.latLngBounds([box.south, box.west], [box.north, box.east]), false, L.point(48, 48)),
+    owner.getZoom(),
+    props.grouping.separateFrom,
+    owner.getMaxZoom(),
+  )
+  owner.setView([view.latitude, view.longitude], view.zoom, { animate: !reducedMotion.value })
   emit('group', group.count, props.reporting ? group.reporting : null)
   return true
 }
 
 let pointerFrame = 0
+/** Whether the next click of the map belongs to the press that closed the panel of the layers button */
+let swallowClick = false
 
 function emitView() {
   if (!map)
@@ -362,13 +372,25 @@ onMounted(() => {
     fadeAnimation: !reducedMotion.value,
     markerZoomAnimation: !reducedMotion.value,
   })
-  // the buttons at the bottom right, clear of the chips over the map's top, in the language of the page
-  L.control.zoom({ position: 'bottomright', zoomInTitle: t('mapTool.zoomIn'), zoomOutTitle: t('mapTool.zoomOut') }).addTo(map)
+  // the credit and the buttons at the bottom right, clear of the layers button at the map's top right. Leaflet stacks the
+  // controls of a bottom corner from its edge up, in the order they were added: the credit is added first, so it is at the
+  // very bottom, under the zoom buttons (GH-4209)
   L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map)
+  L.control.zoom({ position: 'bottomright', zoomInTitle: t('mapTool.zoomIn'), zoomOutTitle: t('mapTool.zoomOut') }).addTo(map)
   L.tileLayer(OSM_TILES, { attribution: OSM_ATTRIBUTION, maxZoom: 19, className: 'station-map-tiles' }).addTo(map)
   map.createPane(MARKS_PANE).style.zIndex = '450'
   dots = new (DotLayer as unknown as new (options: L.GridLayerOptions) => L.GridLayer)({ pane: 'overlayPane', updateWhenZooming: false, noWrap: false }).addTo(map)
+  // a press on the map while the panel of the layers button is open closes the panel, and the click that belongs to that press is
+  // swallowed, a click on a group's disc included. The flag is set by the press (the capture phase is before the panel's own
+  // handler closes it) and taken by its click; a press that is no click (a drag) leaves it for the next press to set again
+  container.value.addEventListener('pointerdown', () => {
+    swallowClick = props.panelOpen ?? false
+  }, true)
   map.on('click', (event) => {
+    if (swallowClick) {
+      swallowClick = false
+      return
+    }
     const owner = map!
     if (zoomInOnGroup(event.latlng))
       return

@@ -2,7 +2,7 @@ import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import MapStations from '~/components/MapStations.vue'
-import { DEFAULT_GROUPING, GROUPINGS } from '~/utils/map-cluster'
+import { GROUPING } from '~/utils/map-cluster'
 
 // The markers handed to leaflet.markercluster; the map itself is left to the e2e tests. Like
 // useLMarkerCluster(), it adds its cluster to the map it is handed before returning.
@@ -74,7 +74,7 @@ describe('mapStations groups', () => {
     vm.map = { leafletObject: { getContainer: () => document.createElement('div'), addLayer: () => {}, removeLayer: () => {}, fitBounds: () => {} } }
     await vm.onMapReady()
     const { options } = markerCluster.mock.calls[0]![0] as unknown as { options: { maxClusterRadius: (zoom: number) => number, spiderfyOnMaxZoom: boolean } }
-    const separateFrom = GROUPINGS[DEFAULT_GROUPING].separateFrom
+    const separateFrom = GROUPING.separateFrom
     // 80 px before the zoom, and from it only what lies on one place is a group
     expect(options.maxClusterRadius(separateFrom - 1)).toBe(80)
     expect(options.maxClusterRadius(separateFrom)).toBe(1)
