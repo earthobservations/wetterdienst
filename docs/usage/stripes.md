@@ -60,7 +60,8 @@ the data runs to 2025). The reason is that a steady method over the whole record
 accuracy of each day: a constant bias cancels against the station's own reference, while a change of method would show
 as a false step. GHCN's TAVG covers only part of most records, mostly the 1990s on, and differs systematically from the
 midrange: where the choice was made day by day, Los Angeles switched method four times and its recent years read about
-0.4 °C cooler. The `processing_note` names the method the series used, "midrange of TMAX and TMIN" or "TAVG".
+0.4 °C cooler. The `processing_note` names the method the series used, "midrange of TMAX and TMIN" or "TAVG", and `series.method` of
+`/api/stripes/values` has it as a field: `midrange`, `tavg`, or null for DWD's own annual values and for the precipitation.
 
 The answer says so: the `processing_note` of `/api/stripes/values` (and the `X-Wetterdienst-Processing` header of the CSV
 and the image) says that the annual values were calculated from the provider's daily values by these rules, before the
@@ -270,7 +271,8 @@ http --download localhost:7890/api/stripes/image kind==temperature station==1048
 ```
 
 The JSON answer of `values` has the `metadata` block every answer has, a `series` that says what the values
-are of (`station`, `resolution`, `dataset`, `parameter`, and the `unit` of `value`), the `reference` the classes are
+are of (`station`, `resolution`, `dataset`, `parameter`, the `unit` of `value`, and the `method` of the days where the years
+were calculated from them), the `reference` the classes are
 relative to (see [Method](#method)), and the `values`, each with its `anomaly` and `stripe_class`. The `value`s of DWD are its
 own annual values, the same numbers as `/api/values` gives for the parameter; those of GHCN are calculated from its
 daily values (see [Sources](#sources)), and `series` names the daily parameter. The `processing_note` of the block is the

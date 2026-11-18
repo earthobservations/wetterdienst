@@ -185,7 +185,7 @@ def test_a_station_with_only_tavg_has_its_years_from_the_tavg_and_names_it() -> 
     data = _get_stripes_data(StripesValuesRequest(**{**TEMPERATURE, "station": stub.TAVG_ONLY_STATION}))
 
     years = _years(data)
-    assert data.annual_method == "tavg"
+    assert data.series.method == "tavg"
     # the TAVG swings around the midrange of the stub, a tenth of a degree at most over a month
     assert years[1990] == pytest.approx(10.0, abs=0.1)
     assert years[1999] == pytest.approx(11.8, abs=0.1)
@@ -195,8 +195,8 @@ def test_a_station_with_only_tavg_has_its_years_from_the_tavg_and_names_it() -> 
 
 def test_a_station_with_tmax_and_tmin_names_the_midrange() -> None:
     """Test the series says which method made its days, for the note of the answer."""
-    assert _get_stripes_data(StripesValuesRequest(**TEMPERATURE)).annual_method == "midrange"
-    assert _get_stripes_data(StripesValuesRequest(**PRECIPITATION)).annual_method is None
+    assert _get_stripes_data(StripesValuesRequest(**TEMPERATURE)).series.method == "midrange"
+    assert _get_stripes_data(StripesValuesRequest(**PRECIPITATION)).series.method is None
 
 
 def test_the_environment_cannot_turn_the_names_of_the_parameters_into_the_sources(
@@ -683,3 +683,48 @@ def test_mcp_refuses_a_pair_that_is_not_served() -> None:
         _call_tool(
             "stripes_values", {"kind": "temperature", "provider": "eccc", "network": "observation", "station": "x"}
         )
+
+
+# --- the method of the days, as a field of the answer -----------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("params", "method"),
+    [
+        pytest.param(TEMPERATURE, "midrange", id="midrange"),
+        pytest.param({**TEMPERATURE, "station": stub.TAVG_ONLY_STATION}, "tavg", id="tavg-only"),
+        pytest.param(PRECIPITATION, None, id="precipitation"),
+    ],
+)
+def test_rest_values_carry_the_method_of_the_days_in_the_series(
+    client: TestClient, params: dict[str, str], method: str | None
+) -> None:
+    """Test `series.method` is the structured field of the method, which the app need not read from the note."""
+    body = client.get("/api/stripes/values", params=params).json()
+
+    assert body["series"]["method"] == method
+    note = body["metadata"]["processing_note"]
+    if method == "midrange":
+        assert "a day is the midrange of TMAX and TMIN" in note
+    if method == "tavg":
+        assert "a day is the source's TAVG" in note
+
+
+def test_rest_values_of_dwd_have_no_method(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test DWD's own annual values have `series.method` null, present in the answer."""
+    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
+
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
+
+    body = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"}).json()
+
+    assert "method" in body["series"]
+    assert body["series"]["method"] is None
+    assert body["metadata"]["request"]["provider"] == "dwd"
+
+
+def test_mcp_stripes_values_carry_the_method() -> None:
+    """Test the MCP tool, which answers through REST, has the field too."""
+    answer = json.loads(_call_tool("stripes_values", TEMPERATURE).content[0].text)["result"]
+
+    assert answer["series"]["method"] == "midrange"

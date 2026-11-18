@@ -482,7 +482,7 @@ def stripes_metadata(data: StripesData, request: StripesRequest, *, image: bool 
             f"{stripes.resolution}/{stripes.dataset}/{name}" for name in GHCN_STRIPES_PARAMETERS[request.kind]
         ]
         reference = data.reference.note("the annual values calculated above")
-        calculated = f"{annual_note(request.kind, data.annual_method)} {reference}"
+        calculated = f"{annual_note(request.kind, stripes.method)} {reference}"
         image_note = IMAGE_OF_CALCULATED_NOTE
     else:
         from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415

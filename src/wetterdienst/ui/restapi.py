@@ -2738,8 +2738,9 @@ def stripes_values(
     month counts with at most 10 days missing and at most 4 in a row, and a year with all 12 months counting is the
     mean of the monthly means. Precipitation: a month counts only when complete, and a year with all 12 months
     counting is the sum. A year that fails is a gap, and a value that failed a quality check of the source is a missing
-    day. The `processing_note` names the method of the series (midrange of TMAX and TMIN, or TAVG), and `series` names
-    the daily parameter the years were built from.
+    day. `series` names the daily parameter the years were built from and has the method of the days as `method`:
+    `midrange` or `tavg` (null for DWD's own annual values and for the precipitation); the `processing_note` says it in
+    words.
     """
     begin_response()
 

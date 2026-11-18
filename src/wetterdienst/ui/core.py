@@ -2748,6 +2748,18 @@ class StripesSeries(BaseModel):
     # the request's `unit_targets` (GH-3980) and the server's `WD_TS_CONVERT_UNITS` and `WD_TS_UNIT_TARGETS` set it,
     # the latter two since GH-2372
     unit: str
+    # how a day of the temperature was calculated where the years were built from days (`noaa/ghcn`): the `midrange`
+    # of TMAX and TMIN, for every day of a station that has both, or `tavg` at one that has no day with both
+    # (GH-4222). Null for the provider's own annual values (DWD) and for the precipitation, whose day is the PRCP
+    method: Annotated[
+        Literal["midrange", "tavg"] | None,
+        Field(
+            description="How a day of the temperature was calculated where the years were built from daily values "
+            "(`noaa`/`ghcn`): `midrange`, the mean of TMAX and TMIN, which is no 24-hour mean, used for every day of a "
+            "station that has both so that the method does not change along the record, or `tavg`, the source's own "
+            "mean, at a station with no day that has both. Null for DWD's own annual values and for the precipitation."
+        ),
+    ] = None
 
 
 class StripesData(BaseModel):
@@ -2759,9 +2771,6 @@ class StripesData(BaseModel):
     #: what the classes are relative to: the station's whole record, not the window of years shown
     reference: StripesReference
     df: pl.DataFrame
-    #: how the days of a temperature were calculated where the years were built from them (`noaa/ghcn`): `midrange` of
-    #: TMAX and TMIN or `tavg`, which the note of the answer names; none for DWD's values and the precipitation
-    annual_method: Literal["midrange", "tavg"] | None = None
 
 
 # Type definitions for CLIMATE_STRIPES_CONFIG
@@ -3303,6 +3312,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
     else:
         (parameter_model,) = stations.parameters
     series = StripesSeries(
+        method=annual_method,
         station=station,
         resolution=parameter_model.dataset.resolution.name,
         dataset=parameter_model.dataset.name,
@@ -3314,7 +3324,7 @@ def _get_stripes_data(stripes: StripesRequest) -> StripesData:
         ),
     )
 
-    return StripesData(series=series, reference=reference, df=df, annual_method=annual_method)
+    return StripesData(series=series, reference=reference, df=df)
 
 
 def _require_plotting() -> ModuleType:
