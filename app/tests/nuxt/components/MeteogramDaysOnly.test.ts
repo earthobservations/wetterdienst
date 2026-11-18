@@ -54,18 +54,32 @@ describe('the meteogram as day rows (days-only)', () => {
     await vi.waitFor(() => expect(echarts.loadEcharts).not.toHaveBeenCalled())
   })
 
-  // the weather of a row is a Phosphor icon, hidden from a screen reader, with its words beside it (GH-3527)
-  it('draws the weather of each row as an icon that is hidden, and says it in words', async () => {
+  // the weather of a row is Yr's symbol, as the chart draws an hour's, hidden from a screen reader, with its words beside it (GH-4193)
+  it('draws the weather of each row as a symbol that is hidden, and says it in words', async () => {
     const wrapper = await mountRows()
     const rows = wrapper.findAll('[data-testid="day-rows"] li')
     for (const row of rows) {
-      const icon = row.find('[data-weather]')
-      expect(icon.exists()).toBe(true)
-      expect(icon.attributes('aria-hidden')).toBe('true')
-      expect(icon.classes().some(name => name.startsWith('i-ph:'))).toBe(true)
+      const symbol = row.find('img[data-weather]')
+      expect(symbol.exists()).toBe(true)
+      expect(symbol.attributes('aria-hidden')).toBe('true')
+      expect(symbol.attributes('alt')).toBe('')
+      expect(symbol.attributes('src')).toMatch(/^\/yr-symbols\/lightmode\/[0-9a-z]+\.svg$/)
       expect(row.find('.sr-only').text()).not.toBe('')
       expect(row.text()).not.toMatch(/\p{Extended_Pictographic}/u)
     }
+  })
+
+  // the chart that carries Yr's credit (CC BY 4.0) is not here: the rows do (GH-4193)
+  it('credits Yr under the rows, once, where there is no chart to carry it', async () => {
+    const wrapper = await mountRows()
+    const credit = wrapper.findAll('[data-testid="day-symbols-credit"]')
+    expect(credit).toHaveLength(1)
+    expect(credit[0]!.text()).toBe('Weather symbols © 2015 Yr/NRK, CC BY 4.0.')
+    expect(credit[0]!.findAll('a').map(a => a.attributes('href'))).toEqual([
+      'https://github.com/nrkno/yr-weather-symbols',
+      'https://creativecommons.org/licenses/by/4.0/',
+    ])
+    expect(wrapper.find('[data-testid="meteogram-credit"]').exists()).toBe(false)
   })
 
   it('is not taken to the chart by the view the reader chose on the forecast page, which is kept in the browser', async () => {

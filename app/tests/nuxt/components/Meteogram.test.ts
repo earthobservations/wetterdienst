@@ -440,19 +440,25 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(wrapper!.text()).toContain('No data available for the selected query')
   })
 
-  // the weather of a day card is an icon, which a screen reader does not read: the words are in the
-  // card, and the icon is hidden from it (WCAG 1.1.1). `iconsOf` are the Phosphor icons drawn for the weather
-  // of the cards, by the name the icon component is given (GH-3527)
-  const iconsOf = () => [...document.body.querySelectorAll('[data-weather]')].map(node => node.getAttribute('data-weather'))
-  const hiddenIconsOf = () => [...document.body.querySelectorAll('[data-weather][aria-hidden="true"]')]
+  // the weather of a day card is Yr's symbol, as the chart draws an hour's, which a screen reader does not read: the words are in the
+  // card, and the symbol is hidden from it (WCAG 1.1.1). `symbolsOf` are the kinds the symbols are drawn for (GH-4193)
+  const symbolsOf = () => [...document.body.querySelectorAll('[data-weather]')].map(node => node.getAttribute('data-weather'))
+  const hiddenSymbolsOf = () => [...document.body.querySelectorAll('[data-weather][aria-hidden="true"]')]
   const wordsOf = () => [...document.body.querySelectorAll('.sr-only')].map(node => node.textContent?.trim())
+  // the file of each card's symbol, in the order of the cards
+  const filesOf = () => [...document.body.querySelectorAll<HTMLImageElement>('img[data-weather]')].map(node => node.getAttribute('src'))
 
-  it('gives the icon of a day card a text alternative, and hides the icon, where no weather code is served', async () => {
+  it('gives the symbol of a day card a text alternative, and hides the symbol, where no weather code is served', async () => {
     await showMeteogram()
     await showCompact()
     // 6 mm of rain over 10 to 16 degrees and no weather code: the heuristic's rain
-    expect(iconsOf()).toContain('rain')
-    expect(hiddenIconsOf().length).toBe(iconsOf().length)
+    expect(symbolsOf()).toContain('rain')
+    expect(hiddenSymbolsOf().length).toBe(symbolsOf().length)
+    // an image with no alternative of its own: the words beside it are the alternative
+    for (const node of hiddenSymbolsOf()) {
+      expect(node.tagName).toBe('IMG')
+      expect(node.getAttribute('alt')).toBe('')
+    }
     expect(wordsOf()).toContain('Rain')
     // and the drop before the rain's amount is a decoration with the word for it beside
     expect(document.body.querySelector('[aria-hidden="true"][class~="i-ph:drop"]')).not.toBeNull()
@@ -463,43 +469,59 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(precipitation.map(node => node.textContent!.endsWith(': '))).not.toContain(false)
   })
 
-  // three days, each with the weather code of its hours: rain (61), a thunderstorm (95), clear sky (0)
+  // the day with the weather code of its hours and no rain and no cloud cover: wind, dust and a funnel cloud are drawn as the sky of no
+  // cover (partly cloudy) with a badge of their own, Yr having no symbol for them
   it.each([
-    [61, 'rain', 'i-ph:cloud-rain', 'Rain'],
-    [95, 'thunderstorm', 'i-ph:cloud-lightning', 'Thunderstorm'],
-    [18, 'wind', 'i-ph:wind', 'Windy'],
-    [20, 'drizzle', 'i-ph:drop-half', 'Drizzle'],
-    [53, 'drizzle', 'i-ph:drop-half', 'Drizzle'],
-    [71, 'snow', 'i-ph:cloud-snow', 'Snow'],
-    [45, 'fog', 'i-ph:cloud-fog', 'Fog'],
+    [61, 'rain', '09', 'Rain'],
+    [95, 'thunderstorm', '22', 'Thunderstorm'],
+    [18, 'wind', '03d', 'Windy'],
+    [20, 'drizzle', '46', 'Drizzle'],
+    [53, 'drizzle', '46', 'Drizzle'],
+    [71, 'snow', '13', 'Snow'],
+    [45, 'fog', '15', 'Fog'],
     // dust and snow storms are no thunderstorms (30-39 were drawn as one)
-    [33, 'dust', 'i-ph:wind', 'Dust or sand storm'],
-    [38, 'blowingSnow', 'i-ph:snowflake', 'Blowing snow'],
-    [69, 'sleet', 'i-ph:cloud-snow', 'Sleet'],
-    // a funnel cloud is a tornado or a waterspout, not a sunny day (GH-3965)
-    [19, 'funnelCloud', 'i-ph:tornado', 'Funnel cloud'],
-  ])('names the weather of weather code %i as %s (icon %s, words %s) in a day card', async (code, kind, icon, words) => {
+    [33, 'dust', '03d', 'Dust or sand storm'],
+    [38, 'blowingSnow', '49', 'Blowing snow'],
+    [69, 'sleet', '12', 'Sleet'],
+    // a funnel cloud is a tornado or a waterspout, not a sunny day (GH-3965): the sky with a badge of the tornado says so
+    [19, 'funnelCloud', '03d', 'Funnel cloud'],
+  ])('names the weather of weather code %i as %s (Yr symbol %s, words %s) in a day card', async (code, kind, symbol, words) => {
     const coded = day.map(value => ({ ...value, parameter: 'weather_significant', value: code }))
     clearDrawn()
     wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
     await wrapper.setProps({ values: [...day, ...coded] })
     await waitDrawn()
     await showCompact()
-    expect(iconsOf()).toContain(kind)
-    // the icon drawn is the Phosphor icon of the kind, hidden from a screen reader, which reads the words
+    expect(symbolsOf()).toContain(kind)
+    // the symbol drawn is Yr's for the kind, in the light set, hidden from a screen reader, which reads the words
     const drawn = [...document.body.querySelectorAll(`[data-weather="${kind}"]`)]
     expect(drawn.length).toBeGreaterThan(0)
     for (const node of drawn) {
       expect(node.getAttribute('aria-hidden')).toBe('true')
-      expect(node.classList.contains(icon)).toBe(true)
+      expect(node.getAttribute('data-symbol')).toBe(symbol)
+      expect(node.getAttribute('src')).toBe(`/yr-symbols/lightmode/${symbol}.svg`)
     }
     expect(wordsOf()).toContain(words)
-    expect(document.body.textContent).not.toMatch(/\p{Extended_Pictographic}/u)
+    // the badge is there for the kinds Yr has no symbol for, and for no other
+    const badges = [...document.body.querySelectorAll(`[data-badge]`)]
+    if (kind === 'wind' || kind === 'dust' || kind === 'funnelCloud') {
+      expect(badges.length).toBeGreaterThan(0)
+      for (const badge of badges) {
+        expect(badge.getAttribute('data-badge')).toBe(kind)
+        expect(badge.querySelector(kind === 'funnelCloud' ? '[class*="i-ph:tornado"]' : '[class*="i-ph:wind"]'), `the icon of ${kind}`).not.toBeNull()
+        expect(badge.closest('[aria-hidden="true"]')).not.toBeNull()
+      }
+    }
+    else {
+      expect(badges).toHaveLength(0)
+    }
+    // no emoji (the credit's © is one of the pictographs, and is meant)
+    expect(document.body.textContent!.replaceAll('©', '')).not.toMatch(/\p{Extended_Pictographic}/u)
   })
 
   // the codes 0 to 3 are DWD's cloud development (none, dissolving, unchanged, forming), no sky: the card has its sky from the cloud cover
-  // of the day, whichever of them its hours carry (GH-4190)
-  it.each([[0, 95, 'cloudy'], [1, 95, 'cloudy'], [2, 10, 'clear'], [3, 10, 'clear'], [3, 55, 'partlyCloudy']])('draws the sky of a day card from the cloud cover, not from the code %i: %i %% is %s', async (code, cover, kind) => {
+  // of the day, whichever of them its hours carry (GH-4190), and draws it as Yr's symbol of the sky, by day
+  it.each([[0, 95, 'cloudy', '04'], [1, 95, 'cloudy', '04'], [2, 10, 'clear', '01d'], [3, 10, 'clear', '01d'], [3, 55, 'partlyCloudy', '03d']])('draws the sky of a day card from the cloud cover, not from the code %i: %i %% is %s (symbol %s)', async (code, cover, kind, symbol) => {
     const coded = day.map(value => ({ ...value, parameter: 'weather_significant', value: code }))
     const clouds = day.map(value => ({ ...value, parameter: 'cloud_cover_total', value: cover }))
     clearDrawn()
@@ -507,7 +529,89 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     await wrapper.setProps({ values: [...day, ...coded, ...clouds] })
     await waitDrawn()
     await showCompact()
-    expect(new Set(iconsOf())).toEqual(new Set([kind]))
+    expect(new Set(symbolsOf())).toEqual(new Set([kind]))
+    expect(new Set(filesOf())).toEqual(new Set([`/yr-symbols/lightmode/${symbol}.svg`]))
+  })
+
+  // wind, dust and a funnel cloud have no symbol of their own in Yr's set: they take the sky of the day's cloud cover, never a night's, and
+  // a badge says what the sky does not: a windy day under a clear sky is no sun alone (GH-3965)
+  it.each([[18, 5, '01d', 'wind', 'wind'], [33, 50, '03d', 'dust', 'wind'], [19, 90, '04', 'funnelCloud', 'tornado'], [19, 5, '01d', 'funnelCloud', 'tornado']])('draws the symbol of weather code %i at %i %% cloud cover as the sky, %s, with the badge of the %s (icon %s)', async (code, cover, symbol, kind, icon) => {
+    const coded = day.map(value => ({ ...value, parameter: 'weather_significant', value: code }))
+    const clouds = day.map(value => ({ ...value, parameter: 'cloud_cover_total', value: cover }))
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values: [...day, ...coded, ...clouds] })
+    await waitDrawn()
+    await showCompact()
+    expect(new Set(filesOf())).toEqual(new Set([`/yr-symbols/lightmode/${symbol}.svg`]))
+    const badges = [...document.body.querySelectorAll('[data-badge]')]
+    expect(badges.length).toBe(filesOf().length)
+    for (const badge of badges) {
+      expect(badge.getAttribute('data-badge')).toBe(kind)
+      expect(badge.querySelector(`[class*="i-ph:${icon}"]`)).not.toBeNull()
+      // hidden from a screen reader with the symbol, which the words name
+      expect(badge.closest('[aria-hidden="true"]')).not.toBeNull()
+    }
+    expect(wordsOf().some(word => /wind|dust|funnel/i.test(word ?? ''))).toBe(true)
+  })
+
+  // the strength of the symbol is that of the wettest hour, as the chart's hours are drawn: 4 mm an hour is heavy rain, 2 mm an hour heavy
+  // snow, under 0.5 and 0.3 mm an hour the light ones. The day's total is not what it is told by (GH-4193)
+  const wettestHour = (peak: number, others: number) => (hour: number) => hour === 12 ? peak : others
+  it.each([
+    ['a drizzly day of 0.25 mm every hour (5.75 mm in all) as light rain, as the chart draws every hour of it', () => 0.25, 61, '46'],
+    ['a day of one hour of 5 mm as heavy rain', wettestHour(5, 0), 61, '10'],
+    ['a day of one hour of 5 mm among drizzle as heavy rain', wettestHour(5, 0.1), 61, '10'],
+    ['rain of an hour of 1 mm as rain', wettestHour(1, 0), 61, '09'],
+    ['rain under 0.5 mm an hour as light rain', () => 0.015, 61, '46'],
+    ['a day of one hour of 2.5 mm of snow as heavy snow', wettestHour(2.5, 0), 71, '50'],
+    ['snow of 0.5 mm an hour (11.5 mm in all) as snow, not heavy', () => 0.5, 71, '13'],
+    ['snow under 0.3 mm an hour as light snow', () => 0.05, 71, '49'],
+    ['sleet of 1 mm an hour as sleet', () => 1, 69, '12'],
+  ])('draws %s (Yr symbol %s)', async (_what, amount, code, symbol) => {
+    const coded = day.map(value => ({ ...value, parameter: 'weather_significant', value: code }))
+    const amounts = day.map((value, hour) => ({ ...value, parameter: 'precipitation_amount_last_1h', value: amount(hour) }))
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values: [...day, ...coded, ...amounts] })
+    await waitDrawn()
+    await showCompact()
+    expect(new Set(filesOf())).toEqual(new Set([`/yr-symbols/lightmode/${symbol}.svg`]))
+  })
+
+  it('draws the symbols of the dark set at night, and the light set again, without a reload', async () => {
+    await showMeteogram()
+    await showCompact()
+    expect(filesOf().length).toBeGreaterThan(0)
+    expect(filesOf().every(src => src!.startsWith('/yr-symbols/lightmode/'))).toBe(true)
+    onTestFinished(() => document.documentElement.classList.remove('dark'))
+    document.documentElement.classList.add('dark')
+    await vi.waitFor(() => expect(filesOf().every(src => src!.startsWith('/yr-symbols/darkmode/'))).toBe(true))
+    document.documentElement.classList.remove('dark')
+    await vi.waitFor(() => expect(filesOf().every(src => src!.startsWith('/yr-symbols/lightmode/'))).toBe(true))
+  })
+
+  // Yr asks for its credit (CC BY 4.0) where the symbols are shown: the chart carries it, and the cards, where there is none, carry it too (GH-4193)
+  it('credits Yr under the compact cards, which have no chart to carry it, once', async () => {
+    await showMeteogram()
+    expect(document.body.querySelector('[data-testid="day-symbols-credit"]')).toBeNull()
+    await showCompact()
+    const credit = document.body.querySelectorAll('[data-testid="day-symbols-credit"]')
+    expect(credit).toHaveLength(1)
+    expect(document.body.querySelector('[data-testid="meteogram-credit"]')).toBeNull()
+    expect(credit[0]!.textContent).toBe('Weather symbols © 2015 Yr/NRK, CC BY 4.0.')
+    expect([...credit[0]!.querySelectorAll('a')].map(a => a.getAttribute('href'))).toEqual([
+      'https://github.com/nrkno/yr-weather-symbols',
+      'https://creativecommons.org/licenses/by/4.0/',
+    ])
+  })
+
+  it('credits Yr under the cards of a language, in its own words', async () => {
+    await inLanguage('de')
+    await showMeteogram()
+    await showCompact()
+    expect(document.body.querySelector('[data-testid="day-symbols-credit"]')!.textContent).toMatch(/Yr\/NRK, CC BY 4\.0/)
+    expect(document.body.querySelector('[data-testid="day-symbols-credit"]')!.textContent).not.toContain('Weather symbols')
   })
 
   // in every language, in its own word for the rain
