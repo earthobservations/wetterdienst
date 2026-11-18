@@ -18,6 +18,8 @@ from __future__ import annotations
 import datetime as dt
 import logging
 import re
+import threading
+import time
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
 
@@ -29,7 +31,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.util.network import File, download_files, forget_remote_listing, list_remote_directory_fsspec
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Iterable, Mapping
 
     from wetterdienst.settings import Settings
 
@@ -56,6 +58,58 @@ def _folder_interval(folder_name: str) -> portion.Interval:
     )
 
 
+#: the listings that were dropped and read again, by the directory and the cache they were kept in, and when (a
+#: monotonic time): the listing made then is the server's own for as long as the cache keeps it, so asking again
+#: within that time costs the requests and finds the same (GH-4205). Process-wide, as the cache is
+_REREAD: dict[tuple[str, str], float] = {}
+_REREAD_LOCK = threading.Lock()
+_MAX_REREAD = 256
+
+
+def _listing_may_be_stale(url: str, settings: Settings, cache_expiry: CacheExpiry) -> bool:
+    """Say whether the listing of ``url`` is worth dropping and reading again, and note that it is being.
+
+    Not where nothing is cached (the listing was the server's own), and not where it was already read again within the
+    time the cache keeps a listing: the first station of a walk that meets a folder that stays gone reads the parent
+    again, and the others take what that left in the cache.
+    """
+    if settings.cache_disable or cache_expiry is CacheExpiry.NO_CACHE:
+        return False
+    key = (url, str(settings.cache_dir))
+    now = time.monotonic()
+    with _REREAD_LOCK:
+        read_at = _REREAD.get(key)
+        if read_at is not None and now - read_at < cache_expiry.value:
+            return False
+        if len(_REREAD) >= _MAX_REREAD:
+            _REREAD.clear()
+        _REREAD[key] = now
+    return True
+
+
+def _forget_listing(url: str, settings: Settings, cache_expiry: CacheExpiry) -> None:
+    """Drop the listing of ``url`` from the cache, and the note that it was read again (best effort)."""
+    with _REREAD_LOCK:
+        _REREAD.pop((url, str(settings.cache_dir)), None)
+    forget_remote_listing(url, settings, cache_expiry)
+
+
+def forget_listings_of_archives(
+    urls: Iterable[str], settings: Settings, cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX
+) -> None:
+    """Drop the listings of the folders of archives that were not there, and of the directory above each (GH-4205).
+
+    An archive that its listing named and that answers a 404 may have been consolidated into another folder, and the
+    listings of its folder and of the folder's parent are the cached ones that still name it: the next request lists
+    them again and follows the consolidation, where it would be told the archive was gone for as long as the cache
+    keeps them. Best effort: a cache that cannot be written is a line in the log.
+    """
+    folders = {url.rsplit("/", 1)[0] + "/" for url in urls}
+    parents = {folder.rstrip("/").rsplit("/", 1)[0] + "/" for folder in folders}
+    for directory in sorted(folders | parents):
+        _forget_listing(directory, settings, cache_expiry)
+
+
 def _list_directory(url: str, settings: Settings, cache_expiry: CacheExpiry) -> list[dict]:
     """List a directory, and name the one that is not there (GH-4205): an `UpstreamError`, a 502 over REST."""
     try:
@@ -79,11 +133,13 @@ def list_files_for_interval(
     A directory at ``url`` that is not there (a 404) is a ``MetaFileNotFoundError`` that names it, an ``UpstreamError``
     (a 502 over REST), not a bare ``FileNotFoundError`` (GH-4205). A period folder that the listing of ``url`` names
     and that answers a 404 is not an error of the request: IMGW consolidates its archives, so the folder may be gone
-    and its files elsewhere. The listing of ``url`` may only be the cached one, so it is dropped and read again once
-    (`forget_remote_listing`); a folder that the fresh listing still names and that still answers a 404 is skipped, and
-    its URL is added to ``skipped``, which the caller tells the walk of the values (`note_skipped_download`). A folder
-    the fresh listing no longer names is simply not read, its files being in the folder that replaced it. Without
-    ``skipped`` the folder is skipped without a word, for a caller that only warms the cache (the fetch-ahead).
+    and its files elsewhere. The listing of ``url`` may only be the cached one, so it is dropped and read again, once
+    for as long as the cache keeps a listing (`forget_remote_listing`; not where nothing is cached, and not again for
+    the next station of a walk that meets the same folder); a folder that the fresh listing still names and that still
+    answers a 404 is skipped, and its URL is added to ``skipped``, which the caller tells the walk of the values
+    (`note_skipped_download`). A folder the fresh listing no longer names is simply not read, its files being in the
+    folder that replaced it. Without ``skipped`` the folder is skipped without a word, for a caller that only warms the
+    cache (the fetch-ahead).
     """
     for attempt in range(2):
         entries = _list_directory(url, settings, cache_expiry)
@@ -99,7 +155,7 @@ def list_files_for_interval(
                 gone.append(folder)
                 continue
             files.extend(entry["name"] for entry in folder_entries if entry["type"] == "file")
-        if gone and attempt == 0:
+        if gone and attempt == 0 and _listing_may_be_stale(url, settings, cache_expiry):
             # the listing of the parent may be the cached one, from before the folder was consolidated
             forget_remote_listing(url, settings, cache_expiry)
             continue

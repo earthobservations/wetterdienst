@@ -24,6 +24,7 @@ from wetterdienst.model.values import UPDATED, TimeseriesValues
 from wetterdienst.provider.imgw.fileindex import (
     archive_expiries,
     download_archives,
+    forget_listings_of_archives,
     keep_files_overlapping,
     list_files_for_interval,
 )
@@ -653,11 +654,16 @@ class ImgwMeteorologyValues(TimeseriesValues[DatasetModel]):
             note_skipped_download(SkipCause.EMPTY_DIRECTORY)
         # a 404 is a file that is not there, and is dropped and told; any other failure -- a timeout, a 5xx
         # after the retries -- is an outage, which dropped would read as a station without data
+        withdrawn = []
         for file in files:
             if file.status != 404:
                 file.raise_if_exception()
             else:
                 note_skipped_download(SkipCause.WITHDRAWN)
+                withdrawn.append(file.url)
+        if withdrawn:
+            # it may have been consolidated into another folder, which the cached listings do not name yet
+            forget_listings_of_archives(withdrawn, settings)
         files = [file for file in files if isinstance(file.content, BytesIO)]
         data = []
         file_schema = self._file_schema[parameter_or_dataset.resolution.value][parameter_or_dataset.name]
