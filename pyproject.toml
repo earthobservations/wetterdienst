@@ -342,6 +342,9 @@ coverage = [
     "coverage:parallel",
     "coverage:cflakes",
 ]
+# the offline selection with coverage, as `test:offline` runs it (serial, see there): what a pull request and a push to main
+# report to Codecov; the whole suite, remote tests included, is `coverage` and runs nightly
+"coverage:offline" = "uv run pytest --cov-report xml --cov wetterdienst tests/ -m 'not (remote or explorer)' --junitxml=junit-offline.xml"
 # the OpenAPI document as committed (tests/ui/openapi.snapshot.json), which a test holds the served one to: run after a
 # change to the contract, and read the diff
 "openapi:snapshot" = "uv run python -m tests.ui.openapi_snapshot"
