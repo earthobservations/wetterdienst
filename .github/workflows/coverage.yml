@@ -50,10 +50,11 @@ on:
       - '.github/workflows/install.sh'
       - '.github/workflows/coverage.yml'
 
-  # The remote suite with coverage, on main, at an hour when no other workflow runs (tests.yml runs
-  # its nightly matrix at 02:23)
+  # The remote suite with coverage, on main. After the nightly matrix of tests.yml (02:23, whose
+  # macOS legs run up to three hours) so that the two do not share the runners; docs.yml runs on Mondays
+  # at 05:17 on another runner type
   schedule:
-    - cron: '47 3 * * *'
+    - cron: '17 6 * * *'
 
   # Allow job to be triggered manually: the whole suite, as the schedule runs it.
   workflow_dispatch:
@@ -118,13 +119,17 @@ jobs:
           WD_AUTH__CEDA: ${{ secrets.WD_AUTH__CEDA }}
         run: uv run poe coverage:cflakes
 
+      # Two flags, since Codecov merges the uploads of a commit that share one: the offline selection
+      # (every pull request and push to main) is `offline`, which codecov.yml reads for the project status
+      # and the badge, and the nightly whole suite is `full`. Under one flag the nightly run would be merged into
+      # the commit it ran on and the coverage of main would swing with it
       - name: Upload coverage report to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
-          flags: unittests
+          flags: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'full' || 'offline' }}
           fail_ci_if_error: false
 
       - name: Upload test results to Codecov
@@ -134,4 +139,5 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./junit-parallel.xml,./junit-cflakes.xml,./junit-offline.xml
           report_type: test_results
+          flags: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'full' || 'offline' }}
           fail_ci_if_error: false

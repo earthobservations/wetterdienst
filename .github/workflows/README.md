@@ -39,9 +39,12 @@ and left the offline jobs a landing waits for queued.
 
 | Event | `Tests` | `Coverage` |
 |---|---|---|
-| pull request | `Offline selection on ...` (5 legs), `Minimum dependency versions` (offline selection), one remote leg: `Python 3.15 on OS ubuntu-latest` | `coverage` (offline selection) |
+| pull request | `Offline selection on ...` (6 legs), `Minimum dependency versions` (offline selection), one remote leg: `Python 3.15 on OS ubuntu-latest` | `coverage` (offline selection) |
 | push to `main` | the offline legs and `Minimum dependency versions` (offline); no remote leg | `coverage` (offline selection) |
-| nightly (`schedule`, 02:23 UTC for `Tests`, 03:47 for `Coverage`) and `workflow_dispatch` | the whole remote matrix (9 legs) and `Minimum dependency versions` (remote suite); no offline leg on the schedule | `coverage` (whole suite) |
+| nightly (`schedule`, 02:23 UTC for `Tests`, 06:17 for `Coverage`) and `workflow_dispatch` | the whole remote matrix (9 legs) and `Minimum dependency versions` (remote suite); no offline leg on the schedule | `coverage` (whole suite) |
+
+`Minimum dependency versions` stays non-blocking (`continue-on-error`) although its pull request run is offline:
+`UV_RESOLUTION: lowest-direct` resolves against PyPI on every run, so it is not deterministic per commit.
 
 The one leg of a pull request is the one that holds the KNMI EDR key. The key goes to exactly one leg of a
 run (its quota is 1,000 requests an hour, GH-4046), so the nightly matrix gives it to that leg too. The
@@ -90,7 +93,9 @@ change to `docs/**`.
 
 A push to a pull request cancels the run it supersedes (`cancel-in-progress` is true for the
 `pull_request` event only; `codeql.yml` has the group too, and still no path filter: the ruleset reads the head
-commit of the pull request, so the cancelled run of an older commit is not one it waits for). A run on `main`, on a tag, on a schedule or started by hand is never
+commit of the pull request, so the cancelled run of an older commit is not one it waits for; its group is the
+commit for every other event, so each push to `main` and the schedule is analysed and none replaces another).
+A run on `main`, on a tag, on a schedule or started by hand is never
 cancelled once it has started. The nightly and the manual run of `tests.yml` and `coverage.yml` have a
 group of their own (`-full` after the ref, the pushes `-ci`), or a run of two hours would hold the pushes to
 `main` back, a group running one at a time. GitHub still replaces a run that is *waiting* for the group with a newer
@@ -131,15 +136,16 @@ the next midnight run, protects at least that many digests.
 Every job carries a `timeout-minutes`, in place of GitHub's six hours: a hung run leaves its check
 pending, which blocks a landing, until the next push cancels it or six hours of runner time are spent.
 The limits sit at 2x or more of the longest passing run in the job durations of recent runs (the
-remote legs are the exception, below): a
-test-matrix leg has taken up to 57 minutes on a passing run and 84 on a failing one, the Python 3.15
+remote legs are the exception, below): the Python 3.15
 leg of the offline selection up to 27 (60), the minimum-versions job up to 53 (120), the backend
 image's smoke build up to 30 (60), the coverage job up to 52 (120), the accessibility scan up to 50
 and growing (120), the daily Docker cleanup 31 (90); lint, unused, typecheck and the pages build take
 a few minutes and have 15 to 30, the link check 45. The remote matrix has 60 minutes for its Ubuntu and Windows legs
-(they took 20 to 44) and 120 for its macOS legs, which build HDF5, h5py, duckdb and numcodecs on Python 3.15
-and took 60 to 110; it had 180, and a leg that hung held its runner for three hours (`macos-26-intel` for 216
-minutes, with the queue behind it). The offline coverage job and the offline run of the minimum-versions
+and 120 for its macOS legs; it had 180. Over about 18 runs of `main`, an Ubuntu or Windows leg took 45 to 49
+minutes when it ran normally and 71 to 113 when it failed, a macOS leg (HDF5, h5py, duckdb and numcodecs are built on Python
+3.15) 43 to 179, commonly 102 to 114. A leg that goes past the limit was red anyway, so only its tail is lost, and
+a leg that hangs no longer holds its runner for three hours (`macos-26-intel` once for 216 minutes, with the queue
+behind it). The offline coverage job and the offline run of the minimum-versions
 job have 45. The time spent queued for a runner does not count. When a job legitimately outgrows
 its limit, raise it in the workflow and here.
 

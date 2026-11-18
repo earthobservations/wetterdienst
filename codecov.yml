@@ -1,3 +1,11 @@
+# `offline` is the offline selection that every pull request and every push to main uploads (coverage.yml), `full`
+# the whole suite of the nightly run. The project status and the badge read `offline`, which is uploaded for every
+# commit, so the remote tests of a night do not move them; a push that touches no file the workflow reads
+# uploads nothing, so both flags are carried forward from the last upload
+flag_management:
+  default_rules:
+    carryforward: true
+
 coverage:
   precision: 2
   round: down
@@ -6,6 +14,8 @@ coverage:
     project:
       default:
         target: 75%
+        flags:
+          - offline
     patch:
       default:
         informational: true

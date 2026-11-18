@@ -93,8 +93,10 @@ jobs:
   tests:
     if: ${{ github.event_name != 'push' }}
     runs-on: ${{ matrix.os }}
-    # Ubuntu and Windows legs took 20 to 44 minutes on recent runs, macOS legs 60 to 110 (HDF5 and the
-    # extras are built from source on Python 3.15 there), so a flat 45 would cancel the macOS legs
+    # On about 18 recent runs of main an Ubuntu or Windows leg took 45 to 49 minutes when it ran normally and 71
+    # to 113 when it failed; a macOS leg 43 to 179, commonly 102 to 114 (HDF5 and the extras are built from source
+    # on Python 3.15 there). A leg that goes past the limit was red anyway, so only its tail is lost; a flat 45
+    # would cancel nearly every leg
     timeout-minutes: ${{ startsWith(matrix.os, 'macos-') && 120 || 60 }}
 
     strategy:

@@ -186,9 +186,10 @@ the image"), so its release after this one is the next 0.x app version (after 0.
 - [ ] No pull request that changes a frozen surface is open or planned for the tag: the `ACCEPTED_BREAKS` of
   `tests/ui/openapi_diff.py` and `tests/baselines/{cli,surface,mcp,parameters}.py` are empty, apart from the one
   step 1 adds.
-- [ ] The newest completed **Tests** run on `main` (`.github/workflows/tests.yml`) is read job by job, and so is the
-  newest nightly one (`event: schedule`; a push to `main` runs the offline jobs only, the remote matrix is the
-  nightly run's, or a manual run's). The remote matrix is
+- [ ] The newest completed **Tests** run on `main` (`.github/workflows/tests.yml`) is read job by job. A push to
+  `main` runs the offline jobs only and the nightly run (`event: schedule`) may predate the release commit, so the
+  remote matrix is read from a `workflow_dispatch` run of **Tests** on the release commit itself (or a nightly run
+  on that exact commit), started before the tag. The remote matrix is
   `continue-on-error`, so a red job does not block anything and the run reports success: what must be green is the
   `Offline selection` jobs, `Lint`, `Typecheck`, `Docs`, `Unused` and `Vulnerable`. A red matrix job is
   acceptable only when it is an upstream outage or a missing credential (`WD_AUTH__METNO_FROST`, `WD_AUTH__AEMET`,
