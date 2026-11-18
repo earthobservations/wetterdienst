@@ -187,6 +187,19 @@ def ghcnh_psv(station: str, columns: list[str], rows: list[tuple[str, dict[str, 
     return "\n".join(lines).encode("utf8")
 
 
+def ghcnd_by_station(rows: list[tuple[str, str, str, str, str, str, str]]) -> bytes:
+    """Write a GHCN daily by-station file of the AWS bucket (`csv.gz/by_station/<id>.csv.gz`): gzipped, no header.
+
+    A row is `(id, date, element, value, m_flag, q_flag, s_flag)` and becomes
+    `ID,YYYYMMDD,ELEMENT,DATA_VALUE,M_FLAG,Q_FLAG,S_FLAG,OBS_TIME` with the observation time left empty, which is what
+    NOAA writes for most elements (in the NYC file it is set on PRCP, TMAX, TMIN and TOBS, not on SNOW; `OBS_TIME` of
+    `readme-by_station.txt`). The value is
+    the text of the file, in the tenths of the readme; a reading that is missing has no row.
+    """
+    lines = [",".join([*row, ""]) for row in rows]
+    return gzip.compress(("\n".join(lines) + "\n").encode("utf8"))
+
+
 def stations_result(
     request: Any,  # noqa: ANN401
     resolution: str,
@@ -927,27 +940,32 @@ def _ghcn_hourly(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
 
 
 def _ghcn_daily_gusts(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # access/USW00014755.csv (Mount Washington, NH, read 2026-10-30), the directions of the peak gust (WDFG) and of the
-    # fastest 5-second wind (WDF5) with the speeds beside them, in the tenths of the readme. The readme gives no code
-    # for a day without a direction, and the files write a 0 for it: 1958-03-09 has WDFG 0 beside WSFG 0, a calm, with
-    # no direction (GH-3648; 1,798 of the 1,799 zeros of WDFG in 9 station files are beside a speed of 0). The 0 of
-    # 2002-08-29 is beside 12.5 m/s and stays, as the 123 zeros of WDF5 of 1998 to 2002 do, beside 4.0 to 59.0 m/s
-    body = (
-        b'"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","WDF5","WDF5_ATTRIBUTES","WDFG",'
-        b'"WDFG_ATTRIBUTES","WSF5","WSF5_ATTRIBUTES","WSFG","WSFG_ATTRIBUTES"\n'
-        b'"USW00014755","1958-03-09","44.27018","-71.30336","1911.7","MOUNT WASHINGTON, NH US","","",'
-        b'"    0","W,,X","","","    0",",,X"\n'
-        b'"USW00014755","1998-04-04","44.27018","-71.30336","1911.7","MOUNT WASHINGTON, NH US","    0",",,W",'
-        b'"  360",",,X","  286",",,W","  286",",,X"\n'
-        b'"USW00014755","2002-08-29","44.27018","-71.30336","1911.7","MOUNT WASHINGTON, NH US","    0",",,W",'
-        b'"    0",",,X","  125",",,W","  125",",,X"\n'
+    # by_station/USW00014755.csv.gz of the AWS bucket (Mount Washington, NH, read 2026-11-18), the directions of the
+    # peak gust (WDFG) and of the fastest 5-second wind (WDF5) with the speeds beside them, in the tenths of the readme.
+    # The readme gives no code for a day without a direction, and the files write a 0 for it: 1958-03-09 has WDFG 0
+    # beside WSFG 0, a calm, with no direction (GH-3648; 1,798 of the 1,799 zeros of WDFG in 9 station files are beside
+    # a speed of 0). The 0 of 2002-08-29 is beside 12.5 m/s and stays, as the 123 zeros of WDF5 of 1998 to 2002 do,
+    # beside 4.0 to 59.0 m/s. The file has no row for a reading that is missing (WDF5 and WSF5 on 1958-03-09)
+    body = ghcnd_by_station(
+        [
+            ("USW00014755", "19580309", "WDFG", "0", "W", "", "X"),
+            ("USW00014755", "19580309", "WSFG", "0", "", "", "X"),
+            ("USW00014755", "19980404", "WDF5", "0", "", "", "W"),
+            ("USW00014755", "19980404", "WDFG", "360", "", "", "X"),
+            ("USW00014755", "19980404", "WSF5", "286", "", "", "W"),
+            ("USW00014755", "19980404", "WSFG", "286", "", "", "X"),
+            ("USW00014755", "20020829", "WDF5", "0", "", "", "W"),
+            ("USW00014755", "20020829", "WDFG", "0", "", "", "X"),
+            ("USW00014755", "20020829", "WSF5", "125", "", "", "W"),
+            ("USW00014755", "20020829", "WSFG", "125", "", "", "X"),
+        ]
     )
     stations = b"USW00014755  44.2703  -71.3033 1911.7 NH MOUNT WASHINGTON                                  \n"
     inventory = b"USW00014755  44.2703  -71.3033 WDFG 1948 2005\nUSW00014755  44.2703  -71.3033 WDF5 1998 2025\n"
     serve(
         monkeypatch,
         ghcn_api,
-        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "access/USW00014755": body},
+        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "by_station/USW00014755": body},
     )
     request = NoaaGhcnRequest(
         parameters=[
@@ -965,24 +983,27 @@ def _ghcn_daily_gusts(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) 
 
 
 def _ghcn_daily_gust_not_reported(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # access/CAN03031640.csv (Claresholm, AB, source flag C, Environment Canada, read 2026-10-31), the peak gust WSFG
-    # with its direction WDFG, in the readme's tenths of m/s and degrees. Environment Canada does not report a gust
-    # below 31 km/h ("The stations do not report if less than 31 km/h", ECCC's glossary), and the file writes 0 for it:
-    # 1955-01-01 has WSFG 0 beside WDFG 0, no gust and no direction (GH-3655; 1,789 of the 7,940 WSFG of the station are
-    # 0, each beside a WDFG of 0, and the smallest above is 8.6 m/s, the 86 of 1955-04-06, which stays with its
-    # direction). The same holds at the 13 of 14 CAN stations read with a 0 in WSFG; a 0 of another source is a gust
-    # of 0 (USW00013904: 11)
-    body = (
-        b'"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","WDFG","WDFG_ATTRIBUTES","WSFG","WSFG_ATTRIBUTES"\n'
-        b'"CAN03031640","1955-01-01","50.0036","-113.6386","1009.0","CLARESHOLM, AB CA","    0",",,C","    0",",,C"\n'
-        b'"CAN03031640","1955-04-06","50.0036","-113.6386","1009.0","CLARESHOLM, AB CA","  250",",,C","   86",",,C"\n'
+    # by_station/CAN03031640.csv.gz of the AWS bucket (Claresholm, AB, source flag C, Environment Canada, read
+    # 2026-11-18), the peak gust WSFG with its direction WDFG, in the readme's tenths of m/s and degrees. Environment
+    # Canada does not report a gust below 31 km/h ("The stations do not report if less than 31 km/h", ECCC's
+    # glossary), and the file writes 0 for it: 1955-01-01 has WSFG 0 beside WDFG 0, no gust and no direction (GH-3655;
+    # 1,789 of the 7,940 WSFG of the station are 0, each beside a WDFG of 0, and the smallest above is 8.6 m/s, the 86
+    # of 1955-04-06, which stays with its direction). The same holds at the 13 of 14 CAN stations read with a 0 in
+    # WSFG; a 0 of another source is a gust of 0 (USW00013904: 11)
+    body = ghcnd_by_station(
+        [
+            ("CAN03031640", "19550101", "WDFG", "0", "", "", "C"),
+            ("CAN03031640", "19550101", "WSFG", "0", "", "", "C"),
+            ("CAN03031640", "19550406", "WDFG", "250", "", "", "C"),
+            ("CAN03031640", "19550406", "WSFG", "86", "", "", "C"),
+        ]
     )
     stations = b"CAN03031640  50.0036 -113.6386 1009.0 AB CLARESHOLM                             71234\n"
     inventory = b"CAN03031640  50.0036 -113.6386 WDFG 1955 2026\nCAN03031640  50.0036 -113.6386 WSFG 1955 2026\n"
     serve(
         monkeypatch,
         ghcn_api,
-        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "access/CAN03031640": body},
+        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "by_station/CAN03031640": body},
     )
     request = NoaaGhcnRequest(
         parameters=[("daily", "data", "wind_direction_gust_max"), ("daily", "data", "wind_gust_max")],
@@ -995,26 +1016,32 @@ def _ghcn_daily_gust_not_reported(monkeypatch: pytest.MonkeyPatch, drop_nulls: b
 
 
 def _ghcn_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
-    # access/USS0054K01S.csv (McNeil River, read 2026-10-30), AWDR with AWND beside it, in the tenths of the readme: the
-    # 0 of 2023-12-20 is beside 0 and is a calm, with no direction (GH-3222); the 189 of the day before is beside 0 too,
-    # and is a bearing. A 0 beside a wind that blows stays: tests/provider/noaa/ghcn. The files leave a missing value
-    # empty (no -9999 in the four files read); the readme gives -9999 for the `.dly` files only
-    body = (
-        b'"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","AWDR","AWDR_ATTRIBUTES","AWND","AWND_ATTRIBUTES"\n'
-        b'"USS0054K01S","2023-12-19","59.08","-154.28","42.7","MCNEIL RIVER SGS, AK US","  189",",,T","    0",",,T"\n'
-        b'"USS0054K01S","2023-12-20","59.08","-154.28","42.7","MCNEIL RIVER SGS, AK US","    0",",,T","    0",",,T"\n'
+    # by_station/USS0054K01S.csv.gz of the AWS bucket (McNeil River, read 2026-11-18), AWDR with AWND beside it, in the
+    # tenths of the readme: the 0 of 2023-12-20 is beside 0 and is a calm, with no direction (GH-3222); the 189 of the
+    # day before is beside 0 too, and is a bearing. A 0 beside a wind that blows stays: tests/provider/noaa/ghcn. The
+    # file has no row for a missing value (no -9999 in the 7 files read); the readme gives -9999 for the `.dly` only
+    body = ghcnd_by_station(
+        [
+            ("USS0054K01S", "20231219", "AWDR", "189", "", "", "T"),
+            ("USS0054K01S", "20231219", "AWND", "0", "", "", "T"),
+            ("USS0054K01S", "20231220", "AWDR", "0", "", "", "T"),
+            ("USS0054K01S", "20231220", "AWND", "0", "", "", "T"),
+            # the readme's missing value of the `.dly` files, which the by_station files leave out as a row: none of
+            # the 1.3 million values of 7 files read is one, so this row is made up (the reader maps it to null)
+            ("USS0054K01S", "20231221", "AWND", "-9999", "", "", "T"),
+        ]
     )
     stations = b"USS0054K01S  59.0800 -154.2800   42.7 AK MCNEIL RIVER SGS                                  \n"
     inventory = b"USS0054K01S  59.0800 -154.2800 AWDR 2019 2026\n"
     serve(
         monkeypatch,
         ghcn_api,
-        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "access/USS0054K01S": body},
+        {"ghcnd-stations": stations, "ghcnd-inventory": inventory, "by_station/USS0054K01S": body},
     )
     request = NoaaGhcnRequest(
         parameters=[("daily", "data", "wind_direction_mean"), ("daily", "data", "wind_speed_mean")],
         start=_day(2023, 12, 19),
-        end=_day(2023, 12, 20),
+        end=_day(2023, 12, 21),
         settings=_settings(),
         options=_options(drop_nulls),
     )
@@ -3192,8 +3219,8 @@ STUBS = [
         "noaa/ghcn daily/data",
         _ghcn_daily,
         reading=("wind_direction_mean", 189.0),
-        sentinels=(("wind_direction_mean", 0.0),),
-        tokens=(("wind_direction_mean", "0", None),),
+        sentinels=(("wind_direction_mean", 0.0), ("wind_speed_mean", -999.9)),
+        tokens=(("wind_direction_mean", "0", None), ("wind_speed_mean", "-9999", None)),
     ),
     ValueStub(
         "noaa/ghcn daily/gusts",

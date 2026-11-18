@@ -11,6 +11,7 @@ import polars as pl
 import pytest
 from polars.testing import assert_frame_equal
 
+from tests.provider.value_stubs import ghcnd_by_station
 from wetterdienst import Settings
 from wetterdienst.core.util import one_row_per_station
 from wetterdienst.exceptions import LocationOutOfRangeError
@@ -655,8 +656,9 @@ def test_noaa_ghcn_daily_stations_without_an_inventory_line_are_left_out(
     """A station of the list that the inventory has no line for has no data, and is not a station of the catalogue.
 
     The two station rows are copied as NOAA publishes them (2026-10-22): `CAN03010010` has no line in the
-    inventory and its `access/CAN03010010.csv` is a 404, as are those of 145 more. `USC00144840` has a file, with
-    PRCP flagged `Z` in every row, and no inventory line. 147 of the 133,039 stations are in this case (GH-3260).
+    inventory and its data file is a 404 (`access/CAN03010010.csv` of NCEI then, `csv.gz/by_station/CAN03010010.csv.gz`
+    of the AWS bucket on 2026-11-18), as are those of 145 more. `USC00144840` has a file, with PRCP flagged `Z` in every
+    row, and no inventory line. 147 of the 133,039 stations are in this case (GH-3260).
     """
     _serve_ghcnd(
         monkeypatch,
@@ -1118,16 +1120,15 @@ def test_noaa_ghcn_daily_values_are_stamped_though_the_first_row_has_no_position
         "ghcnh-station-list.csv": GHCNH_WITHOUT_POSITION,
         "ghcnd-stations.txt": "AUM00011158  47.1170   13.7330 1100.0    BOGUS AUSTRIAN                         11158\n",
         "ghcnd-inventory.txt": "AUM00011158  47.1170   13.7330 TMAX 1938 1943\n",
-        "AUM00011158.csv": (
-            '"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","TMAX","TMAX_ATTRIBUTES"\n'
-            '"AUM00011158","1938-01-02","47.117","13.733","1100.0","BOGUS AUSTRIAN","  -50",",,E"\n'
-        ),
+        "AUM00011158.csv.gz": ghcnd_by_station([("AUM00011158", "19380102", "TMAX", "-50", "", "", "E")]),
         "GHCNh_AUM00011158_por.psv": _ghcnh_hourly_data("AUM00011158"),
     }
 
     def fake_download_file(url: str, **_kwargs: object) -> File:
         content = contents[url.rsplit("/", 1)[-1]]
-        return File(url=url, content=BytesIO(content.encode("utf8")), status=200)
+        return File(
+            url=url, content=BytesIO(content if isinstance(content, bytes) else content.encode("utf8")), status=200
+        )
 
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
     request = NoaaGhcnRequest(

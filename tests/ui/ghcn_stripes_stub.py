@@ -13,7 +13,7 @@ from __future__ import annotations
 import datetime as dt
 from typing import TYPE_CHECKING
 
-from tests.provider.value_stubs import serve
+from tests.provider.value_stubs import ghcnd_by_station, serve
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -48,11 +48,6 @@ def mean_temperature(year: int) -> float:
     return 10.0 + 0.2 * (year - FIRST_YEAR)
 
 
-def _attributes(flag: str = "") -> str:
-    """Write the attributes of a value: no measurement flag, `flag` as the quality flag, the source flag S."""
-    return f",{flag},S"
-
-
 def station_csv(
     station: str = STATION,
     *,
@@ -61,23 +56,20 @@ def station_csv(
     tavg: bool = True,
     only_tavg: bool = False,
 ) -> bytes:
-    """Write the by-station file of the stub station, as NOAA writes them (values in tenths, attributes beside).
+    """Write the by-station file of the stub station, as the AWS bucket has them (values in tenths, one row each).
 
     `failed` are days whose TMAX and PRCP carry a quality flag, a check they failed. The record runs to `last_year`.
-    A station that has no TAVG at all (`tavg=False`) has no column of it, as the files of NOAA have none. One that has
-    TAVG alone (`only_tavg`) has it on every day, and no TMAX and TMIN.
+    A station that has no TAVG at all (`tavg=False`) has no row of it, as the files of NOAA have none. One that has
+    TAVG alone (`only_tavg`) has it on every day, and no TMAX and TMIN. The rows have the source flag S.
     """
     failed = set(failed)
-    columns = ["PRCP", *(["TAVG"] if tavg or only_tavg else []), *([] if only_tavg else ["TMAX", "TMIN"])]
-    head = ["STATION", "DATE", "LATITUDE", "LONGITUDE", "ELEVATION", "NAME"]
-    head += [name for column in columns for name in (column, f"{column}_ATTRIBUTES")]
-    lines = [",".join(f'"{name}"' for name in head)]
+    rows: list[tuple[str, str, str, str, str, str, str]] = []
     day = dt.date(FIRST_YEAR, 1, 1)
     while day.year <= last_year:
         if day not in MISSING_DAYS:
-            lines.append(_row(station, day, day in failed, tavg=tavg, only_tavg=only_tavg))
+            rows += _rows(station, day, day in failed, tavg=tavg, only_tavg=only_tavg)
         day += dt.timedelta(days=1)
-    return "\n".join(lines).encode("utf8")
+    return ghcnd_by_station(rows)
 
 
 def rain_on(day: dt.date) -> float:
@@ -99,7 +91,14 @@ def _tavg(day: dt.date, midrange: int, *, only_tavg: bool) -> int | None:
     return midrange - 10 + swing if day.year == TAVG_YEAR else None
 
 
-def _row(station: str, day: dt.date, failed: bool, *, tavg: bool, only_tavg: bool) -> str:  # noqa: FBT001
+def _rows(
+    station: str,
+    day: dt.date,
+    failed: bool,  # noqa: FBT001
+    *,
+    tavg: bool,
+    only_tavg: bool,
+) -> list[tuple[str, str, str, str, str, str, str]]:
     steps = day.year - FIRST_YEAR
     # the two swing against each other, so that the mean of the day is the same every day (and no series is "stuck",
     # which the core's plausibility check would leave out as a sensor that has stopped)
@@ -113,15 +112,12 @@ def _row(station: str, day: dt.date, failed: bool, *, tavg: bool, only_tavg: boo
         "TMAX": (tmax, quality),
         "TMIN": (tmin, ""),
     }
-    values = [f'"{station}"', f'"{day.isoformat()}"', '"40.7789"', '"-73.9692"', '"42.7"', '"STUB STATION, NY US"']
+    rows = []
     for name, (value, flag) in cells.items():
-        if (name == "TAVG" and not (tavg or only_tavg)) or (name in ("TMAX", "TMIN") and only_tavg):
+        if (name == "TAVG" and not (tavg or only_tavg)) or (name in ("TMAX", "TMIN") and only_tavg) or value is None:
             continue
-        values += [
-            f'"{value:>5}"' if value is not None else '""',
-            f'"{_attributes(flag)}"' if value is not None else '""',
-        ]
-    return ",".join(values)
+        rows.append((station, day.strftime("%Y%m%d"), name, str(value), "", flag, "S"))
+    return rows
 
 
 def _station_line(station: str, latitude: float, longitude: float, name: str) -> str:
@@ -190,7 +186,7 @@ def serve_ghcn(monkeypatch: pytest.MonkeyPatch, *, failed: Iterable[dt.date] = (
         {
             "ghcnd-stations": stations_text().encode("utf8"),
             "ghcnd-inventory": inventory_text().encode("utf8"),
-            f"access/{STATION}": station_csv(failed=failed, tavg=tavg),
-            f"access/{TAVG_ONLY_STATION}": station_csv(TAVG_ONLY_STATION, only_tavg=True),
+            f"by_station/{STATION}": station_csv(failed=failed, tavg=tavg),
+            f"by_station/{TAVG_ONLY_STATION}": station_csv(TAVG_ONLY_STATION, only_tavg=True),
         },
     )
