@@ -199,20 +199,6 @@ def test_a_dataset_directory_that_is_gone_is_a_missing_file_and_a_502(server: Ng
     assert failure_status(raised.value) == 502
 
 
-def test_a_period_folder_that_is_gone_is_skipped_with_a_warning(
-    server: NginxLike, tmp_path: Path, caplog: pytest.LogCaptureFixture
-) -> None:
-    """The folder of 2023, listed by its parent and gone when read, is skipped: the files of 2024 are the answer."""
-    server.missing.add("/data/2023/")
-
-    with caplog.at_level("WARNING"):
-        files = _list(server, tmp_path)
-
-    assert [url.rsplit("/", 1)[-1] for url in files] == ["2024_01_s.zip"]
-    [record] = [r for r in caplog.records if getattr(r, "response_warning", None) == "file-skipped"]
-    assert f"{server.base}/data/2023/" in record.getMessage()
-
-
 @pytest.mark.parametrize("network", ["hydrology", "meteorology"])
 def test_a_dataset_directory_that_is_gone_reaches_the_values_of_both_providers(
     server: NginxLike, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, network: str
@@ -243,3 +229,42 @@ def test_a_dataset_directory_that_is_gone_reaches_the_values_of_both_providers(
         call()
 
     assert failure_status(raised.value) == 502
+
+
+def test_a_period_folder_the_cached_listing_names_but_the_server_replaced_is_followed(
+    server: NginxLike, tmp_path: Path
+) -> None:
+    """IMGW consolidates 2023/ into 2021_2023/: the cached listing of the parent is dropped and read again (GH-4205)."""
+    server.directories["/data/"] = ["2022/", "2023/"]
+    server.directories["/data/2022/"] = ["2022_01_s.zip"]
+    # the parent is listed, and cached, with only the folder of 2022 read
+    window = portion.closed(dt.datetime(2022, 3, 1, tzinfo=UTC), dt.datetime(2022, 3, 31, tzinfo=UTC))
+    assert [url.rsplit("/", 1)[-1] for url in _list(server, tmp_path, window)] == ["2022_01_s.zip"]
+    # IMGW consolidates, and the window now reaches into the folder the cached listing still names
+    server.directories["/data/"] = ["2022/", "2021_2023/"]
+    server.directories["/data/2021_2023/"] = ["2023_01_s.zip"]
+    server.missing.add("/data/2023/")
+    skipped: list[str] = []
+    window = portion.closed(dt.datetime(2023, 3, 1, tzinfo=UTC), dt.datetime(2023, 3, 31, tzinfo=UTC))
+
+    files = list_files_for_interval(
+        f"{server.base}/data/", Settings(cache_dir=str(tmp_path / "cache")), window, skipped=skipped
+    )
+
+    assert [url.rsplit("/", 1)[-1] for url in files] == ["2023_01_s.zip"]
+    assert skipped == []
+
+
+def test_a_period_folder_that_is_still_gone_after_the_listing_is_read_again_is_skipped(
+    server: NginxLike, tmp_path: Path
+) -> None:
+    """The fresh listing still names 2023/ and the server still has none: skipped, and reported to the caller."""
+    server.missing.add("/data/2023/")
+    skipped: list[str] = []
+
+    files = list_files_for_interval(
+        f"{server.base}/data/", Settings(cache_dir=str(tmp_path / "cache")), None, skipped=skipped
+    )
+
+    assert [url.rsplit("/", 1)[-1] for url in files] == ["2024_01_s.zip"]
+    assert skipped == [f"{server.base}/data/2023/"]

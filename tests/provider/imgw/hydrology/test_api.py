@@ -303,7 +303,7 @@ def test_imgw_hydrology_raises_a_failed_download_and_drops_a_missing_file(monkey
     failed = File(url="https://example.invalid/a.zip", content=ConnectionError("503"), status=503)
     values = ImgwHydrologyValues.__new__(ImgwHydrologyValues)
     values.sr = SimpleNamespace(request=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
-    monkeypatch.setattr(values, "_get_archives", lambda _dataset: {"unused": CacheExpiry.FIVE_MINUTES})
+    monkeypatch.setattr(values, "_get_archives", lambda _dataset, *_: {"unused": CacheExpiry.FIVE_MINUTES})
     dataset = ImgwHydrologyMetadata.daily.hydrology
     monkeypatch.setattr(imgw_fileindex, "download_files", lambda **_kwargs: [missing, failed])
     with pytest.raises(DownloadError):
@@ -337,7 +337,7 @@ def test_imgw_hydrology_reads_a_headerless_daily_file_by_column_position(monkeyp
         parameters=[],
         options=SimpleNamespace(drop_nulls_effective=False),
     )
-    monkeypatch.setattr(values, "_get_archives", lambda _dataset: {"unused": CacheExpiry.FIVE_MINUTES})
+    monkeypatch.setattr(values, "_get_archives", lambda _dataset, *_: {"unused": CacheExpiry.FIVE_MINUTES})
     monkeypatch.setattr(
         imgw_fileindex,
         "download_files",

@@ -26,8 +26,7 @@ import portion
 
 from wetterdienst.exceptions import MetaFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
-from wetterdienst.util.network import File, download_files, list_remote_directory_fsspec
-from wetterdienst.util.response_warnings import FILE_SKIPPED, warn_response
+from wetterdienst.util.network import File, download_files, forget_remote_listing, list_remote_directory_fsspec
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -57,42 +56,58 @@ def _folder_interval(folder_name: str) -> portion.Interval:
     )
 
 
+def _list_directory(url: str, settings: Settings, cache_expiry: CacheExpiry) -> list[dict]:
+    """List a directory, and name the one that is not there (GH-4205): an `UpstreamError`, a 502 over REST."""
+    try:
+        return list_remote_directory_fsspec(url, settings, cache_expiry)
+    except FileNotFoundError as e:
+        msg = f"no IMGW directory at {url}"
+        raise MetaFileNotFoundError(msg) from e
+
+
 def list_files_for_interval(
     url: str,
     settings: Settings,
     interval: portion.Interval | None,
     cache_expiry: CacheExpiry = CacheExpiry.FILEINDEX,
+    skipped: list[str] | None = None,
 ) -> list[str]:
     """List all file urls below ``url``, only descending into period folders that overlap ``interval``.
 
     If ``interval`` is None, all period folders are listed (equivalent to a full recursive listing).
 
     A directory at ``url`` that is not there (a 404) is a ``MetaFileNotFoundError`` that names it, an ``UpstreamError``
-    (a 502 over REST), not a bare ``FileNotFoundError`` (GH-4205). A period folder that its parent listed and that is
-    gone when it is read (IMGW consolidates and moves its archives) is skipped with a ``file-skipped`` warning, as an
-    archive that is gone at its download is dropped by the values: the files of the other folders are the answer.
+    (a 502 over REST), not a bare ``FileNotFoundError`` (GH-4205). A period folder that the listing of ``url`` names
+    and that answers a 404 is not an error of the request: IMGW consolidates its archives, so the folder may be gone
+    and its files elsewhere. The listing of ``url`` may only be the cached one, so it is dropped and read again once
+    (`forget_remote_listing`); a folder that the fresh listing still names and that still answers a 404 is skipped, and
+    its URL is added to ``skipped``, which the caller tells the walk of the values (`note_skipped_download`). A folder
+    the fresh listing no longer names is simply not read, its files being in the folder that replaced it. Without
+    ``skipped`` the folder is skipped without a word, for a caller that only warms the cache (the fetch-ahead).
     """
-    try:
-        entries = list_remote_directory_fsspec(url, settings, cache_expiry)
-    except FileNotFoundError as e:
-        msg = f"no IMGW directory at {url}"
-        raise MetaFileNotFoundError(msg) from e
-    files = [entry["name"] for entry in entries if entry["type"] == "file"]
-    folders = [entry["name"] for entry in entries if entry["type"] == "directory"]
-    if interval is not None:
-        folders = [folder for folder in folders if _folder_interval(folder).overlaps(interval)]
-    for folder in folders:
-        try:
-            folder_entries = list_remote_directory_fsspec(folder, settings, cache_expiry)
-        except FileNotFoundError:
-            warn_response(
-                log,
-                FILE_SKIPPED,
-                f"The period folder {folder} is listed in {url} but is gone from IMGW's server, so its files are not "
-                "in the answer, which may be partial. Try again later.",
-            )
+    for attempt in range(2):
+        entries = _list_directory(url, settings, cache_expiry)
+        files = [entry["name"] for entry in entries if entry["type"] == "file"]
+        folders = [entry["name"] for entry in entries if entry["type"] == "directory"]
+        if interval is not None:
+            folders = [folder for folder in folders if _folder_interval(folder).overlaps(interval)]
+        gone: list[str] = []
+        for folder in folders:
+            try:
+                folder_entries = list_remote_directory_fsspec(folder, settings, cache_expiry)
+            except FileNotFoundError:
+                gone.append(folder)
+                continue
+            files.extend(entry["name"] for entry in folder_entries if entry["type"] == "file")
+        if gone and attempt == 0:
+            # the listing of the parent may be the cached one, from before the folder was consolidated
+            forget_remote_listing(url, settings, cache_expiry)
             continue
-        files.extend(entry["name"] for entry in folder_entries if entry["type"] == "file")
+        break
+    for folder in gone:
+        log.info(f"The period folder {folder} is listed in {url} but is gone from IMGW's server. It is skipped.")
+        if skipped is not None:
+            skipped.append(folder)
     return files
 
 

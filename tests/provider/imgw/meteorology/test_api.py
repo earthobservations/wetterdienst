@@ -1126,7 +1126,7 @@ def test_imgw_meteorology_raises_a_failed_download_and_drops_a_missing_file(monk
     failed = File(url="https://example.invalid/a.zip", content=ConnectionError("503"), status=503)
     values = ImgwMeteorologyValues.__new__(ImgwMeteorologyValues)
     values.sr = SimpleNamespace(request=SimpleNamespace(settings=Settings()))  # ty: ignore[invalid-assignment]
-    monkeypatch.setattr(values, "_get_archives", lambda _dataset, _station_id: {"unused": CacheExpiry.FIVE_MINUTES})
+    monkeypatch.setattr(values, "_get_archives", lambda _dataset, _station_id, *_: {"unused": CacheExpiry.FIVE_MINUTES})
     dataset = ImgwMeteorologyMetadata.daily.climate
     monkeypatch.setattr(imgw_fileindex, "download_files", lambda **_kwargs: [missing, failed])
     with pytest.raises(DownloadError):
