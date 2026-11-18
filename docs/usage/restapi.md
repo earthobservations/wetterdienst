@@ -56,7 +56,7 @@ What the endpoints share about which stations a request names:
   from, and `values` the one best match, as the library's `filter_by_name` does. `rank` sets another
   number of stations, for either; a station is one match however many datasets it has, and two
   stations that share a name are two. A name that holds the whole query as a run of whole words (`Bayern` in
-  `Bayern: Mainfranken`, not `Sachsen` in `Niedersachsen`) always matches and comes first, then the best
+  `Bayern: Mainfranken`, not `Sachsen` in `Niedersachsen`) matches at any threshold below 1 and comes first, then the best
   match; equal scores the closer whole name first, then in the order of their station ids. With a `timestamp`
   the name is matched among the stations that have a record in that window, for `values` as for `stations`, so the best match is not a station that closed before it
   while one of the same name is open; a window no station of that name covers is an empty

@@ -141,14 +141,17 @@ def match_names(query: str, names: Sequence[str | None], threshold: float) -> li
 
     A name that holds the whole query as a run of whole words (``Tiefland Sachsen-Anhalt`` in ``Sachsen-Anhalt:
     Tiefland Sachsen-Anhalt``, ``Bayern`` in ``Bayern: Mainfranken``, but not ``Sachsen`` in ``Niedersachsen``)
-    always reaches the threshold and comes before every name that does not: ``WRatio`` alone ranks a name
+    reaches any threshold below 1 and comes before every name that does not: ``WRatio`` alone ranks a name
     that only shares words with the query (``Sachsen: Tiefland Sachsen``) above one that holds all of it, and
     a long name that holds it (``Bayern: Bayern nördl. der Donau, o. Bayr. Wald, o. Mainfranken``) misses
     the threshold. The words are those of ``default_process``, compared in the plain and in the transliterated
     form like the score. A name that holds the query is ordered by its own ``WRatio`` however low, and is
-    reported with the threshold where that is less. A short query on a big catalogue (``San`` among 130,000
-    names) so lists more names than before, those of five words or more that hold it as one, which costs a
-    caller nothing: ``filter_by_name`` keeps the best ``rank`` stations.
+    reported with the threshold as its score where that is less: this score is no ``WRatio``, and scores are
+    not monotone across the two groups (a phrase name reported with 80 comes before a name of 95). A threshold
+    of 1 stays exact: the rule is off, and only the names scoring 100 match, in the order they had. A short
+    query on a big catalogue (``San`` among 130,000 names) so lists more names than before, the long ones that
+    hold it as a word (``Ost`` admits ``Ost Mittelgebirgsbereichsstation``), which costs a caller nothing:
+    ``filter_by_name`` keeps the best ``rank`` stations.
 
     Within each of the two groups, ``WRatio`` gives every name that holds a short query the same score (90, the
     partial ratio weighted down), so among equal scores the name closer to the query as a whole comes first, by
@@ -159,7 +162,8 @@ def match_names(query: str, names: Sequence[str | None], threshold: float) -> li
     Args:
         query: The name asked for.
         names: The names to match it against, nulls allowed.
-        threshold: The least score, from 0 to 1, a name must reach.
+        threshold: The least score, from 0 to 1, a name must reach (a name that holds the query as words reaches
+            any below 1).
 
     Returns:
         The index into ``names`` and the score (0 to 100) of every name that reaches the threshold.
@@ -170,14 +174,17 @@ def match_names(query: str, names: Sequence[str | None], threshold: float) -> li
     folded = [None if name is None else fold_name(name) for name in names]
     plain = [None if pair is None else pair[0] for pair in folded]
     best = _scores(query_plain, plain, cutoff)
-    whole = _holds_phrase(query_plain, plain)
+    # a threshold of 1 asks for the exact name: the rule admits nothing there
+    exact = cutoff >= 100
+    whole = set() if exact else _holds_phrase(query_plain, plain)
     # nothing differs between the forms of a name without an accent, and of a query without one: the
     # second pass would give the first one's answer
     if query_spelled != query_plain or any(pair is not None and pair[0] != pair[1] for pair in folded):
         spelled = [None if pair is None else pair[1] for pair in folded]
         for index, score in _scores(query_spelled, spelled, cutoff).items():
             best[index] = max(score, best.get(index, 0.0))
-        whole |= _holds_phrase(query_spelled, spelled)
+        if not exact:
+            whole |= _holds_phrase(query_spelled, spelled)
     # the score a name that holds the query has, where it is under the threshold: for the order among them
     for index in whole - best.keys():
         pair = folded[index]

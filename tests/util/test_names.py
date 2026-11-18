@@ -64,11 +64,7 @@ def test_every_way_of_writing_duesseldorf_finds_it(query: str) -> None:
 def test_the_exact_spelling_is_the_best_match() -> None:
     """The name scores 100 in its own folded form, so that it is ahead of the stations that merely hold it."""
     assert match_names("koeln", NAMES, 0.8)[0][1] == 100.0
-    # (a name that holds the query as a word reaches any threshold, GH-4215: the exact name is the first)
-    assert [NAMES[index] for index, _ in match_names("Düsseldorf", NAMES, 1.0)] == [
-        "Düsseldorf",
-        "Dusseldorf-Flughafen",
-    ]
+    assert [NAMES[index] for index, _ in match_names("Düsseldorf", NAMES, 1.0)] == ["Düsseldorf"]
 
 
 def test_a_null_name_never_matches() -> None:
@@ -252,4 +248,19 @@ def test_the_phrase_rule_does_not_change_the_matches_of_a_query_that_is_a_word_o
     """A query that is a word of no name has the matches it had; an empty one holds nothing."""
     names = ["Kiel-Holtenau", "Kielce", "Hamburg", None]
     assert [index for index, _ in match_names("Kiel", names, 0.8)] == [0, 1]
-    assert match_names("", names, 0.8) == match_names("-", names, 0.8)
+    assert match_names("-", names, 0.8) == []
+    assert match_names("", names, 0.8) == []
+
+
+def test_a_threshold_of_1_stays_exact_for_a_name_that_holds_the_query() -> None:
+    """GH-4215: the phrase rule passes any threshold below 1; at 1 only the names that score 100 match."""
+    kiel = ["Kiel-Holtenau", "Kiel", "Kiel-Kronshagen", "Hamburg"]
+    assert _order("Kiel", kiel, 1.0) == ["Kiel"]
+    assert _order("Kiel", kiel)[:3] == ["Kiel", "Kiel-Holtenau", "Kiel-Kronshagen"]
+
+    bad = ["Boll, Bad", "Bad", "Bad Kissingen", "Aach, Bad Segeberg Nord Ost Sued West Station", "Hamburg"]
+    assert _order("Bad", bad, 1.0) == ["Bad"]
+    assert _order("Bad", bad, 0.99) != ["Bad"], "below 1 the names that hold the query are in"
+    at_default = _order("Bad", bad)
+    assert at_default[0] == "Bad"
+    assert set(at_default) == set(bad[:4]), "the long name that holds it is in, Hamburg is not"

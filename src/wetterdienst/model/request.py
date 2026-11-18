@@ -1245,7 +1245,7 @@ class TimeseriesRequest:
                 `DEFAULT_NAME_RANK_LISTING` (5) instead: pass `rank=5` for the same. A station is one
                 match however many datasets (rows) it has, and two stations that share a name are two.
                 The rows come back best match first: a name that holds the whole query as a run of whole
-                words first (and always matching), then the others; within each, equal scores the closer
+                words first (matching at any threshold below 1), then the others; within each, equal scores the closer
                 whole name first, a tie on both ordered by `station_id`.
             threshold: Threshold for the fuzzy search. The name and the station names are compared
                 without regard to case and diacritics, an umlaut written out counting as the umlaut:
@@ -1306,7 +1306,7 @@ class TimeseriesRequest:
         # for, and several stations may share a name. So the names are scored per station (once for
         # each name a station goes by), the best `rank` stations are taken, and their rows come back
         # best match first. A name that holds the whole query as a run of whole words comes before every
-        # name that does not, and always reaches the threshold ("Tiefland Sachsen-Anhalt" finds "Sachsen-Anhalt:
+        # name that does not, and reaches any threshold below 1 ("Tiefland Sachsen-Anhalt" finds "Sachsen-Anhalt:
         # Tiefland Sachsen-Anhalt", not "Sachsen: Tiefland Sachsen"; "Bayern" all four parts of Bayern), GH-4215.
         # The rule reorders and admits, never lifts the limit: only the best `rank` stations are kept, however
         # many names of a big catalogue hold a short query. Equal scores are common (WRatio gives 90 to any name
