@@ -18,6 +18,11 @@ Types of changes:
 
 ### Added
 
+- `[Map]` A full-screen button with the zoom buttons, on every screen size: the browser's Fullscreen
+  API where it has one (desktop, Android, iPad), the map covering the whole page, bars included,
+  where it has none (iPhone Safari). Escape leaves; the view, layer and station picked are kept. A
+  sheet under the map stands in for the panel, with "Show details" to leave full screen for it. The
+  page's `Permissions-Policy` now allows `fullscreen` for itself (GH-4227).
 - `[Forecast]` The forecast chart shows MOSMIX's thunderstorm probability: a thin panel under the
   precipitation (it goes with the Precipitation switch) draws each hour with a probability of 10 %
   or more as a bar, as high as the probability and in one of three shades (from 10, 30 and 60 %),
@@ -30,6 +35,10 @@ Types of changes:
 
 ### Changed
 
+- `[All]` On a phone (below 64 rem, where the tab bar stands) cards, charts, tables and the map run
+  edge to edge: no side margins, rounded corners or side hairlines, text keeps its 16 px gutter. The
+  "About" row of a tool is a small ⓘ beside the page title, with the same text; Escape closes it.
+  The map fills the window between the header and the tab bar. Desktop is unchanged (GH-4227).
 - `[Forecast, Map, Widget]` The forecast's day cards (the compact view, the map panel's rows, the
   widget's narrow frame) draw Yr's weather symbols, as the chart does, in the light or dark set of
   the page, not Phosphor line icons. Their strength is that of the day's wettest hour, as the

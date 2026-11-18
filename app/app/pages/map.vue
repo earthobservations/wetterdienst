@@ -73,6 +73,8 @@ const StationMap = defineAsyncComponent({
 // panel is a sheet under it. The two are in the order the window shows them in the page as well, so that the keyboard
 // and a screen reader meet them in that order too (WCAG 1.3.2, 2.4.3)
 const wide = useMediaQuery('(min-width: 72rem)')
+// the narrow layout (the tab bar's breakpoint, GH-4227): the map fills the screen between the bars and the page runs edge to edge
+const phone = usePhone()
 const parts = computed(() => wide.value ? ['panel', 'stage'] as const : ['stage', 'panel'] as const)
 const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
 
@@ -284,6 +286,66 @@ function setPanel(element: unknown) {
   panel.value = element as HTMLElement | null
 }
 const announcement = ref('')
+
+// ---- the full screen of the map (GH-4227) -----------------------------------------------------------------------
+
+// The stage (the map, the layers button, the chips and the legend) goes full screen by the browser's API where it has one,
+// and covers the page itself where it has not (iPhone Safari) or the browser refuses: `useElementFullscreen` is the state
+// machine, the element is never moved, so the map keeps its view, its layer and the station picked. The panel is out of
+// reach while it lasts (hidden by the browser, or inert), so a sheet at the foot of the stage stands in for it: the station
+// picked, "Pick the centre of the map" (a keyboard's way to a place) and "Show details", which leaves full screen and
+// puts the focus on the panel's heading. The focus goes into the map on entering and back to the button on leaving.
+const screen = ref<HTMLElement | null>(null)
+function setScreen(element: unknown) {
+  screen.value = element as HTMLElement | null
+}
+/** What the map component gives of itself: where the focus goes (its ref is the async component's, set by a function since the page's parts are in a loop) */
+interface MapHandle { focusMap: () => void, focusFullscreenButton: () => void }
+let mapHandle: MapHandle | null = null
+function setMap(handle: unknown) {
+  mapHandle = handle as MapHandle | null
+}
+// Escape closes the panel of the layers button first, and leaves the full screen at the next press
+const fullscreen = useElementFullscreen(screen, { escapeTaken: () => layersOpen.value })
+const inFullscreen = computed(() => fullscreen.active.value)
+/** Where the focus goes when the full screen ends: the button that was pressed, or the panel's heading ("Show details") */
+let afterFullscreen: 'button' | 'details' = 'button'
+watch(fullscreen.mode, (now, before) => {
+  if (before === 'off' && now !== 'off') {
+    void nextTick(() => mapHandle?.focusMap())
+  }
+  else if (before !== 'off' && now === 'off') {
+    const target = afterFullscreen
+    afterFullscreen = 'button'
+    void nextTick(() => {
+      if (target === 'details' && detailHeading.value) {
+        scrollPanelIntoView()
+        detailHeading.value.focus()
+      }
+      else {
+        mapHandle?.focusFullscreenButton()
+      }
+    })
+  }
+}, { flush: 'post' })
+/** "Show details": the panel is behind the full screen, so it is left, and the panel's heading has the focus */
+function showDetails() {
+  afterFullscreen = 'details'
+  void fullscreen.exit()
+}
+/** On a phone the panel is under the map: it comes up to the middle of the window, so that the map and the panel are both seen */
+function scrollPanelIntoView() {
+  if (wide.value || !panel.value)
+    return
+  const top = panel.value.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.42
+  window.scrollTo({ top: Math.max(0, top), behavior: reducedMotion.value ? 'auto' : 'smooth' })
+}
+// the head of the page above the map (the title and the ⓘ) is measured, so that the map fills what is left of the window
+const pageHeader = ref<{ $el: HTMLElement } | null>(null)
+const { height: headHeight } = useElementSize(computed(() => pageHeader.value?.$el), undefined, { box: 'border-box' })
+// the drop-downs of the layers panel (the selects) are in the body, which a browser's full screen does not show: into the stage
+const portalTarget = computed(() => fullscreen.mode.value === 'native' ? screen.value ?? true : true)
+
 const reach = computed(() => formatDistance(REACH_KM, formatLanguage.value))
 
 // ---- the reader's own position (GH-3651) ------------------------------------------------------------------------
@@ -369,13 +431,12 @@ function choose(station: PlacedStation, options: { point?: Point, focus?: boolea
   noStationNear.value = false
   announcement.value = chosenText(station, stations.value, anchor.value)
   void nextTick(() => {
+    // the panel is behind the full screen: the sheet says what was picked, and nothing of the page behind is moved or focused
+    if (inFullscreen.value)
+      return
     if (options.focus)
       detailHeading.value?.focus()
-    // on a phone the panel is under the map: it comes up to the middle of the window, so that the map and the panel are both seen
-    if (!wide.value && panel.value) {
-      const top = panel.value.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.42
-      window.scrollTo({ top: Math.max(0, top), behavior: reducedMotion.value ? 'auto' : 'smooth' })
-    }
+    scrollPanelIntoView()
   })
 }
 
@@ -694,8 +755,8 @@ watch(() => route.query, (query) => {
 </script>
 
 <template>
-  <div class="frame">
-    <PageHeader :title="t('mapTool.title')" :lede="t('mapTool.subtitle')" :about-label="t('mapTool.aboutButton')">
+  <div class="frame" :style="phone ? { '--map-head': `${Math.ceil(headHeight)}px` } : undefined">
+    <PageHeader ref="pageHeader" :title="t('mapTool.title')" :lede="t('mapTool.subtitle')" :about-label="t('mapTool.aboutButton')" compact>
       <template #about>
         <div class="space-y-3 text-muted">
           <p>{{ t('mapTool.about1') }}</p>
@@ -945,80 +1006,143 @@ watch(() => route.query, (query) => {
           </section>
 
           <!-- The map, the one button over it that opens the layers (GH-4209), and the status chips -->
-          <div v-else class="map-stage" data-testid="map-stage">
-            <div class="map-layers">
-              <MapLayers
-                v-model:layer="layer"
-                v-model:open="layersOpen"
-                v-model:grouped="grouped"
-                :layer-items="layerItems"
-                :show-grouping="listStatus === 'success' && stations.length > 0"
-                :compulsory="groupingInForce.compulsory"
-                :note="groupingCompulsoryText"
-              >
-                <template v-if="layer === 'measured'">
-                  <USelect v-model="resolutionChoice" :items="resolutionItems" :aria-label="t('parameterSelection.resolutionLabel')" class="w-full" data-testid="map-resolution" />
-                  <USelect v-model="datasetChoice" :items="datasetItems" :aria-label="t('parameterSelection.datasetLabel')" class="w-full" data-testid="map-dataset" />
-                </template>
-              </MapLayers>
-            </div>
-            <div class="map-chips">
-              <div class="map-chips-row">
-                <!-- on a phone the count is in the panel, and the chips take less of the map -->
-                <span v-if="listStatus === 'success'" class="map-status map-count" data-testid="map-count">{{ countLabel }}</span>
-                <span v-else-if="listStatus === 'pending' || listStatus === 'idle'" class="map-status" role="status">
-                  <UIcon name="i-ph-circle-notch" class="size-4 motion-safe:animate-spin" />
-                  {{ t('mapTool.loadingStations') }}
-                </span>
+          <div v-else class="map-stage" :data-fullscreen="fullscreen.mode.value" data-testid="map-stage">
+            <div :ref="setScreen" class="map-screen" :data-fullscreen="fullscreen.mode.value" data-testid="map-screen">
+              <div class="map-canvas">
+                <div class="map-layers">
+                  <MapLayers
+                    v-model:layer="layer"
+                    v-model:open="layersOpen"
+                    v-model:grouped="grouped"
+                    :layer-items="layerItems"
+                    :show-grouping="listStatus === 'success' && stations.length > 0"
+                    :compulsory="groupingInForce.compulsory"
+                    :note="groupingCompulsoryText"
+                  >
+                    <template v-if="layer === 'measured'">
+                      <USelect v-model="resolutionChoice" :items="resolutionItems" :portal="portalTarget" :aria-label="t('parameterSelection.resolutionLabel')" class="w-full" data-testid="map-resolution" />
+                      <USelect v-model="datasetChoice" :items="datasetItems" :portal="portalTarget" :aria-label="t('parameterSelection.datasetLabel')" class="w-full" data-testid="map-dataset" />
+                    </template>
+                  </MapLayers>
+                </div>
+                <div class="map-chips">
+                  <div class="map-chips-row">
+                    <!-- on a phone the count is in the panel, and the chips take less of the map -->
+                    <span v-if="listStatus === 'success'" class="map-status map-count" data-testid="map-count">{{ countLabel }}</span>
+                    <span v-else-if="listStatus === 'pending' || listStatus === 'idle'" class="map-status" role="status">
+                      <UIcon name="i-ph-circle-notch" class="size-4 motion-safe:animate-spin" />
+                      {{ t('mapTool.loadingStations') }}
+                    </span>
+                  </div>
+                  <UAlert
+                    v-if="listStatus === 'error'"
+                    class="map-failure"
+                    color="error"
+                    variant="outline"
+                    icon="i-ph-warning-circle"
+                    :title="t('mapTool.stationsFailed')"
+                    :description="listFailure"
+                    :actions="[{ label: t('common.retry'), onClick: () => retryList() }]"
+                    data-testid="map-failure"
+                  />
+                </div>
+
+                <ClientOnly>
+                  <StationMap
+                    :ref="setMap"
+                    :stations="stations"
+                    :selected="selected"
+                    :recentre="recentre"
+                    :position="myPosition"
+                    :locate="locateCount"
+                    :place="place"
+                    :reporting="reporting"
+                    :grouping="groupingInForce.grouping"
+                    :panel-open="layersOpen"
+                    :fullscreen="inFullscreen"
+                    :label="mapLabel"
+                    @pick="onPick"
+                    @view="view = $event"
+                    @group="onGroup"
+                    @fullscreen="fullscreen.toggle()"
+                  />
+                </ClientOnly>
+
+                <!-- what the two kinds of dot are, on the measured layer: a filled dot reports, a hollow one has stopped -->
+                <ul v-if="(reporting || groupedNow) && listStatus === 'success' && stations.length" class="map-legend" :aria-label="t('mapTool.legend')" data-testid="map-legend">
+                  <template v-if="reporting">
+                    <li>
+                      <span class="map-legend-dot" aria-hidden="true" data-testid="map-legend-reporting" />
+                      {{ t('mapTool.legendReporting') }}
+                    </li>
+                    <li>
+                      <span class="map-legend-dot map-legend-dot-stopped" aria-hidden="true" data-testid="map-legend-stopped" />
+                      {{ t('mapTool.legendStopped') }}
+                    </li>
+                  </template>
+                  <li v-if="groupedNow">
+                    <span class="map-legend-dot map-legend-group" :class="{ 'map-legend-group-share': reporting }" aria-hidden="true" data-testid="map-legend-group">12</span>
+                    {{ reporting ? t('mapTool.legendGroupShare') : t('mapTool.legendGroup') }}
+                  </li>
+                </ul>
               </div>
-              <UAlert
-                v-if="listStatus === 'error'"
-                class="map-failure"
-                color="error"
-                variant="outline"
-                icon="i-ph-warning-circle"
-                :title="t('mapTool.stationsFailed')"
-                :description="listFailure"
-                :actions="[{ label: t('common.retry'), onClick: () => retryList() }]"
-                data-testid="map-failure"
-              />
+
+              <!-- while the map is full screen the panel is out of reach, and this stands in for it (GH-4227): the station picked,
+                   the keyboard's way to a place, and the way back to the panel's details -->
+              <div v-if="inFullscreen" class="map-sheet" role="group" :aria-label="t('mapTool.fullscreenSheet')" data-testid="map-sheet">
+                <p class="sr-only" role="status" data-testid="map-sheet-announcement">
+                  {{ announcement }}
+                </p>
+                <div class="map-sheet-text">
+                  <template v-if="selected">
+                    <p class="map-sheet-name" data-testid="map-sheet-name">
+                      {{ stationName(selected) }}
+                    </p>
+                    <p class="map-sheet-meta">
+                      {{ selected.station_id }}<template v-if="selected.region">
+                        · {{ selected.region }}
+                      </template>
+                    </p>
+                  </template>
+                  <p v-else-if="noStationNear" class="map-sheet-meta">
+                    {{ t('mapTool.noStationNear', { distance: reach }) }}
+                  </p>
+                  <p v-else class="map-sheet-meta">
+                    {{ listStatus === 'success' ? countLabel : t('mapTool.loadingStations') }}
+                  </p>
+                </div>
+                <div class="map-sheet-actions">
+                  <UButton
+                    v-if="selected"
+                    :label="t('mapTool.showDetails')"
+                    icon="i-ph-list-bullets"
+                    color="primary"
+                    variant="solid"
+                    size="lg"
+                    aria-describedby="map-sheet-details-hint"
+                    data-testid="map-sheet-details"
+                    @click="showDetails"
+                  />
+                  <UButton
+                    v-if="stations.length"
+                    :label="t('mapTool.pickCentre')"
+                    icon="i-ph-crosshair"
+                    color="neutral"
+                    variant="outline"
+                    size="lg"
+                    aria-describedby="map-sheet-pick-hint"
+                    data-testid="map-sheet-pick-centre"
+                    @click="pickCentre"
+                  />
+                  <p id="map-sheet-details-hint" class="sr-only">
+                    {{ t('mapTool.showDetailsHint') }}
+                  </p>
+                  <p id="map-sheet-pick-hint" class="sr-only">
+                    {{ t('mapTool.pickCentreHint') }}
+                  </p>
+                </div>
+              </div>
             </div>
-
-            <ClientOnly>
-              <StationMap
-                :stations="stations"
-                :selected="selected"
-                :recentre="recentre"
-                :position="myPosition"
-                :locate="locateCount"
-                :place="place"
-                :reporting="reporting"
-                :grouping="groupingInForce.grouping"
-                :panel-open="layersOpen"
-                :label="mapLabel"
-                @pick="onPick"
-                @view="view = $event"
-                @group="onGroup"
-              />
-            </ClientOnly>
-
-            <!-- what the two kinds of dot are, on the measured layer: a filled dot reports, a hollow one has stopped -->
-            <ul v-if="(reporting || groupedNow) && listStatus === 'success' && stations.length" class="map-legend" :aria-label="t('mapTool.legend')" data-testid="map-legend">
-              <template v-if="reporting">
-                <li>
-                  <span class="map-legend-dot" aria-hidden="true" data-testid="map-legend-reporting" />
-                  {{ t('mapTool.legendReporting') }}
-                </li>
-                <li>
-                  <span class="map-legend-dot map-legend-dot-stopped" aria-hidden="true" data-testid="map-legend-stopped" />
-                  {{ t('mapTool.legendStopped') }}
-                </li>
-              </template>
-              <li v-if="groupedNow">
-                <span class="map-legend-dot map-legend-group" :class="{ 'map-legend-group-share': reporting }" aria-hidden="true" data-testid="map-legend-group">12</span>
-                {{ reporting ? t('mapTool.legendGroupShare') : t('mapTool.legendGroup') }}
-              </li>
-            </ul>
           </div>
         </template>
       </div>
@@ -1046,7 +1170,6 @@ watch(() => route.query, (query) => {
    screen, and is about half the window on a phone, so that a sheet fits under it. */
 .map-stage {
   position: relative;
-  isolation: isolate;
   height: clamp(22rem, 64dvh, 36rem);
 }
 @media (min-width: 72rem) {
@@ -1056,6 +1179,14 @@ watch(() => route.query, (query) => {
     height: clamp(30rem, calc(100dvh - var(--header-height) - 2rem), 52rem);
   }
 }
+/* The narrow layout (GH-4227): the map fills what the bars leave of the window, under the title and its ⓘ (`--map-head`, measured by
+   the page), and runs to the window's edges. The tab bar is `--tabbar-height` high where it is fixed and 0 where it scrolls with the page. */
+@media screen and (width < 64rem) {
+  .map-stage {
+    height: max(18rem, calc(100dvh - var(--header-height) - var(--tabbar-height) - var(--map-head, 3.5rem)));
+    margin-inline: calc(-1 * var(--bleed-start)) calc(-1 * var(--bleed-end));
+  }
+}
 /* a window too low for a map and its panel beside it (a phone on its side, zoom): the map is as high as the window */
 @media (max-height: 30rem) {
   .map-stage {
@@ -1063,6 +1194,89 @@ watch(() => route.query, (query) => {
     top: auto;
     height: 24rem;
   }
+}
+/* The map's screen, the part of the stage that goes full screen (GH-4227): the map and what is over it (the canvas), and
+   the sheet that stands in for the panel under it while it is full screen. It is the stage's own size until then. It has a
+   stacking context of its own, so that Leaflet's panes (up to 1000) stay inside it. */
+.map-screen {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--ui-bg);
+}
+.map-canvas {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+}
+/* Full screen by the app (a browser that has no Fullscreen API for an element, or refuses it): the screen covers the window and the
+   app's bars (the header and the tab bar are 40, the skip link 100 and inert), with the notch's and the home indicator's room kept.
+   The stage in the page keeps its size, so the page behind does not move. A stage that is sticky (wide) or has a layer of its own would
+   hold the screen under the bars: it has neither while the screen covers them. */
+.map-stage[data-fullscreen="app"] {
+  position: static;
+}
+.map-screen[data-fullscreen="app"] {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  height: auto;
+}
+/* in either full screen: the room of the notch and the home indicator is the page's background, and the map has none of the page's corners */
+.map-screen[data-fullscreen] {
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+.map-screen[data-fullscreen] .station-map {
+  min-height: 0;
+  border-radius: 0;
+}
+/* the stand-in for the panel: the station picked, and two buttons, under the map (which has the rest of the screen) */
+.map-sheet {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem;
+  border-top: 1px solid var(--ui-border);
+  background: var(--ui-bg);
+}
+.map-sheet-text {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+.map-sheet-name {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ui-text-highlighted);
+  overflow-wrap: anywhere;
+}
+.map-sheet-meta {
+  font-size: 0.8125rem;
+  color: var(--ui-text-muted);
+  overflow-wrap: anywhere;
+}
+.map-sheet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+/* the buttons are the label's width and wrap it where a language's words are longer than a phone's half row */
+.map-sheet-actions .truncate {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+  text-align: start;
+}
+.map-sheet-actions > button,
+.map-sheet-actions > a {
+  max-width: 100%;
+  white-space: normal;
+  min-height: 2.75rem;
 }
 .map-chips {
   position: absolute;
@@ -1248,6 +1462,15 @@ watch(() => route.query, (query) => {
     z-index: 1;
   }
 }
+/* The narrow layout runs edge to edge (GH-4227): the sheet under the map is as wide as the window, with no rounded corners and no hairline at the
+   sides, and its cards reach out of its padding the same way; the text keeps the 16 px of the gutter. */
+@media screen and (width < 64rem) {
+  .map-panel {
+    margin-inline: calc(-1 * var(--bleed-start)) calc(-1 * var(--bleed-end));
+    border-radius: 0;
+    border-inline-width: 0;
+  }
+}
 .map-browse,
 .map-detail {
   display: flex;
@@ -1309,5 +1532,14 @@ watch(() => route.query, (query) => {
 .map-card-note {
   font-size: 0.875rem;
   color: var(--ui-text-muted);
+}
+/* in the panel that runs edge to edge (GH-4227) a card does too: it reaches out of the panel's 16 px, which is its own text's gutter */
+@media screen and (width < 64rem) {
+  .map-card {
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+    border-radius: 0;
+    border-inline-width: 0;
+  }
 }
 </style>

@@ -250,8 +250,11 @@ export default defineNuxtConfig({
       // nuxt-security's default switches the browser's Geolocation API off for the page (`geolocation=()`), which
       // would make "Use my location" (GH-3651) fail as a refusal that no setting of the browser can undo. The page
       // itself may ask (on the reader's press, and the browser asks the reader); no frame of another origin may.
-      // Camera, microphone, screen capture and fullscreen stay as the module has them.
-      permissionsPolicy: { geolocation: ['self'] },
+      // The module's default for fullscreen is `fullscreen=()`, which switches the Fullscreen API off for the page: the full-screen
+      // button of the map (GH-4227) would then always be the app's own covering of the page, which is the fall-back of a browser
+      // that has no API for an element. The page itself may ask (on the reader's press); no frame of another origin may.
+      // Camera, microphone and screen capture stay as the module has them.
+      permissionsPolicy: { geolocation: ['self'], fullscreen: ['self'] },
       contentSecurityPolicy: {
         // No script, worker or request goes to a CDN (GH-3094): DuckDB-wasm (`QueryPanel.vue`) and Swagger UI
         // (`/docs`) are the app's own files, and the browser calls only this origin; the backend is reached by

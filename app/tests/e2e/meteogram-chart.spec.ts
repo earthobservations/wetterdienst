@@ -103,11 +103,16 @@ test.describe('the shape of the chart', () => {
       })))
     }
     expect(new Set(seen.map(entry => entry.height)).size, JSON.stringify(seen)).toBe(1)
-    // the same strip on a phone, in landscape and on a desktop's card: the 71 hours between the first and the last stamp at 10 px,
-    // and the gutters of the axes (56 px at the least at the left, 71 with the pressure's labels, and 10 at the right)
-    expect(new Set(seen.map(entry => entry.strip)).size, JSON.stringify(seen)).toBe(1)
-    expect(seen[0]!.strip).toBeGreaterThanOrEqual(71 * 10 + 66)
-    expect(seen[0]!.strip).toBeLessThanOrEqual(71 * 10 + 94)
+    // the same strip on a phone and on a desktop's card: the 71 hours between the first and the last stamp at 10 px,
+    // and the gutters of the axes (56 px at the least at the left, 71 with the pressure's labels, and 10 at the right).
+    // A phone on its side (844 px) has the chart edge to edge since GH-4227, which is room for the whole of it: the strip is
+    // then as wide as the window lets it be, and no narrower than the others
+    const [narrow, phone, landscape, desktop] = seen
+    expect(new Set([narrow, phone, desktop].map(entry => entry!.strip)).size, JSON.stringify(seen)).toBe(1)
+    expect(narrow!.strip).toBeGreaterThanOrEqual(71 * 10 + 66)
+    expect(narrow!.strip).toBeLessThanOrEqual(71 * 10 + 94)
+    expect(landscape!.strip).toBeGreaterThanOrEqual(narrow!.strip)
+    expect(landscape!.strip).toBeLessThanOrEqual(844)
   })
 
   test('scrolls sideways on a phone, with the axes in view and the later hours a scroll away', async ({ page, baseURL }) => {

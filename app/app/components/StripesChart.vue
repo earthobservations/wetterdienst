@@ -683,7 +683,7 @@ const selectionStyle = computed(() => {
 </script>
 
 <template>
-  <div ref="rootEl" class="stripes-chart app-chart">
+  <div ref="rootEl" class="stripes-chart app-chart bleed-in">
     <div
       v-if="renderFailed"
       ref="chartNotice"
@@ -816,6 +816,12 @@ const selectionStyle = computed(() => {
 <style scoped>
 .stripes-chart {
   position: relative;
+}
+/* on a phone the chart runs to the window's edges (main.css `.bleed-in`, GH-4227), and what is not the chart keeps the card's gutter */
+@media screen and (max-width: 63.99rem) {
+  .stripes-chart > :not(.sc-scroller) {
+    margin-inline: var(--card-pad);
+  }
 }
 .sc-controls {
   display: flex;
