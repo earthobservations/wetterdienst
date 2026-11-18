@@ -190,10 +190,16 @@ def test_a_tie_goes_to_the_closer_name_not_to_the_first_row() -> None:
 
 
 def test_the_closer_name_wins_in_the_transliterated_form_too() -> None:
-    """The tie-break reads the same folded forms as the score: an umlaut typed out ranks like the umlaut."""
-    names = ["Bayern: Bayern nördl. der Donau, o. Mainfränkische Platte", "Bayern: Mainfränkische Platte"]
-    assert _order("Mainfraenkische Platte", names)[0] == "Bayern: Mainfränkische Platte"
-    assert _order("Mainfränkische Platte", names)[0] == "Bayern: Mainfränkische Platte"
+    """The tie-break reads the transliterated form as well: the umlaut is spelled out in the closer name.
+
+    Both names score 90 and hold ``muenchen`` in the transliterated form. In the plain form the umlaut name is
+    ``munchen``, a worse match (60.9) than the name that spells it out (61.5), so only the transliterated forms
+    (66.7 against 61.5) put it first.
+    """
+    names = ["Bayern: Muenchen 1", "Bayern: München"]
+
+    assert len({score for _, score in match_names("Muenchen", names, 0.8)}) == 1
+    assert _order("Muenchen", names) == ["Bayern: München", "Bayern: Muenchen 1"]
 
 
 def test_a_tie_on_both_keys_keeps_the_order_of_the_names() -> None:

@@ -116,8 +116,9 @@ def match_names(query: str, names: Sequence[str | None], threshold: float) -> li
 
     ``WRatio`` gives every name that holds a short query the same score (90, the partial ratio weighted
     down), so among equal scores the name closer to the query as a whole comes first, by ``fuzz.ratio`` of
-    the same folded forms (``Saarland`` -> ``...: Saarland`` before ``...: Rhein, Pfalz, Nahe und Mosel,
-    Saarland``). Only a tie on both is left in the order of the names.
+    the same folded forms (``Saarland`` -> ``Rheinland-Pfalz und Saarland: Saarland`` before
+    ``Rheinland-Pfalz und Saarland: Rhein, Pfalz, Nahe und Mosel``). Only a tie on both is left in the
+    order of the names.
 
     Args:
         query: The name asked for.

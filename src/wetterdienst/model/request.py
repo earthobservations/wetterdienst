@@ -1282,8 +1282,9 @@ class TimeseriesRequest:
         # each name a station goes by), the best `rank` stations are taken, and their rows come back
         # best match first. Equal scores are common (WRatio gives 90 to any name that holds a short
         # query), so `match_names` breaks them by the closer whole name (`fuzz.ratio`: "Saarland" finds
-        # "...: Saarland" before "...: Rhein, Pfalz, Nahe und Mosel, Saarland"), GH-4207. A tie on both is
-        # ordered by station_id, which does not depend on how the provider sorts its list. (GH-3025)
+        # "Rheinland-Pfalz und Saarland: Saarland" before "Rheinland-Pfalz und Saarland: Rhein, Pfalz, Nahe
+        # und Mosel"), GH-4207. A tie on both is ordered by station_id, which does not depend on how the
+        # provider sorts its list. (GH-3025)
         candidates = (
             df_all.select("station_id", "name").unique(maintain_order=True).sort("station_id", maintain_order=True)
         )
