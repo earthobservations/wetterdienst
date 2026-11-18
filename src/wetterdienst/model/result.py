@@ -30,7 +30,7 @@ from pydantic import ConfigDict, with_config
 # not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
 from typing_extensions import TypedDict
 
-from wetterdienst.exceptions import UnknownFormatError
+from wetterdienst.exceptions import NoStationPositionsError, UnknownFormatError
 from wetterdienst.io.export import (
     _DEFAULT_IMAGE_HEIGHT,
     _DEFAULT_IMAGE_WIDTH,
@@ -637,13 +637,25 @@ class StationsResult(_EqualByFields, ExportMixin):
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:
-        """Create a plotly figure from the stations DataFrame."""
+        """Create a plotly figure from the stations DataFrame.
+
+        The stations without a position are left out of the map.
+
+        Raises:
+            NoStationPositionsError: where stations are listed and none has a position (`dwd/pollen`), so there is
+                nothing to draw; a `RequestError`, which the REST API answers with a 422.
+
+        """
         px = import_optional("plotly.express", "Plotting", extra="plotting")
         go = import_optional("plotly.graph_objects", "Plotting", extra="plotting")
 
         df = self.df
         if df.is_empty():
             return go.Figure()
+        # the stations without a position are left out of the map; with none that has one there is nothing to draw, and
+        # the extent of the map cannot be fitted (GH-4206)
+        if df.filter(pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null()).is_empty():
+            raise NoStationPositionsError
         center, zoom = self._map_view(_DEFAULT_IMAGE_WIDTH, _DEFAULT_IMAGE_HEIGHT)
         # for coloring of resolutions/datasets
         n_resolutions = df["resolution"].n_unique()
@@ -694,12 +706,16 @@ class StationsResult(_EqualByFields, ExportMixin):
         )
 
     def _map_view(self, width: int, height: int) -> tuple[dict[str, float], float]:
-        """Centre and zoom of the station map that show every station in a picture of `width` x `height` pixels."""
+        """Centre and zoom of the station map that show every station with a position in a `width` x `height` picture.
+
+        A station that lacks a latitude or a longitude is not on the map, so it does not widen it (GH-4206).
+        """
+        placed = self.df.filter(pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null())
         return _fit_map_view(
-            cast("float", self.df["longitude"].min()),
-            cast("float", self.df["longitude"].max()),
-            cast("float", self.df["latitude"].min()),
-            cast("float", self.df["latitude"].max()),
+            cast("float", placed["longitude"].min()),
+            cast("float", placed["longitude"].max()),
+            cast("float", placed["latitude"].min()),
+            cast("float", placed["latitude"].max()),
             max(1, width - _MAP_MARGIN["l"] - _MAP_MARGIN["r"]),
             max(1, height - _MAP_MARGIN["t"] - _MAP_MARGIN["b"]),
         )
