@@ -18,6 +18,11 @@ Types of changes:
 
 ### Added
 
+- The climate stripes take `provider` and `network` on every surface (`dwd`/`observation`, the
+  default, or `noaa`/`ghcn`; any other pair is a 422). For NOAA GHCN daily each year is calculated
+  from the days by the WMO rules, a year that fails them is a gap, and the `processing_note` says
+  so. `stripes stations` takes a bounding box (`left`, `bottom`, `right` and `top`) for both
+  sources, and lists GHCN stations by the span of the elements of the kind (GH-4222)
 - `dwd/uvi`: DWD's forecast of the UV index for 38 places in Germany, a daily forecast network of
   one parameter, `uv_index_max` (the highest UV index of the day, a whole number of the WHO scale),
   for today, tomorrow and the day after, read from `uvi.json`. The places are the stations, with

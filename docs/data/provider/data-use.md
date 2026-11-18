@@ -109,7 +109,7 @@ to common units, and a value the source documents as missing (`-999`, `---`) is 
   [plausibility checks](../plausibility.md). Whichever the mode, the answer shows what was done.
 - **`interpolate` and `summarize`** calculate or select values from the readings of several stations; they add a
   sentence to the note.
-- **Climate stripes and plots** are drawn from the annual values of DWD stations; the image headers carry a sentence.
+- **Climate stripes and plots** are drawn from the annual values of DWD stations, or of NOAA GHCN daily stations, whose years are calculated from the daily values; the image headers carry a sentence.
 
 What the licences ask about changes differs. CC BY asks to "indicate if changes were made"; the note in the answer says
 what was done, and a CSV or a spreadsheet written without `with_metadata=True` does not carry it (see

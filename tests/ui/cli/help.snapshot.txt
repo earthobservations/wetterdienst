@@ -753,6 +753,11 @@ Usage: wetterdienst stripes image [OPTIONS]
 
 Options:
   --kind TEXT                     Kind of stripes: temperature or precipitation.  [required]
+  --provider TEXT                 Provider of the stations and values: dwd (annual values) or noaa
+                                  (GHCN daily, the years calculated from the days by the WMO rules).
+                                  Default: dwd
+  --network TEXT                  Network of the provider: observation for dwd, ghcn for noaa.
+                                  Default: observation
   --station TEXT                  Station id, instead of --name.
   --name TEXT                     Station name, matched fuzzily, instead of --station.
   --name-threshold FLOAT          Minimum fuzzy-match score. Default: 0.8
@@ -783,6 +788,14 @@ Options:
   # precipitation stripes, to a file
   wetterdienst stripes image --kind=precipitation --station=1048 --target=precipitation_stripes.png
 
+  # a station of NOAA GHCN daily, the years calculated from its days by the WMO rules
+  wetterdienst stripes image --provider=noaa --network=ghcn --kind=temperature --station=USW00094728 \
+      > stripes_new_york.png
+
+  # the GHCN stations in a bounding box that the stripes are made for
+  wetterdienst stripes stations --provider=noaa --network=ghcn --kind=temperature \
+      --left=-75 --bottom=40 --right=-73 --top=41
+
 
 $ wetterdienst stripes stations --help
 
@@ -792,7 +805,16 @@ Usage: wetterdienst stripes stations [OPTIONS]
 
 Options:
   --kind TEXT                  Kind of stripes: temperature or precipitation.  [required]
+  --provider TEXT              Provider of the stations and values: dwd (annual values) or noaa
+                               (GHCN daily, the years calculated from the days by the WMO rules).
+                               Default: dwd
+  --network TEXT               Network of the provider: observation for dwd, ghcn for noaa. Default:
+                               observation
   --active BOOLEAN             Only stations still reporting. Default: true
+  --left FLOAT                 Select stations in a bounding box: its west longitude.
+  --bottom FLOAT               South latitude of the bounding box.
+  --right FLOAT                East longitude of the bounding box.
+  --top FLOAT                  North latitude of the bounding box.
   --format [json|geojson|csv]  Output format. Default: json
   --pretty BOOLEAN             Pretty-print JSON with 4-space indentation, as REST's pretty=true.
                                Default: false

@@ -255,8 +255,9 @@ class ResponseMetadata(BaseModel):
         description="What wetterdienst did to the data: it was reshaped into a uniform table and its units "
         "converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected "
         "or calculated from the provider's readings, those of the climate stripes what their anomalies and classes "
-        "are relative to, and the headers of the stripes' image that it is drawn from the annual values, and those "
-        "of `storm_cells` that the direction of a cell is calculated from its forecast track. The same "
+        "are relative to (and, where the years were calculated from daily values, by which rules), and the headers "
+        "of the stripes' image that it is drawn from the annual values, and those of `storm_cells` that the "
+        "direction of a cell is calculated from its forecast track. The same "
         "text for every provider and licence, so that a licence that asks for changes to be indicated has them said; "
         "no legal advice.",
     )
@@ -322,8 +323,8 @@ def result_metadata(
 ) -> ResponseMetadata:
     """Build the block of an answer made from `result` when the request does not name the provider and network.
 
-    The climate stripes are DWD's and their request says which stripes, not where from. `response_metadata` is this
-    for the requests that name them.
+    The climate stripes' stations are listed for the source their request names, which the caller passes on.
+    `response_metadata` is this for the requests that name them.
     """
     stations = result if isinstance(result, StationsResult) else result.stations
     frame = result.df if isinstance(result, StationsResult) else result.df_stations
@@ -456,21 +457,37 @@ def issues_metadata(api: object, request: IssuesRequest, issues: Sequence[str]) 
 
 
 def stripes_metadata(data: StripesData, request: StripesRequest, *, image: bool = False) -> ResponseMetadata:
-    """Build the block of climate stripes (`/api/stripes/values` and `/image`), made of DWD observation's values.
+    """Build the block of climate stripes (`/api/stripes/values` and `/image`), made of the values of the source asked.
 
-    The values are DWD's own annual values, and the anomalies and classes calculated from them say what they are
-    relative to (GH-4157), which the CSV's and the image's headers carry; `image` is for the headers of the image, which
-    add that it is drawn from them.
+    The values are DWD's own annual values, or those calculated from the daily values of NOAA GHCN by the WMO rules
+    (GH-4222), which the note says besides what the anomalies and classes are relative to (GH-4157). The CSV's and the
+    image's headers carry it; `image` is for the headers of the image, which add that it is drawn from them.
     """
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+    from wetterdienst.ui.core import GHCN_STRIPES_PARAMETERS, STRIPES_GHCN_SOURCE  # noqa: PLC0415
 
     stripes = data.series
+    calculated = data.reference.note()
+    if (request.provider, request.network) == STRIPES_GHCN_SOURCE:
+        from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest  # noqa: PLC0415
+        from wetterdienst.ui.stripes_annual import annual_note  # noqa: PLC0415
+
+        api: object = NoaaGhcnRequest
+        # every parameter the years were built from
+        parameters = [
+            f"{stripes.resolution}/{stripes.dataset}/{name}" for name in GHCN_STRIPES_PARAMETERS[request.kind]
+        ]
+        calculated = f"{annual_note(request.kind)} {calculated}"
+    else:
+        from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+        api = DwdObservationRequest
+        parameters = [f"{stripes.resolution}/{stripes.dataset}/{stripes.parameter}"]
     return _block_without_result(
-        DwdObservationRequest,
+        api,
         ResolvedRequest(
-            provider="dwd",
-            network="observation",
-            parameters=[f"{stripes.resolution}/{stripes.dataset}/{stripes.parameter}"],
+            provider=request.provider,
+            network=request.network,
+            parameters=parameters,
             periods=[Period.HISTORICAL.value],
             start=None,
             end=None,
@@ -483,7 +500,7 @@ def stripes_metadata(data: StripesData, request: StripesRequest, *, image: bool 
         stations=1,
         rows=data.df.height,
         image=image,
-        calculated=data.reference.note(),
+        calculated=calculated,
     )
 
 

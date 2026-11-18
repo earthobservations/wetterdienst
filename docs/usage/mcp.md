@@ -181,9 +181,9 @@ An answer over the budget is cut, not refused, and says so:
   So is a large `rank` (700 asks for as many): the nearest stations that fit are kept, nearest first, and the note says
   how many the `rank` asked for, how many are returned and how far the farthest of them is, and suggests a smaller
   `rank`. A `rank` that fits is unchanged.
-- **`stripes_stations`** is cut like `stations`: the first stations of the list. It has nothing to select with, so the
-  note says to give the place as `name` to `stripes_values` or `stripes_image`, which match it themselves, or to find a
-  station with `stations`. The list of the temperature stripes is 175,000 characters, that of the precipitation
+- **`stripes_stations`** is cut like `stations`: the first stations of the list. It selects by a bounding box only, so the
+  note says to give the place as `name` to `stripes_values` or `stripes_image`, which match it themselves, to find a
+  station with `stations`, or to ask for a box. The list of the temperature stripes is 175,000 characters, that of the precipitation
   stripes 733,000.
 - **`coverage`** is not rows but resolutions, datasets and parameters with a description each, and noaa/ghcn (59,000
   characters), dwd/observation (89,000) and dwd/phenology (139,000) are over the budget. It is cut in steps, each only

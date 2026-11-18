@@ -7,10 +7,88 @@ variable as a sequence of coloured bars — one bar per year, coloured from blue
 (warmer) for temperature, and from brown (drier) to teal (wetter) for precipitation, relative to a
 reference (see [Method](#method)).
 
-Wetterdienst can generate climate stripes from **DWD** annual observations for two kinds:
+Wetterdienst can generate climate stripes from two sources, for two kinds:
+
+- **DWD** (`provider=dwd`, `network=observation`, the default): the annual values DWD publishes
+- **NOAA GHCN daily** (`provider=noaa`, `network=ghcn`): worldwide, with the years calculated from the daily values
+  (see [Sources](#sources))
+
+and the kinds are
 
 - `temperature` — based on the annual mean air temperature
 - `precipitation` — based on the annual precipitation sum
+
+## Sources
+
+Every stripes surface, the REST endpoints `/api/stripes/stations`, `/values` and `/image`, the command line's
+`stripes stations` and `stripes image`, and the MCP tools `stripes_stations`, `stripes_values` and `stripes_image`, takes
+`provider` and `network`. They default to `dwd` and `observation`, so a call that names none is answered as it
+always was. `noaa` and `ghcn` are the second pair, and any other pair, `dwd`/`ghcn` or `eccc`/`observation`, is refused
+(a 422 over REST, a usage error on the command line, naming the pairs that are served). A station id is the
+provider's own: `01048` for DWD, `USW00094728` for GHCN.
+
+Everything after the annual values is the same for both: the [method](#method), the minimum of 10 years with data,
+the reference period and its fallback to the whole record, the classes, the palette and the units (`unit_targets`).
+
+### GHCN daily: the years from the days
+
+[GHCN-Daily](https://www.ncei.noaa.gov/products/land-based-station/global-historical-climatology-network-daily)
+has daily values only, so the year is built from the days by the rules of the WMO Guidelines on the Calculation of
+Climate Normals (WMO-No. 1203). A year that fails them is a **gap** in the stripes, as a year DWD has no value for is,
+and is never filled.
+
+| | temperature | precipitation |
+|---|---|---|
+| a day | the source's own **TAVG** where it gives one, else (**TMAX** + **TMIN**) / 2; a day with neither, or with one of the two alone, is missing | the **PRCP** |
+| a month counts | with at most 10 days missing, and at most 4 of them in a row | only when **complete**: every day has a value |
+| the month's value | the mean of the days | the sum of the days |
+| a year counts | with all 12 months counting | with all 12 months counting |
+| the year's value | the mean of the 12 monthly means (each month weighs the same, whatever its length) | the sum of the 12 monthly sums |
+
+A day with no row in the station's file is missing, as a day with no value is. TAVG is taken day by day: a month
+with TAVG on some days and TMAX and TMIN on the others is the mean of both kinds of day. A value whose quality flag
+names a check it failed (NOAA's `QFLAG`, which the readme asks to treat as missing), and a value the
+[plausibility checks](../data/plausibility.md) flag `suspect`, are missing days. A run of missing days is counted in
+its month, so 3 missing days at the end of one month and 3 at the start of the next are two runs of 3. The first year of
+a record that starts mid-year, and the year still running, have fewer than 12 months and are gaps.
+
+The answer says so: the `processing_note` of `/api/stripes/values` (and the `X-Wetterdienst-Processing` header of the CSV
+and the image) says that the annual values were calculated from the provider's daily values by these rules, before the
+sentence on the reference. The `series` names the daily parameter the years were built from
+(`daily/data/temperature_air_mean_2m` or `daily/data/precipitation_amount`), and the `request` of the `metadata` all of
+them (for the temperature also `temperature_air_max_2m` and `temperature_air_min_2m`).
+
+A station's file holds its whole record and is one download per request, with the cache expiry of the values of GHCN
+(5 minutes).
+
+#### The stations of GHCN
+
+`stripes stations` lists the stations whose record can reach the 10 years, as for DWD: the span from the first to the last
+year that `ghcnd-inventory.txt` lists for the elements the kind is made from, that is TAVG together with the span TMAX
+and TMIN have in common for the temperature, and PRCP for the precipitation, not the span of any element the
+station has. As for DWD, a record with gaps is listed where its span is long enough and is still refused where it has
+fewer than 10 years with values. `start_timestamp` and `end_timestamp` of the list are that span, and
+`end_timestamp` is empty for a station whose last year is the current one. `active` (default `true`) keeps the
+stations whose span reaches into this or the last year. Measured on 2026-11-18:
+
+| | temperature | precipitation |
+|---|---|---|
+| stations of the list | 132,894 | 132,894 |
+| span of 10 years or more | 32,594 | 79,780 |
+| and active | 12,248 | 26,908 |
+
+The list is long, so `stripes stations` takes a **bounding box**, `left`, `bottom`, `right` and `top` (all four, or
+none), as `/api/stations` does, for DWD as well: the stations inside it, borders included. A box that is not whole, or
+whose `left` is not west of its `right` or `bottom` not south of its `top`, is refused.
+
+```bash
+# The GHCN stations of the temperature stripes in a box around New York, as GeoJSON.
+http localhost:7890/api/stripes/stations provider==noaa network==ghcn kind==temperature \
+  left==-75 bottom==40 right==-73 top==41 format==geojson
+
+# The stripes of one of them.
+http --download localhost:7890/api/stripes/image provider==noaa network==ghcn kind==temperature station==USW00094728
+```
 
 ## Method
 
@@ -52,7 +130,7 @@ here is.
 
 ### A station with too few years
 
-Few of DWD's stations have 30 years in 1971-2000 or 100 in 1901-2000, so a period that has too few
+Few of DWD's stations (and of GHCN's) have 30 years in 1971-2000 or 100 in 1901-2000, so a period that has too few
 years with data is replaced by the station's **whole record**, for the mean and for the standard
 deviation each on its own:
 
@@ -122,10 +200,16 @@ wetterdienst stripes stations --kind temperature
 
 # Only currently active stations, as CSV.
 wetterdienst stripes stations --kind precipitation --active true --format csv
+
+# The stations of NOAA GHCN daily in a bounding box.
+wetterdienst stripes stations --provider noaa --network ghcn --kind temperature \
+  --left -75 --bottom 40 --right -73 --top 41
 ```
 
-Its options are `--kind` (required), `--active` (default `true`), `--format` (`json`, `geojson` or `csv`) and
-`--pretty`; the [command line reference](cli.md) has them with their defaults.
+Its options are `--kind` (required), `--provider` and `--network` (default `dwd` and `observation`, see
+[Sources](#sources)), `--active` (default `true`), `--left`, `--bottom`, `--right` and `--top` (a bounding box,
+all four or none), `--format` (`json`, `geojson` or `csv`) and `--pretty`; the [command line reference](cli.md) has them
+with their defaults.
 
 ### Image
 
@@ -139,9 +223,13 @@ wetterdienst stripes image --kind temperature --station 1048 --target dresden.pn
 # Precipitation stripes selected by name, restricted to a year range, as SVG to stdout.
 wetterdienst stripes image --kind precipitation --name Hohenpeissenberg \
   --start-year 1900 --end-year 2020 --format svg
+
+# A station of NOAA GHCN daily: the years are calculated from its days.
+wetterdienst stripes image --provider noaa --network ghcn --kind temperature --station USW00094728 \
+  --target new_york.png
 ```
 
-The options are `--kind` (required), `--station` or `--name` (with `--name-threshold`), `--start-year`, `--end-year`,
+The options are `--kind` (required), `--provider` and `--network` (see [Sources](#sources)), `--station` or `--name` (with `--name-threshold`), `--start-year`, `--end-year`,
 `--show-title`, `--show-years`, `--show-data-availability`, `--format` (`png`, `jpg`, `svg` or `pdf`), `--dpi` and
 `--target`; the [command line reference](cli.md) has them with their defaults. The image needs the `plotting` extra.
 
@@ -172,8 +260,9 @@ http --download localhost:7890/api/stripes/image kind==temperature station==1048
 
 The JSON answer of `values` has the `metadata` block every answer has, a `series` that says what the values
 are of (`station`, `resolution`, `dataset`, `parameter`, and the `unit` of `value`), the `reference` the classes are
-relative to (see [Method](#method)), and the `values`, each with its `anomaly` and `stripe_class`. The `value`s are DWD's
-own annual values, the same numbers as `/api/values` gives for the parameter. The `processing_note` of the block is the
+relative to (see [Method](#method)), and the `values`, each with its `anomaly` and `stripe_class`. The `value`s of DWD are its
+own annual values, the same numbers as `/api/values` gives for the parameter; those of GHCN are calculated from its
+daily values (see [Sources](#sources)), and `series` names the daily parameter. The `processing_note` of the block is the
 plain note every answer has, and a sentence that says the anomalies and classes were calculated from them and which
 reference they are relative to, the whole record included where it stood in for a period. An image has no place for it
 in itself: the `X-Wetterdienst-Processing` header of `image` has it (as the CSV of `values` does), and adds "The image
@@ -192,6 +281,7 @@ The MCP tool `stripes_values` takes it as an object (`{"unit_targets": {"tempera
 image draws no number or unit, so `image` takes no `unit_targets`, and the command line, which has no command for the
 values, has none either. The precipitation takes `millimeter` or `liter_per_square_meter`.
 
-The `image` endpoint accepts the same rendering options as the CLI (`start_year`,
+`provider` and `network` choose the source (see [Sources](#sources)), and `stations` takes a bounding box. The
+`image` endpoint accepts the same rendering options as the CLI (`start_year`,
 `end_year`, `show_title`, `show_years`, `show_data_availability`, `format`, `dpi`): the command line
 spells a name with hyphens (`--start-year`), REST and MCP with underscores (`start_year`).

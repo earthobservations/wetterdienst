@@ -4501,7 +4501,7 @@
           "Climate stripes"
         ],
         "summary": "Stripes Stations",
-        "description": "List the stations climate stripes are made for.\n\nA station whose record spans fewer than 10 calendar years (first to last, inclusive) is left out, as stripes of\nfewer than 10 years with data are refused. A station with gaps in a longer span is listed and may still be refused.",
+        "description": "List the stations climate stripes are made for, of DWD (the default) or of NOAA GHCN daily.\n\nA station whose record spans fewer than 10 calendar years (first to last, inclusive) is left out, as stripes of\nfewer than 10 years with data are refused. A station with gaps in a longer span is listed and may still be refused.\nFor GHCN the span is that of the elements the kind is made from (TAVG, TMAX and TMIN for the temperature, PRCP for\nthe precipitation), and `active` keeps the stations whose record reaches into this or the last year.\n\n`left`, `bottom`, `right` and `top`, all four, keep the stations in a bounding box, as `/api/stations` does: the\nlist of GHCN is long, so ask for the ones in view.",
         "operationId": "stripes_stations_api_stripes_stations_get",
         "parameters": [
           {
@@ -4520,6 +4520,30 @@
             "description": "temperature (annual mean air temperature) or precipitation (annual amount)."
           },
           {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served.",
+              "default": "dwd",
+              "title": "Provider"
+            },
+            "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served."
+          },
+          {
+            "name": "network",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served.",
+              "default": "observation",
+              "title": "Network"
+            },
+            "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served."
+          },
+          {
             "name": "active",
             "in": "query",
             "required": false,
@@ -4530,6 +4554,86 @@
               "title": "Active"
             },
             "description": "Only the stations that still report, i.e. have data in the recent period."
+          },
+          {
+            "name": "left",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 180,
+                  "minimum": -180
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Western longitude of the bounding box.",
+              "title": "Left"
+            },
+            "description": "Western longitude of the bounding box."
+          },
+          {
+            "name": "bottom",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90,
+                  "minimum": -90
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Southern latitude of the bounding box.",
+              "title": "Bottom"
+            },
+            "description": "Southern latitude of the bounding box."
+          },
+          {
+            "name": "right",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 180,
+                  "minimum": -180
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Eastern longitude of the bounding box.",
+              "title": "Right"
+            },
+            "description": "Eastern longitude of the bounding box."
+          },
+          {
+            "name": "top",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90,
+                  "minimum": -90
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Northern latitude of the bounding box.",
+              "title": "Top"
+            },
+            "description": "Northern latitude of the bounding box."
           },
           {
             "name": "format",
@@ -4620,7 +4724,7 @@
           "Climate stripes"
         ],
         "summary": "Stripes Values",
-        "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for\n`/api/values`, e.g. {\"temperature\": \"degree_fahrenheit\"}; the server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the\nquantity where the values are converted, the source's unit where not.\n\nThe colours follow Ed Hawkins' method: each value has its `anomaly` to the mean of 1971-2000 and its\n`stripe_class`, 0 (the lowest) to 15, in steps of 0.325 standard deviations of the annual values of\n1901-2000 (+/-2.6 standard deviations in 16 classes, the outermost taking what lies beyond). The `reference`\nnames the mean and the standard deviation, in the unit of the values, and the years they are calculated from;\na station with too few years in a period takes its whole record for it (`fallback`). A year's class\ndoes not depend on `start_year` and `end_year`, and is the same in any unit.",
+        "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for\n`/api/values`, e.g. {\"temperature\": \"degree_fahrenheit\"}; the server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the\nquantity where the values are converted, the source's unit where not.\n\nThe colours follow Ed Hawkins' method: each value has its `anomaly` to the mean of 1971-2000 and its\n`stripe_class`, 0 (the lowest) to 15, in steps of 0.325 standard deviations of the annual values of\n1901-2000 (+/-2.6 standard deviations in 16 classes, the outermost taking what lies beyond). The `reference`\nnames the mean and the standard deviation, in the unit of the values, and the years they are calculated from;\na station with too few years in a period takes its whole record for it (`fallback`). A year's class\ndoes not depend on `start_year` and `end_year`, and is the same in any unit.\n\n`provider` and `network` choose the source: `dwd`/`observation` (the default) reads DWD's annual values, and\n`noaa`/`ghcn` builds each year from the station's daily values by the WMO rules (WMO-No. 1203). Temperature: a\nmonth counts with at most 10 days missing and at most 4 in a row, its mean is that of the days' means (TAVG where\nthe source gives it, else (TMAX + TMIN) / 2), and a year with all 12 months counting is the mean of the monthly\nmeans. Precipitation: a month counts only when complete, and a year with all 12 months counting is the sum. A year\nthat fails is a gap, and a value that failed a quality check of the source is a missing day. `series` names the\ndaily parameter the years were built from.",
         "operationId": "stripes_values_api_stripes_values_get",
         "parameters": [
           {
@@ -4639,6 +4743,30 @@
             "description": "temperature (annual mean air temperature) or precipitation (annual amount)."
           },
           {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served.",
+              "default": "dwd",
+              "title": "Provider"
+            },
+            "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served."
+          },
+          {
+            "name": "network",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served.",
+              "default": "observation",
+              "title": "Network"
+            },
+            "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served."
+          },
+          {
             "name": "station",
             "in": "query",
             "required": false,
@@ -4651,10 +4779,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Station id, e.g. '01048'; give this or name.",
+              "description": "Station id, e.g. '01048' (dwd) or 'USW00094728' (noaa); give this or name.",
               "title": "Station"
             },
-            "description": "Station id, e.g. '01048'; give this or name. Exactly one of station or name is required.",
+            "description": "Station id, e.g. '01048' (dwd) or 'USW00094728' (noaa); give this or name. Exactly one of station or name is required.",
             "examples": {
               "example": {
                 "value": "01048"
@@ -4872,6 +5000,30 @@
             "description": "temperature (annual mean air temperature) or precipitation (annual amount)."
           },
           {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served.",
+              "default": "dwd",
+              "title": "Provider"
+            },
+            "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served."
+          },
+          {
+            "name": "network",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served.",
+              "default": "observation",
+              "title": "Network"
+            },
+            "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served."
+          },
+          {
             "name": "station",
             "in": "query",
             "required": false,
@@ -4884,10 +5036,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Station id, e.g. '01048'; give this or name.",
+              "description": "Station id, e.g. '01048' (dwd) or 'USW00094728' (noaa); give this or name.",
               "title": "Station"
             },
-            "description": "Station id, e.g. '01048'; give this or name. Exactly one of station or name is required.",
+            "description": "Station id, e.g. '01048' (dwd) or 'USW00094728' (noaa); give this or name. Exactly one of station or name is required.",
             "examples": {
               "example": {
                 "value": "01048"
@@ -7192,7 +7344,7 @@
           "processing_note": {
             "type": "string",
             "title": "Processing Note",
-            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, those of the climate stripes what their anomalies and classes are relative to, and the headers of the stripes' image that it is drawn from the annual values, and those of `storm_cells` that the direction of a cell is calculated from its forecast track. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
+            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, those of the climate stripes what their anomalies and classes are relative to (and, where the years were calculated from daily values, by which rules), and the headers of the stripes' image that it is drawn from the annual values, and those of `storm_cells` that the direction of a cell is calculated from its forecast track. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
           },
           "request": {
             "$ref": "#/components/schemas/ResolvedRequest"
@@ -10543,7 +10695,7 @@
     },
     {
       "name": "Climate stripes",
-      "description": "Climate stripes of a station in Germany: stations, values and the image."
+      "description": "Climate stripes of a station of DWD (Germany) or NOAA GHCN daily: stations, values and the image."
     },
     {
       "name": "Alerts",

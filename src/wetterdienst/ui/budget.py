@@ -138,9 +138,9 @@ def _start_is_nearer_now(first: dt.datetime, last: dt.datetime) -> bool:
 
 
 def _block(result: StationsResult | _SeriesResult, request: _ListRequest | _SeriesRequest) -> ResponseMetadata:
-    """Build the `metadata` block of the answer to `request`: the climate stripes' request names no provider, DWD's."""
+    """Build the `metadata` block of the answer to `request`; the climate stripes' request names its own source."""
     if isinstance(request, StripesStationsRequest):
-        return result_metadata(result, provider="dwd", network="observation", heavy=False)
+        return result_metadata(result, provider=request.provider, network=request.network, heavy=False)
     return response_metadata(result, request)
 
 
@@ -427,7 +427,7 @@ def _stations_note(
 ) -> str:
     """Write the note of a stations answer cut to its first `count` of `total` stations.
 
-    The list of the climate stripes' stations has no selection to narrow with: a place goes to the stripes' tools as
+    The list of the climate stripes' stations narrows with a bounding box only: a place goes to the stripes' tools as
     a `name`, which they match themselves, and `stations` finds a station near a point. The stations of a `distance`
     are in the order of their distance, so the ones kept are the nearest: `distance` is the one asked for, `farthest`
     the distance in km of the last station returned, which says what a smaller `distance` would still keep. So are
@@ -454,11 +454,16 @@ def _stations_note(
     first = f"{head}{returned} returned, in the provider's list order (usually by "
     if isinstance(request, StripesStationsRequest):
         only_active = "" if request.active else " `active=true` lists only the stations that still report."
+        boxed = (
+            ""
+            if request.left is not None
+            else " To list the stations of an area, ask again with a bounding box (`left`, `bottom`, `right`, `top`)."
+        )
         return (
             f"{first}station id, not by place). {total:,} stations have data for the {request.kind} stripes. To get "
             "one station, give the station's name (often its town's) as `name` to `stripes_values` or "
             "`stripes_image`, which match it themselves, or find a station with `stations` (`name`, or latitude, "
-            f"longitude and `rank`).{only_active}"
+            f"longitude and `rank`).{boxed}{only_active}"
         )
     return (
         f"{first}station id, not by place, so they are not a sample of the area). {total:,} stations match; narrow "

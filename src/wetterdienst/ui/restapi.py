@@ -272,7 +272,8 @@ app = FastAPI(
         {"name": TAG_VALUES, "description": "Measurements of stations, or estimated for a point between them."},
         {
             "name": TAG_STRIPES,
-            "description": "Climate stripes of a station in Germany: stations, values and the image.",
+            "description": "Climate stripes of a station of DWD (Germany) or NOAA GHCN daily: stations, values and the "
+            "image.",
         },
         {"name": TAG_ALERTS, "description": "Weather warnings of the DWD."},
         {"name": TAG_STORM_CELLS, "description": "Thunderstorm cells of the DWD, detected in its radar data."},
@@ -2665,10 +2666,15 @@ def stripes_stations(
     request: Annotated[StripesStationsRequest, Query()],
     http_request: Request,
 ) -> Response:
-    """List the stations climate stripes are made for.
+    """List the stations climate stripes are made for, of DWD (the default) or of NOAA GHCN daily.
 
     A station whose record spans fewer than 10 calendar years (first to last, inclusive) is left out, as stripes of
     fewer than 10 years with data are refused. A station with gaps in a longer span is listed and may still be refused.
+    For GHCN the span is that of the elements the kind is made from (TAVG, TMAX and TMIN for the temperature, PRCP for
+    the precipitation), and `active` keeps the stations whose record reaches into this or the last year.
+
+    `left`, `bottom`, `right` and `top`, all four, keep the stations in a bounding box, as `/api/stations` does: the
+    list of GHCN is long, so ask for the ones in view.
     """
     begin_response()
 
@@ -2677,12 +2683,21 @@ def stripes_stations(
     # value back
     Settings()
     try:
-        stations = _get_stripes_stations(kind=request.kind, active=request.active)
+        stations = _get_stripes_stations(
+            kind=request.kind,
+            active=request.active,
+            provider=request.provider,
+            network=request.network,
+            left=request.left,
+            bottom=request.bottom,
+            right=request.right,
+            top=request.top,
+        )
     except Exception as e:
-        # nothing of the caller's reaches the lookup but a kind and a flag its request has checked,
+        # nothing of the caller's reaches the lookup but a kind, a flag, a source and a box its request has checked,
         # so a failure here is the server's or the data source's, whatever its type
         raise _logged_server_error(e, "get stripes stations") from e
-    metadata = result_metadata(stations, provider="dwd", network="observation", heavy=False)
+    metadata = result_metadata(stations, provider=request.provider, network=request.network, heavy=False)
     content = render_stripes_stations(stations, request, metadata)
     if is_tool_request(http_request.scope):
         # an assistant reads the answer in its context: cut to the budget, with a note (GH-4024)
@@ -2715,6 +2730,14 @@ def stripes_values(
     names the mean and the standard deviation, in the unit of the values, and the years they are calculated from;
     a station with too few years in a period takes its whole record for it (`fallback`). A year's class
     does not depend on `start_year` and `end_year`, and is the same in any unit.
+
+    `provider` and `network` choose the source: `dwd`/`observation` (the default) reads DWD's annual values, and
+    `noaa`/`ghcn` builds each year from the station's daily values by the WMO rules (WMO-No. 1203). Temperature: a
+    month counts with at most 10 days missing and at most 4 in a row, its mean is that of the days' means (TAVG where
+    the source gives it, else (TMAX + TMIN) / 2), and a year with all 12 months counting is the mean of the monthly
+    means. Precipitation: a month counts only when complete, and a year with all 12 months counting is the sum. A year
+    that fails is a gap, and a value that failed a quality check of the source is a missing day. `series` names the
+    daily parameter the years were built from.
     """
     begin_response()
 
