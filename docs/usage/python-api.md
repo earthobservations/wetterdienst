@@ -388,7 +388,9 @@ match.  Lower values accept more typos; higher values require a closer match.  T
 `rank` parameter limits how many stations are returned (default 1, the best match). The `stations` listing
 of the command line and the REST API offers the best five instead: pass `rank=5` for the same list.
 A station is one match however many datasets (rows) it has, and two stations that share a name are two.
-The rows come back best match first, equal scores in the order of their `station_id`.
+The rows come back best match first, equal scores the closer whole name first (`Saarland` finds
+`Rheinland-Pfalz und Saarland: Saarland` before a longer name that holds it), a tie on both in the order of
+their `station_id`.
 
 `filter_by_name` matches the name among the stations that have a record in the `start` and `end` of the
 request, as the command line, the REST API and MCP do with a `timestamp`: a station that closed before

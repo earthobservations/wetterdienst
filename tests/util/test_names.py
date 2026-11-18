@@ -162,3 +162,48 @@ def test_koeln_and_dusseldorf_written_without_an_umlaut_are_found_by_the_umlaut_
     stations = ["Koeln", "Dusseldorf", "Kiel"]
     assert [stations[index] for index, _ in _found("Köln", stations, 0.8)] == ["Koeln"]
     assert [stations[index] for index, _ in _found("Düsseldorf", stations, 0.8)] == ["Dusseldorf"]
+
+
+def _order(query: str, names: list[str | None], threshold: float = 0.8) -> list[str | None]:
+    return [names[index] for index, _ in match_names(query, names, threshold)]
+
+
+def test_a_tie_goes_to_the_closer_name_not_to_the_first_row() -> None:
+    """GH-4207: every name that holds a short query scores the same, so the closer whole name has to win."""
+    pollen = [
+        "Rheinland-Pfalz und Saarland: Rhein, Pfalz, Nahe und Mosel",
+        "Rheinland-Pfalz und Saarland: Mittelgebirgsbereich Rheinland-Pfalz",
+        "Rheinland-Pfalz und Saarland: Saarland",
+    ]
+    assert _order("Saarland", pollen)[0] == "Rheinland-Pfalz und Saarland: Saarland"
+    # the scores themselves are untouched: all three tie on the first key
+    assert len({score for _, score in match_names("Saarland", pollen, 0.8)}) == 1
+
+    franken = [
+        "Bayern: Bayern nördl. der Donau, o. Bayr. Wald, o. Mainfranken",
+        "Bayern: Mainfranken",
+    ]
+    assert _order("Mainfranken", franken)[0] == "Bayern: Mainfranken"
+
+    saxony = ["Niedersachsen und Bremen: Östl. Niedersachsen", "Sachsen: Tiefland Sachsen"]
+    assert _order("Sachsen", saxony)[0] == "Sachsen: Tiefland Sachsen"
+
+
+def test_the_closer_name_wins_in_the_transliterated_form_too() -> None:
+    """The tie-break reads the transliterated form as well: the umlaut is spelled out in the closer name.
+
+    Both names score 90 and hold ``muenchen`` in the transliterated form. In the plain form the umlaut name is
+    ``munchen``, a worse match (60.9) than the name that spells it out (61.5), so only the transliterated forms
+    (66.7 against 61.5) put it first.
+    """
+    names = ["Bayern: Muenchen 1", "Bayern: München"]
+
+    assert len({score for _, score in match_names("Muenchen", names, 0.8)}) == 1
+    assert _order("Muenchen", names) == ["Bayern: München", "Bayern: Muenchen 1"]
+
+
+def test_a_tie_on_both_keys_keeps_the_order_of_the_names() -> None:
+    """Same score and the same closeness: the order the names were given in decides."""
+    names = ["Kiel-B", "Kiel-A", "Kiel-C"]
+    assert _order("Kiel", names) == names
+    assert _order("Kiel", names[::-1]) == names[::-1]

@@ -85,12 +85,40 @@ def _scores(query: str, choices: Sequence[str | None], cutoff: float) -> dict[in
     }
 
 
+def _closeness(
+    query_plain: str,
+    query_spelled: str,
+    folded: Sequence[tuple[str, str] | None],
+    matched: dict[int, float],
+) -> dict[int, float]:
+    """Return how close each matched name is to the query as a whole: ``fuzz.ratio``, the better form.
+
+    It is the tie-break among equal ``WRatio`` scores, so it is only taken of the names that matched.
+    """
+    closeness: dict[int, float] = {}
+    for index in matched:
+        pair = folded[index]
+        if pair is None:  # a null name never matches, so never gets here
+            continue
+        closeness[index] = max(
+            fuzz.ratio(query_plain, pair[0], processor=fuzz_utils.default_process),
+            fuzz.ratio(query_spelled, pair[1], processor=fuzz_utils.default_process),
+        )
+    return closeness
+
+
 def match_names(query: str, names: Sequence[str | None], threshold: float) -> list[tuple[int, float]]:
-    """Score the names against the query, best match first, equal scores in the order of the names.
+    """Score the names against the query, best match first, equal scores the closer whole name first.
 
     The score is rapidfuzz's ``WRatio`` (a weighted composite of ratio, partial, token-sort and token-set
     ratio, so that a short place name matches a longer station name: ``Kiel`` -> ``Kiel-Holtenau``) of the
     folded names, the better of the plain and the transliterated form. A name that is null never matches.
+
+    ``WRatio`` gives every name that holds a short query the same score (90, the partial ratio weighted
+    down), so among equal scores the name closer to the query as a whole comes first, by ``fuzz.ratio`` of
+    the same folded forms (``Saarland`` -> ``Rheinland-Pfalz und Saarland: Saarland`` before
+    ``Rheinland-Pfalz und Saarland: Rhein, Pfalz, Nahe und Mosel``). Only a tie on both is left in the
+    order of the names.
 
     Args:
         query: The name asked for.
@@ -111,4 +139,5 @@ def match_names(query: str, names: Sequence[str | None], threshold: float) -> li
         spelled = [None if pair is None else pair[1] for pair in folded]
         for index, score in _scores(query_spelled, spelled, cutoff).items():
             best[index] = max(score, best.get(index, 0.0))
-    return sorted(best.items(), key=lambda match: (-match[1], match[0]))
+    closeness = _closeness(query_plain, query_spelled, folded, best)
+    return sorted(best.items(), key=lambda match: (-match[1], -closeness[match[0]], match[0]))

@@ -45,6 +45,11 @@ Types of changes:
 
 ### Fixed
 
+- Station search by name (`filter_by_name`, and `name=` of the CLI, REST API and MCP): among names
+  of an equal score the closer whole name now comes first, not the lowest station id. `Kiel`
+  finds `Kiel-Holtenau` before `Kiel-Kronshagen`, and names that share a prefix (regions, e.g.
+  `Bayern: Mainfranken`) the one that is the query first. Scores and threshold are unchanged
+  (GH-4207)
 - `dwd/mosmix`: the snow depth of MOSMIX-SNOW that the model writes a little below 0 (`sncv` -0.01
   and -0.02 m of a melting snow) is returned as 0.0, with the number kept as
   `rejected:floor,raw:-0.02` in `quality_flags`, as `dwd/dmo` does for its precipitation. The
