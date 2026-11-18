@@ -998,7 +998,9 @@ test.describe('the thunderstorm cells', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
   const WITH_CELLS = { 'storm-cells': () => exampleScan() }
-  const NO_CELLS = { 'storm-cells': () => emptyScan('2026-11-17T22:20:00.000000+00:00') }
+  const NO_CELLS = { 'storm-cells': () => emptyScan() }
+  /** The scan of a page whose clock is set to 2026-11-17 22:21 UTC (a scan is out of date after 20 minutes of that clock) */
+  const SCAN_OF_THE_CLOCK = '2026-11-17T22:15:00.000000+00:00'
 
   /** Counts the requests for the scan of the cells, and answers each from `scan` */
   function counting(scan: () => unknown) {
@@ -1052,6 +1054,8 @@ test.describe('the thunderstorm cells', () => {
     await expect.poll(() => zoomOf(page)).toBe(6)
     await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 4')
     await expect(page.locator('.leaflet-control-attribution')).toContainText('Source: Deutscher Wetterdienst (KONRAD3D)')
+    // with the licence as a link to its terms, on the map as in the panel
+    await expect(page.locator('.leaflet-control-attribution').getByRole('link', { name: 'CC-BY-4.0' })).toHaveAttribute('href', 'https://creativecommons.org/licenses/by/4.0/')
     await expect(page.getByRole('application', { name: /^Station map/ })).toHaveAccessibleName(`${en.mapTool.mapLabelCells.replace('{layer}', en.mapTool.layerForecast)}`)
 
     // the same cells in the panel, where the map is not needed to read them: severity in words and numbers, the motion as calculated
@@ -1063,7 +1067,10 @@ test.describe('the thunderstorm cells', () => {
     await expect(list.getByRole('listitem').first()).toContainText('Cell 12')
     await expect(list.getByRole('listitem').first()).toContainText('Severity 3 (extreme)')
     await expect(list.getByRole('listitem').first()).toContainText('Moves east at 31 km/h (direction calculated)')
-    await expect(panel.getByTestId('map-cells-scan')).toContainText('22:15 UTC')
+    await expect(panel.getByTestId('map-cells-scan')).toContainText('UTC')
+    // each cell is told where it is, and is a button that centres the map on it
+    await expect(list.getByRole('listitem').first()).toContainText('Position 51.30, 12.40')
+    await expect(list.getByRole('button').first()).toHaveAccessibleDescription(en.mapTool.cellsCentreHint)
     // the credit of the data where the layer is shown: DWD, the product and the licence's terms
     const credit = panel.getByTestId('map-cells-credit')
     await expect(credit).toContainText('KONRAD3D radar product of the German Weather Service (DWD)')
@@ -1080,7 +1087,7 @@ test.describe('the thunderstorm cells', () => {
     const backend = await open(page, baseURL!, '/map?cells=1', NO_CELLS)
     const panel = page.getByTestId('map-cells')
     await expect(panel.getByTestId('map-cells-summary')).toHaveText(en.mapTool.cellsNone)
-    await expect(panel.getByTestId('map-cells-scan')).toContainText('22:20 UTC')
+    await expect(panel.getByTestId('map-cells-scan')).toContainText('UTC')
     await expect(panel.getByRole('list')).toHaveCount(0)
     await expect(page.locator('.leaflet-storm-cells-pane path')).toHaveCount(0)
     await expect(page.locator('.storm-cell-mark')).toHaveCount(0)
@@ -1121,7 +1128,7 @@ test.describe('the thunderstorm cells', () => {
 
   test('ask for the scan again every 5 minutes while they are shown, and not once they are switched off', async ({ page, baseURL }) => {
     await page.clock.install({ time: new Date('2026-11-17T22:21:00Z') })
-    const cells = counting(emptyScan)
+    const cells = counting(() => emptyScan(SCAN_OF_THE_CLOCK))
     await open(page, baseURL!, '/map?cells=1', cells.handlers)
     await expect(page.getByTestId('map-cells-summary')).toBeVisible()
     expect(cells.asked).toHaveLength(1)
@@ -1140,7 +1147,7 @@ test.describe('the thunderstorm cells', () => {
 
   test('are not asked for while the tab is in the background, and are as it comes back to a scan that is due', async ({ page, baseURL }) => {
     await page.clock.install({ time: new Date('2026-11-17T22:21:00Z') })
-    const cells = counting(emptyScan)
+    const cells = counting(() => emptyScan(SCAN_OF_THE_CLOCK))
     await open(page, baseURL!, '/map?cells=1', cells.handlers)
     await expect(page.getByTestId('map-cells-summary')).toBeVisible()
     const visibility = (state: 'hidden' | 'visible') => page.evaluate((next) => {
@@ -1165,6 +1172,37 @@ test.describe('the thunderstorm cells', () => {
     failing = false
     await page.getByTestId('map-cells-retry').click()
     await expect(page.getByTestId('map-cells').getByRole('listitem')).toHaveCount(4)
+  })
+
+  test('are told from the place picked, and a press on a cell centres the map on it, said in the status, with the focus on its row', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?cells=1&station=10384', WITH_CELLS)
+    const panel = page.getByTestId('map-cells')
+    await expect(panel.getByRole('listitem')).toHaveCount(4)
+    // from Berlin-Tempelhof: the distance and the point of the compass
+    await expect(panel.getByTestId('map-cells-location').first()).toHaveText(/^[\d,]+ km from the picked place, to the (south|west|north|east)/)
+    await expect.poll(() => zoomOf(page)).toBe(8)
+    // the cell 7, over Frankfurt, is the second: a press centres the map on it at a zoom that fits it (a town, 10 at most)
+    const row = panel.getByRole('button').nth(1)
+    await row.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('map-announcement')).toHaveText('Map centred on cell 7')
+    await expect(row).toBeFocused()
+    await expect.poll(() => zoomOf(page)).toBeGreaterThanOrEqual(9)
+    // the cell's outline is now over the middle of the map
+    const map = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
+    await expect.poll(async () => {
+      // the paths are in the order of the list: the second is the cell 7
+      const box = (await page.locator('.leaflet-storm-cells-pane path').nth(1).boundingBox())
+      return box ? Math.round(Math.abs(box.x + box.width / 2 - (map.x + map.width / 2))) : 9999
+    }, { timeout: 5000 }).toBeLessThan(300)
+  })
+
+  test('take the cells of a scan that is out of date off the map, keep the list and say so', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?cells=1', { 'storm-cells': () => exampleScan(new Date(Date.now() - 3 * 3_600_000).toISOString().replace('Z', '000+00:00')) })
+    await expect(page.getByTestId('map-cells').getByRole('listitem')).toHaveCount(4)
+    await expect(page.getByTestId('map-cells-outdated')).toContainText('is out of date (over 20 minutes old)')
+    await expect(page.locator('.leaflet-storm-cells-pane path')).toHaveCount(0)
+    await expect(page.locator('.storm-cell-mark')).toHaveCount(0)
   })
 
   test('tell a stale scan, which makes an empty one no all-clear', async ({ page, baseURL }) => {

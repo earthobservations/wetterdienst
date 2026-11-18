@@ -7,7 +7,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { clusterAt, clusterRadius, clusterStations, clusterText, isGroupedAt, reportingSweep, viewForCluster, worldPixels } from '~/utils/map-cluster'
 import { OSM_ATTRIBUTION, OSM_TILES } from '~/utils/map-tiles'
 import { clickReach, dotRadius, HOME_VIEW, SELECTED_EDGE_PX, SELECTED_RADIUS_PX } from '~/utils/map-tool'
-import { drawable, hasMotion, MARK_SIZE, markSvg, styleOf } from '~/utils/storm-cells'
+import { creditHtml, drawable, hasMotion, MARK_SIZE, markSvg, styleOf } from '~/utils/storm-cells'
 
 // The map of the map tool (GH-3650), from the design of #3580. Stations are dots drawn on canvas tiles rather than
 // markers: a station is no stop of the keyboard, so Tab does not walk through the thousands of the forecast's points,
@@ -49,8 +49,10 @@ const props = defineProps<{
   panelOpen?: boolean
   /** The thunderstorm cells to draw over the stations (GH-4208); undefined where the layer is off */
   cells?: StormCell[]
-  /** The credit the cells' data asks for, added to the map's own where the cells are shown */
-  cellsCredit?: string | null
+  /** The credit the cells' data asks for (its line and the licence's link), added to the map's own where the cells are shown */
+  cellsCredit?: { text: string, license: { label: string, url: string } | null } | null
+  /** A press on a cell of the list (GH-4208): the map centres on it, once for each press (`count`), as a click on a group does */
+  centreOn?: { count: number, latitude: number, longitude: number, bounds: { south: number, west: number, north: number, east: number } } | null
 }>()
 
 const emit = defineEmits<{
@@ -87,6 +89,8 @@ const MARKS_PANE = 'station-marks'
 /** The panes of the cells: the outlines over the dots (400) and the marks over the outlines, both under the marks of the station picked (450) */
 const CELLS_PANE = 'storm-cells'
 const CELL_MARKS_PANE = 'storm-cell-marks'
+/** The zoom a press on a cell of the list goes no farther than */
+const CELL_ZOOM_LIMIT = 10
 
 const { t } = useI18n()
 const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
@@ -346,9 +350,32 @@ function drawCredit() {
   }
   const credit = props.cellsCredit
   if (credit && props.cells) {
-    attribution.addAttribution(credit)
-    creditShown = credit
+    creditShown = creditHtml(credit)
+    attribution.addAttribution(creditShown)
   }
+}
+
+/** The presses on a cell that the map has centred on */
+let centred = 0
+
+/**
+ * Centres on the cell of a press of the list, as a click on a group of stations does (`viewForCluster`): on its centre, at the zoom
+ * that fits its outline, at least one in and no farther than 10, where a cell is a few kilometres wide and a town is seen.
+ */
+function centreOnCell() {
+  const target = props.centreOn
+  if (!map || !target || target.count <= centred)
+    return
+  centred = target.count
+  const owner = map
+  const view = viewForCluster(
+    target,
+    box => owner.getBoundsZoom(L.latLngBounds([box.south, box.west], [box.north, box.east]), false, L.point(48, 48)),
+    owner.getZoom(),
+    CELL_ZOOM_LIMIT,
+    owner.getMaxZoom(),
+  )
+  owner.setView([view.latitude, view.longitude], view.zoom, { animate: !reducedMotion.value })
 }
 
 /** The reader's own position: a ring round a dot, in navy, which no station's mark is (the yellow disc, the white ring) */
@@ -531,6 +558,7 @@ watch(() => [props.stations, props.reporting, props.grouping], () => {
 })
 watch(() => props.cells, drawCells)
 watch(() => [props.cells, props.cellsCredit], drawCredit)
+watch(() => props.centreOn, centreOnCell)
 watch(() => [props.selected, props.place, props.recentre, props.position], () => {
   drawSelection()
   reveal()

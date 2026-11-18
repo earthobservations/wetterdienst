@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
 import { useStormCells } from '~/composables/useStormCells'
 import { REFRESH_MS } from '~/utils/storm-cells'
-import { emptyScan, exampleScan } from '../../helpers/storm-cells-answer'
+import { emptyScan, exampleScan, recentReference } from '../../helpers/storm-cells-answer'
 
 // The refresh of the map's thunderstorm cells (GH-4208): the scan is asked for while the layer is shown and the tab is in
 // front, again every 5 minutes (DWD writes a scan that often), and not at all when the layer is off or the tab is in the
@@ -70,7 +70,7 @@ describe('the scan of the thunderstorm cells', () => {
     await settle()
     expect(storm.status.value).toBe('success')
     expect(storm.scan.value!.cells).toEqual([])
-    expect(storm.scan.value!.referenceTime).toBe('2026-11-17T22:15:00.000000+00:00')
+    expect(storm.scan.value!.referenceTime).toBe(recentReference())
   })
 
   it('is asked for again every 5 minutes, and not before', async () => {
@@ -127,29 +127,23 @@ describe('where nothing is asked for', () => {
     expect(fetched).toHaveBeenCalledTimes(1)
   })
 
-  it('asks at once when the tab comes back to a scan that is as old as the interval, and waits for the rest of it for one that is not', async () => {
+  it('asks at once when the tab comes back, whatever the age of the scan it holds, and waits the interval again after it', async () => {
     mount()
     await settle()
     setVisibility('hidden')
     await nextTick()
-    // back after 2 minutes: the scan in hand is not due yet, and is asked for 3 minutes later
+    // back after 2 minutes: the scan is asked for at once, so that what is shown is of the minute the reader is back
     vi.setSystemTime(Date.now() + 2 * 60_000)
     setVisibility('visible')
     await settle()
-    expect(fetched).toHaveBeenCalledTimes(1)
-    await vi.advanceTimersByTimeAsync(3 * 60_000)
     expect(fetched).toHaveBeenCalledTimes(2)
-
-    // away for ten minutes: asked for at once
-    setVisibility('hidden')
-    await nextTick()
-    vi.setSystemTime(Date.now() + 10 * 60_000)
-    setVisibility('visible')
-    await settle()
+    await vi.advanceTimersByTimeAsync(REFRESH_MS - 1)
+    expect(fetched).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(1)
     expect(fetched).toHaveBeenCalledTimes(3)
   })
 
-  it('asks at once when the layer is switched on again after the scan has aged, and keeps the scan it has meanwhile', async () => {
+  it('asks at once when the layer is switched on again, and keeps the scan it has meanwhile', async () => {
     const { on, storm } = mount()
     await settle()
     on.value = false
@@ -229,5 +223,111 @@ describe('a request that fails', () => {
     const { storm } = mount()
     await settle()
     expect(storm.status.value).toBe('error')
+  })
+})
+
+describe('a scan that has aged', () => {
+  it('is out of date once its reference time is more than 20 minutes behind, which is read when the answer comes', async () => {
+    // the scan of 22:10, the time 22:20
+    const { storm } = mount()
+    await settle()
+    expect(storm.outdated.value).toBe(false)
+    // the next request fails, 15 minutes on: the scan in hand is 25 minutes old
+    fetched.mockRejectedValue(new Error('offline'))
+    await vi.advanceTimersByTimeAsync(REFRESH_MS)
+    expect(storm.outdated.value).toBe(false)
+    await vi.advanceTimersByTimeAsync(REFRESH_MS)
+    // 22:30 and 22:10: 20 minutes exactly is not more
+    expect(storm.outdated.value).toBe(false)
+    await vi.advanceTimersByTimeAsync(REFRESH_MS)
+    expect(storm.scan.value).not.toBeNull()
+    expect(storm.refreshFailed.value).toBe(true)
+    expect(storm.outdated.value).toBe(true)
+  })
+
+  it('is out of date again after the layer was off for hours, at once, while the new scan is asked for, and the scan is kept', async () => {
+    const { on, storm } = mount()
+    await settle()
+    on.value = false
+    await nextTick()
+    vi.setSystemTime(Date.now() + 3 * 3_600_000)
+    // the request that the switch asks for does not come
+    fetched.mockReturnValue(new Promise(() => {}))
+    on.value = true
+    await nextTick()
+    expect(storm.scan.value).not.toBeNull()
+    expect(storm.outdated.value).toBe(true)
+  })
+
+  it('is out of date for the tab that comes back after hours, until the scan it asks for at once comes', async () => {
+    const { storm } = mount()
+    await settle()
+    setVisibility('hidden')
+    await nextTick()
+    vi.setSystemTime(Date.now() + 3 * 3_600_000)
+    let release!: (answer: unknown) => void
+    fetched.mockReturnValueOnce(new Promise((resolve) => {
+      release = resolve
+    }))
+    setVisibility('visible')
+    await nextTick()
+    expect(storm.outdated.value).toBe(true)
+    release(emptyScan())
+    await settle()
+    // the new scan is of the time now: not out of date
+    expect(fetched).toHaveBeenCalledTimes(2)
+    expect(storm.outdated.value).toBe(false)
+  })
+
+  it('is not out of date where the scan has no time of its own', async () => {
+    fetched.mockResolvedValue({ cells: [] })
+    const { storm } = mount()
+    await settle()
+    vi.setSystemTime(Date.now() + 3 * 3_600_000)
+    fetched.mockRejectedValue(new Error('offline'))
+    await vi.advanceTimersByTimeAsync(REFRESH_MS)
+    expect(storm.outdated.value).toBe(false)
+  })
+})
+
+describe('what failed before a new request', () => {
+  it('is no error while the request that follows a Retry runs: the status is pending, not error', async () => {
+    fetched.mockRejectedValueOnce(new Error('offline'))
+    const { storm } = mount()
+    await settle()
+    expect(storm.status.value).toBe('error')
+    fetched.mockReturnValueOnce(new Promise(() => {}))
+    void storm.retry()
+    await nextTick()
+    expect(storm.status.value).toBe('pending')
+    expect(storm.error.value).toBeNull()
+  })
+
+  it('is no error when the layer is switched on again after a failure: it is pending until the answer', async () => {
+    fetched.mockRejectedValueOnce(new Error('offline'))
+    const { on, storm } = mount()
+    await settle()
+    expect(storm.status.value).toBe('error')
+    on.value = false
+    await nextTick()
+    fetched.mockReturnValueOnce(new Promise(() => {}))
+    on.value = true
+    await nextTick()
+    expect(storm.status.value).toBe('pending')
+    expect(storm.error.value).toBeNull()
+  })
+
+  it('is no failed refresh when the layer is switched on again after one: the scan is shown without the note until it fails again', async () => {
+    const { on, storm } = mount()
+    await settle()
+    fetched.mockRejectedValueOnce(new Error('offline'))
+    await vi.advanceTimersByTimeAsync(REFRESH_MS)
+    expect(storm.refreshFailed.value).toBe(true)
+    on.value = false
+    await nextTick()
+    fetched.mockReturnValueOnce(new Promise(() => {}))
+    on.value = true
+    await nextTick()
+    expect(storm.refreshFailed.value).toBe(false)
   })
 })

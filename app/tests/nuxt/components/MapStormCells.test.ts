@@ -5,12 +5,15 @@ import { parseScan } from '~/utils/storm-cells'
 import { emptyScan, exampleScan, stormCell, stormCellsAnswer } from '../../helpers/storm-cells-answer'
 
 // The text of the map's thunderstorm cells (GH-4208): what a keyboard and a screen reader have of what the map draws. The
-// count and the scan it is of, the empty scan that is the usual one, the list of the cells with their severity in words
-// and their motion marked as calculated, the credit of the data, and what is told when the scan is old or fails.
+// count and the scan it is of, the empty scan that is the usual one, the list of the cells with where they are, their
+// severity in words and their motion marked as calculated, a press on a cell, the credit of the data, and what is told when
+// the scan is old, out of date or fails.
+
+const FIXED = '2026-11-17T22:15:00.000000+00:00'
 
 const mounted: Array<{ unmount: () => void }> = []
 async function mountCells(props: Record<string, unknown>) {
-  const wrapper = await mountSuspended(MapStormCells, { props: { status: 'success', refreshFailed: false, scan: null, ...props }, attachTo: document.body })
+  const wrapper = await mountSuspended(MapStormCells, { props: { status: 'success', refreshFailed: false, outdated: false, origin: null, scan: null, ...props }, attachTo: document.body })
   mounted.push(wrapper)
   return wrapper
 }
@@ -138,23 +141,87 @@ describe('a scan with cells', () => {
   })
 })
 
+describe('where each cell is', () => {
+  it('says its position, rounded, where nothing is picked', async () => {
+    const wrapper = await mountCells({ scan: parseScan(exampleScan()) })
+    expect(wrapper.findAll('[data-testid="map-cells-location"]').map(place => place.text())).toEqual([
+      'Position 51.30, 12.40',
+      'Position 50.10, 8.70',
+      'Position 48.60, 11.20',
+      'Position 52.90, 9.10',
+    ])
+  })
+
+  it('says its distance and the point of the compass it lies on from the station or place picked, in the words of the motion', async () => {
+    // Frankfurt am Main: the cell 7 is at 50.1, 8.7, which is some kilometres to the north-east of it... of this point
+    const wrapper = await mountCells({ scan: parseScan(exampleScan()), origin: { latitude: 50.0, longitude: 8.5 } })
+    const places = wrapper.findAll('[data-testid="map-cells-location"]').map(place => place.text())
+    // the second is the cell 7: 0.1 degrees north and 0.2 east of the place, about 20 km, to the north-east
+    expect(places[1]).toMatch(/^\d+ km from the picked place, to the north-east$/)
+    // the cell 12, far to the north-east, and the cell 3, to the south-east
+    expect(places[0]).toMatch(/^[\d,]+ km from the picked place, to the (north-)?east$/)
+    expect(places[2]).toMatch(/^[\d,]+ km from the picked place, to the south(-east)?$/)
+    // none of them says its position then
+    expect(places.some(place => place.startsWith('Position'))).toBe(false)
+  })
+
+  it('says that the cell is at the place where it is within half a kilometre of it', async () => {
+    const wrapper = await mountCells({ scan: parseScan(stormCellsAnswer([stormCell({ cell_id: '1', latitude: 50, longitude: 8 })])), origin: { latitude: 50.001, longitude: 8.001 } })
+    expect(text(wrapper, 'map-cells-location')).toBe('At the picked place')
+  })
+
+  it('says nothing of the place of a cell that has none', async () => {
+    const bare = { ...stormCell({ cell_id: '1', latitude: 50, longitude: 8 }), geometry: null, centroid_latitude: null, centroid_longitude: null } as unknown as ReturnType<typeof stormCell>
+    const wrapper = await mountCells({ scan: parseScan(stormCellsAnswer([bare])), origin: { latitude: 50, longitude: 8 } })
+    expect(wrapper.find('[data-testid="map-cells-location"]').exists()).toBe(false)
+    // and it is no button either: there is no map to centre on it
+    expect(wrapper.find('[data-testid="map-cells-entry"]').element.tagName).toBe('DIV')
+  })
+})
+
+describe('a press on a cell', () => {
+  it('is a button for each cell that has a position, described by what it does, which raises `centre` with the cell', async () => {
+    const wrapper = await mountCells({ scan: parseScan(exampleScan()) })
+    const entries = wrapper.findAll('[data-testid="map-cells-entry"]')
+    expect(entries.every(entry => entry.element.tagName === 'BUTTON' && entry.attributes('type') === 'button')).toBe(true)
+    const hint = wrapper.find(`#${entries[0]!.attributes('aria-describedby')}`)
+    expect(hint.text()).toBe('Centres the map on this cell.')
+    expect(hint.classes()).toContain('sr-only')
+    await entries[1]!.trigger('click')
+    const emitted = wrapper.emitted('centre') as Array<[{ id: string }]>
+    expect(emitted).toHaveLength(1)
+    expect(emitted[0]![0].id).toBe('7')
+  })
+})
+
 describe('while the scan comes, and when it does not', () => {
-  it('says that it is loading, with the layer\'s name as the heading', async () => {
+  it('says that it is loading in the one live line, with the layer\'s name as the heading', async () => {
     const wrapper = await mountCells({ status: 'pending' })
-    expect(text(wrapper, 'map-cells-loading')).toBe('Loading thunderstorm cells …')
+    expect(text(wrapper, 'map-cells-summary')).toBe('Loading thunderstorm cells …')
+    expect(wrapper.find('[data-testid="map-cells-summary"]').attributes('role')).toBe('status')
     expect(wrapper.find('h2').text()).toBe('Thunderstorm cells')
   })
 
-  it('says that it failed, as an alert, and offers Retry, which raises `retry`', async () => {
+  it('has the live line in the page from the start, so that the count is a change of it and not a new region', async () => {
+    const wrapper = await mountCells({ status: 'pending' })
+    const line = wrapper.find('[data-testid="map-cells-summary"]').element
+    await wrapper.setProps({ status: 'success', scan: parseScan(exampleScan()) })
+    // the same element, with the count in it
+    expect(wrapper.find('[data-testid="map-cells-summary"]').element).toBe(line)
+    expect(line.textContent!.trim()).toBe('Thunderstorm cells in the latest scan: 4')
+  })
+
+  it('says that it failed, as an alert, and offers Retry, which raises `retry`; the live line is empty then', async () => {
     const wrapper = await mountCells({ status: 'error' })
     expect(wrapper.find('[data-testid="map-cells-failed"]').attributes('role')).toBe('alert')
+    expect(text(wrapper, 'map-cells-summary')).toBe('')
     await wrapper.find('[data-testid="map-cells-retry"]').trigger('click')
     expect(wrapper.emitted('retry')).toHaveLength(1)
   })
 
   it('keeps the scan where a refresh failed, and says which scan it is from', async () => {
-    const wrapper = await mountCells({ scan: parseScan(exampleScan()), refreshFailed: true })
-    expect(text(wrapper, 'map-cells-refresh-failed')).toMatch(/could not be refreshed\. The scan shown is from .*22:15 UTC/)
+    const wrapper = await mountCells({ scan: parseScan(exampleScan(FIXED)), refreshFailed: true })
+    expect(text(wrapper, 'map-cells-refresh-failed')).toMatch(/could not be refreshed\. The scan shown is from 22:15 UTC/)
     expect(wrapper.findAll('[data-testid="map-cells-item"]')).toHaveLength(4)
   })
 
@@ -166,5 +233,20 @@ describe('while the scan comes, and when it does not', () => {
     await wrapper.setProps({ scan: parseScan(emptyScan('2026-11-17T22:25:00.000000+00:00')) })
     expect(wrapper.find('[role="status"]').text()).toBe('No thunderstorm cells in the latest scan')
     expect(text(wrapper, 'map-cells-scan')).toContain('22:25 UTC')
+  })
+})
+
+describe('a scan that is out of date', () => {
+  it('says so, with the time it is from, and keeps the list: the cells are not drawn on the map then', async () => {
+    const wrapper = await mountCells({ scan: parseScan(exampleScan(FIXED)), outdated: true })
+    expect(text(wrapper, 'map-cells-outdated')).toBe('The scan from 22:15 UTC is out of date (over 20 minutes old). Its cells are not drawn on the map and may be gone.')
+    expect(wrapper.findAll('[data-testid="map-cells-item"]')).toHaveLength(4)
+    // the backend's own warning is not said as well
+    expect(wrapper.find('[data-testid="map-cells-stale"]').exists()).toBe(false)
+  })
+
+  it('says nothing of it for a scan that is not', async () => {
+    const wrapper = await mountCells({ scan: parseScan(exampleScan(FIXED)) })
+    expect(wrapper.find('[data-testid="map-cells-outdated"]').exists()).toBe(false)
   })
 })

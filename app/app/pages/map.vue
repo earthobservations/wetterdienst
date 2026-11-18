@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ProviderNetworkCoverageResponse, Station, StripesStationsResponse } from '#shared/types/api'
 import type { CloserStation, MapLayer, MapState, MeasuredSource, PickedStation, PlacedStation, PlaceOrigin, Point, ReportingRule } from '~/utils/map-tool'
+import type { StormCell } from '~/utils/storm-cells'
 import { defineAsyncComponent } from 'vue'
 import MapForecast from '~/components/MapForecast.vue'
 import MapLayers from '~/components/MapLayers.vue'
@@ -38,6 +39,7 @@ import {
   wmoNumber,
   yearOf,
 } from '~/utils/map-tool'
+import { cellView } from '~/utils/storm-cells'
 
 // The map tool (GH-3650), from the design of #3580: the stations of the layer chosen in the panel of the layers button over the map, and a
 // panel beside it (a sheet under it on a phone) that finds a station by name, lists the ones near the centre of the
@@ -254,12 +256,18 @@ const mapLabel = computed(() => t(cells.value ? 'mapTool.mapLabelCells' : 'mapTo
 // ---- the thunderstorm cells of DWD's radar (GH-4208) -------------------------------------------------------------
 
 const storm = useStormCells(() => cells.value)
-/** The cells the map draws: none where the layer is off or the scan has not come (the panel says which) */
-const stormCells = computed(() => cells.value && storm.scan.value ? storm.scan.value.cells : undefined)
-/** The credit of the cells' data for the map's own: the provider's line, and the product it is of */
+/**
+ * The cells the map draws: none where the layer is off, the scan has not come, or it is out of date (more than 20 minutes old: the
+ * list keeps it and says so, and the map does not draw cells that were true then as the sky now)
+ */
+const stormCells = computed(() => cells.value && storm.scan.value && !storm.outdated.value ? storm.scan.value.cells : undefined)
+/** The credit of the cells' data for the map's own: the provider's line and the product it is of, and the licence as a link to its terms */
 const stormCredit = computed(() => {
-  const attribution = storm.scan.value?.credit?.attribution
-  return attribution ? `${attribution} (KONRAD3D)` : null
+  const credit = storm.scan.value?.credit
+  if (!credit?.attribution)
+    return null
+  const license = credit.license
+  return { text: `${credit.attribution} (KONRAD3D)`, license: license ? { label: license.spdx ?? license.name, url: license.url } : null }
 })
 /** Whether the map's legend has the cells' marks to tell: where a scan has some */
 const cellsLegend = computed(() => Boolean(stormCells.value?.length))
@@ -475,6 +483,23 @@ function onGroup(count: number, reportingCount: number | null) {
   }, 100)
 }
 onBeforeUnmount(() => clearTimeout(groupAnnouncement))
+
+/** A press on a cell of the list: the map centres on it, once for each press (`StationMap.vue`) */
+const cellCentre = ref<{ count: number } & NonNullable<ReturnType<typeof cellView>> | null>(null)
+let cellPresses = 0
+/**
+ * Centres the map on a cell of the list, as a click on a group does, and says so in the panel's status. The focus stays on the
+ * cell's row, where the reader is in the list; on a phone, where the map is over the panel, the map is brought into view.
+ */
+function centreCell(cell: StormCell) {
+  const view = cellView(cell)
+  if (!view)
+    return
+  cellCentre.value = { count: ++cellPresses, ...view }
+  announcement.value = t('mapTool.cellsCentred', { id: cell.id })
+  if (!wide.value)
+    document.querySelector('.map-stage')?.scrollIntoView({ block: 'start', behavior: reducedMotion.value ? 'auto' : 'smooth' })
+}
 
 function back() {
   const id = selectedId.value
@@ -740,7 +765,16 @@ watch(() => route.query, (query) => {
             </p>
 
             <!-- the thunderstorm cells of the latest radar scan, in words (GH-4208): over whatever the panel is about -->
-            <MapStormCells v-if="cells" :scan="storm.scan.value" :status="storm.status.value" :refresh-failed="storm.refreshFailed.value" @retry="storm.retry()" />
+            <MapStormCells
+              v-if="cells"
+              :scan="storm.scan.value"
+              :status="storm.status.value"
+              :refresh-failed="storm.refreshFailed.value"
+              :outdated="storm.outdated.value"
+              :origin="anchor"
+              @retry="storm.retry()"
+              @centre="centreCell"
+            />
 
             <!-- a station or a place picked: what there is to see of it -->
             <div v-if="selected" class="map-detail">
@@ -1026,6 +1060,7 @@ watch(() => route.query, (query) => {
                 :panel-open="layersOpen"
                 :cells="stormCells"
                 :cells-credit="stormCredit"
+                :centre-on="cellCentre"
                 :label="mapLabel"
                 @pick="onPick"
                 @view="view = $event"

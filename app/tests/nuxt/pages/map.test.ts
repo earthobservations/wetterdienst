@@ -22,7 +22,7 @@ vi.mock('~/components/StationMap.vue', async () => {
   return {
     __esModule: true,
     default: defineComponent({
-      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping', 'panelOpen', 'cells', 'cellsCredit'],
+      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping', 'panelOpen', 'cells', 'cellsCredit', 'centreOn'],
       emits: ['pick', 'view', 'group'],
       setup(props, { emit }) {
         stage.props = props
@@ -2329,7 +2329,10 @@ describe('the thunderstorm cells of DWD\'s radar (GH-4208)', () => {
     expect(cellsAsked).toEqual([{ track: 'false' }])
     expect(cellsSwitch(wrapper).attributes('aria-checked')).toBe('true')
     // the cells are drawn with the credit DWD asks for, and the map says what it shows
-    expect(stage.props.cellsCredit).toBe('Source: Deutscher Wetterdienst (KONRAD3D)')
+    expect(stage.props.cellsCredit).toEqual({
+      text: 'Source: Deutscher Wetterdienst (KONRAD3D)',
+      license: { label: 'CC-BY-4.0', url: 'https://creativecommons.org/licenses/by/4.0/' },
+    })
     expect(stage.props.label).toBe('Station map: Forecast stations, with thunderstorm cells')
     // the stations are still there under them, and the map has not moved: no pick of a station and no recentre
     expect(stage.props.stations).toHaveLength(4)
@@ -2346,12 +2349,11 @@ describe('the thunderstorm cells of DWD\'s radar (GH-4208)', () => {
   })
 
   it('says that the latest scan has no cell, with its time, and draws none: an empty scan is the usual one', async () => {
-    cellsScan = () => emptyScan('2026-11-17T22:20:00.000000+00:00')
+    cellsScan = () => emptyScan()
     const wrapper = await mountMap('/map?cells=1')
-    await vi.waitFor(() => expect(cellsPanel(wrapper).find('[data-testid="map-cells-summary"]').exists()).toBe(true))
+    await vi.waitFor(() => expect(stage.props.cells).toEqual([]))
     expect(cellsPanel(wrapper).find('[data-testid="map-cells-summary"]').text()).toBe('No thunderstorm cells in the latest scan')
-    expect(cellsPanel(wrapper).find('[data-testid="map-cells-scan"]').text()).toMatch(/22:20 UTC$/)
-    expect(stage.props.cells).toEqual([])
+    expect(cellsPanel(wrapper).find('[data-testid="map-cells-scan"]').text()).toMatch(/^Scan of .* UTC$/)
     // no mark to explain
     expect(wrapper.find('[data-testid="map-legend-cell"]').exists()).toBe(false)
   })
@@ -2405,5 +2407,56 @@ describe('the thunderstorm cells of DWD\'s radar (GH-4208)', () => {
     const wrapper = await mountMap('/map?cells=1&station=10147')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL'))
     await vi.waitFor(() => expect(cellsPanel(wrapper).findAll('[data-testid="map-cells-item"]')).toHaveLength(4))
+  })
+
+  it('tells each cell\'s place by its position where nothing is picked, and by its distance and bearing from the station or place that is', async () => {
+    cellsScan = () => exampleScan()
+    const wrapper = await mountMap('/map?cells=1')
+    await vi.waitFor(() => expect(cellsPanel(wrapper).findAll('[data-testid="map-cells-item"]')).toHaveLength(4))
+    expect(cellsPanel(wrapper).findAll('[data-testid="map-cells-location"]').map(place => place.text())[1]).toBe('Position 50.10, 8.70')
+    // a station picked: Hamburg-Fuhlsbuettel is the place, and the cells are told from it
+    await wrapper.find('[data-station-id="10147"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL'))
+    const places = cellsPanel(wrapper).findAll('[data-testid="map-cells-location"]').map(place => place.text())
+    expect(places).toHaveLength(4)
+    // the cell 21, at 52.9, 9.1, is some 85 km to the south-west of the station at 53.63, 10.0
+    expect(places[3]).toMatch(/^\d+ km from the picked place, to the south-west$/)
+    expect(places.some(place => place.startsWith('Position'))).toBe(false)
+  })
+
+  it('centres the map on a cell of the list, once for each press, and says so in the panel\'s status', async () => {
+    cellsScan = () => exampleScan()
+    const wrapper = await mountMap('/map?cells=1')
+    await vi.waitFor(() => expect(cellsPanel(wrapper).findAll('[data-testid="map-cells-entry"]')).toHaveLength(4))
+    expect(stage.props.centreOn).toBeNull()
+    // the second is the cell 7, at 50.1, 8.7
+    await cellsPanel(wrapper).findAll('[data-testid="map-cells-entry"]')[1]!.trigger('click')
+    await vi.waitFor(() => expect(stage.props.centreOn).toMatchObject({ count: 1, latitude: 50.1, longitude: 8.7 }))
+    // the box the map fits to it is the cell's outline
+    expect(stage.props.centreOn.bounds.north).toBeGreaterThan(50.1)
+    expect(stage.props.centreOn.bounds.south).toBeLessThan(50.1)
+    expect(wrapper.find('[data-testid="map-announcement"]').text()).toBe('Map centred on cell 7')
+    // a press on the same cell again is a press: the count moves, so that the map centres on it again after the reader has panned away
+    await cellsPanel(wrapper).findAll('[data-testid="map-cells-entry"]')[1]!.trigger('click')
+    await vi.waitFor(() => expect(stage.props.centreOn.count).toBe(2))
+    // no pick of a station, and the address is as it was
+    expect(wrapper.find('[data-testid="map-station-name"]').exists()).toBe(false)
+  })
+
+  it('takes the cells of a scan that is out of date off the map, keeps them in the list and says so; the credit goes with them', async () => {
+    // a scan of three hours ago
+    cellsScan = () => exampleScan(new Date(Date.now() - 3 * 3_600_000).toISOString().replace('Z', '000+00:00'))
+    const wrapper = await mountMap('/map?cells=1')
+    await vi.waitFor(() => expect(cellsPanel(wrapper).findAll('[data-testid="map-cells-item"]')).toHaveLength(4))
+    expect(stage.props.cells).toBeUndefined()
+    expect(cellsPanel(wrapper).find('[data-testid="map-cells-outdated"]').text()).toContain('is out of date (over 20 minutes old)')
+    expect(wrapper.find('[data-testid="map-legend-cell"]').exists()).toBe(false)
+  })
+
+  it('draws the cells of a scan that is 19 minutes old, and no more', async () => {
+    cellsScan = () => exampleScan(new Date(Date.now() - 19 * 60_000).toISOString().replace('Z', '000+00:00'))
+    const wrapper = await mountMap('/map?cells=1')
+    await vi.waitFor(() => expect(stage.props.cells).toHaveLength(4))
+    expect(cellsPanel(wrapper).find('[data-testid="map-cells-outdated"]').exists()).toBe(false)
   })
 })

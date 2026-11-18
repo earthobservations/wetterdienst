@@ -22,6 +22,18 @@ export interface CellOptions {
 
 const LABELS = ['weak', 'moderate', 'severe', 'extreme']
 
+/**
+ * The reference time of a scan that came `minutesAgo` minutes before `now`, on the 5-minute grid DWD writes them on, as the
+ * backend writes it. The default of a scan of these fixtures: the app takes a scan more than 20 minutes old for out of date
+ * and draws none of its cells, so a fixture has to be of the time of the test (which a test with a fake clock reads through
+ * `Date.now()` as well).
+ */
+export function recentReference(now: number = Date.now(), minutesAgo = 6): string {
+  const grid = 5 * 60_000
+  const at = Math.floor((now - minutesAgo * 60_000) / grid) * grid
+  return `${new Date(at).toISOString().replace('Z', '')}000+00:00`
+}
+
 /** A closed ring of GeoJSON, `[longitude, latitude]`, round a centre: a square, the longitude's half-width as wide for the latitude's cosine */
 export function ringAround(latitude: number, longitude: number, size: number): number[][] {
   const wide = size / Math.cos(latitude * Math.PI / 180)
@@ -82,21 +94,21 @@ export function stormCellsAnswer(cells: Array<ReturnType<typeof stormCell>> = []
       counts: { stations: 0, rows: cells.length },
       warnings: options.warnings ?? [],
     },
-    reference_time: options.referenceTime ?? '2026-11-17T22:15:00.000000+00:00',
+    reference_time: options.referenceTime ?? recentReference(),
     cells,
   }
 }
 
 /** A scan with the cells the screenshots and the e2e specs show: four of different severities, with their motion, over Germany */
-export function exampleScan() {
+export function exampleScan(referenceTime?: string) {
   return stormCellsAnswer([
     stormCell({ cell_id: '7', latitude: 50.1, longitude: 8.7, severity: 2, speed: 48, direction: 62, size: 0.16 }),
     stormCell({ cell_id: '12', latitude: 51.3, longitude: 12.4, severity: 3, speed: 31, direction: 95, size: 0.2 }),
     stormCell({ cell_id: '3', latitude: 48.6, longitude: 11.2, severity: 1, speed: 22, direction: 140, size: 0.12 }),
     stormCell({ cell_id: '21', latitude: 52.9, longitude: 9.1, severity: 0, speed: 15, direction: 250, size: 0.1 }),
-  ])
+  ], { referenceTime })
 }
 
-export function emptyScan(referenceTime = '2026-11-17T22:15:00.000000+00:00') {
+export function emptyScan(referenceTime: string = recentReference()) {
   return stormCellsAnswer([], { referenceTime })
 }

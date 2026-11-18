@@ -243,3 +243,66 @@ export function markSvg(cell: Pick<StormCell, 'severity' | 'speedKmh' | 'directi
     + `<text x="${middle}" y="${middle + 0.5}" text-anchor="middle" dominant-baseline="central" font-family="system-ui, sans-serif" font-size="13" font-weight="700" fill="#ffffff">${style.text}</text>`
     + `</svg>`
 }
+
+/** The age after which a scan is out of date, as the backend's `scan-stale` warning has it (`SCAN_STALE_AFTER`): 20 minutes */
+export const OUTDATED_AFTER_MS = 20 * 60 * 1000
+
+/**
+ * Whether a scan is out of date at `now`: its reference time (the start of DWD's radar cycle) is more than 20 minutes behind.
+ * A scan kept while the layer was off, the tab hidden or a refresh failing ages; its cells, which were true then, are then
+ * no longer drawn as the sky now. A scan with no time of its own is not told out of date, as nothing says it is.
+ */
+export function isOutdated(referenceTime: string | null, now: number): boolean {
+  const at = referenceTime ? timestampDate(referenceTime) : null
+  return at !== null && now - at.getTime() > OUTDATED_AFTER_MS
+}
+
+/** The bearing from one point to another in degrees clockwise from north (0 to 360), the initial course of the great circle */
+export function bearingDegrees(from: { latitude: number, longitude: number }, to: { latitude: number, longitude: number }): number {
+  const rad = Math.PI / 180
+  const dLon = (to.longitude - from.longitude) * rad
+  const y = Math.sin(dLon) * Math.cos(to.latitude * rad)
+  const x = Math.cos(from.latitude * rad) * Math.sin(to.latitude * rad) - Math.sin(from.latitude * rad) * Math.cos(to.latitude * rad) * Math.cos(dLon)
+  return (Math.atan2(y, x) / rad + 360) % 360
+}
+
+/** The box of a cell's outline: its parts together */
+function outlineBox(cell: Pick<StormCell, 'outline'>): { south: number, west: number, north: number, east: number } | null {
+  const points = cell.outline.flat(2)
+  if (!points.length)
+    return null
+  const latitudes = points.map(point => point[0])
+  const longitudes = points.map(point => point[1])
+  return { south: Math.min(...latitudes), north: Math.max(...latitudes), west: Math.min(...longitudes), east: Math.max(...longitudes) }
+}
+
+/** Where a cell is: its centre, or the middle of its outline where DWD gave none, and the box the map fits to it; null where it has neither */
+export function cellView(cell: Pick<StormCell, 'outline' | 'latitude' | 'longitude'>): { latitude: number, longitude: number, bounds: { south: number, west: number, north: number, east: number } } | null {
+  const box = outlineBox(cell)
+  const latitude = cell.latitude ?? (box ? (box.south + box.north) / 2 : null)
+  const longitude = cell.longitude ?? (box ? (box.west + box.east) / 2 : null)
+  if (latitude === null || longitude === null)
+    return null
+  // a cell with no outline is a point: a box of a few kilometres round it, which the map zooms to a town
+  const pad = 0.03
+  return { latitude, longitude, bounds: box ?? { south: latitude - pad, north: latitude + pad, west: longitude - pad, east: longitude + pad } }
+}
+
+/** A position rounded to two decimals (about a kilometre) with a point, as it is read out: `50.10, 8.70` */
+export function roundedPosition(point: { latitude: number, longitude: number }): string {
+  return `${point.latitude.toFixed(2)}, ${point.longitude.toFixed(2)}`
+}
+
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' })[character]!)
+
+/**
+ * The credit of the cells' data as a line of the map's attribution (Leaflet takes HTML): the provider's credit line, the
+ * product, and the licence as a link to its terms. Both come from the answer, so they are escaped, and a link is made only
+ * for an `http(s)` address.
+ */
+export function creditHtml(credit: { text: string, license: { label: string, url: string } | null }): string {
+  const link = credit.license && /^https?:\/\//i.test(credit.license.url)
+    ? `, <a href="${escapeHtml(credit.license.url)}" target="_blank" rel="noopener">${escapeHtml(credit.license.label)}</a>`
+    : ''
+  return `${escapeHtml(credit.text)}${link}`
+}

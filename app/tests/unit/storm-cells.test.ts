@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { COMPASS_POINTS, compassPoint, drawable, hasMotion, LIST_LIMIT, listed, markSvg, outlineOf, parseCell, parseScan, SEVERITIES, SEVERITY_STYLES, styleOf, UNKNOWN_SEVERITY_STYLE } from '../../app/utils/storm-cells'
+import { bearingDegrees, cellView, COMPASS_POINTS, compassPoint, creditHtml, drawable, hasMotion, isOutdated, LIST_LIMIT, listed, markSvg, OUTDATED_AFTER_MS, outlineOf, parseCell, parseScan, roundedPosition, SEVERITIES, SEVERITY_STYLES, styleOf, UNKNOWN_SEVERITY_STYLE } from '../../app/utils/storm-cells'
 import { emptyScan, exampleScan, ringAround, stormCell, stormCellsAnswer } from '../helpers/storm-cells-answer'
 
 // The thunderstorm cells of the map (GH-4208): what the answer of `GET /api/storm-cells` is read into, and the decisions of
@@ -222,6 +222,78 @@ describe('the motion of a cell', () => {
     const cases: Array<[number, string]> = [[0, 'n'], [22, 'n'], [23, 'ne'], [45, 'ne'], [90, 'e'], [135, 'se'], [180, 's'], [225, 'sw'], [270, 'w'], [315, 'nw'], [337, 'nw'], [338, 'n'], [360, 'n'], [-45, 'nw']]
     for (const [degrees, point] of cases)
       expect(compassPoint(degrees), `${degrees} degrees`).toBe(point)
+  })
+})
+
+describe('where a cell is', () => {
+  it('has the bearing from a place to another in degrees clockwise from north', () => {
+    const from = { latitude: 50, longitude: 8 }
+    expect(bearingDegrees(from, { latitude: 51, longitude: 8 })).toBeCloseTo(0, 1)
+    expect(bearingDegrees(from, { latitude: 50, longitude: 9 })).toBeCloseTo(89.7, 0)
+    expect(bearingDegrees(from, { latitude: 49, longitude: 8 })).toBeCloseTo(180, 1)
+    expect(bearingDegrees(from, { latitude: 50, longitude: 7 })).toBeCloseTo(270.3, 0)
+    // a place north-east of the other is told by the compass as north-east
+    expect(compassPoint(bearingDegrees(from, { latitude: 50.5, longitude: 8.8 }))).toBe('ne')
+    expect(compassPoint(bearingDegrees(from, { latitude: 49.5, longitude: 7.2 }))).toBe('sw')
+  })
+
+  it('takes the centre of a cell for its place, and the middle of its outline where it has none, with the box the map fits to it', () => {
+    const cell = parseCell(stormCell({ cell_id: '1', latitude: 50, longitude: 8, size: 0.1 }), 0)!
+    const view = cellView(cell)!
+    expect(view).toMatchObject({ latitude: 50, longitude: 8 })
+    expect(view.bounds.south).toBeCloseTo(49.9, 4)
+    expect(view.bounds.north).toBeCloseTo(50.1, 4)
+    const bare = cellView({ ...cell, latitude: null, longitude: null })!
+    expect(bare.latitude).toBeCloseTo(50, 4)
+    expect(bare.longitude).toBeCloseTo(8, 3)
+  })
+
+  it('has a small box round a cell that has a centre and no outline, and none for a cell with neither', () => {
+    const point = cellView({ outline: [], latitude: 50, longitude: 8 })!
+    expect(point.bounds).toEqual({ south: 49.97, north: 50.03, west: 7.97, east: 8.03 })
+    expect(cellView({ outline: [], latitude: null, longitude: null })).toBeNull()
+    expect(cellView({ outline: [], latitude: 50, longitude: null })).toBeNull()
+  })
+
+  it('writes a position rounded to two decimals, with a point', () => {
+    expect(roundedPosition({ latitude: 50.1049, longitude: 8.7051 })).toBe('50.10, 8.71')
+    expect(roundedPosition({ latitude: -3, longitude: 8 })).toBe('-3.00, 8.00')
+  })
+})
+
+describe('a scan that has aged', () => {
+  const now = Date.parse('2026-11-17T22:40:00Z')
+
+  it('is out of date when its reference time is more than 20 minutes behind, and not before', () => {
+    expect(OUTDATED_AFTER_MS).toBe(20 * 60_000)
+    expect(isOutdated('2026-11-17T22:20:00.000000+00:00', now)).toBe(false)
+    expect(isOutdated('2026-11-17T22:19:59.000000+00:00', now)).toBe(true)
+    expect(isOutdated('2026-11-17T18:15:00.000000+00:00', now)).toBe(true)
+  })
+
+  it('is not told out of date where it has no time of its own, or one that is none', () => {
+    expect(isOutdated(null, now)).toBe(false)
+    expect(isOutdated('soon', now)).toBe(false)
+  })
+})
+
+describe('the credit on the map', () => {
+  it('is the credit line and the licence as a link, from the answer', () => {
+    expect(creditHtml({ text: 'Source: Deutscher Wetterdienst (KONRAD3D)', license: { label: 'CC-BY-4.0', url: 'https://creativecommons.org/licenses/by/4.0/' } }))
+      .toBe('Source: Deutscher Wetterdienst (KONRAD3D), <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC-BY-4.0</a>')
+  })
+
+  it('is the line alone where there is no licence, or one whose address is not http(s)', () => {
+    expect(creditHtml({ text: 'Source: x', license: null })).toBe('Source: x')
+    expect(creditHtml({ text: 'Source: x', license: { label: 'terms', url: 'javascript:alert(1)' } })).toBe('Source: x')
+  })
+
+  it('escapes what the answer says, which the map takes as HTML', () => {
+    const html = creditHtml({ text: '<img src=x onerror=alert(1)> & "q"', license: { label: '<b>x</b>', url: 'https://x.test/?a=1&b="2"' } })
+    expect(html).not.toContain('<img')
+    expect(html).not.toContain('<b>')
+    expect(html).toContain('&lt;img src=x onerror=alert(1)&gt; &amp; &quot;q&quot;')
+    expect(html).toContain('href="https://x.test/?a=1&amp;b=&quot;2&quot;"')
   })
 })
 

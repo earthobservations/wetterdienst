@@ -1,25 +1,34 @@
 <script setup lang="ts">
 import type { StormCellsStatus } from '~/composables/useStormCells'
+import type { Point } from '~/utils/map-tool'
 import type { StormCell, StormScan } from '~/utils/storm-cells'
-import { formatNumber, formatRunTime } from '~/utils/format'
-import { compassPoint, hasMotion, LIST_LIMIT, listed, SEVERITIES, styleOf } from '~/utils/storm-cells'
+import { formatHour, formatNumber, formatRunTime } from '~/utils/format'
+import { distanceKm, formatDistance } from '~/utils/map-tool'
+import { bearingDegrees, cellView, compassPoint, hasMotion, LIST_LIMIT, listed, roundedPosition, SEVERITIES, styleOf } from '~/utils/storm-cells'
+import { timestampDate } from '~/utils/timestamp'
 
-// The text of the map's thunderstorm cells (GH-4208): the list of the cells of the latest scan with their severity and
-// their motion, which the map draws and cannot tell a keyboard or a screen reader. It is in the panel beside the map
-// (under it on a phone), where the stations are, so a cell is reached without the map. It also says what the map cannot
-// show of an empty scan: DWD writes a scan every 5 minutes and about 80 % of them hold no cell, so "no thunderstorm
-// cells" is the usual answer and says which scan it is true of. The direction of a cell's motion is calculated by the
-// backend from its forecast track and is marked as calculated wherever it is told. The credit of the data (DWD, KONRAD3D,
-// the licence) is under the list, from the answer's own `metadata` block.
+// The text of the map's thunderstorm cells (GH-4208): the list of the cells of the latest scan with their place, their severity
+// and their motion, which the map draws and cannot tell a keyboard or a screen reader. It is in the panel beside the map
+// (under it on a phone), where the stations are, so a cell is reached without the map. A cell is told where it is: the
+// distance and bearing from the station or place picked, else its position; and a press on it (Enter on a keyboard) centres
+// the map on it, as a click on a group of stations does. It also says what the map cannot show of an empty scan: DWD writes
+// a scan every 5 minutes and about 80 % of them hold no cell, so "no thunderstorm cells" is the usual answer and says which
+// scan it is true of. A scan kept too long is told out of date, its cells no longer drawn. The direction of a cell's motion
+// is calculated by the backend from its forecast track and is marked as calculated wherever it is told. The credit of the
+// data (DWD, KONRAD3D, the licence) is under the list, from the answer's own `metadata` block.
 
 const props = defineProps<{
   scan: StormScan | null
   status: StormCellsStatus
   /** A refresh failed while the scan in hand is shown */
   refreshFailed: boolean
+  /** The scan in hand is more than 20 minutes old: its cells are not drawn on the map */
+  outdated: boolean
+  /** The place the panel is about (the station or the place picked), which each cell is told from; none where nothing is picked */
+  origin: Point | null
 }>()
 
-defineEmits<{ retry: [] }>()
+defineEmits<{ retry: [], centre: [cell: StormCell] }>()
 
 const { t } = useI18n()
 const formatLanguage = useFormatLanguage()
@@ -30,7 +39,22 @@ const shown = computed(() => listed(props.scan?.cells ?? [], showAll.value))
 const hasMore = computed(() => (props.scan?.cells.length ?? 0) > LIST_LIMIT)
 
 const time = computed(() => props.scan?.referenceTime ? formatRunTime(props.scan.referenceTime, formatLanguage.value) : '')
+/** The scan's time of day in UTC, for the notes about the scan: "22:15 UTC" */
+const clock = computed(() => {
+  const at = props.scan?.referenceTime ? timestampDate(props.scan.referenceTime) : null
+  return at ? `${formatHour(at.getTime(), formatLanguage.value)} UTC` : ''
+})
 const count = computed(() => formatNumber(props.scan?.cells.length ?? 0, formatLanguage.value, 0))
+
+/**
+ * The one live line, which is in the page from the start so that a change of its text is announced: loading, then the count
+ * (or that there is none). It carries no time, so an unchanged scan is not announced again every 5 minutes.
+ */
+const summary = computed(() => {
+  if (props.scan)
+    return props.scan.cells.length ? t('mapTool.cellsCount', { shown: count.value }) : t('mapTool.cellsNone')
+  return props.status === 'error' ? '' : t('mapTool.cellsLoading')
+})
 
 /** What the severity of a cell is called: its number and DWD's word for it, or that there is none */
 function severityText(cell: StormCell): string {
@@ -53,7 +77,26 @@ function motionText(cell: StormCell): string {
     : t('mapTool.cellsMotion', { direction, speed })
 }
 
+/**
+ * Where the cell is, in words: from the station or place picked, its distance and the point of the compass it lies on (the
+ * words of the motion's), or at it where it is within half a kilometre; with nothing picked, its position rounded to two
+ * decimals. None for a cell that has no position.
+ */
+function locationText(cell: StormCell): string | null {
+  const at = cellView(cell)
+  if (!at)
+    return null
+  if (!props.origin)
+    return t('mapTool.cellsPosition', { position: roundedPosition(at) })
+  const km = distanceKm(props.origin, at)
+  if (km < 0.5)
+    return t('mapTool.cellsAtPlace')
+  const direction = t(`mapTool.cellsCompass.${compassPoint(bearingDegrees(props.origin, at))}`)
+  return t('mapTool.cellsFromPlace', { distance: formatDistance(km, formatLanguage.value), direction })
+}
+
 const credit = computed(() => props.scan?.credit ?? null)
+const CENTRE_HINT_ID = 'map-cells-centre-hint'
 </script>
 
 <template>
@@ -63,11 +106,11 @@ const credit = computed(() => props.scan?.credit ?? null)
       {{ t('mapTool.layerCells') }}
     </h2>
 
-    <p v-if="status === 'pending' || status === 'idle'" class="map-card-note" role="status" data-testid="map-cells-loading">
-      {{ t('mapTool.cellsLoading') }}
+    <p class="text-sm font-semibold text-highlighted empty:hidden" role="status" data-testid="map-cells-summary">
+      {{ summary }}
     </p>
 
-    <div v-else-if="status === 'error'" class="flex flex-col items-start gap-2">
+    <div v-if="status === 'error' && !scan" class="flex flex-col items-start gap-2">
       <p class="map-card-note" role="alert" data-testid="map-cells-failed">
         {{ t('mapTool.cellsFailed') }}
       </p>
@@ -75,36 +118,50 @@ const credit = computed(() => props.scan?.credit ?? null)
     </div>
 
     <template v-else-if="scan">
-      <!-- the one live line: the count, which changes when the cells do and not each time the scan does -->
-      <p class="text-sm font-semibold text-highlighted" role="status" data-testid="map-cells-summary">
-        {{ scan.cells.length ? t('mapTool.cellsCount', { shown: count }) : t('mapTool.cellsNone') }}
-      </p>
       <p v-if="time" class="map-card-note" data-testid="map-cells-scan">
         {{ t('mapTool.cellsScan', { time }) }}
       </p>
-      <p v-if="scan.stale" class="map-card-note map-cells-warning" data-testid="map-cells-stale">
+      <p v-if="outdated" class="map-card-note map-cells-warning" data-testid="map-cells-outdated">
+        <UIcon name="i-ph-warning" class="size-4 shrink-0" />
+        {{ t('mapTool.cellsOutdated', { time: clock }) }}
+      </p>
+      <p v-else-if="scan.stale" class="map-card-note map-cells-warning" data-testid="map-cells-stale">
         <UIcon name="i-ph-warning" class="size-4 shrink-0" />
         {{ t('mapTool.cellsStale') }}
       </p>
       <div v-if="refreshFailed" class="flex flex-col items-start gap-2" data-testid="map-cells-refresh-failed">
         <p class="map-card-note map-cells-warning" role="alert">
           <UIcon name="i-ph-warning" class="size-4 shrink-0" />
-          {{ t('mapTool.cellsRefreshFailed', { time }) }}
+          {{ t('mapTool.cellsRefreshFailed', { time: clock }) }}
         </p>
         <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="$emit('retry')" />
       </div>
 
       <ul v-if="scan.cells.length" id="map-cells-list" class="map-cells-list" :aria-label="t('mapTool.cellsListLabel')" data-testid="map-cells-list">
-        <li v-for="cell in shown" :key="cell.id" class="map-cells-item" data-testid="map-cells-item">
-          <!-- the badge is the mark on the map: the number is repeated in the words beside it, so it is no cue alone -->
-          <span class="map-cells-badge" :style="{ background: styleOf(cell.severity).color }" aria-hidden="true">{{ styleOf(cell.severity).text }}</span>
-          <span class="min-w-0">
-            <span class="block font-semibold text-highlighted break-words">{{ t('mapTool.cellsItem', { id: cell.id }) }}</span>
-            <span class="block text-sm text-toned" data-testid="map-cells-severity">{{ severityText(cell) }}</span>
-            <span class="block text-sm text-muted" data-testid="map-cells-motion">{{ motionText(cell) }}</span>
-          </span>
+        <li v-for="cell in shown" :key="cell.id" data-testid="map-cells-item">
+          <!-- a cell with a position is a button that centres the map on it; the badge is the mark on the map, and its number is in the words beside it, so it is no cue alone -->
+          <component
+            :is="cellView(cell) ? 'button' : 'div'"
+            :type="cellView(cell) ? 'button' : undefined"
+            :aria-describedby="cellView(cell) ? CENTRE_HINT_ID : undefined"
+            class="map-cells-item"
+            :class="{ 'map-cells-button': cellView(cell) }"
+            data-testid="map-cells-entry"
+            @click="cellView(cell) && $emit('centre', cell)"
+          >
+            <span class="map-cells-badge" :style="{ background: styleOf(cell.severity).color }" aria-hidden="true">{{ styleOf(cell.severity).text }}</span>
+            <span class="min-w-0">
+              <span class="block font-semibold text-highlighted break-words">{{ t('mapTool.cellsItem', { id: cell.id }) }}</span>
+              <span v-if="locationText(cell)" class="block text-sm text-toned" data-testid="map-cells-location">{{ locationText(cell) }}</span>
+              <span class="block text-sm text-toned" data-testid="map-cells-severity">{{ severityText(cell) }}</span>
+              <span class="block text-sm text-muted" data-testid="map-cells-motion">{{ motionText(cell) }}</span>
+            </span>
+          </component>
         </li>
       </ul>
+      <p v-if="scan.cells.length" :id="CENTRE_HINT_ID" class="sr-only">
+        {{ t('mapTool.cellsCentreHint') }}
+      </p>
       <!-- a long list (a day of storms has some hundred cells) is cut to the most severe ten, and the rest is a press away -->
       <UButton
         v-if="hasMore"
@@ -154,13 +211,25 @@ const credit = computed(() => props.scan?.credit ?? null)
 .map-cells-list {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
   align-self: stretch;
 }
 .map-cells-item {
   display: flex;
   align-items: flex-start;
   gap: 0.625rem;
+  width: 100%;
+  padding: 0.375rem 0.5rem;
+  border-radius: calc(var(--ui-radius) * 2);
+  text-align: start;
+}
+/* a cell that centres the map on a press: a row as high as a target, hovered like the stations' list */
+.map-cells-button {
+  min-height: 2.75rem;
+  cursor: pointer;
+}
+.map-cells-button:hover {
+  background: var(--ui-bg-elevated);
 }
 /* the mark of the cell as the map draws it: the number of its severity on its colour, white on 4.5:1 or more (StationMap.vue, utils/storm-cells.ts) */
 .map-cells-badge {

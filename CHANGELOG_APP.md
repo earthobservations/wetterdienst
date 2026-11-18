@@ -29,11 +29,11 @@ Types of changes:
   are not used. The compact day cards are unchanged (GH-4090).
 - `[Map]` A switch in the layers panel draws DWD's KONRAD3D thunderstorm cells over the stations of
   either layer: each cell's outline, its severity (the number on its mark, a heavier edge the more
-  severe, the weakest dashed) and an arrow for its motion, dashed and marked as calculated, as the
-  backend's direction is. The panel lists the cells in words, most severe first, with the scan's
-  time, and says "no thunderstorm cells" for the empty scan that most are. The scan is asked for
-  again every 5 minutes while the layer is shown and the tab is in front. DWD's credit and licence
-  are on the map and in the panel (GH-4208).
+  severe) and an arrow for its motion, marked as calculated, as the backend's direction is. The
+  panel lists the cells in words with where each is, and a press centres the map on it; an empty
+  scan, the usual one, says so. The scan is asked for every 5 minutes while the layer is shown and
+  the tab is in front; after 20 minutes it is told out of date and not drawn. DWD's credit and
+  licence are on the map and in the panel (GH-4208).
 
 ### Changed
 
