@@ -33,9 +33,10 @@ Types of changes:
 - `[Forecast]` Under the fraction unit `0–1`, the cloud and snow-chance panels' middle tick is
   written 0.5 and no longer as 1, which read as the top of the axis; `%` and oktas are unchanged
   (GH-4197).
-- Docs: the embedded widget's chart is 674 px high, 744 px with the thunderstorm panel, not 540 px,
-  and the frame needs about 850 to 950 px, so the example iframe is 1000 px high where it was 700
-  and had a scroll bar; the day cards of a frame 40 rem wide or less are about 350 px (GH-4197).
+- `[Widget]` Docs: the embedded widget's chart is 674 px high, 744 px with the thunderstorm panel,
+  not 540 px, and the frame needs about 850 to 950 px, so the example iframe is 1000 px high where
+  it was 700 and had a scroll bar; the day cards of a frame 40 rem wide or less are about 350 px
+  (GH-4197).
 
 ## [0.53.0] - 2026-11-17
 

@@ -127,10 +127,11 @@ setting for it):
   precipitation, the cloud cover, the temperature and the pressure with the weather symbols above them, and 744 px
   where a thunderstorm has a probability of 10 % or more in the forecast, which adds a panel of 70 px (its plot and
   the gap above it). With the frame's header, the credits and the legend under the chart, and its footer, the frame
-  needs about 850 px without that panel and about 950 px with it: `height="1000"` holds both with no scroll bar. In a
-  frame of 40 rem or less the widget shows the day cards, which are about 350 px high, so a page that sets its frame's
-  height by the frame's width (CSS) can use the room better. A larger text size in the visitor's browser makes the
-  text under the chart taller.
+  needs about 850 px without that panel and about 950 px with it, a little more where the browser shows scroll bars
+  or the legend wraps in a narrow frame: `height="1000"` holds both. In a frame of 40 rem or less the widget shows
+  the day cards, which are about 350 px high. The widget picks the chart or the cards once, when it loads, and keeps
+  them when the frame is resized later, so a frame whose width can change (a phone turned) needs the chart's height.
+  A larger text size in the visitor's browser makes the text under the chart taller.
 - `theme=dark` or `theme=light` sets the colours; leave it out to follow the visitor's setting. The browser keeps the
   colours it was last given in the frame's own storage, so a visitor who has seen `theme=dark` keeps it until a
   `theme` says otherwise, even if you drop the parameter later.

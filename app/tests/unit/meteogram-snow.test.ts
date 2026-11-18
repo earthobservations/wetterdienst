@@ -389,10 +389,11 @@ describe('the snow panel drawn', () => {
       expect(axis.decimals).toBe(0)
       expect(axis.ticks).toEqual(['0', '50', '100'])
     }
-    // the okta: 0, 4 and 8 (the chance is no okta: it has no unit of eighths, and the cloud cover alone is shown in them)
-    const okta = model({ units: { ...UNITS, cloud_cover_total: '1/8', cloud_cover_below_2km: '1/8', cloud_cover_between_2km_and_7km: '1/8', cloud_cover_above_7km: '1/8' } }).axes.cloud!
-    expect(okta.decimals).toBe(0)
-    expect([0, 4, 8].map(tickFormatter(okta))).toEqual(['0', '4', '8'])
+    // the okta: 0, 4 and 8, for the cloud cover and the chance alike
+    for (const axis of ticks('1/8')) {
+      expect(axis.decimals).toBe(0)
+      expect(axis.ticks).toEqual(['0', '4', '8'])
+    }
   })
 
   it('draws the snow depth and the chance as straight segments and not as a smooth curve', () => {
