@@ -388,7 +388,11 @@ match.  Lower values accept more typos; higher values require a closer match.  T
 `rank` parameter limits how many stations are returned (default 1, the best match). The `stations` listing
 of the command line and the REST API offers the best five instead: pass `rank=5` for the same list.
 A station is one match however many datasets (rows) it has, and two stations that share a name are two.
-The rows come back best match first, equal scores the closer whole name first (`Saarland` finds
+The rows come back best match first. A name that holds the whole query as a run of whole words
+(`Tiefland Sachsen-Anhalt` in `Sachsen-Anhalt: Tiefland Sachsen-Anhalt`) always matches and comes before every
+name that does not, whatever its score: `Bayern` finds all four parts of Bayern, and `Sachsen` the parts of
+Sachsen and of Sachsen-Anhalt before those of Niedersachsen, which holds `niedersachsen` as one word. Among
+those, and among the other names, equal scores the closer whole name first (`Saarland` finds
 `Rheinland-Pfalz und Saarland: Saarland` before a longer name that holds it), a tie on both in the order of
 their `station_id`.
 
