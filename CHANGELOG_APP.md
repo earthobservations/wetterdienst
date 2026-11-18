@@ -28,6 +28,17 @@ Types of changes:
   probability (`wwt`), which MOSMIX gives for every hour of the run; the 6, 12 and 24 hour ones
   are not used. The compact day cards are unchanged (GH-4090).
 
+### Changed
+
+- `[Map]` The layer switch and the grouping control, two rows over the map, are one round layers
+  button in the map's top right corner. It opens a small panel with the layers, the resolution and
+  dataset of the measurements, and a "Group stations" switch (disabled and on above 10,000
+  stations, with its note). Escape or a press outside closes it. Grouping is on or off, on by
+  default: the fine step is gone and the coarse one (radius 80, groups to zoom 9) is the one
+  grouping, so the zoom a click on a group goes to is 10 at most, not 8. The station pickers of
+  the Explorer, History, Forecast and Stripes, whose maps split their groups at the same zoom,
+  keep them to zoom 9 now, not 7 (GH-4209).
+
 ### Fixed
 
 - `[Forecast]` The wind barbs of the chart stand on the side of the station's hemisphere, as on a
@@ -56,6 +67,12 @@ Types of changes:
   74 %) showed a plain cloud over a chart of partly cloudy hours. On any day whose codes name no
   weather, 0.5 mm of rain or more now decides rain, sleet or snow; an hour or a day with no cloud
   cover is partly cloudy (GH-4190).
+- `[Map]` A click on a group of stations centres the map on the group. It centred on the middle of
+  the stations' box, which is far from the disc where they are not spread evenly (a town with
+  outliers to one side); it now centres on the disc, with the box grown round it so that all of the
+  stations are in view (GH-4209).
+- `[Map]` The OpenStreetMap credit is at the very bottom of the map, under the zoom buttons, not
+  above them (GH-4209).
 
 ## [0.53.0] - 2026-11-17
 
