@@ -16,6 +16,33 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `dwd/uvi`: DWD's forecast of the UV index for 38 places in Germany, a daily forecast network of
+  one parameter, `uv_index_max` (the highest UV index of the day, a whole number of the WHO scale),
+  for today, tomorrow and the day after, read from `uvi.json`. The places are the stations, with
+  the id as a slug of the name (`frankfurt-main`, `grosser-arber`) and the position of a DWD
+  station there, which the file does not give; a city of the file that is not among them is
+  skipped with a warning that names it, and a changed file is a `DownloadError`. `data_updated_at`
+  is when DWD wrote the file (GH-4089)
+- `dwd/storm_cells`: DWD's KONRAD3D thunderstorm cells as a standalone network, on every surface:
+  `DwdStormCellsRequest`, `wetterdienst storm-cells`, `/api/v1/storm-cells` and the MCP tool
+  `storm_cells`. One row per cell of the newest radar scan, or the newest at or before a
+  `timestamp` of the last 48 hours: severity, hail, heavy rain and gust flags, speed, a calculated
+  `direction_degrees`, a GeoJSON outline and the 12-step forecast `track`. Filter by a point with
+  `distance` (the outline, not the centre) or a box, and `min_severity`; `track=false` and
+  `geometry=centroid` keep a list short. An empty scan is an empty answer; a filter that leaves no
+  cell warns `no-storm-cells-for-place`, a scan over 20 minutes old `scan-stale` (GH-4090)
+
+### Changed
+
+- `eaufrance/hubeau`: every answer that selects stations (`stations`, `values`, `interpolate`,
+  `summarize`) carries the warning `step-without-resolution` when stations were left out because
+  they report at a step no resolution has (20 or 30 minutes: 27 of 3,247 reporting stations on
+  2026-11-17), with the count, the steps and the first ten ids. A selection by station id is told
+  only of the ids it asked for that were left out, beside `unknown-station`. Nothing changes in
+  what is listed and no resolution is added; the docs say what is left out and why (GH-4184)
+
 ### Fixed
 
 - `dwd/mosmix`: the snow depth of MOSMIX-SNOW that the model writes a little below 0 (`sncv` -0.01
@@ -33,6 +60,9 @@ Types of changes:
   resolution while its steps don't settle. Of the 7 of 267 stations listed at 15 minutes that did
   not keep that cadence, 4 were unlisted at the last lookup and the others in about two thirds of
   the windows (GH-4166)
+- `dwd/alerts`: a `timestamp` whose snapshot directory is gone from DWD's server is answered as
+  `MetaFileNotFoundError` naming the URL (a 502 over REST and MCP; the CLI's message now says what
+  is missing) and no longer as a bare `FileNotFoundError`, a 500 `internal-error` (GH-4203)
 
 ## [0.191.0] - 2026-11-17
 

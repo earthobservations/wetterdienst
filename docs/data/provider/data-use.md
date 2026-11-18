@@ -138,8 +138,9 @@ without an account. What that means for the data:
   [Rate limit](../../usage/app.md#rate-limit)); there is no limit that follows a provider's own limit.
 - **It holds the keys of the four providers that need one**, and keeps serving them. Read from its public
   `/api/coverage` on 2026-11-06 (that list is `/api/providers` now), `aemet`, `knmi`, `metoffice` and `metno` report `configured: true` there. Whether that
-  is within their terms is not settled; the question was put to KNMI and CEDA in November 2026 and no answer has come
-  yet (see the next section).
+  is within their terms was put to KNMI and CEDA in November 2026: KNMI answered on 2026-11-09 that the instance's use
+  falls mostly within its fair use limits and asked for a longer cache (GH-3927); CEDA has not answered yet (see the
+  next section).
 - **Its logs and the data protection of its users** are in the privacy policy of the app, not here.
 
 ## Keys and credentials
@@ -151,11 +152,11 @@ sharing the key and about serving others with it, quoted at the License section 
 | Provider | What the terms say | Does a server that answers others with one key fit? |
 | --- | --- | --- |
 | [AEMET](aemet/index.md#license) | The key "identifies" the user; as many may be created as needed; an e-mail address is asked. Nothing on sharing, nothing on serving others. | Not addressed by the pages read. |
-| [KNMI](knmi/index.md#license) | "Accounts and keys are personal. They are meant to be used by you or by your organisation for your own applications, and should not be shared with, resold to, or distributed to third parties." And: "If you want to serve KDP data to your own users, proxy the requests through your own backend, keep the key there, and add caching in your backend." | Not settled: the question was put to KNMI in November 2026 and no answer has come yet. Our reading: a backend with a key and a cache is the pattern KNMI names; an open server for anyone may be more than "your own users". |
+| [KNMI](knmi/index.md#license) | "Accounts and keys are personal. They are meant to be used by you or by your organisation for your own applications, and should not be shared with, resold to, or distributed to third parties." And: "If you want to serve KDP data to your own users, proxy the requests through your own backend, keep the key there, and add caching in your backend." | Asked in November 2026, KNMI answered on 2026-11-09 that the hosted instance's use falls mostly within its fair use limits, and asked for files to be cached longer, so that they are not downloaded again and again (GH-3927). |
 | [Met Office](metoffice/index.md#license) (CEDA) | "Not to use another person's account, nor to let other people use your accounts, except by agreement with us"; "Only to use the service/resource for the purposes for which you were given access". | Not settled: the question was put to CEDA in November 2026 and no answer has come yet. Our reading: others use the server, not the account. |
 | [MET Norway](metno/index.md#license) (Frost) | "Each client ID must be associated with a valid email address"; "Use a proxy if possible"; "Heavy traffic means on average more than 1 requests to the API per second": then "save the information on your own server", and contact them if you "have not been able to reduced the amount of requests by taking into account our guidelines". The weather API's terms (a different service) call "trying to circumvent traffic rate limiting measures and/or impersonating traffic from other clients" abuse. | A proxy with a cache is asked for; what counts is the rate on average, which is not measured here. |
 
-None of the four says in terms that serving others from one key is allowed or forbidden. We have not used any key to
+None of the four says in its terms that serving others from one key is allowed or forbidden; KNMI's answer is the only statement so far. We have not used any key to
 read what a key's response says.
 
 ## The repository's own files
@@ -170,7 +171,9 @@ with the terms of its provider.
 | --- | --- | --- |
 | `tests/provider/dwd/radar/files/` | nine real radar files of 2026-10-20 to 22, the smallest of their product (composites and a volume scan as HDF5, two `meso` and one `KONRAD3D` XML), 550,338 bytes | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dwd/alerts/files/` | one DWD warning in CAP form (a fog warning for Kreis Wittenberg, 2026-11-05, in eight languages) with the polygon of its one area cut to 5 of its 124 points, 16 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst"; the wording is DWD's |
+| `tests/provider/dwd/storm_cells/files/` | three real KONRAD3D scans of 2026-11-15 to 17: an empty one, one with two cells, and one with three of its ten cells (the others cut), 96 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dwd/mosmix/` | one real MOSMIX-SNOW run (the run of 2026-11-14 19 UTC, 15 stations, 48 hourly steps), as DWD published it, 9.7 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
+| `tests/provider/dwd/uvi/` | one real `uvi.json`, the UV index forecast of 38 places as DWD published it on 2026-11-17, 3 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dmi/observation/` | four JSON files of DMI readings and parameter lists (hourly, daily, monthly and annual values), 85 kB | DMI, CC BY 4.0, "© DMI (Danish Meteorological Institute)" |
 | `tests/provider/knmi/observation/files/` | five real answers of KNMI's EDR API (De Bilt and Schiphol, a day to a year of each resolution) cut to the variables the provider maps, and the rows the Open Data files route made of them before GH-3928, 10 CSV files, 247 kB | KNMI, CC BY 4.0, "© KNMI" |
 | `tests/provider/eaufrance/hubeau/` | the 691 timestamps of one station's stage (H502301401, 2026-10-18 to 2026-11-17), as Hub'Eau's real time observations gave them, 16 kB | Eaufrance, Etalab Open Licence 2.0, credit "Eaufrance" |

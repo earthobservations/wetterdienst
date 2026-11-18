@@ -98,6 +98,8 @@ The sources, by quantity:
 - Visibility 0 to 200 km (N, ISD 160 km, MADIS 160.9 km), the height of a cloud 0 to 25 km (N, ISD 22 km), absolute
   humidity 0 to 40 g/m³ (D, saturated air at the dew point record holds 39.5), the offset of solar time from UTC 12
   hours and the equation of time (D).
+- UV index 0 to 25 (D, N): the WHO scale starts at 0 by definition and is open above 11, "extreme", so the upper end is
+  no record but a generous bound that finds a defect of a source (a sentinel such as 99 or -1 is outside it).
 - Phenology: the day number of DWD's ``Jultag`` runs from -130 (winter rape, 2007-08-24 of the reference year 2008) to
   443 (beech leaf fall, 1993-03-20 of 1992) in the 424 data files of the immediate and annual reporters (25.3 million
   rows, 2026-10-14, N), so -200 to 550.
@@ -253,6 +255,9 @@ PARAMETER_RANGES: dict[str, Range] = {
     "sunshine_duration_yesterday": Bounds(0.0, 24.0),  # h
     "sunshine_duration_normal": Bounds(0.0, 31 * 24.0),  # h, a month
     "sunshine_duration_uncertainty": Bounds(0.0, 1.0),  # h, (D) the uncertainty of an hour is not more than the hour
+    # the UV index (WHO): 0 is the definition (D), and the scale is open above 11, "extreme". 25 is a generous bound
+    # that finds a defect of a source and claims no record (N, see the docstring)
+    "uv_index_max": Bounds(0.0, 25.0),
     "true_local_time_offset": Bounds(-45_000.0, 45_000.0),  # s: 12 hours and the equation of time
     # the heat the air lacks to 25 degrees over a day at the air record, and the cold it brings over one
     "heating_degree_day": {

@@ -12,6 +12,11 @@ export interface ForecastOptions {
   hours?: number
   /** the series to leave out, by the parameter name */
   without?: string[]
+  /**
+   * The hourly probability of a thunderstorm in percent at an hour of the run (MOSMIX `wwT`), which the forecast has none of unless it is
+   * given: most runs have none above 1 or 2 %, and the chart draws a panel for it only from 10 % (GH-4090).
+   */
+  thunder?: (hour: number) => number
 }
 
 export const FORECAST_START = '2026-10-01T00:00:00+00:00'
@@ -26,7 +31,7 @@ export interface ForecastValue {
   quality_flags: null
 }
 
-export function forecastValues({ start = FORECAST_START, hours = 240, without = [] }: ForecastOptions = {}): ForecastValue[] {
+export function forecastValues({ start = FORECAST_START, hours = 240, without = [], thunder }: ForecastOptions = {}): ForecastValue[] {
   const t0 = new Date(start).getTime()
   const out: ForecastValue[] = []
   const add = (parameter: string, offset: number, value: number | null) => {
@@ -56,6 +61,8 @@ export function forecastValues({ start = FORECAST_START, hours = 240, without = 
       if (h >= window && h % window === 0)
         add(`precipitation_amount_significant_weather_${name}`, h, Math.round(Array.from({ length: window }, (_, k) => rainOf(h - k)).reduce((sum, v) => sum + v, 0) * 10) / 10)
     }
+    if (thunder)
+      add('probability_thunder_last_1h', h, thunder(h))
     add('weather_significant', h, h === 44 ? 95 : rain > 0 ? 61 : cloud > 70 ? 3 : 0)
     add('pressure_air_sea_level', h, Math.round((1013 + 7 * Math.sin(h / 40)) * 10) / 10)
     if (h % 12 === 11) {
@@ -83,6 +90,7 @@ export const FORECAST_UNITS: Record<string, string> = {
   precipitation_amount_significant_weather_last_6h: 'mm',
   precipitation_amount_significant_weather_last_12h: 'mm',
   precipitation_amount_significant_weather_last_24h: 'mm',
+  probability_thunder_last_1h: '%',
   pressure_air_sea_level: 'hPa',
 }
 

@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Forecast]` The forecast chart shows MOSMIX's thunderstorm probability: a thin panel under the
+  precipitation (it goes with the Precipitation switch) draws each hour with a probability of 10 %
+  or more as a bar, as high as the probability and in one of three shades (from 10, 30 and 60 %),
+  so that colour is not the only cue. Hours under 10 %, which MOSMIX gives on calm days, are not
+  drawn, and a forecast with none has no panel. Where the panel is drawn, the readout says the
+  probability of every hour; a line under the chart says what the bars are, the table has a
+  column for it and the chart's description names the likeliest hour. It is the hourly
+  probability (`wwt`), which MOSMIX gives for every hour of the run; the 6, 12 and 24 hour ones
+  are not used. The compact day cards are unchanged (GH-4090).
+
 ### Fixed
 
 - `[Forecast]` The wind barbs of the chart stand on the side of the station's hemisphere, as on a
@@ -2334,7 +2346,10 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.53.0...HEAD
+[0.53.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.52.0...app-v0.53.0
+[0.52.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.1...app-v0.52.0
+[0.51.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.0...app-v0.51.1
 [0.51.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.50.0...app-v0.51.0
 [0.50.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.49.0...app-v0.50.0
 [0.49.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.48.0...app-v0.49.0
@@ -2385,7 +2400,7 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 [0.7.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.6.0...app-v0.7.0
 [0.6.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.5.0...app-v0.6.0
 [0.5.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.4.0...app-v0.5.0
-[0.4.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.3.0...app-v0.4.0
-[0.3.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.2.0...app-v0.3.0
-[0.2.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.1.0...app-v0.2.0
+[0.4.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.3.0...app-v0.4.0
+[0.3.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.2.0...app-v0.3.0
+[0.2.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.1.0...app-v0.2.0
 [0.1.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.1.0

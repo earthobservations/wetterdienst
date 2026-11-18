@@ -81,6 +81,7 @@ export const NETWORK_KIND_KEYS = {
   derived: 'providers.kindDerived',
   radar: 'home.kindRadarTitle',
   alerts: 'home.kindAlertsTitle',
+  storm_cells: 'providers.kindStormCells',
 } as const
 
 /** The key of the catalog of the description of a provider's page; `{provider}` and `{kinds}` are filled in */
