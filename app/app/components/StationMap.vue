@@ -2,7 +2,7 @@
 import type { Cluster, Grouping } from '~/utils/map-cluster'
 import type { PlacedStation, Point, ReportingRule } from '~/utils/map-tool'
 import * as L from 'leaflet'
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { clusterAt, clusterRadius, clusterStations, clusterText, isGroupedAt, reportingSweep, viewForCluster, worldPixels } from '~/utils/map-cluster'
 import { OSM_ATTRIBUTION, OSM_TILES } from '~/utils/map-tiles'
 import { clickReach, dotRadius, HOME_VIEW, SELECTED_EDGE_PX, SELECTED_RADIUS_PX } from '~/utils/map-tool'
@@ -40,6 +40,10 @@ const props = defineProps<{
   grouping?: Grouping | null
   /** Whether the panel of the layers button is open: a press on the map then closes it, and its click is no pick of a place and no zoom on a group (GH-4209) */
   panelOpen?: boolean
+  /** The element that says what the dots and the discs of the map are (the legend, which is in the layers panel, as a text): the map's description */
+  describedBy?: string
+  /** Whether the map's stage is full screen (GH-4227): the button with the zoom buttons says so, and its label is the one for leaving */
+  fullscreen?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -53,9 +57,13 @@ const emit = defineEmits<{
   view: [view: Point & { zoom: number }]
   /** A click on a group of `count` stations, `reporting` of them reporting (null where the layer has no status): the map has zoomed in on them */
   group: [count: number, reporting: number | null]
+  /** The button of the full screen was pressed (GH-4227): the page enters or leaves it, the map keeps its view */
+  fullscreen: []
 }>()
 
 const container = ref<HTMLDivElement | null>(null)
+/** The place of the full-screen button, the first of the bar of the zoom buttons: the button is the component's own, teleported into it (GH-4227) */
+const fullscreenHost = shallowRef<HTMLElement | null>(null)
 let map: L.Map | null = null
 let dots: L.GridLayer | null = null
 let selection: L.CircleMarker | null = null
@@ -376,7 +384,15 @@ onMounted(() => {
   // controls of a bottom corner from its edge up, in the order they were added: the credit is added first, so it is at the
   // very bottom, under the zoom buttons (GH-4209)
   L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map)
-  L.control.zoom({ position: 'bottomright', zoomInTitle: t('mapTool.zoomIn'), zoomOutTitle: t('mapTool.zoomOut') }).addTo(map)
+  const zoom = L.control.zoom({ position: 'bottomright', zoomInTitle: t('mapTool.zoomIn'), zoomOutTitle: t('mapTool.zoomOut') }).addTo(map)
+  // the full-screen button sits with the zoom buttons (GH-4227), at the head of their bar, so that the three are one control
+  // that the pointer and the keyboard meet in a row. Leaflet makes the bar; the button in it is Vue's (teleported), so that its
+  // label and state follow the page's
+  const host = L.DomUtil.create('div', 'station-map-fullscreen')
+  // a press on it is no press on the map (Leaflet does this for each of its own buttons, not for the bar)
+  L.DomEvent.disableClickPropagation(host)
+  zoom.getContainer()?.prepend(host)
+  fullscreenHost.value = host
   L.tileLayer(OSM_TILES, { attribution: OSM_ATTRIBUTION, maxZoom: 19, className: 'station-map-tiles' }).addTo(map)
   map.createPane(MARKS_PANE).style.zIndex = '450'
   dots = new (DotLayer as unknown as new (options: L.GridLayerOptions) => L.GridLayer)({ pane: 'overlayPane', updateWhenZooming: false, noWrap: false }).addTo(map)
@@ -422,6 +438,22 @@ onMounted(() => {
 // draws its tiles for the old one
 useResizeObserver(container, () => map?.invalidateSize({ animate: false }))
 
+// The stage goes full screen or comes back (GH-4227): the map is told its new size at once and after the layout has settled
+// (the browser's full screen changes the window a moment after the state does), and keeps its centre, zoom, layers and the
+// station picked, since it is the same element that has grown, not a new one
+const fullscreenButton = ref<HTMLButtonElement | null>(null)
+watch(() => props.fullscreen, () => {
+  map?.invalidateSize({ animate: false })
+  void nextTick(() => map?.invalidateSize({ animate: false }))
+  requestAnimationFrame(() => map?.invalidateSize({ animate: false }))
+}, { flush: 'post' })
+defineExpose({
+  /** The focus into the map (the container of Leaflet is a stop of the keyboard that pans and zooms by keys) */
+  focusMap: () => container.value?.focus({ preventScroll: true }),
+  /** The focus back to the full-screen button */
+  focusFullscreenButton: () => fullscreenButton.value?.focus({ preventScroll: true }),
+})
+
 onBeforeUnmount(() => {
   if (pointerFrame)
     cancelAnimationFrame(pointerFrame)
@@ -444,7 +476,21 @@ watch(() => [props.position, props.locate], () => {
 </script>
 
 <template>
-  <div ref="container" class="station-map" role="application" :aria-label="label" :aria-roledescription="t('nav.map')" />
+  <div ref="container" class="station-map" role="application" :aria-label="label" :aria-roledescription="t('nav.map')" :aria-describedby="describedBy" />
+  <!-- by its action (GH-4227): the name is what pressing does, and it changes with the state ("Full screen", "Exit full screen"), as a button that is not a toggle does -->
+  <Teleport v-if="fullscreenHost" :to="fullscreenHost">
+    <button
+      ref="fullscreenButton"
+      type="button"
+      class="station-map-fullscreen-button"
+      :aria-label="fullscreen ? t('mapTool.fullscreenExit') : t('mapTool.fullscreenEnter')"
+      :title="fullscreen ? t('mapTool.fullscreenExit') : t('mapTool.fullscreenEnter')"
+      data-testid="map-fullscreen"
+      @click="emit('fullscreen')"
+    >
+      <UIcon :name="fullscreen ? 'i-ph-arrows-in' : 'i-ph-arrows-out'" class="size-5" aria-hidden="true" />
+    </button>
+  </Teleport>
 </template>
 
 <style>
@@ -456,6 +502,12 @@ watch(() => [props.position, props.locate], () => {
   background: #e8ecf2;
   border-radius: calc(var(--ui-radius) * 2);
   font: inherit;
+}
+/* the narrow layout runs edge to edge (GH-4227): the map has no corners of a card */
+@media screen and (max-width: 39.99rem) {
+  .station-map {
+    border-radius: 0;
+  }
 }
 /* Calm tiles: OpenStreetMap's colours, faded, so that the stations are what the eye finds */
 .station-map .station-map-tiles {
@@ -487,8 +539,21 @@ watch(() => [props.position, props.locate], () => {
   border-bottom-color: var(--color-ink-200);
   font-size: 1.25rem;
 }
-.station-map .leaflet-bar a:hover {
+.station-map .leaflet-bar a:hover,
+.station-map .station-map-fullscreen-button:hover {
   background: var(--color-ink-100);
+}
+/* the full-screen button, the head of the bar of the zoom buttons: the same 40 px square, the same white and ink */
+.station-map .station-map-fullscreen-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  background: #ffffff;
+  color: var(--color-ink-950);
+  border-bottom: 1px solid var(--color-ink-200);
+  cursor: pointer;
 }
 .station-map .leaflet-control-attribution {
   padding: 0.125rem 0.5rem;

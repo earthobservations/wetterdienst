@@ -635,6 +635,31 @@ const STATES: State[] = [
     },
   },
   {
+    // on a phone, the map full screen (GH-4227): the browser's own where it has the API, the app covering the page where it has
+    // not; either way the map, its buttons and the sheet that stands in for the panel are all there is of the page
+    page: 'map',
+    state: 'phone-fullscreen',
+    path: '/map?station=10384&lat=52.9&lon=13.0',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await expect(page.getByTestId('map-fullscreen')).toBeVisible()
+      await page.getByTestId('map-fullscreen').click()
+      await expect(page.getByTestId('map-sheet')).toBeVisible()
+      await expect(page.getByTestId('map-sheet-name')).toBeVisible()
+    },
+  },
+  {
+    // on a phone, the "About" of a tool as the ⓘ beside the title, open (GH-4227)
+    page: 'explorer',
+    state: 'phone-about-open',
+    path: '/explorer',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await page.getByTestId('page-info').click()
+      await expect(page.locator('.page-about')).toBeVisible()
+    },
+  },
+  {
     // the chooser of the phone bar's four tools (GH-3846): the preview, the two lists with their line, the handles and
     // the arrow buttons, at a phone's width and at 320 px, with the choice changed so that the list is not the default
     page: 'settings',

@@ -1271,7 +1271,7 @@ function setFacetChartRef(parameter: string, chart: ExplorerChartHandle | null) 
             <div v-else-if="facetByParameter" class="space-y-6">
               <div
                 v-for="facet in facetedChartData" :key="facet.parameter"
-                class="border rounded-lg p-4 dark:border-gray-700"
+                class="bleed-stop border rounded-lg p-4 dark:border-gray-700"
               >
                 <h4 class="text-sm font-medium mb-2">
                   {{ facet.label }}

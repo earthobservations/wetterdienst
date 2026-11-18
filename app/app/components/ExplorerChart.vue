@@ -646,7 +646,7 @@ const selectionStyle = computed(() => {
 </script>
 
 <template>
-  <div ref="rootEl" class="explorer-chart app-chart">
+  <div ref="rootEl" class="explorer-chart app-chart bleed-in bleed-chart">
     <div
       v-if="renderFailed"
       ref="chartNotice"

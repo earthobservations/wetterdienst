@@ -21,7 +21,7 @@ vi.mock('~/components/StationMap.vue', async () => {
   return {
     __esModule: true,
     default: defineComponent({
-      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping', 'panelOpen'],
+      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping', 'panelOpen', 'describedBy', 'fullscreen'],
       emits: ['pick', 'view', 'group'],
       setup(props, { emit }) {
         stage.props = props
@@ -1091,7 +1091,13 @@ describe('why a farther station was picked, and which place the pick is for (GH-
       expect(reporting(DAILY_STATIONS.find(entry => entry.station_id === '01975'))).toBe(true)
       expect(reporting(CLOSED)).toBe(false)
       const legend = wrapper.find('[data-testid="map-legend"]')
-      expect(legend.attributes('aria-label')).toBe('Legend')
+      // the legend is in the panel of the layers button, under the switch, with a heading of its own (GH-4227), and not a box on the map
+      expect(wrapper.find('[data-testid="map-layers-panel"] #map-legend-title').text()).toBe('Legend')
+      expect(wrapper.find('[data-testid="map-layers-panel"] [data-testid="map-legend"]').exists()).toBe(true)
+      expect(wrapper.find('.map-canvas > .map-legend').exists()).toBe(false)
+      // and the map's own description says what its dots and discs are, for a screen reader that does not open the panel
+      expect(stage.props.describedBy).toBe('map-legend-description')
+      expect(wrapper.find('#map-legend-description').text()).toBe('A filled dot is a station that still reports, a hollow dot one that has stopped. A number is a group of stations: click to zoom in. The filled part of its ring shows how many still report.')
       // the map opens at an outer zoom, where the stations are grouped: the legend says what a number is
       expect(legend.findAll('li').map(item => item.text())).toEqual(['Still reporting', 'Stopped reporting', '12 A number is a group of stations: click to zoom in. The filled part of its ring shows how many still report.'])
       // the two swatches are different shapes (filled and hollow), and no colour alone
@@ -1112,9 +1118,13 @@ describe('why a farther station was picked, and which place the pick is for (GH-
       await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').findAll('li')).toHaveLength(3))
       await chooseLayer(wrapper, 'forecast')
       await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').findAll('li')).toHaveLength(1))
-      // at the zoom where no station is grouped the forecast's points need no legend
+      expect(wrapper.find('#map-legend-description').text()).toBe('A number is a group of stations: click to zoom in.')
+      // at the zoom where no station is grouped the forecast's points need no legend, in the panel or in the map's description
       stage.emit('view', { latitude: 53, longitude: 10, zoom: 10 })
       await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').exists()).toBe(false))
+      expect(wrapper.find('#map-legend-title').exists()).toBe(false)
+      expect(wrapper.find('#map-legend-description').text()).toBe('')
+      expect(stage.props.describedBy).toBeUndefined()
     })
   })
 })
