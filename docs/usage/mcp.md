@@ -74,6 +74,7 @@ parameters are, see [one vocabulary](restapi.md#one-vocabulary)) and the same an
 | `glossary` | `/api/v1/glossary` | what a parameter means and the unit it comes back in |
 | `auth` | `/api/v1/auth` | whether the credentials the server holds are accepted by one provider |
 | `alerts` | `/api/v1/alerts` | the weather warnings of DWD: all of Germany unless given a place (`latitude` and `longitude`, or `name`), so pass it |
+| `storm_cells` | `/api/v1/storm-cells` | the thunderstorm cells of DWD, now or within the last 48 hours: all of Germany unless given a point and `distance` (km) or a box (`left`, `bottom`, `right`, `top`), so pass one; `track=false` and `geometry=centroid` keep a long list short. The answer is not cut |
 | `stripes_stations`, `stripes_values`, `stripes_image` | `/api/v1/stripes/...` | climate stripes, see [Climate Stripes](stripes.md) |
 
 An argument that is a mapping (`unit_targets`, `limits`, `interpolation_station_distance`,
@@ -125,15 +126,15 @@ context of the assistant.
 A forecast is the rows of a model run, and the latest MOSMIX-L or DMO run begins hours before the request: at 14:28 UTC
 its first row can be at 10:00 (MOSMIX-S and SWSMOS begin at the current or the next hour). An assistant that reads the
 first rows reports an hour that has passed as the forecast. So `values` for a network whose `kind` is `forecast`
-(`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/pollen`; `coverage` and `providers` give the kind) leaves out the rows stamped before
+(`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, `dwd/uvi`; `coverage` and `providers` give the kind) leaves out the rows stamped before
 the current hour, in UTC, and the row stamped at the current hour stays. A `forecast-from-now` warning in
 `metadata.warnings` says that the answer starts at now and names the `timestamp` window that asks for the earlier
 hours of the run; for `csv` and `ndjson`, whose headers are in the sentence and the `_meta` of the result, it is the
 `X-Wetterdienst-Forecast-From-Now` header and the sentence of the tool (an `ndjson` answer also has the block as its
 first line). No row is left out, and no note is attached, where the run begins at or after the current
-hour. For the daily `dwd/pollen` the cut is by the day: a value stamped before today is left out and the one of today
-stays. The cut is made before the size budget below, so that the characters of the budget go to hours that are still to
-come.
+hour. For the daily `dwd/pollen` and `dwd/uvi` the cut is by the day: a value stamped before today is left out and the
+one of today stays. The cut is made before the size budget below, so that the characters of the budget go to hours that
+are still to come.
 
 Which requests are cut:
 

@@ -3931,6 +3931,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     ),
     CanonicalParameter("turbidity", "turbidity", "Cloudiness of the water caused by suspended particles."),
     CanonicalParameter(
+        "uv_index_max",
+        "dimensionless",
+        "Highest UV index of the day, the WHO's scale of the sunburn-effective UV radiation at the ground "
+        "(0 to 2 low, 3 to 5 moderate, 6 to 7 high, 8 to 10 very high, 11 and above extreme).",
+        aggregation="max",
+    ),
+    CanonicalParameter(
         "vapor_pressure_deficit_mean",
         "pressure",
         "Mean difference between the pressure of water vapour in saturated air and the partial pressure of water "

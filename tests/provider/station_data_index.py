@@ -239,6 +239,11 @@ NOT_HELD: dict[str, str] = {
         "the stations are those of one run file (2 MB compressed, 300,000 rows) and differ from run to run: the run "
         "of 2026-10-21 20:00 UTC has no row for 28 of the 1,874 listed and one for O210, which is not listed"
     ),
+    "dwd/uvi": (
+        "the stations are a table kept in the provider, and the one file holds the forecast of every place by its "
+        "name, with no data file by station to list; `test_the_places_are_the_cities_of_the_file` holds the table to "
+        "the file"
+    ),
     "ea/hydrology": _ONE_AT_A_TIME,
     "eaufrance/hubeau": f"building its catalogue takes minutes, and {_ONE_AT_A_TIME}",
     "eccc/observation": _ONE_AT_A_TIME,

@@ -54,6 +54,7 @@ COUNTRY_BBOX: dict[str, Bbox | tuple[Bbox, ...]] = {
     "dwd/pollen": (47.2, 55.1, 5.8, 15.1),
     "dwd/road": (47.2, 55.1, 5.8, 15.1),
     "dwd/swsmos": (47.2, 55.1, 5.8, 15.1),
+    "dwd/uvi": (47.2, 55.1, 5.8, 15.1),
     "eaufrance/hubeau": tuple(hubeau_api._AREAS.values()),  # noqa: SLF001
     "eccc/observation": (41.0, 84.0, -142.0, -52.0),
     "ea/hydrology": (49.8, 55.9, -6.0, 2.0),

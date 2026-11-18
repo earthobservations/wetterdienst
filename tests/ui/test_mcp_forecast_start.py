@@ -378,8 +378,8 @@ def test_a_mixed_frame_is_cut_by_each_rows_resolution() -> None:
     )
 
 
-def test_every_forecast_network_has_an_hourly_resolution_but_the_pollen_forecast() -> None:
-    """The networks the cut applies to are found through their metadata, by `kind`; each hourly but `dwd/pollen`."""
+def test_every_forecast_network_has_an_hourly_resolution_but_the_daily_ones() -> None:
+    """The networks the cut applies to are found through their metadata, by `kind`; each hourly but the two daily."""
     from wetterdienst import Wetterdienst  # noqa: PLC0415
 
     found = {
@@ -388,12 +388,12 @@ def test_every_forecast_network_has_an_hourly_resolution_but_the_pollen_forecast
         for network, listing in networks.items()
         if listing["kind"] == "forecast"
     }
-    assert found == {"dwd/mosmix", "dwd/dmo", "dwd/swsmos", "dwd/pollen"}
+    assert found == {"dwd/mosmix", "dwd/dmo", "dwd/swsmos", "dwd/pollen", "dwd/uvi"}
     for name in found:
         provider, _, network = name.partition("/")
         metadata = Wetterdienst.resolve(provider, network).metadata
         assert {resolution.name for resolution in metadata.resolutions} == (
-            {"daily"} if name == "dwd/pollen" else {"hourly"}
+            {"daily"} if name in {"dwd/pollen", "dwd/uvi"} else {"hourly"}
         )
 
 

@@ -250,6 +250,15 @@ def _no_alerts(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(DwdWeatherAlertRequest, "query", lambda _self: result)
 
 
+def _no_storm_cells(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stand in for a KONRAD3D scan that holds no cell."""
+    from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest, DwdStormCellsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.storm_cells.api import _SCHEMA  # noqa: PLC0415
+
+    result = DwdStormCellsResult(pl.DataFrame(schema=_SCHEMA), None)
+    monkeypatch.setattr(DwdStormCellsRequest, "query", lambda _self: result)
+
+
 def test_the_issues_have_the_block(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """The runs of a forecast are about one station of a network, whose terms the answer names."""
     _swsmos_lists_one_run(monkeypatch)
@@ -580,6 +589,13 @@ def _read_alerts(monkeypatch: pytest.MonkeyPatch) -> None:
     _warn_first(monkeypatch, DwdWeatherAlertRequest, "query")
 
 
+def _read_storm_cells(monkeypatch: pytest.MonkeyPatch) -> None:
+    from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest  # noqa: PLC0415
+
+    _no_storm_cells(monkeypatch)
+    _warn_first(monkeypatch, DwdStormCellsRequest, "query")
+
+
 def _read_providers(monkeypatch: pytest.MonkeyPatch) -> None:
     _warn_first(monkeypatch, restapi, "get_providers")
 
@@ -633,6 +649,7 @@ _ROUTES_WITH_WARNINGS = [
     ),
     pytest.param("/api/history", {**_OBSERVATION, "stations": "02564"}, _read_history, id="history"),
     pytest.param("/api/alerts", {}, _read_alerts, id="alerts"),
+    pytest.param("/api/storm-cells", {}, _read_storm_cells, id="storm-cells"),
 ]
 #: the routes that answer without a block: a catalogue of the library, the server's own state
 _ROUTES_WITHOUT_WARNINGS = {"/version", "/settings", "/auth", "/coverage", "/glossary"}
@@ -933,6 +950,7 @@ DATA_UPDATED_STATED: set[tuple[str, str]] = {
     ("dwd", "pollen"),
     ("dwd", "road"),
     ("dwd", "swsmos"),
+    ("dwd", "uvi"),
     ("imgw", "hydrology"),
     ("imgw", "meteorology"),
     ("ipma", "observation"),

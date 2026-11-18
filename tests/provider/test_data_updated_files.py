@@ -851,6 +851,21 @@ def _read_noaa_ghcn(monkeypatch: pytest.MonkeyPatch) -> object:
     )
 
 
+def _read_dwd_uvi(monkeypatch: pytest.MonkeyPatch) -> object:
+    """Read the one file of the UV index forecast, dated by the server."""
+    from tests.provider.dwd.uvi.test_api import FIXTURE  # noqa: PLC0415
+    from wetterdienst.provider.dwd.uvi import DwdUviRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.uvi import api as uvi_api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        uvi_api,
+        "download_file",
+        lambda *, url, **_: File(url=url, content=BytesIO(FIXTURE), status=200, last_modified=NEW),
+    )
+    request = DwdUviRequest(parameters=[("daily", "data")], settings=Settings(cache_disable=True))
+    return stations_result(request, "daily", "data", "zugspitze").values().all()
+
+
 #: an offline read of each network that dates what it reads, which the registry of `tests/ui` runs
 READERS = {
     ("chmi", "observation"): _read_chmi,
@@ -863,6 +878,7 @@ READERS = {
     ("dwd", "pollen"): _read_dwd_pollen,
     ("dwd", "road"): _read_dwd_road,
     ("dwd", "swsmos"): _read_dwd_swsmos,
+    ("dwd", "uvi"): _read_dwd_uvi,
     ("imgw", "hydrology"): _read_imgw_hydrology,
     ("imgw", "meteorology"): _read_imgw_meteorology,
     ("ipma", "observation"): _read_ipma,

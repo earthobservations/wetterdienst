@@ -16,9 +16,10 @@ if TYPE_CHECKING:
     from wetterdienst.model.request import TimeseriesRequest
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
     from wetterdienst.provider.dwd.radar import DwdRadarValues
+    from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest
 
     #: the request class of a standalone network, which is no `TimeseriesRequest`
-    StandaloneRequest: TypeAlias = type[DwdRadarValues | DwdWeatherAlertRequest]
+    StandaloneRequest: TypeAlias = type[DwdRadarValues | DwdWeatherAlertRequest | DwdStormCellsRequest]
 
 log = logging.getLogger(__name__)
 
@@ -49,10 +50,12 @@ class Wetterdienst:
             "road": "wetterdienst.provider.dwd.road.DwdRoadRequest",
             "swsmos": "wetterdienst.provider.dwd.swsmos.DwdSwsmosRequest",
             "poi": "wetterdienst.provider.dwd.poi.DwdPoiRequest",
+            "uvi": "wetterdienst.provider.dwd.uvi.DwdUviRequest",
             "phenology": "wetterdienst.provider.dwd.phenology.DwdPhenologyRequest",
             "pollen": "wetterdienst.provider.dwd.pollen.DwdPollenRequest",
             "radar": "wetterdienst.provider.dwd.radar.DwdRadarValues",
             "alerts": "wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest",
+            "storm_cells": "wetterdienst.provider.dwd.storm_cells.DwdStormCellsRequest",
             "derived": "wetterdienst.provider.dwd.derived.DwdDerivedRequest",
         },
         "eccc": {
@@ -116,7 +119,9 @@ class Wetterdienst:
     #: the networks of the registry that are no timeseries networks: they have their own request class and
     #: result, no stations or values and no metadata model. `resolve_standalone` resolves them, and `resolve`
     #: refuses them
-    standalone: ClassVar[frozenset[tuple[str, str]]] = frozenset({("dwd", "radar"), ("dwd", "alerts")})
+    standalone: ClassVar[frozenset[tuple[str, str]]] = frozenset(
+        {("dwd", "radar"), ("dwd", "alerts"), ("dwd", "storm_cells")}
+    )
 
     @staticmethod
     def _normalize(provider: str, network: str) -> tuple[str, str]:
@@ -143,7 +148,7 @@ class Wetterdienst:
 
     @classmethod
     def is_standalone(cls, provider: str, network: str) -> bool:
-        """Tell whether a network is a standalone one (`dwd/radar`, `dwd/alerts`) and not a timeseries network.
+        """Tell whether a network is a standalone one (`dwd/radar`, `dwd/alerts`, `dwd/storm_cells`), no timeseries one.
 
         Args:
             provider: Provider name
@@ -192,8 +197,8 @@ class Wetterdienst:
     def resolve(cls, provider: str, network: str) -> type[TimeseriesRequest]:
         """Resolve provider and network to the request class of a timeseries network.
 
-        A timeseries network has stations and values. The two networks that have not, `dwd/radar` and
-        `dwd/alerts` (`Wetterdienst.standalone`), are resolved by `resolve_standalone`, and refused here
+        A timeseries network has stations and values. The networks that have not, `dwd/radar`, `dwd/alerts`
+        and `dwd/storm_cells` (`Wetterdienst.standalone`), are resolved by `resolve_standalone`, and refused here
         because their classes are no `TimeseriesRequest` and take other arguments (GH-3045).
 
         Args:
@@ -229,17 +234,24 @@ class Wetterdienst:
 
     @overload
     @classmethod
+    def resolve_standalone(
+        cls, provider: Literal["dwd"], network: Literal["storm_cells"]
+    ) -> type[DwdStormCellsRequest]: ...
+
+    @overload
+    @classmethod
     def resolve_standalone(cls, provider: str, network: str) -> StandaloneRequest: ...
 
     @classmethod
     def resolve_standalone(cls, provider: str, network: str) -> StandaloneRequest:
         """Resolve provider and network to the request class of a standalone network.
 
-        A standalone network (`dwd/radar`, `dwd/alerts`) has its own request class, which takes its own
-        arguments, and its own result. Neither has stations, values or a metadata model, so none of
+        A standalone network (`dwd/radar`, `dwd/alerts`, `dwd/storm_cells`) has its own request class, which
+        takes its own arguments, and its own result. None has stations, values or a metadata model, so none of
         `stations`, `values`, `history`, `interpolate` and `summarize` takes one. The class is the one
-        to import from `wetterdienst.provider.dwd.radar` or `wetterdienst.provider.dwd.alerts`, as the
-        examples do; this resolves it by name, as `resolve` does a timeseries network.
+        to import from `wetterdienst.provider.dwd.radar`, `wetterdienst.provider.dwd.alerts` or
+        `wetterdienst.provider.dwd.storm_cells`, as the examples do; this resolves it by name, as `resolve` does a
+        timeseries network.
 
         Args:
             provider: Provider name
@@ -278,7 +290,7 @@ class Wetterdienst:
         msg = (
             "Wetterdienst(provider, network) was removed, and Wetterdienst is not instantiated: "
             "use Wetterdienst.resolve(provider, network) for the request class of a timeseries network, "
-            "or Wetterdienst.resolve_standalone(provider, network) for dwd/radar and dwd/alerts"
+            "or Wetterdienst.resolve_standalone(provider, network) for dwd/radar, dwd/alerts and dwd/storm_cells"
         )
         raise TypeError(msg)
 
@@ -362,9 +374,9 @@ class Wetterdienst:
 
         `kind` is what the network is. A timeseries network has stations and values, and is `observation`,
         `forecast` or `derived`; those are the networks `stations`, `values`, `history`, `interpolate` and
-        `summarize` take. A standalone network has its own request class and result, is `radar`
-        or `alerts` (`dwd/radar` and `dwd/alerts`), and is refused by all of them with a 404 or a usage
-        error. A standalone network has no metadata model, so its name, country and url are its request class's
+        `summarize` take. A standalone network has its own request class and result, is `radar`, `alerts` or
+        `storm_cells` (`dwd/radar`, `dwd/alerts` and `dwd/storm_cells`), and is refused by all of them with a 404 or a
+        usage error. A standalone network has no metadata model, so its name, country and url are its request class's
         `listing`, which names the provider's short name and country and the url of its own products.
 
         A network that cannot be imported (a dependency is missing, or the install is broken) is left out,

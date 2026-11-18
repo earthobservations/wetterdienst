@@ -13,7 +13,7 @@ unit, and the library judges them all in one place, in one unit per quantity ([h
 There is no mode that skips a check. A soft check already keeps the value, and the flag keeps the judgement visible.
 
 **A forecast is judged soft, but for two checks.** A network whose metadata `kind` is `forecast` (what `coverage` reports: `dwd/mosmix`,
-`dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, and any provider that declares one) has every check soft but two, **whatever mode is set**: the default,
+`dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, `dwd/uvi`, and any provider that declares one) has every check soft but two, **whatever mode is set**: the default,
 `hard` given by `Options`, `--plausibility-range=hard`, `plausibility_range=hard` of the REST API or `WD_TS_PLAUSIBILITY`
 in the environment. A forecast is the output of a model and no reading, so a value that a check finds (ICON's 394.92 mm of rain
 in an hour at 83827 Foz do Iguaçu, above the 350 mm of the table) is kept and flagged `suspect:range`, and never nulled; a
@@ -773,7 +773,7 @@ and the MCP tools take `limits` (JSON) and `plausibility_limits` on `values`, an
 like the stripes, leave out a value that is `suspect:limits`.
 
 **A forecast follows the mode.** Unlike `range` and the other built-in checks but `floor`, `limits` is not made soft on a network whose `kind` is
-`forecast` (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/pollen`): the bounds are yours, so a forecast value outside them is null with
+`forecast` (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, `dwd/uvi`): the bounds are yours, so a forecast value outside them is null with
 `rejected:limits,raw:<number>` by default and kept, flagged `suspect:limits`, where you set `plausibility_limits` soft,
 as for an observation. The `range` of the same value stays soft there and flags it `suspect:range`, and the token of a
 value both find is `rejected:limits,raw:<number>` (a rejected value carries the hard checks alone).
@@ -1064,6 +1064,7 @@ unless you set [bounds of your own](#bounds-of-your-own-limits), which any netwo
 | `range` | `dwd/pollen` | `*` |
 | `range` | `dwd/road` | `*` |
 | `range` | `dwd/swsmos` | `*` |
+| `range` | `dwd/uvi` | `*` |
 | `range` | `eccc/observation` | `*` |
 | `range` | `fmi/observation` | `*` |
 | `range` | `geosphere/observation` | `*` |

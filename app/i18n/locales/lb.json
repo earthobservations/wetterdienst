@@ -149,7 +149,8 @@
       "forecast": "Prognosen",
       "derived": "ofgeleet Daten",
       "radar": "Radar",
-      "alerts": "Wiederwarnungen"
+      "alerts": "Wiederwarnungen",
+      "storm_cells": "Donnerwieder-Zellen"
     },
     "kindsAnd": "an",
     "pages": {
@@ -470,6 +471,7 @@
     "allKinds": "All Zorte vun Daten",
     "kindLabel": "Zort vun Daten",
     "kindDerived": "Ofgeleet Daten",
+    "kindStormCells": "Donnerwieder-Zellen",
     "shown": "{shown} vun {count} gewisen",
     "noResults": "Keen Ubidder passt zu der Sich.",
     "notFound": "Et gëtt kee Ubidder mam Numm „{provider}“.",

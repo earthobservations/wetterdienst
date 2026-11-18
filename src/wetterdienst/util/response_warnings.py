@@ -154,8 +154,8 @@ class SkipCause(Enum):
     REFUSED = ("the download was refused", "a refused download", False)
     #: the file arrived and would not parse, or held what the reader cannot use
     UNPARSEABLE = ("it would not parse", "a file that would not parse", False)
-    #: the file arrived and was read, and holds nothing of the station: a region the source has renamed or dropped
-    #: (`dwd/pollen`'s table names a region that the file no longer lists)
+    #: the file arrived and was read, and holds nothing of the station: a place or region the source has renamed or
+    #: dropped (`dwd/uvi`'s table names a place and `dwd/pollen`'s a region that the file no longer lists)
     NO_FORECAST = ("the file holds no forecast of it", "a file with no forecast of the station", False)
 
     def __init__(self, reason: str, noun: str, may_heal: bool) -> None:  # noqa: FBT001

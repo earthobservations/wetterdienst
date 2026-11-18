@@ -62,6 +62,8 @@ from wetterdienst.provider.dwd.road import api as dwd_road_api
 from wetterdienst.provider.dwd.road.api import DwdRoadRequest
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
 from wetterdienst.provider.dwd.swsmos import api as dwd_swsmos_api
+from wetterdienst.provider.dwd.uvi import DwdUviRequest
+from wetterdienst.provider.dwd.uvi import api as dwd_uvi_api
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
 from wetterdienst.provider.eccc.observation import api as eccc_api
 from wetterdienst.provider.fmi.observation import FmiObservationRequest
@@ -1733,6 +1735,26 @@ def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     monkeypatch.setattr(dwd_swsmos_api.DwdSwsmosValues, "_run_frame", lambda _self, _settings: run)
     request = DwdSwsmosRequest(parameters=[("hourly", "data")], settings=_settings(), options=_options(drop_nulls))
     return stations_result(request, "hourly", "data", "A006").values().all().df
+
+
+def _dwd_uvi(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
+    # uvi.json as DWD serves it (read 2026-11-17): the city and the highest UV index of today, tomorrow and the day
+    # after, as whole numbers. `Beschreibung_uvi.pdf` describes no marker for a day without a forecast, and the file
+    # read has none, so the text of the first day and the null of the second are worded by the stub: the reader takes a
+    # text that is no number for none and keeps what the file wrote as `raw:`
+    body = json.dumps(
+        {
+            "last_update": "2026-11-17T07:30:00",
+            "next_update": "2026-11-18T07:30:00",
+            "name": "UV-Gefahrenindex",
+            "sender": "Deutscher Wetterdienst - Medizin-Meteorologie",
+            "forecast_day": "2026-11-17",
+            "content": [{"city": "Zugspitze", "forecast": {"today": "---", "tomorrow": None, "dayafter_to": 1}}],
+        }
+    ).encode()
+    serve(monkeypatch, dwd_uvi_api, {"uvi.json": body})
+    request = DwdUviRequest(parameters=[("daily", "data")], settings=_settings(), options=_options(drop_nulls))
+    return stations_result(request, "daily", "data", "zugspitze").values().all().df
 
 
 def _eccc_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.DataFrame:  # noqa: FBT001, FBT002
@@ -3614,6 +3636,12 @@ STUBS = [
         reading=("temperature_air", 6.2),
         tokens=(("temperature_air", "---", None),),
     ),
+    ValueStub(
+        "dwd/uvi daily/data",
+        _dwd_uvi,
+        reading=("uv_index_max", 1.0),
+        tokens=(("uv_index_max", "---", None),),
+    ),
     # Météo-France's climatological files, as audited in GH-2719 and GH-2720. RR (6 minutes, daily, monthly) and RR1
     # (hourly) hold no code: the descriptions (the descriptif_champs files and the climatologie-*-descriptif PDFs)
     # define none, and 1.9 billion rows of 2158 raw files (the daily RR-T-Vent and the monthly files of every
@@ -3796,6 +3824,7 @@ NO_STUB = {
         "0-20000-0-11520; 17,520 rows, read 2026-10-25) has no empty value and none outside 989 to 1045 hPa"
     ),
     "dwd/alerts": "no timeseries",
+    "dwd/storm_cells": "no timeseries",
     "dwd/phenology": (
         "the value is DWD's JULTAG, which is the day of the year only for a date in the reference year (negative "
         "for a date before it, past 365 for one after it) and the reader maps no sentinel: no -999 or other "

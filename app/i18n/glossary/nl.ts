@@ -618,6 +618,7 @@ export const parameters: Record<string, string> = {
   thawing_thickness_plant_cover: 'Ontdooidiepte, onder begroeiing',
   thawing_thickness_plant_cover_max_month: 'Grootste ontdooidiepte van de maand, onder begroeiing',
   turbidity: 'Troebelheid',
+  uv_index_max: 'UV-index (dagmaximum)',
   volume_reservoir: 'Volume van het stuwmeer',
   water_equivalent_snow_depth_sampled: 'Sneeuwwatergehalte (monster)',
   water_equivalent_snow_depth_new: 'Waterequivalent versgevallen sneeuw',
