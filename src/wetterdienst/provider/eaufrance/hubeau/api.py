@@ -24,14 +24,17 @@ from wetterdienst.model.metadata import (
     ParameterModel,
     build_metadata_model,
 )
+from wetterdienst.model.parameter_rows import MAX_STATIONS_LISTED
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file, fetchable_link
+from wetterdienst.util.python import to_list
 from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from wetterdienst.model.result import StationsResult
     from wetterdienst.settings import Settings
 
 
@@ -199,32 +202,93 @@ _SNIFF_MIN_MODAL_PERCENT = 50
 _MAX_PAGES = 40
 
 
-# reported once per process rather than per request: `_all` measures the network whole every time
-# it runs, and every filter runs it, so a single station on an unmapped interval would otherwise
-# warn on every call
-_reported_steps: set[int] = set()
+#: the code of the warning that tells how many stations were left out of the list because the step they report at is
+#: one no resolution has (GH-4184). A station whose modal interval is absent from ``_STEP_TO_RESOLUTION`` belongs to no
+#: resolution and is listed under none, which is better than filing it under a neighbouring interval and quietly
+#: misdescribing it; the answer says so, and the network moving onto a sixth interval is the change that would need a
+#: new member
+STEP_WITHOUT_RESOLUTION = "step-without-resolution"
+# the warnings already logged by this process, by their text: `_all` measures the network whole every time it runs, and
+# every filter runs it, so the answer of every request records the warning (`warn_response`) but a library caller has
+# it once in its log
+_reported_unmapped: set[str] = set()
 
 
-def _log_unmapped_steps(df: pl.DataFrame) -> None:
-    """Report intervals stations transmit at that no resolution covers.
+def _minutes(step: int) -> str:
+    """Write a step as `1 minute` or `30 minutes`."""
+    return f"{step} minute" if step == 1 else f"{step} minutes"
 
-    A station whose modal interval is absent from ``_STEP_TO_RESOLUTION`` belongs to no resolution
-    and is listed under none, which is better than filing it under a neighbouring interval and
-    quietly misdescribing it. It is a silent outcome though, and the network moving onto a sixth
-    interval is exactly the change that would need a new member.
+
+def _and(items: list[str]) -> str:
+    """Join phrases as prose: `a`, `a and b`, `a, b and c`."""
+    return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} and {items[-1]}"
+
+
+def _unmapped_listed(unmapped: dict[str, int]) -> list[str]:
+    """Give the ids of the stations the warning names: the first ones, by id."""
+    return sorted(unmapped)[:MAX_STATIONS_LISTED]
+
+
+def _step_cause() -> str:
+    """Say what the step is that the stations are left out for, with the steps the resolutions have."""
+    resolutions = _and([str(step) for step in _STEP_TO_RESOLUTION])
+    return f"at a step that no resolution of Hub'Eau has (the resolutions are {resolutions} minutes)"
+
+
+def _unmapped_message(unmapped: dict[str, int]) -> str:
+    """Say how many stations were left out for a step no resolution has, at which steps, and name a few.
+
+    Args:
+        unmapped: the step in minutes each station reports at, by station id
+
+    Returns:
+        the text of the warning: every station is named (`namely`) up to `MAX_STATIONS_LISTED`, and a longer list
+        names the first ones (`among them`) and counts the rest; a step is written once where it tells something
+
     """
-    steps = set(df.get_column("step").unique().to_list()) - set(_STEP_TO_RESOLUTION)
-    new = steps - _reported_steps
-    if not new:
-        return
-    _reported_steps.update(new)
-    log.info(
-        f"Hubeau stations transmitting every {', '.join(f'{step} minutes' for step in sorted(new))} "
-        f"are served under no resolution, as no resolution covers those intervals.",
+    count = len(unmapped)
+    if count == 1:
+        ((station_id, step),) = unmapped.items()
+        return (
+            f"1 station was left out of the list because it reports {_step_cause()}: "
+            f"{station_id} reports every {_minutes(step)}."
+        )
+    per_step: dict[int, int] = {}
+    for step in unmapped.values():
+        per_step[step] = per_step.get(step, 0) + 1
+    listed = _unmapped_listed(unmapped)
+    if len(per_step) == 1:
+        (only,) = per_step
+        summary = f"all at {_minutes(only)}"
+        named = ", ".join(listed)
+    else:
+        ordered = sorted(per_step.items(), key=lambda item: (-item[1], item[0]))
+        summary = _and([f"{number} at {_minutes(step)}" for step, number in ordered])
+        named = ", ".join(f"{station_id} ({_minutes(unmapped[station_id])})" for station_id in listed)
+    cut = count > MAX_STATIONS_LISTED
+    tail = f"among them {named} and {count - MAX_STATIONS_LISTED} more" if cut else f"namely {named}"
+    return f"{count} stations were left out of the list because they report {_step_cause()}: {summary}, {tail}."
+
+
+def _unmapped_asked_message(asked: dict[str, int]) -> str:
+    """Say why stations asked for by id are not in the answer: they were left out for a step no resolution has.
+
+    Args:
+        asked: the step in minutes each station asked for reports at, by station id
+
+    Returns:
+        the text of the warning
+
+    """
+    one = len(asked) == 1
+    items = _and([f"{station_id} ({_minutes(step)})" for station_id, step in sorted(asked.items())])
+    return (
+        f"{items} {'was' if one else 'were'} left out of the list because {'it reports' if one else 'they report'} "
+        f"{_step_cause()}, so no station is found for {'it' if one else 'them'}."
     )
 
 
-# reported once per process, as the unmapped intervals are
+# reported once per process, as the stations left out for their step are
 _reported_unsettled: set[str] = set()
 
 
@@ -264,7 +328,8 @@ def _in_an_area(latitude: pl.Expr, longitude: pl.Expr) -> pl.Expr:
 
 
 # the warnings already logged by this process, by their text: the answer of every request that concerns an unplaced
-# station records the warning (`warn_response`), but a library caller has it once in its log, as `_reported_steps` does
+# station records the warning (`warn_response`), but a library caller has it once in its log, as `_reported_unmapped`
+# does
 _reported_unplaced: set[str] = set()
 
 #: the code of the warning that names the stations whose position the referential writes in no area of France, also
@@ -676,6 +741,11 @@ class HubeauRequest(TimeseriesRequest):
     # `_all` fills it in place, so the shallow copy of the request that `interpolate` and `summarize` read their values
     # through shares it, whether the copy is made before or after `_all` runs
     _unplaced_positions: dict[str, str] = field(default_factory=dict, init=False, repr=False, compare=False)
+    # the step in minutes of each station the last `_all` measured and left out, as no resolution has it, by station id
+    # (`_warn_unmapped`), shared the same way
+    _unmapped_steps: dict[str, int] = field(default_factory=dict, init=False, repr=False, compare=False)
+    # set while `filter_by_station_id` selects, which `_warn_unmapped` does not tell the stations of the network to
+    _selecting_by_id: bool = field(default=False, init=False, repr=False, compare=False)
 
     # `altitude_ref_alti_station` is the altitude of the gauge's zero in metres -- the datum a stage
     # is read from, below sea level on tidal reaches (-1.809 m at Bordeaux) -- not the ground the
@@ -692,6 +762,54 @@ class HubeauRequest(TimeseriesRequest):
         "site_id",
     )
 
+    def _warn_unmapped(self) -> None:
+        """Tell, once for the answer, how many stations were left out for a step no resolution has (GH-4184).
+
+        The stations are in no resolution's list, so the count is that of the whole network: it does not depend on
+        the resolution asked for or on the window of the request. It is told by every answer that selects stations
+        but one selected by station id: no selection by place, name or SQL, nor a whole list, could ever hold them.
+        A selection by id is told of the ids it asked for that were left out (`filter_by_station_id`), and of no
+        others. Nothing is told where no station was left out. The warning is recorded for the answer of every request
+        it concerns and logged once by the process, at INFO.
+        """
+        steps = dict(self._unmapped_steps)
+        if self._selecting_by_id or not steps:
+            return
+        message = _unmapped_message(steps)
+        self._record_unmapped(message, _unmapped_listed(steps))
+
+    def _record_unmapped(self, message: str, stations: list[str]) -> None:
+        """Record the warning for the answer and log it at INFO the first time the process tells that text."""
+        first = message not in _reported_unmapped
+        _reported_unmapped.add(message)
+        warn_response(
+            log,
+            STEP_WITHOUT_RESOLUTION,
+            message,
+            level=logging.INFO if first else logging.DEBUG,
+            stations=stations,
+        )
+
+    def filter_by_station_id(self, station_id: str | tuple[str, ...] | list[str]) -> StationsResult:
+        """Filter stations by station_id, and say why an id that was left out for its step is not found (GH-4184).
+
+        A station that reports at a step no resolution has is in no list, so the core says `unknown-station` of it.
+        The answer also carries `step-without-resolution` for the ids asked for that are such stations, with their
+        steps, and for no other; the stations of the network are not counted in a selection by id.
+        """
+        self._selecting_by_id = True
+        try:
+            result = super().filter_by_station_id(station_id)
+        finally:
+            self._selecting_by_id = False
+        ids = self._parse_station_id(pl.Series(name="station_id", values=to_list(station_id)))
+        asked = {
+            station: self._unmapped_steps[station] for station in dict.fromkeys(ids) if station in self._unmapped_steps
+        }
+        if asked:
+            self._record_unmapped(_unmapped_asked_message(asked), sorted(asked))
+        return result
+
     def _warn_unplaced(self, df: pl.DataFrame, *, named: bool) -> None:
         """Tell, once for the answer, which of the stations are listed without a position (GH-3468).
 
@@ -699,8 +817,10 @@ class HubeauRequest(TimeseriesRequest):
         search by place had to leave them out. For the whole list and a search by place, an answer cut to the window
         of the request tells only the stations that survive the cut; one named by id or SQL is told whatever the
         window does to it. The warning is recorded for the answer of every request it concerns and logged once by the
-        process, as the next ones would repeat it.
+        process, as the next ones would repeat it. The core asks at the same places for the stations left out for a
+        step no resolution has, which `_warn_unmapped` tells.
         """
+        self._warn_unmapped()
         if not self._unplaced_positions:
             return
         if not named:
@@ -780,7 +900,6 @@ class HubeauRequest(TimeseriesRequest):
             unsettled |= set(quiet_verdicts.filter(~pl.col("settled")).get_column("station_id"))
             missing = sorted(set(missing) - set(quiet.get_column("station_id")))
         _log_unsettled(len(unsettled))
-        _log_unmapped_steps(steps)
         return steps
 
     @staticmethod
@@ -845,6 +964,9 @@ class HubeauRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """List each station under the resolution it transmits at."""
+        # both are what the last listing found: a referential that cannot be read, or has no station, leaves none
+        self._unmapped_steps.clear()
+        self._unplaced_positions.clear()
         requested = {
             parameter.dataset.resolution.name for parameter in self.parameters if isinstance(parameter, ParameterModel)
         }
@@ -857,7 +979,6 @@ class HubeauRequest(TimeseriesRequest):
         if not rows:
             return pl.LazyFrame()
         df_raw, unplaced = _referential_stations(rows)
-        self._unplaced_positions.clear()
         self._unplaced_positions.update(unplaced)
         df_raw = df_raw.with_columns(
             pl.col("code_systeme_alti_site")
@@ -879,6 +1000,9 @@ class HubeauRequest(TimeseriesRequest):
             pl.col("step").replace_strict(_STEP_TO_RESOLUTION, default=None).alias("resolution"),
             pl.lit(DATASET_NAME_DEFAULT, pl.String).alias("dataset"),
         )
+        # a station measured at a step no resolution has is left out below, and the answer tells how many (GH-4184)
+        unmapped = df.filter(pl.col("resolution").is_null()).select("station_id", "step")
+        self._unmapped_steps.update(dict(unmapped.iter_rows()))
         # what the join needed and the stations frame has no column for; the site's code is the column `site_id`
         return (
             df.filter(pl.col("resolution").is_in(requested))

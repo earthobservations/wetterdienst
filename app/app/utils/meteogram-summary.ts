@@ -10,6 +10,7 @@ import { formatNumber } from './format'
 import { METEOGRAM_SERIES } from './meteogram'
 import { planPrecipitation, precipitationTotal } from './meteogram-precipitation'
 import { findFirstAvailable } from './meteogram-series'
+import { hasThunderSeries, planThunder, THUNDER_THRESHOLD } from './meteogram-thunder'
 import { snowChanceAmount } from './meteogram-units'
 import { withUnit } from './units'
 
@@ -116,6 +117,8 @@ export function meteogramTable(series: SeriesMap, { panels, horizonHours, zone, 
     { shown: panels.wind, key: pick(METEOGRAM_SERIES.gust), label: named('meteogram.chart.seriesWindGust', 'speed'), digits: digits('speed') },
     { shown: panels.precip, key: pick([PLAN_AMOUNT]), label: `${t('meteogram.chart.panelPrecipitation')} ${unitName('precipitation')}`, digits: digits('precipitation') },
     { shown: panels.precip, key: pick([PLAN_HOURS]), label: t('meteogram.chart.tableBlockHours'), digits: 0 },
+    // the hourly probability of a thunderstorm (GH-4090), every hour the forecast has, whether or not it reaches the threshold the chart draws from
+    { shown: panels.precip, key: pick(METEOGRAM_SERIES.thunder), label: named('meteogram.chart.seriesThunder', 'fraction'), digits: digits('fraction') },
     // the snow forecast (GH-4091), whose steps are the 3-hourly ones: a row of another hour has a dash
     { shown: panels.snow, key: pick(METEOGRAM_SERIES.snowNew), label: named('meteogram.chart.seriesSnowNew', 'length_short'), digits: digits('length_short') },
     { shown: panels.snow, key: pick(METEOGRAM_SERIES.snowDepth), label: named('meteogram.chart.seriesSnowDepth', 'length_short'), digits: digits('length_short') },
@@ -168,8 +171,24 @@ export function meteogramTable(series: SeriesMap, { panels, horizonHours, zone, 
       ...(temperatures.length
         ? [t('meteogram.chart.summaryTemperature', { min: formatNumber(Math.min(...temperatures), locale, 1), max: formatNumber(Math.max(...temperatures), locale, 1), unit: unitName('temperature') })]
         : []),
+      ...thunderSentence(series, panels.precip, lastShown, units, locale, writeTime, t),
       // the page chooses the table with the view control above the chart; the widget has the table below it
       widget ? t('common.chartTableHint') : t('meteogram.chart.summaryTableHint'),
     ].join(' '),
   }
+}
+
+/**
+ * What the chart's description says of the thunderstorm band, since a band is no value a reader of the text can find: the likeliest hour, or
+ * that no hour reaches the threshold (where the chart draws no band). Nothing where the panels of the precipitation are off or the forecast has
+ * no such probability.
+ */
+function thunderSentence(series: SeriesMap, shown: boolean, until: number, units: MeteogramUnits, locale: string, writeTime: (ms: number) => string, t: Translate): string[] {
+  if (!shown || !hasThunderSeries(series))
+    return []
+  const plan = planThunder(series, value => units.canon('fraction', value), until)
+  const threshold = withUnit(formatNumber(units.shown('fraction', THUNDER_THRESHOLD), locale, units.digits('fraction')), units.unitOf('fraction'))
+  if (!plan)
+    return [t('meteogram.chart.summaryNoThunder', { threshold })]
+  return [t('meteogram.chart.summaryThunder', { max: withUnit(formatNumber(plan.peak.value, locale, units.digits('fraction')), units.unitOf('fraction')), time: writeTime(plan.peak.end) })]
 }

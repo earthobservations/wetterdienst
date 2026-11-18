@@ -1244,7 +1244,8 @@ class TimeseriesRequest:
                 The `stations` listing of the command line and the REST API takes the best
                 `DEFAULT_NAME_RANK_LISTING` (5) instead: pass `rank=5` for the same. A station is one
                 match however many datasets (rows) it has, and two stations that share a name are two.
-                The rows come back best match first, equal scores ordered by `station_id`.
+                The rows come back best match first, equal scores the closer whole name first, a tie
+                on both ordered by `station_id`.
             threshold: Threshold for the fuzzy search. The name and the station names are compared
                 without regard to case and diacritics, an umlaut written out counting as the umlaut:
                 "koeln", "Koln" and "Köln" all find "Köln" (`wetterdienst.util.names`).
@@ -1303,9 +1304,11 @@ class TimeseriesRequest:
         # The unit of `rank` is the station, not the row: a station has a row for every dataset asked
         # for, and several stations may share a name. So the names are scored per station (once for
         # each name a station goes by), the best `rank` stations are taken, and their rows come back
-        # best match first. Equal scores -- common, as WRatio tops out at 100 for any name that holds
-        # the query -- are ordered by station_id, which does not depend on how the provider sorts its
-        # list. (GH-3025)
+        # best match first. Equal scores are common (WRatio gives 90 to any name that holds a short
+        # query), so `match_names` breaks them by the closer whole name (`fuzz.ratio`: "Saarland" finds
+        # "Rheinland-Pfalz und Saarland: Saarland" before "Rheinland-Pfalz und Saarland: Rhein, Pfalz, Nahe
+        # und Mosel"), GH-4207. A tie on both is ordered by station_id, which does not depend on how the
+        # provider sorts its list. (GH-3025)
         candidates = (
             df_all.select("station_id", "name").unique(maintain_order=True).sort("station_id", maintain_order=True)
         )

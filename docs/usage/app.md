@@ -116,13 +116,22 @@ setting for it):
 <iframe
   src="https://wetterdienst.eobs.org/widget?station=<station-id>&theme=light"
   title="Weather forecast"
-  width="100%" height="700"
+  width="100%" height="1000"
   style="border: 0"
   loading="lazy"
   referrerpolicy="strict-origin-when-cross-origin"></iframe>
 ```
 
-- The chart is 540 px high and the frame holds a header and a footer around it: 700 px leaves no scroll bar.
+- The height of the frame depends on what the forecast shows. In a frame wider than 40 rem (640 px at the usual text
+  size) the widget draws the chart, whose height is that of the panels it shows: 674 px for the wind, the
+  precipitation, the cloud cover, the temperature and the pressure with the weather symbols above them, and 744 px
+  where a thunderstorm has a probability of 10 % or more in the forecast, which adds a panel of 70 px (its plot and
+  the gap above it). With the frame's header, the credits and the legend under the chart, and its footer, the frame
+  needs about 850 px without that panel and about 950 px with it, a little more where the browser shows scroll bars
+  or the legend wraps in a narrow frame: `height="1000"` holds both. In a frame of 40 rem or less the widget shows
+  the day cards, which are about 350 px high. The widget picks the chart or the cards once, when it loads, and keeps
+  them when the frame is resized later, so a frame whose width can change (a phone turned) needs the chart's height.
+  A larger text size in the visitor's browser makes the text under the chart taller.
 - `theme=dark` or `theme=light` sets the colours; leave it out to follow the visitor's setting. The browser keeps the
   colours it was last given in the frame's own storage, so a visitor who has seen `theme=dark` keeps it until a
   `theme` says otherwise, even if you drop the parameter later.
@@ -202,8 +211,11 @@ backend can fail on a request the backend has since changed.
 
 The pages are drawn by script, so the server writes what a crawler or a link preview that runs none needs into the
 HTML it sends: the title, the description, the canonical link and the `og:` and `twitter:` tags of the path, and a
-`<noscript>` text with links to the pages. The script then sets the same tags in the language of the visitor; the
-server writes German, or English for a visitor who chose it or whose browser asks for it first. `/sitemap.xml` lists
+`<noscript>` text with links to the pages, and `<html lang>`. The server writes them in the language the page will
+show: it picks it as the app does at startup, the language of the `wd_lang` cookie if the visitor chose one, else
+the first language of the `Accept-Language` header that the app has, else German. A request with no
+`Accept-Language` at all, as a crawler sends (a browser always sends one), gets English, the language of the page a
+crawler renders. One URL has one language for the HTML and for the page. `/sitemap.xml` lists
 the pages worth finding (the explorer, the forecast, the climate stripes, the API, the providers, the glossary, the
 project and legal pages, and the page of each provider) and `/robots.txt` names it. The page of a provider
 (`/providers/dwd`) has its own title and description; the server reads the list of providers from the backend's

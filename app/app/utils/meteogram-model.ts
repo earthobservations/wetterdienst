@@ -7,6 +7,7 @@
 import type { SunTimes } from 'suncalc'
 import type { PanelName, PanelToggle } from './meteogram-geometry'
 import type { Series, SeriesMap } from './meteogram-series'
+import type { ThunderPlan } from './meteogram-thunder'
 import type { MeteogramUnits, Translate } from './meteogram-units'
 import type { Quantity } from './units'
 import type { WeatherKind } from './weather-kind'
@@ -17,6 +18,7 @@ import { extremeWindowHours, extremeWindowSteps, findNearestIndex, interpSeries,
 import { HOUR_MS, PANEL_ORDER, toggleOf } from './meteogram-geometry'
 import { planPrecipitation } from './meteogram-precipitation'
 import { findFirstAvailable } from './meteogram-series'
+import { planThunder } from './meteogram-thunder'
 import { snowChanceAmount } from './meteogram-units'
 import { weatherCodeToKind } from './weather-kind'
 
@@ -27,7 +29,7 @@ export interface SunLibrary {
 }
 
 /** The colours of the series: each is a key of the table in `meteogram-option.ts` */
-export type Tone = 'temp' | 'tempMax' | 'tempMin' | 'dew' | 'rain' | 'mixed' | 'snow' | 'wind' | 'gust' | 'pressure' | 'snowNew' | 'snowDepth' | 'snowChance' | 'cloudHigh' | 'cloudMid' | 'cloudLow' | 'cloudTotal'
+export type Tone = 'temp' | 'tempMax' | 'tempMin' | 'dew' | 'rain' | 'mixed' | 'snow' | 'wind' | 'gust' | 'pressure' | 'snowNew' | 'snowDepth' | 'snowChance' | 'thunder' | 'cloudHigh' | 'cloudMid' | 'cloudLow' | 'cloudTotal'
 
 /** The hours the amount of a snow bar covers: the 3 h of `Sa3`. A precipitation bar covers the hours of its block (1, 6, 12 or 24: `meteogram-precipitation.ts`) */
 export const SNOW_WINDOW_MS = 3 * HOUR_MS
@@ -130,7 +132,7 @@ export interface AxisSpec {
   title: string
   titleLines: 1 | 2
   /** the label colour is the series' (key of `SERIES_LABEL`), or the muted text's for the clouds */
-  label: 'cyan' | 'blue' | 'slate' | 'red' | 'lime' | 'indigo' | 'teal' | 'gold'
+  label: 'cyan' | 'blue' | 'slate' | 'red' | 'lime' | 'indigo' | 'teal' | 'gold' | 'fuchsia'
   /** the decimals the labels are written with at most */
   decimals: number
   /** the number of divisions the axis aims at */
@@ -230,6 +232,11 @@ export interface MeteogramModel {
   freezing: number | null
   /** where the precipitation panel goes from blocks of one length to another (an hour to 6): the first moment of the new blocks */
   precipChanges: { t: number, hours: number, label: string }[]
+  /**
+   * The thunderstorm band (GH-4090): the hours whose probability reaches `THUNDER_THRESHOLD`, which the chart draws in the `thunder` panel;
+   * null where no hour does, and then there is no such panel. Its readout is in `readout` with the probability of every hour of the run.
+   */
+  thunder: ThunderPlan | null
   /** the readout's series, and the weather of each stamp */
   readout: ReadoutSeries[]
   weather: Map<number, WeatherKind>
@@ -317,6 +324,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   const txKey = key(METEOGRAM_SERIES.temperatureMax)
   const tnKey = key(METEOGRAM_SERIES.temperatureMin)
   const weatherKey = key(METEOGRAM_SERIES.weather)
+  const thunderKey = key(METEOGRAM_SERIES.thunder)
 
   const allTimes = [...series.values()].flatMap(s => s.x.map(d => d.getTime()))
   if (!allTimes.length)
@@ -344,10 +352,13 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   // (`planPrecipitation`), and the chart draws each block over the hours it covers
   const precipPlan = planPrecipitation(series, amount => canon('precipitation', amount))
 
+  // the hours of a thunderstorm risk within the horizon: where there are none there is no panel for it, which keeps the chart calm
+  const thunderPlan = planThunder(series, value => canon('fraction', value), displayMax)
+
   const panels = PANEL_ORDER.filter((panel) => {
     if (!shownPanels[toggleOf(panel)])
       return false
-    return { wind: !!windKey, precip: !!precipPlan, snow: !!snowNewKey, snowDepth: !!snowDepthKey, snowChance: !!snowChanceKey, cloud: !!cloudKey, temp: !!tempKey, pressure: !!pressureKey }[panel]
+    return { wind: !!windKey, precip: !!precipPlan, thunder: !!thunderPlan, snow: !!snowNewKey, snowDepth: !!snowDepthKey, snowChance: !!snowChanceKey, cloud: !!cloudKey, temp: !!tempKey, pressure: !!pressureKey }[panel]
   })
 
   const drawn: DrawnSeries[] = []
@@ -533,6 +544,25 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
     range.precip = [0, shown('precipitation', 1)]
   }
 
+  // -- the thunderstorm band (GH-4090): drawn from the hours that reach the threshold (`thunderPlan`), read out for every hour of the run, so
+  // that a hover on an hour below it says its probability, not that there is none
+  const thunderSeries = at(thunderKey)
+  if (thunderPlan && thunderSeries && shownPanels.precip) {
+    readout.push({
+      id: 'thunder',
+      panel: 'thunder',
+      tone: 'thunder',
+      hover: t('meteogram.chart.hoverThunder'),
+      digits: units.digits('fraction'),
+      unit: unitOfQ('fraction'),
+      x: thunderSeries.x.map(d => d.getTime()),
+      y: thunderSeries.y,
+      mode: 'exact',
+    })
+  }
+  // a probability is the whole of the scale, 0 to 100 %, 0 to 1 or 0 to 8 oktas, as the cloud cover is
+  range.thunder = [0, shown('fraction', 100)]
+
   // -- the snow forecast (MOSMIX-SNOW, GH-4091): the new snow of the 3 hours before each step as bars, the snow depth as a line and
   // the chance of more than 10 cm of new snow within 24 hours as a line, each in a plot of its own, as their numbers are of
   // different sizes. Given at the 3-hourly steps only, and the readout says them for those hours alone
@@ -714,6 +744,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
   const titleTexts: Record<PanelName, string> = {
     wind: title('meteogram.chart.axisWind', 'speed'),
     precip: title('meteogram.chart.axisPrecip', 'precipitation'),
+    thunder: title('meteogram.chart.axisThunder', 'fraction'),
     cloud: title('meteogram.chart.axisCloud', 'fraction'),
     temp: title('meteogram.chart.axisTemp', 'temperature'),
     pressure: title('meteogram.chart.axisPressure', 'pressure'),
@@ -722,10 +753,10 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
     // the threshold and "new" on the first line and the unit of the chance on the second, as every other title: the whole words are in the readout and the table
     snowChance: `${t('meteogram.chart.axisSnowChance', { amount: chanceAmount }).trim()}${unitName('fraction').trim() ? `\n${unitName('fraction').trim()}` : ''}`,
   }
-  const labelColour: Record<PanelName, AxisSpec['label']> = { wind: 'cyan', precip: 'blue', snow: 'indigo', snowDepth: 'teal', snowChance: 'gold', cloud: 'slate', temp: 'red', pressure: 'lime' }
-  const decimalsOf = (panel: PanelName, quantity: Quantity) => ({ wind: Math.min(1, units.digits(quantity)), precip: Math.min(2, units.digits(quantity) + 1), snow: units.digits(quantity), snowDepth: Math.max(0, units.digits(quantity) - 1), snowChance: 0, cloud: 0, temp: 0, pressure: 0 })[panel]
-  const quantityOf: Record<PanelName, Quantity> = { wind: 'speed', precip: 'precipitation', snow: 'length_short', snowDepth: 'length_short', snowChance: 'fraction', cloud: 'fraction', temp: 'temperature', pressure: 'pressure' }
-  const splitsOf: Record<PanelName, number> = { wind: 3, precip: 2, snow: 2, snowDepth: 2, snowChance: 2, cloud: 2, temp: 3, pressure: 2 }
+  const labelColour: Record<PanelName, AxisSpec['label']> = { wind: 'cyan', precip: 'blue', thunder: 'fuchsia', snow: 'indigo', snowDepth: 'teal', snowChance: 'gold', cloud: 'slate', temp: 'red', pressure: 'lime' }
+  const decimalsOf = (panel: PanelName, quantity: Quantity) => ({ wind: Math.min(1, units.digits(quantity)), precip: Math.min(2, units.digits(quantity) + 1), thunder: Math.max(0, units.digits(quantity) - 1), snow: units.digits(quantity), snowDepth: Math.max(0, units.digits(quantity) - 1), snowChance: Math.max(0, units.digits(quantity) - 1), cloud: Math.max(0, units.digits(quantity) - 1), temp: 0, pressure: 0 })[panel]
+  const quantityOf: Record<PanelName, Quantity> = { wind: 'speed', precip: 'precipitation', thunder: 'fraction', snow: 'length_short', snowDepth: 'length_short', snowChance: 'fraction', cloud: 'fraction', temp: 'temperature', pressure: 'pressure' }
+  const splitsOf: Record<PanelName, number> = { wind: 3, precip: 2, thunder: 2, snow: 2, snowDepth: 2, snowChance: 2, cloud: 2, temp: 3, pressure: 2 }
   const axes: Partial<Record<PanelName, AxisSpec>> = {}
   for (const panel of panels) {
     axes[panel] = {
@@ -848,6 +879,7 @@ export function buildMeteogramModel(input: ModelInput): MeteogramModel | null {
     hours,
     days,
     precipChanges,
+    thunder: panels.includes('thunder') ? thunderPlan : null,
     freezing: freezing >= range.temp[0] && freezing <= range.temp[1] && panels.includes('temp') ? freezing : null,
     readout,
     weather,

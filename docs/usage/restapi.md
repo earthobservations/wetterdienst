@@ -55,8 +55,8 @@ What the endpoints share about which stations a request names:
   and `koeln` are the same name). `stations` lists the best five matches, to choose
   from, and `values` the one best match, as the library's `filter_by_name` does. `rank` sets another
   number of stations, for either; a station is one match however many datasets it has, and two
-  stations that share a name are two. The best match comes first, equal matches in the order of their
-  station ids. With a `timestamp` the name is matched among the stations that have a record in that
+  stations that share a name are two. The best match comes first, equal scores the closer whole name first,
+  then in the order of their station ids. With a `timestamp` the name is matched among the stations that have a record in that
   window, for `values` as for `stations`, so the best match is not a station that closed before it
   while one of the same name is open; a window no station of that name covers is an empty
   result. The library's `filter_by_name` does the same with the `start` and `end` of its request.
@@ -331,6 +331,13 @@ what the answer is missing:
   `interpolate` or `summarize` by a point, on a network whose source gives its stations no position, which is
   `dwd/pollen`: the answer is empty by the nature of the network, and the message names the way to find the stations,
   the `name` and `stations` parameters; a search by name or id and the whole list do not have it),
+  `step-without-resolution` (stations left out of the list because the step they report at is one no
+  resolution of the network has (seen: 20 and 30 minutes, on some days 180 or 240): `eaufrance/hubeau`.
+  The message gives how many, at which steps and names the first ten, which `stations` carries too.
+  Every answer that selects stations tells it, whatever the resolution asked for, but one selected by
+  `stations`, which is told only of the ids it asked for that were left out, with their steps; none is told
+  where no station is left out, see
+  [Hub'Eau](../data/provider/eaufrance/hubeau/index.md#stations-at-a-step-no-resolution-has)),
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
   `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
   `parameter-without-rows` (a requested parameter that the source holds no values for, see below),

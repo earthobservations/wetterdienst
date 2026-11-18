@@ -174,7 +174,7 @@ _NameField = Annotated[
     Field(
         description="Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` "
         "the name is matched among the stations that have a record in that window. The best match is first, "
-        "equal matches ordered by station id."
+        "equal scores the closer whole name first, then by station id."
     ),
 ]
 _NameThresholdField = Annotated[

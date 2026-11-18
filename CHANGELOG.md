@@ -44,8 +44,22 @@ Types of changes:
   text, `-1` included, is null with the text kept as `raw:`, and a changed file is a
   `DownloadError` (GH-4088)
 
+### Changed
+
+- `eaufrance/hubeau`: every answer that selects stations (`stations`, `values`, `interpolate`,
+  `summarize`) carries the warning `step-without-resolution` when stations were left out because
+  they report at a step no resolution has (20 or 30 minutes: 27 of 3,247 reporting stations on
+  2026-11-17), with the count, the steps and the first ten ids. A selection by station id is told
+  only of the ids it asked for that were left out, beside `unknown-station`. Nothing changes in
+  what is listed and no resolution is added; the docs say what is left out and why (GH-4184)
+
 ### Fixed
 
+- Station search by name (`filter_by_name`, and `name=` of the CLI, REST API and MCP): among names
+  of an equal score the closer whole name now comes first, not the lowest station id. `Kiel`
+  finds `Kiel-Holtenau` before `Kiel-Kronshagen`, and names that share a prefix (regions, e.g.
+  `Bayern: Mainfranken`) the one that is the query first. Scores and threshold are unchanged
+  (GH-4207)
 - `dwd/mosmix`: the snow depth of MOSMIX-SNOW that the model writes a little below 0 (`sncv` -0.01
   and -0.02 m of a melting snow) is returned as 0.0, with the number kept as
   `rejected:floor,raw:-0.02` in `quality_flags`, as `dwd/dmo` does for its precipitation. The
@@ -61,6 +75,9 @@ Types of changes:
   resolution while its steps don't settle. Of the 7 of 267 stations listed at 15 minutes that did
   not keep that cadence, 4 were unlisted at the last lookup and the others in about two thirds of
   the windows (GH-4166)
+- `dwd/alerts`: a `timestamp` whose snapshot directory is gone from DWD's server is answered as
+  `MetaFileNotFoundError` naming the URL (a 502 over REST and MCP; the CLI's message now says what
+  is missing) and no longer as a bare `FileNotFoundError`, a 500 `internal-error` (GH-4203)
 
 ## [0.191.0] - 2026-11-17
 
