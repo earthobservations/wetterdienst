@@ -18,6 +18,11 @@ Types of changes:
 
 ### Added
 
+- The climate stripes take `provider` and `network` on every surface (`dwd`/`observation`, the
+  default, or `noaa`/`ghcn`; any other pair is a 422). For NOAA GHCN daily each year is calculated
+  from the days by the WMO rules, a year that fails them is a gap, and the `processing_note` says
+  so. `stripes stations` takes a bounding box (`left`, `bottom`, `right` and `top`) for both
+  sources, and lists GHCN stations by the span of the elements of the kind (GH-4222)
 - `dwd/uvi`: DWD's forecast of the UV index for 38 places in Germany, a daily forecast network of
   one parameter, `uv_index_max` (the highest UV index of the day, a whole number of the WHO scale),
   for today, tomorrow and the day after, read from `uvi.json`. The places are the stations, with
@@ -104,6 +109,12 @@ Types of changes:
 - `dwd/alerts`: a `timestamp` whose snapshot directory is gone from DWD's server is answered as
   `MetaFileNotFoundError` naming the URL (a 502 over REST and MCP; the CLI's message now says what
   is missing) and no longer as a bare `FileNotFoundError`, a 500 `internal-error` (GH-4203)
+- `imgw` (hydrology and meteorology): a data directory that is gone from IMGW's server is a
+  `MetaFileNotFoundError` naming the URL (a 502 over REST and MCP), no longer a bare
+  `FileNotFoundError`, a 500. A period folder or an archive that is gone since the listing is
+  skipped and told by `file-skipped` naming the station (a folder only after its parent's listing
+  was read again), where the answer also said the source had no values. A window whose only
+  folder was gone, or empty, no longer fails with a 500 (GH-4205)
 
 ## [0.191.0] - 2026-11-17
 

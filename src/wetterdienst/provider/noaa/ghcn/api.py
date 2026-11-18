@@ -542,6 +542,34 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         return df.with_columns((pl.col("value").cast(pl.Float64, strict=False) * factor).alias("value"))
 
 
+def read_daily_inventory(settings: Settings) -> pl.DataFrame | None:
+    """Read `ghcnd-inventory.txt`: one row per station and element with the first and last year of its record.
+
+    The columns are `station_id`, `element` (as the file writes it, `TAVG`, `TMAX`, `TMIN`, `PRCP`, ...),
+    `start_timestamp` and `end_timestamp`, both the year as an integer. `None` where the file is not there.
+    """
+    inventory_url = "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
+    inventory_file = download_file(
+        url=inventory_url,
+        cache_dir=settings.cache_dir,
+        ttl=CacheExpiry.TWELVE_HOURS,
+        client_kwargs=settings.fsspec_client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
+    inventory_file.raise_if_exception()
+    if isinstance(inventory_file.content, Exception):
+        return None
+    inventory_df = pl.read_csv(inventory_file.content, has_header=False, truncate_ragged_lines=True)
+    column_specs = ((0, 10), (31, 34), (36, 39), (41, 44))
+    inventory_df = read_fwf_from_df(inventory_df, column_specs)
+    inventory_df.columns = ["station_id", "element", "start_timestamp", "end_timestamp"]
+    return inventory_df.with_columns(
+        pl.col("start_timestamp").cast(pl.Int64),
+        pl.col("end_timestamp").cast(pl.Int64),
+    )
+
+
 @dataclass
 class NoaaGhcnRequest(TimeseriesRequest):
     """Request class for NOAA GHCN data provider."""
@@ -774,26 +802,9 @@ class NoaaGhcnRequest(TimeseriesRequest):
 
         df = _restore_lost_signs(df)
 
-        inventory_url = "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
-        inventory_file = download_file(
-            url=inventory_url,
-            cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.TWELVE_HOURS,
-            client_kwargs=settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
-        inventory_file.raise_if_exception()
-        if isinstance(inventory_file.content, Exception):
+        inventory_df = read_daily_inventory(settings)
+        if inventory_df is None:
             return pl.LazyFrame()
-        inventory_df = pl.read_csv(inventory_file.content, has_header=False, truncate_ragged_lines=True)
-        column_specs = ((0, 10), (36, 39), (41, 44))
-        inventory_df = read_fwf_from_df(inventory_df, column_specs)
-        inventory_df.columns = ["station_id", "start_timestamp", "end_timestamp"]
-        inventory_df = inventory_df.with_columns(
-            pl.col("start_timestamp").cast(pl.Int64),
-            pl.col("end_timestamp").cast(pl.Int64),
-        )
         inventory_df = inventory_df.group_by(["station_id"]).agg(
             pl.col("start_timestamp").min(),
             pl.col("end_timestamp").max(),
