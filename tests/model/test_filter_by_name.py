@@ -66,8 +66,10 @@ def test_the_rows_come_back_best_match_first(monkeypatch: pytest.MonkeyPatch, re
     _serve(monkeypatch, _ROWS)
 
     # a station has a row for each dataset asked for, and its rows stay together
-    assert _stations(request_, rank=4) == ["00005", "00005", "00002", "00003", "00006"]
-    assert _stations(request_, rank=10) == ["00005", "00005", "00002", "00003", "00006", "00001"]
+    # of the names that hold the query, the closer one first (GH-4207): "Kiel-Holtenau" before the longer
+    # "Kiel-Kronshagen", although that has the lower id
+    assert _stations(request_, rank=4) == ["00005", "00005", "00003", "00006", "00002"]
+    assert _stations(request_, rank=10) == ["00005", "00005", "00003", "00006", "00002", "00001"]
 
 
 def test_a_station_is_one_match_whatever_its_number_of_datasets(
@@ -78,17 +80,17 @@ def test_a_station_is_one_match_whatever_its_number_of_datasets(
 
     assert _stations(request_, rank=1) == ["00005", "00005"]
     assert _stations(request_) == ["00005", "00005"], "the default rank is the best match"
-    assert _stations(request_, rank=2) == ["00005", "00005", "00002"]
+    assert _stations(request_, rank=2) == ["00005", "00005", "00003"]
 
 
 def test_stations_that_share_a_name_do_not_exceed_the_rank(
     monkeypatch: pytest.MonkeyPatch, request_: DwdObservationRequest
 ) -> None:
-    """Three stations hold the query alike and two are called the same: `rank=3` is still three stations."""
+    """Three stations hold the query alike and two are called the same: `rank=2` is still two stations."""
     _serve(monkeypatch, _ROWS)
 
-    result = request_.filter_by_name("Kiel", rank=3).df
-    assert result.get_column("station_id").unique(maintain_order=True).to_list() == ["00005", "00002", "00003"]
+    result = request_.filter_by_name("Kiel", rank=2).df
+    assert result.get_column("station_id").unique(maintain_order=True).to_list() == ["00005", "00003"]
     # the other station called "Kiel-Holtenau" is not dragged in by its name
     assert "00006" not in result.get_column("station_id").to_list()
 
@@ -96,8 +98,8 @@ def test_stations_that_share_a_name_do_not_exceed_the_rank(
 def test_equal_scores_are_ordered_by_station_id_whatever_the_order_of_the_list(
     monkeypatch: pytest.MonkeyPatch, request_: DwdObservationRequest
 ) -> None:
-    """A tie is broken by `station_id`, so that the provider's own ordering decides nothing."""
-    expected = ["00005", "00005", "00002", "00003"]
+    """A tie on the score and on the closeness of the name is broken by `station_id`, not by the provider's order."""
+    expected = ["00005", "00005", "00003", "00006"]
     for rows in (_ROWS, list(reversed(_ROWS)), sorted(_ROWS, key=lambda row: row[2])):
         _serve(monkeypatch, rows)
         assert _stations(request_, rank=3) == expected

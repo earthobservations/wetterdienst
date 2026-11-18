@@ -46,7 +46,10 @@ BOX_AROUND_PARIS = {"left": 2.0, "bottom": 48.5, "right": 2.7, "top": 49.0}
 SELECTIONS: dict[str, dict[str, str]] = {
     "id of Paris": {"stations": PARIS},
     "id of the Blavet": {"stations": BLAVET},
-    "name of Paris": {"name": "La Seine à Paris"},
+    # the threshold keeps the answer to the two stations of the Seine: a listing takes the best five names, and
+    # at the default threshold the other three places of 85.5 are filler, whose order among themselves (the
+    # closer name first, GH-4207) would let the Blavet in
+    "name of Paris": {"name": "La Seine à Paris", "name_threshold": "0.9"},
     "name of the Blavet": {"name": "Le Blavet à Neulliac"},
     "sql of Paris": {"sql": f"station_id = '{PARIS}'"},
     "sql of the Blavet": {"sql": f"station_id = '{BLAVET}'"},
@@ -127,7 +130,7 @@ def _cli(**query: str) -> list[dict[str, str]]:
             "--network=hubeau",
             "--parameters=5_minutes/data",
             "--with-metadata=true",
-            *(f"--{key}={value}" for key, value in query.items()),
+            *(f"--{key.replace('_', '-')}={value}" for key, value in query.items()),
         ],
     )
     assert result.exit_code == 0, result.output
