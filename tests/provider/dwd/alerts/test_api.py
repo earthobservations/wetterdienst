@@ -499,3 +499,32 @@ def test_resolve_snapshot_a_200_page_that_is_no_index_is_a_download_error_not_no
         server.directories[directory] = []
         with pytest.raises(MetaFileNotFoundError, match="no weather-alerts snapshot listed at"):
             request._resolve_snapshot()  # noqa: SLF001
+
+
+def test_resolve_snapshot_a_directory_that_is_gone_is_a_missing_file_and_a_502(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A snapshot directory that DWD has moved (a 404) is an `UpstreamError` naming the URL, not a bare error (GH-4203).
+
+    The listing raises a `FileNotFoundError` for it; that is a 500 over REST, where a source that cannot be read is a
+    502.
+    """
+    from tests.nginx_stub import serving  # noqa: PLC0415
+    from wetterdienst import Settings  # noqa: PLC0415
+    from wetterdienst.exceptions import UpstreamError  # noqa: PLC0415
+    from wetterdienst.provider.dwd.alerts import api  # noqa: PLC0415
+    from wetterdienst.ui.core import failure_status  # noqa: PLC0415
+
+    with serving() as server:
+        monkeypatch.setattr(api, "DWD_ALERTS_BASE_URL", f"{server.base}/weather/alerts/cap")
+        directory = "/weather/alerts/cap/COMMUNEUNION_DWD_STAT/"
+        server.missing.add(directory)
+        request = DwdWeatherAlertRequest(timestamp="2026-07-01T00:00:00", settings=Settings(cache_dir=str(tmp_path)))
+
+        with pytest.raises(MetaFileNotFoundError, match="no weather-alerts directory at") as raised:
+            request._resolve_snapshot()  # noqa: SLF001
+
+    assert f"{server.base}{directory}" in str(raised.value)
+    assert isinstance(raised.value.__cause__, FileNotFoundError)
+    assert isinstance(raised.value, UpstreamError)
+    assert failure_status(raised.value) == 502

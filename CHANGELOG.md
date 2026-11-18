@@ -33,6 +33,9 @@ Types of changes:
   resolution while its steps don't settle. Of the 7 of 267 stations listed at 15 minutes that did
   not keep that cadence, 4 were unlisted at the last lookup and the others in about two thirds of
   the windows (GH-4166)
+- `dwd/alerts`: a `timestamp` whose snapshot directory is gone from DWD's server is answered as
+  `MetaFileNotFoundError` naming the URL (a 502 over REST, an upstream error on the CLI) and no
+  longer as a bare `FileNotFoundError`, a 500 `internal-error` (GH-4203)
 
 ## [0.191.0] - 2026-11-17
 

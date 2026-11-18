@@ -540,14 +540,20 @@ class DwdWeatherAlertRequest:
         the directory listing; the filename timestamps are UTC. Raises ``InvalidTimeIntervalError``
         (a ``ValueError``) if ``timestamp`` falls before DWD's rolling window (no snapshot at or
         before it is available), and ``MetaFileNotFoundError`` (a ``FileNotFoundError`` too) if the
-        listing holds no snapshot at all, which is no date's doing.
+        listing holds no snapshot at all, which is no date's doing, or if the directory is not there.
         """
         if self.timestamp is None:
             return self.url, None
 
         pattern = self._filename_pattern
         snapshots: list[tuple[dt.datetime, str]] = []
-        for entry in list_remote_directory_fsspec(self._directory_url, settings=self.settings):
+        try:
+            entries = list_remote_directory_fsspec(self._directory_url, settings=self.settings)
+        except FileNotFoundError as e:
+            # a directory that is not there is DWD's to answer for (a 502), no defect of ours (GH-4203)
+            msg = f"no weather-alerts directory at {self._directory_url}"
+            raise MetaFileNotFoundError(msg) from e
+        for entry in entries:
             match = pattern.search(entry["name"].rsplit("/", 1)[-1])
             if match:
                 timestamp = dt.datetime.strptime(match.group(1), "%Y%m%d%H%M%S").replace(tzinfo=ZoneInfo("UTC"))
