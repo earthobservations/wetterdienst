@@ -1,15 +1,15 @@
 <script setup lang="ts">
 import type { ProviderNetworkCoverageResponse, Station, StripesStationsResponse } from '#shared/types/api'
-import type { GroupingChoice } from '~/utils/map-cluster'
 import type { CloserStation, MapLayer, MapState, MeasuredSource, PickedStation, PlacedStation, PlaceOrigin, Point, ReportingRule } from '~/utils/map-tool'
 import { defineAsyncComponent } from 'vue'
 import MapForecast from '~/components/MapForecast.vue'
+import MapLayers from '~/components/MapLayers.vue'
 import MapStationsNotLoaded from '~/components/MapStationsNotLoaded.vue'
 import MapStripes from '~/components/MapStripes.vue'
 import UseMyLocation from '~/components/UseMyLocation.vue'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber } from '~/utils/format'
-import { DEFAULT_GROUPING, GROUPING_CHOICES, GROUPING_COMPULSORY_ABOVE, groupingFor, isGroupedAt } from '~/utils/map-cluster'
+import { GROUPING_COMPULSORY_ABOVE, groupingFor, isGroupedAt } from '~/utils/map-cluster'
 import {
   closerStoppedStation,
   DEFAULT_MEASURED,
@@ -38,7 +38,7 @@ import {
   yearOf,
 } from '~/utils/map-tool'
 
-// The map tool (GH-3650), from the design of #3580: the stations of the layer chosen in the chips over the map, and a
+// The map tool (GH-3650), from the design of #3580: the stations of the layer chosen in the panel of the layers button over the map, and a
 // panel beside it (a sheet under it on a phone) that finds a station by name, lists the ones near the centre of the
 // map and, for the station or the place picked, shows its forecast, its climate stripes, its measurements and its
 // history, each at the nearest station that has them. Two layers: the forecast's points (DWD MOSMIX) and the stations
@@ -129,7 +129,7 @@ const listFailure = computed(() => current.value.error.value ? describeFetchErro
 
 const sourceKey = computed(() => `${source.value.resolution}/${source.value.dataset}`)
 
-// ---- the chips ------------------------------------------------------------------------------------------------
+// ---- the layers ------------------------------------------------------------------------------------------------
 
 const layerItems = computed(() => [
   { value: 'forecast' as const, label: t('mapTool.layerForecast'), icon: 'i-ph-sun' },
@@ -147,7 +147,7 @@ function loadCoverage() {
       coverage.value = answer
     })
     .catch(() => {
-      // the chips then offer the one source shown, which still works
+      // the panel then offers the one source shown, which still works
       coverageRequest = null
     })
   return coverageRequest
@@ -243,22 +243,17 @@ const mapLabel = computed(() => t('mapTool.mapLabel', { layer: layerLabel.value 
 
 // ---- the groups of stations at the outer zooms (GH-4079) ----------------------------------------------------------
 
-// How much is grouped is the reader's choice (a step of the control over the map: the radius of a group and the zoom from
-// which every station is its own dot), except on a layer of more than `GROUPING_COMPULSORY_ABOVE` stations, which is
-// always grouped: there the control only sets how fine the groups are, and says why
-const groupingChoice = ref<GroupingChoice>(DEFAULT_GROUPING)
-const groupingInForce = computed(() => groupingFor(groupingChoice.value, stations.value.length))
-const groupingSelect = computed({
-  get: () => groupingInForce.value.choice,
-  set: (choice: GroupingChoice) => {
-    groupingChoice.value = choice
+// Whether the stations are grouped is the reader's choice (the switch in the panel of the layers button: one grouping, on by
+// default, the radius of a group and the zoom from which every station is its own dot), except on a layer of more than
+// `GROUPING_COMPULSORY_ABOVE` stations, which is always grouped: there the switch is on, disabled, and says why
+const groupingWanted = ref(true)
+const groupingInForce = computed(() => groupingFor(groupingWanted.value, stations.value.length))
+const grouped = computed({
+  get: () => groupingInForce.value.on,
+  set: (on: boolean) => {
+    groupingWanted.value = on
   },
 })
-const groupingItems = computed(() => GROUPING_CHOICES.map(choice => ({
-  value: choice,
-  label: { off: t('mapTool.groupingOff'), fine: t('mapTool.groupingFine'), coarse: t('mapTool.groupingCoarse') }[choice],
-  disabled: choice === 'off' && groupingInForce.value.compulsory,
-})))
 const groupingCompulsoryText = computed(() => t('mapTool.groupingCompulsory', { shown: formatNumber(GROUPING_COMPULSORY_ABOVE, formatLanguage.value, 0) }))
 /** Whether the stations are grouped at the zoom the map is at, which the legend says */
 const groupedNow = computed(() => isGroupedAt(groupingInForce.value.grouping, view.value.zoom))
@@ -423,11 +418,23 @@ function pickAt(point: Point, tolerance: number, focus = false, tap = 0, disc = 
   }
 }
 
+/** When the panel of the layers last closed, and how long after it a click on the map is still the press that closed it */
+let layersClosedAt = Number.NEGATIVE_INFINITY
+const LAYERS_CLOSE_GUARD_MS = 400
+function onLayersClose(byPress: boolean) {
+  // closed by Escape or by its button, a click on the map after it is a pick like any
+  if (byPress)
+    layersClosedAt = performance.now()
+}
+
 /**
  * A click on the map. `tolerance` is how far from it a dot under the pointer can be (the dot as drawn, and a little
  * more), `tap` how far a station can be for a finger (none for a mouse), both measured by the map, in kilometres.
  */
 function onPick(point: Point & { tolerance: number, tap?: number, disc?: number }) {
+  // a press on the map that closed the panel of the layers is that and no pick of a place (the panel closes on the press, the map's click follows)
+  if (performance.now() - layersClosedAt < LAYERS_CLOSE_GUARD_MS)
+    return
   pickAt(point, point.tolerance, false, point.tap ?? 0, point.disc ?? 0)
 }
 
@@ -817,7 +824,7 @@ watch(() => route.query, (query) => {
                 </p>
               </section>
 
-              <!-- the measurements and the history, at the nearest station of the source chosen in the chips -->
+              <!-- the measurements and the history, at the nearest station of the source chosen in the layers panel -->
               <section class="map-card" aria-labelledby="map-measured-title" data-testid="map-card-measured">
                 <h3 id="map-measured-title" class="map-card-title">
                   <UIcon name="i-ph-thermometer" class="map-card-icon" />
@@ -947,50 +954,32 @@ watch(() => route.query, (query) => {
             </div>
           </section>
 
-          <!-- The map, and the chips over it that choose its layer -->
+          <!-- The map, the one button over it that opens the layers (GH-4209), and the status chips -->
           <div v-else class="map-stage" data-testid="map-stage">
+            <div class="map-layers">
+              <MapLayers
+                v-model:layer="layer"
+                v-model:grouped="grouped"
+                :layer-items="layerItems"
+                :show-grouping="listStatus === 'success' && stations.length > 0"
+                :compulsory="groupingInForce.compulsory"
+                :note="groupingCompulsoryText"
+                @close="onLayersClose"
+              >
+                <template v-if="layer === 'measured'">
+                  <USelect v-model="resolutionChoice" :items="resolutionItems" :aria-label="t('parameterSelection.resolutionLabel')" class="w-full" data-testid="map-resolution" />
+                  <USelect v-model="datasetChoice" :items="datasetItems" :aria-label="t('parameterSelection.datasetLabel')" class="w-full" data-testid="map-dataset" />
+                </template>
+              </MapLayers>
+            </div>
             <div class="map-chips">
               <div class="map-chips-row">
-                <div class="map-segments" role="group" :aria-label="t('mapTool.layers')">
-                  <button
-                    v-for="option in layerItems"
-                    :key="option.value"
-                    type="button"
-                    class="map-segment"
-                    :aria-pressed="layer === option.value"
-                    :data-testid="`map-layer-${option.value}`"
-                    @click="layer = option.value"
-                  >
-                    <UIcon :name="option.icon" class="size-4 shrink-0" />
-                    {{ option.label }}
-                  </button>
-                </div>
-                <template v-if="layer === 'measured'">
-                  <USelect v-model="resolutionChoice" :items="resolutionItems" :aria-label="t('parameterSelection.resolutionLabel')" size="sm" class="map-select" data-testid="map-resolution" />
-                  <USelect v-model="datasetChoice" :items="datasetItems" :aria-label="t('parameterSelection.datasetLabel')" size="sm" class="map-select" data-testid="map-dataset" />
-                </template>
                 <!-- on a phone the count is in the panel, and the chips take less of the map -->
                 <span v-if="listStatus === 'success'" class="map-status map-count" data-testid="map-count">{{ countLabel }}</span>
                 <span v-else-if="listStatus === 'pending' || listStatus === 'idle'" class="map-status" role="status">
                   <UIcon name="i-ph-circle-notch" class="size-4 motion-safe:animate-spin" />
                   {{ t('mapTool.loadingStations') }}
                 </span>
-              </div>
-              <!-- how much is grouped (GH-4079), under the layers: a row of its own, where the note of a layer that cannot be left ungrouped has room -->
-              <div v-if="listStatus === 'success' && stations.length" class="map-chips-row">
-                <div class="map-grouping" data-testid="map-grouping-group">
-                  <span class="map-grouping-label" aria-hidden="true">{{ t('mapTool.grouping') }}</span>
-                  <SegmentedControl
-                    v-model="groupingSelect"
-                    :options="groupingItems"
-                    :label="t('mapTool.grouping')"
-                    :aria-describedby="groupingInForce.compulsory ? 'map-grouping-note' : undefined"
-                    data-testid="map-grouping"
-                  />
-                </div>
-                <p v-if="groupingInForce.compulsory" id="map-grouping-note" class="map-status map-note" data-testid="map-grouping-note">
-                  {{ groupingCompulsoryText }}
-                </p>
               </div>
               <UAlert
                 v-if="listStatus === 'error'"
@@ -1062,32 +1051,6 @@ watch(() => route.query, (query) => {
   }
 }
 
-.map-grouping {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.25rem 0.5rem;
-  max-width: 100%;
-  padding: 0.1875rem 0.375rem 0.1875rem 0.75rem;
-  border-radius: 999px;
-  background: var(--ui-bg);
-  box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
-  pointer-events: auto;
-}
-.map-grouping-label {
-  color: var(--ui-text-toned);
-  font-size: 0.8125rem;
-  font-weight: 600;
-  overflow-wrap: anywhere;
-}
-/* a label that does not fit beside the switch (320 px, the longer languages) stands over it, and the pill gives up its round ends */
-@media (max-width: 23.99rem) {
-  .map-grouping {
-    border-radius: 1.25rem;
-    padding-block: 0.375rem;
-  }
-}
-
 /* The stage: the map under the chips. It keeps its place while the panel, which can be long, scrolls on a wide
    screen, and is about half the window on a phone, so that a sheet fits under it. */
 .map-stage {
@@ -1126,12 +1089,23 @@ watch(() => route.query, (query) => {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  /* the row is as wide as the map and its empty space is the map's: only what is in it takes the pointer */
+  /* the height of the layers button, which is in the same corner row: the failure under the row clears it */
+  min-height: 2.75rem;
+  /* the row is as wide as the map and its empty space is the map's: only what is in it takes the pointer; the end of it is the button's */
+  padding-inline-end: 3.5rem;
   pointer-events: none;
 }
 .map-chips-row > *,
 .map-failure {
   pointer-events: auto;
+}
+/* The layers button (MapLayers.vue), alone in the map's top right corner: the zoom buttons and the credit are at the
+   bottom right, the legend at the bottom left and the status at the top left */
+.map-layers {
+  position: absolute;
+  z-index: 1002;
+  inset-inline-end: 0.75rem;
+  top: 0.75rem;
 }
 /* a link of a card breaks onto a second line where its words are longer than the card (320 px, the longer languages) */
 .map-link.map-link {
@@ -1144,63 +1118,6 @@ watch(() => route.query, (query) => {
   overflow: visible;
   white-space: normal;
   text-overflow: clip;
-}
-.map-segments {
-  display: inline-flex;
-  max-width: 100%;
-  padding: 0.1875rem;
-  border: 1px solid var(--ui-border-accented);
-  border-radius: 999px;
-  background: var(--ui-bg);
-  box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
-}
-.map-segment {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  min-width: 0;
-  min-height: 2.25rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 999px;
-  color: var(--ui-text-toned);
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1.15;
-  text-align: center;
-  /* a long word (Verwachtingsstations) breaks rather than spill out of its chip */
-  overflow-wrap: anywhere;
-}
-/* on the narrowest screens the two layers stand one over the other, so that the words of a long language fit */
-@media (max-width: 23.99rem) {
-  .map-segments {
-    flex-direction: column;
-    border-radius: 1.25rem;
-  }
-}
-.map-segment:hover {
-  background: var(--ui-bg-elevated);
-  color: var(--ui-text-highlighted);
-}
-/* the layer shown: filled with the logo's navy (12.5:1 with white), a label in a chip that is no colour alone: it is
-   pressed (aria-pressed) and its name is written */
-.map-segment[aria-pressed="true"] {
-  background: var(--color-tile-navy);
-  color: #ffffff;
-}
-/* at night only: a print is the light page */
-@media not print {
-  .dark .map-segment[aria-pressed="true"] {
-    background: var(--color-brand-300);
-    color: var(--color-ink-950);
-  }
-}
-.map-select {
-  /* the two choices share a row where it is narrow, and share what is left of it */
-  flex: 1 1 7rem;
-  min-width: 0;
-  max-width: 11rem;
-  box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
 }
 .map-status {
   display: inline-flex;
@@ -1220,13 +1137,6 @@ watch(() => route.query, (query) => {
   .map-count {
     display: none;
   }
-}
-.map-note {
-  /* why the groups cannot be turned off, on its own line under the chips */
-  align-self: flex-start;
-  max-width: 28rem;
-  border-radius: var(--ui-radius);
-  pointer-events: auto;
 }
 .map-failure {
   max-width: 28rem;

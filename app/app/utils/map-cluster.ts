@@ -11,55 +11,44 @@ import { dotRadius } from './map-tool'
  * build and nothing to keep but the groups of the zoom in view.
  */
 
-/** How much is grouped, as the switch on the map offers it: no groups, or one of two steps (the maintainer's decision on #4172: None, Fine, Coarse) */
-export type GroupingChoice = 'off' | 'fine' | 'coarse'
-
-export const GROUPING_CHOICES: GroupingChoice[] = ['off', 'fine', 'coarse']
-
 /**
- * What a step of the control sets, the two settings behind it: the radius of a group in screen pixels (every station of
- * a group is within it of the group's cell centre), and the zoom from which every station is its own dot. The coarse step
- * groups more, and keeps grouping to a closer zoom.
+ * What grouping sets, the two settings behind the switch on the map: the radius of a group in screen pixels (every station
+ * of a group is within it of the group's cell centre), and the zoom from which every station is its own dot.
  */
 export interface Grouping {
   radius: number
   separateFrom: number
 }
 
-export const GROUPINGS: Record<Exclude<GroupingChoice, 'off'>, Grouping> = {
-  fine: { radius: 30, separateFrom: 8 },
-  coarse: { radius: 80, separateFrom: 10 },
-}
-
-/** The step the map opens with, and the one the pickers take their separation zoom from */
-export const DEFAULT_GROUPING: Exclude<GroupingChoice, 'off'> = 'fine'
+/** The one grouping the map has (GH-4209: the switch is on or off; the fine step of GH-4172 is gone), on by default, which the pickers take their separation zoom from */
+export const GROUPING: Grouping = { radius: 80, separateFrom: 10 }
 
 /**
- * A layer whose list has more stations than this is always grouped, whatever the control says (maintainer, 2026-11-14):
- * the rule goes by the layer's count, not by a hand-picked list. The control then only sets how fine the groups are.
- * GHCN daily has 133,041 stations, MOSMIX about 5,600 and DWD's observations about 1,400, which follow the control.
+ * A layer whose list has more stations than this is always grouped, whatever the switch says (maintainer, 2026-11-14):
+ * the rule goes by the layer's count, not by a hand-picked list. The switch is then on, and cannot be turned off.
+ * GHCN daily has 133,041 stations, MOSMIX about 5,600 and DWD's observations about 1,400, which follow the switch.
  */
 export const GROUPING_COMPULSORY_ABOVE = 10_000
 
-/** What the map groups by for a choice and a layer of `count` stations: the step in force, whether it is forced, and its settings (null for none) */
+/** What the map groups by for the switch and a layer of `count` stations: whether it is on, whether that is forced, and the settings (null for none) */
 export interface GroupingInForce {
-  choice: GroupingChoice
+  on: boolean
   compulsory: boolean
   grouping: Grouping | null
 }
 
 /**
- * The grouping of a layer: the choice, except that a layer of more than `GROUPING_COMPULSORY_ABOVE` stations cannot be left
- * ungrouped and takes the default step where the choice is none.
+ * The grouping of a layer: the switch, except that a layer of more than `GROUPING_COMPULSORY_ABOVE` stations cannot be left
+ * ungrouped and is grouped where the switch is off.
  *
  * @example
- * groupingFor('off', 5_600) // { choice: 'off', compulsory: false, grouping: null }
- * groupingFor('off', 133_041) // { choice: 'fine', compulsory: true, grouping: { radius: 30, separateFrom: 8 } }
+ * groupingFor(false, 5_600) // { on: false, compulsory: false, grouping: null }
+ * groupingFor(false, 133_041) // { on: true, compulsory: true, grouping: { radius: 80, separateFrom: 10 } }
  */
-export function groupingFor(choice: GroupingChoice, count: number): GroupingInForce {
+export function groupingFor(wanted: boolean, count: number): GroupingInForce {
   const compulsory = count > GROUPING_COMPULSORY_ABOVE
-  const inForce = choice === 'off' && compulsory ? DEFAULT_GROUPING : choice
-  return { choice: inForce, compulsory, grouping: inForce === 'off' ? null : GROUPINGS[inForce] }
+  const on = wanted || compulsory
+  return { on, compulsory, grouping: on ? GROUPING : null }
 }
 
 /** Whether the stations are grouped at a zoom: a grouping is set and the zoom is outside the one every station is its own dot from */
@@ -301,9 +290,46 @@ export function clusterAt(clusters: Cluster[], at: { x: number, y: number }, slo
 }
 
 /**
+ * The box a click on a group fits the map to: its stations' box, grown to be as far from the disc on every side as it is on
+ * the one where it is farthest, so that the disc is the middle of it. The disc is drawn at the mean of the stations' positions
+ * and the stations are not spread evenly round it (a town with outliers to one side), so the middle of the stations' box
+ * (`bounds.getCenter()`, which GH-4209 found a click on a group centred the map on) is somewhere else than the disc: the map
+ * zoomed in with the group off to one side. A map centred on the disc with this box shows all of the stations.
+ */
+export function boundsAround(cluster: Pick<Cluster, 'latitude' | 'longitude' | 'bounds'>): Cluster['bounds'] {
+  const { latitude, longitude, bounds } = cluster
+  const north = Math.max(bounds.north - latitude, latitude - bounds.south)
+  const east = Math.max(bounds.east - longitude, longitude - bounds.west)
+  return {
+    south: Math.max(-MAX_LATITUDE, latitude - north),
+    north: Math.min(MAX_LATITUDE, latitude + north),
+    west: longitude - east,
+    east: longitude + east,
+  }
+}
+
+/**
  * The zoom a click on a group goes to: the one that fits the box of its stations, at least one in, and no farther than
  * the zoom from which every station is its own dot (the group is gone by then, if the box was a point).
  */
 export function zoomForCluster(fitting: number, current: number, separateFrom: number, maxZoom: number): number {
   return Math.min(Math.max(fitting, current + 1), separateFrom, maxZoom)
+}
+
+/**
+ * The view a click on a group sets: the map centred on the disc, as it was drawn, at the zoom that fits the stations round it.
+ * `fitting` is the zoom at which the map holds a box, which only the map knows (`getBoundsZoom`).
+ */
+export function viewForCluster(
+  cluster: Pick<Cluster, 'latitude' | 'longitude' | 'bounds'>,
+  fitting: (box: Cluster['bounds']) => number,
+  current: number,
+  separateFrom: number,
+  maxZoom: number,
+): { latitude: number, longitude: number, zoom: number } {
+  return {
+    latitude: cluster.latitude,
+    longitude: cluster.longitude,
+    zoom: zoomForCluster(fitting(boundsAround(cluster)), current, separateFrom, maxZoom),
+  }
 }

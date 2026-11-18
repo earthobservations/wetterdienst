@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
+import { expectAtLeastPx } from './target-size'
 
 // The map tool (GH-3650), by its main path in a browser: open the map, pick a place, read what the panel shows of it
 // and follow its links; the layers; the search of the header opening the map on a station; and the phone's navigation
@@ -24,6 +25,20 @@ async function open(page: Page, baseURL: string, path = '/map', handlers = {}, t
   await page.goto(path)
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(title)
   return backend
+}
+
+/** Opens the panel of the layers button (GH-4209), which holds the layers and the grouping, where it is not open */
+async function openLayers(page: Page) {
+  const button = page.getByTestId('map-layers-button')
+  if ((await button.getAttribute('aria-expanded')) !== 'true')
+    await button.click()
+  await expect(page.getByTestId('map-layers-panel')).toBeVisible()
+}
+
+/** The radio of a layer in the panel (the panel is opened first) */
+async function layerRadio(page: Page, name: string) {
+  await openLayers(page)
+  return page.getByTestId('map-layers-panel').getByRole('radio', { name, exact: true })
 }
 
 /** The zoom the map is at, from the tiles it asks for */
@@ -81,8 +96,11 @@ test.describe('the map tool on a wide screen', () => {
     // the panel is on the left of the map, the two side by side
     expect(panelBox!.x + panelBox!.width).toBeLessThanOrEqual(stageBox!.x)
     expect(Math.abs(panelBox!.y - stageBox!.y)).toBeLessThan(2)
-    await expect(page.getByRole('button', { name: en.mapTool.layerForecast })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('button', { name: en.mapTool.layerMeasured })).toHaveAttribute('aria-pressed', 'false')
+    // the layers are behind one button over the map, which names them in its panel
+    await expect(page.getByTestId('map-layers-button')).toHaveAccessibleName(en.mapTool.layersButton)
+    await expect(page.getByTestId('map-layers-button')).toHaveAttribute('aria-expanded', 'false')
+    await expect(await layerRadio(page, en.mapTool.layerForecast)).toBeChecked()
+    await expect(await layerRadio(page, en.mapTool.layerMeasured)).not.toBeChecked()
     // the stations near the centre, by name
     await expect(panel.getByRole('button', { name: /BERLIN-TEMPELHOF/ })).toBeVisible()
     expect(backend.unanswered).toEqual([])
@@ -143,10 +161,10 @@ test.describe('the map tool on a wide screen', () => {
     await expect(stripes.locator('figcaption')).toContainText('From 1955 to 2024.')
   })
 
-  test('shows the measuring stations of a resolution and a dataset when the chip is pressed', async ({ page, baseURL }) => {
+  test('shows the measuring stations of a resolution and a dataset when the layer is chosen in the panel of the layers button', async ({ page, baseURL }) => {
     await open(page, baseURL!)
-    await page.getByRole('button', { name: en.mapTool.layerMeasured }).click()
-    await expect(page.getByRole('button', { name: en.mapTool.layerMeasured })).toHaveAttribute('aria-pressed', 'true')
+    await (await layerRadio(page, en.mapTool.layerMeasured)).click()
+    await expect(await layerRadio(page, en.mapTool.layerMeasured)).toBeChecked()
     await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 12')
     await expect(page).toHaveURL(/\/map\?layer=measured$/)
     await expect(page.getByTestId('map-resolution')).toBeVisible()
@@ -314,9 +332,11 @@ test.describe('the map tool: what a pick moves, and what a click reaches', () =>
       }
       return null
     }, { x, y })
-    // Neuhaus am Rennweg reports, Artern stopped in 2018
+    // the stations are dots where they are not grouped (the groups of the opening zoom hold the near ones): Neuhaus am Rennweg reports, Artern stopped in 2018
+    await groupBy(page, false)
     await expect.poll(() => pixel(centre(50.5063, 11.1283))).toEqual([0x23, 0x58, 0xA8])
     await expect.poll(async () => (await pixel(centre(51.3745, 11.2915)))?.every(channel => channel! >= 220)).toBe(true)
+    await groupBy(page, true)
 
     // the legend is on the map and takes the click, which is no pick of the place under it
     await legend.scrollIntoViewIfNeeded()
@@ -328,7 +348,7 @@ test.describe('the map tool: what a pick moves, and what a click reaches', () =>
     // and its two dots are told apart by their fill, in forced colours too
     await page.emulateMedia({ forcedColors: 'active' })
     expect(await legend.evaluate(element => getComputedStyle(element).forcedColorAdjust)).toBe('none')
-    await page.getByTestId('map-layer-forecast').click()
+    await (await layerRadio(page, en.mapTool.layerForecast)).click()
     // the forecast's points have no status, so the legend has no dots to tell apart: the groups only, at this zoom
     await expect(page.getByTestId('map-legend').getByRole('listitem')).toHaveText([`12 ${en.mapTool.legendGroup}`])
   })
@@ -368,21 +388,21 @@ test.describe('the map tool: what a pick moves, and what a click reaches', () =>
     await expect(page.getByTestId('map-place')).toBeVisible()
   })
 
-  test('lets a click through the empty space of the chips to the map', async ({ page, baseURL }) => {
+  test('lets a click through the empty space of the status row to the map', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map?layer=measured')
     await expect(page.getByTestId('map-count')).toBeVisible()
     // the map's code is loaded apart from the page: it is there when its container is
     await expect(page.locator('.station-map.leaflet-container')).toBeVisible()
     const hit = await page.evaluate(() => {
       const row = document.querySelector('.map-chips-row')!.getBoundingClientRect()
-      // the right end of the row, past its last chip
-      const at = document.elementFromPoint(row.right - 12, row.top + row.height / 2)
+      // the row's own empty space, past the count
+      const at = document.elementFromPoint(row.right - 70, row.top + row.height / 2)
       return { onRow: Boolean(at?.closest('.map-chips')), inMap: Boolean(at?.closest('.leaflet-container')) }
     })
     expect(hit).toEqual({ onRow: false, inMap: true })
-    // and a chip is still a chip
-    await page.getByTestId('map-layer-forecast').click()
-    await expect(page.getByTestId('map-layer-forecast')).toHaveAttribute('aria-pressed', 'true')
+    // and the button is still a button
+    await (await layerRadio(page, en.mapTool.layerForecast)).click()
+    await expect(await layerRadio(page, en.mapTool.layerForecast)).toBeChecked()
   })
 })
 
@@ -420,13 +440,19 @@ async function canvasPixel(page: Page, x: number, y: number) {
   }, { x, y })
 }
 
-/** The grouping switch's option of a name */
-const groupingOption = (page: Page, name: string) => page.getByTestId('map-grouping').getByRole('radio', { name, exact: true })
+/** The grouping switch, in the panel of the layers button (GH-4209), which is opened first */
+async function groupingSwitch(page: Page) {
+  await openLayers(page)
+  return page.getByTestId('map-grouping')
+}
 
-/** Chooses a step of the grouping switch with the pointer */
-async function groupBy(page: Page, name: string) {
-  await groupingOption(page, name).click()
-  await expect(groupingOption(page, name)).toHaveAttribute('aria-checked', 'true')
+/** Turns the grouping on or off with the pointer, and closes the panel again: a press on the map while it is open only closes it, and picks no place */
+async function groupBy(page: Page, on: boolean) {
+  const control = await groupingSwitch(page)
+  await control.click()
+  await expect(control).toHaveAttribute('aria-checked', String(on))
+  await page.keyboard.press('Escape')
+  await expect(page.getByTestId('map-layers-panel')).toBeHidden()
 }
 
 test.describe('the map tool: groups of stations at the outer zooms', () => {
@@ -449,12 +475,62 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
 
     await page.mouse.click(centre.x, centre.y)
     await expect(page.getByTestId('map-announcement')).toHaveText('Zoomed in on a group. Stations in it: 40')
-    // the stations are a few kilometres apart: the map goes in as far as the zoom they are separated from (8, for the fine step, the default)
-    await expect.poll(() => zoomOf(page)).toBe(8)
+    // the stations are a few kilometres apart: the map goes in as far as the zoom they are separated from (10)
+    await expect.poll(() => zoomOf(page)).toBe(10)
     // no place is picked by the click on a group, and no group is left: the stations are dots
     await expect(page.getByTestId('map-station-name')).toHaveCount(0)
     await expect(page).toHaveURL(/\/map$/)
     await expect(page.getByTestId('map-legend')).toHaveCount(0)
+  })
+
+  test('has the layers button in the top right corner of the map, clear of the zoom buttons and the legend, and the credit of OpenStreetMap at the very bottom under the zoom buttons (GH-4209)', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map', GROUPED)
+    await expect(page.getByTestId('map-count')).toBeVisible()
+    await expect(page.getByTestId('map-legend')).toBeVisible()
+    // the map's code is loaded apart from the page
+    await expect(page.locator('.leaflet-control-attribution')).toBeVisible()
+    await expect(page.locator('.leaflet-control-zoom')).toBeVisible()
+    const rects = await page.evaluate(() => {
+      const rect = (selector: string) => {
+        const box = document.querySelector(selector)!.getBoundingClientRect()
+        return { top: box.top, bottom: box.bottom, left: box.left, right: box.right }
+      }
+      return { stage: rect('.map-stage'), button: rect('[data-testid="map-layers-button"]'), zoom: rect('.leaflet-control-zoom'), credit: rect('.leaflet-control-attribution'), legend: rect('.map-legend') }
+    })
+    // the top right: near the corner
+    expect(rects.stage.right - rects.button.right).toBeLessThan(20)
+    expect(rects.button.top - rects.stage.top).toBeLessThan(20)
+    // clear of the zoom buttons (bottom right) and of the legend (bottom left)
+    expect(rects.button.bottom).toBeLessThan(rects.zoom.top)
+    expect(rects.button.bottom).toBeLessThan(rects.legend.top)
+    // the credit is under the zoom buttons, at the foot of the map, and the buttons above it
+    expect(rects.credit.top).toBeGreaterThanOrEqual(rects.zoom.bottom - 1)
+    expect(rects.stage.bottom - rects.credit.bottom).toBeLessThan(12)
+    // and it says whose map it is
+    await expect(page.locator('.leaflet-control-attribution')).toContainText('OpenStreetMap')
+  })
+
+  test('centres the map on the group that was clicked, though its stations are not spread evenly round the disc (GH-4209)', async ({ page, baseURL }) => {
+    // twenty stations in a town and one far to the north east: the disc is drawn at the mean, near the town, and the middle of the
+    // box of the stations (which the map was centred on) is 30 km from it
+    const town = Array.from({ length: 20 }, (_, index) => ({ station_id: `L${index}`, name: `LOPSIDED ${index}`, region: null, latitude: 52.0 + (index % 5) * 0.01, longitude: 10.4 + Math.floor(index / 5) * 0.01, elevation: 10, start_timestamp: null, end_timestamp: null }))
+    const far = { station_id: 'LFAR', name: 'LOPSIDED FAR', region: null, latitude: 52.8, longitude: 11.6, elevation: 10, start_timestamp: null, end_timestamp: null }
+    await open(page, baseURL!, '/map', { stations: () => ({ stations: [...town, far] }) })
+    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 21')
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    const map = page.getByRole('application', { name: /^Station map/ })
+    const box = (await map.boundingBox())!
+    // the disc, where it is drawn: the mean of the stations
+    const mean = { latitude: (20 * 52.02 + 52.8) / 21, longitude: (20 * 10.415 + 11.6) / 21 }
+    const at = offsetAtOpening(mean.latitude, mean.longitude)
+    await expect.poll(() => canvasPixel(page, box.x + box.width / 2 + at.x - 9, box.y + box.height / 2 + at.y)).toEqual([0x23, 0x58, 0xA8])
+    await page.mouse.click(box.x + box.width / 2 + at.x - 9, box.y + box.height / 2 + at.y)
+    await expect(page.getByTestId('map-announcement')).toHaveText('Zoomed in on a group. Stations in it: 21')
+    // the disc is now in the middle of the map: the group is one disc again, or a few dots, and the middle of the map is on the mean
+    await expect.poll(() => zoomOf(page)).toBeGreaterThan(6)
+    await page.waitForTimeout(800)
+    const middle = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
+    await expect.poll(() => canvasPixel(page, middle.x - 9, middle.y)).toEqual([0x23, 0x58, 0xA8])
   })
 
   test('leaves a station that is alone a dot at the outer zoom, picked by a click on it as before', async ({ page, baseURL }) => {
@@ -491,17 +567,18 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     // one group for the place, whatever the status: a click zooms in on all forty
     await page.mouse.click(centre.x, centre.y)
     await expect(page.getByTestId('map-announcement')).toHaveText('Zoomed in on a group. Stations in it: 40, of them reporting: 20')
-    await expect.poll(() => zoomOf(page)).toBe(8)
+    await expect.poll(() => zoomOf(page)).toBe(10)
   })
 
-  test('is turned off by the control, which draws every station as a dot at the zoom of the opening', async ({ page, baseURL }) => {
+  test('is turned off by the switch, which draws every station as a dot at the zoom of the opening', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map', GROUPED)
     await expect(page.getByTestId('map-count')).toBeVisible()
-    // three steps, Fine is the default
-    await expect(page.getByTestId('map-grouping').getByRole('radio')).toHaveText([en.mapTool.groupingOff, en.mapTool.groupingFine, en.mapTool.groupingCoarse])
-    await expect(groupingOption(page, en.mapTool.groupingFine)).toHaveAttribute('aria-checked', 'true')
+    // on or off, on by default, and named
+    await expect(await groupingSwitch(page)).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByTestId('map-panel')).toBeVisible()
+    await expect(page.getByTestId('map-layers-panel').getByText(en.mapTool.groupStations)).toBeVisible()
     await expect(page.getByTestId('map-legend')).toBeVisible()
-    await groupBy(page, en.mapTool.groupingOff)
+    await groupBy(page, false)
     await expect(page.getByTestId('map-legend')).toHaveCount(0)
     // a click on the place is a pick of a station, not a zoom
     const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
@@ -511,11 +588,9 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     expect(await zoomOf(page)).toBe(6)
   })
 
-  test('groups more or less by the step of the control: a coarser one keeps grouping to a closer zoom', async ({ page, baseURL }) => {
+  test('keeps grouping to a close zoom: the legend of the groups is there at zoom 9 and gone at 10, where every station is its own dot', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map', GROUPED)
     await expect(page.getByTestId('map-count')).toBeVisible()
-    await groupBy(page, en.mapTool.groupingCoarse)
-    // at zoom 8 the fine step has stopped grouping, the coarse one has not: the legend of the groups is there
     // one zoom at a time: Leaflet takes no press while it animates the one before
     for (const zoom of [7, 8, 9]) {
       await page.getByRole('button', { name: en.mapTool.zoomIn }).click()
@@ -530,9 +605,8 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
 
   test('keeps the station picked in view above the group it is in, and a click on its disc is still on that station', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map?station=G05', GROUPED)
-    // the map has moved to the station, at zoom 8, where the fine step has no groups left: the coarse one still has the forty as one
+    // the map has moved to the station, at zoom 8, where the forty are still one group
     await expect.poll(() => zoomOf(page)).toBe(8)
-    await groupBy(page, en.mapTool.groupingCoarse)
     await expect(page.getByTestId('map-legend')).toBeVisible()
     const disc = page.locator('.leaflet-station-marks-pane path[fill="#ffc93c"]')
     await expect(disc).toBeVisible()
@@ -559,7 +633,7 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     expect(stops.filter(stop => /marker|cluster|group/i.test(stop))).toEqual([])
     const map = page.getByRole('application', { name: /^Station map/ })
     await map.focus()
-    for (const zoom of [7, 8]) {
+    for (const zoom of [7, 8, 9, 10]) {
       await page.keyboard.press('+')
       await expect.poll(() => zoomOf(page)).toBe(zoom)
       // Leaflet takes no press while it animates the one before
@@ -567,15 +641,22 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     }
     // at the zoom every station is its own dot from there are no groups to explain
     await expect(page.getByTestId('map-legend')).toHaveCount(0)
-    // and the switch is a radio group that a keyboard sets: one stop, the arrow keys move along it
-    await groupingOption(page, en.mapTool.groupingFine).focus()
-    await page.keyboard.press('ArrowRight')
-    await expect(groupingOption(page, en.mapTool.groupingCoarse)).toHaveAttribute('aria-checked', 'true')
-    await expect(groupingOption(page, en.mapTool.groupingCoarse)).toBeFocused()
-    await expect(page.getByTestId('map-legend')).toBeVisible()
+    // and the grouping is a switch that a keyboard sets, in the panel of the layers button, which Escape closes and gives the focus back from
+    const button = page.getByTestId('map-layers-button')
+    await button.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('map-layers-panel')).toBeVisible()
+    const control = page.getByTestId('map-grouping')
+    await control.focus()
+    await page.keyboard.press('Space')
+    await expect(control).toHaveAttribute('aria-checked', 'false')
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('map-layers-panel')).toBeHidden()
+    await expect(button).toBeFocused()
+    await expect(button).toHaveAttribute('aria-expanded', 'false')
   })
 
-  test('is always on for a layer of more than 10,000 stations, which the control does not turn off, and says why', async ({ page, baseURL }) => {
+  test('is always on for a layer of more than 10,000 stations, which the switch does not turn off, and says why', async ({ page, baseURL }) => {
     const many = Array.from({ length: 10_001 }, (_, index) => ({
       station_id: `W${index}`,
       name: `WORLD ${index}`,
@@ -588,16 +669,13 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     }))
     await open(page, baseURL!, '/map', { stations: () => ({ stations: many }) })
     await expect(page.getByTestId('map-count')).toBeVisible()
+    const control = await groupingSwitch(page)
     const note = page.getByTestId('map-grouping-note')
     await expect(note).toHaveText(en.mapTool.groupingCompulsory.replace('{shown}', '10,000'))
-    const control = page.getByTestId('map-grouping')
     await expect(control).toHaveAttribute('aria-describedby', 'map-grouping-note')
-    // none is offered and cannot be chosen; the steps can, and the arrow keys pass it
-    await expect(groupingOption(page, en.mapTool.groupingOff)).toBeDisabled()
-    await expect(groupingOption(page, en.mapTool.groupingFine)).toHaveAttribute('aria-checked', 'true')
-    await groupingOption(page, en.mapTool.groupingFine).focus()
-    await page.keyboard.press('ArrowLeft')
-    await expect(groupingOption(page, en.mapTool.groupingCoarse)).toHaveAttribute('aria-checked', 'true')
+    // on, and disabled: it cannot be turned off
+    await expect(control).toHaveAttribute('aria-checked', 'true')
+    await expect(control).toBeDisabled()
     await expect(page.getByTestId('map-legend')).toBeVisible()
   })
 })
@@ -605,17 +683,17 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
 test.describe('the map tool on a phone: groups of stations', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
-  test('are drawn and tapped as on a wide screen, with the control under the layers and no sideways scroll', async ({ page, baseURL }) => {
+  test('are drawn and tapped as on a wide screen, with the layers button the only control over the map and no sideways scroll', async ({ page, baseURL }) => {
     // the group is near the middle of the map, which is what a phone shows of it under the chips
     await open(page, baseURL!, '/map', { stations: () => ({ stations: [...dense(51.3, 10.4), BERLIN_ALONE] }) })
-    await expect(page.getByTestId('map-grouping')).toBeVisible()
+    await expect(page.getByTestId('map-layers-button')).toBeVisible()
     await expect.poll(() => zoomOf(page)).toBe(6)
     const sideways = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
     expect(sideways).toBe(0)
     const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
     const at = offsetAtOpening(51.31, 10.41)
     await page.touchscreen.tap(box.x + box.width / 2 + at.x, box.y + box.height / 2 + at.y)
-    await expect.poll(() => zoomOf(page)).toBe(8)
+    await expect.poll(() => zoomOf(page)).toBe(10)
     await expect(page.getByTestId('map-station-name')).toHaveCount(0)
   })
 })
@@ -641,7 +719,7 @@ test.describe('the map tool: the station picked across layers', () => {
     await expect(panel.getByRole('heading', { level: 2 })).toHaveText('HAMBURG-FUHLSBUETTEL')
     await expect(page.getByTestId('map-same-station')).toHaveCount(0)
 
-    await page.getByRole('button', { name: en.mapTool.layerMeasured }).click()
+    await (await layerRadio(page, en.mapTool.layerMeasured)).click()
     await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Hamburg-Fuhlsbüttel')
     await expect(page.getByTestId('map-same-station')).toHaveText('The same station, by its WMO number 10147.')
     await expect(page.getByTestId('map-announcement')).toHaveText('Hamburg-Fuhlsbüttel chosen. The same station, by its WMO number 10147.')
@@ -650,18 +728,21 @@ test.describe('the map tool: the station picked across layers', () => {
     await expect(page.getByTestId('map-card-same-forecast')).toContainText('HAMBURG-FUHLSBUETTEL')
 
     // and back
-    await page.getByRole('button', { name: en.mapTool.layerForecast }).click()
+    await (await layerRadio(page, en.mapTool.layerForecast)).click()
     await expect(panel.getByRole('heading', { level: 2 })).toHaveText('HAMBURG-FUHLSBUETTEL')
     await expect(page.getByTestId('map-same-station')).toBeVisible()
     await expect(page).toHaveURL(/\/map\?station=10147$/)
   })
 
-  test('is carried by the keyboard alone: a layer chip pressed with Enter', async ({ page, baseURL }) => {
+  test('is carried by the keyboard alone: the layers button opened with Enter, the layer chosen with Space', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map?station=10147', CARRIED)
     const panel = page.getByTestId('map-panel')
     await expect(panel.getByRole('heading', { level: 2 })).toHaveText('HAMBURG-FUHLSBUETTEL')
-    await page.getByRole('button', { name: en.mapTool.layerMeasured }).focus()
+    await page.getByTestId('map-layers-button').focus()
     await page.keyboard.press('Enter')
+    await expect(page.getByTestId('map-layers-panel')).toBeVisible()
+    await page.getByTestId('map-layers-panel').getByRole('radio', { name: en.mapTool.layerMeasured, exact: true }).focus()
+    await page.keyboard.press('Space')
     await expect(panel.getByRole('heading', { level: 2 })).toHaveText('Hamburg-Fuhlsbüttel')
     await expect(page.getByTestId('map-same-station')).toBeVisible()
   })
@@ -670,32 +751,35 @@ test.describe('the map tool: the station picked across layers', () => {
     const unnumbered = { stations: (url: URL) => ({ stations: url.searchParams.get('network') === 'mosmix' ? CARRIED_FORECAST.map(entry => ({ ...entry, wmo_id: null })) : CARRIED_MEASURED }) }
     await open(page, baseURL!, '/map?station=10147', unnumbered)
     await expect(page.getByTestId('map-panel').getByRole('heading', { level: 2 })).toHaveText('HAMBURG-FUHLSBUETTEL')
-    await page.getByRole('button', { name: en.mapTool.layerMeasured }).click()
+    await (await layerRadio(page, en.mapTool.layerMeasured)).click()
     await expect(page.getByTestId('map-panel').getByRole('heading', { level: 2 })).toHaveText('Hamburg-Nahe')
     await expect(page.getByTestId('map-same-station')).toHaveCount(0)
   })
 })
 
-// The grouping switch has a label and three words, which must fit the map's width in every language at 320 px
-test.describe('the grouping switch at 320 px', () => {
+// The panel of the layers button has the layers and a switch with a label, which must fit the window's width in every language at 320 px
+test.describe('the layers panel at 320 px', () => {
   test.use({ viewport: { width: 320, height: 700 } })
 
   for (const language of ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb']) {
-    test(`fits the map's width, whole, in ${language}`, async ({ page, baseURL }) => {
+    test(`fits the window's width, whole, in ${language}`, async ({ page, baseURL }) => {
       await page.context().addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
       await mockBackend(page, baseURL!, GROUPED)
       await page.goto('/map')
+      await expect(page.getByTestId('map-count')).toBeAttached()
+      const button = page.getByTestId('map-layers-button')
+      await expect(button).toBeVisible()
+      await button.click()
       await expect(page.getByTestId('map-grouping')).toBeVisible()
       const place = await page.evaluate(() => {
-        const stage = document.querySelector('.map-stage')!.getBoundingClientRect()
-        const pill = document.querySelector('.map-grouping')!.getBoundingClientRect()
-        const cut = [...document.querySelectorAll<HTMLElement>('.map-grouping [role="radio"]')].filter(option => option.scrollWidth > option.clientWidth + 1).map(option => option.textContent)
-        return { stageLeft: stage.left, stageRight: stage.right, left: pill.left, right: pill.right, cut, sideways: document.documentElement.scrollWidth - document.documentElement.clientWidth }
+        const panel = document.querySelector('[data-testid="map-layers-panel"]')!.getBoundingClientRect()
+        const cut = [...document.querySelectorAll<HTMLElement>('[data-testid="map-layers-panel"] label')].filter(label => label.scrollWidth > label.clientWidth + 1).map(label => label.textContent)
+        return { left: panel.left, right: panel.right, width: window.innerWidth, cut, sideways: document.documentElement.scrollWidth - document.documentElement.clientWidth }
       })
       // 1 px: what the browser measures, not what the CSS says
-      expect(place.right, 'the switch ends where the map does or before').toBeLessThanOrEqual(place.stageRight + 1)
-      expect(place.left).toBeGreaterThanOrEqual(place.stageLeft - 1)
-      expect(place.cut, 'each option is whole').toEqual([])
+      expect(place.right, 'the panel ends where the window does or before').toBeLessThanOrEqual(place.width + 1)
+      expect(place.left).toBeGreaterThanOrEqual(-1)
+      expect(place.cut, 'each label is whole').toEqual([])
       expect(place.sideways, 'the page does not scroll sideways').toBe(0)
     })
   }
@@ -717,14 +801,24 @@ test.describe('the map tool at 320 px', () => {
     })
   }
 
-  test('leaves most of the map to the map on the measurements layer, where the chips take the most', async ({ page, baseURL }) => {
+  test('leaves the map to the map on the measurements layer: one button of 44 px over it, and the choices of the source in its panel', async ({ page, baseURL }) => {
     await page.context().addCookies([{ name: 'wd_lang', value: 'nl', url: baseURL! }])
     await mockBackend(page, baseURL!)
     await page.goto('/map?layer=measured')
+    const button = page.getByTestId('map-layers-button')
+    await expect(button).toBeVisible()
+    const [box, stage] = await Promise.all([button.boundingBox(), page.getByTestId('map-stage').boundingBox()])
+    expectAtLeastPx(box!.width, 44, 'the layers button is wide')
+    expectAtLeastPx(box!.height, 44, 'the layers button is high')
+    expect(box!.x + box!.width).toBeLessThanOrEqual(stage!.x + stage!.width)
+    expect(box!.height / stage!.height).toBeLessThan(0.15)
+    // the source is not on the map: it is in the panel
+    await expect(page.getByTestId('map-resolution')).toBeHidden()
+    await button.click()
     await expect(page.getByTestId('map-resolution')).toBeVisible()
-    const [chips, stage] = await Promise.all([page.locator('.map-chips').boundingBox(), page.getByTestId('map-stage').boundingBox()])
-    expect(chips!.height / stage!.height).toBeLessThan(0.4)
-    expect(chips!.x + chips!.width).toBeLessThanOrEqual(320)
+    await expect(page.getByTestId('map-dataset')).toBeVisible()
+    const select = (await page.getByTestId('map-resolution').boundingBox())!
+    expect(select.x + select.width).toBeLessThanOrEqual(320)
     // the count is in the panel, not over the map
     await expect(page.getByTestId('map-count')).toBeHidden()
     await expect(page.getByTestId('map-count-panel')).toBeVisible()
@@ -741,9 +835,9 @@ test.describe('the map tool on a phone', () => {
     expect(stage!.y + stage!.height).toBeGreaterThan(panel!.y - 12)
     expect(panel!.y).toBeGreaterThan(stage!.y)
     expect(Math.abs(stage!.x - panel!.x)).toBeLessThan(2)
-    // the keyboard meets the chips, the map and the panel in the order the window shows them
-    const order = await page.evaluate(() => [...document.querySelectorAll('[data-testid="map-layer-forecast"], [role="application"], [data-testid="map-panel"] input')].map(element => element.getAttribute('data-testid') ?? element.getAttribute('role') ?? 'search'))
-    expect(order).toEqual(['map-layer-forecast', 'application', 'search'])
+    // the keyboard meets the layers button, the map and the panel in the order the window shows them
+    const order = await page.evaluate(() => [...document.querySelectorAll('[data-testid="map-layers-button"], [role="application"], [data-testid="map-panel"] input')].map(element => element.getAttribute('data-testid') ?? element.getAttribute('role') ?? 'search'))
+    expect(order).toEqual(['map-layers-button', 'application', 'search'])
   })
 
   test('has the four tools it had before the map and the Menu in the bar, the map in the Menu, and the Menu marked on the map', async ({ page, baseURL }) => {
@@ -759,7 +853,7 @@ test.describe('the map tool on a phone', () => {
     await page.goto('/map?station=10384&lat=52.9&lon=13.0')
     await expect(page.getByTestId('map-station-name')).toBeVisible()
     await expect(menu).toHaveAttribute('aria-current', 'true')
-    await page.getByTestId('map-layer-measured').click()
+    await (await layerRadio(page, en.mapTool.layerMeasured)).click()
     await expect(page).toHaveURL(/layer=measured/)
     await expect(menu).toHaveAttribute('aria-current', 'true')
   })

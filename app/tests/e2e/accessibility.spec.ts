@@ -599,12 +599,14 @@ const STATES: State[] = [
     },
   },
   {
-    // the layer of the measurements, with the choices of its resolution and dataset
+    // the layer of the measurements, with the choices of its resolution and dataset, in the panel of the layers button (GH-4209)
     page: 'map',
     state: 'measured-layer',
     path: '/map?layer=measured',
     reach: async (page) => {
       await expect(page.getByTestId('map-count')).toBeVisible()
+      await page.getByTestId('map-layers-button').click()
+      await expect(page.getByTestId('map-grouping')).toBeVisible()
       await expect(page.getByTestId('map-resolution')).toBeVisible()
       await expect(page.getByTestId('map-dataset')).toBeVisible()
     },

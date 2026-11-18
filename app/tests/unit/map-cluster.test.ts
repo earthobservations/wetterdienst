@@ -1,15 +1,16 @@
 import { describe, expect, it } from 'vitest'
 import {
+  boundsAround,
   clusterAt,
   clusterRadius,
   clusterStations,
   clusterText,
-  DEFAULT_GROUPING,
+  GROUPING,
   GROUPING_COMPULSORY_ABOVE,
   groupingFor,
-  GROUPINGS,
   isGroupedAt,
   reportingSweep,
+  viewForCluster,
   worldPixels,
   worldPoint,
   zoomForCluster,
@@ -37,30 +38,26 @@ function random() {
 }
 
 describe('the grouping of a layer', () => {
-  it('follows the choice on a layer of up to 10,000 stations, whether it is none or a step', () => {
-    expect(groupingFor('off', 5_600)).toEqual({ choice: 'off', compulsory: false, grouping: null })
-    expect(groupingFor('coarse', 5_600)).toEqual({ choice: 'coarse', compulsory: false, grouping: GROUPINGS.coarse })
-    expect(groupingFor('off', GROUPING_COMPULSORY_ABOVE)).toMatchObject({ compulsory: false, grouping: null })
+  it('follows the switch on a layer of up to 10,000 stations, whether it is off or on', () => {
+    expect(groupingFor(false, 5_600)).toEqual({ on: false, compulsory: false, grouping: null })
+    expect(groupingFor(true, 5_600)).toEqual({ on: true, compulsory: false, grouping: GROUPING })
+    expect(groupingFor(false, GROUPING_COMPULSORY_ABOVE)).toMatchObject({ compulsory: false, grouping: null })
   })
 
-  it('is compulsory on a layer of more than 10,000 stations, which the choice of none cannot turn off: it takes the default step', () => {
-    expect(groupingFor('off', GROUPING_COMPULSORY_ABOVE + 1)).toEqual({ choice: DEFAULT_GROUPING, compulsory: true, grouping: GROUPINGS[DEFAULT_GROUPING] })
-    expect(groupingFor('off', 133_041).grouping).not.toBeNull()
-    // but it still sets how fine the groups are
-    expect(groupingFor('fine', 133_041)).toEqual({ choice: 'fine', compulsory: true, grouping: GROUPINGS.fine })
+  it('is compulsory on a layer of more than 10,000 stations, which the switch off cannot turn off: it is on', () => {
+    expect(groupingFor(false, GROUPING_COMPULSORY_ABOVE + 1)).toEqual({ on: true, compulsory: true, grouping: GROUPING })
+    expect(groupingFor(false, 133_041).grouping).not.toBeNull()
+    expect(groupingFor(true, 133_041)).toEqual({ on: true, compulsory: true, grouping: GROUPING })
   })
 
-  it('has two steps, fine (the default) and coarse, that group more and keep grouping to a closer zoom as they get coarser', () => {
-    expect(Object.keys(GROUPINGS)).toEqual(['fine', 'coarse'])
-    expect(DEFAULT_GROUPING).toBe('fine')
-    expect(GROUPINGS.fine).toEqual({ radius: 30, separateFrom: 8 })
-    expect(GROUPINGS.coarse).toEqual({ radius: 80, separateFrom: 10 })
+  it('has one grouping, the one that was the coarse step: a radius of 80 pixels, and groups to zoom 9 (GH-4209)', () => {
+    expect(GROUPING).toEqual({ radius: 80, separateFrom: 10 })
   })
 
   it('groups at the zooms before the one every station is its own dot from, and not at it or after', () => {
-    const { separateFrom } = GROUPINGS.fine
-    expect(isGroupedAt(GROUPINGS.fine, separateFrom - 1)).toBe(true)
-    expect(isGroupedAt(GROUPINGS.fine, separateFrom)).toBe(false)
+    const { separateFrom } = GROUPING
+    expect(isGroupedAt(GROUPING, separateFrom - 1)).toBe(true)
+    expect(isGroupedAt(GROUPING, separateFrom)).toBe(false)
     expect(isGroupedAt(null, 2)).toBe(false)
   })
 })
@@ -285,5 +282,63 @@ describe('the share of a group that reports, as the angle of its ring', () => {
     expect(reportingSweep(999, 1000)).toBeCloseTo(2 * Math.PI - Math.PI / 15, 9)
     expect(reportingSweep(1, 1000)).toBeGreaterThan(0)
     expect(reportingSweep(999, 1000)).toBeLessThan(2 * Math.PI)
+  })
+})
+
+// A click on a group centres the map on it (GH-4209). The disc is drawn at the mean of its stations, and the map used to
+// be centred on the middle of their box, which is another place where the stations are not spread evenly round the disc.
+describe('the view a click on a group sets', () => {
+  // nine stations in a town and one far to the north east: the disc is drawn near the town, the box reaches out to the one
+  const lopsided = placed([
+    ...Array.from({ length: 9 }, (_, index) => station(`T${index}`, 53 + index * 0.01, 10 + index * 0.01)),
+    station('FAR', 53.8, 11),
+  ])
+  const group = clusterStations(lopsided, 5, 80).find(cluster => cluster.count === 10)!
+
+  it('has the disc, as it is drawn, away from the middle of the box of its stations', () => {
+    const middle = { latitude: (group.bounds.south + group.bounds.north) / 2, longitude: (group.bounds.west + group.bounds.east) / 2 }
+    // what `bounds.getCenter()` gave: more than a tenth of a degree from the disc
+    expect(Math.abs(middle.latitude - group.latitude)).toBeGreaterThan(0.1)
+    expect(Math.abs(middle.longitude - group.longitude)).toBeGreaterThan(0.1)
+  })
+
+  it('is centred on the disc, not on the middle of the box', () => {
+    const view = viewForCluster(group, () => 8, 5, 10, 16)
+    expect(view.latitude).toBe(group.latitude)
+    expect(view.longitude).toBe(group.longitude)
+  })
+
+  it('fits the map to a box that has the disc in the middle of it and holds every station, so that the zoom shows them all', () => {
+    const asked: ReturnType<typeof boundsAround>[] = []
+    viewForCluster(group, (box) => {
+      asked.push(box)
+      return 8
+    }, 5, 10, 16)
+    const [box] = asked
+    expect((box!.south + box!.north) / 2).toBeCloseTo(group.latitude, 9)
+    expect((box!.west + box!.east) / 2).toBeCloseTo(group.longitude, 9)
+    expect(box!.south).toBeLessThanOrEqual(group.bounds.south)
+    expect(box!.north).toBeGreaterThanOrEqual(group.bounds.north)
+    expect(box!.west).toBeLessThanOrEqual(group.bounds.west)
+    expect(box!.east).toBeGreaterThanOrEqual(group.bounds.east)
+  })
+
+  it('takes the zoom as before: the one that fits, one in at least, no farther than the zoom every station is its own dot from', () => {
+    expect(viewForCluster(group, () => 7, 5, 10, 16).zoom).toBe(7)
+    expect(viewForCluster(group, () => 3, 5, 10, 16).zoom).toBe(6)
+    expect(viewForCluster(group, () => 16, 5, 10, 16).zoom).toBe(10)
+  })
+
+  it('keeps the box of an even group as it is, and the box of a group of stations at one place a point', () => {
+    const even = { latitude: 52, longitude: 10, bounds: { south: 51, north: 53, west: 9, east: 11 } }
+    expect(boundsAround(even)).toEqual(even.bounds)
+    const point = { latitude: 52, longitude: 10, bounds: { south: 52, north: 52, west: 10, east: 10 } }
+    expect(boundsAround(point)).toEqual(point.bounds)
+  })
+
+  it('does not reach beyond the latitudes the map ends at', () => {
+    const box = boundsAround({ latitude: 84, longitude: 0, bounds: { south: 80, north: 85, west: -1, east: 1 } })
+    expect(box.north).toBeCloseTo(85.0511287798, 9)
+    expect(box.south).toBe(80)
   })
 })
