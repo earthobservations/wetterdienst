@@ -191,8 +191,9 @@ def ghcnd_by_station(rows: list[tuple[str, str, str, str, str, str, str]]) -> by
     """Write a GHCN daily by-station file of the AWS bucket (`csv.gz/by_station/<id>.csv.gz`): gzipped, no header.
 
     A row is `(id, date, element, value, m_flag, q_flag, s_flag)` and becomes
-    `ID,YYYYMMDD,ELEMENT,DATA_VALUE,M_FLAG,Q_FLAG,S_FLAG,OBS_TIME` with the observation time left empty, as NOAA writes
-    it for every element but PRCP, SNOW and SNWD of the stations that have one (`readme-by_station.txt`). The value is
+    `ID,YYYYMMDD,ELEMENT,DATA_VALUE,M_FLAG,Q_FLAG,S_FLAG,OBS_TIME` with the observation time left empty, which is what
+    NOAA writes for most elements (in the NYC file it is set on PRCP, TMAX, TMIN and TOBS, not on SNOW; `OBS_TIME` of
+    `readme-by_station.txt`). The value is
     the text of the file, in the tenths of the readme; a reading that is missing has no row.
     """
     lines = [",".join([*row, ""]) for row in rows]
@@ -1025,6 +1026,9 @@ def _ghcn_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
             ("USS0054K01S", "20231219", "AWND", "0", "", "", "T"),
             ("USS0054K01S", "20231220", "AWDR", "0", "", "", "T"),
             ("USS0054K01S", "20231220", "AWND", "0", "", "", "T"),
+            # the readme's missing value of the `.dly` files, which the by_station files leave out as a row: none of
+            # the 1.3 million values of 7 files read is one, so this row is made up (the reader maps it to null)
+            ("USS0054K01S", "20231221", "AWND", "-9999", "", "", "T"),
         ]
     )
     stations = b"USS0054K01S  59.0800 -154.2800   42.7 AK MCNEIL RIVER SGS                                  \n"
@@ -1037,7 +1041,7 @@ def _ghcn_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl.
     request = NoaaGhcnRequest(
         parameters=[("daily", "data", "wind_direction_mean"), ("daily", "data", "wind_speed_mean")],
         start=_day(2023, 12, 19),
-        end=_day(2023, 12, 20),
+        end=_day(2023, 12, 21),
         settings=_settings(),
         options=_options(drop_nulls),
     )
@@ -3215,8 +3219,8 @@ STUBS = [
         "noaa/ghcn daily/data",
         _ghcn_daily,
         reading=("wind_direction_mean", 189.0),
-        sentinels=(("wind_direction_mean", 0.0),),
-        tokens=(("wind_direction_mean", "0", None),),
+        sentinels=(("wind_direction_mean", 0.0), ("wind_speed_mean", -999.9)),
+        tokens=(("wind_direction_mean", "0", None), ("wind_speed_mean", "-9999", None)),
     ),
     ValueStub(
         "noaa/ghcn daily/gusts",

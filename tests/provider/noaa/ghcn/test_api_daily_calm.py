@@ -204,7 +204,13 @@ def test_the_instant_and_the_mile_follow_the_rule(monkeypatch: pytest.MonkeyPatc
 
 def test_a_missing_speed_leaves_the_0_as_it_is(monkeypatch: pytest.MonkeyPatch) -> None:
     """A 0 beside no speed at all tells nothing about a calm, so it stays (GH-3222)."""
-    # the file has no row for the speed (it writes none for a reading that is missing)
-    body = ghcnd_by_station([("USW00014755", "19980404", "WDF5", "0", "", "", "W")])
+    # the file has no row for the speed of the day (it writes none for a reading that is missing) and one for the day
+    # after: the station reports WSF5, so the reader makes the null of the day. The day after is outside the window
+    body = ghcnd_by_station(
+        [
+            ("USW00014755", "19980404", "WDF5", "0", "", "", "W"),
+            ("USW00014755", "19980405", "WSF5", "125", "", "", "W"),
+        ]
+    )
     df = _daily(monkeypatch, "USW00014755", body, "1998-04-04", "wdf5")
     assert _rows(df, "wind_direction_gust_max_5sec") == [(dt.date(1998, 4, 4), 0.0, "source:W")]

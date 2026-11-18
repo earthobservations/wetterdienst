@@ -89,10 +89,11 @@ def test_ghcn_daily_is_stamped_at_00_utc_of_its_date(
     ]
 
 
-# The attributes are the columns M_FLAG, Q_FLAG and S_FLAG (ghcn/daily/readme.txt; the bucket adds OBS_TIME for PRCP,
-# SNOW and SNWD). QFLAG: "Blank = did not fail any quality assurance check", otherwise the check the value failed,
-# "X = failed bounds check", "G = failed gap check", "I = failed internal consistency check", ... MFLAG: "Blank = no
-# measurement information applicable", "T = trace of precipitation, snowfall, or snow depth", "H = for TMAX/TMIN/TAVG
+# The attributes are the columns M_FLAG, Q_FLAG and S_FLAG (ghcn/daily/readme.txt; the bucket adds OBS_TIME, set on
+# some elements only: PRCP, TMAX, TMIN and TOBS in the NYC file, not SNOW). QFLAG: "Blank = did not fail any quality
+# assurance check", otherwise the check the value failed, "X = failed bounds check", "G = failed gap check", "I =
+# failed internal consistency check", ... MFLAG: "Blank = no measurement information applicable", "T = trace of
+# precipitation, snowfall, or snow depth", "H = for TMAX/TMIN/TAVG
 # represents highest or lowest hourly temperature". SFLAG: "0 = U.S. Cooperative Summary of the Day (NCDC DSI-3200)",
 # "7 = U.S. Cooperative Summary of the Day -- Transmitted via WxCoder3 (NCDC DSI-3207)", "S = Global Summary of the
 # Day". The rows are made up from the combinations USW00094728 shows in the live file (checked 2026-10-12: `,,0`,

@@ -298,7 +298,8 @@ def _with_a_row_for_every_day_and_element(df: pl.DataFrame, elements: list[str])
     The per-station files of NCEI, which this reader was written for, were one row for each day with a column for each
     element, so a day without an element was a null of it and `drop_nulls=False` returned it. The bucket's file has no
     row for a reading that is missing; the rows are made again here, so that what the core is handed, and what a caller
-    who keeps the nulls is returned, is what it was. Only for the elements asked for: the rest the core leaves out.
+    who keeps the nulls is returned, is what it was. For every element of the dataset that the file has (the grouped
+    dataset is collected whole); the core leaves out the ones that were not asked for.
     """
     wanted = df.select("parameter").unique().filter(pl.col("parameter").is_in(elements))
     days = df.select("station_id", "timestamp").unique()
@@ -470,7 +471,8 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         # `M_FLAG,Q_FLAG,S_FLAG` are the attributes of readme.txt: the quality flag is a letter naming the check the
         # value failed, blank where it failed none; the measurement and source flags say how the value was made and
         # where it came from. They are written `QFLAG,measurement:MFLAG,source:SFLAG` (GH-2018, GH-2758). The
-        # observation time (`OBS_TIME`, PRCP, SNOW and SNWD only) is not returned
+        # observation time (`OBS_TIME`, set on some elements only: in the NYC file PRCP, TMAX, TMIN and TOBS, not
+        # SNOW) is not returned
         df = df.select(
             pl.col("id").alias("station_id"),
             pl.col("date").str.to_date("%Y%m%d").alias("timestamp"),

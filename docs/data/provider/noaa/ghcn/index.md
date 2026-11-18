@@ -29,9 +29,16 @@ GH-3708). A station at 12.0 m is a height and is corrected.
 (`csv.gz/by_station/<id>.csv.gz`, gzipped, one row for each reading) that NOAA maintains, as the station list and the
 inventory are. NCEI's `access/<id>.csv` files were removed (GH-4225). A file is kept for 12 hours, as long as the lists
 beside it, and has no row for a reading that is missing. A station the bucket has no file for is left out with a
-`file-skipped` warning. The files of some stations are not up to date: the one of USW00094728 (New York City Central
-Park) ends on 2025-02-05 and those of most other US first-order stations (`USW`), of the SNOTEL stations (`USS`) and
-of some others stop at the same time, although the inventory lists data to 2026 (read 2026-11-18).
+`file-skipped` warning.
+
+**Files that stop in February 2025.** The files of an alphabetical block of ids, from `USR0000CJUA` to `ZI000067991`
+(4,650 files, of which 4,533 were written on 2025-02-09 and 117 on 2023-12-27), have not been rewritten since, so they
+end on or before that date (USW00094728, New York City Central Park, on 2025-02-05; USS0054K01S, McNeil River, on
+2025-02-06). The block is not only the United States: it holds all `USW` and `USS` stations and others such as `UZM`
+(Uzbekistan), `VMM` (Vietnam), `VQ1` and `VQC` (Virgin Islands) and `UV` (Burkina Faso). Of the stations whose inventory
+lists data in 2026, 2,345 have such a file; 4 `USW` stations have none and answer 404, which is left out with the
+warning above (all read 2026-11-18). The later days exist in the bucket's `by_year` and `parquet` files, which the
+library does not read; NOAA has been asked.
 
 ## One reading an hour
 
