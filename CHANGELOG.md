@@ -55,6 +55,13 @@ Types of changes:
 
 ### Fixed
 
+- Station search by name (`filter_by_name`, and `name=` of the CLI, REST API and MCP): a station
+  name that holds the whole query as a run of whole words now comes first and passes any
+  threshold below 1, whatever its score or length; a threshold of 1 stays an exact match.
+  `dwd/pollen`'s `Tiefland Sachsen-Anhalt` finds region 61, not 81
+  (`Sachsen: Tiefland Sachsen`), `Bayern` all four of its parts (123 missed the threshold), and
+  `Sachsen` the parts of Sachsen and Sachsen-Anhalt before those of Niedersachsen. Other names
+  keep their scores and come after; `rank` still limits the answer (GH-4215)
 - Station search by name (`filter_by_name`, and `name=` of the CLI, REST API and MCP): among names
   of an equal score the closer whole name now comes first, not the lowest station id. `Kiel`
   finds `Kiel-Holtenau` before `Kiel-Kronshagen`, and names that share a prefix (regions, e.g.

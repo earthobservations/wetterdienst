@@ -202,6 +202,7 @@ def test_the_exact_spelling_beats_the_station_that_holds_the_name(monkeypatch: p
 
     assert request.filter_by_name("duesseldorf").df.get_column("station_id").to_list() == ["00002"]
     assert request.filter_by_name("Dusseldorf").df.get_column("station_id").to_list() == ["00002"]
+    # a threshold of 1 stays exact: the airport holds the query as a word, which is no match there (GH-4215)
     assert request.filter_by_name("Düsseldorf", threshold=1.0, rank=5).df.get_column("station_id").to_list() == [
         "00002"
     ]

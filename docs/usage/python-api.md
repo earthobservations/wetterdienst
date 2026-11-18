@@ -388,7 +388,11 @@ match.  Lower values accept more typos; higher values require a closer match.  T
 `rank` parameter limits how many stations are returned (default 1, the best match). The `stations` listing
 of the command line and the REST API offers the best five instead: pass `rank=5` for the same list.
 A station is one match however many datasets (rows) it has, and two stations that share a name are two.
-The rows come back best match first, equal scores the closer whole name first (`Saarland` finds
+The rows come back best match first. A name that holds the whole query as a run of whole words
+(`Tiefland Sachsen-Anhalt` in `Sachsen-Anhalt: Tiefland Sachsen-Anhalt`) matches at any threshold below 1 and comes before every
+name that does not, whatever its score: `Bayern` finds all four parts of Bayern, and `Sachsen` the parts of
+Sachsen and of Sachsen-Anhalt before those of Niedersachsen, which holds `niedersachsen` as one word. Among
+those, and among the other names, equal scores the closer whole name first (`Saarland` finds
 `Rheinland-Pfalz und Saarland: Saarland` before a longer name that holds it), a tie on both in the order of
 their `station_id`.
 
@@ -427,8 +431,9 @@ stations = request.filter_by_name(name="Dresden-Klotzsche")
 Because `WRatio` is a partial matcher, a query that is a common sub-token matches many
 stations (e.g. `name="Bad"` matches every "…, Bad" station). For an exact match you have two
 options: set `threshold=1.0`, which keeps only matches scoring 100 (so `name="Kiel"` returns
-nothing while `name="Aach"` returns just `Aach`); or, for strict string equality, use
-`filter_by_sql`, e.g. `filter_by_sql("name = 'Aach'")`.
+nothing while `name="Cottbus"` returns just `Cottbus`, for `daily/precipitation_more` in January 2020; a name
+that holds the query as a word, such as `Kiel-Holtenau`, is no match at 1.0 though it is one at any lower
+threshold); or, for strict string equality, use `filter_by_sql`, e.g. `filter_by_sql("name = 'Cottbus'")`.
 
 ```{code-cell}
 ---

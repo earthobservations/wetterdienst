@@ -130,22 +130,7 @@ def _part_name(region: PollenRegion) -> str:
     return region.region_name if region.partregion_id == -1 else region.partregion_name
 
 
-@pytest.mark.parametrize(
-    "region",
-    [
-        pytest.param(
-            region,
-            id=region.station_id,
-            marks=pytest.mark.xfail(
-                strict=True,
-                reason="WRatio ranks 81 (`Sachsen: Tiefland Sachsen`) above 61, which holds the whole query; GH-4215",
-            )
-            if region.station_id == "61"
-            else (),
-        )
-        for region in REGIONS
-    ],
-)
+@pytest.mark.parametrize("region", REGIONS, ids=[region.station_id for region in REGIONS])
 def test_a_part_region_is_found_by_its_own_name_alone(region: PollenRegion) -> None:
     """The parts of a region share its name as a prefix and tie in a match; the closer whole name wins (GH-4207).
 
@@ -153,6 +138,23 @@ def test_a_part_region_is_found_by_its_own_name_alone(region: PollenRegion) -> N
     """
     found = _request().filter_by_name(_part_name(region), rank=1).df["station_id"].to_list()
     assert found == [region.station_id], f"{_part_name(region)!r} found {found}, not {region.station_id}"
+
+
+def test_a_region_name_finds_the_parts_of_that_region_first() -> None:
+    """A name that holds the whole query as a run of whole words ranks first and always matches (GH-4215)."""
+    found = lambda query: _request().filter_by_name(query, rank=40).df["station_id"].to_list()  # noqa: E731
+
+    # 123 "Bayern: Bayern nördl. der Donau, o. Bayr. Wald, o. Mainfranken" is too long for WRatio's threshold
+    assert sorted(found("Bayern")) == ["121", "122", "123", "124"]
+
+    # the names that hold "sachsen" as a word: the parts of Sachsen and of Sachsen-Anhalt (the closer whole name
+    # first, so Sachsen-Anhalt's short "Harz" is the first), then Niedersachsen's, which hold it inside a word
+    sachsen = found("Sachsen")
+    assert sorted(sachsen[:4]) == ["61", "62", "81", "82"]
+    assert sorted(sachsen[4:]) == ["31", "32"]
+
+    # not a tie to break, and not the name with the better score: the one that holds all of the query
+    assert found("Tiefland Sachsen-Anhalt")[0] == "61"
 
 
 def test_the_stations_are_listed_without_a_request_and_without_a_position(monkeypatch: pytest.MonkeyPatch) -> None:

@@ -107,23 +107,63 @@ def _closeness(
     return closeness
 
 
+def _tokens(text: str) -> str:
+    """Return the text as the scorers read it, its words one space apart: ``Sachsen-Anhalt`` -> ``sachsen anhalt``."""
+    return " ".join(fuzz_utils.default_process(text).split())
+
+
+def _holds_phrase(query: str, choices: Sequence[str | None]) -> set[int]:
+    """Return the indices of the choices that hold the query as a run of whole words (both already folded).
+
+    ``sachsen anhalt`` is a run of ``sachsen anhalt tiefland sachsen anhalt`` and ``sachsen`` is one of
+    ``sachsen anhalt tiefland``, but not of ``niedersachsen``: the words are compared whole, and the run is
+    of consecutive words.
+    """
+    phrase = _tokens(query)
+    if not phrase:
+        return set()
+    first = phrase.split(maxsplit=1)[0]
+    padded = f" {phrase} "
+    return {
+        index
+        for index, choice in enumerate(choices)
+        # the cheap test first: only a name that holds the letters of the first word is read word by word
+        if choice is not None and first in choice and padded in f" {_tokens(choice)} "
+    }
+
+
 def match_names(query: str, names: Sequence[str | None], threshold: float) -> list[tuple[int, float]]:
-    """Score the names against the query, best match first, equal scores the closer whole name first.
+    """Score the names against the query, best match first: a name that holds it whole, then the rest.
 
     The score is rapidfuzz's ``WRatio`` (a weighted composite of ratio, partial, token-sort and token-set
     ratio, so that a short place name matches a longer station name: ``Kiel`` -> ``Kiel-Holtenau``) of the
     folded names, the better of the plain and the transliterated form. A name that is null never matches.
 
-    ``WRatio`` gives every name that holds a short query the same score (90, the partial ratio weighted
-    down), so among equal scores the name closer to the query as a whole comes first, by ``fuzz.ratio`` of
-    the same folded forms (``Saarland`` -> ``Rheinland-Pfalz und Saarland: Saarland`` before
-    ``Rheinland-Pfalz und Saarland: Rhein, Pfalz, Nahe und Mosel``). Only a tie on both is left in the
-    order of the names.
+    A name that holds the whole query as a run of whole words (``Tiefland Sachsen-Anhalt`` in ``Sachsen-Anhalt:
+    Tiefland Sachsen-Anhalt``, ``Bayern`` in ``Bayern: Mainfranken``, but not ``Sachsen`` in ``Niedersachsen``)
+    reaches any threshold below 1 and comes before every name that does not: ``WRatio`` alone ranks a name
+    that only shares words with the query (``Sachsen: Tiefland Sachsen``) above one that holds all of it, and
+    a long name that holds it (``Bayern: Bayern nördl. der Donau, o. Bayr. Wald, o. Mainfranken``) misses
+    the threshold. The words are those of ``default_process``, compared in the plain and in the transliterated
+    form like the score. A name that holds the query is ordered by its own ``WRatio`` however low, and is
+    reported with the threshold as its score where that is less: this score is no ``WRatio``, and scores are
+    not monotone across the two groups (a phrase name reported with 80 comes before a name of 95). A threshold
+    of 1 stays exact: the rule is off, and only the names scoring 100 match, in the order they had. A short
+    query on a big catalogue (``San`` among 130,000 names) so lists more names than before, the long ones that
+    hold it as a word (``Ost`` admits ``Ost Mittelgebirgsbereichsstation``), which costs a caller nothing:
+    ``filter_by_name`` keeps the best ``rank`` stations.
+
+    Within each of the two groups, ``WRatio`` gives every name that holds a short query the same score (90, the
+    partial ratio weighted down), so among equal scores the name closer to the query as a whole comes first, by
+    ``fuzz.ratio`` of the same folded forms (``Saarland`` -> ``Rheinland-Pfalz und Saarland: Saarland`` before
+    ``Rheinland-Pfalz und Saarland: Rhein, Pfalz, Nahe und Mosel``). Only a tie on both is left in the order of
+    the names.
 
     Args:
         query: The name asked for.
         names: The names to match it against, nulls allowed.
-        threshold: The least score, from 0 to 1, a name must reach.
+        threshold: The least score, from 0 to 1, a name must reach (a name that holds the query as words reaches
+            any below 1).
 
     Returns:
         The index into ``names`` and the score (0 to 100) of every name that reaches the threshold.
@@ -132,12 +172,27 @@ def match_names(query: str, names: Sequence[str | None], threshold: float) -> li
     cutoff = threshold * 100
     query_plain, query_spelled = fold_name(query)
     folded = [None if name is None else fold_name(name) for name in names]
-    best = _scores(query_plain, [None if pair is None else pair[0] for pair in folded], cutoff)
+    plain = [None if pair is None else pair[0] for pair in folded]
+    best = _scores(query_plain, plain, cutoff)
+    # a threshold of 1 asks for the exact name: the rule admits nothing there
+    exact = cutoff >= 100
+    whole = set() if exact else _holds_phrase(query_plain, plain)
     # nothing differs between the forms of a name without an accent, and of a query without one: the
     # second pass would give the first one's answer
     if query_spelled != query_plain or any(pair is not None and pair[0] != pair[1] for pair in folded):
         spelled = [None if pair is None else pair[1] for pair in folded]
         for index, score in _scores(query_spelled, spelled, cutoff).items():
             best[index] = max(score, best.get(index, 0.0))
+        if not exact:
+            whole |= _holds_phrase(query_spelled, spelled)
+    # the score a name that holds the query has, where it is under the threshold: for the order among them
+    for index in whole - best.keys():
+        pair = folded[index]
+        if pair is not None:
+            best[index] = max(
+                fuzz.WRatio(query_plain, pair[0], processor=fuzz_utils.default_process),
+                fuzz.WRatio(query_spelled, pair[1], processor=fuzz_utils.default_process),
+            )
     closeness = _closeness(query_plain, query_spelled, folded, best)
-    return sorted(best.items(), key=lambda match: (-match[1], -closeness[match[0]], match[0]))
+    ranked = sorted(best.items(), key=lambda match: (match[0] not in whole, -match[1], -closeness[match[0]], match[0]))
+    return [(index, max(score, cutoff) if index in whole else score) for index, score in ranked]
