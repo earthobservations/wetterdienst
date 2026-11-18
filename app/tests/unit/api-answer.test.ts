@@ -31,8 +31,14 @@ describe('unexpectedAnswerReason', () => {
     expect(unexpectedAnswerReason('/api/glossary', { status: 200, contentType: json, data: [] })).toBeNull()
     expect(unexpectedAnswerReason('/api/coverage', { status: 200, contentType: json, data: {} })).toBeNull()
     expect(unexpectedAnswerReason('/api/history', { status: 200, contentType: json, data: { histories: [] } })).toBeNull()
+    // an empty scan of the thunderstorm cells is the usual answer (GH-4208), a list with no entry
+    expect(unexpectedAnswerReason('/api/storm-cells', { status: 200, contentType: json, data: { reference_time: '2026-11-17T22:15:00+00:00', cells: [] } })).toBeNull()
     // the same under the versioned address
     expect(unexpectedAnswerReason('/api/v1/stations', { status: 200, contentType: json, data: { stations: [] } })).toBeNull()
+  })
+
+  it('does not take the answer of the thunderstorm cells for an empty scan where it has no list of cells', () => {
+    expect(unexpectedAnswerReason('/api/storm-cells', { status: 200, contentType: 'application/json', data: {} })).toContain('no list of `cells`')
   })
 
   it('rejects JSON that is not the list of the endpoint, and a text where JSON was to be', () => {

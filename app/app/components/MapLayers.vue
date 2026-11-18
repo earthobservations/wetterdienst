@@ -10,6 +10,10 @@ import type { MapLayer } from '~/utils/map-tool'
 // The panel is a Nuxt UI popover (Reka UI's non-modal one): the button names it and says whether it is open
 // (`aria-expanded`, `aria-controls`), Escape and a press outside close it, and the focus goes back to the button after
 // Escape. The page tells the map that the panel is open, so that the press on the map that closes it picks nothing (StationMap.vue). A layer chosen leaves it open, so that the grouping can be set after it.
+//
+// The thunderstorm cells of DWD's radar (GH-4208) are a switch, not a third radio: they are drawn over whichever
+// stations are shown, so the choice is independent of the station layer, and a switch says on or off (`role="switch"`,
+// named, reachable by Tab, set by Space) as the grouping's does.
 
 defineProps<{
   layerItems: { value: MapLayer, label: string, icon: string }[]
@@ -22,6 +26,8 @@ defineProps<{
 
 const layer = defineModel<MapLayer>('layer', { required: true })
 const grouped = defineModel<boolean>('grouped', { required: true })
+/** Whether the thunderstorm cells are drawn over the stations (GH-4208) */
+const cells = defineModel<boolean>('cells', { default: false })
 /** Whether the panel is open, which the map is told (a press on the map that closes the panel is that and nothing else) */
 const open = defineModel<boolean>('open', { default: false })
 
@@ -30,6 +36,8 @@ const { t } = useI18n()
 const content = computed(() => ({ 'side': 'bottom', 'align': 'end', 'sideOffset': 8, 'aria-label': t('mapTool.layersButton'), 'data-testid': 'map-layers-panel' }) as NonNullable<PopoverProps['content']>)
 const GROUPING_NOTE_ID = 'map-grouping-note'
 const GROUPING_SWITCH_ID = 'map-grouping-switch'
+const CELLS_NOTE_ID = 'map-cells-note'
+const CELLS_SWITCH_ID = 'map-cells-switch'
 </script>
 
 <template>
@@ -67,6 +75,21 @@ const GROUPING_SWITCH_ID = 'map-grouping-switch'
       </URadioGroup>
 
       <slot />
+
+      <USeparator />
+      <div class="map-layers-grouping">
+        <USwitch
+          :id="CELLS_SWITCH_ID"
+          v-model="cells"
+          :label="t('mapTool.layerCells')"
+          :aria-describedby="CELLS_NOTE_ID"
+          :ui="{ root: 'w-full min-h-[44px] flex-row-reverse items-center justify-between', wrapper: 'ms-0 flex-1', label: 'flex min-h-[44px] items-center text-sm font-semibold' }"
+          data-testid="map-cells-switch"
+        />
+        <p :id="CELLS_NOTE_ID" class="text-sm text-muted">
+          {{ t('mapTool.layerCellsNote') }}
+        </p>
+      </div>
 
       <template v-if="showGrouping">
         <USeparator />

@@ -11,6 +11,7 @@ import type {
   Value,
 } from '../../../shared/types/api'
 import { Buffer } from 'node:buffer'
+import { emptyScan } from '../../helpers/storm-cells-answer'
 import { stripesAnswer } from '../../helpers/stripes-answer'
 
 // What the accessibility spec shows the app instead of a backend.
@@ -401,6 +402,8 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     'history': () => HISTORY,
     'glossary': () => GLOSSARY,
     'providers': () => PROVIDER_LIST,
+    // the usual scan of the thunderstorm cells: none (GH-4208)
+    'storm-cells': () => emptyScan(),
     'stripes/stations': () => ({ stations: STRIPES_STATIONS }),
     'stripes/values': url => stripesValues(url.searchParams.get('station')),
   }

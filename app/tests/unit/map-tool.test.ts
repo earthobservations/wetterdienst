@@ -187,7 +187,7 @@ describe('where a station is opened', () => {
 })
 
 describe('the address of the map', () => {
-  const plain = { layer: 'forecast' as const, source: DEFAULT_MEASURED, stationId: null, place: null }
+  const plain = { layer: 'forecast' as const, cells: false, source: DEFAULT_MEASURED, stationId: null, place: null }
 
   it('is empty for the plain map, so that its link is /map', () => {
     expect(stateToQuery(plain)).toEqual({})
@@ -195,7 +195,7 @@ describe('the address of the map', () => {
   })
 
   it('names the layer, the source of the measurements, the station and the place picked when they are not the default', () => {
-    const state = { layer: 'measured' as const, source: { resolution: 'hourly', dataset: 'temperature_air' }, stationId: '00011', place: { latitude: 47.91234, longitude: 8.51234 } }
+    const state = { layer: 'measured' as const, cells: false, source: { resolution: 'hourly', dataset: 'temperature_air' }, stationId: '00011', place: { latitude: 47.91234, longitude: 8.51234 } }
     expect(stateToQuery(state)).toEqual({ layer: 'measured', resolution: 'hourly', dataset: 'temperature_air', station: '00011', lat: '47.9123', lon: '8.5123' })
     expect(stateFromQuery(stateToQuery(state))).toEqual({ ...state, place: { latitude: 47.9123, longitude: 8.5123 } })
   })
@@ -209,6 +209,17 @@ describe('the address of the map', () => {
     expect(stateFromQuery({ station: '1', lat: 'north', lon: '8' }).place).toBeNull()
     expect(stateFromQuery({ station: '1', lat: '95', lon: '8' }).place).toBeNull()
     expect(stateFromQuery({ lat: '50', lon: '8' }).place).toBeNull()
+  })
+
+  it('names the thunderstorm cells, an overlay of either layer, only where they are on', () => {
+    expect(stateToQuery({ ...plain, cells: true })).toEqual({ cells: '1' })
+    expect(stateToQuery({ ...plain, layer: 'measured', cells: true })).toEqual({ layer: 'measured', cells: '1' })
+    expect(stateFromQuery({ cells: '1' })).toEqual({ ...plain, cells: true })
+    expect(stateFromQuery({ layer: 'measured', cells: '1' })).toMatchObject({ layer: 'measured', cells: true })
+    // any other text is off, as is none
+    expect(stateFromQuery({ cells: 'yes' }).cells).toBe(false)
+    expect(stateFromQuery({ cells: '0' }).cells).toBe(false)
+    expect(stateFromQuery({}).cells).toBe(false)
   })
 
   it('is the default layer where the address names one there is none of', () => {

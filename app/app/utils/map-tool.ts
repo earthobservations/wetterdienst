@@ -399,11 +399,13 @@ export function historyLink(source: MeasuredSource, stationId: string): string {
 
 /**
  * What the map's address says it shows, as the page writes and reads it: the layer, the source of the measurements, the
- * station and the place picked when it is not the station itself. What is the default is left out, so that a
- * link to the plain map is `/map`.
+ * station and the place picked when it is not the station itself, and whether the thunderstorm cells are drawn over
+ * them (`cells=1`, GH-4208). What is the default is left out, so that a link to the plain map is `/map`.
  */
 export interface MapState {
   layer: MapLayer
+  /** Whether the thunderstorm cells of DWD's radar are drawn over the stations: an overlay of either layer, off by default */
+  cells: boolean
   source: MeasuredSource
   stationId: string | null
   place: Point | null
@@ -414,6 +416,8 @@ export function stateToQuery(state: MapState): Record<string, string> {
   const query: Record<string, string> = {}
   if (state.layer !== 'forecast')
     query.layer = state.layer
+  if (state.cells)
+    query.cells = '1'
   if (state.source.resolution !== DEFAULT_MEASURED.resolution || state.source.dataset !== DEFAULT_MEASURED.dataset) {
     query.resolution = state.source.resolution
     query.dataset = state.source.dataset
@@ -436,6 +440,7 @@ export function stateFromQuery(query: Record<string, unknown>): MapState {
   const stationId = text(query.station) || null
   return {
     layer,
+    cells: text(query.cells) === '1',
     source: {
       resolution: text(query.resolution) || DEFAULT_MEASURED.resolution,
       dataset: text(query.dataset) || DEFAULT_MEASURED.dataset,

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { nextTick } from 'vue'
 import { clearNuxtData, clearNuxtState, useMyLocation, useRouter } from '#imports'
 import MapPage from '~/pages/map.vue'
+import { emptyScan, exampleScan } from '../../helpers/storm-cells-answer'
 import { stripesAnswer } from '../../helpers/stripes-answer'
 
 // The map tool (GH-3650): the layers the chips choose, the station a click or the list picks and what the panel shows
@@ -21,7 +22,7 @@ vi.mock('~/components/StationMap.vue', async () => {
   return {
     __esModule: true,
     default: defineComponent({
-      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping', 'panelOpen'],
+      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping', 'panelOpen', 'cells', 'cellsCredit'],
       emits: ['pick', 'view', 'group'],
       setup(props, { emit }) {
         stage.props = props
@@ -156,6 +157,13 @@ let stripesStations: Array<typeof STRIPES_STATIONS[number]> = STRIPES_STATIONS
 registerEndpoint('/api/stripes/stations', () => ({ stations: stripesStations }))
 registerEndpoint('/api/stripes/values', stripesValuesOf)
 registerEndpoint('/api/coverage', () => COVERAGE)
+// the thunderstorm cells of DWD's radar (GH-4208): the queries asked, and the scan a test makes the backend answer with
+const cellsAsked: Array<Record<string, string>> = []
+let cellsScan: () => unknown = () => emptyScan()
+registerEndpoint('/api/storm-cells', (event) => {
+  cellsAsked.push(getQuery(event) as Record<string, string>)
+  return cellsScan()
+})
 
 const originalMatchMedia = window.matchMedia
 const mounted: Array<{ unmount: () => void }> = []
@@ -207,6 +215,8 @@ afterEach(async () => {
   stage.emit = () => {}
   clearNuxtData()
   asked.stations.length = asked.stripesValues.length = asked.values.length = 0
+  cellsAsked.length = 0
+  cellsScan = () => emptyScan()
   stationsFailures = 0
   stripesStatus = 200
   valuesStatus = 200
@@ -2286,5 +2296,114 @@ describe('what a pick carries across layers is the pick the reader made last (GH
       await vi.waitFor(() => expect(wrapper.find('[data-testid="map-card-measured"]').text()).toContain('Hamburg-Fuhlsbüttel'))
       expect(wrapper.find('[data-testid="map-card-same-measured"]').exists()).toBe(false)
     })
+  })
+})
+
+describe('the thunderstorm cells of DWD\'s radar (GH-4208)', () => {
+  const cellsSwitch = (wrapper: Awaited<ReturnType<typeof mountMap>>) => wrapper.find('[data-testid="map-cells-switch"]')
+  const cellsPanel = (wrapper: Awaited<ReturnType<typeof mountMap>>) => wrapper.find('[data-testid="map-cells"]')
+
+  it('is a switch of the layers panel, beside the layers: named, a switch for a keyboard, off, and no request is made while it is', async () => {
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    const control = cellsSwitch(wrapper)
+    expect(control.attributes('role')).toBe('switch')
+    expect(control.attributes('aria-checked')).toBe('false')
+    expect(wrapper.find(`label[for="${control.attributes('id')}"]`).text()).toBe('Thunderstorm cells')
+    expect(control.attributes('aria-describedby')).toBe('map-cells-note')
+    expect(wrapper.find('#map-cells-note').text()).toBe('DWD radar, a new scan every 5 minutes.')
+    // the stations are the layers (radios), the cells no layer of them: nothing is asked for, drawn or listed
+    expect(wrapper.findAll('[data-testid="map-layers"] [role="radio"]')).toHaveLength(2)
+    expect(cellsAsked).toEqual([])
+    expect(stage.props.cells).toBeUndefined()
+    expect(cellsPanel(wrapper).exists()).toBe(false)
+    expect(stage.props.label).toBe('Station map: Forecast stations')
+  })
+
+  it('asks for the latest scan when it is turned on, without the forecast track, and draws and lists the cells over the stations', async () => {
+    cellsScan = () => exampleScan()
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    await cellsSwitch(wrapper).trigger('click')
+    await vi.waitFor(() => expect(stage.props.cells).toHaveLength(4))
+    expect(cellsAsked).toEqual([{ track: 'false' }])
+    expect(cellsSwitch(wrapper).attributes('aria-checked')).toBe('true')
+    // the cells are drawn with the credit DWD asks for, and the map says what it shows
+    expect(stage.props.cellsCredit).toBe('Source: Deutscher Wetterdienst (KONRAD3D)')
+    expect(stage.props.label).toBe('Station map: Forecast stations, with thunderstorm cells')
+    // the stations are still there under them, and the map has not moved: no pick of a station and no recentre
+    expect(stage.props.stations).toHaveLength(4)
+    expect(stage.props.recentre).toBe(0)
+    // and in the panel, in words, before the stations
+    await vi.waitFor(() => expect(cellsPanel(wrapper).exists()).toBe(true))
+    expect(cellsPanel(wrapper).find('[data-testid="map-cells-summary"]').text()).toBe('Thunderstorm cells in the latest scan: 4')
+    expect(cellsPanel(wrapper).findAll('[data-testid="map-cells-item"]')).toHaveLength(4)
+    expect(cellsPanel(wrapper).text()).toContain('direction calculated')
+    expect(wrapper.find('h2#map-cells-title').exists()).toBe(true)
+    // the legend of the map has the marks
+    expect(wrapper.find('[data-testid="map-legend-cell"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="map-legend-arrow"]').text()).toBe('Dashed arrow: direction of motion, calculated')
+  })
+
+  it('says that the latest scan has no cell, with its time, and draws none: an empty scan is the usual one', async () => {
+    cellsScan = () => emptyScan('2026-11-17T22:20:00.000000+00:00')
+    const wrapper = await mountMap('/map?cells=1')
+    await vi.waitFor(() => expect(cellsPanel(wrapper).find('[data-testid="map-cells-summary"]').exists()).toBe(true))
+    expect(cellsPanel(wrapper).find('[data-testid="map-cells-summary"]').text()).toBe('No thunderstorm cells in the latest scan')
+    expect(cellsPanel(wrapper).find('[data-testid="map-cells-scan"]').text()).toMatch(/22:20 UTC$/)
+    expect(stage.props.cells).toEqual([])
+    // no mark to explain
+    expect(wrapper.find('[data-testid="map-legend-cell"]').exists()).toBe(false)
+  })
+
+  it('is an overlay of either layer: the measurements keep the cells, and the cells keep to the address', async () => {
+    cellsScan = () => exampleScan()
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    await cellsSwitch(wrapper).trigger('click')
+    await vi.waitFor(() => expect(stage.props.cells).toHaveLength(4))
+    await vi.waitFor(() => expect(useRoute().query.cells).toBe('1'))
+    await chooseLayer(wrapper, 'measured')
+    await vi.waitFor(() => expect(stage.props.stations).toHaveLength(3))
+    expect(stage.props.cells).toHaveLength(4)
+    expect(useRoute().query).toMatchObject({ layer: 'measured', cells: '1' })
+    // one scan for the two layers: the layer's change asked for nothing
+    expect(cellsAsked).toHaveLength(1)
+  })
+
+  it('opens with the cells on where the address says so, and the switch says so', async () => {
+    cellsScan = () => exampleScan()
+    const wrapper = await mountMap('/map?cells=1')
+    await vi.waitFor(() => expect(stage.props.cells).toHaveLength(4))
+    expect(cellsSwitch(wrapper).attributes('aria-checked')).toBe('true')
+  })
+
+  it('takes the cells off the map, the panel and the address when it is turned off, and asks for nothing more', async () => {
+    cellsScan = () => exampleScan()
+    const wrapper = await mountMap('/map?cells=1')
+    await vi.waitFor(() => expect(stage.props.cells).toHaveLength(4))
+    await cellsSwitch(wrapper).trigger('click')
+    await vi.waitFor(() => expect(stage.props.cells).toBeUndefined())
+    expect(cellsPanel(wrapper).exists()).toBe(false)
+    await vi.waitFor(() => expect(useRoute().query.cells).toBeUndefined())
+    expect(cellsAsked).toHaveLength(1)
+  })
+
+  it('says that the cells could not be loaded, as an alert with Retry, and loads them on it', async () => {
+    cellsScan = () => ({ detail: 'a page' })
+    const wrapper = await mountMap('/map?cells=1')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-cells-failed"]').exists()).toBe(true))
+    expect(wrapper.find('[data-testid="map-cells-failed"]').text()).toBe('The thunderstorm cells could not be loaded')
+    expect(stage.props.cells).toBeUndefined()
+    cellsScan = () => exampleScan()
+    await wrapper.find('[data-testid="map-cells-retry"]').trigger('click')
+    await vi.waitFor(() => expect(stage.props.cells).toHaveLength(4))
+  })
+
+  it('keeps the list of the cells with a station picked, where a keyboard has no map to read them from', async () => {
+    cellsScan = () => exampleScan()
+    const wrapper = await mountMap('/map?cells=1&station=10147')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL'))
+    await vi.waitFor(() => expect(cellsPanel(wrapper).findAll('[data-testid="map-cells-item"]')).toHaveLength(4))
   })
 })

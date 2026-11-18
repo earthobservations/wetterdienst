@@ -3,6 +3,7 @@ import type { Locale, Mode, Variant } from './accessibility/scan'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import { exampleScan } from '../helpers/storm-cells-answer'
 import { askHandlers } from './accessibility/ask-backend'
 import { scanHover, scanKeyboard } from './accessibility/interact'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
@@ -609,6 +610,19 @@ const STATES: State[] = [
       await expect(page.getByTestId('map-grouping')).toBeVisible()
       await expect(page.getByTestId('map-resolution')).toBeVisible()
       await expect(page.getByTestId('map-dataset')).toBeVisible()
+    },
+  },
+  {
+    // the thunderstorm cells of DWD's radar over the stations, drawn and listed, with the layers panel open on their switch (GH-4208)
+    page: 'map',
+    state: 'storm-cells',
+    path: '/map?cells=1',
+    handlers: { 'storm-cells': () => exampleScan() },
+    reach: async (page) => {
+      await expect(page.getByTestId('map-cells').getByRole('listitem').first()).toBeVisible()
+      await expect(page.locator('.leaflet-storm-cells-pane path').first()).toBeAttached()
+      await page.getByTestId('map-layers-button').click()
+      await expect(page.getByTestId('map-cells-switch')).toBeVisible()
     },
   },
   {

@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import { emptyScan, exampleScan, stormCellsAnswer } from '../helpers/storm-cells-answer'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
 import { expectAtLeastPx } from './target-size'
 
@@ -990,6 +991,216 @@ for (const width of [320, 390]) {
     }
   })
 }
+
+// The thunderstorm cells of DWD's radar (GH-4208): a switch in the layers panel that draws the cells of the latest scan over the
+// stations, lists them in the panel, and says so where the scan has none. The mock serves a scan with cells and an empty one.
+test.describe('the thunderstorm cells', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  const WITH_CELLS = { 'storm-cells': () => exampleScan() }
+  const NO_CELLS = { 'storm-cells': () => emptyScan('2026-11-17T22:20:00.000000+00:00') }
+
+  /** Counts the requests for the scan of the cells, and answers each from `scan` */
+  function counting(scan: () => unknown) {
+    const asked: Array<Record<string, string>> = []
+    return {
+      asked,
+      handlers: {
+        'storm-cells': (url: URL) => {
+          asked.push(Object.fromEntries(url.searchParams))
+          return scan()
+        },
+      },
+    }
+  }
+
+  test('are a switch beside the layers, off at the opening, and nothing is asked for or drawn while it is', async ({ page, baseURL }) => {
+    const cells = counting(exampleScan)
+    const backend = await open(page, baseURL!, '/map', cells.handlers)
+    await expect(page.getByTestId('map-count')).toBeVisible()
+    await openLayers(page)
+    const control = page.getByRole('switch', { name: en.mapTool.layerCells })
+    await expect(control).toBeVisible()
+    await expect(control).not.toBeChecked()
+    // the layers stay the stations' (two radios), the cells are no third
+    await expect(page.getByTestId('map-layers-panel').getByRole('radio')).toHaveCount(2)
+    await expect(page.getByTestId('map-cells')).toHaveCount(0)
+    await expect(page.locator('.leaflet-storm-cells-pane path')).toHaveCount(0)
+    expect(cells.asked).toEqual([])
+    expect(backend.unanswered).toEqual([])
+  })
+
+  test('draw the outline, the severity and the calculated motion of each cell of a scan over the stations, and list them in words', async ({ page, baseURL }) => {
+    const cells = counting(exampleScan)
+    const backend = await open(page, baseURL!, '/map', cells.handlers)
+    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 4')
+    await openLayers(page)
+    await page.getByRole('switch', { name: en.mapTool.layerCells }).click()
+    await expect(page).toHaveURL(/\/map\?cells=1$/)
+    expect(cells.asked).toEqual([{ track: 'false' }])
+    // an outline for each of the four cells, and a mark at the centre of each with the number of its severity
+    await expect(page.locator('.leaflet-storm-cells-pane path')).toHaveCount(4)
+    const marks = page.locator('.leaflet-storm-cell-marks-pane .storm-cell-mark')
+    await expect(marks).toHaveCount(4)
+    expect(await marks.locator('text').allTextContents()).toEqual(expect.arrayContaining(['0', '1', '2', '3']))
+    // every mark has an arrow: the four cells move
+    await expect(page.locator('.leaflet-storm-cell-marks-pane .storm-cell-mark-moving')).toHaveCount(4)
+    // the marks are no stop of the keyboard, no button and no text for a screen reader
+    await expect(page.locator('.leaflet-storm-cell-marks-pane [tabindex], .leaflet-storm-cell-marks-pane [role="button"]')).toHaveCount(0)
+    await expect(marks.first().locator('svg')).toHaveAttribute('aria-hidden', 'true')
+    // the stations are still there, the map has not moved from Germany, and DWD is credited on the map
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 4')
+    await expect(page.locator('.leaflet-control-attribution')).toContainText('Source: Deutscher Wetterdienst (KONRAD3D)')
+    await expect(page.getByRole('application', { name: /^Station map/ })).toHaveAccessibleName(`${en.mapTool.mapLabelCells.replace('{layer}', en.mapTool.layerForecast)}`)
+
+    // the same cells in the panel, where the map is not needed to read them: severity in words and numbers, the motion as calculated
+    const panel = page.getByTestId('map-cells')
+    await expect(panel.getByRole('heading', { level: 2 })).toHaveText(en.mapTool.layerCells)
+    await expect(panel.getByTestId('map-cells-summary')).toHaveText('Thunderstorm cells in the latest scan: 4')
+    const list = panel.getByRole('list', { name: en.mapTool.cellsListLabel })
+    await expect(list.getByRole('listitem')).toHaveCount(4)
+    await expect(list.getByRole('listitem').first()).toContainText('Cell 12')
+    await expect(list.getByRole('listitem').first()).toContainText('Severity 3 (extreme)')
+    await expect(list.getByRole('listitem').first()).toContainText('Moves east at 31 km/h (direction calculated)')
+    await expect(panel.getByTestId('map-cells-scan')).toContainText('22:15 UTC')
+    // the credit of the data where the layer is shown: DWD, the product and the licence's terms
+    const credit = panel.getByTestId('map-cells-credit')
+    await expect(credit).toContainText('KONRAD3D radar product of the German Weather Service (DWD)')
+    await expect(credit).toContainText('Source: Deutscher Wetterdienst')
+    await expect(credit.getByRole('link', { name: /Creative Commons Attribution 4\.0/ })).toHaveAttribute('href', 'https://creativecommons.org/licenses/by/4.0/')
+    // the legend says what the marks are
+    const legend = page.getByTestId('map-legend')
+    await expect(legend).toContainText(en.mapTool.cellsLegendMark)
+    await expect(legend).toContainText(en.mapTool.cellsLegendArrow)
+    expect(backend.unanswered).toEqual([])
+  })
+
+  test('say that the latest scan has none, and when it was, for an empty scan, which is the usual one', async ({ page, baseURL }) => {
+    const backend = await open(page, baseURL!, '/map?cells=1', NO_CELLS)
+    const panel = page.getByTestId('map-cells')
+    await expect(panel.getByTestId('map-cells-summary')).toHaveText(en.mapTool.cellsNone)
+    await expect(panel.getByTestId('map-cells-scan')).toContainText('22:20 UTC')
+    await expect(panel.getByRole('list')).toHaveCount(0)
+    await expect(page.locator('.leaflet-storm-cells-pane path')).toHaveCount(0)
+    await expect(page.locator('.storm-cell-mark')).toHaveCount(0)
+    // DWD is credited where the cells would be, an empty scan included
+    await expect(panel.getByTestId('map-cells-credit')).toContainText('Source: Deutscher Wetterdienst')
+    expect(backend.unanswered).toEqual([])
+  })
+
+  test('are an overlay of the measurements as well, and the address keeps both', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?layer=measured&cells=1', WITH_CELLS)
+    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 12')
+    await expect(page.locator('.leaflet-storm-cells-pane path')).toHaveCount(4)
+    await expect(page.getByTestId('map-cells').getByRole('listitem')).toHaveCount(4)
+    await openLayers(page)
+    await expect(page.getByRole('switch', { name: en.mapTool.layerCells })).toBeChecked()
+    await page.getByRole('switch', { name: en.mapTool.layerCells }).click()
+    await expect(page.locator('.leaflet-storm-cells-pane path')).toHaveCount(0)
+    await expect(page.getByTestId('map-cells')).toHaveCount(0)
+    await expect(page).toHaveURL(/\/map\?layer=measured$/)
+  })
+
+  test('are switched on and off by the keyboard alone, and their list is in the tab order of the panel', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map', WITH_CELLS)
+    await expect(page.getByTestId('map-count')).toBeVisible()
+    await page.getByTestId('map-layers-button').focus()
+    await page.keyboard.press('Enter')
+    const control = page.getByRole('switch', { name: en.mapTool.layerCells })
+    await control.focus()
+    await expect(control).toBeFocused()
+    await page.keyboard.press('Space')
+    await expect(control).toBeChecked()
+    await expect(page.locator('.leaflet-storm-cells-pane path')).toHaveCount(4)
+    // Escape closes the panel and gives the button its focus back
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('map-layers-button')).toBeFocused()
+    await expect(page.getByTestId('map-cells').getByRole('listitem')).toHaveCount(4)
+  })
+
+  test('ask for the scan again every 5 minutes while they are shown, and not once they are switched off', async ({ page, baseURL }) => {
+    await page.clock.install({ time: new Date('2026-11-17T22:21:00Z') })
+    const cells = counting(emptyScan)
+    await open(page, baseURL!, '/map?cells=1', cells.handlers)
+    await expect(page.getByTestId('map-cells-summary')).toBeVisible()
+    expect(cells.asked).toHaveLength(1)
+    await page.clock.fastForward(4 * 60_000)
+    await page.waitForTimeout(300)
+    expect(cells.asked).toHaveLength(1)
+    await page.clock.fastForward(61_000)
+    await expect.poll(() => cells.asked.length).toBe(2)
+    // switched off: no timer is left to ask
+    await openLayers(page)
+    await page.getByRole('switch', { name: en.mapTool.layerCells }).click()
+    await page.clock.fastForward(20 * 60_000)
+    await page.waitForTimeout(300)
+    expect(cells.asked).toHaveLength(2)
+  })
+
+  test('are not asked for while the tab is in the background, and are as it comes back to a scan that is due', async ({ page, baseURL }) => {
+    await page.clock.install({ time: new Date('2026-11-17T22:21:00Z') })
+    const cells = counting(emptyScan)
+    await open(page, baseURL!, '/map?cells=1', cells.handlers)
+    await expect(page.getByTestId('map-cells-summary')).toBeVisible()
+    const visibility = (state: 'hidden' | 'visible') => page.evaluate((next) => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => next })
+      document.dispatchEvent(new Event('visibilitychange'))
+    }, state)
+    await visibility('hidden')
+    await page.clock.fastForward(30 * 60_000)
+    await page.waitForTimeout(300)
+    expect(cells.asked).toHaveLength(1)
+    await visibility('visible')
+    await expect.poll(() => cells.asked.length).toBe(2)
+  })
+
+  test('tell a scan that could not be loaded, and load it on Retry', async ({ page, baseURL }) => {
+    let failing = true
+    await open(page, baseURL!, '/map?cells=1', {
+      'storm-cells': () => failing ? new ApiFailure(502, 'DWD did not answer') : exampleScan(),
+    })
+    const failed = page.getByTestId('map-cells-failed')
+    await expect(failed).toHaveText(en.mapTool.cellsFailed)
+    failing = false
+    await page.getByTestId('map-cells-retry').click()
+    await expect(page.getByTestId('map-cells').getByRole('listitem')).toHaveCount(4)
+  })
+
+  test('tell a stale scan, which makes an empty one no all-clear', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?cells=1', {
+      'storm-cells': () => stormCellsAnswer([], { warnings: [{ code: 'scan-stale', message: 'old' }] }),
+    })
+    await expect(page.getByTestId('map-cells-stale')).toContainText('more than 20 minutes old')
+  })
+})
+
+test.describe('the thunderstorm cells on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('have their switch, their list under the map and their legend over it, and the page does not scroll sideways', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?cells=1', { 'storm-cells': () => exampleScan() })
+    await expect(page.locator('.leaflet-storm-cells-pane path')).toHaveCount(4)
+    await expect(page.getByTestId('map-cells').getByRole('listitem')).toHaveCount(4)
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
+    // the legend is clear of the zoom buttons and of the layers button
+    const rects = await page.evaluate(() => {
+      const rect = (selector: string) => {
+        const box = document.querySelector(selector)!.getBoundingClientRect()
+        return { top: box.top, bottom: box.bottom, left: box.left, right: box.right }
+      }
+      return { legend: rect('.map-legend'), zoom: rect('.leaflet-control-zoom'), layers: rect('.map-layers-button') }
+    })
+    const apart = (a: { top: number, bottom: number, left: number, right: number }, b: typeof a) => a.bottom <= b.top || b.bottom <= a.top || a.right <= b.left || b.right <= a.left
+    expect(apart(rects.legend, rects.zoom), 'the legend is clear of the zoom buttons').toBe(true)
+    expect(apart(rects.legend, rects.layers), 'the legend is clear of the layers button').toBe(true)
+    await openLayers(page)
+    const control = page.getByRole('switch', { name: en.mapTool.layerCells })
+    const height = await control.evaluate(element => (element.closest('[data-slot="root"]') as HTMLElement).offsetHeight)
+    expectAtLeastPx(height, 44, 'the row of the switch is high')
+  })
+})
 
 test.describe('the switch of the grouping on a phone', () => {
   test.use({ viewport: { width: 390, height: 844 } })

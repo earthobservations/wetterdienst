@@ -5,6 +5,7 @@ import { defineAsyncComponent } from 'vue'
 import MapForecast from '~/components/MapForecast.vue'
 import MapLayers from '~/components/MapLayers.vue'
 import MapStationsNotLoaded from '~/components/MapStationsNotLoaded.vue'
+import MapStormCells from '~/components/MapStormCells.vue'
 import MapStripes from '~/components/MapStripes.vue'
 import UseMyLocation from '~/components/UseMyLocation.vue'
 import { describeFetchError } from '~/utils/api-error'
@@ -51,8 +52,13 @@ import {
 // the same (GH-4077), else by the position of the place, never by the id of the station, which is another station in
 // another layer.
 //
-// What is shown is in the address (`?layer=&resolution=&dataset=&station=&lat=&lon=`), so that a link opens the same
+// What is shown is in the address (`?layer=&resolution=&dataset=&station=&lat=&lon=&cells=`), so that a link opens the same
 // map, and so that the search of the header opens it on a station (`/map?station=10147`).
+//
+// The thunderstorm cells of DWD's radar (GH-4208) are a third thing on the map and no layer of stations: a switch in the layers
+// panel draws them over whichever stations are shown (`cells=1`), keeps the map's view of Germany, and lists them in the panel,
+// where a keyboard and a screen reader reach them. While they are on and the tab is in front the scan is asked for again every
+// 5 minutes, which is how often DWD writes one (`composables/useStormCells.ts`).
 
 const { t } = useI18n()
 const formatLanguage = useFormatLanguage()
@@ -80,6 +86,8 @@ const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
 
 const initial = stateFromQuery(route.query)
 const layer = ref<MapLayer>(initial.layer)
+/** Whether the thunderstorm cells are drawn over the stations: an overlay of either layer */
+const cells = ref(initial.cells)
 const source = ref<MeasuredSource>(initial.source)
 const selectedId = ref<string | null>(initial.stationId)
 /** The point the panel is about: the station picked, or the place picked on the map */
@@ -241,7 +249,20 @@ const near = computed(() => nearestStations(stations.value, view.value, 8).map(e
 const found = computed(() => searchStations(stations.value, search.value, 20).map(station => ({ station, distance: null as number | null })))
 const entries = computed(() => searching.value ? found.value : near.value)
 const countLabel = computed(() => t('mapTool.count', { count: stations.value.length, shown: formatNumber(stations.value.length, formatLanguage.value, 0) }))
-const mapLabel = computed(() => t('mapTool.mapLabel', { layer: layerLabel.value }))
+const mapLabel = computed(() => t(cells.value ? 'mapTool.mapLabelCells' : 'mapTool.mapLabel', { layer: layerLabel.value }))
+
+// ---- the thunderstorm cells of DWD's radar (GH-4208) -------------------------------------------------------------
+
+const storm = useStormCells(() => cells.value)
+/** The cells the map draws: none where the layer is off or the scan has not come (the panel says which) */
+const stormCells = computed(() => cells.value && storm.scan.value ? storm.scan.value.cells : undefined)
+/** The credit of the cells' data for the map's own: the provider's line, and the product it is of */
+const stormCredit = computed(() => {
+  const attribution = storm.scan.value?.credit?.attribution
+  return attribution ? `${attribution} (KONRAD3D)` : null
+})
+/** Whether the map's legend has the cells' marks to tell: where a scan has some */
+const cellsLegend = computed(() => Boolean(stormCells.value?.length))
 
 // ---- the groups of stations at the outer zooms (GH-4079) ----------------------------------------------------------
 
@@ -345,6 +366,8 @@ let reselect = false
 
 /** Which stations of the layer shown have stopped, by the clock of its list: only the measuring ones have */
 const reporting = computed(() => layer.value === 'measured' ? reportingRule(stations.value) : undefined)
+/** Whether the map's legend has the stations' marks to tell: the filled and the hollow dot, and the groups */
+const stationLegend = computed(() => Boolean((reporting.value || groupedNow.value) && listStatus.value === 'success' && stations.value.length))
 
 /** What `picked` is for a station of the layer shown */
 function remember(station: PlacedStation): PickedStation {
@@ -652,12 +675,12 @@ function stationName(station: Station) {
 // ---- the address follows what is shown, and what the address says from outside is taken ---------------------------
 
 // the reader's own position is not written into the address, which is copied and shared: the station is
-const state = computed<MapState>(() => ({ layer: layer.value, source: source.value, stationId: selectedId.value, place: origin.value.kind === 'position' ? null : place.value }))
+const state = computed<MapState>(() => ({ layer: layer.value, cells: cells.value, source: source.value, stationId: selectedId.value, place: origin.value.kind === 'position' ? null : place.value }))
 const queryOf = (map: MapState) => JSON.stringify(stateToQuery(map))
 
 watch(state, (shown) => {
   // the keys that are the map's are replaced, any other the address has stays
-  const rest = Object.fromEntries(Object.entries(route.query).filter(([key]) => !['layer', 'resolution', 'dataset', 'station', 'lat', 'lon'].includes(key)))
+  const rest = Object.fromEntries(Object.entries(route.query).filter(([key]) => !['layer', 'cells', 'resolution', 'dataset', 'station', 'lat', 'lon'].includes(key)))
   // always asked, even where the address already says it: a write of an earlier state that is still on its way is then
   // replaced by this one (the router lets the newer navigation cancel the older), and does not land after it. A
   // rejected or duplicate navigation is no error of the page
@@ -672,6 +695,7 @@ watch(() => route.query, (query) => {
   if (queryOf(named) === queryOf(state.value))
     return
   layer.value = named.layer
+  cells.value = named.cells
   source.value = named.source
   const namedKey = keyOf(named.layer, named.source)
   // the number of a station in another view is another station, so it is a new pick as well
@@ -700,6 +724,7 @@ watch(() => route.query, (query) => {
         <div class="space-y-3 text-muted">
           <p>{{ t('mapTool.about1') }}</p>
           <p>{{ t('mapTool.about2') }}</p>
+          <p>{{ t('mapTool.about3') }}</p>
         </div>
       </template>
     </PageHeader>
@@ -713,6 +738,9 @@ watch(() => route.query, (query) => {
             <p class="sr-only" role="status" data-testid="map-announcement">
               {{ announcement }}
             </p>
+
+            <!-- the thunderstorm cells of the latest radar scan, in words (GH-4208): over whatever the panel is about -->
+            <MapStormCells v-if="cells" :scan="storm.scan.value" :status="storm.status.value" :refresh-failed="storm.refreshFailed.value" @retry="storm.retry()" />
 
             <!-- a station or a place picked: what there is to see of it -->
             <div v-if="selected" class="map-detail">
@@ -950,6 +978,7 @@ watch(() => route.query, (query) => {
               <MapLayers
                 v-model:layer="layer"
                 v-model:open="layersOpen"
+                v-model:cells="cells"
                 v-model:grouped="grouped"
                 :layer-items="layerItems"
                 :show-grouping="listStatus === 'success' && stations.length > 0"
@@ -995,6 +1024,8 @@ watch(() => route.query, (query) => {
                 :reporting="reporting"
                 :grouping="groupingInForce.grouping"
                 :panel-open="layersOpen"
+                :cells="stormCells"
+                :cells-credit="stormCredit"
                 :label="mapLabel"
                 @pick="onPick"
                 @view="view = $event"
@@ -1002,9 +1033,10 @@ watch(() => route.query, (query) => {
               />
             </ClientOnly>
 
-            <!-- what the two kinds of dot are, on the measured layer: a filled dot reports, a hollow one has stopped -->
-            <ul v-if="(reporting || groupedNow) && listStatus === 'success' && stations.length" class="map-legend" :aria-label="t('mapTool.legend')" data-testid="map-legend">
-              <template v-if="reporting">
+            <!-- what the marks are: on the measured layer a filled dot reports and a hollow one has stopped, a number is a group of stations,
+                 and where the cells are shown their mark is a number (the severity) and the arrow is the calculated motion -->
+            <ul v-if="stationLegend || cellsLegend" class="map-legend" :class="{ 'map-legend-wide': cellsLegend }" :aria-label="t('mapTool.legend')" data-testid="map-legend">
+              <template v-if="stationLegend && reporting">
                 <li>
                   <span class="map-legend-dot" aria-hidden="true" data-testid="map-legend-reporting" />
                   {{ t('mapTool.legendReporting') }}
@@ -1014,10 +1046,23 @@ watch(() => route.query, (query) => {
                   {{ t('mapTool.legendStopped') }}
                 </li>
               </template>
-              <li v-if="groupedNow">
+              <li v-if="stationLegend && groupedNow">
                 <span class="map-legend-dot map-legend-group" :class="{ 'map-legend-group-share': reporting }" aria-hidden="true" data-testid="map-legend-group">12</span>
                 {{ reporting ? t('mapTool.legendGroupShare') : t('mapTool.legendGroup') }}
               </li>
+              <template v-if="cellsLegend">
+                <li data-testid="map-legend-cell">
+                  <span class="map-legend-cell" aria-hidden="true">2</span>
+                  {{ t('mapTool.cellsLegendMark') }}
+                </li>
+                <li data-testid="map-legend-arrow">
+                  <svg class="map-legend-arrow" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" focusable="false">
+                    <path d="M3 13 L12 4" stroke-dasharray="2.5 2.5" />
+                    <path d="M6 4 H12 V10" />
+                  </svg>
+                  {{ t('mapTool.cellsLegendArrow') }}
+                </li>
+              </template>
             </ul>
           </div>
         </template>
@@ -1161,6 +1206,36 @@ watch(() => route.query, (query) => {
   align-items: center;
   gap: 0.5rem;
 }
+/* with the cells' marks the legend is as wide as the map leaves it (the zoom buttons are on the right): its lines are long */
+.map-legend-wide {
+  max-width: calc(100% - 5rem);
+}
+/* the mark of a cell as the map draws it, small: the number of a severity on its colour (the severity 2 of utils/storm-cells.ts) */
+.map-legend-cell {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 1.5px solid #ffffff;
+  border-radius: 50%;
+  background: #c62828;
+  box-shadow: 0 0 0 1px #c62828;
+  color: #ffffff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.map-legend-arrow {
+  flex: none;
+  fill: none;
+  stroke: #c62828;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
 .map-legend-dot {
   flex: none;
   box-sizing: border-box;
@@ -1210,6 +1285,7 @@ watch(() => route.query, (query) => {
    colours would make alike), as the tiles and the tool marks do */
 @media (forced-colors: active) {
   .map-legend,
+  .map-legend-cell,
   .map-legend-dot {
     forced-color-adjust: none;
   }

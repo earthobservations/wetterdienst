@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import type { Cluster, Grouping } from '~/utils/map-cluster'
 import type { PlacedStation, Point, ReportingRule } from '~/utils/map-tool'
+import type { StormCell } from '~/utils/storm-cells'
 import * as L from 'leaflet'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { clusterAt, clusterRadius, clusterStations, clusterText, isGroupedAt, reportingSweep, viewForCluster, worldPixels } from '~/utils/map-cluster'
 import { OSM_ATTRIBUTION, OSM_TILES } from '~/utils/map-tiles'
 import { clickReach, dotRadius, HOME_VIEW, SELECTED_EDGE_PX, SELECTED_RADIUS_PX } from '~/utils/map-tool'
+import { drawable, hasMotion, MARK_SIZE, markSvg, styleOf } from '~/utils/storm-cells'
 
 // The map of the map tool (GH-3650), from the design of #3580. Stations are dots drawn on canvas tiles rather than
 // markers: a station is no stop of the keyboard, so Tab does not walk through the thousands of the forecast's points,
@@ -20,6 +22,11 @@ import { clickReach, dotRadius, HOME_VIEW, SELECTED_EDGE_PX, SELECTED_RADIUS_PX 
 // drawn on the same tiles as the dots and so no stop of the keyboard either. A click on one zooms in on its stations; the
 // keyboard's way in is the map's own (the + and - keys, the buttons) and the panel. The ones that have stopped are grouped
 // apart from those that report, so a group is hollow or filled like a dot is.
+//
+// The thunderstorm cells of DWD's radar (GH-4208) are drawn over the dots when the layer is on: the outline of each cell, every
+// surface of it, in the colour and the edge of its severity, and at its centre a mark with the severity's number and, where it has a
+// motion, a dashed arrow in the calculated direction (`utils/storm-cells.ts`). They are no stop of the keyboard and take no click
+// (the map under them is picked as before); the list of the cells in the panel (MapStormCells.vue) is their text.
 
 const props = defineProps<{
   stations: PlacedStation[]
@@ -40,6 +47,10 @@ const props = defineProps<{
   grouping?: Grouping | null
   /** Whether the panel of the layers button is open: a press on the map then closes it, and its click is no pick of a place and no zoom on a group (GH-4209) */
   panelOpen?: boolean
+  /** The thunderstorm cells to draw over the stations (GH-4208); undefined where the layer is off */
+  cells?: StormCell[]
+  /** The credit the cells' data asks for, added to the map's own where the cells are shown */
+  cellsCredit?: string | null
 }>()
 
 const emit = defineEmits<{
@@ -62,6 +73,10 @@ let selection: L.CircleMarker | null = null
 let placeMarker: L.CircleMarker | null = null
 let link: L.Polyline | null = null
 let positionMarks: L.CircleMarker[] = []
+let cellLayer: L.LayerGroup | null = null
+let attribution: L.Control.Attribution | null = null
+/** The credit of the cells now in the map's attribution, to be taken out again */
+let creditShown: string | null = null
 
 /**
  * The pane of the marks of the station picked, the place and the reader's position: over the overlay pane the dots and the
@@ -69,6 +84,9 @@ let positionMarks: L.CircleMarker[] = []
  * its station is in (GH-4079), as above a dot
  */
 const MARKS_PANE = 'station-marks'
+/** The panes of the cells: the outlines over the dots (400) and the marks over the outlines, both under the marks of the station picked (450) */
+const CELLS_PANE = 'storm-cells'
+const CELL_MARKS_PANE = 'storm-cell-marks'
 
 const { t } = useI18n()
 const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
@@ -262,6 +280,77 @@ function drawSelection() {
   }).addTo(map)
 }
 
+/**
+ * The thunderstorm cells: each cell's outline as a polygon (every surface of it, holes as holes) in the colour, edge and fill of its
+ * severity, and its mark at its centre. None takes a click or a key: no `interactive`, no `keyboard` (a Leaflet marker is a button
+ * for the keyboard unless told it is not), and the mark is hidden from assistive technology (its svg is `aria-hidden`).
+ */
+function drawCells() {
+  if (!map)
+    return
+  cellLayer?.remove()
+  cellLayer = null
+  const cells = drawable(props.cells ?? [])
+  if (!cells.length)
+    return
+  const layer = L.layerGroup()
+  for (const cell of cells) {
+    const style = styleOf(cell.severity)
+    if (cell.outline.length) {
+      L.polygon(cell.outline as L.LatLngExpression[][][], {
+        color: style.color,
+        weight: style.weight,
+        dashArray: style.dashArray ?? undefined,
+        fillColor: style.color,
+        fillOpacity: style.fillOpacity,
+        lineJoin: 'round',
+        interactive: false,
+        pane: CELLS_PANE,
+      }).addTo(layer)
+    }
+    const at = cell.latitude !== null && cell.longitude !== null ? [cell.latitude, cell.longitude] as L.LatLngTuple : outlineCentre(cell)
+    if (!at)
+      continue
+    L.marker(at, {
+      icon: L.divIcon({
+        html: markSvg(cell),
+        className: `storm-cell-mark${hasMotion(cell) ? ' storm-cell-mark-moving' : ''}`,
+        iconSize: [MARK_SIZE, MARK_SIZE],
+        iconAnchor: [MARK_SIZE / 2, MARK_SIZE / 2],
+      }),
+      interactive: false,
+      keyboard: false,
+      pane: CELL_MARKS_PANE,
+    }).addTo(layer)
+  }
+  layer.addTo(map)
+  cellLayer = layer
+}
+
+/** Where the mark goes for a cell with no centre: the middle of its outline's box */
+function outlineCentre(cell: StormCell): L.LatLngTuple | null {
+  const points = cell.outline.flat(2)
+  if (!points.length)
+    return null
+  const centre = L.latLngBounds(points).getCenter()
+  return [centre.lat, centre.lng]
+}
+
+/** The credit of the cells' data in the map's attribution while the cells are drawn: the map says where what is on it is from */
+function drawCredit() {
+  if (!attribution)
+    return
+  if (creditShown) {
+    attribution.removeAttribution(creditShown)
+    creditShown = null
+  }
+  const credit = props.cellsCredit
+  if (credit && props.cells) {
+    attribution.addAttribution(credit)
+    creditShown = credit
+  }
+}
+
 /** The reader's own position: a ring round a dot, in navy, which no station's mark is (the yellow disc, the white ring) */
 function drawPosition() {
   if (!map)
@@ -375,10 +464,12 @@ onMounted(() => {
   // the credit and the buttons at the bottom right, clear of the layers button at the map's top right. Leaflet stacks the
   // controls of a bottom corner from its edge up, in the order they were added: the credit is added first, so it is at the
   // very bottom, under the zoom buttons (GH-4209)
-  L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map)
+  attribution = L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map)
   L.control.zoom({ position: 'bottomright', zoomInTitle: t('mapTool.zoomIn'), zoomOutTitle: t('mapTool.zoomOut') }).addTo(map)
   L.tileLayer(OSM_TILES, { attribution: OSM_ATTRIBUTION, maxZoom: 19, className: 'station-map-tiles' }).addTo(map)
   map.createPane(MARKS_PANE).style.zIndex = '450'
+  map.createPane(CELLS_PANE).style.zIndex = '420'
+  map.createPane(CELL_MARKS_PANE).style.zIndex = '430'
   dots = new (DotLayer as unknown as new (options: L.GridLayerOptions) => L.GridLayer)({ pane: 'overlayPane', updateWhenZooming: false, noWrap: false }).addTo(map)
   // a press on the map while the panel of the layers button is open closes the panel, and the click that belongs to that press is
   // swallowed, a click on a group's disc included. The flag is set by the press (the capture phase is before the panel's own
@@ -413,6 +504,8 @@ onMounted(() => {
   })
   drawSelection()
   drawPosition()
+  drawCells()
+  drawCredit()
   reveal()
   centreOnPosition()
   emitView()
@@ -427,12 +520,17 @@ onBeforeUnmount(() => {
     cancelAnimationFrame(pointerFrame)
   map?.remove()
   map = null
+  cellLayer = null
+  attribution = null
+  creditShown = null
 })
 
 watch(() => [props.stations, props.reporting, props.grouping], () => {
   forgetClusters()
   dots?.redraw()
 })
+watch(() => props.cells, drawCells)
+watch(() => [props.cells, props.cellsCredit], drawCredit)
 watch(() => [props.selected, props.place, props.recentre, props.position], () => {
   drawSelection()
   reveal()
@@ -460,6 +558,15 @@ watch(() => [props.position, props.locate], () => {
 /* Calm tiles: OpenStreetMap's colours, faded, so that the stations are what the eye finds */
 .station-map .station-map-tiles {
   filter: saturate(0.35) brightness(1.03) contrast(0.92);
+}
+/* the mark of a thunderstorm cell (utils/storm-cells.ts): an svg the size of its icon, no box of its own */
+.station-map .storm-cell-mark {
+  background: none;
+  border: 0;
+}
+.station-map .storm-cell-mark svg {
+  display: block;
+  overflow: visible;
 }
 /* over a group of stations: a click zooms in on it */
 .station-map.station-map-over-group {

@@ -32,6 +32,7 @@ const LISTS: Record<string, string> = {
   '/api/providers': 'providers',
   '/api/issues': 'issues',
   '/api/history': 'histories',
+  '/api/storm-cells': 'cells',
 }
 const ARRAYS = new Set(['/api/glossary'])
 const OBJECTS = new Set(['/api/coverage'])
