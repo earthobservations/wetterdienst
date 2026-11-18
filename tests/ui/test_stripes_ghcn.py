@@ -11,7 +11,7 @@ import asyncio
 import datetime as dt
 import json
 import os
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 import polars as pl
 import pytest
@@ -217,8 +217,8 @@ def test_a_record_of_fewer_valid_years_than_the_minimum_is_refused(monkeypatch: 
 # --- the stations the stripes are made for ----------------------------------------------------
 
 
-def _ids(kind: str, **kwargs: Any) -> set[str]:  # noqa: ANN401
-    return set(_get_stripes_stations(kind=kind, **GHCN, **kwargs).df.get_column("station_id").to_list())  # ty: ignore[invalid-argument-type]
+def _ids(kind: Literal["temperature", "precipitation"], **kwargs: Any) -> set[str]:  # noqa: ANN401
+    return set(_get_stripes_stations(kind=kind, **GHCN, **kwargs).df.get_column("station_id").to_list())
 
 
 @pytest.mark.parametrize(
@@ -233,7 +233,7 @@ def _ids(kind: str, **kwargs: Any) -> set[str]:  # noqa: ANN401
     ],
 )
 def test_the_stations_are_those_whose_record_can_reach_the_minimum_years(
-    kind: str,
+    kind: Literal["temperature", "precipitation"],
     active: bool,  # noqa: FBT001
     expected: set[str],
 ) -> None:

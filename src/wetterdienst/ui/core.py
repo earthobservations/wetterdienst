@@ -2796,9 +2796,9 @@ _StripesNetworkField = Annotated[
 ]
 
 
-def _check_stripes_source(request: BaseModel) -> list[InitErrorDetails]:
+def _check_stripes_source(provider: str, network: str) -> list[InitErrorDetails]:
     """Refuse a provider and network the climate stripes are not made from, and say which they are."""
-    pair = (request.provider, request.network)  # ty: ignore[unresolved-attribute]
+    pair = (provider, network)
     if pair in STRIPES_SOURCES:
         return []
     served = ", ".join(f"{provider}/{network}" for provider, network in STRIPES_SOURCES)
@@ -2861,7 +2861,7 @@ class StripesStationsRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_source_and_box(self) -> StripesStationsRequest:
         """Check the source is one the stripes are made from, and a bounding box, where one is given, is whole."""
-        _raise_rule_errors(self, [*_check_stripes_source(self), *_check_stripes_bbox(self)])
+        _raise_rule_errors(self, [*_check_stripes_source(self.provider, self.network), *_check_stripes_bbox(self)])
         return self
 
 
@@ -2900,7 +2900,7 @@ class StripesRequest(_RefusesRenamedParameters):
     @model_validator(mode="after")
     def check_station_and_years(self) -> StripesRequest:
         """Check the source, exactly one of station or name, and a year range that ends after it starts."""
-        errors = [*_check_stripes_source(self), *_check_selection(self, self.selection)]
+        errors = [*_check_stripes_source(self.provider, self.network), *_check_selection(self, self.selection)]
         if self.start_year is not None and self.end_year is not None and self.end_year <= self.start_year:
             message = f"Input should be greater than start_year ({self.start_year})"
             errors.append(

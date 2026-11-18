@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import datetime as dt
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 import polars as pl
 import pytest
@@ -289,9 +289,9 @@ def test_a_frame_without_quality_flags_is_kept_as_it_is() -> None:
 
 
 @pytest.mark.parametrize("kind", ["temperature", "precipitation"])
-def test_the_note_says_the_rules_in_ascii(kind: str) -> None:
+def test_the_note_says_the_rules_in_ascii(kind: Literal["temperature", "precipitation"]) -> None:
     """Test the sentence names the standard, the rule of the kind and that a year that fails is a gap."""
-    note = annual_note(kind)  # ty: ignore[invalid-argument-type]
+    note = annual_note(kind)
     assert note.isascii()
     assert "WMO-No. 1203" in note
     assert "a year that fails is a gap" in note
