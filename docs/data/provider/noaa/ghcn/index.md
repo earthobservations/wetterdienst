@@ -23,6 +23,16 @@ leave such a station out, as they do a station with no elevation, instead of bri
 from a height of 0 m ([interpolation at an elevation](../../../../usage/interpolation.md#elevation),
 GH-3708). A station at 12.0 m is a height and is corrected.
 
+## Where the daily files are read
+
+`daily` reads the per-station files of the AWS Open Data bucket `noaa-ghcn-pds`
+(`csv.gz/by_station/<id>.csv.gz`, gzipped, one row for each reading) that NOAA maintains, as the station list and the
+inventory are. NCEI's `access/<id>.csv` files were removed (GH-4225). A file is kept for 12 hours, as long as the lists
+beside it, and has no row for a reading that is missing. A station the bucket has no file for is left out with a
+`file-skipped` warning. The files of some stations are not up to date: the one of USW00094728 (New York City Central
+Park) ends on 2025-02-05 and those of most other US first-order stations (`USW`), of the SNOTEL stations (`USS`) and
+of some others stop at the same time, although the inventory lists data to 2026 (read 2026-11-18).
+
 ## One reading an hour
 
 The hourly files hold every report of a station, and `hourly` returns one reading for each parameter

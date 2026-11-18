@@ -8,9 +8,10 @@ with `raw:0` as its direction is (GH-3655); any other 0 is a reading.
 The daily files write a direction of 0 for a day without one: beside a speed of 0 it is no direction, a calm or a gust
 the source did not report, null with `raw:0`, and beside a wind that blows it is a reading that stays. The rows are the
 ones NOAA wrote, read key-less on 2026-10-30 from the per-station files at
-ncei.noaa.gov/data/global-historical-climatology-network-daily/access/ and cut to the columns of the pair; the speeds
-are the tenths of m/s of the readme. WDFI and WDFM have no 0 in 8,410 and 28,815 directions of the 9 files read, so
-their rows are made up (`test_the_instant_and_the_mile_follow_the_rule`).
+ncei.noaa.gov/data/global-historical-climatology-network-daily/access/ and cut to the columns of the pair, written here
+as the rows of the AWS bucket's by_station files (noaa-ghcn-pds, `csv.gz/by_station/<id>.csv.gz`) that hold the same
+readings (read 2026-11-18); the speeds are the tenths of m/s of the readme. WDFI and WDFM have no 0 in 8,410 and 28,815
+directions of the 9 files read, so their rows are made up (`test_the_instant_and_the_mile_follow_the_rule`).
 """
 
 import datetime as dt
@@ -18,7 +19,7 @@ import datetime as dt
 import polars as pl
 import pytest
 
-from tests.provider.value_stubs import serve
+from tests.provider.value_stubs import ghcnd_by_station, serve
 from wetterdienst import Options, Settings
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest, api
 
@@ -32,14 +33,18 @@ _PAIRS = {
 }
 
 
-def _file(station: str, name: str, date: str, cells: dict[str, tuple[str, str]]) -> bytes:
-    """Write one row of an `access` file: the identity of the station, then each element and its attributes."""
-    header = ['"STATION"', '"DATE"', '"LATITUDE"', '"LONGITUDE"', '"ELEVATION"', '"NAME"']
-    row = [f'"{station}"', f'"{date}"', '"44.0"', '"-71.0"', '"10.0"', f'"{name}"']
+def _file(station: str, date: str, cells: dict[str, tuple[str, str]]) -> bytes:
+    """Write the rows of one day of a by_station file: one for each element, with the flags of its attributes.
+
+    A cell is the value as the file writes it (the tenths of the readme) and the attributes `MFLAG,QFLAG,SFLAG`; a cell
+    with no value is a reading that is missing, which the file has no row for.
+    """
+    rows = []
     for element, (value, attributes) in cells.items():
-        header += [f'"{element.upper()}"', f'"{element.upper()}_ATTRIBUTES"']
-        row += [f'"{value}"', f'"{attributes}"']
-    return ("\n".join([",".join(header), ",".join(row)]) + "\n").encode("utf8")
+        if value:
+            m_flag, q_flag, s_flag = attributes.split(",")
+            rows.append((station, date.replace("-", ""), element.upper(), value, m_flag, q_flag, s_flag))
+    return ghcnd_by_station(rows)
 
 
 def _daily(monkeypatch: pytest.MonkeyPatch, station: str, body: bytes, date: str, element: str) -> pl.DataFrame:
@@ -53,7 +58,7 @@ def _daily(monkeypatch: pytest.MonkeyPatch, station: str, body: bytes, date: str
         {
             "ghcnd-stations": stations.encode("utf8"),
             "ghcnd-inventory": inventory.encode("utf8"),
-            f"access/{station}": body,
+            f"by_station/{station}": body,
         },
     )
     request = NoaaGhcnRequest(
@@ -76,15 +81,15 @@ def _rows(df: pl.DataFrame, parameter: str) -> list[tuple[dt.date, float | None,
 
 # (element, station, date, direction cell, speed cell): the 0 beside a speed of 0 of four stations of the files
 _CALMS = [
-    ("wdf1", "USW00023232", "1969-11-01", ("    0", ",,X"), ("    0", ",,X")),
-    ("wdf2", "USW00023232", "1998-04-01", ("    0", ",,X"), ("    0", ",,X")),
-    ("wdf5", "USW00014710", "1999-01-25", ("    0", ",,W"), ("    0", ",,W")),
-    ("wdfg", "CAN03031640", "1955-01-01", ("    0", ",,C"), ("    0", ",,C")),
+    ("wdf1", "USW00023232", "1969-11-01", ("0", ",,X"), ("0", ",,X")),
+    ("wdf2", "USW00023232", "1998-04-01", ("0", ",,X"), ("0", ",,X")),
+    ("wdf5", "USW00014710", "1999-01-25", ("0", ",,W"), ("0", ",,W")),
+    ("wdfg", "CAN03031640", "1955-01-01", ("0", ",,C"), ("0", ",,C")),
 ]
 # the 0 beside a wind that blows, of two stations: 44.3 and 28.6 m/s
 _BLOWING = [
-    ("wdf2", "USW00012844", "1997-05-05", ("    0", ",,X"), ("  443", ",,X")),
-    ("wdf5", "USW00014755", "1998-04-04", ("    0", ",,W"), ("  286", ",,W")),
+    ("wdf2", "USW00012844", "1997-05-05", ("0", ",,X"), ("443", ",,X")),
+    ("wdf5", "USW00014755", "1998-04-04", ("0", ",,W"), ("286", ",,W")),
 ]
 
 
@@ -104,7 +109,7 @@ def test_a_direction_of_0_beside_a_speed_of_0_is_no_direction(
     with `raw:0` too (GH-3655).
     """
     speed_element = _PAIRS[element][1]
-    body = _file(station, "TEST STATION", date, {element: direction, speed_element: speed})
+    body = _file(station, date, {element: direction, speed_element: speed})
     df = _daily(monkeypatch, station, body, date, element)
     day = dt.date.fromisoformat(date)
     flag = direction[1].split(",")[2]
@@ -126,7 +131,7 @@ def test_a_direction_of_0_beside_a_wind_that_blows_stays(
 ) -> None:
     """The 0 is a reading: only the speed of exactly 0 makes it a calm (GH-3222)."""
     speed_element = _PAIRS[element][1]
-    body = _file(station, "TEST STATION", date, {element: direction, speed_element: speed})
+    body = _file(station, date, {element: direction, speed_element: speed})
     df = _daily(monkeypatch, station, body, date, element)
     day = dt.date.fromisoformat(date)
     flag = direction[1].split(",")[2]
@@ -138,9 +143,9 @@ def test_a_direction_of_0_beside_a_wind_that_blows_stays(
 # m/s; read 2026-10-31): CAN03031640 (flag C) on 1955-01-01 is the gust not reported, a 0 beside a 0, and on 1955-04-06
 # the smallest one reported, 8.6 m/s; USW00013904 (flag X) on 1948-03-15 has a 0 as well, beside a direction of 30
 _GUSTS = [
-    ("CAN03031640", "1955-01-01", ("    0", ",,C"), ("    0", ",,C"), None, "source:C,raw:0"),
-    ("CAN03031640", "1955-04-06", ("  250", ",,C"), ("   86", ",,C"), 8.6, "source:C"),
-    ("USW00013904", "1948-03-15", ("   30", ",,X"), ("    0", ",,X"), 0.0, "source:X"),
+    ("CAN03031640", "1955-01-01", ("0", ",,C"), ("0", ",,C"), None, "source:C,raw:0"),
+    ("CAN03031640", "1955-04-06", ("250", ",,C"), ("86", ",,C"), 8.6, "source:C"),
+    ("USW00013904", "1948-03-15", ("30", ",,X"), ("0", ",,X"), 0.0, "source:X"),
 ]
 
 
@@ -159,7 +164,7 @@ def test_a_peak_gust_of_0_from_environment_canada_is_a_gust_not_reported(
     The 0 of the last row is a reading: a station of flag X (USW00013904 has 11 of 7,271 in WSFG, none beside a
     WDFG of 0), so the rule is the source's, not the number's. The direction of the last row stays too.
     """
-    body = _file(station, "TEST STATION", date, {"wdfg": direction, "wsfg": speed})
+    body = _file(station, date, {"wdfg": direction, "wsfg": speed})
     df = _daily(monkeypatch, station, body, date, "wdfg")
     day = dt.date.fromisoformat(date)
     assert _rows(df, "wind_gust_max") == [(day, pytest.approx(value) if value is not None else None, flags)]
@@ -178,9 +183,7 @@ def test_only_the_peak_gust_is_a_gust_not_reported(monkeypatch: pytest.MonkeyPat
     Nothing says it is a gust not reported, and it stays a 0 (the direction beside it is null by the rule of a calm).
     """
     speed_element = _PAIRS[element][1]
-    body = _file(
-        "CAN03031640", "CLARESHOLM", "1955-01-01", {element: ("    0", ",,C"), speed_element: ("    0", ",,C")}
-    )
+    body = _file("CAN03031640", "1955-01-01", {element: ("0", ",,C"), speed_element: ("0", ",,C")})
     df = _daily(monkeypatch, "CAN03031640", body, "1955-01-01", element)
     assert _rows(df, _PAIRS[element][2]) == [(dt.date(1955, 1, 1), 0.0, "source:C")]
     assert _rows(df, _PAIRS[element][0]) == [(dt.date(1955, 1, 1), None, "source:C,raw:0")]
@@ -191,12 +194,8 @@ def test_only_the_peak_gust_is_a_gust_not_reported(monkeypatch: pytest.MonkeyPat
 def test_the_instant_and_the_mile_follow_the_rule(monkeypatch: pytest.MonkeyPatch, element: str) -> None:
     """No 0 of WDFI or WDFM was found in the files read, so the rows are made up: the pair follows the rule too."""
     speed_element = _PAIRS[element][1]
-    calm = _file(
-        "USW00014755", "MOUNT WASHINGTON", "1970-01-01", {element: ("    0", ",,X"), speed_element: ("    0", ",,X")}
-    )
-    blows = _file(
-        "USW00014755", "MOUNT WASHINGTON", "1970-01-01", {element: ("    0", ",,X"), speed_element: ("  125", ",,X")}
-    )
+    calm = _file("USW00014755", "1970-01-01", {element: ("0", ",,X"), speed_element: ("0", ",,X")})
+    blows = _file("USW00014755", "1970-01-01", {element: ("0", ",,X"), speed_element: ("125", ",,X")})
     df = _daily(monkeypatch, "USW00014755", calm, "1970-01-01", element)
     assert _rows(df, _PAIRS[element][0]) == [(dt.date(1970, 1, 1), None, "source:X,raw:0")]
     df = _daily(monkeypatch, "USW00014755", blows, "1970-01-01", element)
@@ -205,6 +204,7 @@ def test_the_instant_and_the_mile_follow_the_rule(monkeypatch: pytest.MonkeyPatc
 
 def test_a_missing_speed_leaves_the_0_as_it_is(monkeypatch: pytest.MonkeyPatch) -> None:
     """A 0 beside no speed at all tells nothing about a calm, so it stays (GH-3222)."""
-    body = _file("USW00014755", "MOUNT WASHINGTON", "1998-04-04", {"wdf5": ("    0", ",,W"), "wsf5": ("", "")})
+    # the file has no row for the speed (it writes none for a reading that is missing)
+    body = ghcnd_by_station([("USW00014755", "19980404", "WDF5", "0", "", "", "W")])
     df = _daily(monkeypatch, "USW00014755", body, "1998-04-04", "wdf5")
     assert _rows(df, "wind_direction_gust_max_5sec") == [(dt.date(1998, 4, 4), 0.0, "source:W")]

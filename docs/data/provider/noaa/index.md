@@ -19,7 +19,7 @@ host's own terms of use were looked for.
 ## Update date
 
 The `data_updated_at` of the [`metadata`](../../../usage/restapi.md#response-metadata) of an answer is when NCEI
-last wrote the file of the station the values were read from (its `Last-Modified`).
+(for `ghcn/daily` the AWS bucket) last wrote the file of the station the values were read from (its `Last-Modified`).
 
 ```{toctree}
 :hidden:

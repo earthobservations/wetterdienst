@@ -7,6 +7,7 @@ from __future__ import annotations
 import datetime as dt
 import logging
 from dataclasses import dataclass
+from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 import polars as pl
@@ -32,6 +33,7 @@ from wetterdienst.provider.noaa.ghcn.metadata import (
 from wetterdienst.util.geo import EARTH_RADIUS_IN_KM
 from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_fwf_from_df
+from wetterdienst.util.response_warnings import note_skipped_download
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -64,9 +66,19 @@ GHCND_WIND_SPEED_OF_DIRECTION = {
     "wdfi": "wsfi",
     "wdfm": "wsfm",
 }
+# the daily files: NCEI's per-station `access/<id>.csv` is gone (404, GH-4225), and the AWS Open Data bucket that NOAA
+# maintains, which already serves the station list and the inventory, has one file for each station, gzipped (NYC
+# Central Park: 1.8 MB for 16 MB of text, De Bilt 0.8 MB). The layout: `readme-by_station.txt` of the bucket
+GHCND_BY_STATION_URL = "https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/{station_id}.csv.gz"
+GHCND_BY_STATION_COLUMNS = ("id", "date", "element", "data_value", "m_flag", "q_flag", "s_flag", "obs_time")
+# the bucket rewrites a station's file once a day, in the night (UTC), and the list and the inventory beside it are kept
+# as long (`METAINDEX`): a file is the whole record of the station, as big as the 12 hours it stands for are long, where
+# the 5 minutes of the hourly files ask for the whole of it again at every request
+GHCND_BY_STATION_EXPIRY = CacheExpiry.TWELVE_HOURS
 # the source flag of Environment Canada, "C" in the readme's list of SFLAG, as `quality_flags` writes it (`source:C`)
 GHCND_ENVIRONMENT_CANADA = r"(^|,)source:C(,|$)"
 GHCNH_PRECIPITATION_MISSING = "-9999"
+GHCND_MISSING = "-9999"
 GHCNH_NONE = "-None"
 # the reports of Table 4 that are specials, filed between the routine ones: FM16 is a SPECI, SAOSP an airways special
 GHCNH_SPECIAL_REPORT_TYPES = ("FM16", "SAOSP")
@@ -280,6 +292,19 @@ def _one_report_per_hour(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
+def _with_a_row_for_every_day_and_element(df: pl.DataFrame, elements: list[str]) -> pl.DataFrame:
+    """Give each day the station reported anything on a row for each element it ever reports, null where it did not.
+
+    The per-station files of NCEI, which this reader was written for, were one row for each day with a column for each
+    element, so a day without an element was a null of it and `drop_nulls=False` returned it. The bucket's file has no
+    row for a reading that is missing; the rows are made again here, so that what the core is handed, and what a caller
+    who keeps the nulls is returned, is what it was. Only for the elements asked for: the rest the core leaves out.
+    """
+    wanted = df.select("parameter").unique().filter(pl.col("parameter").is_in(elements))
+    days = df.select("station_id", "timestamp").unique()
+    return days.join(wanted, how="cross").join(df, on=["station_id", "timestamp", "parameter"], how="left")
+
+
 class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
     """Values class for NOAA GHCN data provider."""
 
@@ -414,70 +439,44 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.sr.request.settings)
-        url = "https://www.ncei.noaa.gov/data/global-historical-climatology-network-daily/access/{station_id}.csv"
-        file = url.format(station_id=station_id)
         file = download_file(
-            url=file,
+            url=GHCND_BY_STATION_URL.format(station_id=station_id),
             cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.FIVE_MINUTES,
+            ttl=GHCND_BY_STATION_EXPIRY,
             client_kwargs=settings.fsspec_client_kwargs,
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
+        # a station the bucket has no file for is let go with a warning, as a file withdrawn since the list is; the 429
+        # and any other failure raise (`raise_if_exception`)
+        if file.status == HTTPStatus.NOT_FOUND:
+            note_skipped_download(file.skip_cause)
+            log.warning(f"The bucket of GHCN daily has no file for station {station_id}: {file.url}")
+            return pl.DataFrame()
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             return pl.DataFrame()
+        # one row for each reading, `ID,DATE,ELEMENT,DATA_VALUE,M_FLAG,Q_FLAG,S_FLAG,OBS_TIME` with no header line, the
+        # DATE as `YYYYMMDD` and the value in the tenths of the readme (read as text: the sentinel and the cells that
+        # are no number are settled below). Missing readings have no row. polars reads the gzip itself. A header line,
+        # which the documentation of the bucket describes, is no reading and is left out (`ID` is no station)
         df = pl.read_csv(
             source=file.content,
             separator=",",
-            has_header=True,
-        )
-        df = df.rename(str.lower).rename({"date": "timestamp"})
+            has_header=False,
+            new_columns=list(GHCND_BY_STATION_COLUMNS),
+            infer_schema_length=0,
+        ).filter(pl.col("id").ne("ID"))
+        # `M_FLAG,Q_FLAG,S_FLAG` are the attributes of readme.txt: the quality flag is a letter naming the check the
+        # value failed, blank where it failed none; the measurement and source flags say how the value was made and
+        # where it came from. They are written `QFLAG,measurement:MFLAG,source:SFLAG` (GH-2018, GH-2758). The
+        # observation time (`OBS_TIME`, PRCP, SNOW and SNWD only) is not returned
         df = df.select(
-            cs.exclude(
-                [
-                    pl.col("latitude"),
-                    pl.col("longitude"),
-                    pl.col("elevation"),
-                    pl.col("name"),
-                ],
-            ),
-        )
-        index = ["station", "timestamp"]
-        elements = [column for column in df.columns if column not in index and not column.endswith("_attributes")]
-        # `<element>_attributes` holds "MFLAG,QFLAG,SFLAG", e.g. ",,E" or "H,,S" (readme.txt): the quality flag is a
-        # letter naming the check the value failed, blank where it failed none; the measurement and source flags say
-        # how the value was made and where it came from. They travel with their value through the unpivot as the
-        # field of a struct, and are written `QFLAG,measurement:MFLAG,source:SFLAG` (GH-2018, GH-2758)
-        df = df.select(
-            *index,
-            *(
-                pl.struct(
-                    pl.col(element).cast(pl.String).alias("value"),
-                    (
-                        pl.col(f"{element}_attributes").cast(pl.String)
-                        if f"{element}_attributes" in df.columns
-                        else pl.lit(None, dtype=pl.String)
-                    ).alias("attributes"),
-                ).alias(element)
-                for element in elements
-            ),
-        ).unpivot(index=index, on=elements, variable_name="parameter", value_name="value")
-        attributes = pl.col("value").struct.field("attributes").str.split(",")
-        df = df.with_columns(
-            join_quality_flags(
-                attributes.list.get(1, null_on_oob=True),
-                measurement=attributes.list.get(0, null_on_oob=True),
-                source=attributes.list.get(2, null_on_oob=True),
-            ),
-            pl.col("value").struct.field("value"),
-        )
-        df = df.select(
-            pl.col("station").alias("station_id"),
-            pl.col("timestamp").str.to_date("%Y-%m-%d"),
-            pl.col("parameter").str.to_lowercase(),
-            pl.col("value").str.strip_chars(),
-            "quality_flags",
+            pl.col("id").alias("station_id"),
+            pl.col("date").str.to_date("%Y%m%d").alias("timestamp"),
+            pl.col("element").str.to_lowercase().alias("parameter"),
+            pl.col("data_value").str.strip_chars().alias("value"),
+            join_quality_flags(pl.col("q_flag"), measurement=pl.col("m_flag"), source=pl.col("s_flag")),
         )
         # AWDR, the average daily wind direction, is 0 beside an AWND of 0 (a calm day) as much as it is a bearing
         # beside a wind that blows: at USS0054K01S (read 2026-10-30) 2 of its 11 directions of 0 have a speed of 0 and 5
@@ -500,8 +499,12 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         # (`_GUST_NOT_REPORTED` of eccc/observation, GH-3655); the direction beside it reads the speed as the file
         # wrote it, so it is null by the rule above as well
         df = with_speed_beside(df, GHCND_WIND_SPEED_OF_DIRECTION, on=["station_id", "timestamp"])
+        # The readme gives -9999 for a missing value in the `.dly` files, which the per-station files are made from and
+        # leave out as a row; none of the 1.3 million values of 7 files read (2026-11-18) is -9999, and it is no
+        # reading in any element, so a row that wrote it is null and keeps it as `raw:-9999`
         value, raw = null_sentinels(
             pl.col("value"),
+            Sentinel(GHCND_MISSING),
             Sentinel(
                 "0",
                 where=pl.col("parameter").eq("wsfg") & pl.col("quality_flags").str.contains(GHCND_ENVIRONMENT_CANADA),
@@ -511,11 +514,12 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         df = df.with_columns(value.alias("value"), join_quality_flags(pl.col("quality_flags"), raw=raw)).drop(
             SPEED_BESIDE
         )
+        df = _with_a_row_for_every_day_and_element(df, [parameter.name_original for parameter in dataset])
         # A daily value is stamped at 00:00 UTC of the date the file gives it, whichever time zone the station is in:
         # the date is handed over as it is, which the core reads as midnight UTC. The date is the station's own
         # observing day, which the readme gives no zone for, and a stamp shifted by the station's offset (Tokyo 15:00
         # UTC the day before) was dropped by a request for that one day, whose bounds are 00:00 UTC (GH-2683).
-        # when NCEI last wrote the file of the station travels with its rows (`_note_files_with_rows`, GH-2567)
+        # when the bucket last wrote the file of the station travels with its rows (`_note_files_with_rows`, GH-2567)
         df = self._note_files_with_rows(
             df.with_columns(pl.lit(file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)), dataset
         )

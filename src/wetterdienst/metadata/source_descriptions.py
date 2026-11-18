@@ -3259,10 +3259,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "NoaaGhcnMetadata": {
         # daily: the element list of ghcnd-readme.txt (https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt), the
-        # documentation of the `.dly` and `access/<station>.csv` files this provider reads. The rows used to be the
-        # element table of GHCND_documentation.pdf, the documentation of NCEI's Daily Summaries ordering form, where the
-        # user picks metric or standard units ("mm or inches as per user preference"): the files carry one unit, the
-        # readme's (tenths of mm, of degrees C, of m/s), which the reader converts (USW00094846, 2019-07-19: TMAX 339
+        # documentation of the `.dly` files, which the `by_station/<station>.csv.gz` files this provider reads are made
+        # from. The rows used to be the element table of GHCND_documentation.pdf, the documentation of NCEI's Daily
+        # Summaries ordering form, where the user picks metric or standard units ("mm or inches as per user
+        # preference"): the files carry one unit, the readme's (tenths of mm, of degrees C, of m/s), which the reader
+        # converts (USW00094846, 2019-07-19: TMAX 339
         # and AWND 53 are 33.9 degrees and 5.3 m/s; 2019-01-30: SNWD 200 is 20 cm). SN*#, SX*#, WT** and WV** are the
         # readme's code tables, spelled out. hourly: Table 1 of ghcnh_DOCUMENTATION.pdf (version 1.1.0, 2026-03-10).
         ("daily", "data", "tavg"): (

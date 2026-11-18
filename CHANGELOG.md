@@ -55,6 +55,12 @@ Types of changes:
 
 ### Fixed
 
+- `noaa/ghcn` `daily` read NCEI's per-station `access/<id>.csv`, which answers 404, so every daily
+  request failed with a `DownloadError`. It now reads the files of the AWS bucket `noaa-ghcn-pds`
+  (`csv.gz/by_station/`), gzipped, with the same values, flags and frame, and keeps a file for 12
+  hours instead of 5 minutes. A station the bucket has no file for is left out with a
+  `file-skipped` warning instead of failing the request. The bucket's files of many US stations
+  (NYC Central Park among them) end on 2025-02-05 (GH-4225)
 - A stations image (`html`, `png`, `svg`, ...) of stations none of which has a position, such as
   `dwd/derived` `monthly/climate_correction_factor` (and `dwd/pollen`), raised a `TypeError` and
   was a 500. It is now a 422 problem of the kind `invalid-parameters`, with `format` in `errors`, a
