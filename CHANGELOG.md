@@ -18,6 +18,13 @@ Types of changes:
 
 ### Added
 
+- `dwd/uvi`: DWD's forecast of the UV index for 38 places in Germany, a daily forecast network of
+  one parameter, `uv_index_max` (the highest UV index of the day, a whole number of the WHO scale),
+  for today, tomorrow and the day after, read from `uvi.json`. The places are the stations, with
+  the id as a slug of the name (`frankfurt-main`, `grosser-arber`) and the position of a DWD
+  station there, which the file does not give; a city of the file that is not among them is
+  skipped with a warning that names it, and a changed file is a `DownloadError`. `data_updated_at`
+  is when DWD wrote the file (GH-4089)
 - `dwd/storm_cells`: DWD's KONRAD3D thunderstorm cells as a standalone network, on every surface:
   `DwdStormCellsRequest`, `wetterdienst storm-cells`, `/api/v1/storm-cells` and the MCP tool
   `storm_cells`. One row per cell of the newest radar scan, or the newest at or before a

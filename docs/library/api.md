@@ -106,6 +106,13 @@ render_plugin = "myst"
 no_index = true
 ```
 
+### UVI
+
+```{autodoc2-object} wetterdienst.provider.dwd.uvi.api.DwdUviRequest
+render_plugin = "myst"
+no_index = true
+```
+
 ## EA
 
 ### Hydrology

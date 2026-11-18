@@ -63,6 +63,7 @@ from wetterdienst.provider.dwd.road import DwdRoadRequest
 from wetterdienst.provider.dwd.road import api as road_api
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
 from wetterdienst.provider.dwd.swsmos import api as swsmos_api
+from wetterdienst.provider.dwd.uvi import DwdUviRequest
 from wetterdienst.provider.ea.hydrology import EAHydrologyRequest
 from wetterdienst.provider.ea.hydrology import api as ea_api
 from wetterdienst.provider.eaufrance.hubeau import HubeauRequest
@@ -159,6 +160,12 @@ def _dwd_swsmos(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
     )
     _serve(monkeypatch, swsmos_api, {"swsKatalog": bz2.compress(catalogue.encode("latin-1"))})
     return _stations(DwdSwsmosRequest, ("hourly", "data"))
+
+
+def _dwd_uvi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:  # noqa: ARG001
+    # the catalogue is the table of the 38 places of `uvi.json` that the provider keeps (DWD's file gives a city and no
+    # position), so there is nothing to serve: the reader is the table, and the rules hold its positions to Germany
+    return _stations(DwdUviRequest, ("daily", "data"))
 
 
 def _dwd_road(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
@@ -2079,6 +2086,16 @@ STUBS = [
     ),
     Stub("dwd/road 15_minutes/data", _dwd_road),
     Stub("dwd/swsmos hourly/data", _dwd_swsmos),
+    # the position is that of a DWD station of the place, or GeoNames' for Bonn (`provider/dwd/uvi/places.py`)
+    Stub(
+        "dwd/uvi daily/data",
+        _dwd_uvi,
+        expected={
+            "zugspitze": {"name": "Zugspitze", "latitude": 47.421, "longitude": 10.9848, "elevation": 2956.0},
+            "frankfurt-main": {"name": "Frankfurt/Main", "latitude": 50.0259, "longitude": 8.5213},
+            "bonn": {"latitude": 50.73438, "longitude": 7.09549, "elevation": 64.0},
+        },
+    ),
     Stub(
         "ea/hydrology 15_minutes/data",
         _ea_hydrology,
