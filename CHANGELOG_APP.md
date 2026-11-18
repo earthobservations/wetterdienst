@@ -49,6 +49,13 @@ Types of changes:
   not 540 px, and the frame needs about 850 to 950 px, so the example iframe is 1000 px high where
   it was 700 and had a scroll bar; the day cards of a frame 40 rem wide or less are about 350 px
   (GH-4197).
+- `[Forecast, Map, Widget]` A day's icon takes its sky from the day's mean cloud cover (cloudy
+  from 70 %, partly cloudy from 30 %, as the chart's hours do), no longer from MOSMIX's weather
+  codes 0 to 3. DWD defines those as how the clouds change (none, dissolving, unchanged, forming),
+  not how much sky is covered, so a day with code 3 at 62 to 74 % (the day as a whole at 56 to
+  74 %) showed a plain cloud over a chart of partly cloudy hours. On any day whose codes name no
+  weather, 0.5 mm of rain or more now decides rain, sleet or snow; an hour or a day with no cloud
+  cover is partly cloudy (GH-4190).
 
 ## [0.53.0] - 2026-11-17
 
@@ -100,13 +107,6 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 
 ### Fixed
 
-- `[Forecast, Map, Widget]` A day's icon takes its sky from the day's mean cloud cover (cloudy
-  from 70 %, partly cloudy from 30 %, as the chart's hours do), no longer from MOSMIX's weather
-  codes 0 to 3. DWD defines those as how the clouds change (none, dissolving, unchanged, forming),
-  not how much sky is covered, so a day with code 3 at 62 to 74 % (the day as a whole at 56 to
-  74 %) showed a plain cloud over a chart of partly cloudy hours. On any day whose codes name no
-  weather, 0.5 mm of rain or more now decides rain, sleet or snow; an hour or a day with no cloud
-  cover is partly cloudy (GH-4190).
 - `[Forecast, Map, Home]` The late days of a forecast no longer look dry. MOSMIX's hourly rain
   amount is 0.0 from about +100 h at most lowland stations, while its 6, 12 and 24 h totals still
   carry rain, so days 6 to 10 showed none where DWD's own total has 1 to 2 mm. Each 24 h window
