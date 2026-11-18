@@ -55,6 +55,16 @@ Types of changes:
 
 ### Fixed
 
+- A stations map (`html`, `png`, `svg`, ...) of stations none of which has a position (`dwd/pollen`:
+  `format=png` and the others) is now a 422 problem, a usage error of the CLI and a tool error of
+  the MCP tools, `StationsResult.to_plot()` raises `NoStationPositionsError` (a `RequestError`):
+  these stations have no position, ask for json, csv or geojson instead. It was a 500 and a
+  `TypeError`. Stations of which only some have a position draw as before (GH-4206)
+- `dwd/derived`: a search by place (`rank`, `distance`, a box, `interpolate`, `summarize`) for
+  `monthly/climate_correction_factor`, whose stations are postal codes without a position, now
+  warns `positions-unavailable` as `dwd/pollen` does, not an empty answer without a reason; the
+  other datasets of the request are found as before. A request class declares such a dataset with
+  `datasets_without_positions` (GH-4206)
 - Station search by name (`filter_by_name`, and `name=` of the CLI, REST API and MCP): a station
   name that holds the whole query as a run of whole words now comes first and passes any
   threshold below 1, whatever its score or length; a threshold of 1 stays an exact match.

@@ -42,6 +42,16 @@ The derived products currently supported are:
 2026-10-22). They are not listed and their data cannot be requested; a warning that names them is logged,
 once a process, when the stations are read for all periods ([GH-3258](https://github.com/earthobservations/wetterdienst/issues/3258)).
 
+## Positions of the stations
+
+Every list of stations carries a latitude and longitude except one: the stations of `monthly/climate_correction_factor`
+are the 100,000 postal codes, generated, with no position (checked 2026-11-18: no null position in any other dataset's
+list, `latitude` and `longitude` null for all 100,000 postal codes). A postal code is found by its id (`stations`),
+never by place: a search by `latitude` and `longitude` with `rank` or `distance`, a bounding box, or an estimate by
+`interpolate` or `summarize` finds none of them and answers an empty list with the warning `positions-unavailable`,
+which names the dataset and the way to find the codes. The stations of the other datasets of the same request are found
+as before ([GH-4206](https://github.com/earthobservations/wetterdienst/issues/4206)).
+
 ## WMO numbers of the stations
 
 The station lists carry no WMO number. Where the ids of a dataset are DWD's station ids, `wmo_id` is read from DWD's

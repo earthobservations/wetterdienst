@@ -551,6 +551,10 @@ class TimeseriesRequest:
     # of its regions) lists every station with a null latitude and longitude, so a search by place finds none of them
     # and says so (`_warn_no_positions`, the code `positions-unavailable`) instead of answering empty without a reason
     stations_have_positions: ClassVar[bool] = True
+    # The datasets of a network that has positions that have none, as `"resolution/dataset"` (`dwd/derived`'s
+    # `monthly/climate_correction_factor`, whose stations are the 100000 postal codes): a search by place says so when
+    # the request holds one of them, and still finds the stations of the others
+    datasets_without_positions: ClassVar[frozenset[str]] = frozenset()
 
     # The parameters that may be interpolated or summarized, which is a property of the measured
     # quantity rather than of a request -- see `CanonicalParameter.interpolation`. Kept here as a
@@ -990,21 +994,32 @@ class TimeseriesRequest:
         """
 
     def _warn_no_positions(self) -> None:
-        """Tell, for a search by place, that the stations of this network have no position and how to find them.
+        """Tell, for a search by place, that the stations of this network or of a dataset of it have no position.
 
         Called by `filter_by_rank` (and so by `filter_by_distance`, `interpolate` and `summarize`) and `filter_by_bbox`,
-        for a network that declares `stations_have_positions` False. Nothing is told for a network that does not, and
-        for a search by name or id, which finds the stations.
+        for a network that declares `stations_have_positions` False, and for a request that holds a dataset of
+        `datasets_without_positions`, which the warning names, as the stations of the other datasets are found.
+        Nothing is told for any other request, and for a search by name or id, which finds the stations.
         """
-        if self.stations_have_positions:
-            return
         from wetterdienst.api import Wetterdienst  # noqa: PLC0415
 
         network = Wetterdienst._network_of(type(self)) or type(self).__name__  # noqa: SLF001
+        if self.stations_have_positions:
+            asked = [
+                f"{parameter.dataset.resolution.name}/{parameter.dataset.name}"
+                for parameter in self.parameters
+                if isinstance(parameter, ParameterModel)
+            ]
+            without = sorted({name for name in asked if name in self.datasets_without_positions})
+            if not without:
+                return
+            what = f"{network} {', '.join(without)}"
+        else:
+            what = network
         warn_response(
             log,
             POSITIONS_UNAVAILABLE,
-            f"The stations of {network} have no position, so a search by place finds none; find them by name or id "
+            f"The stations of {what} have no position, so a search by place finds none; find them by name or id "
             "(the `name` and `stations` parameters, `filter_by_name` and `filter_by_station_id` in the library).",
         )
 

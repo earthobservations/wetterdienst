@@ -29,6 +29,9 @@ them (`partregion_id`, such as Mainfranken); a region that has no parts is a sta
   `rank` of them) or its id (`stations`), or by `sql`; a search by `latitude` and `longitude` with `rank` or `distance`,
   or by a bounding box, finds none of them and answers an empty list with the warning `positions-unavailable`, which
   names the way to find them (`name` and `stations`).
+  A map of the regions (`html`, `png`, `svg`) cannot be drawn: the library raises `NoStationPositionsError`, the REST
+  API answers a 422 and the command line a usage error, all saying to ask for `json`, `csv` or `geojson`
+  ([GH-4206](https://github.com/earthobservations/wetterdienst/issues/4206)).
   A region has no point to estimate at, so `interpolate` and `summarize` refuse it. In a GeoJSON answer the feature of
   a region has a null `geometry`. The table of the regions, with the numbers and names as the file writes them, is
   `provider/dwd/pollen/regions.py`.
