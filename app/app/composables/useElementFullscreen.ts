@@ -3,6 +3,7 @@ import type { FullscreenDocument, FullscreenMode } from '~/utils/fullscreen'
 import { computed, onScopeDispose, ref } from 'vue'
 import {
   exitNativeFullscreen,
+  FULLSCREEN_ERROR_EVENTS,
   FULLSCREEN_EVENTS,
   fullscreenElementOf,
   inertOutside,
@@ -12,6 +13,9 @@ import {
 
 /** What the composable reads of the page: a test serves its own document */
 type PageDocument = Document & FullscreenDocument
+
+/** How long a prefixed request is waited for, when neither its change nor its error event comes */
+const PREFIXED_ANSWER_MS = 1500
 
 export interface ElementFullscreenOptions {
   /** The document the element is in (the page's own, where none is given) */
@@ -41,6 +45,8 @@ export function useElementFullscreen(target: Ref<HTMLElement | null>, options: E
   const active = computed(() => mode.value !== 'off')
   const doc = () => options.doc ?? (document as PageDocument)
   let requesting = false
+  /** Ends the wait for the answer of a prefixed request, with the mode that came of it; nothing while there is none */
+  let settle: (next: FullscreenMode) => void = () => {}
 
   let releaseInert: (() => void) | undefined
   let releaseScroll: (() => void) | undefined
@@ -108,6 +114,11 @@ export function useElementFullscreen(target: Ref<HTMLElement | null>, options: E
       holdApp(element)
   }
 
+  /** The prefixed request was neither answered nor refused in time: the app covers the page */
+  function giveUp() {
+    settle('app')
+  }
+
   async function enter() {
     const element = target.value
     if (!element || mode.value !== 'off' || requesting)
@@ -118,10 +129,24 @@ export function useElementFullscreen(target: Ref<HTMLElement | null>, options: E
     }
     requesting = true
     try {
-      await requestNativeFullscreen(element)
-      // the event has usually said so already; a browser that is slow with it, or a prefixed one, is taken at its word
-      if (mode.value === 'off')
-        set('native')
+      const answered = await requestNativeFullscreen(element)
+      if (answered) {
+        // the event has usually said so already
+        if (mode.value === 'off')
+          set('native')
+        return
+      }
+      // the prefixed call answers nothing: its change event says it went, its error event (or a silence) that it did not
+      await new Promise<void>((resolve) => {
+        const timer = setTimeout(giveUp, PREFIXED_ANSWER_MS)
+        settle = (next) => {
+          clearTimeout(timer)
+          settle = () => {}
+          if (mode.value === 'off')
+            set(next)
+          resolve()
+        }
+      })
     }
     catch {
       // refused (a frame that may not, a call that is no gesture): the app does what the browser would not
@@ -129,6 +154,7 @@ export function useElementFullscreen(target: Ref<HTMLElement | null>, options: E
         set('app')
     }
     finally {
+      settle = () => {}
       requesting = false
     }
   }
@@ -160,19 +186,27 @@ export function useElementFullscreen(target: Ref<HTMLElement | null>, options: E
     if (element && full === element) {
       if (mode.value === 'off')
         set('native')
+      settle('native')
     }
     else if (mode.value === 'native') {
       set('off')
     }
   }
+  // the browser refused a request that gave no answer of its own (WebKit's prefixed call): the app covers the page instead
+  const onError = () => settle('app')
   if (typeof document !== 'undefined') {
     for (const name of FULLSCREEN_EVENTS)
       doc().addEventListener(name, onChange)
+    for (const name of FULLSCREEN_ERROR_EVENTS)
+      doc().addEventListener(name, onError)
   }
 
   onScopeDispose(() => {
     for (const name of FULLSCREEN_EVENTS)
       doc().removeEventListener(name, onChange)
+    for (const name of FULLSCREEN_ERROR_EVENTS)
+      doc().removeEventListener(name, onError)
+    settle('off')
     const element = target.value
     if (mode.value === 'native' && element && fullscreenElementOf(doc()) === element)
       void exitNativeFullscreen(doc()).catch(() => {})

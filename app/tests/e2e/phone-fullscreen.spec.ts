@@ -69,7 +69,6 @@ for (const width of [390, 320]) {
       await open(page, baseURL!, '/map', { width, height: 800 })
       const button = page.getByTestId('map-fullscreen')
       await expect(button).toHaveAccessibleName(en.mapTool.fullscreenEnter)
-      await expect(button).toHaveAttribute('aria-pressed', 'false')
       const box = (await button.boundingBox())!
       const zoomIn = (await page.locator('.leaflet-control-zoom-in').boundingBox())!
       expectAtLeastPx(box.width, 40)
@@ -84,24 +83,64 @@ for (const width of [390, 320]) {
   })
 }
 
-test.describe('the map on a phone on its side', () => {
-  test('stays in the window (the bars scroll away) and goes full screen with its sheet in view', async ({ page, baseURL }) => {
+test.describe('the map on its side', () => {
+  test('on a phone below 40 rem, stays in the window (the bars scroll away), edge to edge, and goes full screen with its sheet in view', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?station=10384', { width: 568, height: 320 })
+    const stage = (await page.getByTestId('map-stage').boundingBox())!
+    expect(stage.x).toBeCloseTo(0, 0)
+    expect(stage.width).toBeCloseTo(568, 0)
+    expect(stage.height).toBeLessThanOrEqual(320)
+    expect(await noHorizontalScroll(page)).toBe(true)
+    await page.getByTestId('map-fullscreen').click()
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement !== null)).toBe(true)
+    // the map keeps room above the sheet, and the sheet is in the window
+    const map = (await page.locator('.station-map').boundingBox())!
+    const sheet = (await page.getByTestId('map-sheet').boundingBox())!
+    expect(map.height).toBeGreaterThan(120)
+    expect(sheet.y + sheet.height).toBeLessThanOrEqual(320 + 1)
+    await expect(page.getByTestId('map-fullscreen')).toBeInViewport()
+  })
+
+  test('at 844 x 390, which is a tablet\'s layout, is the map as it was (a card in the frame, 24 rem high), with full screen in the window', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map?station=10384', { width: 844, height: 390 })
     const stage = (await page.getByTestId('map-stage').boundingBox())!
-    expect(stage.width).toBeCloseTo(844, 0)
-    expect(stage.height).toBeLessThanOrEqual(390)
+    expect(stage.x).toBeGreaterThan(8)
+    expect(stage.height).toBeCloseTo(384, 0)
+    expect(await page.locator('.station-map').evaluate(element => getComputedStyle(element).borderTopLeftRadius)).not.toBe('0px')
     expect(await noHorizontalScroll(page)).toBe(true)
     await page.getByTestId('map-fullscreen').click()
     const screen = (await page.getByTestId('map-screen').boundingBox())!
     expect(screen).toMatchObject({ x: 0, y: 0 })
-    expect(screen.width).toBeCloseTo(844, 0)
     expect(screen.height).toBeCloseTo(390, 0)
-    // the map keeps room above the sheet, the sheet is in the window
-    const map = (await page.locator('.station-map').boundingBox())!
     const sheet = (await page.getByTestId('map-sheet').boundingBox())!
-    expect(map.height).toBeGreaterThan(200)
     expect(sheet.y + sheet.height).toBeLessThanOrEqual(390 + 1)
-    await expect(page.getByTestId('map-fullscreen')).toBeInViewport()
+  })
+})
+
+test.describe('the map that is not full screen has none of the full screen\'s styles', () => {
+  test('on a desktop keeps its rounded corners, and the room of a notch is no padding of the page (only of the full screen)', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map', { width: 1440, height: 900 })
+    const screen = page.getByTestId('map-screen')
+    await expect(screen).not.toHaveAttribute('data-fullscreen', /.+/)
+    expect(await page.locator('.station-map').evaluate(element => getComputedStyle(element).borderTopLeftRadius)).not.toBe('0px')
+    // a notch's room, as the CSS reads it from the root
+    await page.evaluate(() => {
+      document.documentElement.style.setProperty('--safe-top', '47px')
+      document.documentElement.style.setProperty('--safe-bottom', '34px')
+    })
+    const padding = () => screen.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return [style.paddingTop, style.paddingBottom]
+    })
+    expect(await padding()).toEqual(['0px', '0px'])
+    await page.getByTestId('map-fullscreen').click()
+    await expect(screen).toHaveAttribute('data-fullscreen', /native|app/)
+    expect(await padding()).toEqual(['47px', '34px'])
+    expect(await page.locator('.station-map').evaluate(element => getComputedStyle(element).borderTopLeftRadius)).toBe('0px')
+    await page.getByTestId('map-fullscreen').click()
+    await expect(screen).not.toHaveAttribute('data-fullscreen', /.+/)
+    expect(await padding()).toEqual(['0px', '0px'])
+    expect(await page.locator('.station-map').evaluate(element => getComputedStyle(element).borderTopLeftRadius)).not.toBe('0px')
   })
 })
 
@@ -113,7 +152,6 @@ test.describe('the full screen of the map, by the browser', () => {
     await expect.poll(() => page.evaluate(() => document.fullscreenElement?.getAttribute('data-testid'))).toBe('map-screen')
     // the label says what pressing does, and the button is pressed
     await expect(button).toHaveAccessibleName(en.mapTool.fullscreenExit)
-    await expect(button).toHaveAttribute('aria-pressed', 'true')
     // the focus is in the map, which a key then pans
     await expect.poll(() => page.evaluate(() => document.activeElement?.classList.contains('station-map'))).toBe(true)
     // the map has the whole screen above the sheet: Leaflet was told
@@ -126,7 +164,6 @@ test.describe('the full screen of the map, by the browser', () => {
     await page.keyboard.press('Escape')
     await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true)
     await expect(button).toHaveAccessibleName(en.mapTool.fullscreenEnter)
-    await expect(button).toHaveAttribute('aria-pressed', 'false')
     await expect(button).toBeFocused()
     // and by the button
     await button.click()
@@ -167,6 +204,16 @@ test.describe('the full screen of the map, by the browser', () => {
     await expect(page.getByTestId('map-layers-panel').getByRole('radio', { name: en.mapTool.layerMeasured, exact: true })).toBeChecked()
   })
 
+  test('"Show details" leaves the browser\'s full screen and puts the focus on the panel\'s heading, not on the page', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?station=10384', { width: 390, height: 800 })
+    await page.getByTestId('map-fullscreen').click()
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement?.getAttribute('data-testid'))).toBe('map-screen')
+    await page.getByTestId('map-sheet-details').click()
+    await expect.poll(() => page.evaluate(() => document.fullscreenElement === null)).toBe(true)
+    await expect(page.getByTestId('map-station-name')).toBeFocused()
+    await expect(page.getByTestId('map-station-name')).toBeInViewport()
+  })
+
   test('is on a wide screen too, where the panel is beside the map and stays as it was', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map', { width: 1440, height: 900 })
     const panelBefore = (await page.getByTestId('map-panel').boundingBox())!
@@ -190,7 +237,6 @@ test.describe('the full screen of the map, by the browser', () => {
     await open(page, baseURL!, '/map', { width: 390, height: 800 })
     await page.getByTestId('map-fullscreen').click()
     await expect(page.getByTestId('map-screen')).toHaveAttribute('data-fullscreen', 'app')
-    await expect(page.getByTestId('map-fullscreen')).toHaveAttribute('aria-pressed', 'true')
   })
 })
 
@@ -231,7 +277,7 @@ test.describe('the full screen of the map, by the app (a browser with no Fullscr
 
     // Escape leaves, the page is whole again and the focus is on the button
     await page.keyboard.press('Escape')
-    await expect(screen).toHaveAttribute('data-fullscreen', 'off')
+    await expect(screen).not.toHaveAttribute('data-fullscreen', /.+/)
     await expect(button).toBeFocused()
     await expect(button).toHaveAccessibleName(en.mapTool.fullscreenEnter)
     expect(await page.locator('[inert]').count()).toBe(0)
@@ -248,7 +294,7 @@ test.describe('the full screen of the map, by the app (a browser with no Fullscr
     await expect(page.getByTestId('map-layers-panel')).toBeHidden()
     await expect(page.getByTestId('map-screen')).toHaveAttribute('data-fullscreen', 'app')
     await page.keyboard.press('Escape')
-    await expect(page.getByTestId('map-screen')).toHaveAttribute('data-fullscreen', 'off')
+    await expect(page.getByTestId('map-screen')).not.toHaveAttribute('data-fullscreen', /.+/)
   })
 
   test('has a sheet for the station: its name, the centre of the map as a place, and the way back to the details', async ({ page, baseURL }) => {
@@ -271,9 +317,22 @@ test.describe('the full screen of the map, by the app (a browser with no Fullscr
     await expect(page.getByTestId('map-sheet-name')).toHaveText('BERLIN-TEMPELHOF')
     // "Show details" leaves the full screen and puts the focus on the panel's heading, which is in view
     await page.getByTestId('map-sheet-details').click()
-    await expect(page.getByTestId('map-screen')).toHaveAttribute('data-fullscreen', 'off')
+    await expect(page.getByTestId('map-screen')).not.toHaveAttribute('data-fullscreen', /.+/)
     await expect(page.getByTestId('map-station-name')).toBeFocused()
     await expect(page.getByTestId('map-station-name')).toBeInViewport()
+  })
+
+  test('one Escape closes the About panel, and the next leaves the full screen', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map', { width: 390, height: 800 })
+    await page.getByTestId('page-info').click()
+    await expect(page.getByTestId('page-info')).toHaveAttribute('aria-expanded', 'true')
+    await page.getByTestId('map-fullscreen').click()
+    await expect(page.getByTestId('map-screen')).toHaveAttribute('data-fullscreen', 'app')
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('page-info')).toHaveAttribute('aria-expanded', 'false')
+    await expect(page.getByTestId('map-screen')).toHaveAttribute('data-fullscreen', 'app')
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('map-screen')).not.toHaveAttribute('data-fullscreen', /.+/)
   })
 
   test('a click on the button is no pick of a place on the map', async ({ page, baseURL }) => {
@@ -335,20 +394,24 @@ test.describe('the "About" of a tool on a phone', () => {
     await expect(info).toBeFocused()
   })
 
-  test('is the labelled button of the row of actions from 64 rem, as it was', async ({ page, baseURL }) => {
-    await page.setViewportSize({ width: 1280, height: 900 })
-    await mockBackend(page, baseURL!)
-    await page.goto('/explorer')
-    await expect(page.getByTestId('page-info')).toHaveCount(0)
-    const button = page.locator('.page-header').getByRole('button', { name: en.explorer.aboutButton })
-    await expect(button).toBeVisible()
-    await button.click()
-    await expect(page.locator('.page-about')).toBeVisible()
-  })
+  for (const width of [700, 1000, 1280]) {
+    test(`is the labelled button of the row of actions from 40 rem, as it was (${width} px)`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await mockBackend(page, baseURL!)
+      await page.goto('/explorer')
+      await expect(page.getByTestId('page-info')).toHaveCount(0)
+      const button = page.locator('.page-header').getByRole('button', { name: en.explorer.aboutButton })
+      await expect(button).toBeVisible()
+      await button.click()
+      await expect(page.locator('.page-about')).toBeVisible()
+      // and the panel is a card in the frame, as it was
+      expect((await page.locator('.page-about').boundingBox())!.x).toBeGreaterThan(8)
+    })
+  }
 })
 
 test.describe('cards on a phone', () => {
-  test('run edge to edge, and are cards again from 64 rem', async ({ page, baseURL }) => {
+  test('run edge to edge below 40 rem, and are cards as they were from there on', async ({ page, baseURL }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     await mockBackend(page, baseURL!)
     await page.goto('/meteogram')
@@ -357,9 +420,89 @@ test.describe('cards on a phone', () => {
     expect(await card.boundingBox()).toMatchObject({ x: 0, width: 390 })
     expect(await card.evaluate(element => getComputedStyle(element).borderTopLeftRadius)).toBe('0px')
     expect(await noHorizontalScroll(page)).toBe(true)
-    await page.setViewportSize({ width: 1280, height: 900 })
-    const wide = (await card.boundingBox())!
-    expect(wide.x).toBeGreaterThan(8)
-    expect(await card.evaluate(element => getComputedStyle(element).borderTopLeftRadius)).not.toBe('0px')
+    for (const width of [700, 1000, 1280]) {
+      await page.setViewportSize({ width, height: 900 })
+      const wide = (await card.boundingBox())!
+      expect(wide.x, `at ${width}`).toBeGreaterThan(8)
+      expect(await card.evaluate(element => getComputedStyle(element).borderTopLeftRadius), `at ${width}`).not.toBe('0px')
+    }
   })
+
+  test('are not bled in a grid (the providers\' cards) or inside another card, and never overlap', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    for (const width of [390, 700, 1000]) {
+      await page.setViewportSize({ width, height: 900 })
+      await page.goto('/providers')
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+      const cards = page.locator('[data-slot="root"].card-bleed')
+      await expect(cards.first()).toBeVisible()
+      const boxes = await cards.evaluateAll(elements => elements.map((element) => {
+        const { left, top, right, bottom } = element.getBoundingClientRect()
+        return { left, top, right, bottom }
+      }))
+      for (const [i, a] of boxes.entries()) {
+        expect(a.left, `card ${i} at ${width}`).toBeGreaterThanOrEqual(-0.5)
+        expect(a.right, `card ${i} at ${width}`).toBeLessThanOrEqual(width + 0.5)
+        for (const b of boxes.slice(i + 1))
+          expect(a.left < b.right - 1 && b.left < a.right - 1 && a.top < b.bottom - 1 && b.top < a.bottom - 1, `cards overlap at ${width}`).toBe(false)
+      }
+      expect(await noHorizontalScroll(page), `scroll at ${width}`).toBe(true)
+    }
+  })
+
+  test('read-width pages and the history\'s nested cards fit and keep their cards whole at 390, 700 and 1000 px', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    for (const path of ['/about', '/settings', '/support', '/impressum', '/datenschutz', '/history']) {
+      for (const width of [390, 700, 1000]) {
+        await page.setViewportSize({ width, height: 900 })
+        await page.goto(path)
+        await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
+        expect(await noHorizontalScroll(page), `${path} scroll at ${width}`).toBe(true)
+        const bad = await page.locator('[data-slot="root"].card-bleed').evaluateAll((elements, w) => elements.filter((element) => {
+          const rect = element.getBoundingClientRect()
+          return rect.left < -0.5 || rect.right > w + 0.5
+        }).length, width)
+        expect(bad, `${path}: cards outside the window at ${width}`).toBe(0)
+        // a card inside a card is a card as it was: inside its parent
+        const nested = await page.locator('.card-bleed .card-bleed').evaluateAll(elements => elements.filter((element) => {
+          const outer = element.parentElement!.closest('.card-bleed')!.getBoundingClientRect()
+          const rect = element.getBoundingClientRect()
+          return rect.left < outer.left - 0.5 || rect.right > outer.right + 0.5
+        }).length)
+        expect(nested, `${path}: nested cards past their card at ${width}`).toBe(0)
+      }
+    }
+  })
+})
+
+// The widget is a page of its own in someone else's frame (GH-4227): its forecast is not pulled out of its `p-3` container (which clips it),
+// the chart's texts ("Pressure", "hPa") are whole, and the cards of the narrow frame are inside it
+test.describe('the widget', () => {
+  for (const width of [390, 700]) {
+    test(`shows the forecast whole in its frame at ${width} px, nothing pulled out of its container or cut`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await mockBackend(page, baseURL!)
+      await page.goto('/widget?station=10384')
+      const container = page.locator('main > .p-3')
+      await expect(container).toBeVisible()
+      await expect(container.locator('.bleed-in').first()).toBeVisible()
+      expect(await noHorizontalScroll(page)).toBe(true)
+      const fit = await page.evaluate(() => {
+        const frame = document.querySelector('main > .p-3')!.getBoundingClientRect()
+        const inside = (rect: DOMRect) => rect.left >= frame.left + 12 - 0.5 && rect.right <= frame.right - 12 + 0.5
+        const boxes = [...document.querySelectorAll('main > .p-3 .bleed-in')].map(element => element.getBoundingClientRect())
+        const texts = [...document.querySelectorAll('.mg-canvas svg text')].map(text => ({ text: text.textContent ?? '', rect: text.getBoundingClientRect() }))
+        const scroller = document.querySelector('[data-testid="meteogram-scroller"]')?.getBoundingClientRect()
+        return {
+          boxesInside: boxes.every(inside),
+          radius: getComputedStyle(document.querySelector('main > .p-3 .bleed-in')!).borderTopLeftRadius,
+          // the texts that are in the scroller's view are whole in the frame
+          cut: texts.filter(entry => scroller && entry.rect.right > scroller.left && entry.rect.left < scroller.right && (entry.rect.left < frame.left - 0.5 || entry.rect.right > frame.right + 0.5)).map(entry => entry.text),
+        }
+      })
+      expect(fit.boxesInside, 'the forecast is inside the padding of the widget').toBe(true)
+      expect(fit.radius, 'the forecast keeps its corners').not.toBe('0px')
+      expect(fit.cut, 'texts of the chart cut by the frame').toEqual([])
+    })
+  }
 })

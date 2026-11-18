@@ -136,11 +136,21 @@ describe('the ⓘ of the page header on a phone', () => {
     panel.focus()
     expect(document.activeElement).toBe(panel)
 
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    document.dispatchEvent(escape)
     await nextTick()
     await nextTick()
     expect(info.attributes('aria-expanded')).toBe('false')
     expect(document.activeElement).toBe(info.element)
+    // the key is answered, so a full screen under it (the map's) does not leave with the same press
+    expect(escape.defaultPrevented).toBe(true)
+  })
+
+  it('leaves an Escape alone when its panel is not open', async () => {
+    await mountPhone()
+    const escape = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
+    document.dispatchEvent(escape)
+    expect(escape.defaultPrevented).toBe(false)
   })
 
   it('does not take the focus when it was somewhere else, and ignores other keys and a key already answered', async () => {

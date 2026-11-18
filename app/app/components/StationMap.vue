@@ -40,6 +40,8 @@ const props = defineProps<{
   grouping?: Grouping | null
   /** Whether the panel of the layers button is open: a press on the map then closes it, and its click is no pick of a place and no zoom on a group (GH-4209) */
   panelOpen?: boolean
+  /** The element that says what the dots and the discs of the map are (the legend, which is in the layers panel, as a text): the map's description */
+  describedBy?: string
   /** Whether the map's stage is full screen (GH-4227): the button with the zoom buttons says so, and its label is the one for leaving */
   fullscreen?: boolean
 }>()
@@ -474,8 +476,8 @@ watch(() => [props.position, props.locate], () => {
 </script>
 
 <template>
-  <div ref="container" class="station-map" role="application" :aria-label="label" :aria-roledescription="t('nav.map')" />
-  <!-- by its state and its action (GH-4227): the name is what pressing does, and it is pressed while the map is full screen -->
+  <div ref="container" class="station-map" role="application" :aria-label="label" :aria-roledescription="t('nav.map')" :aria-describedby="describedBy" />
+  <!-- by its action (GH-4227): the name is what pressing does, and it changes with the state ("Full screen", "Exit full screen"), as a button that is not a toggle does -->
   <Teleport v-if="fullscreenHost" :to="fullscreenHost">
     <button
       ref="fullscreenButton"
@@ -483,7 +485,6 @@ watch(() => [props.position, props.locate], () => {
       class="station-map-fullscreen-button"
       :aria-label="fullscreen ? t('mapTool.fullscreenExit') : t('mapTool.fullscreenEnter')"
       :title="fullscreen ? t('mapTool.fullscreenExit') : t('mapTool.fullscreenEnter')"
-      :aria-pressed="fullscreen ? 'true' : 'false'"
       data-testid="map-fullscreen"
       @click="emit('fullscreen')"
     >
@@ -503,7 +504,7 @@ watch(() => [props.position, props.locate], () => {
   font: inherit;
 }
 /* the narrow layout runs edge to edge (GH-4227): the map has no corners of a card */
-@media screen and (max-width: 63.99rem) {
+@media screen and (max-width: 39.99rem) {
   .station-map {
     border-radius: 0;
   }

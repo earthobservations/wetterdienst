@@ -35,10 +35,14 @@ Types of changes:
 
 ### Changed
 
-- `[All]` On a phone (below 64 rem, where the tab bar stands) cards, charts, tables and the map run
-  edge to edge: no side margins, rounded corners or side hairlines, text keeps its 16 px gutter. The
-  "About" row of a tool is a small ⓘ beside the page title, with the same text; Escape closes it.
-  The map fills the window between the header and the tab bar. Desktop is unchanged (GH-4227).
+- `[All]` On a phone (below 40 rem) a card that is a child of the page, a chart, a table and the map
+  run edge to edge: no side margins, rounded corners or side hairlines, text keeps its 16 px gutter.
+  The "About" row of a tool is a small ⓘ beside the page title, with the same text; Escape closes it.
+  The map fills the window between the header and the tab bar. Tablets and desktop are unchanged
+  (GH-4227).
+- `[Map]` The legend (what a filled and a hollow dot and a numbered disc are) is in the layers panel,
+  under the grouping switch, no longer a box at the map's foot; the map's description says it too for
+  a screen reader (GH-4227).
 - `[Forecast, Map, Widget]` The forecast's day cards (the compact view, the map panel's rows, the
   widget's narrow frame) draw Yr's weather symbols, as the chart does, in the light or dark set of
   the page, not Phosphor line icons. Their strength is that of the day's wettest hour, as the

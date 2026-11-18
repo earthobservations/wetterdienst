@@ -54,8 +54,11 @@ function closeAbout() {
 }
 if (import.meta.client) {
   useEventListener(document, 'keydown', (event: KeyboardEvent) => {
-    if (event.key === 'Escape' && phone.value && showAbout.value && !event.defaultPrevented)
+    if (event.key === 'Escape' && phone.value && showAbout.value && !event.defaultPrevented) {
+      // the key is answered: a full screen that is under it (the map's) is left by the next one, not by this
+      event.preventDefault()
       closeAbout()
+    }
   })
 }
 </script>

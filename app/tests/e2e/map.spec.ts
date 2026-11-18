@@ -12,6 +12,12 @@ import { expectAtLeastPx } from './target-size'
 
 const en = JSON.parse(readFileSync(fileURLToPath(new URL('../../i18n/locales/en.json', import.meta.url)), 'utf-8'))
 
+/** The legend's heading in a language of the app */
+function message(language: string, key: 'mapTool.legend'): string {
+  const catalog = JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${language}.json`, import.meta.url)), 'utf-8'))
+  return key.split('.').reduce((node, part) => node[part], catalog)
+}
+
 /** The one station with climate stripes that these tests have within reach of Berlin */
 const STRIPES_NEAR = {
   'stripes/stations': () => ({
@@ -33,6 +39,12 @@ async function openLayers(page: Page) {
   if ((await button.getAttribute('aria-expanded')) !== 'true')
     await button.click()
   await expect(page.getByTestId('map-layers-panel')).toBeVisible()
+}
+
+/** The legend of the dots and the discs, which is in the panel of the layers button (GH-4227): the panel is opened first, and is left open */
+async function legendOf(page: Page) {
+  await openLayers(page)
+  return page.getByTestId('map-legend')
 }
 
 /** The radio of a layer in the panel (the panel is opened first) */
@@ -309,9 +321,16 @@ test.describe('the map tool: what a pick moves, and what a click reaches', () =>
     await open(page, baseURL!, '/map?layer=measured')
     await expect(page.getByTestId('map-count')).toBeVisible()
     await expect.poll(() => zoomOf(page)).toBe(6)
-    const legend = page.getByTestId('map-legend')
+    const legend = await legendOf(page)
     await expect(legend).toBeVisible()
     await expect(legend.getByRole('listitem')).toHaveText([en.mapTool.legendReporting, en.mapTool.legendStopped, `12 ${en.mapTool.legendGroupShare}`])
+    // under the switch, with a heading, in the panel; and the map has no box of it
+    await expect(page.getByTestId('map-layers-panel').getByRole('heading', { name: en.mapTool.legend })).toBeVisible()
+    await expect(page.locator('.map-canvas > .map-legend')).toHaveCount(0)
+    // and the map says it in its description, for a screen reader
+    await expect(page.getByRole('application', { name: /^Station map/ })).toHaveAccessibleDescription(`${en.mapTool.legendDotsDescription} ${en.mapTool.legendGroupShare}`)
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('map-layers-panel')).toBeHidden()
     const map = page.getByRole('application', { name: /^Station map/ })
     const box = (await map.boundingBox())!
     const centre = (latitude: number, longitude: number) => {
@@ -338,19 +357,15 @@ test.describe('the map tool: what a pick moves, and what a click reaches', () =>
     await expect.poll(async () => (await pixel(centre(51.3745, 11.2915)))?.every(channel => channel! >= 220)).toBe(true)
     await groupBy(page, true)
 
-    // the legend is on the map and takes the click, which is no pick of the place under it
-    await legend.scrollIntoViewIfNeeded()
-    const hit = await legend.evaluate((element) => {
-      const rect = element.getBoundingClientRect()
-      return Boolean(document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2)?.closest('.map-legend'))
-    })
-    expect(hit).toBe(true)
-    // and its two dots are told apart by their fill, in forced colours too
+    // the two dots of the legend are told apart by their fill, in forced colours too
+    await openLayers(page)
+    await expect(legend).toBeVisible()
     await page.emulateMedia({ forcedColors: 'active' })
     expect(await legend.evaluate(element => getComputedStyle(element).forcedColorAdjust)).toBe('none')
     await (await layerRadio(page, en.mapTool.layerForecast)).click()
     // the forecast's points have no status, so the legend has no dots to tell apart: the groups only, at this zoom
     await expect(page.getByTestId('map-legend').getByRole('listitem')).toHaveText([`12 ${en.mapTool.legendGroup}`])
+    await expect(page.getByRole('application', { name: /^Station map/ })).toHaveAccessibleDescription(`${en.mapTool.legendGroup}.`)
   })
 
   test('keeps the pick for a click on the yellow disc of the station picked, which is bigger than its dot, and does not take it to the station that reports', async ({ page, baseURL }) => {
@@ -468,8 +483,10 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     const centre = { x: box.x + box.width / 2 + at.x, y: box.y + box.height / 2 + at.y }
     // the disc of the group: the dot's blue, beside the number, which is the middle of it (a group of forty is 16 px in radius)
     await expect.poll(() => canvasPixel(page, centre.x - 11, centre.y)).toEqual([0x23, 0x58, 0xA8])
-    // and the legend says what a number is, which is on the map for the forecast layer as well
-    await expect(page.getByTestId('map-legend').getByRole('listitem')).toHaveText([`12 ${en.mapTool.legendGroup}`])
+    // and the legend says what a number is, which is in the layers panel for the forecast layer as well
+    await expect((await legendOf(page)).getByRole('listitem')).toHaveText([`12 ${en.mapTool.legendGroup}`])
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('map-layers-panel')).toBeHidden()
     // the map has the stations in the count, as before: the groups are what is drawn, not what is listed
     await expect(page.getByTestId('map-panel').getByRole('button', { name: /GROUP POINT/ }).first()).toBeVisible()
 
@@ -480,13 +497,14 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     // no place is picked by the click on a group, and no group is left: the stations are dots
     await expect(page.getByTestId('map-station-name')).toHaveCount(0)
     await expect(page).toHaveURL(/\/map$/)
-    await expect(page.getByTestId('map-legend')).toHaveCount(0)
+    await expect(await legendOf(page)).toHaveCount(0)
+    await expect(page.getByTestId('map-layers-panel').getByRole('heading', { name: en.mapTool.legend })).toHaveCount(0)
   })
 
-  test('has the layers button in the top right corner of the map, clear of the zoom buttons and the legend, and the credit of OpenStreetMap at the very bottom under the zoom buttons (GH-4209)', async ({ page, baseURL }) => {
+  test('has the layers button in the top right corner of the map, clear of the zoom buttons, no box of a legend on the map, and the credit of OpenStreetMap at the very bottom under the zoom buttons (GH-4209)', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map', GROUPED)
     await expect(page.getByTestId('map-count')).toBeVisible()
-    await expect(page.getByTestId('map-legend')).toBeVisible()
+    await expect(page.locator('.map-legend')).toHaveCount(0)
     // the map's code is loaded apart from the page
     await expect(page.locator('.leaflet-control-attribution')).toBeVisible()
     await expect(page.locator('.leaflet-control-zoom')).toBeVisible()
@@ -495,14 +513,13 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
         const box = document.querySelector(selector)!.getBoundingClientRect()
         return { top: box.top, bottom: box.bottom, left: box.left, right: box.right }
       }
-      return { stage: rect('.map-stage'), button: rect('[data-testid="map-layers-button"]'), zoom: rect('.leaflet-control-zoom'), credit: rect('.leaflet-control-attribution'), legend: rect('.map-legend') }
+      return { stage: rect('.map-stage'), button: rect('[data-testid="map-layers-button"]'), zoom: rect('.leaflet-control-zoom'), credit: rect('.leaflet-control-attribution') }
     })
     // the top right: near the corner
     expect(rects.stage.right - rects.button.right).toBeLessThan(20)
     expect(rects.button.top - rects.stage.top).toBeLessThan(20)
-    // clear of the zoom buttons (bottom right) and of the legend (bottom left)
+    // clear of the zoom buttons (bottom right)
     expect(rects.button.bottom).toBeLessThan(rects.zoom.top)
-    expect(rects.button.bottom).toBeLessThan(rects.legend.top)
     // the credit is under the zoom buttons, at the foot of the map, and the buttons above it
     expect(rects.credit.top).toBeGreaterThanOrEqual(rects.zoom.bottom - 1)
     expect(rects.stage.bottom - rects.credit.bottom).toBeLessThan(12)
@@ -592,7 +609,9 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     expect(left!.every(channel => channel >= 220), 'the band is hollow where the stations have stopped').toBe(true)
     // the middle of the disc is light, for the number
     // and the legend says what the filled part of the ring is
-    await expect(page.getByTestId('map-legend').getByRole('listitem').last()).toHaveText(`12 ${en.mapTool.legendGroupShare}`)
+    await expect((await legendOf(page)).getByRole('listitem').last()).toHaveText(`12 ${en.mapTool.legendGroupShare}`)
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('map-layers-panel')).toBeHidden()
 
     // one group for the place, whatever the status: a click zooms in on all forty
     await page.mouse.click(centre.x, centre.y)
@@ -608,7 +627,11 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     await expect(page.getByTestId('map-layers-panel').getByText(en.mapTool.groupStations)).toBeVisible()
     await expect(page.getByTestId('map-legend')).toBeVisible()
     await groupBy(page, false)
-    await expect(page.getByTestId('map-legend')).toHaveCount(0)
+    // no groups, so nothing to say of them: no legend in the panel (and no sentence in the map's description)
+    await expect(await legendOf(page)).toHaveCount(0)
+    await expect(page.getByRole('application', { name: /^Station map/ })).not.toHaveAccessibleDescription(/group/)
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('map-layers-panel')).toBeHidden()
     // a click on the place is a pick of a station, not a zoom
     const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
     const at = offsetAtOpening(53.62, 10.0)
@@ -626,17 +649,22 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
       await expect.poll(() => zoomOf(page)).toBe(zoom)
       await page.waitForTimeout(500)
     }
-    await expect(page.getByTestId('map-legend')).toBeVisible()
+    await expect(await legendOf(page)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('map-layers-panel')).toBeHidden()
     await page.getByRole('button', { name: en.mapTool.zoomIn }).click()
     await expect.poll(() => zoomOf(page)).toBe(10)
-    await expect(page.getByTestId('map-legend')).toHaveCount(0)
+    await expect(await legendOf(page)).toHaveCount(0)
+    await page.keyboard.press('Escape')
   })
 
   test('keeps the station picked in view above the group it is in, and a click on its disc is still on that station', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map?station=G05', GROUPED)
     // the map has moved to the station, at zoom 8, where the forty are still one group
     await expect.poll(() => zoomOf(page)).toBe(8)
-    await expect(page.getByTestId('map-legend')).toBeVisible()
+    await expect(await legendOf(page)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('map-layers-panel')).toBeHidden()
     const disc = page.locator('.leaflet-station-marks-pane path[fill="#ffc93c"]')
     await expect(disc).toBeVisible()
     // the disc is over the group: the pane of the marks is above the one the group is drawn in
@@ -669,7 +697,9 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
       await page.waitForTimeout(500)
     }
     // at the zoom every station is its own dot from there are no groups to explain
-    await expect(page.getByTestId('map-legend')).toHaveCount(0)
+    await expect(await legendOf(page)).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('map-layers-panel')).toBeHidden()
     // and the grouping is a switch that a keyboard sets, in the panel of the layers button, which Escape closes and gives the focus back from
     const button = page.getByTestId('map-layers-button')
     await button.focus()
@@ -864,6 +894,8 @@ test.describe('the map tool on a phone', () => {
     expect(stage!.y + stage!.height).toBeGreaterThan(panel!.y - 12)
     expect(panel!.y).toBeGreaterThan(stage!.y)
     expect(Math.abs(stage!.x - panel!.x)).toBeLessThan(2)
+    // the map's code is loaded apart from the page: it is there before the order is read
+    await expect(page.getByRole('application', { name: /^Station map/ })).toBeVisible()
     // the keyboard meets the layers button, the map and the panel in the order the window shows them
     const order = await page.evaluate(() => [...document.querySelectorAll('[data-testid="map-layers-button"], [role="application"], [data-testid="map-panel"] input')].map(element => element.getAttribute('data-testid') ?? element.getAttribute('role') ?? 'search'))
     expect(order).toEqual(['map-layers-button', 'application', 'search'])
@@ -961,30 +993,48 @@ test.describe('the map tool with a finger', () => {
   })
 })
 
-// The legend and the credit of OpenStreetMap are both at the map's foot, the legend on the left and the credit on the right, and
-// on a narrow map the credit is wider than the right half: they must not lie over each other (GH-4209)
+// The legend is in the panel of the layers button (GH-4227), under the switch, and the panel must hold it whole in the window of a phone in every
+// language: the panel is as wide as the window allows, the legend's text wraps, and the panel scrolls where it is taller than the map
 for (const width of [320, 390]) {
-  test.describe(`the legend and the credit at ${width} px`, () => {
+  test.describe(`the legend in the layers panel at ${width} px`, () => {
     test.use({ viewport: { width, height: 800 } })
 
     for (const language of ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb']) {
       for (const path of ['/map', '/map?layer=measured']) {
-        test(`are apart in ${language}, ${path === '/map' ? 'the forecast' : 'the measurements'}`, async ({ page, baseURL }) => {
+        test(`is whole in the panel in ${language}, ${path === '/map' ? 'the forecast' : 'the measurements'}`, async ({ page, baseURL }) => {
           await page.context().addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
           await mockBackend(page, baseURL!, GROUPED)
           await page.goto(path)
-          await expect(page.getByTestId('map-legend')).toBeVisible()
+          await expect(page.getByTestId('map-layers-button')).toBeVisible()
           await expect(page.locator('.leaflet-control-attribution')).toBeVisible()
+          await page.getByTestId('map-layers-button').click()
+          const panel = page.getByTestId('map-layers-panel')
+          const legend = page.getByTestId('map-legend')
+          await expect(legend).toBeAttached()
+          await legend.scrollIntoViewIfNeeded()
+          await expect(legend).toBeVisible()
           const rects = await page.evaluate(() => {
-            const rect = (selector: string) => {
-              const box = document.querySelector(selector)!.getBoundingClientRect()
+            const rect = (element: Element) => {
+              const box = element.getBoundingClientRect()
               return { top: box.top, bottom: box.bottom, left: box.left, right: box.right }
             }
-            return { legend: rect('.map-legend'), credit: rect('.leaflet-control-attribution'), zoom: rect('.leaflet-control-zoom') }
+            const legendElement = document.querySelector('[data-testid="map-legend"]')!
+            return {
+              panel: rect(document.querySelector('[data-testid="map-layers-panel"]')!),
+              items: [...legendElement.querySelectorAll('li')].map(rect),
+              swatches: [...legendElement.querySelectorAll('[aria-hidden="true"]')].map(rect),
+              scrolls: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+            }
           })
-          const apart = (a: { top: number, bottom: number, left: number, right: number }, b: typeof a) => a.bottom <= b.top || b.bottom <= a.top || a.right <= b.left || b.right <= a.left
-          expect(apart(rects.legend, rects.credit), 'the legend is clear of the credit').toBe(true)
-          expect(apart(rects.legend, rects.zoom), 'the legend is clear of the zoom buttons').toBe(true)
+          // in the window, and inside the panel
+          expect(rects.panel.left).toBeGreaterThanOrEqual(0)
+          expect(rects.panel.right).toBeLessThanOrEqual(width)
+          for (const item of [...rects.items, ...rects.swatches]) {
+            expect(item.left).toBeGreaterThanOrEqual(rects.panel.left - 0.5)
+            expect(item.right).toBeLessThanOrEqual(rects.panel.right + 0.5)
+          }
+          expect(rects.scrolls).toBeLessThanOrEqual(0)
+          await expect(panel.getByRole('heading', { name: message(language, 'mapTool.legend') })).toBeVisible()
         })
       }
     }

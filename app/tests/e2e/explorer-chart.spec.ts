@@ -324,6 +324,29 @@ test.describe('a saved explorer chart', () => {
   })
 })
 
+// On a phone the chart runs to the window's edges (GH-4227), and a facet's chart stays inside the box that holds it
+test('on a phone the single chart is edge to edge and each facet is whole inside its bordered box', async ({ page, baseURL }) => {
+  await page.setViewportSize({ width: 390, height: 900 })
+  await showChart(page, baseURL!)
+  const root = page.locator('.explorer-chart').first()
+  expect(await root.boundingBox()).toMatchObject({ x: 0, width: 390 })
+  await page.getByLabel('Facet by parameter').check()
+  await expect(page.locator('.xc-canvas[data-drawn="true"]')).toHaveCount(2)
+  const fits = await page.locator('.bleed-stop').evaluateAll(boxes => boxes.map((box) => {
+    const outer = box.getBoundingClientRect()
+    const chart = box.querySelector('.explorer-chart')!.getBoundingClientRect()
+    const svg = box.querySelector('.xc-canvas svg')!.getBoundingClientRect()
+    return { insideChart: chart.left >= outer.left && chart.right <= outer.right + 0.5, insideSvg: svg.left >= outer.left && svg.right <= outer.right + 0.5, round: getComputedStyle(box).borderTopLeftRadius }
+  }))
+  expect(fits).toHaveLength(2)
+  for (const fit of fits) {
+    expect(fit.insideChart, 'the chart is inside its box').toBe(true)
+    expect(fit.insideSvg, 'the drawing is inside its box').toBe(true)
+    expect(fit.round, 'the box keeps its corners').not.toBe('0px')
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true)
+})
+
 test.describe('a printed explorer chart', () => {
   test('is drawn light for as long as the page is printed, and dark again after', async ({ page, baseURL, context }) => {
     await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'dark'))

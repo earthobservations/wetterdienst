@@ -259,7 +259,7 @@ const grouped = computed({
   },
 })
 const groupingCompulsoryText = computed(() => t('mapTool.groupingCompulsory', { shown: formatNumber(GROUPING_COMPULSORY_ABOVE, formatLanguage.value, 0) }))
-/** Whether the stations are grouped at the zoom the map is at, which the legend says */
+/** Whether the stations are grouped at the zoom the map is at, which the legend (in the layers panel) says */
 const groupedNow = computed(() => isGroupedAt(groupingInForce.value.grouping, view.value.zoom))
 
 // ---- the station picked ---------------------------------------------------------------------------------------
@@ -289,7 +289,7 @@ const announcement = ref('')
 
 // ---- the full screen of the map (GH-4227) -----------------------------------------------------------------------
 
-// The stage (the map, the layers button, the chips and the legend) goes full screen by the browser's API where it has one,
+// The stage (the map, the layers button and the chips) goes full screen by the browser's API where it has one,
 // and covers the page itself where it has not (iPhone Safari) or the browser refuses: `useElementFullscreen` is the state
 // machine, the element is never moved, so the map keeps its view, its layer and the station picked. The panel is out of
 // reach while it lasts (hidden by the browser, or inert), so a sheet at the foot of the stage stands in for it: the station
@@ -308,6 +308,8 @@ function setMap(handle: unknown) {
 // Escape closes the panel of the layers button first, and leaves the full screen at the next press
 const fullscreen = useElementFullscreen(screen, { escapeTaken: () => layersOpen.value })
 const inFullscreen = computed(() => fullscreen.active.value)
+/** The attribute the styles of the full screen go by: there only while it is (a map that is not full screen has none of them: its corners, no room of the notch) */
+const fullscreenMark = computed(() => fullscreen.mode.value === 'off' ? undefined : fullscreen.mode.value)
 /** Where the focus goes when the full screen ends: the button that was pressed, or the panel's heading ("Show details") */
 let afterFullscreen: 'button' | 'details' = 'button'
 watch(fullscreen.mode, (now, before) => {
@@ -315,23 +317,21 @@ watch(fullscreen.mode, (now, before) => {
     void nextTick(() => mapHandle?.focusMap())
   }
   else if (before !== 'off' && now === 'off') {
-    const target = afterFullscreen
-    afterFullscreen = 'button'
-    void nextTick(() => {
-      if (target === 'details' && detailHeading.value) {
-        scrollPanelIntoView()
-        detailHeading.value.focus()
-      }
-      else {
-        mapHandle?.focusFullscreenButton()
-      }
-    })
+    // "Show details" puts the focus on the panel's heading itself, once the browser has left full screen
+    if (afterFullscreen === 'details')
+      return
+    void nextTick(() => mapHandle?.focusFullscreenButton())
   }
 }, { flush: 'post' })
 /** "Show details": the panel is behind the full screen, so it is left, and the panel's heading has the focus */
-function showDetails() {
+async function showDetails() {
   afterFullscreen = 'details'
-  void fullscreen.exit()
+  // the browser's full screen is left when this is answered: until then the panel is behind it and a focus there is lost
+  await fullscreen.exit()
+  await nextTick()
+  afterFullscreen = 'button'
+  scrollPanelIntoView()
+  detailHeading.value?.focus()
 }
 /** On a phone the panel is under the map: it comes up to the middle of the window, so that the map and the panel are both seen */
 function scrollPanelIntoView() {
@@ -407,6 +407,22 @@ let reselect = false
 
 /** Which stations of the layer shown have stopped, by the clock of its list: only the measuring ones have */
 const reporting = computed(() => layer.value === 'measured' ? reportingRule(stations.value) : undefined)
+
+/**
+ * Whether the legend of the dots and the groups has something to say: on the measuring layer (a filled dot reports, a hollow one has
+ * stopped) and where the stations are grouped at this zoom. It is in the layers panel (GH-4227), and the map's own description says it too
+ */
+const legendShown = computed(() => (Boolean(reporting.value) || groupedNow.value) && listStatus.value === 'success' && stations.value.length > 0)
+/** The legend as sentences, for the map's description (a screen reader does not see the dots and the discs, nor opens the panel to learn what they are) */
+const legendDescription = computed(() => {
+  if (!legendShown.value)
+    return ''
+  const sentences = [
+    ...(reporting.value ? [t('mapTool.legendDotsDescription')] : []),
+    ...(groupedNow.value ? [reporting.value ? t('mapTool.legendGroupShare') : t('mapTool.legendGroup')] : []),
+  ]
+  return sentences.map(sentence => `${sentence.replace(/\.$/, '')}.`).join(' ')
+})
 
 /** What `picked` is for a station of the layer shown */
 function remember(station: PlacedStation): PickedStation {
@@ -1006,8 +1022,8 @@ watch(() => route.query, (query) => {
           </section>
 
           <!-- The map, the one button over it that opens the layers (GH-4209), and the status chips -->
-          <div v-else class="map-stage" :data-fullscreen="fullscreen.mode.value" data-testid="map-stage">
-            <div :ref="setScreen" class="map-screen" :data-fullscreen="fullscreen.mode.value" data-testid="map-screen">
+          <div v-else class="map-stage" :data-fullscreen="fullscreenMark" data-testid="map-stage">
+            <div :ref="setScreen" class="map-screen" :data-fullscreen="fullscreenMark" data-testid="map-screen">
               <div class="map-canvas">
                 <div class="map-layers">
                   <MapLayers
@@ -1018,10 +1034,31 @@ watch(() => route.query, (query) => {
                     :show-grouping="listStatus === 'success' && stations.length > 0"
                     :compulsory="groupingInForce.compulsory"
                     :note="groupingCompulsoryText"
+                    :show-legend="legendShown"
                   >
-                    <template v-if="layer === 'measured'">
-                      <USelect v-model="resolutionChoice" :items="resolutionItems" :portal="portalTarget" :aria-label="t('parameterSelection.resolutionLabel')" class="w-full" data-testid="map-resolution" />
-                      <USelect v-model="datasetChoice" :items="datasetItems" :portal="portalTarget" :aria-label="t('parameterSelection.datasetLabel')" class="w-full" data-testid="map-dataset" />
+                    <template #default>
+                      <template v-if="layer === 'measured'">
+                        <USelect v-model="resolutionChoice" :items="resolutionItems" :portal="portalTarget" :aria-label="t('parameterSelection.resolutionLabel')" class="w-full" data-testid="map-resolution" />
+                        <USelect v-model="datasetChoice" :items="datasetItems" :portal="portalTarget" :aria-label="t('parameterSelection.datasetLabel')" class="w-full" data-testid="map-dataset" />
+                      </template>
+                    </template>
+                    <template #legend>
+                      <ul class="map-legend" data-testid="map-legend">
+                        <template v-if="reporting">
+                          <li>
+                            <span class="map-legend-dot" aria-hidden="true" data-testid="map-legend-reporting" />
+                            {{ t('mapTool.legendReporting') }}
+                          </li>
+                          <li>
+                            <span class="map-legend-dot map-legend-dot-stopped" aria-hidden="true" data-testid="map-legend-stopped" />
+                            {{ t('mapTool.legendStopped') }}
+                          </li>
+                        </template>
+                        <li v-if="groupedNow">
+                          <span class="map-legend-dot map-legend-group" :class="{ 'map-legend-group-share': reporting }" aria-hidden="true" data-testid="map-legend-group">12</span>
+                          {{ reporting ? t('mapTool.legendGroupShare') : t('mapTool.legendGroup') }}
+                        </li>
+                      </ul>
                     </template>
                   </MapLayers>
                 </div>
@@ -1047,6 +1084,9 @@ watch(() => route.query, (query) => {
                   />
                 </div>
 
+                <p id="map-legend-description" class="sr-only" data-testid="map-legend-description">
+                  {{ legendDescription }}
+                </p>
                 <ClientOnly>
                   <StationMap
                     :ref="setMap"
@@ -1060,6 +1100,7 @@ watch(() => route.query, (query) => {
                     :grouping="groupingInForce.grouping"
                     :panel-open="layersOpen"
                     :fullscreen="inFullscreen"
+                    :described-by="legendDescription ? 'map-legend-description' : undefined"
                     :label="mapLabel"
                     @pick="onPick"
                     @view="view = $event"
@@ -1067,24 +1108,6 @@ watch(() => route.query, (query) => {
                     @fullscreen="fullscreen.toggle()"
                   />
                 </ClientOnly>
-
-                <!-- what the two kinds of dot are, on the measured layer: a filled dot reports, a hollow one has stopped -->
-                <ul v-if="(reporting || groupedNow) && listStatus === 'success' && stations.length" class="map-legend" :aria-label="t('mapTool.legend')" data-testid="map-legend">
-                  <template v-if="reporting">
-                    <li>
-                      <span class="map-legend-dot" aria-hidden="true" data-testid="map-legend-reporting" />
-                      {{ t('mapTool.legendReporting') }}
-                    </li>
-                    <li>
-                      <span class="map-legend-dot map-legend-dot-stopped" aria-hidden="true" data-testid="map-legend-stopped" />
-                      {{ t('mapTool.legendStopped') }}
-                    </li>
-                  </template>
-                  <li v-if="groupedNow">
-                    <span class="map-legend-dot map-legend-group" :class="{ 'map-legend-group-share': reporting }" aria-hidden="true" data-testid="map-legend-group">12</span>
-                    {{ reporting ? t('mapTool.legendGroupShare') : t('mapTool.legendGroup') }}
-                  </li>
-                </ul>
               </div>
 
               <!-- while the map is full screen the panel is out of reach, and this stands in for it (GH-4227): the station picked,
@@ -1179,9 +1202,9 @@ watch(() => route.query, (query) => {
     height: clamp(30rem, calc(100dvh - var(--header-height) - 2rem), 52rem);
   }
 }
-/* The narrow layout (GH-4227): the map fills what the bars leave of the window, under the title and its ⓘ (`--map-head`, measured by
+/* The phone (GH-4227): the map fills what the bars leave of the window, under the title and its ⓘ (`--map-head`, measured by
    the page), and runs to the window's edges. The tab bar is `--tabbar-height` high where it is fixed and 0 where it scrolls with the page. */
-@media screen and (width < 64rem) {
+@media screen and (width < 40rem) {
   .map-stage {
     height: max(18rem, calc(100dvh - var(--header-height) - var(--tabbar-height) - var(--map-head, 3.5rem)));
     margin-inline: calc(-1 * var(--bleed-start)) calc(-1 * var(--bleed-end));
@@ -1193,6 +1216,12 @@ watch(() => route.query, (query) => {
     position: relative;
     top: auto;
     height: 24rem;
+  }
+}
+/* a phone on its side: the bars scroll away, and the map is the window's height (its title is above it) */
+@media screen and (width < 40rem) and (max-height: 30rem) {
+  .map-stage {
+    height: max(15rem, calc(100dvh - 1rem));
   }
 }
 /* The map's screen, the part of the stage that goes full screen (GH-4227): the map and what is over it (the canvas), and
@@ -1347,87 +1376,6 @@ watch(() => route.query, (query) => {
   max-width: 28rem;
   background: var(--ui-bg);
 }
-/* The legend of the dots, at the map's foot on the left, over the credit's height (the zoom buttons are on the right, over the credit). The map is a
-   light surface in both colour schemes, so the legend is too, and its dots are the map's own (StationMap.vue): the one
-   that reports filled, the one that has stopped hollow, a difference of shape that is no colour alone (WCAG 1.4.1) */
-.map-legend {
-  position: absolute;
-  z-index: 1001;
-  inset-inline-start: 0.75rem;
-  /* above the credit of OpenStreetMap, which is the map's foot (about 22 px high) and, on a narrow map, wider than the half
-     the legend leaves it */
-  bottom: 2.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  max-width: calc(50% - 0.75rem);
-  padding: 0.375rem 0.625rem;
-  border-radius: var(--ui-radius);
-  background: rgb(255 255 255 / 0.94);
-  color: var(--color-ink-800);
-  font-size: 0.8125rem;
-  line-height: 1.2;
-  box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
-  /* the legend is on the map, and a click on it is no pick of the place under it */
-}
-.map-legend li {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.map-legend-dot {
-  flex: none;
-  box-sizing: border-box;
-  width: 0.875rem;
-  height: 0.875rem;
-  border: 1.5px solid #ffffff;
-  border-radius: 50%;
-  background: #2358a8;
-  box-shadow: 0 0 0 1px #2358a8;
-}
-.map-legend-group {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
-  margin-inline: -0.1875rem;
-  color: #ffffff;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  line-height: 1;
-}
-.map-legend-group-share {
-  /* a group of stations that report and stations that have stopped: a ring filled for the share that reports, round a light middle */
-  position: relative;
-  border: 1.5px solid #2358a8;
-  background: conic-gradient(#2358a8 0 62%, #ffffff 62% 100%);
-  box-shadow: none;
-  color: #2358a8;
-  z-index: 0;
-}
-.map-legend-group-share::before {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  z-index: -1;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 0 0 1px #2358a8;
-}
-.map-legend-dot-stopped {
-  border: 2px solid #2358a8;
-  background: #ffffff;
-  box-shadow: none;
-}
-/* in forced colours the dots keep their own colours (the filled and the hollow one are told apart by them, which system
-   colours would make alike), as the tiles and the tool marks do */
-@media (forced-colors: active) {
-  .map-legend,
-  .map-legend-dot {
-    forced-color-adjust: none;
-  }
-}
 .map-why {
   display: flex;
   flex-direction: column;
@@ -1464,7 +1412,7 @@ watch(() => route.query, (query) => {
 }
 /* The narrow layout runs edge to edge (GH-4227): the sheet under the map is as wide as the window, with no rounded corners and no hairline at the
    sides, and its cards reach out of its padding the same way; the text keeps the 16 px of the gutter. */
-@media screen and (width < 64rem) {
+@media screen and (width < 40rem) {
   .map-panel {
     margin-inline: calc(-1 * var(--bleed-start)) calc(-1 * var(--bleed-end));
     border-radius: 0;
@@ -1534,7 +1482,7 @@ watch(() => route.query, (query) => {
   color: var(--ui-text-muted);
 }
 /* in the panel that runs edge to edge (GH-4227) a card does too: it reaches out of the panel's 16 px, which is its own text's gutter */
-@media screen and (width < 64rem) {
+@media screen and (width < 40rem) {
   .map-card {
     margin-inline: -1rem;
     padding-inline: 1rem;

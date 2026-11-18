@@ -646,7 +646,7 @@ const selectionStyle = computed(() => {
 </script>
 
 <template>
-  <div ref="rootEl" class="explorer-chart app-chart bleed-in">
+  <div ref="rootEl" class="explorer-chart app-chart bleed-in bleed-chart">
     <div
       v-if="renderFailed"
       ref="chartNotice"
@@ -786,12 +786,6 @@ const selectionStyle = computed(() => {
 <style scoped>
 .explorer-chart {
   position: relative;
-}
-/* on a phone the chart runs to the window's edges (main.css `.bleed-in`, GH-4227), and what is not the chart keeps the card's gutter */
-@media screen and (max-width: 63.99rem) {
-  .explorer-chart > :not(.xc-frame) {
-    margin-inline: var(--card-pad);
-  }
 }
 .xc-toolbar {
   display: flex;

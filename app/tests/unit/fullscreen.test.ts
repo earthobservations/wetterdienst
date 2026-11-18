@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
   exitNativeFullscreen,
+  FULLSCREEN_ERROR_EVENTS,
   fullscreenElementOf,
   requestNativeFullscreen,
   supportsNativeFullscreen,
@@ -41,7 +42,8 @@ describe('the element that is full screen', () => {
 describe('asking for and leaving full screen', () => {
   it('asks the element with the browser\'s own toolbars hidden, and waits for the answer', async () => {
     const requestFullscreen = vi.fn().mockResolvedValue(undefined)
-    await requestNativeFullscreen({ requestFullscreen })
+    // answered: the promise resolved, which is after the element is full screen
+    expect(await requestNativeFullscreen({ requestFullscreen })).toBe(true)
     expect(requestFullscreen).toHaveBeenCalledWith({ navigationUI: 'hide' })
   })
 
@@ -50,9 +52,9 @@ describe('asking for and leaving full screen', () => {
     await expect(requestNativeFullscreen({ requestFullscreen })).rejects.toThrow('Permissions check failed')
   })
 
-  it('uses the prefixed call where it is the only one, which answers nothing', async () => {
+  it('uses the prefixed call where it is the only one, which answers nothing: its events say what came of it', async () => {
     const webkitRequestFullscreen = vi.fn()
-    await requestNativeFullscreen({ webkitRequestFullscreen })
+    expect(await requestNativeFullscreen({ webkitRequestFullscreen })).toBe(false)
     expect(webkitRequestFullscreen).toHaveBeenCalledOnce()
   })
 
@@ -64,5 +66,11 @@ describe('asking for and leaving full screen', () => {
     await exitNativeFullscreen({ webkitExitFullscreen })
     expect(webkitExitFullscreen).toHaveBeenCalledOnce()
     await expect(exitNativeFullscreen({})).resolves.toBeUndefined()
+  })
+})
+
+describe('the events of a request', () => {
+  it('has the refusal of the prefixed call among them', () => {
+    expect(FULLSCREEN_ERROR_EVENTS).toEqual(['fullscreenerror', 'webkitfullscreenerror'])
   })
 })

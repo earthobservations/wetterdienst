@@ -27,6 +27,8 @@ export interface FullscreenElement {
 
 /** The events that say the document went into or out of full screen (standard and WebKit's) */
 export const FULLSCREEN_EVENTS = ['fullscreenchange', 'webkitfullscreenchange'] as const
+/** The events that say a request was refused (standard and WebKit's: the prefixed call answers nothing, only these do) */
+export const FULLSCREEN_ERROR_EVENTS = ['fullscreenerror', 'webkitfullscreenerror'] as const
 
 /** Whether the document lets an element go full screen by the API: it has the call, and the page may use it */
 export function supportsNativeFullscreen(doc: FullscreenDocument, element: FullscreenElement): boolean {
@@ -39,13 +41,18 @@ export function fullscreenElementOf(doc: FullscreenDocument): Element | null {
   return doc.fullscreenElement ?? doc.webkitFullscreenElement ?? null
 }
 
-/** Asks the element to go full screen; a prefixed call that returns nothing is a promise that has resolved */
-export async function requestNativeFullscreen(element: FullscreenElement): Promise<void> {
+/**
+ * Asks the element to go full screen. True where the browser has answered (the standard call's promise resolved, which is
+ * after the element is full screen; a refusal rejects it). False for the prefixed call, which answers nothing: an event says,
+ * `webkitfullscreenchange` that it went, `webkitfullscreenerror` that it did not.
+ */
+export async function requestNativeFullscreen(element: FullscreenElement): Promise<boolean> {
   if (element.requestFullscreen) {
     await element.requestFullscreen({ navigationUI: 'hide' })
-    return
+    return true
   }
   await element.webkitRequestFullscreen?.()
+  return false
 }
 
 /** Leaves the full screen of the API */

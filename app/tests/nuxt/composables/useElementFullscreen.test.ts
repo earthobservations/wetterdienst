@@ -7,7 +7,14 @@ import { inertOutside } from '~/utils/fullscreen'
 // The state machine of the map's full screen (GH-4227): off, native (the browser's API), app (the page covered by the element),
 // with the Fullscreen API served by hand, present and absent.
 
-interface Api { fullscreenEnabled?: boolean, fullscreenElement?: Element | null, exitFullscreen?: () => Promise<void> }
+interface Api {
+  fullscreenEnabled?: boolean
+  fullscreenElement?: Element | null
+  exitFullscreen?: () => Promise<void>
+  webkitFullscreenEnabled?: boolean
+  webkitFullscreenElement?: Element | null
+  webkitExitFullscreen?: () => void
+}
 const doc = document as unknown as Api
 
 /** The page: `<main><div class="before"/><div id="stage"/><div class="after"/></main>`, and the element that goes full screen */
@@ -62,6 +69,10 @@ afterEach(() => {
   delete doc.fullscreenEnabled
   delete doc.fullscreenElement
   delete doc.exitFullscreen
+  delete doc.webkitFullscreenEnabled
+  delete doc.webkitFullscreenElement
+  delete doc.webkitExitFullscreen
+  vi.useRealTimers()
 })
 
 describe('where the browser has the Fullscreen API for an element', () => {
@@ -150,6 +161,74 @@ describe('where the browser has the Fullscreen API for an element', () => {
     inner.stop()
     expect(exit).toHaveBeenCalledOnce()
     expect(fullscreen.mode.value).toBe('off')
+  })
+})
+
+/** WebKit's prefixed API: the call answers nothing, and an event says what came of it */
+function servePrefixedApi(stage: HTMLElement, outcome: 'enters' | 'refuses' | 'silence') {
+  doc.fullscreenEnabled = undefined
+  doc.webkitFullscreenEnabled = true
+  doc.webkitFullscreenElement = null
+  const request = vi.fn(() => {
+    if (outcome === 'enters') {
+      doc.webkitFullscreenElement = stage
+      document.dispatchEvent(new Event('webkitfullscreenchange'))
+    }
+    else if (outcome === 'refuses') {
+      document.dispatchEvent(new Event('webkitfullscreenerror'))
+    }
+  })
+  ;(stage as unknown as { webkitRequestFullscreen: unknown }).webkitRequestFullscreen = request
+  doc.webkitExitFullscreen = vi.fn(() => {
+    doc.webkitFullscreenElement = null
+    document.dispatchEvent(new Event('webkitfullscreenchange'))
+  })
+  return request
+}
+
+describe('where the browser has the prefixed API only (WebKit)', () => {
+  it('goes to native when the change event says it went', async () => {
+    const request = servePrefixedApi(fixture.stage, 'enters')
+    const fullscreen = machine(fixture.stage)
+    expect(fullscreen.canNative()).toBe(true)
+    await fullscreen.enter()
+    expect(request).toHaveBeenCalledOnce()
+    expect(fullscreen.mode.value).toBe('native')
+    await fullscreen.exit()
+    expect(doc.webkitExitFullscreen).toHaveBeenCalledOnce()
+    expect(fullscreen.mode.value).toBe('off')
+  })
+
+  it('covers the page itself when the error event says it was refused, not stays native', async () => {
+    servePrefixedApi(fixture.stage, 'refuses')
+    const fullscreen = machine(fixture.stage)
+    await fullscreen.enter()
+    expect(fullscreen.mode.value).toBe('app')
+    expect(fixture.root.querySelector('.bar')?.hasAttribute('inert')).toBe(true)
+    // and can be left, and asked again
+    await fullscreen.exit()
+    expect(fullscreen.mode.value).toBe('off')
+  })
+
+  it('covers the page itself when neither event comes, after a moment, and waits for nothing else meanwhile', async () => {
+    vi.useFakeTimers()
+    servePrefixedApi(fixture.stage, 'silence')
+    const fullscreen = machine(fixture.stage)
+    const entering = fullscreen.enter()
+    await vi.advanceTimersByTimeAsync(100)
+    expect(fullscreen.mode.value).toBe('off')
+    await vi.advanceTimersByTimeAsync(2000)
+    await entering
+    expect(fullscreen.mode.value).toBe('app')
+  })
+
+  it('takes the standard error event for a refusal too', async () => {
+    servePrefixedApi(fixture.stage, 'silence')
+    const fullscreen = machine(fixture.stage)
+    const entering = fullscreen.enter()
+    document.dispatchEvent(new Event('fullscreenerror'))
+    await entering
+    expect(fullscreen.mode.value).toBe('app')
   })
 })
 
