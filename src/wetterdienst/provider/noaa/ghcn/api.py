@@ -33,13 +33,14 @@ from wetterdienst.provider.noaa.ghcn.metadata import (
 from wetterdienst.util.geo import EARTH_RADIUS_IN_KM
 from wetterdienst.util.network import download_file
 from wetterdienst.util.polars_util import read_fwf_from_df
-from wetterdienst.util.response_warnings import note_skipped_download
+from wetterdienst.util.response_warnings import SOURCE_FALLBACK, note_skipped_download, warn_response
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.settings import Settings
+    from wetterdienst.util.network import File
 
 log = logging.getLogger(__name__)
 
@@ -66,14 +67,20 @@ GHCND_WIND_SPEED_OF_DIRECTION = {
     "wdfi": "wsfi",
     "wdfm": "wsfm",
 }
-# the daily files: NCEI's per-station `access/<id>.csv` is gone (404, GH-4225), and the AWS Open Data bucket that NOAA
-# maintains, which already serves the station list and the inventory, has one file for each station, gzipped (NYC
-# Central Park: 1.8 MB for 16 MB of text, De Bilt 0.8 MB). The layout: `readme-by_station.txt` of the bucket
-GHCND_BY_STATION_URL = "https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/{station_id}.csv.gz"
+# the daily files are NCEI's `pub/data/ghcn/daily/by_station/<id>.csv.gz` (gzipped, NYC Central Park 1.8 MB for 16 MB
+# of text, De Bilt 0.8 MB), current for every station (NYC rewritten 2026-11-18). NCEI's `access/<id>.csv` is no source:
+# it answered 403 on 2026-08-04 and 404 on 2026-11-18, and was read until then (GH-4225, GH-4230). When NCEI fails the
+# AWS Open Data bucket `noaa-ghcn-pds` that NOAA maintains, which already serves the station list and the inventory, is
+# read instead, with the same files in the same layout (`readme-by_station.txt` of the bucket): its block of ids from
+# `USR0000CJUA` to `ZI000067991` has not been written since 2025-02-09, so the answer says it is from the mirror
+GHCND_BY_STATION_URL = "https://www.ncei.noaa.gov/pub/data/ghcn/daily/by_station/{station_id}.csv.gz"
+GHCND_BY_STATION_MIRROR_URL = "https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/{station_id}.csv.gz"
 GHCND_BY_STATION_COLUMNS = ("id", "date", "element", "data_value", "m_flag", "q_flag", "s_flag", "obs_time")
-# the bucket rewrites a station's file once a day, in the night (UTC), and the list and the inventory beside it are kept
-# as long (`METAINDEX`): a file is the whole record of the station, as big as the 12 hours it stands for are long, where
-# the 5 minutes of the hourly files ask for the whole of it again at every request
+# both write a station's file once a day, in the night (UTC), and the list and the inventory beside it are kept as long
+# (`METAINDEX`): a file is the whole record of the station, as big as the 12 hours it stands for are long, where the 5
+# minutes of the hourly files ask for the whole of it again at every request. The cache is keyed by the URL, so the file
+# of the mirror is never served as NCEI's: NCEI is asked first at every request (a failure is not cached), and the
+# mirror's copy is only read while NCEI fails
 GHCND_BY_STATION_EXPIRY = CacheExpiry.TWELVE_HOURS
 # the source flag of Environment Canada, "C" in the readme's list of SFLAG, as `quality_flags` writes it (`source:C`)
 GHCND_ENVIRONMENT_CANADA = r"(^|,)source:C(,|$)"
@@ -435,32 +442,68 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             df.with_columns(pl.lit(file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)), dataset
         )
 
+    def _download_daily_file(self, station_id: str, settings: Settings) -> File | None:
+        """Download the file of a station from NCEI, from the AWS mirror when NCEI fails; None if neither has it.
+
+        NCEI first. Any failure of it but a 429 (a 404, a 5xx, a reset, a timeout, no connection) is read from the
+        mirror and told in the answer (`source-fallback`: the station, and that the data may be older). A 429 is never
+        a reason to go to the other host: it is raised as the `ProviderRateLimitError` it is, as a 429 of the mirror is.
+        A station neither has a file for (both 404) is let go with a warning, as a file withdrawn since the list is. A
+        station NCEI failed for and the mirror has no file of is let go as well, for NCEI's cause; one NCEI had no file
+        for and the mirror failed for raises the mirror's failure.
+        """
+
+        def download(url: str) -> File:
+            return download_file(
+                url=url.format(station_id=station_id),
+                cache_dir=settings.cache_dir,
+                ttl=GHCND_BY_STATION_EXPIRY,
+                client_kwargs=settings.fsspec_client_kwargs,
+                cache_disable=settings.cache_disable,
+                use_certifi=settings.use_certifi,
+            )
+
+        file = download(GHCND_BY_STATION_URL)
+        if not isinstance(file.content, Exception):
+            return file
+        if file.is_rate_limited:
+            file.raise_if_exception()
+        mirror = download(GHCND_BY_STATION_MIRROR_URL)
+        if not isinstance(mirror.content, Exception):
+            warn_response(
+                log,
+                SOURCE_FALLBACK,
+                f"The file of station {station_id} could not be read from NCEI ({file.skip_cause.reason}): its values "
+                "come from the AWS mirror of GHCN daily (noaa-ghcn-pds), whose files of some stations are older than "
+                "NCEI's, so the most recent days may be missing. Try again later for NCEI's.",
+                stations=[station_id],
+            )
+            return mirror
+        if mirror.is_rate_limited:
+            mirror.raise_if_exception()
+        if mirror.status == HTTPStatus.NOT_FOUND:
+            gone = file.status == HTTPStatus.NOT_FOUND
+            note_skipped_download(mirror.skip_cause if gone else file.skip_cause)
+            log.warning(
+                f"GHCN daily has no file for station {station_id}"
+                f"{'' if gone else ', and NCEI could not be read'}: {file.url}, {mirror.url}"
+            )
+            return None
+        mirror.raise_if_exception()
+        return None
+
     def _collect_station_parameter_for_daily(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         """Collect station parameter for daily resolution."""
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.sr.request.settings)
-        file = download_file(
-            url=GHCND_BY_STATION_URL.format(station_id=station_id),
-            cache_dir=settings.cache_dir,
-            ttl=GHCND_BY_STATION_EXPIRY,
-            client_kwargs=settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
-        # a station the bucket has no file for is let go with a warning, as a file withdrawn since the list is; the 429
-        # and any other failure raise (`raise_if_exception`)
-        if file.status == HTTPStatus.NOT_FOUND:
-            note_skipped_download(file.skip_cause)
-            log.warning(f"The bucket of GHCN daily has no file for station {station_id}: {file.url}")
-            return pl.DataFrame()
-        file.raise_if_exception()
-        if isinstance(file.content, Exception):
+        file = self._download_daily_file(station_id, settings)
+        if file is None or isinstance(file.content, Exception):
             return pl.DataFrame()
         # one row for each reading, `ID,DATE,ELEMENT,DATA_VALUE,M_FLAG,Q_FLAG,S_FLAG,OBS_TIME` with no header line, the
         # DATE as `YYYYMMDD` and the value in the tenths of the readme (read as text: the sentinel and the cells that
         # are no number are settled below). Missing readings have no row. polars reads the gzip itself. A header line,
-        # which the documentation of the bucket describes, is no reading and is left out (`ID` is no station)
+        # which the documentation of the mirror describes, is no reading and is left out (`ID` is no station)
         df = pl.read_csv(
             source=file.content,
             separator=",",

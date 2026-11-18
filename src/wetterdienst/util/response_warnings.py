@@ -128,6 +128,11 @@ FORECAST_FROM_NOW = "forecast-from-now"
 #: by name or id. Not told for a search by name or id
 POSITIONS_UNAVAILABLE = "positions-unavailable"
 
+#: the code of the warning that names a station whose file the provider read from its secondary source because the
+#: first one failed (`noaa/ghcn`, GH-4230: NCEI's by_station files, then the AWS mirror, whose files of some stations
+#: are older): the answer holds the values of the mirror, which may lack the most recent days. A 429 is never one
+SOURCE_FALLBACK = "source-fallback"
+
 
 class SkipCause(Enum):
     """Why a provider let a file go (`note_skipped_download`), which decides what `file-skipped` advises.
