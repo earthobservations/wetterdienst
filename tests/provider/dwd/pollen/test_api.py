@@ -260,11 +260,6 @@ def _without_a_day(entry: dict[str, Any]) -> dict[str, Any]:
         pytest.param(_document(_entry(Pollen={"Hasel": "0"})), "is no object", id="a pollen that is no object"),
         pytest.param(_document(_without_a_day(_entry())), "has no tomorrow", id="a day is missing"),
         pytest.param(_document(_entry(), _entry()), "is listed twice", id="a region twice"),
-        pytest.param(
-            _document(_entry(Pollen={k: v for k, v in _entry()["Pollen"].items() if k != "Erle"})),
-            "no region has Erle",
-            id="a pollen no region has",
-        ),
     ],
 )
 def test_a_file_that_is_not_the_described_one_is_a_download_error(content: bytes, reason: str) -> None:
@@ -493,6 +488,45 @@ def test_a_pollen_that_a_region_lacks_has_no_rows_and_is_warned_about(
     assert "pollen_load_ragweed" not in set(df["parameter"])
     assert df.height == 7 * 3
     assert any("Ambrosia" in record.getMessage() and "124" in record.getMessage() for record in caplog.records)
+
+
+def _without_a_pollen_in_every_region(pollen: str) -> bytes:
+    document = _fixture_document()
+    for entry in document["content"]:
+        del entry["Pollen"][pollen]
+    return _file(document)
+
+
+def test_a_pollen_that_no_region_has_is_no_error_and_has_no_rows() -> None:
+    """DWD lists the keys as possible ones: a type the file holds for no region is read, as the others are."""
+    forecast = read_forecast(_without_a_pollen_in_every_region("Erle"))
+    assert len(forecast.regions) == 27
+    assert all(set(by_type) == set(POLLEN_TYPES) - {"Erle"} for by_type in forecast.regions.values())
+
+
+def test_a_pollen_that_no_region_has_is_told_and_the_present_one_is_answered(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Asked with a present type, the missing one has no rows and `parameter-without-rows` names it."""
+    begin_response()
+    result = _values(
+        monkeypatch,
+        _without_a_pollen_in_every_region("Erle"),
+        "124",
+        parameters=("pollen_load_birch", "pollen_load_alder"),
+    )
+    assert result.df["parameter"].unique().to_list() == ["pollen_load_birch"]
+    assert result.df.height == 3
+    (warning,) = [w for w in recorded_warnings() if w["code"] == "parameter-without-rows"]
+    assert "pollen_load_alder" in warning["message"]
+    assert "pollen_load_birch" not in warning["message"]
+
+
+def test_a_request_for_the_present_pollen_alone_is_answered_without_a_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A type missing from every region does not touch a request that does not ask for it."""
+    begin_response()
+    result = _values(monkeypatch, _without_a_pollen_in_every_region("Erle"), parameters=("pollen_load_birch",))
+    assert result.df["station_id"].n_unique() == 27
+    assert result.df.height == 27 * 3
+    assert [w for w in recorded_warnings() if w["code"] == "parameter-without-rows"] == []
 
 
 def test_a_pollen_type_of_the_file_that_is_not_one_of_the_eight_is_skipped_with_a_warning(

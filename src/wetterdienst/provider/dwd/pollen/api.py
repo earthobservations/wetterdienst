@@ -21,7 +21,8 @@ latitude, longitude and elevation are null: listing the stations needs no reques
 does not hold is skipped with a warning that names it, and a region of the table that the file does not hold is a
 station without values, with a warning that names it and the `file-skipped` warning of the answer. A file that is not
 the one described (not JSON, no ``content``, a region with no ``Pollen``, a pollen type without one of its three
-days) is a `DownloadError`, never an answer without rows.
+days) is a `DownloadError`, never an answer without rows. A pollen type that a region, or every region, does not
+give has no rows: DWD describes the keys as possible ones, so the other types are answered.
 
 A level is one of the seven steps of the legend (``0``, ``0-1``, ``1``, ``1-2``, ``2``, ``2-3``, ``3``), served as 0,
 0.5, 1, 1.5, 2, 2.5 and 3. Any other text, ``-1`` ("Fehlende Werte werden mit einer -1 gekennzeichnet") included, is no
@@ -141,9 +142,10 @@ def read_forecast(content: bytes) -> PollenForecast:
 
     Raises:
         DownloadError: the file is not JSON, is not the object described, has no ``last_update`` date, holds no region,
-            a region twice, a region without ``Pollen``, a pollen type without one of its three days, or a pollen type
-            of the eight that no region has. Nothing is guessed: such a file is an upstream change, and answering from
-            what can be read of it would hide it.
+            a region twice, a region without ``Pollen`` or a pollen type without one of its three days. Nothing is
+            guessed: such a file is an upstream change, and answering from what can be read of it would hide it. A
+            pollen type of the eight that no region has is none of these: DWD lists the keys as possible ones, so it
+            has no rows, as for a region that lacks it, and the answer says so (`parameter-without-rows`).
 
     """
     try:
@@ -170,9 +172,6 @@ def read_forecast(content: bytes) -> PollenForecast:
             _refuse(f"the region {key} is listed twice")
         regions[key] = _read_pollen(pollen, key, unknown)
         names[key] = ": ".join(str(entry.get(name) or "") for name in ("region_name", "partregion_name")).rstrip(": ")
-    for pollen_type in POLLEN_TYPES:
-        if not any(pollen_type in by_type for by_type in regions.values()):
-            _refuse(f"no region has {pollen_type}")
     return PollenForecast(day, regions, names, tuple(sorted(unknown)))
 
 
