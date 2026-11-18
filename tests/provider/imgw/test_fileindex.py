@@ -14,8 +14,9 @@ import pytest
 
 from tests.nginx_stub import NginxLike, serving
 from wetterdienst import Settings
-from wetterdienst.exceptions import DownloadError
+from wetterdienst.exceptions import DownloadError, MetaFileNotFoundError, UpstreamError
 from wetterdienst.provider.imgw.fileindex import keep_files_overlapping, list_files_for_interval
+from wetterdienst.ui.core import failure_status
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -183,3 +184,62 @@ def test_the_outage_page_reaches_the_values_of_both_providers(
     meteorology.sr = SimpleNamespace(start=None, end=None, settings=settings)  # ty: ignore[invalid-assignment]
     with pytest.raises(DownloadError, match="not the index page of a directory"):
         meteorology._get_archives(ImgwMeteorologyMetadata.daily.synop, "249180100")  # noqa: SLF001
+
+
+def test_a_dataset_directory_that_is_gone_is_a_missing_file_and_a_502(server: NginxLike, tmp_path: Path) -> None:
+    """A directory IMGW has moved (a 404) is an `UpstreamError` that names the URL, not a bare `FileNotFoundError`."""
+    server.missing.add("/data/")
+
+    with pytest.raises(MetaFileNotFoundError, match="no IMGW directory at") as raised:
+        _list(server, tmp_path)
+
+    assert f"{server.base}/data/" in str(raised.value)
+    assert isinstance(raised.value.__cause__, FileNotFoundError)
+    assert isinstance(raised.value, UpstreamError)
+    assert failure_status(raised.value) == 502
+
+
+def test_a_period_folder_that_is_gone_is_skipped_with_a_warning(
+    server: NginxLike, tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The folder of 2023, listed by its parent and gone when read, is skipped: the files of 2024 are the answer."""
+    server.missing.add("/data/2023/")
+
+    with caplog.at_level("WARNING"):
+        files = _list(server, tmp_path)
+
+    assert [url.rsplit("/", 1)[-1] for url in files] == ["2024_01_s.zip"]
+    [record] = [r for r in caplog.records if getattr(r, "response_warning", None) == "file-skipped"]
+    assert f"{server.base}/data/2023/" in record.getMessage()
+
+
+@pytest.mark.parametrize("network", ["hydrology", "meteorology"])
+def test_a_dataset_directory_that_is_gone_reaches_the_values_of_both_providers(
+    server: NginxLike, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, network: str
+) -> None:
+    """`_get_archives` of both networks raise the 502, where it was a 500 `internal-error`."""
+    from types import SimpleNamespace  # noqa: PLC0415
+
+    from wetterdienst.provider.imgw.hydrology.api import ImgwHydrologyMetadata, ImgwHydrologyValues  # noqa: PLC0415
+    from wetterdienst.provider.imgw.meteorology.api import (  # noqa: PLC0415
+        ImgwMeteorologyMetadata,
+        ImgwMeteorologyValues,
+    )
+
+    server.missing.add("/data/")
+    settings = Settings(cache_dir=str(tmp_path / "cache"))
+    monkeypatch.setattr(ImgwHydrologyValues, "_endpoint", f"{server.base}/data/")
+    monkeypatch.setattr(ImgwMeteorologyValues, "_endpoint", f"{server.base}/data/")
+
+    if network == "hydrology":
+        values = ImgwHydrologyValues.__new__(ImgwHydrologyValues)
+        values.sr = SimpleNamespace(start=None, end=None, settings=settings)  # ty: ignore[invalid-assignment]
+        call = lambda: values._get_archives(ImgwHydrologyMetadata.daily.hydrology)  # noqa: E731, SLF001
+    else:
+        values = ImgwMeteorologyValues.__new__(ImgwMeteorologyValues)
+        values.sr = SimpleNamespace(start=None, end=None, settings=settings)  # ty: ignore[invalid-assignment]
+        call = lambda: values._get_archives(ImgwMeteorologyMetadata.daily.synop, "249180100")  # noqa: E731, SLF001
+    with pytest.raises(MetaFileNotFoundError, match="no IMGW directory at") as raised:
+        call()
+
+    assert failure_status(raised.value) == 502

@@ -16,6 +16,7 @@ walking the entire (fairly deep and wide) directory tree on every request.
 from __future__ import annotations
 
 import datetime as dt
+import logging
 import re
 from typing import TYPE_CHECKING
 from zoneinfo import ZoneInfo
@@ -23,13 +24,17 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import portion
 
+from wetterdienst.exceptions import MetaFileNotFoundError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.util.network import File, download_files, list_remote_directory_fsspec
+from wetterdienst.util.response_warnings import FILE_SKIPPED, warn_response
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
     from wetterdienst.settings import Settings
+
+log = logging.getLogger(__name__)
 
 _FOLDER_PATTERN = re.compile(r"^(?P<start>\d{4})(?:_(?P<end>\d{4}))?$")
 # fallback interval for folder names that don't match the expected pattern, so we never silently drop data
@@ -61,14 +66,32 @@ def list_files_for_interval(
     """List all file urls below ``url``, only descending into period folders that overlap ``interval``.
 
     If ``interval`` is None, all period folders are listed (equivalent to a full recursive listing).
+
+    A directory at ``url`` that is not there (a 404) is a ``MetaFileNotFoundError`` that names it, an ``UpstreamError``
+    (a 502 over REST), not a bare ``FileNotFoundError`` (GH-4205). A period folder that its parent listed and that is
+    gone when it is read (IMGW consolidates and moves its archives) is skipped with a ``file-skipped`` warning, as an
+    archive that is gone at its download is dropped by the values: the files of the other folders are the answer.
     """
-    entries = list_remote_directory_fsspec(url, settings, cache_expiry)
+    try:
+        entries = list_remote_directory_fsspec(url, settings, cache_expiry)
+    except FileNotFoundError as e:
+        msg = f"no IMGW directory at {url}"
+        raise MetaFileNotFoundError(msg) from e
     files = [entry["name"] for entry in entries if entry["type"] == "file"]
     folders = [entry["name"] for entry in entries if entry["type"] == "directory"]
     if interval is not None:
         folders = [folder for folder in folders if _folder_interval(folder).overlaps(interval)]
     for folder in folders:
-        folder_entries = list_remote_directory_fsspec(folder, settings, cache_expiry)
+        try:
+            folder_entries = list_remote_directory_fsspec(folder, settings, cache_expiry)
+        except FileNotFoundError:
+            warn_response(
+                log,
+                FILE_SKIPPED,
+                f"The period folder {folder} is listed in {url} but is gone from IMGW's server, so its files are not "
+                "in the answer, which may be partial. Try again later.",
+            )
+            continue
         files.extend(entry["name"] for entry in folder_entries if entry["type"] == "file")
     return files
 
