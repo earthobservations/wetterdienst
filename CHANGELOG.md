@@ -97,6 +97,12 @@ Types of changes:
 - `dwd/alerts`: a `timestamp` whose snapshot directory is gone from DWD's server is answered as
   `MetaFileNotFoundError` naming the URL (a 502 over REST and MCP; the CLI's message now says what
   is missing) and no longer as a bare `FileNotFoundError`, a 500 `internal-error` (GH-4203)
+- `imgw` (hydrology and meteorology): a data directory that is gone from IMGW's server is a
+  `MetaFileNotFoundError` naming the URL (a 502 over REST and MCP), no longer a bare
+  `FileNotFoundError`, a 500. A period folder or an archive that is gone since the listing is
+  skipped and told by `file-skipped` naming the station (a folder only after its parent's listing
+  was read again), where the answer also said the source had no values. A window whose only
+  folder was gone, or empty, no longer fails with a 500 (GH-4205)
 
 ## [0.191.0] - 2026-11-17
 
