@@ -80,6 +80,9 @@ Types of changes:
   stations are in view (GH-4209).
 - `[Map]` The OpenStreetMap credit is at the very bottom of the map, under the zoom buttons, not
   above them (GH-4209).
+- `[Forecast]` Under the pressure unit kPa, the pressure panel's ticks are written with a decimal:
+  the middle tick of 100.9 to 101.9 reads 101.5, no longer 102, and the two ticks of a narrower
+  axis (a step of 0.3) no longer both read 101. hPa and Pa are unchanged, whole numbers (GH-4212).
 
 ## [0.53.0] - 2026-11-17
 
