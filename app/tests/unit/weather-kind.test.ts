@@ -2,7 +2,7 @@ import type { WeatherKind } from '../../app/utils/weather-kind'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { WEATHER_ICONS, WEATHER_KINDS, weatherCodeToKind } from '../../app/utils/weather-kind'
+import { skyOfCloudCover, WEATHER_ICONS, WEATHER_KINDS, weatherCodeToKind } from '../../app/utils/weather-kind'
 
 // The day cards of the compact forecast name the weather in words for a screen reader (WCAG 1.1.1), so the
 // name has to be right for every present-weather code `ww` of the WMO's table 4677 it is given for. The
@@ -10,9 +10,8 @@ import { WEATHER_ICONS, WEATHER_KINDS, weatherCodeToKind } from '../../app/utils
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i)
 
 const TABLE: [WeatherKind | null, number[]][] = [
-  ['clear', [0]],
-  ['partlyCloudy', [1, 2]],
-  ['cloudy', [3]],
+  // 00-03 DWD's cloud development, no weather and no sky (GH-4190): 0 no development, 1 dissolving, 2 unchanged, 3 forming
+  [null, range(0, 3)],
   // 04-06 haze, smoke, widespread dust in suspension
   [null, range(4, 6)],
   // 07 blowing dust or sand, 08 dust whirls, 09 dust or sand storm in sight
@@ -66,9 +65,9 @@ describe('the weather kind of a WMO present-weather code', () => {
   })
 
   // DWD's list of the codes MOSMIX and DMO deliver as `ww` (mosmix_element_weather_xls.xlsx, 15.03.2021): all of
-  // them name a kind, so the forecast never falls back on the heuristic for a code it was given
-  it('names a kind for every code DWD delivers in the forecasts', () => {
-    const delivered = [0, 1, 2, 3, 45, 49, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 68, 69, 71, 73, 75, 80, 81, 82, 83, 84, 85, 86, 95]
+  // them but 0 to 3, which are the cloud development (no symbol in DWD's "Symbolempfehlung MOSMIX"), name a kind
+  it('names a kind for every code DWD delivers in the forecasts but the cloud development 0 to 3', () => {
+    const delivered = [45, 49, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 68, 69, 71, 73, 75, 80, 81, 82, 83, 84, 85, 86, 95]
     for (const code of delivered)
       expect(weatherCodeToKind(code), `code ${code}`).not.toBeNull()
   })
@@ -80,6 +79,18 @@ describe('the weather kind of a WMO present-weather code', () => {
 
   it('rounds a code that is not whole', () => {
     expect(weatherCodeToKind(60.4)).toBe('rain')
+  })
+})
+
+describe('the sky of a cloud cover', () => {
+  // the thresholds of the chart's hours and of the day cards (GH-4190): cloudy from 70 %, partly cloudy from 30 %
+  it.each([[0, 'clear'], [29.9, 'clear'], [30, 'partlyCloudy'], [63, 'partlyCloudy'], [69.9, 'partlyCloudy'], [70, 'cloudy'], [100, 'cloudy']] as const)('%f %% is %s', (percent, sky) => {
+    expect(skyOfCloudCover(percent)).toBe(sky)
+  })
+
+  it('is partly cloudy where there is no cloud cover', () => {
+    for (const none of [null, undefined, Number.NaN])
+      expect(skyOfCloudCover(none)).toBe('partlyCloudy')
   })
 })
 

@@ -12,7 +12,7 @@ import { HOUR_MS } from './meteogram-geometry'
 import { planPrecipitation, precipitationOver } from './meteogram-precipitation'
 import { findFirstAvailable } from './meteogram-series'
 import { withUnit } from './units'
-import { weatherCodeToKind } from './weather-kind'
+import { skyOfCloudCover, weatherCodeToKind } from './weather-kind'
 
 /** A day the run reaches fewer hours of than this is marked partial, with the hours it has */
 const PARTIAL_BELOW_HOURS = 20
@@ -42,7 +42,7 @@ export interface MeteogramDay {
   partialHours: number | null
 }
 
-/** How bad a WMO present-weather code is, for choosing the one a day is told by */
+/** How bad a WMO present-weather code is, for choosing the one a day is told by (0 for the codes that name no weather) */
 function weatherSeverity(code: number): number {
   if (code >= 95 && code <= 99)
     return 9 // thunderstorm
@@ -56,13 +56,8 @@ function weatherSeverity(code: number): number {
     return 5 // drizzle
   if (code >= 40 && code <= 49)
     return 4 // fog
-  if (code === 3)
-    return 3 // overcast / cloudy
-  if (code === 2)
-    return 2 // partly cloudy
-  if (code === 1)
-    return 1 // mostly clear
-  return 0 // clear / sunny / default
+  // 0 to 3 are DWD's cloud development (none, dissolving, unchanged, forming): no weather, and no sky (GH-4190)
+  return 0
 }
 
 /**
@@ -132,7 +127,7 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
     const startUTC = dt.toUTC().toMillis()
     const endUTC = dt.plus({ days: 1 }).toUTC().toMillis()
 
-    // null while neither a weather code nor the fallback below has said
+    // null while no weather code that names weather has said; the sky of the day is then the cloud cover's, below
     let kind: WeatherKind | null = null
 
     // Prefer significant weather codes when available
@@ -183,7 +178,7 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
     const over = plan ? precipitationOver(plan, startUTC, endUTC) : null
     const dayPrecip = over?.amount ?? null
 
-    // Fallback heuristics: cloud cover
+    // No weather code that names weather (the codes 0 to 3 name none): the sky by the day's mean cloud cover, by the thresholds of the chart's hours
     if (kind === null) {
       let cloudSum = 0
       let cloudCount = 0
@@ -192,28 +187,20 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
         for (let i = 0; i < cs.x.length; i++) {
           const time = cs.x[i]!.getTime()
           if (time >= startUTC && time < endUTC) {
-            // in percent whatever the unit the cloud cover is shown in: the thresholds below are percentages
+            // in percent whatever the unit the cloud cover is shown in: the thresholds of the sky are percentages
             cloudSum += units.canon('fraction', cs.y[i] ?? 0)
             cloudCount++
           }
         }
       }
-      const avgCloud = cloudCount ? (cloudSum / cloudCount) : 0
-      // judged in millimetres and degrees Celsius, whatever the units the day is shown in (GH-3980)
-      if (dayPrecip !== null && units.canon('precipitation', dayPrecip) > 0.5)
-        kind = (Number.isFinite(minT) && units.canon('temperature', minT) <= 0.5) ? 'snow' : 'rain'
-      else if (avgCloud >= 70)
-        kind = 'cloudy'
-      else if (avgCloud >= 30)
-        kind = 'partlyCloudy'
-      else
-        kind = 'clear'
+      const avgCloud = cloudCount ? (cloudSum / cloudCount) : null
+      kind = skyOfCloudCover(avgCloud)
     }
 
-    // A day whose rain is the 6, 12 or 24 hour totals' and is 0.5 mm or more is a day of rain, which its weather codes (dry in the tail of a
-    // run, where the hourly amount is 0.0) do not say: the icon follows the amount (as the label writes it: a day of 0.45 mm reads 0.5), as
+    // A day whose rain is 0.5 mm or more is a day of rain, which its weather codes (those of 0 to 3 name none, and they are dry in the tail of a
+    // run, where the hourly amount is 0.0 and the totals of 6, 12 or 24 hours carry the rain) do not say: the icon follows the amount (as the label writes it: a day of 0.45 mm reads 0.5), as
     // snow or sleet where the mean wet bulb of the day's hours is as cold as it is for the blocks of the panel (GH-4175)
-    if (over && over.longest > 1 && dayPrecip !== null && units.canon('precipitation', Number(formatNumber(dayPrecip, 'en', 1).replaceAll(',', ''))) >= 0.5 && (kind === 'clear' || kind === 'partlyCloudy' || kind === 'cloudy')) {
+    if (dayPrecip !== null && units.canon('precipitation', Number(formatNumber(dayPrecip, 'en', 1).replaceAll(',', ''))) >= 0.5 && (kind === 'clear' || kind === 'partlyCloudy' || kind === 'cloudy')) {
       const phase = countT ? classifyPrecip(sumT / countT) : 'rain'
       kind = phase === 'snow' ? 'snow' : phase === 'mixed' ? 'sleet' : 'rain'
     }
