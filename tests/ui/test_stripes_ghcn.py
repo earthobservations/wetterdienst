@@ -247,7 +247,7 @@ def test_a_record_of_fewer_valid_years_than_the_minimum_is_refused(monkeypatch: 
         {
             "ghcnd-stations": stub.stations_text().encode("utf8"),
             "ghcnd-inventory": stub.inventory_text().encode("utf8"),
-            "access/USW00000009": stub.station_csv("USW00000009", last_year=1998),
+            "by_station/USW00000009": stub.station_csv("USW00000009", last_year=1998),
         },
     )
     with pytest.raises(NotEnoughDataError, match=r"At least 10 years with data are required to scale climate stripes"):
