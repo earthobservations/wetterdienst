@@ -94,8 +94,8 @@ REJECTED = QualityKind(
     + _CHECKS
     + ", several joined with `+`. It tells a number rejected by the library from a missing-value code of the "
     "source, which has `raw` alone. A forecast network (`kind` `forecast`: `dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, "
-    "`dwd/uvi`) never has one but for `floor` and `limits`: its other checks are soft whatever the mode, so a value "
-    "is flagged `suspect:<check>` and not nulled.",
+    "`dwd/pollen`, `dwd/uvi`) never has one but for `floor` and `limits`: its other checks are soft whatever the mode, "
+    "so a value is flagged `suspect:<check>` and not nulled.",
 )
 
 #: the last token of any network that maps a missing-value marker or an impossible number to null
@@ -256,6 +256,7 @@ LEGENDS: dict[str, list[QualityKind]] = {
     "dwd/swsmos": [SUSPECT, RAW],
     "dwd/uvi": [SUSPECT, RAW],
     "dwd/poi": [SUSPECT, REJECTED, RAW],
+    "dwd/pollen": [SUSPECT, RAW],
     "dwd/phenology": [
         _plain(
             "DWD's Qualitaetsniveau of the phase report, as DWD writes it.",

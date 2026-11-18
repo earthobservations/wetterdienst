@@ -33,6 +33,7 @@ from tests.provider.station_catalogue import (
     FROST_ANTARCTIC,
     FROST_FOREIGN_WMO,
     FROST_OFF_THE_BOX,
+    NO_POSITIONS,
     Accepted,
     assert_covered,
     assert_in_extent,
@@ -49,6 +50,7 @@ from tests.provider.station_catalogue_stubs import (
     GHCN_NO_POSITION,
     HUBEAU_BLAVET,
     HUBEAU_NOT_OPENED,
+    POLLEN_NO_POSITION,
     WSV_NO_POSITION,
     WSV_TIEL,
 )
@@ -88,6 +90,7 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
         ),
     ),
     "dwd/dmo": (DWD_NAMES,),
+    "dwd/pollen": (POLLEN_NO_POSITION,),
     "dwd/mosmix": (DWD_NAMES,),
     "ea/hydrology": (EA_NO_POSITION,),
     "fmi/observation": (FMI_ANTARCTICA,),
@@ -107,13 +110,6 @@ ACCEPTED: dict[str, tuple[Accepted, ...]] = {
 # network is, so a station elsewhere is the source's, and the box is not widened to it
 EXTENT_ACCEPTED: dict[str, tuple[Accepted, ...]] = {
     "metno/frost": (FROST_FOREIGN_WMO, FROST_ANTARCTIC, FROST_OFF_THE_BOX)
-}
-
-# the live catalogues that have no position for any station, by the source's design, and so no extent to hold them to
-# (the rule `coordinates_missing` of `ACCEPTED` says the same of them). Held only while that is so: a position that
-# appears is held to the extent
-NO_POSITIONS = {
-    "dwd/derived monthly/climate_correction_factor": "it is listed per postal code, which has no position",
 }
 
 
@@ -227,6 +223,11 @@ def test_a_live_network_has_the_extent_it_declares(key: str, held: list[tuple[st
         [api(parameters=[parameter]).all().df.select("station_id", "latitude", "longitude") for parameter in held],
         how="vertical_relaxed",
     )
+    if (
+        all(f"{key} {resolution}/{dataset}" in NO_POSITIONS for resolution, dataset in held)
+        and stations.filter(pl.col("latitude").is_not_null()).is_empty()
+    ):
+        return  # a network of areas that has no position for any of them has nothing to compare with its extent
     assert_in_extent(stations, key, api.metadata.extent, whole=True, accepted=EXTENT_ACCEPTED.get(key, ()))
 
 

@@ -122,6 +122,12 @@ ANSWER_TRUNCATED = "answer-truncated"
 #: `X-Wetterdienst-Forecast-From-Now` header too
 FORECAST_FROM_NOW = "forecast-from-now"
 
+#: the code of the warning a search by place (`rank`, `distance`, a bounding box, and so `interpolate` and `summarize`
+#: by a point) carries on a network whose source gives its stations no position (`dwd/pollen`, GH-4088): the answer is
+#: empty by the nature of the network, not because no station is near, and the `message` names the way to find them,
+#: by name or id. Not told for a search by name or id
+POSITIONS_UNAVAILABLE = "positions-unavailable"
+
 
 class SkipCause(Enum):
     """Why a provider let a file go (`note_skipped_download`), which decides what `file-skipped` advises.
@@ -149,8 +155,8 @@ class SkipCause(Enum):
     REFUSED = ("the download was refused", "a refused download", False)
     #: the file arrived and would not parse, or held what the reader cannot use
     UNPARSEABLE = ("it would not parse", "a file that would not parse", False)
-    #: the file arrived and was read, and holds nothing of the station: a place the source has renamed or dropped
-    #: (`dwd/uvi`'s table names a place that the file no longer lists)
+    #: the file arrived and was read, and holds nothing of the station: a place or region the source has renamed or
+    #: dropped (`dwd/uvi`'s table names a place and `dwd/pollen`'s a region that the file no longer lists)
     NO_FORECAST = ("the file holds no forecast of it", "a file with no forecast of the station", False)
 
     def __init__(self, reason: str, noun: str, may_heal: bool) -> None:  # noqa: FBT001

@@ -229,6 +229,11 @@ NOT_HELD: dict[str, str] = {
         "as data (read 2026-10-21)"
     ),
     "dwd/phenology": "one file for each phase holds every station, and the historical ones run to 160 MB",
+    "dwd/pollen": (
+        "the stations are a table kept in the provider (DWD gives the regions no position and no data file), and the "
+        "one file holds the forecast of every region by its numbers, with no data file by station to list; "
+        "`test_the_regions_are_those_of_the_file` holds the table to the file"
+    ),
     "dwd/road": "one BUFR file for each station group and minute holds the stations of the group, named inside it",
     "dwd/swsmos": (
         "the stations are those of one run file (2 MB compressed, 300,000 rows) and differ from run to run: the run "

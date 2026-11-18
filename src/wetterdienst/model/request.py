@@ -83,7 +83,7 @@ from wetterdienst.util.geo import require_location_in_range
 from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.names import match_names
 from wetterdienst.util.python import to_list
-from wetterdienst.util.response_warnings import warn_response
+from wetterdienst.util.response_warnings import POSITIONS_UNAVAILABLE, warn_response
 
 if TYPE_CHECKING:
     from wetterdienst.core.util import StationPlacement
@@ -547,6 +547,11 @@ class TimeseriesRequest:
     # Columns that should be contained within any stations information
     _base_columns: ClassVar = tuple(STATIONS_SCHEMA)
 
+    # Whether the source gives the stations a position. A network that declares False (`dwd/pollen`: DWD ships no shape
+    # of its regions) lists every station with a null latitude and longitude, so a search by place finds none of them
+    # and says so (`_warn_no_positions`, the code `positions-unavailable`) instead of answering empty without a reason
+    stations_have_positions: ClassVar[bool] = True
+
     # The parameters that may be interpolated or summarized, which is a property of the measured
     # quantity rather than of a request -- see `CanonicalParameter.interpolation`. Kept here as a
     # class attribute because that is where callers look for it.
@@ -984,6 +989,25 @@ class TimeseriesRequest:
 
         """
 
+    def _warn_no_positions(self) -> None:
+        """Tell, for a search by place, that the stations of this network have no position and how to find them.
+
+        Called by `filter_by_rank` (and so by `filter_by_distance`, `interpolate` and `summarize`) and `filter_by_bbox`,
+        for a network that declares `stations_have_positions` False. Nothing is told for a network that does not, and
+        for a search by name or id, which finds the stations.
+        """
+        if self.stations_have_positions:
+            return
+        from wetterdienst.api import Wetterdienst  # noqa: PLC0415
+
+        network = Wetterdienst._network_of(type(self)) or type(self).__name__  # noqa: SLF001
+        warn_response(
+            log,
+            POSITIONS_UNAVAILABLE,
+            f"The stations of {network} have no position, so a search by place finds none; find them by name or id "
+            "(the `name` and `stations` parameters, `filter_by_name` and `filter_by_station_id` in the library).",
+        )
+
     def _within_answer_window(self, df: pl.DataFrame) -> pl.DataFrame:
         """Cut the stations to those that would be in the answer when it is cut to the window of the request.
 
@@ -1381,6 +1405,7 @@ class TimeseriesRequest:
         # a search by place can never answer with a station that has no position: the ones the source got wrong
         # are told, among all of the stations it searched
         self._warn_unplaced(df_all, named=False)
+        self._warn_no_positions()
         df = located
         return StationsResult(
             request=self,
@@ -1480,6 +1505,7 @@ class TimeseriesRequest:
             log.info(f"No weather stations were found for bbox {left}/{bottom}/{top}/{right}")
         # as `filter_by_rank` does: a station with no position is in no box
         self._warn_unplaced(df_all, named=False)
+        self._warn_no_positions()
 
         return StationsResult(request=self, df=df, _df_all=df_all, _stations_filter=StationsFilter.BY_BBOX)
 

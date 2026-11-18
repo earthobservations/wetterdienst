@@ -329,6 +329,7 @@ def test_providers_lists_every_provider_and_its_networks(client: TestClient) -> 
         "poi",
         "uvi",
         "phenology",
+        "pollen",
         "radar",
         "alerts",
         "storm_cells",

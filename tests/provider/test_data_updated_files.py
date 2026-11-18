@@ -642,6 +642,21 @@ def _read_dwd_poi(monkeypatch: pytest.MonkeyPatch) -> object:
     return stations_result(request, "hourly", "data", "10147").values().all()
 
 
+def _read_dwd_pollen(monkeypatch: pytest.MonkeyPatch) -> object:
+    """Read the one file of the pollen forecast, dated by the server."""
+    from tests.provider.dwd.pollen.test_api import FIXTURE  # noqa: PLC0415
+    from wetterdienst.provider.dwd.pollen import DwdPollenRequest  # noqa: PLC0415
+    from wetterdienst.provider.dwd.pollen import api as pollen_api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        pollen_api,
+        "download_file",
+        lambda *, url, **_: File(url=url, content=BytesIO(FIXTURE), status=200, last_modified=NEW),
+    )
+    request = DwdPollenRequest(parameters=[("daily", "data")], settings=Settings(cache_disable=True))
+    return request.filter_by_station_id(["124"]).values().all()
+
+
 def _read_dwd_road(monkeypatch: pytest.MonkeyPatch) -> object:
     """Read the two files a station group published, written on two days."""
     from tests.conftest import BUFR_AVAILABLE  # noqa: PLC0415
@@ -860,6 +875,7 @@ READERS = {
     ("dwd", "observation"): _read_dwd_observation,
     ("dwd", "phenology"): _read_dwd_phenology,
     ("dwd", "poi"): _read_dwd_poi,
+    ("dwd", "pollen"): _read_dwd_pollen,
     ("dwd", "road"): _read_dwd_road,
     ("dwd", "swsmos"): _read_dwd_swsmos,
     ("dwd", "uvi"): _read_dwd_uvi,

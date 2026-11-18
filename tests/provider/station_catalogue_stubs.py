@@ -59,6 +59,7 @@ from wetterdienst.provider.dwd.phenology import DwdPhenologyRequest
 from wetterdienst.provider.dwd.phenology import api as phenology_api
 from wetterdienst.provider.dwd.poi import DwdPoiRequest
 from wetterdienst.provider.dwd.poi import api as poi_api
+from wetterdienst.provider.dwd.pollen import DwdPollenRequest
 from wetterdienst.provider.dwd.road import DwdRoadRequest
 from wetterdienst.provider.dwd.road import api as road_api
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosRequest
@@ -166,6 +167,12 @@ def _dwd_uvi(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:  # noqa: ARG001
     # the catalogue is the table of the 38 places of `uvi.json` that the provider keeps (DWD's file gives a city and no
     # position), so there is nothing to serve: the reader is the table, and the rules hold its positions to Germany
     return _stations(DwdUviRequest, ("daily", "data"))
+
+
+def _dwd_pollen(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:  # noqa: ARG001
+    # the catalogue is the table of the 27 regions of `s31fg.json` that the provider keeps (DWD gives them an id and a
+    # name and no position), so there is nothing to serve: the reader is the table
+    return _stations(DwdPollenRequest, ("daily", "data"))
 
 
 def _dwd_road(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
@@ -594,6 +601,11 @@ FROST_NO_POSITION = Accepted(
     "other field: ships, rigs and gliders (SN76999 SCARABEO 8, SN20930 POLARSTERN, SN20957 SG644 GLIDER), which move; "
     "they stay in the list and no search picks them (GH-2655)",
     where=lambda row: row["latitude"] is None and row["longitude"] is None,
+)
+POLLEN_NO_POSITION = Accepted(
+    "coordinates_missing",
+    "DWD ships no shape and no position of the 27 regions of its pollen forecast (`Beschreibung_pollen_s31fg.pdf`): "
+    "they are found by name or id, and a search by place finds none (GH-4088)",
 )
 GHCN_NAMES = Accepted(
     "name_encoding", f"the list names stations IPIRANGA(?) and alike: {QUESTION_MARK}", question_mark_in_the_name
@@ -2094,6 +2106,16 @@ STUBS = [
             "zugspitze": {"name": "Zugspitze", "latitude": 47.421, "longitude": 10.9848, "elevation": 2956.0},
             "frankfurt-main": {"name": "Frankfurt/Main", "latitude": 50.0259, "longitude": 8.5213},
             "bonn": {"latitude": 50.73438, "longitude": 7.09549, "elevation": 64.0},
+        },
+    ),
+    Stub(
+        "dwd/pollen daily/data",
+        _dwd_pollen,
+        (POLLEN_NO_POSITION,),
+        expected={
+            "124": {"name": "Bayern: Mainfranken", "region": "Bayern", "latitude": None, "longitude": None},
+            "20": {"name": "Mecklenburg-Vorpommern", "region": "Mecklenburg-Vorpommern"},
+            "11": {"name": "Schleswig-Holstein und Hamburg: Inseln und Marschen"},
         },
     ),
     Stub(

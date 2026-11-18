@@ -52,6 +52,7 @@ class Wetterdienst:
             "poi": "wetterdienst.provider.dwd.poi.DwdPoiRequest",
             "uvi": "wetterdienst.provider.dwd.uvi.DwdUviRequest",
             "phenology": "wetterdienst.provider.dwd.phenology.DwdPhenologyRequest",
+            "pollen": "wetterdienst.provider.dwd.pollen.DwdPollenRequest",
             "radar": "wetterdienst.provider.dwd.radar.DwdRadarValues",
             "alerts": "wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest",
             "storm_cells": "wetterdienst.provider.dwd.storm_cells.DwdStormCellsRequest",

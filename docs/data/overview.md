@@ -35,6 +35,9 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - POI
         - current weather reports, the observed counterpart to MOSMIX
         - hourly, roughly the last day, for the MOSMIX stations that report
+    - Pollen
+        - forecast of the pollen load of eight pollen types for 27 regions of Germany
+        - daily, today, tomorrow and the day after; no coordinates, the regions are found by name or id
     - UVI
         - forecast of the UV index for 38 places in Germany
         - daily, the highest UV index of today, tomorrow and the day after

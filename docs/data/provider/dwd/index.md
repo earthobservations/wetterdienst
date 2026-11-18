@@ -21,6 +21,9 @@ The data as offered by the DWD through ``wetterdienst`` includes:
 - [POI](poi/index.md) — current weather reports, the observed counterpart to MOSMIX
     - hourly resolution, roughly the last day, for the ~970 MOSMIX stations that report
     - 39 parameters, including the previous day's temperature and wind extremes
+- [Pollen](pollen/index.md) — the forecast of the pollen load
+    - daily resolution: the load of eight pollen types for today, tomorrow and the day after, for 27 regions of Germany
+    - eight parameters, `pollen_load_birch` and its siblings, from one small JSON file that DWD rewrites every morning
 - [UVI](uvi/index.md) — the forecast of the UV index
     - daily resolution: the highest UV index of today, tomorrow and the day after, for 38 places in Germany
     - one parameter, `uv_index_max`, from one small JSON file that DWD rewrites every morning
@@ -52,7 +55,8 @@ states of when the data was last updated, by network:
   rewrite and not a sign that a reading in them changed. An archive cached before the library kept the date has none
   until its copy expires (12 hours at most) or the cache is cleared.
 - **Forecasts** (`mosmix`, `dmo`, `swsmos`): the model run the forecast is of, which the file states (`IssueTime`) or
-  its name does, and not when the run was published as a file. `uvi` has no run: it is when DWD last wrote its file.
+  its name does, and not when the run was published as a file. `pollen` and `uvi` have no run: it is when DWD last wrote
+  its file.
 - **Alerts**: the newest `sent` of the warnings in the answer.
 - **Storm cells**: when DWD wrote the file of the scan, about 5 minutes after the scan it is of.
 
@@ -94,6 +98,7 @@ observation/index.md
 road/index.md
 swsmos/index.md
 poi/index.md
+pollen/index.md
 uvi/index.md
 phenology/index.md
 radar/index.md

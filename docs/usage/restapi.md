@@ -255,8 +255,8 @@ what the answer is missing:
     file refreshed since by up to that time.
   - **A forecast** (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`): the model run the forecast is of, not the file it was
     published in, so it is the same for a run read again later, and `retrieved_at` less `data_updated_at` is how old the
-    run is. This is the age of a forecast only: for a file it is not the age of the data. `dwd/uvi` has no run, and its
-    date is when DWD last wrote the one file it serves (its `Last-Modified`).
+    run is. This is the age of a forecast only: for a file it is not the age of the data. `dwd/pollen` and `dwd/uvi` have
+    no run, and their date is when DWD last wrote the one file it serves (its `Last-Modified`).
   - **The warnings of `dwd/alerts`**: the newest `sent` of the warnings of the whole snapshot, which DWD states in each of them,
     also for an answer filtered by a place, which may hold a few warnings or none; a snapshot with no warning has none.
 
@@ -327,6 +327,10 @@ what the answer is missing:
   `summarize`, had to leave it out, which is every search by place of a resolution that lists it;
   for a `timestamp`, the whole list and a search by place tell it, in a listing, in the values and in
   an estimate, only if the station has a record in the window),
+  `positions-unavailable` (a search by place, a `rank`, a `distance` or a bounding box, or an estimate by
+  `interpolate` or `summarize` by a point, on a network whose source gives its stations no position, which is
+  `dwd/pollen`: the answer is empty by the nature of the network, and the message names the way to find the stations,
+  the `name` and `stations` parameters; a search by name or id and the whole list do not have it),
   `step-without-resolution` (stations left out of the list because the step they report at is one no
   resolution of the network has (seen: 20 and 30 minutes, on some days 180 or 240): `eaufrance/hubeau`.
   The message gives how many, at which steps and names the first ten, which `stations` carries too.
@@ -447,9 +451,9 @@ what the answer is missing:
   that it has nothing (a 404 for a station that does not report the parameter, Frost's 404 "No data was found for the
   query parameters" and 412 "No available time series for the query parameters", an AEMET `estado` of 404,
   Pegelonline's 404 "Timeseries does not exist.") or a month file of `dwd/derived` that the index never listed.
-  This is done for `aemet/observation`, `dwd/derived`, `dwd/observation`, `dwd/poi`, `dwd/road`, `dwd/swsmos`,
-  `dwd/uvi`, `fmi/observation`, `knmi/observation`, `meteofrance/observation`, `meteofrance/synop`, `metno/frost`,
-  `smhi/observation` and `wsv/pegel`, each at the places where it lets a file go and no other; for any other
+  This is done for `aemet/observation`, `dwd/derived`, `dwd/observation`, `dwd/poi`, `dwd/pollen`, `dwd/road`,
+  `dwd/swsmos`, `dwd/uvi`, `fmi/observation`, `knmi/observation`, `meteofrance/observation`, `meteofrance/synop`,
+  `metno/frost`, `smhi/observation` and `wsv/pegel`, each at the places where it lets a file go and no other; for any other
   provider a file it lets go without telling is not known, so the warning may name a station whose file was let go.
   The message says nothing of the stations that were let go: `file-skipped` does (below). A parameter
   another warning already names (`parameter-ended`) is not told again, nor is `parameter-without-rows` told for
@@ -521,8 +525,9 @@ what the answer is missing:
   in a request, so files that stay a 404 cost one more listing of it for the request, not one for each file.
   `dwd/swsmos` tells the cause of the run it could not read, the newest one the request names: a 404 is a withdrawn
   run, a zero-byte 200 an empty body, a body that would not parse an unreadable one, a directory that lists files and
-  no run a file the reader cannot use, and an empty or missing one an empty directory. `dwd/uvi` tells a place of its
-  table that the file does not hold (a place DWD has renamed or dropped) as a file with no forecast of the station,
+  no run a file the reader cannot use, and an empty or missing one an empty directory. `dwd/pollen` and `dwd/uvi` tell a
+  region or a place of their table that the file does not hold (one DWD has renumbered, renamed or dropped) as a file
+  with no forecast of the station,
   which a retry does not change.
 
   `dwd/observation` and `dwd/derived` tell it too, for a directory of DWD's server that is missing (a 404) or empty
@@ -1033,7 +1038,7 @@ The plausibility checks `range`, `elevation`, `stuck`, `consistency`, `floor`, `
 `plausibility_consistency`, `plausibility_floor`, `plausibility_limits`, `plausibility_source` (soft by default: the
 verdict of the source's own quality flag, such as GHCN-Daily `QFLAG` or DMI `validity:false`), `plausibility_step` (soft by default: a jump between consecutive readings) and `plausibility_relations` (soft by default: two readings of one file that contradict each other, or a day of sunshine longer than the day; not `plausibility_consistency`, which is the hard check of a provider's own rules; the environment variable of a server is
 `WD_TS_PLAUSIBILITY__RANGE` and so on). A hard check nulls the value and writes `rejected:<check>,raw:<number>` into
-`quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode. On a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/uvi`: `kind` `forecast`) every check but `floor` and `limits` is soft whatever the mode, so `hard` there flags `suspect:<check>` and nulls nothing (`limits` follows its mode).
+`quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode. On a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, `dwd/uvi`: `kind` `forecast`) every check but `floor` and `limits` is soft whatever the mode, so `hard` there flags `suspect:<check>` and nulls nothing (`limits` follows its mode).
 See [plausibility checks](../data/plausibility.md). `interpolate` and `summarize` take no mode: they leave out a
 suspect value in any case, and so do `stripes/values` and `stripes/image`.
 

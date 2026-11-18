@@ -222,6 +222,7 @@ COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
         "dwd/observation": ("*",),
         "dwd/phenology": ("*",),
         "dwd/poi": ("*",),
+        "dwd/pollen": ("*",),
         "dwd/road": ("*",),
         "dwd/swsmos": ("*",),
         "dwd/uvi": ("*",),

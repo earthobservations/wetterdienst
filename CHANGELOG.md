@@ -33,6 +33,16 @@ Types of changes:
   `distance` (the outline, not the centre) or a box, and `min_severity`; `track=false` and
   `geometry=centroid` keep a list short. An empty scan is an empty answer; a filter that leaves no
   cell warns `no-storm-cells-for-place`, a scan over 20 minutes old `scan-stale` (GH-4090)
+- `dwd/pollen`: DWD's pollen forecast (Pollenflug-Gefahrenindex), a daily forecast network of eight
+  parameters, `pollen_load_hazel`, `_alder`, `_ash`, `_birch`, `_grass`, `_rye`, `_mugwort` and
+  `_ragweed`, for today, tomorrow and the day after, from `s31fg.json`. The 27 regions are the
+  stations, with DWD's own number as the id (`124` is Bayern, Mainfranken); DWD gives them no
+  position, so latitude and longitude are null and a region is found by name or id. A search by
+  place (`rank`, `distance`, a box, `interpolate`, `summarize`) answers empty with the new warning
+  `positions-unavailable` that names this way; a network declares it with
+  `stations_have_positions = False`. The steps `0`, `0-1`, ..., `3` are 0, 0.5, ..., 3, any other
+  text, `-1` included, is null with the text kept as `raw:`, and a changed file is a
+  `DownloadError` (GH-4088)
 
 ### Changed
 
