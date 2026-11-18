@@ -374,7 +374,7 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
               <span v-if="d.partialHours" class="block text-xs font-normal text-muted" data-testid="partial-day">{{ t('meteogram.chart.partialDay', { hours: d.partialHours }) }}</span>
             </span>
             <!-- the symbol is a decoration; the words are what a screen reader reads (WCAG 1.1.1) -->
-            <WeatherSymbol :kind="d.kind" :sky="d.sky" :precipitation-mm="d.precipitationMm" class="size-8" />
+            <WeatherSymbol :kind="d.kind" :sky="d.sky" :precipitation-mm="d.precipitationPeakMm" class="size-8" />
             <span class="text-sm text-toned">
               <span class="sr-only">{{ t(`meteogram.chart.weather.${d.kind}`) }}</span>
               <span v-if="d.precipLabel" class="text-blue-700 dark:text-blue-300 tabular-nums" :title="precipNote(d) ?? undefined" data-testid="row-precip">
@@ -408,7 +408,7 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
               </div>
               <!-- the symbol is a decoration; the words are what a screen reader reads (WCAG 1.1.1) -->
               <div class="my-3 animate-bounce-slow">
-                <WeatherSymbol :kind="d.kind" :sky="d.sky" :precipitation-mm="d.precipitationMm" class="size-12" />
+                <WeatherSymbol :kind="d.kind" :sky="d.sky" :precipitation-mm="d.precipitationPeakMm" class="size-12" />
               </div>
               <div class="sr-only">
                 {{ t(`meteogram.chart.weather.${d.kind}`) }}

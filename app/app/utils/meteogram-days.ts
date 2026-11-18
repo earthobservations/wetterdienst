@@ -23,8 +23,15 @@ export interface MeteogramDay {
   kind: WeatherKind
   /** the sky of the day from its mean cloud cover (`skyOfCloudCover`), which the symbol of wind, dust and a funnel cloud takes (GH-4193) */
   sky: Sky
-  /** the rain of the day in millimetres, whatever unit the label is written in; null where the forecast has none. A day of 4 or more gets the heavy-rain symbol (GH-4193) */
+  /** the rain of the day in millimetres, whatever unit the label is written in; null where the forecast has none. What the rain of 0.5 mm rule judges (GH-4175) */
   precipitationMm: number | null
+  /**
+   * The rate of the day's wettest hour in millimetres an hour, whatever unit the label is written in (for a late day made of 6, 12 or 24 hour
+   * totals, the rate of its wettest block: the amount over its hours); null where the forecast has none. What the strength of the symbol is
+   * told by, as the chart's hours are (GH-4193): 4 mm an hour is heavy rain and 2 mm an hour heavy snow, and a day of drizzle is not heavy
+   * by its total.
+   */
+  precipitationPeakMm: number | null
   weekday: string
   dayMonth: string
   tempLabel?: string | null
@@ -229,7 +236,7 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
       const hours = Math.max(1, Math.round((Math.min(endUTC, maxTime + HOUR_MS) - Math.max(startUTC, minTime)) / HOUR_MS))
       partialHours = hours < PARTIAL_BELOW_HOURS ? hours : null
     }
-    out.push({ date: dt, kind, sky, precipitationMm: dayPrecip === null ? null : units.canon('precipitation', dayPrecip), weekday: weekdayShort(dt, language), dayMonth: formatDayMonth(dt, language), tempLabel, precipLabel, precipBlockHours, precipMissingHours, isToday, partialHours })
+    out.push({ date: dt, kind, sky, precipitationMm: dayPrecip === null ? null : units.canon('precipitation', dayPrecip), precipitationPeakMm: over?.peak == null ? null : units.canon('precipitation', over.peak), weekday: weekdayShort(dt, language), dayMonth: formatDayMonth(dt, language), tempLabel, precipLabel, precipBlockHours, precipMissingHours, isToday, partialHours })
     dt = dt.plus({ days: 1 })
   }
   return out

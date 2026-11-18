@@ -183,6 +183,12 @@ export interface PrecipOver {
   longest: number
   /** the hours of the span, between the plan's first and last, that it gives no amount for (a missing amount is not a 0) */
   missing: number
+  /**
+   * The rate of the wettest block that adds to the amount, per hour of the block, in the unit of the series: an hour's own amount where
+   * the blocks are hours, the amount of a 6, 12 or 24 hour block over its hours (a 30 mm block of 6 hours is 5 per hour). Null where
+   * the plan gives no hour of the span. What the strength of a day's rain or snow is told by (GH-4193).
+   */
+  peak: number | null
 }
 
 /**
@@ -195,10 +201,12 @@ export function precipitationOver(plan: PrecipPlan, from: number, to: number): P
   let amount = 0
   let given = 0
   let longest = 0
+  let peak: number | null = null
   for (const block of plan.blocks) {
     const overlap = Math.min(block.end, to) - Math.max(block.start, from)
     if (overlap <= 0)
       continue
+    peak = Math.max(peak ?? 0, block.amount / block.hours)
     amount += block.amount * (overlap / (block.hours * HOUR_MS))
     given += overlap / HOUR_MS
     longest = Math.max(longest, block.hours)
@@ -207,7 +215,7 @@ export function precipitationOver(plan: PrecipPlan, from: number, to: number): P
   const last = plan.blocks[plan.blocks.length - 1]!.end
   const inside = Math.max(0, Math.min(to, last) - Math.max(from, first)) / HOUR_MS
   const missing = Math.max(0, inside - given)
-  return { amount: given > 0 ? amount : null, given, longest, missing: missing < 1e-6 ? 0 : missing }
+  return { amount: given > 0 ? amount : null, given, longest, missing: missing < 1e-6 ? 0 : missing, peak }
 }
 
 /**

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { meteogramDays } from '../../app/utils/meteogram-days'
 import { buildSeries } from '../../app/utils/meteogram-series'
 import { meteogramUnits } from '../../app/utils/meteogram-units'
+import { yrSymbolFor } from '../../app/utils/weather-symbols'
 import { FORECAST_UNITS, forecastValues } from '../helpers/meteogram-forecast'
 import { PRECIPITATION, run10382Values } from '../helpers/mosmix-run'
 
@@ -278,5 +279,54 @@ describe('the sky and the rain of a day, which its symbol is chosen by', () => {
     expect(dayOf(61, 50, 0.25).precipitationMm).toBeCloseTo(5.75, 5)
     expect(dayOf(61, 50, 0).precipitationMm).toBe(0)
     expect(dayOf(61, 50, null).precipitationMm).toBeNull()
+  })
+})
+
+// The strength of a day's symbol is that of its wettest hour, as the chart's hours are, and not the day's total (GH-4193)
+describe('the rate of the wettest hour of a day, which the strength of its symbol is told by', () => {
+  const stamp = (hour: number) => new Date(Date.UTC(2026, 10, 20, hour - 1)).toISOString().replace('.000Z', '+00:00')
+  const entry = (parameter: string, hour: number, value: number) => ({ station_id: 'C720', resolution: 'hourly', dataset: 'large', parameter, timestamp: stamp(hour), value, quality_flags: null })
+  const hours = (parameter: string, value: (hour: number) => number) => Array.from({ length: 24 }, (_, hour) => entry(parameter, hour, value(hour)))
+  const symbolOf = (row: MeteogramDay) => yrSymbolFor({ kind: row.kind, night: false, precipitationMm: row.precipitationPeakMm, sky: row.sky })
+  const dayOf = (values: unknown[], temperature = 10) => byDate(days([...hours('temperature_air_2m', () => temperature), ...values], { today: '2026-11-20' }))['2026-11-20']!
+
+  it('is the hour\'s own amount, so that a drizzly day of 0.25 mm every hour (5.75 mm in all) is light rain, as every hour of it is on the chart', () => {
+    const row = dayOf([...hours('weather_significant', () => 61), ...hours(PRECIPITATION.hour, () => 0.25)])
+    expect(row.precipitationMm).toBeCloseTo(5.75, 5)
+    expect(row.precipitationPeakMm).toBeCloseTo(0.25, 5)
+    expect(symbolOf(row)).toBe('46')
+  })
+
+  it('is heavy rain for a day of one hour of 5 mm, whatever the rest of it', () => {
+    const row = dayOf([...hours('weather_significant', () => 61), ...hours(PRECIPITATION.hour, hour => hour === 12 ? 5 : 0)])
+    expect(row.precipitationPeakMm).toBe(5)
+    expect(symbolOf(row)).toBe('10')
+  })
+
+  it('is the rate of the block of a late day made of 6 hour totals: a block of 30 mm over 6 hours is 5 mm an hour and heavy rain', () => {
+    const six = (hour: number) => [6, 12, 18, 24].includes(hour) ? (hour === 12 ? 30 : 0) : null
+    const totals = [6, 12, 18, 24].map(hour => entry(PRECIPITATION.six, hour, six(hour)!))
+    // the stamp of the last window is the midnight after the day, which the hourly stamps do not reach: 6 UTC+1 starts the day's first block
+    const row = dayOf([...hours('weather_significant', () => 3), ...totals])
+    expect(row.precipBlockHours).toBe(6)
+    expect(row.precipitationPeakMm).toBe(5)
+    expect(row.precipLabel).toMatch(/^≈30\.0/)
+    expect(row.kind).toBe('rain')
+    expect(symbolOf(row)).toBe('10')
+  })
+
+  it('is heavy snow for a late day of a 6 hour block of 12 mm (2 mm an hour) in a cold air, and snow only for one of 6 mm', () => {
+    const totals = (amount: number) => [6, 12, 18, 24].map(hour => entry(PRECIPITATION.six, hour, hour === 12 ? amount : 0))
+    const heavy = dayOf([...hours('weather_significant', () => 3), ...totals(12)], -4)
+    expect(heavy.kind).toBe('snow')
+    expect(heavy.precipitationPeakMm).toBe(2)
+    expect(symbolOf(heavy)).toBe('50')
+    const light = dayOf([...hours('weather_significant', () => 3), ...totals(6)], -4)
+    expect(light.kind).toBe('snow')
+    expect(symbolOf(light)).toBe('13')
+  })
+
+  it('has none where the forecast has no amount', () => {
+    expect(dayOf([...hours('weather_significant', () => 61)]).precipitationPeakMm).toBeNull()
   })
 })

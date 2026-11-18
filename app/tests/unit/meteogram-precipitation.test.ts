@@ -316,6 +316,15 @@ describe('the rain over a local day', () => {
 
   it('is none for a span the plan has no hour of, and no hours are missing from it', () => {
     const plan = planPrecipitation(new Map([[PRECIPITATION.six, steps([[6, 1]])]]))!
-    expect(precipitationOver(plan, T(48), T(72))).toEqual({ amount: null, given: 0, longest: 0, missing: 0 })
+    expect(precipitationOver(plan, T(48), T(72))).toEqual({ amount: null, given: 0, longest: 0, missing: 0, peak: null })
+  })
+})
+
+describe('the rate of the wettest block of a span (GH-4193)', () => {
+  it('is the rate of the wettest block over its hours, which a span cutting the block does not change', () => {
+    // two blocks of 6 hours: 12 mm (2 an hour) and 30 mm (5 an hour); the span covers half of the first and a third of the second
+    const plan = planPrecipitation(new Map([[PRECIPITATION.six, steps([[6, 12], [12, 30]])]]))!
+    expect(precipitationOver(plan, T(3), T(8)).peak).toBe(5)
+    expect(precipitationOver(plan, T(3), T(6)).peak).toBe(2)
   })
 })
