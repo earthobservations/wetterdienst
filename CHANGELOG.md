@@ -34,8 +34,8 @@ Types of changes:
   not keep that cadence, 4 were unlisted at the last lookup and the others in about two thirds of
   the windows (GH-4166)
 - `dwd/alerts`: a `timestamp` whose snapshot directory is gone from DWD's server is answered as
-  `MetaFileNotFoundError` naming the URL (a 502 over REST, an upstream error on the CLI) and no
-  longer as a bare `FileNotFoundError`, a 500 `internal-error` (GH-4203)
+  `MetaFileNotFoundError` naming the URL (a 502 over REST and MCP; the CLI's message now says what
+  is missing) and no longer as a bare `FileNotFoundError`, a 500 `internal-error` (GH-4203)
 
 ## [0.191.0] - 2026-11-17
 
