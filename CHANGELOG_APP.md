@@ -30,6 +30,11 @@ Types of changes:
 
 ### Changed
 
+- `[Forecast, Map, Widget]` The forecast's day cards (the compact view, the map panel's rows, the
+  widget's narrow frame) draw Yr's weather symbols, as the chart does, in the light or dark set of
+  the page, not Phosphor line icons. A day of 4 mm or more of rain gets the heavy-rain symbol; wind,
+  dust and a funnel cloud take the sky of the day's cloud cover. Wherever the cards show without
+  the chart, the CC BY 4.0 credit of the symbols is under them (GH-4193).
 - `[Map]` The layer switch and the grouping control, two rows over the map, are one round layers
   button in the map's top right corner. It opens a small panel with the layers, the resolution and
   dataset of the measurements, and a "Group stations" switch (disabled and on above 10,000

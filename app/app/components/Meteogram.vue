@@ -7,12 +7,13 @@ import { DateTime, Info } from 'luxon'
 import tzLookup from 'tz-lookup'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import MeteogramChart from '~/components/MeteogramChart.vue'
+import WeatherSymbol from '~/components/WeatherSymbol.vue'
+import WeatherSymbolsCredit from '~/components/WeatherSymbolsCredit.vue'
 import { panelToggleStyle, seriesLabelColor } from '~/utils/chart-theme'
 import { meteogramDays } from '~/utils/meteogram-days'
 import { buildSeries, seriesSpan, snowSeries } from '~/utils/meteogram-series'
 import { meteogramSummary, meteogramTable } from '~/utils/meteogram-summary'
 import { meteogramUnits } from '~/utils/meteogram-units'
-import { WEATHER_ICONS } from '~/utils/weather-kind'
 
 const props = defineProps<{
   values: Value[]
@@ -364,24 +365,28 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
       <p v-else-if="daysOnly && !compactDays.length" class="text-sm text-muted" data-testid="day-rows-empty">
         {{ t('widget.noData') }}
       </p>
-      <ul v-else-if="daysOnly" class="divide-y divide-default" data-testid="day-rows">
-        <li v-for="(d, idx) in compactDays" :key="idx" class="grid grid-cols-[minmax(4.5rem,auto)_2rem_1fr_auto] items-center gap-x-3 py-2">
-          <span class="text-sm" :class="d.isToday ? 'font-bold text-highlighted' : 'text-toned'">
-            {{ d.isToday ? t('meteogram.chart.today') : d.weekday }}
-            <span class="block text-xs font-normal text-muted tabular-nums">{{ d.dayMonth }}</span>
-            <span v-if="d.partialHours" class="block text-xs font-normal text-muted" data-testid="partial-day">{{ t('meteogram.chart.partialDay', { hours: d.partialHours }) }}</span>
-          </span>
-          <!-- the icon is a decoration; the words are what a screen reader reads (WCAG 1.1.1). text-toned: 3:1 and more on the row, by day and at night -->
-          <UIcon :name="WEATHER_ICONS[d.kind]" class="size-6 text-toned" aria-hidden="true" :data-weather="d.kind" />
-          <span class="text-sm text-toned">
-            <span class="sr-only">{{ t(`meteogram.chart.weather.${d.kind}`) }}</span>
-            <span v-if="d.precipLabel" class="text-blue-700 dark:text-blue-300 tabular-nums" :title="precipNote(d) ?? undefined" data-testid="row-precip">
-              <span class="sr-only">{{ ', ' }}{{ t('meteogram.chart.panelPrecipitation') }}{{ t('common.colon') }}{{ ' ' }}</span>{{ d.precipLabel }}<span v-if="precipNote(d)" class="sr-only">{{ ', ' }}{{ precipNote(d) }}</span>
+      <template v-else-if="daysOnly">
+        <ul class="divide-y divide-default" data-testid="day-rows">
+          <li v-for="(d, idx) in compactDays" :key="idx" class="grid grid-cols-[minmax(4.5rem,auto)_2rem_1fr_auto] items-center gap-x-3 py-2">
+            <span class="text-sm" :class="d.isToday ? 'font-bold text-highlighted' : 'text-toned'">
+              {{ d.isToday ? t('meteogram.chart.today') : d.weekday }}
+              <span class="block text-xs font-normal text-muted tabular-nums">{{ d.dayMonth }}</span>
+              <span v-if="d.partialHours" class="block text-xs font-normal text-muted" data-testid="partial-day">{{ t('meteogram.chart.partialDay', { hours: d.partialHours }) }}</span>
             </span>
-          </span>
-          <span v-if="d.tempLabel" class="text-sm font-bold text-highlighted tabular-nums text-end">{{ d.tempLabel }}</span>
-        </li>
-      </ul>
+            <!-- the symbol is a decoration; the words are what a screen reader reads (WCAG 1.1.1) -->
+            <WeatherSymbol :kind="d.kind" :sky="d.sky" :precipitation-mm="d.precipitationMm" class="size-8" />
+            <span class="text-sm text-toned">
+              <span class="sr-only">{{ t(`meteogram.chart.weather.${d.kind}`) }}</span>
+              <span v-if="d.precipLabel" class="text-blue-700 dark:text-blue-300 tabular-nums" :title="precipNote(d) ?? undefined" data-testid="row-precip">
+                <span class="sr-only">{{ ', ' }}{{ t('meteogram.chart.panelPrecipitation') }}{{ t('common.colon') }}{{ ' ' }}</span>{{ d.precipLabel }}<span v-if="precipNote(d)" class="sr-only">{{ ', ' }}{{ precipNote(d) }}</span>
+              </span>
+            </span>
+            <span v-if="d.tempLabel" class="text-sm font-bold text-highlighted tabular-nums text-end">{{ d.tempLabel }}</span>
+          </li>
+        </ul>
+        <!-- the symbols are Yr's, under CC BY 4.0, which asks for the credit where they are shown: there is no chart here to carry it (GH-4193) -->
+        <WeatherSymbolsCredit class="mt-2 text-xs text-muted" data-testid="day-symbols-credit" />
+      </template>
 
       <UEmpty v-else-if="!compactDays.length" icon="i-ph-cloud-slash" :title="t('meteogram.chart.noData')" />
 
@@ -401,9 +406,9 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
               <div class="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-widest mb-1">
                 {{ d.isToday ? t('meteogram.chart.today') : d.weekday }}
               </div>
-              <!-- the icon is a decoration; the words are what a screen reader reads (WCAG 1.1.1) -->
+              <!-- the symbol is a decoration; the words are what a screen reader reads (WCAG 1.1.1) -->
               <div class="my-3 animate-bounce-slow">
-                <UIcon :name="WEATHER_ICONS[d.kind]" class="size-8 text-toned" aria-hidden="true" :data-weather="d.kind" />
+                <WeatherSymbol :kind="d.kind" :sky="d.sky" :precipitation-mm="d.precipitationMm" class="size-12" />
               </div>
               <div class="sr-only">
                 {{ t(`meteogram.chart.weather.${d.kind}`) }}
@@ -431,6 +436,8 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
             </div>
           </template>
         </div>
+        <!-- the symbols are Yr's, under CC BY 4.0, which asks for the credit where they are shown: the chart that carries it is not here (GH-4193) -->
+        <WeatherSymbolsCredit class="mt-3 px-1 text-xs text-muted" data-testid="day-symbols-credit" />
       </div>
     </div>
   </div>

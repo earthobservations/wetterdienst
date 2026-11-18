@@ -371,7 +371,7 @@ describe('a station picked', () => {
     expect(card().find('h3').text()).toBe('Forecast')
     expect(card().findAll('[data-testid="day-rows"] li').length).toBeGreaterThanOrEqual(3)
     expect(asked.values).toEqual(['10147'])
-    expect(card().find('a').attributes('href')).toBe('/meteogram?station=10147')
+    expect(card().find('a[href^="/meteogram"]').attributes('href')).toBe('/meteogram?station=10147')
     // the forecast point is the picked one, and the click was some way from it: the card says how far
     expect(card().text()).toMatch(/HAMBURG-FUHLSBUETTEL, \d+ km away/)
   })

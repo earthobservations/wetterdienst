@@ -250,3 +250,33 @@ describe('the sky of a day whose codes are DWD\'s cloud development 0 to 3 (GH-4
     expect(kindOf(day(cloudy, rain))).toBe('rain')
   })
 })
+
+// What a day card draws its Yr symbol from (GH-4193): the sky of the day's cloud cover for wind, dust and a funnel cloud, and its rain in mm
+describe('the sky and the rain of a day, which its symbol is chosen by', () => {
+  const stamp = (hour: number) => new Date(Date.UTC(2026, 10, 20, hour - 1)).toISOString().replace('.000Z', '+00:00')
+  const hourly = (parameter: string, value: number) => Array.from({ length: 24 }, (_, hour) => ({ station_id: 'C720', resolution: 'hourly', dataset: 'large', parameter, timestamp: stamp(hour), value, quality_flags: null }))
+  const dayOf = (code: number, cover: number | null, rain: number | null) => byDate(days([
+    ...hourly('weather_significant', code),
+    ...hourly('temperature_air_2m', 10),
+    ...(cover === null ? [] : hourly('cloud_cover_total', cover)),
+    ...(rain === null ? [] : hourly(PRECIPITATION.hour, rain)),
+  ], { today: '2026-11-20' }))['2026-11-20']!
+
+  it('has the sky of the cloud cover, by the chart\'s thresholds, whatever the weather the code names', () => {
+    expect(dayOf(61, 10, null)).toMatchObject({ kind: 'rain', sky: 'clear' })
+    expect(dayOf(61, 50, null)).toMatchObject({ kind: 'rain', sky: 'partlyCloudy' })
+    expect(dayOf(18, 70, null)).toMatchObject({ kind: 'wind', sky: 'cloudy' })
+    expect(dayOf(33, 20, null)).toMatchObject({ kind: 'dust', sky: 'clear' })
+    expect(dayOf(19, 95, null)).toMatchObject({ kind: 'funnelCloud', sky: 'cloudy' })
+  })
+
+  it('has a partly cloudy sky where the day has no cloud cover, as the chart\'s hours do', () => {
+    expect(dayOf(18, null, null).sky).toBe('partlyCloudy')
+  })
+
+  it('has the rain of the day in millimetres, and none where the forecast has no amount', () => {
+    expect(dayOf(61, 50, 0.25).precipitationMm).toBeCloseTo(5.75, 5)
+    expect(dayOf(61, 50, 0).precipitationMm).toBe(0)
+    expect(dayOf(61, 50, null).precipitationMm).toBeNull()
+  })
+})

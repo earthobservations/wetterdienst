@@ -765,14 +765,7 @@ const selectionStyle = computed(() => {
     <!-- the credits and the legend, side by side where the width allows: the symbols', the snow forecast's and the thunderstorm band's -->
     <div v-if="model?.symbols.length || snowShown || thunderLegend" class="flex flex-wrap gap-x-4 gap-y-0.5 px-2 pb-1.5 pt-1 text-xs text-muted">
       <!-- the symbols are the work of Yr, under CC BY 4.0, which asks for this credit where they are shown -->
-      <i18n-t v-if="model?.symbols.length" keypath="meteogram.chart.symbolsCredit" tag="p" scope="global" data-testid="meteogram-credit">
-        <template #yr>
-          <a href="https://github.com/nrkno/yr-weather-symbols" target="_blank" rel="noopener" class="underline underline-offset-2">Yr</a>
-        </template>
-        <template #licence>
-          <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener" class="underline underline-offset-2">CC BY 4.0</a>
-        </template>
-      </i18n-t>
+      <WeatherSymbolsCredit v-if="model?.symbols.length" data-testid="meteogram-credit" />
       <!-- the snow forecast is DWD's MOSMIX-SNOW, a product of its own that only some stations have: named where it is drawn -->
       <p v-if="snowShown" data-testid="meteogram-snow-credit">
         {{ t('meteogram.chart.snowCredit') }}
