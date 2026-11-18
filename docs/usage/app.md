@@ -211,8 +211,11 @@ backend can fail on a request the backend has since changed.
 
 The pages are drawn by script, so the server writes what a crawler or a link preview that runs none needs into the
 HTML it sends: the title, the description, the canonical link and the `og:` and `twitter:` tags of the path, and a
-`<noscript>` text with links to the pages. The script then sets the same tags in the language of the visitor; the
-server writes German, or English for a visitor who chose it or whose browser asks for it first. `/sitemap.xml` lists
+`<noscript>` text with links to the pages, and `<html lang>`. The server writes them in the language the page will
+show: it picks it as the app does at startup, the language of the `wd_lang` cookie if the visitor chose one, else
+the first language of the `Accept-Language` header that the app has, else German. A request with no
+`Accept-Language` at all, as a crawler sends (a browser always sends one), gets English, the language of the page a
+crawler renders. One URL has one language for the HTML and for the page. `/sitemap.xml` lists
 the pages worth finding (the explorer, the forecast, the climate stripes, the API, the providers, the glossary, the
 project and legal pages, and the page of each provider) and `/robots.txt` names it. The page of a provider
 (`/providers/dwd`) has its own title and description; the server reads the list of providers from the backend's

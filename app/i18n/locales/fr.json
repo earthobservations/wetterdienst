@@ -141,7 +141,7 @@
   },
   "seo": {
     "title": "Wetterdienst – données météorologiques et climatiques ouvertes des services météorologiques nationaux",
-    "description": "Données météorologiques et climatiques ouvertes des services météorologiques nationaux, dans un seul format : explorateur, prévisions, bandes climatiques, API REST et serveur MCP. Open source et gratuit.",
+    "description": "Données météorologiques et climatiques ouvertes des services météorologiques nationaux, dans un seul format : explorateur, prévisions, bandes climatiques, API REST et serveur MCP. Libre et gratuit.",
     "noscript": "Wetterdienst a besoin de JavaScript pour afficher les données.",
     "providerDescription": "{provider} dans Wetterdienst : {kinds}, avec licence et mention de la source. Ouvrir dans l'Explorateur ou l'API REST.",
     "kinds": {
