@@ -515,6 +515,61 @@ describe('the readout', { timeout: 15_000 }, () => {
   })
 })
 
+// The thunderstorm band (GH-4090): a thin panel under the precipitation for the hours of a probability of 10 % or more
+describe('the thunderstorm band', { timeout: 15_000 }, () => {
+  const storm = (hour: number) => hour === 44 ? 55 : hour === 43 ? 14 : 1
+  const legend = () => document.body.querySelector('[data-testid="meteogram-thunder-legend"]')
+
+  it('is a panel of its own, which the chart is drawn with, and the legend under the chart says what its bars are', async () => {
+    await showChart({ series: buildSeries(forecastValues({ thunder: storm }) as any) })
+    const option = lastOption()
+    // the header, then wind, precip, thunder, cloud, temp, pressure
+    expect(option.grid.map((g: any) => g.height).slice(1)).toEqual([124, 88, 56, 80, 156, 84])
+    expect(option.series.find((s: any) => s.id === 'thunder').data).toHaveLength(2)
+    expect(legend()!.textContent).toContain('Thunderstorms: DWD MOSMIX probability of a thunderstorm within the hour')
+    expect(legend()!.textContent).toContain('Hours from 10% on are drawn')
+    expect(legend()!.textContent).toContain('steps at 30% and 60%')
+  })
+
+  it('is no panel, and has no legend, for a forecast without a risk or without the series', async () => {
+    await showChart({ series: buildSeries(forecastValues({ thunder: () => 2 }) as any) })
+    expect(lastOption().grid).toHaveLength(6)
+    expect(legend()).toBeNull()
+    wrapper!.unmount()
+    await showChart()
+    expect(lastOption().grid).toHaveLength(6)
+    expect(legend()).toBeNull()
+  })
+
+  it('goes with the precipitation: its legend goes where the precipitation is switched off', async () => {
+    await showChart({ series: buildSeries(forecastValues({ thunder: storm }) as any), panels: { ...ALL_PANELS, precip: false } })
+    // the header, wind, cloud, temperature and pressure: neither the precipitation nor the band
+    expect(lastOption().grid).toHaveLength(5)
+    expect(legend()).toBeNull()
+  })
+
+  it('says the probability of the hour in the readout and in what is announced, for the hours under the threshold as well', async () => {
+    await showChart({ series: buildSeries(forecastValues({ thunder: storm }) as any) })
+    stage().dispatchEvent(pointer('pointermove', { clientX: gutter() + 10 * 44, clientY: 300 }))
+    await flushPromises()
+    expect(readout()!.textContent).toContain('Thunderstorm probability (1 h)')
+    expect(readout()!.textContent).toContain('55%')
+    // a key's step is announced (a pointer's hover is not): the first key lands on hour 0, seven Shift steps of six hours and two of one are hour 44
+    stage().dispatchEvent(new MouseEvent('pointerleave'))
+    key('ArrowRight')
+    for (let i = 0; i < 7; i++)
+      key('ArrowRight', { shiftKey: true })
+    key('ArrowRight')
+    key('ArrowRight')
+    await flushPromises()
+    expect(announce()).toContain('Thunderstorm probability (1 h): 55%')
+    stage().dispatchEvent(pointer('pointermove', { clientX: gutter() + 10 * 20, clientY: 300 }))
+    await flushPromises()
+    expect(readout()!.textContent).toContain('Thunderstorm probability (1 h)')
+    expect(readout()!.textContent).toContain('1%')
+  })
+})
+
 describe('the window', { timeout: 15_000 }, () => {
   it('follows the strip that is scrolled, and the strip follows the window', async () => {
     await showChart()

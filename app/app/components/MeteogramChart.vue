@@ -24,6 +24,7 @@ import { findNearestIndex } from '~/utils/meteogram'
 import { chartLayout, clampWindow, GUTTER_LEFT, GUTTER_RIGHT, HOUR_MS, hourWidth, MIN_SPAN_HOURS, panWindow, plotWidthFor, readoutPlacement, revealInstant, scrollStrip, toggleOf, windowFromScroll, zoomWindow } from '~/utils/meteogram-geometry'
 import { buildMeteogramModel, readoutHours, readoutValue } from '~/utils/meteogram-model'
 import { buildMeteogramOption, gutterLeftFor, toneColor } from '~/utils/meteogram-option'
+import { THUNDER_LEVELS } from '~/utils/meteogram-thunder'
 import { withUnit } from '~/utils/units'
 import { yrSymbolFor, yrSymbolUrl } from '~/utils/weather-symbols'
 
@@ -88,6 +89,13 @@ const model = computed<MeteogramModel | null>(() => buildMeteogramModel({
 }))
 // whether the chart draws the snow panel, whose source is named under it
 const snowShown = computed(() => !!model.value?.panels.some(panel => toggleOf(panel) === 'snow'))
+// the legend of the thunderstorm band, where the chart draws one: what it shows, from what probability, and where the shade and the height step up
+const thunderLegend = computed(() => {
+  if (!model.value?.thunder)
+    return ''
+  const probability = (percent: number) => withUnit(formatNumber(props.units.shown('fraction', percent), locale.value, props.units.digits('fraction')), props.units.unitOf('fraction'))
+  return t('meteogram.chart.thunderLegend', { low: probability(THUNDER_LEVELS[0]), mid: probability(THUNDER_LEVELS[1]), high: probability(THUNDER_LEVELS[2]) })
+})
 const bounds = computed<TimeWindow | null>(() => model.value ? { start: model.value.minTime, end: model.value.maxTime } : null)
 const hours = computed(() => bounds.value ? (bounds.value.end - bounds.value.start) / HOUR_MS : 0)
 const layout = computed(() => model.value ? chartLayout(model.value.panels, model.value.symbols.length > 0) : null)
@@ -754,8 +762,8 @@ const selectionStyle = computed(() => {
         </div>
       </div>
     </div>
-    <!-- the credits, side by side where the width allows: the symbols' and the snow forecast's -->
-    <div v-if="model?.symbols.length || snowShown" class="flex flex-wrap gap-x-4 gap-y-0.5 px-2 pb-1.5 pt-1 text-xs text-muted">
+    <!-- the credits and the legend, side by side where the width allows: the symbols', the snow forecast's and the thunderstorm band's -->
+    <div v-if="model?.symbols.length || snowShown || thunderLegend" class="flex flex-wrap gap-x-4 gap-y-0.5 px-2 pb-1.5 pt-1 text-xs text-muted">
       <!-- the symbols are the work of Yr, under CC BY 4.0, which asks for this credit where they are shown -->
       <i18n-t v-if="model?.symbols.length" keypath="meteogram.chart.symbolsCredit" tag="p" scope="global" data-testid="meteogram-credit">
         <template #yr>
@@ -768,6 +776,10 @@ const selectionStyle = computed(() => {
       <!-- the snow forecast is DWD's MOSMIX-SNOW, a product of its own that only some stations have: named where it is drawn -->
       <p v-if="snowShown" data-testid="meteogram-snow-credit">
         {{ t('meteogram.chart.snowCredit') }}
+      </p>
+      <!-- the thunderstorm band: its source, and what its bars' height and shade say (colour is not the only cue, and the values are in the readout and the table) -->
+      <p v-if="thunderLegend" data-testid="meteogram-thunder-legend">
+        {{ thunderLegend }}
       </p>
     </div>
     <p :id="hintId" class="sr-only">
