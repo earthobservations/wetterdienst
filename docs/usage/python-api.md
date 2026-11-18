@@ -34,8 +34,8 @@ coverage
 
 Each network says what it is: `name_short`, `country`, `url`, `kind` and `scope` (how far it reaches: `global`,
 `national` or `regional`), `auth`, `configured` and `date_required`, where `observation`, `forecast` and
-`derived` are the timeseries networks, which have stations and values, and `radar` and `alerts`
-(`dwd/radar`, `dwd/alerts`) are standalone, with request classes and results of their own. Nothing is
+`derived` are the timeseries networks, which have stations and values, and `radar`, `alerts` and `storm_cells`
+(`dwd/radar`, `dwd/alerts`, `dwd/storm_cells`) are standalone, with request classes and results of their own. Nothing is
 downloaded, so whether a provider accepts the credentials you have is not part of it:
 `Wetterdienst.is_valid(Wetterdienst.resolve("aemet", "observation"))` asks for one network. `discover()` is the
 Python counterpart of the REST route [`/api/providers`](restapi.md#providers), which lists the same networks
@@ -56,8 +56,8 @@ from wetterdienst import Wetterdienst
 Wetterdienst.resolve(provider="dwd", network="observation")
 ```
 
-`resolve` is for the networks that have stations and values. The two that have not, `dwd/radar` and
-`dwd/alerts` (`Wetterdienst.standalone`), take other arguments and give other results, so they have an entry
+`resolve` is for the networks that have stations and values. The three that have not, `dwd/radar`,
+`dwd/alerts` and `dwd/storm_cells` (`Wetterdienst.standalone`), take other arguments and give other results, so they have an entry
 point of their own, `Wetterdienst.resolve_standalone`, and `resolve` refuses them with an
 `ApiNotFoundError` that says so. Both are typed: `resolve` gives a `type[TimeseriesRequest]`, and
 `resolve_standalone("dwd", "radar")` the `DwdRadarValues` class. The classes can also be imported, which is
@@ -388,7 +388,9 @@ match.  Lower values accept more typos; higher values require a closer match.  T
 `rank` parameter limits how many stations are returned (default 1, the best match). The `stations` listing
 of the command line and the REST API offers the best five instead: pass `rank=5` for the same list.
 A station is one match however many datasets (rows) it has, and two stations that share a name are two.
-The rows come back best match first, equal scores in the order of their `station_id`.
+The rows come back best match first, equal scores the closer whole name first (`Saarland` finds
+`Rheinland-Pfalz und Saarland: Saarland` before a longer name that holds it), a tie on both in the order of
+their `station_id`.
 
 `filter_by_name` matches the name among the stations that have a record in the `start` and `end` of the
 request, as the command line, the REST API and MCP do with a `timestamp`: a station that closed before
@@ -730,7 +732,7 @@ that held one value for a month) is judged by a **check**, and the option `plaus
 per check: `"hard"` makes the value null and keeps the number as `rejected:<check>,raw:<number>` in `quality_flags`,
 `"soft"` keeps the value and flags it `suspect:<check>`. The checks are `range`, `elevation`, `stuck`, `consistency`,
 `floor`, `limits`, `source`, `step` and `relations`; all are hard but `stuck` and `step`, which are soft because they judge a series and not a value (what `stuck` finds depends on what was read, and `step` is a jump between consecutive readings, which a front also makes; see the
-[plausibility page](../data/plausibility.md)), `relations`, which is soft because it flags both readings of two that contradict each other and cannot tell which is wrong (it is not `consistency`, the hard check of a provider's own rules), and `source`, which is soft because its verdict is the source's own: a value the provider's quality flag marks as erroneous or doubtful (GHCN-Daily `QFLAG`, Frost `qualityCode` 7, an Environment Agency `Suspect`, DMI `validity:false`, ...) is flagged `suspect:source`, or null with `rejected:source` in `"hard"` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged). A check not named keeps its mode, and `WD_TS_PLAUSIBILITY__RANGE=soft` sets one for a host. On a forecast network (`kind` `forecast`: `dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) every check but `floor` and `limits` is soft whatever you set, so `"hard"` there flags a value `suspect:<check>` and never nulls it: a forecast is a model's output and no reading. The codes a source documents
+[plausibility page](../data/plausibility.md)), `relations`, which is soft because it flags both readings of two that contradict each other and cannot tell which is wrong (it is not `consistency`, the hard check of a provider's own rules), and `source`, which is soft because its verdict is the source's own: a value the provider's quality flag marks as erroneous or doubtful (GHCN-Daily `QFLAG`, Frost `qualityCode` 7, an Environment Agency `Suspect`, DMI `validity:false`, ...) is flagged `suspect:source`, or null with `rejected:source` in `"hard"` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged). A check not named keeps its mode, and `WD_TS_PLAUSIBILITY__RANGE=soft` sets one for a host. On a forecast network (`kind` `forecast`: `dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/uvi`) every check but `floor` and `limits` is soft whatever you set, so `"hard"` there flags a value `suspect:<check>` and never nulls it: a forecast is a model's output and no reading. The codes a source documents
 (`-999`, a calm, a trace) are no check and have no mode.
 
 ```python

@@ -18,6 +18,44 @@ Types of changes:
 
 ### Added
 
+- `[Forecast]` The forecast chart shows MOSMIX's thunderstorm probability: a thin panel under the
+  precipitation (it goes with the Precipitation switch) draws each hour with a probability of 10 %
+  or more as a bar, as high as the probability and in one of three shades (from 10, 30 and 60 %),
+  so that colour is not the only cue. Hours under 10 %, which MOSMIX gives on calm days, are not
+  drawn, and a forecast with none has no panel. Where the panel is drawn, the readout says the
+  probability of every hour; a line under the chart says what the bars are, the table has a
+  column for it and the chart's description names the likeliest hour. It is the hourly
+  probability (`wwt`), which MOSMIX gives for every hour of the run; the 6, 12 and 24 hour ones
+  are not used. The compact day cards are unchanged (GH-4090).
+
+### Fixed
+
+- `[Forecast]` The wind barbs of the chart stand on the side of the station's hemisphere, as on a
+  weather map: for a wind from the west north of the equator they are above the shaft (they were
+  below it), south of the equator below it. A station without a position has the northern side
+  (GH-4063).
+- `[SEO]` The HTML the server sends for a page is in the language the page then shows: its
+  `<html lang>`, title, description, `og:` tags and `<noscript>` text follow the visitor's
+  language cookie, else the first language of the browser's `Accept-Language` that the app has
+  (any of its 11, no longer only German and English), else German, as the app picks it at
+  startup. A request with no `Accept-Language` at all, which a crawler sends and a browser never
+  does, gets English, the language of the page a crawler renders. Before, a request in French or
+  with a cookie for it got German, and the page then showed another language than the HTML under
+  the same URL (GH-4106).
+- `[Forecast]` Under the fraction unit `0–1`, the cloud and snow-chance panels' middle tick is
+  written 0.5 and no longer as 1, which read as the top of the axis; `%` and oktas are unchanged
+  (GH-4197).
+- `[Widget]` Docs: the embedded widget's chart is 674 px high, 744 px with the thunderstorm panel,
+  not 540 px, and the frame needs about 850 to 950 px, so the example iframe is 1000 px high where
+  it was 700 and had a scroll bar; the day cards of a frame 40 rem wide or less are about 350 px
+  (GH-4197).
+
+## [0.53.0] - 2026-11-17
+
+Paired with backend 0.191.0, which it needs for the stripes' classes and the stations' WMO numbers.
+
+### Added
+
 - `[Map]` The stations of the map are grouped at the outer zooms: stations that lie close together
   are one disc with their number, which a click or tap zooms in on; a station that is alone stays a
   dot, and the one picked stays in view above its group. A switch over the map sets how much is
@@ -2322,7 +2360,10 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.53.0...HEAD
+[0.53.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.52.0...app-v0.53.0
+[0.52.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.1...app-v0.52.0
+[0.51.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.0...app-v0.51.1
 [0.51.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.50.0...app-v0.51.0
 [0.50.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.49.0...app-v0.50.0
 [0.49.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.48.0...app-v0.49.0
@@ -2373,7 +2414,7 @@ Types of changes:
 [0.7.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.6.0...app-v0.7.0
 [0.6.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.5.0...app-v0.6.0
 [0.5.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.4.0...app-v0.5.0
-[0.4.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.3.0...app-v0.4.0
-[0.3.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.2.0...app-v0.3.0
-[0.2.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.1.0...app-v0.2.0
+[0.4.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.3.0...app-v0.4.0
+[0.3.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.2.0...app-v0.3.0
+[0.2.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.1.0...app-v0.2.0
 [0.1.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.1.0

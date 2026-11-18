@@ -33,6 +33,7 @@ Commands:
   radar        List radar stations.
   restapi      Start the Wetterdienst REST API web service.
   stations     Acquire stations.
+  storm-cells  Acquire DWD's thunderstorm cells (KONRAD3D).
   stripes      Climate stripes.
   summarize    Summarize data for a point: the nearest station's value.
   values       Acquire data.
@@ -161,15 +162,15 @@ Usage: wetterdienst coverage [OPTIONS]
 
   --provider and --network are required; `providers` lists the providers and their networks, with
   their `kind` (`observation`, `forecast` or `derived` for a timeseries network, which has stations
-  and values, and `radar` or `alerts` for a standalone one, which `stations` and `values` refuse)
-  and whether they need credentials and have them. A parameter's `unit` is the unit its values come
-  back in when no unit target is given (the one `glossary` gives; `degree_celsius`, `percent` for a
-  percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `one_eighth`),
-  is there only where it differs from `unit`; absent, it is the same. A unit target of your own
-  changes the values, not this answer. `aggregation` is what the value is relative to its interval
-  (`mean`, `max`, `sum`, ..., `instant` for a single reading) and `timestamp_position` where its
-  timestamp sits in the row's interval (`instant`, `start`, `end`, `middle`); `null` in either: the
-  source does not state it.
+  and values, and `radar`, `alerts` or `storm_cells` for a standalone one, which `stations` and
+  `values` refuse) and whether they need credentials and have them. A parameter's `unit` is the unit
+  its values come back in when no unit target is given (the one `glossary` gives; `degree_celsius`,
+  `percent` for a percentage). `unit_source`, the unit the provider publishes it in
+  (`degree_kelvin`, `one_eighth`), is there only where it differs from `unit`; absent, it is the
+  same. A unit target of your own changes the values, not this answer. `aggregation` is what the
+  value is relative to its interval (`mean`, `max`, `sum`, ..., `instant` for a single reading) and
+  `timestamp_position` where its timestamp sits in the row's interval (`instant`, `start`, `end`,
+  `middle`); `null` in either: the source does not state it.
 
 Options:
   --provider TEXT     Data provider/organisation. List the provider/network combinations with:
@@ -652,6 +653,80 @@ Options:
   # export to a spreadsheet
   wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --all \
       --target=file://stations.xlsx
+
+
+$ wetterdienst storm-cells --help
+
+Usage: wetterdienst storm-cells [OPTIONS]
+
+  Acquire DWD's thunderstorm cells (KONRAD3D).
+
+  Returns the cells of the newest radar scan (or of the newest at or before --timestamp), one row
+  per cell: its severity, warning flags for hail, heavy rain and gusts, size, speed, the direction
+  of its motion, its outline and its forecast track. Every cell of Germany, unless --latitude,
+  --longitude and --distance, or --left, --bottom, --right and --top name a place. An empty result
+  is an answer: no cell was there (most scans hold none), or none is in the place; its warnings say
+  which, and that the scan is old.
+
+  With --target the extension decides the format (.json, .geojson, .csv), as for the other commands.
+
+Options:
+  --timestamp TEXT                Point in time (ISO 8601, UTC if no offset): the newest scan at or
+                                  before it. Defaults to the newest scan. Must fall within DWD's
+                                  rolling ~48-hour window.
+  --latitude FLOAT RANGE          With --longitude, only the cells whose outline contains this point
+                                  (an edge counts as inside) or comes within --distance of it.
+                                  [-90<=x<=90]
+  --longitude FLOAT RANGE         Longitude of the point; given with --latitude.  [-180<=x<=180]
+  --distance FLOAT RANGE          With a point, the kilometres from it within which the outline of a
+                                  cell counts as near. Default: 0, the cells over the point.  [x>=0]
+  --left FLOAT RANGE              Western longitude of a box: with --bottom, --right and --top, only
+                                  the cells whose outline reaches into it.  [-180<=x<=180]
+  --bottom FLOAT RANGE            Southern latitude of the box.  [-90<=x<=90]
+  --right FLOAT RANGE             Eastern longitude of the box.  [-180<=x<=180]
+  --top FLOAT RANGE               Northern latitude of the box.  [-90<=x<=90]
+  --min-severity INTEGER RANGE    Only the cells of this severity and above: 0 weak, 1 moderate, 2
+                                  severe, 3 extreme.  [0<=x<=3]
+  --track BOOLEAN                 Give each cell its forecast track, 12 positions to 60 minutes
+                                  ahead (1.6 KB of JSON a cell). --track=false leaves it out.
+                                  Default: true
+  --geometry [outline|centroid]   The geometry of each cell: its outline polygon, or the point of
+                                  its centre. Default: outline
+  --format [json|geojson|csv]     Output format. Default: json
+  --target TEXT                   Write the cells to this file instead of stdout, in the format its
+                                  extension names: .json, .geojson or .csv. Databases are refused. A
+                                  scan without a cell still writes the file. Example:
+                                  file://cells.geojson
+  --if-exists [replace|append|fail|skip]
+                                  What to do when the --target file is there: 'replace' (default),
+                                  'fail' or 'skip'. A file takes no 'append'. Default: replace
+  --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
+                                  Default: false
+  --with-metadata BOOLEAN         Write the metadata block (provider, licence, credit line, date of
+                                  the data) beside the --target file as <file>.metadata.json. A
+                                  .json or .geojson file holds it already; a .csv file does not.
+                                  Needs --target. Default: false
+  --debug BOOLEAN                 Log at debug level. Default: false
+  --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
+                                  with --debug. Default: false
+  --help                          Show this message and exit.
+
+  Examples:
+
+  # the cells of the newest radar scan, as JSON: every cell of Germany, and most scans have none
+  wetterdienst storm-cells
+
+  # the cells over a place or within 25 km of it, without the track: a few KB
+  wetterdienst storm-cells --latitude=52.52 --longitude=13.40 --distance=25 --track=false
+
+  # the cells in a box (left, bottom, right, top), severe ones and above, as points of their centres
+  wetterdienst storm-cells --left=8 --bottom=47.5 --right=13.8 --top=50.6 --min-severity=2 --geometry=centroid
+
+  # the cells of a past scan: replace YYYY-MM-DDTHH:MM with a time within the last ~48 hours, all DWD keeps
+  wetterdienst storm-cells --timestamp=YYYY-MM-DDTHH:MM
+
+  # to a GeoJSON file
+  wetterdienst storm-cells --format=geojson --target=file://cells.geojson
 
 
 $ wetterdienst stripes --help

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { classifyPrecip, extremeWindowHours, extremeWindowSteps, findNearestIndex, interpSeries, METEOGRAM_SERIES, meteogramUnitsKey, meteogramValuesQuery, meteogramValuesSettings, meteogramView, meteogramViewFromQuery, MOSMIX_METEOGRAM, wetBulbApprox } from '../../app/utils/meteogram'
+import { classifyPrecip, extremeWindowHours, extremeWindowSteps, findNearestIndex, interpSeries, METEOGRAM_SERIES, meteogramUnitsKey, meteogramValuesQuery, meteogramValuesSettings, meteogramView, meteogramViewFromQuery, MOSMIX_DAY_ROWS_PARAMETERS, MOSMIX_METEOGRAM, wetBulbApprox } from '../../app/utils/meteogram'
 import { parameters } from '../../i18n/glossary/en'
 
 describe('findNearestIndex', () => {
@@ -312,6 +312,12 @@ describe('the request of a meteogram', () => {
     const query = meteogramValuesQuery('10147', metric)
     expect(query).toMatchObject({ provider: 'dwd', network: 'mosmix', stations: '10147', shape: 'long', humanize: 'true', skip_empty: 'false' })
     expect(query.parameters!.split(',')).toEqual(MOSMIX_METEOGRAM.parameters.map(parameter => `hourly/large/${parameter}`))
+  })
+
+  it('asks for the day rows of the map without the thunderstorm probability, which the chart reads and they do not', () => {
+    const rows = meteogramValuesQuery('10147', metric, MOSMIX_DAY_ROWS_PARAMETERS).parameters!.split(',')
+    expect(rows).toEqual(MOSMIX_METEOGRAM.parameters.filter(parameter => parameter !== 'wwt').map(parameter => `hourly/large/${parameter}`))
+    expect(rows).toHaveLength(MOSMIX_METEOGRAM.parameters.length - 1)
   })
 
   it('asks for the unit of each parameter with the answer, which the labels are written from', () => {

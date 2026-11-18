@@ -610,6 +610,7 @@ export const parameters: Record<string, string> = {
   thawing_thickness_plant_cover: 'Uptaudeepde, ünner Bewuss',
   thawing_thickness_plant_cover_max_month: 'Gröttste Uptaudeepde vun\'n Maand, ünner Bewuss',
   turbidity: 'Trübung',
+  uv_index_max: 'UV-Index (Dagesmaximum)',
   volume_reservoir: 'Volumen vun den Stausee',
   water_equivalent_snow_depth_sampled: 'Waterweert vun\'n Snéé (Proov)',
   water_equivalent_snow_depth_new: 'Neeschnee-Wateräquivalent',

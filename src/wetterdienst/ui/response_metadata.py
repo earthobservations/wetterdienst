@@ -112,7 +112,7 @@ class ResolvedRequest(BaseModel):
     end: str | None = Field(description="End of the window applied, in UTC; null for no window.")
     stations: StationsSelected | None = Field(
         description="The stations the answer is about; null for one that is not about stations, the warnings of "
-        "`dwd/alerts`.",
+        "`dwd/alerts` and the cells of `dwd/storm_cells`.",
     )
 
 
@@ -124,7 +124,7 @@ class Counts(BaseModel):
     stations: int = Field(description="The stations in the answer; 0 for one that is not about stations.")
     rows: int = Field(
         description="The rows of `values` (one per timestamp in the wide shape, one per value in the long "
-        "one), the stations listed, the histories, the issues or the alerts.",
+        "one), the stations listed, the histories, the issues, the alerts or the storm cells.",
     )
 
 
@@ -255,7 +255,8 @@ class ResponseMetadata(BaseModel):
         description="What wetterdienst did to the data: it was reshaped into a uniform table and its units "
         "converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected "
         "or calculated from the provider's readings, those of the climate stripes what their anomalies and classes "
-        "are relative to, and the headers of the stripes' image that it is drawn from the annual values. The same "
+        "are relative to, and the headers of the stripes' image that it is drawn from the annual values, and those "
+        "of `storm_cells` that the direction of a cell is calculated from its forecast track. The same "
         "text for every provider and licence, so that a licence that asks for changes to be indicated has them said; "
         "no legal advice.",
     )
@@ -500,6 +501,26 @@ def alerts_metadata(api: object, alerts: int, data_updated_at: dt.datetime | Non
         stations=0,
         rows=alerts,
         data_updated_at=data_updated_at,
+    )
+
+
+def storm_cells_metadata(api: object, cells: int, data_updated_at: dt.datetime | None = None) -> ResponseMetadata:
+    """Build the block of the thunderstorm cells of `dwd/storm_cells` (`/api/storm-cells`), which are about no stations.
+
+    `data_updated_at` is when DWD wrote the file of the scan (`DwdStormCellsResult.data_updated_at`). The processing
+    note names what is calculated and what is DWD's forecast.
+    """
+    from wetterdienst.provider.dwd.storm_cells.metadata import STORM_CELLS_NOTE  # noqa: PLC0415
+
+    return _block_without_result(
+        api,
+        ResolvedRequest(
+            provider="dwd", network="storm_cells", parameters=[], periods=[], start=None, end=None, stations=None
+        ),
+        stations=0,
+        rows=cells,
+        data_updated_at=data_updated_at,
+        calculated=STORM_CELLS_NOTE,
     )
 
 

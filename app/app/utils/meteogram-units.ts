@@ -25,6 +25,7 @@ const GROUP_QUANTITY: Partial<Record<keyof typeof METEOGRAM_SERIES, Quantity>> =
   snowNew: 'length_short',
   snowDepth: 'length_short',
   snowChance: 'fraction',
+  thunder: 'fraction',
 }
 
 /** The translation function the helpers write names with */

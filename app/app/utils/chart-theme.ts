@@ -139,6 +139,8 @@ export const SERIES_LABEL = {
   // the snow panel's (GH-4091): the new snow's bars, which are also this colour (3:1 on the paper: 1.4.11), the snow depth's line and the chance's line
   indigo: { light: '#4f46e5', dark: '#818cf8' },
   teal: { light: '#0f766e', dark: '#2dd4bf' },
+  // the thunderstorm band's (GH-4090): its bars, which are also this colour (3:1 on the paper), and the axis that names them
+  fuchsia: { light: '#a21caf', dark: '#e879f9' },
 } as const
 
 export type SeriesLabel = keyof typeof SERIES_LABEL

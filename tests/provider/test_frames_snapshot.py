@@ -27,10 +27,12 @@ ROOT = Path(__file__).parents[2]
 NO_VALUES_FIXTURE = {
     "dwd/radar": "standalone: no `TimeseriesValues`, the files are handed over as DWD wrote them",
     "dwd/alerts": "standalone: no `TimeseriesValues`, the alerts are CAP documents",
+    "dwd/storm_cells": "standalone: no `TimeseriesValues`, the cells are the XML of a KONRAD3D scan",
 }
 NO_STATIONS_FIXTURE = {
     "dwd/radar": "standalone: no stations",
     "dwd/alerts": "standalone: no stations",
+    "dwd/storm_cells": "standalone: no stations",
 }
 
 

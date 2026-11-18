@@ -17,8 +17,8 @@ const t = (key: string, named?: Record<string, unknown>) => key + (named?.unit ?
 const LIGHT = { ...EMPTY_CHART_THEME, text: 'rgb(15, 23, 43)', textStrong: 'rgb(0, 0, 0)', textMuted: 'rgb(90, 100, 120)', zeroline: 'rgb(90, 100, 120)' }
 const DARK = { ...LIGHT, dark: true, text: 'rgb(226, 232, 240)', textStrong: 'rgb(255, 255, 255)' }
 
-function build(options: { width?: number, hours?: number, theme?: typeof LIGHT, window?: { start: number, end: number }, now?: number | null, without?: string[], locale?: string, translate?: typeof t, shift?: Record<string, number> } = {}) {
-  const { width = 800, hours = 240, theme = LIGHT, now = null, without = [], locale = 'en', translate = t, shift = {} } = options
+function build(options: { width?: number, hours?: number, theme?: typeof LIGHT, window?: { start: number, end: number }, now?: number | null, without?: string[], locale?: string, translate?: typeof t, shift?: Record<string, number>, latitude?: number | null } = {}) {
+  const { width = 800, hours = 240, theme = LIGHT, now = null, without = [], locale = 'en', translate = t, shift = {}, latitude = 52.5 } = options
   const model = buildMeteogramModel({
     // `shift`: a number added to every value of a parameter, so that the ends of its axis are not where the default forecast has them
     series: buildSeries(forecastValues({ hours, without }).map(value => value.value !== null && shift[value.parameter] ? { ...value, value: value.value + shift[value.parameter]! } : value) as any),
@@ -26,7 +26,7 @@ function build(options: { width?: number, hours?: number, theme?: typeof LIGHT, 
     horizonHours: null,
     zone: 'Europe/Berlin',
     language: 'en-GB',
-    coords: { latitude: 52.5, longitude: 13.4 },
+    coords: { latitude, longitude: 13.4 },
     sun: SunCalc as any,
     units: meteogramUnits(FORECAST_UNITS, translate),
     t: translate,
@@ -437,6 +437,19 @@ describe('the chart drawn', () => {
     for (const row of strong.option.series.find((s: any) => s.id === 'barbs').data.slice(0, 40))
       row[3] = 60
     expect(count(draw(strong), /<polygon/g)).toBeGreaterThan(0)
+  })
+
+  it('draws the barbs on the other side of the shaft south of the equator, and as in the north at 0 and without a latitude', () => {
+    // the strokes in the strong colour of the theme: the barbs. The rest of the drawing follows the latitude
+    // too, by the hours of light of a day, so only these are compared
+    const barbs = (latitude: number | null) => draw(build({ latitude })).match(/<(?:path|polygon)[^>]*(?:stroke|fill)="rgb\(0, 0, 0\)"[^>]*>/g)!.map(tag => tag.replaceAll(/zr\d+-cls-\d+/g, ''))
+    const north = barbs(52.5)
+    const south = barbs(-33.9)
+    expect(north.length).toBeGreaterThan(20)
+    expect(south).toHaveLength(north.length)
+    expect(south).not.toEqual(north)
+    expect(barbs(0)).toEqual(north)
+    expect(barbs(null)).toEqual(north)
   })
 
   it('thins the barbs and the symbols to the room, and draws more of them zoomed in', () => {

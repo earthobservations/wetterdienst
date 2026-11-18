@@ -218,13 +218,39 @@ describe('the wind barb', () => {
     expect(count(100)).toEqual({ pennants: 2, full: 0, half: 0 })
   })
 
-  it('draws its barbs to the left of the wind: for a wind from the west, below the shaft', () => {
+  it('draws its barbs north of the equator on the clockwise side of the shaft: for a wind from the west, above it', () => {
     const barb = windBarb(270, 10)
     const [, y1, , y2] = barb.ticks[0]!
     // a screen's y grows downwards
-    expect(y2).toBeGreaterThan(y1)
+    expect(y2).toBeLessThan(y1)
     // a barb is 8 px long
     expect(Math.hypot(barb.ticks[0]![2] - barb.ticks[0]![0], y2 - y1)).toBeCloseTo(8, 6)
+    // the default is the northern convention, and the pennants stand on the same side
+    expect(windBarb(270, 10, 1, false).ticks).toEqual(barb.ticks)
+    for (const [, tip] of windBarb(270, 50).pennants)
+      expect(tip![1]).toBeLessThan(0)
+  })
+
+  it('draws them south of the equator on the other side: for a wind from the west, below the shaft', () => {
+    const barb = windBarb(270, 10, 1, true)
+    const [, y1, , y2] = barb.ticks[0]!
+    expect(y2).toBeGreaterThan(y1)
+    expect(Math.hypot(barb.ticks[0]![2] - barb.ticks[0]![0], y2 - y1)).toBeCloseTo(8, 6)
+    for (const [, tip] of windBarb(270, 50, 1, true).pennants)
+      expect(tip![1]).toBeGreaterThan(0)
+    // the shaft is the same on both sides
+    expect(barb.shaft).toEqual(windBarb(270, 10).shaft)
+  })
+
+  it('turns the side with the hemisphere for every direction: for a wind from the north, east of the shaft in the north', () => {
+    // the shaft of a wind from the north runs up from the tip; clockwise from it is to the right
+    const north = windBarb(0, 10)
+    expect(north.ticks[0]![2]).toBeGreaterThan(north.ticks[0]![0])
+    const south = windBarb(0, 10, 1, true)
+    expect(south.ticks[0]![2]).toBeLessThan(south.ticks[0]![0])
+    // a wind from the east: the shaft runs right, the barbs down in the north and up in the south
+    expect(windBarb(90, 10).ticks[0]![3]).toBeGreaterThan(windBarb(90, 10).ticks[0]![1])
+    expect(windBarb(90, 10, 1, true).ticks[0]![3]).toBeLessThan(windBarb(90, 10, 1, true).ticks[0]![1])
   })
 
   it('draws a half barb half as long, and one apart from the tail where it is the only one', () => {

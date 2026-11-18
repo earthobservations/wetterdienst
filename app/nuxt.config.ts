@@ -3,6 +3,7 @@ import * as process from 'node:process'
 import tailwindcss from '@tailwindcss/vite'
 import { ICON_SCAN } from './icon-scan'
 import { RATE_LIMIT_DEFAULTS } from './server/utils/rateLimit'
+import { DEFAULT_LOCALE, LANGUAGE_COOKIE, LOCALES } from './shared/utils/locales'
 import { DEFAULT_SITE_URL } from './shared/utils/seo'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
@@ -114,26 +115,14 @@ export default defineNuxtConfig({
   ],
 
   i18n: {
-    locales: [
-      { code: 'de', language: 'de-DE', name: 'Deutsch', file: 'de.json' },
-      { code: 'en', language: 'en-GB', name: 'English', file: 'en.json' },
-      { code: 'fr', language: 'fr-FR', name: 'Français', file: 'fr.json' },
-      { code: 'es', language: 'es-ES', name: 'Español', file: 'es.json' },
-      { code: 'it', language: 'it-IT', name: 'Italiano', file: 'it.json' },
-      { code: 'pl', language: 'pl-PL', name: 'Polski', file: 'pl.json' },
-      { code: 'nl', language: 'nl-NL', name: 'Nederlands', file: 'nl.json' },
-      { code: 'cs', language: 'cs-CZ', name: 'Čeština', file: 'cs.json' },
-      { code: 'da', language: 'da-DK', name: 'Dansk', file: 'da.json' },
-      { code: 'lb', language: 'lb-LU', name: 'Lëtzebuergesch', file: 'lb.json' },
-      { code: 'de-hh', language: 'de-DE', name: 'Hamburgisch', file: 'de-hh.json' },
-    ],
-    defaultLocale: 'de',
+    locales: LOCALES.map(locale => ({ ...locale })),
+    defaultLocale: DEFAULT_LOCALE,
     strategy: 'no_prefix',
     vueI18n: 'i18n.config.ts',
     detectBrowserLanguage: {
       useCookie: true,
-      cookieKey: 'wd_lang',
-      fallbackLocale: 'de',
+      cookieKey: LANGUAGE_COOKIE,
+      fallbackLocale: DEFAULT_LOCALE,
       redirectOn: 'root',
     },
   },
