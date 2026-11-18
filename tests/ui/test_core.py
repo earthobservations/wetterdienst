@@ -898,6 +898,7 @@ _STATUS_OF = {
     "NoInternetError": 503,
     "NoParametersFoundError": 400,
     "NoPeriodsFoundError": 400,
+    "NoStationPositionsError": 422,
     "NoStationsWithElevationError": 400,
     "NotEnoughDataError": 400,
     "NotFoundError": 404,

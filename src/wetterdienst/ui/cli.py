@@ -29,6 +29,7 @@ from wetterdienst.exceptions import (
     MetadataNotFoundError,
     MissingDependencyError,
     NoInternetError,
+    NoStationPositionsError,
     ReversedTimeIntervalError,
 )
 from wetterdienst.io.formats import FORMATS, names_of
@@ -1558,6 +1559,10 @@ class _Cli(_Group):
             # for an outage, where a traceback says nothing the line does not (GH-3723)
             log.error(str(e))  # noqa: TRY400
             sys.exit(1)
+        except NoStationPositionsError as e:
+            # a map of stations none of which has a position: the format is the command line's to change, as for any
+            # refusal, so one line and exit 2, not a traceback (GH-4206)
+            raise click.UsageError(str(e)) from e
         except NoInternetError as e:
             # whatever the command was fetching: no connection to the provider could be made, which
             # is told in the one line it is, naming the URL, and not as a traceback. An empty result

@@ -41,6 +41,7 @@ from wetterdienst.exceptions import (
     MissingDependencyError,
     MissingTimeIntervalError,
     NoInternetError,
+    NoStationPositionsError,
     ProviderRateLimitError,
     ReversedTimeIntervalError,
     StationListingIncompleteError,
@@ -2460,8 +2461,23 @@ def _failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
     if status is not None:
         detail = _refusal_detail(e, what)
         log.info(f"Failed to {what}: {detail}")
+        if isinstance(e, NoStationPositionsError):
+            return _unplaceable_format(detail, getattr(request, "format", None))
         return HTTPException(status_code=status, detail=detail)
     return _server_side_failure(e, request, what)
+
+
+def _unplaceable_format(detail: str, fmt: str | None) -> ProblemError:
+    """Answer a map of stations none of which has a position as the 422 `invalid-parameters` it is (GH-4206).
+
+    The `format` is the parameter that cannot be served for these stations, so it is the entry of `errors` that
+    the kind promises, located as pydantic locates a query parameter. `input` is what was asked for, where the
+    request is at hand.
+    """
+    entry: dict[str, Any] = {"type": "no_positions", "loc": ["query", "format"], "msg": detail}
+    if fmt is not None:
+        entry["input"] = fmt
+    return ProblemError(422, detail, ProblemKind.INVALID_PARAMETERS, extra={"errors": [entry]})
 
 
 def _values(
