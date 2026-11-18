@@ -35,7 +35,9 @@ Types of changes:
   dataset of the measurements, and a "Group stations" switch (disabled and on above 10,000
   stations, with its note). Escape or a press outside closes it. Grouping is on or off, on by
   default: the fine step is gone and the coarse one (radius 80, groups to zoom 9) is the one
-  grouping, so the zoom a click on a group goes to is 10 at most, not 8 (GH-4209).
+  grouping, so the zoom a click on a group goes to is 10 at most, not 8. The station pickers of
+  the Explorer, History, Forecast and Stripes, whose maps split their groups at the same zoom,
+  keep them to zoom 9 now, not 7 (GH-4209).
 
 ### Fixed
 

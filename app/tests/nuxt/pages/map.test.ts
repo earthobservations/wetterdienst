@@ -21,7 +21,7 @@ vi.mock('~/components/StationMap.vue', async () => {
   return {
     __esModule: true,
     default: defineComponent({
-      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping'],
+      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping', 'panelOpen'],
       emits: ['pick', 'view', 'group'],
       setup(props, { emit }) {
         stage.props = props
@@ -1885,14 +1885,17 @@ describe('the layers button (GH-4209)', () => {
     expect(panelOf(wrapper).find('[data-testid="map-grouping"]').exists()).toBe(true)
   })
 
-  it('opens on a press and closes on the next, saying so', async () => {
+  it('opens on a press and closes on the next, saying so, to the map as well (which swallows the click that closes it)', async () => {
     const wrapper = await mountMap()
+    await vi.waitFor(() => expect(stage.props.panelOpen).toBe(true))
     await button(wrapper).trigger('click')
     await vi.waitFor(() => expect(panelOf(wrapper).exists()).toBe(false))
     expect(button(wrapper).attributes('aria-expanded')).toBe('false')
+    expect(stage.props.panelOpen).toBe(false)
     await button(wrapper).trigger('click')
     await vi.waitFor(() => expect(panelOf(wrapper).exists()).toBe(true))
     expect(button(wrapper).attributes('aria-expanded')).toBe('true')
+    expect(stage.props.panelOpen).toBe(true)
   })
 
   it('closes on Escape, and the focus is the button\'s again', async () => {
@@ -1905,19 +1908,13 @@ describe('the layers button (GH-4209)', () => {
     await vi.waitFor(() => expect(document.activeElement).toBe(trigger))
   })
 
-  it('closes on a press outside it, which is no pick of a place when it is on the map', async () => {
+  it('closes on a press outside it', async () => {
     const wrapper = await mountMap()
+    // the popover listens for a press outside from the turn after it opened
     await listed(wrapper)
     document.body.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }))
     await vi.waitFor(() => expect(panelOf(wrapper).exists()).toBe(false))
-    // the click that follows the press, the map's own
-    stage.emit('pick', { latitude: 53.6305, longitude: 10.0, tolerance: 0.5 })
-    await nextTick()
-    expect(wrapper.find('[data-testid="map-station-name"]').exists()).toBe(false)
-    // later on a click is a pick again
-    await new Promise(resolve => setTimeout(resolve, 450))
-    stage.emit('pick', { latitude: 53.6305, longitude: 10.0, tolerance: 0.5 })
-    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL'))
+    expect(button(wrapper).attributes('aria-expanded')).toBe('false')
   })
 })
 

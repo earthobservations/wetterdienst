@@ -38,6 +38,8 @@ const props = defineProps<{
   locate?: number
   /** How the stations are grouped at the outer zooms (GH-4079), null for none: every station is its own dot */
   grouping?: Grouping | null
+  /** Whether the panel of the layers button is open: a press on the map then closes it, and its click is no pick of a place and no zoom on a group (GH-4209) */
+  panelOpen?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -345,6 +347,8 @@ function zoomInOnGroup(latlng: L.LatLng): boolean {
 }
 
 let pointerFrame = 0
+/** Whether the next click of the map belongs to the press that closed the panel of the layers button */
+let swallowClick = false
 
 function emitView() {
   if (!map)
@@ -376,7 +380,17 @@ onMounted(() => {
   L.tileLayer(OSM_TILES, { attribution: OSM_ATTRIBUTION, maxZoom: 19, className: 'station-map-tiles' }).addTo(map)
   map.createPane(MARKS_PANE).style.zIndex = '450'
   dots = new (DotLayer as unknown as new (options: L.GridLayerOptions) => L.GridLayer)({ pane: 'overlayPane', updateWhenZooming: false, noWrap: false }).addTo(map)
+  // a press on the map while the panel of the layers button is open closes the panel, and the click that belongs to that press is
+  // swallowed, a click on a group's disc included. The flag is set by the press (the capture phase is before the panel's own
+  // handler closes it) and taken by its click; a press that is no click (a drag) leaves it for the next press to set again
+  container.value.addEventListener('pointerdown', () => {
+    swallowClick = props.panelOpen ?? false
+  }, true)
   map.on('click', (event) => {
+    if (swallowClick) {
+      swallowClick = false
+      return
+    }
     const owner = map!
     if (zoomInOnGroup(event.latlng))
       return

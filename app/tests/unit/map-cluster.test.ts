@@ -110,7 +110,7 @@ describe('the groups of a list at a zoom', () => {
     }
   })
 
-  it('keep the discs apart: no two groups of a list overlap, at either step and at several zooms, and none lies over a lone station', () => {
+  it('keep the discs apart: no two groups of a list overlap, at several zooms, and none lies over a lone station', () => {
     // towns: dense knots of stations with space between them, where a grid cuts a knot into squares whose groups lie close
     const towns = placed(Array.from({ length: 4000 }, (_, index) => {
       const town = index % 200
@@ -229,7 +229,7 @@ describe('groups of stations that report and stations that have stopped (GH-4079
     }
   })
 
-  it('do not overlap, across the kinds, at either step and at several zooms', () => {
+  it('do not overlap, across the kinds, at several zooms', () => {
     for (const [radius, zooms] of [[30, [5, 6, 7]], [80, [5, 6, 8]]] as const) {
       for (const zoom of zooms) {
         const groups = clusterStations(mixed, zoom, radius, undefined, reports)
@@ -315,7 +315,9 @@ describe('the view a click on a group sets', () => {
       return 8
     }, 5, 10, 16)
     const [box] = asked
-    expect((box!.south + box!.north) / 2).toBeCloseTo(group.latitude, 9)
+    // the middle on the map, not in degrees
+    const disc = worldPixels(group.latitude, group.longitude, 8)
+    expect((worldPixels(box!.south, 0, 8).y + worldPixels(box!.north, 0, 8).y) / 2).toBeCloseTo(disc.y, 6)
     expect((box!.west + box!.east) / 2).toBeCloseTo(group.longitude, 9)
     expect(box!.south).toBeLessThanOrEqual(group.bounds.south)
     expect(box!.north).toBeGreaterThanOrEqual(group.bounds.north)
@@ -329,16 +331,46 @@ describe('the view a click on a group sets', () => {
     expect(viewForCluster(group, () => 16, 5, 10, 16).zoom).toBe(10)
   })
 
-  it('keeps the box of an even group as it is, and the box of a group of stations at one place a point', () => {
-    const even = { latitude: 52, longitude: 10, bounds: { south: 51, north: 53, west: 9, east: 11 } }
-    expect(boundsAround(even)).toEqual(even.bounds)
+  it('keeps the box of a group of stations at one place a point', () => {
     const point = { latitude: 52, longitude: 10, bounds: { south: 52, north: 52, west: 10, east: 10 } }
-    expect(boundsAround(point)).toEqual(point.bounds)
+    const box = boundsAround(point)
+    expect(box.south).toBeCloseTo(52, 9)
+    expect(box.north).toBeCloseTo(52, 9)
+    expect(box.west).toBeCloseTo(10, 9)
+    expect(box.east).toBeCloseTo(10, 9)
+  })
+
+  it('mirrors the distances on the map, not in degrees: at a high latitude every station is in view at the zoom fitted to the box (a map of 540 px)', () => {
+    // a group of the world's stations at zoom 2, drawn at 60 degrees north, its stations from 41 to 79 degrees
+    const group = { latitude: 60, longitude: 10, bounds: { south: 41, north: 79, west: -30, east: 50 } }
+    const SIZE = 540
+    // the zoom at which the map of SIZE px holds a box, as Leaflet's `getBoundsZoom` finds it
+    const fitting = (box: ReturnType<typeof boundsAround>) => {
+      let fitted = 0
+      for (let zoom = 1; zoom <= 16; zoom++) {
+        const northWest = worldPixels(box.north, box.west, zoom)
+        const southEast = worldPixels(box.south, box.east, zoom)
+        if (southEast.x - northWest.x <= SIZE && southEast.y - northWest.y <= SIZE)
+          fitted = zoom
+      }
+      return fitted
+    }
+    const view = viewForCluster(group, fitting, 0, 10, 16)
+    const middle = worldPixels(view.latitude, view.longitude, view.zoom)
+    // the corners of the box of the stations, the northernmost and the southernmost of them among them
+    for (const [latitude, longitude] of [[79, -30], [79, 50], [41, -30], [41, 50]] as const) {
+      const at = worldPixels(latitude, longitude, view.zoom)
+      expect(Math.abs(at.x - middle.x), `x of ${latitude}, ${longitude}`).toBeLessThanOrEqual(SIZE / 2 + 0.5)
+      expect(Math.abs(at.y - middle.y), `y of ${latitude}, ${longitude}`).toBeLessThanOrEqual(SIZE / 2 + 0.5)
+    }
+    // and the box mirrored in degrees would have been cut off: the zoom it fits is deeper than this one
+    const inDegrees = { south: 41, north: 79, west: -30, east: 50 }
+    expect(fitting({ south: 60 - 19, north: 60 + 19, west: inDegrees.west, east: inDegrees.east })).toBeGreaterThan(view.zoom)
   })
 
   it('does not reach beyond the latitudes the map ends at', () => {
     const box = boundsAround({ latitude: 84, longitude: 0, bounds: { south: 80, north: 85, west: -1, east: 1 } })
     expect(box.north).toBeCloseTo(85.0511287798, 9)
-    expect(box.south).toBe(80)
+    expect(box.south).toBeCloseTo(80, 6)
   })
 })

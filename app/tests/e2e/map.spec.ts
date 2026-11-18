@@ -400,7 +400,7 @@ test.describe('the map tool: what a pick moves, and what a click reaches', () =>
       return { onRow: Boolean(at?.closest('.map-chips')), inMap: Boolean(at?.closest('.leaflet-container')) }
     })
     expect(hit).toEqual({ onRow: false, inMap: true })
-    // and the button is still a button
+    // and the layer can still be chosen
     await (await layerRadio(page, en.mapTool.layerForecast)).click()
     await expect(await layerRadio(page, en.mapTool.layerForecast)).toBeChecked()
   })
@@ -510,6 +510,37 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     await expect(page.locator('.leaflet-control-attribution')).toContainText('OpenStreetMap')
   })
 
+  test('closes the open panel with a press on the map and does no more: no zoom on a group under it, no pick of a place, and the next click does both (GH-4209)', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map', GROUPED)
+    await expect(page.getByTestId('map-count')).toBeVisible()
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
+    const group = offsetAtOpening(53.62, 10.0)
+    const berlin = offsetAtOpening(52.47, 13.4)
+    const press = (at: { x: number, y: number }) => page.mouse.click(box.x + box.width / 2 + at.x, box.y + box.height / 2 + at.y)
+    // on a group's disc
+    await openLayers(page)
+    await press(group)
+    await expect(page.getByTestId('map-layers-panel')).toBeHidden()
+    await page.waitForTimeout(600)
+    expect(await zoomOf(page)).toBe(6)
+    await expect(page.getByTestId('map-announcement')).not.toContainText('Zoomed')
+    // on a station that is alone, a press that is held longer than any window of time would be
+    await openLayers(page)
+    await page.mouse.move(box.x + box.width / 2 + berlin.x, box.y + box.height / 2 + berlin.y)
+    await page.mouse.down()
+    await page.waitForTimeout(900)
+    await page.mouse.up()
+    await expect(page.getByTestId('map-layers-panel')).toBeHidden()
+    await page.waitForTimeout(300)
+    await expect(page.getByTestId('map-station-name')).toHaveCount(0)
+    // the next click is the map's own again
+    await press(berlin)
+    await expect(page.getByTestId('map-station-name')).toHaveText('BERLIN-TEMPELHOF')
+    await press(group)
+    await expect(page.getByTestId('map-announcement')).toHaveText('Zoomed in on a group. Stations in it: 40')
+  })
+
   test('centres the map on the group that was clicked, though its stations are not spread evenly round the disc (GH-4209)', async ({ page, baseURL }) => {
     // twenty stations in a town and one far to the north east: the disc is drawn at the mean, near the town, and the middle of the
     // box of the stations (which the map was centred on) is 30 km from it
@@ -528,7 +559,6 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     await expect(page.getByTestId('map-announcement')).toHaveText('Zoomed in on a group. Stations in it: 21')
     // the disc is now in the middle of the map: the group is one disc again, or a few dots, and the middle of the map is on the mean
     await expect.poll(() => zoomOf(page)).toBeGreaterThan(6)
-    await page.waitForTimeout(800)
     const middle = { x: box.x + box.width / 2, y: box.y + box.height / 2 }
     await expect.poll(() => canvasPixel(page, middle.x - 9, middle.y)).toEqual([0x23, 0x58, 0xA8])
   })
@@ -575,7 +605,6 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     await expect(page.getByTestId('map-count')).toBeVisible()
     // on or off, on by default, and named
     await expect(await groupingSwitch(page)).toHaveAttribute('aria-checked', 'true')
-    await expect(page.getByTestId('map-panel')).toBeVisible()
     await expect(page.getByTestId('map-layers-panel').getByText(en.mapTool.groupStations)).toBeVisible()
     await expect(page.getByTestId('map-legend')).toBeVisible()
     await groupBy(page, false)
@@ -929,5 +958,53 @@ test.describe('the map tool with a finger', () => {
     await page.touchscreen.tap(box.x + box.width / 2 + artern.x - 6, box.y + box.height / 2 + artern.y + 7)
     await expect(page.getByTestId('map-station-name')).toHaveText('Artern')
     await expect(page.getByTestId('map-place')).toBeVisible()
+  })
+})
+
+// The legend and the credit of OpenStreetMap are both at the map's foot, the legend on the left and the credit on the right, and
+// on a narrow map the credit is wider than the right half: they must not lie over each other (GH-4209)
+for (const width of [320, 390]) {
+  test.describe(`the legend and the credit at ${width} px`, () => {
+    test.use({ viewport: { width, height: 800 } })
+
+    for (const language of ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb']) {
+      for (const path of ['/map', '/map?layer=measured']) {
+        test(`are apart in ${language}, ${path === '/map' ? 'the forecast' : 'the measurements'}`, async ({ page, baseURL }) => {
+          await page.context().addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+          await mockBackend(page, baseURL!, GROUPED)
+          await page.goto(path)
+          await expect(page.getByTestId('map-legend')).toBeVisible()
+          await expect(page.locator('.leaflet-control-attribution')).toBeVisible()
+          const rects = await page.evaluate(() => {
+            const rect = (selector: string) => {
+              const box = document.querySelector(selector)!.getBoundingClientRect()
+              return { top: box.top, bottom: box.bottom, left: box.left, right: box.right }
+            }
+            return { legend: rect('.map-legend'), credit: rect('.leaflet-control-attribution'), zoom: rect('.leaflet-control-zoom') }
+          })
+          const apart = (a: { top: number, bottom: number, left: number, right: number }, b: typeof a) => a.bottom <= b.top || b.bottom <= a.top || a.right <= b.left || b.right <= a.left
+          expect(apart(rects.legend, rects.credit), 'the legend is clear of the credit').toBe(true)
+          expect(apart(rects.legend, rects.zoom), 'the legend is clear of the zoom buttons').toBe(true)
+        })
+      }
+    }
+  })
+}
+
+test.describe('the switch of the grouping on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('has a row of 44 px, of which the label is the whole height, so that the row is the target', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map', GROUPED)
+    await expect(page.getByTestId('map-count-panel')).toBeVisible()
+    const control = await groupingSwitch(page)
+    await expect(control).toBeVisible()
+    const heights = await page.evaluate(() => {
+      const label = document.querySelector('label[for="map-grouping-switch"]')!
+      // the layout's own heights: the panel is scaled while it opens, which `getBoundingClientRect` measures
+      return { label: (label as HTMLElement).offsetHeight, row: (label.closest('[data-slot="root"]') as HTMLElement).offsetHeight }
+    })
+    expectAtLeastPx(heights.label, 44, 'the label is high')
+    expectAtLeastPx(heights.row, 44, 'the row is high')
   })
 })

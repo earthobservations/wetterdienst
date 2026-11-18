@@ -9,7 +9,7 @@ import type { MapLayer } from '~/utils/map-tool'
 //
 // The panel is a Nuxt UI popover (Reka UI's non-modal one): the button names it and says whether it is open
 // (`aria-expanded`, `aria-controls`), Escape and a press outside close it, and the focus goes back to the button after
-// Escape. A layer chosen leaves it open, so that the grouping can be set after it.
+// Escape. The page tells the map that the panel is open, so that the press on the map that closes it picks nothing (StationMap.vue). A layer chosen leaves it open, so that the grouping can be set after it.
 
 defineProps<{
   layerItems: { value: MapLayer, label: string, icon: string }[]
@@ -20,30 +20,16 @@ defineProps<{
   note: string
 }>()
 
-/** Raised when the panel has closed, however it did (a press outside, Escape, the button); `byPress` is whether a press outside it did */
-const emit = defineEmits<{ close: [byPress: boolean] }>()
-
 const layer = defineModel<MapLayer>('layer', { required: true })
 const grouped = defineModel<boolean>('grouped', { required: true })
+/** Whether the panel is open, which the map is told (a press on the map that closes the panel is that and nothing else) */
+const open = defineModel<boolean>('open', { default: false })
 
 const { t } = useI18n()
-const open = ref(false)
 /** The panel's own element is the dialog the button opens: it needs a name, and a hook for the tests, which the popover passes on to it although its type does not list them */
 const content = computed(() => ({ 'side': 'bottom', 'align': 'end', 'sideOffset': 8, 'aria-label': t('mapTool.layersButton'), 'data-testid': 'map-layers-panel' }) as NonNullable<PopoverProps['content']>)
 const GROUPING_NOTE_ID = 'map-grouping-note'
 const GROUPING_SWITCH_ID = 'map-grouping-switch'
-
-/** When the last press outside the button and its panel was: the one that closes the panel is the page's own, and its click is not a pick of a place */
-let outsidePress = Number.NEGATIVE_INFINITY
-useEventListener(() => document, 'pointerdown', (event) => {
-  if (!(event.target as Element | null)?.closest?.('.map-layers'))
-    outsidePress = performance.now()
-}, { capture: true })
-
-watch(open, (now, before) => {
-  if (before && !now)
-    emit('close', performance.now() - outsidePress < 600)
-})
 </script>
 
 <template>
@@ -91,7 +77,7 @@ watch(open, (now, before) => {
             :disabled="compulsory"
             :label="t('mapTool.groupStations')"
             :aria-describedby="compulsory ? GROUPING_NOTE_ID : undefined"
-            :ui="{ root: 'w-full min-h-11 flex-row-reverse items-center justify-between', wrapper: 'ms-0 flex-1', label: 'block py-2.5 text-sm font-semibold' }"
+            :ui="{ root: 'w-full min-h-[44px] flex-row-reverse items-center justify-between', wrapper: 'ms-0 flex-1', label: 'flex min-h-[44px] items-center text-sm font-semibold' }"
             data-testid="map-grouping"
           />
           <p v-if="compulsory" :id="GROUPING_NOTE_ID" class="text-sm text-muted" data-testid="map-grouping-note">
@@ -104,7 +90,7 @@ watch(open, (now, before) => {
 </template>
 
 <style>
-/* a round button, 44 px (the app's own measure of a target), over the map: white in both schemes like the map's own buttons */
+/* a round button, 44 px (the app's own measure of a target), over the map, in the page's own background (white by day, the card's navy at night) */
 .map-layers-button.map-layers-button {
   width: 2.75rem;
   height: 2.75rem;
@@ -118,5 +104,16 @@ watch(open, (now, before) => {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+/* the row of the switch is 44 px high, and its label, which is the larger part of the target, is the whole of the row's height */
+.map-layers-grouping [data-slot="root"] {
+  min-height: 44px;
+  align-items: center;
+}
+.map-layers-grouping [data-slot="wrapper"],
+.map-layers-grouping [data-slot="label"] {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
 }
 </style>

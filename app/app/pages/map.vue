@@ -135,6 +135,8 @@ const layerItems = computed(() => [
   { value: 'forecast' as const, label: t('mapTool.layerForecast'), icon: 'i-ph-sun' },
   { value: 'measured' as const, label: t('mapTool.layerMeasured'), icon: 'i-ph-thermometer-simple' },
 ])
+/** Whether the panel of the layers button is open */
+const layersOpen = ref(false)
 const layerLabel = computed(() => layerItems.value.find(item => item.value === layer.value)!.label)
 
 // the resolutions and datasets DWD's observations have, asked of the backend once the measurements are wanted; a request
@@ -418,23 +420,11 @@ function pickAt(point: Point, tolerance: number, focus = false, tap = 0, disc = 
   }
 }
 
-/** When the panel of the layers last closed, and how long after it a click on the map is still the press that closed it */
-let layersClosedAt = Number.NEGATIVE_INFINITY
-const LAYERS_CLOSE_GUARD_MS = 400
-function onLayersClose(byPress: boolean) {
-  // closed by Escape or by its button, a click on the map after it is a pick like any
-  if (byPress)
-    layersClosedAt = performance.now()
-}
-
 /**
  * A click on the map. `tolerance` is how far from it a dot under the pointer can be (the dot as drawn, and a little
  * more), `tap` how far a station can be for a finger (none for a mouse), both measured by the map, in kilometres.
  */
 function onPick(point: Point & { tolerance: number, tap?: number, disc?: number }) {
-  // a press on the map that closed the panel of the layers is that and no pick of a place (the panel closes on the press, the map's click follows)
-  if (performance.now() - layersClosedAt < LAYERS_CLOSE_GUARD_MS)
-    return
   pickAt(point, point.tolerance, false, point.tap ?? 0, point.disc ?? 0)
 }
 
@@ -959,12 +949,12 @@ watch(() => route.query, (query) => {
             <div class="map-layers">
               <MapLayers
                 v-model:layer="layer"
+                v-model:open="layersOpen"
                 v-model:grouped="grouped"
                 :layer-items="layerItems"
                 :show-grouping="listStatus === 'success' && stations.length > 0"
                 :compulsory="groupingInForce.compulsory"
                 :note="groupingCompulsoryText"
-                @close="onLayersClose"
               >
                 <template v-if="layer === 'measured'">
                   <USelect v-model="resolutionChoice" :items="resolutionItems" :aria-label="t('parameterSelection.resolutionLabel')" class="w-full" data-testid="map-resolution" />
@@ -1004,6 +994,7 @@ watch(() => route.query, (query) => {
                 :place="place"
                 :reporting="reporting"
                 :grouping="groupingInForce.grouping"
+                :panel-open="layersOpen"
                 :label="mapLabel"
                 @pick="onPick"
                 @view="view = $event"
@@ -1142,14 +1133,16 @@ watch(() => route.query, (query) => {
   max-width: 28rem;
   background: var(--ui-bg);
 }
-/* The legend of the dots, at the map's foot on the left (the zoom buttons and the credit are on the right). The map is a
+/* The legend of the dots, at the map's foot on the left, over the credit's height (the zoom buttons are on the right, over the credit). The map is a
    light surface in both colour schemes, so the legend is too, and its dots are the map's own (StationMap.vue): the one
    that reports filled, the one that has stopped hollow, a difference of shape that is no colour alone (WCAG 1.4.1) */
 .map-legend {
   position: absolute;
   z-index: 1001;
   inset-inline-start: 0.75rem;
-  bottom: 0.75rem;
+  /* above the credit of OpenStreetMap, which is the map's foot (about 22 px high) and, on a narrow map, wider than the half
+     the legend leaves it */
+  bottom: 2.5rem;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;

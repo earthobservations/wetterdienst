@@ -190,8 +190,8 @@ function mergeOverlapping(groups: Group[], dot: number): Group[] {
  * The list is gone through once for the grid, with a sum for each square, and the squares (not the stations) are then
  * joined. Measured on 133,041 stations (a laptop, 2026-11-17): 6 to 40 ms at the outer zooms (2 to 5) of a list that is in
  * towns, 10 to 17 ms at zoom 7; of one spread evenly over the world, where the groups are most, 14 ms at zoom 2 to 5
- * for the coarse step and 121 ms at zoom 6 and 407 ms at zoom 7 for the fine one (84,000 groups, which no map shows).
- * A group is made once for a zoom and kept until the list or the step changes.
+ * for a radius of 80 and 121 ms at zoom 6 and 407 ms at zoom 7 for the radius of 30 the map had then (84,000 groups, which no
+ * map shows). A group is made once for a zoom and kept until the list or the grouping changes.
  *
  * @example
  * clusterStations(stations, 5, 50) // [{ count: 38, latitude: 52.4, longitude: 9.9, x, y, ... }, { count: 1, station, ... }]
@@ -289,22 +289,35 @@ export function clusterAt(clusters: Cluster[], at: { x: number, y: number }, slo
   return hit
 }
 
+/** The zoom the mirroring of `boundsAround` is done at: the map is the same shape at every zoom, only larger */
+const MIRROR_ZOOM = 8
+
 /**
  * The box a click on a group fits the map to: its stations' box, grown to be as far from the disc on every side as it is on
  * the one where it is farthest, so that the disc is the middle of it. The disc is drawn at the mean of the stations' positions
  * and the stations are not spread evenly round it (a town with outliers to one side), so the middle of the stations' box
  * (`bounds.getCenter()`, which GH-4209 found a click on a group centred the map on) is somewhere else than the disc: the map
  * zoomed in with the group off to one side. A map centred on the disc with this box shows all of the stations.
+ *
+ * The distances are mirrored in pixels of the world map (`worldPixels`), not in degrees: north of the equator a degree of
+ * latitude is taller on the map, so a box mirrored in degrees is too short on the side of the disc that the stations are
+ * not farthest on, and the zoom fitted to it cuts off the stations at the far side.
  */
 export function boundsAround(cluster: Pick<Cluster, 'latitude' | 'longitude' | 'bounds'>): Cluster['bounds'] {
   const { latitude, longitude, bounds } = cluster
-  const north = Math.max(bounds.north - latitude, latitude - bounds.south)
-  const east = Math.max(bounds.east - longitude, longitude - bounds.west)
+  const size = TILE * 2 ** MIRROR_ZOOM
+  const disc = worldPixels(latitude, longitude, MIRROR_ZOOM)
+  const northWest = worldPixels(bounds.north, bounds.west, MIRROR_ZOOM)
+  const southEast = worldPixels(bounds.south, bounds.east, MIRROR_ZOOM)
+  const halfWidth = Math.max(southEast.x - disc.x, disc.x - northWest.x)
+  const halfHeight = Math.max(southEast.y - disc.y, disc.y - northWest.y)
+  const top = worldPoint(disc.x - halfWidth, Math.max(0, disc.y - halfHeight), MIRROR_ZOOM)
+  const bottom = worldPoint(disc.x + halfWidth, Math.min(size, disc.y + halfHeight), MIRROR_ZOOM)
   return {
-    south: Math.max(-MAX_LATITUDE, latitude - north),
-    north: Math.min(MAX_LATITUDE, latitude + north),
-    west: longitude - east,
-    east: longitude + east,
+    south: Math.max(-MAX_LATITUDE, bottom.latitude),
+    north: Math.min(MAX_LATITUDE, top.latitude),
+    west: top.longitude,
+    east: bottom.longitude,
   }
 }
 
