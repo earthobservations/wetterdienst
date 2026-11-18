@@ -1183,6 +1183,14 @@ STRIPES_EXAMPLES = r"""
 
     # precipitation stripes, to a file
     wetterdienst stripes image --kind=precipitation --station=1048 --target=precipitation_stripes.png
+
+    # a station of NOAA GHCN daily, the years calculated from its days by the WMO rules
+    wetterdienst stripes image --provider=noaa --network=ghcn --kind=temperature --station=USW00094728 \
+        > stripes_new_york.png
+
+    # the GHCN stations in a bounding box that the stripes are made for
+    wetterdienst stripes stations --provider=noaa --network=ghcn --kind=temperature \
+        --left=-75 --bottom=40 --right=-73 --top=41
 """
 
 
@@ -3244,9 +3252,30 @@ def stripes() -> None:
     """Climate stripes."""
 
 
+stripes_provider_opt = click.option(
+    "--provider",
+    type=click.STRING,
+    default="dwd",
+    help="Provider of the stations and values: dwd (annual values) or noaa (GHCN daily, the years calculated from the "
+    "days by the WMO rules). Default: dwd",
+)
+stripes_network_opt = click.option(
+    "--network",
+    type=click.STRING,
+    default="observation",
+    help="Network of the provider: observation for dwd, ghcn for noaa. Default: observation",
+)
+
+
 @stripes.command("stations")
 @click.option("--kind", type=click.STRING, required=True, help="Kind of stripes: temperature or precipitation.")
+@stripes_provider_opt
+@stripes_network_opt
 @_bool_opt("--active", default=True, help="Only stations still reporting. Default: true")
+@left_opt
+@bottom_opt
+@right_opt
+@top_opt
 @click.option(
     "--format",
     "fmt",
@@ -3258,7 +3287,13 @@ def stripes() -> None:
 @debug_opt
 def stripes_stations(
     kind: str,
+    provider: str,
+    network: str,
     active: bool,  # noqa: FBT001
+    left: float | None,
+    bottom: float | None,
+    right: float | None,
+    top: float | None,
     fmt: str,
     pretty: bool,  # noqa: FBT001
     debug: bool,  # noqa: FBT001
@@ -3274,15 +3309,39 @@ def stripes_stations(
         msg = f"Invalid kind '{kind}'"
         raise click.ClickException(msg)
 
-    stations = _get_stripes_stations(kind=kind, active=active)
-
-    request = StripesStationsRequest.model_validate({"kind": kind, "active": active, "format": fmt, "pretty": pretty})
-    metadata = result_metadata(stations, provider="dwd", network="observation", heavy=False)
+    request = _validate_request(
+        StripesStationsRequest,
+        {
+            "kind": kind,
+            "provider": provider,
+            "network": network,
+            "active": active,
+            "left": left,
+            "bottom": bottom,
+            "right": right,
+            "top": top,
+            "format": fmt,
+            "pretty": pretty,
+        },
+    )
+    stations = _get_stripes_stations(
+        kind=request.kind,
+        active=request.active,
+        provider=request.provider,
+        network=request.network,
+        left=request.left,
+        bottom=request.bottom,
+        right=request.right,
+        top=request.top,
+    )
+    metadata = result_metadata(stations, provider=request.provider, network=request.network, heavy=False)
     _echo(render_stripes_stations(stations, request, metadata))
 
 
 @stripes.command("image", epilog=_examples(STRIPES_EXAMPLES))
 @click.option("--kind", type=click.STRING, required=True, help="Kind of stripes: temperature or precipitation.")
+@stripes_provider_opt
+@stripes_network_opt
 @click.option("--station", type=click.STRING, help="Station id, instead of --name.")
 @click.option("--name", type=click.STRING, help="Station name, matched fuzzily, instead of --station.")
 @click.option("--name-threshold", type=click.FLOAT, default=0.80, help="Minimum fuzzy-match score. Default: 0.8")
@@ -3308,6 +3367,8 @@ def stripes_stations(
 @debug_opt
 def stripes_image(
     kind: Literal["temperature", "precipitation"],
+    provider: str,
+    network: str,
     station: str,
     name: str,
     start_year: int,
@@ -3340,6 +3401,8 @@ def stripes_image(
         StripesImageRequest,
         {
             "kind": kind,
+            "provider": provider,
+            "network": network,
             "station": station,
             "name": name,
             "name_threshold": name_threshold,

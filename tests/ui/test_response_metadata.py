@@ -399,7 +399,9 @@ def test_the_stripes_values_have_the_block_and_a_series_for_what_they_are_of(
     assert set(body) == {"metadata", "series", "reference", "values"}
     metadata = body["metadata"]
     assert set(metadata) == ALWAYS
-    assert set(body["series"]) == {"station", "resolution", "dataset", "parameter", "unit"}
+    # `method` is how a day of GHCN's temperature was calculated: null for DWD's own annual values (GH-4222)
+    assert set(body["series"]) == {"station", "resolution", "dataset", "parameter", "unit", "method"}
+    assert body["series"]["method"] is None
     assert body["series"]["unit"] == "degree_celsius"
     assert body["series"]["station"]["station_id"] == "01048"
     assert metadata["request"]["parameters"] == ["annual/climate_summary/temperature_air_mean_2m"]
