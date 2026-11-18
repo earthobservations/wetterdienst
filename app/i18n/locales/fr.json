@@ -149,7 +149,8 @@
       "forecast": "prévisions",
       "derived": "données dérivées",
       "radar": "radar",
-      "alerts": "alertes météo"
+      "alerts": "alertes météo",
+      "storm_cells": "cellules orageuses"
     },
     "kindsAnd": "et",
     "pages": {
@@ -470,6 +471,7 @@
     "allKinds": "Tous les types de données",
     "kindLabel": "Type de données",
     "kindDerived": "Données dérivées",
+    "kindStormCells": "Cellules orageuses",
     "shown": "{shown} affichés sur {count}",
     "noResults": "Aucun fournisseur ne correspond à la recherche.",
     "notFound": "Il n'existe aucun fournisseur nommé « {provider} ».",

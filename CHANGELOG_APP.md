@@ -16,6 +16,10 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.53.0] - 2026-11-17
+
+Paired with backend 0.191.0, which it needs for the stripes' classes and the stations' WMO numbers.
+
 ### Added
 
 - `[Map]` The stations of the map are grouped at the outer zooms: stations that lie close together
@@ -62,6 +66,10 @@ Types of changes:
 
 ### Fixed
 
+- `[Forecast]` The wind barbs of the chart stand on the side of the station's hemisphere, as on a
+  weather map: for a wind from the west north of the equator they are above the shaft (they were
+  below it), south of the equator below it. A station without a position has the northern side
+  (GH-4063).
 - `[Forecast, Map, Home]` The late days of a forecast no longer look dry. MOSMIX's hourly rain
   amount is 0.0 from about +100 h at most lowland stations, while its 6, 12 and 24 h totals still
   carry rain, so days 6 to 10 showed none where DWD's own total has 1 to 2 mm. Each 24 h window
@@ -2315,7 +2323,10 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.53.0...HEAD
+[0.53.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.52.0...app-v0.53.0
+[0.52.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.1...app-v0.52.0
+[0.51.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.0...app-v0.51.1
 [0.51.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.50.0...app-v0.51.0
 [0.50.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.49.0...app-v0.50.0
 [0.49.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.48.0...app-v0.49.0
@@ -2366,7 +2377,7 @@ Types of changes:
 [0.7.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.6.0...app-v0.7.0
 [0.6.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.5.0...app-v0.6.0
 [0.5.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.4.0...app-v0.5.0
-[0.4.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.3.0...app-v0.4.0
-[0.3.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.2.0...app-v0.3.0
-[0.2.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.1.0...app-v0.2.0
+[0.4.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.3.0...app-v0.4.0
+[0.3.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.2.0...app-v0.3.0
+[0.2.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.1.0...app-v0.2.0
 [0.1.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.1.0

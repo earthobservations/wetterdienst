@@ -54,6 +54,7 @@ from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest, DwdWeatherA
 from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.provider.dwd.radar import DwdRadarValues
+from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest, DwdStormCellsResult
 
 # settings (the host's) and options (the request's) are accepted as the model or as a dict of its fields
 settings = Settings(cache_disable=True)
@@ -81,17 +82,18 @@ DwdObservationRequest(
 api = Wetterdienst.resolve("dwd", "observation")
 assert_type(api, type[TimeseriesRequest])
 
-# dwd/radar and dwd/alerts are no timeseries networks, and are resolved by their own entry point, to
+# dwd/radar, dwd/alerts and dwd/storm_cells are no timeseries networks, and are resolved by their own entry point, to
 # the exact class where the names are literals
 assert_type(Wetterdienst.resolve_standalone("dwd", "radar"), type[DwdRadarValues])
 assert_type(Wetterdienst.resolve_standalone("dwd", "alerts"), type[DwdWeatherAlertRequest])
+assert_type(Wetterdienst.resolve_standalone("dwd", "storm_cells"), type[DwdStormCellsRequest])
 
 
 def resolve_by_name(provider_name: str, network_name: str) -> None:
     """Resolve a standalone network by names that are not literals."""
     assert_type(
         Wetterdienst.resolve_standalone(provider_name, network_name),
-        type[DwdRadarValues] | type[DwdWeatherAlertRequest],
+        type[DwdRadarValues] | type[DwdWeatherAlertRequest] | type[DwdStormCellsRequest],
     )
 
 
@@ -198,6 +200,15 @@ def write_alerts(alerts: DwdWeatherAlertResult) -> None:
     write(alerts)
     assert_type(alerts.to_format("GeoJSON", with_metadata=True, indent=2), str)
     assert_type(alerts.to_json(True), str)  # noqa: FBT003
+
+
+def write_storm_cells(cells: DwdStormCellsResult) -> None:
+    """Write the result of the thunderstorm cells, which satisfies the protocol and is rendered as the alerts are."""
+    write(cells)
+    assert_type(cells.to_format("GeoJSON", with_metadata=True, indent=2), str)
+    assert_type(
+        DwdStormCellsRequest(latitude=52.5, longitude=13.4, distance=10.0, min_severity=2).query(), DwdStormCellsResult
+    )
 
 
 # a forecast, whose request takes an issue

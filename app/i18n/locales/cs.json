@@ -149,7 +149,8 @@
       "forecast": "předpovědi",
       "derived": "odvozená data",
       "radar": "radar",
-      "alerts": "výstrahy"
+      "alerts": "výstrahy",
+      "storm_cells": "bouřkové buňky"
     },
     "kindsAnd": "a",
     "pages": {
@@ -470,6 +471,7 @@
     "allKinds": "Všechny druhy dat",
     "kindLabel": "Druh dat",
     "kindDerived": "Odvozená data",
+    "kindStormCells": "Bouřkové buňky",
     "shown": "Zobrazeno {shown} z {count}",
     "noResults": "Hledání neodpovídá žádný poskytovatel.",
     "notFound": "Poskytovatel s názvem „{provider}“ neexistuje.",

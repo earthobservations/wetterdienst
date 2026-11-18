@@ -25,6 +25,14 @@ Types of changes:
   station there, which the file does not give; a city of the file that is not among them is
   skipped with a warning that names it, and a changed file is a `DownloadError`. `data_updated_at`
   is when DWD wrote the file (GH-4089)
+- `dwd/storm_cells`: DWD's KONRAD3D thunderstorm cells as a standalone network, on every surface:
+  `DwdStormCellsRequest`, `wetterdienst storm-cells`, `/api/v1/storm-cells` and the MCP tool
+  `storm_cells`. One row per cell of the newest radar scan, or the newest at or before a
+  `timestamp` of the last 48 hours: severity, hail, heavy rain and gust flags, speed, a calculated
+  `direction_degrees`, a GeoJSON outline and the 12-step forecast `track`. Filter by a point with
+  `distance` (the outline, not the centre) or a box, and `min_severity`; `track=false` and
+  `geometry=centroid` keep a list short. An empty scan is an empty answer; a filter that leaves no
+  cell warns `no-storm-cells-for-place`, a scan over 20 minutes old `scan-stale` (GH-4090)
 
 ### Fixed
 
@@ -85,6 +93,16 @@ Types of changes:
 - **Breaking**: the stations of `ea/hydrology` have the new columns `nrfa_id` and `rloi_id`, those
   of `eaufrance/hubeau` `site_id` and those of `imgw/meteorology` `short_code`, after their own
   columns. A SQL table `to_target` wrote before takes no append of them: write it anew (GH-4070)
+
+### Fixed
+
+- `dwd/mosmix`: the descriptions said that `tn` and `tx` of `small` are given at 00, 06, 12 and 18
+  UTC at every station; in the run of 2026-11-17 03 UTC about 70 % of the stations give them at 06
+  and 18 UTC, the others at one of the two, at all four hours or at 00 or 12 UTC (`large` is
+  worded alike). `rr1c` and `rr3c` say that late in a run they are often a real `0.0`, no gap, at
+  German lowland stations while `rrhc` and `rrdc` still carry rain (`rr6c` falls to zero early at
+  some), and `drr1` that `skip_empty` drops a station given no duration (Zugspitze). The docs list
+  every element's window and steps (GH-4176)
 
 ## [0.190.0] - 2026-11-16
 

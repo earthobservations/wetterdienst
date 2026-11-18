@@ -36,6 +36,13 @@ render_plugin = "myst"
 no_index = true
 ```
 
+### Storm cells
+
+```{autodoc2-object} wetterdienst.provider.dwd.storm_cells.api.DwdStormCellsRequest
+render_plugin = "myst"
+no_index = true
+```
+
 ### Derived
 
 ```{autodoc2-object} wetterdienst.provider.dwd.derived.api.DwdDerivedRequest

@@ -149,7 +149,8 @@
       "forecast": "predicciones",
       "derived": "datos derivados",
       "radar": "radar",
-      "alerts": "avisos meteorológicos"
+      "alerts": "avisos meteorológicos",
+      "storm_cells": "celdas de tormenta"
     },
     "kindsAnd": "y",
     "pages": {
@@ -470,6 +471,7 @@
     "allKinds": "Todos los tipos de datos",
     "kindLabel": "Tipo de datos",
     "kindDerived": "Datos derivados",
+    "kindStormCells": "Celdas de tormenta",
     "shown": "Mostrando {shown} de {count}",
     "noResults": "Ningún proveedor coincide con la búsqueda.",
     "notFound": "No existe ningún proveedor llamado «{provider}».",

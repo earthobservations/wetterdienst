@@ -167,7 +167,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
     assert request
 
 
-@pytest.mark.parametrize("network", ["radar", "alerts"])
+@pytest.mark.parametrize("network", ["radar", "alerts", "storm_cells"])
 def test_resolve_refuses_a_standalone_network_and_names_the_entry_point(network: str) -> None:
     """`resolve` is for timeseries networks: dwd/radar and dwd/alerts are refused, naming the entry point (GH-3045)."""
     with pytest.raises(ApiNotFoundError, match=rf"resolve_standalone\('dwd', '{network}'\)"):
@@ -179,6 +179,7 @@ def test_resolve_refuses_a_standalone_network_and_names_the_entry_point(network:
     [
         ("dwd", "radar", "DwdRadarValues"),
         (" DWD ", "Alerts", "DwdWeatherAlertRequest"),
+        ("dwd", "Storm_Cells", "DwdStormCellsRequest"),
     ],
 )
 def test_resolve_standalone_returns_the_request_class_of_the_network(
@@ -212,7 +213,7 @@ def test_the_standalone_networks_are_exactly_the_ones_that_are_no_timeseries_req
             assert Wetterdienst.is_standalone(provider, network) == ((provider, network) in standalone)
     assert standalone == Wetterdienst.standalone
     kinds = {Wetterdienst.discover()[provider][network]["kind"] for provider, network in standalone}
-    assert kinds == {"radar", "alerts"}
+    assert kinds == {"radar", "alerts", "storm_cells"}
 
 
 @pytest.mark.parametrize(
@@ -1707,7 +1708,7 @@ def test_discover_says_what_every_network_is() -> None:
     discovered = Wetterdienst.discover()
     timeseries_kinds = set(get_args(TimeseriesKind))
     standalone = set(get_args(NetworkKind)) - timeseries_kinds
-    assert standalone == {"radar", "alerts"}
+    assert standalone == {"radar", "alerts", "storm_cells"}
 
     standalone_networks = set()
     for provider, networks in Wetterdienst.registry.items():
@@ -1734,13 +1735,15 @@ def test_discover_says_what_every_network_is() -> None:
             else:
                 standalone_networks.add((provider, network))
                 assert entry["kind"] in standalone, f"{provider}/{network}"
-    # the two networks no timeseries endpoint takes, which the contract names (docs/usage/restapi.md)
-    assert standalone_networks == {("dwd", "radar"), ("dwd", "alerts")}
+    # the networks no timeseries endpoint takes, which the contract names (docs/usage/restapi.md)
+    assert standalone_networks == {("dwd", "radar"), ("dwd", "alerts"), ("dwd", "storm_cells")}
     assert (discovered["dwd"]["radar"]["kind"], discovered["dwd"]["alerts"]["kind"]) == ("radar", "alerts")
+    assert discovered["dwd"]["storm_cells"]["kind"] == "storm_cells"
+    assert discovered["dwd"]["storm_cells"]["url"] == "https://opendata.dwd.de/weather/radar/konrad3d"
     assert discovered["dwd"]["radar"]["url"] == "https://opendata.dwd.de/weather/radar/"
     assert discovered["dwd"]["alerts"]["url"] == "https://opendata.dwd.de/weather/alerts/cap"
     # the name and the country of the standalone ones are the provider's, as the timeseries networks of it give them
-    for network in ("radar", "alerts"):
+    for network in ("radar", "alerts", "storm_cells"):
         assert discovered["dwd"][network]["name_short"] == discovered["dwd"]["observation"]["name_short"]
         assert discovered["dwd"][network]["country"] == discovered["dwd"]["observation"]["country"]
 
