@@ -118,6 +118,9 @@ def test_rest_tells_nothing_to_a_search_by_name_or_id(search: str) -> None:
     """The stations come back, with none of the warning."""
     answer = _rest(**BY_NAME_OR_ID[search])
     assert answer["stations"]
+    if search == "name":
+        # the part-region's name alone finds that part-region first, not another one of Bayern (GH-4207)
+        assert answer["stations"][0]["station_id"] == "124"
     assert CODE not in [w["code"] for w in answer["metadata"].get("warnings", [])]
 
 

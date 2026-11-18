@@ -28,7 +28,7 @@ from wetterdienst.provider.dwd.pollen import DwdPollenMetadata, DwdPollenRequest
 from wetterdienst.provider.dwd.pollen import api as dwd_pollen_api
 from wetterdienst.provider.dwd.pollen.api import LEVELS, read_forecast
 from wetterdienst.provider.dwd.pollen.metadata import POLLEN_TYPES
-from wetterdienst.provider.dwd.pollen.regions import REGIONS, REGIONS_BY_ID
+from wetterdienst.provider.dwd.pollen.regions import REGIONS, REGIONS_BY_ID, PollenRegion
 from wetterdienst.util.network import File
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
@@ -123,6 +123,36 @@ def test_a_station_is_named_by_its_region_and_part_region() -> None:
     assert by_id["20"] == "Mecklenburg-Vorpommern"
     assert by_id["50"] == "Brandenburg und Berlin"
     assert len(set(by_id.values())) == 27
+
+
+def _part_name(region: PollenRegion) -> str:
+    """Give what a user types for a region: its part-region's name, or the region's where DWD gives it no parts."""
+    return region.region_name if region.partregion_id == -1 else region.partregion_name
+
+
+@pytest.mark.parametrize(
+    "region",
+    [
+        pytest.param(
+            region,
+            id=region.station_id,
+            marks=pytest.mark.xfail(
+                strict=True,
+                reason="WRatio ranks 81 (`Sachsen: Tiefland Sachsen`) above 61, which holds the whole query; GH-4215",
+            )
+            if region.station_id == "61"
+            else (),
+        )
+        for region in REGIONS
+    ],
+)
+def test_a_part_region_is_found_by_its_own_name_alone(region: PollenRegion) -> None:
+    """The parts of a region share its name as a prefix and tie in a match; the closer whole name wins (GH-4207).
+
+    "Saarland" is 103 (not 101, the first part of the region), "Mainfranken" is 124 (not 123, the part without it).
+    """
+    found = _request().filter_by_name(_part_name(region), rank=1).df["station_id"].to_list()
+    assert found == [region.station_id], f"{_part_name(region)!r} found {found}, not {region.station_id}"
 
 
 def test_the_stations_are_listed_without_a_request_and_without_a_position(monkeypatch: pytest.MonkeyPatch) -> None:
