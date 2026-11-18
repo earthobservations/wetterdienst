@@ -2975,20 +2975,26 @@ class StripesConfig(TypedDict):
     precipitation: StripesConfigItem
 
 
-def _get_stripes_options(unit_targets: Mapping[str, str] | None = None) -> Options:
+def _get_stripes_options(unit_targets: Mapping[str, str] | None = None, *, humanize: bool | None = None) -> Options:
     """Give the options the stripes read a station's values with.
 
     `_get_stripes_data` takes the `value` column of a long frame and draws the gaps in a station's
     record itself. The rest comes from the environment as for any request, but `WD_TS_SHAPE=wide`
     left no `value` column (`ColumnNotFoundError`), and `WD_TS_SKIP_EMPTY=true` dropped a station
-    with gaps, leaving no years to draw (GH-2348). So did `WD_TS_HUMANIZE=false` for GHCN, whose years are built from
-    the days by the canonical names of their parameters, which it turns into the source's (GH-4222). Those three are
-    fixed here, as arguments, which outrank the environment's variables, a malformed one included.
+    with gaps, leaving no years to draw (GH-2348). Those two are fixed here, as arguments, which
+    outrank the environment's variables, a malformed one included.
+
+    `humanize` is fixed the same way where it is given: `WD_TS_HUMANIZE=false` turns the canonical names of the
+    parameters into the source's, which the years of GHCN, built from the days by those names, cannot be built by
+    (GH-4222). DWD's annual values are read by the one parameter and leave it to the environment.
 
     `unit_targets` is laid over the ones the environment sets, as for `/api/values`, an entry it gives
     winning (GH-3980). The colours are relative, so the unit changes the numbers of the answer, not the stripes.
     """
-    options = Options(shape="long", skip_empty=False, humanize=True)
+    if humanize is None:
+        options = Options(shape="long", skip_empty=False)
+    else:
+        options = Options(shape="long", skip_empty=False, humanize=humanize)
     return overlay_options(options, {"unit_targets": dict(unit_targets)}) if unit_targets else options
 
 
@@ -3048,7 +3054,7 @@ def _get_stripes_ghcn_request(
     span = {"start": dt.datetime(1700, 1, 1, tzinfo=dt.UTC), "end": dt.datetime.now(dt.UTC)} if window else {}
     return NoaaGhcnRequest(
         parameters=[("daily", "data", name) for name in GHCN_STRIPES_PARAMETERS[kind]],
-        options=_get_stripes_options(unit_targets),
+        options=_get_stripes_options(unit_targets, humanize=True),
         **span,
     )
 
