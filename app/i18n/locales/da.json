@@ -149,7 +149,8 @@
       "forecast": "prognoser",
       "derived": "afledte data",
       "radar": "radar",
-      "alerts": "vejrvarsler"
+      "alerts": "vejrvarsler",
+      "storm_cells": "tordenceller"
     },
     "kindsAnd": "og",
     "pages": {
@@ -470,6 +471,7 @@
     "allKinds": "Alle slags data",
     "kindLabel": "Slags data",
     "kindDerived": "Afledte data",
+    "kindStormCells": "Tordenceller",
     "shown": "Viser {shown} af {count}",
     "noResults": "Ingen udbyder matcher din søgning.",
     "notFound": "Der findes ingen udbyder med navnet “{provider}”.",

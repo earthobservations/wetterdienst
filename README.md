@@ -49,6 +49,7 @@ you need is what tells us what to build next. Hand in an issue or a PR.
   by name, id, distance from a point, bounding box or rank
 - Unit conversion, and interpolation and summarization for a point between stations
 - DWD weather alerts (CAP warnings) with GeoJSON geometry, by community or district
+- DWD thunderstorm cells (KONRAD3D) of the radar data, near a place, with outline and forecast track
 - SQL queries over results, and export to CSV, JSON, Excel, Parquet and Zarr files and to SQLite,
   PostgreSQL, CrateDB, InfluxDB and DuckDB
 - A command line client, a REST API with a public Docker image, and an MCP (Model Context Protocol)
@@ -325,7 +326,8 @@ Documentation: [wetterdienst.readthedocs.io](https://wetterdienst.readthedocs.io
 - **App**: [wetterdienst.eobs.org](https://wetterdienst.eobs.org/), and
   [how to run your own](https://wetterdienst.readthedocs.io/en/latest/usage/app.html).
 - **The data**: [providers, parameters and licences](https://wetterdienst.readthedocs.io/en/latest/data/index.html),
-  [DWD weather alerts](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/alerts/index.html).
+  [DWD weather alerts](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/alerts/index.html),
+  [DWD storm cells](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/storm_cells/index.html).
 - **Upgrade**: [compatibility](https://wetterdienst.readthedocs.io/en/latest/usage/compatibility.html), what
   is stable and how a break is announced, and the
   [migration note from 0.139.0](https://wetterdienst.readthedocs.io/en/latest/usage/migrating.html).

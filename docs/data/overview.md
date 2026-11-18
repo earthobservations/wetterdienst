@@ -49,6 +49,9 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - Alerts
         - the public weather warnings (CAP), all currently active ones, by community or district
         - a rolling window of about 48 hours of snapshots, no archive
+    - Storm cells (`storm_cells`)
+        - the thunderstorm cells KONRAD3D detects in the radar data: severity, hail, heavy rain and gust flags, speed, direction, outline and forecast track
+        - the newest scan or one of the last 48 hours, every 5 minutes, no archive
 - AEMET (Agencia Estatal de Meteorología / State Meteorological Agency / Spain)
     - Observation
         - climatological data from the Spanish station network

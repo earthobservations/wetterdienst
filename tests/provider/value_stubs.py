@@ -3755,6 +3755,7 @@ NO_STUB = {
         "0-20000-0-11520; 17,520 rows, read 2026-10-25) has no empty value and none outside 989 to 1045 hPa"
     ),
     "dwd/alerts": "no timeseries",
+    "dwd/storm_cells": "no timeseries",
     "dwd/phenology": (
         "the value is DWD's JULTAG, which is the day of the year only for a date in the reference year (negative "
         "for a date before it, past 365 for one after it) and the reader maps no sentinel: no -999 or other "

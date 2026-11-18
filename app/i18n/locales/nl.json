@@ -149,7 +149,8 @@
       "forecast": "verwachtingen",
       "derived": "afgeleide gegevens",
       "radar": "radar",
-      "alerts": "weerwaarschuwingen"
+      "alerts": "weerwaarschuwingen",
+      "storm_cells": "onweerscellen"
     },
     "kindsAnd": "en",
     "pages": {
@@ -470,6 +471,7 @@
     "allKinds": "Alle soorten gegevens",
     "kindLabel": "Soort gegevens",
     "kindDerived": "Afgeleide gegevens",
+    "kindStormCells": "Onweerscellen",
     "shown": "{shown} van {count} getoond",
     "noResults": "Geen aanbieder komt overeen met je zoekopdracht.",
     "notFound": "Er is geen aanbieder met de naam “{provider}”.",

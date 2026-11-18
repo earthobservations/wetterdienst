@@ -149,7 +149,8 @@
       "forecast": "Vorhersagen",
       "derived": "abgeleitete Daten",
       "radar": "Radar",
-      "alerts": "Wetterwarnungen"
+      "alerts": "Wetterwarnungen",
+      "storm_cells": "Gewitterzellen"
     },
     "kindsAnd": "und",
     "pages": {
@@ -470,6 +471,7 @@
     "allKinds": "Alle Datenarten",
     "kindLabel": "Art der Daten",
     "kindDerived": "Abgeleitete Daten",
+    "kindStormCells": "Gewitterzellen",
     "shown": "{shown} von {count} angezeigt",
     "noResults": "Kein Anbieter passt zur Suche.",
     "notFound": "Es gibt keinen Anbieter namens „{provider}“.",
