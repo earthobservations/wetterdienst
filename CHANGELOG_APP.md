@@ -28,6 +28,16 @@ Types of changes:
   probability (`wwt`), which MOSMIX gives for every hour of the run; the 6, 12 and 24 hour ones
   are not used. The compact day cards are unchanged (GH-4090).
 
+### Fixed
+
+- `[Forecast]` Under the fraction unit `0–1`, the cloud and snow-chance panels' middle tick is
+  written 0.5 and no longer as 1, which read as the top of the axis; `%` and oktas are unchanged
+  (GH-4197).
+- `[Widget]` Docs: the embedded widget's chart is 674 px high, 744 px with the thunderstorm panel,
+  not 540 px, and the frame needs about 850 to 950 px, so the example iframe is 1000 px high where
+  it was 700 and had a scroll bar; the day cards of a frame 40 rem wide or less are about 350 px
+  (GH-4197).
+
 ## [0.53.0] - 2026-11-17
 
 Paired with backend 0.191.0, which it needs for the stripes' classes and the stations' WMO numbers.
