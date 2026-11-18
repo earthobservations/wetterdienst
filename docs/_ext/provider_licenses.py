@@ -8,8 +8,8 @@ what the page says, because it is read from the same declarations. Nothing gener
 
 The table has a row for every provider and the terms its networks declare: the networks of a provider that agree
 (they all do, which ``tests/ui/test_providers.py`` holds them to) share a row, and a network that did not would get a
-row of its own, so that the page cannot hide a disagreement. The standalone networks of DWD (radar, alerts), which
-have no metadata model, are read from their ``ProviderTerms``. A network that cannot be imported fails the build: a
+row of its own, so that the page cannot hide a disagreement. The standalone networks of DWD (radar, alerts, storm_cells),
+which have no metadata model, are read from their ``ProviderTerms``. A network that cannot be imported fails the build: a
 provider left out of the page quietly would be a worse page than none.
 
 The licence column links the page of the licence, or of the provider's own terms where it has no licence of its own,

@@ -2,7 +2,7 @@
 import type { Station, Value, ValuesResponse } from '#shared/types/api'
 import type { RequestError } from '~/utils/request-error'
 import Meteogram from '~/components/Meteogram.vue'
-import { meteogramUnitsKey, meteogramValuesQuery } from '~/utils/meteogram'
+import { meteogramUnitsKey, meteogramValuesQuery, MOSMIX_DAY_ROWS_PARAMETERS } from '~/utils/meteogram'
 import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
 import { unitsOfAnswer } from '~/utils/units'
 
@@ -37,7 +37,7 @@ async function load(stationId: string) {
   failure.value = null
   values.value = []
   try {
-    const response = await fetch(`/api/values?${new URLSearchParams(meteogramValuesQuery(stationId, unitSettings.value))}`, { signal: mine.signal })
+    const response = await fetch(`/api/values?${new URLSearchParams(meteogramValuesQuery(stationId, unitSettings.value, MOSMIX_DAY_ROWS_PARAMETERS))}`, { signal: mine.signal })
     if (!response.ok) {
       const failed = backendFailure(response.status, response.statusText, await response.json().catch(() => null))
       if (!mine.signal.aborted)

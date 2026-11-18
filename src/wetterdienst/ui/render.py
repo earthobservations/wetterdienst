@@ -22,7 +22,13 @@ from wetterdienst.model.limits import Limit  # noqa: TC001, needed at runtime by
 from wetterdienst.model.plausibility import CHECKS, Mode, forecast_note, hard_means
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.options import SkipThreshold, StationWindowEndBuffer  # noqa: TC001, needed at runtime by pydantic
-from wetterdienst.ui.response_metadata import ResponseMetadata, alerts_metadata, metadata_to_dict, response_metadata
+from wetterdienst.ui.response_metadata import (
+    ResponseMetadata,
+    alerts_metadata,
+    metadata_to_dict,
+    response_metadata,
+    storm_cells_metadata,
+)
 from wetterdienst.util.datetime import format_timestamp
 from wetterdienst.util.json_util import dumps_json
 
@@ -40,6 +46,7 @@ if TYPE_CHECKING:
     )
     from wetterdienst.options import Options
     from wetterdienst.provider.dwd.alerts.api import DwdWeatherAlertResult
+    from wetterdienst.provider.dwd.storm_cells.api import DwdStormCellsResult
     from wetterdienst.ui.core import (
         HistoryRequest,
         InterpolationRequest,
@@ -424,6 +431,25 @@ def render_alerts(result: DwdWeatherAlertResult, fmt: str, *, pretty: bool = Fal
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
     metadata = alerts_metadata(DwdWeatherAlertRequest, result.df.height, result.data_updated_at)
+    if fmt == "csv":
+        return result.to_csv(), metadata
+    data = result.to_dict() if fmt == "json" else result.to_ogc_feature_collection()
+    head = {"type": data.pop("type")} if fmt == "geojson" else {}
+    answer = {**head, "metadata": metadata_to_dict(metadata), **data}
+    return dumps_json(answer, indent=4 if pretty else None, ensure_ascii=False), metadata
+
+
+def render_storm_cells(result: DwdStormCellsResult, fmt: str, *, pretty: bool = False) -> tuple[str, ResponseMetadata]:
+    """Write the thunderstorm cells in the format asked for, the JSON formats with the `metadata` block.
+
+    A GeoJSON `FeatureCollection` holds the block as a foreign member (RFC 7946 6.1) next to its `reference_time`; CSV
+    has no place for it, so a CSV answer carries it in the headers alone (`response_headers`). The answer is never cut
+    to the budget of an MCP tool (`ui.budget`): its description asks for a place, and `track` and `geometry` make a
+    long list small.
+    """
+    from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest  # noqa: PLC0415
+
+    metadata = storm_cells_metadata(DwdStormCellsRequest, result.df.height, result.data_updated_at)
     if fmt == "csv":
         return result.to_csv(), metadata
     data = result.to_dict() if fmt == "json" else result.to_ogc_feature_collection()

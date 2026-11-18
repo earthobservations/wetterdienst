@@ -85,6 +85,8 @@ const TONES: Record<Tone, { light: string, dark: string, fillLight?: string, fil
   snowNew: { light: SERIES_LABEL.indigo.light, dark: SERIES_LABEL.indigo.dark },
   snowDepth: { light: SERIES_LABEL.teal.light, dark: SERIES_LABEL.teal.dark, fillLight: 'rgba(15,118,110,0.08)', fillDark: 'rgba(45,212,191,0.06)' },
   snowChance: { light: SERIES_LABEL.gold.light, dark: SERIES_LABEL.gold.dark, fillLight: 'rgba(180,83,9,0.08)', fillDark: 'rgba(218,165,32,0.06)' },
+  // the thunderstorm band's: the colour of the text that names it, as the snow's (3:1 for the bars, 4.5:1 for the axis' text)
+  thunder: { light: SERIES_LABEL.fuchsia.light, dark: SERIES_LABEL.fuchsia.dark },
   wind: { light: '#06b6d4', dark: '#06b6d4', fillLight: 'rgba(6,182,212,0.08)', fillDark: 'rgba(6,182,212,0.04)' },
   gust: { light: '#06b6d4', dark: '#06b6d4' },
   pressure: { light: '#84cc16', dark: '#84cc16', fillLight: 'rgba(132,204,22,0.04)', fillDark: 'rgba(132,204,22,0.02)' },
@@ -138,6 +140,13 @@ export function bandColour(cloud: number, dark: boolean): string {
 }
 
 const BACKDROP = { band: 0, midnight: 1, now: 2, freeze: 3, divider: 4, cadence: 5 } as const
+
+/**
+ * How opaque an hour of the thunderstorm band is for each class (`thunderLevel`): the shade steps up with the probability, as the bar's
+ * height rises with it, so the two say the same and no cue is the colour alone. The lowest is still 3:1 against the paper for a graphic
+ * (WCAG 1.4.11), which `tests/unit/meteogram-thunder.test.ts` holds.
+ */
+export const THUNDER_ALPHA: Readonly<Record<1 | 2 | 3, number>> = { 1: 0.66, 2: 0.8, 3: 1 }
 
 /** How much of its window a block of precipitation fills: the rest is the gap between it and the next (the library's bars were 90 % wide) */
 const BLOCK_FILL = 0.9
@@ -359,6 +368,35 @@ export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
   }
   for (const s of model.series)
     series.push(lineSeries(s))
+
+  // the thunderstorm band (GH-4090): an hour of a probability of the threshold or more is a bar over the hour it covers, as high as the
+  // probability on the panel's axis and in the shade of its class
+  if (model.thunder && rows.some(r => r.id === 'thunder')) {
+    const index = gridOf('thunder')
+    const colour = toneColor('thunder', dark)
+    const cells = model.thunder.cells
+    series.push({
+      id: 'thunder',
+      type: 'custom',
+      xAxisIndex: index,
+      yAxisIndex: index,
+      silent: true,
+      clip: true,
+      z: 3,
+      animation: false,
+      // the cell's first and last moment and its value: the zoom keeps a cell that is in the window at either end
+      encode: { x: [0, 1], y: 2 },
+      data: cells.map(cell => [cell.start, cell.end, cell.value, cell.level]),
+      renderItem: (params: any, api: any) => {
+        const gap = ((api.value(1) - api.value(0)) * (1 - BLOCK_FILL)) / 2
+        const [left, top] = api.coord([api.value(0) + gap, api.value(2)])
+        const [right, bottom] = api.coord([api.value(1) - gap, 0])
+        const cs = params.coordSys
+        const span = clampSpan(left, right, cs.x, cs.x + cs.width)
+        return span ? { type: 'rect', silent: true, shape: { x: span[0], y: top, width: span[1] - span[0], height: Math.max(1, bottom - top) }, style: { fill: colour, opacity: THUNDER_ALPHA[api.value(3) as 1 | 2 | 3] } } : null
+      },
+    })
+  }
 
   // the wind barbs, on the speed line at their hour: thinned to the room there is at the zoom the chart is in
   if (model.barbs.length && rows.some(r => r.id === 'wind')) {

@@ -40,8 +40,9 @@ class ProviderNetwork(BaseModel):
 
     network: str
     kind: NetworkKind = Field(
-        description="`observation`, `forecast` or `derived` for a network with stations and values; `radar` and "
-        "`alerts` for a standalone one (`dwd/radar`, `dwd/alerts`), which has no resolutions to list.",
+        description="`observation`, `forecast` or `derived` for a network with stations and values; `radar`, "
+        "`alerts` and `storm_cells` for a standalone one (`dwd/radar`, `dwd/alerts`, `dwd/storm_cells`), which has no "
+        "resolutions to list.",
     )
     extent: Extent = Field(
         description="Where the stations of the network are, which the `country` of its provider does not say.",

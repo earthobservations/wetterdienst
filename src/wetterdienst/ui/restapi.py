@@ -93,6 +93,7 @@ from wetterdienst.ui.core import (
     Selection,
     SettingsRequest,
     StationsRequest,
+    StormCellsRequest,
     StripesImageRequest,
     StripesReference,
     StripesSeries,
@@ -167,6 +168,7 @@ from wetterdienst.ui.render import (
     render_history,
     render_issues,
     render_stations,
+    render_storm_cells,
     render_stripes_stations,
     render_stripes_values,
 )
@@ -214,6 +216,7 @@ TAG_STATIONS = "Stations"
 TAG_VALUES = "Values"
 TAG_STRIPES = "Climate stripes"
 TAG_ALERTS = "Alerts"
+TAG_STORM_CELLS = "Storm cells"
 TAG_SERVER = "Server"
 
 # FastAPI's OpenTelemetry stays on, so it reports to a provider the operator sets up. Its startup
@@ -271,6 +274,7 @@ app = FastAPI(
             "description": "Climate stripes of a station in Germany: stations, values and the image.",
         },
         {"name": TAG_ALERTS, "description": "Weather warnings of the DWD."},
+        {"name": TAG_STORM_CELLS, "description": "Thunderstorm cells of the DWD, detected in its radar data."},
         {"name": TAG_SERVER, "description": "This instance: its version and limits, its settings, and its health."},
     ],
     debug=False,
@@ -365,6 +369,7 @@ REQUEST_EXAMPLES = {
     "dwd_dmo_issues": "api/issues?provider=dwd&network=dmo&station=10147",
     "dwd_swsmos_issues": "api/issues?provider=dwd&network=swsmos&station=A006",
     "dwd_weather_alerts": "api/alerts?granularity=community&format=geojson",
+    "dwd_storm_cells": "api/storm-cells?format=geojson&track=false",
 }
 
 
@@ -786,6 +791,21 @@ class _AlertsWithMetadataOgcFeatureCollection(TypedDict):
     features: list[dict[str, Any]]
 
 
+class _StormCellsWithMetadataDict(TypedDict):
+    metadata: ResponseMetadata
+    # the UTC reference time of the scan, which an empty scan has too
+    reference_time: str | None
+    # one entry per cell, with the nested `geometry` and `track`
+    cells: list[dict[str, Any]]
+
+
+class _StormCellsWithMetadataOgcFeatureCollection(TypedDict):
+    type: Literal["FeatureCollection"]
+    metadata: ResponseMetadata
+    reference_time: str | None
+    features: list[dict[str, Any]]
+
+
 class _StripesValue(TypedDict):
     timestamp: str | None
     value: float | None
@@ -919,6 +939,7 @@ def index() -> HTMLResponse:
                     <li><a href="api/stripes/values" target="_blank" rel="noopener">stripes values</a></li>
                     <li><a href="api/stripes/image" target="_blank" rel="noopener">stripes image</a></li>
                     <li><a href="api/alerts" target="_blank" rel="noopener">weather alerts</a></li>
+                    <li><a href="api/storm-cells" target="_blank" rel="noopener">storm cells</a></li>
                     {f"<li>MCP endpoint (streamable HTTP): <code>{MCP_PREFIX}</code> (<code>{MCP_ALIAS_PREFIX}</code> follows the current version)</li>" if mcp_enabled else ""}
                 </ul>
                 <h2>Examples</h2>
@@ -932,6 +953,7 @@ def index() -> HTMLResponse:
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_values"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Values</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_image"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Image</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_weather_alerts"]}" target="_blank" rel="noopener">DWD Weather Alerts</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["dwd_storm_cells"]}" target="_blank" rel="noopener">DWD Storm Cells</a></li>
                 </ul>
                 <h2>Producer</h2>
                 <ul>
@@ -1208,6 +1230,7 @@ _ROUTE_ANSWERS: dict[str, tuple[int, ...]] = {
     "stripes/values": _DATA_ANSWERS,
     "stripes/image": _DATA_ANSWERS,
     "alerts": _DATA_ANSWERS,
+    "storm-cells": _DATA_ANSWERS,
 }
 #: what every route under `API_PREFIX` can answer: a `Host` that is not allowed (400), a defect (500), the cap on
 #: requests served at once (503) and the request timeout (504), see `ui.middleware`
@@ -1658,7 +1681,7 @@ def coverage(
     providers and their networks, with whether each needs credentials and has them (`configured`). Narrow the
     answer with resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names. It
     is keyed by resolution, then `datasets`, then each dataset's `parameters`. Nothing is downloaded, so it answers
-    at once. A standalone network (`dwd/radar`, `dwd/alerts`) has none: a 404.
+    at once. A standalone network (`dwd/radar`, `dwd/alerts`, `dwd/storm_cells`) has none: a 404.
 
     Each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and `country_codes` for a
     regional one): the dataset's own where it is narrower than its network's, else the network's. Whether the
@@ -1723,7 +1746,8 @@ def providers(
     whether a request has to give a date (`date_required`) and its number of `parameters`.
 
     `kind` is `observation`, `forecast` or `derived` for a timeseries network, which has stations and values
-    (every network but two); `radar` and `alerts` are standalone (`dwd/radar`, `dwd/alerts`): the other
+    (every network but three); `radar`, `alerts` and `storm_cells` are standalone (`dwd/radar`, `dwd/alerts`,
+    `dwd/storm_cells`): the other
     endpoints answer 404 for them. `configured` says whether the credentials of a network that needs them are
     present; whether the provider accepts them is not checked here, `/api/auth` (the MCP `auth` tool) does, for
     one network.
@@ -1801,7 +1825,7 @@ def glossary(
 def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -> type[TimeseriesRequest]:
     """Get the API of a network the timeseries endpoints serve, refusing one they cannot with a 404.
 
-    A standalone network (dwd/radar, dwd/alerts) or, with `history`, a network without station
+    A standalone network (dwd/radar, dwd/alerts, dwd/storm_cells) or, with `history`, a network without station
     history has nothing to answer these with, as a provider or network that does not exist.
     """
     try:
@@ -2853,6 +2877,60 @@ def alerts(
         raise _failure(e, request, "get weather alerts") from e
 
     content, metadata = render_alerts(result, request.format, pretty=request.pretty)
+    return _answer(content, request.format, metadata)
+
+
+@router.get(
+    "/storm-cells",
+    response_model=_StormCellsWithMetadataDict | _StormCellsWithMetadataOgcFeatureCollection | str,
+    tags=[TAG_STORM_CELLS],
+)
+def storm_cells(
+    request: Annotated[StormCellsRequest, Query()],
+) -> Response:
+    """Provide DWD's thunderstorm cells (KONRAD3D) via restapi.
+
+    Returns the cells of the newest radar scan, or of the newest at or before ``timestamp`` (ISO 8601, UTC if no
+    offset) within the ~48 hours DWD keeps, one entry per cell: its severity (0 weak to 3 extreme), warning flags for
+    hail, heavy rain and gusts, size, speed, the ``direction_degrees`` of its motion (calculated), its outline and its
+    forecast ``track`` of 12 positions to 60 minutes ahead. Without a place that is every cell of Germany (several
+    hundred KB on a day of storms, more than an assistant can read): pass ``latitude``, ``longitude`` and ``distance``
+    (km) for the cells whose outline contains the point or comes within the distance, or ``left``, ``bottom``,
+    ``right`` and ``top`` for a box, and ``min_severity``. ``track=false`` and ``geometry=centroid`` make a long list
+    small. Most scans hold no cell: an empty ``cells`` is an answer, not an error, and ``reference_time`` says which
+    scan it is of. A filter that leaves no cell of a scan that has some carries a ``no-storm-cells-for-place`` warning
+    in ``metadata``, and a scan that is more than 20 minutes older than the time asked for a ``scan-stale`` warning:
+    an empty answer is then no all-clear. Scans come every 5 minutes and the newest is 5 to 10 minutes old when it
+    appears.
+    """
+    from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest  # noqa: PLC0415
+
+    begin_response()
+
+    # outside the handlers below, as for `/api/stations`
+    settings = Settings()
+    try:
+        cells_request = DwdStormCellsRequest(
+            timestamp=request.timestamp,
+            latitude=request.latitude,
+            longitude=request.longitude,
+            distance=request.distance,
+            left=request.left,
+            bottom=request.bottom,
+            right=request.right,
+            top=request.top,
+            min_severity=request.min_severity,
+            track=request.track,
+            geometry=request.geometry,
+            settings=settings,
+        )
+        result = cells_request.query()
+    except Exception as e:
+        # a time that does not parse, or one before DWD's rolling window, or a box that is no box, is the request's; a
+        # listing that does not list, a file that does not download or parse is the provider's
+        raise _failure(e, request, "get storm cells") from e
+
+    content, metadata = render_storm_cells(result, request.format, pretty=request.pretty)
     return _answer(content, request.format, metadata)
 
 

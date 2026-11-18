@@ -610,6 +610,7 @@ export const parameters: Record<string, string> = {
   thawing_thickness_plant_cover: 'Profondità di disgelo, sotto copertura vegetale',
   thawing_thickness_plant_cover_max_month: 'Massima profondità di disgelo del mese, sotto copertura vegetale',
   turbidity: 'Torbidità',
+  uv_index_max: 'Indice UV (massimo giornaliero)',
   volume_reservoir: 'Volume dell\'invaso',
   water_equivalent_snow_depth_sampled: 'Equivalente in acqua della neve (campione)',
   water_equivalent_snow_depth_new: 'Equivalente in acqua della neve fresca',

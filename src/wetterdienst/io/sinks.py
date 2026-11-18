@@ -34,6 +34,7 @@ if TYPE_CHECKING:
 
     from wetterdienst.io.export import ExportMixin
     from wetterdienst.provider.dwd.alerts.api import DwdWeatherAlertResult
+    from wetterdienst.provider.dwd.storm_cells.api import DwdStormCellsResult
 
 log = logging.getLogger(__name__)
 
@@ -317,7 +318,7 @@ SELF_DESCRIBING = frozenset({".parquet", ".zarr", ".nc"})
 def _write_with_metadata(
     writer: FileWriter,
     extension: str,
-    result: ExportMixin | DwdWeatherAlertResult,
+    result: ExportMixin | DwdWeatherAlertResult | DwdStormCellsResult,
     filepath: str,
     *,
     with_metadata: bool,
@@ -340,7 +341,7 @@ def _write_with_metadata(
 
 
 def _write_file(
-    result: ExportMixin | DwdWeatherAlertResult,
+    result: ExportMixin | DwdWeatherAlertResult | DwdStormCellsResult,
     target: str,
     connspec: ConnectionString,
     if_exists: IfExists,
@@ -1062,6 +1063,61 @@ def write_alerts_to_target(
     writers = {
         extension: functools.partial(_write_alerts, fmt=fmt, pretty=pretty)
         for extension, fmt in ALERT_FILE_FORMATS.items()
+    }
+    _write_file(result, target, connspec, if_exists, with_metadata=with_metadata, writers=writers)
+
+
+def _write_storm_cells(result: DwdStormCellsResult, filepath: str, fmt: str, *, pretty: bool) -> None:
+    """Write the answer `render_storm_cells` gives for `fmt`, which is what the REST API and the command line send."""
+    # the module imports the results, which import this one
+    from wetterdienst.ui.render import render_storm_cells  # noqa: PLC0415
+
+    log.info(f"Writing storm cells to {fmt} file '{filepath}'")
+    content, _ = render_storm_cells(result, fmt, pretty=pretty)
+    # bytes, as `ensure_ascii=False` writes UTF-8 and a text file would translate the newlines on Windows
+    Path(filepath).write_bytes(content.encode("utf-8"))
+
+
+#: the file types of the storm cells result, by extension, and the format of each: the answer the REST API gives for it.
+#: A cell is nested (an outline, a track), so a database has no table for it yet
+STORM_CELLS_FILE_FORMATS: dict[str, str] = {".json": "json", ".geojson": "geojson", ".csv": "csv"}
+
+
+def write_storm_cells_to_target(
+    result: DwdStormCellsResult,
+    target: str,
+    connspec: ConnectionString,
+    if_exists: IfExists,
+    *,
+    with_metadata: bool = False,
+    pretty: bool = False,
+) -> None:
+    """Write the storm cells result to the file a target names, by its extension: `.json`, `.geojson` or `.csv`.
+
+    The rules of a file target are those of any result (`_write_file`): `if_exists`, no append, and the sidecar of
+    `with_metadata`; the extension is read first, so a file of another type is refused whether it is there or not.
+
+    Raises:
+        ExportRefusedError: A target that is not a file (a cell holds an outline and a track, and no table holds that
+            yet), a file type of none of the three, an `if_exists` of none of the four words, or what `_write_file`
+            refuses.
+
+    """
+    refuse_unknown_if_exists(if_exists)
+    if find_sink(target, connspec.protocol) is not _write_file:
+        if connspec.protocol == "file":
+            # `FILE://x.csv`: the sink reads the scheme in lower case only, and is not a database
+            msg = f"a file target is written as file://, in lower case, and not as '{target.split(':', 1)[0]}://'"
+        else:
+            msg = (
+                "the storm cells result is written to a file only (file://cells.json, cells.geojson or cells.csv); "
+                f"a {connspec.protocol or 'database'} target is refused, as a cell holds an outline and a track and "
+                "there is no table for it"
+            )
+        raise ExportRefusedError(msg)
+    writers = {
+        extension: functools.partial(_write_storm_cells, fmt=fmt, pretty=pretty)
+        for extension, fmt in STORM_CELLS_FILE_FORMATS.items()
     }
     _write_file(result, target, connspec, if_exists, with_metadata=with_metadata, writers=writers)
 
