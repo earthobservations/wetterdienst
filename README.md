@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://github.com/earthobservations/wetterdienst/actions?workflow=Tests"><img src="https://github.com/earthobservations/wetterdienst/actions/workflows/tests.yml/badge.svg?branch=main" alt="CI status"/></a>
   <a href="https://wetterdienst.readthedocs.io/en/latest/?badge=latest"><img src="https://readthedocs.org/projects/wetterdienst/badge/?version=latest" alt="Documentation status"/></a>
-  <a href="https://app.codecov.io/gh/earthobservations/wetterdienst"><img src="https://codecov.io/gh/earthobservations/wetterdienst/branch/main/graph/badge.svg" alt="Code coverage"/></a>
+  <a href="https://app.codecov.io/gh/earthobservations/wetterdienst"><img src="https://codecov.io/gh/earthobservations/wetterdienst/branch/main/graph/badge.svg?flag=offline" alt="Code coverage"/></a>
   <br/>
   <a href="https://pypi.org/project/wetterdienst/"><img src="https://img.shields.io/pypi/v/wetterdienst.svg" alt="PyPI version"/></a>
   <a href="https://anaconda.org/conda-forge/wetterdienst"><img src="https://img.shields.io/conda/vn/conda-forge/wetterdienst.svg" alt="Conda version"/></a>
