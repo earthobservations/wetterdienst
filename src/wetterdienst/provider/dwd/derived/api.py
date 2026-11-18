@@ -744,6 +744,8 @@ class DwdDerivedRequest(TimeseriesRequest):
     # its stations are the 100000 postal codes, ids and no position (`_get_raw_station_data_from_plz_generator`): a
     # search by place says so (`positions-unavailable`); the other datasets' stations have one
     datasets_without_positions = frozenset({"monthly/climate_correction_factor"})
+    # and no name either: they are found by their id alone
+    datasets_without_names = frozenset({"monthly/climate_correction_factor"})
 
     def _recent_span_of(self, dataset: DatasetModel) -> dt.timedelta | None:
         """Give no span for the monthly datasets, whose recent directories hold years.

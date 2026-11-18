@@ -13,7 +13,6 @@ stations are the postal codes (`datasets_without_positions`, GH-4206).
 
 from __future__ import annotations
 
-import contextlib
 import datetime as dt
 from typing import Any
 
@@ -203,8 +202,11 @@ def test_the_library_tells_a_search_by_place_on_the_correction_factor(search: st
     message = recorded_warnings()[0]["message"]
     assert DERIVED_CODE_MESSAGE in message
     assert "no position" in message
-    assert "`name`" in message
+    # the postal codes have no name, so a search by name is no way to find them
+    assert "`name`" not in message
+    assert "filter_by_name" not in message
     assert "`stations`" in message
+    assert "filter_by_station_id" in message
 
 
 @pytest.mark.usefixtures("_derived_listing")
@@ -232,19 +234,60 @@ def test_the_other_datasets_of_derived_have_positions_and_are_told_nothing(param
     assert _codes() == []
 
 
-def test_a_request_of_the_correction_factor_among_other_datasets_names_it_alone() -> None:
-    """The stations of the others are found by place: the warning is for the dataset that has none."""
-    _derived(("monthly", "heating_degreedays"), ("monthly", "climate_correction_factor"))._warn_no_positions()  # noqa: SLF001
+@pytest.fixture
+def _derived_with_heating(monkeypatch: pytest.MonkeyPatch, _derived_listing: None) -> None:
+    """Serve the station list of the heating degree days with two stations that have a position."""
+    meta = derived_api.create_meta_index_for_climate_derived
+
+    def create(dataset: Any, settings: Settings) -> pl.LazyFrame:  # noqa: ANN401
+        if dataset.name == "heating_degreedays":
+            return pl.LazyFrame(
+                {
+                    "station_id": ["00044", "00073"],
+                    "latitude": [52.9336, 48.6159],
+                    "longitude": [8.2370, 13.0506],
+                    "elevation": [44.0, 340.0],
+                    "name": ["Großenkneten", "Aldersbach-Kriestorf"],
+                    "region": ["Niedersachsen", "Bayern"],
+                }
+            )
+        return meta(dataset, settings)
+
+    monkeypatch.setattr(derived_api, "create_meta_index_for_climate_derived", create)
+
+
+@pytest.mark.usefixtures("_derived_with_heating")
+@pytest.mark.parametrize("search", BY_PLACE)
+def test_a_request_of_the_correction_factor_among_other_datasets_finds_the_others_and_names_it_alone(
+    search: str,
+) -> None:
+    """The stations of the heating degree days are found by place; the warning is for the dataset that has none."""
+    request = _derived(("monthly", "heating_degreedays"), ("monthly", "climate_correction_factor"))
+    _library(request, BY_PLACE[search])
     (warning,) = recorded_warnings()
     assert warning["code"] == CODE
     assert DERIVED_CODE_MESSAGE in warning["message"]
     assert "heating_degreedays" not in warning["message"]
+    # the warning is about the codes alone, which have no name: the id is the way to find them
+    assert "`name`" not in warning["message"]
+    assert "`stations`" in warning["message"]
+
+
+@pytest.mark.usefixtures("_derived_with_heating")
+def test_the_stations_of_the_other_datasets_are_found_by_place() -> None:
+    """The warning is no empty answer: the two stations of the heating degree days are ranked, none of the codes."""
+    request = _derived(("monthly", "heating_degreedays"), ("monthly", "climate_correction_factor"))
+    result = request.filter_by_rank(POINT, 5)
+    assert set(result.df["dataset"]) == {"heating_degreedays"}
+    assert sorted(result.df["station_id"]) == ["00044", "00073"]
+    assert _codes() == [CODE]
 
 
 def test_the_datasets_without_positions_are_declared_by_derived_alone() -> None:
     """The flag of the network stays up for `dwd/derived`, and no other network declares a dataset without positions."""
     assert DwdDerivedRequest.stations_have_positions is True
     assert DwdDerivedRequest.datasets_without_positions == {"monthly/climate_correction_factor"}
+    assert DwdDerivedRequest.datasets_without_names == {"monthly/climate_correction_factor"}
     for provider, network in [("dwd", "observation"), ("dwd", "mosmix"), ("dwd", "poi"), ("eaufrance", "hubeau")]:
         assert Wetterdienst.resolve(provider, network).datasets_without_positions == frozenset()
 
@@ -278,6 +321,5 @@ def test_the_library_tells_an_estimate_by_a_point_on_the_correction_factor(estim
         end=dt.datetime(2026, 3, 1, tzinfo=dt.UTC),
         settings=Settings(cache_disable=True),
     )
-    with contextlib.suppress(Exception):
-        getattr(request, estimate)(POINT)
+    getattr(request, estimate)(POINT)
     assert CODE in _codes()

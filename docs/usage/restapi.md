@@ -1383,7 +1383,7 @@ entry for each invalid parameter, where `loc` names it:
 | 404 | what the request names does not exist: a provider, network, a resolution or dataset of `/api/coverage`, station, forecast run, or a path |
 | 403 | the server declines it: `sql` filters it has not enabled |
 | 405 | the method is not allowed for the path |
-| 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several; or a map of stations (`html`, `png`, `jpg`, `webp`, `svg`, `pdf`) none of which has a position (`dwd/pollen`), which `detail` says to ask for as `json`, `csv` or `geojson` (a problem of the kind `invalid-parameters` without `errors`) |
+| 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several; or a map of stations (`format` `html`, `png`, `jpg`, `webp`, `svg` or `pdf`) none of which has a position (`dwd/derived`'s `monthly/climate_correction_factor`, `dwd/pollen`), where `detail` says to ask for `json`, `csv` or `geojson` and `errors` has the entry for `format` |
 | 501 | the server cannot serve it: a credential it lacks or the provider rejects, or an optional package it lacks, which the body does not name |
 | 502 | the data provider failed or sent an answer the server cannot read: a download that was refused or cut short, a file in a layout it does not expect; the request was valid and can be retried |
 | 503 | the server could not reach the data provider (no network connection), or it is working on as many requests as it allows ([Concurrency](#concurrency)); the request was valid and can be retried, the body says so and does not name the provider's address |

@@ -103,6 +103,9 @@ def test_rest_answers_a_map_of_stations_without_a_position_with_a_422(fmt: str) 
     problem = response.json()
     assert problem["status"] == 422
     assert problem["detail"] == MESSAGE
+    # the kind is `invalid-parameters`, which promises an entry for each invalid parameter: it is `format`
+    assert problem["type"] == "urn:wetterdienst:problem:invalid-parameters"
+    assert problem["errors"] == [{"type": "no_positions", "loc": ["query", "format"], "msg": MESSAGE}]
 
 
 @pytest.mark.parametrize("fmt", ["json", "geojson", "csv"])
@@ -170,3 +173,41 @@ def test_stations_none_of_which_has_a_complete_position_are_refused() -> None:
 def test_no_station_at_all_is_an_empty_figure_as_before() -> None:
     """A listing that is empty is no refusal: there is nothing to say about positions."""
     assert _result([]).to_plot().data == ()
+
+
+@pytest.mark.parametrize("fmt", IMAGE_FORMATS)
+def test_the_postal_codes_of_the_correction_factor_are_refused_as_pollen_is(
+    fmt: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """`dwd/derived`'s `monthly/climate_correction_factor` has 100000 stations, no position: a 422, not a TypeError."""
+    from wetterdienst.provider.dwd.derived import api as derived_api  # noqa: PLC0415
+
+    monkeypatch.setattr(
+        derived_api,
+        "create_file_index_for_climate_derived",
+        lambda *_args, **_kwargs: pl.LazyFrame({"station_id": []}, schema={"station_id": pl.String}),
+    )
+    params = {
+        "provider": "dwd",
+        "network": "derived",
+        "parameters": "monthly/climate_correction_factor",
+        "all": "true",
+        "format": fmt,
+    }
+    response = TestClient(restapi.app, raise_server_exceptions=False).get("/api/stations", params=params)
+    assert response.status_code == 422, response.text[:300]
+    assert response.json()["detail"] == MESSAGE
+
+
+def test_a_station_with_a_latitude_only_does_not_widen_the_map() -> None:
+    """The view is fitted to the stations with both coordinates: a latitude of -30 and no longitude is not on it."""
+    alone = _result([(52.52, 13.405), (52.6, 13.5)]).to_plot().layout.map
+    with_half = _result([(52.52, 13.405), (52.6, 13.5), (-30.0, None), (None, 120.0)]).to_plot().layout.map
+    assert with_half.zoom == pytest.approx(alone.zoom)
+    assert with_half.center.lat == pytest.approx(alone.center.lat)
+    assert with_half.center.lon == pytest.approx(alone.center.lon)
+    # a picture of another size is fitted again to the same stations
+    result = _result([(52.52, 13.405), (52.6, 13.5), (-30.0, None)])
+    assert result._map_view(300, 300)[1] == pytest.approx(  # noqa: SLF001
+        _result([(52.52, 13.405), (52.6, 13.5)])._map_view(300, 300)[1]  # noqa: SLF001
+    )

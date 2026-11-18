@@ -555,6 +555,9 @@ class TimeseriesRequest:
     # `monthly/climate_correction_factor`, whose stations are the 100000 postal codes): a search by place says so when
     # the request holds one of them, and still finds the stations of the others
     datasets_without_positions: ClassVar[frozenset[str]] = frozenset()
+    # Those of them whose stations have no name either, so a search by name finds none of them and the warning names the
+    # id alone as the way to find them (the postal codes of `dwd/derived`'s correction factor)
+    datasets_without_names: ClassVar[frozenset[str]] = frozenset()
 
     # The parameters that may be interpolated or summarized, which is a property of the measured
     # quantity rather than of a request -- see `CanonicalParameter.interpolation`. Kept here as a
@@ -999,11 +1002,14 @@ class TimeseriesRequest:
         Called by `filter_by_rank` (and so by `filter_by_distance`, `interpolate` and `summarize`) and `filter_by_bbox`,
         for a network that declares `stations_have_positions` False, and for a request that holds a dataset of
         `datasets_without_positions`, which the warning names, as the stations of the other datasets are found.
-        Nothing is told for any other request, and for a search by name or id, which finds the stations.
+        The way it names to find them is the name or the id, the id alone where the dataset's stations have no name
+        (`datasets_without_names`). Nothing is told for any other request, and for a search by name or id, which finds
+        the stations.
         """
         from wetterdienst.api import Wetterdienst  # noqa: PLC0415
 
         network = Wetterdienst._network_of(type(self)) or type(self).__name__  # noqa: SLF001
+        by_name = True
         if self.stations_have_positions:
             asked = [
                 f"{parameter.dataset.resolution.name}/{parameter.dataset.name}"
@@ -1014,13 +1020,19 @@ class TimeseriesRequest:
             if not without:
                 return
             what = f"{network} {', '.join(without)}"
+            by_name = any(name not in self.datasets_without_names for name in without)
         else:
             what = network
+        way = (
+            "by name or id (the `name` and `stations` parameters, `filter_by_name` and `filter_by_station_id` in the "
+            "library)"
+            if by_name
+            else "by id (the `stations` parameter, `filter_by_station_id` in the library), as they have no name"
+        )
         warn_response(
             log,
             POSITIONS_UNAVAILABLE,
-            f"The stations of {what} have no position, so a search by place finds none; find them by name or id "
-            "(the `name` and `stations` parameters, `filter_by_name` and `filter_by_station_id` in the library).",
+            f"The stations of {what} have no position, so a search by place finds none; find them {way}.",
         )
 
     def _within_answer_window(self, df: pl.DataFrame) -> pl.DataFrame:

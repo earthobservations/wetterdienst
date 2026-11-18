@@ -706,12 +706,16 @@ class StationsResult(_EqualByFields, ExportMixin):
         )
 
     def _map_view(self, width: int, height: int) -> tuple[dict[str, float], float]:
-        """Centre and zoom of the station map that show every station in a picture of `width` x `height` pixels."""
+        """Centre and zoom of the station map that show every station with a position in a `width` x `height` picture.
+
+        A station that lacks a latitude or a longitude is not on the map, so it does not widen it (GH-4206).
+        """
+        placed = self.df.filter(pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null())
         return _fit_map_view(
-            cast("float", self.df["longitude"].min()),
-            cast("float", self.df["longitude"].max()),
-            cast("float", self.df["latitude"].min()),
-            cast("float", self.df["latitude"].max()),
+            cast("float", placed["longitude"].min()),
+            cast("float", placed["longitude"].max()),
+            cast("float", placed["latitude"].min()),
+            cast("float", placed["latitude"].max()),
             max(1, width - _MAP_MARGIN["l"] - _MAP_MARGIN["r"]),
             max(1, height - _MAP_MARGIN["t"] - _MAP_MARGIN["b"]),
         )
