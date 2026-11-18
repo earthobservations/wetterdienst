@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { meteogramDays } from '../../app/utils/meteogram-days'
 import { buildSeries } from '../../app/utils/meteogram-series'
 import { meteogramUnits } from '../../app/utils/meteogram-units'
+import { yrSymbolFor } from '../../app/utils/weather-symbols'
 import { FORECAST_UNITS, forecastValues } from '../helpers/meteogram-forecast'
 import { PRECIPITATION, run10382Values } from '../helpers/mosmix-run'
 
@@ -248,5 +249,84 @@ describe('the sky of a day whose codes are DWD\'s cloud development 0 to 3 (GH-4
     const rain = Array.from({ length: 24 }, (_, hour) => ({ station_id: 'C720', resolution: 'hourly', dataset: 'large', parameter: PRECIPITATION.hour, timestamp: new Date(Date.UTC(2026, 10, 20, hour - 1)).toISOString().replace('.000Z', '+00:00'), value: 0.3, quality_flags: null }))
     const cloudy = Object.fromEntries(Array.from({ length: 24 }, (_, hour) => [hour, [3, 90] as [number, number]]))
     expect(kindOf(day(cloudy, rain))).toBe('rain')
+  })
+})
+
+// What a day card draws its Yr symbol from (GH-4193): the sky of the day's cloud cover for wind, dust and a funnel cloud, and its rain in mm
+describe('the sky and the rain of a day, which its symbol is chosen by', () => {
+  const stamp = (hour: number) => new Date(Date.UTC(2026, 10, 20, hour - 1)).toISOString().replace('.000Z', '+00:00')
+  const hourly = (parameter: string, value: number) => Array.from({ length: 24 }, (_, hour) => ({ station_id: 'C720', resolution: 'hourly', dataset: 'large', parameter, timestamp: stamp(hour), value, quality_flags: null }))
+  const dayOf = (code: number, cover: number | null, rain: number | null) => byDate(days([
+    ...hourly('weather_significant', code),
+    ...hourly('temperature_air_2m', 10),
+    ...(cover === null ? [] : hourly('cloud_cover_total', cover)),
+    ...(rain === null ? [] : hourly(PRECIPITATION.hour, rain)),
+  ], { today: '2026-11-20' }))['2026-11-20']!
+
+  it('has the sky of the cloud cover, by the chart\'s thresholds, whatever the weather the code names', () => {
+    expect(dayOf(61, 10, null)).toMatchObject({ kind: 'rain', sky: 'clear' })
+    expect(dayOf(61, 50, null)).toMatchObject({ kind: 'rain', sky: 'partlyCloudy' })
+    expect(dayOf(18, 70, null)).toMatchObject({ kind: 'wind', sky: 'cloudy' })
+    expect(dayOf(33, 20, null)).toMatchObject({ kind: 'dust', sky: 'clear' })
+    expect(dayOf(19, 95, null)).toMatchObject({ kind: 'funnelCloud', sky: 'cloudy' })
+  })
+
+  it('has a partly cloudy sky where the day has no cloud cover, as the chart\'s hours do', () => {
+    expect(dayOf(18, null, null).sky).toBe('partlyCloudy')
+  })
+
+  it('has the rain of the day in millimetres, and none where the forecast has no amount', () => {
+    expect(dayOf(61, 50, 0.25).precipitationMm).toBeCloseTo(5.75, 5)
+    expect(dayOf(61, 50, 0).precipitationMm).toBe(0)
+    expect(dayOf(61, 50, null).precipitationMm).toBeNull()
+  })
+})
+
+// The strength of a day's symbol is that of its wettest hour, as the chart's hours are, and not the day's total (GH-4193)
+describe('the rate of the wettest hour of a day, which the strength of its symbol is told by', () => {
+  const stamp = (hour: number) => new Date(Date.UTC(2026, 10, 20, hour - 1)).toISOString().replace('.000Z', '+00:00')
+  const entry = (parameter: string, hour: number, value: number) => ({ station_id: 'C720', resolution: 'hourly', dataset: 'large', parameter, timestamp: stamp(hour), value, quality_flags: null })
+  const hours = (parameter: string, value: (hour: number) => number) => Array.from({ length: 24 }, (_, hour) => entry(parameter, hour, value(hour)))
+  const symbolOf = (row: MeteogramDay) => yrSymbolFor({ kind: row.kind, night: false, precipitationMm: row.precipitationPeakMm, sky: row.sky })
+  const dayOf = (values: unknown[], temperature = 10) => byDate(days([...hours('temperature_air_2m', () => temperature), ...values], { today: '2026-11-20' }))['2026-11-20']!
+
+  it('is the hour\'s own amount, so that a drizzly day of 0.25 mm every hour (5.75 mm in all) is light rain, as every hour of it is on the chart', () => {
+    const row = dayOf([...hours('weather_significant', () => 61), ...hours(PRECIPITATION.hour, () => 0.25)])
+    expect(row.precipitationMm).toBeCloseTo(5.75, 5)
+    expect(row.precipitationPeakMm).toBeCloseTo(0.25, 5)
+    expect(symbolOf(row)).toBe('46')
+  })
+
+  it('is heavy rain for a day of one hour of 5 mm, whatever the rest of it', () => {
+    const row = dayOf([...hours('weather_significant', () => 61), ...hours(PRECIPITATION.hour, hour => hour === 12 ? 5 : 0)])
+    expect(row.precipitationPeakMm).toBe(5)
+    expect(symbolOf(row)).toBe('10')
+  })
+
+  it('is the rate of the block of a late day made of 6 hour totals: a block of 30 mm over 6 hours is 5 mm an hour and heavy rain', () => {
+    const six = (hour: number) => [6, 12, 18, 24].includes(hour) ? (hour === 12 ? 30 : 0) : null
+    const totals = [6, 12, 18, 24].map(hour => entry(PRECIPITATION.six, hour, six(hour)!))
+    // the stamp of the last window is the midnight after the day, which the hourly stamps do not reach: 6 UTC+1 starts the day's first block
+    const row = dayOf([...hours('weather_significant', () => 3), ...totals])
+    expect(row.precipBlockHours).toBe(6)
+    expect(row.precipitationPeakMm).toBe(5)
+    expect(row.precipLabel).toMatch(/^≈30\.0/)
+    expect(row.kind).toBe('rain')
+    expect(symbolOf(row)).toBe('10')
+  })
+
+  it('is heavy snow for a late day of a 6 hour block of 12 mm (2 mm an hour) in a cold air, and snow only for one of 6 mm', () => {
+    const totals = (amount: number) => [6, 12, 18, 24].map(hour => entry(PRECIPITATION.six, hour, hour === 12 ? amount : 0))
+    const heavy = dayOf([...hours('weather_significant', () => 3), ...totals(12)], -4)
+    expect(heavy.kind).toBe('snow')
+    expect(heavy.precipitationPeakMm).toBe(2)
+    expect(symbolOf(heavy)).toBe('50')
+    const light = dayOf([...hours('weather_significant', () => 3), ...totals(6)], -4)
+    expect(light.kind).toBe('snow')
+    expect(symbolOf(light)).toBe('13')
+  })
+
+  it('has none where the forecast has no amount', () => {
+    expect(dayOf([...hours('weather_significant', () => 61)]).precipitationPeakMm).toBeNull()
   })
 })

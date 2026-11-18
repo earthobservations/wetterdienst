@@ -5,6 +5,7 @@
 import type { SeriesMap } from './meteogram-series'
 import type { MeteogramUnits } from './meteogram-units'
 import type { WeatherKind } from './weather-kind'
+import type { Sky } from './weather-symbols'
 import { DateTime } from 'luxon'
 import { formatDayMonth, formatNumber, weekdayShort } from './format'
 import { classifyPrecip, METEOGRAM_SERIES, wetBulbApprox } from './meteogram'
@@ -20,6 +21,17 @@ const PARTIAL_BELOW_HOURS = 20
 export interface MeteogramDay {
   date: DateTime
   kind: WeatherKind
+  /** the sky of the day from its mean cloud cover (`skyOfCloudCover`), which the symbol of wind, dust and a funnel cloud takes (GH-4193) */
+  sky: Sky
+  /** the rain of the day in millimetres, whatever unit the label is written in; null where the forecast has none. What the rain of 0.5 mm rule judges (GH-4175) */
+  precipitationMm: number | null
+  /**
+   * The rate of the day's wettest hour in millimetres an hour, whatever unit the label is written in (for a late day made of 6, 12 or 24 hour
+   * totals, the rate of its wettest block: the amount over its hours); null where the forecast has none. What the strength of the symbol is
+   * told by, as the chart's hours are (GH-4193): 4 mm an hour is heavy rain and 2 mm an hour heavy snow, and a day of drizzle is not heavy
+   * by its total.
+   */
+  precipitationPeakMm: number | null
   weekday: string
   dayMonth: string
   tempLabel?: string | null
@@ -178,24 +190,24 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
     const over = plan ? precipitationOver(plan, startUTC, endUTC) : null
     const dayPrecip = over?.amount ?? null
 
-    // No weather code that names weather (the codes 0 to 3 name none): the sky by the day's mean cloud cover, by the thresholds of the chart's hours
-    if (kind === null) {
-      let cloudSum = 0
-      let cloudCount = 0
-      if (cloudKey && series.has(cloudKey)) {
-        const cs = series.get(cloudKey)!
-        for (let i = 0; i < cs.x.length; i++) {
-          const time = cs.x[i]!.getTime()
-          if (time >= startUTC && time < endUTC) {
-            // in percent whatever the unit the cloud cover is shown in: the thresholds of the sky are percentages
-            cloudSum += units.canon('fraction', cs.y[i] ?? 0)
-            cloudCount++
-          }
+    // The sky of the day by its mean cloud cover, by the thresholds of the chart's hours: the sky of a day no weather code names weather for
+    // (the codes 0 to 3 name none), and what the symbol of wind, dust and a funnel cloud is drawn from (GH-4193)
+    let cloudSum = 0
+    let cloudCount = 0
+    if (cloudKey && series.has(cloudKey)) {
+      const cs = series.get(cloudKey)!
+      for (let i = 0; i < cs.x.length; i++) {
+        const time = cs.x[i]!.getTime()
+        if (time >= startUTC && time < endUTC) {
+          // in percent whatever the unit the cloud cover is shown in: the thresholds of the sky are percentages
+          cloudSum += units.canon('fraction', cs.y[i] ?? 0)
+          cloudCount++
         }
       }
-      const avgCloud = cloudCount ? (cloudSum / cloudCount) : null
-      kind = skyOfCloudCover(avgCloud)
     }
+    const sky = skyOfCloudCover(cloudCount ? (cloudSum / cloudCount) : null)
+    if (kind === null)
+      kind = sky
 
     // A day whose rain is 0.5 mm or more is a day of rain, which its weather codes (those of 0 to 3 name none, and they are dry in the tail of a
     // run, where the hourly amount is 0.0 and the totals of 6, 12 or 24 hours carry the rain) do not say: the icon follows the amount (as the label writes it: a day of 0.45 mm reads 0.5), as
@@ -224,7 +236,7 @@ export function meteogramDays(series: SeriesMap, { zone, today: todayISO, units,
       const hours = Math.max(1, Math.round((Math.min(endUTC, maxTime + HOUR_MS) - Math.max(startUTC, minTime)) / HOUR_MS))
       partialHours = hours < PARTIAL_BELOW_HOURS ? hours : null
     }
-    out.push({ date: dt, kind, weekday: weekdayShort(dt, language), dayMonth: formatDayMonth(dt, language), tempLabel, precipLabel, precipBlockHours, precipMissingHours, isToday, partialHours })
+    out.push({ date: dt, kind, sky, precipitationMm: dayPrecip === null ? null : units.canon('precipitation', dayPrecip), precipitationPeakMm: over?.peak == null ? null : units.canon('precipitation', over.peak), weekday: weekdayShort(dt, language), dayMonth: formatDayMonth(dt, language), tempLabel, precipLabel, precipBlockHours, precipMissingHours, isToday, partialHours })
     dt = dt.plus({ days: 1 })
   }
   return out
