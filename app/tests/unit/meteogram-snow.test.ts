@@ -8,7 +8,7 @@ import { hourFormatter } from '../../app/utils/format'
 import { METEOGRAM_SERIES, meteogramSnowQuery, meteogramUnitsKey, MOSMIX_SNOW_METEOGRAM, snowStationsQuery } from '../../app/utils/meteogram'
 import { chartLayout, GUTTER_RIGHT, HOUR_MS, PANEL_HEIGHT, plotWidthFor } from '../../app/utils/meteogram-geometry'
 import { buildMeteogramModel, readoutValue } from '../../app/utils/meteogram-model'
-import { buildMeteogramOption, gutterLeftFor, tickFormatter, tickLabelsOf, toneColor } from '../../app/utils/meteogram-option'
+import { buildMeteogramOption, gutterLeftFor, LABEL_MARGIN, LABEL_SLACK_PX, labelWidthFor, labelWidthOf, tickFormatter, tickInterval, tickLabelsOf, TITLE_LEFT, TITLE_LINE_PX, TITLE_LINES, TITLE_TO_LABELS, toneColor } from '../../app/utils/meteogram-option'
 import { buildSeries, isSnowStep, snowSeries } from '../../app/utils/meteogram-series'
 import { meteogramTable } from '../../app/utils/meteogram-summary'
 import { meteogramUnits, snowChanceAmount } from '../../app/utils/meteogram-units'
@@ -394,6 +394,81 @@ describe('the snow panel drawn', () => {
       expect(axis.decimals).toBe(0)
       expect(axis.ticks).toEqual(['0', '4', '8'])
     }
+  })
+
+  it('writes the pressure ticks in the decimals of the unit: 101.5 kPa is not "102" (GH-4212)', () => {
+    // the pressure of the forecast, replaced by a flat run from `low` to `high` in `unit` (the axis is that ± 2 hPa)
+    const pressure = (unit: string, low: number, high: number) => {
+      const series = joined({ hours: 24 })
+      const x = series.get('pressure_air_sea_level')!.x
+      series.set('pressure_air_sea_level', { x, y: x.map((_, i) => i === 0 ? low : i === 1 ? high : (low + high) / 2) })
+      const { axes } = model({ series, units: { ...UNITS, pressure_air_sea_level: unit } })
+      return axes.pressure!
+    }
+    // the ticks as the chart draws them: the multiples of the step in the range, as written and as they are
+    const ticksOf = (axis: ReturnType<typeof pressure>) => {
+      const [min, max] = axis.range
+      const step = tickInterval(max - min, axis.splits)
+      const format = tickFormatter(axis)
+      const out: { value: number, label: string }[] = []
+      for (let k = Math.ceil(min / step - 1e-9); k * step < max + step * 1e-9; k++)
+        out.push({ value: k * step, label: format(k * step) })
+      return out
+    }
+
+    // the range of the issue: 100.9 to 101.9 (the data 101.1 to 101.7), whose middle tick is 101.5
+    const issue = pressure('kPa', 101.1, 101.7)
+    expect(issue.decimals).toBe(1)
+    expect(issue.range[0]).toBeCloseTo(100.9, 9)
+    expect(issue.range[1]).toBeCloseTo(101.9, 9)
+    expect(ticksOf(issue).map(tick => tick.label)).toEqual(['101', '101.5'])
+    // (the bottom, 100.9, is left out: it lies too near the tick 101 to be written beside it)
+    expect(tickLabelsOf(issue)).toEqual(['101', '101.5'])
+    // a narrower axis (data 101.1 to 101.45, so 100.9 to 101.65) has the step 0.3: its ticks 101.1 and 101.4 both read "101" before
+    const stepThree = pressure('kPa', 101.1, 101.45)
+    expect(tickInterval(stepThree.range[1] - stepThree.range[0], stepThree.splits)).toBeCloseTo(0.3, 9)
+    expect(ticksOf(stepThree).map(tick => tick.label)).toEqual(['101.1', '101.4'])
+
+    // the hectopascal and the pascal stay whole numbers: their step is a whole number, from 2 up
+    for (const [unit, scale] of [['hPa', 10], ['Pa', 1000]] as const) {
+      const axis = pressure(unit, 101.1 * scale, 101.2 * scale)
+      expect(axis.decimals).toBe(0)
+      // (the library writes 1,011 for 1011)
+      expect(ticksOf(axis).map(tick => tick.label.replaceAll(',', ''))).toEqual(ticksOf(axis).map(tick => String(tick.value)))
+    }
+
+    // every range from a flat run to a spread of three kPa (30 hPa, 3000 Pa), at steps that are no round numbers: the ticks (and the
+    // labels the chart draws) are distinct, and each reads back as the value it stands for at the decimals shown
+    for (const [unit, scale] of [['kPa', 1], ['hPa', 10], ['Pa', 1000]] as const) {
+      for (let low = 99.07; low <= 103.01; low += 0.41) {
+        for (let spread = 0; spread <= 3; spread += 0.1875) {
+          const axis = pressure(unit, low * scale, (low + spread) * scale)
+          const ticks = ticksOf(axis)
+          expect(ticks.length).toBeGreaterThanOrEqual(1)
+          expect(new Set(ticks.map(tick => tick.label)).size).toBe(ticks.length)
+          const labels = tickLabelsOf(axis)
+          expect(new Set(labels).size).toBe(labels.length)
+          for (const tick of ticks)
+            expect(Math.abs(Number(tick.label.replaceAll(',', '')) - tick.value)).toBeLessThan(1e-9 * Math.max(1, Math.abs(tick.value)))
+        }
+      }
+    }
+  })
+
+  it('leaves the gutter room for the pressure ticks written with their decimals (GH-4212)', () => {
+    const kilopascal = (unit: string) => {
+      const series = joined({ hours: 24 })
+      const x = series.get('pressure_air_sea_level')!.x
+      series.set('pressure_air_sea_level', { x, y: x.map((_, i) => i === 0 ? 101.1 : 101.7) })
+      return model({ series, units: { ...UNITS, pressure_air_sea_level: unit } })
+    }
+    const m = kilopascal('kPa')
+    const axis = m.axes.pressure!
+    // "101.5" is the widest label of the two
+    expect(tickLabelsOf(axis)).toEqual(['101', '101.5'])
+    expect(labelWidthFor(axis)).toBe(labelWidthOf('101.5') + LABEL_SLACK_PX)
+    expect(labelWidthFor(axis)).toBeGreaterThan(labelWidthOf('102') + LABEL_SLACK_PX)
+    expect(gutterLeftFor(m)).toBeGreaterThanOrEqual(TITLE_LEFT + TITLE_LINES * TITLE_LINE_PX + TITLE_TO_LABELS + labelWidthFor(axis) + LABEL_MARGIN)
   })
 
   it('draws the snow depth and the chance as straight segments and not as a smooth curve', () => {
