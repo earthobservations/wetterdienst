@@ -156,7 +156,7 @@
     "pages": {
       "explorer": "Söök een Anbeder, Parameter un Stationen op de Kaart ut, lees de Meetweerten, interpolier een Punkt un laad dat Resultat as CSV, JSON oder GeoJSON runner.",
       "meteogram": "De MOSMIX-Wedderutsicht för een DWD-Station as Meteogramm: Temperatur, Wind, Nedderslag, Wulken un Luftdruck.",
-      "stripes": "Klimastrepen för Temperatur oder Nedderslag vun een DWD-Station.",
+      "stripes": "Klimastrepen för Temperatur oder Nedderslag vun een Station vun'n Düütschen Wedderdeenst (DWD) oder vun NOAA GHCN daily.",
       "history": "Wo sik een DWD-Station mit de Tiet ännert hett: Naam, Stä un Reedschappen.",
       "api": "De REST-API un de MCP-Server vun Wetterdienst: Formate un Bispelen för Stationen, Weerten, Interpolatschoon un Klimastrepen.",
       "providers": "De nationalen Wedderdeenste achter de Daten: Land, Lizenz, de Quell, de angeven warrn mutt, un wat elkeen anbeedt.",

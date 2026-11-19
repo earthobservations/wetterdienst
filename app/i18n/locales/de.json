@@ -156,7 +156,7 @@
     "pages": {
       "explorer": "Anbieter, Parameter und Stationen auf der Karte wählen, Messwerte lesen, einen Punkt interpolieren und das Ergebnis als CSV, JSON oder GeoJSON herunterladen.",
       "meteogram": "Die MOSMIX-Vorhersage einer DWD-Station als Meteogramm: Temperatur, Wind, Niederschlag, Bewölkung und Luftdruck.",
-      "stripes": "Klimastreifen für Temperatur oder Niederschlag einer DWD-Station.",
+      "stripes": "Klimastreifen für Temperatur oder Niederschlag einer Station des Deutschen Wetterdienstes (DWD) oder von NOAA GHCN daily.",
       "history": "Wie sich eine DWD-Station im Lauf der Zeit verändert hat: Name, Standort und Messgeräte.",
       "api": "Die REST-API und der MCP-Server von Wetterdienst: Formate und Beispiele für Stationen, Messwerte, Interpolation und Klimastreifen.",
       "providers": "Die nationalen Wetterdienste hinter den Daten: Land, Lizenz, die anzugebende Quelle und was jeder anbietet.",

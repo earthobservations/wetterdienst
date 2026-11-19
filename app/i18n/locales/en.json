@@ -156,7 +156,7 @@
     "pages": {
       "explorer": "Pick a provider, parameters and stations on a map, read the measurements, interpolate a point and download the result as CSV, JSON or GeoJSON.",
       "meteogram": "The MOSMIX forecast of a DWD station as a meteogram: temperature, wind, precipitation, cloud cover and pressure.",
-      "stripes": "Climate stripes for the temperature or precipitation record of a DWD station.",
+      "stripes": "Climate stripes for the temperature or precipitation record of a station of the German Weather Service (DWD) or NOAA's GHCN daily.",
       "history": "How a DWD station changed over time: its name, location and instruments.",
       "api": "The REST API and the MCP server of Wetterdienst: formats and examples for stations, values, interpolation and climate stripes.",
       "providers": "The national weather services behind the data: country, licence, the credit line to give and what each one offers.",

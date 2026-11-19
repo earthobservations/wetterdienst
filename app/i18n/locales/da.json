@@ -156,7 +156,7 @@
     "pages": {
       "explorer": "Vælg en udbyder, parametre og stationer på kortet, læs målingerne, interpolér et punkt og download resultatet som CSV, JSON eller GeoJSON.",
       "meteogram": "MOSMIX-udsigten for en DWD-station som meteogram: temperatur, vind, nedbør, skydække og lufttryk.",
-      "stripes": "Klimastriber for temperatur eller nedbør fra en DWD-station.",
+      "stripes": "Klimastriber for temperatur eller nedbør fra en station hos DWD eller NOAA GHCN daily.",
       "history": "Hvordan en DWD-station har ændret sig over tid: navn, placering og instrumenter.",
       "api": "REST-API'et og MCP-serveren til Wetterdienst: formater og eksempler for stationer, værdier, interpolation og klimastriber.",
       "providers": "De nationale vejrtjenester bag dataene: land, licens, den kildeangivelse der skal gives, og hvad hver enkelt tilbyder.",

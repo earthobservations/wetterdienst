@@ -156,7 +156,7 @@
     "pages": {
       "explorer": "Vyber poskytovatele, parametry a stanice na mapě, přečti si měření, interpoluj bod a stáhni výsledek jako CSV, JSON nebo GeoJSON.",
       "meteogram": "Předpověď MOSMIX pro stanici DWD jako meteogram: teplota, vítr, srážky, oblačnost a tlak.",
-      "stripes": "Klimatické pruhy teploty nebo srážek pro stanici DWD.",
+      "stripes": "Klimatické pruhy teploty nebo srážek pro stanici DWD nebo NOAA GHCN daily.",
       "history": "Jak se stanice DWD v čase měnila: název, poloha a přístroje.",
       "api": "REST API a server MCP projektu Wetterdienst: formáty a příklady pro stanice, hodnoty, interpolaci a klimatické pruhy.",
       "providers": "Národní meteorologické služby za daty: země, licence, uvedení zdroje a to, co každá nabízí.",

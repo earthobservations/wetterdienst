@@ -156,7 +156,7 @@
     "pages": {
       "explorer": "Wybierz dostawcę, parametry i stacje na mapie, odczytaj pomiary, zinterpoluj punkt i pobierz wynik jako CSV, JSON lub GeoJSON.",
       "meteogram": "Prognoza MOSMIX dla stacji DWD jako meteogram: temperatura, wiatr, opady, zachmurzenie i ciśnienie.",
-      "stripes": "Paski klimatyczne temperatury lub opadów dla stacji DWD.",
+      "stripes": "Paski klimatyczne temperatury lub opadów dla stacji DWD lub NOAA GHCN daily.",
       "history": "Jak zmieniała się stacja DWD w czasie: nazwa, położenie i przyrządy.",
       "api": "REST API i serwer MCP Wetterdienst: formaty i przykłady dla stacji, wartości, interpolacji i pasków klimatycznych.",
       "providers": "Krajowe służby meteorologiczne stojące za danymi: kraj, licencja, wymagane podanie źródła i to, co oferuje każda z nich.",

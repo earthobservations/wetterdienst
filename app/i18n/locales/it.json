@@ -156,7 +156,7 @@
     "pages": {
       "explorer": "Scegli un fornitore, i parametri e le stazioni sulla mappa, leggi le misurazioni, interpola un punto e scarica il risultato come CSV, JSON o GeoJSON.",
       "meteogram": "Le previsioni MOSMIX di una stazione del DWD come meteogramma: temperatura, vento, precipitazioni, nuvolosità e pressione.",
-      "stripes": "Le strisce climatiche della temperatura o delle precipitazioni di una stazione del DWD.",
+      "stripes": "Le strisce climatiche della temperatura o delle precipitazioni di una stazione del DWD o di NOAA GHCN daily.",
       "history": "Come è cambiata nel tempo una stazione del DWD: nome, posizione e strumenti.",
       "api": "L'API REST e il server MCP di Wetterdienst: formati ed esempi per stazioni, valori, interpolazione e strisce climatiche.",
       "providers": "I servizi meteorologici nazionali dietro i dati: paese, licenza, la fonte da citare e cosa offre ciascuno.",

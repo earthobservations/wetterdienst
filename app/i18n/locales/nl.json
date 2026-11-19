@@ -156,7 +156,7 @@
     "pages": {
       "explorer": "Kies een aanbieder, parameters en stations op de kaart, lees de metingen, interpoleer een punt en download het resultaat als CSV, JSON of GeoJSON.",
       "meteogram": "De MOSMIX-verwachting van een DWD-station als meteogram: temperatuur, wind, neerslag, bewolking en luchtdruk.",
-      "stripes": "Klimaatstrepen voor de temperatuur of neerslag van een DWD-station.",
+      "stripes": "Klimaatstrepen voor de temperatuur of neerslag van een station van de DWD of van NOAA GHCN daily.",
       "history": "Hoe een DWD-station in de loop van de tijd is veranderd: naam, locatie en instrumenten.",
       "api": "De REST-API en de MCP-server van Wetterdienst: formaten en voorbeelden voor stations, waarden, interpolatie en klimaatstrepen.",
       "providers": "De nationale weerdiensten achter de data: land, licentie, de bronvermelding en wat ieder aanbiedt.",
