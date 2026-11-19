@@ -94,6 +94,7 @@ def test_a_good_answer_is_kept(hubeau: Hubeau, tmp_path: Path) -> None:
         pytest.param(b"not json at all", id="text"),
         pytest.param(b"\xff\xfe\x00 not text", id="binary"),
         pytest.param(b'[{"n": 1}]', id="a-list"),
+        pytest.param(b'{"error": "service unavailable"}', id="an-object-with-no-data"),
     ],
 )
 def test_an_answer_that_is_no_json_object_is_raised_and_not_kept(hubeau: Hubeau, tmp_path: Path, body: bytes) -> None:
@@ -110,6 +111,15 @@ def test_an_answer_that_is_no_json_object_is_raised_and_not_kept(hubeau: Hubeau,
 
     assert _rows(url, tmp_path) == [{"n": 1}]
     assert hubeau.hits["/stations"] == 2
+
+
+def test_an_answer_with_no_row_is_no_error_and_is_kept(hubeau: Hubeau, tmp_path: Path) -> None:
+    """Test that Hub'Eau's own empty answer (`data: []`, read live for a station it has nothing for) is no outage."""
+    hubeau.bodies["/stations"] = b'{"count":0,"first":"x","prev":null,"next":null,"api_version":"2.0.1","data":[]}'
+    url = f"{hubeau.base}/stations?code_entite=none"
+
+    assert _rows(url, tmp_path) == _rows(url, tmp_path) == []
+    assert hubeau.hits["/stations"] == 1
 
 
 def test_a_waiting_page_for_a_later_page_is_raised_not_a_short_answer(hubeau: Hubeau, tmp_path: Path) -> None:
