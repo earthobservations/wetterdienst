@@ -1384,7 +1384,8 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Snow depth, in m. Given at the 00, 03, 06, ..., 21 UTC steps only (the run of 2026-11-14 19 UTC). "
             "The model writes the last of a melting snow a little below 0 (-0.01 and -0.02 m); that is returned as "
             "0.0, with the number kept as `raw:` in `quality_flags` (the check `floor`: `rejected:floor,raw:`), "
-            "down to -5 cm; a lower value is flagged `suspect:range`."
+            "down to -10 cm (the model wrote -0.07 m in the run of 2026-11-18); a lower value is flagged "
+            "`suspect:range`."
         ),
         ("hourly", "snow", "td"): "Dewpoint 2m above surface",
         ("hourly", "snow", "ttt"): "Temperature 2m above surface",

@@ -18,6 +18,11 @@ Types of changes:
 
 ### Fixed
 
+- A MOSMIX-SNOW snow depth (and sum of new snow) down to -10 cm, which the model writes as round-off
+  (-0.07 m in the run of 2026-11-18), is now returned as 0 with the number as written in
+  `quality_flags` (`rejected:floor,raw:-0.07`); the limit was -5 cm, and a value between -5 and -10 cm
+  was kept negative and flagged `suspect:range` (GH-4237)
+
 - The docs gave a guess as the meaning of SMHI's `Kvalitet` code `Y` ("suspect or aggregated"). Per
   SMHI, `Y` is a value not checked, or marked suspect by a control, or an aggregate, so it is no
   verdict and stays unread by the `source` check; `G` is a checked, approved value. Both are

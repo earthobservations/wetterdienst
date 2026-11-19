@@ -397,6 +397,27 @@ def test_a_snow_depth_a_little_below_zero_is_zero_and_keeps_the_number_written(m
     assert depth["quality_flags"].to_list() == [None, "rejected:floor,raw:-0.01", "rejected:floor,raw:-0.02"]
 
 
+def test_a_snow_depth_down_to_10_cm_below_zero_is_zero_and_one_further_below_is_the_ranges(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The tolerance is the lower bound of the range of a depth, 10 cm: -0.07 m (run of 2026-11-18) is 0.0 (GH-4237).
+
+    A depth of -0.11 m is no round-off: the floor leaves it to the range, whose low end for a forecast's depth is 0. A
+    forecast is soft in `range`, so the value is kept and flagged `suspect:range`, as the new snow's tolerance, which is
+    the same constant, is held to.
+    """
+    elements = {"SnCv": "-0.07 -0.10 -0.11", "Sa3": "-0.07 -0.11 0.01"}
+    parameters = [("hourly", "snow", "sncv"), ("hourly", "snow", "sa3")]
+    df = dwd_mosmix_values(monkeypatch, elements, parameters, options=Options(drop_nulls=False, convert_units=False))
+    depth = df.filter(pl.col("parameter") == "snow_depth").sort("timestamp")
+    assert depth["value"].to_list() == [0.0, 0.0, -0.11]
+    assert depth["quality_flags"].to_list() == ["rejected:floor,raw:-0.07", "rejected:floor,raw:-0.1", "suspect:range"]
+    # the sums of new snow share the tolerance
+    new = df.filter(pl.col("parameter") == "snow_depth_new_last_3h").sort("timestamp")
+    assert new["value"].to_list() == [0.0, -0.11, 0.01]
+    assert new["quality_flags"].to_list() == ["rejected:floor,raw:-0.07", "suspect:range", None]
+
+
 def test_a_snow_depth_below_zero_is_kept_and_flagged_where_the_floor_is_soft(monkeypatch: pytest.MonkeyPatch) -> None:
     """`plausibility={"floor": "soft"}` returns the number as DWD wrote it, flagged `suspect:floor` (GH-4182)."""
     df = dwd_mosmix_values(
