@@ -652,6 +652,7 @@
     "aboutText1": "Klimastrepen (ok Wärmstrepen nöömt) sünd een Datenvisualisatschoon, de den langfristigen Anstieg vun de Temperaturen vermiddelt. Jeder Streep steiht för de Dörchsnittstemperatur vun een Johr – Blau för köhlere, Root för wärmere Johren.",
     "aboutText2": "De Dorstellen is vun den Klimaforscher Ed Hawkins entwickelt worrn un is to een bekannt Sinnbild vun'n Klimawannel worrn. Dit Warktüüg bruukt Daten vun'n Düütschen Wedderdeenst (DWD).",
     "aboutText3": "So warrt de Klören utsöcht: Dat Middel vun 1971–2000 is de Mitt vun de Skala, de ±2,6 Standardafwieken (utrekent ut 1901–2000) in 16 Klören umfaat, een för elk 0,325 Standardafwieken (Methood vun Ed Hawkins). Hett een Station in een vun disse Tietrüüm to wenig Johren, warrt ehr Middel oder ehr Standardafwieken an Steed dorvun ut ehr heele Tietreeg nahmen, wat de Reeg ünner dat Diagramm seggt. De Klören warrt ut de heele Tietreeg vun de Station utrekent, nich ut de wiesten Johren; een Johr behölt also sien Klöör, wat för Johren ok wiest warrt.",
+    "aboutColumns": "In de Tabell fatt de Klass de 16 Klören vun de Skala, een för elk 0,325 Standardafwieken, in fief Gruppen tosamen, vun veel köhler bit veel wärmer (bi Nedderslag vun veel dröger bit veel natter). De Afwieken is de Afstand to dat Middel in de Eenheit vun den Weert.",
     "aboutText4": "Balken tekent de sülvigen Johren as Balken: De Hööch vun elk Balken is de Afwieken vun dat Johr vun dat Middel vun de Bezugstiet, in de Klöör vun sien Streep. Balken mit Skaal packt een Achs för disse Afwieken in de Eenheit vun de Weerten un een Johrachs dorto. Tabell list elk Johr mit Weert, Afwieken un Klass op un kann as CSV-Datei spiekert warrn.",
     "type": "Wedderelement",
     "typeTemperature": "Temperatur",
@@ -718,10 +719,6 @@
       "value": "Weert",
       "anomaly": "Afwieken",
       "class": "Klass",
-      "note": {
-        "temperature": "Klass: wo wiet dat Johr vun dat Middel vun de Bezugstiet af liggt. De Streepen hebbt 16 Klören, een för elk 0,325 Standardafwieken, vun Düsterblau (köhlst) bit Düsterrot (wärmst); de Klass fatt se in fief Gruppen tosamen. Afwieken: de Afstand to dat Middel in de Eenheit vun den Weert.",
-        "precipitation": "Klass: wo wiet dat Johr vun dat Middel vun de Bezugstiet af liggt. De Streepen hebbt 16 Klören, een för elk 0,325 Standardafwieken, vun Bruun (dröögst) bit Düstergröön (natst); de Klass fatt se in fief Gruppen tosamen. Afwieken: de Afstand to dat Middel in de Eenheit vun den Weert."
-      },
       "classes": {
         "temperature": {
           "veryLow": "Veel köhler",

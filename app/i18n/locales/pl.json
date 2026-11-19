@@ -652,6 +652,7 @@
     "aboutText1": "Paski klimatyczne (znane też jako paski ocieplenia) to wizualizacja danych zaprojektowana, aby komunikować długoterminowy wzrost temperatur. Każdy pasek przedstawia średnią temperaturę pojedynczego roku — kolor niebieski oznacza lata chłodniejsze, a czerwony cieplejsze.",
     "aboutText2": "Wizualizacja została stworzona przez klimatologa Eda Hawkinsa i stała się ikonicznym przedstawieniem zmian klimatu. To narzędzie wykorzystuje dane z sieci obserwacyjnej Niemieckiej Służby Meteorologicznej (DWD).",
     "aboutText3": "Jak dobierane są kolory: średnia z lat 1971–2000 jest środkiem skali, która obejmuje ±2,6 odchylenia standardowego (obliczonego z lat 1901–2000) w 16 kolorach, po jednym na każde 0,325 odchylenia standardowego (metoda Eda Hawkinsa). Jeśli stacja ma zbyt mało lat w jednym z tych okresów, jej średnia lub jej rozrzut są zamiast tego brane z całego jej szeregu, co mówi wiersz pod wykresem. Kolory są obliczane z całego szeregu stacji, a nie z pokazanych lat, więc rok zachowuje swój kolor niezależnie od tego, jakie lata są pokazane.",
+    "aboutColumns": "W tabeli klasa nazywa 16 kolorów skali, po jednym na każde 0,325 odchylenia standardowego, w pięciu grupach, od znacznie chłodniejszego do znacznie cieplejszego (dla opadów od znacznie suchszego do znacznie bardziej wilgotnego). Anomalia to odległość od średniej w jednostce wartości.",
     "aboutText4": "Słupki rysują te same lata jako słupki: wysokość każdego to różnica roku względem średniej z okresu odniesienia, w kolorze jego paska. Słupki ze skalą dodają oś tej różnicy, w jednostce wartości, i oś lat. Tabela wylicza każdy rok z wartością, anomalią i klasą i można ją zapisać jako plik CSV.",
     "type": "Element pogodowy",
     "typeTemperature": "Temperatura",
@@ -718,10 +719,6 @@
       "value": "Wartość",
       "anomaly": "Anomalia",
       "class": "Klasa",
-      "note": {
-        "temperature": "Klasa: jak daleko rok leży od średniej odniesienia. Paski mają 16 kolorów, po jednym na każde 0,325 odchylenia standardowego, od ciemnoniebieskiego (najchłodniejszy) do ciemnoczerwonego (najcieplejszy); klasa nazywa je w pięciu grupach. Anomalia: odległość od średniej w jednostce wartości.",
-        "precipitation": "Klasa: jak daleko rok leży od średniej odniesienia. Paski mają 16 kolorów, po jednym na każde 0,325 odchylenia standardowego, od brązowego (najsuchszy) do ciemnozielonego (najbardziej wilgotny); klasa nazywa je w pięciu grupach. Anomalia: odległość od średniej w jednostce wartości."
-      },
       "classes": {
         "temperature": {
           "veryLow": "Znacznie chłodniejszy",

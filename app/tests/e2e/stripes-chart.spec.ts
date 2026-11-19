@@ -896,13 +896,16 @@ test.describe('the table as a view', () => {
     await expect(chartSvg(page)).toBeVisible()
   })
 
-  test('says what the colours are relative to in a short line, with the whole sentence in the table\'s note, and the method in About', async ({ page, baseURL }) => {
+  test('has the short line above the table and no note, with the method and the columns explained in About', async ({ page, baseURL }) => {
     await showTable(page, baseURL!)
     await expect(page.getByTestId('stripes-reference')).toHaveText('Relative to the mean of 1971–2000 (spread from 1955–2000)')
-    // the table's note has the whole sentence
-    await expect(page.getByText('Colours: the mean of 1971–2000 is the centre of the scale, which spans ±2.6 standard deviations of 1955–2000 (Ed Hawkins\' method).')).toBeVisible()
+    // nothing between the short line and the table: the whole sentence is in the file, the columns are explained in About
+    await expect(page.getByText('Class: how far the year lies')).toHaveCount(0)
+    await expect(page.getByText('Ed Hawkins\' method')).toHaveCount(0)
+    await expect(page.locator('.values-table')).toHaveAttribute('aria-label', /^Climate stripes \(Temperature\) for /)
     await page.getByRole('button', { name: 'About climate stripes' }).first().click()
     await expect(page.getByTestId('stripes-about-method')).toContainText('a year keeps its colour whatever years are shown')
+    await expect(page.getByTestId('stripes-about-columns')).toContainText('The anomaly is the distance from the mean, in the unit of the value')
     await expect(page.getByTestId('stripes-about-views')).toContainText('Table lists every year')
   })
 

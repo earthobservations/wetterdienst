@@ -87,8 +87,8 @@ const valueUnit = computed(() => {
 function formatValue(value: number) {
   return `${formatNumber(value, locale.value, 2)} ${valueUnit.value}`.trim()
 }
-// what the colours are relative to, as the backend calculated it for the station's whole record (GH-4157): in full where the page
-// has room for it (the table's note, the file), and as a short line under the chart (GH-4233), the method being the About text's
+// what the colours are relative to, as the backend calculated it for the station's whole record (GH-4157): in full in the file, and as
+// a short line under the chart (GH-4233), the method being the About text's
 const referenceFull = computed(() => lastFetchedData.value
   ? stripesReferenceText(lastFetchedData.value.reference, t, value => formatNumber(value, locale.value, 1))
   : '')
@@ -109,8 +109,6 @@ const tableRows = computed(() => stripesTableYears(stripeRows.value).map(year =>
   formatSigned(year.anomaly, locale.value, 2),
   t(`stripes.table.classes.${kind.value}.${year.class}`),
 ]))
-// what a reader needs to read the table: what the class and the anomaly are, and the whole of what they are relative to
-const tableNote = computed(() => `${t(`stripes.table.note.${kind.value}`)} ${referenceFull.value}`.trim())
 // the stripes could not be drawn: the chart says so itself, with its Retry, and the table and the image are not offered
 const plotFailed = computed(() => chart.value?.renderFailed ?? false)
 // the options the page offers, as the chart draws them
@@ -399,6 +397,10 @@ watch([
           <p class="text-gray-600 dark:text-gray-400 mb-4" data-testid="stripes-about-method">
             {{ t('stripes.aboutText3') }}
           </p>
+          <!-- what the table's class and anomaly are: it is not above every table (GH-4233) -->
+          <p class="text-gray-600 dark:text-gray-400 mb-4" data-testid="stripes-about-columns">
+            {{ t('stripes.aboutColumns') }}
+          </p>
           <p class="text-gray-600 dark:text-gray-400" data-testid="stripes-about-views">
             {{ t('stripes.aboutText4') }}
           </p>
@@ -539,7 +541,7 @@ watch([
               <!-- the table is a view of its own (GH-4233), as the forecast's is: the same switch, the whole width -->
               <ValuesTable
                 v-if="hasPlot && showsTable && tableRows.length"
-                full :caption="plotLabel ?? ''" :columns="tableColumns" :rows="tableRows" :note="tableNote"
+                full :caption="plotLabel ?? ''" :columns="tableColumns" :rows="tableRows"
               />
               <div v-if="hasPlot && !plotFailed" class="mt-4">
                 <!-- not modal: a modal menu hides the page from assistive technology (aria-hidden) while its

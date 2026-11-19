@@ -188,6 +188,10 @@ describe('stripes Page', () => {
     expect(method).toContain('Ed Hawkins\' method')
     expect(method).toContain('a year keeps its colour whatever years are shown')
     expect(method).toContain('whole record')
+    // the table's columns: the class (16 colours, 0.325 standard deviations, five groups) and the anomaly
+    const columns = wrapper.find('[data-testid="stripes-about-columns"]').text()
+    expect(columns).toContain('the class names the 16 colours of the scale, one for each 0.325 standard deviations, in five groups')
+    expect(columns).toContain('The anomaly is the distance from the mean, in the unit of the value')
     const views = wrapper.find('[data-testid="stripes-about-views"]').text()
     expect(views).toContain('Bars with scale')
     expect(views).toContain('Table lists every year')
@@ -1502,16 +1506,21 @@ describe('stripes Page text alternative', () => {
     expect(document.body.querySelector('.values-table')?.className).toContain('max-h-[70vh]')
   })
 
-  it('puts the scrolling table in a region the keyboard reaches, and says what a class is and what the colours are relative to, in full', async () => {
+  it('puts the scrolling table in a region the keyboard reaches, with a name, and no note above it but the short reference line (GH-4233)', async () => {
     await showStripes()
     await chooseTable()
     const region = document.body.querySelector('[role="region"]')!
     expect(region.getAttribute('tabindex')).toBe('0')
     expect(region.getAttribute('aria-label')).toBe('Climate stripes (Temperature) for Berlin-Tempelhof, Germany (1048)')
     expect(region.contains(document.body.querySelector('table'))).toBe(true)
+    // the caption names the table too
+    expect(document.body.querySelector('table caption')?.textContent?.trim()).toBe(region.getAttribute('aria-label'))
+    // the paragraph above the table is the short line and nothing else: the explanation of the columns is in About, the whole sentence in the file
+    expect(region.previousElementSibling?.getAttribute('data-testid')).toBe('stripes-reference')
     const text = document.body.textContent!.replace(/\s+/g, ' ')
-    expect(text).toContain('Class: how far the year lies from the mean of the reference. The stripes have 16 colours, one for each 0.325 standard deviations')
-    expect(text).toContain('Colours: the mean of the whole record (2018–2021) is the centre of the scale, which spans ±2.6 standard deviations of the whole record (2018–2021) (Ed Hawkins\' method).')
+    expect(text).not.toContain('Class: how far the year lies')
+    expect(text).not.toContain('Colours: the mean of')
+    expect(text).not.toContain('Ed Hawkins\' method')
   })
 
   it('names the classes of a precipitation series by wet and dry', async () => {

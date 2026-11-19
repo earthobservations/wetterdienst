@@ -47,8 +47,8 @@ Types of changes:
   keep PNG, JPG and SVG, and print follows the view shown. The line under the chart is short, what
   this station's colours are measured against ("Relative to the mean of 1971–2000 (spread from
   1901–2000)", or the whole record for the number that has too few years); the method is in the
-  About text, the whole sentence in the table's note and the CSV. The widget's and the forecast's
-  tables print whole too (GH-4233).
+  About text, with what the table's class and anomaly are; the whole sentence is in the CSV. The
+  widget's and the forecast's tables print whole too (GH-4233).
 - `[Navigation]` On a phone (below 40 rem) the top bar and the tab bar slide away while you scroll
   down and come back when you scroll up or reach the top, so a page has the whole screen; a small
   scroll does nothing, a focus in either bar brings both back, and with reduced motion they appear
