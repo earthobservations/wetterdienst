@@ -1,0 +1,913 @@
+{
+  "metadata": {
+    "api_version": "1",
+    "schema_version": "1",
+    "retrieved_at": "2026-11-19T16:02:07.681664+00:00",
+    "data_updated_at": null,
+    "provider": {
+      "name_local": "National Oceanic And Atmospheric Administration",
+      "name_english": "National Oceanic And Atmospheric Administration",
+      "country": "United States Of America",
+      "copyright": "© National Oceanic And Atmospheric Administration (NOAA), Global Historical Climatology Network",
+      "url": "https://www.ncei.noaa.gov/pub/data/ghcn/daily/",
+      "license": {
+        "spdx_id": "CC0-1.0",
+        "name": "Creative Commons Zero v1.0 Universal",
+        "url": "https://creativecommons.org/publicdomain/zero/1.0/"
+      },
+      "attribution": "NOAA National Centers for Environmental Information (NCEI), Global Historical Climatology Network"
+    },
+    "producer": {
+      "name": "wetterdienst",
+      "version": "0.192.0",
+      "repository": "https://github.com/earthobservations/wetterdienst",
+      "documentation": "https://wetterdienst.readthedocs.io",
+      "doi": "10.5281/zenodo.3960624"
+    },
+    "processing_note": "Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ. The annual values were calculated from the provider's daily values by the rules of WMO-No. 1203: a day is the midrange of TMAX and TMIN, which is no 24-hour mean, used for every day so that the method does not change along the record (TAVG is not used); a month counts with at most 10 days missing and at most 4 in a row, and a year with all 12 months counting is the mean of its monthly means; a year that fails is a gap. The anomaly and class of each year were calculated from the annual values calculated above: the mean of 1971-2000 is the centre and the scale spans +/-2.6 standard deviations of 1901-2000 in 16 classes (Hawkins' method).",
+    "request": {
+      "provider": "noaa",
+      "network": "ghcn",
+      "parameters": [
+        "daily/data/temperature_air_mean_2m",
+        "daily/data/temperature_air_max_2m",
+        "daily/data/temperature_air_min_2m"
+      ],
+      "periods": [
+        "historical"
+      ],
+      "start": null,
+      "end": null,
+      "stations": {
+        "filter": "by_station_id",
+        "count": 1,
+        "ids": [
+          "GM000010147"
+        ]
+      }
+    },
+    "counts": {
+      "stations": 1,
+      "rows": 135
+    },
+    "crs": {
+      "code": "EPSG:4326",
+      "name": "WGS 84",
+      "axis_order": "longitude, latitude",
+      "elevation": "metres above mean sea level"
+    },
+    "warnings": []
+  },
+  "series": {
+    "station": {
+      "resolution": "daily",
+      "dataset": "data",
+      "station_id": "GM000010147",
+      "start_timestamp": "1891-01-01T00:00:00.000000+00:00",
+      "end_timestamp": null,
+      "latitude": 53.635,
+      "longitude": 9.99,
+      "elevation": 11.0,
+      "name": "HAMBURG FUHLSBUETTEL",
+      "region": null,
+      "wmo_id": "10147",
+      "wigos_id": null,
+      "icao_id": null
+    },
+    "resolution": "daily",
+    "dataset": "data",
+    "parameter": "temperature_air_mean_2m",
+    "unit": "degree_celsius",
+    "method": "midrange"
+  },
+  "reference": {
+    "centre": {
+      "value": 8.991000000000001,
+      "first_year": 1971,
+      "last_year": 2000,
+      "years": 30,
+      "fallback": false
+    },
+    "spread": {
+      "value": 0.7695127147629324,
+      "first_year": 1901,
+      "last_year": 2000,
+      "years": 100,
+      "fallback": false
+    },
+    "range_sigma": 2.6,
+    "classes": 16
+  },
+  "values": [
+    {
+      "timestamp": "1891-01-01T00:00:00.000000+00:00",
+      "value": 8.159,
+      "anomaly": -0.832,
+      "stripe_class": 4
+    },
+    {
+      "timestamp": "1892-01-01T00:00:00.000000+00:00",
+      "value": 7.817,
+      "anomaly": -1.174,
+      "stripe_class": 3
+    },
+    {
+      "timestamp": "1893-01-01T00:00:00.000000+00:00",
+      "value": 8.52,
+      "anomaly": -0.471,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1894-01-01T00:00:00.000000+00:00",
+      "value": 8.968,
+      "anomaly": -0.023,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1895-01-01T00:00:00.000000+00:00",
+      "value": 8.065,
+      "anomaly": -0.926,
+      "stripe_class": 4
+    },
+    {
+      "timestamp": "1896-01-01T00:00:00.000000+00:00",
+      "value": 8.421,
+      "anomaly": -0.57,
+      "stripe_class": 5
+    },
+    {
+      "timestamp": "1897-01-01T00:00:00.000000+00:00",
+      "value": 8.515,
+      "anomaly": -0.476,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1898-01-01T00:00:00.000000+00:00",
+      "value": 9.033,
+      "anomaly": 0.042,
+      "stripe_class": 8
+    },
+    {
+      "timestamp": "1899-01-01T00:00:00.000000+00:00",
+      "value": 8.87,
+      "anomaly": -0.121,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1900-01-01T00:00:00.000000+00:00",
+      "value": 8.904,
+      "anomaly": -0.087,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1901-01-01T00:00:00.000000+00:00",
+      "value": 8.298,
+      "anomaly": -0.693,
+      "stripe_class": 5
+    },
+    {
+      "timestamp": "1902-01-01T00:00:00.000000+00:00",
+      "value": 7.696,
+      "anomaly": -1.295,
+      "stripe_class": 2
+    },
+    {
+      "timestamp": "1903-01-01T00:00:00.000000+00:00",
+      "value": 9.315,
+      "anomaly": 0.324,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1904-01-01T00:00:00.000000+00:00",
+      "value": 8.985,
+      "anomaly": -0.006,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1905-01-01T00:00:00.000000+00:00",
+      "value": 8.629,
+      "anomaly": -0.362,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1906-01-01T00:00:00.000000+00:00",
+      "value": 9.459,
+      "anomaly": 0.468,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1907-01-01T00:00:00.000000+00:00",
+      "value": 8.694,
+      "anomaly": -0.297,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1908-01-01T00:00:00.000000+00:00",
+      "value": 8.722,
+      "anomaly": -0.269,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1909-01-01T00:00:00.000000+00:00",
+      "value": 8.304,
+      "anomaly": -0.687,
+      "stripe_class": 5
+    },
+    {
+      "timestamp": "1910-01-01T00:00:00.000000+00:00",
+      "value": 9.647,
+      "anomaly": 0.656,
+      "stripe_class": 10
+    },
+    {
+      "timestamp": "1911-01-01T00:00:00.000000+00:00",
+      "value": 10.166,
+      "anomaly": 1.175,
+      "stripe_class": 12
+    },
+    {
+      "timestamp": "1912-01-01T00:00:00.000000+00:00",
+      "value": 8.747,
+      "anomaly": -0.244,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1913-01-01T00:00:00.000000+00:00",
+      "value": 9.82,
+      "anomaly": 0.829,
+      "stripe_class": 11
+    },
+    {
+      "timestamp": "1914-01-01T00:00:00.000000+00:00",
+      "value": 9.95,
+      "anomaly": 0.959,
+      "stripe_class": 11
+    },
+    {
+      "timestamp": "1915-01-01T00:00:00.000000+00:00",
+      "value": 8.527,
+      "anomaly": -0.464,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1916-01-01T00:00:00.000000+00:00",
+      "value": 9.105,
+      "anomaly": 0.114,
+      "stripe_class": 8
+    },
+    {
+      "timestamp": "1917-01-01T00:00:00.000000+00:00",
+      "value": 8.527,
+      "anomaly": -0.464,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1918-01-01T00:00:00.000000+00:00",
+      "value": 9.367,
+      "anomaly": 0.376,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1919-01-01T00:00:00.000000+00:00",
+      "value": 8.107,
+      "anomaly": -0.884,
+      "stripe_class": 4
+    },
+    {
+      "timestamp": "1920-01-01T00:00:00.000000+00:00",
+      "value": 9.335,
+      "anomaly": 0.344,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1921-01-01T00:00:00.000000+00:00",
+      "value": 9.767,
+      "anomaly": 0.776,
+      "stripe_class": 11
+    },
+    {
+      "timestamp": "1922-01-01T00:00:00.000000+00:00",
+      "value": 7.824,
+      "anomaly": -1.167,
+      "stripe_class": 3
+    },
+    {
+      "timestamp": "1923-01-01T00:00:00.000000+00:00",
+      "value": 8.358,
+      "anomaly": -0.633,
+      "stripe_class": 5
+    },
+    {
+      "timestamp": "1924-01-01T00:00:00.000000+00:00",
+      "value": 8.378,
+      "anomaly": -0.613,
+      "stripe_class": 5
+    },
+    {
+      "timestamp": "1925-01-01T00:00:00.000000+00:00",
+      "value": 9.295,
+      "anomaly": 0.304,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1926-01-01T00:00:00.000000+00:00",
+      "value": 9.44,
+      "anomaly": 0.449,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1927-01-01T00:00:00.000000+00:00",
+      "value": 8.725,
+      "anomaly": -0.266,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1928-01-01T00:00:00.000000+00:00",
+      "value": 8.978,
+      "anomaly": -0.013,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1929-01-01T00:00:00.000000+00:00",
+      "value": 7.966,
+      "anomaly": -1.025,
+      "stripe_class": 3
+    },
+    {
+      "timestamp": "1930-01-01T00:00:00.000000+00:00",
+      "value": 9.513,
+      "anomaly": 0.522,
+      "stripe_class": 10
+    },
+    {
+      "timestamp": "1931-01-01T00:00:00.000000+00:00",
+      "value": 8.497,
+      "anomaly": -0.494,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1932-01-01T00:00:00.000000+00:00",
+      "value": 9.423,
+      "anomaly": 0.432,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1933-01-01T00:00:00.000000+00:00",
+      "value": 8.954,
+      "anomaly": -0.037,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1934-01-01T00:00:00.000000+00:00",
+      "value": 10.449,
+      "anomaly": 1.458,
+      "stripe_class": 13
+    },
+    {
+      "timestamp": "1935-01-01T00:00:00.000000+00:00",
+      "value": 8.726,
+      "anomaly": -0.265,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1936-01-01T00:00:00.000000+00:00",
+      "value": 8.701,
+      "anomaly": -0.29,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1937-01-01T00:00:00.000000+00:00",
+      "value": 8.681,
+      "anomaly": -0.31,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1938-01-01T00:00:00.000000+00:00",
+      "value": 8.958,
+      "anomaly": -0.033,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1939-01-01T00:00:00.000000+00:00",
+      "value": 8.838,
+      "anomaly": -0.153,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1940-01-01T00:00:00.000000+00:00",
+      "value": 6.724,
+      "anomaly": -2.267,
+      "stripe_class": 0
+    },
+    {
+      "timestamp": "1941-01-01T00:00:00.000000+00:00",
+      "value": 7.355,
+      "anomaly": -1.636,
+      "stripe_class": 1
+    },
+    {
+      "timestamp": "1942-01-01T00:00:00.000000+00:00",
+      "value": 7.324,
+      "anomaly": -1.667,
+      "stripe_class": 1
+    },
+    {
+      "timestamp": "1943-01-01T00:00:00.000000+00:00",
+      "value": 9.285,
+      "anomaly": 0.294,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1944-01-01T00:00:00.000000+00:00",
+      "value": 8.919,
+      "anomaly": -0.072,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1945-01-01T00:00:00.000000+00:00",
+      "value": 9.39,
+      "anomaly": 0.399,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1946-01-01T00:00:00.000000+00:00",
+      "value": 8.624,
+      "anomaly": -0.367,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1947-01-01T00:00:00.000000+00:00",
+      "value": 8.026,
+      "anomaly": -0.965,
+      "stripe_class": 4
+    },
+    {
+      "timestamp": "1948-01-01T00:00:00.000000+00:00",
+      "value": 9.312,
+      "anomaly": 0.321,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1949-01-01T00:00:00.000000+00:00",
+      "value": 9.46,
+      "anomaly": 0.469,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1950-01-01T00:00:00.000000+00:00",
+      "value": 8.724,
+      "anomaly": -0.267,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1951-01-01T00:00:00.000000+00:00",
+      "value": 8.898,
+      "anomaly": -0.093,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1952-01-01T00:00:00.000000+00:00",
+      "value": 7.929,
+      "anomaly": -1.062,
+      "stripe_class": 3
+    },
+    {
+      "timestamp": "1953-01-01T00:00:00.000000+00:00",
+      "value": 9.425,
+      "anomaly": 0.434,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1954-01-01T00:00:00.000000+00:00",
+      "value": 8.036,
+      "anomaly": -0.955,
+      "stripe_class": 4
+    },
+    {
+      "timestamp": "1955-01-01T00:00:00.000000+00:00",
+      "value": 7.874,
+      "anomaly": -1.117,
+      "stripe_class": 3
+    },
+    {
+      "timestamp": "1956-01-01T00:00:00.000000+00:00",
+      "value": 7.307,
+      "anomaly": -1.684,
+      "stripe_class": 1
+    },
+    {
+      "timestamp": "1957-01-01T00:00:00.000000+00:00",
+      "value": 8.878,
+      "anomaly": -0.113,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1958-01-01T00:00:00.000000+00:00",
+      "value": 8.335,
+      "anomaly": -0.656,
+      "stripe_class": 5
+    },
+    {
+      "timestamp": "1959-01-01T00:00:00.000000+00:00",
+      "value": 9.223,
+      "anomaly": 0.232,
+      "stripe_class": 8
+    },
+    {
+      "timestamp": "1960-01-01T00:00:00.000000+00:00",
+      "value": 8.685,
+      "anomaly": -0.306,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1961-01-01T00:00:00.000000+00:00",
+      "value": 9.132,
+      "anomaly": 0.141,
+      "stripe_class": 8
+    },
+    {
+      "timestamp": "1962-01-01T00:00:00.000000+00:00",
+      "value": 7.504,
+      "anomaly": -1.487,
+      "stripe_class": 2
+    },
+    {
+      "timestamp": "1963-01-01T00:00:00.000000+00:00",
+      "value": 7.404,
+      "anomaly": -1.587,
+      "stripe_class": 1
+    },
+    {
+      "timestamp": "1964-01-01T00:00:00.000000+00:00",
+      "value": 8.22,
+      "anomaly": -0.771,
+      "stripe_class": 4
+    },
+    {
+      "timestamp": "1965-01-01T00:00:00.000000+00:00",
+      "value": 7.836,
+      "anomaly": -1.155,
+      "stripe_class": 3
+    },
+    {
+      "timestamp": "1966-01-01T00:00:00.000000+00:00",
+      "value": 8.606,
+      "anomaly": -0.385,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1967-01-01T00:00:00.000000+00:00",
+      "value": 9.388,
+      "anomaly": 0.397,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1968-01-01T00:00:00.000000+00:00",
+      "value": 8.813,
+      "anomaly": -0.178,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1969-01-01T00:00:00.000000+00:00",
+      "value": 8.131,
+      "anomaly": -0.86,
+      "stripe_class": 4
+    },
+    {
+      "timestamp": "1970-01-01T00:00:00.000000+00:00",
+      "value": 7.892,
+      "anomaly": -1.099,
+      "stripe_class": 3
+    },
+    {
+      "timestamp": "1971-01-01T00:00:00.000000+00:00",
+      "value": 8.953,
+      "anomaly": -0.038,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1972-01-01T00:00:00.000000+00:00",
+      "value": 8.439,
+      "anomaly": -0.552,
+      "stripe_class": 5
+    },
+    {
+      "timestamp": "1973-01-01T00:00:00.000000+00:00",
+      "value": 8.764,
+      "anomaly": -0.227,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1974-01-01T00:00:00.000000+00:00",
+      "value": 9.247,
+      "anomaly": 0.256,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1975-01-01T00:00:00.000000+00:00",
+      "value": 9.547,
+      "anomaly": 0.556,
+      "stripe_class": 10
+    },
+    {
+      "timestamp": "1976-01-01T00:00:00.000000+00:00",
+      "value": 8.84,
+      "anomaly": -0.151,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1977-01-01T00:00:00.000000+00:00",
+      "value": 9.033,
+      "anomaly": 0.042,
+      "stripe_class": 8
+    },
+    {
+      "timestamp": "1978-01-01T00:00:00.000000+00:00",
+      "value": 8.326,
+      "anomaly": -0.665,
+      "stripe_class": 5
+    },
+    {
+      "timestamp": "1979-01-01T00:00:00.000000+00:00",
+      "value": 7.683,
+      "anomaly": -1.308,
+      "stripe_class": 2
+    },
+    {
+      "timestamp": "1980-01-01T00:00:00.000000+00:00",
+      "value": 8.0,
+      "anomaly": -0.991,
+      "stripe_class": 4
+    },
+    {
+      "timestamp": "1981-01-01T00:00:00.000000+00:00",
+      "value": 8.337,
+      "anomaly": -0.654,
+      "stripe_class": 5
+    },
+    {
+      "timestamp": "1982-01-01T00:00:00.000000+00:00",
+      "value": 9.12,
+      "anomaly": 0.129,
+      "stripe_class": 8
+    },
+    {
+      "timestamp": "1983-01-01T00:00:00.000000+00:00",
+      "value": 9.501,
+      "anomaly": 0.51,
+      "stripe_class": 10
+    },
+    {
+      "timestamp": "1984-01-01T00:00:00.000000+00:00",
+      "value": 8.593,
+      "anomaly": -0.398,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1985-01-01T00:00:00.000000+00:00",
+      "value": 7.82,
+      "anomaly": -1.171,
+      "stripe_class": 3
+    },
+    {
+      "timestamp": "1986-01-01T00:00:00.000000+00:00",
+      "value": 8.226,
+      "anomaly": -0.765,
+      "stripe_class": 4
+    },
+    {
+      "timestamp": "1987-01-01T00:00:00.000000+00:00",
+      "value": 7.775,
+      "anomaly": -1.216,
+      "stripe_class": 3
+    },
+    {
+      "timestamp": "1988-01-01T00:00:00.000000+00:00",
+      "value": 9.513,
+      "anomaly": 0.522,
+      "stripe_class": 10
+    },
+    {
+      "timestamp": "1989-01-01T00:00:00.000000+00:00",
+      "value": 10.048,
+      "anomaly": 1.057,
+      "stripe_class": 12
+    },
+    {
+      "timestamp": "1990-01-01T00:00:00.000000+00:00",
+      "value": 10.179,
+      "anomaly": 1.188,
+      "stripe_class": 12
+    },
+    {
+      "timestamp": "1991-01-01T00:00:00.000000+00:00",
+      "value": 8.812,
+      "anomaly": -0.179,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "1992-01-01T00:00:00.000000+00:00",
+      "value": 9.926,
+      "anomaly": 0.935,
+      "stripe_class": 11
+    },
+    {
+      "timestamp": "1993-01-01T00:00:00.000000+00:00",
+      "value": 8.72,
+      "anomaly": -0.271,
+      "stripe_class": 6
+    },
+    {
+      "timestamp": "1994-01-01T00:00:00.000000+00:00",
+      "value": 10.001,
+      "anomaly": 1.01,
+      "stripe_class": 12
+    },
+    {
+      "timestamp": "1995-01-01T00:00:00.000000+00:00",
+      "value": 9.319,
+      "anomaly": 0.328,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1996-01-01T00:00:00.000000+00:00",
+      "value": 7.568,
+      "anomaly": -1.423,
+      "stripe_class": 2
+    },
+    {
+      "timestamp": "1997-01-01T00:00:00.000000+00:00",
+      "value": 9.356,
+      "anomaly": 0.365,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "1998-01-01T00:00:00.000000+00:00",
+      "value": 9.494,
+      "anomaly": 0.503,
+      "stripe_class": 10
+    },
+    {
+      "timestamp": "1999-01-01T00:00:00.000000+00:00",
+      "value": 10.279,
+      "anomaly": 1.288,
+      "stripe_class": 13
+    },
+    {
+      "timestamp": "2000-01-01T00:00:00.000000+00:00",
+      "value": 10.311,
+      "anomaly": 1.32,
+      "stripe_class": 13
+    },
+    {
+      "timestamp": "2001-01-01T00:00:00.000000+00:00",
+      "value": 9.14,
+      "anomaly": 0.149,
+      "stripe_class": 8
+    },
+    {
+      "timestamp": "2002-01-01T00:00:00.000000+00:00",
+      "value": 9.793,
+      "anomaly": 0.802,
+      "stripe_class": 11
+    },
+    {
+      "timestamp": "2003-01-01T00:00:00.000000+00:00",
+      "value": 9.414,
+      "anomaly": 0.423,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "2004-01-01T00:00:00.000000+00:00",
+      "value": 9.453,
+      "anomaly": 0.462,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "2005-01-01T00:00:00.000000+00:00",
+      "value": 9.469,
+      "anomaly": 0.478,
+      "stripe_class": 9
+    },
+    {
+      "timestamp": "2006-01-01T00:00:00.000000+00:00",
+      "value": 10.127,
+      "anomaly": 1.136,
+      "stripe_class": 12
+    },
+    {
+      "timestamp": "2007-01-01T00:00:00.000000+00:00",
+      "value": 10.267,
+      "anomaly": 1.276,
+      "stripe_class": 13
+    },
+    {
+      "timestamp": "2008-01-01T00:00:00.000000+00:00",
+      "value": 10.103,
+      "anomaly": 1.112,
+      "stripe_class": 12
+    },
+    {
+      "timestamp": "2009-01-01T00:00:00.000000+00:00",
+      "value": 9.626,
+      "anomaly": 0.635,
+      "stripe_class": 10
+    },
+    {
+      "timestamp": "2010-01-01T00:00:00.000000+00:00",
+      "value": 7.987,
+      "anomaly": -1.004,
+      "stripe_class": 3
+    },
+    {
+      "timestamp": "2011-01-01T00:00:00.000000+00:00",
+      "value": 9.934,
+      "anomaly": 0.943,
+      "stripe_class": 11
+    },
+    {
+      "timestamp": "2012-01-01T00:00:00.000000+00:00",
+      "value": 9.187,
+      "anomaly": 0.196,
+      "stripe_class": 8
+    },
+    {
+      "timestamp": "2013-01-01T00:00:00.000000+00:00",
+      "value": 8.974,
+      "anomaly": -0.017,
+      "stripe_class": 7
+    },
+    {
+      "timestamp": "2014-01-01T00:00:00.000000+00:00",
+      "value": 10.723,
+      "anomaly": 1.732,
+      "stripe_class": 14
+    },
+    {
+      "timestamp": "2015-01-01T00:00:00.000000+00:00",
+      "value": 9.968,
+      "anomaly": 0.977,
+      "stripe_class": 11
+    },
+    {
+      "timestamp": "2016-01-01T00:00:00.000000+00:00",
+      "value": 9.819,
+      "anomaly": 0.828,
+      "stripe_class": 11
+    },
+    {
+      "timestamp": "2017-01-01T00:00:00.000000+00:00",
+      "value": 9.818,
+      "anomaly": 0.827,
+      "stripe_class": 11
+    },
+    {
+      "timestamp": "2018-01-01T00:00:00.000000+00:00",
+      "value": 10.558,
+      "anomaly": 1.567,
+      "stripe_class": 14
+    },
+    {
+      "timestamp": "2019-01-01T00:00:00.000000+00:00",
+      "value": 10.547,
+      "anomaly": 1.556,
+      "stripe_class": 14
+    },
+    {
+      "timestamp": "2020-01-01T00:00:00.000000+00:00",
+      "value": 10.641,
+      "anomaly": 1.65,
+      "stripe_class": 14
+    },
+    {
+      "timestamp": "2021-01-01T00:00:00.000000+00:00",
+      "value": 9.655,
+      "anomaly": 0.664,
+      "stripe_class": 10
+    },
+    {
+      "timestamp": "2022-01-01T00:00:00.000000+00:00",
+      "value": 10.555,
+      "anomaly": 1.564,
+      "stripe_class": 14
+    },
+    {
+      "timestamp": "2023-01-01T00:00:00.000000+00:00",
+      "value": 10.66,
+      "anomaly": 1.669,
+      "stripe_class": 14
+    },
+    {
+      "timestamp": "2024-01-01T00:00:00.000000+00:00",
+      "value": 11.108,
+      "anomaly": 2.117,
+      "stripe_class": 15
+    },
+    {
+      "timestamp": "2025-01-01T00:00:00.000000+00:00",
+      "value": 10.152,
+      "anomaly": 1.161,
+      "stripe_class": 12
+    }
+  ]
+}
