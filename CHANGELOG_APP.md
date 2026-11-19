@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.54.0] - 2026-11-19
+
+Paired with backend 0.192.0. It needs no more of the backend than 0.191.0 gave it (the stripes' classes
+and the stations' WMO numbers).
+
 ### Added
 
 - `[Map]` A full-screen button with the zoom buttons, on every screen size: the browser's Fullscreen
@@ -2416,7 +2421,8 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.53.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.54.0...HEAD
+[0.54.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.53.0...app-v0.54.0
 [0.53.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.52.0...app-v0.53.0
 [0.52.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.1...app-v0.52.0
 [0.51.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.0...app-v0.51.1
