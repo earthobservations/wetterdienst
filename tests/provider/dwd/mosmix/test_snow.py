@@ -481,7 +481,14 @@ def test_dwd_mosmix_snow(options_humanize_false_convert_units_false: Options) ->
     # 48 hourly steps from the hour after the run
     assert values.df.filter(pl.col("station_id") == "Z914")["timestamp"].n_unique() == 48
     # the snow depth is in m for this options object (`convert_units=False`), as the file writes it, and a depth
-    depth = values.df.filter(pl.col("parameter") == "sncv").drop_nulls("value")["value"]
+    # a model's round-off below 0 is `floor`'s down to -10 cm (0.0 with `raw:`); a value further below is kept and
+    # flagged `suspect:range` (a forecast is soft in `range`), so the reader's promise is that no negative depth
+    # is without that flag, whatever DWD's run holds (GH-4237)
+    depth_rows = values.df.filter(pl.col("parameter") == "sncv").drop_nulls("value")
+    assert not depth_rows.is_empty()
+    negative = depth_rows.filter(pl.col("value") < 0.0)
+    assert negative["quality_flags"].str.contains("suspect:range").all(), negative
+    depth = depth_rows.filter(~(pl.col("value") < 0.0))["value"]
     assert not depth.is_empty()
     assert 0.0 <= depth.min() <= depth.max() < 12.0
     # the probabilities are 0..100 and a probability of more is not above that of less
