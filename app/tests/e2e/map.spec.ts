@@ -593,32 +593,34 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
   })
 
   test('makes a town on a corner of the old 160 px grid one group at the town, not a bubble in each square (GH-4241)', async ({ page, baseURL }) => {
-    // 90 points within about 12 px (at zoom 6) of the grid corner nearest to Hamburg: the grid cut them over four squares
+    // four clumps of twenty points, one in each quarter round the grid's corner nearest to Hamburg, 18 px from it on each axis and
+    // spread over 8 px (at zoom 6): the grid made four bubbles of twenty of them, 36 px apart, which nothing joined (their discs are
+    // 15 px wide)
     const size = 256 * 2 ** 6
     const mercator = (degrees: number) => Math.log(Math.tan(Math.PI / 4 + degrees * Math.PI / 360))
     const corner = {
       x: Math.round((10 + 180) / 360 * size / 160) * 160,
       y: Math.round((0.5 - mercator(53.55) / (2 * Math.PI)) * size / 160) * 160,
     }
-    const centre = {
-      latitude: (2 * Math.atan(Math.exp((0.5 - corner.y / size) * 2 * Math.PI)) - Math.PI / 2) * 180 / Math.PI,
-      longitude: corner.x / size * 360 - 180,
-    }
-    const town = Array.from({ length: 90 }, (_, index) => ({
+    const pointAt = (x: number, y: number) => ({
+      latitude: (2 * Math.atan(Math.exp((0.5 - y / size) * 2 * Math.PI)) - Math.PI / 2) * 180 / Math.PI,
+      longitude: x / size * 360 - 180,
+    })
+    const town = [[-1, -1], [1, -1], [-1, 1], [1, 1]].flatMap(([sx, sy], clump) => Array.from({ length: 20 }, (_, index) => ({
       ...DENSE[0]!,
-      station_id: `H${String(index).padStart(2, '0')}`,
-      name: `CORNER POINT ${index}`,
-      latitude: centre.latitude + Math.sin(index * 2.4) * Math.sqrt(index / 90) * 0.12,
-      longitude: centre.longitude + Math.cos(index * 2.4) * Math.sqrt(index / 90) * 0.25,
-    }))
+      station_id: `H${clump}${String(index).padStart(2, '0')}`,
+      name: `CORNER POINT ${clump}-${index}`,
+      ...pointAt(corner.x + sx! * 18 + ((index % 5) - 2) * 2, corner.y + sy! * 18 + (Math.floor(index / 5) - 1.5) * 2.67),
+    })))
+    const centre = pointAt(corner.x, corner.y)
     await open(page, baseURL!, '/map', { stations: () => ({ stations: [...town, BERLIN_ALONE] }) })
-    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 91')
+    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 81')
     await expect.poll(() => zoomOf(page)).toBe(6)
     const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
     const at = offsetAtOpening(centre.latitude, centre.longitude)
     await expect.poll(() => canvasPixel(page, box.x + box.width / 2 + at.x - 11, box.y + box.height / 2 + at.y)).toEqual([0x23, 0x58, 0xA8])
     await page.mouse.click(box.x + box.width / 2 + at.x, box.y + box.height / 2 + at.y)
-    await expect(page.getByTestId('map-announcement')).toHaveText('Zoomed in on a group. Stations in it: 90')
+    await expect(page.getByTestId('map-announcement')).toHaveText('Zoomed in on a group. Stations in it: 80')
   })
 
   test('draws a place that has stations that report and stations that have stopped as one group, a ring filled for the share that reports, and says it on a click', async ({ page, baseURL }) => {

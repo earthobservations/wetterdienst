@@ -16,6 +16,7 @@ import {
   zoomForCluster,
 } from '../../app/utils/map-cluster'
 import { dotRadius, placed } from '../../app/utils/map-tool'
+import hamburgStations from '../helpers/dwd-hamburg-stations.json'
 
 // The groups of stations at the outer zooms of the map tool (GH-4079).
 
@@ -185,39 +186,73 @@ describe('the groups by distance (GH-4241)', () => {
     return overlapping
   }
 
-  it('makes a town on a corner of the old grid one group, drawn at the middle of its stations (the Hamburg of GH-4241)', () => {
-    // 195 stations, as Hamburg has, within 14 px of the corner: the grid had them in four squares and four bubbles
-    const stations = town('H', corner, 195, 14)
+  /**
+   * Four clumps of twenty stations, one in each quarter round a corner of the old grid, 18 px from it on each axis at the zoom and
+   * spread over 8 px: the grid cut them into four groups of twenty, which stood 36 px apart, further than their discs are wide
+   * (15 px each), so that nothing joined them. A group of them all is what a place is.
+   */
+  function fourClumps(zoom = ZOOM) {
+    const cell = 160
+    const at = worldPixels(53.55, 9.99, zoom)
+    const middle = { x: Math.round(at.x / cell) * cell, y: Math.round(at.y / cell) * cell }
+    return [[-1, -1], [1, -1], [-1, 1], [1, 1]].flatMap(([sx, sy], clump) => Array.from({ length: 20 }, (_, index) => {
+      const point = worldPoint(middle.x + sx! * 18 + ((index % 5) - 2) * 2, middle.y + sy! * 18 + (Math.floor(index / 5) - 1.5) * 2.67, zoom)
+      return station(`Q${clump}-${index}`, point.latitude, point.longitude)
+    }))
+  }
+
+  it('makes a town that lies over a corner of the old grid one group, not a bubble in each square (the Hamburg of GH-4241)', () => {
+    const stations = fourClumps()
     const squares = new Set(stations.map((entry) => {
       const at = worldPixels(entry.latitude, entry.longitude, ZOOM)
       return `${Math.floor(at.x / 160)}/${Math.floor(at.y / 160)}`
     }))
     expect(squares.size, 'the fixture lies over a corner of the grid').toBe(4)
     const groups = clusterStations(placed(stations), ZOOM, GROUPING.radius)
-    expect(groups).toHaveLength(1)
-    const [group] = groups
-    expect(group!.count).toBe(195)
+    expect(groups.map(group => group.count)).toEqual([80])
     const mean = meanOf(stations)
-    expect(group!.x).toBeCloseTo(mean.x, 6)
-    expect(group!.y).toBeCloseTo(mean.y, 6)
-    expect(Math.hypot(group!.x - corner.x, group!.y - corner.y)).toBeLessThan(14)
+    expect(groups[0]!.x).toBeCloseTo(mean.x, 6)
+    expect(groups[0]!.y).toBeCloseTo(mean.y, 6)
   })
 
-  it('takes the town as one group wherever the stations of it stand in the list, those at its edge among them', () => {
-    // a dense town, and stations scattered 30 px round it: all within a radius of the middle of the town, which the densest place takes
-    const core = town('C', corner, 150, 8)
-    const edge = Array.from({ length: 12 }, (_, index) => {
-      const point = worldPoint(corner.x + Math.cos(index) * 30, corner.y + Math.sin(index) * 30, ZOOM)
-      return station(`E${index}`, point.latitude, point.longitude)
-    })
-    for (const list of [[...edge, ...core], [...core, ...edge].reverse()]) {
+  it('takes such a town as one group wherever its stations stand in the list: first, last, or among the rest of a layer', () => {
+    const stations = fourClumps()
+    const others = placed(Array.from({ length: 30 }, (_, index) => station(`O${index}`, 47 + (index % 6) * 0.9, 6 + Math.floor(index / 6) * 1.5)))
+    const orders = [stations, [...stations].reverse(), stations.filter((_, index) => index % 2 === 0).concat(stations.filter((_, index) => index % 2 === 1)), [...others, ...stations], [...stations, ...others]]
+    for (const list of orders) {
       const groups = clusterStations(placed(list), ZOOM, GROUPING.radius)
-      expect(groups).toHaveLength(1)
-      expect(groups[0]!.count).toBe(162)
+      expect(groups.filter(group => group.count > 2).map(group => group.count)).toEqual([80])
     }
   })
 
-  it('does not depend on the viewport or on what was asked before: the groups of a zoom are the same whenever they are made', () => {
+  it('puts the stations of Hamburg, as DWD lists them, in one group at the city: the real coordinates of the stations within 100 km (GH-4241)', () => {
+    // the 91 stations of DWD's observations (`daily/climate_summary`, the live list of 2026-11-19) within 100 km of the middle of Hamburg
+    const real = placed((hamburgStations as [string, string, number, number][]).map(([id, name, latitude, longitude]) => ({ ...station(id, latitude, longitude), name })))
+    const middle = worldPixels(53.55, 9.99, ZOOM)
+    const distance = (group: { x: number, y: number }) => Math.hypot(group.x - middle.x, group.y - middle.y)
+    const groups = clusterStations(real, ZOOM, GROUPING.radius)
+    // the stations within 30 px (22 km) of the middle are all in one group, and that group's disc is at the city, with no other
+    // group's disc within 40 px of the middle: Hamburg has its bubble, where four stood round it before (47, 44, 57 and 47 of the
+    // whole list). The disc is not on the exact middle: the stations are not spread evenly round it (more lie to the north)
+    const core = real.filter((entry) => {
+      const at = worldPixels(entry.latitude, entry.longitude, ZOOM)
+      return Math.hypot(at.x - middle.x, at.y - middle.y) <= 30
+    })
+    expect(core.length).toBeGreaterThanOrEqual(16)
+    const city = groups.filter(group => distance(group) <= 40)
+    expect(city).toHaveLength(1)
+    expect(city[0]!.count).toBeGreaterThanOrEqual(core.length)
+    expect(distance(city[0]!)).toBeLessThanOrEqual(30)
+    // and every station of the core lies in its box
+    for (const entry of core) {
+      expect(entry.latitude).toBeGreaterThanOrEqual(city[0]!.bounds.south)
+      expect(entry.latitude).toBeLessThanOrEqual(city[0]!.bounds.north)
+      expect(entry.longitude).toBeGreaterThanOrEqual(city[0]!.bounds.west)
+      expect(entry.longitude).toBeLessThanOrEqual(city[0]!.bounds.east)
+    }
+  })
+
+  it('does not depend on the viewport, a drag or what was asked before: the same list in the same order gives the same groups of a zoom whenever they are made', () => {
     const towns = placed([
       ...town('A', corner, 60, 12),
       ...town('B', { x: corner.x + 300, y: corner.y + 40 }, 40, 10),
@@ -273,6 +308,39 @@ describe('the groups by distance (GH-4241)', () => {
       expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(towns.length)
       expect(overlaps(groups, zoom), `at zoom ${zoom}`).toBe(0)
     }
+  })
+
+  it('keeps every station that has a position in a group, longitudes beyond the world included; one with none (NaN) is in no group', () => {
+    const inside = Array.from({ length: 12 }, (_, index) => station(`I${index}`, 50 + index * 0.02, 10 + index * 0.02))
+    const outside = [
+      station('W1', 52, -180.3),
+      station('W2', 52, 200),
+      station('W3', 52, 180.4),
+      station('W4', 52, -180.4),
+      station('P1', -89.9, -200),
+      station('P2', -89.9, -190),
+      station('P3', 89.9, 260),
+    ]
+    const nowhere = [station('N1', Number.NaN, 10), station('N2', 51, Number.NaN)]
+    for (const zoom of [3, 7, 8]) {
+      for (const list of [[...inside, ...outside, ...nowhere], [...nowhere, ...outside, ...inside], outside, [...outside, ...nowhere]]) {
+        const groups = clusterStations(placed(list), zoom, GROUPING.radius)
+        const wanted = list.filter(entry => !Number.isNaN(entry.latitude) && !Number.isNaN(entry.longitude)).length
+        expect(groups.reduce((sum, group) => sum + group.count, 0), `zoom ${zoom}`).toBe(wanted)
+        expect(groups.every(group => Number.isFinite(group.x) && Number.isFinite(group.y)), `zoom ${zoom}`).toBe(true)
+      }
+    }
+    expect(clusterStations(placed(nowhere), 7, GROUPING.radius)).toEqual([])
+  })
+
+  it('costs what the list is, not the world: a list of fifty stations is grouped at zoom 8 in a moment', () => {
+    const few = placed(Array.from({ length: 50 }, (_, index) => station(`F${index}`, 50 + random() * 2, 8 + random() * 3)))
+    const started = performance.now()
+    for (let run = 0; run < 100; run++)
+      clusterStations(few, 8, GROUPING.radius)
+    // the grids covered the whole world (a million squares at zoom 8) and took 5 ms a call; they cover the box of the list now,
+    // under a millisecond. A guard against the world's size, not a measure: 25 times the time it takes
+    expect(performance.now() - started).toBeLessThan(250)
   })
 
   it('shows lone dots from zoom 9: the groups are not drawn there, and stations 17 km apart would be groups of one in any case', () => {
