@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { STRIPE_CLASS_COUNT, STRIPE_CLASSES, STRIPE_PALETTES, stripeBand, stripeColour, stripesReferenceText, stripesSummaryParams, stripeYears, wrapChartTitle } from '../../app/utils/stripes'
+import { STRIPE_CLASS_COUNT, STRIPE_CLASSES, STRIPE_PALETTES, stripeBand, stripeColour, stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears, wrapChartTitle } from '../../app/utils/stripes'
 import { unitSymbol } from '../../app/utils/unit-targets'
 
 const answer = (...items: [string | null, number | null, number | null, number | null][]) => items.map(([timestamp, value, anomaly, stripe_class]) => ({ timestamp, value, anomaly, stripe_class }))
@@ -112,6 +112,31 @@ describe('the sentence that says what the colours are relative to', () => {
   it('names the whole record, with its years, for a period the station has too few years in', () => {
     expect(stripesReferenceText({ centre: stat(1991, 2020, true), spread: stat(1901, 2000), range_sigma: 2.6 }, t, value => String(value)))
       .toBe('stripes.reference{"centre":"stripes.referenceWhole{\\"from\\":1991,\\"to\\":2020}","spread":"1901–2000","sigma":"2.6"}')
+  })
+})
+
+describe('the short line under the chart (GH-4233)', () => {
+  const t = (key: string, params?: Record<string, unknown>) => `${key}${params ? JSON.stringify(params) : ''}`
+  const stat = (first_year: number, last_year: number, fallback = false) => ({ first_year, last_year, fallback })
+
+  it('names the periods the mean and the spread are from, and nothing of how the scale is made', () => {
+    expect(stripesReferenceShort({ centre: stat(1971, 2000), spread: stat(1944, 2000), range_sigma: 2.6 }, t))
+      .toBe('stripes.referenceShort.stripes{"centre":"1971–2000","spread":"1944–2000"}')
+  })
+
+  it('says it is the mean the bars are drawn from, for the bars', () => {
+    expect(stripesReferenceShort({ centre: stat(1971, 2000), spread: stat(1901, 2000), range_sigma: 2.6 }, t, 'bars'))
+      .toBe('stripes.referenceShort.bars{"centre":"1971–2000","spread":"1901–2000"}')
+  })
+
+  it.each([['stripes', 'stripes.referenceShort.stripesWhole'], ['bars', 'stripes.referenceShort.barsWhole']] as const)('says it is the station\'s whole record, with its years, where the station has too few years in both periods (%s)', (drawing, key) => {
+    expect(stripesReferenceShort({ centre: stat(2001, 2020, true), spread: stat(2001, 2020, true), range_sigma: 2.6 }, t, drawing))
+      .toBe(`${key}{"from":2001,"to":2020}`)
+  })
+
+  it('names the whole record where only one of the periods fell back to it', () => {
+    expect(stripesReferenceShort({ centre: stat(1930, 1975, true), spread: stat(1930, 1975), range_sigma: 2.6 }, t))
+      .toBe('stripes.referenceShort.stripes{"centre":"stripes.referenceWhole{\\"from\\":1930,\\"to\\":1975}","spread":"1930–1975"}')
   })
 })
 

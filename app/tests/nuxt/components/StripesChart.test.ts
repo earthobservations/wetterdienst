@@ -141,14 +141,76 @@ describe('the variants (GH-4156)', () => {
   const svgOf = () => (image.svgToBlob.mock.calls.at(-1) as unknown as [string, any])[0]
   const textsOf = (svg: string) => [...svg.matchAll(/<text[^>]*>([^<]*)<\/text>/g)].map(match => match[1]!)
 
-  it('has a switch of the three, the stripes the one chosen where nothing else is asked for, which asks the page for another', async () => {
+  it('has a switch of the four, the stripes the one chosen where nothing else is asked for, which asks the page for another', async () => {
     const shown = await showChart()
     expect(switcher().getAttribute('aria-label')).toBe('Chart style')
-    expect([...switcher().querySelectorAll('[role="radio"]')].map(button => [button.textContent?.trim(), button.getAttribute('aria-checked')])).toEqual([['Stripes', 'true'], ['Bars', 'false'], ['Bars with scale', 'false']])
+    expect([...switcher().querySelectorAll('[role="radio"]')].map(button => [button.textContent?.trim(), button.getAttribute('aria-checked')])).toEqual([['Stripes', 'true'], ['Bars', 'false'], ['Bars with scale', 'false'], ['Table', 'false']])
     radio('Bars with scale').click()
     expect(shown.emitted('update:variant')).toEqual([['barsScale']])
     // the page owns the choice: the chart draws what it is given
     expect(radio('Stripes').getAttribute('aria-checked')).toBe('true')
+    radio('Table').click()
+    expect(shown.emitted('update:variant')).toEqual([['barsScale'], ['table']])
+  })
+
+  it('moves along the four by the arrow keys, as the forecast\'s switch does, the table the last', async () => {
+    const shown = await showChart({ variant: 'barsScale' })
+    radio('Bars with scale').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+    expect(shown.emitted('update:variant')).toEqual([['table']])
+  })
+
+  describe('the table view (GH-4233)', () => {
+    it('shows the switch and nothing of the chart: no figure, no toolbar, no camera, no hint to its keys, and draws nothing', async () => {
+      // nothing is drawn, so there is no drawing to wait for
+      wrapper = await mountSuspended(StripesChart, {
+        props: { values: VALUES, reference: REFERENCE, kind: 'temperature', unit: '°C', title: TITLE, display: DISPLAY, label: TITLE, cameraFile: 'f', variant: 'table' },
+        attachTo: document.body,
+      })
+      await flushPromises()
+      expect(radio('Table').getAttribute('aria-checked')).toBe('true')
+      expect(document.body.querySelector('[role="figure"]')).toBeNull()
+      expect(document.body.querySelector('.sc-toolbar')).toBeNull()
+      expect(document.body.querySelector('[aria-label="Download plot as a PNG"]')).toBeNull()
+      expect(document.body.querySelector('[data-testid="stripes-announce"]')).toBeNull()
+      expect(drawn()).toBe(0)
+      expect(echarts.init).not.toHaveBeenCalled()
+    })
+
+    it('takes the chart away where the table is chosen, and draws the drawing it had where one is chosen again', async () => {
+      const shown = await showChart({ variant: 'bars' })
+      expect(document.body.querySelector('[role="figure"]')).not.toBeNull()
+      const before = drawn()
+      await shown.setProps({ variant: 'table' })
+      await vi.waitFor(() => expect(document.body.querySelector('[role="figure"]')).toBeNull())
+      expect(echarts.chart.dispose).toHaveBeenCalled()
+      expect(drawn()).toBe(before)
+      await shown.setProps({ variant: 'barsScale' })
+      await vi.waitFor(() => expect(drawn()).toBe(before + 1))
+      expect(lastOption().series.map((s: any) => s.id)).toContain('grid')
+      expect(document.body.querySelector('[role="figure"]')).not.toBeNull()
+    })
+
+    it('saves the camera\'s image of the drawing the chart goes back to, not of the table', async () => {
+      const shown = await showChart({ variant: 'bars' })
+      await shown.setProps({ variant: 'table' })
+      await shown.setProps({ variant: 'bars' })
+      await vi.waitFor(() => expect(document.body.querySelector('.sc-toolbar')).not.toBeNull())
+      image.svgToBlob.mockClear()
+      document.body.querySelector<HTMLButtonElement>('[aria-label="Download plot as a PNG"]')!.click()
+      await vi.waitFor(() => expect(image.svgToBlob).toHaveBeenCalled())
+      expect(svgOf()).toContain('<svg')
+    })
+
+    it('puts no crosshair away that the table could keep: a readout is gone with the chart', async () => {
+      const shown = await showChart()
+      document.body.querySelector<HTMLElement>('[role="figure"]')!.focus()
+      document.body.querySelector<HTMLElement>('[role="figure"]')!.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }))
+      await nextTick()
+      expect(document.body.querySelector('[data-testid="stripes-readout"]')).not.toBeNull()
+      await shown.setProps({ variant: 'table' })
+      await nextTick()
+      expect(document.body.querySelector('[data-testid="stripes-readout"]')).toBeNull()
+    })
   })
 
   it('keeps the switch where the chart could not be drawn, outside what is out of reach (inert)', async () => {

@@ -651,6 +651,8 @@
     "aboutButton": "O paskach klimatycznych",
     "aboutText1": "Paski klimatyczne (znane też jako paski ocieplenia) to wizualizacja danych zaprojektowana, aby komunikować długoterminowy wzrost temperatur. Każdy pasek przedstawia średnią temperaturę pojedynczego roku — kolor niebieski oznacza lata chłodniejsze, a czerwony cieplejsze.",
     "aboutText2": "Wizualizacja została stworzona przez klimatologa Eda Hawkinsa i stała się ikonicznym przedstawieniem zmian klimatu. To narzędzie wykorzystuje dane z sieci obserwacyjnej Niemieckiej Służby Meteorologicznej (DWD).",
+    "aboutText3": "Jak dobierane są kolory: średnia z lat 1971–2000 jest środkiem skali, która obejmuje ±2,6 odchylenia standardowego (obliczonego z lat 1901–2000) w 16 kolorach, po jednym na każde 0,325 odchylenia standardowego (metoda Eda Hawkinsa). Stację, która ma zbyt mało lat w tych okresach, odnosi się do całego jej szeregu, co mówi wiersz pod wykresem. Kolory są obliczane z całego szeregu stacji, a nie z pokazanych lat, więc rok zachowuje swój kolor niezależnie od tego, jakie lata są pokazane.",
+    "aboutText4": "Słupki rysują te same lata jako słupki: wysokość każdego to różnica roku względem średniej z okresu odniesienia, w kolorze jego paska. Słupki ze skalą dodają oś tej różnicy, w jednostce wartości, i oś lat. Tabela wylicza każdy rok z wartością, anomalią i klasą i można ją zapisać jako plik CSV.",
     "type": "Element pogodowy",
     "typeTemperature": "Temperatura",
     "typePrecipitation": "Opady",
@@ -672,16 +674,20 @@
     "downloadPng": "Pobierz jako PNG",
     "downloadJpg": "Pobierz jako JPG",
     "downloadSvg": "Pobierz jako SVG",
+    "downloadTable": "Pobierz tabelę",
+    "downloadCsv": "Pobierz jako CSV",
     "plotTitle": "Paski klimatyczne ({kind}) dla {name}, Niemcy ({id})",
     "plotDataAvailability": "Dostępność danych",
     "plotSource": "Źródło: Deutscher Wetterdienst",
     "plotReference": "Kolory: średnia z {centre}, ±{sigma} σ z {spread}",
+    "csvLicence": "Licencja: {name} ({url})",
     "barsRelativeTo": "W odniesieniu do średniej z {period}",
     "variant": {
       "label": "Widok",
       "stripes": "Paski",
       "bars": "Słupki",
-      "barsScale": "Słupki ze skalą"
+      "barsScale": "Słupki ze skalą",
+      "table": "Tabela"
     },
     "hoverValue": "Wartość",
     "chart": {
@@ -697,8 +703,15 @@
       "keysHint": "Strzałki przechodzą po latach, Page Up i Page Down co dziesięć lat, Home i End do pierwszego i ostatniego. Plus, minus i 0 powiększają, pomniejszają i resetują. Escape zamyka wartości."
     },
     "summary": "Od {from} do {to}. Najniższa wartość {min} w roku {minYear}, najwyższa {max} w roku {maxYear}.",
+    "tableHint": "Wartości są w tabeli: wybierz „{table}” w „{style}” nad wykresem.",
     "reference": "Kolory: średnia z {centre} jest środkiem skali, która obejmuje ±{sigma} odchylenia standardowego z {spread} (metoda Eda Hawkinsa).",
     "referenceWhole": "całego szeregu ({from}–{to})",
+    "referenceShort": {
+      "stripes": "Względem średniej z {centre} (rozrzut z {spread})",
+      "stripesWhole": "Względem całego szeregu stacji, {from}–{to}",
+      "bars": "Słupki: różnica względem średniej z {centre} (rozrzut z {spread})",
+      "barsWhole": "Słupki: różnica względem średniej z całego szeregu stacji, {from}–{to}"
+    },
     "table": {
       "year": "Rok",
       "value": "Wartość",

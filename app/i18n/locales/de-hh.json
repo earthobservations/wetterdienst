@@ -651,6 +651,8 @@
     "aboutButton": "Över Klimastrepen",
     "aboutText1": "Klimastrepen (ok Wärmstrepen nöömt) sünd een Datenvisualisatschoon, de den langfristigen Anstieg vun de Temperaturen vermiddelt. Jeder Streep steiht för de Dörchsnittstemperatur vun een Johr – Blau för köhlere, Root för wärmere Johren.",
     "aboutText2": "De Dorstellen is vun den Klimaforscher Ed Hawkins entwickelt worrn un is to een bekannt Sinnbild vun'n Klimawannel worrn. Dit Warktüüg bruukt Daten vun'n Düütschen Wedderdeenst (DWD).",
+    "aboutText3": "So warrt de Klören utsöcht: Dat Middel vun 1971–2000 is de Mitt vun de Skala, de ±2,6 Standardafwieken (utrekent ut 1901–2000) in 16 Klören umfaat, een för elk 0,325 Standardafwieken (Methood vun Ed Hawkins). Een Station mit to wenig Johren in disse Tietrüüm warrt op ehr heele Tietreeg bezogen, wat de Reeg ünner dat Diagramm seggt. De Klören warrt ut de heele Tietreeg vun de Station utrekent, nich ut de wiesten Johren; een Johr behölt also sien Klöör, wat för Johren ok wiest warrt.",
+    "aboutText4": "Balken tekent de sülvigen Johren as Balken: De Hööch vun elk Balken is de Afwieken vun dat Johr vun dat Middel vun de Bezugstiet, in de Klöör vun sien Streep. Balken mit Skaal packt een Achs för disse Afwieken in de Eenheit vun de Weerten un een Johrachs dorto. Tabell list elk Johr mit Weert, Afwieken un Klass op un kann as CSV-Datei spiekert warrn.",
     "type": "Wedderelement",
     "typeTemperature": "Temperatur",
     "typePrecipitation": "Nedderslag",
@@ -672,16 +674,20 @@
     "downloadPng": "As PNG runnerladen",
     "downloadJpg": "As JPG runnerladen",
     "downloadSvg": "As SVG runnerladen",
+    "downloadTable": "Tabell runnerladen",
+    "downloadCsv": "As CSV runnerladen",
     "plotTitle": "Klimastrepen ({kind}) för {name}, Düütschland ({id})",
     "plotDataAvailability": "Datenverfögbarkeit",
     "plotSource": "Quell: Deutscher Wetterdienst",
     "plotReference": "Klöör: Middel vun {centre}, ±{sigma} σ vun {spread}",
+    "csvLicence": "Lizenz: {name} ({url})",
     "barsRelativeTo": "Relativ to dat Middel vun {period}",
     "variant": {
       "label": "Ansicht",
       "stripes": "Striepen",
       "bars": "Balken",
-      "barsScale": "Balken mit Skaal"
+      "barsScale": "Balken mit Skaal",
+      "table": "Tabell"
     },
     "hoverValue": "Weert",
     "chart": {
@@ -697,8 +703,15 @@
       "keysHint": "Mit de Pieltasten gahst du johrwies dör de Streven, mit Bild rop un Bild dal in Tehnerschritten, mit Pos1 un Enn na den eersten un den lesten. Plus, Minus un 0 maakt grötter, lütter un sett torüch. Esc maakt de Weerten to."
     },
     "summary": "Vun {from} bit {to}. Leegste Weert {min} in {minYear}, hööchste Weert {max} in {maxYear}.",
+    "tableHint": "De Weerten staht in de Tabell: Wähl „{table}“ ünner „{style}“ över dat Diagramm.",
     "reference": "Klöör: Dat Middel vun {centre} is de Mitt vun de Skala, de ±{sigma} Standardafwieken vun {spread} umfaat (Methood vun Ed Hawkins).",
     "referenceWhole": "de heele Tietreeg ({from}–{to})",
+    "referenceShort": {
+      "stripes": "Op dat Middel vun {centre} bezogen (Standardafwieken ut {spread})",
+      "stripesWhole": "Op de heele Tietreeg vun de Station bezogen, {from}–{to}",
+      "bars": "Balken: Afwieken vun dat Middel vun {centre} (Standardafwieken ut {spread})",
+      "barsWhole": "Balken: Afwieken vun dat Middel vun de heele Tietreeg vun de Station, {from}–{to}"
+    },
     "table": {
       "year": "Johr",
       "value": "Weert",

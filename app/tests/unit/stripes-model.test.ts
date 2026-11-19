@@ -1,6 +1,6 @@
 import type { StripesInput } from '../../app/utils/stripes-model'
 import { describe, expect, it } from 'vitest'
-import { anomalyAxis, availabilityRuns, buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, visibleYears, yearTicks, zoomWindow } from '../../app/utils/stripes-model'
+import { anomalyAxis, availabilityRuns, buildStripesModel, clampWindow, fullWindow, isStripesDrawing, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, STRIPES_VIEW_QUERY, STRIPES_VIEWS, stripesViewFromQuery, visibleYears, yearTicks, zoomWindow } from '../../app/utils/stripes-model'
 import { recordOf, stripesAnswer } from '../helpers/stripes-answer'
 
 const input = (timestamp: string | null, value: number | null, anomaly: number | null = null, stripe_class: number | null = null): StripesInput => ({ timestamp, value, anomaly, stripe_class })
@@ -208,5 +208,33 @@ describe('availabilityRuns (GH-4153)', () => {
     expect(availabilityRuns([], 2000)).toEqual([])
     expect(availabilityRuns([null, null], 2000)).toEqual([])
     expect(availabilityRuns([-0.02, null, -0.02], 2000)).toEqual([{ first: 2000, last: 2000 }, { first: 2002, last: 2002 }])
+  })
+})
+
+describe('the views of the stripes page (GH-4233)', () => {
+  it('has the three drawings and the table, the table the fourth', () => {
+    expect([...STRIPES_VIEWS]).toEqual(['stripes', 'bars', 'barsScale', 'table'])
+  })
+
+  it('writes each view in the link as its own name, the bars with a scale as bars_scale', () => {
+    expect(STRIPES_VIEW_QUERY).toEqual({ stripes: 'stripes', bars: 'bars', barsScale: 'bars_scale', table: 'table' })
+  })
+
+  it.each([
+    ['stripes', 'stripes'],
+    ['bars', 'bars'],
+    ['bars_scale', 'barsScale'],
+    ['table', 'table'],
+    [['table', 'bars'], 'table'],
+  ] as const)('reads variant=%s of the link as the view %s', (value, view) => {
+    expect(stripesViewFromQuery(value)).toBe(view)
+  })
+
+  it.each([undefined, null, '', 'pie', 'Table', 'barsScale', 42, []])('takes the stripes for a variant of the link that is none (%j)', (value) => {
+    expect(stripesViewFromQuery(value)).toBe('stripes')
+  })
+
+  it('names the views that are a drawing, which have a chart, a toolbar and an image to save: all but the table', () => {
+    expect(STRIPES_VIEWS.filter(isStripesDrawing)).toEqual(['stripes', 'bars', 'barsScale'])
   })
 })

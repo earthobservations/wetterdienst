@@ -651,6 +651,8 @@
     "aboutButton": "À propos des bandes climatiques",
     "aboutText1": "Les bandes climatiques (aussi appelées bandes du réchauffement) sont une visualisation de données conçue pour communiquer l'augmentation des températures à long terme. Chaque bande représente la température moyenne d'une année, le bleu indiquant les années plus fraîches et le rouge les années plus chaudes.",
     "aboutText2": "La visualisation a été créée par le climatologue Ed Hawkins et est devenue une représentation emblématique du changement climatique. Cet outil utilise les données du réseau d'observation du service météorologique allemand (DWD).",
+    "aboutText3": "Comment les couleurs sont choisies : la moyenne de 1971–2000 est le centre de l'échelle, qui couvre ±2,6 écarts types (calculés sur 1901–2000) en 16 couleurs, une pour chaque 0,325 écart type (méthode d'Ed Hawkins). Une station qui a trop peu d'années dans ces périodes est comparée à toute sa série, ce que dit la ligne sous le graphique. Les couleurs sont calculées sur toute la série de la station et non sur les années affichées : une année garde donc sa couleur, quelles que soient les années affichées.",
+    "aboutText4": "Les barres dessinent les mêmes années en barres : la hauteur de chacune est l'écart de l'année à la moyenne de la période de référence, dans la couleur de sa bande. Barres avec échelle ajoute un axe pour cet écart, dans l'unité des valeurs, et un axe des années. Tableau énumère chaque année avec sa valeur, son écart et sa classe, et peut être enregistré en fichier CSV.",
     "type": "Élément météorologique",
     "typeTemperature": "Température",
     "typePrecipitation": "Précipitations",
@@ -672,16 +674,20 @@
     "downloadPng": "Télécharger en PNG",
     "downloadJpg": "Télécharger en JPG",
     "downloadSvg": "Télécharger en SVG",
+    "downloadTable": "Télécharger le tableau",
+    "downloadCsv": "Télécharger en CSV",
     "plotTitle": "Bandes climatiques ({kind}) pour {name}, Allemagne ({id})",
     "plotDataAvailability": "Disponibilité des données",
     "plotSource": "Source : Deutscher Wetterdienst",
     "plotReference": "Couleurs : moyenne de {centre}, ±{sigma} σ de {spread}",
+    "csvLicence": "Licence : {name} ({url})",
     "barsRelativeTo": "Relatif à la moyenne de {period}",
     "variant": {
       "label": "Affichage",
       "stripes": "Bandes",
       "bars": "Barres",
-      "barsScale": "Barres avec échelle"
+      "barsScale": "Barres avec échelle",
+      "table": "Tableau"
     },
     "hoverValue": "Valeur",
     "chart": {
@@ -697,8 +703,15 @@
       "keysHint": "Les flèches parcourent les années, Page précédente et Page suivante de dix en dix, Début et Fin vont à la première et à la dernière. Plus, moins et 0 zooment, dézooment et réinitialisent. Échap ferme les valeurs."
     },
     "summary": "De {from} à {to}. Valeur la plus basse : {min} en {minYear}, la plus haute : {max} en {maxYear}.",
+    "tableHint": "Les valeurs figurent dans le tableau : choisis « {table} » sous « {style} », au-dessus du graphique.",
     "reference": "Couleurs : la moyenne de {centre} est le centre de l'échelle, qui couvre ±{sigma} écarts types de {spread} (méthode d'Ed Hawkins).",
     "referenceWhole": "toute la série ({from}–{to})",
+    "referenceShort": {
+      "stripes": "Relatif à la moyenne de {centre} (dispersion de {spread})",
+      "stripesWhole": "Relatif à toute la série de la station, {from}–{to}",
+      "bars": "Barres : l'écart par rapport à la moyenne de {centre} (dispersion de {spread})",
+      "barsWhole": "Barres : l'écart par rapport à la moyenne de toute la série de la station, {from}–{to}"
+    },
     "table": {
       "year": "Année",
       "value": "Valeur",

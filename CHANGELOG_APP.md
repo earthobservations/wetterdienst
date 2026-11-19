@@ -40,6 +40,14 @@ Types of changes:
   The "About" row of a tool is a small ⓘ beside the page title, with the same text; Escape closes it.
   The map fills the window between the header and the tab bar. Tablets and desktop are unchanged
   (GH-4227).
+- `[Stripes]` The table of the years is a fourth view, "Table", beside stripes, bars and bars with
+  a scale (`variant=table` in the link), full width as the forecast's table is; the "Show as table"
+  disclosure under the image is gone. In the table view the download is a CSV (unit in the header,
+  the reference, credit and licence as `#` lines); the image views keep PNG, JPG and SVG, and print
+  follows the view shown. The line under the chart is short, what this station's colours are
+  measured against ("Relative to the mean of 1971–2000 (spread from 1901–2000)", or its whole
+  record where it has too few years); how the scale is made is in the page's About text, and the
+  whole sentence in the table's note and the CSV (GH-4233).
 - `[Map]` The legend (what a filled and a hollow dot and a numbered disc are) is in the layers panel,
   under the grouping switch, no longer a box at the map's foot; the map's description says it too for
   a screen reader (GH-4227).

@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import type StripesChart from '~/components/StripesChart.vue'
-import type { StripesVariant } from '~/utils/stripes-model'
+import type { StripesView } from '~/utils/stripes-model'
 import type { StripesDisplay } from '~/utils/stripes-option'
 import { describeFetchError } from '~/utils/api-error'
+import { downloadBlob } from '~/utils/chart-image'
 import { formatNumber, formatSigned } from '~/utils/format'
-import { stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
-import { STRIPES_VARIANTS } from '~/utils/stripes-model'
+import { stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
+import { isStripesDrawing, STRIPES_VIEW_QUERY, stripesViewFromQuery } from '~/utils/stripes-model'
 import { MENU_SCALE } from '~/utils/stripes-option'
+import { stripesCsv, stripesTableColumns, stripesTableYears } from '~/utils/stripes-table'
 import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
 const { t, locale } = useI18n()
@@ -25,9 +27,9 @@ const kindItems = computed(() => [
 function kindLabel(k: StripesKind) {
   return k === 'precipitation' ? t('stripes.typePrecipitation') : t('stripes.typeTemperature')
 }
-// How the years are drawn (GH-4156): in the link as `variant` (`stripes`, `bars`, `bars_scale`), not in the saved settings
-const VARIANT_QUERY: Record<StripesVariant, string> = { stripes: 'stripes', bars: 'bars', barsScale: 'bars_scale' }
-const variant = ref<StripesVariant>('stripes')
+// What is shown of the years (GH-4156, GH-4233): in the link as `variant` (`stripes`, `bars`, `bars_scale`, `table`), not in the saved settings
+const variant = ref<StripesView>('stripes')
+const showsTable = computed(() => !isStripesDrawing(variant.value))
 const selectedStation = ref<StripesStation | null>(null)
 const startYear = ref<number | null>(null)
 const endYear = ref<number | null>(null)
@@ -85,28 +87,30 @@ const valueUnit = computed(() => {
 function formatValue(value: number) {
   return `${formatNumber(value, locale.value, 2)} ${valueUnit.value}`.trim()
 }
-// what the colours are relative to, as the backend calculated it for the station's whole record (GH-4157)
-const referenceText = computed(() => lastFetchedData.value
+// what the colours are relative to, as the backend calculated it for the station's whole record (GH-4157): in full where the page
+// has room for it (the table's note, the file), and as a short line under the chart (GH-4233), the method being the About text's
+const referenceFull = computed(() => lastFetchedData.value
   ? stripesReferenceText(lastFetchedData.value.reference, t, value => formatNumber(value, locale.value, 1))
   : '')
+const referenceText = computed(() => lastFetchedData.value
+  ? stripesReferenceShort(lastFetchedData.value.reference, t, variant.value === 'bars' || variant.value === 'barsScale' ? 'bars' : 'stripes')
+  : '')
+// said of the image views; the table says all of it itself, and a reader who is in it needs no hint to it
 const plotSummary = computed(() => {
   const years = stripeRows.value
-  if (!years.length)
+  if (!years.length || showsTable.value)
     return undefined
-  return `${t('stripes.summary', stripesSummaryParams(years, formatValue))} ${referenceText.value} ${t('common.chartTableHint')}`
+  return `${t('stripes.summary', stripesSummaryParams(years, formatValue))} ${referenceText.value}. ${t('stripes.tableHint', { style: t('stripes.variant.label'), table: t('stripes.variant.table') })}`
 })
-const tableColumns = computed(() => [
-  t('stripes.table.year'),
-  valueUnit.value ? `${t('stripes.table.value')} (${valueUnit.value})` : t('stripes.table.value'),
-  valueUnit.value ? `${t('stripes.table.anomaly')} (${valueUnit.value})` : t('stripes.table.anomaly'),
-  t('stripes.table.class'),
-])
-const tableRows = computed(() => stripeRows.value.map(year => [
+const tableColumns = computed(() => stripesTableColumns(valueUnit.value, t))
+const tableRows = computed(() => stripesTableYears(stripeRows.value).map(year => [
   String(year.year),
   formatNumber(year.value, locale.value, 2),
   formatSigned(year.anomaly, locale.value, 2),
   t(`stripes.table.classes.${kind.value}.${year.class}`),
 ]))
+// what a reader needs to read the table: what the class and the anomaly are, and the whole of what they are relative to
+const tableNote = computed(() => `${t(`stripes.table.note.${kind.value}`)} ${referenceFull.value}`.trim())
 // the stripes could not be drawn: the chart says so itself, with its Retry, and the table and the image are not offered
 const plotFailed = computed(() => chart.value?.renderFailed ?? false)
 // the options the page offers, as the chart draws them
@@ -219,6 +223,35 @@ async function downloadStripes(format: 'png' | 'jpeg' | 'svg' = 'png') {
   }
 }
 
+/** Saves the table as a CSV file: the columns of the table, the numbers plain, and the reference, the credit and the licence as comment lines */
+function downloadTable() {
+  const data = lastFetchedData.value
+  if (!data)
+    return
+  const csv = stripesCsv(
+    tableColumns.value,
+    stripeRows.value,
+    stripeClass => t(`stripes.table.classes.${kind.value}.${stripeClass}`),
+    csvComments(data),
+  )
+  if (!csv)
+    return
+  const station = data.series.station
+  downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `climate_stripes_${kind.value}_${station.station_id}_${station.name}.csv`)
+}
+
+/** The lines before the table's header: what it is, what the colours are relative to, who the data is from and under which licence */
+function csvComments(data: StripesValuesResponse): string[] {
+  const provider = data.metadata?.provider
+  const licence = provider?.license
+  return [
+    plotTitle(data),
+    referenceFull.value,
+    provider?.attribution || t('stripes.plotSource'),
+    licence ? t('stripes.csvLicence', { name: licence.name, url: licence.url }) : '',
+  ]
+}
+
 function clearStripes() {
   hasPlot.value = false
   lastFetchedData.value = null
@@ -239,8 +272,8 @@ const initialStationId = ref<string | null>(route.query.station?.toString() ?? n
 // Initialize simple options from URL if present
 if (route.query.kind)
   kind.value = route.query.kind.toString() as StripesKind
-// a name that is none of the three is no choice: the stripes
-variant.value = STRIPES_VARIANTS.find(name => VARIANT_QUERY[name] === route.query.variant?.toString()) ?? 'stripes'
+// a name that is none of the four is no choice: the stripes
+variant.value = stripesViewFromQuery(route.query.variant)
 if (route.query.show_title !== undefined && route.query.show_title !== null)
   showTitle.value = route.query.show_title?.toString() === 'true'
 if (route.query.show_years !== undefined && route.query.show_years !== null)
@@ -315,7 +348,7 @@ function stripesToQuery(): Record<string, string> {
   const q: Record<string, string> = {}
   if (kind.value)
     q.kind = kind.value
-  q.variant = VARIANT_QUERY[variant.value]
+  q.variant = STRIPES_VIEW_QUERY[variant.value]
   if (selectedStation.value)
     q.station = selectedStation.value.station_id
   if (showTitle.value !== undefined)
@@ -359,8 +392,15 @@ watch([
           <p class="text-gray-600 dark:text-gray-400 mb-4">
             {{ t('stripes.aboutText1') }}
           </p>
-          <p class="text-gray-600 dark:text-gray-400">
+          <p class="text-gray-600 dark:text-gray-400 mb-4">
             {{ t('stripes.aboutText2') }}
+          </p>
+          <!-- how the colours are made, the same for every station (GH-4233): the line under the chart says only what a station's are measured against -->
+          <p class="text-gray-600 dark:text-gray-400 mb-4" data-testid="stripes-about-method">
+            {{ t('stripes.aboutText3') }}
+          </p>
+          <p class="text-gray-600 dark:text-gray-400" data-testid="stripes-about-views">
+            {{ t('stripes.aboutText4') }}
           </p>
         </div>
       </template>
@@ -496,26 +536,26 @@ watch([
               <p v-if="hasPlot && !plotFailed && referenceText" data-testid="stripes-reference" class="mt-2 text-sm text-muted">
                 {{ referenceText }}
               </p>
-              <ChartTable
-                v-if="hasPlot && !plotFailed && tableRows.length"
-                :caption="plotLabel ?? ''" :columns="tableColumns" :rows="tableRows"
-                :note="t(`stripes.table.note.${kind}`)"
+              <!-- the table is a view of its own (GH-4233), as the forecast's is: the same switch, the whole width -->
+              <ValuesTable
+                v-if="hasPlot && showsTable && tableRows.length"
+                full :caption="plotLabel ?? ''" :columns="tableColumns" :rows="tableRows" :note="tableNote"
               />
               <div v-if="hasPlot && !plotFailed" class="mt-4">
                 <!-- not modal: a modal menu hides the page from assistive technology (aria-hidden) while its
                own trigger is still focusable in it -->
                 <UDropdownMenu
                   :modal="false"
-                  :items="[
-                    [
+                  :items="showsTable
+                    ? [[{ label: t('stripes.downloadCsv'), onSelect: () => downloadTable() }]]
+                    : [[
                       { label: t('stripes.downloadPng'), onSelect: () => downloadStripes('png') },
                       { label: t('stripes.downloadJpg'), onSelect: () => downloadStripes('jpeg') },
                       { label: t('stripes.downloadSvg'), onSelect: () => downloadStripes('svg') },
-                    ],
-                  ]"
+                    ]]"
                 >
                   <UButton
-                    :label="t('stripes.downloadImage')" color="primary" variant="outline"
+                    :label="showsTable ? t('stripes.downloadTable') : t('stripes.downloadImage')" color="primary" variant="outline"
                     icon="i-ph-download-simple" class="w-full justify-center"
                   />
                 </UDropdownMenu>

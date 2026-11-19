@@ -95,6 +95,24 @@ export function stripesReferenceText(
   return t(key, { centre: referencePeriod(reference.centre, t), spread: referencePeriod(reference.spread, t), sigma: format(reference.range_sigma) })
 }
 
+/**
+ * The short line under the chart (GH-4233): only what this station's colours are measured against, not how the scale is made
+ * (the page's About text says that, the same for every station). For the stripes and the table the mean of the reference
+ * and the years the spread is from (`stripes.referenceShort.stripes`); for the bars the mean they are drawn from
+ * (`stripes.referenceShort.bars`). Where the station has too few years in the periods of the method, so that its whole record
+ * stands in for both, it says so with the years of the record (`...Whole`).
+ */
+export function stripesReferenceShort(
+  reference: StripesReferenceView,
+  t: (key: string, params?: Record<string, unknown>) => string,
+  drawing: 'stripes' | 'bars' = 'stripes',
+): string {
+  const { centre, spread } = reference
+  if (centre.fallback && spread.fallback && centre.first_year === spread.first_year && centre.last_year === spread.last_year)
+    return t(`stripes.referenceShort.${drawing}Whole`, { from: centre.first_year, to: centre.last_year })
+  return t(`stripes.referenceShort.${drawing}`, { centre: referencePeriod(centre, t), spread: referencePeriod(spread, t) })
+}
+
 /** The years one number of the reference was calculated from: the period of the method (`1971–2000`), or the whole record where the station had too few years in it */
 export function referencePeriod(stat: StripesReferenceStatView, t: (key: string, params?: Record<string, unknown>) => string): string {
   return stat.fallback
