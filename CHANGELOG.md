@@ -60,6 +60,10 @@ Types of changes:
 
 ### Fixed
 
+- The docs gave a guess as the meaning of SMHI's `Kvalitet` code `Y` ("suspect or aggregated"). Per
+  SMHI, `Y` is a value not checked, or marked suspect by a control, or an aggregate, so it is no
+  verdict and stays unread by the `source` check; `G` is a checked, approved value. Both are
+  explained on the SMHI pages and in the flag table; `quality_flags` is unchanged (GH-3745)
 - `noaa/ghcn` `daily` failed for every station when NCEI's `access/<id>.csv` answered 404. It now
   reads NCEI's `pub/data/ghcn/daily/by_station/` files (gzipped, current within days for every
   station, kept for 12 hours instead of 5 minutes), with the same values, flags and frame. When
