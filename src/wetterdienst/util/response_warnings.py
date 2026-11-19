@@ -128,6 +128,12 @@ FORECAST_FROM_NOW = "forecast-from-now"
 #: by name or id. Not told for a search by name or id
 POSITIONS_UNAVAILABLE = "positions-unavailable"
 
+#: the code of the warning that names the stations whose file the provider read from its secondary source because the
+#: first one failed (`noaa/ghcn`, GH-4230: NCEI's by_station files, then the AWS mirror, whose files of some stations
+#: are older): the answer holds the values of the mirror, which may lack the most recent days. One for the request,
+#: with the number of stations and the first of them (`note_source_fallback`); a 429 is never one
+SOURCE_FALLBACK = "source-fallback"
+
 
 class SkipCause(Enum):
     """Why a provider let a file go (`note_skipped_download`), which decides what `file-skipped` advises.
@@ -211,6 +217,12 @@ _RECORDED: ContextVar[list[ResponseWarning] | None] = ContextVar("wetterdienst_r
 _COUNTED: ContextVar[dict[str, list[Any]] | None] = ContextVar("wetterdienst_counted_warnings", default=None)
 
 
+#: what a provider tells when it reads the file of the station being collected from its secondary source because the
+#: first one failed (`note_source_fallback`): the cause, the name of the primary and of the secondary, set like
+#: `_SKIPPING`
+_FELL_BACK: ContextVar[Callable[[SkipCause, str, str], None] | None] = ContextVar(
+    "wetterdienst_fell_back", default=None
+)
 #: what a provider tells when it lets a file of the station being collected go (`note_skipped_download`): set by the
 #: walk of the values around the collection of one station, and `None` outside it
 _SKIPPING: ContextVar[Callable[[bool, SkipCause], None] | None] = ContextVar("wetterdienst_skipping", default=None)
@@ -230,6 +242,7 @@ def collecting(
     named: set[str] | None = None,
     left_out: Callable[[str, int, str], None] | None = None,
     open_window: Callable[[str, int, datetime, bool], None] | None = None,
+    fell_back: Callable[[SkipCause, str, str], None] | None = None,
 ) -> Iterator[None]:
     """Have `note` told what a provider lets go while the block runs, which is the collection of one station.
 
@@ -238,8 +251,10 @@ def collecting(
     request are not kept outside a response, but the log lines are written all the same, and would repeat. Both are
     the block's alone, so that walks that overlap (interleaved, or one in the other's collection) keep to their own.
     `left_out` is told the rows of another window that the provider left out (`note_left_out`), `open_window` the
-    values of a window that had not closed (`note_open_window`).
+    values of a window that had not closed (`note_open_window`), `fell_back` the station whose file was read from the
+    secondary source of the provider (`note_source_fallback`).
     """
+    falling = _FELL_BACK.set(fell_back)
     skipping = _SKIPPING.set(note)
     watching = _NAMED.set(named)
     leaving = _LEFT_OUT.set(left_out)
@@ -247,6 +262,7 @@ def collecting(
     try:
         yield
     finally:
+        _FELL_BACK.reset(falling)
         _OPEN_WINDOW.reset(opening)
         _LEFT_OUT.reset(leaving)
         _NAMED.reset(watching)
@@ -288,6 +304,47 @@ def note_open_window(parameter: str, count: int, closes: datetime, *, returned: 
     note = _OPEN_WINDOW.get()
     if note is not None and count > 0:
         note(parameter, count, closes, returned)
+
+
+def source_fallback_message(
+    where: str, *, many: bool, primary: str, secondary: str, causes: Iterable[SkipCause]
+) -> str:
+    """Word the warning `source-fallback`: which files were read from the secondary source, why, and what it costs.
+
+    ``where`` names the stations as the warning lists them (`station X`, `3 stations, the first 10 of them ...`),
+    ``primary`` and ``secondary`` the two sources as the provider names them. The advice follows the causes, as
+    `file-skipped`'s does: a failure that can heal is told to be tried again later, a refusal is not.
+    """
+    what = f"The files of {where} were" if many else f"The file of {where} was"
+    return (
+        f"{what} not read from {primary} ({tell_skip_causes(causes)}) and come{'' if many else 's'} from "
+        f"{secondary} instead, whose files may be older: the most recent days of "
+        f"{'these stations' if many else 'this station'} may be missing. {advise_on_skip_causes(causes)}"
+    )
+
+
+def note_source_fallback(station_id: str, cause: SkipCause, *, primary: str, secondary: str) -> None:
+    """Tell that the provider read the file of the station being collected from its secondary source, and why.
+
+    For a provider with a second source for the same files that may be older (`noaa/ghcn` `daily`: NCEI, then the AWS
+    mirror, GH-4230). The walk tells the stations once it is over (`ParameterRows.warn`, `EstimateLeftOut.warn`):
+    one `source-fallback` warning for the request with their number and the first of them, and a station read so is
+    not one `parameter-without-rows` and `station-without-rows` say the source holds nothing for, as the secondary's
+    file may simply end earlier than the primary's. Outside a walk (a provider's reader called by itself) there is
+    nothing to tell it to, and the warning is raised at once for the station. ``cause`` is why the primary was not read.
+    """
+    note = _FELL_BACK.get()
+    if note is not None:
+        note(cause, primary, secondary)
+        return
+    warn_response(
+        logging.getLogger(__name__),
+        SOURCE_FALLBACK,
+        source_fallback_message(
+            f"station {station_id}", many=False, primary=primary, secondary=secondary, causes=[cause]
+        ),
+        stations=[station_id],
+    )
 
 
 def note_skipped_download(cause: SkipCause, *, whole_request: bool = False) -> None:

@@ -3177,6 +3177,16 @@ PROBE_TIMEOUT_SECONDS = 5
 PROBE_TIMEOUT = ClientTimeout(total=PROBE_TIMEOUT_SECONDS)
 
 
+def silence_timeout(seconds: float) -> ClientTimeout:
+    """Give the client timeout of a download that gives up after `seconds` of silence: connecting, and each read.
+
+    Not a total (a slow link may take longer to fetch a large file, as long as it is not silent), as the numeric
+    timeout of the client kwargs, which is 30 seconds by default, is not (GH-2258); for a source that is asked first
+    and may hang, so that a second source is read in time (`noaa/ghcn` `daily`, GH-4230).
+    """
+    return ClientTimeout(sock_connect=seconds, sock_read=seconds)
+
+
 def download_file(
     url: str,
     cache_dir: Path,

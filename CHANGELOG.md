@@ -60,13 +60,15 @@ Types of changes:
 
 ### Fixed
 
-- `noaa/ghcn` `daily` read NCEI's per-station `access/<id>.csv`, which answers 404, so every daily
-  request failed with a `DownloadError`. It now reads the files of the AWS bucket `noaa-ghcn-pds`
-  (`csv.gz/by_station/`), gzipped, with the same values, flags and frame, and keeps a file for 12
-  hours instead of 5 minutes. A station the bucket has no file for is left out with a
-  `file-skipped` warning instead of failing the request. The files of the ids `USR0000CJUA` to
-  `ZI000067991` (all `USW` and `USS`, NYC Central Park among them) were last written on 2025-02-09
-  and end by then; NOAA has been asked (GH-4225)
+- `noaa/ghcn` `daily` failed for every station when NCEI's `access/<id>.csv` answered 404. It now
+  reads NCEI's `pub/data/ghcn/daily/by_station/` files (gzipped, current within days for every
+  station, kept for 12 hours instead of 5 minutes), with the same values, flags and frame. When
+  NCEI fails (any failure but a 429, which is raised) the AWS mirror `noaa-ghcn-pds` is read
+  instead, whose files of the ids `USR0000CJUA` to `ZI000067991` (all `USW` and `USS`) end on or
+  before February 2025, and the answer says so with one warning `source-fallback` for the request.
+  NCEI is asked once, for at most 10 seconds of silence, and once it failed the rest of the walk
+  goes straight to the mirror. A station neither source has is left out with `file-skipped` instead
+  of failing the request (GH-4225, GH-4230)
 - A stations image (`html`, `png`, `svg`, ...) of stations none of which has a position, such as
   `dwd/derived` `monthly/climate_correction_factor` (and `dwd/pollen`), raised a `TypeError` and
   was a 500. It is now a 422 problem of the kind `invalid-parameters`, with `format` in `errors`, a

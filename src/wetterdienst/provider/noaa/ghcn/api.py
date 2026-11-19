@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 import polars as pl
 import polars.selectors as cs
 
+from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, group_parameters_by_dataset
@@ -31,15 +32,18 @@ from wetterdienst.provider.noaa.ghcn.metadata import (
     NoaaGhcnMetadata,
 )
 from wetterdienst.util.geo import EARTH_RADIUS_IN_KM
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import download_file, drop_cached_file, silence_timeout
 from wetterdienst.util.polars_util import read_fwf_from_df
-from wetterdienst.util.response_warnings import note_skipped_download
+from wetterdienst.util.response_warnings import SkipCause, note_skipped_download, note_source_fallback
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Iterable, Iterator
+    from io import BytesIO
 
     from wetterdienst.model.metadata import ParameterModel
+    from wetterdienst.model.result import ValuesResult
     from wetterdienst.settings import Settings
+    from wetterdienst.util.network import File
 
 log = logging.getLogger(__name__)
 
@@ -66,14 +70,27 @@ GHCND_WIND_SPEED_OF_DIRECTION = {
     "wdfi": "wsfi",
     "wdfm": "wsfm",
 }
-# the daily files: NCEI's per-station `access/<id>.csv` is gone (404, GH-4225), and the AWS Open Data bucket that NOAA
-# maintains, which already serves the station list and the inventory, has one file for each station, gzipped (NYC
-# Central Park: 1.8 MB for 16 MB of text, De Bilt 0.8 MB). The layout: `readme-by_station.txt` of the bucket
-GHCND_BY_STATION_URL = "https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/{station_id}.csv.gz"
+# the daily files are NCEI's `pub/data/ghcn/daily/by_station/<id>.csv.gz` (gzipped, NYC Central Park 1.8 MB for 16 MB
+# of text, De Bilt 0.8 MB), current for every station (NYC rewritten 2026-11-18). NCEI's `access/<id>.csv` is no source:
+# it answered 403 on 2026-08-04 and 404 on 2026-11-18, and was read until then (GH-4225, GH-4230). When NCEI fails the
+# AWS Open Data bucket `noaa-ghcn-pds` that NOAA maintains, which already serves the station list and the inventory, is
+# read instead, with the same files in the same layout (`readme-by_station.txt` of the bucket): its block of ids from
+# `USR0000CJUA` to `ZI000067991` has not been written since 2025-02-09, so the answer says it is from the mirror
+GHCND_BY_STATION_URL = "https://www.ncei.noaa.gov/pub/data/ghcn/daily/by_station/{station_id}.csv.gz"
+GHCND_BY_STATION_MIRROR_URL = "https://noaa-ghcn-pds.s3.amazonaws.com/csv.gz/by_station/{station_id}.csv.gz"
+# NCEI is asked once and gives up after 10 seconds of silence (connecting, or waiting for the next bytes), where the
+# default is 2 attempts of 30 seconds: the REST API answers a request in 60 seconds (`RESTAPI_TIMEOUT`), which a hanging
+# NCEI used up before the mirror was asked, and NCEI's proxy does hang (a 502 after 120 s on a listing, 2026-11-19).
+# The mirror, the last resort, keeps the defaults
+NCEI_TIMEOUT_SECONDS = 10
+GHCND_PRIMARY = "NCEI"
+GHCND_SECONDARY = "the AWS mirror of GHCN daily (noaa-ghcn-pds)"
 GHCND_BY_STATION_COLUMNS = ("id", "date", "element", "data_value", "m_flag", "q_flag", "s_flag", "obs_time")
-# the bucket rewrites a station's file once a day, in the night (UTC), and the list and the inventory beside it are kept
-# as long (`METAINDEX`): a file is the whole record of the station, as big as the 12 hours it stands for are long, where
-# the 5 minutes of the hourly files ask for the whole of it again at every request
+# both write a station's file once a day, in the night (UTC), and the list and the inventory beside it are kept as long
+# (`METAINDEX`): a file is the whole record of the station, as big as the 12 hours it stands for are long, where the 5
+# minutes of the hourly files ask for the whole of it again at every request. The cache is keyed by the URL, so the file
+# of the mirror is never served as NCEI's: NCEI is asked first at every request (a failure is not cached), and the
+# mirror's copy is only read while NCEI fails
 GHCND_BY_STATION_EXPIRY = CacheExpiry.TWELVE_HOURS
 # the source flag of Environment Canada, "C" in the readme's list of SFLAG, as `quality_flags` writes it (`source:C`)
 GHCND_ENVIRONMENT_CANADA = r"(^|,)source:C(,|$)"
@@ -306,6 +323,68 @@ def _with_a_row_for_every_day_and_element(df: pl.DataFrame, elements: list[str])
     return days.join(wanted, how="cross").join(df, on=["station_id", "timestamp", "parameter"], how="left")
 
 
+def _daily_rows(content: BytesIO) -> pl.DataFrame:
+    """Read a by_station file into the rows the reader works on: the station, the day, the element, the text, the flags.
+
+    One row for each reading, `ID,DATE,ELEMENT,DATA_VALUE,M_FLAG,Q_FLAG,S_FLAG,OBS_TIME` with no header line, the DATE
+    as `YYYYMMDD` and the value in the tenths of the readme (read as text: the sentinel and the cells that are no number
+    are settled by the reader). Missing readings have no row. polars reads the gzip itself. A header line, which the
+    documentation of the mirror describes, is no reading and is left out (`ID` is no station). Raises a `PolarsError`
+    for what is no such file (a maintenance page, a body cut short, a day that is no date).
+    """
+    df = pl.read_csv(
+        source=content,
+        separator=",",
+        has_header=False,
+        new_columns=list(GHCND_BY_STATION_COLUMNS),
+        infer_schema_length=0,
+    ).filter(pl.col("id").ne("ID"))
+    # `M_FLAG,Q_FLAG,S_FLAG` are the attributes of readme.txt: the quality flag is a letter naming the check the
+    # value failed, blank where it failed none; the measurement and source flags say how the value was made and
+    # where it came from. They are written `QFLAG,measurement:MFLAG,source:SFLAG` (GH-2018, GH-2758). The
+    # observation time (`OBS_TIME`, set on some elements only: in the NYC file PRCP, TMAX, TMIN and TOBS, not
+    # SNOW) is not returned
+    return df.select(
+        pl.col("id").alias("station_id"),
+        pl.col("date").str.to_date("%Y%m%d").alias("timestamp"),
+        pl.col("element").str.to_lowercase().alias("parameter"),
+        pl.col("data_value").str.strip_chars().alias("value"),
+        join_quality_flags(pl.col("q_flag"), measurement=pl.col("m_flag"), source=pl.col("s_flag")),
+    )
+
+
+@dataclass
+class _DailyFile:
+    """What one source gave for the file of a station: the rows read from it, or why there are none."""
+
+    file: File
+    frame: pl.DataFrame | None = None
+    #: the body arrived (a 200) and is no by_station file: a maintenance page, a body cut short
+    unreadable: bool = False
+
+    @property
+    def gone(self) -> bool:
+        """Whether the source answered that it has no file of the station (a 404)."""
+        return self.frame is None and not self.unreadable and self.file.status == HTTPStatus.NOT_FOUND
+
+    @property
+    def answered(self) -> bool:
+        """Whether the source answered at all, with a status or a body: not a connection that could not be made."""
+        return not isinstance(self.file.content, NoInternetError)
+
+    @property
+    def cause(self) -> SkipCause:
+        """Why the source gave no rows, as `file-skipped` words it."""
+        return SkipCause.MAINTENANCE if self.unreadable else self.file.skip_cause
+
+    def raise_failure(self) -> None:
+        """Raise what went wrong: the `DownloadError` or `NoInternetError` of the download, or of the body."""
+        if self.unreadable:
+            msg = "the file is no table of readings (an error page or a body cut short)"
+            raise DownloadError(self.file.url, msg)
+        self.file.raise_if_exception()
+
+
 class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
     """Values class for NOAA GHCN data provider."""
 
@@ -435,51 +514,105 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             df.with_columns(pl.lit(file.last_modified, dtype=pl.Datetime("us", "UTC")).alias(UPDATED)), dataset
         )
 
+    #: NCEI's failure that the walk in hand met, which has the rest of the walk go straight to the mirror: an outage
+    #: is the same at the next station, and a hanging NCEI costs its timeout at each (`query`)
+    _ncei_outage: _DailyFile | None = None
+
+    def query(self) -> Iterator[ValuesResult]:
+        """Query the stations, remembering for as long as the walk runs that NCEI failed (`_read_daily_file`).
+
+        Set and cleared here, on the values of this request: a walk is a generator, and the next request asks NCEI
+        again. An estimate (`interpolate`, `summarize`) walks through this too.
+        """
+        self._ncei_outage = None
+        try:
+            yield from super().query()
+        finally:
+            self._ncei_outage = None
+
+    def _download_daily(self, url: str, station_id: str, settings: Settings, *, primary: bool) -> _DailyFile:
+        """Download the file of a station from one source and read it. A 429 is raised, never a failure to go round."""
+        client_kwargs = settings.fsspec_client_kwargs
+        if primary:
+            client_kwargs = {**client_kwargs, "timeout": silence_timeout(NCEI_TIMEOUT_SECONDS)}
+        # what the download was made with names the cache it went to, which `drop_cached_file` needs again
+        address = url.format(station_id=station_id)
+        file = download_file(
+            url=address,
+            cache_dir=settings.cache_dir,
+            ttl=GHCND_BY_STATION_EXPIRY,
+            client_kwargs=client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
+            attempts=1 if primary else 2,
+        )
+        if isinstance(file.content, Exception):
+            if file.is_rate_limited:
+                file.raise_if_exception()
+            return _DailyFile(file)
+        try:
+            return _DailyFile(file, frame=_daily_rows(file.content))
+        except (pl.exceptions.PolarsError, ValueError):
+            # a 200 that is no file (a maintenance page, a body cut short) was cached for the whole expiry like any
+            # other: dropped, so that the next request asks again instead of reading the failure back for 12 hours
+            drop_cached_file(
+                url=address,
+                cache_dir=settings.cache_dir,
+                ttl=GHCND_BY_STATION_EXPIRY,
+                client_kwargs=client_kwargs,
+                cache_disable=settings.cache_disable,
+                use_certifi=settings.use_certifi,
+            )
+            return _DailyFile(file, unreadable=True)
+
+    def _read_daily_file(self, station_id: str, settings: Settings) -> tuple[pl.DataFrame, File] | None:
+        """Read the file of a station from NCEI, from the AWS mirror when NCEI fails; None for a station neither has.
+
+        NCEI first, asked once and for no more than `NCEI_TIMEOUT_SECONDS` of silence. Any failure of it but a 429 (a
+        404, a 5xx, a reset, a timeout, no connection, a body that is no by_station file) sends the reader to the
+        mirror, and the walk tells it (`source-fallback`, once for the request, with the stations and that the values
+        may be older). A failure that is no 404 stays for the rest of the walk, which goes straight to the mirror. A
+        429 is never a reason to go to the other host: it is raised as the `ProviderRateLimitError` it is, as a 429 of
+        the mirror is.
+
+        Only a 404 of both is a station without a file, let go with a warning as a file withdrawn since the list is.
+        Where the mirror cannot help a failure of NCEI that is no 404 (it has no file, or fails too) that failure is
+        raised, and where NCEI has no file and the mirror fails the mirror's; if both fail, the one that answered,
+        NCEI's if both did.
+        """
+        primary = self._ncei_outage
+        if primary is None:
+            primary = self._download_daily(GHCND_BY_STATION_URL, station_id, settings, primary=True)
+            if primary.frame is not None:
+                return primary.frame, primary.file
+            if not primary.gone:
+                self._ncei_outage = primary
+        mirror = self._download_daily(GHCND_BY_STATION_MIRROR_URL, station_id, settings, primary=False)
+        if mirror.frame is not None:
+            note_source_fallback(station_id, primary.cause, primary=GHCND_PRIMARY, secondary=GHCND_SECONDARY)
+            return mirror.frame, mirror.file
+        if primary.gone and mirror.gone:
+            note_skipped_download(SkipCause.WITHDRAWN)
+            log.warning(f"GHCN daily has no file for station {station_id}: {primary.file.url}, {mirror.file.url}")
+            return None
+        if primary.gone:
+            failed = mirror
+        elif mirror.gone or primary.answered or not mirror.answered:
+            failed = primary
+        else:
+            failed = mirror
+        failed.raise_failure()
+        return None
+
     def _collect_station_parameter_for_daily(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
         """Collect station parameter for daily resolution."""
         from typing import cast  # noqa: PLC0415
 
         settings = cast("Settings", self.sr.request.settings)
-        file = download_file(
-            url=GHCND_BY_STATION_URL.format(station_id=station_id),
-            cache_dir=settings.cache_dir,
-            ttl=GHCND_BY_STATION_EXPIRY,
-            client_kwargs=settings.fsspec_client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
-        # a station the bucket has no file for is let go with a warning, as a file withdrawn since the list is; the 429
-        # and any other failure raise (`raise_if_exception`)
-        if file.status == HTTPStatus.NOT_FOUND:
-            note_skipped_download(file.skip_cause)
-            log.warning(f"The bucket of GHCN daily has no file for station {station_id}: {file.url}")
+        read = self._read_daily_file(station_id, settings)
+        if read is None:
             return pl.DataFrame()
-        file.raise_if_exception()
-        if isinstance(file.content, Exception):
-            return pl.DataFrame()
-        # one row for each reading, `ID,DATE,ELEMENT,DATA_VALUE,M_FLAG,Q_FLAG,S_FLAG,OBS_TIME` with no header line, the
-        # DATE as `YYYYMMDD` and the value in the tenths of the readme (read as text: the sentinel and the cells that
-        # are no number are settled below). Missing readings have no row. polars reads the gzip itself. A header line,
-        # which the documentation of the bucket describes, is no reading and is left out (`ID` is no station)
-        df = pl.read_csv(
-            source=file.content,
-            separator=",",
-            has_header=False,
-            new_columns=list(GHCND_BY_STATION_COLUMNS),
-            infer_schema_length=0,
-        ).filter(pl.col("id").ne("ID"))
-        # `M_FLAG,Q_FLAG,S_FLAG` are the attributes of readme.txt: the quality flag is a letter naming the check the
-        # value failed, blank where it failed none; the measurement and source flags say how the value was made and
-        # where it came from. They are written `QFLAG,measurement:MFLAG,source:SFLAG` (GH-2018, GH-2758). The
-        # observation time (`OBS_TIME`, set on some elements only: in the NYC file PRCP, TMAX, TMIN and TOBS, not
-        # SNOW) is not returned
-        df = df.select(
-            pl.col("id").alias("station_id"),
-            pl.col("date").str.to_date("%Y%m%d").alias("timestamp"),
-            pl.col("element").str.to_lowercase().alias("parameter"),
-            pl.col("data_value").str.strip_chars().alias("value"),
-            join_quality_flags(pl.col("q_flag"), measurement=pl.col("m_flag"), source=pl.col("s_flag")),
-        )
+        df, file = read
         # AWDR, the average daily wind direction, is 0 beside an AWND of 0 (a calm day) as much as it is a bearing
         # beside a wind that blows: at USS0054K01S (read 2026-10-30) 2 of its 11 directions of 0 have a speed of 0 and 5
         # have one above, besides the 360 of 2025-06-30. So are the directions of the fastest and peak winds (9 station

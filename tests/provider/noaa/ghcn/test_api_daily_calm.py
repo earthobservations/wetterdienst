@@ -8,9 +8,10 @@ with `raw:0` as its direction is (GH-3655); any other 0 is a reading.
 The daily files write a direction of 0 for a day without one: beside a speed of 0 it is no direction, a calm or a gust
 the source did not report, null with `raw:0`, and beside a wind that blows it is a reading that stays. The rows are the
 ones NOAA wrote, read key-less on 2026-10-30 from the per-station files at
-ncei.noaa.gov/data/global-historical-climatology-network-daily/access/ and cut to the columns of the pair, written here
-as the rows of the AWS bucket's by_station files (noaa-ghcn-pds, `csv.gz/by_station/<id>.csv.gz`) that hold the same
-readings (read 2026-11-18); the speeds are the tenths of m/s of the readme. WDFI and WDFM have no 0 in 8,410 and 28,815
+ncei.noaa.gov/data/global-historical-climatology-network-daily/access/ (since gone) and cut to the columns of the pair,
+written here as the rows of the by_station files (`pub/data/ghcn/daily/by_station/<id>.csv.gz` of NCEI, and the same
+files of the AWS bucket noaa-ghcn-pds) that hold the same readings (read 2026-11-18); the speeds are the tenths of m/s
+of the readme. WDFI and WDFM have no 0 in 8,410 and 28,815
 directions of the 9 files read, so their rows are made up (`test_the_instant_and_the_mile_follow_the_rule`).
 """
 
@@ -214,3 +215,21 @@ def test_a_missing_speed_leaves_the_0_as_it_is(monkeypatch: pytest.MonkeyPatch) 
     )
     df = _daily(monkeypatch, "USW00014755", body, "1998-04-04", "wdf5")
     assert _rows(df, "wind_direction_gust_max_5sec") == [(dt.date(1998, 4, 4), 0.0, "source:W")]
+
+
+@pytest.mark.parametrize("station", ["CAN01012475", "CA001012475", "XYZ01012475"])
+def test_the_rule_of_environment_canada_is_the_source_flag_and_not_the_prefix_of_the_id(
+    monkeypatch: pytest.MonkeyPatch, station: str
+) -> None:
+    """The WSFG of 0 is a gust not reported where the source flag is C, whichever network code the id has.
+
+    GHCNd v3.35 (2026-10-01, `status.txt`) indexes Environment Canada's stations with network code `N` (`CAN...`),
+    where network `0` (`CA0...`) was used before. The reader never read the id: the rows are those of the file of
+    CAN01012475 (Discovery Island, BC, read 2026-11-19 at NCEI: 1,442 of 5,648 WSFG are 0, all flag C, the smallest
+    above is 8.6 m/s), under the old and under an unrelated id.
+    """
+    body = _file(station, "2026-11-12", {"wdfg": ("0", ",,C"), "wsfg": ("0", ",,C")})
+    df = _daily(monkeypatch, station, body, "2026-11-12", "wdfg")
+    day = dt.date(2026, 11, 12)
+    assert _rows(df, "wind_gust_max") == [(day, None, "source:C,raw:0")]
+    assert _rows(df, "wind_direction_gust_max") == [(day, None, "source:C,raw:0")]
