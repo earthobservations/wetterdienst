@@ -494,6 +494,10 @@
     "noResolutions": "Keen Tietreeg: hier is nix to wiesen.",
     "openExplorer": "In'n Explorer apenmaken"
   },
+  "processingNote": {
+    "base": "Verarbeidt vun wetterdienst: De Daten vun den Anbeder sünd in eene eenheitliche Tabell bröcht un de Eenheiten ümrekent, wo se afwiekt.",
+    "estimate": "De Weerten sünd ut de Meetweerten vun den Anbeder utsöcht oder utrekent."
+  },
   "cardTitle": {
     "station": "Station",
     "stationAndPeriod": "Station un Tietruum",

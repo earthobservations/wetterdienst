@@ -31,6 +31,12 @@ Types of changes:
   Where GHCN temperature stripes are shown, the page, the map's panel and the saved image say that
   they are built from the midrange of the daily maximum and minimum, not a 24-hour mean, and why
   (GH-4078).
+- `[Answers, Stripes]` One muted line under the credit line where the app shows a provider's data
+  says what wetterdienst did to it: the data was reshaped into a uniform table and its units
+  converted where they differ. It is written in the language of the page, in all eleven languages,
+  and stands under the credit of the home page's answers and under the stripes (not where the
+  source line is switched off). The stripes' saved images and the CSV of their table carry it
+  after the source (GH-3799).
 
 ## [0.55.0] - 2026-11-19
 

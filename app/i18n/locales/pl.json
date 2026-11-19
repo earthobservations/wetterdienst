@@ -494,6 +494,10 @@
     "noResolutions": "To nie jest szereg czasowy: nie ma tu czego wymieniać.",
     "openExplorer": "Otwórz w eksploratorze"
   },
+  "processingNote": {
+    "base": "Przetworzone przez wetterdienst: dane dostawcy ułożono w jednolitą tabelę, a ich jednostki przeliczono tam, gdzie się różnią.",
+    "estimate": "Wartości wybrano lub obliczono na podstawie pomiarów dostawcy."
+  },
   "cardTitle": {
     "station": "Stacja",
     "stationAndPeriod": "Stacja i okres",

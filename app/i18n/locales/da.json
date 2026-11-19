@@ -494,6 +494,10 @@
     "noResolutions": "Ikke en tidsserie: her er intet at vise.",
     "openExplorer": "Åbn i udforskeren"
   },
+  "processingNote": {
+    "base": "Behandlet af wetterdienst: Udbyderens data er lagt ind i en ensartet tabel, og enhederne er omregnet, hvor de afviger.",
+    "estimate": "Værdierne er udvalgt eller beregnet ud fra udbyderens målinger."
+  },
   "cardTitle": {
     "station": "Station",
     "stationAndPeriod": "Station og periode",

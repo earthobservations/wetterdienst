@@ -494,6 +494,10 @@
     "noResolutions": "Pas une série temporelle : rien à lister ici.",
     "openExplorer": "Ouvrir dans l'explorateur"
   },
+  "processingNote": {
+    "base": "Traité par wetterdienst : les données du fournisseur ont été mises dans un tableau uniforme et leurs unités converties lorsqu'elles diffèrent.",
+    "estimate": "Les valeurs ont été sélectionnées ou calculées à partir des mesures du fournisseur."
+  },
   "cardTitle": {
     "station": "Station",
     "stationAndPeriod": "Station et période",
