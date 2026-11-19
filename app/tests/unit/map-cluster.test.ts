@@ -335,6 +335,20 @@ describe('the groups by distance (GH-4241)', () => {
     expect(clusterStations(placed(nowhere), 7, GROUPING.radius)).toEqual([])
   })
 
+  it('is not made slow by one station far beyond the world: a longitude of a million degrees leaves the rest as quick as it was', () => {
+    const many = placed(Array.from({ length: 40_000 }, (_, index) => station(`M${index}`, -55 + random() * 130, -170 + random() * 340)))
+    const bad = station('FAR', 52, 1_000_000)
+    for (const zoom of [5, 8]) {
+      const started = performance.now()
+      const groups = clusterStations([...many, bad], zoom, GROUPING.radius)
+      const took = performance.now() - started
+      expect(groups.reduce((sum, group) => sum + group.count, 0)).toBe(many.length + 1)
+      // the grid was of the box of the points, which the one station stretched until every real station was in a few squares and
+      // every lookup went through all of them: seconds. A guard against that, not a measure (about 15 ms here)
+      expect(took, `zoom ${zoom}`).toBeLessThan(1500)
+    }
+  })
+
   it('costs what the list is, not the world: a list of fifty stations is grouped at zoom 8 in a moment', () => {
     const few = placed(Array.from({ length: 50 }, (_, index) => station(`F${index}`, 50 + random() * 2, 8 + random() * 3)))
     const started = performance.now()
