@@ -54,6 +54,9 @@ import {
 // What is shown is in the address (`?layer=&resolution=&dataset=&station=&lat=&lon=`), so that a link opens the same
 // map, and so that the search of the header opens it on a station (`/map?station=10147`).
 
+// the map fills the window between the bars, and both stay where they are on it (GH-4226, `useBarsHideOnScroll`)
+definePageMeta({ barsHide: false })
+
 const { t } = useI18n()
 const formatLanguage = useFormatLanguage()
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation

@@ -9,7 +9,7 @@ What was decided for #2559 (maintainer, 2026-11-10), which is closed with the pu
 
 - **axe runs on request, not in every e2e run.** `pnpm test:a11y` runs it locally, and the *App accessibility*
   workflow runs it in CI, from the Actions tab (*Run workflow*) or when a pull request carries the `a11y` label.
-  It takes about 20 minutes on three workers of a laptop and several times that on one (393 tests, most of them a page
+  It takes about 20 minutes on three workers of a laptop and several times that on one (445 tests, most of them a page
   load and a scan), which is why it is not part of `pnpm test:e2e` or of the App E2E workflow. The
   baseline is its gate (see below): a rule broken that the baseline does not list fails the run, and so does an
   entry that is no longer broken.
@@ -31,7 +31,8 @@ What was decided for #2559 (maintainer, 2026-11-10), which is closed with the pu
   with the measurements layer's choices, and with its stations failed to load, the explorer's notice for a request the server refused over a limit
   (`values-limit-refused`, and at 320 px `values-limit-refused-narrow`) and the note under the date range that
   says the page started one (`default-range-note`), and the chooser of the phone bar's four tools on the
-  settings page at 390 px, with a tool moved, and at 320 px (`phone-bar-chooser`, `phone-bar-chooser-narrow`).
+  settings page at 390 px, with a tool moved, and at 320 px (`phone-bar-chooser`, `phone-bar-chooser-narrow`), the About page at 390 px
+  scrolled down with both bars slid away (`phone-bars-hidden`, GH-4226) and the search at 390 px open as a bar over the top bar (`phone-search-open`).
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
 so it reaches neither the backend nor a provider. Map tiles and every other request to another host are
@@ -131,7 +132,8 @@ primary colour, and its menu search fields draw none; they stay, beside it.
 
 The shell (GH-3518) has a skip link, the first stop of every page, to the page's `main`; the header and the
 tab bar of the narrow layout are fixed, and the page scrolls a focused control clear of them
-(`scroll-padding`); in a window lower than 30 rem (a phone on its side, 400 % zoom) neither is fixed. In forced
+(`scroll-padding`); in a window lower than 30 rem (a phone on its side, 400 % zoom) neither is fixed. On a phone (below 40 rem)
+the bars hide while the page is scrolled down (GH-4226, the table below). In forced
 colours (Windows contrast themes) the icons are painted in the colour of their text, so an icon-only button
 keeps its icon, the tiles of the tools are outlined, and the tab of the current page is underlined.
 
@@ -252,7 +254,7 @@ classes it would not have changed.
 
 ## On request, not by default
 
-The scan is 393 tests, most of them a page load and a scan: about 20 minutes on three workers of a laptop
+The scan is 445 tests, most of them a page load and a scan: about 20 minutes on three workers of a laptop
 (`pnpm test:a11y --workers=3`), several times that on the one worker CI uses. So it is not part of `pnpm test:e2e` or of
 the App E2E workflow (`playwright.config.ts` ignores the spec unless `A11Y=1`). It runs
 
@@ -358,6 +360,23 @@ and, for the header and the chooser from 64 rem, at 1280 px, light and dark, in 
 | 1.4.10 Reflow | No part of the chooser reaches past a 320 px window in any of the eleven languages (tested); a long name takes two lines in its row. The settings page in Spanish is wider than 320 px: its "Restablecer valores predeterminados" button does not wrap (not part of the chooser, found while testing it, not fixed there). |
 | 4.1.2, 1.3.1 The Menu's mark | The Menu's tab is `aria-current="true"` on every page that is in its sheet and has no tab: a tool that is not in the reader's bar, the reference (Providers, Glossary, API) and the project (About, Support, Settings); a tool in the bar marks its own tab (`aria-current="page"`); the home page and the legal pages mark nothing. Tested for every kind of page, and while going from page to page and back, with the default bar and a chosen one. |
 | 3.3.7 Redundant entry, storage | The choice is kept with the settings in the browser (`wd_settings`, no account); a stored choice that names a tool that is gone, repeats one or has too few is repaired to a valid list of all the tools and never an error, and where the browser refuses its storage altogether (access to `localStorage` throws) the settings are kept in memory for the visit and the app starts: before this, pages that read the settings showed an error page there (measured on `main` with `localStorage` throwing: `/` and `/meteogram` loaded; `/explorer`, `/stripes`, `/history`, `/map`, `/glossary` and `/settings` did not; `useLocalStorage` reads the property outside a try). Tested in `useSettingsStorage.test.ts` and `tab-bar.spec.ts`. |
+
+The bars of a phone that hide on scroll and the slimmer top bar (GH-4226), by `tests/unit/bar-scroll.test.ts` (the direction logic and the stylesheet),
+`tests/nuxt/composables/useBarsHideOnScroll.test.ts`, `tests/e2e/bars-hide.spec.ts` (at 390, 320, 820 and 1280 px and in a window as low as a phone on its
+side, in Chrome) and the scans `phone-bars-hidden` and `phone-search-open`:
+
+| Criterion | Result |
+| --- | --- |
+| 2.2.2 Pause, stop, hide; 2.3.3 Animation from interactions | Only a phone (below 40 rem) has it; a tablet and a desktop are as they were. Scrolling down by 12 px (past the first 48 px of the page) slides the top bar up and the tab bar down, scrolling up by 12 px or reaching the top slides both back: a movement that answers the reader's own scroll, 200 ms (160 ms away) and a transform, so the page does not change its length and does not jump. With `prefers-reduced-motion: reduce` nothing is transitioned: the bars are away or in view at once (the app's rule for the setting also sets every duration to 0.01 ms). A tremble of a few pixels and iOS's rubber band change nothing (a position past an end of the page is read as that end). A page that has just arrived (a first load, a step to another path) keeps its bars in view until the reader's first touch, wheel, key or press, so one that arrives scrolled to an anchor (`/settings#bar`) has them; the gate is one-shot for each page, so once the reader has touched it every scroll counts, a script's (`scrollIntoView`) as well. A step that only changes the query of the address (a chart's panels, a picked station) is the same page: the bars stay as they are. |
+| 1.3.1, 2.4.1 Landmarks and bypass blocks | The hidden bars are not `display: none` or `visibility: hidden`: they stay in the page, so the `banner` and the `navigation` are in the accessibility tree and in the tab order while they are out of view (checked: the same landmarks hidden and shown). The skip link is not in a bar; it is fixed at the window's top and shown by its focus whether the bars are in view or not. |
+| 2.4.7 Focus visible, 2.4.11 Focus not obscured | A focus in either bar, by Tab, Shift+Tab or a script, brings both back (`focusin`), so a control that Tab arrives at is never out of view, and they do not hide while the focus is in one (the search button after Escape is not scrolled out of view with its bar); the count starts again from where the page is. A control of the page that the focus brings into view is scrolled clear of where the bars would be (`scroll-padding`, which is the bars' height whether they are in view or not). |
+| 2.1.1, 4.1.2 Search, menus and popovers | The bars never hide while a dialog is open (the Menu's sheet, the search), nor while a popover, a menu or a list that a trigger says is open (`aria-expanded` with `aria-haspopup`, or a combobox) hangs from them, so a popover under the top bar is not left in the air; the offset iOS puts back when a dialog closes is no scroll. The search on a phone is a bar at the top of the window over the top bar, with its field where the top bar's was: Escape closes it and the focus goes back to the button that opened it (tested). |
+| 2.5.8 Target size (minimum) | The top bar is 44 px of content (it was 64) with a 28 px logo and the name, and the search and the settings are icon-only 44 x 44 px buttons named by `aria-label` ("Search", "Settings"); measured at 390 and at 320 px, where the logo, the name and both buttons fit the bar and the page does not scroll sideways. |
+| 2.4.11 What sticks under the top bar | The preview of the settings page's chooser (`.bar-sticky`) sticks at `--header-height` times `--bars-shown`, the number (1 with the bars in view, 0 away) that also drives both bars' transforms and the toasts' place, each transitioned by one time and curve, so it follows the top bar frame by frame and stands at the window's top edge while the bar is away (measured). The map page keeps both bars (`definePageMeta({ barsHide: false })`): it fills the window between them, and what it measures does not change. A window as low as a phone on its side (30 rem) has bars that scroll with the page and no hiding. |
+
+Not checked: a screen reader (VoiceOver, TalkBack) and a real iPhone's Safari (its own toolbar, the rubber band, the safe areas of a notch and a home indicator: the
+tab bar's transform is its own height, the home indicator's room included, and the stylesheet's test holds that; the room is `env()`, which Chrome cannot serve);
+Firefox and Safari (the e2e spec was run in Chrome only).
 
 Not checked: a screen reader (VoiceOver, TalkBack) on the chooser and its announcements; the drag by touch on a real device (it is tested in Chrome
 by the browser's touch events: a finger on the handle drags and does not scroll, a finger on the rest of a row scrolls); Firefox and Safari

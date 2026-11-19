@@ -21,6 +21,7 @@ const themeOptions = computed(() => [
       icon="i-ph-gear-six"
       color="neutral"
       variant="ghost"
+      class="max-sm:size-11 max-sm:justify-center"
       :aria-label="t('common.settings')"
     />
 
