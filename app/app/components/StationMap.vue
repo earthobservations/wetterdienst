@@ -38,6 +38,8 @@ const props = defineProps<{
   locate?: number
   /** How the stations are grouped at the outer zooms (GH-4079), null for none: every station is its own dot */
   grouping?: Grouping | null
+  /** Whether the map stays where it is for the station picked, though it is off the screen (a pick carried to another layer from a place the reader has moved away from, GH-4078) */
+  hold?: boolean
   /** Whether the panel of the layers button is open: a press on the map then closes it, and its click is no pick of a place and no zoom on a group (GH-4209) */
   panelOpen?: boolean
   /** The element that says what the dots and the discs of the map are (the legend, which is in the layers panel, as a text): the map's description */
@@ -53,8 +55,8 @@ const emit = defineEmits<{
    * none for a mouse), in kilometres
    */
   pick: [point: Point & { tolerance: number, tap: number, disc: number }]
-  /** The view of the map after each move: its centre, which the panel lists the nearest stations of, its zoom, and the bounds it shows (the GHCN layer asks for the stations of them, GH-4078) */
-  view: [view: Point & { zoom: number, bounds: { west: number, south: number, east: number, north: number } }]
+  /** The view of the map after each move: its centre, which the panel lists the nearest stations of, its zoom, and the bounds it shows and its size in pixels (the GHCN layer asks for the stations of them, GH-4078) */
+  view: [view: Point & { zoom: number, bounds: { west: number, south: number, east: number, north: number }, size: { x: number, y: number } }]
   /** A click on a group of `count` stations, `reporting` of them reporting (null where the layer has no status): the map has zoomed in on them */
   group: [count: number, reporting: number | null]
   /** The button of the full screen was pressed (GH-4227): the page enters or leaves it, the map keeps its view */
@@ -310,7 +312,7 @@ function reveal() {
     map.setView(target, Math.max(map.getZoom(), 8), { animate: !reducedMotion.value })
     return
   }
-  if (map.getBounds().pad(-0.1).contains(target))
+  if (props.hold || map.getBounds().pad(-0.1).contains(target))
     return
   map.setView(target, Math.max(map.getZoom(), 7), { animate: !reducedMotion.value })
 }
@@ -363,7 +365,7 @@ function emitView() {
     return
   const centre = map.getCenter()
   const bounds = map.getBounds()
-  emit('view', { latitude: centre.lat, longitude: centre.lng, zoom: map.getZoom(), bounds: { west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth() } })
+  emit('view', { latitude: centre.lat, longitude: centre.lng, zoom: map.getZoom(), bounds: { west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth() }, size: { x: map.getSize().x, y: map.getSize().y } })
 }
 
 onMounted(() => {

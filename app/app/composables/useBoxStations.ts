@@ -1,7 +1,8 @@
 import type { Station } from '#shared/types/api'
 import type { ListStatus } from '~/composables/useStationList'
 import type { MapBox, PlacedStation } from '~/utils/map-tool'
-import { BOX_MAX_AREA, BOX_PAD, boxArea, boxContains, padBox, placed } from '~/utils/map-tool'
+import { BOX_PAD_PX } from '~/utils/map-cluster'
+import { BOX_MAX_AREA, boxArea, boxContains, padOf, placed, requestBox } from '~/utils/map-tool'
 
 /** How long the map rests before the stations of the box it has moved to are asked for, in milliseconds */
 export const BOX_DEBOUNCE_MS = 350
@@ -10,20 +11,25 @@ export interface BoxStationsOptions {
   /** Asks for the stations of a box; the signal is aborted when the map has moved past the request */
   load: (box: MapBox, signal: AbortSignal) => Promise<Station[]>
   delay?: number
+  /** The most square degrees the box asked for may hold (`BOX_MAX_AREA`) */
   maxArea?: number
-  pad?: number
+  /** How far the box reaches beyond the view, in pixels of the map (`BOX_PAD_PX`) */
+  padPixels?: number
 }
 
 /**
  * The stations of a layer that is too large to be loaded whole (GHCN daily, 133,041 stations, GH-4078): the ones in the part of the
  * map in view, asked for as the map moves.
  *
- * `show(view)` is told the box in view after each move. Where the view is inside the box loaded, or inside one that is on its way,
- * nothing is asked. Where the map has moved past them, the request on its way is cancelled (its signal is aborted, and an answer
- * that comes after it is dropped), and the stations of the view, `pad` larger on each side, are asked for once the map has rested
- * for `delay`: a drag or a run of zooms is one request. The first request of a layer, with no stations to show yet, is not delayed.
- * Where the view is larger than `maxArea` nothing is asked for (`tooWide`: the page says to zoom in) and none is shown: the
- * stations of one part of the world are not the ones of a view that holds most of it.
+ * `show(view, size)` is told the box in view, and the map's size in pixels, after each move. Where the view is inside the box loaded,
+ * or inside one that is on its way, nothing is asked. Where the map has moved past them, the request on its way is cancelled (its
+ * signal is aborted, and an answer that comes after it is dropped), and the stations of the view with its padding (`requestBox`: the
+ * pixels of a group's reach, within `maxArea` in all) are asked for once the map has rested for `delay`: a drag or a run of zooms is one
+ * request. The first request of a layer, with no stations to show yet, is not delayed. Where the view is larger than `maxArea` nothing
+ * is asked for (`tooWide`: the page says to zoom in) and none is shown: the stations of one part of the world are not the ones of a
+ * view that holds most of it. A view with no area is no box to ask for.
+ *
+ * `showAround(box)` asks for the stations of a box at once whatever the view is (the page's station is picked off the screen).
  *
  * The stations shown stay while the next box is on its way, so that a move does not blank the map (`refreshing`), and are replaced
  * by it when it arrives. `pin` keeps one station in the list whatever box is loaded: the one picked, which a move of the map must
@@ -32,7 +38,7 @@ export interface BoxStationsOptions {
 export function useBoxStations(options: BoxStationsOptions) {
   const delay = options.delay ?? BOX_DEBOUNCE_MS
   const maxArea = options.maxArea ?? BOX_MAX_AREA
-  const pad = options.pad ?? BOX_PAD
+  const padPixels = options.padPixels ?? BOX_PAD_PX
 
   const items = shallowRef<PlacedStation[]>([])
   const pinned = shallowRef<PlacedStation | null>(null)
@@ -43,6 +49,9 @@ export function useBoxStations(options: BoxStationsOptions) {
   const loaded = shallowRef<MapBox | null>(null)
 
   let view: MapBox | null = null
+  let viewSize: { x: number, y: number } | undefined
+  /** The box `showAround` asked for, which Retry asks for again, until the view is shown */
+  let around: MapBox | null = null
   /** The box of the request on its way, null where none is */
   let inFlight: MapBox | null = null
   let controller: AbortController | null = null
@@ -76,11 +85,11 @@ export function useBoxStations(options: BoxStationsOptions) {
     inFlight = null
   }
 
-  async function run() {
+  async function run(wanted?: MapBox) {
     timer = undefined
-    if (!view)
+    if (!wanted && !view)
       return
-    const box = padBox(view, pad)
+    const box = wanted ?? requestBox(view!, padOf(view!, viewSize, padPixels), maxArea)
     const mine = ++generation
     const own = new AbortController()
     controller = own
@@ -107,8 +116,13 @@ export function useBoxStations(options: BoxStationsOptions) {
     }
   }
 
-  function show(next: MapBox) {
+  function show(next: MapBox, size?: { x: number, y: number }) {
+    // a box with no width or height (a view cut at the antimeridian) is no request: the API refuses it
+    if (boxArea(next) <= 0)
+      return
     view = next
+    viewSize = size
+    around = null
     if (boxArea(next) > maxArea) {
       cancel()
       tooWide.value = true
@@ -138,17 +152,32 @@ export function useBoxStations(options: BoxStationsOptions) {
 
   /** Asks for the box of the view again, as Retry does after a failure */
   function retry() {
-    if (!view)
+    if (!view && !around)
       return
     cancel()
-    void run()
+    void run(around ?? undefined)
   }
 
-  /** The layer is left: nothing is asked for any more, and the request on its way is cancelled */
+  /** Asks for the stations of a box at once, which is not the view's: the station picked is off the screen and the stations near it are wanted */
+  function showAround(box: MapBox) {
+    cancel()
+    around = box
+    tooWide.value = false
+    state.value = 'pending'
+    error.value = null
+    void run(box)
+  }
+
+  /**
+   * The layer is left: nothing is asked for any more, the request on its way is cancelled, and what is loaded is forgotten, so that
+   * the layer shown again is not the stations of a box the map has left, and asks at once
+   */
   function stop() {
     cancel()
-    if (state.value === 'pending')
-      state.value = 'idle'
+    items.value = []
+    loaded.value = null
+    state.value = 'idle'
+    error.value = null
     tooWide.value = false
   }
 
@@ -158,5 +187,5 @@ export function useBoxStations(options: BoxStationsOptions) {
 
   onScopeDispose(cancel)
 
-  return { stations, status, error, tooWide, refreshing, show, retry, stop, pin }
+  return { stations, status, error, tooWide, refreshing, loaded, show, showAround, retry, stop, pin }
 }

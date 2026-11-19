@@ -5,6 +5,7 @@ import type { StripesDisplay } from '~/utils/stripes-option'
 import { describeFetchError } from '~/utils/api-error'
 import { downloadBlob } from '~/utils/chart-image'
 import { formatNumber, formatSigned } from '~/utils/format'
+import { ghcnCountryName } from '~/utils/ghcn-country'
 import { GHCN_NETWORK } from '~/utils/map-tool'
 import { stripesMethodNote, stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
 import { isStripesDrawing, STRIPES_VIEW_QUERY, stripesViewFromQuery } from '~/utils/stripes-model'
@@ -79,7 +80,11 @@ const availableYears = computed(() => {
   return `${from ?? ''} - ${station?.end_timestamp?.slice(0, 4) ?? ''}`
 })
 
+/** The station of the link that could not be asked for (an outage): told with Retry, and never taken for a station that is not there */
+const linkedFailure = ref<{ id: string, message: string } | null>(null)
+
 async function takeLinkedStation(id: string) {
+  linkedFailure.value = null
   try {
     const answer = await $fetch<StationsResponse>('/api/stations', { query: { ...GHCN_NETWORK, parameters: 'daily/data', stations: id }, ...API_FETCH })
     const found = answer.stations?.[0]
@@ -89,8 +94,9 @@ async function takeLinkedStation(id: string) {
       selectedStation.value = found
     }
   }
-  catch {
-    // the station of the link is not offered: the page is as it is without one
+  catch (failure) {
+    if (source.value === 'ghcn')
+      linkedFailure.value = { id, message: describeFetchError(failure) }
   }
 }
 
@@ -112,7 +118,13 @@ const lastFetchedData = ref<StripesValuesResponse | null>(null)
 // the kind chosen is theirs
 function plotTitle(data: StripesValuesResponse) {
   const station = data.series.station
-  return t('stripes.plotTitle', { kind: kindLabel(kind.value), name: station.name, id: station.station_id })
+  const params = { kind: kindLabel(kind.value), name: station.name, id: station.station_id }
+  // a station of GHCN daily is in the country its id says (not Germany, as DWD's stations all are); one with no country the table knows is written without one
+  if (source.value === 'ghcn') {
+    const country = ghcnCountryName(station.station_id, locale.value)
+    return country ? t('stripes.plotTitleCountry', { ...params, country }) : t('stripes.plotTitlePlain', params)
+  }
+  return t('stripes.plotTitle', params)
 }
 // the stripes' accessible name, their title
 const plotLabel = computed(() => lastFetchedData.value ? plotTitle(lastFetchedData.value) : undefined)
@@ -138,6 +150,11 @@ const referenceFull = computed(() => lastFetchedData.value
 // how a day's temperature was made where the years were built from the days (GHCN daily): the midrange of the daily maximum and minimum,
 // no 24-hour mean (GH-4222, GH-4078). DWD's own annual values and the precipitation have none
 const methodNote = computed(() => stripesMethodNote(lastFetchedData.value?.series.method, t))
+/** The line of a saved image on how the day's temperature was made: GHCN daily's temperature only (the answer's `method`) */
+const methodLine = computed(() => {
+  const method = lastFetchedData.value?.series.method
+  return method === 'midrange' ? t('stripes.plotMethodMidrange') : method === 'tavg' ? t('stripes.plotMethodTavg') : undefined
+})
 const referenceText = computed(() => lastFetchedData.value
   ? stripesReferenceShort(lastFetchedData.value.reference, t, variant.value === 'bars' || variant.value === 'barsScale' ? 'bars' : 'stripes')
   : '')
@@ -345,6 +362,7 @@ watch(() => selectedStation.value?.station_id, () => {
 
 watch([kind, source], () => {
   linkedStation.value = null
+  linkedFailure.value = null
   selectedStation.value = null
   clearStripes()
 })
@@ -500,6 +518,14 @@ watch([
                 @update:selected="onPick"
               />
 
+              <!-- the station of the link could not be asked for: said as the failure it is, not as a station that is not there -->
+              <div v-if="linkedFailure" class="flex flex-col items-start gap-2" data-testid="stripes-linked-failure">
+                <p role="alert" class="text-sm text-red-600 dark:text-red-400">
+                  {{ t('mapTool.stationsFailed') }} ({{ linkedFailure.id }}): {{ linkedFailure.message }}
+                </p>
+                <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" data-testid="stripes-linked-retry" @click="takeLinkedStation(linkedFailure.id)" />
+              </div>
+
               <div v-if="selectedStation" class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                 <p v-if="selectedStation.region">
                   <strong>{{ t('stripes.region') }}{{ t('common.colon') }}</strong> {{ selectedStation.region }}
@@ -599,6 +625,7 @@ watch([
                 :described-by="plotSummary ? summaryId : undefined"
                 :camera-file="cameraFile"
                 :source-text="source === 'ghcn' ? t('stripes.plotSourceGhcn') : undefined"
+                :method-line="methodLine"
               />
               <p v-if="hasPlot && plotSummary" :id="summaryId" class="sr-only">
                 {{ plotSummary }}

@@ -2,7 +2,8 @@ import type { MapBox } from '~/utils/map-tool'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
 import { BOX_DEBOUNCE_MS, useBoxStations } from '~/composables/useBoxStations'
-import { BOX_MAX_AREA, BOX_PAD, padBox } from '~/utils/map-tool'
+import { BOX_PAD_PX } from '~/utils/map-cluster'
+import { BOX_MAX_AREA, boxArea, padOf, requestBox } from '~/utils/map-tool'
 
 // The stations of a layer that is too large to be loaded whole, asked for by the part of the map in view (GH-4078): one request for a
 // drag or a run of zooms (debounce), none for a move inside what is loaded, the one on its way cancelled where the map has moved
@@ -13,6 +14,8 @@ function station(station_id: string, latitude = 50, longitude = 10) {
 }
 
 const view = (left: number, bottom: number, size = 4): MapBox => ({ left, bottom, right: left + size, top: bottom + size })
+/** The box asked for a view: the view and its padding (the share of it, where the map's size is not told) */
+const boxFor = (shown: MapBox, size?: { x: number, y: number }) => requestBox(shown, padOf(shown, size, BOX_PAD_PX))
 
 /** What the loader was asked: the box and the signal of each request, and the answer each is held to until the test gives it */
 interface Ask {
@@ -47,7 +50,7 @@ describe('the stations of the view', () => {
     const { list, asks } = setup()
     list.show(view(8, 50))
     expect(asks).toHaveLength(1)
-    expect(asks[0]!.box).toEqual(padBox(view(8, 50), BOX_PAD))
+    expect(asks[0]!.box).toEqual(boxFor(view(8, 50)))
     expect(list.status.value).toBe('pending')
     asks[0]!.answer([station('A'), { ...station('B'), latitude: null as unknown as number }])
     await vi.advanceTimersByTimeAsync(0)
@@ -90,7 +93,7 @@ describe('the stations of the view', () => {
     expect(asks).toHaveLength(1)
     await vi.advanceTimersByTimeAsync(1)
     expect(asks).toHaveLength(2)
-    expect(asks[1]!.box).toEqual(padBox(view(22, 50), BOX_PAD))
+    expect(asks[1]!.box).toEqual(boxFor(view(22, 50)))
     asks[1]!.answer([station('B', 52, 24)])
     await vi.advanceTimersByTimeAsync(0)
     expect(list.stations.value.map(entry => entry.station_id)).toEqual(['B'])
@@ -233,5 +236,73 @@ describe('the stations of the view', () => {
     list.show(view(8, 50))
     scope.stop()
     expect(asks[0]!.signal.aborted).toBe(true)
+  })
+
+  it('asks for the view and the padding of a group\'s reach in pixels, which the map\'s size gives, where that is more than the share', async () => {
+    const { list, asks } = setup()
+    // 400 by 800 px for 4 by 8 degrees: 0.01 degrees a pixel, so the 100 px of the padding are 1 degree, more than 15 % of 4 and less than of 8
+    list.show({ left: 8, bottom: 50, right: 12, top: 58 }, { x: 400, y: 800 })
+    expect(asks[0]!.box.left).toBeCloseTo(7)
+    expect(asks[0]!.box.right).toBeCloseTo(13)
+    expect(asks[0]!.box.bottom).toBeCloseTo(48.8)
+    expect(asks[0]!.box.top).toBeCloseTo(59.2)
+  })
+
+  it('asks for a box of at most BOX_MAX_AREA, the padding shrinking to nothing as the view nears it', async () => {
+    const { list, asks } = setup()
+    // a view of 190 square degrees leaves room for a little padding, one of the cap for none
+    list.show(view(0, 0, Math.sqrt(190)), { x: 400, y: 400 })
+    expect(boxArea(asks[0]!.box)).toBeCloseTo(BOX_MAX_AREA, 5)
+    list.stop()
+    list.show({ left: 0, bottom: 0, right: 10, top: BOX_MAX_AREA / 10 }, { x: 400, y: 400 })
+    expect(asks[1]!.box).toEqual({ left: 0, bottom: 0, right: 10, top: BOX_MAX_AREA / 10 })
+    list.stop()
+    // a small view has all of its padding
+    list.show(view(0, 0, 4), { x: 400, y: 400 })
+    expect(boxArea(asks[2]!.box)).toBeGreaterThan(16 * 1.5)
+    expect(boxArea(asks[2]!.box)).toBeLessThan(BOX_MAX_AREA)
+  })
+
+  it('asks for nothing for a view with no area, which the API would refuse', async () => {
+    const { list, asks } = setup()
+    list.show({ left: 180, bottom: 10, right: 180, top: 20 })
+    list.show({ left: 10, bottom: 20, right: 20, top: 20 })
+    expect(asks).toHaveLength(0)
+    expect(list.status.value).toBe('idle')
+  })
+
+  it('asks for the box round a place at once, whatever the view is, and again on retry', async () => {
+    const { list, asks } = setup()
+    list.show(view(8, 50))
+    asks[0]!.answer([station('A')])
+    await vi.advanceTimersByTimeAsync(0)
+    const round = view(-75, 40, 2)
+    list.showAround(round)
+    expect(asks).toHaveLength(2)
+    expect(asks[1]!.box).toEqual(round)
+    asks[1]!.fail(new Error('down'))
+    await vi.advanceTimersByTimeAsync(0)
+    expect(list.status.value).toBe('error')
+    list.retry()
+    expect(asks[2]!.box).toEqual(round)
+    asks[2]!.answer([station('NY', 41, -74)])
+    await vi.advanceTimersByTimeAsync(0)
+    expect(list.loaded.value).toEqual(round)
+    expect(list.stations.value.map(entry => entry.station_id)).toEqual(['NY'])
+  })
+
+  it('forgets what is loaded when the layer is left, so that it is asked for at once when it is back, not from a box the map has left', async () => {
+    const { list, asks } = setup()
+    list.show(view(8, 50))
+    asks[0]!.answer([station('A')])
+    await vi.advanceTimersByTimeAsync(0)
+    list.stop()
+    expect(list.stations.value).toEqual([])
+    expect(list.loaded.value).toBeNull()
+    expect(list.status.value).toBe('idle')
+    // the same view is asked for again, with no wait for the debounce (nothing is shown to keep while it comes)
+    list.show(view(8, 50))
+    expect(asks).toHaveLength(2)
+    expect(list.status.value).toBe('pending')
   })
 })

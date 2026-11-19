@@ -46,6 +46,8 @@ const props = withDefaults(defineProps<{
   cameraFile: string
   /** the source line under the stripes where it is not DWD's (NOAA's GHCN daily, GH-4078) */
   sourceText?: string
+  /** how the day's temperature was made, for a station of GHCN daily: one short line of a saved image, under what the colours are relative to (GH-4078) */
+  methodLine?: string
 }>(), { variant: 'stripes' })
 const emit = defineEmits<{ 'update:variant': [variant: StripesView] }>()
 
@@ -658,7 +660,8 @@ async function save(options: { format: ImageFormat, filename: string, width: num
   const { format, filename, width: imageWidth, scale } = options
   const light = readDocumentChartTheme('light')
   const lines = titleLinesFor(imageWidth)
-  const extraLines = wrapChartTitle(referenceCaption(), imageWidth - 40, `14px ${STRIPES_FONT_FAMILY}`).text.split('<br>')
+  const wrapped = (text: string) => wrapChartTitle(text, imageWidth - 40, `14px ${STRIPES_FONT_FAMILY}`).text.split('<br>')
+  const extraLines = [...wrapped(referenceCaption()), ...(props.methodLine ? wrapped(props.methodLine) : [])]
   const imageHeight = options.height + extraLinesHeight(props.display, extraLines.length)
   // the paper is part of the image: a vector with dark text on nothing is unreadable on a dark page that shows it
   const paper = light.paper || '#ffffff'

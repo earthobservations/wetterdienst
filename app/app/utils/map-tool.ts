@@ -79,17 +79,18 @@ export interface MapBox {
 }
 
 /**
- * How large the part of the map in view may be for its stations to be asked for, in square degrees (longitude times latitude, not
- * the area on the ground). GHCN daily has 78,512 of its stations in the United States, and a box of 25 by 20 degrees over its east
- * holds 45,000 of them (14 MB, two seconds). 300 square degrees is the map at the opening view (Germany at zoom 6: 170 on a wide
- * screen) with room for a larger window, and over the densest part of the layer it is some 25,000 stations; the box asked for is
- * `BOX_PAD` larger on each side. Beyond it the map asks for none and says to zoom in. A size of the view in degrees, not a zoom, so
- * that a phone and a full screen are told alike.
+ * How large the box that is asked for may be, in square degrees (longitude times latitude, not the area on the ground): the view
+ * with its padding (`requestBox`). GHCN daily has 78,512 of its stations in the United States, and the densest box of 200 square
+ * degrees of its list (33 by 6 degrees over the south west) holds 26,894 of them (measured on the 132,894 stations of 2026-11-19;
+ * a box of 25 by 20 degrees over the east, 500 square degrees, 45,000: 14 MB, two seconds). A view larger than this asks for
+ * nothing and the map says to zoom in; one that nears it is asked for with less padding, none at the cap. The opening view (Germany,
+ * zoom 6) on a wide screen is 170, so it is asked for with a little. A size in degrees, not a zoom, so that a phone and a full
+ * screen are told alike.
  */
-export const BOX_MAX_AREA = 300
+export const BOX_MAX_AREA = 200
 
-/** The share of each side of the view that the box asked for reaches beyond it on both sides, so that a small move stays inside what is loaded */
-export const BOX_PAD = 0.15
+/** The share of each side of the view that the box asked for reaches beyond it at least, so that a small move stays inside what is loaded */
+export const BOX_PAD_SHARE = 0.15
 
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
 
@@ -122,11 +123,51 @@ export function boxHas(box: MapBox, point: Point): boolean {
   return point.longitude >= box.left && point.longitude <= box.right && point.latitude >= box.bottom && point.latitude <= box.top
 }
 
-/** A box with `share` of each side added to both ends of it, cut at the edges of the world */
-export function padBox(box: MapBox, share: number): MapBox {
-  const wide = (box.right - box.left) * share
-  const high = (box.top - box.bottom) * share
-  return { left: clamp(box.left - wide, -180, 180), bottom: clamp(box.bottom - high, -90, 90), right: clamp(box.right + wide, -180, 180), top: clamp(box.top + high, -90, 90) }
+/**
+ * The padding of a view in degrees on each side, for a map of `size` pixels: `pixels` of the map (`BOX_PAD_PX`) or `BOX_PAD_SHARE` of the
+ * view, the larger. Without the map's size, the share alone.
+ */
+export function padOf(view: MapBox, size: { x: number, y: number } | undefined, pixels: number): { x: number, y: number } {
+  const width = view.right - view.left
+  const height = view.top - view.bottom
+  const share = (across: number | undefined) => Math.max(BOX_PAD_SHARE, across ? pixels / across : 0)
+  return { x: width * share(size?.x), y: height * share(size?.y) }
+}
+
+/**
+ * The box to ask for: the view with `pad` degrees more on every side, as far as the box stays within `maxArea`. The padding shrinks
+ * as the view nears the cap, to nothing at it (a view of `maxArea` is asked for as it is), and the box is cut at the edges of the world.
+ */
+export function requestBox(view: MapBox, pad: { x: number, y: number }, maxArea = BOX_MAX_AREA): MapBox {
+  const width = view.right - view.left
+  const height = view.top - view.bottom
+  let factor = 1
+  if ((width + 2 * pad.x) * (height + 2 * pad.y) > maxArea) {
+    // the root of (width + 2 f x) (height + 2 f y) = maxArea
+    const a = 4 * pad.x * pad.y
+    const b = 2 * (pad.x * height + pad.y * width)
+    const c = width * height - maxArea
+    factor = a === 0 ? (b === 0 ? 0 : -c / b) : (-b + Math.sqrt(b * b - 4 * a * c)) / (2 * a)
+    factor = clamp(factor, 0, 1)
+  }
+  return {
+    left: clamp(view.left - factor * pad.x, -180, 180),
+    bottom: clamp(view.bottom - factor * pad.y, -90, 90),
+    right: clamp(view.right + factor * pad.x, -180, 180),
+    top: clamp(view.top + factor * pad.y, -90, 90),
+  }
+}
+
+/** The box round a place that reaches `km` kilometres from it, which the stations near it are asked for (a pick that is off the screen) */
+export function boxAround(point: Point, km: number): MapBox {
+  const latitude = km / 111.2
+  const longitude = Math.min(180, latitude / Math.max(Math.cos(point.latitude * Math.PI / 180), 0.05))
+  return {
+    left: clamp(point.longitude - longitude, -180, 180),
+    bottom: clamp(point.latitude - latitude, -90, 90),
+    right: clamp(point.longitude + longitude, -180, 180),
+    top: clamp(point.latitude + latitude, -90, 90),
+  }
 }
 
 /** The radius of a station's dot in pixels, by zoom: points at the scale of a continent, discs at the scale of a town */

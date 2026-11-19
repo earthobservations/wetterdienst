@@ -28,6 +28,13 @@ export interface Grouping {
 export const GROUPING: Grouping = { radius: 60, separateFrom: 9 }
 
 /**
+ * How far the box of a layer that is asked for by the view reaches beyond it, in pixels of the map (GH-4078): the radius of a group,
+ * so that a group at the edge of the view is made of all its stations, and 40 more for the groups that are joined and for the pan
+ * that comes while the stations are on their way.
+ */
+export const BOX_PAD_PX = GROUPING.radius + 40
+
+/**
  * A layer whose list has more stations than this is always grouped, whatever the switch says (maintainer, 2026-11-14):
  * the rule goes by the layer's count, not by a hand-picked list. The switch is then on, and cannot be turned off.
  * GHCN daily has 133,041 stations, MOSMIX about 5,600 and DWD's observations about 1,400, which follow the switch.

@@ -21,7 +21,7 @@ vi.mock('~/components/StationMap.vue', async () => {
   return {
     __esModule: true,
     default: defineComponent({
-      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping', 'panelOpen', 'describedBy', 'fullscreen'],
+      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping', 'panelOpen', 'describedBy', 'fullscreen', 'hold'],
       emits: ['pick', 'view', 'group'],
       setup(props, { emit }) {
         stage.props = props
@@ -100,6 +100,8 @@ const COVERAGE = {
 /** What each endpoint is asked for, and what a test makes it answer instead */
 const asked: { stations: Array<Record<string, string>>, stripesValues: string[], stripesQueries: Array<Record<string, string>>, values: string[] } = { stations: [], stripesValues: [], stripesQueries: [], values: [] }
 let stationsFailures = 0
+/** How many requests for a station of GHCN daily by its id fail with a 500 before one is answered */
+let ghcnLookupFailures = 0
 let stripesStatus = 200
 
 function stationsOf(event: H3Event) {
@@ -113,6 +115,11 @@ function stationsOf(event: H3Event) {
   }
   // GHCN daily: the stations of a box, or the ones asked for by their id
   if (query.network === 'ghcn') {
+    if (query.stations && ghcnLookupFailures > 0) {
+      ghcnLookupFailures--
+      setResponseStatus(event, 500)
+      return { detail: 'The stations are not available' }
+    }
     if (query.stations)
       return { stations: GHCN_STATIONS.filter(entry => query.stations!.split(',').includes(entry.station_id)) }
     const [left, bottom, right, top] = [query.left, query.bottom, query.right, query.top].map(Number) as [number, number, number, number]
@@ -193,13 +200,17 @@ async function mountMap(route = '/map') {
 const LAYER_INDEX = { forecast: 0, measured: 1, ghcn: 2 } as const
 /** Chooses a layer in the panel of the layers button, which a click elsewhere on the page has closed: opens it again */
 async function chooseLayer(wrapper: Awaited<ReturnType<typeof mountSuspended>>, layer: 'forecast' | 'measured' | 'ghcn') {
+  // a click elsewhere on the page closes the panel a moment later: let that finish, and open it again if it did
+  await new Promise(resolve => setTimeout(resolve, 80))
   await openLayers(wrapper)
+  await vi.waitFor(() => expect(wrapper.findAll('[data-testid="map-layers"] [role="radio"]')).toHaveLength(3))
   await wrapper.findAll('[data-testid="map-layers"] [role="radio"]')[LAYER_INDEX[layer]]!.trigger('click')
 }
 
 /** Opens the panel of the layers button, once */
 async function openLayers(wrapper: Awaited<ReturnType<typeof mountSuspended>>) {
-  if (!wrapper.find('[data-testid="map-layers-panel"]').exists())
+  // by the button's own word, not by the panel: a panel that a click elsewhere has closed is in the page for a moment more
+  if (wrapper.find('[data-testid="map-layers-button"]').attributes('aria-expanded') !== 'true')
     await wrapper.find('[data-testid="map-layers-button"]').trigger('click')
   await vi.waitFor(() => expect(wrapper.find('[data-testid="map-layers-panel"]').exists()).toBe(true))
 }
@@ -232,6 +243,7 @@ afterEach(async () => {
   clearNuxtData()
   asked.stations.length = asked.stripesValues.length = asked.stripesQueries.length = asked.values.length = 0
   stationsFailures = 0
+  ghcnLookupFailures = 0
   stripesStatus = 200
   valuesStatus = 200
   removeCollision()
@@ -2523,5 +2535,84 @@ describe('the GHCN daily layer (GH-4078)', () => {
     const wrapper = await mountMap('/map?layer=ghcn&station=NOPE')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-unknown"]').text()).toBe('There is no station NOPE on this map.'), { timeout: 3000 })
     expect(wrapper.find('[data-testid="map-station-name"]').exists()).toBe(false)
+  })
+
+  it('tells an outage of the station of the address as a failure with Retry, and not as a station that is not there', async () => {
+    ghcnLookupFailures = 1
+    const wrapper = await mountMap('/map?layer=ghcn&station=USW00094728')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-lookup-failure"]').exists()).toBe(true), { timeout: 3000 })
+    expect(wrapper.find('[data-testid="map-lookup-failure"]').text()).toContain('The stations could not be loaded (USW00094728): The stations are not available')
+    expect(wrapper.find('[data-testid="map-unknown"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="map-station-name"]').exists()).toBe(false)
+    await wrapper.find('[data-testid="map-lookup-retry"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('NEW YORK CNTRL PK TWR'), { timeout: 3000 })
+    expect(wrapper.find('[data-testid="map-lookup-failure"]').exists()).toBe(false)
+  })
+
+  describe('a pick that is carried to the layer from another (the place is kept)', () => {
+    /** The forecast layer with Hamburg picked, the map then moved to New York: the place picked is off the screen */
+    async function pickedAndPannedAway() {
+      const wrapper = await mountMap()
+      await mapIsThere(wrapper)
+      await listed(wrapper)
+      stage.emit('view', HAMBURG_VIEW)
+      await wrapper.find('[data-station-id="10147"]').trigger('click')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL'))
+      stage.emit('view', viewAt(40.8, -74, 1, 0.5))
+      await nextTick()
+      return wrapper
+    }
+    /** The latitudes of the box round a place picked in Hamburg: 110 km (`AROUND_KM`) either way */
+    const hamburgBox = (latitude = 53.63) => [latitude - 110 / 111.2, latitude + 110 / 111.2]
+
+    it('asks for the stations round the place, though the view is elsewhere, picks the nearest, and keeps the map where it was moved to', async () => {
+      const wrapper = await pickedAndPannedAway()
+      const recentred = stage.props.recentre
+      await chooseLayer(wrapper, 'ghcn')
+      // round Hamburg, not the box of New York, which is in view
+      await vi.waitFor(() => expect(ghcnAsks().length).toBeGreaterThan(0), { timeout: 3000 })
+      const [around] = ghcnAsks()
+      expectClose([around!.bottom, around!.top], hamburgBox())
+      expect(Number(around!.left)).toBeLessThan(10)
+      expect(Number(around!.right)).toBeGreaterThan(10)
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG FUHLSBUETTEL'), { timeout: 3000 })
+      // the map was not sent to it: it stays where the reader moved it
+      expect(stage.props.recentre).toBe(recentred)
+      // and the stations of the view are asked for as for any move, the one picked kept in the list
+      await vi.waitFor(() => expect(idsOnMap()).toContain('USW00094728'), { timeout: 3000 })
+      expect(idsOnMap()).toContain('GM000010147')
+      expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG FUHLSBUETTEL')
+      expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(false)
+    })
+
+    it('asks again at once for the place where the layer is chosen again, and never from the box it had before', async () => {
+      const wrapper = await mountGhcn()
+      await pickFromList(wrapper, 'GM000010147')
+      await chooseLayer(wrapper, 'forecast')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL'), { timeout: 3000 })
+      // the map is moved, the box of the layer before would have been stale
+      stage.emit('view', viewAt(40.8, -74, 1, 0.5))
+      await nextTick()
+      const before = ghcnAsks().length
+      await chooseLayer(wrapper, 'ghcn')
+      // no wait for the debounce: the stations round the place are asked for as the layer is chosen
+      await vi.waitFor(() => expect(ghcnAsks().length).toBe(before + 1), { timeout: 200 })
+      // (the place is the position of the station picked, that of the GHCN station Hamburg-Fuhlsbüttel)
+      expectClose([ghcnAsks().at(-1)!.bottom, ghcnAsks().at(-1)!.top], hamburgBox(53.635))
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG FUHLSBUETTEL'), { timeout: 3000 })
+      await vi.waitFor(() => expect(idsOnMap()).toContain('USW00094728'), { timeout: 3000 })
+    })
+
+    it('says there is no station near where the box round the place has none', async () => {
+      const wrapper = await mountMap()
+      await mapIsThere(wrapper)
+      await listed(wrapper)
+      // Paris-Orly of the forecast's points: no station of the mock is within 100 km of it
+      stage.emit('view', viewAt(48.72, 2.38, 1, 0.5))
+      await wrapper.find('[data-station-id="07157"]').trigger('click')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('PARIS-ORLY'))
+      await chooseLayer(wrapper, 'ghcn')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(true), { timeout: 3000 })
+    })
   })
 })
