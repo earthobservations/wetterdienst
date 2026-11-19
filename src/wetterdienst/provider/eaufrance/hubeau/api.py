@@ -27,7 +27,7 @@ from wetterdienst.model.metadata import (
 from wetterdienst.model.parameter_rows import MAX_STATIONS_LISTED
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.util.network import download_file, fetchable_link
+from wetterdienst.util.network import _without_url_secrets, download_file, drop_cached_file, fetchable_link
 from wetterdienst.util.python import to_list
 from wetterdienst.util.response_warnings import warn_response
 
@@ -476,22 +476,37 @@ def _paged_rows(url: str, settings: Settings, *, ttl: CacheExpiry, timeout: int)
         what came before it: a silently short answer would file stations under the wrong
         resolution, or truncate a series, which is worse than saying the service could not be read.
 
+    Raises:
+        DownloadError: The service answered a 200 that is no JSON object, as it does with an HTML
+            waiting page ("votre patience") when it is overloaded (GH-4236). The page is dropped
+            from the cache first, which holds a 200 for the whole ``ttl``.
+
     """
     query = url
     rows: list[dict] = []
+    client_kwargs = {**settings.fsspec_client_kwargs, "timeout": timeout}
     for _ in range(_MAX_PAGES):
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
             ttl=ttl,
-            client_kwargs={**settings.fsspec_client_kwargs, "timeout": timeout},
+            client_kwargs=client_kwargs,
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             break
-        payload = json.load(file.content)
+        try:
+            payload = json.load(file.content)
+        except ValueError as error:  # a `JSONDecodeError`, or a body that is no text at all
+            _drop_outage_page(url, settings, ttl, client_kwargs)
+            msg = "the answer is not JSON (a waiting page of the service?)"
+            raise DownloadError(_without_url_secrets(url), msg) from error
+        if not isinstance(payload, dict):
+            _drop_outage_page(url, settings, ttl, client_kwargs)
+            msg = "the answer is JSON but no object with `data`"
+            raise DownloadError(_without_url_secrets(url), msg)
         page = payload.get("data")
         if not page:
             break
@@ -504,6 +519,18 @@ def _paged_rows(url: str, settings: Settings, *, ttl: CacheExpiry, timeout: int)
     else:
         log.warning(f"Hubeau paging stopped at {_MAX_PAGES} pages for {query}; the result is incomplete.")
     return rows
+
+
+def _drop_outage_page(url: str, settings: Settings, ttl: CacheExpiry, client_kwargs: dict) -> None:
+    """Drop the cached copy of an answer that is no good, with the arguments it was downloaded with."""
+    drop_cached_file(
+        url,
+        settings.cache_dir,
+        ttl,
+        client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
 
 
 def _step_verdicts(df: pl.DataFrame) -> pl.DataFrame:
