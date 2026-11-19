@@ -909,6 +909,142 @@
         "parameters"
       ]
     },
+    "storm_cells": {
+      "type": "object",
+      "properties": {
+        "timestamp": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "latitude": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "longitude": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "distance": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "left": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bottom": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "right": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "top": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "min_severity": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "maximum": 3.0,
+              "minimum": 0.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "track": {
+          "type": "boolean",
+          "default": true
+        },
+        "geometry": {
+          "type": "string",
+          "enum": [
+            "outline",
+            "centroid"
+          ],
+          "default": "outline"
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "geojson",
+            "csv"
+          ],
+          "default": "json"
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": []
+    },
     "stripes_image": {
       "type": "object",
       "properties": {
@@ -918,6 +1054,14 @@
             "temperature",
             "precipitation"
           ]
+        },
+        "provider": {
+          "type": "string",
+          "default": "dwd"
+        },
+        "network": {
+          "type": "string",
+          "default": "observation"
         },
         "station": {
           "anyOf": [
@@ -1007,9 +1151,65 @@
             "precipitation"
           ]
         },
+        "provider": {
+          "type": "string",
+          "default": "dwd"
+        },
+        "network": {
+          "type": "string",
+          "default": "observation"
+        },
         "active": {
           "type": "boolean",
           "default": true
+        },
+        "left": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "bottom": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "right": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 180.0,
+              "minimum": -180.0
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "top": {
+          "anyOf": [
+            {
+              "type": "number",
+              "maximum": 90.0,
+              "minimum": -90.0
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "format": {
           "type": "string",
@@ -1038,6 +1238,14 @@
             "temperature",
             "precipitation"
           ]
+        },
+        "provider": {
+          "type": "string",
+          "default": "dwd"
+        },
+        "network": {
+          "type": "string",
+          "default": "observation"
         },
         "station": {
           "anyOf": [
@@ -1875,5 +2083,5 @@
       ]
     }
   },
-  "x-release": "0.191.0"
+  "x-release": "0.192.0"
 }

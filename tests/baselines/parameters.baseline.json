@@ -9,8 +9,10 @@
     "dwd/observation",
     "dwd/phenology",
     "dwd/poi",
+    "dwd/pollen",
     "dwd/road",
     "dwd/swsmos",
+    "dwd/uvi",
     "ea/hydrology",
     "eaufrance/hubeau",
     "eccc/observation",
@@ -1684,6 +1686,20 @@
         ]
       }
     },
+    "dwd/pollen": {
+      "daily": {
+        "data": [
+          "pollen_load_alder",
+          "pollen_load_ash",
+          "pollen_load_birch",
+          "pollen_load_grass",
+          "pollen_load_hazel",
+          "pollen_load_mugwort",
+          "pollen_load_ragweed",
+          "pollen_load_rye"
+        ]
+      }
+    },
     "dwd/road": {
       "15_minutes": {
         "data": [
@@ -1715,6 +1731,13 @@
           "temperature_air",
           "temperature_dew_point",
           "temperature_surface"
+        ]
+      }
+    },
+    "dwd/uvi": {
+      "daily": {
+        "data": [
+          "uv_index_max"
         ]
       }
     },
@@ -3618,5 +3641,5 @@
     "parameters": {},
     "in_dataset": {}
   },
-  "x-release": "0.191.0"
+  "x-release": "0.192.0"
 }
