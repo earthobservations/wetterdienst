@@ -12,7 +12,7 @@
       "name": "MIT",
       "identifier": "MIT"
     },
-    "version": "0.191.0",
+    "version": "0.192.0",
     "x-api-version": "1"
   },
   "servers": [
@@ -849,7 +849,7 @@
           "Catalogue"
         ],
         "summary": "Coverage",
-        "description": "List the resolutions, datasets and parameters of one network.\n\n`provider` and `network` are required (e.g. provider=\"dwd\", network=\"observation\"); `providers` lists the\nproviders and their networks, with whether each needs credentials and has them (`configured`). Narrow the\nanswer with resolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names. It\nis keyed by resolution, then `datasets`, then each dataset's `parameters`. Nothing is downloaded, so it answers\nat once. A standalone network (`dwd/radar`, `dwd/alerts`) has none: a 404.\n\nEach dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and `country_codes` for a\nregional one): the dataset's own where it is narrower than its network's, else the network's. Whether the\nnetwork needs credentials and has them is `auth` and `configured` of `providers`, and whether the provider\naccepts them is `auth`'s.\n\n`unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or\n`convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`\nfor a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with\n`convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no\noptions: a `unit_targets` of your own changes what `values` return, not this answer.\n\n`aggregation` of a parameter is what its value is relative to its interval: `mean`, `max`, `min`, `sum` and the\nothers of `glossary`, or `instant` for a single reading, which the provider declares for a plain name where its\nsource states it. `timestamp_position` is where its timestamp sits in the row's interval: `instant`\n(the timestamp is when the value was observed), `start`, `end` or `middle` of it. Both are always there, and `null`\nmeans the source does not state it: not a reading, not a mean.",
+        "description": "List the resolutions, datasets and parameters of one network.\n\n`provider` and `network` are required (e.g. provider=\"dwd\", network=\"observation\"); `providers` lists the\nproviders and their networks, with whether each needs credentials and has them (`configured`). Narrow the\nanswer with resolutions=... or datasets=... (e.g. datasets=\"climate_summary\") to discover parameter names. It\nis keyed by resolution, then `datasets`, then each dataset's `parameters`. Nothing is downloaded, so it answers\nat once. A standalone network (`dwd/radar`, `dwd/alerts`, `dwd/storm_cells`) has none: a 404.\n\nEach dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and `country_codes` for a\nregional one): the dataset's own where it is narrower than its network's, else the network's. Whether the\nnetwork needs credentials and has them is `auth` and `configured` of `providers`, and whether the provider\naccepts them is `auth`'s.\n\n`unit` of a parameter is the unit its `values` come back in when the request gives no `unit_targets` or\n`convert_units`, the one `glossary` gives for its `unit_type` (`degree_celsius`, never Kelvin; `percent`\nfor a percentage). `unit_source` is the unit the provider publishes it in, which the values come in with\n`convert_units=false`; it is there only where it differs from `unit`, and absent means the same. This takes no\noptions: a `unit_targets` of your own changes what `values` return, not this answer.\n\n`aggregation` of a parameter is what its value is relative to its interval: `mean`, `max`, `min`, `sum` and the\nothers of `glossary`, or `instant` for a single reading, which the provider declares for a plain name where its\nsource states it. `timestamp_position` is where its timestamp sits in the row's interval: `instant`\n(the timestamp is when the value was observed), `start`, `end` or `middle` of it. Both are always there, and `null`\nmeans the source does not state it: not a reading, not a mean.",
         "operationId": "coverage_api_coverage_get",
         "parameters": [
           {
@@ -1033,7 +1033,7 @@
           "Catalogue"
         ],
         "summary": "Providers",
-        "description": "List the providers and their networks, and describe what each provider is: name, country, licence, credit line.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its\nnetworks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,\n`country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and has them (`configured`),\nwhether a request has to give a date (`date_required`) and its number of `parameters`.\n\n`kind` is `observation`, `forecast` or `derived` for a timeseries network, which has stations and values\n(every network but two); `radar` and `alerts` are standalone (`dwd/radar`, `dwd/alerts`): the other\nendpoints answer 404 for them. `configured` says whether the credentials of a network that needs them are\npresent; whether the provider accepts them is not checked here, `/api/auth` (the MCP `auth` tool) does, for\none network.\n\nNothing is downloaded and no credential is probed, so it answers at once. The resolutions, datasets and\nparameters of one network are `coverage`'s.",
+        "description": "List the providers and their networks, and describe what each provider is: name, country, licence, credit line.\n\nFor every provider, or the one named with `provider`: the names it goes by, the country of the agency\nthat runs it (`country_code` is the ISO 3166-1 alpha-2 code; it is the operator's country, not the extent\nof its data), the terms it publishes its data under (`license`, null where it states none) and the credit\nline to cite (`attribution`; a network's `copyright` is the rights holder's notice, for information), and its\nnetworks, each with its `kind`, its `extent` (where its stations are: `scope`, `continents`,\n`country_codes`, `bbox`), source `url`, whether it needs credentials (`auth`) and has them (`configured`),\nwhether a request has to give a date (`date_required`) and its number of `parameters`.\n\n`kind` is `observation`, `forecast` or `derived` for a timeseries network, which has stations and values\n(every network but three); `radar`, `alerts` and `storm_cells` are standalone (`dwd/radar`, `dwd/alerts`,\n`dwd/storm_cells`): the other\nendpoints answer 404 for them. `configured` says whether the credentials of a network that needs them are\npresent; whether the provider accepts them is not checked here, `/api/auth` (the MCP `auth` tool) does, for\none network.\n\nNothing is downloaded and no credential is probed, so it answers at once. The resolutions, datasets and\nparameters of one network are `coverage`'s.",
         "operationId": "providers_api_providers_get",
         "parameters": [
           {
@@ -1561,10 +1561,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id.",
+              "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. A name that holds the whole query as a run of whole words is first and matches at any threshold below 1 (1 stays exact), then the best match, equal scores the closer whole name first, then by station id.",
               "title": "Name"
             },
-            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. A name that holds the whole query as a run of whole words is first and matches at any threshold below 1 (1 stays exact), then the best match, equal scores the closer whole name first, then by station id. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
             "examples": {
               "example": {
                 "value": "Hamburg Fuhlsbüttel"
@@ -2494,10 +2494,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id.",
+              "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. A name that holds the whole query as a run of whole words is first and matches at any threshold below 1 (1 stays exact), then the best match, equal scores the closer whole name first, then by station id.",
               "title": "Name"
             },
-            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. The best match is first, equal matches ordered by station id. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
+            "description": "Filter stations by name using fuzzy matching, e.g. 'Hamburg Fuhlsbüttel'. With a `timestamp` the name is matched among the stations that have a record in that window. A name that holds the whole query as a run of whole words is first and matches at any threshold below 1 (1 stays exact), then the best match, equal scores the closer whole name first, then by station id. Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), (left, bottom, right and top) or sql is required.",
             "examples": {
               "example": {
                 "value": "Hamburg Fuhlsbüttel"
@@ -4502,7 +4502,7 @@
           "Climate stripes"
         ],
         "summary": "Stripes Stations",
-        "description": "List the stations climate stripes are made for.\n\nA station whose record spans fewer than 10 calendar years (first to last, inclusive) is left out, as stripes of\nfewer than 10 years with data are refused. A station with gaps in a longer span is listed and may still be refused.",
+        "description": "List the stations climate stripes are made for, of DWD (the default) or of NOAA GHCN daily.\n\nA station whose record spans fewer than 10 calendar years (first to last, inclusive) is left out, as stripes of\nfewer than 10 years with data are refused. A station with gaps in a longer span is listed and may still be refused.\nFor GHCN the span is that of the elements the kind is made from (TAVG, TMAX and TMIN for the temperature, PRCP for\nthe precipitation), and `active` keeps the stations whose record reaches into this or the last year.\n\n`left`, `bottom`, `right` and `top`, all four, keep the stations in a bounding box, as `/api/stations` does: the\nlist of GHCN is long, so ask for the ones in view.",
         "operationId": "stripes_stations_api_stripes_stations_get",
         "parameters": [
           {
@@ -4521,6 +4521,30 @@
             "description": "temperature (annual mean air temperature) or precipitation (annual amount)."
           },
           {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served.",
+              "default": "dwd",
+              "title": "Provider"
+            },
+            "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served."
+          },
+          {
+            "name": "network",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served.",
+              "default": "observation",
+              "title": "Network"
+            },
+            "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served."
+          },
+          {
             "name": "active",
             "in": "query",
             "required": false,
@@ -4531,6 +4555,86 @@
               "title": "Active"
             },
             "description": "Only the stations that still report, i.e. have data in the recent period."
+          },
+          {
+            "name": "left",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 180,
+                  "minimum": -180
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Western longitude of the bounding box.",
+              "title": "Left"
+            },
+            "description": "Western longitude of the bounding box."
+          },
+          {
+            "name": "bottom",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90,
+                  "minimum": -90
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Southern latitude of the bounding box.",
+              "title": "Bottom"
+            },
+            "description": "Southern latitude of the bounding box."
+          },
+          {
+            "name": "right",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 180,
+                  "minimum": -180
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Eastern longitude of the bounding box.",
+              "title": "Right"
+            },
+            "description": "Eastern longitude of the bounding box."
+          },
+          {
+            "name": "top",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90,
+                  "minimum": -90
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Northern latitude of the bounding box.",
+              "title": "Top"
+            },
+            "description": "Northern latitude of the bounding box."
           },
           {
             "name": "format",
@@ -4621,7 +4725,7 @@
           "Climate stripes"
         ],
         "summary": "Stripes Values",
-        "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for\n`/api/values`, e.g. {\"temperature\": \"degree_fahrenheit\"}; the server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the\nquantity where the values are converted, the source's unit where not.\n\nThe colours follow Ed Hawkins' method: each value has its `anomaly` to the mean of 1971-2000 and its\n`stripe_class`, 0 (the lowest) to 15, in steps of 0.325 standard deviations of the annual values of\n1901-2000 (+/-2.6 standard deviations in 16 classes, the outermost taking what lies beyond). The `reference`\nnames the mean and the standard deviation, in the unit of the values, and the years they are calculated from;\na station with too few years in a period takes its whole record for it (`fallback`). A year's class\ndoes not depend on `start_year` and `end_year`, and is the same in any unit.",
+        "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for\n`/api/values`, e.g. {\"temperature\": \"degree_fahrenheit\"}; the server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the\nquantity where the values are converted, the source's unit where not.\n\nThe colours follow Ed Hawkins' method: each value has its `anomaly` to the mean of 1971-2000 and its\n`stripe_class`, 0 (the lowest) to 15, in steps of 0.325 standard deviations of the annual values of\n1901-2000 (+/-2.6 standard deviations in 16 classes, the outermost taking what lies beyond). The `reference`\nnames the mean and the standard deviation, in the unit of the values, and the years they are calculated from;\na station with too few years in a period takes its whole record for it (`fallback`). A year's class\ndoes not depend on `start_year` and `end_year`, and is the same in any unit.\n\n`provider` and `network` choose the source: `dwd`/`observation` (the default) reads DWD's annual values, and\n`noaa`/`ghcn` builds each year from the station's daily values by the WMO rules (WMO-No. 1203). Temperature: a\nday is the midrange of TMAX and TMIN, which is no 24-hour mean, for every day of the series; TAVG is used only at a\nstation with no day that has both, so that the method does not change along the record and show as a false step. A\nmonth counts with at most 10 days missing and at most 4 in a row, and a year with all 12 months counting is the\nmean of the monthly means. Precipitation: a month counts only when complete, and a year with all 12 months\ncounting is the sum. A year that fails is a gap, and a value that failed a quality check of the source is a missing\nday. `series` names the daily parameter the years were built from and has the method of the days as `method`:\n`midrange` or `tavg` (null for DWD's own annual values and for the precipitation); the `processing_note` says it in\nwords.",
         "operationId": "stripes_values_api_stripes_values_get",
         "parameters": [
           {
@@ -4640,6 +4744,30 @@
             "description": "temperature (annual mean air temperature) or precipitation (annual amount)."
           },
           {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served.",
+              "default": "dwd",
+              "title": "Provider"
+            },
+            "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served."
+          },
+          {
+            "name": "network",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served.",
+              "default": "observation",
+              "title": "Network"
+            },
+            "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served."
+          },
+          {
             "name": "station",
             "in": "query",
             "required": false,
@@ -4652,10 +4780,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Station id, e.g. '01048'; give this or name.",
+              "description": "Station id, e.g. '01048' (dwd) or 'USW00094728' (noaa); give this or name.",
               "title": "Station"
             },
-            "description": "Station id, e.g. '01048'; give this or name. Exactly one of station or name is required.",
+            "description": "Station id, e.g. '01048' (dwd) or 'USW00094728' (noaa); give this or name. Exactly one of station or name is required.",
             "examples": {
               "example": {
                 "value": "01048"
@@ -4873,6 +5001,30 @@
             "description": "temperature (annual mean air temperature) or precipitation (annual amount)."
           },
           {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served.",
+              "default": "dwd",
+              "title": "Provider"
+            },
+            "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served."
+          },
+          {
+            "name": "network",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served.",
+              "default": "observation",
+              "title": "Network"
+            },
+            "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served."
+          },
+          {
             "name": "station",
             "in": "query",
             "required": false,
@@ -4885,10 +5037,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Station id, e.g. '01048'; give this or name.",
+              "description": "Station id, e.g. '01048' (dwd) or 'USW00094728' (noaa); give this or name.",
               "title": "Station"
             },
-            "description": "Station id, e.g. '01048'; give this or name. Exactly one of station or name is required.",
+            "description": "Station id, e.g. '01048' (dwd) or 'USW00094728' (noaa); give this or name. Exactly one of station or name is required.",
             "examples": {
               "example": {
                 "value": "01048"
@@ -5551,6 +5703,306 @@
           }
         }
       }
+    },
+    "/api/v1/storm-cells": {
+      "get": {
+        "tags": [
+          "Storm cells"
+        ],
+        "summary": "Storm Cells",
+        "description": "Provide DWD's thunderstorm cells (KONRAD3D) via restapi.\n\nReturns the cells of the newest radar scan, or of the newest at or before ``timestamp`` (ISO 8601, UTC if no\noffset) within the ~48 hours DWD keeps, one entry per cell: its severity (0 weak to 3 extreme), warning flags for\nhail, heavy rain and gusts, size, speed, the ``direction_degrees`` of its motion (calculated), its outline and its\nforecast ``track`` of 12 positions to 60 minutes ahead. Without a place that is every cell of Germany (several\nhundred KB on a day of storms, more than an assistant can read): pass ``latitude``, ``longitude`` and ``distance``\n(km) for the cells whose outline contains the point or comes within the distance, or ``left``, ``bottom``,\n``right`` and ``top`` for a box, and ``min_severity``. ``track=false`` and ``geometry=centroid`` make a long list\nsmall. Most scans hold no cell: an empty ``cells`` is an answer, not an error, and ``reference_time`` says which\nscan it is of. A filter that leaves no cell of a scan that has some carries a ``no-storm-cells-for-place`` warning\nin ``metadata``, and a scan that is more than 20 minutes older than the time asked for a ``scan-stale`` warning:\nan empty answer is then no all-clear. Scans come every 5 minutes and the newest is 5 to 10 minutes old when it\nappears.",
+        "operationId": "storm_cells_api_storm_cells_get",
+        "parameters": [
+          {
+            "name": "timestamp",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Instant in ISO 8601 (UTC if no offset): the newest scan at or before it, from DWD's rolling window of about 48 hours. Without it, the newest scan, which is 5 to 10 minutes old when it appears.",
+              "title": "Timestamp"
+            },
+            "description": "Instant in ISO 8601 (UTC if no offset): the newest scan at or before it, from DWD's rolling window of about 48 hours. Without it, the newest scan, which is 5 to 10 minutes old when it appears."
+          },
+          {
+            "name": "latitude",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90,
+                  "minimum": -90
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "With longitude, only the cells whose outline contains this point (an edge counts as inside) or comes within `distance` of it: the reliable way to ask about one place.",
+              "title": "Latitude"
+            },
+            "description": "With longitude, only the cells whose outline contains this point (an edge counts as inside) or comes within `distance` of it: the reliable way to ask about one place."
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 180,
+                  "minimum": -180
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Longitude of the point; given with latitude.",
+              "title": "Longitude"
+            },
+            "description": "Longitude of the point; given with latitude."
+          },
+          {
+            "name": "distance",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "With a point, the kilometres from it within which the outline of a cell counts as near; 0 (the default) for the cells that are over the point. Not given without a point.",
+              "title": "Distance"
+            },
+            "description": "With a point, the kilometres from it within which the outline of a cell counts as near; 0 (the default) for the cells that are over the point. Not given without a point."
+          },
+          {
+            "name": "left",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 180,
+                  "minimum": -180
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Western longitude of a box: with bottom, right and top, only the cells whose outline reaches into it. Not with a point.",
+              "title": "Left"
+            },
+            "description": "Western longitude of a box: with bottom, right and top, only the cells whose outline reaches into it. Not with a point."
+          },
+          {
+            "name": "bottom",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90,
+                  "minimum": -90
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Southern latitude of the box.",
+              "title": "Bottom"
+            },
+            "description": "Southern latitude of the box."
+          },
+          {
+            "name": "right",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 180,
+                  "minimum": -180
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Eastern longitude of the box.",
+              "title": "Right"
+            },
+            "description": "Eastern longitude of the box."
+          },
+          {
+            "name": "top",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number",
+                  "maximum": 90,
+                  "minimum": -90
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Northern latitude of the box.",
+              "title": "Top"
+            },
+            "description": "Northern latitude of the box."
+          },
+          {
+            "name": "min_severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 3,
+                  "minimum": 0
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only the cells of this severity and above: 0 weak, 1 moderate, 2 severe, 3 extreme.",
+              "title": "Min Severity"
+            },
+            "description": "Only the cells of this severity and above: 0 weak, 1 moderate, 2 severe, 3 extreme."
+          },
+          {
+            "name": "track",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Give each cell its forecast `track`: 12 positions of its centre, 5 to 60 minutes ahead, with their uncertainty (about 1.6 KB of JSON a cell). False leaves it out; `direction_degrees` stays.",
+              "default": true,
+              "title": "Track"
+            },
+            "description": "Give each cell its forecast `track`: 12 positions of its centre, 5 to 60 minutes ahead, with their uncertainty (about 1.6 KB of JSON a cell). False leaves it out; `direction_degrees` stays."
+          },
+          {
+            "name": "geometry",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "outline",
+                "centroid"
+              ],
+              "type": "string",
+              "description": "The `geometry` of each cell: 'outline' (the polygon of its outline, some hundred to two thousand characters) or 'centroid' (the point of its centre, which a long list fits in). A place is always matched against the outline.",
+              "default": "outline",
+              "title": "Geometry"
+            },
+            "description": "The `geometry` of each cell: 'outline' (the polygon of its outline, some hundred to two thousand characters) or 'centroid' (the point of its centre, which a long list fits in). A place is always matched against the outline."
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "json",
+                "geojson",
+                "csv"
+              ],
+              "type": "string",
+              "description": "Output format: json, geojson (a feature collection) or csv.",
+              "default": "json",
+              "title": "Format"
+            },
+            "description": "Output format: json, geojson (a feature collection) or csv."
+          },
+          {
+            "name": "pretty",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Pretty-print JSON/GeoJSON output.",
+              "default": false,
+              "title": "Pretty"
+            },
+            "description": "Pretty-print JSON/GeoJSON output."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/_StormCellsWithMetadataDict"
+                    },
+                    {
+                      "$ref": "#/components/schemas/_StormCellsWithMetadataOgcFeatureCollection"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "title": "Response Storm Cells Api Storm Cells Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5675,7 +6127,7 @@
           "rows": {
             "type": "integer",
             "title": "Rows",
-            "description": "The rows of `values` (one per timestamp in the wide shape, one per value in the long one), the stations listed, the histories, the issues or the alerts."
+            "description": "The rows of `values` (one per timestamp in the wide shape, one per value in the long one), the stations listed, the histories, the issues, the alerts or the storm cells."
           }
         },
         "additionalProperties": false,
@@ -6541,10 +6993,11 @@
               "forecast",
               "derived",
               "radar",
-              "alerts"
+              "alerts",
+              "storm_cells"
             ],
             "title": "Kind",
-            "description": "`observation`, `forecast` or `derived` for a network with stations and values; `radar` and `alerts` for a standalone one (`dwd/radar`, `dwd/alerts`), which has no resolutions to list."
+            "description": "`observation`, `forecast` or `derived` for a network with stations and values; `radar`, `alerts` and `storm_cells` for a standalone one (`dwd/radar`, `dwd/alerts`, `dwd/storm_cells`), which has no resolutions to list."
           },
           "extent": {
             "$ref": "#/components/schemas/Extent",
@@ -6838,7 +7291,7 @@
                 "type": "null"
               }
             ],
-            "description": "The stations the answer is about; null for one that is not about stations, the warnings of `dwd/alerts`."
+            "description": "The stations the answer is about; null for one that is not about stations, the warnings of `dwd/alerts` and the cells of `dwd/storm_cells`."
           }
         },
         "additionalProperties": false,
@@ -6892,7 +7345,7 @@
           "processing_note": {
             "type": "string",
             "title": "Processing Note",
-            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, those of the climate stripes what their anomalies and classes are relative to, and the headers of the stripes' image that it is drawn from the annual values. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
+            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, those of the climate stripes what their anomalies and classes are relative to (and, where the years were calculated from daily values, by which rules), and the headers of the stripes' image that it is drawn from the annual values, and those of `storm_cells` that the direction of a cell is calculated from its forecast track. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
           },
           "request": {
             "$ref": "#/components/schemas/ResolvedRequest"
@@ -7334,6 +7787,22 @@
           "unit": {
             "type": "string",
             "title": "Unit"
+          },
+          "method": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "midrange",
+                  "tavg"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Method",
+            "description": "How a day of the temperature was calculated where the years were built from daily values (`noaa`/`ghcn`): `midrange`, the mean of TMAX and TMIN, which is no 24-hour mean, used for every day of a station that has both so that the method does not change along the record, or `tavg`, the source's own mean, at a station with no day that has both. Null for DWD's own annual values and for the precipitation."
           }
         },
         "additionalProperties": false,
@@ -9347,6 +9816,78 @@
         ],
         "title": "_StationsWithMetadataOgcFeatureCollection"
       },
+      "_StormCellsWithMetadataDict": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/ResponseMetadata"
+          },
+          "reference_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Time"
+          },
+          "cells": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Cells"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metadata",
+          "reference_time",
+          "cells"
+        ],
+        "title": "_StormCellsWithMetadataDict"
+      },
+      "_StormCellsWithMetadataOgcFeatureCollection": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "FeatureCollection",
+            "title": "Type"
+          },
+          "metadata": {
+            "$ref": "#/components/schemas/ResponseMetadata"
+          },
+          "reference_time": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference Time"
+          },
+          "features": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Features"
+          }
+        },
+        "type": "object",
+        "required": [
+          "type",
+          "metadata",
+          "reference_time",
+          "features"
+        ],
+        "title": "_StormCellsWithMetadataOgcFeatureCollection"
+      },
       "_StripesValue": {
         "properties": {
           "timestamp": {
@@ -10171,16 +10712,20 @@
     },
     {
       "name": "Climate stripes",
-      "description": "Climate stripes of a station in Germany: stations, values and the image."
+      "description": "Climate stripes of a station of DWD (Germany) or NOAA GHCN daily: stations, values and the image."
     },
     {
       "name": "Alerts",
       "description": "Weather warnings of the DWD."
     },
     {
+      "name": "Storm cells",
+      "description": "Thunderstorm cells of the DWD, detected in its radar data."
+    },
+    {
       "name": "Server",
       "description": "This instance: its version and limits, its settings, and its health."
     }
   ],
-  "x-release": "0.191.0"
+  "x-release": "0.192.0"
 }

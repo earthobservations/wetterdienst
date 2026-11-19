@@ -2988,6 +2988,364 @@
         }
       }
     },
+    "wetterdienst storm-cells": {
+      "options": {
+        "--bottom": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "float range",
+          "choices": null,
+          "min": -90,
+          "max": 90,
+          "spellings": [
+            "--bottom"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--debug": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--debug"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--distance": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "float range",
+          "choices": null,
+          "min": 0,
+          "max": null,
+          "spellings": [
+            "--distance"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--format": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "csv",
+            "geojson",
+            "json"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--format"
+          ],
+          "required": false,
+          "default": "json"
+        },
+        "--geometry": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "centroid",
+            "outline"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--geometry"
+          ],
+          "required": false,
+          "default": "outline"
+        },
+        "--help": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": true,
+          "count": false,
+          "envvar": null,
+          "flag_value": true,
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--help"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--if-exists": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "append",
+            "fail",
+            "replace",
+            "skip"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--if-exists"
+          ],
+          "required": false,
+          "default": "replace"
+        },
+        "--latitude": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "float range",
+          "choices": null,
+          "min": -90,
+          "max": 90,
+          "spellings": [
+            "--latitude"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--left": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "float range",
+          "choices": null,
+          "min": -180,
+          "max": 180,
+          "spellings": [
+            "--left"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--longitude": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "float range",
+          "choices": null,
+          "min": -180,
+          "max": 180,
+          "spellings": [
+            "--longitude"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--min-severity": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "integer range",
+          "choices": null,
+          "min": 0,
+          "max": 3,
+          "spellings": [
+            "--min-severity"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--pretty": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--pretty"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--quiet": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--quiet"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--right": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "float range",
+          "choices": null,
+          "min": -180,
+          "max": 180,
+          "spellings": [
+            "--right"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--target": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--target"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--timestamp": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--timestamp"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--top": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "float range",
+          "choices": null,
+          "min": -90,
+          "max": 90,
+          "spellings": [
+            "--top"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--track": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--track"
+          ],
+          "required": false,
+          "default": true
+        },
+        "--with-metadata": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--with-metadata"
+          ],
+          "required": false,
+          "default": false
+        }
+      }
+    },
     "wetterdienst stripes": {
       "options": {
         "--help": {
@@ -3161,6 +3519,42 @@
           "required": false,
           "default": 0.8
         },
+        "--network": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--network"
+          ],
+          "required": false,
+          "default": "observation"
+        },
+        "--provider": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--provider"
+          ],
+          "required": false,
+          "default": "dwd"
+        },
         "--quiet": {
           "param_type_name": "option",
           "nargs": 1,
@@ -3309,6 +3703,24 @@
           "required": false,
           "default": true
         },
+        "--bottom": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "float",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--bottom"
+          ],
+          "required": false,
+          "default": null
+        },
         "--debug": {
           "param_type_name": "option",
           "nargs": 1,
@@ -3385,6 +3797,42 @@
           "required": true,
           "default": null
         },
+        "--left": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "float",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--left"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--network": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--network"
+          ],
+          "required": false,
+          "default": "observation"
+        },
         "--pretty": {
           "param_type_name": "option",
           "nargs": 1,
@@ -3403,6 +3851,24 @@
           "required": false,
           "default": false
         },
+        "--provider": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "text",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--provider"
+          ],
+          "required": false,
+          "default": "dwd"
+        },
         "--quiet": {
           "param_type_name": "option",
           "nargs": 1,
@@ -3420,6 +3886,42 @@
           ],
           "required": false,
           "default": false
+        },
+        "--right": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "float",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--right"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--top": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "float",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--top"
+          ],
+          "required": false,
+          "default": null
         }
       }
     },
@@ -5270,5 +5772,5 @@
       }
     }
   },
-  "x-release": "0.191.0"
+  "x-release": "0.192.0"
 }

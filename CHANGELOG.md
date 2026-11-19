@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.192.0] - 2026-11-19
+
 ### Added
 
 - The climate stripes take `provider` and `network` on every surface (`dwd`/`observation`, the
@@ -8325,7 +8327,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.191.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.192.0...HEAD
+[0.192.0]: https://github.com/earthobservations/wetterdienst/compare/v0.191.0...v0.192.0
 [0.191.0]: https://github.com/earthobservations/wetterdienst/compare/v0.190.0...v0.191.0
 [0.190.0]: https://github.com/earthobservations/wetterdienst/compare/v0.189.1...v0.190.0
 [0.189.1]: https://github.com/earthobservations/wetterdienst/compare/v0.189.0...v0.189.1
