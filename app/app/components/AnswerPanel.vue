@@ -431,7 +431,7 @@ function onDay(value: unknown) {
         <p v-if="question === 'rain' && pointLine" class="text-sm text-muted">
           {{ pointLine }}
         </p>
-        <!-- the credit, and under it what wetterdienst did to the data (GH-3799): the values of these answers are the provider's own readings -->
+        <!-- the credit, and under it what wetterdienst did to the data (GH-3799): the values of these answers are the provider's own values -->
         <div v-if="question !== 'download'">
           <p class="text-sm text-muted">
             {{ attribution }}
