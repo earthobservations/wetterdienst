@@ -480,15 +480,22 @@ def test_dwd_mosmix_snow(options_humanize_false_convert_units_false: Options) ->
     }
     # 48 hourly steps from the hour after the run
     assert values.df.filter(pl.col("station_id") == "Z914")["timestamp"].n_unique() == 48
-    # the snow depth is in m for this options object (`convert_units=False`), as the file writes it, and a depth
-    # a model's round-off below 0 is `floor`'s down to -10 cm (0.0 with `raw:`); a value further below is kept and
+    # the snow depth is in m for this options object (`convert_units=False`), as the file writes it.
+    # A model's round-off below 0 is `floor`'s down to -10 cm (0.0 with `raw:`); a value further below is kept and
     # flagged `suspect:range` (a forecast is soft in `range`), so the reader's promise is that no negative depth
     # is without that flag, whatever DWD's run holds (GH-4237)
     depth_rows = values.df.filter(pl.col("parameter") == "sncv").drop_nulls("value")
     assert not depth_rows.is_empty()
+    ranged = pl.col("quality_flags").str.contains("suspect:range").fill_null(value=False)
     negative = depth_rows.filter(pl.col("value") < 0.0)
-    assert negative["quality_flags"].str.contains("suspect:range").all(), negative
-    depth = depth_rows.filter(~(pl.col("value") < 0.0))["value"]
+    assert negative.filter(~ranged).is_empty(), negative
+    # every floored value is 0.0, and the number the file wrote is round-off: from -0.10 m to below 0
+    floored = depth_rows.filter(pl.col("quality_flags").str.contains("rejected:floor").fill_null(value=False))
+    assert (floored["value"] == 0.0).all(), floored
+    raw = floored["quality_flags"].str.extract(r"raw:(-?[0-9.]+)", 1).cast(pl.Float64)
+    assert raw.is_between(-0.10, 0.0, closed="left").all(), floored
+    # the rest is a depth that lies: 0 or more, and less than 12 m
+    depth = depth_rows.filter(~ranged)["value"]
     assert not depth.is_empty()
     assert 0.0 <= depth.min() <= depth.max() < 12.0
     # the probabilities are 0..100 and a probability of more is not above that of less
