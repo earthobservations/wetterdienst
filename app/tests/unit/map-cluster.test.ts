@@ -241,7 +241,9 @@ describe('the groups by distance (GH-4241)', () => {
     expect(core.length).toBeGreaterThanOrEqual(16)
     const city = groups.filter(group => distance(group) <= 40)
     expect(city).toHaveLength(1)
-    expect(city[0]!.count).toBeGreaterThanOrEqual(core.length)
+    // the group holds the stations of the city and those round it that a disc of the radius reaches (32 of the 91 where it is
+    // best placed, the stations within 60 px of its middle; a group cut on a grid of squares of 60 px holds 23)
+    expect(city[0]!.count).toBeGreaterThanOrEqual(28)
     expect(distance(city[0]!)).toBeLessThanOrEqual(30)
     // and every station of the core lies in its box
     for (const entry of core) {
