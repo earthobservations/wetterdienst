@@ -26,7 +26,7 @@ async function open(page: Page, baseURL: string, path: string, size: { width: nu
   await expect(page.getByRole('button', { name: en.shell.search })).toBeEnabled()
   if (options.untouched)
     return
-  // the reader's first input: only a scroll that follows one hides the bars, and a script's `scrollTo` here stands for it
+  // the reader's first input: a page keeps its bars until one, and after it every scroll counts, a script's `scrollTo` here as well
   await page.mouse.move(200, 400)
   await page.mouse.wheel(0, 1)
 }
@@ -110,7 +110,7 @@ test.describe('the bars of a phone, 390 px wide', () => {
     await expectShown(page, PHONE)
   })
 
-  test('keeps the wheel and a touch drag the same: the real scroll events hide and show the bars', async ({ page, baseURL }) => {
+  test('the real wheel hides and shows the bars, not only a script\'s scroll', async ({ page, baseURL }) => {
     await open(page, baseURL!, LONG_PAGE, PHONE)
     await page.mouse.move(200, 400)
     await page.mouse.wheel(0, 500)
@@ -119,7 +119,28 @@ test.describe('the bars of a phone, 390 px wide', () => {
     await expectShown(page, PHONE)
   })
 
-  test('a page that arrives scrolled to an anchor, or is moved by a script, keeps the bars until the reader scrolls', async ({ page, baseURL }) => {
+  test('a touch drag of a finger hides the bars going up the screen and shows them going down it', async ({ page, baseURL }) => {
+    await open(page, baseURL!, LONG_PAGE, PHONE, { untouched: true })
+    // a finger as Chromium's input makes it (CDP touch events), which the page sees as touchstart, touchmove and touchend
+    const client = await page.context().newCDPSession(page)
+    await client.send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 1 })
+    async function drag(fromY: number, toY: number) {
+      const steps = 12
+      await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 200, y: fromY }] })
+      for (let step = 1; step <= steps; step++)
+        await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 200, y: fromY + (toY - fromY) * step / steps }] })
+      await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] })
+    }
+    // the finger goes up the screen: the page goes down
+    await drag(700, 150)
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(300)
+    await expectHidden(page, PHONE)
+    // the finger goes down the screen: the page goes up
+    await drag(200, 500)
+    await expectShown(page, PHONE)
+  })
+
+  test('a page that arrives scrolled to an anchor keeps the bars until the reader\'s first touch, wheel, key or press, and not after it', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/settings#bar', PHONE, { untouched: true })
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200)
     await page.waitForTimeout(300)
@@ -131,6 +152,9 @@ test.describe('the bars of a phone, 390 px wide', () => {
     await page.mouse.move(200, 400)
     await page.mouse.wheel(0, 300)
     await expectHidden(page, PHONE)
+    // and a script's scroll counts from then on: the gate is one-shot for the page
+    await scrollTo(page, (await page.evaluate(() => window.scrollY)) - 60)
+    await expectShown(page, PHONE)
   })
 
   test('a small scroll, a tremble and the first pixels of the page change nothing', async ({ page, baseURL }) => {
@@ -169,21 +193,32 @@ test.describe('the bars of a phone, 390 px wide', () => {
 
   test('is animated, and not for a reader who asks for no motion', async ({ page, baseURL }) => {
     await open(page, baseURL!, LONG_PAGE, PHONE)
-    const transition = () => page.evaluate(() => {
+    // each element that moves with the bars transitions its own property (the compositor runs the bars' transform); the root and
+    // the page under it transition nothing, so that a frame of the slide restyles those elements and not every element of the page
+    const transition = (selector: string) => page.locator(selector).first().evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { property: style.transitionProperty, duration: style.transitionDuration }
+    })
+    const root = () => page.evaluate(() => {
       const style = getComputedStyle(document.documentElement)
       return { property: style.transitionProperty, duration: style.transitionDuration }
     })
-    expect(await transition()).toEqual({ property: '--bars-shown', duration: '0.2s' })
+    const shown = { property: 'transform, top, bottom', duration: '0.2s, 0.2s, 0.2s' }
+    for (const selector of ['.app-header', '.app-tabbar'])
+      expect(await transition(selector)).toEqual(shown)
+    expect(await root()).toEqual({ property: 'all', duration: '0s' })
     await scrollTo(page, 500)
     await expectHidden(page, PHONE)
-    expect(await transition()).toEqual({ property: '--bars-shown', duration: '0.16s' })
+    expect(await transition('.app-header')).toEqual({ property: 'transform, top, bottom', duration: '0.16s' })
+    expect(await root()).toEqual({ property: 'all', duration: '0s' })
   })
 
   test('with prefers-reduced-motion the bars are away at once, with no transition', async ({ page, baseURL }) => {
     await open(page, baseURL!, LONG_PAGE, PHONE, { reducedMotion: true })
     // nothing is transitioned (the app's own rule for the setting sets the duration of everything else to 0.01 ms)
-    const property = () => page.evaluate(() => getComputedStyle(document.documentElement).transitionProperty)
+    const property = () => page.locator('.app-header').evaluate(element => getComputedStyle(element).transitionProperty)
     expect(await property()).toBe('none')
+    expect(await tabbar(page).evaluate(element => getComputedStyle(element).transitionProperty)).toBe('none')
     await scrollTo(page, 500)
     await expect.poll(() => attribute(page)).toBe('hidden')
     // no waiting for it to settle: one frame
@@ -216,10 +251,13 @@ test.describe('the bars of a phone, 390 px wide', () => {
     await page.locator('.app-tabbar a').first().focus()
     await expectShown(page, PHONE)
 
+    // (the focus is on the page again: a focus that stays in a bar holds the bars, the next tests)
+    await page.locator('main').focus()
     await scrollTo(page, 900)
     await expectHidden(page, PHONE)
     await page.getByRole('button', { name: en.shell.search }).focus()
     await expectShown(page, PHONE)
+    await page.locator('main').focus()
 
     // and the keyboard itself: from the page, Shift+Tab goes up to the bars
     await scrollTo(page, 1300)
@@ -265,6 +303,24 @@ test.describe('the bars of a phone, 390 px wide', () => {
     await expect(search).toBeFocused()
   })
 
+  test('does not hide while the focus is in a bar: the search button after Escape is not scrolled out of view', async ({ page, baseURL }) => {
+    await open(page, baseURL!, LONG_PAGE, PHONE)
+    const search = page.getByRole('button', { name: en.shell.search })
+    await search.click()
+    await expect(page.getByRole('dialog', { name: en.shell.search })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(search).toBeFocused()
+    await page.mouse.move(200, 400)
+    await page.mouse.wheel(0, 600)
+    await page.waitForTimeout(400)
+    expect(await attribute(page)).toBeNull()
+    await expect(search).toBeInViewport()
+    // the focus goes to the page: the next scroll down hides them
+    await page.locator('main').focus()
+    await page.mouse.wheel(0, 200)
+    await expectHidden(page, PHONE)
+  })
+
   test('does not hide while a popover is open', async ({ page, baseURL }) => {
     await open(page, baseURL!, LONG_PAGE, PHONE)
     await page.getByRole('button', { name: en.common.settings }).click()
@@ -282,9 +338,20 @@ test.describe('the bars of a phone, 390 px wide', () => {
     await scrollTo(page, 600)
     await page.waitForTimeout(300)
     expect(await attribute(page)).toBeNull()
-    await page.keyboard.press('Escape')
+    // closed by a press of the pointer: the focus is handed back to the tab, which a pointer's press does not make a focus that shows
+    await page.getByRole('dialog', { name: en.header.menu }).getByRole('button', { name: en.common.close }).click()
     await expect(page.getByRole('dialog', { name: en.header.menu })).toBeHidden()
     await scrollTo(page, 900)
+    await expectHidden(page, PHONE)
+  })
+
+  test('a control of a bar that a pointer has pressed does not hold the bars: a tapped tab stays focused on Android', async ({ page, baseURL }) => {
+    await open(page, baseURL!, LONG_PAGE, PHONE)
+    await tabbar(page).getByRole('button', { name: en.header.menu, exact: true }).click()
+    await page.getByRole('dialog', { name: en.header.menu }).getByRole('button', { name: en.common.close }).click()
+    await expect(tabbar(page).getByRole('button', { name: en.header.menu, exact: true })).toBeFocused()
+    await page.mouse.move(200, 400)
+    await page.mouse.wheel(0, 600)
     await expectHidden(page, PHONE)
   })
 

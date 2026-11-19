@@ -17,7 +17,7 @@ const CHROMIUM_SPEC = /(phone-fullscreen|bars-hide)\.spec\.ts$/
 // which only Chromium can be told to make, so it runs in a Chromium of its own, as a Pixel 7
 const TOUCH_SPECS = /dialog-touch-scroll\.spec\.ts$/
 
-// The accessibility scan (405 tests, most of them a page load and a scan: about 20 minutes on three workers, several
+// The accessibility scan (445 tests, most of them a page load and a scan: about 20 minutes on three workers, several
 // times that on one) runs on request, not with the rest: `pnpm test:a11y`, or the "App accessibility" workflow (see ACCESSIBILITY.md).
 // A project's own `testIgnore` replaces the top-level one, so every project carries this list.
 const A11Y_IGNORE = process.env.A11Y === '1' ? [] : ['**/accessibility.spec.ts']

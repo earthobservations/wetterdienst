@@ -677,37 +677,43 @@
 }
 
 /* The bars hide on scroll, on a phone (GH-4226, `useBarsHideOnScroll`): scrolling down slides the top bar up and the tab bar
-   down, scrolling up or the top brings them back. `--bars-shown` is 1 with the bars in view and 0 with them away, and is a
-   registered number so that it can be animated: the bars' transforms and the offsets of what sticks under the header
-   (`.bar-sticky`) are all calculated from it and so move together, frame by frame, with no change to the height of
-   anything (a transform moves a box and takes no room). The bars stay in the page: not `display: none` or `visibility:
-   hidden`, so the landmarks and the tab order are as they were, and a focus in either brings both back. A window too low
-   for two fixed bars has neither the hiding nor the transform (the rule above scrolls them with the page). */
-@property --bars-shown {
-  syntax: "<number>";
-  inherits: true;
-  initial-value: 1;
-}
+   down, scrolling up or the top brings them back. `--bars-shown` is 1 with the bars in view and 0 with them away; it is set
+   on the four elements that read it (the bars, the sticky preview under the top bar, the toasts), not on the root, so a change
+   restyles those and not the whole page. Each of them transitions its own property (the bars' `transform`, which the
+   compositor runs, the preview's `top`, the toasts' `bottom`), all by the same time and curve, so they move together, frame
+   by frame, with no change to the height of anything (a transform moves a box and takes no room). A browser that does not
+   transition them snaps, and nothing else breaks. The bars stay in the page: not `display: none` or `visibility: hidden`,
+   so the landmarks and the tab order are as they were, and a focus in either brings both back. A window too low for two
+   fixed bars has neither the hiding nor the transform (the rule above scrolls them with the page). */
 @media (width < 40rem) and (min-height: 30.01rem) {
-  :root {
-    transition: --bars-shown 200ms ease-out;
-  }
-  :root[data-bars="hidden"] {
+  :root[data-bars="hidden"] :is(.app-header, .app-tabbar, .bar-sticky, .app-toast-viewport) {
     --bars-shown: 0;
-    /* away faster than it comes: the page the reader is moving to is not made to wait */
-    transition-duration: 160ms;
   }
   .app-header {
-    transform: translateY(calc(var(--header-height) * (var(--bars-shown) - 1)));
+    transform: translateY(calc(var(--header-height) * (var(--bars-shown, 1) - 1)));
   }
   .app-tabbar {
-    transform: translateY(calc(var(--tabbar-height) * (1 - var(--bars-shown))));
+    transform: translateY(calc(var(--tabbar-height) * (1 - var(--bars-shown, 1))));
+  }
+  /* each moves by one property of its own (the bars' `transform`, the preview's `top`, the toasts' `bottom`), by one time and curve */
+  :is(.app-header, .app-tabbar, .bar-sticky, .app-toast-viewport) {
+    transition:
+      transform 200ms ease-out,
+      top 200ms ease-out,
+      bottom 200ms ease-out;
+  }
+  /* away faster than it comes: the page the reader is moving to is not made to wait */
+  :root[data-bars="hidden"] :is(.app-header, .app-tabbar, .bar-sticky, .app-toast-viewport) {
+    transition-duration: 160ms;
   }
 }
 /* no animation where the reader asks for none: the bars are there or they are not */
 @media (prefers-reduced-motion: reduce) {
-  :root,
-  :root[data-bars="hidden"] {
+  .app-header,
+  .app-tabbar,
+  .bar-sticky,
+  .app-toast-viewport,
+  :root[data-bars="hidden"] :is(.app-header, .app-tabbar, .bar-sticky, .app-toast-viewport) {
     transition: none;
   }
 }

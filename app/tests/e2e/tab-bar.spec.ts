@@ -72,6 +72,16 @@ function settingsWith(tabBar: unknown) {
 const bar = (page: Page) => page.locator('.app-tabbar')
 const barTexts = (page: Page) => bar(page).locator('li').allInnerTexts()
 const menuTab = (page: Page) => bar(page).getByRole('button', { name: en.header.menu, exact: true })
+/**
+ * Presses the Menu's tab. The bars slide away when the page is scrolled down (GH-4226), and a move in the chooser scrolls it
+ * to the button: a turn of the wheel upwards brings them back, as it does a reader's.
+ */
+async function pressMenuTab(page: Page) {
+  await page.mouse.move(200, 400)
+  await page.mouse.wheel(0, -60)
+  await expect(menuTab(page)).toBeInViewport()
+  await menuTab(page).click()
+}
 /** A link of the Menu's sheet by the name of its page: a tool's name carries where it is, in visually hidden text (GH-3934) */
 function sheetLink(page: Page, name: string) {
   return page.getByRole('dialog', { name: en.header.menu })
@@ -368,7 +378,7 @@ test.describe('the Menu, on a phone', () => {
 
   test('has a link to the chooser that opens the settings at it, with the focus on its heading, and the Menu marked', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/')
-    await menuTab(page).click()
+    await pressMenuTab(page)
     const sheet = page.getByRole('dialog', { name: en.header.menu })
     await sheet.getByRole('link', { name: en.settings.bar.title }).click()
     await expect(page).toHaveURL(/\/settings#bar$/)
@@ -427,7 +437,7 @@ test.describe('the Menu, on a phone', () => {
     await open(page, baseURL!, '/')
     await expect(bar(page).locator('[aria-current]')).toHaveCount(0)
     const goBySheet = async (name: string, url: RegExp) => {
-      await menuTab(page).click()
+      await pressMenuTab(page)
       await sheetLink(page, name).click()
       await expect(page).toHaveURL(url)
     }
@@ -459,7 +469,7 @@ test.describe('the Menu, on a phone', () => {
     await expect(menuTab(page)).not.toHaveAttribute('aria-current')
     await expect(bar(page).getByRole('link', { name: en.nav.history })).toHaveCount(0)
     // History is in the sheet now, and its page is the Menu's
-    await menuTab(page).click()
+    await pressMenuTab(page)
     await sheetLink(page, en.nav.history).click()
     await expect(page).toHaveURL(/\/history/)
     await expect(menuTab(page)).toHaveAttribute('aria-current', 'true')
@@ -472,7 +482,7 @@ test.describe('the Menu, on a phone', () => {
     await move(page, 'map', 'up').click()
     // History left the bar for the Menu: its tab is gone, and the pages of the sheet go on marking the Menu
     expect(await barTexts(page)).toEqual([...names(['forecast', 'explorer', 'stripes', 'map']), en.header.menu])
-    await menuTab(page).click()
+    await pressMenuTab(page)
     await sheetLink(page, en.nav.history).click()
     await expect(page).toHaveURL(/\/history/)
     await expect(menuTab(page)).toHaveAttribute('aria-current', 'true')
@@ -529,9 +539,7 @@ test.describe('a storage that is wrong, blocked or full of nonsense', () => {
     expect(await barTexts(page)).toEqual([...names(['history', 'forecast', 'explorer', 'stripes']), en.header.menu])
     // the pages of the sheet are still marked, and a page of the app still opens (the drag has scrolled the page down: the bars
     // have slid away, GH-4226, and come back with a turn of the wheel upwards)
-    await page.mouse.wheel(0, -60)
-    await expect(menuTab(page)).toBeInViewport()
-    await menuTab(page).click()
+    await pressMenuTab(page)
     await sheetLink(page, en.nav.glossary).click()
     await expect(page).toHaveURL(/\/glossary$/)
     await expect(menuTab(page)).toHaveAttribute('aria-current', 'true')
@@ -612,7 +620,7 @@ test.describe('the Menu\'s sheet follows the chosen order (GH-3934)', () => {
       // the Map goes to the first place: it is in the bar now and History is only in the Menu
       for (let step = 0; step < 4; step++)
         await move(page, 'map', 'up').click()
-      await menuTab(page).click()
+      await pressMenuTab(page)
       await expect(sheet(page)).toBeVisible()
       const expected = ['map', 'forecast', 'explorer', 'stripes', 'history']
       await expect.poll(() => sheetOrder(page)).toEqual(expected)
@@ -664,15 +672,15 @@ test.describe('the Menu\'s sheet follows the chosen order (GH-3934)', () => {
 
   test('follows a move made in the settings, and keeps its order across a reload', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/settings', { settings: settingsWith(DEFAULT_ORDER) })
-    await menuTab(page).click()
+    await pressMenuTab(page)
     await expect.poll(() => sheetOrder(page)).toEqual(DEFAULT_ORDER)
     await page.keyboard.press('Escape')
     await move(page, 'stripes', 'up').click()
     await move(page, 'stripes', 'up').click()
-    await menuTab(page).click()
+    await pressMenuTab(page)
     await expect.poll(() => sheetOrder(page)).toEqual(['stripes', 'forecast', 'explorer', 'history', 'map'])
     await page.reload()
-    await menuTab(page).click()
+    await pressMenuTab(page)
     await expect.poll(() => sheetOrder(page)).toEqual(['stripes', 'forecast', 'explorer', 'history', 'map'])
   })
 })
@@ -728,7 +736,7 @@ test.describe('the link to the chooser, in a browser', () => {
 
   test('takes the focus to the heading from the settings page itself, where only the address changes', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/settings')
-    await menuTab(page).click()
+    await pressMenuTab(page)
     await page.getByRole('dialog', { name: en.header.menu }).getByRole('link', { name: en.settings.bar.title }).click()
     await expect(page).toHaveURL(/\/settings#bar$/)
     await expect(page.getByRole('heading', { level: 2, name: en.settings.bar.title })).toBeFocused()
@@ -736,7 +744,7 @@ test.describe('the link to the chooser, in a browser', () => {
 
   test('gives the focus back to the Menu tab where the reader is at the chooser already and nothing changes', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/settings#bar')
-    await menuTab(page).click()
+    await pressMenuTab(page)
     const sheet = page.getByRole('dialog', { name: en.header.menu })
     await sheet.getByRole('link', { name: en.settings.bar.title }).click()
     await expect(sheet).toBeHidden()
@@ -745,7 +753,7 @@ test.describe('the link to the chooser, in a browser', () => {
 
   test('leaves the sheet and the focus alone on a Ctrl-click, which opens the link in a tab of its own', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/history')
-    await menuTab(page).click()
+    await pressMenuTab(page)
     const sheet = page.getByRole('dialog', { name: en.header.menu })
     const link = sheet.getByRole('link', { name: en.settings.bar.title })
     await link.focus()

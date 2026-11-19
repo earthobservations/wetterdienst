@@ -42,10 +42,32 @@ export function useToastInset() {
     apply()
   }
 
+  // The region stands above the tab bar, and on a phone it moves with the bar as it hides and returns (`--bars-shown` in
+  // main.css, GH-4226): its size does not change, its place does, so the observer does not see it. The place is measured again
+  // when the bars' state changes and when the region has stopped moving (its `bottom` is transitioned; where it is not,
+  // nothing ends, and a timer a little longer than the transition has the last word)
+  let settleTimer: ReturnType<typeof setTimeout> | undefined
+  const BARS_SLIDE_MS = 260
+  const barsMoved = () => {
+    apply()
+    clearTimeout(settleTimer)
+    settleTimer = setTimeout(apply, BARS_SLIDE_MS)
+  }
+  const barsObserver = typeof MutationObserver === 'undefined' ? undefined : new MutationObserver(barsMoved)
+  barsObserver?.observe(root, { attributes: true, attributeFilter: ['data-bars'] })
+  const onTransitionEnd = (event: Event) => {
+    if (viewport && event.target === viewport)
+      apply()
+  }
+  document.addEventListener('transitionend', onTransitionEnd)
+
   // the region appears with the first toast and its height follows the toasts through the observer
   watch(() => toasts.value.length, follow, { flush: 'post' })
   useEventListener('resize', apply)
   onScopeDispose(() => {
+    barsObserver?.disconnect()
+    document.removeEventListener('transitionend', onTransitionEnd)
+    clearTimeout(settleTimer)
     observer?.disconnect()
     root.style.removeProperty(TOAST_INSET_PROPERTY)
   })

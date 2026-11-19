@@ -19,9 +19,10 @@ const LOW_WINDOW_QUERY = '(max-height: 30rem)'
 const OVERLAY_SELECTOR = '[role="dialog"][data-state="open"], [aria-haspopup][aria-expanded="true"], [role="combobox"][aria-expanded="true"]'
 
 /**
- * What a reader does to scroll: a finger on the page, the wheel, the keys, a press (a scroll bar). The bars hide only for a
- * scroll that follows one of them: a page that arrives scrolled (a link to `/settings#bar`, a restored position) or is
- * moved by a script is not the reader leaving the bars behind, and keeps them until the reader scrolls.
+ * What a reader does to scroll: a finger on the page, the wheel, the keys, a press (a scroll bar). A page that has just
+ * arrived (a first load, a step to another path) keeps its bars until the first of them: a link to `/settings#bar` or a
+ * restored position is not the reader leaving the bars behind. The gate is one-shot for each page: once the reader has
+ * touched it, every scroll counts, a script's (`scrollIntoView`, an anchor) as well as the reader's own.
  */
 const INPUT_EVENTS = ['touchstart', 'wheel', 'keydown', 'pointerdown'] as const
 
@@ -44,9 +45,11 @@ export interface BarsHideOptions {
  * A page can say it keeps them (`definePageMeta({ barsHide: false })`, the map, which fills the window between them), and the
  * widget has none. The bars are shown, never hidden, while a dialog, a popover or the search is open, and a focus in either
  * bar brings both back, so a keyboard that tabs into a hidden bar sees where it is (WCAG 2.4.7, 2.4.11); the bars are not
- * `display: none` or `visibility: hidden`, so the landmarks and the tab order are as they were. Only the reader's own scroll
- * hides them (`INPUT_EVENTS`): a page that arrives scrolled to an anchor has them in view. The direction logic is
- * `utils/bar-scroll.ts`. Call it once, in the root component.
+ * `display: none` or `visibility: hidden`, so the landmarks and the tab order are as they were. A page that arrives scrolled
+ * (to an anchor) has them in view until the reader's first touch, wheel, key or press (`INPUT_EVENTS`); they also stay while the
+ * keyboard's focus (`:focus-visible`) is in either bar, so a button that has just been used is not left off-screen with it. A
+ * step that changes only the query of the address (a chart's panels, a station picked) is the same page: it neither brings the bars back nor re-arms the
+ * gate. The direction logic is `utils/bar-scroll.ts`. Call it once, in the root component.
  */
 export function useBarsHideOnScroll(options: BarsHideOptions = {}) {
   if (import.meta.server)
@@ -63,7 +66,7 @@ export function useBarsHideOnScroll(options: BarsHideOptions = {}) {
 
   const position = () => ({ y: win.scrollY, max: root.scrollHeight - win.innerHeight })
   let state = shownBarScroll(win.scrollY)
-  /** Set by a page that has just arrived, until the reader's first touch, wheel, key or press: the scroll before it is not theirs */
+  /** Set when a page has just arrived, until the reader's first touch, wheel, key or press: the scroll before it keeps the bars in view */
   let awaitingInput = true
 
   function apply(next: typeof state) {
@@ -83,13 +86,33 @@ export function useBarsHideOnScroll(options: BarsHideOptions = {}) {
     awaitingInput = false
   }
 
+  /**
+   * Whether the keyboard's focus is on a control of a bar. A control that a finger or a mouse has pressed keeps the focus too
+   * (Chrome on Android focuses a tapped link, and it stays focused through the navigation), and that must not hold the bars
+   * for the rest of the visit: only a focus that shows (`:focus-visible`, which a key and a dialog handing the focus back
+   * after a key give) does.
+   */
+  function focusIsInBars() {
+    const focused = doc.activeElement as Partial<Element> | null
+    if (typeof focused?.closest !== 'function' || focused.closest(BARS_SELECTOR) === null)
+      return false
+    try {
+      return focused.matches?.(':focus-visible') ?? true
+    }
+    catch {
+      // a browser that does not know the selector: the focus holds them, as the safer of the two
+      return true
+    }
+  }
+
   function onScroll() {
     if (awaitingInput) {
       state = { ...state, anchor: Math.max(0, win.scrollY) }
       return
     }
-    // the page is held for a dialog (its scroll offset is put back when the dialog closes): nothing of that is the reader's scroll
-    if (overlayIsOpen(doc)) {
+    // the page is held for a dialog (its scroll offset is put back when the dialog closes): nothing of that is the reader's scroll;
+    // and the focus is in a bar (the search button after Escape, a tab just used): the bars stay with it, a focused control is not scrolled out of view
+    if (overlayIsOpen(doc) || focusIsInBars()) {
       state = { ...state, anchor: Math.max(0, win.scrollY) }
       return
     }
@@ -125,8 +148,9 @@ export function useBarsHideOnScroll(options: BarsHideOptions = {}) {
     }
   }, { immediate: true })
 
-  // another page begins at its own top, with the bars in view
-  watch(() => route.fullPath, () => {
+  // another page begins at its own top, with the bars in view; the same page with another query (`router.replace` of a chart's
+  // panels, a picked station) is not another page
+  watch(() => route.path, () => {
     if (!enabled.value)
       return
     awaitingInput = true

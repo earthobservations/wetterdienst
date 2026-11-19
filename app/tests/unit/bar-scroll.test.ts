@@ -150,26 +150,33 @@ describe('reduced motion and the safe areas, in the stylesheet', () => {
   }
 
   it('animates the bars only for a reader who has not asked for no motion', () => {
-    const reduced = css.slice(css.indexOf('@media (prefers-reduced-motion: reduce) {\n  :root,'))
-    const block = reduced.slice(0, reduced.indexOf('\n}\n') + 3)
-    // both the shown and the hidden state have no transition: the bars are there or they are not
-    expect(block).toContain(':root[data-bars="hidden"]')
+    const start = css.indexOf('@media (prefers-reduced-motion: reduce) {\n  .app-header,')
+    expect(start).toBeGreaterThan(-1)
+    const block = css.slice(start, css.indexOf('\n}\n', start) + 3)
+    // every element that moves with the bars has no transition, in either state: they are there or they are not
+    for (const selector of ['.app-header', '.app-tabbar', '.bar-sticky', '.app-toast-viewport', ':root[data-bars="hidden"]'])
+      expect(block).toContain(selector)
     expect(block).toMatch(/transition:\s*none/)
-    // and it is the last word on the root: nothing after it sets a transition on it again
-    expect(css.slice(css.indexOf(block) + block.length)).not.toMatch(/:root\s*\{[^}]*transition:\s*--bars-shown/)
+    // and it is the last word: nothing after it gives one of them a transition again
+    expect(css.slice(start + block.length)).not.toMatch(/\.(app-header|app-tabbar|bar-sticky|app-toast-viewport)[^{}]*\{[^}]*\btransition:\s*(?!none)/)
   })
 
-  it('slides both bars by one registered number, with transforms, and only below 40 rem in a window that is not low', () => {
-    expect(css).toMatch(/@property --bars-shown\s*\{[^}]*syntax:\s*"<number>"[^}]*initial-value:\s*1/)
+  it('slides both bars by transforms the compositor runs, and only below 40 rem in a window that is not low', () => {
+    // no registered, inherited number on the root: every element of the page restyled on every frame of the slide
+    expect(css).not.toContain('@property --bars-shown')
+    expect(css).not.toMatch(/:root\s*\{[^}]*transition:/)
     const phone = css.slice(css.indexOf('@media (width < 40rem) and (min-height: 30.01rem) {'))
-    expect(phone).toContain('transition: --bars-shown')
+    // set on the four elements that read it, not on the root
+    expect(phone).toMatch(/:root\[data-bars="hidden"\] :is\(\.app-header, \.app-tabbar, \.bar-sticky, \.app-toast-viewport\) \{\s*--bars-shown: 0;/)
     const header = ruleOf('.app-header', phone)
-    expect(header).toContain('transform: translateY(calc(var(--header-height) * (var(--bars-shown) - 1)))')
+    expect(header).toContain('transform: translateY(calc(var(--header-height) * (var(--bars-shown, 1) - 1)))')
     // the tab bar goes by its own height, the home indicator's room included
     const tabbar = ruleOf('.app-tabbar', phone)
-    expect(tabbar).toContain('transform: translateY(calc(var(--tabbar-height) * (1 - var(--bars-shown))))')
+    expect(tabbar).toContain('transform: translateY(calc(var(--tabbar-height) * (1 - var(--bars-shown, 1))))')
     // no layout: neither bar changes height, top or bottom with it
     expect(`${header}${tabbar}`).not.toMatch(/\b(height|top|bottom|margin[a-z-]*)\s*:/)
+    // each transitions the property that moves it (the bars' transform, the preview's top, the toasts' bottom), by one time
+    expect(phone).toMatch(/:is\(\.app-header, \.app-tabbar, \.bar-sticky, \.app-toast-viewport\) \{\s*transition:\s*transform 200ms ease-out,\s*top 200ms ease-out,\s*bottom 200ms ease-out;/)
   })
 
   it('keeps the home indicator under the tab bar, which is what the slide is measured by', () => {

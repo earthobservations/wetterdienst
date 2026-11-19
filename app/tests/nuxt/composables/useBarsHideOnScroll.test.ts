@@ -168,8 +168,60 @@ describe('the bars that hide on scroll', () => {
     // and the count begins where the page is: a few pixels are no scroll
     await scrollTo(905)
     expect(hidden()).toBe(false)
+    // (while the focus stays in the bar they do not hide again: the next test)
+    page.focus()
     await scrollTo(930)
     expect(hidden()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('do not hide while the focus is in a bar: the control that was just used is not scrolled out of view', async () => {
+    const wrapper = await mountOn([PHONE_QUERY])
+    const bar = document.createElement('header')
+    bar.className = 'app-header'
+    const button = document.createElement('button')
+    bar.append(button)
+    const page = document.createElement('button')
+    document.body.append(bar, page)
+
+    // the search closed with Escape: the focus is back on its button, and the reader scrolls
+    button.focus()
+    await scrollTo(900)
+    expect(hidden()).toBe(false)
+    await scrollTo(1400)
+    expect(hidden()).toBe(false)
+    // the focus is somewhere else: the next scroll down hides them
+    page.focus()
+    await scrollTo(1450)
+    expect(hidden()).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('keep the bars hidden through a step that only changes the query, and bring them back for another path', async () => {
+    const router = useRouter()
+    router.addRoute({ path: '/query-page', component: { render: () => h('div') } })
+    router.addRoute({ path: '/other-page', component: { render: () => h('div') } })
+    await router.push('/query-page')
+    const wrapper = await mountOn([PHONE_QUERY], '/query-page')
+    await scrollTo(900)
+    expect(hidden()).toBe(true)
+
+    // a chart's panels, a picked station: the same page with another query, which the explorer and the others do by `replace`
+    await router.replace({ path: '/query-page', query: { panels: 'a' } })
+    await nextTick()
+    expect(hidden()).toBe(true)
+    // and the gate is not armed again: the next scroll counts at once
+    await scrollTo(1000)
+    await scrollTo(1020)
+    expect(hidden()).toBe(true)
+    await scrollTo(990)
+    expect(hidden()).toBe(false)
+    await scrollTo(1400)
+    expect(hidden()).toBe(true)
+
+    await router.push('/other-page')
+    await nextTick()
+    expect(hidden()).toBe(false)
     wrapper.unmount()
   })
 

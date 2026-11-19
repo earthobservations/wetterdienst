@@ -44,7 +44,7 @@ Types of changes:
   down and come back when you scroll up or reach the top, so a page has the whole screen; a small
   scroll does nothing, a focus in either bar brings both back, and with reduced motion they appear
   and disappear without animation. They stay while the search, the Menu or a popover is open and on
-  the map. The top bar is 44 px, not 60: a smaller logo and name, and the search and settings as
+  the map. The top bar is 44 px, not 64: a smaller logo and name, and the search and settings as
   44 px icon buttons. The search opens as a bar over the top bar. Wider screens are unchanged
   (GH-4226).
 - `[Map]` The legend (what a filled and a hollow dot and a numbered disc are) is in the layers panel,
