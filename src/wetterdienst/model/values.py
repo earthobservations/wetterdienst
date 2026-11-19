@@ -351,7 +351,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
     #: stations whose file the provider let go, those whose dates of another series were left out and those whose values
     #: of a window that had not closed were left out, which the estimate tells once as `source-data-left-out` when its
     #: walk is over (`EstimateLeftOut`, GH-3848, GH-3883). It also says that the values are read for an estimate:
-    #: `metno/frost` leaves the monthly and annual value of an open window out of one, as it does a daily value
+    #: `metno/frost` leaves the monthly and annual value of an open window out of one, as it does a daily value,
+    #: and `dmi/observation` the day, the month and the year still running (`model/open_window.py`)
     _left_out_of_estimate: EstimateLeftOut | None = field(default=None, init=False, repr=False, compare=False)
 
     def __post_init__(self) -> None:
@@ -490,10 +491,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         """Walk the stations in order, each one collected, cut to the window and shaped, as `query` yields them."""
         # the stations that returned values, which `filter_by_rank` counts its slots in
         stations_collected = 0
-        # an explicit list of ids is the one selection whose empty stations are told (`station-without-rows`, GH-3828)
+        # an explicit list of ids, `station_id`s or the WMO, WIGOS or ICAO ids of stations, is the one kind of selection
+        # whose empty stations are told (`station-without-rows`, GH-3828, GH-4070)
         asked = (
             [cast("str", station_id) for (station_id,), _ in groups]
-            if self.sr._stations_filter == StationsFilter.BY_STATION_ID  # noqa: SLF001
+            if self.sr._stations_filter  # noqa: SLF001
+            in {
+                StationsFilter.BY_STATION_ID,
+                StationsFilter.BY_WMO_ID,
+                StationsFilter.BY_WIGOS_ID,
+                StationsFilter.BY_ICAO_ID,
+            }
             else None
         )
         rows = ParameterRows(
@@ -1391,6 +1399,58 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
                 return cast("int", row.item(0, "rows"))
         return df_parameter.height
 
+    def _given_timestamps(self, parameter: ParameterModel) -> pl.Series | None:  # noqa: ARG002
+        """Name the steps at which the source gives a parameter at the station in hand, for `skip_empty`, or None.
+
+        Implemented by a provider whose product gives an element at some steps of its resolution only, which a share
+        measured against every step of the grid (`_get_actual_percentage`) would read as a station that lacks values
+        (MOSMIX-L's `TX` every 12th hour, MOSMIX-SNOW's `SnCv` every 3rd, GH-4093). Called once per parameter of the
+        request after the station was collected, for the station in hand; it must not download. The steps are
+        timestamps (a UTC datetime series, or None for no say) of the readings the file the station was read from
+        gives, whether this station has a value there or not, in the timezone of the frames the provider returns; the
+        share is then the distinct slots of the resolution among them that the station has a value at, of those that
+        lie in the window (or the span of the station's series). An empty series is a parameter given at no step at all,
+        which counts as zero, as a parameter that came back with nothing does. A parameter given at steps, none of them
+        in the window, is not measured: there is nothing to share, so it is left out of `skip_criteria`'s min, mean and
+        max beside the parameters that are measured (a source that gives an element at 06 and 18 UTC has no say about a
+        window of 07 to 17). A station whose every parameter is left out has nothing in the window and is skipped, as
+        it is whatever `drop_nulls` and the shape are.
+
+        The steps are the file's own, so an element that ends before the run does cannot be told from one that is given
+        so: its last step is whichever the file last gives, and a station that has them all is complete. No real file
+        has such an element (MOSMIX-L and MOSMIX-S, 2026-11-17: every element reaches the last step of its cadence),
+        and `docs/data/provider/dwd/mosmix/elements/index.md` lists them. An element the file gives at no step for the
+        station (`DRR1` at 10961, the Zugspitze) is an empty series: zero coverage, and `skip_empty` (with
+        `skip_criteria` "min") skips the station.
+
+        Not implemented, which is what a provider that does not name its steps does, the steps are every slot of the
+        resolution's grid over the window, as they always were.
+        """
+        return None
+
+    @staticmethod
+    def _share_of_given_steps(
+        df_parameter: pl.DataFrame,
+        given: pl.Series,
+        interval: str,
+        window: tuple[dt.datetime | None, dt.datetime | None],
+    ) -> float | None:
+        """Give the share of the slots the source gives a parameter at, in the window, the station has a value at.
+
+        None where the source gives the parameter at steps and none of them lies in the window: nothing to measure.
+        """
+        if given.is_empty():
+            return 0.0
+        slots = given.cast(df_parameter.schema["timestamp"]).to_frame("timestamp")
+        start_date, end_date = window
+        if start_date is not None and end_date is not None:
+            slots = slots.filter(pl.col("timestamp").is_between(start_date, end_date, closed="both"))
+        expected = slots.select(pl.col("timestamp").dt.truncate(interval).unique()).get_column("timestamp")
+        if expected.is_empty():
+            return None
+        covered = df_parameter.drop_nulls("value").get_column("timestamp").dt.truncate(interval)
+        return min(covered.filter(covered.is_in(expected.implode())).n_unique() / expected.len(), 1.0)
+
     def _get_actual_percentage(
         self, df: pl.DataFrame, spans: pl.DataFrame | None = None, rows: pl.DataFrame | None = None
     ) -> float:
@@ -1429,7 +1489,8 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         # whatever the mode (GH-3676). As it was where the check used to null the value; a road sensor that stopped,
         # which kept its value and counted, no longer counts
         df = leave_out_suspect(df)
-        percentages = []
+        # None for a parameter that is not measured (`_share_of_given_steps`)
+        percentages: list[float | None] = []
         for parameter in cast("Iterable[ParameterModel]", self.sr.parameters):
             resolution = parameter.dataset.resolution
             # the dataset frame carries the fallback window below. Read per dataset rather than
@@ -1450,12 +1511,18 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             start_date, end_date = self.sr.start, self.sr.end
             if start_date is None or end_date is None:
                 start_date, end_date = self._series_span(df_dataset, spans, resolution.name, parameter.dataset.name)
+            interval = reading_interval(resolution.value)
+            # a source that names the steps it gives the parameter at is measured against those, not against every
+            # slot of the grid (`_given_timestamps`)
+            given = self._given_timestamps(parameter) if interval is not None else None
+            if given is not None and interval is not None:
+                percentages.append(self._share_of_given_steps(df_parameter, given, interval, (start_date, end_date)))
+                continue
             expected = (
                 count_readings(resolution.value, start_date, end_date)
                 if start_date is not None and end_date is not None
                 else None
             )
-            interval = reading_interval(resolution.value)
             if not expected or interval is None:
                 held = self._rows_held(df_parameter, rows, resolution.name, parameter)
                 percentages.append(df_parameter.get_column("value").drop_nulls().len() / held if held else 0.0)
@@ -1467,13 +1534,17 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
             # of an hourly window would cover it twice over and read as complete
             covered = df_parameter.drop_nulls("value").get_column("timestamp").dt.truncate(interval).n_unique()
             percentages.append(min(covered / expected, 1.0))
-        if not percentages:
+        measured = [percentage for percentage in percentages if percentage is not None]
+        if not measured:
+            # every parameter was left unmeasured (`_given_timestamps` names none in the window), or there is none: the
+            # station has nothing in the window and is skipped, as it is with the nulls dropped (an empty frame) and
+            # as it was before the steps were named. Not measured only means a parameter has no say beside the others
             return 0.0
         if self.sr.options.skip_criteria == "min":
-            return min(percentages)
+            return min(measured)
         if self.sr.options.skip_criteria == "mean":
-            return sum(percentages) / len(percentages)
+            return sum(measured) / len(measured)
         if self.sr.options.skip_criteria == "max":
-            return max(percentages)
+            return max(measured)
         msg = "skip_criteria must be one of min, mean, max"
         raise KeyError(msg)

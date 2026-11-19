@@ -7,6 +7,7 @@ See `tests/public_surface.py` for what the snapshot holds, what the others pin, 
 
 from __future__ import annotations
 
+import ast
 import json
 from typing import Any
 
@@ -71,6 +72,40 @@ def test_the_snapshot_holds_the_entry_points_of_the_guide() -> None:
     )
     assert {"cache_dir", "auth"} <= set(committed["Settings"])
     assert committed["Options"]
+
+
+def _private_parameters(surface: object, where: str = "") -> list[str]:
+    """Name each parameter that starts with an underscore in a signature of a surface, wherever it is in it."""
+    if isinstance(surface, dict):
+        return [name for key, value in surface.items() for name in _private_parameters(value, f"{where}/{key}")]
+    if isinstance(surface, str) and surface.startswith("("):
+        function = ast.parse(f"def f{surface}: pass").body[0]
+        assert isinstance(function, ast.FunctionDef)
+        arguments = function.args
+        names = [a.arg for a in (*arguments.posonlyargs, *arguments.args, *arguments.kwonlyargs)]
+        names += [a.arg for a in (arguments.vararg, arguments.kwarg) if a is not None]
+        return [f"{where}: {name}" for name in names if name.startswith("_")]
+    return []
+
+
+def test_no_signature_of_the_surface_has_a_private_parameter() -> None:
+    """A private field of a request is no constructor argument (`init=False`): 1.0 freezes what the signature names.
+
+    A dataclass field that is a cache the request sets itself, without `init=False`, is a parameter of the
+    constructor, and then part of the surface (`_snow_stations` of `dwd/mosmix`, GH-4128, and the three of `dwd/dmo`,
+    GH-4142). Both the committed snapshot and the surface as the code serves it are read.
+    """
+    committed = json.loads(SNAPSHOT.read_text(encoding="utf-8"))
+
+    assert _private_parameters(committed) == []
+    assert _private_parameters(build_surface()) == []
+
+
+def test_a_private_parameter_is_found_wherever_a_signature_has_one() -> None:
+    """The check reads each kind of parameter, so that a private one cannot hide in a keyword-only or a variadic."""
+    surface = {"x": {"y": "(a, /, b=None, *, _c=1)", "z": "(a, *_args, **_kwargs)", "w": "(a, b)"}}
+
+    assert _private_parameters(surface) == ["/x/y: _c", "/x/z: _args", "/x/z: _kwargs"]
 
 
 _SENTINEL = object()

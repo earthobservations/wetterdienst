@@ -35,6 +35,12 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - POI
         - current weather reports, the observed counterpart to MOSMIX
         - hourly, roughly the last day, for the MOSMIX stations that report
+    - Pollen
+        - forecast of the pollen load of eight pollen types for 27 regions of Germany
+        - daily, today, tomorrow and the day after; no coordinates, the regions are found by name or id
+    - UVI
+        - forecast of the UV index for 38 places in Germany
+        - daily, the highest UV index of today, tomorrow and the day after
     - Phenology
         - observed plant development dates from the phenological network, reaching back to 1925
         - annual resolution; 110 plant datasets across the annual and immediate reporter groups
@@ -49,6 +55,9 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - Alerts
         - the public weather warnings (CAP), all currently active ones, by community or district
         - a rolling window of about 48 hours of snapshots, no archive
+    - Storm cells (`storm_cells`)
+        - the thunderstorm cells KONRAD3D detects in the radar data: severity, hail, heavy rain and gust flags, speed, direction, outline and forecast track
+        - the newest scan or one of the last 48 hours, every 5 minutes, no archive
 - AEMET (Agencia Estatal de Meteorología / State Meteorological Agency / Spain)
     - Observation
         - climatological data from the Spanish station network
@@ -101,7 +110,7 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - Observation
         - observations from the Dutch station network
         - 10-minute, hourly, daily, monthly and annual resolution
-        - requires a free API key from developer.dataplatform.knmi.nl (`WD_AUTH__KNMI`)
+        - requires a free EDR API key from developer.dataplatform.knmi.nl (`WD_AUTH__KNMI_EDR`)
 - LHMT (Lietuvos hidrometeorologijos tarnyba / Lithuanian Hydrometeorological Service / Lithuania)
     - Observation
         - hourly observations from the Lithuanian automatic station network via the api.meteo.lt REST API

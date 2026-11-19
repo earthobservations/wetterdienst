@@ -2,7 +2,9 @@ import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { clearNuxtState } from '#app'
 import UseMyLocation from '~/components/UseMyLocation.vue'
+import { usePlace } from '~/composables/usePlace'
 import { LOCATION_STORAGE_KEY } from '~/utils/geolocation'
+import { LOCATION_STATE } from '../fixtures/state'
 
 // "Use my location" (GH-3651, GH-4011, GH-4010): the one component of the station map, "Ask the weather" and the station
 // picker. What it shows follows what is in hand and what is stored: only the button at first; after a press, the box
@@ -16,14 +18,15 @@ function mockBrowser(fix = { latitude: 53.5512, longitude: 9.9934 }) {
 }
 
 beforeEach(() => {
-  clearNuxtState()
+  clearNuxtState(LOCATION_STATE)
   localStorage.clear()
 })
 afterEach(() => {
   delete (navigator as any).geolocation
   delete (navigator as any).permissions
+  vi.unstubAllGlobals()
   localStorage.clear()
-  clearNuxtState()
+  clearNuxtState(LOCATION_STATE)
 })
 
 async function mountControl(props: Record<string, unknown> = {}) {
@@ -261,6 +264,195 @@ describe('"Forget my position"', () => {
     await forget(wrapper)
     expect(stored()).toBeNull()
     expect(box(wrapper).exists()).toBe(false)
+  })
+})
+
+// a browser that refuses to keep anything (GH-4014): a private window, blocked site data, a full quota
+function blockStorage() {
+  vi.stubGlobal('localStorage', {
+    getItem: () => null,
+    setItem: () => {
+      throw new DOMException('full', 'QuotaExceededError')
+    },
+    removeItem: () => {},
+  })
+}
+const notKept = (wrapper: Wrapper) => wrapper.find('[data-testid="use-my-location-not-kept"]')
+
+describe('where the browser refuses to keep the position (GH-4014)', () => {
+  it('does not show "Stored" for what is not stored: the box stays, unticked, and an alert says it is for this visit only', async () => {
+    mockBrowser()
+    const wrapper = await mountControl()
+    await press(wrapper)
+    blockStorage()
+    expect(notKept(wrapper).exists()).toBe(false)
+
+    await box(wrapper).trigger('click')
+    await vi.waitFor(() => expect(notKept(wrapper).exists()).toBe(true))
+    expect(notKept(wrapper).attributes('role')).toBe('alert')
+    expect(notKept(wrapper).text()).toBe('Your browser did not allow the position to be stored. The position is used for this visit only.')
+    expect(chip(wrapper).exists()).toBe(false)
+    expect(box(wrapper).attributes('aria-checked')).toBe('false')
+    expect(stored()).toBeNull()
+  })
+
+  it('tells it on the map\'s station card too, which has no alert of its own', async () => {
+    mockBrowser()
+    const full = await mountControl()
+    await press(full)
+    full.unmount()
+    blockStorage()
+
+    const card = await mountControl({ offerOnly: true })
+    await box(card).trigger('click')
+    await vi.waitFor(() => expect(notKept(card).exists()).toBe(true))
+    expect(chip(card).exists()).toBe(false)
+  })
+
+  it('puts the alert in again at a second refusal, so that a screen reader announces it again', async () => {
+    mockBrowser()
+    const wrapper = await mountControl()
+    await press(wrapper)
+    blockStorage()
+    await box(wrapper).trigger('click')
+    await vi.waitFor(() => expect(notKept(wrapper).exists()).toBe(true))
+    const first = notKept(wrapper).element
+
+    await box(wrapper).trigger('click')
+    // a live region is announced when it is inserted: a second refusal is a second element, not the first one kept
+    await vi.waitFor(() => expect(notKept(wrapper).exists() && notKept(wrapper).element !== first).toBe(true))
+    expect(first.isConnected).toBe(false)
+  })
+
+  it('is not announced again by the list\'s copy that mounts after the card\'s', async () => {
+    mockBrowser()
+    const card = await mountControl()
+    await press(card)
+    blockStorage()
+    await box(card).trigger('click')
+    await vi.waitFor(() => expect(notKept(card).exists()).toBe(true))
+    card.unmount()
+
+    const list = await mountControl()
+    expect(notKept(list).exists()).toBe(false)
+  })
+
+  it('takes the alert back when the box is ticked again and the browser keeps it', async () => {
+    mockBrowser()
+    const wrapper = await mountControl()
+    await press(wrapper)
+    blockStorage()
+    await box(wrapper).trigger('click')
+    await vi.waitFor(() => expect(notKept(wrapper).exists()).toBe(true))
+
+    vi.unstubAllGlobals()
+    await box(wrapper).trigger('click')
+    await vi.waitFor(() => expect(chip(wrapper).exists()).toBe(true))
+    expect(notKept(wrapper).exists()).toBe(false)
+    expect(JSON.parse(stored()!)).toEqual({ latitude: 53.55, longitude: 9.99 })
+  })
+})
+
+// GH-4014: a stored position is not used once the browser's permission is withdrawn, and what another tab forgets is forgotten
+describe('a stored position and the permission of the browser (GH-4014)', () => {
+  const withdrawn = (wrapper: Wrapper) => wrapper.find('[data-testid="use-my-location-withdrawn"]')
+  const WITHDRAWN = 'Your browser no longer allows location for this site, so the stored position was deleted.'
+  const PLACE = { id: '00433', name: 'Berlin-Tempelhof', latitude: 52.47, longitude: 13.4, region: 'Berlin', fromPosition: true }
+
+  /** A stored position, and the station made from it unless `withPlace` is false (then nothing is looked at at load) */
+  function storedPosition(state: PermissionState, withPlace = true) {
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 52.52, longitude: 13.4 }))
+    if (withPlace) {
+      localStorage.setItem('wd-place', JSON.stringify(PLACE))
+      usePlace().place.value = PLACE
+    }
+    const getCurrentPosition = mockBrowser()
+    const query = vi.fn(async () => ({ state }))
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query } })
+    return { getCurrentPosition, query }
+  }
+
+  it('deletes the stored position and its station when a press finds the permission `denied`, and says so in the status', async () => {
+    const { getCurrentPosition, query } = storedPosition('denied')
+    const wrapper = await mountControl()
+    expect(withdrawn(wrapper).attributes('role')).toBe('status')
+    expect(withdrawn(wrapper).text()).toBe('')
+    expect(chip(wrapper).exists()).toBe(true)
+    // the control alone looks at nothing: the home page does, as it loads
+    expect(query).not.toHaveBeenCalled()
+
+    await button(wrapper).trigger('click')
+    await vi.waitFor(() => expect(withdrawn(wrapper).text()).toBe(WITHDRAWN))
+    expect(chip(wrapper).exists()).toBe(false)
+    expect(box(wrapper).exists()).toBe(false)
+    expect(stored()).toBeNull()
+    expect(localStorage.getItem('wd-place')).toBeNull()
+    expect(wrapper.emitted('position')).toBeUndefined()
+    expect(getCurrentPosition).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="use-my-location-problem"]').exists()).toBe(false)
+  })
+
+  it('takes the telling away with the page that told it', async () => {
+    storedPosition('denied')
+    const first = await mountControl()
+    await button(first).trigger('click')
+    await vi.waitFor(() => expect(withdrawn(first).text()).toBe(WITHDRAWN))
+    first.unmount()
+    const second = await mountControl()
+    expect(withdrawn(second).text()).toBe('')
+  })
+
+  it('uses the stored position when the permission is `granted`, and says nothing', async () => {
+    storedPosition('granted', false)
+    const wrapper = await mountControl()
+    await button(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.emitted('position')).toEqual([[{ latitude: 52.52, longitude: 13.4 }]]))
+    expect(withdrawn(wrapper).text()).toBe('')
+    expect(stored()).not.toBeNull()
+  })
+
+  it('forgets in this tab what another tab forgot: the "Stored" control goes', async () => {
+    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify({ latitude: 52.52, longitude: 13.4 }))
+    mockBrowser()
+    const wrapper = await mountControl()
+    expect(chip(wrapper).exists()).toBe(true)
+
+    localStorage.removeItem(LOCATION_STORAGE_KEY)
+    window.dispatchEvent(new StorageEvent('storage', { key: LOCATION_STORAGE_KEY, newValue: null, storageArea: localStorage }))
+    await vi.waitFor(() => expect(chip(wrapper).exists()).toBe(false))
+    expect(box(wrapper).exists()).toBe(false)
+  })
+})
+
+// "Forget" with a press on its way (GH-4014): the position request that is still waiting for the browser is let go
+describe('"Forget my position" during a press', () => {
+  it('drops the position that the browser gives late: it is not put back for the visit', async () => {
+    mockBrowser()
+    const wrapper = await mountControl()
+    await press(wrapper)
+    expect(wrapper.emitted('position')).toHaveLength(1)
+
+    // the next press waits: the browser does not answer yet
+    const answers: Array<(position: unknown) => void> = []
+    Object.defineProperty(navigator, 'geolocation', {
+      configurable: true,
+      value: { getCurrentPosition: vi.fn((success: (position: unknown) => void) => void answers.push(success)) },
+    })
+    await button(wrapper).trigger('click')
+    await vi.waitFor(() => expect(answers).toHaveLength(1))
+    expect(button(wrapper).attributes('aria-busy')).toBe('true')
+
+    // the first position is stored and forgotten while the second is still awaited
+    await tick(wrapper)
+    await forget(wrapper)
+    expect(button(wrapper).attributes('aria-busy')).toBe('false')
+
+    answers[0]!({ coords: { latitude: 48.1371, longitude: 11.5754 } })
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(wrapper.emitted('position')).toHaveLength(1)
+    expect(box(wrapper).exists()).toBe(false)
+    expect(chip(wrapper).exists()).toBe(false)
+    expect(stored()).toBeNull()
   })
 })
 

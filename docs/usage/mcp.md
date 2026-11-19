@@ -51,7 +51,7 @@ http://localhost:7890/mcp/v1
 `GET /api/version` says whether an instance serves it (`mcp_enabled`) and where (`mcp_path`, `mcp_alias_path`; both
 `null` without the extra). The [Docker image](docker.md) and the [app](app.md)'s `/mcp/v1` have it.
 
-The server holds the provider credentials (`WD_AUTH__AEMET`, `WD_AUTH__KNMI`, `WD_AUTH__METNO_FROST`,
+The server holds the provider credentials (`WD_AUTH__AEMET`, `WD_AUTH__KNMI_EDR`, `WD_AUTH__METNO_FROST`,
 `WD_AUTH__CEDA`, see [Settings](settings.md)), not the client: a tool for a network that needs one answers a
 [problem](troubleshooting.md#credentials) when the server has none, and the tool `auth` says whether the provider
 accepts them. The `sql` and `sql_values` arguments are refused unless the server runs with `WD_RESTAPI_SQL=true`.
@@ -73,7 +73,8 @@ parameters are, see [one vocabulary](restapi.md#one-vocabulary)) and the same an
 | `coverage` | `/api/v1/coverage` | the resolutions, datasets and parameters of one network (`provider` and `network` are required) |
 | `glossary` | `/api/v1/glossary` | what a parameter means and the unit it comes back in |
 | `auth` | `/api/v1/auth` | whether the credentials the server holds are accepted by one provider |
-| `alerts` | `/api/v1/alerts` | the weather warnings of DWD |
+| `alerts` | `/api/v1/alerts` | the weather warnings of DWD: all of Germany unless given a place (`latitude` and `longitude`, or `name`), so pass it |
+| `storm_cells` | `/api/v1/storm-cells` | the thunderstorm cells of DWD, now or within the last 48 hours: all of Germany unless given a point and `distance` (km) or a box (`left`, `bottom`, `right`, `top`), so pass one; `track=false` and `geometry=centroid` keep a long list short. The answer is not cut |
 | `stripes_stations`, `stripes_values`, `stripes_image` | `/api/v1/stripes/...` | climate stripes, see [Climate Stripes](stripes.md) |
 
 An argument that is a mapping (`unit_targets`, `limits`, `interpolation_station_distance`,
@@ -113,11 +114,109 @@ the REST API sends them; `png`, `jpg` and `webp` are image content and `pdf` is 
 content that the output schema of the tool requires is then one sentence about the answer: its media type and size in
 bytes, and the licence, the attribution, the note on what wetterdienst did to the
 data and the warnings that the REST API sends in headers for these formats (the same
-in the `_meta` of the result, under `wetterdienst`). The body is not repeated in it. An `html` chart loads plotly.js
+in the `_meta` of the result, under `wetterdienst`). For data (`csv` and `ndjson`) the body follows the sentence in the
+structured content, since a client may hand the model that alone; a chart is not repeated. An `html` chart loads plotly.js
 from the CDN, so the page is a few kilobytes (9 KB for one station) where the REST API sends it inline, about 4.8 MB,
 and the page needs the network to draw. The default is `json` (`png` for `stripes_image`, which only draws), which
 the assistant reads without further ado: a chart is for a client that shows it, and a long `csv` goes through the
 context of the assistant.
+
+## A forecast starts at now
+
+A forecast is the rows of a model run, and the latest MOSMIX-L or DMO run begins hours before the request: at 14:28 UTC
+its first row can be at 10:00 (MOSMIX-S and SWSMOS begin at the current or the next hour). An assistant that reads the
+first rows reports an hour that has passed as the forecast. So `values` for a network whose `kind` is `forecast`
+(`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, `dwd/uvi`; `coverage` and `providers` give the kind) leaves out the rows stamped before
+the current hour, in UTC, and the row stamped at the current hour stays. A `forecast-from-now` warning in
+`metadata.warnings` says that the answer starts at now and names the `timestamp` window that asks for the earlier
+hours of the run; for `csv` and `ndjson`, whose headers are in the sentence and the `_meta` of the result, it is the
+`X-Wetterdienst-Forecast-From-Now` header and the sentence of the tool (an `ndjson` answer also has the block as its
+first line). No row is left out, and no note is attached, where the run begins at or after the current
+hour. For the daily `dwd/pollen` and `dwd/uvi` the cut is by the day: a value stamped before today is left out and the
+one of today stays. The cut is made before the size budget below, so that the characters of the budget go to hours that
+are still to come.
+
+Which requests are cut:
+
+- **No `timestamp`:** every row before now.
+- **A `timestamp` of whole days that contains now**, as a day or a span (`2026-11-12`, `2026-11-12/2026-11-14`): the
+  rows of today before the current hour, as the instructions tell an assistant to give a day. The days of the window
+  before today are what the caller named, and stay. Whether a window is of whole days is read from its text: a time
+  part (`2026-11-12T00:00`) on either half makes it an exact window, served as asked, as is a month or a year.
+- **Left as they are:** a day window wholly in the past or in the future, a run asked for by its `issue` (an older run
+  is past by nature), a network that is not a forecast, and `interpolate` and `summarize`, whose `timestamp` is
+  required. To read the past hours of today, ask with a time (`2026-11-12T10:00/2026-11-12T14:00`).
+
+The start of now follows the resolution of a row: the current hour for an hourly forecast (the only one a network has
+today) and for anything finer or subdaily, the current 6-hour period of a `6_hours` forecast, the current day of a daily
+one, the month of a monthly one and the year of an annual one. A frame of several resolutions gets one window for each
+in the note, since the window of one can span rows of another that were kept. A run that is over, with every hour
+before now, answers no row and says so. The REST API, the command line and Python answer the whole run.
+
+## The size of an answer
+
+An assistant reads the answer of a tool in its context, and Claude Code saves a result of more than 50,000 characters to
+a file instead of handing it over (it counts characters, not tokens). So the answer of `values`, `stations`,
+`interpolate`, `summarize`, `stripes_stations` and `coverage` is held to **40,000 characters** of what the client receives, in
+`json`, `geojson`, `csv` and `ndjson`: for JSON the answer as the client gets it, `metadata` and `with_metadata`
+included, and for `csv` and `ndjson` the structured content as JSON: the sentence of the tool, which carries the
+licence and the note below, and the body, each newline and quote of it written as the escape it is there. A chart is
+not counted. The budget is a constant of the server and applies to the tools alone: the REST API, the command line and Python answer everything the
+[limits](restapi.md#limits) allow, so an app that lists every station of a network is unaffected.
+
+An answer over the budget is cut, not refused, and says so:
+
+- **`values`** keeps whole timestamps, at least one. Without a `timestamp` it keeps the end nearest to now: the start of
+  a forecast (which [starts at now](#a-forecast-starts-at-now)), the latest part of a `recent` or `historical` record.
+  With a `timestamp` it keeps the start of the window, so the next window continues it. Only where one timestamp alone is more than the budget are its rows cut, and no
+  window can split a timestamp: ask for fewer parameters or stations.
+- **`interpolate`** and **`summarize`** answer a series as `values` does and are cut the same way. Their `timestamp` is
+  required, so it is always the start of the window that is kept and the next window continues it. They have no
+  `shape`, so the note offers `format=csv` (about half the size of the JSON) instead of `shape=wide`.
+- **`stations`** with `name` is never cut: it asks for a few stations. Otherwise (`all`, a bounding
+  box, `sql`, ids) it keeps the first stations that fit, in the order of the list, and says how many match and that
+  `latitude`, `longitude` with `rank` or `distance`, or `name`, narrow it. A `distance` is cut too, as a wide one lists
+  hundreds of stations (983 within 500 km of Berlin): the nearest stations are kept, nearest first, and the note says
+  how many lie within the distance and how far the farthest returned is, and suggests a smaller `distance`, or `rank`.
+  So is a large `rank` (700 asks for as many): the nearest stations that fit are kept, nearest first, and the note says
+  how many the `rank` asked for, how many are returned and how far the farthest of them is, and suggests a smaller
+  `rank`. A `rank` that fits is unchanged.
+- **`stripes_stations`** is cut like `stations`: the first stations of the list. It selects by a bounding box only, so the
+  note says to give the place as `name` to `stripes_values` or `stripes_image`, which match it themselves, to find a
+  station with `stations`, or to ask for a box. The list of the temperature stripes is 175,000 characters, that of the precipitation
+  stripes 733,000.
+- **`coverage`** is not rows but resolutions, datasets and parameters with a description each, and noaa/ghcn (59,000
+  characters), dwd/observation (89,000) and dwd/phenology (139,000) are over the budget. It is cut in steps, each only
+  where the one before is still over: the answer as it is; the `description` of every parameter null (everything else
+  stays); whole datasets in the order of the network, as many as fit; and, where the first dataset alone is more than
+  the budget, its first parameters, the others not being available through the tool. The note names the datasets that
+  were left out as `resolution/dataset` and says how to ask for one: `datasets=<name>` with `resolutions=<resolution>`
+  gives its full detail. Where a dataset alone is over the budget with its descriptions (noaa/ghcn `daily/data`, 210
+  parameters), no request can give them, so the note does not offer one and names `glossary` for what a parameter
+  means. The answer keeps its shape. It has no `metadata` block and takes no key beside the resolutions, so the note is
+  the start of the `description` of the first resolution; a JSON answer reaches a client as its body alone, so no header
+  carries it. `providers` is not cut: it is 20,000 characters for all providers together.
+
+The note (but for `coverage`, above) is a warning, `answer-truncated`, in `metadata.warnings`. A JSON answer reaches a
+client as its body alone, so no header carries it (a `csv` answer has no block; for `csv` and `ndjson` the headers are in
+the sentence and the `_meta` of the result, and an `ndjson` answer also has the block as its first line). It gives the
+rows returned of the total, the range kept, the `timestamp` window to ask for the rest (a value the tool accepts,
+ending where the caller's window did) and the ways to ask for less: a narrower `timestamp`, fewer parameters, and
+`format=csv` with `shape=wide`, which is five to six times smaller than the long JSON. For `csv`, which has no block, it
+is the `X-Wetterdienst-Truncated` header too and a sentence of the tool that tells it in words, never a row of the body.
+`metadata.counts.rows` is the number of rows returned, not of those that were cut. The block that `with_metadata` adds
+(the units, the quality legend, the settings) can be more than the budget by itself, as for a dataset with many
+parameters. It counts toward the budget and is kept: the rows (timestamps, or the stations of a `rank`, a `distance`
+or a listing) are cut to make room for it. Only where not even one timestamp or station fits with it, and one fits
+without it, is it left out, the always-present `metadata` stays, and the note says how many characters it was and that
+`coverage` and `glossary` give the units. A `name` and a single station are not cut, so there the block is left out
+where it is what makes the answer over the budget: a block of 60,000 characters (noaa/ghcn with `with_metadata`) is
+left out of them, and nothing else is.
+
+The instructions and the description of `values` recommend a `timestamp` window, so an assistant that follows them
+asks for a day or a week and is not cut. A forecast of ten days of three parameters in the long JSON is about 100,000
+characters, a window of 48 hours about 20,000. An assistant that needs more than a tool gives uses the REST API or the
+[library](large-requests.md#from-an-assistant).
 
 ## Text from the providers
 

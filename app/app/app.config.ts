@@ -25,7 +25,8 @@ export default defineAppConfig({
     card: {
       slots: {
         // a white card on the paper, with a hairline and a shadow that is only there to lift it off the page
-        root: 'rounded-xl overflow-hidden shadow-[0_1px_2px_rgb(11_26_51/0.04),0_6px_20px_-12px_rgb(11_26_51/0.18)] dark:shadow-none',
+        // `card-bleed`: on a phone it runs edge to edge (main.css, GH-4227)
+        root: 'card-bleed rounded-xl overflow-hidden shadow-[0_1px_2px_rgb(11_26_51/0.04),0_6px_20px_-12px_rgb(11_26_51/0.18)] dark:shadow-none',
         header: 'px-4 py-3.5 sm:px-6',
       },
     },

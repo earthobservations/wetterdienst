@@ -35,12 +35,7 @@ PROVIDER_HOSTS: dict[str, tuple[str, ...]] = {
     "geosphere": ("dataset.api.hub.geosphere.at",),
     "imgw": ("danepubliczne.imgw.pl", "dane.imgw.pl"),
     "ipma": ("api.ipma.pt",),
-    "knmi": (
-        "api.dataplatform.knmi.nl",
-        # the store that the pre-signed link of a file leads to (`X-Amz-Signature`); read from an answer of the
-        # API (2026-10-24, host only). The name of the bucket is global to S3, so it is listed whole
-        "knmi-kdp-datasets-eu-west-1.s3.eu-west-1.amazonaws.com",
-    ),
+    "knmi": ("api.dataplatform.knmi.nl",),
     "lhmt": ("api.meteo.lt",),
     "meteofrance": (
         "www.data.gouv.fr",  # the API of the catalogue, whose "latest resource" links redirect to the next

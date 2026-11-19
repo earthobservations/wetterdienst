@@ -157,11 +157,19 @@ def _datasets_with_an_extent() -> list[tuple[str, str, Any]]:
 def test_a_dataset_narrower_than_its_network_declares_its_own_extent() -> None:
     """`dwd/dmo` is global and its `icon_eu` list is Europe's; a dataset that declares none has its network's."""
     declared = {(key, label): extent for key, label, extent in _datasets_with_an_extent()}
-    assert set(declared) == {("dwd/dmo", "hourly/icon_eu")}
+    assert set(declared) == {("dwd/dmo", "hourly/icon_eu"), ("dwd/mosmix", "hourly/snow")}
     icon_eu = declared["dwd/dmo", "hourly/icon_eu"]
     assert icon_eu.scope == "regional"
     assert "europe" in icon_eu.continents
     assert Wetterdienst.resolve("dwd", "dmo").metadata.hourly.icon.extent is None
+    # MOSMIX-SNOW lists Alpine stations, all in Bavaria (GH-4111): one country's, so national, in a global network
+    snow = declared["dwd/mosmix", "hourly/snow"]
+    assert (snow.scope, snow.continents, snow.country_codes) == ("national", ("europe",), ("DE",))
+    assert snow.bbox == (9.0, 47.2, 14.0, 49.0)
+    mosmix = Wetterdienst.resolve("dwd", "mosmix").metadata
+    assert mosmix.extent.scope == "global"
+    assert mosmix.hourly.small.extent is None
+    assert mosmix.hourly.large.extent is None
 
 
 def test_the_extent_of_a_dataset_lies_within_its_network() -> None:
@@ -298,8 +306,8 @@ def test_the_extent_of_a_network_is_hashable() -> None:
     assert copy == mosmix
     assert hash(copy) == hash(mosmix)
     assert hash(Extent.model_validate(_declared())) == hash(Extent.model_validate(_declared()))
-    # the terms of both standalone networks hash, and are equal to themselves
-    for network in ("radar", "alerts"):
+    # the terms of the standalone networks hash, and are equal to themselves
+    for network in ("radar", "alerts", "storm_cells"):
         terms = Wetterdienst.resolve_standalone("dwd", network).terms
         assert isinstance(hash(terms), int)
         assert hash(terms) == hash(Wetterdienst.resolve_standalone("dwd", network).terms)
@@ -322,7 +330,7 @@ def test_discover_gives_the_extent_as_the_dict_its_annotation_says() -> None:
 
 
 def test_every_network_of_the_list_has_the_same_members_in_the_same_order() -> None:
-    """The standalone networks (radar, alerts) are listed as the timeseries ones are, down to the order of the keys."""
+    """The standalone networks (radar, alerts, storm_cells) are listed as the timeseries ones are, key by key."""
     orders = {
         f"{provider}/{network}": list(entry)
         for provider, networks in Wetterdienst.discover().items()

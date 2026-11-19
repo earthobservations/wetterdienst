@@ -12,6 +12,23 @@ The data provided through ``wetterdienst`` includes:
 
 in resolutions 15 minutes and daily for stations in England.
 
+## Station ids
+
+A station's `station_id` is the `notation` of the listing, a UUID (`959f3e4f-bb6e-4f4a-8082-0157eea99482`). The listing
+also gives some stations the ids they have in the Environment Agency's other services, which are columns of their own
+(null where the listing gives none), found with `filter_by_sql("nrfa_id = '52017'")`:
+
+- `nrfa_id`, `nrfaStationID` of the listing, the number of the station in the National River Flow Archive (`52017`):
+  850 of the 9,537 stations (read 2026-11-17).
+- `rloi_id`, `RLOIid`, the id of the station in River Levels on the Internet, which the listing links to
+  [Check for flooding](https://check-for-flooding.service.gov.uk/) (`3060`): 1,808 stations. 52 of them have two ids
+  (an array in the listing, `["3416", "3060"]`); one is picked so that the same is read every time: the all-digit id, then the lowest (6 of the arrays pair a 4-digit id
+  with a code such as `0890TH`, and the 4-digit one is read).
+
+An id can name more than one station (2 NRFA numbers and 64 RLOI ids are on two stations or more). The listing
+has two more ids of the station, `wiskiID` (7,588 stations) and `stationReference` (3,520), which are not read.
+None of them is a WMO, WIGOS or ICAO id: `wmo_id`, `wigos_id` and `icao_id` are null.
+
 ## The source's own verdict (`source`)
 
 Every reading carries the `quality` the API words as "quality: The quality of this reading: Good, Estimated, Suspect,

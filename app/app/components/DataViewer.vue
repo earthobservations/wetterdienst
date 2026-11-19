@@ -1,18 +1,23 @@
 <script setup lang="ts">
 import type { TableColumn } from '@nuxt/ui'
-import type { Config as PlotlyConfig, Data as PlotlyData, Layout as PlotlyLayout } from 'plotly.js-basic-dist-min'
 import type { Station } from '#shared/types/api'
 import type { DataSettings } from '~/types/data-settings.type'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { StationMode, StationSelectionState } from '~/types/station-selection-state.type'
-import type { OffscreenChart } from '~/utils/chart-export'
+import type { ImageFormat } from '~/utils/chart-image'
+import type { SvgPart } from '~/utils/explorer-image'
+import type { ExplorerSeries } from '~/utils/explorer-model'
 import { h } from 'vue'
+import ExplorerChart from '~/components/ExplorerChart.vue'
 import LimitNotice from '~/components/LimitNotice.vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { describeFetchError } from '~/utils/api-error'
-import { formatDate, formatNumber, plotlySeparators } from '~/utils/format'
+import { downloadBlob, svgToBlob } from '~/utils/chart-image'
+import { readDocumentChartTheme } from '~/utils/chart-theme'
+import { stackSvgs } from '~/utils/explorer-image'
+import { LARGE_THRESHOLD, pointCount, trendOf } from '~/utils/explorer-model'
+import { formatDate, formatNumber } from '~/utils/format'
 import { limitRefusal } from '~/utils/limit-refusal'
-import { plotlyLocaleConfigOrFailure, plotlyText } from '~/utils/plotly-locale'
 import { estimateRows, hasNoReadingsYet, untilToday, windowForRefusal } from '~/utils/row-window'
 import { timestampDate } from '~/utils/timestamp'
 import { requestUnitTargets } from '~/utils/unit-targets'
@@ -31,7 +36,7 @@ const emit = defineEmits<{
   applyRange: [range: { startDate: string, endDate: string }]
 }>()
 
-const { t, locale, localeProperties } = useI18n()
+const { t, locale } = useI18n()
 const serverLimits = useServerLimits()
 const { parameterLabel, resolutionLabel, datasetLabel } = useParameterLabel()
 const { settings: appSettings } = useSettings()
@@ -66,41 +71,12 @@ const parameterSelection = computed(() => {
 type ViewMode = 'table' | 'graph'
 const viewMode = ref<ViewMode>('table')
 
-// Chart container refs
-const chartRef = ref<HTMLDivElement | null>(null)
-const facetChartRefs = ref<Map<string, HTMLDivElement>>(new Map())
-
-// Plotly instance (loaded client-side only)
-let Plotly: typeof import('plotly.js-basic-dist-min') | null = null
-// Plotly is ~1 MB, and the default view is the table -- so it is fetched when a chart is first
-// actually wanted rather than on mount. The promise is kept so concurrent callers share one import.
-let plotlyImport: Promise<typeof import('plotly.js-basic-dist-min')> | null = null
-// Plotly's newest import failed. Where a redeploy has replaced its chunk, a Retry asks for the same
-// chunk again and fails every time, and only reloading the page loads the new one: the chart area
-// says so, and offers the reload
-const plotlyNotLoaded = ref(false)
-
-async function ensurePlotly(): Promise<typeof import('plotly.js-basic-dist-min')> {
-  if (Plotly)
-    return Plotly
-  // A rejected import must not stay cached: every later call would await the same rejection and the
-  // chart would never render again, though a retry would have worked. The realistic cause is a
-  // redeploy invalidating the hashed chunk under an open tab.
-  plotlyImport ??= import('plotly.js-basic-dist-min').catch((error) => {
-    plotlyImport = null
-    plotlyNotLoaded.value = true
-    throw error
-  })
-  Plotly = await plotlyImport
-  plotlyNotLoaded.value = false
-  return Plotly
-}
-
-function reloadPage() {
-  // forced: the user's click, not a reload loop, which is what Nuxt's guard stops. Unforced, a
-  // second click within ten seconds of a first that did not help would do nothing
-  reloadNuxtApp({ force: true })
-}
+// The charts on the page (GH-4096): the single chart, or one for each facet. Each draws itself (`ExplorerChart.vue`, whose
+// ECharts code is fetched when a chart is first drawn, not on mount: the default view is the table); the viewer asks them
+// for the image to save.
+type ExplorerChartHandle = InstanceType<typeof ExplorerChart>
+const chartRef = ref<ExplorerChartHandle | null>(null)
+const facetChartRefs = new Map<string, ExplorerChartHandle>()
 
 // Parameter label format options and chart display
 // Options: 'parameter' (default), 'dataset/parameter', 'resolution/dataset/parameter'
@@ -859,56 +835,6 @@ function clearData() {
   clearValues()
 }
 
-// Plotly data preparation
-const chartColors = [
-  '#3b82f6',
-  '#22c55e',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-  '#06b6d4',
-  '#ec4899',
-  '#84cc16',
-  '#f97316',
-  '#6366f1',
-]
-
-// Linear regression calculation
-function calculateLinearRegression(xData: Date[], yData: number[]): { x: Date[], y: number[] } {
-  if (xData.length < 2)
-    return { x: [], y: [] }
-
-  const n = xData.length
-  const xNums = xData.map(d => d.getTime())
-  let sumX = 0
-  let sumY = 0
-  let sumXY = 0
-  let sumXX = 0
-  // taken in the loop, where Math.min(...xNums) threw past about 120k points (65,536 in Safari)
-  let minX = Infinity
-  let maxX = -Infinity
-
-  for (let i = 0; i < n; i++) {
-    sumX += xNums[i]!
-    sumY += yData[i]!
-    sumXY += xNums[i]! * yData[i]!
-    sumXX += xNums[i]! * xNums[i]!
-    minX = Math.min(minX, xNums[i]!)
-    maxX = Math.max(maxX, xNums[i]!)
-  }
-
-  const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX)
-  const intercept = (sumY - slope * sumX) / n
-
-  return {
-    x: [new Date(minX), new Date(maxX)],
-    y: [slope * minX + intercept, slope * maxX + intercept],
-  }
-}
-
-// Performance threshold - use WebGL and simplified rendering for large datasets
-const LARGE_DATASET_THRESHOLD = 500
-
 // The date a row is placed at on the chart, or null for a row the chart has no place for. A query
 // can put anything under `timestamp`: null; text that is no date, as a time of day or 'n/a', which
 // left an Invalid Date that threw once written as ISO text, and the chart was not drawn, or which a
@@ -920,119 +846,107 @@ function rowDate(row: Value): Date | null {
   return typeof timestamp === 'string' ? timestampDate(timestamp) : null
 }
 
-// The rows the chart plots, each with its date: those with a value and a date to place it at. The
-// series and facets are made from these alone, so a series whose rows are all left out is not drawn
+// The rows the chart plots, each with its moment: those with a value and a date to place it at, and those with no value
+// at a date, which the line is broken at (a gap in the data is a gap in the chart). The series and
+// facets are made from these alone, so a series whose rows are all left out is not drawn
 // empty, and the large-dataset threshold counts the points drawn, not the rows left out. In the order
 // the rows were fetched or queried, not the table's sort: the series take their legend places and
 // colours in the order their first row comes, which a sort click swapped, and built the traces anew for.
 // A value is a finite number, or an integer past 2^53 as plainRows writes it, its digits: any other
 // text a query puts under `value`, `CAST(value AS VARCHAR)` or 'n/a', the trendline added up as
 // text, drawing nothing, and text that is no number turned the y axis into one of categories.
-// None while the table is shown, the view a Fetch opens: the render watchers below and `chartNotDrawn`
-// read the chart's computeds whatever the view, so every answer was read row by row once more for a
+// None while the table is shown, the view a Fetch opens: `chartShown` and the series read the
+// chart's computeds whatever the view, so every answer was read row by row once more for a
 // chart that was not on screen (GH-2560). The rows are read when the view moves to the chart
 const chartRows = computed(() => viewMode.value !== 'graph'
   ? []
   : displayData.value.flatMap((row) => {
       const date = rowDate(row)
       const value: unknown = row.value
-      const y = typeof value === 'number' ? value : Number(bigIntegerValue(value) ?? Number.NaN)
-      return date && Number.isFinite(y) ? [{ row, date, y }] : []
+      const y = value === null ? null : typeof value === 'number' ? value : Number(bigIntegerValue(value) ?? Number.NaN)
+      return date && (y === null || Number.isFinite(y)) ? [{ row, moment: date.getTime(), y }] : []
     }))
-
-const isLargeChart = computed(() => chartRows.value.length > LARGE_DATASET_THRESHOLD)
 
 // A trendline is named for its series in the language of the page: "Mean air temperature (Trendline)"
 function trendlineName(series: string) {
   return `${series} (${t('dataViewer.trendline')})`
 }
 
-// Plotly traces for single chart
-const chartTraces = computed(() => {
+// `resolution` is the one every row of the series has (undefined before its first row, null where they differ): the line is
+// broken by it where rows are missing (GH-4100)
+interface SeriesData { name: string, x: number[], y: (number | null)[], resolution?: string | null }
+
+function noteResolution(series: SeriesData, resolution: string) {
+  series.resolution = series.resolution === undefined || series.resolution === resolution ? resolution : null
+}
+
+// The series a chart draws, from what was gathered of the rows: each sorted by time, those with no value at all left out, and a
+// trendline after each of them (collected apart, to be drawn on top) where it is on. `colorOf` is the place of a series'
+// colour: the order it came in, or what its station was given.
+function drawnSeries(gathered: Iterable<[string, SeriesData]>, colorOf: (key: string, index: number) => number): ExplorerSeries[] {
+  const values: ExplorerSeries[] = []
+  const trends: ExplorerSeries[] = []
+  for (const [id, data] of gathered) {
+    // sorted by time, rows of one moment as they came
+    const order = data.x.map((_, i) => i).sort((a, b) => data.x[a]! - data.x[b]! || a - b)
+    const series: ExplorerSeries = {
+      id,
+      name: data.name,
+      colorIndex: colorOf(id, values.length),
+      kind: 'values',
+      resolution: data.resolution,
+      x: order.map(i => data.x[i]!),
+      y: order.map(i => data.y[i]!),
+    }
+    if (pointCount(series) === 0)
+      continue
+    values.push(series)
+    // Add trendline if enabled
+    const trend = showTrendline.value ? trendOf(series) : null
+    if (trend)
+      trends.push({ id: `${id}:trend`, name: trendlineName(data.name), colorIndex: series.colorIndex, kind: 'trend', x: trend.x, y: trend.y })
+  }
+  // Add trendlines after main traces so they render on top
+  return [...values, ...trends]
+}
+
+// The series of the single chart
+const chartSeries = computed((): ExplorerSeries[] => {
   if (!chartRows.value.length)
     return []
 
   // Group values by series (station + parameter combination), as the rows shown were fetched: a mode
   // selected since would merge two stations' rows into one series
-  const seriesMap = new Map<string, { name: string, x: Date[], y: number[] }>()
+  const seriesMap = new Map<string, SeriesData>()
   const mode = rowsMode.value
 
-  for (const { row: value, date, y } of chartRows.value) {
+  for (const { row: value, moment, y } of chartRows.value) {
     const parameter = chartParameter(value)
     const seriesKey = mode === 'station'
       ? `${value.station_id} - ${parameter.key}`
       : parameter.key
 
-    if (!seriesMap.has(seriesKey)) {
-      seriesMap.set(seriesKey, {
-        name: mode === 'station' ? `${value.station_id} - ${parameter.label}` : parameter.label,
-        x: [],
-        y: [],
-      })
+    let series = seriesMap.get(seriesKey)
+    if (!series) {
+      series = { name: mode === 'station' ? `${value.station_id} - ${parameter.label}` : parameter.label, x: [], y: [] }
+      seriesMap.set(seriesKey, series)
     }
-
-    const series = seriesMap.get(seriesKey)!
-    series.x.push(date)
+    series.x.push(moment)
     series.y.push(y)
+    noteResolution(series, value.resolution)
   }
 
-  // Convert to Plotly traces
-  const traces: PlotlyData[] = []
-  const trendlineTraces: PlotlyData[] = []
-  let colorIndex = 0
-  const isLargeDataset = isLargeChart.value
-
-  for (const data of seriesMap.values()) {
-    const color = chartColors[colorIndex % chartColors.length] ?? '#3b82f6'
-
-    // Sort data by time
-    const pairs = data.x.map((x, i) => ({ x, y: data.y[i]! })).sort((a, b) => a.x.getTime() - b.x.getTime())
-    const sortedXDates = pairs.map(p => p.x)
-    const sortedY = pairs.map(p => p.y)
-    // Convert to ISO strings for Plotly compatibility
-    const sortedX = sortedXDates.map(d => d.toISOString())
-
-    // For large datasets: skip markers and use thinner lines for performance
-    const trace: PlotlyData = {
-      name: data.name,
-      x: sortedX,
-      y: sortedY,
-      type: 'scatter',
-      mode: isLargeDataset ? 'lines' : 'lines+markers',
-      line: { color, width: isLargeDataset ? 1 : 2 },
-      showlegend: true,
-    }
-    if (!isLargeDataset) {
-      trace.marker = { size: 6, color }
-    }
-    traces.push(trace)
-
-    // Add trendline if enabled (collect separately to render on top)
-    if (showTrendline.value && sortedX.length >= 2) {
-      const trend = calculateLinearRegression(sortedXDates, sortedY)
-      trendlineTraces.push({
-        name: trendlineName(data.name),
-        x: trend.x.map(d => d.toISOString()),
-        y: trend.y,
-        type: 'scatter',
-        mode: 'lines',
-        line: { color, width: 4, dash: 'dash' },
-        showlegend: true,
-      })
-    }
-
-    colorIndex++
-  }
-
-  // Add trendlines after main traces so they render on top
-  return [...traces, ...trendlineTraces]
+  return drawnSeries(seriesMap, (_, index) => index)
 })
 
+// Many points: a line and no markers, as a chart of more than this many has always been drawn
+const isLargeChart = computed(() => chartSeries.value.reduce((sum, series) => sum + (series.kind === 'values' ? pointCount(series) : 0), 0) > LARGE_THRESHOLD)
+
 // Check if chart has data
-const hasChartData = computed(() => chartTraces.value.length > 0)
+const hasChartData = computed(() => chartSeries.value.length > 0)
 
 // A facet: `parameter` is its identity (the raw ids), `label` and `parts` what the page names it with
-interface FacetedChart { parameter: string, parts: string[], label: string, traces: PlotlyData[], large: boolean }
+interface FacetedChart { parameter: string, parts: string[], label: string, series: ExplorerSeries[], large: boolean }
 
 // For faceted charts - group data by parameter. Each facet is a chart of its own, large or not by its
 // own points: one of a few points was drawn as a large one where the other facets held many
@@ -1040,15 +954,15 @@ const facetedChartData = computed((): FacetedChart[] => {
   if (!facetByParameter.value || !chartRows.value.length)
     return []
 
-  const parameterGroups = new Map<string, { parts: string[], label: string, stations: Map<string, { x: Date[], y: number[] }> }>()
+  const parameterGroups = new Map<string, { parts: string[], label: string, stations: Map<string, SeriesData> }>()
   // the mode the rows shown were fetched in, as the single chart's
   const mode = rowsMode.value
   // Each station's colour, the same in every facet: numbered once, in the order its first row comes
   // across all plotted rows. Numbered per facet, a station took another colour in a facet that lacked
   // a station coming before it
-  const stationColors = new Map<string, string>()
+  const stationColors = new Map<string, number>()
 
-  for (const { row: value, date, y } of chartRows.value) {
+  for (const { row: value, moment, y } of chartRows.value) {
     const { key: param, parts, label } = chartParameter(value)
     if (!parameterGroups.has(param)) {
       parameterGroups.set(param, { parts, label, stations: new Map() })
@@ -1056,68 +970,28 @@ const facetedChartData = computed((): FacetedChart[] => {
 
     const stationKey = mode === 'station' ? value.station_id : 'interpolated'
     if (!stationColors.has(stationKey))
-      stationColors.set(stationKey, chartColors[stationColors.size % chartColors.length] ?? '#3b82f6')
+      stationColors.set(stationKey, stationColors.size)
     const stationMap = parameterGroups.get(param)!.stations
 
     if (!stationMap.has(stationKey)) {
-      stationMap.set(stationKey, { x: [], y: [] })
+      stationMap.set(stationKey, { name: stationKey, x: [], y: [] })
     }
 
     const series = stationMap.get(stationKey)!
-    series.x.push(date)
+    series.x.push(moment)
     series.y.push(y)
+    noteResolution(series, value.resolution)
   }
 
   const result: FacetedChart[] = []
 
   for (const [parameter, { parts, label, stations: stationMap }] of parameterGroups) {
-    let points = 0
-    for (const data of stationMap.values())
-      points += data.x.length
-    const isLargeDataset = points > LARGE_DATASET_THRESHOLD
-    const traces: PlotlyData[] = []
-    const trendlineTraces: PlotlyData[] = []
-
-    for (const [stationKey, data] of stationMap) {
-      const color = stationColors.get(stationKey) ?? '#3b82f6'
-
-      const pairs = data.x.map((x, i) => ({ x, y: data.y[i]! })).sort((a, b) => a.x.getTime() - b.x.getTime())
-      const sortedXDates = pairs.map(p => p.x)
-      const sortedY = pairs.map(p => p.y)
-      // Convert to ISO strings for Plotly compatibility
-      const sortedX = sortedXDates.map(d => d.toISOString())
-
-      // For large datasets: skip markers and use thinner lines for performance
-      const trace: PlotlyData = {
-        name: stationKey,
-        x: sortedX,
-        y: sortedY,
-        type: 'scatter',
-        mode: isLargeDataset ? 'lines' : 'lines+markers',
-        line: { color, width: isLargeDataset ? 1 : 2 },
-      }
-      if (!isLargeDataset) {
-        trace.marker = { size: 6, color }
-      }
-      traces.push(trace)
-
-      // Add trendline if enabled (collect separately to render on top)
-      if (showTrendline.value && sortedX.length >= 2) {
-        const trend = calculateLinearRegression(sortedXDates, sortedY)
-        trendlineTraces.push({
-          name: trendlineName(stationKey),
-          x: trend.x.map(d => d.toISOString()),
-          y: trend.y,
-          type: 'scatter',
-          mode: 'lines',
-          line: { color, width: 4, dash: 'dash' },
-          showlegend: true,
-        })
-      }
-    }
-
-    // Add trendlines after main traces so they render on top
-    result.push({ parameter, parts, label, traces: [...traces, ...trendlineTraces], large: isLargeDataset })
+    const series = drawnSeries(stationMap, key => stationColors.get(key) ?? 0)
+    // a parameter none of whose rows can be plotted is no facet
+    if (!series.length)
+      continue
+    const points = series.reduce((sum, item) => sum + (item.kind === 'values' ? pointCount(item) : 0), 0)
+    result.push({ parameter, parts, label, series, large: points > LARGE_THRESHOLD })
   }
 
   return result
@@ -1128,51 +1002,17 @@ function chartShown() {
   return allValues.value.length > 0 && (facetByParameter.value ? facetedChartData.value.length > 0 : hasChartData.value)
 }
 
-// The charts' renders under way, which a chart image waits for. Each watcher starts one of its own,
-// so a newer one can start while another is under way
-const chartRenders = new Set<Promise<void>>()
-
-function tracked(render: Promise<void>): Promise<void> {
-  chartRenders.add(render)
-  const settled = () => {
-    chartRenders.delete(render)
-  }
-  render.then(settled, settled)
-  return render
-}
-
-// every render under way settled, and any a render started meanwhile
-async function chartsDrawn() {
-  while (chartRenders.size > 0)
-    await Promise.allSettled(chartRenders)
-}
-
-// A chart's renders, numbered as they start. A render started while another is under way draws the
-// change it was started for, and the older one stops before it draws again, where it would draw what
-// it read at its start over the newer drawing. Failed: the newest threw -- Plotly's import or its
-// drawing -- and the chart holds no drawing, which a chart image draws again rather than save, and
-// the chart area says so. Failures: the newest renders' failures counted, so the chart area's note
-// is told again where a Retry fails too
-interface ChartRenders { started: number, failed: boolean, failures: number }
-const mainRenders = reactive<ChartRenders>({ started: 0, failed: false, failures: 0 })
-const facetRenders = reactive<ChartRenders>({ started: 0, failed: false, failures: 0 })
-
-async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
-  // a chart still being drawn holds no graph, which Plotly exports as an empty figure of its default
-  // size: with a drawing under way, the charts are taken once it is done, as the page shows them then
-  if (chartRenders.size > 0)
-    await chartsDrawn()
-  // a chart whose render failed holds no drawing either: it is drawn again, and where that fails too,
-  // the image is not saved (told once there is a chart to save, below)
-  if (chartShown() && shownRenders().failed) {
-    void renderShownChart()
-    await chartsDrawn()
-  }
+// A chart image is the chart as the page shows it (its window, the series its legend has on), in the light theme whatever
+// the page shows, at the size it is shown at: the single chart as it is, and the facets, which are charts of their own,
+// stacked in the order the page shows them into one image, rather than saved as a file each, a run of downloads a
+// browser may stop after the first. Drawn from the chart's own state and not from what is on the screen, so that it needs
+// no drawing under way to be done.
+async function downloadChartImage(format: ImageFormat) {
   // faceted, one chart per parameter, in the order the page shows them. Taken once: faceting turned
-  // on or off while Plotly loads would otherwise export these charts the other way
+  // on or off while the code of the chart loads would otherwise export these charts the other way
   const faceted = facetByParameter.value
   const charts = faceted
-    ? facetedChartData.value.map(facet => facetChartRefs.value.get(facet.parameter))
+    ? facetedChartData.value.map(facet => facetChartRefs.get(facet.parameter))
     : [chartRef.value]
   // the menu stops offering an image with no chart shown, but a choice made before it has updated
   // still arrives here, where the page has yet to take the chart away, and there is nothing to save
@@ -1180,15 +1020,14 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
     toast.add({ title: t('dataViewer.noChartData'), color: 'warning' })
     return
   }
-  if (shownRenders().failed) {
-    toast.add({ title: t('dataViewer.chartNotDrawn'), color: 'error' })
-    return
-  }
 
   // the export itself can fail too, such as a stack of many facets past the browser's canvas size,
   // which turning it into PNG or JPEG draws on: nothing is saved, and that is told
   try {
-    await saveLightImage(await ensurePlotly(), charts as HTMLDivElement[], format, faceted)
+    if (faceted)
+      await saveStacked(charts as ExplorerChartHandle[], format)
+    else
+      await charts[0]!.save({ format, filename: 'chart' })
   }
   catch (error) {
     console.error('The chart image could not be saved', error)
@@ -1199,275 +1038,13 @@ async function downloadChartImage(format: 'png' | 'jpeg' | 'svg') {
   toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedChart', { format: format.toUpperCase() }), color: 'success' })
 }
 
-// Plotly exports one chart at a time. The facets' charts are stacked into one image, in the page's
-// order, rather than saved as a file each, a run of downloads a browser may stop after the first.
-// Stacked as SVG, each chart's own drawing, and turned into PNG or JPEG by the step Plotly's own
-// export takes
-async function stackCharts(plotly: typeof import('plotly.js-basic-dist-min'), charts: HTMLDivElement[], format: 'png' | 'jpeg' | 'svg'): Promise<Blob> {
-  // null: each at the size it is shown, not at Plotly's default
-  const urls = await Promise.all(charts.map(chart => plotly.toImage(chart, { format: 'svg', width: null, height: null })))
-  const sheet = new DOMParser().parseFromString('<svg xmlns="http://www.w3.org/2000/svg"/>', 'image/svg+xml')
-  const stack = sheet.documentElement
-  let width = 0
-  let height = 0
-  for (const url of urls) {
-    const svg = decodeURIComponent(url.slice(url.indexOf(',') + 1))
-    const chart = new DOMParser().parseFromString(svg, 'image/svg+xml').documentElement
-    chart.setAttribute('y', String(height))
-    width = Math.max(width, Number(chart.getAttribute('width')))
-    height += Number(chart.getAttribute('height'))
-    stack.appendChild(sheet.importNode(chart, true))
-  }
-  stack.setAttribute('width', String(width))
-  stack.setAttribute('height', String(height))
-  const svg = new XMLSerializer().serializeToString(sheet)
-  if (format === 'svg')
-    return new Blob([svg], { type: 'image/svg+xml' })
-  const image = await plotly.Snapshot.svgToImg({ svg, format, width, height, canvas: document.createElement('canvas'), promise: true })
-  const data = image.slice(image.indexOf(',') + 1)
-  // a canvas past the browser's size limit draws nothing, and Plotly answers with an empty "data:,"
-  // rather than failing
-  if (!data)
-    throw new Error(`The stacked chart of ${width} x ${height} px could not be drawn as ${format}`)
-  // a data URL, decoded rather than linked to, as a browser refuses a long one as a download link
-  return new Blob([Uint8Array.from(atob(data), c => c.charCodeAt(0))], { type: `image/${format}` })
+async function saveStacked(charts: ExplorerChartHandle[], format: ImageFormat) {
+  const parts: (SvgPart & { paper?: string })[] = await Promise.all(charts.map(chart => chart.renderSvg()))
+  const stack = stackSvgs(parts)
+  const paper = parts[0]?.paper ?? readDocumentChartTheme('light').paper ?? '#ffffff'
+  const blob = await svgToBlob(stack.svg, { format, width: stack.width, height: stack.height, scale: 1, background: paper })
+  downloadBlob(blob, `chart.${format}`)
 }
-
-// The chart's chrome (paper, text, grid, axis lines, hover label) is the app's, read from its CSS tokens
-// (utils/chart-theme.ts). It is put under the layout where a chart is drawn and not in `chartLayout`,
-// so that a switch of the colour scheme restyles the charts in place (below) rather than drawing them
-// again, and a zoomed chart stays zoomed.
-const { theme } = useChartTheme()
-
-// Plotly layout, apart from its hover mode, which is each chart's own: see hoverMode
-const chartLayout = computed((): Partial<PlotlyLayout> => {
-  return {
-    autosize: true,
-    // the hover texts and the axes write the language's decimal separator, as Plotly writes a point otherwise
-    separators: plotlySeparators(locale.value),
-    margin: { l: 60, r: 20, t: 40, b: 60 },
-    // no axis line, as before: the theme gives an axis line its colour, and Plotly draws a line for any axis that has one
-    xaxis: {
-      type: 'date',
-      showline: false,
-    },
-    yaxis: {
-      showline: false,
-    },
-    // Plotly cuts a series' name in a hover label after 15 characters, which a label such as
-    // "Mean air temperature (2 m)" is longer than
-    hoverlabel: { namelength: -1 },
-    showlegend: true,
-    legend: {
-      orientation: 'h',
-      x: 0.5,
-      xanchor: 'center',
-      y: 1.02,
-      yanchor: 'bottom',
-    },
-  }
-})
-
-// Use 'closest' for a large chart - 'x unified' is very slow
-function hoverMode(large: boolean): PlotlyLayout['hovermode'] {
-  return large ? 'closest' : 'x unified'
-}
-
-// The modebar's camera is Plotly's own with one difference: what it saves is the light chart, as every
-// chart this page saves is (utils/chart-export.ts). It is the last button but the logo, and the title
-// is Plotly's own ("Download plot as a PNG"), which names it; the file is Plotly's own `newplot.png`. One
-// config for the page, as a new `click` for each drawing would make Plotly see a config that changed;
-// it changes with the page's language, which the buttons' names and the dates are written in (GH-3625)
-let config: { of: unknown, language: string, value: Partial<PlotlyConfig> } | undefined
-async function plotlyConfig(plotly: typeof import('plotly.js-basic-dist-min')): Promise<Partial<PlotlyConfig>> {
-  const language = localeProperties.value.language ?? locale.value
-  const key = `${locale.value}/${language}`
-  if (config?.of === plotly && config.language === key)
-    return config.value
-  const { config: plotLocale, failed } = await plotlyLocaleConfigOrFailure(locale.value, language)
-  const value: Partial<PlotlyConfig> = {
-    ...plotLocale,
-    responsive: true,
-    displayModeBar: true,
-    modeBarButtonsToRemove: ['lasso2d', 'select2d', 'toImage'],
-    modeBarButtonsToAdd: [{
-      name: 'toImage',
-      // Plotly translates the names of its own buttons, not of one that is added to it
-      title: plotlyText(plotLocale, 'Download plot as a PNG'),
-      icon: plotly.Icons.camera,
-      click: (chart: HTMLDivElement) => void saveLightImage(plotly, [chart], 'png', false, 'newplot').then(() => {
-        toast.add({ title: t('dataViewer.downloaded'), description: t('dataViewer.downloadedChart', { format: 'PNG' }), color: 'success' })
-      }, (error: unknown) => {
-        console.error('The chart image could not be saved', error)
-        toast.add({ title: t('dataViewer.chartImageNotSaved'), color: 'error' })
-      }),
-    }],
-  }
-  // the English fallback of a language whose buttons could not be loaded is not kept as the language's: the next drawing asks again
-  if (!failed)
-    config = { of: plotly, language: key, value }
-  return value
-}
-
-// Saves `charts` in the light theme, whatever the page shows: each drawn again, off screen, for the export.
-// Stacked into one image where they are the facets, the single chart through Plotly's own download
-async function saveLightImage(plotly: typeof import('plotly.js-basic-dist-min'), charts: HTMLDivElement[], format: 'png' | 'jpeg' | 'svg', stacked: boolean, filename = 'chart') {
-  const copies: OffscreenChart[] = []
-  try {
-    // the image is in the language of the page, as the chart is: the names of its dates
-    const { locale: copyLocale, locales } = await plotlyConfig(plotly)
-    for (const chart of charts)
-      copies.push(await drawLightCopy(plotly, chart, { locale: copyLocale, locales }))
-    const elements = copies.map(copy => copy.element) as HTMLDivElement[]
-    if (stacked)
-      saveBlob(await stackCharts(plotly, elements, format), `chart.${format}`)
-    else
-      await plotly.downloadImage(elements[0]!, { format, filename, width: undefined, height: undefined })
-  }
-  finally {
-    copies.forEach(copy => copy.dispose())
-  }
-}
-
-function startRender(renders: ChartRenders, draw: (newest: () => boolean) => Promise<void>) {
-  const number = ++renders.started
-  const newest = () => number === renders.started
-  return tracked(draw(newest).then(() => {
-    if (newest())
-      renders.failed = false
-  }, (error: unknown) => {
-    // a newer render draws the chart, and tells its own failure
-    if (!newest())
-      return
-    renders.failed = true
-    renders.failures++
-    console.error('The chart could not be drawn', error)
-  }))
-}
-
-function renderMainChart() {
-  return startRender(mainRenders, drawMainChart)
-}
-
-function renderFacetedCharts() {
-  return startRender(facetRenders, drawFacetedCharts)
-}
-
-// the chart the page shows, faceted or single, and its renders
-function renderShownChart() {
-  return facetByParameter.value ? renderFacetedCharts() : renderMainChart()
-}
-
-function shownRenders() {
-  return facetByParameter.value ? facetRenders : mainRenders
-}
-
-// the chart shown holds no drawing, its newest render having failed
-const chartNotDrawn = computed(() => chartShown() && shownRenders().failed)
-
-// a Retry that works hands its focus on to the chart it drew, the first of the facets
-const chartNotice = useTemplateRef<HTMLElement>('chartNotice')
-useFocusAfterRetry(chartNotDrawn, chartNotice, () => facetByParameter.value
-  ? facetChartRefs.value.get(facetedChartData.value[0]?.parameter ?? '')
-  : chartRef.value)
-
-// Render chart helper functions
-async function drawMainChart(newest: () => boolean) {
-  if (viewMode.value !== 'graph' || facetByParameter.value)
-    return
-  const plotly = await ensurePlotly()
-  const drawConfig = await plotlyConfig(plotly)
-
-  await nextTick()
-  if (!newest())
-    return
-  if (chartRef.value && chartTraces.value.length > 0) {
-    // Use newPlot for clean initialization. The theme it is drawn in is taken before the drawing, which a
-    // switch of the scheme can come in the middle of
-    const drawnIn = theme.value
-    plotly.purge(chartRef.value)
-    await plotly.newPlot(chartRef.value, chartTraces.value, themedLayout({ ...chartLayout.value, hovermode: hoverMode(isLargeChart.value) }, drawnIn), drawConfig)
-    markChartScheme(chartRef.value, drawnIn)
-  }
-}
-
-async function drawFacetedCharts(newest: () => boolean) {
-  if (viewMode.value !== 'graph' || !facetByParameter.value)
-    return
-  const plotly = await ensurePlotly()
-  const drawConfig = await plotlyConfig(plotly)
-
-  await nextTick()
-  for (const facet of facetedChartData.value) {
-    if (!newest())
-      return
-    const el = facetChartRefs.value.get(facet.parameter)
-    if (el) {
-      const layout: Partial<PlotlyLayout> = {
-        ...chartLayout.value,
-        hovermode: hoverMode(facet.large),
-        yaxis: {
-          showline: false,
-          automargin: true,
-        },
-        autosize: true,
-      }
-      const drawnIn = theme.value
-      await plotly.react(el, facet.traces, themedLayout(layout, drawnIn), drawConfig)
-      markChartScheme(el, drawnIn)
-    }
-  }
-}
-
-// Render whatever the current view calls for. In table view -- the default -- this does no work
-// and, importantly, does not reach for Plotly.
-onMounted(async () => {
-  await renderShownChart()
-})
-
-// Plotly keeps a `resize` listener of the window for each chart drawn with `responsive`, which holds the
-// chart (and its detached element) until it is purged: every chart goes with the viewer (GH-3619). Before
-// the unmount, as the template refs are cleared by then
-onBeforeUnmount(() => {
-  if (!Plotly)
-    return
-  for (const chart of [chartRef.value, ...facetChartRefs.value.values()]) {
-    if (chart)
-      Plotly.purge(chart)
-  }
-})
-
-// And a chart whose element goes while the viewer stays: the table shown in its place, the facets turned off
-// or on, an answer of other parameters or of none (GH-3619). The single chart's ref is null then; the
-// facets' go through `setFacetChartRef`
-watch(chartRef, (chart, gone) => {
-  if (gone && gone !== chart)
-    Plotly?.purge(gone)
-})
-
-// The colour scheme switched: every chart drawn takes the new chrome as it is
-watch(theme, async (next) => {
-  if (!Plotly)
-    return
-  const plotly = Plotly
-  const charts = [chartRef.value, ...facetChartRefs.value.values()]
-  // a chart that cannot be restyled keeps its colours, and the scheme it says it is in; the others take theirs
-  const results = await Promise.allSettled(charts.map(chart => restyleChart(plotly, chart, next)))
-  results.forEach((result, index) => {
-    if (result.status === 'fulfilled' && result.value)
-      markChartScheme(charts[index], next)
-  })
-})
-
-// Render main chart when data changes
-watch([chartTraces, chartLayout, viewMode, facetByParameter, paramLabelFormat, showTrendline], async () => {
-  await renderMainChart()
-})
-
-// Render faceted charts when data changes
-watch([facetedChartData, chartLayout, viewMode, facetByParameter, paramLabelFormat, showTrendline], async () => {
-  await renderFacetedCharts()
-})
 
 // Parameter statistics
 interface ParameterStats {
@@ -1543,16 +1120,11 @@ defineExpose({
 })
 
 // Set facet chart ref
-function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
-  if (el) {
-    facetChartRefs.value.set(parameter, el)
-  }
-  else {
-    const gone = facetChartRefs.value.get(parameter)
-    if (gone)
-      Plotly?.purge(gone)
-    facetChartRefs.value.delete(parameter)
-  }
+function setFacetChartRef(parameter: string, chart: ExplorerChartHandle | null) {
+  if (chart)
+    facetChartRefs.set(parameter, chart)
+  else
+    facetChartRefs.delete(parameter)
 }
 </script>
 
@@ -1677,25 +1249,6 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
           />
           <div v-else class="py-4">
             <div
-              v-if="chartNotDrawn"
-              ref="chartNotice"
-              class="flex flex-wrap items-center justify-center gap-3 pb-4 text-red-600 dark:text-red-400"
-            >
-              <!-- mounted anew for each failure, so a Retry that fails too is announced again; the
-                   button stays, and keeps its focus -->
-              <span :key="shownRenders().failures" role="alert" class="text-center">
-                <span class="font-medium">{{ t('dataViewer.chartNotDrawn') }}</span>
-                <!-- a sentence apart from the note, which ends with no full stop: the alert's text, as
-                     a screen reader reads it, otherwise runs the two together -->
-                <template v-if="plotlyNotLoaded">
-                  <span class="sr-only">{{ '. ' }}</span>
-                  <span class="block text-sm">{{ t('dataViewer.chartCodeNotLoaded') }}</span>
-                </template>
-              </span>
-              <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="renderShownChart()" />
-              <UButton v-if="plotlyNotLoaded" :label="t('common.reloadPage')" icon="i-ph-arrows-clockwise" size="sm" color="neutral" variant="outline" @click="reloadPage()" />
-            </div>
-            <div
               v-if="allValues.length === 0 && fetchErrorMessage"
               class="flex flex-col items-center justify-center gap-1 py-12 text-center text-red-600 dark:text-red-400"
             >
@@ -1718,23 +1271,24 @@ function setFacetChartRef(parameter: string, el: HTMLDivElement | null) {
             <div v-else-if="facetByParameter" class="space-y-6">
               <div
                 v-for="facet in facetedChartData" :key="facet.parameter"
-                class="border rounded-lg p-4 dark:border-gray-700"
+                class="bleed-stop border rounded-lg p-4 dark:border-gray-700"
               >
                 <h4 class="text-sm font-medium mb-2">
                   {{ facet.label }}
                 </h4>
-                <!-- figures, not images: Plotly's own controls in them stay reachable; nor landmarks, one per facet -->
-                <div
-                  :ref="el => setFacetChartRef(facet.parameter, el as HTMLDivElement)" tabindex="-1" class="app-chart"
-                  role="figure" :aria-label="t('dataViewer.facetChartLabel', { parameter: facet.label })"
-                  style="height: 300px; --app-chart-max-width: 760px;"
+                <!-- a figure, not an image: its own controls stay reachable; no landmark, one per facet -->
+                <ExplorerChart
+                  :ref="(chart: unknown) => setFacetChartRef(facet.parameter, chart as ExplorerChartHandle | null)"
+                  :series="facet.series" :large="facet.large" :height="300" camera-file="newplot"
+                  :label="t('dataViewer.facetChartLabel', { parameter: facet.label })"
+                  style="--app-chart-max-width: 760px;"
                 />
               </div>
             </div>
             <!-- Single combined chart -->
-            <div
-              v-else ref="chartRef" tabindex="-1" role="figure" :aria-label="t('dataViewer.chartLabel')"
-              class="app-chart overflow-visible" style="height: 400px;"
+            <ExplorerChart
+              v-else ref="chartRef" :series="chartSeries" :large="isLargeChart" :height="400" camera-file="newplot"
+              :label="t('dataViewer.chartLabel')"
             />
           </div>
         </template>

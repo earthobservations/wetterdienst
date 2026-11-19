@@ -41,6 +41,8 @@ from wetterdienst.exceptions import (
     MissingDependencyError,
     MissingTimeIntervalError,
     NoInternetError,
+    NoStationPositionsError,
+    ProviderRateLimitError,
     ReversedTimeIntervalError,
     StationListingIncompleteError,
     UpstreamError,
@@ -66,6 +68,8 @@ from wetterdienst.model.result import (
 )
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings
+from wetterdienst.ui import forecast_start
+from wetterdienst.ui.budget import fit_coverage, fit_stations, fit_values
 from wetterdienst.ui.caching import (
     CATALOGUE_CACHE_CONTROL,
     HISTORY_CACHE_CONTROL,
@@ -90,7 +94,9 @@ from wetterdienst.ui.core import (
     Selection,
     SettingsRequest,
     StationsRequest,
+    StormCellsRequest,
     StripesImageRequest,
+    StripesReference,
     StripesSeries,
     StripesStationsRequest,
     StripesValuesRequest,
@@ -134,6 +140,7 @@ from wetterdienst.ui.middleware import RequestContextMiddleware, request_timeout
 from wetterdienst.ui.problems import (
     PROBLEM_MEDIA_TYPE,
     PROBLEMS,
+    QUOTA_RETRY_AFTER_SECONDS,
     RETRY_AFTER_STATUSES,
     ProblemError,
     ProblemKind,
@@ -162,6 +169,7 @@ from wetterdienst.ui.render import (
     render_history,
     render_issues,
     render_stations,
+    render_storm_cells,
     render_stripes_stations,
     render_stripes_values,
 )
@@ -209,6 +217,7 @@ TAG_STATIONS = "Stations"
 TAG_VALUES = "Values"
 TAG_STRIPES = "Climate stripes"
 TAG_ALERTS = "Alerts"
+TAG_STORM_CELLS = "Storm cells"
 TAG_SERVER = "Server"
 
 # FastAPI's OpenTelemetry stays on, so it reports to a provider the operator sets up. Its startup
@@ -263,9 +272,11 @@ app = FastAPI(
         {"name": TAG_VALUES, "description": "Measurements of stations, or estimated for a point between them."},
         {
             "name": TAG_STRIPES,
-            "description": "Climate stripes of a station in Germany: stations, values and the image.",
+            "description": "Climate stripes of a station of DWD (Germany) or NOAA GHCN daily: stations, values and the "
+            "image.",
         },
         {"name": TAG_ALERTS, "description": "Weather warnings of the DWD."},
+        {"name": TAG_STORM_CELLS, "description": "Thunderstorm cells of the DWD, detected in its radar data."},
         {"name": TAG_SERVER, "description": "This instance: its version and limits, its settings, and its health."},
     ],
     debug=False,
@@ -360,6 +371,7 @@ REQUEST_EXAMPLES = {
     "dwd_dmo_issues": "api/issues?provider=dwd&network=dmo&station=10147",
     "dwd_swsmos_issues": "api/issues?provider=dwd&network=swsmos&station=A006",
     "dwd_weather_alerts": "api/alerts?granularity=community&format=geojson",
+    "dwd_storm_cells": "api/storm-cells?format=geojson&track=false",
 }
 
 
@@ -781,14 +793,32 @@ class _AlertsWithMetadataOgcFeatureCollection(TypedDict):
     features: list[dict[str, Any]]
 
 
+class _StormCellsWithMetadataDict(TypedDict):
+    metadata: ResponseMetadata
+    # the UTC reference time of the scan, which an empty scan has too
+    reference_time: str | None
+    # one entry per cell, with the nested `geometry` and `track`
+    cells: list[dict[str, Any]]
+
+
+class _StormCellsWithMetadataOgcFeatureCollection(TypedDict):
+    type: Literal["FeatureCollection"]
+    metadata: ResponseMetadata
+    reference_time: str | None
+    features: list[dict[str, Any]]
+
+
 class _StripesValue(TypedDict):
     timestamp: str | None
     value: float | None
+    anomaly: float | None
+    stripe_class: int | None
 
 
 class _StripesValuesWithMetadataDict(TypedDict):
     metadata: ResponseMetadata
     series: StripesSeries
+    reference: StripesReference
     values: list[_StripesValue]
 
 
@@ -911,6 +941,7 @@ def index() -> HTMLResponse:
                     <li><a href="api/stripes/values" target="_blank" rel="noopener">stripes values</a></li>
                     <li><a href="api/stripes/image" target="_blank" rel="noopener">stripes image</a></li>
                     <li><a href="api/alerts" target="_blank" rel="noopener">weather alerts</a></li>
+                    <li><a href="api/storm-cells" target="_blank" rel="noopener">storm cells</a></li>
                     {f"<li>MCP endpoint (streamable HTTP): <code>{MCP_PREFIX}</code> (<code>{MCP_ALIAS_PREFIX}</code> follows the current version)</li>" if mcp_enabled else ""}
                 </ul>
                 <h2>Examples</h2>
@@ -924,6 +955,7 @@ def index() -> HTMLResponse:
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_values"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Values</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_image"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Image</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_weather_alerts"]}" target="_blank" rel="noopener">DWD Weather Alerts</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["dwd_storm_cells"]}" target="_blank" rel="noopener">DWD Storm Cells</a></li>
                 </ul>
                 <h2>Producer</h2>
                 <ul>
@@ -1200,6 +1232,7 @@ _ROUTE_ANSWERS: dict[str, tuple[int, ...]] = {
     "stripes/values": _DATA_ANSWERS,
     "stripes/image": _DATA_ANSWERS,
     "alerts": _DATA_ANSWERS,
+    "storm-cells": _DATA_ANSWERS,
 }
 #: what every route under `API_PREFIX` can answer: a `Host` that is not allowed (400), a defect (500), the cap on
 #: requests served at once (503) and the request timeout (504), see `ui.middleware`
@@ -1650,7 +1683,7 @@ def coverage(
     providers and their networks, with whether each needs credentials and has them (`configured`). Narrow the
     answer with resolutions=... or datasets=... (e.g. datasets="climate_summary") to discover parameter names. It
     is keyed by resolution, then `datasets`, then each dataset's `parameters`. Nothing is downloaded, so it answers
-    at once. A standalone network (`dwd/radar`, `dwd/alerts`) has none: a 404.
+    at once. A standalone network (`dwd/radar`, `dwd/alerts`, `dwd/storm_cells`) has none: a 404.
 
     Each dataset has its `extent` (where its stations are: `scope`, `continents`, `bbox`, and `country_codes` for a
     regional one): the dataset's own where it is narrower than its network's, else the network's. Whether the
@@ -1690,6 +1723,10 @@ def coverage(
         datasets=request.datasets,
     )
 
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note in its first `description`
+        # (GH-4024); a JSON answer reaches the client as its body alone, so no header would
+        cov, _ = fit_coverage(cov)
     return _catalogue_answer(http_request, json.dumps(cov, indent=4 if request.pretty else None))
 
 
@@ -1711,7 +1748,8 @@ def providers(
     whether a request has to give a date (`date_required`) and its number of `parameters`.
 
     `kind` is `observation`, `forecast` or `derived` for a timeseries network, which has stations and values
-    (every network but two); `radar` and `alerts` are standalone (`dwd/radar`, `dwd/alerts`): the other
+    (every network but three); `radar`, `alerts` and `storm_cells` are standalone (`dwd/radar`, `dwd/alerts`,
+    `dwd/storm_cells`): the other
     endpoints answer 404 for them. `configured` says whether the credentials of a network that needs them are
     present; whether the provider accepts them is not checked here, `/api/auth` (the MCP `auth` tool) does, for
     one network.
@@ -1789,7 +1827,7 @@ def glossary(
 def _get_timeseries_api(provider: str, network: str, *, history: bool = False) -> type[TimeseriesRequest]:
     """Get the API of a network the timeseries endpoints serve, refusing one they cannot with a 404.
 
-    A standalone network (dwd/radar, dwd/alerts) or, with `history`, a network without station
+    A standalone network (dwd/radar, dwd/alerts, dwd/storm_cells) or, with `history`, a network without station
     history has nothing to answer these with, as a provider or network that does not exist.
     """
     try:
@@ -2060,6 +2098,15 @@ def stations(
     if streamed:
         return _stream_stations(stations_, request, metadata)
     content = render_stations(stations_, request, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4022)
+        content, metadata = fit_stations(
+            stations_,
+            request,
+            content,
+            metadata,
+            lambda cut, block, asked: render_stations(cut, asked, max_side=_MAX_IMAGE_SIDE, metadata=block),
+        )
 
     return _answer(content, request.format, metadata)
 
@@ -2070,7 +2117,8 @@ def issues(
 ) -> Response:
     """Return available issue datetimes for a provider/network/station combination.
 
-    Currently supported: provider=dwd, network=mosmix|dmo|swsmos.
+    Currently supported: provider=dwd, network=mosmix|dmo|swsmos. `dataset` names the product whose runs are
+    listed: MOSMIX large (default), small or snow, DMO icon (default) or icon_eu.
     """
     begin_response()
 
@@ -2148,9 +2196,24 @@ def values(
     if _is_streamed(request, http_request):
         return _stream_values(api, request, settings, options, limits)
     values_ = _values(api=api, request=request, settings=settings, options=options, limits=limits)
+    tool = is_tool_request(http_request.scope)
+    if tool and forecast_start.applies(api, request):
+        # a forecast without a window, or with one of days around now, starts at now, before the budget counts (GH-4025)
+        values_ = forecast_start.forecast_from_now(values_, floor=forecast_start.lower_bound(request))
 
     metadata = response_metadata(values_, request)
     content = render(values_, request, ValuesSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
+    if tool:
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4022)
+        content, metadata = fit_values(
+            values_,
+            request,
+            content,
+            metadata,
+            lambda cut, block, asked: render(
+                cut, asked, ValuesSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=block
+            ),
+        )
 
     return _answer(content, request.format, metadata)
 
@@ -2259,6 +2322,8 @@ def _upstream_failure(e: UpstreamError, what: str) -> HTTPException:
     defect, so it is an error with one.
     """
     status = failure_status(e)
+    if isinstance(e, ProviderRateLimitError):
+        return _quota_exhausted(e, what)
     if isinstance(e, (NoInternetError, DownloadError, StationListingIncompleteError)):
         log.warning(f"Failed to {what}: {e}")
     else:
@@ -2272,6 +2337,24 @@ def _upstream_failure(e: UpstreamError, what: str) -> HTTPException:
         status, ProblemKind.UPSTREAM_FAILED
     )
     return ProblemError(status, detail, kind)
+
+
+def _quota_exhausted(e: ProviderRateLimitError, what: str) -> HTTPException:
+    """Answer a provider that limits the rate or whose quota is used up with a 503, `upstream-quota-exhausted`.
+
+    A 429 of any provider is this, not a 502: the request was valid and the key is accepted, only limited for now, so
+    it is no rejected credential (a 501) and no failed provider. The same request can succeed once the limit resets,
+    which `Retry-After` says (the provider's own wait where it sent one, a minute for a 429 that says none, else
+    `QUOTA_RETRY_AFTER_SECONDS` for a quota). The `reason` holds no URL and no key and says to try again later, so the
+    body carries it.
+    """
+    log.warning(f"Failed to {what}: {e}")
+    return ProblemError(
+        503,
+        f"{e.reason.rstrip('.')}. The request was valid.",
+        ProblemKind.UPSTREAM_QUOTA_EXHAUSTED,
+        headers={"Retry-After": str(e.retry_after or QUOTA_RETRY_AFTER_SECONDS)},
+    )
 
 
 def _image_timeout(e: ImageTimeoutError, what: str) -> HTTPException:
@@ -2379,8 +2462,23 @@ def _failure(e: Exception, request: BaseModel, what: str) -> HTTPException:
     if status is not None:
         detail = _refusal_detail(e, what)
         log.info(f"Failed to {what}: {detail}")
+        if isinstance(e, NoStationPositionsError):
+            return _unplaceable_format(detail, getattr(request, "format", None))
         return HTTPException(status_code=status, detail=detail)
     return _server_side_failure(e, request, what)
+
+
+def _unplaceable_format(detail: str, fmt: str | None) -> ProblemError:
+    """Answer a map of stations none of which has a position as the 422 `invalid-parameters` it is (GH-4206).
+
+    The `format` is the parameter that cannot be served for these stations, so it is the entry of `errors` that
+    the kind promises, located as pydantic locates a query parameter. `input` is what was asked for, where the
+    request is at hand.
+    """
+    entry: dict[str, Any] = {"type": "no_positions", "loc": ["query", "format"], "msg": detail}
+    if fmt is not None:
+        entry["input"] = fmt
+    return ProblemError(422, detail, ProblemKind.INVALID_PARAMETERS, extra={"errors": [entry]})
 
 
 def _values(
@@ -2491,6 +2589,17 @@ def interpolate(
 
     metadata = response_metadata(values_, request)
     content = render(values_, request, InterpolationSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4024)
+        content, metadata = fit_values(
+            values_,
+            request,
+            content,
+            metadata,
+            lambda cut, block, asked: render(
+                cut, asked, InterpolationSettings, options, max_side=_MAX_IMAGE_SIDE, metadata=block
+            ),
+        )
 
     return _answer(content, request.format, metadata)
 
@@ -2533,6 +2642,17 @@ def summarize(
 
     metadata = response_metadata(values_, request)
     content = render(values_, request, SummarySettings, options, max_side=_MAX_IMAGE_SIDE, metadata=metadata)
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4024)
+        content, metadata = fit_values(
+            values_,
+            request,
+            content,
+            metadata,
+            lambda cut, block, asked: render(
+                cut, asked, SummarySettings, options, max_side=_MAX_IMAGE_SIDE, metadata=block
+            ),
+        )
 
     return _answer(content, request.format, metadata)
 
@@ -2544,8 +2664,18 @@ def summarize(
 )
 def stripes_stations(
     request: Annotated[StripesStationsRequest, Query()],
+    http_request: Request,
 ) -> Response:
-    """Wrap get_climate_stripes_temperature_request to provide results via restapi."""
+    """List the stations climate stripes are made for, of DWD (the default) or of NOAA GHCN daily.
+
+    A station whose record spans fewer than 10 calendar years (first to last, inclusive) is left out, as stripes of
+    fewer than 10 years with data are refused. A station with gaps in a longer span is listed and may still be refused.
+    For GHCN the span is that of the elements the kind is made from (TAVG, TMAX and TMIN for the temperature, PRCP for
+    the precipitation), and `active` keeps the stations whose record reaches into this or the last year.
+
+    `left`, `bottom`, `right` and `top`, all four, keep the stations in a bounding box, as `/api/stations` does: the
+    list of GHCN is long, so ask for the ones in view.
+    """
     begin_response()
 
     # the provider request below builds its settings from the environment inside the handler: checked
@@ -2553,13 +2683,32 @@ def stripes_stations(
     # value back
     Settings()
     try:
-        stations = _get_stripes_stations(kind=request.kind, active=request.active)
+        stations = _get_stripes_stations(
+            kind=request.kind,
+            active=request.active,
+            provider=request.provider,
+            network=request.network,
+            left=request.left,
+            bottom=request.bottom,
+            right=request.right,
+            top=request.top,
+        )
     except Exception as e:
-        # nothing of the caller's reaches the lookup but a kind and a flag its request has checked,
+        # nothing of the caller's reaches the lookup but a kind, a flag, a source and a box its request has checked,
         # so a failure here is the server's or the data source's, whatever its type
         raise _logged_server_error(e, "get stripes stations") from e
-    metadata = result_metadata(stations, provider="dwd", network="observation", heavy=False)
-    return _answer(render_stripes_stations(stations, request, metadata), request.format, metadata)
+    metadata = result_metadata(stations, provider=request.provider, network=request.network, heavy=False)
+    content = render_stripes_stations(stations, request, metadata)
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4024)
+        content, metadata = fit_stations(
+            stations,
+            request,
+            content,
+            metadata,
+            lambda cut, block, asked: render_stripes_stations(cut, asked, block),
+        )
+    return _answer(content, request.format, metadata)
 
 
 @router.get("/stripes/values", response_model=_StripesValuesWithMetadataDict | str, tags=[TAG_STRIPES])
@@ -2573,8 +2722,25 @@ def stripes_values(
     "degree_celsius"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for
     `/api/values`, e.g. {"temperature": "degree_fahrenheit"}; the server's
     WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the
-    quantity where the values are converted, the source's unit where not. The colours of the stripes
-    (`/api/stripes/image`) are relative to the years' own range and are the same in any unit.
+    quantity where the values are converted, the source's unit where not.
+
+    The colours follow Ed Hawkins' method: each value has its `anomaly` to the mean of 1971-2000 and its
+    `stripe_class`, 0 (the lowest) to 15, in steps of 0.325 standard deviations of the annual values of
+    1901-2000 (+/-2.6 standard deviations in 16 classes, the outermost taking what lies beyond). The `reference`
+    names the mean and the standard deviation, in the unit of the values, and the years they are calculated from;
+    a station with too few years in a period takes its whole record for it (`fallback`). A year's class
+    does not depend on `start_year` and `end_year`, and is the same in any unit.
+
+    `provider` and `network` choose the source: `dwd`/`observation` (the default) reads DWD's annual values, and
+    `noaa`/`ghcn` builds each year from the station's daily values by the WMO rules (WMO-No. 1203). Temperature: a
+    day is the midrange of TMAX and TMIN, which is no 24-hour mean, for every day of the series; TAVG is used only at a
+    station with no day that has both, so that the method does not change along the record and show as a false step. A
+    month counts with at most 10 days missing and at most 4 in a row, and a year with all 12 months counting is the
+    mean of the monthly means. Precipitation: a month counts only when complete, and a year with all 12 months
+    counting is the sum. A year that fails is a gap, and a value that failed a quality check of the source is a missing
+    day. `series` names the daily parameter the years were built from and has the method of the days as `method`:
+    `midrange` or `tavg` (null for DWD's own annual values and for the precipitation); the `processing_note` says it in
+    words.
     """
     begin_response()
 
@@ -2720,10 +2886,14 @@ def alerts(
 ) -> Response:
     """Provide DWD weather alerts (CAP warnings) via restapi.
 
-    Returns all warnings active at the selected time, one entry per alert, with a GeoJSON
-    MultiPolygon geometry. ``timestamp`` (ISO 8601, UTC if no offset) selects a historical snapshot from
-    DWD's rolling ~48-hour window; omit it for the latest snapshot. An empty result simply means
-    there were no active warnings.
+    Returns the warnings active at the selected time, one entry per alert, with a GeoJSON MultiPolygon geometry.
+    Without a place that is every warning of Germany (over 100 KB, more than an assistant can read): pass
+    ``latitude`` and ``longitude`` for the warnings whose areas contain the point, the reliable way to ask about one
+    place, and/or ``name`` for an area of that name (DWD's German one, ``München`` and not ``Munich``, matched as words
+    in every area that has it) or warn cell id. ``timestamp`` (ISO 8601, UTC if no offset) selects a historical
+    snapshot from DWD's rolling ~48-hour window; omit it for the latest snapshot. An empty result is an answer, not
+    an error: no warning is active, or none is for the place, which a ``no-alerts-for-place`` warning in ``metadata``
+    says in the words of what was asked.
     """
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
@@ -2733,7 +2903,13 @@ def alerts(
     settings = Settings()
     try:
         alerts_request = DwdWeatherAlertRequest(
-            granularity=request.granularity, language=request.language, timestamp=request.timestamp, settings=settings
+            granularity=request.granularity,
+            language=request.language,
+            timestamp=request.timestamp,
+            settings=settings,
+            latitude=request.latitude,
+            longitude=request.longitude,
+            name=request.name,
         )
         result = alerts_request.query()
     except Exception as e:
@@ -2743,6 +2919,60 @@ def alerts(
         raise _failure(e, request, "get weather alerts") from e
 
     content, metadata = render_alerts(result, request.format, pretty=request.pretty)
+    return _answer(content, request.format, metadata)
+
+
+@router.get(
+    "/storm-cells",
+    response_model=_StormCellsWithMetadataDict | _StormCellsWithMetadataOgcFeatureCollection | str,
+    tags=[TAG_STORM_CELLS],
+)
+def storm_cells(
+    request: Annotated[StormCellsRequest, Query()],
+) -> Response:
+    """Provide DWD's thunderstorm cells (KONRAD3D) via restapi.
+
+    Returns the cells of the newest radar scan, or of the newest at or before ``timestamp`` (ISO 8601, UTC if no
+    offset) within the ~48 hours DWD keeps, one entry per cell: its severity (0 weak to 3 extreme), warning flags for
+    hail, heavy rain and gusts, size, speed, the ``direction_degrees`` of its motion (calculated), its outline and its
+    forecast ``track`` of 12 positions to 60 minutes ahead. Without a place that is every cell of Germany (several
+    hundred KB on a day of storms, more than an assistant can read): pass ``latitude``, ``longitude`` and ``distance``
+    (km) for the cells whose outline contains the point or comes within the distance, or ``left``, ``bottom``,
+    ``right`` and ``top`` for a box, and ``min_severity``. ``track=false`` and ``geometry=centroid`` make a long list
+    small. Most scans hold no cell: an empty ``cells`` is an answer, not an error, and ``reference_time`` says which
+    scan it is of. A filter that leaves no cell of a scan that has some carries a ``no-storm-cells-for-place`` warning
+    in ``metadata``, and a scan that is more than 20 minutes older than the time asked for a ``scan-stale`` warning:
+    an empty answer is then no all-clear. Scans come every 5 minutes and the newest is 5 to 10 minutes old when it
+    appears.
+    """
+    from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest  # noqa: PLC0415
+
+    begin_response()
+
+    # outside the handlers below, as for `/api/stations`
+    settings = Settings()
+    try:
+        cells_request = DwdStormCellsRequest(
+            timestamp=request.timestamp,
+            latitude=request.latitude,
+            longitude=request.longitude,
+            distance=request.distance,
+            left=request.left,
+            bottom=request.bottom,
+            right=request.right,
+            top=request.top,
+            min_severity=request.min_severity,
+            track=request.track,
+            geometry=request.geometry,
+            settings=settings,
+        )
+        result = cells_request.query()
+    except Exception as e:
+        # a time that does not parse, or one before DWD's rolling window, or a box that is no box, is the request's; a
+        # listing that does not list, a file that does not download or parse is the provider's
+        raise _failure(e, request, "get storm cells") from e
+
+    content, metadata = render_storm_cells(result, request.format, pretty=request.pretty)
     return _answer(content, request.format, metadata)
 
 

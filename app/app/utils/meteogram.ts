@@ -109,7 +109,7 @@ export function extremeWindowHours(key: string): number {
  * at `fromMs` and `toMs`, the span the chart shows. Each date has one point, the value of the window
  * that ends at or after it, so a hover at the stamp reads the window that ends there, and between a
  * window's ends it has a point at each multiple of `stepMs`, as the curve it is drawn with has, so a
- * hover finds the bound at any hour. Drawn with Plotly's `vh` line shape, each point's value is held
+ * hover finds the bound at any hour. Drawn as a step line (ECharts' `step: 'start'`), each point's value is held
  * back to the point before it and the step is at the stamp. Two windows with a window left out
  * between them (a stamp without a value) are parted by a null, which breaks the line.
  * @param dates Sorted dates of the stamps
@@ -166,13 +166,6 @@ export function extremeWindowSteps(
 }
 
 /**
- * The cadence the meteogram resamples its series to: hourly, every 3 hours past 5 days.
- */
-export function resampleCadenceMs(minTime: number, maxTime: number): number {
-  return (maxTime - minTime) / 3_600_000 > 120 ? 3 * 3_600_000 : 3_600_000
-}
-
-/**
  * Approximate wet-bulb temperature using Stull (2011) approximation.
  * Valid for T in °C, RH in %.
  * @param T Temperature in Celsius
@@ -225,6 +218,10 @@ export function classifyPrecip(temperature: number, humidity?: number): 'rain' |
 export const METEOGRAM_SERIES = {
   weather: ['weather_significant', 'significant_weather', 'ww', 'weather'],
   precipitation: ['precipitation_amount_significant_weather_last_1h', 'precipitation_amount_last_1h', 'rr1', 'rr1c'],
+  // the coarser totals of the same amount, which MOSMIX keeps giving where its hourly amount is 0.0 (GH-4175): 6, 12 and 24 hours
+  precipitation6h: ['precipitation_amount_significant_weather_last_6h', 'rr6c'],
+  precipitation12h: ['precipitation_amount_significant_weather_last_12h', 'rrhc'],
+  precipitation24h: ['precipitation_amount_significant_weather_last_24h', 'rrdc'],
   temperature: ['temperature_air_2m', 'temperature_air_mean_2m', 'ttt'],
   temperatureMax: ['temperature_air_max_2m_last_12h', 'temperature_air_max_2m', 'tx', 'tx12', 'tx6'],
   temperatureMin: ['temperature_air_min_2m_last_12h', 'temperature_air_min_2m', 'tn', 'tn12', 'tn6'],
@@ -237,6 +234,13 @@ export const METEOGRAM_SERIES = {
   cloudCoverLow: ['cloud_cover_below_2km', 'nl'],
   cloudCoverMid: ['cloud_cover_between_2km_and_7km', 'cloud_cover_2_7km', 'nm'],
   cloudCoverHigh: ['cloud_cover_above_7km', 'nh'],
+  // MOSMIX-SNOW's, from a request of its own (`MOSMIX_SNOW_METEOGRAM`): the new snow of the 3 hours before each step, the snow
+  // depth, and the chance of more than 10 cm of new snow within the 24 hours before it
+  snowNew: ['snow_depth_new_last_3h'],
+  snowDepth: ['snow_depth'],
+  snowChance: ['probability_snow_depth_new_gt_10cm_last_24h'],
+  // the probability of a thunderstorm within the hour before each step (`wwT`), given for every hour of the run (GH-4090)
+  thunder: ['probability_thunder_last_1h', 'wwt'],
   pressure: ['pressure_air_sea_level', 'pressure_air_site_reduced', 'air_pressure_at_sea_level', 'mslp', 'pressure', 'pmsl', 'pressure_mean', 'pppp'],
 } as const satisfies Record<string, readonly string[]>
 
@@ -263,8 +267,10 @@ export function meteogramValuesSettings(settings: { units: Record<string, string
 /**
  * What of the unit settings the meteogram's answer depends on: whether the values are converted and the unit of each
  * quantity it draws (or the `quantities` of it that a view shows: the map's day rows draw a few). A change of any other
- * unit on the settings page (a conductivity, a length) changes nothing it shows, so it is no reason to fetch the forecast
- * again, nor is any unit where nothing is converted.
+ * unit on the settings page (a conductivity, a long length) changes nothing it shows, so it is no reason to fetch the forecast
+ * again, nor is any unit where nothing is converted. The default is every quantity the app reads, the short length (the snow's
+ * depth) among them: the forecast page, which asks for the snow, uses it; a view that does not draw the snow passes the quantities
+ * it draws (`FORECAST_QUANTITIES` is the forecast's own, without the snow's).
  */
 export function meteogramUnitsKey(settings: Parameters<typeof meteogramValuesSettings>[0], quantities: readonly string[] = Object.keys(CANONICAL_UNITS)): string {
   // where nothing is converted the units chosen change nothing of the answer
@@ -273,6 +279,9 @@ export function meteogramUnitsKey(settings: Parameters<typeof meteogramValuesSet
   const targets = requestUnitTargets(settings.units)
   return JSON.stringify([true, ...quantities.map(quantity => targets[quantity])])
 }
+
+/** The quantities the forecast of `large` draws: every one the app reads but the short length, which is the snow's */
+export const FORECAST_QUANTITIES = ['temperature', 'precipitation', 'speed', 'pressure', 'angle', 'fraction'] as const
 
 /** The ways the forecast is shown: the chart, the day cards of the compact overview, the table of its values. */
 export const METEOGRAM_VIEWS = ['chart', 'compact', 'table'] as const
@@ -304,19 +313,65 @@ export function meteogramViewFromQuery(query: Record<string, unknown>): Meteogra
 /**
  * The MOSMIX request of a meteogram, as the forecast page makes it, and the map's panel with it (GH-3650). The
  * parameters are the series the chart and the day cards draw: temperature, dew point, wind, gusts, cloud cover by
- * layer, precipitation, significant weather, pressure, and the day's maximum and minimum.
+ * layer, precipitation (the hourly amount and its 6, 12 and 24 hour totals), significant weather, the hourly probability of a
+ * thunderstorm, pressure, and the day's maximum and minimum. It is for MOSMIX-L (`large`), the only dataset the meteogram asks for: MOSMIX-S has no `rr6c`, `rrhc` or
+ * `rrdc`, and the meteogram never requests it.
  */
 export const MOSMIX_METEOGRAM = {
   provider: 'dwd',
   network: 'mosmix',
   resolution: 'hourly',
   dataset: 'large',
-  parameters: ['ttt', 'td', 'ff', 'dd', 'fx1', 'n', 'nl', 'nm', 'nh', 'rr1c', 'ww', 'pppp', 'tx', 'tn'],
+  parameters: ['ttt', 'td', 'ff', 'dd', 'fx1', 'n', 'nl', 'nm', 'nh', 'rr1c', 'rr6c', 'rrhc', 'rrdc', 'ww', 'wwt', 'pppp', 'tx', 'tn'],
 } as const
 
-/** The query of `/api/values` for the meteogram of a MOSMIX station, in the units the app settings choose */
-export function meteogramValuesQuery(stationId: string, settings: Parameters<typeof meteogramValuesSettings>[0]): Record<string, string> {
-  const { provider, network, resolution, dataset, parameters } = MOSMIX_METEOGRAM
+/**
+ * The snow forecast of a meteogram (GH-4091): MOSMIX-SNOW, DWD's forecast of new snow for 15 stations in the Bavarian Alps,
+ * which is a dataset of its own (`hourly/snow`) and so a request of its own, apart from the one for small or large. The
+ * three series the snow panel draws, by their canonical names.
+ */
+export const MOSMIX_SNOW_METEOGRAM = {
+  provider: 'dwd',
+  network: 'mosmix',
+  resolution: 'hourly',
+  dataset: 'snow',
+  parameters: [...METEOGRAM_SERIES.snowNew, ...METEOGRAM_SERIES.snowDepth, ...METEOGRAM_SERIES.snowChance],
+} as const
+
+/**
+ * The query of `/api/stations` for the stations that have a snow forecast: the stations of the dataset, which are the 15 of
+ * the newest run, or, where DWD publishes none (from May to October), the 15 known. Asked once for the whole list rather than
+ * the station's values for each station shown: see `utils/snow-stations.ts`.
+ */
+export function snowStationsQuery(): Record<string, string> {
+  const { provider, network, resolution, dataset } = MOSMIX_SNOW_METEOGRAM
+  return { provider, network, parameters: `${resolution}/${dataset}`, all: 'true' }
+}
+
+/** The query of `/api/values` for the snow forecast of a station, in the units the app settings choose */
+export function meteogramSnowQuery(stationId: string, settings: Parameters<typeof meteogramValuesSettings>[0]): Record<string, string> {
+  const { provider, network, resolution, dataset, parameters } = MOSMIX_SNOW_METEOGRAM
+  return {
+    provider,
+    network,
+    parameters: parameters.map(parameter => `${resolution}/${dataset}/${parameter}`).join(','),
+    stations: stationId,
+    ...meteogramValuesSettings(settings),
+  }
+}
+
+/**
+ * The request of the map's panel, whose day rows are the compact view's and draw no chart: the meteogram's without the hourly
+ * thunderstorm probability (`wwt`, GH-4090), which only the chart reads.
+ */
+export const MOSMIX_DAY_ROWS_PARAMETERS = MOSMIX_METEOGRAM.parameters.filter(parameter => parameter !== 'wwt')
+
+/**
+ * The query of `/api/values` for the meteogram of a MOSMIX station, in the units the app settings choose: the chart's parameters, or
+ * `parameters` (the map's day rows have `MOSMIX_DAY_ROWS_PARAMETERS`)
+ */
+export function meteogramValuesQuery(stationId: string, settings: Parameters<typeof meteogramValuesSettings>[0], parameters: readonly string[] = MOSMIX_METEOGRAM.parameters): Record<string, string> {
+  const { provider, network, resolution, dataset } = MOSMIX_METEOGRAM
   return {
     provider,
     network,

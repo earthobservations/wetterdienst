@@ -194,6 +194,15 @@ def _phase(event: str) -> str:
     return f"Day {event}, as DWD's Jultag count (not always the day of the year)."
 
 
+def _pollen(plant: str) -> str:
+    """Describe the load of the pollen of a plant, which is DWD's seven-step class and no concentration."""
+    return (
+        f"Forecast load of {plant} pollen in the air, DWD's class of the Pollenflug-Gefahrenindex: 0 none, 1 low, "
+        "2 medium and 3 high, with 0.5, 1.5 and 2.5 where DWD gives the range between two classes. No number of "
+        "grains per cubic metre."
+    )
+
+
 # Two words of a name that say what the number is, where it is neither a reading nor the total of the interval
 # (GH-2614):
 #
@@ -1150,6 +1159,14 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         _phase("on which the crop reached yellow ripeness"),
         aggregation="date",
     ),
+    CanonicalParameter("pollen_load_alder", "dimensionless", _pollen("alder (Erle)")),
+    CanonicalParameter("pollen_load_ash", "dimensionless", _pollen("ash (Esche)")),
+    CanonicalParameter("pollen_load_birch", "dimensionless", _pollen("birch (Birke)")),
+    CanonicalParameter("pollen_load_grass", "dimensionless", _pollen("grass (Gräser)")),
+    CanonicalParameter("pollen_load_hazel", "dimensionless", _pollen("hazel (Hasel)")),
+    CanonicalParameter("pollen_load_mugwort", "dimensionless", _pollen("mugwort (Beifuß)")),
+    CanonicalParameter("pollen_load_ragweed", "dimensionless", _pollen("ragweed (Ambrosia)")),
+    CanonicalParameter("pollen_load_rye", "dimensionless", _pollen("rye (Roggen)")),
     CanonicalParameter(
         "precipitation_duration",
         "duration",
@@ -1846,6 +1863,69 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         aggregation="probability",
     ),
     CanonicalParameter(
+        "probability_snow_depth_new_gt_5cm_last_6h",
+        "fraction",
+        "Probability that more than 5 cm of fresh snow fell over the preceding 6 hours.",
+        interpolation="homogeneous",
+        aggregation="probability",
+    ),
+    CanonicalParameter(
+        "probability_snow_depth_new_gt_10cm_last_6h",
+        "fraction",
+        "Probability that more than 10 cm of fresh snow fell over the preceding 6 hours.",
+        interpolation="homogeneous",
+        aggregation="probability",
+    ),
+    CanonicalParameter(
+        "probability_snow_depth_new_gt_20cm_last_6h",
+        "fraction",
+        "Probability that more than 20 cm of fresh snow fell over the preceding 6 hours.",
+        interpolation="homogeneous",
+        aggregation="probability",
+    ),
+    CanonicalParameter(
+        "probability_snow_depth_new_gt_5cm_last_12h",
+        "fraction",
+        "Probability that more than 5 cm of fresh snow fell over the preceding 12 hours.",
+        interpolation="homogeneous",
+        aggregation="probability",
+    ),
+    CanonicalParameter(
+        "probability_snow_depth_new_gt_10cm_last_12h",
+        "fraction",
+        "Probability that more than 10 cm of fresh snow fell over the preceding 12 hours.",
+        interpolation="homogeneous",
+        aggregation="probability",
+    ),
+    CanonicalParameter(
+        "probability_snow_depth_new_gt_30cm_last_12h",
+        "fraction",
+        "Probability that more than 30 cm of fresh snow fell over the preceding 12 hours.",
+        interpolation="homogeneous",
+        aggregation="probability",
+    ),
+    CanonicalParameter(
+        "probability_snow_depth_new_gt_10cm_last_24h",
+        "fraction",
+        "Probability that more than 10 cm of fresh snow fell over the preceding 24 hours.",
+        interpolation="homogeneous",
+        aggregation="probability",
+    ),
+    CanonicalParameter(
+        "probability_snow_depth_new_gt_30cm_last_24h",
+        "fraction",
+        "Probability that more than 30 cm of fresh snow fell over the preceding 24 hours.",
+        interpolation="homogeneous",
+        aggregation="probability",
+    ),
+    CanonicalParameter(
+        "probability_snow_depth_new_gt_50cm_last_24h",
+        "fraction",
+        "Probability that more than 50 cm of fresh snow fell over the preceding 24 hours.",
+        interpolation="homogeneous",
+        aggregation="probability",
+    ),
+    CanonicalParameter(
         "probability_sunshine_duration_relative_gt_0pct_last_24h",
         "fraction",
         "Probability that sunshine lasted more than 0 % of the possible duration over the preceding 24 hours.",
@@ -2146,6 +2226,38 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "snow_depth_new",
         "length_short",
         "Depth of snow that fell during the period.",
+        interpolation="heterogeneous",
+        zero_inflated=True,
+        aggregation="sum",
+    ),
+    CanonicalParameter(
+        "snow_depth_new_last_3h",
+        "length_short",
+        "Depth of snow that fell over the preceding 3 hours.",
+        interpolation="heterogeneous",
+        zero_inflated=True,
+        aggregation="sum",
+    ),
+    CanonicalParameter(
+        "snow_depth_new_last_6h",
+        "length_short",
+        "Depth of snow that fell over the preceding 6 hours.",
+        interpolation="heterogeneous",
+        zero_inflated=True,
+        aggregation="sum",
+    ),
+    CanonicalParameter(
+        "snow_depth_new_last_12h",
+        "length_short",
+        "Depth of snow that fell over the preceding 12 hours.",
+        interpolation="heterogeneous",
+        zero_inflated=True,
+        aggregation="sum",
+    ),
+    CanonicalParameter(
+        "snow_depth_new_last_24h",
+        "length_short",
+        "Depth of snow that fell over the preceding 24 hours.",
         interpolation="heterogeneous",
         zero_inflated=True,
         aggregation="sum",
@@ -3818,6 +3930,13 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         aggregation="code",
     ),
     CanonicalParameter("turbidity", "turbidity", "Cloudiness of the water caused by suspended particles."),
+    CanonicalParameter(
+        "uv_index_max",
+        "dimensionless",
+        "Highest UV index of the day, the WHO's scale of the sunburn-effective UV radiation at the ground "
+        "(0 to 2 low, 3 to 5 moderate, 6 to 7 high, 8 to 10 very high, 11 and above extreme).",
+        aggregation="max",
+    ),
     CanonicalParameter(
         "vapor_pressure_deficit_mean",
         "pressure",

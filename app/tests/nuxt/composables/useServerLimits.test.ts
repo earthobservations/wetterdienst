@@ -2,10 +2,11 @@ import { registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtState } from '#imports'
 import { limitsOf, useServerLimits } from '~/composables/useServerLimits'
+import { SERVER_LIMITS_STATE } from '../fixtures/state'
 
 const DEFAULTS = { max_rows: 500_000, max_stations: 100, max_stream_rows: 10_000_000 }
 
-afterEach(() => clearNuxtState())
+afterEach(() => clearNuxtState(SERVER_LIMITS_STATE))
 
 describe('limitsOf', () => {
   it('takes the limits the server reports, 0 being none', () => {

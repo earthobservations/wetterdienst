@@ -30,6 +30,36 @@ The one deliberate exception is `codeql.yml`. Code scanning is a merge requireme
 ruleset, and that requirement is reported per pull request - a run that never happens leaves the
 pull request waiting for a result rather than passing it, so CodeQL keeps running unconditionally.
 
+## Test matrix
+
+`tests.yml` and `coverage.yml` split the suite along whether an outcome can block (GH-4214). The offline
+selection (`uv run poe "test:offline"`) has no upstream to be down, so a red there is a regression; the
+remote suite meets providers that are down, rate-limited or restructured, so its legs are
+`continue-on-error` and a red one blocks nothing. The remote matrix is about 465 runner-minutes, more than
+the rest of a push together, and every push to a pull request used to start it, which filled the runners
+and left the offline jobs a landing waits for queued.
+
+| Event | `Tests` | `Coverage` |
+|---|---|---|
+| pull request | `Offline selection on ...` (6 legs), `Minimum dependency versions` (offline selection), one remote leg: `Python 3.15 on OS ubuntu-latest` | `coverage` (offline selection) |
+| push to `main` | the offline legs and `Minimum dependency versions` (offline); no remote leg | `coverage` (offline selection) |
+| nightly (`schedule`, 02:23 UTC for `Tests`, 06:17 for `Coverage`) and `workflow_dispatch` | the whole remote matrix (9 legs) and `Minimum dependency versions` (remote suite); no offline leg on the schedule | `coverage` (whole suite) |
+
+`Minimum dependency versions` stays non-blocking (`continue-on-error`) although its pull request run is offline:
+`UV_RESOLUTION: lowest-direct` resolves against PyPI on every run, so it is not deterministic per commit.
+
+The one leg of a pull request is the one that holds the KNMI EDR key. The key goes to exactly one leg of a
+run (its quota is 1,000 requests an hour, GH-4046), so the nightly matrix gives it to that leg too. The
+price is that a regression that only the remote tests catch, or that only one OS or one Python has, shows
+in the nightly run a day after the merge, not on the pull request. Read the nightly run of `Tests` and
+`Coverage` on `main` (the Actions tab, `event: schedule`) rather than the checks of a pull request, and run
+the whole matrix on request (*Run workflow*, on a branch) before a change that is aimed at one OS.
+
+`tests.yml` makes the matrix an expression (`strategy.matrix: ${{ fromJSON(...) }}`), because a job-level
+`if` cannot see the matrix: the legs a pull request does not want are never created, so they are not
+skipped checks either. A new leg is added to the list for the schedule; it is added to the pull request's
+list only if it must block or show there.
+
 ## Pinning
 
 Every `uses:` line is pinned to the full commit SHA of a release, with the release tag in a trailing
@@ -64,8 +94,13 @@ change to `docs/**`.
 ## Concurrency
 
 A push to a pull request cancels the run it supersedes (`cancel-in-progress` is true for the
-`pull_request` event only). A run on `main`, on a tag, on a schedule or started by hand is never
-cancelled once it has started. GitHub still replaces a run that is *waiting* for the group with a newer
+`pull_request` event only; `codeql.yml` has the group too, and still no path filter: the ruleset reads the head
+commit of the pull request, so the cancelled run of an older commit is not one it waits for; its group is the
+commit for every other event, so each push to `main` and the schedule is analysed and none replaces another).
+A run on `main`, on a tag, on a schedule or started by hand is never
+cancelled once it has started. The nightly and the manual run of `tests.yml` and `coverage.yml` have a
+group of their own (`-full` after the ref, the pushes `-ci`), or a run of two hours would hold the pushes to
+`main` back, a group running one at a time. GitHub still replaces a run that is *waiting* for the group with a newer
 one, so of several pushes that arrive to `main` while one run is going, the first and the last get a
 result and the ones in between do not; a release tag has a group of its own and is never replaced.
 
@@ -102,14 +137,18 @@ the next midnight run, protects at least that many digests.
 
 Every job carries a `timeout-minutes`, in place of GitHub's six hours: a hung run leaves its check
 pending, which blocks a landing, until the next push cancels it or six hours of runner time are spent.
-The limits sit at 2x or more of the longest passing run in the job durations of recent runs: a
-test-matrix leg has taken up to 57 minutes on a passing run and 84 on a failing one, the Python 3.15
+The limits sit at 2x or more of the longest passing run in the job durations of recent runs (the
+remote legs are the exception, below): the Python 3.15
 leg of the offline selection up to 27 (60), the minimum-versions job up to 53 (120), the backend
 image's smoke build up to 30 (60), the coverage job up to 52 (120), the accessibility scan up to 50
 and growing (120), the daily Docker cleanup 31 (90); lint, unused, typecheck and the pages build take
-a few minutes and have 15 to 30, the link check 45. The matrix has 180: its macOS legs run
-Python 3.15, which builds h5py, duckdb and numcodecs from source, and had not been measured when the
-limit was set. The time spent queued for a runner does not count. When a job legitimately outgrows
+a few minutes and have 15 to 30, the link check 45. The remote matrix has 60 minutes for its Ubuntu and Windows legs
+and 120 for its macOS legs; it had 180. Over about 18 runs of `main`, an Ubuntu or Windows leg took 45 to 49
+minutes when it ran normally and 71 to 113 when it failed, a macOS leg (HDF5, h5py, duckdb and numcodecs are built on Python
+3.15) 43 to 179, commonly 102 to 114. A leg that goes past the limit was red anyway, so only its tail is lost, and
+a leg that hangs no longer holds its runner for three hours (`macos-26-intel` once for 216 minutes, with the queue
+behind it). The offline coverage job and the offline run of the minimum-versions
+job have 45. The time spent queued for a runner does not count. When a job legitimately outgrows
 its limit, raise it in the workflow and here.
 
 ## Credentials

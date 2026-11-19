@@ -332,6 +332,9 @@ def test_stations_to_ogc_feature_collection(df_stations: pl.DataFrame) -> None:
             "end_timestamp": "1995-11-30T00:00:00.000000+00:00",
             "name": "Freyung vorm Wald",
             "region": "Bayern",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
         "type": "Feature",
     }
@@ -446,6 +449,9 @@ def test_values_to_ogc_feature_collection(df_values: pl.DataFrame, stations_resu
             "region": "Bayern",
             "start_timestamp": "1957-05-01T00:00:00.000000+00:00",
             "end_timestamp": "1995-11-30T00:00:00.000000+00:00",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
         "type": "Feature",
         "values": [
@@ -3356,6 +3362,9 @@ def test_values_to_ogc_feature_collection_wide_rows_spanning_datasets() -> None:
         "region": "Sachsen",
         "start_timestamp": None,
         "end_timestamp": None,
+        "wmo_id": None,
+        "wigos_id": None,
+        "icao_id": None,
     }
 
 
@@ -4780,11 +4789,18 @@ def test_the_alerts_and_stripes_json_write_null_for_what_is_not_a_finite_number(
 
     data = types.SimpleNamespace(
         df=pl.DataFrame(
-            {"timestamp": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))] * 2, "value": [float("nan"), 1.0]}
+            {
+                "timestamp": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))] * 2,
+                "value": [float("nan"), 1.0],
+                "anomaly": [float("inf"), 1.0],
+                "stripe_class": [None, 8],
+            }
         ),
         series=types.SimpleNamespace(model_dump=dict),
+        reference=types.SimpleNamespace(model_dump=dict),
     )
     request = types.SimpleNamespace(pretty=False)
     with mock.patch.object(render, "metadata_to_dict", return_value={}):
         written = _read_strictly(render.render_stripes_values(data, request, None))  # ty: ignore[invalid-argument-type]
     assert [row["value"] for row in written["values"]] == [None, 1.0]
+    assert [row["anomaly"] for row in written["values"]] == [None, 1.0]

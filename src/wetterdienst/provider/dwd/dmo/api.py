@@ -14,7 +14,7 @@ import re
 from dataclasses import dataclass
 from enum import Enum
 from io import StringIO
-from typing import TYPE_CHECKING, ClassVar, Literal
+from typing import TYPE_CHECKING, Literal
 from urllib.parse import urljoin
 from zoneinfo import ZoneInfo
 
@@ -26,13 +26,14 @@ from wetterdienst.exceptions import (
     IssueNotFoundError,
     NoInternetError,
     ParameterNotCarriedError,
+    ProviderRateLimitError,
 )
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, group_parameters_by_dataset
 from wetterdienst.model.quality_flags import join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import UPDATED, TimeseriesValues
-from wetterdienst.provider.dwd.catalogue import correct_station_positions
+from wetterdienst.provider.dwd.catalogue import correct_station_positions, with_wmo_id_of_station_id
 from wetterdienst.provider.dwd.dmo.metadata import DwdDmoMetadata
 from wetterdienst.provider.dwd.mosmix.access import KMLReader
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -506,7 +507,7 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
         stations = cast("DwdDmoRequest", self.sr.request)
         _refuse_parameters_the_run_does_not_carry(
             cast("list[ParameterModel]", stations.parameters),
-            cast("DwdDmoLeadTime", stations.lead_time),
+            stations._resolved_lead_time(),  # noqa: SLF001
         )
         self.kml = KMLReader(
             station_ids=self.sr.station_id.to_list(),
@@ -612,7 +613,7 @@ class DwdDmoValues(TimeseriesValues[DatasetModel]):
         from typing import cast  # noqa: PLC0415
 
         stations = cast("DwdDmoRequest", self.sr.request)
-        lead_time = cast("DwdDmoLeadTime", stations.lead_time)
+        lead_time = stations._resolved_lead_time()  # noqa: SLF001
         urls = list_remote_files_fsspec(url, cast("Settings", stations.settings), CacheExpiry.NO_CACHE)
         if not urls:
             # said here as well as in `available_issues`, and it matters more here: `read_icon` and
@@ -676,32 +677,15 @@ class DwdDmoRequest(TimeseriesRequest):
     issue: str | dt.datetime | DwdForecastDate = DwdForecastDate.LATEST
     station_group: Literal["single_stations", "all_stations"] | DwdDmoStationGroup | None = None
     lead_time: Literal["short", "long"] | DwdDmoLeadTime | None = None
-    # per request, not per class: a listing read once should not outlive the settings it was read with
-    _coverage_cache: dict[str, set[str] | None] = dataclasses.field(default_factory=dict, repr=False)
-    _placemark_cache: dict[str, pl.DataFrame | None] = dataclasses.field(default_factory=dict, repr=False)
-    # whether the caller named a lead time: the request reads the short one where none was named, which is no
-    # asking (`parameter-without-rows` says what was asked for). An argument so that `dataclasses.replace`, which
-    # hands over the lead time the request resolved to, hands this over as well; None, a request made by a caller,
-    # is worked out from the lead time given
-    _lead_time_asked: bool | None = dataclasses.field(default=None, repr=False, compare=False, kw_only=True)
+    # per request, not per class: a listing read once should not outlive the settings it was read with. The request
+    # sets these itself, so none is a constructor argument (`init=False`, GH-4142)
+    _coverage_cache: dict[str, set[str] | None] = dataclasses.field(default_factory=dict, init=False, repr=False)
+    _placemark_cache: dict[str, pl.DataFrame | None] = dataclasses.field(default_factory=dict, init=False, repr=False)
 
     _url = (
         "https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/kml/"
         "dmo_stationsliste_txt.asc?__blob=publicationFile&v=1"
     )
-    _base_columns: ClassVar = [
-        "resolution",
-        "dataset",
-        "station_id",
-        "icao_id",
-        "start_timestamp",
-        "end_timestamp",
-        "latitude",
-        "longitude",
-        "elevation",
-        "name",
-        "region",
-    ]
 
     @staticmethod
     def adjust_datetime(datetime_: dt.datetime) -> dt.datetime:
@@ -818,6 +802,12 @@ class DwdDmoRequest(TimeseriesRequest):
         df = add_date_from_filename(df, now_utc)
         return df.get_column("timestamp").dt.replace_time_zone("UTC").unique().sort().to_list()
 
+    def _resolved_lead_time(self) -> DwdDmoLeadTime:
+        """Give the lead time the request reads: the one asked for, or the short one where none was."""
+        from typing import cast  # noqa: PLC0415
+
+        return cast("DwdDmoLeadTime", self.lead_time) if self.lead_time is not None else DwdDmoLeadTime.SHORT
+
     def __post_init__(self) -> None:
         """Post-initialize the DwdDmoRequest class."""
         super().__post_init__()
@@ -825,9 +815,10 @@ class DwdDmoRequest(TimeseriesRequest):
             parse_enumeration_from_template(self.station_group, DwdDmoStationGroup)
             or DwdDmoStationGroup.SINGLE_STATIONS
         )
-        if self._lead_time_asked is None:
-            self._lead_time_asked = self.lead_time is not None
-        self.lead_time = parse_enumeration_from_template(self.lead_time, DwdDmoLeadTime) or DwdDmoLeadTime.SHORT
+        # `lead_time` keeps what the caller passed: None is no asking (`parameter-without-rows` says what was asked
+        # for), and the short run is read where it is None (`_resolved_lead_time`)
+        if self.lead_time is not None:
+            self.lead_time = parse_enumeration_from_template(self.lead_time, DwdDmoLeadTime)
         issue: str | dt.datetime | DwdForecastDate = self.issue
         # a datetime names no member of the enumeration, so only a string or a member is looked up
         if not isinstance(issue, dt.datetime):
@@ -953,7 +944,8 @@ class DwdDmoRequest(TimeseriesRequest):
             reader = KMLReader(station_ids=[], settings=settings)
             # the reader owns the open archive; parsing finishes before it goes out of scope
             return _placemark_metadata(reader.fetch(newest))
-        except NoInternetError:
+        except (NoInternetError, ProviderRateLimitError):
+            # a limit is no reading that failed: the next request meets it too (GH-4053)
             raise
         except Exception as ex:  # noqa: BLE001
             log.warning(
@@ -996,7 +988,8 @@ class DwdDmoRequest(TimeseriesRequest):
         url = urljoin("https://opendata.dwd.de", _dmo_station_dir(dataset_name_original))
         try:
             entries = list_remote_directory_fsspec(url, settings, CacheExpiry.METAINDEX)
-        except NoInternetError:
+        except (NoInternetError, ProviderRateLimitError):
+            # a limit is no reading that failed: the next request meets it too (GH-4053)
             raise
         except Exception as ex:  # noqa: BLE001
             # degraded audibly rather than silently: falling back to the shared catalogue is the
@@ -1021,8 +1014,8 @@ class DwdDmoRequest(TimeseriesRequest):
         narrowed = super()._narrowed_by(dataset)
         if isinstance(self.issue, dt.datetime):
             narrowed.append((f"the run issued {self.issue:%Y-%m-%d %H} UTC", None))
-        if self._lead_time_asked:
-            lead_time = getattr(self.lead_time, "name", str(self.lead_time)).lower()
+        if self.lead_time is not None:
+            lead_time = self._resolved_lead_time().name.lower()
             # the other lead time is a hint only where the product publishes a run for it (`icon_eu` has one)
             other = len(_LEAD_TIMES_PUBLISHED.get(dataset.name, ())) > 1
             narrowed.append((f"the lead time asked for ({lead_time})", "try the other `lead_time`" if other else None))
@@ -1093,4 +1086,4 @@ class DwdDmoRequest(TimeseriesRequest):
                 ),
             )
         # after the stations the catalogue omits are added: Tripoli is described by the run alone (GH-2646)
-        return correct_station_positions(pl.concat(data)).lazy()
+        return with_wmo_id_of_station_id(correct_station_positions(pl.concat(data))).lazy()

@@ -265,7 +265,11 @@ def _mcp(kind: str, timestamp: str) -> tuple[tuple[str, str], int]:
             assert answer is not None
             return answer.get("result", answer)
 
-    return _from_answer(asyncio.run(call()), kind)
+    # what is compared is the window and what it holds: a tool's answer is cut to a size budget (GH-4022), which
+    # `test_mcp_budget.py` holds, so that a window of two years is not counted short here
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr("wetterdienst.ui.budget.ANSWER_BUDGET", 10**9)
+        return _from_answer(asyncio.run(call()), kind)
 
 
 @pytest.mark.parametrize("kind", ["stations", "values"])

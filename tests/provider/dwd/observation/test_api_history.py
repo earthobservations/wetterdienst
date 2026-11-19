@@ -1490,6 +1490,197 @@ def test_dwd_obs_missing_data_history_reads_latin1() -> None:
     ] == [("01684", "Görlitz", 3), ("01684", "Görlitz", 3)]
 
 
+#: slices of the metadata files of Hamburg-Fuhlsbüttel (01975) in tageswerte_KL_01975_19360101_20251231_hist.zip, as
+#: DWD wrote them on 2026-06-17: the bytes, not text, since `\xfc` is the latin-1 `ü` and no UTF-8 sequence (GH-4021)
+_STATION_01975_METADATA = {
+    "Metadaten_Stationsname_Betreibername_01975.txt": (
+        b"Stations_ID;Stationsname;Von_Datum;Bis_Datum\n"
+        b"  1975;Hamburg-Fuhlsb\xfcttel;19340801;\n"
+        b"\n"
+        b"Stations_ID;Betreibername;Von_Datum;Bis_Datum\n"
+        b"  1975;Wetterdienst;19340801;19521110\n"
+        b"  1975;DWD;19521111;\n"
+        b"generiert: 17.06.2026 --  Deutscher Wetterdienst  --\n"
+    ),
+    "Metadaten_Geographie_01975.txt": (
+        b"Stations_id;Stationshoehe;Geogr.Breite;Geogr.Laenge;von_datum;bis_datum;Stationsname\n"
+        b"  1975;   11.70; 53.6380;  9.9994;19340801;19351231;Hamburg-Fuhlsb\xfcttel\n"
+        b"  1975;   10.65; 53.6332;  9.9881;20080601;        ;Hamburg-Fuhlsb\xfcttel\n"
+    ),
+    # this file ends its lines with CRLF
+    "Metadaten_Parameter_klima_tag_01975.txt": (
+        b"Stations_ID;Von_Datum;Bis_Datum;Stationsname;Parameter;Parameterbeschreibung;Einheit;"
+        b"Datenquelle (Strukturversion=SV);Zusatz-Info;Besonderheiten;Literaturhinweis;eor;\r\n"
+        b"1975;19500101;19741231;Hamburg-Fuhlsb\xfcttel;FM;Tagesmittel der Windgeschwindigkeit m/s  Messnetz 3;"
+        b"m/sec;Winddaten (Stundenmittel, maximale Windspitze 00:00-23:59 MEZ) generiert aus analogen "
+        b"Registrierungen. Richtungsangaben in der 32-teiligen Windrose.;"
+        b"arithm.Mittel aus mind. 21 Stundenwerten;;;eor;\r\n"
+    ),
+    "Metadaten_Geraete_Lufttemperatur_01975.txt": (
+        b"Stations_ID;Stationsname;Geo. Laenge [Grad];Geo. Breite [Grad];Stationshoehe [m];"
+        b"Geberhoehe ueber Grund [m];Von_Datum;Bis_Datum;Geraetetyp Name;Messverfahren;eor;\n"
+        b"1975;Hamburg-Fuhlsb\xfcttel;10;53.63;12;2;19360101;19461031;Psychrometerthermometer (trocken);"
+        b"Temperatur/Feuchtemessung, konv.;eor;\n"
+    ),
+    "Metadaten_Fehldaten_01975_19360101_20251231.txt": (
+        b"Stations_ID;Stations_Name;Parameter;Von_Datum;Bis_Datum;Gesamt_Fehlwerte;Beschreibung;eor;\n"
+        b"1975;Hamburg-Fuhlsb\xfcttel;TMK;01.01.1936;18.04.2026;1;Gesamt_Messzeitraum;eor;\n"
+        b"Stations_ID;Stations_Name;Parameter;Von_Datum;Bis_Datum;Anzahl_Fehlwerte;Beschreibung;eor;\n"
+        b"1975;Hamburg-Fuhlsb\xfcttel;TMK;09.01.2026;09.01.2026;1;;eor;\n"
+        b"generiert: 17.06.2026 --  Deutscher Wetterdienst  --\n"
+    ),
+}
+
+
+def _station_01975_zip() -> io.BytesIO:
+    """Zip the bytes of `_STATION_01975_METADATA` as they are."""
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        for name, content in _STATION_01975_METADATA.items():
+            zf.writestr(name, content)
+    buffer.seek(0)
+    return buffer
+
+
+def test_dwd_obs_history_reads_every_file_of_a_station_with_an_umlaut() -> None:
+    """Test each history reader decodes its file as latin-1, as DWD writes it: Hamburg-Fuhlsbüttel (GH-4021).
+
+    `read_name_history` opened its file in text mode, so the first `ü` raised a `UnicodeDecodeError` and the whole
+    history of the station failed, while the stations without an umlaut (Kiel-Holtenau) worked; the readers of the
+    other files (GH-2214 fixed the missing-data one) read bytes and decode them.
+    """
+    zfs = ZipFileSystem(_station_01975_zip())
+    name = DwdObservationHistory.read_name_history(zfs)
+    missing_data = DwdObservationHistory.read_missing_data_history(zfs, Resolution.DAILY)
+    assert [(record.station_id, record.station_name) for record in name.station] == [("01975", "Hamburg-Fuhlsbüttel")]
+    assert [(record.station_id, record.operator_name) for record in name.operator] == [
+        ("01975", "Wetterdienst"),
+        ("01975", "DWD"),
+    ]
+    sections = {
+        "parameter": DwdObservationHistory.read_parameter_history(zfs),
+        "device": DwdObservationHistory.read_device_history(zfs),
+        "geography": DwdObservationHistory.read_geography_history(zfs),
+        "missing_data.summary": missing_data.summary,
+        "missing_data.periods": missing_data.periods,
+    }
+    assert {section: [record.station_name for record in records] for section, records in sections.items()} == {
+        section: ["Hamburg-Fuhlsbüttel"] * (2 if section == "geography" else 1) for section in sections
+    }
+
+
+@pytest.mark.parametrize("newline", ["\n", "\r\n"])
+def test_dwd_obs_history_reads_the_name_file_with_either_line_ending(newline: str) -> None:
+    """Test the name file reads with LF and with CRLF, which DWD mixes within a file type (GH-4021).
+
+    54 of 68 sampled `Metadaten_Parameter_*` files end their lines with CRLF; the name file is LF today.
+    """
+    content = _STATION_01975_METADATA["Metadaten_Stationsname_Betreibername_01975.txt"].replace(b"\n", newline.encode())
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr("Metadaten_Stationsname_Betreibername_01975.txt", content)
+    buffer.seek(0)
+
+    name = DwdObservationHistory.read_name_history(ZipFileSystem(buffer))
+
+    assert [record.station_name for record in name.station] == ["Hamburg-Fuhlsbüttel"]
+    assert [record.operator_name for record in name.operator] == ["Wetterdienst", "DWD"]
+
+
+_FOOTER = "generiert: 17.06.2026 --  Deutscher Wetterdienst  --\n"
+
+#: how the end of a metadata file may look: DWD's footer, no footer, and an empty line after either (GH-4034)
+_ENDINGS = {
+    "footer": _FOOTER,
+    "no footer": "",
+    "footer, empty line": _FOOTER + "\n",
+    "no footer, empty line": "\n",
+}
+
+
+@pytest.mark.parametrize("ending", _ENDINGS.values(), ids=_ENDINGS.keys())
+@pytest.mark.parametrize("first", ["station", "operator"])
+def test_dwd_obs_history_name_file_keeps_its_last_row_with_or_without_footer(ending: str, first: str) -> None:
+    """Test the last row is read whether or not the name file ends with the `generiert:` line (GH-4034).
+
+    The reader cut the last line of the file unconditionally, which is the footer in every file DWD wrote so far, and
+    the last row of one that has none.
+    """
+    station = "Stations_ID;Stationsname;Von_Datum;Bis_Datum\n  1975;Hamburg-Fuhlsb\xfcttel;19340801;\n"
+    operator = (
+        "Stations_ID;Betreibername;Von_Datum;Bis_Datum\n  1975;Wetterdienst;19340801;19521110\n  1975;DWD;19521111;\n"
+    )
+    # the second section is the one the old slice cut a row of
+    text = station + "\n" + operator if first == "station" else operator + "\n" + station
+    zfs = ZipFileSystem(_metadata_zip({"Metadaten_Stationsname_Betreibername_01975.txt": text + ending}))
+
+    name = DwdObservationHistory.read_name_history(zfs)
+
+    assert [record.station_name for record in name.station] == ["Hamburg-Fuhlsbüttel"]
+    assert [record.operator_name for record in name.operator] == ["Wetterdienst", "DWD"]
+
+
+@pytest.mark.parametrize("first", ["station", "operator"])
+def test_dwd_obs_history_name_file_stops_at_the_footer(first: str) -> None:
+    """Test the rows after the `generiert:` line are not read: the footer ends the file (GH-4034)."""
+    station = "Stations_ID;Stationsname;Von_Datum;Bis_Datum\n  1975;Hamburg-Fuhlsb\xfcttel;19340801;\n"
+    operator = (
+        "Stations_ID;Betreibername;Von_Datum;Bis_Datum\n  1975;Wetterdienst;19340801;19521110\n  1975;DWD;19521111;\n"
+    )
+    text = station + "\n" + operator if first == "station" else operator + "\n" + station
+    after_footer = "  1975;Nachzuegler;19600101;\n"
+    zfs = ZipFileSystem(
+        _metadata_zip({"Metadaten_Stationsname_Betreibername_01975.txt": text + _FOOTER + after_footer})
+    )
+
+    name = DwdObservationHistory.read_name_history(zfs)
+
+    assert [record.station_name for record in name.station] == ["Hamburg-Fuhlsbüttel"]
+    assert [record.operator_name for record in name.operator] == ["Wetterdienst", "DWD"]
+
+
+# `read_missing_data_history` strips the text before it splits it into lines, so an empty line at the end never
+# reaches the helper: only the footer and its absence are cases there
+@pytest.mark.parametrize("ending", [_FOOTER, ""], ids=["footer", "no footer"])
+def test_dwd_obs_history_missing_data_file_keeps_its_last_row_with_or_without_footer(ending: str) -> None:
+    """Test the last period row is read whether or not the missing-data file ends with `generiert:` (GH-4034)."""
+    text = (
+        "Stations_ID;Stations_Name;Parameter;Von_Datum;Bis_Datum;Gesamt_Fehlwerte;Beschreibung;eor;\n"
+        "1048;Dresden-Klotzsche;TMK;01.01.1934;18.04.2026;5689;Gesamt_Messzeitraum;eor;\n"
+        "Stations_ID;Stations_Name;Parameter;Von_Datum;Bis_Datum;Anzahl_Fehlwerte;Beschreibung;eor;\n"
+        "1048;Dresden-Klotzsche;SHK_TAG;09.01.2024;10.01.2024;2;;eor;\n"
+        "1048;Dresden-Klotzsche;TMK;01.03.1945;03.03.1945;3;;eor;\n"
+    )
+    zfs = ZipFileSystem(_metadata_zip({"Metadaten_Fehldaten_01048_19340101_20251231.txt": text + ending}))
+
+    missing_data = DwdObservationHistory.read_missing_data_history(zfs, Resolution.DAILY)
+
+    assert [record.missing_count for record in missing_data.summary] == [5689]
+    assert [record.missing_count for record in missing_data.periods] == [2, 3]
+
+
+def test_dwd_obs_history_other_readers_keep_their_last_row_without_footer() -> None:
+    """Test the parameter, device and geography readers keep the last row of a file with no `generiert:` line.
+
+    The parameter and device readers skip the footer by its text; the geography reader takes every line with enough
+    fields, and its live files have no footer. None of them cuts the last line (GH-4034).
+    """
+    files = {
+        name: "".join(
+            line for line in text.splitlines(keepends=True) if not line.startswith(("generiert:", "Legende:"))
+        )
+        for name, text in _STATION_01048_METADATA.items()
+        if name.startswith(("Metadaten_Parameter", "Metadaten_Geraete", "Metadaten_Geographie"))
+    }
+    # the data row is the last line of each file now, so a reader that cut a line would lose it
+    assert all(text.rstrip("\n").splitlines()[-1].startswith(("1048;", "  1048;")) for text in files.values())
+    zfs = ZipFileSystem(_metadata_zip(files))
+
+    assert [record.parameter for record in DwdObservationHistory.read_parameter_history(zfs)] == ["VPM"]
+    assert len(DwdObservationHistory.read_device_history(zfs)) == 1
+    assert len(DwdObservationHistory.read_geography_history(zfs)) == 1
+
+
 def test_dwd_obs_history_records_give_their_validity() -> None:
     """Test every history record gives the span it held for as `valid_from` and `valid_to` (GH-2440).
 

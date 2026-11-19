@@ -11,6 +11,7 @@ import type {
   Value,
 } from '../../../shared/types/api'
 import { Buffer } from 'node:buffer'
+import { stripesAnswer } from '../../helpers/stripes-answer'
 
 // What the accessibility spec shows the app instead of a backend.
 //
@@ -99,6 +100,12 @@ const MOSMIX_STATION: Station = {
   start_timestamp: null,
   end_timestamp: null,
 }
+
+/** The MOSMIX-SNOW stations the mock knows (the real dataset has 15, all in the Bavarian Alps): the stations of `hourly/snow` */
+export const SNOW_STATIONS: Station[] = [
+  { station_id: 'Z901', name: 'HOERMOOS', region: null, latitude: 47.5, longitude: 12.0, elevation: 1060, start_timestamp: null, end_timestamp: null },
+  { station_id: 'Z914', name: 'ZUGSPITZPLATT', region: null, latitude: 47.4, longitude: 11.0, elevation: 2420, start_timestamp: null, end_timestamp: null },
+]
 
 const MOSMIX_STATIONS: Station[] = [
   MOSMIX_STATION,
@@ -280,15 +287,57 @@ function forecastValues(url: URL, now: Date): Value[] {
   return values
 }
 
+/** Whether a request of `/api/values` is for the snow forecast (the dataset `hourly/snow`, MOSMIX-SNOW) */
+export function isSnowRequest(url: URL): boolean {
+  return (url.searchParams.get('parameters') ?? '').split(',').some(entry => entry.startsWith('hourly/snow/'))
+}
+
+/**
+ * The snow forecast of a station, as `/api/values` answers it for `hourly/snow`: DWD's MOSMIX-SNOW has the new snow of the 3
+ * hours before, the snow depth and the chance of more than 10 cm of new snow within 24 hours at the 00, 03, ..., 21 UTC steps,
+ * and, for some stations, a value at hours between the steps. Those are wrong on purpose here (a new snow of 40 cm in an
+ * hour): a panel that draws them shows it. Snow falls for 18 hours from the 10th. Three days, like the forecast it joins.
+ */
+function snowValues(url: URL, now: Date): Record<string, unknown> {
+  const station_id = url.searchParams.get('stations') ?? 'Z914'
+  const start = new Date(now)
+  start.setUTCMinutes(0, 0, 0)
+  const values: Value[] = []
+  let depth = 140
+  for (let hour = 0; hour < 72; hour++) {
+    const time = new Date(start.getTime() + hour * 3_600_000)
+    const step = time.getUTCHours() % 3 === 0
+    const falling = hour >= 10 && hour < 28
+    const fresh = falling ? Math.round((0.6 + 4.8 * Math.sin((hour - 10) / 18 * Math.PI)) * 10) / 10 : 0
+    if (step)
+      depth += fresh
+    const stamp = time.toISOString().replace('.000Z', '+00:00')
+    const at = (parameter: string, value: number) => values.push({ station_id, resolution: 'hourly', dataset: 'snow', parameter, timestamp: stamp, value, quality_flags: null })
+    at('snow_depth_new_last_3h', step ? fresh : 40)
+    at('snow_depth', step ? Math.round(depth * 10) / 10 : 400)
+    at('probability_snow_depth_new_gt_10cm_last_24h', step ? Math.round(Math.min(85, Math.max(0, (hour - 4) * 6, 0)) * (hour > 48 ? 0.3 : 1)) : 99)
+  }
+  return {
+    values,
+    metadata: {
+      parameters: [
+        { name: 'snow_depth_new_last_3h', unit: 'cm' },
+        { name: 'snow_depth', unit: 'cm' },
+        { name: 'probability_snow_depth_new_gt_10cm_last_24h', unit: '%' },
+      ],
+    },
+  }
+}
+
 function stripesValues(station: string | null): StripesValuesResponse {
   const found = STRIPES_STATIONS.find(candidate => candidate.station_id === station) ?? STRIPES_STATIONS[0]!
   return {
     series: { station: found, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
-    values: Array.from({ length: 70 }, (_, index) => ({
-      timestamp: `${1955 + index}-01-01T00:00:00+00:00`,
-      // a warming curve with a wobble, so the stripes run from blue to red
+    // a warming curve with a wobble, so the stripes run from blue to red, with the classes the backend gives them
+    ...stripesAnswer(Array.from({ length: 70 }, (_, index) => ({
+      year: 1955 + index,
       value: Math.round((7.5 + index * 0.03 + 0.8 * Math.sin(index / 3)) * 100) / 100,
-    })),
+    }))),
   }
 }
 
@@ -330,16 +379,24 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     'settings': () => new ApiFailure(404, 'Not Found'),
     'stations': (url) => {
       const mosmix = url.searchParams.get('network') === 'mosmix'
-      const all = mosmix ? MOSMIX_STATIONS : STATIONS
+      // the stations of the snow forecast, which the Forecast asks for once: the few of the dataset and not the list
+      if (mosmix && url.searchParams.get('parameters') === 'hourly/snow')
+        return { stations: SNOW_STATIONS }
       // a list is comma-separated, and the key given more than once is read as the same list
       const wanted = url.searchParams.getAll('stations').flatMap(ids => ids.split(','))
+      // the stations of the snow forecast are MOSMIX stations that a link can name; they are not in the lists the pickers show
+      const all = mosmix ? (wanted.length ? [...MOSMIX_STATIONS, ...SNOW_STATIONS] : MOSMIX_STATIONS) : STATIONS
       // a place by its name: the backend answers its best five matches, here the ones whose name holds the text
       const name = url.searchParams.get('name')?.toLowerCase()
       if (name)
         return { stations: all.filter(station => station.name?.toLowerCase().includes(name)).slice(0, 5) }
       return { stations: wanted.length ? all.filter(station => wanted.includes(station.station_id)) : all }
     },
-    'values': url => ({ values: url.searchParams.get('network') === 'mosmix' ? forecastValues(url, now) : observationValues(url) }),
+    'values': (url) => {
+      if (isSnowRequest(url))
+        return snowValues(url, now)
+      return { values: url.searchParams.get('network') === 'mosmix' ? forecastValues(url, now) : observationValues(url) }
+    },
     'issues': () => ({ issues: ['2026-10-14T09:00:00+00:00', '2026-10-14T15:00:00+00:00', '2026-10-14T21:00:00+00:00'] }),
     'history': () => HISTORY,
     'glossary': () => GLOSSARY,

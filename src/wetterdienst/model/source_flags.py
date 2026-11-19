@@ -34,6 +34,12 @@ the status of the value).
 
 A value that carries a ``raw:`` token already is a code of the source and is not judged; a network whose source marks no
 value in a flag the reader returns has no entry, and the check judges nothing there.
+
+A count is no code. DMI computes the daily, monthly and yearly value of Greenland and the Faroe Islands from however
+many readings exist, even one, and publishes how many in ``noValuesInCalculation``, which the reader writes as the token
+``n:<count>``. ``SourceCount`` (``SOURCE_COUNTS``) judges a value computed from fewer readings than half of those its
+period has at least by the same check, as the erroneous level: the DMI documentation names no minimum, so the rule is
+the library's, and its threshold is stated beside the rule, not cited as the provider's word (GH-4027).
 """
 
 from __future__ import annotations
@@ -42,6 +48,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
 import polars as pl
+
+from wetterdienst.model.open_window import INCOMPLETE
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
@@ -140,6 +148,71 @@ class SourceFlags:
         return {self.reading()} | ({(self.beside[0], None)} if self.beside is not None else set())
 
 
+#: the token that says a value is of a period that had not ended (`model/open_window.py`): a count is not judged in it
+_COMPLETENESS: Reading = ("completeness", None)
+
+
+@dataclass(frozen=True)
+class SourceCount:
+    """A value the source computed from fewer readings than its period needs, read in the token ``n:<count>``.
+
+    Where a source publishes the number of readings behind an aggregate and computes it whatever the number, the
+    check ``source`` judges an aggregate of fewer than ``below`` readings like a code of the erroneous level: soft
+    keeps it as ``suspect:source``, hard nulls it. A rule is the library's own and says so in ``quote``, which is
+    what the source documents about the count and about its minimum, if it names one.
+
+    Attributes:
+        datasets: the datasets (``resolution/dataset``) whose rows carry the count.
+        below: the count under which a value is judged: fewer than this many readings.
+        parameters: the canonical names of the parameters the count is the number of readings of the period for. A
+            parameter that is not in it has a count of something else, or one that is unknown.
+        url: the page of the provider that documents the aggregation.
+        quote: what that page says about the number of readings behind an aggregate.
+        kind: the kind of the token of ``quality_flags`` that holds the count.
+
+    """
+
+    datasets: tuple[str, ...]
+    below: int
+    parameters: tuple[str, ...]
+    url: str
+    quote: str
+    kind: str = "n"
+
+    def hit(
+        self,
+        columns: Mapping[Reading, pl.Expr] | None = None,
+        level: Level | None = None,
+        names: Mapping[str, str] | None = None,
+    ) -> pl.Expr:
+        """Give the expression that is true for a reading whose count is below the threshold.
+
+        The count is of the erroneous level only: ``level="suspect"`` selects nothing. ``columns`` and ``names`` are
+        as for ``SourceFlags.hit``.
+        """
+        if level not in (None, "erroneous"):
+            return pl.lit(value=False)
+        columns = columns or {}
+        reading = self.reading()
+        count = columns[reading] if reading in columns else _code_of(*reading)
+        names = names or {}
+        hit = count.cast(pl.Int64, strict=False).lt(self.below) & pl.col("parameter").is_in(
+            [names.get(name, name) for name in self.parameters]
+        )
+        # a value of a period that had not ended is computed from the readings so far, which is fewer than the period
+        # needs by construction: `completeness:Incomplete` says so, and it is no gap in the readings (GH-4087)
+        running = columns[_COMPLETENESS] if _COMPLETENESS in columns else _code_of(*_COMPLETENESS)
+        return (hit & running.eq(INCOMPLETE).fill_null(value=False).not_()).fill_null(value=False)
+
+    def reading(self) -> Reading:
+        """Name what the count is read in: the kind of token, no digit."""
+        return (self.kind, None)
+
+    def readings(self) -> set[Reading]:
+        """Name the tokens this rule reads: the count, and the completeness of the period it is of."""
+        return {self.reading(), _COMPLETENESS}
+
+
 def _code_of(kind: str | None, digit: int | None = None) -> pl.Expr:
     """Give the code of the plain flag (``PLAIN``) or of the token ``kind:<code>`` of ``quality_flags``, or null.
 
@@ -154,7 +227,7 @@ def _code_of(kind: str | None, digit: int | None = None) -> pl.Expr:
 
 
 def hits(
-    df: pl.DataFrame, rules: Sequence[SourceFlags], names: Mapping[str, str] | None = None
+    df: pl.DataFrame, rules: Sequence[SourceFlags | SourceCount], names: Mapping[str, str] | None = None
 ) -> tuple[pl.Series, pl.Series]:
     """Mark the readings of a frame whose ``quality_flags`` hold a code of any of the rules: erroneous, and suspect.
 
@@ -526,14 +599,118 @@ SOURCE_FLAGS: dict[str, tuple[SourceFlags, ...]] = {
 }
 
 
+_DMI_CLIMATE_DATA = "https://www.dmi.dk/friedata/dokumentation/climate-data"
+#: DMI's daily values that are the average, extreme or sum "of all hourly values within a day", so that the count of a
+#: record is the number of hours behind it. Not in it: the precipitation (some Greenland stations measure it by hand
+#: once a day), the snow depth and cover (read by hand once a day), the largest 30 minute precipitation, the clear and
+#: cloudy days (1 or 0 of the day's mean) and the heating degree days (computed from the mean), whose counts are not
+#: known to be the hours of the day, and the leaf wetness, which DMI computes only from at least 22 hourly values
+_DMI_DAILY_FROM_HOURS = (
+    "temperature_air_mean_2m",
+    "temperature_air_max_2m",
+    "temperature_air_min_2m",
+    "humidity_relative_mean",
+    "humidity_relative_max",
+    "humidity_relative_min",
+    "pressure_air_sea_level_mean",
+    "pressure_air_sea_level_max",
+    "pressure_air_sea_level_min",
+    "pressure_vapor_mean",
+    "wind_speed_mean",
+    "wind_speed_rolling_mean_max",
+    "wind_gust_max",
+    "wind_direction_mean",
+    "sunshine_duration",
+    "cloud_cover_total_mean",
+    "radiation_global",
+    "temperature_soil_mean_0_1m",
+    "temperature_soil_mean_0_3m",
+    "temperature_air_mean_grass_height",
+    "vapor_pressure_deficit_mean",
+)
+#: DMI's monthly and yearly values that are the average, extreme or sum "of the underlying daily values", so that the
+#: count of a record is the number of days behind it. Not in it: the counts of days (``count_days_*``), whose count
+#: is not known to be the days of the period, and the greatest snow depth, read by hand where there is snow
+_DMI_FROM_DAYS = (
+    "temperature_air_mean_2m",
+    "temperature_air_max_2m",
+    "temperature_air_min_2m",
+    "temperature_air_max_2m_mean",
+    "temperature_air_min_2m_mean",
+    "humidity_relative_mean",
+    "humidity_relative_max",
+    "humidity_relative_min",
+    "pressure_air_sea_level_mean",
+    "pressure_air_sea_level_max",
+    "pressure_air_sea_level_min",
+    "pressure_vapor_mean",
+    "precipitation_amount",
+    "precipitation_amount_max",
+    "wind_speed_mean",
+    "wind_speed_rolling_mean_max",
+    "wind_gust_max",
+    "wind_direction_mean",
+    "sunshine_duration",
+    "cloud_cover_total_mean",
+    "radiation_global",
+    "heating_degree_day",
+)
+_DMI_COUNT_QUOTE = (
+    "Derived values contain information on the amount of data behind the calculations. DMI names no minimum count "
+    "of an aggregate but that of the daily cloud cover: provided that there has to be at least 12 hourly values and "
+    "there are not more than 2 hourly values missing in a row. For Greenland and the Faroe Islands every value is "
+    "computed from however many values exist, even one (DMI customer service, 2026-11-12)"
+)
+
+#: the counts of readings behind an aggregate, which the library judges as the check ``source`` where the source
+#: computes a value from however many readings it has: the rule is the library's, a value from fewer readings than
+#: half of the readings its period has at least (GH-4027). A day has 24 hourly values, but the days of Greenland before
+#: the automation are the 8 three-hourly synoptic readings, which DMI marks valid (04360 Tasiilaq, 1975, 1995 and 2005:
+#: ``noValuesInCalculation`` 8), so the daily threshold is 4, half of 8; a month has 28 days at least (14) and a year
+#: 365 (183). DMI documents 12 hourly values for its daily cloud cover and no count for any other value
+SOURCE_COUNTS: dict[str, tuple[SourceCount, ...]] = {
+    "dmi/observation": (
+        SourceCount(
+            datasets=("daily/data",),
+            below=4,
+            parameters=_DMI_DAILY_FROM_HOURS,
+            url=_DMI_CLIMATE_DATA,
+            quote=_DMI_COUNT_QUOTE,
+        ),
+        SourceCount(
+            datasets=("monthly/data",),
+            below=14,
+            parameters=_DMI_FROM_DAYS,
+            url=_DMI_CLIMATE_DATA,
+            quote=_DMI_COUNT_QUOTE,
+        ),
+        SourceCount(
+            datasets=("annual/data",),
+            below=183,
+            parameters=_DMI_FROM_DAYS,
+            url=_DMI_CLIMATE_DATA,
+            quote=_DMI_COUNT_QUOTE,
+        ),
+    ),
+}
+
+
 def source_coverage() -> dict[str, tuple[str, ...]]:
     """Give, by network (in alphabetical order), the datasets the check ``source`` reads a flag in."""
     return {
-        network: tuple(dict.fromkeys(dataset for flags in SOURCE_FLAGS[network] for dataset in flags.datasets))
-        for network in sorted(SOURCE_FLAGS)
+        network: tuple(
+            dict.fromkeys(
+                dataset
+                for rule in (*SOURCE_FLAGS.get(network, ()), *SOURCE_COUNTS.get(network, ()))
+                for dataset in rule.datasets
+            )
+        )
+        for network in sorted({*SOURCE_FLAGS, *SOURCE_COUNTS})
     }
 
 
-def flags_of(network: str, dataset: str) -> tuple[SourceFlags, ...]:
-    """Give the flags of a network that its dataset (``resolution/dataset``) carries; none for most."""
-    return tuple(flags for flags in SOURCE_FLAGS.get(network, ()) if dataset in flags.datasets)
+def flags_of(network: str, dataset: str) -> tuple[SourceFlags | SourceCount, ...]:
+    """Give the rules of a network that its dataset (``resolution/dataset``) carries, codes and counts; mostly none."""
+    return tuple(
+        rule for rule in (*SOURCE_FLAGS.get(network, ()), *SOURCE_COUNTS.get(network, ())) if dataset in rule.datasets
+    )

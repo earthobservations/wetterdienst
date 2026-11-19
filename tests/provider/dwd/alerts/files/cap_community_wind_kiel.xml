@@ -1,0 +1,1432 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.276.0.DWD.PVW.1794416340000.28ee6d60-058d-47a2-bf2d-b143a88f00fc.ENG</identifier>
+  <sender>opendata@dwd.de</sender>
+  <sent>2026-11-11T17:59:00+01:00</sent>
+  <status>Actual</status>
+  <msgType>Alert</msgType>
+  <source>PVW</source>
+  <scope>Public</scope>
+  <code>id:2.49.0.0.276.0.DWD.PVW.1794416340000.28ee6d60-058d-47a2-bf2d-b143a88f00fc</code>
+  <info>
+    <language>en</language>
+    <category>Met</category>
+    <event>wind gusts</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>51</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>WIND</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <effective>2026-11-11T17:59:00+01:00</effective>
+    <onset>2026-11-12T12:00:00+01:00</onset>
+    <expires>2026-11-12T18:00:00+01:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>Official WARNING of WIND GUSTS</headline>
+    <description>There is a risk of wind gusts (level 1 of 4).
+Max. gusts: &lt; 55 km/h; Wind direction: west then north-west; Increased gusts: near showers and in exposed locations &lt; 70 km/h</description>
+    <instruction>Hazard(s) to expect: light objects flying through the air. 
+Recommendations for what to do: 
+Secure loose objects. For example, fasten tents and coverings.</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>west</value>
+    </parameter>
+    <parameter>
+      <valueName>subsequent wind direction</valueName>
+      <value>north-west</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>west</value>
+    </parameter>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-west</value>
+    </parameter>
+    <parameter>
+      <valueName>gusts</valueName>
+      <value>&lt;55 [km/h]</value>
+    </parameter>
+    <parameter>
+      <valueName>exposed gusts</valueName>
+      <value>&lt;70 [km/h]</value>
+    </parameter>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>54.010054,9.343677 54.02744,9.361811 54.030607,9.388276 54.034636,9.386738 54.036966,9.379598 54.040977,9.381156 54.047581,9.394851 54.049759,9.38638 54.063837,9.378672 54.070999,9.414349 54.065875,9.417989 54.070299,9.438767 54.077755,9.437851 54.080011,9.450734 54.087551,9.453408 54.112426,9.437962 54.117217,9.449953 54.132908,9.453351 54.122539,9.471168 54.124745,9.505183 54.128548,9.513673 54.156454,9.524085 54.159532,9.535477 54.151402,9.566702 54.156079,9.568442 54.171218,9.572364 54.175433,9.575336 54.193295,9.550823 54.1903,9.579785 54.179552,9.608318 54.179522,9.632202 54.193903,9.645834 54.200445,9.669186 54.203321,9.679394 54.197407,9.697833 54.188253,9.697651 54.189418,9.712444 54.195029,9.730024 54.225313,9.740093 54.233462,9.735313 54.234808,9.751343 54.244135,9.752433 54.243085,9.741697 54.252541,9.730468 54.254396,9.756098 54.261666,9.755604 54.260529,9.770848 54.267057,9.776287 54.268465,9.788394 54.28512,9.791921 54.284943,9.829189 54.298196,9.839253 54.307695,9.881502 54.301489,9.905902 54.289022,9.915175 54.289726,9.95321 54.311932,9.95387 54.31654,9.963311 54.321473,9.969842 54.316816,10.000181 54.325947,10.011718 54.330411,10.040443 54.328993,10.050551 54.33356,10.055918 54.34348,10.069838 54.348473,10.067561 54.347823,10.033639 54.360776,10.031098 54.360352,10.060031 54.371039,10.071132 54.369236,10.116049 54.386933,10.136347 54.41201,10.131966 54.410971,10.145366 54.428988,10.157813 54.432779,10.169014 54.411569,10.188855 54.390243,10.192644 54.385395,10.161493 54.377757,10.167049 54.368511,10.154097 54.369365,10.14471 54.353107,10.142278 54.339213,10.157309 54.318038,10.140876 54.329339,10.176958 54.335557,10.1669 54.338734,10.175087 54.34573,10.174091 54.34079,10.205367 54.325477,10.199589 54.327255,10.219132 54.317665,10.209494 54.297269,10.241195 54.303456,10.25073 54.281777,10.300728 54.285003,10.311762 54.292096,10.311501 54.294901,10.327194 54.290655,10.341361 54.292509,10.352005 54.296071,10.365394 54.271233,10.372482 54.271958,10.359026 54.264392,10.349341 54.261266,10.362611 54.250164,10.366441 54.251254,10.39794 54.243325,10.406099 54.231923,10.398981 54.227633,10.406718 54.221435,10.403017 54.22449,10.396159 54.210172,10.391077 54.197347,10.397696 54.187837,10.430137 54.190806,10.456236 54.181405,10.457777 54.178332,10.452054 54.173266,10.450728 54.172899,10.459611 54.177424,10.483513 54.163815,10.490535 54.158935,10.504253 54.140281,10.515662 54.13388,10.543676 54.112914,10.591166 54.070264,10.598874 54.069172,10.582877 54.074952,10.574557 54.06868,10.563246 54.041671,10.547764 54.030566,10.557439 54.017998,10.539837 54.027444,10.507186 54.019339,10.487737 54.017426,10.471596 54.028777,10.443551 54.026962,10.425096 54.034282,10.423478 54.022006,10.399192 54.018193,10.393833 54.032075,10.38019 54.046517,10.339508 54.035557,10.317882 54.024531,10.313993 54.030539,10.291281 54.025953,10.282532 54.02921,10.256459 54.040425,10.259784 54.038733,10.244137 54.030318,10.244431 54.02801,10.231737 54.034282,10.225168 54.042564,10.23297 54.052352,10.226879 54.048384,10.217759 54.03889,10.201655 54.0314,10.187304 54.034005,10.149367 54.016822,10.140405 54.013952,10.123455 54.004164,10.115352 54.015885,10.098091 54.019698,10.054494 54.028684,10.038743 54.030205,10.017695 54.040462,10.012134 54.024371,10.000638 54.028253,9.976654 54.024689,9.969717 54.019151,9.963428 54.021708,9.944344 54.014793,9.918842 54.017246,9.907584 54.010431,9.898323 54.008488,9.876077 54.012115,9.863331 54.007258,9.853923 54.004466,9.797264 53.999877,9.790855 53.993809,9.778005 53.987511,9.778818 53.984407,9.759606 53.985926,9.753464 54.004045,9.74945 54.008313,9.735076 54.009443,9.725812 54.009886,9.709197 53.995657,9.711805 53.989657,9.701105 53.989593,9.667392 53.980826,9.670481 53.960342,9.652279 53.963422,9.638996 53.966212,9.625397 53.95668,9.6177 53.957511,9.60204 53.963966,9.604937 53.962742,9.591687 53.966876,9.563576 53.964408,9.544967 53.968163,9.547322 53.981018,9.562844 54.004844,9.566964 54.005319,9.527887 53.996595,9.491524 54.011126,9.483331 54.005779,9.465213 53.998199,9.463616 53.991888,9.437365 53.985278,9.433305 53.993206,9.406873 53.995772,9.395375 53.983953,9.34605 53.994555,9.334684 53.983635,9.302212 53.986745,9.290345 53.997309,9.297796 54.00457,9.309437 54.00413,9.331927 54.010054,9.343677 54.010054,9.343677</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Groß Kummerfeld</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801060028</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Gönnebek</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801060026</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Glasau</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801060025</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Kaisborstel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061048</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Hohenlockstedt</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061042</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Damsdorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801060017</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Bornhöved</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801060012</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Hennstedt</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061036</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Hadenfeld</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061033</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Fitzbek</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061028</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Drage</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061024</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Christinenthal</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061021</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Bokhorst</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061014</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Bokelrehm</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061013</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Agethorst</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061003</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Aasbüttel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061001</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Großbarkau</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057023</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Ellerdorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058046</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Eisendorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058045</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Ehndorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058044</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Dörnick</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057017</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Willenscharen</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061112</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Tensfeld</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801060087</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Wiedenborstel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061111</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Dersau</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057015</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Tarbek</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801060086</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Dätgen</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058038</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Warringholz</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061108</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Bothkamp</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057011</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Wacken</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061107</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Boksee</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057010</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Vaale</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061105</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Bösdorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057009</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Brügge</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058033</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Bönebüttel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057008</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Stocksee</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801060080</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Brinjahe</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058031</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Belau</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057005</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Silzen</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061100</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Seedorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801060075</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Brammer</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058027</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Barmissen</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057002</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Schenefeld</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061097</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Ascheberg (Holstein)</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057001</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Schmalensee</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801060072</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Sarlhusen</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061096</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Borgdorf-Seedorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058023</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Bordesholm</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058022</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Bokel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058021</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Reher</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061091</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Böhnhusen</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058019</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Blumenthal</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058018</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Stadt Neumünster</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801004000</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Bissee</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058016</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Beringstedt</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058015</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Puls</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061087</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Poyenberg</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061086</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Pöschendorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061085</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Peissen</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061084</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Bargstedt</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058011</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Aukrug</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058009</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Oldenborstel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061081</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Arpsdorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058007</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Nienbüttel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061076</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Achterwehr</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058001</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Mehlbek</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061067</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Looft</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061066</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Lockstedt</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801061064</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Warnau</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057086</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Wankendorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057085</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Negenharrie</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058109</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Mühbrook</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058108</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Wahlstorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057084</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Tasdorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057083</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Molfsee</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058107</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Mörel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058106</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Mielkendorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058105</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Stolpe</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057080</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Melsdorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058104</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Meezen</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058103</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Luhnstedt</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058101</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Loop</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058098</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Schillsdorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057071</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Schellhorn</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057070</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Langwedel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058094</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Ruhwinkel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057069</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Rendswühren</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057068</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Kronshagen</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058092</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Krogaspe</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058091</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Rathjensdorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057067</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Rastorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057066</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Stadt Preetz</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057062</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Jahrsdorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058085</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Postfeld</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057059</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Pohnsdorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057058</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Stadt Plön</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057057</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Bosau</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801055007</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Nettelsee</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057054</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Nehmten</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057053</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Hohenwestedt</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058077</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Hoffeld</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058076</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Heinkenborstel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058074</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Löptin</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057047</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Lehmkuhlen</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057046</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Kühren</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057042</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Stadt Kiel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801002000</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Groß Vollstedt</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058065</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Groß Buchwald</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058064</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Grevenkrug</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058063</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Grauel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058062</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Gokels</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058061</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Klein Barkau</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057037</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Gnutz</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058059</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Kirchbarkau</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057033</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Kalübbe</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057032</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Honigsee</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057031</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Flintbek</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058053</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Emkendorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058049</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Embühren</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058048</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Großharrie</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057024</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Westensee</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058171</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Wattenbek</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058170</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Wasbek</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058169</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Warder</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058168</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Wapelfeld</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058167</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Todenbüttel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058164</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Timmaspe</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058163</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Techelsdorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058160</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Tappendorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058159</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Stafstedt</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058155</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Sören</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058153</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Seefeld</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058151</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Schülp b. Nortorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058147</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Schönhorst</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058145</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Schönbek</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058144</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Schmalstede</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058143</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Schierensee</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058141</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Rumohr</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058139</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Rodenbek</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058138</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Remmels</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058134</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Reesdorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058133</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Rade b. Hohenwestedt</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058131</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Padenstedt</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058128</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Osterstedt</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058125</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Oldenhütten</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058120</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Stadt Nortorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058117</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Nindorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058115</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Stadt Schwentinental</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057091</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Nienborstel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801058113</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Wittmoldt</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>801057089</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+</alert>

@@ -4,17 +4,12 @@ import type { RequestError } from '~/utils/request-error'
 import Meteogram from '~/components/Meteogram.vue'
 import { UnexpectedAnswerError } from '~/utils/api-answer'
 import { describeFetchError } from '~/utils/api-error'
-import { meteogramUnitsKey, meteogramValuesSettings } from '~/utils/meteogram'
+import { FORECAST_QUANTITIES, meteogramUnitsKey, meteogramValuesSettings, MOSMIX_METEOGRAM } from '~/utils/meteogram'
 import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
 import { unitsOfAnswer } from '~/utils/units'
 
-const MOSMIX = {
-  provider: 'dwd',
-  network: 'mosmix',
-  resolution: 'hourly',
-  dataset: 'large',
-  parameters: ['ttt', 'td', 'ff', 'dd', 'fx1', 'n', 'nl', 'nm', 'nh', 'rr1c', 'ww', 'pppp', 'tx', 'tn'],
-}
+// the request of the forecast page, which the map's panel and the widget make as well
+const MOSMIX = MOSMIX_METEOGRAM
 
 const { t } = useI18n()
 
@@ -52,7 +47,7 @@ const pending = ref(false)
 // are what it shows. The settings are read at each request, and a change of them while a forecast is shown fetches it again.
 const { settings: appSettings } = useSettings()
 const unitSettings = computed(() => ({ units: appSettings.value.units, convertUnits: appSettings.value.convertUnits }))
-const unitsAsked = computed(() => meteogramUnitsKey(unitSettings.value))
+const unitsAsked = computed(() => meteogramUnitsKey(unitSettings.value, FORECAST_QUANTITIES))
 // the request that is the latest: the answer of an earlier one, which a change of the units has left behind, is not shown
 let valuesTicket = 0
 // why the request failed, as data: the message is written at render, in the language of the moment

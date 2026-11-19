@@ -10,6 +10,17 @@ on:
   schedule:
     - cron: '26 4 * * 5'
 
+# A push to a pull request cancels the CodeQL run it supersedes (4 runs stacked up for one branch,
+# GH-4214); a run on main or on the schedule is never cancelled once it has started, and its group is the
+commit, so that a waiting run of one push to main is not replaced by the next (every commit gets its analysis).
+The ruleset that
+# requires code scanning checks the head commit of the pull request, so the cancelled run of an older
+# commit is not one it waits for. Still no path filter on this workflow, see above: that is what
+# leaves a pull request waiting.
+concurrency:
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.sha }}
+
 permissions: {}
 
 jobs:

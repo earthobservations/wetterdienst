@@ -617,7 +617,7 @@ def test_every_command_spells_pretty_the_same() -> None:
         if any(param.name == "pretty" for param in command.params)
     }
 
-    # stations, history, values, interpolate and summarize, alerts and the stripes' stations
+    # stations, history, values, interpolate and summarize, alerts, storm cells and the stripes' stations
     assert set(with_pretty) == {
         "stations",
         "history",
@@ -625,6 +625,7 @@ def test_every_command_spells_pretty_the_same() -> None:
         "interpolate",
         "summarize",
         "alerts",
+        "storm-cells",
         "stripes stations",
     }
     spellings = {
@@ -1117,12 +1118,16 @@ def test_a_bad_station_selection_is_the_same_refusal_on_every_surface(
     rest = _rest("/api/values", **selection)
     assert rest.status_code == 422, rest.text
     assert {error["type"] for error in rest.json()["errors"]} == {error_type}
-    named = "rank or distance" if "rank" in selection else "all, stations, name"
+    named = "rank or distance" if "rank" in selection else "all, stations, wmo_id, wigos_id, icao_id, name"
     assert f"xactly one of {named}" in rest.json()["detail"]
 
     cli_result = _cli("values", *(f"--{key}={value}" for key, value in selection.items()))
     assert cli_result.exit_code == 2, cli_result.output
-    option_names = "'--rank' or '--distance'" if "rank" in selection else "'--all', '--stations', '--name'"
+    option_names = (
+        "'--rank' or '--distance'"
+        if "rank" in selection
+        else "'--all', '--stations', '--wmo-id', '--wigos-id', '--icao-id', '--name'"
+    )
     assert f"one of {option_names}" in cli_result.output
 
     async def call() -> None:
@@ -1302,6 +1307,9 @@ def test_the_server_answers_the_examples_of_each_alternative_on_a_small_network(
 _STATION_GROUPS = [
     ["all"],
     ["stations"],
+    ["wmo_id"],
+    ["wigos_id"],
+    ["icao_id"],
     ["name"],
     ["latitude", "longitude"],
     ["left", "bottom", "right", "top"],
@@ -1320,6 +1328,9 @@ _EXPECTED_GROUPS = {
 _ATOMS = {
     "all": {"all": "true"},
     "stations": {"stations": "01048"},
+    "wmo_id": {"wmo_id": "10381"},
+    "wigos_id": {"wigos_id": "0-20000-0-10381"},
+    "icao_id": {"icao_id": "EDDH"},
     "name": {"name": "Dresden"},
     "point": {"latitude": "51.05", "longitude": "13.74"},
     "latitude": {"latitude": "51.05"},

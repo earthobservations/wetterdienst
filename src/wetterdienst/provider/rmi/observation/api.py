@@ -25,6 +25,7 @@ from wetterdienst.model.judge import Rule, StuckPeriod
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.quality_flags import join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
+from wetterdienst.model.station_ids import wmo_id_of_wigos_expr
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.rmi.observation.metadata import RmiObservationMetadata
 from wetterdienst.util.network import download_file
@@ -80,6 +81,7 @@ _STATION_SCHEMA = pl.Schema(
                             "date_begin": pl.String,
                             "date_end": pl.String,
                             "altitude": pl.Float64,
+                            "wigos_id": pl.String,
                         }
                     ),
                 }
@@ -271,6 +273,11 @@ class RmiObservationRequest(TimeseriesRequest):
         df = df.select(
             pl.col("properties").struct.field("code").cast(pl.String).alias("station_id"),
             pl.col("properties").struct.field("name").alias("name"),
+            # the WSI of every station (`0-20000-0-06414`; De Haan, of the Belgian issuer, `0-056-101-01002`). `code` is
+            # the WMO number without its leading zero where the WSI is of WMO's issuer, so the WMO number is read from
+            # the WSI, which says it (GH-4070)
+            pl.col("properties").struct.field("wigos_id").alias("wigos_id"),
+            wmo_id_of_wigos_expr(pl.col("properties").struct.field("wigos_id")).alias("wmo_id"),
             pl.col("geometry").struct.field("coordinates").list.get(1).alias("latitude"),
             pl.col("geometry").struct.field("coordinates").list.get(0).alias("longitude"),
             pl.col("properties").struct.field("altitude").alias("elevation"),

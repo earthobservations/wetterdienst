@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.276.0.DWD.PVW.1794473040000.fb5873a0-8a09-4ac8-96d6-477f42db8a82.ENG</identifier>
+  <sender>opendata@dwd.de</sender>
+  <sent>2026-11-12T09:44:00+01:00</sent>
+  <status>Actual</status>
+  <msgType>Update</msgType>
+  <source>PVW</source>
+  <scope>Public</scope>
+  <code>id:2.49.0.0.276.0.DWD.PVW.1794473040000.fb5873a0-8a09-4ac8-96d6-477f42db8a82</code>
+  <references>opendata@dwd.de,2.49.0.0.276.0.DWD.PVW.1794458400000.d6693c6a-bff0-4394-ad61-06a341e1177f.ENG,2026-11-12T05:40:00+01:00</references>
+  <info>
+    <language>en</language>
+    <category>Met</category>
+    <event>near gale</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>11</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>WIND</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <effective>2026-11-12T09:44:00+01:00</effective>
+    <onset>2026-11-12T09:45:30+01:00</onset>
+    <senderName>DWD / Seewetterdienst Hamburg</senderName>
+    <headline>Official NEAR GALE WARNING</headline>
+    <description>There is a risk of near gale.</description>
+    <instruction>NOTE: be aware that this is an automatically generated product. The manually created original text warning is only available in German. It is issued by the maritime weather service Hamburg(DWD).</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <area>
+      <areaDesc>Helgoland</areaDesc>
+      <polygon>54.27917,8.315 54.0,7.925 54.0,7.5 54.3,7.5 54.4,7.9 54.27917,8.315 54.27917,8.315</polygon>
+      <geocode>
+        <valueName>EXCLUDE_POLYGON</valueName>
+        <value>54.189534,7.919221 54.187188,7.901788 54.18791,7.869404 54.172252,7.889149 54.180256,7.909102 54.181188,7.917959 54.189534,7.919221 54.189534,7.919221 </value>
+      </geocode>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>501000002</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+</alert>

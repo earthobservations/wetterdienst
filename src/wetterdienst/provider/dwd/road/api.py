@@ -785,8 +785,10 @@ class DwdRoadValues(TimeseriesValues[DatasetModel]):
         failed = [file for file in files if isinstance(file.content, Exception)]
         # a lost connection is no gap in a window: the readings of the files that arrived would be
         # handed back as if they were the window's (GH-2640)
+        # nor is a rate limit a gap: the files after it would meet it too, and the group would be answered from the ones
+        # that came in before it
         for file in failed:
-            if file.is_no_internet_error:
+            if file.is_no_internet_error or file.is_rate_limited:
                 file.raise_if_exception()
         if failed and len(failed) == len(files):
             # a 404 is a file DWD has withdrawn since the listing was read, which is warned about
@@ -1005,16 +1007,7 @@ class DwdRoadRequest(TimeseriesRequest):
     _values = DwdRoadValues
 
     _base_columns: ClassVar = (
-        "resolution",
-        "dataset",
-        "station_id",
-        "start_timestamp",
-        "end_timestamp",
-        "latitude",
-        "longitude",
-        "elevation",
-        "name",
-        "region",
+        *TimeseriesRequest._base_columns,  # noqa: SLF001
         "station_group",
         "road_name",
         "road_sector",

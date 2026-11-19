@@ -17,14 +17,69 @@ and in several languages via the `language` argument (`de`, `en` (default), `es`
 [Languages](#languages) for `mul`, which holds eight.
 
 Because the products are full snapshots, an empty result simply means there are currently no active
-warnings. The data faithfully follows the official
+warnings (for the place, if one was asked for, see [A place](#a-place)). The data faithfully follows the official
 [CAP DWD Profile](https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_dwd_profile_en_pdf_1_12.pdf).
+
+## A place
+
+A snapshot is every warning of Germany: 100 to 370 KB, more than 25,000 tokens, which is more than an assistant can
+read (Claude Code saves such a result to a file). Three arguments keep the warnings for one place, on every surface
+(`DwdWeatherAlertRequest`, `wetterdienst alerts`, REST `/api/alerts` and the MCP tool `alerts`); without them the answer
+is the whole snapshot, as it was.
+
+| Argument | Keeps the warnings |
+| --- | --- |
+| `latitude` and `longitude` | whose polygons contain the point. They are given together; a point on the edge of a polygon is inside it, and one in a hole (the island in a warning for the sea around it) is outside |
+| `name` | with an area of that name, **DWD's German name** (`München`, not `Munich`), its words in any case and in either Unicode form of an umlaut, in every area that has them (`Kiel` is `Stadt Kiel`, not `Kielstau`; `Hamburg` is also `Gemeinde Wentorf bei Hamburg`, and `München` also `Kirchheim b. München`), or of that warn cell id: `101002000`, or its 8-digit municipality key `01002000`, which is the same for a commune (`801002000`) and its district where one cell carries it (a city that the community product splits into quarters, such as Augsburg, `09761000`, has a cell for each: ask for it by name or by point) |
+
+With both, a warning must be for the point and for the name. The point test needs no more than the standard library, so
+it works without the `interpolation` extra.
+
+Three things to know about what a place finds:
+
+- A **point is matched against the polygons** of a warning, the event area DWD draws, which follows the borders of the
+  communes or districts it is for. A warning for the **sea** (`Ostfriesische Küste`, `501000001`) of the community
+  product has no polygon, only its area and warn cell, so no point is in it: find it by its `name`. In the district
+  product the same warning has a polygon.
+- A **name is matched against the areas a warning is issued for**, and a place without a warning is in none: a `name`
+  that matches nothing says only that no warning has it, not that the place does not exist or that nothing is in force
+  there. The names are in German whatever the `language`, and a name matches every area with that word. **A point is the
+  reliable way to ask about one place**; use a name for what a point cannot say (a warning for the sea), or a warn cell id.
+- A **hole** of a polygon (`EXCLUDE_POLYGON`: the land inside a warning for the sea, the Baden-Baden enclave of Kreis
+  Rastatt) is outside the warning, also where the area has several polygons: each hole is attached to the polygon it lies
+  in, in the `geometry` of the answer too.
+
+A place without a warning is **an answer, not a failure**: the REST API answers 200 with `"alerts": []`, `counts.rows`
+of 0 and a `no-alerts-for-place` warning in `metadata.warnings`. Its message says what was asked and how many warnings
+of the snapshot are for other places, in the words of what was asked:
+
+- for a point that no polygon contains, that nothing in force covers it and, where the snapshot holds warnings with no
+  polygon (the sea, in the community product), how many, and that a name or `granularity=district` finds them;
+- for a name that no area carries, which does not say that nothing is in force there (the names are German);
+- for both, how many warnings contain the point and how many list the name, none being both;
+- for a snapshot without any warning, that no warning is in force anywhere: the one true all-clear.
+
+Its code is in the `X-Wetterdienst-Warnings` header of a CSV answer, which has no block, and the text in the `metadata`
+of the command line's JSON. Nothing is told for a request without a place, nor for a place with a warning. Its
+`data_updated_at` is that of the whole snapshot ([Update date](#update-date)).
+
+Measured on 2026-11-12, against the live community snapshot of 16 warnings (JSON, characters): the whole snapshot is
+114,240, Kiel 13,260 (one warning), Norderney 19,628 (two) and Munich 1,701 (none, the reason).
+
+```python
+from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
+
+kiel = DwdWeatherAlertRequest(granularity="district", latitude=54.32, longitude=10.14).query()
+also_kiel = DwdWeatherAlertRequest(granularity="district", name="Kiel").query()
+```
 
 ## Update date
 
 The `data_updated_at` of the [`metadata`](../../../../usage/restapi.md#response-metadata) of an answer is the newest
-`sent` of the warnings in it, which DWD states in each of them (a warning that is updated is sent again). A snapshot
-with no warning has none.
+`sent` of the warnings of the **whole snapshot**, which DWD states in each of them (a warning that is updated is sent
+again). It is the same for a request for a [place](#a-place), whatever its answer holds: a place with a few warnings, or
+with none, carries the time of the snapshot that was checked, and a `timestamp` taken from it reads that snapshot. A
+snapshot with no warning has none.
 
 ## Languages
 
@@ -195,6 +250,10 @@ wetterdienst alerts --granularity=district --language=de --format=geojson
 # warnings active 6 hours ago (UTC, within the rolling ~48h window; GNU date)
 wetterdienst alerts --granularity=district --timestamp="$(date -u -d '6 hours ago' +%Y-%m-%dT%H:%M:%S)"
 
+# the warnings for a place: a point, or a name or warn cell id (a few KB, not the whole of Germany)
+wetterdienst alerts --latitude=54.32 --longitude=10.14
+wetterdienst alerts --granularity=district --name=Kiel
+
 # write current warnings to a GeoJSON file, or a CSV one with its metadata beside it
 wetterdienst alerts --target=file://alerts.geojson
 wetterdienst alerts --target=alerts.csv --with-metadata
@@ -214,4 +273,10 @@ wetterdienst restapi
 
 ```bash
 curl "http://localhost:7890/api/alerts?granularity=community&format=geojson"
+
+# the warnings for a place
+curl "http://localhost:7890/api/alerts?latitude=54.32&longitude=10.14"
+curl "http://localhost:7890/api/alerts?granularity=district&name=Kiel"
 ```
+
+`latitude` without `longitude` (or the reverse) is a 422.

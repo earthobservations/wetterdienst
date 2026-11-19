@@ -14,6 +14,7 @@ tables). Problems of one machine (a proxy, a certificate, an old Raspberry Pi) a
 | `CredentialMissingError` or `CredentialRejectedError`, 501 | a provider needs a key and there is none, or it is refused | see [Credentials](#credentials) |
 | `NoInternetError`, exit 1, 503 `upstream-unreachable` | the provider could not be reached | see [Upstream outages](#upstream-outages) |
 | `DownloadError`, 502 `upstream-failed`, 504 `upstream-timeout` | the provider answered badly or too late | the same |
+| `ProviderRateLimitError`, 503 `upstream-quota-exhausted` | the provider answered 429, or the quota of the key the server holds is used up (the key is fine) | wait the `Retry-After`, see [Upstream outages](#upstream-outages) |
 | 400 `limit-exceeded`, 504 `request-timeout` | the REST API or MCP server holds a request to its limits | see [Limits](#limits-and-timeouts) |
 | `ImageTimeoutError`, exit 1, 504 `image-timeout` | the browser that draws an image did not finish within 120 seconds and was closed | try again; if it keeps happening, check that Chrome starts on this machine, see [Other things that go wrong](#other-things-that-go-wrong) |
 | 503 `server-busy` | the server works on as many requests as it is set to | wait the `Retry-After` and ask again, see [Limits](#limits-and-timeouts) |
@@ -50,8 +51,9 @@ The usual reasons:
 - **Values are left out, or marked incomplete, because their window has not closed.** The answer carries a
   `window-not-closed` warning (`metno/frost`: the daily maximum and minimum temperature until 18 UTC of the date, the
   precipitation sum until 06 UTC, the mean and every other daily element until the end of the date; the monthly values
-  until the last day of the month at the same hours). Frost serves them as they stand and marks nothing, so a daily value
-  of such a window is left out, and a monthly one is returned with `completeness:Incomplete` in its `quality_flags`.
+  until the last day of the month at the same hours; `dmi/observation`: the day, the month and the year still
+  running). The sources serve them as they stand and mark nothing, so a daily value of such a window is left out, and
+  a monthly one is returned with `completeness:Incomplete` in its `quality_flags`.
   The warning names the parameter, the stations and when the earliest window closes. Ask again after that time for the
   daily value, or end the window before the current month; the answer is not partial for a failure. `interpolate` and
   `summarize` cannot carry the mark, so they leave the monthly and annual value of an open window out too and tell it as
@@ -66,7 +68,7 @@ The usual reasons:
   is empty.
 - **Some stations' files were let go.** The answer carries a `file-skipped` warning that names the stations whose file
   the provider could not use (a refused download, a file withdrawn since the listing, a maintenance page, a file that
-  would not parse): their values may be missing from an answer that is otherwise whole. The message names the cause
+  would not parse, a file with no forecast of the station): their values may be missing from an answer that is otherwise whole. The message names the cause
   and advises by it: try again later for a failed download, a withdrawn file, an error page or an empty body, or an empty directory;
   for a refused download or a file that would not parse a retry gets the same, so report it to the provider. Only the
   providers the [response metadata](restapi.md#response-metadata) lists tell it (`chmi`, `imgw`, `lhmt`, `metoffice` and
@@ -84,8 +86,8 @@ The usual reasons:
   does: try again later for a download, a page or a directory that may be back; for a refused download or a file that
   would not parse, a retry gets the same, so report it); dates of another series of the source (`metno/frost`, as
   `other-window-left-out` says for `values`), which are not read and are not missing at the source, so do not try
-  again; values of a window that had not closed yet (`metno/frost`: today, this month or this year, as
-  `window-not-closed` says for `values`), which are partial and left out, and come back once the window has closed (ask
+  again; values of a window that had not closed yet (`metno/frost` and `dmi/observation`: today, this month or this
+  year, as `window-not-closed` says for `values`), which are partial and left out, and come back once the window has closed (ask
   again then, or end the window before the current period); and values a hard plausibility check rejected, which the
   estimate does not use. It is one warning, whatever the number of stations or causes, and an estimate tells none of
   `file-skipped`, `other-window-left-out` and `window-not-closed` of a station.
@@ -113,7 +115,7 @@ AEMET, KNMI, MET Norway Frost and the Met Office (CEDA) need a key or an account
 | Provider and network | Variable | Python |
 | --- | --- | --- |
 | `aemet/observation` | `WD_AUTH__AEMET=<api_key>` | `Settings(auth={"aemet": "<api_key>"})` |
-| `knmi/observation` | `WD_AUTH__KNMI=<api_key>` | `Settings(auth={"knmi": "<api_key>"})` |
+| `knmi/observation` (an EDR API key) | `WD_AUTH__KNMI_EDR=<api_key>` | `Settings(auth={"knmi_edr": "<api_key>"})` |
 | `metno/frost` | `WD_AUTH__METNO_FROST=<client_id>` | `Settings(auth={"metno_frost": "<client_id>"})` |
 | `metoffice/observation` | `WD_AUTH__CEDA=<username>:<password>` | `Settings(auth={"ceda": "<username>:<password>"})` |
 
@@ -139,6 +141,17 @@ say which:
 - **`DownloadError`** (REST 502, 504 when it timed out): the provider answered with an error status, cut the answer
   short, or sent a file in a layout the parser does not know. The request was valid; try again later. If a provider has
   changed its files, that is a [bug to report](#reporting-a-problem).
+- **`ProviderRateLimitError`** (a `DownloadError`; REST 503 `upstream-quota-exhausted` with a `Retry-After`): the
+  provider limits how fast the key or client may ask (a 429, from any provider, which is not asked again) or the quota
+  of the key it was given is used up. A walk that lets a failed file go with a `file-skipped` warning does not let a
+  429 go: the files after it would meet it too, so the walk ends with this error, and one that fetches ahead ends at
+  the station whose file was refused at the latest, without asking that file again. The key is fine: `auth` says
+  `null` (unknown), not `false`, and `CredentialRejectedError` is not raised. The error carries the wait the provider sent (`Retry-After`,
+  `RateLimit-Reset`, `X-RateLimit-Reset`) as `retry_after`, else 60 seconds for a 429. KNMI's EDR API allows a key 1,000
+  requests an hour and answers the 1,001st with a 403 `Quota exceeded`, the status it gives a key it refuses, so
+  wetterdienst reads the body of that first answer to tell them apart. Wait (the error says how long where the provider
+  tells), or narrow the query (a shorter range, fewer stations); a query that `knmi/observation` can see takes more
+  requests than a key has is refused before it starts.
 - **A provider that throttles.** A burst of downloads can make a provider refuse your address for a
   while (DWD has been seen to); the failures then differ from run to run and pass later. Request less (one
   parameter, a shorter window, fewer stations) or wait; the [cache](python-api.md#caching) keeps what was downloaded.

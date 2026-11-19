@@ -383,8 +383,9 @@ def test_the_coverage_of_a_network_has_the_full_extent_of_each_dataset(client: T
     coverage = client.get("/api/coverage", params={"provider": "dwd", "network": "mosmix"}).json()
 
     for resolution in coverage.values():
-        for dataset in resolution["datasets"].values():
-            assert dataset["extent"] == network
+        for name, dataset in resolution["datasets"].items():
+            # but the snow forecast, whose list is Bavaria's (GH-4111)
+            assert (dataset["extent"] == network) == (name != "snow")
     assert network["scope"] == "global"
     assert network["bbox"] == [-180, -90, 180, 90]
 
@@ -448,6 +449,26 @@ def test_the_coverage_of_a_dataset_says_where_it_is_narrower_than_its_network(cl
     assert coverage["hourly"]["datasets"]["icon_eu"]["extent"]["bbox"] == [-13, 13, 50, 71]
     assert coverage["hourly"]["datasets"]["icon_eu"]["extent"]["scope"] == "regional"
     assert coverage["hourly"]["datasets"]["icon"]["extent"]["scope"] == "global"
+
+
+def test_the_coverage_of_the_snow_forecast_is_the_alps_and_the_rest_of_mosmix_the_world(client: TestClient) -> None:
+    """GH-4111: MOSMIX-SNOW lists Bavarian stations, `small` and `large` the world's; `providers` has the network's."""
+    coverage = client.get("/api/coverage", params={"provider": "dwd", "network": "mosmix"}).json()
+    datasets = coverage["hourly"]["datasets"]
+
+    assert datasets["snow"]["extent"] == {
+        "scope": "national",
+        "continents": ["europe"],
+        "bbox": [9, 47.2, 14, 49],
+    }
+    assert datasets["small"]["extent"]["scope"] == "global"
+    assert datasets["large"]["extent"]["scope"] == "global"
+    network = next(
+        n
+        for n in client.get("/api/providers", params={"provider": "dwd"}).json()["providers"][0]["networks"]
+        if n["network"] == "mosmix"
+    )
+    assert network["extent"]["scope"] == "global"
 
 
 def test_the_mcp_coverage_tool_has_the_extent_of_each_dataset_of_one_network() -> None:

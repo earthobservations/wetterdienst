@@ -1,4 +1,5 @@
 import type { Station } from '#shared/types/api'
+import { withData } from './format'
 
 /**
  * The map tool (GH-3650): what the map shows, how far a place is from a station, and where each kind of station is
@@ -91,6 +92,74 @@ export function distanceKm(a: Point, b: Point): number {
   const dLon = (b.longitude - a.longitude) * rad
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(a.latitude * rad) * Math.cos(b.latitude * rad) * Math.sin(dLon / 2) ** 2
   return 2 * EARTH_RADIUS_KM * Math.asin(Math.min(1, Math.sqrt(h)))
+}
+
+/**
+ * The WMO number of a station as it is compared (GH-4077): the five digits a number is written with, `01001` for a `1001`,
+ * or null where the station has none. Two stations of two lists that carry the same one are the same station, which their
+ * own ids, that number the stations of a network each its own way, are not.
+ */
+export function wmoNumber(station: { wmo_id?: string | null }): string | null {
+  const text = station.wmo_id?.trim()
+  if (!text)
+    return null
+  return /^\d{1,5}$/.test(text) ? text.padStart(5, '0') : text
+}
+
+/** The stations of a list that carry a WMO number: none, one (the same station), or several (which of them is not told) */
+export type WmoMatch<S> = { kind: 'none' } | { kind: 'one', station: S } | { kind: 'several', stations: S[] }
+
+/**
+ * The station of a list that has the WMO number a station of another list has. Only a number that is on exactly one
+ * station finds it: where the list has none, or the number is on several (it is not one place), the map goes by the
+ * position as it did, and takes no station for the same.
+ *
+ * @example
+ * matchByWmo(forecastPoints, '10147') // { kind: 'one', station: HAMBURG-FUHLSBUETTEL }
+ */
+export function matchByWmo<S extends { wmo_id?: string | null }>(stations: S[], wmoId: string | null | undefined): WmoMatch<S> {
+  const wanted = wmoId ? wmoNumber({ wmo_id: wmoId }) : null
+  if (!wanted)
+    return { kind: 'none' }
+  const found = stations.filter(station => wmoNumber(station) === wanted)
+  if (found.length === 1)
+    return { kind: 'one', station: found[0]! }
+  return found.length ? { kind: 'several', stations: found } : { kind: 'none' }
+}
+
+/** What the map remembers of the station picked, to find it again in the list of another layer */
+export interface PickedStation {
+  station_id: string
+  /** Its WMO number as it is compared (`wmoNumber`), null where it has none */
+  wmo: string | null
+  /** Whether the layer it was picked in is DWD's observations, whose stations are numbered by one scheme */
+  observation: boolean
+  /** Whether it reports: a forecast point, which has no status, does */
+  reports: boolean
+}
+
+/**
+ * The same station in the list of another layer or dataset, for the station a reader picked: by its id where both lists are
+ * DWD's observations (one network numbers its stations by one id, the same station in every dataset), else by its WMO number
+ * where exactly one station of the list has it (`matchByWmo`). A number is not taken for a station that has stopped when the
+ * station picked reports: the Stationslexikon keeps a number on a closed predecessor (10427 was Altastenberg, 00098, until
+ * 1954 and is Kahler Asten, 02483, after), and a list that holds only the one that has closed would give the reader that
+ * one for the station that reports, past the rule that prefers one that reports. Null where there is none.
+ *
+ * `inObservation` is whether the list is DWD's observations, `reporting` the status of its stations where it has one.
+ */
+export function findSameStation<S extends PlacedStation>(list: S[], picked: PickedStation, inObservation: boolean, reporting?: ReportingRule): { station: S, by: 'id' | 'wmo' } | null {
+  if (picked.observation && inObservation) {
+    const byId = list.find(station => station.station_id === picked.station_id)
+    if (byId)
+      return { station: byId, by: 'id' }
+  }
+  const match = matchByWmo(list, picked.wmo)
+  if (match.kind !== 'one')
+    return null
+  if (picked.reports && reporting && !reporting(match.station))
+    return null
+  return { station: match.station, by: 'wmo' }
 }
 
 /** The stations that have a position, the only ones a map can show or a distance be taken to */
@@ -294,7 +363,7 @@ export function searchStations<S extends Station>(stations: S[], query: string, 
  */
 export function formatDistance(km: number, locale: string): string {
   const unit = (value: number, name: 'meter' | 'kilometer', digits: number) =>
-    new Intl.NumberFormat(locale, { style: 'unit', unit: name, unitDisplay: 'short', maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
+    new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), { style: 'unit', unit: name, unitDisplay: 'short', maximumFractionDigits: digits, minimumFractionDigits: digits }).format(value)
   if (km < 1)
     return unit(Math.round(km * 100) * 10, 'meter', 0)
   return unit(km, 'kilometer', km < 10 ? 1 : 0)

@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseStatus } from 'h3'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
 import { UApp } from '#components'
 import { clearNuxtState, useRouter, useToast } from '#imports'
@@ -9,6 +9,7 @@ import ParameterSelection from '~/components/ParameterSelection.vue'
 import ExplorerPage from '~/pages/explorer.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
 import { networksAnswer } from '../fixtures/providers'
+import { EXPLORER_STATE } from '../fixtures/state'
 
 // The date range the explorer starts for a selection whose whole record is more than the server sends as one
 // answer (GH-3457), and who the range belongs to once the user has touched it
@@ -19,8 +20,16 @@ const ExplorerWithApp = defineComponent({
   },
 })
 
+// The clock is stopped (`vi.setSystemTime` without fake timers: `Date` only, so `vi.waitFor` does not move it on) at an
+// instant just before and just after midnight UTC, so that "today" is one day for the test and for the page: read at
+// two moments, as `new Date()` in each did, a run that crossed midnight expected one day and got the next (GH-4134)
+const CLOCKS = [
+  { at: '2026-11-15T23:59:59.900Z', today: '2026-11-15' },
+  { at: '2026-11-16T00:00:00.100Z', today: '2026-11-16' },
+]
+
 // today, which a record that is still going on ends at: the window ends there
-const TODAY = new Date().toISOString().slice(0, 10)
+let TODAY = CLOCKS[0]!.today
 
 // n stations of the daily record since 1891: 49,000 rows each, so that a few of them are over the limit
 function stations(count: number, start = '1891-01-01T00:00:00+00:00') {
@@ -37,11 +46,28 @@ function stations(count: number, start = '1891-01-01T00:00:00+00:00') {
 const mounted: { unmount: () => void }[] = []
 const endpoints: (() => void)[] = []
 
+// a browser an hour east of UTC, where it is already the next day in local time at the first instant: today is UTC's
+let zone: string | undefined
+beforeAll(() => {
+  zone = process.env.TZ
+  process.env.TZ = 'Europe/Berlin'
+  // the zone taken up, else the tests pass in UTC against a day read in local time as well
+  expect(new Date(2020, 0, 1).getTimezoneOffset()).toBe(-60)
+})
+
 afterEach(() => {
+  vi.useRealTimers()
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
   endpoints.splice(0).forEach(remove => remove())
-  clearNuxtState()
+  clearNuxtState(EXPLORER_STATE)
   useToast().clear()
+})
+
+afterAll(() => {
+  if (zone === undefined)
+    delete process.env.TZ
+  else
+    process.env.TZ = zone
 })
 
 const query = () => useRouter().currentRoute.value.query
@@ -85,7 +111,12 @@ async function typeDate(wrapper: Awaited<ReturnType<typeof open>>['wrapper'], in
   await input.setValue(value)
 }
 
-describe('explorer default date range', () => {
+describe.each(CLOCKS)('explorer default date range at $at', ({ at, today }) => {
+  beforeEach(() => {
+    TODAY = today
+    vi.setSystemTime(new Date(at))
+  })
+
   it('starts the newest window that fits where the whole record of the selection is more than one answer', async () => {
     const { wrapper, vm, list } = await open()
     await select(wrapper, vm, list.slice(0, 30))
@@ -337,5 +368,38 @@ describe('explorer default date range', () => {
       await new Promise(resolve => setTimeout(resolve, 200))
       expect(note(wrapper)).toBe('')
     })
+  })
+})
+
+// A backend that cannot be reached tells the page nothing about the link's selection: it is neither emptied nor taken out of
+// the address, and a Retry that is answered restores it (GH-4042)
+describe('explorer opened at a link while the backend cannot be reached', () => {
+  const LINK = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m&mode=station&stations=00001'
+
+  it('keeps the selection of the link in the address, and restores it when a Retry is answered', async () => {
+    let up = false
+    endpoints.push(registerEndpoint('/api/coverage', () => dailyClimateSummaryCoverage()))
+    endpoints.push(registerEndpoint('/api/stations', () => ({ stations: stations(3) })))
+    endpoints.push(registerEndpoint('/api/providers', (event) => {
+      if (up)
+        return networksAnswer({ dwd: { observation: {} } })
+      setResponseStatus(event, 503)
+      return { detail: 'Service Unavailable' }
+    }))
+    const wrapper = await mountSuspended(ExplorerWithApp, { attachTo: document.body, route: LINK })
+    mounted.push(wrapper)
+    const selectionOf = () => wrapper.findComponent(ParameterSelection).vm as any
+    await vi.waitFor(() => expect(wrapper.text()).toContain('The backend could not be reached'))
+    await vi.waitFor(() => expect(selectionOf().isInitializing).toBe(false))
+    await new Promise(resolve => setTimeout(resolve, 200))
+    const kept = { provider: 'dwd', network: 'observation', resolution: 'daily', dataset: 'climate_summary', parameters: 'temperature_air_max_2m', stations: '00001' }
+    expect(query()).toMatchObject(kept)
+
+    up = true
+    await wrapper.findAll('button').find(b => b.text() === 'Retry')!.trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).not.toContain('The backend could not be reached'))
+    await vi.waitFor(() => expect([selectionOf().provider, selectionOf().network, selectionOf().resolution, selectionOf().dataset]).toEqual(['dwd', 'observation', 'daily', 'climate_summary']))
+    await new Promise(resolve => setTimeout(resolve, 200))
+    expect(query()).toMatchObject(kept)
   })
 })

@@ -21,7 +21,7 @@ from wetterdienst.settings import Settings
 from wetterdienst.util.network import File
 
 # a key that no provider has accepted: it only lets the request be built, and nothing here reaches a provider
-SETTINGS = Settings(auth={"aemet": "dummy-key-for-test", "knmi": "dummy-key-for-test", "metno_frost": "client-id"})
+SETTINGS = Settings(auth={"aemet": "dummy-key-for-test", "knmi_edr": "dummy-key-for-test", "metno_frost": "client-id"})
 
 
 def _date_required_datasets() -> list[tuple[str, str, str, str]]:

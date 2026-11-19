@@ -76,6 +76,33 @@ This table and subsets of it can be printed with a function call of
 ``.discover()`` as described in the API section. Furthermore, individual
 parameters can be queried.
 
+## WMO numbers of the stations
+
+The station descriptions on the file server carry no WMO number, so `wmo_id` is read from DWD's
+[Stationslexikon](https://www.dwd.de/DE/leistungen/klimadatendeutschland/statliste/statlex_html.html), an HTML
+table with a row for every station and product (the table itself is the same address with
+`?view=nasPublication`, 5.9 MB). Its column `Stationskennung` is the id the station has in the network
+of the product: for the products `SY` (synoptic station) and `MN` (the automatic network that took over
+the synoptic stations) it is the WMO number (Berlin-Dahlem `00403` is `10381`, Hamburg-Fuhlsbüttel `01975`
+is `10147`), for the other products the id of that network (`03319` is the climate station of Berlin-Dahlem,
+`46552` its rain gauge), and for most `SY` and `MN` rows an id of DWD's own that is no WMO number (`H808`,
+`Q870`). Only a number of five digits of `SY` or `MN` is a `wmo_id`; every other station has `wmo_id` null.
+
+Read 2026-11-16, 314 of the 13,779 stations of the table have one (279 of the 1,284 stations of
+`daily/kl`, 22 %: the main stations; 209 of the 573 of its `recent` period, 36 %). A station with the same
+number in `SY` and `MN` has it once, and none of the 314 has two different ones; where one did, its `wmo_id`
+would be null and a warning in the log would say so. A number may belong to two station ids where the station
+moved and kept it (`10427` is Altastenberg `00098` until 1954 and Kahler Asten `02483` after), and a search by
+`wmo_id` finds both.
+
+The table is kept for a week in the cache and for a day in the process, so a number is at most eight days old. A
+failure to read it is remembered for five minutes, so that a page that is down is not asked for by every request. It
+is a page and not a data format, so it is read by the names of its headers, and a page that has changed (a header
+renamed, no row, no WMO number at all) is an error that names the address. The stations are the answer and the number
+an addition: when the page cannot be read or is no longer the table, or no connection can be made to `www.dwd.de` (a
+host other than the `opendata.dwd.de` the stations are listed from), the stations come back with `wmo_id` null and the
+warning `wmo-ids-unavailable`. A rate limit of the provider (a 429) is still raised, and not remembered.
+
 ## Stations that the station list does not carry
 
 The name and the position of a station come from the station description of its dataset and period

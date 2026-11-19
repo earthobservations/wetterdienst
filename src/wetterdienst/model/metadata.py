@@ -68,7 +68,7 @@ TimeseriesKind = Literal["observation", "forecast", "derived"]
 #: what a network in the registry is: a timeseries network of one of the `TimeseriesKind`s, or a standalone one,
 #: which has its own request class and result and no stations or values to request (the radar products and the
 #: warnings of `dwd`). Which one decides where a network can be requested: see `Wetterdienst.discover()`.
-NetworkKind = Literal["observation", "forecast", "derived", "radar", "alerts"]
+NetworkKind = Literal["observation", "forecast", "derived", "radar", "alerts", "storm_cells"]
 
 #: the continents a network can have stations on (Europe and Asia are two, as the station lists treat them)
 Continent = Literal["africa", "antarctica", "asia", "europe", "north_america", "oceania", "south_america"]
@@ -142,7 +142,7 @@ class CoverageNetwork(TypedDict):
     name_short: str
     country: str
     # `observation`, `forecast` and `derived` are the timeseries networks, which have stations and values; `radar`
-    # and `alerts` are standalone, and the endpoints of the timeseries refuse them with a 404
+    # `alerts` and `storm_cells` are standalone, and the endpoints of the timeseries refuse them with a 404
     kind: NetworkKind
     # how far the network reaches, not where its provider is: this list is kept short, so it has the scope only, and the
     # full extent is in `/api/providers` and, for each dataset, in the coverage of one network (GH-3456)

@@ -79,7 +79,9 @@ watch(() => route.query.place, async (id) => {
 // "Here" (GH-3651): the reader's own position, given by "Use my location" and rounded to about 1 km, takes the DWD station
 // nearest to it (the stations request, ranked by the position) as the place, for this visit only unless the reader ticked
 // "remember". The address then names no other place; the position itself is in no address.
-const { remember } = useMyLocation()
+const { remember, position, checking, checkOnLoad } = useMyLocation()
+// the stored position's station is this page's place as it loads: the permission is looked at before it is asked about
+checkOnLoad()
 // "Remember" is ticked after the press (GH-4011), when the place the position made is already in hand, for this visit:
 // it is kept in the browser with the position, as it would have been had the box been ticked before
 watch(remember, (on) => {
@@ -90,6 +92,17 @@ const locating = ref(false)
 const locatedText = ref('')
 const locateProblem = ref('')
 let locateRequest = 0
+// "Forget my position" (GH-4014) takes back what the position made of the place (`useMyLocation`), and a lookup of the
+// nearest station still on its way is dropped with it: its late answer would put the place back for the visit and the
+// status would read as if the position were current. Synchronous, so that no answer lands between the forget and this.
+watch(position, (now) => {
+  if (now)
+    return
+  locateRequest++
+  locating.value = false
+  locatedText.value = ''
+  locateProblem.value = ''
+}, { flush: 'sync' })
 async function onPosition(point: { latitude: number, longitude: number }) {
   const mine = ++locateRequest
   locating.value = true
@@ -125,6 +138,8 @@ async function onPosition(point: { latitude: number, longitude: number }) {
 
 // the place dialog: the search of stations (AppCommandPalette in its place mode). A place chosen is in the link too.
 const placeOpen = ref(false)
+// the page behind the open place dialog is held on iOS, and a finger in it moves nothing behind it (GH-3761)
+const placeHold = useModalDialogHold(placeOpen)
 const placeButton = ref<HTMLButtonElement | null>(null)
 function onPlace(chosen: { id: string }) {
   placeOpen.value = false
@@ -180,8 +195,9 @@ function onPlace(chosen: { id: string }) {
     </ul>
 
     <div ref="answer" class="ask-answer">
-      <AnswerPanel v-if="question" :question="question" :day="day" @update:day="setDay" />
-      <p v-else class="ask-idle" data-testid="ask-idle">
+      <!-- while the stored position is checked against the browser's permission (GH-4014), nothing is asked about the station it made -->
+      <AnswerPanel v-if="question && !checking" :question="question" :day="day" @update:day="setDay" />
+      <p v-else-if="!question" class="ask-idle" data-testid="ask-idle">
         <UIcon name="i-ph-cursor-click" class="size-5 shrink-0" aria-hidden="true" />
         {{ t('ask.idle') }}
       </p>
@@ -193,7 +209,8 @@ function onPlace(chosen: { id: string }) {
       :title="t('ask.placeDialogTitle')"
       :description="t('ask.placeHint')"
       :close="false"
-      :ui="{ content: 'sm:max-w-2xl sm:top-[12vh] sm:translate-y-0 max-h-[min(36rem,calc(100dvh-2rem))] sm:max-h-[min(36rem,calc(100dvh-16vh))]', header: 'sr-only', body: 'p-0 sm:p-0 flex flex-col min-h-0' }"
+      :ui="{ content: 'app-vv-dialog sm:max-w-2xl sm:top-[12vh] sm:translate-y-0 max-h-[min(36rem,calc(100dvh-2rem))] sm:max-h-[min(36rem,calc(100dvh-16vh))]', header: 'sr-only', body: 'p-0 sm:p-0 flex flex-col min-h-0' }"
+      @after:leave="placeHold.afterLeave"
     >
       <template #body>
         <AppCommandPalette mode="place" @place="onPlace" @done="placeOpen = false" />

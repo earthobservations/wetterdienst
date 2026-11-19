@@ -6,12 +6,9 @@ import Meteogram from '~/components/Meteogram.vue'
 // The day rows of the map's panel (GH-3650): the meteogram with no chart, no controls, and nothing remembered or
 // written to the address.
 
-const plotly = vi.hoisted(() => ({
-  newPlot: vi.fn(async () => {}),
-  relayout: vi.fn(async () => {}),
-  purge: vi.fn(),
-}))
-vi.mock('plotly.js-basic-dist-min', () => plotly)
+// the chart's code, which these rows never ask for: its loader is a spy
+const echarts = vi.hoisted(() => ({ loadEcharts: vi.fn(() => ({ init: vi.fn() })) }))
+vi.mock('~/utils/echarts-loader', () => echarts)
 
 // three days of hourly temperatures
 const values = Array.from({ length: 72 }, (_, hour) => ({
@@ -38,7 +35,7 @@ async function mountRows(props: Record<string, unknown> = {}, route = '/') {
 beforeEach(() => {
   // the first of October, as the values start on it: the rows start at today, which is a day of the run
   vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-10-01T10:00:00Z') })
-  plotly.newPlot.mockClear()
+  echarts.loadEcharts.mockClear()
 })
 afterEach(async () => {
   mounted.splice(0).forEach(wrapper => wrapper.unmount())
@@ -47,28 +44,42 @@ afterEach(async () => {
 })
 
 describe('the meteogram as day rows (days-only)', () => {
-  it('is a list of days, each with its temperatures, and no chart, no view choice and no Plotly', async () => {
+  it('is a list of days, each with its temperatures, and no chart, no view choice and no chart code', async () => {
     const wrapper = await mountRows()
     const rows = wrapper.findAll('[data-testid="day-rows"] li')
     expect(rows.length).toBeGreaterThanOrEqual(3)
     expect(rows[0]!.text()).toMatch(/\d+ \/ \d+/)
     expect(wrapper.find('[role="figure"]').exists()).toBe(false)
     expect(wrapper.find('[role="radiogroup"]').exists()).toBe(false)
-    await vi.waitFor(() => expect(plotly.newPlot).not.toHaveBeenCalled())
+    await vi.waitFor(() => expect(echarts.loadEcharts).not.toHaveBeenCalled())
   })
 
-  // the weather of a row is a Phosphor icon, hidden from a screen reader, with its words beside it (GH-3527)
-  it('draws the weather of each row as an icon that is hidden, and says it in words', async () => {
+  // the weather of a row is Yr's symbol, as the chart draws an hour's, hidden from a screen reader, with its words beside it (GH-4193)
+  it('draws the weather of each row as a symbol that is hidden, and says it in words', async () => {
     const wrapper = await mountRows()
     const rows = wrapper.findAll('[data-testid="day-rows"] li')
     for (const row of rows) {
-      const icon = row.find('[data-weather]')
-      expect(icon.exists()).toBe(true)
-      expect(icon.attributes('aria-hidden')).toBe('true')
-      expect(icon.classes().some(name => name.startsWith('i-ph:'))).toBe(true)
+      const symbol = row.find('img[data-weather]')
+      expect(symbol.exists()).toBe(true)
+      expect(symbol.attributes('aria-hidden')).toBe('true')
+      expect(symbol.attributes('alt')).toBe('')
+      expect(symbol.attributes('src')).toMatch(/^\/yr-symbols\/lightmode\/[0-9a-z]+\.svg$/)
       expect(row.find('.sr-only').text()).not.toBe('')
       expect(row.text()).not.toMatch(/\p{Extended_Pictographic}/u)
     }
+  })
+
+  // the chart that carries Yr's credit (CC BY 4.0) is not here: the rows do (GH-4193)
+  it('credits Yr under the rows, once, where there is no chart to carry it', async () => {
+    const wrapper = await mountRows()
+    const credit = wrapper.findAll('[data-testid="day-symbols-credit"]')
+    expect(credit).toHaveLength(1)
+    expect(credit[0]!.text()).toBe('Weather symbols © 2015 Yr/NRK, CC BY 4.0.')
+    expect(credit[0]!.findAll('a').map(a => a.attributes('href'))).toEqual([
+      'https://github.com/nrkno/yr-weather-symbols',
+      'https://creativecommons.org/licenses/by/4.0/',
+    ])
+    expect(wrapper.find('[data-testid="meteogram-credit"]').exists()).toBe(false)
   })
 
   it('is not taken to the chart by the view the reader chose on the forecast page, which is kept in the browser', async () => {
@@ -143,15 +154,26 @@ describe('the days the rows list', () => {
     expect(rows.some(row => /partial/.test(row))).toBe(false)
   })
 
-  it('marks the last day, which the run ends in, as partial with the hours it has', async () => {
-    // at Berlin the run ends at 01:00 on the 4th: the hours 00:00 and 01:00 of a day of their own
+  it('marks the last day, which the run ends in, as partial with the hours it has, and not the first, of which it has 22 hours (GH-4175)', async () => {
+    // at Berlin the run starts at 02:00 on the 1st, the first 22 hours of the day being all it has of it (the first hour after the
+    // run's issue is the run's first): a day of 20 hours or more is not marked. It ends at 01:00 on the 4th: the hours 00:00 and 01:00
+    // of a day of their own
     const wrapper = await mountRows()
     const rows = wrapper.findAll('[data-testid="day-rows"] li')
+    expect(rows[0]!.text()).toContain('01/10')
+    expect(rows[0]!.find('[data-testid="partial-day"]').exists()).toBe(false)
     const last = rows[rows.length - 1]!
     expect(last.text()).toContain('04/10')
     expect(last.find('[data-testid="partial-day"]').text()).toBe('partial, 2 h')
-    // and only it: the days before are whole
     expect(wrapper.findAll('[data-testid="partial-day"]')).toHaveLength(1)
+  })
+
+  it('marks a first day the run has fewer than 20 hours of, with them', async () => {
+    // from 10:00 UTC, 12:00 at Berlin: 12 hours of the day
+    const late = values.filter(value => new Date(value.timestamp).getUTCHours() >= 10 || new Date(value.timestamp).getUTCDate() > 1)
+    const wrapper = await mountRows({ values: late })
+    const first = wrapper.findAll('[data-testid="day-rows"] li')[0]!
+    expect(first.find('[data-testid="partial-day"]').text()).toBe('partial, 12 h')
   })
 
   it('marks a last day of six hours as partial for six hours, and a day of its own that ends at 23:00 as whole', async () => {
@@ -163,41 +185,39 @@ describe('the days the rows list', () => {
     expect(whole.find('[data-testid="partial-day"]').exists()).toBe(false)
   })
 
-  it('does not mark a day that is the last one it lists but not the last of the run', async () => {
-    // eight days of hourly values: the rows are cut at seven, and the eighth day, which the run has, is not listed
-    const long = Array.from({ length: 8 * 24 - 5 }, (_, hour) => ({ ...values[0]!, timestamp: new Date(Date.UTC(2026, 9, 1, hour)).toISOString() }))
+  it('lists every day of a long run, with no cap (GH-4127)', async () => {
+    // ten whole days of hourly values, the length of a MOSMIX-L run: ten rows, none partial
+    const long = Array.from({ length: 10 * 24 }, (_, hour) => ({ ...values[0]!, timestamp: new Date(Date.UTC(2026, 9, 1, hour)).toISOString() }))
     const wrapper = await mountRows({ values: long, stationCoords: null })
-    expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(7)
+    expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(10)
     expect(wrapper.findAll('[data-testid="partial-day"]')).toHaveLength(0)
   })
 
-  // hourly values from the 1st of October 00:00 UTC for `hours` hours, then 3-hourly ones for `coarse` more
-  const run = (hours: number, coarse = 0) => [
-    ...Array.from({ length: hours }, (_, hour) => Date.UTC(2026, 9, 1, hour)),
-    ...Array.from({ length: coarse }, (_, step) => Date.UTC(2026, 9, 1, hours + 3 * (step + 1) - 3)),
-  ].map(time => ({ ...values[0]!, timestamp: new Date(time).toISOString() }))
+  it('lists an eleventh day that the run only starts, and marks it as partial', async () => {
+    const long = Array.from({ length: 10 * 24 + 6 }, (_, hour) => ({ ...values[0]!, timestamp: new Date(Date.UTC(2026, 9, 1, hour)).toISOString() }))
+    const wrapper = await mountRows({ values: long, stationCoords: null })
+    expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(11)
+    expect(wrapper.findAll('[data-testid="partial-day"]')).toHaveLength(1)
+  })
 
-  it('counts the hours of the last day by the step of the run, in a run of more than 120 hours', async () => {
-    // hourly to the 6th 05:00: six hours of the last day, where a 3-hourly step would count eight
+  // hourly values from the 1st of October 00:00 UTC for `hours` hours: MOSMIX-L is hourly to its last step, there is no coarser end to a run
+  const run = (hours: number) => Array.from({ length: hours }, (_, hour) => Date.UTC(2026, 9, 1, hour))
+    .map(time => ({ ...values[0]!, timestamp: new Date(time).toISOString() }))
+
+  it('counts the hours of the last day by the hourly steps of the run, in a run of more than 120 hours', async () => {
+    // hourly to the 6th 05:00: six hours of the last day (GH-4176: it was counted by a 3-hourly step that no run has)
     const wrapper = await mountRows({ values: run(5 * 24 + 6), stationCoords: null })
     expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(6)
     expect(wrapper.find('[data-testid="partial-day"]').text()).toBe('partial, 6 h')
   })
 
-  it('marks a last day that an hourly run of more than 120 hours ends at 21:00, which is not whole', async () => {
-    const wrapper = await mountRows({ values: run(5 * 24 + 22), stationCoords: null })
-    expect(wrapper.find('[data-testid="partial-day"]').text()).toBe('partial, 22 h')
-  })
-
-  it('counts the hours of the last day by the 3-hourly step where an hourly run goes on in 3 hours', async () => {
-    // hourly for five days, then 3-hourly from the 6th 00:00 to the 7th 09:00: the 7th has 00, 03, 06 and 09
-    const wrapper = await mountRows({ values: run(5 * 24, 0).concat(Array.from({ length: 12 }, (_, step) => ({ ...values[0]!, timestamp: new Date(Date.UTC(2026, 9, 6, 3 * step)).toISOString() }))), stationCoords: null })
-    expect(wrapper.findAll('[data-testid="day-rows"] li')).toHaveLength(7)
-    expect(wrapper.find('[data-testid="partial-day"]').text()).toBe('partial, 12 h')
-    // and the same run with its last sample at 21:00 is whole
+  it('marks a last day that an hourly run of more than 120 hours ends at 18:00, which has fewer than 20 hours', async () => {
+    const wrapper = await mountRows({ values: run(5 * 24 + 19), stationCoords: null })
+    expect(wrapper.find('[data-testid="partial-day"]').text()).toBe('partial, 19 h')
+    // and one of 22 hours, which is 20 or more, is not marked
     mounted.splice(0).forEach(w => w.unmount())
-    const whole = await mountRows({ values: run(5 * 24, 0).concat(Array.from({ length: 16 }, (_, step) => ({ ...values[0]!, timestamp: new Date(Date.UTC(2026, 9, 6, 3 * step)).toISOString() }))), stationCoords: null })
-    expect(whole.find('[data-testid="partial-day"]').exists()).toBe(false)
+    const nearly = await mountRows({ values: run(5 * 24 + 22), stationCoords: null })
+    expect(nearly.find('[data-testid="partial-day"]').exists()).toBe(false)
   })
 
   it('says there is no data where every day of the run is before today', async () => {

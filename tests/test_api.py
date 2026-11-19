@@ -45,8 +45,10 @@ from wetterdienst.provider.dwd.mosmix import DwdMosmixMetadata, DwdMosmixRequest
 from wetterdienst.provider.dwd.observation import DwdObservationMetadata, DwdObservationRequest
 from wetterdienst.provider.dwd.phenology import DwdPhenologyMetadata
 from wetterdienst.provider.dwd.poi import DwdPoiMetadata
+from wetterdienst.provider.dwd.pollen import DwdPollenMetadata
 from wetterdienst.provider.dwd.road import DwdRoadMetadata, DwdRoadRequest
 from wetterdienst.provider.dwd.swsmos import DwdSwsmosMetadata
+from wetterdienst.provider.dwd.uvi import DwdUviMetadata
 from wetterdienst.provider.ea.hydrology import EAHydrologyMetadata, EAHydrologyRequest
 from wetterdienst.provider.eaufrance.hubeau import HubeauMetadata, HubeauRequest
 from wetterdienst.provider.eccc.observation import EcccObservationMetadata, EcccObservationRequest
@@ -81,8 +83,10 @@ ALL_METADATA = [
     DwdObservationMetadata,
     DwdPhenologyMetadata,
     DwdPoiMetadata,
+    DwdPollenMetadata,
     DwdRoadMetadata,
     DwdSwsmosMetadata,
+    DwdUviMetadata,
     EAHydrologyMetadata,
     EcccObservationMetadata,
     FmiObservationMetadata,
@@ -165,7 +169,7 @@ def test_wetterdienst_api(provider: str, network: str) -> None:
     assert request
 
 
-@pytest.mark.parametrize("network", ["radar", "alerts"])
+@pytest.mark.parametrize("network", ["radar", "alerts", "storm_cells"])
 def test_resolve_refuses_a_standalone_network_and_names_the_entry_point(network: str) -> None:
     """`resolve` is for timeseries networks: dwd/radar and dwd/alerts are refused, naming the entry point (GH-3045)."""
     with pytest.raises(ApiNotFoundError, match=rf"resolve_standalone\('dwd', '{network}'\)"):
@@ -177,6 +181,7 @@ def test_resolve_refuses_a_standalone_network_and_names_the_entry_point(network:
     [
         ("dwd", "radar", "DwdRadarValues"),
         (" DWD ", "Alerts", "DwdWeatherAlertRequest"),
+        ("dwd", "Storm_Cells", "DwdStormCellsRequest"),
     ],
 )
 def test_resolve_standalone_returns_the_request_class_of_the_network(
@@ -210,7 +215,7 @@ def test_the_standalone_networks_are_exactly_the_ones_that_are_no_timeseries_req
             assert Wetterdienst.is_standalone(provider, network) == ((provider, network) in standalone)
     assert standalone == Wetterdienst.standalone
     kinds = {Wetterdienst.discover()[provider][network]["kind"] for provider, network in standalone}
-    assert kinds == {"radar", "alerts"}
+    assert kinds == {"radar", "alerts", "storm_cells"}
 
 
 @pytest.mark.parametrize(
@@ -250,7 +255,7 @@ def test_resolve_names_the_package_a_provider_is_missing(monkeypatch: pytest.Mon
     message = str(excinfo.value)
     assert "requires h5py" in message
     # and which extra brings it, read from the installed metadata rather than from a list in the code
-    assert "pip install wetterdienst[knmi]" in message
+    assert "pip install wetterdienst[radar]" in message
 
 
 def test_resolve_still_reports_a_module_that_is_really_absent(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -1301,7 +1306,7 @@ def test_api_fmi_observation(default_settings: Settings) -> None:
 @pytest.mark.remote
 @pytest.mark.skipif(
     not KnmiObservationRequest.is_configured(),
-    reason="KNMI credentials not set — provide WD_AUTH__KNMI=<api_key>",
+    reason="KNMI credentials not set — provide WD_AUTH__KNMI_EDR=<api_key>",
 )
 def test_api_knmi_observation(default_settings: Settings) -> None:
     """Test KNMI observation API."""
@@ -1705,7 +1710,7 @@ def test_discover_says_what_every_network_is() -> None:
     discovered = Wetterdienst.discover()
     timeseries_kinds = set(get_args(TimeseriesKind))
     standalone = set(get_args(NetworkKind)) - timeseries_kinds
-    assert standalone == {"radar", "alerts"}
+    assert standalone == {"radar", "alerts", "storm_cells"}
 
     standalone_networks = set()
     for provider, networks in Wetterdienst.registry.items():
@@ -1732,13 +1737,15 @@ def test_discover_says_what_every_network_is() -> None:
             else:
                 standalone_networks.add((provider, network))
                 assert entry["kind"] in standalone, f"{provider}/{network}"
-    # the two networks no timeseries endpoint takes, which the contract names (docs/usage/restapi.md)
-    assert standalone_networks == {("dwd", "radar"), ("dwd", "alerts")}
+    # the networks no timeseries endpoint takes, which the contract names (docs/usage/restapi.md)
+    assert standalone_networks == {("dwd", "radar"), ("dwd", "alerts"), ("dwd", "storm_cells")}
     assert (discovered["dwd"]["radar"]["kind"], discovered["dwd"]["alerts"]["kind"]) == ("radar", "alerts")
+    assert discovered["dwd"]["storm_cells"]["kind"] == "storm_cells"
+    assert discovered["dwd"]["storm_cells"]["url"] == "https://opendata.dwd.de/weather/radar/konrad3d"
     assert discovered["dwd"]["radar"]["url"] == "https://opendata.dwd.de/weather/radar/"
     assert discovered["dwd"]["alerts"]["url"] == "https://opendata.dwd.de/weather/alerts/cap"
     # the name and the country of the standalone ones are the provider's, as the timeseries networks of it give them
-    for network in ("radar", "alerts"):
+    for network in ("radar", "alerts", "storm_cells"):
         assert discovered["dwd"][network]["name_short"] == discovered["dwd"]["observation"]["name_short"]
         assert discovered["dwd"][network]["country"] == discovered["dwd"]["observation"]["country"]
 
@@ -1764,7 +1771,7 @@ def _needing_a_credential() -> dict[tuple[str, str], type[TimeseriesRequest]]:
 # each field of `Settings.auth` as the environment takes it: a key, a `username:password`, a Frost client id and secret
 _CREDENTIALS = {
     "aemet": "DUMMY-KEY",
-    "knmi": "DUMMY-KEY",
+    "knmi_edr": "DUMMY-KEY",
     "metno_frost": '["DUMMY-ID", "DUMMY-SECRET"]',
     "ceda": "DUMMY-USER:DUMMY-SECRET",
 }

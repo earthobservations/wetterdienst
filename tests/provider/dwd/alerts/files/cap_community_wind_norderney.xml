@@ -1,0 +1,381 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<alert xmlns="urn:oasis:names:tc:emergency:cap:1.2">
+  <identifier>2.49.0.0.276.0.DWD.PVW.1794416340000.31fb0618-a3fd-493a-b36e-22d7084c4b65.ENG</identifier>
+  <sender>opendata@dwd.de</sender>
+  <sent>2026-11-11T17:59:00+01:00</sent>
+  <status>Actual</status>
+  <msgType>Alert</msgType>
+  <source>PVW</source>
+  <scope>Public</scope>
+  <code>id:2.49.0.0.276.0.DWD.PVW.1794416340000.31fb0618-a3fd-493a-b36e-22d7084c4b65</code>
+  <info>
+    <language>en</language>
+    <category>Met</category>
+    <event>wind gusts</event>
+    <responseType>Prepare</responseType>
+    <urgency>Immediate</urgency>
+    <severity>Minor</severity>
+    <certainty>Likely</certainty>
+    <eventCode>
+      <valueName>PROFILE_VERSION</valueName>
+      <value>2.1.14</value>
+    </eventCode>
+    <eventCode>
+      <valueName>LICENSE</valueName>
+      <value>© GeoBasis-DE / BKG 2021 (Daten modifiziert)</value>
+    </eventCode>
+    <eventCode>
+      <valueName>II</valueName>
+      <value>51</value>
+    </eventCode>
+    <eventCode>
+      <valueName>GROUP</valueName>
+      <value>WIND</value>
+    </eventCode>
+    <eventCode>
+      <valueName>AREA_COLOR</valueName>
+      <value>255 235 59</value>
+    </eventCode>
+    <effective>2026-11-11T17:59:00+01:00</effective>
+    <onset>2026-11-12T06:00:00+01:00</onset>
+    <expires>2026-11-12T12:00:00+01:00</expires>
+    <senderName>Deutscher Wetterdienst</senderName>
+    <headline>Official WARNING of WIND GUSTS</headline>
+    <description>There is a risk of wind gusts (level 1 of 4).
+Max. gusts: &lt; 60 km/h; Wind direction: north-west</description>
+    <instruction>Hazard(s) to expect: light objects flying through the air. 
+Recommendations for what to do: 
+Secure loose objects. For example, fasten tents and coverings.</instruction>
+    <web>https://dwd.de/warnungen</web>
+    <contact>Deutscher Wetterdienst</contact>
+    <parameter>
+      <valueName>wind direction</valueName>
+      <value>north-west</value>
+    </parameter>
+    <parameter>
+      <valueName>gusts</valueName>
+      <value>&lt;60 [km/h]</value>
+    </parameter>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>53.789841,7.934358 53.782001,7.973737 53.77784,7.978262 53.7753,7.96936 53.782094,7.946882 53.780047,7.912813 53.787845,7.874899 53.773693,7.867558 53.786994,7.846123 53.795274,7.868256 53.789841,7.934358 53.789841,7.934358</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>53.822648,8.551137 53.845573,8.565257 53.844444,8.575336 53.87369,8.599602 53.882028,8.614309 53.892253,8.673254 53.891874,8.687296 53.880083,8.688396 53.879109,8.70369 53.858441,8.727872 53.834757,8.783972 53.833142,8.830538 53.816596,8.832159 53.810678,8.855526 53.789447,8.842591 53.784957,8.837949 53.773503,8.863231 53.770692,8.852444 53.780096,8.831832 53.78887,8.779726 53.765902,8.75779 53.760552,8.753568 53.760576,8.71014 53.73602,8.712563 53.736522,8.699229 53.730243,8.703059 53.721372,8.68352 53.706438,8.674357 53.701625,8.605475 53.643754,8.576723 53.618122,8.588823 53.623296,8.508829 53.655701,8.484778 53.693513,8.482531 53.750566,8.521468 53.822648,8.551137 53.822648,8.551137</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>53.921202,8.518481 53.91255,8.500589 53.914758,8.486716 53.931865,8.497041 53.921202,8.518481 53.921202,8.518481</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>53.584722,6.865479 53.589967,6.852693 53.596728,6.863725 53.593227,6.875252 53.584722,6.865479 53.584722,6.865479</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>53.679364,7.097156 53.662652,6.851934 53.671095,6.867998 53.685167,7.026979 53.687411,7.084589 53.679364,7.097156 53.679364,7.097156</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>53.720188,7.428475 53.721523,7.368306 53.727292,7.363001 53.73504,7.382707 53.732204,7.430946 53.720188,7.428475 53.720188,7.428475</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>53.957267,8.459304 53.944902,8.43256 53.947277,8.420337 53.954823,8.438029 53.963952,8.438006 53.957267,8.459304 53.957267,8.459304</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>53.641711,6.906972 53.625489,6.891767 53.62953,6.875511 53.64111,6.865194 53.653871,6.898536 53.641711,6.906972 53.641711,6.906972</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>53.557769,6.748593 53.556722,6.740508 53.563796,6.742922 53.568342,6.732102 53.568347,6.707378 53.558913,6.716775 53.577787,6.664979 53.58559,6.656202 53.599096,6.658253 53.618198,6.757171 53.604443,6.812073 53.59634,6.783837 53.5963,6.754166 53.584279,6.719525 53.568043,6.758352 53.557769,6.748593 53.557769,6.748593</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>53.781227,7.74407 53.781371,7.814697 53.774842,7.81399 53.760162,7.756713 53.762942,7.695724 53.752126,7.683814 53.753906,7.668771 53.766875,7.670538 53.777486,7.685665 53.781227,7.74407 53.781227,7.74407</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>53.722784,7.234037 53.726011,7.341087 53.718062,7.346203 53.704611,7.270835 53.706114,7.205668 53.698655,7.194395 53.704322,7.170308 53.697242,7.152508 53.705883,7.137838 53.711721,7.143179 53.723262,7.187707 53.722784,7.234037 53.722784,7.234037</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>53.512545,7.097612 53.524463,7.10052 53.525899,7.122993 53.536421,7.137356 53.570258,7.087108 53.580344,7.089797 53.611155,7.144114 53.629162,7.15538 53.627187,7.166521 53.640644,7.181306 53.668279,7.241736 53.683381,7.317394 53.683328,7.480504 53.671933,7.513821 53.674737,7.554065 53.687369,7.609485 53.703162,7.703775 53.700027,7.741598 53.711643,7.811398 53.718645,7.911395 53.70757,8.028936 53.684165,8.021054 53.641214,8.04328 53.647744,8.071691 53.63825,8.090946 53.625155,8.050429 53.627513,8.036534 53.600987,7.995299 53.596802,7.976644 53.578559,7.949539 53.590193,7.941314 53.595946,7.902111 53.585712,7.87904 53.578876,7.87806 53.580303,7.857434 53.569721,7.836389 53.536766,7.830938 53.520127,7.815445 53.503886,7.815456 53.512236,7.784923 53.485306,7.754889 53.494021,7.732794 53.485801,7.71209 53.49466,7.70217 53.49218,7.679142 53.501109,7.678391 53.524228,7.64606 53.535267,7.663816 53.561148,7.649406 53.579963,7.661311 53.586666,7.681803 53.614905,7.673812 53.606939,7.636787 53.611851,7.635605 53.612736,7.619125 53.618064,7.622796 53.624353,7.611673 53.630919,7.595702 53.624623,7.57809 53.613905,7.5823 53.616601,7.561454 53.620735,7.563158 53.627962,7.51326 53.622795,7.50771 53.625556,7.474458 53.623847,7.458955 53.622271,7.430865 53.619455,7.423312 53.582939,7.408395 53.576965,7.416207 53.551163,7.42091 53.542502,7.412293 53.533032,7.429582 53.526343,7.443383 53.513544,7.441601 53.502295,7.412487 53.510447,7.398125 53.517251,7.413699 53.526704,7.413181 53.536709,7.348929 53.54378,7.344056 53.556618,7.326319 53.573004,7.300816 53.578271,7.305902 53.579663,7.298863 53.578809,7.27334 53.574214,7.273709 53.567573,7.244827 53.560378,7.268666 53.552909,7.214667 53.521115,7.187376 53.51452,7.188228 53.511312,7.200869 53.499087,7.212057 53.468751,7.187841 53.467771,7.201232 53.45011,7.196112 53.439676,7.196644 53.445699,7.16943 53.430615,7.149602 53.426871,7.168053 53.419203,7.146171 53.413737,7.1549 53.404444,7.133448 53.397878,7.13987 53.387005,7.100293 53.368848,7.087934 53.353677,7.057547 53.353453,7.039023 53.378826,7.014214 53.36028,6.998629 53.371724,6.997642 53.385328,7.010613 53.424576,7.009782 53.482887,7.024534 53.5073,7.0481 53.529579,7.032272 53.545064,7.033326 53.523175,7.064942 53.532708,7.077292 53.512545,7.097612 53.512545,7.097612</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>polygonal event area</areaDesc>
+      <polygon>53.721985,7.500393 53.723317,7.464725 53.740836,7.464855 53.755781,7.485889 53.758831,7.590616 53.754873,7.62447 53.748771,7.631183 53.742922,7.513353 53.721985,7.500393 53.721985,7.500393</polygon>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Berumbur</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803452003</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Baltrum</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803452002</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Großheide</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803452007</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Stadt Borkum</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803457002</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Hagermarsch</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803452009</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Hage</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803452008</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Krummhörn</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803452014</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Juist</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803452013</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Wangerooge</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803455021</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Wangerland</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803455020</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Stadt Esens</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803462003</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Stadt Norden</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803452019</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Lütetsburg</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803452016</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Langeoog</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803462007</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Holtgast</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803462006</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Stadt Norderney</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803452020</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Dornum</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803452027</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Neuharlingersiel</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803462010</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Stedesdorf</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803462015</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Spiekeroog</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803462014</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Wurster Nordseeküste</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803352061</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Stadt Wittmund</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803462019</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeinde Werdum</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803462017</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Stadt Cuxhaven</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803352011</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeindefreies Gebiet Nordseeinsel Memmert</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803452501</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Hamburg-Neuwerk</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>702000109</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+    <area>
+      <areaDesc>Gemeindefreies Gebiet Insel Lütje Hörn</areaDesc>
+      <geocode>
+        <valueName>WARNCELLID</valueName>
+        <value>803457501</value>
+      </geocode>
+      <altitude>0.0</altitude>
+      <ceiling>9842.5197</ceiling>
+    </area>
+  </info>
+</alert>

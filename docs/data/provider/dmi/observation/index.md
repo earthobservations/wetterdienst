@@ -19,6 +19,14 @@ that this local/UTC offset never drops a boundary period from the result.
 Each station's `country` is DMI's three-letter code for the country it is in: `DNK`, `GRL` or `FRO`.
 DMI gives no region within a country, so `region` is null.
 
+Each station's `wmo_id` is DMI's `wmoStationId` (`06180` for Copenhagen Airport), which DMI gives 901 of its
+1,065 stations and always writes as the `station_id`. Only the numbers of the WMO blocks of Greenland (`04`),
+Denmark and the Faroe Islands (`06`) are read: the 774 others (`05xxx`, `20xxx` to `34xxx`) are DMI's own numbers, mostly of its
+automatic stations, which WMO's register (OSCAR) does not list, and would collide with real stations of other
+countries. Their `wmo_id` is null. This is an exception to taking a documented field as published, made because
+WMO's register shows the field is not WMO's for them: OSCAR lists 115 of the 127 numbers in the two blocks as
+`0-20000-0-<number>` and none of the other 774.
+
 Each value carries DMI's `qcStatus` in `quality_flags`, `manual` (quality controlled by DMI's
 climatologists) or `none` (not controlled), followed by `validity:true` or `validity:false`. DMI
 documents `validity` as whether the climatologists consider the value valid: "Invalid data is
@@ -162,15 +170,19 @@ them and stamped by `from`, so a reading at minute 0 lies an hour after its stam
 value may lie up to one hour from its stamp, and the library does not tell the two apart (this would need a second
 request to metObs for each station).
 
-DMI says of these four (and of `temp_soil_10`) that they "are additional parameters, which are not quality controlled
-by DMI's climatologists. As a result, data can be erronous", and their records carry `qcStatus` `none`. The library
-holds the five new parameters to the table of ranges like any other quantity (snow cover 0 to 100 %, leaf wetness the span and 5 % more,
+DMI says of `temp_grass`, `temp_soil_30`, `leaf_moisture` and `vapour_pressure_deficit_mean` (and of `temp_soil_10`) that they "are additional parameters, which are not quality controlled
+by DMI's climatologists. As a result, data can be erronous", and their records carry `qcStatus` `none`. DMI customer
+service said the same of `temp_grass`, `leaf_moisture` and `vapour_pressure_deficit_mean` on 2026-11-12. The library
+marks no value for that, as `qcStatus` is no verdict (see
+[the check `source`](../../../plausibility.md#the-sources-own-verdict-source)). The library holds the five new
+parameters to the table of ranges like any other quantity (snow cover 0 to 100 %, leaf wetness the span and 5 % more,
 the deficit -10 to 200 hPa, the temperatures those of their families), so what lies outside is null with
 `rejected:range` and the number kept as `raw:`; values that cannot be real and lie inside are among what it returns.
 The examples are not a list. Leaf wetness: the daily `leaf_moisture` is a sum although DMI's calculation table says
 "average of all hourly values within a day", as 1332.0 at 06135 on 2025-06-10 and 364.0 on the 12th, which no mean of
 minutes could be, and 1440.0 at 06068 on a day of 24 hours of 60.0, show, so it is the minutes of the day, 0 to 1440;
-some days are outside it (1442.0 at 06019 on 2022-05-24, which stays: it is within the span and 5 % more; negative
+DMI customer service confirms it (2026-11-12): the sum of the hourly values, computed only when at least 22 hourly
+values exist; some days are outside it (1442.0 at 06019 on 2022-05-24, which stays: it is within the span and 5 % more; negative
 days down to -799.0 at 06041 on 2023-03-05 and at three more stations in the first quarter of 2023, which are null)
 and so are some hours (62.0 at 06019 on 2022-05-24, which stays; -33.0 at 06041 on 2023-03-05, which is null). Grass
 temperature: -48.0 °C by the hour at 06056 in July 2022 and 50.9 °C by the day at 06065 in 2013, both inside the range
@@ -181,12 +193,38 @@ The snow cover (`snow_cover`) is the share of the ground covered by snow, observ
 depth, so a day is 06:00 to 06:00 UTC and is labelled by the date it begins. DMI writes whole percent, "derived
 directly, but codes are changed to %": all 62,399 values of 91 stations from 2011-01-01 to 2015-11-21 are 0 to 100, with
 0, 25, 50, 75 and 100 the commonest (1,382 of 25 %, 997 of 50 %, 1,231 of 75 %, 4,696 of 100 %), and a 99 is a value
-and no code, as 98 is. DMI publishes no snow cover from 2015-11-22 on and none by the month or the year, and the hours
-of 15 January of each year from 2005 to 2026 hold none.
+and no code, as 98 is. The climate data holds no snow cover from 2015-11-22 on and none by the month or the year, and
+the hours of 15 January of each year from 2005 to 2026 hold none.
+
+DMI customer service says (2026-11-12) that the snow cover is still observed, daily only, by 91 snow observers in the
+season of 1 October to 30 April. Read live and key-less on 2026-11-12, the climate data (`stationValue`, `day`) has no
+`snow_cover` after 2015-11-21 at any station: of the 91 stations, 74 have their last day on 2015-11-21 and the others
+end earlier (the last of them 2015-11-20), and a request for `snow_cover` between 2015-11-22 and 2026-11-12 answers no
+record, the seasons 2024/25 and 2025/26 and October and November 2026 included; the stop is in season, and the sampled
+windows of January to April of 2016, 2017, 2019 and 2022 are empty as well. The `snow_depth` of the same collection goes
+on (84 stations in the season 2025/26, 80 from 1 October 2026, the last day 2026-11-11). The observations are
+published as the metObs parameter `snow_cover_man`, which DMI's calculation table names as the source of `snow_cover`
+("derived directly ... but codes are changed to %"): 83 stations on 2025-10-01, 86 in January 2025, 82 in January
+2026 and 80 from 1 October to 12 November 2026, observed from the end of September to the beginning of May (82 stations
+on 2026-04-30 and 2026-05-03), with the codes 0 to 4 (not percent: 4 at 20000 on 2026-01-07 to 2026-01-11) and 0 only
+in October and November 2026. 21 of those stations, such as 20119, 20315 and 31509, are none of the 91 of the
+climate data. The library reads the climate data only, so it serves no snow cover after 2015-11-21.
+
+The mean vapour pressure (`pressure_vapor_mean`) is not checked itself: DMI computes it from the checked mean
+temperature and mean relative humidity (DMI customer service, 2026-11-12), and its records still carry `qcStatus`
+`manual`, which here refers to those two inputs. For Greenland and the Faroe Islands the daily, monthly and yearly
+values (and the hourly ones they are computed from) are computed from however many values exist, even from a single one, and DMI
+publishes the number of values behind each in the field `noValuesInCalculation` of the record. The library serves it as the
+token `n:<count>` of `quality_flags` and judges a value of too few of them as the check `source` (see
+[the count behind a value](#the-count-behind-a-value-n)). At 04219 (Qeqertarsuaq Heliport), whose count has fallen and which is inactive for parts of the year, the
+five daily records between 2026-01-08 and 2026-01-15 hold 0.0 hPa from 1 or 2 values (with `validity:false`), the one of 2026-03-03
+16.8 from 2 values and the one of 2026-04-20 0.0 from 7, so a value that cannot be real can stand on one reading (`manual,validity:true,n:2,suspect:source` for the 16.8).
 
 ## Parameters DMI lists that are not served
 
-DMI's station list names four parameters that the library does not serve (maintainer decision of 2026-11-08, GH-3762):
+DMI's station list names four parameters that the library does not serve (maintainer decisions of 2026-11-08 and
+2026-11-12, GH-3762). DMI customer service says (2026-11-12) that all four are climate normals of 1961 to 1990 for
+Greenland only, and that `no_days_fog` is no longer calculated because visibility is no longer quality checked:
 
 - `no_days_fog` ("No. of days with fog (vis. < 1 km)"), `no_days_thunder` and `no_days_snowfall` are held only as
   climate normals: 130, 130 and 117 records of `timeResolution` `30years`, 1961-1990, for 10, 10 and 9 stations, all
@@ -213,6 +251,71 @@ progress at the Faroe and Greenland stations 06014, 06009, 04390, 04208 and 0420
 With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the
 default is `soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes leave it
 out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
+
+## The count behind a value (`n`)
+
+Every record of the `stationValue` answer carries `noValuesInCalculation`, the number of values the daily, monthly or
+yearly value was computed from (hourly values for a day, daily values for a month or a year, as DMI's calculation
+table says; the daily values of Greenland before its stations were automated are computed from the 8 three-hourly
+synoptic readings of the day, `n:8`, and DMI marks them valid). The library writes it as the token `n:<count>` after `validity` (`manual,validity:true,n:2`), at every
+resolution. DMI's [climate data page](https://www.dmi.dk/friedata/dokumentation/climate-data) says that "derived
+values contain information on the amount of data behind the calculations", names no minimum count but that of the daily
+cloud cover ("provided that there has to be at least 12 hourly values and there are not more than 2 hourly values
+missing in a row"), and DMI customer service said (2026-11-12) that the values of Greenland and the Faroe Islands are
+computed from however many values exist, even one.
+
+The check `source` therefore judges a value computed from **fewer than half the readings its period has at least**, the
+library's own rule, which DMI does not state: a daily value from fewer than **4** readings, a monthly value from fewer
+than **14** daily values and a yearly value from fewer than **183**. A day has 24 hourly values in modern data, but the
+daily values of Greenland before the automation are the mean, extreme or sum of the 8 three-hourly synoptic readings
+(`n:8` for the temperature, pressure, humidity, wind, vapour pressure and cloud cover of 04360 Tasiilaq on
+1975-06-01/02, 1995-06-01/02 and 2005-06-01/02, all `validity:true`), so half of 8 is the threshold, and it still
+catches the days of 04219 from 1 or 2 readings. The 14 of 28 days and the 183 of 365 days are half of the shortest month
+and year. A value soft-flagged `suspect:source` is a row without a value in `interpolate`, `summarize` and the climate
+stripes, as every `suspect:` value is.
+The value is kept as `suspect:source` (`manual,validity:true,n:2,suspect:source`, the 16.8 hPa of 04219 on 2026-03-03)
+and null as `rejected:source,raw:<text>` with `plausibility={"source": "hard"}`, the same switch as `validity:false`.
+
+The rule covers the averages, extremes and sums of the hourly values of a day and of the daily values of a month and a
+year. It leaves out the parameters whose count is not the hours of the day or the days of the period: the daily
+precipitation (some Greenland stations measure it by hand), snow depth, snow cover, the largest 30 minute
+precipitation, the clear and cloudy days, the heating degree days of a day and the leaf wetness (which DMI computes
+only from 22 hourly values itself), and every count of days and the greatest snow depth of a month and a year. The
+hourly values carry the token and are not judged by it. A monthly or yearly value of a period that has not ended is
+not judged either: its count is the readings so far, fewer than the period needs by construction, and the token
+`completeness:Incomplete` says so (below). A day that has not ended is not returned at all.
+
+## The day, month and year still running (`completeness`)
+
+DMI serves the daily, the monthly and the annual value of the day, month or year that is still running as the value of
+that period, from the readings it has so far, and nothing in the record says so: it has `validity:true` and a
+`qcStatus` of `none` (not controlled yet), which says that the value is not controlled and not that its period is
+running. Read key-less on 2026-11-15: the daily `mean_temp` of 06180 for the day in progress from 16 readings (at 15:17
+UTC), the annual one for 2026 from 319 days and the one of November from 15. Such a value is partial and changes with
+every reading that comes in: the mean of the year so far where a caller expects the mean of the year.
+
+A period has ended when the `to` of its record, which carries the offset of the place (`2026-12-01T00:00:00+01:00` for
+the month of November at the Danish 06180, `2026-12-01T06:00:00+00:00` at the Greenland 04220: DMI counts the days of
+Greenland from 06:00 UTC), is not after the time of the request, in UTC. At that instant the period has ended, a
+microsecond before it has not. The time is the one the answer was asked for, or the one its cached copy was made at if
+that was before: the answer is kept for five minutes. The rule is that of [`metno/frost`](../../metno/frost/index.md),
+and the maintainer decided it for DMI on 2026-11-15 (GH-4087):
+
+- A **daily** value of a day that has not ended is **left out**, with a `window-not-closed` warning that says how many
+  values were left out at which stations and when the earliest day ends. It is not missing at the source: ask again
+  once the day has ended.
+- A **monthly** or **annual** value of a period that has not ended is **returned**, marked `completeness:Incomplete` in
+  `quality_flags` after the count and before `raw` (`none,validity:true,n:319,completeness:Incomplete`), with the same
+  warning. The mark is the one `metno/frost` writes and the Environment Agency's readings use. DMI writes only
+  `Incomplete`, never `Complete`, so a period that has ended has no token, which is no claim that it is final. To keep
+  the ended periods only, drop the rows whose `quality_flags` contain `completeness:Incomplete`, or end the window
+  before the current month or year.
+- `interpolate` and `summarize` cannot carry the mark, so they leave the monthly and annual value out too and tell
+  them, with the daily ones, as a cause of `source-data-left-out`.
+- An **hourly** value is not judged: DMI publishes an hour when it is over (read 2026-11-15 at 16:18 UTC: the latest
+  `to` of the 72 hourly records of 06180 was 16:00).
+- A value of a period that has not ended is not judged by its count (`n`, above): the count of a running period is the
+  readings so far. A day, month or year that has ended is.
 
 ## License
 

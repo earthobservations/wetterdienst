@@ -221,6 +221,9 @@ def test_fmi_observation_stations_read_the_operational_period_as_utc(monkeypatch
             "elevation": None,  # the catalogue has none
             "name": "Helsinki Kaisaniemi",
             "region": "Uusimaa",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
         {
             "resolution": "hourly",
@@ -233,6 +236,9 @@ def test_fmi_observation_stations_read_the_operational_period_as_utc(monkeypatch
             "elevation": None,
             "name": "Closed",
             "region": "Uusimaa",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
     ]
 
@@ -280,6 +286,9 @@ def test_fmi_observation_stations() -> None:
             "station_id": HELSINKI_KAISANIEMI,
             "name": "Helsinki Kaisaniemi",
             "region": "Helsinki",
+            "wmo_id": "02978",
+            "wigos_id": None,
+            "icao_id": None,
         },
     ]
     # assert coordinates with a tolerance -- FMI may adjust these slightly over time
@@ -370,6 +379,9 @@ def test_fmi_observation_values_window_in_helsinki_time_across_the_clock_change(
             "elevation": [4.0],
             "name": ["Helsinki Kaisaniemi"],
             "region": ["Helsinki"],
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
         schema_overrides={"end_timestamp": pl.Datetime("us", "UTC")},
     )

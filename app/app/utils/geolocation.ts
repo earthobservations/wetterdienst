@@ -19,6 +19,12 @@ export const POSITION_OPTIONS: PositionOptions = { enableHighAccuracy: false, ti
 export const LOCATE_TIMEOUT_MS = 60_000
 
 /**
+ * How long the page waits for the Permissions API (GH-4014): a query that never answers (seen in some webviews) is taken
+ * as "cannot tell", like a missing API, so that it neither holds the page's questions back nor leaves a press hanging.
+ */
+export const PERMISSION_QUERY_TIMEOUT_MS = 1500
+
+/**
  * Why there is no position, as the page says it: the reader refused (or the browser blocks the site), there is no
  * Geolocation API, the device could not tell, or it took too long.
  */
@@ -79,13 +85,22 @@ export function readRememberedPosition(): Point | null {
   }
 }
 
-/** Remembers a position, already rounded; a storage that refuses is no failure: the position is then for this visit only */
-export function writeRememberedPosition(point: Point): void {
+/**
+ * Remembers a position, already rounded. A storage that refuses (blocked site data, a full quota) is
+ * no failure: the position is then for this visit only, and the answer says so, so that the page does not claim that it
+ * is kept.
+ *
+ * @param point - The position, rounded
+ * @returns Whether the browser kept it
+ */
+export function writeRememberedPosition(point: Point): boolean {
   try {
     localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(roundPosition(point)))
+    return true
   }
   catch {
     // kept in memory by the composable, which is all that can be done
+    return false
   }
 }
 

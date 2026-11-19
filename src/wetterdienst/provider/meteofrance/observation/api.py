@@ -892,9 +892,11 @@ def _refetch_before(resource: dict) -> float | None:
 def _download_climate_resources(resources: list[dict], settings: Settings) -> dict[str, File]:
     """Download resources concurrently (grouped by cache ttl), keyed by url.
 
-    A handful of downloads commonly fail transiently when many requests go out at once (e.g.
-    server-side rate limiting) even after download_file's own retries, so failed ones get one
-    more, less concurrent attempt rather than silently dropping their data from the result.
+        A handful of downloads commonly fail transiently when many requests go out at once even after
+        download_file's own retries, so failed ones get one more, less concurrent attempt rather than
+        silently dropping their data from the result. Not a 429: the provider limits how fast it is asked,
+        which the caller raises (`File.is_rate_limited`, GH-4053), and a second attempt would ask it again. Once a file
+    of a batch is one, the other failed files of it are not asked again and no later batch is downloaded.
     """
     files_by_url: dict[str, File] = {}
     resources_by_ttl: dict[CacheExpiry, list[dict]] = {}
@@ -920,7 +922,9 @@ def _download_climate_resources(resources: list[dict], settings: Settings) -> di
         files_by_url.update(zip(urls, files, strict=True))
         # retrying is only worthwhile for likely-transient failures; a missing connection or a
         # genuinely nonexistent resource (404) will just fail again immediately, and so will a redirect that was
-        # refused (data.gouv.fr in maintenance, a hop out of the provider's hosts)
+        # refused (data.gouv.fr in maintenance, a hop out of the provider's hosts). A 429 is not asked again either:
+        # it is raised by the caller (GH-4053)
+        # nor is anything of the batch asked again once one of its files was refused so: the provider says to wait
         failed_urls = [
             url
             for url, file in files_by_url.items()
@@ -929,8 +933,9 @@ def _download_climate_resources(resources: list[dict], settings: Settings) -> di
             and not file.is_no_internet_error
             and not isinstance(file.content, RedirectRefusedError)
             and file.status != 404
+            and not file.is_rate_limited
         ]
-        if failed_urls:
+        if failed_urls and not any(files_by_url[url].is_rate_limited for url in urls):
             log.info(f"Retrying {len(failed_urls)} file(s) that failed to download.")
             for url in failed_urls:
                 files_by_url[url] = download_file(
@@ -966,7 +971,24 @@ def _download_climate_resources(resources: list[dict], settings: Settings) -> di
                     cache_disable=settings.cache_disable,
                     use_certifi=settings.use_certifi,
                 )
+        # a limit ends the download: the groups after it are not asked, and the caller raises it (GH-4053)
+        if any(files_by_url[url].is_rate_limited for url in urls):
+            break
     return files_by_url
+
+
+def _raise_if_climate_download_failed(files_by_url: dict[str, File]) -> None:
+    """Raise the failure of a downloaded resource that is no 404: a rate limit first, then the first other one.
+
+    A rate limit is the answer of the provider whatever failed before it in the order of the files, and it carries the
+    wait (GH-4053); a file that was not asked for because of it is no entry of `files_by_url`.
+    """
+    for file in files_by_url.values():
+        if file.is_rate_limited:
+            file.raise_if_exception()
+    for file in files_by_url.values():
+        if file.status != 404:
+            file.raise_if_exception()
 
 
 def _resource_date(resource: dict, file: File) -> datetime | None:
@@ -1057,9 +1079,7 @@ class MeteoFranceObservationValues(TimeseriesValues):
         # _download_climate_resources already retried each once; a failure other than a 404 surviving
         # that is an outage, and is raised rather than leaving the bucket out of a result that reads
         # as complete (GH-2461). Raised before any bucket is parsed, as each can run to 100+ MB
-        for file in files_by_url.values():
-            if file.status != 404:
-                file.raise_if_exception()
+        _raise_if_climate_download_failed(files_by_url)
         dfs = []
         for resource in matches:
             file = files_by_url[resource["url"]]

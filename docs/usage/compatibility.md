@@ -44,7 +44,7 @@ module with a reason, together with a **Breaking** changelog entry; an entry tha
 fails as stale. A baseline is written only in a release commit, with `uv run poe contracts:baseline` (which writes the
 OpenAPI one too), and each says which release it is of (`x-release`), which a test holds to `pyproject.toml`; see
 [Release strategy](https://github.com/earthobservations/wetterdienst/blob/main/.github/RELEASE_STRATEGY.md).
-The baselines are those of 0.186.0 until the next release.
+The baselines are those of 0.191.0 until the next release.
 
 ## What counts as breaking
 
@@ -162,7 +162,7 @@ The command line is a client of the same functions as the REST API: it renders a
 same request gives the same output, and the options are the parameters of the REST API.
 
 - **Commands and options**: `alerts`, `auth`, `cache`, `coverage`, `fields`,
-  `glossary`, `history`, `info`, `interpolate`, `issues`, `providers`, `radar`, `restapi`, `stations`, `stripes`
+  `glossary`, `history`, `info`, `interpolate`, `issues`, `providers`, `radar`, `restapi`, `stations`, `storm-cells`, `stripes`
   (`image`, `stations`), `summarize` and `values`, with their options, the choices of an option and its default. `tests/ui/cli/help.snapshot.txt`
   is the `--help` of every command; `uv run poe cli:snapshot` writes it anew after an intended change.
   `tests/baselines/cli.baseline.json` is every command and every spelling of every option as the last release offered

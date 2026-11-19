@@ -1,22 +1,35 @@
 import process from 'node:process'
-import { mockNuxtImport, mountSuspended } from '@nuxt/test-utils/runtime'
+import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
+import tzLookup from 'tz-lookup'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
 import { panelToggleStyle, SERIES_LABEL, seriesLabelColor } from '~/utils/chart-theme'
+import { chromeWithoutLuxembourgish } from '../../helpers/chrome-without-luxembourgish'
+import { snowForecastValues } from '../../helpers/meteogram-forecast'
 
-// Plotly draws nothing in the test's document: its calls are recorded
-const plotly = vi.hoisted(() => ({
-  newPlot: vi.fn(async () => {}),
-  relayout: vi.fn(async () => {}),
-  purge: vi.fn(),
-}))
-vi.mock('plotly.js-basic-dist-min', () => plotly)
+// ECharts draws in these tests as it does in a browser, to an SVG string, and every call is recorded: a test reads the
+// option the component gave it, or what that option drew (`tests/helpers/ssr-echarts.ts`)
+const echarts = vi.hoisted(() => ({ ssr: null as any }))
+vi.mock('~/utils/echarts-loader', async () => {
+  const { createSsrEcharts } = await import('../../helpers/ssr-echarts')
+  echarts.ssr = createSsrEcharts()
+  return { loadEcharts: () => echarts.ssr }
+})
+const ssr = () => echarts.ssr as ReturnType<typeof import('../../helpers/ssr-echarts').createSsrEcharts>
+const clearDrawn = () => echarts.ssr?.clear()
+/** The chart is drawn: once the code has loaded, which a busy runner can take a while over */
+async function waitDrawn() {
+  await vi.waitFor(() => expect(ssr().calls.setOption).toHaveBeenCalled(), { timeout: 5000 })
+  await flushPromises()
+}
 
-// Nuxt's reload of the page: the test's document does not take it
-const { reloadNuxtApp } = vi.hoisted(() => ({ reloadNuxtApp: vi.fn() }))
-mockNuxtImport('reloadNuxtApp', () => reloadNuxtApp)
+// The zone lookup answers as the library does, until a test has it name a zone the browser does not know
+vi.mock('tz-lookup', async (importOriginal) => {
+  const original = await importOriginal<{ default: (latitude: number, longitude: number) => string }>()
+  return { default: vi.fn(original.default) }
+})
 
 // a day of hourly temperatures, which the meteogram draws as its temperature panel
 const values = Array.from({ length: 24 }, (_, hour) => ({
@@ -28,149 +41,6 @@ const values = Array.from({ length: 24 }, (_, hour) => ({
   value: 10 + hour / 4,
   quality_flags: null,
 }))
-
-// a failing Plotly load can take seconds on a busy runner, past the default test timeout
-describe('meteogram chart that could not be drawn', { timeout: 15_000 }, () => {
-  // the chart area's Retry button, and the alert beside it
-  const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
-  const note = () => retry()?.parentElement?.querySelector('[role="alert"]')?.textContent?.trim()
-
-  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
-
-  // mounted, then handed its values, as the meteogram page hands them once they are fetched
-  async function showMeteogram() {
-    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
-    await wrapper.setProps({ values })
-  }
-
-  afterEach(async () => {
-    // Plotly mocked back, and that mock taken up at once: vitest resolves the mocks queued for the
-    // next import in parallel, so this one, still queued, could win over the next test's own
-    vi.doMock('plotly.js-basic-dist-min', () => plotly)
-    await import('plotly.js-basic-dist-min')
-    vi.restoreAllMocks()
-    wrapper?.unmount()
-    wrapper = undefined
-    document.body.innerHTML = ''
-  })
-
-  it('says so where Plotly failed to load, and loads it again on Retry', async () => {
-    vi.doMock('plotly.js-basic-dist-min', () => {
-      throw new Error('chunk failed to load')
-    })
-    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
-    plotly.newPlot.mockClear()
-    await showMeteogram()
-    // the failing module loaded, which a busy runner can take a while over
-    await vi.waitFor(() => expect(retry()).toBeDefined(), { timeout: 5000 })
-    expect(note()).toBe('The chart could not be drawn. Its code could not be loaded. If trying again does not help, reload the page.')
-    expect(logged).toHaveBeenCalledWith('The chart could not be drawn', expect.any(Error))
-
-    vi.doMock('plotly.js-basic-dist-min', () => plotly)
-    retry()!.click()
-    // the module loaded anew, which a busy runner can take a while over
-    await vi.waitFor(() => expect(retry()).toBeUndefined(), { timeout: 5000 })
-    expect(plotly.newPlot).toHaveBeenCalledOnce()
-  })
-
-  it('says so where drawing fails, and draws the chart on Retry', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    plotly.newPlot.mockClear()
-    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
-    await showMeteogram()
-    await vi.waitFor(() => expect(retry()).toBeDefined())
-    expect(note()).toBe('The chart could not be drawn')
-
-    retry()!.click()
-    await vi.waitFor(() => expect(retry()).toBeUndefined())
-    expect(plotly.newPlot).toHaveBeenCalledTimes(2)
-  })
-
-  it('says nothing where a drawing fails that newer values have replaced, and the newer one draws', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    plotly.newPlot.mockClear()
-    // the first drawing held, to fail once newer values have come in
-    let fail!: (error: Error) => void
-    plotly.newPlot.mockImplementationOnce(() => new Promise((_, reject) => {
-      fail = reject
-    }))
-    await showMeteogram()
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-    await wrapper!.setProps({ values: values.slice(1) })
-    fail(new Error('drawing failed'))
-
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
-    await vi.waitFor(() => expect((wrapper!.vm as any).renderFailed).toBe(false))
-    // never told: the alert was not mounted for it
-    expect((wrapper!.vm as any).renderFailures).toBe(0)
-    expect(retry()).toBeUndefined()
-  })
-})
-
-describe('meteogram chart whose code a redeploy replaced', { timeout: 15_000 }, () => {
-  // A redeploy replaces the chart code's hashed chunks under an open tab: every Retry asks for the
-  // gone chunk again and fails, and only reloading the page loads the new one
-  const button = (label: string) => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === label)
-  const note = () => button('Retry')?.parentElement?.querySelector('[role="alert"]')?.textContent?.trim()
-  const hint = 'If trying again does not help, reload the page.'
-
-  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
-  afterEach(async () => {
-    // the modules mocked back, and those mocks taken up at once, as the tests above do
-    vi.doMock('plotly.js-basic-dist-min', () => plotly)
-    await import('plotly.js-basic-dist-min')
-    vi.doUnmock('suncalc')
-    await import('suncalc')
-    vi.restoreAllMocks()
-    reloadNuxtApp.mockClear()
-    wrapper?.unmount()
-    wrapper = undefined
-    document.body.innerHTML = ''
-  })
-
-  // mounted, then handed its values, with a station's position, which the day bands need suncalc for
-  async function showMeteogram() {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    wrapper = await mountSuspended(Meteogram, {
-      props: { values: [], stationName: 'Berlin', stationCoords: { latitude: 52.47, longitude: 13.4 } },
-      attachTo: document.body,
-    })
-    await wrapper.setProps({ values })
-    // the failing module loaded, which a busy runner can take a while over
-    await vi.waitFor(() => expect(button('Retry')).toBeDefined(), { timeout: 5000 })
-  }
-
-  it.each([
-    ['Plotly', 'plotly.js-basic-dist-min'],
-    ['suncalc', 'suncalc'],
-  ])('says to reload the page, and reloads it, where %s failed to load', async (_, module) => {
-    vi.doMock(module, () => {
-      throw new Error('chunk failed to load')
-    })
-    await showMeteogram()
-    // the two apart, as a screen reader reads the alert
-    expect(note()).toBe(`The chart could not be drawn. Its code could not be loaded. ${hint}`)
-    button('Reload page')!.click()
-    // forced: unforced, Nuxt drops a second click within ten seconds of a first that did not help
-    expect(reloadNuxtApp).toHaveBeenCalledExactlyOnceWith({ force: true })
-  })
-
-  it('offers no reload once the code loaded and only the drawing failed', async () => {
-    // a reload loads nothing the drawing needs: Retry is the way
-    vi.doMock('plotly.js-basic-dist-min', () => {
-      throw new Error('chunk failed to load')
-    })
-    await showMeteogram()
-    vi.doMock('plotly.js-basic-dist-min', () => plotly)
-    plotly.newPlot.mockClear()
-    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
-    button('Retry')!.click()
-    // the module loaded anew, which a busy runner can take a while over
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
-    await vi.waitFor(() => expect(note()).toBe('The chart could not be drawn'))
-    expect(button('Reload page')).toBeUndefined()
-  })
-})
 
 describe('meteogram low clouds', { timeout: 15_000 }, () => {
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
@@ -184,14 +54,11 @@ describe('meteogram low clouds', { timeout: 15_000 }, () => {
     // the cloud panel is drawn for a total cover, as MOSMIX and DMO carry beside the low one
     const clouds = ['cloud_cover_total', 'cloud_cover_below_2km'].flatMap(parameter =>
       values.map(value => ({ ...value, parameter, value: 40 })))
-    plotly.newPlot.mockClear()
+    clearDrawn()
     wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
     await wrapper.setProps({ values: [...values, ...clouds] })
-
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
-    // the mock takes no arguments in its type, so its call is read as Plotly's (element, traces)
-    const [, traces] = plotly.newPlot.mock.calls[0] as unknown as [unknown, { name: string }[]]
-    expect(traces.map(trace => trace.name)).toContain('Low Clouds %')
+    await waitDrawn()
+    expect(ssr().option().series.map((series: { id: string }) => series.id)).toContain('cloudLow')
   })
 })
 
@@ -217,100 +84,33 @@ describe('meteogram temperature band', { timeout: 15_000 }, () => {
   ]
 
   it('holds each maximum and minimum across the hours it covers, so the temperature stays inside', async () => {
-    plotly.newPlot.mockClear()
+    clearDrawn()
     wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Hamburg' }, attachTo: document.body })
     await wrapper.setProps({ values: rows })
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
-    const [, traces] = plotly.newPlot.mock.calls[0] as unknown as [unknown, { name: string, x: string[], y: number[] }[]]
-    const trace = (name: string) => traces.find(t => t.name === name)!
-    const [mean, high, low] = [trace('Mean Temp °C'), trace('Max Temp °C'), trace('Min Temp °C')]
+    await waitDrawn()
+    const series = (id: string) => ssr().option().series.find((s: { id: string }) => s.id === id) as { data: [number, number | null][] }
+    const [mean, high, low] = [series('temp'), series('tempMax'), series('tempMin')]
     // an hour belongs to the window that ends at or after it, which a date's one point holds
-    const boundAt = (bound: typeof high, hour: string) => bound.y[bound.x.indexOf(hour)]!
-    expect(mean.x).toHaveLength(temperature.length)
-    for (const [i, hour] of mean.x.entries()) {
-      expect(mean.y[i]!, `${hour} above its maximum`).toBeLessThanOrEqual(boundAt(high, hour))
-      expect(mean.y[i]!, `${hour} below its minimum`).toBeGreaterThanOrEqual(boundAt(low, hour))
+    const boundAt = (bound: typeof high, hour: number) => bound.data.find(point => point[0] === hour)![1]!
+    expect(mean.data).toHaveLength(temperature.length)
+    for (const [hour, value] of mean.data) {
+      expect(value!, `${new Date(hour).toISOString()} above its maximum`).toBeLessThanOrEqual(boundAt(high, hour))
+      expect(value!, `${new Date(hour).toISOString()} below its minimum`).toBeGreaterThanOrEqual(boundAt(low, hour))
     }
     // as drawn between the stamps, 16.7 degrees at 14:00 was above the maximum line (14.1)
-    expect(boundAt(high, '2026-10-15T14:00:00.000Z')).toBe(17.4)
-    expect(boundAt(low, '2026-10-15T14:00:00.000Z')).toBe(8)
+    expect(boundAt(high, Date.parse('2026-10-15T14:00:00Z'))).toBe(17.4)
+    expect(boundAt(low, Date.parse('2026-10-15T14:00:00Z'))).toBe(8)
   })
 
   it('draws no band, and calls the curve the temperature, where the maximum and minimum hold no value', async () => {
-    plotly.newPlot.mockClear()
+    clearDrawn()
     wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Hamburg' }, attachTo: document.body })
     await wrapper.setProps({ values: [...rows.filter(row => row.parameter === 'temperature_air_2m'), ...Object.entries(stamped).flatMap(([parameter, points]) => points.map(([timestamp]) => ({ ...values[0]!, parameter, timestamp, value: null })))] })
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
-    const [, traces] = plotly.newPlot.mock.calls[0] as unknown as [unknown, { name: string }[]]
-    expect(traces.map(trace => trace.name)).not.toContain('Max Temp °C')
-    expect(traces.map(trace => trace.name)).not.toContain('Mean Temp °C')
-  })
-})
-
-describe('meteogram chart after a Retry', { timeout: 15_000 }, () => {
-  // the focus Retry held fell to the page's body once a Retry that worked took the note away
-  const retry = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Retry')
-
-  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
-  afterEach(() => {
-    vi.restoreAllMocks()
-    wrapper?.unmount()
-    wrapper = undefined
-    document.body.innerHTML = ''
-  })
-
-  // the chart's drawing failed, and Retry focused and pressed, its drawing held on a gate that
-  // lets it draw or fail again
-  async function retried() {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    plotly.newPlot.mockClear()
-    plotly.newPlot.mockRejectedValueOnce(new Error('drawing failed'))
-    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
-    await wrapper.setProps({ values })
-    await vi.waitFor(() => expect(retry()).toBeDefined(), { timeout: 5000 })
-    let settle!: (failure?: Error) => void
-    plotly.newPlot.mockImplementationOnce(() => new Promise<void>((resolve, reject) => {
-      settle = failure => failure ? reject(failure) : resolve()
-    }))
-    const button = retry()!
-    button.focus()
-    button.click()
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
-    // the mock takes no arguments in its type, so its call is read as Plotly's (element)
-    const [chart] = plotly.newPlot.mock.calls[1] as unknown as [HTMLElement]
-    return { button, chart, settle }
-  }
-
-  it('hands the focus on to the chart once it is drawn', async () => {
-    const { chart, settle } = await retried()
-
-    settle()
-    await vi.waitFor(() => expect(retry()).toBeUndefined())
-    await vi.waitFor(() => expect(document.activeElement).toBe(chart))
-    // a browser focuses a div only with a tabindex, which the test's document does not ask for
-    expect(chart.getAttribute('tabindex')).toBe('-1')
-  })
-
-  it('leaves the focus where it was moved to meanwhile', async () => {
-    const { settle } = await retried()
-    const elsewhere = document.body.appendChild(document.createElement('button'))
-    elsewhere.focus()
-
-    settle()
-    await vi.waitFor(() => expect(retry()).toBeUndefined())
-    await vi.waitFor(() => expect((wrapper!.vm as any).renderFailed).toBe(false))
-    await wrapper!.vm.$nextTick()
-    expect(document.activeElement).toBe(elsewhere)
-  })
-
-  it('keeps the focus on Retry where the chart fails again', async () => {
-    const { button, settle } = await retried()
-
-    settle(new Error('drawing failed again'))
-    await vi.waitFor(() => expect((wrapper!.vm as any).renderFailures).toBe(2))
-    await wrapper!.vm.$nextTick()
-    expect(retry()).toBe(button)
-    expect(document.activeElement).toBe(button)
+    await waitDrawn()
+    const ids = ssr().option().series.map((series: { id: string }) => series.id)
+    expect(ids).not.toContain('tempMax')
+    expect(ids).not.toContain('tempMin')
+    expect(ids).toContain('temp')
   })
 })
 
@@ -322,15 +122,14 @@ describe('meteogram chart name', { timeout: 15_000 }, () => {
     document.body.innerHTML = ''
   })
 
-  // the chart Plotly drew into, by the role and the name a screen reader announces it with
+  // the figure the chart is drawn in, by the role and the name a screen reader announces it with
   async function drawnInto(stationName: string | null) {
-    plotly.newPlot.mockClear()
+    clearDrawn()
     wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName }, attachTo: document.body })
     await wrapper.setProps({ values })
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
-    // the mock takes no arguments in its type, so its call is read as Plotly's (element)
-    const [chart] = plotly.newPlot.mock.calls[0] as unknown as [HTMLElement]
-    return [chart.getAttribute('role'), chart.getAttribute('aria-label')]
+    await waitDrawn()
+    const figure = document.body.querySelector('[role="figure"]')!
+    return [figure.getAttribute('role'), figure.getAttribute('aria-label')]
   }
 
   it('names the chart by its station, as a figure', async () => {
@@ -383,10 +182,10 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
   }
 
   async function showMeteogram() {
-    plotly.newPlot.mockClear()
+    clearDrawn()
     wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
     await wrapper.setProps({ values: [...day, ...rain] })
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    await waitDrawn()
   }
 
   // The compact view, which the Meteogram also writes to the URL (`?view=compact`) with a navigation of
@@ -399,20 +198,18 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     await vi.waitFor(() => expect(useRouter().currentRoute.value.query.view).toBe('compact'))
   }
 
-  // the mock takes no arguments in its type, so its call is read as Plotly's (element, traces, layout)
-  const layoutDrawn = () => (plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { separators: string }])[2]
+  // the numbers of the axes, written with the language's separators, and a point where there are none (GH-2971)
+  const formatted = () => ssr().option().yAxis[1].axisLabel.formatter(2.5)
 
-  // Plotly writes the numbers of the hover texts (%{y:.1f}) with the layout's separators, and a point
-  // where there are none (GH-2971)
   it.each([
-    ['en', /^\.,$/],
-    ['de', /^,\.$/],
-    ['fr', /^,\s$/],
-    ['pl', /^,\s$/],
-  ])('draws the chart with the separators of %s', async (language, separators) => {
+    ['en', '2.5'],
+    ['de', '2,5'],
+    ['fr', '2,5'],
+    ['pl', '2,5'],
+  ])('writes the numbers of the axes in %s as %s', async (language, expected) => {
     await inLanguage(language)
     await showMeteogram()
-    expect(layoutDrawn().separators).toMatch(separators)
+    expect(formatted()).toBe(expected)
   })
 
   // the chart's own day labels, above the panels
@@ -424,47 +221,107 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
   ])('writes the day labels of the chart in %s as %s', async (language, expected) => {
     await inLanguage(language)
     await showMeteogram()
-    const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { annotations: { text: string }[] }]
-    expect(layout.annotations.some(annotation => annotation.text.replace(/<\/?b>/g, '').endsWith(` ${expected}`))).toBe(true)
+    expect(ssr().texts().some(text => text.endsWith(` ${expected}`))).toBe(true)
   })
 
-  // Thursday the 15th: the weekday of the chart's day labels and of the compact view's day cards, and
-  // the Plotly language of the hover heading, which Plotly writes itself (GH-3051). The code is the
+  // the hour of the time axis, as the language writes a time of day: Danish writes a point, not a colon, between the
+  // hour and the minute, and Luxembourgish is written as German where the browser has no data for it (GH-4007)
+  const axisHours = () => ssr().texts().filter(text => /^\d{2}[:.]\d{2}$/.test(text))
+
+  it.each([
+    ['en', ':'],
+    ['de', ':'],
+    ['de-hh', ':'],
+    ['lb', ':'],
+    ['da', '.'],
+  ])('writes the hours of the time axis in %s with "%s" between the hour and the minute', async (code, separator) => {
+    await inLanguage(code)
+    await showMeteogram()
+    const hours = axisHours()
+    expect(hours.length).toBeGreaterThan(2)
+    for (const hour of hours)
+      expect(hour).toMatch(new RegExp(`^\\d{2}\\${separator}00$`))
+  })
+
+  // Node has the data for Luxembourgish that Chrome lacks (GH-4007): `chromeWithoutLuxembourgish` writes English for
+  // any `lb` handed to Intl, and says what was handed over. The chart's hours are the same text in German and in
+  // English, so that no `lb` was handed to Intl is what shows the stand-in at work
+  function inChromeWithoutLuxembourgish() {
+    const chrome = chromeWithoutLuxembourgish()
+    onTestFinished(chrome.restore)
+    return chrome
+  }
+  const luxembourgish = (chrome: { passed: string[] }) => chrome.passed.filter(language => /^lb/i.test(language))
+
+  it('writes the hours of the time axis of Luxembourgish as German where the browser has no data for it', async () => {
+    await inLanguage('lb')
+    const chrome = inChromeWithoutLuxembourgish()
+    await showMeteogram()
+    expect(axisHours()).toContain('06:00')
+    expect(chrome.passed).toContain('de-LU')
+    expect(luxembourgish(chrome)).toEqual([])
+  })
+
+  it('writes the times of the data table of Luxembourgish as German where the browser has no data for it', async () => {
+    await inLanguage('lb')
+    const chrome = inChromeWithoutLuxembourgish()
+    await showMeteogram()
+    ;(wrapper!.vm as any).view = 'table'
+    await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.view).toBe('table'))
+    // the 15th of October at midnight, German's order; English would write "10/15/2026, 12:00 AM"
+    expect(document.body.querySelector('tbody th')?.textContent?.trim()).toBe('15.10.2026, 00:00')
+    expect(luxembourgish(chrome)).toEqual([])
+  })
+
+  // a zone the browser does not know made every date of the chart invalid: "Invalid DateTime" in the day labels and
+  // "UTC+NaN:NaN" in the toolbar. The zone is checked once, and the station is written in UTC
+  it('draws the chart in UTC where the browser does not know the station\'s time zone', async () => {
+    vi.mocked(tzLookup).mockReturnValue('Mars/Olympus')
+    // back to the library's own answer, which `vi.fn(original)` below keeps as its implementation
+    onTestFinished(() => {
+      vi.mocked(tzLookup).mockReset()
+    })
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin', stationCoords: { latitude: 52.47, longitude: 13.4 } }, attachTo: document.body })
+    await wrapper.setProps({ values: [...day, ...rain] })
+    await waitDrawn()
+    expect(ssr().texts().join(' ')).not.toContain('Invalid')
+    expect(axisHours()).toContain('06:00')
+    expect(document.body.textContent).not.toMatch(/NaN|Invalid/)
+    expect(document.body.textContent).toContain('UTC (UTC+00:00)')
+  })
+
+  // Thursday the 15th: the weekday of the chart's day labels and of the compact view's day cards. The code is the
   // app's, the language the tag it stands for (nuxt.config.ts)
   const thursdays = [
-    ['en', 'en-GB', 'Thu', '%a %d/%m %H:%M'],
-    ['de', 'de-DE', 'Do', '%a %d.%m. %H:%M'],
-    ['de-hh', 'de-DE', 'Do', '%a %d.%m. %H:%M'],
-    ['fr', 'fr-FR', 'jeu.', '%a %d/%m %H:%M'],
-    ['es', 'es-ES', 'jue', '%a %d/%m %H:%M'],
-    ['it', 'it-IT', 'gio', '%a %d/%m %H:%M'],
-    ['nl', 'nl-NL', 'do', '%a %d-%m %H:%M'],
-    ['pl', 'pl-PL', 'czw.', '%a %d.%m %H:%M'],
-    ['cs', 'cs-CZ', 'čt', '%a %d. %m. %H:%M'],
-    ['da', 'da-DK', 'tors.', '%a %d.%m %H:%M'],
-    ['lb', 'lb-LU', 'Don', '%a %d.%m. %H:%M'],
+    ['en', 'en-GB', 'Thu'],
+    ['de', 'de-DE', 'Do'],
+    ['de-hh', 'de-DE', 'Do'],
+    ['fr', 'fr-FR', 'jeu.'],
+    ['es', 'es-ES', 'jue'],
+    ['it', 'it-IT', 'gio'],
+    ['nl', 'nl-NL', 'do'],
+    ['pl', 'pl-PL', 'czw.'],
+    ['cs', 'cs-CZ', 'čt'],
+    ['da', 'da-DK', 'tors.'],
+    ['lb', 'lb-LU', 'Don'],
   ] as const
 
   it.each(thursdays)('names the weekday of the day labels in %s (%s) %s', async (code, _language, weekday) => {
     await inLanguage(code)
     await showMeteogram()
-    const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { annotations: { text: string }[] }]
-    expect(layout.annotations.some(annotation => annotation.text.startsWith(`<b>${weekday}</b>`))).toBe(true)
+    expect(ssr().texts().some(text => text.startsWith(`${weekday} `))).toBe(true)
   })
 
   // Chrome has no data for Luxembourgish and would write the system's language (GH-2971): German is written
   it('names the weekday of the day labels in German where the browser has no data for Luxembourgish', async () => {
-    const supported = Intl.DateTimeFormat.supportedLocalesOf.bind(Intl.DateTimeFormat)
-    vi.spyOn(Intl.DateTimeFormat, 'supportedLocalesOf').mockImplementation((languages, options) =>
-      supported(languages, options).filter(language => !String(language).startsWith('lb')))
-    onTestFinished(() => {
-      vi.restoreAllMocks()
-    })
     await inLanguage('lb')
+    const chrome = inChromeWithoutLuxembourgish()
     await showMeteogram()
-    const [, , layout, config] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { annotations: { text: string }[] }, { locales: Record<string, { format: { shortDays: string[] } }> }]
-    expect(layout.annotations.some(annotation => annotation.text.startsWith('<b>Do</b>'))).toBe(true)
-    expect(config.locales['lb-LU']!.format.shortDays[4]).toBe('Do')
+    // English would write "Thu"
+    expect(ssr().texts().some(text => text.startsWith('Do '))).toBe(true)
+    expect(luxembourgish(chrome)).toEqual([])
   })
 
   it.each(thursdays)('names the weekday of the day cards in %s (%s) %s', async (code, _language, weekday) => {
@@ -475,72 +332,57 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(cards).toContain(weekday)
   })
 
-  it.each(thursdays)('gives Plotly the language of the hover heading in %s (%s)', async (code, language, weekday, hoverformat) => {
+  // the strip of cards scrolls sideways once it holds every day of the run (GH-4127), and a keyboard reaches a scroll
+  // container only through a focusable element (Safari: not at all): a named region in the tab order (WCAG 2.1.1)
+  it.each([['en', 'Forecast by day for Berlin'], ['de', 'Tagesvorhersage für Berlin']])('puts the strip of day cards in the tab order as a region of its own in %s', async (code, name) => {
     await inLanguage(code)
     await showMeteogram()
-    const [, , layout, config] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { xaxis: { hoverformat: string } }, { locale: string, locales: Record<string, { format: { shortDays: string[] } }> }]
-    expect(layout.xaxis.hoverformat).toBe(hoverformat)
-    expect(config.locale).toBe(language)
-    // Sunday first, as Plotly has it
-    expect(config.locales[language]!.format.shortDays[4]).toBe(weekday)
+    await showCompact()
+    const strip = document.body.querySelector('[data-testid="compact-days"]')!
+    expect(strip.getAttribute('role')).toBe('region')
+    expect(strip.getAttribute('tabindex')).toBe('0')
+    expect(strip.getAttribute('aria-label')).toBe(name)
   })
 
-  // Plotly's own translation of its buttons and texts, which the chart is given in the language of the page (GH-3625);
-  // Luxembourgish and Hamburg's German have none of their own, and English is Plotly's own
-  it.each([
-    ['en', 'en-GB', undefined],
-    ['de', 'de-DE', 'Verschieben'],
-    ['de-hh', 'de-DE', 'Verschieben'],
-    ['lb', 'lb-LU', 'Verschieben'],
-    ['fr', 'fr-FR', 'Translation'],
-  ] as const)('gives Plotly its translation for %s (%s)', async (code, language, pan) => {
-    await inLanguage(code)
+  it('names the series of the y axes in colours that read on the paper (GH-3618)', async () => {
     await showMeteogram()
-    const [, , , config] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, unknown, { locale: string, locales: Record<string, { dictionary?: Record<string, string> }> }]
-    expect(config.locale).toBe(language)
-    expect(config.locales[language]!.dictionary?.Pan).toBe(pan)
-  })
-
-  it('names the series of the y axes and the weekend in colours that read on the paper (GH-3618)', async () => {
-    await showMeteogram()
-    const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, Record<string, { title?: { font: { color: string } }, tickfont?: { color: string } }> & { annotations: { text: string, font: { color: string } }[] }]
-    const expected = { yaxis: 'cyan', yaxis2: 'blue', yaxis3: 'red', yaxis4: 'lime' } as const
-    for (const [axis, series] of Object.entries(expected)) {
-      expect(layout[axis]!.title!.font.color, axis).toBe(SERIES_LABEL[series].light)
-      expect(layout[axis]!.tickfont!.color, axis).toBe(SERIES_LABEL[series].light)
+    // the panels the values have: the rain, the temperature
+    const { yAxis } = ssr().option()
+    const expected = { 1: 'blue', 2: 'red' } as const
+    for (const [index, series] of Object.entries(expected)) {
+      expect(yAxis[Number(index)].axisLabel.color, `axis ${index}`).toBe(SERIES_LABEL[series].light)
+      // the titles are drawn by the chart's own series, top panel first: the rain, then the temperature
+      expect(ssr().axisTitles()[Number(index) - 1]!.fill, `title ${index}`).toBe(SERIES_LABEL[series].light)
     }
   })
 
   it('writes the label of a weekend day in a red that reads on the paper, and the others in the text colour (GH-3618)', async () => {
-    plotly.newPlot.mockClear()
+    clearDrawn()
     // Thursday the 15th and Saturday the 17th
     const saturday = day.map(value => ({ ...value, timestamp: value.timestamp.replace('-15T', '-17T') }))
     wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
     await wrapper.setProps({ values: [...day, ...saturday] })
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
-    const [, , layout] = plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { annotations: { text: string, font: { color: string } }[] }]
-    const labels = layout.annotations.filter(annotation => annotation.text.startsWith('<b>'))
-    const colourOf = (weekday: string) => labels.find(label => label.text.startsWith(`<b>${weekday}</b>`))?.font.color
-    expect(colourOf('Sat')).toBe(SERIES_LABEL.red.light)
-    expect(colourOf('Thu')).not.toBe(SERIES_LABEL.red.light)
+    await waitDrawn()
+    const colourOf = (label: string) => new RegExp(`<text[^>]*fill="([^"]*)"[^>]*>${label}`).exec(ssr().svg())?.[1]
+    expect(colourOf('Sat 17/10')).toBe(SERIES_LABEL.red.light)
+    expect(colourOf('Thu 15/10')).toBeDefined()
+    expect(colourOf('Thu 15/10')).not.toBe(SERIES_LABEL.red.light)
   })
 
-  it('purges its chart where it goes (GH-3619)', async () => {
+  it('disposes its chart where it goes (GH-3619)', async () => {
     await showMeteogram()
-    const [chart] = plotly.newPlot.mock.lastCall as unknown as [HTMLElement]
-    plotly.purge.mockClear()
+    ssr().calls.dispose.mockClear()
     wrapper!.unmount()
     wrapper = undefined
-    expect(plotly.purge).toHaveBeenCalledWith(chart)
+    expect(ssr().calls.dispose).toHaveBeenCalled()
   })
 
   it('draws the chart again in the language it is switched to', async () => {
     await showMeteogram()
-    expect(layoutDrawn().separators).toBe('.,')
+    expect(formatted()).toBe('2.5')
 
     await inLanguage('de')
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
-    expect(layoutDrawn().separators).toBe(',.')
+    await vi.waitFor(() => expect(formatted()).toBe('2,5'))
   })
 
   // the compact view's day cards, which write the date by hand
@@ -562,8 +404,9 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     // not the fixed `dd.MM` it was written in, whatever the language
     if (['en', 'fr', 'nl', 'cs'].includes(language))
       expect(wrapper!.text()).not.toContain('15.10')
-    // the rain, 24 times 0.25 mm, with the language's decimal separator
-    expect(wrapper!.text()).toContain(language === 'en' ? '6.0 mm' : '6,0 mm')
+    // the rain, 0.25 mm of each hour: the amount at a stamp is that of the hour before it, so the day has the 23 hours that end at 01:00 to
+    // 23:00 (the stamp at 00:00 is the hour before the day), with the language's decimal separator
+    expect(wrapper!.text()).toContain(language === 'en' ? '5.8 mm' : '5,8 mm')
   })
 
   // the 14th from 18:00 to the 16th 05:00 UTC: a stub of yesterday above today, and a last day of six hours
@@ -574,10 +417,10 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
       value: 10,
     }))
     vi.setSystemTime(new Date('2026-10-15T08:00:00Z'))
-    plotly.newPlot.mockClear()
+    clearDrawn()
     wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
     await wrapper.setProps({ values: hours })
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    await waitDrawn()
     await showCompact()
     const cards = [...document.body.querySelectorAll('.rounded-2xl')].map(card => card.textContent ?? '')
     expect(cards).toHaveLength(2)
@@ -597,19 +440,25 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(wrapper!.text()).toContain('No data available for the selected query')
   })
 
-  // the weather of a day card is an icon, which a screen reader does not read: the words are in the
-  // card, and the icon is hidden from it (WCAG 1.1.1). `iconsOf` are the Phosphor icons drawn for the weather
-  // of the cards, by the name the icon component is given (GH-3527)
-  const iconsOf = () => [...document.body.querySelectorAll('[data-weather]')].map(node => node.getAttribute('data-weather'))
-  const hiddenIconsOf = () => [...document.body.querySelectorAll('[data-weather][aria-hidden="true"]')]
+  // the weather of a day card is Yr's symbol, as the chart draws an hour's, which a screen reader does not read: the words are in the
+  // card, and the symbol is hidden from it (WCAG 1.1.1). `symbolsOf` are the kinds the symbols are drawn for (GH-4193)
+  const symbolsOf = () => [...document.body.querySelectorAll('[data-weather]')].map(node => node.getAttribute('data-weather'))
+  const hiddenSymbolsOf = () => [...document.body.querySelectorAll('[data-weather][aria-hidden="true"]')]
   const wordsOf = () => [...document.body.querySelectorAll('.sr-only')].map(node => node.textContent?.trim())
+  // the file of each card's symbol, in the order of the cards
+  const filesOf = () => [...document.body.querySelectorAll<HTMLImageElement>('img[data-weather]')].map(node => node.getAttribute('src'))
 
-  it('gives the icon of a day card a text alternative, and hides the icon, where no weather code is served', async () => {
+  it('gives the symbol of a day card a text alternative, and hides the symbol, where no weather code is served', async () => {
     await showMeteogram()
     await showCompact()
     // 6 mm of rain over 10 to 16 degrees and no weather code: the heuristic's rain
-    expect(iconsOf()).toContain('rain')
-    expect(hiddenIconsOf().length).toBe(iconsOf().length)
+    expect(symbolsOf()).toContain('rain')
+    expect(hiddenSymbolsOf().length).toBe(symbolsOf().length)
+    // an image with no alternative of its own: the words beside it are the alternative
+    for (const node of hiddenSymbolsOf()) {
+      expect(node.tagName).toBe('IMG')
+      expect(node.getAttribute('alt')).toBe('')
+    }
     expect(wordsOf()).toContain('Rain')
     // and the drop before the rain's amount is a decoration with the word for it beside
     expect(document.body.querySelector('[aria-hidden="true"][class~="i-ph:drop"]')).not.toBeNull()
@@ -620,41 +469,149 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     expect(precipitation.map(node => node.textContent!.endsWith(': '))).not.toContain(false)
   })
 
-  // three days, each with the weather code of its hours: rain (61), a thunderstorm (95), clear sky (0)
+  // the day with the weather code of its hours and no rain and no cloud cover: wind, dust and a funnel cloud are drawn as the sky of no
+  // cover (partly cloudy) with a badge of their own, Yr having no symbol for them
   it.each([
-    [61, 'rain', 'i-ph:cloud-rain', 'Rain'],
-    [95, 'thunderstorm', 'i-ph:cloud-lightning', 'Thunderstorm'],
-    [0, 'clear', 'i-ph:sun', 'Sunny'],
-    [2, 'partlyCloudy', 'i-ph:cloud-sun', 'Partly cloudy'],
-    [3, 'cloudy', 'i-ph:cloud', 'Cloudy'],
-    [18, 'wind', 'i-ph:wind', 'Windy'],
-    [20, 'drizzle', 'i-ph:drop-half', 'Drizzle'],
-    [53, 'drizzle', 'i-ph:drop-half', 'Drizzle'],
-    [71, 'snow', 'i-ph:cloud-snow', 'Snow'],
-    [45, 'fog', 'i-ph:cloud-fog', 'Fog'],
+    [61, 'rain', '09', 'Rain'],
+    [95, 'thunderstorm', '22', 'Thunderstorm'],
+    [18, 'wind', '03d', 'Windy'],
+    [20, 'drizzle', '46', 'Drizzle'],
+    [53, 'drizzle', '46', 'Drizzle'],
+    [71, 'snow', '13', 'Snow'],
+    [45, 'fog', '15', 'Fog'],
     // dust and snow storms are no thunderstorms (30-39 were drawn as one)
-    [33, 'dust', 'i-ph:wind', 'Dust or sand storm'],
-    [38, 'blowingSnow', 'i-ph:snowflake', 'Blowing snow'],
-    [69, 'sleet', 'i-ph:cloud-snow', 'Sleet'],
-    // a funnel cloud is a tornado or a waterspout, not a sunny day (GH-3965)
-    [19, 'funnelCloud', 'i-ph:tornado', 'Funnel cloud'],
-  ])('names the weather of weather code %i as %s (icon %s, words %s) in a day card', async (code, kind, icon, words) => {
+    [33, 'dust', '03d', 'Dust or sand storm'],
+    [38, 'blowingSnow', '49', 'Blowing snow'],
+    [69, 'sleet', '12', 'Sleet'],
+    // a funnel cloud is a tornado or a waterspout, not a sunny day (GH-3965): the sky with a badge of the tornado says so
+    [19, 'funnelCloud', '03d', 'Funnel cloud'],
+  ])('names the weather of weather code %i as %s (Yr symbol %s, words %s) in a day card', async (code, kind, symbol, words) => {
     const coded = day.map(value => ({ ...value, parameter: 'weather_significant', value: code }))
-    plotly.newPlot.mockClear()
+    clearDrawn()
     wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
     await wrapper.setProps({ values: [...day, ...coded] })
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
+    await waitDrawn()
     await showCompact()
-    expect(iconsOf()).toContain(kind)
-    // the icon drawn is the Phosphor icon of the kind, hidden from a screen reader, which reads the words
+    expect(symbolsOf()).toContain(kind)
+    // the symbol drawn is Yr's for the kind, in the light set, hidden from a screen reader, which reads the words
     const drawn = [...document.body.querySelectorAll(`[data-weather="${kind}"]`)]
     expect(drawn.length).toBeGreaterThan(0)
     for (const node of drawn) {
       expect(node.getAttribute('aria-hidden')).toBe('true')
-      expect(node.classList.contains(icon)).toBe(true)
+      expect(node.getAttribute('data-symbol')).toBe(symbol)
+      expect(node.getAttribute('src')).toBe(`/yr-symbols/lightmode/${symbol}.svg`)
     }
     expect(wordsOf()).toContain(words)
-    expect(document.body.textContent).not.toMatch(/\p{Extended_Pictographic}/u)
+    // the badge is there for the kinds Yr has no symbol for, and for no other
+    const badges = [...document.body.querySelectorAll(`[data-badge]`)]
+    if (kind === 'wind' || kind === 'dust' || kind === 'funnelCloud') {
+      expect(badges.length).toBeGreaterThan(0)
+      for (const badge of badges) {
+        expect(badge.getAttribute('data-badge')).toBe(kind)
+        expect(badge.querySelector(kind === 'funnelCloud' ? '[class*="i-ph:tornado"]' : '[class*="i-ph:wind"]'), `the icon of ${kind}`).not.toBeNull()
+        expect(badge.closest('[aria-hidden="true"]')).not.toBeNull()
+      }
+    }
+    else {
+      expect(badges).toHaveLength(0)
+    }
+    // no emoji (the credit's © is one of the pictographs, and is meant)
+    expect(document.body.textContent!.replaceAll('©', '')).not.toMatch(/\p{Extended_Pictographic}/u)
+  })
+
+  // the codes 0 to 3 are DWD's cloud development (none, dissolving, unchanged, forming), no sky: the card has its sky from the cloud cover
+  // of the day, whichever of them its hours carry (GH-4190), and draws it as Yr's symbol of the sky, by day
+  it.each([[0, 95, 'cloudy', '04'], [1, 95, 'cloudy', '04'], [2, 10, 'clear', '01d'], [3, 10, 'clear', '01d'], [3, 55, 'partlyCloudy', '03d']])('draws the sky of a day card from the cloud cover, not from the code %i: %i %% is %s (symbol %s)', async (code, cover, kind, symbol) => {
+    const coded = day.map(value => ({ ...value, parameter: 'weather_significant', value: code }))
+    const clouds = day.map(value => ({ ...value, parameter: 'cloud_cover_total', value: cover }))
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values: [...day, ...coded, ...clouds] })
+    await waitDrawn()
+    await showCompact()
+    expect(new Set(symbolsOf())).toEqual(new Set([kind]))
+    expect(new Set(filesOf())).toEqual(new Set([`/yr-symbols/lightmode/${symbol}.svg`]))
+  })
+
+  // wind, dust and a funnel cloud have no symbol of their own in Yr's set: they take the sky of the day's cloud cover, never a night's, and
+  // a badge says what the sky does not: a windy day under a clear sky is no sun alone (GH-3965)
+  it.each([[18, 5, '01d', 'wind', 'wind'], [33, 50, '03d', 'dust', 'wind'], [19, 90, '04', 'funnelCloud', 'tornado'], [19, 5, '01d', 'funnelCloud', 'tornado']])('draws the symbol of weather code %i at %i %% cloud cover as the sky, %s, with the badge of the %s (icon %s)', async (code, cover, symbol, kind, icon) => {
+    const coded = day.map(value => ({ ...value, parameter: 'weather_significant', value: code }))
+    const clouds = day.map(value => ({ ...value, parameter: 'cloud_cover_total', value: cover }))
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values: [...day, ...coded, ...clouds] })
+    await waitDrawn()
+    await showCompact()
+    expect(new Set(filesOf())).toEqual(new Set([`/yr-symbols/lightmode/${symbol}.svg`]))
+    const badges = [...document.body.querySelectorAll('[data-badge]')]
+    expect(badges.length).toBe(filesOf().length)
+    for (const badge of badges) {
+      expect(badge.getAttribute('data-badge')).toBe(kind)
+      expect(badge.querySelector(`[class*="i-ph:${icon}"]`)).not.toBeNull()
+      // hidden from a screen reader with the symbol, which the words name
+      expect(badge.closest('[aria-hidden="true"]')).not.toBeNull()
+    }
+    expect(wordsOf().some(word => /wind|dust|funnel/i.test(word ?? ''))).toBe(true)
+  })
+
+  // the strength of the symbol is that of the wettest hour, as the chart's hours are drawn: 4 mm an hour is heavy rain, 2 mm an hour heavy
+  // snow, under 0.5 and 0.3 mm an hour the light ones. The day's total is not what it is told by (GH-4193)
+  const wettestHour = (peak: number, others: number) => (hour: number) => hour === 12 ? peak : others
+  it.each([
+    ['a drizzly day of 0.25 mm every hour (5.75 mm in all) as light rain, as the chart draws every hour of it', () => 0.25, 61, '46'],
+    ['a day of one hour of 5 mm as heavy rain', wettestHour(5, 0), 61, '10'],
+    ['a day of one hour of 5 mm among drizzle as heavy rain', wettestHour(5, 0.1), 61, '10'],
+    ['rain of an hour of 1 mm as rain', wettestHour(1, 0), 61, '09'],
+    ['rain under 0.5 mm an hour as light rain', () => 0.015, 61, '46'],
+    ['a day of one hour of 2.5 mm of snow as heavy snow', wettestHour(2.5, 0), 71, '50'],
+    ['snow of 0.5 mm an hour (11.5 mm in all) as snow, not heavy', () => 0.5, 71, '13'],
+    ['snow under 0.3 mm an hour as light snow', () => 0.05, 71, '49'],
+    ['sleet of 1 mm an hour as sleet', () => 1, 69, '12'],
+  ])('draws %s (Yr symbol %s)', async (_what, amount, code, symbol) => {
+    const coded = day.map(value => ({ ...value, parameter: 'weather_significant', value: code }))
+    const amounts = day.map((value, hour) => ({ ...value, parameter: 'precipitation_amount_last_1h', value: amount(hour) }))
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
+    await wrapper.setProps({ values: [...day, ...coded, ...amounts] })
+    await waitDrawn()
+    await showCompact()
+    expect(new Set(filesOf())).toEqual(new Set([`/yr-symbols/lightmode/${symbol}.svg`]))
+  })
+
+  it('draws the symbols of the dark set at night, and the light set again, without a reload', async () => {
+    await showMeteogram()
+    await showCompact()
+    expect(filesOf().length).toBeGreaterThan(0)
+    expect(filesOf().every(src => src!.startsWith('/yr-symbols/lightmode/'))).toBe(true)
+    onTestFinished(() => document.documentElement.classList.remove('dark'))
+    document.documentElement.classList.add('dark')
+    await vi.waitFor(() => expect(filesOf().every(src => src!.startsWith('/yr-symbols/darkmode/'))).toBe(true))
+    document.documentElement.classList.remove('dark')
+    await vi.waitFor(() => expect(filesOf().every(src => src!.startsWith('/yr-symbols/lightmode/'))).toBe(true))
+  })
+
+  // Yr asks for its credit (CC BY 4.0) where the symbols are shown: the chart carries it, and the cards, where there is none, carry it too (GH-4193)
+  it('credits Yr under the compact cards, which have no chart to carry it, once', async () => {
+    await showMeteogram()
+    expect(document.body.querySelector('[data-testid="day-symbols-credit"]')).toBeNull()
+    await showCompact()
+    const credit = document.body.querySelectorAll('[data-testid="day-symbols-credit"]')
+    expect(credit).toHaveLength(1)
+    expect(document.body.querySelector('[data-testid="meteogram-credit"]')).toBeNull()
+    expect(credit[0]!.textContent).toBe('Weather symbols © 2015 Yr/NRK, CC BY 4.0.')
+    expect([...credit[0]!.querySelectorAll('a')].map(a => a.getAttribute('href'))).toEqual([
+      'https://github.com/nrkno/yr-weather-symbols',
+      'https://creativecommons.org/licenses/by/4.0/',
+    ])
+  })
+
+  it('credits Yr under the cards of a language, in its own words', async () => {
+    await inLanguage('de')
+    await showMeteogram()
+    await showCompact()
+    expect(document.body.querySelector('[data-testid="day-symbols-credit"]')!.textContent).toMatch(/Yr\/NRK, CC BY 4\.0/)
+    expect(document.body.querySelector('[data-testid="day-symbols-credit"]')!.textContent).not.toContain('Weather symbols')
   })
 
   // in every language, in its own word for the rain
@@ -699,7 +656,7 @@ describe('meteogram display synced to the URL', { timeout: 15_000 }, () => {
     ['the panels', (vm: any) => { vm.visiblePanels = { ...vm.visiblePanels, wind: false } }, { panels: 'temp,precip,cloud,pressure' }],
     ['the view', (vm: any) => { vm.view = 'table' }, { view: 'table' }],
   ])('leaves no unhandled rejection where a failed navigation follows a change of %s', async (_what, change, query) => {
-    plotly.newPlot.mockClear()
+    clearDrawn()
     wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Berlin' }, attachTo: document.body })
     // swapped in by hand: a spy keeps a handler on the promise it returns, which would hide an unhandled rejection
     const router = useRouter()
@@ -775,7 +732,7 @@ describe('meteogram text alternative', { timeout: 15_000 }, () => {
   }
   const headers = (table: Element) => [...table.querySelectorAll('thead th')].map(th => th.textContent?.trim())
   const rows = (table: Element) => [...table.querySelectorAll('tbody tr')].map(row => [...row.children].map(cell => cell.textContent?.trim()))
-  const summary = () => document.getElementById(figure()!.getAttribute('aria-describedby')!)?.textContent?.trim()
+  const summary = () => document.getElementById(figure()!.getAttribute('aria-describedby')!.split(' ')[0]!)?.textContent?.trim()
   const press = async (button: Element, key: string) => {
     button.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true }))
     await nextTick()
@@ -806,7 +763,7 @@ describe('meteogram text alternative', { timeout: 15_000 }, () => {
   })
 
   it('switches between the chart, the day cards and the table, and shows no chart in the table view', async () => {
-    plotly.newPlot.mockClear()
+    clearDrawn()
     await showForecast()
 
     radio('Table').click()
@@ -824,7 +781,7 @@ describe('meteogram text alternative', { timeout: 15_000 }, () => {
     // back to the chart: drawn again
     radio('Chart').click()
     await vi.waitFor(() => expect(figure()).not.toBeNull())
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalled())
+    await waitDrawn()
     expect(checked()).toEqual(['Chart'])
     expect(document.body.querySelector('table')).toBeNull()
   })
@@ -1111,159 +1068,6 @@ describe('meteogram text alternative', { timeout: 15_000 }, () => {
   })
 })
 
-describe('meteogram wind barbs', { timeout: 15_000 }, () => {
-  // 30 hourly values of a wind of 6 m/s from the west, beside the temperature the chart is drawn for
-  const wind = ['wind_speed', 'wind_direction'].flatMap(parameter => Array.from({ length: 30 }, (_, hour) => ({
-    station_id: '10384',
-    resolution: 'hourly',
-    dataset: 'small',
-    parameter,
-    timestamp: new Date(Date.UTC(2026, 9, 1, hour)).toISOString().replace('.000Z', '+00:00'),
-    value: parameter === 'wind_speed' ? 6 : 270,
-    quality_flags: null,
-  })))
-
-  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
-  afterEach(() => {
-    vi.restoreAllMocks()
-    wrapper?.unmount()
-    wrapper = undefined
-    document.body.innerHTML = ''
-  })
-
-  it('are drawn once the chart is, though Plotly announces its first drawing before newPlot resolves', async () => {
-    // Plotly emits plotly_afterplot of a drawing while newPlot is still running, and newPlot resolves after it:
-    // a handler that is attached once newPlot has resolved never hears of the first drawing (GH-3240)
-    const listeners: Record<string, (() => void)[]> = {}
-    plotly.newPlot.mockClear()
-    plotly.newPlot.mockImplementationOnce((async (element: any) => {
-      element.on = (name: string, listener: () => void) => {
-        (listeners[name] ??= []).push(listener)
-      }
-      element.removeListener = () => {}
-      element.removeAllListeners = () => {}
-      for (const listener of listeners.plotly_afterplot ?? [])
-        listener()
-    }) as any)
-    // a canvas that records what is drawn on it: the test's document has none that draws
-    const strokes = vi.fn()
-    const context = new Proxy({} as Record<string, unknown>, {
-      get: (target, property: string) => property === 'stroke' ? strokes : (property in target ? target[property] : vi.fn()),
-      set: (target, property: string, value) => {
-        target[property] = value
-        return true
-      },
-    })
-    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation((() => context) as any)
-
-    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
-    await wrapper.setProps({ values: [...values, ...wind] })
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce(), { timeout: 5000 })
-
-    // no further drawing is announced: the barbs are there without one
-    await vi.waitFor(() => expect(document.body.querySelector('.meteogram-overlay-canvas')).not.toBeNull())
-    expect(strokes).toHaveBeenCalled()
-  })
-})
-
-// A chart drawn in other colours (the scheme switched, a print) is in the range it was zoomed to, and no
-// other redraw is: not a new horizon, not new values
-describe('meteogram chart redrawn in other colours', { timeout: 15_000 }, () => {
-  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
-  const zoomed = ['2026-10-01 06:00:00', '2026-10-01 12:00:00']
-
-  // drawn, and then zoomed, as Plotly holds the range it shows
-  async function shownAndZoomed() {
-    plotly.newPlot.mockClear()
-    plotly.relayout.mockClear()
-    wrapper = await mountSuspended(Meteogram, { props: { values: [], stationName: 'Berlin' }, attachTo: document.body })
-    await wrapper.setProps({ values })
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-    await flushPromises()
-    const chart = (plotly.newPlot.mock.lastCall as unknown as [HTMLElement])[0]
-    Object.assign(chart, { _fullLayout: { xaxis: { range: zoomed } } })
-    plotly.newPlot.mockClear()
-    plotly.relayout.mockClear()
-    return chart
-  }
-
-  afterEach(() => {
-    document.documentElement.classList.remove('dark')
-    wrapper?.unmount()
-    wrapper = undefined
-    document.body.innerHTML = ''
-  })
-
-  it('keeps the zoom where the scheme switches, as a move from the range the chart is drawn in, which its reset goes back to', async () => {
-    const chart = await shownAndZoomed()
-    document.documentElement.classList.add('dark')
-    await vi.waitFor(() => expect(plotly.relayout).toHaveBeenCalledWith(chart, { 'xaxis.range': zoomed }))
-    // plotted in the range of its own: that is the one Plotly takes for the chart's initial range
-    const layout = (plotly.newPlot.mock.lastCall as unknown as [unknown, unknown, { xaxis: { range: string[] } }])[2]
-    expect(layout.xaxis.range).not.toEqual(zoomed)
-    expect(chart.dataset.chartScheme).toBe('dark')
-  })
-
-  it('says the scheme the chart is drawn in whatever the move to the zoom after the plot does', async () => {
-    vi.spyOn(console, 'error').mockImplementation(() => {})
-    const chart = await shownAndZoomed()
-    plotly.relayout.mockRejectedValueOnce(new Error('relayout failed'))
-    document.documentElement.classList.add('dark')
-    await vi.waitFor(() => expect(plotly.relayout).toHaveBeenCalledOnce())
-    await vi.waitFor(() => expect(chart.dataset.chartScheme).toBe('dark'))
-  })
-
-  it('starts the chart over where a new horizon and a switch of the scheme come while it is drawn', async () => {
-    const chart = await shownAndZoomed()
-    let release!: () => void
-    const held = new Promise<void>((resolve) => {
-      release = resolve
-    })
-    plotly.newPlot.mockImplementationOnce(async () => {
-      await held
-    })
-    // a drawing for the scheme, held
-    document.documentElement.classList.add('dark')
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-    // meanwhile a new horizon, and the scheme back: one drawing is left to do, which is not only for the colours
-    ;(wrapper!.vm as unknown as { horizonHours: number }).horizonHours = 24
-    await flushPromises()
-    document.documentElement.classList.remove('dark')
-    await flushPromises()
-    release()
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
-    await flushPromises()
-    // the first drawing moved to the zoom, the second did not
-    expect(plotly.relayout).toHaveBeenCalledTimes(1)
-    expect(chart.dataset.chartScheme).toBe('light')
-  })
-
-  it('names the scheme of the theme it was drawn in, not the one the page has come to by the end of the drawing', async () => {
-    const chart = await shownAndZoomed()
-    const gates = [0, 1].map(() => {
-      let open!: () => void
-      const opened = new Promise<void>((resolve) => {
-        open = resolve
-      })
-      return { open, opened }
-    })
-    gates.forEach(gate => plotly.newPlot.mockImplementationOnce(async () => {
-      await gate.opened
-    }))
-    document.documentElement.classList.add('dark')
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledOnce())
-    // the scheme back while the dark drawing is under way
-    document.documentElement.classList.remove('dark')
-    await flushPromises()
-    gates[0]!.open()
-    await vi.waitFor(() => expect(plotly.newPlot).toHaveBeenCalledTimes(2))
-    // the dark drawing is done and the light one held: the chart is a dark one, and says so
-    expect(chart.dataset.chartScheme).toBe('dark')
-    gates[1]!.open()
-    await vi.waitFor(() => expect(chart.dataset.chartScheme).toBe('light'))
-  })
-})
-
 // The Forecast's own chrome (GH-3642): the panel toggles say whether they are on and take the label colours of their
 // series, the icons of the summary line take them too, and the card of today has an edge that reads (1.4.11).
 describe('meteogram panel toggles, summary icons and today\'s card', { timeout: 15_000 }, () => {
@@ -1364,5 +1168,201 @@ describe('meteogram panel toggles, summary icons and today\'s card', { timeout: 
     expect(today, 'the card of today').toBeDefined()
     expect(today!.classList.contains('border-blue-600')).toBe(true)
     expect(today!.classList.contains('dark:border-blue-400')).toBe(true)
+  })
+})
+
+// The snow panel (GH-4091): MOSMIX-SNOW for the stations that have it, from a request of its own, in a panel of three plots with one
+// switch, its source named under the chart. Another station looks as it did.
+describe('meteogram snow panel', { timeout: 15_000 }, () => {
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+
+  afterEach(async () => {
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+    await useRouter().replace({ query: {} })
+  })
+
+  // the day of `values`, hourly, and the snow forecast of the same day with the hours between its steps that DWD stamps for some stations
+  const snowValues = snowForecastValues({ hours: 23, offGrid: true })
+  const toggles = () => [...document.body.querySelectorAll<HTMLButtonElement>('button[data-panel]')]
+  const toggle = (panel: string) => toggles().find(button => button.dataset.panel === panel)!
+  const ids = (): string[] => ssr().option().series.map((series: { id: string }) => series.id)
+  const credit = () => document.body.querySelector('[data-testid="meteogram-snow-credit"]')
+
+  async function show(props: Record<string, unknown> = {}) {
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Zugspitzplatt', ...props }, attachTo: document.body })
+    await waitDrawn()
+    return wrapper
+  }
+
+  it('has a snow toggle and draws the three plots for a station that has a snow forecast', async () => {
+    await show({ snowValues })
+    expect(toggles().map(button => button.dataset.panel)).toEqual(['temp', 'wind', 'precip', 'snow', 'cloud', 'pressure'])
+    expect(ids()).toEqual(expect.arrayContaining(['snowNew', 'snowDepth', 'snowChance']))
+    expect(toggle('snow').getAttribute('aria-pressed')).toBe('true')
+    expect(toggle('snow').getAttribute('aria-label')).toBe('Snow')
+    // in the colours of the others: the label colour of the snow's series, the filled icon while it is on
+    const probe = document.createElement('span')
+    Object.assign(probe.style, panelToggleStyle(SERIES_LABEL.indigo.light))
+    expect(toggle('snow').getAttribute('style')).toBe(probe.getAttribute('style'))
+    expect(toggle('snow').querySelector('[class*="i-ph"]')?.className).toMatch(/snowflake-fill/)
+  })
+
+  it('has none for another station: no toggle, no snow series, no credit', async () => {
+    await show()
+    expect(toggles().map(button => button.dataset.panel)).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
+    expect(ids().filter(id => id.startsWith('snow'))).toEqual([])
+    expect(credit()).toBeNull()
+  })
+
+  it('has none where the snow request gave no value (an empty answer), as for another station', async () => {
+    await show({ snowValues: [] })
+    expect(toggles().map(button => button.dataset.panel)).toEqual(['temp', 'wind', 'precip', 'cloud', 'pressure'])
+    expect(ids()).not.toContain('snowNew')
+  })
+
+  it('has none where all the answer holds is other than the 3-hourly steps', async () => {
+    await show({ snowValues: snowValues.filter(value => new Date(value.timestamp).getUTCHours() % 3 !== 0) })
+    expect(ids()).not.toContain('snowNew')
+    expect(toggle('snow')).toBeUndefined()
+  })
+
+  it('draws the 3-hourly steps only, though the answer has the hours between', async () => {
+    await show({ snowValues })
+    const draws = ssr().option().series as { id: string, data: [number, number | null][] }[]
+    for (const id of ['snowNew', 'snowDepth', 'snowChance']) {
+      // a bar is drawn over the hours it covers, centred on the middle of them: the 3 h of a step before it
+      const shift = id === 'snowNew' ? 1.5 * 3_600_000 : 0
+      const hours = draws.find(series => series.id === id)!.data.map(([time]) => new Date(time + shift).getUTCHours())
+      // the day of the forecast has the steps 0, 3, ..., 21
+      expect(hours, id).toEqual([0, 3, 6, 9, 12, 15, 18, 21])
+    }
+  })
+
+  it('names its source under the chart, MOSMIX-SNOW and DWD, beside the symbols\' credit', async () => {
+    await show({ snowValues })
+    expect(credit()?.textContent?.trim()).toBe('Snow forecast from MOSMIX-SNOW, DWD.')
+  })
+
+  it('takes the plots and the credit away with its toggle, and gives them back', async () => {
+    await show({ snowValues })
+    toggle('snow').click()
+    await nextTick()
+    await vi.waitFor(() => expect(ids()).not.toContain('snowNew'))
+    expect(toggle('snow').getAttribute('aria-pressed')).toBe('false')
+    expect(credit()).toBeNull()
+    toggle('snow').click()
+    await vi.waitFor(() => expect(ids()).toContain('snowNew'))
+    expect(credit()).not.toBeNull()
+  })
+
+  it('writes the snow to the table of the values, as three columns, and to the address with the other panels', async () => {
+    await show({ snowValues })
+    ;(wrapper!.vm as unknown as { view: string }).view = 'table'
+    await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
+    const headers = [...document.body.querySelectorAll('th')].map(th => th.textContent?.trim())
+    expect(headers).toEqual(expect.arrayContaining(['New snow cm', 'Snow depth cm', 'Chance of > 10\u00A0cm new snow in 24\u00A0h %']))
+    // a switched-off panel is a link that says so: all six are the default, and need no `panels`
+    expect(useRouter().currentRoute.value.query.panels).toBeUndefined()
+  })
+
+  it('is part of the address once another panel is off, which a link opens as it was', async () => {
+    await show({ snowValues })
+    toggle('wind').click()
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.panels).toBe('temp,precip,snow,cloud,pressure'))
+    toggle('snow').click()
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.panels).toBe('temp,precip,cloud,pressure'))
+  })
+
+  it('keeps a panel on for a station without snow when the others are all off: its switch is not one', async () => {
+    await show()
+    for (const panel of ['wind', 'precip', 'cloud', 'pressure', 'temp'])
+      toggle(panel).click()
+    await nextTick()
+    await nextTick()
+    // temperature is the one that is left on, as before there was a snow panel
+    expect(toggles().filter(button => button.getAttribute('aria-pressed') === 'true').map(button => button.dataset.panel)).toEqual(['temp'])
+  })
+
+  it('does not count as the panel that is left on where the station has no snow forecast, and does where it has', async () => {
+    await show({ snowValues })
+    for (const panel of ['wind', 'precip', 'cloud', 'pressure', 'temp'])
+      toggle(panel).click()
+    await nextTick()
+    await nextTick()
+    expect(toggles().filter(button => button.getAttribute('aria-pressed') === 'true').map(button => button.dataset.panel)).toEqual(['snow'])
+  })
+})
+
+// A link to the snow panel, or a view of the snow alone, is kept while the snow request is under way: the page has no snow for the
+// forecast until it answers, which is not the same as a station with none (GH-4091)
+describe('meteogram snow panel that is on its way', { timeout: 15_000 }, () => {
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+
+  afterEach(async () => {
+    wrapper?.unmount()
+    wrapper = undefined
+    document.body.innerHTML = ''
+    await useRouter().replace({ query: {} })
+  })
+
+  const snowValues = snowForecastValues({ hours: 23 })
+  const toggle = (panel: string) => document.body.querySelector<HTMLButtonElement>(`button[data-panel="${panel}"]`)
+  const ids = (): string[] => ssr().option().series.map((series: { id: string }) => series.id)
+  const query = () => useRouter().currentRoute.value.query.panels
+  const pressed = () => (wrapper!.vm as unknown as { visiblePanels: Record<string, boolean> }).visiblePanels
+
+  async function showSnowLink(snow: any) {
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Zugspitzplatt', snowValues: snow }, route: '/meteogram?panels=snow', attachTo: document.body })
+    await flushPromises()
+    await nextTick()
+    return wrapper
+  }
+
+  it('keeps `panels=snow` while the snow is pending, and draws the snow alone when it arrives', async () => {
+    await showSnowLink(null)
+    expect(pressed()).toMatchObject({ snow: true, temp: false, wind: false })
+    expect(query()).toBe('snow')
+    await wrapper!.setProps({ snowValues } as any)
+    await vi.waitFor(() => expect(ids()).toContain('snowNew'))
+    expect(ids()).not.toContain('temp')
+    expect(toggle('snow')!.getAttribute('aria-pressed')).toBe('true')
+    expect(toggle('temp')!.getAttribute('aria-pressed')).toBe('false')
+    expect(query()).toBe('snow')
+  })
+
+  it('keeps it through a new request for the same station (the snow is pending again), as for the first', async () => {
+    await showSnowLink(snowValues)
+    await vi.waitFor(() => expect(ids()).toContain('snowNew'))
+    await wrapper!.setProps({ snowValues: null } as any)
+    await flushPromises()
+    await nextTick()
+    expect(pressed()).toMatchObject({ snow: true, temp: false })
+    expect(query()).toBe('snow')
+    await wrapper!.setProps({ snowValues } as any)
+    await vi.waitFor(() => expect(ids()).toContain('snowNew'))
+    expect(query()).toBe('snow')
+  })
+
+  it('rewrites the address when the snow panel turns out not to be there: the panels it names are the station\'s', async () => {
+    clearDrawn()
+    wrapper = await mountSuspended(Meteogram, { props: { values, stationName: 'Berlin', snowValues: null }, attachTo: document.body })
+    await flushPromises()
+    toggle('wind')!.click()
+    // while the snow is on its way the panel counts, as a panel of the station
+    await vi.waitFor(() => expect(query()).toBe('temp,precip,snow,cloud,pressure'))
+    await wrapper.setProps({ snowValues: [] } as any)
+    await vi.waitFor(() => expect(query()).toBe('temp,precip,cloud,pressure'))
+  })
+
+  it('turns it into the temperature once the answer is that the station has none', async () => {
+    await showSnowLink(null)
+    expect(query()).toBe('snow')
+    await wrapper!.setProps({ snowValues: [] } as any)
+    await vi.waitFor(() => expect(pressed().temp).toBe(true))
+    await vi.waitFor(() => expect(query()).toBe('temp'))
   })
 })

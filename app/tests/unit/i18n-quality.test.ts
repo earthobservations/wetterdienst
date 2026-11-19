@@ -345,6 +345,7 @@ const UI_SAME: Record<string, Same> = {
   'dataViewer.limitStationsCount': { en: ['fr', 'nl'], why: COGNATE },
   'dataViewer.limitParametersCount': { en: ['nl'], why: COGNATE },
   'home.kindRadarTitle': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: COGNATE },
+  'seo.kinds.radar': { en: ['cs', 'da', 'es', 'fr', 'it', 'nl', 'pl'], why: COGNATE },
   'about.linksTitle': { en: ['da', 'de-hh', 'de', 'nl'], why: COGNATE },
   'about.linkDocs': { en: ['fr'], de: ['da'], why: COGNATE },
   'nav.home': { en: ['it'], de: ['da', 'nl'], why: COGNATE },
@@ -406,7 +407,6 @@ const UI_SAME: Record<string, Same> = {
   'parameterSelection.title': { en: ['cs', 'da'], why: COGNATE },
   'stripes.region': { en: ['cs', 'da', 'de-hh', 'de', 'pl'], why: COGNATE },
   'stripes.auto': { en: ['cs', 'da', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: COGNATE },
-  'stripes.hoverTrend': { en: ['cs', 'de-hh', 'de', 'lb', 'nl', 'pl'], why: COGNATE },
   'explorer.title': { en: ['de-hh', 'de', 'lb'], why: COGNATE },
   'explorer.mode': { en: ['fr'], de: ['nl'], why: COGNATE },
   'explorer.modeStation': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
@@ -443,12 +443,14 @@ const UI_SAME: Record<string, Same> = {
   'history.colParameter': { en: ['da', 'de-hh', 'de', 'lb', 'nl'], why: COGNATE },
   'history.colDescription': { en: ['fr'], why: COGNATE },
   'history.colMethod': { de: ['nl'], why: COGNATE },
+  'meteogram.chart.blockHours': { en: ['cs', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'pl'], why: UNIT },
 }
 
 const GLOSSARY_SAME: Record<string, Same> = {
   'parameters.temperature_humidex': { en: ['cs', 'da', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'datasets.small': { en: ['cs', 'da', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'datasets.large': { en: ['cs', 'da', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
+  'datasets.snow': { en: ['cs', 'da', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'datasets.icon': { en: ['da', 'de', 'de-hh', 'es', 'fr', 'lb'], why: NAME },
   'datasets.icon_eu': { en: ['cs', 'da', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'datasets.synop': { en: ['cs', 'da', 'de', 'de-hh', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },

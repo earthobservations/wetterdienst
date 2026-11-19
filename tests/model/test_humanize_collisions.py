@@ -23,7 +23,7 @@ if TYPE_CHECKING:
     from wetterdienst.model.values import TimeseriesValues
 
 #: a credential of each provider that wants one, so that a request can be made without a call
-_AUTH = {"aemet": "stub", "knmi": "stub", "metno_frost": ("stub", "stub"), "ceda": ("stub", "stub")}
+_AUTH = {"aemet": "stub", "knmi_edr": "stub", "metno_frost": ("stub", "stub"), "ceda": ("stub", "stub")}
 
 
 class Entry(NamedTuple):

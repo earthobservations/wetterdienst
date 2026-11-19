@@ -13,7 +13,7 @@ from fsspec.exceptions import FSTimeoutError
 
 from tests.conftest import skip_if_upstream_unavailable
 from wetterdienst import Settings
-from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError, ProviderRateLimitError
 from wetterdienst.provider.smhi.observation import SmhiObservationRequest
 from wetterdienst.provider.smhi.observation import api as smhi_api
 from wetterdienst.util.network import File
@@ -103,6 +103,16 @@ def test_smhi_values_raise_no_internet_error_as_before(monkeypatch: pytest.Monke
     with pytest.raises(NoInternetError) as raised:
         _request().values().all()
     assert raised.value is offline
+    assert len(requested) == 1
+
+
+def test_smhi_values_raise_the_rate_limit_error_for_a_429(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 429 is SMHI limiting how fast the client may ask, not a station without the parameter (GH-4048)."""
+    requested = _failing(monkeypatch, _response_error(429))
+    with pytest.raises(ProviderRateLimitError) as raised:
+        _request().values().all()
+    assert isinstance(raised.value, DownloadError)
+    assert raised.value.retry_after == 60
     assert len(requested) == 1
 
 

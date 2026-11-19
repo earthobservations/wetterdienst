@@ -30,6 +30,9 @@ def test_smhi_observation_stations() -> None:
             "station_id": ABISKO,
             "name": "Abisko Aut",
             "region": None,
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
     ]
     # assert coordinates/height with a tolerance -- SMHI may adjust these slightly over time

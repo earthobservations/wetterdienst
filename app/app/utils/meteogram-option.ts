@@ -1,0 +1,651 @@
+/**
+ * The option of the forecast chart (Apache ECharts): one grid for each panel and one above them for the days, the
+ * hours and the weather symbols, all on one time axis whose zoom is linked (one `dataZoom` for every x axis), the
+ * lines and bars as the library's own series, and what it has no series for (the day bands, the wind barbs, the day
+ * names, the hours, the symbols) as `custom` series in the same coordinates. Pure: a model, a theme and a window in, an
+ * option out, so that tests build it without a browser.
+ */
+import type { EChartsCoreOption } from 'echarts/core'
+import type { ChartTheme } from './chart-theme'
+import type { ChartLayout, TimeWindow } from './meteogram-geometry'
+import type { AxisSpec, DrawnSeries, MeteogramModel, Tone } from './meteogram-model'
+import type { YrSymbol } from './weather-symbols'
+import { SERIES_LABEL, seriesLabelColor, withAlpha } from './chart-theme'
+import { withData } from './format'
+import { every, GUTTER_LEFT, HOUR_MS, labelStepHours, MIN_SPAN_HOURS, PANEL_HEIGHT, windBarb } from './meteogram-geometry'
+import { yrSymbolFor, yrSymbolUrl } from './weather-symbols'
+
+/** The room a barb, a symbol and a label of the time axis need beside the next one, in px */
+export const BARB_SPACING = 26
+export const SYMBOL_SPACING = 32
+export const LABEL_SPACING = 46
+export const SYMBOL_SIZE = 30
+/** Half the width of a label of the time axis, in px */
+export const HOUR_LABEL_HALF_WIDTH = 18
+/**
+ * The titles of the axes: the left of the widest block, the width of a line of them, and the room between a title and its own panel's
+ * tick labels (GH-4132); and what the tick labels are made of.
+ *
+ * The rotated text of a title is drawn in a box a little wider than its 14 px line: its left edge is 1 px left of the line's in Chrome and
+ * 2 px in Firefox, where the first block would be cut at the edge of the chart (Luftdruck at -1 with a `TITLE_LEFT` of 1). So the block
+ * starts 3 px from the edge, which leaves a pixel in either engine
+ */
+export const TITLE_LEFT = 3
+export const TITLE_LINE_PX = 14
+/** The lines of the block of the titles in every panel, language and width: the name, and the unit on its own line */
+export const TITLE_LINES = 2
+export const TITLE_TO_LABELS = 4
+/** The room between the tick labels and the plot */
+export const LABEL_MARGIN = 6
+/**
+ * The width of each character a tick label is written with, at 12 px in the app's font (Atkinson Hyperlegible Next, measured with the
+ * canvas and rounded up to a tenth): the digits are proportional (a 1 is 4.9 px, a 0 is 7.8), a separator is 2.6, a hyphen 4.4, the minus
+ * sign 7.3, a space 3.4 (a narrow one 1.7). `DIGIT_PX`, the widest digit, is the width of any other character, the digits of another
+ * script among them. Until the font has loaded the labels are drawn in its metric-adjusted fallback, whose digits are 6.65 px all alike:
+ * a 1 is 1.8 px wider than here, so `LABEL_SLACK_PX` is added to what a panel's labels are estimated at
+ */
+export const DIGIT_PX = 7.8
+/** What a panel's labels are estimated wider than the font's own widths, for the fallback font (a label of two or five digits is up to 2.5 px wider in it) */
+export const LABEL_SLACK_PX = 2
+/** The height of a line of tick labels in px: two labels nearer than this overlap */
+export const LABEL_HEIGHT_PX = 16
+export const CHAR_PX: Readonly<Record<string, number>> = {
+  '0': 7.8,
+  '1': 4.9,
+  '2': 6.6,
+  '3': 7.0,
+  '4': 7.4,
+  '5': 7.1,
+  '6': 7.2,
+  '7': 6.2,
+  '8': 7.4,
+  '9': 7.2,
+  '.': 2.6,
+  ',': 2.6,
+  '\u2019': 2.9,
+  '\'': 2.0,
+  '-': 4.4,
+  '\u2212': 7.3,
+  ' ': 3.4,
+  '\u00A0': 3.4,
+  '\u202F': 1.7,
+}
+
+/** The colours of the series: the line and the wash under it, in the light and the dark scheme */
+const TONES: Record<Tone, { light: string, dark: string, fillLight?: string, fillDark?: string }> = {
+  temp: { light: '#ef4444', dark: '#ef4444', fillLight: 'rgba(239,68,68,0.04)', fillDark: 'rgba(239,68,68,0.02)' },
+  tempMax: { light: '#b91c1c', dark: '#fca5a5' },
+  tempMin: { light: '#1d4ed8', dark: '#93c5fd' },
+  dew: { light: '#a855f7', dark: '#a855f7' },
+  rain: { light: '#3b82f6', dark: '#3b82f6' },
+  mixed: { light: '#0ea5e9', dark: '#0ea5e9' },
+  snow: { light: '#cbd5e1', dark: '#9ca3af' },
+  // the snow forecast's: the colours of the text that names them (SERIES_LABEL), which read at 4.5:1 on the paper, so that the bars and
+  // the lines have the 3:1 a graphic needs (WCAG 1.4.11): `tests/unit/meteogram-option.test.ts` holds it
+  snowNew: { light: SERIES_LABEL.indigo.light, dark: SERIES_LABEL.indigo.dark },
+  snowDepth: { light: SERIES_LABEL.teal.light, dark: SERIES_LABEL.teal.dark, fillLight: 'rgba(15,118,110,0.08)', fillDark: 'rgba(45,212,191,0.06)' },
+  snowChance: { light: SERIES_LABEL.gold.light, dark: SERIES_LABEL.gold.dark, fillLight: 'rgba(180,83,9,0.08)', fillDark: 'rgba(218,165,32,0.06)' },
+  // the thunderstorm band's: the colour of the text that names it, as the snow's (3:1 for the bars, 4.5:1 for the axis' text)
+  thunder: { light: SERIES_LABEL.fuchsia.light, dark: SERIES_LABEL.fuchsia.dark },
+  wind: { light: '#06b6d4', dark: '#06b6d4', fillLight: 'rgba(6,182,212,0.08)', fillDark: 'rgba(6,182,212,0.04)' },
+  gust: { light: '#06b6d4', dark: '#06b6d4' },
+  pressure: { light: '#84cc16', dark: '#84cc16', fillLight: 'rgba(132,204,22,0.04)', fillDark: 'rgba(132,204,22,0.02)' },
+  cloudHigh: { light: '#cbd5e1', dark: '#64748b', fillLight: 'rgba(203,213,225,0.15)', fillDark: 'rgba(148,163,184,0.1)' },
+  cloudMid: { light: '#94a3b8', dark: '#475569', fillLight: 'rgba(148,163,184,0.22)', fillDark: 'rgba(100,116,139,0.15)' },
+  cloudLow: { light: '#64748b', dark: '#334155', fillLight: 'rgba(100,116,139,0.3)', fillDark: 'rgba(71,85,105,0.22)' },
+  cloudTotal: { light: '#334155', dark: '#e4e4e7' },
+}
+
+/** The colour of a series' line, in the scheme the chart is drawn in */
+export function toneColor(tone: Tone, dark: boolean): string {
+  return TONES[tone][dark ? 'dark' : 'light']
+}
+
+export interface OptionInput {
+  model: MeteogramModel
+  theme: ChartTheme
+  layout: ChartLayout
+  /** the chart's width in px and the width of its plot, from the gutters to the right edge */
+  outerPx: number
+  plotPx: number
+  /** the left gutter in px, which grows by a line where an axis title is broken in two */
+  gutterLeft: number
+  window: TimeWindow
+  /** the moment it is, which a line marks while the forecast spans it */
+  now: number | null
+  fontFamily: string
+  locale: string
+  /** the name of the day and the hour as the page writes it */
+  hourLabel: (ms: number) => string
+  /** the file of a symbol, which a test points elsewhere */
+  symbolUrl?: (symbol: YrSymbol, dark: boolean) => string
+}
+
+/** A span of the axis cut to the plot: the pixels of a band's ends that lie inside it, or null where none does */
+export function clampSpan(x0: number, x1: number, left: number, right: number): [number, number] | null {
+  const a = Math.max(left, Math.min(x0, x1))
+  const b = Math.min(right, Math.max(x0, x1))
+  return b > a ? [a, b] : null
+}
+
+/** Whether a pixel lies outside the plot by more than `margin`: an item there is not drawn, which keeps the chart's elements to the window */
+export function outsidePlot(x: number, left: number, right: number, margin = 40): boolean {
+  return x < left - margin || x > right + margin
+}
+
+/** The daylight's colour, which cloud at noon fades */
+export function bandColour(cloud: number, dark: boolean): string {
+  const alpha = 0.55 - Math.min(0.35, cloud * 0.5)
+  return dark ? `rgba(250,204,21,${(alpha * 0.15).toFixed(3)})` : `rgba(253,244,180,${alpha.toFixed(3)})`
+}
+
+const BACKDROP = { band: 0, midnight: 1, now: 2, freeze: 3, divider: 4, cadence: 5 } as const
+
+/**
+ * How opaque an hour of the thunderstorm band is for each class (`thunderLevel`): the shade steps up with the probability, as the bar's
+ * height rises with it, so the two say the same and no cue is the colour alone. The lowest is still 3:1 against the paper for a graphic
+ * (WCAG 1.4.11), which `tests/unit/meteogram-thunder.test.ts` holds.
+ */
+export const THUNDER_ALPHA: Readonly<Record<1 | 2 | 3, number>> = { 1: 0.66, 2: 0.8, 3: 1 }
+
+/** How much of its window a block of precipitation fills: the rest is the gap between it and the next (the library's bars were 90 % wide) */
+const BLOCK_FILL = 0.9
+
+/** The option of the chart in `input` */
+export function buildMeteogramOption(input: OptionInput): EChartsCoreOption {
+  const { model, theme, layout, outerPx, plotPx, gutterLeft, window: win, now: nowInput, fontFamily, locale, hourLabel } = input
+  const symbolUrl = input.symbolUrl ?? yrSymbolUrl
+  const dark = theme.dark
+  const rows = layout.rows
+  const gridCount = rows.length + 1
+  const xIndexes = Array.from({ length: gridCount }, (_, i) => i)
+  const gridColour = withAlpha(theme.text, 0.1)
+  const dividerColour = withAlpha(theme.text, 0.18)
+  const midnightColour = withAlpha(theme.text, 0.12)
+  const nowColour = dark ? 'rgba(251,146,60,0.75)' : 'rgba(234,88,12,0.75)'
+  const bounds = { start: model.minTime, end: model.maxTime }
+  const now = nowInput !== null && nowInput > bounds.start && nowInput < bounds.end ? nowInput : null
+
+  const grids: any[] = [{ left: gutterLeft, width: plotPx, top: layout.header.top, height: layout.header.height, show: false, outerBoundsMode: 'none' }]
+  const xAxes: any[] = [{ type: 'value', gridIndex: 0, min: bounds.start, max: bounds.end, show: false, containShape: false }]
+  const yAxes: any[] = [{ type: 'value', gridIndex: 0, min: 0, max: 1, show: false }]
+  rows.forEach((row, i) => {
+    const axis = model.axes[row.id]!
+    const labelColour = axis.label === 'slate' ? theme.textMuted : seriesLabelColor(axis.label, dark)
+    const format = tickFormatter(axis, locale)
+    const hideMin = minLabelHidden(axis)
+    // outerBoundsMode: the plot is where the gutters say, whatever the labels' width: a grid that shrinks for a long label puts its hours out of line with the others'
+    grids.push({ left: gutterLeft, width: plotPx, top: row.top, height: row.height, show: false, outerBoundsMode: 'none' })
+    xAxes.push({ type: 'value', gridIndex: i + 1, min: bounds.start, max: bounds.end, show: false, containShape: false })
+    yAxes.push({
+      type: 'value',
+      gridIndex: i + 1,
+      min: axis.range[0],
+      max: axis.range[1],
+      splitNumber: axis.splits,
+      axisLine: { show: false },
+      axisTick: { show: false },
+      splitLine: { show: true, lineStyle: { color: gridColour, width: 1 } },
+      axisLabel: {
+        show: true,
+        color: labelColour,
+        fontSize: 12,
+        fontFamily,
+        margin: LABEL_MARGIN,
+        // the top of a panel is where the panel above ends: its label would touch that one's bottom label, and the
+        // ticks that remain are round numbers
+        showMaxLabel: false,
+        // the bottom of the range has a label of its own where it is no multiple of the step, and one that lies nearer to the first tick than a
+        // line of labels is high is left out (GH-4132: the pressure's 1.008 was drawn over its 1.010)
+        formatter: (value: number) => hideMin && value === axis.range[0] ? '' : format(value),
+      },
+    })
+  })
+
+  const series: any[] = []
+  const gridOf = (panel: string) => rows.findIndex(r => r.id === panel) + 1
+
+  // the backdrop of each panel: the bands of daylight, the midnights, the moment now, the freezing point, the divider
+  rows.forEach((row, i) => {
+    const data: number[][] = []
+    for (const day of model.days) {
+      if (day.light)
+        data.push([BACKDROP.band, day.light[0], day.light[1], day.cloud])
+      if (day.start > model.minTime)
+        data.push([BACKDROP.midnight, day.start, day.start, 0])
+    }
+    if (now !== null)
+      data.push([BACKDROP.now, now, now, 0])
+    if (row.id === 'temp' && model.freezing !== null)
+      data.push([BACKDROP.freeze, bounds.start, bounds.end, model.freezing])
+    if (i < rows.length - 1)
+      data.push([BACKDROP.divider, bounds.start, bounds.end, 0])
+    // where the precipitation goes from blocks of one length to another: a line, and what the blocks after it are
+    if (row.id === 'precip')
+      model.precipChanges.forEach((change, k) => data.push([BACKDROP.cadence, change.t, change.t, k]))
+    series.push({
+      id: `backdrop-${row.id}`,
+      type: 'custom',
+      xAxisIndex: i + 1,
+      yAxisIndex: i + 1,
+      silent: true,
+      z: 1,
+      animation: false,
+      // the time of a row is its second and third dimension: the zoom keeps a row that is in the window at either
+      encode: { x: [1, 2], y: 3 },
+      data,
+      renderItem: (params: any, api: any) => {
+        const cs = params.coordSys
+        const left = cs.x
+        const right = cs.x + cs.width
+        const kind = api.value(0)
+        if (kind === BACKDROP.band) {
+          const span = clampSpan(api.coord([api.value(1), 0])[0], api.coord([api.value(2), 0])[0], left, right)
+          return span ? { type: 'rect', silent: true, shape: { x: span[0], y: cs.y, width: span[1] - span[0], height: cs.height }, style: { fill: bandColour(api.value(3), dark) } } : null
+        }
+        if (kind === BACKDROP.midnight || kind === BACKDROP.now) {
+          const x = api.coord([api.value(1), 0])[0]
+          if (x < left || x > right)
+            return null
+          const isNow = kind === BACKDROP.now
+          return { type: 'line', silent: true, shape: { x1: x, y1: cs.y, x2: x, y2: cs.y + cs.height }, style: { stroke: isNow ? nowColour : midnightColour, lineWidth: isNow ? 1.5 : 1, lineDash: isNow ? undefined : [2, 3] } }
+        }
+        if (kind === BACKDROP.cadence) {
+          const x = api.coord([api.value(1), 0])[0]
+          if (x < left || x > right)
+            return null
+          // the label names the blocks after the line, at its top and on its right
+          return {
+            type: 'group',
+            silent: true,
+            children: [
+              { type: 'line', silent: true, shape: { x1: x, y1: cs.y, x2: x, y2: cs.y + cs.height }, style: { stroke: theme.textMuted, lineWidth: 1, lineDash: [5, 3] } },
+              { type: 'text', silent: true, style: { text: model.precipChanges[api.value(3)]!.label, x: x + 4, y: cs.y + 8, fill: theme.textMuted, font: `11px ${fontFamily}`, textAlign: 'left', textVerticalAlign: 'middle' } },
+            ],
+          }
+        }
+        if (kind === BACKDROP.freeze) {
+          const y = api.coord([0, api.value(3)])[1]
+          return { type: 'line', silent: true, shape: { x1: left, y1: y, x2: right, y2: y }, style: { stroke: theme.zeroline, lineWidth: 1 } }
+        }
+        // the divider under the panel, from the edge of the chart to the edge
+        const y = cs.y + cs.height + (layout.rows[i + 1] ? (layout.rows[i + 1]!.top - (row.top + row.height)) / 2 : 0)
+        return { type: 'line', silent: true, shape: { x1: 0, y1: y, x2: outerPx, y2: y }, style: { stroke: dividerColour, lineWidth: 1 } }
+      },
+    })
+  })
+
+  // The axes' titles, along their panels, each next to its own panel's tick labels (`titleBlockLeft`): the gutter is as wide as the widest
+  // labels and a block of titles (`gutterLeftFor`), so that no title is pushed out of the chart or onto a label, and the room that the
+  // narrower panels leave is at the left edge and not between their titles and their labels
+  if (rows.length) {
+    const blockLines = TITLE_LINES
+    // where each panel's block starts: computed once, since the title is redrawn with every zoom and scroll
+    const blockLeft = new Map(rows.map(row => [row.id, titleBlockLeft(gutterLeft, model.axes[row.id]!, locale)]))
+    series.push({
+      id: 'axis-titles',
+      type: 'custom',
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+      silent: true,
+      z: 5,
+      animation: false,
+      // a row for the whole forecast, which every window holds some of
+      encode: { x: [1, 2], y: 0 },
+      data: rows.map((_row, i) => [i, bounds.start, bounds.end]),
+      renderItem: (_params: any, api: any) => {
+        const row = rows[api.value(0)]!
+        const axis = model.axes[row.id]!
+        const colour = axis.label === 'slate' ? theme.textMuted : seriesLabelColor(axis.label, dark)
+        const lines = axis.title.split('\n')
+        // the lines side by side in a block as wide as the widest title has lines, a shorter title in the middle of it
+        const first = blockLeft.get(row.id)! + (TITLE_LINE_PX * (blockLines - lines.length)) / 2 + TITLE_LINE_PX / 2
+        return {
+          type: 'group',
+          silent: true,
+          children: lines.map((line, k) => ({
+            type: 'group',
+            x: first + k * TITLE_LINE_PX,
+            y: row.top + row.height / 2,
+            rotation: Math.PI / 2,
+            children: [{ type: 'text', silent: true, style: { text: line, x: 0, y: 0, fill: colour, font: `12px ${fontFamily}`, textAlign: 'center', textVerticalAlign: 'middle' } }],
+          })),
+        }
+      },
+    })
+  }
+
+  // the lines and bars
+  const lineSeries = (s: DrawnSeries): any => {
+    const colour = toneColor(s.tone, dark)
+    const fill = dark ? TONES[s.tone].fillDark : TONES[s.tone].fillLight
+    const index = gridOf(s.panel)
+    const common = { id: s.id, xAxisIndex: index, yAxisIndex: index, silent: true, data: s.data, animation: false }
+    if (s.windows) {
+      // blocks over windows of different lengths (the precipitation: 1, 6, 12 or 24 hours), each a rectangle over its own hours, which
+      // the library's bars cannot be: their width is the one least distance between two stamps. One of no height is not drawn
+      // the dimensions are the block's first and last moment and its amount: the zoom keeps a block that is in the window at either end
+      const blocks = s.data.flatMap(([centre, amount], i) => amount ? [[centre - (s.windows![i]! * HOUR_MS) / 2, centre + (s.windows![i]! * HOUR_MS) / 2, amount]] : [])
+      return {
+        id: s.id,
+        type: 'custom',
+        xAxisIndex: index,
+        yAxisIndex: index,
+        silent: true,
+        clip: true,
+        animation: false,
+        z: 3,
+        encode: { x: [0, 1], y: 2 },
+        data: blocks,
+        renderItem: (params: any, api: any) => {
+          // a gap between the blocks, as the bars had
+          const gap = ((api.value(1) - api.value(0)) * (1 - BLOCK_FILL)) / 2
+          const [left, top] = api.coord([api.value(0) + gap, api.value(2)])
+          const [right, bottom] = api.coord([api.value(1) - gap, 0])
+          const cs = params.coordSys
+          const span = clampSpan(left, right, cs.x, cs.x + cs.width)
+          return span ? { type: 'rect', silent: true, shape: { x: span[0], y: top, width: span[1] - span[0], height: Math.max(1, bottom - top) }, style: { fill: colour } } : null
+        },
+      }
+    }
+    if (s.kind === 'bar') {
+      // a stack for each panel: the rain, mixed and snow of the precipitation are one, the new snow of the snow panel is another
+      return { ...common, type: 'bar', stack: s.panel, barWidth: '90%', itemStyle: { color: colour }, z: 3 }
+    }
+    return {
+      ...common,
+      type: 'line',
+      showSymbol: false,
+      smooth: s.kind === 'line' && !s.straight ? 0.4 : false,
+      smoothMonotone: 'x',
+      step: s.kind === 'step' ? 'start' : false,
+      connectNulls: false,
+      lineStyle: { color: colour, width: s.width, type: s.dashed ? 'dashed' : 'solid' },
+      itemStyle: { color: colour },
+      areaStyle: s.area && fill ? { color: fill, origin: 'auto' } : undefined,
+      z: s.tone === 'cloudTotal' ? 4 : 3,
+    }
+  }
+  for (const s of model.series)
+    series.push(lineSeries(s))
+
+  // the thunderstorm band (GH-4090): an hour of a probability of the threshold or more is a bar over the hour it covers, as high as the
+  // probability on the panel's axis and in the shade of its class
+  if (model.thunder && rows.some(r => r.id === 'thunder')) {
+    const index = gridOf('thunder')
+    const colour = toneColor('thunder', dark)
+    const cells = model.thunder.cells
+    series.push({
+      id: 'thunder',
+      type: 'custom',
+      xAxisIndex: index,
+      yAxisIndex: index,
+      silent: true,
+      clip: true,
+      z: 3,
+      animation: false,
+      // the cell's first and last moment and its value: the zoom keeps a cell that is in the window at either end
+      encode: { x: [0, 1], y: 2 },
+      data: cells.map(cell => [cell.start, cell.end, cell.value, cell.level]),
+      renderItem: (params: any, api: any) => {
+        const gap = ((api.value(1) - api.value(0)) * (1 - BLOCK_FILL)) / 2
+        const [left, top] = api.coord([api.value(0) + gap, api.value(2)])
+        const [right, bottom] = api.coord([api.value(1) - gap, 0])
+        const cs = params.coordSys
+        const span = clampSpan(left, right, cs.x, cs.x + cs.width)
+        return span ? { type: 'rect', silent: true, shape: { x: span[0], y: top, width: span[1] - span[0], height: Math.max(1, bottom - top) }, style: { fill: colour, opacity: THUNDER_ALPHA[api.value(3) as 1 | 2 | 3] } } : null
+      },
+    })
+  }
+
+  // the wind barbs, on the speed line at their hour: thinned to the room there is at the zoom the chart is in
+  if (model.barbs.length && rows.some(r => r.id === 'wind')) {
+    const index = gridOf('wind')
+    series.push({
+      id: 'barbs',
+      type: 'custom',
+      xAxisIndex: index,
+      yAxisIndex: index,
+      silent: true,
+      clip: true,
+      z: 5,
+      animation: false,
+      data: model.barbs.map(b => [b.t, b.speed, b.dir, b.knots, b.cadence, b.index]),
+      renderItem: (params: any, api: any) => {
+        const step = every(api.size([HOUR_MS, 0])[0], api.value(4), BARB_SPACING)
+        if (api.value(5) % step !== 0)
+          return null
+        const [x, y] = api.coord([api.value(0), api.value(1)])
+        const cs = params.coordSys
+        if (outsidePlot(x, cs.x, cs.x + cs.width, 30))
+          return null
+        const barb = windBarb(api.value(2), api.value(3), 1, model.southern)
+        const style = { stroke: theme.textStrong, fill: theme.textStrong, lineWidth: barb.lineWidth }
+        const children: any[] = []
+        if (barb.calm !== null)
+          children.push({ type: 'circle', silent: true, shape: { cx: 0, cy: 0, r: barb.calm }, style: { ...style, fill: 'none' } })
+        if (barb.shaft)
+          children.push({ type: 'line', silent: true, shape: { x1: barb.shaft[0], y1: barb.shaft[1], x2: barb.shaft[2], y2: barb.shaft[3] }, style })
+        for (const tick of barb.ticks)
+          children.push({ type: 'line', silent: true, shape: { x1: tick[0], y1: tick[1], x2: tick[2], y2: tick[3] }, style })
+        for (const points of barb.pennants)
+          children.push({ type: 'polygon', silent: true, shape: { points }, style })
+        return { type: 'group', x, y, silent: true, children }
+      },
+    })
+  }
+
+  // the header: the day names, the hours and the weather symbols
+  const header = layout.header
+  const text = (value: string, x: number, y: number, fill: string, bold = false) => ({
+    type: 'text',
+    silent: true,
+    style: { text: value, x, y, fill, font: `${bold ? '700 ' : ''}12px ${fontFamily}`, textAlign: 'center', textVerticalAlign: 'middle' },
+  })
+  series.push({
+    id: 'day-names',
+    type: 'custom',
+    xAxisIndex: 0,
+    yAxisIndex: 0,
+    silent: true,
+    z: 5,
+    animation: false,
+    encode: { x: [1, 2], y: 3 },
+    data: model.days.map((d, i) => [d.noon, d.start, d.end, i]),
+    renderItem: (params: any, api: any) => {
+      const cs = params.coordSys
+      const day = model.days[api.value(3)]!
+      const span = clampSpan(api.coord([api.value(1), 0])[0], api.coord([api.value(2), 0])[0], cs.x, cs.x + cs.width)
+      if (!span)
+        return null
+      const width = span[1] - span[0]
+      const full = `${day.weekday} ${day.dayMonth}`
+      // a date is 7.4 px per character wide or more
+      const label = width >= 7.4 * full.length + 8 ? full : width >= 7.4 * day.weekday.length + 8 ? day.weekday : ''
+      const colour = day.weekend ? seriesLabelColor('red', dark) : theme.text
+      const children: any[] = []
+      if (label)
+        children.push(text(label, (span[0] + span[1]) / 2, header.daysTop + 10, colour, true))
+      const startX = api.coord([api.value(1), 0])[0]
+      if (startX > cs.x && startX < cs.x + cs.width && api.value(1) > model.minTime)
+        children.push({ type: 'line', silent: true, shape: { x1: startX, y1: header.daysTop + 2, x2: startX, y2: header.height }, style: { stroke: midnightColour, lineWidth: 1 } })
+      return { type: 'group', silent: true, children }
+    },
+  })
+  series.push({
+    id: 'hours',
+    type: 'custom',
+    xAxisIndex: 0,
+    yAxisIndex: 0,
+    silent: true,
+    z: 5,
+    animation: false,
+    data: model.hours.map(h => [h.t, h.hour]),
+    renderItem: (params: any, api: any) => {
+      const step = labelStepHours(api.size([HOUR_MS, 0])[0], LABEL_SPACING)
+      if (api.value(1) % step !== 0)
+        return null
+      const x = api.coord([api.value(0), 0])[0]
+      // a label that the edge of the plot would cut is left out: half an hour is no hour
+      if (outsidePlot(x, params.coordSys.x, params.coordSys.x + params.coordSys.width, -HOUR_LABEL_HALF_WIDTH))
+        return null
+      return text(hourLabel(api.value(0)), x, header.hoursTop + 9, theme.textMuted)
+    },
+  })
+  if (model.symbols.length && header.symbolsTop !== null) {
+    const top = header.symbolsTop
+    const symbolFile = (point: typeof model.symbols[number]) => symbolUrl(yrSymbolFor({ kind: point.kind, night: point.night, precipitationMm: point.precipitationMm, sky: point.sky }), dark)
+    series.push({
+      id: 'symbols',
+      type: 'custom',
+      xAxisIndex: 0,
+      yAxisIndex: 0,
+      silent: true,
+      clip: true,
+      z: 5,
+      animation: false,
+      data: model.symbols.map((s, i) => [s.t, s.cadence, s.index, i]),
+      renderItem: (params: any, api: any) => {
+        const spacing = api.size([HOUR_MS, 0])[0]
+        if (api.value(2) % every(spacing, api.value(1), SYMBOL_SPACING) !== 0)
+          return null
+        const x = api.coord([api.value(0), 0])[0]
+        if (outsidePlot(x, params.coordSys.x, params.coordSys.x + params.coordSys.width, -SYMBOL_SIZE / 2))
+          return null
+        const point = model.symbols[api.value(3)]!
+        return { type: 'image', silent: true, style: { image: symbolFile(point), x: x - SYMBOL_SIZE / 2, y: top + 2, width: SYMBOL_SIZE, height: SYMBOL_SIZE } }
+      },
+    })
+  }
+
+  return {
+    // none: the chart follows a finger that scrolls and a pinch that zooms, so a tween would lag behind them; it is SVG, where
+    // an animation is a style of keyframes for each of the hundreds of elements, which doubled the time to draw; and a visitor
+    // who asked for less motion (prefers-reduced-motion) has nothing to switch off
+    animation: false,
+    backgroundColor: 'transparent',
+    textStyle: { fontFamily, color: theme.text },
+    grid: grids,
+    xAxis: xAxes,
+    yAxis: yAxes,
+    dataZoom: [{
+      id: 'zoom',
+      type: 'inside',
+      xAxisIndex: xIndexes,
+      startValue: win.start,
+      endValue: win.end,
+      // the data outside the window is dropped but for the point on each side that the lines reach, so that a scroll or a
+      // zoom does the work of the hours that are shown and not of the ten days (a series is kept where any of its time dimensions is in)
+      filterMode: 'weakFilter',
+      // a drag is a zoom box or the scroll, a wheel the page's: a pinch, and Ctrl and the wheel (a trackpad's pinch), zoom
+      zoomOnMouseWheel: 'ctrl',
+      moveOnMouseMove: false,
+      moveOnMouseWheel: false,
+      preventDefaultMouseMove: false,
+      minValueSpan: MIN_SPAN_HOURS * HOUR_MS,
+      maxValueSpan: bounds.end - bounds.start,
+    }],
+    series,
+  }
+}
+
+/** The width of a tick label's text in px, character by character (`CHAR_PX`) */
+export function labelWidthOf(text: string): number {
+  let width = 0
+  for (const char of text)
+    width += CHAR_PX[char] ?? DIGIT_PX
+  // (a sum of tenths is a hair over its value: 30.000000000000004 is 30)
+  return Math.ceil(width - 1e-9)
+}
+
+/**
+ * The step between the ticks of an axis that is divided into `splits` as ECharts does it (`nice` with rounding): 1, 2, 3 or 5 times a power
+ * of ten
+ */
+export function tickInterval(span: number, splits: number): number {
+  const raw = span / Math.max(1, splits)
+  if (!(raw > 0) || !Number.isFinite(raw))
+    return 1
+  const exponent = Math.floor(Math.log10(raw))
+  const power = 10 ** exponent
+  const f = raw / power
+  const nice = f < 1.5 ? 1 : f < 2.5 ? 2 : f < 4 ? 3 : f < 7 ? 5 : 10
+  return nice * power
+}
+
+/** The number of an axis' tick as the chart writes it: rounded to the axis' decimals, and never "-0" */
+export function tickFormatter(axis: AxisSpec, locale = 'en'): (value: number) => string {
+  const format = new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), { maximumFractionDigits: axis.decimals })
+  // (a value that rounds to zero is zero: "-0" is what the library of the numbers writes for -0.3 at no decimals; `+ 0` turns -0 into 0)
+  return value => format.format(Number(value.toFixed(axis.decimals)) + 0)
+}
+
+/** The first tick above the bottom of the axis' range, or null where there is none below the top (which has no label) */
+function firstTickAbove(axis: AxisSpec): { value: number, step: number } | null {
+  const [min, max] = axis.range
+  const step = tickInterval(max - min, axis.splits)
+  const value = Math.ceil(min / step - 1e-9) * step
+  return value < max - step * 1e-9 ? { value: value + 0, step } : null
+}
+
+/**
+ * Whether the label of the bottom of an axis' range is left out. The bottom is labelled even where it is no multiple of the step, and
+ * where it lies nearer to the first tick than the height of a line of labels (`LABEL_HEIGHT_PX`), the two overlap
+ */
+export function minLabelHidden(axis: AxisSpec, height = PANEL_HEIGHT[axis.panel]): boolean {
+  const first = firstTickAbove(axis)
+  if (!first)
+    return false
+  const [min, max] = axis.range
+  const gap = first.value - min
+  // the bottom is a tick itself
+  if (gap < first.step * 1e-9)
+    return false
+  return (gap / (max - min)) * height < LABEL_HEIGHT_PX
+}
+
+/**
+ * The labels an axis draws, as the chart writes them: the bottom of its range (unless it is left out, `minLabelHidden`), and the multiples
+ * of the step between there and the top, which has no label (`showMaxLabel: false`). The room a title leaves for the labels is measured on
+ * these and not on the ends of the range, whose decimals the ticks do not have (a range of 0 to 17.4 has the ticks 0, 5, 10 and 15), and
+ * which may have more of them than the ends (0 to 1 has the tick 0.5)
+ */
+export function tickLabelsOf(axis: AxisSpec, locale = 'en'): string[] {
+  const format = tickFormatter(axis, locale)
+  const [min, max] = axis.range
+  const step = tickInterval(max - min, axis.splits)
+  const labels = minLabelHidden(axis) ? [] : [format(min)]
+  // a bound on the loop: an axis has a few ticks
+  for (let k = Math.ceil(min / step), n = 0; k * step < max - step * 1e-9 && n < 50; k++, n++) {
+    if (k * step > min)
+      labels.push(format(k * step))
+  }
+  return labels
+}
+
+/** The room an axis' tick labels take in px: the widest of the labels it draws, in the language's digits and separators, and the slack for the fallback font */
+export function labelWidthFor(axis: AxisSpec, locale = 'en'): number {
+  return Math.max(...tickLabelsOf(axis, locale).map(labelWidthOf)) + LABEL_SLACK_PX
+}
+
+/**
+ * Where the block of an axis' titles starts, as the chart's x: the title stands next to its own panel's tick labels, with `TITLE_TO_LABELS`
+ * between them, and not at the very left for every panel, so that the room a narrower panel leaves is at the left edge and not between its
+ * title and its labels (GH-4132). The block of the panel with the widest labels is at `TITLE_LEFT`.
+ */
+export function titleBlockLeft(gutterLeft: number, axis: AxisSpec, locale = 'en'): number {
+  return gutterLeft - LABEL_MARGIN - labelWidthFor(axis, locale) - TITLE_TO_LABELS - TITLE_LINES * TITLE_LINE_PX
+}
+
+/**
+ * The width of the left gutter: the titles (a block of two lines in every panel), the tick labels (as wide as the widest of all the panels',
+ * in the language's digits and separators) and the room between. At least `GUTTER_LEFT`. The plot has one left edge, so the gutter is one
+ * for all panels; each panel's title sits at its own labels (`titleBlockLeft`), the widest one's at the left edge.
+ */
+export function gutterLeftFor(model: MeteogramModel, locale = 'en'): number {
+  const axes = Object.values(model.axes).filter((axis): axis is NonNullable<typeof axis> => !!axis)
+  if (!axes.length)
+    return GUTTER_LEFT
+  const labels = Math.max(...axes.map(axis => labelWidthFor(axis, locale)))
+  return Math.max(GUTTER_LEFT, TITLE_LEFT + TITLE_LINES * TITLE_LINE_PX + TITLE_TO_LABELS + labels + LABEL_MARGIN)
+}

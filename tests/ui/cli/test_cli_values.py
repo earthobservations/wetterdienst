@@ -303,6 +303,9 @@ def test_cli_values_json_with_metadata_with_stations(metadata: dict) -> None:
             "elevation": 112.0,
             "name": "Dresden (Mitte)",
             "region": "Sachsen",
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
         },
         {
             "resolution": "daily",
@@ -315,6 +318,9 @@ def test_cli_values_json_with_metadata_with_stations(metadata: dict) -> None:
             "elevation": 228.0,
             "name": "Dresden-Klotzsche",
             "region": "Sachsen",
+            "wmo_id": "10488",
+            "wigos_id": None,
+            "icao_id": None,
         },
     ]
 
@@ -399,6 +405,9 @@ def test_cli_values_geojson(metadata: dict) -> None:
                     "id": "01048",
                     "name": "Dresden-Klotzsche",
                     "region": "Sachsen",
+                    "wmo_id": "10488",
+                    "wigos_id": None,
+                    "icao_id": None,
                     "start_timestamp": "1934-01-01T00:00:00.000000+00:00",
                     "end_timestamp": IsStr,
                 },
@@ -1431,7 +1440,7 @@ def test_cli_a_package_missing_after_the_values_were_collected_is_one_line(
 @pytest.mark.parametrize(
     ("provider", "network", "parameters", "setting"),
     [
-        ("knmi", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__KNMI"),
+        ("knmi", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__KNMI_EDR"),
         ("aemet", "observation", "daily/data/temperature_air_mean_2m", "WD_AUTH__AEMET"),
         ("metno", "frost", "hourly/data/temperature_air_2m", "WD_AUTH__METNO_FROST"),
     ],

@@ -6,6 +6,7 @@ import { defineComponent, h, ref } from 'vue'
 import { clearNuxtState } from '#app'
 import StationPicker from '~/components/StationPicker.vue'
 import { LOCATION_STORAGE_KEY } from '~/utils/geolocation'
+import { LOCATION_STATE } from '../fixtures/state'
 
 // "Use my location" in the station picker (GH-3651): the button under the toggle, the nearest station that the ranked
 // `stations` request answers (or the list in hand, for the stripes), picked as the search would pick it, its distance
@@ -52,7 +53,7 @@ function mockBrowser(options: { fix?: { latitude: number, longitude: number }, c
 }
 
 beforeEach(() => {
-  clearNuxtState()
+  clearNuxtState(LOCATION_STATE)
   requests.length = 0
   answer = { stations: [berlin] }
   failing = false
@@ -62,7 +63,7 @@ afterEach(() => {
   delete (navigator as any).geolocation
   delete (navigator as any).permissions
   vi.unstubAllGlobals()
-  clearNuxtState()
+  clearNuxtState(LOCATION_STATE)
 })
 
 async function mountPage(props: Props = {}) {
@@ -348,5 +349,38 @@ describe('"remember"', () => {
     await button(wrapper).trigger('click')
     await vi.waitFor(() => expect(picked.value).toEqual([berlin]))
     expect(localStorage.getItem(LOCATION_STORAGE_KEY)).toBeNull()
+  })
+})
+
+// "Forget my position" with a lookup on its way (GH-4014): the position is gone, so an answer that arrives after it is not the
+// reader's: it picks no station and tells nothing
+describe('"Forget my position" during a lookup', () => {
+  it('drops the answer: no station is picked and no distance is told for a position that is gone', async () => {
+    mockBrowser({})
+    let release!: () => void
+    hold = new Promise((resolve) => {
+      release = resolve
+    })
+    const { wrapper, picked } = await mountPage({ locate: query })
+
+    await button(wrapper).trigger('click')
+    await vi.waitFor(() => expect(requests).toHaveLength(1))
+    // the position is in hand, so the box is there; it is ticked and forgotten while the lookup is on its way
+    await vi.waitFor(() => expect(remember(wrapper).exists()).toBe(true))
+    await remember(wrapper).trigger('click')
+    const stored = () => wrapper.find('[data-testid="use-my-location-stored"]')
+    await vi.waitFor(() => expect(stored().exists()).toBe(true))
+    await stored().trigger('click')
+    await vi.waitFor(() => expect(document.body.querySelector('[data-testid="use-my-location-forget"]')).not.toBeNull())
+    document.body.querySelector<HTMLElement>('[data-testid="use-my-location-forget"]')!.click()
+    await vi.waitFor(() => expect(stored().exists()).toBe(false))
+    // the lookup was dropped at once: the button is no longer busy
+    expect(button(wrapper).attributes('aria-busy')).toBe('false')
+
+    release()
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(picked.value).toEqual([])
+    expect(status(wrapper).text()).toBe('')
+    expect(problem(wrapper).exists()).toBe(false)
   })
 })

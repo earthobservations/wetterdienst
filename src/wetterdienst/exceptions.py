@@ -156,6 +156,15 @@ class IssueNotFoundError(NotFoundError, IndexError):
     """Raised when a forecast run is asked for by an issue time the source does not list."""
 
 
+class ProductOutOfSeasonError(IssueNotFoundError):
+    """Raised when a product that DWD publishes in one season only has no run listed.
+
+    MOSMIX-SNOW (`dwd/mosmix` `hourly/snow`) is published from November to April, while there is snow, and its directory
+    is empty otherwise. Still an `IssueNotFoundError`, so a 404 and an `IndexError` as before; a caller that wants to
+    tell the season from an issue that does not exist catches this one.
+    """
+
+
 class NotEnoughDataError(RequestError):
     """Raised when what a request selects holds too little data to answer it."""
 
@@ -217,6 +226,31 @@ class DownloadError(UpstreamError):
     def __str__(self) -> str:
         """Say which file failed to download, and how."""
         return f"Failed to download {self.url}: {self.reason}"
+
+
+class ProviderRateLimitError(DownloadError):
+    """Raised when a provider limits how fast this installation may ask: a 429 of any provider, or a quota used up.
+
+    A `DownloadError`, which is what a 429 of the provider was before this had a type of its own, so that a caller
+    catching that still catches it (GH-4046, GH-4048). Its own type because the request is valid and, where it is a key,
+    the key is fine: replacing the key would not help and the same request succeeds once the limit resets, which is
+    what a client may retry on. It is not asked again by wetterdienst itself. The REST API answers it with a 503 of the
+    kind `upstream-quota-exhausted` and a `Retry-After`, never as a rejected credential (a 501) nor as a failed
+    provider (a 502).
+
+    `reason` is a sentence for the caller that holds no URL and no key, so the REST API shows it as it is.
+    `retry_after` is the seconds the provider says to wait (`Retry-After` as seconds or a date, `RateLimit-Reset`,
+    `X-RateLimit-Reset`), a minute for a 429 that says none, None where a quota gives no wait.
+    """
+
+    def __init__(self, url: str, reason: str, retry_after: int | None = None) -> None:
+        """Keep the address, the sentence and the wait the provider asks for."""
+        super().__init__(url, reason)
+        self.retry_after = retry_after
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the three arguments, so the error pickles."""
+        return type(self), (self.url, self.reason, self.retry_after), self.__dict__
 
 
 class StationListingIncompleteError(UpstreamError):
@@ -295,6 +329,22 @@ class CredentialRejectedError(ConfigurationError, PermissionError):
 
 class NoStationsWithElevationError(RequestError):
     """Raised when an elevation is asked about and no station in reach reports one of its own."""
+
+
+class NoStationPositionsError(RequestError):
+    """Raised when a map of stations is asked for and none of the stations has a position to be drawn at.
+
+    The REST API answers it with a 422 (`failure_status`): the request is well formed, and the format asked for
+    is one these stations cannot be given in. The ones that can are json, csv and geojson. Stations of which only
+    some have a position are drawn without the others, which is no error.
+    """
+
+    def __init__(
+        self,
+        message: str = "These stations have no position, so no map can be drawn; ask for json, csv or geojson instead.",
+    ) -> None:
+        """Say that no map can be drawn and which formats to ask for instead."""
+        super().__init__(message)
 
 
 class ParameterNotCarriedError(RequestError):

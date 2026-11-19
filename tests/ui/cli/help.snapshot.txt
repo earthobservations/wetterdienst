@@ -33,6 +33,7 @@ Commands:
   radar        List radar stations.
   restapi      Start the Wetterdienst REST API web service.
   stations     Acquire stations.
+  storm-cells  Acquire DWD's thunderstorm cells (KONRAD3D).
   stripes      Climate stripes.
   summarize    Summarize data for a point: the nearest station's value.
   values       Acquire data.
@@ -44,8 +45,9 @@ Usage: wetterdienst alerts [OPTIONS]
 
   Acquire DWD weather alerts (CAP warnings).
 
-  Returns all warnings active at the selected time (the latest snapshot by default), one row per
-  alert, with a GeoJSON MultiPolygon geometry. An empty result means there were no active warnings.
+  Returns the warnings active at the selected time (the latest snapshot by default), one row per
+  alert, with a GeoJSON MultiPolygon geometry: every warning of Germany, unless --latitude and
+  --longitude or --name name a place. An empty result means no warning was active (for the place).
 
   With --target the extension decides the format (.json, .geojson, .csv), as for the other commands.
 
@@ -58,6 +60,15 @@ Options:
   --timestamp TEXT                Point in time (ISO 8601, UTC if no offset) to select the active-
                                   warnings snapshot for. Defaults to the latest snapshot. Must fall
                                   within DWD's rolling ~48-hour window.
+  --latitude FLOAT RANGE          With --longitude, only the warnings whose areas contain this point
+                                  (an edge counts as inside): the reliable way to ask about one
+                                  place.  [-90<=x<=90]
+  --longitude FLOAT RANGE         Longitude of the point; given with --latitude.  [-180<=x<=180]
+  --name TEXT                     Only the warnings for an area of this name or warn cell id. DWD's
+                                  German names, in any case ('München', not 'Munich'), matched as
+                                  words in every area that has them ('Hamburg' also finds 'Wentorf
+                                  bei Hamburg'), or a number such as 101002000. A point is the
+                                  reliable way to ask about one place. With a point, both must hold.
   --format [json|geojson|csv]     Output format. Default: json
   --target TEXT                   Write the alerts to this file instead of stdout, in the format its
                                   extension names: .json, .geojson or .csv. Databases are refused. A
@@ -88,6 +99,10 @@ Options:
   # the warnings active at a past time: replace YYYY-MM-DDTHH:MM with one within the last
   # ~48 hours, all DWD keeps
   wetterdienst alerts --granularity=district --timestamp=YYYY-MM-DDTHH:MM
+
+  # the warnings for a place, a few KB and not every warning of Germany: a point, or a name or warn cell id
+  wetterdienst alerts --latitude=54.32 --longitude=10.14
+  wetterdienst alerts --granularity=district --name=Kiel
 
   # to a GeoJSON file
   wetterdienst alerts --format=geojson --target=file://alerts.geojson
@@ -147,15 +162,15 @@ Usage: wetterdienst coverage [OPTIONS]
 
   --provider and --network are required; `providers` lists the providers and their networks, with
   their `kind` (`observation`, `forecast` or `derived` for a timeseries network, which has stations
-  and values, and `radar` or `alerts` for a standalone one, which `stations` and `values` refuse)
-  and whether they need credentials and have them. A parameter's `unit` is the unit its values come
-  back in when no unit target is given (the one `glossary` gives; `degree_celsius`, `percent` for a
-  percentage). `unit_source`, the unit the provider publishes it in (`degree_kelvin`, `one_eighth`),
-  is there only where it differs from `unit`; absent, it is the same. A unit target of your own
-  changes the values, not this answer. `aggregation` is what the value is relative to its interval
-  (`mean`, `max`, `sum`, ..., `instant` for a single reading) and `timestamp_position` where its
-  timestamp sits in the row's interval (`instant`, `start`, `end`, `middle`); `null` in either: the
-  source does not state it.
+  and values, and `radar`, `alerts` or `storm_cells` for a standalone one, which `stations` and
+  `values` refuse) and whether they need credentials and have them. A parameter's `unit` is the unit
+  its values come back in when no unit target is given (the one `glossary` gives; `degree_celsius`,
+  `percent` for a percentage). `unit_source`, the unit the provider publishes it in
+  (`degree_kelvin`, `one_eighth`), is there only where it differs from `unit`; absent, it is the
+  same. A unit target of your own changes the values, not this answer. `aggregation` is what the
+  value is relative to its interval (`mean`, `max`, `sum`, ..., `instant` for a single reading) and
+  `timestamp_position` where its timestamp sits in the row's interval (`instant`, `start`, `end`,
+  `middle`); `null` in either: the source does not state it.
 
 Options:
   --provider TEXT     Data provider/organisation. List the provider/network combinations with:
@@ -405,24 +420,28 @@ Usage: wetterdienst issues [OPTIONS]
 
   Currently supported: --provider dwd --network mosmix|dmo|swsmos
 
-  A DMO run exists for a product, so --dataset and --lead-time decide which runs are listed. They
-  default to what a `values` request defaults to, which is what makes the answer one that request
-  accepts.
+  A run exists for a product, so --dataset (and for DMO --lead-time) decide which runs are listed.
+  They default to what a `values` request defaults to, which is what makes the answer one that
+  request accepts. For MOSMIX-S and MOSMIX-SNOW one run is every station's, so the station only has
+  to be an id; MOSMIX-L has a directory per station.
 
 Options:
-  --provider TEXT           Data provider/organisation. List the provider/network combinations with:
-                            wetterdienst providers. Examples: dwd, eccc, noaa, wsv, ea, eaufrance,
-                            nws, geosphere  [required]
-  --network TEXT            Data network of the provider. Examples: observation, mosmix, radar,
-                            ghcn, pegel, hydrology  [required]
-  --station TEXT            Station id to list the model runs of.  [required]
-  --dataset [icon|icon_eu]  DWD DMO product; DMO only, refused for MOSMIX and SWSMOS. Default: icon
-  --lead-time [short|long]  DWD DMO forecast lead time; DMO only, refused for MOSMIX and SWSMOS.
-                            Default: short
-  --debug BOOLEAN           Log at debug level. Default: false
-  --quiet BOOLEAN           Log errors and warnings about the answer only: no progress. Not with
-                            --debug. Default: false
-  --help                    Show this message and exit.
+  --provider TEXT                 Data provider/organisation. List the provider/network combinations
+                                  with: wetterdienst providers. Examples: dwd, eccc, noaa, wsv, ea,
+                                  eaufrance, nws, geosphere  [required]
+  --network TEXT                  Data network of the provider. Examples: observation, mosmix,
+                                  radar, ghcn, pegel, hydrology  [required]
+  --station TEXT                  Station id to list the model runs of.  [required]
+  --dataset [icon|icon_eu|large|small|snow]
+                                  DWD product: DMO icon or icon_eu (default icon), MOSMIX large,
+                                  small or snow (default large); refused for SWSMOS and for the
+                                  other network's product.
+  --lead-time [short|long]        DWD DMO forecast lead time; DMO only, refused for MOSMIX and
+                                  SWSMOS. Default: short
+  --debug BOOLEAN                 Log at debug level. Default: false
+  --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
+                                  with --debug. Default: false
+  --help                          Show this message and exit.
 
 
 $ wetterdienst providers --help
@@ -502,9 +521,10 @@ Usage: wetterdienst stations [OPTIONS]
 
   Acquire stations.
 
-  Select them with exactly one of --all, --stations, --name, --latitude/--longitude with --rank or
-  --distance, --left/--bottom/--right/--top, or --sql. Given a window, with --timestamp or --start /
-  --end, only the stations whose record overlaps it are listed.
+  Select them with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id, --name,
+  --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql. Given a
+  window, with --timestamp or --start / --end, only the stations whose record overlaps it are
+  listed.
 
   A selection that finds no station is no failure: the list is empty, the command says so on stderr
   and exits 0. A station id of --stations the network has no station for is named in a warning and
@@ -537,6 +557,13 @@ Options:
   --end TEXT                      End of a time window. Given alone, it is read as --timestamp.
   --all BOOLEAN                   Select all stations. Default: false
   --stations TEXT                 Select stations by id, comma-separated. Example: 01048,04411
+  --wmo-id TEXT                   Select stations by WMO number (five digits), comma-separated:
+                                  every station that has one of them. Example: 10381,10147
+  --wigos-id TEXT                 Select stations by WIGOS station identifier, comma-separated:
+                                  every station that has one of them. Example: 0-20000-0-10381
+  --icao-id TEXT                  Select stations by ICAO location indicator (four letters, any
+                                  case), comma-separated: every station that has one of them.
+                                  Example: EDDH,EDDB
   --name TEXT                     Select stations by fuzzy name match: the best five for `stations`,
                                   which lists candidates, the best one for `values`, unless --rank
                                   says, among the stations with a record in --timestamp if given.
@@ -600,6 +627,11 @@ Options:
   wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --stations=1048,4411
   wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --name=Dresden
 
+  # stations by the ids they have besides their station id: WMO number, ICAO code or WIGOS identifier
+  wetterdienst stations --provider=dwd --network=mosmix --parameters=hourly/large --wmo-id=10381
+  wetterdienst stations --provider=dwd --network=mosmix --parameters=hourly/large --icao-id=EDDH
+  wetterdienst stations --provider=knmi --network=observation --parameters=daily/data --wigos-id=0-20000-0-06260
+
   # the five stations closest to a point, or those within 25 km of it
   wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl \
       --latitude=49.9195 --longitude=8.9671 --rank=5
@@ -621,6 +653,80 @@ Options:
   # export to a spreadsheet
   wetterdienst stations --provider=dwd --network=observation --parameters=daily/kl --all \
       --target=file://stations.xlsx
+
+
+$ wetterdienst storm-cells --help
+
+Usage: wetterdienst storm-cells [OPTIONS]
+
+  Acquire DWD's thunderstorm cells (KONRAD3D).
+
+  Returns the cells of the newest radar scan (or of the newest at or before --timestamp), one row
+  per cell: its severity, warning flags for hail, heavy rain and gusts, size, speed, the direction
+  of its motion, its outline and its forecast track. Every cell of Germany, unless --latitude,
+  --longitude and --distance, or --left, --bottom, --right and --top name a place. An empty result
+  is an answer: no cell was there (most scans hold none), or none is in the place; its warnings say
+  which, and that the scan is old.
+
+  With --target the extension decides the format (.json, .geojson, .csv), as for the other commands.
+
+Options:
+  --timestamp TEXT                Point in time (ISO 8601, UTC if no offset): the newest scan at or
+                                  before it. Defaults to the newest scan. Must fall within DWD's
+                                  rolling ~48-hour window.
+  --latitude FLOAT RANGE          With --longitude, only the cells whose outline contains this point
+                                  (an edge counts as inside) or comes within --distance of it.
+                                  [-90<=x<=90]
+  --longitude FLOAT RANGE         Longitude of the point; given with --latitude.  [-180<=x<=180]
+  --distance FLOAT RANGE          With a point, the kilometres from it within which the outline of a
+                                  cell counts as near. Default: 0, the cells over the point.  [x>=0]
+  --left FLOAT RANGE              Western longitude of a box: with --bottom, --right and --top, only
+                                  the cells whose outline reaches into it.  [-180<=x<=180]
+  --bottom FLOAT RANGE            Southern latitude of the box.  [-90<=x<=90]
+  --right FLOAT RANGE             Eastern longitude of the box.  [-180<=x<=180]
+  --top FLOAT RANGE               Northern latitude of the box.  [-90<=x<=90]
+  --min-severity INTEGER RANGE    Only the cells of this severity and above: 0 weak, 1 moderate, 2
+                                  severe, 3 extreme.  [0<=x<=3]
+  --track BOOLEAN                 Give each cell its forecast track, 12 positions to 60 minutes
+                                  ahead (1.6 KB of JSON a cell). --track=false leaves it out.
+                                  Default: true
+  --geometry [outline|centroid]   The geometry of each cell: its outline polygon, or the point of
+                                  its centre. Default: outline
+  --format [json|geojson|csv]     Output format. Default: json
+  --target TEXT                   Write the cells to this file instead of stdout, in the format its
+                                  extension names: .json, .geojson or .csv. Databases are refused. A
+                                  scan without a cell still writes the file. Example:
+                                  file://cells.geojson
+  --if-exists [replace|append|fail|skip]
+                                  What to do when the --target file is there: 'replace' (default),
+                                  'fail' or 'skip'. A file takes no 'append'. Default: replace
+  --pretty BOOLEAN                Pretty-print JSON with 4-space indentation, as REST's pretty=true.
+                                  Default: false
+  --with-metadata BOOLEAN         Write the metadata block (provider, licence, credit line, date of
+                                  the data) beside the --target file as <file>.metadata.json. A
+                                  .json or .geojson file holds it already; a .csv file does not.
+                                  Needs --target. Default: false
+  --debug BOOLEAN                 Log at debug level. Default: false
+  --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
+                                  with --debug. Default: false
+  --help                          Show this message and exit.
+
+  Examples:
+
+  # the cells of the newest radar scan, as JSON: every cell of Germany, and most scans have none
+  wetterdienst storm-cells
+
+  # the cells over a place or within 25 km of it, without the track: a few KB
+  wetterdienst storm-cells --latitude=52.52 --longitude=13.40 --distance=25 --track=false
+
+  # the cells in a box (left, bottom, right, top), severe ones and above, as points of their centres
+  wetterdienst storm-cells --left=8 --bottom=47.5 --right=13.8 --top=50.6 --min-severity=2 --geometry=centroid
+
+  # the cells of a past scan: replace YYYY-MM-DDTHH:MM with a time within the last ~48 hours, all DWD keeps
+  wetterdienst storm-cells --timestamp=YYYY-MM-DDTHH:MM
+
+  # to a GeoJSON file
+  wetterdienst storm-cells --format=geojson --target=file://cells.geojson
 
 
 $ wetterdienst stripes --help
@@ -647,6 +753,11 @@ Usage: wetterdienst stripes image [OPTIONS]
 
 Options:
   --kind TEXT                     Kind of stripes: temperature or precipitation.  [required]
+  --provider TEXT                 Provider of the stations and values: dwd (annual values) or noaa
+                                  (GHCN daily, the years calculated from the days by the WMO rules).
+                                  Default: dwd
+  --network TEXT                  Network of the provider: observation for dwd, ghcn for noaa.
+                                  Default: observation
   --station TEXT                  Station id, instead of --name.
   --name TEXT                     Station name, matched fuzzily, instead of --station.
   --name-threshold FLOAT          Minimum fuzzy-match score. Default: 0.8
@@ -677,6 +788,14 @@ Options:
   # precipitation stripes, to a file
   wetterdienst stripes image --kind=precipitation --station=1048 --target=precipitation_stripes.png
 
+  # a station of NOAA GHCN daily, the years calculated from its days by the WMO rules
+  wetterdienst stripes image --provider=noaa --network=ghcn --kind=temperature --station=USW00094728 \
+      > stripes_new_york.png
+
+  # the GHCN stations in a bounding box that the stripes are made for
+  wetterdienst stripes stations --provider=noaa --network=ghcn --kind=temperature \
+      --left=-75 --bottom=40 --right=-73 --top=41
+
 
 $ wetterdienst stripes stations --help
 
@@ -686,7 +805,16 @@ Usage: wetterdienst stripes stations [OPTIONS]
 
 Options:
   --kind TEXT                  Kind of stripes: temperature or precipitation.  [required]
+  --provider TEXT              Provider of the stations and values: dwd (annual values) or noaa
+                               (GHCN daily, the years calculated from the days by the WMO rules).
+                               Default: dwd
+  --network TEXT               Network of the provider: observation for dwd, ghcn for noaa. Default:
+                               observation
   --active BOOLEAN             Only stations still reporting. Default: true
+  --left FLOAT                 Select stations in a bounding box: its west longitude.
+  --bottom FLOAT               South latitude of the bounding box.
+  --right FLOAT                East longitude of the bounding box.
+  --top FLOAT                  North latitude of the bounding box.
   --format [json|geojson|csv]  Output format. Default: json
   --pretty BOOLEAN             Pretty-print JSON with 4-space indentation, as REST's pretty=true.
                                Default: false
@@ -815,8 +943,8 @@ Usage: wetterdienst values [OPTIONS]
 
   Acquire data.
 
-  Select the stations with exactly one of --all, --stations, --name, --latitude/--longitude with
-  --rank or --distance, --left/--bottom/--right/--top, or --sql.
+  Select the stations with exactly one of --all, --stations, --wmo-id, --wigos-id, --icao-id,
+  --name, --latitude/--longitude with --rank or --distance, --left/--bottom/--right/--top, or --sql.
 
 Options:
   --provider TEXT                 Data provider/organisation. List the provider/network combinations
@@ -844,6 +972,13 @@ Options:
                                   wetterdienst issues. Default: the latest
   --all BOOLEAN                   Select all stations. Default: false
   --stations TEXT                 Select stations by id, comma-separated. Example: 01048,04411
+  --wmo-id TEXT                   Select stations by WMO number (five digits), comma-separated:
+                                  every station that has one of them. Example: 10381,10147
+  --wigos-id TEXT                 Select stations by WIGOS station identifier, comma-separated:
+                                  every station that has one of them. Example: 0-20000-0-10381
+  --icao-id TEXT                  Select stations by ICAO location indicator (four letters, any
+                                  case), comma-separated: every station that has one of them.
+                                  Example: EDDH,EDDB
   --name TEXT                     Select stations by fuzzy name match: the best five for `stations`,
                                   which lists candidates, the best one for `values`, unless --rank
                                   says, among the stations with a record in --timestamp if given.

@@ -101,8 +101,7 @@ locale to the number of forms and to `{count}` in each of them. A count that nee
 
 ## Numbers, dates and coordinates
 
-A number the app shows is written in the language of the page: `formatNumber` for text, and the
-`separators` of every Plotly layout (`plotlySeparators`) for hover texts and axes. The day and month
+A number the app shows is written in the language of the page: `formatNumber` for text, and `valueFormat`/`tickFormat` (`utils/explorer-option.ts`) for the Explorer chart's readout and axes. The day and month
 of the Meteogram's day cards come from the language's tag (`en-GB`, `de-DE`, as `nuxt.config.ts` has
 them), as the bare `en` is American. The moment of a forecast run (the Meteogram's run list) is
 written by `formatRunTime`, in the language's order ("15.10.2026, 04:00 UTC", "15/10/2026,
@@ -112,9 +111,18 @@ is followed by its value takes the colon from `common.colon`, which French sets 
 space before it (`tests/unit/i18n-source.test.ts` holds the source to it, as to a date written out
 of its parts and an `Intl` call that names no language). Coordinates and elevations are the
 exception to the rule for numbers and keep a point in every language (`toFixed`): a position is
-copied into a map or a query, and the number input that takes one reads a point. Chrome has no
-data for Luxembourgish, so `withData` writes `lb` as German (`de-LU`) is written, which is the
-same.
+copied into a map or a query, and the number input that takes one reads a point.
+
+Every `Intl`, `toLocale*String` and luxon `setLocale` call is handed the language that
+`useFormatLanguage()` answers (named `formatLanguage`), never the app's code (`lb`, `de-hh`) or a
+tag read from `localeProperties`: it is the locale's tag (`en-GB`, `de-DE`) through `withData`.
+Chrome has no data for Luxembourgish and writes `lb` in the system's language (an English reader
+gets `en-US`: numbers "1,234.5", dates month first), so `withData` asks for German (`de-LU`) in
+its place, whose order and separators Luxembourgish shares. `de-hh` is written as `de-DE`. The
+helpers of `utils/format.ts` take a code or a tag and map it themselves. A time of day is written
+by `formatHour` (the Meteogram's axis: "04:00" in German, "04.00" in Danish), in the station's
+zone, never built from its parts (`HH:mm`); `tests/unit/i18n-source.test.ts` holds the source to
+both.
 
 ## Parameter glossaries
 
@@ -232,6 +240,23 @@ meant to be understood, not to be the last word, and **a review by a native spea
   says `bewahrt` for "stays in this browser"); `lb` `Gespäichert`; `pl` `Zapisana` and `cs` `Uložená`; and in `fr`, `es`, `it`,
   `pl` and `cs` the feminine (`Mémorisée`, `Guardada`, `Salvata`, `Zapisana`, `Uložená`), which agrees with the language's word
   for the position (`position`, `ubicación`, `posizione`, `lokalizacja`, `poloha`), which the chip leaves out.
+- **Machine-made**: the alert of "Use my location" for a browser that refuses to keep the position (`location.notKept`, GH-4014)
+  was written by a language model (Claude) in **all ten locales besides `en`**, `de` included, and no person has read it.
+  The second sentence names the position again (not "it"), so that it cannot read as the browser. Least certain: `de-hh`
+  `verlööft` and `warrt` (the chip says `Bewahrt`, so the verb is `bewahren`; `De Standort` for the masculine article);
+  `lb` `erlaabt` and `gëtt just fir`; `cs` `neumožnil` and `Poloha se použije`; `da` `tillod ikke, at`.
+- **Machine-made**: the status of "Use my location" for a stored position that was deleted because the browser's permission
+  was found withdrawn (`location.withdrawn`, GH-4014) was written by a language model (Claude) in **all ten locales besides
+  `en`**, `de` included, and no person has read it. Least certain: `de-hh` `verlööft`, `wegmaakt worrn` and `bewahrte`
+  (the chip says `Bewahrt`); `lb` `erlaabt`, `gouf déi gespäichert Positioun geläscht` and `Site`; `cs` `už ... nepovoluje`
+  and `smazána`; `da` `tillader ikke længere`; `nl` `staat ... niet meer toe`.
+- **Machine-made**: the banner of the provider selection for a backend that could not be reached
+  (`parameterSelection.backendUnreachable`, GH-4042) was written by a language model (Claude) in **all ten locales
+  besides `en`**, `de` included, and no person has read it. It says "provider" with the locale's word and names no
+  one, so it needs no address. Least certain: `de-hh` `weer nich to recken` (the catalog's `utreken` and `ümreken` are "calculate", so `recken` is a guess at
+  "reach") and `laat sik … wiesen`; `lb` `war net
+  erreechbar` and `ugewise ginn`; `pl` `połączyć z backendem`; `cs` `Backend není dostupný`; `fr` `injoignable` and
+  `listés`; and in every language whether "could not be reached" is right for a 5xx, where the backend answered.
 
 Nothing here says the other locales (`en`, `de`, `fr`, `es`, `it`, `nl`, `da`) were reviewed by a
 native speaker either; these four are the ones known not to have been.
@@ -284,7 +309,6 @@ the language, not a decision; `pl`, `cs`, `lb` and `de-hh` are as unreviewed as 
 | `it` | `ask.rain.chance` | `Probabilità di pioggia più alta in un'ora` ("within one hour") | `in una singola ora` | low |
 | `it` | `meteogram.chart.weather.sleet`, `meteogram.chart.weather.clear`, `ask.wind.calm` | `Nevischio` (light dry snow), `Soleggiato`, `Calmo` | `Pioggia mista a neve`, `Sereno` (Aeronautica Militare), `Calma` (the Beaufort word) | low |
 | `pl` | `ask.wind.context` | `Dni wokół z silniejszymi porywami` | `Pobliskie dni z silniejszymi porywami` | low |
-| `pl` | `stripes.table.note.temperature`, `stripes.table.note.precipitation` | `w piątych częściach` ("in fifths") | a clearer phrase, for example `w pięciu klasach` | low |
 | `cs` | `ask.q.summer` | `Bylo poslední léto tady teplejší než obvykle?` (reads as "the final summer") | `Bylo minulé léto tady teplejší než obvykle?` | medium |
 | `lb` | `seo.pages.explorer` | `liest d'Miessungen` (third person) | `lies d'Miessungen` (the singular imperative, as the other verbs of the sentence); `luet` in `home.featureExportDesc` is the same form | high that it is the third person |
 | `lb` | `providers.attribution` | `Quellenangab` (German) | `Quell, déi du uginn muss` | medium |
@@ -306,7 +330,7 @@ the language, not a decision; `pl`, `cs`, `lb` and `de-hh` are as unreviewed as 
 | `da` | `ask.placeFailed` | `Stederne kunne ikke søges.` | `Der kunne ikke søges efter steder.` | medium |
 | `da` | `mapTool.legendStopped` | `Er stoppet` | `Måler ikke længere`, to pair with `Måler stadig` | medium |
 | `de-hh` | `location.denied`, `location.timeout`, `location.lookupFailed`, against `stationSelection.loadError`, `map.markersNotShown` | `noch mal` (3 texts) and `noch eenmal` (3 texts), the same number in the catalog | one form | low |
-| `de-hh` | `ask.rain.wettest`, `stripes.table.note.precipitation` | `Natteste` (1) and `natste` (1) | one form of the superlative | low |
+| `de-hh` | `ask.rain.wettest`, `stripes.table.note.precipitation` | `Natteste` (1) and `natst` (1) | one form of the superlative | low |
 | `de-hh` | `meteogram.chart.weather.drizzle` | `Meddelregen`, as the glossary has it (5 labels) | `Niesregen` was the text before the third pass; one word for drizzle | low |
 | `de-hh` | `location.unsupported`, `location.unavailable` | `stattdessen` (German); `statts` is a preposition in this file (`mapTool.pickCloser`) | an adverb of Low German for "instead" | low |
 | `lb` | `seo.pages.glossary`, `glossary.subtitle` | `mierkt` and `mëst` for "what a parameter measures" | the 3rd person of `miessen` is `mësst`; which form, and whether `mierkt` is right at all | low |

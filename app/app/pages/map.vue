@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import type { ProviderNetworkCoverageResponse, Station, StripesStationsResponse } from '#shared/types/api'
-import type { CloserStation, MapLayer, MapState, MeasuredSource, PlacedStation, PlaceOrigin, Point, ReportingRule } from '~/utils/map-tool'
+import type { CloserStation, MapLayer, MapState, MeasuredSource, PickedStation, PlacedStation, PlaceOrigin, Point, ReportingRule } from '~/utils/map-tool'
 import { defineAsyncComponent } from 'vue'
 import MapForecast from '~/components/MapForecast.vue'
+import MapLayers from '~/components/MapLayers.vue'
 import MapStationsNotLoaded from '~/components/MapStationsNotLoaded.vue'
 import MapStripes from '~/components/MapStripes.vue'
 import UseMyLocation from '~/components/UseMyLocation.vue'
 import { describeFetchError } from '~/utils/api-error'
+import { formatNumber } from '~/utils/format'
+import { GROUPING_COMPULSORY_ABOVE, groupingFor, isGroupedAt } from '~/utils/map-cluster'
 import {
   closerStoppedStation,
   DEFAULT_MEASURED,
   distanceKm,
+  findSameStation,
   FORECAST_STATIONS_QUERY,
   forecastLink,
   formatDistance,
@@ -30,10 +34,11 @@ import {
   stationFor,
   STRIPES_KIND,
   stripesLink,
+  wmoNumber,
   yearOf,
 } from '~/utils/map-tool'
 
-// The map tool (GH-3650), from the design of #3580: the stations of the layer chosen in the chips over the map, and a
+// The map tool (GH-3650), from the design of #3580: the stations of the layer chosen in the panel of the layers button over the map, and a
 // panel beside it (a sheet under it on a phone) that finds a station by name, lists the ones near the centre of the
 // map and, for the station or the place picked, shows its forecast, its climate stripes, its measurements and its
 // history, each at the nearest station that has them. Two layers: the forecast's points (DWD MOSMIX) and the stations
@@ -42,13 +47,15 @@ import {
 // The station the tool picks for a place is the nearest one within 100 km, a station that is still reporting before one
 // that has stopped (`reportingRule`: against the newest end of its own list), and the one under a click on its dot is
 // that station, whatever it is. A change of
-// layer or dataset picks again by the position of the place, never by the number of the station, which is another
-// station in another layer.
+// layer or dataset picks again by the WMO number of the station where it has one and one station of the new list has
+// the same (GH-4077), else by the position of the place, never by the id of the station, which is another station in
+// another layer.
 //
 // What is shown is in the address (`?layer=&resolution=&dataset=&station=&lat=&lon=`), so that a link opens the same
 // map, and so that the search of the header opens it on a station (`/map?station=10147`).
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const formatLanguage = useFormatLanguage()
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('mapTool.title') })
 const route = useRoute()
@@ -66,6 +73,8 @@ const StationMap = defineAsyncComponent({
 // panel is a sheet under it. The two are in the order the window shows them in the page as well, so that the keyboard
 // and a screen reader meet them in that order too (WCAG 1.3.2, 2.4.3)
 const wide = useMediaQuery('(min-width: 72rem)')
+// the narrow layout (the tab bar's breakpoint, GH-4227): the map fills the screen between the bars and the page runs edge to edge
+const phone = usePhone()
 const parts = computed(() => wide.value ? ['panel', 'stage'] as const : ['stage', 'panel'] as const)
 const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
 
@@ -90,6 +99,15 @@ const keyOf = (shown: MapLayer, from: MeasuredSource) => shown === 'forecast' ? 
 const viewKey = computed(() => keyOf(layer.value, source.value))
 /** The view the station picked was picked in */
 let pickedIn = viewKey.value
+/**
+ * The station picked, as it is found again in another layer (GH-4077): by its WMO number, and by its id where both layers are
+ * DWD's observations. Kept through a change of layer that has no station near, so that the next layer that has the station
+ * finds it again. Cleared by Back, by a click or the centre of the map that finds no station (the reader's pick is then a
+ * place with none), and by an address that names another pick; replaced by any pick.
+ */
+let picked: PickedStation | null = null
+/** The WMO number the station of the layer shown was found by, from the layer before: told in the panel */
+const sameStation = ref<string | null>(null)
 
 // ---- the lists of stations ------------------------------------------------------------------------------------
 
@@ -113,12 +131,14 @@ const listFailure = computed(() => current.value.error.value ? describeFetchErro
 
 const sourceKey = computed(() => `${source.value.resolution}/${source.value.dataset}`)
 
-// ---- the chips ------------------------------------------------------------------------------------------------
+// ---- the layers ------------------------------------------------------------------------------------------------
 
 const layerItems = computed(() => [
   { value: 'forecast' as const, label: t('mapTool.layerForecast'), icon: 'i-ph-sun' },
   { value: 'measured' as const, label: t('mapTool.layerMeasured'), icon: 'i-ph-thermometer-simple' },
 ])
+/** Whether the panel of the layers button is open */
+const layersOpen = ref(false)
 const layerLabel = computed(() => layerItems.value.find(item => item.value === layer.value)!.label)
 
 // the resolutions and datasets DWD's observations have, asked of the backend once the measurements are wanted; a request
@@ -131,7 +151,7 @@ function loadCoverage() {
       coverage.value = answer
     })
     .catch(() => {
-      // the chips then offer the one source shown, which still works
+      // the panel then offers the one source shown, which still works
       coverageRequest = null
     })
   return coverageRequest
@@ -222,8 +242,25 @@ const searching = computed(() => search.value.trim().length > 0)
 const near = computed(() => nearestStations(stations.value, view.value, 8).map(entry => ({ ...entry, distance: entry.distance as number | null })))
 const found = computed(() => searchStations(stations.value, search.value, 20).map(station => ({ station, distance: null as number | null })))
 const entries = computed(() => searching.value ? found.value : near.value)
-const countLabel = computed(() => t('mapTool.count', { count: stations.value.length, shown: stations.value.length.toLocaleString(locale.value) }))
+const countLabel = computed(() => t('mapTool.count', { count: stations.value.length, shown: formatNumber(stations.value.length, formatLanguage.value, 0) }))
 const mapLabel = computed(() => t('mapTool.mapLabel', { layer: layerLabel.value }))
+
+// ---- the groups of stations at the outer zooms (GH-4079) ----------------------------------------------------------
+
+// Whether the stations are grouped is the reader's choice (the switch in the panel of the layers button: one grouping, on by
+// default, the radius of a group and the zoom from which every station is its own dot), except on a layer of more than
+// `GROUPING_COMPULSORY_ABOVE` stations, which is always grouped: there the switch is on, disabled, and says why
+const groupingWanted = ref(true)
+const groupingInForce = computed(() => groupingFor(groupingWanted.value, stations.value.length))
+const grouped = computed({
+  get: () => groupingInForce.value.on,
+  set: (on: boolean) => {
+    groupingWanted.value = on
+  },
+})
+const groupingCompulsoryText = computed(() => t('mapTool.groupingCompulsory', { shown: formatNumber(GROUPING_COMPULSORY_ABOVE, formatLanguage.value, 0) }))
+/** Whether the stations are grouped at the zoom the map is at, which the legend (in the layers panel) says */
+const groupedNow = computed(() => isGroupedAt(groupingInForce.value.grouping, view.value.zoom))
 
 // ---- the station picked ---------------------------------------------------------------------------------------
 
@@ -249,7 +286,67 @@ function setPanel(element: unknown) {
   panel.value = element as HTMLElement | null
 }
 const announcement = ref('')
-const reach = computed(() => formatDistance(REACH_KM, locale.value))
+
+// ---- the full screen of the map (GH-4227) -----------------------------------------------------------------------
+
+// The stage (the map, the layers button and the chips) goes full screen by the browser's API where it has one,
+// and covers the page itself where it has not (iPhone Safari) or the browser refuses: `useElementFullscreen` is the state
+// machine, the element is never moved, so the map keeps its view, its layer and the station picked. The panel is out of
+// reach while it lasts (hidden by the browser, or inert), so a sheet at the foot of the stage stands in for it: the station
+// picked, "Pick the centre of the map" (a keyboard's way to a place) and "Show details", which leaves full screen and
+// puts the focus on the panel's heading. The focus goes into the map on entering and back to the button on leaving.
+const screen = ref<HTMLElement | null>(null)
+function setScreen(element: unknown) {
+  screen.value = element as HTMLElement | null
+}
+/** What the map component gives of itself: where the focus goes (its ref is the async component's, set by a function since the page's parts are in a loop) */
+interface MapHandle { focusMap: () => void, focusFullscreenButton: () => void }
+let mapHandle: MapHandle | null = null
+function setMap(handle: unknown) {
+  mapHandle = handle as MapHandle | null
+}
+// Escape closes the panel of the layers button first, and leaves the full screen at the next press
+const fullscreen = useElementFullscreen(screen, { escapeTaken: () => layersOpen.value })
+const inFullscreen = computed(() => fullscreen.active.value)
+/** The attribute the styles of the full screen go by: there only while it is (a map that is not full screen has none of them: its corners, no room of the notch) */
+const fullscreenMark = computed(() => fullscreen.mode.value === 'off' ? undefined : fullscreen.mode.value)
+/** Where the focus goes when the full screen ends: the button that was pressed, or the panel's heading ("Show details") */
+let afterFullscreen: 'button' | 'details' = 'button'
+watch(fullscreen.mode, (now, before) => {
+  if (before === 'off' && now !== 'off') {
+    void nextTick(() => mapHandle?.focusMap())
+  }
+  else if (before !== 'off' && now === 'off') {
+    // "Show details" puts the focus on the panel's heading itself, once the browser has left full screen
+    if (afterFullscreen === 'details')
+      return
+    void nextTick(() => mapHandle?.focusFullscreenButton())
+  }
+}, { flush: 'post' })
+/** "Show details": the panel is behind the full screen, so it is left, and the panel's heading has the focus */
+async function showDetails() {
+  afterFullscreen = 'details'
+  // the browser's full screen is left when this is answered: until then the panel is behind it and a focus there is lost
+  await fullscreen.exit()
+  await nextTick()
+  afterFullscreen = 'button'
+  scrollPanelIntoView()
+  detailHeading.value?.focus()
+}
+/** On a phone the panel is under the map: it comes up to the middle of the window, so that the map and the panel are both seen */
+function scrollPanelIntoView() {
+  if (wide.value || !panel.value)
+    return
+  const top = panel.value.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.42
+  window.scrollTo({ top: Math.max(0, top), behavior: reducedMotion.value ? 'auto' : 'smooth' })
+}
+// the head of the page above the map (the title and the ⓘ) is measured, so that the map fills what is left of the window
+const pageHeader = ref<{ $el: HTMLElement } | null>(null)
+const { height: headHeight } = useElementSize(computed(() => pageHeader.value?.$el), undefined, { box: 'border-box' })
+// the drop-downs of the layers panel (the selects) are in the body, which a browser's full screen does not show: into the stage
+const portalTarget = computed(() => fullscreen.mode.value === 'native' ? screen.value ?? true : true)
+
+const reach = computed(() => formatDistance(REACH_KM, formatLanguage.value))
 
 // ---- the reader's own position (GH-3651) ------------------------------------------------------------------------
 
@@ -311,9 +408,38 @@ let reselect = false
 /** Which stations of the layer shown have stopped, by the clock of its list: only the measuring ones have */
 const reporting = computed(() => layer.value === 'measured' ? reportingRule(stations.value) : undefined)
 
+/**
+ * Whether the legend of the dots and the groups has something to say: on the measuring layer (a filled dot reports, a hollow one has
+ * stopped) and where the stations are grouped at this zoom. It is in the layers panel (GH-4227), and the map's own description says it too
+ */
+const legendShown = computed(() => (Boolean(reporting.value) || groupedNow.value) && listStatus.value === 'success' && stations.value.length > 0)
+/** The legend as sentences, for the map's description (a screen reader does not see the dots and the discs, nor opens the panel to learn what they are) */
+const legendDescription = computed(() => {
+  if (!legendShown.value)
+    return ''
+  const sentences = [
+    ...(reporting.value ? [t('mapTool.legendDotsDescription')] : []),
+    ...(groupedNow.value ? [reporting.value ? t('mapTool.legendGroupShare') : t('mapTool.legendGroup')] : []),
+  ]
+  return sentences.map(sentence => `${sentence.replace(/\.$/, '')}.`).join(' ')
+})
+
+/** What `picked` is for a station of the layer shown */
+function remember(station: PlacedStation): PickedStation {
+  return {
+    station_id: station.station_id,
+    wmo: wmoNumber(station),
+    observation: layer.value === 'measured',
+    // a forecast point has no status, and counts as current
+    reports: layer.value === 'measured' && reporting.value ? reporting.value(station) : true,
+  }
+}
+
 function choose(station: PlacedStation, options: { point?: Point, focus?: boolean, from?: PlaceOrigin } = {}) {
   selectedId.value = station.station_id
   pickedIn = viewKey.value
+  picked = remember(station)
+  sameStation.value = null
   anchor.value = options.point ?? { latitude: station.latitude, longitude: station.longitude }
   // a station chosen by name, from the list or by its dot, is a place of its own: no click was made
   origin.value = options.point ? options.from ?? POINT : { kind: 'station', name: stationName(station) }
@@ -321,13 +447,12 @@ function choose(station: PlacedStation, options: { point?: Point, focus?: boolea
   noStationNear.value = false
   announcement.value = chosenText(station, stations.value, anchor.value)
   void nextTick(() => {
+    // the panel is behind the full screen: the sheet says what was picked, and nothing of the page behind is moved or focused
+    if (inFullscreen.value)
+      return
     if (options.focus)
       detailHeading.value?.focus()
-    // on a phone the panel is under the map: it comes up to the middle of the window, so that the map and the panel are both seen
-    if (!wide.value && panel.value) {
-      const top = panel.value.getBoundingClientRect().top + window.scrollY - window.innerHeight * 0.42
-      window.scrollTo({ top: Math.max(0, top), behavior: reducedMotion.value ? 'auto' : 'smooth' })
-    }
+    scrollPanelIntoView()
   })
 }
 
@@ -338,6 +463,7 @@ function tellNoStationNear(point: Point, from: PlaceOrigin = POINT) {
   anchor.value = point
   origin.value = from
   unknownStation.value = null
+  sameStation.value = null
   noStationNear.value = true
   announcement.value = t('mapTool.noStationNear', { distance: reach.value })
 }
@@ -361,10 +487,14 @@ function pickAt(point: Point, tolerance: number, focus = false, tap = 0, disc = 
   if (touched)
     return choose(touched.station, { point, focus, from })
   const found = stationFor(stations.value, point, reporting.value)
-  if (found)
+  if (found) {
     choose(found.station, { point, focus, from })
-  else
+  }
+  else {
+    // the pick is a place with no station: the station before is not carried to the next layer for it
+    picked = null
     tellNoStationNear(point, from)
+  }
 }
 
 /**
@@ -383,9 +513,28 @@ function pickCentre() {
   pickAt({ latitude: view.value.latitude, longitude: view.value.longitude }, SAME_PLACE_KM, true, 0, 0, { kind: 'centre' })
 }
 
+/** A click on a group of stations has zoomed the map in on them: said, as a pick is */
+let groupAnnouncement: ReturnType<typeof setTimeout> | undefined
+function onGroup(count: number, reportingCount: number | null) {
+  const shown = formatNumber(count, formatLanguage.value, 0)
+  const said = reportingCount === null
+    ? t('mapTool.groupZoomed', { shown })
+    : t('mapTool.groupZoomedReporting', { shown, reporting: formatNumber(reportingCount, formatLanguage.value, 0) })
+  // a status that says the same again is not read again: it is emptied first and said again after a moment (a screen reader
+  // takes the emptying and the new text of one frame for no change)
+  announcement.value = ''
+  clearTimeout(groupAnnouncement)
+  groupAnnouncement = setTimeout(() => {
+    announcement.value = said
+  }, 100)
+}
+onBeforeUnmount(() => clearTimeout(groupAnnouncement))
+
 function back() {
   const id = selectedId.value
   selectedId.value = null
+  picked = null
+  sameStation.value = null
   anchor.value = null
   reselect = false
   fromAddress = false
@@ -399,24 +548,50 @@ function back() {
   })
 }
 
-/** The station of a new view for the place picked, picked again by its position: the same station where it is under the place */
+/**
+ * The station of a new view for the place picked. Where the station picked before has a WMO number and one station of the
+ * new list has the same, that is the same station (GH-4077): the map takes it and says so, however far its position is from
+ * the old one (MOSMIX gives positions in whole minutes, so the two are a median 0.66 km apart). A number that the list has on
+ * none or on several stations finds nothing, and neither does a station with no number: the station is picked again by its
+ * position, as it was, the same station where it is under the place.
+ */
 function pickAgain(list: PlacedStation[]) {
   const point = anchor.value!
-  const found = stationAt(list, point, SAME_PLACE_KM) ?? stationFor(list, point, reporting.value)?.station
+  const same = picked ? findSameStation(list, picked, layer.value === 'measured', reporting.value) : null
+  if (same?.by === 'wmo') {
+    const found = same.station
+    selectedId.value = found.station_id
+    pickedIn = viewKey.value
+    picked = remember(found)
+    unknownStation.value = null
+    noStationNear.value = false
+    // the place was the position of the station before: it is the position of this one
+    if (origin.value.kind === 'station') {
+      anchor.value = { latitude: found.latitude, longitude: found.longitude }
+      origin.value = { kind: 'station', name: stationName(found) }
+    }
+    sameStation.value = wmoNumber(found)
+    announcement.value = `${t('mapTool.chosen', { name: stationName(found) })}. ${t('mapTool.sameStation', { wmo: sameStation.value })}`
+    return
+  }
+  sameStation.value = null
+  // by its id where both lists are DWD's observations (another dataset), else by the place
+  const found = same?.station ?? stationAt(list, point, SAME_PLACE_KM) ?? stationFor(list, point, reporting.value)?.station
   if (!found)
     return tellNoStationNear(point, origin.value)
   selectedId.value = found.station_id
   pickedIn = viewKey.value
+  picked = remember(found)
   unknownStation.value = null
   noStationNear.value = false
   // told, as a station that the reader chose is: it is another station than the one in the heading before
   announcement.value = chosenText(found, list, point)
 }
 
-// A change of layer or dataset, and the list that comes after it. The number of a station is the number in the list of
-// one view (DWD's forecast points and its measuring stations number their stations alike, and 59 of the numbers are
-// two stations), so a pick is never taken to another view by its number: it is picked again in the new list for the
-// place it was at. A list that has arrived with no change under it holds the station of the address, or the panel
+// A change of layer or dataset, and the list that comes after it. The id of a station is the id in the list of
+// one view (DWD's forecast points and its measuring stations number their stations alike, and 59 of the ids are
+// two stations), so a pick is never taken to another view by its id: it is picked again in the new list by its WMO number,
+// the same station wherever one has it (`pickAgain`), else for the place it was at. A list that has arrived with no change under it holds the station of the address, or the panel
 // says there is none.
 watch([viewKey, stations], ([key, list], [previousKey]) => {
   if (key !== previousKey && (selectedId.value || anchor.value) && pickedIn !== key) {
@@ -426,9 +601,11 @@ watch([viewKey, stations], ([key, list], [previousKey]) => {
     noStationNear.value = false
     fromAddress = false
   }
-  // the notice of a station that the view before did not have is not about this one
-  if (key !== previousKey)
+  // the notice of a station that the view before did not have is not about this one, nor is the word that it is the same
+  if (key !== previousKey) {
     unknownStation.value = null
+    sameStation.value = null
+  }
   if (!list.length)
     return
   if (reselect) {
@@ -450,6 +627,10 @@ watch([viewKey, stations], ([key, list], [previousKey]) => {
 watch(selected, (station) => {
   if (!station)
     return
+  // what is remembered is the station of the view it was picked in: with the list of another view under the same id (59 ids
+  // are two stations) the station is not the one picked, and the watch of the list does not depend on running before this
+  if (pickedIn === viewKey.value)
+    picked = remember(station)
   if (!anchor.value) {
     anchor.value = { latitude: station.latitude, longitude: station.longitude }
     origin.value = { kind: 'station', name: stationName(station) }
@@ -472,7 +653,7 @@ watch(sourceKey, () => {
  * The station of a card: the station picked, for the layer it is of, and for the others the nearest within reach of
  * the place (`stationFor`), with its distance from the place, none where it is under half a kilometre.
  */
-function cardFor(list: PlacedStation[], isShown: boolean, running?: ReportingRule) {
+function cardFor(list: PlacedStation[], isShown: boolean, running?: ReportingRule, inObservation = false): { station: PlacedStation, distance: number, same?: boolean } | null {
   if (!selected.value)
     return null
   const point = anchor.value ?? selected.value
@@ -480,23 +661,30 @@ function cardFor(list: PlacedStation[], isShown: boolean, running?: ReportingRul
     const distance = distanceKm(point, selected.value)
     return { station: selected.value, distance: distance > SAME_PLACE_KM ? distance : 0 }
   }
+  // the same station of another list (GH-4077): by its id where both lists are DWD's observations, by its WMO number where
+  // exactly one station of the list has it and does not report less than the station picked. Not a station near the place
+  const same = findSameStation(list, remember(selected.value), inObservation, running)
+  if (same)
+    return { station: same.station, distance: 0, same: same.by === 'wmo' || undefined }
   return stationFor(list, point, running)
 }
 const forecastPoint = computed(() => cardFor(forecast.stations.value, layer.value === 'forecast'))
 const stripesRule = computed(() => reportingRule(stripes.stations.value))
 const measuredRule = computed(() => reportingRule(measured.stations.value))
-const stripesPoint = computed(() => cardFor(stripes.stations.value, false, stripesRule.value))
-const measuredPoint = computed(() => cardFor(measured.stations.value, layer.value === 'measured', measuredRule.value))
+// the stripes' stations are DWD's observations: the same id is the same station where the station picked is one too
+const stripesPoint = computed(() => cardFor(stripes.stations.value, false, stripesRule.value, true))
+const measuredPoint = computed(() => cardFor(measured.stations.value, layer.value === 'measured', measuredRule.value, true))
 
 /** The nearer station that has stopped, where the one the card offers is farther because it reports (GH-3875) */
 const measuredCloser = computed(() => {
-  if (!selected.value || !measuredPoint.value)
+  // the same station by its WMO number is no other station that was chosen for the place: nothing nearer to explain
+  if (!selected.value || !measuredPoint.value || measuredPoint.value.same)
     return null
   return closerStoppedStation(measured.stations.value, anchor.value ?? selected.value, measuredPoint.value.station, measuredRule.value)
 })
 /** Why the station is not the nearest: the one that reports, and the nearer one that has stopped, with how long it measured */
 function whyFarther(closer: CloserStation) {
-  const params = { name: stationName(closer.station), distance: formatDistance(closer.distance, locale.value), year: closer.endYear }
+  const params = { name: stationName(closer.station), distance: formatDistance(closer.distance, formatLanguage.value), year: closer.endYear }
   return closer.endYear === null ? t('mapTool.whyFartherNoEnd', params) : t('mapTool.whyFarther', params)
 }
 /** What is announced for a station chosen: its name, and for a measuring station that is not the nearest, why */
@@ -515,7 +703,7 @@ function pickCloser(closer: CloserStation) {
 const placeText = computed(() => {
   if (!place.value || !selected.value)
     return ''
-  const distance = formatDistance(distanceKm(place.value, selected.value), locale.value)
+  const distance = formatDistance(distanceKm(place.value, selected.value), formatLanguage.value)
   const from = origin.value
   if (from.kind === 'station')
     return t('mapTool.pickedStationPlace', { name: from.name, distance })
@@ -570,6 +758,9 @@ watch(() => route.query, (query) => {
   noStationNear.value = false
   if (newPick) {
     selectedId.value = named.stationId
+    // another pick than the one remembered: the station of the address is remembered when its list brings it
+    picked = null
+    sameStation.value = null
     unknownStation.value = null
     announcement.value = ''
     fromAddress = Boolean(named.stationId)
@@ -580,8 +771,8 @@ watch(() => route.query, (query) => {
 </script>
 
 <template>
-  <div class="frame">
-    <PageHeader :title="t('mapTool.title')" :lede="t('mapTool.subtitle')" :about-label="t('mapTool.aboutButton')">
+  <div class="frame" :style="phone ? { '--map-head': `${Math.ceil(headHeight)}px` } : undefined">
+    <PageHeader ref="pageHeader" :title="t('mapTool.title')" :lede="t('mapTool.subtitle')" :about-label="t('mapTool.aboutButton')" compact>
       <template #about>
         <div class="space-y-3 text-muted">
           <p>{{ t('mapTool.about1') }}</p>
@@ -630,6 +821,10 @@ watch(() => route.query, (query) => {
                   <UIcon name="i-ph-map-pin" class="size-4 shrink-0" />
                   {{ placeText }}
                 </p>
+                <p v-if="sameStation" class="mt-2 inline-flex items-center gap-1.5 text-sm text-toned" data-testid="map-same-station">
+                  <UIcon name="i-ph-link" class="size-4 shrink-0" />
+                  {{ t('mapTool.sameStation', { wmo: sameStation }) }}
+                </p>
                 <!-- the station is the one found for the reader's position (GH-4011): the list that holds the button is
                      not in view, so the option to keep the position, or the control that says it is kept, is here; the
                      list and the card are never both in the page, so there is one of them to tab to -->
@@ -643,8 +838,11 @@ watch(() => route.query, (query) => {
                   {{ t('nav.meteogram') }}
                 </h3>
                 <template v-if="forecastPoint">
-                  <p v-if="forecastPoint.distance > 0" class="map-card-note">
-                    {{ t('mapTool.at', { name: stationName(forecastPoint.station), distance: formatDistance(forecastPoint.distance, locale) }) }}
+                  <p v-if="forecastPoint.same" class="map-card-note" data-testid="map-card-same-forecast">
+                    {{ stationName(forecastPoint.station) }} · {{ t('mapTool.sameStation', { wmo: wmoNumber(forecastPoint.station) }) }}
+                  </p>
+                  <p v-else-if="forecastPoint.distance > 0" class="map-card-note">
+                    {{ t('mapTool.at', { name: stationName(forecastPoint.station), distance: formatDistance(forecastPoint.distance, formatLanguage) }) }}
                   </p>
                   <MapForecast :station="forecastPoint.station" />
                   <UButton :to="forecastLink(forecastPoint.station.station_id)" :label="t('mapTool.openForecast')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
@@ -670,8 +868,11 @@ watch(() => route.query, (query) => {
                   {{ t('nav.stripes') }}
                 </h3>
                 <template v-if="stripesPoint">
-                  <p v-if="stripesPoint.distance > 0" class="map-card-note">
-                    {{ t('mapTool.at', { name: stationName(stripesPoint.station), distance: formatDistance(stripesPoint.distance, locale) }) }}
+                  <p v-if="stripesPoint.same" class="map-card-note" data-testid="map-card-same-stripes">
+                    {{ stationName(stripesPoint.station) }} · {{ t('mapTool.sameStation', { wmo: wmoNumber(stripesPoint.station) }) }}
+                  </p>
+                  <p v-else-if="stripesPoint.distance > 0" class="map-card-note">
+                    {{ t('mapTool.at', { name: stationName(stripesPoint.station), distance: formatDistance(stripesPoint.distance, formatLanguage) }) }}
                   </p>
                   <MapStripes :station-id="stripesPoint.station.station_id" :station-name="stationName(stripesPoint.station)" />
                   <UButton :to="stripesLink(stripesPoint.station.station_id)" :label="t('mapTool.openStripes')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
@@ -690,7 +891,7 @@ watch(() => route.query, (query) => {
                 </p>
               </section>
 
-              <!-- the measurements and the history, at the nearest station of the source chosen in the chips -->
+              <!-- the measurements and the history, at the nearest station of the source chosen in the layers panel -->
               <section class="map-card" aria-labelledby="map-measured-title" data-testid="map-card-measured">
                 <h3 id="map-measured-title" class="map-card-title">
                   <UIcon name="i-ph-thermometer" class="map-card-icon" />
@@ -702,8 +903,11 @@ watch(() => route.query, (query) => {
                       · {{ measuredFor(measuredPoint.station) }}
                     </template>
                   </p>
-                  <p v-if="measuredPoint.distance > 0" class="map-card-note">
-                    {{ t('mapTool.at', { name: stationName(measuredPoint.station), distance: formatDistance(measuredPoint.distance, locale) }) }}
+                  <p v-if="measuredPoint.same" class="map-card-note" data-testid="map-card-same-measured">
+                    {{ stationName(measuredPoint.station) }} · {{ t('mapTool.sameStation', { wmo: wmoNumber(measuredPoint.station) }) }}
+                  </p>
+                  <p v-else-if="measuredPoint.distance > 0" class="map-card-note">
+                    {{ t('mapTool.at', { name: stationName(measuredPoint.station), distance: formatDistance(measuredPoint.distance, formatLanguage) }) }}
                   </p>
                   <!-- the station is not the nearest: a nearer one has stopped (GH-3875) -->
                   <div v-if="measuredCloser" class="map-why" data-testid="map-why">
@@ -792,7 +996,7 @@ watch(() => route.query, (query) => {
                         <span class="block font-semibold text-highlighted break-words">{{ stationName(entry.station) }}</span>
                         <span class="block text-xs text-muted">{{ entry.station.station_id }}<template v-if="entry.station.region"> · {{ entry.station.region }}</template></span>
                       </span>
-                      <span v-if="entry.distance !== null" class="shrink-0 text-xs text-muted tabular-nums">{{ formatDistance(entry.distance, locale) }}</span>
+                      <span v-if="entry.distance !== null" class="shrink-0 text-xs text-muted tabular-nums">{{ formatDistance(entry.distance, formatLanguage) }}</span>
                     </button>
                   </li>
                 </ul>
@@ -817,74 +1021,151 @@ watch(() => route.query, (query) => {
             </div>
           </section>
 
-          <!-- The map, and the chips over it that choose its layer -->
-          <div v-else class="map-stage" data-testid="map-stage">
-            <div class="map-chips">
-              <div class="map-chips-row">
-                <div class="map-segments" role="group" :aria-label="t('mapTool.layers')">
-                  <button
-                    v-for="option in layerItems"
-                    :key="option.value"
-                    type="button"
-                    class="map-segment"
-                    :aria-pressed="layer === option.value"
-                    :data-testid="`map-layer-${option.value}`"
-                    @click="layer = option.value"
+          <!-- The map, the one button over it that opens the layers (GH-4209), and the status chips -->
+          <div v-else class="map-stage" :data-fullscreen="fullscreenMark" data-testid="map-stage">
+            <div :ref="setScreen" class="map-screen" :data-fullscreen="fullscreenMark" data-testid="map-screen">
+              <div class="map-canvas">
+                <div class="map-layers">
+                  <MapLayers
+                    v-model:layer="layer"
+                    v-model:open="layersOpen"
+                    v-model:grouped="grouped"
+                    :layer-items="layerItems"
+                    :show-grouping="listStatus === 'success' && stations.length > 0"
+                    :compulsory="groupingInForce.compulsory"
+                    :note="groupingCompulsoryText"
+                    :show-legend="legendShown"
                   >
-                    <UIcon :name="option.icon" class="size-4 shrink-0" />
-                    {{ option.label }}
-                  </button>
+                    <template #default>
+                      <template v-if="layer === 'measured'">
+                        <USelect v-model="resolutionChoice" :items="resolutionItems" :portal="portalTarget" :aria-label="t('parameterSelection.resolutionLabel')" class="w-full" data-testid="map-resolution" />
+                        <USelect v-model="datasetChoice" :items="datasetItems" :portal="portalTarget" :aria-label="t('parameterSelection.datasetLabel')" class="w-full" data-testid="map-dataset" />
+                      </template>
+                    </template>
+                    <template #legend>
+                      <ul class="map-legend" data-testid="map-legend">
+                        <template v-if="reporting">
+                          <li>
+                            <span class="map-legend-dot" aria-hidden="true" data-testid="map-legend-reporting" />
+                            {{ t('mapTool.legendReporting') }}
+                          </li>
+                          <li>
+                            <span class="map-legend-dot map-legend-dot-stopped" aria-hidden="true" data-testid="map-legend-stopped" />
+                            {{ t('mapTool.legendStopped') }}
+                          </li>
+                        </template>
+                        <li v-if="groupedNow">
+                          <span class="map-legend-dot map-legend-group" :class="{ 'map-legend-group-share': reporting }" aria-hidden="true" data-testid="map-legend-group">12</span>
+                          {{ reporting ? t('mapTool.legendGroupShare') : t('mapTool.legendGroup') }}
+                        </li>
+                      </ul>
+                    </template>
+                  </MapLayers>
                 </div>
-                <template v-if="layer === 'measured'">
-                  <USelect v-model="resolutionChoice" :items="resolutionItems" :aria-label="t('parameterSelection.resolutionLabel')" size="sm" class="map-select" data-testid="map-resolution" />
-                  <USelect v-model="datasetChoice" :items="datasetItems" :aria-label="t('parameterSelection.datasetLabel')" size="sm" class="map-select" data-testid="map-dataset" />
-                </template>
-                <!-- on a phone the count is in the panel, and the chips take less of the map -->
-                <span v-if="listStatus === 'success'" class="map-status map-count" data-testid="map-count">{{ countLabel }}</span>
-                <span v-else-if="listStatus === 'pending' || listStatus === 'idle'" class="map-status" role="status">
-                  <UIcon name="i-ph-circle-notch" class="size-4 motion-safe:animate-spin" />
-                  {{ t('mapTool.loadingStations') }}
-                </span>
+                <div class="map-chips">
+                  <div class="map-chips-row">
+                    <!-- on a phone the count is in the panel, and the chips take less of the map -->
+                    <span v-if="listStatus === 'success'" class="map-status map-count" data-testid="map-count">{{ countLabel }}</span>
+                    <span v-else-if="listStatus === 'pending' || listStatus === 'idle'" class="map-status" role="status">
+                      <UIcon name="i-ph-circle-notch" class="size-4 motion-safe:animate-spin" />
+                      {{ t('mapTool.loadingStations') }}
+                    </span>
+                  </div>
+                  <UAlert
+                    v-if="listStatus === 'error'"
+                    class="map-failure"
+                    color="error"
+                    variant="outline"
+                    icon="i-ph-warning-circle"
+                    :title="t('mapTool.stationsFailed')"
+                    :description="listFailure"
+                    :actions="[{ label: t('common.retry'), onClick: () => retryList() }]"
+                    data-testid="map-failure"
+                  />
+                </div>
+
+                <p id="map-legend-description" class="sr-only" data-testid="map-legend-description">
+                  {{ legendDescription }}
+                </p>
+                <ClientOnly>
+                  <StationMap
+                    :ref="setMap"
+                    :stations="stations"
+                    :selected="selected"
+                    :recentre="recentre"
+                    :position="myPosition"
+                    :locate="locateCount"
+                    :place="place"
+                    :reporting="reporting"
+                    :grouping="groupingInForce.grouping"
+                    :panel-open="layersOpen"
+                    :fullscreen="inFullscreen"
+                    :described-by="legendDescription ? 'map-legend-description' : undefined"
+                    :label="mapLabel"
+                    @pick="onPick"
+                    @view="view = $event"
+                    @group="onGroup"
+                    @fullscreen="fullscreen.toggle()"
+                  />
+                </ClientOnly>
               </div>
-              <UAlert
-                v-if="listStatus === 'error'"
-                class="map-failure"
-                color="error"
-                variant="outline"
-                icon="i-ph-warning-circle"
-                :title="t('mapTool.stationsFailed')"
-                :description="listFailure"
-                :actions="[{ label: t('common.retry'), onClick: () => retryList() }]"
-                data-testid="map-failure"
-              />
+
+              <!-- while the map is full screen the panel is out of reach, and this stands in for it (GH-4227): the station picked,
+                   the keyboard's way to a place, and the way back to the panel's details -->
+              <div v-if="inFullscreen" class="map-sheet" role="group" :aria-label="t('mapTool.fullscreenSheet')" data-testid="map-sheet">
+                <p class="sr-only" role="status" data-testid="map-sheet-announcement">
+                  {{ announcement }}
+                </p>
+                <div class="map-sheet-text">
+                  <template v-if="selected">
+                    <p class="map-sheet-name" data-testid="map-sheet-name">
+                      {{ stationName(selected) }}
+                    </p>
+                    <p class="map-sheet-meta">
+                      {{ selected.station_id }}<template v-if="selected.region">
+                        · {{ selected.region }}
+                      </template>
+                    </p>
+                  </template>
+                  <p v-else-if="noStationNear" class="map-sheet-meta">
+                    {{ t('mapTool.noStationNear', { distance: reach }) }}
+                  </p>
+                  <p v-else class="map-sheet-meta">
+                    {{ listStatus === 'success' ? countLabel : t('mapTool.loadingStations') }}
+                  </p>
+                </div>
+                <div class="map-sheet-actions">
+                  <UButton
+                    v-if="selected"
+                    :label="t('mapTool.showDetails')"
+                    icon="i-ph-list-bullets"
+                    color="primary"
+                    variant="solid"
+                    size="lg"
+                    aria-describedby="map-sheet-details-hint"
+                    data-testid="map-sheet-details"
+                    @click="showDetails"
+                  />
+                  <UButton
+                    v-if="stations.length"
+                    :label="t('mapTool.pickCentre')"
+                    icon="i-ph-crosshair"
+                    color="neutral"
+                    variant="outline"
+                    size="lg"
+                    aria-describedby="map-sheet-pick-hint"
+                    data-testid="map-sheet-pick-centre"
+                    @click="pickCentre"
+                  />
+                  <p id="map-sheet-details-hint" class="sr-only">
+                    {{ t('mapTool.showDetailsHint') }}
+                  </p>
+                  <p id="map-sheet-pick-hint" class="sr-only">
+                    {{ t('mapTool.pickCentreHint') }}
+                  </p>
+                </div>
+              </div>
             </div>
-
-            <ClientOnly>
-              <StationMap
-                :stations="stations"
-                :selected="selected"
-                :recentre="recentre"
-                :position="myPosition"
-                :locate="locateCount"
-                :place="place"
-                :reporting="reporting"
-                :label="mapLabel"
-                @pick="onPick"
-                @view="view = $event"
-              />
-            </ClientOnly>
-
-            <!-- what the two kinds of dot are, on the measured layer: a filled dot reports, a hollow one has stopped -->
-            <ul v-if="reporting && listStatus === 'success' && stations.length" class="map-legend" :aria-label="t('mapTool.legend')" data-testid="map-legend">
-              <li>
-                <span class="map-legend-dot" aria-hidden="true" data-testid="map-legend-reporting" />
-                {{ t('mapTool.legendReporting') }}
-              </li>
-              <li>
-                <span class="map-legend-dot map-legend-dot-stopped" aria-hidden="true" data-testid="map-legend-stopped" />
-                {{ t('mapTool.legendStopped') }}
-              </li>
-            </ul>
           </div>
         </template>
       </div>
@@ -912,7 +1193,6 @@ watch(() => route.query, (query) => {
    screen, and is about half the window on a phone, so that a sheet fits under it. */
 .map-stage {
   position: relative;
-  isolation: isolate;
   height: clamp(22rem, 64dvh, 36rem);
 }
 @media (min-width: 72rem) {
@@ -922,6 +1202,14 @@ watch(() => route.query, (query) => {
     height: clamp(30rem, calc(100dvh - var(--header-height) - 2rem), 52rem);
   }
 }
+/* The phone (GH-4227): the map fills what the bars leave of the window, under the title and its ⓘ (`--map-head`, measured by
+   the page), and runs to the window's edges. The tab bar is `--tabbar-height` high where it is fixed and 0 where it scrolls with the page. */
+@media screen and (width < 40rem) {
+  .map-stage {
+    height: max(18rem, calc(100dvh - var(--header-height) - var(--tabbar-height) - var(--map-head, 3.5rem)));
+    margin-inline: calc(-1 * var(--bleed-start)) calc(-1 * var(--bleed-end));
+  }
+}
 /* a window too low for a map and its panel beside it (a phone on its side, zoom): the map is as high as the window */
 @media (max-height: 30rem) {
   .map-stage {
@@ -929,6 +1217,95 @@ watch(() => route.query, (query) => {
     top: auto;
     height: 24rem;
   }
+}
+/* a phone on its side: the bars scroll away, and the map is the window's height (its title is above it) */
+@media screen and (width < 40rem) and (max-height: 30rem) {
+  .map-stage {
+    height: max(15rem, calc(100dvh - 1rem));
+  }
+}
+/* The map's screen, the part of the stage that goes full screen (GH-4227): the map and what is over it (the canvas), and
+   the sheet that stands in for the panel under it while it is full screen. It is the stage's own size until then. It has a
+   stacking context of its own, so that Leaflet's panes (up to 1000) stay inside it. */
+.map-screen {
+  position: relative;
+  isolation: isolate;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--ui-bg);
+}
+.map-canvas {
+  position: relative;
+  flex: 1 1 0;
+  min-height: 0;
+}
+/* Full screen by the app (a browser that has no Fullscreen API for an element, or refuses it): the screen covers the window and the
+   app's bars (the header and the tab bar are 40, the skip link 100 and inert), with the notch's and the home indicator's room kept.
+   The stage in the page keeps its size, so the page behind does not move. A stage that is sticky (wide) or has a layer of its own would
+   hold the screen under the bars: it has neither while the screen covers them. */
+.map-stage[data-fullscreen="app"] {
+  position: static;
+}
+.map-screen[data-fullscreen="app"] {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  height: auto;
+}
+/* in either full screen: the room of the notch and the home indicator is the page's background, and the map has none of the page's corners */
+.map-screen[data-fullscreen] {
+  padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+.map-screen[data-fullscreen] .station-map {
+  min-height: 0;
+  border-radius: 0;
+}
+/* the stand-in for the panel: the station picked, and two buttons, under the map (which has the rest of the screen) */
+.map-sheet {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  padding: 0.75rem;
+  border-top: 1px solid var(--ui-border);
+  background: var(--ui-bg);
+}
+.map-sheet-text {
+  flex: 1 1 10rem;
+  min-width: 0;
+}
+.map-sheet-name {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ui-text-highlighted);
+  overflow-wrap: anywhere;
+}
+.map-sheet-meta {
+  font-size: 0.8125rem;
+  color: var(--ui-text-muted);
+  overflow-wrap: anywhere;
+}
+.map-sheet-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+/* the buttons are the label's width and wrap it where a language's words are longer than a phone's half row */
+.map-sheet-actions .truncate {
+  overflow: visible;
+  white-space: normal;
+  text-overflow: clip;
+  text-align: start;
+}
+.map-sheet-actions > button,
+.map-sheet-actions > a {
+  max-width: 100%;
+  white-space: normal;
+  min-height: 2.75rem;
 }
 .map-chips {
   position: absolute;
@@ -946,12 +1323,23 @@ watch(() => route.query, (query) => {
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  /* the row is as wide as the map and its empty space is the map's: only what is in it takes the pointer */
+  /* the height of the layers button, which is in the same corner row: the failure under the row clears it */
+  min-height: 2.75rem;
+  /* the row is as wide as the map and its empty space is the map's: only what is in it takes the pointer; the end of it is the button's */
+  padding-inline-end: 3.5rem;
   pointer-events: none;
 }
 .map-chips-row > *,
 .map-failure {
   pointer-events: auto;
+}
+/* The layers button (MapLayers.vue), alone in the map's top right corner: the zoom buttons and the credit are at the
+   bottom right, the legend at the bottom left and the status at the top left */
+.map-layers {
+  position: absolute;
+  z-index: 1002;
+  inset-inline-end: 0.75rem;
+  top: 0.75rem;
 }
 /* a link of a card breaks onto a second line where its words are longer than the card (320 px, the longer languages) */
 .map-link.map-link {
@@ -964,63 +1352,6 @@ watch(() => route.query, (query) => {
   overflow: visible;
   white-space: normal;
   text-overflow: clip;
-}
-.map-segments {
-  display: inline-flex;
-  max-width: 100%;
-  padding: 0.1875rem;
-  border: 1px solid var(--ui-border-accented);
-  border-radius: 999px;
-  background: var(--ui-bg);
-  box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
-}
-.map-segment {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  min-width: 0;
-  min-height: 2.25rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 999px;
-  color: var(--ui-text-toned);
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1.15;
-  text-align: center;
-  /* a long word (Verwachtingsstations) breaks rather than spill out of its chip */
-  overflow-wrap: anywhere;
-}
-/* on the narrowest screens the two layers stand one over the other, so that the words of a long language fit */
-@media (max-width: 23.99rem) {
-  .map-segments {
-    flex-direction: column;
-    border-radius: 1.25rem;
-  }
-}
-.map-segment:hover {
-  background: var(--ui-bg-elevated);
-  color: var(--ui-text-highlighted);
-}
-/* the layer shown: filled with the logo's navy (12.5:1 with white), a label in a chip that is no colour alone: it is
-   pressed (aria-pressed) and its name is written */
-.map-segment[aria-pressed="true"] {
-  background: var(--color-tile-navy);
-  color: #ffffff;
-}
-/* at night only: a print is the light page */
-@media not print {
-  .dark .map-segment[aria-pressed="true"] {
-    background: var(--color-brand-300);
-    color: var(--color-ink-950);
-  }
-}
-.map-select {
-  /* the two choices share a row where it is narrow, and share what is left of it */
-  flex: 1 1 7rem;
-  min-width: 0;
-  max-width: 11rem;
-  box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
 }
 .map-status {
   display: inline-flex;
@@ -1044,55 +1375,6 @@ watch(() => route.query, (query) => {
 .map-failure {
   max-width: 28rem;
   background: var(--ui-bg);
-}
-/* The legend of the dots, at the map's foot on the left (the zoom buttons and the credit are on the right). The map is a
-   light surface in both colour schemes, so the legend is too, and its dots are the map's own (StationMap.vue): the one
-   that reports filled, the one that has stopped hollow, a difference of shape that is no colour alone (WCAG 1.4.1) */
-.map-legend {
-  position: absolute;
-  z-index: 1001;
-  inset-inline-start: 0.75rem;
-  bottom: 0.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  max-width: calc(50% - 0.75rem);
-  padding: 0.375rem 0.625rem;
-  border-radius: var(--ui-radius);
-  background: rgb(255 255 255 / 0.94);
-  color: var(--color-ink-800);
-  font-size: 0.8125rem;
-  line-height: 1.2;
-  box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
-  /* the legend is on the map, and a click on it is no pick of the place under it */
-}
-.map-legend li {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-.map-legend-dot {
-  flex: none;
-  box-sizing: border-box;
-  width: 0.875rem;
-  height: 0.875rem;
-  border: 1.5px solid #ffffff;
-  border-radius: 50%;
-  background: #2358a8;
-  box-shadow: 0 0 0 1px #2358a8;
-}
-.map-legend-dot-stopped {
-  border: 2px solid #2358a8;
-  background: #ffffff;
-  box-shadow: none;
-}
-/* in forced colours the dots keep their own colours (the filled and the hollow one are told apart by them, which system
-   colours would make alike), as the tiles and the tool marks do */
-@media (forced-colors: active) {
-  .map-legend,
-  .map-legend-dot {
-    forced-color-adjust: none;
-  }
 }
 .map-why {
   display: flex;
@@ -1126,6 +1408,15 @@ watch(() => route.query, (query) => {
     box-shadow: 0 -6px 16px -8px rgb(15 23 42 / 0.2);
     position: relative;
     z-index: 1;
+  }
+}
+/* The narrow layout runs edge to edge (GH-4227): the sheet under the map is as wide as the window, with no rounded corners and no hairline at the
+   sides, and its cards reach out of its padding the same way; the text keeps the 16 px of the gutter. */
+@media screen and (width < 40rem) {
+  .map-panel {
+    margin-inline: calc(-1 * var(--bleed-start)) calc(-1 * var(--bleed-end));
+    border-radius: 0;
+    border-inline-width: 0;
   }
 }
 .map-browse,
@@ -1189,5 +1480,14 @@ watch(() => route.query, (query) => {
 .map-card-note {
   font-size: 0.875rem;
   color: var(--ui-text-muted);
+}
+/* in the panel that runs edge to edge (GH-4227) a card does too: it reaches out of the panel's 16 px, which is its own text's gutter */
+@media screen and (width < 40rem) {
+  .map-card {
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+    border-radius: 0;
+    border-inline-width: 0;
+  }
 }
 </style>

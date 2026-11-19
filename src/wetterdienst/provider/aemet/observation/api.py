@@ -40,6 +40,8 @@ from wetterdienst.util.network import (
     download_file,
     drop_cached_file,
     fetchable_link,
+    rate_limited,
+    retry_after_of_failure,
     skip_cause_of_failure,
 )
 from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
@@ -257,10 +259,10 @@ def _as_outage(failure: Exception, url: str, status: int | None = None) -> Excep
     more, which is how it reports its own faults (GH-2965). Nor does it when it refuses the rate, an
     `estado` of 429 or an HTTP 429 that outlasted the retries (GH-2989): the data of that request was
     not handed out, which a chunk skipped as "no data" would read as. Each is the `DownloadError`
-    that names the file, with the failure as its `__cause__`: an `_AemetEnvelopeError` whose `status`
-    is the `estado`, or the HTTP error. Any other failure is an answer and is returned as it was: a
-    404, whether of the request or as `estado` 404 ("no data for these criteria"), a refused key, a
-    body that is no envelope.
+    that names the file (for a 429 the `ProviderRateLimitError`, which is one), with the failure as its `__cause__`:
+    an `_AemetEnvelopeError` whose `status` is the `estado`, or the HTTP error. Any other failure is an answer and is
+    returned as it was: a 404, whether of the request or as `estado` 404 ("no data for these criteria"), a refused
+    key, a body that is no envelope.
 
     `status` is the HTTP status of the download the failure came from, which a failure that is no
     `ClientResponseError` (a file that was not found) does not carry.
@@ -270,11 +272,11 @@ def _as_outage(failure: Exception, url: str, status: int | None = None) -> Excep
         estado == HTTPStatus.TOO_MANY_REQUESTS
         or (isinstance(failure, _AemetEnvelopeError) and estado >= HTTPStatus.INTERNAL_SERVER_ERROR)
     ):
-        kind = "estado" if isinstance(failure, _AemetEnvelopeError) else "HTTP"
-        reason = f"AEMET answered {kind} {estado}"
         if estado == HTTPStatus.TOO_MANY_REQUESTS:
-            reason += ", the rate limit"
-        error = DownloadError(_without_url_secrets(url), f"{reason}: {failure}")
+            # the HTTP error carries AEMET's own wait where it sent one, an `estado` of the envelope none
+            error: DownloadError = rate_limited(url, retry_after_of_failure(failure))
+        else:
+            error = DownloadError(_without_url_secrets(url), f"AEMET answered estado {estado}: {failure}")
         error.__cause__ = failure
         return error
     return as_outage(failure, url)
@@ -379,7 +381,9 @@ def _fetch_datos(url: str, settings: Settings, ttl: CacheExpiry) -> bytes | Exce
     if isinstance(datos_file.content, Exception):
         # the envelope said 200 and named the data, which is not there: a chunk let go, whatever the status of the
         # link, and not AEMET's answer that it has no data for the request (an `estado` of 404)
-        note_skipped_download(datos_file.skip_cause)
+        # not for a 429: that is no chunk let go, the callers raise it (GH-4053)
+        if not datos_file.is_rate_limited:
+            note_skipped_download(datos_file.skip_cause)
         _drop_cached_body(file, settings, ttl, client_kwargs)
         return _as_outage(datos_file.content, datos_file.url, datos_file.status)
     payload = datos_file.content.read()
@@ -726,7 +730,8 @@ class AemetObservationRequest(TimeseriesRequest):
             log.warning(f"Failed to fetch AEMET stations: {_without_url_secrets_in(str(payload))}")
             return pl.LazyFrame()
 
-        df = pl.DataFrame(json.loads(payload.decode("latin-1"))).select(
+        inventory = pl.DataFrame(json.loads(payload.decode("latin-1")))
+        df = inventory.select(
             pl.col("indicativo").alias("station_id"),
             # the inventory pads some names with blanks (`PORTOCOLOM  `), which a comparison of the name misses
             pl.col("nombre").str.strip_chars().alias("name"),
@@ -734,6 +739,11 @@ class AemetObservationRequest(TimeseriesRequest):
             pl.col("altitud").alias("elevation"),
             parse_dms_coordinate("latitud").alias("latitude"),
             parse_dms_coordinate("longitud").alias("longitude"),
+            # the synoptic indicative is the WMO number (five digits, `08222`, OSCAR has Madrid Retiro as
+            # `0-20000-0-08222`), blank for a station that is no synoptic one (GH-4070). Not read from the live list
+            # (it needs a key): if AEMET wrote it as a number without its zero (`8222`), the core would null it, as it
+            # does not pad a text, and `wmo_id` would be empty for the stations that have it
+            (pl.col("indsinop") if "indsinop" in inventory.columns else pl.lit(None, pl.String)).alias("wmo_id"),
         )
         # one catalogue for every dataset: the core copies it over the request's datasets
         return df.lazy()

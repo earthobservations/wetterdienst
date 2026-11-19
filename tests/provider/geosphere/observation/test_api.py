@@ -551,6 +551,8 @@ def test_geosphere_observation_stations_carry_the_wmo_number(monkeypatch: pytest
         "name",
         "region",
         "wmo_id",
+        "wigos_id",
+        "icao_id",
     ]
 
 

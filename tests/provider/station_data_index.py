@@ -229,10 +229,20 @@ NOT_HELD: dict[str, str] = {
         "as data (read 2026-10-21)"
     ),
     "dwd/phenology": "one file for each phase holds every station, and the historical ones run to 160 MB",
+    "dwd/pollen": (
+        "the stations are a table kept in the provider (DWD gives the regions no position and no data file), and the "
+        "one file holds the forecast of every region by its numbers, with no data file by station to list; "
+        "`test_the_regions_are_those_of_the_file` holds the table to the file"
+    ),
     "dwd/road": "one BUFR file for each station group and minute holds the stations of the group, named inside it",
     "dwd/swsmos": (
         "the stations are those of one run file (2 MB compressed, 300,000 rows) and differ from run to run: the run "
         "of 2026-10-21 20:00 UTC has no row for 28 of the 1,874 listed and one for O210, which is not listed"
+    ),
+    "dwd/uvi": (
+        "the stations are a table kept in the provider, and the one file holds the forecast of every place by its "
+        "name, with no data file by station to list; `test_the_places_are_the_cities_of_the_file` holds the table to "
+        "the file"
     ),
     "ea/hydrology": _ONE_AT_A_TIME,
     "eaufrance/hubeau": f"building its catalogue takes minutes, and {_ONE_AT_A_TIME}",
@@ -242,8 +252,8 @@ NOT_HELD: dict[str, str] = {
     "imgw/hydrology": "the archives are one for each month or year and hold every station, named inside the zip",
     "imgw/meteorology": "the archives are one for each month or year and hold every station, named inside the zip",
     "knmi/observation": (
-        "needs a credential, and a NetCDF file for each timestamp holds the stations that reported in it: the stations "
-        "are those of the catalogue of KNMI, one CSV file, and no listing says which have data (GH-4008)"
+        "needs a credential, and the stations are those of the list of KNMI's EDR API, which names no data: it has no "
+        "dates, and what says which have data is a request of the values (GH-3928)"
     ),
     "lhmt/observation": "the data is read for one station and day at a time from an API with no listing of data files",
     "meteofrance/observation": "one file for each department and period holds its stations, named inside it",

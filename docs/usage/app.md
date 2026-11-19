@@ -37,7 +37,7 @@ and sets the theme or the language.
 | --- | --- |
 | Home | The five tools, and **Ask the weather**: four suggestions (will it rain tomorrow, was last summer hotter than usual, how windy was a day, where hourly temperatures can be downloaded) that are answered on the page from live data, with the numbers and a chart behind the verdict and a link into the tool that holds the data. The place they are about is a DWD station that can be changed. Nothing is fetched until a question is picked, apart from the look-up of a place that the link names. |
 | Explorer | Pick a provider and network, a resolution, dataset and parameters, then stations on the map. Three modes: **Station** reads the measurements of the stations, **Interpolation** estimates the values of a point (see [Interpolation & Summary](interpolation.md)), **Summary** takes the nearest station with data at each timestamp. A data viewer shows the table and a chart and downloads the result as CSV, JSON or GeoJSON. |
-| Forecast | The MOSMIX forecast of a DWD station as a meteogram: temperature and dew point, wind with barbs, precipitation by phase, cloud cover and pressure. `/widget?station=<id>` is the same chart without the page around it, for embedding (`&theme=dark` or `&theme=light` sets the colours). |
+| Forecast | The MOSMIX forecast of a DWD station as a meteogram: temperature and dew point, wind with barbs, precipitation by phase, cloud cover and pressure, with Yr's weather symbols over the hours. Each panel has a fixed height and each hour a fixed width, so on a phone the chart scrolls sideways with its axes in view; a dragged box, a pinch or the buttons zoom all panels at once, and the arrow keys step through the hours (`+`, `-` and `0` zoom and reset). `/widget?station=<id>` is the same chart without the page around it, for embedding (`&theme=dark` or `&theme=light` sets the colours). |
 | Climate stripes | The warming stripes of a DWD station for temperature or precipitation, see [Climate Stripes](stripes.md). |
 | History | The station history of DWD observation, see [Station history](station_history.md). |
 | Map | DWD's stations on a map, with a panel beside it (a sheet under it on a phone). Chips over the map choose the layer: the **forecast stations** (MOSMIX) or the **DWD measurements**, whose resolution and dataset are chosen beside the chips. Pick a station, or click any point: the panel shows the forecast of the nearest forecast station as day rows and the climate stripes of the nearest station that has them, and links to the measurements in the Explorer and to the station history, each at the nearest station of the layer's resolution and dataset, already chosen. **Which station is offered:** the nearest within 100 km of the place; one that still reports before one that has stopped, and the nearest closed one only where none that reports is within reach, with the years it measured. A station reports where the REST API's `end_timestamp` of it, the day of its last value, is within 90 days of the newest end of the list it is in (that list is the clock of its dataset: the daily climate summary is a day or two behind today, the solar radiation 38 days, the snow water equivalent 215 days, the annual datasets about 300), and the list itself is running, its newest end no more than 450 days ago (a list that ended long ago has every station closed). A station with no end has an unknown status: it is not taken for one that reports, and no "since" is told for it. The clock is one station's end: a single end far ahead of the others, but not later than today, takes the stations that are behind it out of the tolerance, which the lists do not show today. A click is on a station's dot, and is that station whatever its status, within the dot as it is drawn and 2 px more, and a click on the yellow disc of the station picked (10.5 px, and 2 px more) keeps it; a tap of a finger (a coarse pointer) reaches 12 px, and in that ring a station that reports comes before the nearest dot. Closed stations stay on the map. Where no station is within 100 km, the panel says so. Changing the layer or the dataset keeps the place, not the number of the station (a forecast point and a measuring station can share a number): the station for the place is picked again in the new list. The panel finds a station by name or number and lists the ones near the centre of the map; by keyboard the arrow keys move the map and **Pick the centre of the map** picks the station within half a kilometre of the centre, else the station for the place at it (the same as a click of a mouse that is not on a dot). The address holds what is shown (`?layer=`, `resolution`, `dataset`, `station`, `lat`, `lon`), so a link opens the same map. Search finds stations, not towns. The tiles are OpenStreetMap's, as on the station pickers. |
@@ -116,13 +116,22 @@ setting for it):
 <iframe
   src="https://wetterdienst.eobs.org/widget?station=<station-id>&theme=light"
   title="Weather forecast"
-  width="100%" height="700"
+  width="100%" height="1000"
   style="border: 0"
   loading="lazy"
   referrerpolicy="strict-origin-when-cross-origin"></iframe>
 ```
 
-- The chart is 540 px high and the frame holds a header and a footer around it: 700 px leaves no scroll bar.
+- The height of the frame depends on what the forecast shows. In a frame wider than 40 rem (640 px at the usual text
+  size) the widget draws the chart, whose height is that of the panels it shows: 674 px for the wind, the
+  precipitation, the cloud cover, the temperature and the pressure with the weather symbols above them, and 744 px
+  where a thunderstorm has a probability of 10 % or more in the forecast, which adds a panel of 70 px (its plot and
+  the gap above it). With the frame's header, the credits and the legend under the chart, and its footer, the frame
+  needs about 850 px without that panel and about 950 px with it, a little more where the browser shows scroll bars
+  or the legend wraps in a narrow frame: `height="1000"` holds both. In a frame of 40 rem or less the widget shows
+  the day cards, which are about 350 px high. The widget picks the chart or the cards once, when it loads, and keeps
+  them when the frame is resized later, so a frame whose width can change (a phone turned) needs the chart's height.
+  A larger text size in the visitor's browser makes the text under the chart taller.
 - `theme=dark` or `theme=light` sets the colours; leave it out to follow the visitor's setting. The browser keeps the
   colours it was last given in the frame's own storage, so a visitor who has seen `theme=dark` keeps it until a
   `theme` says otherwise, even if you drop the parameter later.
@@ -202,16 +211,31 @@ backend can fail on a request the backend has since changed.
 
 The pages are drawn by script, so the server writes what a crawler or a link preview that runs none needs into the
 HTML it sends: the title, the description, the canonical link and the `og:` and `twitter:` tags of the path, and a
-`<noscript>` text with links to the pages. The script then sets the same tags in the language of the visitor; the
-server writes German, or English for a visitor who chose it or whose browser asks for it first. `/sitemap.xml` lists
+`<noscript>` text with links to the pages, and `<html lang>`. The server writes them in the language the page will
+show: it picks it as the app does at startup, the language of the `wd_lang` cookie if the visitor chose one, else
+the first language of the `Accept-Language` header that the app has, else German. A request with no
+`Accept-Language` at all, as a crawler sends (a browser always sends one), gets English, the language of the page a
+crawler renders. One URL has one language for the HTML and for the page. `/sitemap.xml` lists
 the pages worth finding (the explorer, the forecast, the climate stripes, the API, the providers, the glossary, the
-project and legal pages) and `/robots.txt` names it. `/widget` and `/settings` ask not to be indexed, and a path
+project and legal pages, and the page of each provider) and `/robots.txt` names it. The page of a provider
+(`/providers/dwd`) has its own title and description; the server reads the list of providers from the backend's
+`/api/providers` and keeps it for an hour. While the backend cannot be reached it goes on with the list it read last;
+only a server that has read none since it started writes the generic head and lists the fixed pages only.
+`/widget` and `/settings` ask not to be indexed, and a path
 that ends in `.xml` or `.txt` and is none of the app's files is a 404.
 
 Both files, and the canonical links, use the address that `NUXT_PUBLIC_SITE_URL` gives, which is
 `https://wetterdienst.eobs.org` unless you set it. Set it to the address your instance is reached at
 (`https://weather.example.org`, no path) if it is open to search engines; the variable is read when the server
 starts, no rebuild.
+
+To verify the site in Google Search Console with the HTML-file method, set `NUXT_GOOGLE_SITE_VERIFICATION` to the
+name Google gives for the file (`google54ae9a07758f51bd`; a trailing `.html` is accepted). The server then answers
+`/google54ae9a07758f51bd.html` with the one line Google looks for, and nothing else; any other path, and every
+path while the variable is empty (the default), is answered as before. A value that is not `google` and lower-case
+hex is ignored, and the server logs a warning when it starts. The variable is read when the server starts, no
+rebuild. It is a setting and not a file of the build so that an instance does not serve the token of another's
+Google account.
 
 ## Rate limit
 

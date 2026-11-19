@@ -299,3 +299,36 @@ def test_a_message_without_an_info_has_empty_translations() -> None:
     alert = parse_cap_alert(b"<alert xmlns='urn:oasis:names:tc:emergency:cap:1.2'><identifier>x</identifier></alert>")
     assert alert is not None
     assert alert["translations"] == []
+
+
+# the rule that attaches a hole to a polygon of an area with several: the one that has most of its vertices
+_SQUARE = [[0.0, 0.0], [10.0, 0.0], [10.0, 10.0], [0.0, 10.0], [0.0, 0.0]]
+_NEIGHBOUR = [[10.5, 4.0], [12.0, 4.0], [12.0, 6.0], [10.5, 6.0], [10.5, 4.0]]
+
+
+def test_a_hole_goes_to_the_polygon_that_has_most_of_its_vertices() -> None:
+    """Not the one with its first vertex: a hole with three vertices in the square and one in the neighbour is its."""
+    from wetterdienst.provider.dwd.alerts.parser import _attach_holes  # noqa: PLC0415
+
+    # the first vertex lies in the neighbour, the other three in the square
+    hole = [[11.0, 5.0], [5.0, 5.0], [6.0, 6.0], [7.0, 5.0], [11.0, 5.0]]
+    assert _attach_holes([_NEIGHBOUR, _SQUARE], [hole]) == [[_NEIGHBOUR], [_SQUARE, hole]]
+
+
+def test_a_hole_whose_first_vertex_is_in_no_polygon_is_still_attached() -> None:
+    """The first vertex of a hole may be outside by a rounding or on an edge (east of Rügen): the rest decide."""
+    from wetterdienst.provider.dwd.alerts.parser import _attach_holes  # noqa: PLC0415
+
+    hole = [[10.0000001, 5.0], [5.0, 5.0], [6.0, 6.0], [10.0000001, 5.0]]
+    assert _attach_holes([_NEIGHBOUR, _SQUARE], [hole]) == [[_NEIGHBOUR], [_SQUARE, hole]]
+
+
+def test_a_hole_in_no_polygon_is_left_out_and_a_tie_goes_to_the_first() -> None:
+    """A hole that touches none is dropped; one that two polygons have equally is the first's, whatever the order."""
+    from wetterdienst.provider.dwd.alerts.parser import _attach_holes  # noqa: PLC0415
+
+    far = [[50.0, 50.0], [51.0, 50.0], [51.0, 51.0], [50.0, 50.0]]
+    assert _attach_holes([_SQUARE, _NEIGHBOUR], [far]) == [[_SQUARE], [_NEIGHBOUR]]
+    twin = [list(point) for point in _SQUARE]
+    twin_hole = [[2.0, 2.0], [3.0, 2.0], [3.0, 3.0], [2.0, 2.0]]
+    assert _attach_holes([_SQUARE, twin], [twin_hole]) == [[_SQUARE, twin_hole], [twin]]

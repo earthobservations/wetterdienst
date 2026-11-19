@@ -3,7 +3,7 @@ import type { Handlers } from './accessibility/mock-backend'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
-import { defaultHandlers, mockBackend } from './accessibility/mock-backend'
+import { ApiFailure, defaultHandlers, mockBackend } from './accessibility/mock-backend'
 
 // Text that does not fit in the languages whose words run long (GH-2610): German, Dutch, Polish,
 // Luxembourgish, Czech, Low German, Italian and French (the last two scrolled sideways on the stripes and history
@@ -305,7 +305,8 @@ LONG_LANGUAGES.forEach((language) => {
       await page.goto(path)
       await expect(page.locator('.leaflet-container')).toBeVisible({ timeout: 30_000 })
       await expect(page.locator('[data-testid="map-center"]')).toBeVisible()
-      await expect(page.locator('[data-station-chip]').first()).toBeVisible()
+      // what names the picked station: the explorer's chip, and for one station (the forecast, the stripes) the line on the map
+      await expect(page.locator('[data-station-chip], [data-testid="station-picker-selected"]').first()).toBeVisible()
       await settle(page)
       // The picker itself, not the page around it (the explorer's date range and result table have their own 320 px,
       // GH-3845): nothing of it overflows its box or reaches past the window. The map's tiles reach past its box by design.
@@ -334,7 +335,7 @@ LONG_LANGUAGES.forEach((language) => {
 // labels and the table's headers are the longest texts on the page. The backend is the accessibility
 // spec's, answered in the browser.
 const METEOGRAM_VIEWS = [
-  { view: 'chart', ready: '.js-plotly-plot .main-svg' },
+  { view: 'chart', ready: '.mg-canvas[data-drawn="true"]' },
   { view: 'compact', ready: '[role="radio"][aria-checked="true"]' },
   { view: 'table', ready: 'table' },
 ] as const
@@ -453,5 +454,84 @@ for (const language of ['en', ...LONG_LANGUAGES]) {
       return rect.left >= -1 && rect.right <= document.documentElement.clientWidth + 1
     })
     expect(inside, `the details on the card in ${language}`).toBe(true)
+  })
+}
+
+// The banners of the list of providers (GH-4037, GH-4042). The page is configured for a provider (/history is DWD's), and the
+// list is either not readable at all (an unreachable backend: "could not be reached", with a Retry button) or readable
+// and without that provider (the provider is "not available from this backend"). The banner was `w-full` with a margin of
+// 24 px on both sides, so it ran 24 px past the card's content at every width, 8 px past the window at 320 px. It stands
+// where the fields stand: the same left and right edge as the first select, inside the window, at a phone's, a tablet's and
+// a desktop's width, and its Retry button inside its own edges.
+function readCatalog(language: string) {
+  return JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${language}.json`, import.meta.url)), 'utf-8'))
+}
+
+function bannerText(language: string, key: 'providerRestrictionUnavailable' | 'backendUnreachable'): string {
+  return readCatalog(language).parameterSelection[key].replace('{provider}', 'dwd')
+}
+
+async function expectBannerWithinFields(page: Page, title: ReturnType<Page['getByText']>, language: string, what: string, retry: boolean) {
+  const retryLabel: string = readCatalog(language).common.retry
+  for (const width of [320, 640, 1280]) {
+    await page.setViewportSize({ width, height: 844 })
+    await settle(page)
+    const edges = await title.evaluate((el, label) => {
+      const root = el.closest('[data-slot="root"]')!
+      const alert = root.getBoundingClientRect()
+      const field = document.querySelector('button[role="combobox"]')!.getBoundingClientRect()
+      const buttonElement = [...root.querySelectorAll('button')].find(b => b.textContent?.includes(label))
+      const button = buttonElement?.getBoundingClientRect()
+      // `offendersOf` skips an element that truncates on purpose, so that the label wraps is said here: its text is not
+      // cut off by an ellipsis, and its own text is all inside its box
+      const labelElement = buttonElement ? [...buttonElement.querySelectorAll('span')].find(span => span.textContent?.trim() === label) : undefined
+      const labelStyle = labelElement ? getComputedStyle(labelElement) : null
+      return {
+        alertLeft: alert.left,
+        alertRight: alert.right,
+        fieldLeft: field.left,
+        fieldRight: field.right,
+        window: document.documentElement.clientWidth,
+        retryInside: button ? button.width > 0 && button.left >= alert.left - 1 && button.right <= alert.right + 1 : null,
+        labelWraps: labelElement && labelStyle ? { whiteSpace: labelStyle.whiteSpace, textOverflow: labelStyle.textOverflow, clipped: labelElement.scrollWidth > labelElement.clientWidth } : null,
+      }
+    }, retryLabel)
+    const where = `the ${what} banner of /history in ${language} at ${width}px`
+    expect(Math.abs(edges.alertLeft - edges.fieldLeft), `${where}: left edge against the fields'`).toBeLessThanOrEqual(1)
+    expect(Math.abs(edges.alertRight - edges.fieldRight), `${where}: right edge against the fields'`).toBeLessThanOrEqual(1)
+    expect(edges.alertRight, `${where}: inside the window`).toBeLessThanOrEqual(edges.window)
+    expect(edges.retryInside, `${where}: the Retry button ${retry ? 'stands inside the banner' : 'is not there'}`).toBe(retry ? true : null)
+    expect(edges.labelWraps, `${where}: the label of the Retry button wraps, it is not truncated`).toEqual(retry
+      ? { whiteSpace: expect.stringMatching(/^(normal|pre-wrap|break-spaces)$/), textOverflow: 'clip', clipped: false }
+      : null)
+    if (width === 320)
+      expect(await offendersOf(page), where).toEqual([])
+  }
+}
+
+for (const language of ['en', ...LONG_LANGUAGES]) {
+  test(`/history with the backend's providers unreadable says it could not be reached, with a Retry, within the fields' edges in ${language}`, async ({ page, context, baseURL }) => {
+    const unreachable = () => new ApiFailure(503, 'Service Unavailable')
+    await mockBackend(page, baseURL!, { providers: unreachable, coverage: unreachable })
+    await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+    await page.setViewportSize({ width: 320, height: 844 })
+    await page.goto('/history')
+    const title = page.getByText(bannerText(language, 'backendUnreachable'), { exact: true })
+    await expect(title).toBeVisible({ timeout: 60_000 })
+    // the other text blames a provider that may well exist
+    await expect(page.getByText(bannerText(language, 'providerRestrictionUnavailable'), { exact: true })).toHaveCount(0)
+    await expectBannerWithinFields(page, title, language, 'unreachable', true)
+  })
+
+  test(`/history with a list of providers without DWD shows the banner of its provider within the fields' edges in ${language}`, async ({ page, context, baseURL }) => {
+    const list = await defaultHandlers().providers!(new URL(baseURL!), undefined as never) as { providers: Array<{ provider: string }> }
+    await mockBackend(page, baseURL!, { providers: () => ({ ...list, providers: list.providers.filter(p => p.provider !== 'dwd') }) })
+    await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+    await page.setViewportSize({ width: 320, height: 844 })
+    await page.goto('/history')
+    const title = page.getByText(bannerText(language, 'providerRestrictionUnavailable'), { exact: true })
+    await expect(title).toBeVisible({ timeout: 60_000 })
+    await expect(page.getByText(bannerText(language, 'backendUnreachable'), { exact: true })).toHaveCount(0)
+    await expectBannerWithinFields(page, title, language, 'unavailable provider', false)
   })
 }

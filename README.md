@@ -10,7 +10,7 @@
 <p align="center">
   <a href="https://github.com/earthobservations/wetterdienst/actions?workflow=Tests"><img src="https://github.com/earthobservations/wetterdienst/actions/workflows/tests.yml/badge.svg?branch=main" alt="CI status"/></a>
   <a href="https://wetterdienst.readthedocs.io/en/latest/?badge=latest"><img src="https://readthedocs.org/projects/wetterdienst/badge/?version=latest" alt="Documentation status"/></a>
-  <a href="https://app.codecov.io/gh/earthobservations/wetterdienst"><img src="https://codecov.io/gh/earthobservations/wetterdienst/branch/main/graph/badge.svg" alt="Code coverage"/></a>
+  <a href="https://app.codecov.io/gh/earthobservations/wetterdienst"><img src="https://codecov.io/gh/earthobservations/wetterdienst/branch/main/graph/badge.svg?flag=offline" alt="Code coverage"/></a>
   <br/>
   <a href="https://pypi.org/project/wetterdienst/"><img src="https://img.shields.io/pypi/v/wetterdienst.svg" alt="PyPI version"/></a>
   <a href="https://anaconda.org/conda-forge/wetterdienst"><img src="https://img.shields.io/conda/vn/conda-forge/wetterdienst.svg" alt="Conda version"/></a>
@@ -49,6 +49,7 @@ you need is what tells us what to build next. Hand in an issue or a PR.
   by name, id, distance from a point, bounding box or rank
 - Unit conversion, and interpolation and summarization for a point between stations
 - DWD weather alerts (CAP warnings) with GeoJSON geometry, by community or district
+- DWD thunderstorm cells (KONRAD3D) of the radar data, near a place, with outline and forecast track
 - SQL queries over results, and export to CSV, JSON, Excel, Parquet and Zarr files and to SQLite,
   PostgreSQL, CrateDB, InfluxDB and DuckDB
 - A command line client, a REST API with a public Docker image, and an MCP (Model Context Protocol)
@@ -66,7 +67,7 @@ conda install -c conda-forge wetterdienst  # from conda-forge, without extras
 ```
 
 Extras: `bufr`, `cratedb`, `duckdb`, `eccodes`, `excel`, `export`, `influxdb`, `interpolation`,
-`knmi`, `mcp`, `mysql`, `pdf`, `plotting`, `postgresql`, `radar`, `radarplus`, `restapi`, `sql`.
+`mcp`, `mysql`, `pdf`, `plotting`, `postgresql`, `radar`, `radarplus`, `restapi`, `sql`.
 Check the installation with `wetterdienst --help`. On conda-forge the extras are packages of their own,
 such as `wetterdienst-with-interpolation`.
 
@@ -186,7 +187,7 @@ wetterdienst values --provider=dwd --network=observation \
   --format=csv --target=file://zinnwald.csv
 ```
 
-`wetterdienst stations` takes the same selections (`--stations`, `--name`, `--latitude` and `--longitude`
+`wetterdienst stations` takes the same selections (`--stations`, `--wmo-id`, `--wigos-id`, `--icao-id`, `--name`, `--latitude` and `--longitude`
 with `--rank` or `--distance`, `--left` `--bottom` `--right` `--top`, `--sql`) and `--format`. The
 settings are `WD_*` variables here, the options `WD_TS_*` ones as in Python. `wetterdienst values --help`
 lists every option with its default.
@@ -325,7 +326,8 @@ Documentation: [wetterdienst.readthedocs.io](https://wetterdienst.readthedocs.io
 - **App**: [wetterdienst.eobs.org](https://wetterdienst.eobs.org/), and
   [how to run your own](https://wetterdienst.readthedocs.io/en/latest/usage/app.html).
 - **The data**: [providers, parameters and licences](https://wetterdienst.readthedocs.io/en/latest/data/index.html),
-  [DWD weather alerts](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/alerts/index.html).
+  [DWD weather alerts](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/alerts/index.html),
+  [DWD storm cells](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/storm_cells/index.html).
 - **Upgrade**: [compatibility](https://wetterdienst.readthedocs.io/en/latest/usage/compatibility.html), what
   is stable and how a break is announced, and the
   [migration note from 0.139.0](https://wetterdienst.readthedocs.io/en/latest/usage/migrating.html).

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import http.server
 import threading
+import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
@@ -37,6 +38,12 @@ class NginxLike:
         self.pages: dict[str, tuple[str, bytes]] = {}
         #: paths answered with a status of their own and no body, before anything else (a 404 or a 503 on a path)
         self.statuses: dict[str, int] = {}
+        #: the headers a status of `statuses` is answered with: `Retry-After` of a 429 (GH-4053)
+        self.status_headers: dict[str, list[tuple[str, str]]] = {}
+        #: seconds a path is held before it is answered, for a test that wants a request to be under way
+        self.delays: dict[str, float] = {}
+        #: files whose body is given (served whole, with a 200); the others of `files` are one byte
+        self.contents: dict[str, bytes] = {}
         #: the same for the successive requests of a path, one status for each (None: answered as it would be), until
         #: the list is used up: `[None, 503]` fails the second GET only, which is the one fsspec's `_isfile` makes
         self.flaky: dict[str, list[int | None]] = {}
@@ -66,7 +73,9 @@ class NginxLike:
         if self.flaky.get(path) and (status := self.flaky[path].pop(0)) is not None:
             return status, [], b""
         if path in self.statuses:
-            return self.statuses[path], [], b""
+            return self.statuses[path], self.status_headers.get(path, []), b""
+        if path in self.contents:
+            return 200, [("Content-Type", "application/octet-stream")], self.contents[path]
         if path in self.pages:
             content_type, body = self.pages[path]
             return 200, [("Content-Type", content_type)], body
@@ -93,6 +102,8 @@ def serving(*, redirect: bool = True) -> Iterator[NginxLike]:
         def _answer(self, *, body: bool) -> None:
             path = self.path.split("?")[0]
             state.requests.append((self.command, self.path))
+            if path in state.delays:
+                time.sleep(state.delays[path])
             status, headers, content = state.answer(path)
             self.send_response(status)
             for name, value in headers:

@@ -34,8 +34,8 @@ coverage
 
 Each network says what it is: `name_short`, `country`, `url`, `kind` and `scope` (how far it reaches: `global`,
 `national` or `regional`), `auth`, `configured` and `date_required`, where `observation`, `forecast` and
-`derived` are the timeseries networks, which have stations and values, and `radar` and `alerts`
-(`dwd/radar`, `dwd/alerts`) are standalone, with request classes and results of their own. Nothing is
+`derived` are the timeseries networks, which have stations and values, and `radar`, `alerts` and `storm_cells`
+(`dwd/radar`, `dwd/alerts`, `dwd/storm_cells`) are standalone, with request classes and results of their own. Nothing is
 downloaded, so whether a provider accepts the credentials you have is not part of it:
 `Wetterdienst.is_valid(Wetterdienst.resolve("aemet", "observation"))` asks for one network. `discover()` is the
 Python counterpart of the REST route [`/api/providers`](restapi.md#providers), which lists the same networks
@@ -56,8 +56,8 @@ from wetterdienst import Wetterdienst
 Wetterdienst.resolve(provider="dwd", network="observation")
 ```
 
-`resolve` is for the networks that have stations and values. The two that have not, `dwd/radar` and
-`dwd/alerts` (`Wetterdienst.standalone`), take other arguments and give other results, so they have an entry
+`resolve` is for the networks that have stations and values. The three that have not, `dwd/radar`,
+`dwd/alerts` and `dwd/storm_cells` (`Wetterdienst.standalone`), take other arguments and give other results, so they have an entry
 point of their own, `Wetterdienst.resolve_standalone`, and `resolve` refuses them with an
 `ApiNotFoundError` that says so. Both are typed: `resolve` gives a `type[TimeseriesRequest]`, and
 `resolve_standalone("dwd", "radar")` the `DwdRadarValues` class. The classes can also be imported, which is
@@ -323,6 +323,35 @@ line and the REST API do the same for a list of `--stations` ids.
 The stations come back in the order of the catalogue, not in the order the ids are given
 (`("00003", "00001")` is `00001`, then `00003`): sort the frame for another order.
 
+#### filter by WMO number, WIGOS identifier or ICAO code
+
+A station may have identifiers besides its `station_id`, in the columns `wmo_id`, `wigos_id` and `icao_id` of the
+stations frame (see [the station columns](#the-ids-of-a-station)). `filter_by_wmo_id`,
+`filter_by_wigos_id` and `filter_by_icao_id` select the stations that have one of the ids given, which is more than
+one station where an id is on several (NOAA lists a station that was registered anew under two ids; DWD lists
+five of its MOSMIX ICAO codes twice). Each station comes back with a row for every requested dataset, in the order
+of the catalogue, and an id that no station has is left out with an `unknown-station` warning, so that the result may
+be empty. Like `filter_by_station_id` they select among the whole list, whatever the window of the request.
+
+```python
+from wetterdienst.provider.dwd.mosmix import DwdMosmixRequest
+
+request = DwdMosmixRequest(parameters=("hourly", "large"))
+request.filter_by_wmo_id(10381)  # Berlin-Dahlem; "10381" and ("10381", "10147") do too
+request.filter_by_icao_id("eddh")  # the case does not matter
+request.filter_by_wigos_id("0-20000-0-10381")  # an issuer written "056" finds the "56"
+```
+
+What is given is read in the notation of the column before it is compared: one to five digits of a WMO number get
+their leading zeros (`1001` finds `01001`), an ICAO code is upper-cased, and the numbers of a WIGOS identifier
+lose theirs. An id that cannot be one of the column (`"abc"`, six digits, `"ED"`) raises a `ValueError` that names
+the notation, rather than answering as if no station had it. A provider whose station list carries no such ids has
+the column null, so a search finds nothing there.
+
+The command line (`--wmo-id`, `--wigos-id`, `--icao-id`), the REST API and MCP (`wmo_id`, `wigos_id`, `icao_id`)
+take them for `stations` and `values`, comma-separated, as one of the ways to select stations: not with `stations`,
+`name` or another of the selections.
+
 #### filter by name
 
 Station name filtering uses fuzzy matching (case-insensitive, via rapidfuzz's `WRatio`
@@ -359,7 +388,13 @@ match.  Lower values accept more typos; higher values require a closer match.  T
 `rank` parameter limits how many stations are returned (default 1, the best match). The `stations` listing
 of the command line and the REST API offers the best five instead: pass `rank=5` for the same list.
 A station is one match however many datasets (rows) it has, and two stations that share a name are two.
-The rows come back best match first, equal scores in the order of their `station_id`.
+The rows come back best match first. A name that holds the whole query as a run of whole words
+(`Tiefland Sachsen-Anhalt` in `Sachsen-Anhalt: Tiefland Sachsen-Anhalt`) matches at any threshold below 1 and comes before every
+name that does not, whatever its score: `Bayern` finds all four parts of Bayern, and `Sachsen` the parts of
+Sachsen and of Sachsen-Anhalt before those of Niedersachsen, which holds `niedersachsen` as one word. Among
+those, and among the other names, equal scores the closer whole name first (`Saarland` finds
+`Rheinland-Pfalz und Saarland: Saarland` before a longer name that holds it), a tie on both in the order of
+their `station_id`.
 
 `filter_by_name` matches the name among the stations that have a record in the `start` and `end` of the
 request, as the command line, the REST API and MCP do with a `timestamp`: a station that closed before
@@ -396,8 +431,9 @@ stations = request.filter_by_name(name="Dresden-Klotzsche")
 Because `WRatio` is a partial matcher, a query that is a common sub-token matches many
 stations (e.g. `name="Bad"` matches every "…, Bad" station). For an exact match you have two
 options: set `threshold=1.0`, which keeps only matches scoring 100 (so `name="Kiel"` returns
-nothing while `name="Aach"` returns just `Aach`); or, for strict string equality, use
-`filter_by_sql`, e.g. `filter_by_sql("name = 'Aach'")`.
+nothing while `name="Cottbus"` returns just `Cottbus`, for `daily/precipitation_more` in January 2020; a name
+that holds the query as a word, such as `Kiel-Holtenau`, is no match at 1.0 though it is one at any lower
+threshold); or, for strict string equality, use `filter_by_sql`, e.g. `filter_by_sql("name = 'Cottbus'")`.
 
 ```{code-cell}
 ---
@@ -514,25 +550,42 @@ df = stations.df
 df
 ```
 
-#### Station columns of a provider
+(the-ids-of-a-station)=
+
+#### The ids of a station
 
 The columns of `STATIONS_SCHEMA` are the same on every provider, but not always filled: `region` is the
 sub-national unit the source names (a state, province, county, canton or département), whatever it is called
-there, and null where the source names none. Behind them, a provider adds the
-columns of its own that its station list has, null for a station the source gives none:
+there, and null where the source names none. The last three are the identifiers a station may have besides its
+`station_id`, each in one notation whichever provider lists it, and null where the provider publishes none:
+
+| Column | Notation | Filled by |
+| --- | --- | --- |
+| `wmo_id` | the WMO station number: five digits with leading zeros, `01001` or `10381`; a value that is not that (a source's junk, an id of another scheme) is null | `dwd/mosmix`, `dwd/dmo` and `dwd/poi` for the stations whose `station_id` is the number (the others carry an id of DWD's own, `A191`), `geosphere/observation`, `knmi/observation`, `meteofrance/synop`, `noaa/ghcn`; from the number the list publishes: `dwd/observation` (the Stationslexikon's number of the products `SY` and `MN`, 314 of its 13,779 stations; the station descriptions have none) and `dwd/derived` for the degree days, the degree hours and the soil (the stations of the other datasets have none), `aemet/observation` (`indsinop`), `dmi/observation` (`wmoStationId`, only in the blocks of Greenland, Denmark and the Faroe Islands), `nws/observation` (column 1 of the MADIS table; its station id is no ICAO code, so `icao_id` is null there), `eccc/observation`, `fmi/observation`, `metno/frost`; from a WIGOS id of the issuer 20000 (`0-20000-0-<number>`): `chmi/observation`, `meteoswiss/observation`, `rmi/observation` |
+| `wigos_id` | the WIGOS station identifier, `<series>-<issuer>-<issue number>-<local id>`, the first three numbers without leading zeros (`0-20000-0-10381`, `0-56-101-01002`), the local id as published | `chmi/observation`, `knmi/observation`, `meteoswiss/observation`, `metno/frost`, `rmi/observation` |
+| `icao_id` | the ICAO location indicator of the aerodrome, four upper-case letters (`EDDH`) | `dwd/mosmix`, `dwd/dmo`, `dwd/poi`, `fmi/observation`, `metno/frost`, `noaa/ghcn` (hourly) |
+
+A provider that does not publish one of them has it null, which is no statement that the station has none:
+the `station_id` of `dwd/observation` is DWD's own number, which is not the WMO number, and only 314 of its
+stations have a `wmo_id` (from the Stationslexikon). Search by them with
+`filter_by_wmo_id`, `filter_by_wigos_id` and `filter_by_icao_id` (see above).
+
+#### Station columns of a provider
+
+Behind the columns of the schema, a provider adds the columns of its own that its station list has, null for a
+station the source gives none:
 
 | Provider and network | Column | What it holds |
 | --- | --- | --- |
+| `chmi/observation` | `gh_id` | CHMI's own code of the station, `L3CHEB01` (the `station_id` is its WIGOS identifier) |
 | `dmi/observation` | `country` | DMI's three-letter code of the country the station is in: `DNK`, `GRL` or `FRO` |
-| `dwd/mosmix`, `dwd/dmo`, `dwd/poi` | `icao_id` | the ICAO location indicator of the station, where it has one |
 | `dwd/road` | `station_group`, `road_name`, `road_sector`, `road_type`, `road_surface_type`, `road_surroundings_type` | the road a station is on and its surroundings, as DWD's list gives them |
-| `eaufrance/hubeau` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero and the reference system it is given in |
-| `geosphere/observation` | `wmo_id` | the WMO station number, five digits |
+| `ea/hydrology` | `nrfa_id`, `rloi_id` | the station's number in the National River Flow Archive (`52017`) and its id in River Levels on the Internet (`3060`; the all-digit, then the lowest, where the listing gives two) |
+| `eaufrance/hubeau` | `gauge_zero`, `gauge_zero_datum`, `site_id` | the altitude of the gauge's zero and the reference system it is given in, and the eight-character code of the hydrometric site the station is one of (`10110001` for `1011000101`) |
+| `eccc/observation` | `climate_id`, `tc_id` | the seven-character Climate ID the station has in ECCC's Climate Data Online, and Transport Canada's three-letter identifier of an airport (`YVR`), which is no ICAO code |
 | `imgw/hydrology` | `river`, `river_kilometer` | the river the gauge is on, with its hydrographic code as IMGW lists it (`Odra (1)`), and its position along it in kilometres, counted from the mouth |
 | `imgw/hydrology` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero in metres above sea level, and the datum, which IMGW's list does not state, so it is null |
-| `imgw/meteorology` | `river` | the river catchment the station is listed under, with its hydrographic code (`Odra (1)`) |
-| `knmi/observation` | `wigos_id` | the WIGOS station identifier (`0-20000-0-06260`), of which `station_id` is the WMO number at the end |
-| `noaa/ghcn` | `wmo_id` | the WMO station number, five digits, null for a station without one |
+| `imgw/meteorology` | `river`, `short_code` | the river catchment the station is listed under, with its hydrographic code (`Odra (1)`), and IMGW's code of the station from `wykaz_stacji.csv` (`375`, `5409`), which is no WMO number |
 | `wsv/pegel` | `river`, `river_kilometer` | the river the gauge is on, as Pegelonline publishes it (`ELBE`), and its position along it in kilometres, the waterway kilometre, which grows downstream |
 | `wsv/pegel` | `gauge_zero`, `gauge_zero_datum` | the altitude of the gauge's zero and the datum it is given in |
 | `wsv/pegel` | `m_i`, `m_ii`, `m_iii`, `mnw`, `mw`, `mhw`, `hhw`, `hsw` | the characteristic water levels of the gauge, in metres, converted from the unit Pegelonline lists them in, as `stage` is by default |
@@ -684,7 +737,7 @@ that held one value for a month) is judged by a **check**, and the option `plaus
 per check: `"hard"` makes the value null and keeps the number as `rejected:<check>,raw:<number>` in `quality_flags`,
 `"soft"` keeps the value and flags it `suspect:<check>`. The checks are `range`, `elevation`, `stuck`, `consistency`,
 `floor`, `limits`, `source`, `step` and `relations`; all are hard but `stuck` and `step`, which are soft because they judge a series and not a value (what `stuck` finds depends on what was read, and `step` is a jump between consecutive readings, which a front also makes; see the
-[plausibility page](../data/plausibility.md)), `relations`, which is soft because it flags both readings of two that contradict each other and cannot tell which is wrong (it is not `consistency`, the hard check of a provider's own rules), and `source`, which is soft because its verdict is the source's own: a value the provider's quality flag marks as erroneous or doubtful (GHCN-Daily `QFLAG`, Frost `qualityCode` 7, an Environment Agency `Suspect`, DMI `validity:false`, ...) is flagged `suspect:source`, or null with `rejected:source` in `"hard"` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged). A check not named keeps its mode, and `WD_TS_PLAUSIBILITY__RANGE=soft` sets one for a host. On a forecast network (`kind` `forecast`: `dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) every check but `floor` and `limits` is soft whatever you set, so `"hard"` there flags a value `suspect:<check>` and never nulls it: a forecast is a model's output and no reading. The codes a source documents
+[plausibility page](../data/plausibility.md)), `relations`, which is soft because it flags both readings of two that contradict each other and cannot tell which is wrong (it is not `consistency`, the hard check of a provider's own rules), and `source`, which is soft because its verdict is the source's own: a value the provider's quality flag marks as erroneous or doubtful (GHCN-Daily `QFLAG`, Frost `qualityCode` 7, an Environment Agency `Suspect`, DMI `validity:false`, ...) is flagged `suspect:source`, or null with `rejected:source` in `"hard"` (the suspect level of a source that has two, GHCNh `Suspect` and source 382 `R`, CHMI `Suspect`, MADIS `Questioned`, GHCNh `f`, stays flagged). A check not named keeps its mode, and `WD_TS_PLAUSIBILITY__RANGE=soft` sets one for a host. On a forecast network (`kind` `forecast`: `dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, `dwd/uvi`) every check but `floor` and `limits` is soft whatever you set, so `"hard"` there flags a value `suspect:<check>` and never nulls it: a forecast is a model's output and no reading. The codes a source documents
 (`-999`, a calm, a trace) are no check and have no mode.
 
 ```python
@@ -973,7 +1026,7 @@ below it say what kind of failure it is:
 | `RequestError` | the request cannot be served as phrased and can be rephrased: an invalid parameter (`InvalidParameterError`), period, date, window or point, or an output format nothing renders (`UnknownFormatError`, also a `KeyError`) | `ValueError` |
 | `NotFoundError` | what the request names does not exist: a provider, network, resolution or dataset (`MetadataNotFoundError`), station or forecast run | `LookupError` |
 | `ConfigurationError` | this installation cannot serve it: a missing credential or optional package | |
-| `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError`, `NoInternetError`, `StationListingIncompleteError` (a station is not found, and the lookup of the stations of `dwd/observation` or `dwd/derived` went without a directory it may be in) | |
+| `UpstreamError` | the provider's side failed or sent what the parser does not expect: `DownloadError` (`ProviderRateLimitError`: the provider answered 429 or the quota of the key is used up, retry later after `retry_after` seconds), `NoInternetError`, `StationListingIncompleteError` (a station is not found, and the lookup of the stations of `dwd/observation` or `dwd/derived` went without a directory it may be in) | |
 | `ExportRefusedError` | a sink will not perform the export, for a reason the caller can act on | |
 | `ImageTimeoutError` | the browser that draws an image did not finish in `wetterdienst.io.export.IMAGE_TIMEOUT` (120) seconds, start included, and was closed with its processes | `TimeoutError` |
 
@@ -993,11 +1046,13 @@ except WetterdienstError as e:
 Each class keeps the built-in classes it was before, so an `except ValueError`, `except OSError`,
 `except FileNotFoundError` or `except IndexError` that caught it still does: `InvalidEnumerationError` is
 a `RequestError` and a `ValueError`, `NoInternetError` an `UpstreamError` and an `OSError`,
-`IssueNotFoundError` a `NotFoundError` and an `IndexError`, `MissingDependencyError` a
+`IssueNotFoundError` a `NotFoundError` and an `IndexError` (`ProductOutOfSeasonError` is one too: a product DWD
+publishes in one season only, MOSMIX-SNOW, has no run listed), `MissingDependencyError` a
 `ConfigurationError` and an `ImportError`, `CredentialRejectedError` (a provider answered 401 or 403 to the
 credential you configured) a `ConfigurationError` and a `PermissionError`. The REST API, the MCP tools
 and the command line decide by the class what to answer: a `RequestError` is a 400 or a usage error
-(exit 2), a `NotFoundError` a 404, a `ConfigurationError` a 501, a `NoInternetError` a 503, any other
+(exit 2), a `NotFoundError` a 404, a `ConfigurationError` a 501, a `NoInternetError` a 503, a
+`ProviderRateLimitError` (a 429 of any provider or the quota of the key used up, a `DownloadError`) a 503, any other
 `UpstreamError` a 502 (a 504 where a timeout was its cause), an `ImageTimeoutError` a 504 (exit 1), and anything else, an unclassified
 `WetterdienstError` included, the server's error, a 500. See [REST API](restapi.md#errors) for the body.
 

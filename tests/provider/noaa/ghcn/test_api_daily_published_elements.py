@@ -3,12 +3,15 @@
 """The daily elements of GH-3622 (ADPT, ASLP, ASTP, AWBT, AWDR, RHAV, RHMN, RHMX), read from rows NOAA wrote.
 
 `daily_published_elements_blue_hill.csv` and `daily_published_elements_mcneil_river.csv` hold rows of the per-station
-files at ncei.noaa.gov/data/global-historical-climatology-network-daily/access/ of USW00014753 (Blue Hill, MA) and
-USS0054K01S (McNeil River, AK), read key-less on 2026-10-30 and cut to the columns of these elements. The values are
-the tenths of the readme (degrees C, hPa), the ones NOAA writes.
+files of the AWS bucket (noaa-ghcn-pds, `csv.gz/by_station/<id>.csv.gz`, no header, one row for each reading) of
+USW00014753 (Blue Hill, MA) and USS0054K01S (McNeil River, AK), read key-less on 2026-11-18 and cut to the rows of
+these elements and days. The values are the tenths of the readme (degrees C, hPa), the ones NOAA writes, and the same
+that NCEI's `access/` files, which are gone (GH-4225), gave on 2026-10-30. The McNeil River file of the bucket ends on
+2025-02-06, so the 360 of 2025-06-30 that the NCEI file held is not in it.
 """
 
 import datetime as dt
+import gzip
 from pathlib import Path
 
 import polars as pl
@@ -20,8 +23,8 @@ from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest, api
 from wetterdienst.provider.noaa.ghcn.metadata import NoaaGhcnMetadata
 
 _HERE = Path(__file__).parent
-_BLUE_HILL = (_HERE / "daily_published_elements_blue_hill.csv").read_bytes()
-_MCNEIL_RIVER = (_HERE / "daily_published_elements_mcneil_river.csv").read_bytes()
+_BLUE_HILL = gzip.compress((_HERE / "daily_published_elements_blue_hill.csv").read_bytes())
+_MCNEIL_RIVER = gzip.compress((_HERE / "daily_published_elements_mcneil_river.csv").read_bytes())
 _STATIONS = (
     "USW00014753  42.2123  -71.1137  190.5 MA BLUE HILL LCD                                 72518\n"
     "USS0054K01S  59.0800 -154.2800   42.7 AK MCNEIL RIVER SGS                                  \n"
@@ -57,7 +60,7 @@ def _daily(
         {
             "ghcnd-stations": _STATIONS.encode("utf8"),
             "ghcnd-inventory": _INVENTORY.encode("utf8"),
-            f"access/{station}": body,
+            f"by_station/{station}": body,
         },
     )
     request = NoaaGhcnRequest(
@@ -113,7 +116,7 @@ def test_the_average_wind_direction_of_0_is_null_beside_a_speed_of_0_and_a_beari
     """McNeil River: a 0 beside an AWND of 0 is a calm and null with `raw:0`; beside 24 (tenths) it stays (GH-3222).
 
     The rows are NOAA's: 2020-11-09 AWDR 0 with AWND 24, 2023-12-19 AWDR 189 with AWND 0 (a direction beside no wind
-    stays: only the 0 is a calm), 2023-12-20 AWDR 0 with AWND 0, 2025-06-30 AWDR 360 with AWND 12.
+    stays: only the 0 is a calm), 2023-12-20 AWDR 0 with AWND 0.
     """
     df = _daily(
         monkeypatch,
@@ -121,7 +124,7 @@ def test_the_average_wind_direction_of_0_is_null_beside_a_speed_of_0_and_a_beari
         _MCNEIL_RIVER,
         ["wind_direction_mean", "wind_speed_mean"],
         "2020-11-09",
-        "2025-06-30",
+        "2025-02-06",
         drop_nulls=False,
     )
     direction = df.filter(pl.col("parameter") == "wind_direction_mean").sort("timestamp")
@@ -129,8 +132,7 @@ def test_the_average_wind_direction_of_0_is_null_beside_a_speed_of_0_and_a_beari
         (dt.date(2020, 11, 9), 0.0, "source:T"),
         (dt.date(2023, 12, 19), 189.0, "source:T"),
         (dt.date(2023, 12, 20), None, "source:T,raw:0"),
-        (dt.date(2025, 6, 30), 360.0, "source:T"),
     ]
     speed = df.filter(pl.col("parameter") == "wind_speed_mean").sort("timestamp")
-    assert speed["value"].to_list() == pytest.approx([2.4, 0.0, 0.0, 1.2])
+    assert speed["value"].to_list() == pytest.approx([2.4, 0.0, 0.0])
     assert speed["quality_flags"].unique().to_list() == ["source:T"]

@@ -1,7 +1,7 @@
 import type { H3Event } from 'h3'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { clearNuxtData, clearNuxtState } from '#app'
 import { useSettings } from '#imports'
 import AskTheWeather from '~/components/AskTheWeather.vue'
@@ -35,8 +35,12 @@ registerEndpoint('/api/providers', (event) => {
 })
 // the station nearest to a position the reader gave (GH-3651): asked with `rank`, answered by the DWD observation list
 const NEAREST = { station_id: '01975', name: 'Hamburg-Fuhlsbüttel', region: 'Hamburg', latitude: 53.63, longitude: 10, elevation: 11, start_timestamp: null, end_timestamp: null }
-registerEndpoint('/api/stations', (event) => {
+/** The nearest-station answer is held back until the test lets it go: a lookup that is on its way */
+let holdNearest: Promise<void> | null = null
+registerEndpoint('/api/stations', async (event) => {
   const query = record(event, 'stations')
+  if (holdNearest && query.get('rank'))
+    await holdNearest
   if (query.get('rank') && query.get('network') === 'observation')
     return { stations: [NEAREST] }
   return { stations: query.get('network') === 'mosmix' ? [KIEL_MOSMIX] : [] }
@@ -330,7 +334,7 @@ describe('the place from the reader\'s position', () => {
     return getCurrentPosition
   }
   // the position's own state only: the place is the file's, which each test sets
-  const clearLocation = () => clearNuxtState(['wd-location-position', 'wd-location-failure', 'wd-location-busy', 'wd-location-remember', 'wd-location-loaded'])
+  const clearLocation = () => clearNuxtState(['wd-location-position', 'wd-location-failure', 'wd-location-busy', 'wd-location-remember', 'wd-location-not-kept', 'wd-location-not-kept-count', 'wd-location-withdrawn', 'wd-location-checking', 'wd-location-loaded'])
   beforeEach(() => {
     clearLocation()
   })
@@ -389,10 +393,16 @@ describe('the place from the reader\'s position', () => {
   it('takes the place of the link out of the address, and keeps the position out of it', async () => {
     mockBrowser()
     const wrapper = await mountAsk('/?place=02564&ask=rain')
+    expect(useRoute().fullPath, 'the link names a place').toContain('place=02564')
     await locate(wrapper).trigger('click')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Hamburg-Fuhlsbüttel'))
+    // the place is set, and the address follows: the component takes the place out with `router.replace`, a navigation
+    // that settles after the page shows the new place, so the address is read once it has (it was read at once, and
+    // failed when the navigation was still on its way)
+    await vi.waitFor(() => expect(useRoute().fullPath).not.toContain('place='))
     const address = useRoute().fullPath
     expect(address).not.toContain('place=')
+    expect(address).toContain('ask=rain')
     expect(address).not.toMatch(/lat|lon|53\.6|10\.05/)
   })
 
@@ -411,6 +421,92 @@ describe('the place from the reader\'s position', () => {
     await vi.waitFor(() => expect(localStorage.getItem('wd-place')).toBeNull())
     expect(localStorage.getItem('wd-location')).toBeNull()
     await vi.waitFor(() => expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Kiel-Holtenau'))
+  })
+
+  it('drops a lookup that is still on its way when the reader forgets the position (GH-4014): the place and the status stay as they are', async () => {
+    mockBrowser()
+    let release!: () => void
+    holdNearest = new Promise((resolve) => {
+      release = resolve
+    })
+    onTestFinished(() => {
+      holdNearest = null
+    })
+    const wrapper = await mountAsk()
+    await locate(wrapper).trigger('click')
+    await vi.waitFor(() => expect(asked('stations')).toHaveLength(1))
+    // the position is in hand, so the box is there: ticked and forgotten while the nearest station is looked up
+    await vi.waitFor(() => expect(wrapper.find('button[role="checkbox"]').exists()).toBe(true))
+    await wrapper.find('button[role="checkbox"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-stored"]').exists()).toBe(true))
+    await wrapper.find('[data-testid="use-my-location-stored"]').trigger('click')
+    await vi.waitFor(() => expect(document.body.querySelector('[data-testid="use-my-location-forget"]')).not.toBeNull())
+    document.body.querySelector<HTMLElement>('[data-testid="use-my-location-forget"]')!.click()
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-stored"]').exists()).toBe(false))
+    expect(locate(wrapper).attributes('aria-busy')).toBe('false')
+
+    release()
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Kiel-Holtenau')
+    expect(wrapper.find('[data-testid="use-my-location-status"]').text()).toBe('')
+    expect(localStorage.getItem('wd-place')).toBeNull()
+    expect(localStorage.getItem('wd-location')).toBeNull()
+  })
+
+  // GH-4014: the station that a stored position made is the place of the home page as it loads, so the permission is looked
+  // at before the questions are asked about it
+  describe('with a stored position and the station it made, at load', () => {
+    const STORED_STATION = { id: '01975', name: 'Hamburg-Fuhlsbüttel', latitude: 53.63, longitude: 10, region: 'Hamburg', fromPosition: true }
+    function storePosition(state: PermissionState, hold?: { answer?: (state: PermissionState) => void }) {
+      localStorage.setItem('wd-location', JSON.stringify({ latitude: 53.6, longitude: 10.05 }))
+      localStorage.setItem('wd-place', JSON.stringify(STORED_STATION))
+      usePlace().place.value = STORED_STATION
+      const getCurrentPosition = mockBrowser()
+      const query = vi.fn(() => new Promise((resolve) => {
+        if (hold)
+          hold.answer = answered => resolve({ state: answered })
+        else
+          resolve({ state })
+      }))
+      Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query } })
+      return { getCurrentPosition, query }
+    }
+    afterEach(() => localStorage.clear())
+    /** What was asked about the stored station: a request that carries its position or its id */
+    const aboutStored = () => requests.filter(request => request.query.get('latitude') === '53.63' || request.query.get('stations') === '01975')
+
+    it('asks nothing about that station while the permission is looked at, and nothing after it where it is `denied`: the place is Kiel, and the reader is told', async () => {
+      const hold: { answer?: (state: PermissionState) => void } = {}
+      storePosition('denied', hold)
+      const wrapper = await mountAsk('/?ask=rain')
+      await vi.waitFor(() => expect(hold.answer).toBeDefined())
+      await Promise.resolve()
+      expect(wrapper.find('[data-testid="answer"]').exists()).toBe(false)
+      expect(requests.filter(request => request.path !== 'providers')).toEqual([])
+
+      hold.answer!('denied')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="use-my-location-withdrawn"]').text()).toBe('Your browser no longer allows location for this site, so the stored position was deleted.'))
+      expect(usePlace().place.value.id).toBe(DEFAULT_PLACE.id)
+      expect(localStorage.getItem('wd-location')).toBeNull()
+      expect(localStorage.getItem('wd-place')).toBeNull()
+      // the question is asked about Kiel instead
+      await vi.waitFor(() => expect(requests.some(request => request.query.get('latitude') === String(DEFAULT_PLACE.latitude))).toBe(true))
+      expect(aboutStored()).toEqual([])
+    })
+
+    it('asks about that station once the permission is found `granted`', async () => {
+      const hold: { answer?: (state: PermissionState) => void } = {}
+      storePosition('granted', hold)
+      const wrapper = await mountAsk('/?ask=rain')
+      await vi.waitFor(() => expect(hold.answer).toBeDefined())
+      await Promise.resolve()
+      expect(aboutStored()).toEqual([])
+
+      hold.answer!('granted')
+      await vi.waitFor(() => expect(aboutStored().length).toBeGreaterThan(0))
+      expect(usePlace().place.value.id).toBe('01975')
+      expect(wrapper.find('[data-testid="use-my-location-withdrawn"]').text()).toBe('')
+    })
   })
 
   it('leaves the place as it was where the reader refuses, and says so in the alert region', async () => {

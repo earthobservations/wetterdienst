@@ -8,26 +8,31 @@ from zoneinfo import ZoneInfo
 import polars as pl
 import pytest
 
-from tests.provider.value_stubs import serve
+from tests.provider.value_stubs import ghcnd_by_station, serve
 from wetterdienst import Options, Settings
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest, api
 
-# Rows of the per-station files at ncei.noaa.gov/data/global-historical-climatology-network-daily/access/ as NOAA writes
-# them (values in tenths of a degree, attributes after each); a column the station never reports is left out.
-_TOKYO = (
-    '"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","PRCP","PRCP_ATTRIBUTES","TMAX","TMAX_ATTRIBUTES"\n'
-    '"JA000047662","1951-01-01","35.683","139.767","36.0","TOKYO, JA","    0",",,I","   70",",,I"\n'
-    '"JA000047662","1951-01-02","35.683","139.767","36.0","TOKYO, JA","    0",",,I","   82",",,I"\n'
-    '"JA000047662","1951-01-03","35.683","139.767","36.0","TOKYO, JA","    0",",,I","   81",",,I"\n'
+# Rows of the per-station files of the AWS bucket (noaa-ghcn-pds, `csv.gz/by_station/<id>.csv.gz`) as NOAA writes them:
+# one row for each reading, the value in tenths of a degree or of a millimetre; a reading that is missing has no row.
+_TOKYO = ghcnd_by_station(
+    [
+        ("JA000047662", "19510101", "PRCP", "0", "", "", "I"),
+        ("JA000047662", "19510101", "TMAX", "70", "", "", "I"),
+        ("JA000047662", "19510102", "PRCP", "0", "", "", "I"),
+        ("JA000047662", "19510102", "TMAX", "82", "", "", "I"),
+        ("JA000047662", "19510103", "PRCP", "0", "", "", "I"),
+        ("JA000047662", "19510103", "TMAX", "81", "", "", "I"),
+    ]
 )
-_NEW_YORK = (
-    '"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","PRCP","PRCP_ATTRIBUTES","TMAX","TMAX_ATTRIBUTES"\n'
-    '"USW00094728","1869-01-01","40.77898","-73.96925","42.7",'
-    '"NY CITY CENTRAL PARK, NY US","  191",",,Z,","  -17",",,Z"\n'
-    '"USW00094728","1869-01-02","40.77898","-73.96925","42.7",'
-    '"NY CITY CENTRAL PARK, NY US","    8",",,Z,null","  -28",",,Z"\n'
-    '"USW00094728","1869-01-03","40.77898","-73.96925","42.7",'
-    '"NY CITY CENTRAL PARK, NY US","    0","T,,Z,null","   17",",,Z"\n'
+_NEW_YORK = ghcnd_by_station(
+    [
+        ("USW00094728", "18690101", "PRCP", "191", "", "", "Z"),
+        ("USW00094728", "18690101", "TMAX", "-17", "", "", "Z"),
+        ("USW00094728", "18690102", "PRCP", "8", "", "", "Z"),
+        ("USW00094728", "18690102", "TMAX", "-28", "", "", "Z"),
+        ("USW00094728", "18690103", "PRCP", "0", "T", "", "Z"),
+        ("USW00094728", "18690103", "TMAX", "17", "", "", "Z"),
+    ]
 )
 _STATIONS = (
     "JA000047662  35.6830  139.7670   36.0    TOKYO                                  47662\n"
@@ -58,8 +63,8 @@ def test_ghcn_daily_is_stamped_at_00_utc_of_its_date(
         {
             "ghcnd-stations": _STATIONS.encode("utf8"),
             "ghcnd-inventory": _INVENTORY.encode("utf8"),
-            "access/JA000047662": _TOKYO.encode("utf8"),
-            "access/USW00094728": _NEW_YORK.encode("utf8"),
+            "by_station/JA000047662": _TOKYO,
+            "by_station/USW00094728": _NEW_YORK,
         },
     )
     settings = Settings(cache_disable=True)
@@ -84,19 +89,24 @@ def test_ghcn_daily_is_stamped_at_00_utc_of_its_date(
     ]
 
 
-# The attributes are "MFLAG,QFLAG,SFLAG" (ghcn/daily/readme.txt), PRCP, SNOW and SNWD with the observation time as a
-# fourth field. QFLAG: "Blank = did not fail any quality assurance check", otherwise the check the value failed,
-# "X = failed bounds check", "G = failed gap check", "I = failed internal consistency check", ... MFLAG: "Blank = no
-# measurement information applicable", "T = trace of precipitation, snowfall, or snow depth", "H = for TMAX/TMIN/TAVG
+# The attributes are the columns M_FLAG, Q_FLAG and S_FLAG (ghcn/daily/readme.txt; the bucket adds OBS_TIME, set on
+# some elements only: PRCP, TMAX, TMIN and TOBS in the NYC file, not SNOW). QFLAG: "Blank = did not fail any quality
+# assurance check", otherwise the check the value failed, "X = failed bounds check", "G = failed gap check", "I =
+# failed internal consistency check", ... MFLAG: "Blank = no measurement information applicable", "T = trace of
+# precipitation, snowfall, or snow depth", "H = for TMAX/TMIN/TAVG
 # represents highest or lowest hourly temperature". SFLAG: "0 = U.S. Cooperative Summary of the Day (NCDC DSI-3200)",
 # "7 = U.S. Cooperative Summary of the Day -- Transmitted via WxCoder3 (NCDC DSI-3207)", "S = Global Summary of the
 # Day". The rows are made up from the combinations USW00094728 shows in the live file (checked 2026-10-12: `,,0`,
 # `T,,0,2400`, `,I,Z`, `,,X`, ...).
-_FLAGGED = (
-    '"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","PRCP","PRCP_ATTRIBUTES","TMAX","TMAX_ATTRIBUTES"\n'
-    '"USW00094728","2000-01-01","40.77898","-73.96925","42.7","NY CITY, NY US","    0",",,0","   61",",,0"\n'
-    '"USW00094728","2000-01-02","40.77898","-73.96925","42.7","NY CITY, NY US","  250","T,X,0","  -28",",G,7"\n'
-    '"USW00094728","2000-01-03","40.77898","-73.96925","42.7","NY CITY, NY US",,,"   17","H,,S"\n'
+_FLAGGED = ghcnd_by_station(
+    [
+        ("USW00094728", "20000101", "PRCP", "0", "", "", "0"),
+        ("USW00094728", "20000101", "TMAX", "61", "", "", "0"),
+        ("USW00094728", "20000102", "PRCP", "250", "T", "X", "0"),
+        ("USW00094728", "20000102", "TMAX", "-28", "", "G", "7"),
+        # no PRCP on the third day: the file has no row for a missing reading, the reader returns it as a null
+        ("USW00094728", "20000103", "TMAX", "17", "H", "", "S"),
+    ]
 )
 
 
@@ -113,7 +123,7 @@ def test_ghcn_daily_returns_the_flags_of_each_value(monkeypatch: pytest.MonkeyPa
         {
             "ghcnd-stations": _STATIONS.encode("utf8"),
             "ghcnd-inventory": _INVENTORY.encode("utf8"),
-            "access/USW00094728": _FLAGGED.encode("utf8"),
+            "by_station/USW00094728": _FLAGGED,
         },
     )
     request = NoaaGhcnRequest(
@@ -144,13 +154,12 @@ _QFLAG_LETTERS = "DGIKLMNORSTWXZ"
 
 
 def _flagged_by_letter() -> bytes:
-    rows = ['"STATION","DATE","LATITUDE","LONGITUDE","ELEVATION","NAME","TMAX","TMAX_ATTRIBUTES"']
-    for day, letter in enumerate(_QFLAG_LETTERS, start=1):
-        rows.append(
-            f'"USW00094728","2000-01-{day:02d}","40.77898","-73.96925","42.7","NY CITY, NY US","  172",",{letter},Z"'
-        )
-    rows.append('"USW00094728","2000-01-15","40.77898","-73.96925","42.7","NY CITY, NY US","  100",",,0"')
-    return ("\n".join(rows) + "\n").encode("utf8")
+    rows = [
+        ("USW00094728", f"200001{day:02d}", "TMAX", "172", "", letter, "Z")
+        for day, letter in enumerate(_QFLAG_LETTERS, start=1)
+    ]
+    rows.append(("USW00094728", "20000115", "TMAX", "100", "", "", "0"))
+    return ghcnd_by_station(rows)
 
 
 @pytest.mark.parametrize("mode", ["soft", "hard"])
@@ -175,7 +184,7 @@ def test_ghcn_daily_every_letter_of_qflag_is_the_verdict_of_the_check_source(
         {
             "ghcnd-stations": _STATIONS.encode("utf8"),
             "ghcnd-inventory": _INVENTORY.encode("utf8"),
-            "access/USW00094728": _flagged_by_letter(),
+            "by_station/USW00094728": _flagged_by_letter(),
         },
     )
     request = NoaaGhcnRequest(
@@ -207,14 +216,20 @@ def test_ghcn_daily_a_value_that_is_no_number_is_null_and_does_not_raise(monkeyp
     The value was read as a number by the provider, which raised on a cell that was none and lost the station with
     it. The cell is null now, and so is the row, which the core drops unless the caller asked for the nulls.
     """
-    body = _TOKYO.replace('"   82"', '"n/a"').encode("utf8")
+    body = ghcnd_by_station(
+        [
+            ("JA000047662", "19510101", "TMAX", "70", "", "", "I"),
+            ("JA000047662", "19510102", "TMAX", "n/a", "", "", "I"),
+            ("JA000047662", "19510103", "TMAX", "81", "", "", "I"),
+        ]
+    )
     serve(
         monkeypatch,
         api,
         {
             "ghcnd-stations": _STATIONS.encode("utf8"),
             "ghcnd-inventory": _INVENTORY.encode("utf8"),
-            "access/JA000047662": body,
+            "by_station/JA000047662": body,
         },
     )
     request = NoaaGhcnRequest(

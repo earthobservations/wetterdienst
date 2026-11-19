@@ -250,6 +250,15 @@ def _no_alerts(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(DwdWeatherAlertRequest, "query", lambda _self: result)
 
 
+def _no_storm_cells(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Stand in for a KONRAD3D scan that holds no cell."""
+    from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest, DwdStormCellsResult  # noqa: PLC0415
+    from wetterdienst.provider.dwd.storm_cells.api import _SCHEMA  # noqa: PLC0415
+
+    result = DwdStormCellsResult(pl.DataFrame(schema=_SCHEMA), None)
+    monkeypatch.setattr(DwdStormCellsRequest, "query", lambda _self: result)
+
+
 def test_the_issues_have_the_block(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
     """The runs of a forecast are about one station of a network, whose terms the answer names."""
     _swsmos_lists_one_run(monkeypatch)
@@ -360,7 +369,7 @@ def test_the_stripes_stations_have_the_block(client: TestClient, monkeypatch: py
     """The listing has the block of every answer, which holds what its old `{provider, producer}` did."""
     from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
 
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
 
     response = client.get("/api/stripes/stations", params={"kind": "temperature", "active": "false"})
 
@@ -381,22 +390,27 @@ def test_the_stripes_values_have_the_block_and_a_series_for_what_they_are_of(
     """`station`, `resolution`, `dataset`, `parameter` and `unit` are the `series`, and the `metadata` is the block."""
     from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
 
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
 
     response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
 
     assert response.status_code == 200, response.text
     body = response.json()
-    assert set(body) == {"metadata", "series", "values"}
+    assert set(body) == {"metadata", "series", "reference", "values"}
     metadata = body["metadata"]
     assert set(metadata) == ALWAYS
-    assert set(body["series"]) == {"station", "resolution", "dataset", "parameter", "unit"}
+    # `method` is how a day of GHCN's temperature was calculated: null for DWD's own annual values (GH-4222)
+    assert set(body["series"]) == {"station", "resolution", "dataset", "parameter", "unit", "method"}
+    assert body["series"]["method"] is None
     assert body["series"]["unit"] == "degree_celsius"
     assert body["series"]["station"]["station_id"] == "01048"
     assert metadata["request"]["parameters"] == ["annual/climate_summary/temperature_air_mean_2m"]
     assert metadata["request"]["stations"] == {"filter": "by_station_id", "count": 1, "ids": ["01048"]}
-    assert metadata["counts"] == {"stations": 1, "rows": 2}
+    assert metadata["counts"] == {"stations": 1, "rows": 10}
     assert response.headers["X-Wetterdienst-License"] == "CC-BY-4.0"
+    # what the classes are relative to is in the body and in the note (GH-4157)
+    assert body["reference"]["classes"] == 16
+    assert [set(item) for item in body["values"]] == [{"timestamp", "value", "anomaly", "stripe_class"}] * 10
 
 
 class _Figure:
@@ -411,7 +425,7 @@ def _read_and_warn(monkeypatch: pytest.MonkeyPatch) -> None:
     from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
     from wetterdienst.ui import core  # noqa: PLC0415
 
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
     read = core._get_stripes_data  # noqa: SLF001
 
     def read_and_warn(request: object) -> object:
@@ -454,7 +468,7 @@ def test_the_stripes_image_names_the_same_terms_as_the_stripes_values(
     """The image and the values of one station carry the same licence, credit line and Link, from the one helper."""
     from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
 
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
 
     monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
     params = {"kind": "temperature", "station": "01048"}
@@ -577,17 +591,24 @@ def _read_alerts(monkeypatch: pytest.MonkeyPatch) -> None:
     _warn_first(monkeypatch, DwdWeatherAlertRequest, "query")
 
 
+def _read_storm_cells(monkeypatch: pytest.MonkeyPatch) -> None:
+    from wetterdienst.provider.dwd.storm_cells import DwdStormCellsRequest  # noqa: PLC0415
+
+    _no_storm_cells(monkeypatch)
+    _warn_first(monkeypatch, DwdStormCellsRequest, "query")
+
+
 def _read_providers(monkeypatch: pytest.MonkeyPatch) -> None:
     _warn_first(monkeypatch, restapi, "get_providers")
 
 
 def _read_stripes_stations(monkeypatch: pytest.MonkeyPatch) -> None:
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
     _warn_first(monkeypatch, restapi, "_get_stripes_stations")
 
 
 def _read_stripes_values(monkeypatch: pytest.MonkeyPatch) -> None:
-    _stub_stripes_station(monkeypatch, "temperature", [1.0, 2.0])
+    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
     _warn_first(monkeypatch, restapi, "_get_stripes_data")
 
 
@@ -630,6 +651,7 @@ _ROUTES_WITH_WARNINGS = [
     ),
     pytest.param("/api/history", {**_OBSERVATION, "stations": "02564"}, _read_history, id="history"),
     pytest.param("/api/alerts", {}, _read_alerts, id="alerts"),
+    pytest.param("/api/storm-cells", {}, _read_storm_cells, id="storm-cells"),
 ]
 #: the routes that answer without a block: a catalogue of the library, the server's own state
 _ROUTES_WITHOUT_WARNINGS = {"/version", "/settings", "/auth", "/coverage", "/glossary"}
@@ -927,8 +949,10 @@ DATA_UPDATED_STATED: set[tuple[str, str]] = {
     ("dwd", "observation"),
     ("dwd", "phenology"),
     ("dwd", "poi"),
+    ("dwd", "pollen"),
     ("dwd", "road"),
     ("dwd", "swsmos"),
+    ("dwd", "uvi"),
     ("imgw", "hydrology"),
     ("imgw", "meteorology"),
     ("ipma", "observation"),

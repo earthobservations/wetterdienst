@@ -16,6 +16,291 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Map]` A full-screen button with the zoom buttons, on every screen size: the browser's Fullscreen
+  API where it has one (desktop, Android, iPad), the map covering the whole page, bars included,
+  where it has none (iPhone Safari). Escape leaves; the view, layer and station picked are kept. A
+  sheet under the map stands in for the panel, with "Show details" to leave full screen for it. The
+  page's `Permissions-Policy` now allows `fullscreen` for itself (GH-4227).
+- `[Forecast]` The forecast chart shows MOSMIX's thunderstorm probability: a thin panel under the
+  precipitation (it goes with the Precipitation switch) draws each hour with a probability of 10 %
+  or more as a bar, as high as the probability and in one of three shades (from 10, 30 and 60 %),
+  so that colour is not the only cue. Hours under 10 %, which MOSMIX gives on calm days, are not
+  drawn, and a forecast with none has no panel. Where the panel is drawn, the readout says the
+  probability of every hour; a line under the chart says what the bars are, the table has a
+  column for it and the chart's description names the likeliest hour. It is the hourly
+  probability (`wwt`), which MOSMIX gives for every hour of the run; the 6, 12 and 24 hour ones
+  are not used. The compact day cards are unchanged (GH-4090).
+
+### Changed
+
+- `[All]` On a phone (below 40 rem) a card that is a child of the page, a chart, a table and the map
+  run edge to edge: no side margins, rounded corners or side hairlines, text keeps its 16 px gutter.
+  The "About" row of a tool is a small ⓘ beside the page title, with the same text; Escape closes it.
+  The map fills the window between the header and the tab bar. Tablets and desktop are unchanged
+  (GH-4227).
+- `[Map]` The legend (what a filled and a hollow dot and a numbered disc are) is in the layers panel,
+  under the grouping switch, no longer a box at the map's foot; the map's description says it too for
+  a screen reader (GH-4227).
+- `[Forecast, Map, Widget]` The forecast's day cards (the compact view, the map panel's rows, the
+  widget's narrow frame) draw Yr's weather symbols, as the chart does, in the light or dark set of
+  the page, not Phosphor line icons. Their strength is that of the day's wettest hour, as the
+  chart's hours are (the rate of the block for a late day of 6, 12 or 24 hour totals), not of its
+  total. Yr has no symbol for wind, a dust or sand storm or a funnel cloud: the card draws the sky
+  of the day with a small wind or tornado badge. The CC BY 4.0 credit is under the cards wherever
+  the chart is not (GH-4193).
+- `[Map]` The layer switch and the grouping control, two rows over the map, are one round layers
+  button in the map's top right corner. It opens a small panel with the layers, the resolution and
+  dataset of the measurements, and a "Group stations" switch (disabled and on above 10,000
+  stations, with its note). Escape or a press outside closes it. Grouping is on or off, on by
+  default: the fine step is gone and the coarse one (radius 80, groups to zoom 9) is the one
+  grouping, so the zoom a click on a group goes to is 10 at most, not 8. The station pickers of
+  the Explorer, History, Forecast and Stripes, whose maps split their groups at the same zoom,
+  keep them to zoom 9 now, not 7 (GH-4209).
+
+### Fixed
+
+- `[Forecast]` The wind barbs of the chart stand on the side of the station's hemisphere, as on a
+  weather map: for a wind from the west north of the equator they are above the shaft (they were
+  below it), south of the equator below it. A station without a position has the northern side
+  (GH-4063).
+- `[SEO]` The HTML the server sends for a page is in the language the page then shows: its
+  `<html lang>`, title, description, `og:` tags and `<noscript>` text follow the visitor's
+  language cookie, else the first language of the browser's `Accept-Language` that the app has
+  (any of its 11, no longer only German and English), else German, as the app picks it at
+  startup. A request with no `Accept-Language` at all, which a crawler sends and a browser never
+  does, gets English, the language of the page a crawler renders. Before, a request in French or
+  with a cookie for it got German, and the page then showed another language than the HTML under
+  the same URL (GH-4106).
+- `[Forecast]` Under the fraction unit `0–1`, the cloud and snow-chance panels' middle tick is
+  written 0.5 and no longer as 1, which read as the top of the axis; `%` and oktas are unchanged
+  (GH-4197).
+- `[Widget]` Docs: the embedded widget's chart is 674 px high, 744 px with the thunderstorm panel,
+  not 540 px, and the frame needs about 850 to 950 px, so the example iframe is 1000 px high where
+  it was 700 and had a scroll bar; the day cards of a frame 40 rem wide or less are about 350 px
+  (GH-4197).
+- `[Forecast, Map, Widget]` A day's icon takes its sky from the day's mean cloud cover (cloudy
+  from 70 %, partly cloudy from 30 %, as the chart's hours do), no longer from MOSMIX's weather
+  codes 0 to 3. DWD defines those as how the clouds change (none, dissolving, unchanged, forming),
+  not how much sky is covered, so a day with code 3 at 62 to 74 % (the day as a whole at 56 to
+  74 %) showed a plain cloud over a chart of partly cloudy hours. On any day whose codes name no
+  weather, 0.5 mm of rain or more now decides rain, sleet or snow; an hour or a day with no cloud
+  cover is partly cloudy (GH-4190).
+- `[Map]` A click on a group of stations centres the map on the group. It centred on the middle of
+  the stations' box, which is far from the disc where they are not spread evenly (a town with
+  outliers to one side); it now centres on the disc, with the box grown round it so that all of the
+  stations are in view (GH-4209).
+- `[Map]` The OpenStreetMap credit is at the very bottom of the map, under the zoom buttons, not
+  above them (GH-4209).
+- `[Forecast]` Under the pressure unit kPa, the pressure panel's ticks are written with a decimal:
+  the middle tick of 100.9 to 101.9 reads 101.5, no longer 102, and the two ticks of a narrower
+  axis (a step of 0.3) no longer both read 101. hPa and Pa are unchanged, whole numbers (GH-4212).
+
+## [0.53.0] - 2026-11-17
+
+Paired with backend 0.191.0, which it needs for the stripes' classes and the stations' WMO numbers.
+
+### Added
+
+- `[Map]` The stations of the map are grouped at the outer zooms: stations that lie close together
+  are one disc with their number, which a click or tap zooms in on; a station that is alone stays a
+  dot, and the one picked stays in view above its group. A switch over the map sets how much is
+  grouped (None, Fine, Coarse: the radius of a group and the zoom from which every station is its
+  own dot; Fine by default); a layer of more than 10,000 stations is always grouped, cannot be set
+  to None, and says so. The groups are drawn on the map's canvas, so they are no stops of the
+  keyboard: the map's keys and buttons zoom in on them. On the measurements a place is one group
+  of the stations that report and those that have stopped, a ring filled for the share that
+  reports. The station pickers split their groups at the same zoom (GH-4079).
+- `[Map]` A change of layer keeps the station picked where it has a WMO number and one station of
+  the other layer has the same: that station is picked (the forecast point and the measuring
+  station of one place, which are up to some kilometres apart and number their stations
+  differently), the panel says it is the same station and why, and its other cards take the same
+  station of their kind instead of the nearest; between DWD's observations the station's id comes
+  first. A number that a station that has stopped keeps is not taken for the station that reports.
+  Where either has no number, or the number is on several stations, the station is picked again by
+  the place as before. Needs a backend that answers `wmo_id` for the stations (GH-4077).
+- `[Stripes]` The climate stripes can be drawn as bars, and as bars with a scale, with a switch
+  above the chart (kept in the link as `variant`). A bar is the year's anomaly from the mean the
+  colours are centred on (1971–2000, or the station's whole record), up for warm or wet, in the
+  colour of its class; with a scale it has a y axis in the unit, round years along the x axis and a
+  line saying what the bars are relative to. Window, title, availability line, source, camera,
+  downloads and print follow the variant shown (GH-4156).
+
+### Changed
+
+- `[Stripes]` The stripes' colours follow Ed Hawkins' method, as the backend classes them: 16
+  discrete colours from the mean of 1971–2000 in steps of 0.325 standard deviations of 1901–2000, no
+  longer a point between the coolest and the warmest year shown, so a year keeps its colour whatever
+  years the form asks for. A line under the chart says what the colours are relative to (the
+  station's whole record where it has too few years in a period); the table has an anomaly column;
+  the readout and the map panel's band follow. Needs the backend that answers `reference` (GH-4157).
+
+### Removed
+
+- `[Stripes]` The two options that drew a time series line and a trend line over the stripes and
+  the bars are gone, with their settings and the `show_timeseries` and `show_trendline` link
+  parameters (old links and stored settings still load; the lines are not drawn, and the readout no
+  longer has a trend row). As in Ed Hawkins' design: "All other superfluous information is removed
+  so that the changes in temperature are seen simply and undeniably" (Climate Lab Book, 2018). The
+  image of the backend already had none (GH-4170).
+
+### Fixed
+
+- `[Forecast, Map, Home]` The late days of a forecast no longer look dry. MOSMIX's hourly rain
+  amount is 0.0 from about +100 h at most lowland stations, while its 6, 12 and 24 h totals still
+  carry rain, so days 6 to 10 showed none where DWD's own total has 1 to 2 mm. Each 24 h window
+  now takes the finest series that adds up to DWD's total (hourly, then 6 or 12 h, never finer
+  again), drawn as blocks with a label where they change. A day's rain is its share of each block
+  (`≈`; `≥` where hours have no total), a day of 0.5 mm or more from the totals gets a rain icon,
+  "Will it rain tomorrow?" uses the same rain, and a day is partial only under 20 hours. (GH-4175)
+- `[Explorer, Forecast]` A chart's line breaks where rows are missing, not only where a row has an
+  empty value: a step of more than 1.5 times the usual one there (the resolution's interval, a
+  calendar month or year, or the series' own cadence, also by time of day for readings at fixed
+  hours; an irregular series is left whole) draws nothing across the gap. Before, the default
+  settings (no row for a missing value) joined the points on either side of hours or days with no
+  data. The forecast breaks at a fixed step of more than 3 h. The readout, the table and the
+  downloads are unchanged (GH-4100).
+- `[Forecast, Stripes]` A single selected station is named once by the station picker: the search
+  shows it, and the "Selected station" chip block under it is gone. On the map, which has no search,
+  one line names it, and a screen reader gets the station as the search's description. A single
+  station is replaced by another pick, no longer cleared by its chip. Several stations (Explorer,
+  History) keep their chips (GH-4151).
+- `[Stripes]` The gold data-availability line spans exactly the stripes that have a value: each run
+  of years from the left edge of its first stripe to the right edge of its last, and a year between
+  two gaps gets a bar as wide as its stripe. It stopped half a stripe short at each end of a run
+  and was missing under a lone year, in the chart, the camera and the downloaded images
+  (GH-4153).
+
+## [0.52.0] - 2026-11-16
+
+### Fixed
+
+- `[Explorer, Stripes, Forecast]` A chart's toolbar button that becomes unavailable while it has the
+  keyboard focus (Space on Reset zoom, Enter on Zoom in at its limit, Earlier or Later at an edge)
+  keeps the focus instead of dropping it to the top of the page. It is `aria-disabled`, looks as
+  before, and does nothing when pressed (GH-4101).
+- `[Forecast]` The chart's axis titles stand next to the tick labels of their own panel, and the
+  labels are measured by the ticks they draw and by the width of each character, so the plot
+  gets 12 px more width (240 px instead of 228 on a 390 px phone, in German). The bottom label of
+  an axis that lies closer to the first tick than a line of labels is high is left out, so the
+  pressure's 1.008 is no longer drawn over its 1.010 (GH-4132).
+- `[Forecast]` The panels and the horizon stay at the top of the toolbar, beside the view
+  switcher, in every view, and on a phone the pan and zoom buttons come last, so nothing above
+  them moves. In the compact view the day cards are one height with the weekday, icon, date,
+  temperatures and rain level across the strip; a dry day keeps the rain line's room (GH-4138).
+- `[Stripes]` The climate stripes keep their shape on every screen: their height follows their
+  width at 16:9 (kept between 160 and 480 px), with the title, years and availability line
+  on top, so a phone no longer gets a tall narrow block and a wide screen no flat band. The
+  camera's image has the same ratio, and the menu's image the chart's size on the page (GH-4133).
+
+## [0.51.1] - 2026-11-16
+
+### Changed
+
+- `[Forecast, Map]` The forecast's compact view and the map panel's day list show every day the
+  forecast has (10 for MOSMIX-L), not the first 7. The strip of cards scrolls sideways, and the
+  keyboard can scroll it: it is a region named after the station that takes the focus (GH-4127).
+
+### Fixed
+
+- `[Forecast]` The view switcher (chart, compact, table) keeps its place at the top of the toolbar
+  when the view changes, so it can be clicked again and again without moving the pointer. The
+  chart's pan and zoom buttons moved to a row of their own under it (GH-4124).
+
+## [0.51.0] - 2026-11-15
+
+### Added
+
+- `[Forecast]` For the stations of DWD's snow forecast MOSMIX-SNOW (15 in the Bavarian Alps today, Zugspitzplatt
+  among them), the chart has a snow panel with its own switch: the new snow of each 3 hours as bars,
+  the snow depth as a line, and the chance of more than 10 cm of new snow within 24 hours, with the
+  source named under the chart and the values in the readout and the table. Every other station
+  looks as before. From May to October DWD publishes no snow forecast, and then no station has the
+  panel (and none says why). Needs a backend with the dataset `hourly/snow`. (GH-4091)
+- `[Server]` With `NUXT_GOOGLE_SITE_VERIFICATION` set to the name Google Search Console gives
+  (`google54ae9a07758f51bd`), the server answers `/<name>.html` with the line Google looks for, to
+  verify the site by its HTML file. Empty by default, nothing changes; a value that is no such name
+  is ignored with a warning at start. See docs/usage/app.md (GH-4108).
+- `[Server]` Each provider's page (`/providers/dwd`, ...) has a title, description, canonical link
+  and `og:*` tags of its own (German and English in the server's head, every language of the app
+  once the script has run), and is in `sitemap.xml`; before, a crawler saw the home page's head on
+  all 22 and none in the sitemap. The list comes from the backend's `/api/providers`, kept for an
+  hour: a provider the backend gains is in within the hour or at the next restart, and an id it does
+  not have is as before. If the backend is down, the list read last is used; only a server that has
+  read none since it started writes the generic head and lists the fixed pages. The `<noscript>`
+  text of these pages names the provider (GH-4119).
+
+### Changed
+
+- `[Explorer]` The Explorer's chart is drawn with Apache ECharts instead of Plotly, which the
+  Explorer route no longer loads (159 KB less JavaScript, gzip). Its toolbar (earlier, later, zoom
+  out, zoom in, reset, camera) sits above the chart, and the legend turns a series off and on, also
+  from the keyboard (one series at a time: Plotly's double-click to isolate one is gone). The arrow
+  keys step through the values, `+`, `-` and `0` zoom, and the values at a moment are in a box that
+  the pointer can move onto and that Escape closes. The y axis follows the zoom, a missing value
+  breaks the line, and ten years of hourly values draw in about 60 % of the time with every peak
+  kept. Saved images keep their size and names; on the light page green, amber, cyan, lime and
+  orange are a step darker, so every line reads on white (GH-4096).
+
+## [0.50.0] - 2026-11-14
+
+### Changed
+
+- `[Forecast, Widget]` The forecast chart is drawn with Apache ECharts instead of Plotly, which the
+  forecast routes no longer load (160 KB less JavaScript, gzip). Every panel has a fixed height
+  and every hour a fixed width, so on a phone the chart scrolls sideways with its axes in view and
+  a rotation changes how much is seen, not its shape. All panels zoom together (a dragged box, a
+  pinch, the new buttons, `+`, `-` and `0`), the arrow keys step through the hours, and the values
+  of an hour are a readout the pointer can move onto and Escape closes. The weather symbols are
+  Yr's (CC BY 4.0, credited under the chart). The wind arrows above the wind panel are gone; the
+  barbs show the direction. (GH-4059)
+- `[Climate stripes]` The stripes are drawn with Apache ECharts instead of Plotly, which this page
+  no longer loads (161 KB less JavaScript, gzip). They look the same, and the image saved from the
+  menu or the camera has the size and the file name it had. The chart's buttons are a toolbar above
+  it (zoom, move, reset, camera); a box dragged with a mouse, a pinch and Ctrl with the wheel zoom,
+  and a double click resets. The arrow keys step through the years, Page Up and Page Down by ten,
+  and `+`, `-` and `0` zoom; a year's value is a readout the pointer can move onto and Escape
+  closes. Zoomed, the years at the ends are those of the stripes in view. (GH-4068)
+
+### Fixed
+
+- `[Forecast, Widget]` The precipitation bars of the forecast chart are drawn over the hour they
+  cover, not centred on the hour that ends it, which put each half an hour late against the hour
+  labels. The plots that carry bars also no longer start up to 5 px off the other plots' hours (the
+  day bands, the midnight lines and the line of now moved with them), so the same hour is at the
+  same place in every plot. The values in the readout and the table are unchanged. (GH-4091)
+- `[All pages]` On iPhone, while the search, the place dialog of "Ask the weather" or the menu sheet
+  is open, the page behind is held fixed where it stood (it aims for no bounce and no
+  pull-to-refresh) and gets its scroll position back when the dialog closes; a back swipe with the
+  search open closes it and leaves each page at its own position. The search and the place dialog
+  fit the part of the screen the keyboard leaves, so the field is not panned away and the list's
+  last entry stays above the keyboard (GH-3761)
+
+## [0.49.0] - 2026-11-13
+
+### Fixed
+
+- `[Forecast, Explorer, Climate stripes, History, Map, Home]` "Use my location" no longer uses a
+  stored position once the browser reports the location permission as blocked (denied): a press,
+  and the load of the home page with a station that the position made, delete the position and
+  that station and say so; the home page asks nothing about the station until it is checked. A
+  query that never answers counts as "cannot tell" after 1.5 s. A station stored without its
+  position is deleted too. Forgetting the position in one tab reaches the other open tabs, also
+  those with no control open or restored from the browser's cache, and a press no longer uses a
+  position forgotten elsewhere or leaves the button busy. The privacy policy (en, de) says so
+  (GH-4014)
+- `[All pages]` On iPhone, a drag in an open dialog (the search, the place dialog of "Ask the
+  weather", the menu sheet) no longer scrolls the page behind it when the list is at its top or its
+  end, such as the search's list right after it opens. A list still scrolls inside, and a pinch or
+  a pan of a zoomed-in page is left alone (GH-3761)
+- `[All pages]` On iPhone the page now fills the whole screen: the tab bar reaches the bottom edge
+  (before, a strip of the page showed through under it, above Safari's address bar), and the
+  header, the tab bar, the page's margins, the footer, the notifications and the menu sheet keep
+  clear of a notch, the status bar and the home indicator (GH-3761)
+
+## [0.48.0] - 2026-11-13
+
 ### Changed
 
 - `[Forecast, Explorer, Climate stripes, History, Map, Home]` "Use my location" shows only its
@@ -31,11 +316,38 @@ Types of changes:
 
 ### Fixed
 
+- `[Explorer, History, Translations]` When the backend cannot be reached or answers a 5xx, the
+  provider selection says so ("The backend could not be reached, so the providers cannot be
+  listed.") with a Retry button, in all languages, instead of "The configured provider is not
+  available from this backend", which blamed a provider that may well exist. That text stays for an
+  answer that arrived without the provider. While the backend is down the page keeps the selection
+  of its link (and the address it is in); Retry asks again and, once the backend answers, restores
+  that selection (GH-4042)
+- `[History]` The banner "The configured provider is not available from this backend",
+  which also shows when the backend cannot be reached, no longer runs 8 px past the window at
+  320 px (all languages): it stands within the same edges as the fields below it at every width
+  (GH-4037)
+- `[Translations, Explorer]` In Luxembourgish, the Explorer's number fields (threshold, distances,
+  number of stations) no longer use the system's language in Chrome, which has no data for it: a
+  typed "1,5" was read as 15 and numbers were written "1,234.5". They take German's separators,
+  "1,5" and "1.234,5" (GH-4037)
+- `[Translations, Forecast, Map, Explorer, Home, Glossary, Providers]` Luxembourgish no longer
+  falls back to the system's language in Chrome, which has no data for it: the sorting of the
+  providers, glossary and answers, the numbers of the date range and the map, and the percentages
+  and distances are written with German's order and separators. The Meteogram's time axis writes
+  the hour the way the language does (Danish "04.00", where it was "04:00"), and a station whose
+  time zone the browser does not know is drawn in UTC instead of with invalid dates (GH-4007)
 - `[Forecast, Explorer, Climate stripes, History, Map, Home]` After "Forget my position", ticking
   "Remember my position in this browser" again showed the box ticked while nothing was stored, and
   "Forget my position" did not come back. The box is now offered only while a position is in hand,
   so ticking it always stores that position, and "Forget" puts the focus back on the button
   (GH-4010)
+- `[Forecast, Explorer, Climate stripes, History, Map, Home]` "Use my location": where the browser
+  refuses to keep the position (blocked site data, a full quota), the "Stored" control no longer
+  shows; an alert, announced each time, says the position is used for this visit only, and the box
+  stays. "Forget my position" now also drops a position request and a nearest-station lookup that
+  are still on their way, so a late answer no longer brings the position or the place back
+  (Part of GH-4014)
 - `[Forecast]` The run picker writes a run's date and time as the page's language does
   ("15.10.2026, 04:00 UTC", "15/10/2026, 04:00 UTC"), where it was the German order in every
   language (GH-2610)
@@ -2088,7 +2400,14 @@ Types of changes:
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.47.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.53.0...HEAD
+[0.53.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.52.0...app-v0.53.0
+[0.52.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.1...app-v0.52.0
+[0.51.1]: https://github.com/earthobservations/wetterdienst/compare/app-v0.51.0...app-v0.51.1
+[0.51.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.50.0...app-v0.51.0
+[0.50.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.49.0...app-v0.50.0
+[0.49.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.48.0...app-v0.49.0
+[0.48.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.47.0...app-v0.48.0
 [0.47.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.46.0...app-v0.47.0
 [0.46.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.45.0...app-v0.46.0
 [0.45.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.44.0...app-v0.45.0
@@ -2135,7 +2454,7 @@ Types of changes:
 [0.7.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.6.0...app-v0.7.0
 [0.6.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.5.0...app-v0.6.0
 [0.5.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.4.0...app-v0.5.0
-[0.4.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.3.0...app-v0.4.0
-[0.3.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.2.0...app-v0.3.0
-[0.2.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.1.0...app-v0.2.0
+[0.4.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.3.0...app-v0.4.0
+[0.3.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.2.0...app-v0.3.0
+[0.2.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.1.0...app-v0.2.0
 [0.1.0]: https://github.com/earthobservations/wetterdienst/releases/tag/app-v0.1.0

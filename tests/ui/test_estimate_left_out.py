@@ -100,7 +100,6 @@ def frost(monkeypatch: pytest.MonkeyPatch) -> None:
         return _ok(url, SOURCES) if "/sources/" in url else observations(url)
 
     monkeypatch.setattr(frost_api, "download_file", download)
-    monkeypatch.setattr(frost_api, "read_refusal", lambda *_args, **_kwargs: None)
 
 
 def _frost_request() -> MetnoFrostRequest:

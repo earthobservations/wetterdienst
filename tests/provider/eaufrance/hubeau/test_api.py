@@ -6,12 +6,16 @@ from __future__ import annotations
 
 import datetime as dt
 import json
+import logging
 from io import BytesIO
+from pathlib import Path
+from urllib.parse import parse_qs, urlparse
 from zoneinfo import ZoneInfo
 
 import polars as pl
 import pytest
 from aiohttp import ServerDisconnectedError
+from fastapi.testclient import TestClient
 from fsspec.exceptions import FSTimeoutError
 
 from tests.provider.station_catalogue import Violation
@@ -19,14 +23,18 @@ from tests.provider.station_catalogue_stubs import HUBEAU_NOT_OPENED
 from wetterdienst import Options, Settings
 from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
+from wetterdienst.model.parameter_rows import MAX_STATIONS_LISTED
 from wetterdienst.provider.eaufrance.hubeau import HubeauRequest, api
 from wetterdienst.provider.eaufrance.hubeau.api import (
     _RESOLUTION_TO_STEP,
+    _SNIFF_ANCHOR,
     _SNIFF_MIN_INTERVALS,
     _STEP_TO_RESOLUTION,
     _modal_steps,
 )
+from wetterdienst.ui import restapi
 from wetterdienst.util.network import File
+from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 ALL_PARAMETERS = [(resolution, "data", "stage") for resolution in _STEP_TO_RESOLUTION.values()]
 
@@ -40,6 +48,16 @@ def _dates(station_id: str, step: int, count: int, *, offset: int = 0) -> list[t
     """Build ``count`` observations of one station, ``step`` minutes apart."""
     start = _utc(4, offset)
     return [(station_id, start + dt.timedelta(minutes=step * index)) for index in range(count)]
+
+
+def _series(station_id: str, intervals: list[int]) -> list[tuple[str, dt.datetime]]:
+    """Build the observations of one station whose consecutive spacings are ``intervals`` minutes."""
+    stamp = _utc(4)
+    rows = [(station_id, stamp)]
+    for interval in intervals:
+        stamp += dt.timedelta(minutes=interval)
+        rows.append((station_id, stamp))
+    return rows
 
 
 def _frame(*rows: tuple[str, dt.datetime]) -> pl.DataFrame:
@@ -85,7 +103,7 @@ def test_modal_steps_needs_enough_intervals_to_name_a_station() -> None:
 
 def test_modal_steps_breaks_a_tie_toward_the_shorter_interval() -> None:
     """Test that a station with no majority interval is named the same way on every run."""
-    rows = [*_dates("A", 5, 3), *_dates("A", 10, 3, offset=30)]
+    rows = _series("A", [5, 5, 10, 10])
 
     result = _modal_steps(_frame(*rows))
 
@@ -97,6 +115,60 @@ def test_modal_steps_measures_each_station_on_its_own() -> None:
     result = _modal_steps(_frame(*_dates("A", 5, 8), *_dates("B", 60, 8))).sort("station_id")
 
     assert result.rows() == [("A", 5), ("B", 60)]
+
+
+def test_modal_steps_keeps_a_station_that_missed_one_transmission_at_its_interval() -> None:
+    """Test that a regular 15 minute station that lost a transmission is still a 15 minute station (GH-4166).
+
+    The missed one leaves 30 minutes behind, which is on the grid of 15, so it counts for the interval
+    and not against it.
+    """
+    result = _modal_steps(_frame(*_series("A", [15, 15, 15, 30, 15, 15, 15, 15])))
+
+    assert result.rows() == [("A", 15)]
+
+
+def test_modal_steps_keeps_a_gauge_whose_intervals_are_multiples_of_five_minutes() -> None:
+    """Test that intervals that are all multiples of the modal one still name the station (GH-4166).
+
+    Two thirds of these are 5 minutes, and the 10, 15 and 20 minutes are transmissions it did not make.
+    """
+    result = _modal_steps(_frame(*_series("A", [5, 5, 10, 5, 15, 5, 5, 5, 20])))
+
+    assert result.rows() == [("A", 5)]
+
+
+def test_modal_steps_leaves_out_a_station_whose_intervals_do_not_settle() -> None:
+    """Test that a sparse gauge that sends in bursts is named by no interval (GH-4166).
+
+    Its commonest spacing is 5 minutes, but it is a third of them and the 7 and 13 minutes are on no
+    grid of it: a mode that means nothing, which listed the station under whichever resolution it
+    happened to fall in.
+    """
+    result = _modal_steps(_frame(*_series("A", [5, 5, 7, 13, 25, 40])))
+
+    assert result.is_empty()
+
+
+@pytest.mark.parametrize(
+    ("counts", "settled"),
+    [
+        # the share of the modal interval, with every other spacing on its grid: 49 of 100 against 50 of 100
+        ({5: 49, 10: 26, 15: 25}, False),
+        ({5: 50, 10: 26, 15: 24}, True),
+        # the share on the grid, the modal interval being 60 of 100: 89 on it against 90 on it
+        ({5: 60, 10: 29, 7: 11}, False),
+        ({5: 60, 10: 30, 7: 10}, True),
+    ],
+)
+def test_modal_steps_settles_at_the_shares_of_the_decision(counts: dict[int, int], settled: bool) -> None:  # noqa: FBT001
+    """Test the boundaries of the two shares, 50 % of the intervals on the mode and 90 % on its grid (GH-4166)."""
+    intervals = [step for step, count in counts.items() for _ in range(count)]
+    assert len(intervals) == 100
+
+    result = _modal_steps(_frame(*_series("A", intervals)))
+
+    assert result.rows() == ([("A", 5)] if settled else [])
 
 
 def test_every_declared_resolution_has_an_interval() -> None:
@@ -311,6 +383,136 @@ def test_hubeau_douteuse_is_the_verdict_of_the_check_source_and_no_other_code_is
         assert values == [0.1, 0.2, 0.3, None, 0.5, 0.6, 0.7]
 
 
+def _read_h502301401() -> list[dt.datetime]:
+    """Read the stage timestamps Hub'Eau had for H502301401 on 2026-11-17 (691, of 30 days; GH-4166)."""
+    payload = json.loads((Path(__file__).parent / "h502301401_stage.json").read_text(encoding="utf-8"))
+    return [
+        dt.datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=ZoneInfo("UTC"))
+        for stamp in payload["timestamps"]
+    ]
+
+
+def _parse_utc(text: str) -> dt.datetime:
+    return dt.datetime.strptime(text, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=ZoneInfo("UTC"))
+
+
+class _Upstream:
+    """Answer the observation queries of the sniff from the timestamps of some stations, and keep the queries."""
+
+    def __init__(
+        self, stage: dict[str, list[dt.datetime]], discharge: dict[str, list[dt.datetime]] | None = None
+    ) -> None:
+        self.series = {"H": stage, "Q": discharge or {}}
+        self.queries: list[tuple[str, bool]] = []
+
+    def __call__(self, url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG002
+        query = {key: values[0] for key, values in parse_qs(urlparse(url).query).items()}
+        named = "code_entite" in query
+        grandeur = query["grandeur_hydro"]
+        self.queries.append((grandeur, named))
+        start, end = _parse_utc(query["date_debut_obs"]), _parse_utc(query["date_fin_obs"])
+        wanted = set(query["code_entite"].split(",")) if named else None
+        return [
+            {"code_station": station_id, "date_obs": stamp.strftime("%Y-%m-%dT%H:%M:%SZ")}
+            for station_id, stamps in self.series[grandeur].items()
+            if wanted is None or station_id in wanted
+            for stamp in sorted(stamps)
+            if start <= stamp <= end
+        ]
+
+
+def _sniff(
+    monkeypatch: pytest.MonkeyPatch,
+    upstream: _Upstream,
+    station_ids: list[str],
+    now: dt.datetime,
+) -> dict[str, int]:
+    """Run the sniff of ``_station_steps`` at ``now`` against ``upstream``."""
+    monkeypatch.setattr(api, "_paged_rows", upstream)
+    monkeypatch.setattr(api, "_now", lambda: now)
+    steps = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings())._station_steps(station_ids)  # noqa: SLF001
+    return dict(steps.iter_rows())
+
+
+def test_the_irregular_station_h502301401_is_listed_in_3_of_115_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the station whose listing was arbitrary is listed in 3 of the 115 windows it was replayed at (GH-4166).
+
+    Over the 30 days to 2026-11-17 the sniff named H502301401 at 5, 10, 15 and 60 minutes by turns, and
+    at an interval no resolution covers in 39 of 115 windows. Under the decision it is named in 3 (at 5
+    minutes), and never at any other step.
+    """
+    upstream = _Upstream({"H502301401": _read_h502301401()})
+    # the anchors of six hours from 2026-10-19T18:00 to 2026-11-17T06:00, a day after the first record on
+    first = dt.datetime(2026, 10, 19, 18, tzinfo=ZoneInfo("UTC"))
+    anchors = [first + index * _SNIFF_ANCHOR for index in range(115)]
+    assert anchors[-1] == dt.datetime(2026, 11, 17, 6, tzinfo=ZoneInfo("UTC"))
+
+    listed = [
+        _sniff(monkeypatch, upstream, ["H502301401"], anchor + dt.timedelta(hours=1)).get("H502301401")
+        for anchor in anchors
+    ]
+
+    assert [step for step in listed if step is not None] == [5, 5, 5]
+
+
+def test_a_station_that_does_not_settle_over_two_hours_is_asked_again_over_a_day(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the 24 hour pass, by name, names a station whose last two hours were no guide (GH-4166).
+
+    The station is on a 15 minute grid for the day and sends four transmissions at odd minutes in the
+    last two hours, which settle on nothing; the day does.
+    """
+    anchor = dt.datetime(2026, 11, 17, 6, tzinfo=ZoneInfo("UTC"))
+    grid = [anchor - dt.timedelta(hours=24) + dt.timedelta(minutes=15 * index) for index in range(4 * 22 + 1)]
+    burst = [anchor - dt.timedelta(minutes=minutes) for minutes in (100, 90, 83, 70)]
+    upstream = _Upstream({"S": [*grid, *burst]})
+
+    steps = _sniff(monkeypatch, upstream, ["S"], anchor + dt.timedelta(minutes=30))
+
+    assert steps == {"S": 15}
+    assert upstream.queries == [("H", False), ("H", True)]
+
+
+def test_a_station_that_does_not_settle_in_either_window_stays_unlisted(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that a station that settles on no step in the day either is listed under none, and said once (GH-4166).
+
+    It is not asked for discharge, a second series for what its stage did not say; the other stations of
+    the network are measured as before.
+    """
+    anchor = dt.datetime(2026, 11, 17, 6, tzinfo=ZoneInfo("UTC"))
+    irregular = [anchor - dt.timedelta(minutes=minutes) for minutes in (1400, 1390, 1100, 1000, 640, 400, 380, 100, 5)]
+    regular = [anchor - dt.timedelta(minutes=5 * index) for index in range(24)]
+    discharge = {"irregular": [anchor - dt.timedelta(minutes=10 * index) for index in range(50)]}
+    upstream = _Upstream({"irregular": irregular, "regular": regular}, discharge)
+    monkeypatch.setattr(api, "_reported_unsettled", set())
+
+    with caplog.at_level(logging.INFO):
+        steps = _sniff(monkeypatch, upstream, ["irregular", "regular"], anchor)
+        again = _sniff(monkeypatch, upstream, ["irregular", "regular"], anchor)
+
+    assert steps == again == {"regular": 5}
+    assert ("Q", True) not in upstream.queries
+    assert caplog.text.count("transmit at no steady interval") == 1
+
+
+def test_a_station_with_no_stage_is_still_named_by_its_discharge(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that the discharge pass still names a station that published no stage, under the same test (GH-4166)."""
+    anchor = dt.datetime(2026, 11, 17, 6, tzinfo=ZoneInfo("UTC"))
+    discharge = {
+        "steady": [anchor - dt.timedelta(minutes=10 * index) for index in range(30)],
+        "bursts": [anchor - dt.timedelta(minutes=minutes) for minutes in (1400, 1390, 1100, 1000, 640, 400, 380, 5)],
+    }
+    upstream = _Upstream({}, discharge)
+
+    steps = _sniff(monkeypatch, upstream, ["steady", "bursts"], anchor)
+
+    assert steps == {"steady": 10}
+
+
 @pytest.mark.usefixtures("hubeau_network")
 def test_all_lists_each_station_under_the_interval_it_transmits_at() -> None:
     """Test that a station is listed under its own measured interval and under no other."""
@@ -371,6 +573,308 @@ def test_all_serves_only_the_resolutions_asked_for() -> None:
     assert df.get_column("station_id").to_list() == ["quiet"]
 
 
+# the stations left out for a step no resolution has are told by the answer (GH-4184)
+
+STEP_CODE = "step-without-resolution"
+
+
+def _serve_steps(monkeypatch: pytest.MonkeyPatch, steps: dict[str, int]) -> None:
+    """Serve a referential of the stations named in ``steps``, each transmitting every ``steps[station]`` minutes."""
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        if "referentiel" in url:
+            return [_station(name) for name in steps]
+        return _observations([row for name, step in steps.items() for row in _dates(name, step, 8)])
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+    monkeypatch.setattr(api, "_reported_unmapped", set())
+
+
+def _step_warnings() -> list[dict]:
+    return [warning for warning in recorded_warnings() if warning["code"] == STEP_CODE]
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_all_tells_how_many_stations_were_left_out_for_a_step_no_resolution_has(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that the whole list carries the warning, with the count, the step and the station, and logs it once."""
+    monkeypatch.setattr(api, "_reported_unmapped", set())
+    begin_response()
+
+    with caplog.at_level(logging.DEBUG):
+        HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all()
+        begin_response()
+        HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all()
+
+    (warning,) = _step_warnings()
+    assert warning["stations"] == ["unmapped"]
+    assert warning["message"] == (
+        "1 station was left out of the list because it reports at a step that no resolution of Hub'Eau has "
+        "(the resolutions are 5, 6, 10, 15 and 60 minutes): unmapped reports every 30 minutes."
+    )
+    lines = [record for record in caplog.records if getattr(record, "response_warning", None) == STEP_CODE]
+    assert [record.levelno for record in lines] == [logging.INFO, logging.DEBUG]
+
+
+@pytest.mark.usefixtures("hubeau_network")
+@pytest.mark.parametrize("resolution", sorted(set(_STEP_TO_RESOLUTION.values())))
+def test_the_warning_does_not_depend_on_the_resolution_asked_for(resolution: str) -> None:
+    """Test that the stations, which are in no resolution, are told whichever resolution the list is of."""
+    begin_response()
+
+    HubeauRequest(parameters=[(resolution, "data", "stage")], settings=Settings()).all()
+
+    assert [warning["stations"] for warning in _step_warnings()] == [["unmapped"]]
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_the_stations_that_map_are_listed_as_before_the_warning() -> None:
+    """Test that telling the stations left out changes none that is listed."""
+    begin_response()
+
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert _step_warnings() != []
+    assert dict(df.select("station_id", "resolution").iter_rows()) == {
+        "fast": "5_minutes",
+        "1011000101": "15_minutes",
+        "quiet": "hourly",
+        "discharge_only": "10_minutes",
+    }
+
+
+def test_nothing_left_out_is_no_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a network whose stations all map, or report nothing to measure, carries no warning."""
+    _serve_steps(monkeypatch, {"a": 5, "b": 10, "c": 60})
+    begin_response()
+
+    request = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings())
+    request.all()
+    request.filter_by_rank((48.85, 2.35), 2)
+    request.filter_by_bbox(2.0, 48.0, 3.0, 49.0)
+
+    assert _step_warnings() == []
+
+
+def test_a_station_that_does_not_settle_is_not_one_left_out_for_its_step(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a station with no steady step is no station of this warning: it has no step to name."""
+    anchor = _utc(6)
+    stamps = [anchor - dt.timedelta(minutes=minutes) for minutes in (110, 100, 70, 61, 33, 7)]
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        if "referentiel" in url:
+            return [_station("irregular")]
+        return _observations([("irregular", stamp) for stamp in stamps])
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+    monkeypatch.setattr(api, "_now", lambda: anchor.replace(tzinfo=ZoneInfo("UTC")))
+    begin_response()
+
+    df = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all().df
+
+    assert df.is_empty()
+    assert _step_warnings() == []
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_a_search_by_place_tells_the_stations_it_could_never_find() -> None:
+    """Test that a rank, a distance and a bounding box carry the warning, as the whole list does."""
+    for search in (
+        lambda request: request.filter_by_rank((48.85, 2.35), 2),
+        lambda request: request.filter_by_distance((48.85, 2.35), 10),
+        lambda request: request.filter_by_bbox(2.0, 48.0, 3.0, 49.0),
+    ):
+        begin_response()
+
+        search(HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()))
+
+        assert [warning["stations"] for warning in _step_warnings()] == [["unmapped"]]
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_a_selection_by_name_or_sql_is_told_as_the_whole_list_is() -> None:
+    """Test that a name or an SQL filter, which can never hold the stations left out either, carries the warning."""
+    for select in (
+        lambda request: request.filter_by_name("fast"),
+        lambda request: request.filter_by_sql("latitude > 45"),
+        lambda request: request.filter_by_sql("station_id = 'fast'"),
+    ):
+        begin_response()
+
+        select(HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()))
+
+        assert [warning["stations"] for warning in _step_warnings()] == [["unmapped"]]
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_a_selection_by_id_is_not_told_of_the_network() -> None:
+    """Test that asking for stations by id carries no warning about the stations that were not asked for."""
+    begin_response()
+
+    result = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).filter_by_station_id(["fast", "quiet"])
+
+    assert result.df.get_column("station_id").to_list() == ["fast", "quiet"]
+    assert _step_warnings() == []
+    assert [warning["code"] for warning in recorded_warnings()] == []
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_an_id_that_was_left_out_for_its_step_is_told_why_it_is_not_found() -> None:
+    """Test that the id of a station left out gets the warning with its step, beside `unknown-station`."""
+    begin_response()
+    request = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings())
+
+    result = request.filter_by_station_id(["fast", "unmapped", "no-such-station"])
+
+    assert result.df.get_column("station_id").to_list() == ["fast"]
+    assert [warning["code"] for warning in recorded_warnings()] == ["unknown-station", STEP_CODE]
+    (warning,) = _step_warnings()
+    assert warning["stations"] == ["unmapped"]
+    assert warning["message"] == (
+        "unmapped (30 minutes) was left out of the list because it reports at a step that no resolution of "
+        "Hub'Eau has (the resolutions are 5, 6, 10, 15 and 60 minutes), so no station is found for it."
+    )
+    # the selection by id is over, so the next selection is told of the network again
+    begin_response()
+    request.filter_by_sql("latitude > 45")
+    assert [warning["message"][:31] for warning in _step_warnings()] == ["1 station was left out of the l"]
+
+
+def test_the_asked_ids_are_told_with_their_steps(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that several ids that were left out are named with their steps, and the ones that were not are not."""
+    _serve_steps(monkeypatch, {"a": 30, "b": 20, "c": 5, "d": 30})
+    begin_response()
+
+    HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).filter_by_station_id(["d", "b", "c", "b"])
+
+    (warning,) = _step_warnings()
+    assert warning["stations"] == ["b", "d"]
+    assert warning["message"].startswith(
+        "b (20 minutes) and d (30 minutes) were left out of the list because they report "
+    )
+    assert warning["message"].endswith(", so no station is found for them.")
+
+
+def test_the_message_names_every_station_up_to_the_limit_and_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that up to ten stations the message says `namely`, a step is not written for each, and none is counted."""
+    steps = {f"S{index}": 30 for index in range(MAX_STATIONS_LISTED, 0, -1)}
+    _serve_steps(monkeypatch, steps | {"fine": 5})
+    begin_response()
+
+    HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all()
+
+    (warning,) = _step_warnings()
+    assert warning["stations"] == sorted(steps)
+    assert warning["message"] == (
+        "10 stations were left out of the list because they report at a step that no resolution of Hub'Eau has "
+        "(the resolutions are 5, 6, 10, 15 and 60 minutes): all at 30 minutes, "
+        "namely S1, S10, S2, S3, S4, S5, S6, S7, S8, S9."
+    )
+
+
+def test_the_message_counts_the_steps_and_names_the_first_stations(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that many stations at two steps are told by step, largest first, the first ten named, the rest counted."""
+    steps = {f"S{index}": 30 for index in range(12, 0, -1)} | {"F1": 20, "F2": 20}
+
+    _serve_steps(monkeypatch, steps | {"fine": 5})
+    begin_response()
+    HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings()).all()
+
+    (warning,) = _step_warnings()
+    assert warning["stations"] == ["F1", "F2", "S1", "S10", "S11", "S12", "S2", "S3", "S4", "S5"]
+    assert warning["message"].startswith(
+        "14 stations were left out of the list because they report at a step that no resolution of Hub'Eau has "
+        "(the resolutions are 5, 6, 10, 15 and 60 minutes): 12 at 30 minutes and 2 at 20 minutes, among them "
+    )
+    assert warning["message"].endswith(
+        "F1 (20 minutes), F2 (20 minutes), S1 (30 minutes), S10 (30 minutes), S11 (30 minutes), S12 (30 minutes), "
+        "S2 (30 minutes), S3 (30 minutes), S4 (30 minutes), S5 (30 minutes) and 4 more."
+    )
+
+
+def test_a_step_of_one_minute_is_not_plural() -> None:
+    """Test that a station at 1 minute is told as `1 minute`, in a list and by id."""
+    assert api._unmapped_message({"A": 1}).endswith("A reports every 1 minute.")  # noqa: SLF001
+    assert "A (1 minute) and B (30 minutes) were left out" in api._unmapped_asked_message({"A": 1, "B": 30})  # noqa: SLF001
+    assert "2 at 30 minutes and 1 at 1 minute" in api._unmapped_message({"A": 1, "B": 30, "C": 30})  # noqa: SLF001
+
+
+def test_a_reused_request_forgets_the_stations_the_last_listing_left_out(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a listing that finds no station left out does not keep the ones of the one before it."""
+    _serve_steps(monkeypatch, {"a": 5, "b": 30})
+    request = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings())
+    request.all()
+    assert request._unmapped_steps == {"b": 30}  # noqa: SLF001
+
+    _serve_steps(monkeypatch, {"a": 5, "b": 15})
+    begin_response()
+    request.all()
+
+    assert request._unmapped_steps == {}  # noqa: SLF001
+    assert _step_warnings() == []
+
+
+def test_a_listing_that_cannot_be_read_forgets_the_stations_too(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that a referential with no station leaves no stations left out and none without a position."""
+    request = HubeauRequest(parameters=ALL_PARAMETERS, settings=Settings())
+    # the Blavet, listed in Algeria: in no area of France, swapped or not
+    unplaced = {**_station("blavet"), "longitude_station": 0.84, "latitude_station": 35.1}
+
+    def _paged_rows(url: str, settings: Settings, *, ttl: object, timeout: int) -> list[dict]:  # noqa: ARG001
+        if "referentiel" in url:
+            return [_station("b"), unplaced]
+        return _observations(_dates("b", 30, 8))
+
+    monkeypatch.setattr(api, "_paged_rows", _paged_rows)
+    request.all()
+    assert (request._unmapped_steps, list(request._unplaced_positions)) == ({"b": 30}, ["blavet"])  # noqa: SLF001
+
+    monkeypatch.setattr(api, "_paged_rows", lambda *args, **kwargs: [])  # noqa: ARG005
+    request.all()
+
+    assert (request._unmapped_steps, request._unplaced_positions) == ({}, {})  # noqa: SLF001
+
+
+@pytest.fixture
+def no_readings(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let the stations have no readings, so that the answer of an estimate is empty and what it warns of is asked."""
+    monkeypatch.setattr(
+        api.HubeauValues, "_collect_station_parameter_or_dataset", lambda *_args, **_kwargs: pl.DataFrame()
+    )
+
+
+@pytest.mark.usefixtures("hubeau_network", "no_readings")
+@pytest.mark.parametrize("answer", ["interpolate", "summarize", "values"])
+def test_an_estimate_and_the_values_carry_the_warning_over_rest(answer: str) -> None:
+    """Test that `interpolate`, `summarize` and a `values` request by place tell the stations left out."""
+    place = {"latitude": "48.85", "longitude": "2.35", "timestamp": "2026-10-15"}
+    query = {**place, "rank": "2"} if answer == "values" else place
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        f"/api/{answer}",
+        params={"provider": "eaufrance", "network": "hubeau", "parameters": "5_minutes/data", **query},
+    )
+
+    assert response.status_code == 200, response.text
+    (warning,) = [w for w in response.json()["metadata"]["warnings"] if w["code"] == STEP_CODE]
+    assert warning["stations"] == ["unmapped"]
+
+
+@pytest.mark.usefixtures("hubeau_network")
+def test_rest_carries_the_warning_in_the_metadata_of_a_stations_answer() -> None:
+    """Test that the REST answer of the whole list names the stations left out in its `metadata`."""
+    response = TestClient(restapi.app, raise_server_exceptions=False).get(
+        "/api/stations",
+        params={"provider": "eaufrance", "network": "hubeau", "parameters": "5_minutes/data", "all": "true"},
+    )
+
+    assert response.status_code == 200, response.text
+    (warning,) = [w for w in response.json()["metadata"]["warnings"] if w["code"] == STEP_CODE]
+    assert warning["stations"] == ["unmapped"]
+    assert "1 station was left out" in warning["message"]
+
+
 @pytest.mark.remote
 def test_hubeau_station_belongs_to_exactly_one_resolution(default_settings: Settings) -> None:
     """Test that the live network places every station under a single interval.
@@ -387,14 +891,28 @@ def test_hubeau_station_belongs_to_exactly_one_resolution(default_settings: Sett
     assert len(listed) > 1000
 
 
+#: how many of the stations listed at fifteen minutes the remote test below measures, spread over the list
+_CADENCE_SAMPLE_SIZE = 10
+#: the share of the measured stations that must keep the cadence they are listed under: a station on its grid is the
+#: rule, one that is not an upstream accident (GH-4146), so one is allowed to be off and ten of ten are not asked for
+_CADENCE_SAMPLE_SHARE = 0.8
+
+
 @pytest.mark.remote
-def test_hubeau_values_arrive_at_the_interval_the_station_is_listed_under(default_settings: Settings) -> None:
-    """Test that a station listed at fifteen minutes actually returns a fifteen-minute series.
+def test_hubeau_values_arrive_at_the_interval_the_stations_are_listed_under(default_settings: Settings) -> None:
+    """Test that stations listed at fifteen minutes actually return a fifteen-minute series.
 
     Measured over the whole served window rather than a few hours of it: a gauge that misses a
     transmission leaves a double-length interval behind, and over a short window those gaps can
     outnumber the intervals they interrupt without the station being anything but fifteen-minutely.
     Gaps are multiples of the interval, so the grid shows through them.
+
+    A sample of the list and not its first station, and most of the sample rather than all of it: the first
+    station was 5061000101, whose feed carried a second, "Corrigee" series 3 min 45 s out of phase with its
+    raw one from 2026-10-16 to 2026-11-14, so that for thirty days 28 % of its intervals were off the grid
+    while it was still a fifteen-minute station and the listing was right (GH-4146). One station's accident
+    upstream must not turn the test red for a month, a sniff that files stations under the wrong interval
+    still does: it would take most of the sample with it.
     """
     end_date = dt.datetime.now(ZoneInfo("UTC"))
     request = HubeauRequest(
@@ -403,15 +921,27 @@ def test_hubeau_values_arrive_at_the_interval_the_station_is_listed_under(defaul
         end=end_date,
         settings=default_settings,
     )
-    station_id = request.all().df.get_column("station_id")[0]
+    station_ids = sorted(request.all().df.get_column("station_id").to_list())
+    assert len(station_ids) >= 10 * _CADENCE_SAMPLE_SIZE
+    # evenly spread over the sorted ids, starting inside the list and not at its first station
+    stride = len(station_ids) // _CADENCE_SAMPLE_SIZE
+    sample = station_ids[stride // 2 :: stride][:_CADENCE_SAMPLE_SIZE]
 
-    df = request.filter_by_station_id(station_id).values().all().df
+    df = request.filter_by_station_id(sample).values().all().df
 
-    steps = df.get_column("timestamp").diff().drop_nulls().dt.total_minutes().to_list()
-    assert steps, f"{station_id} returned no values to measure"
-    assert max(set(steps), key=steps.count) == 15
-    on_grid = sum(step % 15 == 0 for step in steps) / len(steps)
-    assert on_grid > 0.9, f"{station_id}: only {on_grid:.0%} of its intervals fall on a 15-minute grid"
+    kept: dict[str, bool] = {}
+    for station_id, group in df.group_by("station_id"):
+        steps = group.get_column("timestamp").unique().sort().diff().drop_nulls().dt.total_minutes().to_list()
+        if steps:
+            on_grid = sum(step % 15 == 0 for step in steps) / len(steps)
+            kept[station_id[0]] = max(set(steps), key=steps.count) == 15 and on_grid > 0.9
+    # a sample that mostly returned nothing measures nothing
+    assert len(kept) >= _CADENCE_SAMPLE_SIZE // 2, f"only {sorted(kept)} of {sample} returned values to measure"
+    share = sum(kept.values()) / len(kept)
+    assert share >= _CADENCE_SAMPLE_SHARE, (
+        f"only {share:.0%} of {len(kept)} stations listed at fifteen minutes arrive on a 15-minute grid: "
+        f"{sorted(s for s, ok in kept.items() if not ok)} do not"
+    )
 
 
 def test_all_reports_the_gauge_datum_as_gauge_zero_not_as_elevation(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -912,3 +1442,18 @@ def test_the_swapped_position_of_an_area_is_in_none(area: str) -> None:
     ]
 
     assert not overlapping, f"the swapped positions of {area} overlap {overlapping}"
+
+
+@pytest.mark.remote
+def test_hubeau_live_site_id_is_the_site_of_every_station() -> None:
+    """Test that every live station has a `site_id`, and that its code is the site's plus two characters (GH-4070)."""
+    stations = (
+        HubeauRequest(parameters=[("15_minutes", "data"), ("5_minutes", "data")], settings=Settings(cache_disable=True))
+        .all()
+        .df.unique("station_id")
+    )
+
+    assert stations.height > 1000
+    assert stations["site_id"].null_count() == 0
+    assert stations.filter(pl.col("site_id").str.len_chars() != 8).is_empty()
+    assert stations.filter(pl.col("site_id") != pl.col("station_id").str.slice(0, 8)).is_empty()

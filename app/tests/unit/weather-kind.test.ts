@@ -2,7 +2,7 @@ import type { WeatherKind } from '../../app/utils/weather-kind'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
-import { WEATHER_ICONS, WEATHER_KINDS, weatherCodeToKind } from '../../app/utils/weather-kind'
+import { skyOfCloudCover, WEATHER_KINDS, weatherCodeToKind } from '../../app/utils/weather-kind'
 
 // The day cards of the compact forecast name the weather in words for a screen reader (WCAG 1.1.1), so the
 // name has to be right for every present-weather code `ww` of the WMO's table 4677 it is given for. The
@@ -10,9 +10,8 @@ import { WEATHER_ICONS, WEATHER_KINDS, weatherCodeToKind } from '../../app/utils
 const range = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, i) => from + i)
 
 const TABLE: [WeatherKind | null, number[]][] = [
-  ['clear', [0]],
-  ['partlyCloudy', [1, 2]],
-  ['cloudy', [3]],
+  // 00-03 DWD's cloud development, no weather and no sky (GH-4190): 0 no development, 1 dissolving, 2 unchanged, 3 forming
+  [null, range(0, 3)],
   // 04-06 haze, smoke, widespread dust in suspension
   [null, range(4, 6)],
   // 07 blowing dust or sand, 08 dust whirls, 09 dust or sand storm in sight
@@ -66,9 +65,9 @@ describe('the weather kind of a WMO present-weather code', () => {
   })
 
   // DWD's list of the codes MOSMIX and DMO deliver as `ww` (mosmix_element_weather_xls.xlsx, 15.03.2021): all of
-  // them name a kind, so the forecast never falls back on the heuristic for a code it was given
-  it('names a kind for every code DWD delivers in the forecasts', () => {
-    const delivered = [0, 1, 2, 3, 45, 49, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 68, 69, 71, 73, 75, 80, 81, 82, 83, 84, 85, 86, 95]
+  // them but 0 to 3, which are the cloud development (no symbol in DWD's "Symbolempfehlung MOSMIX"), name a kind
+  it('names a kind for every code DWD delivers in the forecasts but the cloud development 0 to 3', () => {
+    const delivered = [45, 49, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 68, 69, 71, 73, 75, 80, 81, 82, 83, 84, 85, 86, 95]
     for (const code of delivered)
       expect(weatherCodeToKind(code), `code ${code}`).not.toBeNull()
   })
@@ -83,52 +82,23 @@ describe('the weather kind of a WMO present-weather code', () => {
   })
 })
 
-describe('the icons and words of the weather kinds', () => {
+describe('the sky of a cloud cover', () => {
+  // the thresholds of the chart's hours and of the day cards (GH-4190): cloudy from 70 %, partly cloudy from 30 %
+  it.each([[0, 'clear'], [29.9, 'clear'], [30, 'partlyCloudy'], [63, 'partlyCloudy'], [69.9, 'partlyCloudy'], [70, 'cloudy'], [100, 'cloudy']] as const)('%f %% is %s', (percent, sky) => {
+    expect(skyOfCloudCover(percent)).toBe(sky)
+  })
+
+  it('is partly cloudy where there is no cloud cover', () => {
+    for (const none of [null, undefined, Number.NaN])
+      expect(skyOfCloudCover(none)).toBe('partlyCloudy')
+  })
+})
+
+describe('the words of the weather kinds', () => {
   const en = JSON.parse(readFileSync(fileURLToPath(new URL('../../i18n/locales/en.json', import.meta.url)), 'utf-8')) as { meteogram: { chart: { weather: Record<string, string> } } }
 
-  it('has an icon for every kind, and a word in the catalog for every kind', () => {
-    expect(Object.keys(WEATHER_ICONS).sort()).toEqual([...WEATHER_KINDS].sort())
+  it('has a word in the catalog for every kind', () => {
     expect(Object.keys(en.meteogram.chart.weather).sort()).toEqual([...WEATHER_KINDS].sort())
-  })
-
-  // the names are Phosphor's and are literals of the module, so the scan of the build and icon-names.test.ts hold
-  // them too; this one holds that every kind has one that is no emoji and that the kinds a reader tells apart
-  // are not drawn alike where the words are all there is to tell them by
-  it('draws every kind as a Phosphor icon, and no emoji', () => {
-    for (const icon of Object.values(WEATHER_ICONS))
-      expect(icon).toMatch(/^i-ph-[a-z-]+$/)
-  })
-
-  // the table, as it is drawn: a change of an icon is a change of this test too
-  it('is the table of icons the issue asks for', () => {
-    expect(WEATHER_ICONS).toStrictEqual({
-      thunderstorm: 'i-ph-cloud-lightning',
-      rain: 'i-ph-cloud-rain',
-      snow: 'i-ph-cloud-snow',
-      sleet: 'i-ph-cloud-snow',
-      drizzle: 'i-ph-drop-half',
-      fog: 'i-ph-cloud-fog',
-      wind: 'i-ph-wind',
-      dust: 'i-ph-wind',
-      funnelCloud: 'i-ph-tornado',
-      blowingSnow: 'i-ph-snowflake',
-      cloudy: 'i-ph-cloud',
-      partlyCloudy: 'i-ph-cloud-sun',
-      clear: 'i-ph-sun',
-    })
-  })
-
-  it('draws the drizzle other than the drop that stands before the amount of rain of a day card', () => {
-    expect(Object.values(WEATHER_ICONS)).not.toContain('i-ph-drop')
-  })
-
-  it('draws the sky, the rain, the snow and the fog differently', () => {
-    const drawn = ['clear', 'partlyCloudy', 'cloudy', 'rain', 'snow', 'fog', 'thunderstorm', 'wind'] as const
-    expect(new Set(drawn.map(kind => WEATHER_ICONS[kind])).size).toBe(drawn.length)
-  })
-
-  it('draws the funnel cloud and the dust storm differently: the words are all a reader of the icon has', () => {
-    expect(WEATHER_ICONS.funnelCloud).not.toBe(WEATHER_ICONS.dust)
   })
 
   it('names the funnel cloud for what it is, not as dust or as a clear sky', () => {

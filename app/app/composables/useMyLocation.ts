@@ -1,9 +1,12 @@
 import type { LocationFailure } from '~/utils/geolocation'
 import type { Point } from '~/utils/map-tool'
+import { PLACE_STORAGE_KEY } from '~/composables/usePlace'
 import {
   failureOfCode,
   forgetRememberedPosition,
   LOCATE_TIMEOUT_MS,
+  LOCATION_STORAGE_KEY,
+  PERMISSION_QUERY_TIMEOUT_MS,
   POSITION_OPTIONS,
   readRememberedPosition,
   roundPosition,
@@ -25,16 +28,33 @@ let latestPress = 0
  *   (`wd-location`), where a later press of the button uses it without asking the browser, until the reader forgets it.
  *   "Remember" can be ticked only with a position in hand, and forgetting takes the position too, so that the state
  *   is one of three: no position, a position for this visit, a position kept in the browser (GH-4010).
+ * - A stored position is used only while the browser's permission is not `denied` (GH-4014): a press, and the load of a
+ *   page that uses the station the position made (`checking` holds that page's questions back until the answer is in),
+ *   finds it withdrawn, deletes the stored position and its station, as "Forget" does, and sets `withdrawn` so that the
+ *   reader is told. Where the Permissions API cannot tell, the stored position is used as before.
+ * - What another tab does to the storage reaches this one (the `storage` event, and a look at the storage when a
+ *   control is set up, a press uses a stored position, or the page comes back from the back/forward cache): a position
+ *   forgotten there is forgotten here, one stored there is taken here, unless this tab holds a position of its own for
+ *   the visit (GH-4014). A press never uses a stored position that the storage no longer holds.
  * - A refusal, no support, no fix and a timeout are failures to tell, not errors: nothing else is affected.
  */
 export function useMyLocation() {
-  const { dropPositionPlace } = usePlace()
+  const { place, dropPositionPlace, forgetStoredPositionPlace, followStoredPlace } = usePlace()
   const position = useState<Point | null>('wd-location-position', () => null)
   const failure = useState<LocationFailure | null>('wd-location-failure', () => null)
   const busy = useState<boolean>('wd-location-busy', () => false)
   const remember = useState<boolean>('wd-location-remember', () => false)
+  /** The browser refused to keep the position (blocked or full storage): it is for this visit only, and the reader is told (GH-4014) */
+  const notKept = useState<boolean>('wd-location-not-kept', () => false)
+  /** How many times the browser refused: the alert is keyed on it, so that a second refusal is announced again (GH-4014) */
+  const notKeptCount = useState<number>('wd-location-not-kept-count', () => 0)
+  /** The browser's permission was found withdrawn on a press, and the stored position deleted: the reader is told (GH-4014) */
+  const withdrawn = useState<boolean>('wd-location-withdrawn', () => false)
+  /** The stored position is being checked against the browser's permission at load: what is asked about its station waits (GH-4014) */
+  const checking = useState<boolean>('wd-location-checking', () => false)
   /** Whether the storage was looked at in this visit: once, when a component first asks, as a client-side read */
   const loaded = useState<boolean>('wd-location-loaded', () => false)
+  const firstLook = !loaded.value
 
   if (import.meta.client && !loaded.value) {
     loaded.value = true
@@ -48,16 +68,37 @@ export function useMyLocation() {
   /** Whether the position in hand is the one remembered in this browser */
   const remembered = computed(() => remember.value && position.value !== null)
 
-  /** The state of the permission as the Permissions API tells it, or null where it cannot */
+  /** The browser did not keep the position: the reader is told, each time */
+  function refused() {
+    notKept.value = true
+    notKeptCount.value++
+  }
+
+  /**
+   * The state of the permission as the Permissions API tells it, or null where it cannot: no API, a name it does not
+   * know (Safari), or no answer within `PERMISSION_QUERY_TIMEOUT_MS`, whose late answer is ignored. The one place that
+   * asks, for the load check and for a press.
+   */
   async function permissionState(): Promise<PermissionState | null> {
+    let clock: ReturnType<typeof setTimeout> | undefined
     try {
       if (!navigator.permissions?.query)
         return null
-      return (await navigator.permissions.query({ name: 'geolocation' as PermissionName })).state
+      const silent = new Promise<null>((resolve) => {
+        clock = setTimeout(resolve, PERMISSION_QUERY_TIMEOUT_MS, null)
+      })
+      const answered = navigator.permissions.query({ name: 'geolocation' as PermissionName }).then(status => status.state)
+      // a query that fails after the wait is no unhandled rejection. A `denied` that it reports after the wait is ignored
+      // too: where the browser does not answer in time it does not report, and the stored position stays until "Forget"
+      answered.catch(() => {})
+      return await Promise.race([answered, silent])
     }
     catch {
       // Safari and others that know the API but not this name: the browser's own prompt does the asking
       return null
+    }
+    finally {
+      clearTimeout(clock)
     }
   }
 
@@ -72,6 +113,33 @@ export function useMyLocation() {
   }
 
   /**
+   * Looks at the browser's permission before the stored position is used (GH-4014). `denied`: the position and its
+   * station are deleted as "Forget" does and `withdrawn` is set. Where the browser cannot tell, or says anything else,
+   * the position is used. A later press, or a forget, takes the place of this one (`overtaken`): it holds `checking` on
+   * until it has its own answer, or ends it with the forget.
+   *
+   * A press (`press`) is the latest press and drops the one that waited for the browser, which no longer clears `busy`.
+   * The check at load is not: it takes the counter as it is, so a press that is under way is not dropped by a page that
+   * sets one up later, and it leaves `busy` alone. A press overtakes a check at load, never the other way round (a
+   * denial found at load goes through `forget()`, which drops a press as it should).
+   */
+  async function checkStoredPermission(press: boolean): Promise<'allowed' | 'withdrawn' | 'overtaken'> {
+    const mine = press ? ++latestPress : latestPress
+    if (press)
+      busy.value = false
+    const state = await permissionState()
+    if (mine !== latestPress)
+      return 'overtaken'
+    if (state === 'denied') {
+      forget()
+      withdrawn.value = true
+      return 'withdrawn'
+    }
+    checking.value = false
+    return 'allowed'
+  }
+
+  /**
    * The reader's position, rounded, or null with `failure` set. Asks the browser, unless a position is remembered or the
    * permission is known to be refused. The wait ends in the failure `timeout` after `LOCATE_TIMEOUT_MS` whatever the
    * browser does (a permission prompt that is ignored never ends), and a press while one is waiting takes its place: that
@@ -79,8 +147,15 @@ export function useMyLocation() {
    */
   async function locate(): Promise<Point | null> {
     failure.value = null
-    if (position.value && remember.value)
-      return position.value
+    notKept.value = false
+    withdrawn.value = false
+    // a position that another tab forgot while no control here was listening is not used: this press asks the browser, as
+    // one with nothing stored does
+    syncLocation()
+    if (position.value && remember.value) {
+      const checked = await checkStoredPermission(true)
+      return checked === 'allowed' ? position.value : null
+    }
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
       failure.value = 'unsupported'
       return null
@@ -101,8 +176,15 @@ export function useMyLocation() {
       if (mine !== latestPress)
         return null
       position.value = fix
-      if (remember.value)
-        writeRememberedPosition(fix)
+      // "remember" was ticked while this press waited: the new position replaces the stored one, or, where the browser
+      // refuses it now, the old one is not kept either (the control would name a position that is not the one in hand)
+      if (remember.value && !writeRememberedPosition(fix)) {
+        forgetRememberedPosition()
+        // the station may have been written with the tick that came while this press waited: it goes with the position
+        forgetStoredPositionPlace()
+        remember.value = false
+        refused()
+      }
       return fix
     }
     catch (error) {
@@ -123,23 +205,114 @@ export function useMyLocation() {
    * Ticks "remember": the position in hand is kept in the browser. It cannot be ticked with no position in hand
    * (GH-4010): there would be nothing to keep, and the state would say that something is kept when nothing is. The
    * component shows the box only while a position is in hand. There is no unticking: the box gives way to the "Stored"
-   * control once the position is stored, and `forget()` is the one way back.
+   * control once the position is stored, and `forget()` is the one way back. It is ticked only if the browser kept the
+   * position: where it refuses (GH-4014), `remember` stays off, `notKept` is set, and the box stays for another try.
    */
   function rememberPosition() {
     if (!position.value)
       return
+    if (!writeRememberedPosition(position.value)) {
+      refused()
+      return
+    }
+    notKept.value = false
     remember.value = true
-    writeRememberedPosition(position.value)
   }
 
-  /** The position is forgotten: in memory and in the browser */
+  /**
+   * The position is forgotten: in memory and in the browser. What is in flight goes too (GH-4014): a press that still
+   * waits for the browser is dropped, as a later press would drop it, so that its answer does not bring the position
+   * back for the visit. The pages drop their lookups of the nearest station when the position goes.
+   */
   function forget() {
+    latestPress++
+    busy.value = false
     position.value = null
     remember.value = false
+    notKept.value = false
     failure.value = null
+    withdrawn.value = false
+    checking.value = false
     forgetRememberedPosition()
     dropPositionPlace()
   }
 
-  return { position, failure, busy, remember, remembered, locate, rememberPosition, forget }
+  /**
+   * This tab follows what the browser keeps (GH-4014): a remembered position that the storage no longer holds is
+   * forgotten, one that it holds in place of this tab's is taken. A position that is only for this visit is the tab's own
+   * and is kept, and a position stored elsewhere is taken only where this tab has none of its own.
+   */
+  function syncLocation() {
+    if (!import.meta.client)
+      return
+    const kept = readRememberedPosition()
+    if (!kept) {
+      if (remember.value)
+        forget()
+    }
+    else if ((!position.value || remember.value) && (!remembered.value || kept.latitude !== position.value?.latitude || kept.longitude !== position.value?.longitude)) {
+      position.value = kept
+      remember.value = true
+      notKept.value = false
+      withdrawn.value = false
+      failure.value = null
+    }
+  }
+
+  /**
+   * Another tab changed the storage (GH-4014): this tab follows what is kept, so that it does not show "Stored" or use a
+   * position that was forgotten there (`syncLocation`), and the place that the position made follows the place kept.
+   */
+  function onStorage(event: StorageEvent) {
+    if (event.key !== null && event.key !== LOCATION_STORAGE_KEY && event.key !== PLACE_STORAGE_KEY)
+      return
+    if (event.key === null || event.key === LOCATION_STORAGE_KEY)
+      syncLocation()
+    if (remember.value)
+      followStoredPlace()
+  }
+
+  /** A page that comes back from the back/forward cache has missed the events of the time it was away */
+  function onPageShow(event: PageTransitionEvent) {
+    if (!event.persisted)
+      return
+    syncLocation()
+    if (remember.value)
+      followStoredPlace()
+  }
+
+  /**
+   * The load of the home page, which uses the station that the position made as its place (GH-4014): the page calls this
+   * once as it is set up, the permission is looked at before that station is asked about, and `checking` holds the
+   * page's questions back meanwhile. No other control calls it: a position that made no station, or a page that does
+   * not use it, is used only by a press, which looks at the permission itself.
+   */
+  function checkOnLoad() {
+    if (!remember.value || !position.value || !place.value.fromPosition || checking.value)
+      return
+    checking.value = true
+    void checkStoredPermission(false)
+  }
+
+  if (import.meta.client) {
+    // a control set up later in the visit has not seen what other tabs did meanwhile
+    if (!firstLook)
+      syncLocation()
+    if (remember.value)
+      followStoredPlace()
+    // a station that the position made, with no position stored (the position's entry was removed, or never written): it
+    // does not outlive it, and a newer entry of another tab that is not that station's is not touched
+    else if (firstLook)
+      dropPositionPlace()
+    if (getCurrentScope()) {
+      window.addEventListener('storage', onStorage)
+      window.addEventListener('pageshow', onPageShow)
+      onScopeDispose(() => {
+        window.removeEventListener('storage', onStorage)
+        window.removeEventListener('pageshow', onPageShow)
+      })
+    }
+  }
+
+  return { position, failure, busy, remember, notKept, notKeptCount, withdrawn, checking, remembered, locate, rememberPosition, forget, checkOnLoad }
 }

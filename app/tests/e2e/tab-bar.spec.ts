@@ -64,7 +64,7 @@ function settingsWith(tabBar: unknown) {
     friendlyLabels: true,
     convertUnits: true,
     units: {},
-    stripes: { showTitle: true, showYears: true, showSource: true, showDataAvailability: true, showTimeseries: false, showTrendline: false },
+    stripes: { showTitle: true, showYears: true, showSource: true, showDataAvailability: true },
     tabBar,
   }
 }

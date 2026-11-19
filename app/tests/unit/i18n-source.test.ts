@@ -3,12 +3,17 @@ import { join, relative } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 // What the app's own source says in a language, and what it leaves to `t()` and to `Intl` (GH-2610). The catalogs are
-// held by `i18n-parity.test.ts` and `i18n-quality.test.ts`; this one reads the code that uses them, for four ways
+// held by `i18n-parity.test.ts` and `i18n-quality.test.ts`; this one reads the code that uses them, for seven ways
 // text escapes a translation that can be found by pattern:
 //
 // - a colon written after a translated label: French sets a no-break space before it, so it is `common.colon`
 // - a date or a time written out of its parts (`${dd}.${mm}.${yyyy}`), which is German order in every language
+// - a time of day written out of its parts (`HH:mm`), which is German's colon in every language (Danish writes `04.00`)
 // - `Intl` or `toLocale*String` called with no language, which is the browser's
+// - `Intl` or `toLocale*String` called with the app's bare locale code (`lb`, `de-hh`), which a browser may have no
+//   data for (Chrome has none for Luxembourgish and writes the system's language): `useFormatLanguage()` or `withData`
+// - a `<UInputNumber>` without `:locale="formatLanguage"`: Nuxt UI gives reka's number field the bare code too, so a
+//   typed "1,5" is read as 15 in Luxembourgish in Chrome (GH-4037)
 // - a static attribute of an element (`title`, `aria-label`, `placeholder`, ...) with a word in it, where `t()` belongs
 //
 // Text between the tags of an element is not checked.
@@ -29,6 +34,36 @@ const DATE_YMD = /\$\{(?:yyyy|year|y)\}[./-]\$\{(?:mm|month|m)\}[./-]\$\{(?:dd|d
 const TO_LOCALE_STRING = /(?<!\.setLocale\([^()]*\))\.toLocale(?:Date|Time)?String\((?:\s*undefined)?\s*[,)]/
 const INTL_NO_LANGUAGE = /new Intl\.(?:DateTimeFormat|NumberFormat|RelativeTimeFormat|ListFormat|PluralRules|Collator)\((?:\s*undefined)?\s*[,)]/
 
+/**
+ * The app's locale code (`locale`, `locale.value`), a language tag read from the locale's properties (`language`,
+ * `language.value`, `localeProperties.value.language`) or a variable of the page by either name, as the language of
+ * `Intl`, of `toLocale*String` or of a luxon DateTime: none of them is a language the browser has data for (Chrome has
+ * none for `lb`). What is handed over is `useFormatLanguage()`'s answer, named `formatLanguage`, or `withData(...)`;
+ * the helpers of `utils/format.ts` take a code or a tag and map it themselves.
+ */
+const UNMAPPED = String.raw`(?:locale|language)(?:\.value)?|localeProperties(?:\.value)?\.language`
+const INTL_BARE_LOCALE = new RegExp(String.raw`new Intl\.\w+\(\s*(?:${UNMAPPED})\s*[,)]`)
+const TO_LOCALE_BARE = new RegExp(String.raw`\.toLocale(?:Date|Time)?String\(\s*(?:${UNMAPPED})\s*[,)]`)
+const SET_LOCALE_BARE = new RegExp(String.raw`\.setLocale\(\s*(?:${UNMAPPED})\s*\)`)
+const BARE_LOCALE_PATTERNS = [INTL_BARE_LOCALE, TO_LOCALE_BARE, SET_LOCALE_BARE]
+
+/**
+ * The opening tag of a `<UInputNumber>`, self-closing or not: up to the first `>` that no quoted attribute value holds
+ * (`@update:model-value="x => y"` has one), and the attribute that gives it the language tag
+ */
+const UINPUT_NUMBER_TAG = /<UInputNumber\b(?:"[^"]*"|'[^']*'|[^>"'])*>/g
+const NUMBER_FIELD_LANGUAGE = /\s:locale="formatLanguage"/
+
+/**
+ * The hour and the minute of a time written out: `${hh}:${mm}`, `toFormat('HH:mm')` or the 12-hour `'hh:mm a'`,
+ * `${d.getUTCHours()}:${d.getUTCMinutes()}`, `toISO().slice(11, 16)`
+ */
+const TIME_PARTS = /\$\{(?:hh|hour|hours|h)\}[:.]\$\{(?:mm|minute|minutes|min|m)\}/
+const TIME_FORMAT = /\.toFormat\(\s*['"`][^'"`]*[Hh][:.]mm?/
+const TIME_FROM_DATE = /\$\{[^}]*Hours\(\)[^}]*\}[:.]\$\{[^}]*Minutes\(\)/
+const TIME_FROM_ISO = /toISO(?:String)?\([^)]*\)\??\.(?:slice|substring|substr)\(\s*11\s*,/
+const TIME_PATTERNS = [TIME_PARTS, TIME_FORMAT, TIME_FROM_DATE, TIME_FROM_ISO]
+
 /** A static attribute with a word in it (`title="Station"`), where the translated one is `:title="t('...')"` */
 const STATIC_ATTRIBUTE = /\s(?:title|aria-label|aria-roledescription|aria-description|placeholder|alt|label)="[^"{]*[A-Za-zÄÖÜäöü]{3}/
 
@@ -37,6 +72,9 @@ function sources(directory: string): string[] {
     .filter(entry => entry.isFile() && /\.(?:vue|ts)$/.test(entry.name))
     .map(entry => join(entry.parentPath, entry.name))
 }
+
+// `§{` stands for the `${` of a template literal, which a string of this file may not hold
+const code = (line: string) => line.replaceAll('§{', '$' + '{')
 
 const files = ['app', 'shared'].flatMap(sources).map(path => ({ name: relative(APP, path), text: readFileSync(path, 'utf8') }))
 
@@ -66,6 +104,25 @@ describe('what the source leaves to the language', () => {
     expect(found(INTL_NO_LANGUAGE)).toEqual([])
   })
 
+  it('gives `Intl` and `toLocale*String` a language the browser has data for, never the app\'s bare locale code', () => {
+    for (const pattern of BARE_LOCALE_PATTERNS)
+      expect(found(pattern)).toEqual([])
+  })
+
+  it('gives every number field the language tag: Nuxt UI hands it the bare locale code, which Chrome may have no data for', () => {
+    const missing = files.flatMap(file => [...file.text.matchAll(UINPUT_NUMBER_TAG)]
+      .filter(([tag]) => !NUMBER_FIELD_LANGUAGE.test(tag))
+      .map(([tag]) => `${file.name}:${file.text.slice(0, file.text.indexOf(tag)).split('\n').length}: ${tag.split('\n')[1]?.trim()}`))
+    expect(missing).toEqual([])
+  })
+
+  it('writes no time of day out of its parts: the separator is the language\'s', () => {
+    // the offset to UTC ("UTC+01:00") is ISO 8601 notation, with a colon in every language
+    const allowed: Record<string, string> = { [code('(UTC§{sign}§{h}:§{m})')]: 'a UTC offset, ISO 8601 notation' }
+    for (const pattern of TIME_PATTERNS)
+      expect(found(pattern, allowed)).toEqual([])
+  })
+
   it('writes no static attribute with a word in it: `t()` does', () => {
     const allowed: Record<string, string> = {
       'placeholder="parameter_name"': 'the name of a parameter as the API takes it, in no language',
@@ -76,8 +133,16 @@ describe('what the source leaves to the language', () => {
 })
 
 describe('the patterns', () => {
-  // `§{` stands for the `${` of a template literal, which a string of this file may not hold
-  const code = (line: string) => line.replaceAll('§{', '$' + '{')
+  it('reads a number field\'s tag whether or not it closes itself, and past a `>` inside an attribute', () => {
+    const tags = (text: string) => [...text.matchAll(UINPUT_NUMBER_TAG)].map(([tag]) => tag)
+    expect(tags('<UInputNumber v-model="a" :locale="formatLanguage" />')).toHaveLength(1)
+    expect(tags('<UInputNumber\n  v-model="a"\n  :locale="formatLanguage"\n/>')).toHaveLength(1)
+    expect(tags('<UInputNumber v-model="a"></UInputNumber>')).toEqual(['<UInputNumber v-model="a">'])
+    const quoted = '<UInputNumber :model-value="a" @update:model-value="x => set(x)" :locale="formatLanguage" />'
+    expect(tags(quoted)).toEqual([quoted])
+    expect(NUMBER_FIELD_LANGUAGE.test(quoted)).toBe(true)
+    expect(NUMBER_FIELD_LANGUAGE.test('<UInputNumber v-model="a" :min="0" />')).toBe(false)
+  })
 
   it.each([
     '{{ t(\'x\') }}: {{ y }}',
@@ -106,5 +171,56 @@ describe('the patterns', () => {
     expect(TO_LOCALE_STRING.test('number.toLocaleString(locale)')).toBe(false)
     expect(TO_LOCALE_STRING.test('DateTime.fromMillis(ms).setLocale(language.value).toLocaleString()')).toBe(false)
     expect(TO_LOCALE_STRING.test('DateTime.fromMillis(ms).setLocale(language.value).toLocaleString(DateTime.DATETIME_SHORT)')).toBe(false)
+  })
+
+  it.each([
+    'new Intl.NumberFormat(locale.value, { style: \'percent\' })',
+    'new Intl.Collator(locale)',
+    'new Intl.DateTimeFormat(locale.value)',
+    'new Intl.Collator(language.value, { numeric: true })',
+    'new Intl.NumberFormat(localeProperties.value.language)',
+    'count.toLocaleString(language)',
+    'DateTime.now().setLocale(language.value)',
+    'DateTime.now().setLocale(localeProperties.value.language)',
+    'count.toLocaleString(locale.value)',
+    'count.toLocaleString(locale, options)',
+    'date.toLocaleDateString(locale)',
+    'DateTime.now().setLocale(locale.value)',
+  ])('finds the bare locale code in %s', (line) => {
+    expect(BARE_LOCALE_PATTERNS.some(pattern => pattern.test(line))).toBe(true)
+  })
+
+  it.each([
+    'new Intl.Collator(formatLanguage.value, { numeric: true })',
+    'new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), options)',
+    'count.toLocaleString(formatLanguage.value)',
+    'DateTime.now().setLocale(formatLanguage.value)',
+    'const { t, locale, setLocale } = useI18n()',
+    'void setLocale(language.value as typeof locale.value)',
+  ])('leaves %s alone (bare locale code)', (line) => {
+    expect(BARE_LOCALE_PATTERNS.some(pattern => pattern.test(line))).toBe(false)
+  })
+
+  it.each([
+    'localDt.toFormat(\'HH:mm\')',
+    'localDt.toFormat("H:mm")',
+    'localDt.toFormat(\'HH.mm\')',
+    '`§{hh}:§{mm}`',
+    '`§{hour}.§{minute}`',
+    'localDt.toFormat(\'hh:mm a\')',
+    'DateTime.fromMillis(t).toISO().slice(11, 16)',
+    'new Date(t).toISOString().substring(11, 16)',
+    '`§{String(d.getUTCHours()).padStart(2, \'0\')}:§{String(d.getUTCMinutes()).padStart(2, \'0\')}`',
+  ])('finds a time written out of its parts in %s', (line) => {
+    expect(TIME_PATTERNS.some(pattern => pattern.test(code(line)))).toBe(true)
+  })
+
+  it.each([
+    'label: hour.toFormat(\'HH\')',
+    'label: DateTime.fromISO(key).toFormat(\'d\')',
+    'formatHour(t, language.value, stationTZ)',
+    'date.toFormat(\'ccc\')',
+  ])('leaves %s alone (time of day)', (line) => {
+    expect(TIME_PATTERNS.some(pattern => pattern.test(code(line)))).toBe(false)
   })
 })

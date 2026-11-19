@@ -54,12 +54,13 @@ for (const path of PAGES) {
     })
   }
 
-  test(`${path} at 390px: the About panel is the full width under the title`, async ({ page, baseURL }) => {
+  test(`${path} at 390px: the About panel is the full width of the window under the title`, async ({ page, baseURL }) => {
     await page.setViewportSize({ width: 390, height: 844 })
     const { button, panel, boxes } = await openAbout(page, baseURL!, path)
-    const { panel: p, header, title } = await boxes()
-    expect(Math.abs(p.x - header.x), 'left edge').toBeLessThanOrEqual(TOLERANCE)
-    expect(Math.abs(p.width - header.width), 'width').toBeLessThanOrEqual(TOLERANCE)
+    const { panel: p, title } = await boxes()
+    // edge to edge (GH-4227): on a phone the panel is as wide as the window, and the button is the ⓘ beside the title
+    expect(Math.abs(p.x), 'left edge').toBeLessThanOrEqual(TOLERANCE)
+    expect(Math.abs(p.width - 390), 'width').toBeLessThanOrEqual(TOLERANCE)
     expect(p.y).toBeGreaterThan(title.y + title.height)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true)
     await expect(button).toHaveAttribute('aria-controls', (await panel.getAttribute('id'))!)

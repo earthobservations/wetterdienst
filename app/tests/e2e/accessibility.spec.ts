@@ -111,8 +111,13 @@ interface State {
 const EXPLORER = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station'
 const EXPLORER_WITH_STATION = `${EXPLORER}&stations=00011`
 
-/** The chart Plotly drew: its SVG is in the container once it has */
-const plotly = (page: Page) => page.locator('.js-plotly-plot .main-svg').first()
+/** The explorer's chart (ECharts, drawn as SVG): its SVG is in the canvas once it has */
+const explorerChart = (page: Page) => page.locator('.xc-canvas[data-drawn="true"] svg').first()
+/** The stripes' chart (ECharts, drawn as SVG): its SVG is in the canvas once it has */
+const stripesChart = (page: Page) => page.locator('.sc-canvas[data-drawn="true"] svg').first()
+
+/** The forecast's chart (ECharts): its SVG is in the container once it has */
+const forecastChart = (page: Page) => page.locator('.mg-canvas svg').first()
 
 /** A map with markers: Leaflet puts one icon, or a cluster, in the page for each */
 async function mapWithStations(page: Page) {
@@ -171,7 +176,7 @@ const STATES: State[] = [
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
       await expect(page.getByRole('table').first()).toBeVisible()
       await page.getByRole('button', { name: message(locale, 'dataViewer.viewChart'), exact: true }).click()
-      await expect(plotly(page)).toBeVisible()
+      await expect(explorerChart(page)).toBeVisible()
     },
   },
   {
@@ -333,7 +338,7 @@ const STATES: State[] = [
     path: '/stripes?kind=temperature&station=00011',
     reach: async (page, locale) => {
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
-      await expect(plotly(page)).toBeVisible()
+      await expect(stripesChart(page)).toBeVisible()
     },
   },
   {
@@ -343,7 +348,7 @@ const STATES: State[] = [
     path: '/stripes?kind=temperature&station=00011',
     reach: async (page, locale) => {
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
-      await expect(plotly(page)).toBeVisible()
+      await expect(stripesChart(page)).toBeVisible()
       await page.getByRole('button', { name: message(locale, 'stripes.downloadImage') }).click()
       await expect(page.getByRole('menuitem').first()).toBeVisible()
     },
@@ -363,7 +368,33 @@ const STATES: State[] = [
     state: 'chart-drawn',
     path: '/meteogram?station=01001',
     reach: async (page) => {
-      await expect(plotly(page)).toBeVisible()
+      await expect(forecastChart(page)).toBeVisible()
+    },
+  },
+  {
+    // the readout the keys open, with the focus on the chart (the ring is drawn, the readout lies over the panels)
+    page: 'meteogram',
+    state: 'readout-shown',
+    keepFocus: true,
+    path: '/meteogram?station=01001',
+    reach: async (page) => {
+      await expect(forecastChart(page)).toBeVisible()
+      await page.getByRole('figure').focus()
+      await page.keyboard.press('ArrowRight')
+      await expect(page.getByTestId('meteogram-readout')).toBeVisible()
+    },
+  },
+  {
+    // a phone's window, which opens on the day cards: the chart is asked for, and the strip scrolls under its axes
+    page: 'meteogram',
+    state: 'chart-phone',
+    path: '/meteogram?station=01001&view=chart',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await expect(forecastChart(page)).toBeVisible()
+      await page.getByTestId('meteogram-scroller').evaluate((element) => {
+        element.scrollLeft = 200
+      })
     },
   },
   {
@@ -372,7 +403,7 @@ const STATES: State[] = [
     path: '/stripes?kind=temperature&station=00011',
     reach: async (page, locale) => {
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
-      await expect(plotly(page)).toBeVisible()
+      await expect(stripesChart(page)).toBeVisible()
       await page.getByRole('button', { name: message(locale, 'dataViewer.viewTable'), exact: true }).click()
       await expect(page.getByRole('table')).toBeVisible()
     },
@@ -382,7 +413,7 @@ const STATES: State[] = [
     state: 'table-shown',
     path: '/meteogram?station=01001',
     reach: async (page, locale) => {
-      await expect(plotly(page)).toBeVisible()
+      await expect(forecastChart(page)).toBeVisible()
       await page.getByRole('radio', { name: message(locale, 'meteogram.chart.viewTable'), exact: true }).click()
       await expect(page.getByRole('table')).toBeVisible()
     },
@@ -400,7 +431,7 @@ const STATES: State[] = [
     state: 'table-shown',
     path: '/widget?station=01001',
     reach: async (page, locale) => {
-      await expect(plotly(page)).toBeVisible()
+      await expect(forecastChart(page)).toBeVisible()
       await page.getByRole('button', { name: message(locale, 'dataViewer.viewTable'), exact: true }).click()
       await expect(page.getByRole('table')).toBeVisible()
     },
@@ -447,7 +478,7 @@ const STATES: State[] = [
     state: 'chart-drawn',
     path: '/widget?station=01001',
     reach: async (page) => {
-      await expect(plotly(page)).toBeVisible()
+      await expect(forecastChart(page)).toBeVisible()
     },
   },
   {
@@ -568,12 +599,14 @@ const STATES: State[] = [
     },
   },
   {
-    // the layer of the measurements, with the choices of its resolution and dataset
+    // the layer of the measurements, with the choices of its resolution and dataset, in the panel of the layers button (GH-4209)
     page: 'map',
     state: 'measured-layer',
     path: '/map?layer=measured',
     reach: async (page) => {
       await expect(page.getByTestId('map-count')).toBeVisible()
+      await page.getByTestId('map-layers-button').click()
+      await expect(page.getByTestId('map-grouping')).toBeVisible()
       await expect(page.getByTestId('map-resolution')).toBeVisible()
       await expect(page.getByTestId('map-dataset')).toBeVisible()
     },
@@ -599,6 +632,31 @@ const STATES: State[] = [
       await expect(page.getByTestId('map-card-forecast').getByTestId('day-rows')).toBeVisible()
       await expect(page.getByTestId('map-card-stripes').getByRole('img')).toBeVisible()
       await expect(page.getByTestId('map-card-measured').getByRole('link').first()).toBeVisible()
+    },
+  },
+  {
+    // on a phone, the map full screen (GH-4227): the browser's own where it has the API, the app covering the page where it has
+    // not; either way the map, its buttons and the sheet that stands in for the panel are all there is of the page
+    page: 'map',
+    state: 'phone-fullscreen',
+    path: '/map?station=10384&lat=52.9&lon=13.0',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await expect(page.getByTestId('map-fullscreen')).toBeVisible()
+      await page.getByTestId('map-fullscreen').click()
+      await expect(page.getByTestId('map-sheet')).toBeVisible()
+      await expect(page.getByTestId('map-sheet-name')).toBeVisible()
+    },
+  },
+  {
+    // on a phone, the "About" of a tool as the ⓘ beside the title, open (GH-4227)
+    page: 'explorer',
+    state: 'phone-about-open',
+    path: '/explorer',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await page.getByTestId('page-info').click()
+      await expect(page.locator('.page-about')).toBeVisible()
     },
   },
   {
@@ -873,7 +931,7 @@ test.describe('keyboard operation', () => {
     await mockBackend(page, baseURL!)
     await open(page, '/stripes?kind=temperature&station=00011', variant)
     await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
-    await expect(plotly(page)).toBeVisible()
+    await expect(stripesChart(page)).toBeVisible()
 
     const trigger = page.getByRole('button', { name: message('en', 'stripes.downloadImage') })
     await trigger.focus()
@@ -951,8 +1009,9 @@ test.describe('keyboard operation', () => {
   })
 })
 
-// Plotly's modebar (zoom, pan, reset) is the keyboard's way to move around a chart (WCAG 2.1.1). Its buttons
-// are native buttons in the Plotly the app ships; this holds them to being so on an upgrade.
+// The toolbars of the charts (zoom, move, reset, the camera) are the keyboard's way to move around a chart (WCAG 2.1.1), which a
+// drag, a pinch and the wheel do for a pointer (2.5.7): native buttons in the tab order with names, and the chart itself is one
+// tab stop whose keys step through its values. The Explorer's was Plotly's modebar until GH-4096.
 test.describe('chart controls by keyboard', () => {
   test.describe.configure({ timeout: 60_000 })
   const variant: Variant = { mode: 'light', locale: 'en' }
@@ -961,80 +1020,378 @@ test.describe('chart controls by keyboard', () => {
     await context.addCookies([{ name: 'wd_lang', value: 'en', url: baseURL! }])
   })
 
-  test('the modebar of the stripes is reached by Tab, named, and operated by Enter and Space', async ({ page, baseURL }) => {
+  test('the toolbar of the stripes is reached by Tab, named, and operated by Enter and Space', async ({ page, baseURL }) => {
     await mockBackend(page, baseURL!)
     await open(page, '/stripes?kind=temperature&station=00011', variant)
     await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
-    await expect(plotly(page)).toBeVisible()
+    await expect(stripesChart(page)).toBeVisible()
 
-    const buttons = page.locator('.js-plotly-plot .modebar-btn')
+    const buttons = page.locator('.sc-toolbar button')
     const count = await buttons.count()
-    expect(count).toBeGreaterThan(3)
-    // every one is a control in the tab order with a name of its own
+    expect(count).toBe(6)
+    // every one is a button in the tab order with a name of its own
     const names = await buttons.evaluateAll(nodes => nodes.map(node => ({
-      role: node.getAttribute('role') ?? node.tagName.toLowerCase(),
       tabindex: (node as HTMLElement).tabIndex,
       name: node.getAttribute('aria-label'),
     })))
     for (const button of names) {
-      expect(['button', 'a']).toContain(button.role)
       expect(button.tabindex).toBeGreaterThanOrEqual(0)
       expect(button.name).toBeTruthy()
     }
     expect(new Set(names.map(button => button.name)).size).toBe(count)
+    expect(await page.locator('.sc-toolbar').getAttribute('role')).toBe('group')
 
-    // Tab walks through the modebar, button by button in order, and on to the download menu after the chart
-    const focusedName = () => page.evaluate(() => document.activeElement?.closest('.modebar') ? document.activeElement.getAttribute('aria-label') : null)
-    await buttons.first().focus()
-    const reached = [await focusedName()]
-    for (let stop = 1; stop < count; stop++) {
-      await page.keyboard.press('Tab')
-      reached.push(await focusedName())
-    }
-    expect(reached).toEqual(names.map(button => button.name))
-    // and on to the table of the values, below the chart
+    // the whole chart is shown, so there is nothing to zoom out of, to move to or to reset: those are off, and the others are not
+    const named = (name: string) => page.locator(`.sc-toolbar button[aria-label="${name}"]`)
+    await expect(named(message('en', 'stripes.chart.zoomOut'))).toBeDisabled()
+    await expect(named(message('en', 'stripes.chart.resetZoom'))).toBeDisabled()
+    // Enter zooms in, which turns reset on; Space resets it
+    const zoomIn = named(message('en', 'stripes.chart.zoomIn'))
+    await zoomIn.focus()
+    await page.keyboard.press('Enter')
+    const reset = named(message('en', 'stripes.chart.resetZoom'))
+    await expect(reset).toBeEnabled()
+    await reset.focus()
+    await page.keyboard.press('Space')
+    await expect(reset).toBeDisabled()
+    await expect(stripesChart(page)).toBeVisible()
+
+    // Tab goes from the toolbar to the chart, which is one stop, and on to the table of the values below it
+    await named(message('en', 'stripes.chart.savePng')).focus()
+    await page.keyboard.press('Tab')
+    await expect(page.locator('.sc-stage')).toBeFocused()
     await page.keyboard.press('Tab')
     await expect(page.getByRole('button', { name: message('en', 'dataViewer.viewTable'), exact: true })).toBeFocused()
-
-    // "Pan" is a toggle: Enter turns it on, and the button says so by its class
-    const pan = page.locator('.js-plotly-plot .modebar-btn[data-attr="dragmode"][data-val="pan"]')
-    await pan.focus()
-    await page.keyboard.press('Enter')
-    await expect(pan).toHaveClass(/active/)
-    // Reset axes by Space leaves the chart drawn
-    await page.locator('.js-plotly-plot .modebar-btn[data-attr="zoom"][data-val="reset"]').focus()
-    await page.keyboard.press('Space')
-    await expect(plotly(page)).toBeVisible()
   })
 
-  test('the modebar of the explorer\'s chart is in the tab order and named', async ({ page, baseURL }) => {
+  // WCAG 2.1.1 and 2.5.7: what the pointer reads from the stripes (the year's value) the keyboard reads too
+  test('the stripes\' chart is read by the arrow keys, and zoomed by + - 0, with its values said to a screen reader', async ({ page, baseURL }) => {
     await mockBackend(page, baseURL!)
+    await open(page, '/stripes?kind=temperature&station=00011', variant)
+    await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
+    await expect(stripesChart(page)).toBeVisible()
+
+    const stage = page.locator('.sc-stage')
+    const readout = page.getByTestId('stripes-readout')
+    const announced = page.getByTestId('stripes-announce')
+    await stage.focus()
+    await expect(readout).toHaveCount(0)
+    await page.keyboard.press('ArrowRight')
+    await expect(readout).toBeVisible()
+    await expect(announced).toHaveText(/^1955: Value: [\d.]+ °C$/)
+    await page.keyboard.press('ArrowRight')
+    await expect(announced).toHaveText(/^1956: /)
+    await page.keyboard.press('PageDown')
+    await expect(announced).toHaveText(/^1966: /)
+    await page.keyboard.press('End')
+    await expect(announced).toHaveText(/^2024: /)
+    await page.keyboard.press('Home')
+    await expect(announced).toHaveText(/^1955: /)
+
+    const reset = page.locator(`.sc-toolbar button[aria-label="${message('en', 'stripes.chart.resetZoom')}"]`)
+    await expect(reset).toBeDisabled()
+    await page.keyboard.press('+')
+    await expect(reset).toBeEnabled()
+    await page.keyboard.press('0')
+    await expect(reset).toBeDisabled()
+    // the focus stays on the chart, and the page does not scroll for a key it takes
+    await expect(stage).toBeFocused()
+  })
+
+  // WCAG 1.4.13: the readout comes with the pointer or a key, can be moved onto, stays, and Escape closes it
+  test('the readout of the stripes\' chart is hoverable, persistent and dismissed by Escape, until the pointer or a key moves on', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/stripes?kind=temperature&station=00011', variant)
+    await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
+    await expect(stripesChart(page)).toBeVisible()
+    await page.locator('.sc-stage').scrollIntoViewIfNeeded()
+
+    const stage = (await page.locator('.sc-stage').boundingBox())!
+    const readout = page.getByTestId('stripes-readout')
+    // the right half of the chart: the readout is docked on the left, away from the crosshair
+    const x = stage.x + stage.width * 0.75
+    const y = stage.y + stage.height * 0.5
+    await page.mouse.move(x - 12, y)
+    await page.mouse.move(x, y, { steps: 4 })
+    await expect(readout).toBeVisible()
+    const shownFor = (await readout.getAttribute('aria-label'))!
+
+    // hoverable: the pointer moves onto it, along the way over the stripes, and it is still there for the same year
+    const box = (await readout.boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, y, { steps: 20 })
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 })
+    await expect(readout).toBeVisible()
+    await expect(readout).toHaveAttribute('aria-label', shownFor)
+    // persistent: it stays while the pointer rests
+    await page.waitForTimeout(600)
+    await expect(readout).toBeVisible()
+
+    // dismissible: Escape, with the pointer where it is and no focus in the chart
+    await page.keyboard.press('Escape')
+    await expect(readout).toHaveCount(0)
+    await page.waitForTimeout(300)
+    await expect(readout).toHaveCount(0)
+
+    // a pointer that leaves and comes to another stripe is a new hover
+    await page.mouse.move(x, y - stage.height / 2 - 40, { steps: 3 })
+    await page.mouse.move(x + 30, y, { steps: 4 })
+    await expect(readout).toBeVisible()
+  })
+
+  // opens the explorer's chart, which the tests of its toolbar, its keys, its readout and its legend are of
+  async function openExplorerChart(page: Page, baseURL: string) {
+    await mockBackend(page, baseURL)
     await open(page, EXPLORER_WITH_STATION, variant)
     await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
     await expect(page.getByRole('table').first()).toBeVisible()
     await page.getByRole('button', { name: message('en', 'dataViewer.viewChart'), exact: true }).click()
-    await expect(plotly(page)).toBeVisible()
+    await expect(explorerChart(page)).toBeVisible()
+  }
 
-    // the buttons; the Plotly logo is a link, which its icon names
-    const buttons = page.locator('.js-plotly-plot .modebar-btn:not(.modebar-btn--logo)')
-    expect(await buttons.count()).toBeGreaterThan(3)
-    const unreachable = await buttons.evaluateAll(nodes => nodes
-      .filter(node => (node as HTMLElement).tabIndex < 0 || !node.getAttribute('aria-label'))
-      .map(node => node.getAttribute('data-title') ?? node.outerHTML.slice(0, 80)))
-    expect(unreachable, 'modebar buttons outside the tab order or without a name').toEqual([])
-    // the first is reached by Tab, and takes the focus
-    await buttons.first().focus()
-    await expect(buttons.first()).toBeFocused()
+  /** The window of time the chart shows, in ms: what a zoom changes, which the canvas says */
+  const windowOf = async (page: Page) => {
+    const [start, end] = (await page.locator('.xc-canvas').first().getAttribute('data-window'))!.split('/').map(Number)
+    return { start: start!, end: end!, span: end! - start! }
+  }
+
+  test('the toolbar of the explorer\'s chart is in the tab order and named', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+
+    const buttons = page.locator('.xc-toolbar button')
+    expect(await buttons.count()).toBe(6)
+    const names = await buttons.evaluateAll(nodes => nodes.map(node => ({
+      tabindex: (node as HTMLElement).tabIndex,
+      name: node.getAttribute('aria-label'),
+      native: node.tagName === 'BUTTON',
+    })))
+    for (const button of names) {
+      expect(button.native).toBe(true)
+      expect(button.tabindex, `${button.name} is in the tab order`).toBeGreaterThanOrEqual(0)
+      expect(button.name).toBeTruthy()
+    }
+    expect(new Set(names.map(button => button.name)).size, 'every button has a name of its own').toBe(6)
+    expect(await page.locator('.xc-toolbar').getAttribute('role')).toBe('group')
+    await expect(page.locator('.xc-toolbar')).toHaveAttribute('aria-label', message('en', 'dataViewer.chart.zoomGroup'))
+    // the first that is on takes the focus
+    await page.getByRole('button', { name: 'Zoom in', exact: true }).focus()
+    await expect(page.getByRole('button', { name: 'Zoom in', exact: true })).toBeFocused()
+  })
+
+  test('the toolbar of the explorer\'s chart is walked by Tab in order, and operated by Enter and Space', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+
+    const named = (name: string) => page.locator(`.xc-toolbar button[aria-label="${name}"]`)
+    const zoomIn = named(message('en', 'dataViewer.chart.zoomIn'))
+    const reset = named(message('en', 'dataViewer.chart.resetZoom'))
+    // the whole chart is shown, so there is nothing to zoom out of, to move to or to reset: those are off, and the others are not
+    await expect(named(message('en', 'dataViewer.chart.zoomOut'))).toBeDisabled()
+    await expect(reset).toBeDisabled()
+    await expect(named(message('en', 'dataViewer.chart.earlier'))).toBeDisabled()
+    await expect(named(message('en', 'dataViewer.chart.later'))).toBeDisabled()
+
+    // Enter zooms in: the window of time of the chart is narrower, which turns reset on
+    const whole = await windowOf(page)
+    await zoomIn.focus()
+    await page.keyboard.press('Enter')
+    await expect.poll(async () => (await windowOf(page)).span, { message: 'Enter on Zoom in narrows the window' }).toBeLessThan(whole.span)
+    await expect(reset).toBeEnabled()
+    const zoomed = await windowOf(page)
+    expect(zoomed.start).toBeGreaterThanOrEqual(whole.start)
+    expect(zoomed.end).toBeLessThanOrEqual(whole.end)
+
+    // Tab walks through the toolbar, button by button in order, to the first of the legend's
+    const focused = () => page.evaluate(() => {
+      const element = document.activeElement
+      return element?.closest('.xc-toolbar') ? `toolbar: ${element.getAttribute('aria-label')}` : element?.closest('.xc-legend') ? 'legend' : element?.classList.contains('xc-stage') ? 'chart' : null
+    })
+    const order = (await page.locator('.xc-toolbar button').evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-label')))).map(name => `toolbar: ${name}`)
+    await page.locator('.xc-toolbar button').first().focus()
+    const reached = [await focused()]
+    for (let stop = 1; stop < order.length; stop++) {
+      await page.keyboard.press('Tab')
+      reached.push(await focused())
+    }
+    expect(reached).toEqual(order)
+    await page.keyboard.press('Tab')
+    expect(await focused()).toBe('legend')
+
+    // Later moves the window on; Space on reset puts the whole chart back, which turns reset off again
+    await named(message('en', 'dataViewer.chart.later')).focus()
+    await page.keyboard.press('Space')
+    await expect.poll(async () => (await windowOf(page)).start, { message: 'Space on Later moves the window' }).toBeGreaterThan(zoomed.start)
+    await reset.focus()
+    await page.keyboard.press('Space')
+    await expect.poll(async () => await windowOf(page), { message: 'Space on Reset zoom goes back to the whole chart' }).toEqual(whole)
+    await expect(reset).toBeDisabled()
+    await expect(explorerChart(page)).toBeVisible()
+
+    // the camera is a button too: Enter on it saves the image
+    const saved = page.waitForEvent('download')
+    await named(message('en', 'dataViewer.chart.savePng')).focus()
+    await page.keyboard.press('Enter')
+    expect((await saved).suggestedFilename()).toBe('newplot.png')
+  })
+
+  // WCAG 2.1.1 and 2.5.7: what the pointer reads from the chart (the values at a time) the keyboard reads too
+  test('the explorer\'s chart is read by the arrow keys, and zoomed by + - 0, with its values said to a screen reader', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+
+    const stage = page.locator('.xc-stage')
+    const readout = page.getByTestId('explorer-readout')
+    const announced = page.getByTestId('explorer-announce')
+    await stage.focus()
+    await expect(readout).toHaveCount(0)
+    await page.keyboard.press('ArrowRight')
+    await expect(readout).toBeVisible()
+    await expect(announced).toHaveText(/^Sep 1, 2026: .+: [\d.]+; .+: [\d.]+$/)
+    await expect(readout.locator('dd')).toHaveCount(2)
+    await page.keyboard.press('ArrowRight')
+    await expect(announced).toHaveText(/^Sep 2, 2026: /)
+    await page.keyboard.press('Shift+ArrowRight')
+    await expect(announced).toHaveText(/^Sep 12, 2026: /)
+    await page.keyboard.press('End')
+    await expect(announced).toHaveText(/^Sep 30, 2026: /)
+    await page.keyboard.press('Home')
+    await expect(announced).toHaveText(/^Sep 1, 2026: /)
+    // the readout is of the moment the announcement is of
+    await expect(readout).toHaveAttribute('aria-label', 'Values at Sep 1, 2026')
+
+    const whole = await windowOf(page)
+    const reset = page.locator(`.xc-toolbar button[aria-label="${message('en', 'dataViewer.chart.resetZoom')}"]`)
+    await expect(reset).toBeDisabled()
+    await page.keyboard.press('+')
+    await expect.poll(async () => (await windowOf(page)).span).toBeLessThan(whole.span)
+    await expect(reset).toBeEnabled()
+    await page.keyboard.press('-')
+    await page.keyboard.press('+')
+    await page.keyboard.press('0')
+    await expect.poll(async () => await windowOf(page), { message: '0 goes back to the whole chart' }).toEqual(whole)
+    await expect(reset).toBeDisabled()
+    // the focus stays on the chart, and the page does not scroll for a key it takes
+    await expect(stage).toBeFocused()
+  })
+
+  // WCAG 1.4.13: the readout comes with the pointer or a key, can be moved onto, stays, and Escape closes it
+  test('the readout of the explorer\'s chart is hoverable, persistent and dismissed by Escape, until the pointer or a key moves on', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+    await page.locator('.xc-stage').scrollIntoViewIfNeeded()
+
+    const stage = (await page.locator('.xc-stage').boundingBox())!
+    const readout = page.getByTestId('explorer-readout')
+    // the left part of the plot: the readout is docked at the right edge, clear of the crosshair
+    const x = stage.x + stage.width * 0.25
+    const y = stage.y + stage.height * 0.55
+    await page.mouse.move(x - 12, y)
+    await page.mouse.move(x, y, { steps: 4 })
+    await expect(readout).toBeVisible()
+    // the crosshair is in the chart, with a dot (a circle of 5 px, which the browser draws as an arc) on each series
+    await expect(page.locator('.xc-canvas svg path[d*="A5 5 "]')).toHaveCount(2)
+
+    // hoverable: the pointer moves onto it, along the way over the plot, and it is still there
+    const box = (await readout.boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, y, { steps: 25 })
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 4 })
+    await expect(readout).toBeVisible()
+    const shownFor = (await readout.getAttribute('aria-label'))!
+    // persistent: it stays, as it is, while the pointer rests on it
+    await page.waitForTimeout(600)
+    await expect(readout).toBeVisible()
+    await expect(readout).toHaveAttribute('aria-label', shownFor)
+
+    // dismissible: Escape, with the pointer where it is and no focus in the chart
+    await page.keyboard.press('Escape')
+    await expect(readout).toHaveCount(0)
+    await page.waitForTimeout(300)
+    await expect(readout).toHaveCount(0)
+
+    // a pointer that leaves and comes back to another moment is a new hover
+    await page.mouse.move(x, y - stage.height / 2 - 40, { steps: 3 })
+    await page.mouse.move(x + 30, y, { steps: 4 })
+    await expect(readout).toBeVisible()
+    // and it goes where the pointer leaves the chart
+    await page.mouse.move(x, y - stage.height / 2 - 40, { steps: 3 })
+    await expect(readout).toHaveCount(0)
+  })
+
+  test('the readout of the explorer\'s chart gives the focus back to the chart where its Close button goes', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+    const stage = page.locator('.xc-stage')
+    await stage.focus()
+    await page.keyboard.press('ArrowRight')
+    const readout = page.getByTestId('explorer-readout')
+    await expect(readout).toBeVisible()
+    // Tab goes from the chart to the readout's Close button, and Enter on it closes the readout and gives the focus back
+    await page.keyboard.press('Tab')
+    const close = readout.getByRole('button', { name: message('en', 'dataViewer.chart.readoutClose') })
+    await expect(close).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(readout).toHaveCount(0)
+    await expect(stage).toBeFocused()
+  })
+
+  // the legend is drawn in the chart (and in a saved image) and operated from the buttons over its items
+  test('the legend of the explorer\'s chart turns a series off and on by the keyboard, and says which is on', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+    const items = page.locator('.xc-legend button')
+    expect(await items.count()).toBe(2)
+    expect(await items.evaluateAll(nodes => nodes.map(node => node.getAttribute('aria-pressed')))).toEqual(['true', 'true'])
+    // the first series' colour, on the mark in the legend and on its line in the plot
+    const marks = () => page.locator('.xc-canvas svg').first().evaluate(svg => [...svg.querySelectorAll('[stroke="#3b82f6"], [fill="#3b82f6"]')].length)
+    expect(await marks()).toBeGreaterThan(1)
+
+    // Tab from the toolbar reaches the legend, which is before the chart
+    await page.locator('.xc-toolbar button[aria-label="Download plot as a PNG"]').focus()
+    await page.keyboard.press('Tab')
+    await expect(items.first()).toBeFocused()
+    await page.keyboard.press('Space')
+    await expect(items.first()).toHaveAttribute('aria-pressed', 'false')
+    // the series is gone from the plot, and the legend draws the item as off: no more of its colour anywhere in the chart
+    await expect.poll(marks).toBe(0)
+    // the focus stays on the item
+    await expect(items.first()).toBeFocused()
+    // and what the keys read leaves it out
+    await page.locator('.xc-stage').focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(page.getByTestId('explorer-readout').locator('dd')).toHaveCount(1)
+    await items.first().focus()
+    await page.keyboard.press('Enter')
+    await expect(items.first()).toHaveAttribute('aria-pressed', 'true')
+    await expect.poll(marks).toBeGreaterThan(1)
+    // the way on is the next item, and then the chart
+    await page.keyboard.press('Tab')
+    await expect(items.nth(1)).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(page.locator('.xc-stage')).toBeFocused()
+  })
+
+  // "Show as table": what the chart draws is in a table that a keyboard and a screen reader read (WCAG 1.1.1, 1.3.1)
+  test('the explorer\'s chart has its values as a table, one toggle away, and the chart comes back', async ({ page, baseURL }) => {
+    await openExplorerChart(page, baseURL!)
+    const table = page.getByRole('button', { name: message('en', 'dataViewer.viewTable'), exact: true })
+    const chart = page.getByRole('button', { name: message('en', 'dataViewer.viewChart'), exact: true })
+    await expect(chart).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('table')).toHaveCount(0)
+    await table.focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('table').first()).toBeVisible()
+    // the values of the station, a page of them
+    await expect(page.getByRole('table').first().getByRole('cell', { name: '00011' }).first()).toBeVisible()
+    expect(await page.getByRole('table').first().getByRole('row').count()).toBeGreaterThan(40)
+    await expect(page.locator('.xc-canvas')).toHaveCount(0)
+    await chart.focus()
+    await page.keyboard.press('Enter')
+    await expect(explorerChart(page)).toBeVisible()
+    await expect(page.getByRole('table')).toHaveCount(0)
   })
 
   // what the stripes and the widget's forecast draw, in a table a keyboard and a screen reader read (WCAG 1.1.1, 1.3.1)
   for (const { page: name, path, ready } of [
     { page: 'stripes', path: '/stripes?kind=temperature&station=00011', ready: async (page: Page) => {
       await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
-      await expect(plotly(page)).toBeVisible()
+      await expect(stripesChart(page)).toBeVisible()
     } },
     { page: 'widget', path: '/widget?station=01001', ready: async (page: Page) => {
-      await expect(plotly(page)).toBeVisible()
+      await expect(forecastChart(page)).toBeVisible()
     } },
   ]) {
     test(`the chart of the ${name} page has its values as a table, opened and read by keys`, async ({ page, baseURL }) => {
@@ -1045,7 +1402,8 @@ test.describe('chart controls by keyboard', () => {
       // the chart is described by a sentence that exists, and the table is not in the page before it is asked for
       const figure = page.getByRole('figure')
       await expect(figure).toHaveAttribute('aria-describedby', /\S/)
-      const described = (await figure.getAttribute('aria-describedby'))!
+      // the sentence first, and after it the keys the chart answers to (the forecast's and the stripes')
+      const described = (await figure.getAttribute('aria-describedby'))!.split(' ')[0]!
       await expect(page.locator(`[id="${described}"]`)).toHaveText(/\S/)
       await expect(page.getByRole('table')).toHaveCount(0)
 
@@ -1079,11 +1437,11 @@ test.describe('chart controls by keyboard', () => {
   test('the forecast of the meteogram page has its values as a view of its own, chosen and read by keys', async ({ page, baseURL }) => {
     await mockBackend(page, baseURL!)
     await open(page, '/meteogram?station=01001', variant)
-    await expect(plotly(page)).toBeVisible()
+    await expect(forecastChart(page)).toBeVisible()
 
     // the chart is described by a sentence that exists, and there is no table until the view is chosen
     const figure = page.getByRole('figure')
-    const described = (await figure.getAttribute('aria-describedby'))!
+    const described = (await figure.getAttribute('aria-describedby'))!.split(' ')[0]!
     await expect(page.locator(`[id="${described}"]`)).toHaveText(/\S/)
     await expect(page.getByRole('table')).toHaveCount(0)
     await expect(page.getByRole('button', { name: message('en', 'dataViewer.viewTable'), exact: true })).toHaveCount(0)
@@ -1123,55 +1481,61 @@ test.describe('chart controls by keyboard', () => {
     await tableView.focus()
     await page.keyboard.press('Home')
     await expect(chart).toBeChecked()
-    await expect(plotly(page)).toBeVisible()
+    await expect(forecastChart(page)).toBeVisible()
     await expect(page.getByRole('table')).toHaveCount(0)
   })
 
-  // Plotly's hover label comes with the pointer and goes with it; Escape takes it away without moving the
-  // pointer, until the pointer moves on (WCAG 1.4.13). Hoverable it cannot be, see utils/chart-hover.ts.
-  test('the hover label of the forecast chart is dismissed by Escape, until the pointer moves', async ({ page, baseURL }) => {
+  // The forecast's readout is an element of the page, not a Plotly label: it is hoverable, dismissible and persistent
+  // (WCAG 1.4.13), and the chart is one tab stop that steps through the hours by keys (2.1.1)
+  test('the readout of the forecast chart is hoverable, dismissed by Escape, and persistent', async ({ page, baseURL }) => {
     await mockBackend(page, baseURL!)
     await open(page, '/meteogram?station=01001', variant)
-    await expect(plotly(page)).toBeVisible()
+    await expect(forecastChart(page)).toBeVisible()
 
-    // the chart lies below the fold of the window
-    await page.locator('.js-plotly-plot').scrollIntoViewIfNeeded()
-    const box = (await page.locator('.js-plotly-plot .main-svg').first().boundingBox())!
-    const x = box.x + box.width / 2
-    const y = box.y + box.height / 4
-    const label = page.locator('.js-plotly-plot .hoverlayer')
+    await page.locator('.mg-stage').scrollIntoViewIfNeeded()
+    const box = (await page.locator('.mg-stage').boundingBox())!
+    const x = box.x + 71 + (box.width - 81) * 0.3
+    const y = box.y + box.height * 0.6
+    const readout = page.getByTestId('meteogram-readout')
     await page.mouse.move(x - 20, y)
     await page.mouse.move(x, y, { steps: 4 })
-    await expect(label).toContainText(/\S/)
-    await expect(label.locator('text').first()).toBeVisible()
+    await expect(readout).toBeVisible()
+    await expect(readout).toContainText(/\d{2}[:.]\d{2}/)
 
-    // focus is nowhere near the chart: the pointer is what Escape is about
+    // hoverable: the pointer moves onto it, and it stays
+    const over = (await readout.boundingBox())!
+    await page.mouse.move(over.x + over.width / 2, y, { steps: 6 })
+    await expect(readout).toBeVisible()
+    // persistent: it stays while the pointer rests
+    await page.waitForTimeout(800)
+    await expect(readout).toBeVisible()
+
+    // dismissible: Escape takes it away without moving the pointer, and it stays away while the pointer rests
     await page.keyboard.press('Escape')
-    await expect(page.locator('.js-plotly-plot')).toHaveAttribute('data-hover-dismissed', 'true')
-    await expect(label).toBeHidden()
-    // it stays away while the pointer rests
+    await expect(readout).toHaveCount(0)
     await page.waitForTimeout(500)
-    await expect(label).toBeHidden()
+    await expect(readout).toHaveCount(0)
 
     // a new move is a new hover
-    await page.mouse.move(x + 40, y, { steps: 4 })
-    await expect(page.locator('.js-plotly-plot')).not.toHaveAttribute('data-hover-dismissed', /.*/)
-    await expect(label.locator('text').first()).toBeVisible()
+    await page.mouse.move(x + 60, y, { steps: 4 })
+    await expect(readout).toBeVisible()
   })
 
-  test('the names of the modebar buttons on hover are dismissed by Escape too', async ({ page, baseURL }) => {
+  test('the forecast chart is one tab stop, steps through the hours by the arrow keys and zooms by +, - and 0', async ({ page, baseURL }) => {
     await mockBackend(page, baseURL!)
-    await open(page, '/stripes?kind=temperature&station=00011', variant)
-    await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
-    await expect(plotly(page)).toBeVisible()
-
-    const button = page.locator('.js-plotly-plot .modebar-btn[data-attr="zoom"][data-val="reset"]')
-    const nameShown = () => button.evaluate(node => getComputedStyle(node, '::after').display)
-    await expect(button).toBeVisible()
-    await button.hover()
-    await expect.poll(nameShown).toBe('block')
+    await open(page, '/meteogram?station=01001', variant)
+    await expect(forecastChart(page)).toBeVisible()
+    const figure = page.getByRole('figure')
+    await expect(figure).toHaveAttribute('tabindex', '0')
+    await figure.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(page.getByTestId('meteogram-readout')).toBeVisible()
+    await expect(page.getByTestId('meteogram-announce')).toHaveText(/\S/)
+    await page.keyboard.press('+')
+    await page.keyboard.press('0')
     await page.keyboard.press('Escape')
-    await expect.poll(nameShown).toBe('none')
+    await expect(page.getByTestId('meteogram-readout')).toHaveCount(0)
+    await expect(figure).toBeFocused()
   })
 })
 
@@ -1235,7 +1599,7 @@ test.describe('reflow at 320 px', () => {
         const wide = [...document.body.querySelectorAll('*')]
           .filter(node => node.getBoundingClientRect().right > width + 1 && node.getBoundingClientRect().width > 0)
           // what scrolls inside a box of its own does not widen the page
-          .filter(node => !node.closest('.overflow-x-auto, .overflow-auto, .overflow-hidden, .leaflet-container, .js-plotly-plot, [style*="overflow"]'))
+          .filter(node => !node.closest('.overflow-x-auto, .overflow-auto, .overflow-hidden, .leaflet-container, .xc-frame, .mg-scroller, [style*="overflow"]'))
           .slice(0, 5)
           .map(node => `${node.tagName.toLowerCase()}.${[...node.classList].slice(0, 3).join('.')} (${Math.round(node.getBoundingClientRect().right)} px)`)
         return { scrolls: document.documentElement.scrollWidth - width, wide }

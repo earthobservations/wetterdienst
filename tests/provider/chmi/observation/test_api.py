@@ -30,6 +30,8 @@ from wetterdienst.util.network import File, list_remote_directory_fsspec, list_r
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 CHEB = "0-20000-0-11406"
+# the stations frame of `chmi`: the columns of the schema and CHMI's own code of a station, `GH_ID` (GH-4070)
+CHMI_STATIONS_SCHEMA = pl.Schema({**STATIONS_SCHEMA, "gh_id": pl.String})
 UTC = ZoneInfo("UTC")
 
 
@@ -94,7 +96,7 @@ def test_chmi_observation_stations_collapse_a_relocated_station(monkeypatch: pyt
         b"0-X,GA,2001-01-01T00:00Z,3999-12-31T23:59Z,Cheb,12.391389,50.068333,483,\n"
         b"0-Y,GA,1970-01-01T00:00Z,1999-06-30T23:59Z,Closed ,13.0,49.5,300,\n",
     )
-    assert df.schema == STATIONS_SCHEMA
+    assert df.schema == CHMI_STATIONS_SCHEMA
     assert df.sort("station_id").to_dicts() == [
         {
             "resolution": "daily",
@@ -107,6 +109,10 @@ def test_chmi_observation_stations_collapse_a_relocated_station(monkeypatch: pyt
             "elevation": 483.0,
             "name": "Cheb",
             "region": None,
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
+            "gh_id": "GA",
         },
         {
             "resolution": "daily",
@@ -119,6 +125,10 @@ def test_chmi_observation_stations_collapse_a_relocated_station(monkeypatch: pyt
             "elevation": 300.0,
             "name": "Closed",  # the trailing blank of the name is gone
             "region": None,
+            "wmo_id": None,
+            "wigos_id": None,
+            "icao_id": None,
+            "gh_id": "GA",
         },
     ]
 
@@ -129,7 +139,7 @@ def test_chmi_observation_stations_of_a_catalogue_without_a_row_are_the_empty_fr
     """A catalogue with its header and no station is a network without stations, typed as the stations frame is."""
     df = _stations_of(monkeypatch, b"WSI,GH_ID,BEGIN_DATE,END_DATE,FULL_NAME,GEOGR1,GEOGR2,ELEVATION,\n")
     assert df.is_empty()
-    assert df.schema == STATIONS_SCHEMA
+    assert df.schema == CHMI_STATIONS_SCHEMA
 
 
 _CATALOGUE = (
@@ -165,7 +175,7 @@ def test_chmi_observation_stations_are_those_with_a_file_in_the_resolution(monke
     assert _ids(df, "daily") == ["0-A", "0-C"]
     assert _ids(df, "monthly") == ["0-A"]
     assert _ids(df, "annual") == ["0-C"]
-    assert df.schema == STATIONS_SCHEMA
+    assert df.schema == CHMI_STATIONS_SCHEMA
     assert df.filter(pl.col("station_id").eq("0-C"))["name"].to_list() == ["Rain only"] * 2
 
 
@@ -268,7 +278,7 @@ def test_chmi_observation_sub_daily_stations_can_have_files(
     """
     df = _stations_of(monkeypatch, _SUB_DAILY_CATALOGUE, _SUB_DAILY_DIRECTORIES, parameters)
     assert _ids(df, parameters[0][0]) == ["0-A", "0-D"]
-    assert df.schema == STATIONS_SCHEMA
+    assert df.schema == CHMI_STATIONS_SCHEMA
 
 
 def test_chmi_observation_sub_daily_stations_read_the_daily_directories_only(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -486,6 +496,10 @@ def test_chmi_observation_stations() -> None:
             "station_id": CHEB,
             "name": "Cheb",
             "region": None,
+            "wmo_id": "11406",
+            "wigos_id": CHEB,
+            "icao_id": None,
+            "gh_id": "L3CHEB01",
         },
     ]
     assert df["latitude"].item() == pytest.approx(50.068333)

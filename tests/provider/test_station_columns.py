@@ -6,6 +6,7 @@ import re
 from io import BytesIO
 from pathlib import Path
 
+import polars as pl
 import pytest
 
 from wetterdienst import Settings, Wetterdienst
@@ -28,27 +29,40 @@ def _serve_ghcn_daily(monkeypatch: pytest.MonkeyPatch) -> None:
     )
 
 
+def _with_a_column_of_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make GHCN's reader build a column of its own, as the readers of WSV and DMI build theirs."""
+    reader = NoaaGhcnRequest._all  # noqa: SLF001
+    monkeypatch.setattr(
+        NoaaGhcnRequest,
+        "_all",
+        lambda self: reader(self).with_columns(pl.lit("GSN").alias("network_flag")),
+    )
+
+
 def test_a_built_column_the_request_does_not_declare_is_found(
     monkeypatch: pytest.MonkeyPatch,
     station_column_findings: list[str],
 ) -> None:
-    """GHCN's reader builds `wmo_id`; left out of `_base_columns`, it is named by the check and dropped by `all()`."""
+    """A reader that builds a column its `_base_columns` leave out is named by the check and dropped by `all()`."""
     _serve_ghcn_daily(monkeypatch)
-    monkeypatch.setattr(NoaaGhcnRequest, "_base_columns", TimeseriesRequest._base_columns)  # noqa: SLF001
+    _with_a_column_of_its_own(monkeypatch)
 
     df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=Settings(cache_disable=True)).all().df
 
-    assert "wmo_id" not in df.columns
-    assert station_column_findings == ["NoaaGhcnRequest builds ['wmo_id'] but declares no such station column"]
+    assert "network_flag" not in df.columns
+    assert station_column_findings == ["NoaaGhcnRequest builds ['network_flag'] but declares no such station column"]
     station_column_findings.clear()
 
 
 def test_a_declared_column_is_not_found(monkeypatch: pytest.MonkeyPatch, station_column_findings: list[str]) -> None:
-    """With `wmo_id` declared, as `NoaaGhcnRequest` does, the same stations raise nothing and keep the column."""
+    """With the column declared, the same stations raise nothing and keep it; `wmo_id` is a core column."""
     _serve_ghcn_daily(monkeypatch)
+    _with_a_column_of_its_own(monkeypatch)
+    monkeypatch.setattr(NoaaGhcnRequest, "_base_columns", (*TimeseriesRequest._base_columns, "network_flag"))  # noqa: SLF001
 
     df = NoaaGhcnRequest(parameters=[("daily", "data")], settings=Settings(cache_disable=True)).all().df
 
+    assert df["network_flag"].to_list() == ["GSN"]
     assert df["wmo_id"].to_list() == ["10147"]
     assert station_column_findings == []
 

@@ -244,13 +244,6 @@ class GeosphereObservationRequest(TimeseriesRequest):
 
     _endpoint = "https://dataset.api.hub.geosphere.at/v1/station/historical/{dataset}/metadata/stations"
 
-    # extend base columns of core class with the station's WMO number, which cross-references it with
-    # the WMO lists and with the other providers' stations
-    _base_columns: ClassVar = (
-        *TimeseriesRequest._base_columns,  # noqa: SLF001
-        "wmo_id",
-    )
-
     def _all(self) -> pl.LazyFrame:
         settings = cast("Settings", self.settings)
         data = []

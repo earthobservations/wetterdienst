@@ -192,9 +192,25 @@
   --frame-max: 84rem;
   --frame-gutter: clamp(1rem, 0.5rem + 2.5vw, 2.5rem);
   --measure: 46rem;
-  --header-height: 4rem;
+  /* What the notch, the status bar and the home indicator take of the window (`viewport-fit=cover`, nuxt.config.ts:
+     without it a browser reports 0 and the page is laid out inside them, so iOS Safari's bottom bar, which the page
+     draws under, showed a strip of it under the tab bar, GH-3761). 0 where there is none. */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  /* The header: the bar proper (`--header-bar`) under the status bar's room. `--header-height` is the whole of it, what
+     everything that stands under the header measures from (the sticky preview, the map, the scroll padding). */
+  --header-bar: 4rem;
+  --header-height: calc(var(--header-bar) + var(--safe-top));
   /* the tab bar of the narrow layout, and the space the page keeps free under it */
   --tabbar-height: 0rem;
+  /* How far a card of the narrow layout reaches out of the frame's gutter (GH-4227): to the edge of the window, and no
+     farther than the notch's room where a phone on its side has one (the frame's own padding is the larger of the gutter and it) */
+  --bleed-start: max(calc(var(--frame-gutter) - var(--safe-left)), 0px);
+  --bleed-end: max(calc(var(--frame-gutter) - var(--safe-right)), 0px);
+  /* the padding of a card's body, which a chart or a table in it reaches out of (Nuxt UI's `p-4 sm:p-6`) */
+  --card-pad: 1rem;
 
   color-scheme: light;
 }
@@ -321,14 +337,13 @@
   outline-color: var(--color-brand-500);
 }
 
-/* The chrome of the Plotly charts (paper, plot, text, grid, axis lines, hover label, modebar), which
+/* The chrome of the charts (paper, plot, text, grid, axis lines), which
    utils/chart-theme.ts reads at runtime with getComputedStyle: one place to restyle every chart. Each is
    a Nuxt UI token, and those switch with .dark (and .light, for the probe that asks what a light chart
    is, as a saved or printed one is), so nothing is redefined for .dark here. The series and the stripes'
    palette are data, not chrome, and are not in this list. Measured on the Explorer's drawn chart, light
    and dark: text 10.4:1 and 14.5:1 on the paper; muted text (tick labels) 5.4:1 and 6.8:1; the zero
-   line and the modebar's icons, which are the muted colour, the same, past the 3:1 of non-text; the
-   hover label's text 9.5:1 and 11.9:1 on its fill. The grid (1.5:1 and 1.7:1) is decoration. That is the
+   line, which is the muted colour, the same, past the 3:1 of non-text. The grid (1.5:1 and 1.7:1) is decoration. That is the
    themed chrome (the Explorer, the stripes, the Forecast's hour labels and zero line). The text that
    names a series (the Forecast's axis titles and tick labels, its weekend day labels, the stripes'
    availability label) is the series' hue at 4.5:1 or more (`SERIES_LABEL` in utils/chart-theme.ts,
@@ -344,20 +359,15 @@
   --app-chart-grid: var(--ui-border-accented);
   --app-chart-axis: var(--ui-text-muted);
   --app-chart-zeroline: var(--ui-text-muted);
-  --app-chart-hover-bg: var(--ui-bg-elevated);
-  --app-chart-hover-border: var(--ui-border-accented);
-  --app-chart-hover-text: var(--ui-text);
-  --app-chart-modebar: var(--ui-text-muted);
-  --app-chart-modebar-active: var(--app-focus-ring);
 }
 
-/* The width of a Plotly chart is capped (GH-3558): a printed chart is scaled to the width of the paper, so the
+/* The width of a chart is capped (GH-3558): a printed chart is scaled to the width of the paper, so the
    wider it is drawn on the screen the smaller its type comes out on the sheet. At 820 px the Explorer's 12 px tick
    labels print at 6.3 pt on A4 with 1 in margins (5.2 pt from a window with a 980 px column, uncapped). The chart
    stays in the middle of its column. A chart in a box of its own (the Explorer's facets: 34 px of padding and border)
    is narrower (760 px, `--app-chart-max-width`: the print is scaled to the box, which is 34 px narrower, so a width of
    820 - 34 prints at 6.1 pt), so that it prints as large as the others. The widget's chart
-   is not capped (it fills its frame). The sizes are measured
+   is not capped (it fills its frame). The forecast's chart (`MeteogramChart`) is capped the same way. The sizes are measured
    in a printed PDF by tests/e2e/chart-print.spec.ts. */
 .app-chart {
   width: 100%;
@@ -365,35 +375,98 @@
   margin-inline: auto;
 }
 
-/* The focus of a modebar button: Plotly draws a 1 px black outline, 21:1 on its white paper and 1.2:1 on the
-   dark paper (WCAG 1.4.11, 3:1), where it is the page's own ring instead (--app-focus-ring). One class more
-   than Plotly's own rule, which is injected after this sheet. */
-.js-plotly-plot .plotly .modebar .modebar-btn:focus-visible {
-  outline: 2px solid var(--app-focus-ring);
-  outline-offset: 1px;
-}
-
 /* A printed chart is always the light one (the screen's dark chart is white on a printer's white, or
-   unreadable text on it). The charts are drawn light for it (useChartTheme), which is asynchronous for
-   some of them: a chart that says it is drawn dark (data-chart-scheme, set after each drawing) and is
-   printed before it is redrawn prints with a transparent paper, black text and black wind barbs. A chart
-   drawn light is left as it was drawn, with its series colours and its own marks. */
+   unreadable text on it). The charts (ECharts, SVG) are drawn light for it (useChartTheme) and drawn again
+   before the print is laid out, and are printed as they show, scaled to the width of the sheet like a picture:
+   the forecast's the window of time on the screen, without the crosshair and the readout. */
 @media print {
-  .js-plotly-plot[data-chart-scheme="dark"] .main-svg {
-    background: transparent !important;
+  .mg-scroller {
+    overflow: visible !important;
   }
-  .js-plotly-plot[data-chart-scheme="dark"] .main-svg .bg {
-    fill: transparent !important;
+  .mg-track,
+  .mg-stage,
+  .mg-canvas {
+    width: 100% !important;
+    height: auto !important;
+    position: static !important;
   }
-  .js-plotly-plot[data-chart-scheme="dark"] .main-svg text,
-  .js-plotly-plot[data-chart-scheme="dark"] .main-svg tspan {
-    fill: black !important;
+  /* the box ECharts makes round its SVG has the chart's size in px, as the SVG has */
+  .mg-canvas > div {
+    width: 100% !important;
+    height: auto !important;
+    position: static !important;
   }
-  .js-plotly-plot[data-chart-scheme="dark"] .meteogram-overlay-canvas {
-    filter: invert(1);
+  /* ECharts lays its SVG out `position: absolute` in the box above, which has no height of its own, so it is
+     static here: the SVG gives the box its height, and the whole chart prints, not an empty box (GH-4080) */
+  .mg-canvas svg {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    display: block;
   }
-  .js-plotly-plot .modebar-container {
+  .mg-cursor,
+  .mg-selection,
+  .mg-readout {
     display: none !important;
+  }
+  .meteogram-chart {
+    break-inside: avoid;
+  }
+  /* The climate stripes (ECharts, SVG) are drawn again in the light theme before the print is laid out, and are printed as
+     they show: the range of years on the screen, scaled to the width of the sheet like a picture, without the buttons, the
+     crosshair and the readout */
+  .sc-toolbar,
+  .sc-cursor,
+  .sc-selection,
+  .sc-readout {
+    display: none !important;
+  }
+  .sc-scroller,
+  .sc-stage,
+  .sc-canvas,
+  .sc-canvas > div {
+    width: 100% !important;
+    height: auto !important;
+    position: static !important;
+  }
+  /* ECharts positions its SVG absolutely in a box of the chart's size in px: on paper it is in the flow, so that the sheet
+     makes room for it and a page break falls before the chart and not through it */
+  .sc-canvas svg {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    display: block;
+  }
+  .stripes-chart {
+    break-inside: avoid;
+  }
+  /* The Explorer's chart (ECharts, SVG) is drawn again in the light theme before the print is laid out, and is printed as it
+     shows: the window of time on the screen, the series its legend has on, scaled to the width of the sheet like a picture,
+     without the buttons, the legend's buttons (the legend itself is in the SVG), the crosshair and the readout */
+  .xc-toolbar,
+  .xc-legend,
+  .xc-selection,
+  .xc-readout {
+    display: none !important;
+  }
+  .xc-frame,
+  .xc-stage,
+  .xc-canvas,
+  .xc-canvas > div {
+    width: 100% !important;
+    height: auto !important;
+    position: static !important;
+  }
+  /* ECharts positions its SVG absolutely in a box of the chart's size in px: on paper it is in the flow, so that the sheet
+     makes room for it and a page break falls before the chart and not through it (GH-4080) */
+  .xc-canvas svg {
+    position: static !important;
+    width: 100% !important;
+    height: auto !important;
+    display: block;
+  }
+  .explorer-chart {
+    break-inside: avoid;
   }
 }
 
@@ -402,7 +475,8 @@
   width: 100%;
   max-width: calc(var(--frame-max) + 2 * var(--frame-gutter));
   margin-inline: auto;
-  padding-inline: var(--frame-gutter);
+  /* the gutter, and clear of a notch on either side of a phone on its side */
+  padding-inline: max(var(--frame-gutter), var(--safe-left)) max(var(--frame-gutter), var(--safe-right));
 }
 
 /* The link that takes a keyboard user past the header to the page (WCAG 2.4.1): out of sight until it has the
@@ -410,8 +484,8 @@
 .skip-link {
   position: fixed;
   z-index: 100;
-  top: 0.5rem;
-  left: var(--frame-gutter);
+  top: calc(0.5rem + var(--safe-top));
+  left: max(var(--frame-gutter), var(--safe-left));
   transform: translateY(-200%);
   padding: 0.625rem 1rem;
   border-radius: calc(var(--ui-radius) * 2);
@@ -430,7 +504,9 @@
   position: sticky;
   top: 0;
   z-index: 40;
+  /* the status bar's room is the header's own (its colour reaches the top edge), the bar proper is `--header-bar` */
   height: var(--header-height);
+  padding-top: var(--safe-top);
   border-bottom: 1px solid var(--ui-border);
   background: color-mix(in oklab, var(--ui-bg) 92%, transparent);
   backdrop-filter: saturate(1.4) blur(10px);
@@ -480,7 +556,7 @@
   content: "";
   position: absolute;
   inset-inline: var(--nav-tab-pad);
-  bottom: calc((var(--header-height) - 2.5rem) / -2 - 1px);
+  bottom: calc((var(--header-bar) - 2.5rem) / -2 - 1px);
   height: 3px;
   border-radius: 3px 3px 0 0;
   background: var(--app-current);
@@ -507,7 +583,7 @@
 /* The tab bar of the narrow layout, fixed to the foot of the window; the page keeps its height free */
 @media (width < 64rem) {
   :root {
-    --tabbar-height: calc(4.25rem + env(safe-area-inset-bottom, 0px));
+    --tabbar-height: calc(4.25rem + var(--safe-bottom));
   }
 }
 .app-tabbar {
@@ -516,7 +592,8 @@
   bottom: 0;
   z-index: 40;
   height: var(--tabbar-height);
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+  /* the home indicator's room under the tabs, and the notch's at the sides; the bar's own fill reaches the edge */
+  padding: 0 var(--safe-right) var(--safe-bottom) var(--safe-left);
   border-top: 1px solid var(--ui-border);
   background: color-mix(in oklab, var(--ui-bg) 94%, transparent);
   backdrop-filter: saturate(1.4) blur(10px);
@@ -572,7 +649,7 @@
    scrolls away with the page, and the tab bar stands under it, in the order the keyboard already reaches them. */
 @media (max-height: 30rem) {
   :root {
-    --header-height: 3.5rem;
+    --header-bar: 3.5rem;
     --tabbar-height: 0rem;
   }
   .app-header {
@@ -581,6 +658,8 @@
   .app-tabbar {
     position: static;
     height: auto;
+    /* it stands under the header here, not on the window's foot: nothing of the home indicator's room */
+    padding-bottom: 0;
     border-top: 0;
     border-bottom: 1px solid var(--ui-border);
   }
@@ -595,8 +674,17 @@
   min-height: calc(100dvh - var(--header-height));
   padding-bottom: var(--tabbar-height);
 }
+/* clear of the tab bar, and of the home indicator where there is no bar (wide layout, or the low window) */
 .app-footer {
-  padding-bottom: var(--tabbar-height);
+  padding-bottom: max(var(--tabbar-height), var(--safe-bottom));
+}
+
+/* The menu sheet of the narrow layout (below `sm`, 40 rem) stands on the window's foot: its last link is clear of the
+   home indicator. From `sm` it is a dialog in the middle of the window. */
+@media (width < 40rem) {
+  .menu-sheet {
+    padding-bottom: var(--safe-bottom);
+  }
 }
 
 /* The links of the narrow layout's menu sheet */
@@ -687,14 +775,15 @@
 }
 /* On a phone the preview is as wide as the window, as the bar it shows is: in the card it is 64 px narrower, and the
    names of the tools that fit the bar (Pronóstico, Explorador) would break in it. It reaches out of the card's padding and
-   the page's gutter, and has no sides, like the bar; the caption and the line under it keep the card's inset. */
+   the page's gutter (the card has none of it since GH-4227), and has no sides, like the bar; the caption and the line under it keep the card's inset. */
 @media (width < 40rem) {
   .bar-sticky {
-    margin-inline: calc(-1rem - var(--frame-gutter));
+    /* the card is as wide as the window on a phone (GH-4227), so the preview reaches out of the card's padding only */
+    margin-inline: -1rem;
     padding-inline: 0;
   }
   .bar-sticky > :not(.bar-preview) {
-    padding-inline: calc(1rem + var(--frame-gutter));
+    padding-inline: 1rem;
   }
   .bar-preview {
     border-inline: 0;
@@ -850,6 +939,79 @@
   border: 1px solid var(--ui-border);
   background: var(--ui-bg);
 }
+/* The title and the ⓘ that opens the tool's "About" (GH-4227, PageHeader.vue): the button stands at the end of the title's
+   first line, and the target is the app's 44 px, which reaches out of the line it stands in */
+.page-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.125rem;
+}
+.page-title-row .page-title {
+  min-width: 0;
+}
+.page-info.page-info {
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-block: -0.4375rem -0.5rem;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--ui-text-toned);
+}
+.page-info.page-info[data-open] {
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-highlighted);
+}
+.page-info.page-info :where(.iconify, [class*="i-ph-"]) {
+  width: 1.625rem;
+  height: 1.625rem;
+}
+
+/* ---- The phone runs edge to edge (GH-4227) -----------------------------------------------------------------------
+   On a phone (below 40 rem, the width of the phone layout; a tablet and a desktop are as they were) a card that is a
+   child of the page (the map's, a form's, a chart's) has no margin at the sides, no rounded corners and no hairline at
+   the sides: it is as wide as the window, and its text keeps the gutter (the card's own padding, 16 px: the title above
+   it stands on the same line). A card inside another card is a card as it was, so is a chart or a table in a facet's box
+   (`.bleed-stop`). A chart or a table of a card (`.bleed-in`) reaches out of the card's padding as well; the same chart in
+   the widget, which has no card of this kind, is not touched, since the rules start from `.card-bleed`. */
+@media screen and (width < 40rem) {
+  .card-bleed:not(.card-bleed .card-bleed) {
+    margin-inline: calc(-1 * var(--bleed-start)) calc(-1 * var(--bleed-end));
+    border-radius: 0;
+    /* the ring of the outline variant is a shadow all round: only its hairlines above and below stay */
+    box-shadow: none;
+    border-block: 1px solid var(--ui-border);
+  }
+  .card-bleed:not(.card-bleed .card-bleed) .bleed-in:not(.bleed-stop .bleed-in) {
+    width: auto;
+    max-width: none;
+    margin-inline: calc(-1 * var(--card-pad));
+    border-radius: 0;
+    border-inline-width: 0;
+  }
+  /* what is not the chart, in a chart that reaches out, keeps the card's gutter */
+  .card-bleed:not(.card-bleed .card-bleed) .bleed-chart:not(.bleed-stop .bleed-chart) > :not(.xc-frame, .sc-scroller) {
+    margin-inline: var(--card-pad);
+  }
+  .page-about {
+    margin-inline: calc(-1 * var(--bleed-start)) calc(-1 * var(--bleed-end));
+    max-width: none;
+    border-radius: 0;
+    border-inline-width: 0;
+    padding-inline: max(var(--frame-gutter), var(--safe-left)) max(var(--frame-gutter), var(--safe-right));
+  }
+  /* a page whose room is its tool's (the map): the head is the title and its ⓘ, a row of the 44 px of the button */
+  .page-header[data-compact] {
+    padding-block: 0.375rem 0.125rem;
+  }
+  .page-header[data-compact] .page-title {
+    font-size: 1.5rem;
+  }
+  .page-header[data-compact] .page-info.page-info {
+    margin-block: -0.1875rem -0.5rem;
+  }
+}
+
 /* The body of a page that is read rather than worked in: one column at the measure of text, at the frame's edge */
 .page-body {
   padding-bottom: 4rem;
@@ -978,34 +1140,6 @@
   }
 }
 
-/* ---- Plotly -------------------------------------------------------------------------------------------------------
-   Undo Tailwind v4 preflight that breaks Plotly's stacked SVG layout. Plotly layers multiple <svg class="main-svg">
-   that must overlap; Tailwind's `svg { display: block }` causes them to stack vertically. */
-.svg-container > .main-svg {
-  position: absolute !important;
-  top: 0 !important;
-  left: 0 !important;
-  max-width: 100%;
-}
-
-.plot-container.plotly {
-  max-width: 100%;
-}
-
-.svg-container {
-  max-width: 100% !important;
-  overflow: hidden;
-}
-
-/* Escape dismisses the hover label of a Plotly chart under the pointer (WCAG 1.4.13): the label with
-   its spike lines, and the names of the modebar's buttons, which are shown on hover too. The mark is
-   set and removed by utils/chart-hover.ts. */
-.js-plotly-plot[data-hover-dismissed] .hoverlayer,
-.js-plotly-plot[data-hover-dismissed] .modebar-btn::before,
-.js-plotly-plot[data-hover-dismissed] .modebar-btn::after {
-  display: none !important;
-}
-
 /* Guide newcomers to the next thing they need to do: a gentle pulsing ring
    around the input/select that is still awaiting a selection. Applied via the
    `needs-input` class, which callers toggle off once the field has a value.
@@ -1037,8 +1171,8 @@
 
 /* ---- Print ------------------------------------------------------------------------------------------------------
    A printed page is the page's content in light colours: no header, tab bar, footer, skip link or buttons that
-   only work on a screen. The charts are redrawn at the width of the paper before printing
-   (`plugins/chart-print.client.ts`); a chart, a card and a table row are not cut across two sheets. */
+   only work on a screen. The charts are scaled to the width of the paper (see the charts' own rules above, in the `@media print` block after `.app-chart`);
+   a chart, a card and a table row are not cut across two sheets. */
 @media print {
   :root,
   .dark {
@@ -1093,7 +1227,6 @@
   }
   [data-print="hide"],
   .skip-link,
-  .modebar-container,
   .leaflet-control-container {
     display: none !important;
   }
@@ -1110,7 +1243,6 @@
     max-height: none !important;
     overflow: visible !important;
   }
-  .js-plotly-plot,
   figure,
   tr,
   [data-print="keep"] {
@@ -1127,13 +1259,14 @@
      solid button, badge and checkmark of Nuxt UI) and a tool's tile (a white or navy glyph on its colour) print as
      white on white. These are small marks, so they keep their fill (`exact`). The one large dark area, the band of
      the start page, does not: it is white with an outline in print (pages/index.vue), which costs no ink.
-     The app's own white-on-fill controls are the pressed chip of a question (AskTheWeather) and the layer shown on
-     the map (map.vue); a switch is its fills only (track and thumb), so without them it is not on the page. */
+     The app's own white-on-fill controls are the pressed chip of a question (AskTheWeather) and the map legend's marks, the number on a group among them (map.vue); a switch is its fills only
+     (track and thumb), so without them it is not on the page. */
   .iconify,
   .tile,
   [class~="text-inverted"],
   .ask-chip[aria-pressed="true"],
-  .map-segment[aria-pressed="true"],
+  .map-legend-dot,
+  .map-legend-group-share::before,
   [role="switch"],
   [role="switch"] > * {
     print-color-adjust: exact;
@@ -1162,10 +1295,28 @@ body {
 }
 
 /* Where the tab bar is (narrow layout), the toasts stand above it, not over it: a fixed tab cannot scroll clear of
-   a toast, and a focused one under it is not seen (WCAG 2.4.11). Unlayered, so it wins over the toaster's own
-   `bottom-4`; `--tabbar-height` is 0 where the bar scrolls with the page. */
-@media (width < 64rem) {
-  .app-toast-viewport {
-    bottom: calc(var(--tabbar-height) + 1rem);
+   a toast, and a focused one under it is not seen (WCAG 2.4.11). Where there is none, they stand clear of the home
+   indicator, and a notch at the side, now that the page reaches the window's edges (`viewport-fit=cover`):
+   `--tabbar-height` holds the inset where the bar stands (and is 0 where it scrolls with the page), so the larger
+   of the two is the room under them. Unlayered, so it wins over the toaster's own `bottom-4` and `right-4`. */
+.app-toast-viewport {
+  bottom: calc(max(var(--tabbar-height), var(--safe-bottom)) + 1rem);
+  right: calc(1rem + var(--safe-right));
+}
+
+/* The search and the place dialog on iOS while the page behind them is held (utils/page-lock.ts, GH-3761): laid out by
+   the visual viewport, the part of the page that is on the screen, which the keyboard makes smaller and the browser
+   pans. The height and the top of it are written to `--app-vv-height` and `--app-vv-top` by `holdViewportLayout`; the dialog is
+   as high as that allows and stands in it, so the field is on the screen without the browser having to pan to it and
+   the list's last entry is above the keyboard. Below `sm` it is in the middle (Nuxt UI's `top-1/2`), from `sm` where
+   its `sm:top-[12vh]` puts it. Unlayered, so that it wins over the utilities of the dialog's own classes. */
+html[data-dialog-viewport] .app-vv-dialog {
+  top: calc(var(--app-vv-top, 0px) + var(--app-vv-height, 100dvh) / 2);
+  max-height: min(36rem, calc(var(--app-vv-height, 100dvh) - 2rem));
+}
+@media (width >= 40rem) {
+  html[data-dialog-viewport] .app-vv-dialog {
+    top: calc(var(--app-vv-top, 0px) + var(--app-vv-height, 100dvh) * 0.12);
+    max-height: min(36rem, calc(var(--app-vv-height, 100dvh) * 0.84));
   }
 }

@@ -113,7 +113,7 @@ request class, and nothing is imported until it is asked for, so listing the reg
 | Call | Does |
 | --- | --- |
 | `Wetterdienst.resolve(provider, network)` | the request class of a timeseries network; `ApiNotFoundError` if it is not in the registry, or is a standalone network |
-| `Wetterdienst.resolve_standalone(provider, network)` | the request class of `dwd/radar` or `dwd/alerts`, which have no stations, no values and no metadata model (`Wetterdienst.standalone`) |
+| `Wetterdienst.resolve_standalone(provider, network)` | the request class of `dwd/radar`, `dwd/alerts` or `dwd/storm_cells`, which have no stations, no values and no metadata model (`Wetterdienst.standalone`) |
 | `Wetterdienst.discover()` | what every network is (`name_short`, country, URL, `kind`, whether it needs credentials and has them, whether any dataset requires a date), without downloading anything; a network that cannot be imported is left out with a logged warning |
 | `Wetterdienst.get_provider_names()`, `get_network_names(provider)` | the names |
 | `Wetterdienst.is_configured(api)`, `is_valid(api)` | whether the credentials of a provider are present, and whether the provider accepts them (this one asks the provider) |
@@ -183,8 +183,8 @@ core does the rest.
 - The `value` is in the unit the metadata declares; the sentinel of the source for "no reading" is mapped to null in
   the provider, and what the source wrote is kept as a `raw:` token of `quality_flags` (`wetterdienst.model.quality_flags`).
 
-`dwd/radar` and `dwd/alerts` are the exceptions: standalone networks with their own request classes
-(`DwdRadarValues`, `DwdWeatherAlertRequest`) and results, resolved with `resolve_standalone`.
+`dwd/radar`, `dwd/alerts` and `dwd/storm_cells` are the exceptions: standalone networks with their own request classes
+(`DwdRadarValues`, `DwdWeatherAlertRequest`, `DwdStormCellsRequest`) and results, resolved with `resolve_standalone`.
 
 ## The network layer
 
@@ -223,9 +223,18 @@ else it says. A 4xx (a 429 included), a handshake the two cannot agree on and a 
 | --- | --- | --- |
 | no connection could be made (offline, a name that does not resolve, a refusing host) | `NoInternetError`: the URL in the message, the connection error as `__cause__` | 503 |
 | the source answered badly: a 4xx or 5xx, a dropped connection, a body cut short, a timeout, a TLS failure, a refused redirect | `DownloadError(url, reason)`, the failure as `__cause__` | 502, 504 for a timeout |
+| the provider answered 429 (it limits how fast the key or client may ask) | `ProviderRateLimitError`, a `DownloadError` that carries the provider's wait as `retry_after` (`Retry-After`, `RateLimit-Reset`, `X-RateLimit-Reset`; 60 seconds where none is sent); never retried | 503, `Retry-After` |
 | the file is not there | a `File` with `status == 404`, whose `raise_if_exception()` raises a `DownloadError` like any other failure | 502 if raised |
 | the directory is not there | `[]` from `list_remote_files_fsspec`; a `FileNotFoundError` from `list_remote_directory_fsspec` | |
 | a 200 page that is no index of a directory, where a URL ending in `/` lists no file or entry (a CDN's error page, a JSON error) | `DownloadError` from both listings, never an empty list | 502 |
+
+A provider that lets a failed file go (`note_skipped_download`) or answers from the files that arrived must raise a 429
+first (`File.is_rate_limited`, then `File.raise_if_exception()`): a limit is not a file to skip, and the next file meets
+it too. A reader that degrades to a narrower answer for a failed read (`except DownloadError`, `except Exception`)
+re-raises `ProviderRateLimitError` as it does `NoInternetError`. A download that is retried by a provider's own loop
+leaves a 429 out of it (AEMET's retry of its per-minute limit is the exception, decided in GH-4048), `download_files`
+asks no file that was not begun once one is a 429, and the fetch-ahead of a walk keeps a 429 it meets and raises it at the next station of the
+walk (`model/fetch_ahead.py`).
 
 Both errors are `UpstreamError`s. A download that fails is stored in `File.content` and raised by
 `File.raise_if_exception()`, which raises the stored `NoInternetError` as it is and wraps any other failure in a
@@ -234,6 +243,10 @@ empty frame, because a scheduled job cannot tell an empty frame from a source wi
 missing file is an ordinary answer (a station that does not report a parameter is a 404) checks the status first and
 hands the failures that are no answer to `as_outage()`, which turns them into these errors. URLs are shown without
 query, fragment and user information, and credentials are removed from the errors, so a key does not reach a log.
+A refused download (a 4xx but a 404) keeps what the provider answered on `File.refusal`, read from that first answer
+and never asked for again: the status, the body (64 KiB and 15 s at most; `Refusal.excerpt` is the first 500 characters, the part that may be shown) and the wait. A
+provider that says why in the body (Frost's 403 for too many observations, KNMI's 403 `Quota exceeded`) reads it
+there; the body is no part of a message, a log line or the cache, and the key is nowhere on the `File`.
 [Troubleshooting](../usage/troubleshooting.md) is the same table from the user's side.
 
 ## Settings and options
@@ -243,7 +256,7 @@ Two pydantic-settings classes, kept apart on purpose ([the user's view](../usage
 | | `Settings` (`wetterdienst/settings.py`) | `Options` (`wetterdienst/options.py`) |
 | --- | --- | --- |
 | Belongs to | the host: one per process | one request |
-| Environment | `WD_*`, nested with `__` (`WD_AUTH__KNMI`) | `WD_TS_*` |
+| Environment | `WD_*`, nested with `__` (`WD_AUTH__KNMI_EDR`) | `WD_TS_*` |
 | Holds | `cache_dir`, `cache_disable`, `fsspec_client_kwargs`, `use_certifi`, `fetch_ahead`, the credentials (`auth`), and the limits, timeout and allowed hosts of the REST API (`restapi_*`) | `shape`, `humanize`, `convert_units`, `unit_targets`, `skip_empty`, `skip_threshold`, `skip_criteria`, `drop_nulls`, `station_window_end_buffer`, and the interpolation distances (`geo_*`) |
 | Read by | the providers (through `request.settings`), the network layer, `ui/` | the values, the interpolation and the summary; never a provider |
 | Passed as | `settings=` on the request (a `Settings` or a dict) | `options=` on the request (an `Options`, a dict, or none to take the environment) |

@@ -134,7 +134,7 @@ def test_use_certifi_setting() -> None:
 # what each credential is set to below, so a test can look for it in what an object renders
 _DUMMY_CREDENTIALS = {
     "aemet": "DUMMY-AEMET-KEY",
-    "knmi": "DUMMY-KNMI-KEY",
+    "knmi_edr": "DUMMY-KNMI-EDR-KEY",
     "metno_frost": ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET"),
     "ceda": ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD"),
 }
@@ -186,7 +186,7 @@ def test_credentials_are_still_readable_where_they_are_needed() -> None:
     settings = Settings(auth=_DUMMY_CREDENTIALS)
 
     assert reveal(settings.auth.aemet) == "DUMMY-AEMET-KEY"
-    assert reveal(settings.auth.knmi) == "DUMMY-KNMI-KEY"
+    assert reveal(settings.auth.knmi_edr) == "DUMMY-KNMI-EDR-KEY"
     assert tuple(reveal(part) for part in settings.auth.metno_frost) == ("DUMMY-FROST-ID", "DUMMY-FROST-SECRET")
     assert tuple(reveal(part) for part in settings.auth.ceda) == ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD")
     assert reveal(None) is None
@@ -549,12 +549,11 @@ def test_settings_auth_refuses_a_value_that_is_no_credential_by_its_field(auth: 
 def test_settings_auth_validates_an_assigned_credential() -> None:
     """A credential assigned after construction is held as one given to the constructor is (GH-2387)."""
     settings = Settings()
-    settings.auth.knmi = "DUMMY-KNMI-KEY"
+    settings.auth.knmi_edr = "DUMMY-KNMI-KEY"
     settings.auth.ceda = "DUMMY-CEDA-USER:DUMMY-CEDA-PASSWORD"
     settings.auth.metno_frost = "DUMMY-FROST-ID"
 
-    assert isinstance(settings.auth.knmi, SecretStr)
-    assert reveal(settings.auth.knmi) == "DUMMY-KNMI-KEY"
+    assert isinstance(settings.auth.knmi_edr, SecretStr)
     assert all(isinstance(part, SecretStr) for part in settings.auth.ceda)
     assert tuple(reveal(part) for part in settings.auth.ceda) == ("DUMMY-CEDA-USER", "DUMMY-CEDA-PASSWORD")
     assert tuple(reveal(part) for part in settings.auth.metno_frost) == ("DUMMY-FROST-ID", "")
@@ -1305,7 +1304,7 @@ def _revealed_pair(pair: tuple[SecretStr, SecretStr] | None) -> tuple[str | None
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize("name", ["knmi", "aemet"])
+@pytest.mark.parametrize("name", ["knmi_edr", "aemet"])
 @pytest.mark.parametrize("padding", _PADDINGS, ids=_PADDING_IDS)
 def test_settings_auth_key_is_kept_without_its_padding(
     monkeypatch: pytest.MonkeyPatch,
@@ -1326,7 +1325,7 @@ def test_settings_auth_key_is_kept_without_its_padding(
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize("name", ["knmi", "aemet"])
+@pytest.mark.parametrize("name", ["knmi_edr", "aemet"])
 @pytest.mark.parametrize("value", ["", "   ", "\n", "\t \r\n", "\xa0", "\x1f"])
 def test_settings_auth_key_of_whitespace_only_reads_as_unset(
     monkeypatch: pytest.MonkeyPatch,
@@ -1346,7 +1345,7 @@ def test_settings_auth_key_of_whitespace_only_reads_as_unset(
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize("name", ["knmi", "aemet"])
+@pytest.mark.parametrize("name", ["knmi_edr", "aemet"])
 def test_settings_auth_key_still_refuses_a_padded_mask(monkeypatch: pytest.MonkeyPatch, name: str) -> None:
     """A mask with whitespace around it is still the mask a dumped credential leaves behind (GH-2557)."""
     monkeypatch.setenv(f"WD_AUTH__{name.upper()}", f"{'*' * 10}\n")
@@ -1465,7 +1464,7 @@ def test_settings_auth_metno_frost_pair_still_refuses_a_null_client_id() -> None
 
 
 @pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize("name", ["knmi", "aemet"])
+@pytest.mark.parametrize("name", ["knmi_edr", "aemet"])
 def test_settings_auth_key_still_refuses_what_is_not_text(name: str) -> None:
     """A KNMI or AEMET key that is no text is left for the field to refuse, not read as its digits (GH-2557)."""
     with pytest.raises(ValidationError, match=name):
@@ -1847,3 +1846,98 @@ def test_the_constructor_a_type_checker_reads_has_the_fields_of_the_settings() -
     assert set(stub) == set(Settings.model_fields)
     for name, field in Settings.model_fields.items():
         assert any(_takes(member, field.annotation) for member in (stub[name], *get_args(stub[name]))), name
+
+
+_OLD_KEY = "OLD-OPEN-DATA-KEY-9f3a"
+
+
+@pytest.fixture
+def _fresh_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Let the once-a-process warning about the old KNMI key be said again in this test."""
+    from wetterdienst import settings as settings_module  # noqa: PLC0415
+
+    monkeypatch.setattr(settings_module, "_OPEN_DATA_KEY_WARNED", threading.Event())
+
+
+@pytest.mark.usefixtures("_no_ambient_settings", "_fresh_warning")
+@pytest.mark.parametrize(
+    "make",
+    [
+        pytest.param(lambda: Settings(auth={"knmi": _OLD_KEY}), id="constructor"),
+        pytest.param(lambda: Settings(auth={"KNMI": _OLD_KEY}), id="constructor, any case"),
+        pytest.param(lambda: Settings(auth={"knmi": SecretStr(_OLD_KEY)}), id="constructor, secret"),
+        pytest.param(lambda: Settings(auth={"knmi": _OLD_KEY, "knmi_edr": "NEW-EDR-KEY"}), id="beside the new key"),
+    ],
+)
+def test_settings_auth_ignores_the_open_data_key_of_knmi_with_one_warning_that_names_the_edr_key(
+    caplog: pytest.LogCaptureFixture, make: Callable[[], Settings]
+) -> None:
+    """`knmi` held the key of KNMI's Open Data API, which is no longer read (GH-3928): dropped, and warned about.
+
+    Not refused: a process that still has it set serves every other provider. The warning names `WD_AUTH__KNMI_EDR`,
+    is said once for the process, and shows no value; the settings keep no trace of the key but that it was given.
+    """
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.settings"):
+        first = make()
+        second = make()
+
+    assert first.open_data_key_set is True
+    assert second.open_data_key_set is True
+    assert [record.getMessage() for record in caplog.records].count(caplog.records[0].getMessage()) == 1
+    (record,) = caplog.records
+    assert "WD_AUTH__KNMI_EDR" in record.getMessage()
+    assert _OLD_KEY not in caplog.text
+    assert _OLD_KEY not in repr(first) + str(first) + first.model_dump_json()
+    assert not hasattr(first.auth, "knmi")
+
+
+@pytest.mark.usefixtures("_no_ambient_settings", "_fresh_warning")
+def test_settings_ignores_a_knmi_key_set_in_the_environment(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """`WD_AUTH__KNMI` that is still set (a `.env`, a hosted instance) warns once and the settings load."""
+    monkeypatch.setenv("WD_AUTH__KNMI", _OLD_KEY)
+
+    with caplog.at_level(logging.WARNING, logger="wetterdienst.settings"):
+        settings = Settings()
+
+    assert settings.open_data_key_set is True
+    assert settings.auth.knmi_edr is None
+    assert check_settings() == []
+    assert "WD_AUTH__KNMI_EDR" in caplog.text
+    assert _OLD_KEY not in caplog.text
+
+
+@pytest.mark.usefixtures("_no_ambient_settings", "_fresh_warning")
+def test_other_providers_work_with_the_old_knmi_key_set(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A process with the old key set still builds a request of another provider, and settings with assignments."""
+    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
+
+    monkeypatch.setenv("WD_AUTH__KNMI", _OLD_KEY)
+    settings = Settings(cache_dir=tmp_path)
+    settings.auth.aemet = "DUMMY-AEMET-KEY"
+
+    request = DwdObservationRequest(parameters=[("daily", "kl")], periods="recent", settings=settings)
+
+    assert request is not None
+    assert reveal(settings.auth.aemet) == "DUMMY-AEMET-KEY"
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+@pytest.mark.parametrize("value", ["", "   ", "\n"])
+def test_settings_leaves_a_blank_knmi_key_alone(monkeypatch: pytest.MonkeyPatch, value: str) -> None:
+    """A blank value is no key: `WD_AUTH__KNMI=` is no old key and no warning, as an unset one is not."""
+    monkeypatch.setenv("WD_AUTH__KNMI", value)
+    assert check_settings() == []
+    settings = Settings()
+    assert settings.open_data_key_set is False
+    assert settings.auth.knmi_edr is None
+
+
+@pytest.mark.usefixtures("_no_ambient_settings")
+def test_settings_takes_the_edr_key_from_the_environment(monkeypatch: pytest.MonkeyPatch) -> None:
+    """`WD_AUTH__KNMI_EDR` is the one credential of `knmi/observation`, held as a secret."""
+    monkeypatch.setenv("WD_AUTH__KNMI_EDR", "NEW-EDR-KEY")
+    settings = Settings()
+    assert reveal(settings.auth.knmi_edr) == "NEW-EDR-KEY"
+    assert "NEW-EDR-KEY" not in repr(settings)

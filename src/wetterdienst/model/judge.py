@@ -62,7 +62,7 @@ from wetterdienst.model.quality_flags import RAW_TOKEN
 from wetterdienst.model.rate_of_change import StepRule
 from wetterdienst.model.rate_of_change import rule_for as step_rule_for
 from wetterdienst.model.relations import DAYLIGHT_MARGIN, Relation, daylight_for, relations_for
-from wetterdienst.model.source_flags import SourceFlags, flags_of
+from wetterdienst.model.source_flags import SourceCount, SourceFlags, flags_of
 from wetterdienst.model.source_flags import hits as source_hits
 from wetterdienst.model.sun import daylight_hours
 from wetterdienst.model.unit import UnitConverter
@@ -106,14 +106,56 @@ STATION_PRESSURE_HIGH_MARGIN = 75.0
 # the elevations the check is made for, in metres: a catalogue that gives another (a missing-value code, a typo) tells
 # nothing, and the formula is the standard atmosphere's to 11 km
 _STATION_ELEVATIONS = (-500.0, 9000.0)
-#: the amounts a model writes a little below zero (check ``floor``), by network
-FLOORS: dict[str, tuple[str, ...]] = {
-    "dwd/dmo": (
-        "precipitation_amount_last_1h",
-        "precipitation_amount_last_3h",
-        "radiation_global",
-        "radiation_short_wave_net_last_3h",
-    ),
+# how far below 0 a model's amount is round-off (check ``floor``), in the canonical unit of the quantity: a value from 0
+# down to the tolerance is set to 0.0 (the number as written kept as ``raw:``), and one further below is no round-off,
+# so it is no business of ``floor`` and the range judges it (a model that writes -15 m of snow depth has not rounded).
+# Each is a little more than the largest round-off read, and well below anything a model could mean:
+# - an amount of precipitation or of the water of new snow, 0.2 mm: ICON writes -0.02 mm for an hour now and then, to
+#   -0.10 (`RR1`, 2769 of 459,732 values of one run; `RR3` to -0.04; GH-3263); MOSMIX has none read in MOSMIX-S and
+#   -L of 2026-11-16 and -17 (`RR*c`, `RRS*c`), so the same amount is taken for them
+# - a radiation sum, 0.01 MJ/m2 (1 J/cm2, 10 kJ/m2): ICON writes the night below 0, `Rad1h` to -0.77 J/cm2, `Rads3` to
+#   -0.46 J/cm2 (GH-3263, GH-3676); MOSMIX's `Rad1h` has none read
+# - a depth of snow, 5 cm: MOSMIX-SNOW writes the last of a melting snow as -0.01 and -0.02 m (`SnCv`, 20 of 11,760
+#   values in the 49 runs of 2026-11-15 to 2026-11-17, at Z901 and Z934; GH-4182); the new snow has none read, and is
+#   written on the same grid of 0.01 m
+# - a duration of sunshine or of precipitation, 0.02 h (72 s): none read negative (MOSMIX-S and -L of 2026-11-16 and
+#   -17); the files write them in whole seconds
+_AMOUNT_MM = 0.2
+_RADIATION_MJ_M2 = 0.01
+_SNOW_CM = 5.0
+_DURATION_H = 0.02
+#: the amounts a model writes a little below zero (check ``floor``), by network, with how far below 0 that is round-off
+FLOORS: dict[str, dict[str, float]] = {
+    "dwd/dmo": {
+        "precipitation_amount_last_1h": _AMOUNT_MM,
+        "precipitation_amount_last_3h": _AMOUNT_MM,
+        "radiation_global": _RADIATION_MJ_M2,
+        "radiation_short_wave_net_last_3h": _RADIATION_MJ_M2,
+    },
+    # the other amounts of MOSMIX that cannot be negative by definition are named beside the snow depth, so that the
+    # same round-off in one of them is the same answer (GH-4182). The percentages (`RSunD` to -10, `N05` to -8, `wwS`)
+    # and the wind `FF` (-0.51 m/s) that MOSMIX-L writes below 0 are no round-off: they are held to the range of their
+    # parameter, as every value is. `E_DD` is a signed error, which has no bound (`error_absolute_` of the table)
+    "dwd/mosmix": {
+        "precipitation_amount_liquid_significant_weather_last_1h": _AMOUNT_MM,
+        "precipitation_amount_significant_weather_last_1h": _AMOUNT_MM,
+        "precipitation_amount_significant_weather_last_3h": _AMOUNT_MM,
+        "precipitation_amount_significant_weather_last_6h": _AMOUNT_MM,
+        "precipitation_amount_significant_weather_last_12h": _AMOUNT_MM,
+        "precipitation_amount_significant_weather_last_24h": _AMOUNT_MM,
+        "precipitation_duration": _DURATION_H,
+        "radiation_global": _RADIATION_MJ_M2,
+        "snow_depth": _SNOW_CM,
+        "snow_depth_new_last_3h": _SNOW_CM,
+        "snow_depth_new_last_6h": _SNOW_CM,
+        "snow_depth_new_last_12h": _SNOW_CM,
+        "snow_depth_new_last_24h": _SNOW_CM,
+        "sunshine_duration": _DURATION_H,
+        "sunshine_duration_last_3h": _DURATION_H,
+        "sunshine_duration_yesterday": _DURATION_H,
+        "water_equivalent_snow_depth_new_last_1h": _AMOUNT_MM,
+        "water_equivalent_snow_depth_new_last_3h": _AMOUNT_MM,
+    },
 }
 #: a sensor that holds one value for as long as the weather cannot is a sensor that has stopped (check ``stuck``): for
 #: every observation network, the quantities and resolutions of ``model/persistence.py`` (GH-3681), whose limits are
@@ -241,7 +283,8 @@ class Plan:
     #: the network is a forecast (its metadata ``kind``): its checks are soft whatever the request sets, but two
     forecast: bool = False
     pressure: tuple[str, ...] = ()
-    floors: tuple[str, ...] = ()
+    #: the amounts a model writes a little below 0 (as the source names them), with how far below 0 is round-off
+    floors: dict[str, float] = field(default_factory=dict)
     #: the parameters (as the source names them) a run of one value is judged for, with their rule
     #: (`model/persistence.py`)
     persistence: tuple[tuple[str, RunRule], ...] = ()
@@ -250,7 +293,7 @@ class Plan:
     runs: tuple[tuple[str, ...], str | None] = ((), None)
     by_name: dict[str, str] = field(default_factory=dict)
     #: the codes of the source's own quality flag that mark a value as erroneous or doubtful (check ``source``)
-    source: tuple[SourceFlags, ...] = ()
+    source: tuple[SourceFlags | SourceCount, ...] = ()
     #: the quantities of which a run of one value above zero is a sensor that does not work (check ``stuck``)
     runs_from_zero: tuple[str, ...] = ()
     #: the parameters (as the source names them) a jump between consecutive readings is judged for, with their limits
@@ -346,7 +389,7 @@ def _build_plan(network: str, dataset: DatasetModel) -> Plan:
             ranges[parameter.name_original] = tuple(bounds)
     original = by_name
     pressure = tuple(original[name] for name in ELEVATION_PRESSURE if name in original)
-    floors = tuple(original[name] for name in FLOORS.get(network, ()) if name in original)
+    floors = {original[name]: tolerance for name, tolerance in FLOORS.get(network, {}).items() if name in original}
     kind = _kind_of(network)
     # a run of one value is a sensor that does not work: judged in a reading, not in a forecast of a model or in what is
     # derived from readings
@@ -557,11 +600,19 @@ def judge(  # noqa: C901
     series: dict[str, list[pl.Series]] = defaultdict(list)
 
     bounds = dict(plan.ranges)
-    # a value below the floor of a quantity the model writes a little below it is the floor's to map to the floor
-    # (GH-3681): the range stands aside at the low end, as it never judged these networks before
+    # an amount a model writes a little below 0 is round-off down to its tolerance, which `floor` maps to 0 and the
+    # range stands aside for (GH-3681); one further below is no round-off and is the range's, whose low end for such an
+    # amount is the 0 it cannot go below, whatever the table says of a reading (the snow depth of a station may be
+    # -10 cm there)
     for name in plan.floors:
-        if name in bounds:
-            bounds[name] = (-_INF, bounds[name][1])
+        bounds[name] = (0.0, bounds[name][1] if name in bounds else _INF)
+    roundoff = pl.lit(value=False)
+    if plan.floors:
+        roundoff = (
+            parameter.is_in(list(plan.floors))
+            & (value < 0.0)
+            & (value >= -parameter.replace_strict(plan.floors, default=0.0, return_dtype=pl.Float64))
+        )
     for rule in rules:
         if isinstance(rule, Bound):
             names = [
@@ -576,7 +627,7 @@ def judge(  # noqa: C901
     if bounds:
         low = parameter.replace_strict({n: b[0] for n, b in bounds.items()}, default=-_INF, return_dtype=pl.Float64)
         high = parameter.replace_strict({n: b[1] for n, b in bounds.items()}, default=_INF, return_dtype=pl.Float64)
-        outside = (value < low) | (value > high)
+        outside = ((value < low) | (value > high)) & ~roundoff
         exprs["range"].append(outside)
     if limits:
         # the bounds the caller set: a check of its own, so that a value outside these and the ranges is told by both
@@ -586,7 +637,7 @@ def judge(  # noqa: C901
         # bound of a rain at 0 does not take the model's -0.02 mm, which `floor` has made 0, away again
         floored = value
         if modes.mode("floor") == "hard":
-            floored = pl.when(parameter.is_in(plan.floors) & (value < 0.0)).then(pl.lit(0.0)).otherwise(value)
+            floored = pl.when(roundoff).then(pl.lit(0.0)).otherwise(value)
         exprs["limits"].append((floored < low) | (floored > high))
     if plan.source:
         # the verdict of the source itself, read in the flag it returned the value with (`model/source_flags.py`)
@@ -604,7 +655,7 @@ def judge(  # noqa: C901
             no_pressure = parameter.is_in(plan.pressure) & ((value < allowed[0]) | (value > allowed[1]))
             exprs["elevation"].append(no_pressure)
     if plan.floors:
-        exprs["floor"].append(parameter.is_in(plan.floors) & (value < 0.0))
+        exprs["floor"].append(roundoff)
     if plan.persistence:
         series["stuck"].append(_persistent_runs(df, plan))
     for rule in rules:

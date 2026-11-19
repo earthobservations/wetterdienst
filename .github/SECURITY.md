@@ -151,10 +151,10 @@ logs leave them out (`tests/test_settings.py`: `test_credentials_do_not_appear_i
 
 Providers are trusted for their address, not their content. Provider and network come from a fixed registry, parameters
 are checked against its metadata, and a station is checked before it becomes part of a URL (GH-3084). Their address is
-not the whole story: seven providers (AEMET, KNMI, NWS, Hub'Eau, MeteoSwiss, Météo-France and EA) fetch a URL that the
+not the whole story: six providers (AEMET, NWS, Hub'Eau, MeteoSwiss, Météo-France and EA) fetch a URL that the
 upstream's answer names (a `next` page, a `datos`, measure or asset link). Each provider has a list of its own hosts
 (`PROVIDER_HOSTS`, `util/provider_hosts.py`: the API and, where the files are served from another host, that host, such
-as the S3 bucket of KNMI's pre-signed links and the object store of Météo-France's files). Such a link is fetched only
+as the object store of Météo-France's files). Such a link is fetched only
 at a host of the provider that the request started at, over `https` (an `http` link is read as `https`) and on the
 default port (`fetchable_link`, `util/network.py`; GH-3339). A redirect is followed only to a host of that provider,
 never from `https` down to `http`, whatever the session holds (`_check_redirect`; 0.174.0 let a session without a

@@ -1,17 +1,16 @@
 import type { QuestionId } from '~/utils/questions'
 import { DateTime } from 'luxon'
 import { lastBoxingDay } from '~/utils/answers'
-import { withData } from '~/utils/format'
 
 /** The questions as a reader sees them: in the language of the page, about the place chosen */
 export function useQuestions() {
-  const { t, locale, localeProperties } = useI18n()
+  const { t } = useI18n()
   const { place } = usePlace()
-  const language = computed(() => withData(localeProperties.value.language ?? locale.value, Intl.DateTimeFormat.supportedLocalesOf))
+  const formatLanguage = useFormatLanguage()
 
   /** A day as the language writes it: "26 December", "26. Dezember"; with the year where it is asked for */
   function dayText(day: string, withYear = false): string {
-    return new Intl.DateTimeFormat(language.value, { day: 'numeric', month: 'long', year: withYear ? 'numeric' : undefined, timeZone: 'UTC' })
+    return new Intl.DateTimeFormat(formatLanguage.value, { day: 'numeric', month: 'long', year: withYear ? 'numeric' : undefined, timeZone: 'UTC' })
       .format(new Date(`${day}T00:00:00Z`))
   }
 
@@ -28,5 +27,5 @@ export function useQuestions() {
     }
   }
 
-  return { questionText, dayText, language }
+  return { questionText, dayText }
 }

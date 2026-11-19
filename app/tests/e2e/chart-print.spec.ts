@@ -4,8 +4,8 @@ import { mockBackend } from './accessibility/mock-backend'
 import { pdfTextRuns } from './pdf-text'
 
 // The charts on paper (GH-3558, GH-3518). A printed chart is scaled to the printable width of the sheet, so the type
-// that is 11 px on the screen is as small on paper as the chart is wide on the screen: the three Plotly charts (the
-// forecast's meteogram, the Explorer's chart and the climate stripes) are capped at 820 px (`.app-chart`, main.css).
+// that is 11 px on the screen is as small on paper as the chart is wide on the screen: the three charts (the forecast's
+// meteogram, the Explorer's chart and the climate stripes, which ECharts draws as SVG) are capped at 820 px (`.app-chart`, main.css).
 // This measures the size of the chart's text in the PDF Chromium prints (`page.pdf`, which only Chromium has: the
 // playwright config runs this spec in a Chromium project), on A4 and Letter with 0.4 in and 1 in margins, rather than
 // estimating it from the zoom. The API is answered by the mock backend, so the spec needs nothing but the app.
@@ -15,10 +15,17 @@ const EXPLORER = '/explorer?provider=dwd&network=observation&resolution=daily&da
 /** The widest a chart is drawn (`.app-chart` in main.css) */
 const MAX_WIDTH = 820
 
-const plotly = (page: Page) => page.locator('.js-plotly-plot .main-svg').first()
+/** The Explorer's chart (ECharts, SVG): the whole of it is in `.explorer-chart`, and its SVG in the canvas once it is drawn */
+const explorerChart = (page: Page) => page.locator('.xc-canvas[data-drawn="true"] svg').first()
+
+/** The climate stripes' chart (ECharts, SVG): the whole of it, with its toolbar, and the canvas it is drawn in */
+const stripesChart = (page: Page) => page.locator('.sc-canvas[data-drawn="true"] svg').first()
 
 interface Chart {
   name: string
+  /** the element that is as wide as the chart, and the texts it draws */
+  root: string
+  texts: string
   path: string
   reach: (page: Page) => Promise<void>
   /**
@@ -32,6 +39,8 @@ interface Chart {
 const CHARTS: Chart[] = [
   {
     name: 'the explorer\'s chart',
+    root: '.explorer-chart',
+    texts: '.xc-canvas svg text',
     path: EXPLORER,
     // the tick labels, 12 px (5.2 pt from a 1100 px window without the cap)
     floor: 6.2,
@@ -39,29 +48,33 @@ const CHARTS: Chart[] = [
       await page.getByRole('button', { name: 'Show', exact: true }).click()
       await expect(page.getByRole('table').first()).toBeVisible()
       await page.getByRole('button', { name: 'Show as chart', exact: true }).click()
-      await expect(plotly(page)).toBeVisible()
+      await expect(explorerChart(page)).toBeVisible()
     },
   },
   {
     name: 'the climate stripes',
+    root: '.stripes-chart',
+    texts: '.sc-canvas svg text',
     path: '/stripes?kind=temperature&station=00011',
     // "Data availability" is the smallest, 12 px since GH-3558 (11 px before: 5.7 pt, and 4.8 pt without the cap)
     floor: 6.2,
     reach: async (page) => {
       await page.getByRole('button', { name: 'Show', exact: true }).click()
-      await expect(plotly(page)).toBeVisible()
-    },
-  },
-  {
-    name: 'the forecast\'s meteogram',
-    path: '/meteogram?station=01001',
-    // the ticks and axis titles are 12 px since GH-3558 (9 px before: 4.7 pt, and 3.9 pt without the cap)
-    floor: 6.2,
-    reach: async (page) => {
-      await expect(plotly(page)).toBeVisible()
+      await expect(stripesChart(page)).toBeVisible()
     },
   },
 ]
+
+/** The forecast's chart: ECharts, drawn as SVG into `.mg-canvas`, and scaled to the sheet like a picture when it is printed */
+const FORECAST: Pick<Chart, 'name' | 'path' | 'reach'> & { floor: number } = {
+  name: 'the forecast\'s meteogram',
+  path: '/meteogram?station=01001',
+  // the ticks and axis titles are 12 px of a chart of at most 820 px
+  floor: 6.2,
+  reach: async (page) => {
+    await expect(page.locator('.mg-canvas svg').first()).toBeVisible()
+  },
+}
 
 const SHEETS = [
   { format: 'A4', margin: '0.4in' },
@@ -71,10 +84,10 @@ const SHEETS = [
 ] as const
 
 /** Every piece of text the charts of the page draw: their tick labels, titles, legend and annotations, one string per line */
-async function chartTexts(page: Page): Promise<string[]> {
-  const texts = await page.locator('.js-plotly-plot').evaluateAll((charts) => {
+async function chartTexts(page: Page, chart: Pick<Chart, 'root' | 'texts'> = CHARTS[0]!): Promise<string[]> {
+  const texts = await page.locator(chart.root).evaluateAll((charts, selector) => {
     const found = new Set<string>()
-    for (const text of charts.flatMap(chart => [...chart.querySelectorAll('svg.main-svg text')])) {
+    for (const text of charts.flatMap(chart => [...chart.querySelectorAll(selector)])) {
       const lines = text.querySelectorAll('tspan')
       for (const part of lines.length ? lines : [text]) {
         const value = part.textContent?.trim()
@@ -83,8 +96,18 @@ async function chartTexts(page: Page): Promise<string[]> {
       }
     }
     return [...found]
-  })
+  }, chart.texts)
   return texts
+}
+
+/**
+ * The texts of the forecast's chart that the PDF reader of this spec finds once the picture is scaled to the sheet: the day
+ * names and the hours, which are 12 px like every other text of the chart. (The axes' numbers are 12 px as well; that they
+ * are in the PDF at all is held by "prints the numbers of its axes" below, GH-4080.)
+ */
+async function forecastTexts(page: Page): Promise<string[]> {
+  const texts = await page.locator('.mg-canvas svg text').evaluateAll(texts => [...new Set(texts.map(text => text.textContent?.trim()).filter((value): value is string => !!value))])
+  return texts.filter(text => /^(?:[A-Z][a-z]{2}(?: \d{2}\/\d{2})?|\d{2}:\d{2})$/.test(text))
 }
 
 /** Prints the page on every sheet and holds the smallest of `texts` to `floor` points (and finds every one of them) */
@@ -118,7 +141,7 @@ for (const chart of CHARTS) {
         await mockBackend(page, baseURL!)
         await page.goto(chart.path)
         await chart.reach(page)
-        const box = await page.locator('.js-plotly-plot').first().boundingBox()
+        const box = await page.locator(chart.root).first().boundingBox()
         expect(box!.width).toBeLessThanOrEqual(MAX_WIDTH)
         // wide enough to be a chart still, in the narrowest of the windows (the column there is 980 px)
         expect(box!.width).toBeGreaterThan(MAX_WIDTH - 5)
@@ -134,7 +157,7 @@ for (const chart of CHARTS) {
         await mockBackend(page, baseURL!)
         await page.goto(chart.path)
         await chart.reach(page)
-        const texts = await chartTexts(page)
+        const texts = await chartTexts(page, chart)
         expect(texts.length).toBeGreaterThan(0)
 
         await expectPrintedAtLeast(page, texts, chart.floor)
@@ -143,14 +166,118 @@ for (const chart of CHARTS) {
   })
 }
 
+test.describe(FORECAST.name, () => {
+  test.beforeEach(async ({ context }) => {
+    await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+  })
+
+  for (const width of [1100, 1440, 1920, 2560]) {
+    test(`is at most ${MAX_WIDTH} px wide in a ${width} px window, and the page does not overflow`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width, height: 1080 })
+      await mockBackend(page, baseURL!)
+      await page.goto(FORECAST.path)
+      await FORECAST.reach(page)
+      const box = await page.locator('.meteogram-chart').first().boundingBox()
+      expect(box!.width).toBeLessThanOrEqual(MAX_WIDTH)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0)
+    })
+  }
+
+  for (const width of [1100, 1920]) {
+    test(`prints its text at a size that is read on paper, from a ${width} px window`, async ({ page, baseURL, browserName }) => {
+      test.skip(browserName !== 'chromium', 'page.pdf is Chromium\'s')
+      await page.setViewportSize({ width, height: 1080 })
+      await mockBackend(page, baseURL!)
+      await page.goto(FORECAST.path)
+      await FORECAST.reach(page)
+      const texts = await forecastTexts(page)
+      expect(texts.length).toBeGreaterThan(0)
+
+      await expectPrintedAtLeast(page, texts, FORECAST.floor)
+    })
+  }
+})
+
+// A chart that prints as an empty box passes the size checks above, which only measure the text that reaches the PDF
+// (GH-4080): ECharts lays its SVG out `position: absolute` in a box that has no height of its own, so on paper the
+// box was 0 px high with `overflow: hidden`, and the panels, bars and tick labels were gone. (The layout under the print
+// medium, which Firefox emulates as well, is held in meteogram-chart.spec.ts.)
+test.describe('the forecast\'s meteogram has its whole chart on paper (GH-4080)', () => {
+  test.beforeEach(async ({ context, page, baseURL }) => {
+    await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await mockBackend(page, baseURL!)
+    await page.goto(FORECAST.path)
+    await FORECAST.reach(page)
+  })
+
+  // the numbers on the axes: 0, 5, 10, 0.5, 50, and the pressure's 1,010 and 1,015 (the day names and the hours are
+  // the other texts of the chart)
+  const AXIS_NUMBER = /^-?\d{1,3}(?:,\d{3})*(?:\.\d+)?$/
+
+  // the PDF Chromium prints: every number of the axes is in it, on the page that carries the chart
+  test('prints the numbers of its axes', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf is Chromium\'s; the layout under the print medium is held in every browser by meteogram-chart.spec.ts')
+    const numbers = await page.locator('.mg-canvas svg text').evaluateAll(
+      (texts, axisNumber) => [...new Set(texts.map(text => text.textContent?.trim() ?? '').filter(value => new RegExp(axisNumber).test(value)))],
+      AXIS_NUMBER.source,
+    )
+    expect(numbers.length, 'distinct numbers on the axes').toBeGreaterThan(3)
+    for (const sheet of SHEETS) {
+      const margin = { top: sheet.margin, right: sheet.margin, bottom: sheet.margin, left: sheet.margin }
+      const found = new Set(pdfTextRuns(await page.pdf({ format: sheet.format, margin })).map(run => run.text.trim()))
+      expect(numbers.filter(value => !found.has(value)), `${sheet.format} ${sheet.margin}: axis numbers not in the PDF`).toEqual([])
+    }
+  })
+})
+
+// The snow panel (GH-4091) is three plots more in the chart of a station that has a snow forecast, which the sheet scales with the rest
+// of the picture: its text is as large on paper as the chart's, its numbers are in the PDF and its source is printed under it
+test.describe('the forecast\'s snow panel on paper (GH-4091)', () => {
+  const SNOW = { ...FORECAST, path: '/meteogram?station=Z914&view=chart' }
+  test.beforeEach(async ({ context, page, baseURL }) => {
+    await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'light'))
+    await page.setViewportSize({ width: 1440, height: 1000 })
+    await mockBackend(page, baseURL!)
+    await page.goto(SNOW.path)
+    await SNOW.reach(page)
+    await expect(page.getByTestId('meteogram-snow-credit')).toBeVisible()
+  })
+
+  test('prints its text at a size that is read on paper, and names its source', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf is Chromium\'s')
+    await expectPrintedAtLeast(page, await forecastTexts(page), SNOW.floor)
+    for (const sheet of SHEETS) {
+      const margin = { top: sheet.margin, right: sheet.margin, bottom: sheet.margin, left: sheet.margin }
+      const runs = pdfTextRuns(await page.pdf({ format: sheet.format, margin }))
+      expect(runs.some(run => run.text.includes('MOSMIX-SNOW')), `${sheet.format} ${sheet.margin}: the source is in the PDF`).toBe(true)
+    }
+  })
+
+  test('prints every number of its axes, those of the snow plots included', async ({ page, browserName }) => {
+    test.skip(browserName !== 'chromium', 'page.pdf is Chromium\'s')
+    // the numbers of the three plots: the new snow's 0 and 2, the depth's 0 and 100, the chance's 0 and 50 are among them
+    const numbers = await page.locator('.mg-canvas svg text').evaluateAll(
+      texts => [...new Set(texts.map(text => text.textContent?.trim() ?? '').filter(value => /^-?\d{1,3}(?:,\d{3})*(?:\.\d+)?$/.test(value)))],
+    )
+    expect(numbers.length, 'distinct numbers on the axes').toBeGreaterThan(3)
+    for (const sheet of SHEETS) {
+      const margin = { top: sheet.margin, right: sheet.margin, bottom: sheet.margin, left: sheet.margin }
+      const found = new Set(pdfTextRuns(await page.pdf({ format: sheet.format, margin })).map(run => run.text.trim()))
+      expect(numbers.filter(value => !found.has(value)), `${sheet.format} ${sheet.margin}: axis numbers not in the PDF`).toEqual([])
+    }
+  })
+})
+
 test('the explorer\'s faceted charts are capped as well, and print as large as the single one', async ({ page, baseURL, browserName }) => {
   await page.setViewportSize({ width: 1920, height: 1080 })
   await mockBackend(page, baseURL!)
   await page.goto(EXPLORER)
   await CHARTS[0]!.reach(page)
   await page.getByLabel('Facet by parameter').check()
-  await expect(page.locator('.js-plotly-plot')).toHaveCount(2)
-  for (const chart of await page.locator('.js-plotly-plot').all())
+  await expect(page.locator('.explorer-chart')).toHaveCount(2)
+  await expect(page.locator('.xc-canvas[data-drawn="true"] svg')).toHaveCount(2)
+  for (const chart of await page.locator('.explorer-chart').all())
     expect((await chart.boundingBox())!.width).toBeLessThanOrEqual(MAX_WIDTH - 34)
   // the box of a facet has 34 px of padding and border, which the print is scaled with: the chart is narrower by them
   test.skip(browserName !== 'chromium', 'page.pdf is Chromium\'s')
@@ -167,8 +294,12 @@ async function printedStyles(page: Page, baseURL: string, theme: 'light' | 'dark
   await chart.reach(page)
   await page.emulateMedia({ media: 'print' })
   // the charts are drawn light for the print, which takes a drawing for some of them
-  if (await page.locator('.js-plotly-plot').count())
-    await expect(page.locator('.js-plotly-plot').first()).toHaveAttribute('data-chart-scheme', 'light')
+  if (await page.locator('.xc-canvas').count())
+    await expect(page.locator('.xc-canvas').first()).toHaveAttribute('data-chart-scheme', 'light')
+  if (await page.locator('.mg-canvas').count())
+    await expect(page.locator('.mg-canvas').first()).toHaveAttribute('data-chart-scheme', 'light')
+  if (await page.locator('.sc-canvas').count())
+    await expect(page.locator('.sc-canvas').first()).toHaveAttribute('data-chart-scheme', 'light')
   // the semantic colours (an alert, a badge, a link): probes that wear them, where the page has no such state to reach
   await page.evaluate(() => {
     const probes = document.createElement('div')
@@ -185,7 +316,7 @@ async function printedStyles(page: Page, baseURL: string, theme: 'light' | 'dark
       const style = getComputedStyle(element)
       const box = element.getBoundingClientRect()
       // a chart's own drawing, a map and a hidden element are not the page's chrome
-      if (style.display === 'none' || element.matches('svg, .leaflet-container, .js-plotly-plot'))
+      if (style.display === 'none' || element.matches('svg, .leaflet-container'))
         return
       if (box.width > 1 && box.height > 1)
         styles[path] = [style.color, style.backgroundColor, style.borderTopColor, style.outlineColor].join(' ')
@@ -199,7 +330,7 @@ async function printedStyles(page: Page, baseURL: string, theme: 'light' | 'dark
   })
 }
 
-for (const chart of [...CHARTS, { name: 'the home page', path: '/', reach: async (page: Page) => page.waitForLoadState('networkidle') }] as Pick<Chart, 'name' | 'path' | 'reach'>[]) {
+for (const chart of [...CHARTS, FORECAST, { name: 'the home page', path: '/', reach: async (page: Page) => page.waitForLoadState('networkidle') }] as Pick<Chart, 'name' | 'path' | 'reach'>[]) {
   test(`${chart.name} prints the same from the dark theme as from the light one`, async ({ browser, baseURL }) => {
     const light = await printedStyles(await (await browser.newContext()).newPage(), baseURL!, 'light', chart)
     const dark = await printedStyles(await (await browser.newContext()).newPage(), baseURL!, 'dark', chart)

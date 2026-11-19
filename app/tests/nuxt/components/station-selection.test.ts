@@ -319,9 +319,12 @@ describe('stationSelection with postcode stations', () => {
     expect(picker.items.map((i: { label: string }) => i.label)).toEqual(['ID: 01067', 'ID: 01069'])
     const item = { label: 'ID: 01067', value: '01067' }
     expect(picker.selectedItems).toEqual(multiple ? [item] : item)
-    // the chip of a chosen station, which a named station shows as "name (id)"
+    // the chip of a chosen station, which a named station shows as "name (id)": for several stations only, one is the search's (GH-4151)
     const chip = wrapper.findAll('.cursor-pointer').find(c => c.text().includes('01067'))
-    expect(chip!.text()).toBe('01067 ×')
+    if (multiple)
+      expect(chip!.text()).toBe('01067 ×')
+    else
+      expect(wrapper.find('[data-station-chip]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('null')
   })
 })

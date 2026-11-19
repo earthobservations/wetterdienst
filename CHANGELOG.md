@@ -18,28 +18,366 @@ Types of changes:
 
 ### Added
 
-- `knmi/observation` serves the validated `monthly` (from 1901-01) and `annual` (from 1901) station
-  observations of the KNMI Data Platform: 23 parameters such as air temperature, humidity, wind,
-  precipitation, sunshine and radiation, one file per month or year. A value is stamped with the first
-  day of its period (the files' own time is the end of it). `EV24`, `FHVEC`, `T10N`, `VVN`, `VVX` and
-  `W1` to `W6` are not served, as no canonical parameter names them (GH-4006)
+- The climate stripes take `provider` and `network` on every surface (`dwd`/`observation`, the
+  default, or `noaa`/`ghcn`; any other pair is a 422). For NOAA GHCN daily each year is calculated
+  from the days by the WMO rules, a year that fails them is a gap, and the `processing_note` says
+  so. `stripes stations` takes a bounding box (`left`, `bottom`, `right` and `top`) for both
+  sources, and lists GHCN stations by the span of the elements of the kind (GH-4222)
+- `dwd/uvi`: DWD's forecast of the UV index for 38 places in Germany, a daily forecast network of
+  one parameter, `uv_index_max` (the highest UV index of the day, a whole number of the WHO scale),
+  for today, tomorrow and the day after, read from `uvi.json`. The places are the stations, with
+  the id as a slug of the name (`frankfurt-main`, `grosser-arber`) and the position of a DWD
+  station there, which the file does not give; a city of the file that is not among them is
+  skipped with a warning that names it, and a changed file is a `DownloadError`. `data_updated_at`
+  is when DWD wrote the file (GH-4089)
+- `dwd/storm_cells`: DWD's KONRAD3D thunderstorm cells as a standalone network, on every surface:
+  `DwdStormCellsRequest`, `wetterdienst storm-cells`, `/api/v1/storm-cells` and the MCP tool
+  `storm_cells`. One row per cell of the newest radar scan, or the newest at or before a
+  `timestamp` of the last 48 hours: severity, hail, heavy rain and gust flags, speed, a calculated
+  `direction_degrees`, a GeoJSON outline and the 12-step forecast `track`. Filter by a point with
+  `distance` (the outline, not the centre) or a box, and `min_severity`; `track=false` and
+  `geometry=centroid` keep a list short. An empty scan is an empty answer; a filter that leaves no
+  cell warns `no-storm-cells-for-place`, a scan over 20 minutes old `scan-stale` (GH-4090)
+- `dwd/pollen`: DWD's pollen forecast (Pollenflug-Gefahrenindex), a daily forecast network of eight
+  parameters, `pollen_load_hazel`, `_alder`, `_ash`, `_birch`, `_grass`, `_rye`, `_mugwort` and
+  `_ragweed`, for today, tomorrow and the day after, from `s31fg.json`. The 27 regions are the
+  stations, with DWD's own number as the id (`124` is Bayern, Mainfranken); DWD gives them no
+  position, so latitude and longitude are null and a region is found by name or id. A search by
+  place (`rank`, `distance`, a box, `interpolate`, `summarize`) answers empty with the new warning
+  `positions-unavailable` that names this way; a network declares it with
+  `stations_have_positions = False`. The steps `0`, `0-1`, ..., `3` are 0, 0.5, ..., 3, any other
+  text, `-1` included, is null with the text kept as `raw:`, and a changed file is a
+  `DownloadError` (GH-4088)
+
+### Changed
+
+- `eaufrance/hubeau`: every answer that selects stations (`stations`, `values`, `interpolate`,
+  `summarize`) carries the warning `step-without-resolution` when stations were left out because
+  they report at a step no resolution has (20 or 30 minutes: 27 of 3,247 reporting stations on
+  2026-11-17), with the count, the steps and the first ten ids. A selection by station id is told
+  only of the ids it asked for that were left out, beside `unknown-station`. Nothing changes in
+  what is listed and no resolution is added; the docs say what is left out and why (GH-4184)
 
 ### Fixed
 
-- `knmi/observation` lists the stations of KNMI's own station catalogue (one small file, read with
-  the same `WD_AUTH__KNMI` key and kept a week) and not those of the latest file of each resolution.
-  Valkenburg `06210` and Soesterberg `06265`, whose values are in the files, are listed, and the
-  list no longer varies with the latest file (57 stations at 10 minutes where 76 have data). Fog
-  stations are listed at 10 minutes only, and the Caribbean stations (block 78) not at annual, which
-  no annual file holds; a moved station is listed where it is now. A closed station has an
-  `end_timestamp` (its stop date and 62 days), so a listing for a later window leaves it out
-  (GH-4008)
+- `noaa/ghcn` `daily` read NCEI's per-station `access/<id>.csv`, which answers 404, so every daily
+  request failed with a `DownloadError`. It now reads the files of the AWS bucket `noaa-ghcn-pds`
+  (`csv.gz/by_station/`), gzipped, with the same values, flags and frame, and keeps a file for 12
+  hours instead of 5 minutes. A station the bucket has no file for is left out with a
+  `file-skipped` warning instead of failing the request. The files of the ids `USR0000CJUA` to
+  `ZI000067991` (all `USW` and `USS`, NYC Central Park among them) were last written on 2025-02-09
+  and end by then; NOAA has been asked (GH-4225)
+- A stations image (`html`, `png`, `svg`, ...) of stations none of which has a position, such as
+  `dwd/derived` `monthly/climate_correction_factor` (and `dwd/pollen`), raised a `TypeError` and
+  was a 500. It is now a 422 problem of the kind `invalid-parameters`, with `format` in `errors`, a
+  usage error of the CLI and a tool error of the MCP tools. `StationsResult.to_plot()` raises
+  `NoStationPositionsError` (a `RequestError`). Both say that no map can be drawn and to ask for
+  json, csv or geojson instead. Stations of which only some have a position draw as before, and a
+  station with a latitude but no longitude no longer widens the map (GH-4206)
+- `dwd/derived`: a search by place (`rank`, `distance`, a box, `interpolate`, `summarize`) for
+  `monthly/climate_correction_factor`, whose stations are postal codes without a position, now
+  warns `positions-unavailable` that names the id as the way to find them, as `dwd/pollen` does.
+  It was an empty answer without a reason. The other datasets of the request are found as
+  before. A request class declares such a dataset with `datasets_without_positions` (GH-4206)
+- Station search by name (`filter_by_name`, and `name=` of the CLI, REST API and MCP): a station
+  name that holds the whole query as a run of whole words now comes first and passes any
+  threshold below 1, whatever its score or length; a threshold of 1 stays an exact match.
+  `dwd/pollen`'s `Tiefland Sachsen-Anhalt` finds region 61, not 81
+  (`Sachsen: Tiefland Sachsen`), `Bayern` all four of its parts (123 missed the threshold), and
+  `Sachsen` the parts of Sachsen and Sachsen-Anhalt before those of Niedersachsen. Other names
+  keep their scores and come after; `rank` still limits the answer (GH-4215)
+- Station search by name (`filter_by_name`, and `name=` of the CLI, REST API and MCP): among names
+  of an equal score the closer whole name now comes first, not the lowest station id. `Kiel`
+  finds `Kiel-Holtenau` before `Kiel-Kronshagen`, and names that share a prefix (regions, e.g.
+  `Bayern: Mainfranken`) the one that is the query first. Scores and threshold are unchanged
+  (GH-4207)
+- `dwd/mosmix`: the snow depth of MOSMIX-SNOW that the model writes a little below 0 (`sncv` -0.01
+  and -0.02 m of a melting snow) is returned as 0.0, with the number kept as
+  `rejected:floor,raw:-0.02` in `quality_flags`, as `dwd/dmo` does for its precipitation. The
+  new snow of MOSMIX-SNOW, the precipitation amounts (`RR*c`, `RRS*c`), the precipitation and
+  sunshine durations (`DRR1`, `SunD*`) and the radiation of MOSMIX-S and -L are held to the same
+  check `floor`. It clips round-off only, down to
+  -0.2 mm, -0.01 MJ/m2, -5 cm of snow or -0.02 h (`dwd/dmo` too); a value further below (-15 m of
+  snow) is not set to 0 but flagged `suspect:range`, the value kept (GH-4182)
+- `eaufrance/hubeau`: a station is listed at its commonest step only if at least 90 % of its
+  intervals are multiples of it and it covers at least 50 % of them (a missed transmission still
+  counts for it), over 2 h and, failing that, over 24 h. A sparse gauge that sends in bursts was
+  listed at 5, 10, 15 and 60 minutes by turns (H502301401); such a station is now served under no
+  resolution while its steps don't settle. Of the 7 of 267 stations listed at 15 minutes that did
+  not keep that cadence, 4 were unlisted at the last lookup and the others in about two thirds of
+  the windows (GH-4166)
+- `dwd/alerts`: a `timestamp` whose snapshot directory is gone from DWD's server is answered as
+  `MetaFileNotFoundError` naming the URL (a 502 over REST and MCP; the CLI's message now says what
+  is missing) and no longer as a bare `FileNotFoundError`, a 500 `internal-error` (GH-4203)
+- `imgw` (hydrology and meteorology): a data directory that is gone from IMGW's server is a
+  `MetaFileNotFoundError` naming the URL (a 502 over REST and MCP), no longer a bare
+  `FileNotFoundError`, a 500. A period folder or an archive that is gone since the listing is
+  skipped and told by `file-skipped` naming the station (a folder only after its parent's listing
+  was read again), where the answer also said the source had no values. A window whose only
+  folder was gone, or empty, no longer fails with a 500 (GH-4205)
+
+## [0.191.0] - 2026-11-17
+
+### Added
+
+- `dwd/observation`: stations carry `wmo_id`, read from DWD's Stationslexikon (the number of the
+  products `SY` and `MN`: 314 of the 13,779 stations of the Stationslexikon, 22 % of `daily/kl`), so
+  `wmo_id=10147` finds `01975`; the others stay null. The table is cached for a week; if it cannot
+  be read (a changed page, a failed download or no connection) the stations still come back with
+  `wmo_id` null and the warning `wmo-ids-unavailable`; a rate limit is raised (GH-4073)
+- `dwd/derived`: the stations of the datasets that use DWD's station ids carry `wmo_id` from the
+  same Stationslexikon: the degree days and degree hours (270 of 1,226 stations) and the soil (198
+  of 484), so `wmo_id=10384` finds `00433`. The DUETT radiation and sunshine duration (ids `18xxx`)
+  and the climate correction factor (postal codes) stay null, and asking for only those does not
+  read the Stationslexikon; the docs list it per dataset (GH-4162)
+- The stations of `ea/hydrology` have `nrfa_id` (National River Flow Archive, 850 of 9,537
+  stations) and `rloi_id` (River Levels on the Internet, 1,808; of two ids the all-digit one, then
+  the lowest), those of `eaufrance/hubeau` `site_id` (the 8-character site of the station, on all)
+  and those of `imgw/meteorology` `short_code` (IMGW's code from `wykaz_stacji.csv`, 571 of 800:
+  `375` for a synop station; null for the 3 stations the list gives two codes). They are the
+  providers' own ids and no WMO number; find a station by one with an SQL filter. IMGW's list is
+  now read for every dataset: where it cannot be read, the stations of the datasets but `synop`
+  come back with `short_code` null and the warning `station-codes-unavailable` (GH-4070)
+
+### Changed
+
+- Climate stripes follow Ed Hawkins' method: a year's colour is its class on a scale of 16 (the 8
+  most saturated ColorBrewer Blues below the mean of 1971-2000, the Reds above it, ±2.6 standard
+  deviations of the annual values of 1901-2000), no longer a point between the coolest and the
+  warmest year shown. A year keeps its colour whatever `start_year` and `end_year` show. A station
+  short of either period takes its whole record for it. `/api/stripes/values` and the MCP tool
+  `stripes_values` add `reference` (mean, standard deviation, the years they are from, `fallback`)
+  and `anomaly` and `stripe_class` to each value; the headers of the CSV and the image say which
+  reference was used. Precipitation uses 16 BrBG classes the same way (GH-4157)
+- **Breaking**: the CSV of `/api/stripes/values` has `anomaly` and `stripe_class` where it had
+  `value_scaled`, a min-max over the years shown: read `stripe_class` (0 to 15) instead. A station
+  with fewer than 10 years with data is refused (HTTP 400, it was 2), as its spread would say
+  nothing, and `stripes stations` (REST, CLI, MCP, the app's picker and map) no longer lists a
+  station whose record spans fewer than 10 calendar years, first to last inclusive (GH-4157)
+- **Breaking**: the stations of `ea/hydrology` have the new columns `nrfa_id` and `rloi_id`, those
+  of `eaufrance/hubeau` `site_id` and those of `imgw/meteorology` `short_code`, after their own
+  columns. A SQL table `to_target` wrote before takes no append of them: write it anew (GH-4070)
+
+### Fixed
+
+- `dwd/mosmix`: the descriptions said that `tn` and `tx` of `small` are given at 00, 06, 12 and 18
+  UTC at every station; in the run of 2026-11-17 03 UTC about 70 % of the stations give them at 06
+  and 18 UTC, the others at one of the two, at all four hours or at 00 or 12 UTC (`large` is
+  worded alike). `rr1c` and `rr3c` say that late in a run they are often a real `0.0`, no gap, at
+  German lowland stations while `rrhc` and `rrdc` still carry rain (`rr6c` falls to zero early at
+  some), and `drr1` that `skip_empty` drops a station given no duration (Zugspitze). The docs list
+  every element's window and steps (GH-4176)
+
+## [0.190.0] - 2026-11-16
+
+### Changed
+
+- **Breaking**: the `dwd/mosmix` and `dwd/dmo` requests no longer accept `_snow_stations`,
+  `_coverage_cache`, `_placemark_cache` and `_lead_time_asked` as constructor arguments. They are
+  private state the request sets itself, recorded in the signature of the 0.189.0 baseline, and
+  were never meant to be passed: pass nothing instead. `DwdDmoRequest(...).lead_time` is now `None`
+  where no lead time was given (it was `SHORT`); the short run is read as before (GH-4128, GH-4142)
+
+## [0.189.1] - 2026-11-16
+
+### Fixed
+
+- `dwd/mosmix`: `skip_empty` measures an element at the steps its file gives it at, no longer at
+  every hour: a step counts if some station of the file has a value there. `TX`, `TN`, `TM` and
+  MOSMIX-SNOW's `snow_depth` (every 3rd hour) no longer skip a station that has all of them (`Z914`
+  was 0.33), and a window past the forecast's horizon no longer counts against any element (`TTT`
+  over 96 h of a 48 h run was skipped). An element given at no step of the window has no say in
+  the share beside the others; a station with nothing in the window is skipped as before. A station
+  that lacks values at the file's steps is still skipped. A single-station MOSMIX-L file is its own
+  cadence, so only an element that is null throughout skips it (GH-4093)
+
+### Security
+
+- The lock holds the releases that fix advisories in the runtime install: dnspython 2.9.2 (extra
+  `mcp`), opentelemetry-api 1.45.2 (extras `restapi` and `mcp`), and pypdf 6.21.4 (extra `pdf`,
+  whose floor rises from 6.21.2: seven denial-of-service advisories on a crafted PDF); the Docker
+  image takes the first two. An installation from PyPI resolves its own versions: upgrade them
+  there (GH-4130)
+
+## [0.189.0] - 2026-11-15
+
+### Added
+
+- The station columns `wmo_id`, `wigos_id` and `icao_id` are filled from what the provider's list
+  publishes: `wmo_id` for `dmi` (only the blocks 04 and 06: OSCAR lists none of its 05xxx and 20xxx
+  to 34xxx, DMI's own numbers), `eccc`, `fmi`, `nws`, `aemet` and `metno/frost`; `wigos_id` for
+  `meteoswiss`, `rmi`, `chmi` and `metno/frost`; `wmo_id` also from a WIGOS id of the issuer 20000
+  (`meteoswiss`, `rmi`, `chmi`), never from a national one; `icao_id` for `fmi`, `metno/frost` and
+  `noaa/ghcn` hourly (not `nws`, whose station id is no ICAO code). `eccc` has `climate_id` and
+  `tc_id` and `chmi` `gh_id`, their own ids (GH-4070)
+- `dmi/observation`: `quality_flags` carries `n:<count>`, the number of readings a value was
+  computed from (`noValuesInCalculation`), and the check `source` flags a daily value of fewer than
+  4 readings (half of the 8 synoptic readings of older Greenland days), a monthly one of fewer than
+  14 and a yearly one of fewer than 183 as `suspect:source`, null with `plausibility={"source":
+  "hard"}`; DMI computes Greenland and Faroe values from any count, even one. Soft-flagged values
+  drop out of interpolate, summarize and stripes (GH-4027)
+- `dwd/mosmix` serves DWD's snow forecast MOSMIX-SNOW as the dataset `hourly/snow`: new snow over
+  3, 6, 12 and 24 hours (`snow_depth_new_last_3h` ... `_24h`, in cm), the probability of more than
+  5 to 50 cm of it (`probability_snow_depth_new_gt_10cm_last_24h` ..., in %), `snow_depth` (cm),
+  air and dew point temperature, wind and precipitation, hourly for 48 hours for the 15 stations
+  of the run in the Bavarian Alps (`Z901` to `Z946`, which `stations` lists). DWD publishes it
+  from November to April only: where no run is listed a request for values is a 404, the new
+  `ProductOutOfSeasonError` (an `IssueNotFoundError`), whose message says why (GH-4091)
+- `issues` for `dwd/mosmix` takes `dataset` (`--dataset`, `dataset=`): `small` and `snow` list the
+  runs of MOSMIX-S and MOSMIX-SNOW (one all-stations file per run, so any station id lists them),
+  `large` those of MOSMIX-L, the default, so a call without it answers as before. `dataset=icon`
+  is still refused for MOSMIX, a MOSMIX product for DMO and SWSMOS (GH-4093)
+
+### Changed
+
+- **Breaking**: the stations of `eccc/observation` have the new columns `climate_id` and `tc_id` and
+  those of `chmi/observation` `gh_id`, after the three id columns. A SQL table `to_target` wrote
+  before takes no append of them: write it anew (GH-4070)
+- **Breaking**: every provider's stations have three more columns after `region`, `wmo_id`,
+  `wigos_id` and `icao_id` (`01001`, `0-56-101-01002`, `EDDH`; null where none is published), so
+  a provider's own columns (dmi `country`, `dwd/road`, hubeau, both `imgw`, `wsv/pegel`) move three
+  places back, `icao_id` of `dwd/mosmix`, `dmo` and `poi` goes to the end and `knmi` `wigos_id` by
+  one. Select columns by name; a SQL table `to_target` wrote before takes no append of them: write
+  it anew. `stations` and `values` select by them (`filter_by_wmo_id`, `--wmo-id`, `wmo_id=`; each
+  station that has the id). Filled for mosmix, dmo, poi, `knmi` (`wmo_id` of the `0-20000-0-`
+  stations), `meteofrance/synop`, `geosphere`, `noaa/ghcn` (GH-4070)
+
+### Fixed
+
+- `dwd/mosmix`: `coverage` gives the snow forecast `hourly/snow` its own `extent` (national, DE,
+  Europe, box 9 to 14 E and 47.2 to 49 N: its stations are all in the Bavarian Alps), where it said
+  the world's; `small` and `large` and `providers` (one extent per network) stay global (GH-4111)
+- `dwd/mosmix`: a request for several datasets (`small` and `large`, `snow`) parses each run file
+  once, where it parsed the other dataset's file again at every station (36 MB for MOSMIX-S); the
+  reader keeps one parsed file per dataset of the request (GH-4093)
+- **Breaking**: `dmi/observation` serves the day, month and year still running unmarked (2026's
+  annual mean from 319 days). A daily value of a day that has not ended is now left out, with a
+  `window-not-closed` warning; a monthly or annual one is returned with
+  `completeness:Incomplete` in `quality_flags` (after `n:`, before `raw:`) and the same warning,
+  as `metno/frost` does. `interpolate` and `summarize` leave all of them out and tell it in
+  `source-data-left-out`. A running period is no longer `suspect:source` for its count. Ask again
+  once the period has ended, split the tokens rather than compare the string (GH-4087)
+- `dwd/derived`: a period whose archive (or both archives of `hourly/radiation_global`) is a 404 on
+  the server, listed and then withdrawn, answers the `file-skipped` warning and no rows, where it
+  failed with a `ValueError` (an `IndexError` for `hourly/radiation_global`) and took the whole
+  request with it (GH-4056)
+
+## [0.188.0] - 2026-11-13
+
+### Changed
+
+- **Breaking**: a 429 from any provider is a `ProviderRateLimitError` (a `DownloadError`) with the
+  provider's wait in `retry_after` (`Retry-After` as seconds or a date, `RateLimit-Reset`,
+  `X-RateLimit-Reset`; else 60 s), and REST answers 503 `upstream-quota-exhausted` with that
+  `Retry-After`, not 502 `upstream-failed`. `metno/frost`, `smhi/observation` and
+  `metoffice/observation` (the CEDA token exchange) raise it where a 429 was a warning and an empty
+  result. It is still not retried. A refused request is no longer asked a second time to read its
+  body: `File.refusal` keeps it (64 KiB at most); `read_refusal` is gone. Catch
+  `ProviderRateLimitError` to wait, and `DownloadError` as before (GH-4048)
+- **Breaking**: a 429 is no longer let go where a failed file or listing was. A group of `dwd/road`
+  with a 429 among its files, `dwd/dmo`'s read of the stations a product covers and Hubeau's
+  elevations raise `ProviderRateLimitError` where they answered from the rest and warned; the
+  walks that fetch ahead (`dwd/observation`, `dwd/derived`, `chmi`, `imgw/meteorology`, `smhi`) end
+  with it, and the refused URL is asked once, not again at the station's turn. A batch of files
+  (`download_files`) asks no queued file after a 429, and `meteofrance/observation` no longer asks
+  a 429 a second time. Wait `retry_after` and ask again (GH-4053)
+
+## [0.187.1] - 2026-11-13
+
+### Fixed
+
+- An exhausted KNMI quota is reported as such, not as a rejected key. KNMI's EDR API answers a key
+  whose 1,000 requests of the hour are used up with a 403 `Quota exceeded`, which was a
+  `CredentialRejectedError` (a REST 501) while the key was valid. It is now a
+  `ProviderRateLimitError` (a `DownloadError`; REST 503, kind `upstream-quota-exhausted`, with
+  `Retry-After`) and `auth` says `null`; a 429 is the same error. A 401 and a 403 `Access to this
+  API has been disallowed` stay `CredentialRejectedError` (GH-4046)
+
+## [0.187.0] - 2026-11-13
+
+### Added
+
+- `alerts` (Python, REST, command line and the MCP tool) takes `latitude` and `longitude`, which
+  keep the warnings whose polygons contain the point, and `name`, which keeps those with an area of
+  that name or warn cell id (`Kiel`, `101002000`; DWD's German names). Without them the answer is
+  every warning of Germany as before, 100 to 370 KB. A place without a warning is a 200 with no
+  alerts and a `no-alerts-for-place` warning in `metadata`, and `data_updated_at` is always the
+  newest `sent` of the whole snapshot, not of the warnings kept. A latitude without a longitude is a
+  422 (GH-4019)
+- `knmi/observation` serves the validated `monthly` (from 1901-01) and `annual` (from 1901) station
+  observations of the KNMI Data Platform: 23 parameters such as air temperature, humidity, wind,
+  precipitation, sunshine and radiation. A value is stamped with the first day of its period (the
+  API's own stamp is the end of it). `EV24`, `FHVEC`, `T10N`, `VVN`, `VVX` and `W1` to `W6` are not
+  served, as no canonical parameter names them (GH-4006)
+
+### Changed
+
+- **Breaking**: `knmi/observation` reads KNMI's EDR API only, in a few requests where the Open Data
+  files took one for each time step. The file reader and the `knmi` extra are removed. Register an
+  EDR key at KNMI (the API Catalog of developer.dataplatform.knmi.nl) and set `WD_AUTH__KNMI_EDR`
+  (`Settings(auth={"knmi_edr": ...})`). `WD_AUTH__KNMI` (`auth.knmi`), the Open Data key, is ignored
+  with a warning, and a request with only that key is refused with a message that says so. Rows,
+  stamps, codes and flags are the files'. The quota is 1,000 requests an hour: a query that takes
+  more is refused with its count (GH-3928)
+- **Breaking** (MCP clients): the `values` and `stations` tools cut an answer to 40,000
+  characters, `metadata` included, in every data format, and say so in an `answer-truncated`
+  warning (for CSV also the `X-Wetterdienst-Truncated` header and the tool's sentence). `values`
+  keeps whole timestamps: the end nearest to now, or the start of the `timestamp` window if one is
+  given, and the note names the next window. `stations` without `name` keeps the first
+  stations (the nearest, for a `rank` or a `distance`) and says how many match, or how many a
+  `rank` asked for. A CSV or NDJSON answer is counted as the JSON the client receives. Ask for a
+  `timestamp` window, or use the REST API or the library for everything; REST, command line and
+  Python are unchanged (GH-4022, GH-4029, GH-4036)
+- **Breaking** (MCP clients): the 40,000-character cut now holds for `interpolate`, `summarize`,
+  `stripes_stations` and `coverage`. `interpolate` and `summarize` keep whole timestamps from the
+  start of their `timestamp` window; `stripes_stations` keeps the first stations and says to give
+  the station's name to `stripes_values` or `stripes_image`. A `with_metadata` block is kept and
+  the rows are cut to make room for it; one that is over the budget alone is left out, as it is of
+  a `name` or one station. `coverage` sends the parameters' `description` as null, then whole
+  datasets in order; its note, at the start of the first resolution's `description`, names the
+  datasets left out and how to ask for them.
+  REST, command line and Python are unchanged (GH-4024)
+- **Breaking** (MCP clients): `values` for a forecast network (`dwd/mosmix`, `dwd/dmo`,
+  `dwd/swsmos`) starts at the current hour (UTC) without a `timestamp`, and with one of whole days
+  that contains now (`2026-11-12`, `2026-11-12/2026-11-14`): today's hours of the model run before
+  it are left out. A `forecast-from-now` warning (for CSV also the
+  `X-Wetterdienst-Forecast-From-Now` header) names the `timestamp` to ask for them; the size cut
+  then keeps future hours. To read the past hours, pass a window with a time part
+  (`2026-11-12T10:00/2026-11-12T14:00`). REST, command line and Python return the whole run as
+  before (GH-4025)
+
+### Fixed
+
+- DWD observation `history` no longer fails for a station with an umlaut in its name when the
+  `name` section is read, such as 01975 Hamburg-Fuhlsbüttel: the station name file is read as
+  latin-1, as DWD writes it, where it raised `UnicodeDecodeError` (CLI) or answered a 500 (REST)
+  (GH-4021)
+- The DMI docs said DMI publishes no snow cover after 2015-11-21; it does, as the metObs parameter
+  `snow_cover_man` (codes 0 to 4), which `dmi/observation` does not read (GH-3762)
+- The `geometry` of an `alerts` area with several polygons keeps its holes (`EXCLUDE_POLYGON`),
+  each on the polygon it lies in; they were dropped. The district warnings for Kreis Rastatt
+  (the Baden-Baden enclave) and the sea east of Rügen (islands) now have them in the GeoJSON, JSON
+  and CSV, and a point in a hole is not in the warning. An area with one polygon is unchanged
+  (GH-4019)
+- `knmi/observation` lists the stations of the list of the EDR API (`/locations`) and not those of
+  the latest file of each resolution. Valkenburg `06210` and Soesterberg `06265`, whose values are
+  in the API, are listed, and the list no longer varies with the latest file. Fog stations are
+  listed at 10 minutes only, and the Caribbean stations (block 78) not at annual, which has no value
+  of them. A closed station has an `end_timestamp` (the end of its last day with a value, read from
+  the API), so a listing for a later window leaves it out, as does the rank listing that had
+  Soesterberg second nearest to De Bilt in 2026, and not one it has data in (GH-4008)
+- The MCP tools answer `format=csv` and `format=ndjson` with the body in the structured `result`
+  as well, after the sentence naming the licence. Claude Code hands the model the structured
+  content and not the content blocks, so it saw only "sent as text content of this result" and no
+  rows. The content block is unchanged, so the body is now twice in the result (about twice the
+  size on the wire), and a program that reads the structured `result` (FastMCP's `.data`, say) gets
+  the sentence plus the body. A chart (html, svg), an image or a pdf has the sentence alone
+  (GH-4017)
 - `knmi/observation` `wigos_id` at 10 minutes is the WSI (`0-20000-0-06260`), as at every other
   resolution, and no longer the bare number (`06260`). `station_id` is unchanged (GH-4008)
-- `knmi/observation` asks for no file of a period that has not ended (the running 10-minute
+- `knmi/observation` asks for nothing of a period that has not ended (the running 10-minute
   interval, hour, day, month or year), where a range into the present got a 404 reported as a
-  skipped file. Periods that have ended are read as before, and the validated hourly and daily
-  files of the last 5.5 to 78 hours do not exist yet and still warn (GH-4008)
+  skipped file (GH-4008)
 
 ## [0.186.0] - 2026-11-11
 
@@ -7981,7 +8319,14 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.186.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.191.0...HEAD
+[0.191.0]: https://github.com/earthobservations/wetterdienst/compare/v0.190.0...v0.191.0
+[0.190.0]: https://github.com/earthobservations/wetterdienst/compare/v0.189.1...v0.190.0
+[0.189.1]: https://github.com/earthobservations/wetterdienst/compare/v0.189.0...v0.189.1
+[0.189.0]: https://github.com/earthobservations/wetterdienst/compare/v0.188.0...v0.189.0
+[0.188.0]: https://github.com/earthobservations/wetterdienst/compare/v0.187.1...v0.188.0
+[0.187.1]: https://github.com/earthobservations/wetterdienst/compare/v0.187.0...v0.187.1
+[0.187.0]: https://github.com/earthobservations/wetterdienst/compare/v0.186.0...v0.187.0
 [0.186.0]: https://github.com/earthobservations/wetterdienst/compare/v0.185.0...v0.186.0
 [0.185.0]: https://github.com/earthobservations/wetterdienst/compare/v0.184.0...v0.185.0
 [0.184.0]: https://github.com/earthobservations/wetterdienst/compare/v0.183.0...v0.184.0

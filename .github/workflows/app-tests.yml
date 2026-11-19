@@ -3,7 +3,9 @@ name: App Tests
 # Lint reads nothing but the app, so it stays on app/**. The type check also reads the backend's OpenAPI
 # document (tests/ui/openapi.snapshot.json), which the app's types are generated from (GH-3908): a change to the
 # REST contract has to run it. The vitest suite also reads the backend's canonical parameter table and
-# resolution enum (tests/unit/glossary-translations.test.ts), so those two files are in the filter too.
+# resolution enum (tests/unit/glossary-translations.test.ts), so those two files are in the filter too, and the
+# stripes' scale (app/tests/unit/stripes-answer.test.ts holds the app's test helper to the golden cases the
+# backend's scale writes, tests/ui/stripes_scale.golden.json), so that file and the scale itself are as well.
 # The E2E suite also drives a backend started from src/ and lives in app-e2e.yml, which
 # carries the wider filter.
 on:
@@ -13,6 +15,8 @@ on:
       - 'src/wetterdienst/metadata/parameter_table.py'
       - 'src/wetterdienst/metadata/resolution.py'
       - 'tests/ui/openapi.snapshot.json'
+      - 'tests/ui/stripes_scale.golden.json'
+      - 'src/wetterdienst/ui/stripes_scale.py'
       - '.github/workflows/app-tests.yml'
   push:
     branches: [ main ]
@@ -21,6 +25,8 @@ on:
       - 'src/wetterdienst/metadata/parameter_table.py'
       - 'src/wetterdienst/metadata/resolution.py'
       - 'tests/ui/openapi.snapshot.json'
+      - 'tests/ui/stripes_scale.golden.json'
+      - 'src/wetterdienst/ui/stripes_scale.py'
       - '.github/workflows/app-tests.yml'
 
   # Allow job to be triggered manually

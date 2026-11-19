@@ -68,8 +68,8 @@ def missing_dependency_message(what: str, module_name: str | None, *, extra: str
         what: what the caller was trying to use, as it should read at the start of a sentence.
         module_name: the module that was not importable, as the exception named it.
         extra: the extra the caller belongs to, where it has one. Several extras can install the
-            same package -- `h5py` comes with both `knmi` and `radar` -- and telling someone
-            reading radar files to install the KNMI extra is true and no help. Named here it is
+            same package -- `h5py` comes with more than one extra -- and telling someone
+            reading radar files to install another extra is true and no help. Named here it is
             preferred, but only if the metadata agrees that it installs the package, so a renamed
             extra falls back to what is actually there rather than to a wrong instruction.
 

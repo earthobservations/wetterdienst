@@ -1,6 +1,6 @@
 [project]
 name = "wetterdienst"
-version = "0.186.0"
+version = "0.191.0"
 authors = [
     { name = "Benjamin Gutzmann", email = "benjamin@eobs.org" },
     { name = "Andreas Motl", email = "andreas.motl@panodata.org" },
@@ -188,10 +188,6 @@ influxdb = [
     # influxdb 5.3.0 pinned 0.6.1 and 5.3.1 leaves it unbounded, so an installed 0.6.1 would stay (GHSA-6v7p-g79w-8964)
     "msgpack>=1.2.1,<2",
 ]
-knmi = [
-    "h5netcdf>=1.7.3,<2",
-    "h5py>=3.11,<4",
-]
 interpolation = [
     "scipy>=1.14.1,<2",
     # 2.0.6 is the first release that works with numpy 2, which everything else here resolves to.
@@ -208,7 +204,7 @@ mysql = [
     "sqlalchemy>=2,<3",
 ]
 pdf = [
-    "pypdf>=6.21.2,<7",
+    "pypdf>=6.21.4,<7",  # seven DoS advisories on a crafted PDF, fixed in 6.21.3 and 6.21.4 (GH-4130)
 ]
 plotting = [
     "kaleido>=1.3.0",
@@ -346,6 +342,9 @@ coverage = [
     "coverage:parallel",
     "coverage:cflakes",
 ]
+# the offline selection with coverage, as `test:offline` runs it (serial, see there): what a pull request and a push to main
+# report to Codecov; the whole suite, remote tests included, is `coverage` and runs nightly
+"coverage:offline" = "uv run pytest --cov-report xml --cov wetterdienst tests/ -m 'not (remote or explorer)' --junitxml=junit-offline.xml"
 # the OpenAPI document as committed (tests/ui/openapi.snapshot.json), which a test holds the served one to: run after a
 # change to the contract, and read the diff
 "openapi:snapshot" = "uv run python -m tests.ui.openapi_snapshot"
@@ -505,7 +504,7 @@ DEP001 = ["mcp_types", "tabula"]
 DEP003 = ["mcp_types"]
 
 [tool.pytest.ini_options]
-addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError --only-rerun HungTestError --only-rerun ImageTimeoutError"
+addopts = "-rsfEX -p pytester --strict-markers --verbosity=3 --only-rerun FSTimeoutError --only-rerun ConnectionTimeoutError --only-rerun ClientResponseError --only-rerun HungTestError --only-rerun ImageTimeoutError --rerun-except ^ProviderRateLimitError:"
 #log_cli = true
 #log_cli_level = "DEBUG"
 log_date_format = "%Y-%m-%dT%H:%M:%S"
@@ -527,7 +526,9 @@ testpaths = ["tests"]
 
 # Retry flaky tests, thereby improving the consistency of the test suite results.
 # --only-rerun flags in addopts restrict retries to transient network errors, a hung test and a Kaleido image
-# that a loaded runner did not draw in time (GH-3918).
+# that a loaded runner did not draw in time (GH-3918). A `ProviderRateLimitError` is never rerun (--rerun-except, anchored on the name, GH-4053):
+# its cause is the 429's `ClientResponseError`, which --only-rerun matches along the cause chain, and a rerun would ask a
+# provider that limits how fast it is asked again, after 5 s.
 reruns = 2
 reruns_delay = 5
 
@@ -546,3 +547,9 @@ omit = [
 # Cooldown: ignore releases younger than this, so freshly published (and possibly
 # yanked or broken) versions never enter the lockfile.
 exclude-newer = "3 days"
+
+# The docs build needs Python 3.11.5 or later: every soupsieve release that fixes its advisories
+# (GHSA-7g44-g9rc-x53w, GHSA-6655-6qjp-jx7x, GHSA-mmhr-3c5m-f64f) does, and the package itself
+# stays on `>=3.11` (GH-4130)
+[tool.uv.dependency-groups]
+docs = { requires-python = ">=3.11.5" }

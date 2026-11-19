@@ -38,7 +38,8 @@ class ResponseWarning(TypedDict):
     #: `other-window-left-out` and `window-not-closed`
     parameter: NotRequired[str]
     #: the stations the warning is about, as many as it lists (`parameter-without-rows`, `file-skipped`,
-    #: `other-window-left-out`, `window-not-closed`, `station-without-rows`, `source-data-left-out`)
+    #: `other-window-left-out`, `window-not-closed`, `station-without-rows`, `source-data-left-out`,
+    #: `step-without-resolution`)
     stations: NotRequired[list[str]]
 
 
@@ -94,8 +95,9 @@ OTHER_WINDOW_LEFT_OUT = "other-window-left-out"
 #: the code of the warning that counts the values whose window had not closed when the request was served (GH-3856):
 #: Frost serves the daily, monthly and annual value of a period that is still going on and marks nothing, so a
 #: value of a day is left out (`note_open_window`, `returned` false) and one of the month or the year is returned,
-#: marked `completeness:Incomplete` in its `quality_flags` (`returned` true). Not missing data: ask again once the
-#: window has closed
+#: marked `completeness:Incomplete` in its `quality_flags` (`returned` true); DMI serves the day, the month and the
+#: year still running the same way (GH-4087: the day left out, the month and the year marked). Not missing data: ask
+#: again once the window has closed
 WINDOW_NOT_CLOSED = "window-not-closed"
 
 #: the code of the one warning an estimate (`interpolate`, `summarize`) tells of the source data its walk left out
@@ -106,6 +108,25 @@ WINDOW_NOT_CLOSED = "window-not-closed"
 #: of `file-skipped`, `other-window-left-out` and `window-not-closed` of each station, nor `parameter-without-rows`,
 #: which a station without a parameter is the ordinary case of
 SOURCE_DATA_LEFT_OUT = "source-data-left-out"
+
+#: the code of the warning an MCP tool's `values` or `stations` answer carries when it was cut to the size budget
+#: (`ui.budget`, GH-4022): the rows that are not in it, and how to ask for them. Only a tool's answer is ever cut, the
+#: REST API, the command line and the library answer all of it. The `message` is the note, which for a CSV is the
+#: `X-Wetterdienst-Truncated` header too
+ANSWER_TRUNCATED = "answer-truncated"
+
+#: the code of the warning an MCP tool's `values` answer for a forecast network carries when it starts at now
+#: (`ui.forecast_start`, GH-4025): the rows of the model run stamped before the current hour are left out, and the
+#: `message` says which `timestamp` window asks for them. Only a tool's answer is cut so; the REST API, the command
+#: line and the library answer the whole run. The `message` is the note, which for a CSV is the
+#: `X-Wetterdienst-Forecast-From-Now` header too
+FORECAST_FROM_NOW = "forecast-from-now"
+
+#: the code of the warning a search by place (`rank`, `distance`, a bounding box, and so `interpolate` and `summarize`
+#: by a point) carries on a network whose source gives its stations no position (`dwd/pollen`, GH-4088): the answer is
+#: empty by the nature of the network, not because no station is near, and the `message` names the way to find them,
+#: by name or id. Not told for a search by name or id
+POSITIONS_UNAVAILABLE = "positions-unavailable"
 
 
 class SkipCause(Enum):
@@ -119,7 +140,8 @@ class SkipCause(Enum):
     retries them gets the same.
     """
 
-    #: the download failed (a reset, a timeout, a 5xx, a 408, 425 or 429)
+    #: the download failed (a reset, a timeout, a 5xx, a 408 or 425; not a 429, which no provider lets go: it is the
+    #: `ProviderRateLimitError`, GH-4053)
     FAILED = ("the download failed", "a failed download", True)
     #: the file the listing named is not on the server (a 404)
     WITHDRAWN = ("the file was gone", "a withdrawn file", True)
@@ -133,6 +155,9 @@ class SkipCause(Enum):
     REFUSED = ("the download was refused", "a refused download", False)
     #: the file arrived and would not parse, or held what the reader cannot use
     UNPARSEABLE = ("it would not parse", "a file that would not parse", False)
+    #: the file arrived and was read, and holds nothing of the station: a place or region the source has renamed or
+    #: dropped (`dwd/uvi`'s table names a place and `dwd/pollen`'s a region that the file no longer lists)
+    NO_FORECAST = ("the file holds no forecast of it", "a file with no forecast of the station", False)
 
     def __init__(self, reason: str, noun: str, may_heal: bool) -> None:  # noqa: FBT001
         """Keep the clause of the warning, the noun of the advice and whether the cause can heal."""
@@ -251,11 +276,12 @@ def note_open_window(parameter: str, count: int, closes: datetime, *, returned: 
     """Tell that `count` values of `parameter` at the station being collected are of a window that had not closed.
 
     For a source that serves the value of a period that is still going on and does not mark it (Frost: the day's
-    extreme, sum or mean before the window ends, the month so far): a daily value of it is a partial extreme, sum or
-    mean that comes back looking like the day's. ``returned`` is whether the provider handed the values over (marked in
-    their `quality_flags`) or left them out of the answer. `WINDOW_NOT_CLOSED` says so once the walk is over
-    (`ParameterRows.warn`), with the number of values and the time the earliest window closes, ``closes``, which is
-    UTC. A parameter whose values were left out is no "the source has no values" (`parameter-without-rows`).
+    extreme, sum or mean before the window ends, the month so far; DMI: the day, the month and the year so far): a
+    daily value of it is a partial extreme, sum or mean that comes back looking like the day's. ``returned`` is
+    whether the provider handed the values over (marked in their `quality_flags`) or left them out of the answer.
+    `WINDOW_NOT_CLOSED` says so once the walk is over (`ParameterRows.warn`), with the number of values and the time
+    the earliest window closes, ``closes``, which is UTC. A parameter whose values were left out is no "the source has
+    no values" (`parameter-without-rows`).
 
     ``parameter`` is `resolution/dataset/parameter`. Nothing happens outside the collection of a station.
     """
@@ -298,6 +324,18 @@ def begin_response() -> None:
     _COUNTED.set({})
 
 
+def forget_response_warning(code: str, parameter: str) -> None:
+    """Take the warning `code` about `parameter` out of those recorded for the answer of the request being served.
+
+    For a caller that asked for a parameter it can do without, and is told that the source has none of it: the climate
+    stripes of GHCN ask for TAVG beside TMAX and TMIN, which most stations do not have, and read the day without it. The
+    line the warning wrote to the log stays.
+    """
+    recorded = _RECORDED.get()
+    if recorded is not None:
+        recorded[:] = [w for w in recorded if not (w["code"] == code and w.get("parameter") == parameter)]
+
+
 def count_response_warning(code: str, count: int, message: str, *, details: dict[str, int] | None = None) -> None:
     """Add `count` to the warning `code` of the request being served, whose `message` has `{count}` for the total.
 
@@ -329,6 +367,23 @@ def warn_response(
     A warning recorded twice, as an estimate asks the same stations for each parameter, is told once.
     """
     log.log(level, message, extra={RESPONSE_WARNING_RECORD: code})
+    record_response_warning(code, message, parameter=parameter, stations=stations)
+
+
+def record_response_warning(
+    code: str,
+    message: str,
+    *,
+    parameter: str | None = None,
+    stations: Sequence[str] | None = None,
+) -> None:
+    """Record the warning `code` for the answer of the request being served, and write nothing to a log.
+
+    `warn_response` is this and the log line. A message that holds what the requester asked for and is no business of
+    the server's log (the point of a request for the warnings of a place, GH-4019) is recorded with this, the log line
+    being the caller's own, a fixed text: the answer, which is the requester's own, keeps the full `message`, and no
+    path leads from `message` to a logger.
+    """
     named = _NAMED.get()
     # not the warning of this very code, which is raised after a walk, and must not silence another one
     if named is not None and parameter is not None and code != PARAMETER_WITHOUT_ROWS:

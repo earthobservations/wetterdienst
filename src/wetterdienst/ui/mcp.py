@@ -107,7 +107,7 @@ default, plus NOAA, ECCC, Météo-France and more). These tools mirror its REST 
 2. `values` — get the measurements for that station:
      values(provider="dwd", network="observation",
             parameters="daily/climate_summary/temperature_air_mean_2m",
-            stations="01975", periods="recent")
+            stations="01975", timestamp="2026-07-25")
 
 The same two steps serve a network of any `kind` (`observation`, `forecast`, ...; see `providers`). Without \
 a name, give `stations` a point: `latitude`, `longitude` and `rank` (the N nearest) or `distance` (km):
@@ -127,7 +127,8 @@ and nearest-station-with-data respectively); both introduce inaccuracy and are o
 ONLY when the user explicitly asks for an interpolated / between-stations estimate, or when \
 `stations` -> `values` genuinely returns no station with data near the location. They are not a \
 plain-language "summary". `history` is different again: it returns a station's *metadata* history \
-(name/location/sensor changes), not weather.
+(name/location/sensor changes), not weather. For `alerts` (DWD warnings), pass the place \
+(a point is the reliable way).
 
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
@@ -174,13 +175,13 @@ resolution, dataset and parameter, in timestamp order within each group. `qualit
 source's own flags as a string: the plain quality flag first, then `kind:code` tokens (`G,measurement:T,source:7`), \
 and a last `raw:<text>` token holds the source's text of a value it mapped from a missing-value code. \
 A parameter's LATEST timestamp is the LAST item of its group, not the last item of the array.
-- Responses are compact by default (just the `values`). Keep them small (and answer in fewer calls) \
-by querying a single "resolution/dataset/parameter" and -- if you only need one day -- a \
-`timestamp` (e.g. timestamp="2026-07-25"; a station's most recent day is its `end_timestamp` from \
-`stations` where it has one; a null one means the provider gives no end, not that the data reaches \
-today). A date covers everything it names, so a day of hourly data is that day's 24 readings, \
-"2026-07" is the month and "2026" the year; name the hour (timestamp="2026-07-25T12") for a single \
-reading.
+- Responses are compact (just the `values`). Always give `values` a `timestamp` window and a \
+single "resolution/dataset/parameter": a tool answer is cut to 40,000 characters, with an `answer-truncated` \
+warning that names the next `timestamp`. A date covers everything it names: timestamp="2026-07-25" of \
+hourly data is that day's 24 readings, "2026-07" the month, "2026" the year; name the hour \
+(timestamp="2026-07-25T12") for one reading. A station's latest day is its `end_timestamp` from `stations` \
+where it has one; null means the provider gives no end, not that data reaches today. For a long series, \
+format="csv" with shape="wide" is 5-6x smaller.
 - An empty `values` or `stations` is an answer, not an error: a day with no reading yet, a name nothing \
 matches, or ids in the `stations` argument the network has no station for (they are left out of the list and the \
 rest is answered). Do not retry the same request; widen the `timestamp`, check the spelling, or look for another \
@@ -188,14 +189,14 @@ station. `stations` takes the same `timestamp` as `values` and lists only the st
 in it, so the nearest ones are not stations that closed long ago. A `name` gives `stations` its best five \
 matches and `values` the one best match; `rank` asks for another number.
 - The default JSON is already machine-readable — do NOT re-request the same data in a different \
-format (csv/wide/pretty) or with unrelated flags; that just wastes calls.
+format or with unrelated flags; that just wastes calls.
 
 ## Example — recent mean air temperature at Hamburg-Fuhlsbüttel
   stations(provider="dwd", network="observation", parameters="daily/kl", name="Hamburg Fuhlsbüttel")
     -> station_id "01975"
   values(provider="dwd", network="observation",
-         parameters="daily/climate_summary/temperature_air_mean_2m", stations="01975", periods="recent")
-    -> last item ≈ {"timestamp": "2026-07-25T00:00:00.000000+00:00", "value": 19.2}  (i.e. 19.2 °C)
+         parameters="daily/climate_summary/temperature_air_mean_2m", stations="01975", timestamp="2026-07-25")
+    -> item ≈ {"timestamp": "2026-07-25T00:00:00.000000+00:00", "value": 19.2}  (19.2 °C)
 """
 
 # Non-data endpoints that only add noise to an agent's tool list.
@@ -221,6 +222,7 @@ _TOOL_NAMES = {
     "history_api_history_get": "history",
     "issues_api_issues_get": "issues",
     "alerts_api_alerts_get": "alerts",
+    "storm_cells_api_storm_cells_get": "storm_cells",
     "stripes_stations_api_stripes_stations_get": "stripes_stations",
     "stripes_values_api_stripes_values_get": "stripes_values",
     "stripes_image_api_stripes_image_get": "stripes_image",
@@ -246,10 +248,19 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
     "history": ("Get a station's metadata history", True),
     "issues": ("List forecast issues", True),
     "alerts": ("Get weather alerts", True),
+    "storm_cells": ("Get thunderstorm cells", True),
     "stripes_stations": ("Find climate stripes stations", True),
     "stripes_values": ("Get climate stripes values", True),
     "stripes_image": ("Render climate stripes", True),
 }
+
+
+# The sentence that ends the description of the `values` tool, which only the tool has: the answer of a tool is cut to
+# `ui.budget.ANSWER_BUDGET` characters.
+_VALUES_WINDOW_ADVICE = (
+    "Give a `timestamp` window: an answer is cut to 40,000 characters; for a long series use format=csv with "
+    "shape=wide."
+)
 
 
 def _annotate_tool(
@@ -273,6 +284,9 @@ def _annotate_tool(
         raise KeyError(msg)
     title, open_world = _TOOL_TITLES[component.name]
     component.title = title
+    if component.name == "values":
+        # the tool's own advice, so that the REST document, which these descriptions come from, is not changed (GH-4022)
+        component.description = f"{(component.description or '').rstrip()}\n\n{_VALUES_WINDOW_ADVICE}"
     # keyword arguments, which the type checker holds to the fields; they go out on the wire as
     # `readOnlyHint` and so on
     component.annotations = ToolAnnotations(
@@ -431,9 +445,14 @@ _REPORTING_HEADERS = (
     "x-wetterdienst-attribution",
     "x-wetterdienst-processing",
     "x-wetterdienst-warnings",
+    "x-wetterdienst-truncated",
+    "x-wetterdienst-forecast-from-now",
 )
 # The media types that are text though they are not `text/*`.
 _TEXT_MEDIA_TYPES = frozenset({"application/x-ndjson", "image/svg+xml", "application/xml"})
+# The media types of data, whose body is repeated in the structured content (GH-4017). A chart (html, svg) is markup
+# of 100 KB and more that a model cannot read as data, so it is not.
+_REPEATED_MEDIA_TYPES = frozenset({"text/csv", "application/x-ndjson"})
 
 
 def _is_json(media_type: str) -> bool:
@@ -511,12 +530,25 @@ def _report_of(headers: dict[str, str]) -> dict[str, Any]:
         report["processing_note"] = unquote(processing)
     if warnings := headers.get("x-wetterdienst-warnings"):
         report["warnings"] = [code.strip() for code in warnings.split(",") if code.strip()]
+    if truncated := headers.get("x-wetterdienst-truncated"):
+        report["truncated"] = unquote(truncated)
+    if started := headers.get("x-wetterdienst-forecast-from-now"):
+        report["forecast_from_now"] = unquote(started)
     return report
 
 
-def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any]) -> str:
-    """Tell what the answer is and whose, in the sentence that stands as the structured content of the result."""
-    sentence = f"The answer is {media_type} ({size:,} bytes), sent as {kind} of this result."
+def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any], *, repeated: bool = False) -> str:
+    """Tell what the answer is and whose, in the sentence that stands as the structured content of the result.
+
+    With `repeated` the body follows the sentence in the structured content, which the sentence says, so that a reader
+    of the structured content alone does not look for a content block it cannot see.
+    """
+    if repeated:
+        sentence = (
+            f"The answer is {media_type} ({size:,} bytes) and follows below (it is also the {kind} of this result)."
+        )
+    else:
+        sentence = f"The answer is {media_type} ({size:,} bytes), sent as {kind} of this result."
     if "license" in report:
         url = f" ({report['license_url']})" if "license_url" in report else ""
         sentence += f" Licence: {report['license']}{url}."
@@ -526,7 +558,28 @@ def _sentence_of(media_type: str, size: int, kind: str, report: dict[str, Any]) 
         sentence += f" {report['processing_note']}"
     if "warnings" in report:
         sentence += f" Warnings: {', '.join(report['warnings'])}."
+    if "truncated" in report:
+        sentence += f" Truncated: {report['truncated']}"
+    if "forecast_from_now" in report:
+        sentence += f" Forecast: {report['forecast_from_now']}"
     return sentence
+
+
+def structured_size(media_type: str, body: str, headers: dict[str, str]) -> int:
+    """Count the characters of the structured content a client gets for an answer whose `body` is text of `media_type`.
+
+    For data that is not JSON (csv, ndjson) the structured content is `{"result": <text>}`, where the text is the
+    sentence of the answer (`_sentence_of`, which `_return_bodies_as_content` builds from the same `headers` the REST
+    app sent), a blank line and the body. It reaches the client as JSON, where every newline and quote of the text is
+    an escape of two characters, so that is what is counted: compact, with each character that is not ASCII as it is,
+    as the client reads it. It is what `ui.budget` holds to its budget (GH-4022, GH-4029). Any other media type is not
+    repeated in the structured content, and counts as its body.
+    """
+    if media_type not in _REPEATED_MEDIA_TYPES:
+        return len(body)
+    size = len(body.encode("utf-8"))
+    sentence = _sentence_of(media_type, size, "text content", _report_of(headers), repeated=True)
+    return len(json.dumps({"result": f"{sentence}\n\n{body}"}, separators=(",", ":"), ensure_ascii=False))
 
 
 def _envelope_of(result: ToolResult) -> dict[str, Any] | None:
@@ -548,8 +601,11 @@ def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
     webp) an image content block and any other binary body (pdf) an embedded resource. The structured content, which
     the output schema of a tool requires, is a sentence about the answer, with its licence, attribution,
     processing note and warnings, which the REST API sends in headers for these formats: the schema of every tool that
-    has one admits a string as its `result` (the `str` of the REST route's response model), and the body is not
-    repeated in it. The same, structured, is in the `_meta` of the result under `wetterdienst`.
+    has one admits a string as its `result` (the `str` of the REST route's response model). For data (csv, ndjson) the
+    sentence is followed by the body itself, since a client may hand the model the structured content alone (Claude
+    Code does, and the rows of a csv never reached it, GH-4017); a client that reads the content blocks has the same
+    text there, so the body is twice in the result. A chart (html, svg), an image or a pdf is not repeated, and its
+    sentence stands alone. The report, structured, is in the `_meta` of the result under `wetterdienst`.
     """
     from fastmcp.server.middleware import Middleware  # noqa: PLC0415
     from fastmcp.tools import ToolResult  # noqa: PLC0415
@@ -582,7 +638,12 @@ def _return_bodies_as_content(provider: OpenAPIProvider) -> Middleware:
             tool = await provider.get_tool(context.message.name)
             structured = None
             if tool is not None and tool.output_schema is not None:
-                structured = {"result": _sentence_of(media_type, size, kind, report)}
+                # A client may hand the model the structured content and not the content blocks (Claude Code does:
+                # a result with both reaches the model as the structured content alone, so the rows of a csv were
+                # lost behind the sentence, GH-4017). The schema admits a string, so data is repeated in it.
+                repeated = envelope["encoding"] == "text" and media_type in _REPEATED_MEDIA_TYPES
+                sentence = _sentence_of(media_type, size, kind, report, repeated=repeated)
+                structured = {"result": f"{sentence}\n\n{body}" if repeated else sentence}
             # also where the tool has no output schema to put the sentence in
             return ToolResult(
                 content=[block], structured_content=structured, meta={"wetterdienst": report} if report else None

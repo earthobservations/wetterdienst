@@ -52,6 +52,9 @@ importers:
       apache-arrow:
         specifier: ^17.0.0
         version: 17.0.0
+      echarts:
+        specifier: ^6.1.0
+        version: 6.1.0
       leaflet:
         specifier: ^1.9.4
         version: 1.9.4
@@ -67,12 +70,6 @@ importers:
       nuxt-security:
         specifier: ^2.6.0
         version: 2.6.0(@nuxt/schema@4.6.2)(confbox@0.2.4)(dotenv@17.4.2)(giget@3.3.1)(jiti@2.7.0)(magic-string@1.4.3)(mlly@1.8.2)(oxc-parser@0.141.0)(rolldown@1.2.12)(rollup@4.63.6)(supports-color@10.2.2)(unplugin@3.4.0(esbuild@0.28.2)(rolldown@1.2.12)(rollup@4.63.6)(vite@8.3.4(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)))
-      plotly.js-basic-dist-min:
-        specifier: ^3.7.0
-        version: 3.7.0
-      plotly.js-locales:
-        specifier: ^3.7.0
-        version: 3.7.0
       suncalc:
         specifier: ^2.1.0
         version: 2.1.0
@@ -122,9 +119,6 @@ importers:
       '@types/luxon':
         specifier: ^3.7.6
         version: 3.7.6
-      '@types/plotly.js':
-        specifier: ^3.0.14
-        version: 3.0.14
       '@types/tz-lookup':
         specifier: ^6.1.2
         version: 6.1.2
@@ -2645,9 +2639,6 @@ packages:
   '@types/node@26.6.4':
     resolution: {integrity: sha512-ldVPDCzj7fsaGZrLB0NuHuTvJcsNasysBAqMolr/cgxrLd1xbqxIr3XJiPnHHJUCxj5sNF1vnRj9aWnrVh5Jcg==}
 
-  '@types/plotly.js@3.0.14':
-    resolution: {integrity: sha512-3JZH20UBXQ8rZFPeV40fKinx5Le0T2cuz6kM8LEYkkAuDrljzezlwvZuXnXQhyBost7YwgKxEDg7SVTIBbA6eg==}
-
   '@types/resolve@1.20.2':
     resolution: {integrity: sha512-60BCwRFOZCQhDncwQdxxeOEEkbc5dIMccYLwbxsS4TUNeVECQ/pBJ0j09mrHOl/JJvpRPGwO9SvE4nR2Nb/a4Q==}
 
@@ -3734,6 +3725,9 @@ packages:
 
   eastasianwidth@0.2.0:
     resolution: {integrity: sha512-I88TYZWc9XiYHRQ4/3c5rjjfgkjhLyW2luGIheGERbNQ6OY7yTybanSpDXZa8y7VUP9YmDcYa+eyq4ca7iLqWA==}
+
+  echarts@6.1.0:
+    resolution: {integrity: sha512-q0yaFPggC9FUdsWH4blavRWFmxdrIodbkoKNAjJudAI6CA9gNPxHtV2RcZNEepZVlk4yvBYkOkbk6HIVpIyHZA==}
 
   editorconfig@3.0.2:
     resolution: {integrity: sha512-T0ix8GhtxyKVfUFEcvdNDt3YGqlwkFHbD4/5bgFUDgFmxhI/cSRAeJ87/Sz//Cq8Eam6JX/e23RkoFO71P7aAA==}
@@ -5576,12 +5570,6 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
-  plotly.js-basic-dist-min@3.7.0:
-    resolution: {integrity: sha512-84KPQhLTrO5IHu6DCte2KwA4bzSoVIdIs3uDPWid3sgeTX8L5RjpDARjCG3spgOwQ8MYE8PL+MeQ0DQRWA1Emw==}
-
-  plotly.js-locales@3.7.0:
-    resolution: {integrity: sha512-ksB7hfy9Pk9SQtkfK1AfpRy2O/2iIh7CxQat8vsk1cCySwyLUuHXltsr4ReUeORScxPjGnyW00aNe97fDivsmA==}
-
   pluralize@8.0.0:
     resolution: {integrity: sha512-Nc3IT5yHzflTfbjgqWcCPpo7DaKy4FnpB0l/zCAW0Tc7jxAiuqSxHasntB3D7887LSrA93kDJ9IXovxJYxyLCA==}
     engines: {node: '>=4'}
@@ -6164,6 +6152,9 @@ packages:
     resolution: {integrity: sha512-EDyGAwH1gO0Ausm9gV6T2nUvBgXT5kGoCMJPllOaooZ+4VvJiKBdZE7wK18N1deEowhcUptS+5GXZK8U/fvpwA==}
     peerDependencies:
       typescript: '>=4.0.0'
+
+  tslib@2.3.0:
+    resolution: {integrity: sha512-N82ooyxVNm6h1riLCoyS9e3fuJ3AMG2zIZs2Gd1ATcSFjSA23Q0fzjjZeh0jbJvWVDZ0cJT8yaNNaaXHzueNjg==}
 
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
@@ -6870,6 +6861,9 @@ packages:
 
   zod@4.6.7:
     resolution: {integrity: sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg==}
+
+  zrender@6.1.0:
+    resolution: {integrity: sha512-oEGMDB6pOP2S6OwRR4PdVv610zrjnA3Bh+JnSG12fYJlBKjtNAoEb5fSUoCOOINlH96I2fU38/A2UpRKs67xYQ==}
 
   zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
@@ -9616,8 +9610,6 @@ snapshots:
     dependencies:
       undici-types: 6.29.0
 
-  '@types/plotly.js@3.0.14': {}
-
   '@types/resolve@1.20.2': {}
 
   '@types/tz-lookup@6.1.2': {}
@@ -10664,6 +10656,11 @@ snapshots:
   duplexer@0.1.2: {}
 
   eastasianwidth@0.2.0: {}
+
+  echarts@6.1.0:
+    dependencies:
+      tslib: 2.3.0
+      zrender: 6.1.0
 
   editorconfig@3.0.2:
     dependencies:
@@ -13062,10 +13059,6 @@ snapshots:
     dependencies:
       playwright-core: 1.63.0
 
-  plotly.js-basic-dist-min@3.7.0: {}
-
-  plotly.js-locales@3.7.0: {}
-
   pluralize@8.0.0: {}
 
   pnpm-workspace-yaml@1.9.1:
@@ -13697,6 +13690,8 @@ snapshots:
       picomatch: 4.0.7
       typescript: 5.9.3
     optional: true
+
+  tslib@2.3.0: {}
 
   tslib@2.8.1: {}
 
@@ -14420,5 +14415,9 @@ snapshots:
       readable-stream: 4.7.0
 
   zod@4.6.7: {}
+
+  zrender@6.1.0:
+    dependencies:
+      tslib: 2.3.0
 
   zwitch@2.0.4: {}

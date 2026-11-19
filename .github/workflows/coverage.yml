@@ -1,7 +1,9 @@
 name: Coverage
 
-# Same inputs as the test matrix - see tests.yml for why the docs, the one app file, the Dockerfile
-# and the root files are in here.
+# Same inputs as the test matrix - see tests.yml for why the docs, the app files, the Dockerfile
+# and the root files are in here. A pull request and a push to main report the coverage of the
+# offline selection, which no upstream outage can turn red; the whole suite, remote tests included,
+# is measured nightly and on request (GH-4214).
 on:
   push:
     branches: [ main ]
@@ -13,6 +15,8 @@ on:
       # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
       - 'docs/**'
       - 'app/shared/types/api.ts'
+      # tests/ui/test_stripes_scale.py reads the app's 16 colours of the stripes
+      - 'app/app/utils/stripes.ts'
       - 'app/tests/unit/unit-target-defaults.json'
       - 'pyproject.toml'
       - 'uv.lock'
@@ -33,6 +37,8 @@ on:
       # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
       - 'docs/**'
       - 'app/shared/types/api.ts'
+      # tests/ui/test_stripes_scale.py reads the app's 16 colours of the stripes
+      - 'app/app/utils/stripes.ts'
       - 'app/tests/unit/unit-target-defaults.json'
       - 'pyproject.toml'
       - 'uv.lock'
@@ -44,13 +50,20 @@ on:
       - '.github/workflows/install.sh'
       - '.github/workflows/coverage.yml'
 
-  # Allow job to be triggered manually.
+  # The remote suite with coverage, on main. After the nightly matrix of tests.yml (02:23, whose
+  # macOS legs run up to three hours) so that the two do not share the runners; docs.yml runs on Mondays
+  # at 05:17 on another runner type
+  schedule:
+    - cron: '17 6 * * *'
+
+  # Allow job to be triggered manually: the whole suite, as the schedule runs it.
   workflow_dispatch:
 
-# A push to a pull request cancels the run it supersedes; a run on main is never cancelled once it has started
+# A push to a pull request cancels the run it supersedes; a run on main is never cancelled once it has started.
+# The nightly and manual runs have a group of their own, as in tests.yml
 concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && 'full' || 'ci' }}
 
 env:
   OS: "ubuntu-latest"
@@ -61,7 +74,8 @@ permissions: {}
 jobs:
   coverage:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    # the whole suite took up to 52 minutes; the offline selection runs as long as an offline test job
+    timeout-minutes: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 120 || 45 }}
     environment: codecov
     permissions:
       contents: read
@@ -81,32 +95,41 @@ jobs:
       - name: Install extras for testing
         run: .github/workflows/install.sh testing
 
+      # deliberately without the provider credentials: nothing this selects may reach a provider
+      - name: Run the offline selection, with coverage
+        if: ${{ github.event_name != 'schedule' && github.event_name != 'workflow_dispatch' }}
+        run: uv run poe coverage:offline
+
       # the provider keys are given to the two test steps alone, not to `uv sync` or to the
-      # third-party Codecov action
+      # third-party Codecov action. No KNMI EDR key: its quota is 1,000 requests an hour and the remote tests of
+      # `knmi/observation` run in one leg of tests.yml (GH-4046), so they are skipped here
       - name: Run tests, with coverage (parallel)
+        if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
         env:
           WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
           WD_AUTH__AEMET: ${{ secrets.WD_AUTH__AEMET }}
-          WD_AUTH__KNMI: ${{ secrets.WD_AUTH__KNMI }}
           WD_AUTH__CEDA: ${{ secrets.WD_AUTH__CEDA }}
         run: uv run poe coverage:parallel
 
       - name: Run tests, with coverage (cflakes)
-        if: always()
+        if: ${{ always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
         env:
           WD_AUTH__METNO_FROST: ${{ secrets.WD_AUTH__METNO_FROST }}
           WD_AUTH__AEMET: ${{ secrets.WD_AUTH__AEMET }}
-          WD_AUTH__KNMI: ${{ secrets.WD_AUTH__KNMI }}
           WD_AUTH__CEDA: ${{ secrets.WD_AUTH__CEDA }}
         run: uv run poe coverage:cflakes
 
+      # Two flags, since Codecov merges the uploads of a commit that share one: the offline selection
+      # (every pull request and push to main) is `offline`, which codecov.yml reads for the project status
+      # and the badge, and the nightly whole suite is `full`. Under one flag the nightly run would be merged into
+      # the commit it ran on and the coverage of main would swing with it
       - name: Upload coverage report to Codecov
         if: ${{ !cancelled() }}
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: ./coverage.xml
-          flags: unittests
+          flags: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'full' || 'offline' }}
           fail_ci_if_error: false
 
       - name: Upload test results to Codecov
@@ -114,6 +137,7 @@ jobs:
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./junit-parallel.xml,./junit-cflakes.xml
+          files: ./junit-parallel.xml,./junit-cflakes.xml,./junit-offline.xml
           report_type: test_results
+          flags: ${{ (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && 'full' || 'offline' }}
           fail_ci_if_error: false

@@ -4,7 +4,7 @@ import type { Bar, RainAnswer, SummerAnswer, TemperatureSource, WindAnswer } fro
 import type { QuestionId } from '~/utils/questions'
 import { DateTime } from 'luxon'
 import tzLookup from 'tz-lookup'
-import { COVERAGE_REQUESTS_AT_ONCE, hourlyNetworks, hourlyTemperatureIn, lastSummer, mapLimited, RAIN_AMOUNT, RAIN_CHANCE, rainTomorrow, WIND_GUST, WIND_MEAN, windOnDay, windWindow } from '~/utils/answers'
+import { COVERAGE_REQUESTS_AT_ONCE, hourlyNetworks, hourlyTemperatureIn, lastSummer, mapLimited, RAIN_AMOUNT, RAIN_AMOUNTS, RAIN_CHANCE, rainTomorrow, WIND_GUST, WIND_MEAN, windOnDay, windWindow } from '~/utils/answers'
 import { describeFetchError } from '~/utils/api-error'
 import { flagEmoji } from '~/utils/country'
 import { formatNumber } from '~/utils/format'
@@ -22,7 +22,8 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ 'update:day': [day: string] }>()
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const formatLanguage = useFormatLanguage()
 const { place } = usePlace()
 const { questionText, dayText } = useQuestions()
 const { data: providerList } = useProviders()
@@ -40,8 +41,8 @@ const summer = ref<SummerAnswer | null>(null)
 const wind = ref<WindAnswer | null>(null)
 const sources = ref<TemperatureSource[]>([])
 
-const number = (value: number, digits = 1) => formatNumber(value, locale.value, digits)
-const percent = (value: number) => new Intl.NumberFormat(locale.value, { style: 'percent', maximumFractionDigits: 0 }).format(value)
+const number = (value: number, digits = 1) => formatNumber(value, formatLanguage.value, digits)
+const percent = (value: number) => new Intl.NumberFormat(formatLanguage.value, { style: 'percent', maximumFractionDigits: 0 }).format(value)
 const today = () => DateTime.now()
 
 // The units the app settings choose (GH-3980), read at each request: the question's own quantity (rain, millimetres; the
@@ -84,7 +85,7 @@ async function answerRain(turn: number): Promise<Status> {
   const { readings, units } = await values({
     provider: 'dwd',
     network: 'mosmix',
-    parameters: 'hourly/large/rr1c,hourly/large/r101',
+    parameters: [...RAIN_AMOUNTS, 'r101'].map(parameter => `hourly/large/${parameter}`).join(','),
     stations: point.station_id,
     unit_targets: JSON.stringify({ precipitation: chosen('precipitation'), fraction: 'decimal' }),
   })
@@ -154,7 +155,7 @@ async function answerDownload(): Promise<Status> {
     throw error
   })
   const found = await foundSources.value
-  const collator = new Intl.Collator(locale.value)
+  const collator = new Intl.Collator(formatLanguage.value)
   sources.value = found
     // the place's own service first, the rest by name
     .toSorted((a, b) => Number(b.provider === 'dwd') - Number(a.provider === 'dwd') || collator.compare(a.name, b.name))

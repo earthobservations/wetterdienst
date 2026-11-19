@@ -15,6 +15,7 @@ import {
   windOnDay,
   windWindow,
 } from '../../app/utils/answers'
+import { run10382Values } from '../helpers/mosmix-run'
 
 // The answers of the home page's questions are worked out from what the backend answers, and say nothing the
 // data does not: these hold each to a few readings whose answer is known by hand.
@@ -60,6 +61,22 @@ describe('will it rain tomorrow', () => {
     const answer = rainTomorrow(chance, BERLIN, NOW)!
     expect(answer.verdict).toBe('maybe')
     expect(answer.maxChance).toBe(0.4)
+  })
+
+  it('takes the rain of a late day from the 6, 12 and 24 hour totals where the hourly amounts are 0.0, as the day rows do (GH-4175)', () => {
+    // 10382, the run of 2026-11-17 03 UTC: on the 25th the hourly amounts are all 0.0 and DWD's 12 hour totals have 1.2 mm
+    const run = run10382Values().map(value => ({ parameter: value.parameter, timestamp: value.timestamp, value: value.value }))
+    const late = DateTime.fromISO('2026-11-24T10:00:00', { zone: BERLIN })
+    const hourlyOnly = rainTomorrow(run.filter(reading => reading.parameter === RAIN_AMOUNT), BERLIN, late)!
+    expect(hourlyOnly.verdict).toBe('no')
+    const answer = rainTomorrow(run, BERLIN, late)!
+    expect(answer.day).toBe('2026-11-25')
+    expect(answer.verdict).toBe('yes')
+    expect(answer.total).toBe(1.2)
+    // the hours of a total are not wet hours of their own, and no hour is the wettest
+    expect(answer.wetHours).toBe(0)
+    expect(answer.wettest).toBeNull()
+    expect(answer.hours).toHaveLength(24)
   })
 
   it('gives no answer where the forecast does not reach most of the day', () => {

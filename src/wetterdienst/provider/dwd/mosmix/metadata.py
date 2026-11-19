@@ -934,6 +934,145 @@ _DwdMosmixMetadataSpec = {
                         },
                     ],
                 },
+                {
+                    "name": "snow",
+                    "name_original": "snow",
+                    "grouped": True,
+                    # MOSMIX-SNOW is a list of Alpine ski areas, where `small` and `large` are the world's: the 15
+                    # stations of the run of 2026-11-14 are all in the Bavarian Alps (47.33 to 47.75 N, 10.0 to 12.97 E)
+                    # and so are the 37 `Z9xx` stations of the catalogue (to 13.02 E). The south edge is Germany's
+                    # (47.2, as `COUNTRY_BBOX`), the others a degree around the stations. All of them are Germany's,
+                    # so the extent is national (a regional one is bound to no single country). An Austrian station
+                    # in the list makes it regional DE/AT (GH-4111)
+                    "extent": {
+                        "scope": "national",
+                        "continents": ["europe"],
+                        "country_codes": ["DE"],
+                        "bbox": [9.0, 47.2, 14.0, 49.0],
+                    },
+                    "parameters": [
+                        {
+                            "name": "snow_depth_new_last_3h",
+                            "name_original": "sa3",
+                            "timestamp_position": "end",
+                            "unit": "meter",
+                        },
+                        {
+                            "name": "snow_depth_new_last_6h",
+                            "name_original": "sa6",
+                            "timestamp_position": "end",
+                            "unit": "meter",
+                        },
+                        {
+                            "name": "snow_depth_new_last_12h",
+                            "name_original": "sah",
+                            "timestamp_position": "end",
+                            "unit": "meter",
+                        },
+                        {
+                            "name": "snow_depth_new_last_24h",
+                            "name_original": "sad",
+                            "timestamp_position": "end",
+                            "unit": "meter",
+                        },
+                        {
+                            "name": "snow_depth",
+                            "name_original": "sncv",
+                            "timestamp_position": "instant",
+                            "unit": "meter",
+                        },
+                        {
+                            "name": "probability_snow_depth_new_gt_5cm_last_6h",
+                            "name_original": "sa605",
+                            "timestamp_position": "end",
+                            "unit": "percent",
+                        },
+                        {
+                            "name": "probability_snow_depth_new_gt_10cm_last_6h",
+                            "name_original": "sa610",
+                            "timestamp_position": "end",
+                            "unit": "percent",
+                        },
+                        {
+                            "name": "probability_snow_depth_new_gt_20cm_last_6h",
+                            "name_original": "sa620",
+                            "timestamp_position": "end",
+                            "unit": "percent",
+                        },
+                        {
+                            "name": "probability_snow_depth_new_gt_5cm_last_12h",
+                            "name_original": "sah05",
+                            "timestamp_position": "end",
+                            "unit": "percent",
+                        },
+                        {
+                            "name": "probability_snow_depth_new_gt_10cm_last_12h",
+                            "name_original": "sah10",
+                            "timestamp_position": "end",
+                            "unit": "percent",
+                        },
+                        {
+                            "name": "probability_snow_depth_new_gt_30cm_last_12h",
+                            "name_original": "sah30",
+                            "timestamp_position": "end",
+                            "unit": "percent",
+                        },
+                        {
+                            "name": "probability_snow_depth_new_gt_10cm_last_24h",
+                            "name_original": "sad10",
+                            "timestamp_position": "end",
+                            "unit": "percent",
+                        },
+                        {
+                            "name": "probability_snow_depth_new_gt_30cm_last_24h",
+                            "name_original": "sad30",
+                            "timestamp_position": "end",
+                            "unit": "percent",
+                        },
+                        {
+                            "name": "probability_snow_depth_new_gt_50cm_last_24h",
+                            "name_original": "sad50",
+                            "timestamp_position": "end",
+                            "unit": "percent",
+                        },
+                        {
+                            "name": "precipitation_amount_significant_weather_last_1h",
+                            "name_original": "rr1c",
+                            "timestamp_position": "end",
+                            "unit": "millimeter",
+                        },
+                        {
+                            "name": "temperature_air_2m",
+                            "name_original": "ttt",
+                            "timestamp_position": "instant",
+                            "unit": "degree_kelvin",
+                        },
+                        {
+                            "name": "temperature_dew_point_2m",
+                            "name_original": "td",
+                            "timestamp_position": "instant",
+                            "unit": "degree_kelvin",
+                        },
+                        {
+                            "name": "wind_direction",
+                            "name_original": "dd",
+                            "timestamp_position": "instant",
+                            "unit": "degree",
+                        },
+                        {
+                            "name": "wind_gust_max_last_1h",
+                            "name_original": "fx1",
+                            "timestamp_position": "end",
+                            "unit": "meter_per_second",
+                        },
+                        {
+                            "name": "wind_speed",
+                            "name_original": "ff",
+                            "timestamp_position": "instant",
+                            "unit": "meter_per_second",
+                        },
+                    ],
+                },
             ],
         },
     ],

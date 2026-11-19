@@ -26,6 +26,7 @@ from wetterdienst.util.json_util import dumps_json
 if TYPE_CHECKING:
     from wetterdienst.io.export import ExportMixin
     from wetterdienst.provider.dwd.alerts.api import DwdWeatherAlertResult
+    from wetterdienst.provider.dwd.storm_cells.api import DwdStormCellsResult
 
 #: the attribute that holds the whole block as JSON, in Parquet's key-value metadata and in the attributes of a NetCDF
 #: file or a Zarr group; the others below are single values of it for a tool that lists the keys (`parquet-tools`,
@@ -36,7 +37,9 @@ BLOCK_KEY = "wetterdienst_metadata"
 SIDECAR_SUFFIX = ".metadata.json"
 
 
-def metadata_block(result: ExportMixin | DwdWeatherAlertResult, *, heavy: bool) -> dict[str, Any] | None:
+def metadata_block(
+    result: ExportMixin | DwdWeatherAlertResult | DwdStormCellsResult, *, heavy: bool
+) -> dict[str, Any] | None:
     """Build the `metadata` block of the REST API for a result, as the JSON of an answer has it.
 
     `heavy` adds the unit of every parameter and what `quality_flags` holds, as `with_metadata` does for an answer.
@@ -51,12 +54,21 @@ def metadata_block(result: ExportMixin | DwdWeatherAlertResult, *, heavy: bool) 
     from wetterdienst.api import Wetterdienst  # noqa: PLC0415
     from wetterdienst.model.result import StationsResult, _ValuesResult  # noqa: PLC0415
     from wetterdienst.provider.dwd.alerts.api import DwdWeatherAlertRequest, DwdWeatherAlertResult  # noqa: PLC0415
-    from wetterdienst.ui.response_metadata import alerts_metadata, metadata_to_dict, result_metadata  # noqa: PLC0415
+    from wetterdienst.provider.dwd.storm_cells.api import DwdStormCellsRequest, DwdStormCellsResult  # noqa: PLC0415
+    from wetterdienst.ui.response_metadata import (  # noqa: PLC0415
+        alerts_metadata,
+        metadata_to_dict,
+        result_metadata,
+        storm_cells_metadata,
+    )
 
     if isinstance(result, DwdWeatherAlertResult):
         # the block of `/api/alerts`, built by the function that builds it there; warnings have no parameters, so
         # `heavy` has nothing to add
         return metadata_to_dict(alerts_metadata(DwdWeatherAlertRequest, result.df.height, result.data_updated_at))
+    if isinstance(result, DwdStormCellsResult):
+        # the block of `/api/storm-cells`, built the same way
+        return metadata_to_dict(storm_cells_metadata(DwdStormCellsRequest, result.df.height, result.data_updated_at))
     if not isinstance(result, StationsResult | _ValuesResult):
         return None
     stations = result if isinstance(result, StationsResult) else result.stations
@@ -95,7 +107,7 @@ def sidecar_path(filepath: str | os.PathLike[str]) -> Path:
 
 
 def require_block(
-    result: ExportMixin | DwdWeatherAlertResult, *, heavy: bool, beside: str | os.PathLike[str]
+    result: ExportMixin | DwdWeatherAlertResult | DwdStormCellsResult, *, heavy: bool, beside: str | os.PathLike[str]
 ) -> dict[str, Any]:
     """Build the block for a caller that asked for it, before anything is written.
 

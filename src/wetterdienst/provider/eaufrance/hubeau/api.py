@@ -16,7 +16,7 @@ from zoneinfo import ZoneInfo
 import polars as pl
 from aiohttp import ClientError
 
-from wetterdienst.exceptions import DownloadError, NoInternetError
+from wetterdienst.exceptions import DownloadError, NoInternetError, ProviderRateLimitError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.metadata import (
     DATASET_NAME_DEFAULT,
@@ -24,14 +24,17 @@ from wetterdienst.model.metadata import (
     ParameterModel,
     build_metadata_model,
 )
+from wetterdienst.model.parameter_rows import MAX_STATIONS_LISTED
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.util.network import download_file, fetchable_link
+from wetterdienst.util.python import to_list
 from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
+    from wetterdienst.model.result import StationsResult
     from wetterdienst.settings import Settings
 
 
@@ -172,34 +175,132 @@ _VALUES_SCHEMA = {
 }
 # Three intervals is the least that can carry a majority, so it is the least that names a station.
 _SNIFF_MIN_INTERVALS = 3
+# A station is named by its modal interval only where its intervals settle on it, in whichever window
+# they are measured (GH-4166): at least `_SNIFF_MIN_GRID_PERCENT` of them are multiples of the modal
+# interval (a transmission missed leaves 2 x the step, which is on the grid), and the modal interval
+# is at least `_SNIFF_MIN_MODAL_PERCENT` of them. A sparse gauge sends in bursts, so every window of
+# it has a mode that means nothing: H502301401 (stage, 30 days to 2026-11-17, 691 records) replayed at
+# 115 anchors of six hours was named 5 minutes 17 times, 10 minutes 11, 15 minutes 10 and hourly 33,
+# dropped 39 times for a modal interval no resolution covers and named nothing 5 times, so every
+# resolution listed it by turns. Of the 267 stations listed at 15 minutes on that day 7 (2.6 %) did
+# not keep that cadence; 4 of 29 sampled hourly ones did not, and none of 80 at 5, 6 and 10
+# minutes. A longer window or more intervals does not tell them apart: 24 h lists them in as many
+# windows and costs 34 requests per network lookup instead of 6, a minimum of 12 intervals still lists
+# 83 % of their windows at 11 requests. The two shares do: replayed over 7 days, the regular 15 minute
+# stations stay named (0.3 % of their windows unlisted and 0.2 % at another interval, against 0.0 %
+# and 0.4 % with no test) while the irregular ones are named in 33 % of their windows instead of 100 %
+# (H502301401 in 3 of 115), and at the latest lookup the test changed none of the 260 regular stations.
+# Either share alone is not enough: a modal share of 80 % alone would have unlisted three regular
+# stations that had just lost a transmission. The requests stay at 6, at most one more for the
+# stations the 2 h window now sends to the 24 h pass by name. A station that does not settle in
+# either window is served under no resolution until it does.
+_SNIFF_MIN_GRID_PERCENT = 90
+_SNIFF_MIN_MODAL_PERCENT = 50
 # Every query here is cursor-driven, and a cursor that stopped advancing would loop forever. Two
 # hours of the network is three pages and the referential is one; this is a backstop, not a limit
 # anyone should reach.
 _MAX_PAGES = 40
 
 
-# reported once per process rather than per request: `_all` measures the network whole every time
-# it runs, and every filter runs it, so a single station on an unmapped interval would otherwise
-# warn on every call
-_reported_steps: set[int] = set()
+#: the code of the warning that tells how many stations were left out of the list because the step they report at is
+#: one no resolution has (GH-4184). A station whose modal interval is absent from ``_STEP_TO_RESOLUTION`` belongs to no
+#: resolution and is listed under none, which is better than filing it under a neighbouring interval and quietly
+#: misdescribing it; the answer says so, and the network moving onto a sixth interval is the change that would need a
+#: new member
+STEP_WITHOUT_RESOLUTION = "step-without-resolution"
+# the warnings already logged by this process, by their text: `_all` measures the network whole every time it runs, and
+# every filter runs it, so the answer of every request records the warning (`warn_response`) but a library caller has
+# it once in its log
+_reported_unmapped: set[str] = set()
 
 
-def _log_unmapped_steps(df: pl.DataFrame) -> None:
-    """Report intervals stations transmit at that no resolution covers.
+def _minutes(step: int) -> str:
+    """Write a step as `1 minute` or `30 minutes`."""
+    return f"{step} minute" if step == 1 else f"{step} minutes"
 
-    A station whose modal interval is absent from ``_STEP_TO_RESOLUTION`` belongs to no resolution
-    and is listed under none, which is better than filing it under a neighbouring interval and
-    quietly misdescribing it. It is a silent outcome though, and the network moving onto a sixth
-    interval is exactly the change that would need a new member.
+
+def _and(items: list[str]) -> str:
+    """Join phrases as prose: `a`, `a and b`, `a, b and c`."""
+    return items[0] if len(items) == 1 else f"{', '.join(items[:-1])} and {items[-1]}"
+
+
+def _unmapped_listed(unmapped: dict[str, int]) -> list[str]:
+    """Give the ids of the stations the warning names: the first ones, by id."""
+    return sorted(unmapped)[:MAX_STATIONS_LISTED]
+
+
+def _step_cause() -> str:
+    """Say what the step is that the stations are left out for, with the steps the resolutions have."""
+    resolutions = _and([str(step) for step in _STEP_TO_RESOLUTION])
+    return f"at a step that no resolution of Hub'Eau has (the resolutions are {resolutions} minutes)"
+
+
+def _unmapped_message(unmapped: dict[str, int]) -> str:
+    """Say how many stations were left out for a step no resolution has, at which steps, and name a few.
+
+    Args:
+        unmapped: the step in minutes each station reports at, by station id
+
+    Returns:
+        the text of the warning: every station is named (`namely`) up to `MAX_STATIONS_LISTED`, and a longer list
+        names the first ones (`among them`) and counts the rest; a step is written once where it tells something
+
     """
-    steps = set(df.get_column("step").unique().to_list()) - set(_STEP_TO_RESOLUTION)
-    new = steps - _reported_steps
-    if not new:
+    count = len(unmapped)
+    if count == 1:
+        ((station_id, step),) = unmapped.items()
+        return (
+            f"1 station was left out of the list because it reports {_step_cause()}: "
+            f"{station_id} reports every {_minutes(step)}."
+        )
+    per_step: dict[int, int] = {}
+    for step in unmapped.values():
+        per_step[step] = per_step.get(step, 0) + 1
+    listed = _unmapped_listed(unmapped)
+    if len(per_step) == 1:
+        (only,) = per_step
+        summary = f"all at {_minutes(only)}"
+        named = ", ".join(listed)
+    else:
+        ordered = sorted(per_step.items(), key=lambda item: (-item[1], item[0]))
+        summary = _and([f"{number} at {_minutes(step)}" for step, number in ordered])
+        named = ", ".join(f"{station_id} ({_minutes(unmapped[station_id])})" for station_id in listed)
+    cut = count > MAX_STATIONS_LISTED
+    tail = f"among them {named} and {count - MAX_STATIONS_LISTED} more" if cut else f"namely {named}"
+    return f"{count} stations were left out of the list because they report {_step_cause()}: {summary}, {tail}."
+
+
+def _unmapped_asked_message(asked: dict[str, int]) -> str:
+    """Say why stations asked for by id are not in the answer: they were left out for a step no resolution has.
+
+    Args:
+        asked: the step in minutes each station asked for reports at, by station id
+
+    Returns:
+        the text of the warning
+
+    """
+    one = len(asked) == 1
+    items = _and([f"{station_id} ({_minutes(step)})" for station_id, step in sorted(asked.items())])
+    return (
+        f"{items} {'was' if one else 'were'} left out of the list because {'it reports' if one else 'they report'} "
+        f"{_step_cause()}, so no station is found for {'it' if one else 'them'}."
+    )
+
+
+# reported once per process, as the stations left out for their step are
+_reported_unsettled: set[str] = set()
+
+
+def _log_unsettled(count: int) -> None:
+    """Report the stations whose intervals did not settle on one, which are served under no resolution."""
+    if not count or _reported_unsettled:
         return
-    _reported_steps.update(new)
+    _reported_unsettled.add("unsettled")
     log.info(
-        f"Hubeau stations transmitting every {', '.join(f'{step} minutes' for step in sorted(new))} "
-        f"are served under no resolution, as no resolution covers those intervals.",
+        f"Hubeau: {count} stations transmit at no steady interval (less than {_SNIFF_MIN_GRID_PERCENT} % of their "
+        f"intervals are multiples of the commonest one, or it is less than {_SNIFF_MIN_MODAL_PERCENT} % of them), "
+        f"and are served under no resolution until they do.",
     )
 
 
@@ -227,7 +328,8 @@ def _in_an_area(latitude: pl.Expr, longitude: pl.Expr) -> pl.Expr:
 
 
 # the warnings already logged by this process, by their text: the answer of every request that concerns an unplaced
-# station records the warning (`warn_response`), but a library caller has it once in its log, as `_reported_steps` does
+# station records the warning (`warn_response`), but a library caller has it once in its log, as `_reported_unmapped`
+# does
 _reported_unplaced: set[str] = set()
 
 #: the code of the warning that names the stations whose position the referential writes in no area of France, also
@@ -404,18 +506,22 @@ def _paged_rows(url: str, settings: Settings, *, ttl: CacheExpiry, timeout: int)
     return rows
 
 
-def _modal_steps(df: pl.DataFrame) -> pl.DataFrame:
-    """Reduce observation timestamps to one interval per station.
+def _step_verdicts(df: pl.DataFrame) -> pl.DataFrame:
+    """Measure the interval of each station that has enough of them, and whether they settle on it.
 
     Args:
         df: Frame of ``station_id`` and ``timestamp``, one row per observation.
 
     Returns:
-        Frame of ``station_id`` and ``step``, the station's modal interval in minutes.
+        Frame of ``station_id``, ``step`` (the station's modal interval in minutes) and ``settled``,
+        for every station with at least ``_SNIFF_MIN_INTERVALS`` intervals. ``settled`` is true where
+        ``_SNIFF_MIN_GRID_PERCENT`` of the intervals are multiples of the modal one and the modal
+        one is ``_SNIFF_MIN_MODAL_PERCENT`` of them. A station with fewer intervals is absent.
 
     """
+    schema = {"station_id": pl.String, "step": pl.Int64, "settled": pl.Boolean}
     if df.is_empty():
-        return pl.DataFrame(schema={"station_id": pl.String, "step": pl.Int64})
+        return pl.DataFrame(schema=schema)
     df = df.unique(subset=["station_id", "timestamp"]).sort("station_id", "timestamp")
     # rounded to the nearest minute rather than truncated: a gauge whose transmissions drift by
     # seconds spaces them 4 m 55 s apart as readily as 5 m 00 s, and truncation would call that a
@@ -427,17 +533,47 @@ def _modal_steps(df: pl.DataFrame) -> pl.DataFrame:
     # records at one timestamp, which `unique` above has already ruled out
     df = df.drop_nulls("step").filter(pl.col("step") > 0)
     counts = df.group_by("station_id", "step").len()
+    # ties go to the shorter interval, so that a station is named the same way on every run rather
+    # than by whichever step the grouping happened to emit first
+    modal = (
+        counts.sort("station_id", "len", "step", descending=[False, True, False])
+        .group_by("station_id", maintain_order=True)
+        .agg(pl.col("step").first().alias("modal"), pl.col("len").first().alias("modal_len"))
+    )
+    # integers throughout, so that a share of exactly 90 % or 50 % is not at the mercy of a float
     return (
-        counts.group_by("station_id")
+        counts.join(modal, on="station_id")
+        .group_by("station_id")
         .agg(
-            # ties go to the shorter interval, so that a station is named the same way on every
-            # run rather than by whichever step the grouping happened to emit first
-            pl.col("step").sort_by(pl.col("len"), pl.col("step"), descending=[True, False]).first(),
+            pl.col("modal").first().alias("step"),
             pl.col("len").sum().alias("intervals"),
+            pl.col("len").filter(pl.col("step") % pl.col("modal") == 0).sum().alias("on_grid"),
+            pl.col("modal_len").first(),
         )
         .filter(pl.col("intervals") >= _SNIFF_MIN_INTERVALS)
-        .select("station_id", "step")
+        .with_columns(
+            (
+                (pl.col("on_grid") * 100 >= pl.col("intervals") * _SNIFF_MIN_GRID_PERCENT)
+                & (pl.col("modal_len") * 100 >= pl.col("intervals") * _SNIFF_MIN_MODAL_PERCENT)
+            ).alias("settled"),
+        )
+        .select("station_id", "step", "settled")
     )
+
+
+def _modal_steps(df: pl.DataFrame) -> pl.DataFrame:
+    """Reduce observation timestamps to one interval per station that settles on one.
+
+    Args:
+        df: Frame of ``station_id`` and ``timestamp``, one row per observation.
+
+    Returns:
+        Frame of ``station_id`` and ``step``, the station's modal interval in minutes. A station
+        with too few intervals, or whose intervals do not settle on its modal one (see
+        ``_SNIFF_MIN_GRID_PERCENT``), is absent.
+
+    """
+    return _step_verdicts(df).filter("settled").select("station_id", "step")
 
 
 _PARAMETERS = [
@@ -605,17 +741,74 @@ class HubeauRequest(TimeseriesRequest):
     # `_all` fills it in place, so the shallow copy of the request that `interpolate` and `summarize` read their values
     # through shares it, whether the copy is made before or after `_all` runs
     _unplaced_positions: dict[str, str] = field(default_factory=dict, init=False, repr=False, compare=False)
+    # the step in minutes of each station the last `_all` measured and left out, as no resolution has it, by station id
+    # (`_warn_unmapped`), shared the same way
+    _unmapped_steps: dict[str, int] = field(default_factory=dict, init=False, repr=False, compare=False)
+    # set while `filter_by_station_id` selects, which `_warn_unmapped` does not tell the stations of the network to
+    _selecting_by_id: bool = field(default=False, init=False, repr=False, compare=False)
 
     # `altitude_ref_alti_station` is the altitude of the gauge's zero in metres -- the datum a stage
     # is read from, below sea level on tidal reaches (-1.809 m at Bordeaux) -- not the ground the
     # station stands on. It goes in `gauge_zero`, as Pegelonline's does, and `elevation` is the
     # altitude of the station's site, from the sites referential. `gauge_zero_datum` names the
     # vertical reference system `gauge_zero` is given in, which differs between stations.
+    # `site_id` is the `code_site` of the referential, the eight-character code of the hydrometric site the station is
+    # one of (`10110001` for the station `1011000101`: a station's code is its site's and two digits). A site can have
+    # more than one station, so it is no id of the station (GH-4070)
     _base_columns: ClassVar = (
         *TimeseriesRequest._base_columns,  # noqa: SLF001
         "gauge_zero",
         "gauge_zero_datum",
+        "site_id",
     )
+
+    def _warn_unmapped(self) -> None:
+        """Tell, once for the answer, how many stations were left out for a step no resolution has (GH-4184).
+
+        The stations are in no resolution's list, so the count is that of the whole network: it does not depend on
+        the resolution asked for or on the window of the request. It is told by every answer that selects stations
+        but one selected by station id: no selection by place, name or SQL, nor a whole list, could ever hold them.
+        A selection by id is told of the ids it asked for that were left out (`filter_by_station_id`), and of no
+        others. Nothing is told where no station was left out. The warning is recorded for the answer of every request
+        it concerns and logged once by the process, at INFO.
+        """
+        steps = dict(self._unmapped_steps)
+        if self._selecting_by_id or not steps:
+            return
+        message = _unmapped_message(steps)
+        self._record_unmapped(message, _unmapped_listed(steps))
+
+    def _record_unmapped(self, message: str, stations: list[str]) -> None:
+        """Record the warning for the answer and log it at INFO the first time the process tells that text."""
+        first = message not in _reported_unmapped
+        _reported_unmapped.add(message)
+        warn_response(
+            log,
+            STEP_WITHOUT_RESOLUTION,
+            message,
+            level=logging.INFO if first else logging.DEBUG,
+            stations=stations,
+        )
+
+    def filter_by_station_id(self, station_id: str | tuple[str, ...] | list[str]) -> StationsResult:
+        """Filter stations by station_id, and say why an id that was left out for its step is not found (GH-4184).
+
+        A station that reports at a step no resolution has is in no list, so the core says `unknown-station` of it.
+        The answer also carries `step-without-resolution` for the ids asked for that are such stations, with their
+        steps, and for no other; the stations of the network are not counted in a selection by id.
+        """
+        self._selecting_by_id = True
+        try:
+            result = super().filter_by_station_id(station_id)
+        finally:
+            self._selecting_by_id = False
+        ids = self._parse_station_id(pl.Series(name="station_id", values=to_list(station_id)))
+        asked = {
+            station: self._unmapped_steps[station] for station in dict.fromkeys(ids) if station in self._unmapped_steps
+        }
+        if asked:
+            self._record_unmapped(_unmapped_asked_message(asked), sorted(asked))
+        return result
 
     def _warn_unplaced(self, df: pl.DataFrame, *, named: bool) -> None:
         """Tell, once for the answer, which of the stations are listed without a position (GH-3468).
@@ -624,8 +817,10 @@ class HubeauRequest(TimeseriesRequest):
         search by place had to leave them out. For the whole list and a search by place, an answer cut to the window
         of the request tells only the stations that survive the cut; one named by id or SQL is told whatever the
         window does to it. The warning is recorded for the answer of every request it concerns and logged once by the
-        process, as the next ones would repeat it.
+        process, as the next ones would repeat it. The core asks at the same places for the stations left out for a
+        step no resolution has, which `_warn_unmapped` tells.
         """
+        self._warn_unmapped()
         if not self._unplaced_positions:
             return
         if not named:
@@ -667,17 +862,25 @@ class HubeauRequest(TimeseriesRequest):
 
         Returns:
             Frame of ``station_id`` and ``step``, the station's interval in minutes. A station
-            that published nothing to measure is absent.
+            that published nothing to measure, or whose intervals do not settle on one (see
+            ``_SNIFF_MIN_GRID_PERCENT``) in the first window or the second, is absent.
 
         """
         # floored to the anchor so that the window, and with it every URL below, stays the same
         # for six hours at a time and the cache can hold what they returned
-        now = dt.datetime.now(ZoneInfo("UTC")).replace(tzinfo=None)
+        now = _now().replace(tzinfo=None)
         anchor = now - (now - now.replace(hour=0, minute=0, second=0, microsecond=0)) % _SNIFF_ANCHOR
         window = self._observations_url(start=anchor - _SNIFF_WINDOW, end=anchor, grandeur="H")
-        steps = _modal_steps(self._observation_dates(window))
+        verdicts = _step_verdicts(self._observation_dates(window))
+        steps = verdicts.filter("settled").select("station_id", "step")
+        # a station that does not settle over 2 h is asked about again over 24 h, as one with too
+        # few intervals is, and under the same test
         missing = sorted(set(station_ids) - set(steps.get_column("station_id")))
+        # a station that published stage and did not settle on it is not asked for discharge: that
+        # would name it by a second series for what its first one did not say
+        unsettled: set[str] = set()
         for grandeur in ("H", "Q"):
+            missing = [station for station in missing if station not in unsettled]
             if not missing:
                 break
             frames = [
@@ -691,10 +894,12 @@ class HubeauRequest(TimeseriesRequest):
                 )
                 for batch in range(0, len(missing), _SNIFF_QUIET_BATCH)
             ]
-            quiet = _modal_steps(pl.concat(frames))
+            quiet_verdicts = _step_verdicts(pl.concat(frames))
+            quiet = quiet_verdicts.filter("settled").select("station_id", "step")
             steps = pl.concat([steps, quiet])
+            unsettled |= set(quiet_verdicts.filter(~pl.col("settled")).get_column("station_id"))
             missing = sorted(set(missing) - set(quiet.get_column("station_id")))
-        _log_unmapped_steps(steps)
+        _log_unsettled(len(unsettled))
         return steps
 
     @staticmethod
@@ -721,7 +926,8 @@ class HubeauRequest(TimeseriesRequest):
             one that cannot be the ground's -- see ``_ELEVATION_MIN``. Empty when the referential
             cannot be read: the elevation is all it supplies, and a station list without one is
             better than none at all. Not when no connection can be made, which raises
-            ``NoInternetError`` as the station list it enriches would.
+            ``NoInternetError`` as the station list it enriches would, nor when the provider answers 429, which raises
+            ``ProviderRateLimitError`` (GH-4053).
 
         """
         from typing import cast  # noqa: PLC0415
@@ -730,9 +936,10 @@ class HubeauRequest(TimeseriesRequest):
         error: Exception | None = None
         try:
             rows = _paged_rows(_SITES_ENDPOINT, settings, ttl=CacheExpiry.METAINDEX, timeout=_REFERENTIAL_TIMEOUT)
-        except NoInternetError:
+        except (NoInternetError, ProviderRateLimitError):
             # not a referential that is unreadable: a library that is offline, which the station
-            # list this enriches would be too (GH-2640)
+            # list this enriches would be too (GH-2640), and a provider that limits how fast it is
+            # asked, which the next request meets too (GH-4053)
             raise
         except (DownloadError, OSError, ClientError, ValueError) as e:
             # `DownloadError` is what `raise_if_exception` raises for a timeout, a missing file, and
@@ -757,6 +964,9 @@ class HubeauRequest(TimeseriesRequest):
 
     def _all(self) -> pl.LazyFrame:
         """List each station under the resolution it transmits at."""
+        # both are what the last listing found: a referential that cannot be read, or has no station, leaves none
+        self._unmapped_steps.clear()
+        self._unplaced_positions.clear()
         requested = {
             parameter.dataset.resolution.name for parameter in self.parameters if isinstance(parameter, ParameterModel)
         }
@@ -769,7 +979,6 @@ class HubeauRequest(TimeseriesRequest):
         if not rows:
             return pl.LazyFrame()
         df_raw, unplaced = _referential_stations(rows)
-        self._unplaced_positions.clear()
         self._unplaced_positions.update(unplaced)
         df_raw = df_raw.with_columns(
             pl.col("code_systeme_alti_site")
@@ -791,7 +1000,13 @@ class HubeauRequest(TimeseriesRequest):
             pl.col("step").replace_strict(_STEP_TO_RESOLUTION, default=None).alias("resolution"),
             pl.lit(DATASET_NAME_DEFAULT, pl.String).alias("dataset"),
         )
-        # what the join needed and the stations frame has no column for
+        # a station measured at a step no resolution has is left out below, and the answer tells how many (GH-4184)
+        unmapped = df.filter(pl.col("resolution").is_null()).select("station_id", "step")
+        self._unmapped_steps.update(dict(unmapped.iter_rows()))
+        # what the join needed and the stations frame has no column for; the site's code is the column `site_id`
         return (
-            df.filter(pl.col("resolution").is_in(requested)).drop("code_site", "code_systeme_alti_site", "step").lazy()
+            df.filter(pl.col("resolution").is_in(requested))
+            .drop("code_systeme_alti_site", "step")
+            .rename({"code_site": "site_id"})
+            .lazy()
         )

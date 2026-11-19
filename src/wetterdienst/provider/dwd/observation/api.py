@@ -76,6 +76,7 @@ from wetterdienst.provider.dwd.observation.parser import (
     mez_md_column,
     parse_climate_observations_data,
 )
+from wetterdienst.provider.dwd.observation.stationslexikon import with_wmo_id
 from wetterdienst.settings import Settings
 from wetterdienst.util.archive import open_zip
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -111,6 +112,21 @@ def _is_value_column(column: str) -> bool:
         or column in (WOZ_COLUMN, _PERIOD_RANK)
         or column.startswith((MEZ_MD_PREFIX, MEZ_BATCH_PREFIX, LOCAL_MEAN_TIME_PREFIX, "qn", "qualitaet"))
     )
+
+
+def _rows_before_footer(lines: list[str]) -> list[str]:
+    """Give the rows of a history section: up to the `generiert:` footer if there is one, without empty lines.
+
+    DWD ends its metadata files with `generiert: <date> -- Deutscher Wetterdienst --`, so a slice that drops the last
+    line works until a file has no footer, when it drops the last row (GH-4034).
+    """
+    rows = []
+    for line in lines:
+        if line.startswith("generiert:"):
+            break
+        if line.strip():
+            rows.append(line)
+    return rows
 
 
 def _in_spans(
@@ -633,23 +649,19 @@ class DwdObservationHistory(TimeseriesHistory):
         if not name_files:
             return _NameHistory()
         name_file = cast("str", next(iter(name_files)))
-        with zfs.open(name_file, "r") as f:
+        # DWD writes the file in latin-1 (`Hamburg-Fuhlsb\xfcttel`), where text mode would decode it as UTF-8 and
+        # raise on the first umlaut (GH-4021); text mode keeps the newline normalisation, so CRLF reads as LF
+        with zfs.open(name_file, "r", encoding="latin-1") as f:
             lines = f.readlines()
-        # Normalize bytes to str for consistent processing regardless of file-like object behavior
-        lines = [line.decode("latin1") if isinstance(line, (bytes, bytearray)) else line for line in lines]
         # split by empty line into station name and operator name
         split_index = lines.index("\n")
         # determine which part is station name and which is operator name
         if "Stationsname" in lines[0]:
             station_name_lines = lines[1:split_index]
-            operator_name_lines = lines[split_index + 2 : -1]
-            if operator_name_lines[-1].startswith("generiert:"):
-                operator_name_lines = operator_name_lines[:-1]
+            operator_name_lines = _rows_before_footer(lines[split_index + 2 :])
         else:
             operator_name_lines = lines[1:split_index]
-            station_name_lines = lines[split_index + 2 : -1]
-            if station_name_lines[-1].startswith("generiert:"):
-                station_name_lines = station_name_lines[:-1]
+            station_name_lines = _rows_before_footer(lines[split_index + 2 :])
 
         station_name_data = []
         for line in station_name_lines:
@@ -821,7 +833,7 @@ class DwdObservationHistory(TimeseriesHistory):
                     split_line = i
                     break
         summary_lines = lines[1:split_line]
-        period_lines = lines[split_line + 1 : -1]
+        period_lines = _rows_before_footer(lines[split_line + 1 :])
         summary_records = []
         for line in summary_lines:
             parts = line.split(";")
@@ -1116,4 +1128,6 @@ class DwdObservationRequest(TimeseriesRequest):
         stations_df = stations_df.unique(
             subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True
         )
-        return stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)
+        stations_df = stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)
+        # the WMO number is in none of the descriptions: DWD's Stationslexikon has it (GH-4073)
+        return with_wmo_id(stations_df, settings)

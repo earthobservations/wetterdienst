@@ -30,7 +30,11 @@ from wetterdienst.provider.dwd.derived.fileindex import (
     create_file_index_for_climate_derived,
     create_file_list_for_climate_derived,
 )
-from wetterdienst.provider.dwd.derived.metadata import TECHNICAL_DATASETS, DwdDerivedMetadata
+from wetterdienst.provider.dwd.derived.metadata import (
+    DWD_STATION_ID_DATASETS,
+    TECHNICAL_DATASETS,
+    DwdDerivedMetadata,
+)
 from wetterdienst.provider.dwd.derived.metaindex import create_meta_index_for_climate_derived
 from wetterdienst.provider.dwd.derived.parser import parse_climate_derived_data
 from wetterdienst.provider.dwd.expiry import expiries_of, file_expiry
@@ -41,6 +45,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     remembering_empty_directories,
     warn_skipped_listings,
 )
+from wetterdienst.provider.dwd.observation.stationslexikon import with_wmo_id
 from wetterdienst.util.network import File, download_file, list_remote_files_fsspec
 from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
@@ -667,6 +672,12 @@ class DwdDerivedValues(TimeseriesValues):
             filenames_and_files = download_climate_derived_data(
                 remote_files, cast("Settings", stations.settings), period
             )
+            if not filenames_and_files:
+                # every archive of the period was a 404 (the download warned of each): the period has no rows, and
+                # there is nothing to parse or to concatenate (GH-4056)
+                dataset_identifier = f"{dataset.resolution.value.name}/{dataset.name}/{station_id}/{period.value}"
+                log.info(f"No data downloaded for {dataset_identifier}. Skipping period.")
+                continue
             period_df = parse_climate_derived_data(filenames_and_files, dataset)
             written[rank] = [file.last_modified for file in filenames_and_files]
             parameter_data.append(period_df.with_columns(pl.lit(rank, dtype=pl.UInt8).alias(_PERIOD_RANK)))
@@ -730,6 +741,11 @@ class DwdDerivedRequest(TimeseriesRequest):
     metadata = DwdDerivedMetadata
     _values = DwdDerivedValues
     _selects_by_period = True
+    # its stations are the 100000 postal codes, ids and no position (`_get_raw_station_data_from_plz_generator`): a
+    # search by place says so (`positions-unavailable`); the other datasets' stations have one
+    datasets_without_positions = frozenset({"monthly/climate_correction_factor"})
+    # and no name either: they are found by their id alone
+    datasets_without_names = frozenset({"monthly/climate_correction_factor"})
 
     def _recent_span_of(self, dataset: DatasetModel) -> dt.timedelta | None:
         """Give no span for the monthly datasets, whose recent directories hold years.
@@ -829,4 +845,20 @@ class DwdDerivedRequest(TimeseriesRequest):
         stations_df = stations_df.unique(
             subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True
         )
-        return stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)
+        stations_df = stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)
+        return self._with_wmo_id(stations_df, datasets, settings)
+
+    @staticmethod
+    def _with_wmo_id(stations: pl.LazyFrame, datasets: list[DatasetModel], settings: Settings) -> pl.LazyFrame:
+        """Give the stations of the datasets with DWD's station ids their WMO number, the others none (GH-4162).
+
+        The number is DWD's Stationslexikon's for a DWD station id (`with_wmo_id`, which `dwd/observation` uses, with
+        its warning where the page cannot be read). The ids of the other datasets are none of those, so a number found
+        for one would be another station's: it stays null, and a request for them does not read the Stationslexikon.
+        """
+        names = {dataset.name for dataset in datasets if dataset in DWD_STATION_ID_DATASETS}
+        if not names:
+            return stations
+        return with_wmo_id(stations, settings).with_columns(
+            pl.when(pl.col("dataset").is_in(sorted(names))).then(pl.col("wmo_id")).alias("wmo_id")
+        )

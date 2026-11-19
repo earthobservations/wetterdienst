@@ -51,8 +51,10 @@ COUNTRY_BBOX: dict[str, Bbox | tuple[Bbox, ...]] = {
     "dwd/derived": (47.2, 55.1, 5.8, 15.1),
     "dwd/observation": (47.2, 55.1, 5.8, 15.1),
     "dwd/phenology": (47.2, 55.1, 5.8, 15.1),
+    "dwd/pollen": (47.2, 55.1, 5.8, 15.1),
     "dwd/road": (47.2, 55.1, 5.8, 15.1),
     "dwd/swsmos": (47.2, 55.1, 5.8, 15.1),
+    "dwd/uvi": (47.2, 55.1, 5.8, 15.1),
     "eaufrance/hubeau": tuple(hubeau_api._AREAS.values()),  # noqa: SLF001
     "eccc/observation": (41.0, 84.0, -142.0, -52.0),
     "ea/hydrology": (49.8, 55.9, -6.0, 2.0),
@@ -113,6 +115,14 @@ ELEVATION_RANGE = (-430.0, 8849.0)
 ELEVATION_SENTINELS = (-99999.0, -9999.0, -999.9, -999.0, -99.0, 9999.0, 99999.0)
 # no station catalogue lists a station that began before this
 EARLIEST_START = dt.datetime(1600, 1, 1, tzinfo=dt.UTC)
+
+# the catalogues that have no position for any station, by the source's design, and so no extent to hold them to
+# (the rule `coordinates_missing` of the `Accepted` of the network says the same of them). Held only while that is so: a
+# position that appears is held to the extent
+NO_POSITIONS = {
+    "dwd/derived monthly/climate_correction_factor": "it is listed per postal code, which has no position",
+    "dwd/pollen daily/data": "DWD ships no shape and no position of its pollen regions, which are found by name or id",
+}
 
 RULES = (
     "id_empty",

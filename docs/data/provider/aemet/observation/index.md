@@ -24,7 +24,8 @@ transient failure are retried automatically with a short backoff (a couple of re
 a few seconds each), so a single call can take somewhat longer than usual if AEMET is
 briefly rate limiting or flaky. This is deliberately modest, not an attempt to wait out
 a sustained outage — if AEMET is down for longer than that, the request fails rather
-than hanging for minutes.
+than hanging for minutes. A 429 that outlasts the retries is a `ProviderRateLimitError`
+(a `DownloadError`; REST 503 `upstream-quota-exhausted`), with the wait AEMET sent or a minute.
 
 ## License
 

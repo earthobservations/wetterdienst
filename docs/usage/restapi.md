@@ -55,9 +55,10 @@ What the endpoints share about which stations a request names:
   and `koeln` are the same name). `stations` lists the best five matches, to choose
   from, and `values` the one best match, as the library's `filter_by_name` does. `rank` sets another
   number of stations, for either; a station is one match however many datasets it has, and two
-  stations that share a name are two. The best match comes first, equal matches in the order of their
-  station ids. With a `timestamp` the name is matched among the stations that have a record in that
-  window, for `values` as for `stations`, so the best match is not a station that closed before it
+  stations that share a name are two. A name that holds the whole query as a run of whole words (`Bayern` in
+  `Bayern: Mainfranken`, not `Sachsen` in `Niedersachsen`) matches at any threshold below 1 and comes first, then the best
+  match; equal scores the closer whole name first, then in the order of their station ids. With a `timestamp`
+  the name is matched among the stations that have a record in that window, for `values` as for `stations`, so the best match is not a station that closed before it
   while one of the same name is open; a window no station of that name covers is an empty
   result. The library's `filter_by_name` does the same with the `start` and `end` of its request.
 - **A list of station ids** (`stations=01048,99999`) leaves out an id the network has no station for and
@@ -65,6 +66,14 @@ What the endpoints share about which stations a request names:
   warning of the response's `metadata`, and in the server's log. The one reference station
   of `interpolate` and `summarize` is a lookup, not a list: unknown, it is a 404 (a 502 for `dwd/observation` and
   `dwd/derived` where a directory of the lookup was skipped, below).
+- **A WMO number, a WIGOS identifier or an ICAO code** (`wmo_id=10381`, `wigos_id=0-20000-0-10381`,
+  `icao_id=EDDH`, each a comma-separated list) selects every station that has one of them, which is more than one
+  station where an id is on several, as the library's `filter_by_wmo_id`, `filter_by_wigos_id` and `filter_by_icao_id`
+  do. They are read in the notation of the station columns of the same names (`1001` is `01001`, `eddh` is `EDDH`,
+  `0-056-101-01002` is `0-56-101-01002`); a value that is none of them is a 422 that names the notation. An id no
+  station has is left out and named in an `unknown-station` warning, as for `stations`, and a provider that
+  publishes no such ids (the columns are null) finds nothing. Like `stations` and `name` they are one of the
+  exclusive selections: giving two is a 422. A `stations` listing is cut to the window like any other selection.
 - **An empty result** -- a window without readings, a name nothing is called -- is a 200 with an empty
   `values` or `stations`, on the command line exit 0 with the sentence on stderr. A 4xx or a non-zero
   exit means the request failed.
@@ -216,8 +225,10 @@ what the answer is missing:
 - **`processing_note`** says what wetterdienst did to the data, in the same words for every provider and licence:
   "Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ." Licences such as CC BY ask that changes be indicated. The answers of `interpolate` and `summarize` add
   "The values were selected or calculated from the provider's readings.", and the headers of `stripes/image` add
-  "The image is drawn from the provider's annual values."; `stripes/values` and `stripes/stations` have the plain note,
-  as their values are DWD's own annual values and a list of its stations. It is always there on an answer that holds
+  "The image is drawn from the provider's annual values." (from "the annual values calculated above" where the years were calculated from daily values); `stripes/stations` has the plain note, as it is a list of
+  stations, and `stripes/values` adds a sentence on which reference its anomalies and classes were calculated against,
+  and, for `provider=noaa`, one before it on how the annual values were calculated from the daily ones (the WMO rules, see
+  [Climate Stripes](stripes.md)). It is always there on an answer that holds
   provider data (`issues` and `alerts` too, not `providers` or `coverage`), whatever `with_metadata` says, and it is a
   statement of fact about the processing: it does not replace the credit line, and it is not legal advice about what
   your licence asks of you. Where it does not go is on [licences and credit
@@ -247,9 +258,10 @@ what the answer is missing:
     file refreshed since by up to that time.
   - **A forecast** (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`): the model run the forecast is of, not the file it was
     published in, so it is the same for a run read again later, and `retrieved_at` less `data_updated_at` is how old the
-    run is. This is the age of a forecast only: for a file it is not the age of the data.
-  - **The warnings of `dwd/alerts`**: the newest `sent` of the warnings in the answer, which DWD states in each of them;
-    a snapshot with no warning has none.
+    run is. This is the age of a forecast only: for a file it is not the age of the data. `dwd/pollen` and `dwd/uvi` have
+    no run, and their date is when DWD last wrote the one file it serves (its `Last-Modified`).
+  - **The warnings of `dwd/alerts`**: the newest `sent` of the warnings of the whole snapshot, which DWD states in each of them,
+    also for an answer filtered by a place, which may hold a few warnings or none; a snapshot with no warning has none.
 
   The date is `null` for the networks whose source states none and whose responses carry no `Last-Modified` that is a
   file's (FMI and SMHI send the time of the request), for those that need credentials and are not examined (AEMET,
@@ -293,7 +305,7 @@ what the answer is missing:
   a GeoJSON position, the elevation in metres above mean sea level.
 - **`warnings`** is what the answer is missing but did not fail on, so that a partial answer can be told
   from a whole one. Each has a `code` that stays and a `message` that may be improved. The codes are
-  `unknown-station` (an id of `stations` the network has no station for), `station-skipped` (a station with too
+  `unknown-station` (an id of `stations`, `wmo_id`, `wigos_id` or `icao_id` the network has no station for), `station-skipped` (a station with too
   few readings, by `skip_empty` and `skip_threshold`, whether `drop_nulls` is on or off), `period-not-published`
   and `period-not-narrowing` (a period that was asked for and does not apply), `elevation-unknown` (the stations of unknown
   elevation that an estimate at an elevation had to leave out), `missing-value-marker` (readings that are
@@ -318,15 +330,45 @@ what the answer is missing:
   `summarize`, had to leave it out, which is every search by place of a resolution that lists it;
   for a `timestamp`, the whole list and a search by place tell it, in a listing, in the values and in
   an estimate, only if the station has a record in the window),
+  `positions-unavailable` (a search by place, a `rank`, a `distance` or a bounding box, or an estimate by
+  `interpolate` or `summarize` by a point, on a network whose source gives its stations no position, which is
+  `dwd/pollen`, or for a dataset of one that gives them none, `dwd/derived`'s `monthly/climate_correction_factor`: the
+  answer is empty by the nature of the data, and the message names the way to find the stations, the `name` and
+  `stations` parameters; a search by name or id and the whole list do not have it),
+  `step-without-resolution` (stations left out of the list because the step they report at is one no
+  resolution of the network has (seen: 20 and 30 minutes, on some days 180 or 240): `eaufrance/hubeau`.
+  The message gives how many, at which steps and names the first ten, which `stations` carries too.
+  Every answer that selects stations tells it, whatever the resolution asked for, but one selected by
+  `stations`, which is told only of the ids it asked for that were left out, with their steps; none is told
+  where no station is left out, see
+  [Hub'Eau](../data/provider/eaufrance/hubeau/index.md#stations-at-a-step-no-resolution-has)),
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
   `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
   `parameter-without-rows` (a requested parameter that the source holds no values for, see below),
-  `file-skipped` (the stations whose file the provider let go, see below), `other-window-left-out` (dates the
+  `file-skipped` (the stations whose file the provider let go, see below), `wmo-ids-unavailable` (the stations of
+  `dwd/observation` and `dwd/derived` are listed without `wmo_id` because DWD's Stationslexikon could not be read or
+  is no longer the table, see [WMO numbers](../data/provider/dwd/observation/index.md#wmo-numbers-of-the-stations)),
+  `station-codes-unavailable` (the stations of `imgw/meteorology` are listed without `short_code` because IMGW's
+  `wykaz_stacji.csv` could not be read or is no longer the list; not for `synop`, which it picks the stations of),
+  `other-window-left-out` (dates the
   source has values for that the answer leaves out because they are of another series, see below),
   `window-not-closed` (values of a window that had not closed when the request was served, see below),
   `source-data-left-out` (what an estimate by `interpolate` or `summarize` left out at the stations it read, see
-  below) and `station-without-rows` (ids of `stations` that returned no rows while others did, see below). Codes are
-  added as more are told; a client reads the ones it knows.
+  below), `station-without-rows` (ids of `stations` that returned no rows while others did, see below),
+  `no-alerts-for-place` (`alerts` asked for a place, a point or a name, that no warning of the snapshot is for: an
+  answer, not an error, see [Alerts](../data/provider/dwd/alerts/index.md#a-place)), `no-storm-cells-for-place`
+  (`storm_cells` asked for a place or a `min_severity` that leaves no cell of a scan that has some: an answer, not an
+  error, see [Storm cells](../data/provider/dwd/storm_cells/index.md#an-empty-answer)), `scan-stale` (the newest scan of
+  `storm_cells` is more than 20 minutes older than the time asked for: DWD's run has stopped, and an empty answer is no
+  all-clear) and `answer-truncated` (the answer
+  of an [MCP tool](mcp.md#the-size-of-an-answer) was cut to 40,000 characters; its message says how many rows are
+  returned, the range kept, and the `timestamp` to ask for next. Only a tool's `values` and `stations` raise it: the
+  REST API, the command line and Python answer all of it) and `forecast-from-now` (an MCP tool's `values` answer for a
+  forecast network without a `timestamp`, or with one of whole days around now, starts at the current
+  hour; its message names the `timestamp` window of the
+  hours left out, see [A forecast starts at now](mcp.md#a-forecast-starts-at-now). The REST API, the command line and
+  Python answer the whole run). Codes are added as more are told; a client reads the ones it
+  knows.
 
   `source-data-left-out` is how `interpolate` and `summarize` say that source data was left out of the estimate: one
   warning for the answer, with the causes and how many of the stations read, never one for each station. They read the
@@ -349,7 +391,7 @@ what the answer is missing:
     today, this month, this year): the day's, month's or year's value is partial and may still change, and the source
     does not mark it. They are not missing at the source and come back once the window has closed. An estimate cannot
     carry the `completeness:Incomplete` mark that `values` puts on a monthly or annual value of an open window, so it
-    leaves those out as it leaves a daily one out (`metno/frost`);
+    leaves those out as it leaves a daily one out (`metno/frost`, `dmi/observation`);
   - values a hard [plausibility check](../data/plausibility.md) rejected (the case of `rejected-by-plausibility`,
     counted in values and by check, a value several checks rejected counted under each): the source wrote a number
     there, which the check made null and the estimate does not use. A value a soft check flags `suspect:` is left out
@@ -380,10 +422,11 @@ what the answer is missing:
 
   `window-not-closed` says that the source served values of a window that had not closed when the request was served,
   and does not mark them: `metno/frost` serves the day's maximum, minimum, sum or mean before the day (or its 06 UTC and
-  18 UTC offset) has ended, and the month so far. A daily value is left out of the answer, a monthly or annual one is
-  returned with `completeness:Incomplete` as a token of its `quality_flags` (an estimate leaves all of them out and tells them
-  as a cause of `source-data-left-out`, above); the message says which, how many values at which
-  stations (the first ten) and when the earliest window closes (UTC). It carries `parameter`
+  18 UTC offset) has ended, and the month so far. `dmi/observation` serves the day, the month and the year so far. A
+  daily value is left out of the answer, a monthly or annual one is returned with `completeness:Incomplete` as a token
+  of its `quality_flags` (an estimate leaves all of them out and tells them as a cause of `source-data-left-out`,
+  above); the message says which, how many values at which stations (the first ten) and when the earliest window
+  closes (UTC). It carries `parameter`
   (`resolution/dataset/parameter`) and `stations`. The values are not missing at the source: ask again after the
   window has closed, which is no failure and no `parameter-without-rows`. One for each parameter and request.
 
@@ -412,10 +455,11 @@ what the answer is missing:
   that it has nothing (a 404 for a station that does not report the parameter, Frost's 404 "No data was found for the
   query parameters" and 412 "No available time series for the query parameters", an AEMET `estado` of 404,
   Pegelonline's 404 "Timeseries does not exist.") or a month file of `dwd/derived` that the index never listed.
-  This is done for `aemet/observation`, `dwd/derived`, `dwd/observation`, `dwd/poi`, `dwd/road`, `dwd/swsmos`,
-  `fmi/observation`, `knmi/observation`, `meteofrance/observation`, `meteofrance/synop`, `metno/frost`,
-  `smhi/observation` and `wsv/pegel`, each at the places where it lets a file go and no other; for any other
-  provider a file it lets go without telling is not known, so the warning may name a station whose file was let go.
+  This is done for `aemet/observation`, `dwd/derived`, `dwd/observation`, `dwd/poi`, `dwd/pollen`, `dwd/road`,
+  `dwd/swsmos`, `dwd/uvi`, `fmi/observation`, `imgw/hydrology`, `imgw/meteorology`, `knmi/observation`,
+  `meteofrance/observation`, `meteofrance/synop`, `metno/frost`, `noaa/ghcn`, `smhi/observation` and `wsv/pegel`, each
+  at the places where it lets a file go and no other; for any other provider a file it lets go without telling is not
+  known, so the warning may name a station whose file was let go.
   The message says nothing of the stations that were let go: `file-skipped` does (below). A parameter
   another warning already names (`parameter-ended`) is not told again, nor is `parameter-without-rows` told for
   `interpolate` and `summarize`, for which a station without a parameter is the ordinary case. In Python it is a log line at level `WARNING`, as the other warnings that say a request returned less
@@ -464,8 +508,8 @@ what the answer is missing:
   `station-skipped` as well, for a different cause. The one exception is a rank walk (`rank`, a point) that passed a
   station over for the next candidate and went on to fill its `rank`: the answer holds as many stations as were asked
   for, and the replaced ones are not named. A rank walk that ends short, or empty, after an outage names them all.
-  The message gives the cause, and its advice follows it: a failed download (a reset, a timeout, a 5xx, a 408, 425 or
-  429), a file withdrawn since the listing, an error page or an empty body (a maintenance page, a server-side exception
+  The message gives the cause, and its advice follows it: a failed download (a reset, a timeout, a 5xx, a 408 or
+  425), a file withdrawn since the listing, an error page or an empty body (a maintenance page, a server-side exception
   report such as FMI's rate limit) and a directory found empty may be back, so it says to try again later; a refused
   download (too large, too slow, an off-host redirect, or a request the server turns down for good: a 400, 401, 403 or
   410, or an exception report that names a request error such as `InvalidParameterValue`) and a file that would not
@@ -486,7 +530,10 @@ what the answer is missing:
   in a request, so files that stay a 404 cost one more listing of it for the request, not one for each file.
   `dwd/swsmos` tells the cause of the run it could not read, the newest one the request names: a 404 is a withdrawn
   run, a zero-byte 200 an empty body, a body that would not parse an unreadable one, a directory that lists files and
-  no run a file the reader cannot use, and an empty or missing one an empty directory.
+  no run a file the reader cannot use, and an empty or missing one an empty directory. `dwd/pollen` and `dwd/uvi` tell a
+  region or a place of their table that the file does not hold (one DWD has renumbered, renamed or dropped) as a file
+  with no forecast of the station,
+  which a retry does not change.
 
   `dwd/observation` and `dwd/derived` tell it too, for a directory of DWD's server that is missing (a 404) or empty
   (an index page with no link) while the stations were looked up, which `stations`, `values` and `history` all do
@@ -570,6 +617,8 @@ A format with no body to put the block in carries the same in headers, and so do
 | `X-Wetterdienst-Processing` | `processing_note` |
 | `X-Wetterdienst-Stations`, `X-Wetterdienst-Rows` | the `counts` |
 | `X-Wetterdienst-Warnings` | the `code` of each warning, comma-separated; left out without warnings |
+| `X-Wetterdienst-Truncated` | the message of the `answer-truncated` warning of an MCP tool's answer; left out otherwise |
+| `X-Wetterdienst-Forecast-From-Now` | the message of the `forecast-from-now` warning of an MCP tool's forecast answer; left out otherwise |
 
 A text with more than ASCII in it (a credit line such as "© Météo-France"), or a character a header cannot
 carry, is percent-encoded UTF-8;
@@ -596,7 +645,7 @@ release commit, with `uv run poe contracts:baseline`.
   There are no terms of service: the data is published under the terms of each provider, which the `metadata` of an
   answer and `providers` state.
 - **Tags** group the operations: `Catalogue` (`coverage`, `providers`, `glossary`, `auth`), `Stations` (`stations`,
-  `issues`, `history`), `Values` (`values`, `interpolate`, `summarize`), `Climate stripes`, `Alerts` and `Server`
+  `issues`, `history`), `Values` (`values`, `interpolate`, `summarize`), `Climate stripes`, `Alerts`, `Storm cells` and `Server`
   (`version`, `settings`, `health`, `ready`, the index and `robots.txt`).
 - **`operationId`** is the name of the handler, then the path without the version, then the method, with every
   non-word character an underscore: `values_api_values_get`, `stripes_image_api_stripes_image_get`. It does not carry the version, so
@@ -613,12 +662,12 @@ release commit, with `uv run poe contracts:baseline`.
   `sql` and the rest, which the check against the last release counts as removed, and the MCP tool would take one
   argument `selection` instead of them. So the parameters stay as they are, and each operation says it in three ways:
     - the extension `x-wetterdienst-selection` of the operation lists the groups: `exactly_one_of` (for `stations`
-      and `values`: `["all"]`, `["stations"]`, `["name"]`, `["latitude", "longitude"]`,
-      `["left", "bottom", "right", "top"]`, `["sql"]`), `then` (with a point, exactly one of `rank` and
+      and `values`: `["all"]`, `["stations"]`, `["wmo_id"]`, `["wigos_id"]`, `["icao_id"]`, `["name"]`,
+      `["latitude", "longitude"]`, `["left", "bottom", "right", "top"]`, `["sql"]`), `then` (with a point, exactly one of `rank` and
       `distance`) and `requires` (a `distance` needs a point, a `rank` a point or a `name`);
     - the `description` of each parameter it names ends with the sentences of the refusal that are about it, such as
-      `Exactly one of all, stations, name, (latitude and longitude), (left, bottom, right and top) or sql is
-      required.`, and for a point also `Exactly one of rank or distance is required with latitude and longitude.`;
+      `Exactly one of all, stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), (left, bottom,
+      right and top) or sql is required.`, and for a point also `Exactly one of rank or distance is required with latitude and longitude.`;
     - its `examples` hold one value the parameter takes, such as `stations=01048,04411` and
       `name=Hamburg Fuhlsbüttel`, or a point of `latitude=53.63`, `longitude=10.0` and `rank=3`. A list is a list
       there, which a client writes comma-separated (`explode: false`). The limits of the server still apply to a
@@ -642,7 +691,7 @@ release commit, with `uv run poe contracts:baseline`.
   can answer a 400 for a `Host` the server does not answer to, a 500, a 503 when the server is working on as many
   requests as it allows, and a 504 when the request times out; a route with a query also the 422. Beyond those: the
   routes that read from a provider (`stations`, `issues`, `history`, `values`, `interpolate`, `summarize`,
-  `stripes/values`, `stripes/image`, `alerts`) the 400 of a refused request, 404, 501 and 502, and `stations`, `values`,
+  `stripes/values`, `stripes/image`, `alerts`, `storm-cells`) the 400 of a refused request, 404, 501 and 502, and `stations`, `values`,
   `interpolate` and `summarize` the 403 of `sql` where the server does not enable it; `coverage` a 400, 404 and 501,
   `auth` a 404 and 501, `providers` a 404, `settings` a 400, and `stripes/stations` a 501 and 502. A test makes each
   of these routes fail with each exception of the table of [Errors](#errors) and holds the status it answers to
@@ -687,11 +736,11 @@ learnt on one holds on the others:
   stations of a forecast network are the same for every run, which is chosen for `values`, `interpolate` and
   `summarize`. `/api/stations` answers either with a 422 like any parameter it does not know, as
   `wetterdienst stations` and the `stations` tool do.
-- **The stations are named by exactly one of** `all`, `stations`, `name`, a point (`latitude` and
-  `longitude`, with `rank` or `distance`), a bounding box (`left`, `bottom`, `right` and `top`) or
+- **The stations are named by exactly one of** `all`, `stations`, `wmo_id`, `wigos_id`, `icao_id`, `name`, a point
+  (`latitude` and `longitude`, with `rank` or `distance`), a bounding box (`left`, `bottom`, `right` and `top`) or
   `sql`. None, or two, is refused the same way everywhere, a `missing_one_of` or a `mutually_exclusive`
   error that names the alternatives: `Cannot be combined with name, give exactly one of all,
-  stations, name, (latitude and longitude), (left, bottom, right and top) or sql` as the answer of a
+  stations, wmo_id, wigos_id, icao_id, name, (latitude and longitude), (left, bottom, right and top) or sql` as the answer of a
   422, as the message of a tool error and, in the options' names, as the usage error of the
   command. The OpenAPI document states the alternatives and gives an example of each parameter, see
   [The OpenAPI document](#the-openapi-document).
@@ -739,7 +788,8 @@ listed the resolutions and datasets of each network, is gone: those are `coverag
 `kind` says which endpoints take the network. A **timeseries network** has stations and values, is
 `observation`, `forecast` or `derived`, and is what `stations`, `values`, `history`, `interpolate`,
 and `summarize` take, and what `coverage` lists the resolutions, datasets and parameters of. Every network is one
-but two. The **standalone networks** are `dwd/radar` (`radar`) and `dwd/alerts` (`alerts`): they have their own request
+but three. The **standalone networks** are `dwd/radar` (`radar`), `dwd/alerts` (`alerts`) and `dwd/storm_cells`
+(`storm_cells`): they have their own request
 classes and results in Python, no stations or parameters, and every endpoint above answers a request for them with a
 404. A new standalone network gets a `kind` of its own.
 
@@ -766,7 +816,7 @@ The detail of one network: its resolutions, their datasets and the parameters of
 required (a request without them is a 400 that names [`providers`](#providers)); narrow the answer with `resolutions`
 and `datasets`. Nothing is downloaded, so it answers at once. The answer is keyed by resolution, then `datasets`, then
 each dataset's `parameters`, and every one of those three levels carries a `description` saying what the source
-means by it. A standalone network (`dwd/radar`, `dwd/alerts`) has none: a 404.
+means by it. A standalone network (`dwd/radar`, `dwd/alerts`, `dwd/storm_cells`) has none: a 404.
 
 ```bash
 http localhost:7890/api/coverage provider==dwd network==observation
@@ -810,7 +860,7 @@ be read: every station is in the `bbox`, the `bbox` is no more than 5 degrees wi
 continent it names has a station near its box, and a global network has stations on five. That is done for every network
 whose list is read without a credential (and for `eaufrance/hubeau` by its referential). **Declared from the provider's
 documentation, not read:** `aemet/observation`, `knmi/observation`, `metno/frost` and `metoffice/observation` (a
-credential is needed) and `dwd/radar` and `dwd/alerts` (no stations), so their boxes are wider than they need be.
+credential is needed) and `dwd/radar`, `dwd/alerts` and `dwd/storm_cells` (no stations), so their boxes are wider than they need be.
 
 A dataset whose stations are fewer than its network's has an `extent` of its own, which lies within the network's: `dwd/dmo`
 is global by its `icon` dataset, whose list has stations on every continent, and its `icon_eu` dataset is regional, the
@@ -888,6 +938,10 @@ http localhost:7890/api/stations provider==dwd network==dmo parameters==hourly/i
 # List available MOSMIX-L run datetimes for a station.
 http localhost:7890/api/issues provider==dwd network==mosmix station==10147
 
+# List available MOSMIX-S or MOSMIX-SNOW run datetimes; one run holds every station, so any station lists them.
+http localhost:7890/api/issues provider==dwd network==mosmix station==10147 dataset==small
+http localhost:7890/api/issues provider==dwd network==mosmix station==Z914 dataset==snow
+
 # List available DMO ICON run datetimes for a station.
 http localhost:7890/api/issues provider==dwd network==dmo station==10147
 
@@ -910,6 +964,33 @@ The weather warnings of DWD that are active now, or at a time of the last 48 hou
 
 ```bash
 http localhost:7890/api/alerts granularity==district language==de format==geojson
+```
+
+Without a place that is every warning of Germany, 100 to 370 KB. `latitude` and `longitude` keep the warnings whose
+polygons contain the point, and `name` those with an area of that name or warn cell id; a place without a warning is a
+200 with no alerts and a `no-alerts-for-place` warning in `metadata`:
+
+```bash
+http localhost:7890/api/alerts latitude==54.32 longitude==10.14
+http localhost:7890/api/alerts granularity==district name==Kiel
+```
+
+### Storm cells
+
+The thunderstorm cells of DWD (KONRAD3D) of the newest radar scan, or of one of the last 48 hours (see
+[Storm cells](../data/provider/dwd/storm_cells/index.md)):
+
+```bash
+http localhost:7890/api/storm-cells latitude==52.52 longitude==13.40 distance==25 track==false
+```
+
+Without a place that is every cell of Germany, which is none in 8 scans of 10 and hundreds on a day of storms. A point
+with a `distance` in km, or a box (`left`, `bottom`, `right`, `top`), keeps the cells whose outline is there, and
+`min_severity` the severe ones. An empty answer says which scan it is of (`reference_time`), and a scan that is older than
+20 minutes a `scan-stale` warning in `metadata`:
+
+```bash
+http localhost:7890/api/storm-cells left==8 bottom==47.5 right==13.8 top==50.6 min_severity==2 geometry==centroid
 ```
 
 ### Values
@@ -962,7 +1043,7 @@ The plausibility checks `range`, `elevation`, `stuck`, `consistency`, `floor`, `
 `plausibility_consistency`, `plausibility_floor`, `plausibility_limits`, `plausibility_source` (soft by default: the
 verdict of the source's own quality flag, such as GHCN-Daily `QFLAG` or DMI `validity:false`), `plausibility_step` (soft by default: a jump between consecutive readings) and `plausibility_relations` (soft by default: two readings of one file that contradict each other, or a day of sunshine longer than the day; not `plausibility_consistency`, which is the hard check of a provider's own rules; the environment variable of a server is
 `WD_TS_PLAUSIBILITY__RANGE` and so on). A hard check nulls the value and writes `rejected:<check>,raw:<number>` into
-`quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode. On a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`: `kind` `forecast`) every check but `floor` and `limits` is soft whatever the mode, so `hard` there flags `suspect:<check>` and nulls nothing (`limits` follows its mode).
+`quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode. On a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, `dwd/uvi`: `kind` `forecast`) every check but `floor` and `limits` is soft whatever the mode, so `hard` there flags `suspect:<check>` and nulls nothing (`limits` follows its mode).
 See [plausibility checks](../data/plausibility.md). `interpolate` and `summarize` take no mode: they leave out a
 suspect value in any case, and so do `stripes/values` and `stripes/image`.
 
@@ -1118,7 +1199,7 @@ and where an answer cannot be reasoned about it stays out.
 | `stations`, `issues` | none | no | no | A list changes with the provider's catalogue, which the server is not told about. |
 | `values`, `interpolate`, `summarize` | none | no | no | A window in the past is not stable by itself: a provider revises data (the DWD `recent` readings are checked and moved to `historical`, others publish corrections), and an estimate is made from them. |
 | `ndjson` and `csv` of `stations` and `values` | none | no | no | Streamed station by station, before the answer is known: there is no body to tag when the headers go out. |
-| `stripes/*`, `alerts`, `auth`, `version`, `settings` | none | no | no | The stripes end with the year being recorded, alerts are live, `auth` probes a provider, and the last two describe the instance. |
+| `stripes/*`, `alerts`, `storm-cells`, `auth`, `version`, `settings` | none | no | no | The stripes end with the year being recorded, alerts and storm cells are live, `auth` probes a provider, and the last two describe the instance. |
 | `/health`, `/ready` | `no-store` (`/ready`) | no | no | A probe is asked every time. |
 
 **The `ETag`** is a weak tag (`W/"..."`) of the body of the answer without the one thing that differs between two
@@ -1305,7 +1386,7 @@ entry for each invalid parameter, where `loc` names it:
 | 404 | what the request names does not exist: a provider, network, a resolution or dataset of `/api/coverage`, station, forecast run, or a path |
 | 403 | the server declines it: `sql` filters it has not enabled |
 | 405 | the method is not allowed for the path |
-| 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several |
+| 422 | the request is malformed: an unknown or invalid query parameter, a selection that needs exactly one of several; or a map of stations (`format` `html`, `png`, `jpg`, `webp`, `svg` or `pdf`) none of which has a position (`dwd/derived`'s `monthly/climate_correction_factor`, `dwd/pollen`), where `detail` says to ask for `json`, `csv` or `geojson` and `errors` has the entry for `format` |
 | 501 | the server cannot serve it: a credential it lacks or the provider rejects, or an optional package it lacks, which the body does not name |
 | 502 | the data provider failed or sent an answer the server cannot read: a download that was refused or cut short, a file in a layout it does not expect; the request was valid and can be retried |
 | 503 | the server could not reach the data provider (no network connection), or it is working on as many requests as it allows ([Concurrency](#concurrency)); the request was valid and can be retried, the body says so and does not name the provider's address |
@@ -1340,6 +1421,7 @@ are these, and a kind keeps its status:
 | `urn:wetterdienst:problem:server-busy` | 503 | The server is working on as many requests as it allows at once (`WD_RESTAPI_MAX_CONCURRENT`). The request was not started; retry it after `Retry-After`. |
 | `urn:wetterdienst:problem:not-ready` | 503 | The server is running but cannot serve data: its settings are invalid, or neither its cache directory nor the temporary directory can be written to. Only `GET /ready` answers it; the server still answers `/health`. `checks` names what failed. |
 | `urn:wetterdienst:problem:upstream-unreachable` | 503 | The server could not reach the data provider (no connection). The request was valid; retry it. |
+| `urn:wetterdienst:problem:upstream-quota-exhausted` | 503 | The data provider refused the request because the quota or the rate limit of the key this server uses is used up for now. The key is accepted and the request was valid; retry it after `Retry-After`. |
 | `urn:wetterdienst:problem:upstream-timeout` | 504 | The data provider did not answer in time. The request was valid; retry it. |
 | `urn:wetterdienst:problem:request-timeout` | 504 | The server did not answer within its request timeout. Narrow the request, or retry it: what the server had fetched is cached. |
 | `urn:wetterdienst:problem:image-timeout` | 504 | The browser that draws a chart as an image did not finish within `120` seconds and was closed. The request was valid; retry it. Whoever runs the server should look at Chrome if it keeps happening. |
@@ -1357,7 +1439,11 @@ with `instance`, `request_id`, `X-Request-ID` and `Retry-After` as above. The ba
 in the table.
 
 A 502, 503 or 504 carries `Retry-After`, 30 seconds: the request was valid and the same one can succeed once the
-provider is back (or, after a timeout, with what the server has cached by then). The server limits no rate, so
+provider is back (or, after a timeout, with what the server has cached by then). The exception is
+`upstream-quota-exhausted`, whose `Retry-After` is the wait the provider sent (`Retry-After` as seconds or a date,
+`RateLimit-Reset`, `X-RateLimit-Reset`; not if it is not positive or is past a day), else 60 seconds for a 429, which
+does not say that an hour's quota ran out, and 600 for a quota that is known to be one's. A 429 of any provider is this
+kind, no longer a 502 `upstream-failed`. The server limits no rate, so
 there is no 429; a proxy in front of it may, and the web app's own server does (a problem of the kind
 `urn:wetterdienst:problem:rate-limited` with `Retry-After`, see [Web app](app.md#rate-limit)). The app's problems are
 not in the table.

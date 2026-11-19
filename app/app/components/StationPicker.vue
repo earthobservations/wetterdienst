@@ -1,9 +1,11 @@
 <script setup lang="ts" generic="S extends StationPickerStation">
 import type { Point } from '~/utils/map-tool'
 // The one way to pick stations, for the explorer, the history, the forecast and the stripes (GH-3877): a toggle
-// "List | Map" over the one place where the choice is made, and the stations picked as chips under it, in both
-// modes, so that a switch never hides what was chosen. The list is the search field, the map is the map of the
-// stations. A station picked in one shows in the other: both read the same `selected`.
+// "List | Map" over the one place where the choice is made, and the stations picked under it, so that a switch never
+// hides what was chosen: for several stations as chips (each takes its station out), in both modes; for one station
+// (the forecast, the stripes) the search shows it, so it is told once more only on the map, in one line, where there is
+// no search (GH-4151). The list is the search field, the map is the map of the stations. A station picked in one
+// shows in the other: both read the same `selected`.
 //
 // The picker holds no list of its own and fetches nothing: the caller hands it the stations, and learns by
 // `update:open` (the search is open) and `update:mode` (the map is shown, which is also said once for the mode
@@ -72,6 +74,10 @@ const root = ref<HTMLElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
 const panelId = useId()
 const selectId = useId()
+const selectedLineId = useId()
+
+// the station a visible label leaves unnamed: the search of one station, which the label (not its text) names
+const selectedForLabel = computed(() => !props.multiple && props.label && mode.value === 'list' ? props.selected[0] : undefined)
 
 const modeOptions = computed(() => [
   { value: 'list' as const, label: t('stationSelection.modeList'), icon: 'i-ph-list-magnifying-glass' },
@@ -220,6 +226,20 @@ watch(() => JSON.stringify(props.locate), () => {
   lookupProblem.value = ''
 })
 
+// "Forget my position" (GH-4014): a lookup still on its way is dropped, with what was told of it, so that its late answer
+// does not pick the station or tell a position that is gone. Synchronous, so that no answer lands between the forget and
+// this. The station already picked stays picked, as the reader's own.
+// the position's own state, which `useMyLocation` shares (it also reads the storage, which a picker without `locate` need not)
+const position = useState<Point | null>('wd-location-position', () => null)
+watch(position, (now) => {
+  if (now)
+    return
+  lookup++
+  resolving.value = false
+  found.value = ''
+  lookupProblem.value = ''
+}, { flush: 'sync' })
+
 // The position was handed over by the button: the station nearest to it is picked, and its distance told. An answer
 // that arrives after a later press is not the reader's latest and is dropped.
 async function onPosition(point: Point) {
@@ -313,6 +333,7 @@ async function clearAll() {
         class="w-full"
         :class="{ 'needs-input': selected.length === 0 }"
         :placeholder="t('common.stationSearch')"
+        :aria-describedby="selectedForLabel ? selectedLineId : undefined"
       />
       <div v-else data-print="hide">
         <ClientOnly>
@@ -344,12 +365,13 @@ async function clearAll() {
       {{ t('stationSelection.noneFound') }}
     </p>
 
-    <div v-if="selected.length > 0" data-testid="station-picker-chips">
+    <!-- several stations: the chips, in both modes, each to take one out -->
+    <div v-if="multiple && selected.length > 0" data-testid="station-picker-chips">
       <div class="flex items-center justify-between mb-2">
         <h3 class="text-sm font-medium">
-          {{ multiple ? t('stationSelection.selectedStations') : t('stationSelection.selectedStation') }}
+          {{ t('stationSelection.selectedStations') }}
         </h3>
-        <UButton v-if="multiple" size="xs" color="neutral" variant="ghost" @click="clearAll">
+        <UButton size="xs" color="neutral" variant="ghost" @click="clearAll">
           {{ t('stationSelection.clearAll') }}
         </UButton>
       </div>
@@ -370,6 +392,15 @@ async function clearAll() {
         </li>
       </ul>
     </div>
+    <!-- one station: the search shows it, so it is told once more by one line only where there is no search: on the map -->
+    <p v-else-if="!multiple && mode === 'map' && selected[0]" class="text-sm break-words" data-testid="station-picker-selected">
+      <span class="font-medium">{{ t('stationSelection.selectedStation') }}</span>
+      {{ stationShortLabel(selected[0]) }}
+    </p>
+    <!-- a visible label names the search's button "Station", no longer what it shows: the station is its description (GH-4151) -->
+    <p v-else-if="selectedForLabel" :id="selectedLineId" class="sr-only" data-testid="station-picker-selected-description">
+      {{ t('stationSelection.selectedStation') }} {{ stationShortLabel(selectedForLabel) }}
+    </p>
 
     <!-- what a change of mode says to a screen reader -->
     <p class="sr-only" role="status" aria-live="polite">

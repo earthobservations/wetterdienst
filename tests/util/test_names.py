@@ -162,3 +162,105 @@ def test_koeln_and_dusseldorf_written_without_an_umlaut_are_found_by_the_umlaut_
     stations = ["Koeln", "Dusseldorf", "Kiel"]
     assert [stations[index] for index, _ in _found("Köln", stations, 0.8)] == ["Koeln"]
     assert [stations[index] for index, _ in _found("Düsseldorf", stations, 0.8)] == ["Dusseldorf"]
+
+
+def _order(query: str, names: list[str | None], threshold: float = 0.8) -> list[str | None]:
+    return [names[index] for index, _ in match_names(query, names, threshold)]
+
+
+def test_a_tie_goes_to_the_closer_name_not_to_the_first_row() -> None:
+    """GH-4207: every name that holds a short query scores the same, so the closer whole name has to win."""
+    pollen = [
+        "Rheinland-Pfalz und Saarland: Rhein, Pfalz, Nahe und Mosel",
+        "Rheinland-Pfalz und Saarland: Mittelgebirgsbereich Rheinland-Pfalz",
+        "Rheinland-Pfalz und Saarland: Saarland",
+    ]
+    assert _order("Saarland", pollen)[0] == "Rheinland-Pfalz und Saarland: Saarland"
+    # the scores of the two that reached the threshold are untouched, and tie on the first key; the third was
+    # under it, and holds the query: it is in (GH-4215), last, and reported with the threshold
+    assert [score for _, score in match_names("Saarland", pollen, 0.8)] == [90.0, 90.0, 80.0]
+
+    franken = [
+        "Bayern: Bayern nördl. der Donau, o. Bayr. Wald, o. Mainfranken",
+        "Bayern: Mainfranken",
+    ]
+    assert _order("Mainfranken", franken)[0] == "Bayern: Mainfranken"
+
+    saxony = ["Niedersachsen und Bremen: Östl. Niedersachsen", "Sachsen: Tiefland Sachsen"]
+    assert _order("Sachsen", saxony)[0] == "Sachsen: Tiefland Sachsen"
+
+
+def test_the_closer_name_wins_in_the_transliterated_form_too() -> None:
+    """The tie-break reads the transliterated form as well: the umlaut is spelled out in the closer name.
+
+    Both names score 90 and hold ``muenchen`` in the transliterated form. In the plain form the umlaut name is
+    ``munchen``, a worse match (60.9) than the name that spells it out (61.5), so only the transliterated forms
+    (66.7 against 61.5) put it first.
+    """
+    names = ["Bayern: Muenchen 1", "Bayern: München"]
+
+    assert len({score for _, score in match_names("Muenchen", names, 0.8)}) == 1
+    assert _order("Muenchen", names) == ["Bayern: München", "Bayern: Muenchen 1"]
+
+
+def test_a_tie_on_both_keys_keeps_the_order_of_the_names() -> None:
+    """Same score and the same closeness: the order the names were given in decides."""
+    names = ["Kiel-B", "Kiel-A", "Kiel-C"]
+    assert _order("Kiel", names) == names
+    assert _order("Kiel", names[::-1]) == names[::-1]
+
+
+def test_a_name_that_holds_the_whole_query_as_words_comes_before_one_that_scores_higher() -> None:
+    """GH-4215: "Sachsen: Tiefland Sachsen" scores 95 for the query, above the 90 of the name that holds all of it."""
+    names = ["Sachsen: Tiefland Sachsen", "Sachsen-Anhalt: Tiefland Sachsen-Anhalt"]
+    scores = dict(match_names("Tiefland Sachsen-Anhalt", names, 0.8))
+    assert scores[0] > scores[1], "the premise: WRatio alone ranks the part of another region first"
+    assert _order("Tiefland Sachsen-Anhalt", names) == [names[1], names[0]]
+
+
+def test_a_name_that_holds_the_query_always_reaches_the_threshold() -> None:
+    """GH-4215: the length of a name keeps its WRatio under the threshold, and does not keep it from the result."""
+    long_name = "Bayern: Bayern nördl. der Donau, o. Bayr. Wald, o. Mainfranken"
+    assert dict(match_names("Bayern", [long_name], 0.8)) == {0: 80.0}, "the threshold is its score"
+    assert [index for index, _ in match_names("Bayern", [long_name, "Hessen: Nord"], 0.8)] == [0]
+    # the threshold stays a limit of the names that do not hold the query
+    assert match_names("Bayern", ["Bayr. Wald", "Hessen"], 0.95) == []
+
+
+def test_the_words_of_the_query_are_whole_and_consecutive() -> None:
+    """A run of whole words: not a part of a word (Niedersachsen), not words with another word between them."""
+    assert _order("Sachsen", ["Niedersachsen: Ost", "Sachsen-Anhalt: Harz"])[0] == "Sachsen-Anhalt: Harz"
+    names = ["Anhalt Harz Sachsen", "Sachsen Harz Anhalt", "Sachsen-Anhalt"]
+    assert _order("Sachsen Anhalt", names)[0] == "Sachsen-Anhalt"
+    # the punctuation and the case of the query and of the names are the same to it
+    assert _order("sachsen-anhalt", ["Hessen", "SACHSEN, Anhalt (Harz)"]) == ["SACHSEN, Anhalt (Harz)"]
+
+
+def test_a_name_that_holds_the_query_in_the_transliterated_form_ranks_first() -> None:
+    """The words are compared in the plain and in the transliterated form: "Köln" is `koeln` as well as `koln`."""
+    names = ["Muenchen Land Koeln", "Koelner Strasse"]
+    assert _order("Köln", names)[0] == "Muenchen Land Koeln"
+    assert _order("koeln", names)[0] == "Muenchen Land Koeln"
+    assert _order("Koln", ["Bonn Koln Land", "Koelner Strasse"])[0] == "Bonn Koln Land"
+
+
+def test_the_phrase_rule_does_not_change_the_matches_of_a_query_that_is_a_word_of_no_name() -> None:
+    """A query that is a word of no name has the matches it had; an empty one holds nothing."""
+    names = ["Kiel-Holtenau", "Kielce", "Hamburg", None]
+    assert [index for index, _ in match_names("Kiel", names, 0.8)] == [0, 1]
+    assert match_names("-", names, 0.8) == []
+    assert match_names("", names, 0.8) == []
+
+
+def test_a_threshold_of_1_stays_exact_for_a_name_that_holds_the_query() -> None:
+    """GH-4215: the phrase rule passes any threshold below 1; at 1 only the names that score 100 match."""
+    kiel = ["Kiel-Holtenau", "Kiel", "Kiel-Kronshagen", "Hamburg"]
+    assert _order("Kiel", kiel, 1.0) == ["Kiel"]
+    assert _order("Kiel", kiel)[:3] == ["Kiel", "Kiel-Holtenau", "Kiel-Kronshagen"]
+
+    bad = ["Boll, Bad", "Bad", "Bad Kissingen", "Aach, Bad Segeberg Nord Ost Sued West Station", "Hamburg"]
+    assert _order("Bad", bad, 1.0) == ["Bad"]
+    assert _order("Bad", bad, 0.99) != ["Bad"], "below 1 the names that hold the query are in"
+    at_default = _order("Bad", bad)
+    assert at_default[0] == "Bad"
+    assert set(at_default) == set(bad[:4]), "the long name that holds it is in, Hamburg is not"

@@ -20,6 +20,7 @@ from wetterdienst.exceptions import DownloadError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.open_window import incomplete_flag, leaves_open_out, served_at, tell_open_window
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -30,6 +31,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
     from wetterdienst.settings import Settings
+    from wetterdienst.util.network import File
 
 
 _BASE_URL = "https://opendataapi.dmi.dk/v2/climateData/collections"
@@ -49,6 +51,29 @@ _WINDOW_SPAN: dict[Resolution, dt.timedelta] = {
     Resolution.DAILY: dt.timedelta(days=3650),
 }
 _DATETIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+# DMI serves the aggregate of a day, a month or a year that is still running as the value of that day, month or year,
+# from the readings it has so far, and marks nothing (read 2026-11-15: 06180's daily record of the day in progress from
+# 16 readings at 15:17 UTC, 2026's annual mean from 319 days and the month of November from 15, all `validity: true`
+# with `qcStatus` `none` where the closed periods before them are `manual`, which says the value is not controlled yet
+# and not that the period is running, GH-4087). The `to` of a record is the instant its period ends, with the offset of
+# the place (`2026-12-01T00:00:00+01:00` at the Danish station 06180, `2026-12-01T06:00:00+00:00` at the Greenland one
+# 04220), so a period has closed when its `to` is not after the time the request was served. A daily value of a day
+# that has not ended is left out of `values` and told, as `metno/frost` does (GH-3856), and a monthly or annual one is
+# returned marked `completeness:Incomplete` (GH-3883). An hourly value is not judged: DMI publishes an hour when it is
+# over (read 2026-11-15 at 16:18 UTC: the latest `to` of 72 hourly records of 06180 was 16:00)
+_PERIODS = (Resolution.DAILY, Resolution.MONTHLY, Resolution.ANNUAL)
+_TO_FORMAT = "%Y-%m-%dT%H:%M:%S%.f%z"
+# the columns of a record that carry the instant its period ends and whether that was after the request was served
+_CLOSES = "__closes"
+_OPEN = "__open"
+
+
+def _now() -> dt.datetime:
+    """Give the time a request is served at, UTC: the clock that decides which months and years have ended (GH-4087).
+
+    A function of its own so that a test sets the time (`monkeypatch.setattr(dmi_api, "_now", ...)`).
+    """
+    return dt.datetime.now(dt.UTC)
 
 
 class _OffsetCapReachedError(Exception):
@@ -113,6 +138,7 @@ _STATION_VALUE_SCHEMA = pl.Schema(
                             "value": pl.Float64,
                             "qcStatus": pl.String,
                             "validity": pl.Boolean,
+                            "noValuesInCalculation": pl.Int64,
                         }
                     ),
                 }
@@ -120,6 +146,9 @@ _STATION_VALUE_SCHEMA = pl.Schema(
         ),
     }
 )
+
+#: the blocks of the WMO numbers of Greenland (04) and of Denmark and the Faroe Islands (06)
+_WMO_BLOCKS = r"^0[46][0-9]{3}$"
 
 _STATION_SCHEMA = pl.Schema(
     {
@@ -132,6 +161,7 @@ _STATION_SCHEMA = pl.Schema(
                             "stationId": pl.String,
                             "name": pl.String,
                             "country": pl.String,
+                            "wmoStationId": pl.String,
                             "stationHeight": pl.Float64,
                             "validFrom": pl.String,
                             "validTo": pl.String,
@@ -231,6 +261,7 @@ class DmiObservationValues(TimeseriesValues):
         start: str,
         end: str,
         settings: Settings,
+        files: list[File] | None = None,
     ) -> Iterator[pl.DataFrame]:
         """Yield each page of DMI stationValue records for a station/resolution/date range.
 
@@ -239,7 +270,8 @@ class DmiObservationValues(TimeseriesValues):
         non-empty page; raises on the first download error, ``NoInternetError`` included.
 
         DMI refuses an offset above ``_MAX_OFFSET``, so no page is requested beyond it: a range
-        that fills every page below it raises ``_OffsetCapReachedError`` once the last one is read.
+        that fills every page below it raises ``_OffsetCapReachedError`` once the last one is read. Each page's
+        file is appended to ``files`` where it is given, for the time its copy was made (`served_at`).
         """
         for offset in range(0, _MAX_OFFSET + 1, _PAGE_LIMIT):
             url = (
@@ -262,6 +294,8 @@ class DmiObservationValues(TimeseriesValues):
             file.raise_if_exception()
             if isinstance(file.content, Exception):
                 raise file.content
+            if files is not None:
+                files.append(file)
             df = pl.read_json(file.content, schema=_STATION_VALUE_SCHEMA)
             df = df.select(pl.col("features").explode(empty_as_null=True).struct.field("properties")).unnest(
                 "properties"
@@ -281,12 +315,14 @@ class DmiObservationValues(TimeseriesValues):
         end: dt.datetime,
         settings: Settings,
         records: list[pl.DataFrame],
+        files: list[File] | None = None,
     ) -> None:
         """Append every page of DMI stationValue records for a station/resolution/date range to ``records``.
 
         A range whose records fill all the pages DMI lets one request reach is halved and each half
         read on its own, down to a span of a second, so no request asks for an offset above the cap.
-        The two halves share their boundary instant, as DMI's datetime filter includes both ends.
+        The two halves share their boundary instant, as DMI's datetime filter includes both ends. The files read are
+        appended to ``files`` where it is given (`_iter_station_value_pages`).
         """
         read = len(records)
         try:
@@ -297,6 +333,7 @@ class DmiObservationValues(TimeseriesValues):
                     start.strftime(_DATETIME_FORMAT),
                     end.strftime(_DATETIME_FORMAT),
                     settings,
+                    files,
                 )
             )
         except _OffsetCapReachedError as error:
@@ -305,8 +342,8 @@ class DmiObservationValues(TimeseriesValues):
             if middle <= start:
                 url = f"{_BASE_URL}/stationValue/items"
                 raise DownloadError(url, str(error)) from error
-            self._fetch_station_value_pages(station_id, time_resolution, start, middle, settings, records)
-            self._fetch_station_value_pages(station_id, time_resolution, middle, end, settings, records)
+            self._fetch_station_value_pages(station_id, time_resolution, start, middle, settings, records, files)
+            self._fetch_station_value_pages(station_id, time_resolution, middle, end, settings, records, files)
 
     def _stamped_by_the_end(self, station_id: str) -> pl.Expr:
         """Select the hourly records of a station dated by their ``to``: the window ones, and some by the country.
@@ -371,9 +408,13 @@ class DmiObservationValues(TimeseriesValues):
         span = _WINDOW_SPAN.get(resolution)
         window_start = start
         records: list[pl.DataFrame] = []
+        files: list[File] = []
+        asked_at = _now()
         while True:
             window_end = min(window_start + span, end) if span else end
-            self._fetch_station_value_pages(station_id, time_resolution, window_start, window_end, settings, records)
+            self._fetch_station_value_pages(
+                station_id, time_resolution, window_start, window_end, settings, records, files
+            )
             if window_end >= end:
                 break
             window_start = window_end
@@ -389,6 +430,11 @@ class DmiObservationValues(TimeseriesValues):
         )
         if df.is_empty():
             return pl.DataFrame()
+        if resolution in _PERIODS:
+            # the answer is of the time its oldest copy was made (a cached page of 17:57 is no final value of a period
+            # that ends at 18:00)
+            served = min((served_at(file, asked_at) for file in files), default=asked_at)
+            df = self._mark_running_periods(df, dataset, resolution, served, start_date, end_date)
         # the 0 of a calm wind, the -0.1 of a trace and the 999 of a missing snow depth are mapped before anything is
         # made of the value, and stay as `raw:0` (GH-2794), `raw:-0.1` (GH-3621) and `raw:999`; a value outside the
         # range of its parameter is the core's to judge (`model/judge.py`)
@@ -405,11 +451,54 @@ class DmiObservationValues(TimeseriesValues):
             pl.col("parameterId").alias("parameter"),
             timestamp.alias("timestamp"),
             value.alias("value"),
-            _quality_flags(raw),
+            _quality_flags(raw, running=pl.col(_OPEN) if _OPEN in df.columns else None),
         )
 
+    def _mark_running_periods(
+        self,
+        df: pl.DataFrame,
+        dataset: DatasetModel,
+        resolution: Resolution,
+        served: dt.datetime,
+        start: dt.datetime,
+        end: dt.datetime,
+    ) -> pl.DataFrame:
+        """Add the column `_OPEN`: whether the period of a daily, monthly or annual record had not ended when served.
 
-def _quality_flags(raw: pl.Expr) -> pl.Expr:
+        ``df`` holds the records of the station (`from`, `to`, `parameterId`, ...). The period ends at the record's
+        `to` (`_PERIODS`) and has not ended while that is after ``served`` (UTC): at the instant itself it has. A
+        running monthly or annual record is kept and marked `completeness:Incomplete` (GH-4087), as `metno/frost`
+        marks it (`model/open_window.py`). A running daily record looks like the day's and is left out of the frame
+        (`leaves_open_out`), and so is any running record for an estimate (`interpolate`, `summarize`), which cannot
+        carry the mark. Either way the walk says so for the parameters asked for (`window-not-closed`).
+        """
+        leaves_out = leaves_open_out(
+            daily=resolution == Resolution.DAILY, estimate=self._left_out_of_estimate is not None
+        )
+        closes = pl.col("to").str.to_datetime(_TO_FORMAT, time_unit="us").dt.convert_time_zone("UTC")
+        df = df.with_columns(closes.alias(_CLOSES)).with_columns(
+            (pl.col(_CLOSES) > served).fill_null(value=False).alias(_OPEN)
+        )
+        running = df.filter(pl.col(_OPEN))
+        if not running.is_empty():
+            names = {
+                parameter.name_original: f"{dataset.resolution.name}/{dataset.name}/{parameter.name}"
+                for parameter in self.sr.parameters
+                if (parameter.dataset.resolution.name, parameter.dataset.name)
+                == (dataset.resolution.name, dataset.name)
+            }
+            open_window = running.select(
+                pl.col("parameterId").alias("parameter"),
+                self._date_expression(resolution).alias("timestamp"),
+                pl.col(_CLOSES).alias("closes"),
+            )
+            tell_open_window(open_window, names, start, end, returned=not leaves_out)
+        if leaves_out:
+            df = df.filter(~pl.col(_OPEN))
+        return df.drop(_CLOSES)
+
+
+def _quality_flags(raw: pl.Expr, running: pl.Expr | None = None) -> pl.Expr:
     """Write DMI's ``qcStatus`` and ``validity`` of a record as its ``quality_flags``.
 
     ``qcStatus`` (``manual``: quality controlled by DMI's climatologists, ``none``: not controlled) is the
@@ -417,12 +506,25 @@ def _quality_flags(raw: pl.Expr) -> pl.Expr:
     ``validity`` as "whether or not the value is considered valid by the climatologists. Invalid data is
     generally not correct", and sets it ``false`` for Greenland and, rarely, Denmark. The value of such a
     record is kept and flagged ``suspect:source`` (the check ``source``, which nulls it in the mode ``hard``), unless
-    it is outside the physical range of its parameter (GH-2797). ``raw`` is the text a mapped sentinel or an
-    impossible value was written with (``raw:0`` of a calm
+    it is outside the physical range of its parameter (GH-2797). ``noValuesInCalculation``, the number of readings
+    an aggregate was computed from, follows as ``n:<count>`` (``n:2`` of a day computed from two hourly values):
+    DMI computes the values of Greenland and the Faroe Islands from however many exist, even one, so the check
+    ``source`` judges a daily, monthly or yearly value of fewer than half the readings of its period like
+    ``validity:false`` (``SOURCE_COUNTS`` in ``model/source_flags.py``, GH-4027). ``raw`` is the text a mapped
+    sentinel or an impossible value was written with (``raw:0`` of a calm
     wind, GH-2794; ``raw:-0.1`` of a trace of precipitation, GH-3621; ``raw:17802`` of a month of rain, GH-2797),
-    which closes the column.
+    which closes the column. ``running`` is true for a monthly or annual value whose period had not ended when the
+    request was served, which gets ``completeness:Incomplete`` after the count and before ``raw`` (GH-4087); DMI
+    marks no such value, and none is marked complete.
     """
-    return join_quality_flags(pl.col("qcStatus"), validity=pl.col("validity"), raw=raw)
+    completeness = incomplete_flag(running) if running is not None else pl.lit(None, dtype=pl.String)
+    return join_quality_flags(
+        pl.col("qcStatus"),
+        validity=pl.col("validity"),
+        n=pl.col("noValuesInCalculation"),
+        completeness=completeness,
+        raw=raw,
+    )
 
 
 @dataclass
@@ -468,6 +570,14 @@ class DmiObservationRequest(TimeseriesRequest):
             pl.col("properties").struct.field("stationId").alias("station_id"),
             pl.col("properties").struct.field("name").alias("name"),
             pl.col("properties").struct.field("country").alias("country"),
+            # `wmoStationId` is `stationId` on every station that has one (901 of 1065), and a documented field is taken
+            # as published unless WMO's register shows it is not WMO: of the 127 numbers in the blocks of Greenland (04)
+            # and Denmark and the Faroe Islands (06), OSCAR has 115 as `0-20000-0-<number>`, of the other 774 (05xxx,
+            # 20xxx to 34xxx, DMI's own numbers of its automatic, snow and pluvio stations) none. So only the two
+            # blocks are read, a documented exception (GH-4070)
+            pl.when(pl.col("properties").struct.field("wmoStationId").str.contains(_WMO_BLOCKS))
+            .then(pl.col("properties").struct.field("wmoStationId"))
+            .alias("wmo_id"),
             pl.col("geometry").struct.field("coordinates").list.get(1).alias("latitude"),
             pl.col("geometry").struct.field("coordinates").list.get(0).alias("longitude"),
             pl.col("properties").struct.field("stationHeight").alias("elevation"),
@@ -507,6 +617,7 @@ class DmiObservationRequest(TimeseriesRequest):
         df = df.group_by("station_id", maintain_order=True).agg(
             newest("name"),
             newest("country"),
+            newest("wmo_id"),
             newest("latitude"),
             newest("longitude"),
             newest("elevation"),

@@ -3,6 +3,7 @@ import * as process from 'node:process'
 import tailwindcss from '@tailwindcss/vite'
 import { ICON_SCAN } from './icon-scan'
 import { RATE_LIMIT_DEFAULTS } from './server/utils/rateLimit'
+import { DEFAULT_LOCALE, LANGUAGE_COOKIE, LOCALES } from './shared/utils/locales'
 import { DEFAULT_SITE_URL } from './shared/utils/seo'
 
 // https://nuxt.com/docs/api/configuration/nuxt-config
@@ -17,6 +18,10 @@ export default defineNuxtConfig({
 
   app: {
     head: {
+      // `viewport-fit=cover`: the page is laid out to the window's edges and `env(safe-area-inset-*)` reports what a notch, the
+      // status bar or the home indicator takes (main.css, `--safe-*`). Without it iOS Safari lays the page out inside them and
+      // draws it under its translucent bottom bar, which showed as a strip of the page under the tab bar (GH-3761).
+      viewport: 'width=device-width, initial-scale=1, viewport-fit=cover',
       // no `title`: the page's own (`app/app.vue`, the sentence that says what the site is, in the visitor's language) and
       // the server's (`server/plugins/seo-head.ts`) are the document's, and a default here would be the title of a page
       // that names none, with the app's name after it
@@ -110,26 +115,14 @@ export default defineNuxtConfig({
   ],
 
   i18n: {
-    locales: [
-      { code: 'de', language: 'de-DE', name: 'Deutsch', file: 'de.json' },
-      { code: 'en', language: 'en-GB', name: 'English', file: 'en.json' },
-      { code: 'fr', language: 'fr-FR', name: 'Français', file: 'fr.json' },
-      { code: 'es', language: 'es-ES', name: 'Español', file: 'es.json' },
-      { code: 'it', language: 'it-IT', name: 'Italiano', file: 'it.json' },
-      { code: 'pl', language: 'pl-PL', name: 'Polski', file: 'pl.json' },
-      { code: 'nl', language: 'nl-NL', name: 'Nederlands', file: 'nl.json' },
-      { code: 'cs', language: 'cs-CZ', name: 'Čeština', file: 'cs.json' },
-      { code: 'da', language: 'da-DK', name: 'Dansk', file: 'da.json' },
-      { code: 'lb', language: 'lb-LU', name: 'Lëtzebuergesch', file: 'lb.json' },
-      { code: 'de-hh', language: 'de-DE', name: 'Hamburgisch', file: 'de-hh.json' },
-    ],
-    defaultLocale: 'de',
+    locales: LOCALES.map(locale => ({ ...locale })),
+    defaultLocale: DEFAULT_LOCALE,
     strategy: 'no_prefix',
     vueI18n: 'i18n.config.ts',
     detectBrowserLanguage: {
       useCookie: true,
-      cookieKey: 'wd_lang',
-      fallbackLocale: 'de',
+      cookieKey: LANGUAGE_COOKIE,
+      fallbackLocale: DEFAULT_LOCALE,
       redirectOn: 'root',
     },
   },
@@ -184,6 +177,12 @@ export default defineNuxtConfig({
     // carries it, and set at run time by `NUXT_API_BASE` (GH-3096). Empty means: the old `NUXT_PUBLIC_API_BASE`
     // if that is set (deprecated), else `http://localhost:7890/api`.
     apiBase: '',
+    // The name Google Search Console gives for the verification file of an HTML-file property, `google54ae9a07758f51bd`
+    // (a trailing `.html` is accepted): the server then answers `/<name>.html` with the line Google expects
+    // (`server/middleware/google-site-verification.ts`, GH-4108). Private and set at run time by
+    // `NUXT_GOOGLE_SITE_VERIFICATION`; empty, nothing is answered, and a value that is no name is ignored with a warning.
+    // Not a file of `public/`, which every build and every self-hosted instance would serve as its own.
+    googleSiteVerification: '',
     public: {
       // The address the app is reached at, for what names the pages to the outside: the canonical link and `og:url` of
       // each page, the sitemap and `robots.txt` (`shared/utils/seo.ts`, GH-3497). Public, because the page writes the
@@ -197,7 +196,7 @@ export default defineNuxtConfig({
       tailwindcss() as any,
     ],
     optimizeDeps: {
-      include: ['leaflet', 'leaflet.markercluster', 'plotly.js-basic-dist-min'],
+      include: ['leaflet', 'leaflet.markercluster'],
     },
     build: {
       rollupOptions: {
@@ -251,13 +250,16 @@ export default defineNuxtConfig({
       // nuxt-security's default switches the browser's Geolocation API off for the page (`geolocation=()`), which
       // would make "Use my location" (GH-3651) fail as a refusal that no setting of the browser can undo. The page
       // itself may ask (on the reader's press, and the browser asks the reader); no frame of another origin may.
-      // Camera, microphone, screen capture and fullscreen stay as the module has them.
-      permissionsPolicy: { geolocation: ['self'] },
+      // The module's default for fullscreen is `fullscreen=()`, which switches the Fullscreen API off for the page: the full-screen
+      // button of the map (GH-4227) would then always be the app's own covering of the page, which is the fall-back of a browser
+      // that has no API for an element. The page itself may ask (on the reader's press); no frame of another origin may.
+      // Camera, microphone and screen capture stay as the module has them.
+      permissionsPolicy: { geolocation: ['self'], fullscreen: ['self'] },
       contentSecurityPolicy: {
         // No script, worker or request goes to a CDN (GH-3094): DuckDB-wasm (`QueryPanel.vue`) and Swagger UI
         // (`/docs`) are the app's own files, and the browser calls only this origin; the backend is reached by
         // the server's proxies, and the icons come from `/_nuxt_icon` (GH-3111).
-        // No `'unsafe-eval'`: nothing evaluates a string (Plotly, Leaflet, Vue and the i18n messages run under
+        // No `'unsafe-eval'`: nothing evaluates a string (ECharts, Leaflet, Vue and the i18n messages run under
         // this policy; Zod probed it, see `useSettings.ts`). `'wasm-unsafe-eval'` is for DuckDB's module, which
         // the worker compiles: Chrome gives a worker the policy of its script, which has none, but a browser
         // that gives it the page's needs it, and it allows WebAssembly, no string.

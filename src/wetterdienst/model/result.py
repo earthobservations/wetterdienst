@@ -30,7 +30,7 @@ from pydantic import ConfigDict, with_config
 # not `typing.TypedDict`: pydantic refuses that as a response model on Python below 3.12
 from typing_extensions import TypedDict
 
-from wetterdienst.exceptions import UnknownFormatError
+from wetterdienst.exceptions import NoStationPositionsError, UnknownFormatError
 from wetterdienst.io.export import (
     _DEFAULT_IMAGE_HEIGHT,
     _DEFAULT_IMAGE_WIDTH,
@@ -42,7 +42,7 @@ from wetterdienst.io.export import (
     require_kaleido,
 )
 from wetterdienst.io.formats import names_of, renders_with_kaleido
-from wetterdienst.model.processing_note import processing_note
+from wetterdienst.model.processing_note import IMAGE_NOTE, processing_note
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
@@ -73,6 +73,9 @@ class StationsFilter(Enum):
     ALL = "all"
     BY_STATION_ID = "by_station_id"
     BY_NAME = "by_name"
+    BY_WMO_ID = "by_wmo_id"
+    BY_WIGOS_ID = "by_wigos_id"
+    BY_ICAO_ID = "by_icao_id"
     BY_RANK = "by_rank"
     BY_DISTANCE = "by_distance"
     BY_BBOX = "by_bbox"
@@ -141,6 +144,10 @@ class _Station(TypedDict):
     elevation: float | None
     name: str | None
     region: str | None
+    # null where the provider publishes none; each in one notation (`wetterdienst.model.station_ids`)
+    wmo_id: str | None
+    wigos_id: str | None
+    icao_id: str | None
 
 
 class _EstimateStation(_Station):
@@ -177,6 +184,11 @@ class _OgcFeatureProperties(TypedDict):
     region: str | None
     start_timestamp: str | None
     end_timestamp: str | None
+    # the identifiers the station may have besides its id: null where the provider publishes none, each in one
+    # notation (`wetterdienst.model.station_ids`)
+    wmo_id: str | None
+    wigos_id: str | None
+    icao_id: str | None
 
 
 class _OgcFeatureGeometry(TypedDict):
@@ -247,12 +259,16 @@ def describe_provider(
     *,
     derived: bool = False,
     image: bool = False,
+    calculated: str | None = None,
+    image_note: str = IMAGE_NOTE,
 ) -> _Metadata:
     """Give the `provider` and `producer` blocks of an answer: who published the data, under which terms, and us.
 
     And `data_updated_at`, the date the source states for the data, where the answer has one, and the
     `processing_note` that says what wetterdienst did to it, with `derived` for values that were selected or calculated
-    and `image` for an image drawn from them (GH-2567).
+    and `image` for an image drawn from them (GH-2567); `calculated` adds the sentence of numbers calculated from them
+    besides (the climate stripes' classes, GH-4157). `image_note` is what the note says of the image, which for
+    years calculated from daily values is that it is drawn from them (GH-4222).
     """
     return {
         "provider": {
@@ -266,7 +282,7 @@ def describe_provider(
         },
         "producer": describe_producer(),
         "data_updated_at": None if data_updated_at is None else format_timestamp(data_updated_at),
-        "processing_note": processing_note(derived=derived, image=image),
+        "processing_note": processing_note(derived=derived, image=image, calculated=calculated, image_note=image_note),
     }
 
 
@@ -592,6 +608,10 @@ class StationsResult(_EqualByFields, ExportMixin):
                 "region": station["region"],
                 "start_timestamp": station["start_timestamp"],
                 "end_timestamp": station["end_timestamp"],
+                # a frame a caller built by hand may lack them, as the core columns are filled by `all()`
+                "wmo_id": station.get("wmo_id"),
+                "wigos_id": station.get("wigos_id"),
+                "icao_id": station.get("icao_id"),
                 **{column: station[column] for column in extra_columns},
             },
             "geometry": geometry,
@@ -619,13 +639,25 @@ class StationsResult(_EqualByFields, ExportMixin):
         return {"data": collection}
 
     def to_plot(self) -> go.Figure:
-        """Create a plotly figure from the stations DataFrame."""
+        """Create a plotly figure from the stations DataFrame.
+
+        The stations without a position are left out of the map.
+
+        Raises:
+            NoStationPositionsError: where stations are listed and none has a position (`dwd/pollen`), so there is
+                nothing to draw; a `RequestError`, which the REST API answers with a 422.
+
+        """
         px = import_optional("plotly.express", "Plotting", extra="plotting")
         go = import_optional("plotly.graph_objects", "Plotting", extra="plotting")
 
         df = self.df
         if df.is_empty():
             return go.Figure()
+        # the stations without a position are left out of the map; with none that has one there is nothing to draw, and
+        # the extent of the map cannot be fitted (GH-4206)
+        if df.filter(pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null()).is_empty():
+            raise NoStationPositionsError
         center, zoom = self._map_view(_DEFAULT_IMAGE_WIDTH, _DEFAULT_IMAGE_HEIGHT)
         # for coloring of resolutions/datasets
         n_resolutions = df["resolution"].n_unique()
@@ -676,12 +708,16 @@ class StationsResult(_EqualByFields, ExportMixin):
         )
 
     def _map_view(self, width: int, height: int) -> tuple[dict[str, float], float]:
-        """Centre and zoom of the station map that show every station in a picture of `width` x `height` pixels."""
+        """Centre and zoom of the station map that show every station with a position in a `width` x `height` picture.
+
+        A station that lacks a latitude or a longitude is not on the map, so it does not widen it (GH-4206).
+        """
+        placed = self.df.filter(pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null())
         return _fit_map_view(
-            cast("float", self.df["longitude"].min()),
-            cast("float", self.df["longitude"].max()),
-            cast("float", self.df["latitude"].min()),
-            cast("float", self.df["latitude"].max()),
+            cast("float", placed["longitude"].min()),
+            cast("float", placed["longitude"].max()),
+            cast("float", placed["latitude"].min()),
+            cast("float", placed["latitude"].max()),
             max(1, width - _MAP_MARGIN["l"] - _MAP_MARGIN["r"]),
             max(1, height - _MAP_MARGIN["t"] - _MAP_MARGIN["b"]),
         )

@@ -66,6 +66,12 @@ from wetterdienst.model.schema import (
     TIMESTAMP_DTYPE,
     coerce,
 )
+from wetterdienst.model.station_ids import (
+    STATION_ID_COLUMNS,
+    search_icao_id,
+    search_wigos_id,
+    search_wmo_id,
+)
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string
 from wetterdienst.options import resolve_options
@@ -77,7 +83,7 @@ from wetterdienst.util.geo import require_location_in_range
 from wetterdienst.util.logging import get_one_line_logger
 from wetterdienst.util.names import match_names
 from wetterdienst.util.python import to_list
-from wetterdienst.util.response_warnings import warn_response
+from wetterdienst.util.response_warnings import POSITIONS_UNAVAILABLE, warn_response
 
 if TYPE_CHECKING:
     from wetterdienst.core.util import StationPlacement
@@ -259,6 +265,23 @@ def _count_unreadable_numbers(df: pl.DataFrame, column: str, provider: str) -> N
         log.debug("%s: %d of %d %s cells are no number and are null", provider, unreadable, df.height, column)
 
 
+def _count_unreadable_ids(df: pl.DataFrame, column: str, provider: str) -> None:
+    """Say in one debug line how many cells of an id column are not in its notation (null now), counted, not named.
+
+    A blank or whitespace-only text is no id and no unreadable one: a source that writes nothing for a station that has
+    none (AEMET's `indsinop`, blank for 625 of 926 stations) has no id there, as a null has, and is not counted. The
+    expressions of `STATION_ID_COLUMNS` already shape it to null, for every provider, so no reader strips it.
+    """
+    series = df.get_column(column).cast(pl.String)
+    absent = series.is_null() | series.str.strip_chars().eq("")
+    unreadable = (
+        series.to_frame(column).select(STATION_ID_COLUMNS[column](column).alias(column)).get_column(column).is_null()
+        & ~absent
+    ).sum()
+    if unreadable:
+        log.debug("%s: %d of %d %s cells are not in its notation and are null", provider, unreadable, df.height, column)
+
+
 def add_resolution_and_dataset(
     df: pl.DataFrame,
     datasets: Sequence[tuple[str, str]],
@@ -363,14 +386,18 @@ def shape_stations_frame(
         target = STATIONS_SCHEMA.get(column)
         if column not in df.columns:
             # a column of the schema has its dtype; one of the provider's own, which no schema declares, is an untyped
-            # null as it always was (the frames snapshot of KNMI's `wigos_id` holds it), where a frame without a row
-            # has a String for it. Typing it String is a change of that snapshot, left for a change of its own
+            # null as it always was, where a frame without a row has a String for it. Typing it String is a change of
+            # the frames snapshot, left for a change of its own
             expressions.append(pl.lit(None, dtype=target).alias(column))
         elif target is None:
             expressions.append(pl.col(column))
         elif target == pl.Float64:
             _count_unreadable_numbers(df, column, provider)
             expressions.append(pl.col(column).cast(pl.Float64, strict=False))
+        elif column in STATION_ID_COLUMNS:
+            # whichever notation the source wrote the id in, the frame has the one of the column (`station_ids`)
+            _count_unreadable_ids(df, column, provider)
+            expressions.append(STATION_ID_COLUMNS[column](column).alias(column))
         else:
             expressions.append(pl.col(column).cast(target))
     return df.select(expressions)
@@ -519,6 +546,18 @@ class TimeseriesRequest:
 
     # Columns that should be contained within any stations information
     _base_columns: ClassVar = tuple(STATIONS_SCHEMA)
+
+    # Whether the source gives the stations a position. A network that declares False (`dwd/pollen`: DWD ships no shape
+    # of its regions) lists every station with a null latitude and longitude, so a search by place finds none of them
+    # and says so (`_warn_no_positions`, the code `positions-unavailable`) instead of answering empty without a reason
+    stations_have_positions: ClassVar[bool] = True
+    # The datasets of a network that has positions that have none, as `"resolution/dataset"` (`dwd/derived`'s
+    # `monthly/climate_correction_factor`, whose stations are the 100000 postal codes): a search by place says so when
+    # the request holds one of them, and still finds the stations of the others
+    datasets_without_positions: ClassVar[frozenset[str]] = frozenset()
+    # Those of them whose stations have no name either, so a search by name finds none of them and the warning names the
+    # id alone as the way to find them (the postal codes of `dwd/derived`'s correction factor)
+    datasets_without_names: ClassVar[frozenset[str]] = frozenset()
 
     # The parameters that may be interpolated or summarized, which is a property of the measured
     # quantity rather than of a request -- see `CanonicalParameter.interpolation`. Kept here as a
@@ -957,6 +996,45 @@ class TimeseriesRequest:
 
         """
 
+    def _warn_no_positions(self) -> None:
+        """Tell, for a search by place, that the stations of this network or of a dataset of it have no position.
+
+        Called by `filter_by_rank` (and so by `filter_by_distance`, `interpolate` and `summarize`) and `filter_by_bbox`,
+        for a network that declares `stations_have_positions` False, and for a request that holds a dataset of
+        `datasets_without_positions`, which the warning names, as the stations of the other datasets are found.
+        The way it names to find them is the name or the id, the id alone where the dataset's stations have no name
+        (`datasets_without_names`). Nothing is told for any other request, and for a search by name or id, which finds
+        the stations.
+        """
+        from wetterdienst.api import Wetterdienst  # noqa: PLC0415
+
+        network = Wetterdienst._network_of(type(self)) or type(self).__name__  # noqa: SLF001
+        by_name = True
+        if self.stations_have_positions:
+            asked = [
+                f"{parameter.dataset.resolution.name}/{parameter.dataset.name}"
+                for parameter in self.parameters
+                if isinstance(parameter, ParameterModel)
+            ]
+            without = sorted({name for name in asked if name in self.datasets_without_positions})
+            if not without:
+                return
+            what = f"{network} {', '.join(without)}"
+            by_name = any(name not in self.datasets_without_names for name in without)
+        else:
+            what = network
+        way = (
+            "by name or id (the `name` and `stations` parameters, `filter_by_name` and `filter_by_station_id` in the "
+            "library)"
+            if by_name
+            else "by id (the `stations` parameter, `filter_by_station_id` in the library), as they have no name"
+        )
+        warn_response(
+            log,
+            POSITIONS_UNAVAILABLE,
+            f"The stations of {what} have no position, so a search by place finds none; find them {way}.",
+        )
+
     def _within_answer_window(self, df: pl.DataFrame) -> pl.DataFrame:
         """Cut the stations to those that would be in the answer when it is cut to the window of the request.
 
@@ -1085,6 +1163,98 @@ class TimeseriesRequest:
             _stations_filter=StationsFilter.BY_STATION_ID,
         )
 
+    def filter_by_wmo_id(self, wmo_id: str | int | Sequence[str | int]) -> StationsResult:
+        """Filter stations by the WMO number they report under (the ``wmo_id`` column).
+
+        Every station that has the number comes back, with a row for each requested dataset: one number may be
+        on several stations (NOAA lists the same station under more than one id), so a search is not one answer.
+        The stations come back in the order of the catalogue. A number the request has no station for is left out
+        and named in an ``unknown-station`` warning, and the result may be empty; a provider that publishes no WMO
+        numbers (the column is null) has none to find.
+
+        As `filter_by_station_id`, it selects among the whole list, whatever the window of the request.
+
+        Args:
+            wmo_id: One WMO number or several, as text or as numbers. One to five digits are read as the number
+                with its leading zeros: ``1001`` and ``"01001"`` are Jan Mayen.
+
+        Returns:
+            StationsResult: The stations that have a number, in catalogue order.
+
+        Raises:
+            ValueError: a number is no WMO number (not digits, or more than five).
+            TypeError: a number is neither a text nor a number.
+
+        """
+        return self._filter_by_identifier("wmo_id", search_wmo_id(wmo_id), StationsFilter.BY_WMO_ID)
+
+    def filter_by_wigos_id(self, wigos_id: str | Sequence[str]) -> StationsResult:
+        """Filter stations by their WIGOS station identifier (the ``wigos_id`` column).
+
+        As `filter_by_wmo_id`, for ``<series>-<issuer>-<issue number>-<local id>``. The identifier is read as the
+        column writes it, with the issuer and the numbers without leading zeros: ``0-056-101-01002`` finds
+        ``0-56-101-01002``.
+
+        Args:
+            wigos_id: One identifier or several.
+
+        Returns:
+            StationsResult: The stations that have an identifier, in catalogue order.
+
+        Raises:
+            ValueError: an identifier is no WIGOS station identifier.
+            TypeError: an identifier is not a text.
+
+        """
+        return self._filter_by_identifier("wigos_id", search_wigos_id(wigos_id), StationsFilter.BY_WIGOS_ID)
+
+    def filter_by_icao_id(self, icao_id: str | Sequence[str]) -> StationsResult:
+        """Filter stations by their ICAO location indicator (the ``icao_id`` column).
+
+        As `filter_by_wmo_id`, for the four letters of an aerodrome. The case does not matter: ``eddh`` finds
+        ``EDDH``. One code may be on several stations (DWD lists five of its MOSMIX codes twice).
+
+        Args:
+            icao_id: One code or several.
+
+        Returns:
+            StationsResult: The stations that have a code, in catalogue order.
+
+        Raises:
+            ValueError: a code is not four letters.
+            TypeError: a code is not a text.
+
+        """
+        return self._filter_by_identifier("icao_id", search_icao_id(icao_id), StationsFilter.BY_ICAO_ID)
+
+    def _filter_by_identifier(self, column: str, ids: list[str], selection: StationsFilter) -> StationsResult:
+        """Select the stations whose ``column`` is one of ``ids`` (already in the notation of the column)."""
+        df = self._stations_to_select_among()
+
+        log.info(f"Filtering for {column}={ids}")
+
+        df_found = df.filter(pl.col(column).is_in(ids))
+
+        # an id the request has no station for leaves it out of the result, which would otherwise be an empty or a
+        # shorter one with no word on why (GH-2635)
+        found = set(df_found.get_column(column))
+        if unknown := [identifier for identifier in ids if identifier not in found]:
+            warn_response(
+                log,
+                "unknown-station",
+                f"No station with {column} {', '.join(unknown)} for the requested parameters and "
+                f"periods of {type(self).__name__}.",
+            )
+
+        self._warn_unplaced(df_found, named=True)
+
+        return StationsResult(
+            request=self,
+            df=df_found,
+            _df_all=df,
+            _stations_filter=selection,
+        )
+
     def filter_by_name(
         self,
         name: str,
@@ -1101,7 +1271,9 @@ class TimeseriesRequest:
                 The `stations` listing of the command line and the REST API takes the best
                 `DEFAULT_NAME_RANK_LISTING` (5) instead: pass `rank=5` for the same. A station is one
                 match however many datasets (rows) it has, and two stations that share a name are two.
-                The rows come back best match first, equal scores ordered by `station_id`.
+                The rows come back best match first: a name that holds the whole query as a run of whole
+                words first (matching at any threshold below 1), then the others; within each, equal scores the closer
+                whole name first, a tie on both ordered by `station_id`.
             threshold: Threshold for the fuzzy search. The name and the station names are compared
                 without regard to case and diacritics, an umlaut written out counting as the umlaut:
                 "koeln", "Koln" and "Köln" all find "Köln" (`wetterdienst.util.names`).
@@ -1160,9 +1332,15 @@ class TimeseriesRequest:
         # The unit of `rank` is the station, not the row: a station has a row for every dataset asked
         # for, and several stations may share a name. So the names are scored per station (once for
         # each name a station goes by), the best `rank` stations are taken, and their rows come back
-        # best match first. Equal scores -- common, as WRatio tops out at 100 for any name that holds
-        # the query -- are ordered by station_id, which does not depend on how the provider sorts its
-        # list. (GH-3025)
+        # best match first. A name that holds the whole query as a run of whole words comes before every
+        # name that does not, and reaches any threshold below 1 ("Tiefland Sachsen-Anhalt" finds "Sachsen-Anhalt:
+        # Tiefland Sachsen-Anhalt", not "Sachsen: Tiefland Sachsen"; "Bayern" all four parts of Bayern), GH-4215.
+        # The rule reorders and admits, never lifts the limit: only the best `rank` stations are kept, however
+        # many names of a big catalogue hold a short query. Equal scores are common (WRatio gives 90 to any name
+        # that holds a short query), so `match_names` breaks them by the closer whole name (`fuzz.ratio`:
+        # "Saarland" finds "Rheinland-Pfalz und Saarland: Saarland" before "Rheinland-Pfalz und Saarland: Rhein,
+        # Pfalz, Nahe und Mosel"), GH-4207. A tie on both is ordered by station_id, which does not depend on how
+        # the provider sorts its list. (GH-3025)
         candidates = (
             df_all.select("station_id", "name").unique(maintain_order=True).sort("station_id", maintain_order=True)
         )
@@ -1259,6 +1437,7 @@ class TimeseriesRequest:
         # a search by place can never answer with a station that has no position: the ones the source got wrong
         # are told, among all of the stations it searched
         self._warn_unplaced(df_all, named=False)
+        self._warn_no_positions()
         df = located
         return StationsResult(
             request=self,
@@ -1358,6 +1537,7 @@ class TimeseriesRequest:
             log.info(f"No weather stations were found for bbox {left}/{bottom}/{top}/{right}")
         # as `filter_by_rank` does: a station with no position is in no box
         self._warn_unplaced(df_all, named=False)
+        self._warn_no_positions()
 
         return StationsResult(request=self, df=df, _df_all=df_all, _stations_filter=StationsFilter.BY_BBOX)
 

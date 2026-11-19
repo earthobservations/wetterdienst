@@ -25,15 +25,19 @@ What the requests of the library do, whichever provider they go to:
 - **It retries a failure that may pass, and not an answer.** For every provider a download is attempted twice and a
   listing three times, after a reset, a timeout, a `5xx` or a handshake the server fumbled, and a download also once
   more after a `404` (a file index can be read before the file it names is published). A certificate that does not
-  verify and a `429 Too Many Requests` are not asked again, and the answer comes back to you as it is. Two providers
-  add a loop of their own: AEMET and KNMI ask up to three times in all, waiting 2 seconds to start with and 15 at most,
-  and they do retry a `429` (and any status but `400`, `401`, `403` and `404`).
+  verify and a `429 Too Many Requests` are not asked again, and the answer comes back to you as it is (a 429 as a
+  `ProviderRateLimitError` with the wait the provider sent). Two providers
+  add a loop of their own: AEMET and KNMI ask up to three times in all, waiting 2 seconds to start with and 15 at most. AEMET retries a
+  `429` (and any status but `400`, `401`, `403` and `404`); KNMI's EDR API is asked once for a `404` (no data, a request of
+  its quota) and retries a reset or a `5xx`, not a `400`, `401`, `403`, `404`, `413`, `422` or `429`.
 - **It fetches ahead for five networks**, `dwd/observation`, `dwd/derived`, `chmi`, `imgw/meteorology` and `smhi`
   (of four providers), where one station is one set of files: while it parses one station it downloads the files of the
   next four (`fetch_ahead`, at most eight, and no more than eight connections to one host for all the reads of a
-  process). 0 switches it off; `interpolate` and `summarize` do not fetch ahead.
+  process). 0 switches it off; `interpolate` and `summarize` do not fetch ahead. A 429 met ahead ends the walk with the
+  `ProviderRateLimitError` at the next station at the latest, and is not asked again.
 - **It keeps what it downloaded** for a lifetime of its own (below), and it does not read the provider's cache headers.
-  It does not read a provider's rate-limit headers, count your requests against a limit, or queue them to stay under
+  It reads a provider's wait from the headers of a 429 (`Retry-After`, `RateLimit-Reset`, `X-RateLimit-Reset`) to tell
+  you, but does not count your requests against a limit, or queue them to stay under
   it. A request for many stations over a long window is many requests, and nothing in the library asks whether the
   provider allows that many.
 
@@ -105,7 +109,7 @@ to common units, and a value the source documents as missing (`-999`, `---`) is 
   [plausibility checks](../plausibility.md). Whichever the mode, the answer shows what was done.
 - **`interpolate` and `summarize`** calculate or select values from the readings of several stations; they add a
   sentence to the note.
-- **Climate stripes and plots** are drawn from the annual values of DWD stations; the image headers carry a sentence.
+- **Climate stripes and plots** are drawn from the annual values of DWD stations, or of NOAA GHCN daily stations, whose years are calculated from the daily values; the image headers carry a sentence.
 
 What the licences ask about changes differs. CC BY asks to "indicate if changes were made"; the note in the answer says
 what was done, and a CSV or a spreadsheet written without `with_metadata=True` does not carry it (see
@@ -134,24 +138,25 @@ without an account. What that means for the data:
   [Rate limit](../../usage/app.md#rate-limit)); there is no limit that follows a provider's own limit.
 - **It holds the keys of the four providers that need one**, and keeps serving them. Read from its public
   `/api/coverage` on 2026-11-06 (that list is `/api/providers` now), `aemet`, `knmi`, `metoffice` and `metno` report `configured: true` there. Whether that
-  is within their terms is not settled; the question was put to KNMI and CEDA in November 2026 and no answer has come
-  yet (see the next section).
+  is within their terms was put to KNMI and CEDA in November 2026: KNMI answered on 2026-11-09 that the instance's use
+  falls mostly within its fair use limits and asked for a longer cache (GH-3927); CEDA has not answered yet (see the
+  next section).
 - **Its logs and the data protection of its users** are in the privacy policy of the app, not here.
 
 ## Keys and credentials
 
-Four providers need a key or an account: AEMET (API key), KNMI (API key), the Met Office's MIDAS Open (a CEDA account,
+Four providers need a key or an account: AEMET (API key), KNMI (EDR API key), the Met Office's MIDAS Open (a CEDA account,
 from which the library mints a token valid for three days) and MET Norway's Frost (a client ID). What each states about
 sharing the key and about serving others with it, quoted at the License section of the provider:
 
 | Provider | What the terms say | Does a server that answers others with one key fit? |
 | --- | --- | --- |
 | [AEMET](aemet/index.md#license) | The key "identifies" the user; as many may be created as needed; an e-mail address is asked. Nothing on sharing, nothing on serving others. | Not addressed by the pages read. |
-| [KNMI](knmi/index.md#license) | "Accounts and keys are personal. They are meant to be used by you or by your organisation for your own applications, and should not be shared with, resold to, or distributed to third parties." And: "If you want to serve KDP data to your own users, proxy the requests through your own backend, keep the key there, and add caching in your backend." | Not settled: the question was put to KNMI in November 2026 and no answer has come yet. Our reading: a backend with a key and a cache is the pattern KNMI names; an open server for anyone may be more than "your own users". |
+| [KNMI](knmi/index.md#license) | "Accounts and keys are personal. They are meant to be used by you or by your organisation for your own applications, and should not be shared with, resold to, or distributed to third parties." And: "If you want to serve KDP data to your own users, proxy the requests through your own backend, keep the key there, and add caching in your backend." | Asked in November 2026, KNMI answered on 2026-11-09 that the hosted instance's use falls mostly within its fair use limits, and asked for files to be cached longer, so that they are not downloaded again and again (GH-3927). |
 | [Met Office](metoffice/index.md#license) (CEDA) | "Not to use another person's account, nor to let other people use your accounts, except by agreement with us"; "Only to use the service/resource for the purposes for which you were given access". | Not settled: the question was put to CEDA in November 2026 and no answer has come yet. Our reading: others use the server, not the account. |
 | [MET Norway](metno/index.md#license) (Frost) | "Each client ID must be associated with a valid email address"; "Use a proxy if possible"; "Heavy traffic means on average more than 1 requests to the API per second": then "save the information on your own server", and contact them if you "have not been able to reduced the amount of requests by taking into account our guidelines". The weather API's terms (a different service) call "trying to circumvent traffic rate limiting measures and/or impersonating traffic from other clients" abuse. | A proxy with a cache is asked for; what counts is the rate on average, which is not measured here. |
 
-None of the four says in terms that serving others from one key is allowed or forbidden. We have not used any key to
+None of the four says in its terms that serving others from one key is allowed or forbidden; KNMI's answer is the only statement so far. We have not used any key to
 read what a key's response says.
 
 ## The repository's own files
@@ -166,9 +171,14 @@ with the terms of its provider.
 | --- | --- | --- |
 | `tests/provider/dwd/radar/files/` | nine real radar files of 2026-10-20 to 22, the smallest of their product (composites and a volume scan as HDF5, two `meso` and one `KONRAD3D` XML), 550,338 bytes | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dwd/alerts/files/` | one DWD warning in CAP form (a fog warning for Kreis Wittenberg, 2026-11-05, in eight languages) with the polygon of its one area cut to 5 of its 124 points, 16 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst"; the wording is DWD's |
+| `tests/provider/dwd/storm_cells/files/` | three real KONRAD3D scans of 2026-11-15 to 17: an empty one, one with two cells, and one with three of its ten cells (the others cut), 96 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
+| `tests/provider/dwd/mosmix/` | one real MOSMIX-SNOW run (the run of 2026-11-14 19 UTC, 15 stations, 48 hourly steps), as DWD published it, 9.7 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
+| `tests/provider/dwd/pollen/` | one real `s31fg.json`, the pollen forecast of 27 regions as DWD published it on 2026-11-17, 16 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
+| `tests/provider/dwd/uvi/` | one real `uvi.json`, the UV index forecast of 38 places as DWD published it on 2026-11-17, 3 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dmi/observation/` | four JSON files of DMI readings and parameter lists (hourly, daily, monthly and annual values), 85 kB | DMI, CC BY 4.0, "© DMI (Danish Meteorological Institute)" |
-| `tests/provider/knmi/observation/files/` | three real KNMI NetCDF files, a month of 2026-09 and of 1901-01 and a year (2024), cut to one to three stations with every variable and attribute kept, 168,399 bytes | KNMI, CC BY 4.0, "© KNMI" |
-| `tests/provider/noaa/ghcn/` | two CSV files of GHCN-Daily elements, 1.3 kB | NOAA NCEI, CC0 1.0 |
+| `tests/provider/knmi/observation/files/` | five real answers of KNMI's EDR API (De Bilt and Schiphol, a day to a year of each resolution) cut to the variables the provider maps, and the rows the Open Data files route made of them before GH-3928, 10 CSV files, 247 kB | KNMI, CC BY 4.0, "© KNMI" |
+| `tests/provider/eaufrance/hubeau/` | the 691 timestamps of one station's stage (H502301401, 2026-10-18 to 2026-11-17), as Hub'Eau's real time observations gave them, 16 kB | Eaufrance, Etalab Open Licence 2.0, credit "Eaufrance" |
+| `tests/provider/noaa/ghcn/` | two CSV files of GHCN-Daily elements (rows of the bucket's per-station files), 0.9 kB | NOAA NCEI, CC0 1.0 |
 | `tests/provider/station_catalogue_stubs.py`, `tests/provider/value_stubs.py` and the inline text of the tests of each provider | rows of the real station lists and of real values, a few per network, in the provider's own format; some rows are edited (below) | the licence and credit line of that provider on [licences and credit lines](licenses.md) |
 | IMGW rows of the same files and of `tests/provider/imgw/` | a few dozen rows of station lists and daily values, some of them edited | IMGW, CC BY-NC-ND 4.0; credit: „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej – Państwowy Instytut Badawczy” and „Dane Instytutu Meteorologii i Gospodarki Wodnej – Państwowego Instytutu Badawczego zostały przetworzone” |
 | LHMT rows of `tests/provider/lhmt/` | a few rows of observations, some of them edited | LHMT, CC BY-SA 4.0, credit "Lietuvos hidrometeorologijos tarnyba (LHMT)" |

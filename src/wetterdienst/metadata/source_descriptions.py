@@ -946,23 +946,27 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). ICON writes "
             "a little below 0 in the night hours (mostly above -0.2 J/cm2, at a few stations to about -0.8); "
             "that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -1 J/cm2 is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon", "radl3"): "Long wave radiation balance during the last 3 hours",
         ("hourly", "icon", "rads3"): (
             "Short wave radiation balance during the last 3 hours. ICON writes a little below 0 in the "
             "night hours (to about -0.5 J/cm2); that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -1 J/cm2 is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon", "rr1"): (
             "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
             "that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -0.2 mm is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon", "rr3"): (
             "Total precipitation during the last 3 hours. ICON writes a little below 0 now and then (to about "
             "-0.04 mm); that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -0.2 mm is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon", "rrs3c"): "Snow-Rain-Equivalent during the last 3 hours",
@@ -998,12 +1002,14 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "unit; they are about a tenth of the MOSMIX kJ/m2 number for the same hour). ICON writes "
             "a little below 0 in the night hours (mostly above -0.2 J/cm2, at a few stations to about -0.8); "
             "that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -1 J/cm2 is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon_eu", "rr1"): (
             "Total precipitation during the last hour. ICON writes a little below 0 now and then (to about -0.1 mm); "
             "that is returned as 0.0, with the number kept as `raw:` "
-            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`)."
+            "in `quality_flags` (the check `floor`: `rejected:floor,raw:`). "
+            "A value below -0.2 mm is no round-off: it is kept and flagged `suspect:range`."
         ),
         ("hourly", "icon_eu", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "icon_eu", "t5cm"): "Temperature 5cm above surface",
@@ -1030,7 +1036,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "small", "nl"): "Low cloud cover (lower than 2 km)",
         ("hourly", "large", "wwpd"): "Probability: Occurrence of any precipitation within the last 24 hours",
         ("hourly", "large", "dd"): "Wind direction",
-        ("hourly", "large", "drr1"): "Duration of precipitation within the last hour",
+        ("hourly", "large", "drr1"): (
+            "Duration of precipitation within the last hour. 0 for most rainy hours at 10382 (Berlin-Tegel) and not "
+            "given at all at some stations (10961, Zugspitze), which `skip_empty` then drops."
+        ),
         ("hourly", "large", "e_dd"): "Absolute error wind direction",
         ("hourly", "large", "e_ff"): "Absolute error wind speed 10m above surface",
         ("hourly", "large", "e_ppp"): "Absolute error surface pressure",
@@ -1098,20 +1107,39 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "large", "rh02"): "Probability of precipitation > 0.2mm during the last 12 hours",
         ("hourly", "large", "rh10"): "Probability of precipitation > 1.0mm during the last 12 hours",
         ("hourly", "large", "rh50"): "Probability of precipitation > 5.0mm during the last 12 hours",
-        ("hourly", "large", "rr1c"): "Total precipitation during the last hour consistent with significant weather",
+        ("hourly", "large", "rr1c"): (
+            "Total precipitation during the last hour consistent with significant weather. At most German lowland "
+            "stations of the runs measured (2026-11-16/17) it is 0.0 from about +100 to +125 h of the run: real zeros, "
+            "not missing values, while the 12 and 24 h totals (`rrhc`, `rrdc`) and the probabilities still carry "
+            "rain; the 6 h total (`rr6c`) falls to zero early at some stations."
+        ),
         ("hourly", "large", "rr1o1"): "Probability of precipitation > 10.0 mm during the last hour",
         ("hourly", "large", "rr1u1"): "Probability of precipitation > 25.0 mm during the last hour",
         ("hourly", "large", "rr1w1"): "Probability of precipitation > 15.0 mm during the last hour",
-        ("hourly", "large", "rr3c"): "Total precipitation during the last 3 hours consistent with significant weather",
-        ("hourly", "large", "rr6c"): "Total precipitation during the last 6 hours consistent with significant weather",
+        ("hourly", "large", "rr3c"): (
+            "Total precipitation during the last 3 hours consistent with significant weather, given at the 00, 03, "
+            "..., 21 UTC steps. Often 0.0 late in the run at lowland stations of the runs measured (2026-11-16/17; "
+            "median last non-zero step +132 h in MOSMIX-S): real zeros, not missing values, while the 12 and 24 h "
+            "totals (`rrhc`, `rrdc`) still carry rain; the 6 h total (`rr6c`) falls to zero early at some stations."
+        ),
+        ("hourly", "large", "rr6c"): (
+            "Total precipitation during the last 6 hours consistent with significant weather, given at the 00, 06, 12 "
+            "and 18 UTC steps"
+        ),
         ("hourly", "large", "rrad1"): (
             "Global irradiance within the last hour as a percentage: the source gives % (0..80) and no "
             "reference. Rad1h over the extraterrestrial radiation on a horizontal surface in the same hour "
             "reproduces it roughly (mean difference under 3 points at 6 stations, single hours up to about 20 "
             "points apart), so it is read as a share of that."
         ),
-        ("hourly", "large", "rrdc"): "Total precipitation during the last 24 hours consistent with significant weather",
-        ("hourly", "large", "rrhc"): "Total precipitation during the last 12 hours consistent with significant weather",
+        ("hourly", "large", "rrdc"): (
+            "Total precipitation during the last 24 hours consistent with significant weather, given at the 06 UTC "
+            "steps"
+        ),
+        ("hourly", "large", "rrhc"): (
+            "Total precipitation during the last 12 hours consistent with significant weather, given at the 06 and 18 "
+            "UTC steps"
+        ),
         ("hourly", "large", "rrl1c"): (
             "Total liquid precipitation during the last hour consistent with significant weather"
         ),
@@ -1138,9 +1166,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "24 UTC, ending 6 hours before the step; 0.33 K, 10 stations, 100 values of the run of 2026-10-19) "
             "better than the 24 hours ending at the step (0.55 K); unconfirmed by DWD"
         ),
-        ("hourly", "large", "tn"): "Minimum temperature - within the last 12 hours, given at the 06 and 18 UTC steps",
+        ("hourly", "large", "tn"): (
+            "Minimum temperature - within the last 12 hours, given at the 06 and 18 UTC steps at most stations"
+        ),
         ("hourly", "large", "ttt"): "Temperature 2m above surface",
-        ("hourly", "large", "tx"): "Maximum temperature - within the last 12 hours, given at the 06 and 18 UTC steps",
+        ("hourly", "large", "tx"): (
+            "Maximum temperature - within the last 12 hours, given at the 06 and 18 UTC steps at most stations"
+        ),
         ("hourly", "large", "vv"): "Visibility",
         ("hourly", "large", "vv10"): "Probability: Visibility below 1000m",
         ("hourly", "large", "w1w2"): (
@@ -1233,8 +1265,19 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "small", "rh02"): "Probability of precipitation > 0.2mm during the last 12 hours",
         ("hourly", "small", "rh10"): "Probability of precipitation > 1.0mm during the last 12 hours",
         ("hourly", "small", "rh50"): "Probability of precipitation > 5.0mm during the last 12 hours",
-        ("hourly", "small", "rr1c"): "Total precipitation during the last hour consistent with significant weather",
-        ("hourly", "small", "rr3c"): "Total precipitation during the last 3 hours consistent with significant weather",
+        ("hourly", "small", "rr1c"): (
+            "Total precipitation during the last hour consistent with significant weather. At most German lowland "
+            "stations of the runs measured (2026-11-16/17) it is 0.0 from about +100 to +125 h of the run: real zeros, "
+            "not missing values, while the 12 and 24 h probabilities (`rh*`, `rd*`) are still above 0. About a "
+            "quarter of the stations lack the last 3 to 9 h of the run, and some a block of every day."
+        ),
+        ("hourly", "small", "rr3c"): (
+            "Total precipitation during the last 3 hours consistent with significant weather, given at the 00, 03, "
+            "..., 21 UTC steps. Often 0.0 late in the run at lowland stations of the runs measured (2026-11-16/17; "
+            "median last non-zero step +132 h): real zeros, not missing values, while the 12 and 24 h probabilities "
+            "(`rh*`, `rd*`) are still above 0. About a quarter of the stations lack the last 3 to 9 h of the run, "
+            "and some a block of every day."
+        ),
         ("hourly", "small", "rrs1c"): "Snow-Rain-Equivalent during the last hour",
         ("hourly", "small", "rrs3c"): "Snow-Rain-Equivalent during the last 3 hours",
         ("hourly", "small", "sund1"): "Sunshine duration during the last Hour",
@@ -1244,13 +1287,13 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "hourly",
             "small",
             "tn",
-        ): "Minimum temperature - within the last 12 hours, given at the 00, 06, 12 and 18 UTC steps",
+        ): "Minimum temperature - within the last 12 hours, given at the 06 and 18 UTC steps at most stations",
         ("hourly", "small", "ttt"): "Temperature 2m above surface",
         (
             "hourly",
             "small",
             "tx",
-        ): "Maximum temperature - within the last 12 hours, given at the 00, 06, 12 and 18 UTC steps",
+        ): "Maximum temperature - within the last 12 hours, given at the 06 and 18 UTC steps at most stations",
         ("hourly", "small", "vv"): "Visibility",
         ("hourly", "small", "w1w2"): (
             "Past weather during the last 6 hours, as two digits W1 and W2 (two-digit values from 0 to 99, such "
@@ -1268,6 +1311,83 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "small", "wwm"): "Probability for fog within the last hour",
         ("hourly", "small", "wwm6"): "Probability for fog within the last 6 hours",
         ("hourly", "small", "wwmh"): "Probability for fog within the last 12 hours",
+        ("hourly", "snow", "dd"): "Wind direction",
+        ("hourly", "snow", "ff"): "Wind speed",
+        ("hourly", "snow", "fx1"): "Maximum wind gust within the last hour",
+        ("hourly", "snow", "rr1c"): "Total precipitation during the last hour consistent with significant weather",
+        ("hourly", "snow", "sa3"): (
+            "Accumulated new snow amount in 3 hours, in m. "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sa6"): (
+            "Accumulated new snow amount in 6 hours (amount of 3h values), in m. "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sah"): (
+            "Accumulated new snow amount in 12 hours (amount of 6h values), in m. "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sad"): (
+            "Accumulated new snow amount in 24 hours (amount of 12h values), in m. "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sa605"): (
+            "Probability of > 5cm new snow amount in 6 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sa610"): (
+            "Probability of > 10cm new snow amount in 6 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sa620"): (
+            "Probability of > 20cm new snow amount in 6 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sah05"): (
+            "Probability of > 5cm new snow amount in 12 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sah10"): (
+            "Probability of > 10cm new snow amount in 12 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sah30"): (
+            "Probability of > 30cm new snow amount in 12 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sad10"): (
+            "Probability of > 10cm new snow amount in 24 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sad30"): (
+            "Probability of > 30cm new snow amount in 24 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sad50"): (
+            "Probability of > 50cm new snow amount in 24 hours, in % (0..100). "
+            "Given at the 00, 03, 06, ..., 21 UTC steps for every station and at further steps for some of them "
+            "(the run of 2026-11-14 19 UTC)."
+        ),
+        ("hourly", "snow", "sncv"): (
+            "Snow depth, in m. Given at the 00, 03, 06, ..., 21 UTC steps only (the run of 2026-11-14 19 UTC). "
+            "The model writes the last of a melting snow a little below 0 (-0.01 and -0.02 m); that is returned as "
+            "0.0, with the number kept as `raw:` in `quality_flags` (the check `floor`: `rejected:floor,raw:`), "
+            "down to -5 cm; a lower value is flagged `suspect:range`."
+        ),
+        ("hourly", "snow", "td"): "Dewpoint 2m above surface",
+        ("hourly", "snow", "ttt"): "Temperature 2m above surface",
     },
     "DwdObservationMetadata": {
         ("hourly", "urban_pressure", "luftdruck_nn"): (
@@ -2289,13 +2409,20 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "mean_vapour_pressure"): (
             "Mean vapour pressure of the day, in hPa: the mean of the hourly values that could be calculated "
             "from the hourly mean temperature and mean relative humidity. The source marks some values 0.0 "
-            "with validity false."
+            "with validity false. Not checked itself; for Greenland and the Faroe Islands it is computed from "
+            "however many hourly values exist, even one, and the record's `noValuesInCalculation` says how many "
+            "(the token `n:<count>` of `quality_flags`; fewer than 4, half of the 8 three-hourly synoptic readings "
+            "of older Greenland days, is `suspect:source`)."
         ),
         ("monthly", "data", "mean_vapour_pressure"): (
-            "Mean vapour pressure of the month, in hPa: the average of the underlying daily values."
+            "Mean vapour pressure of the month, in hPa: the average of the underlying daily values. For Greenland and "
+            "the Faroe Islands DMI computes it from however many values exist, even one, and publishes the count as "
+            "`noValuesInCalculation` (the token `n:<count>` of `quality_flags`; fewer than 14 is `suspect:source`)."
         ),
         ("annual", "data", "mean_vapour_pressure"): (
-            "Mean vapour pressure of the year, in hPa: the average of the underlying daily values."
+            "Mean vapour pressure of the year, in hPa: the average of the underlying daily values. For Greenland and "
+            "the Faroe Islands DMI computes it from however many values exist, even one, and publishes the count as "
+            "`noValuesInCalculation` (the token `n:<count>` of `quality_flags`; fewer than 183 is `suspect:source`)."
         ),
         ("monthly", "data", "max_snow_depth"): (
             "Greatest snow depth of the month, in cm: the highest of the underlying daily values of "
@@ -2357,9 +2484,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "leaf_moisture"): (
             "Leaf moisture (in Danish bladfugt), in minutes: the minutes of the day, 0 to 1440, during which the "
             "leaf was wet. The source says the day is the average of the hourly values, but the values are their "
-            "sum (1332.0 at 06135 on 2025-06-10, which no mean of minutes could be). Not quality controlled by "
-            "DMI's climatologists, so data can be erroneous. Some days are outside the day (for example 1442.0 at "
-            "06019 on 2022-05-24 and -799.0 at 06041 on 2023-03-05)."
+            "sum (1332.0 at 06135 on 2025-06-10, which no mean of minutes could be), and DMI customer service said "
+            "(2026-11-12) that the day is computed only when at least 22 hourly values exist. Not quality "
+            "controlled by DMI's climatologists, so data can be erroneous. Some days are outside the day (for example "
+            "1442.0 at 06019 on 2022-05-24 and -799.0 at 06041 on 2023-03-05)."
         ),
         ("hourly", "data", "vapour_pressure_deficit_mean"): (
             "Vapour pressure deficit (in Danish mætningsdeficit), in kPa, to one decimal: the saturation vapour "
@@ -2378,7 +2506,9 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "snow_cover"): (
             "Snow cover, the share of the ground covered by snow, in percent: observed by hand once a day and "
             '"derived directly, but codes are changed to %" (a day of 06:00 to 06:00 UTC, labelled by the date '
-            "it begins). Published from 2011-01-01 to 2015-11-21 only, for 91 stations."
+            "it begins). Published from 2011-01-01 to 2015-11-21 only, for 91 stations. DMI still observes it from "
+            "1 October to 30 April, but publishes the observations only as the metObs parameter `snow_cover_man` "
+            "(codes 0 to 4), which this network does not read."
         ),
         ("monthly", "data", "no_cold_days"): (
             "Number of cold days of the month: the days on which the lowest temperature (min_temp) was less "
@@ -3129,10 +3259,11 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
     },
     "NoaaGhcnMetadata": {
         # daily: the element list of ghcnd-readme.txt (https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt), the
-        # documentation of the `.dly` and `access/<station>.csv` files this provider reads. The rows used to be the
-        # element table of GHCND_documentation.pdf, the documentation of NCEI's Daily Summaries ordering form, where the
-        # user picks metric or standard units ("mm or inches as per user preference"): the files carry one unit, the
-        # readme's (tenths of mm, of degrees C, of m/s), which the reader converts (USW00094846, 2019-07-19: TMAX 339
+        # documentation of the `.dly` files, which the `by_station/<station>.csv.gz` files this provider reads are made
+        # from. The rows used to be the element table of GHCND_documentation.pdf, the documentation of NCEI's Daily
+        # Summaries ordering form, where the user picks metric or standard units ("mm or inches as per user
+        # preference"): the files carry one unit, the readme's (tenths of mm, of degrees C, of m/s), which the reader
+        # converts (USW00094846, 2019-07-19: TMAX 339
         # and AWND 53 are 33.9 degrees and 5.3 m/s; 2019-01-30: SNWD 200 is 20 cm). SN*#, SX*#, WT** and WV** are the
         # readme's code tables, spelled out. hourly: Table 1 of ghcnh_DOCUMENTATION.pdf (version 1.1.0, 2026-03-10).
         ("daily", "data", "tavg"): (
@@ -4605,6 +4736,11 @@ DATASET_DESCRIPTIONS: dict[str, dict[tuple[str, str], str]] = {
             "either, and the probabilities `rd..` come at 06 and 07 UTC for Berlin, 06, 11 and 12 UTC for Los "
             "Angeles. An element a station has no value of is an answer with no rows, not an error. The hours in "
             "the parameter descriptions are DWD's, for Germany (run of 2026-10-28 09 UTC)."
+        ),
+        ("hourly", "snow"): (
+            "MOSMIX-SNOW: forecast of new snow, the probability of new snow above a depth and snow depth for 15 "
+            "stations in the Bavarian Alps, 24 times a day with a lead-time of 48 hours. DWD publishes it from "
+            "November to April only: out of season there is no run and a request for values is a 404."
         ),
     },
     "DwdRoadMetadata": {
