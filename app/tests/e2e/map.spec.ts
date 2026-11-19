@@ -757,6 +757,110 @@ test.describe('the map tool on a phone: groups of stations', () => {
   })
 })
 
+// One tap closes the panel of the layers button (GH-4242). Safari does not focus the button it is tapped: the focus goes to the
+// page behind it (`main`; a tap on the map or its zoom buttons sends it to the map's container), and a panel that closed on that
+// focus in the middle of the tap was opened again by the click of the tap on the button, so the first tap seemed to do nothing.
+// Chrome leaves the focus on the trigger, which the panel ignores, and CI runs this spec in Firefox alone, so the tests move the
+// focus the way Safari does, on the press (run in WebKit, with no help, the button test fails the same way without the fix).
+test.describe('the map tool on a phone: the panel of the layers button', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
+
+  /** What Safari does with a press outside the panel: the focus goes to the page behind it or to the map's container, never to the element that was tapped */
+  async function focusLeavesOnPress(page: Page) {
+    await page.evaluate(() => {
+      document.addEventListener('mousedown', (event) => {
+        const target = event.target as Element
+        if (!target.closest('[data-testid="map-layers-panel"]'))
+          (target.closest<HTMLElement>('.leaflet-container') ?? document.querySelector<HTMLElement>('main'))?.focus()
+      }, true)
+    })
+  }
+
+  test('is closed by one tap on the button, and opened again by the next', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map', GROUPED)
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    await focusLeavesOnPress(page)
+    const button = page.getByTestId('map-layers-button')
+    const panel = page.getByTestId('map-layers-panel')
+    const box = (await button.boundingBox())!
+    const tap = () => page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2)
+    await tap()
+    await expect(panel).toBeVisible()
+    await tap()
+    await expect(panel).toBeHidden()
+    await expect(button).toHaveAttribute('aria-expanded', 'false')
+    // a panel that is closed stays closed (it is not opened by the click that follows), and the next tap opens it
+    await page.waitForTimeout(400)
+    await expect(panel).toBeHidden()
+    await tap()
+    await expect(panel).toBeVisible()
+    await tap()
+    await expect(panel).toBeHidden()
+  })
+
+  test('is closed by one tap on the map, which picks no station and zooms on no group, and a choice in it leaves it open', async ({ page, baseURL }) => {
+    // the panel is 288 px of the phone's 390, so what is tapped is in the strip of the map beside it: a group and a station that is alone, in the west
+    const west = { station_id: 'W1', name: 'WEST POINT', region: null, latitude: 51.2, longitude: 7.9, elevation: 10, start_timestamp: null, end_timestamp: null }
+    const stations = [...dense(49.8, 7.9), west]
+    await open(page, baseURL!, '/map', { stations: () => ({ stations }) })
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    await focusLeavesOnPress(page)
+    const panel = page.getByTestId('map-layers-panel')
+    const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
+    const tapMap = (at: { x: number, y: number }) => page.touchscreen.tap(box.x + box.width / 2 + at.x, box.y + box.height / 2 + at.y)
+    const alone = offsetAtOpening(51.2, 7.9)
+    const group = offsetAtOpening(49.81, 7.91)
+    // a choice in the panel is no press outside it
+    await openLayersByTap(page)
+    await panel.getByTestId('map-grouping').tap()
+    await expect(panel).toBeVisible()
+    await panel.getByTestId('map-grouping').tap()
+    await expect(panel).toBeVisible()
+    // the tap on the map is on a station that is alone, which a tap with the panel shut would pick
+    await tapMap(alone)
+    await expect(panel).toBeHidden()
+    await page.waitForTimeout(400)
+    await expect(page.getByTestId('map-station-name')).toHaveCount(0)
+    // and on the disc of a group, which would zoom in on it
+    await openLayersByTap(page)
+    await tapMap(group)
+    await expect(panel).toBeHidden()
+    await page.waitForTimeout(600)
+    expect(await zoomOf(page)).toBe(6)
+    // the next tap is the map's own again
+    await tapMap(alone)
+    await expect(page.getByTestId('map-station-name')).toHaveText('WEST POINT')
+  })
+
+  test('is closed by one tap on a zoom button of the map, which zooms as well: Leaflet stops the click of that tap', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map', GROUPED)
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    await focusLeavesOnPress(page)
+    await openLayersByTap(page)
+    const zoomIn = page.getByRole('button', { name: en.mapTool.zoomIn })
+    const box = (await zoomIn.boundingBox())!
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2)
+    await expect(page.getByTestId('map-layers-panel')).toBeHidden()
+    await expect.poll(() => zoomOf(page)).toBe(7)
+  })
+
+  test('is closed by Escape, which gives the focus back to the button', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map', GROUPED)
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    await openLayersByTap(page)
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('map-layers-panel')).toBeHidden()
+    await expect(page.getByTestId('map-layers-button')).toBeFocused()
+  })
+})
+
+/** The panel of the layers button, opened by a tap on the button */
+async function openLayersByTap(page: Page) {
+  const box = (await page.getByTestId('map-layers-button').boundingBox())!
+  await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2)
+  await expect(page.getByTestId('map-layers-panel')).toBeVisible()
+}
+
 // A station carried across layers by its WMO number (GH-4077): the forecast point of Hamburg and the measuring station
 // that is the same station (the same number, 0.8 km apart), and a measuring station with no number that is nearer to the point
 const CARRIED_FORECAST = [
