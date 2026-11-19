@@ -18,6 +18,12 @@ Types of changes:
 
 ### Fixed
 
+- The documentation on Read the Docs was not published after 2026-10-24: the PDF build failed on an
+  empty table ("Deprecated today" of the compatibility page, headers only) and took the HTML with
+  it, so newer pages (the table of licences) gave a 404. The page now says that nothing is
+  deprecated, and the Docs workflow builds the LaTeX source too. The links to Frost's default
+  levels and to the release provenance of the security policy no longer fail the link check
+  (GH-4249)
 - A MOSMIX-SNOW snow depth (and sum of new snow) down to -10 cm, which the model writes as round-off
   (-0.07 m in the run of 2026-11-18), is now returned as 0 with the written value kept in
   `quality_flags` (`rejected:floor,raw:-0.07`); the limit was -5 cm. A value further below is kept

@@ -536,7 +536,7 @@ core kept the first row of a time that had a value. Which height a value came fr
 
 **Decided on 2026-11-07: for each time, the standard height of Frost is served where it has a value, otherwise the other
 height.** The standard height is the one `levels=default` answers ("this will exclude any data which is not measured at a
-standard level for each element", Frost's [concepts](https://frost.met.no/concepts2.html#default-level-and-timeoffset)):
+standard level for each element", Frost's [concepts](https://frost.met.no/concepts2.html#level-offset-filter)):
 
 | element | standard height | also at |
 |---|---|---|
