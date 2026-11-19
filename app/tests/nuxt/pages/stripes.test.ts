@@ -174,6 +174,30 @@ describe('stripes Page', () => {
     expect(wrapper.text()).toContain('data visualization designed to communicate')
   })
 
+  it('explains how the colours are made, and what the bars and the table are, in the About text and not under every chart (GH-4233)', async () => {
+    const wrapper = await mountSuspended(StripesPage, { attachTo: document.body })
+    const aboutButton = wrapper.findAll('button').find(b => b.text().includes('About climate stripes'))
+    await aboutButton!.trigger('click')
+    await wrapper.vm.$nextTick()
+
+    const method = wrapper.find('[data-testid="stripes-about-method"]').text()
+    // the centre of the scale, its width, the 16 colours, Ed Hawkins' method, and why a year keeps its colour
+    expect(method).toContain('the mean of 1971–2000 is the centre of the scale')
+    expect(method).toContain('±2.6 standard deviations')
+    expect(method).toContain('16 colours')
+    expect(method).toContain('Ed Hawkins\' method')
+    expect(method).toContain('a year keeps its colour whatever years are shown')
+    expect(method).toContain('whole record')
+    // the table's columns: the class (16 colours, 0.325 standard deviations, five groups) and the anomaly
+    const columns = wrapper.find('[data-testid="stripes-about-columns"]').text()
+    expect(columns).toContain('the class names the 16 colours of the scale, one for each 0.325 standard deviations, in five groups')
+    expect(columns).toContain('The anomaly is the distance from the mean, in the unit of the value')
+    const views = wrapper.find('[data-testid="stripes-about-views"]').text()
+    expect(views).toContain('Bars with scale')
+    expect(views).toContain('Table lists every year')
+    expect(views).toContain('CSV')
+  })
+
   it('clicking Show plots the stripes, and clicking Reset clears the plot', async () => {
     const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
@@ -748,12 +772,17 @@ describe('stripes Page units', () => {
   const colours = () => fillsOf(drawnOption())
   // the sentence the figure is described by, and the head of the table of the years, behind its button
   const sentence = () => document.getElementById(document.body.querySelector('[role="figure"]')?.getAttribute('aria-describedby')?.split(' ')[0] ?? '')?.textContent?.trim() ?? ''
+  // the head of the table, which is a view of its own (GH-4233): the switch is put to it and back to the stripes, which are drawn again
+  const chooseView = (name: string) => [...document.body.querySelectorAll<HTMLButtonElement>('[role="radiogroup"][aria-label="Chart style"] [role="radio"]')].find(button => button.textContent?.trim() === name)!.click()
   async function tableHead() {
     await vi.waitFor(() => expect(sentence()).not.toBe(''))
-    if (!document.body.querySelector('table'))
-      [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Show as table')!.click()
+    chooseView('Table')
     await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
-    return [...document.body.querySelectorAll('table thead th')].map(th => th.textContent?.trim())
+    const head = [...document.body.querySelectorAll('table thead th')].map(th => th.textContent?.trim())
+    chooseView('Stripes')
+    await vi.waitFor(() => expect(document.body.querySelector('[role="figure"]')).not.toBeNull())
+    await vi.waitFor(() => expect(document.body.querySelector('table')).toBeNull())
+    return head
   }
 
   it('asks for degree Celsius by default, and says it in the sentence, the table and the readout', async () => {
@@ -1427,26 +1456,36 @@ describe('stripes Page text alternative', () => {
   }
 
   const figure = () => document.body.querySelector('[role="figure"]')!
-  const toggle = () => [...document.body.querySelectorAll('button')].find(button => button.textContent?.trim() === 'Show as table')
+  const switcher = () => document.body.querySelector<HTMLElement>('[role="radiogroup"][aria-label="Chart style"]')!
+  const radio = (name: string) => [...switcher().querySelectorAll<HTMLButtonElement>('[role="radio"]')].find(button => button.textContent?.trim() === name)!
+  const chooseTable = async () => {
+    radio('Table').click()
+    await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
+  }
+  const reference = () => document.body.querySelector('[data-testid="stripes-reference"]')?.textContent?.trim()
 
-  it('describes the figure by what the stripes show, in words a screen reader reads', async () => {
+  it('describes the figure by what the stripes show, in words a screen reader reads, and points at the table view', async () => {
     await showStripes()
     const description = document.getElementById(figure().getAttribute('aria-describedby')!.split(' ')[0]!)
     expect(description?.textContent?.trim()).toBe(
-      'From 2018 to 2021. Lowest value 8.00 °C in 2018, highest value 10.00 °C in 2021. Colours: the mean of the whole record (2018–2021) is the centre of the scale, which spans ±2.6 standard deviations of the whole record (2018–2021) (Ed Hawkins\' method). The values are in the table below the chart.',
+      'From 2018 to 2021. Lowest value 8.00 °C in 2018, highest value 10.00 °C in 2021. Relative to the station\'s whole record, 2018–2021. The values are in the table: choose “Table” under “Chart style” above the chart.',
     )
   })
 
-  it('offers every year as a table behind a button that says whether it is open, and shows none before', async () => {
+  it('has no table disclosure under the image (GH-4233): the table is a view of the switch', async () => {
     await showStripes()
+    expect([...document.body.querySelectorAll('button')].filter(button => button.textContent?.trim() === 'Show as table')).toEqual([])
     expect(document.body.querySelector('table')).toBeNull()
-    expect(toggle()?.getAttribute('aria-expanded')).toBe('false')
+  })
 
-    toggle()!.click()
-    await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
-    expect(toggle()?.getAttribute('aria-expanded')).toBe('true')
-    // a reader finds the controlled part by id
-    expect(document.getElementById(toggle()!.getAttribute('aria-controls')!)).not.toBeNull()
+  it('offers every year as a table in a view of its own, in the order of the years, with the unit in the header', async () => {
+    await showStripes()
+    const label = figure().getAttribute('aria-label')
+    await chooseTable()
+    expect(radio('Table').getAttribute('aria-checked')).toBe('true')
+    // the chart and its buttons are gone: the table is what is shown
+    expect(document.body.querySelector('[role="figure"]')).toBeNull()
+    expect(document.body.querySelector('.sc-toolbar')).toBeNull()
 
     const table = document.body.querySelector('table')!
     expect([...table.querySelectorAll('thead th')].map(th => [th.textContent?.trim(), th.getAttribute('scope')])).toEqual([
@@ -1462,38 +1501,53 @@ describe('stripes Page text alternative', () => {
       ['th:2019', 'td:9.25', 'td:+0.17', 'td:Middle'],
       ['th:2021', 'td:10.00', 'td:+0.92', 'td:Warmer'],
     ])
-    expect(table.querySelector('caption')?.textContent?.trim()).toBe(figure().getAttribute('aria-label'))
+    expect(table.querySelector('caption')?.textContent?.trim()).toBe(label)
+    // the table is the forecast's, as a view of its own: the whole width, the header and the first column kept in view
+    expect(document.body.querySelector('.values-table')?.className).toContain('max-h-[70vh]')
   })
 
-  it('puts the scrolling table in a region the keyboard reaches, and says what a class is', async () => {
+  it('puts the scrolling table in a region the keyboard reaches, with a name, and no note above it but the short reference line (GH-4233)', async () => {
     await showStripes()
-    toggle()!.click()
-    await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
+    await chooseTable()
     const region = document.body.querySelector('[role="region"]')!
     expect(region.getAttribute('tabindex')).toBe('0')
-    expect(region.getAttribute('aria-label')).toBe(figure().getAttribute('aria-label'))
+    expect(region.getAttribute('aria-label')).toBe('Climate stripes (Temperature) for Berlin-Tempelhof, Germany (1048)')
     expect(region.contains(document.body.querySelector('table'))).toBe(true)
-    expect(document.body.textContent).toContain('Class: how far the year lies from the mean of the reference. The stripes have 16 colours, one for each 0.325 standard deviations')
+    // the caption names the table too
+    expect(document.body.querySelector('table caption')?.textContent?.trim()).toBe(region.getAttribute('aria-label'))
+    // the paragraph above the table is the short line and nothing else: the explanation of the columns is in About, the whole sentence in the file
+    expect(region.previousElementSibling?.getAttribute('data-testid')).toBe('stripes-reference')
+    const text = document.body.textContent!.replace(/\s+/g, ' ')
+    expect(text).not.toContain('Class: how far the year lies')
+    expect(text).not.toContain('Colours: the mean of')
+    expect(text).not.toContain('Ed Hawkins\' method')
   })
 
   it('names the classes of a precipitation series by wet and dry', async () => {
     await showStripes('/stripes?kind=precipitation')
-    toggle()!.click()
-    await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
+    await chooseTable()
     expect([...document.body.querySelectorAll('tbody tr')].map(row => row.lastElementChild?.textContent?.trim())).toEqual(['Drier', 'Middle', 'Wetter'])
   })
 
-  it('says what the colours are relative to under the chart, in view, and the whole record where the station has too few years', async () => {
+  it('says only what this station\'s colours are measured against under the chart, and the whole record where the station has too few years', async () => {
     await showStripes()
-    expect(document.body.querySelector('[data-testid="stripes-reference"]')?.textContent?.trim()).toBe(
-      'Colours: the mean of the whole record (2018–2021) is the centre of the scale, which spans ±2.6 standard deviations of the whole record (2018–2021) (Ed Hawkins\' method).',
-    )
+    expect(reference()).toBe('Relative to the station\'s whole record, 2018–2021')
+    // the method is not under every chart: it is in the About text
+    expect(document.body.textContent).not.toContain('Ed Hawkins\' method')
+  })
+
+  it('says what the bars are drawn from, and keeps the line in the table view', async () => {
+    await showStripes('/stripes?kind=temperature&variant=bars')
+    expect(reference()).toBe('Bars: the difference from the mean of the station\'s whole record, 2018–2021')
+    radio('Table').click()
+    await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
+    expect(reference()).toBe('Relative to the station\'s whole record, 2018–2021')
   })
 
   it('has no table and no description once the stripes are cleared', async () => {
     await showStripes()
     wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Reset')!.trigger('click')
-    await vi.waitFor(() => expect(toggle()).toBeUndefined())
+    await vi.waitFor(() => expect(document.body.querySelector('[role="radiogroup"][aria-label="Chart style"]')).toBeNull())
     // the card goes with them, and the placeholder takes its place (GH-3850)
     await vi.waitFor(() => expect(document.querySelector('[data-testid="tool-placeholder"]')).not.toBeNull())
     expect(document.querySelector('[role="figure"]')).toBeNull()

@@ -651,6 +651,9 @@
     "aboutButton": "Iwwer Klimasträifen",
     "aboutText1": "Klimasträifen (och bekannt als Erwiermungssträifen) sinn eng Datevisualiséierung, déi entworf gouf, fir den laangfristegen Temperaturustig ze kommunizéieren. All Sträif stellt d'Duerchschnëttstemperatur vun engem eenzege Joer duer, wou blo méi kal Joren a rout méi waarm Joren uweist.",
     "aboutText2": "D'Visualiséierung gouf vum Klimawëssenschaftler Ed Hawkins erstallt an ass eng ikonesch Duerstellung vum Klimawandel ginn. Dësen Outil benotzt Daten aus dem Observatiounsnetzwierk vum Däitsche Wiederdéngscht (DWD).",
+    "aboutText3": "Esou ginn d'Faarwen gewielt: den Duerchschnëtt vun 1971–2000 ass d'Mëtt vun der Skala, déi ±2,6 Standardofwäichunge (berechent aus 1901–2000) a 16 Faarwen ëmfaasst, eng fir all 0,325 Standardofwäichungen (Method vum Ed Hawkins). Huet eng Statioun an enger vun dëse Perioden ze wéineg Joren, gëtt hiren Duerchschnëtt oder hir Standardofwäichung amplaz aus hirer ganzer Rei geholl, wat d'Zeil ënner dem Diagramm seet. D'Faarwen ginn aus der ganzer Rei vun der Statioun berechent, net aus de gewisenen Joren; e Joer behält also seng Faarf, wat fir Joren och gewise ginn.",
+    "aboutColumns": "An der Tabell fasst d'Klass déi 16 Faarwen vun der Skala, eng fir all 0,325 Standardofwäichungen, a fënnef Gruppen zesummen, vu vill méi kéel bis vill méi waarm (beim Nidderschlag vu vill méi dréchen bis vill méi naass). D'Ofwäichung ass den Ofstand vum Duerchschnëtt an der Eenheet vum Wäert.",
+    "aboutText4": "Balken zeechne déiselwecht Joren als Balken: D'Héicht vun all Balken ass d'Ofwäichung vum Joer vum Duerchschnëtt vun der Referenzperiod, an der Faarf vu sengem Sträif. Balken mat Skala setzt eng Achs fir dës Ofwäichung an der Eenheet vun de Wäerter derbäi, an eng Joresachs. Tabell lëscht all Joer mat Wäert, Ofwäichung a Klass op a gëtt als CSV-Datei gespäichert.",
     "type": "Wiederelement",
     "typeTemperature": "Temperatur",
     "typePrecipitation": "Néierschlag",
@@ -672,16 +675,20 @@
     "downloadPng": "Als PNG eroflueden",
     "downloadJpg": "Als JPG eroflueden",
     "downloadSvg": "Als SVG eroflueden",
+    "downloadTable": "Tabell eroflueden",
+    "downloadCsv": "Als CSV eroflueden",
     "plotTitle": "Klimasträifen ({kind}) fir {name}, Däitschland ({id})",
     "plotDataAvailability": "Datverfügbarkeet",
     "plotSource": "Quell: Deutscher Wetterdienst",
     "plotReference": "Faarwen: Duerchschnëtt vun {centre}, ±{sigma} σ vun {spread}",
+    "csvLicence": "Lizenz: {name} ({url})",
     "barsRelativeTo": "Relativ zum Duerchschnëtt vun {period}",
     "variant": {
       "label": "Usiicht",
       "stripes": "Sträifen",
       "bars": "Balken",
-      "barsScale": "Balken mat Skala"
+      "barsScale": "Balken mat Skala",
+      "table": "Tabell"
     },
     "hoverValue": "Wäert",
     "chart": {
@@ -697,17 +704,21 @@
       "keysHint": "Mat de Feiltaste gees du jorweis duerch d'Sträifen, mat Bild erop a Bild erof a Schrëtt vun zéng, mat Pos1 an Enn un deen éischten an un deen leschten. Plus, Minus an 0 vergréisseren, verklengeren a setzen zréck. Esc mécht d'Wäerter zou."
     },
     "summary": "Vun {from} bis {to}. Niddregste Wäert {min} am Joer {minYear}, héchste Wäert {max} am Joer {maxYear}.",
+    "tableHint": "D'Wäerter stinn an der Tabell: Wiel „{table}“ ënner „{style}“ iwwer dem Diagramm.",
     "reference": "Faarwen: den Duerchschnëtt vun {centre} ass d'Mëtt vun der Skala, déi ±{sigma} Standardofwäichunge vun {spread} ëmfaasst (Method vum Ed Hawkins).",
     "referenceWhole": "der ganzer Rei ({from}–{to})",
+    "referenceShort": {
+      "stripes": "Bezunn op den Duerchschnëtt vun {centre} (Standardofwäichung aus {spread})",
+      "stripesWhole": "Bezunn op déi ganz Rei vun der Statioun, {from}–{to}",
+      "bars": "Balken: Ofwäichung vum Duerchschnëtt vun {centre} (Standardofwäichung aus {spread})",
+      "barsWhole": "Balken: Ofwäichung vum Duerchschnëtt vun der ganzer Rei vun der Statioun, {from}–{to}",
+      "record": "der ganzer Rei, {from}–{to}"
+    },
     "table": {
       "year": "Joer",
       "value": "Wäert",
       "anomaly": "Ofwäichung",
       "class": "Klass",
-      "note": {
-        "temperature": "Klass: wéi wäit d'Joer vum Duerchschnëtt vun der Referenz ewech läit. D'Sträife hunn 16 Faarwen, eng fir all 0,325 Standardofwäichungen, vun Donkelblo (kéelst) bis Donkelrout (waarmst); d'Klass fasst si a fënnef Gruppen zesummen. Ofwäichung: den Ofstand vum Duerchschnëtt an der Eenheet vum Wäert.",
-        "precipitation": "Klass: wéi wäit d'Joer vum Duerchschnëtt vun der Referenz ewech läit. D'Sträife hunn 16 Faarwen, eng fir all 0,325 Standardofwäichungen, vu Brong (dréchenst) bis Donkelgréng (naasst); d'Klass fasst si a fënnef Gruppen zesummen. Ofwäichung: den Ofstand vum Duerchschnëtt an der Eenheet vum Wäert."
-      },
       "classes": {
         "temperature": {
           "veryLow": "Vill méi kéel",

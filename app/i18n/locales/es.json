@@ -651,6 +651,9 @@
     "aboutButton": "Acerca de las franjas climáticas",
     "aboutText1": "Las franjas climáticas (también conocidas como franjas del calentamiento) son una visualización de datos diseñada para comunicar el aumento de las temperaturas a largo plazo. Cada franja representa la temperatura media de un único año; el azul indica los años más fríos y el rojo, los más cálidos.",
     "aboutText2": "La visualización fue creada por el climatólogo Ed Hawkins y se ha convertido en una representación icónica del cambio climático. Esta herramienta utiliza datos de la red de observación del Servicio Meteorológico Alemán (DWD).",
+    "aboutText3": "Cómo se eligen los colores: la media de 1971–2000 es el centro de la escala, que abarca ±2,6 desviaciones típicas (calculadas a partir de 1901–2000) en 16 colores, uno por cada 0,325 desviaciones típicas (método de Ed Hawkins). Si una estación tiene muy pocos años en uno de esos periodos, su media o su dispersión se toma en su lugar de toda su serie, como dice la línea bajo el gráfico. Los colores se calculan con toda la serie de la estación, no con los años mostrados, así que un año conserva su color sean cuales sean los años que se muestran.",
+    "aboutColumns": "En la tabla, la clase nombra en cinco grupos los 16 colores de la escala, uno por cada 0,325 desviaciones típicas, de mucho más fresco a mucho más cálido (en la precipitación, de mucho más seco a mucho más húmedo). La anomalía es la distancia a la media, en la unidad del valor.",
+    "aboutText4": "Las barras dibujan los mismos años como barras: la altura de cada una es la diferencia del año respecto a la media del periodo de referencia, con el color de su franja. Barras con escala añade un eje para esa diferencia, en la unidad de los valores, y un eje de años. Tabla enumera cada año con su valor, anomalía y clase, y se puede guardar como archivo CSV.",
     "type": "Elemento meteorológico",
     "typeTemperature": "Temperatura",
     "typePrecipitation": "Precipitación",
@@ -672,16 +675,20 @@
     "downloadPng": "Descargar como PNG",
     "downloadJpg": "Descargar como JPG",
     "downloadSvg": "Descargar como SVG",
+    "downloadTable": "Descargar la tabla",
+    "downloadCsv": "Descargar como CSV",
     "plotTitle": "Franjas climáticas ({kind}) para {name}, Alemania ({id})",
     "plotDataAvailability": "Disponibilidad de datos",
     "plotSource": "Fuente: Deutscher Wetterdienst",
     "plotReference": "Colores: media de {centre}, ±{sigma} σ de {spread}",
+    "csvLicence": "Licencia: {name} ({url})",
     "barsRelativeTo": "Relativo a la media de {period}",
     "variant": {
       "label": "Vista",
       "stripes": "Franjas",
       "bars": "Barras",
-      "barsScale": "Barras con escala"
+      "barsScale": "Barras con escala",
+      "table": "Tabla"
     },
     "hoverValue": "Valor",
     "chart": {
@@ -697,17 +704,21 @@
       "keysHint": "Las teclas de flecha recorren los años, Re Pág y Av Pág de diez en diez, Inicio y Fin van al primero y al último. Más, menos y 0 acercan, alejan y restablecen. Escape cierra los valores."
     },
     "summary": "De {from} a {to}. Valor más bajo: {min} en {minYear}; valor más alto: {max} en {maxYear}.",
+    "tableHint": "Los valores están en la tabla: elige «{table}» en «{style}», encima del gráfico.",
     "reference": "Colores: la media de {centre} es el centro de la escala, que abarca ±{sigma} desviaciones típicas de {spread} (método de Ed Hawkins).",
     "referenceWhole": "toda la serie ({from}–{to})",
+    "referenceShort": {
+      "stripes": "Relativo a la media de {centre} (dispersión de {spread})",
+      "stripesWhole": "Relativo a toda la serie de la estación, {from}–{to}",
+      "bars": "Barras: la diferencia respecto a la media de {centre} (dispersión de {spread})",
+      "barsWhole": "Barras: la diferencia respecto a la media de toda la serie de la estación, {from}–{to}",
+      "record": "toda la serie, {from}–{to}"
+    },
     "table": {
       "year": "Año",
       "value": "Valor",
       "anomaly": "Anomalía",
       "class": "Clase",
-      "note": {
-        "temperature": "Clase: a qué distancia de la media de la referencia queda el año. Las franjas tienen 16 colores, uno por cada 0,325 desviaciones típicas, del azul oscuro (más fresco) al rojo oscuro (más cálido); la clase los nombra en cinco grupos. Anomalía: la distancia a la media, en la unidad del valor.",
-        "precipitation": "Clase: a qué distancia de la media de la referencia queda el año. Las franjas tienen 16 colores, uno por cada 0,325 desviaciones típicas, del marrón (más seco) al verde oscuro (más húmedo); la clase los nombra en cinco grupos. Anomalía: la distancia a la media, en la unidad del valor."
-      },
       "classes": {
         "temperature": {
           "veryLow": "Mucho más fresco",

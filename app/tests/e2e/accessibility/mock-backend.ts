@@ -332,6 +332,18 @@ function snowValues(url: URL, now: Date): Record<string, unknown> {
 function stripesValues(station: string | null): StripesValuesResponse {
   const found = STRIPES_STATIONS.find(candidate => candidate.station_id === station) ?? STRIPES_STATIONS[0]!
   return {
+    // the part of the answer's `metadata` the stripes read: who the data is from, under which licence (the table's file carries both, GH-4233)
+    metadata: {
+      provider: {
+        name_local: 'Deutscher Wetterdienst',
+        name_english: 'German Weather Service',
+        country: 'Germany',
+        copyright: '© Deutscher Wetterdienst (DWD), Climate Data Center (CDC)',
+        url: 'https://www.dwd.de',
+        license: { spdx_id: 'CC-BY-4.0', name: 'Creative Commons Attribution 4.0 International', url: 'https://creativecommons.org/licenses/by/4.0/' },
+        attribution: 'Source: Deutscher Wetterdienst',
+      },
+    } as StripesValuesResponse['metadata'],
     series: { station: found, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
     // a warming curve with a wobble, so the stripes run from blue to red, with the classes the backend gives them
     ...stripesAnswer(Array.from({ length: 70 }, (_, index) => ({

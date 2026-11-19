@@ -646,14 +646,14 @@ for (const [width, height] of [[390, 844], [1280, 900]] as const) {
     // the record warms: it starts in the blue half and ends in the red half
     expect(TEMPERATURE_PALETTE.indexOf(drawn[0]!)).toBeLessThan(8)
     expect(TEMPERATURE_PALETTE.indexOf(drawn.at(-1)!)).toBeGreaterThanOrEqual(8)
-    // and says what the colours are relative to, in view
-    await expect(page.getByTestId('stripes-reference')).toContainText('Colours: the mean of 1971–2000 is the centre of the scale, which spans ±2.6 standard deviations of 1955–2000')
+    // and says what the colours are relative to, in view, in one short line (the method is in the About text, GH-4233)
+    await expect(page.getByTestId('stripes-reference')).toHaveText('Relative to the mean of 1971–2000 (spread from 1955–2000)')
   })
 }
 
 test('the table of the years has each one\'s anomaly and class', async ({ page, baseURL }) => {
   await showStripes(page, baseURL!)
-  await page.getByRole('button', { name: 'Show as table' }).click()
+  await page.getByRole('radio', { name: 'Table', exact: true }).click()
   await expect(page.locator('table thead th')).toHaveText(['Year', 'Value (°C)', 'Anomaly (°C)', 'Class'])
   const first = page.locator('table tbody tr').first()
   await expect(first.locator('th')).toHaveText('1955')
@@ -681,7 +681,7 @@ function barsOnPage(page: Page) {
 test.describe('the stripes as bars', () => {
   test('are chosen with the switch, which names the three and says the one drawn, and are kept in the link', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!)
-    await expect(variantSwitch(page).getByRole('radio')).toHaveText(['Stripes', 'Bars', 'Bars with scale'])
+    await expect(variantSwitch(page).getByRole('radio')).toHaveText(['Stripes', 'Bars', 'Bars with scale', 'Table'])
     await expect(variantOption(page, 'Stripes')).toHaveAttribute('aria-checked', 'true')
     const stripes = await barsOnPage(page)
     // stripes are as high as each other
@@ -825,6 +825,178 @@ test.describe('the stripes as bars', () => {
       // each of the three options is whole: its text is not cut by its own box
       const cut = await variantSwitch(page).getByRole('radio').evaluateAll(options => options.filter(option => option.scrollWidth > option.clientWidth + 1).map(option => option.textContent))
       expect(cut).toEqual([])
+    })
+  }
+})
+
+// The table is the fourth view of the same switch (GH-4233): a view of its own, in the link as variant=table, saved as CSV, printed as
+// a table. The forecast's table is the component.
+test.describe('the table as a view', () => {
+  const table = (page: Page) => page.locator('table')
+  async function showTable(page: Page, baseURL: string, path = `${PATH}&variant=table`) {
+    await mockBackend(page, baseURL)
+    await page.goto(path)
+    await fetchButton(page).click()
+    await expect(table(page)).toBeVisible()
+  }
+
+  for (const [width, height, name] of [[390, 844, 'a phone'], [1280, 900, 'a desktop']] as const) {
+    test(`is chosen with the switch and left with it, and the chart is drawn again where it was left, on ${name}`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width, height })
+      await showStripes(page, baseURL!, `${PATH}&variant=bars`)
+      await expect(table(page)).toHaveCount(0)
+
+      await variantOption(page, 'Table').click()
+      await expect(variantOption(page, 'Table')).toHaveAttribute('aria-checked', 'true')
+      await expect(table(page)).toBeVisible()
+      await expect(page).toHaveURL(/[?&]variant=table(&|$)/)
+      // the chart and its buttons are gone: the table is what there is
+      await expect(page.locator('.sc-stage')).toHaveCount(0)
+      await expect(page.getByRole('button', { name: 'Zoom in' })).toHaveCount(0)
+      await expect(table(page).locator('tbody tr')).toHaveCount(70)
+      // the table has a caption, a header a screen reader reads and the unit in the header
+      await expect(table(page).locator('caption')).toHaveText(/Climate stripes \(Temperature\) for /)
+      await expect(table(page).locator('thead th')).toHaveText(['Year', 'Value (°C)', 'Anomaly (°C)', 'Class'])
+      // in the order of the years
+      const years = (await table(page).locator('tbody th').allTextContents()).map(Number)
+      expect(years).toEqual([...years].sort((a, b) => a - b))
+      // nothing wider than the window: no horizontal scroll of the page
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+
+      // back: the bars, which were chosen last, and not the stripes
+      await variantOption(page, 'Bars').click()
+      await expect(chartSvg(page)).toBeVisible()
+      await expect(table(page)).toHaveCount(0)
+      await expect(page).toHaveURL(/[?&]variant=bars(&|$)/)
+    })
+  }
+
+  test('keeps variant=table in the link, and opens it from the link, also after a reload', async ({ page, baseURL }) => {
+    await showTable(page, baseURL!)
+    await expect(variantOption(page, 'Table')).toHaveAttribute('aria-checked', 'true')
+    await expect(page.locator('.sc-stage')).toHaveCount(0)
+    await expect(page).toHaveURL(/[?&]variant=table(&|$)/)
+    await page.reload()
+    // the values are fetched with Show; what the link says is what they are shown as
+    await fetchButton(page).click()
+    await expect(table(page)).toBeVisible()
+    await expect(variantOption(page, 'Table')).toHaveAttribute('aria-checked', 'true')
+    await expect(page).toHaveURL(/[?&]variant=table(&|$)/)
+  })
+
+  test('is reached from the switch by the keyboard, as the other views are', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!, `${PATH}&variant=bars_scale`)
+    await variantOption(page, 'Bars with scale').focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(variantOption(page, 'Table')).toHaveAttribute('aria-checked', 'true')
+    await expect(variantOption(page, 'Table')).toBeFocused()
+    await expect(table(page)).toBeVisible()
+    await page.keyboard.press('ArrowLeft')
+    await expect(variantOption(page, 'Bars with scale')).toHaveAttribute('aria-checked', 'true')
+    await expect(chartSvg(page)).toBeVisible()
+  })
+
+  test('has the short line above the table and no note, with the method and the columns explained in About', async ({ page, baseURL }) => {
+    await showTable(page, baseURL!)
+    await expect(page.getByTestId('stripes-reference')).toHaveText('Relative to the mean of 1971–2000 (spread from 1955–2000)')
+    // nothing between the short line and the table: the whole sentence is in the file, the columns are explained in About
+    await expect(page.getByText('Class: how far the year lies')).toHaveCount(0)
+    await expect(page.getByText('Ed Hawkins\' method')).toHaveCount(0)
+    await expect(page.locator('.values-table')).toHaveAttribute('aria-label', /^Climate stripes \(Temperature\) for /)
+    await page.getByRole('button', { name: 'About climate stripes' }).first().click()
+    await expect(page.getByTestId('stripes-about-method')).toContainText('a year keeps its colour whatever years are shown')
+    await expect(page.getByTestId('stripes-about-columns')).toContainText('The anomaly is the distance from the mean, in the unit of the value')
+    await expect(page.getByTestId('stripes-about-views')).toContainText('Table lists every year')
+  })
+
+  test('offers the CSV in the download menu, and saves the table with the unit in its header and the reference, credit and licence as comments', async ({ page, baseURL }) => {
+    await showTable(page, baseURL!)
+    await page.getByRole('button', { name: 'Download table' }).click()
+    await expect(page.getByRole('menuitem')).toHaveText(['Download as CSV'])
+    const saved = page.waitForEvent('download')
+    await page.getByRole('menuitem', { name: 'Download as CSV' }).click()
+    const download = await saved
+    expect(download.suggestedFilename()).toMatch(/^climate_stripes_temperature_00011_.+\.csv$/)
+    const file = readFileSync((await download.path())!)
+    // a UTF-8 byte order mark first, for Excel
+    expect([...file.subarray(0, 3)]).toEqual([0xEF, 0xBB, 0xBF])
+    const lines = file.toString('utf8').replace(/^\uFEFF/, '').trimEnd().split('\n')
+    const comments = lines.filter(line => line.startsWith('# '))
+    expect(comments).toHaveLength(4)
+    expect(comments[0]).toMatch(/^# Climate stripes \(Temperature\) for /)
+    expect(comments[1]).toBe('# Colours: the mean of 1971–2000 is the centre of the scale, which spans ±2.6 standard deviations of 1955–2000 (Ed Hawkins\' method).')
+    expect(comments[2]).toBe('# Source: Deutscher Wetterdienst')
+    expect(comments[3]).toBe('# Licence: Creative Commons Attribution 4.0 International (https://creativecommons.org/licenses/by/4.0/)')
+    const rows = lines.slice(comments.length)
+    expect(rows[0]).toBe('Year,Value (°C),Anomaly (°C),Class')
+    expect(rows).toHaveLength(71)
+    expect(rows[1]).toMatch(/^1955,\d+\.\d{2},-\d+\.\d{2},/)
+    expect(rows.at(-1)).toMatch(/^2024,\d+\.\d{2},-?\d+\.\d{2},/)
+  })
+
+  test('keeps the image downloads in the views that draw', async ({ page, baseURL }) => {
+    await showStripes(page, baseURL!)
+    await page.getByRole('button', { name: 'Download image' }).click()
+    await expect(page.getByRole('menuitem')).toHaveText(['Download as PNG', 'Download as JPG', 'Download as SVG'])
+  })
+
+  test('prints as a table, whole, and not as the chart', async ({ page, baseURL }) => {
+    await showTable(page, baseURL!)
+    await page.emulateMedia({ media: 'print' })
+    const region = page.locator('.values-table')
+    // not cut off at the height of its scroll box, and nothing of the chart
+    const box = await region.evaluate((element) => {
+      const style = getComputedStyle(element)
+      return { overflow: style.overflow, maxHeight: style.maxHeight, fits: element.scrollHeight <= element.clientHeight + 1 }
+    })
+    expect(box).toEqual({ overflow: 'visible', maxHeight: 'none', fits: true })
+    await expect(page.locator('.sc-stage')).toHaveCount(0)
+    await expect(table(page).locator('tbody tr')).toHaveCount(70)
+    // the header text is dark on the paper: the page is printed light, whatever the screen's scheme
+    const colour = await table(page).locator('thead th').first().evaluate(element => getComputedStyle(element).color)
+    expect(luminance(colour)).toBeLessThan(0.2)
+  })
+})
+
+// The switch of the four views on a phone of 320 px (GH-4233): two rows of two segments, as wide as the chart, each 44 px high. In a row of four
+// the labels ("Streifen", "Balken", "Tabelle") ran 3 px past their segments in Firefox, whose text is wider than Chromium's, so the room is held
+// with a margin: the text is made a tenth wider again (letter-spacing) and still has to fit, in every language, in whichever engine runs.
+test.describe('the switch of the four views at 320 px', () => {
+  for (const language of ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb'] as const) {
+    test(`fits its segments with a margin, and keeps 44 px targets and its keys, in ${language}`, async ({ page, baseURL, context }) => {
+      const catalog = JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${language}.json`, import.meta.url)), 'utf-8'))
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await page.setViewportSize({ width: 320, height: 844 })
+      await mockBackend(page, baseURL!)
+      await page.goto(`${PATH}&variant=bars_scale`)
+      await page.getByRole('button', { name: catalog.common.fetch, exact: true }).click()
+      await expect(chartSvg(page)).toBeVisible()
+      await page.addStyleTag({ content: '.sc-controls [role="radio"] { letter-spacing: 0.1em !important; }' })
+      // the group is named in the language of the page: found by its place
+      const radios = page.locator('.sc-controls [role="radiogroup"] [role="radio"]')
+      await expect(radios).toHaveCount(4)
+      const boxes = await radios.evaluateAll(options => options.map((option) => {
+        const box = option.getBoundingClientRect()
+        const group = option.parentElement!.getBoundingClientRect()
+        return { text: option.textContent, width: box.width, height: box.height, left: box.left, right: box.right, groupLeft: group.left, groupRight: group.right, cut: option.scrollWidth > option.clientWidth + 1 }
+      }))
+      for (const box of boxes) {
+        expect(box.cut, `"${box.text}" is whole in its segment`).toBe(false)
+        expect(box.height, `"${box.text}" is 44 px high`).toBeGreaterThanOrEqual(43.99)
+        expect(box.left).toBeGreaterThanOrEqual(box.groupLeft - 1)
+        expect(box.right).toBeLessThanOrEqual(box.groupRight + 1)
+      }
+      // two rows of two: the first and the second segment on one row, the third and the fourth under them
+      expect(Math.abs(boxes[0]!.left - boxes[2]!.left)).toBeLessThan(1)
+      expect(boxes[2]!.height).toBeGreaterThan(0)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'the page does not scroll sideways').toBe(true)
+      // the keys of the group are the same: the arrow keys go along the four in their order, and End goes to the table
+      await radios.first().focus()
+      await page.keyboard.press('End')
+      await expect(radios.nth(3)).toBeChecked()
+      await expect(radios.nth(3)).toBeFocused()
+      await page.keyboard.press('ArrowLeft')
+      await expect(radios.nth(2)).toBeChecked()
     })
   }
 })

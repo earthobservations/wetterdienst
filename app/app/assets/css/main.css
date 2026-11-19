@@ -440,6 +440,20 @@
   .stripes-chart {
     break-inside: avoid;
   }
+  /* Every ValuesTable scrolls in a box on the screen (a `full` one, the stripes' and the forecast's views, up to 70 vh; the widget's, inside
+     ChartTable, up to 24 rem); on paper each is printed whole, a row to a line, with its header at the top of every sheet it runs over, and
+     not cut off at the box's height. That holds for all of them, not for the stripes' alone (the Explorer's table is the data viewer's own) */
+  .values-table {
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  .values-table th {
+    position: static !important;
+  }
+  .values-table thead {
+    display: table-header-group;
+  }
   /* The Explorer's chart (ECharts, SVG) is drawn again in the light theme before the print is laid out, and is printed as it
      shows: the window of time on the screen, the series its legend has on, scaled to the width of the sheet like a picture,
      without the buttons, the legend's buttons (the legend itself is in the SVG), the crosshair and the readout */

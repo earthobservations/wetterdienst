@@ -651,6 +651,9 @@
     "aboutButton": "Informazioni sulle strisce climatiche",
     "aboutText1": "Le strisce climatiche (note anche come strisce del riscaldamento) sono una visualizzazione di dati pensata per comunicare l'aumento delle temperature a lungo termine. Ogni striscia rappresenta la temperatura media di un singolo anno: il blu indica gli anni più freddi e il rosso quelli più caldi.",
     "aboutText2": "La visualizzazione è stata creata dal climatologo Ed Hawkins ed è diventata una rappresentazione iconica del cambiamento climatico. Questo strumento utilizza i dati della rete di osservazione del Servizio Meteorologico Tedesco (DWD).",
+    "aboutText3": "Come vengono scelti i colori: la media del 1971–2000 è il centro della scala, che copre ±2,6 deviazioni standard (calcolate su 1901–2000) in 16 colori, uno per ogni 0,325 deviazioni standard (metodo di Ed Hawkins). Se una stazione ha troppo pochi anni in uno di questi periodi, la sua media o la sua dispersione vengono prese invece da tutta la sua serie, come dice la riga sotto il grafico. I colori sono calcolati su tutta la serie della stazione e non sugli anni mostrati, così un anno mantiene il proprio colore qualunque siano gli anni mostrati.",
+    "aboutColumns": "Nella tabella, la classe indica in cinque gruppi i 16 colori della scala, uno ogni 0,325 deviazioni standard, da molto più fresco a molto più caldo (per le precipitazioni, da molto più secco a molto più piovoso). L'anomalia è la distanza dalla media, nell'unità del valore.",
+    "aboutText4": "Le barre disegnano gli stessi anni come barre: l'altezza di ciascuna è la differenza dell'anno dalla media del periodo di riferimento, nel colore della sua striscia. Barre con scala aggiunge un asse per quella differenza, nell'unità dei valori, e un asse degli anni. Tabella elenca ogni anno con valore, anomalia e classe e si può salvare come file CSV.",
     "type": "Elemento meteorologico",
     "typeTemperature": "Temperatura",
     "typePrecipitation": "Precipitazioni",
@@ -672,16 +675,20 @@
     "downloadPng": "Scarica come PNG",
     "downloadJpg": "Scarica come JPG",
     "downloadSvg": "Scarica come SVG",
+    "downloadTable": "Scarica la tabella",
+    "downloadCsv": "Scarica come CSV",
     "plotTitle": "Strisce climatiche ({kind}) per {name}, Germania ({id})",
     "plotDataAvailability": "Disponibilità dei dati",
     "plotSource": "Fonte: Deutscher Wetterdienst",
     "plotReference": "Colori: media di {centre}, ±{sigma} σ di {spread}",
+    "csvLicence": "Licenza: {name} ({url})",
     "barsRelativeTo": "Relativo alla media di {period}",
     "variant": {
       "label": "Vista",
       "stripes": "Strisce",
       "bars": "Barre",
-      "barsScale": "Barre con scala"
+      "barsScale": "Barre con scala",
+      "table": "Tabella"
     },
     "hoverValue": "Valore",
     "chart": {
@@ -697,17 +704,21 @@
       "keysHint": "I tasti freccia scorrono gli anni, Pag su e Pag giù di dieci in dieci, Home e Fine vanno al primo e all'ultimo. Più, meno e 0 ingrandiscono, riducono e reimpostano. Esc chiude i valori."
     },
     "summary": "Da {from} a {to}. Valore più basso: {min} nel {minYear}; valore più alto: {max} nel {maxYear}.",
+    "tableHint": "I valori sono nella tabella: scegli «{table}» in «{style}», sopra il grafico.",
     "reference": "Colori: la media di {centre} è il centro della scala, che copre ±{sigma} deviazioni standard di {spread} (metodo di Ed Hawkins).",
     "referenceWhole": "tutta la serie ({from}–{to})",
+    "referenceShort": {
+      "stripes": "Relativo alla media di {centre} (dispersione di {spread})",
+      "stripesWhole": "Relativo a tutta la serie della stazione, {from}–{to}",
+      "bars": "Barre: la differenza dalla media di {centre} (dispersione di {spread})",
+      "barsWhole": "Barre: la differenza dalla media di tutta la serie della stazione, {from}–{to}",
+      "record": "tutta la serie, {from}–{to}"
+    },
     "table": {
       "year": "Anno",
       "value": "Valore",
       "anomaly": "Anomalia",
       "class": "Classe",
-      "note": {
-        "temperature": "Classe: a che distanza dalla media del riferimento si trova l'anno. Le strisce hanno 16 colori, uno ogni 0,325 deviazioni standard, dal blu scuro (più fresco) al rosso scuro (più caldo); la classe li indica in cinque gruppi. Anomalia: la distanza dalla media, nell'unità del valore.",
-        "precipitation": "Classe: a che distanza dalla media del riferimento si trova l'anno. Le strisce hanno 16 colori, uno ogni 0,325 deviazioni standard, dal marrone (più secco) al verde scuro (più piovoso); la classe li indica in cinque gruppi. Anomalia: la distanza dalla media, nell'unità del valore."
-      },
       "classes": {
         "temperature": {
           "veryLow": "Molto più fresco",

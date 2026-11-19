@@ -20,6 +20,27 @@ export interface StripesInput {
 export const STRIPES_VARIANTS = ['stripes', 'bars', 'barsScale'] as const
 export type StripesVariant = (typeof STRIPES_VARIANTS)[number]
 
+/**
+ * What the page shows of the years (GH-4233): the three ways to draw them, and the table, which is a view of its own beside
+ * them and draws nothing. It is the fourth choice of the same switch; the drawing keeps `StripesVariant`.
+ */
+export const STRIPES_VIEWS = [...STRIPES_VARIANTS, 'table'] as const
+export type StripesView = (typeof STRIPES_VIEWS)[number]
+
+/** How a view is written in the link (`variant=bars_scale`): `bars_scale` for the bars with a scale, the others by their name */
+export const STRIPES_VIEW_QUERY: Record<StripesView, string> = { stripes: 'stripes', bars: 'bars', barsScale: 'bars_scale', table: 'table' }
+
+/** The view a `variant` of the link names; a name that is none of them is no choice, and the reader gets the stripes */
+export function stripesViewFromQuery(value: unknown): StripesView {
+  const name = Array.isArray(value) ? value[0] : value
+  return STRIPES_VIEWS.find(view => STRIPES_VIEW_QUERY[view] === name) ?? 'stripes'
+}
+
+/** The view is one of the drawings, which have a chart, a toolbar and an image to save (the table has none) */
+export function isStripesDrawing(view: StripesView): view is StripesVariant {
+  return view !== 'table'
+}
+
 export interface StripesModel {
   /** the years that have a value, in the order of the answer */
   years: number[]

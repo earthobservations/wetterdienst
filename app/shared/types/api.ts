@@ -203,7 +203,7 @@ export type StripesSeries = Reads<Omit<Schemas['StripesSeries'], 'station'> & { 
 /** What the classes of the stripes are relative to: the mean of the centre, the standard deviation of the spread, the years each is calculated from and whether the whole record stood in for the period of the method */
 export type StripesReference = Schemas['StripesReference']
 
-/** The answer of `GET /api/stripes/values`, the `metadata` block every answer has (licence, resolved request, warnings, ...) not read */
+/** The answer of `GET /api/stripes/values`; of the `metadata` block every answer has, the stripes' table file reads the provider's credit and licence (GH-4233), the rest (resolved request, warnings, ...) is not read */
 export type StripesValuesResponse = Reads<Omit<Schemas['_StripesValuesWithMetadataDict'], 'series' | 'values' | 'reference'> & { series: StripesSeries, values: StripesValueItem[], reference: StripesReference }, 'series' | 'values' | 'reference'>
 
 export type StripesValuesQuery = Query<'stripes_values_api_stripes_values_get'>

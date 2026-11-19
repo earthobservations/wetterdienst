@@ -651,6 +651,9 @@
     "aboutButton": "Om klimastriber",
     "aboutText1": "Klimastriber (også kendt som opvarmningsstriber) er en datavisualisering, der er designet til at formidle den langsigtede temperaturstigning. Hver stribe repræsenterer gennemsnitstemperaturen for et enkelt år, hvor blå angiver køligere år og rød varmere år.",
     "aboutText2": "Visualiseringen blev skabt af klimaforskeren Ed Hawkins og er blevet en ikonisk fremstilling af klimaforandringer. Dette værktøj bruger data fra den tyske vejrtjenestes (DWD) observationsnetværk.",
+    "aboutText3": "Sådan vælges farverne: gennemsnittet af 1971–2000 er skalaens midte, som spænder over ±2,6 standardafvigelser (beregnet ud fra 1901–2000) i 16 farver, én for hver 0,325 standardafvigelse (Ed Hawkins' metode). Har en station for få år i en af disse perioder, tages dens gennemsnit eller dens spredning i stedet fra hele rækken, hvilket linjen under diagrammet siger. Farverne beregnes ud fra stationens hele række og ikke ud fra de viste år, så et år beholder sin farve, uanset hvilke år der vises.",
+    "aboutColumns": "I tabellen navngiver klassen skalaens 16 farver, én for hver 0,325 standardafvigelse, i fem grupper, fra meget køligere til meget varmere (for nedbør fra meget tørrere til meget vådere). Afvigelsen er afstanden til gennemsnittet i værdiens enhed.",
+    "aboutText4": "Søjler tegner de samme år som søjler: højden af hver er årets afvigelse fra gennemsnittet af referenceperioden, i farven fra dens stribe. Søjler med skala tilføjer en akse for denne afvigelse i værdiernes enhed og en årsakse. Tabel viser hvert år med værdi, afvigelse og klasse og kan gemmes som en CSV-fil.",
     "type": "Vejrelement",
     "typeTemperature": "Temperatur",
     "typePrecipitation": "Nedbør",
@@ -672,16 +675,20 @@
     "downloadPng": "Download som PNG",
     "downloadJpg": "Download som JPG",
     "downloadSvg": "Download som SVG",
+    "downloadTable": "Download tabel",
+    "downloadCsv": "Download som CSV",
     "plotTitle": "Klimastriber ({kind}) for {name}, Tyskland ({id})",
     "plotDataAvailability": "Datatilgængelighed",
     "plotSource": "Kilde: Deutscher Wetterdienst",
     "plotReference": "Farver: gennemsnit af {centre}, ±{sigma} σ af {spread}",
+    "csvLicence": "Licens: {name} ({url})",
     "barsRelativeTo": "Relativt til gennemsnittet af {period}",
     "variant": {
       "label": "Visning",
       "stripes": "Striber",
       "bars": "Søjler",
-      "barsScale": "Søjler med skala"
+      "barsScale": "Søjler med skala",
+      "table": "Tabel"
     },
     "hoverValue": "Værdi",
     "chart": {
@@ -697,17 +704,21 @@
       "keysHint": "Piletasterne går gennem årene, Page Up og Page Down ti år ad gangen, Home og End til det første og det sidste. Plus, minus og 0 zoomer ind, zoomer ud og nulstiller. Escape lukker værdierne."
     },
     "summary": "Fra {from} til {to}. Laveste værdi {min} i {minYear}, højeste værdi {max} i {maxYear}.",
+    "tableHint": "Værdierne står i tabellen: vælg “{table}” under “{style}” over diagrammet.",
     "reference": "Farver: gennemsnittet af {centre} er skalaens midte, som spænder over ±{sigma} standardafvigelser af {spread} (Ed Hawkins' metode).",
     "referenceWhole": "hele rækken ({from}–{to})",
+    "referenceShort": {
+      "stripes": "Relativt til gennemsnittet af {centre} (spredning fra {spread})",
+      "stripesWhole": "Relativt til stationens hele række, {from}–{to}",
+      "bars": "Søjler: afvigelsen fra gennemsnittet af {centre} (spredning fra {spread})",
+      "barsWhole": "Søjler: afvigelsen fra gennemsnittet af stationens hele række, {from}–{to}",
+      "record": "hele rækken, {from}–{to}"
+    },
     "table": {
       "year": "År",
       "value": "Værdi",
       "anomaly": "Afvigelse",
       "class": "Klasse",
-      "note": {
-        "temperature": "Klasse: hvor langt året ligger fra referencens gennemsnit. Striberne har 16 farver, én for hver 0,325 standardafvigelse, fra mørkeblå (køligst) til mørkerød (varmest); klassen navngiver dem i fem grupper. Afvigelse: afstanden til gennemsnittet i værdiens enhed.",
-        "precipitation": "Klasse: hvor langt året ligger fra referencens gennemsnit. Striberne har 16 farver, én for hver 0,325 standardafvigelse, fra brun (tørrest) til mørkegrøn (vådest); klassen navngiver dem i fem grupper. Afvigelse: afstanden til gennemsnittet i værdiens enhed."
-      },
       "classes": {
         "temperature": {
           "veryLow": "Meget køligere",

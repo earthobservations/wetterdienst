@@ -651,6 +651,9 @@
     "aboutButton": "O klimatických pruzích",
     "aboutText1": "Klimatické pruhy (známé také jako pruhy oteplování) jsou vizualizace dat navržená ke sdělení dlouhodobého růstu teplot. Každý pruh představuje průměrnou teplotu jednoho roku, přičemž modrá značí chladnější roky a červená teplejší roky.",
     "aboutText2": "Vizualizaci vytvořil klimatolog Ed Hawkins a stala se ikonickým znázorněním změny klimatu. Tento nástroj využívá data z pozorovací sítě Německé meteorologické služby (DWD).",
+    "aboutText3": "Jak se volí barvy: průměr z let 1971–2000 je středem stupnice, která zahrnuje ±2,6 směrodatné odchylky (vypočtené z let 1901–2000) v 16 barvách, jedna na každých 0,325 směrodatné odchylky (metoda Eda Hawkinse). Pokud má stanice v některém z těchto období příliš málo let, vezme se její průměr nebo její směrodatná odchylka místo toho z celé její řady, což říká řádek pod grafem. Barvy se počítají z celé řady stanice, ne ze zobrazených let, takže rok si zachová svou barvu, ať jsou zobrazeny jakékoli roky.",
+    "aboutColumns": "V tabulce třída pojmenovává 16 barev stupnice, jednu na každých 0,325 směrodatné odchylky, v pěti skupinách, od mnohem chladnější po mnohem teplejší (u srážek od mnohem sušší po mnohem vlhčí). Odchylka je vzdálenost od průměru v jednotce hodnoty.",
+    "aboutText4": "Sloupce kreslí stejné roky jako sloupce: výška každého je odchylka roku od průměru referenčního období, v barvě jeho pruhu. Sloupce se stupnicí přidávají osu pro tuto odchylku v jednotce hodnot a osu let. Tabulka vypíše každý rok s hodnotou, odchylkou a třídou a lze ji uložit jako soubor CSV.",
     "type": "Meteorologický prvek",
     "typeTemperature": "Teplota",
     "typePrecipitation": "Srážky",
@@ -672,16 +675,20 @@
     "downloadPng": "Stáhnout jako PNG",
     "downloadJpg": "Stáhnout jako JPG",
     "downloadSvg": "Stáhnout jako SVG",
+    "downloadTable": "Stáhnout tabulku",
+    "downloadCsv": "Stáhnout jako CSV",
     "plotTitle": "Klimatické pruhy ({kind}) pro {name}, Německo ({id})",
     "plotDataAvailability": "Dostupnost dat",
     "plotSource": "Zdroj: Deutscher Wetterdienst",
     "plotReference": "Barvy: průměr z {centre}, ±{sigma} σ z {spread}",
+    "csvLicence": "Licence dat: {name} ({url})",
     "barsRelativeTo": "Vzhledem k průměru z {period}",
     "variant": {
       "label": "Zobrazení",
       "stripes": "Pruhy",
       "bars": "Sloupce",
-      "barsScale": "Sloupce se stupnicí"
+      "barsScale": "Sloupce se stupnicí",
+      "table": "Tabulka"
     },
     "hoverValue": "Hodnota",
     "chart": {
@@ -697,17 +704,21 @@
       "keysHint": "Šipky procházejí roky, Page Up a Page Down po deseti letech, Home a End na první a poslední. Plus, mínus a 0 přibližují, oddalují a obnovují. Escape zavře hodnoty."
     },
     "summary": "Od {from} do {to}. Nejnižší hodnota {min} v roce {minYear}, nejvyšší {max} v roce {maxYear}.",
+    "tableHint": "Hodnoty jsou v tabulce: vyber „{table}“ v části „{style}“ nad grafem.",
     "reference": "Barvy: průměr z {centre} je středem stupnice, která zahrnuje ±{sigma} směrodatné odchylky z {spread} (metoda Eda Hawkinse).",
     "referenceWhole": "celé řady ({from}–{to})",
+    "referenceShort": {
+      "stripes": "Vztaženo k průměru z {centre} (směrodatná odchylka z {spread})",
+      "stripesWhole": "Vztaženo k celé řadě stanice, {from}–{to}",
+      "bars": "Sloupce: odchylka od průměru z {centre} (směrodatná odchylka z {spread})",
+      "barsWhole": "Sloupce: odchylka od průměru celé řady stanice, {from}–{to}",
+      "record": "celé řady, {from}–{to}"
+    },
     "table": {
       "year": "Rok",
       "value": "Hodnota",
       "anomaly": "Odchylka",
       "class": "Třída",
-      "note": {
-        "temperature": "Třída: jak daleko rok leží od průměru reference. Pruhy mají 16 barev, jednu na každých 0,325 směrodatné odchylky, od tmavě modré (nejchladnější) po tmavě červenou (nejteplejší); třída je pojmenovává v pěti skupinách. Odchylka: vzdálenost od průměru v jednotce hodnoty.",
-        "precipitation": "Třída: jak daleko rok leží od průměru reference. Pruhy mají 16 barev, jednu na každých 0,325 směrodatné odchylky, od hnědé (nejsušší) po tmavě zelenou (nejvlhčí); třída je pojmenovává v pěti skupinách. Odchylka: vzdálenost od průměru v jednotce hodnoty."
-      },
       "classes": {
         "temperature": {
           "veryLow": "Mnohem chladnější",

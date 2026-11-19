@@ -15,14 +15,14 @@ import type { ECharts } from 'echarts/core'
 import type { StripesKind } from '#shared/types/api'
 import type { ImageFormat } from '~/utils/chart-image'
 import type { StripesReferenceView } from '~/utils/stripes'
-import type { StripesInput, StripesVariant, YearWindow } from '~/utils/stripes-model'
+import type { StripesInput, StripesVariant, StripesView, YearWindow } from '~/utils/stripes-model'
 import type { StripesDisplay, StripesOptionInput } from '~/utils/stripes-option'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { downloadBlob, svgToBlob } from '~/utils/chart-image'
 import { readDocumentChartTheme } from '~/utils/chart-theme'
 import { formatNumber, formatSigned } from '~/utils/format'
 import { barsSubtitle, stripeBand, stripeColour, stripesReferenceText, wrapChartTitle } from '~/utils/stripes'
-import { buildStripesModel, clampWindow, fullWindow, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, STRIPES_VARIANTS, zoomWindow } from '~/utils/stripes-model'
+import { buildStripesModel, clampWindow, fullWindow, isStripesDrawing, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, STRIPES_VIEWS, zoomWindow } from '~/utils/stripes-model'
 import { buildStripesOption, CAMERA_SCALE, CAMERA_WIDTH, extraLinesHeight, frameOf, STRIPES_FONT_FAMILY, stripesChartHeight, stripesLayout, SUBTITLE_SIZE, TITLE_PADDING, TITLE_SIZE, windowUpdate, xOfYear } from '~/utils/stripes-option'
 
 const props = withDefaults(defineProps<{
@@ -34,15 +34,27 @@ const props = withDefaults(defineProps<{
   unit: string
   title: string
   display: StripesDisplay
-  /** how the years are drawn: stripes, bars, or bars with a scale (GH-4156); the switch above the chart asks the page to change it */
-  variant?: StripesVariant
+  /**
+   * What is shown of the years: stripes, bars, bars with a scale (GH-4156) or the table (GH-4233); the switch above asks the page to change it.
+   * The table is drawn by the page, under the switch: this component draws nothing then and has no toolbar.
+   */
+  variant?: StripesView
   /** the figure's name, and the element that describes it */
   label?: string
   describedBy?: string
   /** the name of the camera's file, without its extension */
   cameraFile: string
 }>(), { variant: 'stripes' })
-const emit = defineEmits<{ 'update:variant': [variant: StripesVariant] }>()
+const emit = defineEmits<{ 'update:variant': [variant: StripesView] }>()
+
+/** Whether a chart is shown: the table is the one view that has none */
+const drawing = computed(() => isStripesDrawing(props.variant))
+// how the years are drawn: the one chosen last, kept while the table is shown, so that the image and the camera are of what the chart goes back to
+const chartVariant = ref<StripesVariant>(isStripesDrawing(props.variant) ? props.variant : 'stripes')
+watch(() => props.variant, (next) => {
+  if (isStripesDrawing(next))
+    chartVariant.value = next
+})
 
 const { t, locale } = useI18n()
 const toast = useToast()
@@ -92,14 +104,14 @@ const titleLines = computed(() => titleLinesFor(width.value))
 // what the bars with a scale are relative to, under the title and broken into the lines its width needs (the others have none)
 const subtitleFont = `${SUBTITLE_SIZE}px ${STRIPES_FONT_FAMILY}`
 function subtitleLinesFor(chartWidth: number): string[] {
-  return props.variant === 'barsScale' ? wrapChartTitle(barsSubtitle(props.reference, props.unit, t), chartWidth - 2 * TITLE_PADDING, subtitleFont).text.split('<br>') : []
+  return chartVariant.value === 'barsScale' ? wrapChartTitle(barsSubtitle(props.reference, props.unit, t), chartWidth - 2 * TITLE_PADDING, subtitleFont).text.split('<br>') : []
 }
 const subtitleLines = computed(() => subtitleLinesFor(width.value))
-const frame = computed(() => frameOf({ variant: props.variant, subtitleLines: subtitleLines.value }))
+const frame = computed(() => frameOf({ variant: chartVariant.value, subtitleLines: subtitleLines.value }))
 // the stripes keep their shape: the chart is as high as its width gives it, the title and the years on top (GH-4133); the bars are as high
 const height = computed(() => stripesChartHeight(props.display, width.value, titleLines.value.length, { frame: frame.value }))
 const layout = computed(() => stripesLayout(props.display, width.value, height.value, titleLines.value.length, 0, frame.value))
-const variantOptions = computed(() => STRIPES_VARIANTS.map(value => ({ value, label: t(`stripes.variant.${value}`) })))
+const variantOptions = computed(() => STRIPES_VIEWS.map(value => ({ value, label: t(`stripes.variant.${value}`) })))
 /** The numbers of the bars' y axis, with their sign, in the language of the page */
 const formatTick = (value: number, decimals: number) => value === 0 ? formatNumber(0, locale.value, 0) : formatSigned(value, locale.value, decimals)
 
@@ -267,6 +279,14 @@ watch(() => readout.value !== null, (open) => {
 interface Drag { x0: number, x1: number, active: boolean }
 const drag = ref<Drag | null>(null)
 let suppressClick = false
+
+// the table has no crosshair: it is not left standing for the chart to find again
+watch(drawing, (shown) => {
+  if (!shown) {
+    cursor.value = null
+    drag.value = null
+  }
+})
 
 function stageX(event: PointerEvent | MouseEvent): number {
   return event.clientX - (stageEl.value?.getBoundingClientRect().left ?? 0)
@@ -498,7 +518,7 @@ function optionInput(over: Partial<StripesOptionInput> = {}): StripesOptionInput
     titleLines: titleLines.value,
     availabilityText: t('stripes.plotDataAvailability'),
     sourceText: t('stripes.plotSource'),
-    variant: props.variant,
+    variant: chartVariant.value,
     subtitleLines: subtitleLines.value,
     formatTick,
     ...over,
@@ -509,7 +529,7 @@ let isRendering = false
 let renderPending = false
 // what the chart on the page was drawn from: a drawing for the same is none
 let drawnFrom: unknown[] | null = null
-const drawInputs = () => [model.value, props.kind, theme.value, props.display, width.value, height.value, titleLines.value.join('\n'), locale.value, props.variant, subtitleLines.value.join('\n')]
+const drawInputs = () => [model.value, props.kind, theme.value, props.display, width.value, height.value, titleLines.value.join('\n'), locale.value, chartVariant.value, subtitleLines.value.join('\n'), drawing.value]
 
 async function render() {
   if (isRendering) {
@@ -596,7 +616,7 @@ async function draw() {
   performance.mark('stripes:drawn')
 }
 
-watch(() => [model.value, props.kind, theme.value, props.display, width.value, height.value, titleLines.value.join('\n'), locale.value, props.variant, subtitleLines.value.join('\n')], () => void render())
+watch(() => [model.value, props.kind, theme.value, props.display, width.value, height.value, titleLines.value.join('\n'), locale.value, chartVariant.value, subtitleLines.value.join('\n'), drawing.value], () => void render())
 // the window moves without drawing the chart again: the zoom, and the years named at the ends of it
 watch(win, () => {
   const input = optionInput()
@@ -663,7 +683,7 @@ function saveCamera() {
     format: 'png',
     filename: props.cameraFile,
     width: CAMERA_WIDTH,
-    height: stripesChartHeight(props.display, CAMERA_WIDTH, titleLinesFor(CAMERA_WIDTH).length, { clamp: false, frame: frameOf({ variant: props.variant, subtitleLines: subtitleLinesFor(CAMERA_WIDTH) }) }),
+    height: stripesChartHeight(props.display, CAMERA_WIDTH, titleLinesFor(CAMERA_WIDTH).length, { clamp: false, frame: frameOf({ variant: chartVariant.value, subtitleLines: subtitleLinesFor(CAMERA_WIDTH) }) }),
     scale: CAMERA_SCALE,
   }).catch((error: unknown) => {
     console.error('The chart image could not be saved', error)
@@ -713,7 +733,7 @@ const selectionStyle = computed(() => {
       />
       <!-- the single-pointer ways to what a drag, a pinch and the keys do (WCAG 2.5.7), named by what they do -->
       <!-- inert while the chart could not be drawn: nothing to zoom, read or save of an empty chart -->
-      <div ref="toolbarEl" class="sc-toolbar" role="group" :aria-label="t('stripes.chart.zoomGroup')" :inert="renderFailed || undefined">
+      <div v-if="drawing" ref="toolbarEl" class="sc-toolbar" role="group" :aria-label="t('stripes.chart.zoomGroup')" :inert="renderFailed || undefined">
         <ChartToolButton
           icon="i-ph-caret-left"
           :title="t('stripes.chart.earlier')" :aria-label="t('stripes.chart.earlier')" :unavailable="atStart" @click="shift(-0.5)"
@@ -741,7 +761,7 @@ const selectionStyle = computed(() => {
       </div>
     </div>
 
-    <div ref="scrollerEl" class="sc-scroller" :style="{ height: `${height}px` }" :inert="renderFailed || undefined">
+    <div v-if="drawing" ref="scrollerEl" class="sc-scroller" :style="{ height: `${height}px` }" :inert="renderFailed || undefined">
       <!-- a figure, as the app's other charts, and no landmark; one tab stop for the whole chart (Chartability) -->
       <div
         ref="stageEl"
@@ -803,11 +823,11 @@ const selectionStyle = computed(() => {
         </div>
       </div>
     </div>
-    <p :id="hintId" class="sr-only">
+    <p v-if="drawing" :id="hintId" class="sr-only">
       {{ t('stripes.chart.keysHint') }}
     </p>
     <!-- said when a key steps the crosshair, and not for a pointer's hover -->
-    <p class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="stripes-announce">
+    <p v-if="drawing" class="sr-only" role="status" aria-live="polite" aria-atomic="true" data-testid="stripes-announce">
       {{ announcement }}
     </p>
   </div>
@@ -825,18 +845,30 @@ const selectionStyle = computed(() => {
   gap: 0.5rem;
   padding-bottom: 0.5rem;
 }
-/* The switch is as wide as its three labels need, and no wider than the chart: a long label ("Barres avec échelle", "Sloupce se
-   stupnicí") on a phone of 320 px takes less room round its text, and wraps where that is still too much, instead of running past the
-   chart's edge */
+/* The switch of the four views is as wide as its labels need, and no wider than the chart. On a phone (below 30 rem) it is two rows of two
+   segments, as wide as the chart: four labels in a row ("Barres avec échelle", "Sloupce se stupnicí", "Streifen", "Tabelle") did not fit 320 px
+   in Firefox, whose text is a few px wider than Chromium's, and a segment of half the chart's width has room for any of them, with a margin.
+   A label may still wrap onto a second line, never run past its segment, and a segment is 44 px high, the app's own measure of a target. The
+   keys are the group's (the DOM order, left to right and down) and do not change with the layout. */
 .sc-controls :deep([role='radiogroup']) {
   max-width: 100%;
 }
 .sc-controls :deep([role='radio']) {
   min-width: 0;
 }
-@media (max-width: 26rem) {
+@media (max-width: 30rem) {
+  .sc-controls :deep([role='radiogroup']) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
   .sc-controls :deep([role='radio']) {
+    justify-content: center;
+    min-height: 2.75rem;
     padding-inline: 0.5rem;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 .sc-toolbar {

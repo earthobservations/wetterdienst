@@ -404,7 +404,8 @@ const STATES: State[] = [
     reach: async (page, locale) => {
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
       await expect(stripesChart(page)).toBeVisible()
-      await page.getByRole('button', { name: message(locale, 'dataViewer.viewTable'), exact: true }).click()
+      // the table is a view of the stripes' switch (GH-4233)
+      await page.getByRole('radio', { name: message(locale, 'stripes.variant.table'), exact: true }).click()
       await expect(page.getByRole('table')).toBeVisible()
     },
   },
@@ -1090,12 +1091,13 @@ test.describe('chart controls by keyboard', () => {
     await expect(reset).toBeDisabled()
     await expect(stripesChart(page)).toBeVisible()
 
-    // Tab goes from the toolbar to the chart, which is one stop, and on to the table of the values below it
+    // Tab goes from the toolbar to the chart, which is one stop, and on to the download of the image below it (the table is a view of
+    // the switch above, GH-4233)
     await named(message('en', 'stripes.chart.savePng')).focus()
     await page.keyboard.press('Tab')
     await expect(page.locator('.sc-stage')).toBeFocused()
     await page.keyboard.press('Tab')
-    await expect(page.getByRole('button', { name: message('en', 'dataViewer.viewTable'), exact: true })).toBeFocused()
+    await expect(page.getByRole('button', { name: message('en', 'stripes.downloadImage'), exact: true })).toBeFocused()
   })
 
   // WCAG 2.1.1 and 2.5.7: what the pointer reads from the stripes (the year's value) the keyboard reads too
@@ -1418,12 +1420,8 @@ test.describe('chart controls by keyboard', () => {
     await expect(page.getByRole('table')).toHaveCount(0)
   })
 
-  // what the stripes and the widget's forecast draw, in a table a keyboard and a screen reader read (WCAG 1.1.1, 1.3.1)
+  // what the widget's forecast draws, in a table a keyboard and a screen reader read (WCAG 1.1.1, 1.3.1)
   for (const { page: name, path, ready } of [
-    { page: 'stripes', path: '/stripes?kind=temperature&station=00011', ready: async (page: Page) => {
-      await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
-      await expect(stripesChart(page)).toBeVisible()
-    } },
     { page: 'widget', path: '/widget?station=01001', ready: async (page: Page) => {
       await expect(forecastChart(page)).toBeVisible()
     } },
@@ -1465,6 +1463,68 @@ test.describe('chart controls by keyboard', () => {
       await expect(page.getByRole('table')).toHaveCount(0)
     })
   }
+
+  // the stripes' table is a view of its own, the fourth of the switch that the arrow keys move along, as the forecast's is
+  // (GH-4233; WCAG 1.1.1, 1.3.1, 2.1.1, 4.1.2)
+  test('the stripes page has its values as a view of its own, chosen and read by keys, and the chart\'s summary points at it', async ({ page, baseURL }) => {
+    await mockBackend(page, baseURL!)
+    await open(page, '/stripes?kind=temperature&station=00011', variant)
+    await page.getByRole('button', { name: message('en', 'common.fetch'), exact: true }).click()
+    await expect(stripesChart(page)).toBeVisible()
+
+    // the chart is described by a sentence that says where the values are, and there is no table until the view is chosen
+    const figure = page.getByRole('figure')
+    const described = (await figure.getAttribute('aria-describedby'))!.split(' ')[0]!
+    await expect(page.locator(`[id="${described}"]`)).toContainText(message('en', 'stripes.variant.table'))
+    await expect(page.getByRole('table')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: message('en', 'dataViewer.viewTable'), exact: true })).toHaveCount(0)
+
+    const group = page.getByRole('radiogroup', { name: message('en', 'stripes.variant.label'), exact: true })
+    const barsScale = group.getByRole('radio', { name: message('en', 'stripes.variant.barsScale'), exact: true })
+    const stripes = group.getByRole('radio', { name: message('en', 'stripes.variant.stripes'), exact: true })
+    const tableView = group.getByRole('radio', { name: message('en', 'stripes.variant.table'), exact: true })
+    await expect(stripes).toBeChecked()
+
+    // the group is one stop; the arrow keys choose and move the focus, the table last
+    await stripes.focus()
+    await page.keyboard.press('End')
+    await expect(tableView).toBeChecked()
+    await expect(tableView).toBeFocused()
+    await expect(page).toHaveURL(/[?&]variant=table/)
+    await page.keyboard.press('ArrowLeft')
+    await expect(barsScale).toBeChecked()
+    await page.keyboard.press('ArrowRight')
+    await expect(tableView).toBeChecked()
+
+    // the table has no chart over it, a caption, and the headers and rows a screen reader reads
+    await expect(page.getByRole('figure')).toHaveCount(0)
+    const table = page.getByRole('table')
+    await expect(table).toBeVisible()
+    await expect(table.locator('caption')).toHaveText(/\S/)
+    await expect(table.getByRole('columnheader')).toHaveText([
+      message('en', 'stripes.table.year'),
+      `${message('en', 'stripes.table.value')} (°C)`,
+      `${message('en', 'stripes.table.anomaly')} (°C)`,
+      message('en', 'stripes.table.class'),
+    ])
+    await expect(table.getByRole('rowheader').first()).toHaveText(/\S/)
+    expect(await table.getByRole('row').count()).toBeGreaterThan(10)
+
+    // the box that scrolls takes the focus, so that the keys scroll it
+    const region = page.getByRole('region', { name: /^Climate stripes \(Temperature\) for / })
+    await region.focus()
+    await expect(region).toBeFocused()
+    const before = await region.evaluate(node => node.scrollTop)
+    await page.keyboard.press('PageDown')
+    await expect.poll(() => region.evaluate(node => node.scrollTop)).toBeGreaterThan(before)
+
+    // and back to the chart by keys
+    await tableView.focus()
+    await page.keyboard.press('Home')
+    await expect(stripes).toBeChecked()
+    await expect(stripesChart(page)).toBeVisible()
+    await expect(page.getByRole('table')).toHaveCount(0)
+  })
 
   // the forecast's table is a view of its own, chosen by a radio group that the arrow keys move along
   // (WCAG 1.1.1, 1.3.1, 2.1.1, 4.1.2)

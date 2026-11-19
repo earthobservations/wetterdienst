@@ -26,7 +26,7 @@ What was decided for #2559 (maintainer, 2026-11-10), which is closed with the pu
 
 - every page, as it is first shown, in light and dark mode and in English and German,
 - and, in light/English and dark/German, the states a first paint does not show: a station map with
-  stations, a drawn chart (explorer, stripes, meteogram, widget), the meteogram's chart at 390 px (scrolled sideways) and with its readout open from the keyboard, the table of the stripes' and the meteogram's values opened, the meteogram's compact day cards, an open
+  stations, a drawn chart (explorer, stripes, meteogram, widget), the meteogram's chart at 390 px (scrolled sideways) and with its readout open from the keyboard, the stripes' and the meteogram's table view chosen, the meteogram's compact day cards, an open
   menu or popover, an error notice, the map tool with a place picked (wide, and at 390 px with the panel as a sheet under the map),
   with the measurements layer's choices, and with its stations failed to load, the explorer's notice for a request the server refused over a limit
   (`values-limit-refused`, and at 320 px `values-limit-refused-narrow`) and the note under the date range that
@@ -65,7 +65,7 @@ it back; `chart controls by keyboard`: the toolbars of the stripes' and the expl
 named, walked by Tab, Enter on zoom in narrowing the window and Space on reset putting the whole of it back), the stripes' and
 the explorer's keys and readout (hoverable, dismissed by Escape, persistent, and the focus handed back from its Close button, 1.4.13),
 the explorer's legend, which turns a series off and on from the keyboard, the forecast chart's readout (the same three) and its
-keys, the table of values that stands for the stripes, the meteogram and the explorer, opened, reached and scrolled by keys), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
+keys, the table of values that stands for the explorer and the widget, opened, reached and scrolled by keys, and the table view of the stripes and of the meteogram, chosen and read by the arrow keys of their switch), checks that every page has a title of its own that a navigation announces (`page titles`, 2.4.2,
 4.1.3) and that no page scrolls sideways at 320 px (`reflow at 320 px`, 1.4.10).
 
 ## The baseline
@@ -168,7 +168,23 @@ dragged box, a pinch and Ctrl with the wheel do. The readout is an element of th
 its stripe, so that the pointer moves onto it from the stripe without crossing another; it stays until the pointer or the
 focus leaves, Escape closes it wherever they are without being consumed, and a Close button is the way for a touch (1.4.13).
 The stripe it is for is marked by a black ring in a white one, which reads on every colour of the scale. The chart draws no
-animation, so `prefers-reduced-motion` has nothing to switch off. Held by `tests/nuxt/components/StripesChart.test.ts`,
+animation, so `prefers-reduced-motion` has nothing to switch off.
+
+The stripes' table is a view of its own (GH-4233), the fourth choice of the switch that also chooses stripes, bars and bars with a
+scale (`variant=table` in the link): a radio group, one tab stop, the arrow keys, Home and End choose and move the focus, as the
+forecast's switch does. In the table view the chart, its toolbar and its keys are not in the page (the chart's code is not even
+loaded for a link that opens the table), and the table is the forecast's (`ValuesTable`, `full`): a caption that is the chart's name,
+column headers with `scope`, the year as the header of its row, the header and the year kept in view while it scrolls, and its box
+a region that takes the focus, so that the keys scroll it. The unit is in the headers, the values follow the unit settings, and the
+only text above the table is the short line of what the colours are measured against (there is no note: what the class and the
+anomaly are is in the page's About text, and the whole reference sentence in the CSV). The download of the table is a CSV, with
+the reference, the credit and the licence as comment lines, after a UTF-8 byte order mark (Excel reads the file as UTF-8). In the image views (stripes, bars, bars with a scale) the figure is
+described by the sentence of what it shows, the line of what its colours are measured against, and a hint that the values are in
+the table (`stripes.tableHint`, which names the switch and its "Table" choice), so the data is reached by the summary and the switch;
+there is no disclosure under the image any more. Printed, the table view is a table, whole (its box does not cut it at 70 % of the
+height of the window), and the image views the chart. The line under the chart is short and the method (the centre of the scale,
+the 16 colours, why a year keeps its colour, what the bars and the table are) is in the page's About text, the same for every
+station. Held by `tests/nuxt/components/StripesChart.test.ts`,
 `tests/unit/stripes-*.test.ts` and, in a browser, `tests/e2e/stripes-chart.spec.ts` and the stripes' tests of
 `accessibility.spec.ts`.
 
@@ -371,7 +387,7 @@ The charts' text alternatives and keyboard access (#3145), checked on 2026-10-19
 
 | Criterion | Result |
 | --- | --- |
-| 1.1.1, 1.3.1 Text alternative of the climate stripes | **Was failing**: a `figure` with a name and nothing of what it shows. The figure is described (`aria-describedby`) by a sentence, the span of the years with the lowest and the highest value, and a "Show as table" button below it opens a table of every year drawn with its value and its class (the fifth of the range between the lowest and the highest year that gives its colour, named for temperature or precipitation). |
+| 1.1.1, 1.3.1 Text alternative of the climate stripes | **Was failing**: a `figure` with a name and nothing of what it shows. The figure is described (`aria-describedby`) by a sentence, the span of the years with the lowest and the highest value, and a table of every year drawn with its value, its anomaly and its class (the class named for temperature or precipitation) is the "Table" choice of the switch above the chart (it was a "Show as table" disclosure below it until GH-4233); the sentence says so. |
 | 1.1.1, 1.3.1 Text alternative of the meteogram (also the widget) | **Was failing**: the same. The figure is described by the span of the forecast and its temperatures, and "Show as table" opens the values of the series the shown panels plot (as far as the horizon chosen reaches), one row for each time, in the station's time zone. The compact view is day cards with their own text (the weekday, the temperatures, the rain), and has no table. |
 | 2.1.1 The explorer's toolbar and legend | Not failing (they were Plotly's modebar, whose buttons were native `button`s too, until GH-4096): the toolbar's six buttons are native `button`s with an `aria-label` of their own, in a `role="group"`, in the tab order, operated by Enter and Space, off where they would do nothing; the legend's items are buttons with `aria-pressed`, and the chart is one tab stop whose keys step through its values. Tested on the explorer's chart (`chart controls by keyboard`: the buttons in the tab order and named, walked by Tab, Enter on zoom in narrowing the window and Space on reset putting the whole of it back, Space on a legend item turning its series off and Enter on again, the keys and `+`, `-`, `0`), each of which fails if the behaviour is broken. |
 | 1.1.1 Text alternative of the meteogram's compact day cards | **Was failing**: the weather of a day was an emoji, and a drop before the rain's amount, with no text. Both symbols are hidden from assistive technology (`aria-hidden`; the weather is Yr's symbol, as the chart draws it since GH-4193, an `<img alt="">`); the card holds the words for the weather, visually hidden (`meteogram.chart.weather.*`: thunderstorm, rain, snow, sleet, drizzle, fog, windy, dust or sand storm, blowing snow, cloudy, partly cloudy, sunny), in the language of the page, and "Precipitation:" before the amount. The name is held to the WMO's present-weather table: every code 0 to 99 has its kind in `tests/unit/weather-kind.test.ts`, and a code that names no weather the card can (haze, hail) is judged from the cloud cover and the rain. The symbol is Yr's, as the chart's (GH-4193); Yr has none for wind, a dust or sand storm or a funnel cloud, which are drawn as the sky of the day with a small badge in its lower corner (the Phosphor wind icon, the tornado icon for a funnel cloud) on a disc of the page's background, so that a windy day under a clear sky is no sun alone; the badge is hidden with the symbol and the words name the weather. Tested for weather codes and for the cloud-cover heuristic, and in all eleven languages. |

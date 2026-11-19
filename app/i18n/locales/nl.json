@@ -651,6 +651,9 @@
     "aboutButton": "Over klimaatstrepen",
     "aboutText1": "Klimaatstrepen (ook bekend als opwarmingsstrepen) zijn een gegevensvisualisatie die is ontworpen om de langetermijnstijging van temperaturen te communiceren. Elke streep staat voor de gemiddelde temperatuur van één jaar, waarbij blauw koelere jaren aangeeft en rood warmere jaren.",
     "aboutText2": "De visualisatie is gemaakt door klimaatwetenschapper Ed Hawkins en is een iconische weergave van klimaatverandering geworden. Dit hulpmiddel gebruikt gegevens van het waarnemingsnetwerk van de Duitse weerdienst (DWD).",
+    "aboutText3": "Hoe de kleuren worden gekozen: het gemiddelde van 1971–2000 is het midden van de schaal, die ±2,6 standaardafwijkingen omvat (berekend uit 1901–2000) in 16 kleuren, één voor elke 0,325 standaardafwijking (methode van Ed Hawkins). Heeft een station te weinig jaren in een van deze perioden, dan wordt zijn gemiddelde of zijn spreiding in plaats daarvan uit zijn hele reeks genomen, zoals de regel onder de grafiek zegt. De kleuren worden berekend uit de hele reeks van het station en niet uit de getoonde jaren, zodat een jaar zijn kleur houdt, welke jaren ook worden getoond.",
+    "aboutColumns": "In de tabel noemt de klasse de 16 kleuren van de schaal, één per 0,325 standaardafwijking, in vijf groepen, van veel koeler tot veel warmer (bij neerslag van veel droger tot veel natter). De afwijking is de afstand tot het gemiddelde, in de eenheid van de waarde.",
+    "aboutText4": "Staven tekenen dezelfde jaren als staven: de hoogte van elke staaf is de afwijking van het jaar van het gemiddelde van de referentieperiode, in de kleur van zijn streep. Staven met schaal voegt een as voor die afwijking toe, in de eenheid van de waarden, en een as met jaren. Tabel somt elk jaar op met waarde, afwijking en klasse en kan worden opgeslagen als CSV-bestand.",
     "type": "Weerelement",
     "typeTemperature": "Temperatuur",
     "typePrecipitation": "Neerslag",
@@ -672,16 +675,20 @@
     "downloadPng": "Downloaden als PNG",
     "downloadJpg": "Downloaden als JPG",
     "downloadSvg": "Downloaden als SVG",
+    "downloadTable": "Tabel downloaden",
+    "downloadCsv": "Downloaden als CSV",
     "plotTitle": "Klimaatstrepen ({kind}) voor {name}, Duitsland ({id})",
     "plotDataAvailability": "Gegevensbeschikbaarheid",
     "plotSource": "Bron: Deutscher Wetterdienst",
     "plotReference": "Kleuren: gemiddelde van {centre}, ±{sigma} σ van {spread}",
+    "csvLicence": "Licentie: {name} ({url})",
     "barsRelativeTo": "Ten opzichte van het gemiddelde van {period}",
     "variant": {
       "label": "Weergave",
       "stripes": "Strepen",
       "bars": "Staven",
-      "barsScale": "Staven met schaal"
+      "barsScale": "Staven met schaal",
+      "table": "Tabel"
     },
     "hoverValue": "Waarde",
     "chart": {
@@ -697,17 +704,21 @@
       "keysHint": "De pijltjestoetsen lopen door de jaren, Page Up en Page Down per tien jaar, Home en End naar de eerste en de laatste. Plus, min en 0 zoomen in, zoomen uit en herstellen. Escape sluit de waarden."
     },
     "summary": "Van {from} tot {to}. Laagste waarde {min} in {minYear}, hoogste waarde {max} in {maxYear}.",
+    "tableHint": "De waarden staan in de tabel: kies “{table}” bij “{style}” boven de grafiek.",
     "reference": "Kleuren: het gemiddelde van {centre} is het midden van de schaal, die ±{sigma} standaardafwijkingen van {spread} omvat (methode van Ed Hawkins).",
     "referenceWhole": "de hele reeks ({from}–{to})",
+    "referenceShort": {
+      "stripes": "Ten opzichte van het gemiddelde van {centre} (spreiding van {spread})",
+      "stripesWhole": "Ten opzichte van de hele reeks van het station, {from}–{to}",
+      "bars": "Staven: het verschil met het gemiddelde van {centre} (spreiding van {spread})",
+      "barsWhole": "Staven: het verschil met het gemiddelde van de hele reeks van het station, {from}–{to}",
+      "record": "de hele reeks, {from}–{to}"
+    },
     "table": {
       "year": "Jaar",
       "value": "Waarde",
       "anomaly": "Afwijking",
       "class": "Klasse",
-      "note": {
-        "temperature": "Klasse: hoe ver het jaar van het gemiddelde van de referentie ligt. De strepen hebben 16 kleuren, één per 0,325 standaardafwijking, van donkerblauw (koelste) tot donkerrood (warmste); de klasse noemt ze in vijf groepen. Afwijking: de afstand tot het gemiddelde, in de eenheid van de waarde.",
-        "precipitation": "Klasse: hoe ver het jaar van het gemiddelde van de referentie ligt. De strepen hebben 16 kleuren, één per 0,325 standaardafwijking, van bruin (droogste) tot donkergroen (natste); de klasse noemt ze in vijf groepen. Afwijking: de afstand tot het gemiddelde, in de eenheid van de waarde."
-      },
       "classes": {
         "temperature": {
           "veryLow": "Veel koeler",

@@ -40,6 +40,15 @@ Types of changes:
   The "About" row of a tool is a small ⓘ beside the page title, with the same text; Escape closes it.
   The map fills the window between the header and the tab bar. Tablets and desktop are unchanged
   (GH-4227).
+- `[Stripes]` The table of the years is a fourth view, "Table", beside stripes, bars and bars with
+  a scale (`variant=table` in the link), full width as the forecast's table is; the "Show as table"
+  disclosure under the image is gone. In the table view the download is a CSV (with a UTF-8 mark for
+  Excel, the unit in the header, the reference, credit and licence as `#` lines); the image views
+  keep PNG, JPG and SVG, and print follows the view shown. The line under the chart is short, what
+  this station's colours are measured against ("Relative to the mean of 1971–2000 (spread from
+  1901–2000)", or the whole record for the number that has too few years); the method is in the
+  About text, with what the table's class and anomaly are; the whole sentence is in the CSV. The
+  widget's and the forecast's tables print whole too (GH-4233).
 - `[Navigation]` On a phone (below 40 rem) the top bar and the tab bar slide away while you scroll
   down and come back when you scroll up or reach the top, so a page has the whole screen; a small
   scroll does nothing, a focus in either bar brings both back, and with reduced motion they appear
