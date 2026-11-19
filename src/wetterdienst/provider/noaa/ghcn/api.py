@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 
 import polars as pl
 import polars.selectors as cs
-from aiohttp import ClientTimeout
 
 from wetterdienst.exceptions import DownloadError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
@@ -33,7 +32,7 @@ from wetterdienst.provider.noaa.ghcn.metadata import (
     NoaaGhcnMetadata,
 )
 from wetterdienst.util.geo import EARTH_RADIUS_IN_KM
-from wetterdienst.util.network import download_file
+from wetterdienst.util.network import download_file, silence_timeout
 from wetterdienst.util.polars_util import read_fwf_from_df
 from wetterdienst.util.response_warnings import SkipCause, note_skipped_download, note_source_fallback
 
@@ -537,7 +536,7 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         if primary:
             client_kwargs = {
                 **client_kwargs,
-                "timeout": ClientTimeout(sock_connect=NCEI_TIMEOUT_SECONDS, sock_read=NCEI_TIMEOUT_SECONDS),
+                "timeout": silence_timeout(NCEI_TIMEOUT_SECONDS),
             }
         file = download_file(
             url=url.format(station_id=station_id),
