@@ -668,6 +668,50 @@
   }
 }
 
+/* The phone's top bar is slimmer (GH-4226): 44 px of content (the touch targets of its two icon buttons) and the hairline
+   under it, from the 64 px of the wider layouts. Below the low-window rule above, so that a phone on its side has it too. */
+@media (width < 40rem) {
+  :root {
+    --header-bar: calc(2.75rem + 1px);
+  }
+}
+
+/* The bars hide on scroll, on a phone (GH-4226, `useBarsHideOnScroll`): scrolling down slides the top bar up and the tab bar
+   down, scrolling up or the top brings them back. `--bars-shown` is 1 with the bars in view and 0 with them away, and is a
+   registered number so that it can be animated: the bars' transforms and the offsets of what sticks under the header
+   (`.bar-sticky`) are all calculated from it and so move together, frame by frame, with no change to the height of
+   anything (a transform moves a box and takes no room). The bars stay in the page: not `display: none` or `visibility:
+   hidden`, so the landmarks and the tab order are as they were, and a focus in either brings both back. A window too low
+   for two fixed bars has neither the hiding nor the transform (the rule above scrolls them with the page). */
+@property --bars-shown {
+  syntax: "<number>";
+  inherits: true;
+  initial-value: 1;
+}
+@media (width < 40rem) and (min-height: 30.01rem) {
+  :root {
+    transition: --bars-shown 200ms ease-out;
+  }
+  :root[data-bars="hidden"] {
+    --bars-shown: 0;
+    /* away faster than it comes: the page the reader is moving to is not made to wait */
+    transition-duration: 160ms;
+  }
+  .app-header {
+    transform: translateY(calc(var(--header-height) * (var(--bars-shown) - 1)));
+  }
+  .app-tabbar {
+    transform: translateY(calc(var(--tabbar-height) * (1 - var(--bars-shown))));
+  }
+}
+/* no animation where the reader asks for none: the bars are there or they are not */
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  :root[data-bars="hidden"] {
+    transition: none;
+  }
+}
+
 /* The page between the header and the footer: as tall as the window allows, so a short page keeps the footer at
    the foot, and clear of the tab bar */
 .app-main {
@@ -731,7 +775,8 @@
    rows are the list the reader moves by the handle or the two buttons, all of them at least 40 px (WCAG 2.5.8) */
 .bar-sticky {
   position: sticky;
-  top: var(--header-height);
+  /* follows the top bar as it hides and returns (`--bars-shown`: 1 with the bar in view, 0 with it away) */
+  top: calc(var(--header-height) * var(--bars-shown, 1));
   z-index: 5;
   margin-inline: -0.25rem;
   padding: 0.5rem 0.25rem 0.75rem;
@@ -1300,7 +1345,7 @@ body {
    `--tabbar-height` holds the inset where the bar stands (and is 0 where it scrolls with the page), so the larger
    of the two is the room under them. Unlayered, so it wins over the toaster's own `bottom-4` and `right-4`. */
 .app-toast-viewport {
-  bottom: calc(max(var(--tabbar-height), var(--safe-bottom)) + 1rem);
+  bottom: calc(max(var(--tabbar-height) * var(--bars-shown, 1), var(--safe-bottom)) + 1rem);
   right: calc(1rem + var(--safe-right));
 }
 
@@ -1313,6 +1358,13 @@ body {
 html[data-dialog-viewport] .app-vv-dialog {
   top: calc(var(--app-vv-top, 0px) + var(--app-vv-height, 100dvh) / 2);
   max-height: min(36rem, calc(var(--app-vv-height, 100dvh) - 2rem));
+}
+/* The search on a phone is a bar at the top of the window, over the top bar (GH-4226): by the visual viewport it stands at its top */
+@media (width < 40rem) {
+  html[data-dialog-viewport] .app-search-dialog {
+    top: var(--app-vv-top, 0px);
+    max-height: min(36rem, var(--app-vv-height, 100dvh));
+  }
 }
 @media (width >= 40rem) {
   html[data-dialog-viewport] .app-vv-dialog {

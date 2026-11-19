@@ -660,6 +660,37 @@ const STATES: State[] = [
     },
   },
   {
+    // the page scrolled down on a phone, with both bars slid away (GH-4226): what the bars do not draw is not scanned as drawn, and
+    // the page under where they were is clear of them
+    page: 'about',
+    state: 'phone-bars-hidden',
+    path: '/about',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await expect(page.getByRole('button', { name: message(locale, 'shell.search') })).toBeEnabled()
+      await page.evaluate(() => window.scrollTo({ top: 600, behavior: 'instant' }))
+      await expect(page.locator('html')).toHaveAttribute('data-bars', 'hidden')
+      // the slide is over
+      await expect.poll(async () => (await page.locator('.app-header').boundingBox())!.y).toBeLessThanOrEqual(-44)
+    },
+  },
+  {
+    // the search on a phone (GH-4226): a bar at the top of the window, over the top bar, with its results under it
+    page: 'index',
+    state: 'phone-search-open',
+    keepFocus: true,
+    path: '/',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'shell.search') }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await expect(page.getByRole('option').first()).toBeVisible()
+      // it has stopped opening
+      await expect.poll(async () => Math.round((await page.getByRole('dialog').boundingBox())!.x)).toBe(0)
+    },
+  },
+  {
     // the chooser of the phone bar's four tools (GH-3846): the preview, the two lists with their line, the handles and
     // the arrow buttons, at a phone's width and at 320 px, with the choice changed so that the list is not the default
     page: 'settings',

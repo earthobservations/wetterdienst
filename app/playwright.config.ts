@@ -8,15 +8,16 @@ const PORT = process.env.E2E_PORT || '4000'
 // background graphics): they run in Chromium, the others in Firefox
 const PDF_SPEC = /(chart-print|print-backgrounds)\.spec\.ts$/
 
-// the spec of the narrow layout and the map's full screen (GH-4227): it needs the browser's Fullscreen API to be there (and, to
-// test the app's own, to be taken away), which Playwright's headless Chromium has and its Firefox does not, so it runs in Chromium
-const CHROMIUM_SPEC = /phone-fullscreen\.spec\.ts$/
+// the specs of the narrow layout and the map's full screen (GH-4227), which needs the browser's Fullscreen API to be there (and, to
+// test the app's own, to be taken away), which Playwright's headless Chromium has and its Firefox does not, and of the bars of a
+// phone that hide on scroll (GH-4226), whose slide (an animated registered property) is measured in Chromium: they run in Chromium
+const CHROMIUM_SPEC = /(phone-fullscreen|bars-hide)\.spec\.ts$/
 
 // the spec of the dialogs on a phone: a touch drag as touch events of Chromium's input (CDP `Input.dispatchTouchEvent`),
 // which only Chromium can be told to make, so it runs in a Chromium of its own, as a Pixel 7
 const TOUCH_SPECS = /dialog-touch-scroll\.spec\.ts$/
 
-// The accessibility scan (393 tests, most of them a page load and a scan: about 20 minutes on three workers, several
+// The accessibility scan (405 tests, most of them a page load and a scan: about 20 minutes on three workers, several
 // times that on one) runs on request, not with the rest: `pnpm test:a11y`, or the "App accessibility" workflow (see ACCESSIBILITY.md).
 // A project's own `testIgnore` replaces the top-level one, so every project carries this list.
 const A11Y_IGNORE = process.env.A11Y === '1' ? [] : ['**/accessibility.spec.ts']
