@@ -82,6 +82,14 @@ jobs:
       - name: Build
         run: uv run --group docs sphinx-build --builder html --fail-on-warning --keep-going -D nb_execution_mode=off docs docs/_build/html
 
+      # Read the Docs builds the PDF (`formats: [pdf]` in .readthedocs.yml) and a failure of it fails the whole build, the
+      # HTML too: a table without a body (a header row alone) stopped the LaTeX writer and nothing was published for
+      # weeks (GH-4249). The LaTeX source is built, which needs no TeX; the compile to PDF is not. No --fail-on-warning:
+      # the HTML build holds the warnings, and the LaTeX writer warns of images it cannot place (an SVG badge), which
+      # Read the Docs lets pass.
+      - name: Build the LaTeX source, as the PDF of Read the Docs is made from it
+        run: uv run --group docs sphinx-build --builder latex -D nb_execution_mode=off docs docs/_build/latex
+
   linkcheck:
     name: Check the external links
     # a link that is down for an hour is no reason to fail a pull request, so only the schedule and a manual run

@@ -114,3 +114,8 @@ linkcheck_ignore = [
     # 400 to a request without the session its form belongs to; howto.html of the site links this very URL
     r"https://frost\.met\.no/auth/requestCredentials\.html",
 ]
+# The anchors of these pages exist but are made by script, which the checker does not run: GitHub renders the
+# id of a heading of a file in the browser (`SECURITY.md#release-provenance`). The page itself is still checked.
+linkcheck_anchors_ignore_for_url = [
+    r"https://github\.com/.*/blob/.*",
+]

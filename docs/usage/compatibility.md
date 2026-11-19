@@ -418,12 +418,10 @@ surface:
 | REST | `deprecated` in the OpenAPI document, a `Deprecation` header ([RFC 9745](https://www.rfc-editor.org/info/rfc9745/)) on every response that uses it, a `Sunset` header ([RFC 8594](https://www.rfc-editor.org/info/rfc8594/)) where a date is set, a `Link` with `rel="deprecation"`, and a `deprecated-parameter` warning in `metadata` for a parameter; see [Deprecation](restapi.md#deprecation) |
 | MCP | the endpoint of the old version keeps serving for at least two minor releases after the next one appears |
 
-Deprecated today:
-
-| What | Since | Use instead | Removed |
-| --- | --- | --- | --- |
-
-Nothing is deprecated on any surface. The deprecations before were removed after more than two minor releases:
+% A table "Deprecated today" (What | Since | Use instead | Removed) goes here while something is deprecated.
+% With no row it is no table: a table without a body fails the LaTeX build, so the PDF of Read the Docs
+% (and with it the whole build) failed.
+Deprecated today: nothing, on any surface. The deprecations before were removed after more than two minor releases:
 the `ts_*` settings (deprecated in 0.148.0, removed in 0.160.0), `use_nearby_station_distance` of `summarize`
 (deprecated in 0.140.0, removed in 0.158.0), `Wetterdienst(provider, network)` (deprecated in 0.156.0) and
 `wetterdienst stripes values` (deprecated in 0.159.0), the last two announced for removal in 1.0.0 and removed
