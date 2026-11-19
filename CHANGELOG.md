@@ -18,6 +18,10 @@ Types of changes:
 
 ### Fixed
 
+- A MOSMIX-SNOW snow depth (and sum of new snow) down to -10 cm, which the model writes as round-off
+  (-0.07 m in the run of 2026-11-18), is now returned as 0 with the written value kept in
+  `quality_flags` (`rejected:floor,raw:-0.07`); the limit was -5 cm. A value further below is kept
+  and flagged `suspect:range` (GH-4237)
 - Hub'Eau answers an HTML waiting page ("votre patience") with a 200 when it is overloaded; that is
   now a `DownloadError` that names the URL (a 502 at REST), no longer a `JSONDecodeError` (a 500),
   and the page is not kept in the cache, so the next request asks Hub'Eau again (GH-4236)

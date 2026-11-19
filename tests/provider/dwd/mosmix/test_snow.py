@@ -397,6 +397,27 @@ def test_a_snow_depth_a_little_below_zero_is_zero_and_keeps_the_number_written(m
     assert depth["quality_flags"].to_list() == [None, "rejected:floor,raw:-0.01", "rejected:floor,raw:-0.02"]
 
 
+def test_a_snow_depth_down_to_10_cm_below_zero_is_zero_and_one_further_below_is_the_ranges(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The tolerance is the lower bound of the range of a depth, 10 cm: -0.07 m (run of 2026-11-18) is 0.0 (GH-4237).
+
+    A depth of -0.11 m is no round-off: the floor leaves it to the range, whose low end for a forecast's depth is 0. A
+    forecast is soft in `range`, so the value is kept and flagged `suspect:range`, as the new snow's tolerance, which is
+    the same constant, is held to.
+    """
+    elements = {"SnCv": "-0.07 -0.10 -0.11", "Sa3": "-0.07 -0.11 0.01"}
+    parameters = [("hourly", "snow", "sncv"), ("hourly", "snow", "sa3")]
+    df = dwd_mosmix_values(monkeypatch, elements, parameters, options=Options(drop_nulls=False, convert_units=False))
+    depth = df.filter(pl.col("parameter") == "snow_depth").sort("timestamp")
+    assert depth["value"].to_list() == [0.0, 0.0, -0.11]
+    assert depth["quality_flags"].to_list() == ["rejected:floor,raw:-0.07", "rejected:floor,raw:-0.1", "suspect:range"]
+    # the sums of new snow share the tolerance
+    new = df.filter(pl.col("parameter") == "snow_depth_new_last_3h").sort("timestamp")
+    assert new["value"].to_list() == [0.0, -0.11, 0.01]
+    assert new["quality_flags"].to_list() == ["rejected:floor,raw:-0.07", "suspect:range", None]
+
+
 def test_a_snow_depth_below_zero_is_kept_and_flagged_where_the_floor_is_soft(monkeypatch: pytest.MonkeyPatch) -> None:
     """`plausibility={"floor": "soft"}` returns the number as DWD wrote it, flagged `suspect:floor` (GH-4182)."""
     df = dwd_mosmix_values(
@@ -459,8 +480,22 @@ def test_dwd_mosmix_snow(options_humanize_false_convert_units_false: Options) ->
     }
     # 48 hourly steps from the hour after the run
     assert values.df.filter(pl.col("station_id") == "Z914")["timestamp"].n_unique() == 48
-    # the snow depth is in m for this options object (`convert_units=False`), as the file writes it, and a depth
-    depth = values.df.filter(pl.col("parameter") == "sncv").drop_nulls("value")["value"]
+    # the snow depth is in m for this options object (`convert_units=False`), as the file writes it.
+    # A model's round-off below 0 is `floor`'s down to -10 cm (0.0 with `raw:`); a value further below is kept and
+    # flagged `suspect:range` (a forecast is soft in `range`), so the reader's promise is that no negative depth
+    # is without that flag, whatever DWD's run holds (GH-4237)
+    depth_rows = values.df.filter(pl.col("parameter") == "sncv").drop_nulls("value")
+    assert not depth_rows.is_empty()
+    ranged = pl.col("quality_flags").str.contains("suspect:range").fill_null(value=False)
+    negative = depth_rows.filter(pl.col("value") < 0.0)
+    assert negative.filter(~ranged).is_empty(), negative
+    # every floored value is 0.0, and the number the file wrote is round-off: from -0.10 m to below 0
+    floored = depth_rows.filter(pl.col("quality_flags").str.contains("rejected:floor").fill_null(value=False))
+    assert (floored["value"] == 0.0).all(), floored
+    raw = floored["quality_flags"].str.extract(r"raw:(-?[0-9.]+)", 1).cast(pl.Float64)
+    assert raw.is_between(-0.10, 0.0, closed="left").all(), floored
+    # the rest is a depth that lies: 0 or more, and less than 12 m
+    depth = depth_rows.filter(~ranged)["value"]
     assert not depth.is_empty()
     assert 0.0 <= depth.min() <= depth.max() < 12.0
     # the probabilities are 0..100 and a probability of more is not above that of less

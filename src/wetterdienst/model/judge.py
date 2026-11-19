@@ -115,14 +115,20 @@ _STATION_ELEVATIONS = (-500.0, 9000.0)
 #   -L of 2026-11-16 and -17 (`RR*c`, `RRS*c`), so the same amount is taken for them
 # - a radiation sum, 0.01 MJ/m2 (1 J/cm2, 10 kJ/m2): ICON writes the night below 0, `Rad1h` to -0.77 J/cm2, `Rads3` to
 #   -0.46 J/cm2 (GH-3263, GH-3676); MOSMIX's `Rad1h` has none read
-# - a depth of snow, 5 cm: MOSMIX-SNOW writes the last of a melting snow as -0.01 and -0.02 m (`SnCv`, 20 of 11,760
-#   values in the 49 runs of 2026-11-15 to 2026-11-17, at Z901 and Z934; GH-4182); the new snow has none read, and is
-#   written on the same grid of 0.01 m
+# - a depth of snow, 10 cm: MOSMIX-SNOW writes the last of a melting snow as -0.01 and -0.02 m (`SnCv`, 20 of 11,760
+#   values in the 49 runs of 2026-11-15 to 2026-11-17, at Z901 and Z934; GH-4182) and, in the run of 2026-11-18, -0.07 m
+#   (the largest read; it failed the remote test on every leg of run 44328178708, GH-4237); the new snow has none read,
+#   and is written on the same grid of 0.01 m. 10 cm is the maintainer's choice (GH-4237): the largest round-off read
+#   with a margin, and the same as the -10 cm that the range allows the snow depth of a station. A depth that is not
+#   floored is judged by the range, whose low end for a floored parameter is 0 whatever the table says (see `judge`),
+#   so a value below -10 cm passes as it was written and is flagged. It is for a forecast only (`dwd/mosmix`; no
+#   observation network has a snow floor), and the four sums of new snow (`snow_depth_new_last_3h` to `_24h`) share
+#   the one constant
 # - a duration of sunshine or of precipitation, 0.02 h (72 s): none read negative (MOSMIX-S and -L of 2026-11-16 and
 #   -17); the files write them in whole seconds
 _AMOUNT_MM = 0.2
 _RADIATION_MJ_M2 = 0.01
-_SNOW_CM = 5.0
+_SNOW_CM = 10.0
 _DURATION_H = 0.02
 #: the amounts a model writes a little below zero (check ``floor``), by network, with how far below 0 that is round-off
 FLOORS: dict[str, dict[str, float]] = {

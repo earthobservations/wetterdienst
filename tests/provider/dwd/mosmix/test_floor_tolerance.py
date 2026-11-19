@@ -41,11 +41,11 @@ def _snow(monkeypatch: pytest.MonkeyPatch, values: str, **options: object) -> pl
 def test_a_snow_depth_within_the_tolerance_is_zero_and_a_larger_negative_is_the_ranges(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """-0.02 and -0.04 m (to 5 cm) are round-off; -0.06 m and -15 m are not, and are flagged by the range."""
-    values, flags = _flags(_snow(monkeypatch, "-0.02 -0.04 -0.06"), "snow_depth")
-    assert values == [0.0, 0.0, -0.06]
-    assert flags == ["rejected:floor,raw:-0.02", "rejected:floor,raw:-0.04", "suspect:range"]
-    # -0.06 m is above the -10 cm that the table allows a reading of a station: the floor's 0 is the low end here
+    """-0.02 and -0.10 m (to 10 cm, GH-4237) are round-off; -0.11 m and -15 m are not, and are flagged by the range."""
+    values, flags = _flags(_snow(monkeypatch, "-0.02 -0.10 -0.11"), "snow_depth")
+    assert values == [0.0, 0.0, -0.11]
+    assert flags == ["rejected:floor,raw:-0.02", "rejected:floor,raw:-0.1", "suspect:range"]
+    # -0.11 m is below the -10 cm that the table allows a reading of a station, and above it the floor covers it
     values, flags = _flags(_snow(monkeypatch, "0.30 -15.00 -0.01"), "snow_depth")
     assert values == [0.3, -15.0, 0.0]
     assert flags == [None, "suspect:range", "rejected:floor,raw:-0.01"]
