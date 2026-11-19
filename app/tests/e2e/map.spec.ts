@@ -492,8 +492,8 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
 
     await page.mouse.click(centre.x, centre.y)
     await expect(page.getByTestId('map-announcement')).toHaveText('Zoomed in on a group. Stations in it: 40')
-    // the stations are a few kilometres apart: the map goes in as far as the zoom they are separated from (10)
-    await expect.poll(() => zoomOf(page)).toBe(10)
+    // the stations are a few kilometres apart: the map goes in as far as the zoom they are separated from (9)
+    await expect.poll(() => zoomOf(page)).toBe(9)
     // no place is picked by the click on a group, and no group is left: the stations are dots
     await expect(page.getByTestId('map-station-name')).toHaveCount(0)
     await expect(page).toHaveURL(/\/map$/)
@@ -559,17 +559,17 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
   })
 
   test('centres the map on the group that was clicked, though its stations are not spread evenly round the disc (GH-4209)', async ({ page, baseURL }) => {
-    // twenty stations in a town and one far to the north east: the disc is drawn at the mean, near the town, and the middle of the
-    // box of the stations (which the map was centred on) is 30 km from it
+    // twenty stations in a town and one 34 px (at zoom 6) to the north east, within the radius of a group: the disc is drawn at the mean, near the town, and the middle of the
+    // box of the stations (which the map was centred on) is 17 px from it
     const town = Array.from({ length: 20 }, (_, index) => ({ station_id: `L${index}`, name: `LOPSIDED ${index}`, region: null, latitude: 52.0 + (index % 5) * 0.01, longitude: 10.4 + Math.floor(index / 5) * 0.01, elevation: 10, start_timestamp: null, end_timestamp: null }))
-    const far = { station_id: 'LFAR', name: 'LOPSIDED FAR', region: null, latitude: 52.8, longitude: 11.6, elevation: 10, start_timestamp: null, end_timestamp: null }
+    const far = { station_id: 'LFAR', name: 'LOPSIDED FAR', region: null, latitude: 52.45, longitude: 10.7, elevation: 10, start_timestamp: null, end_timestamp: null }
     await open(page, baseURL!, '/map', { stations: () => ({ stations: [...town, far] }) })
     await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 21')
     await expect.poll(() => zoomOf(page)).toBe(6)
     const map = page.getByRole('application', { name: /^Station map/ })
     const box = (await map.boundingBox())!
     // the disc, where it is drawn: the mean of the stations
-    const mean = { latitude: (20 * 52.02 + 52.8) / 21, longitude: (20 * 10.415 + 11.6) / 21 }
+    const mean = { latitude: (20 * 52.02 + 52.45) / 21, longitude: (20 * 10.415 + 10.7) / 21 }
     const at = offsetAtOpening(mean.latitude, mean.longitude)
     await expect.poll(() => canvasPixel(page, box.x + box.width / 2 + at.x - 9, box.y + box.height / 2 + at.y)).toEqual([0x23, 0x58, 0xA8])
     await page.mouse.click(box.x + box.width / 2 + at.x - 9, box.y + box.height / 2 + at.y)
@@ -590,6 +590,35 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     await page.mouse.click(box.x + box.width / 2 + at.x, box.y + box.height / 2 + at.y)
     await expect(page.getByTestId('map-station-name')).toHaveText('BERLIN-TEMPELHOF')
     expect(await zoomOf(page)).toBe(6)
+  })
+
+  test('makes a town on a corner of the old 160 px grid one group at the town, not a bubble in each square (GH-4241)', async ({ page, baseURL }) => {
+    // 90 points within about 12 px (at zoom 6) of the grid corner nearest to Hamburg: the grid cut them over four squares
+    const size = 256 * 2 ** 6
+    const mercator = (degrees: number) => Math.log(Math.tan(Math.PI / 4 + degrees * Math.PI / 360))
+    const corner = {
+      x: Math.round((10 + 180) / 360 * size / 160) * 160,
+      y: Math.round((0.5 - mercator(53.55) / (2 * Math.PI)) * size / 160) * 160,
+    }
+    const centre = {
+      latitude: (2 * Math.atan(Math.exp((0.5 - corner.y / size) * 2 * Math.PI)) - Math.PI / 2) * 180 / Math.PI,
+      longitude: corner.x / size * 360 - 180,
+    }
+    const town = Array.from({ length: 90 }, (_, index) => ({
+      ...DENSE[0]!,
+      station_id: `H${String(index).padStart(2, '0')}`,
+      name: `CORNER POINT ${index}`,
+      latitude: centre.latitude + Math.sin(index * 2.4) * Math.sqrt(index / 90) * 0.12,
+      longitude: centre.longitude + Math.cos(index * 2.4) * Math.sqrt(index / 90) * 0.25,
+    }))
+    await open(page, baseURL!, '/map', { stations: () => ({ stations: [...town, BERLIN_ALONE] }) })
+    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 91')
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
+    const at = offsetAtOpening(centre.latitude, centre.longitude)
+    await expect.poll(() => canvasPixel(page, box.x + box.width / 2 + at.x - 11, box.y + box.height / 2 + at.y)).toEqual([0x23, 0x58, 0xA8])
+    await page.mouse.click(box.x + box.width / 2 + at.x, box.y + box.height / 2 + at.y)
+    await expect(page.getByTestId('map-announcement')).toHaveText('Zoomed in on a group. Stations in it: 90')
   })
 
   test('draws a place that has stations that report and stations that have stopped as one group, a ring filled for the share that reports, and says it on a click', async ({ page, baseURL }) => {
@@ -616,7 +645,7 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     // one group for the place, whatever the status: a click zooms in on all forty
     await page.mouse.click(centre.x, centre.y)
     await expect(page.getByTestId('map-announcement')).toHaveText('Zoomed in on a group. Stations in it: 40, of them reporting: 20')
-    await expect.poll(() => zoomOf(page)).toBe(10)
+    await expect.poll(() => zoomOf(page)).toBe(9)
   })
 
   test('is turned off by the switch, which draws every station as a dot at the zoom of the opening', async ({ page, baseURL }) => {
@@ -640,11 +669,11 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     expect(await zoomOf(page)).toBe(6)
   })
 
-  test('keeps grouping to a close zoom: the legend of the groups is there at zoom 9 and gone at 10, where every station is its own dot', async ({ page, baseURL }) => {
+  test('keeps grouping to a close zoom: the legend of the groups is there at zoom 8 and gone at 9, where every station is its own dot', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map', GROUPED)
     await expect(page.getByTestId('map-count')).toBeVisible()
     // one zoom at a time: Leaflet takes no press while it animates the one before
-    for (const zoom of [7, 8, 9]) {
+    for (const zoom of [7, 8]) {
       await page.getByRole('button', { name: en.mapTool.zoomIn }).click()
       await expect.poll(() => zoomOf(page)).toBe(zoom)
       await page.waitForTimeout(500)
@@ -653,7 +682,7 @@ test.describe('the map tool: groups of stations at the outer zooms', () => {
     await page.keyboard.press('Escape')
     await expect(page.getByTestId('map-layers-panel')).toBeHidden()
     await page.getByRole('button', { name: en.mapTool.zoomIn }).click()
-    await expect.poll(() => zoomOf(page)).toBe(10)
+    await expect.poll(() => zoomOf(page)).toBe(9)
     await expect(await legendOf(page)).toHaveCount(0)
     await page.keyboard.press('Escape')
   })
@@ -752,7 +781,7 @@ test.describe('the map tool on a phone: groups of stations', () => {
     const box = (await page.getByRole('application', { name: /^Station map/ }).boundingBox())!
     const at = offsetAtOpening(51.31, 10.41)
     await page.touchscreen.tap(box.x + box.width / 2 + at.x, box.y + box.height / 2 + at.y)
-    await expect.poll(() => zoomOf(page)).toBe(10)
+    await expect.poll(() => zoomOf(page)).toBe(9)
     await expect(page.getByTestId('map-station-name')).toHaveCount(0)
   })
 })

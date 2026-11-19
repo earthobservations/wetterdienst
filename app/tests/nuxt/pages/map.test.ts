@@ -1105,7 +1105,7 @@ describe('why a farther station was picked, and which place the pick is for (GH-
       expect(legend.find('[data-testid="map-legend-stopped"]').classes()).toContain('map-legend-dot-stopped')
       expect(legend.findAll('span[aria-hidden="true"]')).toHaveLength(3)
       // from the zoom where every station is its own dot there are no groups, and the legend has the two dots only
-      stage.emit('view', { latitude: 53, longitude: 10, zoom: 10 })
+      stage.emit('view', { latitude: 53, longitude: 10, zoom: 9 })
       await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').findAll('li').map(item => item.text())).toEqual(['Still reporting', 'Stopped reporting']))
     })
 
@@ -1120,7 +1120,7 @@ describe('why a farther station was picked, and which place the pick is for (GH-
       await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').findAll('li')).toHaveLength(1))
       expect(wrapper.find('#map-legend-description').text()).toBe('A number is a group of stations: click to zoom in.')
       // at the zoom where no station is grouped the forecast's points need no legend, in the panel or in the map's description
-      stage.emit('view', { latitude: 53, longitude: 10, zoom: 10 })
+      stage.emit('view', { latitude: 53, longitude: 10, zoom: 9 })
       await vi.waitFor(() => expect(wrapper.find('[data-testid="map-legend"]').exists()).toBe(false))
       expect(wrapper.find('#map-legend-title').exists()).toBe(false)
       expect(wrapper.find('#map-legend-description').text()).toBe('')
@@ -1929,7 +1929,7 @@ describe('the layers button (GH-4209)', () => {
 })
 
 describe('the groups of stations at the outer zooms (GH-4079)', () => {
-  const GROUPED = { radius: 80, separateFrom: 10 }
+  const GROUPED = { radius: 40, separateFrom: 9 }
   const grouping = (wrapper: Awaited<ReturnType<typeof mountMap>>) => wrapper.find('[data-testid="map-grouping"]')
 
   it('opens grouped, and the reader turns the grouping off and on with a switch (GH-4209)', async () => {

@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Map]` Stations are grouped by distance, not on a grid: a town's stations are one group at the
+  town, where a grid square's corner used to spread them over several bubbles (Hamburg at zoom 7 had
+  none). The radius is 40 px instead of 80, and every station is its own dot from zoom 9 instead of
+  10 (the station pickers separate there too). The groups still depend on the zoom only
+  (GH-4241).
+
 ## [0.54.0] - 2026-11-19
 
 Paired with backend 0.192.0. It needs no more of the backend than 0.191.0 gave it (the stripes' classes

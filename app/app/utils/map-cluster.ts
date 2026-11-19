@@ -7,13 +7,15 @@ import { dotRadius } from './map-tool'
  * `leaflet.markercluster`, whose groups are DOM markers: they would be stops of the keyboard (the map tool keeps its
  * stations out of the Tab order, see `StationMap.vue`) and a layer of 133,041 stations (GHCN daily) is too many of them.
  *
- * The groups are made on a grid in screen pixels at the zoom: one pass over the list, a sum for each cell, no tree to
- * build and nothing to keep but the groups of the zoom in view.
+ * The groups are made by distance, in screen pixels at the zoom (GH-4241): stations are taken in a stable order, the densest
+ * place first, and each takes the stations that are not yet in a group within the radius of it, so a town's stations are one
+ * group at the town, wherever a grid would have cut it. One pass over the list with a grid of squares of the radius to find the
+ * neighbours (a lookup, not a tree to build), no index of all the zooms, and nothing to keep but the groups of the zoom in view.
  */
 
 /**
  * What grouping sets, the two settings behind the switch on the map: the radius of a group in screen pixels (every station
- * of a group is within it of the group's cell centre), and the zoom from which every station is its own dot.
+ * of a group is within it of the station the group formed round), and the zoom from which every station is its own dot.
  */
 export interface Grouping {
   radius: number
@@ -21,7 +23,7 @@ export interface Grouping {
 }
 
 /** The one grouping the map has (GH-4209: the switch is on or off; the fine step of GH-4172 is gone), on by default, which the pickers take their separation zoom from */
-export const GROUPING: Grouping = { radius: 80, separateFrom: 10 }
+export const GROUPING: Grouping = { radius: 40, separateFrom: 9 }
 
 /**
  * A layer whose list has more stations than this is always grouped, whatever the switch says (maintainer, 2026-11-14):
@@ -43,7 +45,7 @@ export interface GroupingInForce {
  *
  * @example
  * groupingFor(false, 5_600) // { on: false, compulsory: false, grouping: null }
- * groupingFor(false, 133_041) // { on: true, compulsory: true, grouping: { radius: 80, separateFrom: 10 } }
+ * groupingFor(false, 133_041) // { on: true, compulsory: true, grouping: { radius: 40, separateFrom: 9 } }
  */
 export function groupingFor(wanted: boolean, count: number): GroupingInForce {
   const compulsory = count > GROUPING_COMPULSORY_ABOVE
@@ -73,6 +75,9 @@ export interface Cluster {
 }
 
 const TILE = 256
+
+/** The most squares across the grid that neighbours are found in (a grid of 4 million squares at most, a few MB), so that a list at a deep zoom has no grid of a billion */
+const GRID_MAX = 2048
 
 /** The latitude Leaflet's Web Mercator map ends at: a point beyond it is drawn at it */
 const MAX_LATITUDE = 85.0511287798
@@ -109,6 +114,8 @@ interface Group {
   east: number
   first: PlacedStation
   alive: boolean
+  /** The radius of its disc in pixels, as drawn: a dot for a group of one */
+  radius: number
 }
 
 /** The edge of the squares the neighbours of a group are looked for in: more than the two largest discs side by side */
@@ -116,30 +123,36 @@ const NEIGHBOUR_CELL = 64
 
 /**
  * Joins the groups whose discs would overlap, until none do: a group is drawn at the middle of its stations, which is not
- * the middle of the square of the grid it was cut in, so the discs of two neighbouring squares can reach over each other
- * and hide each other's number. A lone station counts as the dot it is drawn as. The joined group is bigger (a larger
- * disc) and has moved to the middle of all its stations, so another may now overlap it: the pass is made again until a pass
- * joins nothing.
+ * where it formed, so the discs of two groups that formed `radius` apart can reach over each other and hide each other's
+ * number. A lone station counts as the dot it is drawn as. The joined group is bigger (a larger disc) and has moved to the
+ * middle of all its stations, so another may now overlap it: the pass is made again until a pass joins nothing.
  *
- * The cascade is not capped (no limit on how far a joined group may reach beyond its square): a cap would leave discs lying on
- * each other where the stations are denser than a disc, which is what the pass is for, and the cost is small (the squares are
- * joined, not the stations: 14 to 17 ms at zoom 7 of a list in towns, 407 ms at most). At the outer zooms a group is large
- * because a place is, not because the pass ran on: 153 groups at zoom 2 for 133,041 stations spread over the world.
+ * The cascade is not capped: a cap would leave discs lying on each other where the stations are denser than a disc, which is
+ * what the pass is for. With groups that formed a radius (40 px) apart, and discs of 12 to 24 px, it joins few: only where a
+ * group's middle has moved toward its neighbour. The neighbours are looked for in a grid of squares of `NEIGHBOUR_CELL`
+ * pixels, made for each pass from the groups' places (a lookup, not a tree).
  */
-function mergeOverlapping(groups: Group[], dot: number): Group[] {
-  const radiusOf = (group: Group) => group.count === 1 ? dot : clusterRadius(group.count)
-  const keyOf = (column: number, row: number) => column * 1_000_003 + row
+function mergeOverlapping(groups: Group[], dot: number, size: number): Group[] {
+  const side = Math.max(NEIGHBOUR_CELL, size / GRID_MAX)
+  const across = Math.floor(size / side) + 1
   let alive = groups
   for (let pass = 0; pass < 32; pass++) {
-    const index = new Map<number, Group[]>()
-    for (const group of alive) {
-      const key = keyOf(Math.floor(group.sx / group.count / NEIGHBOUR_CELL), Math.floor(group.sy / group.count / NEIGHBOUR_CELL))
-      const cell = index.get(key)
-      if (cell)
-        cell.push(group)
-      else
-        index.set(key, [group])
+    const count = alive.length
+    const squareOf = new Int32Array(count)
+    const from = new Int32Array(across * across + 1)
+    for (let index = 0; index < count; index++) {
+      const group = alive[index]!
+      group.radius = group.count === 1 ? dot : clusterRadius(group.count)
+      const square = Math.floor(group.sx / group.count / side) * across + Math.floor(group.sy / group.count / side)
+      squareOf[index] = square
+      from[square + 1]!++
     }
+    for (let square = 0; square < across * across; square++)
+      from[square + 1]! += from[square]!
+    const members = new Int32Array(count)
+    const filled = from.slice(0, across * across)
+    for (let index = 0; index < count; index++)
+      members[filled[squareOf[index]!]!++] = index
     let joined = false
     for (const group of alive) {
       if (!group.alive)
@@ -149,14 +162,19 @@ function mergeOverlapping(groups: Group[], dot: number): Group[] {
         again = false
         const x = group.sx / group.count
         const y = group.sy / group.count
-        const column = Math.floor(x / NEIGHBOUR_CELL)
-        const row = Math.floor(y / NEIGHBOUR_CELL)
-        for (let dc = -1; dc <= 1; dc++) {
-          for (let dr = -1; dr <= 1; dr++) {
-            for (const other of index.get(keyOf(column + dc, row + dr)) ?? []) {
+        const column = Math.floor(x / side)
+        const row = Math.floor(y / side)
+        for (let dc = Math.max(column - 1, 0); dc <= Math.min(column + 1, across - 1); dc++) {
+          for (let dr = Math.max(row - 1, 0); dr <= Math.min(row + 1, across - 1); dr++) {
+            const near = dc * across + dr
+            for (let at = from[near]!; at < from[near + 1]!; at++) {
+              const other = alive[members[at]!]!
               if (other === group || !other.alive)
                 continue
-              if (Math.hypot(other.sx / other.count - x, other.sy / other.count - y) >= radiusOf(group) + radiusOf(other))
+              const reach = group.radius + other.radius
+              const dx = other.sx / other.count - x
+              const dy = other.sy / other.count - y
+              if (dx * dx + dy * dy >= reach * reach)
                 continue
               group.count += other.count
               group.reporting += other.reporting
@@ -166,6 +184,7 @@ function mergeOverlapping(groups: Group[], dot: number): Group[] {
               group.north = Math.max(group.north, other.north)
               group.west = Math.min(group.west, other.west)
               group.east = Math.max(group.east, other.east)
+              group.radius = clusterRadius(group.count)
               other.alive = false
               again = joined = true
             }
@@ -181,45 +200,112 @@ function mergeOverlapping(groups: Group[], dot: number): Group[] {
 }
 
 /**
- * The groups of a list at a zoom: the stations in one square of 2 x `radius` pixels of a grid (so each is within `radius`
- * of the middle of it) are one group, and groups whose discs would overlap are joined (`mergeOverlapping`), so that every
- * disc is over its own stations and no number is hidden by another. A group of one is that station, drawn as a dot of
- * `dot` pixels. The stations of every kind are grouped together (`reports` says which report): one group for a place, whatever
- * its stations' status, with the number of those that report.
+ * The groups of a list at a zoom, by distance (GH-4241): the stations are taken in a stable order, and each that is not yet in
+ * a group starts one with every other station not yet in a group within `radius` pixels of it, drawn at the middle of its stations. The order
+ * is the densest place first (the stations of a square of `radius` pixels with the most stations in it and the squares
+ * around it, then the list's own order), so that a town's stations are taken together by a station of the town, not by one
+ * at its edge that a grid's corner would have cut it at. Groups whose discs would overlap are then joined
+ * (`mergeOverlapping`), so that every disc is over its own stations and no number is hidden by another. A group of one is that
+ * station, drawn as a dot of `dot` pixels. The stations of every kind are grouped together (`reports` says which report): one
+ * group for a place, whatever its stations' status, with the number of those that report.
  *
- * The list is gone through once for the grid, with a sum for each square, and the squares (not the stations) are then
- * joined. Measured on 133,041 stations (a laptop, 2026-11-17): 6 to 40 ms at the outer zooms (2 to 5) of a list that is in
- * towns, 10 to 17 ms at zoom 7; of one spread evenly over the world, where the groups are most, 14 ms at zoom 2 to 5
- * for a radius of 80 and 121 ms at zoom 6 and 407 ms at zoom 7 for the radius of 30 the map had then (84,000 groups, which no
- * map shows). A group is made once for a zoom and kept until the list or the grouping changes.
+ * The groups depend on the list and the zoom only, never on the part of the map in view or on a drag. The neighbours are found
+ * in a grid of squares of `radius` pixels (the 3 x 3 squares round a station), so the pass is linear in the list, and made
+ * for one zoom when it is asked for (the map keeps the groups of a zoom until the list or the grouping changes). Measured on
+ * GHCN daily's 132,894 stations (2026-11-19, a laptop): 10 to 16 ms at zoom 2 to 5, 20 and 31 ms at zoom 6 and 7, 68 ms at
+ * zoom 8 in Node (51 ms in Chrome), where the grid of 80 px took 7 to 17 ms; one list spread over the world, with more groups, 98 ms at
+ * zoom 8.
  *
  * @example
- * clusterStations(stations, 5, 50) // [{ count: 38, latitude: 52.4, longitude: 9.9, x, y, ... }, { count: 1, station, ... }]
+ * clusterStations(stations, 5, 40) // [{ count: 38, latitude: 52.4, longitude: 9.9, x, y, ... }, { count: 1, station, ... }]
  */
 export function clusterStations(stations: PlacedStation[], zoom: number, radius: number, dot = dotRadius(zoom), reports?: (station: PlacedStation) => boolean): Cluster[] {
-  const cell = radius * 2
-  const cells = new Map<number, Group>()
-  for (const station of stations) {
+  const count = stations.length
+  const xs = new Float64Array(count)
+  const ys = new Float64Array(count)
+  // the grid the neighbours are found in: squares of the radius, or larger where that would be more than GRID_MAX of them
+  // across (a square larger than the radius only has more to look through, and finds the same neighbours)
+  const size = TILE * 2 ** zoom
+  const side = Math.max(radius, size / GRID_MAX)
+  const across = Math.floor(size / side) + 1
+  const squareOf = new Int32Array(count)
+  // the stations of each square, by a counting sort that keeps the list's order in a square: `from[square]` to `from[square + 1]`
+  const from = new Int32Array(across * across + 1)
+  // the squares that have stations, in the order of the first station of each in the list
+  const used: number[] = []
+  for (let index = 0; index < count; index++) {
+    const station = stations[index]!
     const at = worldPixels(station.latitude, station.longitude, zoom)
-    // a number for the cell: the columns of the widest world (zoom 16) fit under a million
-    const key = Math.floor(at.x / cell) * 1_000_003 + Math.floor(at.y / cell)
-    const reporting = !reports || reports(station) ? 1 : 0
-    const group = cells.get(key)
-    if (group) {
-      group.count++
-      group.reporting += reporting
-      group.sx += at.x
-      group.sy += at.y
-      group.south = Math.min(group.south, station.latitude)
-      group.north = Math.max(group.north, station.latitude)
-      group.west = Math.min(group.west, station.longitude)
-      group.east = Math.max(group.east, station.longitude)
+    xs[index] = at.x
+    ys[index] = at.y
+    const square = Math.floor(at.x / side) * across + Math.floor(at.y / side)
+    squareOf[index] = square
+    if (from[square + 1]!++ === 0)
+      used.push(square)
+  }
+  for (let square = 0; square < across * across; square++)
+    from[square + 1]! += from[square]!
+  const members = new Int32Array(count)
+  const filled = from.slice(0, across * across)
+  for (let index = 0; index < count; index++)
+    members[filled[squareOf[index]!]!++] = index
+  const sizeOf = (column: number, row: number) => column < 0 || row < 0 || column >= across || row >= across ? 0 : from[column * across + row + 1]! - from[column * across + row]!
+  // the density of a square: its stations and those of the eight round it, which are all within two radii of a station of it.
+  // The densest square first, the squares of one density in the order of their first station in the list: packed into one
+  // number each, which sorts as a number (the density is bounded by the list, and a list has under 2^22 squares in use)
+  const ranked = new Float64Array(used.length)
+  for (let rank = 0; rank < used.length; rank++) {
+    const column = Math.floor(used[rank]! / across)
+    const row = used[rank]! % across
+    let density = 0
+    for (let dc = -1; dc <= 1; dc++) {
+      for (let dr = -1; dr <= 1; dr++)
+        density += sizeOf(column + dc, row + dr)
     }
-    else {
-      cells.set(key, { count: 1, reporting, sx: at.x, sy: at.y, south: station.latitude, west: station.longitude, north: station.latitude, east: station.longitude, first: station, alive: true })
+    ranked[rank] = (count - density) * 4_194_304 + rank
+  }
+  ranked.sort()
+  const taken = new Uint8Array(count)
+  const groups: Group[] = []
+  const reach = radius * radius
+  for (const packed of ranked) {
+    const square = used[packed % 4_194_304]!
+    const column = Math.floor(square / across)
+    const row = square % across
+    for (let at = from[square]!; at < from[square + 1]!; at++) {
+      const seed = members[at]!
+      if (taken[seed])
+        continue
+      const group: Group = { count: 0, reporting: 0, sx: 0, sy: 0, south: 90, west: 180, north: -90, east: -180, first: stations[seed]!, alive: true, radius: 0 }
+      for (let dc = Math.max(column - 1, 0); dc <= Math.min(column + 1, across - 1); dc++) {
+        for (let dr = Math.max(row - 1, 0); dr <= Math.min(row + 1, across - 1); dr++) {
+          const near = dc * across + dr
+          for (let other = from[near]!; other < from[near + 1]!; other++) {
+            const index = members[other]!
+            if (taken[index])
+              continue
+            const dx = xs[index]! - xs[seed]!
+            const dy = ys[index]! - ys[seed]!
+            if (dx * dx + dy * dy > reach)
+              continue
+            taken[index] = 1
+            const station = stations[index]!
+            group.count++
+            if (!reports || reports(station))
+              group.reporting++
+            group.sx += xs[index]!
+            group.sy += ys[index]!
+            group.south = Math.min(group.south, station.latitude)
+            group.north = Math.max(group.north, station.latitude)
+            group.west = Math.min(group.west, station.longitude)
+            group.east = Math.max(group.east, station.longitude)
+          }
+        }
+      }
+      groups.push(group)
     }
   }
-  return mergeOverlapping([...cells.values()], dot).map((group) => {
+  return mergeOverlapping(groups, dot, size).map((group) => {
     const x = group.sx / group.count
     const y = group.sy / group.count
     return {

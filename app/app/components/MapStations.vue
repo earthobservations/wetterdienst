@@ -48,7 +48,7 @@ const selectedIcon = L.icon({
   className: 'wd-marker-selected',
 })
 
-/** The zoom from which every station of the picker is its own marker: the map tool's default one, so that the two group alike */
+/** The zoom from which every station of the picker is its own marker: the map tool's (GROUPING), so that the two separate at the same zoom (the picker's radius is leaflet.markercluster's own) */
 const PICKER_SEPARATE_FROM = GROUPING.separateFrom
 /** The radius of a group of the picker at a zoom, in pixels: leaflet.markercluster's 80 outside the separation zoom, and one pixel from it, which only markers on one place share */
 const pickerClusterRadius = (zoom: number): number => zoom < PICKER_SEPARATE_FROM ? 80 : 1
