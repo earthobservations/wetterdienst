@@ -501,7 +501,7 @@ watch([
               />
 
               <div v-if="selectedStation" class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-                <p><strong>{{ t('stripes.region') }}{{ t('common.colon') }}</strong> {{ selectedStation.region }}</p>
+                <p v-if="selectedStation.region"><strong>{{ t('stripes.region') }}{{ t('common.colon') }}</strong> {{ selectedStation.region }}</p>
                 <p>
                   <strong>{{ t('stripes.available') }}{{ t('common.colon') }}</strong> {{ availableYears }}
                 </p>
