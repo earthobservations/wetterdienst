@@ -83,19 +83,22 @@ const availableYears = computed(() => {
 /** The station of the link that could not be asked for (an outage): told with Retry, and never taken for a station that is not there */
 const linkedFailure = ref<{ id: string, message: string } | null>(null)
 
+/** Whether the reader has picked a station that is not the one of the link: its answer, late, is not taken in place of the pick */
+const pickedOtherThan = (id: string) => selectedStation.value !== null && selectedStation.value.station_id !== id
+
 async function takeLinkedStation(id: string) {
   linkedFailure.value = null
   try {
     const answer = await $fetch<StationsResponse>('/api/stations', { query: { ...GHCN_NETWORK, parameters: 'daily/data', stations: id }, ...API_FETCH })
     const found = answer.stations?.[0]
-    // the page has moved to another source or kind while the station was asked for
-    if (found && source.value === 'ghcn') {
+    // the page has moved to another source or kind, or the reader has picked another station, while the station was asked for
+    if (found && source.value === 'ghcn' && !pickedOtherThan(id)) {
       linkedStation.value = found
       selectedStation.value = found
     }
   }
   catch (failure) {
-    if (source.value === 'ghcn')
+    if (source.value === 'ghcn' && !pickedOtherThan(id))
       linkedFailure.value = { id, message: describeFetchError(failure) }
   }
 }
@@ -106,6 +109,8 @@ const pickedStations = computed(() => selectedStation.value ? [selectedStation.v
 
 function onPick(picked: StripesStation[]) {
   selectedStation.value = picked[0] ?? null
+  // a station picked is not the one of the link, whose failure (and Retry) are no longer about this page's choice
+  linkedFailure.value = null
 }
 
 const showSettings = ref(true)

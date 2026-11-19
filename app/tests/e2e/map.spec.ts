@@ -1237,11 +1237,11 @@ test.describe('the map tool: NOAA GHCN daily (GH-4078)', () => {
     await open(page, baseURL!, '/map', ghcnBackend(asked))
     await (await layerRadio(page, en.mapTool.layerGhcn)).click()
     await expect(page).toHaveURL(/layer=ghcn/)
-    // the window is large (1440 by 900): Germany at its opening zoom is more than the 200 square degrees that are asked for, and the
-    // map says so; one step in, it is the box of the view, a little more, and the stations of it (the one in New York is not)
-    await expect(page.getByTestId('map-zoom-hint')).toHaveText(en.mapTool.zoomInForStations)
-    expect(asked).toHaveLength(0)
-    await page.getByRole('button', { name: en.mapTool.zoomIn }).click()
+    // the window is large (1440 by 900): Germany at its opening zoom is more than the 200 square degrees that are asked for, so the map
+    // zooms in as the layer is chosen, until the view fits, and the box of the view, a little more, and the stations of it are shown at once
+    // (the one in New York is not)
+    await expect.poll(() => zoomOf(page)).toBe(7)
+    await expect(page.getByTestId('map-zoom-hint')).toHaveCount(0)
     await expect(page.getByTestId('map-count')).toHaveText(/^Stations shown: [1-9]/)
     await expect.poll(() => asked.length).toBeGreaterThan(0)
     expect(asked[0]!.get('provider')).toBe('noaa')

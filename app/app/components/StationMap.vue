@@ -450,7 +450,31 @@ watch(() => props.fullscreen, () => {
   void nextTick(() => map?.invalidateSize({ animate: false }))
   requestAnimationFrame(() => map?.invalidateSize({ animate: false }))
 }, { flush: 'post' })
+/**
+ * Zooms in, from where the map is, until the part of the world in view holds no more than `maxArea` square degrees (longitude times
+ * latitude), centred on `centre` (the map's own centre where there is none): the GHCN layer, chosen with most of the world in view (GH-4078).
+ * Where the map is already that far in, it is not moved.
+ */
+function zoomToFit(maxArea: number, centre?: Point) {
+  if (!map)
+    return
+  const target = centre ? L.latLng(centre.latitude, centre.longitude) : map.getCenter()
+  const half = map.getSize().divideBy(2)
+  const areaAt = (zoom: number) => {
+    const middle = map!.project(target, zoom)
+    const northWest = map!.unproject(middle.subtract(half), zoom)
+    const southEast = map!.unproject(middle.add(half), zoom)
+    return Math.abs(southEast.lng - northWest.lng) * Math.abs(northWest.lat - southEast.lat)
+  }
+  let zoom = map.getZoom()
+  while (areaAt(zoom) > maxArea && zoom < map.getMaxZoom())
+    zoom++
+  if (zoom !== map.getZoom())
+    map.setView(target, zoom, { animate: !reducedMotion.value })
+}
+
 defineExpose({
+  zoomToFit,
   /** The focus into the map (the container of Leaflet is a stop of the keyboard that pans and zooms by keys) */
   focusMap: () => container.value?.focus({ preventScroll: true }),
   /** The focus back to the full-screen button */

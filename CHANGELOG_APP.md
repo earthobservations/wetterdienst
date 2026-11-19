@@ -20,11 +20,12 @@ Types of changes:
 
 - `[Map]` A NOAA GHCN daily layer, the third in the layers panel: stations from all over the world,
   loaded for the part of the map in view as it moves (debounced; a request the map has moved past
-  is cancelled) and grouped like any large layer. Zoomed out so far that the view and its padding
-  would hold more than 200 square degrees, it asks for none and says to zoom in. A station's panel
-  offers its own climate stripes and its daily values in the Explorer, and the nearest forecast; a
-  place picked in another layer is kept when the layer is changed, wherever the map has been moved
-  to. It needs backend 0.192.0 (GH-4078).
+  is cancelled) and grouped like any large layer. Zoomed out so far that the view holds more than
+  200 square degrees, it asks for none and says to zoom in; choosing the layer from such a view
+  zooms the map in until it fits, on the place picked or the centre, and shows stations at once. A
+  station's panel offers its own climate stripes and its daily values in the Explorer, and the
+  nearest forecast; a place picked in another layer is kept when the layer is changed, wherever the
+  map has been moved to. It needs backend 0.192.0 (GH-4078).
 - `[Stripes]` The page takes a source, DWD's annual values or NOAA GHCN daily (`provider` and
   `network` in the link). The title of a GHCN station's stripes names its country, from its id.
   Where GHCN temperature stripes are shown, the page, the map's panel and the saved image say that

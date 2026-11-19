@@ -12,7 +12,7 @@ import { stripesAnswer } from '../../helpers/stripes-answer'
 // itself (Leaflet, which draws nothing in the test's document) is a stand-in that raises the events the real one does.
 
 const { stage } = vi.hoisted(() => ({
-  stage: { props: {} as Record<string, any>, emit: ((..._args: any[]) => {}) as (...args: any[]) => void },
+  stage: { props: {} as Record<string, any>, emit: ((..._args: any[]) => {}) as (...args: any[]) => void, zoomed: [] as any[][] },
 }))
 vi.mock('~/components/StationMap.vue', async () => {
   const { defineComponent, h } = await import('vue')
@@ -23,9 +23,11 @@ vi.mock('~/components/StationMap.vue', async () => {
     default: defineComponent({
       props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping', 'panelOpen', 'describedBy', 'fullscreen', 'hold'],
       emits: ['pick', 'view', 'group'],
-      setup(props, { emit }) {
+      setup(props, { emit, expose }) {
         stage.props = props
         stage.emit = emit as (...args: any[]) => void
+        // the map zooms in for the layer chosen with the view over the cap (the real one reports its new view; the tests do)
+        expose({ zoomToFit: (...args: any[]) => stage.zoomed.push(args) })
         return () => h('div', { 'data-testid': 'station-map', 'role': 'application', 'aria-label': props.label })
       },
     }),
@@ -102,9 +104,11 @@ const asked: { stations: Array<Record<string, string>>, stripesValues: string[],
 let stationsFailures = 0
 /** How many requests for a station of GHCN daily by its id fail with a 500 before one is answered */
 let ghcnLookupFailures = 0
+/** How long a request for the stations of GHCN daily is held before it is answered, in milliseconds */
+let ghcnDelay = 0
 let stripesStatus = 200
 
-function stationsOf(event: H3Event) {
+async function stationsOf(event: H3Event) {
   const query = getQuery(event) as Record<string, string>
   asked.stations.push(query)
   if (stationsFailures > 0 && query.network === 'mosmix') {
@@ -115,6 +119,8 @@ function stationsOf(event: H3Event) {
   }
   // GHCN daily: the stations of a box, or the ones asked for by their id
   if (query.network === 'ghcn') {
+    if (ghcnDelay)
+      await new Promise(resolve => setTimeout(resolve, ghcnDelay))
     if (query.stations && ghcnLookupFailures > 0) {
       ghcnLookupFailures--
       setResponseStatus(event, 500)
@@ -240,10 +246,12 @@ afterEach(async () => {
   // the next page has its own map: a test must not read the props of this one's, or raise its events
   stage.props = {}
   stage.emit = () => {}
+  stage.zoomed.length = 0
   clearNuxtData()
   asked.stations.length = asked.stripesValues.length = asked.stripesQueries.length = asked.values.length = 0
   stationsFailures = 0
   ghcnLookupFailures = 0
+  ghcnDelay = 0
   stripesStatus = 200
   valuesStatus = 200
   removeCollision()
@@ -2614,5 +2622,112 @@ describe('the GHCN daily layer (GH-4078)', () => {
       await chooseLayer(wrapper, 'ghcn')
       await vi.waitFor(() => expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(true), { timeout: 3000 })
     })
+  })
+
+  describe('choosing the layer with the view over the cap', () => {
+    /** 22 by 12 degrees: 264 square degrees, over the 200 that are asked for (a window larger than 1280 px at the opening zoom) */
+    const WIDE = viewAt(51.2, 10.4, 11, 6, 6)
+
+    it('zooms the map in on its centre until the view fits, asks for nothing meanwhile, and asks for the view the map then reports', async () => {
+      const wrapper = await mountMap()
+      await mapIsThere(wrapper)
+      await listed(wrapper)
+      stage.emit('view', WIDE)
+      await nextTick()
+      await chooseLayer(wrapper, 'ghcn')
+      expect(stage.zoomed).toEqual([[200, undefined]])
+      expect(ghcnAsks()).toHaveLength(0)
+      // no hint: the layer is not too wide for a reader who has not moved, it is being zoomed in on
+      expect(wrapper.find('[data-testid="map-zoom-hint"]').exists()).toBe(false)
+      stage.emit('view', HAMBURG_VIEW)
+      await vi.waitFor(() => expect(idsOnMap()).toContain('GM000010147'), { timeout: 3000 })
+      expect(ghcnAsks()).toHaveLength(1)
+      expect(stage.zoomed).toHaveLength(1)
+    })
+
+    it('does not zoom where the view fits, and says to zoom in for a pan or a zoom out after the layer is chosen', async () => {
+      const wrapper = await mountGhcn()
+      expect(stage.zoomed).toEqual([])
+      stage.emit('view', WIDE)
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-zoom-hint"]').exists()).toBe(true))
+      stage.emit('view', viewAt(10, 0, 180, 70, 2))
+      await nextTick()
+      expect(stage.zoomed).toEqual([])
+    })
+
+    it('zooms in on the place picked, and asks once for the stations of the view that holds it', async () => {
+      const wrapper = await mountMap()
+      await mapIsThere(wrapper)
+      await listed(wrapper)
+      stage.emit('view', HAMBURG_VIEW)
+      await wrapper.find('[data-station-id="10147"]').trigger('click')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL'))
+      stage.emit('view', WIDE)
+      await nextTick()
+      await chooseLayer(wrapper, 'ghcn')
+      expect(stage.zoomed).toEqual([[200, { latitude: 53.63, longitude: 10 }]])
+      expect(ghcnAsks()).toHaveLength(0)
+      // the map is centred on the place: its view holds it, and that is the one request, not the box round the place as well
+      stage.emit('view', HAMBURG_VIEW)
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG FUHLSBUETTEL'), { timeout: 3000 })
+      expect(ghcnAsks()).toHaveLength(1)
+      expectClose([ghcnAsks()[0]!.left, ghcnAsks()[0]!.bottom, ghcnAsks()[0]!.right, ghcnAsks()[0]!.top], [7.4, 52.3, 12.6, 54.9])
+    })
+
+    it('zooms in at the first view where the address names the layer', async () => {
+      const wrapper = await mountMap('/map?layer=ghcn')
+      await mapIsThere(wrapper)
+      expect(stage.zoomed).toEqual([])
+      stage.emit('view', WIDE)
+      await vi.waitFor(() => expect(stage.zoomed).toEqual([[200, undefined]]))
+      expect(wrapper.find('[data-testid="map-zoom-hint"]').exists()).toBe(false)
+      // and no more: the next view that is too wide is a reader's, and says to zoom in
+      stage.emit('view', { ...WIDE })
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-zoom-hint"]').exists()).toBe(true))
+      expect(stage.zoomed).toHaveLength(1)
+    })
+  })
+
+  it('asks for the stations of the view with one request, not two, where the box of the view holds the place of the pick carried to the layer', async () => {
+    const wrapper = await mountMap()
+    await mapIsThere(wrapper)
+    await listed(wrapper)
+    stage.emit('view', HAMBURG_VIEW)
+    await wrapper.find('[data-station-id="10147"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL'))
+    await chooseLayer(wrapper, 'ghcn')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG FUHLSBUETTEL'), { timeout: 3000 })
+    await new Promise(resolve => setTimeout(resolve, 500))
+    expect(ghcnAsks()).toHaveLength(1)
+  })
+
+  it('asks for the view where an address change takes the pick away while the stations round the place are on their way', async () => {
+    const wrapper = await mountMap()
+    await mapIsThere(wrapper)
+    await listed(wrapper)
+    stage.emit('view', HAMBURG_VIEW)
+    await wrapper.find('[data-station-id="10147"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL'))
+    // the map moved to New York: the place is off the screen, and the box round it is asked for first (held for a moment)
+    stage.emit('view', viewAt(40.8, -74, 1, 0.5))
+    await nextTick()
+    ghcnDelay = 300
+    await chooseLayer(wrapper, 'ghcn')
+    await vi.waitFor(() => expect(ghcnAsks()).toHaveLength(1))
+    // the address names another station while it is: the pick is not carried, and the view is asked for
+    await useRouter().replace({ query: { layer: 'ghcn', station: 'USW00094728' } })
+    ghcnDelay = 0
+    await vi.waitFor(() => expect(ghcnAsks().some(query => Number(query.left) < -74 && Number(query.right) > -74)).toBe(true), { timeout: 3000 })
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('NEW YORK CNTRL PK TWR'), { timeout: 3000 })
+  })
+
+  it('takes the failure of the lookup of a station away with the layer it was asked on', async () => {
+    ghcnLookupFailures = 1
+    const wrapper = await mountMap('/map?layer=ghcn&station=USW00094728')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-lookup-failure"]').exists()).toBe(true), { timeout: 3000 })
+    await mapIsThere(wrapper)
+    await chooseLayer(wrapper, 'forecast')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-lookup-failure"]').exists()).toBe(false))
+    expect(wrapper.find('[data-testid="map-lookup-retry"]').exists()).toBe(false)
   })
 })

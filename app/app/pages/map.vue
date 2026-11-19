@@ -9,8 +9,10 @@ import MapStripes from '~/components/MapStripes.vue'
 import UseMyLocation from '~/components/UseMyLocation.vue'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber } from '~/utils/format'
-import { GROUPING_COMPULSORY_ABOVE, groupingFor, isGroupedAt } from '~/utils/map-cluster'
+import { BOX_PAD_PX, GROUPING_COMPULSORY_ABOVE, groupingFor, isGroupedAt } from '~/utils/map-cluster'
 import {
+  BOX_MAX_AREA,
+  boxArea,
   boxAround,
   boxHas,
   boxOfBounds,
@@ -32,9 +34,11 @@ import {
   MEASURED_NETWORK,
   measurementsLink,
   nearestStations,
+  padOf,
   placed,
   REACH_KM,
   reportingRule,
+  requestBox,
   SAME_PLACE_KM,
   searchStations,
   stateFromQuery,
@@ -339,7 +343,7 @@ function setScreen(element: unknown) {
   screen.value = element as HTMLElement | null
 }
 /** What the map component gives of itself: where the focus goes (its ref is the async component's, set by a function since the page's parts are in a loop) */
-interface MapHandle { focusMap: () => void, focusFullscreenButton: () => void }
+interface MapHandle { focusMap: () => void, focusFullscreenButton: () => void, zoomToFit: (maxArea: number, centre?: Point) => void }
 let mapHandle: MapHandle | null = null
 function setMap(handle: unknown) {
   mapHandle = handle as MapHandle | null
@@ -642,19 +646,45 @@ function showGhcnView() {
   if (layer.value === 'ghcn' && viewBox.value)
     ghcn.show(viewBox.value, viewSize.value)
 }
+/** The layer has just been chosen: the map is zoomed in until the view fits `BOX_MAX_AREA` if it is over it (once: a pan or a zoom out later shows the hint) */
+let fitPending = false
+/** The stations round the place of a pick carried to the layer have been asked for, which the moves of the map that follow do not ask for again */
+let aroundAsked = false
 // The stations of the GHCN layer are those of the view: asked for as the map moves, and no longer asked for (the request on its way
-// cancelled, what was loaded forgotten) where another layer is shown. A pick carried to the layer from another, whose place is
-// off the screen, has the stations round the place asked for first, whatever the view is
+// cancelled, what was loaded forgotten) where another layer is shown. Where the layer is chosen with the view over the cap, the map
+// zooms in on the place picked (else on its centre) until the view fits, and the stations of the view are asked for at once. A pick
+// carried to the layer from another has the stations of the view where its box holds the place, else the stations round the place
+// asked for first, whatever the view is (one request, not two, where the view does)
 watch([layer, viewBox], ([shown], [before]) => {
-  if (shown !== 'ghcn')
+  if (shown !== 'ghcn') {
+    fitPending = false
+    aroundAsked = false
     return ghcn.stop()
-  // (the pick is carried where a place is picked in another view: the condition of `reselect`, which is set below, after this)
-  if (anchor.value && pickedIn !== viewKey.value) {
-    if (before !== 'ghcn')
-      ghcn.showAround(boxAround(anchor.value, AROUND_KM))
-    return
   }
-  showGhcnView()
+  if (before !== 'ghcn') {
+    fitPending = true
+    aroundAsked = false
+  }
+  const box = viewBox.value
+  if (fitPending && box) {
+    fitPending = false
+    if (boxArea(box) > BOX_MAX_AREA && mapHandle) {
+      // the map reports its new view, which is asked for then
+      mapHandle.zoomToFit(BOX_MAX_AREA, anchor.value ?? undefined)
+      return
+    }
+  }
+  // (the pick is carried where a place is picked in another view: the condition of `reselect`, which is set below, after this)
+  const place = anchor.value && pickedIn !== viewKey.value ? anchor.value : null
+  if (!place)
+    return showGhcnView()
+  const requested = box && boxArea(box) <= BOX_MAX_AREA ? requestBox(box, padOf(box, viewSize.value, BOX_PAD_PX), BOX_MAX_AREA) : null
+  if (requested && boxHas(requested, place))
+    return showGhcnView()
+  if (!aroundAsked) {
+    aroundAsked = true
+    ghcn.showAround(boxAround(place, AROUND_KM))
+  }
 }, { immediate: true })
 
 // A change of layer or dataset, and the list that comes after it. The id of a station is the id in the list of
@@ -674,6 +704,8 @@ watch([viewKey, stations, ghcn.loaded], ([key, list], [previousKey]) => {
   if (key !== previousKey) {
     unknownStation.value = null
     sameStation.value = null
+    // the failure of a lookup of the station of the address is of the layer it was asked on
+    lookupFailure.value = null
   }
   // a pick that is carried to GHCN daily waits for a box that holds its place (asked for round it, wherever the map is, below): the
   // box may be empty, which says there is no station near
@@ -920,6 +952,9 @@ watch(() => route.query, (query) => {
   pickedIn = namedKey
   reselect = false
   noStationNear.value = false
+  // the stations round a place that were being asked for are no longer wanted, and the view itself is
+  aroundAsked = false
+  showGhcnView()
   if (newPick) {
     selectedId.value = named.stationId
     // another pick than the one remembered: the station of the address is remembered when its list brings it

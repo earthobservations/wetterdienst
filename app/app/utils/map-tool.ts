@@ -83,9 +83,10 @@ export interface MapBox {
  * with its padding (`requestBox`). GHCN daily has 78,512 of its stations in the United States, and the densest box of 200 square
  * degrees of its list (33 by 6 degrees over the south west) holds 26,894 of them (measured on the 132,894 stations of 2026-11-19;
  * a box of 25 by 20 degrees over the east, 500 square degrees, 45,000: 14 MB, two seconds). A view larger than this asks for
- * nothing and the map says to zoom in; one that nears it is asked for with less padding, none at the cap. The opening view (Germany,
- * zoom 6) on a wide screen is 170, so it is asked for with a little. A size in degrees, not a zoom, so that a phone and a full
- * screen are told alike.
+ * nothing and the map says to zoom in; one that nears it is asked for with less padding, none at the cap. Where the layer is chosen
+ * with the view over it (the opening view, Germany at zoom 6, is 170 on a 1280 px window and more on a larger one) the map zooms in
+ * until it fits, so that the layer shows stations at once; the hint is for a pan or a zoom out after that. A size in degrees, not a
+ * zoom, so that a phone and a full screen are told alike.
  */
 export const BOX_MAX_AREA = 200
 

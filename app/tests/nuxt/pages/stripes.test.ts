@@ -1669,6 +1669,8 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
   let method: 'midrange' | 'tavg' | null = 'midrange'
   /** How many requests for a station by its id fail with a 500 before one is answered */
   let stationFailures = 0
+  /** How long a request for a station by its id is held before it is answered, in milliseconds */
+  let stationDelay = 0
 
   function register() {
     registerEndpoint('/api/stripes/stations', (event) => {
@@ -1687,8 +1689,10 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
         ...answerOf(TWO_YEARS),
       }
     })
-    registerEndpoint('/api/stations', (event) => {
+    registerEndpoint('/api/stations', async (event) => {
       stationQueries.push(getQuery(event) as Record<string, string>)
+      if (stationDelay)
+        await new Promise(resolve => setTimeout(resolve, stationDelay))
       if (stationFailures > 0) {
         stationFailures--
         setResponseStatus(event, 500)
@@ -1704,6 +1708,7 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
     register()
     method = 'midrange'
     stationFailures = 0
+    stationDelay = 0
   })
   afterEach(() => {
     wrapper?.unmount()
@@ -1856,6 +1861,28 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
     expect(vm.selectedStation).toBeNull()
     await wrapper!.find('[data-testid="stripes-linked-retry"]').trigger('click')
     await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe(stoppedStation.station_id))
+    expect(wrapper!.find('[data-testid="stripes-linked-failure"]').exists()).toBe(false)
+  })
+
+  it('takes the failure of the station of the link away where another station is picked, and takes no late answer in place of the pick', async () => {
+    stationFailures = 1
+    const vm = await open(`/stripes?kind=temperature&provider=noaa&network=ghcn&station=${stoppedStation.station_id}`)
+    await vi.waitFor(() => expect(wrapper!.find('[data-testid="stripes-linked-failure"]').exists()).toBe(true))
+    // another station is picked: the alert, and its Retry, are about the link and not about this choice
+    wrapper!.findComponent(StationPicker).vm.$emit('update:selected', [newYork])
+    await vi.waitFor(() => expect(wrapper!.find('[data-testid="stripes-linked-failure"]').exists()).toBe(false))
+    expect(vm.selectedStation.station_id).toBe(newYork.station_id)
+    wrapper!.unmount()
+    clearNuxtData()
+
+    // the station of the link is on its way, and another is picked first: the answer that comes is not taken in its place
+    stationDelay = 300
+    const second = await open(`/stripes?kind=temperature&provider=noaa&network=ghcn&station=${stoppedStation.station_id}`)
+    await vi.waitFor(() => expect(stationQueries.length).toBeGreaterThan(0))
+    wrapper!.findComponent(StationPicker).vm.$emit('update:selected', [newYork])
+    await new Promise(resolve => setTimeout(resolve, 600))
+    expect(second.selectedStation.station_id).toBe(newYork.station_id)
+    // and a failure that comes late is not told either
     expect(wrapper!.find('[data-testid="stripes-linked-failure"]').exists()).toBe(false)
   })
 
