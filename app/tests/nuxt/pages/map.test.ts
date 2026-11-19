@@ -12,7 +12,7 @@ import { stripesAnswer } from '../../helpers/stripes-answer'
 // itself (Leaflet, which draws nothing in the test's document) is a stand-in that raises the events the real one does.
 
 const { stage } = vi.hoisted(() => ({
-  stage: { props: {} as Record<string, any>, emit: ((..._args: any[]) => {}) as (...args: any[]) => void, zoomed: [] as any[][] },
+  stage: { props: {} as Record<string, any>, emit: ((..._args: any[]) => {}) as (...args: any[]) => void, zoomed: [] as any[][], zoomMoves: true },
 }))
 vi.mock('~/components/StationMap.vue', async () => {
   const { defineComponent, h } = await import('vue')
@@ -27,7 +27,12 @@ vi.mock('~/components/StationMap.vue', async () => {
         stage.props = props
         stage.emit = emit as (...args: any[]) => void
         // the map zooms in for the layer chosen with the view over the cap (the real one reports its new view; the tests do)
-        expose({ zoomToFit: (...args: any[]) => stage.zoomed.push(args) })
+        expose({
+          zoomToFit: (...args: any[]) => {
+            stage.zoomed.push(args)
+            return stage.zoomMoves
+          },
+        })
         return () => h('div', { 'data-testid': 'station-map', 'role': 'application', 'aria-label': props.label })
       },
     }),
@@ -247,6 +252,7 @@ afterEach(async () => {
   stage.props = {}
   stage.emit = () => {}
   stage.zoomed.length = 0
+  stage.zoomMoves = true
   clearNuxtData()
   asked.stations.length = asked.stripesValues.length = asked.stripesQueries.length = asked.values.length = 0
   stationsFailures = 0
@@ -2672,6 +2678,41 @@ describe('the GHCN daily layer (GH-4078)', () => {
       await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG FUHLSBUETTEL'), { timeout: 3000 })
       expect(ghcnAsks()).toHaveLength(1)
       expectClose([ghcnAsks()[0]!.left, ghcnAsks()[0]!.bottom, ghcnAsks()[0]!.right, ghcnAsks()[0]!.top], [7.4, 52.3, 12.6, 54.9])
+    })
+
+    it('goes on as for a view that is not moved where the map does not move (the view fits round the place picked, not at the map\'s centre)', async () => {
+      const wrapper = await mountMap()
+      await mapIsThere(wrapper)
+      await listed(wrapper)
+      stage.emit('view', HAMBURG_VIEW)
+      await wrapper.find('[data-station-id="10147"]').trigger('click')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL'))
+      stage.emit('view', WIDE)
+      await nextTick()
+      // the map reports no new view: it did not move
+      stage.zoomMoves = false
+      await chooseLayer(wrapper, 'ghcn')
+      expect(stage.zoomed).toEqual([[200, { latitude: 53.63, longitude: 10 }]])
+      // the pick is not left waiting: the stations round the place are asked for, and the nearest is picked
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG FUHLSBUETTEL'), { timeout: 3000 })
+      expectClose([ghcnAsks()[0]!.bottom, ghcnAsks()[0]!.top], [53.63 - 110 / 111.2, 53.63 + 110 / 111.2])
+    })
+
+    it('asks nothing of the map, and shows no hint meanwhile, where the address changes the layer to this one with the view over the cap', async () => {
+      const wrapper = await mountMap()
+      await mapIsThere(wrapper)
+      await listed(wrapper)
+      stage.emit('view', WIDE)
+      await nextTick()
+      await useRouter().replace({ query: { layer: 'ghcn' } })
+      const hints: boolean[] = []
+      for (let tick = 0; tick < 4; tick++) {
+        await nextTick()
+        hints.push(wrapper.find('[data-testid="map-zoom-hint"]').exists())
+      }
+      expect(hints).toEqual([false, false, false, false])
+      expect(stage.zoomed).toEqual([[200, undefined]])
+      expect(ghcnAsks()).toHaveLength(0)
     })
 
     it('zooms in at the first view where the address names the layer', async () => {

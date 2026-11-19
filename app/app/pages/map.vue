@@ -343,7 +343,7 @@ function setScreen(element: unknown) {
   screen.value = element as HTMLElement | null
 }
 /** What the map component gives of itself: where the focus goes (its ref is the async component's, set by a function since the page's parts are in a loop) */
-interface MapHandle { focusMap: () => void, focusFullscreenButton: () => void, zoomToFit: (maxArea: number, centre?: Point) => void }
+interface MapHandle { focusMap: () => void, focusFullscreenButton: () => void, zoomToFit: (maxArea: number, centre?: Point) => boolean }
 let mapHandle: MapHandle | null = null
 function setMap(handle: unknown) {
   mapHandle = handle as MapHandle | null
@@ -668,11 +668,10 @@ watch([layer, viewBox], ([shown], [before]) => {
   const box = viewBox.value
   if (fitPending && box) {
     fitPending = false
-    if (boxArea(box) > BOX_MAX_AREA && mapHandle) {
-      // the map reports its new view, which is asked for then
-      mapHandle.zoomToFit(BOX_MAX_AREA, anchor.value ?? undefined)
+    // the map reports its new view, which is asked for then; a map that did not move (the view fits round the place picked, though it is
+    // over the cap at the map's own centre) reports none, and the layer goes on as it does for a view that is not moved
+    if (boxArea(box) > BOX_MAX_AREA && mapHandle?.zoomToFit(BOX_MAX_AREA, anchor.value ?? undefined))
       return
-    }
   }
   // (the pick is carried where a place is picked in another view: the condition of `reselect`, which is set below, after this)
   const place = anchor.value && pickedIn !== viewKey.value ? anchor.value : null
@@ -944,6 +943,7 @@ watch(() => route.query, (query) => {
   const named = stateFromQuery(query)
   if (queryOf(named) === queryOf(state.value))
     return
+  const wasGhcn = layer.value === 'ghcn'
   layer.value = named.layer
   source.value = named.source
   const namedKey = keyOf(named.layer, named.source)
@@ -954,7 +954,9 @@ watch(() => route.query, (query) => {
   noStationNear.value = false
   // the stations round a place that were being asked for are no longer wanted, and the view itself is
   aroundAsked = false
-  showGhcnView()
+  // (not for a layer that is only now chosen: the layer's own watch has the map zoomed in on it first, and no hint flashes meanwhile)
+  if (wasGhcn)
+    showGhcnView()
   if (newPick) {
     selectedId.value = named.stationId
     // another pick than the one remembered: the station of the address is remembered when its list brings it

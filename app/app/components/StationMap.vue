@@ -453,11 +453,12 @@ watch(() => props.fullscreen, () => {
 /**
  * Zooms in, from where the map is, until the part of the world in view holds no more than `maxArea` square degrees (longitude times
  * latitude), centred on `centre` (the map's own centre where there is none): the GHCN layer, chosen with most of the world in view (GH-4078).
- * Where the map is already that far in, it is not moved.
+ * Where the map is already that far in at `centre` (the same area at another latitude is another number of square degrees) it only moves to
+ * it, if it is not there. Answers whether the map moved, which is when it reports a new view: not moved, it will report none.
  */
-function zoomToFit(maxArea: number, centre?: Point) {
+function zoomToFit(maxArea: number, centre?: Point): boolean {
   if (!map)
-    return
+    return false
   const target = centre ? L.latLng(centre.latitude, centre.longitude) : map.getCenter()
   const half = map.getSize().divideBy(2)
   const areaAt = (zoom: number) => {
@@ -469,8 +470,10 @@ function zoomToFit(maxArea: number, centre?: Point) {
   let zoom = map.getZoom()
   while (areaAt(zoom) > maxArea && zoom < map.getMaxZoom())
     zoom++
-  if (zoom !== map.getZoom())
-    map.setView(target, zoom, { animate: !reducedMotion.value })
+  if (zoom === map.getZoom() && map.getCenter().equals(target, 1e-5))
+    return false
+  map.setView(target, zoom, { animate: !reducedMotion.value })
+  return true
 }
 
 defineExpose({
