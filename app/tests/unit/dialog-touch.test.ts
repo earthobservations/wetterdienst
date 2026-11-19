@@ -336,7 +336,7 @@ describe('the layout under a page that covers the window (GH-3761)', () => {
     expect(rule('.app-header')).toMatch(/height:\s*var\(--header-height\)/)
     expect(rule('.app-header')).toMatch(/padding-top:\s*var\(--safe-top\)/)
     // sticky below it, the page under it and the scroll clear of it: all from that height, none adds the inset again
-    expect(rule('.bar-sticky')).toMatch(/top:\s*var\(--header-height\)/)
+    expect(rule('.bar-sticky')).toMatch(/top:\s*calc\(var\(--header-height\) \* var\(--bars-shown, 1\)\)/)
     expect(rule('.app-main')).toMatch(/calc\(100dvh - var\(--header-height\)\)/)
     expect(rule('html')).toMatch(/scroll-padding-top:\s*calc\(var\(--header-height\) \+ 1rem\)/)
     expect(css).not.toMatch(/var\(--header-height\)[^;]*var\(--safe-top\)/)
@@ -352,7 +352,7 @@ describe('the layout under a page that covers the window (GH-3761)', () => {
     expect(rule('.app-footer')).toMatch(/padding-bottom:\s*max\(var\(--tabbar-height\), var\(--safe-bottom\)\)/)
     expect(rule('.skip-link')).toMatch(/top:\s*calc\(0\.5rem \+ var\(--safe-top\)\)/)
     expect(rule('.skip-link')).toMatch(/left:\s*max\(var\(--frame-gutter\), var\(--safe-left\)\)/)
-    expect(rule('.app-toast-viewport')).toMatch(/bottom:\s*calc\(max\(var\(--tabbar-height\), var\(--safe-bottom\)\) \+ 1rem\)/)
+    expect(rule('.app-toast-viewport')).toMatch(/bottom:\s*calc\(max\(var\(--tabbar-height\) \* var\(--bars-shown, 1\), var\(--safe-bottom\)\) \+ 1rem\)/)
     expect(rule('.app-toast-viewport')).toMatch(/right:\s*calc\(1rem \+ var\(--safe-right\)\)/)
     expect(rule('.frame')).toMatch(/padding-inline:\s*max\(var\(--frame-gutter\), var\(--safe-left\)\) max\(var\(--frame-gutter\), var\(--safe-right\)\)/)
   })

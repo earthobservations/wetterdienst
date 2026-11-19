@@ -3,7 +3,8 @@
 // forecast of a station, or changes the theme or the language (AppCommandPalette.vue). Opened by its button, and by
 // Ctrl+K (⌘K on a Mac), a shortcut with a modifier, so that it cannot be set off by typing (WCAG 2.1.4). A dialog:
 // it holds the focus, Escape closes it, and the focus goes back to what had it before. Everything in it is also
-// reachable without it: it is a shortcut, not a place.
+// reachable without it: it is a shortcut, not a place. On a phone (below 40 rem) the dialog is a bar at the top of the window,
+// the field where the top bar is, so that the search opens over the bar it was tapped in (GH-4226); wider it is in the middle.
 const props = defineProps<{
   /** Show the word beside the magnifying glass (the wide header), or the glass alone */
   labelled?: boolean
@@ -46,7 +47,7 @@ const shortcut = computed(() => isMac.value ? ['meta', 'K'] : ['ctrl', 'K'])
     aria-haspopup="dialog"
     :aria-expanded="open"
     aria-keyshortcuts="Control+K Meta+K"
-    class="rounded-full"
+    class="rounded-full max-sm:size-11 max-sm:justify-center max-sm:bg-transparent max-sm:ring-0"
     :class="props.labelled ? 'ps-3 pe-2 min-w-32 justify-start text-muted' : ''"
     @click="open = true"
   >
@@ -63,7 +64,7 @@ const shortcut = computed(() => isMac.value ? ['meta', 'K'] : ['ctrl', 'K'])
     :title="t('shell.search')"
     :description="t('shell.searchPlaceholder')"
     :close="false"
-    :ui="{ content: 'app-vv-dialog sm:max-w-2xl sm:top-[12vh] sm:translate-y-0 max-h-[min(36rem,calc(100dvh-2rem))] sm:max-h-[min(36rem,calc(100dvh-16vh))]', header: 'sr-only', body: 'p-0 sm:p-0 flex flex-col min-h-0' }"
+    :ui="{ content: 'app-vv-dialog app-search-dialog sm:max-w-2xl sm:top-[12vh] sm:translate-y-0 max-h-[min(36rem,calc(100dvh-2rem))] sm:max-h-[min(36rem,calc(100dvh-16vh))] max-sm:top-0 max-sm:left-0 max-sm:w-full max-sm:max-w-none max-sm:translate-x-0 max-sm:translate-y-0 max-sm:rounded-t-none max-sm:pt-(--safe-top) max-sm:max-h-[min(36rem,100dvh)]', header: 'sr-only', body: 'p-0 sm:p-0 flex flex-col min-h-0' }"
     @after:leave="hold.afterLeave"
   >
     <template #body>

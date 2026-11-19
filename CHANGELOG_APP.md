@@ -40,6 +40,13 @@ Types of changes:
   The "About" row of a tool is a small ⓘ beside the page title, with the same text; Escape closes it.
   The map fills the window between the header and the tab bar. Tablets and desktop are unchanged
   (GH-4227).
+- `[Navigation]` On a phone (below 40 rem) the top bar and the tab bar slide away while you scroll
+  down and come back when you scroll up or reach the top, so a page has the whole screen; a small
+  scroll does nothing, a focus in either bar brings both back, and with reduced motion they appear
+  and disappear without animation. They stay while the search, the Menu or a popover is open and on
+  the map. The top bar is 44 px, not 64: a smaller logo and name, and the search and settings as
+  44 px icon buttons. The search opens as a bar over the top bar. Wider screens are unchanged
+  (GH-4226).
 - `[Map]` The legend (what a filled and a hollow dot and a numbered disc are) is in the layers panel,
   under the grouping switch, no longer a box at the map's foot; the map's description says it too for
   a screen reader (GH-4227).
