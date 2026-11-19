@@ -28,8 +28,38 @@ const grouped = defineModel<boolean>('grouped', { required: true })
 const open = defineModel<boolean>('open', { default: false })
 
 const { t } = useI18n()
+
+// One tap on the button closes the open panel (GH-4242). The popover waits for the click of a touch to dismiss on a press
+// outside, but dismisses on a focus that goes outside at once. Safari does not focus the button it is tapped: the focus goes
+// to the page behind it, in the middle of the tap (Chrome focuses the button, the trigger, which the popover leaves alone). The
+// panel closed on that focus, and the click that followed on the button opened it again, so the first tap seemed to do nothing.
+// A focus that goes outside during a touch is no leaving of the panel, and the click of the tap closes it (a press on the map or
+// the page) or toggles it (the button); a keyboard that tabs out of the panel still closes it.
+/** Whether a finger is down, or has lifted and its click has not come yet */
+let touchPress = false
+let touchPressTimer: ReturnType<typeof setTimeout> | undefined
+useEventListener('pointerdown', (event: PointerEvent) => {
+  clearTimeout(touchPressTimer)
+  touchPress = event.pointerType === 'touch'
+}, { capture: true })
+// the click of a tap comes within a few milliseconds of the finger lifting; a press that is no tap (a pan, a long press) has none
+useEventListener(['pointerup', 'pointercancel'], () => {
+  if (touchPress) {
+    clearTimeout(touchPressTimer)
+    touchPressTimer = setTimeout(() => touchPress = false, 500)
+  }
+}, { capture: true })
+useEventListener('click', () => touchPress = false, { capture: true })
+onBeforeUnmount(() => clearTimeout(touchPressTimer))
+
+/** What the popover raises for a press or a focus outside the panel: `detail.originalEvent` is the event that moved outside */
+function onInteractOutside(event: CustomEvent<{ originalEvent: Event }>) {
+  if (touchPress && event.detail.originalEvent.type === 'focusin')
+    event.preventDefault()
+}
+
 /** The panel's own element is the dialog the button opens: it needs a name, and a hook for the tests, which the popover passes on to it although its type does not list them */
-const content = computed(() => ({ 'side': 'bottom', 'align': 'end', 'sideOffset': 8, 'aria-label': t('mapTool.layersButton'), 'data-testid': 'map-layers-panel' }) as NonNullable<PopoverProps['content']>)
+const content = computed(() => ({ 'side': 'bottom', 'align': 'end', 'sideOffset': 8, 'aria-label': t('mapTool.layersButton'), 'data-testid': 'map-layers-panel', onInteractOutside }) as NonNullable<PopoverProps['content']>)
 const GROUPING_NOTE_ID = 'map-grouping-note'
 const GROUPING_SWITCH_ID = 'map-grouping-switch'
 </script>
