@@ -14,7 +14,7 @@ const en = JSON.parse(readFileSync(fileURLToPath(new URL('../../i18n/locales/en.
 /** A page long enough to scroll on a phone, whatever it holds */
 const LONG_PAGE = '/about'
 
-async function open(page: Page, baseURL: string, path: string, size: { width: number, height: number }, options: { reducedMotion?: boolean } = {}) {
+async function open(page: Page, baseURL: string, path: string, size: { width: number, height: number }, options: { reducedMotion?: boolean, untouched?: boolean } = {}) {
   await page.setViewportSize(size)
   if (options.reducedMotion)
     await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -24,6 +24,11 @@ async function open(page: Page, baseURL: string, path: string, size: { width: nu
   await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 20_000 })
   // the shell is hydrated when the attribute-driven rules can be set: the search button answers a click
   await expect(page.getByRole('button', { name: en.shell.search })).toBeEnabled()
+  if (options.untouched)
+    return
+  // the reader's first input: only a scroll that follows one hides the bars, and a script's `scrollTo` here stands for it
+  await page.mouse.move(200, 400)
+  await page.mouse.wheel(0, 1)
 }
 
 const header = (page: Page) => page.locator('.app-header')
@@ -112,6 +117,20 @@ test.describe('the bars of a phone, 390 px wide', () => {
     await expectHidden(page, PHONE)
     await page.mouse.wheel(0, -100)
     await expectShown(page, PHONE)
+  })
+
+  test('a page that arrives scrolled to an anchor, or is moved by a script, keeps the bars until the reader scrolls', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/settings#bar', PHONE, { untouched: true })
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200)
+    await page.waitForTimeout(300)
+    expect(await attribute(page)).toBeNull()
+    await scrollTo(page, 900)
+    await page.waitForTimeout(300)
+    expect(await attribute(page)).toBeNull()
+    // the first input of the reader, then the scroll that follows it
+    await page.mouse.move(200, 400)
+    await page.mouse.wheel(0, 300)
+    await expectHidden(page, PHONE)
   })
 
   test('a small scroll, a tremble and the first pixels of the page change nothing', async ({ page, baseURL }) => {

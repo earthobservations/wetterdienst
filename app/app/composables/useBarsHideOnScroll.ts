@@ -18,6 +18,13 @@ const LOW_WINDOW_QUERY = '(max-height: 30rem)'
  */
 const OVERLAY_SELECTOR = '[role="dialog"][data-state="open"], [aria-haspopup][aria-expanded="true"], [role="combobox"][aria-expanded="true"]'
 
+/**
+ * What a reader does to scroll: a finger on the page, the wheel, the keys, a press (a scroll bar). The bars hide only for a
+ * scroll that follows one of them: a page that arrives scrolled (a link to `/settings#bar`, a restored position) or is
+ * moved by a script is not the reader leaving the bars behind, and keeps them until the reader scrolls.
+ */
+const INPUT_EVENTS = ['touchstart', 'wheel', 'keydown', 'pointerdown'] as const
+
 /** Whether a dialog, popover, menu or list is open in `doc` */
 export function overlayIsOpen(doc: Document): boolean {
   return doc.querySelector(OVERLAY_SELECTOR) !== null
@@ -37,7 +44,8 @@ export interface BarsHideOptions {
  * A page can say it keeps them (`definePageMeta({ barsHide: false })`, the map, which fills the window between them), and the
  * widget has none. The bars are shown, never hidden, while a dialog, a popover or the search is open, and a focus in either
  * bar brings both back, so a keyboard that tabs into a hidden bar sees where it is (WCAG 2.4.7, 2.4.11); the bars are not
- * `display: none` or `visibility: hidden`, so the landmarks and the tab order are as they were. The direction logic is
+ * `display: none` or `visibility: hidden`, so the landmarks and the tab order are as they were. Only the reader's own scroll
+ * hides them (`INPUT_EVENTS`): a page that arrives scrolled to an anchor has them in view. The direction logic is
  * `utils/bar-scroll.ts`. Call it once, in the root component.
  */
 export function useBarsHideOnScroll(options: BarsHideOptions = {}) {
@@ -55,6 +63,8 @@ export function useBarsHideOnScroll(options: BarsHideOptions = {}) {
 
   const position = () => ({ y: win.scrollY, max: root.scrollHeight - win.innerHeight })
   let state = shownBarScroll(win.scrollY)
+  /** Set by a page that has just arrived, until the reader's first touch, wheel, key or press: the scroll before it is not theirs */
+  let awaitingInput = true
 
   function apply(next: typeof state) {
     state = next
@@ -69,7 +79,15 @@ export function useBarsHideOnScroll(options: BarsHideOptions = {}) {
     apply(shownBarScroll(win.scrollY))
   }
 
+  function onInput() {
+    awaitingInput = false
+  }
+
   function onScroll() {
+    if (awaitingInput) {
+      state = { ...state, anchor: Math.max(0, win.scrollY) }
+      return
+    }
     // the page is held for a dialog (its scroll offset is put back when the dialog closes): nothing of that is the reader's scroll
     if (overlayIsOpen(doc)) {
       state = { ...state, anchor: Math.max(0, win.scrollY) }
@@ -94,18 +112,25 @@ export function useBarsHideOnScroll(options: BarsHideOptions = {}) {
     show()
     if (!on)
       return
+    awaitingInput = true
     win.addEventListener('scroll', onScroll, { passive: true })
     doc.addEventListener('focusin', onFocusIn)
+    for (const name of INPUT_EVENTS)
+      win.addEventListener(name, onInput, { passive: true, capture: true })
     stop = () => {
       win.removeEventListener('scroll', onScroll)
       doc.removeEventListener('focusin', onFocusIn)
+      for (const name of INPUT_EVENTS)
+        win.removeEventListener(name, onInput, { capture: true })
     }
   }, { immediate: true })
 
   // another page begins at its own top, with the bars in view
   watch(() => route.fullPath, () => {
-    if (enabled.value)
-      show()
+    if (!enabled.value)
+      return
+    awaitingInput = true
+    show()
   })
 
   onScopeDispose(() => {

@@ -35,9 +35,13 @@ async function scrollTo(y: number) {
   await nextTick()
 }
 
-async function mountOn(queries: string[], route?: string) {
+/** Mounts the harness on a window that answers `queries`; the reader has made their first input unless `untouched` */
+async function mountOn(queries: string[], route?: string, { untouched = false } = {}) {
   serveWindow(queries)
-  return await mountSuspended(Harness, { route })
+  const wrapper = await mountSuspended(Harness, { route })
+  if (!untouched)
+    window.dispatchEvent(new Event('wheel'))
+  return wrapper
 }
 
 describe('the bars that hide on scroll', () => {
@@ -64,6 +68,19 @@ describe('the bars that hide on scroll', () => {
     expect(hidden()).toBe(true)
     await scrollTo(0)
     expect(hidden()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('hide only for the reader\'s own scroll: a page that arrives scrolled, or is moved by a script, keeps them', async () => {
+    const wrapper = await mountOn([PHONE_QUERY], undefined, { untouched: true })
+    await scrollTo(1200)
+    expect(hidden()).toBe(false)
+    await scrollTo(1500)
+    expect(hidden()).toBe(false)
+    // the first touch, key, press or turn of the wheel, and the scroll after it counts
+    window.dispatchEvent(new Event('touchstart'))
+    await scrollTo(1520)
+    expect(hidden()).toBe(true)
     wrapper.unmount()
   })
 

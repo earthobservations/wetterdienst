@@ -527,7 +527,10 @@ test.describe('a storage that is wrong, blocked or full of nonsense', () => {
     expect(await barTexts(page)).toEqual([...names(['forecast', 'explorer', 'stripes', 'map']), en.header.menu])
     await drag(page, 'history', 'forecast')
     expect(await barTexts(page)).toEqual([...names(['history', 'forecast', 'explorer', 'stripes']), en.header.menu])
-    // the pages of the sheet are still marked, and a page of the app still opens
+    // the pages of the sheet are still marked, and a page of the app still opens (the drag has scrolled the page down: the bars
+    // have slid away, GH-4226, and come back with a turn of the wheel upwards)
+    await page.mouse.wheel(0, -60)
+    await expect(menuTab(page)).toBeInViewport()
     await menuTab(page).click()
     await sheetLink(page, en.nav.glossary).click()
     await expect(page).toHaveURL(/\/glossary$/)

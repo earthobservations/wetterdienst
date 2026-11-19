@@ -669,6 +669,9 @@ const STATES: State[] = [
     reach: async (page, locale) => {
       await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
       await expect(page.getByRole('button', { name: message(locale, 'shell.search') })).toBeEnabled()
+      // the reader's first input, then their scroll: the bars hide for no other
+      await page.mouse.move(200, 400)
+      await page.mouse.wheel(0, 1)
       await page.evaluate(() => window.scrollTo({ top: 600, behavior: 'instant' }))
       await expect(page.locator('html')).toHaveAttribute('data-bars', 'hidden')
       // the slide is over
