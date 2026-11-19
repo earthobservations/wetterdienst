@@ -1038,7 +1038,7 @@ def test_all_takes_the_elevation_from_the_station_site(monkeypatch: pytest.Monke
         FSTimeoutError(),
         ServerDisconnectedError(),
         FileNotFoundError("referentiel/sites"),
-        json.JSONDecodeError("Expecting value", "<html>", 0),
+        DownloadError("https://hubeau/referentiel/sites", "the answer is not a Hub'Eau page"),
         None,
     ],
     ids=["timeout", "disconnected", "not_found", "not_json", "no_connection"],
