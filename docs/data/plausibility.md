@@ -903,13 +903,23 @@ the providers, and a test of each provider's reader pins its codes on a row of t
   or a verification may have replaced, so the value returned is not the one that failed) and `qc_level`. A value of the
   qc-version 1 files may be a corrected one, with its original in qc-version 0
   ([MIDAS Open user guide](https://help.ceda.ac.uk/article/4982-midas-open-user-guide)).
-- **SMHI `Kvalitet` `Y`**: not read. SMHI's [questions and answers](https://www.smhi.se/data/om-smhis-data/fragor-och-svar)
-  do not word the codes `G` and `Y`; they say that values before 2010, which the earlier system could not check, got
-  "en väldigt enkel kontroll för att få bort helt felaktiga värden" and that "de data som passerat kontrollen utan
-  anmärkning har gulmarkerats, då vi inte kan garantera att de verkligen är korrekta" (the data that passed without
-  remark are marked yellow because SMHI cannot guarantee them), and that daily precipitation stays `G` ("godkända")
-  once the automatic checks find nothing wrong. The page does not say that `Y` is that yellow, and the library's own
-  description of `Y` as "suspect or aggregated" has two meanings in one code: neither reading is a verdict on a value.
+- **SMHI `Kvalitet` `Y`**: not read. SMHI customer service defined the codes by mail (2026-11-19). `G` is a verdict on
+  a value after it was checked. `Y` is mostly a verdict after a check too, but it is also the flag of a value that was
+  not checked, and of aggregated values: the 24 h maximum and minimum temperature are `Y` whatever the values they are
+  built from are, and whether they are good is told by those (the 12 h maximum and minimum). Leaving the aggregates
+  out, `Y` means the value is either not checked or marked suspect by at least one control; that is no fault found in
+  the value, but the risk is "somewhat greater" than for `G`, so SMHI asks for some caution. Depending on the parameter,
+  many `Y` values are unchecked or went through very simple controls only, and some passed more advanced ones and were
+  left uncorrected. Not even `G` is a guarantee. A value probably wrong, or worse, is normally not published in the
+  open data, but SMHI cannot rule out that a control found one and it still carries `Y`; an unchecked `Y` can be good
+  or faulty. Before 2010 only every third hour was checked (the old SYNOP rules; a new system checks every value
+  since), which fits SMHI's
+  [questions and answers](https://www.smhi.se/data/om-smhis-data/fragor-och-svar): values before 2010 got "en väldigt
+  enkel kontroll för att få bort helt felaktiga värden" and "de data som passerat kontrollen utan anmärkning har
+  gulmarkerats, då vi inte kan garantera att de verkligen är korrekta" (the data that passed without remark are marked
+  yellow because SMHI cannot guarantee them). `Y` mixes unchecked values, values a control marked suspect and
+  aggregates, so it is no verdict that the value failed a check, and the library returns it in `quality_flags` and
+  judges nothing by it.
 - **RMI `qc_flags` `validated`**: RMI words `validated` as a flag and no verdict: `false` is "not validated", the state
   of most of the series (the sunshine of station 6477 is `false` on 7,720 of 8,134 days), and its documentation says
   nothing of a value that failed.
