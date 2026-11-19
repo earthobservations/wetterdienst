@@ -8,9 +8,10 @@ with `raw:0` as its direction is (GH-3655); any other 0 is a reading.
 The daily files write a direction of 0 for a day without one: beside a speed of 0 it is no direction, a calm or a gust
 the source did not report, null with `raw:0`, and beside a wind that blows it is a reading that stays. The rows are the
 ones NOAA wrote, read key-less on 2026-10-30 from the per-station files at
-ncei.noaa.gov/data/global-historical-climatology-network-daily/access/ and cut to the columns of the pair, written here
-as the rows of the AWS bucket's by_station files (noaa-ghcn-pds, `csv.gz/by_station/<id>.csv.gz`) that hold the same
-readings (read 2026-11-18); the speeds are the tenths of m/s of the readme. WDFI and WDFM have no 0 in 8,410 and 28,815
+ncei.noaa.gov/data/global-historical-climatology-network-daily/access/ (since gone) and cut to the columns of the pair,
+written here as the rows of the by_station files (`pub/data/ghcn/daily/by_station/<id>.csv.gz` of NCEI, and the same
+files of the AWS bucket noaa-ghcn-pds) that hold the same readings (read 2026-11-18); the speeds are the tenths of m/s
+of the readme. WDFI and WDFM have no 0 in 8,410 and 28,815
 directions of the 9 files read, so their rows are made up (`test_the_instant_and_the_mile_follow_the_rule`).
 """
 

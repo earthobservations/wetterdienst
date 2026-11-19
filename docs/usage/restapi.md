@@ -335,10 +335,12 @@ what the answer is missing:
   `dwd/pollen`, or for a dataset of one that gives them none, `dwd/derived`'s `monthly/climate_correction_factor`: the
   answer is empty by the nature of the data, and the message names the way to find the stations, the `name` and
   `stations` parameters; a search by name or id and the whole list do not have it),
-  `source-fallback` (a station whose file the provider read from its secondary source because the first failed, which
-  is `noaa/ghcn` `daily`: NCEI's file could not be read (a 404, a 5xx, no connection) and the values are the AWS mirror's,
-  whose files of some stations are older, so the most recent days may be missing; the message names the station and
-  `stations` carries it. A 429 is never a fallback, it is a `ProviderRateLimitError`),
+  `source-fallback` (the stations whose file the provider read from its secondary source because the first failed, which
+  is `noaa/ghcn` `daily`: NCEI's file could not be read (any failure but a 429: a 404, a 5xx, no connection, a body that is
+  no file) and the values are the AWS mirror's, whose files of some stations are older, so the most recent days may be
+  missing. One warning for the request, as `file-skipped` is, and for an estimate too: the message gives how many
+  stations and names the first ten, which `stations` carries; a station read so is not one `parameter-without-rows` or
+  `station-without-rows` says the source holds nothing for. A 429 is never a fallback, it is a `ProviderRateLimitError`),
   `step-without-resolution` (stations left out of the list because the step they report at is one no
   resolution of the network has (seen: 20 and 30 minutes, on some days 180 or 240): `eaufrance/hubeau`.
   The message gives how many, at which steps and names the first ten, which `stations` carries too.

@@ -19,7 +19,7 @@ _NoaaGhcnMetadataSpec = {
     "license": CC0_1_0,
     # NCEI asks for a citation of each product (GHCN-Daily, GHCN-Hourly), and this network serves both
     "attribution": "NOAA National Centers for Environmental Information (NCEI), Global Historical Climatology Network",
-    "url": "https://www.ncei.noaa.gov/pub/data/ghcn/daily/by_station/",
+    "url": "https://www.ncei.noaa.gov/pub/data/ghcn/daily/",
     "kind": "observation",
     "extent": {
         "scope": "global",

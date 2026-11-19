@@ -29,13 +29,19 @@ GH-3708). A station at 12.0 m is a height and is corrected.
 (gzipped, one row for each reading, none for a reading that is missing), which are current for every station. A file is
 kept for 12 hours. NCEI's `access/<id>.csv` files are not read: they answered 403 (2026-08-04) and 404 (2026-11-18).
 
-**The AWS mirror, as a fallback.** When NCEI fails for a station (a 404, a 5xx, a reset or a timeout, no connection),
-its file is read from the AWS Open Data bucket `noaa-ghcn-pds` (`csv.gz/by_station/<id>.csv.gz`), which NOAA maintains
-and which serves the station list and the inventory too, and the answer carries the warning `source-fallback` that names
-the station and says the values come from the mirror and may be older. A 429 is never a reason to fall back: it is
-raised as the `ProviderRateLimitError`. NCEI is asked first at every request, and the copy of the mirror is a file of
-its own in the cache, so it is not served once NCEI answers again. A station neither source has a file for is left out
-with a `file-skipped` warning.
+**The AWS mirror, as a fallback.** When NCEI fails for a station (any failure but a 429: a 404, a 5xx, a reset or a
+timeout, no connection, a body that is no by_station file), its file is read from the AWS Open Data bucket
+`noaa-ghcn-pds` (`csv.gz/by_station/<id>.csv.gz`), which NOAA maintains and which serves the station list and the
+inventory too. The answer carries one warning for the request, `source-fallback`, that gives how many stations were read
+so (and the first ten) and says their values come from the mirror and may be older; those stations are not told to have
+no values (`parameter-without-rows`, `station-without-rows`), as the mirror's file may only end earlier. A 429 is never a
+reason to fall back: it is raised as the `ProviderRateLimitError`. Where the mirror does not help, only a 404 of both is
+a station without a file, left out with a `file-skipped` warning; any other failure is raised, NCEI's if it answered.
+
+NCEI is asked once and for no more than 10 seconds of silence, so that the mirror is read inside the 60 seconds of a REST
+request even when NCEI hangs; once NCEI failed (but for a 404, which is one station's) the rest of the walk goes straight
+to the mirror, and the next request asks NCEI again. The cache is keyed by the URL, so the copy of the mirror is a file
+of its own and is not served once NCEI answers again.
 
 The mirror's files are not all up to date: those of an alphabetical block of ids, from `USR0000CJUA` to `ZI000067991`
 (4,650 files, of which 4,533 were written on 2025-02-09 and 117 on 2023-12-27), have not been rewritten since, so they
