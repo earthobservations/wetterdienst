@@ -175,7 +175,7 @@ loaded for a link that opens the table), and the table is the forecast's (`Value
 column headers with `scope`, the year as the header of its row, the header and the year kept in view while it scrolls, and its box
 a region that takes the focus, so that the keys scroll it. The unit is in the headers, the values follow the unit settings, and the
 note says what the class and the anomaly are and what the colours are relative to, in full. The download of the table is a CSV, with
-the reference, the credit and the licence as comment lines. In the image views (stripes, bars, bars with a scale) the figure is
+the reference, the credit and the licence as comment lines, after a UTF-8 byte order mark (Excel reads the file as UTF-8). In the image views (stripes, bars, bars with a scale) the figure is
 described by the sentence of what it shows, the line of what its colours are measured against, and a hint that the values are in
 the table (`stripes.tableHint`, which names the switch and its "Table" choice), so the data is reached by the summary and the switch;
 there is no disclosure under the image any more. Printed, the table view is a table, whole (its box does not cut it at 70 % of the

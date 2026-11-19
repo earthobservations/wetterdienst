@@ -651,7 +651,7 @@
     "aboutButton": "Über Klimastreifen",
     "aboutText1": "Klimastreifen (auch Wärmestreifen genannt) sind eine Datenvisualisierung, die den langfristigen Anstieg der Temperaturen vermittelt. Jeder Streifen steht für die Durchschnittstemperatur eines Jahres – Blau für kühlere, Rot für wärmere Jahre.",
     "aboutText2": "Die Darstellung wurde vom Klimaforscher Ed Hawkins entwickelt und ist zu einem bekannten Sinnbild des Klimawandels geworden. Dieses Werkzeug nutzt Daten des Deutschen Wetterdienstes (DWD).",
-    "aboutText3": "So werden die Farben gewählt: Das Mittel von 1971–2000 ist die Mitte der Skala, die ±2,6 Standardabweichungen (berechnet aus 1901–2000) in 16 Farben umfasst, eine für je 0,325 Standardabweichungen (Methode von Ed Hawkins). Eine Station mit zu wenigen Jahren in diesen Zeiträumen wird auf ihre gesamte Zeitreihe bezogen, was die Zeile unter dem Diagramm sagt. Die Farben werden aus der gesamten Zeitreihe der Station berechnet, nicht aus den gezeigten Jahren; ein Jahr behält also seine Farbe, welche Jahre auch gezeigt werden.",
+    "aboutText3": "So werden die Farben gewählt: Das Mittel von 1971–2000 ist die Mitte der Skala, die ±2,6 Standardabweichungen (berechnet aus 1901–2000) in 16 Farben umfasst, eine für je 0,325 Standardabweichungen (Methode von Ed Hawkins). Hat eine Station in einem dieser Zeiträume zu wenige Jahre, werden ihr Mittel oder ihre Streuung stattdessen aus ihrer gesamten Zeitreihe genommen, was die Zeile unter dem Diagramm sagt. Die Farben werden aus der gesamten Zeitreihe der Station berechnet, nicht aus den gezeigten Jahren; ein Jahr behält also seine Farbe, welche Jahre auch gezeigt werden.",
     "aboutText4": "Balken zeichnen dieselben Jahre als Balken: Die Höhe jedes Balkens ist die Abweichung des Jahres vom Mittel der Bezugsperiode, in der Farbe seines Streifens. Balken mit Skala ergänzt eine Achse für diese Abweichung in der Einheit der Werte und eine Jahresachse. Tabelle listet jedes Jahr mit Wert, Abweichung und Klasse auf und speichert sie als CSV-Datei.",
     "type": "Wetterelement",
     "typeTemperature": "Temperatur",
@@ -710,7 +710,8 @@
       "stripes": "Bezogen auf das Mittel von {centre} (Streuung aus {spread})",
       "stripesWhole": "Bezogen auf die gesamte Zeitreihe der Station, {from}–{to}",
       "bars": "Balken: Abweichung vom Mittel von {centre} (Streuung aus {spread})",
-      "barsWhole": "Balken: Abweichung vom Mittel der gesamten Zeitreihe der Station, {from}–{to}"
+      "barsWhole": "Balken: Abweichung vom Mittel der gesamten Zeitreihe der Station, {from}–{to}",
+      "record": "der gesamten Zeitreihe, {from}–{to}"
     },
     "table": {
       "year": "Jahr",

@@ -9,6 +9,8 @@ import { valuesToCsv } from './values-export'
 
 type Translate = (key: string, params?: Record<string, unknown>) => string
 
+const BYTE_ORDER_MARK = '\uFEFF'
+
 /** The headers, the unit of the values in those of the two numbers: `Value (°C)` */
 export function stripesTableColumns(unit: string, t: Translate): string[] {
   const withUnit = (label: string) => unit ? `${label} (${unit})` : label
@@ -29,13 +31,14 @@ function plain(value: number): string {
  * The CSV of the table: the lines of `comments` first, each after a `#` (what the colours are relative to, the credit and the
  * licence, so that the file carries them away from the page), then the header and a row for each year. The numbers are plain
  * (`.` for the decimal point, no sign for a positive one, no unit: it is in the header), whatever the page's language; the
- * class is written in the language of the page, as the table writes it.
+ * class is written in the language of the page, as the table writes it. The text starts with a UTF-8 byte order mark: Excel
+ * reads a file without one in the legacy code page, and `°C`, `–` and the names of the classes (`Kühler`) come out garbled.
  *
  * @param columns - The headers, as `stripesTableColumns` writes them
  * @param years - The years, as `stripeYears` lists them
  * @param className - Names a class in the language of the page
  * @param comments - The lines before the header, without their `#`
- * @returns The text of the file, ending in a line break; an empty string for no years
+ * @returns The text of the file, after its byte order mark, ending in a line break; an empty string for no years
  */
 export function stripesCsv(columns: string[], years: readonly StripeYear[], className: (stripeClass: StripeClass) => string, comments: readonly string[]): string {
   const rows = stripesTableYears(years).map(year => ({
@@ -49,5 +52,5 @@ export function stripesCsv(columns: string[], years: readonly StripeYear[], clas
     return ''
   // a line break in a comment would end it: the comment is one line
   const header = comments.map(comment => comment.replace(/\s+/g, ' ').trim()).filter(Boolean).map(comment => `# ${comment}`)
-  return `${[...header, body].join('\n')}\n`
+  return `${BYTE_ORDER_MARK}${[...header, body].join('\n')}\n`
 }

@@ -651,7 +651,7 @@
     "aboutButton": "O klimatických pruzích",
     "aboutText1": "Klimatické pruhy (známé také jako pruhy oteplování) jsou vizualizace dat navržená ke sdělení dlouhodobého růstu teplot. Každý pruh představuje průměrnou teplotu jednoho roku, přičemž modrá značí chladnější roky a červená teplejší roky.",
     "aboutText2": "Vizualizaci vytvořil klimatolog Ed Hawkins a stala se ikonickým znázorněním změny klimatu. Tento nástroj využívá data z pozorovací sítě Německé meteorologické služby (DWD).",
-    "aboutText3": "Jak se volí barvy: průměr z let 1971–2000 je středem stupnice, která zahrnuje ±2,6 směrodatné odchylky (vypočtené z let 1901–2000) v 16 barvách, jedna na každých 0,325 směrodatné odchylky (metoda Eda Hawkinse). Stanice, která má v těchto obdobích příliš málo let, se vztahuje k celé své řadě, což říká řádek pod grafem. Barvy se počítají z celé řady stanice, ne ze zobrazených let, takže rok si zachová svou barvu, ať jsou zobrazeny jakékoli roky.",
+    "aboutText3": "Jak se volí barvy: průměr z let 1971–2000 je středem stupnice, která zahrnuje ±2,6 směrodatné odchylky (vypočtené z let 1901–2000) v 16 barvách, jedna na každých 0,325 směrodatné odchylky (metoda Eda Hawkinse). Pokud má stanice v některém z těchto období příliš málo let, vezme se její průměr nebo její směrodatná odchylka místo toho z celé její řady, což říká řádek pod grafem. Barvy se počítají z celé řady stanice, ne ze zobrazených let, takže rok si zachová svou barvu, ať jsou zobrazeny jakékoli roky.",
     "aboutText4": "Sloupce kreslí stejné roky jako sloupce: výška každého je odchylka roku od průměru referenčního období, v barvě jeho pruhu. Sloupce se stupnicí přidávají osu pro tuto odchylku v jednotce hodnot a osu let. Tabulka vypíše každý rok s hodnotou, odchylkou a třídou a lze ji uložit jako soubor CSV.",
     "type": "Meteorologický prvek",
     "typeTemperature": "Teplota",
@@ -710,7 +710,8 @@
       "stripes": "Vztaženo k průměru z {centre} (směrodatná odchylka z {spread})",
       "stripesWhole": "Vztaženo k celé řadě stanice, {from}–{to}",
       "bars": "Sloupce: odchylka od průměru z {centre} (směrodatná odchylka z {spread})",
-      "barsWhole": "Sloupce: odchylka od průměru celé řady stanice, {from}–{to}"
+      "barsWhole": "Sloupce: odchylka od průměru celé řady stanice, {from}–{to}",
+      "record": "celé řady, {from}–{to}"
     },
     "table": {
       "year": "Rok",

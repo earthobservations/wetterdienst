@@ -100,7 +100,9 @@ export function stripesReferenceText(
  * (the page's About text says that, the same for every station). For the stripes and the table the mean of the reference
  * and the years the spread is from (`stripes.referenceShort.stripes`); for the bars the mean they are drawn from
  * (`stripes.referenceShort.bars`). Where the station has too few years in the periods of the method, so that its whole record
- * stands in for both, it says so with the years of the record (`...Whole`).
+ * stands in for both, it says so with the years of the record (`...Whole`). Where only one of the two stands in, that one is
+ * written as `the whole record, 1976–2024` (`stripes.referenceShort.record`), with no parentheses of its own, since the line has
+ * them around the spread.
  */
 export function stripesReferenceShort(
   reference: StripesReferenceView,
@@ -110,7 +112,10 @@ export function stripesReferenceShort(
   const { centre, spread } = reference
   if (centre.fallback && spread.fallback && centre.first_year === spread.first_year && centre.last_year === spread.last_year)
     return t(`stripes.referenceShort.${drawing}Whole`, { from: centre.first_year, to: centre.last_year })
-  return t(`stripes.referenceShort.${drawing}`, { centre: referencePeriod(centre, t), spread: referencePeriod(spread, t) })
+  const period = (stat: StripesReferenceStatView) => stat.fallback
+    ? t('stripes.referenceShort.record', { from: stat.first_year, to: stat.last_year })
+    : `${stat.first_year}–${stat.last_year}`
+  return t(`stripes.referenceShort.${drawing}`, { centre: period(centre), spread: period(spread) })
 }
 
 /** The years one number of the reference was calculated from: the period of the method (`1971–2000`), or the whole record where the station had too few years in it */

@@ -651,7 +651,7 @@
     "aboutButton": "Om klimastriber",
     "aboutText1": "Klimastriber (også kendt som opvarmningsstriber) er en datavisualisering, der er designet til at formidle den langsigtede temperaturstigning. Hver stribe repræsenterer gennemsnitstemperaturen for et enkelt år, hvor blå angiver køligere år og rød varmere år.",
     "aboutText2": "Visualiseringen blev skabt af klimaforskeren Ed Hawkins og er blevet en ikonisk fremstilling af klimaforandringer. Dette værktøj bruger data fra den tyske vejrtjenestes (DWD) observationsnetværk.",
-    "aboutText3": "Sådan vælges farverne: gennemsnittet af 1971–2000 er skalaens midte, som spænder over ±2,6 standardafvigelser (beregnet ud fra 1901–2000) i 16 farver, én for hver 0,325 standardafvigelse (Ed Hawkins' metode). En station med for få år i disse perioder måles mod hele sin række, hvilket linjen under diagrammet siger. Farverne beregnes ud fra stationens hele række og ikke ud fra de viste år, så et år beholder sin farve, uanset hvilke år der vises.",
+    "aboutText3": "Sådan vælges farverne: gennemsnittet af 1971–2000 er skalaens midte, som spænder over ±2,6 standardafvigelser (beregnet ud fra 1901–2000) i 16 farver, én for hver 0,325 standardafvigelse (Ed Hawkins' metode). Har en station for få år i en af disse perioder, tages dens gennemsnit eller dens spredning i stedet fra hele rækken, hvilket linjen under diagrammet siger. Farverne beregnes ud fra stationens hele række og ikke ud fra de viste år, så et år beholder sin farve, uanset hvilke år der vises.",
     "aboutText4": "Søjler tegner de samme år som søjler: højden af hver er årets afvigelse fra gennemsnittet af referenceperioden, i farven fra dens stribe. Søjler med skala tilføjer en akse for denne afvigelse i værdiernes enhed og en årsakse. Tabel viser hvert år med værdi, afvigelse og klasse og kan gemmes som en CSV-fil.",
     "type": "Vejrelement",
     "typeTemperature": "Temperatur",
@@ -710,7 +710,8 @@
       "stripes": "Relativt til gennemsnittet af {centre} (spredning fra {spread})",
       "stripesWhole": "Relativt til stationens hele række, {from}–{to}",
       "bars": "Søjler: afvigelsen fra gennemsnittet af {centre} (spredning fra {spread})",
-      "barsWhole": "Søjler: afvigelsen fra gennemsnittet af stationens hele række, {from}–{to}"
+      "barsWhole": "Søjler: afvigelsen fra gennemsnittet af stationens hele række, {from}–{to}",
+      "record": "hele rækken, {from}–{to}"
     },
     "table": {
       "year": "År",

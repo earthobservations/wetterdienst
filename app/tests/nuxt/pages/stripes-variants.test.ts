@@ -178,10 +178,10 @@ describe('stripes Page table view (GH-4233)', () => {
     license: { spdx_id: 'CC-BY-4.0', name: 'Creative Commons Attribution 4.0 International', url: 'https://creativecommons.org/licenses/by/4.0/' },
   }
 
-  async function showWithoutDrawing(route: string, metadata?: unknown) {
+  async function showWithoutDrawing(route: string, metadata?: unknown, years: Array<{ year: number, value: number }> = YEARS) {
     clearNuxtData()
     registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({ ...(metadata ? { metadata } : {}), series: { station, unit: 'degree_celsius' }, ...stripesAnswer(YEARS.map(({ year, value }) => ({ year, value }))) }))
+    registerEndpoint('/api/stripes/values', () => ({ ...(metadata ? { metadata } : {}), series: { station, unit: 'degree_celsius' }, ...stripesAnswer(years.map(({ year, value }) => ({ year, value }))) }))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
@@ -195,7 +195,9 @@ describe('stripes Page table view (GH-4233)', () => {
   const tableRows = () => [...document.body.querySelectorAll('tbody tr')].map(row => [...row.children].map(cell => cell.textContent?.trim()))
   const lastFile = async () => {
     const [blob, name] = vi.mocked(downloadBlob).mock.calls.at(-1)!
-    return { text: await blob.text(), name, type: blob.type }
+    // the mark is read from the bytes (a `Blob.text()` may or may not drop it), and the text is read without it
+    const bytes = new Uint8Array(await blob.arrayBuffer())
+    return { text: (await blob.text()).replace(/^\uFEFF/, ''), name, type: blob.type, bytes }
   }
 
   it('has the table as the fourth choice of the switch, after the three drawings', async () => {
@@ -267,8 +269,10 @@ describe('stripes Page table view (GH-4233)', () => {
     await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
     vi.mocked(downloadBlob).mockClear()
     vm.downloadTable()
-    const { text, name, type } = await lastFile()
+    const { text, name, type, bytes } = await lastFile()
     expect(name).toBe('climate_stripes_temperature_1048_Berlin-Tempelhof.csv')
+    // a byte order mark, for Excel to read °C and the class names as UTF-8
+    expect(Array.from(bytes.slice(0, 3))).toEqual([0xEF, 0xBB, 0xBF])
     expect(type).toContain('text/csv')
     const lines = text.trimEnd().split('\n')
     expect(lines.slice(0, 4)).toEqual([
@@ -298,5 +302,14 @@ describe('stripes Page table view (GH-4233)', () => {
       expect.stringMatching(/^# Colours: /),
       '# Source: Deutscher Wetterdienst',
     ])
+  })
+
+  it('says the spread is from the whole record, in the line\'s brackets, where only the spread falls back to it (a station from 1976)', async () => {
+    const from1976 = Array.from({ length: 49 }, (_, i) => ({ year: 1976 + i, value: 8 + (i % 7) / 2 }))
+    await showWithoutDrawing('/stripes?kind=temperature&variant=table', undefined, from1976)
+    await vi.waitFor(() => expect(document.body.querySelector('[data-testid="stripes-reference"]')).not.toBeNull())
+    expect(document.body.querySelector('[data-testid="stripes-reference"]')!.textContent?.trim()).toBe('Relative to the mean of 1976–2000 (spread from the whole record, 1976–2024)')
+    radio('Bars').click()
+    await vi.waitFor(() => expect(document.body.querySelector('[data-testid="stripes-reference"]')!.textContent?.trim()).toBe('Bars: the difference from the mean of 1976–2000 (spread from the whole record, 1976–2024)'))
   })
 })

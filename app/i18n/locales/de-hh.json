@@ -651,7 +651,7 @@
     "aboutButton": "Över Klimastrepen",
     "aboutText1": "Klimastrepen (ok Wärmstrepen nöömt) sünd een Datenvisualisatschoon, de den langfristigen Anstieg vun de Temperaturen vermiddelt. Jeder Streep steiht för de Dörchsnittstemperatur vun een Johr – Blau för köhlere, Root för wärmere Johren.",
     "aboutText2": "De Dorstellen is vun den Klimaforscher Ed Hawkins entwickelt worrn un is to een bekannt Sinnbild vun'n Klimawannel worrn. Dit Warktüüg bruukt Daten vun'n Düütschen Wedderdeenst (DWD).",
-    "aboutText3": "So warrt de Klören utsöcht: Dat Middel vun 1971–2000 is de Mitt vun de Skala, de ±2,6 Standardafwieken (utrekent ut 1901–2000) in 16 Klören umfaat, een för elk 0,325 Standardafwieken (Methood vun Ed Hawkins). Een Station mit to wenig Johren in disse Tietrüüm warrt op ehr heele Tietreeg bezogen, wat de Reeg ünner dat Diagramm seggt. De Klören warrt ut de heele Tietreeg vun de Station utrekent, nich ut de wiesten Johren; een Johr behölt also sien Klöör, wat för Johren ok wiest warrt.",
+    "aboutText3": "So warrt de Klören utsöcht: Dat Middel vun 1971–2000 is de Mitt vun de Skala, de ±2,6 Standardafwieken (utrekent ut 1901–2000) in 16 Klören umfaat, een för elk 0,325 Standardafwieken (Methood vun Ed Hawkins). Hett een Station in een vun disse Tietrüüm to wenig Johren, warrt ehr Middel oder ehr Standardafwieken an Steed dorvun ut ehr heele Tietreeg nahmen, wat de Reeg ünner dat Diagramm seggt. De Klören warrt ut de heele Tietreeg vun de Station utrekent, nich ut de wiesten Johren; een Johr behölt also sien Klöör, wat för Johren ok wiest warrt.",
     "aboutText4": "Balken tekent de sülvigen Johren as Balken: De Hööch vun elk Balken is de Afwieken vun dat Johr vun dat Middel vun de Bezugstiet, in de Klöör vun sien Streep. Balken mit Skaal packt een Achs för disse Afwieken in de Eenheit vun de Weerten un een Johrachs dorto. Tabell list elk Johr mit Weert, Afwieken un Klass op un kann as CSV-Datei spiekert warrn.",
     "type": "Wedderelement",
     "typeTemperature": "Temperatur",
@@ -710,7 +710,8 @@
       "stripes": "Op dat Middel vun {centre} bezogen (Standardafwieken ut {spread})",
       "stripesWhole": "Op de heele Tietreeg vun de Station bezogen, {from}–{to}",
       "bars": "Balken: Afwieken vun dat Middel vun {centre} (Standardafwieken ut {spread})",
-      "barsWhole": "Balken: Afwieken vun dat Middel vun de heele Tietreeg vun de Station, {from}–{to}"
+      "barsWhole": "Balken: Afwieken vun dat Middel vun de heele Tietreeg vun de Station, {from}–{to}",
+      "record": "de heele Tietreeg, {from}–{to}"
     },
     "table": {
       "year": "Johr",

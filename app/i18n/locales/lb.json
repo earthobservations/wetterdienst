@@ -651,7 +651,7 @@
     "aboutButton": "Iwwer Klimasträifen",
     "aboutText1": "Klimasträifen (och bekannt als Erwiermungssträifen) sinn eng Datevisualiséierung, déi entworf gouf, fir den laangfristegen Temperaturustig ze kommunizéieren. All Sträif stellt d'Duerchschnëttstemperatur vun engem eenzege Joer duer, wou blo méi kal Joren a rout méi waarm Joren uweist.",
     "aboutText2": "D'Visualiséierung gouf vum Klimawëssenschaftler Ed Hawkins erstallt an ass eng ikonesch Duerstellung vum Klimawandel ginn. Dësen Outil benotzt Daten aus dem Observatiounsnetzwierk vum Däitsche Wiederdéngscht (DWD).",
-    "aboutText3": "Esou ginn d'Faarwen gewielt: den Duerchschnëtt vun 1971–2000 ass d'Mëtt vun der Skala, déi ±2,6 Standardofwäichunge (berechent aus 1901–2000) a 16 Faarwen ëmfaasst, eng fir all 0,325 Standardofwäichungen (Method vum Ed Hawkins). Eng Statioun mat ze wéinege Joren an dëse Perioden gëtt op hir ganz Rei bezunn, wat d'Zeil ënner dem Diagramm seet. D'Faarwen ginn aus der ganzer Rei vun der Statioun berechent, net aus de gewisenen Joren; e Joer behält also seng Faarf, wat fir Joren och gewise ginn.",
+    "aboutText3": "Esou ginn d'Faarwen gewielt: den Duerchschnëtt vun 1971–2000 ass d'Mëtt vun der Skala, déi ±2,6 Standardofwäichunge (berechent aus 1901–2000) a 16 Faarwen ëmfaasst, eng fir all 0,325 Standardofwäichungen (Method vum Ed Hawkins). Huet eng Statioun an enger vun dëse Perioden ze wéineg Joren, gëtt hiren Duerchschnëtt oder hir Standardofwäichung amplaz aus hirer ganzer Rei geholl, wat d'Zeil ënner dem Diagramm seet. D'Faarwen ginn aus der ganzer Rei vun der Statioun berechent, net aus de gewisenen Joren; e Joer behält also seng Faarf, wat fir Joren och gewise ginn.",
     "aboutText4": "Balken zeechne déiselwecht Joren als Balken: D'Héicht vun all Balken ass d'Ofwäichung vum Joer vum Duerchschnëtt vun der Referenzperiod, an der Faarf vu sengem Sträif. Balken mat Skala setzt eng Achs fir dës Ofwäichung an der Eenheet vun de Wäerter derbäi, an eng Joresachs. Tabell lëscht all Joer mat Wäert, Ofwäichung a Klass op a gëtt als CSV-Datei gespäichert.",
     "type": "Wiederelement",
     "typeTemperature": "Temperatur",
@@ -710,7 +710,8 @@
       "stripes": "Bezunn op den Duerchschnëtt vun {centre} (Standardofwäichung aus {spread})",
       "stripesWhole": "Bezunn op déi ganz Rei vun der Statioun, {from}–{to}",
       "bars": "Balken: Ofwäichung vum Duerchschnëtt vun {centre} (Standardofwäichung aus {spread})",
-      "barsWhole": "Balken: Ofwäichung vum Duerchschnëtt vun der ganzer Rei vun der Statioun, {from}–{to}"
+      "barsWhole": "Balken: Ofwäichung vum Duerchschnëtt vun der ganzer Rei vun der Statioun, {from}–{to}",
+      "record": "der ganzer Rei, {from}–{to}"
     },
     "table": {
       "year": "Joer",

@@ -49,7 +49,7 @@ describe('the CSV', () => {
 
   it('has the comments first, each after a #, then the header and a row for each year, in order', () => {
     const csv = stripesCsv(columns, YEARS, className, ['Climate stripes for Berlin', 'Colours: relative to 1971–2000', 'Source: DWD', 'Licence: CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)'])
-    expect(csv).toBe([
+    expect(csv).toBe(`\uFEFF${[
       '# Climate stripes for Berlin',
       '# Colours: relative to 1971–2000',
       '# Source: DWD',
@@ -59,7 +59,24 @@ describe('the CSV', () => {
       '2018,8.00,-1.00,Cooler',
       '2020,10.46,0.92,Warmer',
       '',
-    ].join('\n'))
+    ].join('\n')}`)
+  })
+
+  it('starts with a UTF-8 byte order mark, which Excel needs to read °C, – and the names of the classes (Kühler) as UTF-8', () => {
+    const csv = stripesCsv(columns, YEARS, stripeClass => stripeClass === 'low' ? 'Kühler' : className(stripeClass), ['Quelle: Deutscher Wetterdienst'])
+    expect(csv.charCodeAt(0)).toBe(0xFEFF)
+    // once, and in front of the first comment
+    expect(csv.indexOf('\uFEFF', 1)).toBe(-1)
+    expect(csv.slice(1).startsWith('# Quelle')).toBe(true)
+    // encoded, the three bytes of the mark come first, and the rest is UTF-8
+    const bytes = new TextEncoder().encode(csv)
+    expect(Array.from(bytes.slice(0, 3))).toEqual([0xEF, 0xBB, 0xBF])
+    expect(new TextDecoder('utf-8', { ignoreBOM: true }).decode(bytes)).toBe(csv)
+    expect(bytes.length).toBeGreaterThan(csv.length)
+  })
+
+  it('has the mark before the header where there are no comments', () => {
+    expect(stripesCsv(columns, YEARS, className, []).startsWith('\uFEFFYear,Value (°C),Anomaly (°C),Class\n')).toBe(true)
   })
 
   it('writes the numbers plain, whatever the language: a point, two decimals, no plus, and no minus for a zero', () => {
@@ -74,7 +91,7 @@ describe('the CSV', () => {
   })
 
   it('keeps each comment to one line, and drops an empty one (a licence the answer does not have)', () => {
-    const csv = stripesCsv(columns, YEARS, className, ['Two\nlines  of text', '', '   '])
+    const csv = stripesCsv(columns, YEARS, className, ['Two\nlines  of text', '', '   ']).replace(/^\uFEFF/, '')
     expect(csv.split('\n').filter(line => line.startsWith('#'))).toEqual(['# Two lines of text'])
   })
 

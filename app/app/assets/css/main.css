@@ -440,8 +440,9 @@
   .stripes-chart {
     break-inside: avoid;
   }
-  /* A table that is a view of its own (ValuesTable, `full`: the stripes' and the forecast's) scrolls in a box on the screen; on paper it
-     is printed whole, a row to a line, with its header at the top of every sheet it runs over, and not cut off at the box's height */
+  /* Every ValuesTable scrolls in a box on the screen (a `full` one, the stripes' and the forecast's views, up to 70 vh; the widget's, inside
+     ChartTable, up to 24 rem); on paper each is printed whole, a row to a line, with its header at the top of every sheet it runs over, and
+     not cut off at the box's height. That holds for all of them, not for the stripes' alone (the Explorer's table is the data viewer's own) */
   .values-table {
     max-height: none !important;
     min-height: 0 !important;

@@ -651,7 +651,7 @@
     "aboutButton": "About climate stripes",
     "aboutText1": "Climate stripes (also known as warming stripes) are a data visualization designed to communicate the long-term increase in temperatures. Each stripe represents the average temperature for a single year, with blue indicating cooler years and red indicating warmer years.",
     "aboutText2": "The visualization was created by climate scientist Ed Hawkins and has become an iconic representation of climate change. This tool uses data from the German Weather Service (DWD) observation network.",
-    "aboutText3": "How the colours are chosen: the mean of 1971–2000 is the centre of the scale, which spans ±2.6 standard deviations (calculated from 1901–2000) in 16 colours, one for each 0.325 standard deviations (Ed Hawkins' method). A station with too few years in these periods is measured against its whole record, which the line under the chart says. The colours are calculated from the station's whole record, not from the years shown, so a year keeps its colour whatever years are shown.",
+    "aboutText3": "How the colours are chosen: the mean of 1971–2000 is the centre of the scale, which spans ±2.6 standard deviations (calculated from 1901–2000) in 16 colours, one for each 0.325 standard deviations (Ed Hawkins' method). Where a station has too few years in one of these periods, its mean or its spread is taken from its whole record instead, which the line under the chart says. The colours are calculated from the station's whole record, not from the years shown, so a year keeps its colour whatever years are shown.",
     "aboutText4": "Bars draw the same years as bars: the height of each is the year's difference from the mean of the reference, in the colour of its stripe. Bars with scale adds an axis for that difference, in the unit of the values, and a year axis. Table lists every year with its value, anomaly and class and saves them as a CSV file.",
     "type": "Weather element",
     "typeTemperature": "Temperature",
@@ -710,7 +710,8 @@
       "stripes": "Relative to the mean of {centre} (spread from {spread})",
       "stripesWhole": "Relative to the station's whole record, {from}–{to}",
       "bars": "Bars: the difference from the mean of {centre} (spread from {spread})",
-      "barsWhole": "Bars: the difference from the mean of the station's whole record, {from}–{to}"
+      "barsWhole": "Bars: the difference from the mean of the station's whole record, {from}–{to}",
+      "record": "the whole record, {from}–{to}"
     },
     "table": {
       "year": "Year",

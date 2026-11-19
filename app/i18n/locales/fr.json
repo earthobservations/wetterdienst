@@ -651,7 +651,7 @@
     "aboutButton": "À propos des bandes climatiques",
     "aboutText1": "Les bandes climatiques (aussi appelées bandes du réchauffement) sont une visualisation de données conçue pour communiquer l'augmentation des températures à long terme. Chaque bande représente la température moyenne d'une année, le bleu indiquant les années plus fraîches et le rouge les années plus chaudes.",
     "aboutText2": "La visualisation a été créée par le climatologue Ed Hawkins et est devenue une représentation emblématique du changement climatique. Cet outil utilise les données du réseau d'observation du service météorologique allemand (DWD).",
-    "aboutText3": "Comment les couleurs sont choisies : la moyenne de 1971–2000 est le centre de l'échelle, qui couvre ±2,6 écarts types (calculés sur 1901–2000) en 16 couleurs, une pour chaque 0,325 écart type (méthode d'Ed Hawkins). Une station qui a trop peu d'années dans ces périodes est comparée à toute sa série, ce que dit la ligne sous le graphique. Les couleurs sont calculées sur toute la série de la station et non sur les années affichées : une année garde donc sa couleur, quelles que soient les années affichées.",
+    "aboutText3": "Comment les couleurs sont choisies : la moyenne de 1971–2000 est le centre de l'échelle, qui couvre ±2,6 écarts types (calculés sur 1901–2000) en 16 couleurs, une pour chaque 0,325 écart type (méthode d'Ed Hawkins). Si une station a trop peu d'années dans l'une de ces périodes, sa moyenne ou sa dispersion est prise à la place sur toute sa série, ce que dit la ligne sous le graphique. Les couleurs sont calculées sur toute la série de la station et non sur les années affichées : une année garde donc sa couleur, quelles que soient les années affichées.",
     "aboutText4": "Les barres dessinent les mêmes années en barres : la hauteur de chacune est l'écart de l'année à la moyenne de la période de référence, dans la couleur de sa bande. Barres avec échelle ajoute un axe pour cet écart, dans l'unité des valeurs, et un axe des années. Tableau énumère chaque année avec sa valeur, son écart et sa classe, et peut être enregistré en fichier CSV.",
     "type": "Élément météorologique",
     "typeTemperature": "Température",
@@ -710,7 +710,8 @@
       "stripes": "Relatif à la moyenne de {centre} (dispersion de {spread})",
       "stripesWhole": "Relatif à toute la série de la station, {from}–{to}",
       "bars": "Barres : l'écart par rapport à la moyenne de {centre} (dispersion de {spread})",
-      "barsWhole": "Barres : l'écart par rapport à la moyenne de toute la série de la station, {from}–{to}"
+      "barsWhole": "Barres : l'écart par rapport à la moyenne de toute la série de la station, {from}–{to}",
+      "record": "toute la série, {from}–{to}"
     },
     "table": {
       "year": "Année",

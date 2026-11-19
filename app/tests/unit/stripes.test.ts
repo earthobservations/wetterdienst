@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { STRIPE_CLASS_COUNT, STRIPE_CLASSES, STRIPE_PALETTES, stripeBand, stripeColour, stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears, wrapChartTitle } from '../../app/utils/stripes'
 import { unitSymbol } from '../../app/utils/unit-targets'
@@ -134,9 +136,46 @@ describe('the short line under the chart (GH-4233)', () => {
       .toBe(`${key}{"from":2001,"to":2020}`)
   })
 
-  it('names the whole record where only one of the periods fell back to it', () => {
+  // the short line as the catalogs write it, with each placeholder filled
+  const rendered = (locale: string) => {
+    const messages = JSON.parse(readFileSync(join(process.cwd(), 'i18n', 'locales', `${locale}.json`), 'utf8')) as Record<string, unknown>
+    return (key: string, params: Record<string, unknown> = {}) => {
+      const text = key.split('.').reduce<unknown>((node, part) => (node as Record<string, unknown>)[part], messages) as string
+      return text.replace(/\{(\w+)\}/g, (_, name: string) => String(params[name]))
+    }
+  }
+
+  it.each([
+    ['en', 'stripes', 'Relative to the mean of 1971–2000 (spread from 1944–2000)'],
+    ['en', 'bars', 'Bars: the difference from the mean of 1971–2000 (spread from 1944–2000)'],
+    ['de', 'stripes', 'Bezogen auf das Mittel von 1971–2000 (Streuung aus 1944–2000)'],
+  ] as const)('writes the periods of the method plainly (%s, %s)', (locale, drawing, text) => {
+    expect(stripesReferenceShort({ centre: stat(1971, 2000), spread: stat(1944, 2000), range_sigma: 2.6 }, rendered(locale), drawing)).toBe(text)
+  })
+
+  it.each([
+    // only the mean's period has too few years in it: the whole record, in no parentheses of its own, inside the line's
+    ['en', 'stripes', { centre: stat(1890, 1959, true), spread: stat(1901, 1959) }, 'Relative to the mean of the whole record, 1890–1959 (spread from 1901–1959)'],
+    ['en', 'bars', { centre: stat(1890, 1959, true), spread: stat(1901, 1959) }, 'Bars: the difference from the mean of the whole record, 1890–1959 (spread from 1901–1959)'],
+    ['de', 'stripes', { centre: stat(1890, 1959, true), spread: stat(1901, 1959) }, 'Bezogen auf das Mittel von der gesamten Zeitreihe, 1890–1959 (Streuung aus 1901–1959)'],
+    // only the spread's: a station from 1976 has 25 years in 1971 to 2000 (20 are needed) and 25 in 1901 to 2000 (30 are)
+    ['en', 'stripes', { centre: stat(1976, 2000), spread: stat(1976, 2024, true) }, 'Relative to the mean of 1976–2000 (spread from the whole record, 1976–2024)'],
+    ['en', 'bars', { centre: stat(1976, 2000), spread: stat(1976, 2024, true) }, 'Bars: the difference from the mean of 1976–2000 (spread from the whole record, 1976–2024)'],
+    ['fr', 'stripes', { centre: stat(1976, 2000), spread: stat(1976, 2024, true) }, 'Relatif à la moyenne de 1976–2000 (dispersion de toute la série, 1976–2024)'],
+    ['pl', 'stripes', { centre: stat(1976, 2000), spread: stat(1976, 2024, true) }, 'Względem średniej z 1976–2000 (rozrzut z całego szeregu, 1976–2024)'],
+    // both: one phrase, with the years once
+    ['en', 'stripes', { centre: stat(2001, 2020, true), spread: stat(2001, 2020, true) }, 'Relative to the station\'s whole record, 2001–2020'],
+    ['en', 'bars', { centre: stat(2001, 2020, true), spread: stat(2001, 2020, true) }, 'Bars: the difference from the mean of the station\'s whole record, 2001–2020'],
+  ] as const)('writes the whole record where it stands in for one or both of the numbers (%s, %s, %#)', (locale, drawing, stats, text) => {
+    const line = stripesReferenceShort({ ...stats, range_sigma: 2.6 }, rendered(locale), drawing)
+    expect(line).toBe(text)
+    // never a bracket inside a bracket
+    expect(line).not.toMatch(/\([^)]*\(/)
+  })
+
+  it('reads the whole record\'s years from the answer, for the number that fell back', () => {
     expect(stripesReferenceShort({ centre: stat(1930, 1975, true), spread: stat(1930, 1975), range_sigma: 2.6 }, t))
-      .toBe('stripes.referenceShort.stripes{"centre":"stripes.referenceWhole{\\"from\\":1930,\\"to\\":1975}","spread":"1930–1975"}')
+      .toBe('stripes.referenceShort.stripes{"centre":"stripes.referenceShort.record{\\"from\\":1930,\\"to\\":1975}","spread":"1930–1975"}')
   })
 })
 

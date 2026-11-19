@@ -914,7 +914,10 @@ test.describe('the table as a view', () => {
     await page.getByRole('menuitem', { name: 'Download as CSV' }).click()
     const download = await saved
     expect(download.suggestedFilename()).toMatch(/^climate_stripes_temperature_00011_.+\.csv$/)
-    const lines = readFileSync((await download.path())!, 'utf8').trimEnd().split('\n')
+    const file = readFileSync((await download.path())!)
+    // a UTF-8 byte order mark first, for Excel
+    expect([...file.subarray(0, 3)]).toEqual([0xEF, 0xBB, 0xBF])
+    const lines = file.toString('utf8').replace(/^\uFEFF/, '').trimEnd().split('\n')
     const comments = lines.filter(line => line.startsWith('# '))
     expect(comments).toHaveLength(4)
     expect(comments[0]).toMatch(/^# Climate stripes \(Temperature\) for /)
