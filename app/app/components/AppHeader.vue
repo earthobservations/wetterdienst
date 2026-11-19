@@ -19,10 +19,11 @@ const wide = useMediaQuery('(min-width: 80rem)')
 <template>
   <header class="app-header" data-print="hide">
     <div class="frame flex h-full items-center gap-2 lg:gap-4">
-      <NuxtLink to="/" class="brand -ms-1.5 flex shrink-0 items-center gap-2.5 rounded-lg p-1.5" :aria-current="route.path === '/' ? 'page' : undefined">
-        <img src="/icon.svg" alt="" width="32" height="32" class="size-8">
+      <!-- on a phone the bar is 44 px (GH-4226): the link is as high as it, with a smaller logo and name -->
+      <NuxtLink to="/" class="brand -ms-1.5 flex shrink-0 items-center gap-2.5 rounded-lg p-1.5 max-sm:min-h-11 max-sm:gap-2 max-sm:px-1.5 max-sm:py-1" :aria-current="route.path === '/' ? 'page' : undefined">
+        <img src="/icon.svg" alt="" width="32" height="32" class="size-8 max-sm:size-7">
         <!-- the name is the link's name at every width; written out where there is room for it -->
-        <span class="wordmark lg:max-xl:sr-only text-lg font-bold tracking-tight text-highlighted">Wetterdienst</span>
+        <span class="wordmark lg:max-xl:sr-only text-lg font-bold tracking-tight text-highlighted max-sm:text-base">Wetterdienst</span>
       </NuxtLink>
 
       <nav :aria-label="t('shell.mainNav')" class="hidden h-full items-center gap-1 lg:flex">
@@ -42,7 +43,8 @@ const wide = useMediaQuery('(min-width: 80rem)')
         <ReferenceMenu />
       </nav>
 
-      <div class="ms-auto flex items-center gap-1 sm:gap-1.5">
+      <!-- the two icon buttons of a phone are 44 px targets (AppSearch, SettingsMenu) -->
+      <div class="ms-auto flex items-center gap-0.5 sm:gap-1.5">
         <AppSearch :labelled="wide" />
         <UTooltip :text="t('nav.support')">
           <UButton

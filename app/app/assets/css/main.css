@@ -205,6 +205,12 @@
   --header-height: calc(var(--header-bar) + var(--safe-top));
   /* the tab bar of the narrow layout, and the space the page keeps free under it */
   --tabbar-height: 0rem;
+  /* How far a card of the narrow layout reaches out of the frame's gutter (GH-4227): to the edge of the window, and no
+     farther than the notch's room where a phone on its side has one (the frame's own padding is the larger of the gutter and it) */
+  --bleed-start: max(calc(var(--frame-gutter) - var(--safe-left)), 0px);
+  --bleed-end: max(calc(var(--frame-gutter) - var(--safe-right)), 0px);
+  /* the padding of a card's body, which a chart or a table in it reaches out of (Nuxt UI's `p-4 sm:p-6`) */
+  --card-pad: 1rem;
 
   color-scheme: light;
 }
@@ -662,6 +668,56 @@
   }
 }
 
+/* The phone's top bar is slimmer (GH-4226): 44 px of content (the touch targets of its two icon buttons) and the hairline
+   under it, from the 64 px of the wider layouts. Below the low-window rule above, so that a phone on its side has it too. */
+@media (width < 40rem) {
+  :root {
+    --header-bar: calc(2.75rem + 1px);
+  }
+}
+
+/* The bars hide on scroll, on a phone (GH-4226, `useBarsHideOnScroll`): scrolling down slides the top bar up and the tab bar
+   down, scrolling up or the top brings them back. `--bars-shown` is 1 with the bars in view and 0 with them away; it is set
+   on the four elements that read it (the bars, the sticky preview under the top bar, the toasts), not on the root, so a change
+   restyles those and not the whole page. Each of them transitions its own property (the bars' `transform`, which the
+   compositor runs, the preview's `top`, the toasts' `bottom`), all by the same time and curve, so they move together, frame
+   by frame, with no change to the height of anything (a transform moves a box and takes no room). A browser that does not
+   transition them snaps, and nothing else breaks. The bars stay in the page: not `display: none` or `visibility: hidden`,
+   so the landmarks and the tab order are as they were, and a focus in either brings both back. A window too low for two
+   fixed bars has neither the hiding nor the transform (the rule above scrolls them with the page). */
+@media (width < 40rem) and (min-height: 30.01rem) {
+  :root[data-bars="hidden"] :is(.app-header, .app-tabbar, .bar-sticky, .app-toast-viewport) {
+    --bars-shown: 0;
+  }
+  .app-header {
+    transform: translateY(calc(var(--header-height) * (var(--bars-shown, 1) - 1)));
+  }
+  .app-tabbar {
+    transform: translateY(calc(var(--tabbar-height) * (1 - var(--bars-shown, 1))));
+  }
+  /* each moves by one property of its own (the bars' `transform`, the preview's `top`, the toasts' `bottom`), by one time and curve */
+  :is(.app-header, .app-tabbar, .bar-sticky, .app-toast-viewport) {
+    transition:
+      transform 200ms ease-out,
+      top 200ms ease-out,
+      bottom 200ms ease-out;
+  }
+  /* away faster than it comes: the page the reader is moving to is not made to wait */
+  :root[data-bars="hidden"] :is(.app-header, .app-tabbar, .bar-sticky, .app-toast-viewport) {
+    transition-duration: 160ms;
+  }
+}
+/* no animation where the reader asks for none: the bars are there or they are not */
+@media (prefers-reduced-motion: reduce) {
+  .app-header,
+  .app-tabbar,
+  .bar-sticky,
+  .app-toast-viewport,
+  :root[data-bars="hidden"] :is(.app-header, .app-tabbar, .bar-sticky, .app-toast-viewport) {
+    transition: none;
+  }
+}
+
 /* The page between the header and the footer: as tall as the window allows, so a short page keeps the footer at
    the foot, and clear of the tab bar */
 .app-main {
@@ -725,7 +781,8 @@
    rows are the list the reader moves by the handle or the two buttons, all of them at least 40 px (WCAG 2.5.8) */
 .bar-sticky {
   position: sticky;
-  top: var(--header-height);
+  /* follows the top bar as it hides and returns (`--bars-shown`: 1 with the bar in view, 0 with it away) */
+  top: calc(var(--header-height) * var(--bars-shown, 1));
   z-index: 5;
   margin-inline: -0.25rem;
   padding: 0.5rem 0.25rem 0.75rem;
@@ -769,14 +826,15 @@
 }
 /* On a phone the preview is as wide as the window, as the bar it shows is: in the card it is 64 px narrower, and the
    names of the tools that fit the bar (Pronóstico, Explorador) would break in it. It reaches out of the card's padding and
-   the page's gutter, and has no sides, like the bar; the caption and the line under it keep the card's inset. */
+   the page's gutter (the card has none of it since GH-4227), and has no sides, like the bar; the caption and the line under it keep the card's inset. */
 @media (width < 40rem) {
   .bar-sticky {
-    margin-inline: calc(-1rem - var(--frame-gutter));
+    /* the card is as wide as the window on a phone (GH-4227), so the preview reaches out of the card's padding only */
+    margin-inline: -1rem;
     padding-inline: 0;
   }
   .bar-sticky > :not(.bar-preview) {
-    padding-inline: calc(1rem + var(--frame-gutter));
+    padding-inline: 1rem;
   }
   .bar-preview {
     border-inline: 0;
@@ -932,6 +990,79 @@
   border: 1px solid var(--ui-border);
   background: var(--ui-bg);
 }
+/* The title and the ⓘ that opens the tool's "About" (GH-4227, PageHeader.vue): the button stands at the end of the title's
+   first line, and the target is the app's 44 px, which reaches out of the line it stands in */
+.page-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.125rem;
+}
+.page-title-row .page-title {
+  min-width: 0;
+}
+.page-info.page-info {
+  flex: none;
+  width: 2.75rem;
+  height: 2.75rem;
+  margin-block: -0.4375rem -0.5rem;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--ui-text-toned);
+}
+.page-info.page-info[data-open] {
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-highlighted);
+}
+.page-info.page-info :where(.iconify, [class*="i-ph-"]) {
+  width: 1.625rem;
+  height: 1.625rem;
+}
+
+/* ---- The phone runs edge to edge (GH-4227) -----------------------------------------------------------------------
+   On a phone (below 40 rem, the width of the phone layout; a tablet and a desktop are as they were) a card that is a
+   child of the page (the map's, a form's, a chart's) has no margin at the sides, no rounded corners and no hairline at
+   the sides: it is as wide as the window, and its text keeps the gutter (the card's own padding, 16 px: the title above
+   it stands on the same line). A card inside another card is a card as it was, so is a chart or a table in a facet's box
+   (`.bleed-stop`). A chart or a table of a card (`.bleed-in`) reaches out of the card's padding as well; the same chart in
+   the widget, which has no card of this kind, is not touched, since the rules start from `.card-bleed`. */
+@media screen and (width < 40rem) {
+  .card-bleed:not(.card-bleed .card-bleed) {
+    margin-inline: calc(-1 * var(--bleed-start)) calc(-1 * var(--bleed-end));
+    border-radius: 0;
+    /* the ring of the outline variant is a shadow all round: only its hairlines above and below stay */
+    box-shadow: none;
+    border-block: 1px solid var(--ui-border);
+  }
+  .card-bleed:not(.card-bleed .card-bleed) .bleed-in:not(.bleed-stop .bleed-in) {
+    width: auto;
+    max-width: none;
+    margin-inline: calc(-1 * var(--card-pad));
+    border-radius: 0;
+    border-inline-width: 0;
+  }
+  /* what is not the chart, in a chart that reaches out, keeps the card's gutter */
+  .card-bleed:not(.card-bleed .card-bleed) .bleed-chart:not(.bleed-stop .bleed-chart) > :not(.xc-frame, .sc-scroller) {
+    margin-inline: var(--card-pad);
+  }
+  .page-about {
+    margin-inline: calc(-1 * var(--bleed-start)) calc(-1 * var(--bleed-end));
+    max-width: none;
+    border-radius: 0;
+    border-inline-width: 0;
+    padding-inline: max(var(--frame-gutter), var(--safe-left)) max(var(--frame-gutter), var(--safe-right));
+  }
+  /* a page whose room is its tool's (the map): the head is the title and its ⓘ, a row of the 44 px of the button */
+  .page-header[data-compact] {
+    padding-block: 0.375rem 0.125rem;
+  }
+  .page-header[data-compact] .page-title {
+    font-size: 1.5rem;
+  }
+  .page-header[data-compact] .page-info.page-info {
+    margin-block: -0.1875rem -0.5rem;
+  }
+}
+
 /* The body of a page that is read rather than worked in: one column at the measure of text, at the frame's edge */
 .page-body {
   padding-bottom: 4rem;
@@ -1220,7 +1351,7 @@ body {
    `--tabbar-height` holds the inset where the bar stands (and is 0 where it scrolls with the page), so the larger
    of the two is the room under them. Unlayered, so it wins over the toaster's own `bottom-4` and `right-4`. */
 .app-toast-viewport {
-  bottom: calc(max(var(--tabbar-height), var(--safe-bottom)) + 1rem);
+  bottom: calc(max(var(--tabbar-height) * var(--bars-shown, 1), var(--safe-bottom)) + 1rem);
   right: calc(1rem + var(--safe-right));
 }
 
@@ -1233,6 +1364,13 @@ body {
 html[data-dialog-viewport] .app-vv-dialog {
   top: calc(var(--app-vv-top, 0px) + var(--app-vv-height, 100dvh) / 2);
   max-height: min(36rem, calc(var(--app-vv-height, 100dvh) - 2rem));
+}
+/* The search on a phone is a bar at the top of the window, over the top bar (GH-4226): by the visual viewport it stands at its top */
+@media (width < 40rem) {
+  html[data-dialog-viewport] .app-search-dialog {
+    top: var(--app-vv-top, 0px);
+    max-height: min(36rem, var(--app-vv-height, 100dvh));
+  }
 }
 @media (width >= 40rem) {
   html[data-dialog-viewport] .app-vv-dialog {

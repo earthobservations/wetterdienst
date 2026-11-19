@@ -7,6 +7,8 @@ const route = useRoute()
 
 // a toast over the footer must not hide the link the focus is on (GH-3575)
 useToastInset()
+// on a phone the bars hide while the page is scrolled down and come back when it is scrolled up (GH-4226)
+useBarsHideOnScroll()
 
 // What a search engine and a link preview are told about the page (GH-3497). The server writes the same tags into the
 // shell for a crawler that runs no script (`server/plugins/seo-head.ts`); these replace them, in the language the

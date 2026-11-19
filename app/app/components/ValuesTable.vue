@@ -26,7 +26,7 @@ defineProps<{
   </p>
   <div
     role="region" tabindex="0" :aria-label="caption"
-    class="overflow-auto rounded-lg border border-gray-200 dark:border-gray-700"
+    class="bleed-in overflow-auto rounded-lg border border-gray-200 dark:border-gray-700"
     :class="full ? 'max-h-[70vh] min-h-48' : 'mt-3 max-h-96'"
   >
     <table class="w-full text-sm" :class="full ? 'border-separate border-spacing-0' : 'border-collapse'">

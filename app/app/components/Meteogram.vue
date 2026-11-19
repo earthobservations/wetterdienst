@@ -330,7 +330,7 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
 
       <!-- Main Interactive Chart Container -->
       <div v-if="view === 'chart'">
-        <div class="rounded-xl border border-gray-200 dark:border-gray-800 bg-default shadow-sm overflow-hidden">
+        <div class="bleed-in rounded-xl border border-gray-200 dark:border-gray-800 bg-default shadow-sm overflow-hidden">
           <!-- a figure, as the app's other charts, and no landmark. Described by what it shows; the table has the values -->
           <MeteogramChart
             ref="chart"
@@ -391,7 +391,7 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
       <UEmpty v-else-if="!compactDays.length" icon="i-ph-cloud-slash" :title="t('meteogram.chart.noData')" />
 
       <!-- Premium Compact Overview Grid -->
-      <div v-else class="rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-md p-4">
+      <div v-else class="bleed-in rounded-xl border border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-md p-4">
         <!-- relative: the cards' visually hidden texts are positioned, and would otherwise lie outside the box that scrolls and make the page scroll sideways (WCAG 1.4.10) -->
         <!-- the strip of ten or eleven cards scrolls sideways at any width: a named region that takes the focus, so that a keyboard can scroll it (WCAG 2.1.1; Safari does not focus a scroll container; the ring is the global one) -->
         <div role="region" tabindex="0" :aria-label="daysLabel" data-testid="compact-days" class="relative flex items-stretch justify-start gap-4 overflow-x-auto whitespace-nowrap py-1 px-1">

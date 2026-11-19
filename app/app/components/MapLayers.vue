@@ -18,6 +18,8 @@ defineProps<{
   /** Whether the stations of the layer cannot be left ungrouped (more than `GROUPING_COMPULSORY_ABOVE`): the switch is on and disabled, and the note says why */
   compulsory: boolean
   note: string
+  /** Whether the legend of the dots and the groups (the `legend` slot) is shown (GH-4227): the map has no box of it any more */
+  showLegend?: boolean
 }>()
 
 const layer = defineModel<MapLayer>('layer', { required: true })
@@ -37,7 +39,7 @@ const GROUPING_SWITCH_ID = 'map-grouping-switch'
     v-model:open="open"
     :portal="false"
     :content="content"
-    :ui="{ content: 'map-layers-panel w-72 max-w-[calc(100vw-1.5rem)] p-3 space-y-3' }"
+    :ui="{ content: 'map-layers-panel w-72 max-w-[calc(100vw-1.5rem)] p-3 space-y-3 overflow-y-auto overscroll-contain max-h-(--reka-popover-content-available-height)' }"
   >
     <UButton
       icon="i-ph-stack"
@@ -85,6 +87,17 @@ const GROUPING_SWITCH_ID = 'map-grouping-switch'
           </p>
         </div>
       </template>
+
+      <!-- what the dots and the discs on the map are, in this layer and at this zoom (GH-4227): it was a box on the map, over its foot -->
+      <template v-if="showLegend">
+        <USeparator />
+        <section class="map-layers-legend" aria-labelledby="map-legend-title">
+          <h3 id="map-legend-title" class="map-layers-legend-title">
+            {{ t('mapTool.legend') }}
+          </h3>
+          <slot name="legend" />
+        </section>
+      </template>
     </template>
   </UPopover>
 </template>
@@ -115,5 +128,82 @@ const GROUPING_SWITCH_ID = 'map-grouping-switch'
   display: flex;
   align-items: center;
   min-height: 44px;
+}
+/* The legend of the dots, under the switch (GH-4227). The swatches are the map's own (StationMap.vue), which is a light surface in both colour schemes:
+   the one that reports filled, the one that has stopped hollow, a difference of shape that is no colour alone (WCAG 1.4.1). Each has a halo of white
+   (the map's), so it stands against the navy of the panel at night as against the white of the day (1.4.11). */
+.map-layers-legend-title {
+  margin-bottom: 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ui-text-muted);
+}
+.map-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  color: var(--ui-text-toned);
+}
+.map-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+}
+.map-legend-dot {
+  flex: none;
+  box-sizing: border-box;
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 1.5px solid #ffffff;
+  border-radius: 50%;
+  background: #2358a8;
+  box-shadow: 0 0 0 1px #2358a8;
+}
+.map-legend-group {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-inline: -0.1875rem;
+  color: #ffffff;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.map-legend-group-share {
+  /* a group of stations that report and stations that have stopped: a ring filled for the share that reports, round a light middle */
+  position: relative;
+  border: 1.5px solid #2358a8;
+  background: conic-gradient(#2358a8 0 62%, #ffffff 62% 100%);
+  box-shadow: none;
+  color: #2358a8;
+  z-index: 0;
+}
+.map-legend-group-share::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  z-index: -1;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px #2358a8;
+}
+.map-legend-dot-stopped {
+  border: 2px solid #2358a8;
+  background: #ffffff;
+  box-shadow: none;
+}
+/* in forced colours the dots keep their own colours (the filled and the hollow one are told apart by them, which system
+   colours would make alike), as the tiles and the tool marks do */
+@media (forced-colors: active) {
+  .map-legend,
+  .map-legend-dot {
+    forced-color-adjust: none;
+  }
 }
 </style>

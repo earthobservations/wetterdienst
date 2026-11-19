@@ -8,11 +8,16 @@ const PORT = process.env.E2E_PORT || '4000'
 // background graphics): they run in Chromium, the others in Firefox
 const PDF_SPEC = /(chart-print|print-backgrounds)\.spec\.ts$/
 
+// the specs of the narrow layout and the map's full screen (GH-4227), which needs the browser's Fullscreen API to be there (and, to
+// test the app's own, to be taken away), which Playwright's headless Chromium has and its Firefox does not, and of the bars of a
+// phone that hide on scroll (GH-4226), whose slide (an animated registered property) is measured in Chromium: they run in Chromium
+const CHROMIUM_SPEC = /(phone-fullscreen|bars-hide)\.spec\.ts$/
+
 // the spec of the dialogs on a phone: a touch drag as touch events of Chromium's input (CDP `Input.dispatchTouchEvent`),
 // which only Chromium can be told to make, so it runs in a Chromium of its own, as a Pixel 7
 const TOUCH_SPECS = /dialog-touch-scroll\.spec\.ts$/
 
-// The accessibility scan (393 tests, most of them a page load and a scan: about 20 minutes on three workers, several
+// The accessibility scan (445 tests, most of them a page load and a scan: about 20 minutes on three workers, several
 // times that on one) runs on request, not with the rest: `pnpm test:a11y`, or the "App accessibility" workflow (see ACCESSIBILITY.md).
 // A project's own `testIgnore` replaces the top-level one, so every project carries this list.
 const A11Y_IGNORE = process.env.A11Y === '1' ? [] : ['**/accessibility.spec.ts']
@@ -43,9 +48,9 @@ export default defineConfig({
         { name: 'chromium-touch', use: { ...devices['Pixel 7'], channel: 'chrome' }, testMatch: TOUCH_SPECS, testIgnore: A11Y_IGNORE },
       ]
     : [
-        { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: [...A11Y_IGNORE, PDF_SPEC, TOUCH_SPECS] },
-        // the print spec measures a PDF, and `page.pdf` is Chromium's alone
-        { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testMatch: PDF_SPEC, testIgnore: A11Y_IGNORE },
+        { name: 'firefox', use: { ...devices['Desktop Firefox'] }, testIgnore: [...A11Y_IGNORE, PDF_SPEC, CHROMIUM_SPEC, TOUCH_SPECS] },
+        // the print spec measures a PDF, and `page.pdf` is Chromium's alone; the full-screen spec needs its Fullscreen API
+        { name: 'chromium', use: { ...devices['Desktop Chrome'] }, testMatch: [PDF_SPEC, CHROMIUM_SPEC], testIgnore: A11Y_IGNORE },
         // the dialogs on a phone, by touch
         { name: 'chromium-touch', use: { ...devices['Pixel 7'] }, testMatch: TOUCH_SPECS, testIgnore: A11Y_IGNORE },
         // Uncomment to test in multiple browsers:

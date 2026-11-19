@@ -569,9 +569,10 @@ test('the stripes follow a change of the window: lower in a narrower one, held t
   await page.setViewportSize({ width: 390, height: 844 })
   await expect.poll(() => stripesHeight(page)).toBeLessThan(wide - 100)
   expect(await stripesHeight(page)).toBeGreaterThan(STRIPES_MIN_HEIGHT - 3)
-  expect(await stripesHeight(page)).toBeLessThan(STRIPES_MIN_HEIGHT + 3)
+  // the chart is as wide as the window on a phone since GH-4227 (edge to edge), so at 390 px it is a little higher than the least
+  const phone = await stripesHeight(page)
   await page.setViewportSize({ width: 320, height: 700 })
-  await expect.poll(() => stripesHeight(page)).toBeLessThan(STRIPES_MIN_HEIGHT + 3)
+  await expect.poll(() => stripesHeight(page)).toBeLessThanOrEqual(phone)
   expect(await stripesHeight(page)).toBeGreaterThan(STRIPES_MIN_HEIGHT - 3)
 })
 

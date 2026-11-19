@@ -635,6 +635,65 @@ const STATES: State[] = [
     },
   },
   {
+    // on a phone, the map full screen (GH-4227): the browser's own where it has the API, the app covering the page where it has
+    // not; either way the map, its buttons and the sheet that stands in for the panel are all there is of the page
+    page: 'map',
+    state: 'phone-fullscreen',
+    path: '/map?station=10384&lat=52.9&lon=13.0',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await expect(page.getByTestId('map-fullscreen')).toBeVisible()
+      await page.getByTestId('map-fullscreen').click()
+      await expect(page.getByTestId('map-sheet')).toBeVisible()
+      await expect(page.getByTestId('map-sheet-name')).toBeVisible()
+    },
+  },
+  {
+    // on a phone, the "About" of a tool as the ⓘ beside the title, open (GH-4227)
+    page: 'explorer',
+    state: 'phone-about-open',
+    path: '/explorer',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await page.getByTestId('page-info').click()
+      await expect(page.locator('.page-about')).toBeVisible()
+    },
+  },
+  {
+    // the page scrolled down on a phone, with both bars slid away (GH-4226): what the bars do not draw is not scanned as drawn, and
+    // the page under where they were is clear of them
+    page: 'about',
+    state: 'phone-bars-hidden',
+    path: '/about',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await expect(page.getByRole('button', { name: message(locale, 'shell.search') })).toBeEnabled()
+      // the reader's first input, then their scroll: the bars hide for no other
+      await page.mouse.move(200, 400)
+      await page.mouse.wheel(0, 1)
+      await page.evaluate(() => window.scrollTo({ top: 600, behavior: 'instant' }))
+      await expect(page.locator('html')).toHaveAttribute('data-bars', 'hidden')
+      // the slide is over
+      await expect.poll(async () => (await page.locator('.app-header').boundingBox())!.y).toBeLessThanOrEqual(-44)
+    },
+  },
+  {
+    // the search on a phone (GH-4226): a bar at the top of the window, over the top bar, with its results under it
+    page: 'index',
+    state: 'phone-search-open',
+    keepFocus: true,
+    path: '/',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'shell.search') }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await expect(page.getByRole('option').first()).toBeVisible()
+      // it has stopped opening
+      await expect.poll(async () => Math.round((await page.getByRole('dialog').boundingBox())!.x)).toBe(0)
+    },
+  },
+  {
     // the chooser of the phone bar's four tools (GH-3846): the preview, the two lists with their line, the handles and
     // the arrow buttons, at a phone's width and at 320 px, with the choice changed so that the list is not the default
     page: 'settings',
