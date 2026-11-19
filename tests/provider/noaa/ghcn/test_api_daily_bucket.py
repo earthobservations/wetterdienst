@@ -37,6 +37,8 @@ from wetterdienst.util.response_warnings import (
 )
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     import polars as pl
 
 NCEI = "https://www.ncei.noaa.gov/pub/data/ghcn/daily/by_station/{id}.csv.gz"
@@ -128,12 +130,13 @@ def _values(
     start: str = "2026-09-29",
     end: str = "2026-09-30",
     drop_nulls: bool = True,
+    settings: Settings | None = None,
 ) -> pl.DataFrame:
     request = NoaaGhcnRequest(
         parameters=[("daily", "data", "temperature_air_max_2m")],
         start=start,
         end=end,
-        settings=Settings(cache_disable=True),
+        settings=settings or Settings(cache_disable=True),
         options=Options(drop_nulls=drop_nulls),
     ).filter_by_station_id(stations)
     return request.values().all().df.sort("timestamp")
@@ -532,3 +535,108 @@ def test_a_hanging_ncei_costs_its_timeout_once_for_a_walk(
     assert elapsed < 10
     (warning,) = [warning for warning in recorded_warnings() if warning["code"] == SOURCE_FALLBACK]
     assert warning["stations"] == ids
+
+
+# a body that is no file must not stay in the cache: it was held for the whole expiry like any 200
+
+
+class _LocalSource:
+    """A local HTTP server for one source, whose answer a test changes between two requests and whose hits it counts."""
+
+    def __init__(self) -> None:
+        self.status = 200
+        self.body = b""
+        self.hits = 0
+        source = self
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self) -> None:
+                source.hits += 1
+                self.send_response(source.status)
+                self.send_header("Content-Length", str(len(source.body)))
+                self.end_headers()
+                self.wfile.write(source.body)
+
+            def log_message(self, *args: object) -> None:
+                pass
+
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.url = f"http://127.0.0.1:{self.server.server_port}/{{station_id}}.csv.gz"
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+
+    def close(self) -> None:
+        self.server.shutdown()
+        self.server.server_close()
+
+
+@pytest.fixture
+def local_sources(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[_LocalSource, _LocalSource]]:
+    """NCEI's and the mirror's URL, served from two local servers, to be read through the real cache."""
+    ncei, mirror = _LocalSource(), _LocalSource()
+    monkeypatch.setattr(api, "GHCND_BY_STATION_URL", ncei.url)
+    monkeypatch.setattr(api, "GHCND_BY_STATION_MIRROR_URL", mirror.url)
+    real = api.download_file
+
+    def download_file(url: str, **kwargs: object) -> File:
+        if "ghcnd-stations" in url:
+            return _ok(_STATIONS.encode("utf8"))(url)
+        if "ghcnd-inventory" in url:
+            return _ok(_INVENTORY.encode("utf8"))(url)
+        return real(url, **kwargs)
+
+    monkeypatch.setattr(api, "download_file", download_file)
+    try:
+        yield ncei, mirror
+    finally:
+        ncei.close()
+        mirror.close()
+
+
+def test_a_maintenance_page_of_ncei_is_not_kept_in_the_cache(
+    local_sources: tuple[_LocalSource, _LocalSource], tmp_path: Path
+) -> None:
+    """NCEI answers 200 with an HTML page, the next request finds its real file: read from NCEI, with no fallback.
+
+    The page was cached for 12 hours like any 200, so the next request read it back without asking NCEI, fell back to
+    the mirror again and said so, though NCEI had recovered minutes later. Run against a real cache directory.
+    """
+    ncei, mirror = local_sources
+    ncei.body = _MAINTENANCE_PAGE
+    mirror.body = ghcnd_by_station(_DE_BILT_MIRROR)
+    settings = Settings(cache_dir=tmp_path / "cache")
+    begin_response()
+    df = _values(settings=settings)
+    assert df.get_column("value").to_list() == pytest.approx([25.9, 24.0])
+    (warning,) = [warning for warning in recorded_warnings() if warning["code"] == SOURCE_FALLBACK]
+    assert "an error page" in warning["message"]
+    assert (ncei.hits, mirror.hits) == (1, 1)
+    # NCEI is back
+    ncei.body = ghcnd_by_station(_DE_BILT)
+    begin_response()
+    df = _values(settings=settings)
+    assert df.get_column("value").to_list() == pytest.approx([25.9, 24.5])
+    assert SOURCE_FALLBACK not in _codes()
+    assert (ncei.hits, mirror.hits) == (2, 1)
+    # and its file is kept now: a third request does not ask again
+    _values(settings=settings)
+    assert (ncei.hits, mirror.hits) == (2, 1)
+
+
+def test_an_unreadable_body_of_the_mirror_is_not_kept_in_the_cache_either(
+    local_sources: tuple[_LocalSource, _LocalSource], tmp_path: Path
+) -> None:
+    """NCEI has no file and the mirror's body is a maintenance page: a `DownloadError`, and not for the whole expiry."""
+    ncei, mirror = local_sources
+    ncei.status = 404
+    mirror.body = _MAINTENANCE_PAGE
+    settings = Settings(cache_dir=tmp_path / "cache")
+    with pytest.raises(DownloadError, match="no table of readings"):
+        _values(settings=settings)
+    assert mirror.hits == 1
+    # the mirror is back
+    mirror.body = ghcnd_by_station(_DE_BILT_MIRROR)
+    begin_response()
+    df = _values(settings=settings)
+    assert df.get_column("value").to_list() == pytest.approx([25.9, 24.0])
+    assert mirror.hits == 2
+    assert [warning["code"] for warning in recorded_warnings()] == [SOURCE_FALLBACK]

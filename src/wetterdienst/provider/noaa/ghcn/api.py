@@ -32,7 +32,7 @@ from wetterdienst.provider.noaa.ghcn.metadata import (
     NoaaGhcnMetadata,
 )
 from wetterdienst.util.geo import EARTH_RADIUS_IN_KM
-from wetterdienst.util.network import download_file, silence_timeout
+from wetterdienst.util.network import download_file, drop_cached_file, silence_timeout
 from wetterdienst.util.polars_util import read_fwf_from_df
 from wetterdienst.util.response_warnings import SkipCause, note_skipped_download, note_source_fallback
 
@@ -534,12 +534,11 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         """Download the file of a station from one source and read it. A 429 is raised, never a failure to go round."""
         client_kwargs = settings.fsspec_client_kwargs
         if primary:
-            client_kwargs = {
-                **client_kwargs,
-                "timeout": silence_timeout(NCEI_TIMEOUT_SECONDS),
-            }
+            client_kwargs = {**client_kwargs, "timeout": silence_timeout(NCEI_TIMEOUT_SECONDS)}
+        # what the download was made with names the cache it went to, which `drop_cached_file` needs again
+        address = url.format(station_id=station_id)
         file = download_file(
-            url=url.format(station_id=station_id),
+            url=address,
             cache_dir=settings.cache_dir,
             ttl=GHCND_BY_STATION_EXPIRY,
             client_kwargs=client_kwargs,
@@ -554,6 +553,16 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         try:
             return _DailyFile(file, frame=_daily_rows(file.content))
         except (pl.exceptions.PolarsError, ValueError):
+            # a 200 that is no file (a maintenance page, a body cut short) was cached for the whole expiry like any
+            # other: dropped, so that the next request asks again instead of reading the failure back for 12 hours
+            drop_cached_file(
+                url=address,
+                cache_dir=settings.cache_dir,
+                ttl=GHCND_BY_STATION_EXPIRY,
+                client_kwargs=client_kwargs,
+                cache_disable=settings.cache_disable,
+                use_certifi=settings.use_certifi,
+            )
             return _DailyFile(file, unreadable=True)
 
     def _read_daily_file(self, station_id: str, settings: Settings) -> tuple[pl.DataFrame, File] | None:
