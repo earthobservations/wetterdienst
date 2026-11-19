@@ -757,20 +757,21 @@ test.describe('the map tool on a phone: groups of stations', () => {
   })
 })
 
-// One tap closes the panel of the layers button (GH-4242). Safari does not focus the button or the map it is tapped: the focus
-// goes to the page behind (the map's container, `main`), and a panel that closed on that focus in the middle of the tap was
-// opened again by the click of the tap on the button, so the first tap seemed to do nothing. Chrome leaves the focus on the
-// trigger, which the panel ignores, and CI does not run Safari's engine, so the test moves the focus the way Safari does, on the press
-// (run in WebKit, with no help, it fails the same way without the fix).
+// One tap closes the panel of the layers button (GH-4242). Safari does not focus the button it is tapped: the focus goes to the
+// page behind it (`main`; a tap on the map or its zoom buttons sends it to the map's container), and a panel that closed on that
+// focus in the middle of the tap was opened again by the click of the tap on the button, so the first tap seemed to do nothing.
+// Chrome leaves the focus on the trigger, which the panel ignores, and CI runs this spec in Firefox alone, so the tests move the
+// focus the way Safari does, on the press (run in WebKit, with no help, the button test fails the same way without the fix).
 test.describe('the map tool on a phone: the panel of the layers button', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
-  /** What Safari does with a press outside the panel: the focus goes to the page behind it, never to the button that was tapped */
+  /** What Safari does with a press outside the panel: the focus goes to the page behind it or to the map's container, never to the element that was tapped */
   async function focusLeavesOnPress(page: Page) {
     await page.evaluate(() => {
       document.addEventListener('mousedown', (event) => {
-        if (!(event.target as Element).closest('[data-testid="map-layers-panel"]'))
-          document.querySelector<HTMLElement>('main')?.focus()
+        const target = event.target as Element
+        if (!target.closest('[data-testid="map-layers-panel"]'))
+          (target.closest<HTMLElement>('.leaflet-container') ?? document.querySelector<HTMLElement>('main'))?.focus()
       }, true)
     })
   }
@@ -829,6 +830,18 @@ test.describe('the map tool on a phone: the panel of the layers button', () => {
     // the next tap is the map's own again
     await tapMap(alone)
     await expect(page.getByTestId('map-station-name')).toHaveText('WEST POINT')
+  })
+
+  test('is closed by one tap on a zoom button of the map, which zooms as well: Leaflet stops the click of that tap', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map', GROUPED)
+    await expect.poll(() => zoomOf(page)).toBe(6)
+    await focusLeavesOnPress(page)
+    await openLayersByTap(page)
+    const zoomIn = page.getByRole('button', { name: en.mapTool.zoomIn })
+    const box = (await zoomIn.boundingBox())!
+    await page.touchscreen.tap(box.x + box.width / 2, box.y + box.height / 2)
+    await expect(page.getByTestId('map-layers-panel')).toBeHidden()
+    await expect.poll(() => zoomOf(page)).toBe(7)
   })
 
   test('is closed by Escape, which gives the focus back to the button', async ({ page, baseURL }) => {

@@ -33,14 +33,15 @@ const { t } = useI18n()
 // outside, but dismisses on a focus that goes outside at once. Safari does not focus the button it is tapped: the focus goes
 // to the page behind it, in the middle of the tap (Chrome focuses the button, the trigger, which the popover leaves alone). The
 // panel closed on that focus, and the click that followed on the button opened it again, so the first tap seemed to do nothing.
-// A focus that goes outside during a touch is no leaving of the panel, and the click of the tap closes it (a press on the map or
-// the page) or toggles it (the button); a keyboard that tabs out of the panel still closes it.
-/** Whether a finger is down, or has lifted and its click has not come yet */
+// A focus that goes outside during a touch on the button is no leaving of the panel, and the click of the tap toggles it. A press
+// on the map or the page is dismissed by the focus as before (what the press lands on may stop its click, as Leaflet's zoom
+// buttons do, and the popover's own dismissal, which waits for that click, would never come); a keyboard that tabs out still closes it.
+/** Whether a finger is down on the button, or has lifted and its click has not come yet */
 let touchPress = false
 let touchPressTimer: ReturnType<typeof setTimeout> | undefined
 useEventListener('pointerdown', (event: PointerEvent) => {
   clearTimeout(touchPressTimer)
-  touchPress = event.pointerType === 'touch'
+  touchPress = event.pointerType === 'touch' && !!(event.target as Element | null)?.closest?.('.map-layers-button')
 }, { capture: true })
 // the click of a tap comes within a few milliseconds of the finger lifting; a press that is no tap (a pan, a long press) has none
 useEventListener(['pointerup', 'pointercancel'], () => {
