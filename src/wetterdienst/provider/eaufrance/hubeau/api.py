@@ -27,7 +27,7 @@ from wetterdienst.model.metadata import (
 from wetterdienst.model.parameter_rows import MAX_STATIONS_LISTED
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
-from wetterdienst.util.network import download_file, fetchable_link
+from wetterdienst.util.network import _without_url_secrets, download_file, drop_cached_file, fetchable_link
 from wetterdienst.util.python import to_list
 from wetterdienst.util.response_warnings import warn_response
 
@@ -464,6 +464,9 @@ def _referential_stations(rows: list[dict]) -> tuple[pl.DataFrame, dict[str, str
     return _null_unplaced_positions(_swap_misplaced_positions(df))
 
 
+_NOT_A_PAGE = "the answer is not a Hub'Eau page: no JSON object with `data` (a waiting or error page?)"
+
+
 def _paged_rows(url: str, settings: Settings, *, ttl: CacheExpiry, timeout: int) -> list[dict]:
     """Follow one Hubeau query through its cursor pages.
 
@@ -476,22 +479,37 @@ def _paged_rows(url: str, settings: Settings, *, ttl: CacheExpiry, timeout: int)
         what came before it: a silently short answer would file stations under the wrong
         resolution, or truncate a series, which is worse than saying the service could not be read.
 
+    Raises:
+        DownloadError: The service answered a 200 that is no JSON object with `data`, as it does with an HTML
+            waiting page ("votre patience") when it is overloaded (GH-4236). The page is dropped
+            from the cache first, which holds a 200 for the whole ``ttl``.
+
     """
     query = url
     rows: list[dict] = []
+    client_kwargs = {**settings.fsspec_client_kwargs, "timeout": timeout}
     for _ in range(_MAX_PAGES):
         file = download_file(
             url=url,
             cache_dir=settings.cache_dir,
             ttl=ttl,
-            client_kwargs={**settings.fsspec_client_kwargs, "timeout": timeout},
+            client_kwargs=client_kwargs,
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
         file.raise_if_exception()
         if isinstance(file.content, Exception):
             break
-        payload = json.load(file.content)
+        try:
+            payload = json.load(file.content)
+        except ValueError as error:  # a `JSONDecodeError`, or a body that is no text at all
+            _drop_outage_page(url, settings, ttl, client_kwargs)
+            raise DownloadError(_without_url_secrets(url), _NOT_A_PAGE) from error
+        # an answer with no rows still carries `data: []` (and `count: 0`), so a missing `data` is an error
+        # the service reports in a 200 (`{"error": ...}`), not an empty result
+        if not isinstance(payload, dict) or "data" not in payload:
+            _drop_outage_page(url, settings, ttl, client_kwargs)
+            raise DownloadError(_without_url_secrets(url), _NOT_A_PAGE)
         page = payload.get("data")
         if not page:
             break
@@ -504,6 +522,18 @@ def _paged_rows(url: str, settings: Settings, *, ttl: CacheExpiry, timeout: int)
     else:
         log.warning(f"Hubeau paging stopped at {_MAX_PAGES} pages for {query}; the result is incomplete.")
     return rows
+
+
+def _drop_outage_page(url: str, settings: Settings, ttl: CacheExpiry, client_kwargs: dict) -> None:
+    """Drop the cached copy of an answer that is no good, with the arguments it was downloaded with."""
+    drop_cached_file(
+        url,
+        settings.cache_dir,
+        ttl,
+        client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+    )
 
 
 def _step_verdicts(df: pl.DataFrame) -> pl.DataFrame:
@@ -941,12 +971,13 @@ class HubeauRequest(TimeseriesRequest):
             # list this enriches would be too (GH-2640), and a provider that limits how fast it is
             # asked, which the next request meets too (GH-4053)
             raise
-        except (DownloadError, OSError, ClientError, ValueError) as e:
+        except (DownloadError, OSError, ClientError) as e:
             # `DownloadError` is what `raise_if_exception` raises for a timeout, a missing file, and
-            # a refused or broken response (GH-2460); a body that is not JSON is a `ValueError`, and
-            # a cache dir that cannot be written an `OSError`, as is a timeout. The aiohttp types
-            # are what the download raised itself before GH-2460, kept for a caller that still
-            # sends them
+            # a refused or broken response (GH-2460), and what `_paged_rows` raises for a 200 that is
+            # no Hub'Eau page, a waiting page (GH-4236); a cache dir that cannot be written is an
+            # `OSError`, as is a timeout. The aiohttp types are what the download raised itself
+            # before GH-2460, kept for a caller that still sends them. No `ValueError`: nothing in
+            # `_paged_rows` raises one any more
             rows, error = [], e
         # no rows without an error is a referential that answered with no page -- it always lists
         # thousands of sites

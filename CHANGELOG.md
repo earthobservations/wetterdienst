@@ -18,6 +18,9 @@ Types of changes:
 
 ### Fixed
 
+- Hub'Eau answers an HTML waiting page ("votre patience") with a 200 when it is overloaded; that is
+  now a `DownloadError` that names the URL (a 502 at REST), no longer a `JSONDecodeError` (a 500),
+  and the page is not kept in the cache, so the next request asks Hub'Eau again (GH-4236)
 - The docs gave a guess as the meaning of SMHI's `Kvalitet` code `Y` ("suspect or aggregated"). Per
   SMHI, `Y` is a value not checked, or marked suspect by a control, or an aggregate, so it is no
   verdict and stays unread by the `source` check; `G` is a checked, approved value. Both are
