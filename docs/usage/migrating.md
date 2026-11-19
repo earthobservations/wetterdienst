@@ -1,7 +1,7 @@
 # Migrating from 0.139.0
 
-What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.191.0, collected from
-the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.191.0), grouped
+What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.192.0, collected from
+the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.192.0), grouped
 by what you touch, and checked against the code. The numbers are the issues the changelog names (`GH-2626`); the
 version says the release that made the change. For what stays stable from 1.0 on, see
 [Compatibility](compatibility.md).
@@ -13,7 +13,7 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 [Values, units and timestamps](#values-units-and-timestamps) and [Failures](#failures). If you come from a release
 before 0.139.0, read the **Breaking** entries up to it first.
 
-The web app is released as a pair with the backend: `app-v0.53.0` is the app of 0.191.0 (it needs the stripes'
+The web app is released as a pair with the backend: `app-v0.53.0` is the app of 0.191.0 and works with 0.192.0 (it needs the stripes'
 `reference`, `stripe_class` and `anomaly` and the stations' `wmo_id` of 0.191.0, the dataset `hourly/snow` of
 `dwd/mosmix` for the snow panel of the forecast, and otherwise no more of the backend than `app-v0.47.0`, the app of
 0.186.0, which needs it: it asks for `unit_targets` on the stripes and reads the separate `providers` and `coverage`;
@@ -157,9 +157,9 @@ this dataset`); the same applies to a name in a request, in a `parameter` filter
 `geo_station_distance` key. A name the source itself uses still selects its row (`wind_speed` of `metno/frost`,
 `wind_direction` of `eccc/observation` and of the Met Office hourly weather) and comes back under the new name. The
 rule is [The statistic in a name](../data/parameters.md#the-statistic-in-a-name), and its page lists every row of the
-0.191.0 renames by network, resolution and dataset.
+0.192.0 renames by network, resolution and dataset.
 
-Moves of the same parameter between 0.145.0 and 0.191.0 are shown from the name of 0.139.0 to the name of 0.191.0.
+Moves of the same parameter between 0.145.0 and 0.192.0 are shown from the name of 0.139.0 to the name of 0.192.0.
 
 These are hard breaks of the 0.x releases and stay refused, with their hint, after 1.0. A rename after 1.0 is different:
 the old name keeps working as an alias, with a warning, for at least two minor releases and goes only in a major
