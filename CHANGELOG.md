@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `dwd/observation`, `fmi/observation` and `dmi/observation`: stations carry `wigos_id` where WMO's
+  register OSCAR/Surface lists a WIGOS id of the country whose local part is the provider's own
+  `station_id` (`0-276-3-73` for DWD `00073`, `0-246-0-101520` for fmisid `101520`,
+  `0-208-0-06126` for DMI `06126`): 370 of DWD's 6,422 stations, 243 of FMI's 437 and 77 of DMI's
+  1,065. Only an exact id counts, no name or position; one that OSCAR lists twice stays null. The
+  register of a country is cached for a week; if it cannot be read the stations still come back
+  with `wigos_id` null and the warning `wigos-ids-unavailable` (GH-4074)
+
 ### Fixed
 
 - The documentation on Read the Docs was not published after 2026-10-24: the PDF build failed on an

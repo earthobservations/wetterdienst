@@ -32,6 +32,7 @@ from wetterdienst.model.history import (
 )
 from wetterdienst.model.listing_gap import ListingGap
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, ParameterSearch
+from wetterdienst.model.oscar import NationalWigosScheme, with_oscar_wigos_id
 from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, raw_column
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -91,6 +92,19 @@ if TYPE_CHECKING:
 
     from wetterdienst.model.result import HistoryResult, StationsResult, ValuesResult
 log = logging.getLogger(__name__)
+
+#: DWD's Stations_ID is the local part of the national WIGOS ids `0-276-<issue number>-<Stations_ID>` of WMO's
+#: OSCAR/Surface (`0-276-3-73` is the station `00073`, which OSCAR writes without the zeros DWD pads the id with), of
+#: the issue numbers 3 (secondary station), 6 (city climate) and 2, all 370 of which name a station of DWD with that id.
+#: Not 0 and 1: there the local part is a WMO-like number of a radar or a profiler (`0-276-0-10103`), no id of DWD's
+#: (GH-4074)
+DWD_WIGOS_SCHEME = NationalWigosScheme(
+    territory="DEU",
+    issuer=276,
+    issue_numbers=frozenset({2, 3, 6}),
+    provider="dwd/observation",
+    strip_zeros=True,
+)
 
 # Where two periods report the same timestamp, the historical record is the one carrying the final
 # quality marks, so it wins -- see the ordering rationale in `Period`'s own docstring. The periods
@@ -1129,5 +1143,6 @@ class DwdObservationRequest(TimeseriesRequest):
             subset=["resolution", "dataset", "station_id"], keep="first", maintain_order=True
         )
         stations_df = stations_df.sort(by=[pl.col("station_id").cast(int)], maintain_order=True)
-        # the WMO number is in none of the descriptions: DWD's Stationslexikon has it (GH-4073)
-        return with_wmo_id(stations_df, settings)
+        # the WMO number is in none of the descriptions: DWD's Stationslexikon has it (GH-4073); the WIGOS id is in none
+        # either: WMO's OSCAR/Surface has it for the stations whose Stations_ID is the local part of one (GH-4074)
+        return with_oscar_wigos_id(with_wmo_id(stations_df, settings), settings, DWD_WIGOS_SCHEME)

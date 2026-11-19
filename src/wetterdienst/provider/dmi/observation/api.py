@@ -21,6 +21,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
 from wetterdienst.model.open_window import incomplete_flag, leaves_open_out, served_at, tell_open_window
+from wetterdienst.model.oscar import NationalWigosScheme, with_oscar_wigos_id
 from wetterdienst.model.quality_flags import Sentinel, join_quality_flags, null_sentinels
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -35,6 +36,12 @@ if TYPE_CHECKING:
 
 
 _BASE_URL = "https://opendataapi.dmi.dk/v2/climateData/collections"
+
+#: DMI's `stationId` is the local part of the national WIGOS ids `0-208-0-<stationId>` of WMO's OSCAR/Surface (`06126`
+#: is `0-208-0-06126`, written the same way; GH-4074)
+DMI_WIGOS_SCHEME = NationalWigosScheme(
+    territory="DNK", issuer=208, issue_numbers=frozenset({0}), provider="dmi/observation"
+)
 # DMI accepts a limit of up to 300000 records per page, so a short range is one page. DMI always
 # returns a "next" link regardless, so pagination stops on a short page.
 _PAGE_LIMIT = 300_000
@@ -627,5 +634,6 @@ class DmiObservationRequest(TimeseriesRequest):
             .otherwise(pl.col("end_timestamp").max())
             .alias("end_timestamp"),
         )
-        # one catalogue for every dataset: the core copies it over the request's datasets
-        return df.lazy()
+        # one catalogue for every dataset: the core copies it over the request's datasets. The WIGOS id is not in it:
+        # WMO's OSCAR/Surface has `0-208-0-<stationId>` for the stations it knows (GH-4074)
+        return with_oscar_wigos_id(df.lazy(), settings, DMI_WIGOS_SCHEME)

@@ -25,6 +25,7 @@ import polars as pl
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.oscar import NationalWigosScheme, with_oscar_wigos_id
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
 from wetterdienst.provider.fmi.observation.metadata import FmiObservationMetadata
@@ -45,6 +46,12 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 _BASE_URL = "https://opendata.fmi.fi/wfs"
+
+#: FMI's `fmisid` is the local part of the national WIGOS ids `0-246-0-<fmisid>` of WMO's OSCAR/Surface (`101520` is
+#: `0-246-0-101520`; issue number 3 of the issuer is another scheme: GH-4074)
+FMI_WIGOS_SCHEME = NationalWigosScheme(
+    territory="FIN", issuer=246, issue_numbers=frozenset({0}), provider="fmi/observation"
+)
 
 #: the `exceptionCode`s of an OWS exception report that say the request is wrong (a missing or invalid parameter, an
 #: operation, option or version the server does not have): asked again, FMI answers the same. The others, which FMI
@@ -247,4 +254,5 @@ class FmiObservationRequest(TimeseriesRequest):
             return pl.LazyFrame()
         # the catalogue is provider-wide; the core copies it across each requested (resolution, dataset)
         # so stations not reporting a requested parameter simply return no values.
-        return parse_fmi_stations(file.content.read()).lazy()
+        # the catalogue has no WIGOS id; WMO's OSCAR/Surface has one for the stations it knows (GH-4074)
+        return with_oscar_wigos_id(parse_fmi_stations(file.content.read()).lazy(), settings, FMI_WIGOS_SCHEME)

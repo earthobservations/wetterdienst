@@ -27,6 +27,16 @@ countries. Their `wmo_id` is null. This is an exception to taking a documented f
 WMO's register shows the field is not WMO's for them: OSCAR lists 115 of the 127 numbers in the two blocks as
 `0-20000-0-<number>` and none of the other 774.
 
+A station's `wigos_id` is not in DMI's list. It is read from WMO's register OSCAR/Surface, which lists
+`0-208-0-<stationId>` for the stations that it knows (`0-208-0-06126` is Aarslev, `stationId` `06126`, written with
+its zero as in the register; read 2026-11-19, 77 of the 1,065 stations have one, each within 10 km of the position OSCAR gives it).
+The id is the exact one: the `station_id` is the local part of a WIGOS id of Denmark's issuer (`208`) with issue
+number `0`, nothing is matched by name or position, and a station that has no such id has `wigos_id` null. A station
+that OSCAR also lists as `0-20000-0-<WMO number>` has the national id here, as the column holds one. The register is
+kept for a week in the cache and for a day in the process; where it cannot be read the stations still come back, with
+`wigos_id` null and the warning `wigos-ids-unavailable` (see
+[WIGOS ids of the stations](../../dwd/observation/index.md#wigos-ids-of-the-stations)).
+
 Each value carries DMI's `qcStatus` in `quality_flags`, `manual` (quality controlled by DMI's
 climatologists) or `none` (not controlled), followed by `validity:true` or `validity:false`. DMI
 documents `validity` as whether the climatologists consider the value valid: "Invalid data is
