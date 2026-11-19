@@ -957,3 +957,46 @@ test.describe('the table as a view', () => {
     expect(luminance(colour)).toBeLessThan(0.2)
   })
 })
+
+// The switch of the four views on a phone of 320 px (GH-4233): two rows of two segments, as wide as the chart, each 44 px high. In a row of four
+// the labels ("Streifen", "Balken", "Tabelle") ran 3 px past their segments in Firefox, whose text is wider than Chromium's, so the room is held
+// with a margin: the text is made a tenth wider again (letter-spacing) and still has to fit, in every language, in whichever engine runs.
+test.describe('the switch of the four views at 320 px', () => {
+  for (const language of ['en', 'de', 'de-hh', 'fr', 'es', 'it', 'nl', 'pl', 'cs', 'da', 'lb'] as const) {
+    test(`fits its segments with a margin, and keeps 44 px targets and its keys, in ${language}`, async ({ page, baseURL, context }) => {
+      const catalog = JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${language}.json`, import.meta.url)), 'utf-8'))
+      await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
+      await page.setViewportSize({ width: 320, height: 844 })
+      await mockBackend(page, baseURL!)
+      await page.goto(`${PATH}&variant=bars_scale`)
+      await page.getByRole('button', { name: catalog.common.fetch, exact: true }).click()
+      await expect(chartSvg(page)).toBeVisible()
+      await page.addStyleTag({ content: '.sc-controls [role="radio"] { letter-spacing: 0.1em !important; }' })
+      // the group is named in the language of the page: found by its place
+      const radios = page.locator('.sc-controls [role="radiogroup"] [role="radio"]')
+      await expect(radios).toHaveCount(4)
+      const boxes = await radios.evaluateAll(options => options.map((option) => {
+        const box = option.getBoundingClientRect()
+        const group = option.parentElement!.getBoundingClientRect()
+        return { text: option.textContent, width: box.width, height: box.height, left: box.left, right: box.right, groupLeft: group.left, groupRight: group.right, cut: option.scrollWidth > option.clientWidth + 1 }
+      }))
+      for (const box of boxes) {
+        expect(box.cut, `"${box.text}" is whole in its segment`).toBe(false)
+        expect(box.height, `"${box.text}" is 44 px high`).toBeGreaterThanOrEqual(43.99)
+        expect(box.left).toBeGreaterThanOrEqual(box.groupLeft - 1)
+        expect(box.right).toBeLessThanOrEqual(box.groupRight + 1)
+      }
+      // two rows of two: the first and the second segment on one row, the third and the fourth under them
+      expect(Math.abs(boxes[0]!.left - boxes[2]!.left)).toBeLessThan(1)
+      expect(boxes[2]!.height).toBeGreaterThan(0)
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), 'the page does not scroll sideways').toBe(true)
+      // the keys of the group are the same: the arrow keys go along the four in their order, and End goes to the table
+      await radios.first().focus()
+      await page.keyboard.press('End')
+      await expect(radios.nth(3)).toBeChecked()
+      await expect(radios.nth(3)).toBeFocused()
+      await page.keyboard.press('ArrowLeft')
+      await expect(radios.nth(2)).toBeChecked()
+    })
+  }
+})

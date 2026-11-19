@@ -845,18 +845,30 @@ const selectionStyle = computed(() => {
   gap: 0.5rem;
   padding-bottom: 0.5rem;
 }
-/* The switch is as wide as its three labels need, and no wider than the chart: a long label ("Barres avec échelle", "Sloupce se
-   stupnicí") on a phone of 320 px takes less room round its text, and wraps where that is still too much, instead of running past the
-   chart's edge */
+/* The switch of the four views is as wide as its labels need, and no wider than the chart. On a phone (below 30 rem) it is two rows of two
+   segments, as wide as the chart: four labels in a row ("Barres avec échelle", "Sloupce se stupnicí", "Streifen", "Tabelle") did not fit 320 px
+   in Firefox, whose text is a few px wider than Chromium's, and a segment of half the chart's width has room for any of them, with a margin.
+   A label may still wrap onto a second line, never run past its segment, and a segment is 44 px high, the app's own measure of a target. The
+   keys are the group's (the DOM order, left to right and down) and do not change with the layout. */
 .sc-controls :deep([role='radiogroup']) {
   max-width: 100%;
 }
 .sc-controls :deep([role='radio']) {
   min-width: 0;
 }
-@media (max-width: 26rem) {
+@media (max-width: 30rem) {
+  .sc-controls :deep([role='radiogroup']) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+  }
   .sc-controls :deep([role='radio']) {
+    justify-content: center;
+    min-height: 2.75rem;
     padding-inline: 0.5rem;
+    text-align: center;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 }
 .sc-toolbar {
