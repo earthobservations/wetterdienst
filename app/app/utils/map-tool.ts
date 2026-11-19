@@ -3,14 +3,17 @@ import { withData } from './format'
 
 /**
  * The map tool (GH-3650): what the map shows, how far a place is from a station, and where each kind of station is
- * opened. Taken from the design of #3580 and fitted to this app: two layers, the forecast points and the DWD stations
- * that measure.
+ * opened. Taken from the design of #3580 and fitted to this app: the forecast points, the DWD stations that measure, and
+ * NOAA's GHCN daily (GH-4078).
  */
 
-/** What the map shows: the forecast's points (DWD MOSMIX), or the stations that measure (DWD observations) */
-export type MapLayer = 'forecast' | 'measured'
+/**
+ * What the map shows: the forecast's points (DWD MOSMIX), the stations that measure (DWD observations), or the stations of
+ * NOAA's GHCN daily (GH-4078), worldwide, which are asked for by the part of the map in view
+ */
+export type MapLayer = 'forecast' | 'measured' | 'ghcn'
 
-export const MAP_LAYERS: MapLayer[] = ['forecast', 'measured']
+export const MAP_LAYERS: MapLayer[] = ['forecast', 'measured', 'ghcn']
 
 /** A station that has a position, which is all a map can show and a distance be taken to */
 export type PlacedStation = Station & { latitude: number, longitude: number }
@@ -29,6 +32,19 @@ export interface MeasuredSource {
 
 /** The provider and network of the measuring stations: this change has DWD's, which every link below is made for */
 export const MEASURED_NETWORK = { provider: 'dwd', network: 'observation' } as const
+
+/** The provider and network of the GHCN layer, and its one resolution and dataset (`daily/data`): the links of its stations are made for them */
+export const GHCN_NETWORK = { provider: 'noaa', network: 'ghcn' } as const
+export const GHCN_SOURCE: MeasuredSource = { resolution: 'daily', dataset: 'data' }
+
+/** The query of the GHCN layer's stations, to which the box in view is added (`left`, `bottom`, `right`, `top`) */
+export const GHCN_STATIONS_QUERY = { ...GHCN_NETWORK, parameters: `${GHCN_SOURCE.resolution}/${GHCN_SOURCE.dataset}` } as const
+
+/**
+ * How many stations the GHCN layer has in all (GH-4078, 133,041 on 2026-11-18): the map only holds the ones in view, but the layer is
+ * one of more than `GROUPING_COMPULSORY_ABOVE` stations, which is always grouped, so the rule goes by this and not by how many are loaded.
+ */
+export const GHCN_STATION_COUNT = 133_041
 
 /** The source the map opens with: DWD's daily climate summary, the most complete record the library has */
 export const DEFAULT_MEASURED: MeasuredSource = { resolution: 'daily', dataset: 'climate_summary' }
@@ -50,6 +66,68 @@ export const HOME_VIEW = { latitude: 51.2, longitude: 10.4, zoom: 6 }
 
 /** A place picked on the map that is no more than this far from the station nearest to it is taken for the station itself */
 export const SAME_PLACE_KM = 0.5
+
+/**
+ * The part of the map in view, as the REST API takes it for `/api/stations` (`left`, `bottom`, `right`, `top`, in degrees). The layer
+ * of GHCN daily's size is asked for by it (GH-4078): the stations of the box, not the whole list.
+ */
+export interface MapBox {
+  left: number
+  bottom: number
+  right: number
+  top: number
+}
+
+/**
+ * How large the part of the map in view may be for its stations to be asked for, in square degrees (longitude times latitude, not
+ * the area on the ground). GHCN daily has 78,512 of its stations in the United States, and a box of 25 by 20 degrees over its east
+ * holds 45,000 of them (14 MB, two seconds). 300 square degrees is the map at the opening view (Germany at zoom 6: 170 on a wide
+ * screen) with room for a larger window, and over the densest part of the layer it is some 25,000 stations; the box asked for is
+ * `BOX_PAD` larger on each side. Beyond it the map asks for none and says to zoom in. A size of the view in degrees, not a zoom, so
+ * that a phone and a full screen are told alike.
+ */
+export const BOX_MAX_AREA = 300
+
+/** The share of each side of the view that the box asked for reaches beyond it on both sides, so that a small move stays inside what is loaded */
+export const BOX_PAD = 0.15
+
+const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
+
+/**
+ * The box of a map's bounds, as the API takes it: the longitudes of a copy of the world beside the first (Leaflet's bounds beyond
+ * 180) are the same places, brought into the first, and what lies beyond the antimeridian or a pole is cut (a view that reaches over
+ * the antimeridian gets the side its centre is on). A view as wide as the world is the world.
+ */
+export function boxOfBounds(bounds: { west: number, south: number, east: number, north: number }): MapBox {
+  const bottom = clamp(bounds.south, -90, 90)
+  const top = clamp(bounds.north, -90, 90)
+  if (bounds.east - bounds.west >= 360)
+    return { left: -180, bottom, right: 180, top }
+  const shift = Math.floor(((bounds.west + bounds.east) / 2 + 180) / 360) * 360
+  return { left: clamp(bounds.west - shift, -180, 180), bottom, right: clamp(bounds.east - shift, -180, 180), top }
+}
+
+/** The size of a box in square degrees (see `BOX_MAX_AREA`) */
+export function boxArea(box: MapBox): number {
+  return Math.max(0, box.right - box.left) * Math.max(0, box.top - box.bottom)
+}
+
+/** Whether a box holds another: the one loaded the one in view */
+export function boxContains(outer: MapBox, inner: MapBox): boolean {
+  return outer.left <= inner.left && outer.right >= inner.right && outer.bottom <= inner.bottom && outer.top >= inner.top
+}
+
+/** Whether a point is in a box */
+export function boxHas(box: MapBox, point: Point): boolean {
+  return point.longitude >= box.left && point.longitude <= box.right && point.latitude >= box.bottom && point.latitude <= box.top
+}
+
+/** A box with `share` of each side added to both ends of it, cut at the edges of the world */
+export function padBox(box: MapBox, share: number): MapBox {
+  const wide = (box.right - box.left) * share
+  const high = (box.top - box.bottom) * share
+  return { left: clamp(box.left - wide, -180, 180), bottom: clamp(box.bottom - high, -90, 90), right: clamp(box.right + wide, -180, 180), top: clamp(box.top + high, -90, 90) }
+}
 
 /** The radius of a station's dot in pixels, by zoom: points at the scale of a continent, discs at the scale of a town */
 export function dotRadius(zoom: number): number {
@@ -263,6 +341,22 @@ export function reportingRule(stations: Array<Pick<Station, 'end_timestamp'>>, n
 }
 
 /**
+ * The rule of whether a station of GHCN daily is still reporting (GH-4078): its list gives the span of a record by years, so a
+ * station with no end (its last year is the current one) reports, and so does one whose record ends in last year (a year that may not
+ * be complete yet, as the stripes' `active` counts it); one that ended earlier has stopped. There is no clock of the list to go by,
+ * since only the stations in view are loaded: the clock is today's.
+ */
+export function ghcnReportingRule(now: number = Date.now()): ReportingRule {
+  const lastYear = new Date(now).getUTCFullYear() - 1
+  return (station) => {
+    if (!station.end_timestamp)
+      return true
+    const year = yearOf(station.end_timestamp)
+    return year !== null && year >= lastYear
+  }
+}
+
+/**
  * The station the tool picks for a point (a click on the map that is not on a dot, the centre of the map, the place a
  * layer is changed at, the station of another kind near a station): the nearest one within `reach` kilometres, a
  * reporting one before a closed one where `reporting` says which are, so that the nearest closed station is only
@@ -382,14 +476,14 @@ export function forecastLink(stationId: string): string {
   return `/meteogram?station=${encodeURIComponent(stationId)}`
 }
 
-/** Where the climate stripes of a station that has them are opened */
-export function stripesLink(stationId: string): string {
-  return `/stripes?${new URLSearchParams({ kind: STRIPES_KIND, station: stationId })}`
+/** Where the climate stripes of a station that has them are opened: a station of GHCN daily (`ghcn`) with its provider and network, which DWD's, the default, leave out */
+export function stripesLink(stationId: string, ghcn = false): string {
+  return `/stripes?${new URLSearchParams({ kind: STRIPES_KIND, ...(ghcn ? GHCN_NETWORK : {}), station: stationId })}`
 }
 
-/** Where the measurements of a station are opened: the explorer, on its source and with the station chosen */
-export function measurementsLink(source: MeasuredSource, stationId: string): string {
-  return `/explorer?${new URLSearchParams({ ...MEASURED_NETWORK, ...source, mode: 'station', stations: stationId })}`
+/** Where the measurements of a station are opened: the explorer, on its source and with the station chosen (of DWD's observations, or of the network given) */
+export function measurementsLink(source: MeasuredSource, stationId: string, network: { provider: string, network: string } = MEASURED_NETWORK): string {
+  return `/explorer?${new URLSearchParams({ ...network, ...source, mode: 'station', stations: stationId })}`
 }
 
 /** Where the history of a station is opened: the station history, on the source and with the station chosen */

@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import process from 'node:process'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
@@ -6,6 +9,8 @@ import MapStripes from '~/components/MapStripes.vue'
 import { STRIPE_PALETTES, stripeColour } from '~/utils/stripes'
 import { stripesAnswer } from '../../helpers/stripes-answer'
 
+const en = JSON.parse(readFileSync(join(process.cwd(), 'i18n', 'locales', 'en.json'), 'utf8'))
+
 // The climate stripes of the map's panel (GH-3650): the colours of the band, one stripe a year, and the sentence.
 
 let years: number[] = []
@@ -13,8 +18,12 @@ let status = 200
 const asked: string[] = []
 // the `unit_targets` each request carried, and the unit the backend answers in for them (GH-3980)
 const unitTargetsAsked: unknown[] = []
+// the whole query of each request, and how the days of a station of GHCN daily were made (`series.method`) in the answer
+const queries: Array<Record<string, string>> = []
+let method: 'midrange' | 'tavg' | null = null
 registerEndpoint('/api/stripes/values', (event) => {
   asked.push(String(getQuery(event).station))
+  queries.push(getQuery(event) as Record<string, string>)
   const unitTargets = JSON.parse(String(getQuery(event).unit_targets ?? '{}')) as { temperature?: string }
   unitTargetsAsked.push(unitTargets)
   if (status !== 200) {
@@ -23,7 +32,7 @@ registerEndpoint('/api/stripes/values', (event) => {
   }
   return {
     metadata: {},
-    series: { station: { station_id: '00011' }, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: unitTargets.temperature ?? 'degree_celsius' },
+    series: { station: { station_id: '00011' }, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: unitTargets.temperature ?? 'degree_celsius', method },
     // the numbers in the unit asked for, as the backend converts them from degree Celsius, with the classes it gives them
     // against the whole record (a record this short has no year of 1971 to 2000 to class them by: the whole of it is the reference)
     ...stripesAnswer(years.map((value, index) => ({ year: 2000 + index, value: unitTargets.temperature === 'degree_fahrenheit' ? value * 1.8 + 32 : value }))),
@@ -31,8 +40,8 @@ registerEndpoint('/api/stripes/values', (event) => {
 })
 
 const mounted: Array<{ unmount: () => void }> = []
-async function mountStripes(stationId = '00011') {
-  const wrapper = await mountSuspended(MapStripes, { props: { stationId, stationName: 'Donaueschingen' }, attachTo: document.body })
+async function mountStripes(stationId = '00011', ghcn = false) {
+  const wrapper = await mountSuspended(MapStripes, { props: { stationId, stationName: 'Donaueschingen', ghcn }, attachTo: document.body })
   mounted.push(wrapper)
   return wrapper
 }
@@ -45,6 +54,8 @@ afterEach(() => {
   useSettings().settings.value.units.temperature = 'degree_celsius'
   asked.length = 0
   unitTargetsAsked.length = 0
+  queries.length = 0
+  method = null
   status = 200
 })
 
@@ -121,5 +132,70 @@ describe('the climate stripes of the panel', () => {
     useSettings().settings.value.units.temperature = 'degree_kelvin'
     await vi.waitFor(() => expect(unitTargetsAsked).toEqual([{ temperature: 'degree_celsius' }, { temperature: 'degree_kelvin' }]))
     await vi.waitFor(() => expect(wrapper.find('figcaption').text()).toContain('K in 2000'))
+  })
+})
+
+describe('the climate stripes of a station of GHCN daily (GH-4078)', () => {
+  it('asks with the provider and network of the layer, and with none for a station of DWD', async () => {
+    years = [8, 12, 9]
+    const wrapper = await mountStripes('GM000010147', true)
+    await vi.waitFor(() => expect(wrapper.findAll('.map-stripes span')).toHaveLength(3))
+    expect(queries[0]).toMatchObject({ kind: 'temperature', provider: 'noaa', network: 'ghcn', station: 'GM000010147' })
+    wrapper.unmount()
+    clearNuxtData()
+    const dwd = await mountStripes('00011')
+    await vi.waitFor(() => expect(dwd.findAll('.map-stripes span')).toHaveLength(3))
+    expect(queries[1]).not.toHaveProperty('provider')
+    expect(queries[1]).not.toHaveProperty('network')
+  })
+
+  it('says under the stripes how a day of the temperature was made: the midrange of the daily maximum and minimum, no 24-hour mean', async () => {
+    years = [8, 12, 9]
+    method = 'midrange'
+    const wrapper = await mountStripes('GM000010147', true)
+    await vi.waitFor(() => expect(wrapper.findAll('.map-stripes span')).toHaveLength(3))
+    expect(wrapper.find('[data-testid="map-stripes-method"]').text()).toBe(en.stripes.methodMidrange)
+    expect(wrapper.find('[data-testid="map-stripes-method"]').text()).toContain('not a 24-hour mean')
+  })
+
+  it('says the station\'s own daily mean was used, where it has no maximum and minimum', async () => {
+    years = [8, 12, 9]
+    method = 'tavg'
+    const wrapper = await mountStripes('GM000010147', true)
+    await vi.waitFor(() => expect(wrapper.findAll('.map-stripes span')).toHaveLength(3))
+    expect(wrapper.find('[data-testid="map-stripes-method"]').text()).toBe(en.stripes.methodTavg)
+  })
+
+  it('says nothing of a method for a station of DWD', async () => {
+    years = [8, 12, 9]
+    const wrapper = await mountStripes()
+    await vi.waitFor(() => expect(wrapper.findAll('.map-stripes span')).toHaveLength(3))
+    expect(wrapper.find('[data-testid="map-stripes-method"]').exists()).toBe(false)
+  })
+
+  it('says there are none, raises `none` and offers no retry where the backend refuses the station (400, 404, 422)', async () => {
+    for (const refusal of [400, 404, 422]) {
+      status = refusal
+      const wrapper = await mountStripes('GBX', true)
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="map-stripes-refused"]').exists()).toBe(true))
+      expect(wrapper.find('[data-testid="map-stripes-refused"]').text()).toBe('No climate stripes for this station.')
+      expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+      expect(wrapper.find('button').exists()).toBe(false)
+      expect(wrapper.emitted('none')).toHaveLength(1)
+      wrapper.unmount()
+      clearNuxtData()
+    }
+  })
+
+  it('tells a failure that is no refusal (a 502, a 429) as a failure, with its retry, and a station of DWD\'s 422 as one as well', async () => {
+    for (const [failure, ghcn] of [[502, true], [429, true], [422, false]] as const) {
+      status = failure
+      const wrapper = await mountStripes('GBX', ghcn)
+      await vi.waitFor(() => expect(wrapper.find('[role="alert"]').exists()).toBe(true))
+      expect(wrapper.find('button').exists()).toBe(true)
+      expect(wrapper.emitted('none')).toBeUndefined()
+      wrapper.unmount()
+      clearNuxtData()
+    }
   })
 })

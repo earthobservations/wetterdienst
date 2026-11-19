@@ -53,8 +53,8 @@ const emit = defineEmits<{
    * none for a mouse), in kilometres
    */
   pick: [point: Point & { tolerance: number, tap: number, disc: number }]
-  /** The view of the map after each move: its centre, which the panel lists the nearest stations of, and its zoom */
-  view: [view: Point & { zoom: number }]
+  /** The view of the map after each move: its centre, which the panel lists the nearest stations of, its zoom, and the bounds it shows (the GHCN layer asks for the stations of them, GH-4078) */
+  view: [view: Point & { zoom: number, bounds: { west: number, south: number, east: number, north: number } }]
   /** A click on a group of `count` stations, `reporting` of them reporting (null where the layer has no status): the map has zoomed in on them */
   group: [count: number, reporting: number | null]
   /** The button of the full screen was pressed (GH-4227): the page enters or leaves it, the map keeps its view */
@@ -362,7 +362,8 @@ function emitView() {
   if (!map)
     return
   const centre = map.getCenter()
-  emit('view', { latitude: centre.lat, longitude: centre.lng, zoom: map.getZoom() })
+  const bounds = map.getBounds()
+  emit('view', { latitude: centre.lat, longitude: centre.lng, zoom: map.getZoom(), bounds: { west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth() } })
 }
 
 onMounted(() => {

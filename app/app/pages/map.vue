@@ -11,6 +11,8 @@ import { describeFetchError } from '~/utils/api-error'
 import { formatNumber } from '~/utils/format'
 import { GROUPING_COMPULSORY_ABOVE, groupingFor, isGroupedAt } from '~/utils/map-cluster'
 import {
+  boxHas,
+  boxOfBounds,
   closerStoppedStation,
   DEFAULT_MEASURED,
   distanceKm,
@@ -19,11 +21,17 @@ import {
   forecastLink,
   formatDistance,
   formatPosition,
+  GHCN_NETWORK,
+  GHCN_SOURCE,
+  GHCN_STATION_COUNT,
+  GHCN_STATIONS_QUERY,
+  ghcnReportingRule,
   historyLink,
   HOME_VIEW,
   MEASURED_NETWORK,
   measurementsLink,
   nearestStations,
+  placed,
   REACH_KM,
   reportingRule,
   SAME_PLACE_KM,
@@ -41,8 +49,12 @@ import {
 // The map tool (GH-3650), from the design of #3580: the stations of the layer chosen in the panel of the layers button over the map, and a
 // panel beside it (a sheet under it on a phone) that finds a station by name, lists the ones near the centre of the
 // map and, for the station or the place picked, shows its forecast, its climate stripes, its measurements and its
-// history, each at the nearest station that has them. Two layers: the forecast's points (DWD MOSMIX) and the stations
-// that measure (DWD's observations, by resolution and dataset).
+// history, each at the nearest station that has them. Three layers: the forecast's points (DWD MOSMIX), the stations
+// that measure (DWD's observations, by resolution and dataset) and NOAA's GHCN daily (GH-4078), whose 133,041 stations
+// worldwide are not loaded whole: the ones in view are asked for as the map moves (`useBoxStations`), and the stations the
+// map groups are the ones loaded. A station of GHCN daily has its own climate stripes and measurements (its panel's cards
+// are about it, not about the nearest DWD station), the nearest forecast point as any station has, and no history, which
+// is DWD's alone.
 //
 // The station the tool picks for a place is the nearest one within 100 km, a station that is still reporting before one
 // that has stopped (`reportingRule`: against the newest end of its own list), and the one under a click on its dot is
@@ -97,7 +109,7 @@ const anchor = ref<Point | null>(initial.place)
 const origin = ref<PlaceOrigin>({ kind: 'unknown' })
 const POINT: PlaceOrigin = { kind: 'point' }
 
-const keyOf = (shown: MapLayer, from: MeasuredSource) => shown === 'forecast' ? 'forecast' : `measured/${from.resolution}/${from.dataset}`
+const keyOf = (shown: MapLayer, from: MeasuredSource) => shown === 'measured' ? `measured/${from.resolution}/${from.dataset}` : shown
 /** The view shown: the number of a station is a number in the list of one view, and no other's */
 const viewKey = computed(() => keyOf(layer.value, source.value))
 /** The view the station picked was picked in */
@@ -126,10 +138,19 @@ const measured = useStationList(() => `${source.value.resolution}/${source.value
     ...API_FETCH,
   })).stations ?? [])
 
-const lists = { forecast, measured }
+// GHCN daily: the stations of the box in view, asked for as the map moves (debounced, cancelled where the map has moved past the
+// request, none asked for where the view holds most of the world)
+const ghcn = useBoxStations({
+  load: async (box, signal) =>
+    (await $fetch<{ stations: Station[] }>('/api/stations', { query: { ...GHCN_STATIONS_QUERY, ...box }, signal, ...API_FETCH })).stations ?? [],
+})
+
+const lists = { forecast, measured, ghcn }
 const current = computed(() => lists[layer.value])
 const stations = computed(() => current.value.stations.value)
 const listStatus = computed(() => current.value.status.value)
+/** The view holds more of the world than the layer is asked for: the map says to zoom in, and shows no stations */
+const zoomHint = computed(() => layer.value === 'ghcn' && ghcn.tooWide.value)
 const listFailure = computed(() => current.value.error.value ? describeFetchError(current.value.error.value) : '')
 
 const sourceKey = computed(() => `${source.value.resolution}/${source.value.dataset}`)
@@ -139,6 +160,7 @@ const sourceKey = computed(() => `${source.value.resolution}/${source.value.data
 const layerItems = computed(() => [
   { value: 'forecast' as const, label: t('mapTool.layerForecast'), icon: 'i-ph-sun' },
   { value: 'measured' as const, label: t('mapTool.layerMeasured'), icon: 'i-ph-thermometer-simple' },
+  { value: 'ghcn' as const, label: t('mapTool.layerGhcn'), icon: 'i-ph-globe-hemisphere-west' },
 ])
 /** Whether the panel of the layers button is open */
 const layersOpen = ref(false)
@@ -213,14 +235,17 @@ async function ensureMeasured(force = false) {
 function retryList() {
   if (layer.value === 'measured')
     return ensureMeasured(true)
+  if (layer.value === 'ghcn')
+    return ghcn.retry()
   return forecast.ensure(true)
 }
 
-/** Asks for the list of the layer shown */
+/** Asks for the list of the layer shown (GHCN daily's is asked for by the view, below) */
 async function ensureCurrent() {
   if (layer.value === 'measured')
     return ensureMeasured()
-  void forecast.ensure()
+  if (layer.value === 'forecast')
+    void forecast.ensure()
 }
 watch([layer, sourceKey], ensureCurrent, { immediate: true })
 
@@ -239,13 +264,28 @@ const datasetChoice = computed({
 
 // ---- the view of the map, and the stations near its centre ------------------------------------------------------
 
-const view = ref<Point & { zoom: number }>({ ...HOME_VIEW })
+const view = ref<Point & { zoom: number, bounds?: { west: number, south: number, east: number, north: number } }>({ ...HOME_VIEW })
 const search = ref('')
 const searching = computed(() => search.value.trim().length > 0)
 const near = computed(() => nearestStations(stations.value, view.value, 8).map(entry => ({ ...entry, distance: entry.distance as number | null })))
 const found = computed(() => searchStations(stations.value, search.value, 20).map(station => ({ station, distance: null as number | null })))
 const entries = computed(() => searching.value ? found.value : near.value)
-const countLabel = computed(() => t('mapTool.count', { count: stations.value.length, shown: formatNumber(stations.value.length, formatLanguage.value, 0) }))
+/** The box the map shows, which the GHCN layer's stations are asked for (the map has not said its bounds until it is there) */
+const viewBox = computed(() => view.value.bounds ? boxOfBounds(view.value.bounds) : null)
+// the stations of the GHCN layer are those of the view: asked for as the map moves, and no longer asked for (the request on its way
+// cancelled) where another layer is shown
+watch([layer, viewBox], ([shown, box]) => {
+  if (shown !== 'ghcn')
+    ghcn.stop()
+  else if (box)
+    ghcn.show(box)
+}, { immediate: true })
+/** How many stations the count says: the ones in view where the layer holds the box asked for, which reaches beyond the view */
+const shownCount = computed(() => {
+  const box = viewBox.value
+  return layer.value === 'ghcn' && box ? stations.value.filter(station => boxHas(box, station)).length : stations.value.length
+})
+const countLabel = computed(() => t('mapTool.count', { count: shownCount.value, shown: formatNumber(shownCount.value, formatLanguage.value, 0) }))
 const mapLabel = computed(() => t('mapTool.mapLabel', { layer: layerLabel.value }))
 
 // ---- the groups of stations at the outer zooms (GH-4079) ----------------------------------------------------------
@@ -254,7 +294,8 @@ const mapLabel = computed(() => t('mapTool.mapLabel', { layer: layerLabel.value 
 // default, the radius of a group and the zoom from which every station is its own dot), except on a layer of more than
 // `GROUPING_COMPULSORY_ABOVE` stations, which is always grouped: there the switch is on, disabled, and says why
 const groupingWanted = ref(true)
-const groupingInForce = computed(() => groupingFor(groupingWanted.value, stations.value.length))
+// (GHCN daily is one of 133,041 stations, of which the box in view is loaded: it goes by the layer's, GH-4078)
+const groupingInForce = computed(() => groupingFor(groupingWanted.value, layer.value === 'ghcn' ? GHCN_STATION_COUNT : stations.value.length))
 const grouped = computed({
   get: () => groupingInForce.value.on,
   set: (on: boolean) => {
@@ -408,8 +449,8 @@ let fromAddress = Boolean(selectedId.value)
 /** The view was changed under a pick: the list that arrives has the station for the place of it picked again */
 let reselect = false
 
-/** Which stations of the layer shown have stopped, by the clock of its list: only the measuring ones have */
-const reporting = computed(() => layer.value === 'measured' ? reportingRule(stations.value) : undefined)
+/** Which stations of the layer shown have stopped: the measuring ones have, by the clock of their list (DWD's), or by the year (GHCN daily's) */
+const reporting = computed(() => layer.value === 'measured' ? reportingRule(stations.value) : layer.value === 'ghcn' ? ghcnReportingRule() : undefined)
 
 /**
  * Whether the legend of the dots and the groups has something to say: on the measuring layer (a filled dot reports, a hollow one has
@@ -434,7 +475,7 @@ function remember(station: PlacedStation): PickedStation {
     wmo: wmoNumber(station),
     observation: layer.value === 'measured',
     // a forecast point has no status, and counts as current
-    reports: layer.value === 'measured' && reporting.value ? reporting.value(station) : true,
+    reports: reporting.value ? reporting.value(station) : true,
   }
 }
 
@@ -591,6 +632,9 @@ function pickAgain(list: PlacedStation[]) {
   announcement.value = chosenText(found, list, point)
 }
 
+/** The station of the address that is being asked for by its id (the layer holds only the stations in view) */
+const lookingUp = ref<string | null>(null)
+
 // A change of layer or dataset, and the list that comes after it. The id of a station is the id in the list of
 // one view (DWD's forecast points and its measuring stations number their stations alike, and 59 of the ids are
 // two stations), so a pick is never taken to another view by its id: it is picked again in the new list by its WMO number,
@@ -615,12 +659,53 @@ watch([viewKey, stations], ([key, list], [previousKey]) => {
     reselect = false
     return pickAgain(list)
   }
-  if (selectedId.value && !list.some(station => station.station_id === selectedId.value)) {
+  // (a station of GHCN daily that the address names is asked for by its id: the box in view may not hold it)
+  if (selectedId.value && lookingUp.value !== selectedId.value && !list.some(station => station.station_id === selectedId.value)) {
     unknownStation.value = selectedId.value
     selectedId.value = null
     anchor.value = null
     fromAddress = false
   }
+})
+
+// ---- the station of GHCN daily that the address names ---------------------------------------------------------------
+
+/**
+ * The station of the address on the GHCN layer, which the stations in view may not hold: asked for by its id and pinned in the list
+ * (`ghcn.pin`), so that it is picked, the map moves to it and the box round it is loaded. A station the layer has not (or that
+ * cannot be asked for) is told as any station of an address the layer has not is.
+ */
+async function lookUpGhcnStation() {
+  const id = selectedId.value
+  if (layer.value !== 'ghcn' || !id || ghcn.stations.value.some(station => station.station_id === id))
+    return
+  lookingUp.value = id
+  let found: PlacedStation | undefined
+  try {
+    found = placed((await $fetch<{ stations: Station[] }>('/api/stations', { query: { ...GHCN_STATIONS_QUERY, stations: id }, ...API_FETCH })).stations ?? [])[0]
+  }
+  catch {
+    found = undefined
+  }
+  if (lookingUp.value === id)
+    lookingUp.value = null
+  // the address named another station, or the layer was left, while the station was asked for
+  if (layer.value !== 'ghcn' || selectedId.value !== id)
+    return
+  if (found) {
+    ghcn.pin(found)
+    return
+  }
+  unknownStation.value = id
+  selectedId.value = null
+  anchor.value = null
+  fromAddress = false
+}
+watch([layer, selectedId], () => void lookUpGhcnStation(), { immediate: true })
+// a station that is no longer picked is no longer kept in the list
+watch(selectedId, (id) => {
+  if (!id)
+    ghcn.pin(null)
 })
 
 // ---- the nearest station of each kind, for the panel ------------------------------------------------------------
@@ -644,11 +729,16 @@ watch(selected, (station) => {
     announcement.value = chosenText(station, stations.value, anchor.value)
   }
   void forecast.ensure()
+  // a station of GHCN daily has its own stripes and measurements: the nearest DWD ones are not asked for
+  if (layer.value === 'ghcn') {
+    ghcn.pin(station)
+    return
+  }
   void stripes.ensure()
   void ensureMeasured()
 }, { immediate: true })
 watch(sourceKey, () => {
-  if (selected.value)
+  if (selected.value && layer.value !== 'ghcn')
     void ensureMeasured()
 })
 
@@ -693,7 +783,7 @@ function whyFarther(closer: CloserStation) {
 /** What is announced for a station chosen: its name, and for a measuring station that is not the nearest, why */
 function chosenText(station: PlacedStation, list: PlacedStation[], point: Point) {
   const chosen = t('mapTool.chosen', { name: stationName(station) })
-  if (layer.value !== 'measured' || !reporting.value)
+  if (!reporting.value)
     return chosen
   const closer = closerStoppedStation(list, point, station, reporting.value)
   return closer ? `${chosen}. ${whyFarther(closer)}` : chosen
@@ -716,15 +806,35 @@ const placeText = computed(() => {
 const sourceLabel = computed(() => `${datasetLabel(source.value.dataset)}, ${resolutionLabel(source.value.resolution)}`)
 /**
  * How long a station has measured: since its first year while it reports, from it to its last year once it has
- * stopped; nothing where it has no end, which says nothing of whether it has stopped.
+ * stopped; nothing where it has no end, which says nothing of whether it has stopped (DWD's lists), except in GHCN daily's, where
+ * no end is a last year that is the current one: it reports.
  */
 function measuredFor(station: Station) {
+  const ghcnLayer = layer.value === 'ghcn'
   const from = yearOf(station.start_timestamp)
   const to = yearOf(station.end_timestamp)
-  if (from === null || to === null)
+  if (from === null || (to === null && !(ghcnLayer && !station.end_timestamp)))
     return null
-  return measuredRule.value(station) ? t('mapTool.since', { year: from }) : t('mapTool.period', { from, to })
+  const running = ghcnLayer ? ghcnReportingRule() : measuredRule.value
+  return running(station) ? t('mapTool.since', { year: from }) : t('mapTool.period', { from, to })
 }
+
+// ---- the climate stripes of a station of GHCN daily ----------------------------------------------------------------
+
+/** The least years a record has for the backend to make stripes of it (its `MIN_RECORD_YEARS`) */
+const STRIPES_MIN_YEARS = 10
+/**
+ * Whether the stripes of a station of GHCN daily are worth asking for: its record, from the list's first year to its last (or
+ * this one), is as long as stripes need. Most stations of the layer are shorter, and a station that is long enough may still
+ * have none (a record with gaps), which the card then says.
+ */
+function ghcnStripesPossible(station: Station) {
+  const from = yearOf(station.start_timestamp)
+  const to = yearOf(station.end_timestamp) ?? new Date().getUTCFullYear()
+  return from === null || to - from + 1 >= STRIPES_MIN_YEARS
+}
+/** The station whose stripes the backend refused, which the card says it has none of (and offers no link to) */
+const noStripes = ref<string | null>(null)
 function stationName(station: Station) {
   return station.name ?? station.station_id
 }
@@ -780,6 +890,7 @@ watch(() => route.query, (query) => {
         <div class="space-y-3 text-muted">
           <p>{{ t('mapTool.about1') }}</p>
           <p>{{ t('mapTool.about2') }}</p>
+          <p>{{ t('mapTool.about3') }}</p>
         </div>
       </template>
     </PageHeader>
@@ -870,7 +981,17 @@ watch(() => route.query, (query) => {
                   <UIcon name="i-ph-thermometer-simple" class="map-card-icon" />
                   {{ t('nav.stripes') }}
                 </h3>
-                <template v-if="stripesPoint">
+                <!-- a station of GHCN daily: its own stripes, built from its days -->
+                <template v-if="layer === 'ghcn'">
+                  <template v-if="ghcnStripesPossible(selected) && noStripes !== selected.station_id">
+                    <MapStripes :station-id="selected.station_id" :station-name="stationName(selected)" ghcn @none="noStripes = selected.station_id" />
+                    <UButton :to="stripesLink(selected.station_id, true)" :label="t('mapTool.openStripes')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
+                  </template>
+                  <p v-else class="map-card-note" data-testid="map-stripes-none">
+                    {{ t('mapTool.stripesNone') }}
+                  </p>
+                </template>
+                <template v-else-if="stripesPoint">
                   <p v-if="stripesPoint.same" class="map-card-note" data-testid="map-card-same-stripes">
                     {{ stationName(stripesPoint.station) }} · {{ t('mapTool.sameStation', { wmo: wmoNumber(stripesPoint.station) }) }}
                   </p>
@@ -900,7 +1021,16 @@ watch(() => route.query, (query) => {
                   <UIcon name="i-ph-thermometer" class="map-card-icon" />
                   {{ t('home.kindObservationsTitle') }}
                 </h3>
-                <template v-if="measuredPoint">
+                <!-- a station of GHCN daily: its own daily values, in the Explorer; the station history is DWD's alone -->
+                <template v-if="layer === 'ghcn'">
+                  <p class="map-card-note" data-testid="map-card-ghcn-source">
+                    {{ t('mapTool.ghcnSource') }}<template v-if="measuredFor(selected)">
+                      · {{ measuredFor(selected) }}
+                    </template>
+                  </p>
+                  <UButton :to="measurementsLink(GHCN_SOURCE, selected.station_id, GHCN_NETWORK)" :label="t('mapTool.openExplorer')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
+                </template>
+                <template v-else-if="measuredPoint">
                   <p class="map-card-note">
                     {{ sourceLabel }}<template v-if="measuredFor(measuredPoint.station)">
                       · {{ measuredFor(measuredPoint.station) }}
@@ -974,20 +1104,28 @@ watch(() => route.query, (query) => {
                 :placeholder="t('mapTool.searchPlaceholder')"
                 class="w-full"
                 autocomplete="off"
+                :aria-describedby="layer === 'ghcn' ? 'map-search-hint' : undefined"
               />
+              <!-- the layer holds the stations in view alone, which is all a search can find -->
+              <p v-if="layer === 'ghcn'" id="map-search-hint" class="-mt-2 text-xs text-muted" data-testid="map-search-hint">
+                {{ t('mapTool.searchInView') }}
+              </p>
 
               <div>
                 <h3 class="map-list-title">
                   {{ searching ? t('mapTool.results') : t('mapTool.nearCentre') }}
                 </h3>
-                <p v-if="listStatus === 'pending' || listStatus === 'idle'" class="text-sm text-muted" role="status">
+                <p v-if="zoomHint" class="text-sm text-muted" data-testid="map-zoom-hint-panel">
+                  {{ t('mapTool.zoomInForStations') }}
+                </p>
+                <p v-else-if="listStatus === 'pending' || listStatus === 'idle'" class="text-sm text-muted" role="status">
                   {{ t('mapTool.loadingStations') }}
                 </p>
                 <p v-else-if="listStatus === 'error'" class="text-sm text-muted">
                   {{ t('mapTool.stationsFailed') }}
                 </p>
                 <p v-else-if="!stations.length" class="text-sm text-muted" data-testid="map-empty">
-                  {{ t('mapTool.noStations') }}
+                  {{ layer === 'ghcn' ? t('mapTool.noStationsInView') : t('mapTool.noStations') }}
                 </p>
                 <p v-else-if="searching && !found.length" class="text-sm text-muted" role="status" data-testid="map-no-results">
                   {{ t('mapTool.noResults') }}
@@ -1068,8 +1206,18 @@ watch(() => route.query, (query) => {
                 <div class="map-chips">
                   <div class="map-chips-row">
                     <!-- on a phone the count is in the panel, and the chips take less of the map -->
-                    <span v-if="listStatus === 'success'" class="map-status map-count" data-testid="map-count">{{ countLabel }}</span>
+                    <!-- GHCN daily, with most of the world in view: none are asked for, and the map says to zoom in -->
+                    <span v-if="zoomHint" class="map-status" role="status" data-testid="map-zoom-hint">
+                      <UIcon name="i-ph-magnifying-glass-plus" class="size-4" />
+                      {{ t('mapTool.zoomInForStations') }}
+                    </span>
+                    <span v-else-if="listStatus === 'success'" class="map-status map-count" data-testid="map-count">{{ countLabel }}</span>
                     <span v-else-if="listStatus === 'pending' || listStatus === 'idle'" class="map-status" role="status">
+                      <UIcon name="i-ph-circle-notch" class="size-4 motion-safe:animate-spin" />
+                      {{ t('mapTool.loadingStations') }}
+                    </span>
+                    <!-- the stations in view are being asked for again (the map has moved): the ones shown stay -->
+                    <span v-if="ghcn.refreshing.value && layer === 'ghcn'" class="map-status" role="status" data-testid="map-refreshing">
                       <UIcon name="i-ph-circle-notch" class="size-4 motion-safe:animate-spin" />
                       {{ t('mapTool.loadingStations') }}
                     </span>

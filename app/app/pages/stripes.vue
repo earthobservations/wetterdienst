@@ -5,7 +5,8 @@ import type { StripesDisplay } from '~/utils/stripes-option'
 import { describeFetchError } from '~/utils/api-error'
 import { downloadBlob } from '~/utils/chart-image'
 import { formatNumber, formatSigned } from '~/utils/format'
-import { stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
+import { GHCN_NETWORK } from '~/utils/map-tool'
+import { stripesMethodNote, stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
 import { isStripesDrawing, STRIPES_VIEW_QUERY, stripesViewFromQuery } from '~/utils/stripes-model'
 import { MENU_SCALE } from '~/utils/stripes-option'
 import { stripesCsv, stripesTableColumns, stripesTableYears } from '~/utils/stripes-table'
@@ -18,6 +19,16 @@ useHead({ title: () => t('stripes.title') })
 const toast = useToast()
 
 const kind = ref<StripesKind>('temperature')
+// Where the stations and the years are from (GH-4078): DWD's annual values (the default), or NOAA's GHCN daily, whose years are built from
+// the days. In the link as `provider` and `network`, as the REST API takes them, and left out for DWD's
+type StripesSource = 'dwd' | 'ghcn'
+const source = ref<StripesSource>('dwd')
+const sourceItems = computed(() => [
+  { label: t('stripes.sourceDwd'), value: 'dwd' },
+  { label: t('stripes.sourceGhcn'), value: 'ghcn' },
+])
+/** The provider and network of the source in the query of a request: none for DWD's, which is what the API takes without them */
+const sourceQuery = computed(() => source.value === 'ghcn' ? GHCN_NETWORK : {})
 
 const kindItems = computed(() => [
   { label: t('stripes.typeTemperature'), value: 'temperature' },
@@ -44,12 +55,44 @@ const showSource = ref(settings.value.stripes.showSource)
 const { data: stationsData, pending: stationsPending } = useFetch<StripesStationsResponse>(
   '/api/stripes/stations',
   {
-    query: { kind },
+    query: computed(() => ({ kind: kind.value, ...sourceQuery.value })),
     ...API_FETCH,
   },
 )
 
-const stations = computed(() => stationsData.value?.stations ?? [])
+// A station of GHCN daily that a link names and the list has not: the list is the stations that still report (`active`, the API's
+// default, which the 133,041 of the layer would be too many for a picker without), and a link from the map may be to one that has
+// stopped. Asked for by its id, and added to the list (GH-4078)
+const linkedStation = shallowRef<StripesStation | null>(null)
+const stations = computed(() => {
+  const list = stationsData.value?.stations ?? []
+  const linked = linkedStation.value
+  return linked && !list.some(station => station.station_id === linked.station_id) ? [...list, linked] : list
+})
+
+/** The years of the station chosen, as the list gives them; a station of GHCN daily that has no end is still reporting, and its record is "since" its first year (GH-4078) */
+const availableYears = computed(() => {
+  const station = selectedStation.value
+  const from = station?.start_timestamp?.slice(0, 4)
+  if (station && source.value === 'ghcn' && !station.end_timestamp && from)
+    return t('mapTool.since', { year: from })
+  return `${from ?? ''} - ${station?.end_timestamp?.slice(0, 4) ?? ''}`
+})
+
+async function takeLinkedStation(id: string) {
+  try {
+    const answer = await $fetch<StationsResponse>('/api/stations', { query: { ...GHCN_NETWORK, parameters: 'daily/data', stations: id }, ...API_FETCH })
+    const found = answer.stations?.[0]
+    // the page has moved to another source or kind while the station was asked for
+    if (found && source.value === 'ghcn') {
+      linkedStation.value = found
+      selectedStation.value = found
+    }
+  }
+  catch {
+    // the station of the link is not offered: the page is as it is without one
+  }
+}
 
 // The station picker's selection, one array per chosen station: a new array on every render read to the map
 // as a new selection, which turned centring on it back on.
@@ -92,6 +135,9 @@ function formatValue(value: number) {
 const referenceFull = computed(() => lastFetchedData.value
   ? stripesReferenceText(lastFetchedData.value.reference, t, value => formatNumber(value, locale.value, 1))
   : '')
+// how a day's temperature was made where the years were built from the days (GHCN daily): the midrange of the daily maximum and minimum,
+// no 24-hour mean (GH-4222, GH-4078). DWD's own annual values and the precipitation have none
+const methodNote = computed(() => stripesMethodNote(lastFetchedData.value?.series.method, t))
 const referenceText = computed(() => lastFetchedData.value
   ? stripesReferenceShort(lastFetchedData.value.reference, t, variant.value === 'bars' || variant.value === 'barsScale' ? 'bars' : 'stripes')
   : '')
@@ -155,6 +201,7 @@ async function fetchAndPlotStripes(target?: ShownStripes) {
   try {
     const params: StripesValuesQuery = {
       kind: kind.value,
+      ...sourceQuery.value,
       station: asked.station,
       format: 'json',
       // the unit the app settings choose, read at each request (GH-3980): the numbers come back in it, and the
@@ -245,6 +292,7 @@ function csvComments(data: StripesValuesResponse): string[] {
   return [
     plotTitle(data),
     referenceFull.value,
+    methodNote.value,
     provider?.attribution || t('stripes.plotSource'),
     licence ? t('stripes.csvLicence', { name: licence.name, url: licence.url }) : '',
   ]
@@ -270,6 +318,8 @@ const initialStationId = ref<string | null>(route.query.station?.toString() ?? n
 // Initialize simple options from URL if present
 if (route.query.kind)
   kind.value = route.query.kind.toString() as StripesKind
+if (route.query.provider?.toString() === GHCN_NETWORK.provider && route.query.network?.toString() === GHCN_NETWORK.network)
+  source.value = 'ghcn'
 // a name that is none of the four is no choice: the stripes
 variant.value = stripesViewFromQuery(route.query.variant)
 if (route.query.show_title !== undefined && route.query.show_title !== null)
@@ -293,7 +343,8 @@ watch(() => selectedStation.value?.station_id, () => {
   isLoading.value = false
 })
 
-watch(kind, () => {
+watch([kind, source], () => {
+  linkedStation.value = null
   selectedStation.value = null
   clearStripes()
 })
@@ -323,6 +374,8 @@ watch(stations, () => {
     const found = stations.value.find(s => s.station_id === initialStationId.value)
     if (found)
       selectedStation.value = found
+    else if (source.value === 'ghcn' && stationsData.value)
+      void takeLinkedStation(initialStationId.value)
     initialStationId.value = null
   }
   // If there is only one station in the list, preselect it
@@ -346,6 +399,10 @@ function stripesToQuery(): Record<string, string> {
   const q: Record<string, string> = {}
   if (kind.value)
     q.kind = kind.value
+  if (source.value === 'ghcn') {
+    q.provider = GHCN_NETWORK.provider
+    q.network = GHCN_NETWORK.network
+  }
   q.variant = STRIPES_VIEW_QUERY[variant.value]
   if (selectedStation.value)
     q.station = selectedStation.value.station_id
@@ -367,6 +424,7 @@ function stripesToQuery(): Record<string, string> {
 watch([
   () => selectedStation?.value?.station_id,
   () => kind.value,
+  () => source.value,
   () => variant.value,
   () => showTitle.value,
   () => showYears.value,
@@ -392,6 +450,10 @@ watch([
           </p>
           <p class="text-gray-600 dark:text-gray-400 mb-4">
             {{ t('stripes.aboutText2') }}
+          </p>
+          <!-- NOAA's GHCN daily, and why its temperature is the midrange of the day's extremes (GH-4078, GH-4222) -->
+          <p class="text-gray-600 dark:text-gray-400 mb-4" data-testid="stripes-about-ghcn">
+            {{ t('stripes.aboutGhcn') }}
           </p>
           <!-- how the colours are made, the same for every station (GH-4233): the line under the chart says only what a station's are measured against -->
           <p class="text-gray-600 dark:text-gray-400 mb-4" data-testid="stripes-about-method">
@@ -424,6 +486,10 @@ watch([
                 <USelect v-model="kind" :items="kindItems" class="w-full" />
               </UFormField>
 
+              <UFormField :label="t('stripes.source')">
+                <USelect v-model="source" :items="sourceItems" class="w-full" data-testid="stripes-source" />
+              </UFormField>
+
               <StationPicker
                 tool="stripes"
                 :label="t('stripes.station')"
@@ -437,8 +503,7 @@ watch([
               <div v-if="selectedStation" class="text-sm text-gray-600 dark:text-gray-400 space-y-1">
                 <p><strong>{{ t('stripes.region') }}{{ t('common.colon') }}</strong> {{ selectedStation.region }}</p>
                 <p>
-                  <strong>{{ t('stripes.available') }}{{ t('common.colon') }}</strong> {{ selectedStation.start_timestamp?.slice(0, 4) }} -
-                  {{ selectedStation.end_timestamp?.slice(0, 4) }}
+                  <strong>{{ t('stripes.available') }}{{ t('common.colon') }}</strong> {{ availableYears }}
                 </p>
               </div>
 
@@ -531,12 +596,17 @@ watch([
                 :label="plotLabel"
                 :described-by="plotSummary ? summaryId : undefined"
                 :camera-file="cameraFile"
+                :source-text="source === 'ghcn' ? t('stripes.plotSourceGhcn') : undefined"
               />
               <p v-if="hasPlot && plotSummary" :id="summaryId" class="sr-only">
                 {{ plotSummary }}
               </p>
               <p v-if="hasPlot && !plotFailed && referenceText" data-testid="stripes-reference" class="mt-2 text-sm text-muted">
                 {{ referenceText }}
+              </p>
+              <!-- how the temperature of a day was made, for the years of GHCN daily: said wherever its stripes are shown -->
+              <p v-if="hasPlot && !plotFailed && methodNote" data-testid="stripes-method" class="mt-2 text-sm text-muted">
+                {{ methodNote }}
               </p>
               <!-- the table is a view of its own (GH-4233), as the forecast's is: the same switch, the whole width -->
               <ValuesTable

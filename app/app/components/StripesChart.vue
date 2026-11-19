@@ -44,6 +44,8 @@ const props = withDefaults(defineProps<{
   describedBy?: string
   /** the name of the camera's file, without its extension */
   cameraFile: string
+  /** the source line under the stripes where it is not DWD's (NOAA's GHCN daily, GH-4078) */
+  sourceText?: string
 }>(), { variant: 'stripes' })
 const emit = defineEmits<{ 'update:variant': [variant: StripesView] }>()
 
@@ -517,7 +519,7 @@ function optionInput(over: Partial<StripesOptionInput> = {}): StripesOptionInput
     window: win.value,
     titleLines: titleLines.value,
     availabilityText: t('stripes.plotDataAvailability'),
-    sourceText: t('stripes.plotSource'),
+    sourceText: props.sourceText ?? t('stripes.plotSource'),
     variant: chartVariant.value,
     subtitleLines: subtitleLines.value,
     formatTick,

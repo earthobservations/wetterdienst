@@ -68,6 +68,14 @@ function removeCollision() {
       list.splice(at, 1)
   }
 }
+// NOAA GHCN daily: Hamburg-Fuhlsbüttel (it has a WMO number, which is the forecast point's: the same station), a station of a record
+// that has stopped, one of a record of three years, and one that reaches the ten years of a span and that the backend refuses
+const GHCN_HAMBURG = station('GM000010147', 'HAMBURG FUHLSBUETTEL', 53.635, 9.99, { elevation: 11, wmo_id: '10147', start_timestamp: '1891-01-01T00:00:00.000000+00:00', end_timestamp: null })
+const GHCN_STOPPED = station('GME00122866', 'GLUCKSTADT', 53.7983, 9.4306, { start_timestamp: '1931-01-01T00:00:00.000000+00:00', end_timestamp: '2021-12-31T00:00:00.000000+00:00' })
+const GHCN_SHORT = station('BF1BI000002', 'ALICE TOWN 0.3 SSE', 53.9, 10.3, { start_timestamp: '2023-01-01T00:00:00.000000+00:00', end_timestamp: null })
+const GHCN_REFUSED = station('GME00122482', 'FREIBURG/ELBE', 53.8292, 9.2494, { start_timestamp: '1970-01-01T00:00:00.000000+00:00', end_timestamp: null })
+const GHCN_NEW_YORK = station('USW00094728', 'NEW YORK CNTRL PK TWR', 40.7789, -73.9692, { elevation: 42.7, start_timestamp: '1869-01-01T00:00:00.000000+00:00', end_timestamp: null })
+const GHCN_STATIONS = [GHCN_HAMBURG, GHCN_STOPPED, GHCN_SHORT, GHCN_REFUSED, GHCN_NEW_YORK]
 const HOURLY_STATIONS = [station('00044', 'Großenkneten', 52.9336, 8.237, { start_timestamp: '1990-01-01T00:00:00+00:00', end_timestamp: daysAgo(1) })]
 // an annual list ends with last year, as the real one does
 const LAST_YEAR = `${new Date().getUTCFullYear() - 1}-12-31T00:00:00+00:00`
@@ -90,7 +98,7 @@ const COVERAGE = {
 }
 
 /** What each endpoint is asked for, and what a test makes it answer instead */
-const asked: { stations: Array<Record<string, string>>, stripesValues: string[], values: string[] } = { stations: [], stripesValues: [], values: [] }
+const asked: { stations: Array<Record<string, string>>, stripesValues: string[], stripesQueries: Array<Record<string, string>>, values: string[] } = { stations: [], stripesValues: [], stripesQueries: [], values: [] }
 let stationsFailures = 0
 let stripesStatus = 200
 
@@ -103,6 +111,13 @@ function stationsOf(event: H3Event) {
     setResponseStatus(event, 500)
     return { detail: 'The forecast stations are not available' }
   }
+  // GHCN daily: the stations of a box, or the ones asked for by their id
+  if (query.network === 'ghcn') {
+    if (query.stations)
+      return { stations: GHCN_STATIONS.filter(entry => query.stations!.split(',').includes(entry.station_id)) }
+    const [left, bottom, right, top] = [query.left, query.bottom, query.right, query.top].map(Number) as [number, number, number, number]
+    return { stations: GHCN_STATIONS.filter(entry => entry.longitude >= left && entry.longitude <= right && entry.latitude >= bottom && entry.latitude <= top) }
+  }
   if (query.network === 'mosmix')
     return { stations: FORECAST_STATIONS }
   if (query.parameters === 'hourly/temperature_air')
@@ -111,14 +126,20 @@ function stationsOf(event: H3Event) {
 }
 
 function stripesValuesOf(event: H3Event) {
-  asked.stripesValues.push(String(getQuery(event).station))
-  if (stripesStatus !== 200) {
-    setResponseStatus(event, stripesStatus)
-    return { detail: 'This station has no complete years.' }
+  const query = getQuery(event) as Record<string, string>
+  asked.stripesValues.push(String(query.station))
+  asked.stripesQueries.push(query)
+  // a station of GHCN daily the backend makes no stripes of (too few years with data)
+  if (stripesStatus !== 200 || (query.provider === 'noaa' && query.station === GHCN_REFUSED.station_id)) {
+    setResponseStatus(event, query.provider === 'noaa' ? 400 : stripesStatus)
+    return { detail: query.provider === 'noaa' ? 'At least two years with data are required to create climate stripes' : 'This station has no complete years.' }
   }
+  const ghcnStation = query.provider === 'noaa' ? GHCN_STATIONS.find(entry => entry.station_id === query.station) : undefined
   return {
     metadata: {},
-    series: { station: STRIPES_STATIONS[0], resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
+    series: ghcnStation
+      ? { station: ghcnStation, resolution: 'daily', dataset: 'data', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius', method: 'midrange' }
+      : { station: STRIPES_STATIONS[0], resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
     // with the classes the backend gives them
     ...stripesAnswer(Array.from({ length: 20 }, (_, index) => ({ year: 2000 + index, value: 8 + index * 0.05 }))),
   }
@@ -168,11 +189,14 @@ async function mountMap(route = '/map') {
   await openLayers(wrapper)
   return wrapper
 }
+/** The place of each layer's radio in the panel of the layers button */
+const LAYER_INDEX = { forecast: 0, measured: 1, ghcn: 2 } as const
 /** Chooses a layer in the panel of the layers button, which a click elsewhere on the page has closed: opens it again */
-async function chooseLayer(wrapper: Awaited<ReturnType<typeof mountSuspended>>, layer: 'forecast' | 'measured') {
+async function chooseLayer(wrapper: Awaited<ReturnType<typeof mountSuspended>>, layer: 'forecast' | 'measured' | 'ghcn') {
   await openLayers(wrapper)
-  await wrapper.findAll('[data-testid="map-layers"] [role="radio"]')[layer === 'forecast' ? 0 : 1]!.trigger('click')
+  await wrapper.findAll('[data-testid="map-layers"] [role="radio"]')[LAYER_INDEX[layer]]!.trigger('click')
 }
+
 /** Opens the panel of the layers button, once */
 async function openLayers(wrapper: Awaited<ReturnType<typeof mountSuspended>>) {
   if (!wrapper.find('[data-testid="map-layers-panel"]').exists())
@@ -182,7 +206,7 @@ async function openLayers(wrapper: Awaited<ReturnType<typeof mountSuspended>>) {
 const text = (wrapper: Awaited<ReturnType<typeof mountMap>>) => wrapper.text().replace(/\s+/g, ' ')
 const panel = (wrapper: Awaited<ReturnType<typeof mountMap>>) => wrapper.find('[data-testid="map-panel"]')
 /** The radio of a layer in the panel of the layers button */
-const layerButton = (wrapper: Awaited<ReturnType<typeof mountMap>>, layer: 'forecast' | 'measured') => wrapper.findAll('[data-testid="map-layers"] [role="radio"]')[layer === 'forecast' ? 0 : 1]!
+const layerButton = (wrapper: Awaited<ReturnType<typeof mountMap>>, layer: 'forecast' | 'measured' | 'ghcn') => wrapper.findAll('[data-testid="map-layers"] [role="radio"]')[LAYER_INDEX[layer]]!
 
 /** The list is there once its first station is: the forecast's, by the point nearest the centre of Germany */
 async function listed(wrapper: Awaited<ReturnType<typeof mountMap>>) {
@@ -206,7 +230,7 @@ afterEach(async () => {
   stage.props = {}
   stage.emit = () => {}
   clearNuxtData()
-  asked.stations.length = asked.stripesValues.length = asked.values.length = 0
+  asked.stations.length = asked.stripesValues.length = asked.stripesQueries.length = asked.values.length = 0
   stationsFailures = 0
   stripesStatus = 200
   valuesStatus = 200
@@ -232,8 +256,8 @@ describe('the map tool', () => {
   it('has the forecast stations as the first layer, chosen in the panel of a button by radios that say which one they are in words and by being checked', async () => {
     const wrapper = await mountMap()
     const group = wrapper.find('[data-testid="map-layers"]')
-    expect(group.findAll('[role="radio"]').map(radio => radio.attributes('aria-checked'))).toEqual(['true', 'false'])
-    expect(group.findAll('label').map(label => label.text())).toEqual(['Forecast stations', 'DWD measurements'])
+    expect(group.findAll('[role="radio"]').map(radio => radio.attributes('aria-checked'))).toEqual(['true', 'false', 'false'])
+    expect(group.findAll('label').map(label => label.text())).toEqual(['Forecast stations', 'DWD measurements', 'NOAA GHCN daily'])
     expect(layerButton(wrapper, 'forecast').attributes('aria-checked')).toBe('true')
     expect(layerButton(wrapper, 'measured').attributes('aria-checked')).toBe('false')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-count"]').text()).toBe('Stations shown: 4'))
@@ -2296,5 +2320,208 @@ describe('what a pick carries across layers is the pick the reader made last (GH
       await vi.waitFor(() => expect(wrapper.find('[data-testid="map-card-measured"]').text()).toContain('Hamburg-Fuhlsbüttel'))
       expect(wrapper.find('[data-testid="map-card-same-measured"]').exists()).toBe(false)
     })
+  })
+})
+
+describe('the GHCN daily layer (GH-4078)', () => {
+  /** What the map reports of itself: where it is, how far in, and the bounds it shows */
+  const viewAt = (latitude: number, longitude: number, halfWidth: number, halfHeight: number, zoom = 8) =>
+    ({ latitude, longitude, zoom, bounds: { west: longitude - halfWidth, south: latitude - halfHeight, east: longitude + halfWidth, north: latitude + halfHeight } })
+  const HAMBURG_VIEW = viewAt(53.6, 10, 2, 1)
+  const ghcnAsks = () => asked.stations.filter(query => query.network === 'ghcn')
+  /** Numbers of a query, which are text, against the ones they are for, within what a sum of floats is off */
+  const expectClose = (actual: Array<string | undefined>, expected: number[]) => actual.forEach((value, index) => expect(Number(value)).toBeCloseTo(expected[index]!, 6))
+  const idsOnMap = () => stage.props.stations.map((entry: any) => entry.station_id)
+
+  /** The map's own code is loaded apart from the page: its stand-in raises events once it is there */
+  const mapIsThere = (wrapper: Awaited<ReturnType<typeof mountMap>>) => vi.waitFor(() => expect(wrapper.find('[data-testid="station-map"]').exists()).toBe(true))
+  /** The GHCN layer, with the map at Hamburg and its stations loaded */
+  async function mountGhcn(route = '/map') {
+    const wrapper = await mountMap(route)
+    await mapIsThere(wrapper)
+    await chooseLayer(wrapper, 'ghcn')
+    stage.emit('view', HAMBURG_VIEW)
+    await vi.waitFor(() => expect(idsOnMap()).toContain('GM000010147'), { timeout: 3000 })
+    return wrapper
+  }
+  const pickFromList = async (wrapper: Awaited<ReturnType<typeof mountMap>>, id: string) => {
+    await wrapper.find(`[data-station-id="${id}"]`).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').exists()).toBe(true))
+  }
+
+  it('is the third layer, named in the panel of the layers button, and asks for nothing until the map has said where it is', async () => {
+    const wrapper = await mountMap()
+    await mapIsThere(wrapper)
+    await chooseLayer(wrapper, 'ghcn')
+    expect(layerButton(wrapper, 'ghcn').attributes('aria-checked')).toBe('true')
+    expect(wrapper.find('[data-testid="station-map"]').attributes('aria-label')).toBe('Station map: NOAA GHCN daily')
+    await new Promise(resolve => setTimeout(resolve, 500))
+    expect(ghcnAsks()).toHaveLength(0)
+    // the address names it
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.layer).toBe('ghcn'))
+  })
+
+  it('asks for the stations of the box in view, a little larger than the view, and shows them with their count', async () => {
+    const wrapper = await mountGhcn()
+    expect(ghcnAsks()).toHaveLength(1)
+    // the view is 4 by 2 degrees, the box 15 % more on every side, and no list of every station is asked for
+    const [box] = ghcnAsks()
+    expect(box).toMatchObject({ provider: 'noaa', network: 'ghcn', parameters: 'daily/data' })
+    expect(box!.all).toBeUndefined()
+    expectClose([box!.left, box!.bottom, box!.right, box!.top], [7.4, 52.3, 12.6, 54.9])
+    expect(idsOnMap().sort()).toEqual(['BF1BI000002', 'GM000010147', 'GME00122482', 'GME00122866'])
+    // the stations of the view are the count: the box reaches beyond it
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-count"]').text()).toBe('Stations shown: 4'))
+    // a layer of 133,041 stations is always grouped, and the switch says so
+    expect(stage.props.grouping).not.toBeNull()
+    await openLayers(wrapper)
+    expect(wrapper.find('[data-testid="map-grouping-note"]').exists()).toBe(true)
+    // the measuring stations of DWD, and the stripes' ones, are not asked for
+    expect(asked.stations.some(query => query.network === 'observation')).toBe(false)
+  })
+
+  it('draws a station that has stopped as the measuring layer does, and the others as reporting', async () => {
+    await mountGhcn()
+    const rule = stage.props.reporting as (station: { end_timestamp: string | null }) => boolean
+    expect(rule(GHCN_HAMBURG)).toBe(true)
+    expect(rule(GHCN_STOPPED)).toBe(false)
+  })
+
+  it('asks once for a run of moves, and not at all for one inside what is loaded', async () => {
+    await mountGhcn()
+    // inside the box loaded: the stations are there
+    stage.emit('view', viewAt(53.7, 10.1, 1, 0.5, 9))
+    await new Promise(resolve => setTimeout(resolve, 500))
+    expect(ghcnAsks()).toHaveLength(1)
+    // out of it, three moves in a row: one request, for the last
+    stage.emit('view', viewAt(40.8, -74, 1, 0.5))
+    stage.emit('view', viewAt(40.8, -74, 1.2, 0.6))
+    stage.emit('view', viewAt(40.78, -73.97, 1, 0.5))
+    expect(ghcnAsks()).toHaveLength(1)
+    await vi.waitFor(() => expect(idsOnMap()).toEqual(['USW00094728']), { timeout: 3000 })
+    expect(ghcnAsks()).toHaveLength(2)
+    expectClose([ghcnAsks()[1]!.left, ghcnAsks()[1]!.right], [-75.27, -72.67])
+  })
+
+  it('asks for nothing where the view holds most of the world, says to zoom in, and shows no stations', async () => {
+    const wrapper = await mountGhcn()
+    stage.emit('view', viewAt(10, 0, 180, 70, 2))
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-zoom-hint"]').text()).toBe('Zoom in to show this layer\'s stations: too many are in view.'))
+    expect(wrapper.find('[data-testid="map-zoom-hint-panel"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="map-count"]').exists()).toBe(false)
+    expect(idsOnMap()).toEqual([])
+    await new Promise(resolve => setTimeout(resolve, 500))
+    expect(ghcnAsks()).toHaveLength(1)
+    // and asks for the view again once it is smaller
+    stage.emit('view', HAMBURG_VIEW)
+    await vi.waitFor(() => expect(idsOnMap()).toContain('GM000010147'), { timeout: 3000 })
+    expect(wrapper.find('[data-testid="map-zoom-hint"]').exists()).toBe(false)
+    expect(ghcnAsks()).toHaveLength(2)
+  })
+
+  it('stops asking when another layer is chosen, and asks again when the layer is back', async () => {
+    const wrapper = await mountGhcn()
+    await chooseLayer(wrapper, 'forecast')
+    stage.emit('view', viewAt(40.8, -74, 1, 0.5))
+    await new Promise(resolve => setTimeout(resolve, 500))
+    expect(ghcnAsks()).toHaveLength(1)
+    await chooseLayer(wrapper, 'ghcn')
+    await vi.waitFor(() => expect(idsOnMap()).toEqual(['USW00094728']), { timeout: 3000 })
+  })
+
+  it('has a station picked its own climate stripes, with how a day was made, its measurements in the Explorer, and the nearest forecast point', async () => {
+    const wrapper = await mountGhcn()
+    await pickFromList(wrapper, 'GM000010147')
+    expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG FUHLSBUETTEL')
+
+    const stripes = wrapper.find('[data-testid="map-card-stripes"]')
+    await vi.waitFor(() => expect(stripes.find('[data-testid="map-stripes-method"]').exists()).toBe(true))
+    expect(asked.stripesQueries.at(-1)).toMatchObject({ kind: 'temperature', provider: 'noaa', network: 'ghcn', station: 'GM000010147' })
+    // the midrange of the daily maximum and minimum, no 24-hour mean (decision on GH-4222)
+    expect(stripes.find('[data-testid="map-stripes-method"]').text()).toContain('midrange of the daily maximum and minimum, not a 24-hour mean')
+    expect(stripes.find('a').attributes('href')).toBe('/stripes?kind=temperature&provider=noaa&network=ghcn&station=GM000010147')
+
+    // the Explorer on the network of the layer; the station history is DWD's alone
+    const measured = wrapper.find('[data-testid="map-card-measured"]')
+    expect(measured.find('[data-testid="map-card-ghcn-source"]').text()).toBe('NOAA GHCN, daily · since 1891')
+    const links = measured.findAll('a')
+    expect(links).toHaveLength(1)
+    expect(Object.fromEntries(new URL(links[0]!.attributes('href')!, 'http://x').searchParams)).toEqual({
+      provider: 'noaa',
+      network: 'ghcn',
+      resolution: 'daily',
+      dataset: 'data',
+      mode: 'station',
+      stations: 'GM000010147',
+    })
+
+    // the forecast: the nearest MOSMIX point, as for any station
+    const forecast = wrapper.find('[data-testid="map-card-forecast"]')
+    await vi.waitFor(() => expect(forecast.find('a').exists()).toBe(true))
+    expect(forecast.text()).toContain('HAMBURG-FUHLSBUETTEL')
+    expect(forecast.findAll('a').some(link => link.attributes('href') === '/meteogram?station=10147')).toBe(true)
+
+    // DWD's stripes and measurements are not asked for: the cards are about this station
+    expect(asked.stations.some(query => query.network === 'observation')).toBe(false)
+    expect(stripes.text()).not.toContain('away')
+  })
+
+  it('has the forecast of the point that has its WMO number, which is the same station', async () => {
+    const hamburg = FORECAST_STATIONS[0]!
+    FORECAST_STATIONS[0] = { ...hamburg, wmo_id: '10147' } as typeof hamburg
+    try {
+      const wrapper = await mountGhcn()
+      await pickFromList(wrapper, 'GM000010147')
+      const forecast = wrapper.find('[data-testid="map-card-forecast"]')
+      await vi.waitFor(() => expect(forecast.find('[data-testid="map-card-same-forecast"]').exists()).toBe(true))
+      expect(forecast.find('[data-testid="map-card-same-forecast"]').text()).toContain('The same station, by its WMO number 10147.')
+    }
+    finally {
+      FORECAST_STATIONS[0] = hamburg
+    }
+  })
+
+  it('says a station has no stripes, with no request and no link, where its record is shorter than the ten years they need', async () => {
+    const wrapper = await mountGhcn()
+    await pickFromList(wrapper, 'BF1BI000002')
+    const stripes = wrapper.find('[data-testid="map-card-stripes"]')
+    expect(stripes.find('[data-testid="map-stripes-none"]').text()).toBe('No climate stripes for this station.')
+    expect(stripes.findAll('a')).toHaveLength(0)
+    expect(asked.stripesValues).not.toContain('BF1BI000002')
+  })
+
+  it('says a station has no stripes where the backend refuses them, and takes the link away: no failure to try again', async () => {
+    const wrapper = await mountGhcn()
+    await pickFromList(wrapper, 'GME00122482')
+    const stripes = wrapper.find('[data-testid="map-card-stripes"]')
+    await vi.waitFor(() => expect(stripes.text()).toContain('No climate stripes for this station.'))
+    expect(asked.stripesValues).toContain('GME00122482')
+    await vi.waitFor(() => expect(stripes.findAll('a')).toHaveLength(0))
+    expect(stripes.find('[role="alert"]').exists()).toBe(false)
+    expect(stripes.text()).not.toContain('Retry')
+  })
+
+  it('keeps the station picked in the list when the map moves where the box does not hold it, and lets it go on Back', async () => {
+    const wrapper = await mountGhcn()
+    await pickFromList(wrapper, 'GM000010147')
+    stage.emit('view', viewAt(40.8, -74, 1, 0.5))
+    await vi.waitFor(() => expect(idsOnMap()).toContain('USW00094728'), { timeout: 3000 })
+    expect(idsOnMap()).toContain('GM000010147')
+    expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG FUHLSBUETTEL')
+    await wrapper.find('[data-testid="map-back"]').trigger('click')
+    await vi.waitFor(() => expect(idsOnMap()).toEqual(['USW00094728']))
+  })
+
+  it('opens on the station an address names, which the stations in view do not hold: asked for by its id, and picked', async () => {
+    const wrapper = await mountMap('/map?layer=ghcn&station=USW00094728')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('NEW YORK CNTRL PK TWR'), { timeout: 3000 })
+    expect(asked.stations).toContainEqual(expect.objectContaining({ network: 'ghcn', stations: 'USW00094728' }))
+    expect(wrapper.find('[data-testid="map-unknown"]').exists()).toBe(false)
+  })
+
+  it('says a station of the address that the layer has not got, as any layer does', async () => {
+    const wrapper = await mountMap('/map?layer=ghcn&station=NOPE')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-unknown"]').text()).toBe('There is no station NOPE on this map.'), { timeout: 3000 })
+    expect(wrapper.find('[data-testid="map-station-name"]').exists()).toBe(false)
   })
 })

@@ -1651,3 +1651,154 @@ describe('stripes Page chart in the language of the page, and disposed of at its
     expect(echarts.chart.dispose).not.toHaveBeenCalled()
   })
 })
+
+describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
+  const ghcnStation = { station_id: 'GM000010147', name: 'HAMBURG FUHLSBUETTEL', region: null, latitude: 53.635, longitude: 9.99, start_timestamp: '1891-01-01T00:00:00.000000+00:00', end_timestamp: null }
+  // a station that has stopped: not in the list of the stations that still report, which a link from the map may name
+  const stoppedStation = { station_id: 'GME00122866', name: 'GLUCKSTADT', region: null, latitude: 53.7983, longitude: 9.4306, start_timestamp: '1931-01-01T00:00:00.000000+00:00', end_timestamp: '2021-12-31T00:00:00.000000+00:00' }
+
+  const listQueries: Array<Record<string, string>> = []
+  const valuesQueries: Array<Record<string, string>> = []
+  const stationQueries: Array<Record<string, string>> = []
+  let method: 'midrange' | 'tavg' | null = 'midrange'
+
+  function register() {
+    registerEndpoint('/api/stripes/stations', (event) => {
+      const query = getQuery(event) as Record<string, string>
+      listQueries.push(query)
+      // DWD's list has more than one station, so that none is chosen for the reader
+      return { stations: query.provider ? [ghcnStation] : [ghcnStation, { ...ghcnStation, station_id: '00011', name: 'Donaueschingen' }] }
+    })
+    registerEndpoint('/api/stripes/values', (event) => {
+      const query = getQuery(event) as Record<string, string>
+      valuesQueries.push(query)
+      const station = query.station === stoppedStation.station_id ? stoppedStation : ghcnStation
+      return {
+        metadata: { provider: { attribution: 'NOAA National Centers for Environmental Information (NCEI), Global Historical Climatology Network', license: { name: 'Creative Commons Zero v1.0 Universal', url: 'https://creativecommons.org/publicdomain/zero/1.0/' } } },
+        series: { station, resolution: 'daily', dataset: 'data', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius', method },
+        ...answerOf(TWO_YEARS),
+      }
+    })
+    registerEndpoint('/api/stations', (event) => {
+      stationQueries.push(getQuery(event) as Record<string, string>)
+      return { stations: [stoppedStation] }
+    })
+  }
+
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  beforeEach(() => {
+    clearNuxtData()
+    register()
+    method = 'midrange'
+  })
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    // the list of an earlier test is cached by its address: this test's own is asked for
+    clearNuxtData()
+    listQueries.length = valuesQueries.length = stationQueries.length = 0
+  })
+
+  async function open(route: string) {
+    wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route })
+    return wrapper.vm as any
+  }
+
+  async function show(route: string) {
+    const vm = await open(route)
+    await vi.waitFor(() => expect(vm.selectedStation).not.toBeNull())
+    await vm.fetchAndPlotStripes()
+    await vi.waitFor(() => expect(vm.lastFetchedData).not.toBeNull())
+    return vm
+  }
+
+  const LINK = '/stripes?kind=temperature&provider=noaa&network=ghcn&station=GM000010147'
+
+  it('is DWD\'s by default: the stations and the values are asked for with no provider and network', async () => {
+    const vm = await show('/stripes?kind=temperature&station=GM000010147')
+    expect(vm.source).toBe('dwd')
+    expect(listQueries.at(-1)).toEqual({ kind: 'temperature' })
+    expect(valuesQueries.at(-1)).not.toHaveProperty('provider')
+    expect(valuesQueries.at(-1)).not.toHaveProperty('network')
+    expect(wrapper!.find('[data-testid="stripes-source"]').exists()).toBe(true)
+  })
+
+  it('takes the source from the link, and asks for the stations and the values of the network', async () => {
+    const vm = await show(LINK)
+    expect(vm.source).toBe('ghcn')
+    expect(listQueries.at(-1)).toEqual({ kind: 'temperature', provider: 'noaa', network: 'ghcn' })
+    expect(valuesQueries.at(-1)).toMatchObject({ kind: 'temperature', provider: 'noaa', network: 'ghcn', station: 'GM000010147' })
+    // and the address keeps it
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query).toMatchObject({ provider: 'noaa', network: 'ghcn', station: 'GM000010147' }))
+  })
+
+  it('says under the stripes that the temperature is the midrange of the daily maximum and minimum, not a 24-hour mean, and why', async () => {
+    await show(LINK)
+    const note = wrapper!.find('[data-testid="stripes-method"]')
+    expect(note.text()).toBe(en.stripes.methodMidrange)
+    expect(note.text()).toContain('midrange of the daily maximum and minimum, not a 24-hour mean')
+    // why: one method for the whole record, so no step, and a constant bias cancels in the anomalies
+    expect(note.text()).toContain('One method for the whole record')
+    expect(note.text()).toContain('a constant bias cancels in the anomalies')
+  })
+
+  it('says the daily mean was used where the station has no maximum and minimum', async () => {
+    method = 'tavg'
+    await show(LINK)
+    expect(wrapper!.find('[data-testid="stripes-method"]').text()).toBe(en.stripes.methodTavg)
+  })
+
+  it('says nothing of a method for DWD\'s own annual values', async () => {
+    method = null
+    await show(LINK)
+    expect(wrapper!.find('[data-testid="stripes-method"]').exists()).toBe(false)
+  })
+
+  it('says a station with no end in the list is still reporting: its years are since its first', async () => {
+    await open(LINK)
+    await vi.waitFor(() => expect(wrapper!.text().replace(/\s+/g, ' ')).toContain('Available: since 1891'))
+  })
+
+  it('says it in the About text as well, with the rules the years are built by', async () => {
+    await open(LINK)
+    await wrapper!.findAll('button').find((button: { text: () => string }) => button.text().includes('About climate stripes'))!.trigger('click')
+    await nextTick()
+    const about = wrapper!.find('[data-testid="stripes-about-ghcn"]')
+    expect(about.text()).toBe(en.stripes.aboutGhcn)
+    expect(about.text()).toContain('midrange of its maximum and minimum, which is not a 24-hour mean')
+  })
+
+  it('says it in the file of the table, with the credit of the source', async () => {
+    const vm = await show(`${LINK}&variant=table`)
+    image.downloadBlob.mockClear()
+    vm.downloadTable()
+    const [blob] = image.downloadBlob.mock.calls[0]!
+    const csv = await blob.text()
+    expect(csv).toContain(en.stripes.methodMidrange)
+    expect(csv).toContain('NOAA National Centers for Environmental Information (NCEI)')
+  })
+
+  it('names NOAA in the source line of the chart, and DWD where it is DWD\'s', async () => {
+    await show(LINK)
+    expect(wrapper!.findComponent(StripesChart).props('sourceText')).toBe('Source: NOAA NCEI, GHCN-Daily')
+    wrapper!.unmount()
+    clearNuxtData()
+    await show('/stripes?kind=temperature&station=GM000010147')
+    expect(wrapper!.findComponent(StripesChart).props('sourceText')).toBeUndefined()
+  })
+
+  it('takes the station of a link that the list of the stations that report does not hold: asked for by its id, and chosen', async () => {
+    const vm = await open(`/stripes?kind=temperature&provider=noaa&network=ghcn&station=${stoppedStation.station_id}`)
+    await vi.waitFor(() => expect(vm.selectedStation?.station_id).toBe(stoppedStation.station_id))
+    expect(stationQueries.at(-1)).toEqual({ provider: 'noaa', network: 'ghcn', parameters: 'daily/data', stations: stoppedStation.station_id })
+  })
+
+  it('clears the station and the stripes where the source is changed, and leaves the provider out of the address for DWD', async () => {
+    const vm = await show(LINK)
+    vm.source = 'dwd'
+    await vi.waitFor(() => expect(vm.selectedStation).toBeNull())
+    expect(vm.hasPlot).toBe(false)
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query).not.toHaveProperty('provider'))
+    expect(useRouter().currentRoute.value.query).not.toHaveProperty('network')
+  })
+})
