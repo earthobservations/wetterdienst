@@ -38,6 +38,8 @@ const props = defineProps<{
   locate?: number
   /** How the stations are grouped at the outer zooms (GH-4079), null for none: every station is its own dot */
   grouping?: Grouping | null
+  /** Whether the map stays where it is for the station picked, though it is off the screen (a pick carried to another layer from a place the reader has moved away from, GH-4078) */
+  hold?: boolean
   /** Whether the panel of the layers button is open: a press on the map then closes it, and its click is no pick of a place and no zoom on a group (GH-4209) */
   panelOpen?: boolean
   /** The element that says what the dots and the discs of the map are (the legend, which is in the layers panel, as a text): the map's description */
@@ -53,8 +55,8 @@ const emit = defineEmits<{
    * none for a mouse), in kilometres
    */
   pick: [point: Point & { tolerance: number, tap: number, disc: number }]
-  /** The view of the map after each move: its centre, which the panel lists the nearest stations of, and its zoom */
-  view: [view: Point & { zoom: number }]
+  /** The view of the map after each move: its centre, which the panel lists the nearest stations of, its zoom, and the bounds it shows and its size in pixels (the GHCN layer asks for the stations of them, GH-4078) */
+  view: [view: Point & { zoom: number, bounds: { west: number, south: number, east: number, north: number }, size: { x: number, y: number } }]
   /** A click on a group of `count` stations, `reporting` of them reporting (null where the layer has no status): the map has zoomed in on them */
   group: [count: number, reporting: number | null]
   /** The button of the full screen was pressed (GH-4227): the page enters or leaves it, the map keeps its view */
@@ -310,7 +312,7 @@ function reveal() {
     map.setView(target, Math.max(map.getZoom(), 8), { animate: !reducedMotion.value })
     return
   }
-  if (map.getBounds().pad(-0.1).contains(target))
+  if (props.hold || map.getBounds().pad(-0.1).contains(target))
     return
   map.setView(target, Math.max(map.getZoom(), 7), { animate: !reducedMotion.value })
 }
@@ -362,7 +364,8 @@ function emitView() {
   if (!map)
     return
   const centre = map.getCenter()
-  emit('view', { latitude: centre.lat, longitude: centre.lng, zoom: map.getZoom() })
+  const bounds = map.getBounds()
+  emit('view', { latitude: centre.lat, longitude: centre.lng, zoom: map.getZoom(), bounds: { west: bounds.getWest(), south: bounds.getSouth(), east: bounds.getEast(), north: bounds.getNorth() }, size: { x: map.getSize().x, y: map.getSize().y } })
 }
 
 onMounted(() => {
@@ -447,7 +450,34 @@ watch(() => props.fullscreen, () => {
   void nextTick(() => map?.invalidateSize({ animate: false }))
   requestAnimationFrame(() => map?.invalidateSize({ animate: false }))
 }, { flush: 'post' })
+/**
+ * Zooms in, from where the map is, until the part of the world in view holds no more than `maxArea` square degrees (longitude times
+ * latitude), centred on `centre` (the map's own centre where there is none): the GHCN layer, chosen with most of the world in view (GH-4078).
+ * Where the map is already that far in at `centre` (the same area at another latitude is another number of square degrees) it only moves to
+ * it, if it is not there. Answers whether the map moved, which is when it reports a new view: not moved, it will report none.
+ */
+function zoomToFit(maxArea: number, centre?: Point): boolean {
+  if (!map)
+    return false
+  const target = centre ? L.latLng(centre.latitude, centre.longitude) : map.getCenter()
+  const half = map.getSize().divideBy(2)
+  const areaAt = (zoom: number) => {
+    const middle = map!.project(target, zoom)
+    const northWest = map!.unproject(middle.subtract(half), zoom)
+    const southEast = map!.unproject(middle.add(half), zoom)
+    return Math.abs(southEast.lng - northWest.lng) * Math.abs(northWest.lat - southEast.lat)
+  }
+  let zoom = map.getZoom()
+  while (areaAt(zoom) > maxArea && zoom < map.getMaxZoom())
+    zoom++
+  if (zoom === map.getZoom() && map.getCenter().equals(target, 1e-5))
+    return false
+  map.setView(target, zoom, { animate: !reducedMotion.value })
+  return true
+}
+
 defineExpose({
+  zoomToFit,
   /** The focus into the map (the container of Leaflet is a stop of the keyboard that pans and zooms by keys) */
   focusMap: () => container.value?.focus({ preventScroll: true }),
   /** The focus back to the full-screen button */

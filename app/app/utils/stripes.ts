@@ -62,6 +62,23 @@ export function stripeYears(values: readonly StripesValueInput[]): StripeYear[] 
     }))
 }
 
+/**
+ * What the temperature of a station of NOAA's GHCN daily is built from (GH-4078, GH-4222): the years are calculated from the days, and
+ * a day's temperature is the midrange of the daily maximum and minimum, which is no 24-hour mean, for every day of the record, or
+ * the source's own mean (TAVG) at a station that has no day with both. The answer says which as `series.method`; DWD's own annual
+ * values and the precipitation have none, and nothing is said of them (an empty text).
+ */
+export function stripesMethodNote(
+  method: 'midrange' | 'tavg' | null | undefined,
+  t: (key: string, params?: Record<string, unknown>) => string,
+): string {
+  if (method === 'midrange')
+    return t('stripes.methodMidrange')
+  if (method === 'tavg')
+    return t('stripes.methodTavg')
+  return ''
+}
+
 /** What the answer's `reference` says of one number of it: the years it was calculated from, and whether the whole record stood in for the period of the method */
 export interface StripesReferenceStatView {
   first_year: number

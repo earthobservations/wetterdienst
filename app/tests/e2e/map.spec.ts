@@ -1,8 +1,8 @@
-import type { Page } from '@playwright/test'
+import type { Page, Route } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
-import { ApiFailure, mockBackend } from './accessibility/mock-backend'
+import { ApiFailure, defaultHandlers, mockBackend } from './accessibility/mock-backend'
 import { expectAtLeastPx } from './target-size'
 
 // The map tool (GH-3650), by its main path in a browser: open the map, pick a place, read what the panel shows of it
@@ -1191,5 +1191,104 @@ test.describe('the switch of the grouping on a phone', () => {
     })
     expectAtLeastPx(heights.label, 44, 'the label is high')
     expectAtLeastPx(heights.row, 44, 'the row is high')
+  })
+})
+
+// NOAA GHCN daily (GH-4078): a layer of 133,041 stations that is asked for by the part of the map in view. The backend's answer is
+// the mock's: the stations of the box that the request names, from a few of Germany and one of New York.
+const GHCN_STATIONS = [
+  { station_id: 'GM000010147', name: 'HAMBURG FUHLSBUETTEL', region: null, latitude: 53.635, longitude: 9.99, elevation: 11, wmo_id: '10147', start_timestamp: '1891-01-01T00:00:00.000000+00:00', end_timestamp: null },
+  { station_id: 'GME00122482', name: 'FREIBURG/ELBE', region: null, latitude: 53.8292, longitude: 9.2494, elevation: 2, start_timestamp: '1970-01-01T00:00:00.000000+00:00', end_timestamp: null },
+  { station_id: 'GME00122866', name: 'GLUCKSTADT', region: null, latitude: 53.7983, longitude: 9.4306, elevation: 1, start_timestamp: '1931-01-01T00:00:00.000000+00:00', end_timestamp: '2021-12-31T00:00:00.000000+00:00' },
+  { station_id: 'GM000010382', name: 'BERLIN-TEGEL', region: null, latitude: 52.564, longitude: 13.309, elevation: 36, start_timestamp: '1953-01-01T00:00:00.000000+00:00', end_timestamp: null },
+  { station_id: 'USW00094728', name: 'NEW YORK CNTRL PK TWR', region: null, latitude: 40.7789, longitude: -73.9692, elevation: 42.7, start_timestamp: '1869-01-01T00:00:00.000000+00:00', end_timestamp: null },
+]
+
+/** The mock backend with the stations of GHCN daily by the box asked for, which each request is counted of, and its stripes */
+function ghcnBackend(asked: URLSearchParams[]) {
+  const defaults = defaultHandlers()
+  return {
+    'stations': (url: URL, route: Route) => {
+      if (url.searchParams.get('network') !== 'ghcn')
+        return defaults.stations!(url, route)
+      // a station by its id (the address of a station that the stations in view may not hold)
+      const wanted = url.searchParams.get('stations')?.split(',')
+      if (wanted)
+        return { stations: GHCN_STATIONS.filter(station => wanted.includes(station.station_id)) }
+      asked.push(url.searchParams)
+      const [left, bottom, right, top] = ['left', 'bottom', 'right', 'top'].map(name => Number(url.searchParams.get(name)))
+      return { stations: GHCN_STATIONS.filter(station => station.longitude >= left! && station.longitude <= right! && station.latitude >= bottom! && station.latitude <= top!) }
+    },
+    'stripes/values': (url: URL, route: Route) => {
+      const answer = defaults['stripes/values']!(url, route) as { series: Record<string, unknown> }
+      if (url.searchParams.get('provider') !== 'noaa')
+        return answer
+      const station = GHCN_STATIONS.find(candidate => candidate.station_id === url.searchParams.get('station'))
+      return { ...answer, series: { ...answer.series, station, resolution: 'daily', dataset: 'data', method: 'midrange' } }
+    },
+  }
+}
+
+test.describe('the map tool: NOAA GHCN daily (GH-4078)', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('asks for the stations of the part of the map in view, and says to zoom in where it holds most of the world', async ({ page, baseURL }) => {
+    const asked: URLSearchParams[] = []
+    await open(page, baseURL!, '/map', ghcnBackend(asked))
+    await (await layerRadio(page, en.mapTool.layerGhcn)).click()
+    await expect(page).toHaveURL(/layer=ghcn/)
+    // the window is large (1440 by 900): Germany at its opening zoom is more than the 200 square degrees that are asked for, so the map
+    // zooms in as the layer is chosen, until the view fits, and the box of the view, a little more, and the stations of it are shown at once
+    // (the one in New York is not)
+    await expect.poll(() => zoomOf(page)).toBe(7)
+    await expect(page.getByTestId('map-zoom-hint')).toHaveCount(0)
+    await expect(page.getByTestId('map-count')).toHaveText(/^Stations shown: [1-9]/)
+    await expect.poll(() => asked.length).toBeGreaterThan(0)
+    expect(asked[0]!.get('provider')).toBe('noaa')
+    expect(asked[0]!.get('network')).toBe('ghcn')
+    expect(asked[0]!.get('parameters')).toBe('daily/data')
+    expect(asked[0]!.has('all')).toBe(false)
+    expect(Number(asked[0]!.get('left'))).toBeLessThan(Number(asked[0]!.get('right')))
+    await expect(page.getByTestId('map-panel').getByRole('button', { name: /HAMBURG FUHLSBUETTEL/ })).toBeVisible()
+    await expect(page.getByTestId('map-panel').getByRole('button', { name: /NEW YORK/ })).toHaveCount(0)
+
+    // zoomed out to the world: nothing is asked for, the map says to zoom in, and shows no count
+    const before = asked.length
+    const zoomOut = page.getByRole('button', { name: en.mapTool.zoomOut })
+    for (let step = 0; step < 4; step++)
+      await zoomOut.click()
+    await expect(page.getByTestId('map-zoom-hint')).toHaveText(en.mapTool.zoomInForStations)
+    await expect(page.getByTestId('map-count')).toHaveCount(0)
+    await page.waitForTimeout(700)
+    expect(asked.length).toBe(before)
+
+    // and the stations of the view are asked for again once the map is zoomed in
+    for (let step = 0; step < 6 && await page.getByTestId('map-zoom-hint').count(); step++) {
+      await page.getByRole('button', { name: en.mapTool.zoomIn }).click()
+      await page.waitForTimeout(400)
+    }
+    await expect(page.getByTestId('map-zoom-hint')).toHaveCount(0)
+    await expect(page.getByTestId('map-count')).toBeVisible()
+    await expect.poll(() => asked.length).toBeGreaterThan(before)
+  })
+
+  test('gives a station its own stripes with the midrange note, and its daily values in the Explorer', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/map?layer=ghcn&station=GM000010147', ghcnBackend([]))
+    await expect(page.getByTestId('map-station-name')).toHaveText('HAMBURG FUHLSBUETTEL')
+    const stripes = page.getByTestId('map-card-stripes')
+    await expect(stripes.getByRole('img', { name: /^Climate stripes of HAMBURG FUHLSBUETTEL/ })).toBeVisible()
+    await expect(stripes.getByTestId('map-stripes-method')).toContainText('midrange of the daily maximum and minimum, not a 24-hour mean')
+    await expect(stripes.getByRole('link', { name: en.mapTool.openStripes })).toHaveAttribute('href', '/stripes?kind=temperature&provider=noaa&network=ghcn&station=GM000010147')
+    const measured = page.getByTestId('map-card-measured')
+    await expect(measured.getByTestId('map-card-ghcn-source')).toContainText('NOAA GHCN, daily')
+    await expect(measured.getByRole('link', { name: en.mapTool.openExplorer })).toHaveAttribute('href', /provider=noaa&network=ghcn&resolution=daily&dataset=data&mode=station&stations=GM000010147/)
+    // the station history is DWD's alone
+    await expect(measured.getByRole('link', { name: en.mapTool.openHistory })).toHaveCount(0)
+
+    // the stripes page of the station says it too
+    await stripes.getByRole('link', { name: en.mapTool.openStripes }).click()
+    await expect(page).toHaveURL(/\/stripes\?.*provider=noaa&network=ghcn/)
+    await page.getByRole('button', { name: en.common.fetch }).click()
+    await expect(page.getByTestId('stripes-method')).toContainText('midrange of the daily maximum and minimum, not a 24-hour mean')
   })
 })
