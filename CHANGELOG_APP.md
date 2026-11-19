@@ -24,6 +24,12 @@ Types of changes:
   9 instead of 10. The station pickers' maps group with the same radius and separate at the same
   zoom. The groups still depend on the zoom only (GH-4241).
 
+### Fixed
+
+- `[Map]` The layers panel closes with one tap on its button. In Safari on a phone the first tap
+  left it open (the panel closed as the focus moved, and the tap's click opened it again); the
+  second closed it. A tap on the map still closes it without picking a station (GH-4242).
+
 ## [0.54.0] - 2026-11-19
 
 Paired with backend 0.192.0. It needs no more of the backend than 0.191.0 gave it (the stripes' classes
