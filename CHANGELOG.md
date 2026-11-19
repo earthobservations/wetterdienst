@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- The REST API serves DWD's precipitation radar as map images: `/api/v1/radar/frames` lists the
+  radar analysis of the last hours (`past`, 120 minutes by default) and DWD's forecast of the next
+  two, with where the images lie (WGS84 `bounds`, in Web Mercator) and a legend in mm/h, and
+  `/api/v1/radar/frame` is one frame as a transparent PNG of about 35 KB, decoded once for every
+  reader. It needs the `radar` extra on the server (h5py and numpy), and is no MCP tool (GH-3788)
+
 ### Fixed
 
 - The documentation on Read the Docs was not published after 2026-10-24: the PDF build failed on an
