@@ -23,7 +23,7 @@ export interface Grouping {
 }
 
 /** The one grouping the map has (GH-4209: the switch is on or off; the fine step of GH-4172 is gone), on by default, which the pickers take their separation zoom from */
-export const GROUPING: Grouping = { radius: 40, separateFrom: 9 }
+export const GROUPING: Grouping = { radius: 60, separateFrom: 9 }
 
 /**
  * A layer whose list has more stations than this is always grouped, whatever the switch says (maintainer, 2026-11-14):
@@ -45,7 +45,7 @@ export interface GroupingInForce {
  *
  * @example
  * groupingFor(false, 5_600) // { on: false, compulsory: false, grouping: null }
- * groupingFor(false, 133_041) // { on: true, compulsory: true, grouping: { radius: 40, separateFrom: 9 } }
+ * groupingFor(false, 133_041) // { on: true, compulsory: true, grouping: { radius: 60, separateFrom: 9 } }
  */
 export function groupingFor(wanted: boolean, count: number): GroupingInForce {
   const compulsory = count > GROUPING_COMPULSORY_ABOVE
@@ -128,7 +128,7 @@ const NEIGHBOUR_CELL = 64
  * middle of all its stations, so another may now overlap it: the pass is made again until a pass joins nothing.
  *
  * The cascade is not capped: a cap would leave discs lying on each other where the stations are denser than a disc, which is
- * what the pass is for. With groups that formed a radius (40 px) apart, and discs of 12 to 24 px, it joins few: only where a
+ * what the pass is for. With groups that formed a radius (60 px) apart, and discs of 12 to 24 px, it joins few: only where a
  * group's middle has moved toward its neighbour. The neighbours are looked for in a grid of squares of `NEIGHBOUR_CELL`
  * pixels, made for each pass from the groups' places (a lookup, not a tree).
  */
@@ -212,12 +212,12 @@ function mergeOverlapping(groups: Group[], dot: number, size: number): Group[] {
  * The groups depend on the list and the zoom only, never on the part of the map in view or on a drag. The neighbours are found
  * in a grid of squares of `radius` pixels (the 3 x 3 squares round a station), so the pass is linear in the list, and made
  * for one zoom when it is asked for (the map keeps the groups of a zoom until the list or the grouping changes). Measured on
- * GHCN daily's 132,894 stations (2026-11-19, a laptop): 10 to 16 ms at zoom 2 to 5, 20 and 31 ms at zoom 6 and 7, 68 ms at
- * zoom 8 in Node (51 ms in Chrome), where the grid of 80 px took 7 to 17 ms; one list spread over the world, with more groups, 98 ms at
- * zoom 8.
+ * GHCN daily's 132,894 stations (2026-11-19, a laptop, radius 60): 10 to 13 ms at zoom 2 to 5, 16 and 23 ms at zoom 6 and 7, 49 ms
+ * at zoom 8 in Node (39 ms in Chrome), where the grid of 80 px took 8 to 17 ms; one list spread over the world, with more groups,
+ * 74 ms at zoom 8.
  *
  * @example
- * clusterStations(stations, 5, 40) // [{ count: 38, latitude: 52.4, longitude: 9.9, x, y, ... }, { count: 1, station, ... }]
+ * clusterStations(stations, 5, 60) // [{ count: 38, latitude: 52.4, longitude: 9.9, x, y, ... }, { count: 1, station, ... }]
  */
 export function clusterStations(stations: PlacedStation[], zoom: number, radius: number, dot = dotRadius(zoom), reports?: (station: PlacedStation) => boolean): Cluster[] {
   const count = stations.length

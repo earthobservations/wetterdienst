@@ -75,8 +75,9 @@ describe('mapStations groups', () => {
     await vm.onMapReady()
     const { options } = markerCluster.mock.calls[0]![0] as unknown as { options: { maxClusterRadius: (zoom: number) => number, spiderfyOnMaxZoom: boolean } }
     const separateFrom = GROUPING.separateFrom
-    // 80 px before the zoom, and from it only what lies on one place is a group
-    expect(options.maxClusterRadius(separateFrom - 1)).toBe(80)
+    // the map tool's radius (GROUPING.radius, 60 px) before the zoom, and from it only what lies on one place is a group
+    expect(options.maxClusterRadius(separateFrom - 1)).toBe(GROUPING.radius)
+    expect(GROUPING.radius).toBe(60)
     expect(options.maxClusterRadius(separateFrom)).toBe(1)
     expect(options.maxClusterRadius(18)).toBe(1)
     // markers on one place stay a group down to the deepest zoom, where a click on it spiderfies them

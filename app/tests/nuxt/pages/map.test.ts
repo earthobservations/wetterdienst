@@ -1929,7 +1929,7 @@ describe('the layers button (GH-4209)', () => {
 })
 
 describe('the groups of stations at the outer zooms (GH-4079)', () => {
-  const GROUPED = { radius: 40, separateFrom: 9 }
+  const GROUPED = { radius: 60, separateFrom: 9 }
   const grouping = (wrapper: Awaited<ReturnType<typeof mountMap>>) => wrapper.find('[data-testid="map-grouping"]')
 
   it('opens grouped, and the reader turns the grouping off and on with a switch (GH-4209)', async () => {

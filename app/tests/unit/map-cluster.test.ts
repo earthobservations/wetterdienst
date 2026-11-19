@@ -50,8 +50,8 @@ describe('the grouping of a layer', () => {
     expect(groupingFor(true, 133_041)).toEqual({ on: true, compulsory: true, grouping: GROUPING })
   })
 
-  it('has one grouping: a radius of 40 pixels, and groups to zoom 8, every station its own dot from zoom 9 (GH-4241, GH-4209)', () => {
-    expect(GROUPING).toEqual({ radius: 40, separateFrom: 9 })
+  it('has one grouping: a radius of 60 pixels, and groups to zoom 8, every station its own dot from zoom 9 (GH-4241, GH-4209)', () => {
+    expect(GROUPING).toEqual({ radius: 60, separateFrom: 9 })
   })
 
   it('groups at the zooms before the one every station is its own dot from, and not at it or after', () => {
@@ -275,9 +275,9 @@ describe('the groups by distance (GH-4241)', () => {
     }
   })
 
-  it('shows lone dots from zoom 9: the groups are not drawn there, and the stations 7 km apart would be groups of one in any case', () => {
-    const pair = placed([station('a', 53.5, 10), station('b', 53.5, 10.15)])
-    // 10 km apart: one group at zoom 7, two dots at zoom 9
+  it('shows lone dots from zoom 9: the groups are not drawn there, and stations 17 km apart would be groups of one in any case', () => {
+    const pair = placed([station('a', 53.5, 10), station('b', 53.5, 10.25)])
+    // 17 km apart: one group at zoom 7 (23 px), two dots at zoom 9 (91 px)
     expect(clusterStations(pair, 7, GROUPING.radius)).toHaveLength(1)
     expect(isGroupedAt(GROUPING, 9)).toBe(false)
     const alone = clusterStations(pair, GROUPING.separateFrom, GROUPING.radius)
