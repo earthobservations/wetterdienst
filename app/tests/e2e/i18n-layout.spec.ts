@@ -389,12 +389,12 @@ LONG_LANGUAGES.forEach((language) => {
   }
 })
 
-// The header with five tools (GH-3650) in every language the app has: Italian and French were the tightest, at 1024 and
+// The header with six tools (GH-3650, GH-3788) in every language the app has: Italian and French were the tightest, at 1024 and
 // 1280 px (the settings button ended at 1033 and 1310 px with the fifth tab), where the header holds the search too.
 // The page is measured as it first comes, with the typeface not yet there, which is the narrower of its two faces' margins.
 test.describe('the header', () => {
   for (const language of ALL_LANGUAGES) {
-    test(`holds the five tools, the reference, the search and the settings in ${language} at 1024 and 1280 px`, async ({ page, context, baseURL }) => {
+    test(`holds the six tools, the reference, the search and the settings in ${language} at 1024 and 1280 px`, async ({ page, context, baseURL }) => {
       await context.addCookies([{ name: 'wd_lang', value: language, url: baseURL! }])
       await mockBackend(page, baseURL!)
       await page.goto('/history')

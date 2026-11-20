@@ -29,6 +29,12 @@ Types of changes:
   Explorer, Stripes and the Radar, with History and the Map in the Menu's sheet. A bar you arranged
   yourself is kept, and the Radar is below its line (GH-3788).
 
+### Changed
+
+- `[Navigation]` With the Radar the header holds six tools, and to fit them in the longer languages
+  the tools' tiles are left out of its tabs below 80 rem (the names stay), and the search's word and
+  the support heart appear from 90 rem instead of 80 rem (GH-3788).
+
 ## [0.56.0] - 2026-11-20
 
 Paired with backend 0.193.0. It needs backend 0.192.0 (the stripes' `provider` and `network`, for the GHCN
