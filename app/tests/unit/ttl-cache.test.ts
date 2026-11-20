@@ -160,12 +160,14 @@ describe('a read that nobody waits for any more', () => {
     expect(await noSignal).toBe('answer')
   })
 
-  it('is no run at all where the asker has gone before it asked', async () => {
+  it('gives up the run at once where the asker has gone before it asked: the run is told to stop as it starts, and nothing is kept', async () => {
     const cache = new TtlCache<string>({ ttlMs: 1000, maxEntries: 10 })
     const client = new AbortController()
     client.abort()
     const load = vi.fn((signal: AbortSignal) => new Promise<string>((_, reject) => signal.addEventListener('abort', () => reject(new AbortedError()))))
     await expect(cache.get('a', load, client.signal)).rejects.toBeInstanceOf(AbortedError)
+    expect(load).toHaveBeenCalledTimes(1)
+    expect(load.mock.calls[0]![0].aborted).toBe(true)
     expect(cache.size).toBe(0)
   })
 })

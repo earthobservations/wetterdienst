@@ -54,7 +54,7 @@ const RETRY_AFTER_SECONDS = 30
 /** The kind of the problem for an answer that is not what the endpoint gives, as the proxy of `/api` names it */
 const UNEXPECTED_KIND = UNEXPECTED_ANSWER_TYPE.replace('urn:wetterdienst:problem:', '')
 
-/** What the backend is given to answer a read in, 90 seconds: more than its own limit for a request (60 seconds), so that it answers first; a read that takes longer is a 504 and gives its place up */
+/** What the backend is given to answer a read in, the body included, 90 seconds: more than its own limit for a request (60 seconds), so that it answers first; a read that takes longer is a 504 and gives its place up */
 const BACKEND_TIMEOUT_MS = 90_000
 
 /** The problem of a failure of the app's own; its `instance` and `request_id` are written where the request is answered (`ghcnRoutes.ts`) if the reader did not know the id */
@@ -67,21 +67,24 @@ function problemOf(status: number, title: string, kind: string, detail: string, 
  * stops the read (`AbortedError`) where nobody waits for it any more. A problem of the backend's own is passed on as it is; an answer that is a web page or no JSON, and a backend that cannot be reached, are a 502
  * of the app's own, as the proxy of `/api` answers them.
  */
-export function backendReader(apiBase: string, requestId: string, signal?: AbortSignal, fetcher: typeof fetch = globalThis.fetch): BackendRead {
+export function backendReader(apiBase: string, requestId: string, signal?: AbortSignal, fetcher: typeof fetch = globalThis.fetch, timeoutMs = BACKEND_TIMEOUT_MS): BackendRead {
   return async (path, query) => {
     const url = `${apiBase}${path}?${new URLSearchParams(query)}`
+    // the limit covers the answer and its body: one timer, which the read of the body is under as well
+    const limit = AbortSignal.timeout(timeoutMs)
+    const timedOut = () => {
+      console.error(`Request ${requestId} to the backend for ${path} took longer than ${timeoutMs / 1000} s.`)
+      return new UpstreamProblem(504, problemOf(504, 'Gateway Timeout', 'upstream-timeout', 'The backend did not answer in time.', requestId), RETRY_AFTER_SECONDS)
+    }
     let response: Response
     try {
-      const limit = AbortSignal.timeout(BACKEND_TIMEOUT_MS)
       response = await fetcher(url, { headers: { 'x-request-id': requestId, 'accept': 'application/json' }, signal: signal ? AbortSignal.any([limit, signal]) : limit })
     }
     catch (failure) {
       if (signal?.aborted)
         throw new AbortedError()
-      if ((failure as { name?: string })?.name === 'TimeoutError') {
-        console.error(`Request ${requestId} to the backend for ${path} took longer than ${BACKEND_TIMEOUT_MS / 1000} s.`)
-        throw new UpstreamProblem(504, problemOf(504, 'Gateway Timeout', 'upstream-timeout', 'The backend did not answer in time.', requestId), RETRY_AFTER_SECONDS)
-      }
+      if (limit.aborted || (failure as { name?: string })?.name === 'TimeoutError')
+        throw timedOut()
       console.error(`Request ${requestId} to the backend for ${path} failed:`, (failure as { cause?: unknown })?.cause ?? failure)
       throw new UpstreamProblem(502, problemOf(502, 'Bad Gateway', 'backend-unreachable', 'The backend could not be reached. The cause is in the server log.', requestId), RETRY_AFTER_SECONDS)
     }
@@ -96,9 +99,11 @@ export function backendReader(apiBase: string, requestId: string, signal?: Abort
       body = await response.json()
     }
     catch {
-      // the body is read under the same limits: a client that left, or a backend that stopped in the middle of it
+      // the body is read under the same limits: a client that left, or a backend that did not finish it in time
       if (signal?.aborted)
         throw new AbortedError()
+      if (limit.aborted)
+        throw timedOut()
       throw new UpstreamProblem(502, problemOf(502, 'Bad Gateway', UNEXPECTED_KIND, describeWrongKind(contentType ?? 'text/plain'), requestId), RETRY_AFTER_SECONDS)
     }
     if (!response.ok) {
@@ -308,7 +313,11 @@ export async function readGhcnStations(read: BackendRead, kind: AnnualKind, this
     const answer = await read('/stations', { provider: 'noaa', network: 'ghcn', parameters: `daily/data/${parameter}`, all: 'true' }) as { stations?: ListedStation[] }
     if (!Array.isArray(answer?.stations))
       throw new UpstreamProblem(502, problemOf(502, 'Bad Gateway', UNEXPECTED_KIND, 'The answer of the API does not have the form of this endpoint: no list of `stations`.'), RETRY_AFTER_SECONDS)
-    lists[name] = answer.stations
+    // cut at once to what the combination reads, so that one full list is alive at a time (each is 8 to 21 MB of JSON): the span of
+    // each station, and its fields for the lists a name is taken from (the TMIN list gives none, see `stripesStationsOf`)
+    lists[name] = answer.stations.map(station => name === 'min'
+      ? { station_id: station.station_id, start_timestamp: station.start_timestamp, end_timestamp: station.end_timestamp }
+      : { ...Object.fromEntries(STATION_FIELDS.map(field => [field, station[field] ?? null])), station_id: station.station_id, start_timestamp: station.start_timestamp, end_timestamp: station.end_timestamp })
   }
   return stripesStationsOf(kind, lists, thisYear)
 }

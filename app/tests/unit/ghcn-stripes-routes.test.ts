@@ -24,6 +24,8 @@ let closed: string
 
 interface Seen { path: string, query: URLSearchParams, requestId: string | undefined }
 const seen: Seen[] = []
+/** The requests the backend saw cut off before it answered: the connection of the app's read was closed */
+const cutOff: string[] = []
 /** What the backend answers next: a function of the request, or the default answer of the generic API */
 let answer: ((request: IncomingMessage, response: ServerResponse, query: URLSearchParams) => void) | null = null
 let delayMs = 0
@@ -57,6 +59,10 @@ function valuesAnswer(query: URLSearchParams) {
 function backendHandler(request: IncomingMessage, response: ServerResponse): void {
   const url = new URL(request.url ?? '/', 'http://backend')
   seen.push({ path: url.pathname, query: url.searchParams, requestId: request.headers['x-request-id'] as string | undefined })
+  response.on('close', () => {
+    if (!response.writableFinished)
+      cutOff.push(url.search)
+  })
   const send = (status: number, body: unknown, type = 'application/json', headers: Record<string, string> = {}) => {
     response.writeHead(status, { 'content-type': type, ...headers })
     response.end(typeof body === 'string' ? body : JSON.stringify(body))
@@ -121,6 +127,7 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   seen.length = 0
+  cutOff.length = 0
   answer = null
   delayMs = 0
   config.apiBase = `${backend}/api`
@@ -344,10 +351,63 @@ describe('the queue of reads of the annual values', () => {
     await vi.waitFor(() => expect(seen).toHaveLength(1))
     leaving.abort()
     expect(await left).toBe('AbortError')
+    // the next asker comes once the backend has seen the read cut off: before that the run is still the one it would join
+    await vi.waitFor(() => expect(cutOff).toHaveLength(1))
     delayMs = 0
     expect((await raw(ANNUAL)).status).toBe(200)
     expect(seen).toHaveLength(2)
   })
+
+  it('gives up the shared run of a list where its one client has gone: the lists of the kind not yet read are not read, and nothing is kept', async () => {
+    delayMs = 300
+    const leaving = new AbortController()
+    const left = fetch(`${app}/_ghcn/stations?kind=temperature`, { signal: leaving.signal }).catch((failure: Error) => failure.name)
+    await vi.waitFor(() => expect(seen).toHaveLength(1))
+    leaving.abort()
+    expect(await left).toBe('AbortError')
+    await vi.waitFor(() => expect(cutOff).toHaveLength(1))
+    // only TAVG was asked for: TMAX and TMIN never were
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(seen).toHaveLength(1)
+    delayMs = 0
+    expect((await raw('/_ghcn/stations?kind=temperature')).status).toBe(200)
+    expect(seen).toHaveLength(4)
+  })
+
+  it('goes on with the shared run of a list where one of its two clients has gone', async () => {
+    delayMs = 150
+    const leaving = new AbortController()
+    const left = fetch(`${app}/_ghcn/stations?kind=temperature`, { signal: leaving.signal }).catch((failure: Error) => failure.name)
+    const staying = raw('/_ghcn/stations?kind=temperature')
+    await vi.waitFor(() => expect(seen).toHaveLength(1))
+    leaving.abort()
+    expect(await left).toBe('AbortError')
+    expect((await staying).status).toBe(200)
+    expect(seen).toHaveLength(3)
+    expect(cutOff).toEqual([])
+  })
+
+  it('reads the annual values and the lists of stations through one queue: four reads at once between them', async () => {
+    delayMs = 200
+    let running = 0
+    let most = 0
+    answer = (_request, response, query) => {
+      running++
+      most = Math.max(most, running)
+      setTimeout(() => {
+        running--
+        response.writeHead(200, { 'content-type': 'application/json' })
+        response.end(JSON.stringify(query.get('stations') ? valuesAnswer(query) : { stations: stub.listOf(query.get('parameters')!.split('/')[2]!) }))
+      }, 100)
+    }
+    const calls = [
+      ...Array.from({ length: 5 }, (_, index) => raw(`/_ghcn/annual?kind=temperature&station=USW0000000${index}`)),
+      raw('/_ghcn/stations?kind=temperature'),
+      raw('/_ghcn/stations?kind=precipitation'),
+    ]
+    expect((await Promise.all(calls)).map(response => response.status)).toEqual(Array.from({ length: 7 }).fill(200))
+    expect(most).toBe(4)
+  }, 30_000)
 })
 
 describe('a read of the backend that takes too long, or whose client has gone', () => {
@@ -361,6 +421,30 @@ describe('a read of the backend that takes too long, or whose client has gone', 
     const failure = await read('/values', {}).catch((error: unknown) => error)
     expect(failure).toBeInstanceOf(UpstreamProblem)
     expect(failure).toMatchObject({ status: 504, retryAfter: 30, problem: { type: 'urn:wetterdienst:problem:upstream-timeout', request_id: 'abc' } })
+  })
+
+  it('is the same 504 where the time runs out while the body is read, and no \'not JSON\' of a 502', async () => {
+    const slowBody = ((_url: string, init: { signal: AbortSignal }) => Promise.resolve({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: () => new Promise((_, reject) => init.signal.addEventListener('abort', () => reject(new Error('the body was cut')))),
+    })) as unknown as typeof fetch
+    const read = backendReader('http://backend/api', 'abc', undefined, slowBody, 20)
+    const failure = await read('/values', {}).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(UpstreamProblem)
+    expect(failure).toMatchObject({ status: 504, retryAfter: 30, problem: { type: 'urn:wetterdienst:problem:upstream-timeout' } })
+  })
+
+  it('is still a 502 where the body is no JSON and the time has not run out', async () => {
+    const page = (() => Promise.resolve({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: () => Promise.reject(new SyntaxError('Unexpected token')),
+    })) as unknown as typeof fetch
+    const failure = await backendReader('http://backend/api', 'abc', undefined, page, 60_000)('/values', {}).catch((error: unknown) => error)
+    expect(failure).toMatchObject({ status: 502 })
   })
 
   it('is an abort, and no failure to tell, where the signal says nobody waits for it', async () => {
@@ -438,6 +522,30 @@ describe('the stations route', () => {
     expect((await raw('/_ghcn/stations?kind=temperature')).status).toBe(502)
     config.apiBase = `${backend}/api`
     expect((await raw('/_ghcn/stations?kind=temperature')).status).toBe(200)
+  })
+
+  it.each([['temperature_air_max_2m', 2], ['temperature_air_min_2m', 3]])('keeps nothing of a kind whose list of %s failed, and reads all three again on the next ask', async (failing, reads) => {
+    let failures = 1
+    answer = (_request, response, query) => {
+      if (query.get('parameters')?.endsWith(failing) && failures-- > 0) {
+        response.writeHead(500, { 'content-type': 'application/problem+json' })
+        response.end(JSON.stringify({ type: 'urn:wetterdienst:problem:upstream-failed', title: 'Internal Server Error', status: 500, detail: 'The list failed.' }))
+        return
+      }
+      response.writeHead(200, { 'content-type': 'application/json' })
+      response.end(JSON.stringify({ stations: stub.listOf(query.get('parameters')!.split('/')[2]!) }))
+    }
+
+    expect((await raw('/_ghcn/stations?kind=temperature')).status).toBe(500)
+    // the lists after the failed one were not read
+    expect(seen).toHaveLength(reads)
+    const second = await raw('/_ghcn/stations?kind=temperature')
+    expect(second.status).toBe(200)
+    expect(ids(second.json())).toEqual(['USW00000002', 'USW00000008'])
+    expect(seen).toHaveLength(reads + 3)
+    // and now it is kept
+    await raw('/_ghcn/stations?kind=temperature')
+    expect(seen).toHaveLength(reads + 3)
   })
 
   it('tells a list that is no list as a 502', async () => {

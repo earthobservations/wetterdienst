@@ -213,6 +213,13 @@ describe('the stripes of a station of DWD', () => {
     })
   })
 
+  it.each([[0, 'for no year'], [1, 'from 2020 to 2020']])('are refused for a record of %i years with data, with no window, as a record too short: the backend\'s sentence, the record\'s reason', async (years, text) => {
+    const { fetch } = fetchOf({ '/api/values': () => valuesAnswer(recordOf(2020, 2020 + years - 1, () => 8)) })
+    const failure = await fetchStripes(fetch, request()).catch((error: unknown) => error)
+    expect(failure).toMatchObject({ statusCode: 400, reason: 'record-too-short' })
+    expect((failure as Error).message).toBe(`At least two years with data are required to create climate stripes; station 01048 has data ${text}`)
+  })
+
   it('are refused as a 400 for a window of fewer than two years, which is no record too short', async () => {
     const { fetch } = fetchOf({ '/api/values': () => valuesAnswer(record) })
     await expect(fetchStripes(fetch, request({ startYear: 2030, endYear: 2040 }))).rejects.toMatchObject({ statusCode: 400, reason: 'window-too-short' })

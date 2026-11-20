@@ -1977,7 +1977,7 @@ describe('stripes Page record too short, and a kind that is none', () => {
   async function showShort(years: number) {
     clearNuxtData()
     registerEndpoint('/api/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/values', asValues(() => ({ series: { station }, values: answerOf(TWO_YEARS).values.slice(-years) })))
+    registerEndpoint('/api/values', asValues(() => ({ series: { station }, values: answerOf(TWO_YEARS).values.slice(TWO_YEARS.length - years) })))
     wrapper = await mountSuspended(defineComponent({ setup: () => () => h(UApp, null, { default: () => h(StripesPage) }) }), { attachTo: document.body, route: '/stripes?kind=temperature' })
     const vm = wrapper.findComponent(StripesPage).vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
@@ -2002,6 +2002,15 @@ describe('stripes Page record too short, and a kind that is none', () => {
     // Reset takes it away
     await wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Reset')!.trigger('click')
     expect(document.querySelector('[data-testid="stripes-no-record"]')).toBeNull()
+  })
+
+  it.each([0, 1])('says it for a record of %i years with data too, which the window check would have refused first', async (years) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await showShort(years)
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="stripes-no-record"]')).not.toBeNull())
+    expect(document.querySelector('[data-testid="stripes-no-record"]')!.textContent?.trim()).toBe('This station has no record long enough for climate stripes: at least 10 years with data are needed.')
+    expect(document.body.textContent).not.toContain('Failed to load data')
+    expect(document.body.textContent).not.toContain('At least two years with data')
   })
 
   it('says it in the language of the page', async () => {

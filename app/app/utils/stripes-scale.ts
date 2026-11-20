@@ -249,9 +249,11 @@ export function stripesFromRecord(
   const recorded = [...byYear.entries()].filter((entry): entry is [number, number] => entry[1] !== null).sort((a, b) => a[0] - b[0])
 
   const inWindow = recorded.filter(([year]) => (startYear === null || year >= startYear) && (endYear === null || year <= endYear))
+  // a window with fewer than two years is the record's fault where the record has too few years for a scale whatever the window: the
+  // sentence is the backend's, the reason (which the page tells in words of its own) the record's
   if (inWindow.length < 2) {
     const text = recorded.length ? `from ${recorded[0]![0]} to ${recorded.at(-1)![0]}` : 'for no year'
-    throw new StripesRefusedError(400, `At least two years with data are required to create climate stripes; station ${stationId} has data ${text}`, undefined, 'window-too-short')
+    throw new StripesRefusedError(400, `At least two years with data are required to create climate stripes; station ${stationId} has data ${text}`, undefined, recorded.length < MIN_RECORD_YEARS ? 'record-too-short' : 'window-too-short')
   }
   if (recorded.length < MIN_RECORD_YEARS)
     throw new StripesRefusedError(400, `At least ${MIN_RECORD_YEARS} years with data are required to scale climate stripes; station ${stationId} has data for ${recorded.length} (from ${recorded[0]![0]} to ${recorded.at(-1)![0]})`, undefined, 'record-too-short')

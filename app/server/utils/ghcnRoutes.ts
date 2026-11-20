@@ -131,10 +131,16 @@ function closedBy(event: Parameters<Parameters<typeof defineEventHandler>[0]>[0]
   return controller.signal
 }
 
+/**
+ * The queue of reads of the backend, one for the process: the annual values and the lists of stations are read through it, so at
+ * most `CONCURRENT_READS` run at once across both routes. It cannot deadlock: a read holds a place only while it runs, and no read
+ * waits for another (a list is read in turns, each one asking for its own place, and an annual read waits for nothing).
+ */
+const limit = createLimiter(CONCURRENT_READS, { maxWaiting: MAX_WAITING_READS, maxWaitMs: MAX_WAIT_MS })
+
 /** The handler of `GET /_ghcn/annual` */
 export function ghcnAnnualHandler({ reader = backendReader }: Handlers = {}) {
   const cache = new TtlCache<GhcnAnnualAnswer>({ ttlMs: GHCN_TTL_MS, maxEntries: ANNUAL_ENTRIES })
-  const limit = createLimiter(CONCURRENT_READS, { maxWaiting: MAX_WAITING_READS, maxWaitMs: MAX_WAIT_MS })
   return defineEventHandler(async (event) => {
     const requestId = requestIdOf(getRequestHeader(event, 'x-request-id'))
     const closed = closedBy(event)
@@ -156,7 +162,6 @@ export function ghcnAnnualHandler({ reader = backendReader }: Handlers = {}) {
 export function ghcnStationsHandler({ reader = backendReader }: Handlers = {}) {
   // one list for each kind, which is read as one list of each element it is made of, one after another
   const cache = new TtlCache<Station[]>({ ttlMs: GHCN_TTL_MS, maxEntries: KINDS.length })
-  const limit = createLimiter(CONCURRENT_READS, { maxWaiting: MAX_WAITING_READS, maxWaitMs: MAX_WAIT_MS })
   return defineEventHandler(async (event) => {
     const requestId = requestIdOf(getRequestHeader(event, 'x-request-id'))
     const closed = closedBy(event)

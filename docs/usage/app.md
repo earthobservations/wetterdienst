@@ -335,9 +335,9 @@ by the rules of WMO-No. 1203, and lists the stations that have a record long eno
   JSON each).
 
 Both are kept in the memory of the server for twelve hours, as the backend keeps the files of NOAA: a station's years
-(at most 1,000 stations, the one used longest ago going first) and the list of the stations of each kind. A station asked for by
-several clients at once is read once, and a failure is not kept. Each route runs at most four reads of the backend side by
-side (a read holds up to 80 MB of memory while it is parsed); another 16 may wait for their turn, for 30 seconds at the
+(at most 1,000 stations, the one used longest ago going first) and the list of the stations of each kind. A station asked
+for by several clients at once is read once, and a failure is not kept. The two stripes routes run at most four reads of the
+backend between them, side by side (a read holds up to 80 MB of memory while it is parsed); another 16 may wait for their turn, for 30 seconds at the
 most, and a read beyond that is answered `503` with a `Retry-After` of 10 seconds. A read whose client has closed the
 connection is given up, in the queue or under way, unless another client waits for the same station, and a read the backend
 does not answer in 90 seconds is a `504`. Neither route is part of the backend's API: a deployment that serves the app serves them, one that serves the backend
