@@ -2483,14 +2483,15 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "sunshine_duration",
         "duration",
-        "Length of time the sun shone unobstructed.",
+        "Length of time during which the direct solar irradiance exceeded 120 W/m² (WMO's threshold).",
         interpolation="homogeneous",
         aggregation="sum",
     ),
     CanonicalParameter(
         "sunshine_duration_last_3h",
         "duration",
-        "Length of time the sun shone unobstructed in the preceding 3 hours.",
+        "Length of time during which the direct solar irradiance exceeded 120 W/m² (WMO's threshold) "
+        "in the preceding 3 hours.",
         interpolation="homogeneous",
         aggregation="sum",
     ),
@@ -2522,7 +2523,8 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
     CanonicalParameter(
         "sunshine_duration_yesterday",
         "duration",
-        "Length of time the sun shone unobstructed on the previous day.",
+        "Length of time during which the direct solar irradiance exceeded 120 W/m² (WMO's threshold) "
+        "on the previous day.",
         interpolation="homogeneous",
         aggregation="sum",
     ),
