@@ -85,6 +85,11 @@ const PAGES: Target[] = [
     ready: async (page) => { await expect(page.getByText('Mean air temperature at 2 m height.').first()).toBeVisible() },
   },
   {
+    page: 'measurement',
+    path: '/measurement',
+    ready: async (page, locale) => { await expect(page.getByRole('heading', { level: 1, name: message(locale, 'measurement.title') })).toBeVisible() },
+  },
+  {
     page: 'providers',
     path: '/providers',
     ready: async (page) => { await expect(page.getByRole('heading', { name: 'German Weather Service' })).toBeVisible() },

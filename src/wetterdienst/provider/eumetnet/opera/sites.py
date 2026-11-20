@@ -1,6 +1,12 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""OPERA radar sites."""
+"""OPERA radar sites.
+
+The list in `sites.json.gz` is the database of EUMETNET OPERA: credit it to EUMETNET OPERA and name its source page,
+`OPERA_SOURCE_URL`, where you copy or publish it. EUMETNET OPERA gave its permission in November 2026 for wetterdienst
+to use the list and pass it on; the licence of the list is still being decided at OPERA and none is stated here
+(GH-4200).
+"""
 
 from __future__ import annotations
 
@@ -17,8 +23,24 @@ if TYPE_CHECKING:
     from collections.abc import Iterator
 
 
+#: whom the list of radar sites is credited to
+OPERA_CREDIT = "EUMETNET OPERA"
+#: the page of EUMETNET that the list comes from, to name on each copy and publication of it
+OPERA_SOURCE_URL = (
+    "https://www.eumetnet.eu/wp-content/themes/aeron-child/observations-programme/"
+    "current-activities/opera/database/OPERA_Database/index.html"
+)
+#: the line the `radar` command writes to stderr beside the sites
+OPERA_CREDIT_LINE = f"Radar sites: {OPERA_CREDIT}, {OPERA_SOURCE_URL}"
+
+
 class OperaRadarSites:
-    """Provide information about all European OPERA radar sites."""
+    """Provide information about all European OPERA radar sites.
+
+    The sites are the database of EUMETNET OPERA, which gave wetterdienst its permission in November 2026 to use the
+    list and pass it on, credited to `OPERA_CREDIT` with the source page `OPERA_SOURCE_URL` named. OPERA has not yet
+    decided the licence of the list, and none is stated here.
+    """
 
     data_file = importlib.resources.files(__package__ or __name__) / "sites.json.gz"
 

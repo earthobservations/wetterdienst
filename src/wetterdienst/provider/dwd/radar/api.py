@@ -739,7 +739,10 @@ DwdRadarValues.__new__.__wrapped__ = DwdRadarValues.__init__  # ty: ignore[unres
 
 
 class DwdRadarSites(OperaRadarSites):
-    """API for DWD radar sites."""
+    """API for DWD radar sites.
+
+    The sites are EUMETNET OPERA's list, those in Germany; credit them as `OperaRadarSites` says.
+    """
 
     def __init__(self) -> None:
         """Load all DWD radar sites."""

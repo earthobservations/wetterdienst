@@ -161,6 +161,7 @@
       "api": "D'REST-API an de MCP-Server vu Wetterdienst: Formater an Beispiller fir Statioune, Wäerter, Interpolatioun a Klimasträifen.",
       "providers": "Déi national Wiederdéngschter hannert den Daten: Land, Lizenz, d'Quell, déi ugi muss ginn, a wat all eenzelne bitt.",
       "glossary": "Wat all Wieder- a Klimaparameter mierkt a a wéi enger Eenheet seng Wäerter zeréckkommen, mat Sich no Numm a Gréisst.",
+      "measurement": "Wéi d'Wieder gemooss gëtt: Instrumenter, wéi aus enger Miessung e Wäert gëtt, wat d'Zuel seet a wou d'Ubidder sech ënnerscheeden, mat Quellen.",
       "about": "Iwwer dat Open-Source-Projet Wetterdienst an d'Leit, déi et ënnerhalen.",
       "support": "Ënnerstëtz Wetterdienst: mell e Problem, dréi Code bäi oder spend.",
       "map": "Eng Kaart vun de Statioune vum Däitsche Wiederdéngscht: Wiel eng Statioun oder e beléiwege Punkt a kuck d'Prognos, d'Klimasträifen an d'Miessungen derzou.",
@@ -205,6 +206,7 @@
     "providers": "Ubidder",
     "api": "API",
     "glossary": "Glossar",
+    "measurement": "Miessung",
     "support": "Ënnerstëtzung",
     "map": "Kaart",
     "radar": "Radar"
@@ -464,7 +466,38 @@
     "unitTypeLabel": "Gréisst",
     "loading": "Gëtt gelueden…",
     "noResults": "Keen Parameter passt zu der Sich.",
-    "count": "{shown} vu(n) {count} Parameter | {shown} vu(n) {count} Parameteren"
+    "count": "{shown} vu(n) {count} Parameter | {shown} vu(n) {count} Parameteren",
+    "howMeasured": "Wéi gëtt dat gemooss?",
+    "topicFilter": "Nëmmen „{topic}“",
+    "clearTopic": "All Parameter weisen"
+  },
+  "measurement": {
+    "title": "Wéi d'Wieder gemooss gëtt",
+    "subtitle": "Wat eng Temperatur, eng Reemenge oder e Wandstouss bedeit, ier s du d'Zuel liest: d'Instrument, de Wäert deen doraus gëtt, seng Grenzen a wou d'Ubidder sech ënnerscheeden",
+    "menuDescription": "Wéi eng Gréisst gemooss gëtt, wéi aus enger Miessung e Wäert gëtt a wat d'Zuel soe kann",
+    "tocTitle": "Inhalt",
+    "editionTitle": "Quellen an Ausgab",
+    "editionText": "All Rubrik nennt hir Quellen: fir d'éischt a verständleche Wierder, wat d'Quell ass a wat se seet, duerno déi formell Zitatioun. D'Haaptquell ass de Guide to Instruments and Methods of Observation (WMO-No. 8) vun der Weltorganisatioun fir Meteorologie, zitéiert no Band a Kapitel: de Band I an II an der Ausgab 2024, de Band V an der Ausgab 2023, déi aktuell ass. Et gëtt eng provisoresch Ausgab 2026; dës Säit benotzt si net. Wou eng Rubrik seet, wat en Ubidder mécht, nennt si dem Ubidder seng eege Datei.",
+    "editionLink": "WMO-No. 8 bei der WMO",
+    "groupMeasured": "Wat gemooss gëtt, a wéi",
+    "groupReading": "D'Date liesen",
+    "linkTo": "Link zur Rubrik „{title}“",
+    "fieldsTitle": "Felder am Glossar",
+    "fieldsText": "Dës Rubrik erkläert d'Parameter vum Glossar, deenen hir Nimm esou ausgesinn:",
+    "fieldsLink": "Dës Felder am Glossar weisen",
+    "sourcesTitle": "Quellen",
+    "untranslatedEn": "Dës Rubrik ass nach net an deng Sprooch iwwersat a gëtt op Englesch gewisen.",
+    "untranslatedDe": "Dës Rubrik ass nach net an deng Sprooch iwwersat a gëtt op Däitsch gewisen.",
+    "topics": {
+      "temperature": "Loft- a Buedemtemperatur",
+      "wind": "Wand",
+      "precipitation": "Nidderschlag",
+      "sunshine": "Sonnenscheindauer",
+      "snow": "Schnéi",
+      "normals": "Klimanormalwäerter",
+      "time": "Zäit",
+      "observationForecastDerived": "Observatioun, Prévisioun an ofgeleet Daten"
+    }
   },
   "providers": {
     "title": "Ubidder",

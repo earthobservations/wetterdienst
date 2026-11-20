@@ -13,7 +13,8 @@ internals are not. `tests/public_surface.snapshot.json` holds, of the frozen par
   The constructor of a network whose extra is not installed cannot be read and is left out of the comparison;
 - the import path of each request class: the package of its network (`wetterdienst.provider.dwd.observation`) exports
   it under its name, which `Wetterdienst.resolve` is the other way to. The `api.py` and `values.py` behind it are not
-  frozen.
+  frozen;
+- the same for the point lookups, which are in no registry (`dwd/kostra`: `DwdKostraRequest`).
 
 The results (their fields, public methods and the signatures the guide shows) are pinned by
 `tests/model/test_results.py`, the exceptions by `tests/test_exceptions.py`, and the types by `tests/typed_caller.py`.
@@ -113,6 +114,25 @@ def _request_exports() -> dict[str, str]:
     return found
 
 
+def _point_lookups() -> dict[str, type]:
+    """Give the request class of each point lookup: a lookup of a point that is no network of the registry."""
+    from wetterdienst.provider.dwd.kostra import DwdKostraRequest  # noqa: PLC0415
+
+    return {"dwd/kostra": DwdKostraRequest}
+
+
+def _point_lookup_exports() -> dict[str, str]:
+    """Give the import path of each point lookup's request class, as the package of its module exports it."""
+    from importlib import import_module  # noqa: PLC0415
+
+    found = {}
+    for name, request in _point_lookups().items():
+        package = request.__module__.rpartition(".")[0]
+        exported = getattr(import_module(package), request.__name__, None) is request
+        found[name] = f"{package}.{request.__name__}" if exported else f"not exported: {request.__module__}"
+    return found
+
+
 def build_surface() -> dict[str, Any]:
     """Describe the frozen surface of the Python API as the code has it."""
     import wetterdienst  # noqa: PLC0415
@@ -132,6 +152,8 @@ def build_surface() -> dict[str, Any]:
         "TimeseriesRequest": {"__init__": signature_of(TimeseriesRequest), **_public(TimeseriesRequest)},
         "requests": _requests(),
         "request_exports": _request_exports(),
+        "point_lookups": {name: signature_of(request) for name, request in _point_lookups().items()},
+        "point_lookup_exports": _point_lookup_exports(),
     }
 
 

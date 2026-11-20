@@ -161,6 +161,7 @@
       "api": "L'API REST et le serveur MCP de Wetterdienst : formats et exemples pour les stations, les valeurs, l'interpolation et les bandes climatiques.",
       "providers": "Les services météorologiques nationaux derrière les données : pays, licence, mention de la source à indiquer et ce que chacun propose.",
       "glossary": "Ce que mesure chaque paramètre météorologique et climatique et l'unité de ses valeurs, avec recherche par nom et par grandeur.",
+      "measurement": "Comment la météo est mesurée : instruments, comment une mesure devient une valeur, ce que dit le chiffre et où les fournisseurs diffèrent, avec les sources.",
       "about": "À propos du projet open source Wetterdienst et des personnes qui le maintiennent.",
       "support": "Soutenir Wetterdienst : signaler un problème, contribuer du code ou faire un don.",
       "map": "Une carte des stations du Service météorologique allemand : choisis une station ou un point quelconque pour voir ses prévisions, ses bandes climatiques et ses mesures.",
@@ -205,6 +206,7 @@
     "providers": "Fournisseurs",
     "api": "API",
     "glossary": "Glossaire",
+    "measurement": "Mesure",
     "support": "Aide",
     "map": "Carte",
     "radar": "Radar"
@@ -464,7 +466,38 @@
     "unitTypeLabel": "Grandeur",
     "loading": "Chargement…",
     "noResults": "Aucun paramètre ne correspond à la recherche.",
-    "count": "{shown} sur {count} paramètre | {shown} sur {count} paramètres"
+    "count": "{shown} sur {count} paramètre | {shown} sur {count} paramètres",
+    "howMeasured": "Comment est-ce mesuré ?",
+    "topicFilter": "Seulement « {topic} »",
+    "clearTopic": "Afficher tous les paramètres"
+  },
+  "measurement": {
+    "title": "Comment la météo est mesurée",
+    "subtitle": "Ce que signifie une température, un cumul de pluie ou une rafale avant que tu lises le chiffre : l'instrument, la valeur qui en résulte, ses limites et où les fournisseurs diffèrent",
+    "menuDescription": "Comment une grandeur est mesurée, comment une mesure devient une valeur et ce que dit le chiffre",
+    "tocTitle": "Sommaire",
+    "editionTitle": "Sources et édition",
+    "editionText": "Chaque entrée nomme ses sources : d'abord, en termes simples, ce qu'est la source et ce qu'elle dit, puis la citation formelle. La source principale est le Guide to Instruments and Methods of Observation (WMO-No. 8) de l'Organisation météorologique mondiale, cité par volume et par chapitre : les volumes I et II dans leur édition 2024, le volume V dans son édition 2023, qui est la plus récente. Une édition provisoire 2026 existe ; cette page ne l'utilise pas. Quand une entrée dit ce que fait un fournisseur, elle nomme le fichier du fournisseur lui-même.",
+    "editionLink": "WMO-No. 8 à l'OMM",
+    "groupMeasured": "Ce qui est mesuré, et comment",
+    "groupReading": "Lire les données",
+    "linkTo": "Lien vers l'entrée « {title} »",
+    "fieldsTitle": "Champs du glossaire",
+    "fieldsText": "Cette entrée explique les paramètres du glossaire dont les noms ressemblent à ceci :",
+    "fieldsLink": "Afficher ces champs dans le glossaire",
+    "sourcesTitle": "Sources",
+    "untranslatedEn": "Cette entrée n'est pas encore traduite dans ta langue et s'affiche en anglais.",
+    "untranslatedDe": "Cette entrée n'est pas encore traduite dans ta langue et s'affiche en allemand.",
+    "topics": {
+      "temperature": "Température de l'air et du sol",
+      "wind": "Vent",
+      "precipitation": "Précipitations",
+      "sunshine": "Durée d'ensoleillement",
+      "snow": "Neige",
+      "normals": "Normales climatiques",
+      "time": "Heure et jour",
+      "observationForecastDerived": "Observation, prévision et données dérivées"
+    }
   },
   "providers": {
     "title": "Fournisseurs",

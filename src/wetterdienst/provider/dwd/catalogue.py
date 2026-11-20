@@ -84,15 +84,69 @@ STATION_POSITION_CORRECTIONS: dict[str, tuple[tuple[float, float], tuple[float, 
 _POSITION_TOLERANCE = 0.005
 
 
+# The five digits that DWD's catalogues write as a station's id are taken as its WMO number
+# (`with_wmo_id_of_station_id`), which DWD does not state. Compared with WMO's register OSCAR/Surface (read 2026-11-19,
+# `0-20000-0-<id>`), 90.5 % of the 2,696 numbers of MOSMIX are the register's and 256 are not in it at all: those are
+# kept, as a station can lack in the register without its number being wrong. Two kinds of number are no station's WMO
+# number, and are nulled (GH-4074):
+#
+# - Block 99 is no block of land stations: OSCAR has four `0-20000-0-99xxx` stations, two of them radars. The one id
+#   of it in the catalogues is 99953 LONGBOAT KEY (27.38 / -82.63, Florida), which the register does not have.
+# - The stations below, whose number the register holds for another station 100 km or more away; for five of the seven
+#   it has a station of DWD's name within 6 km of DWD's position, under another number. Checked one by one (name,
+#   position, OSCAR's station of the number and the nearest station of OSCAR to DWD's position):
+#
+#   - 02830 KITTILA (EFKT, 67.70 / 24.85): `0-20000-0-02830` is KOUVOLA ANJALA (60.70 / 26.81, since 1941), and
+#     KITTILA AIRPORT is `02720`, 1.0 km from DWD's position.
+#   - 03930 LIVERPOOL (EGGP): `03930` is ALMONDSBURY (51.55 / -2.56, 199 km), and SPEKE, the airport of Liverpool, is
+#     `03323`.
+#   - 16741 PAROS (LGPA, 37.02 / 25.13): `16741` is EL VENIZELOS, the airport of Athens (37.92 / 23.93, 146 km); the
+#     register has no station on Paros.
+#   - 71515 DRYDEN (CYHD, 49.83 / -92.75): `71515` is INDIAN HEAD CDA, SASK (779 km), and DRYDEN REGIONAL, ONT is
+#     `71527`, 0.5 km from DWD's position.
+#   - 71888 JASPER,ALTA. (52.88 / -118.07): `71888` is VIKING AGCM, ALTA (425 km, closed 2024), and JASPER WARDEN, ALTA
+#     is `71486`, 5.8 km from DWD's position.
+#   - 72388 SAN JOSE INT. (KSJC, 37.37 / -121.93): `72388` is Las Vegas, NV (619 km); the register has no station in
+#     San Jose.
+#   - 72522 HARRISBURG INT. (KMDT, 40.20 / -76.77): `72522` is GLENN FALLS, NY (437 km), and HARRISBURG INT. ARPT is
+#     `72399`, 0.9 km from DWD's position.
+#
+#   Not nulled, though the register puts the number elsewhere: 40437 RIAD INT.AIRPORT (OERK) and 40377 KING KHALID MIL
+#   CTY (OEKK), where the register's station of the number is closed (2024, 2025) and its position for 40377 (21.2 /
+#   51.8, in the Empty Quarter) is no place near Hafr Al-Batin, which it is named for, so the register may be the stale
+#   side; and 71060 CAMSELL RIVER N.W.T., a number the register has given to NORDEGG CS, ALTA since 2000 (1,464 km from
+#   DWD's position; no station of the register near it to say which number it has now).
+#
+# A number is nulled only while DWD publishes the id under exactly this name, so the correction stops by itself when
+# DWD fixes its catalogue. Each is held against OSCAR by a test that reads the register
+# (`tests/provider/dwd/test_wmo_id_corrections.py`): the station of the number is 100 km or more from DWD's position.
+WMO_ID_CORRECTIONS: dict[str, tuple[str, float, float]] = {
+    "02830": ("KITTILA", 67.7, 24.85),
+    "03930": ("LIVERPOOL", 53.33, -2.87),
+    "16741": ("PAROS", 37.02, 25.13),
+    "71515": ("DRYDEN", 49.83, -92.75),
+    "71888": ("JASPER,ALTA.", 52.88, -118.07),
+    "72388": ("SAN JOSE INT.", 37.37, -121.93),
+    "72522": ("HARRISBURG INT.", 40.2, -76.77),
+}
+#: the block of the numbers that no land station has
+_NO_LAND_STATIONS_BLOCK = "99"
+
+
 def with_wmo_id_of_station_id(df: pl.DataFrame) -> pl.DataFrame:
     """Add ``wmo_id`` to a catalogue of the forecast networks: the ``station_id`` where that is a WMO number.
 
     DWD's catalogues (MOSMIX, DMO, and POI, which reads MOSMIX's) key a station by its WMO number where it has one
     (`10147`, `01001`: five digits), and by an id DWD assigns where it has not (`A191`, `F9424`, `P0563`: 52 % of the
     MOSMIX list). The five digits are the number, so ``wmo_id`` is that and the others are null, since an id of
-    DWD's own is no WMO number however much it looks like one.
+    DWD's own is no WMO number however much it looks like one. A number of block 99 is none, and nor are those of
+    ``WMO_ID_CORRECTIONS`` (see there): null.
     """
-    return df.with_columns(wmo_id_expr("station_id").alias("wmo_id"))
+    wrong = pl.col("station_id").str.starts_with(_NO_LAND_STATIONS_BLOCK)
+    if "name" in df.columns:
+        for station_id, (name, _latitude, _longitude) in WMO_ID_CORRECTIONS.items():
+            wrong |= (pl.col("station_id") == station_id) & (pl.col("name").str.strip_chars() == name)
+    return df.with_columns(pl.when(~wrong).then(wmo_id_expr("station_id")).alias("wmo_id"))
 
 
 def correct_station_positions(df: pl.DataFrame) -> pl.DataFrame:

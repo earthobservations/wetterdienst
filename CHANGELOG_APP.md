@@ -28,6 +28,23 @@ Types of changes:
 - `[Navigation]` The Radar takes History's place in the default tab bar of a phone: Forecast,
   Explorer, Stripes and the Radar, with History and the Map in the Menu's sheet. A bar you arranged
   yourself is kept, and the Radar is below its line (GH-3788).
+
+## [0.56.0] - 2026-11-20
+
+Paired with backend 0.193.0. It needs backend 0.192.0 (the stripes' `provider` and `network`, for the GHCN
+daily layer) and otherwise no more of the backend than 0.191.0 gave it; 0.193.0 adds nothing it reads.
+
+### Added
+
+- `[Measurement]` A "How weather is measured" page in the Reference group beside the Glossary
+  (`/measurement`): one entry for air and soil temperature, wind, precipitation, sunshine
+  duration, snow, climate normals, time, and observation, forecast and derived data, each with an
+  anchor (`/measurement#wind`), a table of contents and the sources it rests on, the WMO Guide to
+  Instruments and Methods of Observation (WMO-No. 8; Volumes I and II of 2024, Volume V of 2023)
+  and the providers' own files. It is written in German and English; in another language an entry
+  is shown in English (in German for Low German and Luxembourgish), with a note. The Glossary
+  links each parameter it can to its entry, and an entry's link to its fields opens the Glossary
+  on them (`/glossary?topic=wind`) (GH-3787).
 - `[Map]` A NOAA GHCN daily layer, the third in the layers panel: stations from all over the world,
   loaded for the part of the map in view as it moves (debounced; a request the map has moved past
   is cancelled) and grouped like any large layer. Zoomed out so far that the view holds more than
@@ -2472,7 +2489,8 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.55.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.56.0...HEAD
+[0.56.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.55.0...app-v0.56.0
 [0.55.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.54.0...app-v0.55.0
 [0.54.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.53.0...app-v0.54.0
 [0.53.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.52.0...app-v0.53.0

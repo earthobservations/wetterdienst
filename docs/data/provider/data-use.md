@@ -172,6 +172,7 @@ with the terms of its provider.
 | `tests/provider/dwd/radar/files/` | ten real radar files of 2026-10-20 to 22 and 2026-11-19, the smallest of their product, but the RV composite's, which is the whole analysis of 2026-11-19 21:10 UTC (composites and a volume scan as HDF5, two `meso` and one `KONRAD3D` XML), 868,375 bytes | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dwd/alerts/files/` | one DWD warning in CAP form (a fog warning for Kreis Wittenberg, 2026-11-05, in eight languages) with the polygon of its one area cut to 5 of its 124 points, 16 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst"; the wording is DWD's |
 | `tests/provider/dwd/storm_cells/files/` | three real KONRAD3D scans of 2026-11-15 to 17: an empty one, one with two cells, and one with three of its ten cells (the others cut), 96 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
+| `tests/provider/dwd/kostra/files/` | the 22 KOSTRA-DWD-2020 tables of December 2022, each cut to five of its 90,000 rows (the header and the lines of the cells `000000`, `083144`, `105190`, `160126` and `203167`, byte for byte), 19,128 bytes | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dwd/mosmix/` | one real MOSMIX-SNOW run (the run of 2026-11-14 19 UTC, 15 stations, 48 hourly steps), as DWD published it, 9.7 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dwd/pollen/` | one real `s31fg.json`, the pollen forecast of 27 regions as DWD published it on 2026-11-17, 16 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dwd/uvi/` | one real `uvi.json`, the UV index forecast of 38 places as DWD published it on 2026-11-17, 3 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
@@ -183,7 +184,7 @@ with the terms of its provider.
 | IMGW rows of the same files and of `tests/provider/imgw/` | a few dozen rows of station lists and daily values, some of them edited | IMGW, CC BY-NC-ND 4.0; credit: „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej – Państwowy Instytut Badawczy” and „Dane Instytutu Meteorologii i Gospodarki Wodnej – Państwowego Instytutu Badawczego zostały przetworzone” |
 | LHMT rows of `tests/provider/lhmt/` | a few rows of observations, some of them edited | LHMT, CC BY-SA 4.0, credit "Lietuvos hidrometeorologijos tarnyba (LHMT)" |
 | `docs/assets/readme-stripes.png`, `summary.png`, `interpolation.png` and the output cells of the docs and the README | charts drawn from, and tables of, DWD values | DWD, CC BY 4.0, "Based on data from Deutscher Wetterdienst" |
-| `src/wetterdienst/provider/eumetnet/opera/sites.json.gz` (shipped in the package) | the 205 OPERA radar sites of EUMETNET's database, those with a location and a position, with their numbers converted from text | EUMETNET's [OPERA database](https://www.eumetnet.eu/wp-content/themes/aeron-child/observations-programme/current-activities/opera/database/OPERA_Database/index.html) page states no licence |
+| `src/wetterdienst/provider/eumetnet/opera/sites.json.gz` (shipped in the package) | the 205 OPERA radar sites of EUMETNET's database, those with a location and a position, with their numbers converted from text | EUMETNET OPERA, credit "EUMETNET OPERA", source page: EUMETNET's [OPERA database](https://www.eumetnet.eu/wp-content/themes/aeron-child/observations-programme/current-activities/opera/database/OPERA_Database/index.html); OPERA gave its permission in November 2026 to use the list and pass it on; the page states no licence and OPERA has not decided one yet |
 
 The two IMGW sentences are IMGW's own (§ 5 ust. 3 and 4 of its terms, in Polish); the first names the source, the second
 says the data were processed, which they are. The same two sentences stand beside the IMGW rows in the code.
@@ -203,13 +204,17 @@ Our reading:
   weather warnings issued by the DWD is changed, the source details provided with the data/services have to be
   deleted" ([rules](https://www.dwd.de/EN/service/legal_notice/templates_dwd_as_source.html)); a test file that is
   published as no warning is not what the rule is about, in our reading, which is not DWD's.
-- The OPERA list has no stated licence.
+- **The OPERA list** has no stated licence. EUMETNET OPERA's support answered in November 2026 that wetterdienst may use
+  the database and pass it on, credited to EUMETNET OPERA, and that the licence is still under discussion at OPERA. The
+  page of the database has a disclaimer about its map and links EUMETNET's general
+  [website terms](https://www.eumetnet.eu/legal-information-2/), whose § 3.4 to 3.6 allow private, research and
+  educational use and ask that the source page be named on each copy and publication; OPERA's answer is the permission
+  for the list. We name the page: here, in the docstrings of `OperaRadarSites`, and on stderr of the `radar` command.
 
 The rows stay, named and credited here; replacing the IMGW and LHMT ones with invented rows of the same shape would be
-the other way. The OPERA list is not settled: EUMETNET's page states no licence, the question was put to EUMETNET in November 2026
-and no answer has come yet. A test
-(`tests/test_provider_terms.py`) holds the first table of this page to the registry, so that a provider added without a
-row fails it, and this section to the data files that are in the tests.
+the other way. The OPERA list is not settled: its licence is still being decided at OPERA, which will say when it is,
+and until then we state none for it. A test (`tests/test_provider_terms.py`) holds the first table of this page to the
+registry, so that a provider added without a row fails it, and this section to the data files that are in the tests.
 
 ## Our reading
 

@@ -161,6 +161,7 @@
       "api": "De REST-API un de MCP-Server vun Wetterdienst: Formate un Bispelen för Stationen, Weerten, Interpolatschoon un Klimastrepen.",
       "providers": "De nationalen Wedderdeenste achter de Daten: Land, Lizenz, de Quell, de angeven warrn mutt, un wat elkeen anbeedt.",
       "glossary": "Wat elk Wedder- un Klimaparameter meet un in wecke Eenheit sien Weerten torüchkamen, mit Söök na Naam un Grött.",
+      "measurement": "So warrt Wedder meten: Instrumenten, woans ut en Meten en Weert warrt, wat de Tall seggen kann un wo sik Anbeder unnerscheedt, mit Quellen.",
       "about": "Över dat Open-Source-Projekt Wetterdienst un de Lüüd, de dat plegen.",
       "support": "Ünnerstütt Wetterdienst: meld een Fehler, bring Code bi oder spend.",
       "map": "Een Kaart vun de Stationen vun den Düütschen Wedderdeenst: Söök di een Station oder een Punkt ut un kiek Utsicht, Klimastrepen un Meetweerten dorto an.",
@@ -205,6 +206,7 @@
     "providers": "Anbeder",
     "api": "API",
     "glossary": "Glossar",
+    "measurement": "Meten",
     "support": "Ünnerstütten",
     "map": "Kaart",
     "radar": "Radar"
@@ -464,7 +466,38 @@
     "unitTypeLabel": "Grött",
     "loading": "Dat laadt …",
     "noResults": "Keen Parameter passt to de Söök.",
-    "count": "{shown} vun {count} Parameter | {shown} vun {count} Parameters"
+    "count": "{shown} vun {count} Parameter | {shown} vun {count} Parameters",
+    "howMeasured": "Woans warrt dat meten?",
+    "topicFilter": "Blots „{topic}“",
+    "clearTopic": "All Parameter wiesen"
+  },
+  "measurement": {
+    "title": "So warrt Wedder meten",
+    "subtitle": "Wat en Temperatur, en Regensumm oder en Bö bedüüt, ehr du de Tall liesst: dat Instrument, de Weert, de dorut warrt, sien Grenzen un wo sik de Anbeder unnerscheedt",
+    "menuDescription": "Woans en Grött meten warrt, woans ut en Meten en Weert warrt un wat de Tall seggen kann",
+    "tocTitle": "Inholt",
+    "editionTitle": "Quellen un Utgaav",
+    "editionText": "Elk Indrag nennt sien Quellen: eerst mit eenfache Wöör, wat de Quell is un wat se seggt, dorna de formelle Quellenangaav. De Hauptquell is de Guide to Instruments and Methods of Observation (WMO-No. 8) vun de Weltorganisatschoon för Meteorologie, ziteert na Band un Kapitel: Band I un II in de Utgaav 2024, Band V in sien Utgaav 2023, de aktuell is. Dat gifft en vörlöpige Utgaav 2026; disse Siet bruukt se nich. Wo en Indrag seggt, wat en Anbeder deit, nennt he de egen Datei vun den Anbeder.",
+    "editionLink": "WMO-No. 8 bi de WMO",
+    "groupMeasured": "Wat meten warrt, un wo",
+    "groupReading": "De Daten lesen",
+    "linkTo": "Link to den Indrag „{title}“",
+    "fieldsTitle": "Feller in dat Glossar",
+    "fieldsText": "Disse Indrag verklaart de Parameter ut dat Glossar mit Naams as disse:",
+    "fieldsLink": "Disse Feller in dat Glossar wiesen",
+    "sourcesTitle": "Quellen",
+    "untranslatedEn": "Disse Indrag gifft dat noch nich op Platt; he warrt op Engelsch wiest.",
+    "untranslatedDe": "Disse Indrag gifft dat noch nich op Platt; he warrt op Hochdüütsch wiest.",
+    "topics": {
+      "temperature": "Luft- un Bodentemperatur",
+      "wind": "Wind",
+      "precipitation": "Nedderslag",
+      "sunshine": "Sünnschienduur",
+      "snow": "Snee",
+      "normals": "Klimanormaalweerten",
+      "time": "Tiet",
+      "observationForecastDerived": "Beobachten, Vörhersaag un afleedte Daten"
+    }
   },
   "providers": {
     "title": "Anbeder",

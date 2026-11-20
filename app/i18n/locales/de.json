@@ -161,6 +161,7 @@
       "api": "Die REST-API und der MCP-Server von Wetterdienst: Formate und Beispiele für Stationen, Messwerte, Interpolation und Klimastreifen.",
       "providers": "Die nationalen Wetterdienste hinter den Daten: Land, Lizenz, die anzugebende Quelle und was jeder anbietet.",
       "glossary": "Was jeder Wetter- und Klimaparameter misst und in welcher Einheit seine Werte kommen, durchsuchbar nach Name und Größe.",
+      "measurement": "So wird Wetter gemessen: Instrumente, wie aus einer Messung ein Wert wird, was die Zahl sagen kann und wo sich Anbieter unterscheiden, mit Quellen.",
       "about": "Über das Open-Source-Projekt Wetterdienst und die Menschen, die es pflegen.",
       "support": "Wetterdienst unterstützen: Fehler melden, Code beitragen oder spenden.",
       "map": "Eine Karte der Stationen des Deutschen Wetterdienstes: Wähle eine Station oder einen beliebigen Punkt und sieh Vorhersage, Klimastreifen und Messwerte dazu.",
@@ -205,6 +206,7 @@
     "providers": "Anbieter",
     "api": "API",
     "glossary": "Glossar",
+    "measurement": "Messung",
     "support": "Unterstützen",
     "map": "Karte",
     "radar": "Radar"
@@ -464,7 +466,38 @@
     "unitTypeLabel": "Größe",
     "loading": "Wird geladen…",
     "noResults": "Kein Parameter passt zur Suche.",
-    "count": "{shown} von {count} Parameter | {shown} von {count} Parametern"
+    "count": "{shown} von {count} Parameter | {shown} von {count} Parametern",
+    "howMeasured": "Wie wird das gemessen?",
+    "topicFilter": "Nur „{topic}“",
+    "clearTopic": "Alle Parameter zeigen"
+  },
+  "measurement": {
+    "title": "So wird Wetter gemessen",
+    "subtitle": "Was eine Temperatur, eine Regensumme oder eine Böe bedeutet, bevor du die Zahl liest: das Instrument, der Wert, der daraus wird, seine Grenzen und wo sich die Anbieter unterscheiden",
+    "menuDescription": "Wie eine Größe gemessen wird, wie aus einer Messung ein Wert wird und was die Zahl sagen kann",
+    "tocTitle": "Inhalt",
+    "editionTitle": "Quellen und Ausgabe",
+    "editionText": "Jeder Eintrag nennt seine Quellen: erst in einfachen Worten, was die Quelle ist und was sie sagt, dann die formale Quellenangabe. Die Hauptquelle ist der Guide to Instruments and Methods of Observation (WMO-No. 8) der Weltorganisation für Meteorologie, zitiert nach Band und Kapitel: Band I und II in der Ausgabe 2024, Band V in seiner Ausgabe 2023, der aktuellen. Eine vorläufige Ausgabe 2026 gibt es; diese Seite verwendet sie nicht. Wo ein Eintrag sagt, was ein Anbieter tut, nennt er die eigene Datei des Anbieters.",
+    "editionLink": "WMO-No. 8 bei der WMO",
+    "groupMeasured": "Was gemessen wird, und wie",
+    "groupReading": "Die Daten lesen",
+    "linkTo": "Link zum Eintrag „{title}“",
+    "fieldsTitle": "Felder im Glossar",
+    "fieldsText": "Dieser Eintrag erklärt die Parameter des Glossars, deren Namen so aussehen:",
+    "fieldsLink": "Diese Felder im Glossar anzeigen",
+    "sourcesTitle": "Quellen",
+    "untranslatedEn": "Dieser Eintrag ist noch nicht in deine Sprache übersetzt und wird auf Englisch gezeigt.",
+    "untranslatedDe": "Dieser Eintrag ist noch nicht in deine Sprache übersetzt und wird auf Deutsch gezeigt.",
+    "topics": {
+      "temperature": "Luft- und Bodentemperatur",
+      "wind": "Wind",
+      "precipitation": "Niederschlag",
+      "sunshine": "Sonnenscheindauer",
+      "snow": "Schnee",
+      "normals": "Klimanormalwerte",
+      "time": "Zeit",
+      "observationForecastDerived": "Beobachtung, Vorhersage und abgeleitete Daten"
+    }
   },
   "providers": {
     "title": "Anbieter",

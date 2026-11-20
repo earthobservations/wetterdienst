@@ -144,7 +144,9 @@ df
 
 #### Sites
 
-Retrieve information about all OPERA radar sites.
+Retrieve information about all OPERA radar sites. The sites below, and the DWD ones after them, are from the
+[OPERA database](https://www.eumetnet.eu/wp-content/themes/aeron-child/observations-programme/current-activities/opera/database/OPERA_Database/index.html)
+of EUMETNET OPERA.
 
 ```{code-cell}
 ---

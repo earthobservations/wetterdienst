@@ -37,6 +37,7 @@ export const SEO_ROUTES: readonly SeoRoute[] = [
   { path: '/api', title: 'api.title', description: 'seo.pages.api' },
   { path: '/providers', title: 'providers.title', description: 'seo.pages.providers' },
   { path: '/glossary', title: 'glossary.title', description: 'seo.pages.glossary' },
+  { path: '/measurement', title: 'measurement.title', description: 'seo.pages.measurement' },
   { path: '/about', title: 'about.title', description: 'seo.pages.about' },
   { path: '/support', title: 'support.title', description: 'seo.pages.support' },
   { path: '/impressum', title: 'impressum.title', description: 'seo.description' },

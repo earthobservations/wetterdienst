@@ -96,12 +96,45 @@ moved and kept it (`10427` is Altastenberg `00098` until 1954 and Kahler Asten `
 `wmo_id` finds both.
 
 The table is kept for a week in the cache and for a day in the process, so a number is at most eight days old. A
-failure to read it is remembered for five minutes, so that a page that is down is not asked for by every request. It
+failure to read it is remembered for five minutes, so that a page that is down is not asked for by every request.
+The server is waited for ten seconds and asked once, and the requests that ask at the same time share one read. It
 is a page and not a data format, so it is read by the names of its headers, and a page that has changed (a header
 renamed, no row, no WMO number at all) is an error that names the address. The stations are the answer and the number
 an addition: when the page cannot be read or is no longer the table, or no connection can be made to `www.dwd.de` (a
 host other than the `opendata.dwd.de` the stations are listed from), the stations come back with `wmo_id` null and the
 warning `wmo-ids-unavailable`. A rate limit of the provider (a 429) is still raised, and not remembered.
+
+## WIGOS ids of the stations
+
+DWD publishes no WIGOS station identifier with its stations. WMO's register
+[OSCAR/Surface](https://oscar.wmo.int/surface/) lists `0-276-<issue number>-<Stations_ID>` for stations of DWD:
+`0-276-3-73` is Aldersbach-Kramersepp, the station `00073`. A station gets that as its `wigos_id`, and
+only that: the id is the exact one, the `station_id` is the local part of a WIGOS id of Germany's issuer (`276`),
+and no station is matched by its name or its position. The one difference of notation is the zeros that DWD pads its
+ids to five digits with (`00073`) and OSCAR does not write (`73`). The issue numbers read are `3` (secondary
+stations, 361 ids), `6` (the city climate stations, 6) and `2` (3); the ids of issue numbers `0` and `1` (the radar of
+Borkum `0-276-0-10103`, the Taunus Observatory) are not DWD station numbers, whatever they look like, and are not
+read. The WMO's own `0-20000-0-<WMO number>` of the main stations is not the id of their `station_id` either, so the
+stations of the Stationslexikon with a `wmo_id` have no `wigos_id` from this, but for the four whose national id is
+the only one OSCAR lists (`00096` Neuruppin `0-276-2-96`, `00399` Berlin-Alexanderplatz, `15813` Lingen-Baccum,
+`19912` Bichl).
+
+Read 2026-11-19, 370 of the 6,422 stations of the network have one (298 of the 1,507 stations of the datasets at
+1 minute, 366 of the 6,320 of `daily`; OSCAR lists 366 of them as operational and 4 as closed). Checked against
+OSCAR's names, 366 of the 370 are spelled alike and the other four differ in the umlaut (`Großenkneten` and
+`GROSSENKNETEN`); `06106` Rechlin is 37.6 km from the position OSCAR gives it, all the others within 10 km. Where OSCAR listed two WIGOS ids with one local part, the station would have
+none and a warning in the log would say so; none did. A `wigos_id` that DWD's own list published would be kept.
+
+The register is one request for Germany (2,495 stations, 1.9 MB, no key) and is kept for a week in the cache and for a
+day in the process, so an id is at most eight days old. A failure to read it is remembered for five minutes. The
+server is waited for ten seconds and asked once (the client's default is 30 s and a second attempt), and the requests
+that ask at the same time share one read. The
+stations are the answer and the id an addition: when `oscar.wmo.int` cannot be reached, answers a page that is not
+the register (a waiting page, an error in a 200, a second page, no WIGOS id at all: never an empty register, and it is
+not kept in the cache) or a status that fails, the stations come back with `wigos_id` null and the warning
+`wigos-ids-unavailable`. A rate limit (a 429) is raised, and its message names OSCAR, which limits, not DWD.
+`dwd/derived` (the datasets with DWD station ids), `fmi/observation` and `dmi/observation` read their `wigos_id` the
+same way, with their own issuers.
 
 ## Stations that the station list does not carry
 

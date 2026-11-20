@@ -22,6 +22,7 @@ from wetterdienst import Settings, Wetterdienst
 from wetterdienst.exceptions import InvalidEnumerationError, StationNotFoundError
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.options import Options
+from wetterdienst.provider.eumetnet.opera.sites import OPERA_CREDIT_LINE
 from wetterdienst.ui.cli import cli, wetterdienst_help
 
 # Individual settings for observation and mosmix
@@ -45,6 +46,7 @@ def test_cli_help() -> None:
           info         Display project information.
           interpolate  Interpolate data for a point from the stations around it.
           issues       List available issue (model-run) datetimes for a station.
+          kostra       Acquire DWD's heavy-rainfall statistics (KOSTRA) at a point.
           providers    List the providers and their networks, and describe what...
           radar        List radar stations.
           restapi      Start the Wetterdienst REST API web service.
@@ -378,7 +380,7 @@ def test_cli_radar_stations_opera() -> None:
     """Test cli radar stations."""
     runner = CliRunner()
     result = runner.invoke(cli, ["radar", "--odim-code=ukdea"])
-    response = json.loads(result.output)
+    response = json.loads(result.stdout)
     assert isinstance(response, dict)
     assert response["location"] == "Dean Hill"
 
@@ -388,7 +390,7 @@ def test_cli_radar_stations_opera_wmo_code() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["radar", "--wmo-code=11038"])
     assert result.exit_code == 0
-    response = json.loads(result.output)
+    response = json.loads(result.stdout)
     assert response["odimcode"] == "atrau"
     assert response["wmocode"] == 11038
 
@@ -415,9 +417,27 @@ def test_cli_radar_stations_dwd() -> None:
     """Test cli radar stations."""
     runner = CliRunner()
     result = runner.invoke(cli, ["radar", "--dwd"])
-    response = json.loads(result.output)
+    response = json.loads(result.stdout)
     assert isinstance(response, list)
     assert len(response) == 20
+
+
+@pytest.mark.parametrize("argv", [["--odim-code=ukdea"], ["--wmo-code=11038"], ["--country-name=france"], ["--dwd"]])
+def test_cli_radar_credits_eumetnet_opera_on_stderr(argv: list[str]) -> None:
+    """The credit of the OPERA sites and its source page go to stderr; stdout stays the JSON (GH-4200)."""
+    result = CliRunner().invoke(cli, ["radar", *argv])
+    assert result.exit_code == 0
+    assert result.stderr == f"{OPERA_CREDIT_LINE}\n"
+    assert OPERA_CREDIT_LINE.startswith("Radar sites: EUMETNET OPERA, https://www.eumetnet.eu/")
+    # stdout is the JSON alone, as it was before the credit
+    assert result.stdout == json.dumps(json.loads(result.stdout), indent=4) + "\n"
+
+
+def test_cli_radar_error_carries_no_credit() -> None:
+    """A lookup that finds no site answers no list, so it carries no credit."""
+    result = CliRunner().invoke(cli, ["radar", "--wmo-code=99999"])
+    assert result.exit_code == 1
+    assert OPERA_CREDIT_LINE not in result.stderr
 
 
 @pytest.mark.remote
@@ -1742,7 +1762,7 @@ def test_the_moved_commands_are_top_level_commands_and_about_is_none() -> None:
     assert set(_MOVED_FROM_ABOUT) <= set(cli.commands)
     assert "about" not in cli.commands
     assert "about" not in cli.list_commands(click.Context(cli))
-    assert len(cli.commands) == 18
+    assert len(cli.commands) == 19
 
     help_text = CliRunner().invoke(cli, ["--help"]).output
     assert "about" not in help_text.split("Commands:", 1)[1]

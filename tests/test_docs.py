@@ -34,6 +34,9 @@ EXCLUDE_PROVIDER_NETWORKS_FILES_STARTSWITH = ["_", ".", "metadata"]
 # KONRAD3D scans, neither with a timeseries model.
 NETWORKS_WITHOUT_A_METADATA_MODEL = {("dwd", "alerts"), ("dwd", "storm_cells")}
 
+# The request classes of the point lookups, which are in no registry: `library/api.md` documents them all the same.
+POINT_LOOKUP_CLASSES = {"wetterdienst.provider.dwd.kostra.api.DwdKostraRequest"}
+
 # Providers that are excluded from the docs. "*" is a wildcard.
 EXCLUDE_PROVIDER_NETWORKS = {
     "eumetnet": "*",
@@ -1767,7 +1770,7 @@ def test_docs_name_only_environment_variables_that_exist() -> None:
     variables = _environment_variables()
     errors = []
     for path in _prose_files():
-        for token in set(re.findall(r"WD_[A-Z0-9_]+", path.read_text(encoding="utf8"))):
+        for token in set(re.findall(r"(?<![A-Za-z0-9_])WD_[A-Z0-9_]+", path.read_text(encoding="utf8"))):
             name = token if token.startswith("WD_AUTH__") else token.split("__")[0]
             if token.endswith("_") or name in variables or token in _MISSPELT_ON_PURPOSE:
                 continue
@@ -1992,6 +1995,9 @@ def test_docs_api_reference_lists_the_class_of_every_network() -> None:
             classes.add(f"{api.__module__}.{api.__qualname__}")
     text = (DOCS / "library" / "api.md").read_text(encoding="utf8")
     documented = set(re.findall(r"^```\{autodoc2-object\} (\S+)$", text, flags=re.MULTILINE))
+    # a point lookup is no network of the registry (no stations, no values, listed by no `providers`), and its class is
+    # documented all the same
+    classes |= POINT_LOOKUP_CLASSES
     assert documented == classes, (
         f"missing: {sorted(classes - documented)}, not a network class: {sorted(documented - classes)}"
     )

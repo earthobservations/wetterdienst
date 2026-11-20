@@ -23,6 +23,8 @@ import pytest
 from tests.provider.dwd.observation.stationslexikon_rows import page
 from wetterdienst import Settings
 from wetterdienst.exceptions import NoInternetError
+from wetterdienst.model import oscar
+from wetterdienst.model.oscar import WIGOS_IDS_UNAVAILABLE
 from wetterdienst.provider.dwd.derived import DwdDerivedRequest
 from wetterdienst.provider.dwd.derived import metaindex as derived_metaindex
 from wetterdienst.provider.dwd.derived.metadata import DWD_STATION_ID_DATASETS, DwdDerivedMetadata
@@ -279,3 +281,70 @@ def test_the_live_degree_days_and_soil_stations_carry_the_wmo_id_and_the_others_
     assert duett["wmo_id"].null_count() == duett.height
     postal_codes = DwdDerivedRequest(parameters=[("monthly", "climate_correction_factor")], settings=settings)
     assert postal_codes.filter_by_station_id("00433").df["wmo_id"].to_list() == [None]
+
+
+# the WIGOS ids, from WMO's OSCAR/Surface where the DWD station id is the local part of one (GH-4074)
+
+
+def _wigos_ids(frame: pl.DataFrame) -> dict[tuple[str, str], str | None]:
+    return {
+        (dataset, station_id): wigos_id
+        for dataset, station_id, wigos_id in zip(frame["dataset"], frame["station_id"], frame["wigos_id"], strict=True)
+    }
+
+
+def test_the_degree_days_and_the_soil_carry_the_wigos_id_oscar_has_for_their_dwd_id() -> None:
+    """Großenkneten `00044` is `0-276-3-44`; the main stations Dahlem and Tempelhof have only the WMO's own id."""
+    degree_days = _request(("monthly", "heating_degreedays")).all().df
+    assert _wigos_ids(degree_days) == {
+        ("heating_degreedays", "00044"): "0-276-3-44",
+        ("heating_degreedays", "00403"): None,
+        ("heating_degreedays", "00433"): None,
+    }
+    soil = _request(("daily", "soil")).all().df
+    assert _wigos_ids(soil)[("soil", "00044")] == "0-276-3-44"
+    assert soil.schema["wigos_id"] == pl.String
+
+
+def test_each_dataset_of_a_request_has_the_wigos_id_its_own_ids_have() -> None:
+    """The DUETT ids `18xxx` are no DWD station ids: a request for them and the degree days has none for them."""
+    stations = _request(("monthly", "heating_degreedays"), ("hourly", "radiation_global")).all().df
+    assert _wigos_ids(stations) == {
+        ("heating_degreedays", "00044"): "0-276-3-44",
+        ("heating_degreedays", "00403"): None,
+        ("heating_degreedays", "00433"): None,
+        ("radiation_global", "18000"): None,
+        ("radiation_global", "18001"): None,
+    }
+
+
+def test_a_dataset_with_another_id_scheme_does_not_read_oscar(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A lookup that needs no id neither reads the register nor warns of it."""
+
+    def read(*_args: object, **_kwargs: object) -> None:
+        msg = "OSCAR was read for a dataset whose ids are no DWD station ids"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(oscar, "read_register", read)
+    begin_response()
+    stations = _request(("hourly", "radiation_global")).filter_by_station_id("18001").df
+    assert stations["wigos_id"].to_list() == [None]
+    assert not [w for w in recorded_warnings() if w["code"] == WIGOS_IDS_UNAVAILABLE]
+
+
+def test_a_register_that_cannot_be_read_leaves_the_stations_without_wigos_id_and_says_so(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The warning names `dwd/derived`, and the WMO numbers are the Stationslexikon's, as before."""
+
+    def read(*_args: object, **_kwargs: object) -> None:
+        msg = "No internet connection: could not reach oscar.wmo.int"
+        raise NoInternetError(msg)
+
+    monkeypatch.setattr(oscar, "read_register", read)
+    begin_response()
+    stations = _request(("monthly", "heating_degreedays")).all().df
+    assert stations["wigos_id"].null_count() == stations.height
+    assert stations["wmo_id"].to_list().count("10381") == 1
+    (warning,) = [w for w in recorded_warnings() if w["code"] == WIGOS_IDS_UNAVAILABLE]
+    assert "dwd/derived" in warning["message"]

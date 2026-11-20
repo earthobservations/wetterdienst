@@ -40,6 +40,9 @@ The data as offered by the DWD through ``wetterdienst`` includes:
 - [Storm cells](storm_cells/index.md) — the thunderstorm cells KONRAD3D detects in the radar data
     - the newest scan, or one of the last 48 hours, one row per cell, every 5 minutes
     - severity, hail, heavy rain and gust flags, speed, direction, GeoJSON outline and forecast track
+- [KOSTRA heavy rainfall](kostra/index.md) — DWD's heavy-rainfall statistics (KOSTRA-DWD-2020), a point lookup
+    - for a point in Germany, the depth, intensity and uncertainty of a rain by 22 durations (5 minutes to 7 days) and 9 return periods (1 to 100 years)
+    - the 5 km grid cell that holds the point, from tables that DWD wrote in December 2022
 - [Phenology](phenology/index.md) — observed plant development dates from the phenological network
     - annual resolution: the day (`Jultag`) a plant reached a phase (flowering, leaf unfolding, harvest)
     - 110 plant datasets across two reporter groups, reaching back to 1925
@@ -105,4 +108,5 @@ radar/index.md
 derived/index.md
 alerts/index.md
 storm_cells/index.md
+kostra/index.md
 ```

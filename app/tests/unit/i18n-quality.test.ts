@@ -357,6 +357,8 @@ const UI_SAME: Record<string, Same> = {
   'radar.pause': { en: ['da', 'de', 'fr'], why: COGNATE },
   'nav.api': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'nav.support': { en: ['da'], why: COGNATE },
+  'measurement.topics.wind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },
+  'measurement.sourcesTitle': { en: ['fr'], why: COGNATE },
   'header.github': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'header.pypi': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'header.menu': { en: ['da', 'fr', 'it', 'nl', 'pl'], why: COGNATE },

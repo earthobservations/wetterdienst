@@ -258,7 +258,8 @@ class ResponseMetadata(BaseModel):
         "or calculated from the provider's readings, those of the climate stripes what their anomalies and classes "
         "are relative to (and, where the years were calculated from daily values, by which rules), and the headers "
         "of the stripes' image that it is drawn from the annual values, and those of `storm_cells` that the "
-        "direction of a cell is calculated from its forecast track. The same "
+        "direction of a cell is calculated from its forecast track, and those of `kostra` that the values are DWD's "
+        "statistics of the grid cell of the point. The same "
         "text for every provider and licence, so that a licence that asks for changes to be indicated has them said; "
         "no legal advice.",
     )
@@ -547,6 +548,27 @@ def storm_cells_metadata(api: object, cells: int, data_updated_at: dt.datetime |
         rows=cells,
         data_updated_at=data_updated_at,
         calculated=STORM_CELLS_NOTE,
+    )
+
+
+def kostra_metadata(api: object, rows: int, data_updated_at: dt.datetime | None = None) -> ResponseMetadata:
+    """Build the block of the KOSTRA-DWD-2020 statistics of a point (`/api/kostra`), which are about no stations.
+
+    `rows` is the rows of the table (a duration and a return period each), `data_updated_at` when DWD wrote the newest
+    file read (`DwdKostraResult.data_updated_at`). The processing note says that the values are DWD's statistics of
+    a grid cell, not readings.
+    """
+    from wetterdienst.provider.dwd.kostra.metadata import KOSTRA_NOTE  # noqa: PLC0415
+
+    return _block_without_result(
+        api,
+        ResolvedRequest(
+            provider="dwd", network="kostra", parameters=[], periods=[], start=None, end=None, stations=None
+        ),
+        stations=0,
+        rows=rows,
+        data_updated_at=data_updated_at,
+        calculated=KOSTRA_NOTE,
     )
 
 

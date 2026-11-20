@@ -161,6 +161,7 @@
       "api": "De REST-API en de MCP-server van Wetterdienst: formaten en voorbeelden voor stations, waarden, interpolatie en klimaatstrepen.",
       "providers": "De nationale weerdiensten achter de data: land, licentie, de bronvermelding en wat ieder aanbiedt.",
       "glossary": "Wat elke weer- en klimaatparameter meet en in welke eenheid de waarden terugkomen, doorzoekbaar op naam en grootheid.",
+      "measurement": "Hoe het weer wordt gemeten: instrumenten, hoe een meting een waarde wordt, wat het getal zegt en waar aanbieders verschillen, met bronnen.",
       "about": "Over het open-sourceproject Wetterdienst en de mensen die het onderhouden.",
       "support": "Ondersteun Wetterdienst: meld een probleem, draag code bij of doneer.",
       "map": "Een kaart van de stations van de Duitse weerdienst: kies een station of een willekeurig punt voor de verwachting, de klimaatstrepen en de metingen.",
@@ -205,6 +206,7 @@
     "providers": "Aanbieders",
     "api": "API",
     "glossary": "Woordenlijst",
+    "measurement": "Meting",
     "support": "Ondersteuning",
     "map": "Kaart",
     "radar": "Radar"
@@ -464,7 +466,38 @@
     "unitTypeLabel": "Grootheid",
     "loading": "Laden…",
     "noResults": "Geen parameter komt overeen met je zoekopdracht.",
-    "count": "{shown} van {count} parameter | {shown} van {count} parameters"
+    "count": "{shown} van {count} parameter | {shown} van {count} parameters",
+    "howMeasured": "Hoe wordt dit gemeten?",
+    "topicFilter": "Alleen “{topic}”",
+    "clearTopic": "Toon alle parameters"
+  },
+  "measurement": {
+    "title": "Hoe het weer wordt gemeten",
+    "subtitle": "Wat een temperatuur, een hoeveelheid regen of een windstoot betekent voordat je het getal leest: het instrument, de waarde die eruit volgt, de grenzen ervan en waar aanbieders verschillen",
+    "menuDescription": "Hoe een grootheid wordt gemeten, hoe een meting een waarde wordt en wat het getal kan zeggen",
+    "tocTitle": "Inhoud",
+    "editionTitle": "Bronnen en editie",
+    "editionText": "Elk onderdeel noemt zijn bronnen: eerst in gewone woorden wat de bron is en wat ze zegt, daarna de formele bronvermelding. De hoofdbron is de Guide to Instruments and Methods of Observation (WMO-No. 8) van de Wereld Meteorologische Organisatie, aangehaald per deel en hoofdstuk: de delen I en II in de editie van 2024, deel V in zijn editie van 2023, die de huidige is. Er bestaat een voorlopige editie van 2026; deze pagina gebruikt die niet. Waar een onderdeel zegt wat een aanbieder doet, noemt het het eigen bestand van de aanbieder.",
+    "editionLink": "WMO-No. 8 bij de WMO",
+    "groupMeasured": "Wat er wordt gemeten, en hoe",
+    "groupReading": "De gegevens lezen",
+    "linkTo": "Link naar het onderdeel “{title}”",
+    "fieldsTitle": "Velden in de woordenlijst",
+    "fieldsText": "Dit onderdeel legt de parameters van de woordenlijst uit waarvan de namen er zo uitzien:",
+    "fieldsLink": "Toon deze velden in de woordenlijst",
+    "sourcesTitle": "Bronnen",
+    "untranslatedEn": "Dit onderdeel is nog niet in jouw taal vertaald en wordt in het Engels getoond.",
+    "untranslatedDe": "Dit onderdeel is nog niet in jouw taal vertaald en wordt in het Duits getoond.",
+    "topics": {
+      "temperature": "Lucht- en bodemtemperatuur",
+      "wind": "Wind",
+      "precipitation": "Neerslag",
+      "sunshine": "Zonneschijnduur",
+      "snow": "Sneeuw",
+      "normals": "Klimaatnormalen",
+      "time": "Tijd",
+      "observationForecastDerived": "Waarneming, voorspelling en afgeleide gegevens"
+    }
   },
   "providers": {
     "title": "Aanbieders",

@@ -354,6 +354,10 @@ what the answer is missing:
   `file-skipped` (the stations whose file the provider let go, see below), `wmo-ids-unavailable` (the stations of
   `dwd/observation` and `dwd/derived` are listed without `wmo_id` because DWD's Stationslexikon could not be read or
   is no longer the table, see [WMO numbers](../data/provider/dwd/observation/index.md#wmo-numbers-of-the-stations)),
+  `wigos-ids-unavailable` (the stations of `dwd/observation`, `dwd/derived`, `fmi/observation` and `dmi/observation` are listed
+  without the `wigos_id` that WMO's register OSCAR/Surface gives them, because it could not be read or is no longer
+  the register of the country, see
+  [WIGOS ids](../data/provider/dwd/observation/index.md#wigos-ids-of-the-stations)),
   `station-codes-unavailable` (the stations of `imgw/meteorology` are listed without `short_code` because IMGW's
   `wykaz_stacji.csv` could not be read or is no longer the list; not for `synop`, which it picks the stations of),
   `other-window-left-out` (dates the
@@ -699,7 +703,7 @@ release commit, with `uv run poe contracts:baseline`.
   can answer a 400 for a `Host` the server does not answer to, a 500, a 503 when the server is working on as many
   requests as it allows, and a 504 when the request times out; a route with a query also the 422. Beyond those: the
   routes that read from a provider (`stations`, `issues`, `history`, `values`, `interpolate`, `summarize`,
-  `stripes/values`, `stripes/image`, `alerts`, `storm-cells`, `radar/frames`, `radar/frame`) the 400 of a refused request, 404, 501 and 502, and `stations`, `values`,
+  `stripes/values`, `stripes/image`, `alerts`, `storm-cells`, `kostra`, `radar/frames`, `radar/frame`) the 400 of a refused request, 404, 501 and 502, and `stations`, `values`,
   `interpolate` and `summarize` the 403 of `sql` where the server does not enable it; `coverage` a 400, 404 and 501,
   `auth` a 404 and 501, `providers` a 404, `settings` a 400, and `stripes/stations` a 501 and 502. A test makes each
   of these routes fail with each exception of the table of [Errors](#errors) and holds the status it answers to
@@ -1010,6 +1014,7 @@ and what the colours mean in mm/h; each frame is a PNG, transparent where it is 
 
 ```bash
 http localhost:7890/api/radar/frames
+# time and run are those of a frame of /radar/frames (DWD keeps about two days)
 http localhost:7890/api/radar/frame time==2026-11-19T21:10:00Z run==2026-11-19T21:10:00Z > frame.png
 ```
 
@@ -1017,6 +1022,22 @@ The list is `public, max-age=60` with an `ETag` (no `Cache-Control` where it car
 newest run being more than 20 minutes old). A frame asked for with its `run` is the same for as long as DWD keeps the
 run, and is `public, max-age=3600` with an `ETag`; without it, a time after the newest run is a forecast frame of the
 newest run, `public, max-age=60`. The forecast of a run is served for the newest three runs DWD lists, and a page should load its frames 4 to 6 at a time (the server holds 32 requests at once by default). Neither route is an MCP tool.
+
+### Kostra
+
+The heavy-rainfall statistics of the DWD (KOSTRA-DWD-2020) of the grid cell that holds a point: the depth in mm, the
+intensity in l/(s ha) and the uncertainty in percent of a rain by duration and return period (see
+[KOSTRA heavy rainfall](../data/provider/dwd/kostra/index.md)):
+
+```bash
+http localhost:7890/api/kostra latitude==52.52 longitude==13.40 duration==60 return_period==100
+```
+
+`latitude` and `longitude` are required. `duration` (minutes: 5 to 10080, 22 of them) reads one table of DWD; without
+it all 22 are read, 2 s the first time. The answer has the `edition`, the `cell` (`index_rc`, its `row` and `column`
+and the `latitude` and `longitude` of its centre) and the `values`, one for each duration and return period.
+`format=csv` is the table alone. A point outside Germany and its border of about 10 km, or in a cell DWD gives no
+values for, is a 400 and no empty table; a table that does not download or read is a 502.
 
 ### Values
 
@@ -1227,6 +1248,7 @@ and where an answer cannot be reasoned about it stays out.
 | `values`, `interpolate`, `summarize` | none | no | no | A window in the past is not stable by itself: a provider revises data (the DWD `recent` readings are checked and moved to `historical`, others publish corrections), and an estimate is made from them. |
 | `ndjson` and `csv` of `stations` and `values` | none | no | no | Streamed station by station, before the answer is known: there is no body to tag when the headers go out. |
 | `stripes/*`, `alerts`, `storm-cells`, `auth`, `version`, `settings` | none | no | no | The stripes end with the year being recorded, alerts and storm cells are live, `auth` probes a provider, and the last two describe the instance. |
+| `kostra` | none | no | no | DWD's tables are static (December 2022) and the server keeps them in its own cache for a week, but the answer is not tagged: no route is cached by a client without a decision of its own. |
 | `/health`, `/ready` | `no-store` (`/ready`) | no | no | A probe is asked every time. |
 
 **The `ETag`** is a weak tag (`W/"..."`) of the body of the answer without the one thing that differs between two
