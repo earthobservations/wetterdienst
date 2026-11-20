@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { RadarFrame } from '~/utils/radar'
 import type { StormCell } from '~/utils/storm-cells'
 import { defineAsyncComponent } from 'vue'
 import MapStationsNotLoaded from '~/components/MapStationsNotLoaded.vue'
@@ -6,7 +7,7 @@ import ProcessingNote from '~/components/ProcessingNote.vue'
 import RadarLegend from '~/components/RadarLegend.vue'
 import RadarPlayer from '~/components/RadarPlayer.vue'
 import RadarStormCells from '~/components/RadarStormCells.vue'
-import { describeFrame, formatFrameTime, frameUrl, leafletBounds, RADAR_VIEW } from '~/utils/radar'
+import { cellsShownOn, describeFrame, formatFrameTime, frameKey, frameUrl, isUnavailable, leafletBounds, RADAR_VIEW } from '~/utils/radar'
 import { cellView } from '~/utils/storm-cells'
 
 // The Radar tool (GH-3788): DWD's precipitation radar over Germany as a loop of the last two hours and DWD's forecast of the next two, on
@@ -44,19 +45,26 @@ const frames = computed(() => loop.value?.frames ?? [])
 const player = useRadarPlayer(frames, { autoplay: () => !reducedMotion.value })
 
 /**
- * The picture on the map: the frame the loop is at, once its image is in hand. A frame the reader moved to that is not in yet leaves the
- * one before on the map, and does not blank it.
+ * The frame whose picture is on the map: the one the loop is at, once its image is in hand. A frame the reader moved to that is not in yet
+ * leaves the one before on the map and does not blank it, and the chip over the map says what is on the map (not where the player stands);
+ * the player says its frame is loading. A picture whose frame has left the list (a new list, an empty one) is taken off.
  */
-const pictureUrl = ref<string | null>(null)
+const picture = ref<RadarFrame | null>(null)
 watch(player.shown, (frame) => {
   if (frame)
-    pictureUrl.value = frameUrl(frame)
+    picture.value = frame
 }, { immediate: true })
-const overlay = computed(() => loop.value && pictureUrl.value ? { url: pictureUrl.value, bounds: leafletBounds(loop.value.bounds), opacity: 0.8 } : null)
+watch(frames, (list) => {
+  if (picture.value && !list.some(frame => frameKey(frame) === frameKey(picture.value!)))
+    picture.value = player.shown.value
+})
+const overlay = computed(() => loop.value && picture.value ? { url: frameUrl(picture.value), bounds: leafletBounds(loop.value.bounds), opacity: 0.8 } : null)
 
 const now = computed(() => radar.now.value)
 const current = computed(() => player.current.value)
-const words = computed(() => current.value ? describeFrame(t, current.value, formatLanguage.value, now.value) : null)
+const pictureWords = computed(() => picture.value ? describeFrame(t, picture.value, formatLanguage.value, now.value) : null)
+/** The player stands at a frame whose picture is not on the map yet: its image is on its way */
+const frameLoading = computed(() => Boolean(current.value) && (!picture.value || frameKey(current.value!) !== frameKey(picture.value)))
 
 const newestObserved = computed(() => frames.value.filter(frame => frame.kind === 'observation').at(-1) ?? null)
 const newestTime = computed(() => newestObserved.value ? formatFrameTime(newestObserved.value.at, formatLanguage.value, now.value) : '')
@@ -71,14 +79,35 @@ const loading = computed(() => {
   return total > 0 && loaded + failed < total ? t('radar.loadingFrames', { loaded: loaded + failed, total }) : ''
 })
 const skipped = computed(() => player.progress.value.failed)
+/**
+ * What the live region says of the loading of the frames (M2): once when it starts and once when it is over, never the count, which is
+ * 49 changes (and some 25 more with every list). A new list is loaded silently; the visible counter is no live region.
+ */
+const framesLive = ref('')
+let framesStarted = false
+let framesAnnounced = false
+watch(() => player.progress.value, ({ loaded, failed, total }) => {
+  if (total === 0)
+    return
+  if (!framesStarted) {
+    framesStarted = true
+    framesLive.value = t('radar.framesLoadingLive')
+  }
+  if (!framesAnnounced && loaded + failed >= total) {
+    framesAnnounced = true
+    framesLive.value = t('radar.framesReady')
+  }
+}, { immediate: true })
+/** The backend has no radar (a 404, a 501: a server without the `radar` extra): no Retry would help */
+const unavailable = computed(() => isUnavailable(radar.error.value))
 
-/** The credit of the radar for the map's own: the line of the product, the provider's credit line and the licence as a link to its terms */
+/** The credit of the radar for the map's own: the provider's credit line and the licence as a link to its terms */
 const radarCredit = computed(() => {
   const credit = loop.value?.credit
   if (!credit)
     return null
   const license = credit.license
-  return { text: credit.attribution ? `${credit.attribution} (RV)` : t('radar.creditRadar'), license: license ? { label: license.spdx ?? license.name, url: license.url } : null }
+  return { text: credit.attribution ?? t('radar.creditRadar'), license: license ? { label: license.spdx ?? license.name, url: license.url } : null }
 })
 
 // ---- the thunderstorm cells of DWD's radar (GH-4208) ---------------------------------------------------------------
@@ -90,19 +119,25 @@ const storm = useStormCells(() => cellsOn.value)
  * keeps it and says so, and the map does not draw cells that were true then as the sky now)
  */
 const stormCells = computed(() => cellsOn.value && storm.scan.value && !storm.outdated.value ? storm.scan.value.cells : undefined)
+/**
+ * The cells are the latest scan's, so they are shown on the frames within 15 minutes of it and not on an older one or one of the forecast,
+ * where they fade out of the map and the panel says so (the maintainer's decision, GH-3788)
+ */
+const cellsOnFrame = computed(() => cellsShownOn(picture.value, storm.scan.value?.referenceTime ?? null))
+const cellsFaded = computed(() => Boolean(stormCells.value) && !cellsOnFrame.value)
 const stormCredit = computed(() => {
   const credit = storm.scan.value?.credit
   if (!credit?.attribution)
     return null
   const license = credit.license
-  return { text: `${credit.attribution} (KONRAD3D)`, license: license ? { label: license.spdx ?? license.name, url: license.url } : null }
+  return { text: credit.attribution, license: license ? { label: license.spdx ?? license.name, url: license.url } : null }
 })
-/** One line where the radar and the cells are DWD's under the same terms (they are), else a line for each */
+/** The credit lines of the map: one where the radar and the cells are DWD's under the same terms (they are), a line each where they are not; the cells' only while they are on the map */
 const credits = computed(() => {
   const radarLine = radarCredit.value
-  const cellsLine = stormCells.value?.length ? stormCredit.value : null
-  if (radarLine && cellsLine && radarLine.license?.url === cellsLine.license?.url && radarLine.text.replace(' (RV)', '') === cellsLine.text.replace(' (KONRAD3D)', ''))
-    return [{ text: `${radarLine.text.replace(' (RV)', '')} (RV, KONRAD3D)`, license: radarLine.license }]
+  const cellsLine = stormCells.value?.length && cellsOnFrame.value ? stormCredit.value : null
+  if (radarLine && cellsLine && radarLine.text === cellsLine.text && radarLine.license?.url === cellsLine.license?.url)
+    return [radarLine]
   return [radarLine, cellsLine].filter(credit => credit !== null)
 })
 
@@ -153,6 +188,10 @@ const licenseLink = computed(() => loop.value?.credit?.license ?? null)
             <p class="sr-only" role="status" data-testid="radar-panel-announcement">
               {{ announcement }}
             </p>
+            <!-- the loading of the frames, told once at its start and once at its end, not 49 times (the counter in the card is no live region) -->
+            <p class="sr-only" role="status" data-testid="radar-frames-live">
+              {{ framesLive }}
+            </p>
 
             <section class="radar-card" data-testid="radar-loop">
               <h2 id="radar-loop-title" class="radar-card-title">
@@ -163,6 +202,11 @@ const licenseLink = computed(() => loop.value?.credit?.license ?? null)
               <p v-if="radar.status.value === 'idle' || radar.status.value === 'pending'" class="radar-card-note radar-note-row" role="status" data-testid="radar-loading">
                 <UIcon name="i-ph-circle-notch" class="size-4 shrink-0 motion-safe:animate-spin" />
                 {{ t('common.loading') }}
+              </p>
+
+              <p v-else-if="radar.status.value === 'error' && unavailable" class="radar-card-note radar-note-row radar-warning" role="alert" data-testid="radar-unavailable">
+                <UIcon name="i-ph-warning" class="size-4 shrink-0" />
+                {{ t('radar.unavailable') }}
               </p>
 
               <div v-else-if="radar.status.value === 'error'" class="flex flex-col items-start gap-2">
@@ -188,7 +232,7 @@ const licenseLink = computed(() => loop.value?.credit?.license ?? null)
                   <UIcon name="i-ph-warning" class="size-4 shrink-0" />
                   {{ t('radar.stale') }}
                 </p>
-                <p v-if="loading" class="radar-card-note radar-note-row" role="status" data-testid="radar-frames-loading">
+                <p v-if="loading" class="radar-card-note radar-note-row" data-testid="radar-frames-loading">
                   <UIcon name="i-ph-circle-notch" class="size-4 shrink-0 motion-safe:animate-spin" />
                   {{ loading }}
                 </p>
@@ -213,7 +257,7 @@ const licenseLink = computed(() => loop.value?.credit?.license ?? null)
               :status="storm.status.value"
               :refresh-failed="storm.refreshFailed.value"
               :outdated="storm.outdated.value"
-              :origin="null"
+              :faded-on-frame="cellsFaded"
               @retry="storm.retry()"
               @centre="centreCell"
             />
@@ -239,9 +283,9 @@ const licenseLink = computed(() => loop.value?.credit?.license ?? null)
           <!-- The map, the player under it and the legend of its colours -->
           <div v-else class="radar-stage" data-testid="radar-stage">
             <div class="radar-canvas">
-              <div v-if="words && current" class="radar-chip" :data-kind="current.kind" aria-hidden="true" data-testid="radar-chip">
-                <UIcon :name="current.kind === 'forecast' ? 'i-ph-fast-forward-fill' : 'i-ph-eye-fill'" class="size-4 shrink-0" />
-                {{ words.time }} · {{ words.ahead ?? words.kind }}
+              <div v-if="pictureWords && picture" class="radar-chip" :data-kind="picture.kind" aria-hidden="true" data-testid="radar-chip">
+                <UIcon :name="picture.kind === 'forecast' ? 'i-ph-fast-forward-fill' : 'i-ph-eye-fill'" class="size-4 shrink-0" />
+                {{ pictureWords.time }} · {{ pictureWords.ahead ?? pictureWords.kind }}
               </div>
               <ClientOnly>
                 <StationMap
@@ -253,6 +297,7 @@ const licenseLink = computed(() => loop.value?.credit?.license ?? null)
                   :open-on="RADAR_VIEW"
                   :overlay="overlay"
                   :cells="stormCells"
+                  :cells-faded="cellsFaded"
                   :credits="credits"
                   :centre-on="cellCentre"
                 />
@@ -265,6 +310,7 @@ const licenseLink = computed(() => loop.value?.credit?.license ?? null)
               :playing="player.playing.value"
               :now="now"
               :reduced-motion="reducedMotion"
+              :loading="frameLoading"
               @toggle="player.toggle()"
               @seek="player.seek($event)"
               @step="player.step($event)"

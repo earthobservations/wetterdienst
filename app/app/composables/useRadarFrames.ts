@@ -19,6 +19,7 @@ export function useRadarFrames(active: () => boolean, options: { interval?: numb
     load: options.load ?? (() => $fetch('/api/radar/frames', { query: { product: RADAR_PRODUCT, past: PAST_MINUTES, forecast: true }, ...API_FETCH })),
     parse: parseLoop,
   })
-  const stale = computed(() => Boolean(polled.data.value) && (polled.data.value!.stale || isStale(polled.data.value!.frames, polled.now.value)))
+  // the age is the server's time: the device's clock plus how far it was from the server's when the answer came (`clockSkewMs`)
+  const stale = computed(() => Boolean(polled.data.value) && (polled.data.value!.stale || isStale(polled.data.value!.frames, polled.now.value + polled.data.value!.clockSkewMs)))
   return { loop: polled.data, status: polled.status, error: polled.error, refreshFailed: polled.refreshFailed, loading: polled.loading, now: polled.now, stale, retry: polled.retry }
 }

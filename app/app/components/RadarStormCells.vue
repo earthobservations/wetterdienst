@@ -1,17 +1,16 @@
 <script setup lang="ts">
 import type { StormCellsStatus } from '~/composables/useStormCells'
-import type { Point } from '~/utils/map-tool'
 import type { StormCell, StormScan } from '~/utils/storm-cells'
 import { formatHour, formatNumber, formatRunTime } from '~/utils/format'
-import { distanceKm, formatDistance } from '~/utils/map-tool'
-import { bearingDegrees, cellView, compassPoint, hasMotion, LIST_LIMIT, listed, roundedPosition, SEVERITIES, styleOf } from '~/utils/storm-cells'
+import { cellView, compassPoint, hasMotion, LIST_LIMIT, listed, roundedPosition, SEVERITIES, styleOf } from '~/utils/storm-cells'
 import { timestampDate } from '~/utils/timestamp'
 
 // The thunderstorm cells of the Radar tool (GH-4208, GH-3788): a switch for drawing them on the map and, under it, the list of the
 // cells of the latest scan with their place, their severity and their motion, which the map draws and cannot tell a keyboard or a
 // screen reader. It is in the panel beside the map (under it on a phone), so a cell is reached without the map. A cell is told where
-// it is: the distance and bearing from the place the panel is about where it has one, else its position; and a press on it (Enter on
-// a keyboard) centres the map on it, as a click on a group of stations does. With the switch off nothing is asked for. It also says what the map cannot show of an empty scan: DWD writes
+// it is, by its position rounded to two decimals (the Radar has no station or place picked to tell it from); and a press on it (Enter on
+// a keyboard) centres the map on it, as a click on a group of stations does. With the switch off nothing is asked for. The cells are
+// the latest scan's: on a frame that is not within 15 minutes of it, or is of the forecast, the map fades them out, and the card says so. It also says what the map cannot show of an empty scan: DWD writes
 // a scan every 5 minutes and about 80 % of them hold no cell, so "no thunderstorm cells" is the usual answer and says which
 // scan it is true of. A scan kept too long is told out of date, its cells no longer drawn. The direction of a cell's motion
 // is calculated by the backend from its forecast track and is marked as calculated wherever it is told. The credit of the
@@ -24,8 +23,8 @@ const props = defineProps<{
   refreshFailed: boolean
   /** The scan in hand is more than 20 minutes old: its cells are not drawn on the map */
   outdated: boolean
-  /** The place the panel is about (the station or the place picked), which each cell is told from; none where nothing is picked */
-  origin: Point | null
+  /** The frame on the map is not within 15 minutes of the scan, or is of the forecast: the cells are faded out of the map, and this says so */
+  fadedOnFrame?: boolean
 }>()
 
 defineEmits<{ retry: [], centre: [cell: StormCell] }>()
@@ -79,22 +78,10 @@ function motionText(cell: StormCell): string {
     : t('radar.cellsMotion', { direction, speed })
 }
 
-/**
- * Where the cell is, in words: from the station or place picked, its distance and the point of the compass it lies on (the
- * words of the motion's), or at it where it is within half a kilometre; with nothing picked, its position rounded to two
- * decimals. None for a cell that has no position.
- */
+/** Where the cell is, in words: its position rounded to two decimals; none for a cell that has no position */
 function locationText(cell: StormCell): string | null {
   const at = cellView(cell)
-  if (!at)
-    return null
-  if (!props.origin)
-    return t('radar.cellsPosition', { position: roundedPosition(at) })
-  const km = distanceKm(props.origin, at)
-  if (km < 0.5)
-    return t('radar.cellsAtPlace')
-  const direction = t(`radar.cellsCompass.${compassPoint(bearingDegrees(props.origin, at))}`)
-  return t('radar.cellsFromPlace', { distance: formatDistance(km, formatLanguage.value), direction })
+  return at ? t('radar.cellsPosition', { position: roundedPosition(at) }) : null
 }
 
 const credit = computed(() => props.scan?.credit ?? null)
@@ -115,11 +102,12 @@ const CENTRE_HINT_ID = 'radar-cells-centre-hint'
       data-testid="radar-cells-switch"
     />
 
-    <template v-if="on">
-      <p class="text-sm font-semibold text-highlighted empty:hidden" role="status" data-testid="radar-cells-summary">
-        {{ summary }}
-      </p>
+    <!-- in the page from the start, also with the switch off, and only screen-reader-only while empty (a hidden one is not in the accessibility tree): a live region that is inserted with its text is not announced -->
+    <p class="text-sm font-semibold text-highlighted empty:sr-only" role="status" data-testid="radar-cells-summary">
+      {{ on ? summary : '' }}
+    </p>
 
+    <template v-if="on">
       <div v-if="status === 'error' && !scan" class="flex flex-col items-start gap-2">
         <p class="radar-card-note" role="alert" data-testid="radar-cells-failed">
           {{ t('radar.cellsFailed') }}
@@ -133,6 +121,10 @@ const CENTRE_HINT_ID = 'radar-cells-centre-hint'
         </p>
         <p class="radar-card-note" data-testid="radar-cells-loop-note">
           {{ t('radar.cellsLoopNote') }}
+        </p>
+        <p v-if="fadedOnFrame" class="radar-card-note radar-note-row radar-cells-warning" data-testid="radar-cells-faded">
+          <UIcon name="i-ph-eye-slash" class="size-4 shrink-0" />
+          {{ t('radar.cellsFaded', { time: clock }) }}
         </p>
         <p v-if="outdated" class="radar-card-note radar-note-row radar-cells-warning" data-testid="radar-cells-outdated">
           <UIcon name="i-ph-warning" class="size-4 shrink-0" />

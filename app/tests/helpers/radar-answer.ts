@@ -51,7 +51,7 @@ export function radarAnswer(options: RadarOptions = {}) {
     metadata: {
       api_version: '1',
       schema_version: '1',
-      retrieved_at: '2026-11-19T21:21:00.000000+00:00',
+      retrieved_at: new Date(options.now ?? Date.now()).toISOString(),
       provider: {
         name_local: 'Deutscher Wetterdienst',
         name_english: 'German Weather Service',

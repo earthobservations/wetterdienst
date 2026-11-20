@@ -22,7 +22,7 @@ describe('the legend', () => {
     const wrapper = await mountLegend()
     const section = wrapper.find('[data-testid="radar-legend"]')
     expect(section.element.tagName).toBe('SECTION')
-    expect(wrapper.find(`#${section.attributes('aria-labelledby')}`).text()).toBe('Rain rate in mm/h')
+    expect(wrapper.find(`#${section.attributes('aria-labelledby')}`).text()).toBe('Precipitation rate in mm/h')
   })
 
   it('has a class for each of the answer\'s seven, lightest first, with its colour and its numbers', async () => {

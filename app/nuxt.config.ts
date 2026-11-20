@@ -168,6 +168,8 @@ export default defineNuxtConfig({
       enabled: process.env.WD_E2E !== '1',
       tokens: RATE_LIMIT_DEFAULTS.tokens,
       windowSeconds: RATE_LIMIT_DEFAULTS.windowSeconds,
+      // the images of the radar's frames have a bucket of their own (`NUXT_RATE_LIMIT_FRAME_TOKENS`, GH-3788)
+      frameTokens: RATE_LIMIT_DEFAULTS.frameTokens,
       clientIpHeader: '',
     },
     // The origins whose pages may read the app's answers, a list separated by commas (`NUXT_CORS_ALLOWED_ORIGINS`):

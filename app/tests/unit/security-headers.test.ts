@@ -188,11 +188,11 @@ describe('the rate limit in the runtime config', () => {
     vi.resetModules()
   })
 
-  it('is on, at 300 requests in 300 seconds, counting the address of the connection', async () => {
+  it('is on, at 300 requests in 300 seconds (1000 for the frame images of the radar), counting the address of the connection', async () => {
     vi.stubEnv('WD_E2E', '')
     const { rateLimit } = (await loadConfig()).runtimeConfig
 
-    expect(rateLimit).toEqual({ enabled: true, tokens: 300, windowSeconds: 300, clientIpHeader: '' })
+    expect(rateLimit).toEqual({ enabled: true, tokens: 300, windowSeconds: 300, frameTokens: 1000, clientIpHeader: '' })
   })
 
   it('is off in the e2e suite\'s own build, and nowhere else', async () => {

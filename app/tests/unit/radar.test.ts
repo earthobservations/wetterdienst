@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { classLimits, classRange, describeFrame, formatFrameTime, frameKey, frameUrl, indexAfterRefresh, isStale, leafletBounds, newestAge, nextReady, openingIndex, parseLoop, preloadOrder, STALE_AFTER_MS } from '../../app/utils/radar'
+import { clockSkew } from '../../app/utils/provider-credit'
+import { CELLS_WINDOW_MS, cellsShownOn, classLimits, classRange, describeFrame, formatFrameTime, frameKey, frameUrl, indexAfterRefresh, isStale, isUnavailable, leafletBounds, newestAge, nextReady, openingIndex, parseLoop, preloadOrder, STALE_AFTER_MS } from '../../app/utils/radar'
 import { RADAR_BOUNDS, radarAnswer } from '../helpers/radar-answer'
 
 // The Radar tool's reading of the backend's list of frames (GH-3788): the frames in time order, the bounds a Leaflet image overlay takes,
@@ -190,5 +191,55 @@ describe('a time in the reader\'s zone', () => {
     expect(forecast.kind).toBe('radar.forecast')
     expect(forecast.ahead).toContain('35')
     expect(forecast.value).toContain('radar.valueForecast')
+  })
+})
+
+describe('the cells and the frame on the map', () => {
+  const frames = parseLoop(answer).frames
+  const scan = '2026-11-19T21:20:00.000000+00:00'
+  const at = (time: string) => frames.find(frame => frame.time === time)!
+
+  it('shows the cells on an observed frame within 15 minutes of the scan, before it and after it, and not beyond', () => {
+    expect(CELLS_WINDOW_MS).toBe(15 * 60_000)
+    expect(cellsShownOn(at('2026-11-19T21:20:00Z'), scan)).toBe(true)
+    expect(cellsShownOn(at('2026-11-19T21:05:00Z'), scan)).toBe(true)
+    expect(cellsShownOn(at('2026-11-19T21:25:00Z'), scan)).toBe(true)
+    expect(cellsShownOn(at('2026-11-19T21:00:00Z'), scan)).toBe(false)
+    expect(cellsShownOn(at('2026-11-19T19:25:00Z'), scan)).toBe(false)
+  })
+
+  it('never shows them on a frame of the forecast, which is of a time that has not been, and not where there is no frame or no scan', () => {
+    const forecast = frames.find(frame => frame.kind === 'forecast')!
+    expect(cellsShownOn(forecast, '2026-11-19T21:25:00.000000+00:00')).toBe(false)
+    expect(cellsShownOn(null, scan)).toBe(false)
+    expect(cellsShownOn(at('2026-11-19T21:20:00Z'), null)).toBe(false)
+    expect(cellsShownOn(at('2026-11-19T21:20:00Z'), 'soon')).toBe(false)
+  })
+
+  it('tells a backend that has no radar (a 404, a 501) from one that failed, which Retry may mend', () => {
+    expect(isUnavailable({ statusCode: 501 })).toBe(true)
+    expect(isUnavailable({ status: 404 })).toBe(true)
+    expect(isUnavailable({ statusCode: 502 })).toBe(false)
+    expect(isUnavailable({ statusCode: 503 })).toBe(false)
+    expect(isUnavailable(new Error('down'))).toBe(false)
+    expect(isUnavailable(null)).toBe(false)
+  })
+})
+
+describe('the clock of the answer', () => {
+  it('reads how far the device\'s clock is from the server\'s from the answer\'s own retrieved_at, so that the age is the server\'s', () => {
+    const device = Date.parse('2026-11-19T21:30:00Z')
+    expect(clockSkew({ retrieved_at: '2026-11-19T21:40:00.000000+00:00' }, device)).toBe(10 * 60_000)
+    expect(clockSkew({ retrieved_at: '2026-11-19T21:25:00Z' }, device)).toBe(-5 * 60_000)
+    expect(clockSkew({}, device)).toBe(0)
+    expect(clockSkew({ retrieved_at: 'later' }, device)).toBe(0)
+    expect(clockSkew(null, device)).toBe(0)
+  })
+
+  it('is in the loop and the scan as they are read', () => {
+    const loop = parseLoop(radarAnswer({ run: '2026-11-19T21:25:00Z', now: Date.now() - 3_600_000 }))
+    // the server said it was an hour ago: the device is an hour ahead of it
+    expect(loop.clockSkewMs).toBeLessThan(-3_590_000)
+    expect(loop.clockSkewMs).toBeGreaterThan(-3_610_000)
   })
 })

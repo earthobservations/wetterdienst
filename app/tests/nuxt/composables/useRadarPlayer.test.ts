@@ -42,7 +42,7 @@ function mount(options: { frames?: ReturnType<typeof framesOf>, autoplay?: boole
   const autoplay = ref(options.autoplay ?? true)
   const scope = effectScope()
   scopes.push(scope)
-  const player = scope.run(() => useRadarPlayer(frames, { autoplay: () => autoplay.value, load: options.load ?? (async () => true), concurrency: options.concurrency, frameMs: 100, dwellMs: 300, retryAfterMs: 1000 }))!
+  const player = scope.run(() => useRadarPlayer(frames, { autoplay: () => autoplay.value, load: options.load ?? (async () => true), concurrency: options.concurrency, frameMs: 100, dwellMs: 300, retryDelays: [1000, 3000] }))!
   return { frames, autoplay, player, scope }
 }
 
@@ -96,7 +96,7 @@ describe('loading the frames', () => {
     expect(player.settled.value).toBe(false)
   })
 
-  it('asks for a frame that failed once more after a pause, and drops it from the loop where it fails again', async () => {
+  it('asks for a frame that failed twice more, after the pauses of its backoff, and drops it from the loop where it fails every time', async () => {
     const bad = framesOf()[3]!
     const failures: string[] = []
     const load = vi.fn(async (url: string) => {
@@ -109,10 +109,18 @@ describe('loading the frames', () => {
     const { player } = mount({ load, autoplay: false })
     await settle()
     // the first failure is not yet a drop: the frame waits for its second try
+    expect(failures).toHaveLength(1)
     expect(player.playable.value).toHaveLength(49)
-    await vi.advanceTimersByTimeAsync(1100)
+    await vi.advanceTimersByTimeAsync(900)
+    expect(failures).toHaveLength(1)
+    await vi.advanceTimersByTimeAsync(200)
     await settle()
     expect(failures).toHaveLength(2)
+    expect(player.playable.value).toHaveLength(49)
+    // the third after the longer pause, and then it is given up
+    await vi.advanceTimersByTimeAsync(3100)
+    await settle()
+    expect(failures).toHaveLength(3)
     expect(player.playable.value).toHaveLength(48)
     expect(player.playable.value.map(frame => frameKey(frame))).not.toContain(frameKey(bad))
     expect(player.progress.value).toEqual({ loaded: 48, failed: 1, total: 49 })
@@ -120,21 +128,48 @@ describe('loading the frames', () => {
     expect(player.settled.value).toBe(true)
   })
 
-  it('keeps going where the frame is there on its second try', async () => {
+  it('keeps going where the frame is there on a later try', async () => {
     const bad = framesOf()[3]!
     let tries = 0
     const load = async (url: string) => {
       if (url.includes(encodeURIComponent(bad.time)) && url.includes(`run=${encodeURIComponent(bad.run)}`))
-        return ++tries > 1
+        return ++tries > 2
       return true
     }
     const { player } = mount({ load, autoplay: false })
     await settle()
     await vi.advanceTimersByTimeAsync(1100)
     await settle()
-    expect(tries).toBe(2)
+    await vi.advanceTimersByTimeAsync(3100)
+    await settle()
+    expect(tries).toBe(3)
     expect(player.playable.value).toHaveLength(49)
     expect(player.progress.value.failed).toBe(0)
+  })
+
+  it('does not give a frame up for good: it is asked for again with the next list, where it is still listed (a 503 or a 429 passes)', async () => {
+    const bad = framesOf()[3]!
+    let broken = true
+    const asked: string[] = []
+    const load = async (url: string) => {
+      asked.push(url)
+      return !(broken && url.includes(encodeURIComponent(bad.time)) && url.includes(`run=${encodeURIComponent(bad.run)}`))
+    }
+    const { player, frames } = mount({ load, autoplay: false })
+    await settle()
+    await vi.advanceTimersByTimeAsync(1100)
+    await settle()
+    await vi.advanceTimersByTimeAsync(3100)
+    await settle()
+    expect(player.playable.value).toHaveLength(48)
+    // DWD is fine again, and the list is asked for again: the same list of frames, a new answer
+    broken = false
+    frames.value = framesOf()
+    await settle()
+    expect(player.playable.value).toHaveLength(49)
+    expect(player.progress.value.failed).toBe(0)
+    // only the frame that was given up was asked for again
+    expect(asked.filter(url => url.includes(encodeURIComponent(bad.time)) && url.includes(`run=${encodeURIComponent(bad.run)}`))).toHaveLength(4)
   })
 })
 

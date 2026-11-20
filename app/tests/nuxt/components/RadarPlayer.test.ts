@@ -49,13 +49,34 @@ describe('the player', () => {
     expect(wrapper.emitted('step')).toEqual([[-1], [1]])
   })
 
-  it('has no step back at the first frame and no step on at the last', async () => {
+  it('has a step back that cannot go on at the first frame and a step on that cannot at the last: aria-disabled, no native disabled, which would drop the focus the reader has on it (GH-3788)', async () => {
     const first = await mountPlayer({ index: 0 })
-    expect(testid(first, 'radar-step-back').attributes('disabled')).toBeDefined()
-    expect(testid(first, 'radar-step-forward').attributes('disabled')).toBeUndefined()
+    expect(testid(first, 'radar-step-back').attributes('aria-disabled')).toBe('true')
+    expect(testid(first, 'radar-step-back').attributes('disabled')).toBeUndefined()
+    expect(testid(first, 'radar-step-forward').attributes('aria-disabled')).toBeUndefined()
     const last = await mountPlayer({ index: 48 })
-    expect(testid(last, 'radar-step-forward').attributes('disabled')).toBeDefined()
-    expect(testid(last, 'radar-step-back').attributes('disabled')).toBeUndefined()
+    expect(testid(last, 'radar-step-forward').attributes('aria-disabled')).toBe('true')
+    expect(testid(last, 'radar-step-forward').attributes('disabled')).toBeUndefined()
+    expect(testid(last, 'radar-step-back').attributes('aria-disabled')).toBeUndefined()
+  })
+
+  it('does nothing for a press on the step that cannot go on, and keeps the focus on it', async () => {
+    const wrapper = await mountPlayer({ index: 0 })
+    const back = testid(wrapper, 'radar-step-back')
+    ;(back.element as HTMLElement).focus()
+    await back.trigger('click')
+    expect(wrapper.emitted('step')).toBeUndefined()
+    expect(document.activeElement).toBe(back.element)
+    expect(testid(wrapper, 'radar-announcement').text()).toBe('')
+  })
+
+  it('says its frame is loading, marked busy, while the map shows another', async () => {
+    const wrapper = await mountPlayer({ loading: true })
+    expect(testid(wrapper, 'radar-frame-loading').text()).toBe('Loading this frame …')
+    expect(testid(wrapper, 'radar-player').attributes('aria-busy')).toBe('true')
+    await wrapper.setProps({ loading: false })
+    expect(wrapper.find('[data-testid="radar-frame-loading"]').exists()).toBe(false)
+    expect(testid(wrapper, 'radar-player').attributes('aria-busy')).toBeUndefined()
   })
 
   it('has nothing to play for fewer than two frames', async () => {
@@ -73,6 +94,14 @@ describe('the slider', () => {
     expect(slider.attributes('max')).toBe('48')
     expect(slider.attributes('step')).toBe('1')
     expect((slider.element as HTMLInputElement).value).toBe('30')
+  })
+
+  it('says nothing in the status where the slider is moved: it is read out by itself, and a second line would say the frame twice', async () => {
+    const wrapper = await mountPlayer()
+    const slider = testid(wrapper, 'radar-slider')
+    ;(slider.element as HTMLInputElement).value = '30'
+    await slider.trigger('input')
+    expect(testid(wrapper, 'radar-announcement').text()).toBe('')
   })
 
   it('raises seek with the frame the reader moved it to', async () => {

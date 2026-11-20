@@ -249,7 +249,9 @@ and answers the one past the limit with `429 Too Many Requests` and a problem of
 `urn:wetterdienst:problem:rate-limited`, with `Retry-After` (seconds). It does not count the pages, the assets,
 `/docs` and `/openapi.json`, nor the catalogue routes that every page asks for: `/api/version`, `/api/settings`,
 `/api/providers`, `/api/coverage`, `/api/glossary`, `/api/auth` and `/api/health`. The routes count together, one
-limit for a client.
+limit for a client. The images of the Radar tool's frames (`/api/radar/frame`) are the exception: they are counted in a bucket
+of their own, in the same window, with a larger limit (`NUXT_RATE_LIMIT_FRAME_TOKENS`), since one page of the tool asks for 49 of them and
+the browser keeps them for an hour; the list of the frames (`/api/radar/frames`) is counted with the others.
 
 Every counted answer carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset` (when the window
 ends, in seconds since the epoch).
@@ -258,6 +260,7 @@ ends, in seconds since the epoch).
 |---|---|---|
 | `NUXT_RATE_LIMIT_TOKENS` | `300` | Requests per client in a window |
 | `NUXT_RATE_LIMIT_WINDOW_SECONDS` | `300` | The window: 300 in 300 seconds is 60 a minute |
+| `NUXT_RATE_LIMIT_FRAME_TOKENS` | `1000` | Requests per client in a window for the radar's frame images, a bucket of their own |
 | `NUXT_RATE_LIMIT_ENABLED` | `true` | `false` switches the limit off |
 | `NUXT_RATE_LIMIT_CLIENT_IP_HEADER` | empty | See below |
 

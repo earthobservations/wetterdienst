@@ -23,8 +23,11 @@ Types of changes:
   and by an icon), with a player (play and pause, a step each way, a slider; the loop starts by
   itself unless the system asks for less motion), the time in your own zone, the legend in mm/h
   with numbers, a short text on what a radar measures and where it errs, and DWD's thunderstorm
-  cells on top with their list. It sits in the Menu of the phone's tab bar until you move it there,
-  as the Map does. It needs backend 0.194.0 (GH-3788).
+  cells on top with their list (shown on the frames within 15 minutes of their scan, faded out on
+  older frames and on the forecast). It needs backend 0.194.0 (GH-3788).
+- `[Navigation]` The Radar takes History's place in the default tab bar of a phone: Forecast,
+  Explorer, Stripes and the Radar, with History and the Map in the Menu's sheet. A bar you arranged
+  yourself is kept, and the Radar is below its line (GH-3788).
 - `[Map]` A NOAA GHCN daily layer, the third in the layers panel: stations from all over the world,
   loaded for the part of the map in view as it moves (debounced; a request the map has moved past
   is cancelled) and grouped like any large layer. Zoomed out so far that the view holds more than

@@ -1,6 +1,6 @@
 import type { ProviderCredit } from './provider-credit'
 import { formatNumber, withData } from './format'
-import { creditOf } from './provider-credit'
+import { clockSkew, creditOf } from './provider-credit'
 import { timestampDate } from './timestamp'
 
 /**
@@ -86,6 +86,8 @@ export interface RadarLoop {
   /** The newest run is much older than it should be (the backend's `radar-stale` warning) */
   stale: boolean
   credit: ProviderCredit | null
+  /** The server's clock minus the device's when the answer was read, from its `retrieved_at` (ms): the age of the newest run is judged by the server's time */
+  clockSkewMs: number
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -148,6 +150,7 @@ export function parseLoop(answer: unknown): RadarLoop {
     legend,
     stale: warnings.some(warning => isRecord(warning) && warning.code === 'radar-stale'),
     credit: creditOf(answer.metadata),
+    clockSkewMs: clockSkew(answer.metadata),
   }
 }
 
@@ -191,6 +194,25 @@ export function nextReady(index: number, count: number, ready: (index: number) =
       return candidate
   }
   return null
+}
+
+/**
+ * How close a frame must be to the scan of the thunderstorm cells for the cells to be shown on it: 15 minutes (the maintainer's decision,
+ * GH-3788). The cells are the latest scan's, so on an older frame they are of a sky that was not that one, and on a frame of the forecast
+ * they are of the past; there they fade out, and the panel says so.
+ */
+export const CELLS_WINDOW_MS = 15 * 60 * 1000
+
+/** Whether the cells of the scan at `scanTime` (ISO text) are shown on `frame`: an observed frame within 15 minutes of it; never on a forecast frame */
+export function cellsShownOn(frame: Pick<RadarFrame, 'kind' | 'at'> | null, scanTime: string | null): boolean {
+  const scan = scanTime ? timestampDate(scanTime) : null
+  return Boolean(frame && scan && frame.kind === 'observation' && Math.abs(frame.at - scan.getTime()) <= CELLS_WINDOW_MS)
+}
+
+/** Whether a failure of the list is the backend saying it has no radar (a 404 or a 501, a server without the `radar` extra): no Retry would help */
+export function isUnavailable(error: unknown): boolean {
+  const status = isRecord(error) ? (finite(error.statusCode) ?? finite(error.status)) : null
+  return status === 404 || status === 501
 }
 
 /** The age of the newest run at `now`, in milliseconds, or null where the loop has no analysis frame */

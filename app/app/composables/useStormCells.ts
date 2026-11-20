@@ -27,6 +27,7 @@ export function useStormCells(active: () => boolean, options: { interval?: numbe
     load: options.load ?? (() => $fetch('/api/storm-cells', { query: { track: 'false' }, ...API_FETCH })),
     parse: parseScan,
   })
-  const outdated = computed(() => Boolean(polled.data.value) && isOutdated(polled.data.value!.referenceTime, polled.now.value))
+  // the age is the server's time (`clockSkewMs`), not a device clock that may be wrong
+  const outdated = computed(() => Boolean(polled.data.value) && isOutdated(polled.data.value!.referenceTime, polled.now.value + polled.data.value!.clockSkewMs))
   return { scan: polled.data, status: polled.status, error: polled.error, refreshFailed: polled.refreshFailed, loading: polled.loading, outdated, retry: polled.retry }
 }

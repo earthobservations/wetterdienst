@@ -207,13 +207,39 @@ test.describe('the thunderstorm cells on top of the radar', () => {
     await expect(first).toContainText('Severity 3 (extreme)')
     await expect(first).toContainText('direction calculated')
     await expect(first.getByTestId('radar-cells-location')).toHaveText('Position 51.30, 12.40')
-    // the credit of the cells is in the credit line of the map
-    await expect(page.locator('.leaflet-control-attribution')).toContainText('KONRAD3D')
+    // the credit of the radar and the cells is one line of the map's credit, with no product codes
+    await expect(page.locator('.leaflet-control-attribution')).toContainText('Source: Deutscher Wetterdienst')
     const zoomOf = () => page.evaluate(() => Math.max(...[...document.querySelectorAll<HTMLImageElement>('.station-map-tiles img.leaflet-tile')].map(tile => Number(/\/(\d+)\/\d+\/\d+\.png/.exec(tile.src)?.[1])).filter(zoom => !Number.isNaN(zoom))))
     const before = await zoomOf()
     await first.getByRole('button').click()
     await expect(page.getByTestId('radar-panel-announcement')).toHaveText('Map centred on cell 12')
     await expect.poll(zoomOf).toBeGreaterThan(before)
+  })
+
+  test('fade out on a frame of the forecast, with a note in the panel, and come back on the frame they are for; the map keeps its Leaflet classes (M1/c)', async ({ page, baseURL }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await open(page, baseURL!, { 'storm-cells': () => exampleScan() })
+    await expect(page.locator('.storm-cell-mark')).toHaveCount(4)
+    const mark = page.locator('.storm-cell-mark').first()
+    await expect(mark).toBeVisible()
+    await expect(page.getByTestId('radar-cells-faded')).toHaveCount(0)
+    await page.getByTestId('radar-slider').focus()
+    await page.keyboard.press('End')
+    await expect(page.getByTestId('radar-cells-faded')).toBeVisible()
+    await expect(page.getByTestId('radar-cells-faded')).toContainText('within 15 minutes')
+    await expect(page.locator('.station-map')).toHaveClass(/leaflet-container/)
+    await expect(page.locator('.station-map')).toHaveClass(/station-map-cells-faded/)
+    // faded out: the panes of the cells have no opacity (Playwright counts an element of opacity 0 as visible)
+    await expect(page.locator('.leaflet-storm-cell-marks-pane')).toHaveCSS('opacity', '0')
+    await expect(page.locator('.leaflet-storm-cells-pane')).toHaveCSS('opacity', '0')
+    // the list stays, and the credit of the cells leaves the map's (DWD's line is the radar's)
+    await expect(page.getByTestId('radar-cells-item')).toHaveCount(4)
+    // the newest observed frame is within 15 minutes of the scan again; the oldest of the loop is not
+    await page.getByTestId('radar-slider').fill('24')
+    await expect(page.getByTestId('radar-cells-faded')).toHaveCount(0)
+    await expect(page.locator('.leaflet-storm-cell-marks-pane')).toHaveCSS('opacity', '1')
+    await page.keyboard.press('Home')
+    await expect(page.getByTestId('radar-cells-faded')).toBeVisible()
   })
 
   test('are off with the switch, which is a switch: nothing is drawn and the list is gone', async ({ page, baseURL }) => {
@@ -241,7 +267,7 @@ test.describe('the Radar in the navigation', () => {
   test.describe('on a wide screen', () => {
     test.use({ viewport: { width: 1440, height: 900 } })
 
-    test('is a tab of the header, the sixth tool, and marked while one is on its page', async ({ page, baseURL }) => {
+    test('is a tab of the header, the fourth of six tools, and marked while one is on its page', async ({ page, baseURL }) => {
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await open(page, baseURL!)
       const nav = page.getByRole('navigation', { name: en.shell.mainNav })
@@ -259,14 +285,17 @@ test.describe('the Radar in the navigation', () => {
   test.describe('on a phone', () => {
     test.use({ viewport: { width: 390, height: 844 }, hasTouch: true })
 
-    test('has the four tools it had in the bar and the Menu, and the Radar is in the Menu\'s sheet, which marks the Menu on its page', async ({ page, baseURL }) => {
+    test('has the Radar in the default bar, in History\'s place, and History and the Map in the Menu\'s sheet; the Radar\'s tab is marked on its page and the Menu is not', async ({ page, baseURL }) => {
       await page.emulateMedia({ reducedMotion: 'reduce' })
       await open(page, baseURL!)
       const bar = page.getByRole('navigation').last()
-      await expect(bar.getByRole('link', { name: en.nav.radar })).toHaveCount(0)
-      await expect(page.getByRole('button', { name: en.header.menu })).toHaveAttribute('aria-current', 'true')
+      await expect(bar.getByRole('link', { name: en.nav.radar })).toHaveAttribute('aria-current', 'page')
+      await expect(bar.getByRole('link', { name: en.nav.history })).toHaveCount(0)
+      await expect(page.getByRole('button', { name: en.header.menu })).not.toHaveAttribute('aria-current', 'true')
       await page.getByRole('button', { name: en.header.menu }).click()
-      await expect(page.getByRole('dialog').getByRole('link', { name: new RegExp(`^${en.nav.radar}`) })).toBeVisible()
+      const sheet = page.getByRole('dialog')
+      await expect(sheet.getByRole('link', { name: new RegExp(`^${en.nav.history}`) })).toBeVisible()
+      await expect(sheet.getByRole('link', { name: new RegExp(`^${en.nav.map}`) })).toBeVisible()
     })
 
     test('does not scroll sideways at 390 px, has its player in the window under the map with buttons of 44 px, and the panel after it', async ({ page, baseURL }) => {

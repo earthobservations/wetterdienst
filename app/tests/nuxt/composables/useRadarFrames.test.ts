@@ -96,6 +96,18 @@ describe('the radar\'s list of frames', () => {
     expect(radar.stale.value).toBe(true)
   })
 
+  it('judges the age of the newest run by the server\'s time, not by a device clock that is wrong (L6)', async () => {
+    // the device says 21:30 and the run is of 21:25, which would be fresh; the server says it is 22:30, so the run is an hour old
+    fetched.mockResolvedValue(radarAnswer({ run: '2026-11-19T21:25:00Z', now: NOW.getTime() + 3_600_000 }))
+    const { radar } = mount()
+    await settle()
+    expect(radar.stale.value).toBe(true)
+    // and the other way: a device that is an hour fast would call a fresh run stale
+    fetched.mockResolvedValue(radarAnswer({ run: '2026-11-19T21:25:00Z', now: NOW.getTime() - 3_600_000 + 5 * 60_000 }))
+    await radar.retry()
+    expect(radar.stale.value).toBe(false)
+  })
+
   it('reads the age of the newest run when the list is read', async () => {
     // the run is 25 minutes old when the answer comes
     fetched.mockResolvedValue(radarAnswer({ run: '2026-11-19T21:05:00Z' }))

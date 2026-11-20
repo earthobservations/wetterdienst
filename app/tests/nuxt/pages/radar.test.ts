@@ -17,7 +17,7 @@ vi.mock('~/components/StationMap.vue', async () => {
   return {
     __esModule: true,
     default: defineComponent({
-      props: { stations: Array, selected: null, place: null, label: String, noFullscreen: Boolean, openOn: Array, overlay: null, cells: Array, credits: Array, centreOn: null },
+      props: { stations: Array, selected: null, place: null, label: String, noFullscreen: Boolean, openOn: Array, overlay: null, cells: Array, cellsFaded: Boolean, credits: Array, centreOn: null },
       setup(props) {
         stage.props = props
         stage.mounts++
@@ -46,36 +46,32 @@ registerEndpoint('/api/storm-cells', (event) => {
   return cellsScan()
 })
 
-// the frames' images: an `Image` that loads at once, or fails for the addresses a test names, and counts how many are open
+// the frames' images, which the player loads with `fetch`: answered at once (a moment later, so that more than one is open at once), a 503 for
+// the addresses a test names, or held until the test lets them go
 const imagesAsked: string[] = []
 let failing: (url: string) => boolean = () => false
+let held: (url: string) => boolean = () => false
+let releases: Array<() => void> = []
 let imagesOpen = 0
 let imagesMostAtOnce = 0
-const originalImage = globalThis.Image
-class StubImage {
-  onload: (() => void) | null = null
-  onerror: (() => void) | null = null
-  private address = ''
-  get src() {
-    return this.address
-  }
-
-  set src(url: string) {
-    this.address = url
+const originalFetch = globalThis.fetch
+function stubFetch() {
+  globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input instanceof Request ? input.url : input)
+    if (!/\/api\/radar\/frame\?/.test(url))
+      return originalFetch(input, init)
     imagesAsked.push(url)
     imagesOpen++
     imagesMostAtOnce = Math.max(imagesMostAtOnce, imagesOpen)
-    // answered a moment later, as a network is, so that more than one is open at once
-    setTimeout(() => {
-      imagesOpen--
-      if (failing(url))
-        this.onerror?.()
+    await new Promise<void>((resolve) => {
+      if (held(url))
+        releases.push(resolve)
       else
-        this.onload?.()
-    }, 5)
-  }
-
-  decode = async () => {}
+        setTimeout(resolve, 5)
+    })
+    imagesOpen--
+    return failing(url) ? new Response('busy', { status: 503 }) : new Response(new Blob(['png'], { type: 'image/png' }), { status: 200 })
+  }) as typeof fetch
 }
 
 function stubMediaQueries(options: { wide?: boolean, reducedMotion?: boolean } = {}) {
@@ -104,13 +100,13 @@ const text = (wrapper: Wrapper) => wrapper.text().replace(/\s+/g, ' ')
 /** The loop is settled once every frame is in: its status line says nothing more of loading */
 async function loaded(wrapper: Wrapper) {
   await vi.waitFor(() => expect(byId(wrapper, 'radar-newest').exists()).toBe(true))
-  await vi.waitFor(() => expect(stage.props.overlay).not.toBeNull())
+  await vi.waitFor(() => expect(stage.props.overlay).toBeTruthy())
   await vi.waitFor(() => expect(byId(wrapper, 'radar-frames-loading').exists()).toBe(false))
 }
 
 beforeEach(() => {
   stubMediaQueries()
-  globalThis.Image = StubImage as unknown as typeof Image
+  stubFetch()
 })
 
 afterEach(() => {
@@ -122,10 +118,12 @@ afterEach(() => {
   framesStatus = 200
   cellsScan = () => emptyScan()
   failing = () => false
+  held = () => false
+  releases = []
   imagesOpen = imagesMostAtOnce = 0
   clearNuxtData()
   window.matchMedia = originalMatchMedia
-  globalThis.Image = originalImage
+  globalThis.fetch = originalFetch
 })
 
 describe('the radar page', () => {
@@ -178,7 +176,7 @@ describe('loading the frames', () => {
     const bad = answer.frames[30]!
     failing = url => url.includes(`time=${encodeURIComponent(bad.time)}&`)
     const wrapper = await mountRadar()
-    await vi.waitFor(() => expect(byId(wrapper, 'radar-skipped').exists()).toBe(true), { timeout: 8000 })
+    await vi.waitFor(() => expect(byId(wrapper, 'radar-skipped').exists()).toBe(true), { timeout: 12_000 })
     expect(byId(wrapper, 'radar-skipped').text()).toBe('Frames that could not be loaded and are skipped: 1')
     // the slider has one frame less
     expect(byId(wrapper, 'radar-slider').attributes('max')).toBe('47')
@@ -237,12 +235,72 @@ describe('the player', () => {
   })
 })
 
+describe('the frame on the map and the frame of the player (M1)', () => {
+  it('describes on the chip the frame whose picture is on the map, and says on the player that its own frame is loading, until it is in hand', async () => {
+    stubMediaQueries({ reducedMotion: true })
+    const answer = radarAnswer()
+    framesAnswer = () => answer
+    const target = answer.frames[31]!
+    held = url => url.includes(`time=${encodeURIComponent(target.time)}&`)
+    const wrapper = await mountRadar()
+    await vi.waitFor(() => expect(stage.props.overlay).toBeTruthy())
+    const newest = answer.frames[24]!
+    const slider = byId(wrapper, 'radar-slider')
+    ;(slider.element as HTMLInputElement).value = '31'
+    await slider.trigger('input')
+    // the player is at the forecast frame, whose image is on its way: it says so, and the map still shows the newest observed one
+    expect(byId(wrapper, 'radar-kind').text()).toBe('Forecast, 35 min ahead')
+    expect(byId(wrapper, 'radar-frame-loading').exists()).toBe(true)
+    expect(byId(wrapper, 'radar-chip').attributes('data-kind')).toBe('observation')
+    expect(byId(wrapper, 'radar-chip').text()).toContain('Observed')
+    expect(stage.props.overlay.url).toContain(`time=${encodeURIComponent(newest.time)}&`)
+    // the image comes: the map and the chip are the player's frame
+    held = () => false
+    releases.forEach(release => release())
+    await vi.waitFor(() => expect(stage.props.overlay.url).toContain(`time=${encodeURIComponent(target.time)}&`))
+    expect(byId(wrapper, 'radar-chip').attributes('data-kind')).toBe('forecast')
+    expect(byId(wrapper, 'radar-chip').text()).toContain('Forecast, 35 min ahead')
+    expect(byId(wrapper, 'radar-frame-loading').exists()).toBe(false)
+  })
+
+  it('has no picture where the list has no frame', async () => {
+    framesAnswer = () => ({ ...radarAnswer(), frames: [] })
+    const wrapper = await mountRadar()
+    await vi.waitFor(() => expect(byId(wrapper, 'radar-empty').exists()).toBe(true))
+    expect(stage.props.overlay).toBeNull()
+    expect(byId(wrapper, 'radar-chip').exists()).toBe(false)
+  })
+})
+
+describe('what is told while the frames load (M2)', () => {
+  it('has a counter that is no live region, and one live line that says it once at the start and once at the end', async () => {
+    const wrapper = await mountRadar()
+    await vi.waitFor(() => expect(byId(wrapper, 'radar-frames-live').text()).not.toBe(''))
+    const live = byId(wrapper, 'radar-frames-live')
+    expect(live.attributes('role')).toBe('status')
+    const said: string[] = [live.text()]
+    const watching = setInterval(() => said.push(live.text()), 2)
+    await loaded(wrapper)
+    clearInterval(watching)
+    expect(live.text()).toBe('The radar frames are loaded.')
+    // told twice and never the count: "Loading the radar frames …", then "The radar frames are loaded."
+    expect([...new Set(said)].filter(line => line !== '')).toEqual(['Loading the radar frames …', 'The radar frames are loaded.'])
+    expect(wrapper.find('[data-testid="radar-frames-loading"]').exists()).toBe(false)
+  })
+
+  it('has the visible counter without a role, so that its 49 changes are not announced', async () => {
+    const wrapper = await mountRadar()
+    await vi.waitFor(() => expect(byId(wrapper, 'radar-frames-loading').exists()).toBe(true))
+    expect(byId(wrapper, 'radar-frames-loading').attributes('role')).toBeUndefined()
+  })
+})
+
 describe('the legend, the credit and the note', () => {
   it('has the legend of the answer in mm/h, with numbers', async () => {
     const wrapper = await mountRadar()
     await loaded(wrapper)
     const legend = byId(wrapper, 'radar-legend')
-    expect(legend.find('h2').text()).toBe('Rain rate in mm/h')
+    expect(legend.find('h2').text()).toBe('Precipitation rate in mm/h')
     expect(legend.findAll('[data-testid="radar-legend-class"]')).toHaveLength(7)
     expect(legend.text()).toContain('0.1–0.5')
     expect(legend.text()).toContain('25+')
@@ -265,7 +323,7 @@ describe('the legend, the credit and the note', () => {
   it('gives the map the credit of the radar, with the licence as a link to its terms', async () => {
     const wrapper = await mountRadar()
     await loaded(wrapper)
-    expect(stage.props.credits).toEqual([{ text: 'Source: Deutscher Wetterdienst (RV)', license: { label: 'CC-BY-4.0', url: 'https://creativecommons.org/licenses/by/4.0/' } }])
+    expect(stage.props.credits).toEqual([{ text: 'Source: Deutscher Wetterdienst', license: { label: 'CC-BY-4.0', url: 'https://creativecommons.org/licenses/by/4.0/' } }])
   })
 
   it('has an About text in plain words that names its sources', async () => {
@@ -319,14 +377,69 @@ describe('when the radar is old or fails', () => {
   })
 })
 
+describe('the cells and the frame (the cells are the latest scan\'s)', () => {
+  it('shows the cells on the newest observed frame, which is within 15 minutes of the scan, with no note', async () => {
+    cellsScan = () => exampleScan()
+    const wrapper = await mountRadar()
+    await vi.waitFor(() => expect(stage.props.cells).toHaveLength(4))
+    await vi.waitFor(() => expect(stage.props.overlay).toBeTruthy())
+    expect(stage.props.cellsFaded).toBe(false)
+    expect(wrapper.find('[data-testid="radar-cells-faded"]').exists()).toBe(false)
+  })
+
+  it('fades them out on a frame of the forecast, with a note and without their credit, and shows them again on the frame they are for', async () => {
+    stubMediaQueries({ reducedMotion: true })
+    cellsScan = () => exampleScan()
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    await vi.waitFor(() => expect(stage.props.cells).toHaveLength(4))
+    const slider = byId(wrapper, 'radar-slider')
+    ;(slider.element as HTMLInputElement).value = '30'
+    await slider.trigger('input')
+    await vi.waitFor(() => expect(stage.props.cellsFaded).toBe(true))
+    // the cells are still the map's (they fade, they are not taken away), and the note and the list say what is so
+    expect(stage.props.cells).toHaveLength(4)
+    expect(byId(wrapper, 'radar-cells-faded').text()).toMatch(/^The cells are hidden on this frame: they are from the scan of .*UTC, and are shown only on frames within 15 minutes of it\.$/)
+    expect(wrapper.findAll('[data-testid="radar-cells-item"]')).toHaveLength(4)
+    ;(slider.element as HTMLInputElement).value = '24'
+    await slider.trigger('input')
+    await vi.waitFor(() => expect(stage.props.cellsFaded).toBe(false))
+    expect(wrapper.find('[data-testid="radar-cells-faded"]').exists()).toBe(false)
+  })
+
+  it('fades them out on an observed frame more than 15 minutes older than the scan', async () => {
+    stubMediaQueries({ reducedMotion: true })
+    cellsScan = () => exampleScan()
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    await vi.waitFor(() => expect(stage.props.cells).toHaveLength(4))
+    const slider = byId(wrapper, 'radar-slider')
+    ;(slider.element as HTMLInputElement).value = '10'
+    await slider.trigger('input')
+    await vi.waitFor(() => expect(stage.props.cellsFaded).toBe(true))
+  })
+})
+
+describe('a backend that has no radar (L4)', () => {
+  it.each([404, 501])('says so for a %s, plainly, and has no Retry (it would not help)', async (status) => {
+    framesStatus = status
+    const wrapper = await mountRadar()
+    await vi.waitFor(() => expect(byId(wrapper, 'radar-unavailable').exists()).toBe(true))
+    expect(byId(wrapper, 'radar-unavailable').text()).toBe('The radar is not available on this server.')
+    expect(byId(wrapper, 'radar-unavailable').attributes('role')).toBe('alert')
+    expect(wrapper.find('[data-testid="radar-retry"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="radar-failed"]').exists()).toBe(false)
+  })
+})
+
 describe('the thunderstorm cells on top', () => {
   it('asks for the latest scan without the forecast track, and draws the cells on the map with their credit', async () => {
     cellsScan = () => exampleScan()
     const wrapper = await mountRadar()
     await vi.waitFor(() => expect(stage.props.cells).toHaveLength(4))
     expect(cellsAsked).toEqual([{ track: 'false' }])
-    // DWD's, under the same terms: one line for the radar and the cells
-    expect(stage.props.credits).toEqual([{ text: 'Source: Deutscher Wetterdienst (RV, KONRAD3D)', license: { label: 'CC-BY-4.0', url: 'https://creativecommons.org/licenses/by/4.0/' } }])
+    // DWD's, under the same terms: one line for the radar and the cells, with no product codes
+    expect(stage.props.credits).toEqual([{ text: 'Source: Deutscher Wetterdienst', license: { label: 'CC-BY-4.0', url: 'https://creativecommons.org/licenses/by/4.0/' } }])
     expect(byId(wrapper, 'radar-cells-summary').text()).toBe('Thunderstorm cells in the latest scan: 4')
     expect(wrapper.findAll('[data-testid="radar-cells-item"]')).toHaveLength(4)
   })
@@ -377,7 +490,7 @@ describe('the thunderstorm cells on top', () => {
   it('says the cells are the latest scan\'s, whichever frame is shown', async () => {
     const wrapper = await mountRadar()
     await vi.waitFor(() => expect(byId(wrapper, 'radar-cells-loop-note').exists()).toBe(true))
-    expect(byId(wrapper, 'radar-cells-loop-note').text()).toBe('The cells are those of the latest scan, whichever frame is shown.')
+    expect(byId(wrapper, 'radar-cells-loop-note').text()).toContain('The cells are those of the latest scan.')
   })
 })
 

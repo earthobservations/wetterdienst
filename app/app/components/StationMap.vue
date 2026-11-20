@@ -64,6 +64,8 @@ const props = defineProps<{
   openOn?: [[number, number], [number, number]]
   /** The thunderstorm cells to draw over the picture (GH-4208); undefined where they are off */
   cells?: StormCell[]
+  /** The cells are not for the frame on the picture (an older one, or one of the forecast): they fade out, and are drawn again when it is */
+  cellsFaded?: boolean
   /** The credit of the layers drawn over the tiles (the radar's, the cells'): each a line of the map's attribution, the licence a link to its terms */
   credits?: Array<{ text: string, license: { label: string, url: string } | null }>
   /** A press on a cell of the list: the map centres on it, once for each press (`count`), as a click on a group does */
@@ -537,6 +539,10 @@ function emitView() {
 onMounted(() => {
   if (!container.value)
     return
+  // the classes of this component's own are set by hand, not by a `:class` binding: Vue would write the whole `class` again on a change and take
+  // away the `leaflet-container` (and the rest) that Leaflet puts on the element
+  container.value.classList.toggle('station-map-fractional', Boolean(props.openOn))
+  container.value.classList.toggle('station-map-cells-faded', Boolean(props.cellsFaded))
   map = L.map(container.value, {
     center: [HOME_VIEW.latitude, HOME_VIEW.longitude],
     zoom: HOME_VIEW.zoom,
@@ -679,6 +685,7 @@ watch(() => [props.stations, props.reporting, props.grouping], () => {
 })
 watch(() => props.overlay, () => void drawOverlay(), { deep: true })
 watch(() => props.cells, drawCells)
+watch(() => props.cellsFaded, faded => container.value?.classList.toggle('station-map-cells-faded', Boolean(faded)))
 watch(() => props.credits, drawCredits)
 watch(() => props.centreOn, centreOnCell)
 watch(() => [props.selected, props.place, props.recentre, props.position], () => {
@@ -692,7 +699,7 @@ watch(() => [props.position, props.locate], () => {
 </script>
 
 <template>
-  <div ref="container" class="station-map" :class="{ 'station-map-fractional': openOn }" role="application" :aria-label="label" :aria-roledescription="t('nav.map')" :aria-describedby="describedBy" />
+  <div ref="container" class="station-map" role="application" :aria-label="label" :aria-roledescription="t('nav.map')" :aria-describedby="describedBy" />
   <!-- by its action (GH-4227): the name is what pressing does, and it changes with the state ("Full screen", "Exit full screen"), as a button that is not a toggle does -->
   <Teleport v-if="fullscreenHost && !noFullscreen" :to="fullscreenHost">
     <button
@@ -733,9 +740,26 @@ watch(() => [props.position, props.locate], () => {
 .station-map.station-map-fractional .station-map-tiles img.leaflet-tile {
   outline: 1px solid transparent;
 }
-/* the radar's picture (GH-3788): the classes are pixels, which the browser stretches over the bounds; it takes no pointer */
+/* the radar's picture (GH-3788): the classes are pixels (a pixel is a class, never a blend), which the browser stretches over the bounds
+   without smoothing them; it takes no pointer */
 .station-map .station-map-radar {
   pointer-events: none;
+  image-rendering: pixelated;
+}
+/* the cells that are not for the frame shown fade out (GH-3788): their panes, so that the outlines and the marks go together */
+.station-map .leaflet-storm-cells-pane,
+.station-map .leaflet-storm-cell-marks-pane {
+  transition: opacity 0.4s;
+}
+.station-map.station-map-cells-faded .leaflet-storm-cells-pane,
+.station-map.station-map-cells-faded .leaflet-storm-cell-marks-pane {
+  opacity: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .station-map .leaflet-storm-cells-pane,
+  .station-map .leaflet-storm-cell-marks-pane {
+    transition: none;
+  }
 }
 /* the mark of a thunderstorm cell (utils/storm-cells.ts): an svg the size of its icon, no box of its own */
 .station-map .storm-cell-mark {

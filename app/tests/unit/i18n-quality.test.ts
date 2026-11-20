@@ -283,6 +283,7 @@ describe('address', () => {
   // word that only looks like one. An entry that no longer matches is stale and fails.
   const FORMAL_OK: Record<string, Record<string, string>> = {
     cs: { 'language.inclusiveHint': 'a welcome to everyone, which is a plural by meaning ("Vítejte všichni")' },
+    de: { 'radar.about1': 'Sie = die Formel (die Z-R-Beziehung), kein Du-Sie: ein Satz des Textes, nicht an den Leser gerichtet' },
   }
 
   const prose = (text: string) => text.replace(/\{[^{}]*\}/g, '')

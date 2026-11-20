@@ -13,7 +13,7 @@ const FIXED = '2026-11-17T22:15:00.000000+00:00'
 
 const mounted: Array<{ unmount: () => void }> = []
 async function mountCells(props: Record<string, unknown>) {
-  const wrapper = await mountSuspended(RadarStormCells, { props: { status: 'success', refreshFailed: false, outdated: false, origin: null, scan: null, ...props }, attachTo: document.body })
+  const wrapper = await mountSuspended(RadarStormCells, { props: { status: 'success', refreshFailed: false, outdated: false, scan: null, ...props }, attachTo: document.body })
   mounted.push(wrapper)
   return wrapper
 }
@@ -152,27 +152,9 @@ describe('where each cell is', () => {
     ])
   })
 
-  it('says its distance and the point of the compass it lies on from the station or place picked, in the words of the motion', async () => {
-    // Frankfurt am Main: the cell 7 is at 50.1, 8.7, which is some kilometres to the north-east of it... of this point
-    const wrapper = await mountCells({ scan: parseScan(exampleScan()), origin: { latitude: 50.0, longitude: 8.5 } })
-    const places = wrapper.findAll('[data-testid="radar-cells-location"]').map(place => place.text())
-    // the second is the cell 7: 0.1 degrees north and 0.2 east of the place, about 20 km, to the north-east
-    expect(places[1]).toMatch(/^\d+ km from the picked place, to the north-east$/)
-    // the cell 12, far to the north-east, and the cell 3, to the south-east
-    expect(places[0]).toMatch(/^[\d,]+ km from the picked place, to the (north-)?east$/)
-    expect(places[2]).toMatch(/^[\d,]+ km from the picked place, to the south(-east)?$/)
-    // none of them says its position then
-    expect(places.some(place => place.startsWith('Position'))).toBe(false)
-  })
-
-  it('says that the cell is at the place where it is within half a kilometre of it', async () => {
-    const wrapper = await mountCells({ scan: parseScan(stormCellsAnswer([stormCell({ cell_id: '1', latitude: 50, longitude: 8 })])), origin: { latitude: 50.001, longitude: 8.001 } })
-    expect(text(wrapper, 'radar-cells-location')).toBe('At the picked place')
-  })
-
   it('says nothing of the place of a cell that has none', async () => {
     const bare = { ...stormCell({ cell_id: '1', latitude: 50, longitude: 8 }), geometry: null, centroid_latitude: null, centroid_longitude: null } as unknown as ReturnType<typeof stormCell>
-    const wrapper = await mountCells({ scan: parseScan(stormCellsAnswer([bare])), origin: { latitude: 50, longitude: 8 } })
+    const wrapper = await mountCells({ scan: parseScan(stormCellsAnswer([bare])) })
     expect(wrapper.find('[data-testid="radar-cells-location"]').exists()).toBe(false)
     // and it is no button either: there is no map to centre on it
     expect(wrapper.find('[data-testid="radar-cells-entry"]').element.tagName).toBe('DIV')
@@ -248,5 +230,33 @@ describe('a scan that is out of date', () => {
   it('says nothing of it for a scan that is not', async () => {
     const wrapper = await mountCells({ scan: parseScan(exampleScan(FIXED)) })
     expect(wrapper.find('[data-testid="radar-cells-outdated"]').exists()).toBe(false)
+  })
+})
+
+describe('a frame that the cells are not shown on', () => {
+  it('says the cells are hidden on this frame, with the time of the scan, where the map fades them out', async () => {
+    const wrapper = await mountCells({ scan: parseScan(exampleScan(FIXED)), fadedOnFrame: true })
+    expect(text(wrapper, 'radar-cells-faded')).toBe('The cells are hidden on this frame: they are from the scan of 22:15 UTC, and are shown only on frames within 15 minutes of it.')
+    // the list stays: it is the text of the latest scan
+    expect(wrapper.findAll('[data-testid="radar-cells-item"]')).toHaveLength(4)
+  })
+
+  it('says nothing of it on a frame they are shown on, and tells in the loop note which frames they are for', async () => {
+    const wrapper = await mountCells({ scan: parseScan(exampleScan(FIXED)) })
+    expect(wrapper.find('[data-testid="radar-cells-faded"]').exists()).toBe(false)
+    expect(text(wrapper, 'radar-cells-loop-note')).toContain('within 15 minutes')
+  })
+})
+
+describe('the live line of the count', () => {
+  it('is in the page with the switch off as well, empty, so that the first count is a change of it and is announced (a region inserted with its text is not)', async () => {
+    const wrapper = await mountCells({ scan: parseScan(exampleScan()), on: false })
+    const live = wrapper.find('[data-testid="radar-cells-summary"]')
+    expect(live.exists()).toBe(true)
+    expect(live.attributes('role')).toBe('status')
+    expect(live.text()).toBe('')
+    await wrapper.setProps({ on: true })
+    expect(wrapper.find('[data-testid="radar-cells-summary"]').element).toBe(live.element)
+    expect(wrapper.find('[data-testid="radar-cells-summary"]').text()).toBe('Thunderstorm cells in the latest scan: 4')
   })
 })

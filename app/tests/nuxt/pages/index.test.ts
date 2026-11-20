@@ -282,6 +282,6 @@ describe('index Page', () => {
     expect(wrapper.findAll('[data-testid="questions"] button')).toHaveLength(4)
     // the six tools of the hero are still there, each a link to its tool
     const tools = wrapper.findAll('.home-tasks a').map(link => link.attributes('href'))
-    expect(tools).toEqual(['/meteogram', '/explorer', '/stripes', '/history', '/map', '/radar'])
+    expect(tools).toEqual(['/meteogram', '/explorer', '/stripes', '/radar', '/history', '/map'])
   })
 })

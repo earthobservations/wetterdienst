@@ -1,3 +1,5 @@
+import { timestampDate } from './timestamp'
+
 /**
  * The credit of a provider's data as the app shows it beside a map layer: read from the `metadata.provider` block of an answer
  * (the licence and the credit line the provider states) and written as a line of the map's attribution. The thunderstorm cells
@@ -15,6 +17,17 @@ export interface ProviderCredit {
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
 const text = (value: unknown): string | null => typeof value === 'string' && value.trim() !== '' ? value : null
+
+/**
+ * How far the device's clock is from the server's, in milliseconds (server minus device), read from the answer's own `retrieved_at` when
+ * it was parsed: a page that judges the age of a radar frame or a scan against `Date.now()` of a phone with the wrong time would call a
+ * fresh loop stale or an old one fresh (GH-3788). 0 where the answer has no time.
+ */
+export function clockSkew(metadata: unknown, deviceNow: number = Date.now()): number {
+  const retrieved = isRecord(metadata) ? text(metadata.retrieved_at) : null
+  const at = retrieved ? timestampDate(retrieved) : null
+  return at ? at.getTime() - deviceNow : 0
+}
 
 /** The credit of an answer's `metadata` block, or null where it holds none */
 export function creditOf(metadata: unknown): ProviderCredit | null {

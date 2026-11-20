@@ -344,7 +344,7 @@ the language, not a decision; `pl`, `cs`, `lb` and `de-hh` are as unreviewed as 
 | `de` | `radar.observed`, `radar.valueObserved` | `Gemessen` for the radar's "observed" (the catalog says `Messwerte`, `Messungen`) | `Beobachtet`, which DWD uses for an analysis | low |
 | `de-hh` | `radar.observed`, `radar.valueObserved`, `radar.playerLabel`, `radar.aboutSources` | `Meten` (a guess at the participle of `meten`), `Radarloop` (an English loan), `Quellen` (German) | Low German words for these | low |
 | `nl` | `radar.observed`, `radar.valueObserved` | `Waargenomen` where the UI otherwise says `metingen` | `Gemeten`, which settles the `waarneming`/`observatie` question above the same way | low |
-| `lb` | `radar.about1`, `radar.about3`, `radar.aboutSources` | `wat se méi wäit viraus kuckt` style comparisons were dropped; `ganz zouverlässeg` for WMO's "very skilful" (a nowcast), `Quellen` (German) | the weather service's Luxembourgish word for a nowcast; `Quell` | low |
+| `lb` | `radar.about1`, `radar.about3`, `radar.aboutSources` | `Kënnen` for "skill" of a nowcast, `Verdeelunge vun den Drëpsgréissten` for "drop-size distributions", `Quellen` (German) | the weather service's Luxembourgish words for these | low |
 | `pl`, `cs` | `radar.observed`, `radar.valueObserved` | `Zaobserwowane`, `Naměřeno` | `Zmierzone` / `Pozorováno` | low |
 
 The parameter glossaries (`glossary/<locale>.ts`) were read for GH-2610 as well (801 labels in each

@@ -2,18 +2,30 @@ import type { Ref } from 'vue'
 import type { RadarFrame } from '~/utils/radar'
 import { DWELL_MS, FRAME_MS, frameKey, frameUrl, indexAfterRefresh, nextReady, openingIndex, PRELOAD_CONCURRENCY, preloadOrder } from '~/utils/radar'
 
-/** Loads an image into the browser's cache: true where it came, false where it did not (a 404, a 502, a 503, no connection) */
-export function loadImage(url: string): Promise<boolean> {
-  return new Promise((resolve) => {
-    const image = new Image()
-    image.onload = () => resolve(true)
-    image.onerror = () => resolve(false)
-    image.src = url
-  })
+/**
+ * Loads a frame's image into the browser's cache: true where it came, false where it did not (a 404, a 502, a 503, a 429, no connection).
+ * A `fetch`, not an `Image`, so that the body is read to the end and the answer is kept by the HTTP cache (the frame of a run is
+ * `max-age=3600`) for the picture on the map, which asks for the same address.
+ */
+export async function loadFrame(url: string): Promise<boolean> {
+  try {
+    const response = await fetch(url)
+    if (!response.ok)
+      return false
+    await response.blob()
+    return true
+  }
+  catch {
+    return false
+  }
 }
 
-/** How long a frame that failed waits for its one more try, in milliseconds (the server's 503 for too many requests passes within a second or two) */
-export const RETRY_AFTER_MS = 2000
+/**
+ * How long a frame that failed waits before each new try, in milliseconds: two more tries, after 2 s and after 6 s. A 503 (too many
+ * requests at once) or a 429 passes within seconds, so a frame that failed for it is not given up for good: and a frame that is given up
+ * is asked for again with the next list (every 5 minutes).
+ */
+export const RETRY_DELAYS_MS: readonly number[] = [2000, 6000]
 
 export interface RadarPlayerOptions {
   /** Whether the loop starts by itself once every frame is in hand: not under `prefers-reduced-motion` */
@@ -25,7 +37,8 @@ export interface RadarPlayerOptions {
   /** The pace of the loop, for a test */
   frameMs?: number
   dwellMs?: number
-  retryAfterMs?: number
+  /** The pauses before the tries after a failure; a test gives shorter ones */
+  retryDelays?: readonly number[]
 }
 
 /**
@@ -33,21 +46,22 @@ export interface RadarPlayerOptions {
  * 32 requests at once), the one shown, and the controls that move it.
  *
  * - **Loading.** The frame the loop opens on is asked for first, then the others in time order, `concurrency` at a time, so there
- *   is a picture at once and the loop plays smoothly from the cache. A frame that fails is asked for once more after a pause and
- *   then dropped from the loop (`playable`): a missing frame must not stop the others.
+ *   is a picture at once and the loop plays smoothly from the cache. A frame that fails is asked for twice more, after 2 s and 6 s,
+ *   and then dropped from the loop (`playable`): a missing frame must not stop the others. A dropped frame is not dropped for good:
+ *   a new list asks for it again.
  * - **Playing.** The loop starts by itself, once, when every frame is in hand, unless `autoplay()` says it must not (the reader
  *   asked their system for less motion) or the reader has touched a control. It steps on to the next frame that is loaded, holds the
  *   last one a moment and goes round; it waits for a frame that is not there yet and stands still while the tab is hidden.
  *   Any control (pause, a step, the slider) is the reader's choice, and the loop never starts by itself again after it.
  * - **A new list** (every 5 minutes): the reader stays at the frame they were at where it is still in the loop. A loop that rests on
- *   the newest frame of the analysis follows the new newest one.
+ *   the newest frame of the analysis follows the new newest one. Frames that were given up and are still listed are asked for again.
  */
 export function useRadarPlayer(frames: Ref<readonly RadarFrame[]>, options: RadarPlayerOptions) {
-  const load = options.load ?? loadImage
+  const load = options.load ?? loadFrame
   const concurrency = options.concurrency ?? PRELOAD_CONCURRENCY
   const frameMs = options.frameMs ?? FRAME_MS
   const dwellMs = options.dwellMs ?? DWELL_MS
-  const retryAfterMs = options.retryAfterMs ?? RETRY_AFTER_MS
+  const retryDelays = options.retryDelays ?? RETRY_DELAYS_MS
 
   const loaded = shallowRef<ReadonlySet<string>>(new Set())
   const failed = shallowRef<ReadonlySet<string>>(new Set())
@@ -100,14 +114,15 @@ export function useRadarPlayer(frames: Ref<readonly RadarFrame[]>, options: Rada
     if (ok) {
       loaded.value = add(loaded.value, key)
     }
-    else if ((tries.get(key) ?? 0) < 1) {
-      // one more try after a pause, with the others going on meanwhile
-      tries.set(key, 1)
+    else if ((tries.get(key) ?? 0) < retryDelays.length) {
+      // another try after a pause, with the others going on meanwhile
+      const delay = retryDelays[tries.get(key) ?? 0]!
+      tries.set(key, (tries.get(key) ?? 0) + 1)
       inFlight.add(key)
       retryTimers.push(setTimeout(() => {
         inFlight.delete(key)
         pump()
-      }, retryAfterMs))
+      }, delay))
     }
     else {
       failed.value = add(failed.value, key)
@@ -119,7 +134,9 @@ export function useRadarPlayer(frames: Ref<readonly RadarFrame[]>, options: Rada
     // what the list no longer has is forgotten, so that the sets do not grow for as long as the page is open
     const keys = new Set(frames.value.map(frameKey))
     loaded.value = new Set([...loaded.value].filter(key => keys.has(key)))
-    failed.value = new Set([...failed.value].filter(key => keys.has(key)))
+    // a frame that was given up is asked for again: it may have failed for a 503 or a 429 that is over, or DWD may have it now (M3)
+    failed.value = new Set()
+    tries.clear()
     pump()
   }, { immediate: true })
 

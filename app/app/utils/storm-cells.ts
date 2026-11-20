@@ -1,5 +1,5 @@
 import type { ProviderCredit } from './provider-credit'
-import { creditOf } from './provider-credit'
+import { clockSkew, creditOf } from './provider-credit'
 import { timestampDate } from './timestamp'
 
 /**
@@ -54,6 +54,8 @@ export interface StormScan {
   /** The newest scan is much older than it should be (the backend's `scan-stale` warning): an empty scan is then no all-clear */
   stale: boolean
   credit: StormCredit | null
+  /** The server's clock minus the device's when the answer was read, from its `retrieved_at` (ms): the age of the scan is judged by the server's time */
+  clockSkewMs: number
 }
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -136,6 +138,7 @@ export function parseScan(answer: unknown): StormScan {
     cells,
     stale: warnings.some(warning => isRecord(warning) && warning.code === 'scan-stale'),
     credit: creditOf(answer.metadata),
+    clockSkewMs: clockSkew(answer.metadata),
   }
 }
 

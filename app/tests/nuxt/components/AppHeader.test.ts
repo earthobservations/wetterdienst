@@ -25,7 +25,7 @@ afterEach(() => {
 type Header = Awaited<ReturnType<typeof mountHeader>>
 const tabs = (wrapper: Header) => wrapper.findAll('nav ul a.nav-tab').map(link => link.attributes('href'))
 
-const DEFAULT = ['/meteogram', '/explorer', '/stripes', '/history', '/map', '/radar']
+const DEFAULT = ['/meteogram', '/explorer', '/stripes', '/radar', '/history', '/map']
 
 describe('the tool tabs of the header', () => {
   it('are in the order of the tools until the reader chooses', async () => {
@@ -33,29 +33,29 @@ describe('the tool tabs of the header', () => {
   })
 
   it('follow the order the reader chose, all six of them, not only the first four', async () => {
-    useTabBar().setOrder(['radar', 'map', 'history', 'forecast', 'stripes', 'explorer'])
+    useTabBar().setOrder(['map', 'history', 'radar', 'forecast', 'stripes', 'explorer'])
     const wrapper = await mountHeader()
-    expect(tabs(wrapper)).toEqual(['/radar', '/map', '/history', '/meteogram', '/stripes', '/explorer'])
-    expect(wrapper.findAll('nav ul a.nav-tab .nav-label').map(label => label.text())).toEqual(['Radar', 'Map', 'History', 'Forecast', 'Climate stripes', 'Explorer'])
+    expect(tabs(wrapper)).toEqual(['/map', '/history', '/radar', '/meteogram', '/stripes', '/explorer'])
+    expect(wrapper.findAll('nav ul a.nav-tab .nav-label').map(label => label.text())).toEqual(['Map', 'History', 'Radar', 'Forecast', 'Climate stripes', 'Explorer'])
   })
 
   it('follow a change of the order while they are shown, and the reset', async () => {
     const { setOrder, resetOrder } = useTabBar()
     const wrapper = await mountHeader()
-    setOrder(['stripes', 'map', 'explorer', 'forecast', 'history', 'radar'])
-    await vi.waitFor(() => expect(tabs(wrapper)).toEqual(['/stripes', '/map', '/explorer', '/meteogram', '/history', '/radar']))
+    setOrder(['stripes', 'history', 'explorer', 'forecast', 'radar', 'map'])
+    await vi.waitFor(() => expect(tabs(wrapper)).toEqual(['/stripes', '/history', '/explorer', '/meteogram', '/radar', '/map']))
     resetOrder()
     await vi.waitFor(() => expect(tabs(wrapper)).toEqual(DEFAULT))
   })
 
   it('are the default for a stored list that is wrong, no error', async () => {
-    useSettings().settings.value.tabBar = ['satellite', 'map'] as string[]
-    expect(tabs(await mountHeader())).toEqual(['/map', '/meteogram', '/explorer', '/stripes', '/history', '/radar'])
+    useSettings().settings.value.tabBar = ['satellite', 'history'] as string[]
+    expect(tabs(await mountHeader())).toEqual(['/history', '/meteogram', '/explorer', '/stripes', '/radar', '/map'])
   })
 
   it('mark the tool of the page one is on, wherever it stands', async () => {
-    useTabBar().setOrder(['map', 'history', 'forecast', 'stripes', 'explorer'])
-    const wrapper = await mountHeader('/history')
-    expect(wrapper.findAll('nav ul a[aria-current="page"]').map(link => link.attributes('href'))).toEqual(['/history'])
+    useTabBar().setOrder(['history', 'radar', 'forecast', 'stripes', 'explorer'])
+    const wrapper = await mountHeader('/radar')
+    expect(wrapper.findAll('nav ul a[aria-current="page"]').map(link => link.attributes('href'))).toEqual(['/radar'])
   })
 })

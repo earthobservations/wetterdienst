@@ -7,8 +7,10 @@ import { describeFrame } from '~/utils/radar'
 // (WCAG 1.4.1). Everything a pointer does a keyboard does: the buttons are 44 px, the slider is the browser's own range input (the
 // arrow keys step, Home and End jump to the ends, Page Up and Page Down by ten) and a step back and a step on are the way for a
 // pointer that cannot drag (WCAG 2.5.7). The slider's track is solid for the observed frames and hatched for the forecast, so
-// that the line between them is seen where the loop is long. Any of these controls pauses the loop, and says the frame it is
-// at in a polite status where the loop is not playing.
+// that the line between them is seen where the loop is long. Any of these controls pauses the loop; a step, which is no slider, says the
+// frame it is at in a polite status where the loop is not playing (the slider says its own value). A step that cannot go on (the first
+// or the last frame) is `aria-disabled` and does nothing, not `disabled`: a native disabled button drops the focus the reader has on it,
+// and the keys would then have nowhere to go (GH-3788).
 const props = defineProps<{
   /** The frames of the loop in time order, those that could be loaded */
   frames: readonly RadarFrame[]
@@ -18,6 +20,8 @@ const props = defineProps<{
   now: number
   /** The system asks for less motion: the loop did not start by itself, and says so */
   reducedMotion: boolean
+  /** The frame the player stands at is not on the map yet: its image is still on its way, and the map shows the one before */
+  loading?: boolean
 }>()
 
 const emit = defineEmits<{ toggle: [], seek: [index: number], step: [by: number] }>()
@@ -36,22 +40,25 @@ const split = computed(() => {
   return first === -1 || last.value === 0 ? 100 : Math.round((first - 0.5) / last.value * 1000) / 10
 })
 const disabled = computed(() => props.frames.length < 2)
+const atStart = computed(() => props.index <= 0)
+const atEnd = computed(() => props.index >= last.value)
 
-/** What the polite status says: the frame the reader moved to, where the loop is not playing and they have moved it */
-const moved = ref(false)
-const announcement = computed(() => moved.value && !props.playing && words.value ? words.value.value : '')
+/** What the polite status says: the frame the reader stepped to, where the loop is not playing (a slider is read out by itself, so a move of it says nothing here) */
+const stepped = ref(false)
+const announcement = computed(() => stepped.value && !props.playing && words.value ? words.value.value : '')
 function onSeek(event: Event) {
-  moved.value = true
   emit('seek', Number((event.target as HTMLInputElement).value))
 }
 function onStep(by: number) {
-  moved.value = true
+  if ((by < 0 && atStart.value) || (by > 0 && atEnd.value))
+    return
+  stepped.value = true
   emit('step', by)
 }
 </script>
 
 <template>
-  <section class="radar-player" role="group" :aria-label="t('radar.playerLabel')" data-testid="radar-player">
+  <section class="radar-player" role="group" :aria-label="t('radar.playerLabel')" :aria-busy="loading ? 'true' : undefined" data-testid="radar-player">
     <div class="radar-player-row">
       <UButton
         :icon="playing ? 'i-ph-pause-fill' : 'i-ph-play-fill'"
@@ -70,7 +77,9 @@ function onStep(by: number) {
         icon="i-ph-skip-back-fill"
         :aria-label="t('radar.stepBack')"
         :title="t('radar.stepBack')"
-        :disabled="disabled || index <= 0"
+        :disabled="disabled"
+        :aria-disabled="atStart ? 'true' : undefined"
+        :class="{ 'radar-step-off': atStart }"
         color="neutral"
         variant="outline"
         size="xl"
@@ -83,7 +92,9 @@ function onStep(by: number) {
         icon="i-ph-skip-forward-fill"
         :aria-label="t('radar.stepForward')"
         :title="t('radar.stepForward')"
-        :disabled="disabled || index >= last"
+        :disabled="disabled"
+        :aria-disabled="atEnd ? 'true' : undefined"
+        :class="{ 'radar-step-off': atEnd }"
         color="neutral"
         variant="outline"
         size="xl"
@@ -97,6 +108,10 @@ function onStep(by: number) {
         <span class="radar-kind" :data-kind="frame.kind" data-testid="radar-kind">
           <UIcon :name="frame.kind === 'forecast' ? 'i-ph-fast-forward-fill' : 'i-ph-eye-fill'" class="size-4 shrink-0" aria-hidden="true" />
           {{ words.ahead ?? words.kind }}
+        </span>
+        <span v-if="loading" class="radar-player-loading" data-testid="radar-frame-loading">
+          <UIcon name="i-ph-circle-notch" class="size-4 shrink-0 motion-safe:animate-spin" aria-hidden="true" />
+          {{ t('radar.frameLoading') }}
         </span>
       </div>
     </div>
@@ -185,6 +200,18 @@ function onStep(by: number) {
   border-style: dashed;
   border-width: 2px;
 }
+/* a step that cannot go on: dimmed, still a stop of the keyboard and still named */
+.radar-player-button.radar-step-off {
+  opacity: 0.45;
+  cursor: default;
+}
+.radar-player-loading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 0.8125rem;
+  color: var(--ui-text-muted);
+}
 .radar-slider-box {
   padding-inline: 0.25rem;
 }
@@ -253,8 +280,13 @@ function onStep(by: number) {
   font-size: 0.75rem;
   color: var(--ui-text-muted);
 }
+/* separate rules: a selector list with a pseudo-element the browser does not know is dropped whole */
 @media (forced-colors: active) {
-  .radar-slider::-webkit-slider-runnable-track,
+  .radar-slider::-webkit-slider-runnable-track {
+    forced-color-adjust: none;
+  }
+}
+@media (forced-colors: active) {
   .radar-slider::-moz-range-track {
     forced-color-adjust: none;
   }

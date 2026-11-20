@@ -80,7 +80,7 @@ export function stormCellsAnswer(cells: Array<ReturnType<typeof stormCell>> = []
     metadata: {
       api_version: '1',
       schema_version: '1',
-      retrieved_at: '2026-11-17T22:21:00.000000+00:00',
+      retrieved_at: new Date().toISOString(),
       data_updated_at: '2026-11-17T22:19:44.000000+00:00',
       provider: {
         name_local: 'Deutscher Wetterdienst',
