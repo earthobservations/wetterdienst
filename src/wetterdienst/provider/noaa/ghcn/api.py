@@ -773,6 +773,26 @@ class NoaaGhcnRequest(TimeseriesRequest):
             return df
         return df.filter(~(pl.col("resolution").eq("daily") & pl.col("start_timestamp").is_null()))
 
+    def _knows_station_outside_parameters(self, station_id: str) -> bool:
+        """Tell whether the daily station list, whole, holds a station that this request's list leaves out (GH-4272).
+
+        A request for some of the daily parameters lists the stations that have one of them, so a station with other
+        elements is not in it. The list of the whole dataset (the stations file, left joined to the inventory, which
+        both are cached by the lookup that came first) holds every station, one with no element at all included. The
+        hourly list is the same for every parameter.
+        """
+        from typing import cast  # noqa: PLC0415
+
+        for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters)):
+            if dataset.resolution.value != Resolution.DAILY:
+                continue
+            whole = self._create_metaindex_for_ghcn_daily(list(dataset.parameters), dataset)
+            if "station_id" in whole.collect_schema().names() and (
+                whole.filter(pl.col("station_id").eq(station_id)).select(pl.len()).collect().item() > 0
+            ):
+                return True
+        return False
+
     @staticmethod
     def _take_daily_elevation(df: pl.LazyFrame) -> pl.LazyFrame:
         """Give a station's hourly row the daily list's elevation, where both lists mean one place.

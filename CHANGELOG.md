@@ -64,6 +64,12 @@ Types of changes:
   provider pages described `sunshine_duration` and its 3-hour and previous-day forms as the time
   "the sun shone unobstructed". They now say what WMO defines: the time during which the direct
   solar irradiance exceeded 120 W/m² (GH-4263)
+- `interpolate` and `summarize` by station id for `noaa/ghcn` daily: a station that exists but has none
+  of the requested parameters (its list holds only stations with one of them since GH-4270) is a
+  `StationLacksParametersError` (a 400, `request-refused`, exit 2 on the command line) that names
+  the parameters, not "no station found", which read as a wrong id. Where a provider's list cannot
+  tell, the 404 `StationNotFoundError` stays, and says that no station of the request has the id
+  (GH-4272)
 
 ## [0.193.0] - 2026-11-20
 

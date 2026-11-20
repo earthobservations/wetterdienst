@@ -14,7 +14,13 @@ from polars.testing import assert_frame_equal
 from tests.provider.value_stubs import ghcnd_by_station
 from wetterdienst import Settings
 from wetterdienst.core.util import one_row_per_station
-from wetterdienst.exceptions import DownloadError, LocationOutOfRangeError, NoInternetError, StationNotFoundError
+from wetterdienst.exceptions import (
+    DownloadError,
+    LocationOutOfRangeError,
+    NoInternetError,
+    StationLacksParametersError,
+    StationNotFoundError,
+)
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
 from wetterdienst.provider.noaa.ghcn.api import LOST_LATITUDE_SIGN_STATIONS, LOST_LONGITUDE_SIGN_STATIONS
@@ -345,16 +351,46 @@ def test_noaa_ghcn_values_by_id_of_a_station_without_the_parameter_tell_unknown_
 
 
 @pytest.mark.parametrize("method", ["interpolate_by_station_id", "summarize_by_station_id"])
-def test_noaa_ghcn_interpolate_and_summarize_by_id_of_a_station_without_the_parameter_find_none(
+@pytest.mark.parametrize(
+    "station_id",
+    [
+        pytest.param("AA000000003", id="has-another-element"),
+        pytest.param("AA000000006", id="has-no-line-in-the-inventory"),
+    ],
+)
+def test_noaa_ghcn_interpolate_and_summarize_by_id_of_a_station_without_the_parameter_say_so(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, method: str, station_id: str
+) -> None:
+    """A station that exists and lacks the parameter is not "no station found": the parameters are named (GH-4272)."""
+    _serve_ghcnd(monkeypatch, _ELEMENT_STATIONS, _ELEMENT_INVENTORY)
+    request = NoaaGhcnRequest(
+        parameters=[("daily", "data", "precipitation_amount"), ("daily", "data", "snow_depth")],
+        start="2000",
+        end="2001",
+        settings=default_settings,
+    )
+    with pytest.raises(StationLacksParametersError) as excinfo:
+        getattr(request, method)(station_id)
+    assert not isinstance(excinfo.value, StationNotFoundError)
+    assert excinfo.value.station_id == station_id
+    assert excinfo.value.parameters == ["daily/data/precipitation_amount", "daily/data/snow_depth"]
+    assert str(excinfo.value) == (
+        f"Station {station_id} exists but has none of the requested parameters "
+        "(daily/data/precipitation_amount, daily/data/snow_depth). Change the parameters, not the station."
+    )
+
+
+@pytest.mark.parametrize("method", ["interpolate_by_station_id", "summarize_by_station_id"])
+def test_noaa_ghcn_interpolate_and_summarize_by_id_of_an_unknown_station_find_none(
     monkeypatch: pytest.MonkeyPatch, default_settings: Settings, method: str
 ) -> None:
-    """A station that lacks the parameter is no station of the request, for a target as for a list (GH-4270)."""
+    """An id that no list of the dataset holds is still a station not found, whatever the parameters (GH-4272)."""
     _serve_ghcnd(monkeypatch, _ELEMENT_STATIONS, _ELEMENT_INVENTORY)
     request = NoaaGhcnRequest(
         parameters=[("daily", "data", "precipitation_amount")], start="2000", end="2001", settings=default_settings
     )
-    with pytest.raises(StationNotFoundError, match="no station found for AA000000003"):
-        getattr(request, method)("AA000000003")
+    with pytest.raises(StationNotFoundError, match="no station found for AA000000099: no station of this request"):
+        getattr(request, method)("AA000000099")
 
 
 @pytest.mark.parametrize(

@@ -76,7 +76,10 @@ df = values.df
 df
 ```
 
-A station id that no station has is a `StationNotFoundError` (a 404 over REST). For `dwd/observation` and `dwd/derived`
+A station id that no station has is a `StationNotFoundError` (a 404 over REST). For `noaa/ghcn` daily, whose list for
+some of the parameters holds only the stations that have one of them, a station that exists but has none of the
+requested parameters is a `StationLacksParametersError` (a `RequestError`, a 400 over REST, `request-refused`) that
+names the parameters: change them, not the id. For `dwd/observation` and `dwd/derived`
 the lookup of the stations can go without a directory of DWD's server that came back empty or missing, or has no
 description of its stations: a station that only it lists is then not found, and the id may be one. That is a
 `StationListingIncompleteError` (an `UpstreamError`, a 502 over REST, exit 1 on the command line) that names the
