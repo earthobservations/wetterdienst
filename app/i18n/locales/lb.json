@@ -494,6 +494,10 @@
     "noResolutions": "Keng Zäitreih: hei gëtt et näischt opzelëschten.",
     "openExplorer": "Am Explorer opmaachen"
   },
+  "processingNote": {
+    "base": "Veraarbecht vu wetterdienst: D'Daten vum Ubidder goufen an eng eenheetlech Tabell gesat an d'Eenheeten, wou se ofwäichen, ëmgerechent.",
+    "estimate": "D'Wäerter goufen aus de Miessunge vum Ubidder ausgewielt oder berechent."
+  },
   "cardTitle": {
     "station": "Statioun",
     "stationAndPeriod": "Statioun a Period",

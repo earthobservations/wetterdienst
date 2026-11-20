@@ -161,7 +161,7 @@ def test_every_documented_route_is_served_under_the_alias_too(client: TestClient
         paths
     )
     for path in paths:
-        if path.endswith(("/alerts", "/storm-cells")):
+        if path.endswith(("/alerts", "/storm-cells", "/radar/frames")):
             # needs no parameter, and so goes to the feed
             continue
         versioned, alias = client.get(path), client.get(path.replace("/api/v1/", "/api/", 1))

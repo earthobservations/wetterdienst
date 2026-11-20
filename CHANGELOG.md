@@ -18,6 +18,11 @@ Types of changes:
 
 ### Added
 
+- The REST API serves DWD's precipitation radar as map images: `/api/v1/radar/frames` lists the
+  radar analysis of the last hours (`past`, 120 minutes by default) and DWD's forecast of the next
+  two, with where the images lie (WGS84 `bounds`, in Web Mercator) and a legend in mm/h, and
+  `/api/v1/radar/frame` is one frame as a transparent PNG of about 35 KB, decoded once for every
+  reader. It needs the `radar` extra on the server (h5py and numpy), and is no MCP tool (GH-3788)
 - `dwd/kostra`: DWD's heavy-rainfall statistics KOSTRA-DWD-2020 as a point lookup on every
   surface: `DwdKostraRequest`, `wetterdienst kostra`, `/api/v1/kostra` and the MCP tool `kostra`.
   For the 5 km grid cell (ETRS89-LAEA) of a latitude and longitude in Germany it answers the depth
@@ -25,6 +30,8 @@ Types of changes:
   and 9 return periods (1 to 100 years), with the cell and its centre. A `duration` reads that
   one table of DWD, without it all 22 are read; a point off the grid or in a cell without values
   is refused (a 400), never an empty table. The 2010R edition is not read (GH-4072)
+
+## [0.193.0] - 2026-11-20
 
 ### Fixed
 
@@ -8353,7 +8360,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.192.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.193.0...HEAD
+[0.193.0]: https://github.com/earthobservations/wetterdienst/compare/v0.192.0...v0.193.0
 [0.192.0]: https://github.com/earthobservations/wetterdienst/compare/v0.191.0...v0.192.0
 [0.191.0]: https://github.com/earthobservations/wetterdienst/compare/v0.190.0...v0.191.0
 [0.190.0]: https://github.com/earthobservations/wetterdienst/compare/v0.189.1...v0.190.0

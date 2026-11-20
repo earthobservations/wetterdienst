@@ -7,6 +7,7 @@ import { downloadBlob } from '~/utils/chart-image'
 import { formatNumber, formatSigned } from '~/utils/format'
 import { ghcnCountryName } from '~/utils/ghcn-country'
 import { GHCN_NETWORK } from '~/utils/map-tool'
+import { processingNote } from '~/utils/processing-note'
 import { stripesMethodNote, stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
 import { isStripesDrawing, STRIPES_VIEW_QUERY, stripesViewFromQuery } from '~/utils/stripes-model'
 import { MENU_SCALE } from '~/utils/stripes-option'
@@ -307,7 +308,7 @@ function downloadTable() {
   downloadBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), `climate_stripes_${kind.value}_${station.station_id}_${station.name}.csv`)
 }
 
-/** The lines before the table's header: what it is, what the colours are relative to, who the data is from and under which licence */
+/** The lines before the table's header: what it is, what the colours are relative to, who the data is from and under which licence, and what wetterdienst did to it (GH-3799) */
 function csvComments(data: StripesValuesResponse): string[] {
   const provider = data.metadata?.provider
   const licence = provider?.license
@@ -317,6 +318,7 @@ function csvComments(data: StripesValuesResponse): string[] {
     methodNote.value,
     provider?.attribution || t('stripes.plotSource'),
     licence ? t('stripes.csvLicence', { name: licence.name, url: licence.url }) : '',
+    processingNote(t),
   ]
 }
 
@@ -632,6 +634,8 @@ watch([
                 :source-text="source === 'ghcn' ? t('stripes.plotSourceGhcn') : undefined"
                 :method-line="methodLine"
               />
+              <!-- under the source line the chart draws, and with it: where the source is not shown, no more is this (GH-3799) -->
+              <ProcessingNote v-if="hasPlot && !plotFailed && showSource && !showsTable" class="mt-1 text-center" data-testid="stripes-processing-note" />
               <p v-if="hasPlot && plotSummary" :id="summaryId" class="sr-only">
                 {{ plotSummary }}
               </p>

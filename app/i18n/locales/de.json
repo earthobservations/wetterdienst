@@ -494,6 +494,10 @@
     "noResolutions": "Keine Zeitreihe: hier gibt es nichts aufzulisten.",
     "openExplorer": "Im Explorer öffnen"
   },
+  "processingNote": {
+    "base": "Aufbereitet von wetterdienst: Die Daten des Anbieters wurden in eine einheitliche Tabelle gebracht und ihre Einheiten umgerechnet, wo sie abweichen.",
+    "estimate": "Die Werte wurden aus den Messwerten des Anbieters ausgewählt oder berechnet."
+  },
   "cardTitle": {
     "station": "Station",
     "stationAndPeriod": "Station und Zeitraum",

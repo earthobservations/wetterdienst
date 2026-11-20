@@ -78,6 +78,8 @@ parameters are, see [one vocabulary](restapi.md#one-vocabulary)) and the same an
 | `kostra` | `/api/v1/kostra` | the heavy-rainfall statistics of DWD (KOSTRA-DWD-2020) for a point in Germany: the depth, intensity and uncertainty of a rain by duration and return period. Pass a `duration` (minutes, one of 22) and a `return_period` (years) for the one value you need: without them it reads 22 files and answers 198 rows. A point outside Germany and its border is refused |
 | `stripes_stations`, `stripes_values`, `stripes_image` | `/api/v1/stripes/...` | climate stripes, see [Climate Stripes](stripes.md) |
 
+The routes of the precipitation radar (`/api/v1/radar/frames` and `/radar/frame`, map images for a page to draw) are no tools.
+
 An argument that is a mapping (`unit_targets`, `limits`, `interpolation_station_distance`,
 `summary_station_distance`) is advertised as an object, and an assistant gives it as one:
 `unit_targets={"temperature": "degree_fahrenheit"}`. The server sends the REST API its JSON text, which is what the

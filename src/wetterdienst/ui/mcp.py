@@ -207,6 +207,8 @@ _EXCLUDE_PATTERNS = (
     r"^/ready$",
     r"^/api(/v1)?/version$",
     r"^/api(/v1)?/settings$",
+    # map images for a page to draw: nothing an assistant can read, and a frame of them is no answer to a question
+    r"^/api(/v1)?/radar/",
 )
 
 # Clean, agent-friendly names for the auto-generated tools (auto name -> friendly name).

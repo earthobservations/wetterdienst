@@ -572,6 +572,29 @@ def kostra_metadata(api: object, rows: int, data_updated_at: dt.datetime | None 
     )
 
 
+def radar_metadata(frames: int, *, image: bool, data_updated_at: dt.datetime | None = None) -> ResponseMetadata:
+    """Build the block of the frames of DWD's precipitation radar (`/api/radar/frames` and `/api/radar/frame`).
+
+    The frames are about no stations: `frames` is the number of them in the list, one for an image. The note says what
+    wetterdienst did to the composite, and `image` adds that the image is drawn from it.
+    """
+    from wetterdienst.provider.dwd.radar import DwdRadarValues  # noqa: PLC0415
+    from wetterdienst.provider.dwd.radar.frames import RADAR_FRAMES_NOTE, RADAR_IMAGE_NOTE  # noqa: PLC0415
+
+    return _block_without_result(
+        DwdRadarValues,
+        ResolvedRequest(
+            provider="dwd", network="radar", parameters=["rv"], periods=[], start=None, end=None, stations=None
+        ),
+        stations=0,
+        rows=frames,
+        data_updated_at=data_updated_at,
+        image=image,
+        calculated=RADAR_FRAMES_NOTE,
+        image_note=RADAR_IMAGE_NOTE,
+    )
+
+
 def metadata_to_dict(metadata: ResponseMetadata) -> dict[str, Any]:
     """Write the block as the JSON of an answer has it: the heavy parts only where they were asked for."""
     exclude = {name for name in _HEAVY if getattr(metadata, name) is None}

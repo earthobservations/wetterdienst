@@ -2057,6 +2057,65 @@ class KostraRequest(_RefusesRenamedParameters):
         return v
 
 
+class RadarFramesRequest(_RefusesRenamedParameters):
+    """Request model for the list of the frames of DWD's precipitation radar (RV composite)."""
+
+    route: ClassVar[str] = "radar_frames"
+
+    model_config = {"extra": "forbid"}
+
+    product: Annotated[
+        Literal["rv"],
+        Field(
+            description="The radar product: `rv`, DWD's RV composite, the precipitation of every 5 minutes over "
+            "Germany from the radar analysis, and DWD's forecast of the next two hours."
+        ),
+    ] = "rv"
+    past: Annotated[
+        int,
+        Field(
+            ge=0,
+            le=360,
+            description="How many minutes before the newest run the loop of analysis frames reaches back: one frame "
+            "every 5 minutes, so the 120 of the default are 25 frames with the newest. DWD keeps about 48 hours.",
+        ),
+    ] = 120
+    forecast: Annotated[
+        bool,
+        Field(
+            description="Add the 24 frames of DWD's forecast of the newest run, 5 to 120 minutes after it. False for "
+            "the analysis alone."
+        ),
+    ] = True
+    pretty: _PrettyField = False
+
+
+class RadarFrameRequest(_RefusesRenamedParameters):
+    """Request model for one frame of DWD's precipitation radar, as an image."""
+
+    route: ClassVar[str] = "radar_frame"
+
+    model_config = {"extra": "forbid"}
+
+    product: Annotated[Literal["rv"], Field(description="The radar product, as for the list of frames.")] = "rv"
+    time: Annotated[
+        str,
+        Field(
+            description="The time the frame is valid at, ISO 8601 in UTC (`2026-11-19T21:10:00Z`; one without an "
+            "offset is UTC), a multiple of 5 minutes: the `time` of a frame of the list of frames. A time up to the "
+            "newest run is the radar analysis, a later one DWD's forecast of the newest run."
+        ),
+    ]
+    run: Annotated[
+        str | None,
+        Field(
+            description="The run the frame is read from, the `run` of a frame of the list of frames, ISO 8601 in UTC. "
+            "With it the frame is the same for as long as DWD keeps the run (about 48 hours), so an answer may be "
+            "reused; without it a forecast frame is that of the newest run, which changes every 5 minutes."
+        ),
+    ] = None
+
+
 def failure_status(e: BaseException) -> int:
     """Tell the HTTP status a failure is answered with, from its place in the `WetterdienstError` hierarchy.
 
