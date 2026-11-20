@@ -598,6 +598,14 @@ def _read_storm_cells(monkeypatch: pytest.MonkeyPatch) -> None:
     _warn_first(monkeypatch, DwdStormCellsRequest, "query")
 
 
+def _read_kostra(monkeypatch: pytest.MonkeyPatch) -> None:
+    from tests.provider.dwd.kostra.stubs import serve  # noqa: PLC0415
+    from wetterdienst.provider.dwd.kostra import DwdKostraRequest  # noqa: PLC0415
+
+    serve(monkeypatch)
+    _warn_first(monkeypatch, DwdKostraRequest, "query")
+
+
 def _read_providers(monkeypatch: pytest.MonkeyPatch) -> None:
     _warn_first(monkeypatch, restapi, "get_providers")
 
@@ -652,6 +660,9 @@ _ROUTES_WITH_WARNINGS = [
     pytest.param("/api/history", {**_OBSERVATION, "stations": "02564"}, _read_history, id="history"),
     pytest.param("/api/alerts", {}, _read_alerts, id="alerts"),
     pytest.param("/api/storm-cells", {}, _read_storm_cells, id="storm-cells"),
+    pytest.param(
+        "/api/kostra", {"latitude": "52.52", "longitude": "13.40", "duration": "60"}, _read_kostra, id="kostra"
+    ),
 ]
 #: the routes that answer without a block: a catalogue of the library, the server's own state
 _ROUTES_WITHOUT_WARNINGS = {"/version", "/settings", "/auth", "/coverage", "/glossary"}

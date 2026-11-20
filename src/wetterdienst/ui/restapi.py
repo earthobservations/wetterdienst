@@ -88,6 +88,7 @@ from wetterdienst.ui.core import (
     HistoryRequest,
     InterpolationRequest,
     IssuesRequest,
+    KostraRequest,
     ProvidersRequest,
     RestInterpolationRequest,
     RestSummaryRequest,
@@ -168,6 +169,7 @@ from wetterdienst.ui.render import (
     render_alerts,
     render_history,
     render_issues,
+    render_kostra,
     render_stations,
     render_storm_cells,
     render_stripes_stations,
@@ -218,6 +220,7 @@ TAG_VALUES = "Values"
 TAG_STRIPES = "Climate stripes"
 TAG_ALERTS = "Alerts"
 TAG_STORM_CELLS = "Storm cells"
+TAG_KOSTRA = "Heavy rainfall"
 TAG_SERVER = "Server"
 
 # FastAPI's OpenTelemetry stays on, so it reports to a provider the operator sets up. Its startup
@@ -277,6 +280,11 @@ app = FastAPI(
         },
         {"name": TAG_ALERTS, "description": "Weather warnings of the DWD."},
         {"name": TAG_STORM_CELLS, "description": "Thunderstorm cells of the DWD, detected in its radar data."},
+        {
+            "name": TAG_KOSTRA,
+            "description": "Heavy-rainfall statistics of the DWD (KOSTRA-DWD-2020): the depth, intensity and "
+            "uncertainty of a rain by duration and return period, at a point in Germany.",
+        },
         {"name": TAG_SERVER, "description": "This instance: its version and limits, its settings, and its health."},
     ],
     debug=False,
@@ -372,6 +380,7 @@ REQUEST_EXAMPLES = {
     "dwd_swsmos_issues": "api/issues?provider=dwd&network=swsmos&station=A006",
     "dwd_weather_alerts": "api/alerts?granularity=community&format=geojson",
     "dwd_storm_cells": "api/storm-cells?format=geojson&track=false",
+    "dwd_kostra": "api/kostra?latitude=52.52&longitude=13.40&duration=60",
 }
 
 
@@ -808,6 +817,31 @@ class _StormCellsWithMetadataOgcFeatureCollection(TypedDict):
     features: list[dict[str, Any]]
 
 
+class _KostraCell(TypedDict):
+    # DWD's name of the cell, (row * 1000) + column in six digits
+    index_rc: str
+    row: int
+    column: int
+    # the centre of the cell, in WGS84 degrees
+    latitude: float
+    longitude: float
+
+
+class _KostraValue(TypedDict):
+    duration_minutes: int
+    return_period_years: int
+    depth_mm: float | None
+    intensity_l_s_ha: float | None
+    uncertainty_percent: float | None
+
+
+class _KostraWithMetadataDict(TypedDict):
+    metadata: ResponseMetadata
+    edition: str
+    cell: _KostraCell
+    values: list[_KostraValue]
+
+
 class _StripesValue(TypedDict):
     timestamp: str | None
     value: float | None
@@ -942,6 +976,7 @@ def index() -> HTMLResponse:
                     <li><a href="api/stripes/image" target="_blank" rel="noopener">stripes image</a></li>
                     <li><a href="api/alerts" target="_blank" rel="noopener">weather alerts</a></li>
                     <li><a href="api/storm-cells" target="_blank" rel="noopener">storm cells</a></li>
+                    <li><a href="api/kostra" target="_blank" rel="noopener">heavy rainfall (KOSTRA)</a></li>
                     {f"<li>MCP endpoint (streamable HTTP): <code>{MCP_PREFIX}</code> (<code>{MCP_ALIAS_PREFIX}</code> follows the current version)</li>" if mcp_enabled else ""}
                 </ul>
                 <h2>Examples</h2>
@@ -956,6 +991,7 @@ def index() -> HTMLResponse:
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_image"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Image</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_weather_alerts"]}" target="_blank" rel="noopener">DWD Weather Alerts</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_storm_cells"]}" target="_blank" rel="noopener">DWD Storm Cells</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["dwd_kostra"]}" target="_blank" rel="noopener">DWD Heavy Rainfall (KOSTRA)</a></li>
                 </ul>
                 <h2>Producer</h2>
                 <ul>
@@ -1233,6 +1269,7 @@ _ROUTE_ANSWERS: dict[str, tuple[int, ...]] = {
     "stripes/image": _DATA_ANSWERS,
     "alerts": _DATA_ANSWERS,
     "storm-cells": _DATA_ANSWERS,
+    "kostra": _DATA_ANSWERS,
 }
 #: what every route under `API_PREFIX` can answer: a `Host` that is not allowed (400), a defect (500), the cap on
 #: requests served at once (503) and the request timeout (504), see `ui.middleware`
@@ -2973,6 +3010,47 @@ def storm_cells(
         raise _failure(e, request, "get storm cells") from e
 
     content, metadata = render_storm_cells(result, request.format, pretty=request.pretty)
+    return _answer(content, request.format, metadata)
+
+
+@router.get(
+    "/kostra",
+    response_model=_KostraWithMetadataDict | str,
+    tags=[TAG_KOSTRA],
+)
+def kostra(
+    request: Annotated[KostraRequest, Query()],
+) -> Response:
+    """Provide DWD's heavy-rainfall statistics (KOSTRA-DWD-2020) of a point via restapi.
+
+    Returns the table of the cell of DWD's 5 km grid that holds the point: for each duration of a rain (5 minutes to
+    7 days) and each return period (1 to 100 years) its depth in mm (``depth_mm``), its intensity in l/(s ha)
+    (``intensity_l_s_ha``) and DWD's uncertainty in plus-minus percent (``uncertainty_percent``, a tolerance of both),
+    with the cell's ``index_rc`` and the position of its centre. Engineers size drains and retention basins with these
+    values. Pass ``duration`` (and ``return_period``) for the one value you need: a duration reads one table of DWD,
+    without it all 22 are read (2 s the first time, then from the cache). The values are DWD's statistics for the cell,
+    not measurements at the point. A point outside Germany and a border of about 10 km, or in the sea, is a 400.
+    """
+    from wetterdienst.provider.dwd.kostra import DwdKostraRequest  # noqa: PLC0415
+
+    begin_response()
+
+    # outside the handlers below, as for `/api/stations`
+    settings = Settings()
+    try:
+        result = DwdKostraRequest(
+            latitude=request.latitude,
+            longitude=request.longitude,
+            duration=request.duration,
+            return_period=request.return_period,
+            settings=settings,
+        ).query()
+    except Exception as e:
+        # a point outside the grid or in a cell without values is the request's (a 400); a table that does not
+        # download or read is the provider's
+        raise _failure(e, request, "get KOSTRA statistics") from e
+
+    content, metadata = render_kostra(result, request.format, pretty=request.pretty)
     return _answer(content, request.format, metadata)
 
 

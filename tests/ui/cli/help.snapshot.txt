@@ -29,6 +29,7 @@ Commands:
   info         Display project information.
   interpolate  Interpolate data for a point from the stations around it.
   issues       List available issue (model-run) datetimes for a station.
+  kostra       Acquire DWD's heavy-rainfall statistics (KOSTRA) at a point.
   providers    List the providers and their networks, and describe what each provider is.
   radar        List radar stations.
   restapi      Start the Wetterdienst REST API web service.
@@ -442,6 +443,51 @@ Options:
   --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
                                   with --debug. Default: false
   --help                          Show this message and exit.
+
+
+$ wetterdienst kostra --help
+
+Usage: wetterdienst kostra [OPTIONS]
+
+  Acquire DWD's heavy-rainfall statistics (KOSTRA) at a point.
+
+  Reads KOSTRA-DWD-2020 and returns the table of the cell of DWD's 5 km grid that holds the point:
+  for each duration of a rain (5 minutes to 7 days) and each return period (1 to 100 years), its
+  depth in mm, its intensity in l/(s ha) and DWD's uncertainty in plus-minus percent, with the
+  cell's INDEX_RC and the position of its centre. Pass --duration, and --return-period, for the one
+  value you need: a duration reads one table of DWD, without it all 22 are read. A point outside
+  Germany and a border of about 10 km, or in the sea, is refused.
+
+Options:
+  --latitude FLOAT RANGE   Latitude of the point. DWD's grid covers Germany and a border of about 10
+                           km.  [-90<=x<=90; required]
+  --longitude FLOAT RANGE  Longitude of the point.  [-180<=x<=180; required]
+  --duration INTEGER       Only this duration of the rain, in minutes: 5, 10, 15, 20, 30, 45, 60,
+                           90, 120, 180, 240, 360, 540, 720, 1080, 1440, 2880, 4320, 5760, 7200,
+                           8640 or 10080 (7 days). Without it all 22 are read: 22 files of DWD,
+                           which takes 2 s the first time and is then served from the cache.
+  --return-period INTEGER  Only this return period, in years: 1, 2, 3, 5, 10, 20, 30, 50 or 100.
+                           Default: all nine.
+  --format [json|csv]      Output format: json (with the cell and the metadata block) or csv (the
+                           table alone). Default: json
+  --pretty BOOLEAN         Pretty-print JSON with 4-space indentation, as REST's pretty=true.
+                           Default: false
+  --debug BOOLEAN          Log at debug level. Default: false
+  --quiet BOOLEAN          Log errors and warnings about the answer only: no progress. Not with
+                           --debug. Default: false
+  --help                   Show this message and exit.
+
+  Examples:
+
+  # the 60-minute rain that comes once in 100 years at a point in Berlin: the depth (mm), the intensity (l/(s ha))
+  # and DWD's uncertainty (+- %), as JSON with the grid cell
+  wetterdienst kostra --latitude=52.52 --longitude=13.40 --duration=60 --return-period=100
+
+  # every return period of one duration, as CSV
+  wetterdienst kostra --latitude=48.14 --longitude=11.58 --duration=120 --format=csv
+
+  # the whole table of the cell: 22 durations and 9 return periods (22 files of DWD: 2 s the first time)
+  wetterdienst kostra --latitude=53.55 --longitude=9.99
 
 
 $ wetterdienst providers --help

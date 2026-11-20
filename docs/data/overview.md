@@ -58,6 +58,9 @@ Here's a quick overview of the data sources currently supported by `wetterdienst
     - Storm cells (`storm_cells`)
         - the thunderstorm cells KONRAD3D detects in the radar data: severity, hail, heavy rain and gust flags, speed, direction, outline and forecast track
         - the newest scan or one of the last 48 hours, every 5 minutes, no archive
+    - KOSTRA heavy rainfall (`kostra`)
+        - the heavy-rainfall statistics KOSTRA-DWD-2020 for the 5 km grid cell of a point: depth, intensity and uncertainty of a rain by duration (5 minutes to 7 days) and return period (1 to 100 years)
+        - a point lookup, no time axis; static files of December 2022
 - AEMET (Agencia Estatal de Meteorología / State Meteorological Agency / Spain)
     - Observation
         - climatological data from the Spanish station network

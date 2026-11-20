@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `dwd/kostra`: DWD's heavy-rainfall statistics KOSTRA-DWD-2020 as a point lookup on every
+  surface: `DwdKostraRequest`, `wetterdienst kostra`, `/api/v1/kostra` and the MCP tool `kostra`.
+  For the 5 km grid cell (ETRS89-LAEA) of a latitude and longitude in Germany it answers the depth
+  (mm), intensity (l/(s ha)) and uncertainty (%) of a rain by 22 durations (5 minutes to 7 days)
+  and 9 return periods (1 to 100 years), with the cell and its centre. A `duration` reads that
+  one table of DWD, without it all 22 are read; a point off the grid or in a cell without values
+  is refused (a 400), never an empty table. The 2010R edition is not read (GH-4072)
+
 ### Fixed
 
 - The documentation on Read the Docs was not published after 2026-10-24: the PDF build failed on an

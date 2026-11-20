@@ -30,6 +30,7 @@ from wetterdienst.exceptions import (
     MissingDependencyError,
     NoInternetError,
     NoStationPositionsError,
+    RequestError,
     ReversedTimeIntervalError,
 )
 from wetterdienst.io.formats import FORMATS, names_of
@@ -1170,6 +1171,18 @@ STORM_CELLS_EXAMPLES = r"""
 
     # to a GeoJSON file
     wetterdienst storm-cells --format=geojson --target=file://cells.geojson
+"""
+
+KOSTRA_EXAMPLES = r"""
+    # the 60-minute rain that comes once in 100 years at a point in Berlin: the depth (mm), the intensity (l/(s ha))
+    # and DWD's uncertainty (+- %), as JSON with the grid cell
+    wetterdienst kostra --latitude=52.52 --longitude=13.40 --duration=60 --return-period=100
+
+    # every return period of one duration, as CSV
+    wetterdienst kostra --latitude=48.14 --longitude=11.58 --duration=120 --format=csv
+
+    # the whole table of the cell: 22 durations and 9 return periods (22 files of DWD: 2 s the first time)
+    wetterdienst kostra --latitude=53.55 --longitude=9.99
 """
 
 STRIPES_EXAMPLES = r"""
@@ -3244,6 +3257,98 @@ def storm_cells(
         return
 
     output, _ = render_storm_cells(result, fmt, pretty=pretty)
+    print(output)  # noqa: T201
+
+
+@cli.command("kostra", epilog=_examples(KOSTRA_EXAMPLES))
+@click.option(
+    "--latitude",
+    type=click.FloatRange(-90, 90),
+    required=True,
+    help="Latitude of the point. DWD's grid covers Germany and a border of about 10 km.",
+)
+@click.option("--longitude", type=click.FloatRange(-180, 180), required=True, help="Longitude of the point.")
+@click.option(
+    "--duration",
+    type=click.INT,
+    default=None,
+    help=(
+        "Only this duration of the rain, in minutes: 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 540, 720, "
+        "1080, 1440, 2880, 4320, 5760, 7200, 8640 or 10080 (7 days). Without it all 22 are read: 22 files of DWD, "
+        "which takes 2 s the first time and is then served from the cache."
+    ),
+)
+@click.option(
+    "--return-period",
+    type=click.INT,
+    default=None,
+    help="Only this return period, in years: 1, 2, 3, 5, 10, 20, 30, 50 or 100. Default: all nine.",
+)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["json", "csv"], case_sensitive=False),
+    default="json",
+    help="Output format: json (with the cell and the metadata block) or csv (the table alone). Default: json",
+)
+@pretty_opt
+@debug_opt
+def kostra(
+    latitude: float,
+    longitude: float,
+    duration: int | None,
+    return_period: int | None,
+    fmt: str,
+    pretty: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Acquire DWD's heavy-rainfall statistics (KOSTRA) at a point.
+
+    Reads KOSTRA-DWD-2020 and returns the table of the cell of DWD's 5 km grid that holds the point: for each
+    duration of a rain (5 minutes to 7 days) and each return period (1 to 100 years), its depth in mm, its intensity
+    in l/(s ha) and DWD's uncertainty in plus-minus percent, with the cell's INDEX_RC and the position of its centre.
+    Pass --duration, and --return-period, for the one value you need: a duration reads one table of DWD, without it
+    all 22 are read. A point outside Germany and a border of about 10 km, or in the sea, is refused.
+    """
+    from wetterdienst import Settings
+    from wetterdienst.provider.dwd.kostra import DwdKostraRequest
+    from wetterdienst.ui.core import KostraRequest
+    from wetterdienst.ui.render import render_kostra
+
+    _apply_log_level(debug=debug)
+    begin_response()
+
+    # outside the handler below, as in `stations` and `values`: the `ValidationError` of a malformed `WD_*`
+    # variable is a `ValueError`, and not the command line's to fix
+    settings = Settings()
+    asked = {
+        "latitude": latitude,
+        "longitude": longitude,
+        "duration": duration,
+        "return_period": return_period,
+        "format": fmt.lower(),
+        "pretty": pretty,
+    }
+    validated = _validate_request(KostraRequest, {key: value for key, value in asked.items() if value is not None})
+    try:
+        result = DwdKostraRequest(
+            latitude=validated.latitude,
+            longitude=validated.longitude,
+            duration=validated.duration,
+            return_period=validated.return_period,
+            settings=settings,
+        ).query()
+    except RequestError as e:
+        # a point outside the grid or in a cell without values: the command line's to change, so one line and exit 2
+        raise click.UsageError(str(e)) from e
+    except NoInternetError:
+        # told by `_Cli.invoke` in one line
+        raise
+    except Exception as e:
+        log.exception("Failed to acquire KOSTRA statistics")
+        raise click.ClickException(str(e)) from e
+
+    output, _ = render_kostra(result, fmt, pretty=pretty)
     print(output)  # noqa: T201
 
 

@@ -42,6 +42,13 @@ NO_DIRECTION_CODE = {
 }
 
 
+# a point lookup that reads DWD's missing-value codes with the helper but returns no timeseries and is no registered
+# network, so it has no `TimeseriesValues` to stub: its sentinel is held by its own tests (`tests/provider/dwd/kostra`)
+POINT_LOOKUPS = {
+    "dwd/kostra": "a cell of KOSTRA-DWD-2020 has all its values or none, in every table: no value has a raw token",
+}
+
+
 def _carried(df: pl.DataFrame, stub: ValueStub) -> list[tuple[str, float]]:
     """Give the sentinels of the stub that the output holds, as (parameter, value)."""
     parameter = df.get_column("parameter")
@@ -229,7 +236,8 @@ def test_a_reader_that_maps_a_sentinel_has_a_stub() -> None:
         if len(parts) >= 3 and re.search(r"\b(null_sentinels|clear_sentinels|unpivot_with_raw|raw_column)\(", text):
             users.add(f"{parts[0]}/{parts[1]}")
     stubbed = {stub.provider.split(" ")[0] for stub in STUBS}
-    assert users - stubbed == set(), "add a stub with its tokens to STUBS"
+    assert users - stubbed - set(POINT_LOOKUPS) == set(), "add a stub with its tokens to STUBS"
+    assert set(POINT_LOOKUPS) <= users, "POINT_LOOKUPS names a lookup that does not use the helper"
     assert users, "the helper is used by no reader, or the search found no provider"
 
 

@@ -25,6 +25,7 @@ from wetterdienst.options import SkipThreshold, StationWindowEndBuffer  # noqa: 
 from wetterdienst.ui.response_metadata import (
     ResponseMetadata,
     alerts_metadata,
+    kostra_metadata,
     metadata_to_dict,
     response_metadata,
     storm_cells_metadata,
@@ -46,6 +47,7 @@ if TYPE_CHECKING:
     )
     from wetterdienst.options import Options
     from wetterdienst.provider.dwd.alerts.api import DwdWeatherAlertResult
+    from wetterdienst.provider.dwd.kostra.api import DwdKostraResult
     from wetterdienst.provider.dwd.storm_cells.api import DwdStormCellsResult
     from wetterdienst.ui.core import (
         HistoryRequest,
@@ -455,6 +457,21 @@ def render_storm_cells(result: DwdStormCellsResult, fmt: str, *, pretty: bool = 
     data = result.to_dict() if fmt == "json" else result.to_ogc_feature_collection()
     head = {"type": data.pop("type")} if fmt == "geojson" else {}
     answer = {**head, "metadata": metadata_to_dict(metadata), **data}
+    return dumps_json(answer, indent=4 if pretty else None, ensure_ascii=False), metadata
+
+
+def render_kostra(result: DwdKostraResult, fmt: str, *, pretty: bool = False) -> tuple[str, ResponseMetadata]:
+    """Write the KOSTRA table of a cell in the format asked for, JSON with the `metadata` block.
+
+    JSON is `{"metadata": ..., "edition": ..., "cell": {...}, "values": [...]}`; CSV is the table alone, with no place
+    for the cell or the block, so a CSV answer carries the block in the headers (`response_headers`).
+    """
+    from wetterdienst.provider.dwd.kostra import DwdKostraRequest  # noqa: PLC0415
+
+    metadata = kostra_metadata(DwdKostraRequest, result.df.height, result.data_updated_at)
+    if fmt == "csv":
+        return result.to_csv(), metadata
+    answer = {"metadata": metadata_to_dict(metadata), **result.to_dict()}
     return dumps_json(answer, indent=4 if pretty else None, ensure_ascii=False), metadata
 
 

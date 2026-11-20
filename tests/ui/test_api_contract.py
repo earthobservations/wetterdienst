@@ -237,6 +237,7 @@ def test_the_mcp_tools_are_the_endpoints_under_their_names() -> None:
             "history",
             "interpolate",
             "issues",
+            "kostra",
             "providers",
             "stations",
             "storm_cells",
