@@ -52,6 +52,13 @@ Types of changes:
   for the server and asks once, where it waited 30 s twice, so a host that drops connections costs
   a request 10 s and not a minute; requests that ask at the same time share one read (GH-4074)
 
+### Fixed
+
+- The glossary (`/api/glossary`, the MCP `glossary` tool, the app's glossary page) and the RMI
+  provider pages described `sunshine_duration` and its 3-hour and previous-day forms as the time
+  "the sun shone unobstructed". They now say what WMO defines: the time during which the direct
+  solar irradiance exceeded 120 W/m² (GH-4263)
+
 ## [0.193.0] - 2026-11-20
 
 ### Fixed
