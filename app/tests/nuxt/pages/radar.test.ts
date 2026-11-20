@@ -335,6 +335,8 @@ describe('what is told while the frames load (M2)', () => {
     const watching = setInterval(() => said.push(live.text()), 2)
     await loaded(wrapper)
     clearInterval(watching)
+    // the last line too, which the 2 ms sampling misses when the frames load between two of its ticks
+    said.push(live.text())
     expect(live.text()).toBe('The radar frames are loaded.')
     // told twice and never the count: "Loading the radar frames …", then "The radar frames are loaded."
     expect([...new Set(said)].filter(line => line !== '')).toEqual(['Loading the radar frames …', 'The radar frames are loaded.'])
