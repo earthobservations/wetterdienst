@@ -1217,7 +1217,7 @@ const GHCN_COLUMNS = {
   wmo_id: GHCN_STATIONS.map(station => station.wmo_id ?? null),
 }
 
-/** The mock backend with the compact list of the stations of GHCN daily, which each request for it is counted of, the details of a station by its id*/
+/** The mock backend with the compact list of the stations of GHCN daily, which each request for it is counted of, the details of a station by its id */
 function ghcnBackend(asked: string[], listHandler: () => unknown = () => GHCN_COLUMNS) {
   const defaults = defaultHandlers()
   return {
