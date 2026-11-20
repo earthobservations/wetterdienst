@@ -47,8 +47,10 @@ Types of changes:
   not the whole `daily/data`) lists only the stations whose `ghcnd-inventory.txt` has one of them,
   with the span of those elements as `start_timestamp` and `end_timestamp`. `values` by id for a
   station without them answers empty with the `unknown-station` warning, and `interpolate` and
-  `summarize` by such an id raise a 404 "no station found". Ask for the whole `daily/data` (its
-  list is unchanged), or give a latitude and longitude instead (GH-4270)
+  `summarize` by such an id raise `StationLacksParametersError` (a 400, `request-refused`, exit 2
+  on the command line) that names the parameters; a station with no element at all is still not
+  found (a 404). Ask for the whole `daily/data` (its list is unchanged), or give a latitude and
+  longitude instead (GH-4270, GH-4272)
 - The `radar` command writes the credit of its sites to stderr (`Radar sites: EUMETNET OPERA,
   <source page>`); stdout stays the JSON. EUMETNET OPERA gave wetterdienst its permission in
   November 2026 to use the list of radar sites and pass it on, credited to it; the licence is not
@@ -64,12 +66,6 @@ Types of changes:
   provider pages described `sunshine_duration` and its 3-hour and previous-day forms as the time
   "the sun shone unobstructed". They now say what WMO defines: the time during which the direct
   solar irradiance exceeded 120 W/m² (GH-4263)
-- `interpolate` and `summarize` by station id for `noaa/ghcn` daily: a station that exists but has none
-  of the requested parameters (its list holds only stations with one of them since GH-4270) is a
-  `StationLacksParametersError` (a 400, `request-refused`, exit 2 on the command line) that names
-  the parameters, not "no station found", which read as a wrong id. Where a provider's list cannot
-  tell, the 404 `StationNotFoundError` stays, and says that no station of the request has the id
-  (GH-4272)
 
 ## [0.193.0] - 2026-11-20
 

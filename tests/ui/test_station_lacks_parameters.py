@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from io import BytesIO
+from typing import TYPE_CHECKING
 
 import pytest
 from click.testing import CliRunner
@@ -12,6 +13,9 @@ from fastapi.testclient import TestClient
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
 from wetterdienst.util.network import File
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 _STATIONS = (
     "AA000000001  50.0000   10.0000   10.0    HAS PRCP                                    \n"
@@ -23,7 +27,7 @@ _QUERY = {"provider": "noaa", "network": "ghcn", "parameters": _PARAMETER, "time
 
 
 @pytest.fixture(autouse=True)
-def _serve_ghcn(monkeypatch: pytest.MonkeyPatch, tmp_path: pytest.TempPathFactory) -> None:
+def _serve_ghcn(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     """Serve NOAA's station list and inventory, one of two stations having the precipitation."""
     import os  # noqa: PLC0415
 

@@ -774,24 +774,28 @@ class NoaaGhcnRequest(TimeseriesRequest):
         return df.filter(~(pl.col("resolution").eq("daily") & pl.col("start_timestamp").is_null()))
 
     def _knows_station_outside_parameters(self, station_id: str) -> bool:
-        """Tell whether the daily station list, whole, holds a station that this request's list leaves out (GH-4272).
+        """Tell whether the inventory has a line for a station that this request's daily list leaves out (GH-4272).
 
-        A request for some of the daily parameters lists the stations that have one of them, so a station with other
-        elements is not in it. The list of the whole dataset (the stations file, left joined to the inventory, which
-        both are cached by the lookup that came first) holds every station, one with no element at all included. The
-        hourly list is the same for every parameter.
+        A request for some of the daily parameters lists the stations that have one of them, so a station with only
+        other elements is not in it, and the caller changes the parameters. A station with no line in the inventory has
+        no element at all (147 of 133,039 stations): no other parameters would find it, so it is not found, as it is
+        for the whole dataset. The hourly list is the same for every parameter, so only a daily dataset is asked.
+
+        The inventory is read once, and only where a daily dataset is requested. `read_daily_inventory` downloads it
+        through the cache, which holds it for twelve hours: with `cache_disable` or an expired entry this is a download
+        of the file again, on the path of a station that was not found only. Where it cannot be read
+        the error is raised, as it is for the list.
         """
         from typing import cast  # noqa: PLC0415
 
-        for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters)):
-            if dataset.resolution.value != Resolution.DAILY:
-                continue
-            whole = self._create_metaindex_for_ghcn_daily(list(dataset.parameters), dataset)
-            if "station_id" in whole.collect_schema().names() and (
-                whole.filter(pl.col("station_id").eq(station_id)).select(pl.len()).collect().item() > 0
-            ):
-                return True
-        return False
+        daily = any(
+            dataset.resolution.value == Resolution.DAILY
+            for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters))
+        )
+        if not daily:
+            return False
+        inventory = read_daily_inventory(cast("Settings", self.settings))
+        return inventory.get_column("station_id").is_in([station_id]).any()
 
     @staticmethod
     def _take_daily_elevation(df: pl.LazyFrame) -> pl.LazyFrame:

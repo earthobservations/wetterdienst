@@ -351,15 +351,8 @@ def test_noaa_ghcn_values_by_id_of_a_station_without_the_parameter_tell_unknown_
 
 
 @pytest.mark.parametrize("method", ["interpolate_by_station_id", "summarize_by_station_id"])
-@pytest.mark.parametrize(
-    "station_id",
-    [
-        pytest.param("AA000000003", id="has-another-element"),
-        pytest.param("AA000000006", id="has-no-line-in-the-inventory"),
-    ],
-)
 def test_noaa_ghcn_interpolate_and_summarize_by_id_of_a_station_without_the_parameter_say_so(
-    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, method: str, station_id: str
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, method: str
 ) -> None:
     """A station that exists and lacks the parameter is not "no station found": the parameters are named (GH-4272)."""
     _serve_ghcnd(monkeypatch, _ELEMENT_STATIONS, _ELEMENT_INVENTORY)
@@ -370,14 +363,69 @@ def test_noaa_ghcn_interpolate_and_summarize_by_id_of_a_station_without_the_para
         settings=default_settings,
     )
     with pytest.raises(StationLacksParametersError) as excinfo:
-        getattr(request, method)(station_id)
+        getattr(request, method)("AA000000003")
     assert not isinstance(excinfo.value, StationNotFoundError)
-    assert excinfo.value.station_id == station_id
+    assert excinfo.value.station_id == "AA000000003"
     assert excinfo.value.parameters == ["daily/data/precipitation_amount", "daily/data/snow_depth"]
     assert str(excinfo.value) == (
-        f"Station {station_id} exists but has none of the requested parameters "
+        "Station AA000000003 exists but has none of the requested parameters "
         "(daily/data/precipitation_amount, daily/data/snow_depth). Change the parameters, not the station."
     )
+
+
+@pytest.mark.parametrize("method", ["interpolate_by_station_id", "summarize_by_station_id"])
+@pytest.mark.parametrize(
+    "parameters",
+    [
+        pytest.param([("daily", "data", "precipitation_amount")], id="some-parameters"),
+        pytest.param([("daily", "data")], id="whole-dataset"),
+    ],
+)
+def test_noaa_ghcn_interpolate_and_summarize_by_id_of_a_station_with_no_element_is_not_found(
+    monkeypatch: pytest.MonkeyPatch,
+    default_settings: Settings,
+    method: str,
+    parameters: list[tuple[str, str, str]] | list[tuple[str, str]],
+) -> None:
+    """A station with no line in the inventory has no element at all: other parameters would not find it (GH-4272).
+
+    It is not found for the whole dataset, as it was before the list depended on the parameters, and it is not
+    found for some of them either: "change the parameters" would be advice that cannot work.
+    """
+    _serve_ghcnd(monkeypatch, _ELEMENT_STATIONS, _ELEMENT_INVENTORY)
+    request = NoaaGhcnRequest(parameters=parameters, start="2000", end="2001", settings=default_settings)
+    with pytest.raises(StationNotFoundError, match="no station found for AA000000006") as excinfo:
+        getattr(request, method)("AA000000006")
+    assert not isinstance(excinfo.value, StationLacksParametersError)
+
+
+@pytest.mark.parametrize("method", ["interpolate_by_station_id", "summarize_by_station_id"])
+@pytest.mark.parametrize(
+    ("parameters", "error"),
+    [
+        # the hourly list is the same for every parameter: a station it lacks is not found, though the daily
+        # inventory has it, and the inventory is not read for it
+        pytest.param([("hourly", "data", "temperature_air_2m")], StationNotFoundError, id="hourly-only"),
+        pytest.param(
+            [("daily", "data", "precipitation_amount"), ("hourly", "data", "temperature_air_2m")],
+            StationLacksParametersError,
+            id="daily-and-hourly",
+        ),
+    ],
+)
+def test_noaa_ghcn_interpolate_and_summarize_by_id_asks_the_inventory_for_a_daily_dataset_only(
+    monkeypatch: pytest.MonkeyPatch,
+    default_settings: Settings,
+    method: str,
+    parameters: list[tuple[str, str, str]],
+    error: type[Exception],
+) -> None:
+    """AA000000005 has SNOW in the daily inventory and no hourly row: only a daily dataset makes it a known one."""
+    _serve_daily_and_hourly(monkeypatch)
+    request = NoaaGhcnRequest(parameters=parameters, start="2000", end="2001", settings=default_settings)
+    with pytest.raises(error) as excinfo:
+        getattr(request, method)("AA000000005")
+    assert type(excinfo.value) is error
 
 
 @pytest.mark.parametrize("method", ["interpolate_by_station_id", "summarize_by_station_id"])
