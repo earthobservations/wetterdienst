@@ -16,9 +16,9 @@ const LOCALES = ['cs', 'da', 'de-hh', 'de', 'en', 'es', 'fr', 'it', 'lb', 'nl', 
 const messages = Object.fromEntries(LOCALES.map(code => [code, JSON.parse(readFileSync(fileURLToPath(new URL(`../../i18n/locales/${code}.json`, import.meta.url)), 'utf-8'))]))
 const en = messages.en
 
-const DEFAULT_ORDER = ['forecast', 'explorer', 'stripes', 'history', 'map']
-const WITH_MAP = ['map', 'forecast', 'explorer', 'stripes', 'history']
-const NAMES: Record<string, string> = { forecast: en.nav.meteogram, explorer: en.nav.explorer, stripes: en.nav.stripes, history: en.nav.history, map: en.nav.map }
+const DEFAULT_ORDER = ['forecast', 'explorer', 'stripes', 'history', 'map', 'radar']
+const WITH_MAP = ['map', 'forecast', 'explorer', 'stripes', 'history', 'radar']
+const NAMES: Record<string, string> = { forecast: en.nav.meteogram, explorer: en.nav.explorer, stripes: en.nav.stripes, history: en.nav.history, map: en.nav.map, radar: en.nav.radar }
 
 type Mode = 'light' | 'dark'
 
@@ -175,7 +175,7 @@ for (const size of SIZES) {
         await expect(page.locator('html')).toHaveClass(mode === 'dark' ? /dark/ : /^((?!dark).)*$/)
         await expect(chooser(page).locator('h3')).toHaveText([en.settings.bar.inBar, en.settings.bar.inMenu])
         await expect(chooser(page).getByTestId('bar-group-bar').locator('li')).toHaveCount(4)
-        await expect(chooser(page).getByTestId('bar-group-menu').locator('li')).toHaveCount(1)
+        await expect(chooser(page).getByTestId('bar-group-menu').locator('li')).toHaveCount(2)
         expect(await previewTexts(page)).toEqual(names(DEFAULT_ORDER.slice(0, 4)))
         await expect(chooser(page).getByTestId('bar-preview')).toHaveAttribute('aria-label', `Preview of the bar: ${names(DEFAULT_ORDER.slice(0, 4)).join(', ')}, Menu`)
         // the line is drawn between the two lists
@@ -196,7 +196,7 @@ for (const size of SIZES) {
           const box = el.getBoundingClientRect()
           return { kind: el.getAttribute('data-testid') ?? 'button', width: box.width, height: box.height, label: el.getAttribute('aria-label') }
         }))
-        expect(targets).toHaveLength(15)
+        expect(targets).toHaveLength(18)
         for (const target of targets) {
           expectAtLeastPx(target.width, 24, JSON.stringify(target))
           expectAtLeastPx(target.height, 24, JSON.stringify(target))
@@ -219,23 +219,23 @@ for (const size of SIZES) {
         expect(await previewTexts(page)).toEqual(names(['forecast', 'map', 'explorer', 'stripes']))
         await expect(row(page, 'map')).toHaveAttribute('data-dragging', '')
         await expect(row(page, 'explorer')).toHaveAttribute('data-drop', 'before')
-        await expect(chooser(page).getByTestId('bar-preview-menu')).toHaveText(`Only in the Menu: ${en.nav.history}`)
+        await expect(chooser(page).getByTestId('bar-preview-menu')).toHaveText(`Only in the Menu: ${en.nav.history}, ${en.nav.radar}`)
         // the preview is in view while the list is dragged
         await expect(chooser(page).getByTestId('bar-preview')).toBeInViewport({ ratio: 1 })
         expect(await barTexts(page)).toEqual([...names(DEFAULT_ORDER.slice(0, 4)), en.header.menu])
         await page.mouse.up()
         await expect(status(page)).toHaveText(`${en.nav.map} is now in the bar, at place 2 of 4. ${en.nav.history} is now only in the Menu.`)
-        expect(await stored(page)).toEqual(['forecast', 'map', 'explorer', 'stripes', 'history'])
+        expect(await stored(page)).toEqual(['forecast', 'map', 'explorer', 'stripes', 'history', 'radar'])
         // the bar at the foot of the window is the one the preview showed
         expect(await barTexts(page)).toEqual([...names(['forecast', 'map', 'explorer', 'stripes']), en.header.menu])
         await expect(row(page, 'history')).toBeVisible()
-        await expect(chooser(page).getByTestId('bar-group-menu').locator('li')).toHaveCount(1)
+        await expect(chooser(page).getByTestId('bar-group-menu').locator('li')).toHaveCount(2)
         // kept across a load
         await page.reload()
         await expect(chooser(page)).toBeVisible()
         expect(await barTexts(page)).toEqual([...names(['forecast', 'map', 'explorer', 'stripes']), en.header.menu])
         expect(await previewTexts(page)).toEqual(names(['forecast', 'map', 'explorer', 'stripes']))
-        expect(await stored(page)).toEqual(['forecast', 'map', 'explorer', 'stripes', 'history'])
+        expect(await stored(page)).toEqual(['forecast', 'map', 'explorer', 'stripes', 'history', 'radar'])
       })
 
       test('moves a tool out of the bar by dragging it below the line, and cancels a drag on Escape', async ({ page, baseURL }) => {
@@ -251,7 +251,7 @@ for (const size of SIZES) {
         expect(await stored(page)).toEqual(DEFAULT_ORDER)
         // the same drag, let go
         await drag(page, 'forecast', 'map', { below: 10 })
-        expect(await stored(page)).toEqual(['explorer', 'stripes', 'history', 'map', 'forecast'])
+        expect(await stored(page)).toEqual(['explorer', 'stripes', 'history', 'map', 'forecast', 'radar'])
         expect(await barTexts(page)).toEqual([...names(['explorer', 'stripes', 'history', 'map']), en.header.menu])
         await expect(status(page)).toHaveText(`${en.nav.meteogram} is now only in the Menu. ${en.nav.map} is now in the bar, at place 4 of 4.`)
       })
@@ -270,18 +270,18 @@ for (const size of SIZES) {
         await page.keyboard.press('Enter')
         await page.keyboard.press('Enter')
         await expect(move(page, 'map', 'up')).toBeFocused()
-        expect(await stored(page)).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
+        expect(await stored(page)).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history', 'radar'])
         // at the top of the list the button stays where it is and does nothing
         await expect(move(page, 'map', 'up')).toHaveAttribute('aria-disabled', 'true')
         await page.keyboard.press('Enter')
-        expect(await stored(page)).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
+        expect(await stored(page)).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history', 'radar'])
         // and back out of the bar, by "down", across the line
         await move(page, 'map', 'down').focus()
         for (let press = 0; press < 4; press++)
           await page.keyboard.press('Enter')
         await expect(status(page)).toHaveText(`${en.nav.map} is now only in the Menu. ${en.nav.history} is now in the bar, at place 4 of 4.`)
         await expect(move(page, 'map', 'down')).toBeFocused()
-        expect(await stored(page)).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
+        expect(await stored(page)).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map', 'radar'])
         expect(await barTexts(page)).toEqual([...names(DEFAULT_ORDER.slice(0, 4)), en.header.menu])
       })
 
@@ -357,7 +357,7 @@ test.describe('by touch (Chromium)', () => {
     expect(await previewTexts(page)).toEqual(names(['forecast', 'map', 'explorer', 'stripes']))
     expect(await page.evaluate(() => window.scrollY)).toBe(scrollBefore)
     await send('touchEnd')
-    expect(await stored(page)).toEqual(['forecast', 'map', 'explorer', 'stripes', 'history'])
+    expect(await stored(page)).toEqual(['forecast', 'map', 'explorer', 'stripes', 'history', 'radar'])
     await expect(status(page)).toContainText(`${en.nav.map} is now in the bar, at place 2 of 4`)
 
     // the name of a tool, off the handle: the finger scrolls, the order stays
@@ -368,7 +368,7 @@ test.describe('by touch (Chromium)', () => {
     await send('touchEnd')
     await page.waitForTimeout(300)
     expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBefore)
-    expect(await stored(page)).toEqual(['forecast', 'map', 'explorer', 'stripes', 'history'])
+    expect(await stored(page)).toEqual(['forecast', 'map', 'explorer', 'stripes', 'history', 'radar'])
     await client.detach()
   })
 })
@@ -498,7 +498,7 @@ test.describe('a storage that is wrong, blocked or full of nonsense', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
   const WRONG: Array<[string, unknown, string[]]> = [
-    ['a tool that does not exist', settingsWith(['radar', 'map', 'forecast', 'explorer', 'stripes']), ['map', 'forecast', 'explorer', 'stripes']],
+    ['a tool that does not exist', settingsWith(['satellite', 'map', 'forecast', 'explorer', 'stripes']), ['map', 'forecast', 'explorer', 'stripes']],
     ['too few tools', settingsWith(['history']), ['history', 'forecast', 'explorer', 'stripes']],
     ['too many', settingsWith([...WITH_MAP, 'radar', 'weather']), WITH_MAP.slice(0, 4)],
     ['a tool twice', settingsWith(['map', 'map', 'map', 'map']), ['map', 'forecast', 'explorer', 'stripes']],
@@ -518,7 +518,7 @@ test.describe('a storage that is wrong, blocked or full of nonsense', () => {
       await open(page, baseURL!, '/settings', { settings })
       expect(await barTexts(page)).toEqual([...names(bar4), en.header.menu])
       expect(await previewTexts(page)).toEqual(names(bar4))
-      await expect(chooser(page).locator('li[data-row]')).toHaveCount(5)
+      await expect(chooser(page).locator('li[data-row]')).toHaveCount(6)
       // and the first move starts from it
       await move(page, bar4[1]!, 'up').click()
       expect(await barTexts(page)).toHaveLength(5)
@@ -568,7 +568,7 @@ test.describe('the wide header', () => {
   test.use({ viewport: { width: 1280, height: 800 } })
   const headerLinks = (page: Page) => page.getByRole('banner').getByRole('navigation', { name: en.shell.mainNav }).getByRole('link')
 
-  test('shows all five tools whatever the bar holds, in the order of the choice, and the chooser is still on the settings page', async ({ page, baseURL }) => {
+  test('shows all six tools whatever the bar holds, in the order of the choice, and the chooser is still on the settings page', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/settings', { settings: settingsWith(WITH_MAP) })
     await expect(headerLinks(page)).toHaveText(WITH_MAP.map(key => NAMES[key]!))
     await expect(bar(page)).toBeHidden()
@@ -577,7 +577,7 @@ test.describe('the wide header', () => {
 
   test('has a chooser of one ordered list, with no preview of a bar, no Menu, no groups and no line (GH-3936)', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/settings')
-    await expect(chooser(page).locator('li[data-row]')).toHaveCount(5)
+    await expect(chooser(page).locator('li[data-row]')).toHaveCount(6)
     expect(await chooser(page).locator('li[data-row]').evaluateAll(rows => rows.map(row => (row as HTMLElement).dataset.tool))).toEqual(DEFAULT_ORDER)
     await expect(chooser(page).getByTestId('bar-preview')).toHaveCount(0)
     await expect(chooser(page).getByTestId('bar-preview-menu')).toHaveCount(0)
@@ -594,8 +594,8 @@ test.describe('the wide header', () => {
     // the Map is the last of the list: there is no line to cross, so four steps take it to the first place
     for (let step = 0; step < 4; step++)
       await move(page, 'map', 'up').click()
-    const expected = ['map', 'forecast', 'explorer', 'stripes', 'history']
-    await expect(status(page)).toHaveText(`${en.nav.map} moved to place 1 of 5 in the header.`)
+    const expected = ['map', 'forecast', 'explorer', 'stripes', 'history', 'radar']
+    await expect(status(page)).toHaveText(`${en.nav.map} moved to place 1 of 6 in the header.`)
     await expect(headerLinks(page)).toHaveText(expected.map(key => NAMES[key]!))
     expect(await stored(page)).toEqual(expected)
     await page.reload()
@@ -604,7 +604,7 @@ test.describe('the wide header', () => {
     await page.goto('/')
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
     await expect(headerLinks(page)).toHaveText(expected.map(key => NAMES[key]!))
-    expect(await page.locator('.home-tasks li a').evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual(['/meteogram', '/explorer', '/stripes', '/history', '/map'])
+    expect(await page.locator('.home-tasks li a').evaluateAll(links => links.map(link => link.getAttribute('href')))).toEqual(['/meteogram', '/explorer', '/stripes', '/history', '/map', '/radar'])
   })
 })
 
@@ -622,9 +622,9 @@ test.describe('the Menu\'s sheet follows the chosen order (GH-3934)', () => {
         await move(page, 'map', 'up').click()
       await pressMenuTab(page)
       await expect(sheet(page)).toBeVisible()
-      const expected = ['map', 'forecast', 'explorer', 'stripes', 'history']
+      const expected = ['map', 'forecast', 'explorer', 'stripes', 'history', 'radar']
       await expect.poll(() => sheetOrder(page)).toEqual(expected)
-      expect(await sheetTools(page).evaluateAll(items => items.map(item => item.querySelector('a')!.dataset.group))).toEqual(['bar', 'bar', 'bar', 'bar', 'menu'])
+      expect(await sheetTools(page).evaluateAll(items => items.map(item => item.querySelector('a')!.dataset.group))).toEqual(['bar', 'bar', 'bar', 'bar', 'menu', 'menu'])
       // no heading says where a tool is: the words are visually hidden, and they are part of the link's name (a browser may put a space before the comma)
       await expect(sheet(page).getByRole('link', { name: new RegExp(`^${en.nav.map} ?, ${en.shell.toolInBar}$`) })).toBeVisible()
       await expect(sheet(page).getByRole('link', { name: new RegExp(`^${en.nav.history} ?, ${en.shell.toolMenuOnly}$`) })).toBeVisible()
@@ -678,10 +678,10 @@ test.describe('the Menu\'s sheet follows the chosen order (GH-3934)', () => {
     await move(page, 'stripes', 'up').click()
     await move(page, 'stripes', 'up').click()
     await pressMenuTab(page)
-    await expect.poll(() => sheetOrder(page)).toEqual(['stripes', 'forecast', 'explorer', 'history', 'map'])
+    await expect.poll(() => sheetOrder(page)).toEqual(['stripes', 'forecast', 'explorer', 'history', 'map', 'radar'])
     await page.reload()
     await pressMenuTab(page)
-    await expect.poll(() => sheetOrder(page)).toEqual(['stripes', 'forecast', 'explorer', 'history', 'map'])
+    await expect.poll(() => sheetOrder(page)).toEqual(['stripes', 'forecast', 'explorer', 'history', 'map', 'radar'])
   })
 })
 
