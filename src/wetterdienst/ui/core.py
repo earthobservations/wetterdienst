@@ -3238,8 +3238,6 @@ def _get_stripes_ghcn_stations(kind: StripesKind, *, active: bool = True) -> Sta
     request = _get_stripes_ghcn_request(kind, window=False)
     stations = request.all()
     inventory = read_daily_inventory(cast("Settings", request.settings))
-    if inventory is None:
-        return replace(stations, df=stations.df.clear())
     record = _ghcn_record_years(kind, inventory)
     year = pl.col("last_year")
     long_enough = year - pl.col("first_year") + 1 >= MIN_RECORD_YEARS

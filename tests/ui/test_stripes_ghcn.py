@@ -281,6 +281,71 @@ def test_the_stations_are_those_whose_record_can_reach_the_minimum_years(
     assert _ids(kind, active=active) == expected
 
 
+def _years_of_the_generic_list(parameter: str) -> pl.DataFrame:
+    """Give the years of `/api/stations` for one GHCN daily parameter, an empty end being this year."""
+    this_year = dt.datetime.now(dt.UTC).year
+    df = NoaaGhcnRequest(parameters=[("daily", "data", parameter)]).all().df
+    return df.select(
+        "station_id",
+        pl.col("start_timestamp").dt.year().alias("first_year"),
+        pl.col("end_timestamp").dt.year().fill_null(this_year).alias("last_year"),
+    )
+
+
+def _rebuilt_as_the_app_does(kind: str, *, active: bool) -> pl.DataFrame:
+    """Rebuild the stripes' list of `kind` from the generic lists, as the app does.
+
+    The precipitation is one request; the temperature is three (TAVG, TMAX, TMIN) combined as TAVG or the years TMAX
+    and TMIN have in common. Then the rule on the span.
+    """
+    this_year = dt.datetime.now(dt.UTC).year
+    if kind == "precipitation":
+        record = _years_of_the_generic_list("precipitation_amount")
+    else:
+        mean = _years_of_the_generic_list("temperature_air_mean_2m")
+        both = _years_of_the_generic_list("temperature_air_max_2m").join(
+            _years_of_the_generic_list("temperature_air_min_2m"), on="station_id", suffix="_min"
+        )
+        # the years TMAX and TMIN have in common, empty where they do not meet
+        both = both.select(
+            "station_id",
+            pl.max_horizontal("first_year", "first_year_min").alias("first_year"),
+            pl.min_horizontal("last_year", "last_year_min").alias("last_year"),
+        ).filter(pl.col("first_year") <= pl.col("last_year"))
+        record = (
+            pl.concat([mean, both]).group_by("station_id").agg(pl.col("first_year").min(), pl.col("last_year").max())
+        )
+    keep = pl.col("last_year") - pl.col("first_year") + 1 >= core.MIN_RECORD_YEARS
+    if active:
+        keep &= pl.col("last_year") >= this_year - 1
+    return record.filter(keep)
+
+
+@pytest.mark.parametrize("active", [True, False])
+@pytest.mark.parametrize("kind", ["temperature", "precipitation"])
+def test_the_generic_lists_with_the_apps_rule_are_the_stripes_list(
+    kind: Literal["temperature", "precipitation"],
+    active: bool,  # noqa: FBT001
+) -> None:
+    """Test `/api/stations` for one measurement each, combined and ruled as the app does, is the stripes' list.
+
+    The precipitation is the list of `precipitation_amount`. The temperature is those of `temperature_air_mean_2m`
+    (TAVG), `temperature_air_max_2m` (TMAX) and `temperature_air_min_2m` (TMIN): a station's span is TAVG's, or the
+    years TMAX and TMIN have in common where it has both and they meet, or from the earliest start to the latest end
+    of the two. Then a record of `MIN_RECORD_YEARS` or more years (an empty end is this year) that, for an active
+    station, reaches into this year or the last. The same ids, with the same start and end.
+    """
+    this_year = dt.datetime.now(dt.UTC).year
+    rebuilt = _rebuilt_as_the_app_does(kind, active=active).sort("station_id")
+    stripes = core._get_stripes_ghcn_stations(kind, active=active).df.select(  # noqa: SLF001
+        "station_id",
+        pl.col("start_timestamp").dt.year().alias("first_year"),
+        pl.col("end_timestamp").dt.year().fill_null(this_year).alias("last_year"),
+    )
+    assert stripes.height > 0
+    assert rebuilt.equals(stripes.sort("station_id"))
+
+
 def test_the_listing_gives_the_span_of_the_kind_and_no_end_for_a_station_that_still_reports() -> None:
     """Test `start_timestamp` and `end_timestamp` are the first and the last year of the elements of the kind."""
     rows = {
