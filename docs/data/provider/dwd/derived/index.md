@@ -54,6 +54,15 @@ of the other datasets of the same request are found as before. A map of the post
 be drawn: it is a 422, as for [`dwd/pollen`](../pollen/index.md)
 ([GH-4206](https://github.com/earthobservations/wetterdienst/issues/4206)).
 
+## WIGOS ids of the stations
+
+The datasets whose ids are DWD's station ids (the table below) also carry `wigos_id`, read from WMO's register
+OSCAR/Surface by the rule of [`dwd/observation`](../observation/index.md#wigos-ids-of-the-stations): the DWD id is the
+local part of `0-276-<issue number>-<id>` (`00044` Großenkneten is `0-276-3-44`). Read 2026-11-20, 304 of the 1,226
+stations of the degree days and degree hours and 288 of the 484 of the soil have one. The other datasets have none and
+do not read the register; where it cannot be read the stations come back with `wigos_id` null and the warning
+`wigos-ids-unavailable`.
+
 ## WMO numbers of the stations
 
 The station lists carry no WMO number. Where the ids of a dataset are DWD's station ids, `wmo_id` is read from DWD's

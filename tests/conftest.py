@@ -443,6 +443,40 @@ def _stationslexikon_of_the_stub(request: pytest.FixtureRequest) -> Generator[No
         stationslexikon.forget_wmo_ids()
 
 
+@pytest.fixture(autouse=True)
+def _oscar_of_the_stub(request: pytest.FixtureRequest) -> Generator[None]:
+    """Serve WMO OSCAR/Surface's register to the offline tests from the stub of its rows (GH-4074).
+
+    The stations of `dwd/observation`, `fmi/observation` and `dmi/observation` are given a `wigos_id` from a register at
+    `oscar.wmo.int` that no list of theirs holds, so every test that lists them, whatever it stands in for, would reach
+    for it. They get the rows of `tests/model/oscar_rows.py` for Germany, Finland and Denmark; a test that is about the
+    reader serves its own (`monkeypatch` after this) and the tests marked `remote` read the live register. Every other
+    address goes where it went. Not through the `monkeypatch` fixture, for the reason `_no_fetch_ahead_unless_asked_for`
+    gives. The process remembers the register it read, and its failures: each test starts and ends with none.
+    """
+    from tests.model.oscar_rows import served  # noqa: PLC0415
+    from wetterdienst.model import oscar  # noqa: PLC0415
+
+    oscar.forget_registers()
+    if request.node.get_closest_marker("remote"):
+        yield
+        oscar.forget_registers()
+        return
+    from wetterdienst.util.network import File  # noqa: PLC0415
+
+    original = oscar.download_file
+
+    def download_file(*, url: str, **kwargs: Any) -> File:  # noqa: ANN401
+        return served(url) or original(url=url, **kwargs)
+
+    oscar.download_file = download_file
+    try:
+        yield
+    finally:
+        oscar.download_file = original
+        oscar.forget_registers()
+
+
 def _is_local_address(address: object) -> bool:
     """Say whether a socket address points at this machine.
 

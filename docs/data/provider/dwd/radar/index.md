@@ -66,6 +66,8 @@ those two and for any folder other than `unfiltered`, as the polarimetric moment
 for each sweep. The vertical files are those of `..._REFLECTIVITY_H` all the same: the `_H` of the product names is unchanged.
 
 ```python
+import datetime as dt
+
 from wetterdienst.provider.dwd.radar import (
     DwdRadarDataSubset,
     DwdRadarParameter,
@@ -79,7 +81,8 @@ request = DwdRadarValues(
     site=DwdRadarSite.BOO,
     subset=DwdRadarDataSubset.UNFILTERED,
     polarization=DwdRadarPolarization.VERTICAL,  # only the ..._tv_NN-... files; leave it out for TH and TV
-    start="2026-10-22 13:10",
+    # a time of the last hours: DWD keeps about two days
+    start=dt.datetime.now(dt.timezone.utc) - dt.timedelta(minutes=30),
 )
 ```
 
@@ -145,6 +148,7 @@ route is an MCP tool: an overlay is nothing a model can read.
 ```bash
 http localhost:7890/api/radar/frames                      # the loop and its forecast
 http localhost:7890/api/radar/frames past==30 forecast==false
+# time and run are those of a frame of /radar/frames (DWD keeps about two days)
 http localhost:7890/api/radar/frame time==2026-11-19T21:10:00Z run==2026-11-19T21:10:00Z > frame.png
 ```
 
