@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import type { Cluster, Grouping } from '~/utils/map-cluster'
 import type { PlacedStation, Point, ReportingRule } from '~/utils/map-tool'
+import type { StormCell } from '~/utils/storm-cells'
 import * as L from 'leaflet'
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { clusterAt, clusterRadius, clusterStations, clusterText, isGroupedAt, reportingSweep, viewForCluster, worldPixels } from '~/utils/map-cluster'
 import { OSM_ATTRIBUTION, OSM_TILES } from '~/utils/map-tiles'
 import { clickReach, dotRadius, HOME_VIEW, SELECTED_EDGE_PX, SELECTED_RADIUS_PX } from '~/utils/map-tool'
+import { creditHtml } from '~/utils/provider-credit'
+import { drawable, hasMotion, MARK_SIZE, markSvg, styleOf } from '~/utils/storm-cells'
 
 // The map of the map tool (GH-3650), from the design of #3580. Stations are dots drawn on canvas tiles rather than
 // markers: a station is no stop of the keyboard, so Tab does not walk through the thousands of the forecast's points,
@@ -20,6 +23,13 @@ import { clickReach, dotRadius, HOME_VIEW, SELECTED_EDGE_PX, SELECTED_RADIUS_PX 
 // drawn on the same tiles as the dots and so no stop of the keyboard either. A click on one zooms in on its stations; the
 // keyboard's way in is the map's own (the + and - keys, the buttons) and the panel. The ones that have stopped are grouped
 // apart from those that report, so a group is hollow or filled like a dot is.
+//
+// The Radar tool (GH-3788) is the same map without stations: a picture laid over the tiles (`overlay`, a frame of DWD's precipitation
+// radar, stretched over its bounds), the thunderstorm cells of DWD's KONRAD3D over it (GH-4208: the outline of each cell, every
+// surface of it, in the colour and the edge of its severity, and at its centre a mark with the severity's number and, where it has a
+// motion, a dashed arrow in the calculated direction, `utils/storm-cells.ts`), the credit of both in the map's attribution, and a view
+// it opens on (`openOn`). The picture and the cells are no stop of the keyboard and take no click: the text of the radar is the page's
+// legend and its player, and the text of the cells is their list.
 
 const props = defineProps<{
   stations: PlacedStation[]
@@ -46,6 +56,18 @@ const props = defineProps<{
   describedBy?: string
   /** Whether the map's stage is full screen (GH-4227): the button with the zoom buttons says so, and its label is the one for leaving */
   fullscreen?: boolean
+  /** No full-screen button with the zoom buttons: the Radar tool's player is beside the map, not in it */
+  noFullscreen?: boolean
+  /** A picture over the tiles (GH-3788): where it lies (`[[south, west], [north, east]]`, Leaflet's default CRS, which the radar's images are in) and how opaque it is; swapped when `url` changes, once the new one has been decoded, so that the loop does not flicker */
+  overlay?: { url: string, bounds: [[number, number], [number, number]], opacity?: number } | null
+  /** The part of the world the map opens on, instead of the home view of the stations: the box of the radar's images */
+  openOn?: [[number, number], [number, number]]
+  /** The thunderstorm cells to draw over the picture (GH-4208); undefined where they are off */
+  cells?: StormCell[]
+  /** The credit of the layers drawn over the tiles (the radar's, the cells'): each a line of the map's attribution, the licence a link to its terms */
+  credits?: Array<{ text: string, license: { label: string, url: string } | null }>
+  /** A press on a cell of the list: the map centres on it, once for each press (`count`), as a click on a group does */
+  centreOn?: { count: number, latitude: number, longitude: number, bounds: { south: number, west: number, north: number, east: number } } | null
 }>()
 
 const emit = defineEmits<{
@@ -72,6 +94,13 @@ let selection: L.CircleMarker | null = null
 let placeMarker: L.CircleMarker | null = null
 let link: L.Polyline | null = null
 let positionMarks: L.CircleMarker[] = []
+let overlayLayer: L.ImageOverlay | null = null
+/** The picture `overlayLayer` shows now (its `url` is set only once the next one is ready) */
+let overlayShown: string | null = null
+let cellLayer: L.LayerGroup | null = null
+let attribution: L.Control.Attribution | null = null
+/** The credit lines of the layers now in the map's attribution, to be taken out again */
+let creditsShown: string[] = []
 
 /**
  * The pane of the marks of the station picked, the place and the reader's position: over the overlay pane the dots and the
@@ -79,6 +108,12 @@ let positionMarks: L.CircleMarker[] = []
  * its station is in (GH-4079), as above a dot
  */
 const MARKS_PANE = 'station-marks'
+/** The panes of the radar's picture, under the dots (400), the cells' outlines over the dots (420) and their marks over the outlines (430), all under the marks of the station picked (450) */
+const RADAR_PANE = 'radar'
+const CELLS_PANE = 'storm-cells'
+const CELL_MARKS_PANE = 'storm-cell-marks'
+/** The zoom a press on a cell of the list goes no farther than */
+const CELL_ZOOM_LIMIT = 10
 
 const { t } = useI18n()
 const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
@@ -272,6 +307,137 @@ function drawSelection() {
   }).addTo(map)
 }
 
+/**
+ * The radar's picture over the tiles: one image overlay, laid over the bounds the answer gives, no stop of the keyboard and no click. A new
+ * frame is decoded off the page first and set when it is ready, so the loop does not blink to nothing between two frames; a frame that is
+ * not the latest asked for by the time it is ready is dropped.
+ */
+async function drawOverlay() {
+  if (!map)
+    return
+  const spec = props.overlay
+  if (!spec) {
+    overlayLayer?.remove()
+    overlayLayer = null
+    overlayShown = null
+    return
+  }
+  const bounds = L.latLngBounds(spec.bounds)
+  if (!overlayLayer) {
+    overlayLayer = L.imageOverlay(spec.url, bounds, { opacity: spec.opacity ?? 0.75, pane: RADAR_PANE, interactive: false, alt: '', className: 'station-map-radar' }).addTo(map)
+    overlayShown = spec.url
+    return
+  }
+  overlayLayer.setBounds(bounds)
+  overlayLayer.setOpacity(spec.opacity ?? 0.75)
+  if (spec.url === overlayShown)
+    return
+  const wanted = spec.url
+  // the image is in the browser's cache (the page loaded it), so decoding it is quick; a browser without `decode` swaps at once
+  const image = new Image()
+  image.src = wanted
+  try {
+    await image.decode?.()
+  }
+  catch {
+    // a frame that does not decode is set anyway: the page has told which frames failed
+  }
+  if (!overlayLayer || props.overlay?.url !== wanted)
+    return
+  overlayLayer.setUrl(wanted)
+  overlayShown = wanted
+}
+
+/**
+ * The thunderstorm cells: each cell's outline as a polygon (every surface of it, holes as holes) in the colour, edge and fill of its
+ * severity, and its mark at its centre. None takes a click or a key: no `interactive`, no `keyboard` (a Leaflet marker is a button
+ * for the keyboard unless told it is not), and the mark is hidden from assistive technology (its svg is `aria-hidden`).
+ */
+function drawCells() {
+  if (!map)
+    return
+  cellLayer?.remove()
+  cellLayer = null
+  const cells = drawable(props.cells ?? [])
+  if (!cells.length)
+    return
+  const layer = L.layerGroup()
+  for (const cell of cells) {
+    const style = styleOf(cell.severity)
+    if (cell.outline.length) {
+      L.polygon(cell.outline as L.LatLngExpression[][][], {
+        color: style.color,
+        weight: style.weight,
+        dashArray: style.dashArray ?? undefined,
+        fillColor: style.color,
+        fillOpacity: style.fillOpacity,
+        lineJoin: 'round',
+        interactive: false,
+        pane: CELLS_PANE,
+      }).addTo(layer)
+    }
+    const at = cell.latitude !== null && cell.longitude !== null ? [cell.latitude, cell.longitude] as L.LatLngTuple : outlineCentre(cell)
+    if (!at)
+      continue
+    L.marker(at, {
+      icon: L.divIcon({
+        html: markSvg(cell),
+        className: `storm-cell-mark${hasMotion(cell) ? ' storm-cell-mark-moving' : ''}`,
+        iconSize: [MARK_SIZE, MARK_SIZE],
+        iconAnchor: [MARK_SIZE / 2, MARK_SIZE / 2],
+      }),
+      interactive: false,
+      keyboard: false,
+      pane: CELL_MARKS_PANE,
+    }).addTo(layer)
+  }
+  layer.addTo(map)
+  cellLayer = layer
+}
+
+/** Where the mark goes for a cell with no centre: the middle of its outline's box */
+function outlineCentre(cell: StormCell): L.LatLngTuple | null {
+  const points = cell.outline.flat(2)
+  if (!points.length)
+    return null
+  const centre = L.latLngBounds(points).getCenter()
+  return [centre.lat, centre.lng]
+}
+
+/** The credit of what is drawn over the tiles in the map's attribution: the map says where what is on it is from */
+function drawCredits() {
+  if (!attribution)
+    return
+  for (const line of creditsShown)
+    attribution.removeAttribution(line)
+  creditsShown = (props.credits ?? []).map(creditHtml)
+  for (const line of creditsShown)
+    attribution.addAttribution(line)
+}
+
+/** The presses on a cell that the map has centred on */
+let centred = 0
+
+/**
+ * Centres on the cell of a press of the list, as a click on a group of stations does (`viewForCluster`): on its centre, at the zoom
+ * that fits its outline, at least one in and no farther than 10, where a cell is a few kilometres wide and a town is seen.
+ */
+function centreOnCell() {
+  const target = props.centreOn
+  if (!map || !target || target.count <= centred)
+    return
+  centred = target.count
+  const owner = map
+  const view = viewForCluster(
+    target,
+    box => owner.getBoundsZoom(L.latLngBounds([box.south, box.west], [box.north, box.east]), false, L.point(48, 48)),
+    owner.getZoom(),
+    CELL_ZOOM_LIMIT,
+    owner.getMaxZoom(),
+  )
+  owner.setView([view.latitude, view.longitude], view.zoom, { animate: !reducedMotion.value })
+}
+
 /** The reader's own position: a ring round a dot, in navy, which no station's mark is (the yellow disc, the white ring) */
 function drawPosition() {
   if (!map)
@@ -378,6 +544,8 @@ onMounted(() => {
     maxZoom: 16,
     zoomControl: false,
     attributionControl: false,
+    // the radar opens on Germany's box, which a whole zoom would cut or leave half empty: a quarter of a zoom fits it
+    zoomSnap: props.openOn ? 0.25 : 1,
     worldCopyJump: true,
     zoomAnimation: !reducedMotion.value,
     fadeAnimation: !reducedMotion.value,
@@ -386,7 +554,7 @@ onMounted(() => {
   // the credit and the buttons at the bottom right, clear of the layers button at the map's top right. Leaflet stacks the
   // controls of a bottom corner from its edge up, in the order they were added: the credit is added first, so it is at the
   // very bottom, under the zoom buttons (GH-4209)
-  L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map)
+  attribution = L.control.attribution({ position: 'bottomright', prefix: false }).addTo(map)
   const zoom = L.control.zoom({ position: 'bottomright', zoomInTitle: t('mapTool.zoomIn'), zoomOutTitle: t('mapTool.zoomOut') }).addTo(map)
   // the full-screen button sits with the zoom buttons (GH-4227), at the head of their bar, so that the three are one control
   // that the pointer and the keyboard meet in a row. Leaflet makes the bar; the button in it is Vue's (teleported), so that its
@@ -398,6 +566,9 @@ onMounted(() => {
   fullscreenHost.value = host
   L.tileLayer(OSM_TILES, { attribution: OSM_ATTRIBUTION, maxZoom: 19, className: 'station-map-tiles' }).addTo(map)
   map.createPane(MARKS_PANE).style.zIndex = '450'
+  map.createPane(RADAR_PANE).style.zIndex = '250'
+  map.createPane(CELLS_PANE).style.zIndex = '420'
+  map.createPane(CELL_MARKS_PANE).style.zIndex = '430'
   dots = new (DotLayer as unknown as new (options: L.GridLayerOptions) => L.GridLayer)({ pane: 'overlayPane', updateWhenZooming: false, noWrap: false }).addTo(map)
   // a press on the map while the panel of the layers button is open closes the panel, and the click that belongs to that press is
   // swallowed, a click on a group's disc included. The flag is set by the press (the capture phase is before the panel's own
@@ -430,6 +601,12 @@ onMounted(() => {
       container.value?.classList.toggle('station-map-over-group', groupAt(event.latlng) !== null)
     })
   })
+  // the radar's own view, where the page has one: the box of its images, as large as the map fits
+  if (props.openOn)
+    map.fitBounds(props.openOn, { animate: false })
+  void drawOverlay()
+  drawCells()
+  drawCredits()
   drawSelection()
   drawPosition()
   reveal()
@@ -489,12 +666,21 @@ onBeforeUnmount(() => {
     cancelAnimationFrame(pointerFrame)
   map?.remove()
   map = null
+  overlayLayer = null
+  overlayShown = null
+  cellLayer = null
+  attribution = null
+  creditsShown = []
 })
 
 watch(() => [props.stations, props.reporting, props.grouping], () => {
   forgetClusters()
   dots?.redraw()
 })
+watch(() => props.overlay, () => void drawOverlay(), { deep: true })
+watch(() => props.cells, drawCells)
+watch(() => props.credits, drawCredits)
+watch(() => props.centreOn, centreOnCell)
 watch(() => [props.selected, props.place, props.recentre, props.position], () => {
   drawSelection()
   reveal()
@@ -506,9 +692,9 @@ watch(() => [props.position, props.locate], () => {
 </script>
 
 <template>
-  <div ref="container" class="station-map" role="application" :aria-label="label" :aria-roledescription="t('nav.map')" :aria-describedby="describedBy" />
+  <div ref="container" class="station-map" :class="{ 'station-map-fractional': openOn }" role="application" :aria-label="label" :aria-roledescription="t('nav.map')" :aria-describedby="describedBy" />
   <!-- by its action (GH-4227): the name is what pressing does, and it changes with the state ("Full screen", "Exit full screen"), as a button that is not a toggle does -->
-  <Teleport v-if="fullscreenHost" :to="fullscreenHost">
+  <Teleport v-if="fullscreenHost && !noFullscreen" :to="fullscreenHost">
     <button
       ref="fullscreenButton"
       type="button"
@@ -542,6 +728,23 @@ watch(() => [props.position, props.locate], () => {
 /* Calm tiles: OpenStreetMap's colours, faded, so that the stations are what the eye finds */
 .station-map .station-map-tiles {
   filter: saturate(0.35) brightness(1.03) contrast(0.92);
+}
+/* a map that opens on a box is zoomed by a quarter, where the browser draws the tiles scaled and leaves hairlines between them: an edge of no colour hides them */
+.station-map.station-map-fractional .station-map-tiles img.leaflet-tile {
+  outline: 1px solid transparent;
+}
+/* the radar's picture (GH-3788): the classes are pixels, which the browser stretches over the bounds; it takes no pointer */
+.station-map .station-map-radar {
+  pointer-events: none;
+}
+/* the mark of a thunderstorm cell (utils/storm-cells.ts): an svg the size of its icon, no box of its own */
+.station-map .storm-cell-mark {
+  background: none;
+  border: 0;
+}
+.station-map .storm-cell-mark svg {
+  display: block;
+  overflow: visible;
 }
 /* over a group of stations: a click zooms in on it */
 .station-map.station-map-over-group {

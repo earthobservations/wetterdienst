@@ -31,6 +31,10 @@ describe('unexpectedAnswerReason', () => {
     expect(unexpectedAnswerReason('/api/glossary', { status: 200, contentType: json, data: [] })).toBeNull()
     expect(unexpectedAnswerReason('/api/coverage', { status: 200, contentType: json, data: {} })).toBeNull()
     expect(unexpectedAnswerReason('/api/history', { status: 200, contentType: json, data: { histories: [] } })).toBeNull()
+    // the thunderstorm cells and the radar's frames (GH-4208, GH-3788): a scan with no cell is an empty list, not a failure
+    expect(unexpectedAnswerReason('/api/storm-cells', { status: 200, contentType: json, data: { cells: [] } })).toBeNull()
+    expect(unexpectedAnswerReason('/api/radar/frames', { status: 200, contentType: json, data: { frames: [] } })).toBeNull()
+    expect(unexpectedAnswerReason('/api/v1/radar/frames', { status: 200, contentType: json, data: { frames: [] } })).toBeNull()
     // the same under the versioned address
     expect(unexpectedAnswerReason('/api/v1/stations', { status: 200, contentType: json, data: { stations: [] } })).toBeNull()
   })
@@ -47,6 +51,10 @@ describe('unexpectedAnswerReason', () => {
     // the history's list is `histories`; an object without it shows nothing
     expect(unexpectedAnswerReason('/api/history', { status: 200, contentType: json, data: {} })).toContain('no list of `histories`')
     expect(unexpectedAnswerReason('/api/history', { status: 200, contentType: json, data: { stations: [] } })).toContain('no list of `histories`')
+    expect(unexpectedAnswerReason('/api/storm-cells', { status: 200, contentType: json, data: {} })).toContain('no list of `cells`')
+    expect(unexpectedAnswerReason('/api/radar/frames', { status: 200, contentType: json, data: {} })).toContain('no list of `frames`')
+    // the frame itself is an image: it is no JSON that is looked at
+    expect(unexpectedAnswerReason('/api/radar/frame', { status: 200, contentType: 'image/png' })).toBeNull()
   })
 
   it('tells an answer with no body as no data, and a body labelled JSON that does not parse by that', () => {

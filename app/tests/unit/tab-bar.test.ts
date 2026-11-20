@@ -3,25 +3,26 @@ import { TOOLS } from '../../app/utils/sections'
 import { BAR_SIZE, barKeys, DEFAULT_TOOL_ORDER, describeMove, HEADER_SIZE, isDefaultOrder, menuKeys, moveTool, normalizeToolOrder, slotAt } from '../../app/utils/tab-bar'
 
 // The choice of the tools in the phone's tab bar (GH-3846): a list of all the tools of which the first four are the
-// bar. Whatever is stored or moved, the list is valid: all the tools once each, four above the line.
+// bar. Whatever is stored or moved, the list is valid: all the tools once each, four above the line (GH-3788: the Radar is the sixth tool,
+// so two are below it by default).
 
-const DEFAULT = ['forecast', 'explorer', 'stripes', 'history', 'map']
+const DEFAULT = ['forecast', 'explorer', 'stripes', 'history', 'map', 'radar']
 
 describe('the default', () => {
-  it('is the tools in the order of the header: the four there were before the map, the map below the line', () => {
+  it('is the tools in the order of the header: the four there were before the map, the map and the radar below the line', () => {
     expect(DEFAULT_TOOL_ORDER).toEqual(DEFAULT)
     expect(DEFAULT_TOOL_ORDER).toEqual(TOOLS.map(tool => tool.key))
     expect(barKeys(DEFAULT_TOOL_ORDER)).toEqual(['forecast', 'explorer', 'stripes', 'history'])
-    expect(menuKeys(DEFAULT_TOOL_ORDER)).toEqual(['map'])
+    expect(menuKeys(DEFAULT_TOOL_ORDER)).toEqual(['map', 'radar'])
     expect(BAR_SIZE).toBe(4)
     expect(isDefaultOrder(DEFAULT)).toBe(true)
-    expect(isDefaultOrder(['map', ...DEFAULT.slice(0, 4)])).toBe(false)
+    expect(isDefaultOrder(['map', ...DEFAULT.slice(0, 4), 'radar'])).toBe(false)
   })
 })
 
 describe('normalizeToolOrder', () => {
   it('keeps a valid order as it is', () => {
-    expect(normalizeToolOrder(['map', 'history', 'explorer', 'forecast', 'stripes'])).toEqual(['map', 'history', 'explorer', 'forecast', 'stripes'])
+    expect(normalizeToolOrder(['radar', 'map', 'history', 'explorer', 'forecast', 'stripes'])).toEqual(['radar', 'map', 'history', 'explorer', 'forecast', 'stripes'])
   })
 
   it.each([undefined, null, 'forecast', 42, {}, { 0: 'map' }, true])('is the default for what is no list: %j', (raw) => {
@@ -33,20 +34,22 @@ describe('normalizeToolOrder', () => {
   })
 
   it('ignores a key that names no tool (one that was removed, or never was), and anything that is no key', () => {
-    expect(normalizeToolOrder(['map', 'radar', 'forecast', 7, null, {}, 'explorer', 'stripes', 'history']))
-      .toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
-    expect(normalizeToolOrder(['radar', 'weather'])).toEqual(DEFAULT)
+    expect(normalizeToolOrder(['map', 'satellite', 'forecast', 7, null, {}, 'explorer', 'stripes', 'history']))
+      .toEqual(['map', 'forecast', 'explorer', 'stripes', 'history', 'radar'])
+    expect(normalizeToolOrder(['satellite', 'weather'])).toEqual(DEFAULT)
   })
 
   it('keeps a key that comes twice at its first place', () => {
-    expect(normalizeToolOrder(['map', 'map', 'stripes', 'map', 'forecast', 'stripes'])).toEqual(['map', 'stripes', 'forecast', 'explorer', 'history'])
+    expect(normalizeToolOrder(['map', 'map', 'stripes', 'map', 'forecast', 'stripes'])).toEqual(['map', 'stripes', 'forecast', 'explorer', 'history', 'radar'])
   })
 
   it('fills a list with too few tools from the default, after the ones it names', () => {
-    expect(normalizeToolOrder(['map'])).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
-    expect(normalizeToolOrder(['history', 'stripes'])).toEqual(['history', 'stripes', 'forecast', 'explorer', 'map'])
-    // the bar of a list that named only the four: the fifth is below the line, where a tool added later goes
-    expect(normalizeToolOrder(['stripes', 'history', 'explorer', 'forecast'])).toEqual(['stripes', 'history', 'explorer', 'forecast', 'map'])
+    expect(normalizeToolOrder(['map'])).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history', 'radar'])
+    expect(normalizeToolOrder(['history', 'stripes'])).toEqual(['history', 'stripes', 'forecast', 'explorer', 'map', 'radar'])
+    // the bar of a list that named only the four: the others are below the line, where a tool added later goes
+    expect(normalizeToolOrder(['stripes', 'history', 'explorer', 'forecast'])).toEqual(['stripes', 'history', 'explorer', 'forecast', 'map', 'radar'])
+    // a list saved before the radar existed (GH-3788) keeps its choice, and the radar is below the line
+    expect(normalizeToolOrder(['map', 'history', 'explorer', 'forecast', 'stripes'])).toEqual(['map', 'history', 'explorer', 'forecast', 'stripes', 'radar'])
   })
 
   it('always answers every tool once, so that four are above the line', () => {
@@ -58,12 +61,12 @@ describe('normalizeToolOrder', () => {
   })
 
   it('puts a tool added later below the line and changes nobody\'s choice', () => {
-    const known = [...DEFAULT, 'radar']
-    const saved = ['map', 'history', 'explorer', 'forecast', 'stripes']
+    const known = [...DEFAULT, 'satellite']
+    const saved = ['map', 'history', 'explorer', 'forecast', 'stripes', 'radar']
     const order = normalizeToolOrder(saved, known)
-    expect(order).toEqual([...saved, 'radar'])
+    expect(order).toEqual([...saved, 'satellite'])
     expect(barKeys(order)).toEqual(['map', 'history', 'explorer', 'forecast'])
-    expect(menuKeys(order)).toEqual(['stripes', 'radar'])
+    expect(menuKeys(order)).toEqual(['stripes', 'radar', 'satellite'])
   })
 
   it('leaves what is given alone', () => {
@@ -75,30 +78,30 @@ describe('normalizeToolOrder', () => {
 
 describe('moveTool', () => {
   it('moves a tool inside the bar', () => {
-    expect(moveTool(DEFAULT, 0, 2)).toEqual(['explorer', 'stripes', 'forecast', 'history', 'map'])
-    expect(moveTool(DEFAULT, 3, 0)).toEqual(['history', 'forecast', 'explorer', 'stripes', 'map'])
+    expect(moveTool(DEFAULT, 0, 2)).toEqual(['explorer', 'stripes', 'forecast', 'history', 'map', 'radar'])
+    expect(moveTool(DEFAULT, 3, 0)).toEqual(['history', 'forecast', 'explorer', 'stripes', 'map', 'radar'])
   })
 
   it('moves one in across the line, which pushes the fourth out: four stay in the bar', () => {
     const next = moveTool(DEFAULT, 4, 0)
-    expect(next).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
+    expect(next).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history', 'radar'])
     expect(barKeys(next)).toEqual(['map', 'forecast', 'explorer', 'stripes'])
-    expect(menuKeys(next)).toEqual(['history'])
+    expect(menuKeys(next)).toEqual(['history', 'radar'])
     // the same by one step, which is what a button does
-    expect(moveTool(DEFAULT, 4, 3)).toEqual(['forecast', 'explorer', 'stripes', 'map', 'history'])
+    expect(moveTool(DEFAULT, 4, 3)).toEqual(['forecast', 'explorer', 'stripes', 'map', 'history', 'radar'])
   })
 
   it('moves one out across the line, which pulls the first one below it in', () => {
     const next = moveTool(DEFAULT, 1, 4)
-    expect(next).toEqual(['forecast', 'stripes', 'history', 'map', 'explorer'])
+    expect(next).toEqual(['forecast', 'stripes', 'history', 'map', 'explorer', 'radar'])
     expect(barKeys(next)).toEqual(['forecast', 'stripes', 'history', 'map'])
-    expect(moveTool(DEFAULT, 3, 4)).toEqual(['forecast', 'explorer', 'stripes', 'map', 'history'])
+    expect(moveTool(DEFAULT, 3, 4)).toEqual(['forecast', 'explorer', 'stripes', 'map', 'history', 'radar'])
   })
 
   it('is no move to the place a tool is at, and clamps to the list', () => {
     expect(moveTool(DEFAULT, 2, 2)).toEqual(DEFAULT)
-    expect(moveTool(DEFAULT, 0, 99)).toEqual(['explorer', 'stripes', 'history', 'map', 'forecast'])
-    expect(moveTool(DEFAULT, 4, -3)).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
+    expect(moveTool(DEFAULT, 0, 99)).toEqual(['explorer', 'stripes', 'history', 'map', 'radar', 'forecast'])
+    expect(moveTool(DEFAULT, 4, -3)).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history', 'radar'])
     expect(moveTool(DEFAULT, 9, 0)).toEqual(DEFAULT)
     expect(moveTool(DEFAULT, -1, 0)).toEqual(DEFAULT)
   })
@@ -132,8 +135,7 @@ describe('describeMove', () => {
   })
 
   it('names the place of a tool moved among those that are only in the Menu', () => {
-    const six = [...DEFAULT, 'radar']
-    expect(describeMove(six, moveTool(six, 5, 4), 'radar', 4)).toEqual({ kind: 'reorderedMenu', tool: 'radar', position: 1, total: 2 })
+    expect(describeMove(DEFAULT, moveTool(DEFAULT, 5, 4), 'radar', 4)).toEqual({ kind: 'reorderedMenu', tool: 'radar', position: 1, total: 2 })
   })
 })
 
@@ -162,7 +164,7 @@ describe('slotAt', () => {
 })
 
 describe('the split with a size of its own (GH-3936)', () => {
-  const order = ['stripes', 'map', 'history', 'forecast', 'explorer']
+  const order = ['stripes', 'map', 'history', 'forecast', 'explorer', 'radar']
 
   it('has the header show all the tools today, so there is no second group', () => {
     expect(HEADER_SIZE).toBe(DEFAULT_TOOL_ORDER.length)
@@ -171,7 +173,7 @@ describe('the split with a size of its own (GH-3936)', () => {
   })
 
   it('splits the same list wherever the size is, the first `size` and the rest, with nothing lost or twice', () => {
-    for (const size of [0, 1, 2, 3, 4, 5, 9]) {
+    for (const size of [0, 1, 2, 3, 4, 5, 6, 9]) {
       expect(barKeys(order, size)).toHaveLength(Math.min(size, order.length))
       expect([...barKeys(order, size), ...menuKeys(order, size)]).toEqual(order)
     }
@@ -179,7 +181,7 @@ describe('the split with a size of its own (GH-3936)', () => {
 
   it('has a smaller size for the header put a second group below it (a later "more tools"), from the one list', () => {
     expect(barKeys(order, 3)).toEqual(['stripes', 'map', 'history'])
-    expect(menuKeys(order, 3)).toEqual(['forecast', 'explorer'])
+    expect(menuKeys(order, 3)).toEqual(['forecast', 'explorer', 'radar'])
   })
 
   it('has the bar\'s size by default, as before', () => {
@@ -188,7 +190,7 @@ describe('the split with a size of its own (GH-3936)', () => {
   })
 
   it('describes a move by the size of the layout: with all the tools in the header, a move never leaves it', () => {
-    expect(describeMove(DEFAULT, moveTool(DEFAULT, 4, 0), 'map', HEADER_SIZE)).toEqual({ kind: 'reorderedBar', tool: 'map', position: 1, total: 5 })
+    expect(describeMove(DEFAULT, moveTool(DEFAULT, 4, 0), 'map', HEADER_SIZE)).toEqual({ kind: 'reorderedBar', tool: 'map', position: 1, total: 6 })
     expect(describeMove(DEFAULT, moveTool(DEFAULT, 4, 0), 'map')).toEqual({ kind: 'enteredBar', tool: 'map', position: 1, total: 4, other: 'history' })
   })
 })

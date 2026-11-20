@@ -18,6 +18,13 @@ Types of changes:
 
 ### Added
 
+- `[Radar]` A tool of its own, the sixth: DWD's precipitation radar over Germany on the map, a loop
+  of the last two hours and DWD's forecast of the next two (marked observed or forecast in words
+  and by an icon), with a player (play and pause, a step each way, a slider; the loop starts by
+  itself unless the system asks for less motion), the time in your own zone, the legend in mm/h
+  with numbers, a short text on what a radar measures and where it errs, and DWD's thunderstorm
+  cells on top with their list. It sits in the Menu of the phone's tab bar until you move it there,
+  as the Map does. It needs backend 0.194.0 (GH-3788).
 - `[Map]` A NOAA GHCN daily layer, the third in the layers panel: stations from all over the world,
   loaded for the part of the map in view as it moves (debounced; a request the map has moved past
   is cancelled) and grouped like any large layer. Zoomed out so far that the view holds more than

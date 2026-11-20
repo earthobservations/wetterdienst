@@ -340,6 +340,12 @@ the language, not a decision; `pl`, `cs`, `lb` and `de-hh` are as unreviewed as 
 | `cs` | `processingNote.base` (GH-3799) | `data poskytovatele byla uspořádána` | `data` takes `byla` (collective) or `byly` (plural); which one reads better | low |
 | `nl` | `processingNote.base` (GH-3799) | `in een uniforme tabel gezet` for "reshaped into a uniform table" | `omgezet naar een uniforme tabel` | low |
 | `fr` | `processingNote.base` (GH-3799) | `mises dans un tableau uniforme` for "reshaped into a uniform table" | `restructurées en un tableau uniforme` | low |
+| all ten besides `en` | `radar.*` and `processingNote.radar` (GH-3788: the Radar tool's About text, player, legend, status lines and the sentence about what was done to the frames) | written by a language model (Claude), `de` included, and read by no person; the words of the About text (beam height, ground echo, melting snow, extrapolation) are the most technical | a native reader, with the weather service's own words for them | medium |
+| `de` | `radar.observed`, `radar.valueObserved` | `Gemessen` for the radar's "observed" (the catalog says `Messwerte`, `Messungen`) | `Beobachtet`, which DWD uses for an analysis | low |
+| `de-hh` | `radar.observed`, `radar.valueObserved`, `radar.playerLabel`, `radar.aboutSources` | `Meten` (a guess at the participle of `meten`), `Radarloop` (an English loan), `Quellen` (German) | Low German words for these | low |
+| `nl` | `radar.observed`, `radar.valueObserved` | `Waargenomen` where the UI otherwise says `metingen` | `Gemeten`, which settles the `waarneming`/`observatie` question above the same way | low |
+| `lb` | `radar.about1`, `radar.about3`, `radar.aboutSources` | `Dest méi staark den Echo, dest méi Waasser ...` and `wat se méi wäit viraus kuckt, wat se manner ze vertrauen ass` for "the stronger ..., the more ..."; `Quellen` (German) | the usual Luxembourgish comparison; `Quell` | low |
+| `pl`, `cs` | `radar.observed`, `radar.valueObserved` | `Zaobserwowane`, `Naměřeno` | `Zmierzone` / `Pozorováno` | low |
 
 The parameter glossaries (`glossary/<locale>.ts`) were read for GH-2610 as well (801 labels in each
 of the ten languages, against `en`, this file and the weather service's own terms). What was

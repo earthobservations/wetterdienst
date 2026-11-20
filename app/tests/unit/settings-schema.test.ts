@@ -188,7 +188,7 @@ describe('settings schema', () => {
     const withBar = (tabBar: unknown) => ({ ...structuredClone(SETTINGS_DEFAULTS), tabBar })
 
     it('is the default order, Forecast, Explorer, Stripes and History in the bar', () => {
-      expect(SETTINGS_DEFAULTS.tabBar).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
+      expect(SETTINGS_DEFAULTS.tabBar).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map', 'radar'])
       expect(SETTINGS_DEFAULTS.tabBar).toEqual([...DEFAULT_TOOL_ORDER])
     })
 
@@ -202,12 +202,16 @@ describe('settings schema', () => {
     })
 
     it('keeps a valid choice', () => {
-      expect(coerceSettings(withBar(['map', 'history', 'explorer', 'forecast', 'stripes'])).tabBar).toEqual(['map', 'history', 'explorer', 'forecast', 'stripes'])
+      expect(coerceSettings(withBar(['radar', 'map', 'history', 'explorer', 'forecast', 'stripes'])).tabBar).toEqual(['radar', 'map', 'history', 'explorer', 'forecast', 'stripes'])
+    })
+
+    it('puts a tool that a choice saved before it existed does not name below the line: the Radar of GH-3788', () => {
+      expect(coerceSettings(withBar(['map', 'history', 'explorer', 'forecast', 'stripes'])).tabBar).toEqual(['map', 'history', 'explorer', 'forecast', 'stripes', 'radar'])
     })
 
     it('ignores a tool that does not exist, and fills a short list from the default, with no error', () => {
-      expect(coerceSettings(withBar(['map', 'radar', 'forecast', 'explorer', 'stripes'])).tabBar).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
-      expect(coerceSettings(withBar(['map'])).tabBar).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
+      expect(coerceSettings(withBar(['map', 'satellite', 'forecast', 'explorer', 'stripes'])).tabBar).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history', 'radar'])
+      expect(coerceSettings(withBar(['map'])).tabBar).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history', 'radar'])
       expect(coerceSettings(withBar([])).tabBar).toEqual(SETTINGS_DEFAULTS.tabBar)
     })
 
@@ -220,12 +224,12 @@ describe('settings schema', () => {
     })
 
     it('repairs it also in a payload of another version', () => {
-      expect(coerceSettings({ ...withBar(['map', 'nope']), version: 99 }).tabBar).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
+      expect(coerceSettings({ ...withBar(['map', 'nope']), version: 99 }).tabBar).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history', 'radar'])
     })
 
     it('repairs a repeated tool, and the list never holds a tool twice', () => {
       const result = coerceSettings(withBar(['map', 'map', 'map', 'map', 'map'])).tabBar
-      expect(result).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
+      expect(result).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history', 'radar'])
       expect(new Set(result).size).toBe(result.length)
     })
   })

@@ -3,7 +3,7 @@ import { TOOLS } from '~/utils/sections'
 
 const { t } = useI18n()
 
-// The five tools, as tiles (app/utils/sections.ts): the first thing the home page offers, beside
+// The tools, as tiles (app/utils/sections.ts): the first thing the home page offers, beside
 // the sentence that says what the site is. Explorer is a first-class entry point here (not hidden behind an
 // "advanced" section): it is made approachable through the Explorer's guided Simple mode.
 const TITLES: Record<string, string> = {
@@ -12,6 +12,7 @@ const TITLES: Record<string, string> = {
   stripes: 'home.stripesTitle',
   history: 'history.title',
   map: 'mapTool.title',
+  radar: 'radar.title',
 }
 const tasks = computed(() => TOOLS.map(tool => ({
   key: tool.key,

@@ -10,12 +10,14 @@ import { processingNote } from '../../app/utils/processing-note'
 const LOCALES = join(__dirname, '..', '..', 'i18n', 'locales')
 const BACKEND = join(__dirname, '..', '..', '..', 'src', 'wetterdienst', 'model', 'processing_note.py')
 
-interface Catalog { processingNote: { base: string, estimate: string } }
+interface Catalog { processingNote: { base: string, estimate: string, radar: string } }
 const catalog = (code: string) => JSON.parse(readFileSync(join(LOCALES, `${code}.json`), 'utf8')) as Catalog
 
+const RADAR_BACKEND = join(__dirname, '..', '..', '..', 'src', 'wetterdienst', 'provider', 'dwd', 'radar', 'frames.py')
+
 /** The text of a string constant of the Python module: the adjacent literals of `NAME = ( "a" "b" )` or `NAME = "a"`, joined */
-function backendConstant(name: string): string {
-  const source = readFileSync(BACKEND, 'utf8')
+function backendConstant(name: string, file: string = BACKEND): string {
+  const source = readFileSync(file, 'utf8')
   const start = source.search(new RegExp(`^${name} = `, 'm'))
   expect(start, `${name} is a constant of processing_note.py`).toBeGreaterThanOrEqual(0)
   const statement = source.slice(start).split(/\n\s*\n|\n(?=[A-Z#])/i, 1)[0]!.replace(/^\w+ = /, '')
@@ -31,6 +33,10 @@ describe('the English text of the note', () => {
 
   it('and its sentence for values that were selected or calculated from the readings', () => {
     expect(catalog('en').processingNote.estimate).toBe(backendConstant('DERIVED_NOTE'))
+  })
+
+  it('and its sentence for the frames of the precipitation radar (GH-3788)', () => {
+    expect(catalog('en').processingNote.radar).toBe(backendConstant('RADAR_FRAMES_NOTE', RADAR_BACKEND))
   })
 })
 
@@ -51,17 +57,23 @@ describe('the note in every locale', () => {
     // one sentence each, ending in a full stop
     expect(base.endsWith('.')).toBe(true)
     expect(estimate.endsWith('.')).toBe(true)
+    // and the sentence of the radar's frames (GH-3788): two sentences, as the backend's
+    const { radar } = catalog(code).processingNote
+    expect(radar.trim()).toBe(radar)
+    expect(radar.length).toBeGreaterThan(100)
+    expect(radar.endsWith('.')).toBe(true)
   })
 
   it.each(codes.filter(code => code !== 'en'))('is not the English text in %s', (code) => {
     const english = catalog('en').processingNote
     expect(catalog(code).processingNote.base).not.toBe(english.base)
     expect(catalog(code).processingNote.estimate).not.toBe(english.estimate)
+    expect(catalog(code).processingNote.radar).not.toBe(english.radar)
   })
 })
 
 describe('processingNote', () => {
-  const t = (key: string) => ({ 'processingNote.base': 'Base.', 'processingNote.estimate': 'Estimate.' }[key] ?? key)
+  const t = (key: string) => ({ 'processingNote.base': 'Base.', 'processingNote.estimate': 'Estimate.', 'processingNote.radar': 'Radar.' }[key] ?? key)
 
   it('is the base sentence for provider data', () => {
     expect(processingNote(t)).toBe('Base.')
@@ -69,5 +81,10 @@ describe('processingNote', () => {
 
   it('adds the sentence for estimated values', () => {
     expect(processingNote(t, true)).toBe('Base. Estimate.')
+  })
+
+  it('adds what was done to the frames of the radar, which is not what was done to a table', () => {
+    expect(processingNote(t, false, true)).toBe('Base. Radar.')
+    expect(processingNote(t, true, true)).toBe('Base. Estimate. Radar.')
   })
 })

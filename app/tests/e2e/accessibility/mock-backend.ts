@@ -11,6 +11,9 @@ import type {
   Value,
 } from '../../../shared/types/api'
 import { Buffer } from 'node:buffer'
+import { radarAnswer } from '../../helpers/radar-answer'
+import { radarPng } from '../../helpers/radar-image'
+import { emptyScan } from '../../helpers/storm-cells-answer'
 import { stripesAnswer } from '../../helpers/stripes-answer'
 
 // What the accessibility spec shows the app instead of a backend.
@@ -33,6 +36,11 @@ export type Handlers = Record<string, Handler>
 /** What a handler returns to answer with an error instead of a body; `extra` are the fields of a problem beside `detail` */
 export class ApiFailure {
   constructor(readonly status: number, readonly detail: string, readonly extra: Record<string, unknown> = {}) {}
+}
+
+/** What a handler returns to answer with a file instead of JSON (a frame of the radar, GH-3788): its bytes and their type */
+export class ApiBinary {
+  constructor(readonly body: Buffer, readonly contentType: string, readonly headers: Record<string, string> = {}) {}
 }
 
 function parameter(name: string, name_original: string, unit_type: UnitType, unit: string, description: string) {
@@ -415,6 +423,13 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     'providers': () => PROVIDER_LIST,
     'stripes/stations': () => ({ stations: STRIPES_STATIONS }),
     'stripes/values': url => stripesValues(url.searchParams.get('station')),
+    // the usual scan of the thunderstorm cells: none (GH-4208), and the radar's loop of 49 frames, each an image of cells of rain that drift east (GH-3788)
+    'storm-cells': () => emptyScan(),
+    'radar/frames': () => radarAnswer({ now: now.getTime() }),
+    'radar/frame': (url) => {
+      const start = Math.floor(now.getTime() / 300_000) * 300_000
+      return new ApiBinary(radarPng((Date.parse(url.searchParams.get('time') ?? '') - start) / 60_000), 'image/png', { 'cache-control': 'public, max-age=3600' })
+    },
   }
 }
 
@@ -476,6 +491,8 @@ export async function mockBackend(
         const body = await handler(url, route)
         if (body instanceof ApiFailure)
           await route.fulfill({ status: body.status, json: { ...body.extra, detail: body.detail } })
+        else if (body instanceof ApiBinary)
+          await route.fulfill({ status: 200, body: body.body, contentType: body.contentType, headers: body.headers })
         else
           await route.fulfill({ status: 200, json: body })
       }

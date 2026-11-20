@@ -1,0 +1,414 @@
+<script setup lang="ts">
+import type { StormCell } from '~/utils/storm-cells'
+import { defineAsyncComponent } from 'vue'
+import MapStationsNotLoaded from '~/components/MapStationsNotLoaded.vue'
+import ProcessingNote from '~/components/ProcessingNote.vue'
+import RadarLegend from '~/components/RadarLegend.vue'
+import RadarPlayer from '~/components/RadarPlayer.vue'
+import RadarStormCells from '~/components/RadarStormCells.vue'
+import { describeFrame, formatFrameTime, frameUrl, leafletBounds, RADAR_VIEW } from '~/utils/radar'
+import { cellView } from '~/utils/storm-cells'
+
+// The Radar tool (GH-3788): DWD's precipitation radar over Germany as a loop of the last two hours and DWD's forecast of the next two, on
+// the map of the map tool (`StationMap.vue`, here with no stations), with a player (play and pause, a slider over the frames, the time in
+// the reader's zone, observed or forecast marked in words and by an icon), the legend of the colours in mm/h with numbers, and DWD's
+// KONRAD3D thunderstorm cells on top (GH-4208), each in a list of its own with where it is and a press that centres the map on it.
+//
+// The frames are PNG images the backend draws (`GET /api/radar/frames` lists them, `GET /api/radar/frame` is one): the player loads them
+// 5 at a time into the browser's cache (the server serves 32 requests at once), drops a frame that fails, and the loop starts by itself
+// once they are all in hand, unless the system asks for less motion. The list is asked for again every 5 minutes, the cells every 5
+// minutes while they are on. A radar that is more than 20 minutes behind is told stale, and cells of a scan over 20 minutes old are not
+// drawn. The forecast is an extrapolation of the recent movement of the rain, not a weather model, and the page says so.
+
+const { t } = useI18n()
+const formatLanguage = useFormatLanguage()
+useHead({ title: () => t('radar.title') })
+
+// the map's code, Leaflet with it, is loaded apart from the page: the panel is there before the map is
+const StationMap = defineAsyncComponent({
+  loader: () => import('~/components/StationMap.vue'),
+  errorComponent: MapStationsNotLoaded,
+})
+
+// from 72 rem the panel is beside the map; below it the map comes first and the panel is under it, in the order the window shows
+// them (WCAG 1.3.2, 2.4.3)
+const wide = useMediaQuery('(min-width: 72rem)')
+const parts = computed(() => wide.value ? ['panel', 'stage'] as const : ['stage', 'panel'] as const)
+const reducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
+
+// ---- the radar ------------------------------------------------------------------------------------------------------
+
+const radar = useRadarFrames(() => true)
+const loop = computed(() => radar.loop.value)
+const frames = computed(() => loop.value?.frames ?? [])
+const player = useRadarPlayer(frames, { autoplay: () => !reducedMotion.value })
+
+/**
+ * The picture on the map: the frame the loop is at, once its image is in hand. A frame the reader moved to that is not in yet leaves the
+ * one before on the map, and does not blank it.
+ */
+const pictureUrl = ref<string | null>(null)
+watch(player.shown, (frame) => {
+  if (frame)
+    pictureUrl.value = frameUrl(frame)
+}, { immediate: true })
+const overlay = computed(() => loop.value && pictureUrl.value ? { url: pictureUrl.value, bounds: leafletBounds(loop.value.bounds), opacity: 0.8 } : null)
+
+const now = computed(() => radar.now.value)
+const current = computed(() => player.current.value)
+const words = computed(() => current.value ? describeFrame(t, current.value, formatLanguage.value, now.value) : null)
+
+const newestObserved = computed(() => frames.value.filter(frame => frame.kind === 'observation').at(-1) ?? null)
+const newestTime = computed(() => newestObserved.value ? formatFrameTime(newestObserved.value.at, formatLanguage.value, now.value) : '')
+const loopRange = computed(() => {
+  const first = frames.value[0]
+  const last = frames.value.at(-1)
+  return first && last ? t('radar.loopRange', { from: formatFrameTime(first.at, formatLanguage.value, now.value), to: formatFrameTime(last.at, formatLanguage.value, now.value) }) : ''
+})
+/** The frames still on their way, for the status: nothing once they are all in hand or dropped */
+const loading = computed(() => {
+  const { loaded, failed, total } = player.progress.value
+  return total > 0 && loaded + failed < total ? t('radar.loadingFrames', { loaded: loaded + failed, total }) : ''
+})
+const skipped = computed(() => player.progress.value.failed)
+
+/** The credit of the radar for the map's own: the line of the product, the provider's credit line and the licence as a link to its terms */
+const radarCredit = computed(() => {
+  const credit = loop.value?.credit
+  if (!credit)
+    return null
+  const license = credit.license
+  return { text: credit.attribution ? `${credit.attribution} (RV)` : t('radar.creditRadar'), license: license ? { label: license.spdx ?? license.name, url: license.url } : null }
+})
+
+// ---- the thunderstorm cells of DWD's radar (GH-4208) ---------------------------------------------------------------
+
+const cellsOn = ref(true)
+const storm = useStormCells(() => cellsOn.value)
+/**
+ * The cells the map draws: none where they are off, the scan has not come, or it is out of date (more than 20 minutes old: the list
+ * keeps it and says so, and the map does not draw cells that were true then as the sky now)
+ */
+const stormCells = computed(() => cellsOn.value && storm.scan.value && !storm.outdated.value ? storm.scan.value.cells : undefined)
+const stormCredit = computed(() => {
+  const credit = storm.scan.value?.credit
+  if (!credit?.attribution)
+    return null
+  const license = credit.license
+  return { text: `${credit.attribution} (KONRAD3D)`, license: license ? { label: license.spdx ?? license.name, url: license.url } : null }
+})
+/** One line where the radar and the cells are DWD's under the same terms (they are), else a line for each */
+const credits = computed(() => {
+  const radarLine = radarCredit.value
+  const cellsLine = stormCells.value?.length ? stormCredit.value : null
+  if (radarLine && cellsLine && radarLine.license?.url === cellsLine.license?.url && radarLine.text.replace(' (RV)', '') === cellsLine.text.replace(' (KONRAD3D)', ''))
+    return [{ text: `${radarLine.text.replace(' (RV)', '')} (RV, KONRAD3D)`, license: radarLine.license }]
+  return [radarLine, cellsLine].filter(credit => credit !== null)
+})
+
+const announcement = ref('')
+/** A press on a cell of the list: the map centres on it, once for each press (`StationMap.vue`) */
+const cellCentre = ref<({ count: number } & NonNullable<ReturnType<typeof cellView>>) | null>(null)
+let cellPresses = 0
+/**
+ * Centres the map on a cell of the list, as a click on a group does, and says so in a status. The focus stays on the cell's row, where the
+ * reader is in the list; on a phone, where the map is over the panel, the map is brought into view.
+ */
+function centreCell(cell: StormCell) {
+  const view = cellView(cell)
+  if (!view)
+    return
+  cellCentre.value = { count: ++cellPresses, ...view }
+  announcement.value = t('radar.cellsCentred', { id: cell.id })
+  if (!wide.value)
+    document.querySelector('.radar-stage')?.scrollIntoView({ block: 'start', behavior: reducedMotion.value ? 'auto' : 'smooth' })
+}
+
+const licenseLink = computed(() => loop.value?.credit?.license ?? null)
+</script>
+
+<template>
+  <div class="frame">
+    <PageHeader :title="t('radar.title')" :lede="t('radar.subtitle')" :about-label="t('radar.aboutButton')">
+      <template #about>
+        <div class="space-y-3 text-muted">
+          <p>{{ t('radar.about1') }}</p>
+          <p>{{ t('radar.about2') }}</p>
+          <p>{{ t('radar.about3') }}</p>
+          <p class="text-sm" data-testid="radar-sources">
+            {{ t('radar.aboutSources') }}
+            <NuxtLink to="https://www.dwd.de/DE/leistungen/radvor/radvor.html" external target="_blank" rel="noopener" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
+              {{ t('radar.aboutDwdLink') }}
+            </NuxtLink>
+          </p>
+        </div>
+      </template>
+    </PageHeader>
+
+    <div class="page-body">
+      <div class="radar-tool">
+        <template v-for="part in parts" :key="part">
+          <!-- The panel: beside the map on a wide screen, under it on a phone -->
+          <section v-if="part === 'panel'" class="radar-panel" aria-labelledby="radar-loop-title" data-testid="radar-panel">
+            <p class="sr-only" role="status" data-testid="radar-panel-announcement">
+              {{ announcement }}
+            </p>
+
+            <section class="radar-card" data-testid="radar-loop">
+              <h2 id="radar-loop-title" class="radar-card-title">
+                <UIcon name="i-ph-cloud-rain" class="radar-card-icon" />
+                {{ t('radar.loopTitle') }}
+              </h2>
+
+              <p v-if="radar.status.value === 'idle' || radar.status.value === 'pending'" class="radar-card-note radar-note-row" role="status" data-testid="radar-loading">
+                <UIcon name="i-ph-circle-notch" class="size-4 shrink-0 motion-safe:animate-spin" />
+                {{ t('common.loading') }}
+              </p>
+
+              <div v-else-if="radar.status.value === 'error'" class="flex flex-col items-start gap-2">
+                <p class="radar-card-note" role="alert" data-testid="radar-failed">
+                  {{ t('radar.failed') }}
+                </p>
+                <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" data-testid="radar-retry" @click="radar.retry()" />
+              </div>
+
+              <template v-else-if="loop">
+                <p v-if="!frames.length" class="radar-card-note" data-testid="radar-empty">
+                  {{ t('radar.empty') }}
+                </p>
+                <template v-else>
+                  <p class="radar-card-note" data-testid="radar-range">
+                    {{ loopRange }}
+                  </p>
+                  <p v-if="newestTime" class="radar-card-note" data-testid="radar-newest">
+                    {{ t('radar.newest', { time: newestTime }) }}
+                  </p>
+                </template>
+                <p v-if="radar.stale.value" class="radar-card-note radar-note-row radar-warning" data-testid="radar-stale">
+                  <UIcon name="i-ph-warning" class="size-4 shrink-0" />
+                  {{ t('radar.stale') }}
+                </p>
+                <p v-if="loading" class="radar-card-note radar-note-row" role="status" data-testid="radar-frames-loading">
+                  <UIcon name="i-ph-circle-notch" class="size-4 shrink-0 motion-safe:animate-spin" />
+                  {{ loading }}
+                </p>
+                <p v-if="skipped" class="radar-card-note radar-note-row radar-warning" data-testid="radar-skipped">
+                  <UIcon name="i-ph-warning" class="size-4 shrink-0" />
+                  {{ t('radar.framesSkipped', { count: skipped }) }}
+                </p>
+                <div v-if="radar.refreshFailed.value" class="flex flex-col items-start gap-2" data-testid="radar-refresh-failed">
+                  <p class="radar-card-note radar-note-row radar-warning" role="alert">
+                    <UIcon name="i-ph-warning" class="size-4 shrink-0" />
+                    {{ t('radar.refreshFailed', { time: newestTime }) }}
+                  </p>
+                  <UButton :label="t('common.retry')" icon="i-ph-arrow-clockwise" size="sm" color="neutral" variant="outline" @click="radar.retry()" />
+                </div>
+              </template>
+            </section>
+
+            <!-- the thunderstorm cells of the latest scan, in words (GH-4208) -->
+            <RadarStormCells
+              v-model:on="cellsOn"
+              :scan="storm.scan.value"
+              :status="storm.status.value"
+              :refresh-failed="storm.refreshFailed.value"
+              :outdated="storm.outdated.value"
+              :origin="null"
+              @retry="storm.retry()"
+              @centre="centreCell"
+            />
+
+            <!-- the credit of the radar, and under it what wetterdienst did to the frames (GH-3799) -->
+            <section class="radar-card" data-testid="radar-credit">
+              <p class="radar-card-note">
+                {{ t('radar.creditRadar') }}
+                <template v-if="loop?.credit?.attribution">
+                  {{ loop.credit.attribution }}.
+                </template>
+                <template v-if="licenseLink">
+                  {{ t('providers.licence') }}{{ t('common.colon') }}
+                  <NuxtLink :to="licenseLink.url" external target="_blank" rel="noopener" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
+                    {{ licenseLink.name }}
+                  </NuxtLink>.
+                </template>
+              </p>
+              <ProcessingNote radar />
+            </section>
+          </section>
+
+          <!-- The map, the player under it and the legend of its colours -->
+          <div v-else class="radar-stage" data-testid="radar-stage">
+            <div class="radar-canvas">
+              <div v-if="words && current" class="radar-chip" :data-kind="current.kind" aria-hidden="true" data-testid="radar-chip">
+                <UIcon :name="current.kind === 'forecast' ? 'i-ph-fast-forward-fill' : 'i-ph-eye-fill'" class="size-4 shrink-0" />
+                {{ words.time }} · {{ words.ahead ?? words.kind }}
+              </div>
+              <ClientOnly>
+                <StationMap
+                  :stations="[]"
+                  :selected="null"
+                  :place="null"
+                  :label="t('radar.mapLabel')"
+                  no-fullscreen
+                  :open-on="RADAR_VIEW"
+                  :overlay="overlay"
+                  :cells="stormCells"
+                  :credits="credits"
+                  :centre-on="cellCentre"
+                />
+              </ClientOnly>
+            </div>
+
+            <RadarPlayer
+              :frames="player.playable.value"
+              :index="player.index.value"
+              :playing="player.playing.value"
+              :now="now"
+              :reduced-motion="reducedMotion"
+              @toggle="player.toggle()"
+              @seek="player.seek($event)"
+              @step="player.step($event)"
+            />
+
+            <RadarLegend v-if="loop" :legend="loop.legend" />
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+</template>
+
+<style>
+/* The layout of the tool: the panel beside the map from 72 rem (the map tool's breakpoint and columns); below it one column, the map first
+   and the panel under it. */
+.radar-tool {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: start;
+}
+@media (min-width: 72rem) {
+  .radar-tool {
+    grid-template-columns: minmax(20rem, 26rem) minmax(0, 1fr);
+    gap: 2rem;
+  }
+}
+
+/* The stage: the map, the player under it and the legend. It keeps its place while the panel, which can be long, scrolls on a wide screen. */
+.radar-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  min-width: 0;
+}
+@media (min-width: 72rem) {
+  .radar-stage {
+    position: sticky;
+    top: calc(var(--header-height) + 1rem);
+  }
+}
+.radar-canvas {
+  position: relative;
+  isolation: isolate;
+  height: clamp(18rem, 46dvh, 30rem);
+}
+@media (min-width: 72rem) {
+  .radar-canvas {
+    height: clamp(22rem, calc(100dvh - var(--header-height) - 21rem), 44rem);
+  }
+}
+/* the narrow layout runs edge to edge: the map has the window's width */
+@media screen and (width < 40rem) {
+  .radar-canvas {
+    margin-inline: calc(-1 * var(--bleed-start)) calc(-1 * var(--bleed-end));
+  }
+}
+/* a window too low for a map and its panel beside it (a phone on its side, zoom): the stage scrolls with the page */
+@media (max-height: 30rem) {
+  .radar-stage {
+    position: static;
+  }
+  .radar-canvas {
+    height: 20rem;
+  }
+}
+/* which frame is on the map, over its top left corner: the time, and observed or forecast in words with an icon; a forecast has a dashed edge as the player's has */
+.radar-chip {
+  position: absolute;
+  z-index: 1001;
+  inset-inline-start: 0.75rem;
+  top: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid var(--ui-border-accented);
+  border-radius: 999px;
+  background: var(--ui-bg);
+  color: var(--ui-text-highlighted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgb(15 23 42 / 0.15);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.radar-chip[data-kind="forecast"] {
+  border-style: dashed;
+  border-width: 2px;
+}
+
+/* The panel: a card beside the map; under it on a phone */
+.radar-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-width: 0;
+}
+.radar-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.875rem;
+  border: 1px solid var(--ui-border);
+  border-radius: calc(var(--ui-radius) * 2.5);
+  background: var(--ui-bg);
+}
+.radar-card > :where(div, figure, ul) {
+  align-self: stretch;
+}
+.radar-card-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ui-text-highlighted);
+}
+.radar-card-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--ui-text-toned);
+}
+.radar-card-note {
+  font-size: 0.875rem;
+  color: var(--ui-text-muted);
+}
+.radar-note-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.375rem;
+}
+.radar-warning {
+  color: var(--ui-text-toned);
+}
+/* in the narrow layout the cards run edge to edge, as the map tool's do */
+@media screen and (width < 40rem) {
+  .radar-card {
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+    border-radius: 0;
+    border-inline-width: 0;
+  }
+}
+</style>

@@ -3,6 +3,7 @@ import type { Locale, Mode, Variant } from './accessibility/scan'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import { exampleScan } from '../helpers/storm-cells-answer'
 import { askHandlers } from './accessibility/ask-backend'
 import { scanHover, scanKeyboard } from './accessibility/interact'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
@@ -65,6 +66,12 @@ const PAGES: Target[] = [
     path: '/map',
     // the list of stations is the panel's, at every width (the count over the map is not there on a phone)
     ready: async (page) => { await expect(page.getByTestId('map-list')).toBeVisible() },
+  },
+  {
+    // the radar tool (GH-3788): the map with the radar over it, its player and legend, and the panel
+    page: 'radar',
+    path: '/radar',
+    ready: async (page) => { await expect(page.getByTestId('radar-newest')).toBeVisible() },
   },
   {
     page: 'widget',
@@ -647,6 +654,32 @@ const STATES: State[] = [
       await page.getByTestId('map-fullscreen').click()
       await expect(page.getByTestId('map-sheet')).toBeVisible()
       await expect(page.getByTestId('map-sheet-name')).toBeVisible()
+    },
+  },
+  {
+    // the radar with the thunderstorm cells drawn and listed, the loop paused on a frame of the forecast (GH-3788)
+    page: 'radar',
+    state: 'cells-forecast-frame',
+    path: '/radar',
+    handlers: { 'storm-cells': () => exampleScan() },
+    reach: async (page) => {
+      await expect(page.getByTestId('radar-newest')).toBeVisible()
+      await expect(page.getByTestId('radar-cells-item').first()).toBeVisible()
+      await page.getByTestId('radar-slider').focus()
+      await page.keyboard.press('End')
+      await expect(page.getByTestId('radar-kind')).toHaveAttribute('data-kind', 'forecast')
+    },
+  },
+  {
+    // on a phone: the map first, then the player and the legend, then the panel (GH-3788)
+    page: 'radar',
+    state: 'phone-radar',
+    path: '/radar',
+    viewport: { width: 390, height: 844 },
+    handlers: { 'storm-cells': () => exampleScan() },
+    reach: async (page) => {
+      await expect(page.getByTestId('radar-newest')).toBeVisible()
+      await expect(page.getByTestId('radar-cells-item').first()).toBeVisible()
     },
   },
   {
