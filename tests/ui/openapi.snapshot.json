@@ -3512,10 +3512,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Station id used as the reference location, e.g. '01048'.",
+              "description": "Station id used as the reference location, e.g. '01048'. The answer is at that station's own altitude, so no `elevation` is needed.",
               "title": "Station"
             },
-            "description": "Station id used as the reference location, e.g. '01048'. Exactly one of station or (latitude and longitude) is required.",
+            "description": "Station id used as the reference location, e.g. '01048'. The answer is at that station's own altitude, so no `elevation` is needed. Exactly one of station or (latitude and longitude) is required.",
             "examples": {
               "example": {
                 "value": "01048"
@@ -4077,10 +4077,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Station id used as the reference location, e.g. '01048'.",
+              "description": "Station id used as the reference location, e.g. '01048'. The answer is at that station's own altitude, so no `elevation` is needed.",
               "title": "Station"
             },
-            "description": "Station id used as the reference location, e.g. '01048'. Exactly one of station or (latitude and longitude) is required.",
+            "description": "Station id used as the reference location, e.g. '01048'. The answer is at that station's own altitude, so no `elevation` is needed. Exactly one of station or (latitude and longitude) is required.",
             "examples": {
               "example": {
                 "value": "01048"

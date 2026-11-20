@@ -20,7 +20,7 @@ from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.kostra import DURATIONS, DwdKostraRequest
 from wetterdienst.util.network import cached_file_time, download_file
 
-from .stubs import BASE, BERLIN, MUNICH, TABLES, csv_name
+from .stubs import BASE, BERLIN, MUNICH, TABLES, csv_name, csv_of, zipped
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -191,6 +191,21 @@ def test_a_page_kept_by_an_older_request_is_fetched_again_once(dwd: _Dwd) -> Non
     assert dwd.request(duration=60).query().df.height == 9
     assert dwd.asked() == [_path(60)]
     assert _cached(dwd, 60) is not None
+
+
+def test_a_value_that_is_no_number_is_not_kept_in_the_cache_either(dwd: _Dwd) -> None:
+    """A table of the right layout with a text in the row of the cell is refused like any other, and dropped."""
+    good = TABLES[f"{csv_name(60)}.zip"]
+    bad = zipped(csv_of(60).replace(b";48,9;", b";n/a;"), csv_name(60))
+    dwd.server.contents[_path(60)] = bad
+
+    with pytest.raises(MetaFileFormatError, match="no number"):
+        dwd.request(duration=60).query()
+    assert _cached(dwd, 60) is None
+
+    dwd.server.contents[_path(60)] = good
+    assert dwd.request(duration=60).query().df.height == 9
+    assert dwd.asked() == [_path(60), _path(60)]
 
 
 def test_a_429_is_raised_before_the_other_failure_of_the_22_tables(dwd: _Dwd) -> None:

@@ -182,7 +182,10 @@ _IcaoIdField = Annotated[
 _StationIdField = Annotated[str, Field(description="Station id used as the reference location, e.g. '01048'.")]
 _StationIdOptField = Annotated[
     str | None,
-    Field(description="Station id used as the reference location, e.g. '01048'."),
+    Field(
+        description="Station id used as the reference location, e.g. '01048'. The answer is at that station's own "
+        "altitude, so no `elevation` is needed."
+    ),
 ]
 _NameField = Annotated[
     str | None,

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import io
 import logging
+import math
 import time
 import zipfile
 import zlib
@@ -379,8 +380,8 @@ def _read_row(file: File, cell: Cell) -> list[str]:
 
     Raises:
         MetaFileFormatError: the body is no zip (a page of an outage), is corrupt or compressed in a way the reader does
-            not know, holds no single table, the table's header is not the one DWD describes, or it has no row for the
-            cell.
+            not know, holds no single table, the table's header is not the one DWD describes, it has no row for the
+            cell, or a value of that row is no number.
 
     """
     content = file.content
@@ -419,4 +420,17 @@ def _read_row(file: File, cell: Cell) -> list[str]:
     if len(fields) != len(_HEADER):
         msg = f"the row of the cell {cell.index_rc} in {file.url} has {len(fields)} fields, not {len(_HEADER)}"
         raise MetaFileFormatError(msg)
+    _require_numbers(fields, f"the row of the cell {cell.index_rc} in {file.url}")
     return fields
+
+
+def _require_numbers(fields: list[str], where: str) -> None:
+    """Refuse a row of which a value, after the cell id, is no finite number (DWD's `-99,9` is one)."""
+    for column, text in zip(_HEADER[1:], fields[1:], strict=True):
+        try:
+            number = float(text.replace(",", "."))
+        except ValueError:
+            number = math.nan
+        if not math.isfinite(number):
+            msg = f"{where} holds a value that is no number: {column} {text!r}"
+            raise MetaFileFormatError(msg)
