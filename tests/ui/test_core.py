@@ -911,6 +911,7 @@ _STATUS_OF = {
     "RequestError": 400,
     "ReversedTimeIntervalError": 400,
     "StartDateEndDateError": 400,
+    "StationLacksParametersError": 400,
     "StationListingIncompleteError": 502,
     "StationNotFoundError": 404,
     "UnknownFormatError": 400,
