@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.56.0] - 2026-11-20
+
+Paired with backend 0.193.0. It needs backend 0.192.0 (the stripes' `provider` and `network`, for the GHCN
+daily layer) and otherwise no more of the backend than 0.191.0 gave it; 0.193.0 adds nothing it reads.
+
 ### Added
 
 - `[Map]` A NOAA GHCN daily layer, the third in the layers panel: stations from all over the world,
@@ -2462,7 +2467,8 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.55.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.56.0...HEAD
+[0.56.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.55.0...app-v0.56.0
 [0.55.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.54.0...app-v0.55.0
 [0.54.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.53.0...app-v0.54.0
 [0.53.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.52.0...app-v0.53.0
