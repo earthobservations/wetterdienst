@@ -366,7 +366,9 @@ what the answer is missing:
   (`storm_cells` asked for a place or a `min_severity` that leaves no cell of a scan that has some: an answer, not an
   error, see [Storm cells](../data/provider/dwd/storm_cells/index.md#an-empty-answer)), `scan-stale` (the newest scan of
   `storm_cells` is more than 20 minutes older than the time asked for: DWD's run has stopped, and an empty answer is no
-  all-clear) and `answer-truncated` (the answer
+  all-clear), `radar-stale` (the newest run of the RV composite listed by `radar/frames` is more than 20 minutes
+  old: DWD's feed has stopped, see [Radar](../data/provider/dwd/radar/index.md#radar-frames-on-the-rest-api)) and
+  `answer-truncated` (the answer
   of an [MCP tool](mcp.md#the-size-of-an-answer) was cut to 40,000 characters; its message says how many rows are
   returned, the range kept, and the `timestamp` to ask for next. Only a tool's `values` and `stations` raise it: the
   REST API, the command line and Python answer all of it) and `forecast-from-now` (an MCP tool's `values` answer for a
@@ -697,7 +699,7 @@ release commit, with `uv run poe contracts:baseline`.
   can answer a 400 for a `Host` the server does not answer to, a 500, a 503 when the server is working on as many
   requests as it allows, and a 504 when the request times out; a route with a query also the 422. Beyond those: the
   routes that read from a provider (`stations`, `issues`, `history`, `values`, `interpolate`, `summarize`,
-  `stripes/values`, `stripes/image`, `alerts`, `storm-cells`) the 400 of a refused request, 404, 501 and 502, and `stations`, `values`,
+  `stripes/values`, `stripes/image`, `alerts`, `storm-cells`, `radar/frames`, `radar/frame`) the 400 of a refused request, 404, 501 and 502, and `stations`, `values`,
   `interpolate` and `summarize` the 403 of `sql` where the server does not enable it; `coverage` a 400, 404 and 501,
   `auth` a 404 and 501, `providers` a 404, `settings` a 400, and `stripes/stations` a 501 and 502. A test makes each
   of these routes fail with each exception of the table of [Errors](#errors) and holds the status it answers to
@@ -999,6 +1001,23 @@ with a `distance` in km, or a box (`left`, `bottom`, `right`, `top`), keeps the 
 http localhost:7890/api/storm-cells left==8 bottom==47.5 right==13.8 top==50.6 min_severity==2 geometry==centroid
 ```
 
+### Precipitation radar
+
+DWD's precipitation radar over Germany as map images, a loop of the last hours and DWD's forecast of the next two (the
+RV composite, see [Radar](../data/provider/dwd/radar/index.md#radar-frames-on-the-rest-api)). The list says which
+frames there are, where the images lie (`bounds` in WGS84, for a Leaflet `ImageOverlay`; the images are Web Mercator)
+and what the colours mean in mm/h; each frame is a PNG, transparent where it is dry:
+
+```bash
+http localhost:7890/api/radar/frames
+http localhost:7890/api/radar/frame time==2026-11-19T21:10:00Z run==2026-11-19T21:10:00Z > frame.png
+```
+
+The list is `public, max-age=60` with an `ETag` (no `Cache-Control` where it carries a `radar-stale` warning, DWD's
+newest run being more than 20 minutes old). A frame asked for with its `run` is the same for as long as DWD keeps the
+run, and is `public, max-age=3600` with an `ETag`; without it, a time after the newest run is a forecast frame of the
+newest run, `public, max-age=60`. The forecast of a run is served for the newest three runs DWD lists, and a page should load its frames 4 to 6 at a time (the server holds 32 requests at once by default). Neither route is an MCP tool.
+
 ### Values
 
 `timestamp` covers everything it names: `2020-08-01` is that whole day -- all 24 readings of it for
@@ -1193,8 +1212,8 @@ sent as one body, as it was, and is held to `rows`.
 
 ## Caching
 
-Four routes say how long an answer may be reused and how to ask whether it changed: the catalogue (`coverage`,
-`providers`, `glossary`) and `history`. Every other route sends no `Cache-Control`, `ETag` or `Last-Modified`, and
+Six routes say how long an answer may be reused and how to ask whether it changed: the catalogue (`coverage`,
+`providers`, `glossary`), `history` and the radar (`radar/frames`, `radar/frame`). Every other route sends no `Cache-Control`, `ETag` or `Last-Modified`, and
 an error never does, so a browser, a proxy or a library keeps none of them: that is a decision for each route,
 and where an answer cannot be reasoned about it stays out.
 
@@ -1202,6 +1221,8 @@ and where an answer cannot be reasoned about it stays out.
 | --- | --- | --- | --- | --- |
 | `coverage`, `providers`, `glossary` | `public, max-age=300` | yes | yes | Read nothing from a provider: they change with a release, or with the server's settings. A deploy that changes one is seen after five minutes at the latest. |
 | `history` | `public, max-age=3600` | yes | no | Changes when the source does (a new sensor, a move), rarely, and the server itself reads its files at most every twelve hours (`CacheExpiry.METAINDEX`). The source says no time it changed, so there is no date to send. Only an answer with rows and no `warnings` is kept: an empty one, or one that left ids out, may be a source that answered nothing for the moment, and carries no cache header. A `dwd/observation` history that met a directory whose listing came back empty or missing, or that lists no description of its stations, in the lookup of its stations or in the history itself, is a `file-skipped` warning on a 200, so that answer is not kept and carries no `ETag`; the empty or missing listing, and the listing of a directory with no description, is not kept in the listing cache either, so the next request lists the directory again (a listing with files is kept for twelve hours; nginx lists an empty directory as itself, which `list_remote_files_fsspec` turns into no file, and no empty listing is kept, a subdirectory's included); a station that has no file in a listing that is there is the source's answer and no warning. A listing that is cut short but not empty cannot be told from a whole one. |
+| `radar/frames` | `public, max-age=60` | yes | no | The server holds DWD's list of runs for a minute, and a run comes every 5 minutes. An answer with a `radar-stale` warning is not kept. |
+| `radar/frame` | `public, max-age=3600` with a `run`, `public, max-age=60` without | yes | no | The frame of a run never changes while DWD keeps it (about 48 hours). Without a `run` a forecast frame is that of the newest run, which changes every 5 minutes. |
 | `stations`, `issues` | none | no | no | A list changes with the provider's catalogue, which the server is not told about. |
 | `values`, `interpolate`, `summarize` | none | no | no | A window in the past is not stable by itself: a provider revises data (the DWD `recent` readings are checked and moved to `historical`, others publish corrections), and an estimate is made from them. |
 | `ndjson` and `csv` of `stations` and `values` | none | no | no | Streamed station by station, before the answer is known: there is no body to tag when the headers go out. |

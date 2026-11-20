@@ -169,7 +169,7 @@ with the terms of its provider.
 
 | Where | What | Provider, terms and credit |
 | --- | --- | --- |
-| `tests/provider/dwd/radar/files/` | nine real radar files of 2026-10-20 to 22, the smallest of their product (composites and a volume scan as HDF5, two `meso` and one `KONRAD3D` XML), 550,338 bytes | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
+| `tests/provider/dwd/radar/files/` | ten real radar files of 2026-10-20 to 22 and 2026-11-19, the smallest of their product, but the RV composite's, which is the whole analysis of 2026-11-19 21:10 UTC (composites and a volume scan as HDF5, two `meso` and one `KONRAD3D` XML), 868,375 bytes | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dwd/alerts/files/` | one DWD warning in CAP form (a fog warning for Kreis Wittenberg, 2026-11-05, in eight languages) with the polygon of its one area cut to 5 of its 124 points, 16 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst"; the wording is DWD's |
 | `tests/provider/dwd/storm_cells/files/` | three real KONRAD3D scans of 2026-11-15 to 17: an empty one, one with two cells, and one with three of its ten cells (the others cut), 96 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |
 | `tests/provider/dwd/mosmix/` | one real MOSMIX-SNOW run (the run of 2026-11-14 19 UTC, 15 stations, 48 hourly steps), as DWD published it, 9.7 kB | DWD, CC BY 4.0, "Source: Deutscher Wetterdienst" |

@@ -77,6 +77,8 @@ parameters are, see [one vocabulary](restapi.md#one-vocabulary)) and the same an
 | `storm_cells` | `/api/v1/storm-cells` | the thunderstorm cells of DWD, now or within the last 48 hours: all of Germany unless given a point and `distance` (km) or a box (`left`, `bottom`, `right`, `top`), so pass one; `track=false` and `geometry=centroid` keep a long list short. The answer is not cut |
 | `stripes_stations`, `stripes_values`, `stripes_image` | `/api/v1/stripes/...` | climate stripes, see [Climate Stripes](stripes.md) |
 
+The routes of the precipitation radar (`/api/v1/radar/frames` and `/radar/frame`, map images for a page to draw) are no tools.
+
 An argument that is a mapping (`unit_targets`, `limits`, `interpolation_station_distance`,
 `summary_station_distance`) is advertised as an object, and an assistant gives it as one:
 `unit_targets={"temperature": "degree_fahrenheit"}`. The server sends the REST API its JSON text, which is what the

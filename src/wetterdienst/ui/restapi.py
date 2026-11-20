@@ -89,6 +89,8 @@ from wetterdienst.ui.core import (
     InterpolationRequest,
     IssuesRequest,
     ProvidersRequest,
+    RadarFrameRequest,
+    RadarFramesRequest,
     RestInterpolationRequest,
     RestSummaryRequest,
     Selection,
@@ -151,6 +153,7 @@ from wetterdienst.ui.problems import (
     status_phrase,
 )
 from wetterdienst.ui.providers import ProvidersAnswer, get_providers
+from wetterdienst.ui.radar import RadarFramesWithMetadataDict, render_radar_frames
 from wetterdienst.ui.readiness import CHECKS, failed_checks
 from wetterdienst.ui.render import (
     InterpolationSettings,
@@ -178,6 +181,7 @@ from wetterdienst.ui.response_metadata import (
     ResponseMetadata,
     catalogue_headers,
     issues_metadata,
+    radar_metadata,
     response_headers,
     response_metadata,
     result_metadata,
@@ -218,6 +222,7 @@ TAG_VALUES = "Values"
 TAG_STRIPES = "Climate stripes"
 TAG_ALERTS = "Alerts"
 TAG_STORM_CELLS = "Storm cells"
+TAG_RADAR = "Precipitation radar"
 TAG_SERVER = "Server"
 
 # FastAPI's OpenTelemetry stays on, so it reports to a provider the operator sets up. Its startup
@@ -277,6 +282,11 @@ app = FastAPI(
         },
         {"name": TAG_ALERTS, "description": "Weather warnings of the DWD."},
         {"name": TAG_STORM_CELLS, "description": "Thunderstorm cells of the DWD, detected in its radar data."},
+        {
+            "name": TAG_RADAR,
+            "description": "DWD's precipitation radar over Germany as map images: the frames of the last hours and "
+            "DWD's forecast of the next two.",
+        },
         {"name": TAG_SERVER, "description": "This instance: its version and limits, its settings, and its health."},
     ],
     debug=False,
@@ -1233,6 +1243,8 @@ _ROUTE_ANSWERS: dict[str, tuple[int, ...]] = {
     "stripes/image": _DATA_ANSWERS,
     "alerts": _DATA_ANSWERS,
     "storm-cells": _DATA_ANSWERS,
+    "radar/frames": _DATA_ANSWERS,
+    "radar/frame": _DATA_ANSWERS,
 }
 #: what every route under `API_PREFIX` can answer: a `Host` that is not allowed (400), a defect (500), the cap on
 #: requests served at once (503) and the request timeout (504), see `ui.middleware`
@@ -2974,6 +2986,138 @@ def storm_cells(
 
     content, metadata = render_storm_cells(result, request.format, pretty=request.pretty)
     return _answer(content, request.format, metadata)
+
+
+#: how long the list of the frames of the radar may be reused: the server holds the list of DWD's runs for a minute
+RADAR_FRAMES_CACHE_CONTROL = "public, max-age=60"
+#: how long the image of a frame is reused where the request names its run, which never changes (DWD keeps a run for
+#: about 48 hours, and the server draws a frame the same every time), and where it does not (a forecast frame is that of
+#: the newest run, which comes every 5 minutes)
+RADAR_FRAME_OF_A_RUN_CACHE_CONTROL = "public, max-age=3600"
+RADAR_FRAME_OF_THE_NEWEST_CACHE_CONTROL = "public, max-age=60"
+
+
+@router.get(
+    "/radar/frames",
+    response_model=RadarFramesWithMetadataDict,
+    tags=[TAG_RADAR],
+    responses=_revalidatable(last_modified=False),
+)
+def radar_frames(
+    request: Annotated[RadarFramesRequest, Query()],
+    http_request: Request,
+) -> Response:
+    """List the frames of DWD's precipitation radar, a loop of the last hours and the forecast of the next two.
+
+    DWD's RV composite: the precipitation over Germany of every 5 minutes. Each frame has the `time` it is valid at
+    (UTC), the `run` of DWD it is read from, and is `observation` (the radar analysis, `past` minutes of it, 2 hours by
+    default) or `forecast` (DWD's extrapolation of the recent movement of the rain, 24 frames to 2 hours after the
+    newest run, unless `forecast=false`). Fetch the image of a frame from `/radar/frame` with its `time` and `run`.
+    `image` says where the images lie: `bounds` in WGS84, which a Leaflet `ImageOverlay` takes as they are (the images
+    are in Web Mercator, `crs`, so a map of another projection must not stretch them), and `legend` the colours of the
+    classes of the rate in mm/h, as numbers. The newest run is 3 to 8 minutes old when it appears on DWD's server; a
+    `radar-stale` warning in `metadata` says that it is much older.
+    """
+    from wetterdienst.provider.dwd.radar.frames import DwdRadarFrames  # noqa: PLC0415
+
+    begin_response()
+
+    # outside the handler below, as for `/api/stations`
+    settings = Settings()
+    try:
+        listing = DwdRadarFrames(settings).frames(history_minutes=request.past, forecast=request.forecast)
+    except Exception as e:
+        # a directory that does not list, or lists no run, is the provider's
+        raise _failure(e, request, "list radar frames") from e
+
+    content, metadata = render_radar_frames(listing, pretty=request.pretty)
+    if metadata.warnings:
+        # an old run is a source that is behind for the moment: the next request may give another
+        return _answer(content, "json", metadata)
+    return cached_json(
+        http_request,
+        content,
+        cache_control=RADAR_FRAMES_CACHE_CONTROL,
+        ignoring=[metadata.retrieved_at],
+        headers=response_headers(metadata),
+    )
+
+
+@router.get(
+    "/radar/frame",
+    response_class=Response,
+    tags=[TAG_RADAR],
+    responses={
+        200: {
+            "description": "The frame as an image: an indexed PNG whose colours are the classes of the legend of "
+            "`/radar/frames` and whose background is transparent. The licence, the credit line and the note on what "
+            "was done to the data are in the headers, as for every answer that holds no `metadata` block; "
+            "`X-Wetterdienst-Radar-Time` and `X-Wetterdienst-Radar-Run` say which frame it is.",
+            "content": {"image/png": {}},
+            "headers": {
+                **_VALIDATOR_HEADERS,
+                "X-Wetterdienst-Radar-Time": {
+                    "description": "The UTC time the frame is valid at.",
+                    "schema": {"type": "string"},
+                },
+                "X-Wetterdienst-Radar-Run": {
+                    "description": "The UTC time of the run of DWD the frame is read from.",
+                    "schema": {"type": "string"},
+                },
+            },
+        },
+        304: _revalidatable(last_modified=False)[304],
+    },
+)
+def radar_frame(
+    request: Annotated[RadarFrameRequest, Query()],
+    http_request: Request,
+) -> Response:
+    """Get the image of one frame of DWD's precipitation radar, as a PNG that a map draws over Germany.
+
+    The `time` (UTC, a multiple of 5 minutes) and the `run` are those of a frame of `/radar/frames`. The image is the
+    precipitation of the 5 minutes that end at `time` as a rate, in the classes of the legend of `/radar/frames`;
+    where there is no rain, and where the composite has no data, it is transparent. It lies over the `bounds` of that
+    answer and is in Web Mercator (EPSG:3857). One decoded frame serves every reader, so a frame is drawn once.
+    Given `run`, the image is the same for as long as DWD keeps the run (about 48 hours) and may be reused for an hour;
+    without it, a time after the newest run is a forecast frame of the newest run, which changes every 5 minutes. The
+    forecast of a run is served for the newest three runs DWD lists, and a run it does not list is a 404. Load frames a
+    few at a time (4 to 6): the server serves 32 requests at once.
+    """
+    from wetterdienst.provider.dwd.radar.frames import DwdRadarFrames, format_instant, parse_instant  # noqa: PLC0415
+
+    begin_response()
+
+    # outside the handler below, as for `/api/stations`
+    settings = Settings()
+    try:
+        image = DwdRadarFrames(settings).frame(
+            parse_instant(request.time, name="time"),
+            parse_instant(request.run, name="run") if request.run else None,
+        )
+    except Exception as e:
+        # a time that does not parse or is not a frame is the request's, a run DWD does not hold a 404, and a file that
+        # does not download or decode the provider's
+        raise _failure(e, request, "draw a radar frame") from e
+
+    metadata = radar_metadata(1, image=True)
+    checked = validators(
+        http_request,
+        image.png,
+        cache_control=RADAR_FRAME_OF_A_RUN_CACHE_CONTROL if request.run else RADAR_FRAME_OF_THE_NEWEST_CACHE_CONTROL,
+    )
+    if checked.matched:
+        return checked.not_modified()
+    return Response(
+        content=image.png,
+        media_type="image/png",
+        headers={
+            **response_headers(metadata),
+            "X-Wetterdienst-Radar-Time": format_instant(image.frame.time),
+            "X-Wetterdienst-Radar-Run": format_instant(image.frame.run),
+            **checked.headers,
+        },
+    )
 
 
 def _mount_mcp(rest_app: FastAPI) -> bool:

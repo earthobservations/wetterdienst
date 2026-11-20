@@ -622,16 +622,22 @@ def test_the_rest_of_the_server_sends_no_validators(client: TestClient, path: st
 
 
 def test_the_openapi_document_declares_the_cache_headers_and_the_304(client: TestClient) -> None:
-    """The four routes document the headers of their 200 and the 304; no other route has a 304."""
+    """The routes that are kept document the headers of their 200 and the 304; no other route has a 304."""
     document = client.get("/openapi.json").json()
     declared = {"/api/v1/coverage", "/api/v1/providers", "/api/v1/glossary", "/api/v1/history"}
+    # the radar: the list and the image of a frame, whose 200 has headers of its own (which frame it is) besides
+    radar = {"/api/v1/radar/frames", "/api/v1/radar/frame"}
+    with_a_date = {"/api/v1/coverage", "/api/v1/providers", "/api/v1/glossary"}
 
     for path, item in document["paths"].items():
         responses = item["get"]["responses"]
-        if path in declared:
+        if path in declared | radar:
             assert {"ETag", "Cache-Control"} <= set(responses["200"]["headers"]), path
-            assert set(responses["304"]["headers"]) == set(responses["200"]["headers"]), path
-            assert ("Last-Modified" in responses["200"]["headers"]) == (path != "/api/v1/history"), path
+            if path in declared:
+                assert set(responses["304"]["headers"]) == set(responses["200"]["headers"]), path
+            else:
+                assert {"ETag", "Cache-Control"} == set(responses["304"]["headers"]), path
+            assert ("Last-Modified" in responses["200"]["headers"]) == (path in with_a_date), path
         else:
             assert "304" not in responses, path
 
