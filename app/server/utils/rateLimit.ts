@@ -20,7 +20,9 @@ const CATALOGUE_ROUTES: ReadonlySet<string> = new Set(['version', 'settings', 'p
  * Whether a request is counted against the limit of its client.
  *
  * The pages, the assets and the proxied `/docs` and `/openapi.json` are not. Under `/api` (and its pinned
- * `/api/v1`) and `/mcp` every route is, but the catalogue ones. The path is read as the router reads it, as
+ * `/api/v1`) and `/mcp` every route is, but the catalogue ones, and so is every route of `/_ghcn`, the app's own server's routes for
+ * NOAA's GHCN daily: the list of its stations for the map (GH-4267) and, once they land, the annual values of its stripes (GH-4258),
+ * which read the backend's stations and days. The path is read as the router reads it, as
  * written: only a catalogue route spelled exactly, with nothing in front of it or behind it (a single trailing
  * slash aside), is left out. `/api/version/../values` is not `version`: the proxy resolves it to a route of
  * its own, which this does not know, and what is not known is counted.
@@ -33,7 +35,8 @@ export function isLimited(path: string): boolean {
     return true
   const pathname = path.split('?')[0]!.replace(/(?<=.)\/$/, '')
   const [, first, ...rest] = pathname.split('/')
-  if (first === 'mcp')
+  // the routes of the app's own server that read the backend and work on it (`/_ghcn/*`: the map's list of GHCN stations, GH-4267, and the stripes', GH-4258)
+  if (first === 'mcp' || first === '_ghcn')
     return true
   if (first !== 'api')
     return false

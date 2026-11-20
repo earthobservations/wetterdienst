@@ -1,11 +1,5 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
-  BOX_MAX_AREA,
-  boxArea,
-  boxAround,
-  boxContains,
-  boxHas,
-  boxOfBounds,
   clickReach,
   closerStoppedStation,
   DEFAULT_MEASURED,
@@ -24,12 +18,11 @@ import {
   measurementsLink,
   nearestStations,
   nearestWithin,
-  padOf,
   placed,
+  prepareSearch,
   REACH_KM,
   REPORTING_WITHIN_DAYS,
   reportingRule,
-  requestBox,
   searchStations,
   SELECTED_EDGE_PX,
   SELECTED_RADIUS_PX,
@@ -127,6 +120,50 @@ describe('the search of the stations', () => {
   it('finds nothing for an empty query, and no more than the limit', () => {
     expect(searchStations(ALL, '   ')).toEqual([])
     expect(searchStations(ALL, 'a', 1)).toHaveLength(1)
+  })
+
+  describe('of a list that is prepared (GH-4267: 133k names are folded once, not at every keystroke)', () => {
+    const NAMES = [station('1', 'Bad Kiel', 50, 8), station('2', 'Kiel-Holtenau', 54, 10), station('3', 'München-Stadt', 48, 11.5), station('4', 'KIELER STRASSE', 50, 9), station('5', null, 51, 9), station('GM000010147', 'HAMBURG FUHLSBUETTEL', 53.6, 10), station('7', 'Hamburg-Fuhlsbüttel', 53.6, 10)]
+    const LIST = placed(NAMES)
+    const QUERIES = ['kiel', 'KIEL', 'munchen', 'müncHEN', 'hamburg buttel', 'hamburg fuhlsbuttel', 'gm000010147', '5', 'a', 'zzz', '   ', 'kiel hamburg', 'strasse']
+
+    it('finds what the search of the list as it comes does, in the same order, for every query', () => {
+      const prepared = [...LIST]
+      prepareSearch(prepared)
+      for (const query of QUERIES) {
+        expect(searchStations(prepared, query).map(entry => entry.station_id), query).toEqual(searchStations(LIST, query).map(entry => entry.station_id))
+        expect(searchStations(prepared, query, 2).map(entry => entry.station_id), query).toEqual(searchStations(LIST, query, 2).map(entry => entry.station_id))
+      }
+    })
+
+    it('folds the query at a keystroke and no name, however long the list: the names were folded when the list was prepared', () => {
+      const prepared = [...LIST]
+      prepareSearch(prepared)
+      const normalize = vi.spyOn(String.prototype, 'normalize')
+      try {
+        searchStations(prepared, 'münchen stadt')
+        expect(normalize).toHaveBeenCalledTimes(1)
+        normalize.mockClear()
+        // the list that is not prepared folds its names at every call
+        searchStations(LIST, 'münchen stadt')
+        expect(normalize.mock.calls.length).toBeGreaterThan(LIST.length)
+      }
+      finally {
+        normalize.mockRestore()
+      }
+    })
+
+    it('is a list\'s own: another array of the same stations is searched as it comes', () => {
+      prepareSearch([...LIST])
+      const normalize = vi.spyOn(String.prototype, 'normalize')
+      try {
+        expect(searchStations([...LIST], 'kiel').map(entry => entry.station_id)).toEqual(['2', '4', '1'])
+        expect(normalize.mock.calls.length).toBeGreaterThan(LIST.length)
+      }
+      finally {
+        normalize.mockRestore()
+      }
+    })
   })
 })
 
@@ -542,69 +579,6 @@ describe('the same station in the list of another layer (GH-4077)', () => {
     expect(findSameStation(list, picked(), true)).toBeNull()
     expect(findSameStation(list, picked({ wmo: '99999' }), true)).toBeNull()
     expect(findSameStation(list, picked({ wmo: null }), true)).toBeNull()
-  })
-})
-
-describe('the part of the map in view (GH-4078)', () => {
-  it('is the bounds of the map, as the API takes a box', () => {
-    expect(boxOfBounds({ west: 5, south: 47, east: 16, north: 55 })).toEqual({ left: 5, bottom: 47, right: 16, top: 55 })
-  })
-
-  it('brings the bounds of a copy of the world beside the first into the first, and cuts what is beyond the edge of the map', () => {
-    expect(boxOfBounds({ west: 365, south: 47, east: 376, north: 55 })).toEqual({ left: 5, bottom: 47, right: 16, top: 55 })
-    expect(boxOfBounds({ west: -355, south: 47, east: -344, north: 55 })).toEqual({ left: 5, bottom: 47, right: 16, top: 55 })
-    // a view over the antimeridian gets the side its centre is on
-    expect(boxOfBounds({ west: 165, south: -10, east: 190, north: 10 })).toEqual({ left: 165, bottom: -10, right: 180, top: 10 })
-    expect(boxOfBounds({ west: 170, south: -10, east: 200, north: 10 })).toEqual({ left: -180, bottom: -10, right: -160, top: 10 })
-    expect(boxOfBounds({ west: 10, south: -100, east: 20, north: 100 })).toEqual({ left: 10, bottom: -90, right: 20, top: 90 })
-  })
-
-  it('is the world for a view as wide as the world', () => {
-    expect(boxOfBounds({ west: -300, south: -80, east: 300, north: 80 })).toEqual({ left: -180, bottom: -80, right: 180, top: 80 })
-  })
-
-  it('has an area in square degrees, which BOX_MAX_AREA limits, and holds a box or a point', () => {
-    const box = { left: 5, bottom: 47, right: 16, top: 55 }
-    expect(boxArea(box)).toBe(88)
-    // the map at its opening view on a wide screen (Germany, zoom 6) is within the limit
-    expect(boxArea({ left: 1.6, bottom: 46.4, right: 19.2, top: 56 })).toBeLessThan(BOX_MAX_AREA)
-    expect(boxContains({ left: 0, bottom: 40, right: 20, top: 60 }, box)).toBe(true)
-    expect(boxContains({ left: 6, bottom: 40, right: 20, top: 60 }, box)).toBe(false)
-    expect(boxHas(box, { latitude: 50, longitude: 10 })).toBe(true)
-    expect(boxHas(box, { latitude: 56, longitude: 10 })).toBe(false)
-  })
-
-  it('is padded by the pixels of a group\'s reach or a share of the view, the larger, and by the share alone where the map\'s size is not known', () => {
-    const view = { left: 0, bottom: 0, right: 10, top: 20 }
-    // 500 by 500 px: 100 px is 20 % of the width and of the height
-    expect(padOf(view, { x: 500, y: 500 }, 100)).toEqual({ x: 2, y: 4 })
-    // 2000 px across: the share of 15 % is more than 100 px
-    expect(padOf(view, { x: 2000, y: 2000 }, 100)).toEqual({ x: 1.5, y: 3 })
-    expect(padOf(view, undefined, 100)).toEqual({ x: 1.5, y: 3 })
-  })
-
-  it('asks for the view with its padding, which shrinks to nothing as the view nears BOX_MAX_AREA, and is cut at the edges of the world', () => {
-    const view = { left: 0, bottom: 0, right: 10, top: 10 }
-    expect(requestBox(view, { x: 1, y: 2 })).toEqual({ left: -1, bottom: -2, right: 11, top: 12 })
-    // 100 square degrees with the padding of 12 by 14 is 336: the padding shrinks until it is 200
-    const box = requestBox(view, { x: 2, y: 2 }, 144)
-    expect(boxArea(box)).toBeCloseTo(144, 6)
-    expect(box.left).toBeGreaterThan(-2)
-    expect(box.left).toBeLessThan(0)
-    // at the cap there is none, and the box is the view
-    expect(requestBox({ left: 0, bottom: 0, right: 10, top: 20 }, { x: 3, y: 3 }, 200)).toEqual({ left: 0, bottom: 0, right: 10, top: 20 })
-    expect(requestBox({ left: -179, bottom: 85, right: 179, top: 89 }, { x: 5, y: 5 }, 1e6)).toEqual({ left: -180, bottom: 80, right: 180, top: 90 })
-    // the densest 200 square degrees of the layer's list is some 27,000 stations: the cap is that of the maintainer's decision
-    expect(BOX_MAX_AREA).toBe(200)
-  })
-
-  it('has the box round a place, that reaches a distance from it in every direction, wider in longitude the nearer a pole', () => {
-    const box = boxAround({ latitude: 53.5, longitude: 10 }, 110)
-    expect(box.bottom).toBeCloseTo(53.5 - 110 / 111.2, 6)
-    expect(box.top).toBeCloseTo(53.5 + 110 / 111.2, 6)
-    expect(box.right - 10).toBeGreaterThan(box.top - 53.5)
-    // a point beside the antimeridian is cut at it
-    expect(boxAround({ latitude: 0, longitude: 179.5 }, 110).right).toBe(180)
   })
 })
 
