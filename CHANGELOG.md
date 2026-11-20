@@ -32,9 +32,9 @@ Types of changes:
 ### Changed
 
 - The `radar` command writes the credit of its sites to stderr (`Radar sites: EUMETNET OPERA,
-  <source page>`); stdout stays the JSON. EUMETNET OPERA gave its permission in November 2026 to
-  use the list of radar sites and pass it on, credited to it; the licence is not yet decided and
-  none is stated. The credit and the source page are `OPERA_CREDIT` and `OPERA_SOURCE_URL` of
+  <source page>`); stdout stays the JSON. EUMETNET OPERA gave wetterdienst its permission in
+  November 2026 to use the list of radar sites and pass it on, credited to it; the licence is not
+  yet decided and none is stated. The credit and the source page are `OPERA_CREDIT` and `OPERA_SOURCE_URL` of
   `wetterdienst.provider.eumetnet.opera.sites` and in the docs (GH-4200)
 - The read of DWD's Stationslexikon (the `wmo_id` of `dwd/observation` and `dwd/derived`) waits 10 s
   for the server and asks once, where it waited 30 s twice, so a host that drops connections costs

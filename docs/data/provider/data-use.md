@@ -213,8 +213,8 @@ Our reading:
 
 The rows stay, named and credited here; replacing the IMGW and LHMT ones with invented rows of the same shape would be
 the other way. The OPERA list is not settled: its licence is still being decided at OPERA, which will say when it is,
-and until then we state none for it. A test (`tests/test_provider_terms.py`) holds the first table of this page to the registry, so that a provider added without a
-row fails it, and this section to the data files that are in the tests.
+and until then we state none for it. A test (`tests/test_provider_terms.py`) holds the first table of this page to the
+registry, so that a provider added without a row fails it, and this section to the data files that are in the tests.
 
 ## Our reading
 

@@ -37,9 +37,9 @@ OPERA_CREDIT_LINE = f"Radar sites: {OPERA_CREDIT}, {OPERA_SOURCE_URL}"
 class OperaRadarSites:
     """Provide information about all European OPERA radar sites.
 
-    The sites are the database of EUMETNET OPERA, which gave its permission in November 2026 to use the list and pass it
-    on, credited to `OPERA_CREDIT` with the source page `OPERA_SOURCE_URL` named. OPERA has not yet decided the
-    licence of the list, and none is stated here.
+    The sites are the database of EUMETNET OPERA, which gave wetterdienst its permission in November 2026 to use the
+    list and pass it on, credited to `OPERA_CREDIT` with the source page `OPERA_SOURCE_URL` named. OPERA has not yet
+    decided the licence of the list, and none is stated here.
     """
 
     data_file = importlib.resources.files(__package__ or __name__) / "sites.json.gz"
