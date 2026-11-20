@@ -50,6 +50,18 @@ def settings_key(settings: Settings) -> tuple:
     )
 
 
+def timeout_of_at_most(client_kwargs: dict, seconds: float) -> dict:
+    """Give the client kwargs with a timeout of `seconds` unless the caller's own is shorter.
+
+    The default is 30 s, so it is brought down to `seconds`; one the caller set to less is kept, and so is one that is
+    no plain number (an `aiohttp.ClientTimeout`, which says more than one number can).
+    """
+    given = client_kwargs.get("timeout")
+    if given is None or isinstance(given, bool) or not isinstance(given, (int, float)):
+        return client_kwargs if given is not None else {**client_kwargs, "timeout": seconds}
+    return {**client_kwargs, "timeout": min(given, seconds)}
+
+
 def _fresh(error: Exception) -> Exception:
     """Copy an error without the frames it was raised through, so that what is remembered holds none of a request."""
     fresh = copy.copy(error).with_traceback(None)
@@ -80,7 +92,14 @@ class ReadMemory(Generic[T]):
         #: what is remembered by key: when it is forgotten, and the page or the error of the read that failed
         self.entries: dict[Hashable, tuple[float, T | Exception]] = {}
         self._lock = threading.Lock()
-        self._key_locks: dict[Hashable, threading.Lock] = {}
+        #: the lock of each key that is being read or waited for, with the number of callers that hold or wait for it
+        self._key_locks: dict[Hashable, list] = {}
+
+    def expiry(self, key: Hashable) -> float | None:
+        """Give the time (of the clock) at which what is kept for a key is forgotten, None where nothing is kept."""
+        with self._lock:
+            kept = self.entries.get(key)
+        return None if kept is None else kept[0]
 
     def _remembered(self, key: Hashable) -> T | None:
         """Give the page kept for a key, raise the failure kept for it, or give None where there is neither."""
@@ -98,12 +117,15 @@ class ReadMemory(Generic[T]):
         with self._lock:
             for old in [old for old, (until, _) in self.entries.items() if until <= now]:
                 del self.entries[old]
-            self.entries[key] = (now + kept_for, what)
-            for old in [old for old, lock in self._key_locks.items() if old not in self.entries and not lock.locked()]:
-                del self._key_locks[old]
+            if kept_for > 0:
+                self.entries[key] = (now + kept_for, what)
 
-    def get(self, key: Hashable, read: Callable[[], T]) -> T:
+    def get(self, key: Hashable, read: Callable[[], T], *, not_after: Callable[[], float | None] | None = None) -> T:
         """Give the page of a key from the memory, or `read` it, one read of the key at a time.
+
+        `not_after` gives the time (of the clock) that a page just read is forgotten at the latest, for a page that is
+        made of others the memory holds (the earliest of their times, `expiry`): it is no older than the oldest of them.
+        A failure of a memory with a `failure_kept_for` of 0 is not kept: it is raised by what the read asks.
 
         Raises:
             ProviderRateLimitError: what `read` raised for a 429, which is not remembered: the next call asks again.
@@ -113,22 +135,34 @@ class ReadMemory(Generic[T]):
         kept = self._remembered(key)
         if kept is not None:
             return kept
+        # the lock of a key goes when nobody holds or waits for it, counted under the lock of the memory, so that one a
+        # caller has just taken and not yet acquired is not deleted from under it
         with self._lock:
-            key_lock = self._key_locks.setdefault(key, threading.Lock())
-        with key_lock:
-            # the caller that held the lock before this one has left a page or a failure
-            kept = self._remembered(key)
-            if kept is not None:
-                return kept
-            try:
-                page = read()
-            except ProviderRateLimitError:
-                raise
-            except self.failures as error:
-                self._remember(key, self.failure_kept_for, _fresh(error))
-                raise
-            self._remember(key, self.kept_for, page)
-            return page
+            entry = self._key_locks.setdefault(key, [threading.Lock(), 0])
+            entry[1] += 1
+        try:
+            with entry[0]:
+                # the caller that held the lock before this one has left a page or a failure
+                kept = self._remembered(key)
+                if kept is not None:
+                    return kept
+                try:
+                    page = read()
+                except ProviderRateLimitError:
+                    raise
+                except self.failures as error:
+                    self._remember(key, self.failure_kept_for, _fresh(error))
+                    raise
+                kept_for = self.kept_for
+                if not_after is not None and (latest := not_after()) is not None:
+                    kept_for = min(kept_for, latest - self._clock())
+                self._remember(key, kept_for, page)
+                return page
+        finally:
+            with self._lock:
+                entry[1] -= 1
+                if entry[1] == 0 and self._key_locks.get(key) is entry:
+                    del self._key_locks[key]
 
     def forget(self) -> None:
         """Forget every page and failure (a test's, or a process that must read again)."""

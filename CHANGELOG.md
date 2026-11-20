@@ -39,10 +39,10 @@ Types of changes:
 
 - `wmo_id` of the numeric ids of `dwd/mosmix`, `dwd/dmo` and `dwd/poi` is null for the ids of block
   99 (no land station: `99953` Longboat Key, Florida) and for seven ids that WMO's register lists
-  for another station 100 km or more away, while a station of DWD's name is near DWD's position
-  under another number (`02830` Kittilä, `03930` Liverpool, `16741` Paros, `71515` Dryden, `71888`
-  Jasper, `72388` San José, `72522` Harrisburg). The other 256 ids that OSCAR does not list are
-  kept (GH-4074)
+  for another station 100 km or more away (`02830` Kittilä, `03930` Liverpool, `16741` Paros,
+  `71515` Dryden, `71888` Jasper, `72388` San José, `72522` Harrisburg; for all but Paros and San
+  José the register has a station of DWD's name near DWD's position under another number). The
+  other 256 ids that OSCAR does not list are kept (GH-4074)
 - The documentation on Read the Docs was not published after 2026-10-24: the PDF build failed on an
   empty table ("Deprecated today" of the compatibility page, headers only) and took the HTML with
   it, so newer pages (the table of licences) gave a 404. The page now says that nothing is

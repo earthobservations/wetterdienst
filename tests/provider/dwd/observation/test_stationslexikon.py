@@ -568,3 +568,17 @@ def test_the_threads_that_ask_together_share_one_read_of_the_table(monkeypatch: 
         thread.join(10)
     assert len(asked) == 1
     assert found == [EXPECTED_WMO_IDS] * 5
+
+
+def test_a_timeout_the_user_set_shorter_is_kept(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Ten seconds replaces the default of 30, and not a timeout that is shorter."""
+    asked: list[dict] = []
+
+    def download_file(**kwargs: object) -> File:
+        asked.append(kwargs["client_kwargs"])  # type: ignore[arg-type]
+        return File(url=str(kwargs["url"]), content=BytesIO(STATIONSLEXIKON), status=200)
+
+    monkeypatch.setattr(stationslexikon, "download_file", download_file)
+    read_wmo_ids(Settings(cache_disable=True, fsspec_client_kwargs={"timeout": 4}))
+    read_wmo_ids(Settings(cache_disable=True, fsspec_client_kwargs={"timeout": 60}))
+    assert [kwargs["timeout"] for kwargs in asked] == [4, 10]

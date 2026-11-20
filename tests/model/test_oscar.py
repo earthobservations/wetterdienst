@@ -593,6 +593,56 @@ def test_a_rate_limit_through_the_stations_is_raised_not_turned_into_a_warning(s
         with_oscar_wigos_id(pl.LazyFrame({"station_id": ["100971"]}), Settings(cache_dir=tmp_path), FMI_WIGOS_SCHEME)
 
 
+def test_a_timeout_the_user_set_shorter_is_kept_and_the_default_is_brought_down(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Ten seconds replaces the default of 30, and not a timeout that is shorter."""
+    asked: list[dict] = []
+
+    def download(**kwargs: object) -> File:
+        asked.append(kwargs["client_kwargs"])  # type: ignore[arg-type]
+        return File(url=str(kwargs["url"]), content=BytesIO(register("FIN")), status=200)
+
+    monkeypatch.setattr(oscar, "download_file", download)
+    read_register("FIN", Settings(cache_disable=True))
+    read_register("DNK", Settings(cache_disable=True, fsspec_client_kwargs={"timeout": 4}))
+    assert [kwargs["timeout"] for kwargs in asked] == [10, 4]
+
+
+def test_the_ids_of_a_scheme_are_kept_no_longer_than_the_oldest_of_their_registers(
+    server: _Oscar, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A scheme built late in the life of a register does not outlive it: the ids are at most a day old, not two."""
+    now = [1000.0]
+    monkeypatch.setattr(oscar, "_clock", lambda: now[0])
+    server.body = register("FIN")
+    settings = Settings(cache_dir=tmp_path, cache_disable=True)
+    read_register("FIN", settings)  # the register is read at 1000 and kept until 1000 + a day
+    now[0] += oscar.OSCAR_MEMORY - 100
+    stations = pl.LazyFrame({"station_id": ["100971"]})
+    assert _wigos_ids(with_oscar_wigos_id(stations, settings, FMI_WIGOS_SCHEME)) == {"100971": "0-246-0-100971"}
+    assert server.hits == 1
+    now[0] += 101  # the register has run out, and the ids made of it with it
+    assert _wigos_ids(with_oscar_wigos_id(stations, settings, FMI_WIGOS_SCHEME)) == {"100971": "0-246-0-100971"}
+    assert server.hits == 2
+
+
+def test_a_failure_of_a_scheme_is_the_registers_and_is_kept_for_its_time_only(
+    server: _Oscar, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The scheme keeps no failure on top of the register's five minutes."""
+    now = [1000.0]
+    monkeypatch.setattr(oscar, "_clock", lambda: now[0])
+    server.body = b"<html>Wartung</html>"
+    settings = Settings(cache_dir=tmp_path)
+    stations = pl.LazyFrame({"station_id": ["100971"]})
+    assert _wigos_ids(with_oscar_wigos_id(stations, settings, FMI_WIGOS_SCHEME)) == {"100971": None}
+    assert oscar._SCHEMES.entries == {}  # noqa: SLF001
+    now[0] += oscar.OSCAR_FAILURE_MEMORY + 1
+    server.body = register("FIN")
+    assert _wigos_ids(with_oscar_wigos_id(stations, settings, FMI_WIGOS_SCHEME)) == {"100971": "0-246-0-100971"}
+
+
 # the live register
 
 

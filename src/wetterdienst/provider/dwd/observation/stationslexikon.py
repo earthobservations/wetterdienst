@@ -45,7 +45,7 @@ from wetterdienst.exceptions import DownloadError, MetaFileFormatError, NoIntern
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.station_ids import wmo_id_or_none
 from wetterdienst.util.network import download_file, drop_cached_file
-from wetterdienst.util.read_memory import ReadMemory, canonical, settings_key
+from wetterdienst.util.read_memory import ReadMemory, canonical, settings_key, timeout_of_at_most
 from wetterdienst.util.response_warnings import warn_response
 from wetterdienst.util.xml import parse_html
 
@@ -187,7 +187,7 @@ def _read_wmo_ids(settings: Settings) -> pl.DataFrame:
     """Download and parse the Stationslexikon, see `read_wmo_ids`."""
     # the client's default is 30 s of silence and a second attempt: a host that drops connections would stall a
     # request for a minute (GH-4074). The copy is cached and dropped with the arguments it was downloaded with
-    client_kwargs = {**settings.fsspec_client_kwargs, "timeout": STATIONSLEXIKON_TIMEOUT}
+    client_kwargs = timeout_of_at_most(settings.fsspec_client_kwargs, STATIONSLEXIKON_TIMEOUT)
     file = download_file(
         url=STATIONSLEXIKON_URL,
         cache_dir=settings.cache_dir,

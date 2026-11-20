@@ -66,7 +66,7 @@ from wetterdienst.exceptions import DownloadError, MetaFileFormatError, NoIntern
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.station_ids import wigos_id_or_none
 from wetterdienst.util.network import _without_url_secrets, download_file, drop_cached_file
-from wetterdienst.util.read_memory import ReadMemory, settings_key
+from wetterdienst.util.read_memory import ReadMemory, settings_key, timeout_of_at_most
 from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
@@ -182,7 +182,7 @@ def _read(territory: str, settings: Settings) -> list[str]:
     url = oscar_url(territory)
     # the client's default is 30 s of silence and a second attempt: a host that drops connections would stall a request
     # for a minute. The copy is cached and dropped with the arguments it was downloaded with
-    client_kwargs = {**settings.fsspec_client_kwargs, "timeout": OSCAR_TIMEOUT}
+    client_kwargs = timeout_of_at_most(settings.fsspec_client_kwargs, OSCAR_TIMEOUT)
     file = download_file(
         url=url,
         cache_dir=settings.cache_dir,
@@ -233,10 +233,11 @@ _REGISTERS: ReadMemory[list[str]] = ReadMemory(
     clock=lambda: _clock(),  # noqa: PLW0108
 )
 #: what the process remembers of the ids of each scheme, which are the registers of its territories joined and picked:
-#: the join and the warning about an id that is listed twice are made once for each time they are read
+#: the join and the warning about an id that is listed twice are made once for each time they are read. It keeps no
+#: failure (the registers' memory has it, for its own time) and no id longer than the oldest of its registers
 _SCHEMES: ReadMemory[pl.DataFrame] = ReadMemory(
     kept_for=OSCAR_MEMORY,
-    failure_kept_for=OSCAR_FAILURE_MEMORY,
+    failure_kept_for=0.0,
     failures=_FAILURES,
     clock=lambda: _clock(),  # noqa: PLW0108
 )
@@ -291,7 +292,8 @@ def read_scheme_ids(scheme: NationalWigosScheme, settings: Settings) -> pl.DataF
     One territory that cannot be read is the whole register that cannot: it raises what `read_register` raises, and
     no id is given from the registers that could be. The registers are joined before the rule is applied, so that an id
     that two of them list is one id, and two ids for one local part are found wherever they are listed. Kept by the
-    process like a register, so that the warning of an id listed twice is made once for each time it is read.
+    process for as long as the oldest of its registers is (a day at most), so that the warning of an id listed twice is
+    made once for each time it is read.
     """
 
     def read() -> pl.DataFrame:
@@ -300,7 +302,12 @@ def read_scheme_ids(scheme: NationalWigosScheme, settings: Settings) -> pl.DataF
             ids.update(dict.fromkeys(read_register(territory, settings)))
         return wigos_ids_of_scheme(list(ids), scheme)
 
-    return _SCHEMES.get((scheme, *settings_key(settings)), read)
+    def oldest_register() -> float | None:
+        expiries = [_REGISTERS.expiry((territory, *settings_key(settings))) for territory in scheme.territories]
+        known = [expiry for expiry in expiries if expiry is not None]
+        return min(known) if len(known) == len(expiries) else None
+
+    return _SCHEMES.get((scheme, *settings_key(settings)), read, not_after=oldest_register)
 
 
 def with_oscar_wigos_id(stations: pl.LazyFrame, settings: Settings, scheme: NationalWigosScheme) -> pl.LazyFrame:

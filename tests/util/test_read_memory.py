@@ -9,7 +9,7 @@ import threading
 import pytest
 
 from wetterdienst.exceptions import DownloadError, ProviderRateLimitError
-from wetterdienst.util.read_memory import ReadMemory, canonical
+from wetterdienst.util.read_memory import ReadMemory, canonical, timeout_of_at_most
 
 
 class _Clock:
@@ -146,7 +146,7 @@ def test_what_has_run_out_goes_when_another_is_stored_and_forget_clears_all(
     clock.now += 3601
     memory.get("later", lambda: "later")
     assert list(memory.entries) == ["later"]
-    assert set(memory._key_locks) <= {"later"}  # noqa: SLF001
+    assert memory._key_locks == {}  # noqa: SLF001
     memory.forget()
     assert memory.entries == {}
 
@@ -173,3 +173,87 @@ def test_settings_that_are_equal_are_equal_as_keys() -> None:
     other = {"b": 2, "a": {"x": [2, 3], "y": 1}}
     assert canonical(one) == canonical(other)
     assert canonical(one) != canonical({**one, "b": 3})
+
+
+def test_a_page_made_of_others_is_forgotten_no_later_than_the_oldest_of_them(clock: _Clock) -> None:
+    """`not_after` caps the time a page is kept: it is no older than what it is made of."""
+    memory: ReadMemory[str] = ReadMemory(kept_for=3600.0, failure_kept_for=60.0, failures=(DownloadError,), clock=clock)
+    assert memory.get("k", lambda: "page", not_after=lambda: clock.now + 100) == "page"
+    assert memory.expiry("k") == clock.now + 100
+    clock.now += 101
+    assert memory.get("k", lambda: "again", not_after=lambda: None) == "again"
+    assert memory.expiry("k") == clock.now + 3600
+    # a page whose parts have run out is not kept at all
+    assert memory.get("other", lambda: "gone", not_after=lambda: clock.now - 1) == "gone"
+    assert memory.expiry("other") is None
+    assert memory.expiry("missing") is None
+
+
+def test_a_memory_without_failure_time_keeps_no_failure(clock: _Clock) -> None:
+    """The failure is raised each time by what the read asks, which has its own memory."""
+    memory: ReadMemory[str] = ReadMemory(kept_for=3600.0, failure_kept_for=0.0, failures=(DownloadError,), clock=clock)
+    reads: list[int] = []
+
+    def read() -> str:
+        reads.append(1)
+        url = "https://example.invalid/page"
+        raise DownloadError(url, "503")
+
+    for _ in range(2):
+        with pytest.raises(DownloadError):
+            memory.get("k", read)
+    assert len(reads) == 2
+    assert memory.entries == {}
+
+
+def test_a_lock_a_caller_has_taken_is_not_deleted_from_under_it() -> None:
+    """The lock of a key goes with its last caller: callers that wait for it and callers that come later share it."""
+    memory: ReadMemory[str] = ReadMemory(kept_for=3600.0, failure_kept_for=60.0, failures=(DownloadError,))
+    inside, release = threading.Event(), threading.Event()
+    reads: list[int] = []
+
+    def slow() -> str:
+        reads.append(1)
+        inside.set()
+        assert release.wait(10)
+        return "page"
+
+    first = threading.Thread(target=lambda: memory.get("k", slow))
+    first.start()
+    assert inside.wait(10)
+    # another key is stored while the first is read: the clean-up of the memory must leave the lock of "k" alone
+    memory.get("other", lambda: "other")
+    late = threading.Thread(target=lambda: memory.get("k", slow))
+    late.start()
+    release.set()
+    first.join(10)
+    late.join(10)
+    assert len(reads) == 1
+    assert memory._key_locks == {}  # noqa: SLF001
+
+
+@pytest.mark.parametrize(
+    ("given", "expected"),
+    [
+        pytest.param({"timeout": 30}, 10, id="the-default-is-brought-down"),
+        pytest.param({"timeout": 10}, 10, id="equal"),
+        pytest.param({"timeout": 5}, 5, id="a-shorter-one-is-kept"),
+        pytest.param({"timeout": 2.5}, 2.5, id="a-shorter-float-is-kept"),
+        pytest.param({}, 10, id="none-given"),
+    ],
+)
+def test_the_timeout_is_ten_seconds_unless_the_callers_own_is_shorter(given: dict, expected: float) -> None:
+    """Only the length of the wait is capped: the rest of the client kwargs are as they were."""
+    kwargs = {**given, "headers": {"User-Agent": "x"}}
+    found = timeout_of_at_most(kwargs, 10)
+    assert found["timeout"] == expected
+    assert found["headers"] == {"User-Agent": "x"}
+    assert kwargs.get("timeout") == given.get("timeout")  # the caller's dict is not changed
+
+
+def test_a_timeout_that_is_no_plain_number_is_the_callers() -> None:
+    """A `ClientTimeout` says more than one number does: it is kept."""
+    import aiohttp  # noqa: PLC0415
+
+    own = aiohttp.ClientTimeout(total=None, connect=60)
+    assert timeout_of_at_most({"timeout": own}, 10)["timeout"] is own
