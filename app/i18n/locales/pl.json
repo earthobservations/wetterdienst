@@ -1011,7 +1011,7 @@
     "stepBack": "Poprzedni obraz",
     "stepForward": "Następny obraz",
     "timeLabel": "Czas obrazu radarowego",
-    "timeHint": "Strzałki w lewo i w prawo przechodzą po obrazach, Page Up i Page Down co dziesięć, Home i End skaczą do pierwszego i ostatniego.",
+    "timeHint": "Strzałki w lewo i w prawo przechodzą po obrazach, Page Up i Page Down skaczą dalej, Home i End skaczą do pierwszego i ostatniego.",
     "observed": "Zaobserwowane",
     "forecast": "Prognoza",
     "forecastAhead": "Prognoza, {minutes} min do przodu",
@@ -1081,7 +1081,8 @@
     "frameLoading": "Wczytywanie tego obrazu …",
     "framesLoadingLive": "Wczytywanie obrazów radarowych …",
     "framesReady": "Obrazy radarowe zostały wczytane.",
-    "unavailable": "Radar nie jest dostępny na tym serwerze."
+    "unavailable": "Radar nie jest dostępny na tym serwerze.",
+    "framesNone": "Nie udało się wczytać żadnego obrazu radarowego."
   },
   "dataViewer": {
     "loadingValues": "Ładowanie wartości …",

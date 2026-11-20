@@ -1,6 +1,7 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it } from 'vitest'
 import RadarStormCells from '~/components/RadarStormCells.vue'
+import { formatFrameTime } from '~/utils/radar'
 import { parseScan } from '~/utils/storm-cells'
 import { emptyScan, exampleScan, stormCell, stormCellsAnswer } from '../../helpers/storm-cells-answer'
 
@@ -10,6 +11,8 @@ import { emptyScan, exampleScan, stormCell, stormCellsAnswer } from '../../helpe
 // the scan is old, out of date or fails.
 
 const FIXED = '2026-11-17T22:15:00.000000+00:00'
+/** A time as the panel writes it (GH-3788): the time of day in the reader's zone with its name, as the radar's frames are, not UTC */
+const when = (iso: string) => formatFrameTime(Date.parse(iso), 'en-GB', Date.now())
 
 const mounted: Array<{ unmount: () => void }> = []
 async function mountCells(props: Record<string, unknown>) {
@@ -22,10 +25,10 @@ afterEach(() => mounted.splice(0).forEach(wrapper => wrapper.unmount()))
 const text = (wrapper: Awaited<ReturnType<typeof mountCells>>, testid: string) => wrapper.find(`[data-testid="${testid}"]`).text()
 
 describe('a scan with no cell', () => {
-  it('says there are no thunderstorm cells in the latest scan, with the scan\'s time in UTC, and lists none', async () => {
+  it('says there are no thunderstorm cells in the latest scan, with the scan\'s time in the reader\'s zone, and lists none', async () => {
     const wrapper = await mountCells({ scan: parseScan(emptyScan('2026-11-17T22:20:00.000000+00:00')) })
     expect(text(wrapper, 'radar-cells-summary')).toBe('No thunderstorm cells in the latest scan')
-    expect(text(wrapper, 'radar-cells-scan')).toMatch(/^Scan of .*22:20 UTC$/)
+    expect(text(wrapper, 'radar-cells-scan')).toBe(`Scan of ${when('2026-11-17T22:20:00Z')}`)
     expect(wrapper.find('[data-testid="radar-cells-list"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="radar-cells-stale"]').exists()).toBe(false)
   })
@@ -203,7 +206,7 @@ describe('while the scan comes, and when it does not', () => {
 
   it('keeps the scan where a refresh failed, and says which scan it is from', async () => {
     const wrapper = await mountCells({ scan: parseScan(exampleScan(FIXED)), refreshFailed: true })
-    expect(text(wrapper, 'radar-cells-refresh-failed')).toMatch(/could not be refreshed\. The scan shown is from 22:15 UTC/)
+    expect(text(wrapper, 'radar-cells-refresh-failed')).toContain(`could not be refreshed. The scan shown is from ${when(FIXED)}`)
     expect(wrapper.findAll('[data-testid="radar-cells-item"]')).toHaveLength(4)
   })
 
@@ -214,14 +217,14 @@ describe('while the scan comes, and when it does not', () => {
     expect(live[0]!.text()).not.toMatch(/\d\d:\d\d/)
     await wrapper.setProps({ scan: parseScan(emptyScan('2026-11-17T22:25:00.000000+00:00')) })
     expect(wrapper.find('[role="status"]').text()).toBe('No thunderstorm cells in the latest scan')
-    expect(text(wrapper, 'radar-cells-scan')).toContain('22:25 UTC')
+    expect(text(wrapper, 'radar-cells-scan')).toContain(when('2026-11-17T22:25:00Z'))
   })
 })
 
 describe('a scan that is out of date', () => {
   it('says so, with the time it is from, and keeps the list: the cells are not drawn on the map then', async () => {
     const wrapper = await mountCells({ scan: parseScan(exampleScan(FIXED)), outdated: true })
-    expect(text(wrapper, 'radar-cells-outdated')).toBe('The scan from 22:15 UTC is out of date (over 20 minutes old). Its cells are not drawn on the map and may be gone.')
+    expect(text(wrapper, 'radar-cells-outdated')).toBe(`The scan from ${when(FIXED)} is out of date (over 20 minutes old). Its cells are not drawn on the map and may be gone.`)
     expect(wrapper.findAll('[data-testid="radar-cells-item"]')).toHaveLength(4)
     // the backend's own warning is not said as well
     expect(wrapper.find('[data-testid="radar-cells-stale"]').exists()).toBe(false)
@@ -236,7 +239,7 @@ describe('a scan that is out of date', () => {
 describe('a frame that the cells are not shown on', () => {
   it('says the cells are hidden on this frame, with the time of the scan, where the map fades them out', async () => {
     const wrapper = await mountCells({ scan: parseScan(exampleScan(FIXED)), fadedOnFrame: true })
-    expect(text(wrapper, 'radar-cells-faded')).toBe('The cells are hidden on this frame: they are from the scan of 22:15 UTC, and are shown only on frames within 15 minutes of it.')
+    expect(text(wrapper, 'radar-cells-faded')).toBe(`The cells are hidden on this frame: they are from the scan of ${when(FIXED)}, and are shown only on frames within 15 minutes of it.`)
     // the list stays: it is the text of the latest scan
     expect(wrapper.findAll('[data-testid="radar-cells-item"]')).toHaveLength(4)
   })

@@ -1011,7 +1011,7 @@
     "stepBack": "Předchozí snímek",
     "stepForward": "Další snímek",
     "timeLabel": "Čas radarového snímku",
-    "timeHint": "Šipky vlevo a vpravo procházejí snímky, Page Up a Page Down po deseti, Home a End skočí na první a poslední.",
+    "timeHint": "Šipky vlevo a vpravo procházejí snímky, Page Up a Page Down skočí dál, Home a End skočí na první a poslední.",
     "observed": "Naměřeno",
     "forecast": "Předpověď",
     "forecastAhead": "Předpověď, o {minutes} min dopředu",
@@ -1081,7 +1081,8 @@
     "frameLoading": "Načítání tohoto snímku …",
     "framesLoadingLive": "Načítání radarových snímků …",
     "framesReady": "Radarové snímky jsou načteny.",
-    "unavailable": "Radar není na tomto serveru dostupný."
+    "unavailable": "Radar není na tomto serveru dostupný.",
+    "framesNone": "Nepodařilo se načíst žádný radarový snímek."
   },
   "dataViewer": {
     "loadingValues": "Načítání hodnot …",

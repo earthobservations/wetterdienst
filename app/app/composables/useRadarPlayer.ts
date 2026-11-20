@@ -2,16 +2,25 @@ import type { Ref } from 'vue'
 import type { RadarFrame } from '~/utils/radar'
 import { DWELL_MS, FRAME_MS, frameKey, frameUrl, indexAfterRefresh, nextReady, openingIndex, PRELOAD_CONCURRENCY, preloadOrder } from '~/utils/radar'
 
+/** How long a frame's request may take before it is given up as a failure, in milliseconds */
+export const LOAD_TIMEOUT_MS = 30_000
+
 /**
  * Loads a frame's image into the browser's cache: true where it came, false where it did not (a 404, a 502, a 503, a 429, no connection).
  * A `fetch`, not an `Image`, so that the body is read to the end and the answer is kept by the HTTP cache (the frame of a run is
  * `max-age=3600`) for the picture on the map, which asks for the same address.
  */
-export async function loadFrame(url: string): Promise<boolean> {
+export async function loadFrame(url: string, signal?: AbortSignal): Promise<boolean> {
   try {
-    const response = await fetch(url)
-    if (!response.ok)
+    // a request that is not answered in 30 s is a failure (a hung connection would hold one of the 5 places of the queue for ever), and one
+    // the page no longer wants (it was left) is aborted
+    const timeout = AbortSignal.timeout(LOAD_TIMEOUT_MS)
+    const response = await fetch(url, { signal: signal && 'any' in AbortSignal ? AbortSignal.any([signal, timeout]) : (signal ?? timeout) })
+    if (!response.ok) {
+      // the body of an error is not read: the connection is let go
+      await response.body?.cancel().catch(() => {})
       return false
+    }
     await response.blob()
     return true
   }
@@ -31,7 +40,7 @@ export interface RadarPlayerOptions {
   /** Whether the loop starts by itself once every frame is in hand: not under `prefers-reduced-motion` */
   autoplay: () => boolean
   /** How a frame's image is loaded; a test gives its own */
-  load?: (url: string) => Promise<boolean>
+  load?: (url: string, signal?: AbortSignal) => Promise<boolean>
   /** How many frames are loaded at once */
   concurrency?: number
   /** The pace of the loop, for a test */
@@ -86,9 +95,13 @@ export function useRadarPlayer(frames: Ref<readonly RadarFrame[]>, options: Rada
 
   // ---- loading -----------------------------------------------------------------------------------------------------
 
+  /** The frames being asked for now: only these count against the `concurrency`; a frame that waits for its next try holds no place of the queue */
   const inFlight = new Set<string>()
+  const waiting = new Set<string>()
   const tries = new Map<string, number>()
-  let retryTimers: Array<ReturnType<typeof setTimeout>> = []
+  const retryTimers = new Set<ReturnType<typeof setTimeout>>()
+  // what is on its way is aborted with the page (the scope), so that a frame is not loaded for a page that is gone
+  const controller = new AbortController()
   let stopped = false
 
   const add = (set: ReadonlySet<string>, key: string): ReadonlySet<string> => new Set(set).add(key)
@@ -96,7 +109,7 @@ export function useRadarPlayer(frames: Ref<readonly RadarFrame[]>, options: Rada
   function pump() {
     if (stopped)
       return
-    const wanted = preloadOrder(frames.value, new Set([...loaded.value, ...failed.value, ...inFlight]))
+    const wanted = preloadOrder(frames.value, new Set([...loaded.value, ...failed.value, ...inFlight, ...waiting]))
     for (const frame of wanted) {
       if (inFlight.size >= concurrency)
         break
@@ -107,7 +120,7 @@ export function useRadarPlayer(frames: Ref<readonly RadarFrame[]>, options: Rada
   async function fetchFrame(frame: RadarFrame) {
     const key = frameKey(frame)
     inFlight.add(key)
-    const ok = await load(frameUrl(frame))
+    const ok = await load(frameUrl(frame), controller.signal)
     inFlight.delete(key)
     if (stopped)
       return
@@ -118,11 +131,14 @@ export function useRadarPlayer(frames: Ref<readonly RadarFrame[]>, options: Rada
       // another try after a pause, with the others going on meanwhile
       const delay = retryDelays[tries.get(key) ?? 0]!
       tries.set(key, (tries.get(key) ?? 0) + 1)
-      inFlight.add(key)
-      retryTimers.push(setTimeout(() => {
-        inFlight.delete(key)
+      waiting.add(key)
+      const timer = setTimeout(() => {
+        // a timer that has run is no longer kept
+        retryTimers.delete(timer)
+        waiting.delete(key)
         pump()
-      }, delay))
+      }, delay)
+      retryTimers.add(timer)
     }
     else {
       failed.value = add(failed.value, key)
@@ -137,6 +153,7 @@ export function useRadarPlayer(frames: Ref<readonly RadarFrame[]>, options: Rada
     // a frame that was given up is asked for again: it may have failed for a 503 or a 429 that is over, or DWD may have it now (M3)
     failed.value = new Set()
     tries.clear()
+    waiting.clear()
     pump()
   }, { immediate: true })
 
@@ -212,8 +229,9 @@ export function useRadarPlayer(frames: Ref<readonly RadarFrame[]>, options: Rada
   onScopeDispose(() => {
     stopped = true
     stopTimer()
+    controller.abort()
     retryTimers.forEach(clearTimeout)
-    retryTimers = []
+    retryTimers.clear()
   })
 
   return { playable, index, current, shown, playing, settled, progress, loaded, play, pause, toggle, seek, step }

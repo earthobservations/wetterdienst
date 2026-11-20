@@ -1011,7 +1011,7 @@
     "stepBack": "Vörig Bild",
     "stepForward": "Nächst Bild",
     "timeLabel": "Tied vun dat Radarbild",
-    "timeHint": "De Piele links un rechts gaht dörch de Bilder, Bild hoch un Bild daal je tein, Pos1 un Enn springt to dat eerste un dat leetste.",
+    "timeHint": "De Piele links un rechts gaht dörch de Bilder, Bild hoch un Bild daal springt wieder, Pos1 un Enn gaht na dat eerste un dat leetste.",
     "observed": "Meten",
     "forecast": "Utsicht",
     "forecastAhead": "Utsicht, {minutes} Min. vörut",
@@ -1081,7 +1081,8 @@
     "frameLoading": "Dit Bild warrt laadt …",
     "framesLoadingLive": "De Radarbilder warrt laadt …",
     "framesReady": "De Radarbilder sünd laadt.",
-    "unavailable": "Dat Radar is op disse Server nich verfögbor."
+    "unavailable": "Dat Radar is op disse Server nich verfögbor.",
+    "framesNone": "Keen Radarbild kunn laadt warrn."
   },
   "dataViewer": {
     "loadingValues": "Weerten warrt laadt …",

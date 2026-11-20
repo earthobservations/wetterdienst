@@ -272,6 +272,59 @@ describe('the frame on the map and the frame of the player (M1)', () => {
   })
 })
 
+describe('a new list while the reader is on a forecast frame (N1)', () => {
+  /** The tab goes to the background and comes back: the list is asked for again at once (`usePolledAnswer`), as it is every 5 minutes */
+  async function refresh() {
+    const set = (state: 'hidden' | 'visible') => {
+      Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state })
+      document.dispatchEvent(new Event('visibilitychange'))
+    }
+    set('hidden')
+    await new Promise(resolve => setTimeout(resolve, 10))
+    set('visible')
+  }
+
+  it('keeps the picture of the forecast frame on the map, with no blank, until the frame at the same time of the new run is in, and then replaces it', async () => {
+    stubMediaQueries({ reducedMotion: true })
+    const first = radarAnswer({ run: '2026-11-19T21:25:00Z' })
+    framesAnswer = () => first
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    const slider = byId(wrapper, 'radar-slider')
+    ;(slider.element as HTMLInputElement).value = '31'
+    await slider.trigger('input')
+    const before = first.frames[31]!
+    await vi.waitFor(() => expect(stage.props.overlay.url).toContain(`time=${encodeURIComponent(before.time)}&run=${encodeURIComponent(before.run)}`))
+    // a new run: its forecast frames are other images (new keys), and they are slow
+    const second = radarAnswer({ run: '2026-11-19T21:30:00Z' })
+    framesAnswer = () => second
+    held = url => url.includes(`run=${encodeURIComponent('2026-11-19T21:30:00Z')}`)
+    await refresh()
+    await vi.waitFor(() => expect(framesAsked.length).toBeGreaterThan(0))
+    await vi.waitFor(() => expect(byId(wrapper, 'radar-frame-loading').exists()).toBe(true))
+    // the map has not gone blank, and still shows the picture it had, whose frame is no longer in the list
+    expect(stage.props.overlay).not.toBeNull()
+    expect(stage.props.overlay.url).toContain(`time=${encodeURIComponent(before.time)}&run=${encodeURIComponent(before.run)}`)
+    expect(byId(wrapper, 'radar-chip').exists()).toBe(true)
+    // the successor at the same time comes, and takes its place
+    held = () => false
+    releases.forEach(release => release())
+    const after = second.frames.find(frame => frame.time === before.time)!
+    await vi.waitFor(() => expect(stage.props.overlay.url).toContain(`run=${encodeURIComponent(after.run)}`))
+    expect(byId(wrapper, 'radar-frame-loading').exists()).toBe(false)
+  })
+
+  it('takes the picture off where the new list has no frame at all', async () => {
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    framesAnswer = () => ({ ...radarAnswer(), frames: [] })
+    await refresh()
+    await vi.waitFor(() => expect(byId(wrapper, 'radar-empty').exists()).toBe(true))
+    expect(stage.props.overlay).toBeNull()
+    expect(byId(wrapper, 'radar-chip').exists()).toBe(false)
+  })
+})
+
 describe('what is told while the frames load (M2)', () => {
   it('has a counter that is no live region, and one live line that says it once at the start and once at the end', async () => {
     const wrapper = await mountRadar()
@@ -286,6 +339,12 @@ describe('what is told while the frames load (M2)', () => {
     // told twice and never the count: "Loading the radar frames …", then "The radar frames are loaded."
     expect([...new Set(said)].filter(line => line !== '')).toEqual(['Loading the radar frames …', 'The radar frames are loaded.'])
     expect(wrapper.find('[data-testid="radar-frames-loading"]').exists()).toBe(false)
+  })
+
+  it('says a failure, not "loaded", where none of the frames came (N3)', async () => {
+    failing = () => true
+    const wrapper = await mountRadar()
+    await vi.waitFor(() => expect(byId(wrapper, 'radar-frames-live').text()).toBe('None of the radar frames could be loaded.'), { timeout: 13_000 })
   })
 
   it('has the visible counter without a role, so that its 49 changes are not announced', async () => {
@@ -399,7 +458,7 @@ describe('the cells and the frame (the cells are the latest scan\'s)', () => {
     await vi.waitFor(() => expect(stage.props.cellsFaded).toBe(true))
     // the cells are still the map's (they fade, they are not taken away), and the note and the list say what is so
     expect(stage.props.cells).toHaveLength(4)
-    expect(byId(wrapper, 'radar-cells-faded').text()).toMatch(/^The cells are hidden on this frame: they are from the scan of .*UTC, and are shown only on frames within 15 minutes of it\.$/)
+    expect(byId(wrapper, 'radar-cells-faded').text()).toMatch(/^The cells are hidden on this frame: they are from the scan of \d{2}:\d{2} \S+, and are shown only on frames within 15 minutes of it\.$/)
     expect(wrapper.findAll('[data-testid="radar-cells-item"]')).toHaveLength(4)
     ;(slider.element as HTMLInputElement).value = '24'
     await slider.trigger('input')

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
-import { useRadarPlayer } from '~/composables/useRadarPlayer'
+import { loadFrame, useRadarPlayer } from '~/composables/useRadarPlayer'
 import { frameKey, parseLoop } from '~/utils/radar'
 import { radarAnswer } from '../../helpers/radar-answer'
 
@@ -37,7 +37,7 @@ function holdingLoader() {
 }
 
 /** The player in a scope of its own, as a page has it */
-function mount(options: { frames?: ReturnType<typeof framesOf>, autoplay?: boolean, load?: (url: string) => Promise<boolean>, concurrency?: number } = {}) {
+function mount(options: { frames?: ReturnType<typeof framesOf>, autoplay?: boolean, load?: (url: string, signal?: AbortSignal) => Promise<boolean>, concurrency?: number } = {}) {
   const frames = ref(options.frames ?? framesOf())
   const autoplay = ref(options.autoplay ?? true)
   const scope = effectScope()
@@ -128,6 +128,21 @@ describe('loading the frames', () => {
     expect(player.settled.value).toBe(true)
   })
 
+  it('does not let a frame that waits for its next try hold one of the 5 places: the others go on, and a loop that fails altogether is given up after its tries, not after 49 of them in turn', async () => {
+    const asked: string[] = []
+    const { player } = mount({ autoplay: false, load: async (url) => {
+      asked.push(url)
+      return false
+    } })
+    await settle()
+    // every frame has had its first try at once, though 5 are asked for at a time: a failure frees its place
+    expect(new Set(asked).size).toBe(49)
+    await vi.advanceTimersByTimeAsync(1100)
+    await vi.advanceTimersByTimeAsync(3100)
+    await settle()
+    expect(player.progress.value).toEqual({ loaded: 0, failed: 49, total: 49 })
+  })
+
   it('keeps going where the frame is there on a later try', async () => {
     const bad = framesOf()[3]!
     let tries = 0
@@ -170,6 +185,57 @@ describe('loading the frames', () => {
     expect(player.progress.value.failed).toBe(0)
     // only the frame that was given up was asked for again
     expect(asked.filter(url => url.includes(encodeURIComponent(bad.time)) && url.includes(`run=${encodeURIComponent(bad.run)}`))).toHaveLength(4)
+  })
+})
+
+describe('the request of a frame (N2)', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('is true for a frame that came, with the body read to the end so that the HTTP cache keeps it, and is asked for with a signal', async () => {
+    const blob = vi.fn(async () => new Blob(['png']))
+    const fetcher = vi.fn(async () => ({ ok: true, blob }))
+    vi.stubGlobal('fetch', fetcher)
+    expect(await loadFrame('/api/radar/frame?x')).toBe(true)
+    expect(blob).toHaveBeenCalled()
+    expect((fetcher.mock.calls[0] as unknown as [string, { signal: AbortSignal }])[1].signal).toBeInstanceOf(AbortSignal)
+  })
+
+  it('is false for an error, whose body is cancelled and not read: the connection is let go', async () => {
+    const cancel = vi.fn(async () => {})
+    const blob = vi.fn()
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, body: { cancel }, blob })))
+    expect(await loadFrame('/api/radar/frame?x')).toBe(false)
+    expect(cancel).toHaveBeenCalled()
+    expect(blob).not.toHaveBeenCalled()
+  })
+
+  it('is false for a request that fails, and for one that is aborted by the caller', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      throw new TypeError('network')
+    }))
+    expect(await loadFrame('/api/radar/frame?x')).toBe(false)
+    const controller = new AbortController()
+    vi.stubGlobal('fetch', vi.fn((_url: string, init: { signal: AbortSignal }) => new Promise((_, reject) => {
+      init.signal.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
+    })))
+    const result = loadFrame('/api/radar/frame?x', controller.signal)
+    controller.abort()
+    expect(await result).toBe(false)
+  })
+
+  it('has the requests that are on their way aborted when the page is left (the scope stops)', async () => {
+    const signals: AbortSignal[] = []
+    const { scope } = mount({ autoplay: false, load: (_url, signal) => {
+      signals.push(signal!)
+      return new Promise<boolean>(() => {})
+    } })
+    await settle()
+    expect(signals).toHaveLength(5)
+    expect(signals.every(signal => !signal.aborted)).toBe(true)
+    scope.stop()
+    expect(signals.every(signal => signal.aborted)).toBe(true)
   })
 })
 

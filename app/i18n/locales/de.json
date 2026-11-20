@@ -1011,7 +1011,7 @@
     "stepBack": "Vorheriges Bild",
     "stepForward": "Nächstes Bild",
     "timeLabel": "Zeit des Radarbilds",
-    "timeHint": "Die Pfeiltasten links und rechts gehen die Bilder durch, Bild auf und Bild ab um zehn, Pos1 und Ende springen zum ersten und zum letzten.",
+    "timeHint": "Die Pfeiltasten links und rechts gehen die Bilder durch, Bild auf und Bild ab springen weiter, Pos1 und Ende gehen zum ersten und zum letzten.",
     "observed": "Gemessen",
     "forecast": "Vorhersage",
     "forecastAhead": "Vorhersage, {minutes} Min. voraus",
@@ -1081,7 +1081,8 @@
     "frameLoading": "Dieses Bild wird geladen …",
     "framesLoadingLive": "Die Radarbilder werden geladen …",
     "framesReady": "Die Radarbilder sind geladen.",
-    "unavailable": "Das Radar ist auf diesem Server nicht verfügbar."
+    "unavailable": "Das Radar ist auf diesem Server nicht verfügbar.",
+    "framesNone": "Kein Radarbild konnte geladen werden."
   },
   "dataViewer": {
     "loadingValues": "Werte werden geladen …",

@@ -47,16 +47,19 @@ const player = useRadarPlayer(frames, { autoplay: () => !reducedMotion.value })
 /**
  * The frame whose picture is on the map: the one the loop is at, once its image is in hand. A frame the reader moved to that is not in yet
  * leaves the one before on the map and does not blank it, and the chip over the map says what is on the map (not where the player stands);
- * the player says its frame is loading. A picture whose frame has left the list (a new list, an empty one) is taken off.
+ * the player says its frame is loading. A picture is taken off only where the list is empty; where a new list has other keys for the frames (a new run) it stays until the frame at its time is in (N1).
  */
 const picture = ref<RadarFrame | null>(null)
 watch(player.shown, (frame) => {
   if (frame)
     picture.value = frame
 }, { immediate: true })
+// Taken off only where the list has no frame at all. With every new list the 24 frames of the forecast are of a new run (new keys), so a reader
+// on a forecast frame would see the map go blank for as long as the new image takes (2 to 16 s): the picture stays, its image is in the
+// browser's cache, until the frame at the same time of the new list is loaded and takes its place (`player.shown`).
 watch(frames, (list) => {
-  if (picture.value && !list.some(frame => frameKey(frame) === frameKey(picture.value!)))
-    picture.value = player.shown.value
+  if (!list.length)
+    picture.value = null
 })
 const overlay = computed(() => loop.value && picture.value ? { url: frameUrl(picture.value), bounds: leafletBounds(loop.value.bounds), opacity: 0.8 } : null)
 
@@ -95,7 +98,8 @@ watch(() => player.progress.value, ({ loaded, failed, total }) => {
   }
   if (!framesAnnounced && loaded + failed >= total) {
     framesAnnounced = true
-    framesLive.value = t('radar.framesReady')
+    // none of them came: a failure is said, not "loaded"
+    framesLive.value = loaded === 0 ? t('radar.framesNone') : t('radar.framesReady')
   }
 }, { immediate: true })
 /** The backend has no radar (a 404, a 501: a server without the `radar` extra): no Retry would help */

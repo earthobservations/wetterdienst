@@ -1011,7 +1011,7 @@
     "stepBack": "Vorig beeld",
     "stepForward": "Volgend beeld",
     "timeLabel": "Tijd van het radarbeeld",
-    "timeHint": "De pijltoetsen links en rechts lopen door de beelden, Page Up en Page Down met tien tegelijk, Home en End gaan naar het eerste en het laatste.",
+    "timeHint": "De pijltoetsen links en rechts lopen door de beelden, Page Up en Page Down springen verder, Home en End gaan naar het eerste en het laatste.",
     "observed": "Waargenomen",
     "forecast": "Verwachting",
     "forecastAhead": "Verwachting, {minutes} min vooruit",
@@ -1081,7 +1081,8 @@
     "frameLoading": "Dit beeld wordt geladen …",
     "framesLoadingLive": "De radarbeelden worden geladen …",
     "framesReady": "De radarbeelden zijn geladen.",
-    "unavailable": "De radar is op deze server niet beschikbaar."
+    "unavailable": "De radar is op deze server niet beschikbaar.",
+    "framesNone": "Er kon geen enkel radarbeeld worden geladen."
   },
   "dataViewer": {
     "loadingValues": "Waarden laden …",

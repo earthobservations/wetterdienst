@@ -104,6 +104,19 @@ describe('the slider', () => {
     expect(testid(wrapper, 'radar-announcement').text()).toBe('')
   })
 
+  it('empties the status where the slider is moved after a step: a step announced before must not be said again for the slider\'s frame (L1)', async () => {
+    const wrapper = await mountPlayer({ index: 30 })
+    await testid(wrapper, 'radar-step-forward').trigger('click')
+    expect(testid(wrapper, 'radar-announcement').text()).not.toBe('')
+    const slider = testid(wrapper, 'radar-slider')
+    ;(slider.element as HTMLInputElement).value = '40'
+    await slider.trigger('input')
+    expect(testid(wrapper, 'radar-announcement').text()).toBe('')
+    // and a step after the slider is told again
+    await testid(wrapper, 'radar-step-forward').trigger('click')
+    expect(testid(wrapper, 'radar-announcement').text()).not.toBe('')
+  })
+
   it('raises seek with the frame the reader moved it to', async () => {
     const wrapper = await mountPlayer()
     const slider = testid(wrapper, 'radar-slider')

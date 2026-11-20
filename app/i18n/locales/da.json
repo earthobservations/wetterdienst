@@ -1011,7 +1011,7 @@
     "stepBack": "Forrige billede",
     "stepForward": "Næste billede",
     "timeLabel": "Tidspunkt for radarbilledet",
-    "timeHint": "Venstre- og højrepil går gennem billederne, Page Up og Page Down ti ad gangen, Home og End hopper til det første og det sidste.",
+    "timeHint": "Venstre- og højrepil går gennem billederne, Page Up og Page Down hopper længere, Home og End hopper til det første og det sidste.",
     "observed": "Målt",
     "forecast": "Udsigt",
     "forecastAhead": "Udsigt, {minutes} min frem",
@@ -1081,7 +1081,8 @@
     "frameLoading": "Indlæser dette billede …",
     "framesLoadingLive": "Indlæser radarbillederne …",
     "framesReady": "Radarbillederne er indlæst.",
-    "unavailable": "Radaren er ikke tilgængelig på denne server."
+    "unavailable": "Radaren er ikke tilgængelig på denne server.",
+    "framesNone": "Ingen radarbilleder kunne indlæses."
   },
   "dataViewer": {
     "loadingValues": "Indlæser værdier …",

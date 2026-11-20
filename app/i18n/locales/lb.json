@@ -1011,7 +1011,7 @@
     "stepBack": "Virescht Bild",
     "stepForward": "Nächst Bild",
     "timeLabel": "Zäit vum Radarbild",
-    "timeHint": "D'Feeler lénks a riets ginn duerch d'Biller, Säit erop a Säit erof ëm zéng, Home an End sprangen zum éischte a leschte.",
+    "timeHint": "D'Feeler lénks a riets ginn duerch d'Biller, Säit erop a Säit erof sprangen méi wäit, Home an End sprangen zum éischte a leschte.",
     "observed": "Gemooss",
     "forecast": "Prognos",
     "forecastAhead": "Prognos, {minutes} Min. viraus",
@@ -1081,7 +1081,8 @@
     "frameLoading": "Dëst Bild gëtt gelueden …",
     "framesLoadingLive": "D'Radarbiller gi gelueden …",
     "framesReady": "D'Radarbiller sinn gelueden.",
-    "unavailable": "De Radar ass op dësem Server net disponibel."
+    "unavailable": "De Radar ass op dësem Server net disponibel.",
+    "framesNone": "Kee Radarbild konnt gelueden ginn."
   },
   "dataViewer": {
     "loadingValues": "Wäerter ginn gelueden …",

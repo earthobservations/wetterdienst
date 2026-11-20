@@ -1011,7 +1011,7 @@
     "stepBack": "Imagen anterior",
     "stepForward": "Imagen siguiente",
     "timeLabel": "Hora de la imagen de radar",
-    "timeHint": "Las flechas izquierda y derecha recorren las imágenes, Re Pág y Av Pág de diez en diez; Inicio y Fin van a la primera y a la última.",
+    "timeHint": "Las flechas izquierda y derecha recorren las imágenes, Re Pág y Av Pág saltan más lejos; Inicio y Fin van a la primera y a la última.",
     "observed": "Observado",
     "forecast": "Pronóstico",
     "forecastAhead": "Pronóstico, {minutes} min por delante",
@@ -1081,7 +1081,8 @@
     "frameLoading": "Cargando esta imagen …",
     "framesLoadingLive": "Cargando las imágenes de radar …",
     "framesReady": "Las imágenes de radar están cargadas.",
-    "unavailable": "El radar no está disponible en este servidor."
+    "unavailable": "El radar no está disponible en este servidor.",
+    "framesNone": "No se pudo cargar ninguna imagen de radar."
   },
   "dataViewer": {
     "loadingValues": "Cargando valores …",

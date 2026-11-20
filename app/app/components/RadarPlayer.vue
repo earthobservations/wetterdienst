@@ -5,7 +5,7 @@ import { describeFrame } from '~/utils/radar'
 // The player of the Radar tool (GH-3788): play and pause, a step back and a step on, and a slider over the frames of the loop, with the
 // time of the frame in the reader's own zone and whether it is observed or forecast, in words and by an icon, never by colour alone
 // (WCAG 1.4.1). Everything a pointer does a keyboard does: the buttons are 44 px, the slider is the browser's own range input (the
-// arrow keys step, Home and End jump to the ends, Page Up and Page Down by ten) and a step back and a step on are the way for a
+// arrow keys step, Home and End jump to the ends, Page Up and Page Down jump further) and a step back and a step on are the way for a
 // pointer that cannot drag (WCAG 2.5.7). The slider's track is solid for the observed frames and hatched for the forecast, so
 // that the line between them is seen where the loop is long. Any of these controls pauses the loop; a step, which is no slider, says the
 // frame it is at in a polite status where the loop is not playing (the slider says its own value). A step that cannot go on (the first
@@ -47,6 +47,8 @@ const atEnd = computed(() => props.index >= last.value)
 const stepped = ref(false)
 const announcement = computed(() => stepped.value && !props.playing && words.value ? words.value.value : '')
 function onSeek(event: Event) {
+  // a move of the slider is read out by the slider: a step announced before it must not be said again for this frame
+  stepped.value = false
   emit('seek', Number((event.target as HTMLInputElement).value))
 }
 function onStep(by: number) {

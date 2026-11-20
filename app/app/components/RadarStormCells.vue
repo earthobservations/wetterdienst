@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import type { StormCellsStatus } from '~/composables/useStormCells'
 import type { StormCell, StormScan } from '~/utils/storm-cells'
-import { formatHour, formatNumber, formatRunTime } from '~/utils/format'
+import { formatNumber } from '~/utils/format'
+import { formatFrameTime } from '~/utils/radar'
 import { cellView, compassPoint, hasMotion, LIST_LIMIT, listed, roundedPosition, SEVERITIES, styleOf } from '~/utils/storm-cells'
 import { timestampDate } from '~/utils/timestamp'
 
@@ -39,12 +40,17 @@ const showAll = ref(false)
 const shown = computed(() => listed(props.scan?.cells ?? [], showAll.value))
 const hasMore = computed(() => (props.scan?.cells.length ?? 0) > LIST_LIMIT)
 
-const time = computed(() => props.scan?.referenceTime ? formatRunTime(props.scan.referenceTime, formatLanguage.value) : '')
-/** The scan's time of day in UTC, for the notes about the scan: "22:15 UTC" */
-const clock = computed(() => {
+/**
+ * The scan's time as the radar writes its frames' (`formatFrameTime`): the time of day in the reader's own zone with the zone's name
+ * ("09:40 CET"), the weekday where it is not today. The radar's times and the cells' are then the same kind, which a reader compares
+ * (GH-3788); the cells were UTC with the date.
+ */
+const time = computed(() => {
   const at = props.scan?.referenceTime ? timestampDate(props.scan.referenceTime) : null
-  return at ? `${formatHour(at.getTime(), formatLanguage.value)} UTC` : ''
+  return at ? formatFrameTime(at.getTime(), formatLanguage.value, Date.now()) : ''
 })
+/** The same, for the notes about the scan (out of date, faded, a refresh that failed) */
+const clock = time
 const count = computed(() => formatNumber(props.scan?.cells.length ?? 0, formatLanguage.value, 0))
 
 /**

@@ -1011,7 +1011,7 @@
     "stepBack": "Previous frame",
     "stepForward": "Next frame",
     "timeLabel": "Time of the radar frame",
-    "timeHint": "The left and right arrow keys step through the frames, Page Up and Page Down by ten, Home and End go to the first and the last.",
+    "timeHint": "The left and right arrow keys step through the frames, Page Up and Page Down jump further, Home and End go to the first and the last.",
     "observed": "Observed",
     "forecast": "Forecast",
     "forecastAhead": "Forecast, {minutes} min ahead",
@@ -1081,7 +1081,8 @@
     "frameLoading": "Loading this frame …",
     "framesLoadingLive": "Loading the radar frames …",
     "framesReady": "The radar frames are loaded.",
-    "unavailable": "The radar is not available on this server."
+    "unavailable": "The radar is not available on this server.",
+    "framesNone": "None of the radar frames could be loaded."
   },
   "dataViewer": {
     "loadingValues": "Loading values …",
