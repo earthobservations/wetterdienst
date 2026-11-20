@@ -706,50 +706,18 @@ def read_daily_inventory(settings: Settings) -> pl.DataFrame:
     )
 
 
-#: the elements of the daily inventory that a request names together and that then count together: a station has the
-#: pair only where it has both, over the years of both. TMAX and TMIN are the days' range, from which a day's mean is
-#: taken where the source gives no TAVG (the midrange, as the climate stripes take it); a request for one of them alone
-#: counts it alone
-GHCN_DAILY_PAIRED_ELEMENTS: tuple[tuple[str, ...], ...] = (("TMAX", "TMIN"),)
-
-
-def daily_element_spans(inventory: pl.DataFrame, elements: Iterable[str]) -> pl.DataFrame:
+def daily_element_spans(inventory: pl.DataFrame, elements: Iterable[str] | None = None) -> pl.DataFrame:
     """Give the first and last year of the record each station has of `elements`, the stations that have none left out.
 
     The columns are `station_id`, `first_year` and `last_year`, as integers. A station is listed where it has at least
-    one of the elements, and its span runs from the earliest first year to the latest last year of those it has, with
-    the elements of `GHCN_DAILY_PAIRED_ELEMENTS` that are all named counting as one: a station having only TMAX has
-    none of the pair TMAX and TMIN, and where it has both, they count from the later of their first years to the
-    earlier of their last years, or not at all where those years do not meet. It is the span the record can
-    reach, not the years with a value.
+    one of the elements (any, where none are named), and its span runs from the earliest first year to the latest last
+    year of those it has. It is the span the record can reach, not the years with a value.
     """
-    names = set(elements)
-    paired = [pair for pair in GHCN_DAILY_PAIRED_ELEMENTS if names.issuperset(pair)]
-    units = [*paired, *((name,) for name in sorted(names - {name for pair in paired for name in pair}))]
-    element, start, end = pl.col("element"), pl.col("start_timestamp"), pl.col("end_timestamp")
-
-    def first(name: str) -> pl.Expr:
-        return start.filter(element == name).min()
-
-    def last(name: str) -> pl.Expr:
-        return end.filter(element == name).max()
-
-    firsts, lasts = [], []
-    for unit in units:
-        unit_first, unit_last = (
-            pl.max_horizontal(first(name) for name in unit),
-            pl.min_horizontal(last(name) for name in unit),
-        )
-        # a unit whose elements have no year in common has no span
-        has_span = pl.all_horizontal(first(name).is_not_null() for name in unit) & (unit_first <= unit_last)
-        firsts.append(pl.when(has_span).then(unit_first))
-        lasts.append(pl.when(has_span).then(unit_last))
-    spans = (
-        inventory.filter(element.is_in(sorted(names)))
-        .group_by("station_id")
-        .agg(pl.min_horizontal(firsts).alias("first_year"), pl.max_horizontal(lasts).alias("last_year"))
+    if elements is not None:
+        inventory = inventory.filter(pl.col("element").is_in(sorted(set(elements))))
+    return inventory.group_by("station_id").agg(
+        pl.col("start_timestamp").min().alias("first_year"), pl.col("end_timestamp").max().alias("last_year")
     )
-    return spans.filter(pl.col("first_year").is_not_null() & pl.col("last_year").is_not_null()).sort("station_id")
 
 
 def _years_to_timestamps(df: pl.DataFrame, start: str, end: str) -> pl.DataFrame:
@@ -931,13 +899,11 @@ class NoaaGhcnRequest(TimeseriesRequest):
         )
         return df.lazy()
 
-    def _create_metaindex_for_ghcn_daily(
-        self, parameters: list[ParameterModel] | None = None, dataset: DatasetModel | None = None
-    ) -> pl.LazyFrame:
+    def _create_metaindex_for_ghcn_daily(self, parameters: list[ParameterModel], dataset: DatasetModel) -> pl.LazyFrame:
         """Acquire station listing for ghcn daily.
 
-        The whole dataset (every parameter of it, or none given) lists every station the inventory has a line for, with
-        the span of all its elements. A request for some of its parameters lists the stations whose inventory has at
+        The whole dataset (every parameter of it) lists every station the inventory has a line for, with the span of all
+        its elements. A request for some of its parameters lists the stations whose inventory has at
         least one of them, with the span of those (`daily_element_spans`, GH-4270); the inventory is read for it as it
         is for the whole dataset, and a failure to read it is raised, never an unfiltered list.
 
@@ -1010,26 +976,15 @@ class NoaaGhcnRequest(TimeseriesRequest):
 
         inventory_df = read_daily_inventory(settings)
         elements = None
-        if parameters and dataset and {p.name for p in parameters} != {p.name for p in dataset.parameters}:
+        if {p.name for p in parameters} != {p.name for p in dataset.parameters}:
             elements = {p.name_original.upper() for p in parameters}
-        if elements is None:
-            inventory_df = inventory_df.group_by(["station_id"]).agg(
-                pl.col("start_timestamp").min().alias("first_year"),
-                pl.col("end_timestamp").max().alias("last_year"),
-            )
-        else:
-            inventory_df = daily_element_spans(inventory_df, elements)
+        inventory_df = daily_element_spans(inventory_df, elements)
         inventory_df = _years_to_timestamps(inventory_df, "first_year", "last_year").select(
             "station_id", "start_timestamp", "end_timestamp"
         )
-        # the whole dataset keeps the stations the inventory has no line for, which `_all` then leaves out; a request
-        # for some parameters lists only those whose inventory has one of them
-        df = df.join(
-            other=inventory_df,
-            how="left" if elements is None else "inner",
-            on=["station_id"],
-            maintain_order="left",
-        ).lazy()
+        # always a left join: a station with no element asked for has no span, which `_all` leaves out once the
+        # hourly rows of the same station have been given its elevation (GH-3260)
+        df = df.join(other=inventory_df, how="left", on=["station_id"], maintain_order="left").lazy()
         df = df.with_columns(
             pl.lit("daily").alias("resolution"),
             pl.lit("data").alias("dataset"),

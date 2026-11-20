@@ -30,11 +30,11 @@ request for the whole `daily/data` lists every station the inventory has a line 
 elements to the last. A request that names some parameters (`daily/data/precipitation_amount`) lists only the stations
 whose inventory has at least one of their elements (`name_original`: `PRCP`), and `start_timestamp` and `end_timestamp`
 are the span of those: 1 January of the first year, and 31 December of the last, or none where the last year is the one
-running. `TMAX` and `TMIN` named together count as the daily range: a station needs both, and the span is the years
-they have in common (none where they have none); a station with one of them alone is not listed for the pair, and is
-for either of them named alone. So `temperature_air_mean_2m`, `temperature_air_max_2m` and `temperature_air_min_2m`
-together give the span of `TAVG` or of that range, whichever reaches further, which is how the climate stripes take a
-station's temperature. An inventory that cannot be read is an error of the request, never an unfiltered list.
+running. With several parameters a station is listed for any of them, and the span runs from the earliest first year to
+the latest last year of the elements it has; no element counts with another. A station asked for by id that has none
+of the named elements is no station of the request: `values` answers empty with the `unknown-station` warning, and
+`interpolate` and `summarize` by its id raise a 404. The whole dataset has no such filter, and a latitude and longitude
+need no id.
 
 ## Where the daily files are read
 
