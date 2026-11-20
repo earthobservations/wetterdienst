@@ -1,5 +1,5 @@
 // Counts the requests that cost something (GH-3093): `values`, `stations`, `interpolate`, `summarize`,
-// `stripes`, `history`, whatever else the backend serves but its catalogue, and the `/mcp` proxy, per client,
+// `history`, whatever else the backend serves but its catalogue, the `/mcp` proxy and the app's own `/_ghcn` routes, per client,
 // and answers a 429 past the limit. The pages, the assets and the catalogue routes are not counted: an
 // interactive session asks for those all the time. What is counted and how the client is told apart is in
 // `~/server/utils/rateLimit`; the limit, its window and the header to read the client from are

@@ -477,12 +477,13 @@ export async function mockBackend(
   }
 
   await page.route(
-    url => url.origin === origin && url.pathname.startsWith('/api/'),
+    url => url.origin === origin && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/_ghcn/')),
     async (route) => {
       inFlight++
       try {
         const url = new URL(route.request().url())
-        const handler = backend.handlers[url.pathname.replace(/^\/api\//, '')]
+        // `/_ghcn/` (the app's own server's routes, GH-4267) keeps its prefix in the key: `_ghcn/map-stations`
+        const handler = backend.handlers[url.pathname.replace(/^\/api\//, '').replace(/^\//, '')]
         if (!handler) {
           backend.unanswered.push(url.pathname)
           await route.fulfill({ status: 501, json: { detail: `not mocked: ${url.pathname}` } })
