@@ -201,6 +201,8 @@ test.describe('Providers Page', () => {
 
 test.describe('Support Page', () => {
   test('should be reachable from the header icon', async ({ page }) => {
+    // the heart is in the header from 90 rem (1440 px); below that Support is the footer's link (below)
+    await page.setViewportSize({ width: 1440, height: 900 })
     await page.goto('/')
     await page.waitForLoadState('networkidle')
     // Support is not a nav entry: it is a heart in the header's project links, and a footer link.
