@@ -1,9 +1,11 @@
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { nextTick } from 'vue'
 import { useRouter } from '#imports'
 import StripesPage from '~/pages/stripes.vue'
-import { downloadBlob } from '~/utils/chart-image'
+import { downloadBlob, svgToBlob } from '~/utils/chart-image'
 import { stripesAnswer } from '../../helpers/stripes-answer'
 
 // The stripes page draws the years as stripes, bars or bars with a scale (GH-4156): the switch above the chart, the variant in
@@ -69,6 +71,9 @@ const radios = () => [...switcher().querySelectorAll<HTMLButtonElement>('[role="
 const radio = (name: string) => radios().find(button => button.textContent?.trim() === name)!
 const checked = () => radios().filter(button => button.getAttribute('aria-checked') === 'true').map(button => button.textContent?.trim())
 const queryVariant = () => useRouter().currentRoute.value.query.variant
+
+// the messages of a language as its file has them (the build compiles an imported JSON of the locales)
+const en = JSON.parse(readFileSync(join(process.cwd(), 'i18n', 'locales', 'en.json'), 'utf8'))
 
 let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
 afterEach(() => {
@@ -167,6 +172,48 @@ describe('stripes Page variants (GH-4156)', () => {
     // the stripes of the other kind are fetched anew, and the choice of how to draw them is still the reader's
     await vi.waitFor(() => expect(useRouter().currentRoute.value.query.kind).toBe('precipitation'))
     expect(queryVariant()).toBe('bars')
+  })
+})
+
+// What wetterdienst did to the data, under the source line (GH-3799)
+describe('stripes Page processing note (GH-3799)', () => {
+  const note = () => document.body.querySelector('[data-testid="stripes-processing-note"]')
+
+  it('says it under the chart, as real text, in the language of the page', async () => {
+    await show('/stripes?kind=temperature')
+    expect(note()!.tagName).toBe('P')
+    expect(note()!.textContent?.trim()).toBe(en.processingNote.base)
+    // under the chart, which draws the source line
+    expect(note()!.previousElementSibling?.contains(document.body.querySelector('.stripes-chart'))).toBe(true)
+  })
+
+  it.each(['bars', 'bars_scale'])('says it under the %s too', async (variant) => {
+    await show(`/stripes?kind=temperature&variant=${variant}`)
+    expect(note()!.textContent?.trim()).toBe(en.processingNote.base)
+  })
+
+  it('says none where the source line is not shown, as it names no source then', async () => {
+    await show('/stripes?kind=temperature&show_source=false')
+    expect(drawn(drawnOption()).texts).not.toContain('Source: Deutscher Wetterdienst')
+    expect(note()).toBeNull()
+  })
+
+  it('is in the saved image, directly under the source line and before what the colours are relative to', async () => {
+    const vm = await show('/stripes?kind=temperature')
+    vi.mocked(svgToBlob).mockClear()
+    await vm.downloadStripes('png')
+    const svg = vi.mocked(svgToBlob).mock.calls[0]![0] as string
+    const at = (text: string) => svg.indexOf(text)
+    expect(at('Source: Deutscher Wetterdienst')).toBeGreaterThan(-1)
+    expect(at('Processed by wetterdienst')).toBeGreaterThan(at('Source: Deutscher Wetterdienst'))
+    expect(at('Colours:')).toBeGreaterThan(at('Processed by wetterdienst'))
+  })
+
+  it('is not in the saved image where the source line is not shown', async () => {
+    const vm = await show('/stripes?kind=temperature&show_source=false')
+    vi.mocked(svgToBlob).mockClear()
+    await vm.downloadStripes('png')
+    expect(vi.mocked(svgToBlob).mock.calls[0]![0] as string).not.toContain('Processed by wetterdienst')
   })
 })
 
@@ -275,21 +322,28 @@ describe('stripes Page table view (GH-4233)', () => {
     expect(Array.from(bytes.slice(0, 3))).toEqual([0xEF, 0xBB, 0xBF])
     expect(type).toContain('text/csv')
     const lines = text.trimEnd().split('\n')
-    expect(lines.slice(0, 4)).toEqual([
+    // the note of what wetterdienst did to the data comes after the licence (GH-3799)
+    expect(lines.slice(0, 5)).toEqual([
       '# Climate stripes (Temperature) for Berlin-Tempelhof, Germany (1048)',
       '# Colours: the mean of the whole record (2001–2020) is the centre of the scale, which spans ±2.6 standard deviations of the whole record (2001–2020) (Ed Hawkins\' method).',
       '# Source: Deutscher Wetterdienst (DWD), Climate Data Center',
       '# Licence: Creative Commons Attribution 4.0 International (https://creativecommons.org/licenses/by/4.0/)',
+      `# ${en.processingNote.base}`,
     ])
-    expect(lines[4]).toBe('Year,Value (°C),Anomaly (°C),Class')
-    expect(lines).toHaveLength(4 + 1 + YEARS.length)
+    expect(lines[5]).toBe('Year,Value (°C),Anomaly (°C),Class')
+    expect(lines).toHaveLength(5 + 1 + YEARS.length)
     // the same rows as the table shows, as numbers a program reads
-    const first = lines[5]!.split(',')
+    const first = lines[6]!.split(',')
     expect(first[0]).toBe('2001')
     expect(first[1]).toMatch(/^\d+\.\d{2}$/)
     expect(first[2]).toMatch(/^-?\d+\.\d{2}$/)
     expect(first[3]).toMatch(/^(Much cooler|Cooler|Middle|Warmer|Much warmer)$/)
-    expect(lines.slice(5).map(line => line.split(',')[0])).toEqual(YEARS.map(({ year }) => String(year)))
+    expect(lines.slice(6).map(line => line.split(',')[0])).toEqual(YEARS.map(({ year }) => String(year)))
+  })
+
+  it('says no note on the page, which has no source line in this view; the file carries it', async () => {
+    await showWithoutDrawing('/stripes?kind=temperature&variant=table')
+    expect(document.body.querySelector('[data-testid="stripes-processing-note"]')).toBeNull()
   })
 
   it('credits the provider by the line the page has where the answer carries none, and writes no licence it does not have', async () => {
@@ -301,6 +355,7 @@ describe('stripes Page table view (GH-4233)', () => {
       '# Climate stripes (Temperature) for Berlin-Tempelhof, Germany (1048)',
       expect.stringMatching(/^# Colours: /),
       '# Source: Deutscher Wetterdienst',
+      `# ${en.processingNote.base}`,
     ])
   })
 
