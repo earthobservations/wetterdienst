@@ -56,11 +56,12 @@ RETURN_PERIODS: tuple[int, ...] = (1, 2, 3, 5, 10, 20, 30, 50, 100)
 VALUES_BBOX = (5.7, 47.18, 15.16, 55.14)
 
 #: what wetterdienst did to the values, which the `processing_note` says after the note every answer has: they are
-#: DWD's statistics of the cell and no readings, and no unit was converted
+#: DWD's statistics of the cell and no readings, and no unit was converted nor value changed
 KOSTRA_NOTE = (
     "The values are DWD's KOSTRA-DWD-2020 statistics of the 5 km grid cell that holds the point, not measurements at "
-    "it: wetterdienst selected the cell and read DWD's missing-value codes as null, and changed no value. The "
-    "uncertainty is DWD's tolerance in plus-minus percent, for the depth and for the intensity."
+    "it: wetterdienst selected the cell and changed no value (a cell for which DWD writes its missing-value codes is "
+    "refused, not answered). The uncertainty is DWD's tolerance in plus-minus percent, for the depth and for the "
+    "intensity."
 )
 
 

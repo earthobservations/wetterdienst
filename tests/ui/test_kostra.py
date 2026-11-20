@@ -21,6 +21,7 @@ from fastapi.testclient import TestClient
 
 from tests.provider.dwd.kostra.stubs import BERLIN, MUNICH, NORTH_SEA, serve
 from wetterdienst import exceptions
+from wetterdienst.provider.dwd.kostra import DURATIONS, RETURN_PERIODS
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
 
@@ -251,6 +252,22 @@ def test_the_mcp_tool_takes_the_point_and_says_to_pass_a_duration() -> None:
     assert tool.annotations.read_only_hint is True
     assert tool.annotations.open_world_hint is True
     assert "``duration``" in tool.description
+    # the durations and return periods DWD publishes are the enums of the schema, which a model reads before it asks
+    durations = tool.parameters["properties"]["duration"]["anyOf"][0]["enum"]
+    periods = tool.parameters["properties"]["return_period"]["anyOf"][0]["enum"]
+    assert durations == list(DURATIONS)
+    assert periods == list(RETURN_PERIODS)
+    assert "(a 400)" not in json.dumps(tool.parameters)
+    assert "(a 400)" not in tool.description
+
+
+def test_the_instructions_of_the_server_send_design_rainfall_to_the_tool() -> None:
+    """One line of the instructions says when to use `kostra`, as it does for the warnings."""
+    from wetterdienst.ui.mcp import INSTRUCTIONS  # noqa: PLC0415
+
+    line = next(line for line in INSTRUCTIONS.splitlines() if "kostra" in line)
+    assert "design rainfall" in line
+    assert "return period" in line
 
 
 def test_the_mcp_tool_answers_as_the_route_does(monkeypatch: pytest.MonkeyPatch) -> None:

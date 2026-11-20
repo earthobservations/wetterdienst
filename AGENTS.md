@@ -64,7 +64,7 @@ wetterdienst stations --provider dwd --network observation --parameters daily/kl
 wetterdienst values --provider dwd --network observation --parameters daily/kl --periods recent --stations 00011
 ```
 
-CLI commands (`ui/cli.py`, as `wetterdienst --help` prints them): `alerts`, `auth`, `cache`, `coverage`, `fields`, `glossary`, `history`, `info`, `interpolate`, `issues`, `providers`, `radar`, `restapi`, `stations`, `storm-cells`, `stripes`, `summarize`, `values`.
+CLI commands (`ui/cli.py`, as `wetterdienst --help` prints them): `alerts`, `auth`, `cache`, `coverage`, `fields`, `glossary`, `history`, `info`, `interpolate`, `issues`, `kostra`, `providers`, `radar`, `restapi`, `stations`, `storm-cells`, `stripes`, `summarize`, `values`.
 
 ## Architecture
 

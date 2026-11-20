@@ -16,7 +16,9 @@ import pytest
 from tests.nginx_stub import NginxLike, serving
 from wetterdienst import Settings
 from wetterdienst.exceptions import DownloadError, MetaFileFormatError, ProviderRateLimitError
+from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.dwd.kostra import DURATIONS, DwdKostraRequest
+from wetterdienst.util.network import cached_file_time, download_file
 
 from .stubs import BASE, BERLIN, MUNICH, TABLES, csv_name
 
@@ -133,24 +135,71 @@ def test_an_outage_page_answered_as_a_200_is_never_data(dwd: _Dwd) -> None:
     """A CDN's error page in place of the zip is a failure to read it: DWD's, a 502."""
     dwd.server.contents[_path(60)] = b"<html><body>Service Unavailable</body></html>"
 
-    with pytest.raises(MetaFileFormatError, match="is no zip archive"):
+    with pytest.raises(MetaFileFormatError, match="no readable zip archive"):
         dwd.request(duration=60).query()
 
 
-def test_an_outage_page_that_was_kept_is_fetched_again_once_the_server_is_right(dwd: _Dwd) -> None:
-    """The cache would keep the page for a week: a copy that does not read is fetched once more, then the table is."""
+def _cached(dwd: _Dwd, duration: int) -> float | None:
+    """Tell when the cache made its copy of a table, None where it holds none."""
+    return cached_file_time(
+        f"{dwd.server.base}{_path(duration)}",
+        cache_dir=dwd.settings.cache_dir,
+        ttl=CacheExpiry.ONE_WEEK,
+        client_kwargs=dwd.settings.fsspec_client_kwargs,
+        cache_disable=dwd.settings.cache_disable,
+        use_certifi=dwd.settings.use_certifi,
+    )
+
+
+def test_an_outage_page_is_not_kept_in_the_cache(dwd: _Dwd) -> None:
+    """The cache would serve the page for a week: it is dropped as it is refused, and the next request asks DWD."""
     dwd.server.contents[_path(60)] = b"<html><body>Service Unavailable</body></html>"
     with pytest.raises(MetaFileFormatError):
         dwd.request(duration=60).query()
     assert dwd.asked() == [_path(60)]
+    assert _cached(dwd, 60) is None
 
     dwd.server.contents[_path(60)] = TABLES[f"{csv_name(60)}.zip"]
     result = dwd.request(duration=60).query()
 
     assert result.df.height == 9
-    # the page held was read and refused, and the file asked for again
     assert dwd.asked() == [_path(60), _path(60)]
     # and the table is the copy held now
+    assert _cached(dwd, 60) is not None
     dwd.server.requests.clear()
     assert dwd.request(duration=60).query().df.height == 9
     assert dwd.server.requests == []
+
+
+def test_a_page_kept_by_an_older_request_is_fetched_again_once(dwd: _Dwd) -> None:
+    """A copy made before pages were dropped (an outage page kept for a week) is asked for again, once."""
+    page = b"<html><body>Service Unavailable</body></html>"
+    dwd.server.contents[_path(60)] = page
+    # what an older version left in the cache: the page, as a download of a 200
+    held = download_file(
+        f"{dwd.server.base}{_path(60)}",
+        cache_dir=dwd.settings.cache_dir,
+        ttl=CacheExpiry.ONE_WEEK,
+        client_kwargs=dwd.settings.fsspec_client_kwargs,
+    )
+    assert held.status == 200
+    assert _cached(dwd, 60) is not None
+    dwd.server.requests.clear()
+
+    # DWD has the table again: the copy held is read and refused, and the file asked for once more
+    dwd.server.contents[_path(60)] = TABLES[f"{csv_name(60)}.zip"]
+    assert dwd.request(duration=60).query().df.height == 9
+    assert dwd.asked() == [_path(60)]
+    assert _cached(dwd, 60) is not None
+
+
+def test_a_429_is_raised_before_the_other_failure_of_the_22_tables(dwd: _Dwd) -> None:
+    """A table that is gone (a 404) and a limit (a 429): the limit is the answer, as the next request meets it too."""
+    dwd.server.statuses[_path(5)] = 404
+    dwd.server.statuses[_path(1440)] = 429
+    dwd.server.status_headers[_path(1440)] = [("Retry-After", str(WAIT))]
+
+    with pytest.raises(ProviderRateLimitError) as raised:
+        dwd.request().query()
+
+    assert raised.value.retry_after == WAIT

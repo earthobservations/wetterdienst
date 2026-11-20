@@ -7,6 +7,7 @@ from __future__ import annotations
 import csv
 import io
 import json
+import zlib
 
 import polars as pl
 import pytest
@@ -16,7 +17,7 @@ from wetterdienst.provider.dwd.kostra import DURATIONS, EDITION, RETURN_PERIODS,
 from wetterdienst.provider.dwd.kostra.api import _SCHEMA
 from wetterdienst.provider.dwd.kostra.metadata import KOSTRA_NOTE, table_url
 
-from .stubs import BERLIN, FRANKFURT, HAMBURG, MUNICH, NORTH_SEA, UPDATED, csv_name, csv_of, serve, zipped
+from .stubs import BERLIN, FRANKFURT, HAMBURG, MUNICH, NORTH_SEA, TABLES, UPDATED, csv_name, csv_of, serve, zipped
 
 
 def test_a_duration_reads_one_table(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -195,11 +196,11 @@ def test_a_point_outside_the_grid_is_refused_before_anything_is_downloaded(monke
     assert asked == []
 
 
-def test_the_sentinels_are_null_and_the_values_next_to_them_are_kept(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A table that gave `-99,9` for the depth of one return period alone would have null there and the rest as it is.
+def test_a_cell_with_some_of_its_values_missing_is_a_format_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """DWD gives a cell all its values or none: some missing is not what it publishes, and is no table of nulls.
 
-    DWD gives no such cell (a cell is all or none), so this is what the reader does with the codes, held with a row
-    made from Berlin's by replacing the depth of the 10 year rain and the uncertainty of the 100 year rain.
+    The codes are read as null (the depth of the 10 year rain, the uncertainty of the 100 year rain), and a cell that
+    has some of them is refused, since no text of the source would stand beside the null.
     """
     lines = []
     for line in _csv_lines(60):
@@ -209,16 +210,10 @@ def test_the_sentinels_are_null_and_the_values_next_to_them_are_kept(monkeypatch
             fields[-1] = b"-99"  # UC_100A
             line = b";".join(fields)
         lines.append(line)
-    content = b"\n".join(lines)
-    serve(monkeypatch, {f"{csv_name(60)}.zip": zipped(content + b"\n", csv_name(60))})
+    serve(monkeypatch, {f"{csv_name(60)}.zip": zipped(b"\n".join(lines) + b"\n", csv_name(60))})
 
-    result = DwdKostraRequest(latitude=BERLIN[0], longitude=BERLIN[1], duration=60).query()
-
-    rows_by_period = {row["return_period_years"]: row for row in result.df.to_dicts()}
-    assert rows_by_period[10]["depth_mm"] is None
-    assert rows_by_period[10]["intensity_l_s_ha"] == 83.1
-    assert rows_by_period[100]["uncertainty_percent"] is None
-    assert rows_by_period[100]["depth_mm"] == 48.9
+    with pytest.raises(MetaFileFormatError, match=r"cell 105190 has 2 of its 27 values missing"):
+        DwdKostraRequest(latitude=BERLIN[0], longitude=BERLIN[1], duration=60).query()
 
 
 def _csv_lines(duration: int) -> list[bytes]:
@@ -297,3 +292,40 @@ def test_a_duration_given_as_a_whole_float_is_the_duration(monkeypatch: pytest.M
 
     assert asked == [table_url(60)]
     assert result.df.height == 1
+
+
+@pytest.mark.parametrize("offset", [40, 100, 200, 300, 400])
+def test_a_real_table_with_a_byte_flipped_is_a_format_error(monkeypatch: pytest.MonkeyPatch, offset: int) -> None:
+    """A copy damaged in the cache or on the way: the reader of the archive says so in its own way, and none escapes."""
+    body = bytearray(TABLES[f"{csv_name(60)}.zip"])
+    body[offset] ^= 0xFF
+    serve(monkeypatch, {f"{csv_name(60)}.zip": bytes(body)})
+
+    with pytest.raises(MetaFileFormatError):
+        DwdKostraRequest(latitude=BERLIN[0], longitude=BERLIN[1], duration=60).query()
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        zlib.error("Error -3 while decompressing"),
+        EOFError("cut short"),
+        NotImplementedError("compression"),
+        RuntimeError("encrypted"),
+    ],
+)
+def test_what_the_readers_of_an_archive_raise_is_a_format_error(
+    monkeypatch: pytest.MonkeyPatch, error: Exception
+) -> None:
+    """A damaged member raises `zlib.error` or `EOFError`; an unknown compression or a password raise others."""
+    serve(monkeypatch)
+
+    def raising(*_args: object, **_kwargs: object) -> None:
+        raise error
+
+    monkeypatch.setattr("zipfile.ZipFile.open", raising)
+
+    with pytest.raises(MetaFileFormatError, match="no readable zip archive") as raised:
+        DwdKostraRequest(latitude=BERLIN[0], longitude=BERLIN[1], duration=60).query()
+
+    assert raised.value.__cause__ is error

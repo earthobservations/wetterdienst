@@ -12,7 +12,8 @@ them in December 2022), so the cache keeps them for a week.
 The values come through `null_sentinels` like the readings of any provider: DWD's missing-value codes are `-99,9` (and
 `-99` for the uncertainty) and are null. A cell is either all of its values or none of them in every table (checked for
 all 22 when this was written), so a cell without values is refused as `LocationOutOfRangeError`, never answered as a
-table of nulls, and no value of an answer carries a `raw:` token.
+table of nulls, and no value of an answer carries a `raw:` token. A cell with some of its values missing is not what
+DWD publishes: a `MetaFileFormatError`, and not nulls with no text of the source beside them.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ import io
 import logging
 import time
 import zipfile
+import zlib
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import polars as pl
@@ -44,7 +46,7 @@ from wetterdienst.provider.dwd.kostra.metadata import (
 from wetterdienst.provider.dwd.metadata import _METADATA
 from wetterdienst.settings import Settings
 from wetterdienst.util.json_util import dumps_json, json_indent
-from wetterdienst.util.network import File, download_file, download_files
+from wetterdienst.util.network import File, download_file, download_files, drop_cached_file
 
 if TYPE_CHECKING:
     import datetime as dt
@@ -57,7 +59,7 @@ log = logging.getLogger(__name__)
 #: without asking again
 _EXPIRY = CacheExpiry.ONE_WEEK
 
-#: the most a table may hold once it is unzipped (the real ones are 8 MB), against a file that is no table of DWD's
+#: the most a table may hold once it is unzipped (the real ones are about 13 MB), against a file that is no table
 _MAX_TABLE_BYTES = 64 * 1024 * 1024
 
 _KINDS = {"HN": "depth_mm", "RN": "intensity_l_s_ha", "UC": "uncertainty_percent"}
@@ -235,8 +237,10 @@ class DwdKostraRequest:
 
         Raises:
             LocationOutOfRangeError: the point is outside the grid, or its cell has no values.
-            DownloadError: a table could not be downloaded, or what came is no table (a page of a CDN's outage).
-            MetaFileFormatError: a table is not laid out as DWD describes it.
+            DownloadError: a table could not be downloaded (a 404, a timeout).
+            ProviderRateLimitError: DWD answered a 429 for one of the tables, which is raised before any other failure.
+            MetaFileFormatError: what came is no table laid out as DWD describes it: a page of a CDN's outage answered
+                with a 200, a file that is no zip or is corrupt, or a cell with some of its values missing.
 
         """
         cell = self.cell
@@ -247,7 +251,14 @@ class DwdKostraRequest:
             fields = self._row_of(duration, file, cell)
             frames.append(self._frame_of(duration, fields))
         df = self._table_of(pl.concat(frames))
-        if df.select(pl.col("depth_mm").is_null().all()).item():
+        missing = sum(df.select(list(_SCHEMA)[2:]).null_count().row(0))
+        if missing and missing < df.height * len(_KINDS):
+            msg = (
+                f"the cell {cell.index_rc} has {missing} of its {df.height * len(_KINDS)} values missing in the tables "
+                "of KOSTRA-DWD-2020: DWD gives a cell all its values or none"
+            )
+            raise MetaFileFormatError(msg)
+        if missing:
             msg = (
                 f"DWD gives no KOSTRA-DWD-2020 values for the point {self.latitude}, {self.longitude}: its cell "
                 f"({cell.index_rc}) is outside Germany and the border of about 10 km DWD covers."
@@ -273,6 +284,11 @@ class DwdKostraRequest:
                 use_certifi=self.settings.use_certifi,
             )
         )
+        # a 429 is raised before any other failure: it is a limit the next request meets too, and must not be hidden
+        # behind a 404 of another of the tables
+        for file in files:
+            if file.is_rate_limited:
+                file.raise_if_exception()
         for file in files:
             file.raise_if_exception()
         return files
@@ -291,18 +307,34 @@ class DwdKostraRequest:
     def _row_of(self, duration: int, file: File, cell: Cell) -> list[str]:
         """Read the fields of the row of the cell from a downloaded table.
 
-        A file that does not read as a table is a `MetaFileFormatError`: DWD's, not the request's. A copy from the
-        cache that does not (a page of an outage that was answered with a 200 and kept) is fetched once more before it
-        is, as the cache would keep it for a week.
+        A file that does not read as a table is a `MetaFileFormatError`: DWD's, not the request's, and the copy of it
+        the cache made is dropped, so that the next request asks DWD again and not the cache for a week. A copy that was
+        kept by a request before (a page of an outage answered with a 200) is fetched once more before it is refused.
         """
         try:
             return _read_row(file, cell)
         except MetaFileFormatError:
+            self._drop(file.url)
             if not file.from_cache:
                 raise
         refetched = self._download_one(table_url(duration), refetch=True)
         refetched.raise_if_exception()
-        return _read_row(refetched, cell)
+        try:
+            return _read_row(refetched, cell)
+        except MetaFileFormatError:
+            self._drop(refetched.url)
+            raise
+
+    def _drop(self, url: str) -> None:
+        """Delete the copy of a file the cache made, which is no table and would be served for a week."""
+        drop_cached_file(
+            url,
+            cache_dir=self.settings.cache_dir,
+            ttl=_EXPIRY,
+            client_kwargs=self.settings.fsspec_client_kwargs,
+            cache_disable=self.settings.cache_disable,
+            use_certifi=self.settings.use_certifi,
+        )
 
     @staticmethod
     def _frame_of(duration: int, fields: list[str]) -> pl.DataFrame:
@@ -346,8 +378,9 @@ def _read_row(file: File, cell: Cell) -> list[str]:
     """Read the fields of the row of a cell from the zipped table of a duration, in the order of the header.
 
     Raises:
-        MetaFileFormatError: the body is no zip with one table, the table's header is not the one DWD describes, or it
-            has no row for the cell.
+        MetaFileFormatError: the body is no zip (a page of an outage), is corrupt or compressed in a way the reader does
+            not know, holds no single table, the table's header is not the one DWD describes, or it has no row for the
+            cell.
 
     """
     content = file.content
@@ -359,10 +392,15 @@ def _read_row(file: File, cell: Cell) -> list[str]:
             if len(members) != 1 or members[0].file_size > _MAX_TABLE_BYTES:
                 msg = f"{file.url} holds no single KOSTRA table"
                 raise MetaFileFormatError(msg)
-            text = archive.read(members[0])
-    except zipfile.BadZipFile as e:
-        # a page of a CDN's outage or a body cut short, which is DWD's to answer for
-        msg = f"{file.url} is no zip archive"
+            with archive.open(members[0]) as member:
+                text = member.read(_MAX_TABLE_BYTES + 1)
+            if len(text) > _MAX_TABLE_BYTES:
+                msg = f"{file.url} holds a table larger than any of KOSTRA-DWD-2020"
+                raise MetaFileFormatError(msg)
+    except (zipfile.BadZipFile, zlib.error, EOFError, NotImplementedError, RuntimeError) as e:
+        # a page of a CDN's outage, a body cut short or flipped, a compression the reader does not know, or an
+        # encrypted member: DWD's to answer for, whichever of the readers of the archive says so
+        msg = f"{file.url} is no readable zip archive of a table"
         raise MetaFileFormatError(msg) from e
     text = text.removeprefix(b"\xef\xbb\xbf")
     head, _, _ = text.partition(b"\n")

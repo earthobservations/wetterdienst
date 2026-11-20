@@ -216,5 +216,11 @@
     "rmi/observation": "wetterdienst.provider.rmi.observation.RmiObservationRequest",
     "smhi/observation": "wetterdienst.provider.smhi.observation.SmhiObservationRequest",
     "wsv/pegel": "wetterdienst.provider.wsv.pegel.WsvPegelRequest"
+  },
+  "point_lookups": {
+    "dwd/kostra": "(*, latitude, longitude, duration=None, return_period=None, settings=None)"
+  },
+  "point_lookup_exports": {
+    "dwd/kostra": "wetterdienst.provider.dwd.kostra.DwdKostraRequest"
   }
 }

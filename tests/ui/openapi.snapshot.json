@@ -6009,7 +6009,7 @@
           "Heavy rainfall"
         ],
         "summary": "Kostra",
-        "description": "Provide DWD's heavy-rainfall statistics (KOSTRA-DWD-2020) of a point via restapi.\n\nReturns the table of the cell of DWD's 5 km grid that holds the point: for each duration of a rain (5 minutes to\n7 days) and each return period (1 to 100 years) its depth in mm (``depth_mm``), its intensity in l/(s ha)\n(``intensity_l_s_ha``) and DWD's uncertainty in plus-minus percent (``uncertainty_percent``, a tolerance of both),\nwith the cell's ``index_rc`` and the position of its centre. Engineers size drains and retention basins with these\nvalues. Pass ``duration`` (and ``return_period``) for the one value you need: a duration reads one table of DWD,\nwithout it all 22 are read (2 s the first time, then from the cache). The values are DWD's statistics for the cell,\nnot measurements at the point. A point outside Germany and a border of about 10 km, or in the sea, is a 400.",
+        "description": "Provide DWD's heavy-rainfall statistics (KOSTRA-DWD-2020) of a point via restapi.\n\nReturns the table of the cell of DWD's 5 km grid that holds the point: for each duration of a rain (5 minutes to\n7 days) and each return period (1 to 100 years) its depth in mm (``depth_mm``), its intensity in l/(s ha)\n(``intensity_l_s_ha``) and DWD's uncertainty in plus-minus percent (``uncertainty_percent``, a tolerance of both),\nwith the cell's ``index_rc`` and the position of its centre. Engineers size drains and retention basins with these\nvalues. Pass ``duration`` (and ``return_period``) for the one value you need: a duration reads one table of DWD,\nwithout it all 22 are read (2 s the first time, then from the cache). The values are DWD's statistics for the cell,\nnot measurements at the point. A point outside Germany and a border of about 10 km, or in the sea, is refused.",
         "operationId": "kostra_api_kostra_get",
         "parameters": [
           {
@@ -6020,10 +6020,10 @@
               "type": "number",
               "maximum": 90,
               "minimum": -90,
-              "description": "Latitude of the point. DWD's grid covers Germany and a border of about 10 km: a point outside it, or in the sea, is refused (a 400).",
+              "description": "Latitude of the point. DWD's grid covers Germany and a border of about 10 km: a point outside it, or in the sea, is refused.",
               "title": "Latitude"
             },
-            "description": "Latitude of the point. DWD's grid covers Germany and a border of about 10 km: a point outside it, or in the sea, is refused (a 400)."
+            "description": "Latitude of the point. DWD's grid covers Germany and a border of about 10 km: a point outside it, or in the sea, is refused."
           },
           {
             "name": "longitude",
@@ -6045,7 +6045,31 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "integer",
+                  "enum": [
+                    5,
+                    10,
+                    15,
+                    20,
+                    30,
+                    45,
+                    60,
+                    90,
+                    120,
+                    180,
+                    240,
+                    360,
+                    540,
+                    720,
+                    1080,
+                    1440,
+                    2880,
+                    4320,
+                    5760,
+                    7200,
+                    8640,
+                    10080
+                  ]
                 },
                 {
                   "type": "null"
@@ -6063,7 +6087,18 @@
             "schema": {
               "anyOf": [
                 {
-                  "type": "integer"
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2,
+                    3,
+                    5,
+                    10,
+                    20,
+                    30,
+                    50,
+                    100
+                  ]
                 },
                 {
                   "type": "null"

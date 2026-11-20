@@ -16,7 +16,7 @@ table of the grid cell that holds it, on every surface: `DwdKostraRequest` in Py
 
 | | |
 | --- | --- |
-| Grid | 300 by 300 cells of 5 km, **ETRS89-LAEA (EPSG:3035)**, about 17 % of the cells hold values: Germany and a border of about 10 km |
+| Grid | 300 by 300 cells of 5 km, **ETRS89-LAEA (EPSG:3035)**, about 17.8 % of the cells (15,989 of 90,000) hold values: Germany and a border of about 10 km |
 | Durations | 22: 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 540, 720, 1080, 1440, 2880, 4320, 5760, 7200, 8640 and 10080 minutes |
 | Return periods | 9: 1, 2, 3, 5, 10, 20, 30, 50 and 100 years |
 | Files | one zipped table of 0.7 MB for each duration, 90,000 rows each, which DWD wrote in December 2022 and has not changed |
@@ -36,9 +36,10 @@ The answer is the table of the cell, **one row for each duration and return peri
 | `uncertainty_percent` | DWD's tolerance, plus and minus, to 1 %. It is for the depth **and** for the intensity | % | `UC_<T>A` |
 
 The values are DWD's own numbers: nothing is converted or calculated, the missing-value codes are the only thing
-changed. DWD writes `-99,9` (and `-99` for the uncertainty) where it has no value, which is null here (read as
+changed. DWD writes `-99,9` (and `-99` for the uncertainty) where it has no value, which is read as null (as
 `null_sentinels` reads every provider's). Of the 90,000 cells 74,011 have none, in every table alike: a cell has all of
-its values or none, so a cell without values is **refused** and no table of nulls is answered. The uncertainty is not a
+its values or none, so a cell without values is **refused** and no table of nulls is answered, and a cell with only
+some of its values missing, which DWD does not publish, is a `MetaFileFormatError` (a 502). The uncertainty is not a
 safety margin (DWD says so): it is what the method does not know, larger for the rarer rains, and it does not account
 for a changing climate.
 
@@ -112,10 +113,12 @@ its position in that grid. It was checked against DWD when it was written:
 
 ## Licence
 
-The data is the DWD's, under the terms of its open data (GeoNutzV; the same as for the other datasets of the CDC): the
-`metadata` block of an answer carries the licence and the credit line, "Source: Deutscher Wetterdienst". It says that
-`processing_note` too: the values are DWD's statistics of the grid cell of the point, **not measurements at the point**,
-selected for the cell with DWD's missing-value codes read as null. The note does not use the sentence of
+The data is the DWD's, and the licence is **CC BY 4.0** with the credit line "Source: Deutscher Wetterdienst", as for
+every dataset of the DWD: the `metadata` block of an answer carries both (`provider.license`, `provider.attribution`;
+the headers `X-Wetterdienst-License` and `X-Wetterdienst-Attribution` of a CSV answer). DWD's own description of
+KOSTRA-DWD-2020 names the GeoNutzV (free reuse with a source note, "Open Data"). The block says what was done in the
+`processing_note` too: the values are DWD's statistics of the grid cell of the point, **not measurements at the
+point**, selected for the cell, and no value is changed. The note does not use the sentence of
 `interpolate` and `summarize` (selected or calculated from the provider's readings), because the values are not
 readings and nothing is calculated from them. DWD offers tables for a site, for a fee, by e-mail to hydromet@dwd.de.
 

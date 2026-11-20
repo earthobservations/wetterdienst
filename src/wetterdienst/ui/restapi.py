@@ -3029,7 +3029,7 @@ def kostra(
     with the cell's ``index_rc`` and the position of its centre. Engineers size drains and retention basins with these
     values. Pass ``duration`` (and ``return_period``) for the one value you need: a duration reads one table of DWD,
     without it all 22 are read (2 s the first time, then from the cache). The values are DWD's statistics for the cell,
-    not measurements at the point. A point outside Germany and a border of about 10 km, or in the sea, is a 400.
+    not measurements at the point. A point outside Germany and a border of about 10 km, or in the sea, is refused.
     """
     from wetterdienst.provider.dwd.kostra import DwdKostraRequest  # noqa: PLC0415
 

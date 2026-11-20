@@ -2005,7 +2005,7 @@ class KostraRequest(_RefusesRenamedParameters):
             ge=LATITUDE_MIN,
             le=LATITUDE_MAX,
             description="Latitude of the point. DWD's grid covers Germany and a border of about 10 km: a point "
-            "outside it, or in the sea, is refused (a 400).",
+            "outside it, or in the sea, is refused.",
         ),
     ]
     longitude: Annotated[
@@ -2015,16 +2015,18 @@ class KostraRequest(_RefusesRenamedParameters):
     duration: Annotated[
         int | None,
         Field(
+            json_schema_extra={"anyOf": [{"type": "integer", "enum": list(KOSTRA_DURATIONS)}, {"type": "null"}]},
             description="Only this duration of the rain, in minutes: "
             f"{', '.join(str(duration) for duration in KOSTRA_DURATIONS)} (5 minutes to 7 days). Without it all 22, "
-            "for which 22 tables of DWD are read (2 s the first time, then from the cache): give the one you need."
+            "for which 22 tables of DWD are read (2 s the first time, then from the cache): give the one you need.",
         ),
     ] = None
     return_period: Annotated[
         int | None,
         Field(
+            json_schema_extra={"anyOf": [{"type": "integer", "enum": list(KOSTRA_RETURN_PERIODS)}, {"type": "null"}]},
             description="Only this return period, in years: "
-            f"{', '.join(str(period) for period in KOSTRA_RETURN_PERIODS)}. Without it all nine."
+            f"{', '.join(str(period) for period in KOSTRA_RETURN_PERIODS)}. Without it all nine.",
         ),
     ] = None
     format: Annotated[
