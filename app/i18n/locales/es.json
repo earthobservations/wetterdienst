@@ -161,6 +161,7 @@
       "api": "La API REST y el servidor MCP de Wetterdienst: formatos y ejemplos para estaciones, valores, interpolación y franjas climáticas.",
       "providers": "Los servicios meteorológicos nacionales detrás de los datos: país, licencia, la atribución que debe indicarse y lo que ofrece cada uno.",
       "glossary": "Qué mide cada parámetro meteorológico y climático y en qué unidad se devuelven sus valores, con búsqueda por nombre y magnitud.",
+      "measurement": "Cómo se mide el tiempo atmosférico: instrumentos, cómo una lectura se convierte en valor, qué dice la cifra y en qué se diferencian los proveedores, con fuentes.",
       "about": "Sobre el proyecto de código abierto Wetterdienst y las personas que lo mantienen.",
       "support": "Apoyar Wetterdienst: informar de un problema, aportar código o donar.",
       "map": "Un mapa de las estaciones del Servicio Meteorológico Alemán: elige una estación o un punto cualquiera para ver su pronóstico, sus franjas climáticas y sus mediciones."
@@ -204,6 +205,7 @@
     "providers": "Proveedores",
     "api": "API",
     "glossary": "Glosario",
+    "measurement": "Medición",
     "support": "Ayuda",
     "map": "Mapa"
   },
@@ -462,7 +464,38 @@
     "unitTypeLabel": "Magnitud",
     "loading": "Cargando…",
     "noResults": "Ningún parámetro coincide con la búsqueda.",
-    "count": "{shown} de {count} parámetro | {shown} de {count} parámetros"
+    "count": "{shown} de {count} parámetro | {shown} de {count} parámetros",
+    "howMeasured": "¿Cómo se mide esto?",
+    "topicFilter": "Solo «{topic}»",
+    "clearTopic": "Mostrar todos los parámetros"
+  },
+  "measurement": {
+    "title": "Cómo se mide el tiempo atmosférico",
+    "subtitle": "Qué significa una temperatura, una cantidad de lluvia o una racha antes de que leas la cifra: el instrumento, el valor en que se convierte, sus límites y en qué se diferencian los proveedores",
+    "menuDescription": "Cómo se mide una magnitud, cómo una lectura se convierte en valor y qué puede decir la cifra",
+    "tocTitle": "Contenido",
+    "editionTitle": "Fuentes y edición",
+    "editionText": "Cada entrada nombra sus fuentes: primero, en palabras sencillas, qué es la fuente y qué dice; después, la cita formal. La fuente principal es la Guide to Instruments and Methods of Observation (WMO-No. 8) de la Organización Meteorológica Mundial, citada por volumen y capítulo: los volúmenes I y II en su edición de 2024, el volumen V en su edición de 2023, que es la vigente. Existe una edición provisional de 2026; esta página no la usa. Cuando una entrada dice lo que hace un proveedor, nombra el archivo del propio proveedor.",
+    "editionLink": "WMO-No. 8 en la OMM",
+    "groupMeasured": "Qué se mide y cómo",
+    "groupReading": "Leer los datos",
+    "linkTo": "Enlace a la entrada «{title}»",
+    "fieldsTitle": "Campos del glosario",
+    "fieldsText": "Esta entrada explica los parámetros del glosario cuyos nombres tienen este aspecto:",
+    "fieldsLink": "Mostrar estos campos en el glosario",
+    "sourcesTitle": "Fuentes",
+    "untranslatedEn": "Esta entrada aún no está traducida a tu idioma y se muestra en inglés.",
+    "untranslatedDe": "Esta entrada aún no está traducida a tu idioma y se muestra en alemán.",
+    "topics": {
+      "temperature": "Temperatura del aire y del suelo",
+      "wind": "Viento",
+      "precipitation": "Precipitación",
+      "sunshine": "Duración de la insolación",
+      "snow": "Nieve",
+      "normals": "Normales climáticas",
+      "time": "Hora y día",
+      "observationForecastDerived": "Observación, predicción y datos derivados"
+    }
   },
   "providers": {
     "title": "Proveedores",

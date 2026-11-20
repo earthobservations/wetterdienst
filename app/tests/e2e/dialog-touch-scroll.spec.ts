@@ -59,6 +59,12 @@ async function scrollPage(page: Page) {
 
 const scrollY = (page: Page) => page.evaluate(() => window.scrollY)
 const scrollTop = (box: Locator) => box.evaluate(element => element.scrollTop)
+/**
+ * Whether a box is scrolled to its end. `scrollHeight` and `clientHeight` are rounded to whole pixels and `scrollTop` is
+ * not, so a list whose height has a fraction (the search's, in a short window) ends a pixel short of the sum: within one
+ * pixel is the end
+ */
+const atEnd = (box: Locator) => box.evaluate(element => element.scrollHeight - (element.scrollTop + element.clientHeight) <= 1)
 
 /**
  * A finger dragged from (x, y) by `distance` pixels (negative: upwards, so that what is under it scrolls down), as touch
@@ -126,7 +132,7 @@ async function holds(page: Page, dialog: Locator, list: Locator, options: { stil
   // ... to its end, and a drag past the end does not go on to the page
   for (let drag = 0; drag < 6; drag++)
     await swipeUp(cdp, x, y, 400)
-  await expect.poll(() => list.evaluate(element => Math.ceil(element.scrollTop + element.clientHeight) >= element.scrollHeight)).toBe(true)
+  await expect.poll(() => atEnd(list)).toBe(true)
   await swipeUp(cdp, x, y, 300)
   expect(await scrollY(page), 'a drag past the end of the list does not chain to the page').toBe(PAGE_OFFSET)
   // and the same upwards, past the top
@@ -268,7 +274,7 @@ test.describe('the guard on a move at the edge of a list (GH-3761)', () => {
 
     // at its end the other way round
     await list.evaluate(element => element.scrollTo(0, element.scrollHeight))
-    await expect.poll(() => list.evaluate(element => Math.ceil(element.scrollTop + element.clientHeight) >= element.scrollHeight)).toBe(true)
+    await expect.poll(() => atEnd(list)).toBe(true)
     expect(await moveIsCancelled(option, -30), 'up, at the end: it would go on to the page').toBe(true)
     expect(await moveIsCancelled(option, 30), 'down, at the end: the list scrolls back').toBe(false)
 

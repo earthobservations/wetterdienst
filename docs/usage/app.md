@@ -13,8 +13,8 @@ Spanish, Italian, Polish, Dutch, Czech, Danish, Luxembourgish and Hamburgisch).
 
 ## What is in it
 
-The five tools, Forecast, Explorer, Climate stripes, History and Map, are tabs in the header; Providers, Glossary and
-API are under **Reference**; the project's pages (about, support, the legal notices, the documentation) are in the
+The five tools, Forecast, Explorer, Climate stripes, History and Map, are tabs in the header; Providers, Glossary,
+Measurement and API are under **Reference**; the project's pages (about, support, the legal notices, the documentation) are in the
 footer, the same on every page. On a narrow screen (below 64 rem, 1024 px at the default text size) four of the tools
 are a tab bar at the foot of the screen (under the header in a window lower than 30 rem, such as a phone on its side)
 and its **Menu** opens the rest: a bar holds four tools and the Menu. Until you choose, the four are Forecast,
@@ -28,10 +28,19 @@ single tap, and say what moved); a tool moved into the bar pushes the one at the
 four. The choice stays in the browser. The header of a wide screen shows all five tools as tabs in the same order, and there the
 list is one list of five, with no bar and no Menu. The
 Menu's tab is marked, as the page you are on, on every page that is in its sheet and has no tab: a tool that is not in
-your bar, Providers, Glossary and API, About, Support and the Settings. The home page and the legal notices mark
+your bar, Providers, Glossary, Measurement and API, About, Support and the Settings. The home page and the legal notices mark
 nothing, and a tool that is in the bar marks its own tab. **Search** (the button in the header, or Ctrl+K
 or ⌘K) goes to any page, to the forecast of a DWD station by its name or to the map opened on it, or to a provider,
 and sets the theme or the language.
+
+**Measurement** (`/measurement`, "How weather is measured") explains how a quantity is measured, how a reading becomes
+a value, what the number can and cannot tell and where providers differ, one entry for each quantity with an anchor
+(`/measurement#wind`) and the sources it rests on: the WMO Guide to Instruments and Methods of Observation (WMO-No. 8:
+Volumes I and II of 2024, Volume V of 2023, the current editions) by volume and chapter, and the providers' own files. The first entries are air and soil temperature,
+wind, precipitation, sunshine duration, snow, climate normals, time, and observation, forecast and derived data. The
+Glossary links each parameter it can to its entry ("How is this measured?"), and the entry links back to its
+parameters (`/glossary?topic=wind`). The texts are written in German and English; in another language an entry is
+shown in English, with a note (in German for Low German and Luxembourgish).
 
 | Page | What it does |
 | --- | --- |
@@ -216,7 +225,7 @@ show: it picks it as the app does at startup, the language of the `wd_lang` cook
 the first language of the `Accept-Language` header that the app has, else German. A request with no
 `Accept-Language` at all, as a crawler sends (a browser always sends one), gets English, the language of the page a
 crawler renders. One URL has one language for the HTML and for the page. `/sitemap.xml` lists
-the pages worth finding (the explorer, the forecast, the climate stripes, the API, the providers, the glossary, the
+the pages worth finding (the explorer, the forecast, the climate stripes, the API, the providers, the glossary, the measurement page, the
 project and legal pages, and the page of each provider) and `/robots.txt` names it. The page of a provider
 (`/providers/dwd`) has its own title and description; the server reads the list of providers from the backend's
 `/api/providers` and keeps it for an hour. While the backend cannot be reached it goes on with the list it read last;
