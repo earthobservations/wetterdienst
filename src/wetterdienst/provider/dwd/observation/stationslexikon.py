@@ -34,10 +34,8 @@ day, and a failure to read it for a few minutes, a rate limit not at all (`read_
 
 from __future__ import annotations
 
-import copy
 import logging
 import re
-import threading
 import time
 from typing import TYPE_CHECKING
 
@@ -47,6 +45,7 @@ from wetterdienst.exceptions import DownloadError, MetaFileFormatError, NoIntern
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.station_ids import wmo_id_or_none
 from wetterdienst.util.network import download_file, drop_cached_file
+from wetterdienst.util.read_memory import ReadMemory, canonical, settings_key, timeout_of_at_most
 from wetterdienst.util.response_warnings import warn_response
 from wetterdienst.util.xml import parse_html
 
@@ -70,6 +69,11 @@ STATIONSLEXIKON_EXPIRY = CacheExpiry.ONE_WEEK
 #: changed is asked for once and not by every request, and is asked for again soon after it is fixed
 STATIONSLEXIKON_FAILURE_MEMORY = 300.0
 
+#: How long the server is waited for in silence (connecting, and between two reads of the page) and how often it is
+#: asked: a host that drops connections costs a request ten seconds once, and not the sixty of the client's default
+#: timeout and its second attempt (GH-4074)
+STATIONSLEXIKON_TIMEOUT = 10
+
 #: The code of the warning an answer carries when the table could not be read and the stations have no `wmo_id`
 WMO_IDS_UNAVAILABLE = "wmo-ids-unavailable"
 
@@ -87,10 +91,6 @@ _HEADER_NAMES = {_ID_HEADER: "Stations_ID", _PRODUCT_HEADER: "Kennung", _NUMBER_
 _SCHEMA = {"station_id": pl.String, "wmo_id": pl.String}
 
 
-#: what the process remembers of the table, by `_memory_key`: when it is forgotten (`_clock`), and the table or the
-#: error of the read that failed
-_MEMORY: dict[tuple, tuple[float, pl.DataFrame | Exception]] = {}
-_MEMORY_LOCK = threading.Lock()
 #: the clock the memory goes by, which a test replaces
 _clock = time.monotonic
 
@@ -185,13 +185,17 @@ def parse_wmo_ids(content: bytes) -> pl.DataFrame:
 
 def _read_wmo_ids(settings: Settings) -> pl.DataFrame:
     """Download and parse the Stationslexikon, see `read_wmo_ids`."""
+    # the client's default is 30 s of silence and a second attempt: a host that drops connections would stall a
+    # request for a minute (GH-4074). The copy is cached and dropped with the arguments it was downloaded with
+    client_kwargs = timeout_of_at_most(settings.fsspec_client_kwargs, STATIONSLEXIKON_TIMEOUT)
     file = download_file(
         url=STATIONSLEXIKON_URL,
         cache_dir=settings.cache_dir,
         ttl=STATIONSLEXIKON_EXPIRY,
-        client_kwargs=settings.fsspec_client_kwargs,
+        client_kwargs=client_kwargs,
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
+        attempts=1,
     )
     file.raise_if_exception()
     if isinstance(file.content, Exception):
@@ -204,52 +208,28 @@ def _read_wmo_ids(settings: Settings) -> pl.DataFrame:
             STATIONSLEXIKON_URL,
             settings.cache_dir,
             STATIONSLEXIKON_EXPIRY,
-            settings.fsspec_client_kwargs,
+            client_kwargs,
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
         raise
 
 
-def _canonical(value: object) -> object:
-    """Write a settings value so that equal ones are equal as keys: mappings by sorted key, sequences as tuples."""
-    if isinstance(value, dict):
-        return tuple(sorted(((str(key), _canonical(item)) for key, item in value.items()), key=lambda pair: pair[0]))
-    if isinstance(value, (list, tuple, set, frozenset)):
-        return tuple(_canonical(item) for item in value)
-    return repr(value)
-
-
-def _memory_key(settings: Settings) -> tuple:
-    """Name what a copy of the table depends on: the cache it comes from and how it was asked for."""
-    return (
-        str(settings.cache_dir),
-        settings.cache_disable,
-        settings.use_certifi,
-        _canonical(settings.fsspec_client_kwargs or {}),
-    )
-
-
-def _fresh(error: Exception) -> Exception:
-    """Copy an error without the frames it was raised through, so that what is remembered holds none of a request."""
-    fresh = copy.copy(error).with_traceback(None)
-    fresh.__cause__ = error.__cause__
-    return fresh
-
-
-def _remember(key: tuple, kept_for: float, what: pl.DataFrame | Exception) -> None:
-    """Keep what was read for `kept_for` seconds, and drop what has run out, so that the memory does not grow."""
-    now = _clock()
-    with _MEMORY_LOCK:
-        for old in [old for old, (until, _) in _MEMORY.items() if until <= now]:
-            del _MEMORY[old]
-        _MEMORY[key] = (now + kept_for, what)
+#: what the process remembers of the table, and of its failures (`util/read_memory.py`): the clock is looked up by name
+#: at each use, so that a test replaces `_clock`
+_READS: ReadMemory[pl.DataFrame] = ReadMemory(
+    kept_for=STATIONSLEXIKON_MEMORY,
+    failure_kept_for=STATIONSLEXIKON_FAILURE_MEMORY,
+    failures=(NoInternetError, DownloadError, StationslexikonLayoutError),
+    clock=lambda: _clock(),  # noqa: PLW0108
+)
+_MEMORY = _READS.entries
+_canonical = canonical
 
 
 def forget_wmo_ids() -> None:
     """Forget what the process remembers of the table and of its failures (a test's, or a process that must reread)."""
-    with _MEMORY_LOCK:
-        _MEMORY.clear()
+    _READS.forget()
 
 
 def read_wmo_ids(settings: Settings) -> pl.DataFrame:
@@ -260,7 +240,8 @@ def read_wmo_ids(settings: Settings) -> pl.DataFrame:
     `STATIONSLEXIKON_MEMORY` (a day), for the cache and the settings it was read with, and keeps a failure for
     `STATIONSLEXIKON_FAILURE_MEMORY` seconds: a table that is down or no longer the table is asked for once in that
     time, not by every request, which then raises the same error, a new one each time, without asking. A rate limit is
-    not kept: the next request asks again, and the wait it carries is the provider's of that answer.
+    not kept: the next request asks again, and the wait it carries is the provider's of that answer. The threads that
+    ask at the same time share one read, and the server is waited for ten seconds and asked once (GH-4074).
 
     Raises:
         NoInternetError: no connection could be made. DownloadError: the server answered badly.
@@ -268,22 +249,7 @@ def read_wmo_ids(settings: Settings) -> pl.DataFrame:
             dropped from the cache, so that the next call asks again rather than read the same page for a week.
 
     """
-    key = _memory_key(settings)
-    with _MEMORY_LOCK:
-        remembered = _MEMORY.get(key)
-        if remembered is not None and _clock() < remembered[0]:
-            if isinstance(remembered[1], Exception):
-                raise _fresh(remembered[1])
-            return remembered[1]
-    try:
-        wmo_ids = _read_wmo_ids(settings)
-    except ProviderRateLimitError:
-        raise
-    except (NoInternetError, DownloadError, StationslexikonLayoutError) as error:
-        _remember(key, STATIONSLEXIKON_FAILURE_MEMORY, _fresh(error))
-        raise
-    _remember(key, STATIONSLEXIKON_MEMORY, wmo_ids)
-    return wmo_ids
+    return _READS.get(settings_key(settings), lambda: _read_wmo_ids(settings))
 
 
 def with_wmo_id(stations: pl.LazyFrame, settings: Settings) -> pl.LazyFrame:

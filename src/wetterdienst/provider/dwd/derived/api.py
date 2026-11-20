@@ -21,6 +21,7 @@ from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.fetch_ahead import FilesAhead
 from wetterdienst.model.listing_gap import ListingGap
 from wetterdienst.model.metadata import DatasetModel, ParameterModel
+from wetterdienst.model.oscar import with_oscar_wigos_id
 from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, unpivot_with_raw
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -46,6 +47,7 @@ from wetterdienst.provider.dwd.observation.fileindex import (
     warn_skipped_listings,
 )
 from wetterdienst.provider.dwd.observation.stationslexikon import with_wmo_id
+from wetterdienst.provider.dwd.observation.wigos import DWD_DERIVED_WIGOS_SCHEME
 from wetterdienst.util.network import File, download_file, list_remote_files_fsspec
 from wetterdienst.util.response_warnings import SkipCause, note_skipped_download
 
@@ -850,15 +852,22 @@ class DwdDerivedRequest(TimeseriesRequest):
 
     @staticmethod
     def _with_wmo_id(stations: pl.LazyFrame, datasets: list[DatasetModel], settings: Settings) -> pl.LazyFrame:
-        """Give the stations of the datasets with DWD's station ids their WMO number, the others none (GH-4162).
+        """Give the stations of the datasets with DWD's station ids their WMO number and WIGOS id, the others none.
 
         The number is DWD's Stationslexikon's for a DWD station id (`with_wmo_id`, which `dwd/observation` uses, with
-        its warning where the page cannot be read). The ids of the other datasets are none of those, so a number found
-        for one would be another station's: it stays null, and a request for them does not read the Stationslexikon.
+        its warning where the page cannot be read; GH-4162), and the WIGOS id is WMO's OSCAR/Surface's
+        (`with_oscar_wigos_id`, with its warning `wigos-ids-unavailable`; GH-4074). The ids of the other datasets are
+        none of those, so a number found for one would be another station's: it stays null, and a request for them
+        reads neither.
         """
         names = {dataset.name for dataset in datasets if dataset in DWD_STATION_ID_DATASETS}
         if not names:
             return stations
-        return with_wmo_id(stations, settings).with_columns(
-            pl.when(pl.col("dataset").is_in(sorted(names))).then(pl.col("wmo_id")).alias("wmo_id")
+        # the same for the WIGOS id, which WMO's OSCAR/Surface has for the stations whose DWD id is the local part of
+        # one (`with_oscar_wigos_id`, GH-4074)
+        enriched = with_oscar_wigos_id(with_wmo_id(stations, settings), settings, DWD_DERIVED_WIGOS_SCHEME)
+        in_the_datasets = pl.col("dataset").is_in(sorted(names))
+        return enriched.with_columns(
+            pl.when(in_the_datasets).then(pl.col("wmo_id")).alias("wmo_id"),
+            pl.when(in_the_datasets).then(pl.col("wigos_id")).alias("wigos_id"),
         )

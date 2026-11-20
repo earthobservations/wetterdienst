@@ -18,6 +18,22 @@ Types of changes:
 
 ### Added
 
+- `dwd/observation`, `dwd/derived` (the datasets with DWD station ids), `fmi/observation` and
+  `dmi/observation`: stations carry `wigos_id` where WMO's register OSCAR/Surface lists a WIGOS id
+  of the country whose local part is the provider's own `station_id` (`0-276-3-73` for DWD `00073`,
+  `0-246-0-101520` for fmisid `101520`, `0-208-0-06126` for DMI `06126`, `0-208-0-04202` for
+  Pituffik): 370 of DWD's 6,422 stations, 243 of FMI's 437, 116 of DMI's 1,065 (Greenland
+  included). Only an exact id counts, no name or position; one that OSCAR lists twice stays null.
+  **The station lists of these networks now contact `oscar.wmo.int`** (one key-less request per
+  country, 2 MB for Germany, cached for a week, waited for 10 s once). If it cannot be read the
+  stations still come back with `wigos_id` null and the warning `wigos-ids-unavailable`; a rate
+  limit of OSCAR is raised (GH-4074)
+
+### Changed
+
+- The read of DWD's Stationslexikon (the `wmo_id` of `dwd/observation` and `dwd/derived`) waits 10 s
+  for the server and asks once, where it waited 30 s twice, so a host that drops connections costs
+  a request 10 s and not a minute; requests that ask at the same time share one read (GH-4074)
 - The REST API serves DWD's precipitation radar as map images: `/api/v1/radar/frames` lists the
   radar analysis of the last hours (`past`, 120 minutes by default) and DWD's forecast of the next
   two, with where the images lie (WGS84 `bounds`, in Web Mercator) and a legend in mm/h, and
@@ -28,6 +44,12 @@ Types of changes:
 
 ### Fixed
 
+- `wmo_id` of the numeric ids of `dwd/mosmix`, `dwd/dmo` and `dwd/poi` is null for the ids of block
+  99 (no land station: `99953` Longboat Key, Florida) and for seven ids that WMO's register lists
+  for another station 100 km or more away (`02830` Kittilä, `03930` Liverpool, `16741` Paros,
+  `71515` Dryden, `71888` Jasper, `72388` San José, `72522` Harrisburg; for all but Paros and San
+  José the register has a station of DWD's name near DWD's position under another number). The
+  other 256 ids that OSCAR does not list are kept (GH-4074)
 - The documentation on Read the Docs was not published after 2026-10-24: the PDF build failed on an
   empty table ("Deprecated today" of the compatibility page, headers only) and took the HTML with
   it, so newer pages (the table of licences) gave a 404. The page now says that nothing is

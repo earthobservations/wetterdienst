@@ -959,11 +959,37 @@ OBSERVATION_EXPECTED: dict[str, dict[str, Any]] = {
         "longitude": 8.8493,
     },
     "00003": {"name": "Aachen", "wmo_id": "10501"},
-    # `SY` and `MN` carry an id of DWD's own (`Q870`), which is no WMO number
-    "00011": {"name": "Donaueschingen (Landeplatz)", "region": "Baden-Württemberg", "elevation": 680.0, "wmo_id": None},
-    "00197": {"name": "Arolsen-Volkhardinghausen, Bad", "region": "Hessen", "latitude": 51.3219, "longitude": 9.0558},
-    "00314": {"name": "Kubschütz, Kr. Bautzen", "region": "Sachsen", "latitude": 51.1604, "longitude": 14.5042},
-    "01332": {"name": "Falkenberg,Kr.Rottal-Inn", "region": "Bayern", "latitude": 48.4832, "longitude": 12.7241},
+    # `SY` and `MN` carry an id of DWD's own (`Q870`), which is no WMO number. The `wigos_id` of the stations that OSCAR
+    # lists as `0-276-3-<Stations_ID>` (the secondary stations; the stub of its register is `tests/model/oscar_rows.py`,
+    # GH-4074): the id is DWD's without the zeros it is padded with, `00011` is `0-276-3-11`
+    "00011": {
+        "name": "Donaueschingen (Landeplatz)",
+        "region": "Baden-Württemberg",
+        "elevation": 680.0,
+        "wmo_id": None,
+        "wigos_id": "0-276-3-11",
+    },
+    "00197": {
+        "name": "Arolsen-Volkhardinghausen, Bad",
+        "region": "Hessen",
+        "latitude": 51.3219,
+        "longitude": 9.0558,
+        "wigos_id": "0-276-3-197",
+    },
+    "00314": {
+        "name": "Kubschütz, Kr. Bautzen",
+        "region": "Sachsen",
+        "latitude": 51.1604,
+        "longitude": 14.5042,
+        "wigos_id": "0-276-3-314",
+    },
+    "01332": {
+        "name": "Falkenberg,Kr.Rottal-Inn",
+        "region": "Bayern",
+        "latitude": 48.4832,
+        "longitude": 12.7241,
+        "wigos_id": "0-276-3-1332",
+    },
     "03657": {"name": "Nümbrecht auf dem Lindchen", "region": "Nordrhein-Westfalen", "elevation": 341.0},
 }
 
@@ -1944,10 +1970,14 @@ STUBS = [
     Stub(
         "dmi/observation daily/data",
         _dmi,
-        # the `wmoStationId` of the list where it is in a WMO block of Greenland, Denmark or the Faroe Islands (GH-4070)
+        # the `wmoStationId` of the list where it is in a WMO block of Greenland, Denmark or the Faroe Islands
+        # (GH-4070), and the `wigos_id` that OSCAR lists as `0-208-0-<stationId>` (the stub of its register is
+        # `tests/model/oscar_rows.py`, GH-4074)
         expected={
-            "06180": {"wmo_id": "06180", "wigos_id": None, "icao_id": None},
-            "04202": {"wmo_id": "04202"},
+            "06180": {"wmo_id": "06180", "wigos_id": "0-208-0-06180", "icao_id": None},
+            "06041": {"wigos_id": "0-208-0-06041"},
+            "04202": {"wmo_id": "04202", "wigos_id": "0-208-0-04202"},  # GRL, the second territory of its scheme
+            "04205": {"wigos_id": "0-208-0-04205"},
             "06007": {"wmo_id": None},
             "32210": {"wmo_id": None},
         },
@@ -1956,9 +1986,10 @@ STUBS = [
         "fmi/observation hourly/data",
         _fmi,
         (FMI_ANTARCTICA,),
-        # the `locationcode/wmo` and `locationcode/icao` names of the facilities (GH-4070)
+        # the `locationcode/wmo` and `locationcode/icao` names of the facilities (GH-4070), and the `wigos_id` that
+        # OSCAR lists as `0-246-0-<fmisid>` (the stub of its register is `tests/model/oscar_rows.py`, GH-4074)
         expected={
-            "100907": {"wmo_id": "02970", "icao_id": "EFMA", "wigos_id": None},
+            "100907": {"wmo_id": "02970", "icao_id": "EFMA", "wigos_id": "0-246-0-100907"},
             "112275": {"wmo_id": "89014", "icao_id": None},
             "100539": {"wmo_id": None, "icao_id": None},
         },
