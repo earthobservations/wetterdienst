@@ -12,8 +12,8 @@ The files are read for what a frame needs and no more:
   about 320 KB; a second request follows for one that is longer) and not by the whole file (7.7 MB, holding the 24
   forecasts as well): a loop of two hours costs about 10 MB and not 190 MB;
 - the forecasts of a run are in the one `.tar` that is read whole, once, and held while its frames are drawn. They are
-  served for the newest `FORECAST_RUNS` runs only, so no more than that many tars are read at a time (23 MB), and the
-  `MAX_TARS` used last are held (15 MB).
+  served for the newest `FORECAST_RUNS` runs only, and `MAX_TARS` (one more than that) are held (31 MB), so a run's tar
+  is read once while its forecast is wanted, however the frames of the runs are asked for.
 
 A drawn frame is held in this process by its run and lead time, so that one decode serves every reader, and the
 oldest are dropped. A frame of a run never changes, so the cache needs no expiry: what changes is which run is the
@@ -68,11 +68,12 @@ _RUN_FILE = re.compile(r"composite_rv_(\d{8})_(\d{4})\.tar$")
 RUNS_TTL = 60.0
 #: the frames held, which are about 35 KB each: all the runs of a loop and the forecast of the newest, a few times over
 MAX_FRAMES = 400
-#: the `.tar` files held whole, which are the two used last (7.7 MB each)
-MAX_TARS = 2
 #: the forecast is served for the newest runs of the listing only: a run holds its forecast in one tar of 7.7 MB,
 #: which is read whole, so the runs of the two days DWD keeps are not each a download a request may ask for
 FORECAST_RUNS = 3
+#: the `.tar` files held whole (7.7 MB each): the runs whose forecast is served and the one that is next, so that
+#: readers of the forecasts of all of them, frame by frame, never push out the tar of one that is read next
+MAX_TARS = FORECAST_RUNS + 1
 #: the most the first file of a tar may be: it is 300 to 330 KB
 MAX_MEMBER_BYTES = 8 * 1024**2
 #: the most a `.tar` of a run may be; it is 7.7 MB
@@ -330,8 +331,14 @@ class DwdRadarFrames:
         if run is not None:
             self._check_lead(time, run)
         runs = self.runs()
-        if (time if run is None else run) > runs[-1]:
-            runs = self.runs(max_age=NEWER_THAN_LISTED_AFTER)
+        # a run later than the list, or a time that could be the analysis of one (a forecast frame is not a reason to
+        # list again: its time is always later than the newest run)
+        newest = runs[-1]
+        could_be_unlisted = (
+            newest < time <= newest + dt.timedelta(minutes=STEP_MINUTES) if run is None else run > newest
+        )
+        if could_be_unlisted:
+            runs = self._runs_again(runs)
         if run is None:
             run = min(time, runs[-1])
             self._check_lead(time, run)
@@ -345,6 +352,14 @@ class DwdRadarFrames:
             )
             raise RadarFrameNotFoundError(msg)
         return run
+
+    def _runs_again(self, held: list[dt.datetime]) -> list[dt.datetime]:
+        """Give a new list of runs, at most every `NEWER_THAN_LISTED_AFTER` seconds, or the held one if it fails."""
+        try:
+            return self.runs(max_age=NEWER_THAN_LISTED_AFTER)
+        except Exception:  # noqa: BLE001
+            log.warning("The list of runs of DWD's RV composite could not be read again: the held list is used.")
+            return held
 
     @staticmethod
     def _check_lead(time: dt.datetime, run: dt.datetime) -> None:
@@ -377,7 +392,11 @@ class DwdRadarFrames:
 
     def _extract(self, run: dt.datetime, lead: int) -> bytes:
         """Give a file out of the whole `.tar` of a run."""
-        tar = self._tar(run)
+        return self._member_from(self._tar(run), run, lead)
+
+    @staticmethod
+    def _member_from(tar: bytes, run: dt.datetime, lead: int) -> bytes:
+        """Give a file of a lead time out of the bytes of the `.tar` of a run."""
         name = member_name(run, lead)
         try:
             with tarfile.open(fileobj=BytesIO(tar), mode="r:") as archive:
@@ -424,12 +443,8 @@ class DwdRadarFrames:
             return tar
 
     @staticmethod
-    def _hold_tar(run: dt.datetime, tar: bytes) -> None:
-        """Hold a run's whole `.tar` for the frames of its forecast, the `MAX_TARS` used last.
-
-        Only a tar that is one: an outage page, an empty body or any other file that DWD's server answers a request
-        with is no run's, and is held for no frame to be read from (a 502, and the next request asks again).
-        """
+    def _check_tar(run: dt.datetime, tar: bytes) -> None:
+        """Refuse a body that is no tar of the run: an outage page, an empty body, any other file."""
         url = run_url(run)
         if len(tar) > MAX_TAR_BYTES:
             raise DownloadError(url, "the file is larger than a run of the composite is")
@@ -440,6 +455,13 @@ class DwdRadarFrames:
             raise DownloadError(url, "the file is not a readable tar archive") from e
         if member_name(run, 0) not in names:
             raise DownloadError(url, "the archive does not hold the analysis of its run")
+
+    def _hold_tar(self, run: dt.datetime, tar: bytes) -> None:
+        """Hold a run's whole `.tar` for the frames of its forecast, the `MAX_TARS` used last.
+
+        Only a tar that is one (a 502 for any other, and the next request asks again).
+        """
+        self._check_tar(run, tar)
         with _SHARED.lock:
             _SHARED.tars[run] = tar
             while len(_SHARED.tars) > MAX_TARS:
@@ -455,14 +477,20 @@ class DwdRadarFrames:
         url = run_url(run)
         head = self._range(url, 0, FIRST_READ_BYTES)
         if len(head) > FIRST_READ_BYTES:
-            # a server that ignores `Range` sent the whole file, which is the tar the forecast of the run is read from
-            self._hold_tar(run, head)
-            return self._extract(run, 0)
+            # a server that ignores `Range` sent the whole file: the file is taken out of it, and it is kept where the
+            # forecast of the run may be read from it
+            self._check_tar(run, head)
+            if run in self.runs()[-FORECAST_RUNS:]:
+                self._hold_tar(run, head)
+            return self._member_from(head, run, 0)
         try:
             info = tarfile.TarInfo.frombuf(head[:_TAR_BLOCK], "utf-8", "surrogateescape")
         except tarfile.TarError:
             info = None
         if info is None or not info.name.endswith("_000-hd5") or not info.isfile():
+            # not the layout of DWD's tars: the whole file is read, for the runs whose forecast is served only
+            if run not in self.runs()[-FORECAST_RUNS:]:
+                raise DownloadError(url, "the first file of the archive is not the analysis")
             return self._extract(run, 0)
         if not 0 < info.size <= MAX_MEMBER_BYTES:
             raise DownloadError(url, "the first file of the archive is not the size of a frame")
@@ -470,7 +498,7 @@ class DwdRadarFrames:
         if len(head) < end:
             more = self._range(url, len(head), end)
             if len(more) != end - len(head):
-                raise DownloadError(url, "the first file of the archive is cut short")
+                raise DownloadError(url, "the first file of the archive is cut short or is not what was asked for")
             head += more
         if len(head) < end:
             raise DownloadError(url, "the first file of the archive is cut short")

@@ -444,3 +444,18 @@ def test_a_grid_of_another_size_than_the_file_states_is_refused_before_it_is_rea
     """The shape of the dataset is held to `xsize` and `ysize` of the file, as the corners are held to the grid."""
     with pytest.raises(rv.RadarFormatError, match=r"not the 1200 x 1000 the file states"):
         rv.read_field(_edit(tmp_path, lambda f: f["where"].attrs.__setitem__("xsize", 1000)))
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [
+        lambda f: f["where"].attrs.__setitem__("xsize", "wide"),
+        lambda f: f["where"].attrs.__setitem__("projdef", 7),
+        lambda f: f["dataset1/what"].attrs.__setitem__("endtime", b"nine"),
+    ],
+    ids=["size-text", "projdef-number", "time-text"],
+)
+def test_a_file_whose_attributes_are_of_another_type_is_a_format_error(tmp_path: Path, edit: object) -> None:
+    """A malformed attribute is DWD's file being wrong (a 502), whatever Python makes of it."""
+    with pytest.raises(rv.RadarFormatError):
+        rv.read_field(_edit(tmp_path, edit))

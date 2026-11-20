@@ -377,7 +377,7 @@ def read_field(data: bytes | BytesIO) -> RvField:
             when = dict(f["dataset1/what"].attrs)
     except RadarFormatError:
         raise
-    except (OSError, KeyError, ValueError) as e:
+    except (OSError, KeyError, ValueError, AttributeError, TypeError) as e:
         msg = "the file is not an ODIM HDF5 file with the precipitation of the RV composite"
         raise RadarFormatError(msg) from e
     quantity = _text(what.get("quantity", b""))
@@ -409,7 +409,7 @@ def read_field(data: bytes | BytesIO) -> RvField:
         )
     except RadarFormatError:
         raise
-    except (KeyError, ValueError, TypeError) as e:
+    except (KeyError, ValueError, TypeError, AttributeError) as e:
         msg = "the file lacks what the decoder reads of an RV composite"
         raise RadarFormatError(msg) from e
     if raw.shape != (grid.height, grid.width) or not np.issubdtype(raw.dtype, np.integer):

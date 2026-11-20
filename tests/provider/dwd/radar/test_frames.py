@@ -199,16 +199,16 @@ def test_a_server_that_sends_the_whole_file_for_a_range_is_read_whole_and_the_fr
     dwd: Dwd, service: DwdRadarFrames
 ) -> None:
     """A mirror that ignores `Range` answers the 7.7 MB: the analysis is taken out of it, not read as a header."""
-    expected = service.frame(_RUNS[1], _RUNS[1]).png
+    expected = service.frame(_RUNS[5], _RUNS[5]).png
     frames_module.forget_everything()
     dwd.ranges = False
     dwd.ranged.clear()
 
-    assert service.frame(_RUNS[1], _RUNS[1]).png == expected
+    assert service.frame(_RUNS[5], _RUNS[5]).png == expected
     # the body that came for the range is the tar: it is not asked for again, and is held for the forecast
     assert dwd.whole == []
     assert len(dwd.ranged) == 1
-    assert list(frames_module._SHARED.tars) == [_RUNS[1]]
+    assert list(frames_module._SHARED.tars) == [_RUNS[5]]
 
 
 def test_a_forecast_frame_is_read_from_the_tar_which_is_downloaded_once_for_all_of_them(
@@ -288,8 +288,9 @@ def test_no_more_frames_than_the_cap_are_held_and_the_oldest_asked_for_goes_firs
     assert set(frames_module._SHARED.frames) == {(_RUNS[0], 0), (_RUNS[2], 0), (_RUNS[3], 0)}
 
 
-def test_the_tars_held_whole_are_the_newest_two(service: DwdRadarFrames) -> None:
-    """A forecast frame of each of the newest three runs: the first run's tar is let go, not kept for every run."""
+def test_the_tars_held_whole_are_the_ones_used_last(service: DwdRadarFrames, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The first run's tar is let go where more are read than are held: not kept for every run."""
+    monkeypatch.setattr(frames_module, "MAX_TARS", 2)
     for run in (NEWEST, _RUNS[5], _RUNS[4]):
         service.frame(run + dt.timedelta(minutes=5), run)
 
@@ -479,15 +480,15 @@ def test_a_first_member_that_is_not_the_analysis_is_taken_from_the_whole_tar(dwd
 
     buffer = io.BytesIO()
     with (
-        tarfile.open(fileobj=io.BytesIO(dwd.tars[_RUNS[0]])) as source,
+        tarfile.open(fileobj=io.BytesIO(dwd.tars[_RUNS[5]])) as source,
         tarfile.open(fileobj=buffer, mode="w") as target,
     ):
         for member in reversed(source.getmembers()):
             target.addfile(member, source.extractfile(member))
-    dwd.tars[_RUNS[0]] = buffer.getvalue()
+    dwd.tars[_RUNS[5]] = buffer.getvalue()
 
-    assert service.frame(_RUNS[0], _RUNS[0]).png.startswith(b"\x89PNG")
-    assert dwd.whole == [_RUNS[0]]
+    assert service.frame(_RUNS[5], _RUNS[5]).png.startswith(b"\x89PNG")
+    assert dwd.whole == [_RUNS[5]]
 
 
 def test_a_tar_that_is_none_is_a_failure_of_dwd(dwd: Dwd, service: DwdRadarFrames) -> None:
@@ -694,3 +695,58 @@ def test_an_analysis_frame_does_not_wait_for_the_download_of_a_forecast_tar(monk
     release.set()
     forecast.join(10)
     assert not forecast.is_alive()
+
+
+def test_the_forecasts_of_the_newest_runs_asked_for_frame_by_frame_read_each_tar_once(
+    dwd: Dwd, service: DwdRadarFrames
+) -> None:
+    """Three readers, one for each run whose forecast is served, interleaved: three downloads, not one a frame."""
+    runs = (_RUNS[4], _RUNS[5], NEWEST)
+    for lead in (5, 10):
+        for run in runs:
+            service.frame(run + dt.timedelta(minutes=lead), run)
+
+    assert sorted(dwd.whole) == sorted(runs)
+    assert frames_module.MAX_TARS > frames_module.FORECAST_RUNS
+
+
+def test_a_forecast_frame_without_a_run_does_not_list_again_and_a_listing_that_fails_is_the_held_one(
+    dwd: Dwd, service: DwdRadarFrames, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A time after the newest run is a forecast, not an unlisted analysis; a listing that fails is the held one."""
+    service.runs()
+    frames_module._SHARED.runs = (frames_module._SHARED.runs[0] - 11, _RUNS)  # ty: ignore[not-subscriptable]
+    listed = dwd.listings
+
+    service.frame(NEWEST + dt.timedelta(minutes=30))
+    assert dwd.listings == listed
+
+    url, reason = "https://opendata.dwd.de/", "500"
+
+    def fail(*_args: object, **_kwargs: object) -> list[str]:
+        raise DownloadError(url, reason)
+
+    monkeypatch.setattr(frames_module, "list_remote_files_fsspec", fail)
+    with pytest.raises(RadarFrameNotFoundError, match="lists no run"):
+        service.frame(NEWEST + dt.timedelta(minutes=5), NEWEST + dt.timedelta(minutes=5))
+
+
+def test_the_whole_tar_is_read_for_the_analysis_of_a_run_whose_forecast_is_served_only(
+    dwd: Dwd, service: DwdRadarFrames
+) -> None:
+    """A layout that does not begin with the analysis is read whole for the newest runs, and refused for the others."""
+    import io  # noqa: PLC0415
+    import tarfile  # noqa: PLC0415
+
+    buffer = io.BytesIO()
+    with (
+        tarfile.open(fileobj=io.BytesIO(dwd.tars[_RUNS[0]])) as source,
+        tarfile.open(fileobj=buffer, mode="w") as target,
+    ):
+        for member in reversed(source.getmembers()):
+            target.addfile(member, source.extractfile(member))
+    dwd.tars[_RUNS[0]] = buffer.getvalue()
+
+    with pytest.raises(DownloadError, match="not the analysis"):
+        service.frame(_RUNS[0], _RUNS[0])
+    assert dwd.whole == []
