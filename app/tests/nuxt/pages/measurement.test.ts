@@ -147,6 +147,18 @@ describe('the page in a language that has no text of its own yet', () => {
   })
 })
 
+describe('the page in Luxembourgish', () => {
+  afterAll(() => useLocale('en'))
+
+  it('is shown the German text, like Low German, and told so in its own language', async () => {
+    await useLocale('lb')
+    const wrapper = await mountSuspended(MeasurementPage)
+    expect(wrapper.find('article#temperature h3').text()).toBe('Luft- und Bodentemperatur')
+    expect(wrapper.find('article#temperature h3').attributes('lang')).toBe('de')
+    expect(wrapper.find('[data-testid="measurement-note"]').text()).toContain('Däitsch')
+  })
+})
+
 describe('an anchor', () => {
   it('puts the focus on the heading of the entry', async () => {
     await useLocale('en')
@@ -205,6 +217,13 @@ describe('the glossary', () => {
     expect(shown).toEqual(['wind_gust_max'])
     expect(wrapper.find('[data-testid="glossary-topic"]').text()).toContain('Only “Wind”')
     expect(wrapper.find('[data-testid="glossary-topic"] a').attributes('href')).toBe('/glossary')
+  })
+
+  it('takes an entry that explains no parameter for no filter, as an id that is none', async () => {
+    await useLocale('en')
+    const wrapper = await mountGlossary('/glossary?topic=time')
+    expect((wrapper.vm as any).entries).toHaveLength(entries.length)
+    expect(wrapper.find('[data-testid="glossary-topic"]').exists()).toBe(false)
   })
 
   it('takes a topic that is none for no filter', async () => {

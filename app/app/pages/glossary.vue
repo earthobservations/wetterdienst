@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { GlossaryEntry } from '#shared/types/api'
-import { isTopic, measurementPath, topicLabelKey, topicOfParameter } from '~/utils/measurement'
+import { isTopic, measurementPath, parameterPatterns, topicLabelKey, topicOfParameter } from '~/utils/measurement'
 
 const { t } = useI18n()
 const formatLanguage = useFormatLanguage()
@@ -27,11 +27,11 @@ const search = ref('')
 const unitType = ref<string | undefined>(undefined)
 
 // The entry of "How weather is measured" (GH-3787) whose parameters are shown: `?topic=wind`, the link of an entry's
-// "Show these fields in the glossary". An id that is no entry is no filter.
+// "Show these fields in the glossary". An id that is no entry, or an entry that explains no parameter (time), is no filter.
 const route = useRoute()
 const topic = computed(() => {
   const value = route.query.topic
-  return isTopic(value) ? value : undefined
+  return isTopic(value) && parameterPatterns(value).length > 0 ? value : undefined
 })
 
 const unitTypes = computed<string[]>(() =>

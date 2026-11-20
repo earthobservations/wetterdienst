@@ -22,10 +22,11 @@ Types of changes:
   (`/measurement`): one entry for air and soil temperature, wind, precipitation, sunshine
   duration, snow, climate normals, time, and observation, forecast and derived data, each with an
   anchor (`/measurement#wind`), a table of contents and the sources it rests on, the WMO Guide to
-  Instruments and Methods of Observation (WMO-No. 8, 2024 edition) and the providers' own files.
-  It is written in German and English; in another language an entry is shown in English, with a
-  note. The Glossary links each parameter it can to its entry, and an entry's link to its fields
-  opens the Glossary on them (`/glossary?topic=wind`) (GH-3787).
+  Instruments and Methods of Observation (WMO-No. 8; Volumes I and II of 2024, Volume V of 2023)
+  and the providers' own files. It is written in German and English; in another language an entry
+  is shown in English (in German for Low German and Luxembourgish), with a note. The Glossary
+  links each parameter it can to its entry, and an entry's link to its fields opens the Glossary
+  on them (`/glossary?topic=wind`) (GH-3787).
 - `[Map]` A NOAA GHCN daily layer, the third in the layers panel: stations from all over the world,
   loaded for the part of the map in view as it moves (debounced; a request the map has moved past
   is cancelled) and grouped like any large layer. Zoomed out so far that the view holds more than

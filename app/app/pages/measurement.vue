@@ -6,7 +6,7 @@ import { isTopic, measurementPath, TOPIC_GROUPS } from '~/utils/measurement'
 // "How weather is measured" (GH-3787): one entry for each quantity, with an anchor, in the reference group beside the
 // glossary, which links to it (`/glossary`: "How is this measured?"). The texts are long and are written in German and
 // English (`i18n/measurement/`), not in the eleven catalogs of the interface; a reader of another language sees the
-// entry in English, with a note, and a reader of Low German in German (as the privacy policy is shown).
+// entry in English, with a note, and a reader of Low German or Luxembourgish in German (as the privacy policy is shown).
 const { t, locale } = useI18n()
 const route = useRoute()
 
@@ -14,7 +14,7 @@ const route = useRoute()
 useHead({ title: () => t('measurement.title') })
 
 const own = computed(() => locale.value === 'de' || locale.value === 'en')
-const textLanguage = computed<'de' | 'en'>(() => locale.value === 'de' || locale.value === 'de-hh' ? 'de' : 'en')
+const textLanguage = computed<'de' | 'en'>(() => ['de', 'de-hh', 'lb'].includes(locale.value) ? 'de' : 'en')
 const texts = computed(() => textLanguage.value === 'de' ? textsDe : textsEn)
 // the elements of the text say their language where it is not the interface's (WCAG 3.1.2)
 const lang = computed(() => own.value ? undefined : textLanguage.value)
@@ -39,6 +39,14 @@ function reveal(hash: string) {
   if (!isTopic(id))
     return
   document.getElementById(`${id}-title`)?.focus({ preventScroll: true })
+}
+// Following the link of the entry that the address already names changes no hash, so nothing above runs: scroll
+// and focus here, as a first visit would
+function onAnchor(topic: string) {
+  if (route.hash === `#${topic}`) {
+    document.getElementById(topic)?.scrollIntoView({ block: 'start' })
+    reveal(`#${topic}`)
+  }
 }
 onMounted(() => {
   if (route.hash)
@@ -69,6 +77,7 @@ watch(() => route.hash, (hash) => {
                   :to="measurementPath(topic)"
                   :lang="lang"
                   class="text-primary-700 dark:text-primary-500 underline hover:no-underline"
+                  @click="onAnchor(topic)"
                 >
                   {{ texts[topic].title }}
                 </NuxtLink>
@@ -106,6 +115,7 @@ watch(() => route.hash, (hash) => {
           :entry="texts[topic]"
           :lang="lang"
           :note="note"
+          @anchor="onAnchor"
         />
       </section>
     </div>

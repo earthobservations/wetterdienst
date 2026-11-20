@@ -22,9 +22,16 @@ const catalogs = Object.fromEntries(
   ['en', 'de', 'fr', 'es', 'it', 'pl', 'nl', 'cs', 'da', 'lb', 'de-hh'].map(locale => [locale, JSON.parse(readFileSync(join(APP, 'i18n', 'locales', `${locale}.json`), 'utf8'))]),
 )
 
-/** Every parameter the glossary labels, which are the canonical names of the backend (`tests/unit/glossary-translations.test.ts`) */
-const glossary = readFileSync(join(APP, 'i18n', 'glossary', 'en.ts'), 'utf8')
-const PARAMETERS = [...(glossary.split('export const parameters')[1]?.split('export const resolutions')[0] ?? '').matchAll(/^ {2}([a-z0-9_]+):/gm)].map(match => match[1] as string)
+/**
+ * Every parameter the backend serves in its glossary: the canonical names of `PARAMETER_TABLE`, but the quality flags,
+ * which `/api/glossary` leaves out (read as `tests/unit/glossary-translations.test.ts` reads them)
+ */
+const table = readFileSync(join(APP, '..', 'src', 'wetterdienst', 'metadata', 'parameter_table.py'), 'utf8')
+const PARAMETERS = table
+  .split(/^ {4}CanonicalParameter\(/m)
+  .slice(1)
+  .filter(block => !block.includes('quality_flag=True'))
+  .map(block => /^\s*"([a-z0-9_]+)"/.exec(block)?.[1] as string)
 
 function message(locale: string, key: string): unknown {
   return key.split('.').reduce<any>((node, part) => node?.[part], catalogs[locale])
@@ -112,7 +119,7 @@ describe('the glossary parameters of an entry', () => {
     'precipitation_type_flags',
     'precipitation_index',
     'precipitation_duration',
-    'probability_precipitation_height_gt_0_0mm_last_1h',
+    'probability_precipitation_convective_last_1h',
     'probability_wind_gust_ge_25kn_last_12h',
     'soil_moisture_corn_sand_00cm_60cm',
     'wind_movement',
@@ -198,15 +205,34 @@ describe.each([['en', en], ['de', de]] as const)('the text in %s', (_locale, tex
     }
   })
 
-  it('cites the WMO Guide by edition, volume and chapter, and the normals by their number', () => {
-    for (const topic of ['temperature', 'wind', 'precipitation', 'sunshine', 'snow'] as const) {
-      const wmo = texts[topic].sources[0]!.citation
-      expect(wmo, topic).toContain('WMO-No. 8')
-      expect(wmo, topic).toContain('2024 edition')
-      expect(wmo, topic).toMatch(/Volume (?:I|II)[ ,].*Chapter \d+/)
+  it('cites the WMO Guide by the edition of each volume (I and II: 2024, V: 2023), by volume, chapter and section, and the normals by their number', () => {
+    for (const topic of TOPICS) {
+      for (const { citation } of texts[topic].sources.filter(source => source.citation.includes('WMO-No. 8'))) {
+        expect(citation, topic).toMatch(/Volume (?:I|II|V)[ ,(].*Chapter \d.*sections? \d/)
+        // the edition goes with the volume: the current one of each
+        for (const volume of citation.matchAll(/Volume (I{1,2}|V)\b/g)) {
+          const year = volume[1] === 'V' ? '2023' : '2024'
+          expect(citation, `${topic}: Volume ${volume[1]}`).toContain(`WMO (${year}).`)
+          expect(citation, `${topic}: Volume ${volume[1]}`).toContain(`${year} edition`)
+        }
+      }
+    }
+    for (const topic of ['temperature', 'wind', 'precipitation', 'sunshine', 'snow'] as const)
+      expect(texts[topic].sources[0]!.citation, topic).toContain('WMO-No. 8')
+    // a source that cites Volume V cites it as its own edition, not in the same citation as a 2024 volume
+    for (const topic of TOPICS) {
+      for (const { citation } of texts[topic].sources)
+        expect(citation.includes('Volume V') && citation.includes('2024 edition'), topic).toBe(false)
     }
     expect(texts.normals.sources[0]!.citation).toContain('WMO-No. 1203')
     expect(texts['observation-forecast-derived'].sources.map(source => source.citation).join(' ')).toContain('Volume V')
+    expect(texts.temperature.sources.map(source => source.citation).join(' ')).toContain('WMO (2023)')
+  })
+
+  it('names the files of a provider by the folders they are in, which have no address of their own', () => {
+    const files = JSON.stringify(texts.temperature.sources) + JSON.stringify(texts.wind.sources)
+    expect(files).toContain('opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/recent/')
+    expect(files).toContain('Metadaten_Parameter_klima_tag_')
   })
 
   it('names the edition of the Guide it uses, and has none of the provisional 2026 one', () => {

@@ -18,6 +18,7 @@ const props = defineProps<{
   note?: string
 }>()
 
+const emit = defineEmits<{ anchor: [topic: TopicId] }>()
 const { t } = useI18n()
 const patterns = computed(() => parameterPatterns(props.topic))
 const headingId = computed(() => `${props.topic}-title`)
@@ -35,6 +36,7 @@ const headingId = computed(() => `${props.topic}-title`)
         :aria-label="t('measurement.linkTo', { title: entry.title })"
         :title="t('measurement.linkTo', { title: entry.title })"
         data-print="hide"
+        @click="emit('anchor', topic)"
       >
         <UIcon name="i-ph-link" class="size-5" />
       </NuxtLink>
@@ -47,11 +49,11 @@ const headingId = computed(() => `${props.topic}-title`)
     </p>
 
     <div :lang="lang" class="mt-4 space-y-5">
-      <section v-for="part in entry.parts" :key="part.title">
+      <section v-for="(part, index) in entry.parts" :key="`${index}-${part.title}`">
         <h4 class="text-base font-semibold text-highlighted">
           {{ part.title }}
         </h4>
-        <p v-for="paragraph in part.paragraphs" :key="paragraph" class="mt-2 text-gray-600 dark:text-gray-400">
+        <p v-for="(paragraph, number) in part.paragraphs" :key="number" class="mt-2 text-gray-600 dark:text-gray-400">
           {{ paragraph }}
         </p>
       </section>
@@ -81,7 +83,7 @@ const headingId = computed(() => `${props.topic}-title`)
         {{ t('measurement.sourcesTitle') }}
       </h4>
       <ul class="mt-2 space-y-3">
-        <li v-for="source in entry.sources" :key="source.href" :lang="lang">
+        <li v-for="(source, index) in entry.sources" :key="`${index}-${source.href}`" :lang="lang">
           <p class="text-gray-600 dark:text-gray-400">
             {{ source.plain }}
           </p>
