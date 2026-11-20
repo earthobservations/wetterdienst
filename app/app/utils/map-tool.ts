@@ -9,7 +9,7 @@ import { withData } from './format'
 
 /**
  * What the map shows: the forecast's points (DWD MOSMIX), the stations that measure (DWD observations), or the stations of
- * NOAA's GHCN daily (GH-4078), worldwide, which are asked for by the part of the map in view
+ * NOAA's GHCN daily (GH-4078), worldwide, which the app's server hands out as one compact list (GH-4267)
  */
 export type MapLayer = 'forecast' | 'measured' | 'ghcn'
 
@@ -37,14 +37,8 @@ export const MEASURED_NETWORK = { provider: 'dwd', network: 'observation' } as c
 export const GHCN_NETWORK = { provider: 'noaa', network: 'ghcn' } as const
 export const GHCN_SOURCE: MeasuredSource = { resolution: 'daily', dataset: 'data' }
 
-/** The query of the GHCN layer's stations, to which the box in view is added (`left`, `bottom`, `right`, `top`) */
+/** The query of the GHCN layer's stations at the backend: the one the map asks for by id, for the details of the station picked (the list of all of them is the app's server's, `GHCN_STATIONS_ROUTE`) */
 export const GHCN_STATIONS_QUERY = { ...GHCN_NETWORK, parameters: `${GHCN_SOURCE.resolution}/${GHCN_SOURCE.dataset}` } as const
-
-/**
- * How many stations the GHCN layer has in all (GH-4078, 133,041 on 2026-11-18): the map only holds the ones in view, but the layer is
- * one of more than `GROUPING_COMPULSORY_ABOVE` stations, which is always grouped, so the rule goes by this and not by how many are loaded.
- */
-export const GHCN_STATION_COUNT = 133_041
 
 /** The source the map opens with: DWD's daily climate summary, the most complete record the library has */
 export const DEFAULT_MEASURED: MeasuredSource = { resolution: 'daily', dataset: 'climate_summary' }
@@ -66,110 +60,6 @@ export const HOME_VIEW = { latitude: 51.2, longitude: 10.4, zoom: 6 }
 
 /** A place picked on the map that is no more than this far from the station nearest to it is taken for the station itself */
 export const SAME_PLACE_KM = 0.5
-
-/**
- * The part of the map in view, as the REST API takes it for `/api/stations` (`left`, `bottom`, `right`, `top`, in degrees). The layer
- * of GHCN daily's size is asked for by it (GH-4078): the stations of the box, not the whole list.
- */
-export interface MapBox {
-  left: number
-  bottom: number
-  right: number
-  top: number
-}
-
-/**
- * How large the box that is asked for may be, in square degrees (longitude times latitude, not the area on the ground): the view
- * with its padding (`requestBox`). GHCN daily has 78,512 of its stations in the United States, and the densest box of 200 square
- * degrees of its list (33 by 6 degrees over the south west) holds 26,894 of them (measured on the 132,894 stations of 2026-11-19;
- * a box of 25 by 20 degrees over the east, 500 square degrees, 45,000: 14 MB, two seconds). A view larger than this asks for
- * nothing and the map says to zoom in; one that nears it is asked for with less padding, none at the cap. Where the layer is chosen
- * with the view over it (the opening view, Germany at zoom 6, is 170 on a 1280 px window and more on a larger one) the map zooms in
- * until it fits, so that the layer shows stations at once; the hint is for a pan or a zoom out after that. A size in degrees, not a
- * zoom, so that a phone and a full screen are told alike.
- */
-export const BOX_MAX_AREA = 200
-
-/** The share of each side of the view that the box asked for reaches beyond it at least, so that a small move stays inside what is loaded */
-export const BOX_PAD_SHARE = 0.15
-
-const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
-
-/**
- * The box of a map's bounds, as the API takes it: the longitudes of a copy of the world beside the first (Leaflet's bounds beyond
- * 180) are the same places, brought into the first, and what lies beyond the antimeridian or a pole is cut (a view that reaches over
- * the antimeridian gets the side its centre is on). A view as wide as the world is the world.
- */
-export function boxOfBounds(bounds: { west: number, south: number, east: number, north: number }): MapBox {
-  const bottom = clamp(bounds.south, -90, 90)
-  const top = clamp(bounds.north, -90, 90)
-  if (bounds.east - bounds.west >= 360)
-    return { left: -180, bottom, right: 180, top }
-  const shift = Math.floor(((bounds.west + bounds.east) / 2 + 180) / 360) * 360
-  return { left: clamp(bounds.west - shift, -180, 180), bottom, right: clamp(bounds.east - shift, -180, 180), top }
-}
-
-/** The size of a box in square degrees (see `BOX_MAX_AREA`) */
-export function boxArea(box: MapBox): number {
-  return Math.max(0, box.right - box.left) * Math.max(0, box.top - box.bottom)
-}
-
-/** Whether a box holds another: the one loaded the one in view */
-export function boxContains(outer: MapBox, inner: MapBox): boolean {
-  return outer.left <= inner.left && outer.right >= inner.right && outer.bottom <= inner.bottom && outer.top >= inner.top
-}
-
-/** Whether a point is in a box */
-export function boxHas(box: MapBox, point: Point): boolean {
-  return point.longitude >= box.left && point.longitude <= box.right && point.latitude >= box.bottom && point.latitude <= box.top
-}
-
-/**
- * The padding of a view in degrees on each side, for a map of `size` pixels: `pixels` of the map (`BOX_PAD_PX`) or `BOX_PAD_SHARE` of the
- * view, the larger. Without the map's size, the share alone.
- */
-export function padOf(view: MapBox, size: { x: number, y: number } | undefined, pixels: number): { x: number, y: number } {
-  const width = view.right - view.left
-  const height = view.top - view.bottom
-  const share = (across: number | undefined) => Math.max(BOX_PAD_SHARE, across ? pixels / across : 0)
-  return { x: width * share(size?.x), y: height * share(size?.y) }
-}
-
-/**
- * The box to ask for: the view with `pad` degrees more on every side, as far as the box stays within `maxArea`. The padding shrinks
- * as the view nears the cap, to nothing at it (a view of `maxArea` is asked for as it is), and the box is cut at the edges of the world.
- */
-export function requestBox(view: MapBox, pad: { x: number, y: number }, maxArea = BOX_MAX_AREA): MapBox {
-  const width = view.right - view.left
-  const height = view.top - view.bottom
-  let factor = 1
-  if ((width + 2 * pad.x) * (height + 2 * pad.y) > maxArea) {
-    // the root of (width + 2 f x) (height + 2 f y) = maxArea
-    const a = 4 * pad.x * pad.y
-    const b = 2 * (pad.x * height + pad.y * width)
-    const c = width * height - maxArea
-    factor = a === 0 ? (b === 0 ? 0 : -c / b) : (-b + Math.sqrt(b * b - 4 * a * c)) / (2 * a)
-    factor = clamp(factor, 0, 1)
-  }
-  return {
-    left: clamp(view.left - factor * pad.x, -180, 180),
-    bottom: clamp(view.bottom - factor * pad.y, -90, 90),
-    right: clamp(view.right + factor * pad.x, -180, 180),
-    top: clamp(view.top + factor * pad.y, -90, 90),
-  }
-}
-
-/** The box round a place that reaches `km` kilometres from it, which the stations near it are asked for (a pick that is off the screen) */
-export function boxAround(point: Point, km: number): MapBox {
-  const latitude = km / 111.2
-  const longitude = Math.min(180, latitude / Math.max(Math.cos(point.latitude * Math.PI / 180), 0.05))
-  return {
-    left: clamp(point.longitude - longitude, -180, 180),
-    bottom: clamp(point.latitude - latitude, -90, 90),
-    right: clamp(point.longitude + longitude, -180, 180),
-    top: clamp(point.latitude + latitude, -90, 90),
-  }
-}
 
 /** The radius of a station's dot in pixels, by zoom: points at the scale of a continent, discs at the scale of a town */
 export function dotRadius(zoom: number): number {
@@ -385,8 +275,8 @@ export function reportingRule(stations: Array<Pick<Station, 'end_timestamp'>>, n
 /**
  * The rule of whether a station of GHCN daily is still reporting (GH-4078): its list gives the span of a record by years, so a
  * station with no end (its last year is the current one) reports, and so does one whose record ends in last year (a year that may not
- * be complete yet, as the stripes' `active` counts it); one that ended earlier has stopped. There is no clock of the list to go by,
- * since only the stations in view are loaded: the clock is today's.
+ * be complete yet, as the stripes' `active` counts it); one that ended earlier has stopped. There is no clock of the list to go by:
+ * the clock is today's.
  */
 export function ghcnReportingRule(now: number = Date.now()): ReportingRule {
   const lastYear = new Date(now).getUTCFullYear() - 1

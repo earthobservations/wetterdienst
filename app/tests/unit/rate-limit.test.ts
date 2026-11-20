@@ -21,6 +21,8 @@ describe('what is counted', () => {
     '/api/stripes/image',
     '/api/history',
     '/api/issues',
+    // the app's own list of the GHCN stations (GH-4267): the first request after a restart costs the backend a 44 MB answer
+    '/api/map/ghcn-stations',
     '/mcp',
     '/mcp/v1',
     '/mcp/v1/anything',

@@ -32,6 +32,8 @@ const LISTS: Record<string, string> = {
   '/api/providers': 'providers',
   '/api/issues': 'issues',
   '/api/history': 'histories',
+  // the app's own server's list of the stations of GHCN daily, as columns (GH-4267)
+  '/api/map/ghcn-stations': 'station_id',
 }
 const ARRAYS = new Set(['/api/glossary'])
 const OBJECTS = new Set(['/api/coverage'])

@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  BOX_MAX_AREA,
-  boxArea,
-  boxAround,
-  boxContains,
-  boxHas,
-  boxOfBounds,
   clickReach,
   closerStoppedStation,
   DEFAULT_MEASURED,
@@ -24,12 +18,10 @@ import {
   measurementsLink,
   nearestStations,
   nearestWithin,
-  padOf,
   placed,
   REACH_KM,
   REPORTING_WITHIN_DAYS,
   reportingRule,
-  requestBox,
   searchStations,
   SELECTED_EDGE_PX,
   SELECTED_RADIUS_PX,
@@ -542,69 +534,6 @@ describe('the same station in the list of another layer (GH-4077)', () => {
     expect(findSameStation(list, picked(), true)).toBeNull()
     expect(findSameStation(list, picked({ wmo: '99999' }), true)).toBeNull()
     expect(findSameStation(list, picked({ wmo: null }), true)).toBeNull()
-  })
-})
-
-describe('the part of the map in view (GH-4078)', () => {
-  it('is the bounds of the map, as the API takes a box', () => {
-    expect(boxOfBounds({ west: 5, south: 47, east: 16, north: 55 })).toEqual({ left: 5, bottom: 47, right: 16, top: 55 })
-  })
-
-  it('brings the bounds of a copy of the world beside the first into the first, and cuts what is beyond the edge of the map', () => {
-    expect(boxOfBounds({ west: 365, south: 47, east: 376, north: 55 })).toEqual({ left: 5, bottom: 47, right: 16, top: 55 })
-    expect(boxOfBounds({ west: -355, south: 47, east: -344, north: 55 })).toEqual({ left: 5, bottom: 47, right: 16, top: 55 })
-    // a view over the antimeridian gets the side its centre is on
-    expect(boxOfBounds({ west: 165, south: -10, east: 190, north: 10 })).toEqual({ left: 165, bottom: -10, right: 180, top: 10 })
-    expect(boxOfBounds({ west: 170, south: -10, east: 200, north: 10 })).toEqual({ left: -180, bottom: -10, right: -160, top: 10 })
-    expect(boxOfBounds({ west: 10, south: -100, east: 20, north: 100 })).toEqual({ left: 10, bottom: -90, right: 20, top: 90 })
-  })
-
-  it('is the world for a view as wide as the world', () => {
-    expect(boxOfBounds({ west: -300, south: -80, east: 300, north: 80 })).toEqual({ left: -180, bottom: -80, right: 180, top: 80 })
-  })
-
-  it('has an area in square degrees, which BOX_MAX_AREA limits, and holds a box or a point', () => {
-    const box = { left: 5, bottom: 47, right: 16, top: 55 }
-    expect(boxArea(box)).toBe(88)
-    // the map at its opening view on a wide screen (Germany, zoom 6) is within the limit
-    expect(boxArea({ left: 1.6, bottom: 46.4, right: 19.2, top: 56 })).toBeLessThan(BOX_MAX_AREA)
-    expect(boxContains({ left: 0, bottom: 40, right: 20, top: 60 }, box)).toBe(true)
-    expect(boxContains({ left: 6, bottom: 40, right: 20, top: 60 }, box)).toBe(false)
-    expect(boxHas(box, { latitude: 50, longitude: 10 })).toBe(true)
-    expect(boxHas(box, { latitude: 56, longitude: 10 })).toBe(false)
-  })
-
-  it('is padded by the pixels of a group\'s reach or a share of the view, the larger, and by the share alone where the map\'s size is not known', () => {
-    const view = { left: 0, bottom: 0, right: 10, top: 20 }
-    // 500 by 500 px: 100 px is 20 % of the width and of the height
-    expect(padOf(view, { x: 500, y: 500 }, 100)).toEqual({ x: 2, y: 4 })
-    // 2000 px across: the share of 15 % is more than 100 px
-    expect(padOf(view, { x: 2000, y: 2000 }, 100)).toEqual({ x: 1.5, y: 3 })
-    expect(padOf(view, undefined, 100)).toEqual({ x: 1.5, y: 3 })
-  })
-
-  it('asks for the view with its padding, which shrinks to nothing as the view nears BOX_MAX_AREA, and is cut at the edges of the world', () => {
-    const view = { left: 0, bottom: 0, right: 10, top: 10 }
-    expect(requestBox(view, { x: 1, y: 2 })).toEqual({ left: -1, bottom: -2, right: 11, top: 12 })
-    // 100 square degrees with the padding of 12 by 14 is 336: the padding shrinks until it is 200
-    const box = requestBox(view, { x: 2, y: 2 }, 144)
-    expect(boxArea(box)).toBeCloseTo(144, 6)
-    expect(box.left).toBeGreaterThan(-2)
-    expect(box.left).toBeLessThan(0)
-    // at the cap there is none, and the box is the view
-    expect(requestBox({ left: 0, bottom: 0, right: 10, top: 20 }, { x: 3, y: 3 }, 200)).toEqual({ left: 0, bottom: 0, right: 10, top: 20 })
-    expect(requestBox({ left: -179, bottom: 85, right: 179, top: 89 }, { x: 5, y: 5 }, 1e6)).toEqual({ left: -180, bottom: 80, right: 180, top: 90 })
-    // the densest 200 square degrees of the layer's list is some 27,000 stations: the cap is that of the maintainer's decision
-    expect(BOX_MAX_AREA).toBe(200)
-  })
-
-  it('has the box round a place, that reaches a distance from it in every direction, wider in longitude the nearer a pole', () => {
-    const box = boxAround({ latitude: 53.5, longitude: 10 }, 110)
-    expect(box.bottom).toBeCloseTo(53.5 - 110 / 111.2, 6)
-    expect(box.top).toBeCloseTo(53.5 + 110 / 111.2, 6)
-    expect(box.right - 10).toBeGreaterThan(box.top - 53.5)
-    // a point beside the antimeridian is cut at it
-    expect(boxAround({ latitude: 0, longitude: 179.5 }, 110).right).toBe(180)
   })
 })
 
