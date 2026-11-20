@@ -34,6 +34,28 @@ describe('a list of stations', () => {
     expect(asks).toBe(1)
   })
 
+  it('tells `prepare` the stations that are kept, the ones shown, before they are shown, and not those of an answer that came too late', async () => {
+    // what `prepare` saw is recorded and asserted after the await: an expectation inside it would be caught by `ensure` as the list's failure
+    const seen: Array<{ ids: string[], shownBefore: string[], stations: unknown }> = []
+    const answers = [gate<ReturnType<typeof station>[]>(), gate<ReturnType<typeof station>[]>()]
+    let asks = 0
+    const list = useStationList(() => 'a', () => answers[asks++]!.promise, (stations) => {
+      seen.push({ ids: stations.map(entry => entry.station_id), shownBefore: list.stations.value.map(entry => entry.station_id), stations })
+    })
+    const first = list.ensure()
+    const second = list.ensure(true)
+    answers[1]!.release([station('new'), station('nowhere', null)])
+    await second
+    answers[0]!.release([station('old')])
+    await first
+    expect(list.status.value).toBe('success')
+    expect(list.error.value).toBeNull()
+    expect(seen.map(entry => entry.ids)).toEqual([['new']])
+    // told before the list is shown, and the list that is shown is the array that was prepared
+    expect(seen[0]!.shownBefore).toEqual([])
+    expect(list.stations.value).toBe(seen[0]!.stations)
+  })
+
   it('is asked for again after a failure, and again on request', async () => {
     let asks = 0
     const list = useStationList(() => 'a', async () => {

@@ -23,6 +23,9 @@ describe('what is counted', () => {
     '/_ghcn/stations/',
     '/api/history',
     '/api/issues',
+    // the app's own server's routes for GHCN daily (GH-4267): the first request after a restart costs the backend a 44 MB answer
+    '/_ghcn/map-stations',
+    '/_ghcn/map-stations?x=1',
     '/mcp',
     '/mcp/v1',
     '/mcp/v1/anything',

@@ -18,6 +18,14 @@ Types of changes:
 
 ### Changed
 
+- `[Map]` The NOAA GHCN daily layer shows its 133,000 stations at every zoom, loaded once as the DWD
+  layers' are, and no longer by the part of the map in view: there is no "zoom in" hint, choosing
+  the layer does not zoom the map in, and the search and the list near the centre cover all of
+  them. The app's server makes one compact list of them from the backend's answer
+  (`/_ghcn/map-stations`: 2 MB gzipped, where the backend's list is 44 MB of JSON, kept for a day;
+  a backend that is down is a failure with Retry, never an empty layer). The list carries each
+  station's name, years and WMO number; its elevation and region are asked for when it is picked
+  (GH-4267).
 - `[Stripes]` The app makes the climate stripes itself and no longer asks the backend's stripes routes,
   which the backend drops later. Stations and annual values come from `/api/stations` and
   `/api/values`, the reference, anomalies and classes are calculated in the browser by the backend's

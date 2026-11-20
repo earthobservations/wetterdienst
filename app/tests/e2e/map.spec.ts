@@ -1194,8 +1194,9 @@ test.describe('the switch of the grouping on a phone', () => {
   })
 })
 
-// NOAA GHCN daily (GH-4078): a layer of 133,041 stations that is asked for by the part of the map in view. The backend's answer is
-// the mock's: the stations of the box that the request names, from a few of Germany and one of New York.
+// NOAA GHCN daily (GH-4078, GH-4267): a layer of 133,041 stations that the app's server hands out as one compact list, which the map loads
+// once. The backend's answer is the mock's: the list of a few stations of Germany and one of New York, as columns, and the details of
+// a station by its id.
 const GHCN_STATIONS = [
   { station_id: 'GM000010147', name: 'HAMBURG FUHLSBUETTEL', region: null, latitude: 53.635, longitude: 9.99, elevation: 11, wmo_id: '10147', start_timestamp: '1891-01-01T00:00:00.000000+00:00', end_timestamp: null },
   { station_id: 'GME00122482', name: 'FREIBURG/ELBE', region: null, latitude: 53.8292, longitude: 9.2494, elevation: 2, start_timestamp: '1970-01-01T00:00:00.000000+00:00', end_timestamp: null },
@@ -1203,66 +1204,84 @@ const GHCN_STATIONS = [
   { station_id: 'GM000010382', name: 'BERLIN-TEGEL', region: null, latitude: 52.564, longitude: 13.309, elevation: 36, start_timestamp: '1953-01-01T00:00:00.000000+00:00', end_timestamp: null },
   { station_id: 'USW00094728', name: 'NEW YORK CNTRL PK TWR', region: null, latitude: 40.7789, longitude: -73.9692, elevation: 42.7, start_timestamp: '1869-01-01T00:00:00.000000+00:00', end_timestamp: null },
 ]
+const yearOf = (timestamp: string | null) => timestamp ? Number(timestamp.slice(0, 4)) : null
+const GHCN_COLUMNS = {
+  count: GHCN_STATIONS.length,
+  retrieved_at: null,
+  station_id: GHCN_STATIONS.map(station => station.station_id),
+  latitude: GHCN_STATIONS.map(station => station.latitude),
+  longitude: GHCN_STATIONS.map(station => station.longitude),
+  first_year: GHCN_STATIONS.map(station => yearOf(station.start_timestamp)),
+  last_year: GHCN_STATIONS.map(station => yearOf(station.end_timestamp)),
+  name: GHCN_STATIONS.map(station => station.name),
+  wmo_id: GHCN_STATIONS.map(station => station.wmo_id ?? null),
+}
 
-/** The mock backend with the stations of GHCN daily by the box asked for, which each request is counted of (its stripes are the mock's own `_ghcn/annual`) */
-function ghcnBackend(asked: URLSearchParams[]) {
+/** The mock backend with the compact list of the stations of GHCN daily, which each request for it is counted of, the details of a station by its id*/
+function ghcnBackend(asked: string[], listHandler: () => unknown = () => GHCN_COLUMNS) {
   const defaults = defaultHandlers()
   return {
-    stations: (url: URL, route: Route) => {
+    '_ghcn/map-stations': (url: URL) => {
+      asked.push(url.search)
+      return listHandler()
+    },
+    'stations': (url: URL, route: Route) => {
       if (url.searchParams.get('network') !== 'ghcn')
         return defaults.stations!(url, route)
-      // a station by its id (the address of a station that the stations in view may not hold)
-      const wanted = url.searchParams.get('stations')?.split(',')
-      if (wanted)
-        return { stations: GHCN_STATIONS.filter(station => wanted.includes(station.station_id)) }
-      asked.push(url.searchParams)
-      const [left, bottom, right, top] = ['left', 'bottom', 'right', 'top'].map(name => Number(url.searchParams.get(name)))
-      return { stations: GHCN_STATIONS.filter(station => station.longitude >= left! && station.longitude <= right! && station.latitude >= bottom! && station.latitude <= top!) }
+      // the details of the station picked, by its id: the list is not asked of the backend
+      const wanted = url.searchParams.get('stations')?.split(',') ?? []
+      return { stations: GHCN_STATIONS.filter(station => wanted.includes(station.station_id)) }
     },
   }
 }
 
-test.describe('the map tool: NOAA GHCN daily (GH-4078)', () => {
+test.describe('the map tool: NOAA GHCN daily (GH-4078, GH-4267)', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test('asks for the stations of the part of the map in view, and says to zoom in where it holds most of the world', async ({ page, baseURL }) => {
-    const asked: URLSearchParams[] = []
+  test('loads every station once, at the zoom the map has, and keeps them at every zoom from the world to a town', async ({ page, baseURL }) => {
+    const asked: string[] = []
     await open(page, baseURL!, '/map', ghcnBackend(asked))
     await (await layerRadio(page, en.mapTool.layerGhcn)).click()
     await expect(page).toHaveURL(/layer=ghcn/)
-    // the window is large (1440 by 900): Germany at its opening zoom is more than the 200 square degrees that are asked for, so the map
-    // zooms in as the layer is chosen, until the view fits, and the box of the view, a little more, and the stations of it are shown at once
-    // (the one in New York is not)
-    await expect.poll(() => zoomOf(page)).toBe(7)
+    // no zooming in for the layer, and no hint: the map stays at its opening zoom, with every station of the list (the one of New York too)
+    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 5')
+    expect(await zoomOf(page)).toBe(6)
     await expect(page.getByTestId('map-zoom-hint')).toHaveCount(0)
-    await expect(page.getByTestId('map-count')).toHaveText(/^Stations shown: [1-9]/)
-    await expect.poll(() => asked.length).toBeGreaterThan(0)
-    expect(asked[0]!.get('provider')).toBe('noaa')
-    expect(asked[0]!.get('network')).toBe('ghcn')
-    expect(asked[0]!.get('parameters')).toBe('daily/data')
-    expect(asked[0]!.has('all')).toBe(false)
-    expect(Number(asked[0]!.get('left'))).toBeLessThan(Number(asked[0]!.get('right')))
     await expect(page.getByTestId('map-panel').getByRole('button', { name: /HAMBURG FUHLSBUETTEL/ })).toBeVisible()
-    await expect(page.getByTestId('map-panel').getByRole('button', { name: /NEW YORK/ })).toHaveCount(0)
+    await expect(page.getByTestId('map-panel').getByRole('button', { name: /NEW YORK/ })).toBeVisible()
 
-    // zoomed out to the world: nothing is asked for, the map says to zoom in, and shows no count
-    const before = asked.length
+    // zoomed out to the world, and in to a town: the same stations, and no other request for them
     const zoomOut = page.getByRole('button', { name: en.mapTool.zoomOut })
-    for (let step = 0; step < 4; step++)
+    for (let zoom = 5; zoom >= 2; zoom--) {
       await zoomOut.click()
-    await expect(page.getByTestId('map-zoom-hint')).toHaveText(en.mapTool.zoomInForStations)
-    await expect(page.getByTestId('map-count')).toHaveCount(0)
-    await page.waitForTimeout(700)
-    expect(asked.length).toBe(before)
-
-    // and the stations of the view are asked for again once the map is zoomed in
-    for (let step = 0; step < 6 && await page.getByTestId('map-zoom-hint').count(); step++) {
-      await page.getByRole('button', { name: en.mapTool.zoomIn }).click()
+      await expect.poll(() => zoomOf(page)).toBe(zoom)
+      // the map's zoom animation is over before the next press, which it would not take
       await page.waitForTimeout(400)
     }
+    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 5')
     await expect(page.getByTestId('map-zoom-hint')).toHaveCount(0)
-    await expect(page.getByTestId('map-count')).toBeVisible()
-    await expect.poll(() => asked.length).toBeGreaterThan(before)
+    for (let zoom = 3; zoom <= 8; zoom++) {
+      await page.getByRole('button', { name: en.mapTool.zoomIn }).click()
+      await expect.poll(() => zoomOf(page)).toBe(zoom)
+      await page.waitForTimeout(400)
+    }
+    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 5')
+    await page.waitForTimeout(700)
+    expect(asked).toHaveLength(1)
+  })
+
+  test('says that the list could not be loaded, with Retry, and not that the layer has no stations', async ({ page, baseURL }) => {
+    const asked: string[] = []
+    let failing = true
+    await open(page, baseURL!, '/map?layer=ghcn', ghcnBackend(asked, () => failing ? new ApiFailure(500, 'The backend could not be reached.') : GHCN_COLUMNS))
+    const failure = page.getByTestId('map-failure')
+    await expect(failure).toContainText(en.mapTool.stationsFailed)
+    await expect(page.getByTestId('map-count')).toHaveCount(0)
+    await expect(page.getByTestId('map-empty')).toHaveCount(0)
+    failing = false
+    await failure.getByRole('button', { name: en.common.retry }).click()
+    await expect(page.getByTestId('map-count')).toHaveText('Stations shown: 5')
+    await expect(failure).toHaveCount(0)
   })
 
   test('gives a station its own stripes with the midrange note, and its daily values in the Explorer', async ({ page, baseURL }) => {

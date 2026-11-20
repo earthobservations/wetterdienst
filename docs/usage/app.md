@@ -252,9 +252,9 @@ The server limits what costs something, per client. It counts the requests to
 
 - `/api/values`, `/api/stations`, `/api/interpolate`, `/api/summarize` and `/api/history`,
   and any other route under `/api` that is not one of the catalogue routes below,
-- `/_ghcn/*`, the app's own routes for the climate stripes of NOAA's GHCN daily (see below), each of which reads the
-  backend, and
-- `/mcp` (a session is many small calls),
+- `/mcp` (a session is many small calls), and
+- `/_ghcn/*`, the app's own routes for NOAA's GHCN daily (the list of its stations for the map, which costs the
+  backend a 44 MB answer the first time, and the climate stripes' annual values and station lists, see below),
 
 and answers the one past the limit with `429 Too Many Requests` and a problem of the kind
 `urn:wetterdienst:problem:rate-limited`, with `Retry-After` (seconds). It does not count the pages, the assets,

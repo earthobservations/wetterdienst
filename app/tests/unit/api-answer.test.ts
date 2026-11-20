@@ -50,6 +50,12 @@ describe('unexpectedAnswerReason', () => {
     expect(unexpectedAnswerReason('/api/history', { status: 200, contentType: json, data: { stations: [] } })).toContain('no list of `histories`')
   })
 
+  it('holds the app\'s own list of the GHCN stations to its columns (GH-4267), where a page of another form is no list of none', () => {
+    const json = 'application/json'
+    expect(unexpectedAnswerReason('/_ghcn/map-stations', { status: 200, contentType: json, data: { count: 0, station_id: [] } })).toBeNull()
+    expect(unexpectedAnswerReason('/_ghcn/map-stations', { status: 200, contentType: json, data: { stations: [] } })).toContain('no list of `station_id`')
+  })
+
   it('tells an answer with no body as no data, and a body labelled JSON that does not parse by that', () => {
     // ofetch reads no body as undefined, and a text it cannot parse as the text
     expect(unexpectedAnswerReason('/api/stations', { status: 200, contentType: 'application/json' })).toContain('no body')
