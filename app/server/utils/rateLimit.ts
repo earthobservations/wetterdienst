@@ -5,9 +5,11 @@
 /**
  * The default limit, the one place it is written: 300 requests in 300 seconds for each client, that is
  * 60 a minute. An operator changes it at run time with `NUXT_RATE_LIMIT_TOKENS` and
- * `NUXT_RATE_LIMIT_WINDOW_SECONDS` (`runtimeConfig.rateLimit` in `nuxt.config.ts` reads these).
+ * `NUXT_RATE_LIMIT_WINDOW_SECONDS` (`runtimeConfig.rateLimit` in `nuxt.config.ts` reads these). The images of the radar's
+ * frames (`radar/frame`, GH-3788) have a bucket of their own, `frameTokens` in the same window: one page of the Radar tool asks for
+ * 49 of them, which the browser then keeps for an hour, and a loop that was refused its frames would be broken.
  */
-export const RATE_LIMIT_DEFAULTS = { tokens: 300, windowSeconds: 300 } as const
+export const RATE_LIMIT_DEFAULTS = { tokens: 300, windowSeconds: 300, frameTokens: 1000 } as const
 
 /**
  * What the app serves from the catalogue of the backend: small, the same for every caller, and asked for
@@ -140,4 +142,23 @@ export function createRateLimiter() {
 export function positiveInteger(value: unknown, fallback: number): number {
   const number = Number(value)
   return Number.isInteger(number) && number >= 1 ? number : fallback
+}
+
+/** The bucket a counted request goes into: the images of the radar's frames have their own (GH-3788), every other counted route shares one */
+export type LimitBucket = 'frames' | 'shared'
+
+/**
+ * Which bucket a request is counted in, or null where it is not counted at all (`isLimited`). `radar/frame` is read as `isLimited`
+ * reads a catalogue route: exactly, under `/api` or `/api/v1`, so `/api/radar/frame/../values` is the shared bucket's.
+ *
+ * @param path The request's path and query, as `event.path`
+ * @returns The bucket, or null
+ */
+export function bucketOf(path: string): LimitBucket | null {
+  if (!isLimited(path))
+    return null
+  const pathname = path.split('?')[0]!.replace(/(?<=.)\/$/, '')
+  const [, first, ...rest] = pathname.split('/')
+  const route = first === 'api' && rest[0] === 'v1' ? rest.slice(1) : rest
+  return first === 'api' && route.length === 2 && route[0] === 'radar' && route[1] === 'frame' ? 'frames' : 'shared'
 }

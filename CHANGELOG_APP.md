@@ -16,8 +16,24 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Radar]` A tool of its own, the sixth: DWD's precipitation radar over Germany on the map, a loop
+  of the last two hours and DWD's forecast of the next two (marked observed or forecast in words
+  and by an icon), with a player (play and pause, a step each way, a slider; the loop starts by
+  itself unless the system asks for less motion), the time in your own zone, the legend in mm/h
+  with numbers, a short text on what a radar measures and where it errs, and DWD's thunderstorm
+  cells on top with their list (shown on the frames within 15 minutes of their scan, faded out on
+  older frames and on the forecast). It needs backend 0.194.0 (GH-3788).
+- `[Navigation]` The Radar takes History's place in the default tab bar of a phone: Forecast,
+  Explorer, Stripes and the Radar, with History and the Map in the Menu's sheet. A bar you arranged
+  yourself is kept, and the Radar is below its line (GH-3788).
+
 ### Changed
 
+- `[Navigation]` With the Radar the header holds six tools, and to fit them in the longer languages
+  the tools' tiles are left out of its tabs below 80 rem (the names stay), and the search's word and
+  the support heart appear from 90 rem instead of 80 rem (GH-3788).
 - `[Map]` The NOAA GHCN daily layer shows its 133,000 stations at every zoom, loaded once as the DWD
   layers' are, and no longer by the part of the map in view: there is no "zoom in" hint, choosing
   the layer does not zoom the map in, and the search and the list near the centre cover all of

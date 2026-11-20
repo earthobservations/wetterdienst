@@ -90,12 +90,12 @@ async function clickMapCentre(page: Page) {
 test.describe('the map tool on a wide screen', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test('is the fifth tool of the header, with its violet tile, and marks itself as the page one is on', async ({ page, baseURL }) => {
+  test('is the sixth tool of the header, with its violet tile, and marks itself as the page one is on', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map')
     const nav = page.getByRole('navigation', { name: en.shell.mainNav })
     const links = nav.getByRole('link')
     await expect(links.filter({ hasText: en.nav.map })).toHaveAttribute('aria-current', 'page')
-    expect(await nav.locator('ul > li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.history, en.nav.map])
+    expect(await nav.locator('ul > li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.radar, en.nav.history, en.nav.map])
     await expect(page.locator('.page-header .tile-map')).toBeVisible()
   })
 
@@ -1036,10 +1036,10 @@ test.describe('the map tool on a phone', () => {
     expect(order).toEqual(['map-layers-button', 'application', 'search'])
   })
 
-  test('has the four tools it had before the map and the Menu in the bar, the map in the Menu, and the Menu marked on the map', async ({ page, baseURL }) => {
+  test('has the four tools of the default bar and the Menu, the map in the Menu, and the Menu marked on the map', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/map')
     const bar = page.locator('.app-tabbar')
-    expect(await bar.locator('li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.history, en.header.menu])
+    expect(await bar.locator('li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.radar, en.header.menu])
     await expect(bar.getByRole('link', { name: en.nav.map })).toHaveCount(0)
     // the page is the map's, which has no tab: the Menu's tab is the one marked, for the eye and for a screen reader
     const menu = bar.getByRole('button', { name: en.header.menu })
@@ -1064,12 +1064,12 @@ test.describe('the map tool on a phone', () => {
     await page.getByRole('dialog', { name: en.header.menu }).getByRole('link', { name: en.nav.map }).click()
     await expect(page).toHaveURL(/\/map$/)
     await expect(menu).toHaveAttribute('aria-current', 'true')
-    await bar.getByRole('link', { name: en.nav.history }).click()
-    // the history page writes its default query into the address a moment after it opens (`router.replace`): a Back
-    // before that is followed by the page's own navigation to /history, so it is waited for
-    await expect(page).toHaveURL(/\/history\?provider=dwd/)
+    await bar.getByRole('link', { name: en.nav.stripes }).click()
+    // the page is waited for, so that a Back is not followed by one of its own navigations
+    await expect(page).toHaveURL(/\/stripes$/)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(en.stripes.title)
     await expect(menu).not.toHaveAttribute('aria-current', 'true')
-    await expect(bar.getByRole('link', { name: en.nav.history })).toHaveAttribute('aria-current', 'page')
+    await expect(bar.getByRole('link', { name: en.nav.stripes })).toHaveAttribute('aria-current', 'page')
     await page.goBack()
     await expect(page).toHaveURL(/\/map$/)
     await expect(menu).toHaveAttribute('aria-current', 'true')
@@ -1077,9 +1077,9 @@ test.describe('the map tool on a phone', () => {
   })
 
   test('is found from the Menu, where the map is a link of the sheet that opens it', async ({ page, baseURL }) => {
-    await open(page, baseURL!, '/history', {}, en.history.title)
+    await open(page, baseURL!, '/stripes', {}, en.stripes.title)
     const bar = page.locator('.app-tabbar')
-    await expect(bar.getByRole('link', { name: en.nav.history })).toHaveAttribute('aria-current', 'page')
+    await expect(bar.getByRole('link', { name: en.nav.stripes })).toHaveAttribute('aria-current', 'page')
     await expect(bar.getByRole('button', { name: en.header.menu })).not.toHaveAttribute('aria-current', 'true')
     await bar.getByRole('button', { name: en.header.menu }).click()
     const sheet = page.getByRole('dialog', { name: en.header.menu })
@@ -1088,7 +1088,7 @@ test.describe('the map tool on a phone', () => {
     await expect(page.getByTestId('map-panel')).toBeVisible()
   })
 
-  test('is found from the home page, whose fifth card is the map, and from the search, which opens it on a station', async ({ page, baseURL }) => {
+  test('is found from the home page, whose sixth card is the map, and from the search, which opens it on a station', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/', {}, 'Wetterdienst')
     await page.locator('.home-tasks').getByRole('link', { name: en.mapTool.title }).click()
     await expect(page).toHaveURL(/\/map$/)

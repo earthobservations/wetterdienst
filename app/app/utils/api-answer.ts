@@ -32,6 +32,8 @@ const LISTS: Record<string, string> = {
   '/api/providers': 'providers',
   '/api/issues': 'issues',
   '/api/history': 'histories',
+  '/api/storm-cells': 'cells',
+  '/api/radar/frames': 'frames',
   // the app's own server's list of the stations of GHCN daily, as columns (GH-4267)
   '/_ghcn/map-stations': 'station_id',
 }

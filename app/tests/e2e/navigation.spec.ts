@@ -5,7 +5,7 @@ import { expect, test } from '@playwright/test'
 import { REFERENCE } from '../../app/utils/sections'
 import { mockBackend } from './accessibility/mock-backend'
 
-// The shell of the app (GH-3518): the header with the four tools and the reference, the search, the tab bar and the
+// The shell of the app (GH-3518): the header with the six tools and the reference, the search, the tab bar and the
 // menu sheet of the narrow layout, the skip link, and the one frame every page sits in. The backend is the
 // accessibility spec's mock, so nothing here reaches a provider.
 
@@ -144,7 +144,8 @@ test.describe('the search', () => {
     await page.getByRole('button', { name: en.shell.search }).click()
     const dialog = page.getByRole('dialog', { name: en.shell.search })
     await page.keyboard.type('DWD')
-    await dialog.getByRole('option', { name: /DWD/ }).first().click()
+    // the provider, not the first page that names DWD in its description (the Radar does, GH-3788): its name starts with it
+    await dialog.getByRole('option', { name: /^DWD\b/ }).first().click()
     await expect(page).toHaveURL(/\/providers\/dwd$/)
   })
 
@@ -252,8 +253,8 @@ test.describe('the narrow layout', () => {
     const box = await bar.boundingBox()
     expect(box!.y + box!.height).toBeGreaterThan(844 - 2)
     await expect(bar.getByRole('link', { name: en.nav.meteogram })).toHaveAttribute('aria-current', 'page')
-    // four tools and the Menu, as before the map (GH-3650), which is in the Menu's sheet
-    expect(await bar.locator('li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.history, en.header.menu])
+    // four tools and the Menu (GH-3650), the Radar in the fourth place (GH-3788); History and the map are in the Menu's sheet
+    expect(await bar.locator('li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.radar, en.header.menu])
     // the page keeps the bar's height free at its foot, so its last line is not under the bar
     await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight))
     const last = page.getByRole('link', { name: en.footer.licenses })

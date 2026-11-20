@@ -14,7 +14,14 @@ type Translate = (key: string) => string
  *
  * @param t - Translates a catalog key into the language of the page
  * @param derived - Whether the values were selected or calculated from the provider's readings
+ * @param radar - Whether it is a frame of the precipitation radar, which says what was done to the composite besides
  */
-export function processingNote(t: Translate, derived = false): string {
-  return derived ? `${t('processingNote.base')} ${t('processingNote.estimate')}` : t('processingNote.base')
+export function processingNote(t: Translate, derived = false, radar = false): string {
+  const parts = [t('processingNote.base')]
+  if (derived)
+    parts.push(t('processingNote.estimate'))
+  // what the Radar tool says of its frames (GH-3788): the sums became classes of a rate, and the grid was warped
+  if (radar)
+    parts.push(t('processingNote.radar'))
+  return parts.join(' ')
 }

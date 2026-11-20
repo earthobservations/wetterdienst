@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import TabBarChooser from '~/components/TabBarChooser.vue'
 import { useSettings } from '~/composables/useSettings'
 
-// The chooser of the four tools in the phone's tab bar (GH-3846): the list with its line, the preview of the bar, the
+// The chooser of the four tools in the phone's tab bar (GH-3846; GH-3788: six tools, the History and the Map below the line by default): the list with its line, the preview of the bar, the
 // arrow buttons that do what dragging does (WCAG 2.5.7), the status that says what moved, and the drag by the
 // handle with the pointer events a mouse, a finger and a pen send. From the header's breakpoint (64 rem, GH-3936) there
 // is no bar and no Menu to choose between: one list in the order of the header's tabs, the same setting. The test
@@ -51,9 +51,9 @@ const status = (wrapper: Chooser) => wrapper.find('[data-testid="bar-status"]').
 describe('the chooser of the tools in the phone bar', () => {
   it('lists the four tools of the bar above the line and the others below it, in the order of the bar', async () => {
     const wrapper = await mountChooser()
-    expect(rows(wrapper, 'bar')).toEqual(['forecast', 'explorer', 'stripes', 'history'])
-    expect(rows(wrapper, 'menu')).toEqual(['map'])
-    expect(names(wrapper, 'bar')).toEqual(['Forecast', 'Explorer', 'Climate stripes', 'History'])
+    expect(rows(wrapper, 'bar')).toEqual(['forecast', 'explorer', 'stripes', 'radar'])
+    expect(rows(wrapper, 'menu')).toEqual(['history', 'map'])
+    expect(names(wrapper, 'bar')).toEqual(['Forecast', 'Explorer', 'Climate stripes', 'Radar'])
     // each list is named by the heading over it
     const headings = wrapper.findAll('h3').map(heading => heading.text())
     expect(headings).toEqual(['In the bar', 'Only in the Menu'])
@@ -63,13 +63,13 @@ describe('the chooser of the tools in the phone bar', () => {
 
   it('shows the bar as it would be drawn: the four tools and the Menu, and says what is only in the Menu', async () => {
     const wrapper = await mountChooser()
-    expect(previewNames(wrapper)).toEqual(['Forecast', 'Explorer', 'Climate stripes', 'History'])
+    expect(previewNames(wrapper)).toEqual(['Forecast', 'Explorer', 'Climate stripes', 'Radar'])
     const preview = wrapper.find('[data-testid="bar-preview"]')
     expect(preview.text()).toContain('Menu')
     // a picture with a name that lists what it shows
     expect(preview.attributes('role')).toBe('img')
-    expect(preview.attributes('aria-label')).toBe('Preview of the bar: Forecast, Explorer, Climate stripes, History, Menu')
-    expect(wrapper.find('[data-testid="bar-preview-menu"]').text()).toBe('Only in the Menu: Map')
+    expect(preview.attributes('aria-label')).toBe('Preview of the bar: Forecast, Explorer, Climate stripes, Radar, Menu')
+    expect(wrapper.find('[data-testid="bar-preview-menu"]').text()).toBe('Only in the Menu: History, Map')
   })
 
   it('has a handle that is no stop of the keyboard and is not read out, and two buttons on a row that are (their size is set in main.css, measured in the e2e spec)', async () => {
@@ -78,7 +78,7 @@ describe('the chooser of the tools in the phone bar', () => {
       expect(handle.attributes('aria-hidden')).toBe('true')
       expect(handle.attributes('tabindex')).toBeUndefined()
     }
-    expect(wrapper.findAll('li button')).toHaveLength(10)
+    expect(wrapper.findAll('li button')).toHaveLength(12)
     expect(button(wrapper, 'stripes', 'up').attributes('aria-label')).toBe('Move Climate stripes up')
     expect(button(wrapper, 'stripes', 'down').attributes('aria-label')).toBe('Move Climate stripes down')
   })
@@ -87,54 +87,54 @@ describe('the chooser of the tools in the phone bar', () => {
     it('moves a tool up inside the bar, and says where it is now', async () => {
       const wrapper = await mountChooser()
       await button(wrapper, 'stripes', 'up').trigger('click')
-      expect(stored()).toEqual(['forecast', 'stripes', 'explorer', 'history', 'map'])
-      expect(rows(wrapper, 'bar')).toEqual(['forecast', 'stripes', 'explorer', 'history'])
+      expect(stored()).toEqual(['forecast', 'stripes', 'explorer', 'radar', 'history', 'map'])
+      expect(rows(wrapper, 'bar')).toEqual(['forecast', 'stripes', 'explorer', 'radar'])
       expect(status(wrapper)).toBe('Climate stripes moved to place 2 of 4 in the bar.')
-      expect(previewNames(wrapper)).toEqual(['Forecast', 'Climate stripes', 'Explorer', 'History'])
+      expect(previewNames(wrapper)).toEqual(['Forecast', 'Climate stripes', 'Explorer', 'Radar'])
     })
 
     it('moves a tool into the bar over the line, which pushes the fourth out, and says both', async () => {
       const wrapper = await mountChooser()
-      await button(wrapper, 'map', 'up').trigger('click')
-      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'map', 'history'])
-      expect(rows(wrapper, 'bar')).toEqual(['forecast', 'explorer', 'stripes', 'map'])
-      expect(rows(wrapper, 'menu')).toEqual(['history'])
-      expect(status(wrapper)).toBe('Map is now in the bar, at place 4 of 4. History is now only in the Menu.')
-      expect(wrapper.find('[data-testid="bar-preview-menu"]').text()).toBe('Only in the Menu: History')
+      await button(wrapper, 'history', 'up').trigger('click')
+      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'history', 'radar', 'map'])
+      expect(rows(wrapper, 'bar')).toEqual(['forecast', 'explorer', 'stripes', 'history'])
+      expect(rows(wrapper, 'menu')).toEqual(['radar', 'map'])
+      expect(status(wrapper)).toBe('History is now in the bar, at place 4 of 4. Radar is now only in the Menu.')
+      expect(wrapper.find('[data-testid="bar-preview-menu"]').text()).toBe('Only in the Menu: Radar, Map')
     })
 
     it('moves a tool out of the bar over the line, which pulls the one below it in, and says both', async () => {
       const wrapper = await mountChooser()
-      await button(wrapper, 'history', 'down').trigger('click')
-      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'map', 'history'])
-      expect(status(wrapper)).toBe('History is now only in the Menu. Map is now in the bar, at place 4 of 4.')
+      await button(wrapper, 'radar', 'down').trigger('click')
+      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'history', 'radar', 'map'])
+      expect(status(wrapper)).toBe('Radar is now only in the Menu. History is now in the bar, at place 4 of 4.')
     })
 
     it('always has four tools in the bar, whichever way the tools are moved', async () => {
       const wrapper = await mountChooser()
-      const presses: Array<[string, 'up' | 'down']> = [['map', 'up'], ['map', 'up'], ['forecast', 'down'], ['history', 'down'], ['explorer', 'down'], ['stripes', 'up'], ['map', 'down']]
+      const presses: Array<[string, 'up' | 'down']> = [['history', 'up'], ['history', 'up'], ['forecast', 'down'], ['radar', 'down'], ['explorer', 'down'], ['stripes', 'up'], ['history', 'down']]
       for (const [tool, dir] of presses) {
         await button(wrapper, tool, dir).trigger('click')
         expect(rows(wrapper, 'bar'), `${tool} ${dir}`).toHaveLength(4)
-        expect([...rows(wrapper, 'bar'), ...rows(wrapper, 'menu')].sort()).toEqual(['explorer', 'forecast', 'history', 'map', 'stripes'])
+        expect([...rows(wrapper, 'bar'), ...rows(wrapper, 'menu')].sort()).toEqual(['explorer', 'forecast', 'history', 'map', 'radar', 'stripes'])
         expect(previewNames(wrapper)).toHaveLength(4)
       }
     })
 
     it('keeps the focus on the button that was pressed, also where the row is built again on the other side of the line', async () => {
       const wrapper = await mountChooser()
-      focusOn(button(wrapper, 'map', 'up'))
-      await button(wrapper, 'map', 'up').trigger('click')
-      await vi.waitFor(() => expect(document.activeElement).toBe(button(wrapper, 'map', 'up').element))
-      await button(wrapper, 'map', 'up').trigger('click')
-      await vi.waitFor(() => expect(document.activeElement).toBe(button(wrapper, 'map', 'up').element))
-      expect(stored().indexOf('map')).toBe(2)
+      focusOn(button(wrapper, 'history', 'up'))
+      await button(wrapper, 'history', 'up').trigger('click')
+      await vi.waitFor(() => expect(document.activeElement).toBe(button(wrapper, 'history', 'up').element))
+      await button(wrapper, 'history', 'up').trigger('click')
+      await vi.waitFor(() => expect(document.activeElement).toBe(button(wrapper, 'history', 'up').element))
+      expect(stored().indexOf('history')).toBe(2)
       // and the other way, back across the line
-      focusOn(button(wrapper, 'map', 'down'))
-      await button(wrapper, 'map', 'down').trigger('click')
-      await button(wrapper, 'map', 'down').trigger('click')
-      await vi.waitFor(() => expect(document.activeElement).toBe(button(wrapper, 'map', 'down').element))
-      expect(rows(wrapper, 'menu')).toEqual(['map'])
+      focusOn(button(wrapper, 'history', 'down'))
+      await button(wrapper, 'history', 'down').trigger('click')
+      await button(wrapper, 'history', 'down').trigger('click')
+      await vi.waitFor(() => expect(document.activeElement).toBe(button(wrapper, 'history', 'down').element))
+      expect(rows(wrapper, 'menu')).toEqual(['history', 'map'])
     })
 
     it('does nothing at the ends of the list, where the button stays a stop and says it is unavailable', async () => {
@@ -147,7 +147,7 @@ describe('the chooser of the tools in the phone bar', () => {
       expect(button(wrapper, 'explorer', 'up').attributes('aria-disabled')).toBeUndefined()
       await first.trigger('click')
       await last.trigger('click')
-      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
+      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'radar', 'history', 'map'])
       expect(status(wrapper)).toBe('')
     })
 
@@ -163,34 +163,34 @@ describe('the chooser of the tools in the phone bar', () => {
   describe('reset', () => {
     it('puts the default back and says what the bar is', async () => {
       const wrapper = await mountChooser()
-      await button(wrapper, 'map', 'up').trigger('click')
-      await button(wrapper, 'map', 'up').trigger('click')
-      expect(stored()).not.toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
+      await button(wrapper, 'history', 'up').trigger('click')
+      await button(wrapper, 'history', 'up').trigger('click')
+      expect(stored()).not.toEqual(['forecast', 'explorer', 'stripes', 'radar', 'history', 'map'])
       await wrapper.find('[data-testid="bar-reset"]').trigger('click')
-      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
-      expect(rows(wrapper, 'bar')).toEqual(['forecast', 'explorer', 'stripes', 'history'])
-      expect(status(wrapper)).toBe('The bar is back to its default: Forecast, Explorer, Climate stripes, History.')
+      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'radar', 'history', 'map'])
+      expect(rows(wrapper, 'bar')).toEqual(['forecast', 'explorer', 'stripes', 'radar'])
+      expect(status(wrapper)).toBe('The bar is back to its default: Forecast, Explorer, Climate stripes, Radar.')
     })
   })
 
   describe('a choice that is stored wrong', () => {
     it.each([
-      ['a tool that does not exist', ['radar', 'map', 'forecast', 'explorer', 'stripes'], ['map', 'forecast', 'explorer', 'stripes']],
-      ['too few tools', ['history'], ['history', 'forecast', 'explorer', 'stripes']],
-      ['no list', 'garbage', ['forecast', 'explorer', 'stripes', 'history']],
-      ['a tool twice', ['map', 'map', 'map'], ['map', 'forecast', 'explorer', 'stripes']],
-    ])('is shown as a list of four and one below the line for %s, and the first move saves a valid list', async (_name, bad, bar) => {
+      ['a tool that does not exist', ['satellite', 'history', 'forecast', 'explorer', 'stripes'], ['history', 'forecast', 'explorer', 'stripes']],
+      ['too few tools', ['radar'], ['radar', 'forecast', 'explorer', 'stripes']],
+      ['no list', 'garbage', ['forecast', 'explorer', 'stripes', 'radar']],
+      ['a tool twice', ['history', 'history', 'history'], ['history', 'forecast', 'explorer', 'stripes']],
+    ])('is shown as a list of four and two below the line for %s, and the first move saves a valid list', async (_name, bad, bar) => {
       useSettings().settings.value.tabBar = bad as string[]
       const wrapper = await mountChooser()
       expect(rows(wrapper, 'bar')).toEqual(bar)
-      expect(rows(wrapper, 'menu')).toHaveLength(1)
+      expect(rows(wrapper, 'menu')).toHaveLength(2)
       await button(wrapper, bar[1]!, 'up').trigger('click')
-      expect([...stored()].sort()).toEqual(['explorer', 'forecast', 'history', 'map', 'stripes'])
+      expect([...stored()].sort()).toEqual(['explorer', 'forecast', 'history', 'map', 'radar', 'stripes'])
     })
   })
 
   describe('by the handle, with a pointer', () => {
-    // a test environment has no layout: the rows are given the rectangles of five rows of 56 px with 8 px between
+    // a test environment has no layout: the rows are given the rectangles of six rows of 56 px with 8 px between
     // them, and a line of 24 px before the fifth, as the page has
     function layOut(wrapper: Chooser) {
       wrapper.findAll('li[data-row]').forEach((row, index) => {
@@ -211,20 +211,20 @@ describe('the chooser of the tools in the phone bar', () => {
     it('moves a tool into the bar with the preview following while it is dragged, and makes the move on the drop only', async () => {
       const wrapper = await mountChooser()
       layOut(wrapper)
-      await handle(wrapper, 'map').trigger('pointerdown', pointer(1, middle(4)))
-      await handle(wrapper, 'map').trigger('pointermove', pointer(1, middle(1)))
+      await handle(wrapper, 'history').trigger('pointerdown', pointer(1, middle(4)))
+      await handle(wrapper, 'history').trigger('pointermove', pointer(1, middle(1)))
       // the list stays as it is, the row it lands on is marked, and the preview is the bar after a drop
-      expect(rows(wrapper, 'bar')).toEqual(['forecast', 'explorer', 'stripes', 'history'])
+      expect(rows(wrapper, 'bar')).toEqual(['forecast', 'explorer', 'stripes', 'radar'])
       expect(wrapper.find('li[data-tool="explorer"]').attributes('data-drop')).toBe('before')
-      expect(wrapper.find('li[data-tool="map"]').attributes('data-dragging')).toBeDefined()
-      expect(previewNames(wrapper)).toEqual(['Forecast', 'Map', 'Explorer', 'Climate stripes'])
-      expect(wrapper.find('[data-testid="bar-preview-menu"]').text()).toBe('Only in the Menu: History')
-      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
-      await handle(wrapper, 'map').trigger('pointerup', pointer(1, middle(1)))
-      expect(stored()).toEqual(['forecast', 'map', 'explorer', 'stripes', 'history'])
-      expect(rows(wrapper, 'bar')).toEqual(['forecast', 'map', 'explorer', 'stripes'])
-      expect(rows(wrapper, 'menu')).toEqual(['history'])
-      expect(status(wrapper)).toBe('Map is now in the bar, at place 2 of 4. History is now only in the Menu.')
+      expect(wrapper.find('li[data-tool="history"]').attributes('data-dragging')).toBeDefined()
+      expect(previewNames(wrapper)).toEqual(['Forecast', 'History', 'Explorer', 'Climate stripes'])
+      expect(wrapper.find('[data-testid="bar-preview-menu"]').text()).toBe('Only in the Menu: Radar, Map')
+      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'radar', 'history', 'map'])
+      await handle(wrapper, 'history').trigger('pointerup', pointer(1, middle(1)))
+      expect(stored()).toEqual(['forecast', 'history', 'explorer', 'stripes', 'radar', 'map'])
+      expect(rows(wrapper, 'bar')).toEqual(['forecast', 'history', 'explorer', 'stripes'])
+      expect(rows(wrapper, 'menu')).toEqual(['radar', 'map'])
+      expect(status(wrapper)).toBe('History is now in the bar, at place 2 of 4. Radar is now only in the Menu.')
       expect(wrapper.find('[data-dragging]').exists()).toBe(false)
       expect(wrapper.find('[data-drop]').exists()).toBe(false)
     })
@@ -234,21 +234,21 @@ describe('the chooser of the tools in the phone bar', () => {
       layOut(wrapper)
       await handle(wrapper, 'forecast').trigger('pointerdown', pointer(2, middle(0)))
       await handle(wrapper, 'forecast').trigger('pointermove', pointer(2, middle(4) + 20))
-      expect(previewNames(wrapper)).toEqual(['Explorer', 'Climate stripes', 'History', 'Map'])
-      expect(wrapper.find('li[data-tool="map"]').attributes('data-drop')).toBe('after')
+      expect(previewNames(wrapper)).toEqual(['Explorer', 'Climate stripes', 'Radar', 'History'])
+      expect(wrapper.find('li[data-tool="history"]').attributes('data-drop')).toBe('after')
       await handle(wrapper, 'forecast').trigger('pointerup', pointer(2, middle(4) + 20))
-      expect(stored()).toEqual(['explorer', 'stripes', 'history', 'map', 'forecast'])
-      expect(status(wrapper)).toBe('Forecast is now only in the Menu. Map is now in the bar, at place 4 of 4.')
+      expect(stored()).toEqual(['explorer', 'stripes', 'radar', 'history', 'forecast', 'map'])
+      expect(status(wrapper)).toBe('Forecast is now only in the Menu. History is now in the bar, at place 4 of 4.')
     })
 
     it('reorders inside the bar, down as well as up', async () => {
       const wrapper = await mountChooser()
       layOut(wrapper)
-      await handle(wrapper, 'history').trigger('pointerdown', pointer(3, middle(3)))
-      await handle(wrapper, 'history').trigger('pointermove', pointer(3, middle(0)))
-      await handle(wrapper, 'history').trigger('pointerup', pointer(3, middle(0)))
-      expect(stored()).toEqual(['history', 'forecast', 'explorer', 'stripes', 'map'])
-      expect(status(wrapper)).toBe('History moved to place 1 of 4 in the bar.')
+      await handle(wrapper, 'radar').trigger('pointerdown', pointer(3, middle(3)))
+      await handle(wrapper, 'radar').trigger('pointermove', pointer(3, middle(0)))
+      await handle(wrapper, 'radar').trigger('pointerup', pointer(3, middle(0)))
+      expect(stored()).toEqual(['radar', 'forecast', 'explorer', 'stripes', 'history', 'map'])
+      expect(status(wrapper)).toBe('Radar moved to place 1 of 4 in the bar.')
     })
 
     it('makes no move for a drop on the place it started from, and says nothing', async () => {
@@ -258,65 +258,65 @@ describe('the chooser of the tools in the phone bar', () => {
       await handle(wrapper, 'stripes').trigger('pointermove', pointer(4, middle(2) + 10))
       expect(wrapper.find('[data-drop]').exists()).toBe(false)
       await handle(wrapper, 'stripes').trigger('pointerup', pointer(4, middle(2) + 10))
-      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
+      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'radar', 'history', 'map'])
       expect(status(wrapper)).toBe('')
     })
 
     it('leaves the list as it was when the pointer is cancelled, as a finger is when the browser takes the gesture', async () => {
       const wrapper = await mountChooser()
       layOut(wrapper)
-      await handle(wrapper, 'map').trigger('pointerdown', pointer(5, middle(4)))
-      await handle(wrapper, 'map').trigger('pointermove', pointer(5, middle(0)))
-      expect(previewNames(wrapper)[0]).toBe('Map')
-      await handle(wrapper, 'map').trigger('pointercancel', pointer(5, middle(0)))
-      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
-      expect(previewNames(wrapper)).toEqual(['Forecast', 'Explorer', 'Climate stripes', 'History'])
+      await handle(wrapper, 'history').trigger('pointerdown', pointer(5, middle(4)))
+      await handle(wrapper, 'history').trigger('pointermove', pointer(5, middle(0)))
+      expect(previewNames(wrapper)[0]).toBe('History')
+      await handle(wrapper, 'history').trigger('pointercancel', pointer(5, middle(0)))
+      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'radar', 'history', 'map'])
+      expect(previewNames(wrapper)).toEqual(['Forecast', 'Explorer', 'Climate stripes', 'Radar'])
       expect(wrapper.find('[data-dragging]').exists()).toBe(false)
     })
 
     it('leaves the list as it was on Escape, and the pointer that is released after it does nothing', async () => {
       const wrapper = await mountChooser()
       layOut(wrapper)
-      await handle(wrapper, 'map').trigger('pointerdown', pointer(6, middle(4)))
-      await handle(wrapper, 'map').trigger('pointermove', pointer(6, middle(0)))
+      await handle(wrapper, 'history').trigger('pointerdown', pointer(6, middle(4)))
+      await handle(wrapper, 'history').trigger('pointermove', pointer(6, middle(0)))
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', cancelable: true }))
       await wrapper.vm.$nextTick()
       expect(wrapper.find('[data-dragging]').exists()).toBe(false)
-      expect(previewNames(wrapper)).toEqual(['Forecast', 'Explorer', 'Climate stripes', 'History'])
-      await handle(wrapper, 'map').trigger('pointerup', pointer(6, middle(0)))
-      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
+      expect(previewNames(wrapper)).toEqual(['Forecast', 'Explorer', 'Climate stripes', 'Radar'])
+      await handle(wrapper, 'history').trigger('pointerup', pointer(6, middle(0)))
+      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'radar', 'history', 'map'])
     })
 
     it('does not start with another button than the main one of a mouse, and ignores a second pointer while one drags', async () => {
       const wrapper = await mountChooser()
       layOut(wrapper)
-      await handle(wrapper, 'map').trigger('pointerdown', pointer(7, middle(4), { pointerType: 'mouse', button: 2 }))
+      await handle(wrapper, 'history').trigger('pointerdown', pointer(7, middle(4), { pointerType: 'mouse', button: 2 }))
       expect(wrapper.find('[data-dragging]').exists()).toBe(false)
-      await handle(wrapper, 'map').trigger('pointerdown', pointer(8, middle(4)))
-      await handle(wrapper, 'history').trigger('pointerdown', pointer(9, middle(3)))
+      await handle(wrapper, 'history').trigger('pointerdown', pointer(8, middle(4)))
+      await handle(wrapper, 'radar').trigger('pointerdown', pointer(9, middle(3)))
       expect(wrapper.findAll('[data-dragging]')).toHaveLength(1)
       // a move or a release of the other pointer is not the drag's
-      await handle(wrapper, 'map').trigger('pointermove', pointer(9, middle(0)))
+      await handle(wrapper, 'history').trigger('pointermove', pointer(9, middle(0)))
       expect(wrapper.find('[data-drop]').exists()).toBe(false)
-      await handle(wrapper, 'map').trigger('pointerup', pointer(9, middle(0)))
-      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'history', 'map'])
-      await handle(wrapper, 'map').trigger('pointerup', pointer(8, middle(0)))
-      expect(stored()).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
+      await handle(wrapper, 'history').trigger('pointerup', pointer(9, middle(0)))
+      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'radar', 'history', 'map'])
+      await handle(wrapper, 'history').trigger('pointerup', pointer(8, middle(0)))
+      expect(stored()).toEqual(['history', 'forecast', 'explorer', 'stripes', 'radar', 'map'])
     })
 
     it('ignores the cancel and the lost capture of another pointer while one drags', async () => {
       const wrapper = await mountChooser()
       layOut(wrapper)
-      await handle(wrapper, 'map').trigger('pointerdown', pointer(11, middle(4)))
-      await handle(wrapper, 'map').trigger('pointermove', pointer(11, middle(1)))
-      expect(previewNames(wrapper)).toEqual(['Forecast', 'Map', 'Explorer', 'Climate stripes'])
+      await handle(wrapper, 'history').trigger('pointerdown', pointer(11, middle(4)))
+      await handle(wrapper, 'history').trigger('pointermove', pointer(11, middle(1)))
+      expect(previewNames(wrapper)).toEqual(['Forecast', 'History', 'Explorer', 'Climate stripes'])
       // a second finger that the browser takes for a gesture, and a capture another pointer lost, are not this drag's
-      await handle(wrapper, 'map').trigger('pointercancel', pointer(12, middle(1)))
-      await handle(wrapper, 'map').trigger('lostpointercapture', pointer(12, middle(1)))
-      expect(wrapper.find('li[data-tool="map"]').attributes('data-dragging')).toBeDefined()
-      expect(previewNames(wrapper)).toEqual(['Forecast', 'Map', 'Explorer', 'Climate stripes'])
-      await handle(wrapper, 'map').trigger('pointerup', pointer(11, middle(1)))
-      expect(stored()).toEqual(['forecast', 'map', 'explorer', 'stripes', 'history'])
+      await handle(wrapper, 'history').trigger('pointercancel', pointer(12, middle(1)))
+      await handle(wrapper, 'history').trigger('lostpointercapture', pointer(12, middle(1)))
+      expect(wrapper.find('li[data-tool="history"]').attributes('data-dragging')).toBeDefined()
+      expect(previewNames(wrapper)).toEqual(['Forecast', 'History', 'Explorer', 'Climate stripes'])
+      await handle(wrapper, 'history').trigger('pointerup', pointer(11, middle(1)))
+      expect(stored()).toEqual(['forecast', 'history', 'explorer', 'stripes', 'radar', 'map'])
     })
 
     it('finds the place under a pointer that is held still again when the page scrolls, so the preview is the drop', async () => {
@@ -329,19 +329,19 @@ describe('the chooser of the tools in the phone bar', () => {
           return { top, bottom: top + 56, left: 0, right: 300, width: 300, height: 56, x: 0, y: top, toJSON: () => ({}) }
         })
       })
-      await handle(wrapper, 'map').trigger('pointerdown', pointer(13, middle(4)))
-      await handle(wrapper, 'map').trigger('pointermove', pointer(13, middle(1)))
-      expect(previewNames(wrapper)).toEqual(['Forecast', 'Map', 'Explorer', 'Climate stripes'])
+      await handle(wrapper, 'history').trigger('pointerdown', pointer(13, middle(4)))
+      await handle(wrapper, 'history').trigger('pointermove', pointer(13, middle(1)))
+      expect(previewNames(wrapper)).toEqual(['Forecast', 'History', 'Explorer', 'Climate stripes'])
       scrolled = 128
       window.dispatchEvent(new Event('scroll'))
       await wrapper.vm.$nextTick()
-      // the pointer is now over the fourth row: the fourth place of the bar, which History held
-      expect(previewNames(wrapper)).toEqual(['Forecast', 'Explorer', 'Climate stripes', 'Map'])
-      expect(wrapper.find('li[data-tool="history"]').attributes('data-drop')).toBe('before')
+      // the pointer is now over the fourth row: the fourth place of the bar, which Radar held
+      expect(previewNames(wrapper)).toEqual(['Forecast', 'Explorer', 'Climate stripes', 'History'])
+      expect(wrapper.find('li[data-tool="radar"]').attributes('data-drop')).toBe('before')
       // and the release, with no move, makes the move the preview showed
-      await handle(wrapper, 'map').trigger('pointerup', pointer(13, middle(1)))
-      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'map', 'history'])
-      expect(rows(wrapper, 'bar')).toEqual(['forecast', 'explorer', 'stripes', 'map'])
+      await handle(wrapper, 'history').trigger('pointerup', pointer(13, middle(1)))
+      expect(stored()).toEqual(['forecast', 'explorer', 'stripes', 'history', 'radar', 'map'])
+      expect(rows(wrapper, 'bar')).toEqual(['forecast', 'explorer', 'stripes', 'history'])
     })
 
     it('does not look for a place on a scroll where nothing is dragged', async () => {
@@ -356,15 +356,15 @@ describe('the chooser of the tools in the phone bar', () => {
     it('holds the pointer on the handle for the drag, so that it keeps moving wherever the pointer goes', async () => {
       const wrapper = await mountChooser()
       layOut(wrapper)
-      await handle(wrapper, 'map').trigger('pointerdown', pointer(10, middle(4)))
+      await handle(wrapper, 'history').trigger('pointerdown', pointer(10, middle(4)))
       expect(HTMLElement.prototype.setPointerCapture).toHaveBeenCalledWith(10)
-      await handle(wrapper, 'map').trigger('pointerup', pointer(10, middle(4)))
+      await handle(wrapper, 'history').trigger('pointerup', pointer(10, middle(4)))
     })
   })
 })
 
 describe('the chooser from the header\'s breakpoint (GH-3936)', () => {
-  const ORDER = ['forecast', 'explorer', 'stripes', 'history', 'map']
+  const ORDER = ['forecast', 'explorer', 'stripes', 'radar', 'history', 'map']
   async function mountWide() {
     stubWide(true)
     return mountChooser()
@@ -396,15 +396,15 @@ describe('the chooser from the header\'s breakpoint (GH-3936)', () => {
 
   it('moves a tool by the buttons across the whole list, the setting is the same list, and says the place in the header', async () => {
     const wrapper = await mountWide()
-    // the Map, which the narrow chooser keeps below the line, goes up to the first place: one list, no line to cross
+    // the History, which the narrow chooser keeps below the line, goes up to the first place: one list, no line to cross
     for (let step = 0; step < 4; step++)
-      await button(wrapper, 'map', 'up').trigger('click')
-    expect(stored()).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
-    expect(all(wrapper)).toEqual(['map', 'forecast', 'explorer', 'stripes', 'history'])
-    expect(status(wrapper)).toBe('Map moved to place 1 of 5 in the header.')
+      await button(wrapper, 'history', 'up').trigger('click')
+    expect(stored()).toEqual(['history', 'forecast', 'explorer', 'stripes', 'radar', 'map'])
+    expect(all(wrapper)).toEqual(['history', 'forecast', 'explorer', 'stripes', 'radar', 'map'])
+    expect(status(wrapper)).toBe('History moved to place 1 of 6 in the header.')
     // the first of the list cannot go further up, the last cannot go down
-    expect(button(wrapper, 'map', 'up').attributes('aria-disabled')).toBe('true')
-    expect(button(wrapper, 'history', 'down').attributes('aria-disabled')).toBe('true')
+    expect(button(wrapper, 'history', 'up').attributes('aria-disabled')).toBe('true')
+    expect(button(wrapper, 'map', 'down').attributes('aria-disabled')).toBe('true')
   })
 
   it('resets the order and says so in words of the header', async () => {
@@ -412,15 +412,15 @@ describe('the chooser from the header\'s breakpoint (GH-3936)', () => {
     await button(wrapper, 'forecast', 'down').trigger('click')
     await wrapper.find('[data-testid="bar-reset"]').trigger('click')
     expect(stored()).toEqual(ORDER)
-    expect(status(wrapper)).toBe('The order is back to its default: Forecast, Explorer, Climate stripes, History, Map.')
+    expect(status(wrapper)).toBe('The order is back to its default: Forecast, Explorer, Climate stripes, Radar, History, Map.')
   })
 
   it('is the phone\'s chooser again below the breakpoint, from the same setting', async () => {
-    useSettings().settings.value.tabBar = ['map', 'forecast', 'explorer', 'stripes', 'history']
+    useSettings().settings.value.tabBar = ['history', 'forecast', 'explorer', 'stripes', 'radar', 'map']
     stubWide(false)
     const wrapper = await mountChooser()
-    expect(rows(wrapper, 'bar')).toEqual(['map', 'forecast', 'explorer', 'stripes'])
-    expect(rows(wrapper, 'menu')).toEqual(['history'])
+    expect(rows(wrapper, 'bar')).toEqual(['history', 'forecast', 'explorer', 'stripes'])
+    expect(rows(wrapper, 'menu')).toEqual(['radar', 'map'])
     expect(wrapper.find('[data-testid="bar-preview"]').exists()).toBe(true)
     expect(wrapper.find('.bar-line').exists()).toBe(true)
   })
