@@ -317,19 +317,44 @@ def _read_array(dataset: Any) -> np.ndarray:  # noqa: ANN401
     """
     np = _numpy()
     one_chunk = dataset.chunks is not None and tuple(dataset.chunks) == tuple(dataset.shape)
-    if not (
-        one_chunk
-        and dataset.compression == "gzip"
-        and not (dataset.shuffle or dataset.fletcher32 or dataset.scaleoffset)
-    ):
+    if not (one_chunk and _only_deflated(dataset)):
         return dataset[()]
     expected = int(np.prod(dataset.shape)) * dataset.dtype.itemsize
-    _, chunk = dataset.id.read_direct_chunk((0,) * dataset.ndim)
-    inflated = zlib.decompressobj().decompress(chunk, expected + 1)
+    filter_mask, chunk = dataset.id.read_direct_chunk((0,) * dataset.ndim)
+    if filter_mask:
+        # a filter the writer skipped for this chunk: the bytes are not deflated, and HDF5 knows what they are
+        return dataset[()]
+    try:
+        inflated = zlib.decompressobj().decompress(chunk, expected + 1)
+    except zlib.error as e:
+        msg = "the grid is cut short or is not deflated data"
+        raise RadarFormatError(msg) from e
     if len(inflated) != expected:
         msg = f"the grid inflates to {len(inflated)} bytes, not the {expected} its shape and type say"
         raise RadarFormatError(msg)
     return np.frombuffer(inflated, dtype=dataset.dtype).reshape(dataset.shape)
+
+
+def _only_deflated(dataset: Any) -> bool:  # noqa: ANN401
+    """Tell whether the filters of a dataset are deflate and nothing else (no shuffle, checksum or scale-offset)."""
+    h5py = import_optional("h5py", "Reading the radar composite", extra="radar")
+    plist = dataset.id.get_create_plist()
+    return plist.get_nfilters() == 1 and plist.get_filter(0)[0] == h5py.h5z.FILTER_DEFLATE
+
+
+#: the most cells a grid may state: DE1200 has 1.3 million, and the decoder holds it in memory a few times over
+_MAX_CELLS = 16_000_000
+
+
+def _check_shape(dataset: Any, where: dict) -> None:  # noqa: ANN401
+    """Refuse a dataset that is not the size the file states for its grid, before it is read.
+
+    The size the file states is what the grid is read as: a dataset of another size is no grid of it.
+    """
+    stated = (int(where["ysize"]), int(where["xsize"]))
+    if tuple(dataset.shape) != stated or dataset.size > _MAX_CELLS:
+        msg = f"the data is of shape {tuple(dataset.shape)}, not the {stated[0]} x {stated[1]} the file states"
+        raise RadarFormatError(msg)
 
 
 def read_field(data: bytes | BytesIO) -> RvField:
@@ -344,10 +369,14 @@ def read_field(data: bytes | BytesIO) -> RvField:
     np = _numpy()
     try:
         with h5py.File(BytesIO(data) if isinstance(data, bytes) else data, "r") as f:
-            raw = _read_array(f["dataset1/data1/data"])
+            where = dict(f["where"].attrs)
+            dataset = f["dataset1/data1/data"]
+            _check_shape(dataset, where)
+            raw = _read_array(dataset)
             what = dict(f["dataset1/data1/what"].attrs)
             when = dict(f["dataset1/what"].attrs)
-            where = dict(f["where"].attrs)
+    except RadarFormatError:
+        raise
     except (OSError, KeyError, ValueError) as e:
         msg = "the file is not an ODIM HDF5 file with the precipitation of the RV composite"
         raise RadarFormatError(msg) from e
@@ -463,7 +492,8 @@ def classify(field: RvField) -> np.ndarray:
 def draw(field: RvField, *, width: int = IMAGE_WIDTH) -> RvImage:
     """Draw a field as the indexed PNG of Web Mercator described in the module."""
     np = _numpy()
-    index, frame = warp_index(field.grid, width)
+    # the grid of the file is DE1200 (`read_field` refused any other), whose image is the one announced
+    index, frame = warp_index(de1200(), width)
     classes = np.append(classify(field).ravel(), np.uint8(0))
     pixels = classes[index]
     palette = [(0, 0, 0), *(_rgb(c.color) for c in RAIN_CLASSES)]

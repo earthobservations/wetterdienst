@@ -1016,7 +1016,7 @@ http localhost:7890/api/radar/frame time==2026-11-19T21:10:00Z run==2026-11-19T2
 The list is `public, max-age=60` with an `ETag` (no `Cache-Control` where it carries a `radar-stale` warning, DWD's
 newest run being more than 20 minutes old). A frame asked for with its `run` is the same for as long as DWD keeps the
 run, and is `public, max-age=3600` with an `ETag`; without it, a time after the newest run is a forecast frame of the
-newest run, `public, max-age=60`. Neither route is an MCP tool.
+newest run, `public, max-age=60`. The forecast of a run is served for the newest three runs DWD lists, and a page should load its frames 4 to 6 at a time (the server holds 32 requests at once by default). Neither route is an MCP tool.
 
 ### Values
 

@@ -3080,7 +3080,9 @@ def radar_frame(
     where there is no rain, and where the composite has no data, it is transparent. It lies over the `bounds` of that
     answer and is in Web Mercator (EPSG:3857). One decoded frame serves every reader, so a frame is drawn once.
     Given `run`, the image is the same for as long as DWD keeps the run (about 48 hours) and may be reused for an hour;
-    without it, a time after the newest run is a forecast frame of the newest run, which changes every 5 minutes.
+    without it, a time after the newest run is a forecast frame of the newest run, which changes every 5 minutes. The
+    forecast of a run is served for the newest three runs DWD lists, and a run it does not list is a 404. Load frames a
+    few at a time (4 to 6): the server serves 32 requests at once.
     """
     from wetterdienst.provider.dwd.radar.frames import DwdRadarFrames, format_instant, parse_instant  # noqa: PLC0415
 

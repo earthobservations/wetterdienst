@@ -289,11 +289,11 @@ def test_no_more_frames_than_the_cap_are_held_and_the_oldest_asked_for_goes_firs
 
 
 def test_the_tars_held_whole_are_the_newest_two(service: DwdRadarFrames) -> None:
-    """A forecast frame of each of three runs: the first run's tar is let go, not kept for every run."""
-    for run in (NEWEST, _RUNS[1], _RUNS[0]):
+    """A forecast frame of each of the newest three runs: the first run's tar is let go, not kept for every run."""
+    for run in (NEWEST, _RUNS[5], _RUNS[4]):
         service.frame(run + dt.timedelta(minutes=5), run)
 
-    assert list(frames_module._SHARED.tars) == [_RUNS[1], _RUNS[0]]
+    assert list(frames_module._SHARED.tars) == [_RUNS[5], _RUNS[4]]
 
 
 def test_a_time_without_a_run_is_the_analysis_up_to_the_newest_run_and_its_forecast_after(
@@ -327,22 +327,120 @@ def test_a_time_that_is_no_frame_is_a_refusal_that_says_why(
     assert dwd.ranged == dwd.whole == []
 
 
-def test_a_run_dwd_does_not_hold_is_not_found(service: DwdRadarFrames) -> None:
+def test_a_run_dwd_does_not_hold_is_not_found(dwd: Dwd, service: DwdRadarFrames) -> None:
     """DWD keeps about two days: a run older is a 404 with the file's name, and nothing is kept of it."""
     gone = FIXTURE_TIME - dt.timedelta(days=3)
 
-    with pytest.raises(RadarFrameNotFoundError, match=r"composite_rv_20261116_2110\.tar") as excinfo:
+    with pytest.raises(RadarFrameNotFoundError, match=r"lists no run .* 2026-11-16T21:10Z") as excinfo:
         service.frame(gone, gone)
     assert isinstance(excinfo.value, NotFoundError)
-    with pytest.raises(RadarFrameNotFoundError, match="holds no run"):
+    with pytest.raises(RadarFrameNotFoundError, match="lists no run"):
         service.frame(gone + dt.timedelta(minutes=5), gone)
+    with pytest.raises(RadarFrameNotFoundError, match="lists no run"):
+        service.frame(gone)
     assert frames_module._SHARED.frames == {}
+    # told from the listing: no file of DWD was asked for
+    assert dwd.ranged == dwd.whole == []
+
+
+def test_a_run_that_is_listed_and_gone_when_it_is_read_is_not_found(dwd: Dwd, service: DwdRadarFrames) -> None:
+    """DWD removes a run between the listing and the read: the 404 of the file is the same answer."""
+    service.runs()
+    del dwd.tars[_RUNS[2]]
+
+    with pytest.raises(RadarFrameNotFoundError, match=r"composite_rv_20261119_2120\.tar"):
+        service.frame(_RUNS[2], _RUNS[2])
+
+
+def test_the_forecast_is_served_for_the_newest_runs_only_and_asks_nothing_of_dwd_for_the_others(
+    dwd: Dwd, service: DwdRadarFrames
+) -> None:
+    """Each run's forecast is a tar of 7.7 MB: a request may not make the server read the one of any run of two days."""
+    assert frames_module.FORECAST_RUNS == 3
+    with pytest.raises(RadarFrameNotFoundError, match="not served"):
+        service.frame(_RUNS[3] + dt.timedelta(minutes=5), _RUNS[3])
+
+    assert dwd.ranged == dwd.whole == []
+    service.frame(_RUNS[4] + dt.timedelta(minutes=5), _RUNS[4])
+    assert dwd.whole == [_RUNS[4]]
+
+
+def test_a_time_or_a_run_later_than_the_list_is_looked_for_in_a_new_list_at_most_every_ten_seconds(
+    dwd: Dwd, service: DwdRadarFrames
+) -> None:
+    """A run that has just appeared is the analysis of its time and not a forecast of the run before it."""
+    service.runs()
+    newer = NEWEST + dt.timedelta(minutes=5)
+    dwd.tars[newer] = dwd.tars[NEWEST]
+    # the stand-in has no file of 21:45: only the choice of run counts
+    listed = dwd.listings
+
+    with pytest.raises(RadarFrameNotFoundError, match="lists no run"):
+        service.frame(newer, newer)
+    assert dwd.listings == listed  # the list was read a moment ago
+
+    frames_module._SHARED.runs = (frames_module._SHARED.runs[0] - 11, _RUNS)  # ty: ignore[not-subscriptable]
+    run = service.runs(max_age=frames_module.NEWER_THAN_LISTED_AFTER)
+    assert run[-1] == newer
+    assert dwd.listings == listed + 1
+
+
+@pytest.mark.parametrize(
+    "body", [b"<html>nginx maintenance</html>" * 100, b"", b"x" * 100_000], ids=["html", "empty", "binary"]
+)
+@pytest.mark.parametrize("lead", [0, 5])
+def test_a_body_that_is_no_tar_is_a_failure_and_is_held_for_no_frame_and_the_next_request_mends_it(
+    dwd: Dwd, service: DwdRadarFrames, body: bytes, lead: int
+) -> None:
+    """An outage page, an empty body or any other file is a 502 for the frame, whichever lead time, and is not kept."""
+    good = dwd.tars[NEWEST]
+    dwd.tars[NEWEST] = body
+    time = NEWEST + dt.timedelta(minutes=lead)
+
+    with pytest.raises(DownloadError):
+        service.frame(time, NEWEST)
+
+    assert frames_module._SHARED.tars == {}
+    assert frames_module._SHARED.frames == {}
+    dwd.tars[NEWEST] = good
+    assert service.frame(time, NEWEST).png.startswith(b"\x89PNG")
+
+
+def test_a_tar_that_lacks_the_analysis_of_its_run_is_no_tar_of_it(
+    dwd: Dwd, service: DwdRadarFrames, tmp_path: Path
+) -> None:
+    """A tar of other files, as DWD's server answers a name it does not know, is not held as the run's."""
+    other = rv_tar(NEWEST + dt.timedelta(minutes=5), tmp_path, range(0, 11, 5))
+    dwd.tars[NEWEST] = other
+
+    with pytest.raises(DownloadError, match="does not hold the analysis"):
+        service.frame(NEWEST + dt.timedelta(minutes=5), NEWEST)
+    assert frames_module._SHARED.tars == {}
+
+
+def test_a_first_file_that_is_not_the_size_of_a_frame_is_refused_and_a_second_range_must_be_whole(
+    service: DwdRadarFrames, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The size in the header of the tar is DWD's to state and the server's to bound: no allocation follows it."""
+    monkeypatch.setattr(frames_module, "MAX_MEMBER_BYTES", 1000)
+    with pytest.raises(DownloadError, match="not the size of a frame"):
+        service.frame(_RUNS[1], _RUNS[1])
+    monkeypatch.setattr(frames_module, "MAX_MEMBER_BYTES", 8 * 1024**2)
+    monkeypatch.setattr(frames_module, "FIRST_READ_BYTES", 100_000)
+    original = frames_module.DwdRadarFrames._range
+
+    def short(self: DwdRadarFrames, url: str, start: int, end: int) -> bytes:
+        return original(self, url, start, end)[:-1] if start else original(self, url, start, end)
+
+    monkeypatch.setattr(frames_module.DwdRadarFrames, "_range", short)
+    with pytest.raises(DownloadError, match="cut short"):
+        service.frame(_RUNS[1], _RUNS[1])
 
 
 def test_a_lead_time_the_run_does_not_hold_is_not_found(service: DwdRadarFrames) -> None:
     """The runs of the stand-in but the newest hold two forecast steps: the third is not in the tar."""
     with pytest.raises(RadarFrameNotFoundError, match="holds no file for 15 minutes"):
-        service.frame(_RUNS[0] + dt.timedelta(minutes=15), _RUNS[0])
+        service.frame(_RUNS[5] + dt.timedelta(minutes=15), _RUNS[5])
 
 
 def test_a_file_of_another_time_than_its_name_is_not_drawn(dwd: Dwd, service: DwdRadarFrames, tmp_path: Path) -> None:
@@ -398,6 +496,7 @@ def test_a_tar_that_is_none_is_a_failure_of_dwd(dwd: Dwd, service: DwdRadarFrame
 
     with pytest.raises(DownloadError, match="not a readable tar"):
         service.frame(NEWEST + dt.timedelta(minutes=5), NEWEST)
+    assert frames_module._SHARED.tars == {}
 
 
 # --- the network ----------------------------------------------------------------------------------------------------
@@ -560,10 +659,38 @@ def test_a_frame_that_needs_a_tar_does_not_wait_for_itself_whichever_locks_its_k
     def ask(run: dt.datetime, lead: int) -> None:
         done.append(DwdRadarFrames(Settings()).frame(run + dt.timedelta(minutes=lead), run).png)
 
-    threads = [threading.Thread(target=ask, args=(run, 5), daemon=True) for run in (NEWEST, _RUNS[1], _RUNS[0])]
+    threads = [threading.Thread(target=ask, args=(run, 5), daemon=True) for run in (NEWEST, _RUNS[5], _RUNS[4])]
     for thread in threads:
         thread.start()
     for thread in threads:
         thread.join(20)
 
     assert len(done) == 3
+
+
+@pytest.mark.usefixtures("dwd")
+def test_an_analysis_frame_does_not_wait_for_the_download_of_a_forecast_tar(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The tar of a forecast is read before the lock of its frame is taken, so a cold analysis frame goes past it."""
+    monkeypatch.setattr(frames_module._SHARED, "frame_stripes", (threading.Lock(),))
+    started, release = threading.Event(), threading.Event()
+    original = frames_module.download_file
+
+    def slow(url: str, **kwargs: object) -> File:
+        started.set()
+        release.wait(10)
+        return original(url, **kwargs)  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(frames_module, "download_file", slow)
+    forecast = threading.Thread(
+        target=lambda: DwdRadarFrames(Settings()).frame(NEWEST + dt.timedelta(minutes=5), NEWEST), daemon=True
+    )
+    forecast.start()
+    assert started.wait(10)
+
+    analysis = DwdRadarFrames(Settings()).frame(_RUNS[2], _RUNS[2])
+
+    assert analysis.png.startswith(b"\x89PNG")
+    assert forecast.is_alive()
+    release.set()
+    forecast.join(10)
+    assert not forecast.is_alive()

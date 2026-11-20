@@ -183,7 +183,7 @@ some 35 KB, with `X-Wetterdienst-Radar-Time` and `X-Wetterdienst-Radar-Run` sayi
 rain, and where the composite has no data (outside its coverage, or where a radar is missing), it is transparent. A
 `time` up to the newest run is the analysis, a later one the forecast of the newest run, so `run` may be left out; the
 image is then of whichever run is newest, and may be reused for a minute. With `run` it is the same for as long as DWD
-keeps the run (about 48 hours, a run no longer there is a 404), and may be reused for an hour. A `time` that is no
+keeps the run (about 48 hours, a run DWD does not list is a 404, and so is the forecast of a run that is not one of the newest three), and may be reused for an hour. A `time` that is no
 multiple of 5 minutes, or is not 0 to 120 minutes after the run, is a 400; a file DWD sends that the decoder is not
 written for (it changed the grid, the quantity or the projection) is a 502 that says what changed, and a missing `radar`
 extra on the server a 501.
@@ -216,16 +216,16 @@ centres would be off by). A file of another grid is refused.
 
 | | one frame | the loop of 2 hours: 25 analysis frames and 24 forecast frames |
 | --- | --- | --- |
-| transfer | analysis: 2 range requests, about 320 KB; the `.tar` of a run is 7.7 MB (the analysis and 24 forecasts) | 25 x 320 KB = 8 MB for the analysis (the whole `.tar` of each would be 190 MB), and 7.7 MB once for the forecast |
-| time on the network | 0.3 to 0.9 s; the 7.7 MB `.tar` 1.5 to 16 s (DWD's server, its speed varies a lot) | 15 s one after the other for the analysis (a page asks several at once), once per run for the forecast |
+| transfer | analysis: one range request of 400 KB (the file is about 320 KB); the `.tar` of a run is 7.7 MB (the analysis and 24 forecasts) | 25 x 400 KB = 10 MB for the analysis (the whole `.tar` of each would be 190 MB), and 7.7 MB once for the forecast |
+| time on the network | 0.3 to 0.9 s; the 7.7 MB `.tar` 1.5 to 16 s (DWD's server, its speed varies a lot) | 15 s one after the other for the analysis (a page asks 4 to 6 at a time, see below), once per run for the forecast |
 | CPU (decode, classify, warp, PNG) | 10 to 60 ms to read the file, 25 to 50 ms to draw it | about 2.5 s for 49 frames; each is drawn once, whoever asks |
-| memory | about 32 MB above what is held while a frame is drawn, at most two at a time; 18 MB for the warp, made once | 49 PNGs of 35 KB (1.7 MB) and one `.tar` (7.7 MB) held; the cap is 400 frames (14 MB) and the two newest `.tar` files |
+| memory | about 32 MB above what is held while a frame is drawn, at most two at a time; 18 MB for the warp, made once | 49 PNGs of 35 KB (1.7 MB) and up to three `.tar` files being read (23 MB, one for each of the runs whose forecast is served) and the two used last held (15 MB); the cap is 400 frames (14 MB) |
 | size | PNG 34 KB | 1.7 MB |
 
-Steady state is a new run every 5 minutes: one analysis frame (320 KB, 0.1 s of CPU) and, the first time anyone asks for
+Steady state is a new run every 5 minutes: one analysis frame (400 KB, 0.1 s of CPU) and, the first time anyone asks for
 the forecast of it, 24 frames of 30 ms each. The frames are held in the process (by run and lead time, which never
 change, so there is no expiry: the oldest are dropped), a frame that two readers ask for at the same time is drawn once,
-and at most two are drawn at a time. With several worker processes each holds its own. Decoding needs `h5py` and
+and at most two are drawn at a time. The forecast is served for the newest three runs DWD lists only (a request for the forecast of an older run is a 404, so no request makes the server read the 7.7 MB tar of any of the 576 runs of two days), and no file is asked of DWD for a run it does not list. The tar of a forecast is downloaded before the frame's lock is taken, so a cold analysis frame does not wait behind it. A body that DWD answers for a tar and that is none (an outage page, an empty body) is a 502 and is held for no frame. A server holds at most 32 requests at once by default (`WD_RESTAPI_MAX_CONCURRENT`, a 33rd is a 503): a page should load its frames 4 to 6 at a time, not the 49 at once. With several worker processes each holds its own. Decoding needs `h5py` and
 `numpy`, which the `radar` extra installs and the image of the server (`docker/Dockerfile`) already has; wradlib,
 xradar and PROJ are not used. h5py reads the grid by its own filters in a build that leaks about the size of the grid on
 every read (h5py 3.16 with HDF5 2.0 on macOS grew by 5.7 MB per read, to 220 MB after 25 frames), so the one chunk of

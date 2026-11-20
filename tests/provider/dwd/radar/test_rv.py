@@ -392,3 +392,55 @@ def test_pillow_reads_the_png_as_a_transparent_image(field: rv.RvField) -> None:
     pixels = _decode_png(image.png)[4]
     assert (rgba[..., 3][pixels == 0] == 0).all()
     assert (rgba[..., 3][pixels > 0] == 255).all()
+
+
+def test_a_chunk_that_is_not_deflated_data_is_a_format_error_and_not_a_zlib_one(tmp_path: Path) -> None:
+    """A corrupted chunk is DWD's file being wrong (a 502), whatever zlib makes of it."""
+    values = np.arange(100, dtype=np.uint32).reshape(10, 10)
+    with h5py.File(tmp_path / "corrupt.h5", "w") as f:
+        dataset = f.create_dataset("grid", data=values, chunks=(10, 10), compression="gzip")
+        _, chunk = dataset.id.read_direct_chunk((0, 0))
+        dataset.id.write_direct_chunk((0, 0), b"\x00" * len(chunk))
+        with pytest.raises(rv.RadarFormatError):
+            rv._read_array(dataset)
+        dataset.id.write_direct_chunk((0, 0), chunk[: len(chunk) // 2])
+        with pytest.raises(rv.RadarFormatError):
+            rv._read_array(dataset)
+
+
+def test_a_chunk_the_writer_did_not_deflate_is_left_to_hdf5(tmp_path: Path) -> None:
+    """A filter mask that is not 0 says a filter was skipped for the chunk: HDF5 reads it, as it is not deflated."""
+    values = np.arange(100, dtype=np.uint32).reshape(10, 10)
+    with h5py.File(tmp_path / "skipped.h5", "w") as f:
+        dataset = f.create_dataset("grid", data=values, chunks=(10, 10), compression="gzip")
+        assert rv._read_array(dataset).tolist() == values.tolist()
+        read_whole = []
+
+        class Spy:
+            """The dataset, which says it was read whole by HDF5."""
+
+            def __init__(self) -> None:
+                self.id = type(
+                    "Id",
+                    (),
+                    {
+                        "read_direct_chunk": staticmethod(lambda _offset: (1, b"not deflated")),
+                        "get_create_plist": dataset.id.get_create_plist,
+                    },
+                )()
+
+            def __getattr__(self, name: str) -> object:
+                return getattr(dataset, name)
+
+            def __getitem__(self, key: object) -> np.ndarray:
+                read_whole.append(key)
+                return dataset[key]
+
+        assert rv._read_array(Spy()).tolist() == values.tolist()
+        assert read_whole
+
+
+def test_a_grid_of_another_size_than_the_file_states_is_refused_before_it_is_read(tmp_path: Path) -> None:
+    """The shape of the dataset is held to `xsize` and `ysize` of the file, as the corners are held to the grid."""
+    with pytest.raises(rv.RadarFormatError, match=r"not the 1200 x 1000 the file states"):
+        rv.read_field(_edit(tmp_path, lambda f: f["where"].attrs.__setitem__("xsize", 1000)))
