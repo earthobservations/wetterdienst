@@ -25,8 +25,8 @@ switched on, as the pages that show one say. A command that is not run is named 
 server answers differently in `REST_KNOWN_FAILURES`, each with the reason.
 
 A command or request of a feed that keeps its last hours only (storm cells, radar, alerts, MOSMIX, ...) shows a
-concrete date for a reader, and the runner puts a recent one in its place (`_fresh`): a date that is written in the page
-leaves the window, and the sample fails, a day after it was written (GH-4256).
+concrete date for a reader, and the runner moves its dates to recent ones (`_shifted`, by whole days): a date that is
+written in the page leaves the window, and the sample fails, a day after it was written (GH-4256).
 
 A block that cannot run is named in `NOT_RUN` with the reason, and a statement that is meant to fail says so in a
 comment before it, ``# raises InvalidParameterError``.
@@ -855,92 +855,163 @@ def test_the_sentences_the_pages_quote_are_the_ones_the_library_writes() -> None
 
 # --- samples of a window that moves ---------------------------------------------------------------------------------
 
-#: the commands and requests of the feeds that keep their last hours or days only, which DWD does not archive: a date
-#: written in such a sample leaves the window and the sample fails (GH-4256)
-_ROLLING_FEED = re.compile(r"storm-cells|\balerts?\b|\bradar\b|mosmix|\bdmo\b|\bpoi\b|\broad\b|swsmos")
+#: the commands of the feeds that keep their last hours or days only, which DWD does not archive: a date written in
+#: such a sample leaves the window and the sample fails (GH-4256)
+_ROLLING_COMMANDS = {"storm-cells", "alerts", "radar"}
+#: the option of a network of those feeds (a command line, an httpie or a curl request) and the route of the others
+_ROLLING_NETWORK = re.compile(r"(?:--network[= ]|\bnetwork==?)(?:mosmix|dmo|poi|road|swsmos|pollen|uvi)\b")
+_ROLLING_ROUTE = re.compile(r"/api/(?:v1/)?(?:storm-cells|alerts|radar)\b")
 #: the Python classes of those feeds
-_ROLLING_PYTHON = re.compile(r"DwdRadar|DwdStormCells|DwdWeatherAlert|DwdMosmix|DwdDmo|DwdPoi|DwdRoad|DwdSwsmos")
+_ROLLING_PYTHON = re.compile(
+    r"DwdRadar|DwdStormCells|DwdWeatherAlert|DwdMosmix|DwdDmo|DwdPoi|DwdRoad|DwdSwsmos|DwdPollen|DwdUvi"
+)
 #: a date or a timestamp of a sample, with the parts it is written with
 _DATE = re.compile(r"\b20\d\d-\d\d-\d\d(?P<time>[T ]\d\d:\d\d(?P<seconds>:\d\d)?(?P<zone>Z)?)?")
-#: the first day that an archive of the observations may not hold yet: a date from then on in a command or request that
-#: is not of a moving feed is one that the runner cannot keep valid, which the sample must not show
-_NEWEST_ARCHIVED_DAY = dt.date(2025, 1, 1)
+#: the value of an option or parameter that names a window, which may be a month or a year as well as a day
+_WINDOW_OPTION = re.compile(r"(?:--(?:timestamp|start|end)[= ]|\b(?:timestamp|start|end)==?)(?P<value>\S+)")
+_PERIOD = re.compile(r"\b(?P<year>20\d\d)(?:-(?P<month>\d\d))?(?:-(?P<day>\d\d))?\b")
+#: a date of Python code: a string with a day or a month, a year after `start=` or `end=`, a `date(` or `datetime(`
+_PYTHON_DATE = re.compile(
+    r"""\b20\d\d-\d\d(?:-\d\d)?|\b(?:start|end)\s*=\s*["']20\d\d|\b(?:date|datetime)\(\s*20\d\d"""
+)
+#: how far back a window may reach into the last days in a sample that is of no moving feed: the `recent` period of
+#: the observations is about 500 days, and a window of that depth is one that the sample cannot keep valid
+_RECENT_WINDOW = dt.timedelta(days=550)
 
 
-def _is_rolling(text: str) -> bool:
-    return _ROLLING_FEED.search(text) is not None
+def _tokens(line: str) -> list[str]:
+    """Give the words of a command line, without its comments."""
+    try:
+        return shlex.split(line, comments=True)
+    except ValueError:
+        return line.split()
 
 
-def _fresh(text: str, now: dt.datetime | None = None) -> str:
-    """Put the time an hour ago, to the 5 minutes, in the place of every date of a sample, in the shape it is written.
+def _is_rolling(line: str) -> bool:
+    """Tell a command or request of a feed that moves by its command, network or route, not by a word anywhere."""
+    if any(arguments[0] in _ROLLING_COMMANDS for _, arguments in _commands(line)):
+        return True
+    words = " ".join(_tokens(line))
+    return _ROLLING_NETWORK.search(words) is not None or _ROLLING_ROUTE.search(words) is not None
 
-    A page shows a date that was recent when it was written; the runner asks for one that is. A date without a time
-    becomes today's, since a feed of days is asked for a day.
+
+def _shifted(texts: list[str], now: dt.datetime | None = None) -> list[str]:
+    """Move every date of the samples by the same whole days, so that the newest is at least an hour before now.
+
+    A page shows a date that was recent when it was written; the runner asks for one that is. One offset keeps what
+    the dates say of each other: which is first, how far apart they are, the lead of a forecast over its run and the
+    hour of the run cycle. A date without a time counts from midnight.
     """
     now = now or dt.datetime.now(dt.UTC)
-    moment = (now - dt.timedelta(hours=1)).replace(second=0, microsecond=0)
-    moment -= dt.timedelta(minutes=moment.minute % 5)
+    instants = [
+        dt.datetime.fromisoformat(match[0][:10] + "T" + (match["time"][1:6] if match["time"] else "00:00")).replace(
+            tzinfo=dt.UTC
+        )
+        for text in texts
+        for match in _DATE.finditer(text)
+    ]
+    if not instants:
+        return texts
+    shift = dt.timedelta(days=(now - dt.timedelta(hours=1) - max(instants)) // dt.timedelta(days=1))
 
     def replace(match: re.Match[str]) -> str:
-        if match["time"] is None:
-            return now.date().isoformat()
-        separator = match["time"][0]
-        text = f"{moment:%Y-%m-%d}{separator}{moment:%H:%M}"
-        return text + (":00" if match["seconds"] else "") + ("Z" if match["zone"] else "")
+        moved = dt.date.fromisoformat(match[0][:10]) + shift
+        return moved.isoformat() + (match["time"] or "")
 
-    return _DATE.sub(replace, text)
+    return [_DATE.sub(replace, text) for text in texts]
 
 
 @pytest.mark.parametrize(
-    ("text", "expected"),
+    ("texts", "expected"),
     [
-        ("--timestamp=2026-11-17T20:25", "--timestamp=2026-11-20T11:25"),
-        (
-            "time==2026-11-19T21:10:00Z run==2026-11-19T21:10:00Z",
-            "time==2026-11-20T11:25:00Z run==2026-11-20T11:25:00Z",
-        ),
-        ("--timestamp 2026-11-17 20:25", "--timestamp 2026-11-20 11:25"),
-        ("--date=2026-11-17", "--date=2026-11-20"),
-        ("--start-year=2020", "--start-year=2020"),
+        (["--timestamp=2026-11-17T20:25"], ["--timestamp=2026-11-19T20:25"]),
+        (["--timestamp=2026-11-20T10:00"], ["--timestamp=2026-11-20T10:00"]),  # recent: kept
+        # start stays before end, and a day and an hour count as they were written
+        (["2026-11-17T23:30", "2026-11-18T00:30"], ["2026-11-19T23:30", "2026-11-20T00:30"]),
+        # the forecast of a run keeps its lead
+        (["2026-11-17T21:40:00Z", "2026-11-17T21:10:00Z"], ["2026-11-19T21:40:00Z", "2026-11-19T21:10:00Z"]),
+        (["--timestamp 2026-11-17 20:25"], ["--timestamp 2026-11-19 20:25"]),
+        (["--date=2026-11-17"], ["--date=2026-11-20"]),
+        (["--start-year=2020"], ["--start-year=2020"]),
     ],
 )
-def test_a_date_of_a_moving_window_is_replaced_in_the_shape_it_is_written(text: str, expected: str) -> None:
-    """The runner's date is of the hour before now, to the 5 minutes, and written as the sample writes it."""
-    assert _fresh(text, dt.datetime(2026, 11, 20, 12, 29, 41, tzinfo=dt.UTC)) == expected
+def test_the_dates_of_a_moving_window_move_by_whole_days_in_the_shape_they_are_written(
+    texts: list[str],
+    expected: list[str],
+) -> None:
+    """The dates of a sample move together, by days, and are written as the sample writes them."""
+    assert _shifted(texts, dt.datetime(2026, 11, 20, 12, 29, 41, tzinfo=dt.UTC)) == expected
+
+
+def test_a_date_that_is_ahead_of_now_is_moved_back() -> None:
+    """The newest date is an hour before now at the latest, also just after midnight."""
+    now = dt.datetime(2026, 11, 20, 0, 30, tzinfo=dt.UTC)
+    assert _shifted(["2026-11-20T00:00"], now) == ["2026-11-19T00:00"]
 
 
 def test_a_sample_of_a_moving_feed_is_found_by_its_command_or_route() -> None:
-    """The pattern of the moving feeds finds them (one that finds none would pass the tests below)."""
+    """The moving feeds are found by command, network and route (one that finds none would pass the tests below)."""
     assert _is_rolling("wetterdienst storm-cells --timestamp=2026-11-17T20:25")
     assert _is_rolling("http localhost:7890/api/radar/frame time==2026-11-19T21:10:00Z")
+    assert _is_rolling("http localhost:7890/api/v1/alerts")
     assert _is_rolling("wetterdienst values --provider dwd --network mosmix --parameters hourly/large")
+    assert _is_rolling("curl 'http://localhost:7890/api/values?provider=dwd&network=pollen&parameters=daily/pollen'")
     assert not _is_rolling("wetterdienst values --provider dwd --network observation --timestamp 2024-01")
+    # a word of a file name or of a comment is not a feed
+    assert not _is_rolling("wetterdienst values --provider dwd --network observation --target file://road.csv")
+    assert not _is_rolling("wetterdienst values --provider dwd --network observation  # not the radar")
+
+
+def _windows(line: str) -> list[dt.date]:
+    """Give the last day of every window a command or request names with a timestamp, start or end (not a comment)."""
+    days = []
+    for option in _WINDOW_OPTION.finditer(" ".join(_tokens(line))):
+        for period in _PERIOD.finditer(option["value"]):
+            year, month = int(period["year"]), int(period["month"] or 12)
+            if period["day"]:
+                days.append(dt.date(year, month, int(period["day"])))
+            else:
+                days.append(dt.date(year + (month == 12), month % 12 + 1, 1) - dt.timedelta(days=1))
+    return days
+
+
+def test_the_windows_of_a_sample_are_read_to_their_last_day() -> None:
+    """A year, a month and a day are windows with their last day, from an option, a parameter or a URL."""
+    assert _windows("wetterdienst values --timestamp=2025") == [dt.date(2025, 12, 31)]
+    assert _windows("wetterdienst values --timestamp 2024-02") == [dt.date(2024, 2, 29)]
+    assert _windows("http localhost:7890/api/values timestamp==2020-08-01/2020-08-05") == [
+        dt.date(2020, 8, 1),
+        dt.date(2020, 8, 5),
+    ]
+    assert _windows("wetterdienst values --start-year 2020 --target=a.csv  # --end 2026") == []
 
 
 def _dated_cli_and_rest_lines() -> list[tuple[str, str]]:
-    return [(where, line) for where, line, _ in CLI_SAMPLES if _DATE.search(line)] + [
-        (request_.where, request_.line) for request_ in REQUESTS if _DATE.search(request_.line)
+    return [(where, line) for where, line, _ in CLI_SAMPLES] + [
+        (request_.where, request_.line) for request_ in REQUESTS
     ]
 
 
-def test_a_date_of_a_recent_window_is_only_shown_where_the_runner_replaces_it() -> None:
-    """A command or request that shows a date from 2025 on is one of a moving feed, whose date the runner replaces.
+def test_a_date_of_a_recent_window_is_only_shown_where_the_runner_moves_it() -> None:
+    """A command or request that names a window of the last 550 days is one of a moving feed, whose dates move.
 
-    The date of any other sample is one of an archive, which stays there. A date of the last days of a feed that
-    DWD keeps for two days (or of the last 18 months of the observations, which is the same defect later) makes the
-    sample fail when it leaves the window, as `storm-cells --timestamp` did (GH-4256): the page shows a date a reader
-    can take, and the runner asks for a recent one through `_fresh`.
+    The window of any other sample is one of an archive, which stays there. A window in the last days of a feed that
+    DWD keeps for two days, or in the `recent` observations of the last 500 days, makes the sample fail when it leaves
+    that, as `storm-cells --timestamp` did (GH-4256): the page shows a date a reader can take, and the runner asks for
+    a recent one through `_shifted`. A day, a month or a year counts, with the last day it holds.
     """
+    first = dt.datetime.now(dt.UTC).date() - _RECENT_WINDOW
     wrong = []
     for where, line in _dated_cli_and_rest_lines():
         if _is_rolling(line):
             continue
-        newest = max(dt.date.fromisoformat(match[0][:10]) for match in _DATE.finditer(line))
-        if newest >= _NEWEST_ARCHIVED_DAY:
+        dates = [dt.date.fromisoformat(match[0][:10]) for match in _DATE.finditer(" ".join(_tokens(line)))]
+        newest = max([*_windows(line), *dates], default=None)
+        if newest is not None and newest >= first:
             wrong.append(f"{where}: `{line}` shows {newest}")
     assert not wrong, (
-        "a recent date in a sample expires; use a date before 2025, or name the feed so that the runner replaces the "
-        "date (`_ROLLING_FEED`):\n" + "\n".join(wrong)
+        f"a date after {first} in a sample expires; use an older one, or let the runner move it by naming the feed "
+        "(`_ROLLING_COMMANDS`, `_ROLLING_NETWORK`, `_ROLLING_ROUTE`):\n" + "\n".join(wrong)
     )
 
 
@@ -948,12 +1019,16 @@ def test_a_python_sample_of_a_moving_feed_shows_no_date() -> None:
     """A Python sample of a feed that keeps its last hours asks for a time relative to now, or for the newest."""
     wrong = []
     for sample in PYTHON:
-        # RADOLAN_CDC is DWD's archive of the radar since 2006, which keeps every date
-        if not _ROLLING_PYTHON.search(sample.code) or "RADOLAN_CDC" in sample.code:
+        if not _ROLLING_PYTHON.search(sample.code):
             continue
-        for number, line in enumerate(sample.code.splitlines()):
-            if not line.lstrip().startswith("#") and _DATE.search(line):
-                wrong.append(f"{sample.where}+{number}: {line.strip()}")
+        for statement in ast.parse(sample.code).body:
+            source = ast.get_source_segment(sample.code, statement) or ""
+            # RADOLAN_CDC is DWD's archive of the radar since 2006, which keeps every date
+            if "RADOLAN_CDC" in source:
+                continue
+            for number, line in enumerate(source.splitlines(), statement.lineno):
+                if _PYTHON_DATE.search(line.partition("#")[0]):
+                    wrong.append(f"{sample.where}+{number - 1}: {line.strip()}")
     assert not wrong, "\n".join(wrong)
 
 
@@ -1119,7 +1194,7 @@ def test_cli_samples_run(
         pytest.skip(reason)
     monkeypatch.chdir(tmp_path)
     if _is_rolling(line):
-        arguments = [_fresh(argument) for argument in arguments]
+        arguments = _shifted(arguments)
     result = CliRunner().invoke(cli, arguments)
     assert result.exit_code == 0, f"{where}: `{line}` exits {result.exit_code}: {result.output[-500:]}"
 
@@ -1156,10 +1231,16 @@ def test_rest_samples_are_answered(request_: Request, monkeypatch: pytest.Monkey
     # cold cache, one file after the other, and 504 was DWD's pace on a runner and not the sample (GH-3489)
     monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "600")
     path = request_.path if request_.path.startswith("/api/v1") else "/api/v1" + request_.path.removeprefix("/api")
+    client = TestClient(restapi.app)
     query = request_.query
     if _is_rolling(request_.line):
-        query = [(name, _fresh(value)) for name, value in query]
-    response = TestClient(restapi.app).get(path, params=query)
+        query = list(zip((name for name, _ in query), _shifted([value for _, value in query]), strict=True))
+    if request_.path.endswith("/radar/frame"):
+        # a run that DWD skipped is a 404: ask for a frame of the list, which holds the runs DWD published
+        frames = client.get(path.removesuffix("/frame") + "/frames").json()["frames"]
+        analysis = max((frame for frame in frames if frame["kind"] == "observation"), key=lambda frame: frame["time"])
+        query = [(name, analysis.get(name, value)) for name, value in query]
+    response = client.get(path, params=query)
     for piece, (status, kind, unless, reason) in REST_KNOWN_FAILURES.items():
         if piece in request_.line and unless not in request_.line:
             problem = response.json().get("type", "") if response.status_code != 200 else ""
