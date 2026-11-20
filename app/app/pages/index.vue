@@ -91,7 +91,7 @@ const dataKinds = computed(() => [
   { icon: 'i-ph-thermometer', title: t('home.kindObservationsTitle'), description: t('home.kindObservationsDesc') },
   { icon: 'i-ph-cloud-sun', title: t('home.kindForecastsTitle'), description: t('home.kindForecastsDesc') },
   { icon: 'i-ph-waves', title: t('home.kindHydrologyTitle'), description: t('home.kindHydrologyDesc') },
-  { icon: 'i-ph-broadcast', title: t('home.kindRadarTitle'), description: t('home.kindRadarDesc') },
+  { icon: 'i-ph-target', title: t('home.kindRadarTitle'), description: t('home.kindRadarDesc') },
   { icon: 'i-ph-warning', title: t('home.kindAlertsTitle'), description: t('home.kindAlertsDesc') },
   { icon: 'i-ph-car-profile', title: t('home.kindRoadTitle'), description: t('home.kindRoadDesc') },
 ])

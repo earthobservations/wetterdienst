@@ -26,7 +26,7 @@ export const TOOLS: Section[] = [
   { key: 'forecast', to: '/meteogram', group: 'tools', label: 'nav.meteogram', description: 'home.forecastDesc', icon: 'i-ph-sun-fill', tile: 'sun' },
   { key: 'explorer', to: '/explorer', group: 'tools', label: 'nav.explorer', description: 'home.explorerDesc', icon: 'i-ph-compass-fill', tile: 'rain' },
   { key: 'stripes', to: '/stripes', group: 'tools', label: 'nav.stripes', description: 'home.stripesDesc', icon: 'i-ph-thermometer-simple-fill', tile: 'heat' },
-  { key: 'radar', to: '/radar', group: 'tools', label: 'nav.radar', description: 'radar.subtitle', icon: 'i-ph-cloud-rain-fill', tile: 'navy' },
+  { key: 'radar', to: '/radar', group: 'tools', label: 'nav.radar', description: 'radar.subtitle', icon: 'i-ph-target-fill', tile: 'navy' },
   { key: 'history', to: '/history', group: 'tools', label: 'nav.history', description: 'history.subtitle', icon: 'i-ph-clock-counter-clockwise-fill', tile: 'wind' },
   { key: 'map', to: '/map', group: 'tools', label: 'nav.map', description: 'mapTool.subtitle', icon: 'i-ph-map-trifold-fill', tile: 'map' },
 ]
