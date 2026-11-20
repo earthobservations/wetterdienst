@@ -184,7 +184,7 @@ with the terms of its provider.
 | IMGW rows of the same files and of `tests/provider/imgw/` | a few dozen rows of station lists and daily values, some of them edited | IMGW, CC BY-NC-ND 4.0; credit: „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej – Państwowy Instytut Badawczy” and „Dane Instytutu Meteorologii i Gospodarki Wodnej – Państwowego Instytutu Badawczego zostały przetworzone” |
 | LHMT rows of `tests/provider/lhmt/` | a few rows of observations, some of them edited | LHMT, CC BY-SA 4.0, credit "Lietuvos hidrometeorologijos tarnyba (LHMT)" |
 | `docs/assets/readme-stripes.png`, `summary.png`, `interpolation.png` and the output cells of the docs and the README | charts drawn from, and tables of, DWD values | DWD, CC BY 4.0, "Based on data from Deutscher Wetterdienst" |
-| `src/wetterdienst/provider/eumetnet/opera/sites.json.gz` (shipped in the package) | the 205 OPERA radar sites of EUMETNET's database, those with a location and a position, with their numbers converted from text | EUMETNET's [OPERA database](https://www.eumetnet.eu/wp-content/themes/aeron-child/observations-programme/current-activities/opera/database/OPERA_Database/index.html) page states no licence |
+| `src/wetterdienst/provider/eumetnet/opera/sites.json.gz` (shipped in the package) | the 205 OPERA radar sites of EUMETNET's database, those with a location and a position, with their numbers converted from text | EUMETNET OPERA, credit "EUMETNET OPERA", source page: EUMETNET's [OPERA database](https://www.eumetnet.eu/wp-content/themes/aeron-child/observations-programme/current-activities/opera/database/OPERA_Database/index.html); OPERA gave its permission in November 2026 to use the list and pass it on; the page states no licence and OPERA has not decided one yet |
 
 The two IMGW sentences are IMGW's own (§ 5 ust. 3 and 4 of its terms, in Polish); the first names the source, the second
 says the data were processed, which they are. The same two sentences stand beside the IMGW rows in the code.
@@ -204,12 +204,16 @@ Our reading:
   weather warnings issued by the DWD is changed, the source details provided with the data/services have to be
   deleted" ([rules](https://www.dwd.de/EN/service/legal_notice/templates_dwd_as_source.html)); a test file that is
   published as no warning is not what the rule is about, in our reading, which is not DWD's.
-- The OPERA list has no stated licence.
+- **The OPERA list** has no stated licence. EUMETNET OPERA's support answered in November 2026 that wetterdienst may use
+  the database and pass it on, credited to EUMETNET OPERA, and that the licence is still under discussion at OPERA. The
+  page of the database has a disclaimer about its map and links EUMETNET's general
+  [website terms](https://www.eumetnet.eu/legal-information-2/), whose § 3.4 to 3.6 allow private, research and
+  educational use and ask that the source page be named on each copy and publication; OPERA's answer is the permission
+  for the list. We name the page: here, in the docstrings of `OperaRadarSites`, and on stderr of the `radar` command.
 
 The rows stay, named and credited here; replacing the IMGW and LHMT ones with invented rows of the same shape would be
-the other way. The OPERA list is not settled: EUMETNET's page states no licence, the question was put to EUMETNET in November 2026
-and no answer has come yet. A test
-(`tests/test_provider_terms.py`) holds the first table of this page to the registry, so that a provider added without a
+the other way. The OPERA list is not settled: its licence is still being decided at OPERA, which will say when it is,
+and until then we state none for it. A test (`tests/test_provider_terms.py`) holds the first table of this page to the registry, so that a provider added without a
 row fails it, and this section to the data files that are in the tests.
 
 ## Our reading

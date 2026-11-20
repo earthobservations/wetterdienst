@@ -22,6 +22,7 @@ from wetterdienst import Settings, Wetterdienst
 from wetterdienst.exceptions import InvalidEnumerationError, StationNotFoundError
 from wetterdienst.model.metadata import parse_parameters
 from wetterdienst.options import Options
+from wetterdienst.provider.eumetnet.opera.sites import OPERA_CREDIT_LINE
 from wetterdienst.ui.cli import cli, wetterdienst_help
 
 # Individual settings for observation and mosmix
@@ -379,7 +380,7 @@ def test_cli_radar_stations_opera() -> None:
     """Test cli radar stations."""
     runner = CliRunner()
     result = runner.invoke(cli, ["radar", "--odim-code=ukdea"])
-    response = json.loads(result.output)
+    response = json.loads(result.stdout)
     assert isinstance(response, dict)
     assert response["location"] == "Dean Hill"
 
@@ -389,7 +390,7 @@ def test_cli_radar_stations_opera_wmo_code() -> None:
     runner = CliRunner()
     result = runner.invoke(cli, ["radar", "--wmo-code=11038"])
     assert result.exit_code == 0
-    response = json.loads(result.output)
+    response = json.loads(result.stdout)
     assert response["odimcode"] == "atrau"
     assert response["wmocode"] == 11038
 
@@ -416,9 +417,27 @@ def test_cli_radar_stations_dwd() -> None:
     """Test cli radar stations."""
     runner = CliRunner()
     result = runner.invoke(cli, ["radar", "--dwd"])
-    response = json.loads(result.output)
+    response = json.loads(result.stdout)
     assert isinstance(response, list)
     assert len(response) == 20
+
+
+@pytest.mark.parametrize("argv", [["--odim-code=ukdea"], ["--wmo-code=11038"], ["--country-name=france"], ["--dwd"]])
+def test_cli_radar_credits_eumetnet_opera_on_stderr(argv: list[str]) -> None:
+    """The credit of the OPERA sites and its source page go to stderr; stdout stays the JSON (GH-4200)."""
+    result = CliRunner().invoke(cli, ["radar", *argv])
+    assert result.exit_code == 0
+    assert result.stderr == f"{OPERA_CREDIT_LINE}\n"
+    assert OPERA_CREDIT_LINE.startswith("Radar sites: EUMETNET OPERA, https://www.eumetnet.eu/")
+    # stdout is the JSON alone, as it was before the credit
+    assert result.stdout == json.dumps(json.loads(result.stdout), indent=4) + "\n"
+
+
+def test_cli_radar_error_carries_no_credit() -> None:
+    """A lookup that finds no site answers no list, so it carries no credit."""
+    result = CliRunner().invoke(cli, ["radar", "--wmo-code=99999"])
+    assert result.exit_code == 1
+    assert OPERA_CREDIT_LINE not in result.stderr
 
 
 @pytest.mark.remote

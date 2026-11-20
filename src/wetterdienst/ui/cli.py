@@ -2859,6 +2859,7 @@ def radar(
     Select the sites with exactly one of --dwd, --all, --odim-code, --wmo-code or --country-name.
     """
     from wetterdienst import Settings
+    from wetterdienst.provider.eumetnet.opera.sites import OPERA_CREDIT_LINE
 
     # an empty code or country, e.g. from an unset shell variable, selects nothing rather than a lookup
     _require_one_of(
@@ -2885,6 +2886,9 @@ def radar(
     output = json.dumps(data, indent=indent)
 
     print(output)  # noqa: T201
+    # the sites are EUMETNET OPERA's database, to be credited with its source page where they are passed on
+    # (GH-4200); on stderr, so that stdout stays the JSON
+    click.echo(OPERA_CREDIT_LINE, err=True)
 
 
 @cli.command("alerts", epilog=_examples(ALERTS_EXAMPLES))
