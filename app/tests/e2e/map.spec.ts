@@ -1214,13 +1214,14 @@ const GHCN_COLUMNS = {
   first_year: GHCN_STATIONS.map(station => yearOf(station.start_timestamp)),
   last_year: GHCN_STATIONS.map(station => yearOf(station.end_timestamp)),
   name: GHCN_STATIONS.map(station => station.name),
+  wmo_id: GHCN_STATIONS.map(station => station.wmo_id ?? null),
 }
 
 /** The mock backend with the compact list of the stations of GHCN daily, which each request for it is counted of, the details of a station by its id, and its stripes */
 function ghcnBackend(asked: string[], listHandler: () => unknown = () => GHCN_COLUMNS) {
   const defaults = defaultHandlers()
   return {
-    'map/ghcn-stations': (url: URL) => {
+    '_ghcn/map-stations': (url: URL) => {
       asked.push(url.search)
       return listHandler()
     },

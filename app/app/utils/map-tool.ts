@@ -355,20 +355,37 @@ export function stationAt(stations: PlacedStation[], point: Point, tolerance: nu
   return nearest && nearest.distance <= tolerance ? nearest.station : null
 }
 
+/** A text as a search compares it: case and accents aside */
+function foldText(text: string): string {
+  return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+}
+
+/** The names and ids of a list as a search compares them, folded once for the list (`prepareSearch`) */
+const FOLDED = new WeakMap<object, { names: string[], ids: string[] }>()
+
+/**
+ * Folds the names and ids of a list once, for `searchStations` to compare a query with: a list of 133k stations (GHCN daily) is not
+ * to have every name folded at every keystroke (35 ms on a laptop, more on a phone). The search finds what it finds without it, only
+ * more slowly; the list must not change after it (a new list is prepared again).
+ */
+export function prepareSearch(stations: Station[]): void {
+  FOLDED.set(stations, { names: stations.map(station => foldText(station.name ?? '')), ids: stations.map(station => foldText(station.station_id)) })
+}
+
 /**
  * The stations whose name or id holds every word of a query, case and accents aside, the ones whose name starts
  * with it first. At most `limit`.
  */
 export function searchStations<S extends Station>(stations: S[], query: string, limit = 20): S[] {
-  const fold = (text: string) => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
-  const words = fold(query).split(/\s+/).filter(Boolean)
+  const words = foldText(query).split(/\s+/).filter(Boolean)
   if (!words.length)
     return []
+  const prepared = FOLDED.get(stations)
   const starts: S[] = []
   const contains: S[] = []
-  for (const station of stations) {
-    const name = fold(station.name ?? '')
-    const id = fold(station.station_id)
+  for (const [index, station] of stations.entries()) {
+    const name = prepared ? prepared.names[index]! : foldText(station.name ?? '')
+    const id = prepared ? prepared.ids[index]! : foldText(station.station_id)
     if (!words.every(word => `${name} ${id}`.includes(word)))
       continue
     if (name.startsWith(words[0]!) || id === words[0])

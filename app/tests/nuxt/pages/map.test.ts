@@ -108,6 +108,11 @@ let ghcnListFailures = 0
 const ghcnListAsked = { count: 0 }
 /** How long the list of the stations of GHCN daily is held before it is answered, in milliseconds */
 let ghcnListDelay = 0
+/** How long the details of a station of GHCN daily are held before they are answered, in milliseconds */
+let ghcnDetailDelay = 0
+/** A station of GHCN daily nearer to the forecast point of Hamburg than the station that has its WMO number, which the list has where it is set */
+let ghcnNeighbour = false
+const GHCN_NEIGHBOUR = station('GM000099999', 'HAMBURG NEBENAN', 53.6301, 10.0001, { start_timestamp: '2001-01-01T00:00:00.000000+00:00', end_timestamp: null })
 /** How many stations of no consequence the list has beside the five of the tests: over the 10,000 from which a layer is always grouped */
 let ghcnFiller = 0
 let stripesStatus = 200
@@ -123,6 +128,8 @@ async function stationsOf(event: H3Event) {
   }
   // GHCN daily: the backend is asked for the one station the panel has details of (the list is the app's server's)
   if (query.network === 'ghcn') {
+    if (ghcnDetailDelay)
+      await new Promise(resolve => setTimeout(resolve, ghcnDetailDelay))
     if (ghcnDetailFailures > 0) {
       ghcnDetailFailures--
       setResponseStatus(event, 500)
@@ -137,7 +144,7 @@ async function stationsOf(event: H3Event) {
   return { stations: query.parameters === 'daily/solar' ? solarStations : DAILY_STATIONS }
 }
 
-/** The list of the stations of GHCN daily that the app's server hands out, as columns: no elevation, no WMO number */
+/** The list of the stations of GHCN daily that the app's server hands out, as columns: the WMO number but no elevation */
 async function ghcnListOf(event: H3Event) {
   ghcnListAsked.count++
   if (ghcnListDelay)
@@ -149,7 +156,7 @@ async function ghcnListOf(event: H3Event) {
     return { type: 'urn:wetterdienst:problem:backend-unreachable', title: 'Bad Gateway', status: 502, detail: 'The backend could not be reached. The cause is in the server log.' }
   }
   const filler = Array.from({ length: ghcnFiller }, (_, index) => station(`FILL${index}`, `FILLER ${index}`, -40 + (index % 50) / 10, -150 + Math.floor(index / 50) / 10, { start_timestamp: '2000-01-01T00:00:00+00:00' }))
-  return compactGhcnStations([...GHCN_STATIONS, ...filler])
+  return compactGhcnStations([...GHCN_STATIONS, ...(ghcnNeighbour ? [GHCN_NEIGHBOUR] : []), ...filler])
 }
 
 function stripesValuesOf(event: H3Event) {
@@ -200,7 +207,7 @@ function stubMediaQueries(wide: boolean) {
 }
 
 registerEndpoint('/api/stations', stationsOf)
-registerEndpoint('/api/map/ghcn-stations', ghcnListOf)
+registerEndpoint('/_ghcn/map-stations', ghcnListOf)
 let stripesStations: Array<typeof STRIPES_STATIONS[number]> = STRIPES_STATIONS
 registerEndpoint('/api/stripes/stations', () => ({ stations: stripesStations }))
 registerEndpoint('/api/stripes/values', stripesValuesOf)
@@ -269,6 +276,8 @@ afterEach(async () => {
   ghcnListAsked.count = 0
   ghcnListDelay = 0
   ghcnFiller = 0
+  ghcnDetailDelay = 0
+  ghcnNeighbour = false
   stripesStatus = 200
   valuesStatus = 200
   removeCollision()
@@ -2558,9 +2567,10 @@ describe('the GHCN daily layer (GH-4078, GH-4267)', () => {
       expect(wrapper.find('.map-detail').text()).not.toContain('11 m above sea level')
     })
 
-    it('give the forecast of the point that has the station\'s WMO number, which is the same station', async () => {
+    it('give the forecast of the point that has the station\'s WMO number, which is the same station, with the details held: the list has the number', async () => {
       const hamburg = FORECAST_STATIONS[0]!
       FORECAST_STATIONS[0] = { ...hamburg, wmo_id: '10147' } as typeof hamburg
+      ghcnDetailDelay = 5000
       try {
         const wrapper = await mountGhcn()
         await pickFromList(wrapper, 'GM000010147')
@@ -2656,6 +2666,59 @@ describe('the GHCN daily layer (GH-4078, GH-4267)', () => {
       expect(stage.props.recentre).toBe(recentred)
       expect(idsOnMap().sort()).toEqual(ALL_IDS)
       expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(false)
+    })
+
+    it('finds the station of the forecast point by its WMO number, which the list has, and says it is the same station (GH-4077)', async () => {
+      const hamburg = FORECAST_STATIONS[0]!
+      FORECAST_STATIONS[0] = { ...hamburg, wmo_id: '10147' } as typeof hamburg
+      ghcnDetailDelay = 5000
+      try {
+        const wrapper = await pickedAndPannedAway()
+        await chooseLayer(wrapper, 'ghcn')
+        await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG FUHLSBUETTEL'), { timeout: 3000 })
+        expect(wrapper.find('[data-testid="map-same-station"]').text()).toContain('The same station, by its WMO number 10147.')
+      }
+      finally {
+        FORECAST_STATIONS[0] = hamburg
+      }
+    })
+
+    it('picks the station that has the WMO number where another of the list is nearer to the place', async () => {
+      const hamburg = FORECAST_STATIONS[0]!
+      FORECAST_STATIONS[0] = { ...hamburg, wmo_id: '10147' } as typeof hamburg
+      ghcnNeighbour = true
+      try {
+        const wrapper = await mountMap()
+        await mapIsThere(wrapper)
+        await listed(wrapper)
+        stage.emit('view', HAMBURG_VIEW)
+        // a click on the forecast point's dot, which is a place that HAMBURG NEBENAN (0.01 km) is nearer to than its twin (0.8 km)
+        stage.emit('pick', { latitude: 53.63, longitude: 10.0, tolerance: 0.05, tap: 0, disc: 0 })
+        await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL'))
+        await chooseLayer(wrapper, 'ghcn')
+        await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG FUHLSBUETTEL'), { timeout: 3000 })
+        expect(wrapper.find('[data-testid="map-same-station"]').exists()).toBe(true)
+        expect(idsOnMap()).toContain('GM000099999')
+      }
+      finally {
+        FORECAST_STATIONS[0] = hamburg
+      }
+    })
+
+    it('carries the WMO number of a station of the layer to another layer before its details have come', async () => {
+      const hamburg = FORECAST_STATIONS[0]!
+      FORECAST_STATIONS[0] = { ...hamburg, wmo_id: '10147' } as typeof hamburg
+      ghcnDetailDelay = 5000
+      try {
+        const wrapper = await mountGhcn()
+        await pickFromList(wrapper, 'GM000010147')
+        await chooseLayer(wrapper, 'forecast')
+        await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL'), { timeout: 3000 })
+        expect(wrapper.find('[data-testid="map-same-station"]').text()).toContain('The same station, by its WMO number 10147.')
+      }
+      finally {
+        FORECAST_STATIONS[0] = hamburg
+      }
     })
 
     it('does so again where the layer is left and chosen again, with the list it has', async () => {

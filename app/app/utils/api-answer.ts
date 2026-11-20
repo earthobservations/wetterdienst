@@ -33,7 +33,7 @@ const LISTS: Record<string, string> = {
   '/api/issues': 'issues',
   '/api/history': 'histories',
   // the app's own server's list of the stations of GHCN daily, as columns (GH-4267)
-  '/api/map/ghcn-stations': 'station_id',
+  '/_ghcn/map-stations': 'station_id',
 }
 const ARRAYS = new Set(['/api/glossary'])
 const OBJECTS = new Set(['/api/coverage'])
@@ -60,7 +60,7 @@ export function describeWrongKind(contentType: string | null): string {
 }
 
 /** The sentence for a body that is no JSON, whatever its content type says it is */
-function describeUnreadable(contentType: string | null): string {
+export function describeUnreadable(contentType: string | null): string {
   const kind = contentType?.split(';')[0]?.trim()
   return kind && /json/i.test(kind)
     ? `The API answered with ${kind}, but the body is not valid JSON. The address of the API may be wrong, or a proxy in front of it answered instead of it.`

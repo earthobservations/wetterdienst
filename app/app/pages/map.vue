@@ -31,6 +31,7 @@ import {
   measurementsLink,
   nearestStations,
   placed,
+  prepareSearch,
   REACH_KM,
   reportingRule,
   SAME_PLACE_KM,
@@ -138,8 +139,9 @@ const measured = useStationList(() => `${source.value.resolution}/${source.value
   })).stations ?? [])
 
 // GHCN daily: all 133k stations, from the app's server as columns (`stationsOfColumns` makes the stations of them)
+// (its names are folded once the list is there, so that a keystroke of the search does not fold 133k of them)
 const ghcn = useStationList(() => 'ghcn', async () =>
-  stationsOfColumns(await $fetch<GhcnStationColumns>(GHCN_STATIONS_ROUTE, API_FETCH)))
+  stationsOfColumns(await $fetch<GhcnStationColumns>(GHCN_STATIONS_ROUTE, API_FETCH)), prepareSearch)
 
 const lists = { forecast, measured, ghcn }
 const current = computed(() => lists[layer.value])
@@ -288,9 +290,9 @@ const groupedNow = computed(() => isGroupedAt(groupingInForce.value.grouping, vi
 // ---- the station picked ---------------------------------------------------------------------------------------
 
 /**
- * What the list of GHCN daily does not carry of the station picked (its elevation and its WMO number, which the panel says and the
- * forecast's same station goes by), asked for by its id. The list has its name, its place and its years, so the panel is
- * there at once; a request that fails leaves it without them.
+ * What the list of GHCN daily does not carry of the station picked (its elevation and its region, which the panel says), asked for by
+ * its id. The list has its name, its place, its years and its WMO number (the forecast's same station goes by it), so the panel
+ * and the cards are there at once; a request that fails leaves the panel without them.
  */
 const ghcnDetails = shallowRef<PlacedStation | null>(null)
 const selected = computed<PlacedStation | null>(() => {
@@ -298,7 +300,7 @@ const selected = computed<PlacedStation | null>(() => {
   const details = ghcnDetails.value
   if (!station || layer.value !== 'ghcn' || details?.station_id !== station.station_id)
     return station
-  return { ...station, region: details.region, elevation: details.elevation, wmo_id: details.wmo_id }
+  return { ...station, region: details.region, elevation: details.elevation }
 })
 /** The place picked on the map, where it is not the station itself (more than half a kilometre from it) */
 const place = computed(() => anchor.value && selected.value && distanceKm(anchor.value, selected.value) > SAME_PLACE_KM ? anchor.value : null)

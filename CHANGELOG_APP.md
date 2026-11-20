@@ -22,9 +22,10 @@ Types of changes:
   layers' are, and no longer by the part of the map in view: there is no "zoom in" hint, choosing
   the layer does not zoom the map in, and the search and the list near the centre cover all of
   them. The app's server makes one compact list of them from the backend's answer
-  (`/api/map/ghcn-stations`: 2 MB gzipped, where the backend's list is 44 MB of JSON, kept for a day;
-  a backend that is down is a failure with Retry, never an empty layer). A station's elevation and
-  WMO number are asked for when it is picked (GH-4267).
+  (`/_ghcn/map-stations`: 2 MB gzipped, where the backend's list is 44 MB of JSON, kept for a day;
+  a backend that is down is a failure with Retry, never an empty layer). The list carries each
+  station's name, years and WMO number; its elevation and region are asked for when it is picked
+  (GH-4267).
 
 ## [0.56.0] - 2026-11-20
 

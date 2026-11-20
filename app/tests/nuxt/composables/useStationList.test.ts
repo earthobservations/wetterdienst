@@ -34,6 +34,24 @@ describe('a list of stations', () => {
     expect(asks).toBe(1)
   })
 
+  it('tells `prepare` the stations that are kept, the ones shown, before they are shown, and not those of an answer that came too late', async () => {
+    const prepared: string[][] = []
+    const answers = [gate<ReturnType<typeof station>[]>(), gate<ReturnType<typeof station>[]>()]
+    let asks = 0
+    const list = useStationList(() => 'a', () => answers[asks++]!.promise, (stations) => {
+      prepared.push(stations.map(entry => entry.station_id))
+      // the list that is shown is the one that was prepared
+      expect(list.stations.value).not.toBe(stations)
+    })
+    const first = list.ensure()
+    const second = list.ensure(true)
+    answers[1]!.release([station('new'), station('nowhere', null)])
+    await second
+    answers[0]!.release([station('old')])
+    await first
+    expect(prepared).toEqual([['new']])
+  })
+
   it('is asked for again after a failure, and again on request', async () => {
     let asks = 0
     const list = useStationList(() => 'a', async () => {

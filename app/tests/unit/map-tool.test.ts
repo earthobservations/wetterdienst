@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   clickReach,
   closerStoppedStation,
@@ -19,6 +19,7 @@ import {
   nearestStations,
   nearestWithin,
   placed,
+  prepareSearch,
   REACH_KM,
   REPORTING_WITHIN_DAYS,
   reportingRule,
@@ -119,6 +120,50 @@ describe('the search of the stations', () => {
   it('finds nothing for an empty query, and no more than the limit', () => {
     expect(searchStations(ALL, '   ')).toEqual([])
     expect(searchStations(ALL, 'a', 1)).toHaveLength(1)
+  })
+
+  describe('of a list that is prepared (GH-4267: 133k names are folded once, not at every keystroke)', () => {
+    const NAMES = [station('1', 'Bad Kiel', 50, 8), station('2', 'Kiel-Holtenau', 54, 10), station('3', 'München-Stadt', 48, 11.5), station('4', 'KIELER STRASSE', 50, 9), station('5', null, 51, 9), station('GM000010147', 'HAMBURG FUHLSBUETTEL', 53.6, 10), station('7', 'Hamburg-Fuhlsbüttel', 53.6, 10)]
+    const LIST = placed(NAMES)
+    const QUERIES = ['kiel', 'KIEL', 'munchen', 'müncHEN', 'hamburg buttel', 'hamburg fuhlsbuttel', 'gm000010147', '5', 'a', 'zzz', '   ', 'kiel hamburg', 'strasse']
+
+    it('finds what the search of the list as it comes does, in the same order, for every query', () => {
+      const prepared = [...LIST]
+      prepareSearch(prepared)
+      for (const query of QUERIES) {
+        expect(searchStations(prepared, query).map(entry => entry.station_id), query).toEqual(searchStations(LIST, query).map(entry => entry.station_id))
+        expect(searchStations(prepared, query, 2).map(entry => entry.station_id), query).toEqual(searchStations(LIST, query, 2).map(entry => entry.station_id))
+      }
+    })
+
+    it('folds the query at a keystroke and no name, however long the list: the names were folded when the list was prepared', () => {
+      const prepared = [...LIST]
+      prepareSearch(prepared)
+      const normalize = vi.spyOn(String.prototype, 'normalize')
+      try {
+        searchStations(prepared, 'münchen stadt')
+        expect(normalize).toHaveBeenCalledTimes(1)
+        normalize.mockClear()
+        // the list that is not prepared folds its names at every call
+        searchStations(LIST, 'münchen stadt')
+        expect(normalize.mock.calls.length).toBeGreaterThan(LIST.length)
+      }
+      finally {
+        normalize.mockRestore()
+      }
+    })
+
+    it('is a list\'s own: another array of the same stations is searched as it comes', () => {
+      prepareSearch([...LIST])
+      const normalize = vi.spyOn(String.prototype, 'normalize')
+      try {
+        expect(searchStations([...LIST], 'kiel').map(entry => entry.station_id)).toEqual(['2', '4', '1'])
+        expect(normalize.mock.calls.length).toBeGreaterThan(LIST.length)
+      }
+      finally {
+        normalize.mockRestore()
+      }
+    })
   })
 })
 
