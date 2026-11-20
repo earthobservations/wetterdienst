@@ -161,6 +161,7 @@
       "api": "REST API a server MCP projektu Wetterdienst: formáty a příklady pro stanice, hodnoty, interpolaci a klimatické pruhy.",
       "providers": "Národní meteorologické služby za daty: země, licence, uvedení zdroje a to, co každá nabízí.",
       "glossary": "Co měří jednotlivé meteorologické a klimatické parametry a v jaké jednotce se vrací jejich hodnoty, s vyhledáváním podle názvu a veličiny.",
+      "measurement": "Jak se měří počasí: přístroje, jak se z odečtu stane hodnota, co říká číslo a v čem se poskytovatelé liší, se zdroji.",
       "about": "O open source projektu Wetterdienst a lidech, kteří ho spravují.",
       "support": "Podpoř Wetterdienst: nahlas chybu, přispěj kódem nebo daruj.",
       "map": "Mapa stanic Německé meteorologické služby: vyber stanici nebo libovolný bod a uvidíš její předpověď, klimatické pruhy a měření."
@@ -204,6 +205,7 @@
     "providers": "Poskytovatelé",
     "api": "API",
     "glossary": "Slovník",
+    "measurement": "Měření",
     "support": "Podpora",
     "map": "Mapa"
   },
@@ -462,7 +464,38 @@
     "unitTypeLabel": "Veličina",
     "loading": "Načítání…",
     "noResults": "Hledání neodpovídá žádný parametr.",
-    "count": "{shown} z {count} parametru | {shown} z {count} parametrů | {shown} z {count} parametrů"
+    "count": "{shown} z {count} parametru | {shown} z {count} parametrů | {shown} z {count} parametrů",
+    "howMeasured": "Jak se to měří?",
+    "topicFilter": "Jen „{topic}“",
+    "clearTopic": "Zobrazit všechny parametry"
+  },
+  "measurement": {
+    "title": "Jak se měří počasí",
+    "subtitle": "Co znamená teplota, srážkový úhrn nebo náraz větru, než si přečteš číslo: přístroj, hodnota, která z něj vznikne, její meze a v čem se poskytovatelé liší",
+    "menuDescription": "Jak se měří veličina, jak se z odečtu stane hodnota a co může číslo říct",
+    "tocTitle": "Obsah",
+    "editionTitle": "Zdroje a vydání",
+    "editionText": "Každé heslo uvádí své zdroje: nejdřív jednoduše, co zdroj je a co říká, potom formální citaci. Hlavním zdrojem je Guide to Instruments and Methods of Observation (WMO-No. 8) Světové meteorologické organizace, citovaný podle svazku a kapitoly: svazky I a II ve vydání z roku 2024, svazek V ve vydání z roku 2023, které je platné. Existuje předběžné vydání z roku 2026; tato stránka ho nepoužívá. Když heslo říká, co dělá poskytovatel, uvádí vlastní soubor poskytovatele.",
+    "editionLink": "WMO-No. 8 u WMO",
+    "groupMeasured": "Co se měří a jak",
+    "groupReading": "Čtení dat",
+    "linkTo": "Odkaz na heslo „{title}“",
+    "fieldsTitle": "Pole ve slovníku",
+    "fieldsText": "Toto heslo vysvětluje parametry slovníku, jejichž názvy vypadají takto:",
+    "fieldsLink": "Zobrazit tato pole ve slovníku",
+    "sourcesTitle": "Zdroje",
+    "untranslatedEn": "Toto heslo ještě není přeloženo do tvého jazyka a zobrazuje se anglicky.",
+    "untranslatedDe": "Toto heslo ještě není přeloženo do tvého jazyka a zobrazuje se německy.",
+    "topics": {
+      "temperature": "Teplota vzduchu a půdy",
+      "wind": "Vítr",
+      "precipitation": "Srážky",
+      "sunshine": "Délka slunečního svitu",
+      "snow": "Sníh",
+      "normals": "Klimatické normály",
+      "time": "Čas",
+      "observationForecastDerived": "Pozorování, předpověď a odvozená data"
+    }
   },
   "providers": {
     "title": "Poskytovatelé",

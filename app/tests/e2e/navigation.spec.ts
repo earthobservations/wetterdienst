@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import { REFERENCE } from '../../app/utils/sections'
 import { mockBackend } from './accessibility/mock-backend'
 
 // The shell of the app (GH-3518): the header with the four tools and the reference, the search, the tab bar and the
@@ -41,7 +42,7 @@ test.describe('the wide header', () => {
     await page.keyboard.press('Enter')
     await expect(trigger).toHaveAttribute('aria-expanded', 'true')
     const panel = page.locator(`[id="${await trigger.getAttribute('aria-controls')}"]`)
-    await expect(panel.getByRole('link')).toHaveCount(3)
+    await expect(panel.getByRole('link')).toHaveCount(REFERENCE.length)
     // Tab walks into it, in the order it shows
     await page.keyboard.press('Tab')
     await expect(panel.getByRole('link').first()).toBeFocused()
@@ -95,7 +96,8 @@ test.describe('the wide header', () => {
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
 
     await trigger.click()
-    for (let stop = 0; stop < 4; stop++)
+    // the trigger, then each link of the reference, then the next thing on the page
+    for (let stop = 0; stop < REFERENCE.length + 1; stop++)
       await page.keyboard.press('Tab')
     await expect(trigger).toHaveAttribute('aria-expanded', 'false')
   })
@@ -320,7 +322,7 @@ test.describe('the frame', () => {
   test('puts the title of every page on one line with the logo', async ({ page, baseURL }) => {
     test.setTimeout(120_000)
     const lefts: Record<string, number> = {}
-    for (const path of ['/', '/meteogram', '/explorer', '/stripes', '/history', '/providers', '/glossary', '/api', '/settings', '/about', '/support', '/impressum', '/datenschutz']) {
+    for (const path of ['/', '/meteogram', '/explorer', '/stripes', '/history', '/providers', '/glossary', '/measurement', '/api', '/settings', '/about', '/support', '/impressum', '/datenschutz']) {
       await open(page, baseURL!, path)
       const logo = await page.getByRole('banner').getByRole('link', { name: 'Wetterdienst' }).locator('img').boundingBox()
       const title = page.getByRole('heading', { level: 1 })

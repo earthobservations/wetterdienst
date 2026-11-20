@@ -161,6 +161,7 @@
       "api": "REST API i serwer MCP Wetterdienst: formaty i przykłady dla stacji, wartości, interpolacji i pasków klimatycznych.",
       "providers": "Krajowe służby meteorologiczne stojące za danymi: kraj, licencja, wymagane podanie źródła i to, co oferuje każda z nich.",
       "glossary": "Co mierzy każdy parametr pogodowy i klimatyczny oraz w jakiej jednostce zwracane są jego wartości, z wyszukiwaniem po nazwie i wielkości.",
+      "measurement": "Jak mierzy się pogodę: przyrządy, jak odczyt staje się wartością, co mówi liczba i czym różnią się dostawcy, ze źródłami.",
       "about": "O projekcie open source Wetterdienst i osobach, które go utrzymują.",
       "support": "Wesprzyj Wetterdienst: zgłoś problem, dodaj kod lub przekaż darowiznę.",
       "map": "Mapa stacji Niemieckiej Służby Meteorologicznej: wybierz stację lub dowolny punkt, aby zobaczyć jego prognozę, paski klimatyczne i pomiary."
@@ -204,6 +205,7 @@
     "providers": "Dostawcy",
     "api": "API",
     "glossary": "Słownik",
+    "measurement": "Pomiar",
     "support": "Wsparcie",
     "map": "Mapa"
   },
@@ -462,7 +464,38 @@
     "unitTypeLabel": "Wielkość",
     "loading": "Ładowanie…",
     "noResults": "Żaden parametr nie pasuje do wyszukiwania.",
-    "count": "{shown} z {count} parametru | {shown} z {count} parametrów | {shown} z {count} parametrów"
+    "count": "{shown} z {count} parametru | {shown} z {count} parametrów | {shown} z {count} parametrów",
+    "howMeasured": "Jak to się mierzy?",
+    "topicFilter": "Tylko „{topic}”",
+    "clearTopic": "Pokaż wszystkie parametry"
+  },
+  "measurement": {
+    "title": "Jak mierzy się pogodę",
+    "subtitle": "Co oznacza temperatura, suma opadu lub poryw wiatru, zanim przeczytasz liczbę: przyrząd, wartość, która z niego powstaje, jej granice i czym różnią się dostawcy",
+    "menuDescription": "Jak mierzy się wielkość, jak odczyt staje się wartością i co może powiedzieć liczba",
+    "tocTitle": "Spis treści",
+    "editionTitle": "Źródła i wydanie",
+    "editionText": "Każdy wpis wymienia swoje źródła: najpierw prostymi słowami, czym jest źródło i co mówi, potem formalny przypis. Głównym źródłem jest Guide to Instruments and Methods of Observation (WMO-No. 8) Światowej Organizacji Meteorologicznej, cytowany według tomu i rozdziału: tomy I i II w wydaniu z 2024 roku, tom V w wydaniu z 2023 roku, które jest obowiązujące. Istnieje wydanie tymczasowe z 2026 roku; ta strona z niego nie korzysta. Gdy wpis mówi, co robi dostawca, podaje własny plik dostawcy.",
+    "editionLink": "WMO-No. 8 w WMO",
+    "groupMeasured": "Co się mierzy i jak",
+    "groupReading": "Czytanie danych",
+    "linkTo": "Link do wpisu „{title}”",
+    "fieldsTitle": "Pola w słowniku",
+    "fieldsText": "Ten wpis wyjaśnia parametry słownika, których nazwy wyglądają tak:",
+    "fieldsLink": "Pokaż te pola w słowniku",
+    "sourcesTitle": "Źródła",
+    "untranslatedEn": "Ten wpis nie jest jeszcze przetłumaczony na twój język i jest pokazany po angielsku.",
+    "untranslatedDe": "Ten wpis nie jest jeszcze przetłumaczony na twój język i jest pokazany po niemiecku.",
+    "topics": {
+      "temperature": "Temperatura powietrza i gruntu",
+      "wind": "Wiatr",
+      "precipitation": "Opady",
+      "sunshine": "Usłonecznienie",
+      "snow": "Śnieg",
+      "normals": "Normy klimatyczne",
+      "time": "Czas",
+      "observationForecastDerived": "Obserwacja, prognoza i dane pochodne"
+    }
   },
   "providers": {
     "title": "Dostawcy",

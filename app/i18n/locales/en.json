@@ -161,6 +161,7 @@
       "api": "The REST API and the MCP server of Wetterdienst: formats and examples for stations, values, interpolation and climate stripes.",
       "providers": "The national weather services behind the data: country, licence, the credit line to give and what each one offers.",
       "glossary": "What each weather and climate parameter measures and the unit its values come back in, searchable by name and quantity.",
+      "measurement": "How weather is measured: instruments, how a reading becomes a value, what the number can tell and where providers differ, with sources.",
       "about": "About the open-source project Wetterdienst and the people who maintain it.",
       "support": "Support Wetterdienst: report an issue, contribute code or donate.",
       "map": "A map of the stations of the German Weather Service: pick a station or any point for its forecast, its climate stripes and its measurements."
@@ -204,6 +205,7 @@
     "providers": "Providers",
     "api": "API",
     "glossary": "Glossary",
+    "measurement": "Measurement",
     "support": "Support",
     "map": "Map"
   },
@@ -462,7 +464,38 @@
     "unitTypeLabel": "Quantity",
     "loading": "Loading…",
     "noResults": "No parameter matches your search.",
-    "count": "{shown} of {count} parameter | {shown} of {count} parameters"
+    "count": "{shown} of {count} parameter | {shown} of {count} parameters",
+    "howMeasured": "How is this measured?",
+    "topicFilter": "Only “{topic}”",
+    "clearTopic": "Show all parameters"
+  },
+  "measurement": {
+    "title": "How weather is measured",
+    "subtitle": "What a temperature, a rain total or a gust means before you read the number: the instrument, the value it becomes, its limits and where providers differ",
+    "menuDescription": "How a quantity is measured, how a reading becomes a value, and what the number can tell",
+    "tocTitle": "Contents",
+    "editionTitle": "Sources and edition",
+    "editionText": "Every entry names its sources: first in plain words what the source is and what it says, then the formal citation. The main source is the Guide to Instruments and Methods of Observation (WMO-No. 8) of the World Meteorological Organization, cited by volume and chapter: Volumes I and II in their 2024 edition, Volume V in its 2023 edition, which is the current one. A provisional 2026 edition exists; this page does not use it. Where an entry says what a provider does, it names the provider's own file.",
+    "editionLink": "WMO-No. 8 at the WMO",
+    "groupMeasured": "What is measured, and how",
+    "groupReading": "Reading the data",
+    "linkTo": "Link to the entry “{title}”",
+    "fieldsTitle": "Glossary fields",
+    "fieldsText": "This entry explains the parameters of the glossary whose names look like this:",
+    "fieldsLink": "Show these fields in the glossary",
+    "sourcesTitle": "Sources",
+    "untranslatedEn": "This entry is not yet translated into your language and is shown in English.",
+    "untranslatedDe": "This entry is not yet translated into your language and is shown in German.",
+    "topics": {
+      "temperature": "Air and soil temperature",
+      "wind": "Wind",
+      "precipitation": "Precipitation",
+      "sunshine": "Sunshine duration",
+      "snow": "Snow",
+      "normals": "Climate normals",
+      "time": "Time",
+      "observationForecastDerived": "Observation, forecast and derived data"
+    }
   },
   "providers": {
     "title": "Providers",
