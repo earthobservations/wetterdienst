@@ -13,7 +13,9 @@ replace the credit line (`attribution`) of the provider.
 
 from __future__ import annotations
 
-#: what wetterdienst did to the data of every answer that holds provider data
+#: what wetterdienst did to the data of every answer that holds provider data. The app holds translated copies of this
+#: and of `DERIVED_NOTE` in `app/i18n/locales/*.json` (`processingNote.*`), which change with them;
+#: `app/tests/unit/processing-note.test.ts` holds its English text equal to these.
 PROCESSING_NOTE = (
     "Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where "
     "they differ."

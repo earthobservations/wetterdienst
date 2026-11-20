@@ -334,6 +334,12 @@ the language, not a decision; `pl`, `cs`, `lb` and `de-hh` are as unreviewed as 
 | `de-hh` | `location.unsupported`, `location.unavailable` | `stattdessen` (German); `statts` is a preposition in this file (`mapTool.pickCloser`) | an adverb of Low German for "instead" | low |
 | `lb` | `seo.pages.glossary`, `glossary.subtitle` | `mierkt` and `mëst` for "what a parameter measures" | the 3rd person of `miessen` is `mësst`; which form, and whether `mierkt` is right at all | low |
 | `lb` | `explorer.modeSummaryDesc`, `mapTool.about1`, `history.about3` | `gemoossene`, `moossen`, `gemoosse`, `Moossmethoden`, `Moossregëster`, where the rest of the catalog writes `Miessung`, `Miesswäert` | the `Miess-` stem throughout | medium |
+| `de-hh` | `processingNote.base`, `processingNote.estimate` (GH-3799) | `Verarbeidt vun wetterdienst: ... in eene eenheitliche Tabell bröcht un de Eenheiten ümrekent, wo se afwiekt.`; `utsöcht oder utrekent` | `Verarbeidt` and `eenheitliche` follow the German: the Low German words for "processed" and "uniform" | low |
+| `lb` | `processingNote.base`, `processingNote.estimate` (GH-3799) | `Veraarbecht vu wetterdienst: ... an d'Eenheeten, wou se ofwäichen, ëmgerechent.`; `ausgewielt oder berechent` | `veraarbecht`, `eenheetlech` and the verb at the end of the relative clause | low |
+| `pl` | `processingNote.base` (GH-3799) | `dane dostawcy ułożono w jednolitą tabelę` ("arranged into a uniform table") for "reshaped" | `przekształcono w jednolitą tabelę`; `Przetworzone przez wetterdienst` names the tool as the agent | low |
+| `cs` | `processingNote.base` (GH-3799) | `data poskytovatele byla uspořádána` | `data` takes `byla` (collective) or `byly` (plural); which one reads better | low |
+| `nl` | `processingNote.base` (GH-3799) | `in een uniforme tabel gezet` for "reshaped into a uniform table" | `omgezet naar een uniforme tabel` | low |
+| `fr` | `processingNote.base` (GH-3799) | `mises dans un tableau uniforme` for "reshaped into a uniform table" | `restructurées en un tableau uniforme` | low |
 
 The parameter glossaries (`glossary/<locale>.ts`) were read for GH-2610 as well (801 labels in each
 of the ten languages, against `en`, this file and the weather service's own terms). What was

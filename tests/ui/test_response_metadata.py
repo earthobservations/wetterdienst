@@ -598,6 +598,36 @@ def _read_storm_cells(monkeypatch: pytest.MonkeyPatch) -> None:
     _warn_first(monkeypatch, DwdStormCellsRequest, "query")
 
 
+def _read_radar_frames(monkeypatch: pytest.MonkeyPatch) -> None:
+    import datetime as dt  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.radar.frames import DwdRadarFrames, RadarFrameList  # noqa: PLC0415
+    from wetterdienst.provider.dwd.radar.rv import image_frame  # noqa: PLC0415
+
+    run = dt.datetime(2026, 11, 19, 21, 10, tzinfo=dt.UTC)
+
+    def frames(*_args: object, **_kwargs: object) -> RadarFrameList:
+        return RadarFrameList(run=run, frames=(), image=image_frame())
+
+    monkeypatch.setattr(DwdRadarFrames, "frames", frames)
+    _warn_first(monkeypatch, DwdRadarFrames, "frames")
+
+
+def _read_radar_frame(monkeypatch: pytest.MonkeyPatch) -> None:
+    import datetime as dt  # noqa: PLC0415
+
+    from wetterdienst.provider.dwd.radar.frames import DwdRadarFrames, RadarFrame, RadarImage  # noqa: PLC0415
+    from wetterdienst.provider.dwd.radar.rv import image_frame  # noqa: PLC0415
+
+    run = dt.datetime(2026, 11, 19, 21, 10, tzinfo=dt.UTC)
+
+    def frame(*_args: object, **_kwargs: object) -> RadarImage:
+        return RadarImage(png=b"image", frame=RadarFrame(run=run, time=run, lead_minutes=0), image=image_frame())
+
+    monkeypatch.setattr(DwdRadarFrames, "frame", frame)
+    _warn_first(monkeypatch, DwdRadarFrames, "frame")
+
+
 def _read_providers(monkeypatch: pytest.MonkeyPatch) -> None:
     _warn_first(monkeypatch, restapi, "get_providers")
 
@@ -652,6 +682,8 @@ _ROUTES_WITH_WARNINGS = [
     pytest.param("/api/history", {**_OBSERVATION, "stations": "02564"}, _read_history, id="history"),
     pytest.param("/api/alerts", {}, _read_alerts, id="alerts"),
     pytest.param("/api/storm-cells", {}, _read_storm_cells, id="storm-cells"),
+    pytest.param("/api/radar/frames", {}, _read_radar_frames, id="radar-frames"),
+    pytest.param("/api/radar/frame", {"time": "2026-11-19T21:10:00Z"}, _read_radar_frame, id="radar-frame"),
 ]
 #: the routes that answer without a block: a catalogue of the library, the server's own state
 _ROUTES_WITHOUT_WARNINGS = {"/version", "/settings", "/auth", "/coverage", "/glossary"}
@@ -677,7 +709,7 @@ def test_a_route_records_the_warnings_of_its_read_without_a_record_begun_for_it(
     response = client.get(path, params=params)
 
     assert response.status_code == 200, response.text
-    if path == "/api/stripes/image":
+    if path in ("/api/stripes/image", "/api/radar/frame"):
         # an image has no block: the headers are where its warnings are (GH-3581)
         assert response.content == b"image"
     else:

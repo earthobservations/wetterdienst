@@ -218,6 +218,23 @@ describe('the suggestions', () => {
     expect(links[0]).toContain('stations=02564')
   })
 
+  // what wetterdienst did to the data, directly under the credit line of the answer's values (GH-3799)
+  it('say under the credit line what wetterdienst did to the data, and say none where the answer lists sources', async () => {
+    const wrapper = await mountAsk()
+    await chip(wrapper, 'summer').trigger('click')
+    await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+    const note = wrapper.find('[data-testid="processing-note"]')
+    expect(note.element.tagName).toBe('P')
+    expect(note.text()).toBe('Processed by wetterdienst: the provider\'s data was reshaped into a uniform table, and its units converted where they differ.')
+    // the credit line is the paragraph before it
+    const credit = note.element.previousElementSibling
+    expect(credit?.tagName).toBe('P')
+    expect(credit?.textContent?.trim()).toBeTruthy()
+    await chip(wrapper, 'download').trigger('click')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toMatch(/^Weather services that publish hourly air temperature/))
+    expect(wrapper.find('[data-testid="processing-note"]').exists()).toBe(false)
+  })
+
   it('ask for the list of providers themselves where it did not come, as the app does', async () => {
     failFirstProviders = true
     const wrapper = await mountAsk()

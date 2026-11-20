@@ -494,6 +494,10 @@
     "noResolutions": "Není to časová řada: není tu co vypisovat.",
     "openExplorer": "Otevřít v průzkumníku"
   },
+  "processingNote": {
+    "base": "Zpracováno nástrojem wetterdienst: data poskytovatele byla uspořádána do jednotné tabulky a jejich jednotky byly přepočteny tam, kde se liší.",
+    "estimate": "Hodnoty byly vybrány nebo vypočteny z měření poskytovatele."
+  },
   "cardTitle": {
     "station": "Stanice",
     "stationAndPeriod": "Stanice a období",
