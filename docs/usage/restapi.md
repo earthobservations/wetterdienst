@@ -1014,6 +1014,7 @@ and what the colours mean in mm/h; each frame is a PNG, transparent where it is 
 
 ```bash
 http localhost:7890/api/radar/frames
+# time and run are those of a frame of /radar/frames (DWD keeps about two days)
 http localhost:7890/api/radar/frame time==2026-11-19T21:10:00Z run==2026-11-19T21:10:00Z > frame.png
 ```
 
