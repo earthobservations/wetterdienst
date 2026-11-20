@@ -3,10 +3,11 @@ import type { AddressInfo } from 'node:net'
 import type { GhcnStationColumns } from '../../shared/types/ghcn-stations'
 import { createServer } from 'node:http'
 import { createRequire } from 'node:module'
+import process from 'node:process'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { stationsOfColumns } from '../../app/utils/ghcn-stations'
 import { ghcnReportingRule, yearOf } from '../../app/utils/map-tool'
-import { compactGhcnStations, GHCN_STATIONS_PATH, ghcnMapStationsHandler, MIN_STATIONS, readGhcnStations } from '../../server/utils/ghcnStations'
+import { compactGhcnStations, GHCN_STATIONS_PATH, ghcnMapStationsHandler, MIN_STATIONS, readGhcnMapStations } from '../../server/utils/ghcnStations'
 
 // The list of the stations of NOAA GHCN daily that the app's server hands to the map (GH-4267): the columns it makes of the
 // backend's answer, the stations the map makes of the columns, and the handler that keeps the list for a day.
@@ -126,7 +127,7 @@ const ANY = 1
 describe('reading the list from the backend', () => {
   it('asks the backend for the whole network of GHCN daily, with the request id', async () => {
     const fetcher = vi.fn().mockResolvedValue(answer(STATIONS))
-    const read = await readGhcnStations(BACKEND, 'req-1', fetcher, ANY)
+    const read = await readGhcnMapStations(BACKEND, 'req-1', fetcher, ANY)
     expect(fetcher.mock.calls[0]![0]).toBe(`${BACKEND}${GHCN_STATIONS_PATH}`)
     expect(GHCN_STATIONS_PATH).toContain('provider=noaa&network=ghcn&parameters=daily/data&all=true')
     expect(fetcher.mock.calls[0]![1]).toMatchObject({ headers: { 'x-request-id': 'req-1' } })
@@ -136,7 +137,7 @@ describe('reading the list from the backend', () => {
   it('answers a backend that cannot be reached as a 502 problem that names no host, with when to retry, and logs the cause', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
     const cause = new Error('connect ECONNREFUSED 10.0.3.7:7890')
-    const read = await readGhcnStations(BACKEND, 'req-1', vi.fn().mockRejectedValue(Object.assign(new Error('fetch failed'), { cause })), ANY)
+    const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockRejectedValue(Object.assign(new Error('fetch failed'), { cause })), ANY)
     expect(read).toMatchObject({
       status: 502,
       headers: { 'content-type': 'application/problem+json', 'x-request-id': 'req-1', 'retry-after': '30' },
@@ -148,12 +149,12 @@ describe('reading the list from the backend', () => {
 
   it('keeps the backend\'s own problem and its status, which is no list', async () => {
     const problem = { type: 'urn:wetterdienst:problem:rate-limited', title: 'Too Many Requests', status: 429, detail: 'Slow down.', instance: 'urn:wetterdienst:request:abc', request_id: 'abc' }
-    const read = await readGhcnStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(new Response(JSON.stringify(problem), { status: 429, headers: { 'content-type': 'application/problem+json' } })), ANY)
+    const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(new Response(JSON.stringify(problem), { status: 429, headers: { 'content-type': 'application/problem+json' } })), ANY)
     expect(read).toMatchObject({ status: 429, body: problem })
   })
 
   it('answers a failure of the backend that is no problem as a 502', async () => {
-    const read = await readGhcnStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(new Response('upstream gone', { status: 503 })), ANY)
+    const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(new Response('upstream gone', { status: 503 })), ANY)
     expect(read).toMatchObject({ status: 502, body: { type: 'urn:wetterdienst:problem:unexpected-answer', detail: expect.stringContaining('503') } })
   })
 
@@ -162,7 +163,7 @@ describe('reading the list from the backend', () => {
     const reset = new Error('read ECONNRESET')
     const response = new Response('x', { headers: { 'content-type': 'application/json' } })
     vi.spyOn(response, 'text').mockRejectedValue(reset)
-    const read = await readGhcnStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(response), ANY)
+    const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(response), ANY)
     expect(read).toMatchObject({ status: 502, body: { type: 'urn:wetterdienst:problem:unexpected-answer', detail: expect.stringContaining('could not be read to its end') } })
     expect(JSON.stringify(read)).not.toMatch(/ECONNRESET|not valid JSON|not JSON/)
     expect(logged.mock.calls[0]).toContain(reset)
@@ -170,10 +171,10 @@ describe('reading the list from the backend', () => {
 
   it('says that a body that is no JSON is that, in the words the app uses for it, and logs the error', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const read = await readGhcnStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(new Response('{"stations": [', { headers: { 'content-type': 'application/json' } })), ANY)
+    const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(new Response('{"stations": [', { headers: { 'content-type': 'application/json' } })), ANY)
     expect(read).toMatchObject({ status: 502, body: { detail: 'The API answered with application/json, but the body is not valid JSON. The address of the API may be wrong, or a proxy in front of it answered instead of it.' } })
     expect(logged.mock.calls[0]![1]).toBeInstanceOf(SyntaxError)
-    const plain = await readGhcnStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(new Response('nope', { headers: { 'content-type': 'text/plain' } })), ANY)
+    const plain = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(new Response('nope', { headers: { 'content-type': 'text/plain' } })), ANY)
     expect(plain).toMatchObject({ status: 502, body: { detail: expect.stringContaining('text/plain, not JSON') } })
   })
 
@@ -183,7 +184,7 @@ describe('reading the list from the backend', () => {
     ['no station at all, which is an outage and no network of none', () => answer([])],
   ])('answers %s as a 502 and never as a list of none, which a day of cache would keep', async (_, make) => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    const read = await readGhcnStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(make()), ANY)
+    const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(make()), ANY)
     expect(read).toMatchObject({ status: 502, body: { type: 'urn:wetterdienst:problem:unexpected-answer' } })
     expect(read).not.toHaveProperty('station_id')
   })
@@ -191,9 +192,9 @@ describe('reading the list from the backend', () => {
   it('refuses a list of fewer than 50,000 stations as a part of the list, and keeps one of 50,000', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     expect(MIN_STATIONS).toBe(50_000)
-    const partial = await readGhcnStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(answer(manyStations(MIN_STATIONS - 1))))
+    const partial = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(answer(manyStations(MIN_STATIONS - 1))))
     expect(partial).toMatchObject({ status: 502, body: { type: 'urn:wetterdienst:problem:unexpected-answer', detail: expect.stringContaining('49999 stations') } })
-    const whole = await readGhcnStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(answer(manyStations(MIN_STATIONS))))
+    const whole = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(answer(manyStations(MIN_STATIONS))))
     expect(whole).toMatchObject({ count: MIN_STATIONS })
   })
 })
@@ -214,7 +215,7 @@ describe('the handler of the route', () => {
   })
 
   /** A server with the handler on it, the backend answering with what `answerOf` makes (each call is counted) and the clock the test sets */
-  async function serve(answerOf: () => Response | Promise<Response>, minimum = ANY) {
+  async function serve(answerOf: () => Response | Promise<Response>, minimum = ANY, apiBase: () => string = () => BACKEND) {
     for (const [name, value] of Object.entries({
       defineEventHandler: h3.defineEventHandler,
       handleCacheHeaders: h3.handleCacheHeaders,
@@ -226,11 +227,11 @@ describe('the handler of the route', () => {
     const clock = { now: 1_000_000 }
     const fetcher = vi.fn(async () => answerOf())
     const app = h3.createApp()
-    app.use(ghcnMapStationsHandler({ fetcher: fetcher as unknown as typeof fetch, now: () => clock.now, minimum }))
+    app.use(ghcnMapStationsHandler({ fetcher: fetcher as unknown as typeof fetch, now: () => clock.now, minimum, apiBase }))
     const server = createServer(h3.toNodeListener(app))
     servers.push(server)
     const origin = await new Promise<string>(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`)))
-    return { fetcher, clock, get: (headers: Record<string, string> = {}) => fetch(origin, { headers }) }
+    return { fetcher, clock, origin, get: (headers: Record<string, string> = {}) => fetch(origin, { headers }) }
   }
 
   it('answers the columns as JSON, from the one request to the backend, for a day, with the headers of a day\'s cache', async () => {
@@ -238,10 +239,16 @@ describe('the handler of the route', () => {
     const first = await get()
     expect(first.status).toBe(200)
     expect(first.headers.get('content-type')).toBe('application/json')
-    expect(first.headers.get('cache-control')).toBe('public, s-maxage=86400, stale-while-revalidate')
+    expect(first.headers.get('cache-control')).toBe('public, s-maxage=86400, stale-while-revalidate=86400')
+    // the age of the list is taken off the day that a shared cache may keep it for
+    clock.now += 3_600_000
+    expect((await get()).headers.get('cache-control')).toBe('public, s-maxage=82800, stale-while-revalidate=86400')
+    clock.now -= 3_600_000
     expect(await first.json()).toMatchObject({ count: 3, station_id: ['ACW00011604', 'ACW00011647', 'GM000010147'], wmo_id: [null, null, '10147'] })
     clock.now += 86_400_000 - 1
     const second = await get()
+    expect(second.headers.get('cache-control')).toBe('public, s-maxage=1, stale-while-revalidate=86400')
+    expect(second.headers.get('cache-control')).toBe('public, s-maxage=1, stale-while-revalidate=86400')
     expect(await second.json()).toMatchObject({ count: 3 })
     expect(fetcher).toHaveBeenCalledTimes(1)
   })
@@ -301,27 +308,88 @@ describe('the handler of the route', () => {
     await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3))
   })
 
-  it('answers a backend that fails as the problem, with no-store and no cache, so that the next request asks again', async () => {
+  it('answers a backend that fails as the problem, with no-store, and asks again once the 30 s are over, not at every request', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     let failing = true
-    const { fetcher, get } = await serve(() => failing ? new Response('<html></html>', { headers: { 'content-type': 'text/html' } }) : answer(STATIONS))
+    const { fetcher, clock, get } = await serve(() => failing ? new Response('<html></html>', { headers: { 'content-type': 'text/html' } }) : answer(STATIONS))
     const failed = await get()
     expect(failed.status).toBe(502)
     expect(failed.headers.get('content-type')).toBe('application/problem+json')
     expect(failed.headers.get('cache-control')).toBe('no-store')
     expect(failed.headers.get('retry-after')).toBe('30')
     expect(await failed.json()).toMatchObject({ status: 502, type: 'urn:wetterdienst:problem:unexpected-answer' })
+    // a backend that answers fast and wrongly is not read (44 MB) for every page view: the problem is answered again, with the time that is left
+    clock.now += 12_500
+    const again = await get()
+    expect(again.status).toBe(502)
+    expect(again.headers.get('cache-control')).toBe('no-store')
+    expect(again.headers.get('retry-after')).toBe('18')
+    expect(await again.json()).toMatchObject({ status: 502, type: 'urn:wetterdienst:problem:unexpected-answer' })
+    expect(fetcher).toHaveBeenCalledTimes(1)
+    // and again once the time is over, when the backend has recovered
     failing = false
+    clock.now += 17_500
     const recovered = await get()
     expect(recovered.status).toBe(200)
     expect((await recovered.json()).count).toBe(3)
     expect(fetcher).toHaveBeenCalledTimes(2)
   })
 
+  it('answers what the reader does not catch as a 502 with no-store and the back-off, where there is no list: no 500, nobody left waiting', async () => {
+    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { clock, get, fetcher, origin } = await serve(() => answer(STATIONS), ANY, () => {
+      throw new Error('the config is not there')
+    })
+    const failed = await get()
+    expect(failed.status).toBe(502)
+    expect(failed.headers.get('cache-control')).toBe('no-store')
+    expect(failed.headers.get('retry-after')).toBe('30')
+    expect(await failed.json()).toMatchObject({ status: 502, detail: expect.not.stringContaining('config') })
+    expect(logged.mock.calls[0]![1]).toBeInstanceOf(Error)
+    clock.now += 5_000
+    expect((await get()).headers.get('retry-after')).toBe('25')
+    expect(fetcher).not.toHaveBeenCalled()
+    expect(origin).toMatch(/^http:/)
+  })
+
+  it('has a refresh of a list in hand that throws unexpectedly raise no unhandled rejection, serve the list, and wait 30 s before the next', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const unhandled = vi.fn()
+    process.on('unhandledRejection', unhandled)
+    try {
+      let broken = false
+      const { clock, get, fetcher } = await serve(() => answer(STATIONS), ANY, () => {
+        if (broken)
+          throw new Error('the config is gone')
+        return BACKEND
+      })
+      await get()
+      clock.now += 86_400_000
+      broken = true
+      for (let ask = 0; ask < 3; ask++)
+        expect((await get()).status).toBe(200)
+      await new Promise(resolve => setTimeout(resolve, 50))
+      expect(unhandled).not.toHaveBeenCalled()
+      expect(fetcher).toHaveBeenCalledTimes(1)
+      // the refresh did not read the backend, and waits as long as one that did
+      broken = false
+      expect((await get()).status).toBe(200)
+      await new Promise(resolve => setTimeout(resolve, 50))
+      expect(fetcher).toHaveBeenCalledTimes(1)
+      clock.now += 31_000
+      await get()
+      await vi.waitFor(() => expect(fetcher).toHaveBeenCalledTimes(2))
+    }
+    finally {
+      process.off('unhandledRejection', unhandled)
+    }
+  })
+
   it('keeps no list of fewer than 50,000 stations for a day, by the floor it has unless it is told another', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    const { fetcher, get } = await serve(() => answer(manyStations(100)), MIN_STATIONS)
+    const { fetcher, clock, get } = await serve(() => answer(manyStations(100)), MIN_STATIONS)
     expect((await get()).status).toBe(502)
+    clock.now += 31_000
     expect((await get()).status).toBe(502)
     expect(fetcher).toHaveBeenCalledTimes(2)
   })

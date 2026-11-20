@@ -251,8 +251,10 @@ Google account.
 The server limits what costs something, per client. It counts the requests to
 
 - `/api/values`, `/api/stations`, `/api/interpolate`, `/api/summarize`, `/api/stripes/*` and `/api/history`,
-  and any other route under `/api` that is not one of the catalogue routes below, and
-- `/mcp` (a session is many small calls),
+  and any other route under `/api` that is not one of the catalogue routes below,
+- `/mcp` (a session is many small calls), and
+- `/_ghcn/*`, the app's own routes for NOAA's GHCN daily (the list of its stations for the map, which costs the
+  backend a 44 MB answer the first time),
 
 and answers the one past the limit with `429 Too Many Requests` and a problem of the kind
 `urn:wetterdienst:problem:rate-limited`, with `Retry-After` (seconds). It does not count the pages, the assets,

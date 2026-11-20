@@ -1,7 +1,7 @@
 import process from 'node:process'
 import { expect, test } from '@playwright/test'
 
-// The app's own list of the stations of NOAA GHCN daily (GH-4267, `server/_ghcn/map-stations.get.ts`), through the running app to the
+// The app's own list of the stations of NOAA GHCN daily (GH-4267, `server/routes/_ghcn/map-stations.get.ts`), through the running app to the
 // real backend, which makes it from its list of 133k stations and the app's server keeps for a day. The first request may find the
 // backend with a cold cache (NOAA's list is downloaded and parsed), so it is given more than the 90 s the route waits for it.
 const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:7890'
@@ -39,7 +39,8 @@ test.describe('the list of the GHCN daily stations of the map', () => {
     const second = await request.get('/_ghcn/map-stations', { timeout: SLOW })
     // the backend says when it answered: a second answer of it would say another time
     expect((await second.json()).retrieved_at).toBe((await first.json()).retrieved_at)
-    expect(second.headers()['cache-control']).toContain('s-maxage=86400')
+    // the day that is left (the second that has gone since it was made is taken off) and the day it may be served stale
+    expect(second.headers()['cache-control']).toMatch(/^public, s-maxage=\d+, stale-while-revalidate=86400$/)
     const etag = second.headers().etag
     expect(etag).toBeTruthy()
     const conditional = await request.get('/_ghcn/map-stations', { headers: { 'if-none-match': etag! }, timeout: SLOW })

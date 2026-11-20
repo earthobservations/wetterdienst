@@ -108,8 +108,15 @@ let ghcnListFailures = 0
 const ghcnListAsked = { count: 0 }
 /** How long the list of the stations of GHCN daily is held before it is answered, in milliseconds */
 let ghcnListDelay = 0
-/** How long the details of a station of GHCN daily are held before they are answered, in milliseconds */
-let ghcnDetailDelay = 0
+/** The gate the details of a station of GHCN daily wait at before they are answered, where a test has closed it (`holdDetails`); the test opens it, and `afterEach` does where it did not */
+let ghcnDetailGate: Promise<void> | null = null
+let openDetails: (() => void) | null = null
+function holdDetails() {
+  ghcnDetailGate = new Promise<void>((resolve) => {
+    openDetails = resolve
+  })
+  return () => openDetails?.()
+}
 /** A station of GHCN daily nearer to the forecast point of Hamburg than the station that has its WMO number, which the list has where it is set */
 let ghcnNeighbour = false
 const GHCN_NEIGHBOUR = station('GM000099999', 'HAMBURG NEBENAN', 53.6301, 10.0001, { start_timestamp: '2001-01-01T00:00:00.000000+00:00', end_timestamp: null })
@@ -128,8 +135,8 @@ async function stationsOf(event: H3Event) {
   }
   // GHCN daily: the backend is asked for the one station the panel has details of (the list is the app's server's)
   if (query.network === 'ghcn') {
-    if (ghcnDetailDelay)
-      await new Promise(resolve => setTimeout(resolve, ghcnDetailDelay))
+    if (ghcnDetailGate)
+      await ghcnDetailGate
     if (ghcnDetailFailures > 0) {
       ghcnDetailFailures--
       setResponseStatus(event, 500)
@@ -276,7 +283,9 @@ afterEach(async () => {
   ghcnListAsked.count = 0
   ghcnListDelay = 0
   ghcnFiller = 0
-  ghcnDetailDelay = 0
+  openDetails?.()
+  openDetails = null
+  ghcnDetailGate = null
   ghcnNeighbour = false
   stripesStatus = 200
   valuesStatus = 200
@@ -2570,13 +2579,17 @@ describe('the GHCN daily layer (GH-4078, GH-4267)', () => {
     it('give the forecast of the point that has the station\'s WMO number, which is the same station, with the details held: the list has the number', async () => {
       const hamburg = FORECAST_STATIONS[0]!
       FORECAST_STATIONS[0] = { ...hamburg, wmo_id: '10147' } as typeof hamburg
-      ghcnDetailDelay = 5000
+      const open = holdDetails()
       try {
         const wrapper = await mountGhcn()
         await pickFromList(wrapper, 'GM000010147')
         const forecast = wrapper.find('[data-testid="map-card-forecast"]')
         await vi.waitFor(() => expect(forecast.find('[data-testid="map-card-same-forecast"]').exists()).toBe(true))
         expect(forecast.find('[data-testid="map-card-same-forecast"]').text()).toContain('The same station, by its WMO number 10147.')
+        // the details have not come (the gate is closed), and the elevation comes with them
+        expect(wrapper.find('.map-detail').text()).not.toContain('above sea level')
+        open()
+        await vi.waitFor(() => expect(wrapper.find('.map-detail').text()).toContain('11 m above sea level'))
       }
       finally {
         FORECAST_STATIONS[0] = hamburg
@@ -2671,7 +2684,7 @@ describe('the GHCN daily layer (GH-4078, GH-4267)', () => {
     it('finds the station of the forecast point by its WMO number, which the list has, and says it is the same station (GH-4077)', async () => {
       const hamburg = FORECAST_STATIONS[0]!
       FORECAST_STATIONS[0] = { ...hamburg, wmo_id: '10147' } as typeof hamburg
-      ghcnDetailDelay = 5000
+      holdDetails()
       try {
         const wrapper = await pickedAndPannedAway()
         await chooseLayer(wrapper, 'ghcn')
@@ -2708,7 +2721,7 @@ describe('the GHCN daily layer (GH-4078, GH-4267)', () => {
     it('carries the WMO number of a station of the layer to another layer before its details have come', async () => {
       const hamburg = FORECAST_STATIONS[0]!
       FORECAST_STATIONS[0] = { ...hamburg, wmo_id: '10147' } as typeof hamburg
-      ghcnDetailDelay = 5000
+      holdDetails()
       try {
         const wrapper = await mountGhcn()
         await pickFromList(wrapper, 'GM000010147')
