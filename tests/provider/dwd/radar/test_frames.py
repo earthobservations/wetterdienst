@@ -750,3 +750,77 @@ def test_the_whole_tar_is_read_for_the_analysis_of_a_run_whose_forecast_is_serve
     with pytest.raises(DownloadError, match="not the analysis"):
         service.frame(_RUNS[0], _RUNS[0])
     assert dwd.whole == []
+
+
+def _stale_list() -> None:
+    frames_module._SHARED.runs = (frames_module._SHARED.runs[0] - 11, _RUNS)  # ty: ignore[not-subscriptable]
+
+
+@pytest.mark.usefixtures("dwd")
+def test_a_listing_that_fails_is_not_asked_for_again_by_every_request_in_the_window(
+    service: DwdRadarFrames, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """While DWD's listing is down a run that might be unlisted is looked for once in 10 s; the held list answers."""
+    service.runs()
+    _stale_list()
+    asked: list[int] = []
+    url, reason = "https://opendata.dwd.de/", "500"
+
+    def fail(*_args: object, **_kwargs: object) -> list[str]:
+        asked.append(1)
+        raise DownloadError(url, reason)
+
+    monkeypatch.setattr(frames_module, "list_remote_files_fsspec", fail)
+    newer = NEWEST + dt.timedelta(minutes=5)
+    for _ in range(20):
+        with pytest.raises(RadarFrameNotFoundError, match="lists no run"):
+            service.frame(newer, newer)
+
+    assert len(asked) == 1
+
+
+@pytest.mark.usefixtures("dwd")
+def test_a_limit_of_the_provider_on_the_listing_is_not_let_go(
+    service: DwdRadarFrames, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 429 of DWD is the limit it is (a 503 with a wait), and not a held list that hides it."""
+    service.runs()
+    _stale_list()
+    url, reason = "https://opendata.dwd.de/", "too many requests"
+
+    def limited(*_args: object, **_kwargs: object) -> list[str]:
+        raise ProviderRateLimitError(url, reason, 30)
+
+    monkeypatch.setattr(frames_module, "list_remote_files_fsspec", limited)
+    newer = NEWEST + dt.timedelta(minutes=5)
+
+    with pytest.raises(ProviderRateLimitError):
+        service.frame(newer, newer)
+
+
+def test_no_listing_is_made_inside_the_lock_of_a_frame(dwd: Dwd, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The runs that were resolved are passed down: reading a frame's file lists nothing, as the lock order says."""
+    import io  # noqa: PLC0415
+    import tarfile  # noqa: PLC0415
+
+    buffer = io.BytesIO()
+    with (
+        tarfile.open(fileobj=io.BytesIO(dwd.tars[_RUNS[5]])) as source,
+        tarfile.open(fileobj=buffer, mode="w") as target,
+    ):
+        for member in reversed(source.getmembers()):
+            target.addfile(member, source.extractfile(member))
+    dwd.tars[_RUNS[5]] = buffer.getvalue()
+    original = DwdRadarFrames.runs
+    asked: list[int] = []
+
+    def counted(self: DwdRadarFrames, *args: object, **kwargs: object) -> list[dt.datetime]:
+        asked.append(1)
+        return original(self, *args, **kwargs)  # ty: ignore[invalid-argument-type]
+
+    monkeypatch.setattr(DwdRadarFrames, "runs", counted)
+    begin_response()
+
+    DwdRadarFrames(Settings()).frame(_RUNS[5], _RUNS[5])  # the whole tar is read for its analysis
+    assert dwd.whole == [_RUNS[5]]
+    assert asked == [1]  # the one of the resolution
