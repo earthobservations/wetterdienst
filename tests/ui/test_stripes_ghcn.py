@@ -281,6 +281,34 @@ def test_the_stations_are_those_whose_record_can_reach_the_minimum_years(
     assert _ids(kind, active=active) == expected
 
 
+@pytest.mark.parametrize("active", [True, False])
+@pytest.mark.parametrize("kind", ["temperature", "precipitation"])
+def test_the_generic_list_with_the_apps_rule_is_the_stripes_list(
+    kind: Literal["temperature", "precipitation"],
+    active: bool,  # noqa: FBT001
+) -> None:
+    """Test `/api/stations` for the parameters of the kind, and the app's rule on it, is the stripes' list (GH-4270).
+
+    The parameters are those the stripes read (`GHCN_STRIPES_PARAMETERS`); the rule is a record of
+    `MIN_RECORD_YEARS` or more years (an end that is empty is this year) that, for an active station, reaches into this
+    year or the last. The same ids, with the same start and end.
+    """
+    this_year = dt.datetime.now(dt.UTC).year
+    generic = (
+        NoaaGhcnRequest(parameters=[("daily", "data", name) for name in core.GHCN_STRIPES_PARAMETERS[kind]]).all().df
+    )
+    first, last = pl.col("start_timestamp").dt.year(), pl.col("end_timestamp").dt.year().fill_null(this_year)
+    keep = last - first + 1 >= core.MIN_RECORD_YEARS
+    if active:
+        keep &= last >= this_year - 1
+    rebuilt = generic.filter(keep).select("station_id", "start_timestamp", "end_timestamp")
+    stripes = core._get_stripes_ghcn_stations(kind, active=active).df.select(  # noqa: SLF001
+        "station_id", "start_timestamp", "end_timestamp"
+    )
+    assert stripes.height > 0
+    assert rebuilt.sort("station_id").equals(stripes.sort("station_id"))
+
+
 def test_the_listing_gives_the_span_of_the_kind_and_no_end_for_a_station_that_still_reports() -> None:
     """Test `start_timestamp` and `end_timestamp` are the first and the last year of the elements of the kind."""
     rows = {

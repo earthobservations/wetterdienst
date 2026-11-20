@@ -14,7 +14,7 @@ from polars.testing import assert_frame_equal
 from tests.provider.value_stubs import ghcnd_by_station
 from wetterdienst import Settings
 from wetterdienst.core.util import one_row_per_station
-from wetterdienst.exceptions import LocationOutOfRangeError
+from wetterdienst.exceptions import DownloadError, LocationOutOfRangeError, NoInternetError
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnMetadata, NoaaGhcnRequest
 from wetterdienst.provider.noaa.ghcn.api import LOST_LATITUDE_SIGN_STATIONS, LOST_LONGITUDE_SIGN_STATIONS
@@ -147,6 +147,181 @@ def _serve_ghcnd(monkeypatch: pytest.MonkeyPatch, stations: str, inventory: str)
         return File(url=url, content=BytesIO(contents[url.rsplit("/", 1)[-1]].encode("utf8")), status=200)
 
     monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", fake_download_file)
+
+
+_ELEMENT_STATIONS = (
+    "AA000000001  50.0000   10.0000   10.0    TAVG AND PRCP                               \n"
+    "AA000000002  51.0000   10.0000   10.0    RANGE                                       \n"
+    "AA000000003  52.0000   10.0000   10.0    TMAX ONLY                                   \n"
+    "AA000000004  53.0000   10.0000   10.0    APART                                       \n"
+    "AA000000005  54.0000   10.0000   10.0    SNOW ONLY                                   \n"
+    "AA000000006  55.0000   10.0000   10.0    NO LINE                                     \n"
+)
+_ELEMENT_INVENTORY = (
+    "AA000000001  50.0000   10.0000 TAVG 1990 2000\n"
+    "AA000000001  50.0000   10.0000 PRCP 1950 2020\n"
+    "AA000000002  51.0000   10.0000 TMAX 1950 1999\n"
+    "AA000000002  51.0000   10.0000 TMIN 1960 2010\n"
+    "AA000000003  52.0000   10.0000 TMAX 1900 2010\n"
+    "AA000000004  53.0000   10.0000 TMAX 1900 1950\n"
+    "AA000000004  53.0000   10.0000 TMIN 1960 2000\n"
+    "AA000000004  53.0000   10.0000 TAVG 1970 1980\n"
+    "AA000000005  54.0000   10.0000 SNOW 1980 2026\n"
+)
+
+
+def _daily_stations(parameters: list[tuple[str, str, str]] | list[tuple[str, str]], settings: Settings) -> pl.DataFrame:
+    return NoaaGhcnRequest(parameters=parameters, settings=settings).all().df.sort("station_id")
+
+
+def _spans(df: pl.DataFrame) -> dict[str, tuple[int, int | None]]:
+    return {
+        row["station_id"]: (row["start_timestamp"].year, row["end_timestamp"].year if row["end_timestamp"] else None)
+        for row in df.iter_rows(named=True)
+    }
+
+
+def test_noaa_ghcn_daily_stations_hold_the_stations_of_the_requested_elements(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """A request for some parameters lists the stations whose inventory has one, with the span of those (GH-4270)."""
+    _serve_ghcnd(monkeypatch, _ELEMENT_STATIONS, _ELEMENT_INVENTORY)
+    # the first year is the 1 January, the last the 31 December, and an element that ends this year has no end
+    precipitation = _daily_stations([("daily", "data", "precipitation_amount")], default_settings)
+    assert _spans(precipitation) == {"AA000000001": (1950, 2020)}
+    assert precipitation.get_column("start_timestamp").to_list() == [dt.datetime(1950, 1, 1, tzinfo=ZoneInfo("UTC"))]
+    assert precipitation.get_column("end_timestamp").to_list() == [dt.datetime(2020, 12, 31, tzinfo=ZoneInfo("UTC"))]
+    snow = _daily_stations([("daily", "data", "snow_depth_new")], default_settings)
+    assert _spans(snow) == {"AA000000005": (1980, None)}
+    # the other columns are those of the whole dataset's list
+    assert precipitation.columns == _daily_stations([("daily", "data")], default_settings).columns
+
+
+def test_noaa_ghcn_daily_stations_span_of_several_elements(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """Several elements of one request give the span from the earliest first to the latest last year (GH-4270)."""
+    _serve_ghcnd(monkeypatch, _ELEMENT_STATIONS, _ELEMENT_INVENTORY)
+    df = _daily_stations(
+        [("daily", "data", "precipitation_amount"), ("daily", "data", "temperature_air_mean_2m")], default_settings
+    )
+    assert _spans(df) == {"AA000000001": (1950, 2020), "AA000000004": (1970, 1980)}
+    # the same request, given in another order
+    again = _daily_stations(
+        [("daily", "data", "temperature_air_mean_2m"), ("daily", "data", "precipitation_amount")], default_settings
+    )
+    assert _spans(again) == _spans(df)
+
+
+def test_noaa_ghcn_daily_stations_max_and_min_count_together(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """TMAX and TMIN named together are a station's range: both, over the years of both (GH-4270).
+
+    A station with TMAX alone is not listed, and one with the two that do not meet has no span of them. Named
+    alone, each element counts alone.
+    """
+    _serve_ghcnd(monkeypatch, _ELEMENT_STATIONS, _ELEMENT_INVENTORY)
+    pair = _daily_stations(
+        [("daily", "data", "temperature_air_max_2m"), ("daily", "data", "temperature_air_min_2m")], default_settings
+    )
+    assert _spans(pair) == {"AA000000002": (1960, 1999)}
+    maximum = _daily_stations([("daily", "data", "temperature_air_max_2m")], default_settings)
+    assert _spans(maximum) == {"AA000000002": (1950, 1999), "AA000000003": (1900, 2010), "AA000000004": (1900, 1950)}
+
+
+def test_noaa_ghcn_daily_stations_temperature_as_the_stripes_take_it(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """The mean, the maximum and the minimum together give TAVG, or else TMAX and TMIN together (GH-4270).
+
+    It is the span the climate stripes read (`ui.core._ghcn_record_years`): a station with only TMAX is not listed, one
+    with both of the range has their common years, and a station with TAVG too has the earliest and the latest of that
+    and the range.
+    """
+    _serve_ghcnd(monkeypatch, _ELEMENT_STATIONS, _ELEMENT_INVENTORY)
+    df = _daily_stations(
+        [
+            ("daily", "data", "temperature_air_mean_2m"),
+            ("daily", "data", "temperature_air_max_2m"),
+            ("daily", "data", "temperature_air_min_2m"),
+        ],
+        default_settings,
+    )
+    # AA...4 has TMAX 1900-1950 and TMIN 1960-2000, which have no year in common, so its span is that of its TAVG
+    assert _spans(df) == {"AA000000001": (1990, 2000), "AA000000002": (1960, 1999), "AA000000004": (1970, 1980)}
+
+
+def test_noaa_ghcn_daily_stations_the_whole_dataset_is_unchanged(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """The whole dataset lists every station that has a line in the inventory, with the span of all its elements."""
+    _serve_ghcnd(monkeypatch, _ELEMENT_STATIONS, _ELEMENT_INVENTORY)
+    whole = _daily_stations([("daily", "data")], default_settings)
+    assert _spans(whole) == {
+        "AA000000001": (1950, 2020),
+        "AA000000002": (1950, 2010),
+        "AA000000003": (1900, 2010),
+        "AA000000004": (1900, 2000),
+        "AA000000005": (1980, None),
+    }
+    # every parameter of the dataset, named one by one, is the whole dataset
+    metadata = NoaaGhcnMetadata["daily"]["data"]
+    each = _daily_stations([("daily", "data", parameter.name) for parameter in metadata.parameters], default_settings)
+    assert each.equals(whole)
+
+
+def test_noaa_ghcn_daily_stations_of_a_request_for_daily_and_hourly(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings
+) -> None:
+    """The parameters of the daily dataset filter its rows only; the hourly rows are the hourly list (GH-4270)."""
+    hourly = "GHCN_ID,LATITUDE,LONGITUDE,ELEVATION,STATE,NAME,WMO_ID,ICAO\nAA000000003,52.0,10.0,10.0,,TMAX ONLY,,\n"
+    contents = {
+        "ghcnd-stations.txt": _ELEMENT_STATIONS,
+        "ghcnd-inventory.txt": _ELEMENT_INVENTORY,
+        "ghcnh-station-list.csv": hourly,
+    }
+    monkeypatch.setattr(
+        "wetterdienst.provider.noaa.ghcn.api.download_file",
+        lambda url, **_kwargs: File(
+            url=url, content=BytesIO(contents[url.rsplit("/", 1)[-1]].encode("utf8")), status=200
+        ),
+    )
+    df = (
+        NoaaGhcnRequest(
+            parameters=[("daily", "data", "precipitation_amount"), ("hourly", "data", "temperature_air_2m")],
+            settings=default_settings,
+        )
+        .all()
+        .df
+    )
+    assert df.select("resolution", "station_id").rows() == [("daily", "AA000000001"), ("hourly", "AA000000003")]
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        NoInternetError("No internet connection: could not reach https://noaa-ghcn-pds.s3.amazonaws.com/x"),
+        OSError("reset"),
+    ],
+)
+@pytest.mark.parametrize("parameters", [[("daily", "data", "precipitation_amount")], [("daily", "data")]])
+def test_noaa_ghcn_daily_stations_an_inventory_that_cannot_be_read_is_an_error(
+    monkeypatch: pytest.MonkeyPatch,
+    default_settings: Settings,
+    error: Exception,
+    parameters: list[tuple[str, str, str]],
+) -> None:
+    """A list the inventory filters is never unfiltered or empty where the inventory is not there (GH-4270)."""
+
+    def download(url: str, **_kwargs: object) -> File:
+        if url.endswith("ghcnd-inventory.txt"):
+            return File(url=url, content=error, status=503)
+        return File(url=url, content=BytesIO(_ELEMENT_STATIONS.encode("utf8")), status=200)
+
+    monkeypatch.setattr("wetterdienst.provider.noaa.ghcn.api.download_file", download)
+    with pytest.raises((NoInternetError, DownloadError)):
+        NoaaGhcnRequest(parameters=parameters, settings=default_settings).all()
 
 
 def test_noaa_ghcn_daily_stations_west_longitude(monkeypatch: pytest.MonkeyPatch, default_settings: Settings) -> None:

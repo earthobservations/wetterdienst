@@ -43,6 +43,13 @@ Types of changes:
 
 ### Changed
 
+- `noaa/ghcn`: a daily station list for some parameters (`daily/data/precipitation_amount`, not the
+  whole `daily/data`) holds only the stations whose `ghcnd-inventory.txt` lists one of their
+  elements, and `start_timestamp` and `end_timestamp` are the span of those elements, on every
+  surface. TMAX and TMIN named together count as the daily range (a station needs both, over the
+  years of both); named with `temperature_air_mean_2m` the span is TAVG's or that range's, as the
+  climate stripes take it. A request for the whole dataset is unchanged; an unreadable inventory
+  is an error, never an unfiltered list (GH-4270)
 - The `radar` command writes the credit of its sites to stderr (`Radar sites: EUMETNET OPERA,
   <source page>`); stdout stays the JSON. EUMETNET OPERA gave wetterdienst its permission in
   November 2026 to use the list of radar sites and pass it on, credited to it; the licence is not

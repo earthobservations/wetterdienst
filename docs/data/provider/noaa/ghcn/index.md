@@ -23,6 +23,19 @@ leave such a station out, as they do a station with no elevation, instead of bri
 from a height of 0 m ([interpolation at an elevation](../../../../usage/interpolation.md#elevation),
 GH-3708). A station at 12.0 m is a height and is corrected.
 
+## The daily station list for some parameters
+
+The daily list reads `ghcnd-inventory.txt`, which gives the first and last year of each element of each station. A
+request for the whole `daily/data` lists every station the inventory has a line for, from the first year of any of its
+elements to the last. A request that names some parameters (`daily/data/precipitation_amount`) lists only the stations
+whose inventory has at least one of their elements (`name_original`: `PRCP`), and `start_timestamp` and `end_timestamp`
+are the span of those: 1 January of the first year, and 31 December of the last, or none where the last year is the one
+running. `TMAX` and `TMIN` named together count as the daily range: a station needs both, and the span is the years
+they have in common (none where they have none); a station with one of them alone is not listed for the pair, and is
+for either of them named alone. So `temperature_air_mean_2m`, `temperature_air_max_2m` and `temperature_air_min_2m`
+together give the span of `TAVG` or of that range, whichever reaches further, which is how the climate stripes take a
+station's temperature. An inventory that cannot be read is an error of the request, never an unfiltered list.
+
 ## Where the daily files are read
 
 `daily` reads the per-station files of NCEI, `https://www.ncei.noaa.gov/pub/data/ghcn/daily/by_station/<id>.csv.gz`
