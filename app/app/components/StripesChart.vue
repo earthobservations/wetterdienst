@@ -21,6 +21,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { downloadBlob, svgToBlob } from '~/utils/chart-image'
 import { readDocumentChartTheme } from '~/utils/chart-theme'
 import { formatNumber, formatSigned } from '~/utils/format'
+import { processingNote } from '~/utils/processing-note'
 import { barsSubtitle, stripeBand, stripeColour, stripesReferenceText, wrapChartTitle } from '~/utils/stripes'
 import { buildStripesModel, clampWindow, fullWindow, isStripesDrawing, MIN_SPAN_STRIPES, panWindow, revealYear, sameWindow, STRIPES_VIEWS, zoomWindow } from '~/utils/stripes-model'
 import { buildStripesOption, CAMERA_SCALE, CAMERA_WIDTH, extraLinesHeight, frameOf, STRIPES_FONT_FAMILY, stripesChartHeight, stripesLayout, SUBTITLE_SIZE, TITLE_PADDING, TITLE_SIZE, windowUpdate, xOfYear } from '~/utils/stripes-option'
@@ -661,7 +662,12 @@ async function save(options: { format: ImageFormat, filename: string, width: num
   const light = readDocumentChartTheme('light')
   const lines = titleLinesFor(imageWidth)
   const wrapped = (text: string) => wrapChartTitle(text, imageWidth - 40, `14px ${STRIPES_FONT_FAMILY}`).text.split('<br>')
-  const extraLines = [...wrapped(referenceCaption()), ...(props.methodLine ? wrapped(props.methodLine) : [])]
+  // the note of what wetterdienst did to the data comes directly under the source, and with it: no source line, no note (GH-3799)
+  const extraLines = [
+    ...(props.display.showSource ? wrapped(processingNote(t)) : []),
+    ...wrapped(referenceCaption()),
+    ...(props.methodLine ? wrapped(props.methodLine) : []),
+  ]
   const imageHeight = options.height + extraLinesHeight(props.display, extraLines.length)
   // the paper is part of the image: a vector with dark text on nothing is unreadable on a dark page that shows it
   const paper = light.paper || '#ffffff'

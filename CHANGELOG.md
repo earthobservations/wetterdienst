@@ -24,6 +24,8 @@ Types of changes:
   `/api/v1/radar/frame` is one frame as a transparent PNG of about 35 KB, decoded once for every
   reader. It needs the `radar` extra on the server (h5py and numpy), and is no MCP tool (GH-3788)
 
+## [0.193.0] - 2026-11-20
+
 ### Fixed
 
 - The documentation on Read the Docs was not published after 2026-10-24: the PDF build failed on an
@@ -8351,7 +8353,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.192.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.193.0...HEAD
+[0.193.0]: https://github.com/earthobservations/wetterdienst/compare/v0.192.0...v0.193.0
 [0.192.0]: https://github.com/earthobservations/wetterdienst/compare/v0.191.0...v0.192.0
 [0.191.0]: https://github.com/earthobservations/wetterdienst/compare/v0.190.0...v0.191.0
 [0.190.0]: https://github.com/earthobservations/wetterdienst/compare/v0.189.1...v0.190.0

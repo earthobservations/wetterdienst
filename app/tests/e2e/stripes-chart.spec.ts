@@ -187,8 +187,17 @@ test.describe('a saved stripes chart', () => {
     await context.addInitScript(() => localStorage.setItem('nuxt-color-mode', 'dark'))
   })
 
-  // the line of text a saved image has under its source, 20 px, for what its colours are relative to (the chart is wide enough for one)
-  const REFERENCE_LINE = 20
+  // a row of text a saved image has under its source is 20 px: the note of what wetterdienst did to the data (GH-3799), what the
+  // colours are relative to (GH-4157), each in as many rows as the width of the image needs. The rows are counted in the vector the
+  // same chart is saved as, so the expectation is the component's own rule and no number of rows
+  const ROW = 20
+
+  /** The rows of text under the source line of a saved vector: the texts that lie lower than it */
+  function rowsUnderSource(svg: string) {
+    const texts = [...svg.matchAll(/<text[^>]*\sy="([\d.]+)"[^>]*>([^<]*)<\/text>/g)].map(match => ({ y: Number(match[1]), text: match[2]! }))
+    const source = texts.find(text => text.text === 'Source: Deutscher Wetterdienst')!
+    return texts.filter(text => text.y > source.y).length
+  }
 
   async function menu(page: Page, item: string) {
     await page.getByRole('button', { name: 'Download image' }).click()
@@ -200,13 +209,16 @@ test.describe('a saved stripes chart', () => {
   test('is the light one and the size of the chart on the page times three, from the menu (the height the page gives it, GH-4133), and a line higher for what the colours are relative to (GH-4157)', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!)
     const shown = (await page.locator('.sc-canvas').boundingBox())!
+    const rows = rowsUnderSource(readFileSync((await (await menu(page, 'Download as SVG')).path())!, 'utf8'))
+    // the note and the reference are two rows at the least
+    expect(rows).toBeGreaterThanOrEqual(2)
     for (const [item, extension] of [['Download as PNG', 'png'], ['Download as JPG', 'jpeg']] as const) {
       const download = await menu(page, item)
       expect(download.suggestedFilename()).toMatch(new RegExp(`^climate_stripes_temperature_00011_.+\\.${extension}$`))
       const image = await imageOf(page, download)
       expect(luminance(image.corner), `the saved image is light (its corner is ${image.corner})`).toBeGreaterThan(0.9)
       expect(image.width).toBe(Math.round(shown.width) * 3)
-      expect(image.height).toBe((Math.round(shown.height) + REFERENCE_LINE) * 3)
+      expect(image.height).toBe((Math.round(shown.height) + ROW * rows) * 3)
       // the chart on the page is as dark as it was
       await expect(canvas(page)).toHaveAttribute('data-chart-scheme', 'dark')
     }
@@ -218,9 +230,11 @@ test.describe('a saved stripes chart', () => {
     const download = await menu(page, 'Download as SVG')
     expect(download.suggestedFilename()).toMatch(/^climate_stripes_temperature_00011_.+\.svg$/)
     const svg = readFileSync((await download.path())!, 'utf8')
-    expect(svg).toMatch(new RegExp(`<svg width="\\d+" height="${Math.round(shown.height) + REFERENCE_LINE}"`))
+    expect(svg).toMatch(new RegExp(`<svg width="\\d+" height="${Math.round(shown.height) + ROW * rowsUnderSource(svg)}"`))
     expect(svg).toContain('Climate stripes')
-    // and says what its colours are relative to, under the source (GH-4157)
+    // and says what wetterdienst did to the data directly under the source (GH-3799), and what its colours are relative to under that (GH-4157)
+    expect(svg.indexOf('Processed by wetterdienst')).toBeGreaterThan(svg.indexOf('Source: Deutscher Wetterdienst'))
+    expect(svg.indexOf('Colours: mean of')).toBeGreaterThan(svg.indexOf('Processed by wetterdienst'))
     expect(svg).toContain('Colours: mean of 1971–2000, ±2.6 σ of 1955–2000')
     // on the light paper: the first thing the vector draws is a rect that is neither empty nor transparent, and it is light
     const paper = /^<svg[^>]*>\s*<rect[^>]*fill="([^"]*)"/.exec(svg)?.[1]
@@ -231,7 +245,11 @@ test.describe('a saved stripes chart', () => {
     expect(svg).not.toContain(dark.replaceAll(' ', ''))
   })
 
-  test('is 2800 by 1870 px (the stripes 16:9 at 1400 px wide, and a line for the colours\' reference) and light, from the camera of the toolbar, named for the station', async ({ page, baseURL }) => {
+  // at 1400 px the note and the reference are a row each under the source (GH-3799, GH-4157)
+  const CAMERA_ROWS = 2
+  const DISPLAY = { showTitle: true, showYears: true, showSource: true, showDataAvailability: true }
+
+  test('is 2800 px wide and as high as the stripes 16:9 at 1400 px wide, and a row each for the note of what wetterdienst did and the colours\' reference, and light, from the camera of the toolbar, named for the station', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!)
     const saved = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download plot as a PNG' }).click()
@@ -239,16 +257,17 @@ test.describe('a saved stripes chart', () => {
     expect(download.suggestedFilename()).toBe('climate_stripes_temperature_00011.png')
     const image = await imageOf(page, download)
     expect(luminance(image.corner)).toBeGreaterThan(0.9)
-    expect([image.width, image.height]).toEqual([2800, 1870])
+    expect([image.width, image.height]).toEqual([CAMERA_WIDTH * CAMERA_SCALE, (stripesChartHeight(DISPLAY, CAMERA_WIDTH, 1, { clamp: false }) + extraLinesHeight(DISPLAY, CAMERA_ROWS)) * CAMERA_SCALE])
     await expect(canvas(page)).toHaveAttribute('data-chart-scheme', 'dark')
   })
 
-  test('is 1400 by 925 times two without a title, the stripes keeping their height', async ({ page, baseURL }) => {
+  test('is 1400 px wide times two without a title, the stripes keeping their height', async ({ page, baseURL }) => {
     await showStripes(page, baseURL!, `${PATH}&show_title=false`)
     const saved = page.waitForEvent('download')
     await page.getByRole('button', { name: 'Download plot as a PNG' }).click()
     const image = await imageOf(page, await saved)
-    expect([image.width, image.height]).toEqual([2800, 1850])
+    const display = { ...DISPLAY, showTitle: false }
+    expect([image.width, image.height]).toEqual([CAMERA_WIDTH * CAMERA_SCALE, (stripesChartHeight(display, CAMERA_WIDTH, 1, { clamp: false }) + extraLinesHeight(display, CAMERA_ROWS)) * CAMERA_SCALE])
   })
 
   test('is the range the chart is zoomed to', async ({ page, baseURL }) => {
@@ -768,7 +787,8 @@ test.describe('the stripes as bars', () => {
     const image = await imageOf(page, download)
     const frame = frameOf({ variant: 'barsScale', subtitleLines: ['Relative to the mean of 1971–2000 [°C]'] })
     const display = { showTitle: true, showYears: true, showSource: true, showDataAvailability: true }
-    const high = stripesChartHeight(display, CAMERA_WIDTH, 1, { clamp: false, frame }) + extraLinesHeight(display, 1)
+    // the note under the source is a row, and so is what the colours are relative to
+    const high = stripesChartHeight(display, CAMERA_WIDTH, 1, { clamp: false, frame }) + extraLinesHeight(display, 2)
     expect([image.width, image.height]).toEqual([CAMERA_WIDTH * CAMERA_SCALE, high * CAMERA_SCALE])
   })
 
@@ -909,7 +929,7 @@ test.describe('the table as a view', () => {
     await expect(page.getByTestId('stripes-about-views')).toContainText('Table lists every year')
   })
 
-  test('offers the CSV in the download menu, and saves the table with the unit in its header and the reference, credit and licence as comments', async ({ page, baseURL }) => {
+  test('offers the CSV in the download menu, and saves the table with the unit in its header and the reference, credit, licence and processing note as comments', async ({ page, baseURL }) => {
     await showTable(page, baseURL!)
     await page.getByRole('button', { name: 'Download table' }).click()
     await expect(page.getByRole('menuitem')).toHaveText(['Download as CSV'])
@@ -922,11 +942,13 @@ test.describe('the table as a view', () => {
     expect([...file.subarray(0, 3)]).toEqual([0xEF, 0xBB, 0xBF])
     const lines = file.toString('utf8').replace(/^\uFEFF/, '').trimEnd().split('\n')
     const comments = lines.filter(line => line.startsWith('# '))
-    expect(comments).toHaveLength(4)
+    expect(comments).toHaveLength(5)
     expect(comments[0]).toMatch(/^# Climate stripes \(Temperature\) for /)
     expect(comments[1]).toBe('# Colours: the mean of 1971–2000 is the centre of the scale, which spans ±2.6 standard deviations of 1955–2000 (Ed Hawkins\' method).')
     expect(comments[2]).toBe('# Source: Deutscher Wetterdienst')
     expect(comments[3]).toBe('# Licence: Creative Commons Attribution 4.0 International (https://creativecommons.org/licenses/by/4.0/)')
+    // what wetterdienst did to the data, after the licence (GH-3799)
+    expect(comments[4]).toBe('# Processed by wetterdienst: the provider\'s data was reshaped into a uniform table, and its units converted where they differ.')
     const rows = lines.slice(comments.length)
     expect(rows[0]).toBe('Year,Value (°C),Anomaly (°C),Class')
     expect(rows).toHaveLength(71)

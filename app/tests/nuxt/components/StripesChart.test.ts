@@ -304,7 +304,7 @@ describe('the variants (GH-4156)', () => {
     expect(options).toMatchObject({ format: 'png', width: 1400, scale: 2 })
     // the stripes of the camera are as high as 1400 px less the room of the scale is wide over their ratio, and the subtitle's row and the line of the colours are on top
     const frame = frameOf({ variant: 'barsScale', subtitleLines: ['Relative to the mean of 1971–2000 [°C]'] })
-    expect(options.height).toBe(stripesChartHeight(DISPLAY, 1400, 1, { clamp: false, frame }) + extraLinesHeight(DISPLAY, 1))
+    expect(options.height).toBe(stripesChartHeight(DISPLAY, 1400, 1, { clamp: false, frame }) + extraLinesHeight(DISPLAY, 2))
     expect(svgOf()).toContain(`height="${options.height}"`)
     expect(textsOf(svgOf())).toContain('Relative to the mean of 1971–2000 [°C]')
   })
@@ -828,14 +828,14 @@ describe('the zoom', () => {
 })
 
 describe('the image', () => {
-  it('is saved as the camera does: a PNG of 1400 by 935 px (the stripes 16:9, 765 px, the margins on top and the line that says what the colours are relative to) at twice the size, in the light theme, named for the station', async () => {
+  it('is saved as the camera does: a PNG of 1400 by 955 px (the stripes 16:9, 765 px, the margins on top and the two lines under the source: the note of what wetterdienst did and what the colours are relative to) at twice the size, in the light theme, named for the station', async () => {
     await showChart()
     buttonNamed('Download plot as a PNG').click()
     await vi.waitFor(() => expect(image.downloadBlob).toHaveBeenCalled())
     const [svg, options] = image.svgToBlob.mock.calls[0] as unknown as [string, any]
-    expect(options).toMatchObject({ format: 'png', width: 1400, height: 935, scale: 2 })
+    expect(options).toMatchObject({ format: 'png', width: 1400, height: 955, scale: 2 })
     expect(options.background).toMatch(/^#|^rgb/)
-    expect(svg).toContain('width="1400" height="935"')
+    expect(svg).toContain('width="1400" height="955"')
     expect(svg).toContain(TITLE)
     expect(image.downloadBlob.mock.calls[0]![1]).toBe('climate_stripes_temperature_00011.png')
   })
@@ -853,6 +853,23 @@ describe('the image', () => {
     expect(y('Colours: mean of 1971–2000, ±2.6 σ of 1950–2000')).toBeGreaterThan(y('Source: Deutscher Wetterdienst'))
     // the page's chart, which says it under the stripes in the page's own text, has no such line
     expect(lastOption().series.at(-1).data.length).toBeLessThan(texts.length)
+  })
+
+  it('says what wetterdienst did to the data directly under the source, before what the colours are relative to, and with the source (GH-3799)', async () => {
+    await showChart()
+    buttonNamed('Download plot as a PNG').click()
+    await vi.waitFor(() => expect(image.downloadBlob).toHaveBeenCalled())
+    const [svg] = image.svgToBlob.mock.calls[0] as unknown as [string, any]
+    const y = (text: string) => Number(new RegExp(`<text[^>]*y="([\\d.]+)"[^>]*>${text}`).exec(svg)![1])
+    expect(y('Processed by wetterdienst')).toBeGreaterThan(y('Source: Deutscher Wetterdienst'))
+    expect(y('Colours: mean of')).toBeGreaterThan(y('Processed by wetterdienst'))
+  })
+
+  it('says none in the saved image where the source line is not shown (GH-3799)', async () => {
+    await showChart({ display: { ...DISPLAY, showSource: false } })
+    buttonNamed('Download plot as a PNG').click()
+    await vi.waitFor(() => expect(image.downloadBlob).toHaveBeenCalled())
+    expect(image.svgToBlob.mock.calls[0]![0] as string).not.toContain('Processed by wetterdienst')
   })
 
   it('says the whole record where the station has too few years in a period, in the saved image too', async () => {
@@ -878,11 +895,11 @@ describe('the image', () => {
     expect(svg).not.toContain('rgb(250, 250, 250)')
   })
 
-  it('is 925 px high where the title is off: the stripes keep their 765 px and lose the 10 px of the title', async () => {
+  it('is 945 px high where the title is off: the stripes keep their 765 px and lose the 10 px of the title', async () => {
     await showChart({ display: { ...DISPLAY, showTitle: false } })
     buttonNamed('Download plot as a PNG').click()
     await vi.waitFor(() => expect(image.svgToBlob).toHaveBeenCalled())
-    expect((image.svgToBlob.mock.calls[0] as unknown as [string, any])[1]).toMatchObject({ width: 1400, height: 925, scale: 2 })
+    expect((image.svgToBlob.mock.calls[0] as unknown as [string, any])[1]).toMatchObject({ width: 1400, height: 945, scale: 2 })
   })
 
   it('is saved for the menu at the size asked for, with the title broken for the width of the image, and in the range the stripes are zoomed to', async () => {

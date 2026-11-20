@@ -494,6 +494,10 @@
     "noResolutions": "No es una serie temporal: aquí no hay nada que listar.",
     "openExplorer": "Abrir en el explorador"
   },
+  "processingNote": {
+    "base": "Procesado por wetterdienst: los datos del proveedor se han reorganizado en una tabla uniforme y sus unidades se han convertido donde difieren.",
+    "estimate": "Los valores se han seleccionado o calculado a partir de las mediciones del proveedor."
+  },
   "cardTitle": {
     "station": "Estación",
     "stationAndPeriod": "Estación y periodo",
