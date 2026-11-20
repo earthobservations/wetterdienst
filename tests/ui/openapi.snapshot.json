@@ -3512,10 +3512,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Station id used as the reference location, e.g. '01048'.",
+              "description": "Station id used as the reference location, e.g. '01048'. The answer is at that station's own altitude, so no `elevation` is needed.",
               "title": "Station"
             },
-            "description": "Station id used as the reference location, e.g. '01048'. Exactly one of station or (latitude and longitude) is required.",
+            "description": "Station id used as the reference location, e.g. '01048'. The answer is at that station's own altitude, so no `elevation` is needed. Exactly one of station or (latitude and longitude) is required.",
             "examples": {
               "example": {
                 "value": "01048"
@@ -4077,10 +4077,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Station id used as the reference location, e.g. '01048'.",
+              "description": "Station id used as the reference location, e.g. '01048'. The answer is at that station's own altitude, so no `elevation` is needed.",
               "title": "Station"
             },
-            "description": "Station id used as the reference location, e.g. '01048'. Exactly one of station or (latitude and longitude) is required.",
+            "description": "Station id used as the reference location, e.g. '01048'. The answer is at that station's own altitude, so no `elevation` is needed. Exactly one of station or (latitude and longitude) is required.",
             "examples": {
               "example": {
                 "value": "01048"
@@ -6003,6 +6003,194 @@
         }
       }
     },
+    "/api/v1/kostra": {
+      "get": {
+        "tags": [
+          "Heavy rainfall"
+        ],
+        "summary": "Kostra",
+        "description": "Provide DWD's heavy-rainfall statistics (KOSTRA-DWD-2020) of a point via restapi.\n\nReturns the table of the cell of DWD's 5 km grid that holds the point: for each duration of a rain (5 minutes to\n7 days) and each return period (1 to 100 years) its depth in mm (``depth_mm``), its intensity in l/(s ha)\n(``intensity_l_s_ha``) and DWD's uncertainty in plus-minus percent (``uncertainty_percent``, a tolerance of both),\nwith the cell's ``index_rc`` and the position of its centre. Engineers size drains and retention basins with these\nvalues. Pass ``duration`` (and ``return_period``) for the one value you need: a duration reads one table of DWD,\nwithout it all 22 are read (2 s the first time, then from the cache). The values are DWD's statistics for the cell,\nnot measurements at the point. A point outside Germany and a border of about 10 km, or in the sea, is refused.",
+        "operationId": "kostra_api_kostra_get",
+        "parameters": [
+          {
+            "name": "latitude",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "description": "Latitude of the point. DWD's grid covers Germany and a border of about 10 km: a point outside it, or in the sea, is refused.",
+              "title": "Latitude"
+            },
+            "description": "Latitude of the point. DWD's grid covers Germany and a border of about 10 km: a point outside it, or in the sea, is refused."
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "description": "Longitude of the point.",
+              "title": "Longitude"
+            },
+            "description": "Longitude of the point."
+          },
+          {
+            "name": "duration",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    5,
+                    10,
+                    15,
+                    20,
+                    30,
+                    45,
+                    60,
+                    90,
+                    120,
+                    180,
+                    240,
+                    360,
+                    540,
+                    720,
+                    1080,
+                    1440,
+                    2880,
+                    4320,
+                    5760,
+                    7200,
+                    8640,
+                    10080
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this duration of the rain, in minutes: 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 540, 720, 1080, 1440, 2880, 4320, 5760, 7200, 8640, 10080 (5 minutes to 7 days). Without it all 22, for which 22 tables of DWD are read (2 s the first time, then from the cache): give the one you need.",
+              "title": "Duration"
+            },
+            "description": "Only this duration of the rain, in minutes: 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 540, 720, 1080, 1440, 2880, 4320, 5760, 7200, 8640, 10080 (5 minutes to 7 days). Without it all 22, for which 22 tables of DWD are read (2 s the first time, then from the cache): give the one you need."
+          },
+          {
+            "name": "return_period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2,
+                    3,
+                    5,
+                    10,
+                    20,
+                    30,
+                    50,
+                    100
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this return period, in years: 1, 2, 3, 5, 10, 20, 30, 50, 100. Without it all nine.",
+              "title": "Return Period"
+            },
+            "description": "Only this return period, in years: 1, 2, 3, 5, 10, 20, 30, 50, 100. Without it all nine."
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "type": "string",
+              "description": "Output format: json (with the cell and the metadata block) or csv (the table alone).",
+              "default": "json",
+              "title": "Format"
+            },
+            "description": "Output format: json (with the cell and the metadata block) or csv (the table alone)."
+          },
+          {
+            "name": "pretty",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Pretty-print JSON/GeoJSON output.",
+              "default": false,
+              "title": "Pretty"
+            },
+            "description": "Pretty-print JSON/GeoJSON output."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/_KostraWithMetadataDict"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "title": "Response Kostra Api Kostra Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        }
+      }
+    },
     "/api/v1/radar/frames": {
       "get": {
         "tags": [
@@ -7844,7 +8032,7 @@
           "processing_note": {
             "type": "string",
             "title": "Processing Note",
-            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, those of the climate stripes what their anomalies and classes are relative to (and, where the years were calculated from daily values, by which rules), and the headers of the stripes' image that it is drawn from the annual values, and those of `storm_cells` that the direction of a cell is calculated from its forecast track. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
+            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, those of the climate stripes what their anomalies and classes are relative to (and, where the years were calculated from daily values, by which rules), and the headers of the stripes' image that it is drawn from the annual values, and those of `storm_cells` that the direction of a cell is calculated from its forecast track, and those of `kostra` that the values are DWD's statistics of the grid cell of the point. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
           },
           "request": {
             "$ref": "#/components/schemas/ResolvedRequest"
@@ -9817,6 +10005,122 @@
         ],
         "title": "_IssuesWithMetadataDict"
       },
+      "_KostraCell": {
+        "properties": {
+          "index_rc": {
+            "type": "string",
+            "title": "Index Rc"
+          },
+          "row": {
+            "type": "integer",
+            "title": "Row"
+          },
+          "column": {
+            "type": "integer",
+            "title": "Column"
+          },
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index_rc",
+          "row",
+          "column",
+          "latitude",
+          "longitude"
+        ],
+        "title": "_KostraCell"
+      },
+      "_KostraValue": {
+        "properties": {
+          "duration_minutes": {
+            "type": "integer",
+            "title": "Duration Minutes"
+          },
+          "return_period_years": {
+            "type": "integer",
+            "title": "Return Period Years"
+          },
+          "depth_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depth Mm"
+          },
+          "intensity_l_s_ha": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intensity L S Ha"
+          },
+          "uncertainty_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uncertainty Percent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "duration_minutes",
+          "return_period_years",
+          "depth_mm",
+          "intensity_l_s_ha",
+          "uncertainty_percent"
+        ],
+        "title": "_KostraValue"
+      },
+      "_KostraWithMetadataDict": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/ResponseMetadata"
+          },
+          "edition": {
+            "type": "string",
+            "title": "Edition"
+          },
+          "cell": {
+            "$ref": "#/components/schemas/_KostraCell"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/_KostraValue"
+            },
+            "type": "array",
+            "title": "Values"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metadata",
+          "edition",
+          "cell",
+          "values"
+        ],
+        "title": "_KostraWithMetadataDict"
+      },
       "_License": {
         "properties": {
           "spdx_id": {
@@ -11220,6 +11524,10 @@
     {
       "name": "Storm cells",
       "description": "Thunderstorm cells of the DWD, detected in its radar data."
+    },
+    {
+      "name": "Heavy rainfall",
+      "description": "Heavy-rainfall statistics of the DWD (KOSTRA-DWD-2020): the depth, intensity and uncertainty of a rain by duration and return period, at a point in Germany."
     },
     {
       "name": "Precipitation radar",

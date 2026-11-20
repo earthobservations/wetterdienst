@@ -43,6 +43,13 @@ render_plugin = "myst"
 no_index = true
 ```
 
+### KOSTRA
+
+```{autodoc2-object} wetterdienst.provider.dwd.kostra.api.DwdKostraRequest
+render_plugin = "myst"
+no_index = true
+```
+
 ### Derived
 
 ```{autodoc2-object} wetterdienst.provider.dwd.derived.api.DwdDerivedRequest

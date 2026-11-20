@@ -63,6 +63,9 @@ point of their own, `Wetterdienst.resolve_standalone`, and `resolve` refuses the
 `resolve_standalone("dwd", "radar")` the `DwdRadarValues` class. The classes can also be imported, which is
 what the examples do.
 
+The point lookups are in no registry: the climate stripes, and `DwdKostraRequest` of the heavy-rainfall statistics
+([KOSTRA](../data/provider/dwd/kostra/index.md)), which is imported from `wetterdienst.provider.dwd.kostra`.
+
 ```{code-cell}
 ---
 mystnb:

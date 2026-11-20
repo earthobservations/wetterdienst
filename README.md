@@ -50,6 +50,7 @@ you need is what tells us what to build next. Hand in an issue or a PR.
 - Unit conversion, and interpolation and summarization for a point between stations
 - DWD weather alerts (CAP warnings) with GeoJSON geometry, by community or district
 - DWD thunderstorm cells (KONRAD3D) of the radar data, near a place, with outline and forecast track
+- DWD heavy-rainfall statistics (KOSTRA-DWD-2020) for a point in Germany: depth, intensity and uncertainty by duration and return period
 - SQL queries over results, and export to CSV, JSON, Excel, Parquet and Zarr files and to SQLite,
   PostgreSQL, CrateDB, InfluxDB and DuckDB
 - A command line client, a REST API with a public Docker image, and an MCP (Model Context Protocol)
@@ -327,7 +328,8 @@ Documentation: [wetterdienst.readthedocs.io](https://wetterdienst.readthedocs.io
   [how to run your own](https://wetterdienst.readthedocs.io/en/latest/usage/app.html).
 - **The data**: [providers, parameters and licences](https://wetterdienst.readthedocs.io/en/latest/data/index.html),
   [DWD weather alerts](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/alerts/index.html),
-  [DWD storm cells](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/storm_cells/index.html).
+  [DWD storm cells](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/storm_cells/index.html),
+  [DWD KOSTRA heavy rainfall](https://wetterdienst.readthedocs.io/en/latest/data/provider/dwd/kostra/index.html).
 - **Upgrade**: [compatibility](https://wetterdienst.readthedocs.io/en/latest/usage/compatibility.html), what
   is stable and how a break is announced, and the
   [migration note from 0.139.0](https://wetterdienst.readthedocs.io/en/latest/usage/migrating.html).

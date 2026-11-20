@@ -75,6 +75,7 @@ parameters are, see [one vocabulary](restapi.md#one-vocabulary)) and the same an
 | `auth` | `/api/v1/auth` | whether the credentials the server holds are accepted by one provider |
 | `alerts` | `/api/v1/alerts` | the weather warnings of DWD: all of Germany unless given a place (`latitude` and `longitude`, or `name`), so pass it |
 | `storm_cells` | `/api/v1/storm-cells` | the thunderstorm cells of DWD, now or within the last 48 hours: all of Germany unless given a point and `distance` (km) or a box (`left`, `bottom`, `right`, `top`), so pass one; `track=false` and `geometry=centroid` keep a long list short. The answer is not cut |
+| `kostra` | `/api/v1/kostra` | the heavy-rainfall statistics of DWD (KOSTRA-DWD-2020) for a point in Germany: the depth, intensity and uncertainty of a rain by duration and return period. Pass a `duration` (minutes, one of 22) and a `return_period` (years) for the one value you need: without them it reads 22 files and answers 198 rows. A point outside Germany and its border is refused |
 | `stripes_stations`, `stripes_values`, `stripes_image` | `/api/v1/stripes/...` | climate stripes, see [Climate Stripes](stripes.md) |
 
 The routes of the precipitation radar (`/api/v1/radar/frames` and `/radar/frame`, map images for a page to draw) are no tools.

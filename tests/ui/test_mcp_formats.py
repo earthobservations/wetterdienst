@@ -542,8 +542,11 @@ def test_a_timeout_while_collecting_is_a_tool_error_that_names_no_stream(monkeyp
     _stub_stream(monkeypatch, [_values_result_of_shape("long")])
     monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.3")
 
+    woke = []
+
     def slow(_reader: object) -> Any:  # noqa: ANN401
         time.sleep(1.5)
+        woke.append(1)
         yield _values_result_of_shape("long")
 
     monkeypatch.setattr(DwdObservationRequest._values, "query", slow)  # noqa: SLF001
@@ -556,6 +559,14 @@ def test_a_timeout_while_collecting_is_a_tool_error_that_names_no_stream(monkeyp
         assert "request timeout of 0.3 seconds" in text
         for streaming in ("ndjson", "csv", "stream"):
             assert streaming not in text
+
+    # a request that timed out is abandoned, not stopped: its thread is still in `slow`, or has not reached it yet.
+    # The reader is put back when the test ends, and a thread that reaches it then reads DWD's server, which the
+    # next test is failed for (the guard of the network). Wait until both are past it
+    deadline = time.monotonic() + 15
+    while len(woke) < len(answers) and time.monotonic() < deadline:
+        time.sleep(0.05)
+    assert len(woke) == len(answers)
 
 
 # --- the refusal of a row limit -----------------------------------------------------------------------------------

@@ -68,6 +68,8 @@ from wetterdienst.model.request import (
 from wetterdienst.model.result import _Station  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.model.station_ids import search_icao_id, search_wigos_id, search_wmo_id
 from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
+from wetterdienst.provider.dwd.kostra.metadata import DURATIONS as KOSTRA_DURATIONS
+from wetterdienst.provider.dwd.kostra.metadata import RETURN_PERIODS as KOSTRA_RETURN_PERIODS
 from wetterdienst.provider.dwd.observation import DwdObservationRequest
 from wetterdienst.ui.stripes_annual import annual_from_daily, leave_out_failed, temperature_method
 from wetterdienst.ui.stripes_scale import (
@@ -180,7 +182,10 @@ _IcaoIdField = Annotated[
 _StationIdField = Annotated[str, Field(description="Station id used as the reference location, e.g. '01048'.")]
 _StationIdOptField = Annotated[
     str | None,
-    Field(description="Station id used as the reference location, e.g. '01048'."),
+    Field(
+        description="Station id used as the reference location, e.g. '01048'. The answer is at that station's own "
+        "altitude, so no `elevation` is needed."
+    ),
 ]
 _NameField = Annotated[
     str | None,
@@ -1988,6 +1993,68 @@ class StormCellsRequest(_RefusesRenamedParameters):
                 )
         _raise_rule_errors(self, errors)
         return self
+
+
+class KostraRequest(_RefusesRenamedParameters):
+    """Request model for the KOSTRA-DWD-2020 heavy-rainfall statistics of DWD at a point."""
+
+    route: ClassVar[str] = "kostra"
+
+    model_config = {"extra": "forbid"}
+
+    latitude: Annotated[
+        float,
+        Field(
+            ge=LATITUDE_MIN,
+            le=LATITUDE_MAX,
+            description="Latitude of the point. DWD's grid covers Germany and a border of about 10 km: a point "
+            "outside it, or in the sea, is refused.",
+        ),
+    ]
+    longitude: Annotated[
+        float,
+        Field(ge=LONGITUDE_MIN, le=LONGITUDE_MAX, description="Longitude of the point."),
+    ]
+    duration: Annotated[
+        int | None,
+        Field(
+            json_schema_extra={"anyOf": [{"type": "integer", "enum": list(KOSTRA_DURATIONS)}, {"type": "null"}]},
+            description="Only this duration of the rain, in minutes: "
+            f"{', '.join(str(duration) for duration in KOSTRA_DURATIONS)} (5 minutes to 7 days). Without it all 22, "
+            "for which 22 tables of DWD are read (2 s the first time, then from the cache): give the one you need.",
+        ),
+    ] = None
+    return_period: Annotated[
+        int | None,
+        Field(
+            json_schema_extra={"anyOf": [{"type": "integer", "enum": list(KOSTRA_RETURN_PERIODS)}, {"type": "null"}]},
+            description="Only this return period, in years: "
+            f"{', '.join(str(period) for period in KOSTRA_RETURN_PERIODS)}. Without it all nine.",
+        ),
+    ] = None
+    format: Annotated[
+        Literal["json", "csv"],
+        Field(description="Output format: json (with the cell and the metadata block) or csv (the table alone)."),
+    ] = "json"
+    pretty: _PrettyField = False
+
+    @field_validator("duration")
+    @classmethod
+    def check_duration(cls, v: int | None) -> int | None:
+        """Refuse a duration DWD publishes no table for, naming the ones it does."""
+        if v is not None and v not in KOSTRA_DURATIONS:
+            msg = f"Input should be one of {', '.join(str(duration) for duration in KOSTRA_DURATIONS)} (minutes)"
+            raise ValueError(msg)
+        return v
+
+    @field_validator("return_period")
+    @classmethod
+    def check_return_period(cls, v: int | None) -> int | None:
+        """Refuse a return period DWD publishes no values for, naming the ones it does."""
+        if v is not None and v not in KOSTRA_RETURN_PERIODS:
+            msg = f"Input should be one of {', '.join(str(period) for period in KOSTRA_RETURN_PERIODS)} (years)"
+            raise ValueError(msg)
+        return v
 
 
 class RadarFramesRequest(_RefusesRenamedParameters):

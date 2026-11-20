@@ -128,7 +128,8 @@ ONLY when the user explicitly asks for an interpolated / between-stations estima
 `stations` -> `values` genuinely returns no station with data near the location. They are not a \
 plain-language "summary". `history` is different again: it returns a station's *metadata* history \
 (name/location/sensor changes), not weather. For `alerts` (DWD warnings), pass the place \
-(a point is the reliable way).
+(a point is the reliable way). For design rainfall at a point in Germany (rain depth by duration \
+and return period), use `kostra`.
 
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
@@ -157,7 +158,7 @@ return; `unit_source` only if it differs. Each parameter has `aggregation` \
 - elevation: for `interpolate` and `summarize` only, the elevation of the point in metres above sea \
 level. Air temperature falls about 0.65 K per 100 m, so a point in a valley and one on the ridge \
 above it get different answers from the same stations; without it the readings are used as they \
-come. Naming a station instead of coordinates answers at that station's own altitude.
+come.
 - periods: leave it out unless the provider splits its record into releases. dwd/observation does \
 -- "recent" is roughly the last 1.5 years, "historical" reaches further back -- as do dwd/derived and \
 dwd/phenology. Most other providers publish everything under a single period, and asking for one \
@@ -188,8 +189,7 @@ rest is answered). Do not retry the same request; widen the `timestamp`, check t
 station. `stations` takes the same `timestamp` as `values` and lists only the stations that have a record \
 in it, so the nearest ones are not stations that closed long ago. A `name` gives `stations` its best five \
 matches and `values` the one best match; `rank` asks for another number.
-- The default JSON is already machine-readable — do NOT re-request the same data in a different \
-format or with unrelated flags; that just wastes calls.
+- The default JSON is machine-readable: do NOT re-request the same data in another format.
 
 ## Example — recent mean air temperature at Hamburg-Fuhlsbüttel
   stations(provider="dwd", network="observation", parameters="daily/kl", name="Hamburg Fuhlsbüttel")
@@ -225,6 +225,7 @@ _TOOL_NAMES = {
     "issues_api_issues_get": "issues",
     "alerts_api_alerts_get": "alerts",
     "storm_cells_api_storm_cells_get": "storm_cells",
+    "kostra_api_kostra_get": "kostra",
     "stripes_stations_api_stripes_stations_get": "stripes_stations",
     "stripes_values_api_stripes_values_get": "stripes_values",
     "stripes_image_api_stripes_image_get": "stripes_image",
@@ -251,6 +252,7 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
     "issues": ("List forecast issues", True),
     "alerts": ("Get weather alerts", True),
     "storm_cells": ("Get thunderstorm cells", True),
+    "kostra": ("Get heavy-rainfall statistics for a point", True),
     "stripes_stations": ("Find climate stripes stations", True),
     "stripes_values": ("Get climate stripes values", True),
     "stripes_image": ("Render climate stripes", True),
