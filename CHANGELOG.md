@@ -28,17 +28,6 @@ Types of changes:
   country, 2 MB for Germany, cached for a week, waited for 10 s once). If it cannot be read the
   stations still come back with `wigos_id` null and the warning `wigos-ids-unavailable`; a rate
   limit of OSCAR is raised (GH-4074)
-
-### Changed
-
-- The `radar` command writes the credit of its sites to stderr (`Radar sites: EUMETNET OPERA,
-  <source page>`); stdout stays the JSON. EUMETNET OPERA gave wetterdienst its permission in
-  November 2026 to use the list of radar sites and pass it on, credited to it; the licence is not
-  yet decided and none is stated. The credit and the source page are `OPERA_CREDIT` and `OPERA_SOURCE_URL` of
-  `wetterdienst.provider.eumetnet.opera.sites` and in the docs (GH-4200)
-- The read of DWD's Stationslexikon (the `wmo_id` of `dwd/observation` and `dwd/derived`) waits 10 s
-  for the server and asks once, where it waited 30 s twice, so a host that drops connections costs
-  a request 10 s and not a minute; requests that ask at the same time share one read (GH-4074)
 - The REST API serves DWD's precipitation radar as map images: `/api/v1/radar/frames` lists the
   radar analysis of the last hours (`past`, 120 minutes by default) and DWD's forecast of the next
   two, with where the images lie (WGS84 `bounds`, in Web Mercator) and a legend in mm/h, and
@@ -51,6 +40,17 @@ Types of changes:
   and 9 return periods (1 to 100 years), with the cell and its centre. A `duration` reads that
   one table of DWD, without it all 22 are read; a point off the grid or in a cell without values
   is refused (a 400), never an empty table. The 2010R edition is not read (GH-4072)
+
+### Changed
+
+- The `radar` command writes the credit of its sites to stderr (`Radar sites: EUMETNET OPERA,
+  <source page>`); stdout stays the JSON. EUMETNET OPERA gave wetterdienst its permission in
+  November 2026 to use the list of radar sites and pass it on, credited to it; the licence is not
+  yet decided and none is stated. The credit and the source page are `OPERA_CREDIT` and
+  `OPERA_SOURCE_URL` of `wetterdienst.provider.eumetnet.opera.sites` and in the docs (GH-4200)
+- The read of DWD's Stationslexikon (the `wmo_id` of `dwd/observation` and `dwd/derived`) waits 10 s
+  for the server and asks once, where it waited 30 s twice, so a host that drops connections costs
+  a request 10 s and not a minute; requests that ask at the same time share one read (GH-4074)
 
 ### Fixed
 
