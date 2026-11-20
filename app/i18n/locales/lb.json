@@ -706,6 +706,7 @@
     "showDataAvailability": "Datverfügbarkeet weisen",
     "visualizationTitle": "Visualiséierung",
     "loadingViz": "Daten ginn gelueden a Visualiséierung gëtt generéiert …",
+    "noRecord": "Dës Statioun huet keng Moossreie, déi laang genuch fir Klimasträifen ass: Et brauche mindestens {years} Joer mat Daten.",
     "downloadImage": "Bild eroflueden",
     "downloadPng": "Als PNG eroflueden",
     "downloadJpg": "Als JPG eroflueden",

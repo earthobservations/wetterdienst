@@ -3,7 +3,7 @@ import type { BackendRead } from './ghcnStripes'
 import { useApiBase } from './apiBase'
 import { backendReader, GHCN_TTL_MS, GHCN_UNIT_TYPE, readGhcnAnnual, readGhcnStations, UpstreamProblem } from './ghcnStripes'
 import { requestIdOf } from './requestId'
-import { createLimiter, TtlCache } from './ttlCache'
+import { AbortedError, createLimiter, QueueFullError, QueueTimeoutError, TtlCache } from './ttlCache'
 
 // The two routes of the app's own server that the climate stripes of NOAA's GHCN daily are made from (GH-4258). They are not
 // under `/api`, which the app proxies to the backend as it is (`server/api/[...].get.ts`): what they answer is the app's own,
@@ -16,12 +16,18 @@ import { createLimiter, TtlCache } from './ttlCache'
 // Both keep what they worked out for `GHCN_TTL_MS` in the memory of the process; see `ttlCache.ts` for the bounds. Both count
 // against the rate limit of the server (`server/utils/rateLimit.ts`), as each is a read of the backend.
 
-type Reader = (apiBase: string, requestId: string) => BackendRead
+type Reader = (apiBase: string, requestId: string, signal?: AbortSignal) => BackendRead
 
 /** How many stations' years the server keeps: a station's are a few kilobytes, so about 10 MB at most */
 const ANNUAL_ENTRIES = 1000
 /** How many reads of the backend run side by side: a station's days are up to 25 MB of JSON, and the list of GHCN 43 MB */
 const CONCURRENT_READS = 4
+/** How many reads may wait for their turn: a read is up to 25 MB of JSON, so the ones waiting hold a client each and nothing else; one more is a 503 */
+const MAX_WAITING_READS = 16
+/** How long a read may wait for its turn, in milliseconds, before it is a 503 and its place is given up */
+const MAX_WAIT_MS = 30_000
+/** What a refused read is told to wait, in seconds */
+const BUSY_RETRY_AFTER_SECONDS = 10
 /** What a browser keeps an answer for: the listing and a station's years change, at the soonest, with the night's files of NOAA */
 const BROWSER_MAX_AGE_SECONDS = 3600
 
@@ -82,7 +88,14 @@ interface Handlers {
 }
 
 /** Answers a failure as the proxy of `/api` answers one: the problem, its status, and the request's id */
-function answerProblem(event: Parameters<Parameters<typeof defineEventHandler>[0]>[0], failure: unknown, requestId: string): unknown {
+function answerProblem(event: Parameters<Parameters<typeof defineEventHandler>[0]>[0], raised: unknown, requestId: string): unknown {
+  // the client has gone: nobody is left to tell
+  if (raised instanceof AbortedError)
+    return undefined
+  // the queue of reads is full, or the read waited too long: the server is busy, which passes
+  const failure = raised instanceof QueueFullError || raised instanceof QueueTimeoutError
+    ? new UpstreamProblem(503, { type: 'urn:wetterdienst:problem:server-busy', title: 'Service Unavailable', status: 503, detail: 'The server is busy reading other stations. Try again in a moment.' }, BUSY_RETRY_AFTER_SECONDS)
+    : raised
   if (!(failure instanceof UpstreamProblem))
     throw failure
   const problem = { instance: `urn:wetterdienst:request:${requestId}`, request_id: requestId, ...failure.problem }
@@ -99,16 +112,28 @@ function allowBrowserToKeep(event: Parameters<Parameters<typeof defineEventHandl
   setResponseHeader(event, 'x-request-id', requestId)
 }
 
+/** Aborts where the client closes the connection before the answer is sent: the reads it alone waits for are given up */
+function closedBy(event: Parameters<Parameters<typeof defineEventHandler>[0]>[0]): AbortSignal {
+  const controller = new AbortController()
+  event.node.res.once('close', () => {
+    if (!event.node.res.writableEnded)
+      controller.abort()
+  })
+  return controller.signal
+}
+
 /** The handler of `GET /_ghcn/annual` */
 export function ghcnAnnualHandler({ reader = backendReader }: Handlers = {}) {
   const cache = new TtlCache<GhcnAnnualAnswer>({ ttlMs: GHCN_TTL_MS, maxEntries: ANNUAL_ENTRIES })
-  const limit = createLimiter(CONCURRENT_READS)
+  const limit = createLimiter(CONCURRENT_READS, { maxWaiting: MAX_WAITING_READS, maxWaitMs: MAX_WAIT_MS })
   return defineEventHandler(async (event) => {
     const requestId = requestIdOf(getRequestHeader(event, 'x-request-id'))
+    const closed = closedBy(event)
     try {
       const { kind, station, unitTargets } = parseAnnualQuery(getQuery(event))
       const key = [kind, station, JSON.stringify(unitTargets ?? {})].join('|')
-      const answer = await cache.get(key, () => limit(() => readGhcnAnnual(reader(useApiBase(), requestId), { kind, station, unitTargets })))
+      const apiBase = useApiBase()
+      const answer = await cache.get(key, signal => limit(() => readGhcnAnnual(reader(apiBase, requestId, signal), { kind, station, unitTargets }), signal), closed)
       allowBrowserToKeep(event, requestId)
       return answer
     }
@@ -121,11 +146,13 @@ export function ghcnAnnualHandler({ reader = backendReader }: Handlers = {}) {
 /** The handler of `GET /_ghcn/stations` */
 export function ghcnStationsHandler({ reader = backendReader }: Handlers = {}) {
   const cache = new TtlCache<Station[]>({ ttlMs: GHCN_TTL_MS, maxEntries: 1 })
-  const limit = createLimiter(CONCURRENT_READS)
+  const limit = createLimiter(CONCURRENT_READS, { maxWaiting: MAX_WAITING_READS, maxWaitMs: MAX_WAIT_MS })
   return defineEventHandler(async (event) => {
     const requestId = requestIdOf(getRequestHeader(event, 'x-request-id'))
+    const closed = closedBy(event)
     try {
-      const stations = await cache.get('stations', () => limit(() => readGhcnStations(reader(useApiBase(), requestId))))
+      const apiBase = useApiBase()
+      const stations = await cache.get('stations', signal => limit(() => readGhcnStations(reader(apiBase, requestId, signal)), signal), closed)
       allowBrowserToKeep(event, requestId)
       return { stations }
     }

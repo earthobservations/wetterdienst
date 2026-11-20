@@ -11,7 +11,7 @@ import {
   MIN_RECORD_YEARS,
   MIN_SPREAD_YEARS,
   RANGE_SIGMA,
-  roundHalfAway,
+  roundHalfEven,
   SPREAD_PERIOD,
   stripeClass,
   stripesFromRecord,
@@ -189,14 +189,32 @@ describe('the reference', () => {
 })
 
 describe('rounding', () => {
-  it('goes half away from zero, as polars does, where a plain Math.round goes up', () => {
-    expect(roundHalfAway(1.00005, 4)).toBe(1.0001)
-    expect(roundHalfAway(-1.00005, 4)).toBe(-1.0001)
-    expect(roundHalfAway(-2.5, 0)).toBe(-3)
+  // the numbers polars 2.0 gave (`pl.Series([...]).round(n)`, checked on 36,000 values, ties included): a tie goes to the even
+  // neighbour, where a plain Math.round goes up and rounding away from zero goes out
+  it('goes to the even neighbour at a tie, as the backend\'s polars does', () => {
+    expect(roundHalfEven(-2.5, 0)).toBe(-2)
+    expect(roundHalfEven(2.5, 0)).toBe(2)
+    expect(roundHalfEven(1.5, 0)).toBe(2)
+    expect(roundHalfEven(0.5, 0)).toBe(0)
+    expect(roundHalfEven(0.00025, 4)).toBe(0.0002)
+    expect(roundHalfEven(-0.00025, 4)).toBe(-0.0002)
+    expect(roundHalfEven(0.0015, 3)).toBe(0.002)
+    expect(roundHalfEven(0.0025, 3)).toBe(0.002)
+    expect(roundHalfEven(-0.0025, 3)).toBe(-0.002)
     expect(Math.round(-2.5)).toBe(-2)
-    expect(roundHalfAway(5.15, 3)).toBe(5.15)
-    expect(roundHalfAway(-0.2, 4)).toBe(-0.2)
-    expect(Object.is(roundHalfAway(0, 3), 0)).toBe(true)
+  })
+
+  it('follows the scaled number where it is not exactly a tie, which the float has already decided', () => {
+    expect(roundHalfEven(1.00005, 4)).toBe(1.0001)
+    expect(roundHalfEven(-1.00005, 4)).toBe(-1.0001)
+    expect(roundHalfEven(1.2345, 3)).toBe(1.234)
+    expect(roundHalfEven(1.2355, 3)).toBe(1.236)
+  })
+
+  it('leaves a number that is no tie as it is, and a zero a zero', () => {
+    expect(roundHalfEven(5.15, 3)).toBe(5.15)
+    expect(roundHalfEven(-0.2, 4)).toBe(-0.2)
+    expect(roundHalfEven(0, 3) + 0).toBe(0)
   })
 })
 

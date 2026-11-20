@@ -11,6 +11,7 @@ import { processingNote } from '~/utils/processing-note'
 import { stripesMethodNote, stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
 import { isStripesDrawing, STRIPES_VIEW_QUERY, stripesViewFromQuery } from '~/utils/stripes-model'
 import { MENU_SCALE } from '~/utils/stripes-option'
+import { MIN_RECORD_YEARS, StripesRefusedError } from '~/utils/stripes-scale'
 import { fetchStripes, fetchStripesStations, stripesFetch } from '~/utils/stripes-source'
 import { stripesCsv, stripesTableColumns, stripesTableYears } from '~/utils/stripes-table'
 import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
@@ -24,7 +25,8 @@ const toast = useToast()
 // The kind and the source come from the link, read where they are made: the stations are asked for the ones chosen, and not for
 // the defaults first (GH-4258)
 const route = useRoute()
-const kind = ref<StripesKind>(route.query.kind ? route.query.kind.toString() as StripesKind : 'temperature')
+// a kind that is none of the two is no choice: the temperature
+const kind = ref<StripesKind>(route.query.kind?.toString() === 'precipitation' ? 'precipitation' : 'temperature')
 // Where the stations and the years are from (GH-4078): DWD's annual values (the default), or NOAA's GHCN daily, whose years are built from
 // the days. In the link as `provider` and `network`, as the REST API takes them, and left out for DWD's
 type StripesSource = 'dwd' | 'ghcn'
@@ -194,6 +196,8 @@ const cameraFile = computed(() => `climate_stripes_${kind.value}_${lastFetchedDa
 // what it fetched. Failed: why the newest could not fetch the values, told in the chart area
 let fetchesStarted = 0
 const fetchError = ref<string | null>(null)
+// the fetch failed because the station has no record long enough, which is no failure of the request but the answer (told in words of the page's own)
+const fetchRefused = ref(false)
 
 // What the stripes shown are of, as it was asked: the station and the years of the fetch, not what the form says now
 // (GH-3980). A unit changed in the settings fetches this again, so that no selection the user has not confirmed is drawn
@@ -219,6 +223,7 @@ async function fetchAndPlotStripes(target?: ShownStripes) {
   const started = ++fetchesStarted
   isLoading.value = true
   fetchError.value = null
+  fetchRefused.value = false
   // this fetch reads the unit as it is now
   refetchShownAfter = false
   // the station of the stripes, as the list has it: the answer is made of its years and names it as the page does
@@ -250,7 +255,8 @@ async function fetchAndPlotStripes(target?: ShownStripes) {
       return
     console.error('Failed to fetch stripes data:', error)
     // told above any stripes shown, which are this station's
-    fetchError.value = describeFetchError(error)
+    fetchRefused.value = error instanceof StripesRefusedError && error.reason === 'record-too-short'
+    fetchError.value = fetchRefused.value ? t('stripes.noRecord', { years: MIN_RECORD_YEARS }) : describeFetchError(error)
   }
   finally {
     if (started === fetchesStarted) {
@@ -325,6 +331,7 @@ function clearStripes() {
   fetchesStarted++
   isLoading.value = false
   fetchError.value = null
+  fetchRefused.value = false
 }
 
 const router = useRouter()
@@ -603,8 +610,12 @@ watch([
                 class="flex flex-col items-center justify-center gap-1 text-center text-red-600 dark:text-red-400"
                 :class="hasPlot ? 'pb-4' : 'h-64'"
               >
-                <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
-                <span class="text-sm">{{ fetchError }}</span>
+                <!-- a station with no record long enough is not a failure: the sentence alone, which is the answer -->
+                <span v-if="fetchRefused" class="font-medium" data-testid="stripes-no-record">{{ fetchError }}</span>
+                <template v-else>
+                  <span class="font-medium">{{ t('dataViewer.fetchError') }}</span>
+                  <span class="text-sm">{{ fetchError }}</span>
+                </template>
               </div>
               <!-- the chart tells its own failure, with its Retry -->
               <StripesChart

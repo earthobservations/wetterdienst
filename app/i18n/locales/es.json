@@ -706,6 +706,7 @@
     "showDataAvailability": "Mostrar la disponibilidad de datos",
     "visualizationTitle": "Visualización",
     "loadingViz": "Cargando datos y generando la visualización …",
+    "noRecord": "Esta estación no tiene un registro lo bastante largo para las franjas climáticas: hacen falta al menos {years} años con datos.",
     "downloadImage": "Descargar la imagen",
     "downloadPng": "Descargar como PNG",
     "downloadJpg": "Descargar como JPG",

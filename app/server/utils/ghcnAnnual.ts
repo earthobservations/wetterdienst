@@ -1,4 +1,4 @@
-import { isSuspect, roundHalfAway, yearTimestamp } from '../../app/utils/stripes-scale'
+import { isSuspect, roundHalfEven, yearTimestamp } from '../../app/utils/stripes-scale'
 
 // The annual values of the climate stripes for a source that publishes days only: NOAA GHCN daily (GH-4222, moved to the app's
 // server by GH-4258). The port of the backend's `ui/stripes_annual.py`, which phase 2 of GH-4258 removes there;
@@ -243,7 +243,7 @@ export function annualFromDaily(rows: readonly DailyRow[], kind: AnnualKind): An
       }
     }
     const value = counting === MONTHS
-      ? roundHalfAway(kind === 'temperature' ? total / counting : total, DECIMALS)
+      ? roundHalfEven(kind === 'temperature' ? total / counting : total, DECIMALS)
       : null
     years.push({ year, value })
   }

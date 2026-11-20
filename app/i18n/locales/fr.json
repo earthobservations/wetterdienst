@@ -706,6 +706,7 @@
     "showDataAvailability": "Afficher la disponibilité des données",
     "visualizationTitle": "Visualisation",
     "loadingViz": "Chargement des données et génération de la visualisation …",
+    "noRecord": "Cette station n'a pas de série assez longue pour les bandes climatiques : il faut au moins {years} années avec des données.",
     "downloadImage": "Télécharger l'image",
     "downloadPng": "Télécharger en PNG",
     "downloadJpg": "Télécharger en JPG",

@@ -325,15 +325,18 @@ by the rules of WMO-No. 1203, and lists the stations that have a record long eno
 - `GET /_ghcn/annual?kind=temperature&station=USW00094728` (`kind` is `temperature` or `precipitation`, `unit_targets`
   optional, as `/api/values` takes it) answers one row for each year, the value `null` where the year fails the rules,
   with the unit, the way the days of a temperature were calculated (`midrange` of the daily maximum and minimum, or
-  `tavg`) and the provider's credit and licence. It reads the station's days from `/api/values` of the backend (a few
-  megabytes of JSON), and answers a few kilobytes.
+  `tavg`) and the provider's credit and licence. It reads the station's days from `/api/values` of the backend (up to about
+  25 MB of JSON for a record of 150 years, a third less with `drop_nulls=true`, which it asks for), and answers a few kilobytes.
 - `GET /_ghcn/stations` answers the stations of GHCN daily that still report (their record reaches into this or the last
   year) and span ten years or more, which is the picker's list.
 
 Both are kept in the memory of the server for twelve hours, as the backend keeps the files of NOAA: a station's years
 (at most 1,000 stations, the one used longest ago going first) and the list of the stations. A station asked for by
-several clients at once is read once, a failure is not kept, and at most four reads of the backend run side by side.
-Neither route is part of the backend's API: a deployment that serves the app serves them, one that serves the backend
+several clients at once is read once, and a failure is not kept. Each route runs at most four reads of the backend side by
+side (a read holds up to 80 MB of memory while it is parsed); another 16 may wait for their turn, for 30 seconds at the
+most, and a read beyond that is answered `503` with a `Retry-After` of 10 seconds. A read whose client has closed the
+connection is given up, in the queue or under way, unless another client waits for the same station, and a read the backend
+does not answer in 90 seconds is a `504`. Neither route is part of the backend's API: a deployment that serves the app serves them, one that serves the backend
 alone does not.
 
 The app does not forward the cookies or the `Authorization` of a client to the backend, on `/api` or on `/mcp`.

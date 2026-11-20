@@ -143,10 +143,19 @@ export function stripeClass(value: number, reference: StripesReference): number 
   return Math.min(CLASSES - 1, Math.max(0, CLASSES / 2 + position))
 }
 
-/** A number rounded to `decimals` places, halves away from zero, as polars' `round` does (`round(4)` of the anomalies) */
-export function roundHalfAway(value: number, decimals: number): number {
+/**
+ * A number rounded to `decimals` places, a tie to the even neighbour, as the backend's polars (2.0) does for `round(4)` of the
+ * anomalies and `round(3)` of the annual values: the number is scaled by 10^decimals, rounded half to even, and scaled back
+ * (`pl.Series([-2.5]).round(0)` is -2.0, 0.00025 is 0.0002 at four places). `tests/unit/stripes-scale.test.ts` holds it to the numbers
+ * polars gave.
+ */
+export function roundHalfEven(value: number, decimals: number): number {
   const factor = 10 ** decimals
-  return Math.sign(value) * Math.round(Math.abs(value) * factor) / factor
+  const scaled = value * factor
+  const floor = Math.floor(scaled)
+  const rest = scaled - floor
+  const rounded = rest < 0.5 ? floor : rest > 0.5 ? floor + 1 : floor % 2 === 0 ? floor : floor + 1
+  return rounded / factor
 }
 
 /** The token a soft plausibility check writes in a reading's `quality_flags` (`suspect:source`) */
@@ -174,19 +183,23 @@ interface RefusalEntry {
 /**
  * Why the stripes of a station cannot be made, written as the REST API writes its refusals (an RFC 9457 problem and the status
  * it came with) so that the app tells it as any other failure of a request (`describeFetchError`) and the map's panel reads it
- * as "no stripes" (a 400, 404 or 422).
+ * as "no stripes" (a 400, 404 or 422). A 502 is no refusal but a failure that may pass (a listing of the provider's that was left out), which
+ * is told as a failure, with Retry.
  */
 export class StripesRefusedError extends Error {
   statusCode: number
   statusMessage: string
   data: { type: string, title: string, status: number, detail: string, errors?: RefusalEntry[] }
+  /** Why a 400 is one: the record has too few years for a scale of its own (`record-too-short`), or the window holds fewer than two (`window-too-short`) */
+  reason?: 'record-too-short' | 'window-too-short'
 
-  constructor(statusCode: 400 | 404 | 422, detail: string, errors?: RefusalEntry[]) {
+  constructor(statusCode: 400 | 404 | 422 | 502, detail: string, errors?: RefusalEntry[], reason?: 'record-too-short' | 'window-too-short') {
     super(detail)
+    this.reason = reason
     this.name = 'StripesRefusedError'
     this.statusCode = statusCode
-    this.statusMessage = { 400: 'Bad Request', 404: 'Not Found', 422: 'Unprocessable Content' }[statusCode]
-    const kind = { 400: 'request-refused', 404: 'not-found', 422: 'invalid-parameters' }[statusCode]
+    this.statusMessage = { 400: 'Bad Request', 404: 'Not Found', 422: 'Unprocessable Content', 502: 'Bad Gateway' }[statusCode]
+    const kind = { 400: 'request-refused', 404: 'not-found', 422: 'invalid-parameters', 502: 'upstream-failed' }[statusCode]
     this.data = { type: `urn:wetterdienst:problem:${kind}`, title: this.statusMessage, status: statusCode, detail, ...(errors ? { errors } : {}) }
   }
 }
@@ -238,10 +251,10 @@ export function stripesFromRecord(
   const inWindow = recorded.filter(([year]) => (startYear === null || year >= startYear) && (endYear === null || year <= endYear))
   if (inWindow.length < 2) {
     const text = recorded.length ? `from ${recorded[0]![0]} to ${recorded.at(-1)![0]}` : 'for no year'
-    throw new StripesRefusedError(400, `At least two years with data are required to create climate stripes; station ${stationId} has data ${text}`)
+    throw new StripesRefusedError(400, `At least two years with data are required to create climate stripes; station ${stationId} has data ${text}`, undefined, 'window-too-short')
   }
   if (recorded.length < MIN_RECORD_YEARS)
-    throw new StripesRefusedError(400, `At least ${MIN_RECORD_YEARS} years with data are required to scale climate stripes; station ${stationId} has data for ${recorded.length} (from ${recorded[0]![0]} to ${recorded.at(-1)![0]})`)
+    throw new StripesRefusedError(400, `At least ${MIN_RECORD_YEARS} years with data are required to scale climate stripes; station ${stationId} has data for ${recorded.length} (from ${recorded[0]![0]} to ${recorded.at(-1)![0]})`, undefined, 'record-too-short')
 
   const reference = stripesReference(recorded.map(([year]) => year), recorded.map(([, value]) => value))
   const first = inWindow[0]![0]
@@ -252,7 +265,7 @@ export function stripesFromRecord(
     values.push({
       timestamp: yearTimestamp(year),
       value,
-      anomaly: value === null ? null : roundHalfAway(value - reference.centre.value, 4),
+      anomaly: value === null ? null : roundHalfEven(value - reference.centre.value, 4),
       stripe_class: value === null ? null : stripeClass(value, reference),
     })
   }

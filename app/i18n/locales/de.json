@@ -706,6 +706,7 @@
     "showDataAvailability": "Datenverfügbarkeit anzeigen",
     "visualizationTitle": "Visualisierung",
     "loadingViz": "Daten werden geladen und die Visualisierung wird erstellt …",
+    "noRecord": "Diese Station hat keine ausreichend lange Messreihe für Klimastreifen: Es werden mindestens {years} Jahre mit Daten benötigt.",
     "downloadImage": "Bild herunterladen",
     "downloadPng": "Als PNG herunterladen",
     "downloadJpg": "Als JPG herunterladen",

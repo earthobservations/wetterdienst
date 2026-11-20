@@ -706,6 +706,7 @@
     "showDataAvailability": "Datenverfögbarkeit wiesen",
     "visualizationTitle": "Visualisatschoon",
     "loadingViz": "Daten warrt laadt un de Visualisatschoon warrt maakt …",
+    "noRecord": "Disse Station hett keen Meetreeg, de lang genoog för Klimastrepen is: Dor warrt mindestens {years} Johren mit Daten bruukt.",
     "downloadImage": "Bild runnerladen",
     "downloadPng": "As PNG runnerladen",
     "downloadJpg": "As JPG runnerladen",

@@ -194,12 +194,28 @@ describe('the stripes of a station of DWD', () => {
     })
   })
 
+  it('are a failure to try again, a 502, where the lookup went without a listing of DWD\'s and the station is not found: an outage is never no such station', async () => {
+    const answer = { ...valuesAnswer([]), metadata: { warnings: [{ code: 'file-skipped' }, { code: 'unknown-station' }] } }
+    const { fetch } = fetchOf({ '/api/values': () => answer })
+    const failure = await fetchStripes(fetch, request({ station: { station_id: '00011', name: 'x' } })).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(StripesRefusedError)
+    expect(failure).toMatchObject({ statusCode: 502, data: { status: 502, type: 'urn:wetterdienst:problem:upstream-failed' } })
+    expect((failure as Error).message).toContain('No station found for 00011. The lookup of the stations went without a listing of the provider')
+    expect((failure as Error).message).toContain('Try again later.')
+  })
+
   it('are refused as a 400 for a record of fewer than 10 years, naming it', async () => {
     const { fetch } = fetchOf({ '/api/values': () => valuesAnswer(recordOf(1976, 1977, () => 8)) })
     await expect(fetchStripes(fetch, request())).rejects.toMatchObject({
       statusCode: 400,
+      reason: 'record-too-short',
       data: { detail: 'At least 10 years with data are required to scale climate stripes; station 01048 has data for 2 (from 1976 to 1977)' },
     })
+  })
+
+  it('are refused as a 400 for a window of fewer than two years, which is no record too short', async () => {
+    const { fetch } = fetchOf({ '/api/values': () => valuesAnswer(record) })
+    await expect(fetchStripes(fetch, request({ startYear: 2030, endYear: 2040 }))).rejects.toMatchObject({ statusCode: 400, reason: 'window-too-short' })
   })
 
   it('are refused as a 422 for a window that ends before it starts, before anything is read', async () => {

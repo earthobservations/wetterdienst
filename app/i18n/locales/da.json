@@ -706,6 +706,7 @@
     "showDataAvailability": "Vis datatilgængelighed",
     "visualizationTitle": "Visualisering",
     "loadingViz": "Indlæser data og genererer visualisering …",
+    "noRecord": "Denne station har ikke en måleserie, der er lang nok til klimastriber: der kræves mindst {years} år med data.",
     "downloadImage": "Download billede",
     "downloadPng": "Download som PNG",
     "downloadJpg": "Download som JPG",

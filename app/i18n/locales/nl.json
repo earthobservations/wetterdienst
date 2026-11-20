@@ -706,6 +706,7 @@
     "showDataAvailability": "Gegevensbeschikbaarheid tonen",
     "visualizationTitle": "Visualisatie",
     "loadingViz": "Gegevens laden en visualisatie genereren …",
+    "noRecord": "Dit station heeft geen reeks die lang genoeg is voor klimaatstrepen: er zijn minstens {years} jaar met gegevens nodig.",
     "downloadImage": "Afbeelding downloaden",
     "downloadPng": "Downloaden als PNG",
     "downloadJpg": "Downloaden als JPG",

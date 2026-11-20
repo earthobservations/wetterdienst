@@ -706,6 +706,7 @@
     "showDataAvailability": "Show data availability",
     "visualizationTitle": "Visualization",
     "loadingViz": "Loading data and generating visualization …",
+    "noRecord": "This station has no record long enough for climate stripes: at least {years} years with data are needed.",
     "downloadImage": "Download image",
     "downloadPng": "Download as PNG",
     "downloadJpg": "Download as JPG",

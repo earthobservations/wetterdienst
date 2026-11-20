@@ -25,6 +25,8 @@ const unitTargetsAsked: unknown[] = []
 const queries: Array<Record<string, string>> = []
 const urls: string[] = []
 let method: 'midrange' | 'tavg' | null = null
+/** The warnings of the answer of DWD's annual values: a station the lookup did not find, and a listing it went without */
+let warnings: Array<{ code: string }> = []
 
 /** The record of the years held: from 2000, in the unit asked for, as the backend converts them from degree Celsius */
 function recordHeld(unitTargets: { temperature?: string }) {
@@ -50,7 +52,9 @@ function serve(url: string, ghcn: boolean) {
     }
     return ghcn
       ? ghcnAnnualAnswer(recordHeld(unitTargets), { unit: unitSymbolOf(unitTargets), method })
-      : valuesAnswer(recordHeld(unitTargets), { unit: unitSymbolOf(unitTargets) })
+      : warnings.length
+        ? { ...valuesAnswer([]), metadata: { warnings } }
+        : valuesAnswer(recordHeld(unitTargets), { unit: unitSymbolOf(unitTargets) })
   }
 }
 registerEndpoint('/api/values', serve('/api/values', false))
@@ -74,6 +78,7 @@ afterEach(() => {
   queries.length = 0
   urls.length = 0
   method = null
+  warnings = []
   status = 200
 })
 
@@ -221,5 +226,21 @@ describe('the climate stripes of a station of GHCN daily (GH-4078)', () => {
       wrapper.unmount()
       clearNuxtData()
     }
+  })
+
+  it('tells a station the lookup did not find, with a listing of DWD\'s gone, as a failure with its retry, and a station that is not there as no stripes', async () => {
+    warnings = [{ code: 'file-skipped' }, { code: 'unknown-station' }]
+    const wrapper = await mountStripes('00011')
+    await vi.waitFor(() => expect(wrapper.find('[role="alert"]').exists()).toBe(true))
+    expect(wrapper.find('[role="alert"]').text()).toContain('Try again later.')
+    expect(wrapper.find('button').exists()).toBe(true)
+    expect(wrapper.emitted('none')).toBeUndefined()
+    wrapper.unmount()
+    clearNuxtData()
+    // no listing was left out: the station is not there, which for DWD's, listed by having stripes, is a failure as well, but of a 404
+    warnings = [{ code: 'unknown-station' }]
+    const absent = await mountStripes('00011')
+    await vi.waitFor(() => expect(absent.find('[role="alert"]').exists()).toBe(true))
+    expect(absent.find('[role="alert"]').text()).toContain('No station with a station_id similar to \'00011\' found')
   })
 })

@@ -23,6 +23,8 @@ type Day = string
 const iso = (date: Date) => date.toISOString().slice(0, 10)
 const days = (first: Day, last: Day): Day[] => stub.daysBetween(first, last)
 const year = (y: number): Day[] => days(`${y}-01-01`, `${y}-12-31`)
+/** Every day of the stub station's record */
+const daysOfStub = () => days(`${stub.FIRST_YEAR}-01-01`, `${stub.LAST_YEAR}-12-31`)
 const without = (all: Day[], ...gone: Day[]): Day[] => all.filter(day => !gone.includes(day))
 const date = (y: number, m: number, d: number): Day => iso(new Date(Date.UTC(y, m - 1, d)))
 const month = (y: number, m: number): Day[] => year(y).filter(day => Number(day.slice(5, 7)) === m)
@@ -317,5 +319,27 @@ describe('the stub station of the backend\'s tests of the stripes', () => {
     expect(window.values.map(item => item.timestamp?.slice(0, 4))).toEqual(['2011', '2012', '2013', '2014'])
     expect(window.reference).toEqual(whole.reference)
     expect(window.values.map(item => item.stripe_class)).toEqual(whole.values.filter(item => Number(item.timestamp?.slice(0, 4)) >= 2011 && Number(item.timestamp?.slice(0, 4)) <= 2014).map(item => item.stripe_class))
+  })
+
+  // the backend writes a row with no value for every day and element of a station that has none (`drop_nulls=false`), and the app asks
+  // for none (`drop_nulls=true`, a third fewer rows): the rules read a missing row and a null alike, so the years do not change
+  it.each([
+    ['the stub station', stub.stubRows()],
+    ['a station with a TAVG alone', stub.stubRows({ onlyTavg: true })],
+    ['a station with failed checks', stub.stubRows({ failed: Array.from({ length: 11 }, (_, index) => date(1995, 3, 1 + 2 * index)) })],
+  ])('has the same years from the rows that hold nulls as from the rows that do not: %s', (_name, rows) => {
+    const parameters = ['precipitation_amount', 'temperature_air_mean_2m', 'temperature_air_max_2m', 'temperature_air_min_2m']
+    const present = new Set(rows.map(row => `${row.timestamp}|${row.parameter}`))
+    const nulls: DailyRow[] = daysOfStub().flatMap(day => parameters
+      .filter(parameter => !present.has(`${day}T00:00:00.000000+00:00|${parameter}`))
+      .map(parameter => ({ parameter, timestamp: `${day}T00:00:00.000000+00:00`, value: null, quality_flags: null })))
+    expect(nulls.length).toBeGreaterThan(rows.length / 4)
+    // as the rows come, the nulls among them
+    const withNulls = [...rows, ...nulls].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
+    for (const kind of ['temperature', 'precipitation'] as const) {
+      expect(stubYears(withNulls, kind)).toEqual(stubYears(rows, kind))
+      expect(stubYears(withNulls, kind)).not.toEqual({})
+    }
+    expect(temperatureMethod(leaveOutFailed(withNulls))).toBe(temperatureMethod(leaveOutFailed(rows)))
   })
 })

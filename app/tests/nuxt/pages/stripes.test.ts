@@ -1961,3 +1961,89 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
     expect(useRouter().currentRoute.value.query).not.toHaveProperty('network')
   })
 })
+
+// A station with no record long enough, and a link that names no kind (GH-4258): the page tells the first in words of its own, and
+// the second is the temperature
+describe('stripes Page record too short, and a kind that is none', () => {
+  const station = { station_id: '00061', name: 'Aiterhofen', region: 'Bayern', latitude: 48.84, longitude: 12.61, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    clearNuxtData()
+    document.body.innerHTML = ''
+  })
+
+  async function showShort(years: number) {
+    clearNuxtData()
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/values', asValues(() => ({ series: { station }, values: answerOf(TWO_YEARS).values.slice(-years) })))
+    wrapper = await mountSuspended(defineComponent({ setup: () => () => h(UApp, null, { default: () => h(StripesPage) }) }), { attachTo: document.body, route: '/stripes?kind=temperature' })
+    const vm = wrapper.findComponent(StripesPage).vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    vm.selectedStation = station
+    await nextTick()
+    // what Show does, whatever language its button is written in
+    void vm.fetchAndPlotStripes()
+    return vm
+  }
+
+  it('says so in a sentence of the page\'s own, as an alert, and not as a failure with the backend\'s English sentence', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const vm = await showShort(5)
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="stripes-no-record"]')).not.toBeNull())
+    const message = document.querySelector('[data-testid="stripes-no-record"]')!
+    expect(message.textContent?.trim()).toBe('This station has no record long enough for climate stripes: at least 10 years with data are needed.')
+    // an alert, which a screen reader announces, with no heading of a failure and none of the backend's words
+    expect(message.closest('[role="alert"]')).not.toBeNull()
+    expect(document.body.textContent).not.toContain('Failed to load data')
+    expect(document.body.textContent).not.toContain('At least 10 years with data are required to scale')
+    expect(vm.hasPlot).toBe(false)
+    // Reset takes it away
+    await wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Reset')!.trigger('click')
+    expect(document.querySelector('[data-testid="stripes-no-record"]')).toBeNull()
+  })
+
+  it('says it in the language of the page', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const harness = await mountSuspended(defineComponent({ setup: () => ({ setLocale: useI18n().setLocale }), render: () => h('div') }))
+    await (harness.vm as any).setLocale('de')
+    try {
+      await showShort(5)
+      await vi.waitFor(() => expect(document.querySelector('[data-testid="stripes-no-record"]')).not.toBeNull())
+      expect(document.querySelector('[data-testid="stripes-no-record"]')!.textContent?.trim()).toBe(de.stripes.noRecord.replace('{years}', '10'))
+    }
+    finally {
+      await (harness.vm as any).setLocale('en')
+      harness.unmount()
+    }
+  })
+
+  it('keeps the failure for what is no record that is too short: a window with fewer than two years is the answer\'s own sentence', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    clearNuxtData()
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/values', asValues(() => ({ series: { station }, ...answerOf(TWO_YEARS) })))
+    wrapper = await mountSuspended(defineComponent({ setup: () => () => h(UApp, null, { default: () => h(StripesPage) }) }), { attachTo: document.body, route: '/stripes?kind=temperature&start_year=2030&end_year=2040' })
+    const vm = wrapper.findComponent(StripesPage).vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    vm.selectedStation = station
+    await nextTick()
+    await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(document.body.textContent).toContain('At least two years with data are required to create climate stripes'))
+    expect(document.querySelector('[data-testid="stripes-no-record"]')).toBeNull()
+    expect(document.body.textContent).toContain('Failed to load data')
+  })
+
+  it.each([
+    ['foo', 'temperature'],
+    ['', 'temperature'],
+    ['TEMPERATURE', 'temperature'],
+    ['precipitation', 'precipitation'],
+  ])('takes the kind %j of a link as %s: a name that is none of the two is no choice, and no crash', async (name, expected) => {
+    registerEndpoint('/api/stations', () => ({ stations: [] }))
+    wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: `/stripes?kind=${name}` })
+    expect((wrapper.vm as any).kind).toBe(expected)
+    expect(wrapper.text()).toContain('Climate stripes')
+  })
+})

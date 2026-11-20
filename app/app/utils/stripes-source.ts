@@ -109,8 +109,13 @@ async function dwdStripes(fetch: StripesFetch, request: StripesRequest): Promise
     },
   })
   const metadata = answer.metadata
-  if (metadata?.warnings?.some(warning => warning.code === 'unknown-station'))
+  if (metadata?.warnings?.some(warning => warning.code === 'unknown-station')) {
+    // a lookup that went without a listing of DWD's server may only be missing the station: the backend's stripes answered a 502 for it
+    // (`StationListingIncompleteError`), which is a failure to try again and never "no such station" (an outage is no absence of data)
+    if (metadata.warnings.some(warning => warning.code === 'file-skipped'))
+      throw new StripesRefusedError(502, `No station found for ${stationId}. The lookup of the stations went without a listing of the provider, so a station that only it lists is not found, and this may be one. Try again later.`)
     throw new StripesRefusedError(404, `No station with a station_id similar to '${stationId}' found`)
+  }
   const record = (answer.values ?? []).map(row => ({ year: yearOf(row.timestamp), value: isSuspect(row.quality_flags) ? null : row.value }))
   const { values, reference } = stripesFromRecord(record, { stationId, startYear: request.startYear, endYear: request.endYear })
   return {

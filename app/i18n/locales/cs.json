@@ -706,6 +706,7 @@
     "showDataAvailability": "Zobrazit dostupnost dat",
     "visualizationTitle": "Vizualizace",
     "loadingViz": "Načítání dat a generování vizualizace …",
+    "noRecord": "Tato stanice nemá dostatečně dlouhou řadu pro klimatické pruhy: je potřeba alespoň {years} let s daty.",
     "downloadImage": "Stáhnout obrázek",
     "downloadPng": "Stáhnout jako PNG",
     "downloadJpg": "Stáhnout jako JPG",

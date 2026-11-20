@@ -706,6 +706,7 @@
     "showDataAvailability": "Pokaż dostępność danych",
     "visualizationTitle": "Wizualizacja",
     "loadingViz": "Ładowanie danych i generowanie wizualizacji …",
+    "noRecord": "Ta stacja nie ma wystarczająco długiego zapisu dla pasków klimatycznych: potrzeba co najmniej {years} lat z danymi.",
     "downloadImage": "Pobierz obraz",
     "downloadPng": "Pobierz jako PNG",
     "downloadJpg": "Pobierz jako JPG",

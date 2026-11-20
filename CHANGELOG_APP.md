@@ -18,17 +18,20 @@ Types of changes:
 
 ### Changed
 
-- `[Stripes]` The app makes the climate stripes itself and no longer asks the backend's stripes routes
-  (`/api/stripes/stations`, `/values` and `/image`), which the backend drops in a later release. DWD's
-  stations and annual values are read from `/api/stations` and `/api/values`; the reference (the mean of
-  1971-2000, the spread of 1901-2000, the whole record where a period is short), the anomalies and the
-  classes are calculated in the browser by the backend's rules. The years of NOAA's GHCN daily are
-  calculated from its daily values by the WMO rules in the app's own server (`/_ghcn/annual`,
-  `/_ghcn/stations`, counted by the rate limit), which keeps them for twelve hours. The page, its
-  exports and the map's panel look the same, except that the list of GHCN stations now holds every
-  station that still reports and spans ten years, also one that never measured the temperature or the
-  precipitation, whose stripes are then refused when asked for (GH-4258).
+- `[Stripes]` The app makes the climate stripes itself and no longer asks the backend's stripes routes,
+  which the backend drops later. Stations and annual values come from `/api/stations` and
+  `/api/values`, the reference, anomalies and classes are calculated in the browser by the backend's
+  rules, and NOAA's GHCN years are calculated from the daily values by the app's own server
+  (`/_ghcn/*`, rate-limited, kept for twelve hours). The GHCN list holds every station that still
+  reports and spans ten years, also one with no temperature record (GH-4258).
+- `[Stripes]` A station with no record long enough for stripes is told in a sentence of the page's
+  own (all eleven languages) and not as a failed fetch with the backend's English sentence (GH-4258).
 - `[API]` The API page no longer lists the stripes' routes (GH-4258).
+
+### Fixed
+
+- `[Stripes]` A link with a `kind` that is neither `temperature` nor `precipitation` opens the
+  temperature, where the page failed with an error (GH-4258).
 
 ## [0.56.0] - 2026-11-20
 

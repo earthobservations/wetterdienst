@@ -3,7 +3,8 @@ import type { AddressInfo } from 'node:net'
 import { createServer } from 'node:http'
 import { createRequire } from 'node:module'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-import { longRecordStations } from '../../server/utils/ghcnStripes'
+import { backendReader, longRecordStations, UpstreamProblem } from '../../server/utils/ghcnStripes'
+import { AbortedError } from '../../server/utils/ttlCache'
 import * as stub from '../helpers/ghcn-stripes-stub'
 
 // The two routes of the app's own server that the climate stripes of GHCN daily are made from (GH-4258), run for real on an h3
@@ -201,6 +202,7 @@ describe('the annual values route', () => {
       humanize: 'true',
       skip_empty: 'false',
       with_metadata: 'true',
+      drop_nulls: 'true',
       unit_targets: '{"temperature":"degree_fahrenheit"}',
     })
     expect(query.timestamp).toMatch(/^1700-01-01\/\d{4}-\d{2}-\d{2}$/)
@@ -328,6 +330,72 @@ describe('the annual values route', () => {
     expect(body.type).toBe('urn:wetterdienst:problem:invalid-parameters')
     expect(body.errors.map((error: { loc: string[] }) => error.loc[1])).toEqual(names)
     expect(seen).toHaveLength(0)
+  })
+})
+
+describe('the queue of reads of the annual values', () => {
+  it('holds 4 reads and 16 waiting, and refuses the next with a 503 and when to come back, where a client asking for many stations would stall the rest', async () => {
+    delayMs = 300
+    const responses = await Promise.all(Array.from({ length: 24 }, (_, index) => raw(`/_ghcn/annual?kind=temperature&station=USW${String(index).padStart(8, '0')}`)))
+
+    const refused = responses.filter(response => response.status === 503)
+    // 4 running and 16 waiting are taken, the other four are not
+    expect(refused).toHaveLength(4)
+    expect(responses.filter(response => response.status === 200)).toHaveLength(20)
+    expect(refused[0]!.headers.get('retry-after')).toBe('10')
+    expect(refused[0]!.json()).toMatchObject({ type: 'urn:wetterdienst:problem:server-busy', status: 503 })
+    // the refused ones were never read
+    expect(seen).toHaveLength(20)
+  }, 30_000)
+
+  it('does not read for a client that has gone while its read waited, and takes it from the queue', async () => {
+    delayMs = 400
+    const running = Array.from({ length: 4 }, (_, index) => raw(`/_ghcn/annual?kind=temperature&station=USW0000000${index}`))
+    // a fifth waits for a place, and its client closes the connection
+    const leaving = new AbortController()
+    const left = fetch(`${app}/_ghcn/annual?kind=temperature&station=USW00000099`, { signal: leaving.signal }).catch((failure: Error) => failure.name)
+    await vi.waitFor(() => expect(seen).toHaveLength(4))
+    leaving.abort()
+    expect(await left).toBe('AbortError')
+
+    expect((await Promise.all(running)).map(response => response.status)).toEqual([200, 200, 200, 200])
+    // a sixth, which comes after, is read as it would have been
+    expect((await raw('/_ghcn/annual?kind=temperature&station=USW00000098')).status).toBe(200)
+    expect(seen.map(item => item.query.get('stations'))).not.toContain('USW00000099')
+    expect(seen).toHaveLength(5)
+  }, 30_000)
+
+  it('keeps no read of a client that left while it ran: the next asker of the station reads it again', async () => {
+    delayMs = 300
+    const leaving = new AbortController()
+    const left = fetch(`${app}${ANNUAL}`, { signal: leaving.signal }).catch((failure: Error) => failure.name)
+    await vi.waitFor(() => expect(seen).toHaveLength(1))
+    leaving.abort()
+    expect(await left).toBe('AbortError')
+    delayMs = 0
+    expect((await raw(ANNUAL)).status).toBe(200)
+    expect(seen).toHaveLength(2)
+  })
+})
+
+describe('a read of the backend that takes too long, or whose client has gone', () => {
+  const never = (failure: Error) => (async () => {
+    throw failure
+  }) as unknown as typeof fetch
+
+  it('is a 504 of its own that says to try again, and not the backend being unreachable', async () => {
+    const timeout = Object.assign(new Error('timed out'), { name: 'TimeoutError' })
+    const read = backendReader('http://backend/api', 'abc', undefined, never(timeout))
+    const failure = await read('/values', {}).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(UpstreamProblem)
+    expect(failure).toMatchObject({ status: 504, retryAfter: 30, problem: { type: 'urn:wetterdienst:problem:upstream-timeout', request_id: 'abc' } })
+  })
+
+  it('is an abort, and no failure to tell, where the signal says nobody waits for it', async () => {
+    const stopped = new AbortController()
+    stopped.abort()
+    const read = backendReader('http://backend/api', 'abc', stopped.signal, never(new Error('aborted')))
+    await expect(read('/values', {})).rejects.toBeInstanceOf(AbortedError)
   })
 })
 

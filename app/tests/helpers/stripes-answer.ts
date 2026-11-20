@@ -7,7 +7,7 @@
  */
 import type { StripesReference, StripesValueItem } from '#shared/types/api'
 import type { YearValue } from '../../app/utils/stripes-scale'
-import { roundHalfAway, stripeClass, stripesReference, yearTimestamp } from '../../app/utils/stripes-scale'
+import { roundHalfEven, stripeClass, stripesReference, yearTimestamp } from '../../app/utils/stripes-scale'
 
 export type { YearValue }
 
@@ -31,7 +31,7 @@ export function stripesAnswer(record: YearValue[], window: { start?: number, end
     .map(item => ({
       timestamp: yearTimestamp(item.year),
       value: item.value,
-      anomaly: item.value === null ? null : roundHalfAway(item.value - reference.centre.value, 4),
+      anomaly: item.value === null ? null : roundHalfEven(item.value - reference.centre.value, 4),
       stripe_class: item.value === null ? null : stripeClass(item.value, reference),
     }))
   return { values, reference }

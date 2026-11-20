@@ -706,6 +706,7 @@
     "showDataAvailability": "Mostra la disponibilità dei dati",
     "visualizationTitle": "Visualizzazione",
     "loadingViz": "Caricamento dei dati e generazione della visualizzazione …",
+    "noRecord": "Questa stazione non ha una serie abbastanza lunga per le strisce climatiche: servono almeno {years} anni con dati.",
     "downloadImage": "Scarica l'immagine",
     "downloadPng": "Scarica come PNG",
     "downloadJpg": "Scarica come JPG",
