@@ -153,7 +153,7 @@ export const measurement: MeasurementTexts = {
         paragraphs: [
           'Niederschlag ist das flüssige oder feste Wasser, das aus Wolken als Regen, Nieselregen, Schnee, Schneegriesel, Graupel, Hagel oder Eiskörner fällt oder als Diamantstaub aus klarer Luft. Er wird als senkrechte Höhe des Wassers gemessen, das eine ebene Bodenfläche bedecken würde, wobei Schnee als das Wasser zählt, zu dem er schmilzt. Ein Millimeter ist ein Liter auf jedem Quadratmeter.',
           'Ein Niederschlagsmesser ist ein oben offenes Gefäß mit senkrechten Wänden, meist ein Zylinder, mit einem Trichter, wenn er hauptsächlich für Regen gedacht ist; gemessen wird das Volumen oder das Gewicht des Aufgefangenen. Ein manueller Niederschlagsmesser sammelt das Wasser in einem Behälter, der zu festen Zeiten abgelesen wird, ein wägender wiegt es, und ein Kippwaagen-Niederschlagsmesser zählt, wie oft eine kleine Wippe kippt, wenn sie sich mit einer festen Wassermenge gefüllt hat (0,1 bis 0,5 mm bei den Geräten einer internationalen Umfrage). Auch Instrumente, die nichts auffangen und mit Licht oder Radar messen, sind im Einsatz.',
-          'Wenn nennenswerte Mengen Schnee zu erwarten sind, muss die Öffnung des Niederschlagsmessers mindestens 200 cm² groß sein; Öffnungen von 200 bis 500 cm² sind am üblichsten. Die WMO empfiehlt, den Niederschlagsmesser abzuschirmen, wo der Wind einen bedeutenden Teil des Aufgefangenen wegnehmen dürfte, natürlich, auf einer Waldlichtung, oder künstlich, mit einem Windschutz. Sie empfiehlt außerdem, dass Hindernisse nicht näher als das Doppelte ihrer Höhe über der Öffnung stehen und dass Niederschlagsmesser nicht auf einem Hang oder einem Dach aufgestellt werden.',
+          'Wenn nennenswerte Mengen Schnee zu erwarten sind, muss die Öffnung des Niederschlagsmessers mindestens 200 cm² groß sein; Öffnungen von 200 bis 500 cm² sind am üblichsten. Die WMO empfiehlt, den Niederschlagsmesser abzuschirmen, wo der Wind einen bedeutenden Teil des Aufgefangenen wegnehmen dürfte, natürlich, auf einer Waldlichtung, oder künstlich, mit einem Windschutz, vor allem bei Schnee. Sie empfiehlt außerdem, dass Hindernisse nicht näher als das Doppelte ihrer Höhe über der Öffnung stehen und dass Niederschlagsmesser nicht auf einem Hang oder einem Dach aufgestellt werden.',
         ],
       },
       {
@@ -161,15 +161,15 @@ export const measurement: MeasurementTexts = {
         paragraphs: [
           'Die Menge eines Zeitraums ist die Gesamtmenge, die in diesem Zeitraum den Boden erreicht hat, in Millimetern. Eine Menge unter 0,1 mm heißt Spur. Die Intensität ist die Menge je Zeiteinheit, meist in Millimetern pro Stunde; die WMO empfiehlt, sie aus Intervallen von mindestens einer Minute abzuleiten, weil sie von Minute zu Minute so stark schwankt.',
           'Ein manueller Niederschlagsmesser wird zu festen Zeiten abgelesen, die für das ganze Messnetz gleich sind, auf 0,2 mm genau, wenn möglich auf 0,1 mm. Deshalb läuft der „Tag“ einer Niederschlagsmessung von einer Ablesung zur nächsten, und die muss nicht um Mitternacht liegen (siehe „Zeit“). Ein wägender Niederschlagsmesser liefert die Menge eines Intervalls als Differenz des Gewichts seines Behälters zwischen Anfang und Ende des Intervalls.',
-          'Eine gemessene Menge kann mit einer Transferfunktion, die die Windgeschwindigkeit und die Lufttemperatur der Station verwendet, der wahren Menge näher gebracht werden. Die WMO bittet darum, in Archiven die angepasste und die nicht angepasste Menge aufzubewahren und die Anpassung zu dokumentieren; es sind also zwei verschiedene Zahlen.',
+          'Eine gemessene Menge kann mit einer Transferfunktion, die die Windgeschwindigkeit und die Lufttemperatur der Station verwendet, der wahren Menge näher gebracht werden. Die WMO bittet darum, in Archiven die angepasste und die nicht angepasste Menge aufzubewahren und die Anpassung zu dokumentieren; damit die nicht angepasste Menge wiederhergestellt werden kann, falls die Anpassung überarbeitet wird.',
         ],
       },
       {
         title: 'Was die Zahl sagen kann und was nicht',
         paragraphs: [
           'Wind lenkt die Luft um den Niederschlagsmesser ab, und ein Teil dessen, was hineingefallen wäre, wird an der Öffnung vorbeigetragen. Bei Regen sind das typischerweise 2 bis 10 % (bis zu 10 % gegenüber einem Niederschlagsmesser in einer Grube). Bei Schnee sind es typischerweise 10 bis 50 % oder mehr, und die Abweichung von Niederschlagsmessern bei festem oder gemischtem Niederschlag beträgt typischerweise 30 % oder mehr, je nach Aufstellung, Wind in Höhe des Niederschlagsmessers und Kristallen; Schnee ist weniger dicht als Regen und wird leichter vorbeigetragen. Abschirmung verringert das, beseitigt es aber in der Regel nicht.',
-          'Wasser, das an den Innenwänden eines manuellen Niederschlagsmessers haftet, bleibt zurück: bis zu 0,2 mm je Ablesung, typischerweise 2 bis 15 % der Messwerte im Sommer und 1 bis 8 % im Winter, und mehr, wenn oft abgelesen wird. Auch aus dem Behälter verdunstet Wasser, über 0,8 mm am Tag im späten Frühjahr in mittleren Breiten bei Niederschlagsmessern ohne Trichter und 0,1 bis 0,2 mm am Tag im Winter. Spritzer in den Niederschlagsmesser hinein und aus ihm heraus kosten 1 bis 2 %. Benetzungsverluste sind bei wägenden Niederschlagsmessern kein Thema.',
-          'Ein Kippwaagen-Niederschlagsmesser, der nicht korrigiert ist, kann bei Starkregen bis zu 20 % zu wenig melden, weil beim Kippen Wasser verloren geht (eine dynamische Kalibrierung und eine Korrektur verringern das), und er zeichnet in Stufen auf: Eine Wippe von 0,2 mm ergibt eine Intensität je Minute in Stufen von 12 mm/h.',
+          'Wasser, das an den Innenwänden eines manuellen Niederschlagsmessers haftet, bleibt zurück: im Mittel bis zu 0,2 mm je Ablesung, typischerweise 2 bis 15 % der Messwerte im Sommer und 1 bis 8 % im Winter, und mehr, wenn oft abgelesen wird. Auch aus dem Behälter verdunstet Wasser, Verluste von über 0,8 mm am Tag wurden im späten Frühjahr in mittleren Breiten bei Niederschlagsmessern ohne Trichter gemeldet, im Winter sind es 0,1 bis 0,2 mm am Tag. Spritzer in den Niederschlagsmesser hinein und aus ihm heraus verändern das Aufgefangene um 1 bis 2 %. Benetzungsverluste sind bei wägenden Niederschlagsmessern klein.',
+          'Ein Kippwaagen-Niederschlagsmesser, der nicht korrigiert ist, kann bei Starkregen bei manchen Geräten bis zu 20 % zu wenig melden, weil beim Kippen Wasser verloren geht (eine dynamische Kalibrierung und eine Korrektur verringern das), und er zeichnet in Stufen auf: Eine Wippe von 0,2 mm ergibt eine Intensität je Minute in Stufen von 12 mm/h.',
           'Ein Niederschlagsmesser misst eine einzelne Stelle. Auch die beste Messung steht nur für ein begrenztes Gebiet, und Hindernisse, Gelände und Wind in der Umgebung fügen örtlich Niederschlag hinzu oder nehmen welchen weg.',
         ],
       },
@@ -186,7 +186,7 @@ export const measurement: MeasurementTexts = {
     sources: [
       wmoGuide(
         'Aus Band I, Kapitel 6 zum Niederschlag stammen in diesem Eintrag die Definition, die Niederschlagsmesser, die typischen Fehler, die Abschirmung und die Transferfunktionen.',
-        'Volume I, Chapter 6 (Measurement of precipitation), sections 6.1.1, 6.1.2, 6.1.3, 6.2.1, 6.2.1.2, 6.2.2, 6.2.3, 6.2.3.1, 6.3.1.1, 6.3.2.1, 6.3.2.2, 6.3.2.4, 6.4.2, 6.5, 6.5.2, 6.6.',
+        'Volume I, Chapter 6 (Measurement of precipitation), sections 6.1.1, 6.1.2, 6.1.3, 6.2.1, 6.2.1.2, 6.2.2, 6.2.3, 6.2.3.1, 6.2.5, 6.3.1.1, 6.3.2.1, 6.3.2.2, 6.3.2.4, 6.4.2, 6.5, 6.5.2, 6.6.',
         WMO_I,
       ),
       dwdFiles(
@@ -319,7 +319,7 @@ export const measurement: MeasurementTexts = {
         title: 'Was die Zahl sagen kann und was nicht',
         paragraphs: [
           'Ein Normalwert ist ein Bezug, keine Vorhersage für ein bestimmtes Jahr und keine Grenze. Dasselbe Jahr, verglichen mit dem Normalwert 1961 bis 1990 und mit dem von 1991 bis 2020, ergibt verschiedene Antworten. Die WMO hält den festen Maßstab 1961 bis 1990 bei, damit ein „überdurchschnittliches“ Jahr nicht zu einem „unterdurchschnittlichen“ wird, nur weil sich der Bezugszeitraum geändert hat; bei manchen Elementen mit klarem, durchgehendem Trend, vor allem der Temperatur, sagt der neueste Normalwert dagegen am meisten über die zu erwartenden Bedingungen.',
-          'Extremwerte und seltene Perzentile aus nur dreißig Jahren sind weniger stabil als Mittelwerte. Die WMO sagt, dass eine Berechnung, die von ihren Regeln abweicht, das angeben soll.',
+          'Extremwerte und seltene Perzentile aus nur dreißig Jahren können bei manchen Elementen, etwa dem Niederschlag, deutlich weniger stabil sein als Mittelwerte. Die WMO sagt, dass eine Berechnung, die von ihren Regeln abweicht, das angeben soll.',
         ],
       },
       {
@@ -409,7 +409,7 @@ export const measurement: MeasurementTexts = {
         paragraphs: [
           'MOSMIX des DWD ist eine Vorhersage für Orte. Es nimmt die Vorhersagen zweier Wettermodelle, ICON des DWD und IFS des Europäischen Zentrums für mittelfristige Wettervorhersage, und korrigiert sie statistisch mit dem, was Wetterstationen gemessen haben, weil jedes Modell den Boden vereinfacht und systematische Fehler hat. Es liefert Vorhersagen für etwa 5400 Orte für die nächsten zehn Tage in Schritten von einer Stunde.',
           'An etwa 2800 dieser Orte hat MOSMIX eigene Statistiken, aufgebaut aus der Geschichte der Station. Die übrigen rund 2600 werden aus benachbarten Orten berechnet; ein MOSMIX-Wert dort ist also eine Schätzung zwischen Stationen. MOSMIX liefert auch Größen, die die Modelle nicht berechnen, wie die Sichtweite, über statistische Regeln.',
-          'Eine Vorhersage wird zu einer Zeit herausgegeben und gilt für eine kommende Zeit. MOSMIX gibt es in zwei Sätzen: MOSMIX_S, 24-mal am Tag mit 40 Parametern, und MOSMIX_L, viermal am Tag mit 115 Parametern, beide bis +240 Stunden. Die ersten 24 Stunden werden jede Stunde mit den neuesten Beobachtungen aktualisiert, die Stunden von +25 bis +240 viermal am Tag, um 04, 10, 16 und 22 UTC. Eine Vorhersage ist keine Aufzeichnung dessen, wie das Wetter war.',
+          'Eine Vorhersage wird zu einer Zeit herausgegeben und gilt für eine kommende Zeit. MOSMIX gibt es in zwei Sätzen: MOSMIX_S, 24-mal am Tag mit 40 Parametern, und MOSMIX_L, viermal am Tag mit 115 Parametern, beide bis +240 Stunden. Bei MOSMIX_S werden die ersten 24 Stunden jede Stunde mit den neuesten Beobachtungen aktualisiert, die Stunden von +25 bis +240 viermal am Tag, um 04, 10, 16 und 22 UTC. Eine Vorhersage ist keine Aufzeichnung dessen, wie das Wetter war.',
         ],
       },
       {
@@ -421,7 +421,7 @@ export const measurement: MeasurementTexts = {
       {
         title: 'Woran sich die Arten unterscheiden lassen',
         paragraphs: [
-          'Wetterdienst unterscheidet die Arten am Netzwerk eines Anbieters: Ein Netzwerk ist zum Beispiel eine Beobachtung, eine Vorhersage, abgeleitete Daten, Radar, Warnungen oder Gewitterzellen (die Seite Anbieter nennt die Art jedes Netzwerks). Das Glossar und die Parameter sind für alle gleich, eine Temperatur einer Vorhersage und eine Temperatur einer Beobachtung können also denselben Namen tragen und sind nicht dieselbe Art von Zahl.',
+          'Die Bibliothek wetterdienst unterscheidet die Arten am Netzwerk eines Anbieters: Ein Netzwerk ist zum Beispiel eine Beobachtung, eine Vorhersage, abgeleitete Daten, Radar, Warnungen oder Gewitterzellen (die Seite Anbieter nennt die Art jedes Netzwerks). Das Glossar und die Parameter sind für alle gleich, eine Temperatur einer Vorhersage und eine Temperatur einer Beobachtung können also denselben Namen tragen und sind nicht dieselbe Art von Zahl.',
         ],
       },
     ],

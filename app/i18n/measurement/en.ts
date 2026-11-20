@@ -153,7 +153,7 @@ export const measurement: MeasurementTexts = {
         paragraphs: [
           'Precipitation is the liquid or solid water that falls from clouds as rain, drizzle, snow, snow grains, snow pellets, hail or ice pellets, or falls from clear air as diamond dust. It is measured as the vertical depth of water that would cover a flat patch of ground, with snow counted as the water it melts to. One millimetre is one litre on every square metre.',
           'A gauge is an open receptacle with vertical sides, usually a cylinder, with a funnel if it is meant mainly for rain; the volume or the weight of the catch is measured. A manual gauge stores the water in a container that is read at fixed times, a weighing gauge weighs it, and a tipping-bucket gauge counts how often a small bucket tips when it has filled with a fixed amount of water (0.1 to 0.5 mm in the gauges of an international survey). Instruments that catch nothing and measure with light or radar are in use as well.',
-          'If significant amounts of snow are expected, the opening of the gauge has to be at least 200 cm²; openings of 200 to 500 cm² are the most common. WMO recommends shielding the gauge where wind is expected to take a significant part of the catch, naturally, in a clearing in a forest, or artificially, with a windshield. It also asks that obstacles stand no closer than twice their height above the opening, and that gauges are not put on a slope or a roof.',
+          'If significant amounts of snow are expected, the opening of the gauge has to be at least 200 cm²; openings of 200 to 500 cm² are the most common. WMO recommends shielding the gauge where wind is expected to take a significant part of the catch, naturally, in a clearing in a forest, or artificially, with a windshield, above all for snow. It also asks that obstacles stand no closer than twice their height above the opening, and that gauges are not put on a slope or a roof.',
         ],
       },
       {
@@ -161,15 +161,15 @@ export const measurement: MeasurementTexts = {
         paragraphs: [
           'The amount of a period is the total that reached the ground in that period, in millimetres. An amount below 0.1 mm is called a trace. The intensity is the amount per unit of time, usually in millimetres per hour; WMO recommends at least one minute as the interval to derive it from, because it varies so much from minute to minute.',
           'A manual gauge is read at fixed times that are the same for the whole network, to the nearest 0.2 mm and, if possible, 0.1 mm. That is why the "day" of a precipitation measurement runs from one reading to the next, which need not be midnight (see "Time"). A weighing gauge gives the amount of an interval as the difference of the weight of its bucket between the start and the end of the interval.',
-          'A measured amount can be adjusted to come closer to the true amount, with a transfer function that uses the wind speed and the air temperature of the station. WMO asks archives to keep both the adjusted and the unadjusted amount and to document the adjustment, so that the two are different numbers.',
+          'A measured amount can be adjusted to come closer to the true amount, with a transfer function that uses the wind speed and the air temperature of the station. WMO asks archives to keep both the adjusted and the unadjusted amount and to document the adjustment, so that the unadjusted amount can be recovered if the adjustment is revised.',
         ],
       },
       {
         title: 'What the number can and cannot tell',
         paragraphs: [
           'Wind bends the air around a gauge, and some of what would have fallen into it is carried past the opening. For rain this is typically 2 to 10 % (up to 10 % against a gauge in a pit). For snow it is typically 10 to 50 % or more, and the bias of gauges for solid or mixed precipitation is typically 30 % or higher, depending on the exposure, the wind at the height of the gauge and the crystals; snow is less dense than rain and is carried past more easily. Shielding reduces this but generally does not remove it.',
-          'Water that wets the inner walls of a manual gauge stays behind: up to 0.2 mm per observation, typically 2 to 15 % of the measured values in summer and 1 to 8 % in winter, and more when the gauge is read often. Water also evaporates from the container, over 0.8 mm a day in late spring at mid-latitudes in gauges without a funnel, and 0.1 to 0.2 mm a day in winter. Splashing into and out of the gauge costs 1 to 2 %. Wetting is not an issue for weighing gauges.',
-          'A tipping-bucket gauge that is not corrected can report up to 20 % too little in heavy rain, because water is lost while the bucket tips (a dynamic calibration and a correction reduce this), and it records in steps: a bucket of 0.2 mm gives an intensity per minute in steps of 12 mm/h.',
+          'Water that wets the inner walls of a manual gauge stays behind: an average of up to 0.2 mm per observation, typically 2 to 15 % of the measured values in summer and 1 to 8 % in winter, and more when the gauge is read often. Water also evaporates from the container: losses of over 0.8 mm a day have been reported in late spring at mid-latitudes in gauges without a funnel, and 0.1 to 0.2 mm a day in winter. Splashing into and out of the gauge changes the catch by 1 to 2 %. Wetting is small for weighing gauges.',
+          'A tipping-bucket gauge that is not corrected can report up to 20 % too little in heavy rain in some gauges, because water is lost while the bucket tips (a dynamic calibration and a correction reduce this), and it records in steps: a bucket of 0.2 mm gives an intensity per minute in steps of 12 mm/h.',
           'A gauge measures one spot. Even the best measurement represents only a limited area, and obstacles, topography and wind around it add or take away precipitation locally.',
         ],
       },
@@ -186,7 +186,7 @@ export const measurement: MeasurementTexts = {
     sources: [
       wmoGuide(
         'Volume I, Chapter 6 on precipitation is where this entry takes the definition, the gauges, the typical errors, the shielding and the transfer functions from.',
-        'Volume I, Chapter 6 (Measurement of precipitation), sections 6.1.1, 6.1.2, 6.1.3, 6.2.1, 6.2.1.2, 6.2.2, 6.2.3, 6.2.3.1, 6.3.1.1, 6.3.2.1, 6.3.2.2, 6.3.2.4, 6.4.2, 6.5, 6.5.2, 6.6.',
+        'Volume I, Chapter 6 (Measurement of precipitation), sections 6.1.1, 6.1.2, 6.1.3, 6.2.1, 6.2.1.2, 6.2.2, 6.2.3, 6.2.3.1, 6.2.5, 6.3.1.1, 6.3.2.1, 6.3.2.2, 6.3.2.4, 6.4.2, 6.5, 6.5.2, 6.6.',
         WMO_I,
       ),
       dwdFiles(
@@ -319,7 +319,7 @@ export const measurement: MeasurementTexts = {
         title: 'What the number can and cannot tell',
         paragraphs: [
           'A normal is a reference, not a forecast of any particular year and not a limit. The same year compared with the 1961 to 1990 normal and with the 1991 to 2020 normal gives different answers. WMO keeps the fixed 1961 to 1990 benchmark so that an "above average" year does not turn into a "below average" one because the reference period changed, while for some elements with a clear and consistent trend, most notably temperature, the newest normal says most about the conditions to expect.',
-          'Extreme values and rare percentiles taken from only thirty years are less stable than means. WMO says that a calculation that departs from its rules should say so.',
+          'Extreme values and rare percentiles taken from only thirty years can be much less stable than means, for some elements such as precipitation. WMO says that a calculation that departs from its rules should say so.',
         ],
       },
       {
@@ -409,7 +409,7 @@ export const measurement: MeasurementTexts = {
         paragraphs: [
           'DWD\'s MOSMIX is a forecast for places. It takes the forecasts of two weather models, ICON of DWD and IFS of the European Centre for Medium-Range Weather Forecasts, and corrects them statistically with what weather stations have measured, because every model simplifies the ground and has systematic errors. It gives forecasts for about 5400 places for the next ten days, in steps of one hour.',
           'At about 2800 of these places MOSMIX has its own statistics, built from the history of the station. The other 2600 or so are calculated from neighbouring places, so a MOSMIX value there is an estimate between stations. MOSMIX also gives quantities that the models do not calculate, such as the visibility, through statistical rules.',
-          'A forecast is issued at a time and is valid for a time to come. MOSMIX comes in two sets: MOSMIX_S, 24 times a day with 40 parameters, and MOSMIX_L, four times a day with 115 parameters, both up to +240 hours. The first 24 hours are updated every hour with the latest observations, the hours from +25 to +240 four times a day, at 04, 10, 16 and 22 UTC. A forecast is not a record of what the weather was.',
+          'A forecast is issued at a time and is valid for a time to come. MOSMIX comes in two sets: MOSMIX_S, 24 times a day with 40 parameters, and MOSMIX_L, four times a day with 115 parameters, both up to +240 hours. In MOSMIX_S, the first 24 hours are updated every hour with the latest observations, the hours from +25 to +240 four times a day, at 04, 10, 16 and 22 UTC. A forecast is not a record of what the weather was.',
         ],
       },
       {
