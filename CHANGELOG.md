@@ -52,6 +52,13 @@ Types of changes:
   one table of DWD, without it all 22 are read; a point off the grid or in a cell without values
   is refused (a 400), never an empty table. The 2010R edition is not read (GH-4072)
 
+### Fixed
+
+- The glossary (`/api/glossary`, the MCP `glossary` tool, the app's glossary page) and the RMI
+  provider pages described `sunshine_duration` and its 3-hour and previous-day forms as the time
+  "the sun shone unobstructed". They now say what WMO defines: the time during which the direct
+  solar irradiance exceeded 120 W/m² (GH-4263)
+
 ## [0.193.0] - 2026-11-20
 
 ### Fixed

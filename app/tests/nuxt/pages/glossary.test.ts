@@ -18,7 +18,7 @@ const entries = [
     unit_type: 'time',
     unit: 'second',
     unit_symbol: 's',
-    description: 'Length of time the sun shone unobstructed.',
+    description: 'Length of time during which the direct solar irradiance exceeded 120 W/m² (WMO\'s threshold).',
   },
 ]
 
@@ -55,7 +55,7 @@ describe('glossary Page', () => {
 
     // the description is what the page exists for -- it comes from the backend, per parameter
     expect(text).toContain('Temperature of the air two metres above the ground.')
-    expect(text).toContain('Length of time the sun shone unobstructed.')
+    expect(text).toContain('Length of time during which the direct solar irradiance exceeded 120 W/m² (WMO\'s threshold).')
     expect(text).toContain('°C')
     // the raw id stays visible, since that is what a request has to name
     expect(text).toContain('temperature_air_mean_2m')
