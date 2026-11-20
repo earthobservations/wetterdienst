@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { GlossaryEntry } from '#shared/types/api'
+import { isTopic, measurementPath, topicLabelKey, topicOfParameter } from '~/utils/measurement'
 
 const { t } = useI18n()
 const formatLanguage = useFormatLanguage()
@@ -25,6 +26,14 @@ const { data: glossary, pending } = useFetch<GlossaryEntry[]>('/api/glossary', A
 const search = ref('')
 const unitType = ref<string | undefined>(undefined)
 
+// The entry of "How weather is measured" (GH-3787) whose parameters are shown: `?topic=wind`, the link of an entry's
+// "Show these fields in the glossary". An id that is no entry is no filter.
+const route = useRoute()
+const topic = computed(() => {
+  const value = route.query.topic
+  return isTopic(value) ? value : undefined
+})
+
 const unitTypes = computed<string[]>(() =>
   [...new Set((glossary.value ?? []).map(entry => entry.unit_type))],
 )
@@ -40,6 +49,8 @@ const entries = computed<GlossaryEntry[]>(() => {
   const term = search.value.trim().toLowerCase()
   const matching = (glossary.value ?? []).filter((entry) => {
     if (unitType.value && entry.unit_type !== unitType.value)
+      return false
+    if (topic.value && topicOfParameter(entry.name) !== topic.value)
       return false
     if (!term)
       return true
@@ -86,6 +97,13 @@ const entries = computed<GlossaryEntry[]>(() => {
           />
         </div>
 
+        <p v-if="topic" class="mb-4 flex flex-wrap items-center gap-2 rounded-lg bg-elevated px-3 py-2 text-sm" data-testid="glossary-topic">
+          <span>{{ t('glossary.topicFilter', { topic: t(topicLabelKey(topic)) }) }}</span>
+          <NuxtLink to="/glossary" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
+            {{ t('glossary.clearTopic') }}
+          </NuxtLink>
+        </p>
+
         <UEmpty v-if="pending" loading :title="t('glossary.loading')" />
         <UEmpty
           v-else-if="!entries.length"
@@ -110,6 +128,11 @@ const entries = computed<GlossaryEntry[]>(() => {
             </p>
             <p class="text-xs font-mono text-gray-500 dark:text-gray-400 mt-1">
               {{ entry.name }}
+            </p>
+            <p v-if="topicOfParameter(entry.name)" class="text-sm mt-1">
+              <NuxtLink :to="measurementPath(topicOfParameter(entry.name)!)" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
+                {{ t('glossary.howMeasured') }}<span class="sr-only">: {{ parameterLabel(entry.name) }}</span>
+              </NuxtLink>
             </p>
           </div>
         </div>

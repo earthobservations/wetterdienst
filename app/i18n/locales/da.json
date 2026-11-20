@@ -161,6 +161,7 @@
       "api": "REST-API'et og MCP-serveren til Wetterdienst: formater og eksempler for stationer, værdier, interpolation og klimastriber.",
       "providers": "De nationale vejrtjenester bag dataene: land, licens, den kildeangivelse der skal gives, og hvad hver enkelt tilbyder.",
       "glossary": "Hvad hver vejr- og klimaparameter måler, og i hvilken enhed værdierne kommer tilbage, med søgning på navn og størrelse.",
+      "measurement": "Sådan måles vejret: instrumenter, hvordan en aflæsning bliver til en værdi, hvad tallet siger, og hvor udbyderne adskiller sig, med kilder.",
       "about": "Om open source-projektet Wetterdienst og de mennesker, der vedligeholder det.",
       "support": "Støt Wetterdienst: meld en fejl, bidrag med kode eller doner.",
       "map": "Et kort over stationerne hos Tysklands vejrtjeneste: vælg en station eller et vilkårligt punkt og se dens udsigt, klimastriber og målinger."
@@ -204,6 +205,7 @@
     "providers": "Udbydere",
     "api": "API",
     "glossary": "Ordliste",
+    "measurement": "Måling",
     "support": "Support",
     "map": "Kort"
   },
@@ -462,7 +464,39 @@
     "unitTypeLabel": "Størrelse",
     "loading": "Indlæser…",
     "noResults": "Ingen parameter matcher din søgning.",
-    "count": "{shown} af {count} parameter | {shown} af {count} parametre"
+    "count": "{shown} af {count} parameter | {shown} af {count} parametre",
+    "howMeasured": "Hvordan måles det?",
+    "topicFilter": "Kun “{topic}”",
+    "clearTopic": "Vis alle parametre"
+  },
+  "measurement": {
+    "title": "Sådan måles vejret",
+    "subtitle": "Hvad en temperatur, en regnmængde eller et vindstød betyder, før du læser tallet: instrumentet, den værdi det bliver til, dens grænser og hvor udbyderne adskiller sig",
+    "menuDescription": "Hvordan en størrelse måles, hvordan en aflæsning bliver til en værdi, og hvad tallet kan sige",
+    "tocTitle": "Indhold",
+    "tocLabel": "Indlæg på denne side",
+    "editionTitle": "Kilder og udgave",
+    "editionText": "Hvert indlæg nævner sine kilder: først med almindelige ord, hvad kilden er, og hvad den siger, derefter den formelle henvisning. Hovedkilden er Guide to Instruments and Methods of Observation (WMO-No. 8) fra Verdens Meteorologiske Organisation i udgaven fra 2024, citeret efter bind og kapitel. Der findes en foreløbig udgave fra 2026; denne side bruger den ikke. Når et indlæg siger, hvad en udbyder gør, nævner det udbyderens egen fil.",
+    "editionLink": "WMO-No. 8 hos WMO",
+    "groupMeasured": "Hvad der måles, og hvordan",
+    "groupReading": "Sådan læser du dataene",
+    "linkTo": "Link til indlægget “{title}”",
+    "fieldsTitle": "Felter i ordlisten",
+    "fieldsText": "Dette indlæg forklarer de parametre i ordlisten, hvis navne ser sådan ud:",
+    "fieldsLink": "Vis disse felter i ordlisten",
+    "sourcesTitle": "Kilder",
+    "untranslatedEn": "Dette indlæg er endnu ikke oversat til dit sprog og vises på engelsk.",
+    "untranslatedDe": "Dette indlæg er endnu ikke oversat til dit sprog og vises på tysk.",
+    "topics": {
+      "temperature": "Luft- og jordtemperatur",
+      "wind": "Vind",
+      "precipitation": "Nedbør",
+      "sunshine": "Solskinstimer",
+      "snow": "Sne",
+      "normals": "Klimanormaler",
+      "time": "Tid",
+      "observationForecastDerived": "Observation, prognose og afledte data"
+    }
   },
   "providers": {
     "title": "Udbydere",

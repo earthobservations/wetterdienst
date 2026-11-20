@@ -59,6 +59,7 @@ const PAGES: Target[] = [
   { name: 'the about page', path: '/about' },
   { name: 'the API page', path: '/api' },
   { name: 'the glossary', path: '/glossary' },
+  { name: 'the measurement page', path: '/measurement' },
   { name: 'the providers', path: '/providers' },
   { name: 'the settings', path: '/settings' },
   { name: 'the support page', path: '/support' },

@@ -40,6 +40,7 @@ export const MAP_TOOL: Section = TOOLS.find(tool => tool.key === 'map')!
 export const REFERENCE: Section[] = [
   { key: 'providers', to: '/providers', group: 'reference', label: 'nav.providers', description: 'providers.subtitle', icon: 'i-ph-buildings' },
   { key: 'glossary', to: '/glossary', group: 'reference', label: 'nav.glossary', description: 'glossary.subtitle', icon: 'i-ph-book-open-text' },
+  { key: 'measurement', to: '/measurement', group: 'reference', label: 'nav.measurement', description: 'measurement.menuDescription', icon: 'i-ph-ruler' },
   { key: 'api', to: '/api', group: 'reference', label: 'nav.api', description: 'api.subtitle', icon: 'i-ph-code' },
 ]
 

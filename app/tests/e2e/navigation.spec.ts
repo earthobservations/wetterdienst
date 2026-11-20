@@ -320,7 +320,7 @@ test.describe('the frame', () => {
   test('puts the title of every page on one line with the logo', async ({ page, baseURL }) => {
     test.setTimeout(120_000)
     const lefts: Record<string, number> = {}
-    for (const path of ['/', '/meteogram', '/explorer', '/stripes', '/history', '/providers', '/glossary', '/api', '/settings', '/about', '/support', '/impressum', '/datenschutz']) {
+    for (const path of ['/', '/meteogram', '/explorer', '/stripes', '/history', '/providers', '/glossary', '/measurement', '/api', '/settings', '/about', '/support', '/impressum', '/datenschutz']) {
       await open(page, baseURL!, path)
       const logo = await page.getByRole('banner').getByRole('link', { name: 'Wetterdienst' }).locator('img').boundingBox()
       const title = page.getByRole('heading', { level: 1 })
