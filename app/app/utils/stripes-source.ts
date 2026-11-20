@@ -12,7 +12,7 @@ import { unitSymbol } from './unit-targets'
  *   `/api/values` (`dwd/observation`, `annual/climate_summary` and `annual/precipitation_more`, the historical period).
  * - NOAA GHCN daily: NOAA publishes days only, so the app's own server builds the years from them by the WMO rules
  *   (`GET /_ghcn/annual`, `server/utils/ghcnAnnual.ts`) and lists the stations that have a record long enough
- *   (`GET /_ghcn/stations`), where a browser would have to read 43 MB of stations and up to 25 MB of days.
+ *   (`GET /_ghcn/stations`, made of the backend's lists of each element, GH-4270), where a browser would have to read 20 to 50 MB of stations and up to 25 MB of days.
  */
 
 export type StripesSource = 'dwd' | 'ghcn'
@@ -64,7 +64,7 @@ export async function fetchDwdStripesStations(fetch: StripesFetch, kind: Stripes
 /** The stations that climate stripes are made for, of a source: the ones whose record is long enough and still reports */
 export async function fetchStripesStations(fetch: StripesFetch, source: StripesSource, kind: StripesKind): Promise<Station[]> {
   if (source === 'ghcn')
-    return (await fetch<StationsResponse>('/_ghcn/stations')).stations ?? []
+    return (await fetch<StationsResponse>('/_ghcn/stations', { query: { kind } })).stations ?? []
   return fetchDwdStripesStations(fetch, kind)
 }
 

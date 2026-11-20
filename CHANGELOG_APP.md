@@ -22,8 +22,8 @@ Types of changes:
   which the backend drops later. Stations and annual values come from `/api/stations` and
   `/api/values`, the reference, anomalies and classes are calculated in the browser by the backend's
   rules, and NOAA's GHCN years are calculated from the daily values by the app's own server
-  (`/_ghcn/*`, rate-limited, kept for twelve hours). The GHCN list holds every station that still
-  reports and spans ten years, also one with no temperature record (GH-4258).
+  (`/_ghcn/*`, rate-limited, kept for twelve hours); its list of stations is made of the backend's
+  lists of each element, so it needs backend 0.194.0 (GH-4258, GH-4270).
 - `[Stripes]` A station with no record long enough for stripes is told in a sentence of the page's
   own (all eleven languages) and not as a failed fetch with the backend's English sentence (GH-4258).
 - `[API]` The API page no longer lists the stripes' routes (GH-4258).

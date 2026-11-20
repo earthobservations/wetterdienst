@@ -103,10 +103,10 @@ describe('the stations DWD has stripes for', () => {
     expect(calls.every(call => call.query.parameters === 'annual/precipitation_more/precipitation_amount')).toBe(true)
   })
 
-  it('are, for GHCN daily, those the app\'s own server lists: no read of the 133,000 stations of /api/stations', async () => {
+  it('are, for GHCN daily, those the app\'s own server lists for the kind, which it makes of the backend\'s lists of the elements: no read of them in the browser', async () => {
     const { fetch, calls } = fetchOf({ '/_ghcn/stations': () => ({ stations: [station('USW00094728', '1869', null)] }) })
     expect((await fetchStripesStations(fetch, 'ghcn', 'temperature')).map(item => item.station_id)).toEqual(['USW00094728'])
-    expect(calls).toEqual([{ url: '/_ghcn/stations', query: {} }])
+    expect(calls).toEqual([{ url: '/_ghcn/stations', query: { kind: 'temperature' } }])
   })
 })
 

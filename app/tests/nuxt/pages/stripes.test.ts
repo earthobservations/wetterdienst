@@ -1768,7 +1768,7 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
   it('takes the source from the link, and asks the app\'s own server for the stations and the years of the network', async () => {
     const vm = await show(LINK)
     expect(vm.source).toBe('ghcn')
-    expect(ghcnListQueries).toHaveLength(1)
+    expect(ghcnListQueries).toEqual([{ kind: 'temperature' }])
     expect(ghcnValuesQueries.at(-1)).toMatchObject({ kind: 'temperature', station: 'GM000010147' })
     expect(JSON.parse(ghcnValuesQueries.at(-1)!.unit_targets!)).toEqual({ temperature: 'degree_celsius' })
     // nothing of DWD's annual record is asked for

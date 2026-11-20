@@ -1,5 +1,6 @@
 import type { AnnualKind, DailyRow } from './ghcnAnnual'
 import { describeWrongKind, HTML_TYPE, UNEXPECTED_ANSWER_TYPE } from '../../app/utils/api-answer'
+import { MIN_RECORD_YEARS } from '../../app/utils/stripes-scale'
 import { unitSymbol } from '../../app/utils/unit-targets'
 import { annualFromDaily, annualRows, leaveOutFailed, leaveOutSuspect, PRECIPITATION, TEMPERATURE_MAX, TEMPERATURE_MEAN, TEMPERATURE_MIN, temperatureMethod } from './ghcnAnnual'
 import { AbortedError } from './ttlCache'
@@ -7,8 +8,8 @@ import { AbortedError } from './ttlCache'
 // What the climate stripes of NOAA's GHCN daily need from the backend, and what the app's server makes of it (GH-4258): the
 // annual values of a station, calculated from its daily ones (`GET /_ghcn/annual`), and the stations that have a record long
 // enough (`GET /_ghcn/stations`). Both read the backend's generic API (`/api/values`, `/api/stations`) and answer small: a
-// station's years are a few kilobytes where its days are up to 25 MB, and the listing of GHCN is 43 MB of 133,000 stations
-// where the stripes' list is a few thousand. Both are kept in the server's memory for `GHCN_TTL_MS`, so a browser, and the
+// station's years are a few kilobytes where its days are up to 25 MB, and the lists of GHCN are 8 to 21 MB of
+// 133,000 stations each (three for the temperature) where the stripes' list is a few thousand. Both are kept in the server's memory for `GHCN_TTL_MS`, so a browser, and the
 // next one, does not make the backend and this server read and calculate a century of days again.
 
 /** The daily parameters of GHCN the annual values of each kind are calculated from, the first of which names the series */
@@ -180,35 +181,134 @@ export async function readGhcnAnnual(
   }
 }
 
-/**
- * The stations of GHCN daily that the stripes are made for: those whose record can reach the years a scale needs
- * (`MIN_RECORD_YEARS`, 10) and that still report, which is a record that reaches into this or the last year, as the years
- * are built from complete years and the one running has not ended. The span is the one the listing gives, from the first
- * to the last year of any element of the station: it says nothing of which elements, so a station that has years of a
- * precipitation record only is listed for the temperature as well, and its stripes are refused when they are asked for.
- *
- * @param stations - The stations `/api/stations` lists for GHCN daily
- * @param thisYear - The year it is
- * @param minimumYears - The fewest years a record spans
- */
-export function longRecordStations<T extends { start_timestamp?: string | null, end_timestamp?: string | null }>(stations: readonly T[], thisYear: number, minimumYears = 10): T[] {
-  return stations.filter((station) => {
-    if (!station.start_timestamp)
-      return false
-    const first = Number(station.start_timestamp.slice(0, 4))
-    // a station that has no end is still reporting: its last year is the one that is running
-    const last = station.end_timestamp ? Number(station.end_timestamp.slice(0, 4)) : thisYear
-    return last - first + 1 >= minimumYears && last >= thisYear - 1
-  })
+/** The daily parameters whose station lists each kind is made of: one list for each, which the backend gives with that element's span (GH-4270) */
+export const GHCN_LIST_PARAMETERS: Record<AnnualKind, { mean?: string, max?: string, min?: string, amount?: string }> = {
+  temperature: { mean: TEMPERATURE_MEAN, max: TEMPERATURE_MAX, min: TEMPERATURE_MIN },
+  precipitation: { amount: PRECIPITATION },
 }
 
-/** The fields of a station the stripes' picker and the page read, which is what the list carries (the rest of a row is left out: 28,000 of them) */
-const STATION_FIELDS = ['station_id', 'name', 'region', 'latitude', 'longitude', 'elevation', 'wmo_id', 'start_timestamp', 'end_timestamp'] as const
+/** A station of one of the lists, as far as the span is concerned: the years its element has, an end that is empty meaning this year */
+export interface ListedStation {
+  station_id: string
+  start_timestamp?: string | null
+  end_timestamp?: string | null
+  [field: string]: unknown
+}
 
-export async function readGhcnStations(read: BackendRead, thisYear = new Date().getUTCFullYear()): Promise<Station[]> {
-  const answer = await read('/stations', { provider: 'noaa', network: 'ghcn', parameters: 'daily/data', all: 'true' }) as { stations?: Array<Record<string, unknown>> }
-  if (!Array.isArray(answer?.stations))
-    throw new UpstreamProblem(502, problemOf(502, 'Bad Gateway', UNEXPECTED_KIND, 'The answer of the API does not have the form of this endpoint: no list of `stations`.'), RETRY_AFTER_SECONDS)
-  return longRecordStations(answer.stations as Array<Record<string, unknown> & { start_timestamp?: string | null, end_timestamp?: string | null }>, thisYear)
-    .map(row => Object.fromEntries(STATION_FIELDS.map(field => [field, row[field] ?? null])) as unknown as Station)
+interface Span {
+  first: number
+  last: number
+}
+
+/** The lists the stations of a kind are made of: one for each daily parameter, as `GHCN_LIST_PARAMETERS` names them */
+export interface StationLists {
+  mean?: readonly ListedStation[]
+  max?: readonly ListedStation[]
+  min?: readonly ListedStation[]
+  amount?: readonly ListedStation[]
+}
+
+/** The years a station's element spans, null for a station with no record of it */
+function spanOf(station: ListedStation, thisYear: number): Span | null {
+  if (!station.start_timestamp)
+    return null
+  return {
+    first: Number(station.start_timestamp.slice(0, 4)),
+    last: station.end_timestamp ? Number(station.end_timestamp.slice(0, 4)) : thisYear,
+  }
+}
+
+/** The fields of a station the stripes' picker and the page read, which is what the list carries (the rest of a row is left out) */
+const STATION_FIELDS = ['station_id', 'name', 'region', 'latitude', 'longitude', 'elevation', 'wmo_id'] as const
+
+/**
+ * The stations that climate stripes of a kind are made for, from the lists the backend gives for each element of it
+ * (`/api/stations` with one `parameters` each, GH-4270), as the backend's own stripes listed them (`_ghcn_record_years` and
+ * `_get_stripes_ghcn_stations`):
+ *
+ * - The precipitation: the span of `precipitation_amount` (PRCP).
+ * - The temperature: a station has a mean from either TAVG or the days that TMAX and TMIN both have, so its span is the one of
+ *   TAVG, taken with the years TMAX and TMIN have in common (from the later start to the earlier end, none where they do not
+ *   meet), from the earliest start to the latest end of the two. A station in only one of TMAX and TMIN contributes nothing; one
+ *   with TAVG alone contributes its TAVG span.
+ * - A station is listed where its record spans `MIN_RECORD_YEARS` years (first to last, inclusive; an empty end is this year) and,
+ *   as the stripes are built from complete years, still reports: its record reaches into this year or the last.
+ *
+ * The span is the one of the elements, not of any element the station has. `start_timestamp` is 1 January of its first year,
+ * `end_timestamp` 31 December of its last, and none where that is this year (the year that runs has no end).
+ *
+ * @param kind - The annual mean temperature, or the annual precipitation sum
+ * @param lists - The stations of each list, in the order of the listing: the first list a station is in gives its name and position
+ * @param thisYear - The year it is
+ * @param active - Only the stations that still report, which the picker lists; `false` for the whole list of the rule
+ */
+export function stripesStationsOf(kind: AnnualKind, lists: StationLists, thisYear: number, active = true): Station[] {
+  const spans = new Map<string, Span>()
+  const rows = new Map<string, ListedStation>()
+  const keep = (station: ListedStation, span: Span) => {
+    if (!rows.has(station.station_id))
+      rows.set(station.station_id, station)
+    const known = spans.get(station.station_id)
+    spans.set(station.station_id, known ? { first: Math.min(known.first, span.first), last: Math.max(known.last, span.last) } : span)
+  }
+  if (kind === 'precipitation') {
+    for (const station of lists.amount ?? []) {
+      const span = spanOf(station, thisYear)
+      if (span)
+        keep(station, span)
+    }
+  }
+  else {
+    for (const station of lists.mean ?? []) {
+      const span = spanOf(station, thisYear)
+      if (span)
+        keep(station, span)
+    }
+    const highest = new Map<string, { station: ListedStation, span: Span }>()
+    for (const station of lists.max ?? []) {
+      const span = spanOf(station, thisYear)
+      if (span)
+        highest.set(station.station_id, { station, span })
+    }
+    for (const station of lists.min ?? []) {
+      const span = spanOf(station, thisYear)
+      const other = highest.get(station.station_id)
+      if (!span || !other)
+        continue
+      // the years TMAX and TMIN have in common, none where they do not meet
+      const common = { first: Math.max(span.first, other.span.first), last: Math.min(span.last, other.span.last) }
+      if (common.first <= common.last)
+        keep(other.station, common)
+    }
+  }
+  const stations: Station[] = []
+  for (const [id, row] of rows) {
+    const { first, last } = spans.get(id)!
+    if (last - first + 1 < MIN_RECORD_YEARS || (active && last < thisYear - 1))
+      continue
+    stations.push({
+      ...Object.fromEntries(STATION_FIELDS.map(field => [field, row[field] ?? null])),
+      start_timestamp: `${String(first).padStart(4, '0')}-01-01T00:00:00.000000+00:00`,
+      end_timestamp: last >= thisYear ? null : `${String(last).padStart(4, '0')}-12-31T00:00:00.000000+00:00`,
+    } as unknown as Station)
+  }
+  // by id, as the backend listed them
+  return stations.sort((a, b) => a.station_id < b.station_id ? -1 : a.station_id > b.station_id ? 1 : 0)
+}
+
+/**
+ * The stations of GHCN daily that stripes of `kind` are made for: the lists of its elements, one after another (the largest is
+ * 20 MB of JSON, and the three of the temperature are 49 MB), combined by `stripesStationsOf`.
+ *
+ * @param read - Reads the backend, which the caller has put behind its queue of reads
+ */
+export async function readGhcnStations(read: BackendRead, kind: AnnualKind, thisYear = new Date().getUTCFullYear()): Promise<Station[]> {
+  const lists: Record<string, ListedStation[]> = {}
+  for (const [name, parameter] of Object.entries(GHCN_LIST_PARAMETERS[kind])) {
+    const answer = await read('/stations', { provider: 'noaa', network: 'ghcn', parameters: `daily/data/${parameter}`, all: 'true' }) as { stations?: ListedStation[] }
+    if (!Array.isArray(answer?.stations))
+      throw new UpstreamProblem(502, problemOf(502, 'Bad Gateway', UNEXPECTED_KIND, 'The answer of the API does not have the form of this endpoint: no list of `stations`.'), RETRY_AFTER_SECONDS)
+    lists[name] = answer.stations
+  }
+  return stripesStationsOf(kind, lists, thisYear)
 }

@@ -11,7 +11,8 @@ import { AbortedError, createLimiter, QueueFullError, QueueTimeoutError, TtlCach
 //
 // - `GET /_ghcn/annual?kind=temperature&station=USW00094728&unit_targets={"temperature":"degree_celsius"}`: the annual values
 //   of a station, built from its daily ones by the WMO rules.
-// - `GET /_ghcn/stations`: the stations that have a record long enough for stripes and still report.
+// - `GET /_ghcn/stations?kind=temperature`: the stations that have a record long enough for stripes of the kind and still report,
+//   made of the lists the backend gives for each element of the kind.
 //
 // Both keep what they worked out for `GHCN_TTL_MS` in the memory of the process; see `ttlCache.ts` for the bounds. Both count
 // against the rate limit of the server (`server/utils/rateLimit.ts`), as each is a read of the backend.
@@ -20,7 +21,7 @@ type Reader = (apiBase: string, requestId: string, signal?: AbortSignal) => Back
 
 /** How many stations' years the server keeps: a station's are a few kilobytes, so about 10 MB at most */
 const ANNUAL_ENTRIES = 1000
-/** How many reads of the backend run side by side: a station's days are up to 25 MB of JSON, and the list of GHCN 43 MB */
+/** How many reads of the backend run side by side: a station's days are up to 25 MB of JSON, and a list of GHCN stations 8 to 21 MB */
 const CONCURRENT_READS = 4
 /** How many reads may wait for their turn: a read is up to 25 MB of JSON, so the ones waiting hold a client each and nothing else; one more is a 503 */
 const MAX_WAITING_READS = 16
@@ -49,6 +50,14 @@ function invalid(errors: ParameterError[]): UpstreamProblem {
     detail: errors.map(error => `${error.loc.slice(1).join('.')}: ${error.msg}`).join('\n'),
     errors,
   })
+}
+
+/** What a request for the stations names: the kind, or the 422 that says what is wrong with it */
+export function parseKindQuery(query: Record<string, unknown>): { kind: AnnualKind } {
+  const kind = typeof query.kind === 'string' ? query.kind : ''
+  if (!KINDS.includes(kind))
+    throw invalid([{ loc: ['query', 'kind'], msg: kind ? `Input should be 'temperature' or 'precipitation'` : 'Field required' }])
+  return { kind: kind as AnnualKind }
 }
 
 /** What a request for the annual values names, or the 422 that says what is wrong with it */
@@ -143,16 +152,22 @@ export function ghcnAnnualHandler({ reader = backendReader }: Handlers = {}) {
   })
 }
 
-/** The handler of `GET /_ghcn/stations` */
+/** The handler of `GET /_ghcn/stations?kind=temperature` */
 export function ghcnStationsHandler({ reader = backendReader }: Handlers = {}) {
-  const cache = new TtlCache<Station[]>({ ttlMs: GHCN_TTL_MS, maxEntries: 1 })
+  // one list for each kind, which is read as one list of each element it is made of, one after another
+  const cache = new TtlCache<Station[]>({ ttlMs: GHCN_TTL_MS, maxEntries: KINDS.length })
   const limit = createLimiter(CONCURRENT_READS, { maxWaiting: MAX_WAITING_READS, maxWaitMs: MAX_WAIT_MS })
   return defineEventHandler(async (event) => {
     const requestId = requestIdOf(getRequestHeader(event, 'x-request-id'))
     const closed = closedBy(event)
     try {
+      const { kind } = parseKindQuery(getQuery(event))
       const apiBase = useApiBase()
-      const stations = await cache.get('stations', signal => limit(() => readGhcnStations(reader(apiBase, requestId, signal)), signal), closed)
+      const stations = await cache.get(kind, (signal) => {
+        const read = reader(apiBase, requestId, signal)
+        // each read of a list waits for its turn, so the lists of a kind are never read side by side, and the queue is the annual values' too
+        return readGhcnStations((path, query) => limit(() => read(path, query), signal), kind)
+      }, closed)
       allowBrowserToKeep(event, requestId)
       return { stations }
     }

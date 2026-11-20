@@ -327,11 +327,15 @@ by the rules of WMO-No. 1203, and lists the stations that have a record long eno
   with the unit, the way the days of a temperature were calculated (`midrange` of the daily maximum and minimum, or
   `tavg`) and the provider's credit and licence. It reads the station's days from `/api/values` of the backend (up to about
   25 MB of JSON for a record of 150 years, a third less with `drop_nulls=true`, which it asks for), and answers a few kilobytes.
-- `GET /_ghcn/stations` answers the stations of GHCN daily that still report (their record reaches into this or the last
-  year) and span ten years or more, which is the picker's list.
+- `GET /_ghcn/stations?kind=temperature` answers the stations of GHCN daily that still report (their record reaches into
+  this or the last year) and span ten years or more in the elements the kind is made of, which is the picker's list. It
+  combines the lists `/api/stations` gives for one daily parameter each, with that element's span (backend 0.194.0): for the
+  precipitation `precipitation_amount`; for the temperature `temperature_air_mean_2m` taken with the years
+  `temperature_air_max_2m` and `temperature_air_min_2m` have in common, and reads them one after another (8 to 21 MB of
+  JSON each).
 
 Both are kept in the memory of the server for twelve hours, as the backend keeps the files of NOAA: a station's years
-(at most 1,000 stations, the one used longest ago going first) and the list of the stations. A station asked for by
+(at most 1,000 stations, the one used longest ago going first) and the list of the stations of each kind. A station asked for by
 several clients at once is read once, and a failure is not kept. Each route runs at most four reads of the backend side by
 side (a read holds up to 80 MB of memory while it is parsed); another 16 may wait for their turn, for 30 seconds at the
 most, and a read beyond that is answered `503` with a `Retry-After` of 10 seconds. A read whose client has closed the

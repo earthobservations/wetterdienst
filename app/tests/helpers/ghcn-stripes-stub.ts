@@ -106,3 +106,65 @@ export function stubRows(options: { failed?: Iterable<string>, lastYear?: number
 export function daysBetween(from: string, to: string): string[] {
   return dates(new Date(`${from}T00:00:00Z`), new Date(`${to}T00:00:00Z`)).map(iso)
 }
+
+/** The year it is, which the stub's open records run to */
+export const THIS_YEAR = new Date().getUTCFullYear()
+
+/** The element each daily parameter of the generic API is, in the inventory of NOAA */
+export const ELEMENT_OF: Record<string, string> = {
+  temperature_air_mean_2m: 'TAVG',
+  temperature_air_max_2m: 'TMAX',
+  temperature_air_min_2m: 'TMIN',
+  precipitation_amount: 'PRCP',
+}
+
+/**
+ * The stations of the stub's lists, each with the span of its elements (the port of `LISTED` of `ghcn_stripes_stub.py`):
+ * (id, latitude, longitude, name, [(element, first year, last year)])
+ */
+export const LISTED: Array<[string, number, number, string, Array<[string, number, number]>]> = [
+  // the station of `stubRows`: all of the elements
+  ['USW00000001', 40.7789, -73.9692, 'STUB STATION', [['TAVG', 2014, 2016], ['TMAX', 1990, 2020], ['TMIN', 1990, 2020], ['PRCP', 1990, 2020]]],
+  // a long record of TAVG only, still reporting: for the temperature, and no precipitation
+  ['USW00000002', 41, -73.5, 'TAVG ONLY', [['TAVG', 1950, THIS_YEAR]]],
+  // TMAX and TMIN that overlap for 9 years only: no 10-year span, though each has 20
+  ['USW00000003', 40.5, -74.2, 'NARROW OVERLAP', [['TMAX', 1950, 1969], ['TMIN', 1961, 1980]]],
+  // TMAX alone: no mean can be made of it
+  ['USW00000004', 40.6, -74.1, 'TMAX ONLY', [['TMAX', 1940, THIS_YEAR]]],
+  // a long record of rain that ended in 2005, and one that is still reporting
+  ['USW00000005', 40.9, -73.8, 'RAIN CLOSED', [['PRCP', 1960, 2005]]],
+  ['USW00000006', 40.4, -73.1, 'RAIN OPEN', [['PRCP', 1980, THIS_YEAR]]],
+  // five years: too short for either
+  ['USW00000007', 40.7, -73.9, 'SHORT', [['TAVG', 2018, 2022], ['PRCP', 2018, 2022]]],
+  // a long record that ended last year: still active
+  ['USW00000008', 51.5, -0.1, 'LAST YEAR', [['TMAX', 1970, THIS_YEAR - 1], ['TMIN', 1970, THIS_YEAR - 1]]],
+  // nine years of TMAX, TMIN and PRCP: below the minimum, so listed for no kind
+  ['USW00000009', 40.8, -73.7, 'NINE YEARS', [['TMAX', 1990, 1998], ['TMIN', 1990, 1998], ['PRCP', 1990, 1998]]],
+]
+
+/**
+ * What `/api/stations` gives for one daily parameter (GH-4270): the stations that have its element, with that element's span, the
+ * year that runs having no end, as the listing writes it
+ */
+export function listOf(parameter: string) {
+  return LISTED.flatMap(([id, latitude, longitude, name, elements]) => {
+    const found = elements.find(([element]) => element === ELEMENT_OF[parameter])
+    return found
+      ? [{
+          resolution: 'daily',
+          dataset: 'data',
+          station_id: id,
+          start_timestamp: `${found[1]}-01-01T00:00:00.000000+00:00`,
+          end_timestamp: found[2] < THIS_YEAR ? `${found[2]}-12-31T00:00:00.000000+00:00` : null,
+          latitude,
+          longitude,
+          elevation: 42.7,
+          name,
+          region: 'NY',
+          wmo_id: null,
+          wigos_id: null,
+          icao_id: null,
+        }]
+      : []
+  })
+}
