@@ -11,6 +11,7 @@ import { processingNote } from '~/utils/processing-note'
 import { stripesMethodNote, stripesReferenceShort, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
 import { isStripesDrawing, STRIPES_VIEW_QUERY, stripesViewFromQuery } from '~/utils/stripes-model'
 import { MENU_SCALE } from '~/utils/stripes-option'
+import { fetchStripes, fetchStripesStations, stripesFetch } from '~/utils/stripes-source'
 import { stripesCsv, stripesTableColumns, stripesTableYears } from '~/utils/stripes-table'
 import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
@@ -20,17 +21,18 @@ const { t, locale } = useI18n()
 useHead({ title: () => t('stripes.title') })
 const toast = useToast()
 
-const kind = ref<StripesKind>('temperature')
+// The kind and the source come from the link, read where they are made: the stations are asked for the ones chosen, and not for
+// the defaults first (GH-4258)
+const route = useRoute()
+const kind = ref<StripesKind>(route.query.kind ? route.query.kind.toString() as StripesKind : 'temperature')
 // Where the stations and the years are from (GH-4078): DWD's annual values (the default), or NOAA's GHCN daily, whose years are built from
 // the days. In the link as `provider` and `network`, as the REST API takes them, and left out for DWD's
 type StripesSource = 'dwd' | 'ghcn'
-const source = ref<StripesSource>('dwd')
+const source = ref<StripesSource>(route.query.provider?.toString() === GHCN_NETWORK.provider && route.query.network?.toString() === GHCN_NETWORK.network ? 'ghcn' : 'dwd')
 const sourceItems = computed(() => [
   { label: t('stripes.sourceDwd'), value: 'dwd' },
   { label: t('stripes.sourceGhcn'), value: 'ghcn' },
 ])
-/** The provider and network of the source in the query of a request: none for DWD's, which is what the API takes without them */
-const sourceQuery = computed(() => source.value === 'ghcn' ? GHCN_NETWORK : {})
 
 const kindItems = computed(() => [
   { label: t('stripes.typeTemperature'), value: 'temperature' },
@@ -54,20 +56,19 @@ const showYears = ref(settings.value.stripes.showYears)
 const showDataAvailability = ref(settings.value.stripes.showDataAvailability)
 const showSource = ref(settings.value.stripes.showSource)
 
-const { data: stationsData, pending: stationsPending } = useFetch<StripesStationsResponse>(
-  '/api/stripes/stations',
-  {
-    query: computed(() => ({ kind: kind.value, ...sourceQuery.value })),
-    ...API_FETCH,
-  },
+// The stations the stripes are made for (GH-4258): DWD's from the generic API, GHCN's from the app's own server, each as a read of
+// the source and kind chosen, which the key says so that a change of either is a new list and not the one before
+const { data: stationsData, pending: stationsPending } = useAsyncData(
+  computed(() => `stripes-stations-${source.value}-${kind.value}`),
+  () => fetchStripesStations(stripesFetch, source.value, kind.value),
 )
 
-// A station of GHCN daily that a link names and the list has not: the list is the stations that still report (`active`, the API's
-// default, which the 133,041 of the layer would be too many for a picker without), and a link from the map may be to one that has
+// A station of GHCN daily that a link names and the list has not: the list is the stations that still report and span ten years (which the
+// 133,041 of the layer would be too many for a picker without), and a link from the map may be to one that has
 // stopped. Asked for by its id, and added to the list (GH-4078)
 const linkedStation = shallowRef<StripesStation | null>(null)
 const stations = computed(() => {
-  const list = stationsData.value?.stations ?? []
+  const list = stationsData.value ?? []
   const linked = linkedStation.value
   return linked && !list.some(station => station.station_id === linked.station_id) ? [...list, linked] : list
 })
@@ -148,7 +149,7 @@ const valueUnit = computed(() => {
 function formatValue(value: number) {
   return `${formatNumber(value, locale.value, 2)} ${valueUnit.value}`.trim()
 }
-// what the colours are relative to, as the backend calculated it for the station's whole record (GH-4157): in full in the file, and as
+// what the colours are relative to, as the app calculated it for the station's whole record (GH-4157): in full in the file, and as
 // a short line under the chart (GH-4233), the method being the About text's
 const referenceFull = computed(() => lastFetchedData.value
   ? stripesReferenceText(lastFetchedData.value.reference, t, value => formatNumber(value, locale.value, 1))
@@ -220,26 +221,19 @@ async function fetchAndPlotStripes(target?: ShownStripes) {
   fetchError.value = null
   // this fetch reads the unit as it is now
   refetchShownAfter = false
+  // the station of the stripes, as the list has it: the answer is made of its years and names it as the page does
+  const askedStation = [selectedStation.value, ...stations.value].find(station => station?.station_id === asked.station) ?? { station_id: asked.station, name: asked.station }
 
   try {
-    const params: StripesValuesQuery = {
+    const response = await fetchStripes(stripesFetch, {
+      source: source.value,
       kind: kind.value,
-      ...sourceQuery.value,
-      station: asked.station,
-      format: 'json',
+      station: askedStation,
+      startYear: asked.startYear || null,
+      endYear: asked.endYear || null,
       // the unit the app settings choose, read at each request (GH-3980): the numbers come back in it, and the
       // colours, which are relative, do not change with it
-      unit_targets: JSON.stringify(stripesUnitTargets(kind.value, settings.value.units)),
-    }
-
-    if (asked.startYear)
-      params.start_year = asked.startYear
-    if (asked.endYear)
-      params.end_year = asked.endYear
-
-    const response = await $fetch<StripesValuesResponse>('/api/stripes/values', {
-      query: params,
-      ...API_FETCH,
+      unitTargets: stripesUnitTargets(kind.value, settings.value.units),
     })
     // a newer fetch, a Reset or another station chosen came while this one was under way: it shows
     // nothing
@@ -333,17 +327,12 @@ function clearStripes() {
   fetchError.value = null
 }
 
-const route = useRoute()
 const router = useRouter()
 
 // Preserve initial station id from URL so we can apply it once stations have loaded
 const initialStationId = ref<string | null>(route.query.station?.toString() ?? null)
 
 // Initialize simple options from URL if present
-if (route.query.kind)
-  kind.value = route.query.kind.toString() as StripesKind
-if (route.query.provider?.toString() === GHCN_NETWORK.provider && route.query.network?.toString() === GHCN_NETWORK.network)
-  source.value = 'ghcn'
 // a name that is none of the four is no choice: the stripes
 variant.value = stripesViewFromQuery(route.query.variant)
 if (route.query.show_title !== undefined && route.query.show_title !== null)

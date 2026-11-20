@@ -16,6 +16,20 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Stripes]` The app makes the climate stripes itself and no longer asks the backend's stripes routes
+  (`/api/stripes/stations`, `/values` and `/image`), which the backend drops in a later release. DWD's
+  stations and annual values are read from `/api/stations` and `/api/values`; the reference (the mean of
+  1971-2000, the spread of 1901-2000, the whole record where a period is short), the anomalies and the
+  classes are calculated in the browser by the backend's rules. The years of NOAA's GHCN daily are
+  calculated from its daily values by the WMO rules in the app's own server (`/_ghcn/annual`,
+  `/_ghcn/stations`, counted by the rate limit), which keeps them for twelve hours. The page, its
+  exports and the map's panel look the same, except that the list of GHCN stations now holds every
+  station that still reports and spans ten years, also one that never measured the temperature or the
+  precipitation, whose stripes are then refused when asked for (GH-4258).
+- `[API]` The API page no longer lists the stripes' routes (GH-4258).
+
 ## [0.56.0] - 2026-11-20
 
 Paired with backend 0.193.0. It needs backend 0.192.0 (the stripes' `provider` and `network`, for the GHCN

@@ -1204,11 +1204,11 @@ const GHCN_STATIONS = [
   { station_id: 'USW00094728', name: 'NEW YORK CNTRL PK TWR', region: null, latitude: 40.7789, longitude: -73.9692, elevation: 42.7, start_timestamp: '1869-01-01T00:00:00.000000+00:00', end_timestamp: null },
 ]
 
-/** The mock backend with the stations of GHCN daily by the box asked for, which each request is counted of, and its stripes */
+/** The mock backend with the stations of GHCN daily by the box asked for, which each request is counted of (its stripes are the mock's own `_ghcn/annual`) */
 function ghcnBackend(asked: URLSearchParams[]) {
   const defaults = defaultHandlers()
   return {
-    'stations': (url: URL, route: Route) => {
+    stations: (url: URL, route: Route) => {
       if (url.searchParams.get('network') !== 'ghcn')
         return defaults.stations!(url, route)
       // a station by its id (the address of a station that the stations in view may not hold)
@@ -1218,13 +1218,6 @@ function ghcnBackend(asked: URLSearchParams[]) {
       asked.push(url.searchParams)
       const [left, bottom, right, top] = ['left', 'bottom', 'right', 'top'].map(name => Number(url.searchParams.get(name)))
       return { stations: GHCN_STATIONS.filter(station => station.longitude >= left! && station.longitude <= right! && station.latitude >= bottom! && station.latitude <= top!) }
-    },
-    'stripes/values': (url: URL, route: Route) => {
-      const answer = defaults['stripes/values']!(url, route) as { series: Record<string, unknown> }
-      if (url.searchParams.get('provider') !== 'noaa')
-        return answer
-      const station = GHCN_STATIONS.find(candidate => candidate.station_id === url.searchParams.get('station'))
-      return { ...answer, series: { ...answer.series, station, resolution: 'daily', dataset: 'data', method: 'midrange' } }
     },
   }
 }

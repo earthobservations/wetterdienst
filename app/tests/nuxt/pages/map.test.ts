@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 
 import { nextTick } from 'vue'
 import { clearNuxtData, clearNuxtState, useMyLocation, useRouter } from '#imports'
 import MapPage from '~/pages/map.vue'
-import { stripesAnswer } from '../../helpers/stripes-answer'
+import { ghcnAnnualAnswer, valuesAnswer } from '../../helpers/stripes-backend'
 
 // The map tool (GH-3650): the layers the chips choose, the station a click or the list picks and what the panel shows
 // of it, the answers that are empty or fail, the address, and the order of the map and its panel on a phone. The map
@@ -112,6 +112,8 @@ let ghcnLookupFailures = 0
 /** How long a request for the stations of GHCN daily is held before it is answered, in milliseconds */
 let ghcnDelay = 0
 let stripesStatus = 200
+/** The stations that have stripes: the annual record's, which the map asks of the generic API */
+let stripesStations: Array<typeof STRIPES_STATIONS[number]> = STRIPES_STATIONS
 
 async function stationsOf(event: H3Event) {
   const query = getQuery(event) as Record<string, string>
@@ -138,28 +140,35 @@ async function stationsOf(event: H3Event) {
   }
   if (query.network === 'mosmix')
     return { stations: FORECAST_STATIONS }
+  // the stations that have stripes: the annual record, the historical and the recent period of it (GH-4258)
+  if (query.parameters?.startsWith('annual/'))
+    return { stations: stripesStations }
   if (query.parameters === 'hourly/temperature_air')
     return { stations: HOURLY_STATIONS }
   return { stations: query.parameters === 'daily/solar' ? solarStations : DAILY_STATIONS }
 }
 
-function stripesValuesOf(event: H3Event) {
-  const query = getQuery(event) as Record<string, string>
-  asked.stripesValues.push(String(query.station))
-  asked.stripesQueries.push(query)
-  // a station of GHCN daily the backend makes no stripes of (too few years with data)
-  if (stripesStatus !== 200 || (query.provider === 'noaa' && query.station === GHCN_REFUSED.station_id)) {
-    setResponseStatus(event, query.provider === 'noaa' ? 400 : stripesStatus)
-    return { detail: query.provider === 'noaa' ? 'At least two years with data are required to create climate stripes' : 'This station has no complete years.' }
-  }
-  const ghcnStation = query.provider === 'noaa' ? GHCN_STATIONS.find(entry => entry.station_id === query.station) : undefined
-  return {
-    metadata: {},
-    series: ghcnStation
-      ? { station: ghcnStation, resolution: 'daily', dataset: 'data', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius', method: 'midrange' }
-      : { station: STRIPES_STATIONS[0], resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
-    // with the classes the backend gives them
-    ...stripesAnswer(Array.from({ length: 20 }, (_, index) => ({ year: 2000 + index, value: 8 + index * 0.05 }))),
+/**
+ * The annual values the map's stripes are made of (GH-4258): the API's for a station of DWD (`/api/values`), the app's own
+ * server's for a station of GHCN daily (`/_ghcn/annual`); the app makes the classes of them itself
+ */
+function stripesValuesOf(ghcn: boolean) {
+  return (event: H3Event) => {
+    const query = getQuery(event) as Record<string, string>
+    const stationId = String(ghcn ? query.station : query.stations)
+    asked.stripesValues.push(stationId)
+    asked.stripesQueries.push(query)
+    if (stripesStatus !== 200) {
+      setResponseStatus(event, stripesStatus)
+      return { detail: 'This station has no complete years.' }
+    }
+    const years = Array.from({ length: 20 }, (_, index) => ({ year: 2000 + index, value: 8 + index * 0.05 }))
+    // a station of GHCN daily with too few years with data for a scale of its own: the app refuses it
+    if (ghcn && stationId === GHCN_REFUSED.station_id)
+      return ghcnAnnualAnswer(years.slice(0, 5), { stationId, method: 'midrange' })
+    return ghcn
+      ? ghcnAnnualAnswer(years, { stationId, method: 'midrange' })
+      : valuesAnswer(years, { stationId })
   }
 }
 
@@ -191,9 +200,8 @@ function stubMediaQueries(wide: boolean) {
 }
 
 registerEndpoint('/api/stations', stationsOf)
-let stripesStations: Array<typeof STRIPES_STATIONS[number]> = STRIPES_STATIONS
-registerEndpoint('/api/stripes/stations', () => ({ stations: stripesStations }))
-registerEndpoint('/api/stripes/values', stripesValuesOf)
+registerEndpoint('/api/values', stripesValuesOf(false))
+registerEndpoint('/_ghcn/annual', stripesValuesOf(true))
 registerEndpoint('/api/coverage', () => COVERAGE)
 
 const originalMatchMedia = window.matchMedia
@@ -449,6 +457,12 @@ describe('a station picked', () => {
     expect(card().find('figcaption').text()).toMatch(/^From 2000 to 2019\. Lowest value 8\.0 .+ in 2000, highest value 9\.0 .+ in 2019\. Colours: the mean of the whole record \(2000–2019\) .+ \(Ed Hawkins. method\)\.$/)
     expect(card().find('a').attributes('href')).toBe('/stripes?kind=temperature&station=01975')
     expect(asked.stripesValues).toEqual(['01975'])
+    // made by the app of the generic API (GH-4258): the stations that have stripes are the annual record's, the historical and the recent
+    // period of it, and the years are the annual values of the station
+    const annual = asked.stations.filter(query => query.parameters?.startsWith('annual/'))
+    expect(annual.map(query => query.periods).sort()).toEqual(['historical', 'recent'])
+    expect(annual[0]).toMatchObject({ provider: 'dwd', network: 'observation', parameters: 'annual/climate_summary/temperature_air_mean_2m', all: 'true' })
+    expect(asked.stripesQueries[0]).toMatchObject({ provider: 'dwd', network: 'observation', parameters: 'annual/climate_summary/temperature_air_mean_2m', periods: 'historical', stations: '01975' })
   })
 
   it('links to the measurements in the explorer and to the station history, each at the nearest station of the source, already filled in', async () => {
@@ -1441,7 +1455,7 @@ describe('an address that names a source DWD does not have', () => {
   it('asks for no list of it on the forecast layer either, where the measuring stations are asked for by the panel', async () => {
     const wrapper = await mountMap('/map?layer=forecast&resolution=daily&dataset=nonsense&station=10147')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-card-measured"] a').exists()).toBe(true))
-    const asks = asked.stations.filter(query => query.network === 'observation').map(query => query.parameters)
+    const asks = asked.stations.filter(query => !query.parameters?.startsWith('annual/') && query.network === 'observation').map(query => query.parameters)
     expect(asks).toEqual(['daily/climate_summary'])
     expect((wrapper.vm as any).source).toEqual({ resolution: 'daily', dataset: 'climate_summary' })
     // no failed list, and no Retry that cannot help
@@ -2462,7 +2476,7 @@ describe('the GHCN daily layer (GH-4078)', () => {
 
     const stripes = wrapper.find('[data-testid="map-card-stripes"]')
     await vi.waitFor(() => expect(stripes.find('[data-testid="map-stripes-method"]').exists()).toBe(true))
-    expect(asked.stripesQueries.at(-1)).toMatchObject({ kind: 'temperature', provider: 'noaa', network: 'ghcn', station: 'GM000010147' })
+    expect(asked.stripesQueries.at(-1)).toMatchObject({ kind: 'temperature', station: 'GM000010147' })
     // the midrange of the daily maximum and minimum, no 24-hour mean (decision on GH-4222)
     expect(stripes.find('[data-testid="map-stripes-method"]').text()).toContain('midrange of the daily maximum and minimum, not a 24-hour mean')
     expect(stripes.find('a').attributes('href')).toBe('/stripes?kind=temperature&provider=noaa&network=ghcn&station=GM000010147')
@@ -2516,7 +2530,7 @@ describe('the GHCN daily layer (GH-4078)', () => {
     expect(asked.stripesValues).not.toContain('BF1BI000002')
   })
 
-  it('says a station has no stripes where the backend refuses them, and takes the link away: no failure to try again', async () => {
+  it('says a station has no stripes where the app cannot make them of its record (too few years with data), and takes the link away: no failure to try again', async () => {
     const wrapper = await mountGhcn()
     await pickFromList(wrapper, 'GME00122482')
     const stripes = wrapper.find('[data-testid="map-card-stripes"]')

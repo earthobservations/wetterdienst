@@ -5,13 +5,13 @@ import type {
   ProviderNetworkCoverageResponse,
   ProvidersResponse,
   Station,
-  StripesStation,
-  StripesValuesResponse,
   UnitType,
   Value,
 } from '../../../shared/types/api'
+import type { StripesFixture } from '../../helpers/stripes-backend'
 import { Buffer } from 'node:buffer'
 import { stripesAnswer } from '../../helpers/stripes-answer'
+import { ghcnAnnualOfFixture, valuesOfFixture } from '../../helpers/stripes-backend'
 
 // What the accessibility spec shows the app instead of a backend.
 //
@@ -27,7 +27,14 @@ import { stripesAnswer } from '../../helpers/stripes-answer'
 
 export type Handler = (url: URL, route: Route) => unknown | Promise<unknown>
 
-/** The answers by `/api/<path>`, to be replaced one by one where a state needs a different one */
+/**
+ * The answers by `/api/<path>`, to be replaced one by one where a state needs a different one.
+ *
+ * Besides the paths of the API, three keys name what the climate stripes are made of (GH-4258): `stripes/stations` and `stripes/values`
+ * answer the requests for the annual record (`/api/stations` and `/api/values` of `annual/...` parameters: the stations that have
+ * stripes, and a station's years), and `_ghcn/stations` and `_ghcn/annual` the app's own server's routes for GHCN daily. The values
+ * are written as the stripes' fixtures are (`{ series, values }`, see `tests/helpers/stripes-backend.ts`) and answered as the API does
+ */
 export type Handlers = Record<string, Handler>
 
 /** What a handler returns to answer with an error instead of a body; `extra` are the fields of a problem beside `detail` */
@@ -114,7 +121,7 @@ const MOSMIX_STATIONS: Station[] = [
   { station_id: '10865', name: 'MUENCHEN-STADT', region: null, latitude: 48.16, longitude: 11.54, elevation: 515, start_timestamp: null, end_timestamp: null },
 ]
 
-const STRIPES_STATIONS: StripesStation[] = STATIONS.slice(0, 6).map(station => ({
+const STRIPES_STATIONS: Station[] = STATIONS.slice(0, 6).map(station => ({
   station_id: station.station_id,
   name: station.name,
   region: station.region,
@@ -329,8 +336,15 @@ function snowValues(url: URL, now: Date): Record<string, unknown> {
   }
 }
 
-function stripesValues(station: string | null): StripesValuesResponse {
-  const found = STRIPES_STATIONS.find(candidate => candidate.station_id === station) ?? STRIPES_STATIONS[0]!
+/** The stations of GHCN daily that report and have a record long enough: Hamburg and New York */
+const GHCN_STRIPES_STATIONS: Station[] = [
+  { station_id: 'GM000010147', name: 'HAMBURG FUHLSBUETTEL', region: null, latitude: 53.635, longitude: 9.99, elevation: 11, wmo_id: '10147', start_timestamp: '1891-01-01T00:00:00.000000+00:00', end_timestamp: null },
+  { station_id: 'USW00094728', name: 'NEW YORK CNTRL PK TWR', region: null, latitude: 40.7789, longitude: -73.9692, elevation: 42.7, start_timestamp: '1869-01-01T00:00:00.000000+00:00', end_timestamp: null },
+]
+
+/** The stripes of a station as a fixture: the years and what they are of (the app makes the classes of them itself) */
+function stripesValues(station: string | null, method: 'midrange' | 'tavg' | null = null): StripesFixture {
+  const found = [...STRIPES_STATIONS, ...GHCN_STRIPES_STATIONS].find(candidate => candidate.station_id === station) ?? STRIPES_STATIONS[0]!
   return {
     // the part of the answer's `metadata` the stripes read: who the data is from, under which licence (the table's file carries both, GH-4233)
     metadata: {
@@ -343,9 +357,9 @@ function stripesValues(station: string | null): StripesValuesResponse {
         license: { spdx_id: 'CC-BY-4.0', name: 'Creative Commons Attribution 4.0 International', url: 'https://creativecommons.org/licenses/by/4.0/' },
         attribution: 'Source: Deutscher Wetterdienst',
       },
-    } as StripesValuesResponse['metadata'],
-    series: { station: found, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
-    // a warming curve with a wobble, so the stripes run from blue to red, with the classes the backend gives them
+    } as StripesFixture['metadata'],
+    series: { station: found, unit: 'degree_celsius', method },
+    // a warming curve with a wobble, so the stripes run from blue to red
     ...stripesAnswer(Array.from({ length: 70 }, (_, index) => ({
       year: 1955 + index,
       value: Math.round((7.5 + index * 0.03 + 0.8 * Math.sin(index / 3)) * 100) / 100,
@@ -414,7 +428,9 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     'glossary': () => GLOSSARY,
     'providers': () => PROVIDER_LIST,
     'stripes/stations': () => ({ stations: STRIPES_STATIONS }),
-    'stripes/values': url => stripesValues(url.searchParams.get('station')),
+    'stripes/values': url => stripesValues(url.searchParams.get('stations')),
+    '_ghcn/stations': () => ({ stations: GHCN_STRIPES_STATIONS }),
+    '_ghcn/annual': url => stripesValues(url.searchParams.get('station'), 'midrange'),
   }
 }
 
@@ -431,6 +447,13 @@ export interface Backend {
   unanswered: string[]
   /** Resolves once no `/api/*` request has been under way or answered for a while: the page has what it asked for */
   idle: () => Promise<void>
+}
+
+/** The key of the handler of a request: its path under `/api/`, `/_ghcn/` kept, and the requests for the annual record the stripes' keys */
+function keyOf(url: URL): string {
+  const path = url.pathname.replace(/^\/api\//, '').replace(/^\//, '')
+  const annual = url.searchParams.get('parameters')?.startsWith('annual/')
+  return annual && path === 'stations' ? 'stripes/stations' : annual && path === 'values' ? 'stripes/values' : path
 }
 
 /** How long the page is left alone after its last request was answered, for what it does with the answer */
@@ -462,18 +485,21 @@ export async function mockBackend(
   }
 
   await page.route(
-    url => url.origin === origin && url.pathname.startsWith('/api/'),
+    url => url.origin === origin && (url.pathname.startsWith('/api/') || url.pathname.startsWith('/_ghcn/')),
     async (route) => {
       inFlight++
       try {
         const url = new URL(route.request().url())
-        const handler = backend.handlers[url.pathname.replace(/^\/api\//, '')]
+        const key = keyOf(url)
+        const handler = backend.handlers[key]
         if (!handler) {
           backend.unanswered.push(url.pathname)
           await route.fulfill({ status: 501, json: { detail: `not mocked: ${url.pathname}` } })
           return
         }
-        const body = await handler(url, route)
+        const answer = await handler(url, route)
+        // the stripes' data is written as a fixture and answered as the API does
+        const body = key === 'stripes/values' ? valuesOfFixture(answer) : key === '_ghcn/annual' ? ghcnAnnualOfFixture(answer) : answer
         if (body instanceof ApiFailure)
           await route.fulfill({ status: body.status, json: { ...body.extra, detail: body.detail } })
         else
