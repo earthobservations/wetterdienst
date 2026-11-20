@@ -1976,7 +1976,8 @@ STUBS = [
         expected={
             "06180": {"wmo_id": "06180", "wigos_id": "0-208-0-06180", "icao_id": None},
             "06041": {"wigos_id": "0-208-0-06041"},
-            "04202": {"wmo_id": "04202"},
+            "04202": {"wmo_id": "04202", "wigos_id": "0-208-0-04202"},  # GRL, the second territory of its scheme
+            "04205": {"wigos_id": "0-208-0-04205"},
             "06007": {"wmo_id": None},
             "32210": {"wmo_id": None},
         },

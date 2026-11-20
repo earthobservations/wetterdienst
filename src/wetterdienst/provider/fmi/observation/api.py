@@ -50,7 +50,7 @@ _BASE_URL = "https://opendata.fmi.fi/wfs"
 #: FMI's `fmisid` is the local part of the national WIGOS ids `0-246-0-<fmisid>` of WMO's OSCAR/Surface (`101520` is
 #: `0-246-0-101520`; issue number 3 of the issuer is another scheme: GH-4074)
 FMI_WIGOS_SCHEME = NationalWigosScheme(
-    territory="FIN", issuer=246, issue_numbers=frozenset({0}), provider="fmi/observation"
+    territories=("FIN",), issuer=246, issue_numbers=frozenset({0}), provider="fmi/observation"
 )
 
 #: the `exceptionCode`s of an OWS exception report that say the request is wrong (a missing or invalid parameter, an

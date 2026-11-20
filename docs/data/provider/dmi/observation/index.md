@@ -29,7 +29,10 @@ WMO's register shows the field is not WMO's for them: OSCAR lists 115 of the 127
 
 A station's `wigos_id` is not in DMI's list. It is read from WMO's register OSCAR/Surface, which lists
 `0-208-0-<stationId>` for the stations that it knows (`0-208-0-06126` is Aarslev, `stationId` `06126`, written with
-its zero as in the register; read 2026-11-19, 77 of the 1,065 stations have one, each within 10 km of the position OSCAR gives it).
+its zero as in the register; read 2026-11-20, 116 of the 1,065 stations have one: 71 of Denmark, 6 of the Faroe Islands
+and 39 of Greenland, such as `0-208-0-04202` for Pituffik, each within 10 km of the position OSCAR gives it). OSCAR
+files Denmark and the Faroe Islands under `DNK` and Greenland under `GRL`, both with the issuer 208, so both registers
+are read, and one that cannot be read is no register: the stations of the other have no `wigos_id` either.
 The id is the exact one: the `station_id` is the local part of a WIGOS id of Denmark's issuer (`208`) with issue
 number `0`, nothing is matched by name or position, and a station that has no such id has `wigos_id` null. A station
 that OSCAR also lists as `0-20000-0-<WMO number>` has the national id here, as the column holds one. The register is

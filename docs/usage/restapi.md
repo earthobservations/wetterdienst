@@ -354,7 +354,7 @@ what the answer is missing:
   `file-skipped` (the stations whose file the provider let go, see below), `wmo-ids-unavailable` (the stations of
   `dwd/observation` and `dwd/derived` are listed without `wmo_id` because DWD's Stationslexikon could not be read or
   is no longer the table, see [WMO numbers](../data/provider/dwd/observation/index.md#wmo-numbers-of-the-stations)),
-  `wigos-ids-unavailable` (the stations of `dwd/observation`, `fmi/observation` and `dmi/observation` are listed
+  `wigos-ids-unavailable` (the stations of `dwd/observation`, `dwd/derived`, `fmi/observation` and `dmi/observation` are listed
   without the `wigos_id` that WMO's register OSCAR/Surface gives them, because it could not be read or is no longer
   the register of the country, see
   [WIGOS ids](../data/provider/dwd/observation/index.md#wigos-ids-of-the-stations)),

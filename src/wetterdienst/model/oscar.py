@@ -8,7 +8,7 @@ part, and DWD, FMI and DMI chose their own station numbers: OSCAR/Surface, WMO's
 ``0-276-3-73`` for the DWD station ``00073`` (Aldersbach-Kramersepp), ``0-246-0-101520`` for the FMI station
 ``101520`` (Ahtari Myllymäki) and ``0-208-0-06126`` for the DMI station ``06126`` (Aarslev). None of the three
 providers publishes a WIGOS id with its stations list, so the register is where the link is (read 2026-11-19: DWD 372
-numeric ids of 374 national ones, FMI 288, DMI 86).
+numeric ids of 374 national ones, FMI 288, DMI 170 of two territories).
 
 The rule is the exact one and no other. A station of the provider gets a ``wigos_id`` where the register holds a WIGOS
 id of the provider's country whose local part *is* the provider's station id (`NationalWigosScheme`):
@@ -25,8 +25,13 @@ id of the provider's country whose local part *is* the provider's station id (`N
   (``0-276-3-73``); it is the scheme's `strip_zeros`. A local part that the register writes with leading zeros does not
   match such an id. DMI's and FMI's ids are written the register's way, and are compared as they are;
 - where the register holds more than one WIGOS id of the issuer with that local part (two issue numbers), the provider's
-  id is no more one of them than the other: ``wigos_id`` stays null and a warning in the log names them, since which is
-  the station's is not for the reader to guess (none at the time of reading);
+  id is no more one of them than the other: ``wigos_id`` stays null and a warning in the log names them, once for
+  each time the register is read, since which is the station's is not for the reader to guess (none at the time of
+  reading);
+- a scheme may name more than one territory, as OSCAR files the stations of Greenland under ``GRL`` and those of
+  Denmark and the Faroe Islands under ``DNK``, both with the issuer 208 (DMI: ``0-208-0-04202`` is Pituffik, in
+  ``GRL``). The registers are joined before the rule is applied, and one that cannot be read is the whole register
+  that cannot: the stations of the other territory would be a list that is partly right;
 - a ``wigos_id`` the provider's own list publishes stays, whatever the register says (`with_oscar_wigos_id`).
 
 The register is read with ``GET https://oscar.wmo.int/surface/rest/api/search/station?territoryName=<ISO-3>``, one page
@@ -36,20 +41,21 @@ page that is none of it, whatever the status (an HTML waiting page, a JSON error
 never an empty one: it raises (`OscarRegisterError`, a `DownloadError` for a page that is no JSON at all) and is dropped
 from the cache, which holds a 200 for the whole week. The register is kept in the cache for a week, as the WIGOS ids of
 a station change a few times a year, and in the process for a day; a failure to read it is remembered for five minutes
-so that a register that is down is not asked for by every request, and a rate limit not at all.
+so that a register that is down is not asked for by every request, and a rate limit not at all. A host that drops
+connections is waited for ten seconds, once (`OSCAR_TIMEOUT`, one attempt), and the threads that ask at the same
+time share one read (`util/read_memory.py`).
 
 The ids are an enrichment of the station list, not the list: when the register cannot be read the stations still come
 back, with the column as it would be without OSCAR and the warning `wigos-ids-unavailable` in the log and in the
 answer (`with_oscar_wigos_id`), as for `wmo_id` of ``dwd/observation`` (`wmo-ids-unavailable`, GH-4073). A rate limit
-(a 429) is raised, as everywhere.
+(a 429) is raised, as everywhere, worded as OSCAR's and not "the provider's" (the provider of the stations is not
+the one that limits).
 """
 
 from __future__ import annotations
 
-import copy
 import json
 import logging
-import threading
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
@@ -60,6 +66,7 @@ from wetterdienst.exceptions import DownloadError, MetaFileFormatError, NoIntern
 from wetterdienst.metadata.cache import CacheExpiry
 from wetterdienst.model.station_ids import wigos_id_or_none
 from wetterdienst.util.network import _without_url_secrets, download_file, drop_cached_file
+from wetterdienst.util.read_memory import ReadMemory, settings_key
 from wetterdienst.util.response_warnings import warn_response
 
 if TYPE_CHECKING:
@@ -70,8 +77,8 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 #: The search of OSCAR/Surface's REST API, which `territoryName` (an ISO 3166-1 alpha-3 code) narrows to a country. A
-#: parameter it does not know is ignored and answers the whole register (63,000 stations, 40 MB, two pages), so only
-#: `territoryName` is ever sent
+#: parameter it does not know is ignored and answers the whole register (63,000 stations, about 50 MB, two pages), so
+#: only `territoryName` is ever sent
 OSCAR_SEARCH_URL = "https://oscar.wmo.int/surface/rest/api/search/station"
 
 #: How long a country's register is kept in the cache: the WIGOS ids of a station change a few times a year, and
@@ -85,6 +92,11 @@ OSCAR_MEMORY = 86400.0
 #: and not by every request, and asked for again soon after it is up
 OSCAR_FAILURE_MEMORY = 300.0
 
+#: How long the server is waited for in silence (connecting, and between two reads of the page) and how often it is
+#: asked: a host that drops connections costs a request ten seconds once, and not the sixty of the client's default
+#: timeout and its second attempt
+OSCAR_TIMEOUT = 10
+
 #: The code of the warning an answer carries when the register could not be read and the stations have no `wigos_id`
 #: from it
 WIGOS_IDS_UNAVAILABLE = "wigos-ids-unavailable"
@@ -94,8 +106,8 @@ WIGOS_IDS_UNAVAILABLE = "wigos-ids-unavailable"
 class NationalWigosScheme:
     """Say how a provider's station id is the local part of the WIGOS ids of a country's own issuer."""
 
-    #: the country as OSCAR's ISO 3166-1 alpha-3 code (``DEU``): the register is asked for by it
-    territory: str
+    #: the territories as OSCAR's ISO 3166-1 alpha-3 codes (``("DEU",)``): the register is asked for by each
+    territories: tuple[str, ...]
     #: the issuer of the country's own ids, as the number (``276``)
     issuer: int
     #: the issue numbers whose local part is the provider's id (``{0}``): an id of another issue number is of another
@@ -168,15 +180,28 @@ def parse_wigos_ids(content: bytes, territory: str) -> list[str]:
 def _read(territory: str, settings: Settings) -> list[str]:
     """Download and parse the register of a country, see `read_register`."""
     url = oscar_url(territory)
+    # the client's default is 30 s of silence and a second attempt: a host that drops connections would stall a request
+    # for a minute. The copy is cached and dropped with the arguments it was downloaded with
+    client_kwargs = {**settings.fsspec_client_kwargs, "timeout": OSCAR_TIMEOUT}
     file = download_file(
         url=url,
         cache_dir=settings.cache_dir,
         ttl=OSCAR_EXPIRY,
-        client_kwargs=settings.fsspec_client_kwargs,
+        client_kwargs=client_kwargs,
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
+        attempts=1,
     )
-    file.raise_if_exception()
+    try:
+        file.raise_if_exception()
+    except ProviderRateLimitError as error:
+        # the one that limits is OSCAR, not the provider of the stations that are being listed
+        raise ProviderRateLimitError(
+            _without_url_secrets(url),
+            "WMO OSCAR, the register that the WIGOS ids of the stations come from, limits how fast this installation "
+            "may ask; the stations can be listed again once the limit has reset",
+            error.retry_after,
+        ) from error
     if isinstance(file.content, Exception):
         # narrows the type; `raise_if_exception` has raised for any failed download
         raise DownloadError(_without_url_secrets(url), "no body")
@@ -188,60 +213,39 @@ def _read(territory: str, settings: Settings) -> list[str]:
             url,
             settings.cache_dir,
             OSCAR_EXPIRY,
-            settings.fsspec_client_kwargs,
+            client_kwargs,
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
         raise
 
 
-#: what the process remembers, by `_memory_key`: when it is forgotten (`_clock`), and the ids or the error of the read
-_MEMORY: dict[tuple, tuple[float, list[str] | Exception]] = {}
-_MEMORY_LOCK = threading.Lock()
 #: the clock the memory goes by, which a test replaces
 _clock = time.monotonic
-
-
-def _canonical(value: object) -> object:
-    """Write a settings value so that equal ones are equal as keys: mappings by sorted key, sequences as tuples."""
-    if isinstance(value, dict):
-        return tuple(sorted(((str(key), _canonical(item)) for key, item in value.items()), key=lambda pair: pair[0]))
-    if isinstance(value, (list, tuple, set, frozenset)):
-        return tuple(_canonical(item) for item in value)
-    return repr(value)
-
-
-def _memory_key(territory: str, settings: Settings) -> tuple:
-    """Name what a copy of the register depends on: the country, the cache it comes from and how it was asked for."""
-    return (
-        territory,
-        str(settings.cache_dir),
-        settings.cache_disable,
-        settings.use_certifi,
-        _canonical(settings.fsspec_client_kwargs or {}),
-    )
-
-
-def _fresh(error: Exception) -> Exception:
-    """Copy an error without the frames it was raised through, so that what is remembered holds none of a request."""
-    fresh = copy.copy(error).with_traceback(None)
-    fresh.__cause__ = error.__cause__
-    return fresh
-
-
-def _remember(key: tuple, kept_for: float, what: list[str] | Exception) -> None:
-    """Keep what was read for `kept_for` seconds, and drop what has run out, so that the memory does not grow."""
-    now = _clock()
-    with _MEMORY_LOCK:
-        for old in [old for old, (until, _) in _MEMORY.items() if until <= now]:
-            del _MEMORY[old]
-        _MEMORY[key] = (now + kept_for, what)
+#: the failures that are the register's: what a failure of the read of one is told by, and remembered
+_FAILURES = (NoInternetError, DownloadError, OscarRegisterError)
+#: what the process remembers of each country's register, and of its failures (`util/read_memory.py`): the clock is
+#: looked up by name at each use, so that a test replaces `_clock`
+_REGISTERS: ReadMemory[list[str]] = ReadMemory(
+    kept_for=OSCAR_MEMORY,
+    failure_kept_for=OSCAR_FAILURE_MEMORY,
+    failures=_FAILURES,
+    clock=lambda: _clock(),  # noqa: PLW0108
+)
+#: what the process remembers of the ids of each scheme, which are the registers of its territories joined and picked:
+#: the join and the warning about an id that is listed twice are made once for each time they are read
+_SCHEMES: ReadMemory[pl.DataFrame] = ReadMemory(
+    kept_for=OSCAR_MEMORY,
+    failure_kept_for=OSCAR_FAILURE_MEMORY,
+    failures=_FAILURES,
+    clock=lambda: _clock(),  # noqa: PLW0108
+)
 
 
 def forget_registers() -> None:
     """Forget what the process remembers of the registers and of its failures (a test's, a process that must reread)."""
-    with _MEMORY_LOCK:
-        _MEMORY.clear()
+    _REGISTERS.forget()
+    _SCHEMES.forget()
 
 
 def read_register(territory: str, settings: Settings) -> list[str]:
@@ -254,22 +258,7 @@ def read_register(territory: str, settings: Settings) -> list[str]:
             again rather than read the same page for a week; a failure is remembered by the process for five minutes.
 
     """
-    key = _memory_key(territory, settings)
-    with _MEMORY_LOCK:
-        remembered = _MEMORY.get(key)
-        if remembered is not None and _clock() < remembered[0]:
-            if isinstance(remembered[1], Exception):
-                raise _fresh(remembered[1])
-            return remembered[1]
-    try:
-        ids = _read(territory, settings)
-    except ProviderRateLimitError:
-        raise
-    except (NoInternetError, DownloadError, OscarRegisterError) as error:
-        _remember(key, OSCAR_FAILURE_MEMORY, _fresh(error))
-        raise
-    _remember(key, OSCAR_MEMORY, ids)
-    return ids
+    return _REGISTERS.get((territory, *settings_key(settings)), lambda: _read(territory, settings))
 
 
 def wigos_ids_of_scheme(ids: Collection[str], scheme: NationalWigosScheme) -> pl.DataFrame:
@@ -296,6 +285,24 @@ def wigos_ids_of_scheme(ids: Collection[str], scheme: NationalWigosScheme) -> pl
     )
 
 
+def read_scheme_ids(scheme: NationalWigosScheme, settings: Settings) -> pl.DataFrame:
+    """Read the registers of the territories of a scheme and give `wigos_ids_of_scheme` of them joined.
+
+    One territory that cannot be read is the whole register that cannot: it raises what `read_register` raises, and
+    no id is given from the registers that could be. The registers are joined before the rule is applied, so that an id
+    that two of them list is one id, and two ids for one local part are found wherever they are listed. Kept by the
+    process like a register, so that the warning of an id listed twice is made once for each time it is read.
+    """
+
+    def read() -> pl.DataFrame:
+        ids: dict[str, None] = {}
+        for territory in scheme.territories:
+            ids.update(dict.fromkeys(read_register(territory, settings)))
+        return wigos_ids_of_scheme(list(ids), scheme)
+
+    return _SCHEMES.get((scheme, *settings_key(settings)), read)
+
+
 def with_oscar_wigos_id(stations: pl.LazyFrame, settings: Settings, scheme: NationalWigosScheme) -> pl.LazyFrame:
     """Give the stations a ``wigos_id`` where OSCAR holds a WIGOS id whose local part is their ``station_id``.
 
@@ -313,21 +320,21 @@ def with_oscar_wigos_id(stations: pl.LazyFrame, settings: Settings, scheme: Nati
         return stations
     keep = pl.col("wigos_id") if "wigos_id" in names else pl.lit(None, dtype=pl.String)
     try:
-        ids = read_register(scheme.territory, settings)
+        known = read_scheme_ids(scheme, settings)
     except ProviderRateLimitError:
         raise
-    except (NoInternetError, DownloadError, OscarRegisterError) as error:
+    except _FAILURES as error:
         warn_response(
             log,
             WIGOS_IDS_UNAVAILABLE,
             f"WMO OSCAR could not be read, so the stations of {scheme.provider} have no wigos_id from it: {error}",
         )
         return stations.with_columns(keep.alias("wigos_id"))
-    known = wigos_ids_of_scheme(ids, scheme).lazy().rename({"wigos_id": "oscar_wigos_id"})
+    known_lazy = known.lazy().rename({"wigos_id": "oscar_wigos_id"})
     key = pl.col("station_id").str.strip_chars_start("0") if scheme.strip_zeros else pl.col("station_id")
     return (
         stations.with_columns(key.alias("_oscar_key"))
-        .join(known, left_on="_oscar_key", right_on="key", how="left", maintain_order="left")
+        .join(known_lazy, left_on="_oscar_key", right_on="key", how="left", maintain_order="left")
         .with_columns(pl.coalesce(keep, pl.col("oscar_wigos_id")).alias("wigos_id"))
         .drop("_oscar_key", "oscar_wigos_id")
     )

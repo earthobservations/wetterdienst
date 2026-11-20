@@ -32,7 +32,7 @@ from wetterdienst.model.history import (
 )
 from wetterdienst.model.listing_gap import ListingGap
 from wetterdienst.model.metadata import DatasetModel, ParameterModel, ParameterSearch
-from wetterdienst.model.oscar import NationalWigosScheme, with_oscar_wigos_id
+from wetterdienst.model.oscar import with_oscar_wigos_id
 from wetterdienst.model.quality_flags import RAW_SUFFIX, join_quality_flags, raw_column
 from wetterdienst.model.request import TimeseriesRequest
 from wetterdienst.model.values import TimeseriesValues
@@ -78,6 +78,7 @@ from wetterdienst.provider.dwd.observation.parser import (
     parse_climate_observations_data,
 )
 from wetterdienst.provider.dwd.observation.stationslexikon import with_wmo_id
+from wetterdienst.provider.dwd.observation.wigos import DWD_WIGOS_SCHEME
 from wetterdienst.settings import Settings
 from wetterdienst.util.archive import open_zip
 from wetterdienst.util.enumeration import parse_enumeration_from_template
@@ -92,19 +93,6 @@ if TYPE_CHECKING:
 
     from wetterdienst.model.result import HistoryResult, StationsResult, ValuesResult
 log = logging.getLogger(__name__)
-
-#: DWD's Stations_ID is the local part of the national WIGOS ids `0-276-<issue number>-<Stations_ID>` of WMO's
-#: OSCAR/Surface (`0-276-3-73` is the station `00073`, which OSCAR writes without the zeros DWD pads the id with), of
-#: the issue numbers 3 (secondary station), 6 (city climate) and 2, all 370 of which name a station of DWD with that id.
-#: Not 0 and 1: there the local part is a WMO-like number of a radar or a profiler (`0-276-0-10103`), no id of DWD's
-#: (GH-4074)
-DWD_WIGOS_SCHEME = NationalWigosScheme(
-    territory="DEU",
-    issuer=276,
-    issue_numbers=frozenset({2, 3, 6}),
-    provider="dwd/observation",
-    strip_zeros=True,
-)
 
 # Where two periods report the same timestamp, the historical record is the one carrying the final
 # quality marks, so it wins -- see the ordering rationale in `Period`'s own docstring. The periods

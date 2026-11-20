@@ -96,7 +96,8 @@ moved and kept it (`10427` is Altastenberg `00098` until 1954 and Kahler Asten `
 `wmo_id` finds both.
 
 The table is kept for a week in the cache and for a day in the process, so a number is at most eight days old. A
-failure to read it is remembered for five minutes, so that a page that is down is not asked for by every request. It
+failure to read it is remembered for five minutes, so that a page that is down is not asked for by every request.
+The server is waited for ten seconds and asked once, and the requests that ask at the same time share one read. It
 is a page and not a data format, so it is read by the names of its headers, and a page that has changed (a header
 renamed, no row, no WMO number at all) is an error that names the address. The stations are the answer and the number
 an addition: when the page cannot be read or is no longer the table, or no connection can be made to `www.dwd.de` (a
@@ -126,11 +127,14 @@ none and a warning in the log would say so; none did. A `wigos_id` that DWD's ow
 
 The register is one request for Germany (2,495 stations, 1.9 MB, no key) and is kept for a week in the cache and for a
 day in the process, so an id is at most eight days old. A failure to read it is remembered for five minutes. The
+server is waited for ten seconds and asked once (the client's default is 30 s and a second attempt), and the requests
+that ask at the same time share one read. The
 stations are the answer and the id an addition: when `oscar.wmo.int` cannot be reached, answers a page that is not
 the register (a waiting page, an error in a 200, a second page, no WIGOS id at all: never an empty register, and it is
 not kept in the cache) or a status that fails, the stations come back with `wigos_id` null and the warning
-`wigos-ids-unavailable`. A rate limit (a 429) is raised. `fmi/observation` and `dmi/observation` read their
-`wigos_id` the same way, with their own issuers.
+`wigos-ids-unavailable`. A rate limit (a 429) is raised, and its message names OSCAR, which limits, not DWD.
+`dwd/derived` (the datasets with DWD station ids), `fmi/observation` and `dmi/observation` read their `wigos_id` the
+same way, with their own issuers.
 
 ## Stations that the station list does not carry
 

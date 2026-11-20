@@ -12,6 +12,7 @@ page of 2026-11-16; the last test reads the live page.
 from __future__ import annotations
 
 import logging
+import threading
 from io import BytesIO
 from typing import TYPE_CHECKING
 
@@ -506,3 +507,64 @@ def test_the_memory_drops_what_has_run_out_and_keys_equal_settings_alike(
     other = {"b": 2, "a": {"x": [2, 3], "y": 1}}
     assert stationslexikon._canonical(one) == stationslexikon._canonical(other)  # noqa: SLF001
     assert stationslexikon._canonical(one) != stationslexikon._canonical({**one, "b": 3})  # noqa: SLF001
+
+
+# a host that drops connections (GH-4074)
+
+
+def test_the_table_is_asked_once_and_waited_for_ten_seconds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The client's default is 30 s and a second attempt: a host that drops connections stalled a request a minute."""
+    asked: list[dict] = []
+
+    def download_file(**kwargs: object) -> File:
+        asked.append(kwargs)
+        return File(url=str(kwargs["url"]), content=BytesIO(STATIONSLEXIKON), status=200)
+
+    monkeypatch.setattr(stationslexikon, "download_file", download_file)
+    read_wmo_ids(Settings(cache_disable=True))
+    (kwargs,) = asked
+    assert kwargs["attempts"] == 1
+    assert kwargs["client_kwargs"]["timeout"] == stationslexikon.STATIONSLEXIKON_TIMEOUT == 10
+
+
+def test_a_page_that_is_not_the_table_is_dropped_with_the_arguments_it_was_downloaded_with(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The cache keys a copy by them: dropped with others, the copy that is no table would stay for the week."""
+    downloaded: list[dict] = []
+    dropped: list[tuple] = []
+
+    def download_file(**kwargs: object) -> File:
+        downloaded.append(kwargs["client_kwargs"])  # type: ignore[arg-type]
+        return File(url=str(kwargs["url"]), content=BytesIO(b"<html><body>Wartung</body></html>"), status=200)
+
+    monkeypatch.setattr(stationslexikon, "download_file", download_file)
+    monkeypatch.setattr(stationslexikon, "drop_cached_file", lambda *args, **_kwargs: dropped.append(args))
+    with pytest.raises(StationslexikonLayoutError):
+        read_wmo_ids(Settings(cache_disable=True))
+    assert [args[3] for args in dropped] == downloaded
+
+
+def test_the_threads_that_ask_together_share_one_read_of_the_table(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The first read is waited for by one thread, and the others get what it left, not a download each in turn."""
+    inside, release = threading.Event(), threading.Event()
+    asked: list[str] = []
+
+    def download_file(**kwargs: object) -> File:
+        asked.append(str(kwargs["url"]))
+        inside.set()
+        assert release.wait(10)
+        return File(url=str(kwargs["url"]), content=BytesIO(STATIONSLEXIKON), status=200)
+
+    monkeypatch.setattr(stationslexikon, "download_file", download_file)
+    settings = Settings(cache_disable=True)
+    found: list[dict] = []
+    threads = [threading.Thread(target=lambda: found.append(_wmo_ids(read_wmo_ids(settings)))) for _ in range(5)]
+    for thread in threads:
+        thread.start()
+    assert inside.wait(10)
+    release.set()
+    for thread in threads:
+        thread.join(10)
+    assert len(asked) == 1
+    assert found == [EXPECTED_WMO_IDS] * 5

@@ -143,7 +143,7 @@ def test_a_dwd_station_gets_the_id_of_its_stations_id_and_zeros_do_not_make_anot
 def test_the_zeros_of_a_register_id_are_not_the_zeros_of_the_provider(monkeypatch: pytest.MonkeyPatch) -> None:
     """An id the register writes with a zero (`073`) is another local part than DWD's `00073` read without them."""
     scheme = NationalWigosScheme(
-        territory="DEU", issuer=276, issue_numbers=frozenset({3}), provider="x", strip_zeros=True
+        territories=("DEU",), issuer=276, issue_numbers=frozenset({3}), provider="x", strip_zeros=True
     )
     ids = ["0-276-3-073", "0-276-3-91"]
     found = dict(wigos_ids_of_scheme(ids, scheme).iter_rows())
@@ -422,6 +422,175 @@ def test_a_territory_the_stub_has_no_rows_of_is_not_answered_by_it() -> None:
     file = served(oscar_url("DNK"))
     assert isinstance(file, File)
     assert isinstance(file.content, BytesIO)
+
+
+# a scheme of more than one territory (GH-4074)
+
+
+def test_the_stations_of_greenland_are_in_the_register_of_its_own_territory() -> None:
+    """OSCAR files Pituffik `0-208-0-04202` under `GRL`, not `DNK`: DMI's scheme reads both registers."""
+    settings = Settings(cache_disable=True)
+    assert DMI_WIGOS_SCHEME.territories == ("DNK", "GRL")
+    stations = pl.LazyFrame({"station_id": ["04202", "04205", "04250", "06126", "04999"]})
+    assert _wigos_ids(with_oscar_wigos_id(stations, settings, DMI_WIGOS_SCHEME)) == {
+        "04202": "0-208-0-04202",
+        "04205": "0-208-0-04205",
+        "04250": "0-208-0-04250",
+        "06126": "0-208-0-06126",
+        "04999": None,
+    }
+    assert "0-208-0-04202" not in parse_wigos_ids(register("DNK"), "DNK")
+
+
+def test_one_territory_that_cannot_be_read_is_the_whole_register_that_cannot(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """The stations of Denmark get no id from a register of Denmark alone: a list that is right in part is no list."""
+
+    def read(territory: str, _settings: object) -> list[str]:
+        if territory == "GRL":
+            raise DownloadError(oscar_url("GRL"), "503, message='Service Unavailable'")
+        return parse_wigos_ids(register("DNK"), "DNK")
+
+    monkeypatch.setattr(oscar, "read_register", read)
+    begin_response()
+    with caplog.at_level(logging.WARNING, logger=oscar.log.name):
+        found = with_oscar_wigos_id(
+            pl.LazyFrame({"station_id": ["06126", "04202"]}), Settings(cache_disable=True), DMI_WIGOS_SCHEME
+        )
+    assert _wigos_ids(found) == {"06126": None, "04202": None}
+    (warning,) = [w for w in recorded_warnings() if w["code"] == WIGOS_IDS_UNAVAILABLE]
+    assert "dmi/observation" in warning["message"]
+
+
+def test_the_registers_are_joined_before_the_rule_is_applied(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Two ids for one local part are two wherever they are listed: one in each territory is as ambiguous as in one."""
+    scheme = NationalWigosScheme(
+        territories=("AAA", "BBB"), issuer=208, issue_numbers=frozenset({0, 1}), provider="x", strip_zeros=False
+    )
+    registers = {"AAA": ["0-208-0-5", "0-208-0-6"], "BBB": ["0-208-1-5", "0-208-0-6", "0-208-0-7"]}
+    monkeypatch.setattr(oscar, "read_register", lambda territory, _settings: registers[territory])
+    found = with_oscar_wigos_id(pl.LazyFrame({"station_id": ["5", "6", "7"]}), Settings(cache_disable=True), scheme)
+    # `0-208-0-6` is in both registers and is one id
+    assert _wigos_ids(found) == {"5": None, "6": "0-208-0-6", "7": "0-208-0-7"}
+
+
+def test_the_warning_of_an_id_listed_twice_is_made_once_for_each_time_the_register_is_read(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Every `_all` of a stations request asks, and the log says it once, not for each."""
+    scheme = NationalWigosScheme(territories=("AAA",), issuer=208, issue_numbers=frozenset({0, 1}), provider="x")
+    monkeypatch.setattr(oscar, "read_register", lambda *_args: ["0-208-0-5", "0-208-1-5", "0-208-0-6"])
+    settings = Settings(cache_disable=True)
+    with caplog.at_level(logging.WARNING, logger=oscar.log.name):
+        for _ in range(3):
+            found = with_oscar_wigos_id(pl.LazyFrame({"station_id": ["5", "6"]}), settings, scheme)
+            assert _wigos_ids(found) == {"5": None, "6": "0-208-0-6"}
+    assert len([record for record in caplog.records if record.levelno == logging.WARNING]) == 1
+
+
+# how the server is asked, and waited for (GH-4074)
+
+
+def test_the_register_is_asked_once_and_waited_for_ten_seconds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A host that drops connections costs a request ten seconds, not the minute of two attempts of 30 s."""
+    asked: list[dict] = []
+
+    def download(**kwargs: object) -> File:
+        asked.append(kwargs)
+        return File(url=str(kwargs["url"]), content=BytesIO(register("FIN")), status=200)
+
+    monkeypatch.setattr(oscar, "download_file", download)
+    read_register("FIN", Settings(cache_disable=True))
+    (kwargs,) = asked
+    assert kwargs["attempts"] == 1
+    assert kwargs["client_kwargs"]["timeout"] == oscar.OSCAR_TIMEOUT == 10
+    assert kwargs["ttl"] is CacheExpiry.ONE_WEEK
+
+
+def test_the_threads_that_ask_together_share_one_read(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The first read of a host that is slow or down is waited for by one thread; the others get what it left."""
+    inside = threading.Event()
+    release = threading.Event()
+    downloads: list[str] = []
+
+    def slow_download(**kwargs: object) -> File:
+        downloads.append(str(kwargs["url"]))
+        inside.set()
+        assert release.wait(10)
+        return File(url=str(kwargs["url"]), content=BytesIO(register("FIN")), status=200)
+
+    monkeypatch.setattr(oscar, "download_file", slow_download)
+    settings = Settings(cache_disable=True)
+    results: list[list[str]] = []
+    threads = [threading.Thread(target=lambda: results.append(read_register("FIN", settings))) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    assert inside.wait(10)
+    release.set()
+    for thread in threads:
+        thread.join(10)
+    assert len(downloads) == 1
+    assert len(results) == 6
+    assert all("0-246-0-101520" in ids for ids in results)
+
+
+def test_the_threads_that_ask_together_of_a_host_that_is_down_share_its_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """One wait for the host, not one for each thread in turn."""
+    inside = threading.Event()
+    release = threading.Event()
+    downloads: list[str] = []
+
+    def down(**kwargs: object) -> File:
+        downloads.append(str(kwargs["url"]))
+        inside.set()
+        assert release.wait(10)
+        return File(url=str(kwargs["url"]), content=TimeoutError(), status=0)
+
+    monkeypatch.setattr(oscar, "download_file", down)
+    settings = Settings(cache_disable=True)
+    errors: list[BaseException] = []
+
+    def ask() -> None:
+        try:
+            read_register("FIN", settings)
+        except DownloadError as error:
+            errors.append(error)
+
+    threads = [threading.Thread(target=ask) for _ in range(5)]
+    for thread in threads:
+        thread.start()
+    assert inside.wait(10)
+    release.set()
+    for thread in threads:
+        thread.join(10)
+    assert len(downloads) == 1
+    assert len(errors) == 5
+
+
+def test_a_rate_limit_of_oscar_is_raised_as_oscars_and_not_remembered(server: _Oscar, tmp_path: Path) -> None:
+    """A 429 is never let go; it names WMO OSCAR as the one that limits, and the next read asks again."""
+    server.status, server.body = 429, b"Too many requests"
+    settings = Settings(cache_dir=tmp_path)
+    for expected in (1, 2):
+        with pytest.raises(ProviderRateLimitError) as raised:
+            read_register("FIN", settings)
+        assert "WMO OSCAR" in raised.value.reason
+        assert "provider" not in raised.value.reason
+        assert raised.value.retry_after is not None
+        assert server.hits == expected
+    server.status, server.body = 200, register("FIN")
+    assert "0-246-0-101520" in read_register("FIN", settings)
+    assert server.hits == 3
+
+
+def test_a_rate_limit_through_the_stations_is_raised_not_turned_into_a_warning(server: _Oscar, tmp_path: Path) -> None:
+    """The repository's rule: a 429 fails the request, where any other failure of the register is a warning."""
+    server.status, server.body = 429, b"Too many requests"
+    with pytest.raises(ProviderRateLimitError):
+        with_oscar_wigos_id(pl.LazyFrame({"station_id": ["100971"]}), Settings(cache_dir=tmp_path), FMI_WIGOS_SCHEME)
 
 
 # the live register

@@ -38,9 +38,10 @@ if TYPE_CHECKING:
 _BASE_URL = "https://opendataapi.dmi.dk/v2/climateData/collections"
 
 #: DMI's `stationId` is the local part of the national WIGOS ids `0-208-0-<stationId>` of WMO's OSCAR/Surface (`06126`
-#: is `0-208-0-06126`, written the same way; GH-4074)
+#: is `0-208-0-06126`, written the same way; GH-4074). OSCAR files the stations of Denmark and the Faroe Islands under
+#: `DNK` and those of Greenland under `GRL` (`0-208-0-04202` is Pituffik), all with the issuer 208
 DMI_WIGOS_SCHEME = NationalWigosScheme(
-    territory="DNK", issuer=208, issue_numbers=frozenset({0}), provider="dmi/observation"
+    territories=("DNK", "GRL"), issuer=208, issue_numbers=frozenset({0}), provider="dmi/observation"
 )
 # DMI accepts a limit of up to 300000 records per page, so a short range is one page. DMI always
 # returns a "next" link regardless, so pagination stops on a short page.

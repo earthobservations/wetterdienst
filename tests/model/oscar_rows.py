@@ -14,7 +14,9 @@
   Malmi alone, and the station whose id has issue number 3 (``0-246-3-000101``, no fmisid);
 - Denmark: ``0-208-0-<stationId>`` beside ``0-20000-0-<WMO number>`` (Copenhagen Airport ``06180`` and Skagen Fyr
   ``06041`` are stations of the stub of DMI's list), and Tranebjerg Syd, which has two ids of the
-  issuer (``0-208-0-06134`` and ``0-208-0-06132``) and one of the WMO's.
+  issuer (``0-208-0-06134`` and ``0-208-0-06132``) and one of the WMO's;
+- Greenland (``GRL``, which OSCAR files apart from Denmark under the same issuer 208): Pituffik ``0-208-0-04202``,
+  Qaanaaq ``04205`` and Nuuk ``04250``.
 
 The stub is a cut of the register: its ``totalCount`` is the number of its rows (the register's are 2,495, 362 and 125).
 `register` gives the body of a country's answer, `served` the file that serves it from the address of the search.
@@ -32,7 +34,7 @@ from wetterdienst.util.network import File
 _ROWS = Path(__file__).parent / "oscar_stub_rows"
 
 #: the countries that have a stub
-TERRITORIES = ("DEU", "FIN", "DNK")
+TERRITORIES = ("DEU", "FIN", "DNK", "GRL")
 
 
 def rows(territory: str) -> list[dict]:
