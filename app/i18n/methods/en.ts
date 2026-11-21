@@ -58,12 +58,12 @@ export const methods: MethodTexts = {
         },
         'yes-amount': {
           text: 'A day with {yesMm} mm or more is "yes, rain is likely".',
-          says: 'WMO\'s guidelines on climate normals list the number of days with precipitation of 1 mm or more among the principal climate parameters that weather services report, so 1 mm is the line WMO uses to count a day as a day with precipitation.',
+          says: 'WMO\'s guidelines on climate normals list the number of days with precipitation of 1 mm or more among the principal climate parameters of its normals (the counts at 5, 10, 50 mm and more are secondary ones), so 1 mm is the line WMO uses to count a day as a day with precipitation.',
         },
         'maybe-amount': {
           text: 'A day with {maybeMm} mm or more, and less than the line for "yes", is "maybe, a little".',
           says: 'WMO\'s guide asks that daily amounts read by hand are read to the nearest 0.2 mm and, if feasible, to the nearest 0.1 mm.',
-          reason: 'So 0.2 mm is the smallest amount that the guide asks to be read by hand, and wetterdienst takes it as the line for "a little". No source gives a line for "maybe".',
+          reason: '0.2 mm is the coarsest reading step the guide allows for a daily amount (the nearest 0.2 mm, and if feasible 0.1 mm), and wetterdienst takes it as the line for "a little". No source gives a line for "maybe".',
         },
         'chance-bands': {
           text: 'A chance of {yesChance} % or more in any one hour is "yes"; {maybeChance} % or more is "maybe".',
@@ -89,7 +89,7 @@ export const methods: MethodTexts = {
         hours: 'The forecast has a value for {given} of the {hours} hours of the day.',
         total: 'Rain of the day: {amount} {unit}, with {wetHours} wet hours (at least {wet} mm).',
         chance: 'Highest chance of more than 0.1 mm in any one hour: {chance}.',
-        bands: 'The lines of the verdict: yes from {yes} mm in the day or a chance of {yesChance} in an hour; maybe from {maybe} mm or a chance of {maybeChance}.',
+        bands: 'The lines of the verdict, in millimetres whatever the unit of the settings: yes from {yes} mm in the day or a chance of {yesChance} in an hour; maybe from {maybe} mm or a chance of {maybeChance}.',
       },
     },
 
@@ -113,8 +113,8 @@ export const methods: MethodTexts = {
           says: 'DWD says that meteorologists divide the year into seasons of three whole months, and give June, July and August as the summer, because climate statistics are made from data of single months.',
         },
         'complete-months': {
-          text: 'A summer counts only if the station has the mean of all three months. DWD gives a monthly mean only when all the daily values of that month are there.',
-          says: 'WMO\'s guidelines say that if the normal of one of the months of a season is missing, the normal of the season is missing as well. DWD\'s description says its monthly means are calculated from the daily values, and only if the daily values are complete.',
+          text: 'A summer counts only if the station has the mean of all three months. DWD calculates a monthly mean from the daily values of the month, and only where they are complete (for some stations it has monthly values and no daily ones).',
+          says: 'WMO\'s guidelines say that if the normal of one of the months of a season is missing, the normal of the season is missing as well. DWD\'s description says its monthly means are calculated from the daily values, and only if the daily values are complete, and that for some stations monthly values exist where no daily values are available.',
         },
         'only-over': {
           text: 'A summer counts once it is over (from 1 September); the summer that is still running is not compared.',
@@ -122,29 +122,31 @@ export const methods: MethodTexts = {
         },
         'summer-mean': {
           text: 'The mean of a summer is the plain mean of the three monthly means, each month counting the same, whatever its number of days.',
-          says: 'WMO\'s guidelines say that a seasonal normal is calculated from the monthly values of its months. Some weather services weight the months by their number of days; WMO says that is not recommended for products that are exchanged between countries.',
+          says: 'WMO\'s guidelines say that a seasonal normal is the mean of the monthly normals of its months. Some weather services weight the months by their number of days; WMO says that is not recommended for products that are exchanged between countries.',
         },
         'reference-period': {
           text: 'The reference is the mean of the summers {from} to {to}.',
           says: 'WMO defines the climatological standard normal as the average over 30 years that ends in a year ending in 0: 1981 to 2010, 1991 to 2020 and so on, calculated again every ten years. A normal is the benchmark that recent observations are compared with.',
         },
         'normal-mean': {
-          text: 'The reference is the mean of the summers of its years, each summer counting the same.',
-          says: 'WMO\'s guidelines say that a seasonal normal is the mean of the monthly normals of its months, which is the same as the mean of the seasonal values when no month is missing.',
+          text: 'The reference is the mean of the complete summers of its years, each summer counting the same. A year in which a month is missing is left out whole.',
+          says: 'WMO\'s guidelines build a seasonal normal as the mean of the three monthly normals of its months, and not from the values of single years. If the normal of one month is missing, the seasonal normal is missing.',
+          reason: 'The chip averages whole summers, so a year with one month missing drops out of the reference entirely, where WMO would still use that year in the other two monthly normals. The two give the same where no month is missing. The way the chip averages is wetterdienst\'s own choice.',
         },
         'min-summers': {
           text: 'The reference needs at least {minSummers} of its {ofSummers} summers. With fewer, the fallback below is used.',
-          says: 'WMO asks for valid monthly values in at least 80 % of the years of the period for a normal, which is 24 or more of 30 years. This chip accepts fewer.',
-          reason: '{minSummers} of {ofSummers} is lower than what WMO asks for a normal, so that stations with gaps still get an answer against the WMO period. It is wetterdienst\'s own line, and the maintainers have to accept it; the reference of such a station is then not a WMO normal in the strict sense.',
+          says: 'WMO asks, for each month, for valid monthly values in at least 80 % of the years of the period for a normal, which is 24 or more of 30 years.',
+          reason: 'The chip counts complete summers (all three months in the same year), not the years of each month, so the line is not WMO\'s and cannot be compared with it one to one. {minSummers} of {ofSummers} is wetterdienst\'s own line, set so that stations with gaps still get an answer against the WMO period, and the maintainers have to accept it; the reference of such a station is then not a WMO normal in the strict sense.',
         },
         'fallback-period': {
           text: 'Where the station has too few summers of the normal, the reference is all the summers of the station before the one asked about.',
-          says: 'WMO calls an average over a period that is not a normal a "provisional normal" or an average, and says that such short periods cannot be considered normals but are still useful.',
+          says: 'WMO calls the mean of monthly values over any specified period an "average", and says that some sources call it a "provisional normal".',
           reason: 'Taking all earlier summers, and not a period that starts in a year ending in 1 as WMO\'s definition of a period average has it, is wetterdienst\'s own choice.',
         },
         'fallback-minimum': {
           text: 'The fallback needs at least {fallbackMin} summers.',
-          says: 'WMO says that for most mean parameters 10 to 12 years of data gave about the same skill as a 30-year period, and that an average over a period of at least ten years is a period average.',
+          says: 'WMO says that for most mean and sum parameters, 10 to 12 years of data gave a predictive skill similar to that of a standard 30-year period.',
+          reason: 'Ten is the lower end of that range, and WMO sets no hard minimum. WMO\'s own definition of a period average, at least ten years starting on 1 January of a year ending in 1, does not fit a fallback of all earlier summers. The line of {fallbackMin} summers is wetterdienst\'s own, and the maintainers have to accept it.',
         },
         'anomaly': {
           text: 'The anomaly is the summer\'s mean minus the reference, in degrees.',
@@ -152,7 +154,7 @@ export const methods: MethodTexts = {
         },
         'usual-band': {
           text: 'A difference of less than {band} °C either way counts as "as usual".',
-          reason: 'A band is needed to say "as usual", and half a degree is smaller than the difference of one summer from the next. No source gives a width for the word, and the maintainers have to accept this one.',
+          reason: 'A band is needed to say "as usual", and half a degree is a round figure chosen by wetterdienst. No source gives a width for the word, and the maintainers have to accept this one.',
         },
         'rank': {
           text: 'The rank is the number of summers of the station that were warmer, plus one.',
@@ -162,7 +164,7 @@ export const methods: MethodTexts = {
       limits: {
         station: 'The answer is the reading of one station that stands in one place. A town or a region can have had another summer; the stations of DWD differ in height, surroundings and instruments.',
         moved: 'A station that was moved, or that changed its instruments or its times of observation, is not corrected for it: the answer is the station\'s series as DWD publishes it. DWD asks that changes in the station height and in the observation times are kept in mind when trends are read.',
-        gaps: 'One missing day takes the month, and so the summer, out of the comparison, because DWD gives a monthly mean only from complete daily values (WMO allows up to 10 missing days). A station with gaps has fewer summers.',
+        gaps: 'One missing day takes the month, and so the summer, out of the comparison, because DWD calculates a monthly mean only from complete daily values (WMO allows up to 10 missing days in a month, and fewer than 5 in a row). A station with gaps has fewer summers.',
         reference: 'The same summer set against another reference period has another anomaly and can have another verdict; the normal 1991 to 2020 is the current one, and it moves on every ten years. How a normal is made is explained on the page "How weather is measured".',
         band: 'The width of "as usual" is wetterdienst\'s own: a difference of just under and just over the band are nearly the same, but have different words.',
       },
@@ -196,7 +198,7 @@ export const methods: MethodTexts = {
           says: 'DWD\'s description of its daily data lists the daily maximum of the wind gust and the daily mean of the wind velocity, both in m/s. WMO asks that the wind speed of reports is an average over 10 minutes.',
         },
         'default-day': {
-          text: 'A link with no day asks about the last 26 December. The reader can pick any day up to yesterday.',
+          text: 'A link with no day asks about the last 26 December whose readings can be in: this year\'s from 28 December on, otherwise last year\'s. The reader can pick any day up to yesterday.',
           reason: 'The day is an example the project chose to show what the answer looks like; it has no meaning for the method. No source applies.',
         },
         'beaufort': {
@@ -205,8 +207,8 @@ export const methods: MethodTexts = {
         },
         'gust-first': {
           text: 'Where the station has a gust for the day, the verdict is read from the gust, otherwise from the mean.',
-          says: 'WMO says that the wind speed of reports is an average over 10 minutes, and that many applications, among them the climatology of wind loads, need the gusts; the 3 second peak gust is one of the two variables it names for routine reading.',
-          reason: 'A gust says more about a rough day than the mean does. The Beaufort table is made for the wind averaged over 10 minutes, so reading a gust of seconds by it is wetterdienst\'s extension, not WMO\'s.',
+          says: 'WMO says that the wind speed of reports is an average over 10 minutes (§5.1.2), and that many applications, among them the climatology of wind loads, need the gusts (§5.1.3); the 3 second peak gust is one of the two variables it names for routine reading. Its Table 5.1 gives the Beaufort forces as wind speed equivalents at a height of 10 m, for estimating wind.',
+          reason: 'A gust says more about a rough day than the mean does. Reported wind is a 10-minute mean and Table 5.1 gives the equivalents of speeds in that sense, so reading a gust of seconds by it is an inference of wetterdienst\'s, not a statement of WMO\'s.',
         },
         'gust-words': {
           text: 'By the gust: calm below force {gustBreezy}, breezy from {gustBreezy}, windy from {gustWindy}, stormy from {gustStormy}.',
@@ -229,7 +231,7 @@ export const methods: MethodTexts = {
       },
       limits: {
         station: 'The wind of one station is not the wind of a town or a region. WMO says it is nearly impossible to find a place where the wind speed is representative of a large area, and that the exposure of the anemometer is the most difficult aspect of wind measurement.',
-        gust: 'A Beaufort force of a gust is not the force of the wind: the table is for the wind averaged over 10 minutes, and a gust lasts seconds. "Stormy" here means a strong gust, not a storm in the sense of a mean wind of force 10.',
+        gust: 'A Beaufort force of a gust is not the force of the wind: reported wind is averaged over 10 minutes, the table gives the equivalents of such speeds, and a gust lasts seconds. "Stormy" here means a strong gust, not a "storm" (force 10 of WMO\'s table) in the sense of a mean wind.',
         missing: 'A day for which the station has neither a gust nor a mean has no answer. Without a gust the word comes from the mean, on the scale that is one force lower.',
         height: 'The Beaufort table is for a height of 10 m above open ground. DWD\'s stations differ in the height of the sensor, and a sensor at another height reads another speed; the page "How weather is measured" gives an example.',
         window: 'The days around the day do not reach beyond yesterday, because later days are not in the data yet.',

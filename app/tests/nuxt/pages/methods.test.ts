@@ -135,6 +135,12 @@ describe('the page in other languages', () => {
     const notes = wrapper.findAll('[data-testid="methods-note"]')
     expect(notes).toHaveLength(CHIPS.length)
     expect(wrapper.find('article#rain h3').attributes('lang')).toBe('en')
+    // only the text says its language: the labels around it (the headings of the parts, the kind of a rule, the own mark, "Source:") are the interface's own (WCAG 3.1.2)
+    const rain = wrapper.find('article#rain')
+    expect(rain.findAll('section[lang], h4[lang], [data-testid="own-mark"][lang]')).toHaveLength(0)
+    expect(rain.find('[data-rule="day"] > p:first-child').attributes('lang')).toBeUndefined()
+    expect(rain.find('[data-rule="day"] > p:nth-child(2)').attributes('lang')).toBe('en')
+    expect(rain.findAll('[data-step]').every(step => step.attributes('lang') === 'en')).toBe(true)
     await useLocale('en')
   })
 

@@ -1,6 +1,6 @@
 import type { TemperatureSource } from '../../answers'
 import type { AnswerAction, ChipApi, ChipPlace, NumberLine } from '../chip'
-import { COVERAGE_REQUESTS_AT_ONCE, hourlyNetworks, hourlyTemperatureIn, mapLimited } from '../../answers'
+import { COVERAGE_REQUESTS_AT_ONCE, HOURLY_TEMPERATURE, hourlyNetworks, hourlyTemperatureIn, mapLimited } from '../../answers'
 import { flagEmoji } from '../../country'
 import { defineChip } from '../chip'
 
@@ -113,7 +113,7 @@ export const download = defineChip({
     },
     numbers: (sources): NumberLine[] => [
       { id: 'count', params: { count: sources.length } },
-      { id: 'parameters', params: { names: 'temperature_air_mean_2m, temperature_air_2m' } },
+      { id: 'parameters', params: { names: HOURLY_TEMPERATURE.join(', ') } },
     ],
   },
 

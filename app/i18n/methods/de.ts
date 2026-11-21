@@ -57,12 +57,12 @@ export const methods: MethodTexts = {
         },
         'yes-amount': {
           text: 'Ein Tag mit {yesMm} mm oder mehr ist „ja, wahrscheinlich Regen“.',
-          says: 'Die Richtlinien der WMO zu Klimanormalwerten führen die Zahl der Tage mit 1 mm Niederschlag oder mehr unter den wichtigsten Klimaparametern auf, die Wetterdienste melden; 1 mm ist also die Grenze, nach der die WMO einen Tag als Tag mit Niederschlag zählt.',
+          says: 'Die Richtlinien der WMO zu Klimanormalwerten führen die Zahl der Tage mit 1 mm Niederschlag oder mehr unter den wichtigsten Klimaparametern ihrer Normalwerte auf (die Zählungen ab 5, 10, 50 mm und mehr gehören zu den nachrangigen); 1 mm ist also die Grenze, nach der die WMO einen Tag als Tag mit Niederschlag zählt.',
         },
         'maybe-amount': {
           text: 'Ein Tag mit {maybeMm} mm oder mehr, aber unter der Grenze für „ja“, ist „vielleicht, ein wenig“.',
           says: 'Der Leitfaden der WMO verlangt, dass von Hand gelesene Tagesmengen auf 0,2 mm genau und, wenn möglich, auf 0,1 mm genau abgelesen werden.',
-          reason: '0,2 mm ist also die kleinste Menge, die der Leitfaden von Hand ablesen lässt, und wetterdienst nimmt sie als Grenze für „ein wenig“. Keine Quelle nennt eine Grenze für „vielleicht“.',
+          reason: '0,2 mm ist der gröbste Ablesestufe, den der Leitfaden für eine Tagesmenge zulässt (auf 0,2 mm genau, wenn möglich auf 0,1 mm), und wetterdienst nimmt ihn als Grenze für „ein wenig“. Keine Quelle nennt eine Grenze für „vielleicht“.',
         },
         'chance-bands': {
           text: 'Eine Wahrscheinlichkeit von {yesChance} % oder mehr in einer einzelnen Stunde ist „ja“; {maybeChance} % oder mehr ist „vielleicht“.',
@@ -88,7 +88,7 @@ export const methods: MethodTexts = {
         hours: 'Die Vorhersage hat für {given} der {hours} Stunden des Tages einen Wert.',
         total: 'Regen des Tages: {amount} {unit}, mit {wetHours} nassen Stunden (mindestens {wet} mm).',
         chance: 'Höchste Wahrscheinlichkeit von mehr als 0,1 mm in einer einzelnen Stunde: {chance}.',
-        bands: 'Die Grenzen der Antwort: ja ab {yes} mm am Tag oder einer Wahrscheinlichkeit von {yesChance} in einer Stunde; vielleicht ab {maybe} mm oder einer Wahrscheinlichkeit von {maybeChance}.',
+        bands: 'Die Grenzen der Antwort, in Millimetern, gleich welche Einheit die Einstellungen haben: ja ab {yes} mm am Tag oder einer Wahrscheinlichkeit von {yesChance} in einer Stunde; vielleicht ab {maybe} mm oder einer Wahrscheinlichkeit von {maybeChance}.',
       },
     },
 
@@ -112,8 +112,8 @@ export const methods: MethodTexts = {
           says: 'Der DWD sagt, dass Meteorologen das Jahr in Jahreszeiten aus drei vollen Monaten teilen und Juni, Juli und August als Sommer nehmen, weil die Statistiken des Klimas aus den Daten einzelner Monate gemacht werden.',
         },
         'complete-months': {
-          text: 'Ein Sommer zählt nur, wenn die Station das Mittel aller drei Monate hat. Der DWD gibt ein Monatsmittel nur an, wenn alle Tageswerte des Monats vorliegen.',
-          says: 'Die Richtlinien der WMO sagen: Fehlt der Normalwert eines der Monate einer Jahreszeit, fehlt auch der Normalwert der Jahreszeit. Die Beschreibung des DWD sagt, seine Monatsmittel würden aus den Tageswerten berechnet, und nur, wenn die Tageswerte vollständig sind.',
+          text: 'Ein Sommer zählt nur, wenn die Station das Mittel aller drei Monate hat. Der DWD berechnet ein Monatsmittel aus den Tageswerten des Monats, und nur, wo sie vollständig sind (für manche Stationen hat er Monatswerte und keine Tageswerte).',
+          says: 'Die Richtlinien der WMO sagen: Fehlt der Normalwert eines der Monate einer Jahreszeit, fehlt auch der Normalwert der Jahreszeit. Die Beschreibung des DWD sagt, seine Monatsmittel würden aus den Tageswerten berechnet, und nur, wenn die Tageswerte vollständig sind, und dass es für manche Stationen Monatswerte gibt, wo keine Tageswerte vorliegen.',
         },
         'only-over': {
           text: 'Ein Sommer zählt, sobald er vorbei ist (ab 1. September); der Sommer, der noch läuft, wird nicht verglichen.',
@@ -121,29 +121,31 @@ export const methods: MethodTexts = {
         },
         'summer-mean': {
           text: 'Das Mittel eines Sommers ist das einfache Mittel der drei Monatsmittel; jeder Monat zählt gleich, gleich wie viele Tage er hat.',
-          says: 'Die Richtlinien der WMO sagen, dass ein Jahreszeiten-Normalwert aus den Monatswerten seiner Monate berechnet wird. Manche Wetterdienste gewichten die Monate nach ihrer Zahl an Tagen; die WMO sagt, das werde für Produkte, die zwischen Ländern ausgetauscht werden, nicht empfohlen.',
+          says: 'Die Richtlinien der WMO sagen, dass ein Jahreszeiten-Normalwert das Mittel der Monatsnormalwerte seiner Monate ist. Manche Wetterdienste gewichten die Monate nach ihrer Zahl an Tagen; die WMO sagt, das werde für Produkte, die zwischen Ländern ausgetauscht werden, nicht empfohlen.',
         },
         'reference-period': {
           text: 'Die Referenz ist das Mittel der Sommer {from} bis {to}.',
           says: 'Die WMO definiert den klimatologischen Standardnormalwert als Durchschnitt über 30 Jahre, der in einem auf 0 endenden Jahr endet: 1981 bis 2010, 1991 bis 2020 und so fort, alle zehn Jahre neu berechnet. Ein Normalwert ist der Maßstab, mit dem aktuelle Beobachtungen verglichen werden.',
         },
         'normal-mean': {
-          text: 'Die Referenz ist das Mittel der Sommer ihrer Jahre, jeder Sommer zählt gleich.',
-          says: 'Die Richtlinien der WMO sagen, dass ein Jahreszeiten-Normalwert das Mittel der Monatsnormalwerte seiner Monate ist; das ist dasselbe wie das Mittel der Jahreszeitenwerte, wenn kein Monat fehlt.',
+          text: 'Die Referenz ist das Mittel der vollständigen Sommer ihrer Jahre, jeder Sommer zählt gleich. Ein Jahr, in dem ein Monat fehlt, fällt ganz heraus.',
+          says: 'Die Richtlinien der WMO bilden einen Jahreszeiten-Normalwert als Mittel der drei Monatsnormalwerte seiner Monate und nicht aus den Werten einzelner Jahre. Fehlt der Normalwert eines Monats, fehlt der Jahreszeiten-Normalwert.',
+          reason: 'Der Chip mittelt ganze Sommer; ein Jahr, in dem ein Monat fehlt, fällt also ganz aus der Referenz, wo die WMO dieses Jahr in den beiden anderen Monatsnormalwerten noch verwenden würde. Wo kein Monat fehlt, kommt dasselbe heraus. Die Art, wie der Chip mittelt, ist eine eigene Wahl von wetterdienst.',
         },
         'min-summers': {
           text: 'Die Referenz braucht mindestens {minSummers} ihrer {ofSummers} Sommer. Bei weniger gilt der Ersatz unten.',
-          says: 'Die WMO verlangt für einen Normalwert gültige Monatswerte in mindestens 80 % der Jahre des Zeitraums, das sind 24 oder mehr von 30 Jahren. Dieser Chip nimmt weniger an.',
-          reason: '{minSummers} von {ofSummers} liegt unter dem, was die WMO für einen Normalwert verlangt, damit auch Stationen mit Lücken eine Antwort gegen den WMO-Zeitraum bekommen. Die Grenze hat wetterdienst selbst gesetzt, und die Maintainer müssen sie annehmen; die Referenz einer solchen Station ist dann kein Normalwert der WMO im strengen Sinn.',
+          says: 'Die WMO verlangt für einen Normalwert, für jeden Monat, gültige Monatswerte in mindestens 80 % der Jahre des Zeitraums, das sind 24 oder mehr von 30 Jahren.',
+          reason: 'Der Chip zählt vollständige Sommer (alle drei Monate im selben Jahr), nicht die Jahre jedes einzelnen Monats; die Grenze ist also nicht die der WMO und lässt sich nicht eins zu eins mit ihr vergleichen. {minSummers} von {ofSummers} ist eine eigene Grenze von wetterdienst, gesetzt, damit auch Stationen mit Lücken eine Antwort gegen den WMO-Zeitraum bekommen, und die Maintainer müssen sie annehmen; die Referenz einer solchen Station ist dann kein Normalwert der WMO im strengen Sinn.',
         },
         'fallback-period': {
           text: 'Hat die Station zu wenige Sommer des Normalwerts, sind die Referenz alle Sommer der Station vor dem erfragten.',
-          says: 'Die WMO nennt einen Durchschnitt über einen Zeitraum, der kein Normalwert ist, „vorläufigen Normalwert“ oder Durchschnitt und sagt, solche kürzeren Zeiträume könnten nicht als Normalwerte gelten, seien aber trotzdem nützlich.',
+          says: 'Die WMO nennt das Mittel von Monatswerten über einen beliebigen festgelegten Zeitraum einen „Durchschnitt“ und sagt, manche Quellen nennten ihn „vorläufigen Normalwert“.',
           reason: 'Alle früheren Sommer zu nehmen, und nicht einen Zeitraum, der in einem auf 1 endenden Jahr beginnt, wie es die Definition des Zeitraumdurchschnitts der WMO vorsieht, ist eine eigene Wahl von wetterdienst.',
         },
         'fallback-minimum': {
           text: 'Der Ersatz braucht mindestens {fallbackMin} Sommer.',
-          says: 'Die WMO sagt, dass bei den meisten Mittelwert-Parametern 10 bis 12 Jahre Daten etwa dieselbe Vorhersagekraft hatten wie ein 30-jähriger Zeitraum, und dass ein Durchschnitt über mindestens zehn Jahre ein Zeitraumdurchschnitt ist.',
+          says: 'Die WMO sagt, dass bei den meisten Mittelwert- und Summen-Parametern 10 bis 12 Jahre Daten eine ähnliche Vorhersagekraft hatten wie ein üblicher 30-jähriger Zeitraum.',
+          reason: 'Zehn ist das untere Ende dieser Spanne, und die WMO setzt kein festes Minimum. Die eigene Definition des Zeitraumdurchschnitts der WMO, mindestens zehn Jahre ab dem 1. Januar eines auf 1 endenden Jahres, passt nicht zu einem Ersatz aus allen früheren Sommern. Die Grenze von {fallbackMin} Sommern ist eine eigene von wetterdienst, und die Maintainer müssen sie annehmen.',
         },
         'anomaly': {
           text: 'Die Abweichung ist das Mittel des Sommers minus die Referenz, in Grad.',
@@ -151,7 +153,7 @@ export const methods: MethodTexts = {
         },
         'usual-band': {
           text: 'Eine Differenz von weniger als {band} °C in die eine oder andere Richtung gilt als „wie üblich“.',
-          reason: 'Für „wie üblich“ braucht es ein Band, und ein halbes Grad ist kleiner als der Unterschied eines Sommers zum nächsten. Keine Quelle nennt eine Breite für das Wort, und die Maintainer müssen diese annehmen.',
+          reason: 'Für „wie üblich“ braucht es ein Band, und ein halbes Grad ist eine runde Zahl, die wetterdienst gewählt hat. Keine Quelle nennt eine Breite für das Wort, und die Maintainer müssen diese annehmen.',
         },
         'rank': {
           text: 'Der Rang ist die Zahl der Sommer der Station, die wärmer waren, plus eins.',
@@ -161,7 +163,7 @@ export const methods: MethodTexts = {
       limits: {
         station: 'Die Antwort ist die Messung einer einzelnen Station, die an einem Ort steht. In einer Stadt oder Region kann der Sommer anders gewesen sein; die Stationen des DWD unterscheiden sich in Höhe, Umgebung und Instrumenten.',
         moved: 'Eine Station, die versetzt wurde oder ihre Instrumente oder Beobachtungszeiten geändert hat, wird dafür nicht korrigiert: Die Antwort ist die Reihe der Station, wie der DWD sie veröffentlicht. Der DWD bittet, Änderungen der Stationshöhe und der Beobachtungszeiten zu beachten, wenn Trends gelesen werden.',
-        gaps: 'Ein fehlender Tag nimmt den Monat und damit den Sommer aus dem Vergleich, weil der DWD ein Monatsmittel nur aus vollständigen Tageswerten angibt (die WMO lässt bis zu 10 fehlende Tage zu). Eine Station mit Lücken hat weniger Sommer.',
+        gaps: 'Ein fehlender Tag nimmt den Monat und damit den Sommer aus dem Vergleich, weil der DWD ein Monatsmittel nur aus vollständigen Tageswerten berechnet (die WMO lässt in einem Monat bis zu 10 fehlende Tage zu, und weniger als 5 in Folge). Eine Station mit Lücken hat weniger Sommer.',
         reference: 'Derselbe Sommer, gegen einen anderen Referenzzeitraum gelegt, hat eine andere Abweichung und kann eine andere Antwort haben; der Normalwert 1991 bis 2020 ist der aktuelle und rückt alle zehn Jahre weiter. Wie ein Normalwert entsteht, steht auf der Seite „So wird Wetter gemessen“.',
         band: 'Die Breite von „wie üblich“ ist eine eigene von wetterdienst: Eine Differenz knapp unter und knapp über dem Band ist fast dasselbe, hat aber verschiedene Wörter.',
       },
@@ -195,7 +197,7 @@ export const methods: MethodTexts = {
           says: 'Die Beschreibung der Tagesdaten des DWD führt das Tagesmaximum der Windböe und das Tagesmittel der Windgeschwindigkeit auf, beide in m/s. Die WMO verlangt, dass die Windgeschwindigkeit in Meldungen ein Mittel über 10 Minuten ist.',
         },
         'default-day': {
-          text: 'Ein Link ohne Tag fragt nach dem letzten 26. Dezember. Die Leserin oder der Leser kann jeden Tag bis gestern wählen.',
+          text: 'Ein Link ohne Tag fragt nach dem letzten 26. Dezember, dessen Messwerte schon da sein können: ab dem 28. Dezember der des laufenden Jahres, sonst der des Vorjahres. Die Leserin oder der Leser kann jeden Tag bis gestern wählen.',
           reason: 'Der Tag ist ein Beispiel, das das Projekt gewählt hat, um zu zeigen, wie die Antwort aussieht; für das Verfahren hat er keine Bedeutung. Keine Quelle trifft hier zu.',
         },
         'beaufort': {
@@ -204,8 +206,8 @@ export const methods: MethodTexts = {
         },
         'gust-first': {
           text: 'Hat die Station für den Tag eine Böe, wird die Antwort aus der Böe gelesen, sonst aus dem Mittel.',
-          says: 'Die WMO sagt, die Windgeschwindigkeit in Meldungen sei ein Mittel über 10 Minuten, und viele Anwendungen, darunter die Klimatologie von Windlasten, brauchen die Böen; die 3-Sekunden-Spitzenböe ist eine der beiden Größen, die sie für das routinemäßige Ablesen nennt.',
-          reason: 'Eine Böe sagt über einen rauen Tag mehr als das Mittel. Die Beaufort-Tabelle ist für den über 10 Minuten gemittelten Wind gemacht; eine Böe von Sekunden damit zu lesen, ist eine Erweiterung von wetterdienst, nicht der WMO.',
+          says: 'Die WMO sagt, die Windgeschwindigkeit in Meldungen sei ein Mittel über 10 Minuten (§5.1.2), und viele Anwendungen, darunter die Klimatologie von Windlasten, brauchen die Böen (§5.1.3); die 3-Sekunden-Spitzenböe ist eine der beiden Größen, die sie für das routinemäßige Ablesen nennt. Ihre Tabelle 5.1 gibt die Beaufort-Stärken als Entsprechungen der Windgeschwindigkeit in 10 m Höhe an, zum Schätzen des Windes.',
+          reason: 'Eine Böe sagt über einen rauen Tag mehr als das Mittel. Der gemeldete Wind ist ein 10-Minuten-Mittel, und die Tabelle 5.1 gibt die Entsprechungen von Geschwindigkeiten in diesem Sinn an; eine Böe von Sekunden damit zu lesen, ist ein Schluss von wetterdienst, keine Aussage der WMO.',
         },
         'gust-words': {
           text: 'Nach der Böe: ruhig unter Stärke {gustBreezy}, leicht windig ab {gustBreezy}, windig ab {gustWindy}, stürmisch ab {gustStormy}.',
@@ -214,7 +216,7 @@ export const methods: MethodTexts = {
         },
         'mean-words': {
           text: 'Nach dem Mittel, wo es keine Böe gibt: ruhig unter Stärke {meanBreezy}, leicht windig ab {meanBreezy}, windig ab {meanWindy}, stürmisch ab {meanStormy}.',
-          says: 'Die Tabelle der WMO nennt Stärke 4 eine mäßige Brise, Stärke 6 eine starke Brise und Stärke 8 einen stürmischen Wind.',
+          says: 'Die Tabelle der WMO nennt Stärke 4 eine mäßige Brise, Stärke 6 einen starken Wind und Stärke 8 einen stürmischen Wind.',
           reason: 'Ein Mittel liegt niedriger als die Böe derselben Stunde, deshalb liegen die Grenzen eine Stärke unter denen für eine Böe. Keine Quelle nennt sie.',
         },
         'around-window': {
@@ -228,7 +230,7 @@ export const methods: MethodTexts = {
       },
       limits: {
         station: 'Der Wind einer Station ist nicht der Wind einer Stadt oder Region. Die WMO sagt, es sei fast unmöglich, einen Ort zu finden, dessen Windgeschwindigkeit für ein großes Gebiet repräsentativ ist, und die Aufstellung des Windmessers sei der schwierigste Punkt der Windmessung.',
-        gust: 'Eine Beaufort-Stärke einer Böe ist nicht die Stärke des Windes: Die Tabelle gilt für den über 10 Minuten gemittelten Wind, und eine Böe dauert Sekunden. „Stürmisch“ heißt hier eine starke Böe, nicht ein Sturm im Sinn eines mittleren Windes der Stärke 10.',
+        gust: 'Eine Beaufort-Stärke einer Böe ist nicht die Stärke des Windes: Der gemeldete Wind ist über 10 Minuten gemittelt, die Tabelle gibt die Entsprechungen solcher Geschwindigkeiten an, und eine Böe dauert Sekunden. „Stürmisch“ heißt hier eine starke Böe, kein schwerer Sturm (Stärke 10 der Tabelle der WMO) im Sinn eines mittleren Windes.',
         missing: 'Ein Tag, für den die Station weder eine Böe noch ein Mittel hat, bekommt keine Antwort. Ohne Böe kommt das Wort aus dem Mittel, auf der Skala, die eine Stärke niedriger liegt.',
         height: 'Die Beaufort-Tabelle gilt für 10 m Höhe über offenem Gelände. Die Stationen des DWD unterscheiden sich in der Höhe des Sensors, und ein Sensor in anderer Höhe misst eine andere Geschwindigkeit; die Seite „So wird Wetter gemessen“ nennt ein Beispiel.',
         window: 'Die Tage um den Tag reichen nicht über gestern hinaus, weil spätere Tage noch nicht in den Daten sind.',

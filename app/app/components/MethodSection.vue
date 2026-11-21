@@ -76,13 +76,13 @@ const link = 'text-primary-700 dark:text-primary-500 underline hover:no-underlin
       <span class="text-muted"> · {{ t('methods.ownCount', { own: ownCount, total: rules.length }) }}</span>
     </p>
 
-    <div :lang="lang" class="mt-5 space-y-6">
+    <div class="mt-5 space-y-6">
       <section :aria-labelledby="`${chip.id}-steps`">
         <h4 :id="`${chip.id}-steps`" class="text-base font-semibold text-highlighted">
           {{ t('methods.stepsTitle') }}
         </h4>
         <ol class="mt-2 list-decimal space-y-2 ps-5 text-gray-600 dark:text-gray-400">
-          <li v-for="step in explanation.steps" :key="step" :data-step="step">
+          <li v-for="step in explanation.steps" :key="step" :lang="lang" :data-step="step">
             {{ fill(method.steps[step] ?? '', params) }}
           </li>
         </ol>
@@ -93,7 +93,7 @@ const link = 'text-primary-700 dark:text-primary-500 underline hover:no-underlin
           {{ t('methods.formulaTitle') }}
         </h4>
         <ul class="mt-2 space-y-2">
-          <li v-for="formula in explanation.formulas" :key="formula" class="overflow-x-auto rounded-lg bg-elevated px-3 py-2 font-mono text-sm text-toned" data-testid="method-formula">
+          <li v-for="formula in explanation.formulas" :key="formula" :lang="lang" class="overflow-x-auto rounded-lg bg-elevated px-3 py-2 font-mono text-sm text-toned" data-testid="method-formula">
             {{ fill(method.formulas[formula] ?? '', params) }}
           </li>
         </ul>
@@ -108,14 +108,14 @@ const link = 'text-primary-700 dark:text-primary-500 underline hover:no-underlin
             <p class="text-sm font-medium text-muted">
               {{ t(`methods.kind.${rule.kind}`) }}
             </p>
-            <p class="mt-0.5 text-gray-700 dark:text-gray-300">
+            <p :lang="lang" class="mt-0.5 text-gray-700 dark:text-gray-300">
               {{ rule.text }}
             </p>
             <p v-if="rule.says" class="mt-1 text-gray-600 dark:text-gray-400">
-              <span class="font-semibold">{{ t('methods.says') }}</span>{{ ' ' }}{{ rule.says }}
+              <span class="font-semibold">{{ t('methods.says') }}</span>{{ ' ' }}<span :lang="lang">{{ rule.says }}</span>
             </p>
             <p v-if="rule.own" class="mt-1 text-gray-600 dark:text-gray-400">
-              <span class="own-mark" data-testid="own-mark">{{ t('ask.explain.own') }}</span>{{ ' ' }}{{ rule.reason }}
+              <span class="own-mark" data-testid="own-mark">{{ t('ask.explain.own') }}</span>{{ ' ' }}<span :lang="lang">{{ rule.reason }}</span>
             </p>
             <div v-if="rule.cites.length" class="mt-1 flex flex-wrap gap-x-1.5 text-sm">
               <span class="text-muted">{{ t(rule.own ? 'ask.explain.compare' : 'ask.explain.source') }}</span>
@@ -135,7 +135,7 @@ const link = 'text-primary-700 dark:text-primary-500 underline hover:no-underlin
         <h4 :id="`${chip.id}-data`" class="text-base font-semibold text-highlighted">
           {{ t('methods.dataTitle') }}
         </h4>
-        <p class="mt-2 text-gray-600 dark:text-gray-400">
+        <p :lang="lang" class="mt-2 text-gray-600 dark:text-gray-400">
           {{ fill(method.data, params) }}
         </p>
         <ul v-if="explanation.data.dataset || explanation.data.parameters.length" class="mt-2 flex flex-wrap gap-2">
@@ -154,9 +154,9 @@ const link = 'text-primary-700 dark:text-primary-500 underline hover:no-underlin
         </h4>
         <ul class="mt-2 space-y-2">
           <li v-for="topic in explanation.topics" :key="topic" class="text-gray-600 dark:text-gray-400">
-            <NuxtLink :to="measurementPath(topic)" :class="link">
+            <NuxtLink :to="measurementPath(topic)" :lang="lang" :class="link">
               {{ measurement[topic].title }}
-            </NuxtLink>: {{ measurement[topic].summary }}
+            </NuxtLink>: <span :lang="lang">{{ measurement[topic].summary }}</span>
             <template v-if="parameterPatterns(topic).length">
               {{ ' ' }}<NuxtLink :to="{ path: '/glossary', query: { topic } }" :class="link">
                 {{ t('measurement.fieldsLink') }}
@@ -171,7 +171,7 @@ const link = 'text-primary-700 dark:text-primary-500 underline hover:no-underlin
           {{ t('methods.limitsTitle') }}
         </h4>
         <ul class="mt-2 list-disc space-y-2 ps-5 text-gray-600 dark:text-gray-400">
-          <li v-for="limit in explanation.limits" :key="limit">
+          <li v-for="limit in explanation.limits" :key="limit" :lang="lang">
             {{ fill(method.limits[limit] ?? '', params) }}
           </li>
         </ul>

@@ -237,7 +237,11 @@ test.describe('the explanation under an answer (GH-3764)', () => {
     await page.getByTestId('explanation-button').click()
     // a language with no text of its own: the note, and the text in English, marked as such
     await expect(page.getByTestId('explanation-note')).toBeVisible()
-    await expect(page.locator('section[lang="en"]').filter({ has: page.getByTestId('explanation-numbers') })).toHaveCount(1)
+    await expect(page.getByTestId('explanation-numbers').locator('li[lang="en"]').first()).toBeVisible()
+    // the labels around the text are the interface's own and say no language of their own (WCAG 3.1.2)
+    await expect(page.getByTestId('explanation-button')).not.toHaveAttribute('lang', /.+/)
+    await expect(page.locator('[data-testid="explanation-region"] h5').first()).not.toHaveAttribute('lang', /.+/)
+    await expect(page.locator('[data-testid="explanation-region"] section[lang]')).toHaveCount(0)
   })
 
   test('is on every chip, the list of services included', async ({ page, baseURL }) => {

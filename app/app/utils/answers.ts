@@ -357,7 +357,7 @@ export function windWindow(day: string, now: DateTime): { from: string, to: stri
 // ---------------------------------------------------------------------------------------------------------------
 
 /** The names a provider gives the hourly air temperature at 2 m: a reading at the hour, or the mean of the hour */
-const HOURLY_TEMPERATURE = ['temperature_air_mean_2m', 'temperature_air_2m']
+export const HOURLY_TEMPERATURE = ['temperature_air_mean_2m', 'temperature_air_2m']
 
 export interface TemperatureSource {
   provider: string

@@ -215,7 +215,7 @@ describe('what is marked as wetterdienst\'s own', () => {
   // what the page says is the project's own, so it is a line of a diff that is read.
   const OWN: Record<string, string[]> = {
     rain: ['nearest-point', 'day', 'min-hours', 'day-total', 'maybe-amount', 'chance-bands', 'highest-chance'],
-    summer: ['only-over', 'min-summers', 'fallback-period', 'usual-band', 'rank'],
+    summer: ['only-over', 'normal-mean', 'min-summers', 'fallback-period', 'fallback-minimum', 'usual-band', 'rank'],
     wind: ['default-day', 'gust-first', 'gust-words', 'mean-words', 'around-window', 'stronger-count'],
     download: ['networks', 'hourly-temperature', 'order'],
   }
@@ -246,6 +246,14 @@ describe('the works cited', () => {
     }
     expect(Object.keys(en.works).sort()).toEqual([...WORK_IDS].sort())
     expect(Object.keys(de.works).sort()).toEqual([...WORK_IDS].sort())
+  })
+
+  it('say the same in German and English: the same figures and names', () => {
+    const figures = (text: string) => (text.match(/\d+(?:[.,]\d+)?/g) ?? []).map(figure => figure.replace(',', '.'))
+    for (const id of WORK_IDS) {
+      expect(placeholders(de.works[id].plain), id).toEqual(placeholders(en.works[id].plain))
+      expect(figures(de.works[id].plain), id).toEqual(figures(en.works[id].plain))
+    }
   })
 
   it('have anchors that are plain lower case words', () => {

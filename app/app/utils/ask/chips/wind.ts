@@ -111,7 +111,7 @@ export const wind = defineChip({
       // how a speed becomes a force
       { id: 'beaufort', kind: 'band', values: { edges: BEAUFORT }, cites: [{ work: 'wmo-8-i', at: '§5.1.4, Table 5.1' }] },
       // how a force becomes a word
-      { id: 'gust-first', kind: 'statistic', own: true, cites: [{ work: 'wmo-8-i', at: '§5.1.3, §5.1.4' }] },
+      { id: 'gust-first', kind: 'statistic', own: true, cites: [{ work: 'wmo-8-i', at: '§5.1.2, §5.1.3, §5.1.4' }] },
       { id: 'gust-words', kind: 'band', values: { gustBreezy: WIND_FORCES_OF_GUST.breezy, gustWindy: WIND_FORCES_OF_GUST.windy, gustStormy: WIND_FORCES_OF_GUST.stormy }, own: true, cites: [{ work: 'wmo-8-i', at: 'Table 5.1' }, { work: 'dwd-warnings' }] },
       { id: 'mean-words', kind: 'band', values: { meanBreezy: WIND_FORCES_OF_MEAN.breezy, meanWindy: WIND_FORCES_OF_MEAN.windy, meanStormy: WIND_FORCES_OF_MEAN.stormy }, own: true, cites: [{ work: 'wmo-8-i', at: 'Table 5.1' }] },
       // what the day is set beside

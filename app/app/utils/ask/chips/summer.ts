@@ -86,11 +86,11 @@ export const summer = defineChip({
       { id: 'summer-mean', kind: 'statistic', cites: [{ work: 'wmo-1203', at: '§4.3.3 (a), note 1' }] },
       // what it is compared with
       { id: 'reference-period', kind: 'period', values: { from: NORMAL_FROM, to: NORMAL_TO }, cites: [{ work: 'wmo-1203', at: '§2, §3' }] },
-      { id: 'normal-mean', kind: 'statistic', cites: [{ work: 'wmo-1203', at: '§4.3.3 (a)' }] },
+      { id: 'normal-mean', kind: 'statistic', own: true, cites: [{ work: 'wmo-1203', at: '§4.3.3 (a)' }] },
       { id: 'min-summers', kind: 'fallback', values: { minSummers: NORMAL_MIN_SUMMERS, ofSummers: NORMAL_TO - NORMAL_FROM + 1 }, own: true, cites: [{ work: 'wmo-1203', at: '§4.4.2' }] },
       // where the station has too few of them
-      { id: 'fallback-period', kind: 'fallback', own: true, cites: [{ work: 'wmo-1203', at: '§3, §5.2.3' }] },
-      { id: 'fallback-minimum', kind: 'fallback', values: { fallbackMin: FALLBACK_MIN_SUMMERS }, cites: [{ work: 'wmo-1203', at: '§3, §5.2.3' }] },
+      { id: 'fallback-period', kind: 'fallback', own: true, cites: [{ work: 'wmo-1203', at: '§3' }] },
+      { id: 'fallback-minimum', kind: 'fallback', values: { fallbackMin: FALLBACK_MIN_SUMMERS }, own: true, cites: [{ work: 'wmo-1203', at: '§5.2.3' }] },
       // the verdict
       { id: 'anomaly', kind: 'statistic', cites: [{ work: 'wmo-1203', at: '§2' }] },
       { id: 'usual-band', kind: 'band', values: { band: USUAL_BAND }, cites: [], own: true },

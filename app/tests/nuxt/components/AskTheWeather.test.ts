@@ -247,8 +247,8 @@ describe('the suggestions', () => {
     // each rule is its source, linked to its entry of the works cited, or the mark that it is wetterdienst's own
     const rules = wrapper.findAll('[data-testid="explanation-rules"] > li')
     expect(rules.map(rule => rule.attributes('data-rule'))).toEqual(['season', 'complete-months', 'only-over', 'summer-mean', 'reference-period', 'normal-mean', 'min-summers', 'fallback-period', 'fallback-minimum', 'anomaly', 'usual-band', 'rank'])
-    expect(rules.filter(rule => rule.attributes('data-own') !== undefined).map(rule => rule.attributes('data-rule'))).toEqual(['only-over', 'min-summers', 'fallback-period', 'usual-band', 'rank'])
-    expect(wrapper.findAll('[data-testid="own-mark"]')).toHaveLength(5)
+    expect(rules.filter(rule => rule.attributes('data-own') !== undefined).map(rule => rule.attributes('data-rule'))).toEqual(['only-over', 'normal-mean', 'min-summers', 'fallback-period', 'fallback-minimum', 'usual-band', 'rank'])
+    expect(wrapper.findAll('[data-testid="own-mark"]')).toHaveLength(7)
     const season = rules[0]!
     expect(season.findAll('a').map(link => link.attributes('href'))).toEqual(['/methods#work-dwd-seasons', '/methods#work-dwd-summer'])
     // the data: the provider, the dataset, the licence the provider's terms give, and the same data in the Explorer

@@ -120,29 +120,29 @@ const link = 'text-primary-700 dark:text-primary-500 underline hover:no-underlin
             {{ note }}
           </p>
 
-          <section :lang="lang" aria-labelledby="explain-numbers">
+          <section aria-labelledby="explain-numbers">
             <h5 id="explain-numbers" class="font-semibold text-highlighted">
               {{ t('ask.explain.numbers') }}
             </h5>
             <ul class="mt-1.5 list-disc space-y-1 ps-5 text-toned" data-testid="explanation-numbers">
-              <li v-for="line in numbers" :key="line.id">
+              <li v-for="line in numbers" :key="line.id" :lang="lang">
                 {{ line.text }}
               </li>
             </ul>
           </section>
 
-          <section :lang="lang" aria-labelledby="explain-rules">
+          <section aria-labelledby="explain-rules">
             <h5 id="explain-rules" class="font-semibold text-highlighted">
               {{ t('ask.explain.rules') }}
             </h5>
             <ul class="mt-1.5 space-y-3" data-testid="explanation-rules">
               <li v-for="rule in rules" :key="rule.id" :data-rule="rule.id" :data-own="rule.own ? '' : undefined">
-                <p class="text-toned">
+                <p :lang="lang" class="text-toned">
                   {{ rule.text }}
                 </p>
                 <p v-if="rule.own" class="mt-0.5 text-muted">
                   <span class="own-mark" data-testid="own-mark">{{ t('ask.explain.own') }}</span>
-                  {{ ' ' }}{{ rule.reason }}
+                  {{ ' ' }}<span :lang="lang">{{ rule.reason }}</span>
                 </p>
                 <div v-if="rule.cites.length" class="mt-0.5 flex flex-wrap gap-x-1.5 text-muted">
                   <span>{{ t(rule.own ? 'ask.explain.compare' : 'ask.explain.source') }}</span>
@@ -158,11 +158,11 @@ const link = 'text-primary-700 dark:text-primary-500 underline hover:no-underlin
             </ul>
           </section>
 
-          <section :lang="lang" aria-labelledby="explain-data">
+          <section aria-labelledby="explain-data">
             <h5 id="explain-data" class="font-semibold text-highlighted">
               {{ t('ask.explain.data') }}
             </h5>
-            <p class="mt-1.5 text-toned">
+            <p :lang="lang" class="mt-1.5 text-toned">
               {{ fill(method.data, params) }}
             </p>
             <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-muted">
@@ -203,16 +203,16 @@ const link = 'text-primary-700 dark:text-primary-500 underline hover:no-underlin
             </p>
           </section>
 
-          <section :lang="lang" aria-labelledby="explain-terms">
+          <section aria-labelledby="explain-terms">
             <h5 id="explain-terms" class="font-semibold text-highlighted">
               {{ t('ask.explain.terms') }}
             </h5>
             <ul class="mt-1.5 space-y-2" data-testid="explanation-terms">
               <li v-for="term in topics" :key="term.topic">
-                <NuxtLink :to="measurementPath(term.topic)" :class="link">
+                <NuxtLink :to="measurementPath(term.topic)" :lang="lang" :class="link">
                   {{ term.title }}
                 </NuxtLink>
-                <span class="text-muted">: {{ term.summary }}</span>
+                <span class="text-muted">: <span :lang="lang">{{ term.summary }}</span></span>
                 <template v-if="term.glossary">
                   {{ ' ' }}<NuxtLink :to="{ path: '/glossary', query: { topic: term.topic } }" :class="link">
                     {{ t('measurement.fieldsLink') }}
@@ -222,12 +222,12 @@ const link = 'text-primary-700 dark:text-primary-500 underline hover:no-underlin
             </ul>
           </section>
 
-          <section :lang="lang" aria-labelledby="explain-limits">
+          <section aria-labelledby="explain-limits">
             <h5 id="explain-limits" class="font-semibold text-highlighted">
               {{ t('ask.explain.limits') }}
             </h5>
             <ul class="mt-1.5 list-disc space-y-1 ps-5 text-toned" data-testid="explanation-limits">
-              <li v-for="id in explanation.limits" :key="id">
+              <li v-for="id in explanation.limits" :key="id" :lang="lang">
                 {{ fill(method.limits[id] ?? '', params) }}
               </li>
             </ul>

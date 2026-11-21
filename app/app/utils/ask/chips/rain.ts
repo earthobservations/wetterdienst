@@ -16,6 +16,9 @@ const SCALE = {
 /** What it fetches: the hourly amounts and the chance of rain of the MOSMIX point nearest the place */
 const FETCH = { provider: 'dwd', network: 'mosmix', dataset: 'hourly/large' } as const
 
+/** The parameters the answer is worked out from, which the explanation lists and the link into the Explorer opens: the hourly amount, its 6, 12 and 24 hour totals and the chance of rain */
+const EXPLAINED_PARAMETERS = [RAIN_AMOUNT, 'precipitation_amount_significant_weather_last_6h', 'precipitation_amount_significant_weather_last_12h', 'precipitation_amount_significant_weather_last_24h', RAIN_CHANCE] as const
+
 interface Loaded {
   point: Station
   readings: Value[]
@@ -116,9 +119,9 @@ export const rain = defineChip({
       provider: FETCH.provider,
       network: FETCH.network,
       dataset: FETCH.dataset,
-      parameters: [RAIN_AMOUNT, 'precipitation_amount_significant_weather_last_6h', 'precipitation_amount_significant_weather_last_12h', 'precipitation_amount_significant_weather_last_24h', RAIN_CHANCE],
+      parameters: EXPLAINED_PARAMETERS,
       open: (_env, _choices, loaded) => loaded
-        ? { path: '/explorer', query: { mode: 'station', provider: FETCH.provider, network: FETCH.network, resolution: 'hourly', dataset: 'large', parameters: `${RAIN_AMOUNT},${RAIN_CHANCE}`, stations: loaded.point.station_id } }
+        ? { path: '/explorer', query: { mode: 'station', provider: FETCH.provider, network: FETCH.network, resolution: 'hourly', dataset: 'large', parameters: EXPLAINED_PARAMETERS.join(','), stations: loaded.point.station_id } }
         : null,
     },
     numbers(answer, loaded, env) {
