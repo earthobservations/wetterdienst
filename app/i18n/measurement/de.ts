@@ -22,6 +22,23 @@ const DWD_DAILY = 'https://opendata.dwd.de/climate_environment/CDC/observations_
 const DWD_KL = 'opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/'
 const STATION_FILES = `DWD Climate Data Center, Dateien in den Stationsarchiven von ${DWD_KL}recent/ (tageswerte_KL_03987_akt.zip, tageswerte_KL_01420_akt.zip) und ${DWD_KL}historical/ (tageswerte_KL_01048_19340101_20251231_hist.zip), am 20. November 2026 gelesen für Potsdam (03987), Dresden-Klotzsche (01048) und Frankfurt/Main (01420):`
 
+/** Die stündlichen Datensätze des DWD: die Stationsdateien der Einträge zu Druck, Feuchte, Strahlung und Sichtweite stecken in den Archiven dieser Ordner */
+const DWD_HOURLY = 'opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/'
+const DWD_HOURLY_PRESSURE = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/pressure/BESCHREIBUNG_obsgermany_climate_hourly_pressure_de.pdf'
+const DWD_HOURLY_HUMIDITY = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/air_temperature/BESCHREIBUNG_obsgermany_climate_hourly_air_temperature_de.pdf'
+const DWD_HOURLY_SOLAR = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/solar/BESCHREIBUNG_obsgermany_climate_hourly_solar_de.pdf'
+const DWD_HOURLY_VISIBILITY = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/visibility/BESCHREIBUNG_obsgermany_climate_hourly_visibility_de.pdf'
+const NOAA_GHCNH = 'https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf'
+
+/** Der stündliche Datensatz der NOAA, den die Einträge zu Druck, Feuchte und Sichtweite nennen, wo sich Anbieter unterscheiden */
+function ghcnh(plain: string, citation: string): MeasurementSource {
+  return {
+    plain: `Die National Centers for Environmental Information (NCEI) der amerikanischen NOAA veröffentlichen GHCNh, die stündlichen Beobachtungen von Wetterstationen aus der ganzen Welt. ${plain}`,
+    citation: `NOAA NCEI. Global Historical Climatology Network hourly (GHCNh), documentation, version 1.1.0 (10 March 2026). ${citation}`,
+    href: NOAA_GHCNH,
+  }
+}
+
 /** Was die WMO ist, einmal, für jeden Eintrag, der ihren Leitfaden nennt */
 const WMO_PLAIN = 'Die Weltorganisation für Meteorologie (WMO) ist die Organisation der Vereinten Nationen, in der sich die nationalen Wetterdienste darauf einigen, wie Wetter gemessen und verglichen wird. Der Leitfaden Guide to Instruments and Methods of Observation ist ihr Handbuch dafür.'
 
@@ -91,6 +108,127 @@ export const measurement: MeasurementTexts = {
         'Die Dateien, die zu den Daten jeder Station gehören, sagen, welches Instrument in welcher Höhe benutzt wurde und was ein Tageswert abdeckt.',
         `${STATION_FILES} Metadaten_Geraete_Lufttemperatur_*, Metadaten_Geraete_Lufttemp_Am_Erdb_Minimum_* und Metadaten_Parameter_klima_tag_*; Datensatzbeschreibung „Tägliche Stationsbeobachtungen (Temperatur, Druck, Niederschlag, Sonnenscheindauer, etc.) für Deutschland“, Version v24.3 (2024).`,
         DWD_DAILY,
+      ),
+    ],
+  },
+
+  'pressure': {
+    title: 'Luftdruck und seine Umrechnung auf Meereshöhe',
+    summary: 'Der Luftdruck ist das Gewicht der Luft über der Station. Um Stationen in verschiedenen Höhen zu vergleichen, wird er auf Meereshöhe umgerechnet, und diese Zahl ist eine Rechnung und keine Messung.',
+    parts: [
+      {
+        title: 'Wie gemessen wird',
+        paragraphs: [
+          'Der Luftdruck ist die Kraft, die das Gewicht der Luft über einer Fläche auf jede Flächeneinheit ausübt. Die Einheit ist das Pascal; in der Meteorologie ist es das Hektopascal (hPa), das 100 Pa entspricht und dasselbe ist wie das ältere Millibar.',
+          'Der Luftdruck wird meist mit elektronischen oder Aneroid-Barometern gemessen. In einem Aneroid-Barometer wird eine geschlossene, teilweise luftleer gepumpte Metalldose von der Luft eingedrückt, eine Feder hält sie davon ab zusammenzufallen, und die Verformung wird mechanisch oder elektrisch abgelesen. Elektronische Barometer wandeln den Druck in ein elektrisches Signal um, zum Beispiel indem sie messen, wie weit sich eine dünne Membran aus Silizium, Keramik oder Metall durchbiegt, wie ein Quarzelement zusammengedrückt wird oder wie sich die Schwingungsfrequenz eines dünnen Zylinders ändert. Quecksilberbarometer sind noch im Einsatz, werden von der WMO aber nicht mehr empfohlen.',
+          'Das Barometer braucht einen Ort ohne Zugluft und eine feste, erschütterungsfreie Halterung. Der Wind ist die Hauptquelle von Störungen: In Innenräumen baut ein starker, böiger Wind rund um das Gebäude Druck auf und ab, was der Anzeige 2 oder 3 hPa hinzufügen kann, und eine Klimaanlage kann einen Druckunterschied zwischen einem Raum und draußen erzeugen. Ein statischer Kopf, ein Einlass, der das Barometer mit der Außenluft verbindet, vermeidet das zum größten Teil.',
+        ],
+      },
+      {
+        title: 'Wie aus einer Messung ein Wert wird',
+        paragraphs: [
+          'Ein Barometer wird normalerweise so eingestellt, dass es den Druck in seiner eigenen Höhe anzeigt, den Stationsdruck. Wie andere Messwerte wird er gemittelt: Die Anforderungstabelle der WMO nennt für die Ausgabe einer Druckmessung 1 Minute, und ein gemeldeter Wert steht laut Übereinkunft für die vorangegangenen 1 bis 10 Minuten.',
+          'Weil der Luftdruck das Gewicht der Luft darüber ist, lassen sich die Messwerte von Stationen in verschiedenen Höhen nicht einfach vergleichen. Die WMO sagt, dass sie auf dieselbe Höhe umgerechnet werden müssen, und empfiehlt Meereshöhe für jede Station, bei der das mit angemessener Genauigkeit möglich ist. Die Umrechnung wird aus dem Stationsdruck, der Höhe der Station, der Temperatur an der Station und dem Wasserdampfdruck dort berechnet, für eine gedachte Luftsäule zwischen der Station und dem Meeresspiegel, in der die Temperatur mit der Höhe um 0,0065 K je Meter abnehmen soll. Die WMO gibt diese Formel für Stationen unter 750 m an und eine einfachere für Stationen unter 50 m, die dem Stationsdruck eine Konstante hinzufügt.',
+          'Die Drucktendenz ist, wie sich der Druck in den letzten drei Stunden geändert hat: der Unterschied zwischen dem Wert am Ende und dem am Anfang. Die WMO weist darauf hin, dass die Fehler zweier Messwerte desselben Barometers teilweise systematisch sind und innerhalb von drei Stunden wahrscheinlich dasselbe Vorzeichen haben, sich in der Differenz also weitgehend aufheben.',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Die WMO fordert eine Unsicherheit von 0,1 hPa und nennt 0,15 hPa als das im Betrieb Erreichbare; ein gut gebautes Aneroid-Barometer kann 0,3 hPa erreichen. Barometer driften zwischen den Kalibrierungen, vor allem wenn sie neu sind, was die WMO als eine der wichtigsten Fehlerquellen bezeichnet, und sie empfiehlt, sie oft zu prüfen, zunächst etwa einmal im Jahr.',
+          'Auch diese Zahlen setzen Schutz vor dem Wind voraus: Die WMO weist darauf hin, dass die Unsicherheit stark vom dynamischen Druck des Windes beeinflusst wird, wenn keine Vorkehrungen getroffen sind, und dass ein Sensor, dessen Temperatur nicht gut genug ausgeglichen wird, deutlich beeinflusst werden kann.',
+          'Der Druck auf Meereshöhe wird nicht auf Meereshöhe gemessen. Er ist eine Berechnung dessen, was der Druck an dem Punkt unter der Station wäre, und enthält deshalb die Fehler von allem, was in sie eingeht: den Stationsdruck, die Höhe der Station und die Temperatur, die für die gedachte Luftsäule angenommen wird. Wo eine Umrechnung auf Meereshöhe nicht mit angemessener Genauigkeit möglich ist, bittet die WMO eine Station, stattdessen etwas anderes zu melden: die Höhe einer vereinbarten Druckfläche oder den auf eine vereinbarte Höhe der Station umgerechneten Druck.',
+        ],
+      },
+      {
+        title: 'Wo sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Anbieter veröffentlichen unterschiedliche Drücke, und die Namen sind wichtig. Der stündliche Datensatz GHCNh der NOAA hat drei: den Stationsdruck, an der Station beobachtet; den Druck auf Meereshöhe, berechnet mit den Temperaturen, die tatsächlich an der Station herrschen; und die Höhenmessereinstellung (altimeter), berechnet mit dem Temperaturprofil einer „Standard“-Atmosphäre, die für die mittleren Verhältnisse über den Vereinigten Staaten auf 40 Grad Nord steht. Die letzten beiden sind beide auf Meereshöhe umgerechnet, und es ist nicht dieselbe Zahl. Wetterdienst hält sie auseinander: pressure_air_site ist der Druck in Stationshöhe, pressure_air_sea_level der auf mittlere Meereshöhe umgerechnete Druck und pressure_air_site_reduced die Höhenmessereinstellung, umgerechnet mit der Standardatmosphäre.',
+          'Die stündlichen Druckdaten des DWD haben für jede Station zwei Werte, den auf Meereshöhe („NN“) umgerechneten Druck und den Druck in Stationshöhe. Seine Stationsdateien sagen, dass beide aus den SYNOP-Wettermeldungen der Station stammen, den international verschlüsselten Beobachtungen, und dass die Zeiten in UTC sind.',
+          'Auch das Instrument steht in den Stationsdateien. In Potsdam, das 80,86 m über dem Meeresspiegel liegt, führt der DWD seit dem 20. November 2015 ein Digitalbarometer vom Typ PTB 330 auf, von 1992 bis 2015 ein Digitalbarometer vom Typ AIR-DB und davor ein konventionelles Stationsbarometer.',
+          'Wetterdienst liefert den Druck standardmäßig in Hektopascal, welche Einheit der Anbieter auch benutzt.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Aus Band I, Kapitel 3 zum Luftdruck stammen in diesem Eintrag die Definition, die Barometer, der Einfluss des Windes, die typischen Fehler und die Umrechnung auf Meereshöhe. Kapitel 1 desselben Bandes enthält die Tabelle der Unsicherheiten, die die WMO fordert.',
+        'Volume I, Chapter 3 (Measurement of atmospheric pressure), sections 3.1.1, 3.1.2, 3.1.4.1, 3.1.4.2, 3.1.4.3.2, 3.1.4.3.3, 3.2.1, 3.2.2, 3.2.3, 3.2.6, 3.2.7.1, 3.3.1, 3.3.2, 3.5.1, 3.5.2, 3.7, 3.7.1, 3.7.2, 3.7.3; Volume I, Chapter 1 (General), Annex 1.A, row 3.1.',
+        WMO_I,
+      ),
+      wmoGuideV(
+        'Aus Band V, Kapitel 3 zur Datenreduktion stammt in diesem Eintrag die Regel, dass ein gemeldeter Wert für die vorangegangenen 1 bis 10 Minuten steht.',
+        'Volume V (Quality assurance and management of observing systems), Chapter 3 (Data reduction), section 3.5.',
+      ),
+      ghcnh(
+        'Ihre Dokumentation sagt, was jedes Element ist, darunter die drei Arten von Druck, die dieser Eintrag nennt.',
+        'Section IV (List of Elements/Variables), Table 1: station_level_pressure, sea_level_pressure, altimeter.',
+      ),
+      dwdFiles(
+        'Die Dateien, die zu den Daten jeder Station gehören, sagen, welches Instrument in welcher Höhe benutzt wurde und woher die Werte stammen.',
+        `DWD Climate Data Center, Dateien im Stationsarchiv stundenwerte_P0_03987_akt.zip in ${DWD_HOURLY}pressure/recent/, am 21. November 2026 gelesen für Potsdam (03987): Metadaten_Geraete_Luftdruck_Reduziert_*, Metadaten_Geraete_Luftdruck_Stationshoehe_*, Metadaten_Parameter_p0_stunde_* und Metadaten_Geographie_*; Datensatzbeschreibung „Stündliche Stationsmessungen des Luftdrucks für Deutschland“ (Version v24.03, 2024).`,
+        DWD_HOURLY_PRESSURE,
+      ),
+    ],
+  },
+
+  'humidity': {
+    title: 'Luftfeuchte und Taupunkt',
+    summary: 'Die Luftfeuchte wird auf mehrere Arten angegeben. Die relative Feuchte ist ein Prozentwert, der von der Temperatur abhängt, und der Taupunkt wird meist berechnet und nicht gemessen.',
+    parts: [
+      {
+        title: 'Wie gemessen wird',
+        paragraphs: [
+          'Die Luftfeuchte ist, wie viel Wasserdampf die Luft enthält, und sie wird auf mehrere Arten angegeben. Die relative Feuchte ist der Anteil in Prozent des vorhandenen Wasserdampfdrucks am höchsten, den er bei dieser Temperatur und diesem Druck haben könnte, wenn die Luft gesättigt ist. Der Taupunkt ist die Temperatur, bei der die Luft mit Wasserdampf gesättigt wäre; wird die Luft darauf abgekühlt, kann sich Tau oder Reif bilden. Der Dampfdruck ist der Teil des Luftdrucks, den der Wasserdampf ausmacht. Die absolute Feuchte ist die Masse Wasserdampf in einem Luftvolumen.',
+          'Jedes Instrument, das die Luftfeuchte misst, ist ein Hygrometer. Die meisten Wetterstationen benutzen heute ein elektronisches: Ein dünner Polymerfilm zwischen zwei Elektroden nimmt Wasserdampf aus der Luft auf, wodurch sich seine elektrischen Eigenschaften ändern, und die Änderung wird als relative Feuchte abgelesen. Ein Psychrometer hat zwei Thermometer nebeneinander, eines davon mit einer nassen Hülle; das Wasser, das verdunstet, kühlt es ab, und je trockener die Luft ist, desto größer ist der Unterschied zwischen beiden. Psychrometer sind noch im Einsatz, werden aber mehr und mehr von elektronischen Sensoren ersetzt. Unter dem Gefrierpunkt ist die nasse Hülle mit einer dünnen Eisschicht überzogen, und die Berechnung unterscheidet sich für eine Kugel mit Eis und eine mit unterkühltem Wasser. Ein Taupunktspiegel-Hygrometer kühlt einen kleinen Spiegel ab, bis sich Tau oder Reif darauf bildet, und misst die Temperatur des Spiegels, das ist der Taupunkt; es wird meist als Referenz benutzt.',
+          'Der Sensor sitzt in einem Strahlungsschutz wie dem des Thermometers, geschützt vor direktem Sonnenlicht, Schmutz, Regen und Wind, und sein Gehäuse darf kein eigenes kleines Klima um ihn herum erzeugen. Eine Temperaturmessung ist immer nebenher nötig, weil die relative Feuchte stark von der Temperatur abhängt und weil andere Größen, etwa der Taupunkt, aus beiden berechnet werden.',
+        ],
+      },
+      {
+        title: 'Wie aus einer Messung ein Wert wird',
+        paragraphs: [
+          'Was ein Hygrometer liefert, ist eine relative Feuchte. Der Taupunkt wird aus ihr und aus der Lufttemperatur berechnet, mit Formeln, die die WMO 1990 angenommen hat, wenn er nicht direkt mit einem Taupunktspiegel gemessen wird.',
+          'Ein Feuchtewert ist wie die anderen Werte ein Mittelwert, der für die vorangegangenen 1 bis 10 Minuten steht. Die WMO sagt, dass eine Zeitkonstante von etwa 1 Minute für die meisten Zwecke passt, und ihre Anforderungstabelle nennt 40 Sekunden für Festkörpersensoren und 20 Sekunden für den Taupunkt.',
+          'Die WMO weist darauf hin, dass das Mitteln einer Größe, die sich nicht proportional ändert, schwierig ist, wenn sie sich während des Mittelungszeitraums ändert. Für den Taupunkt nennt ihre Tabelle die absolute Feuchte als die Größe, die gemittelt werden soll, und sagt, dass Taupunkt, relative Feuchte und Lufttemperatur zusammenhängen und ihre Unsicherheiten ebenfalls.',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Die WMO fordert eine Unsicherheit von 1 % relativer Feuchte und 0,1 K für den Taupunkt und nennt, was im Betrieb erreichbar ist: 3 % für Festkörpersensoren und 0,25 K für den Taupunkt. Sie fügt hinzu, dass diese Unsicherheiten in der Praxis nicht leicht zu erreichen sind, selbst mit guten, gut gepflegten Instrumenten, und dass ein Psychrometer in einem Strahlungsschutz ohne Zwangsbelüftung deutlich schlechter sein kann.',
+          'Elektronische Sensoren altern. Schmutz, Meersalzgischt oder Chemikalien auf dem Sensor lassen ihn bei niedriger Feuchte zu hoch und bei hoher Feuchte zu niedrig anzeigen. In feuchter Luft, bei Tau oder Nebel, driftet ein Sensor, meist nach oben, sodass er 100 % bei 95 % anzeigen kann. Ein Sensor, der über die Lufttemperatur erwärmt wird, zum Beispiel in einem von der Sonne aufgeheizten Strahlungsschutz, zeigt fälschlich zu wenig an. Für elektronische Sensoren in Wetterstationen in feuchtem Klima nennt die WMO eine Lebensdauer, die üblicherweise zwischen sechs Monaten und zwei oder mehr Jahren liegt.',
+          'Ein Temperaturfehler geht in alles ein, was damit berechnet wird: Wird der Taupunkt aus der relativen Feuchte berechnet, hat ein Fehler von 0,1 °C bei etwa 20 °C dieselbe Wirkung wie ein Fehler von 0,6 % relativer Feuchte. Bei einem Psychrometer bedeutet ein Fehler von 0,5 K in der Feuchtkugeltemperatur einen Fehler von 4 % relativer Feuchte bei 20 °C und von 27 % bei -20 °C, bei einer wahren relativen Feuchte von 50 %, und die WMO sagt, dass Psychrometer bei niedriger Feuchte weniger genau sind.',
+          'Unter 0 °C ist die relative Feuchte nach der WMO in Bezug auf Wasser zu bestimmen, nicht auf Eis: Die meisten Hygrometer zeigen sie so an, die meisten Wolken unter 0 °C bestehen aus Wasser oder überwiegend aus Wasser, Werte über 100 % würden im Allgemeinen nicht beobachtet, und die meisten älteren Aufzeichnungen beruhen darauf.',
+        ],
+      },
+      {
+        title: 'Wo sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Die Stationsdateien des DWD sagen, woher die stündlichen Werte stammen. In Frankfurt/Main kommt die relative Feuchte bis Oktober 1993 aus den Papieraufzeichnungen eines Thermohygrographen, in MEZ, bis zum 1. April 2001 von automatischen Stationen und seitdem aus SYNOP-Wettermeldungen, den international verschlüsselten Beobachtungen; der stündliche Taupunkt stammt in allen Zeiträumen aus SYNOP-Meldungen. Die Zeiten sind in UTC, außer bei den Aufzeichnungen bis 1993.',
+          'Die Dateien nennen auch den Sensor und seine Höhe. In Frankfurt/Main wird die relative Feuchte seit dem 5. Dezember 2015 mit einem elektronischen Sensor vom Typ EE33 in 2 m Höhe über dem Boden gemessen, davor seit Februar 2012 mit einer Sonde vom Typ HMP45D; ein konventioneller schreibender Thermohygrograph war bis August 2022 im Einsatz.',
+          'Anbieter unterscheiden sich auch darin, was sie Luftfeuchte nennen. Die GHCNh der NOAA sagt, dass ihre relative Feuchte je nach Quelle entweder direkt gemessen oder aus der Lufttemperatur und dem Taupunkt berechnet ist, und sagt dasselbe von ihrer Feuchtkugeltemperatur. Wetterdienst liefert die relative Feuchte standardmäßig in Prozent und den Taupunkt in °C.',
+          'Ob das Tages- oder Monatsmittel der relativen Feuchte oder des Taupunkts eines Anbieters aus den Werten so, wie sie sind, gebildet wird oder aus der absoluten Feuchte, wie es die WMO für das Mitteln empfiehlt, muss die Dokumentation des Anbieters sagen; dieser Eintrag nimmt keines von beiden an.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Aus Band I, Kapitel 4 zur Luftfeuchte stammen in diesem Eintrag die Definitionen, die Instrumente, die typischen Fehler und die Regel für Temperaturen unter 0 °C. Kapitel 1 desselben Bandes enthält die Tabelle der Unsicherheiten, die die WMO fordert.',
+        'Volume I, Chapter 4 (Measurement of humidity), sections 4.1.1, 4.1.3, 4.1.4.1.1, 4.1.4.1.2, 4.1.4.1.3, 4.1.4.2, 4.2.2, 4.2.3, 4.2.5, 4.2.7, 4.3.1.4, 4.3.1.8, Table 4.1, Annex 4.A (paragraphs 3 and 17); Volume I, Chapter 1 (General), Annex 1.A, rows 2.1 and 2.2 and note 11.',
+        WMO_I,
+      ),
+      wmoGuideV(
+        'Aus Band V, Kapitel 3 zur Datenreduktion stammen in diesem Eintrag die Regel, dass ein gemeldeter Wert für die vorangegangenen 1 bis 10 Minuten steht, und die Größe, die für einen Taupunkt gemittelt wird.',
+        'Volume V (Quality assurance and management of observing systems), Chapter 3 (Data reduction), sections 3.5, 3.6.',
+      ),
+      ghcnh(
+        'Ihre Dokumentation sagt, was jedes Element ist und wie die relative Feuchte und die Feuchtkugeltemperatur gefunden wurden.',
+        'Section IV (List of Elements/Variables), Table 1: relative_humidity, wet_bulb_temperature.',
+      ),
+      dwdFiles(
+        'Die Dateien, die zu den Daten jeder Station gehören, sagen, welchen Sensor sie in welcher Höhe benutzt hat und woher die Werte stammen.',
+        `DWD Climate Data Center, Dateien in den Stationsarchiven stundenwerte_TU_01420_akt.zip (${DWD_HOURLY}air_temperature/recent/) und stundenwerte_TD_01420_akt.zip (${DWD_HOURLY}dew_point/recent/), am 21. November 2026 gelesen für Frankfurt/Main (01420): Metadaten_Geraete_Rel_Feuchte_*, Metadaten_Parameter_tu_stunde_* und Metadaten_Parameter_td_stunde_*; Datensatzbeschreibungen „Stündliche Stationsmessungen der Lufttemperatur und Luftfeuchte für Deutschland“ und „Stündliche Stationsmessungen der Luft- und Taupunkttemperatur für Deutschland“ (Version v24.03, 2024).`,
+        DWD_HOURLY_HUMIDITY,
       ),
     ],
   },
@@ -197,6 +335,60 @@ export const measurement: MeasurementTexts = {
     ],
   },
 
+  'radiation': {
+    title: 'Strahlung',
+    summary: 'Strahlung ist Energie von der Sonne und vom Himmel, die auf eine waagerechte Fläche fällt. Sie wird als Leistung in einem Augenblick oder als über eine Stunde oder einen Tag aufsummierte Energie angegeben, und die beiden werden leicht verwechselt.',
+    parts: [
+      {
+        title: 'Wie gemessen wird',
+        paragraphs: [
+          'Die WMO unterscheidet zwei Arten. Die Sonnenstrahlung kommt von der Sonne; 97 % der Energie der Strahlung der Sonne außerhalb der Atmosphäre liegen in Wellenlängen zwischen 290 und 3000 nm, weshalb Sonnenstrahlung auch kurzwellige Strahlung heißt. Ein Teil davon erreicht den Boden, ein Teil wird auf dem Weg von Gasmolekülen, Teilchen und Wolkentröpfchen gestreut oder aufgenommen. Die terrestrische Strahlung ist die langwellige Strahlung der Erdoberfläche und der Gase, Teilchen und Wolken der Atmosphäre, mit Wellenlängen von 3000 bis 100000 nm.',
+          'Die Globalstrahlung ist die Sonnenstrahlung, die aus dem ganzen Himmel auf eine waagerechte Fläche trifft: der direkte Strahl von der Sonnenscheibe plus die diffuse Himmelsstrahlung, das Sonnenlicht, das in der Atmosphäre gestreut wurde. Sie wird mit einem Pyranometer gemessen, das den ganzen Himmel sieht und Wellenlängen von 300 bis 3000 nm misst. Um die diffuse Strahlung allein zu messen, hält eine kleine Scheibe oder ein Schattenring das direkte Sonnenlicht vom Pyranometer ab.',
+          'Der direkte Strahl wird mit einem Pyrheliometer gemessen, das nur die Sonne und einen schmalen Ring Himmel um sie herum sieht und von einem Sonnennachführer auf die Sonne gerichtet gehalten wird. Ein Pyrgeometer misst die langwellige Strahlung, die vom Himmel herunterkommt, und ein Paar Instrumente, eines nach oben und eines nach unten gerichtet, liefert die Strahlungsbilanz, den Unterschied zwischen dem, was herunterkommt, und dem, was hinaufgeht. Die Sonnenscheindauer, die aus dem direkten Strahl abgeleitet wird, hat einen eigenen Eintrag: siehe „Sonnenscheindauer“.',
+          'Ein Pyranometer braucht einen Standort ohne Hindernis über der Ebene des Sensors, ohne eine hellfarbige Wand in der Nähe, die die Sonne auf ihn zurückwerfen könnte, und in den Richtungen, in denen die Sonne im Lauf des Jahres auf- und untergeht, ohne etwas, das höher als 5 Grad über dem Horizont liegt. Es muss waagerecht stehen, und die WMO verlangt, dass es mindestens täglich kontrolliert wird: Die Glaskuppel wird sauber und trocken gewischt, und Frost oder Schnee darauf werden entfernt.',
+        ],
+      },
+      {
+        title: 'Wie aus einer Messung ein Wert wird',
+        paragraphs: [
+          'Zwei Arten von Zahlen sind in Gebrauch. Die Bestrahlungsstärke ist eine Leistung je Fläche, in Watt je Quadratmeter (W/m²), in einem Augenblick oder über eine kurze Zeit gemittelt. Die Bestrahlung ist eine Energie je Fläche, in Joule je Quadratmeter (J/m²), über einen genannten Zeitraum wie eine Stunde oder einen Tag. Eine mittlere Bestrahlungsstärke von 100 W/m² über eine Stunde ist eine Bestrahlung von 0,36 MJ/m². Die WMO weist darauf hin, dass dies die am häufigsten aufgezeichneten Größen sind, mit Mittelwerten und Summen über 1 Stunde und mehr, und dass Tagessummen häufig verwendet, aber als mittlere Tagesbestrahlungsstärke angegeben werden.',
+          'Ein Messwert wird oft genommen und aufsummiert. Die WMO verlangt Abtastungen, die öfter erfolgen als die Zeitkonstante des Instruments, selbst wenn am Ende nur die Summe einer Stunde oder mehr aufbewahrt wird.',
+          'Die WMO verlangt, dass Strahlungsmessungen auf die wahre Sonnenzeit bezogen werden, die Zeit nach dem Stand der Sonne selbst, die von der Uhrzeit eines Ortes abweicht. Die Weltzeit (UTC) wird für automatische Systeme akzeptiert, wenn die Daten so oft abgetastet und gespeichert werden, dass ihre Umrechnung auf die wahre Sonnenzeit keinen nennenswerten Informationsverlust bringt. Die „Stunde“ eines Strahlungswerts kann also in beiden angegeben sein, und ein Anbieter kann beide veröffentlichen (siehe „Zeit“).',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Wie genau die Zahl ist, hängt vom Instrument ab. Die WMO ordnet Pyranometer in hohe, gute und mäßige Qualität ein und nennt, was sie bei richtiger Pflege und einem Vertrauensniveau von 95 % erreichen können: Stundensummen innerhalb von 3 %, 8 % oder 20 % und Tagessummen innerhalb von 2 %, 5 % oder 10 %. Pyranometer mäßiger Qualität sind für Stunden- oder Tagessummen nicht geeignet, für Monats- und Jahressummen aber vielleicht. Für eine Tagessumme aus einem einzelnen Pyranometer ohne weitere Messungen nennt die WMO eine Unsicherheit von weniger als 5 % das Ergebnis guter, sorgfältiger Arbeit.',
+          'Mehrere Dinge fügen Fehler hinzu: ein Pyranometer, das nicht waagerecht steht, Schmutz oder Tau auf der Kuppel und ein Ansprechen, das vom Sonnenstand und von der Temperatur des Instruments abhängt. Die diffuse Strahlung ist am schwersten zu messen. Ein wolkenloser Himmel kann weniger als ein Zehntel der Globalstrahlung liefern, und das Signal, das der Sensor auch dann zeigt, wenn kein Licht ankommt, das Nullsignal, entspricht bei klarem Himmel 5 bis 10 W/m² und könnte 15 % der diffusen Strahlung erreichen.',
+          'Ein Gebäude, ein Baum oder ein Hügel, der die Sonne oder einen Teil des Himmels verdeckt, oder eine helle Wand, die Sonnenlicht auf den Sensor zurückwirft, verändert die Messung; deshalb verlangt die WMO, den Horizont um die Station und die Höhe des Sensors zu beschreiben.',
+          'Die langwellige Strahlung ist noch schwieriger: Die WMO schreibt, ihre Messung sei noch schwieriger und weniger verstanden als die der solaren Bestrahlungsstärke. Eine Strahlungsbilanz kann negativ sein, da mehr Energie den Boden verlassen kann, als ankommt.',
+        ],
+      },
+      {
+        title: 'Wo sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Die stündlichen Strahlungsdaten des DWD sind Summen über die Stunde, in J/cm², von der Globalstrahlung, der diffusen Strahlung und der langwelligen Strahlung vom Himmel, mit der Sonnenscheindauer in Minuten; seine 10-Minuten-Daten sind Summen der vorangegangenen 10 Minuten. Die Stundendateien haben zwei Zeitstempel, einen in UTC und einen in wahrer Ortszeit (WOZ).',
+          'Wetterdienst liefert die Energie standardmäßig in MJ/m² (1 J/cm² sind 0,01 MJ/m²) und eine mittlere Leistung, die manche Anbieter stattdessen veröffentlichen, in W/m². Energie und Leistung sind verschiedene Größen und nicht austauschbar: radiation_global ist eine über das Intervall summierte Energie, radiation_global_intensity_mean eine Leistung.',
+          'Die Instrumente stehen in den Stationsdateien. In Potsdam führt der DWD für die Globalstrahlung von 2009 bis 2020 ein Pyranometer CM11 auf und seit dem 29. Juli 2021 ein CMP22, beide 33 m über dem Boden, und für die Strahlung vom Himmel bis 2021 ein Pyrgeometer CG4 und seitdem ein CGR4.',
+          'Manche Anbieter veröffentlichen die direkte Strahlung, wie sie auf eine Ebene fällt, die der Sonne zugewandt ist (Wetterdienst: radiation_sky_short_wave_direct_perpendicular), was ein Pyrheliometer misst. Sie ist kein Teil der Globalstrahlung auf eine waagerechte Fläche, die die direkte Strahlung multipliziert mit dem Kosinus des Zenitwinkels der Sonne, des Winkels von senkrecht oben, plus die diffuse Strahlung ist, und sie kann diese übersteigen.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Aus Band I, Kapitel 7 zur Strahlung stammen in diesem Eintrag die Definitionen, die Instrumente, die Standorte und die typischen Fehler.',
+        'Volume I, Chapter 7 (Measurement of radiation), sections 7.1.1, 7.1.3.1, 7.1.3.3, 7.1.3.4, 7.2, 7.3, 7.3.2, 7.3.2.5, 7.3.3, 7.3.3.3, 7.3.3.5, 7.4, 7.4.1, 7.4.5, Table 7.4, Annex 7.B.',
+        WMO_I,
+      ),
+      dwdFiles(
+        'Die Dateien, die zu den Daten jeder Station gehören, sagen, welches Instrument in welcher Höhe benutzt wurde und was ein Wert abdeckt.',
+        `DWD Climate Data Center, Dateien im Stationsarchiv stundenwerte_ST_03987_row.zip in ${DWD_HOURLY}solar/, am 21. November 2026 gelesen für Potsdam (03987): Metadaten_Geraete_Global_Kw_J_*, Metadaten_Geraete_Atmosphaere_Lw_J_* und Metadaten_Parameter_st_stunde_*; Datensatzbeschreibungen „Stündliche Stationsmessungen der Solarstrahlung (global/diffus) und der atmosphärischen Gegenstrahlung für Deutschland“ und „10-minütige Stationsmessungen der Strahlung und Sonnenscheindauer für Deutschland“ (Version v24.03, 2024).`,
+        DWD_HOURLY_SOLAR,
+      ),
+    ],
+  },
+
   'sunshine': {
     title: 'Sonnenscheindauer',
     summary: 'Die Sonnenstunden sind die Zeit, in der der direkte Sonnenstrahl stark genug ist, nicht die Zeit ohne Wolken.',
@@ -243,6 +435,65 @@ export const measurement: MeasurementTexts = {
         'Die Dateien, die zu den Daten jeder Station gehören, sagen, welches Instrument benutzt wurde und was ein Tageswert abdeckt.',
         `${STATION_FILES} Metadaten_Geraete_Sonnenscheindauer_* und Metadaten_Parameter_klima_tag_*; Datensatzbeschreibung „Stündliche Stationsmessungen der Sonnenscheindauer für Deutschland“ (Version v24.03, 2024).`,
         'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/sun/BESCHREIBUNG_obsgermany_climate_hourly_sun_de.pdf',
+      ),
+    ],
+  },
+
+  'visibility': {
+    title: 'Sichtweite',
+    summary: 'Die Sichtweite ist, wie weit man sehen kann. Ein Instrument kann nicht schauen: Es misst, wie viel Licht die Luft schluckt, und die Entfernung wird daraus berechnet.',
+    parts: [
+      {
+        title: 'Wie gemessen wird',
+        paragraphs: [
+          'Die WMO definiert die Sichtweite am Tag als die größte Entfernung, in der ein schwarzes Objekt passender Größe am Boden vor dem Himmel am Horizont gesehen und erkannt werden kann. Was ein Mensch sieht, hängt vom Menschen ab; deshalb benutzt die WMO ein Maß, das auch Instrumente finden können, die meteorologische optische Reichweite (MOR): die Länge des Wegs in der Luft, die das Licht eines schmalen Strahls von einer Lampe auf 5 % seines ursprünglichen Werts abschwächt. Sie wird in Metern oder Kilometern angegeben.',
+          'Mit dem Auge schätzt ein Beobachter die Entfernung zu bekannten Objekten: am Tag dunkle Objekte vor dem Himmel, etwa Baumgruppen, Türme oder Masten, in der Nacht Lichter bekannter Stärke. Jede Station erstellt einen Plan dieser Objekte mit ihren Entfernungen und Richtungen, und der Beobachter schaut aus etwa 1,5 m Höhe über dem Boden, nicht aus einem hohen Gebäude. In der Nacht brauchen die Augen 5 bis 15 Minuten, um sich an die Dunkelheit zu gewöhnen.',
+          'Instrumente messen, wie stark die Luft Licht abschwächt, den Extinktionskoeffizienten. Ein Transmissometer schickt einen Lichtstrahl über eine bekannte Strecke, von wenigen Metern bis zu 150 m, und misst, wie viel davon ankommt. Ein Vorwärtsstreulicht-Messgerät strahlt Licht in ein kleines Luftvolumen und misst, wie viel davon zu einem Empfänger hin gestreut wird; es braucht wenig Platz und wird in immer mehr automatischen Stationen benutzt. Die WMO sagt, dass das gemessene Luftvolumen normalerweise in der Höhe der Augen eines Beobachters liegen soll, etwa 1,5 m über dem Boden, und dass die Sonne nie im Blickfeld des Empfängers stehen darf.',
+        ],
+      },
+      {
+        title: 'Wie aus einer Messung ein Wert wird',
+        paragraphs: [
+          'Aus dem Extinktionskoeffizienten berechnet das Instrument die MOR: Sie ist etwa 3 geteilt durch den Extinktionskoeffizienten. Das nimmt an, dass die Luft entlang des ganzen Wegs so ist wie die Luft in dem kleinen Volumen, das das Instrument betrachtet.',
+          'Der Extinktionskoeffizient eines kleinen Luftvolumens schwankt schnell und unregelmäßig, deshalb werden viele Messwerte gemittelt. Der erste internationale Vergleich von Sichtweitenmessungen der WMO fand für die meisten Instrumente keinen Gewinn durch ein Mitteln über mehr als 1 Minute, für die unruhigsten 2 Minuten. Die Tabelle der WMO nennt Mittelungszeiten der Ausgabe von 1 und 10 Minuten und rät, beim Mitteln den Extinktionskoeffizienten zu mitteln und nicht die Sichtweite.',
+          'Gemeldete Sichtweiten kommen in Stufen, die mit der Entfernung gröber werden: im Schlüssel der synoptischen Meldung 100-m-Stufen von 100 bis 5000 m, 1-km-Stufen von 6 bis 30 km und 5-km-Stufen von 35 bis 70 km. Das liegt daran, dass die Fehler von Sichtweitenmessungen im Verhältnis zur Sichtweite wachsen.',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Ein Mensch und ein Instrument sehen nicht dasselbe. Die WMO nennt jede visuelle Schätzung subjektiv. In ihrem ersten internationalen Vergleich schätzten Beobachter am Tag etwa 15 % mehr als die Instrumente und in der Dunkelheit etwa 30 % mehr. In der Nacht hängt die Schätzung von den vorhandenen Lichtern und von der Anpassung der Augen des Beobachters ab, und die WMO nennt sie besonders problematisch.',
+          'Ein Instrument liest ein kleines Luftvolumen. Es liefert nur dann eine gute MOR, wenn dieses Volumen der Luft rund um die Station bis in eine Entfernung der MOR gleicht; bei Nebelfeldern oder einem örtlichen Regen- oder Schneeschauer kann es in die Irre führen, und die WMO sagt, dass instrumentelle Messungen der MOR mit Vorsicht zu deuten sind. Der Schritt vom Extinktionskoeffizienten zur Entfernung gilt für Nebeltröpfchen; wenn Regen, Schnee oder aufgewirbelter Sand die Sicht verringern, sollen die Werte nach der WMO mit mehr Sorgfalt behandelt werden.',
+          'Die WMO fordert eine Unsicherheit von 50 m bis 600 m, 10 % zwischen 600 und 1500 m und 20 % über 1500 m und nennt das Größere von 20 m oder 20 % als das Erreichbare. Die Instrumente unterscheiden sich: Die besten Vorwärtsstreulicht-Messgeräte erreichten eine Standardabweichung von etwa 10 % über einen Bereich von etwa 100 m bis 50 km, doch Vorwärtsstreulicht-Messgeräte waren bei geringer Sicht im Allgemeinen weniger genau als Transmissometer und stärker vom Niederschlag beeinflusst, und Spinnweben oder fliegende Insekten im Messvolumen können eines zu niedrig anzeigen lassen.',
+        ],
+      },
+      {
+        title: 'Wo sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Die stündliche Sichtweite des DWD ist in Metern, mit einem Kennzeichen, das sagt, ob ein Wert von einem Menschen beobachtet (P) oder von einem Instrument gemessen (I) wurde. In den aktuellen Dateien der drei geprüften Stationen ist jeder Wert mit I gekennzeichnet. Die Werte stammen aus SYNOP-Wettermeldungen, den international verschlüsselten Beobachtungen, und sind mit UTC gestempelt.',
+          'Die Stationsdateien nennen das Instrument und seine Höhe. Der DWD führt einen Sichtweitensensor vom Typ FS11 in 2,5 m Höhe über dem Boden auf, seit dem 30. Oktober 2018 in Potsdam (davor ab 2009 ein DF20+ in 2,3 m Höhe über dem Boden), seit dem 14. Oktober 2019 in Dresden-Klotzsche und seit dem 6. August 2021 in Frankfurt/Main. Die WMO sagt, dass das gemessene Luftvolumen normalerweise in etwa 1,5 m Höhe liegen soll.',
+          'Auch in der Einheit unterscheiden sich die Anbieter: Die GHCNh der NOAA gibt die Sichtweite in Kilometern an, der DWD in Metern, und Wetterdienst liefert standardmäßig Meter. Manche liefern nur das Mittel über einen Zeitraum (visibility_mean) oder eine Klasse der Sichtweite (visibility_index), einen Code und keine Entfernung. Auch eine Vorhersage der Sichtweite ist keine Messung: siehe „Beobachtung, Vorhersage und abgeleitete Daten“.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Aus Band I, Kapitel 9 zur Sichtweite stammen in diesem Eintrag die Definitionen, die Beobachtung mit dem Auge, die Instrumente, die Mittelung und die typischen Fehler. Kapitel 1 desselben Bandes enthält die Tabelle der Unsicherheiten, die die WMO fordert.',
+        'Volume I, Chapter 9 (Measurement of visibility), sections 9.1.1, 9.1.2, 9.1.4, 9.2.1, 9.2.2, 9.2.3, 9.2.5, 9.3.2, 9.3.3, 9.3.4, 9.3.5.1, 9.3.6.1, 9.3.6.3; Volume I, Chapter 1 (General), Annex 1.A, row 8.1.',
+        WMO_I,
+      ),
+      wmoGuideV(
+        'Aus Band V, Kapitel 3 zur Datenreduktion stammt in diesem Eintrag die Größe, die für eine Sichtweite gemittelt wird.',
+        'Volume V (Quality assurance and management of observing systems), Chapter 3 (Data reduction), section 3.6.',
+      ),
+      ghcnh(
+        'Ihre Dokumentation sagt, was jedes Element ist und in welcher Einheit.',
+        'Section IV (List of Elements/Variables), Table 1: visibility.',
+      ),
+      dwdFiles(
+        'Die Dateien, die zu den Daten jeder Station gehören, sagen, welches Instrument in welcher Höhe benutzt wurde und woher die Werte stammen.',
+        `DWD Climate Data Center, Dateien in den Stationsarchiven stundenwerte_VV_03987_akt.zip, stundenwerte_VV_01048_akt.zip und stundenwerte_VV_01420_akt.zip in ${DWD_HOURLY}visibility/recent/, am 21. November 2026 gelesen für Potsdam (03987), Dresden-Klotzsche (01048) und Frankfurt/Main (01420): Metadaten_Geraete_Sichtweite_*, Metadaten_Parameter_vv_stunde_* und die Spalte V_VV_I der Datendatei; Datensatzbeschreibung „Stündliche Stationsmessungen der Sichtweite für Deutschland“ (Version v24.03, 2024).`,
+        DWD_HOURLY_VISIBILITY,
       ),
     ],
   },

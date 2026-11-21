@@ -490,9 +490,13 @@
     "untranslatedDe": "Dette indlæg er endnu ikke oversat til dit sprog og vises på tysk.",
     "topics": {
       "temperature": "Luft- og jordtemperatur",
+      "pressure": "Lufttryk",
+      "humidity": "Fugtighed og dugpunkt",
       "wind": "Vind",
       "precipitation": "Nedbør",
+      "radiation": "Stråling",
       "sunshine": "Solskinstimer",
+      "visibility": "Sigtbarhed",
       "snow": "Sne",
       "normals": "Klimanormaler",
       "time": "Tid",

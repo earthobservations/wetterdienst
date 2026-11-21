@@ -490,9 +490,13 @@
     "untranslatedDe": "Dieser Eintrag ist noch nicht in deine Sprache übersetzt und wird auf Deutsch gezeigt.",
     "topics": {
       "temperature": "Luft- und Bodentemperatur",
+      "pressure": "Luftdruck",
+      "humidity": "Luftfeuchte und Taupunkt",
       "wind": "Wind",
       "precipitation": "Niederschlag",
+      "radiation": "Strahlung",
       "sunshine": "Sonnenscheindauer",
+      "visibility": "Sichtweite",
       "snow": "Schnee",
       "normals": "Klimanormalwerte",
       "time": "Zeit",

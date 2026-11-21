@@ -490,9 +490,13 @@
     "untranslatedDe": "Disse Indrag gifft dat noch nich op Platt; he warrt op Hochdüütsch wiest.",
     "topics": {
       "temperature": "Luft- un Bodentemperatur",
+      "pressure": "Luftdruck",
+      "humidity": "Luftfüchtigkeit un Daupunkt",
       "wind": "Wind",
       "precipitation": "Nedderslag",
+      "radiation": "Straalung",
       "sunshine": "Sünnschienduur",
+      "visibility": "Sichtwiet",
       "snow": "Snee",
       "normals": "Klimanormaalweerten",
       "time": "Tiet",

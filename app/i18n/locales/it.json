@@ -490,9 +490,13 @@
     "untranslatedDe": "Questa voce non è ancora tradotta nella tua lingua e viene mostrata in tedesco.",
     "topics": {
       "temperature": "Temperatura dell'aria e del suolo",
+      "pressure": "Pressione atmosferica",
+      "humidity": "Umidità e punto di rugiada",
       "wind": "Vento",
       "precipitation": "Precipitazioni",
+      "radiation": "Radiazione",
       "sunshine": "Durata dell'insolazione",
+      "visibility": "Visibilità",
       "snow": "Neve",
       "normals": "Normali climatiche",
       "time": "Ora e giorno",

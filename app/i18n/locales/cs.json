@@ -490,9 +490,13 @@
     "untranslatedDe": "Toto heslo ještě není přeloženo do tvého jazyka a zobrazuje se německy.",
     "topics": {
       "temperature": "Teplota vzduchu a půdy",
+      "pressure": "Tlak vzduchu",
+      "humidity": "Vlhkost a rosný bod",
       "wind": "Vítr",
       "precipitation": "Srážky",
+      "radiation": "Záření",
       "sunshine": "Délka slunečního svitu",
+      "visibility": "Dohlednost",
       "snow": "Sníh",
       "normals": "Klimatické normály",
       "time": "Čas",
