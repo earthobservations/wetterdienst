@@ -34,7 +34,11 @@ field, are in `chip.ts`.
 | `empty`, `actions` | What is said where there is no answer, and the ways into the tools (with their tiles). |
 | `credit` | The provider whose credit line, and the note of what wetterdienst did to the data, close the answer; null where it is no provider's data. |
 | `i18n` | **Every key of the catalogs the definition uses.** The test holds these to all eleven locales, and holds the file to the list: a key it writes and does not list fails. |
-| `explanation` | Not written yet. Typed and left out until step 1b of GH-3764 (how the answer was worked out, its sources). |
+| `explanation` | **How the answer was worked out and what it rests on** (`ChipExplanation`): the entries of "How weather is measured" its terms link to (`topics`), its `steps`, `formulas` and `limits` (ids), its `rules`, the `data` it reads with the link that opens it in the Explorer, and the `numbers` of this answer. The words are in `i18n/methods/en.ts` and `de.ts` under the chip's id. The disclosure under the answer and the section of the page `/methods` are written from it, with no code of their own for a chip. |
+
+## The explanation: every choice has a source or is marked as your own
+
+Every period, band (threshold or scale), statistic, fallback and window that shapes an answer is a `Rule` of the chip's `explanation.rules`, and it either `cites` a published work (`works.ts`: the id of the work, and the place in it as the work numbers it, `Table 5.1`, `§4.4.2`) or is `own: true`, with its reasoning in the text. A number the code judges by (a millimetre, Beaufort 9, half a degree) is an exported constant of `utils/answers.ts` that the rule's `values` take, never a number written twice. `tests/unit/ask-methods.test.ts` fails a rule with neither, a text that is missing in German or English, a text that says another figure than its twin, a `{name}` no rule holds, and a work no rule cites; it also lists the rules that are marked as your own, so that a new one is a line of the diff. A work is added to `works.ts` only after the document itself was read for the place it is cited at. The long texts are in German and English; the other languages see English with a note, as on "How weather is measured".
 
 ## Rules
 

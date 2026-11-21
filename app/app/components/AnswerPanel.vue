@@ -242,6 +242,8 @@ function onChoice(param: string, value: unknown) {
         </p>
         <!-- the credit, and under it what wetterdienst did to the data (GH-3799): the values of these answers are the provider's own values -->
         <ProviderCredit v-if="chip.credit" :provider="chip.credit.provider" :fallback="chip.credit.fallback" />
+        <!-- how the answer was worked out and what it rests on (GH-3764): the definition's explanation, for any chip -->
+        <AnswerExplanation v-if="outcome" :key="chip.id" :chip="chip" :loaded="outcome.loaded" :result="outcome.result" :choices="choices" />
       </div>
     </div>
 

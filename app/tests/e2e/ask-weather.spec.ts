@@ -178,6 +178,93 @@ test.describe('the suggestions', () => {
   })
 })
 
+test.describe('the explanation under an answer (GH-3764)', () => {
+  test.use({ viewport: { width: 1280, height: 900 } })
+
+  test('is a button that opens a region, with the numbers, the sources, the data, the terms and the limits', async ({ page, baseURL }) => {
+    await home(page, baseURL!)
+    await chip(page, 'summer').click()
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    const button = page.getByTestId('explanation-button')
+    const region = page.getByTestId('explanation-region')
+    await expect(button).toHaveText(en.ask.explain.button)
+    await expect(button).toHaveAttribute('aria-expanded', 'false')
+    await expect(region).toBeHidden()
+    await button.click()
+    await expect(button).toHaveAttribute('aria-expanded', 'true')
+    await expect(region).toBeVisible()
+    // the region is the one the button controls, and is named by it
+    await expect(button).toHaveAttribute('aria-controls', (await region.getAttribute('id'))!)
+    await expect(region).toHaveAttribute('aria-labelledby', (await button.getAttribute('id'))!)
+    await expect(page.getByTestId('explanation-numbers')).toContainText('1991')
+    await expect(page.getByTestId('explanation-numbers')).toContainText('Kiel-Holtenau')
+    // the choices that are wetterdienst's own are marked, and the others name their work and link to its entry
+    await expect(page.getByTestId('own-mark').first()).toHaveText(en.ask.explain.own)
+    await expect(region.getByRole('link', { name: /WMO-No\. 1203 \(2017\)/ }).first()).toHaveAttribute('href', '/methods#work-wmo-1203')
+    await expect(page.getByTestId('explanation-explorer')).toHaveAttribute('href', /\/explorer\?.*stations=02564/)
+    await expect(region.getByRole('link', { name: 'Climate normals' })).toHaveAttribute('href', '/measurement#normals')
+    await expect(page.getByTestId('explanation-limits').getByRole('listitem').first()).toBeVisible()
+    await expect(page.getByTestId('explanation-full')).toHaveAttribute('href', '/methods#summer')
+    // pressed again it closes
+    await button.click()
+    await expect(button).toHaveAttribute('aria-expanded', 'false')
+    await expect(region).toBeHidden()
+  })
+
+  test('is worked with the keyboard, and follows the link to the method of the chip', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=wind')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    const button = page.getByTestId('explanation-button')
+    await button.focus()
+    await page.keyboard.press('Enter')
+    await expect(button).toHaveAttribute('aria-expanded', 'true')
+    await expect(button).toBeFocused()
+    await expect(page.getByTestId('explanation-numbers')).toContainText('Beaufort')
+    await page.getByTestId('explanation-full').click()
+    await expect(page).toHaveURL(/\/methods#wind$/)
+    await expect(page.locator('#wind-title')).toBeFocused()
+  })
+
+  test('is in the language of the page, German where the text is, with the note where it is not', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=rain', 'de')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    await page.getByTestId('explanation-button').click()
+    await expect(page.getByTestId('explanation-button')).toHaveText(de.ask.explain.button)
+    await expect(page.getByTestId('explanation-numbers')).toContainText('Vorhersagepunkt')
+    await expect(page.getByTestId('explanation-note')).toHaveCount(0)
+    await page.context().addCookies([{ name: 'wd_lang', value: 'fr', url: baseURL! }])
+    await page.goto('/?ask=rain')
+    await page.getByTestId('explanation-button').click()
+    // a language with no text of its own: the note, and the text in English, marked as such
+    await expect(page.getByTestId('explanation-note')).toBeVisible()
+    await expect(page.getByTestId('explanation-numbers').locator('li[lang="en"]').first()).toBeVisible()
+    // the labels around the text are the interface's own and say no language of their own (WCAG 3.1.2)
+    await expect(page.getByTestId('explanation-button')).not.toHaveAttribute('lang', /.+/)
+    await expect(page.locator('[data-testid="explanation-region"] h5').first()).not.toHaveAttribute('lang', /.+/)
+    await expect(page.locator('[data-testid="explanation-region"] section[lang]')).toHaveCount(0)
+  })
+
+  test('is on every chip, the list of services included', async ({ page, baseURL }) => {
+    await home(page, baseURL!)
+    for (const id of ['rain', 'summer', 'wind', 'download']) {
+      await chip(page, id).click()
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await expect(page.getByTestId('explanation-button')).toBeVisible()
+      await chip(page, id).click()
+    }
+  })
+
+  test('fits a phone\'s width, opened', async ({ page, baseURL }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await home(page, baseURL!, '/?ask=summer')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    await page.getByTestId('explanation-button').click()
+    await expect(page.getByTestId('explanation-region')).toBeVisible()
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+    expect(overflow).toBeLessThanOrEqual(0)
+  })
+})
+
 test.describe('the place', () => {
   test.use({ viewport: { width: 1280, height: 900 } })
 

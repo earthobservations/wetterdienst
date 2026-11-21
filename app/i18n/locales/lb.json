@@ -94,6 +94,24 @@
     "showValues": "Wäerter weisen",
     "tableWhen": "Wéini",
     "leadsTo": "D'Daten am Instrument opmaachen",
+    "explain": {
+      "button": "Wéi ass dës Äntwert entstanen?",
+      "failed": "D'Erklärung konnt net gelueden ginn.",
+      "numbers": "D'Zuelen, déi benotzt goufen",
+      "rules": "D'Reegelen a vu wou se kommen",
+      "data": "D'Donnéeën",
+      "terms": "Begrëffer erkläert",
+      "limits": "Wat d'Äntwert net soe kann",
+      "full": "Déi ganz Method an hir Quellen",
+      "own": "Eegen Entscheedung vun wetterdienst.",
+      "source": "Quell:",
+      "compare": "Zum Verglach:",
+      "provider": "Ubidder",
+      "dataset": "Datesaz",
+      "parameters": "Parameter",
+      "licence": "Lizenz",
+      "open": "Dës Donnéeën am Explorer opmaachen"
+    },
     "rain": {
       "yes": "Jo, wahrscheinlech Reen.",
       "maybe": "Vläicht, e bëssen.",
@@ -162,6 +180,7 @@
       "providers": "Déi national Wiederdéngschter hannert den Daten: Land, Lizenz, d'Quell, déi ugi muss ginn, a wat all eenzelne bitt.",
       "glossary": "Wat all Wieder- a Klimaparameter mierkt a a wéi enger Eenheet seng Wäerter zeréckkommen, mat Sich no Numm a Gréisst.",
       "measurement": "Wéi d'Wieder gemooss gëtt: Instrumenter, wéi aus enger Miessung e Wäert gëtt, wat d'Zuel seet a wou d'Ubidder sech ënnerscheeden, mat Quellen.",
+      "methods": "Wéi d'Äntwerte vun Ask the weather entstinn: d'Schrëtt an d'Zuelen vun all Method, hir verëffentlecht Quellen an d'Entscheedungen, déi wetterdienst selwer getraff huet.",
       "about": "Iwwer dat Open-Source-Projet Wetterdienst an d'Leit, déi et ënnerhalen.",
       "support": "Ënnerstëtz Wetterdienst: mell e Problem, dréi Code bäi oder spend.",
       "map": "Eng Kaart vun de Statioune vum Däitsche Wiederdéngscht: Wiel eng Statioun oder e beléiwege Punkt a kuck d'Prognos, d'Klimasträifen an d'Miessungen derzou.",
@@ -207,6 +226,7 @@
     "api": "API",
     "glossary": "Glossar",
     "measurement": "Miessung",
+    "methods": "Methoden",
     "support": "Ënnerstëtzung",
     "map": "Kaart",
     "radar": "Radar"
@@ -495,6 +515,37 @@
       "normals": "Klimanormalwäerter",
       "time": "Zäit",
       "observationForecastDerived": "Observatioun, Prévisioun an ofgeleet Daten"
+    }
+  },
+  "methods": {
+    "title": "Wéi d'Äntwerte entstinn",
+    "subtitle": "D'Method hannert all Fro vun Ask the weather: d'Schrëtt, d'Zuelen, d'Wierker, op deenen all Entscheedung baséiert, an d'Entscheedungen, déi wetterdienst selwer getraff huet",
+    "menuDescription": "D'Method an d'Quelle hannert all Äntwert vun Ask the weather",
+    "tocTitle": "Inhalt",
+    "introTitle": "Esou liest du dës Säit",
+    "introText": "All Fro vun Ask the weather huet en Ofschnëtt: hir Method Schrëtt fir Schrëtt, hir Formel, wou et eng gëtt, all Period, all Schwell an all Regel mat dem verëffentleche Wierk, aus deem se kënnt, d'Donnéeën, d'Begrëffer an d'Grenzen. Um Enn stinn déi zitéiert Wierker, all mat deem, wat et ass a firwat et zielt.",
+    "ownText": "Wou kee verëffentlecht Wierk eng Entscheedung dréit, ass se als eegen vun wetterdienst markéiert, mat der Begrënnung. Si ass eng Entscheedung vum Projet, keng Regel vun der Wieder-Wëssenschaft, a si kann geännert ginn. Keng Äntwert baséiert op enger Zuel, déi weder belee nach markéiert ass.",
+    "measurementText": "D'Begrëffer ginn op {page} an am {glossary} erkläert a vun hei aus verlinkt, amplaz zweemol geschriwwen ze ginn.",
+    "chipsTitle": "D'Froen",
+    "ask": "Dës Fro stellen",
+    "ownCount": "{own} vun {total} Entscheedungen sinn eegen vun wetterdienst",
+    "stepsTitle": "D'Method, Schrëtt fir Schrëtt",
+    "formulaTitle": "Formel",
+    "rulesTitle": "D'Entscheedungen a vu wou se kommen",
+    "says": "Wat d'Quell seet:",
+    "dataTitle": "D'Donnéeën",
+    "termsTitle": "Begrëffer",
+    "limitsTitle": "Grenze vun der Äntwert",
+    "worksTitle": "Zitéiert Wierker",
+    "worksIntro": "All Wierk seet aléiwe Wierder, wat et ass, wien et erausgëtt a wat d'Methoden doraus huelen, a gëtt dann déi formal Quellenangab. D'Titele bleiwen an der Sprooch vum Wierk.",
+    "usedBy": "Gebraucht vun:",
+    "kind": {
+      "period": "Period",
+      "band": "Schwell oder Skala",
+      "statistic": "Statistik",
+      "fallback": "Ersatz bei ze wéineg Donnéeën",
+      "window": "Fënster vun Deeg",
+      "selection": "Auswiel vun den Donnéeën"
     }
   },
   "providers": {

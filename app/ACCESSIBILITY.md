@@ -428,6 +428,18 @@ The measurement page, "How weather is measured" (GH-3787), checked on 2026-11-20
 
 Not checked: a screen reader (VoiceOver, TalkBack).
 
+The methods page, "How the answers are worked out", and the explanation under an answer of Ask the weather (GH-3764), checked on 2026-11-21:
+
+| Criterion | Result |
+| --- | --- |
+| 1.3.1, 2.4.6 Headings | The methods page has one `h1`, the sections `h2`, each question's method and each work cited an `h3` (an `article` named by it) and the parts of a method `h4`: no level is skipped. Tested (`methods.test.ts`, which walks the levels). Under an answer the disclosure is an `h4` that holds the button (the pattern of an accordion), its parts `h5`. |
+| 4.1.2, 2.1.1 The disclosure | "How was this worked out?" is a real `<button type="button">` with `aria-expanded` and `aria-controls` that names the region it opens (`role="region"`, `aria-labelledby` the button); it opens with Enter and Space and the focus stays on it. The region is in the page, `hidden` while closed. Tested (`AskTheWeather.test.ts`, `ask-weather.spec.ts`). |
+| 1.4.1 The mark of what is wetterdienst's own | The words "wetterdienst's own choice." in a bordered label, not a colour alone; the reasoning follows it. |
+| 2.4.3 Focus after an anchor | A link to a method (`/methods#summer`) or a work (`/methods#work-wmo-1203`) puts the focus on its heading (`tabindex="-1"`), as the measurement page does. Tested (`ask-weather.spec.ts`). |
+| 3.1.2 Language of parts | A text that is not in the language of the interface (English or German, with the note of the measurement page) names its language (`lang`) on the heading and on each element of the text (a step, a rule, what a source says, a reason, a limit, a term and its sentence), and on no section or label around them: the headings of the parts, the kind of a rule, the own mark and "Source:" are the interface's. Tested (`methods.test.ts`, `ask-weather.spec.ts`). |
+| 1.4.10 Reflow | The disclosure opened at 390 px does not scroll sideways (`ask-weather.spec.ts`); the page is in a reading column. |
+| 1.4.3, 1.4.11, 2.4.7 Contrast and focus | `accessibility.spec.ts` scans `/methods` and the open disclosure (`ask-explanation-open`) in light and dark, English and German, at first paint, hovered and walked by Tab, and `/methods` at 320 px. Run for these rows alone (15 tests), in Chrome against a production build (Firefox did not start on the machine): all passed, with no rule broken. The full scan is the next *App accessibility* run's. Not checked: a screen reader (VoiceOver, TalkBack). |
+
 ### Known not to conform
 
 - **The station map, 1.1.1 and 2.1.1**: markers are reachable by Tab and named by their station, but a map of

@@ -16,8 +16,21 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-11-21
+
+Paired with backend 0.194.0, which it needs: the Radar tool asks the radar routes of 0.194.0, and the
+stripes' NOAA GHCN years and station list are made of the per-element lists of 0.194.0.
+
 ### Added
 
+- `[Ask the weather]` Every answer says how it was worked out: under it, "How was this worked out?"
+  opens the numbers used (station and its distance, period, how many years or days, thresholds),
+  every rule with the work it comes from or the mark that it is wetterdienst's own choice, the
+  data (provider, dataset, licence, a link that opens it in the Explorer), the terms (linked to
+  "How weather is measured") and the limits. A new page in the Reference group, **Methods**
+  (`/methods`), has the full method of each question step by step with its formula, sources and
+  limits, and the list of the works cited (WMO-No. 8 Volume I, WMO-No. 1203, DWD's own pages);
+  written in German and English, as "How weather is measured" is (GH-3764).
 - `[Measurement]` Four more entries on the "How weather is measured" page: pressure and its
   reduction to sea level (`/measurement#pressure`), humidity and dew point (`#humidity`),
   radiation (`#radiation`) and visibility (`#visibility`), each with the sources it rests on (the
@@ -2536,7 +2549,8 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.56.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.57.0...HEAD
+[0.57.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.56.0...app-v0.57.0
 [0.56.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.55.0...app-v0.56.0
 [0.55.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.54.0...app-v0.55.0
 [0.54.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.53.0...app-v0.54.0

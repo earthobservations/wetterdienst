@@ -90,6 +90,11 @@ const PAGES: Target[] = [
     ready: async (page, locale) => { await expect(page.getByRole('heading', { level: 1, name: message(locale, 'measurement.title') })).toBeVisible() },
   },
   {
+    page: 'methods',
+    path: '/methods',
+    ready: async (page, locale) => { await expect(page.getByRole('heading', { level: 1, name: message(locale, 'methods.title') })).toBeVisible() },
+  },
+  {
     page: 'providers',
     path: '/providers',
     ready: async (page) => { await expect(page.getByRole('heading', { name: 'German Weather Service' })).toBeVisible() },
@@ -574,6 +579,18 @@ const STATES: State[] = [
       await expect(page.getByTestId('answer-verdict')).toBeVisible()
       await page.getByText(message(locale, 'ask.showValues'), { exact: true }).click()
       await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
+    // the explanation under an answer (GH-3764): "How was this worked out?" opened, with the marks of what is wetterdienst's own, the sources and the links
+    page: 'index',
+    state: 'ask-explanation-open',
+    path: '/?ask=summer',
+    handlers: askHandlers(),
+    reach: async (page) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await page.getByTestId('explanation-button').click()
+      await expect(page.getByTestId('explanation-rules')).toBeVisible()
     },
   },
   {

@@ -94,6 +94,24 @@
     "showValues": "Waarden tonen",
     "tableWhen": "Wanneer",
     "leadsTo": "De gegevens openen in het hulpmiddel",
+    "explain": {
+      "button": "Hoe is dit antwoord tot stand gekomen?",
+      "failed": "De uitleg kon niet worden geladen.",
+      "numbers": "De gebruikte getallen",
+      "rules": "De regels en waar ze vandaan komen",
+      "data": "De gegevens",
+      "terms": "Begrippen uitgelegd",
+      "limits": "Wat het antwoord niet kan zeggen",
+      "full": "De volledige methode en de bronnen",
+      "own": "Eigen keuze van wetterdienst.",
+      "source": "Bron:",
+      "compare": "Vergelijk:",
+      "provider": "Aanbieder",
+      "dataset": "Dataset",
+      "parameters": "Parameters",
+      "licence": "Licentie",
+      "open": "Deze gegevens openen in de Verkenner"
+    },
     "rain": {
       "yes": "Ja, waarschijnlijk regen.",
       "maybe": "Misschien, een beetje.",
@@ -162,6 +180,7 @@
       "providers": "De nationale weerdiensten achter de data: land, licentie, de bronvermelding en wat ieder aanbiedt.",
       "glossary": "Wat elke weer- en klimaatparameter meet en in welke eenheid de waarden terugkomen, doorzoekbaar op naam en grootheid.",
       "measurement": "Hoe het weer wordt gemeten: instrumenten, hoe een meting een waarde wordt, wat het getal zegt en waar aanbieders verschillen, met bronnen.",
+      "methods": "Hoe de antwoorden van Ask the weather tot stand komen: stappen en getallen van elke methode, de gepubliceerde bronnen en de eigen keuzes van wetterdienst.",
       "about": "Over het open-sourceproject Wetterdienst en de mensen die het onderhouden.",
       "support": "Ondersteun Wetterdienst: meld een probleem, draag code bij of doneer.",
       "map": "Een kaart van de stations van de Duitse weerdienst: kies een station of een willekeurig punt voor de verwachting, de klimaatstrepen en de metingen.",
@@ -207,6 +226,7 @@
     "api": "API",
     "glossary": "Woordenlijst",
     "measurement": "Meting",
+    "methods": "Methoden",
     "support": "Ondersteuning",
     "map": "Kaart",
     "radar": "Radar"
@@ -495,6 +515,37 @@
       "normals": "Klimaatnormalen",
       "time": "Tijd",
       "observationForecastDerived": "Waarneming, voorspelling en afgeleide gegevens"
+    }
+  },
+  "methods": {
+    "title": "Hoe de antwoorden tot stand komen",
+    "subtitle": "De methode achter elke vraag van Ask the weather: de stappen, de getallen, de werken waarop elke keuze rust en de keuzes die wetterdienst zelf maakt",
+    "menuDescription": "De methode en de bronnen achter elk antwoord van Ask the weather",
+    "tocTitle": "Inhoud",
+    "introTitle": "Zo lees je deze pagina",
+    "introText": "Elke vraag van Ask the weather heeft een onderdeel: de methode stap voor stap, de formule als die er is, elke periode, drempel en regel met het gepubliceerde werk waar ze vandaan komt, de gegevens, de begrippen en de grenzen. Aan het eind staan de aangehaalde werken, elk met wat het is en waarom het telt.",
+    "ownText": "Waar geen gepubliceerd werk een keuze maakt, is de keuze gemarkeerd als eigen keuze van wetterdienst, met de redenering. Het is een keuze van het project, geen regel van de weerkunde, en ze kan veranderen. Geen antwoord rust op een getal dat noch een bron noch een markering heeft.",
+    "measurementText": "De begrippen worden uitgelegd op {page} en in de {glossary}, en vanaf hier gelinkt in plaats van twee keer geschreven.",
+    "chipsTitle": "De vragen",
+    "ask": "Deze vraag stellen",
+    "ownCount": "{own} van de {total} keuzes zijn eigen keuzes van wetterdienst",
+    "stepsTitle": "De methode, stap voor stap",
+    "formulaTitle": "Formule",
+    "rulesTitle": "De keuzes en waar ze vandaan komen",
+    "says": "Wat de bron zegt:",
+    "dataTitle": "De gegevens",
+    "termsTitle": "Begrippen",
+    "limitsTitle": "Grenzen van het antwoord",
+    "worksTitle": "Aangehaalde werken",
+    "worksIntro": "Elk werk zegt in gewone woorden wat het is, wie het uitgeeft en wat de methoden eruit halen, en geeft dan de formele bronvermelding. De titels blijven in de taal van het werk.",
+    "usedBy": "Gebruikt door:",
+    "kind": {
+      "period": "Periode",
+      "band": "Drempel of schaal",
+      "statistic": "Statistiek",
+      "fallback": "Terugval bij te weinig gegevens",
+      "window": "Venster van dagen",
+      "selection": "Selectie van gegevens"
     }
   },
   "providers": {

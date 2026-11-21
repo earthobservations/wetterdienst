@@ -21,6 +21,7 @@ test.describe('the files', () => {
     expect(locs).toContain(`${HOST}/explorer`)
     expect(locs).toContain(`${HOST}/glossary`)
     expect(locs).toContain(`${HOST}/measurement`)
+    expect(locs).toContain(`${HOST}/methods`)
     expect(body).not.toContain('/widget')
     expect(body).not.toContain('/_swagger-ui')
   })

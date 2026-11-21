@@ -1,8 +1,10 @@
 import type { Provider, ProviderNetworkCoverageResponse, Station, Value } from '#shared/types/api'
 import type { Place } from '../../composables/usePlace'
 import type { Bar } from '../answers'
+import type { TopicId } from '../measurement'
 import type { TOOLS } from '../sections'
 import type { Quantity } from '../units'
+import type { WorkId } from './works'
 import { DateTime } from 'luxon'
 
 // What a chip of "Ask the weather" is (GH-3518, GH-3764): ONE definition object. The home page (components/AskTheWeather.vue)
@@ -129,11 +131,79 @@ export interface AnswerAction {
   tool?: ToolKey
 }
 
+// ------------------------------------------------------------------------------------------- the explanation
+
+/** Where a choice of a method is taken from: a work of `works.ts`, and the place in it (`Table 5.1`, `§3`), as the work itself numbers it */
+export interface Citation {
+  work: WorkId
+  at?: string
+}
+
+/** What a rule of a method is: a period, a band (a threshold or a scale), a statistic, a fallback where the data is short, a window of days, or a selection */
+export type RuleKind = 'period' | 'band' | 'statistic' | 'fallback' | 'window' | 'selection'
+
 /**
- * What the reader is told about how an answer was worked out and where it comes from (step 1b of GH-3764). Typed and
- * empty until that step fills it in; a definition leaves it out.
+ * One choice that shapes an answer (GH-3764, step 1c): a period, a band, a statistic, a fallback rule. It cites a published
+ * source (`cites`) or is marked as wetterdienst's own (`own`), with the reasoning in its text: a rule with neither is no rule
+ * the page can show, and `tests/unit/ask-methods.test.ts` fails it. A rule that is its own may also cite works that are not
+ * its source but bear on it (the comparison the reasoning makes). Its words are in `i18n/methods/` under `rules.<id>`.
  */
-export type ChipExplanation = Readonly<Record<string, never>>
+export interface Rule {
+  /** The name in the texts and in the anchor of the rule on the page of the methods; plain lower case words */
+  id: string
+  kind: RuleKind
+  /**
+   * The numbers the rule's text says, as the code has them: `{from}` in the text is `values.from`, written in the language
+   * of the page (a list of numbers is written with commas). The texts of the steps and the limits of the chip may use the values
+   * of any of its rules, so a name is used by one rule of a chip only.
+   */
+  values?: Readonly<Record<string, string | number | readonly number[]>>
+  cites: readonly Citation[]
+  /** True for a choice that is wetterdienst's own: no published source says it */
+  own?: boolean
+}
+
+/** One line of "the numbers used" of an answer: the id of its text in `i18n/methods/` (`numbers.<id>`), with its numbers and names filled in as the page writes them */
+export interface NumberLine {
+  id: string
+  params: Record<string, string | number>
+}
+
+/** What a chip fetches, as the reader is told it, and where the same data is opened in the Explorer */
+export interface ExplanationData<Loaded> {
+  /** The provider, as a request names it, whose licence and credit are said; null where the answer is no provider's data */
+  provider: string | null
+  /** The network as a request names it; null where the answer is not from one network (the list of services) */
+  network: string | null
+  /** The dataset as a request names it (`monthly/climate_summary`); null for the list of services, which is wetterdienst's own */
+  dataset: string | null
+  /** The parameters of the dataset the answer uses, as the glossary names them */
+  parameters: readonly string[]
+  /** The link that opens the same data in the Explorer, or null where the answer is not one dataset (the list of services) */
+  open: (env: ChipEnv, choices: Choices, loaded: Loaded | null) => AnswerAction['to'] | null
+}
+
+/**
+ * How an answer was worked out and where it comes from (GH-3764, steps 1b and 1c): the structure, and the numbers in it;
+ * the words are in `i18n/methods/` (German and English) under the id of the chip. It is what the disclosure under the answer
+ * (`components/AnswerExplanation.vue`) and the page of the methods (`pages/methods.vue`) both write, so that a chip is on
+ * the page with no edit of it.
+ */
+export interface ChipExplanation<Loaded, Result> {
+  /** The entries of "How weather is measured" (`utils/measurement.ts`) whose terms the explanation uses and links to, so that a term is not explained twice */
+  topics: readonly TopicId[]
+  /** The method step by step: the ids of its steps in the texts (`steps.<id>`), in order */
+  steps: readonly string[]
+  /** The ids of the formulas of the method in the texts (`formulas.<id>`), none where there is no formula */
+  formulas: readonly string[]
+  /** Every period, band, statistic and fallback of the answer, with its source or its mark as wetterdienst's own */
+  rules: readonly Rule[]
+  /** The limits of the answer: the ids of their texts (`limits.<id>`) */
+  limits: readonly string[]
+  data: ExplanationData<Loaded>
+  /** The numbers of this answer: the station, the period and how many years or days it covers, the thresholds */
+  numbers: (result: Result, loaded: Loaded, env: ChipEnv, choices: Choices) => NumberLine[]
+}
 
 /**
  * One chip. `Loaded` is what its requests bring back, `Result` what the answer function makes of it (null where the data
@@ -162,8 +232,8 @@ export interface ChipDefinition<Id extends string, Loaded, Result> {
   credit: { provider: string, fallback: string } | null
   /** Every key of the catalogs the definition uses, which `tests/unit/ask-chips.test.ts` holds to all eleven locales */
   i18n: readonly string[]
-  /** Not written until step 1b of GH-3764 */
-  explanation?: ChipExplanation
+  /** How the answer was worked out and what it rests on (GH-3764): the disclosure under the answer and the page of the methods */
+  explanation: ChipExplanation<Loaded, Result>
   /** What it fetches: provider, network, parameters and window. It does not judge the data. */
   load: (context: ChipContext, api: ChipApi) => Promise<Loaded>
   /** The answer, worked out from what was fetched. Pure; null rather than a number made up. */

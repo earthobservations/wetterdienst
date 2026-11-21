@@ -94,6 +94,24 @@
     "showValues": "Werte anzeigen",
     "tableWhen": "Wann",
     "leadsTo": "Die Daten im Werkzeug öffnen",
+    "explain": {
+      "button": "Wie ist diese Antwort entstanden?",
+      "failed": "Die Erklärung konnte nicht geladen werden.",
+      "numbers": "Die verwendeten Zahlen",
+      "rules": "Die Regeln und woher sie kommen",
+      "data": "Die Daten",
+      "terms": "Begriffe erklärt",
+      "limits": "Was die Antwort nicht sagen kann",
+      "full": "Die ganze Methode und ihre Quellen",
+      "own": "Eigene Entscheidung von wetterdienst.",
+      "source": "Quelle:",
+      "compare": "Zum Vergleich:",
+      "provider": "Anbieter",
+      "dataset": "Datensatz",
+      "parameters": "Parameter",
+      "licence": "Lizenz",
+      "open": "Diese Daten im Explorer öffnen"
+    },
     "rain": {
       "yes": "Ja, wahrscheinlich Regen.",
       "maybe": "Vielleicht, ein wenig.",
@@ -162,6 +180,7 @@
       "providers": "Die nationalen Wetterdienste hinter den Daten: Land, Lizenz, die anzugebende Quelle und was jeder anbietet.",
       "glossary": "Was jeder Wetter- und Klimaparameter misst und in welcher Einheit seine Werte kommen, durchsuchbar nach Name und Größe.",
       "measurement": "So wird Wetter gemessen: Instrumente, wie aus einer Messung ein Wert wird, was die Zahl sagen kann und wo sich Anbieter unterscheiden, mit Quellen.",
+      "methods": "Wie die Antworten von Ask the weather entstehen: Schritte und Zahlen jeder Methode, ihre veröffentlichten Quellen und die eigenen Entscheidungen von wetterdienst.",
       "about": "Über das Open-Source-Projekt Wetterdienst und die Menschen, die es pflegen.",
       "support": "Wetterdienst unterstützen: Fehler melden, Code beitragen oder spenden.",
       "map": "Eine Karte der Stationen des Deutschen Wetterdienstes: Wähle eine Station oder einen beliebigen Punkt und sieh Vorhersage, Klimastreifen und Messwerte dazu.",
@@ -207,6 +226,7 @@
     "api": "API",
     "glossary": "Glossar",
     "measurement": "Messung",
+    "methods": "Methoden",
     "support": "Unterstützen",
     "map": "Karte",
     "radar": "Radar"
@@ -495,6 +515,37 @@
       "normals": "Klimanormalwerte",
       "time": "Zeit",
       "observationForecastDerived": "Beobachtung, Vorhersage und abgeleitete Daten"
+    }
+  },
+  "methods": {
+    "title": "Wie die Antworten entstehen",
+    "subtitle": "Die Methode hinter jeder Frage von Ask the weather: die Schritte, die Zahlen, die Werke, auf denen jede Entscheidung beruht, und die Entscheidungen, die wetterdienst selbst getroffen hat",
+    "menuDescription": "Die Methode und die Quellen hinter jeder Antwort von Ask the weather",
+    "tocTitle": "Inhalt",
+    "introTitle": "So liest du diese Seite",
+    "introText": "Jede Frage von Ask the weather hat einen Abschnitt: ihre Methode Schritt für Schritt, ihre Formel, wo es eine gibt, jeden Zeitraum, jede Schwelle und jede Regel mit dem veröffentlichten Werk, aus dem sie stammt, die Daten, die Begriffe und die Grenzen. Am Ende stehen die zitierten Werke, jedes mit dem, was es ist und warum es zählt.",
+    "ownText": "Wo kein veröffentlichtes Werk eine Entscheidung trifft, ist sie als eigene von wetterdienst markiert, mit der Begründung. Das ist eine Entscheidung des Projekts, keine Regel der Wetterkunde, und sie lässt sich ändern. Keine Antwort beruht auf einer Zahl, die weder belegt noch markiert ist.",
+    "measurementText": "Die Begriffe werden auf {page} und im {glossary} erklärt und von hier aus verlinkt, statt zweimal geschrieben zu werden.",
+    "chipsTitle": "Die Fragen",
+    "ask": "Diese Frage stellen",
+    "ownCount": "{own} von {total} Entscheidungen sind eigene von wetterdienst",
+    "stepsTitle": "Die Methode, Schritt für Schritt",
+    "formulaTitle": "Formel",
+    "rulesTitle": "Die Entscheidungen und woher sie kommen",
+    "says": "Was die Quelle sagt:",
+    "dataTitle": "Die Daten",
+    "termsTitle": "Begriffe",
+    "limitsTitle": "Grenzen der Antwort",
+    "worksTitle": "Zitierte Werke",
+    "worksIntro": "Jedes Werk sagt in einfachen Worten, was es ist, wer es herausgibt und was die Methoden daraus nehmen, und gibt dann die formale Quellenangabe. Die Titel bleiben in der Sprache des Werks.",
+    "usedBy": "Verwendet von:",
+    "kind": {
+      "period": "Zeitraum",
+      "band": "Schwelle oder Skala",
+      "statistic": "Statistik",
+      "fallback": "Ersatz bei zu wenigen Daten",
+      "window": "Fenster von Tagen",
+      "selection": "Auswahl der Daten"
     }
   },
   "providers": {

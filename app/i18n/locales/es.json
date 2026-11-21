@@ -94,6 +94,24 @@
     "showValues": "Mostrar los valores",
     "tableWhen": "Cuándo",
     "leadsTo": "Abrir los datos en la herramienta",
+    "explain": {
+      "button": "¿Cómo se ha elaborado esta respuesta?",
+      "failed": "No se pudo cargar la explicación.",
+      "numbers": "Las cifras usadas",
+      "rules": "Las reglas y de dónde vienen",
+      "data": "Los datos",
+      "terms": "Términos explicados",
+      "limits": "Lo que la respuesta no puede decir",
+      "full": "El método completo y sus fuentes",
+      "own": "Decisión propia de wetterdienst.",
+      "source": "Fuente:",
+      "compare": "Compara:",
+      "provider": "Proveedor",
+      "dataset": "Conjunto de datos",
+      "parameters": "Parámetros",
+      "licence": "Licencia",
+      "open": "Abrir estos datos en el Explorador"
+    },
     "rain": {
       "yes": "Sí, es probable que llueva.",
       "maybe": "Quizá, un poco.",
@@ -162,6 +180,7 @@
       "providers": "Los servicios meteorológicos nacionales detrás de los datos: país, licencia, la atribución que debe indicarse y lo que ofrece cada uno.",
       "glossary": "Qué mide cada parámetro meteorológico y climático y en qué unidad se devuelven sus valores, con búsqueda por nombre y magnitud.",
       "measurement": "Cómo se mide el tiempo atmosférico: instrumentos, cómo una lectura se convierte en valor, qué dice la cifra y en qué se diferencian los proveedores, con fuentes.",
+      "methods": "Cómo se elaboran las respuestas de Ask the weather: los pasos y cifras de cada método, sus fuentes publicadas y las decisiones propias de wetterdienst.",
       "about": "Sobre el proyecto de código abierto Wetterdienst y las personas que lo mantienen.",
       "support": "Apoyar Wetterdienst: informar de un problema, aportar código o donar.",
       "map": "Un mapa de las estaciones del Servicio Meteorológico Alemán: elige una estación o un punto cualquiera para ver su pronóstico, sus franjas climáticas y sus mediciones.",
@@ -207,6 +226,7 @@
     "api": "API",
     "glossary": "Glosario",
     "measurement": "Medición",
+    "methods": "Métodos",
     "support": "Ayuda",
     "map": "Mapa",
     "radar": "Radar"
@@ -495,6 +515,37 @@
       "normals": "Normales climáticas",
       "time": "Hora y día",
       "observationForecastDerived": "Observación, predicción y datos derivados"
+    }
+  },
+  "methods": {
+    "title": "Cómo se elaboran las respuestas",
+    "subtitle": "El método detrás de cada pregunta de Ask the weather: los pasos, las cifras, las obras en que se apoya cada decisión y las decisiones propias de wetterdienst",
+    "menuDescription": "El método y las fuentes detrás de cada respuesta de Ask the weather",
+    "tocTitle": "Contenido",
+    "introTitle": "Cómo leer esta página",
+    "introText": "Cada pregunta de Ask the weather tiene una sección: su método paso a paso, su fórmula si la tiene, cada periodo, umbral y regla con la obra publicada de la que procede, los datos, los términos y los límites. Al final están las obras citadas, cada una con lo que es y por qué cuenta.",
+    "ownText": "Cuando ninguna obra publicada toma una decisión, esta se marca como propia de wetterdienst, con su razonamiento. Es una decisión del proyecto, no una regla de la ciencia del tiempo, y puede cambiarse. Ninguna respuesta se apoya en una cifra que no tenga fuente ni marca.",
+    "measurementText": "Los términos se explican en {page} y en el {glossary}, y se enlazan desde aquí en lugar de escribirse dos veces.",
+    "chipsTitle": "Las preguntas",
+    "ask": "Hacer esta pregunta",
+    "ownCount": "{own} de {total} decisiones son propias de wetterdienst",
+    "stepsTitle": "El método, paso a paso",
+    "formulaTitle": "Fórmula",
+    "rulesTitle": "Las decisiones y de dónde vienen",
+    "says": "Lo que dice la fuente:",
+    "dataTitle": "Los datos",
+    "termsTitle": "Términos",
+    "limitsTitle": "Límites de la respuesta",
+    "worksTitle": "Obras citadas",
+    "worksIntro": "Cada obra dice con palabras sencillas qué es, quién la publica y qué toman de ella los métodos, y después da la cita formal. Los títulos se quedan en el idioma de la obra.",
+    "usedBy": "Usada por:",
+    "kind": {
+      "period": "Periodo",
+      "band": "Umbral o escala",
+      "statistic": "Estadístico",
+      "fallback": "Alternativa si faltan datos",
+      "window": "Ventana de días",
+      "selection": "Selección de datos"
     }
   },
   "providers": {
