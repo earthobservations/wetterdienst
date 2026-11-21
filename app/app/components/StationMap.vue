@@ -44,6 +44,8 @@ const props = defineProps<{
   recentre?: number
   /** The reader's own position (GH-3651), marked as a target of its own; a press of "Use my location" raises `locate` */
   position?: Point | null
+  /** What the mark of the position is called for a screen reader (the Radar tool); none where the page names it itself */
+  positionLabel?: string
   /** Raised for each press that gave a position: the map centres on it, once */
   locate?: number
   /** How the stations are grouped at the outer zooms (GH-4079), null for none: every station is its own dot */
@@ -450,10 +452,22 @@ function drawPosition() {
   if (!props.position)
     return
   const at: L.LatLngExpression = [props.position.latitude, props.position.longitude]
+  // over the radar's picture, which has every colour of the legend (and, over the dark blues, no navy to be seen), the ring is a solid white disc
+  // with a heavier navy edge: it is seen on any of them, and it is no cell's mark (a coloured disc with a number and an arrow)
+  const over = Boolean(props.openOn)
   positionMarks = [
-    L.circleMarker(at, { radius: 12, color: NAVY, weight: 2, fillColor: '#ffffff', fillOpacity: 0.55, interactive: false, pane: MARKS_PANE }).addTo(map),
-    L.circleMarker(at, { radius: 4, color: '#ffffff', weight: 2, fillColor: NAVY, fillOpacity: 1, interactive: false, pane: MARKS_PANE }).addTo(map),
+    L.circleMarker(at, over
+      ? { radius: 13, color: NAVY, weight: 3.5, fillColor: '#ffffff', fillOpacity: 0.95, interactive: false, pane: MARKS_PANE }
+      : { radius: 12, color: NAVY, weight: 2, fillColor: '#ffffff', fillOpacity: 0.55, interactive: false, pane: MARKS_PANE }).addTo(map),
+    L.circleMarker(at, { radius: over ? 5 : 4, color: '#ffffff', weight: 2, fillColor: NAVY, fillOpacity: 1, interactive: false, pane: MARKS_PANE }).addTo(map),
   ]
+  // the mark is a picture of one thing: the ring is named, the dot inside it is not read a second time
+  if (props.positionLabel) {
+    const [ring, dot] = positionMarks.map(mark => mark.getElement())
+    ring?.setAttribute('role', 'img')
+    ring?.setAttribute('aria-label', props.positionLabel)
+    dot?.setAttribute('aria-hidden', 'true')
+  }
 }
 
 /** The presses of "Use my location" that the map has moved to */
@@ -664,7 +678,7 @@ watch(() => [props.selected, props.place, props.recentre, props.position], () =>
   drawSelection()
   reveal()
 })
-watch(() => [props.position, props.locate], () => {
+watch(() => [props.position, props.locate, props.positionLabel], () => {
   drawPosition()
   centreOnPosition()
 })

@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Radar]` "Use my location", as on the map: the radar marks your position (a white disc with a navy
+  edge, over the picture and the thunderstorm cells), centres on it and zooms to about 9, and a button
+  hides and shows the marker. A position outside the radar's area is told and the map stays on the
+  data. The position is asked only on a press, rounded to about 1 km in the browser, kept only with
+  "Remember my position" (`wd-location`) and sent to no request: the radar is the same for everyone.
+  The privacy policy lists the radar among the places and says so (GH-4287).
+
 ## [0.57.0] - 2026-11-21
 
 Paired with backend 0.194.0, which it needs: the Radar tool asks the radar routes of 0.194.0, and the

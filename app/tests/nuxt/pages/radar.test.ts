@@ -1,10 +1,11 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearNuxtData } from '#imports'
+import { clearNuxtData, clearNuxtState } from '#imports'
 import RadarPage from '~/pages/radar.vue'
 import { radarAnswer, runTime } from '../../helpers/radar-answer'
 import { emptyScan, exampleScan } from '../../helpers/storm-cells-answer'
+import { LOCATION_STATE } from '../fixtures/state'
 
 // The Radar tool (GH-3788): the map of the map tool with no stations, DWD's precipitation radar over it as a loop of the last two
 // hours and the forecast of the next two, the player, the legend, the credit, and the thunderstorm cells on top. The map itself (Leaflet,
@@ -17,7 +18,7 @@ vi.mock('~/components/StationMap.vue', async () => {
   return {
     __esModule: true,
     default: defineComponent({
-      props: { stations: Array, selected: null, place: null, label: String, noFullscreen: Boolean, openOn: Array, overlay: null, cells: Array, cellsFaded: Boolean, credits: Array, centreOn: null },
+      props: { stations: Array, selected: null, place: null, label: String, noFullscreen: Boolean, openOn: Array, overlay: null, cells: Array, cellsFaded: Boolean, credits: Array, centreOn: null, position: null, positionLabel: String, locate: Number },
       setup(props) {
         stage.props = props
         stage.mounts++
@@ -124,6 +125,9 @@ afterEach(() => {
   clearNuxtData()
   window.matchMedia = originalMatchMedia
   globalThis.fetch = originalFetch
+  delete (navigator as any).geolocation
+  delete (navigator as any).permissions
+  clearNuxtState(LOCATION_STATE)
 })
 
 describe('the radar page', () => {
@@ -564,5 +568,156 @@ describe('the order of the map and the panel', () => {
     stubMediaQueries({ wide: false })
     const narrow = await mountRadar()
     expect(order(narrow)).toEqual(['radar-stage', 'radar-panel'])
+  })
+})
+
+// The reader's own position on the radar (GH-4287): the map tool's "Use my location", whose position the map marks and centres on, with a
+// way to hide the marker. The position goes to no request: the radar is the same for everyone. The browser's APIs are mocks.
+
+/** The browser answers `fix` to the Geolocation API (each ask counted); its permission is `prompt` */
+function mockBrowser(fix = { latitude: 51.3412, longitude: 12.3747 }) {
+  const getCurrentPosition = vi.fn((success: (position: unknown) => void) => success({ coords: fix }))
+  Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition } })
+  Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query: vi.fn(async () => ({ state: 'prompt' })) } })
+  return getCurrentPosition
+}
+const press = (wrapper: Wrapper) => byId(wrapper, 'use-my-location-button').trigger('click')
+const toggle = (wrapper: Wrapper) => byId(wrapper, 'radar-position-toggle')
+const status = (wrapper: Wrapper) => byId(wrapper, 'use-my-location-status')
+
+describe('the reader\'s own position', () => {
+  it('is asked of nobody until the button is pressed: nothing is marked, the browser is not asked, and the map has no position', async () => {
+    const getCurrentPosition = mockBrowser()
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    expect(byId(wrapper, 'use-my-location-button').text()).toBe('Use my location')
+    expect(getCurrentPosition).not.toHaveBeenCalled()
+    expect(stage.props.position).toBeNull()
+    expect(stage.props.locate).toBe(0)
+    expect(toggle(wrapper).exists()).toBe(false)
+    // the map's mark has a name, which says what it is
+    expect(stage.props.positionLabel).toBe('Your position, rounded to about 1 km')
+  })
+
+  it('marks the position rounded to about 1 km and has the map centre on it once for each press', async () => {
+    const getCurrentPosition = mockBrowser()
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    await press(wrapper)
+    await vi.waitFor(() => expect(stage.props.position).toEqual({ latitude: 51.34, longitude: 12.37 }))
+    expect(getCurrentPosition).toHaveBeenCalledTimes(1)
+    expect(stage.props.locate).toBe(1)
+    expect(status(wrapper).text()).toBe('Your position is marked on the map.')
+    await press(wrapper)
+    await vi.waitFor(() => expect(stage.props.locate).toBe(2))
+  })
+
+  it('has the note of the radar: the position is only shown, no station is looked up', async () => {
+    mockBrowser()
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    await press(wrapper)
+    await vi.waitFor(() => expect(byId(wrapper, 'use-my-location-note').exists()).toBe(true))
+    expect(byId(wrapper, 'use-my-location-note').text()).toContain('used only to show your position on the map')
+    expect(byId(wrapper, 'use-my-location-note').text()).not.toContain('nearest station')
+  })
+
+  it('can be hidden and shown again, which does not move the map, and a press shows it again', async () => {
+    mockBrowser()
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    await press(wrapper)
+    await vi.waitFor(() => expect(toggle(wrapper).exists()).toBe(true))
+    expect(toggle(wrapper).text()).toBe('Hide my position on the map')
+    await toggle(wrapper).trigger('click')
+    await vi.waitFor(() => expect(stage.props.position).toBeNull())
+    expect(toggle(wrapper).text()).toBe('Show my position on the map')
+    expect(status(wrapper).text()).toBe('Your position is hidden on the map.')
+    await toggle(wrapper).trigger('click')
+    await vi.waitFor(() => expect(stage.props.position).toEqual({ latitude: 51.34, longitude: 12.37 }))
+    // the count of the presses is the one thing that moves the map
+    expect(stage.props.locate).toBe(1)
+    await toggle(wrapper).trigger('click')
+    await vi.waitFor(() => expect(stage.props.position).toBeNull())
+    await press(wrapper)
+    await vi.waitFor(() => expect(stage.props.position).toEqual({ latitude: 51.34, longitude: 12.37 }))
+    expect(stage.props.locate).toBe(2)
+  })
+
+  it('is told where it is outside the area of the radar, and then neither marked nor centred on, with nothing to hide', async () => {
+    // Madrid: the box of the answer is 45.68 to 56.22 N, 1.46 to 18.73 E
+    mockBrowser({ latitude: 40.4168, longitude: -3.7038 })
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    await press(wrapper)
+    await vi.waitFor(() => expect(status(wrapper).text()).toBe('Your position is outside the area the radar covers, so the map stays where it is.'))
+    expect(stage.props.position).toBeNull()
+    expect(toggle(wrapper).exists()).toBe(false)
+  })
+
+  it('shows a remembered position on a press without asking the browser again, and shows none before it', async () => {
+    const getCurrentPosition = mockBrowser()
+    localStorage.setItem('wd-location', JSON.stringify({ latitude: 48.14, longitude: 11.58 }))
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    // remembered, but not shown: it is shown on a press
+    expect(stage.props.position).toBeNull()
+    expect(byId(wrapper, 'use-my-location-stored').exists()).toBe(true)
+    expect(byId(wrapper, 'use-my-location-remember').exists()).toBe(false)
+    await press(wrapper)
+    await vi.waitFor(() => expect(stage.props.position).toEqual({ latitude: 48.14, longitude: 11.58 }))
+    expect(getCurrentPosition).not.toHaveBeenCalled()
+    expect(stage.props.locate).toBe(1)
+  })
+
+  it('is forgotten with "Forget": the marker goes with the position, and so does the way to hide it', async () => {
+    mockBrowser()
+    localStorage.setItem('wd-location', JSON.stringify({ latitude: 48.14, longitude: 11.58 }))
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    await press(wrapper)
+    await vi.waitFor(() => expect(stage.props.position).not.toBeNull())
+    await byId(wrapper, 'use-my-location-stored').trigger('click')
+    await vi.waitFor(() => expect(document.body.querySelector('[data-testid="use-my-location-forget"]')).not.toBeNull())
+    document.body.querySelector<HTMLButtonElement>('[data-testid="use-my-location-forget"]')!.click()
+    await vi.waitFor(() => expect(stage.props.position).toBeNull())
+    expect(toggle(wrapper).exists()).toBe(false)
+    expect(localStorage.getItem('wd-location')).toBeNull()
+    expect(status(wrapper).text()).toBe('')
+  })
+
+  it('tells a refusal in an alert, and marks nothing', async () => {
+    Object.defineProperty(navigator, 'geolocation', { configurable: true, value: { getCurrentPosition: (_ok: unknown, fail: (error: unknown) => void) => fail({ code: 1 }) } })
+    Object.defineProperty(navigator, 'permissions', { configurable: true, value: { query: vi.fn(async () => ({ state: 'prompt' })) } })
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    await press(wrapper)
+    await vi.waitFor(() => expect(byId(wrapper, 'use-my-location-problem').exists()).toBe(true))
+    expect(byId(wrapper, 'use-my-location-problem').attributes('role')).toBe('alert')
+    expect(stage.props.position).toBeNull()
+    expect(stage.props.locate).toBe(0)
+  })
+
+  it('goes to no request: not the list of the frames, the cells, a frame, nor any other', async () => {
+    cellsScan = () => exampleScan()
+    mockBrowser()
+    const everything: string[] = []
+    const fetchBefore = globalThis.fetch
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      everything.push(`${String(input instanceof Request ? input.url : input)} ${typeof init?.body === 'string' ? init.body : ''}`)
+      return fetchBefore(input, init)
+    }) as typeof fetch
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    await press(wrapper)
+    await vi.waitFor(() => expect(stage.props.position).not.toBeNull())
+    const asked = [...framesAsked, ...cellsAsked].map(query => JSON.stringify(query))
+    expect(asked.length).toBeGreaterThan(0)
+    expect(everything.length).toBeGreaterThan(0)
+    for (const request of [...asked, ...imagesAsked, ...everything])
+      expect(request, request).not.toMatch(/latitude|longitude|lat=|lon=|51\.34|12\.37/)
+    for (const query of [...framesAsked, ...cellsAsked])
+      expect(Object.keys(query).filter(key => /lat|lon|position/i.test(key))).toEqual([])
+    expect(location.href).not.toMatch(/51\.34|12\.37|latitude/)
   })
 })
