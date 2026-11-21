@@ -162,7 +162,7 @@ The command line is a client of the same functions as the REST API: it renders a
 same request gives the same output, and the options are the parameters of the REST API.
 
 - **Commands and options**: `alerts`, `auth`, `cache`, `coverage`, `fields`,
-  `glossary`, `history`, `info`, `interpolate`, `issues`, `kostra`, `providers`, `radar`, `restapi`, `stations`, `storm-cells`, `summarize` and `values`, with their options, the choices of an option and its default. `tests/ui/cli/help.snapshot.txt`
+  `glossary`, `history`, `info`, `interpolate`, `issues`, `kostra`, `providers`, `radar`, `restapi`, `station-ids`, `stations`, `storm-cells`, `summarize` and `values`, with their options, the choices of an option and its default. `tests/ui/cli/help.snapshot.txt`
   is the `--help` of every command; `uv run poe cli:snapshot` writes it anew after an intended change.
   `tests/baselines/cli.baseline.json` is every command and every spelling of every option as the last release offered
   it (see below).
@@ -425,9 +425,11 @@ the `ts_*` settings (deprecated in 0.148.0, removed in 0.160.0), `use_nearby_sta
 `wetterdienst stripes values` (deprecated in 0.159.0), the last two announced for removal in 1.0.0 and removed
 in 0.173.0, earlier than announced.
 
-`Wetterdienst(provider, network)` is a `TypeError` that names `Wetterdienst.resolve`. The `stripes` command group
-(`wetterdienst stripes values` among them) is gone altogether, with the climate stripes of the REST API and of MCP
-(0.195.0, GH-4258): the web app draws them itself.
+`Wetterdienst(provider, network)` is a `TypeError` that names `Wetterdienst.resolve`, and `wetterdienst stripes
+values` is "No such command". The name `stripes values` is **never reused** for other output, and since the climate
+stripes left the backend (in the release after 0.194.0, GH-4258: the web app draws them itself) the same holds for the
+whole `stripes` group of the command line, the `/stripes/...` routes of the REST API and the `stripes_...` tools of
+MCP: a command, route or tool of that name that does something else would get another name, as an addition.
 
 Removal is a **Breaking** change, and so a major version from 1.0, with one exception: a provider, a network or a
 parameter whose upstream source has ended is removed in a minor release, announced as **Breaking** (see

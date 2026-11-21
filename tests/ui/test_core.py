@@ -482,7 +482,6 @@ _STATUS_OF = {
     "NoPeriodsFoundError": 400,
     "NoStationPositionsError": 422,
     "NoStationsWithElevationError": 400,
-    "NotEnoughDataError": 400,
     "NotFoundError": 404,
     "ParameterNotCarriedError": 400,
     "ProductFileNotFoundError": 502,

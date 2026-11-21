@@ -489,6 +489,13 @@ def _read_kostra(monkeypatch: pytest.MonkeyPatch) -> None:
     _warn_first(monkeypatch, DwdKostraRequest, "query")
 
 
+def _read_station_ids(monkeypatch: pytest.MonkeyPatch) -> None:
+    from tests.core.station_search_stubs import serve  # noqa: PLC0415
+
+    serve(monkeypatch, {})
+    _warn_first(monkeypatch, restapi, "find_stations_by_id")
+
+
 def _read_radar_frames(monkeypatch: pytest.MonkeyPatch) -> None:
     import datetime as dt  # noqa: PLC0415
 
@@ -553,6 +560,7 @@ _ROUTES_WITH_WARNINGS = [
     pytest.param(
         "/api/kostra", {"latitude": "52.52", "longitude": "13.40", "duration": "60"}, _read_kostra, id="kostra"
     ),
+    pytest.param("/api/station-ids", {"wmo_id": "10381"}, _read_station_ids, id="station-ids"),
     pytest.param("/api/radar/frames", {}, _read_radar_frames, id="radar-frames"),
     pytest.param("/api/radar/frame", {"time": "2026-11-19T21:10:00Z"}, _read_radar_frame, id="radar-frame"),
 ]

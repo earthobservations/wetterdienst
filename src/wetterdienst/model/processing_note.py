@@ -24,6 +24,13 @@ PROCESSING_NOTE = (
 #: what an answer whose values are selected or calculated from readings says besides (interpolation, summary)
 DERIVED_NOTE = "The values were selected or calculated from the provider's readings."
 
+#: what the answer of the search for a WMO, WIGOS or ICAO id says besides: the stations are the providers' own, chosen
+#: by the id (GH-4075)
+STATION_IDS_NOTE = (
+    "The stations were selected from the station list each provider publishes, by the id searched for and by the "
+    "ids equivalent to it; no station's data was changed."
+)
+
 
 def processing_note(*, derived: bool = False, calculated: str | None = None, image_note: str | None = None) -> str:
     """Give the note of an answer: `PROCESSING_NOTE`, then `DERIVED_NOTE` where it applies.

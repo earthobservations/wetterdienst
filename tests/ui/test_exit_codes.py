@@ -149,6 +149,7 @@ def test_ctrl_c_is_exit_1(monkeypatch: pytest.MonkeyPatch) -> None:
     [
         pytest.param((), id="no-command"),
         pytest.param(("about",), id="about-moved"),
+        pytest.param(("stripes",), id="stripes-removed"),
         pytest.param(("nope",), id="unknown-command"),
         pytest.param(("stations", "--nope"), id="unknown-option"),
         pytest.param(("stations", "--all"), id="missing-option"),

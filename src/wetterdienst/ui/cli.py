@@ -1171,6 +1171,17 @@ STORM_CELLS_EXAMPLES = r"""
     wetterdienst storm-cells --format=geojson --target=file://cells.geojson
 """
 
+STATION_IDS_EXAMPLES = r"""
+    # the station with WMO number 10381 at every provider that lists it: DWD, NOAA GHCN, ... (about 9 s the first time)
+    wetterdienst station-ids --wmo-id=10381
+
+    # an aerodrome by its ICAO code: also the stations that list its WMO number only
+    wetterdienst station-ids --icao-id=EDDH
+
+    # a WIGOS identifier, as CSV; the identifier of WMO's issuer is the WMO number as well
+    wetterdienst station-ids --wigos-id=0-20000-0-10381 --format=csv
+"""
+
 KOSTRA_EXAMPLES = r"""
     # the 60-minute rain that comes once in 100 years at a point in Berlin: the depth (mm), the intensity (l/(s ha))
     # and DWD's uncertainty (+- %), as JSON with the grid cell
@@ -3239,6 +3250,89 @@ def storm_cells(
 
     output, _ = render_storm_cells(result, fmt, pretty=pretty)
     print(output)  # noqa: T201
+
+
+@cli.command("station-ids", epilog=_examples(STATION_IDS_EXAMPLES))
+@click.option(
+    "--wmo-id",
+    "wmo_id",
+    type=click.STRING,
+    help=(
+        "Search by WMO number (five digits), comma-separated. The WIGOS identifier 0-20000-0-<number> of each is "
+        "searched too. Example: 10381,10147"
+    ),
+)
+@click.option(
+    "--wigos-id",
+    "wigos_id",
+    type=click.STRING,
+    help=(
+        "Search by WIGOS station identifier, comma-separated. One of WMO's issuer, 0-20000-0-<number>, is the WMO "
+        "number as well. Example: 0-20000-0-10381"
+    ),
+)
+@click.option(
+    "--icao-id",
+    "icao_id",
+    type=click.STRING,
+    help=(
+        "Search by ICAO location indicator (four letters, any case), comma-separated. The WMO numbers of the stations "
+        "found are searched too. Example: EDDH,EDDB"
+    ),
+)
+@click.option(
+    "--format",
+    "fmt",
+    type=click.Choice(["json", "csv"], case_sensitive=False),
+    default="json",
+    help="Output format: json (with the metadata block) or csv (the table alone). Default: json",
+)
+@pretty_opt
+@debug_opt
+def station_ids(
+    wmo_id: str | None,
+    wigos_id: str | None,
+    icao_id: str | None,
+    fmt: str,
+    pretty: bool,  # noqa: FBT001
+    debug: bool,  # noqa: FBT001
+) -> None:
+    """Find one WMO number, WIGOS identifier or ICAO code at every provider that has it.
+
+    Asks the station list of every network that publishes the ids with its stations, all at once, and writes one row
+    for each station that carries one of them: provider, network, the resolution and dataset of the list, station_id,
+    name, position, the three ids, and which id matched (matched_by) and whether it was the id asked for or an
+    equivalent one (match). The ids are equivalent: the WIGOS identifier 0-20000-0-10381 and the WMO number 10381 find
+    each other, and an ICAO code also searches the WMO numbers of the stations it finds. A network that cannot be read,
+    or needs credentials that are not set, is left out and named in a warning; if every network that was asked fails
+    the command fails.
+
+    The first search reads about 30 MB of station lists and takes about 9 s on a good connection, longer on a slow
+    one; the next is served from the cache in about a second.
+    """
+    from wetterdienst import Settings
+    from wetterdienst.core.station_search import find_stations_by_id
+    from wetterdienst.ui.core import StationIdsRequest
+    from wetterdienst.ui.render import render_station_ids
+
+    asked = {"wmo_id": wmo_id, "wigos_id": wigos_id, "icao_id": icao_id, "format": fmt.lower(), "pretty": pretty}
+    request = _validate_request(StationIdsRequest, {key: value for key, value in asked.items() if value is not None})
+    _apply_log_level(debug=debug)
+    begin_response()
+
+    # built outside the catch-all below, so that a malformed `WD_*` setting is told by its variable
+    settings = Settings()
+    try:
+        result = find_stations_by_id(
+            wmo_id=request.wmo_id, wigos_id=request.wigos_id, icao_id=request.icao_id, settings=settings
+        )
+    except Exception as e:
+        _refuse_if_callers(e, request)
+        log.exception("Failed to find the stations.")
+        sys.exit(1)
+
+    output, _ = render_station_ids(result, request.format, pretty=request.pretty)
+    _echo(output)
 
 
 @cli.command("kostra", epilog=_examples(KOSTRA_EXAMPLES))

@@ -129,7 +129,7 @@ ONLY when the user explicitly asks for an interpolated / between-stations estima
 plain-language "summary". `history` is different again: it returns a station's *metadata* history \
 (name/location/sensor changes), not weather. For `alerts` (DWD warnings), pass the place \
 (a point is the reliable way). For design rainfall at a point in Germany (rain depth by duration \
-and return period), use `kostra`.
+and return period), use `kostra`. For a WMO, WIGOS or ICAO id, use `station_ids`.
 
 `glossary` answers what a parameter *means* and which unit its values come back in -- use it when \
 the user asks what something is, or what unit a number is in. It is not a way to find data: it \
@@ -226,6 +226,7 @@ _TOOL_NAMES = {
     "alerts_api_alerts_get": "alerts",
     "storm_cells_api_storm_cells_get": "storm_cells",
     "kostra_api_kostra_get": "kostra",
+    "station_ids_api_station_ids_get": "station_ids",
 }
 
 # The title of every tool, and whether it reaches a service outside wetterdienst (the ``openWorldHint``).
@@ -250,6 +251,7 @@ _TOOL_TITLES: dict[str, tuple[str, bool]] = {
     "alerts": ("Get weather alerts", True),
     "storm_cells": ("Get thunderstorm cells", True),
     "kostra": ("Get heavy-rainfall statistics for a point", True),
+    "station_ids": ("Find a station by WMO, WIGOS or ICAO id", True),
 }
 
 

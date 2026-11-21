@@ -71,6 +71,7 @@ _KnmiObservationMetadataSpec = {
     },
     "timezone": "Europe/Amsterdam",
     "auth": True,
+    "station_id_list": {"resolution": "daily", "dataset": "data", "ids": ["wmo_id", "wigos_id"]},
     "resolutions": [
         {
             "name": "10_minutes",

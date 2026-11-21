@@ -28,6 +28,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from typing_extensions import TypedDict
 
 from wetterdienst import Author, Info, Settings, Wetterdienst, __version__
+from wetterdienst.core.station_search import find_stations_by_id
 from wetterdienst.exceptions import (
     ApiNotFoundError,
     BufrReaderMissingError,
@@ -68,7 +69,7 @@ from wetterdienst.model.result import (
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings
 from wetterdienst.ui import forecast_start
-from wetterdienst.ui.budget import fit_coverage, fit_stations, fit_values
+from wetterdienst.ui.budget import fit_coverage, fit_station_ids, fit_stations, fit_values
 from wetterdienst.ui.caching import (
     CATALOGUE_CACHE_CONTROL,
     HISTORY_CACHE_CONTROL,
@@ -95,6 +96,7 @@ from wetterdienst.ui.core import (
     RestSummaryRequest,
     Selection,
     SettingsRequest,
+    StationIdsRequest,
     StationsRequest,
     StormCellsRequest,
     SummaryRequest,
@@ -161,17 +163,20 @@ from wetterdienst.ui.render import (
     render_history,
     render_issues,
     render_kostra,
+    render_station_ids,
     render_stations,
     render_storm_cells,
 )
 from wetterdienst.ui.response_metadata import (
     API_VERSION,
     ResponseMetadata,
+    StationIdsMetadata,
     catalogue_headers,
     issues_metadata,
     radar_metadata,
     response_headers,
     response_metadata,
+    station_ids_headers,
 )
 from wetterdienst.ui.streaming import (
     NDJSON_MEDIA_TYPE,
@@ -365,6 +370,7 @@ REQUEST_EXAMPLES = {
     "dwd_weather_alerts": "api/alerts?granularity=community&format=geojson",
     "dwd_storm_cells": "api/storm-cells?format=geojson&track=false",
     "dwd_kostra": "api/kostra?latitude=52.52&longitude=13.40&duration=60",
+    "station_ids": "api/station-ids?wmo_id=10381",
 }
 
 
@@ -824,6 +830,30 @@ class _KostraWithMetadataDict(TypedDict):
     values: list[_KostraValue]
 
 
+class _StationIdsStation(TypedDict):
+    provider: str
+    network: str
+    # the station list the row comes from: another dataset of the network may list other stations
+    resolution: str
+    dataset: str
+    station_id: str
+    name: str | None
+    latitude: float | None
+    longitude: float | None
+    elevation: float | None
+    wmo_id: str | None
+    wigos_id: str | None
+    icao_id: str | None
+    # which id of the station matched, and whether the id searched for was its own or came by an equivalence
+    matched_by: Literal["wmo_id", "wigos_id", "icao_id"]
+    match: Literal["direct", "equivalent"]
+
+
+class _StationIdsWithMetadataDict(TypedDict):
+    metadata: StationIdsMetadata
+    stations: list[_StationIdsStation]
+
+
 @app.get(
     "/",
     response_class=HTMLResponse,
@@ -942,6 +972,7 @@ def index() -> HTMLResponse:
                     <li><a href="api/alerts" target="_blank" rel="noopener">weather alerts</a></li>
                     <li><a href="api/storm-cells" target="_blank" rel="noopener">storm cells</a></li>
                     <li><a href="api/kostra" target="_blank" rel="noopener">heavy rainfall (KOSTRA)</a></li>
+                    <li><a href="api/station-ids" target="_blank" rel="noopener">station by WMO, WIGOS or ICAO id</a></li>
                     {f"<li>MCP endpoint (streamable HTTP): <code>{MCP_PREFIX}</code> (<code>{MCP_ALIAS_PREFIX}</code> follows the current version)</li>" if mcp_enabled else ""}
                 </ul>
                 <h2>Examples</h2>
@@ -954,6 +985,7 @@ def index() -> HTMLResponse:
                     <li><a href="{REQUEST_EXAMPLES["dwd_weather_alerts"]}" target="_blank" rel="noopener">DWD Weather Alerts</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_storm_cells"]}" target="_blank" rel="noopener">DWD Storm Cells</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_kostra"]}" target="_blank" rel="noopener">DWD Heavy Rainfall (KOSTRA)</a></li>
+                    <li><a href="{REQUEST_EXAMPLES["station_ids"]}" target="_blank" rel="noopener">Station 10381 at every provider</a></li>
                 </ul>
                 <h2>Producer</h2>
                 <ul>
@@ -1229,6 +1261,7 @@ _ROUTE_ANSWERS: dict[str, tuple[int, ...]] = {
     "alerts": _DATA_ANSWERS,
     "storm-cells": _DATA_ANSWERS,
     "kostra": _DATA_ANSWERS,
+    "station-ids": _DATA_ANSWERS,
     "radar/frames": _DATA_ANSWERS,
     "radar/frame": _DATA_ANSWERS,
 }
@@ -2107,6 +2140,66 @@ def stations(
         )
 
     return _answer(content, request.format, metadata)
+
+
+@router.get("/station-ids", response_model=_StationIdsWithMetadataDict | str, tags=[TAG_STATIONS])
+def station_ids(
+    request: Annotated[StationIdsRequest, Query()],
+    http_request: Request,
+) -> Response:
+    """Find one WMO number, WIGOS identifier or ICAO code at every provider that lists stations with it.
+
+    Pass `wmo_id`, `wigos_id` or `icao_id` (one or several, comma-separated, at least one) and get one row for
+    each station that carries one of them, at every network that publishes the id with its stations (the
+    `searched` list of the `metadata` block names them): `provider`, `network`, the `resolution` and `dataset` of the
+    station list it comes from (another dataset of the network may list other stations), `station_id` (what you pass
+    to `values`), `name`, `latitude`, `longitude`, `elevation`, `wmo_id`, `wigos_id`, `icao_id`, and `matched_by`
+    with `match`. One WMO number can sit on several stations of one provider (NOAA GHCN has up to four), so the
+    answer is a list.
+
+    The ids are equivalent: the WIGOS identifier `0-20000-0-10381` and the WMO number `10381` find each other, and
+    an ICAO code also searches the WMO numbers of the stations it finds, so `icao_id=EDDH` finds Hamburg's DWD
+    station `01975` and NOAA GHCN `GM000010147`, which list no ICAO code. `matched_by` says which id of the station
+    matched (`wmo_id`, `wigos_id` or `icao_id`), and `match` whether it was the id asked for (`direct`) or one
+    equivalent to it (`equivalent`).
+
+    Every network that declares id columns is asked, with no narrowing by region. The first search reads their station
+    lists, about 30 MB: it takes about 9 s on a good connection and longer on a slow one or when a provider is slow;
+    the same search again takes about a second, from the server's cache. Do not repeat it within a conversation. A
+    network that cannot be read is left out and named in `warnings` (`network-failed`) and in `searched`, and keyed
+    networks without credentials are named in a warning too (`network-not-configured`); the others answer. If every
+    network that was asked fails it is a 502 and no answer, since an outage is no station that does not exist. A
+    station of `noaa/ghcn` that has no data file is left out. No row means no listed station has the id, not an error.
+    A tool's answer is cut to 40,000 characters, with an `answer-truncated` warning: ask for fewer ids.
+    """
+    begin_response()
+
+    # outside the handler below, as for `/api/stations`
+    settings = Settings()
+    try:
+        result = find_stations_by_id(
+            wmo_id=request.wmo_id, wigos_id=request.wigos_id, icao_id=request.icao_id, settings=settings
+        )
+    except AssertionError:
+        raise
+    except Exception as e:
+        raise _failure(e, request, "find stations by id") from e
+
+    content, metadata = render_station_ids(result, request.format, pretty=request.pretty)
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4022)
+        content, metadata = fit_station_ids(
+            result,
+            request.format,
+            content,
+            metadata,
+            lambda cut: render_station_ids(cut, request.format, pretty=request.pretty),
+        )
+    return Response(
+        content=content,
+        media_type=_MEDIA_TYPES.get(request.format, "application/json"),
+        headers=station_ids_headers(metadata),
+    )
 
 
 @router.get("/issues", response_model=_IssuesWithMetadataDict, tags=[TAG_STATIONS])

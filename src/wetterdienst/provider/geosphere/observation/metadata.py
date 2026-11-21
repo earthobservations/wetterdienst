@@ -24,6 +24,7 @@ _GeosphereObservationMetadataSpec = {
         "bbox": [9.4, 46.3, 17.3, 49.1],
     },
     "timezone": "Europe/Vienna",
+    "station_id_list": {"resolution": "daily", "dataset": "data", "ids": ["wmo_id"]},
     "resolutions": [
         {
             "name": "10_minutes",

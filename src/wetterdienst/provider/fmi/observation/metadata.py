@@ -35,6 +35,7 @@ _FmiObservationMetadataSpec = {
         "bbox": [-14.0, -74.0, 32.0, 70.2],
     },
     "timezone": "Europe/Helsinki",
+    "station_id_list": {"resolution": "hourly", "dataset": "data", "ids": ["wmo_id", "wigos_id", "icao_id"]},
     "resolutions": [
         {
             "name": "hourly",

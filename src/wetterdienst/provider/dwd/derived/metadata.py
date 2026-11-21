@@ -33,6 +33,7 @@ _DwdDerivedMetadataSpec = {
     "kind": "derived",
     "extent": EXTENT_GERMANY,
     "timezone": "Europe/Berlin",
+    "station_id_list": {"resolution": "daily", "dataset": "soil", "ids": ["wmo_id", "wigos_id"]},
     "resolutions": [
         {
             "name": "hourly",

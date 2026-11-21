@@ -576,6 +576,7 @@ _DmiObservationMetadataSpec = {
     },
     "timezone": "Europe/Copenhagen",
     "auth": False,
+    "station_id_list": {"resolution": "daily", "dataset": "data", "ids": ["wmo_id", "wigos_id"]},
     "resolutions": [
         {
             "name": "hourly",

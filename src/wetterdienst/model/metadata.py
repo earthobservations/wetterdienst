@@ -822,6 +822,39 @@ class ProviderTerms:
             raise ValueError(msg)
 
 
+#: the columns of a stations frame that carry a station's WMO number, WIGOS identifier and ICAO code
+StationIdColumn = Literal["wmo_id", "wigos_id", "icao_id"]
+
+
+class StationIdList(BaseModel):
+    """The one station list of a network that the search for a WMO, WIGOS or ICAO id reads (GH-4075).
+
+    A network that publishes some of the three ids with its stations declares the list to look them up in: the
+    resolution and the dataset (every dataset of a network may list other stations, which the answer says by naming the
+    list it read) and the id columns that list fills. A network that declares none is not asked. The tests hold the
+    declaration to the list: the columns it names are the ones the station list of the network fills, so a network that
+    starts to publish an id, or stops, is told here and not found out by a search that misses it.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    resolution: str
+    dataset: str
+    ids: tuple[StationIdColumn, ...] = Field(
+        min_length=1,
+        description="The id columns the station list of this resolution and dataset fills.",
+    )
+
+    @field_validator("ids")
+    @classmethod
+    def _validate_ids(cls, value: tuple[StationIdColumn, ...]) -> tuple[StationIdColumn, ...]:
+        """Refuse an id named twice."""
+        if len(set(value)) != len(value):
+            msg = f"the id columns {list(value)} name one more than once"
+            raise ValueError(msg)
+        return value
+
+
 CC_BY_4_0 = LicenseModel(
     spdx_id="CC-BY-4.0",
     name="Creative Commons Attribution 4.0 International",
@@ -875,6 +908,9 @@ class MetadataModel(BaseModel):
     extent: Extent
     timezone: TimeZoneName
     auth: bool = False
+    #: the station list a search for a WMO, WIGOS or ICAO id reads and the id columns it fills (GH-4075); null for a
+    #: network whose stations carry none of them, which that search leaves out
+    station_id_list: StationIdList | None = None
     resolutions: list[ResolutionModel]
 
     @field_validator("country_code")
@@ -892,6 +928,21 @@ class MetadataModel(BaseModel):
         problems = _extent_problems(self.extent, self.country_code)
         if problems:
             raise ValueError(problems[0])
+        return self
+
+    @model_validator(mode="after")
+    def _validate_station_id_list(self) -> MetadataModel:
+        """Hold the declared list of the station ids to a resolution and a dataset the network has."""
+        declared = self.station_id_list
+        if declared is None:
+            return self
+        resolution = _find(self.resolutions, declared.resolution)
+        if resolution is None:
+            msg = f"station_id_list: {_not_found('resolutions', declared.resolution, self.resolutions)}"
+            raise ValueError(msg)
+        if _find(resolution.datasets, declared.dataset) is None:
+            msg = f"station_id_list: {_not_found('datasets', declared.dataset, resolution.datasets)}"
+            raise ValueError(msg)
         return self
 
     @model_validator(mode="after")

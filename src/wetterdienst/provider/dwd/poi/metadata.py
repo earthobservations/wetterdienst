@@ -66,6 +66,7 @@ _DwdPoiMetadataSpec = {
         "bbox": [-32.0, 27.0, 129.0, 79.0],
     },
     "timezone": "Europe/Berlin",
+    "station_id_list": {"resolution": "hourly", "dataset": "data", "ids": ["wmo_id", "icao_id"]},
     "resolutions": [
         {
             "name": "hourly",

@@ -1113,6 +1113,29 @@ class TimeseriesRequest:
         finally:
             _SELECTING.reset(token)
 
+    def _stations_for_id_search(self) -> pl.DataFrame:
+        """Build the stations the search for a WMO, WIGOS or ICAO id (`wetterdienst.core.station_search`) looks among.
+
+        The list of `_stations_to_select_among`, which that search needs no more of than the ids and the position of a
+        station. A provider whose list costs more than that to build (`noaa/ghcn` reads the daily inventory for the span
+        of each station, which no id depends on) overrides this with the list without it; what `all()` and the filters
+        return does not change.
+        """
+        return self._stations_to_select_among()
+
+    #: whether the hits of the id search are checked one by one for a data file (`_station_file_exists`): a provider
+    #: whose station list names stations that have no data sets it
+    _checks_station_files: ClassVar[bool] = False
+
+    def _station_file_exists(self, station_id: str) -> bool:  # noqa: ARG002
+        """Tell whether the data of a station the id search found is there, where `_checks_station_files` says so.
+
+        The search asks it only of the hits, a handful for an id. It returns False for a station that has no data,
+        raises what the provider's reader raises for a failure (an `UpstreamError`, a `ProviderRateLimitError` for a
+        429), and is True for a provider that does not ask.
+        """
+        return True
+
     def _stations_to_search(self, df_all: pl.DataFrame) -> pl.DataFrame:
         """Give the stations a search by place (`filter_by_rank`, `filter_by_distance`, `filter_by_bbox`) looks among.
 

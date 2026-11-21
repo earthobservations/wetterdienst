@@ -2088,6 +2088,166 @@
         }
       }
     },
+    "/api/v1/station-ids": {
+      "get": {
+        "tags": [
+          "Stations"
+        ],
+        "summary": "Station Ids",
+        "description": "Find one WMO number, WIGOS identifier or ICAO code at every provider that lists stations with it.\n\nPass `wmo_id`, `wigos_id` or `icao_id` (one or several, comma-separated, at least one) and get one row for\neach station that carries one of them, at every network that publishes the id with its stations (the\n`searched` list of the `metadata` block names them): `provider`, `network`, the `resolution` and `dataset` of the\nstation list it comes from (another dataset of the network may list other stations), `station_id` (what you pass\nto `values`), `name`, `latitude`, `longitude`, `elevation`, `wmo_id`, `wigos_id`, `icao_id`, and `matched_by`\nwith `match`. One WMO number can sit on several stations of one provider (NOAA GHCN has up to four), so the\nanswer is a list.\n\nThe ids are equivalent: the WIGOS identifier `0-20000-0-10381` and the WMO number `10381` find each other, and\nan ICAO code also searches the WMO numbers of the stations it finds, so `icao_id=EDDH` finds Hamburg's DWD\nstation `01975` and NOAA GHCN `GM000010147`, which list no ICAO code. `matched_by` says which id of the station\nmatched (`wmo_id`, `wigos_id` or `icao_id`), and `match` whether it was the id asked for (`direct`) or one\nequivalent to it (`equivalent`).\n\nEvery network that declares id columns is asked, with no narrowing by region. The first search reads their station\nlists, about 30 MB: it takes about 9 s on a good connection and longer on a slow one or when a provider is slow;\nthe same search again takes about a second, from the server's cache. Do not repeat it within a conversation. A\nnetwork that cannot be read is left out and named in `warnings` (`network-failed`) and in `searched`, and keyed\nnetworks without credentials are named in a warning too (`network-not-configured`); the others answer. If every\nnetwork that was asked fails it is a 502 and no answer, since an outage is no station that does not exist. A\nstation of `noaa/ghcn` that has no data file is left out. No row means no listed station has the id, not an error.\nA tool's answer is cut to 40,000 characters, with an `answer-truncated` warning: ask for fewer ids.",
+        "operationId": "station_ids_api_station_ids_get",
+        "parameters": [
+          {
+            "name": "wmo_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "WMO station numbers, comma-separated, e.g. '10381,10147'; '1001' is read as '01001'. The WIGOS identifier '0-20000-0-<number>' of every one is searched too.",
+              "title": "Wmo Id"
+            },
+            "description": "WMO station numbers, comma-separated, e.g. '10381,10147'; '1001' is read as '01001'. The WIGOS identifier '0-20000-0-<number>' of every one is searched too.",
+            "style": "form",
+            "explode": false
+          },
+          {
+            "name": "wigos_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "WIGOS station ids, comma-separated, e.g. '0-20000-0-10381'; '0-056-…' is read as '0-56-…'. One of WMO's own issuer, '0-20000-0-<number>', is the WMO number as well and finds the stations that have it.",
+              "title": "Wigos Id"
+            },
+            "description": "WIGOS station ids, comma-separated, e.g. '0-20000-0-10381'; '0-056-…' is read as '0-56-…'. One of WMO's own issuer, '0-20000-0-<number>', is the WMO number as well and finds the stations that have it.",
+            "style": "form",
+            "explode": false
+          },
+          {
+            "name": "icao_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. The WMO numbers of the stations found are searched too, so 'EDDH' finds the stations that list Hamburg's aerodrome by its WMO number only.",
+              "title": "Icao Id"
+            },
+            "description": "ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. The WMO numbers of the stations found are searched too, so 'EDDH' finds the stations that list Hamburg's aerodrome by its WMO number only.",
+            "style": "form",
+            "explode": false
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "type": "string",
+              "description": "Output format: json (with the metadata block) or csv (the table alone).",
+              "default": "json",
+              "title": "Format"
+            },
+            "description": "Output format: json (with the metadata block) or csv (the table alone)."
+          },
+          {
+            "name": "pretty",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Pretty-print JSON/GeoJSON output.",
+              "default": false,
+              "title": "Pretty"
+            },
+            "description": "Pretty-print JSON/GeoJSON output."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/_StationIdsWithMetadataDict"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "title": "Response Station Ids Api Station Ids Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        }
+      }
+    },
     "/api/v1/issues": {
       "get": {
         "tags": [
@@ -7440,6 +7600,335 @@
         "title": "SourceQualityFlag",
         "description": "A quality flag the source publishes beside the values of a dataset."
       },
+      "StationIdsAlsoSearched": {
+        "properties": {
+          "wmo_id": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Wmo Id",
+            "description": "WMO numbers: those of a WIGOS identifier of WMO's issuer (`0-20000-0-<number>`) that was given, and of the stations an ICAO code found."
+          },
+          "wigos_id": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Wigos Id",
+            "description": "WIGOS identifiers of WMO's issuer (`0-20000-0-<number>`) of every WMO number searched."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "wmo_id",
+          "wigos_id"
+        ],
+        "title": "StationIdsAlsoSearched",
+        "description": "The ids searched besides the ones given, because they are equivalent to them."
+      },
+      "StationIdsCounts": {
+        "properties": {
+          "stations": {
+            "type": "integer",
+            "title": "Stations",
+            "description": "How many stations (rows) the answer has."
+          },
+          "providers": {
+            "type": "integer",
+            "title": "Providers",
+            "description": "How many providers have a station in it."
+          },
+          "networks_searched": {
+            "type": "integer",
+            "title": "Networks Searched",
+            "description": "How many networks were asked."
+          },
+          "networks_answered": {
+            "type": "integer",
+            "title": "Networks Answered",
+            "description": "How many of them read their list."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "stations",
+          "providers",
+          "networks_searched",
+          "networks_answered"
+        ],
+        "title": "StationIdsCounts",
+        "description": "How much a search for an id found, and how many of the networks answered."
+      },
+      "StationIdsMetadata": {
+        "properties": {
+          "api_version": {
+            "type": "string",
+            "title": "Api Version"
+          },
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "title": "Retrieved At",
+            "description": "When this answer was made, in UTC."
+          },
+          "producer": {
+            "$ref": "#/components/schemas/_Producer"
+          },
+          "processing_note": {
+            "type": "string",
+            "title": "Processing Note",
+            "description": "What wetterdienst did to the data: the stations were taken from each provider's station list, reshaped into a uniform table, and selected by the id, and by the ids equivalent to it."
+          },
+          "request": {
+            "$ref": "#/components/schemas/StationIdsRequestInfo"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/StationIdsCounts"
+          },
+          "searched": {
+            "items": {
+              "$ref": "#/components/schemas/StationIdsSearched"
+            },
+            "type": "array",
+            "title": "Searched",
+            "description": "Every network the search asked, each with the list it read and what came of it."
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/StationIdsProvider"
+            },
+            "type": "array",
+            "title": "Providers",
+            "description": "The providers that have a station in the answer, with their licence and credit line."
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ResponseWarning"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "description": "What the answer is missing but did not fail on, each with a stable `code` and a `message`: a network whose list could not be read (`network-failed`) or that needs credentials the server does not hold (`network-not-configured`) is left out of the search and told here."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "api_version",
+          "schema_version",
+          "retrieved_at",
+          "producer",
+          "processing_note",
+          "request",
+          "counts",
+          "searched",
+          "providers",
+          "warnings"
+        ],
+        "title": "StationIdsMetadata",
+        "description": "The `metadata` block of the answer of a search for a WMO, WIGOS or ICAO id (`/api/station-ids`).\n\nThe answer holds the stations of several providers, so the block has no one `provider`: `providers` gives the\nlicence and the credit line of each provider that has a station in the answer, and `searched` tells every network\nthat was asked, with its list. The versions, the time, the producer, the processing note and the warnings are the\nmembers every block has."
+      },
+      "StationIdsProvider": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "description": "The name a request calls it by, `dwd`."
+          },
+          "name_local": {
+            "type": "string",
+            "title": "Name Local"
+          },
+          "name_english": {
+            "type": "string",
+            "title": "Name English"
+          },
+          "country": {
+            "type": "string",
+            "title": "Country"
+          },
+          "copyright": {
+            "type": "string",
+            "title": "Copyright"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/_License"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The terms the provider publishes its data under; null where it states none."
+          },
+          "attribution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attribution",
+            "description": "The credit line to cite; null where the provider states none."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider",
+          "name_local",
+          "name_english",
+          "country",
+          "copyright",
+          "url",
+          "license",
+          "attribution"
+        ],
+        "title": "StationIdsProvider",
+        "description": "A provider that has a station in the answer: who published its list, and under which terms."
+      },
+      "StationIdsRequestInfo": {
+        "properties": {
+          "wmo_id": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Wmo Id"
+          },
+          "wigos_id": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Wigos Id"
+          },
+          "icao_id": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Icao Id"
+          },
+          "also_searched": {
+            "$ref": "#/components/schemas/StationIdsAlsoSearched"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "wmo_id",
+          "wigos_id",
+          "icao_id",
+          "also_searched"
+        ],
+        "title": "StationIdsRequestInfo",
+        "description": "What was asked: the ids given, each in the notation of its column, and the ones searched besides."
+      },
+      "StationIdsSearched": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "network": {
+            "type": "string",
+            "title": "Network"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution",
+            "description": "The resolution of the station list read: another one may list other stations. Null for a network that cannot be imported on this server, whose declaration is not known."
+          },
+          "dataset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset",
+            "description": "The dataset of the station list read: another one may list other stations; null as `resolution`."
+          },
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ids",
+            "description": "The id columns the list fills: `wmo_id`, `wigos_id` and `icao_id`."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "searched",
+              "failed",
+              "not-configured"
+            ],
+            "title": "Status",
+            "description": "`searched` for a list that was read; `failed` for one that could not be, which a warning names; `not-configured` for a network that needs credentials the server does not hold, which a warning names."
+          },
+          "stations_with_ids": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stations With Ids",
+            "description": "How many stations of the list carry at least one id; null for a list that was not read."
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message",
+            "description": "Why a list that was not read was not; null for one that was."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider",
+          "network",
+          "resolution",
+          "dataset",
+          "ids",
+          "status",
+          "stations_with_ids",
+          "message"
+        ],
+        "title": "StationIdsSearched",
+        "description": "A network the search for a WMO, WIGOS or ICAO id asked, the list it read and what came of it."
+      },
       "StationsFilter": {
         "type": "string",
         "enum": [
@@ -9519,6 +10008,162 @@
         ],
         "title": "_Station",
         "description": "Type definition for station."
+      },
+      "_StationIdsStation": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "network": {
+            "type": "string",
+            "title": "Network"
+          },
+          "resolution": {
+            "type": "string",
+            "title": "Resolution"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset"
+          },
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation"
+          },
+          "wmo_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wmo Id"
+          },
+          "wigos_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wigos Id"
+          },
+          "icao_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icao Id"
+          },
+          "matched_by": {
+            "type": "string",
+            "enum": [
+              "wmo_id",
+              "wigos_id",
+              "icao_id"
+            ],
+            "title": "Matched By"
+          },
+          "match": {
+            "type": "string",
+            "enum": [
+              "direct",
+              "equivalent"
+            ],
+            "title": "Match"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "network",
+          "resolution",
+          "dataset",
+          "station_id",
+          "name",
+          "latitude",
+          "longitude",
+          "elevation",
+          "wmo_id",
+          "wigos_id",
+          "icao_id",
+          "matched_by",
+          "match"
+        ],
+        "title": "_StationIdsStation"
+      },
+      "_StationIdsWithMetadataDict": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/StationIdsMetadata"
+          },
+          "stations": {
+            "items": {
+              "$ref": "#/components/schemas/_StationIdsStation"
+            },
+            "type": "array",
+            "title": "Stations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metadata",
+          "stations"
+        ],
+        "title": "_StationIdsWithMetadataDict"
       },
       "_StationsOgcFeature": {
         "properties": {
