@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.194.0] - 2026-11-21
+
 ### Added
 
 - `dwd/observation`, `dwd/derived` (the datasets with DWD station ids), `fmi/observation` and
@@ -8402,7 +8404,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.193.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.194.0...HEAD
+[0.194.0]: https://github.com/earthobservations/wetterdienst/compare/v0.193.0...v0.194.0
 [0.193.0]: https://github.com/earthobservations/wetterdienst/compare/v0.192.0...v0.193.0
 [0.192.0]: https://github.com/earthobservations/wetterdienst/compare/v0.191.0...v0.192.0
 [0.191.0]: https://github.com/earthobservations/wetterdienst/compare/v0.190.0...v0.191.0

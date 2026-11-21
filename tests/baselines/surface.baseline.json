@@ -217,5 +217,11 @@
     "smhi/observation": "wetterdienst.provider.smhi.observation.SmhiObservationRequest",
     "wsv/pegel": "wetterdienst.provider.wsv.pegel.WsvPegelRequest"
   },
-  "x-release": "0.193.0"
+  "point_lookups": {
+    "dwd/kostra": "(*, latitude, longitude, duration=None, return_period=None, settings=None)"
+  },
+  "point_lookup_exports": {
+    "dwd/kostra": "wetterdienst.provider.dwd.kostra.DwdKostraRequest"
+  },
+  "x-release": "0.194.0"
 }
