@@ -718,7 +718,8 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
   const content = format === 'csv'
     ? valuesToCsv(sortedValues.value, columns, creditLines(terms, (name, url) => t('credit.licence', { name, url }), note))
     : valuesToJson(sortedValues.value, columns, {
-        provider: { attribution: terms?.attribution || null, license: terms?.license ? { name: terms.license.name, url: terms.license.url } : null },
+        // the terms are written only where they are known: `license: null` says the provider states none, which an unknown is not
+        ...(terms ? { provider: { attribution: terms.attribution || null, license: terms.license ? { name: terms.license.name, url: terms.license.url } : null } } : {}),
         processing_note: note,
       })
   saveFile(content, fetchedRequest.value?.filename ?? ENDPOINTS.values.filename, format)

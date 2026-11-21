@@ -4,8 +4,9 @@ import type { StationSelectionState } from '~/types/station-selection-state.type
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import { getQuery, setResponseStatus } from 'h3'
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
+import { afterAll, afterEach, beforeAll, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
+import { clearNuxtData } from '#app'
 import { UApp, USelectMenu } from '#components'
 import { useToast } from '#imports'
 import DataViewer from '~/components/DataViewer.vue'
@@ -385,6 +386,31 @@ describe('dataViewer downloads', () => {
     ])
     expect(lines[3]).toBe('station_id,resolution,dataset,parameter,timestamp,value,quality_flags')
     expect(lines).toHaveLength(5)
+  })
+
+  it('writes no provider block into the JSON where the list of providers did not come, and keeps the note', async () => {
+    // an unknown is not "the provider states no terms", which is what `license: null` says
+    clearNuxtData('providers')
+    onTestFinished(() => clearNuxtData('providers'))
+    registerEndpoint('/api/providers', (event) => {
+      setResponseStatus(event, 404)
+      return { type: 'urn:wetterdienst:problem:not-found', title: 'Not Found', status: 404, detail: 'Not Found' }
+    })
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    const saved = catchDownload()
+    const items = await openDownloads(wrapper)
+    items[1]!.click()
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+    const json = JSON.parse(await saved[0]!.text())
+    expect(json.metadata).toEqual({ processing_note: NOTE })
+    expect(json.values).toEqual([row])
+    // and the CSV has the note alone
+    const csv = catchDownload()
+    ;(await openDownloads(wrapper))[0]!.click()
+    await vi.waitFor(() => expect(csv).toHaveLength(1))
+    expect((await csv[0]!.text()).split('\n').filter(line => line.startsWith('#'))).toEqual([`# ${NOTE}`])
   })
 
   it('writes the credit as a metadata member of the JSON, and leaves its values as they were', async () => {

@@ -86,10 +86,12 @@ export function valuesToCsv(values: Row[], columns: string[], comments: readonly
 /**
  * The credit and the note of a file of values (GH-4255), as the `metadata` of the REST API's answer holds them where they are
  * the same: `provider` has the credit line and the licence the provider states, and `processing_note` what wetterdienst did to
- * the data (in the language of the page, which the API's note is not: that one is English)
+ * the data (in the language of the page, which the API's note is not: that one is English). `provider` is left out where the
+ * terms are not known (the list of providers did not come): `license: null` in that block says the provider states none, which
+ * is not what an unknown is
  */
 export interface ValuesFileMetadata {
-  provider: { attribution: string | null, license: { name: string, url: string } | null }
+  provider?: { attribution: string | null, license: { name: string, url: string } | null }
   processing_note: string
 }
 

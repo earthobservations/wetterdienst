@@ -56,11 +56,13 @@ Types of changes:
   stripes did: the provider's credit line and its licence (a link to its terms), with what
   wetterdienst did to the data directly under it. New in the Explorer (table and chart; for an
   interpolation or a summary the note says the values were calculated), the forecast in every view,
-  the map's forecast and stripes cards, the widget (compactly, beside "Powered by"), the history and
-  the stripes' table. The texts come from the API's provider list, none are written in the app.
-  The Explorer's CSV file starts with the credit, the licence and the note as `#` comment lines
-  (read them away with `comment='#'` in pandas), and its JSON file has a `metadata` member
-  (`provider`, `processing_note`) before `values`, which is unchanged (GH-4255).
+  the map's forecast and stripes cards, the widget (compactly, inside the forecast above the
+  unchanged "Powered by" footer; the frame needs about 55 px more, so the embed example now says
+  `height="1050"`), the history and the stripes' table. The texts come from the API's provider list,
+  none are written in the app. The Explorer's CSV file starts with up to three lines beginning `#`
+  (credit, licence, note; fewer where the provider states none): skip the leading lines that start
+  with `#`. Its JSON file has a `metadata` member (`provider` where the terms are known,
+  `processing_note`) before `values`, which is unchanged (GH-4255).
 
 ### Fixed
 
