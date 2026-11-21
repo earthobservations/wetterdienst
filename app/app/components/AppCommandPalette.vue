@@ -2,9 +2,13 @@
 import type { Station } from '#shared/types/api'
 import type { Place } from '~/composables/usePlace'
 import type { PaletteGroup, PaletteItem } from '~/utils/palette'
+import type { Hit } from '~/utils/search-index'
 import type { Tile } from '~/utils/sections'
+import { DateTime } from 'luxon'
 import { PLACE_NETWORK, placeOf } from '~/composables/usePlace'
-import { filterGroups } from '~/utils/palette'
+import { readChoices } from '~/utils/ask/chip'
+import { coordinatesText, hemispheresOf, mapAtPoint, parseCoordinates } from '~/utils/coordinates'
+import { countsByGroup, filterGroups, GROUP_LIMITS, itemOfHit, limitItems, orderGroups } from '~/utils/palette'
 import { EXTERNAL, HOME, LEGAL, MAP_TOOL, PROJECT, REFERENCE, TOOLS } from '~/utils/sections'
 
 // The command palette of the search (GH-3518), inside the dialog of AppSearch.vue. One field that goes to every page
@@ -20,6 +24,12 @@ import { EXTERNAL, HOME, LEGAL, MAP_TOOL, PROJECT, REFERENCE, TOOLS } from '~/ut
 // The stations come from the backend (`GET /api/stations` with `name`, its best five matches), from three letters
 // on and a moment after the last key; the rest is matched here (utils/palette.ts).
 //
+// The words of the app (GH-3790) are matched here too, in the browser: a full-text index of the pages built with the app
+// (`modules/search-index`), the glossary the backend gives, the questions of "Ask the weather" and a position typed in
+// (`utils/coordinates.ts`). All of it is loaded when the search is opened, not before (`useSiteSearch`). Each kind is a
+// group that shows a few results and, where its page has more, a last option that opens the page. The order of the groups
+// is `GROUP_ORDER` of utils/palette.ts: a point, the stations, the rest.
+//
 // In its place mode (`mode="place"`, the home page's "Ask the weather") it is the same field and list for one thing
 // only: the place the questions are about. It lists DWD's measuring stations by name (from two letters on), a station
 // that has stopped reporting long ago left out, and choosing one makes it the reader's place (composables/usePlace.ts).
@@ -31,6 +41,9 @@ const emit = defineEmits<{ done: [], place: [place: Place] }>()
 const { t, locale, setLocale } = useI18n()
 const colorMode = useColorMode()
 const { data: providerList } = useProviders()
+const { questionText } = useQuestions()
+// the words of the app are for the search; the place of the questions asks for stations only
+const site = props.mode === 'place' ? null : useSiteSearch()
 
 const query = ref('')
 const activeIndex = ref(0)
@@ -113,51 +126,83 @@ function choosePlace(place: Place) {
   emit('place', place)
 }
 
-const groups = computed<PaletteGroup[]>(() => {
-  const searching = query.value.trim().length > 0
-  if (placeMode.value) {
-    return [{
-      id: 'places',
-      label: t('ask.placesGroup'),
-      items: stations.value
-        .map(placeOf)
-        .filter((place): place is Place => place !== null)
-        .map(place => ({
-          id: `place-${place.id}`,
-          label: place.name,
-          description: place.region ?? undefined,
-          icon: 'i-ph-map-pin',
-          run: () => choosePlace(place),
-        })),
-    }]
-  }
-  return [
-    { id: 'tools', label: t('shell.tools'), items: TOOLS.map(section => page(section)) },
-    {
-      id: 'stations',
-      label: t('shell.stations'),
-      items: stations.value.map(station => ({
-        id: `station-${station.station_id}`,
-        label: station.name ?? station.station_id,
-        description: t('shell.stationForecast', { id: station.station_id }),
-        icon: 'i-ph-sun-fill',
-        tile: 'sun',
-        to: `/meteogram?station=${station.station_id}`,
-      })),
-    },
-    // the same stations, opened on the map: the map takes a forecast station of its address (`?station=`)
-    {
-      id: 'stations-map',
-      label: t('shell.stationsMap'),
-      items: stations.value.map(station => ({
-        id: `station-map-${station.station_id}`,
-        label: station.name ?? station.station_id,
-        description: t('shell.stationOnMap', { id: station.station_id }),
+// ---- the groups ----------------------------------------------------------------------------------------------------
+
+/** What is typed, for the words of the app */
+const text = computed(() => query.value.trim())
+/** A position typed in, with the letters this language writes the hemispheres with */
+const point = computed(() => text.value ? parseCoordinates(text.value, hemispheresOf(locale.value)) : null)
+
+const placeGroup = computed<PaletteGroup[]>(() => point.value
+  ? [{
+      id: 'place',
+      label: t('shell.placeGroup'),
+      items: [{
+        id: 'place-point',
+        label: coordinatesText(point.value),
+        description: t('shell.placeOnMap'),
         icon: MAP_TOOL.icon,
         tile: MAP_TOOL.tile,
-        to: `${MAP_TOOL.to}?station=${station.station_id}`,
-      })),
-    },
+        to: mapAtPoint(point.value),
+      }],
+    }]
+  : [])
+
+/** The icon of each kind of result of the app's own words: the page's, as the reference and the project show it */
+const HIT_ICONS: Record<string, string> = {
+  measurement: 'i-ph-ruler',
+  method: 'i-ph-seal-check',
+  glossary: 'i-ph-book-open-text',
+  settings: 'i-ph-gear-six',
+  about: 'i-ph-info',
+  support: 'i-ph-heart',
+}
+
+/** The last item of a group that shows a few of more: it opens the page that has them all */
+function moreItem(id: string, page: string, to: string) {
+  return (hidden: number): PaletteItem => ({ id: `more-${id}`, label: t('shell.moreIn', { count: hidden, page }), icon: 'i-ph-arrow-right', to, more: true })
+}
+
+/** The few results of a kind, from the entries of the pages (`useSiteSearch`) */
+function wordGroup(id: string, label: string, hits: Hit[], more: (hidden: number) => PaletteItem): PaletteGroup {
+  return { id, label, items: limitItems(hits.map(hit => itemOfHit(hit, HIT_ICONS[hit.kind] ?? 'i-ph-arrow-right')), GROUP_LIMITS[id] ?? 3, more) }
+}
+
+/** The words of the app that answer what is typed: the entries and methods, the glossary, the settings; none before a word is typed */
+const wordGroups = computed<PaletteGroup[]>(() => {
+  if (!site || !text.value)
+    return []
+  const pages = site.findPages(text.value)
+  const of = (...kinds: string[]) => pages.filter(hit => kinds.includes(hit.kind))
+  return [
+    wordGroup('measurement', t('measurement.title'), of('measurement'), moreItem('measurement', t('measurement.title'), '/measurement')),
+    wordGroup('method', t('methods.title'), of('method'), moreItem('method', t('methods.title'), '/methods')),
+    wordGroup('glossary', t('glossary.title'), site.findGlossary(text.value), moreItem('glossary', t('glossary.title'), `/glossary?q=${encodeURIComponent(text.value)}`)),
+    wordGroup('settings', t('common.settings'), of('settings'), moreItem('settings', t('common.settings'), '/settings')),
+  ]
+})
+
+/** The questions of "Ask the weather", worded for the place the reader has chosen; each opens its question on the home page */
+const questionItems = computed<PaletteItem[]>(() => {
+  if (!site || !text.value)
+    return []
+  const now = DateTime.now()
+  return site.chips.value.map(chip => ({
+    id: `question-${chip.id}`,
+    label: questionText(chip, readChoices(chip, {}, now)),
+    description: t(chip.from),
+    keywords: chip.id,
+    icon: chip.icon,
+    to: `/?ask=${chip.id}`,
+  }))
+})
+
+/** What of the pages the search lists in a group of its own, matched here by `scoreOf` */
+const pageGroups = computed<PaletteGroup[]>(() => {
+  const searching = query.value.trim().length > 0
+  return [
+    { id: 'tools', label: t('shell.tools'), items: TOOLS.map(section => page(section)) },
+    { id: 'questions', label: t('ask.title'), items: questionItems.value },
     { id: 'reference', label: t('shell.reference'), items: REFERENCE.map(section => page(section)) },
     {
       id: 'providers',
@@ -210,16 +255,66 @@ const groups = computed<PaletteGroup[]>(() => {
   ]
 })
 
-// the stations are the backend's matches already; everything else is matched here
-const STATION_GROUPS = ['stations', 'stations-map']
-const shown = computed(() => {
+// the stations are the backend's matches already, as the places are; the pages and actions are matched here
+const stationGroups = computed<PaletteGroup[]>(() => [
+  {
+    id: 'stations',
+    label: t('shell.stations'),
+    items: stations.value.map(station => ({
+      id: `station-${station.station_id}`,
+      label: station.name ?? station.station_id,
+      description: t('shell.stationForecast', { id: station.station_id }),
+      icon: 'i-ph-sun-fill',
+      tile: 'sun',
+      to: `/meteogram?station=${station.station_id}`,
+    })),
+  },
+  // the same stations, opened on the map: the map takes a forecast station of its address (`?station=`)
+  {
+    id: 'stations-map',
+    label: t('shell.stationsMap'),
+    items: stations.value.map(station => ({
+      id: `station-map-${station.station_id}`,
+      label: station.name ?? station.station_id,
+      description: t('shell.stationOnMap', { id: station.station_id }),
+      icon: MAP_TOOL.icon,
+      tile: MAP_TOOL.tile,
+      to: `${MAP_TOOL.to}?station=${station.station_id}`,
+    })),
+  },
+])
+
+const placesGroup = computed<PaletteGroup>(() => ({
+  id: 'places',
+  label: t('ask.placesGroup'),
+  items: stations.value
+    .map(placeOf)
+    .filter((place): place is Place => place !== null)
+    .map(place => ({
+      id: `place-${place.id}`,
+      label: place.name,
+      description: place.region ?? undefined,
+      icon: 'i-ph-map-pin',
+      run: () => choosePlace(place),
+    })),
+}))
+
+const shown = computed<PaletteGroup[]>(() => {
   // the places are the backend's matches, as they are
   if (placeMode.value)
-    return groups.value.filter(group => group.items.length)
-  const stationGroups = groups.value.filter(group => STATION_GROUPS.includes(group.id) && group.items.length)
-  const filtered = filterGroups(groups.value.filter(group => !STATION_GROUPS.includes(group.id)), query.value)
-  filtered.splice(1, 0, ...stationGroups)
-  return filtered
+    return [placesGroup.value].filter(group => group.items.length)
+  const matched = filterGroups(pageGroups.value, query.value)
+  // the cards of About and Support, found by their words, are with the pages of the project
+  const cards = site && text.value ? site.findPages(text.value).filter(hit => hit.kind === 'about' || hit.kind === 'support').map(hit => itemOfHit(hit, HIT_ICONS[hit.kind]!)) : []
+  if (cards.length) {
+    const project = matched.find(group => group.id === 'project')
+    const items = limitItems(cards, GROUP_LIMITS.project!)
+    if (project)
+      project.items = [...project.items, ...items]
+    else
+      matched.push({ id: 'project', label: t('shell.project'), items })
+  }
+  return orderGroups([...placeGroup.value, ...stationGroups.value, ...matched, ...wordGroups.value])
 })
 const flat = computed(() => shown.value.flatMap(group => group.items))
 const optionId = (item: PaletteItem) => `${listId}-${item.id}`
@@ -243,9 +338,14 @@ const status = computed(() => {
       return t('ask.placeFailed')
     return query.value.trim().length < MIN_STATION_QUERY.value ? t('ask.placeHint') : t('shell.resultsCount', flat.value.length)
   }
-  const count = t('shell.resultsCount', flat.value.length)
-  const typed = query.value.trim().length
-  return typed > 0 && typed < MIN_STATION_QUERY.value ? `${count}. ${t('shell.stationsHint')}` : count
+  // what is typed is searched when the index of the pages is there (GH-3790)
+  if (text.value && site?.loading.value && !flat.value.length)
+    return t('common.loading')
+  // the count of the results, not of the "more" options that lead on from a group, then how many each group has
+  const count = t('shell.resultsCount', flat.value.filter(item => !item.more).length)
+  const typed = text.value.length
+  const groupsSaid = typed > 0 && flat.value.length ? `${count}. ${countsByGroup(shown.value, (group, number) => t('shell.resultsIn', { group, count: number }))}` : count
+  return typed > 0 && typed < MIN_STATION_QUERY.value ? `${groupsSaid}. ${t('shell.stationsHint')}` : groupsSaid
 })
 
 const emptyText = computed(() => {

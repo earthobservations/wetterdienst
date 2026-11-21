@@ -336,6 +336,7 @@ interface Same { en?: string[], de?: string[], why: string }
 
 const UI_SAME: Record<string, Same> = {
   'common.colon': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'it', 'lb', 'nl', 'pl'], why: 'punctuation: a colon is a colon (fr sets a no-break space before it)' },
+  'shell.resultsIn': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'it', 'lb', 'nl', 'pl'], why: 'punctuation and two names, no word: the group, a colon and its count (fr sets a no-break space before the colon)' },
   'common.all': { en: ['de-hh'], de: ['da'], why: COGNATE },
   'stationSelection.modeList': { de: ['da', 'fr'], why: COGNATE },
   'mapTool.panelTitle': { en: ['fr', 'nl'], why: COGNATE },

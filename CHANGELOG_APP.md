@@ -16,6 +16,19 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Search]` The search (Ctrl/⌘ K) finds the app's own words, in your language and in English, with
+  case and accents ignored: the entries of "How weather is measured", the sections and works of
+  the methods, the glossary, the cards of About and Support, each setting (the units, plain-language
+  labels, the tab bar) and the questions of Ask the weather, each at its page and anchor
+  (`/measurement#wind`, `/glossary#temperature_air_mean_2m`, `/settings#settings-friendly-labels`),
+  in groups of a few results with a last option that opens the page that has more. A position typed
+  in (`52.52, 13.40`, `52°31'N 13°24'E`) is a place that opens the map at that point (GH-3790).
+- `[Map]` `/map?lat=&lon=` without a station picks the station for that place as a click would and
+  moves the map to the position, also where no station is within reach; the Glossary starts its
+  field with `?q=` and goes to an entry by its name (`/glossary#wind_speed`) (GH-3790).
+
 ## [0.57.0] - 2026-11-21
 
 Paired with backend 0.194.0, which it needs: the Radar tool asks the radar routes of 0.194.0, and the

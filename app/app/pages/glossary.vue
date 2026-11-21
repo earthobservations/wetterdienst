@@ -23,12 +23,13 @@ const collator = computed(() => new Intl.Collator(formatLanguage.value, { numeri
 // route simply showed nothing until the answer arrived.
 const { data: glossary, pending } = useFetch<GlossaryEntry[]>('/api/glossary', API_ANSWER)
 
-const search = ref('')
+// `?q=` is the search the field starts with: the "more" of the search of the header (GH-3790) opens the glossary on what was typed
+const route = useRoute()
+const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
 const unitType = ref<string | undefined>(undefined)
 
 // The entry of "How weather is measured" (GH-3787) whose parameters are shown: `?topic=wind`, the link of an entry's
 // "Show these fields in the glossary". An id that is no entry, or an entry that explains no parameter (time), is no filter.
-const route = useRoute()
 const topic = computed(() => {
   const value = route.query.topic
   return isTopic(value) && parameterPatterns(value).length > 0 ? value : undefined
@@ -64,6 +65,29 @@ const entries = computed<GlossaryEntry[]>(() => {
   // screen once those are translated
   return matching.sort((a, b) => collator.value.compare(parameterLabel(a.name), parameterLabel(b.name)))
 })
+// An entry the search of the header leads to (`/glossary#temperature_dew_point`, GH-3790): once the list is there the page
+// scrolls to it, shows it as the one the reader came for (the focus is on it, which is its mark) and keeps the list as it is. An
+// entry that the field or the unit hides is shown: the link names it
+const reveal = useRevealHash()
+watch([glossary, () => route.hash], async () => {
+  if (!glossary.value || !route.hash)
+    return
+  let name = route.hash.slice(1)
+  try {
+    name = decodeURIComponent(name)
+  }
+  catch {
+    return
+  }
+  if (!glossary.value.some(entry => entry.name === name))
+    return
+  if (!entries.value.some(entry => entry.name === name)) {
+    search.value = ''
+    unitType.value = undefined
+  }
+  await nextTick()
+  reveal(route.hash)
+}, { immediate: true })
 </script>
 
 <template>
@@ -116,8 +140,10 @@ const entries = computed<GlossaryEntry[]>(() => {
           </p>
           <div
             v-for="entry in entries"
+            :id="entry.name"
             :key="entry.name"
-            class="border-t border-gray-200 dark:border-gray-800 pt-3 first:border-t-0 first:pt-0"
+            tabindex="-1"
+            class="glossary-entry border-t border-gray-200 dark:border-gray-800 pt-3 first:border-t-0 first:pt-0"
           >
             <div class="flex items-baseline justify-between gap-3 flex-wrap">
               <span class="font-medium">{{ parameterLabel(entry.name) }}</span>

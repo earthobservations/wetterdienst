@@ -31,6 +31,7 @@ import {
   measurementsLink,
   nearestStations,
   placed,
+  pointFromQuery,
   prepareSearch,
   REACH_KM,
   reportingRule,
@@ -65,7 +66,9 @@ import { fetchStripesStations, stripesFetch } from '~/utils/stripes-source'
 // another layer.
 //
 // What is shown is in the address (`?layer=&resolution=&dataset=&station=&lat=&lon=`), so that a link opens the same
-// map, and so that the search of the header opens it on a station (`/map?station=10147`).
+// map, and so that the search of the header opens it on a station (`/map?station=10147`) or at a position the reader typed
+// (`/map?lat=52.5200&lon=13.4000`, GH-3790): a position with no station is picked as a click on the map would pick it, once the
+// stations are there, and the map is moved to it.
 
 // the map fills the window between the bars, and both stay where they are on it (GH-4226, `useBarsHideOnScroll`)
 definePageMeta({ barsHide: false })
@@ -438,6 +441,7 @@ watch(listStatus, (status) => {
 
 /** Counts the picks from outside the map that it is to move to; the map moves once for each, as soon as the station is there */
 const recentre = ref(0)
+
 /** The station the address opened the page with, or a pick from outside, waits to be announced and moved to until its station is there */
 let fromAddress = Boolean(selectedId.value)
 /** The view was changed under a pick: the list that arrives has the station for the place of it picked again */
@@ -628,6 +632,45 @@ function pickAgain(list: PlacedStation[]) {
 
 /** Whether the map is kept where it is for the pick (a pick carried to GHCN daily from a place that is off the screen) */
 const holdView = ref(false)
+
+// A position in the address with no station (`?lat=&lon=`, from the search of the header): picked as a click at it would pick,
+// with the station for the place if there is one within reach, and the map moved to the position either way, not to the
+// station, which may be 100 km off it. It waits for the list of stations, which a pick is made from.
+/** Moves the map to a position, once for each: the count is what tells the map there is a new one */
+const goTo = ref<(Point & { count: number }) | null>(null)
+let pendingAddressPoint: Point | null = null
+/** The position of the address that was taken last, so that the address written after the pick (`?station=&lat=&lon=`) takes nothing and the same position typed again later is taken */
+let takenPoint: string | null = null
+function pickAddressPoint(point: Point) {
+  // the station picked is brought into view by the map where it is off the screen; here the position is what the reader asked for
+  holdView.value = true
+  void nextTick(() => {
+    holdView.value = false
+  })
+  pickAt(point, SAME_PLACE_KM, false, 0, 0, { kind: 'unknown' })
+  goTo.value = { ...point, count: (goTo.value?.count ?? 0) + 1 }
+}
+function takeAddressPoint(query: Record<string, unknown>) {
+  const point = pointFromQuery(query)
+  const key = point ? `${point.latitude},${point.longitude}` : null
+  if (key === takenPoint)
+    return
+  takenPoint = key
+  if (!point)
+    return
+  if (listStatus.value === 'success')
+    pickAddressPoint(point)
+  else
+    pendingAddressPoint = point
+}
+watch(listStatus, (status) => {
+  if (status === 'success' && pendingAddressPoint) {
+    const point = pendingAddressPoint
+    pendingAddressPoint = null
+    pickAddressPoint(point)
+  }
+})
+takeAddressPoint(route.query)
 
 // A change of layer or dataset, and the list that comes after it. The id of a station is the id in the list of
 // one view (DWD's forecast points and its measuring stations number their stations alike, and 59 of the ids are
@@ -840,6 +883,10 @@ watch(state, (shown) => {
 // open, a link): the page takes it. What the page wrote itself names what it shows already. Its station is a station
 // of the layer it names.
 watch(() => route.query, (query) => {
+  takeAddress(query)
+  takeAddressPoint(query)
+})
+function takeAddress(query: Record<string, unknown>) {
   const named = stateFromQuery(query)
   if (queryOf(named) === queryOf(state.value))
     return
@@ -862,7 +909,7 @@ watch(() => route.query, (query) => {
   }
   anchor.value = named.place
   origin.value = { kind: 'unknown' }
-})
+}
 </script>
 
 <template>
@@ -1208,6 +1255,7 @@ watch(() => route.query, (query) => {
                     :stations="stations"
                     :selected="selected"
                     :recentre="recentre"
+                    :go-to="goTo"
                     :position="myPosition"
                     :locate="locateCount"
                     :place="place"

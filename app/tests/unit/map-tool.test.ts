@@ -19,6 +19,7 @@ import {
   nearestStations,
   nearestWithin,
   placed,
+  pointFromQuery,
   prepareSearch,
   REACH_KM,
   REPORTING_WITHIN_DAYS,
@@ -602,5 +603,26 @@ describe('the address of the GHCN layer (GH-4078)', () => {
     const state = { layer: 'ghcn' as const, source: DEFAULT_MEASURED, stationId: 'GM000010147', place: null }
     expect(stateToQuery(state)).toEqual({ layer: 'ghcn', station: 'GM000010147' })
     expect(stateFromQuery({ layer: 'ghcn', station: 'GM000010147' })).toEqual(state)
+  })
+})
+
+describe('the position of an address with no station (GH-3790)', () => {
+  it('is the latitude and the longitude of `?lat=&lon=`, as the search of the header writes them', () => {
+    expect(pointFromQuery({ lat: '52.5200', lon: '13.4000' })).toEqual({ latitude: 52.52, longitude: 13.4 })
+    expect(pointFromQuery({ lat: '-33.8688', lon: '151.2093' })).toEqual({ latitude: -33.8688, longitude: 151.2093 })
+    expect(pointFromQuery({ lat: ['52.5'], lon: ['13.4'] })).toEqual({ latitude: 52.5, longitude: 13.4 })
+  })
+
+  it('is none where the address names a station, which carries its own place (`stateFromQuery`)', () => {
+    expect(pointFromQuery({ station: '10147', lat: '53.45', lon: '10.2' })).toBeNull()
+  })
+
+  it('is none for a missing, a wrong or an out of range number', () => {
+    for (const query of [{}, { lat: '52.5' }, { lon: '13.4' }, { lat: '', lon: '' }, { lat: 'north', lon: '13.4' }, { lat: '91', lon: '13.4' }, { lat: '52.5', lon: '181' }])
+      expect(pointFromQuery(query), JSON.stringify(query)).toBeNull()
+  })
+
+  it('is not read by the map\'s state, which keeps a place only with its station', () => {
+    expect(stateFromQuery({ lat: '52.5', lon: '13.4' }).place).toBeNull()
   })
 })
