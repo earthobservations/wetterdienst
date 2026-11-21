@@ -289,10 +289,31 @@ export function countIn(seasons: readonly SeasonMean[], normal: Normal): number 
   return seasons.filter(each => each.year >= normal.from && each.year <= normal.to).length
 }
 
-/** The normals at `now` with how many seasons of a kind the station has of each, and whether that is enough (`NORMAL_MIN_SEASONS`) */
-export function normalAvailability(readings: Reading[], season: Season, now: DateTime): Array<{ normal: Normal, count: number, enough: boolean }> {
+/** What a station has of one normal: its seasons of the kind in it, whether that is enough (`NORMAL_MIN_SEASONS`), and whether an answer is possible at all (enough, or the newest normal with enough seasons before the last to stand in for it) */
+export interface NormalAvailability {
+  normal: Normal
+  count: number
+  enough: boolean
+  /** Where the normal is short: whether the seasons before the one asked about stand in for it (the newest normal only, with `FALLBACK_MIN_SEASONS` of them) */
+  fallback: boolean
+}
+
+/** The normals at `now` with how many seasons of a kind the station has of each, and whether that is enough or something stands in for it */
+export function normalAvailability(readings: Reading[], season: Season, now: DateTime): NormalAvailability[] {
   const seasons = seasonMeans(readings, season, now)
-  return normalsAt(now).map(normal => ({ normal, count: countIn(seasons, normal), enough: countIn(seasons, normal) >= NORMAL_MIN_SEASONS }))
+  const last = seasons.at(-1)
+  const newest = newestNormal(now)
+  const earlier = last ? seasons.filter(each => each.year < last.year).length : 0
+  return normalsAt(now).map((normal) => {
+    const count = countIn(seasons, normal)
+    const enough = count >= NORMAL_MIN_SEASONS
+    return { normal, count, enough, fallback: !enough && normal.key === newest.key && earlier >= FALLBACK_MIN_SEASONS }
+  })
+}
+
+/** A normal as it is written for a season: the years of its seasons, a winter's by both years (the normal 1961-1990 is the winters 1960/61 to 1989/90, as the bars are labelled) */
+export function normalSpan(season: Season, from: number, to: number): { from: string, to: string } {
+  return { from: seasonLabel(season, from), to: seasonLabel(season, to) }
 }
 
 /** What a question asks: the season, and the normal it is compared with (`1991-2020`; the newest one where it is none that is complete) */

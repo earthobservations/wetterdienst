@@ -22,7 +22,7 @@ field, are in `chip.ts`.
 
 | Field | What it is |
 | --- | --- |
-| `id`, `aliases` | The name in the link (`?ask=<id>`) and in the test id of the button (`question-<id>`). A name the chip had before (`summer`, which became `season`) is an alias: the old link opens the chip, with the choices' defaults, and the link the page writes next carries the id. |
+| `id`, `aliases`, `renamedRules` | The name in the link (`?ask=<id>`) and in the test id of the button (`question-<id>`). A name the chip had before (`summer`, which became `season`) is an alias: the old link opens the chip, with the choices' defaults, and the link the page writes next carries the id. A rule renamed with the chip goes in `renamedRules`, so that `/methods#<old>-<old rule>` finds it. |
 | `icon`, `tool` | The icon of the button, and the tool (a key of `TOOLS`, `utils/sections.ts`) the answer leads into. The button itself carries no tile: the tile is on the link into the tool. |
 | `quantity` | The quantity whose unit the settings choose (`precipitation`, `temperature`, `speed`, ...). The panel asks again when the reader changes that unit. |
 | `choices` | What the reader can choose about the question, with the name each has in the link. A day (`kind: 'date'`, `&day=`) or one of a few values (`kind: 'select'`, `&season=`, `&ref=`), whose `options` are handed what the chip fetched and may offer one disabled with its reason in its text. The panel draws a labelled control for each; a choice of another kind adds its kind to `chip.ts` and its control to the panel. |

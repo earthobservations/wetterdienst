@@ -113,9 +113,9 @@ export const methods: MethodTexts = {
           says: 'DWD says that meteorologists divide the year into seasons of three whole months, each beginning on the first of the month in which the astronomical season begins: spring from 1 March to 31 May, summer from 1 June to 31 August, autumn from 1 September to 30 November and winter from 1 December to the end of February. It says this is done because climate statistics are made from data of single months.',
         },
         'winter-year': {
-          text: 'A winter takes the December of the year before: December 2025 with January and February 2026 is the winter 2025/26, which counts as the winter of 2026, the year of its January and February. It is over on 1 March.',
-          says: 'WMO\'s guidelines say that a seasonal normal is the mean of the monthly normals of its months, each taken over the same years of the period. They do not say which December a winter takes.',
-          reason: 'Neither DWD\'s definition of the seasons nor WMO\'s guidelines say which year a winter that spans the turn of the year is named for. wetterdienst names it for the year of its January and February and takes the December before them, so that its three months follow one another, as they do in the weather. WMO\'s normal for December, January and February would average the December of the same years as the January and the February; the two differ only by the December at the ends of the period (for the normal 1991 to 2020, December 1990 against December 2020). This is wetterdienst\'s own choice, and the maintainers have to accept it.',
+          text: 'A winter takes the December of the year before: December 2025 with January and February 2026 is the winter 2025/26, which counts as the winter of 2026, the year of its January and February. It is over on 1 March. A winter normal is written with the years of its winters: the normal 1961 to 1990 is the winters 1960/61 to 1989/90.',
+          says: 'WMO\'s guidelines say that a seasonal normal is the mean of the monthly normals of its months. They do not say which December a winter takes.',
+          reason: 'Neither DWD\'s definition of the seasons nor WMO\'s guidelines say which year a winter that spans the turn of the year is named for. wetterdienst names it for the year of its January and February and takes the December before them, so that its three months follow one another, as they do in the weather. As wetterdienst reads it, WMO\'s normal for December, January and February would average the December of the same years as the January and the February; the two differ only by the December at the ends of the period (for the normal 1991 to 2020, December 1990 against December 2020). This is wetterdienst\'s own choice, and the maintainers have to accept it.',
         },
         'complete-months': {
           text: 'A season counts only if the station has the mean of all three months. DWD calculates a monthly mean from the daily values of the month, and only where they are complete (for some stations it has monthly values and no daily ones).',
@@ -142,14 +142,14 @@ export const methods: MethodTexts = {
           says: 'WMO says that the climatological standard normal is the most recent 30-year period that finishes in a year ending in 0, and that it is calculated again every ten years.',
         },
         'normal-mean': {
-          text: 'The reference is the mean of the complete seasons of its years, each season counting the same. A year in which a month is missing is left out whole.',
+          text: 'The reference is the mean of the complete seasons of its years, each season counting the same. A season in which a month is missing is left out whole.',
           says: 'WMO\'s guidelines build a seasonal normal as the mean of the three monthly normals of its months, and not from the values of single years. If the normal of one month is missing, the seasonal normal is missing.',
           reason: 'The chip averages whole seasons, so a year with one month missing drops out of the reference entirely, where WMO would still use that year in the other two monthly normals. The two give the same where no month is missing. The way the chip averages is wetterdienst\'s own choice.',
         },
         'min-seasons': {
           text: 'A normal is offered only if the station has at least {minSeasons} of its {ofSeasons} seasons of the kind. Another one is shown in the choice, disabled, with how many the station has; the newest one uses the fallback below.',
           says: 'WMO asks, for each month, for valid monthly values in at least 80 % of the years of the period for a normal, which is 24 or more of 30 years.',
-          reason: 'The chip counts complete seasons (all three months in the same year), not the years of each month, so the line is not WMO\'s and cannot be compared with it one to one. {minSeasons} of {ofSeasons} is wetterdienst\'s own line, set so that stations with gaps still get an answer against a WMO period, and the maintainers have to accept it; the reference of such a station is then not a WMO normal in the strict sense.',
+          reason: 'The chip counts complete seasons (all three months of the season, for a winter with the December before it), not the years of each month, so the line is not WMO\'s and cannot be compared with it one to one. {minSeasons} of {ofSeasons} is wetterdienst\'s own line, set so that stations with gaps still get an answer against a WMO period, and the maintainers have to accept it; the reference of such a station is then not a WMO normal in the strict sense.',
         },
         'fallback-period': {
           text: 'Where the station has too few seasons of the newest normal, the reference is all the seasons of the station before the one asked about. No other normal is replaced like this: one that is picked is the one used, or is not offered.',

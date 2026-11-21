@@ -208,7 +208,7 @@ meant to be understood, not to be the last word, and **a review by a native spea
   written by a language model (Claude) in **all ten locales besides `en`**, `de` included, and no person has read them. The season
   words carry the grammar (`ask.season.last.*` and `ask.season.warmth.*` hold the article, the verb and the adjective that agree with
   each season), so no sentence is written per season. Least certain: `de-hh` (`Fröhjohr`, `Harvst`, `köller`, `Johrestied`,
-  `Fröhjohrn`); `lb` (`Joreszäit`, `Hierschter`, `Fréijoeren`); `cs` (`Byl minulý podzim`, `Roční období`); `pl` (`Pora roku`,
+  `Fröhjohrn`); `lb` (`Joreszäit`, `Hierschter`, `Fréijoeren`; the genders of the four seasons were looked up in the LOD: Fréijoer neuter, the other three masculine, so `dat lescht Fréijoer`); `cs` (`Byl minulý podzim`, `Roční období`); `pl` (`Pora roku`,
   `zimniejsza`); `da` (`sæson` in the sentences where the name of the season would need a case); `es` (`estaciones del año`, to keep
   `estaciones` from reading as stations); `it` and `es` (`in più del solito`, `por encima de lo normal`, chosen so that no verdict has to
   agree in gender with the season).

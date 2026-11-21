@@ -39,17 +39,20 @@ type Status = 'loading' | 'ready' | 'empty' | 'error'
 const phase = ref<'loading' | 'loaded' | 'error'>('loading')
 const failure = ref('')
 /** What the definition's requests brought back; null while they are under way */
-const fetched = shallowRef<{ loaded: unknown } | null>(null)
+/** and the chip it was fetched for: a question switched meanwhile must not have the new chip read the old one's data */
+const fetched = shallowRef<{ loaded: unknown, chip: string } | null>(null)
+/** What was fetched for the chip that is open now, or null */
+const fetchedHere = computed(() => fetched.value && fetched.value.chip === chip.value.id ? fetched.value : null)
 
 /**
  * The answer, worked out from what was fetched and the choices as they are now: a choice the requests do not read (the season, the normal)
  * changes the answer here and asks for nothing. Null where the data holds none.
  */
 const answered = computed<{ result: unknown } | { error: string } | null>(() => {
-  if (!fetched.value)
+  if (!fetchedHere.value)
     return null
   try {
-    return { result: chip.value.answer(fetched.value.loaded, context()) }
+    return { result: chip.value.answer(fetchedHere.value.loaded, context()) }
   }
   catch (error) {
     return { error: describeFetchError(error) }
@@ -58,6 +61,9 @@ const answered = computed<{ result: unknown } | { error: string } | null>(() => 
 const status = computed<Status>(() => {
   if (phase.value !== 'loaded')
     return phase.value
+  // data of another question, for the moment before the new one is asked: nothing is said of it
+  if (!fetchedHere.value)
+    return 'loading'
   return !answered.value || 'error' in answered.value ? 'error' : answered.value.result ? 'ready' : 'empty'
 })
 const failureText = computed(() => failure.value || (answered.value && 'error' in answered.value ? answered.value.error : ''))
@@ -68,7 +74,7 @@ useFocusAfterRetry(() => status.value === 'error', failureNotice, heading)
 
 /** What the definition's requests brought back, and the answer it made of that (null where the data holds none) */
 const outcome = computed<{ loaded: unknown, result: unknown } | null>(() =>
-  fetched.value && answered.value && 'result' in answered.value ? { loaded: fetched.value.loaded, result: answered.value.result } : null)
+  fetchedHere.value && answered.value && 'result' in answered.value ? { loaded: fetchedHere.value.loaded, result: answered.value.result } : null)
 
 // The units the app settings choose (GH-3980), read at each request: the question's own quantity (rain, millimetres; the
 // summer, degrees; the wind, a speed) and whether the values are converted at all. The answer says which unit each
@@ -137,7 +143,7 @@ async function ask() {
     // only the newest request's data is kept: an older one that returns after it must not replace it (GH-3980)
     if (turn !== asked)
       return
-    fetched.value = { loaded }
+    fetched.value = { loaded, chip: asking.id }
     phase.value = 'loaded'
   }
   catch (error) {
@@ -169,6 +175,26 @@ const view = computed(() => outcome.value?.result ? chip.value.present(outcome.v
 const verdict = computed(() => view.value?.verdict ?? '')
 const emptyText = computed(() => chip.value.empty(outcome.value?.loaded ?? null, env, props.choices))
 
+// What the polite status says: the verdict, or why there is none. A choice that changes the answer but not its words (a season whose verdict
+// is the same sentence) is still announced: the same words are cleared and then set again, which a screen reader reads as a change.
+const statusText = computed(() => status.value === 'ready' ? verdict.value : status.value === 'empty' ? emptyText.value : '')
+const announced = ref('')
+let announceTimer: ReturnType<typeof setTimeout> | undefined
+watch([statusText, () => JSON.stringify(props.choices)], () => {
+  clearTimeout(announceTimer)
+  const next = statusText.value
+  if (next && next === announced.value) {
+    announced.value = ''
+    announceTimer = setTimeout(() => {
+      announced.value = next
+    }, 100)
+  }
+  else {
+    announced.value = next
+  }
+}, { immediate: true })
+onBeforeUnmount(() => clearTimeout(announceTimer))
+
 // ------------------------------------------------------------------------------------- the tools, filled in
 
 const actions = computed(() => chip.value.actions(env, props.choices, outcome.value?.loaded ?? null))
@@ -184,7 +210,7 @@ function onChoice(param: string, value: unknown) {
     emit('update:choice', param, String(value))
 }
 /** The options of a choice of a few values, from what was fetched (null before it came): a disabled one says why in its text */
-const optionsOf = (choice: SelectChoice) => choice.options(env, fetched.value?.loaded ?? null, props.choices)
+const optionsOf = (choice: SelectChoice) => choice.options(env, fetchedHere.value?.loaded ?? null, props.choices)
 /** A choice made in a select: the value of the option, which the choice accepts (or the control keeps its own) */
 const onSelect = (param: string, event: Event) => onChoice(param, (event.target as HTMLSelectElement).value)
 </script>
@@ -223,7 +249,7 @@ const onSelect = (param: string, event: Event) => onChoice(param, (event.target 
 
     <!-- what a screen reader is told when the answer has come: the verdict, not the whole panel -->
     <p class="sr-only" role="status" data-testid="answer-status">
-      {{ status === 'ready' ? verdict : status === 'empty' ? emptyText : '' }}
+      {{ announced }}
     </p>
 
     <div class="mt-5">

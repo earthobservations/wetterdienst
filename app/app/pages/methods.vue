@@ -61,13 +61,21 @@ function onAnchor(id: string) {
     reveal(`#${id}`)
   }
 }
-// A link to a section by the name the chip had (`#summer`, now `#season`) goes to the section it always meant
+// A link to a section by the name the chip had (`#summer`, now `#season`) goes to the section it always meant, and one to a rule of it
+// (`#summer-summer-mean`) to that rule under its new name (`#season-season-mean`)
 function followOldName(hash: string): boolean {
-  const chip = CHIPS.find(each => each.aliases?.includes(hash.slice(1)))
-  if (!chip)
-    return false
-  void router.replace({ hash: `#${chip.id}` }).catch(() => {})
-  return true
+  const id = hash.slice(1)
+  for (const chip of CHIPS) {
+    for (const old of chip.aliases ?? []) {
+      if (id === old || id.startsWith(`${old}-`)) {
+        const rule = id.slice(old.length + 1)
+        const target = rule ? `${chip.id}-${chip.renamedRules?.[rule] ?? rule}` : chip.id
+        void router.replace({ hash: `#${target}` }).catch(() => {})
+        return true
+      }
+    }
+  }
+  return false
 }
 onMounted(() => {
   if (route.hash && !followOldName(route.hash))

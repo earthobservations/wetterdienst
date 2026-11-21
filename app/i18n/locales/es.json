@@ -133,7 +133,7 @@
       "coldNo": "No, {anomaly} {unit} por encima de lo normal.",
       "coldUsual": "No mucho: más o menos como siempre.",
       "detail": "{seasonCap} {year} ({months}): media de {mean} {unit}; media de {from} a {to} ({seasons}): {normal} {unit}.",
-      "rank": "Puesto {rank} de {count} ({seasons} desde {first}), empezando por el más cálido.",
+      "rank": "Puesto {rank} de {count} ({seasons} desde {first}), ordenados de mayor a menor temperatura media.",
       "chart": "Cada {season} frente a la media de {from} a {to}, en {unit}",
       "none": "Aquí hay muy pocas estaciones del año completas para comparar.",
       "noneNormal": "Esta estación solo tiene {count} de las {of} estaciones del año del periodo {normal}; hacen falta {min} para comparar.",

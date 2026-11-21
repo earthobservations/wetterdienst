@@ -241,6 +241,8 @@ export interface ChipDefinition<Id extends string, Loaded, Result> {
   id: Id
   /** Other names a link may carry for the chip (`?ask=summer`, the name of the chip it grew out of): a link keeps meaning what it meant, and the chip is the same */
   aliases?: readonly string[]
+  /** Rules the old section had under other names, by the old id (`summer-mean`) to the new one (`season-mean`): `/methods#summer-summer-mean` goes to `#season-season-mean`. A rule of the same id needs no entry */
+  renamedRules?: Readonly<Record<string, string>>
   /** The icon of the chip's button, an Iconify name the app bundles */
   icon: string
   /** The tool the answer leads into */

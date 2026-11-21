@@ -144,7 +144,7 @@
       "refShort": "{normal} (hei nëmmen {count} vun {of}, {min} néideg)",
       "refFallback": "{normal} (hei nëmmen {count} vun {of}; fréier ginn amplaz benotzt)",
       "last": {
-        "spring": "de leschte Fréijoer",
+        "spring": "dat lescht Fréijoer",
         "summer": "de leschte Summer",
         "autumn": "de leschte Hierscht",
         "winter": "de leschte Wanter"

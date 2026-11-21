@@ -117,6 +117,13 @@ describe('the page in English', () => {
     await vi.waitFor(() => expect(useRoute().hash).toBe('#season'))
   })
 
+  it('takes a link to a rule by the old name (`#summer-summer-mean`) to the rule it is now (`#season-season-mean`)', async () => {
+    await mountSuspended(MethodsPage, { route: '/methods#summer-summer-mean' })
+    await vi.waitFor(() => expect(useRoute().hash).toBe('#season-season-mean'))
+    await mountSuspended(MethodsPage, { route: '/methods#summer-anomaly' })
+    await vi.waitFor(() => expect(useRoute().hash).toBe('#season-anomaly'))
+  })
+
   it('has no note where the text is in the language of the page', async () => {
     const wrapper = await mountSuspended(MethodsPage)
     expect(wrapper.find('[data-testid="methods-note"]').exists()).toBe(false)

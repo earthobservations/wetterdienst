@@ -12,6 +12,8 @@ import {
   normalAvailability,
   normalOf,
   normalsAt,
+  normalSpan,
+  seasonMeans,
   SEASONS,
   USUAL_BAND,
 } from '../../answers'
@@ -71,6 +73,12 @@ const SEASON: SelectChoice = {
 /** The text of a normal as it is read: `1961–1990` */
 const normalText = (from: number, to: number) => `${from}–${to}`
 
+/** The years of a normal's seasons as a kind of season writes them: `1960/61–1989/90` for a winter */
+function spanText(kind: Season, from: number, to: number): string {
+  const span = normalSpan(kind, from, to)
+  return `${span.from}–${span.to}`
+}
+
 /**
  * The normal the season is compared with (`&ref=1961-1990`): every complete WMO normal from 1961-1990 onward, the newest
  * where the link names none. A normal that the station has too few seasons of is offered disabled with the count in its
@@ -87,15 +95,17 @@ const REFERENCE: SelectChoice = {
   options({ t, now }, loaded, choices) {
     const kind = seasonOf(choices)
     const seasons = t(`ask.season.plural.${kind}`)
-    const newest = newestNormal(now())
     const availability = loaded ? normalAvailability((loaded as Loaded).readings, kind, now()) : []
     return normalsAt(now()).map((normal) => {
       const text = normalText(normal.from, normal.to)
       const have = availability.find(each => each.normal.key === normal.key)
       if (!have || have.enough)
         return { value: normal.key, label: text }
-      const params = { normal: text, count: have.count, of: NORMAL_YEARS, min: NORMAL_MIN_SEASONS, seasons }
-      return normal.key === newest.key
+      // a winter normal says its winters too (1961–1990 is 1960/61 to 1989/90), as the bars are labelled
+      const named = kind === 'winter' ? `${text} = ${spanText(kind, normal.from, normal.to)}` : text
+      const params = { normal: named, count: have.count, of: NORMAL_YEARS, min: NORMAL_MIN_SEASONS, seasons }
+      // the newest normal can be chosen where the seasons before stand in for it; where too few of those exist, it is short like the older ones
+      return have.fallback
         ? { value: normal.key, label: t('ask.season.refFallback', params) }
         : { value: normal.key, label: t('ask.season.refShort', params), disabled: true }
     })
@@ -106,6 +116,8 @@ export const season = defineChip({
   id: 'season',
   // the name the chip had when it asked about the summer only: its links keep working
   aliases: ['summer'],
+  // the rules the old section had under other names: `/methods#summer-summer-mean` is now `#season-season-mean`
+  renamedRules: { 'summer-mean': 'season-mean', 'reference-period': 'reference-choices', 'min-summers': 'min-seasons' },
   icon: 'i-ph-thermometer-hot',
   tool: 'explorer',
   quantity: 'temperature',
@@ -164,6 +176,8 @@ export const season = defineChip({
       : answer.verdict === 'warmer' ? (cold ? SCALE.coldNo : SCALE.warmer) : (cold ? SCALE.coldYes : SCALE.cooler)
     const name = t(`ask.season.name.${kind}`)
     const plural = t(`ask.season.plural.${kind}`)
+    // a winter normal is written by the years of its winters (1960/61 to 1989/90 for 1961-1990), as the bars are labelled
+    const span = normalSpan(kind, answer.normalFrom, answer.normalTo)
     return {
       verdict: t(key, { anomaly: number(Math.abs(answer.anomaly)), unit: unitText(answer.unit) }),
       details: [
@@ -174,15 +188,15 @@ export const season = defineChip({
           mean: number(answer.mean),
           unit: unitText(answer.unit),
           seasons: plural,
-          from: answer.normalFrom,
-          to: answer.normalTo,
+          from: span.from,
+          to: span.to,
           normal: number(answer.normal),
         }),
         t('ask.season.rank', { rank: answer.rank, count: answer.seasons, seasons: plural, first: answer.bars[0]?.label ?? '' }),
       ],
       chart: {
         bars: answer.bars,
-        caption: t('ask.season.chart', { season: name, from: answer.normalFrom, to: answer.normalTo, unit: unitText(answer.unit) }),
+        caption: t('ask.season.chart', { season: name, from: span.from, to: span.to, unit: unitText(answer.unit) }),
         unit: unitText(answer.unit),
         diverging: true,
         emphasis: 'one',
@@ -206,7 +220,7 @@ export const season = defineChip({
       { id: 'default-season', kind: 'selection', cites: [], own: true },
       // what it is compared with, and which normals are offered
       { id: 'reference-choices', kind: 'period', values: { firstFrom: NORMAL_FIRST_TO - NORMAL_YEARS + 1, firstTo: NORMAL_FIRST_TO, years: NORMAL_YEARS }, cites: [{ work: 'wmo-1203', at: '§2, §3' }] },
-      { id: 'reference-default', kind: 'period', cites: [{ work: 'wmo-1203', at: '§2, §3' }] },
+      { id: 'reference-default', kind: 'period', cites: [{ work: 'wmo-1203', at: '§2, §3, §5.1' }] },
       { id: 'normal-mean', kind: 'statistic', own: true, cites: [{ work: 'wmo-1203', at: '§4.3.3 (a)' }] },
       { id: 'min-seasons', kind: 'fallback', values: { minSeasons: NORMAL_MIN_SEASONS, ofSeasons: NORMAL_YEARS }, own: true, cites: [{ work: 'wmo-1203', at: '§4.4.2' }] },
       // where the station has too few of the newest normal
@@ -229,12 +243,15 @@ export const season = defineChip({
       const unit = unitText(answer.unit)
       // the season, its months and its plural are named by the id of the season: the page writes them in the language of its texts
       const kind = { season: answer.season, months: answer.season, seasons: answer.season }
+      // the years of the normal as the seasons are written: a winter's by both years
+      const span = normalSpan(answer.season, answer.normalFrom, answer.normalTo)
+      const asked = normalSpan(answer.season, answer.asked.from, answer.asked.to)
       const lines: NumberLine[] = [
         { id: 'station', params: { name: place.name, id: place.id } },
         { id: 'season', params: { ...kind, year: answer.bars.find(bar => bar.highlight)?.label ?? answer.year, mean: number(answer.mean), unit } },
         {
           id: answer.fallback ? 'referenceFallback' : 'reference',
-          params: { seasons: answer.season, from: answer.normalFrom, to: answer.normalTo, count: answer.referenceCount, normal: number(answer.normal), unit, askedFrom: answer.asked.from, askedTo: answer.asked.to },
+          params: { seasons: answer.season, from: span.from, to: span.to, count: answer.referenceCount, normal: number(answer.normal), unit, askedFrom: asked.from, askedTo: asked.to },
         },
         { id: 'anomaly', params: { ...kind, anomaly: number(answer.anomaly), unit } },
         // half a degree is half a kelvin: in the unit the reader chose, the band is as many degrees of it
@@ -248,11 +265,14 @@ export const season = defineChip({
   empty(loaded, { t, now }, choices) {
     const kind = seasonOf(choices)
     const seasons = t(`ask.season.plural.${kind}`)
-    // a normal the station has too few seasons of (an older one, which nothing stands in for) says so, with the count
+    // a normal the station has too few seasons of, with nothing to stand in for it, says so with the count; a station with no complete season says that
     const asked = normalOf(choices.ref, now())
     const have = loaded && asked ? normalAvailability((loaded as Loaded).readings, kind, now()).find(each => each.normal.key === asked.key) : null
-    if (have && !have.enough && asked && asked.key !== newestNormal(now()).key)
-      return t('ask.season.noneNormal', { normal: normalText(asked.from, asked.to), count: have.count, of: NORMAL_YEARS, min: NORMAL_MIN_SEASONS, seasons })
+    if (have && !have.enough && !have.fallback && seasonMeans((loaded as Loaded).readings, kind, now()).length > 0) {
+      const text = normalText(asked!.from, asked!.to)
+      const named = kind === 'winter' ? `${text} = ${spanText(kind, asked!.from, asked!.to)}` : text
+      return t('ask.season.noneNormal', { normal: named, count: have.count, of: NORMAL_YEARS, min: NORMAL_MIN_SEASONS, seasons })
+    }
     return t('ask.season.none', { seasons })
   },
 

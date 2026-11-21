@@ -212,9 +212,9 @@ describe('the numbers of an answer', () => {
     const lines = season.explanation.numbers(winter, null, env('en'), { season: 'winter', ref: '1961-1990' })
     const said = (texts: typeof en) => lines.map(line => numberLineText(texts, season, line))
     expect(said(en)).toContain('In winter 2025/26 (December to February) the mean was 3.0 °C.')
-    expect(said(en)).toContain('Compared with the winters of 1961 to 1990: the mean of 30 winters, 0.0 °C.')
+    expect(said(en)).toContain('Compared with the winters of 1960/61 to 1989/90: the mean of 30 winters, 0.0 °C.')
     expect(said(de)).toContain('Im Winter 2025/26 (Dezember bis Februar) lag das Mittel bei 3.0 °C.')
-    expect(said(de)).toContain('Verglichen mit dem Mittel der Winter von 1961 bis 1990: 30 Winter, 0.0 °C.')
+    expect(said(de)).toContain('Verglichen mit dem Mittel der Winter von 1960/61 bis 1989/90: 30 Winter, 0.0 °C.')
     // every season has its words in both languages, for each name the lines give the season by
     for (const texts of [en, de]) {
       for (const name of ['season', 'seasons', 'months'])

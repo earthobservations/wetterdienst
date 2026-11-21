@@ -445,8 +445,8 @@ test.describe('the season and the reference period', () => {
     await refSelect(page).selectOption('1961-1990')
     await expect(page).toHaveURL(/\?ask=season&season=winter&ref=1961-1990$/)
     const answer = page.getByTestId('answer')
-    await expect(answer).toContainText('the winters from 1961 to 1990 averaged')
-    await expect(answer.getByRole('figure').locator('figcaption')).toHaveText('Each winter against the average of 1961 to 1990, in °C')
+    await expect(answer).toContainText('the winters from 1960/61 to 1989/90 averaged')
+    await expect(answer.getByRole('figure').locator('figcaption')).toHaveText('Each winter against the average of 1960/61 to 1989/90, in °C')
     await expect(answer).toContainText(/Winter \d{4}\/\d{2} \(December to February\) averaged/)
     // the live region says the new verdict
     await expect(page.getByTestId('answer-status')).toHaveText((await page.getByTestId('answer-verdict').textContent())!.trim())
@@ -455,7 +455,7 @@ test.describe('the season and the reference period', () => {
 
     // the disclosure says which season and which normal were used, and the page of the methods is linked
     await page.getByTestId('explanation-button').click()
-    await expect(page.getByTestId('explanation-numbers')).toContainText('Compared with the winters of 1961 to 1990: the mean of 30 winters')
+    await expect(page.getByTestId('explanation-numbers')).toContainText('Compared with the winters of 1960/61 to 1989/90: the mean of 30 winters')
     await expect(page.getByTestId('explanation-full')).toHaveAttribute('href', '/methods#season')
   })
 
@@ -481,9 +481,9 @@ test.describe('the season and the reference period', () => {
     await home(page, baseURL!, '/?ask=season&season=winter&ref=1961-1990&place=00183')
     const first = refSelect(page).locator('option').first()
     await expect(first).toBeDisabled()
-    await expect(first).toHaveText('1961–1990 (only 16 of 30 seasons here, 20 needed)')
+    await expect(first).toHaveText('1961–1990 = 1960/61–1989/90 (only 16 of 30 seasons here, 20 needed)')
     await expect(refSelect(page).locator('option').nth(1)).toBeEnabled()
-    await expect(page.getByTestId('answer')).toContainText('This station has only 16 of the 30 seasons of 1961–1990; 20 are needed to compare.')
+    await expect(page.getByTestId('answer')).toContainText('This station has only 16 of the 30 seasons of 1961–1990 = 1960/61–1989/90; 20 are needed to compare.')
     await expect(page.getByTestId('answer-verdict')).toHaveCount(0)
     await refSelect(page).selectOption('1971-2000')
     await expect(page.getByTestId('answer-verdict')).toBeVisible()

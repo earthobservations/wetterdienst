@@ -219,6 +219,36 @@ describe('the last season against a normal', () => {
   })
 })
 
+describe('the answer for a station with gaps at the ends of the normal', () => {
+  const now = DateTime.fromISO('2026-11-21T10:00:00', { zone: BERLIN })
+
+  it('names the normal asked for and counts the seasons it has: summers 1994-2020 are 27 of 1991-2020', () => {
+    const answer = lastSeason(monthly('summer', 1994, 2026, year => year === 2026 ? 12 : 10), now, { season: 'summer', normal: '1991-2020' })!
+    expect([answer.normalFrom, answer.normalTo]).toEqual([1991, 2020])
+    expect(answer.referenceCount).toBe(27)
+    expect(answer.fallback).toBe(false)
+  })
+
+  it('writes the years of a winter normal as the winters, in the answer and its numbers', () => {
+    const answer = lastSeason(monthly('winter', 1961, 2026), now, { season: 'winter', normal: '1961-1990' })!
+    const t: ChipEnv['t'] = (key, params = {}) => `${key} ${params.from ?? ''}..${params.to ?? ''}`
+    const env = { t, number: (value: number) => String(value), unitText: (unit: string) => unit, place: { id: '1', name: 'x', latitude: 0, longitude: 0 }, now: () => now } as unknown as ChipEnv
+    const view = season.present(answer, null, env, { season: 'winter', ref: '1961-1990' })
+    expect(view.details[0]).toContain('1960/61..1989/90')
+    expect(view.chart!.caption).toContain('1960/61..1989/90')
+    expect(season.explanation.numbers(answer, null, env, { season: 'winter', ref: '1961-1990' }).find(line => line.id === 'reference')!.params).toMatchObject({ from: '1960/61', to: '1989/90' })
+  })
+
+  it('says why there is no answer for a short older normal, and none of that for a station without any season', () => {
+    const env = { t: ((key: string, params: Record<string, unknown> = {}) => `${key} ${params.count ?? ''}`) as ChipEnv['t'], now: () => now } as unknown as ChipEnv
+    const choices = { season: 'winter', ref: '1961-1990' }
+    expect(season.empty({ readings: monthly('winter', 1975, 2026), units: {} }, env, choices)).toBe('ask.season.noneNormal 16')
+    expect(season.empty({ readings: [], units: {} }, env, choices)).toBe('ask.season.none ')
+    // the newest, with too few before the last: the same reason
+    expect(season.empty({ readings: monthly('winter', 2021, 2026), units: {} }, env, { season: 'winter', ref: '1991-2020' })).toBe('ask.season.noneNormal 0')
+  })
+})
+
 describe('the choices of the season chip, in the link', () => {
   const NOW = DateTime.fromISO('2026-11-21T10:00:00', { zone: BERLIN })
 
@@ -321,10 +351,29 @@ describe('the options of the reference choice', () => {
     expect(list[3]!.label).toContain('ask.season.refFallback')
   })
 
+  it('disables the newest normal too where fewer than ten seasons stand before the last, since nothing could answer', () => {
+    // a station since 2020: six winters in all, five before the last
+    const list = options(monthly('winter', 2021, 2026))
+    expect(list.map(option => option.disabled)).toEqual([true, true, true, true])
+    expect(list[3]!.label).toContain('ask.season.refShort')
+    // with ten before the last it can answer, and is not disabled
+    const eleven = options(monthly('winter', 2016, 2026))
+    expect(eleven[3]!.disabled).toBeUndefined()
+    expect(eleven[3]!.label).toContain('ask.season.refFallback')
+    expect(normalAvailability(monthly('winter', 2021, 2026), 'winter', now).at(-1)).toMatchObject({ enough: false, fallback: false })
+  })
+
+  it('writes the winters of a winter normal with both years, and keeps the normal as WMO writes it', () => {
+    const short = options(monthly('winter', 1975, 2026))
+    expect(short[0]!.label).toContain('1961\u20131990 = 1960/61\u20131989/90')
+    expect(options(monthly('summer', 1975, 2026), 'summer')[0]!.label).toContain('"normal":"1961\u20131990"')
+    expect(options(monthly('winter', 1961, 2026))[0]!.label).toBe('1961\u20131990')
+  })
+
   it('follows the season: the same station has the summers it has no winters of', () => {
     const summers = monthly('summer', 1961, 2026)
     expect(options(summers, 'summer').every(option => option.disabled === undefined)).toBe(true)
-    expect(options(summers, 'winter').filter(option => option.disabled).length).toBe(3)
+    expect(options(summers, 'winter').filter(option => option.disabled).length).toBe(4)
   })
 })
 
@@ -379,6 +428,8 @@ describe('the question, which follows the season', () => {
     expect(questionOf('cs', 'autumn')).toBe('Byl minulý podzim tady teplejší než obvykle?')
     expect(questionOf('it', 'autumn')).toBe('L\'autunno scorso è stato più caldo del solito qui?')
     expect(questionOf('it', 'winter')).toBe('L\'inverno scorso è stato più freddo del solito qui?')
+    expect(questionOf('lb', 'spring')).toBe('War dat lescht Fréijoer hei méi waarm wéi soss?')
+    expect(questionOf('lb', 'winter')).toBe('War de leschte Wanter hei méi kal wéi soss?')
     expect(questionOf('es', 'spring')).toBe('¿Fue la primavera pasada más cálida de lo normal aquí?')
     expect(questionOf('de', 'winter')).toBe('War der letzte Winter hier kälter als sonst?')
     expect(questionOf('fr', 'winter')).toBe('L\'hiver dernier a-t-il été plus froid que d\'habitude ici\u00A0?')

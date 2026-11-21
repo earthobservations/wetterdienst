@@ -24,9 +24,12 @@ Types of changes:
   1991-2020 today, with 2001-2030 added by itself on 1 January 2031). The question, the verdict
   ("Was last winter colder than usual here?"), the chart, the disclosure and the Methods page say
   which season and which normal were used. A normal the station has too few seasons of is offered
-  disabled, with how many it has; only complete seasons are compared. The link carries
-  `&season=winter&ref=1961-1990`; `?ask=summer` and `/methods#summer` keep working and mean the
-  summer against the newest normal, as before (GH-3764).
+  disabled, with how many it has; only complete seasons are compared. The answer names the normal
+  asked for and the count of its seasons the station has (a station with summers 1994-2020 now
+  reads "the summers from 1991 to 2020", with 27 in the count line, where it read 1994 to 2020); a
+  winter normal is written by its winters (1960/61 to 1989/90). The link carries
+  `&season=winter&ref=1961-1990`; `?ask=summer` and `/methods#summer` (and its rules, such as
+  `#summer-summer-mean`) keep working and mean the summer against the newest normal (GH-3764).
 
 ## [0.57.0] - 2026-11-21
 

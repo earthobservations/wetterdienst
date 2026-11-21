@@ -86,6 +86,7 @@ function inUnits(values: Array<{ parameter: string, value: number | null }>, que
   return { values: converted, metadata: { parameters } }
 }
 // an answer of the values that waits for the test where it asks (a request to hold)
+let flatRecord = false
 let holdValues: Promise<void> | null = null
 // the speed unit of the only requests to hold, where the test holds those of one unit and lets the others through
 let holdOnlySpeed: string | null = null
@@ -101,7 +102,9 @@ registerEndpoint('/api/values', async (event) => {
   const parameters = query.get('parameters') ?? ''
   if (query.get('network') === 'mosmix')
     return inUnits(rainValues(station), query)
-  return inUnits(parameters.startsWith('monthly/') ? summerValues(station) : windValues(station, query.get('timestamp')), query)
+  // a record of flat 10 degrees with a summer of 12: every normal gives the same verdict sentence
+  const monthly = () => flatRecord ? summerValues(station).map(row => ({ ...row, value: row.timestamp.startsWith('2026-0') && /-0[3-8]-/.test(row.timestamp) ? 12 : 10 })) : summerValues(station)
+  return inUnits(parameters.startsWith('monthly/') ? monthly() : windValues(station, query.get('timestamp')), query)
 })
 function coverage() {
   return {
@@ -143,6 +146,7 @@ afterEach(() => {
   requests.length = 0
   holdValues = null
   holdOnlySpeed = null
+  flatRecord = false
   Object.assign(useSettings().settings.value, { convertUnits: true })
   Object.assign(useSettings().settings.value.units, { temperature: 'degree_celsius', speed: 'meter_per_second', precipitation: 'millimeter' })
 })
@@ -377,8 +381,8 @@ describe('the suggestions', () => {
       expect(verdict(wrapper).text()).toMatch(/^No, [\d.]+ °C warmer than usual\.$/)
       const answer = wrapper.find('[data-testid="answer"]').text()
       expect(answer).toMatch(/Winter \d{4}\/\d{2} \(December to February\) averaged/)
-      expect(answer).toContain('the winters from 1961 to 1990 averaged')
-      expect(answer).toContain('Each winter against the average of 1961 to 1990')
+      expect(answer).toContain('the winters from 1960/61 to 1989/90 averaged')
+      expect(answer).toContain('Each winter against the average of 1960/61 to 1989/90')
       expect((selectOf(wrapper, 'season').element as HTMLSelectElement).value).toBe('winter')
       expect((selectOf(wrapper, 'ref').element as HTMLSelectElement).value).toBe('1961-1990')
 
@@ -386,7 +390,7 @@ describe('the suggestions', () => {
       await vi.waitFor(() => expect(wrapper.find('[data-testid="explanation-numbers"]').exists()).toBe(true))
       const numbers = wrapper.find('[data-testid="explanation-numbers"]').text()
       expect(numbers).toMatch(/In winter \d{4}\/\d{2} \(December to February\) the mean was/)
-      expect(numbers).toContain('Compared with the winters of 1961 to 1990: the mean of 30 winters')
+      expect(numbers).toContain('Compared with the winters of 1960/61 to 1989/90: the mean of 30 winters')
     })
 
     it('change the answer and the link when a choice is made, and ask the backend for nothing more: the whole record serves every season', async () => {
@@ -397,7 +401,7 @@ describe('the suggestions', () => {
       await vi.waitFor(() => expect(chip(wrapper, 'season').text()).toBe('Was last winter colder than usual here?'))
       expect(useRoute().query).toMatchObject({ ask: 'season', season: 'winter' })
       await selectOf(wrapper, 'ref').setValue('1961-1990')
-      await vi.waitFor(() => expect(wrapper.find('[data-testid="answer"]').text()).toContain('the winters from 1961 to 1990'))
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="answer"]').text()).toContain('the winters from 1960/61 to 1989/90'))
       expect(useRoute().query).toMatchObject({ ask: 'season', season: 'winter', ref: '1961-1990' })
       expect(asked('values')).toHaveLength(before)
       // the live region says the new verdict
@@ -429,12 +433,29 @@ describe('the suggestions', () => {
       await vi.waitFor(() => expect(wrapper.find('[data-testid="answer"] p.text-toned').exists()).toBe(true))
       const options = optionsOf(wrapper, 'ref')
       expect(options.map(option => option.disabled)).toEqual([true, false, false, false])
-      expect(options[0]!.text).toBe('1961–1990 (only 16 of 30 seasons here, 20 needed)')
-      expect(wrapper.find('[data-testid="answer"]').text()).toContain('This station has only 16 of the 30 seasons of 1961–1990; 20 are needed to compare.')
+      expect(options[0]!.text).toBe('1961–1990 = 1960/61–1989/90 (only 16 of 30 seasons here, 20 needed)')
+      expect(wrapper.find('[data-testid="answer"]').text()).toContain('This station has only 16 of the 30 seasons of 1961–1990 = 1960/61–1989/90; 20 are needed to compare.')
       expect(wrapper.find('[data-testid="answer-verdict"]').exists()).toBe(false)
       // the other normals still answer
       await selectOf(wrapper, 'ref').setValue('1971-2000')
       await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+    })
+
+    it('announce a change of choice whose verdict is the same sentence: the status is cleared and set again', async () => {
+      flatRecord = true
+      const wrapper = await mountAsk('/?ask=season')
+      await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Yes, 2.0 °C warmer than usual.'))
+      const status = wrapper.find('[data-testid="answer-status"]')
+      expect(status.text()).toBe('Yes, 2.0 °C warmer than usual.')
+      const seen: string[] = []
+      const observer = new MutationObserver(() => seen.push(status.text()))
+      observer.observe(status.element, { childList: true, characterData: true, subtree: true })
+      await selectOf(wrapper, 'ref').setValue('1981-2010')
+      await vi.waitFor(() => expect(seen.at(-1)).toBe('Yes, 2.0 °C warmer than usual.'))
+      observer.disconnect()
+      expect(verdict(wrapper).text()).toBe('Yes, 2.0 °C warmer than usual.')
+      // emptied, then said again
+      expect(seen).toContain('')
     })
 
     it('are in German, with the season as a parameter of one sentence', async () => {

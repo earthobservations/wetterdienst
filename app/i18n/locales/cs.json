@@ -140,7 +140,7 @@
       "open": "Otevřít měsíční průměry",
       "stripes": "Zobrazit klimatické pruhy",
       "seasonLabel": "Roční období",
-      "refLabel": "Porovnáno s",
+      "refLabel": "Porovnání s",
       "refShort": "{normal} (zde jen {count} z {of}, třeba {min})",
       "refFallback": "{normal} (zde jen {count} z {of}; použijí se dřívější)",
       "last": {
