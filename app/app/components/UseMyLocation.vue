@@ -17,7 +17,7 @@ import type { Point } from '~/utils/map-tool'
 //   button, which discloses the position and "Forget" and replaces the box and the note. "Forget" takes the position
 //   back to nothing, and the next press starts again.
 //
-// What the position is used for is the page's: it takes `position` and finds the station. What it has to say about
+// What the position is used for is the page's: it takes `position` and finds the station (the radar, GH-4287, only marks it on its map). What it has to say about
 // it, the nearest station and how far, goes in `status`, and a failure of its own in `problem`.
 //
 // With `offerOnly` it is the second half alone, for a page that shows the position's result somewhere the button is not
@@ -33,6 +33,8 @@ const props = defineProps<{
   status?: string
   /** A failure of what was done with it, announced at once */
   problem?: string
+  /** What the position is used for, in the note under the box: the nearest station (the default), or only to be shown on the radar's map (GH-4287) */
+  use?: 'station' | 'radar'
 }>()
 
 const emit = defineEmits<{
@@ -169,7 +171,7 @@ watch(remembered, (now) => {
         @update:model-value="keep"
       />
       <p :id="noteId" class="text-xs text-gray-600 dark:text-gray-400" data-testid="use-my-location-note">
-        {{ t('location.note') }}
+        {{ t(use === 'radar' ? 'location.noteRadar' : 'location.note') }}
         <NuxtLink to="/datenschutz#location" target="_blank" class="text-primary-700 dark:text-primary-500 underline hover:no-underline" data-testid="use-my-location-privacy">
           {{ t('location.privacyLink') }}
         </NuxtLink>
