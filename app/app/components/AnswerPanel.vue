@@ -107,8 +107,10 @@ async function ask() {
   outcome.value = null
   try {
     const here = context()
-    const loaded = await chip.value.load(here, api)
-    const result = chip.value.answer(loaded, here)
+    // the chip asked, held across the await: a question changed meanwhile must not read this one's data
+    const asking = chip.value
+    const loaded = await asking.load(here, api)
+    const result = asking.answer(loaded, here)
     // only the newest request's data is kept: an older one that returns after it must not replace it (GH-3980)
     if (turn !== asked)
       return
