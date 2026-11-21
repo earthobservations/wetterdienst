@@ -119,7 +119,7 @@ def _serve(
             return _ok(stations.encode("utf8"))(url)
         if "ghcnd-inventory" in url:
             return _ok(inventory.encode("utf8"))(url)
-        return pick(ncei if (urlparse(url).hostname or "").endswith("ncei.noaa.gov") else aws, url)(url)
+        return pick(ncei if urlparse(url).hostname == urlparse(NCEI).hostname else aws, url)(url)
 
     monkeypatch.setattr(api, "download_file", download_file)
     return calls
