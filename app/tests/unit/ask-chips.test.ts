@@ -83,8 +83,8 @@ describe.each(CHIPS.map(chip => [chip.id, chip] as const))('the %s chip', (id, c
     expect([...written].filter(key => !chip.i18n.includes(key))).toEqual([])
   })
 
-  it('has no explanation yet: step 1b of GH-3764 writes it', () => {
-    expect(chip.explanation).toBeUndefined()
+  it('has an explanation, which tests/unit/ask-methods.test.ts holds to its sources and its words', () => {
+    expect(chip.explanation.rules.length).toBeGreaterThan(0)
   })
 
   it('names each choice once in the link, and none of another chip\'s', () => {

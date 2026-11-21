@@ -94,6 +94,24 @@
     "showValues": "Mostra i valori",
     "tableWhen": "Quando",
     "leadsTo": "Apri i dati nello strumento",
+    "explain": {
+      "button": "Come si è ottenuta questa risposta?",
+      "failed": "Non è stato possibile caricare la spiegazione.",
+      "numbers": "I numeri usati",
+      "rules": "Le regole e da dove vengono",
+      "data": "I dati",
+      "terms": "Termini spiegati",
+      "limits": "Ciò che la risposta non può dire",
+      "full": "Il metodo completo e le sue fonti",
+      "own": "Scelta propria di wetterdienst.",
+      "source": "Fonte:",
+      "compare": "Confronta:",
+      "provider": "Fornitore",
+      "dataset": "Dataset",
+      "parameters": "Parametri",
+      "licence": "Licenza",
+      "open": "Apri questi dati nell'Esploratore"
+    },
     "rain": {
       "yes": "Sì, è probabile che piova.",
       "maybe": "Forse, un po'.",
@@ -162,6 +180,7 @@
       "providers": "I servizi meteorologici nazionali dietro i dati: paese, licenza, la fonte da citare e cosa offre ciascuno.",
       "glossary": "Cosa misura ogni parametro meteorologico e climatico e in quale unità tornano i suoi valori, con ricerca per nome e grandezza.",
       "measurement": "Come si misura il tempo atmosferico: strumenti, come una lettura diventa un valore, che cosa dice il numero e dove i fornitori differiscono, con le fonti.",
+      "methods": "Come si ottengono le risposte di Ask the weather: passaggi e numeri di ogni metodo, le fonti pubblicate e le scelte proprie di wetterdienst.",
       "about": "Informazioni sul progetto open source Wetterdienst e sulle persone che lo mantengono.",
       "support": "Sostenere Wetterdienst: segnalare un problema, contribuire con codice o donare.",
       "map": "Una mappa delle stazioni del Servizio meteorologico tedesco: scegli una stazione o un punto qualsiasi per vedere le sue previsioni, le sue strisce climatiche e le sue misurazioni.",
@@ -207,6 +226,7 @@
     "api": "API",
     "glossary": "Glossario",
     "measurement": "Misurazione",
+    "methods": "Metodi",
     "support": "Supporto",
     "map": "Mappa",
     "radar": "Radar"
@@ -495,6 +515,37 @@
       "normals": "Normali climatiche",
       "time": "Ora e giorno",
       "observationForecastDerived": "Osservazione, previsione e dati derivati"
+    }
+  },
+  "methods": {
+    "title": "Come si ottengono le risposte",
+    "subtitle": "Il metodo dietro ogni domanda di Ask the weather: i passaggi, i numeri, le opere su cui poggia ogni scelta e le scelte proprie di wetterdienst",
+    "menuDescription": "Il metodo e le fonti dietro ogni risposta di Ask the weather",
+    "tocTitle": "Indice",
+    "introTitle": "Come leggere questa pagina",
+    "introText": "Ogni domanda di Ask the weather ha una sezione: il suo metodo passo per passo, la sua formula se ne ha una, ogni periodo, soglia e regola con l'opera pubblicata da cui deriva, i dati, i termini e i limiti. In fondo ci sono le opere citate, ciascuna con ciò che è e perché conta.",
+    "ownText": "Dove nessuna opera pubblicata compie una scelta, la scelta è segnata come propria di wetterdienst, con il ragionamento. È una scelta del progetto, non una regola della scienza del tempo, e può essere cambiata. Nessuna risposta poggia su un numero che non abbia una fonte o un segno.",
+    "measurementText": "I termini sono spiegati su {page} e nel {glossary}, e da qui sono collegati invece di essere scritti due volte.",
+    "chipsTitle": "Le domande",
+    "ask": "Fai questa domanda",
+    "ownCount": "{own} scelte su {total} sono proprie di wetterdienst",
+    "stepsTitle": "Il metodo, passo per passo",
+    "formulaTitle": "Formula",
+    "rulesTitle": "Le scelte e da dove vengono",
+    "says": "Che cosa dice la fonte:",
+    "dataTitle": "I dati",
+    "termsTitle": "Termini",
+    "limitsTitle": "Limiti della risposta",
+    "worksTitle": "Opere citate",
+    "worksIntro": "Ogni opera dice con parole semplici che cosa è, chi la pubblica e che cosa ne prendono i metodi, poi dà la citazione formale. I titoli restano nella lingua dell'opera.",
+    "usedBy": "Usata da:",
+    "kind": {
+      "period": "Periodo",
+      "band": "Soglia o scala",
+      "statistic": "Statistica",
+      "fallback": "Alternativa se i dati sono pochi",
+      "window": "Finestra di giorni",
+      "selection": "Selezione dei dati"
     }
   },
   "providers": {

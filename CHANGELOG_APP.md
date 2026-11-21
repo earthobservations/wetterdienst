@@ -18,6 +18,14 @@ Types of changes:
 
 ### Added
 
+- `[Ask the weather]` Every answer says how it was worked out: under it, "How was this worked out?"
+  opens the numbers used (station and its distance, period, how many years or days, thresholds),
+  every rule with the work it comes from or the mark that it is wetterdienst's own choice, the
+  data (provider, dataset, licence, a link that opens it in the Explorer), the terms (linked to
+  "How weather is measured") and the limits. A new page in the Reference group, **Methods**
+  (`/methods`), has the full method of each question step by step with its formula, sources and
+  limits, and the list of the works cited (WMO-No. 8 Volume I, WMO-No. 1203, DWD's own pages);
+  written in German and English, as "How weather is measured" is (GH-3764).
 - `[Measurement]` Four more entries on the "How weather is measured" page: pressure and its
   reduction to sea level (`/measurement#pressure`), humidity and dew point (`#humidity`),
   radiation (`#radiation`) and visibility (`#visibility`), each with the sources it rests on (the

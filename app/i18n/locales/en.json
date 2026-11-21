@@ -94,6 +94,24 @@
     "showValues": "Show the values",
     "tableWhen": "When",
     "leadsTo": "Open the data in the tool",
+    "explain": {
+      "button": "How was this worked out?",
+      "failed": "The explanation could not be loaded.",
+      "numbers": "The numbers used",
+      "rules": "The rules and where they come from",
+      "data": "The data",
+      "terms": "Terms explained",
+      "limits": "What the answer cannot tell",
+      "full": "The full method and its sources",
+      "own": "wetterdienst's own choice.",
+      "source": "Source:",
+      "compare": "Compare:",
+      "provider": "Provider",
+      "dataset": "Dataset",
+      "parameters": "Parameters",
+      "licence": "Licence",
+      "open": "Open this data in the Explorer"
+    },
     "rain": {
       "yes": "Yes, rain is likely.",
       "maybe": "Maybe, a little.",
@@ -162,6 +180,7 @@
       "providers": "The national weather services behind the data: country, licence, the credit line to give and what each one offers.",
       "glossary": "What each weather and climate parameter measures and the unit its values come back in, searchable by name and quantity.",
       "measurement": "How weather is measured: instruments, how a reading becomes a value, what the number can tell and where providers differ, with sources.",
+      "methods": "How the answers of Ask the weather are worked out: the steps and numbers of each method, its published sources and the choices that are wetterdienst's own.",
       "about": "About the open-source project Wetterdienst and the people who maintain it.",
       "support": "Support Wetterdienst: report an issue, contribute code or donate.",
       "map": "A map of the stations of the German Weather Service: pick a station or any point for its forecast, its climate stripes and its measurements.",
@@ -207,6 +226,7 @@
     "api": "API",
     "glossary": "Glossary",
     "measurement": "Measurement",
+    "methods": "Methods",
     "support": "Support",
     "map": "Map",
     "radar": "Radar"
@@ -495,6 +515,37 @@
       "normals": "Climate normals",
       "time": "Time",
       "observationForecastDerived": "Observation, forecast and derived data"
+    }
+  },
+  "methods": {
+    "title": "How the answers are worked out",
+    "subtitle": "The method behind each question of Ask the weather: the steps, the numbers, the works each choice rests on, and the choices that are wetterdienst's own",
+    "menuDescription": "The method and the sources behind each answer of Ask the weather",
+    "tocTitle": "Contents",
+    "introTitle": "How to read this page",
+    "introText": "Each question of Ask the weather has a section: its method step by step, its formula where it has one, every period, threshold and rule with the published work it comes from, the data, the terms and the limits. At the end are the works cited, each with what it is and why it counts.",
+    "ownText": "Where no published work makes a choice, the choice is marked as wetterdienst's own, with the reasoning. It is a choice of the project, not a rule of weather science, and it can be changed. No answer rests on a number that is neither sourced nor marked.",
+    "measurementText": "The terms are explained on {page} and in the {glossary}, and are linked from here instead of being written twice.",
+    "chipsTitle": "The questions",
+    "ask": "Ask this question",
+    "ownCount": "{own} of {total} choices are wetterdienst's own",
+    "stepsTitle": "The method, step by step",
+    "formulaTitle": "Formula",
+    "rulesTitle": "The choices and where they come from",
+    "says": "What the source says:",
+    "dataTitle": "The data",
+    "termsTitle": "Terms",
+    "limitsTitle": "Limits of the answer",
+    "worksTitle": "Works cited",
+    "worksIntro": "Each work says in plain words what it is, who issues it and what the methods take from it, then gives the formal citation. The titles stay in the language of the work.",
+    "usedBy": "Used by:",
+    "kind": {
+      "period": "Period",
+      "band": "Threshold or scale",
+      "statistic": "Statistic",
+      "fallback": "Fallback where data is short",
+      "window": "Window of days",
+      "selection": "Selection of data"
     }
   },
   "providers": {

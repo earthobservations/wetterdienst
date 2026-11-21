@@ -69,7 +69,17 @@ export interface RainAnswer {
 }
 
 /** How many hours of the day the forecast must reach for an answer about the whole day */
-const RAIN_MIN_HOURS = 18
+export const RAIN_MIN_HOURS = 18
+/**
+ * The bands of the rain verdict (GH-3764, which gives each its source or marks it as wetterdienst's own: `ask/chips/rain.ts`):
+ * yes for a millimetre of the day or an hour with a chance of 70 %, maybe for 0.2 mm or a chance of 30 %; an hour with 0.1 mm
+ * is a wet hour.
+ */
+export const RAIN_YES_MM = 1
+export const RAIN_YES_CHANCE = 0.7
+export const RAIN_MAYBE_MM = 0.2
+export const RAIN_MAYBE_CHANCE = 0.3
+export const RAIN_WET_HOUR_MM = 0.1
 
 /**
  * Whether it rains tomorrow, in the place's time zone, from MOSMIX's hourly values. Yes for a millimetre or more, or
@@ -114,7 +124,7 @@ export function rainTomorrow(
     if (chance !== undefined)
       maxChance = Math.max(maxChance ?? 0, asShare(chance))
     if (amount !== null && block!.hours === 1) {
-      if (inMillimeters(amount) >= 0.1)
+      if (inMillimeters(amount) >= RAIN_WET_HOUR_MM)
         wetHours++
       if (amount > 0 && (!wettest || amount > wettest.amount))
         wettest = { hour: hour.hour, amount }
@@ -129,9 +139,9 @@ export function rainTomorrow(
   total = Math.round(total * 10) / 10
   totalMillimeters = Math.round(totalMillimeters * 10) / 10
   const chance = maxChance ?? 0
-  const verdict: RainVerdict = totalMillimeters >= 1 || chance >= 0.7
+  const verdict: RainVerdict = totalMillimeters >= RAIN_YES_MM || chance >= RAIN_YES_CHANCE
     ? 'yes'
-    : totalMillimeters >= 0.2 || chance >= 0.3 ? 'maybe' : 'no'
+    : totalMillimeters >= RAIN_MAYBE_MM || chance >= RAIN_MAYBE_CHANCE ? 'maybe' : 'no'
   return { verdict, day: start.toISODate()!, total, unit, wetHours, maxChance, wettest, hours }
 }
 
@@ -158,18 +168,21 @@ export interface SummerAnswer {
   rank: number
   /** How many complete summers the record has */
   summers: number
+  /** How many summers the normal is the mean of, and whether they are the summers before the one asked about (the station has too few of the WMO normal) */
+  referenceCount: number
+  fallback: boolean
   /** One bar per summer: its difference from the normal */
   bars: Bar[]
 }
 
 /** The reference period of the WMO, and how many of its summers a station must have for it */
-const NORMAL_FROM = 1991
-const NORMAL_TO = 2020
-const NORMAL_MIN_SUMMERS = 20
+export const NORMAL_FROM = 1991
+export const NORMAL_TO = 2020
+export const NORMAL_MIN_SUMMERS = 20
 /** Where a station has too few, the summers before the one asked about, if there are this many */
-const FALLBACK_MIN_SUMMERS = 10
+export const FALLBACK_MIN_SUMMERS = 10
 /** Within half a degree is "as usual": smaller than the year-to-year noise of a summer mean */
-const USUAL_BAND = 0.5
+export const USUAL_BAND = 0.5
 
 /** The last complete summer (June to August, over by `now`) against the summers of 1991 to 2020, or of the record before it */
 export function lastSummer(readings: Reading[], now: DateTime, unit: string = CANONICAL_UNITS.temperature): SummerAnswer | null {
@@ -194,7 +207,9 @@ export function lastSummer(readings: Reading[], now: DateTime, unit: string = CA
     return null
 
   let reference = summers.filter(summer => summer.year >= NORMAL_FROM && summer.year <= NORMAL_TO)
+  let fallback = false
   if (reference.length < NORMAL_MIN_SUMMERS) {
+    fallback = true
     reference = summers.filter(summer => summer.year < last.year)
     if (reference.length < FALLBACK_MIN_SUMMERS)
       return null
@@ -216,6 +231,8 @@ export function lastSummer(readings: Reading[], now: DateTime, unit: string = CA
     anomaly: degrees(anomaly),
     rank: 1 + summers.filter(summer => summer.mean > last.mean).length,
     summers: summers.length,
+    referenceCount: reference.length,
+    fallback,
     bars: summers.map(summer => ({
       key: String(summer.year),
       label: String(summer.year),
@@ -255,8 +272,17 @@ export interface WindAnswer {
   barsAreGusts: boolean
 }
 
-/** The lower edge of Beaufort 1 to 12, m/s (WMO) */
-const BEAUFORT = [0.3, 1.6, 3.4, 5.5, 8.0, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7]
+/** The lower edge of Beaufort 1 to 12, m/s (WMO-No. 8, Volume I, Table 5.1) */
+export const BEAUFORT = [0.3, 1.6, 3.4, 5.5, 8.0, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7]
+
+/**
+ * The force from which a day is breezy, windy and stormy: by its strongest gust, and by its mean where there is no gust. The words
+ * are wetterdienst's own grouping of Beaufort's forces (GH-3764: `ask/chips/wind.ts`).
+ */
+export const WIND_FORCES_OF_GUST = { breezy: 5, windy: 7, stormy: 9 } as const
+export const WIND_FORCES_OF_MEAN = { breezy: 4, windy: 6, stormy: 8 } as const
+/** The days either side of the day asked about that the wind answer fetches and compares with */
+export const WIND_WINDOW_DAYS = 7
 
 export function beaufort(speed: number): number {
   return BEAUFORT.filter(edge => speed >= edge).length
@@ -288,9 +314,9 @@ export function windOnDay(readings: Reading[], day: string, unit: string = CANON
   const meanBeaufort = that.mean === null ? null : beaufort(toCanonical('speed', unit, that.mean))
   let verdict: WindVerdict
   if (gustBeaufort !== null)
-    verdict = gustBeaufort >= 9 ? 'stormy' : gustBeaufort >= 7 ? 'windy' : gustBeaufort >= 5 ? 'breezy' : 'calm'
+    verdict = gustBeaufort >= WIND_FORCES_OF_GUST.stormy ? 'stormy' : gustBeaufort >= WIND_FORCES_OF_GUST.windy ? 'windy' : gustBeaufort >= WIND_FORCES_OF_GUST.breezy ? 'breezy' : 'calm'
   else
-    verdict = meanBeaufort! >= 8 ? 'stormy' : meanBeaufort! >= 6 ? 'windy' : meanBeaufort! >= 4 ? 'breezy' : 'calm'
+    verdict = meanBeaufort! >= WIND_FORCES_OF_MEAN.stormy ? 'stormy' : meanBeaufort! >= WIND_FORCES_OF_MEAN.windy ? 'windy' : meanBeaufort! >= WIND_FORCES_OF_MEAN.breezy ? 'breezy' : 'calm'
 
   const barsAreGusts = that.gust !== null
   const days = [...byDay.keys()].sort()
@@ -322,8 +348,8 @@ export function lastBoxingDay(now: DateTime): string {
 export function windWindow(day: string, now: DateTime): { from: string, to: string } {
   const at = DateTime.fromISO(day, { zone: 'utc' })
   const yesterday = now.toUTC().startOf('day').minus({ days: 1 })
-  const to = DateTime.min(at.plus({ days: 7 }), yesterday)
-  return { from: at.minus({ days: 7 }).toISODate()!, to: DateTime.max(to, at).toISODate()! }
+  const to = DateTime.min(at.plus({ days: WIND_WINDOW_DAYS }), yesterday)
+  return { from: at.minus({ days: WIND_WINDOW_DAYS }).toISODate()!, to: DateTime.max(to, at).toISODate()! }
 }
 
 // ---------------------------------------------------------------------------------------------------------------

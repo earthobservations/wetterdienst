@@ -1,5 +1,5 @@
 import type { TemperatureSource } from '../../answers'
-import type { AnswerAction, ChipApi, ChipPlace } from '../chip'
+import type { AnswerAction, ChipApi, ChipPlace, NumberLine } from '../chip'
 import { COVERAGE_REQUESTS_AT_ONCE, hourlyNetworks, hourlyTemperatureIn, mapLimited } from '../../answers'
 import { flagEmoji } from '../../country'
 import { defineChip } from '../chip'
@@ -92,6 +92,30 @@ export const download = defineChip({
     },
     note: '',
   }),
+
+  explanation: {
+    topics: ['temperature', 'observation-forecast-derived'],
+    steps: ['providers', 'coverage', 'order'],
+    formulas: [],
+    rules: [
+      { id: 'networks', kind: 'selection', cites: [], own: true },
+      { id: 'hourly-temperature', kind: 'selection', own: true, cites: [{ work: 'wmo-8-i', at: '§2.1.4.2.1' }] },
+      { id: 'order', kind: 'selection', cites: [], own: true },
+    ],
+    limits: ['coverage', 'definitions', 'licences'],
+    data: {
+      provider: null,
+      network: null,
+      dataset: null,
+      parameters: [],
+      // a list of services, not a dataset: the Explorer holds the data of each, the Providers page the list
+      open: () => null,
+    },
+    numbers: (sources): NumberLine[] => [
+      { id: 'count', params: { count: sources.length } },
+      { id: 'parameters', params: { names: 'temperature_air_mean_2m, temperature_air_2m' } },
+    ],
+  },
 
   empty: (_loaded, { t }) => t('ask.download.none'),
 
