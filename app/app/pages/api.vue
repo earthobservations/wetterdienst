@@ -33,9 +33,6 @@ const endpoints = [
   { name: 'values', path: '/api/values', descKey: 'api.endpoints.values' },
   { name: 'interpolate', path: '/api/interpolate', descKey: 'api.endpoints.interpolate' },
   { name: 'summarize', path: '/api/summarize', descKey: 'api.endpoints.summarize' },
-  { name: 'stripes/stations', path: '/api/stripes/stations', descKey: 'api.endpoints.stripesStations' },
-  { name: 'stripes/values', path: '/api/stripes/values', descKey: 'api.endpoints.stripesValues' },
-  { name: 'stripes/image', path: '/api/stripes/image', descKey: 'api.endpoints.stripesImage' },
 ]
 
 const examples = [
@@ -44,9 +41,6 @@ const examples = [
   { nameKey: 'api.examples.valuesDwd', path: '/api/values?provider=dwd&network=observation&parameters=daily/kl&periods=recent&stations=00011' },
   { nameKey: 'api.examples.interpolateDwd', path: '/api/interpolate?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&timestamp=1986-10-31/1986-11-01' },
   { nameKey: 'api.examples.summarizeDwd', path: '/api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&timestamp=1986-10-31/1986-11-01' },
-  { nameKey: 'api.examples.stripesStations', path: '/api/stripes/stations?kind=temperature' },
-  { nameKey: 'api.examples.stripesValues', path: '/api/stripes/values?kind=temperature&station=1048' },
-  { nameKey: 'api.examples.stripesImage', path: '/api/stripes/image?kind=temperature&station=1048' },
 ]
 </script>
 

@@ -1,18 +1,18 @@
 <script setup lang="ts">
-import type { StripesValuesResponse } from '#shared/types/api'
 import { describeFetchError } from '~/utils/api-error'
 import { formatNumber } from '~/utils/format'
-import { GHCN_NETWORK, STRIPES_KIND } from '~/utils/map-tool'
+import { STRIPES_KIND } from '~/utils/map-tool'
 import { stripeColour, stripesMethodNote, stripesReferenceText, stripesSummaryParams, stripeYears } from '~/utils/stripes'
+import { fetchStripes, stripesFetch } from '~/utils/stripes-source'
 import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
 // The climate stripes of a station, as a band of colour in the map's panel (GH-3650): one stripe a year, drawn in
-// plain elements, each in the colour of the class the backend gives its year (the stripes page's scale, GH-4157). The page, which the link under the band opens, has the chart,
+// plain elements, each in the colour of the class of its year (the stripes page's scale, GH-4157, calculated by the app, GH-4258). The page, which the link under the band opens, has the chart,
 // its options and the table of the years. The band is a picture of what the sentence under it says, in words.
 //
 // A station of NOAA's GHCN daily (`ghcn`, GH-4078) is asked for with its provider and network, and its years are built from the days:
 // the line under the sentence says how a day's temperature was made (the midrange of the daily maximum and minimum, no 24-hour mean).
-// The backend refuses a station that has no stripes (a 400: too few years with data), which is not a failure of the request but the
+// A station that has no stripes (a 400: too few years with data) is refused by the app (`stripesFromRecord`, as the backend's stripes refused it), which is not a failure of the request but the
 // answer, said as "no stripes", and raised as `none` for the card to take its link away; DWD's stations are listed by their having
 // stripes, so for them a refusal stays the failure it is.
 
@@ -26,13 +26,18 @@ const { t, locale } = useI18n()
 const { settings } = useSettings()
 const unitTargets = computed(() => JSON.stringify(stripesUnitTargets(STRIPES_KIND, settings.value.units)))
 
-const { data, pending, error, refresh } = useFetch<StripesValuesResponse>('/api/stripes/values', {
-  query: computed(() => ({ kind: STRIPES_KIND, ...(props.ghcn ? GHCN_NETWORK : {}), station: props.stationId, format: 'json', unit_targets: unitTargets.value })),
-  key: computed(() => `map-stripes-${props.ghcn ? 'ghcn-' : ''}${props.stationId}-${unitTargets.value}`),
-  ...API_FETCH,
-})
+// the stripes are made by the app from the annual values of the API, or of its own server for GHCN's days (GH-4258)
+const { data, pending, error, refresh } = useAsyncData(
+  computed(() => `map-stripes-${props.ghcn ? 'ghcn-' : ''}${props.stationId}-${unitTargets.value}`),
+  () => fetchStripes(stripesFetch, {
+    source: props.ghcn ? 'ghcn' : 'dwd',
+    kind: STRIPES_KIND,
+    station: { station_id: props.stationId, name: props.stationName },
+    unitTargets: JSON.parse(unitTargets.value),
+  }),
+)
 
-/** The backend refused this station of GHCN daily: it has no stripes (400, or 404, 422), which is no failure to try again */
+/** The stripes could not be made of this station of GHCN daily: it has no stripes (400, or 404, 422), which is no failure to try again */
 const refused = computed(() => props.ghcn && [400, 404, 422].includes((error.value as { statusCode?: number } | null)?.statusCode ?? 0))
 watch(refused, (now) => {
   if (now)
@@ -75,6 +80,12 @@ const descriptionId = useId()
       <p v-if="methodNote" class="mt-1 text-xs text-muted" data-testid="map-stripes-method">
         {{ methodNote }}
       </p>
+      <!-- whose data the band is made of, and what was done to it, from the terms the answer it was made of carries (GH-4255) -->
+      <ProviderCredit
+        :terms="data?.metadata?.provider"
+        :fallback="ghcn ? t('stripes.plotSourceGhcn') : t('stripes.plotSource')"
+        class="mt-2" data-testid="map-stripes-credit"
+      />
     </figure>
     <p v-else class="text-sm text-muted">
       {{ t('mapTool.stripesNone') }}

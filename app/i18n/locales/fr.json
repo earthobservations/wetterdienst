@@ -158,7 +158,7 @@
       "meteogram": "Les prévisions MOSMIX d'une station du DWD sous forme de météogramme : température, vent, précipitations, nébulosité et pression.",
       "stripes": "Les bandes climatiques de la température ou des précipitations d'une station du DWD ou de NOAA GHCN daily.",
       "history": "L'évolution d'une station du DWD au fil du temps : son nom, son emplacement et ses instruments.",
-      "api": "L'API REST et le serveur MCP de Wetterdienst : formats et exemples pour les stations, les valeurs, l'interpolation et les bandes climatiques.",
+      "api": "L'API REST et le serveur MCP de Wetterdienst : formats et exemples pour les stations, les valeurs et l'interpolation.",
       "providers": "Les services météorologiques nationaux derrière les données : pays, licence, mention de la source à indiquer et ce que chacun propose.",
       "glossary": "Ce que mesure chaque paramètre météorologique et climatique et l'unité de ses valeurs, avec recherche par nom et par grandeur.",
       "measurement": "Comment la météo est mesurée : instruments, comment une mesure devient une valeur, ce que dit le chiffre et où les fournisseurs diffèrent, avec les sources.",
@@ -427,20 +427,14 @@
       "history": "Récupérer l'historique d'une station (nom, exploitant, appareils, géographie, données manquantes)",
       "values": "Récupérer les valeurs d'observation pour les stations et paramètres sélectionnés",
       "interpolate": "Interpoler des valeurs pour un emplacement précis",
-      "summarize": "Obtenir des valeurs synthétisées pour un emplacement",
-      "stripesStations": "Obtenir les stations pour la visualisation des bandes climatiques",
-      "stripesValues": "Obtenir les valeurs des bandes climatiques avec horodatage",
-      "stripesImage": "Générer l'image des bandes climatiques"
+      "summarize": "Obtenir des valeurs synthétisées pour un emplacement"
     },
     "examples": {
       "stationsDwd": "Stations climatiques quotidiennes d'observation DWD",
       "historyDwd": "Historique des stations d'observation DWD",
       "valuesDwd": "Valeurs climatiques quotidiennes d'observation DWD",
       "interpolateDwd": "Interpolation climatique quotidienne d'observation DWD",
-      "summarizeDwd": "Synthèse climatique quotidienne d'observation DWD",
-      "stripesStations": "Stations des bandes climatiques (température)",
-      "stripesValues": "Valeurs des bandes climatiques (température)",
-      "stripesImage": "Image des bandes climatiques (température)"
+      "summarizeDwd": "Synthèse climatique quotidienne d'observation DWD"
     },
     "mcpTitle": "Point d'accès MCP",
     "mcpText": "Wetterdienst parle aussi le Model Context Protocol : les assistants IA peuvent interroger les données météo comme des outils — trouver une station, puis lire ses mesures. Les mêmes points d'accès que ci-dessus sont exposés, via le transport HTTP en flux.",
@@ -490,9 +484,13 @@
     "untranslatedDe": "Cette entrée n'est pas encore traduite dans ta langue et s'affiche en allemand.",
     "topics": {
       "temperature": "Température de l'air et du sol",
+      "pressure": "Pression atmosphérique",
+      "humidity": "Humidité et point de rosée",
       "wind": "Vent",
       "precipitation": "Précipitations",
+      "radiation": "Rayonnement",
       "sunshine": "Durée d'ensoleillement",
+      "visibility": "Visibilité",
       "snow": "Neige",
       "normals": "Normales climatiques",
       "time": "Heure et jour",
@@ -528,6 +526,9 @@
     "showDatasets": "Afficher les résolutions et jeux de données",
     "noResolutions": "Pas une série temporelle : rien à lister ici.",
     "openExplorer": "Ouvrir dans l'explorateur"
+  },
+  "credit": {
+    "licence": "Licence : {name} ({url})"
   },
   "processingNote": {
     "base": "Traité par wetterdienst : les données du fournisseur ont été mises dans un tableau uniforme et leurs unités converties lorsqu'elles diffèrent.",
@@ -715,6 +716,7 @@
     "showDataAvailability": "Afficher la disponibilité des données",
     "visualizationTitle": "Visualisation",
     "loadingViz": "Chargement des données et génération de la visualisation …",
+    "noRecord": "Cette station n'a pas de série assez longue pour les bandes climatiques : il faut au moins {years} années avec des données.",
     "downloadImage": "Télécharger l'image",
     "downloadPng": "Télécharger en PNG",
     "downloadJpg": "Télécharger en JPG",
@@ -732,7 +734,6 @@
     "plotMethodMidrange": "Température : milieu du maximum et du minimum quotidiens (GHCN)",
     "plotMethodTavg": "Température : moyenne quotidienne (TAVG, GHCN)",
     "plotReference": "Couleurs : moyenne de {centre}, ±{sigma} σ de {spread}",
-    "csvLicence": "Licence : {name} ({url})",
     "barsRelativeTo": "Relatif à la moyenne de {period}",
     "variant": {
       "label": "Affichage",

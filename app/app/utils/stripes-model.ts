@@ -1,15 +1,15 @@
 /**
- * What the climate stripes are made of, and the window of years they show: pure functions of the values the backend
- * answers, so that the chart's option, its readout and its keys are tested without a browser (GH-4068).
+ * What the climate stripes are made of, and the window of years they show: pure functions of the years the app makes of the annual values
+ * (`stripes-source.ts`), so that the chart's option, its readout and its keys are tested without a browser (GH-4068).
  */
 
-/** The values of an answer of `/stripes/values`, as far as the stripes read them */
+/** The years of the stripes of a station (`stripes-source.ts`), as far as the stripes read them */
 export interface StripesInput {
   timestamp: string | null
   value: number | null
   /** the value's distance from the mean of the reference, in the unit of the value */
   anomaly: number | null
-  /** the class the backend puts the value in, 0 (the lowest) to 15: the colour of its stripe */
+  /** the class `stripes-scale.ts` puts the value in, 0 (the lowest) to 15: the colour of its stripe */
   stripe_class: number | null
 }
 
@@ -45,9 +45,9 @@ export interface StripesModel {
   /** the years that have a value, in the order of the answer */
   years: number[]
   values: number[]
-  /** each value's class, 0 to 15, as the backend classes it: what its colour is chosen by */
+  /** each value's class, 0 to 15, as `stripes-scale.ts` classes it: what its colour is chosen by */
   classes: number[]
-  /** each value's distance from the mean of the reference, as the backend has it, in the unit of the values */
+  /** each value's distance from the mean of the reference, as `stripes-scale.ts` has it, in the unit of the values */
   anomalies: number[]
   minYear: number
   maxYear: number
@@ -59,7 +59,7 @@ export interface StripesModel {
  * The stripes of an answer: the years with a value (each year's value comes at its first moment in UTC, read in UTC, as in a
  * browser west of UTC that moment is still the year before). Null where there is none to draw.
  *
- * The app calculates nothing of its own beyond the years: the classes and the anomalies are the backend's, and the stripes
+ * The model calculates nothing beyond the years: the classes and the anomalies are the ones `stripes-scale.ts` gives them, and the stripes
  * draw no line over them (no time series, no trend), as in Ed Hawkins' design (GH-4170).
  */
 export function buildStripesModel(data: readonly StripesInput[]): StripesModel | null {
@@ -122,7 +122,7 @@ export interface AnomalyAxis {
 /**
  * The range the bars of `anomalies` are drawn on: from the lowest to the highest of them, zero included, rounded out to a
  * step of 1, 2 or 5 times a power of ten that gives about five intervals. It lies on the years of the whole answer and not on
- * those in the window, so that the bars keep their height as the chart is zoomed. The anomalies are the backend's; this
+ * those in the window, so that the bars keep their height as the chart is zoomed. The anomalies are those of `stripes-scale.ts`; this
  * sets only where the axis runs.
  */
 export function anomalyAxis(anomalies: readonly number[]): AnomalyAxis {

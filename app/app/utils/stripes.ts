@@ -2,13 +2,13 @@ import type { StripesKind } from '#shared/types/api'
 
 /**
  * The words a stripe's class is told in, for the table and the readout: the 16 classes of the colour scale in five bands,
- * symmetric round the centre. Not a second scale: the class is the backend's (`stripe_class`, 0 to 15, from the lowest
+ * symmetric round the centre. Not a second scale: the class is the one `stripes-scale.ts` calculates (`stripe_class`, 0 to 15, from the lowest
  * value to the highest), these only name it.
  */
 export const STRIPE_CLASSES = ['veryLow', 'low', 'middle', 'high', 'veryHigh'] as const
 export type StripeClass = (typeof STRIPE_CLASSES)[number]
 
-/** How many colours the scale has: 8 below the centre and 8 above (what the backend answers as `reference.classes`) */
+/** How many colours the scale has: 8 below the centre and 8 above (`reference.classes`) */
 export const STRIPE_CLASS_COUNT = 16
 
 /**
@@ -32,12 +32,12 @@ export interface StripeYear {
   value: number
   /** the year's distance from the mean of the reference, in the unit of the value */
   anomaly: number
-  /** 0 (the lowest) to 15, as the backend classes the year: the colour of its stripe */
+  /** 0 (the lowest) to 15, as `stripes-scale.ts` classes the year: the colour of its stripe */
   stripeClass: number
   class: StripeClass
 }
 
-/** A value of the answer of `/stripes/values`, as far as the stripes read it */
+/** A value of the stripes of a station, as far as the stripes read it */
 export interface StripesValueInput {
   timestamp: string | null
   value: number | null
@@ -47,7 +47,7 @@ export interface StripesValueInput {
 
 /**
  * The years a chart of climate stripes draws, as the table that stands for it lists them: each with its value, its anomaly
- * and its class, which the backend has calculated against the station's whole record and not against the years shown.
+ * and its class, which the app calculates (`stripes-scale.ts`) against the station's whole record and not against the years shown.
  * Years without a value are not drawn, so they are not here; each year is read in UTC, as the stripes read it.
  */
 export function stripeYears(values: readonly StripesValueInput[]): StripeYear[] {
@@ -152,8 +152,8 @@ export function barsSubtitle(reference: StripesReferenceView, unit: string, t: (
 }
 
 /**
- * The 16 colours of the stripes, from the lowest class (0) to the highest (15): the same as the backend's image has
- * (`wetterdienst/ui/stripes_scale.py`, which a test holds this to). Temperature: the eight most saturated classes of
+ * The 16 colours of the stripes, from the lowest class (0) to the highest (15), which `tests/unit/stripes.test.ts` holds to their sources
+ * (the backend's image had the same, `wetterdienst/ui/stripes_scale.py`, until GH-4258). Temperature: the eight most saturated classes of
  * ColorBrewer's 9-class Blues, below the mean of the reference, and Reds above it, as Ed Hawkins' stripes have them.
  * Precipitation: the two halves of ColorBrewer's BrBG, brown for dry and teal for wet, eight sampled along each.
  */

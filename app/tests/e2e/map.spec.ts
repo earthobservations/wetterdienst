@@ -1217,7 +1217,7 @@ const GHCN_COLUMNS = {
   wmo_id: GHCN_STATIONS.map(station => station.wmo_id ?? null),
 }
 
-/** The mock backend with the compact list of the stations of GHCN daily, which each request for it is counted of, the details of a station by its id, and its stripes */
+/** The mock backend with the compact list of the stations of GHCN daily, which each request for it is counted of, the details of a station by its id */
 function ghcnBackend(asked: string[], listHandler: () => unknown = () => GHCN_COLUMNS) {
   const defaults = defaultHandlers()
   return {
@@ -1231,13 +1231,6 @@ function ghcnBackend(asked: string[], listHandler: () => unknown = () => GHCN_CO
       // the details of the station picked, by its id: the list is not asked of the backend
       const wanted = url.searchParams.get('stations')?.split(',') ?? []
       return { stations: GHCN_STATIONS.filter(station => wanted.includes(station.station_id)) }
-    },
-    'stripes/values': (url: URL, route: Route) => {
-      const answer = defaults['stripes/values']!(url, route) as { series: Record<string, unknown> }
-      if (url.searchParams.get('provider') !== 'noaa')
-        return answer
-      const station = GHCN_STATIONS.find(candidate => candidate.station_id === url.searchParams.get('station'))
-      return { ...answer, series: { ...answer.series, station, resolution: 'daily', dataset: 'data', method: 'midrange' } }
     },
   }
 }

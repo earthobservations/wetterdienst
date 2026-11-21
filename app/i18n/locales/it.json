@@ -158,7 +158,7 @@
       "meteogram": "Le previsioni MOSMIX di una stazione del DWD come meteogramma: temperatura, vento, precipitazioni, nuvolosità e pressione.",
       "stripes": "Le strisce climatiche della temperatura o delle precipitazioni di una stazione del DWD o di NOAA GHCN daily.",
       "history": "Come è cambiata nel tempo una stazione del DWD: nome, posizione e strumenti.",
-      "api": "L'API REST e il server MCP di Wetterdienst: formati ed esempi per stazioni, valori, interpolazione e strisce climatiche.",
+      "api": "L'API REST e il server MCP di Wetterdienst: formati ed esempi per stazioni, valori e interpolazione.",
       "providers": "I servizi meteorologici nazionali dietro i dati: paese, licenza, la fonte da citare e cosa offre ciascuno.",
       "glossary": "Cosa misura ogni parametro meteorologico e climatico e in quale unità tornano i suoi valori, con ricerca per nome e grandezza.",
       "measurement": "Come si misura il tempo atmosferico: strumenti, come una lettura diventa un valore, che cosa dice il numero e dove i fornitori differiscono, con le fonti.",
@@ -427,20 +427,14 @@
       "history": "Recupera la cronologia di una stazione (nome, gestore, dispositivi, geografia, dati mancanti)",
       "values": "Recupera i valori di osservazione per le stazioni e i parametri selezionati",
       "interpolate": "Interpola i valori per una posizione specifica",
-      "summarize": "Ottieni valori sintetizzati per una posizione",
-      "stripesStations": "Ottieni le stazioni per la visualizzazione delle strisce climatiche",
-      "stripesValues": "Ottieni i valori delle strisce climatiche con marca temporale",
-      "stripesImage": "Genera l'immagine delle strisce climatiche"
+      "summarize": "Ottieni valori sintetizzati per una posizione"
     },
     "examples": {
       "stationsDwd": "Stazioni climatiche giornaliere di osservazione DWD",
       "historyDwd": "Cronologia delle stazioni di osservazione DWD",
       "valuesDwd": "Valori climatici giornalieri di osservazione DWD",
       "interpolateDwd": "Interpolazione climatica giornaliera di osservazione DWD",
-      "summarizeDwd": "Sintesi climatica giornaliera di osservazione DWD",
-      "stripesStations": "Stazioni delle strisce climatiche (temperatura)",
-      "stripesValues": "Valori delle strisce climatiche (temperatura)",
-      "stripesImage": "Immagine delle strisce climatiche (temperatura)"
+      "summarizeDwd": "Sintesi climatica giornaliera di osservazione DWD"
     },
     "mcpTitle": "Endpoint MCP",
     "mcpText": "Wetterdienst parla anche il Model Context Protocol: gli assistenti IA possono interrogare i dati meteo come strumenti — trovare una stazione e poi leggerne le misurazioni. Sono esposti gli stessi endpoint indicati sopra, tramite il trasporto HTTP in streaming.",
@@ -490,9 +484,13 @@
     "untranslatedDe": "Questa voce non è ancora tradotta nella tua lingua e viene mostrata in tedesco.",
     "topics": {
       "temperature": "Temperatura dell'aria e del suolo",
+      "pressure": "Pressione atmosferica",
+      "humidity": "Umidità e punto di rugiada",
       "wind": "Vento",
       "precipitation": "Precipitazioni",
+      "radiation": "Radiazione",
       "sunshine": "Durata dell'insolazione",
+      "visibility": "Visibilità",
       "snow": "Neve",
       "normals": "Normali climatiche",
       "time": "Ora e giorno",
@@ -528,6 +526,9 @@
     "showDatasets": "Mostra risoluzioni e dataset",
     "noResolutions": "Non è una serie temporale: qui non c'è nulla da elencare.",
     "openExplorer": "Apri nell'esploratore"
+  },
+  "credit": {
+    "licence": "Licenza: {name} ({url})"
   },
   "processingNote": {
     "base": "Elaborato da wetterdienst: i dati del fornitore sono stati riorganizzati in una tabella uniforme e le loro unità convertite dove differiscono.",
@@ -715,6 +716,7 @@
     "showDataAvailability": "Mostra la disponibilità dei dati",
     "visualizationTitle": "Visualizzazione",
     "loadingViz": "Caricamento dei dati e generazione della visualizzazione …",
+    "noRecord": "Questa stazione non ha una serie abbastanza lunga per le strisce climatiche: servono almeno {years} anni con dati.",
     "downloadImage": "Scarica l'immagine",
     "downloadPng": "Scarica come PNG",
     "downloadJpg": "Scarica come JPG",
@@ -732,7 +734,6 @@
     "plotMethodMidrange": "Temperatura: punto medio tra massimo e minimo giornalieri (GHCN)",
     "plotMethodTavg": "Temperatura: media giornaliera (TAVG, GHCN)",
     "plotReference": "Colori: media di {centre}, ±{sigma} σ di {spread}",
-    "csvLicence": "Licenza: {name} ({url})",
     "barsRelativeTo": "Relativo alla media di {period}",
     "variant": {
       "label": "Vista",

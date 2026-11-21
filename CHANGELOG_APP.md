@@ -18,6 +18,13 @@ Types of changes:
 
 ### Added
 
+- `[Measurement]` Four more entries on the "How weather is measured" page: pressure and its
+  reduction to sea level (`/measurement#pressure`), humidity and dew point (`#humidity`),
+  radiation (`#radiation`) and visibility (`#visibility`), each with the sources it rests on (the
+  WMO Guide, WMO-No. 8, Volume I, Chapters 3, 4, 7 and 9, and Volume V, Chapter 3, and the
+  providers' own files). They are written in German and English, like the first ones; the Glossary
+  links the pressure, humidity, dew point, radiation and visibility parameters to them
+  (GH-3787).
 - `[Radar]` A tool of its own, the sixth: DWD's precipitation radar over Germany on the map, a loop
   of the last two hours and DWD's forecast of the next two (marked observed or forecast in words
   and by an icon), with a player (play and pause, a step each way, a slider; the loop starts by
@@ -42,6 +49,32 @@ Types of changes:
   a backend that is down is a failure with Retry, never an empty layer). The list carries each
   station's name, years and WMO number; its elevation and region are asked for when it is picked
   (GH-4267).
+- `[Stripes]` The app makes the climate stripes itself and no longer asks the backend's stripes
+  routes, which the backend drops later. Stations and annual values come from `/api/stations` and
+  `/api/values`, the reference, anomalies and classes are calculated in the browser by the
+  backend's rules, and NOAA's GHCN years are calculated from the daily values by the app's own
+  server (`/_ghcn/*`, rate-limited, kept for twelve hours); its list of stations is made of the
+  backend's lists of each element, so it needs backend 0.194.0 (GH-4258, GH-4270).
+- `[Stripes]` A station with no record long enough for stripes is told in a sentence of the
+  page's own (all eleven languages) and not as a failed fetch with the backend's English sentence
+  (GH-4258).
+- `[API]` The API page no longer lists the stripes' routes (GH-4258).
+- `[Credit]` Wherever the app shows provider data it now says whose it is, as Ask the weather and the
+  stripes did: the provider's credit line and its licence (a link to its terms), with what
+  wetterdienst did to the data directly under it. New in the Explorer (table and chart; for an
+  interpolation or a summary the note says the values were calculated), the forecast in every view,
+  the map's forecast and stripes cards, the widget (compactly, inside the forecast above the
+  unchanged "Powered by" footer; the frame needs about 55 px more, so the embed example now says
+  `height="1050"`), the history and the stripes' table. The texts come from the API's provider list,
+  none are written in the app. The Explorer's CSV file starts with up to three lines beginning `#`
+  (credit, licence, note; fewer where the provider states none): skip the leading lines that start
+  with `#`. Its JSON file has a `metadata` member (`provider` where the terms are known,
+  `processing_note`) before `values`, which is unchanged (GH-4255).
+
+### Fixed
+
+- `[Stripes]` A link with a `kind` that is neither `temperature` nor `precipitation` opens the
+  temperature, where the page failed with an error (GH-4258).
 
 ## [0.56.0] - 2026-11-20
 

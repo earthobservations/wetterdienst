@@ -591,6 +591,92 @@
         "station"
       ]
     },
+    "kostra": {
+      "type": "object",
+      "properties": {
+        "latitude": {
+          "type": "number",
+          "maximum": 90.0,
+          "minimum": -90.0
+        },
+        "longitude": {
+          "type": "number",
+          "maximum": 180.0,
+          "minimum": -180.0
+        },
+        "duration": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "enum": [
+                5,
+                10,
+                15,
+                20,
+                30,
+                45,
+                60,
+                90,
+                120,
+                180,
+                240,
+                360,
+                540,
+                720,
+                1080,
+                1440,
+                2880,
+                4320,
+                5760,
+                7200,
+                8640,
+                10080
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "return_period": {
+          "anyOf": [
+            {
+              "type": "integer",
+              "enum": [
+                1,
+                2,
+                3,
+                5,
+                10,
+                20,
+                30,
+                50,
+                100
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "csv"
+          ],
+          "default": "json"
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": [
+        "latitude",
+        "longitude"
+      ]
+    },
     "providers": {
       "type": "object",
       "properties": {
@@ -2083,5 +2169,5 @@
       ]
     }
   },
-  "x-release": "0.193.0"
+  "x-release": "0.194.0"
 }

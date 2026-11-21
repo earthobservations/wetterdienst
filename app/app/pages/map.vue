@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ProviderNetworkCoverageResponse, Station, StripesStationsResponse } from '#shared/types/api'
+import type { ProviderNetworkCoverageResponse, Station } from '#shared/types/api'
 import type { GhcnStationColumns } from '#shared/types/ghcn-stations'
 import type { CloserStation, MapLayer, MapState, MeasuredSource, PickedStation, PlacedStation, PlaceOrigin, Point, ReportingRule } from '~/utils/map-tool'
 import { defineAsyncComponent } from 'vue'
@@ -45,6 +45,7 @@ import {
   wmoNumber,
   yearOf,
 } from '~/utils/map-tool'
+import { fetchStripesStations, stripesFetch } from '~/utils/stripes-source'
 
 // The map tool (GH-3650), from the design of #3580: the stations of the layer chosen in the panel of the layers button over the map, and a
 // panel beside it (a sheet under it on a phone) that finds a station by name, lists the ones near the centre of the
@@ -130,7 +131,7 @@ const forecast = useStationList(() => 'forecast', async () =>
   (await $fetch<{ stations: Station[] }>('/api/stations', { query: FORECAST_STATIONS_QUERY, ...API_FETCH })).stations ?? [])
 // the stations that have climate stripes, which the panel asks the nearest of; no layer of the map
 const stripes = useStationList(() => STRIPES_KIND, async () =>
-  ((await $fetch<StripesStationsResponse>('/api/stripes/stations', { query: { kind: STRIPES_KIND }, ...API_FETCH })).stations ?? [])
+  (await fetchStripesStations(stripesFetch, 'dwd', STRIPES_KIND))
     .map(station => ({ ...station, elevation: station.elevation ?? null })))
 const measured = useStationList(() => `${source.value.resolution}/${source.value.dataset}`, async () =>
   (await $fetch<{ stations: Station[] }>('/api/stations', {

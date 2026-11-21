@@ -3,7 +3,7 @@ import { valuesToCsv } from './values-export'
 
 /**
  * The table of the stripes (GH-4233) and the CSV it is saved as: the years drawn, each with its value, its anomaly and its
- * class, as the backend calculated them against the station's whole record. Pure functions of the years, so that the file's
+ * class, as the app calculated them (`stripes-scale.ts`) against the station's whole record. Pure functions of the years, so that the file's
  * content is tested without a browser.
  */
 

@@ -150,7 +150,7 @@ test.describe('Real-time Data Loading', () => {
     expect(body).toBeTruthy()
   })
 
-  test('stripes page should fetch stations from API', async ({ page }) => {
+  test('stripes page should fetch its stations from the generic API, and ask no stripes route of the backend (GH-4258)', async ({ page }) => {
     // Listen for API calls
     const apiCalls: string[] = []
     page.on('request', (request) => {
@@ -162,8 +162,9 @@ test.describe('Real-time Data Loading', () => {
     await page.goto('/stripes')
     await page.waitForLoadState('networkidle')
 
-    // Should have made API call to stripes/stations
-    const stripesCall = apiCalls.find(url => url.includes('/stripes/stations'))
-    expect(stripesCall).toBeDefined()
+    // the stations that have stripes are the annual record's, the historical and the recent period of it
+    const annual = apiCalls.filter(url => url.includes('/api/stations') && url.includes('parameters=annual'))
+    expect(annual.map(url => new URL(url).searchParams.get('periods')).sort()).toEqual(['historical', 'recent'])
+    expect(apiCalls.filter(url => /\/api\/(?:v1\/)?stripes/.test(url))).toEqual([])
   })
 })

@@ -6,7 +6,7 @@ import type { EChartsCoreOption } from 'echarts/core'
  * the availability label as text elements of a `custom` series without a coordinate system, placed in px. Pure: values, a theme, a size and a window in, an option out, so
  * that tests and the image export build it without a browser (GH-4068).
  *
- * The same years can be drawn as bars (GH-4156): a bar for each year, as high as its anomaly (the backend's, from the mean of the
+ * The same years can be drawn as bars (GH-4156): a bar for each year, as high as its anomaly (from the mean of the
  * reference) and in the colour of its class, on a range with zero in it (the zero line is drawn); with a scale, a y axis in the unit
  * of the anomaly (grid lines and labels, and a subtitle that says what the bars are relative to), and a year axis with round ticks
  * in place of the first and the last year. The window, the title, the availability line and the source carry over.
@@ -422,7 +422,7 @@ export function buildStripesOption(input: StripesOptionInput): EChartsCoreOption
   const variant = input.variant ?? 'stripes'
   const bars = variant !== 'stripes'
   const { place: barPlace } = barHeights(model)
-  // the classes the backend gives the years, against the station's whole record and not the years shown (GH-4157)
+  // the classes of the years (`stripes-scale.ts`), against the station's whole record and not the years shown (GH-4157)
   const colours = model.classes.map(stripeClass => stripeColour(kind, stripeClass))
   const bounds = { start: model.minYear - 0.5, end: model.maxYear + 0.5 }
   const base = { xAxisIndex: 0, yAxisIndex: 0, silent: true, animation: false, clip: true }

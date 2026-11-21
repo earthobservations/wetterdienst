@@ -158,7 +158,7 @@
       "meteogram": "Die MOSMIX-Vorhersage einer DWD-Station als Meteogramm: Temperatur, Wind, Niederschlag, Bewölkung und Luftdruck.",
       "stripes": "Klimastreifen für Temperatur oder Niederschlag einer Station des Deutschen Wetterdienstes (DWD) oder von NOAA GHCN daily.",
       "history": "Wie sich eine DWD-Station im Lauf der Zeit verändert hat: Name, Standort und Messgeräte.",
-      "api": "Die REST-API und der MCP-Server von Wetterdienst: Formate und Beispiele für Stationen, Messwerte, Interpolation und Klimastreifen.",
+      "api": "Die REST-API und der MCP-Server von Wetterdienst: Formate und Beispiele für Stationen, Messwerte und Interpolation.",
       "providers": "Die nationalen Wetterdienste hinter den Daten: Land, Lizenz, die anzugebende Quelle und was jeder anbietet.",
       "glossary": "Was jeder Wetter- und Klimaparameter misst und in welcher Einheit seine Werte kommen, durchsuchbar nach Name und Größe.",
       "measurement": "So wird Wetter gemessen: Instrumente, wie aus einer Messung ein Wert wird, was die Zahl sagen kann und wo sich Anbieter unterscheiden, mit Quellen.",
@@ -427,20 +427,14 @@
       "history": "Stationsverlauf abrufen (Name, Betreiber, Geräte, Geografie, fehlende Daten)",
       "values": "Messwerte für ausgewählte Stationen und Parameter abrufen",
       "interpolate": "Werte für einen bestimmten Ort interpolieren",
-      "summarize": "Zusammengefasste Werte für einen Ort abrufen",
-      "stripesStations": "Stationen für die Klimastreifen-Visualisierung abrufen",
-      "stripesValues": "Klimastreifen-Werte mit Zeitstempeln abrufen",
-      "stripesImage": "Klimastreifen-Bild erzeugen"
+      "summarize": "Zusammengefasste Werte für einen Ort abrufen"
     },
     "examples": {
       "stationsDwd": "DWD-Beobachtung tägliche Klimastationen",
       "historyDwd": "DWD-Beobachtung Stationsverlauf",
       "valuesDwd": "DWD-Beobachtung tägliche Klimawerte",
       "interpolateDwd": "DWD-Beobachtung tägliche Klima-Interpolation",
-      "summarizeDwd": "DWD-Beobachtung tägliche Klima-Zusammenfassung",
-      "stripesStations": "Klimastreifen-Stationen (Temperatur)",
-      "stripesValues": "Klimastreifen-Werte (Temperatur)",
-      "stripesImage": "Klimastreifen-Bild (Temperatur)"
+      "summarizeDwd": "DWD-Beobachtung tägliche Klima-Zusammenfassung"
     },
     "mcpTitle": "MCP-Endpunkt",
     "mcpText": "Wetterdienst spricht auch das Model Context Protocol: KI-Assistenten können Wetterdaten als Werkzeuge abfragen – erst eine Station finden, dann deren Messwerte lesen. Bereitgestellt werden dieselben Endpunkte wie oben, über den Streamable-HTTP-Transport.",
@@ -490,9 +484,13 @@
     "untranslatedDe": "Dieser Eintrag ist noch nicht in deine Sprache übersetzt und wird auf Deutsch gezeigt.",
     "topics": {
       "temperature": "Luft- und Bodentemperatur",
+      "pressure": "Luftdruck",
+      "humidity": "Luftfeuchte und Taupunkt",
       "wind": "Wind",
       "precipitation": "Niederschlag",
+      "radiation": "Strahlung",
       "sunshine": "Sonnenscheindauer",
+      "visibility": "Sichtweite",
       "snow": "Schnee",
       "normals": "Klimanormalwerte",
       "time": "Zeit",
@@ -528,6 +526,9 @@
     "showDatasets": "Auflösungen und Datensätze anzeigen",
     "noResolutions": "Keine Zeitreihe: hier gibt es nichts aufzulisten.",
     "openExplorer": "Im Explorer öffnen"
+  },
+  "credit": {
+    "licence": "Lizenz: {name} ({url})"
   },
   "processingNote": {
     "base": "Aufbereitet von wetterdienst: Die Daten des Anbieters wurden in eine einheitliche Tabelle gebracht und ihre Einheiten umgerechnet, wo sie abweichen.",
@@ -715,6 +716,7 @@
     "showDataAvailability": "Datenverfügbarkeit anzeigen",
     "visualizationTitle": "Visualisierung",
     "loadingViz": "Daten werden geladen und die Visualisierung wird erstellt …",
+    "noRecord": "Diese Station hat keine ausreichend lange Messreihe für Klimastreifen: Es werden mindestens {years} Jahre mit Daten benötigt.",
     "downloadImage": "Bild herunterladen",
     "downloadPng": "Als PNG herunterladen",
     "downloadJpg": "Als JPG herunterladen",
@@ -732,7 +734,6 @@
     "plotMethodMidrange": "Temperatur: Mitte aus Tageshöchst- und -tiefstwert (GHCN)",
     "plotMethodTavg": "Temperatur: Tagesmittel (TAVG, GHCN)",
     "plotReference": "Farben: Mittel von {centre}, ±{sigma} σ von {spread}",
-    "csvLicence": "Lizenz: {name} ({url})",
     "barsRelativeTo": "Relativ zum Mittel von {period}",
     "variant": {
       "label": "Darstellung",

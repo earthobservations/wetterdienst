@@ -7,6 +7,7 @@ import { useRouter } from '#imports'
 import StripesPage from '~/pages/stripes.vue'
 import { downloadBlob, svgToBlob } from '~/utils/chart-image'
 import { stripesAnswer } from '../../helpers/stripes-answer'
+import { asValues } from '../../helpers/stripes-backend'
 
 // The stripes page draws the years as stripes, bars or bars with a scale (GH-4156): the switch above the chart, the variant in
 // the link, and what the chart is given for each. The chart's own drawing is held by tests/unit/stripes-bars.test.ts.
@@ -84,8 +85,8 @@ afterEach(() => {
 })
 
 async function show(route: string) {
-  registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-  registerEndpoint('/api/stripes/values', () => ({ series: { station, unit: 'degree_celsius' }, ...stripesAnswer(YEARS.map(({ year, value }) => ({ year, value }))) }))
+  registerEndpoint('/api/stations', () => ({ stations: [station] }))
+  registerEndpoint('/api/values', asValues(() => ({ series: { station, unit: 'degree_celsius' }, ...stripesAnswer(YEARS.map(({ year, value }) => ({ year, value }))) })))
   wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route })
   const vm = wrapper.vm as any
   await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
@@ -227,8 +228,8 @@ describe('stripes Page table view (GH-4233)', () => {
 
   async function showWithoutDrawing(route: string, metadata?: unknown, years: Array<{ year: number, value: number }> = YEARS) {
     clearNuxtData()
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({ ...(metadata ? { metadata } : {}), series: { station, unit: 'degree_celsius' }, ...stripesAnswer(years.map(({ year, value }) => ({ year, value }))) }))
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/values', asValues(() => ({ ...(metadata ? { metadata } : {}), series: { station, unit: 'degree_celsius' }, ...stripesAnswer(years.map(({ year, value }) => ({ year, value }))) })))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))

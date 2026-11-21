@@ -158,7 +158,7 @@
       "meteogram": "D'MOSMIX-Prognos vun enger DWD-Statioun als Meteogram: Temperatur, Wand, Nidderschlag, Wolleken a Loftdrock.",
       "stripes": "Klimasträifen fir d'Temperatur oder den Nidderschlag vun enger Statioun vum DWD oder vun NOAA GHCN daily.",
       "history": "Wéi sech eng DWD-Statioun mat der Zäit geännert huet: Numm, Standuert an Instrumenter.",
-      "api": "D'REST-API an de MCP-Server vu Wetterdienst: Formater an Beispiller fir Statioune, Wäerter, Interpolatioun a Klimasträifen.",
+      "api": "D'REST-API an de MCP-Server vu Wetterdienst: Formater an Beispiller fir Statioune, Wäerter an Interpolatioun.",
       "providers": "Déi national Wiederdéngschter hannert den Daten: Land, Lizenz, d'Quell, déi ugi muss ginn, a wat all eenzelne bitt.",
       "glossary": "Wat all Wieder- a Klimaparameter mierkt a a wéi enger Eenheet seng Wäerter zeréckkommen, mat Sich no Numm a Gréisst.",
       "measurement": "Wéi d'Wieder gemooss gëtt: Instrumenter, wéi aus enger Miessung e Wäert gëtt, wat d'Zuel seet a wou d'Ubidder sech ënnerscheeden, mat Quellen.",
@@ -427,20 +427,14 @@
       "history": "Ruff den Historique vun enger Statioun of (Numm, Bedreiwer, Geräter, Geografie, fehlend Daten)",
       "values": "Ruff Observatiounswäerter fir ausgewielte Statiounen a Parameteren of",
       "interpolate": "Interpoléier Wäerter fir e bestëmmten Uert",
-      "summarize": "Kréi resüméiert Wäerter fir en Uert",
-      "stripesStations": "Kréi Statioune fir d'Visualiséierung vu Klimasträifen",
-      "stripesValues": "Kréi Klimasträifen-Datewäerter mat Zäitstempelen",
-      "stripesImage": "Generéier e Klimasträifen-Bild"
+      "summarize": "Kréi resüméiert Wäerter fir en Uert"
     },
     "examples": {
       "stationsDwd": "DWD-Observatioun deeglech Klimastatiounen",
       "historyDwd": "DWD-Observatioun Statioune-Historique",
       "valuesDwd": "DWD-Observatioun deeglech Klimawäerter",
       "interpolateDwd": "DWD-Observatioun deeglech Klima-Interpolatioun",
-      "summarizeDwd": "DWD-Observatioun deeglech Klima-Resümee",
-      "stripesStations": "Klimasträifen-Statiounen (Temperatur)",
-      "stripesValues": "Klimasträifen-Wäerter (Temperatur)",
-      "stripesImage": "Klimasträifen-Bild (Temperatur)"
+      "summarizeDwd": "DWD-Observatioun deeglech Klima-Resümee"
     },
     "mcpTitle": "MCP-Endpunkt",
     "mcpText": "Wetterdienst schwätzt och d'Model Context Protocol, sou datt KI-Assistenten Wiederdaten als Tools ofruffe kënnen: eng Statioun fannen an duerno hir Miessunge liesen. Et ginn déiselwecht Endpunkten wéi hei uewen, iwwer den Streamable-HTTP-Transport.",
@@ -490,9 +484,13 @@
     "untranslatedDe": "Dës Rubrik ass nach net an deng Sprooch iwwersat a gëtt op Däitsch gewisen.",
     "topics": {
       "temperature": "Loft- a Buedemtemperatur",
+      "pressure": "Loftdrock",
+      "humidity": "Loftfiichtegkeet an Daupunkt",
       "wind": "Wand",
       "precipitation": "Nidderschlag",
+      "radiation": "Stralung",
       "sunshine": "Sonnenscheindauer",
+      "visibility": "Sichtwäit",
       "snow": "Schnéi",
       "normals": "Klimanormalwäerter",
       "time": "Zäit",
@@ -528,6 +526,9 @@
     "showDatasets": "Opléisungen an Datesätz weisen",
     "noResolutions": "Keng Zäitreih: hei gëtt et näischt opzelëschten.",
     "openExplorer": "Am Explorer opmaachen"
+  },
+  "credit": {
+    "licence": "Lizenz: {name} ({url})"
   },
   "processingNote": {
     "base": "Veraarbecht vu wetterdienst: D'Daten vum Ubidder goufen an eng eenheetlech Tabell gesat an d'Eenheeten, wou se ofwäichen, ëmgerechent.",
@@ -715,6 +716,7 @@
     "showDataAvailability": "Datverfügbarkeet weisen",
     "visualizationTitle": "Visualiséierung",
     "loadingViz": "Daten ginn gelueden a Visualiséierung gëtt generéiert …",
+    "noRecord": "Dës Statioun huet keng Moossreie, déi laang genuch fir Klimasträifen ass: Et brauche mindestens {years} Joer mat Daten.",
     "downloadImage": "Bild eroflueden",
     "downloadPng": "Als PNG eroflueden",
     "downloadJpg": "Als JPG eroflueden",
@@ -732,7 +734,6 @@
     "plotMethodMidrange": "Temperatur: Mëtt aus Deeshéichst- an Deesminimum (GHCN)",
     "plotMethodTavg": "Temperatur: Deeschduerchschnëtt (TAVG, GHCN)",
     "plotReference": "Faarwen: Duerchschnëtt vun {centre}, ±{sigma} σ vun {spread}",
-    "csvLicence": "Lizenz: {name} ({url})",
     "barsRelativeTo": "Relativ zum Duerchschnëtt vun {period}",
     "variant": {
       "label": "Usiicht",
