@@ -105,7 +105,7 @@ export const privacy: PrivacyPolicy = {
         'Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO (Darstellung der Karte und der Profilbilder).',
       ],
       items: [
-        'Kartenkacheln von tile.openstreetmap.org (OpenStreetMap Foundation), sobald die Karte zur Auswahl von Stationen angezeigt wird.',
+        'Kartenkacheln von tile.openstreetmap.org (OpenStreetMap Foundation), sobald die Karte zur Auswahl von Stationen oder die Karte des Radars angezeigt wird.',
         'Die Profilbilder auf der Seite „Über uns“ von avatars.githubusercontent.com (GitHub).',
       ],
     },

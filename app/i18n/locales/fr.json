@@ -1167,9 +1167,11 @@
     "unavailable": "Le radar n'est pas disponible sur ce serveur.",
     "framesNone": "Aucune image radar n'a pu être chargée.",
     "positionTitle": "Ta position",
-    "positionShown": "Ta position est marquée sur la carte.",
+    "positionShown": "Ta position est marquée sur la carte, vers {position}.",
     "positionHidden": "Ta position est masquée sur la carte.",
-    "positionOutside": "Ta position est en dehors de la zone couverte par le radar, la carte reste donc où elle est.",
+    "positionOutside": "Ta position est en dehors de l'image radar, la carte reste donc où elle est.",
+    "positionWaiting": "En attente de l'image radar pour vérifier où se trouve ta position …",
+    "positionNoRadar": "Il n'y a pas d'image radar avec laquelle comparer ta position, la carte reste donc où elle est.",
     "positionHide": "Masquer ma position sur la carte",
     "positionShow": "Afficher ma position sur la carte",
     "positionMarker": "Ta position, arrondie à environ 1 km"

@@ -475,9 +475,12 @@ let located = 0
 
 /** Centres on the reader's position for a press that gave one, at a zoom where a station of the neighbourhood is seen */
 function centreOnPosition() {
-  if (!map || !props.position || (props.locate ?? 0) <= located)
+  if (!map || (props.locate ?? 0) <= located)
     return
+  // the press is spent whether or not there is a position to centre on: a position that comes later is not centred on without a new press
   located = props.locate ?? 0
+  if (!props.position)
+    return
   map.setView([props.position.latitude, props.position.longitude], Math.max(map.getZoom(), 9), { animate: !reducedMotion.value })
 }
 

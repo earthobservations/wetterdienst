@@ -1167,9 +1167,11 @@
     "unavailable": "Das Radar ist auf diesem Server nicht verfügbar.",
     "framesNone": "Kein Radarbild konnte geladen werden.",
     "positionTitle": "Dein Standort",
-    "positionShown": "Dein Standort ist auf der Karte markiert.",
+    "positionShown": "Dein Standort ist auf der Karte markiert, bei etwa {position}.",
     "positionHidden": "Dein Standort ist auf der Karte ausgeblendet.",
-    "positionOutside": "Dein Standort liegt außerhalb des Gebiets, das das Radar erfasst, deshalb bleibt die Karte, wo sie ist.",
+    "positionOutside": "Dein Standort liegt außerhalb des Radarbilds, deshalb bleibt die Karte, wo sie ist.",
+    "positionWaiting": "Es wird auf das Radarbild gewartet, um deinen Standort zu prüfen …",
+    "positionNoRadar": "Es gibt kein Radarbild, mit dem sich dein Standort abgleichen ließe, deshalb bleibt die Karte, wo sie ist.",
     "positionHide": "Meinen Standort auf der Karte ausblenden",
     "positionShow": "Meinen Standort auf der Karte anzeigen",
     "positionMarker": "Dein Standort, auf etwa 1 km gerundet"

@@ -78,7 +78,7 @@ export const privacy: PrivacyPolicy = {
         'The legal basis is Art. 6(1)(f) GDPR (showing the map and the profile pictures).',
       ],
       items: [
-        'Map tiles from tile.openstreetmap.org (OpenStreetMap Foundation), as soon as the map for choosing stations is shown.',
+        'Map tiles from tile.openstreetmap.org (OpenStreetMap Foundation), as soon as the map for choosing stations or the radar\'s map is shown.',
         'The profile pictures on the "About" page from avatars.githubusercontent.com (GitHub).',
       ],
     },

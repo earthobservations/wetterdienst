@@ -2,6 +2,7 @@ import type { Page } from '@playwright/test'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import { radarAnswer } from '../helpers/radar-answer'
 import { exampleScan } from '../helpers/storm-cells-answer'
 import { mockBackend } from './accessibility/mock-backend'
 
@@ -16,7 +17,11 @@ const en = JSON.parse(readFileSync(fileURLToPath(new URL('../../i18n/locales/en.
 /** The requests the app made to its own origin that carry a question (the page, `/api/*`: a document, a fetch or an XHR, not a script or a style): what the backend and the app's server were told */
 const toOrigin: string[] = []
 
-async function open(page: Page, baseURL: string, handlers = {}) {
+/** What the status says of a marked position (the position rounded, as the page writes it) */
+const shown = (position: string) => en.radar.positionShown.replace('{position}', position)
+
+/** Opens the radar page; `answered` waits for the list of the frames, which a test that presses before it has come does not */
+async function open(page: Page, baseURL: string, handlers = {}, answered = true) {
   toOrigin.length = 0
   await page.context().addCookies([{ name: 'wd_lang', value: 'en', url: baseURL }])
   await mockBackend(page, baseURL, handlers)
@@ -26,7 +31,8 @@ async function open(page: Page, baseURL: string, handlers = {}) {
   })
   await page.goto('/radar')
   await expect(page.getByRole('heading', { level: 1 })).toHaveText(en.radar.title)
-  await expect(page.getByTestId('radar-newest')).toBeVisible()
+  if (answered)
+    await expect(page.getByTestId('radar-newest')).toBeVisible()
 }
 
 /** The highest zoom of the map's tiles: where the map is */
@@ -59,7 +65,7 @@ test.describe('the position on the radar, allowed', () => {
 
     // the marker has a name, and the result is said in a status
     await expect(marker(page)).toHaveCount(1)
-    await expect(page.getByTestId('use-my-location-status')).toHaveText(en.radar.positionShown)
+    await expect(page.getByTestId('use-my-location-status')).toHaveText(shown('53.54, 10.20'))
     // the map has moved in, to a zoom where the surroundings are seen
     await expect.poll(() => zoomOf(page)).toBeGreaterThanOrEqual(9)
     // the marker is over the picture and over the cells: its pane is above theirs
@@ -99,7 +105,7 @@ test.describe('the position on the radar, allowed', () => {
 
     await page.getByRole('button', { name: en.radar.positionShow }).click()
     await expect(marker(page)).toHaveCount(1)
-    await expect(page.getByTestId('use-my-location-status')).toHaveText(en.radar.positionShown)
+    await expect(page.getByTestId('use-my-location-status')).toHaveText(shown('53.54, 10.20'))
     expect(await zoomOf(page)).toBe(zoom)
 
     // a press while it is hidden shows it again
@@ -215,5 +221,69 @@ test.describe('the position on the radar, on a phone', () => {
     })).toBe(true)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
     expect(await zoomOf(page)).toBeGreaterThanOrEqual(9)
+  })
+})
+
+test.describe('the position on the radar, pressed before the radar has answered', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, geolocation: { latitude: 53.5412, longitude: 10.1987 }, permissions: ['geolocation'] })
+
+  /** The list of the frames comes after 4 seconds */
+  const late = { 'radar/frames': async () => {
+    await new Promise(resolve => setTimeout(resolve, 4000))
+    return radarAnswer()
+  } }
+
+  test('marks nothing and moves nothing until the box is known, says it waits, and then marks and centres on a position inside', async ({ page, baseURL }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await open(page, baseURL!, late, false)
+    await expect.poll(() => zoomOf(page)).toBeGreaterThan(0)
+    const before = await zoomOf(page)
+    await press(page).click()
+    await expect(page.getByTestId('use-my-location-note')).toBeVisible()
+    await expect(page.getByTestId('use-my-location-status')).toHaveText(en.radar.positionWaiting)
+    await expect(marker(page)).toHaveCount(0)
+    expect(await zoomOf(page)).toBe(before)
+    // the list comes: the position is inside, so it is marked and the map moves to it
+    await expect(marker(page)).toHaveCount(1, { timeout: 10_000 })
+    await expect(page.getByTestId('use-my-location-status')).toHaveText(shown('53.54, 10.20'))
+    await expect.poll(() => zoomOf(page)).toBeGreaterThanOrEqual(9)
+  })
+
+  test('leaves the map where it was for a position that turns out to be outside, and says so truthfully', async ({ page, baseURL, context }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await context.setGeolocation({ latitude: 40.4168, longitude: -3.7038 })
+    await open(page, baseURL!, late, false)
+    await expect.poll(() => zoomOf(page)).toBeGreaterThan(0)
+    const before = await zoomOf(page)
+    await press(page).click()
+    await expect(page.getByTestId('use-my-location-status')).toHaveText(en.radar.positionWaiting)
+    await expect(page.getByTestId('use-my-location-status')).toHaveText(en.radar.positionOutside, { timeout: 10_000 })
+    await expect(marker(page)).toHaveCount(0)
+    await page.waitForTimeout(500)
+    expect(await zoomOf(page)).toBe(before)
+  })
+})
+
+test.describe('the box that keeps the position, on the radar', () => {
+  test.use({ viewport: { width: 1440, height: 900 }, geolocation: { latitude: 53.5412, longitude: 10.1987 }, permissions: ['geolocation'] })
+
+  test('is not offered for a position that came from another page this visit, and is after a press on the radar', async ({ page, baseURL }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.context().addCookies([{ name: 'wd_lang', value: 'en', url: baseURL! }])
+    await mockBackend(page, baseURL!, {})
+    await page.goto('/meteogram')
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(en.meteogram.title)
+    await press(page).click()
+    await expect(page.getByRole('checkbox', { name: en.location.remember })).toBeVisible()
+    // on to the radar within the visit: the position is in hand, the box is not offered, and nothing is marked
+    await page.getByRole('navigation', { name: en.shell.mainNav }).getByRole('link', { name: en.nav.radar }).click()
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(en.radar.title)
+    await expect(page.getByTestId('radar-newest')).toBeVisible()
+    await expect(page.getByRole('checkbox')).toHaveCount(0)
+    await expect(page.getByTestId('use-my-location-note')).toHaveCount(0)
+    await expect(marker(page)).toHaveCount(0)
+    await press(page).click()
+    await expect(marker(page)).toHaveCount(1)
+    await expect(page.getByRole('checkbox', { name: en.location.remember })).toBeVisible()
   })
 })

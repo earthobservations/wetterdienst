@@ -1167,9 +1167,11 @@
     "unavailable": "Radaren er ikke tilgængelig på denne server.",
     "framesNone": "Ingen radarbilleder kunne indlæses.",
     "positionTitle": "Din placering",
-    "positionShown": "Din placering er markeret på kortet.",
+    "positionShown": "Din placering er markeret på kortet, ved omkring {position}.",
     "positionHidden": "Din placering er skjult på kortet.",
-    "positionOutside": "Din placering ligger uden for det område, radaren dækker, så kortet bliver, hvor det er.",
+    "positionOutside": "Din placering ligger uden for radarbilledet, så kortet bliver, hvor det er.",
+    "positionWaiting": "Venter på radarbilledet for at se, hvor din placering ligger …",
+    "positionNoRadar": "Der er intet radarbillede at sammenligne din placering med, så kortet bliver, hvor det er.",
     "positionHide": "Skjul min placering på kortet",
     "positionShow": "Vis min placering på kortet",
     "positionMarker": "Din placering, afrundet til omkring 1 km"

@@ -1167,9 +1167,11 @@
     "unavailable": "Radar nie jest dostępny na tym serwerze.",
     "framesNone": "Nie udało się wczytać żadnego obrazu radarowego.",
     "positionTitle": "Twoja lokalizacja",
-    "positionShown": "Twoja lokalizacja jest zaznaczona na mapie.",
+    "positionShown": "Twoja lokalizacja jest zaznaczona na mapie, w okolicy {position}.",
     "positionHidden": "Twoja lokalizacja jest ukryta na mapie.",
-    "positionOutside": "Twoja lokalizacja leży poza obszarem, który obejmuje radar, więc mapa zostaje tam, gdzie jest.",
+    "positionOutside": "Twoja lokalizacja leży poza obrazem radarowym, więc mapa zostaje tam, gdzie jest.",
+    "positionWaiting": "Czekam na obraz radarowy, żeby sprawdzić, gdzie leży twoja lokalizacja …",
+    "positionNoRadar": "Nie ma obrazu radarowego, z którym można by porównać twoją lokalizację, więc mapa zostaje tam, gdzie jest.",
     "positionHide": "Ukryj moją lokalizację na mapie",
     "positionShow": "Pokaż moją lokalizację na mapie",
     "positionMarker": "Twoja lokalizacja, zaokrąglona do około 1 km"

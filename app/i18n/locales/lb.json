@@ -1167,9 +1167,11 @@
     "unavailable": "De Radar ass op dësem Server net disponibel.",
     "framesNone": "Kee Radarbild konnt gelueden ginn.",
     "positionTitle": "Deng Positioun",
-    "positionShown": "Deng Positioun ass op der Kaart markéiert.",
+    "positionShown": "Deng Positioun ass op der Kaart markéiert, bei ongeféier {position}.",
     "positionHidden": "Deng Positioun ass op der Kaart verstoppt.",
-    "positionOutside": "Deng Positioun läit ausserhalb vum Gebitt, dat de Radar ofdeckt, dofir bleift d'Kaart, wou si ass.",
+    "positionOutside": "Deng Positioun läit ausserhalb vum Radarbild, dofir bleift d'Kaart, wou si ass.",
+    "positionWaiting": "Waart op d'Radarbild, fir ze préiwen, wou deng Positioun läit …",
+    "positionNoRadar": "Et gëtt kee Radarbild, mat deem sech deng Positioun vergläiche léisst, dofir bleift d'Kaart, wou si ass.",
     "positionHide": "Meng Positioun op der Kaart verstoppen",
     "positionShow": "Meng Positioun op der Kaart weisen",
     "positionMarker": "Deng Positioun, op ongeféier 1 km ofgerënnt"

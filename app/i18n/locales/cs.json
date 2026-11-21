@@ -1167,9 +1167,11 @@
     "unavailable": "Radar není na tomto serveru dostupný.",
     "framesNone": "Nepodařilo se načíst žádný radarový snímek.",
     "positionTitle": "Tvoje poloha",
-    "positionShown": "Tvoje poloha je označena na mapě.",
+    "positionShown": "Tvoje poloha je označena na mapě, zhruba na {position}.",
     "positionHidden": "Tvoje poloha je na mapě skrytá.",
-    "positionOutside": "Tvoje poloha leží mimo oblast, kterou radar pokrývá, mapa proto zůstává, kde je.",
+    "positionOutside": "Tvoje poloha leží mimo radarový snímek, mapa proto zůstává, kde je.",
+    "positionWaiting": "Čekám na radarový snímek, abych zjistil, kde tvoje poloha leží …",
+    "positionNoRadar": "Není k dispozici radarový snímek, se kterým by šlo tvou polohu porovnat, mapa proto zůstává, kde je.",
     "positionHide": "Skrýt moji polohu na mapě",
     "positionShow": "Zobrazit moji polohu na mapě",
     "positionMarker": "Tvoje poloha, zaokrouhlená na zhruba 1 km"

@@ -24,7 +24,7 @@ import type { Point } from '~/utils/map-tool'
 // (the map's station card): the box and the note, or the "Stored" control, and no button and no status or alert, which
 // the page's one full copy holds. The state is shared, so a tick or a forget in either is seen by the other; the page
 // shows one of them at a time, so that there are never two controls of the same kind to tab to.
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   /** The position is being turned into a station: the button says so */
   resolving?: boolean
   /** Only the choice to keep the position and the "Stored" control, no button, status or alert */
@@ -35,7 +35,9 @@ const props = defineProps<{
   problem?: string
   /** What the position is used for, in the note under the box: the nearest station (the default), or only to be shown on the radar's map (GH-4287) */
   use?: 'station' | 'radar'
-}>()
+  /** Whether the box that keeps the position (and its note) is offered while a position is in hand; the radar offers it only after a press on the radar, not for a position that came from another page */
+  keepOffered?: boolean
+}>(), { keepOffered: true })
 
 const emit = defineEmits<{
   /** The position, rounded, after a press of the button */
@@ -48,7 +50,7 @@ const { t } = useI18n()
 const { position, failure, busy, remember, notKept, notKeptCount, withdrawn, remembered, locate, rememberPosition, forget } = useMyLocation()
 
 /** The box and its note: a position is in hand and nothing is stored */
-const offerToKeep = computed(() => position.value !== null && !remembered.value)
+const offerToKeep = computed(() => position.value !== null && !remembered.value && props.keepOffered)
 const positionText = computed(() => position.value ? `${position.value.latitude.toFixed(2)}, ${position.value.longitude.toFixed(2)}` : '')
 const open = ref(false)
 const button = useTemplateRef<{ $el: HTMLElement }>('button')

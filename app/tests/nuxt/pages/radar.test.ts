@@ -1,7 +1,7 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { getQuery, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { clearNuxtData, clearNuxtState } from '#imports'
+import { clearNuxtData, clearNuxtState, useState } from '#imports'
 import RadarPage from '~/pages/radar.vue'
 import { radarAnswer, runTime } from '../../helpers/radar-answer'
 import { emptyScan, exampleScan } from '../../helpers/storm-cells-answer'
@@ -607,7 +607,7 @@ describe('the reader\'s own position', () => {
     await vi.waitFor(() => expect(stage.props.position).toEqual({ latitude: 51.34, longitude: 12.37 }))
     expect(getCurrentPosition).toHaveBeenCalledTimes(1)
     expect(stage.props.locate).toBe(1)
-    expect(status(wrapper).text()).toBe('Your position is marked on the map.')
+    expect(status(wrapper).text()).toBe('Your position is marked on the map, at about 51.34, 12.37.')
     await press(wrapper)
     await vi.waitFor(() => expect(stage.props.locate).toBe(2))
   })
@@ -650,7 +650,7 @@ describe('the reader\'s own position', () => {
     const wrapper = await mountRadar()
     await loaded(wrapper)
     await press(wrapper)
-    await vi.waitFor(() => expect(status(wrapper).text()).toBe('Your position is outside the area the radar covers, so the map stays where it is.'))
+    await vi.waitFor(() => expect(status(wrapper).text()).toBe('Your position is outside the radar picture, so the map stays where it is.'))
     expect(stage.props.position).toBeNull()
     expect(toggle(wrapper).exists()).toBe(false)
   })
@@ -719,5 +719,128 @@ describe('the reader\'s own position', () => {
     for (const query of [...framesAsked, ...cellsAsked])
       expect(Object.keys(query).filter(key => /lat|lon|position/i.test(key))).toEqual([])
     expect(location.href).not.toMatch(/51\.34|12\.37|latitude/)
+  })
+})
+
+describe('the position before the radar has answered', () => {
+  const scrolled = vi.fn()
+  const realScroll = Element.prototype.scrollIntoView
+  beforeEach(() => {
+    scrolled.mockClear()
+    Element.prototype.scrollIntoView = scrolled
+  })
+  afterEach(() => {
+    Element.prototype.scrollIntoView = realScroll
+  })
+
+  /** The list of the frames is held until the test lets it go */
+  function holdFrames() {
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    framesAnswer = () => held.then(() => radarAnswer())
+    return release
+  }
+
+  it('is neither marked, nor centred on, nor scrolled to while the box of the radar is not known, and is when it turns out to be inside', async () => {
+    stubMediaQueries({ wide: false })
+    const release = holdFrames()
+    mockBrowser()
+    const wrapper = await mountRadar()
+    await press(wrapper)
+    await vi.waitFor(() => expect(byId(wrapper, 'use-my-location-note').exists()).toBe(true))
+    expect(stage.props.position).toBeNull()
+    expect(stage.props.locate).toBe(0)
+    expect(toggle(wrapper).exists()).toBe(false)
+    expect(scrolled).not.toHaveBeenCalled()
+    // the wait is told once it is noticeable
+    await vi.waitFor(() => expect(status(wrapper).text()).toBe('Waiting for the radar picture to check where your position lies …'), { timeout: 3000 })
+    release()
+    await vi.waitFor(() => expect(stage.props.position).toEqual({ latitude: 51.34, longitude: 12.37 }))
+    expect(stage.props.locate).toBe(1)
+    expect(status(wrapper).text()).toBe('Your position is marked on the map, at about 51.34, 12.37.')
+    await vi.waitFor(() => expect(scrolled).toHaveBeenCalledTimes(1))
+    expect(toggle(wrapper).exists()).toBe(true)
+    // the map is centred once, on the press, and no later change of the list centres it again
+    expect(stage.props.locate).toBe(1)
+  })
+
+  it('leaves the map where it is, and says so truthfully, when it turns out to be outside', async () => {
+    stubMediaQueries({ wide: false })
+    const release = holdFrames()
+    mockBrowser({ latitude: 40.4168, longitude: -3.7038 })
+    const wrapper = await mountRadar()
+    await press(wrapper)
+    await vi.waitFor(() => expect(byId(wrapper, 'use-my-location-note').exists()).toBe(true))
+    expect(stage.props.position).toBeNull()
+    expect(stage.props.locate).toBe(0)
+    release()
+    await vi.waitFor(() => expect(status(wrapper).text()).toBe('Your position is outside the radar picture, so the map stays where it is.'))
+    expect(stage.props.position).toBeNull()
+    expect(stage.props.locate).toBe(0)
+    expect(scrolled).not.toHaveBeenCalled()
+    expect(toggle(wrapper).exists()).toBe(false)
+  })
+
+  it('says there is no radar to compare with, and neither marks nor centres, where the server has no radar', async () => {
+    framesStatus = 404
+    mockBrowser()
+    const wrapper = await mountRadar()
+    await vi.waitFor(() => expect(byId(wrapper, 'radar-unavailable').exists()).toBe(true))
+    await press(wrapper)
+    await vi.waitFor(() => expect(status(wrapper).text()).toBe('There is no radar picture to check your position against, so the map stays where it is.'))
+    expect(stage.props.position).toBeNull()
+    expect(stage.props.locate).toBe(0)
+    expect(toggle(wrapper).exists()).toBe(false)
+  })
+
+  it('is centred on by the press alone: a position that was outside is marked, not centred on, when a later list has a box that holds it', async () => {
+    mockBrowser({ latitude: 40.4168, longitude: -3.7038 })
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    await press(wrapper)
+    await vi.waitFor(() => expect(status(wrapper).text()).toBe('Your position is outside the radar picture, so the map stays where it is.'))
+    // the next list has a box that reaches Madrid
+    const wider = radarAnswer()
+    wider.image.bounds = { west: -10, south: 36, east: 19, north: 57 }
+    framesAnswer = () => wider
+    ;(wrapper.vm as any).radar.retry()
+    await vi.waitFor(() => expect(stage.props.position).toEqual({ latitude: 40.42, longitude: -3.7 }))
+    expect(stage.props.locate).toBe(0)
+  })
+
+  it('moves the focus to "Use my location" when the hide button goes with the position', async () => {
+    mockBrowser()
+    localStorage.setItem('wd-location', JSON.stringify({ latitude: 48.14, longitude: 11.58 }))
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    await press(wrapper)
+    await vi.waitFor(() => expect(toggle(wrapper).exists()).toBe(true))
+    ;(toggle(wrapper).element as HTMLElement).focus()
+    expect(document.activeElement).toBe(toggle(wrapper).element)
+    // the box of the next list leaves the position outside
+    const away = radarAnswer()
+    away.image.bounds = { west: 1, south: 50, east: 5, north: 55 }
+    framesAnswer = () => away
+    ;(wrapper.vm as any).radar.retry()
+    await vi.waitFor(() => expect(toggle(wrapper).exists()).toBe(false))
+    await vi.waitFor(() => expect(document.activeElement).toBe(byId(wrapper, 'use-my-location-button').element))
+  })
+})
+
+describe('the box that keeps the position, on the radar', () => {
+  it('is offered only after a press on the radar, not for a position that came from another page this visit', async () => {
+    mockBrowser()
+    // the position of another page: in hand, not stored
+    useState<{ latitude: number, longitude: number } | null>('wd-location-position', () => null).value = { latitude: 52.52, longitude: 13.4 }
+    const wrapper = await mountRadar()
+    await loaded(wrapper)
+    expect(byId(wrapper, 'use-my-location-remember').exists()).toBe(false)
+    expect(byId(wrapper, 'use-my-location-note').exists()).toBe(false)
+    expect(stage.props.position).toBeNull()
+    await press(wrapper)
+    await vi.waitFor(() => expect(byId(wrapper, 'use-my-location-remember').exists()).toBe(true))
+    expect(byId(wrapper, 'use-my-location-note').exists()).toBe(true)
   })
 })
