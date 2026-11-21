@@ -158,7 +158,7 @@
       "meteogram": "El pronóstico MOSMIX de una estación del DWD como meteograma: temperatura, viento, precipitación, nubosidad y presión.",
       "stripes": "Franjas climáticas de la temperatura o la precipitación de una estación del DWD o de NOAA GHCN daily.",
       "history": "Cómo ha cambiado una estación del DWD con el tiempo: su nombre, su ubicación y sus instrumentos.",
-      "api": "La API REST y el servidor MCP de Wetterdienst: formatos y ejemplos para estaciones, valores, interpolación y franjas climáticas.",
+      "api": "La API REST y el servidor MCP de Wetterdienst: formatos y ejemplos para estaciones, valores e interpolación.",
       "providers": "Los servicios meteorológicos nacionales detrás de los datos: país, licencia, la atribución que debe indicarse y lo que ofrece cada uno.",
       "glossary": "Qué mide cada parámetro meteorológico y climático y en qué unidad se devuelven sus valores, con búsqueda por nombre y magnitud.",
       "measurement": "Cómo se mide el tiempo atmosférico: instrumentos, cómo una lectura se convierte en valor, qué dice la cifra y en qué se diferencian los proveedores, con fuentes.",
@@ -427,20 +427,14 @@
       "history": "Obtener el historial de una estación (nombre, operador, dispositivos, geografía, datos faltantes)",
       "values": "Obtener valores de observación para las estaciones y parámetros seleccionados",
       "interpolate": "Interpolar valores para una ubicación específica",
-      "summarize": "Obtener valores resumidos para una ubicación",
-      "stripesStations": "Obtener estaciones para la visualización de franjas climáticas",
-      "stripesValues": "Obtener los valores de las franjas climáticas con marcas de tiempo",
-      "stripesImage": "Generar la imagen de franjas climáticas"
+      "summarize": "Obtener valores resumidos para una ubicación"
     },
     "examples": {
       "stationsDwd": "Estaciones climáticas diarias de observación DWD",
       "historyDwd": "Historial de estaciones de observación DWD",
       "valuesDwd": "Valores climáticos diarios de observación DWD",
       "interpolateDwd": "Interpolación climática diaria de observación DWD",
-      "summarizeDwd": "Resumen climático diario de observación DWD",
-      "stripesStations": "Estaciones de franjas climáticas (temperatura)",
-      "stripesValues": "Valores de franjas climáticas (temperatura)",
-      "stripesImage": "Imagen de franjas climáticas (temperatura)"
+      "summarizeDwd": "Resumen climático diario de observación DWD"
     },
     "mcpTitle": "Punto de acceso MCP",
     "mcpText": "Wetterdienst también habla el Model Context Protocol, de modo que los asistentes de IA pueden consultar datos meteorológicos como herramientas: buscar una estación y luego leer sus mediciones. Se exponen los mismos puntos de acceso que arriba, mediante el transporte HTTP en streaming.",
@@ -490,9 +484,13 @@
     "untranslatedDe": "Esta entrada aún no está traducida a tu idioma y se muestra en alemán.",
     "topics": {
       "temperature": "Temperatura del aire y del suelo",
+      "pressure": "Presión atmosférica",
+      "humidity": "Humedad y punto de rocío",
       "wind": "Viento",
       "precipitation": "Precipitación",
+      "radiation": "Radiación",
       "sunshine": "Duración de la insolación",
+      "visibility": "Visibilidad",
       "snow": "Nieve",
       "normals": "Normales climáticas",
       "time": "Hora y día",
@@ -715,6 +713,7 @@
     "showDataAvailability": "Mostrar la disponibilidad de datos",
     "visualizationTitle": "Visualización",
     "loadingViz": "Cargando datos y generando la visualización …",
+    "noRecord": "Esta estación no tiene un registro lo bastante largo para las franjas climáticas: hacen falta al menos {years} años con datos.",
     "downloadImage": "Descargar la imagen",
     "downloadPng": "Descargar como PNG",
     "downloadJpg": "Descargar como JPG",

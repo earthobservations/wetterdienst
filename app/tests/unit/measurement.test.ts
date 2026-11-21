@@ -44,9 +44,22 @@ describe('the anchors', () => {
       expect(topic, topic).toMatch(/^[a-z]+(?:-[a-z]+)*$/)
   })
 
-  it('are the eight entries of the first phase, in the order of the issue', () => {
+  it('are the twelve entries written so far, in the order of the issue', () => {
     // the ids are in links that are printed and shared (and in the explanations of GH-3764): a rename is a breaking change
-    expect([...TOPICS]).toEqual(['temperature', 'wind', 'precipitation', 'sunshine', 'snow', 'normals', 'time', 'observation-forecast-derived'])
+    expect([...TOPICS]).toEqual([
+      'temperature',
+      'pressure',
+      'humidity',
+      'wind',
+      'precipitation',
+      'radiation',
+      'sunshine',
+      'visibility',
+      'snow',
+      'normals',
+      'time',
+      'observation-forecast-derived',
+    ])
   })
 
   it('are in the two sections of the page, each entry in one', () => {
@@ -59,7 +72,8 @@ describe('the anchors', () => {
   it('are told from other strings, and give the address of an entry', () => {
     expect(isTopic('wind')).toBe(true)
     expect(isTopic('Wind')).toBe(false)
-    expect(isTopic('humidity')).toBe(false)
+    expect(isTopic('humidity')).toBe(true)
+    expect(isTopic('evaporation')).toBe(false)
     expect(isTopic(undefined)).toBe(false)
     expect(isTopic(['wind'])).toBe(false)
     expect(measurementPath('wind')).toBe('/measurement#wind')
@@ -82,6 +96,20 @@ describe('the glossary parameters of an entry', () => {
     ['temperature_air', 'temperature'],
     ['temperature_soil_mean_0_05m', 'temperature'],
     ['temperature_soil_max_bare_ground_0_1m', 'temperature'],
+    ['pressure_air_site', 'pressure'],
+    ['pressure_air_site_mean', 'pressure'],
+    ['pressure_air_site_delta_last_3h', 'pressure'],
+    ['pressure_air_sea_level', 'pressure'],
+    ['pressure_air_site_reduced', 'pressure'],
+    ['humidity_relative', 'humidity'],
+    ['humidity_relative_mean', 'humidity'],
+    ['humidity_absolute', 'humidity'],
+    ['temperature_dew_point_2m', 'humidity'],
+    ['temperature_dew_point_mean_2m', 'humidity'],
+    ['temperature_wet_mean_2m', 'humidity'],
+    ['temperature_wet_ice_formation', 'humidity'],
+    ['pressure_vapor', 'humidity'],
+    ['vapor_pressure_deficit_mean', 'humidity'],
     ['wind_speed_mean', 'wind'],
     ['wind_gust_max', 'wind'],
     ['wind_gust_max_last_3h', 'wind'],
@@ -90,8 +118,20 @@ describe('the glossary parameters of an entry', () => {
     ['precipitation_amount', 'precipitation'],
     ['precipitation_amount_last_6h', 'precipitation'],
     ['precipitation_intensity', 'precipitation'],
+    ['radiation_global', 'radiation'],
+    ['radiation_global_intensity_mean', 'radiation'],
+    ['radiation_global_relative_last_1h', 'radiation'],
+    ['radiation_sky_long_wave', 'radiation'],
+    ['radiation_sky_short_wave_diffuse', 'radiation'],
+    ['radiation_sky_short_wave_direct_perpendicular_intensity_mean', 'radiation'],
+    ['radiation_long_wave_net_last_3h', 'radiation'],
+    ['radiation_short_wave_net_last_3h', 'radiation'],
     ['sunshine_duration', 'sunshine'],
     ['sunshine_duration_relative', 'sunshine'],
+    ['visibility', 'visibility'],
+    ['visibility_mean', 'visibility'],
+    ['visibility_index', 'visibility'],
+    ['visibility_measurement_method', 'visibility'],
     ['snow_depth', 'snow'],
     ['snow_depth_new', 'snow'],
     ['snow_cover', 'snow'],
@@ -106,13 +146,9 @@ describe('the glossary parameters of an entry', () => {
   })
 
   it.each([
-    // humidity, pressure, water: entries that are not written yet
-    'temperature_dew_point_mean_2m',
-    'temperature_wet_mean_2m',
+    // water: an entry that is not written yet
     'temperature_water',
     'temperature_surface',
-    'humidity_relative',
-    'pressure_air_site',
     'discharge',
     // what the entries do not explain
     'precipitation_form',
@@ -124,7 +160,11 @@ describe('the glossary parameters of an entry', () => {
     'soil_moisture_corn_sand_00cm_60cm',
     'wind_movement',
     'cloud_cover_total',
-    'visibility',
+    'uv_index_max',
+    'probability_visibility_below_1000m',
+    'error_absolute_pressure_air_site',
+    'error_absolute_temperature_dew_point_2m',
+    'evaporation_amount',
   ])('give %s no entry', (name) => {
     expect(topicOfParameter(name)).toBeUndefined()
   })
@@ -161,13 +201,17 @@ describe('the glossary parameters of an entry', () => {
   it('leave most of the glossary to entries that follow, but a family that has one is not left out', () => {
     // a parameter of a quantity the first phase explains has its entry: counting these is how a family that a new
     // parameter name starts is noticed (the pattern would not take it), here for the names that exist
-    const families = /^(?:temperature_(?:air|soil)|wind_(?:speed|gust|direction|force)|precipitation_(?:amount|intensity)|sunshine_duration|snow_depth|water_equivalent_snow_depth)/
+    const families = /^(?:temperature_(?:air|soil|dew_point|wet)|pressure_(?:air|vapor)|humidity_|vapor_pressure|wind_(?:speed|gust|direction|force)|precipitation_(?:amount|intensity)|radiation_|sunshine_duration|visibility|snow_depth|water_equivalent_snow_depth)/
     expect(PARAMETERS.filter(name => families.test(name) && topicOfParameter(name) === undefined)).toEqual([])
   })
 
   it('say in words which parameters an entry explains, none for those that explain none', () => {
     expect(parameterPatterns('wind')).toEqual(['wind_speed_*', 'wind_gust_*', 'wind_direction_*', 'wind_force_*'])
     expect(parameterPatterns('temperature')).toEqual(['temperature_air_*', 'temperature_soil_*'])
+    expect(parameterPatterns('pressure')).toEqual(['pressure_air_*'])
+    expect(parameterPatterns('humidity')).toEqual(['humidity_relative_*', 'humidity_absolute', 'temperature_dew_point_*', 'temperature_wet_*', 'pressure_vapor_*', 'vapor_pressure_deficit_*'])
+    expect(parameterPatterns('radiation')).toEqual(['radiation_global_*', 'radiation_sky_*', 'radiation_long_wave_*', 'radiation_short_wave_*'])
+    expect(parameterPatterns('visibility')).toEqual(['visibility_*'])
     expect(parameterPatterns('normals')).toEqual(['*_normal'])
     expect(parameterPatterns('time')).toEqual([])
     expect(parameterPatterns('observation-forecast-derived')).toEqual([])
@@ -190,7 +234,7 @@ describe.each([['en', en], ['de', de]] as const)('the text in %s', (_locale, tex
   })
 
   it('has the four parts the issue asks for in every entry that is a measurement', () => {
-    for (const topic of ['temperature', 'wind', 'precipitation', 'sunshine', 'snow'] as const)
+    for (const topic of ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'snow'] as const)
       expect(texts[topic].parts, topic).toHaveLength(4)
   })
 
@@ -217,13 +261,20 @@ describe.each([['en', en], ['de', de]] as const)('the text in %s', (_locale, tex
         }
       }
     }
-    for (const topic of ['temperature', 'wind', 'precipitation', 'sunshine', 'snow'] as const)
+    for (const topic of ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'snow'] as const)
       expect(texts[topic].sources[0]!.citation, topic).toContain('WMO-No. 8')
     // a source that cites Volume V cites it as its own edition, not in the same citation as a 2024 volume
     for (const topic of TOPICS) {
       for (const { citation } of texts[topic].sources)
         expect(citation.includes('Volume V') && citation.includes('2024 edition'), topic).toBe(false)
     }
+    // the chapters of the table of the issue: pressure I-3 and V-3, humidity I-4 and V-3, radiation I-7, visibility I-9 and V-3
+    expect(texts.pressure.sources[0]!.citation).toContain('Volume I, Chapter 3 (Measurement of atmospheric pressure)')
+    expect(texts.humidity.sources[0]!.citation).toContain('Volume I, Chapter 4 (Measurement of humidity)')
+    expect(texts.radiation.sources[0]!.citation).toContain('Volume I, Chapter 7 (Measurement of radiation)')
+    expect(texts.visibility.sources[0]!.citation).toContain('Volume I, Chapter 9 (Measurement of visibility)')
+    for (const topic of ['pressure', 'humidity', 'visibility'] as const)
+      expect(texts[topic].sources.map(source => source.citation).join(' '), topic).toContain('Volume V (Quality assurance and management of observing systems), Chapter 3 (Data reduction)')
     expect(texts.normals.sources[0]!.citation).toContain('WMO-No. 1203')
     expect(texts['observation-forecast-derived'].sources.map(source => source.citation).join(' ')).toContain('Volume V')
     expect(texts.temperature.sources.map(source => source.citation).join(' ')).toContain('WMO (2023)')

@@ -158,7 +158,7 @@
       "meteogram": "MOSMIX-udsigten for en DWD-station som meteogram: temperatur, vind, nedbør, skydække og lufttryk.",
       "stripes": "Klimastriber for temperatur eller nedbør fra en station hos DWD eller NOAA GHCN daily.",
       "history": "Hvordan en DWD-station har ændret sig over tid: navn, placering og instrumenter.",
-      "api": "REST-API'et og MCP-serveren til Wetterdienst: formater og eksempler for stationer, værdier, interpolation og klimastriber.",
+      "api": "REST-API'et og MCP-serveren til Wetterdienst: formater og eksempler for stationer, værdier og interpolation.",
       "providers": "De nationale vejrtjenester bag dataene: land, licens, den kildeangivelse der skal gives, og hvad hver enkelt tilbyder.",
       "glossary": "Hvad hver vejr- og klimaparameter måler, og i hvilken enhed værdierne kommer tilbage, med søgning på navn og størrelse.",
       "measurement": "Sådan måles vejret: instrumenter, hvordan en aflæsning bliver til en værdi, hvad tallet siger, og hvor udbyderne adskiller sig, med kilder.",
@@ -427,20 +427,14 @@
       "history": "Hent stationshistorik (navn, operatør, enheder, geografi, manglende data)",
       "values": "Hent observationsværdier for udvalgte stationer og parametre",
       "interpolate": "Interpolér værdier for en bestemt placering",
-      "summarize": "Hent opsummerede værdier for en placering",
-      "stripesStations": "Hent stationer til visualisering af klimastriber",
-      "stripesValues": "Hent klimastribers dataværdier med tidsstempler",
-      "stripesImage": "Generér et billede af klimastriber"
+      "summarize": "Hent opsummerede værdier for en placering"
     },
     "examples": {
       "stationsDwd": "DWD-observation daglige klimastationer",
       "historyDwd": "DWD-observation stationshistorik",
       "valuesDwd": "DWD-observation daglige klimaværdier",
       "interpolateDwd": "DWD-observation daglig klimainterpolation",
-      "summarizeDwd": "DWD-observation daglig klimaopsummering",
-      "stripesStations": "Klimastriber-stationer (temperatur)",
-      "stripesValues": "Klimastriber-værdier (temperatur)",
-      "stripesImage": "Klimastriber-billede (temperatur)"
+      "summarizeDwd": "DWD-observation daglig klimaopsummering"
     },
     "mcpTitle": "MCP-endepunkt",
     "mcpText": "Wetterdienst taler også Model Context Protocol, så AI-assistenter kan hente vejrdata som værktøjer: find en station, og læs derefter dens målinger. De samme endepunkter som ovenfor er tilgængelige via streamable HTTP-transporten.",
@@ -490,9 +484,13 @@
     "untranslatedDe": "Dette indlæg er endnu ikke oversat til dit sprog og vises på tysk.",
     "topics": {
       "temperature": "Luft- og jordtemperatur",
+      "pressure": "Lufttryk",
+      "humidity": "Fugtighed og dugpunkt",
       "wind": "Vind",
       "precipitation": "Nedbør",
+      "radiation": "Stråling",
       "sunshine": "Solskinstimer",
+      "visibility": "Sigtbarhed",
       "snow": "Sne",
       "normals": "Klimanormaler",
       "time": "Tid",
@@ -715,6 +713,7 @@
     "showDataAvailability": "Vis datatilgængelighed",
     "visualizationTitle": "Visualisering",
     "loadingViz": "Indlæser data og genererer visualisering …",
+    "noRecord": "Denne station har ikke en måleserie, der er lang nok til klimastriber: der kræves mindst {years} år med data.",
     "downloadImage": "Download billede",
     "downloadPng": "Download som PNG",
     "downloadJpg": "Download som JPG",

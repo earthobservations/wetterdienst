@@ -158,7 +158,7 @@
       "meteogram": "De MOSMIX-verwachting van een DWD-station als meteogram: temperatuur, wind, neerslag, bewolking en luchtdruk.",
       "stripes": "Klimaatstrepen voor de temperatuur of neerslag van een station van de DWD of van NOAA GHCN daily.",
       "history": "Hoe een DWD-station in de loop van de tijd is veranderd: naam, locatie en instrumenten.",
-      "api": "De REST-API en de MCP-server van Wetterdienst: formaten en voorbeelden voor stations, waarden, interpolatie en klimaatstrepen.",
+      "api": "De REST-API en de MCP-server van Wetterdienst: formaten en voorbeelden voor stations, waarden en interpolatie.",
       "providers": "De nationale weerdiensten achter de data: land, licentie, de bronvermelding en wat ieder aanbiedt.",
       "glossary": "Wat elke weer- en klimaatparameter meet en in welke eenheid de waarden terugkomen, doorzoekbaar op naam en grootheid.",
       "measurement": "Hoe het weer wordt gemeten: instrumenten, hoe een meting een waarde wordt, wat het getal zegt en waar aanbieders verschillen, met bronnen.",
@@ -427,20 +427,14 @@
       "history": "Haal de stationsgeschiedenis op (naam, beheerder, apparaten, geografie, ontbrekende gegevens)",
       "values": "Haal observatiewaarden op voor geselecteerde stations en parameters",
       "interpolate": "Interpoleer waarden voor een specifieke locatie",
-      "summarize": "Verkrijg samengevatte waarden voor een locatie",
-      "stripesStations": "Verkrijg stations voor de visualisatie van klimaatstrepen",
-      "stripesValues": "Verkrijg waarden van klimaatstrepen met tijdstempels",
-      "stripesImage": "Genereer een afbeelding van klimaatstrepen"
+      "summarize": "Verkrijg samengevatte waarden voor een locatie"
     },
     "examples": {
       "stationsDwd": "DWD-observatie dagelijkse klimaatstations",
       "historyDwd": "DWD-observatie stationsgeschiedenis",
       "valuesDwd": "DWD-observatie dagelijkse klimaatwaarden",
       "interpolateDwd": "DWD-observatie dagelijkse klimaatinterpolatie",
-      "summarizeDwd": "DWD-observatie dagelijkse klimaatsamenvatting",
-      "stripesStations": "Klimaatstrepen-stations (temperatuur)",
-      "stripesValues": "Klimaatstrepen-waarden (temperatuur)",
-      "stripesImage": "Klimaatstrepen-afbeelding (temperatuur)"
+      "summarizeDwd": "DWD-observatie dagelijkse klimaatsamenvatting"
     },
     "mcpTitle": "MCP-eindpunt",
     "mcpText": "Wetterdienst spreekt ook het Model Context Protocol, zodat AI-assistenten weergegevens als tools kunnen opvragen: eerst een station zoeken, daarna de metingen lezen. Dezelfde eindpunten als hierboven zijn beschikbaar, via het streamable HTTP-transport.",
@@ -490,9 +484,13 @@
     "untranslatedDe": "Dit onderdeel is nog niet in jouw taal vertaald en wordt in het Duits getoond.",
     "topics": {
       "temperature": "Lucht- en bodemtemperatuur",
+      "pressure": "Luchtdruk",
+      "humidity": "Luchtvochtigheid en dauwpunt",
       "wind": "Wind",
       "precipitation": "Neerslag",
+      "radiation": "Straling",
       "sunshine": "Zonneschijnduur",
+      "visibility": "Zicht",
       "snow": "Sneeuw",
       "normals": "Klimaatnormalen",
       "time": "Tijd",
@@ -715,6 +713,7 @@
     "showDataAvailability": "Gegevensbeschikbaarheid tonen",
     "visualizationTitle": "Visualisatie",
     "loadingViz": "Gegevens laden en visualisatie genereren …",
+    "noRecord": "Dit station heeft geen reeks die lang genoeg is voor klimaatstrepen: er zijn minstens {years} jaar met gegevens nodig.",
     "downloadImage": "Afbeelding downloaden",
     "downloadPng": "Downloaden als PNG",
     "downloadJpg": "Downloaden als JPG",

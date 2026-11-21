@@ -13,14 +13,23 @@ import StationPicker from '~/components/StationPicker.vue'
 import StripesChart from '~/components/StripesChart.vue'
 import StripesPage from '~/pages/stripes.vue'
 import { SERIES_LABEL } from '~/utils/chart-theme'
-import { stripeColour } from '~/utils/stripes'
+import { stripeBand, stripeColour } from '~/utils/stripes'
 import { stripesAnswer } from '../../helpers/stripes-answer'
+import { asGhcnAnnual, asValues } from '../../helpers/stripes-backend'
 
 // the placeholder of the tool before a result (GH-3850), where the result card has nothing to show yet
 /** What the backend answers for these years: the values with their anomaly and class, and the reference they are relative to */
 function answerOf(items: Array<{ timestamp: string, value: number | null }>) {
   return stripesAnswer(items.map(item => ({ year: new Date(item.timestamp).getUTCFullYear(), value: item.value })))
 }
+
+// 13 years, which is more than the 10 a scale needs (GH-4258: the app refuses a station with fewer): 2008 to 2018 hold values between
+// those of the lowest year, 2019, and the highest, 2020
+const TWO_YEARS = [
+  ...Array.from({ length: 11 }, (_, index) => ({ timestamp: `${2008 + index}-01-01T00:00:00+00:00`, value: [9.2, 9.3, 9.4][index % 3]! })),
+  { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
+  { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
+]
 
 const PLACEHOLDER = 'Search for a station or pick one on the map, then click “Show” to create climate stripes'
 
@@ -200,11 +209,11 @@ describe('stripes Page', () => {
 
   it('clicking Show plots the stripes, and clicking Reset clears the plot', async () => {
     const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/values', asValues(() => ({
       series: { station },
-      ...answerOf([{ timestamp: '2000-01-01T00:00:00+00:00', value: 9.5 }]),
-    }))
+      ...answerOf(TWO_YEARS),
+    })))
 
     const wrapper = await mountSuspended(StripesPage, { attachTo: document.body })
     const vm = wrapper.vm as any
@@ -245,7 +254,7 @@ describe('stripes Page station map', () => {
   })
 
   it('picks its station with the shared station picker, for one station, which the search shows in the list and the map in one line', async () => {
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [tempelhof, potsdam] }))
+    registerEndpoint('/api/stations', () => ({ stations: [tempelhof, potsdam] }))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation' })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(2))
@@ -272,7 +281,7 @@ describe('stripes Page station map', () => {
   })
 
   it('stays centred on all stations, as the user chose, when the map\'s section renders again', async () => {
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [tempelhof, potsdam] }))
+    registerEndpoint('/api/stations', () => ({ stations: [tempelhof, potsdam] }))
     // precipitation, as the pages the tests above leave mounted hold the temperature stations' fetch
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation' })
     const vm = wrapper.vm as any
@@ -339,10 +348,12 @@ function hoverYear(year: number, first: number, last: number) {
 }
 const zoomButton = (name: string) => document.body.querySelector<HTMLButtonElement>(`.sc-toolbar button[aria-label="${name}"]`)!
 
-const TWO_YEARS = [
-  { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
-  { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
-]
+// a record with a year that has no value among them: 11 years, 10 of which have one, which a scale needs at least (GH-4258)
+const GAPPY = [8, 9, 9.25, 9.5, 9.25, 9.5, 9.75, 9.25, 9.5, null, 10].map((value, index) => ({ timestamp: `${2011 + index}-01-01T00:00:00+00:00`, value }))
+/** The rows of the table of those years, as the page writes them: the year, the value, the anomaly with its sign, and the class by its band */
+function gappyRows(kind: 'temperature' | 'precipitation' = 'temperature') {
+  return stripesAnswer(GAPPY.map(item => ({ year: new Date(item.timestamp).getUTCFullYear(), value: item.value }))).values.filter(item => item.value !== null).map(item => [`th:${item.timestamp!.slice(0, 4)}`, `td:${item.value!.toFixed(2)}`, `td:${item.anomaly! < 0 ? '-' : '+'}${Math.abs(item.anomaly!).toFixed(2)}`, `td:${en.stripes.table.classes[kind][stripeBand(item.stripe_class!)]}`])
+}
 
 describe('stripes Page years', () => {
   const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
@@ -371,8 +382,8 @@ describe('stripes Page years', () => {
 
   // the page with the station chosen and Show clicked, whatever language its button is written in
   async function show(route: string) {
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({ series: { station }, ...answerOf(TWO_YEARS) }))
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/values', asValues(() => ({ series: { station }, ...answerOf(TWO_YEARS) })))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
@@ -402,15 +413,15 @@ describe('stripes Page years', () => {
   it('labels each year as the backend gives it', async () => {
     await show('/stripes?kind=precipitation&show_years=true')
     // each year's value comes at its first moment in UTC, which is the year before in a zone west of it
-    expect(drawnOption().series[0].data.map((point: number[]) => point[0])).toEqual([2019, 2020])
-    expect(textsOf(drawnOption())).toEqual(expect.arrayContaining(['2019', '2020']))
+    expect(drawnOption().series[0].data.map((point: number[]) => point[0])).toEqual(Array.from({ length: 13 }, (_, index) => 2008 + index))
+    expect(textsOf(drawnOption())).toEqual(expect.arrayContaining(['2008', '2020']))
   })
 
   it('names the value and the class of the readout in the active language', async () => {
     // they read "Value:" in every language (GH-2610); a trend is no longer among them (GH-4170)
     await withLocale('de', async () => {
       await show('/stripes?kind=temperature')
-      hoverYear(2019, 2019, 2020)
+      hoverYear(2019, 2008, 2020)
       await nextTick()
       expect(readoutRows().map(([name]) => name)).toEqual(['Wert', 'Klasse'])
       expect(readout()!.textContent).not.toContain('Value')
@@ -422,7 +433,7 @@ describe('stripes Page years', () => {
     expect(vm.showTimeseries).toBeUndefined()
     expect(vm.showTrendline).toBeUndefined()
     expect(drawnOption().series.map((s: any) => s.id)).toEqual(['stripes', 'availability', 'labels'])
-    hoverYear(2019, 2019, 2020)
+    hoverYear(2019, 2008, 2020)
     await nextTick()
     expect(readoutRows().map(([name]) => name)).toEqual(['Value', 'Class'])
     // another choice rewrites the link from the page's own options, which have no such parameters
@@ -445,14 +456,14 @@ describe('stripes Page years', () => {
 
   // the numbers of the readout are written with the language's separators (GH-2971)
   it.each([
-    ['en', '9.10'],
-    ['de', '9,10'],
-    ['fr', '9,10'],
-    ['pl', '9,10'],
+    ['en', '9.10 °C'],
+    ['de', '9,10 °C'],
+    ['fr', '9,10 °C'],
+    ['pl', '9,10 °C'],
   ])('writes the numbers of the readout as %s does', async (language, expected) => {
     await withLocale(language, async () => {
       await show('/stripes?kind=temperature')
-      hoverYear(2019, 2019, 2020)
+      hoverYear(2019, 2008, 2020)
       await nextTick()
       expect(readoutRows()[0]![1]).toBe(expected)
     })
@@ -503,8 +514,8 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
   async function showStripes(values: Array<{ timestamp: string, value: number | null }> = TWO_YEARS) {
     // what a test left in the settings by the options it switched does not decide what is drawn
     const route = '/stripes?kind=precipitation&show_years=true&show_title=true&show_source=true&show_data_availability=true'
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({ series: { station }, ...answerOf(values) }))
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/values', asValues(() => ({ series: { station }, ...answerOf(values) })))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
     }), { attachTo: document.body, route })
@@ -573,10 +584,10 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
     const answered = new Promise<void>((resolve) => {
       answer = resolve
     })
-    registerEndpoint('/api/stripes/values', async () => {
+    registerEndpoint('/api/values', asValues(async () => {
       await answered
-      return { series: { station }, ...answerOf([{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }]) }
-    })
+      return { series: { station }, ...answerOf(TWO_YEARS) }
+    }))
 
     await wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
     expect(retry()).toBeUndefined()
@@ -713,14 +724,18 @@ describe('stripes Page chart that could not be drawn', { timeout: 15_000 }, () =
 describe('stripes Page units', () => {
   const station = { station_id: '1048', name: 'Berlin-Tempelhof', region: 'Berlin', latitude: 52.47, longitude: 13.4, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
 
+  // 2008 to 2018 are of 10 degrees, 2019 is the lowest year and 2020 the highest: 13 years, which a scale needs at least 10 of
+  const UNIT_YEARS = [...Array.from({ length: 11 }, (_, index) => ({ timestamp: `${2008 + index}-01-01T00:00:00+00:00`, value: 10 })), { timestamp: '2019-01-01T00:00:00+00:00', value: 9 }, { timestamp: '2020-01-01T00:00:00+00:00', value: 11 }]
+  /** The class of each year, which is the same in any unit */
+  const unitClasses = () => stripesAnswer(UNIT_YEARS.map(item => ({ year: new Date(item.timestamp).getUTCFullYear(), value: item.value }))).values.map(item => item.stripe_class!)
   // the query of each request of values, and the backend's answer: in the unit asked for, from degree Celsius
   const asked: Array<Record<string, string>> = []
   const other = { ...station, station_id: '3987', name: 'Potsdam' }
   // an answer of the values held until the test lets it go
   let gate: Promise<void> | null = null
   function serveValues() {
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', async (event) => {
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/values', asValues(async (event) => {
       const query = getQuery(event) as Record<string, string>
       asked.push(query)
       await gate
@@ -728,12 +743,9 @@ describe('stripes Page units', () => {
       const fahrenheit = targets.temperature === 'degree_fahrenheit'
       return {
         series: { station, unit: targets.precipitation ?? targets.temperature ?? 'degree_celsius' },
-        ...answerOf([
-          { timestamp: '2019-01-01T00:00:00+00:00', value: fahrenheit ? 9 * 1.8 + 32 : 9 },
-          { timestamp: '2020-01-01T00:00:00+00:00', value: fahrenheit ? 11 * 1.8 + 32 : 11 },
-        ]),
+        ...answerOf(UNIT_YEARS.map(item => ({ ...item, value: fahrenheit ? item.value * 1.8 + 32 : item.value }))),
       }
-    })
+    }))
   }
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
@@ -764,7 +776,7 @@ describe('stripes Page units', () => {
   }
   // the readout of the first of the two years, which names the unit the answer says its values are in
   async function hoveredValue() {
-    hoverYear(2019, 2019, 2020)
+    hoverYear(2019, 2008, 2020)
     await nextTick()
     return readoutRows()[0]![1]
   }
@@ -791,7 +803,7 @@ describe('stripes Page units', () => {
     await vi.waitFor(() => expect(sentence()).toContain('Lowest value 9.00 °C in 2019, highest value 11.00 °C in 2020.'))
     expect(await tableHead()).toContain('Value (°C)')
     expect(await hoveredValue()).toBe('9.00 °C')
-    expect(colours()).toEqual([5, 10].map(stripeClass => stripeColour('temperature', stripeClass)))
+    expect(colours()).toEqual(unitClasses().map(stripeClass => stripeColour('temperature', stripeClass)))
   })
 
   it('asks for degree Fahrenheit where the settings choose it, and says it everywhere it writes a number', async () => {
@@ -802,7 +814,7 @@ describe('stripes Page units', () => {
     expect(await tableHead()).toContain('Value (°F)')
     expect(await hoveredValue()).toBe('48.20 °F')
     // the colours are relative, the same as in degree Celsius
-    expect(colours()).toEqual([5, 10].map(stripeClass => stripeColour('temperature', stripeClass)))
+    expect(colours()).toEqual(unitClasses().map(stripeClass => stripeColour('temperature', stripeClass)))
   })
 
   it('asks the precipitation stripes for the unit of precipitation', async () => {
@@ -825,8 +837,12 @@ describe('stripes Page units', () => {
     useSettings().settings.value.units.temperature = 'degree_fahrenheit'
     await vi.waitFor(() => expect(asked).toHaveLength(2))
 
-    expect(asked[1]).toMatchObject({ station: '1048', start_year: '2005', end_year: '2015' })
+    expect(asked[1]).toMatchObject({ stations: '1048' })
     expect(JSON.parse(asked[1]!.unit_targets!)).toEqual({ temperature: 'degree_fahrenheit' })
+    // the years shown are those of the first fetch (the window is the app's own, and no request carries it), not the ones the form holds now
+    await vi.waitFor(() => expect(vm.valueUnit).toBe('°F'))
+    expect(vm.lastFetchedData.values.map((item: { timestamp: string }) => item.timestamp.slice(0, 4))).toEqual(Array.from({ length: 11 }, (_, index) => String(2005 + index)).filter(year => Number(year) >= 2008))
+    expect(asked[1]).not.toHaveProperty('start_year')
   })
 
   it('fetches again, in the new unit, once a fetch under way ends, where the unit changes during it', async () => {
@@ -865,10 +881,7 @@ describe('stripes Page values that could not be fetched', () => {
   const potsdam = { station_id: '3987', name: 'Potsdam', region: 'Brandenburg', latitude: 52.38, longitude: 13.06, start_timestamp: '1893-01-01', end_timestamp: '2020-01-01' }
   const values = (station: typeof tempelhof) => ({
     series: { station },
-    ...answerOf([
-      { timestamp: '2019-01-01T00:00:00+00:00', value: 9.1 },
-      { timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 },
-    ]),
+    ...answerOf(TWO_YEARS),
   })
 
   // the chart area's note of the failed fetch
@@ -917,7 +930,7 @@ describe('stripes Page values that could not be fetched', () => {
 
   // the page in the app's UApp, with the stations fetched
   async function mountPage() {
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [tempelhof, potsdam] }))
+    registerEndpoint('/api/stations', () => ({ stations: [tempelhof, potsdam] }))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
     }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
@@ -933,7 +946,7 @@ describe('stripes Page values that could not be fetched', () => {
   }
 
   it('shows the placeholder of the tools, and no result card, before there is anything to put in it (GH-3850)', async () => {
-    registerEndpoint('/api/stripes/values', () => new Promise(() => {}))
+    registerEndpoint('/api/values', asValues(() => new Promise(() => {})))
     const vm = await mountPage()
     expect(document.querySelector('[data-testid="tool-placeholder"]')?.getAttribute('data-tool')).toBe('stripes')
     expect(document.body.textContent).not.toContain('Visualization')
@@ -948,10 +961,10 @@ describe('stripes Page values that could not be fetched', () => {
 
   it('tells the backend\'s reason in the chart area', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    registerEndpoint('/api/stripes/values', (event) => {
+    registerEndpoint('/api/values', asValues((event) => {
       setResponseStatus(event, 404)
       return { detail: 'No precipitation data for station 1048' }
-    })
+    }))
     const vm = await mountPage()
     await show(vm, tempelhof)
 
@@ -967,7 +980,7 @@ describe('stripes Page values that could not be fetched', () => {
 
   it('takes another station\'s stripes away as this one\'s are fetched, and tells why they could not be', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    registerEndpoint('/api/stripes/values', () => values(tempelhof))
+    registerEndpoint('/api/values', asValues(() => values(tempelhof)))
     const vm = await mountPage()
     await show(vm, tempelhof)
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
@@ -975,7 +988,7 @@ describe('stripes Page values that could not be fetched', () => {
     const failing = held(() => {
       throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
     })
-    registerEndpoint('/api/stripes/values', failing.handler)
+    registerEndpoint('/api/values', asValues(failing.handler))
     echarts.chart.dispose.mockClear()
     await show(vm, potsdam)
     // Tempelhof's stripes gone while Potsdam's are fetched
@@ -991,7 +1004,7 @@ describe('stripes Page values that could not be fetched', () => {
 
   it('offers no image of stripes that could not be drawn, while or after they are fetched anew in vain', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    registerEndpoint('/api/stripes/values', () => values(tempelhof))
+    registerEndpoint('/api/values', asValues(() => values(tempelhof)))
     echarts.chart.setOption.mockImplementation(() => {
       throw new Error('drawing failed')
     })
@@ -1002,7 +1015,7 @@ describe('stripes Page values that could not be fetched', () => {
     const failing = held(() => {
       throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
     })
-    registerEndpoint('/api/stripes/values', failing.handler)
+    registerEndpoint('/api/values', asValues(failing.handler))
     await button('Show').trigger('click')
     // no empty chart area, with an image of nothing offered
     expect(vm.hasPlot).toBe(false)
@@ -1016,14 +1029,14 @@ describe('stripes Page values that could not be fetched', () => {
 
   it('keeps the station\'s stripes, and tells the failure above them, where Show fetches them anew in vain', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    registerEndpoint('/api/stripes/values', () => values(tempelhof))
+    registerEndpoint('/api/values', asValues(() => values(tempelhof)))
     const vm = await mountPage()
     await show(vm, tempelhof)
     await vi.waitFor(() => expect(downloadMenu()).not.toBeNull())
 
-    registerEndpoint('/api/stripes/values', () => {
+    registerEndpoint('/api/values', asValues(() => {
       throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
-    })
+    }))
     vm.startYear = 2019
     await nextTick()
     await button('Show').trigger('click')
@@ -1038,7 +1051,7 @@ describe('stripes Page values that could not be fetched', () => {
     const vm = await mountPage()
     recordRequests()
     const answer = held(() => values(tempelhof))
-    registerEndpoint('/api/stripes/values', answer.handler)
+    registerEndpoint('/api/values', asValues(answer.handler))
     echarts.chart.setOption.mockClear()
     await show(vm, tempelhof)
     expect(vm.isLoading).toBe(true)
@@ -1058,7 +1071,7 @@ describe('stripes Page values that could not be fetched', () => {
     const failing = held(() => {
       throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
     })
-    registerEndpoint('/api/stripes/values', failing.handler)
+    registerEndpoint('/api/values', asValues(failing.handler))
     const vm = await mountPage()
     recordRequests()
     await show(vm, tempelhof)
@@ -1078,7 +1091,7 @@ describe('stripes Page values that could not be fetched', () => {
     const vm = await mountPage()
     recordRequests()
     const answer = held(() => values(tempelhof))
-    registerEndpoint('/api/stripes/values', answer.handler)
+    registerEndpoint('/api/values', asValues(answer.handler))
     echarts.chart.setOption.mockClear()
     await show(vm, tempelhof)
     expect(vm.isLoading).toBe(true)
@@ -1101,7 +1114,7 @@ describe('stripes Page values that could not be fetched', () => {
     const failing = held(() => {
       throw createError({ statusCode: 502, statusMessage: 'Bad Gateway' })
     })
-    registerEndpoint('/api/stripes/values', failing.handler)
+    registerEndpoint('/api/values', asValues(failing.handler))
     const vm = await mountPage()
     recordRequests()
     await show(vm, tempelhof)
@@ -1141,8 +1154,8 @@ describe('stripes Page chart whose code a redeploy replaced', { timeout: 15_000 
   async function shownWithoutCode() {
     echarts.state.loadFails = true
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({ series: { station }, ...answerOf(TWO_YEARS) }))
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/values', asValues(() => ({ series: { station }, ...answerOf(TWO_YEARS) })))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation' })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
@@ -1203,9 +1216,9 @@ describe('stripes Page requests answered with a 500', () => {
     }
   }
 
-  it('asks /api/stripes/stations once', async () => {
+  it('asks the stations once: the two requests of the annual record, the historical and the recent period', async () => {
     const { asked, handler } = failing()
-    endpoints.push(registerEndpoint('/api/stripes/stations', handler))
+    endpoints.push(registerEndpoint('/api/stations', handler))
     // precipitation, as the pages the first tests leave mounted hold the temperature stations' fetch
     wrapper = await mountSuspended(StripesPage, { route: '/stripes?kind=precipitation' })
     const vm = wrapper.vm as any
@@ -1214,14 +1227,14 @@ describe('stripes Page requests answered with a 500', () => {
       expect(asked.count).toBeGreaterThan(0)
       expect(vm.stationsPending).toBe(false)
     })
-    expect(asked.count).toBe(1)
+    expect(asked.count).toBe(2)
   })
 
-  it('asks /api/stripes/values once, and tells its error', async () => {
+  it('asks the values once, and tells its error', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    endpoints.push(registerEndpoint('/api/stripes/stations', () => ({ stations: [station] })))
+    endpoints.push(registerEndpoint('/api/stations', () => ({ stations: [station] })))
     const { asked, handler } = failing()
-    endpoints.push(registerEndpoint('/api/stripes/values', handler))
+    endpoints.push(registerEndpoint('/api/values', asValues(handler)))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
     }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
@@ -1265,20 +1278,21 @@ describe('stripes Page requests answered with a 503 once', () => {
     }
   }
 
-  it('asks /api/stripes/stations once more, and lists what that answer brings', async () => {
+  it('asks the stations once more where the first of the two requests got a 503, and lists what that answer brings', async () => {
     const { asked, handler } = flaky({ stations: [station] })
-    endpoints.push(registerEndpoint('/api/stripes/stations', handler))
+    endpoints.push(registerEndpoint('/api/stations', handler))
     // precipitation, as the pages the first tests leave mounted hold the temperature stations' fetch
     wrapper = await mountSuspended(StripesPage, { route: '/stripes?kind=precipitation' })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
-    expect(asked.count).toBe(2)
+    // the historical and the recent period are asked for together, and the one that failed is asked again
+    expect(asked.count).toBe(3)
   })
 
-  it('asks /api/stripes/values once more, and plots what that answer brings', async () => {
-    endpoints.push(registerEndpoint('/api/stripes/stations', () => ({ stations: [station] })))
-    const { asked, handler } = flaky({ series: { station }, ...answerOf([{ timestamp: '2000-01-01T00:00:00+00:00', value: 9.5 }]) })
-    endpoints.push(registerEndpoint('/api/stripes/values', handler))
+  it('asks the values once more, and plots what that answer brings', async () => {
+    endpoints.push(registerEndpoint('/api/stations', () => ({ stations: [station] })))
+    const { asked, handler } = flaky({ series: { station }, ...answerOf(TWO_YEARS) })
+    endpoints.push(registerEndpoint('/api/values', asValues(handler)))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
     }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
@@ -1313,8 +1327,8 @@ describe('stripes Page chart after a Retry', { timeout: 15_000 }, () => {
     echarts.chart.setOption.mockImplementation(() => {
       throw new Error('drawing failed')
     })
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({ series: { station }, ...answerOf(TWO_YEARS) }))
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/values', asValues(() => ({ series: { station }, ...answerOf(TWO_YEARS) })))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
     }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
@@ -1374,8 +1388,8 @@ describe('stripes Page chart name', { timeout: 15_000 }, () => {
   })
 
   it('names the stripes by their kind and station, as a figure', async () => {
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({ series: { station }, ...answerOf([{ timestamp: '2020-01-01T00:00:00+00:00', value: 9.5 }]) }))
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/values', asValues(() => ({ series: { station }, ...answerOf(TWO_YEARS) })))
     wrapper = await mountSuspended(defineComponent({
       setup: () => () => h(UApp, null, { default: () => h(StripesPage) }),
     }), { attachTo: document.body, route: '/stripes?kind=precipitation' })
@@ -1407,7 +1421,7 @@ describe('stripes Page station span', () => {
   })
 
   it('shows the years a chosen station has records for', async () => {
-    removeEndpoint = registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    removeEndpoint = registerEndpoint('/api/stations', () => ({ stations: [station] }))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: '/stripes?kind=precipitation' })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
@@ -1433,17 +1447,12 @@ describe('stripes Page text alternative', () => {
   async function showStripes(route = '/stripes?kind=temperature') {
     // the station lists the earlier tests fetched are kept by their request, which this one is too
     clearNuxtData()
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/values', asValues(() => ({
       metadata: {},
       series: { station, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
-      ...answerOf([
-        { timestamp: '2018-01-01T00:00:00+00:00', value: 8 },
-        { timestamp: '2019-01-01T00:00:00+00:00', value: 9.25 },
-        { timestamp: '2020-01-01T00:00:00+00:00', value: null },
-        { timestamp: '2021-01-01T00:00:00+00:00', value: 10 },
-      ]),
-    }))
+      ...answerOf(GAPPY),
+    })))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
@@ -1468,7 +1477,7 @@ describe('stripes Page text alternative', () => {
     await showStripes()
     const description = document.getElementById(figure().getAttribute('aria-describedby')!.split(' ')[0]!)
     expect(description?.textContent?.trim()).toBe(
-      'From 2018 to 2021. Lowest value 8.00 °C in 2018, highest value 10.00 °C in 2021. Relative to the station\'s whole record, 2018–2021. The values are in the table: choose “Table” under “Chart style” above the chart.',
+      'From 2011 to 2021. Lowest value 8.00 °C in 2011, highest value 10.00 °C in 2021. Relative to the station\'s whole record, 2011–2021. The values are in the table: choose “Table” under “Chart style” above the chart.',
     )
   })
 
@@ -1496,11 +1505,9 @@ describe('stripes Page text alternative', () => {
     ])
     // the year with no value is not drawn, so it is not listed; each year is the header of its row
     const rows = [...table.querySelectorAll('tbody tr')].map(row => [...row.children].map(cell => `${cell.tagName.toLowerCase()}:${cell.textContent?.trim()}`))
-    expect(rows).toEqual([
-      ['th:2018', 'td:8.00', 'td:-1.08', 'td:Cooler'],
-      ['th:2019', 'td:9.25', 'td:+0.17', 'td:Middle'],
-      ['th:2021', 'td:10.00', 'td:+0.92', 'td:Warmer'],
-    ])
+    expect(rows).toEqual(gappyRows())
+    expect(rows).toHaveLength(10)
+    expect(rows.some(row => row[0] === 'th:2020')).toBe(false)
     expect(table.querySelector('caption')?.textContent?.trim()).toBe(label)
     // the table is the forecast's, as a view of its own: the whole width, the header and the first column kept in view
     expect(document.body.querySelector('.values-table')?.className).toContain('max-h-[70vh]')
@@ -1526,22 +1533,22 @@ describe('stripes Page text alternative', () => {
   it('names the classes of a precipitation series by wet and dry', async () => {
     await showStripes('/stripes?kind=precipitation')
     await chooseTable()
-    expect([...document.body.querySelectorAll('tbody tr')].map(row => row.lastElementChild?.textContent?.trim())).toEqual(['Drier', 'Middle', 'Wetter'])
+    expect([...document.body.querySelectorAll('tbody tr')].map(row => row.lastElementChild?.textContent?.trim())).toEqual(gappyRows('precipitation').map(row => row[3]!.slice(3)))
   })
 
   it('says only what this station\'s colours are measured against under the chart, and the whole record where the station has too few years', async () => {
     await showStripes()
-    expect(reference()).toBe('Relative to the station\'s whole record, 2018–2021')
+    expect(reference()).toBe('Relative to the station\'s whole record, 2011–2021')
     // the method is not under every chart: it is in the About text
     expect(document.body.textContent).not.toContain('Ed Hawkins\' method')
   })
 
   it('says what the bars are drawn from, and keeps the line in the table view', async () => {
     await showStripes('/stripes?kind=temperature&variant=bars')
-    expect(reference()).toBe('Bars: the difference from the mean of the station\'s whole record, 2018–2021')
+    expect(reference()).toBe('Bars: the difference from the mean of the station\'s whole record, 2011–2021')
     radio('Table').click()
     await vi.waitFor(() => expect(document.body.querySelector('table')).not.toBeNull())
-    expect(reference()).toBe('Relative to the station\'s whole record, 2018–2021')
+    expect(reference()).toBe('Relative to the station\'s whole record, 2011–2021')
   })
 
   it('has no table and no description once the stripes are cleared', async () => {
@@ -1577,8 +1584,8 @@ describe('stripes Page chart in the language of the page, and disposed of at its
 
   // what Show does, whatever language its button is written in
   async function showStripes(query = 'kind=temperature') {
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
-    registerEndpoint('/api/stripes/values', () => ({ series: { station }, ...answerOf(TWO_YEARS) }))
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/values', asValues(() => ({ series: { station }, ...answerOf(TWO_YEARS) })))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: `/stripes?${query}` })
     const vm = wrapper.vm as any
     await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
@@ -1643,7 +1650,7 @@ describe('stripes Page chart in the language of the page, and disposed of at its
   })
 
   it('disposes nothing where no stripes were drawn', async () => {
-    registerEndpoint('/api/stripes/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
     wrapper = await mountSuspended(StripesPage, { attachTo: document.body })
     echarts.chart.dispose.mockClear()
     wrapper.unmount()
@@ -1663,8 +1670,11 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
   const odd = { ...ghcnStation, station_id: 'ZZ000000001', name: 'ODD STATION' }
   const byId = Object.fromEntries([ghcnStation, stoppedStation, newYork, australia, odd].map(entry => [entry.station_id, entry]))
 
+  // what each address was asked: DWD's annual lists and values from the generic API, GHCN's from the app's own server (GH-4258)
   const listQueries: Array<Record<string, string>> = []
   const valuesQueries: Array<Record<string, string>> = []
+  const ghcnListQueries: Array<Record<string, string>> = []
+  const ghcnValuesQueries: Array<Record<string, string>> = []
   const stationQueries: Array<Record<string, string>> = []
   let method: 'midrange' | 'tavg' | null = 'midrange'
   /** How many requests for a station by its id fail with a 500 before one is answered */
@@ -1673,33 +1683,43 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
   let stationDelay = 0
 
   function register() {
-    registerEndpoint('/api/stripes/stations', (event) => {
+    registerEndpoint('/api/stations', async (event) => {
       const query = getQuery(event) as Record<string, string>
+      // a station asked for by its id: the one of a link that the list of the stations that report does not hold
+      if (query.stations) {
+        stationQueries.push(query)
+        if (stationDelay)
+          await new Promise(resolve => setTimeout(resolve, stationDelay))
+        if (stationFailures > 0) {
+          stationFailures--
+          setResponseStatus(event, 500)
+          return { detail: 'The stations are not available' }
+        }
+        return { stations: [stoppedStation] }
+      }
       listQueries.push(query)
       // DWD's list has more than one station, so that none is chosen for the reader
-      return { stations: query.provider ? [ghcnStation, newYork] : [ghcnStation, { ...ghcnStation, station_id: '00011', name: 'Donaueschingen' }] }
+      return { stations: [ghcnStation, { ...ghcnStation, station_id: '00011', name: 'Donaueschingen' }] }
     })
-    registerEndpoint('/api/stripes/values', (event) => {
+    // the stations of GHCN daily that report and have a record long enough, which the app's own server lists
+    registerEndpoint('/_ghcn/stations', (event) => {
+      ghcnListQueries.push(getQuery(event) as Record<string, string>)
+      return { stations: [ghcnStation, newYork] }
+    })
+    registerEndpoint('/_ghcn/annual', asGhcnAnnual((event) => {
       const query = getQuery(event) as Record<string, string>
-      valuesQueries.push(query)
+      ghcnValuesQueries.push(query)
       const station = byId[query.station!] ?? ghcnStation
       return {
-        metadata: { provider: { attribution: 'NOAA National Centers for Environmental Information (NCEI), Global Historical Climatology Network', license: { name: 'Creative Commons Zero v1.0 Universal', url: 'https://creativecommons.org/publicdomain/zero/1.0/' } } },
-        series: { station, resolution: 'daily', dataset: 'data', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius', method },
+        series: { station, unit: 'degree_celsius', method },
         ...answerOf(TWO_YEARS),
       }
-    })
-    registerEndpoint('/api/stations', async (event) => {
-      stationQueries.push(getQuery(event) as Record<string, string>)
-      if (stationDelay)
-        await new Promise(resolve => setTimeout(resolve, stationDelay))
-      if (stationFailures > 0) {
-        stationFailures--
-        setResponseStatus(event, 500)
-        return { detail: 'The stations are not available' }
-      }
-      return { stations: [stoppedStation] }
-    })
+    }))
+    registerEndpoint('/api/values', asValues((event) => {
+      const query = getQuery(event) as Record<string, string>
+      valuesQueries.push(query)
+      return { series: { station: byId[query.stations!] ?? ghcnStation, unit: 'degree_celsius' }, ...answerOf(TWO_YEARS) }
+    }))
   }
 
   let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
@@ -1715,7 +1735,7 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
     wrapper = undefined
     // the list of an earlier test is cached by its address: this test's own is asked for
     clearNuxtData()
-    listQueries.length = valuesQueries.length = stationQueries.length = 0
+    listQueries.length = valuesQueries.length = ghcnListQueries.length = ghcnValuesQueries.length = stationQueries.length = 0
   })
 
   async function open(route: string) {
@@ -1733,20 +1753,27 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
 
   const LINK = '/stripes?kind=temperature&provider=noaa&network=ghcn&station=GM000010147'
 
-  it('is DWD\'s by default: the stations and the values are asked for with no provider and network', async () => {
+  it('is DWD\'s by default: the stations and the years are DWD\'s annual record, from the generic API, and nothing is asked of GHCN\'s', async () => {
     const vm = await show('/stripes?kind=temperature&station=GM000010147')
     expect(vm.source).toBe('dwd')
-    expect(listQueries.at(-1)).toEqual({ kind: 'temperature' })
-    expect(valuesQueries.at(-1)).not.toHaveProperty('provider')
-    expect(valuesQueries.at(-1)).not.toHaveProperty('network')
+    // the historical and the recent period of the annual record, for the stations that have a record long enough and still report
+    expect(listQueries.map(query => query.periods).sort()).toEqual(['historical', 'recent'])
+    expect(listQueries.at(-1)).toMatchObject({ provider: 'dwd', network: 'observation', parameters: 'annual/climate_summary/temperature_air_mean_2m', all: 'true' })
+    expect(valuesQueries.at(-1)).toMatchObject({ provider: 'dwd', network: 'observation', parameters: 'annual/climate_summary/temperature_air_mean_2m', periods: 'historical', stations: 'GM000010147' })
+    expect(ghcnListQueries).toEqual([])
+    expect(ghcnValuesQueries).toEqual([])
     expect(wrapper!.find('[data-testid="stripes-source"]').exists()).toBe(true)
   })
 
-  it('takes the source from the link, and asks for the stations and the values of the network', async () => {
+  it('takes the source from the link, and asks the app\'s own server for the stations and the years of the network', async () => {
     const vm = await show(LINK)
     expect(vm.source).toBe('ghcn')
-    expect(listQueries.at(-1)).toEqual({ kind: 'temperature', provider: 'noaa', network: 'ghcn' })
-    expect(valuesQueries.at(-1)).toMatchObject({ kind: 'temperature', provider: 'noaa', network: 'ghcn', station: 'GM000010147' })
+    expect(ghcnListQueries).toEqual([{ kind: 'temperature' }])
+    expect(ghcnValuesQueries.at(-1)).toMatchObject({ kind: 'temperature', station: 'GM000010147' })
+    expect(JSON.parse(ghcnValuesQueries.at(-1)!.unit_targets!)).toEqual({ temperature: 'degree_celsius' })
+    // nothing of DWD's annual record is asked for
+    expect(listQueries).toEqual([])
+    expect(valuesQueries).toEqual([])
     // and the address keeps it
     await vi.waitFor(() => expect(useRouter().currentRoute.value.query).toMatchObject({ provider: 'noaa', network: 'ghcn', station: 'GM000010147' }))
   })
@@ -1932,5 +1959,100 @@ describe('stripes Page NOAA GHCN daily (GH-4078)', () => {
     expect(vm.hasPlot).toBe(false)
     await vi.waitFor(() => expect(useRouter().currentRoute.value.query).not.toHaveProperty('provider'))
     expect(useRouter().currentRoute.value.query).not.toHaveProperty('network')
+  })
+})
+
+// A station with no record long enough, and a link that names no kind (GH-4258): the page tells the first in words of its own, and
+// the second is the temperature
+describe('stripes Page record too short, and a kind that is none', () => {
+  const station = { station_id: '00061', name: 'Aiterhofen', region: 'Bayern', latitude: 48.84, longitude: 12.61, start_timestamp: '1950-01-01', end_timestamp: '2020-01-01' }
+  let wrapper: Awaited<ReturnType<typeof mountSuspended>> | undefined
+  afterEach(() => {
+    wrapper?.unmount()
+    wrapper = undefined
+    clearNuxtData()
+    document.body.innerHTML = ''
+  })
+
+  async function showShort(years: number) {
+    clearNuxtData()
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/values', asValues(() => ({ series: { station }, values: answerOf(TWO_YEARS).values.slice(TWO_YEARS.length - years) })))
+    wrapper = await mountSuspended(defineComponent({ setup: () => () => h(UApp, null, { default: () => h(StripesPage) }) }), { attachTo: document.body, route: '/stripes?kind=temperature' })
+    const vm = wrapper.findComponent(StripesPage).vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    vm.selectedStation = station
+    await nextTick()
+    // what Show does, whatever language its button is written in
+    void vm.fetchAndPlotStripes()
+    return vm
+  }
+
+  it('says so in a sentence of the page\'s own, as an alert, and not as a failure with the backend\'s English sentence', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const vm = await showShort(5)
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="stripes-no-record"]')).not.toBeNull())
+    const message = document.querySelector('[data-testid="stripes-no-record"]')!
+    expect(message.textContent?.trim()).toBe('This station has no record long enough for climate stripes: at least 10 years with data are needed.')
+    // an alert, which a screen reader announces, with no heading of a failure and none of the backend's words
+    expect(message.closest('[role="alert"]')).not.toBeNull()
+    expect(document.body.textContent).not.toContain('Failed to load data')
+    expect(document.body.textContent).not.toContain('At least 10 years with data are required to scale')
+    expect(vm.hasPlot).toBe(false)
+    // Reset takes it away
+    await wrapper!.findAll('button').find((b: { text: () => string }) => b.text() === 'Reset')!.trigger('click')
+    expect(document.querySelector('[data-testid="stripes-no-record"]')).toBeNull()
+  })
+
+  it.each([0, 1])('says it for a record of %i years with data too, which the window check would have refused first', async (years) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    await showShort(years)
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="stripes-no-record"]')).not.toBeNull())
+    expect(document.querySelector('[data-testid="stripes-no-record"]')!.textContent?.trim()).toBe('This station has no record long enough for climate stripes: at least 10 years with data are needed.')
+    expect(document.body.textContent).not.toContain('Failed to load data')
+    expect(document.body.textContent).not.toContain('At least two years with data')
+  })
+
+  it('says it in the language of the page', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const harness = await mountSuspended(defineComponent({ setup: () => ({ setLocale: useI18n().setLocale }), render: () => h('div') }))
+    await (harness.vm as any).setLocale('de')
+    try {
+      await showShort(5)
+      await vi.waitFor(() => expect(document.querySelector('[data-testid="stripes-no-record"]')).not.toBeNull())
+      expect(document.querySelector('[data-testid="stripes-no-record"]')!.textContent?.trim()).toBe(de.stripes.noRecord.replace('{years}', '10'))
+    }
+    finally {
+      await (harness.vm as any).setLocale('en')
+      harness.unmount()
+    }
+  })
+
+  it('keeps the failure for what is no record that is too short: a window with fewer than two years is the answer\'s own sentence', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    clearNuxtData()
+    registerEndpoint('/api/stations', () => ({ stations: [station] }))
+    registerEndpoint('/api/values', asValues(() => ({ series: { station }, ...answerOf(TWO_YEARS) })))
+    wrapper = await mountSuspended(defineComponent({ setup: () => () => h(UApp, null, { default: () => h(StripesPage) }) }), { attachTo: document.body, route: '/stripes?kind=temperature&start_year=2030&end_year=2040' })
+    const vm = wrapper.findComponent(StripesPage).vm as any
+    await vi.waitFor(() => expect(vm.stations).toHaveLength(1))
+    vm.selectedStation = station
+    await nextTick()
+    await wrapper.findAll('button').find((b: { text: () => string }) => b.text() === 'Show')!.trigger('click')
+    await vi.waitFor(() => expect(document.body.textContent).toContain('At least two years with data are required to create climate stripes'))
+    expect(document.querySelector('[data-testid="stripes-no-record"]')).toBeNull()
+    expect(document.body.textContent).toContain('Failed to load data')
+  })
+
+  it.each([
+    ['foo', 'temperature'],
+    ['', 'temperature'],
+    ['TEMPERATURE', 'temperature'],
+    ['precipitation', 'precipitation'],
+  ])('takes the kind %j of a link as %s: a name that is none of the two is no choice, and no crash', async (name, expected) => {
+    registerEndpoint('/api/stations', () => ({ stations: [] }))
+    wrapper = await mountSuspended(StripesPage, { attachTo: document.body, route: `/stripes?kind=${name}` })
+    expect((wrapper.vm as any).kind).toBe(expected)
+    expect(wrapper.text()).toContain('Climate stripes')
   })
 })

@@ -96,6 +96,60 @@ describe('the colour of a stripe', () => {
     expect(STRIPE_PALETTES.temperature).toEqual([...blues, ...reds])
   })
 
+  // the half-ramps of ColorBrewer's 11-class BrBG without its neutral middle, and the 8 colours of each side mixed in RGB along them at even
+  // steps: our own choice, as Hawkins has no precipitation stripes (the port of `_sample` of the backend's `ui/stripes_scale.py`, GH-4258)
+  const BRBG_DRY = ['#543005', '#8c510a', '#bf812d', '#dfc27d', '#f6e8c3']
+  const BRBG_WET = ['#c7eae5', '#80cdc1', '#35978f', '#01665e', '#003c30']
+  function sample(anchors: string[], count = 8): string[] {
+    const channels = anchors.map(anchor => [1, 3, 5].map(at => Number.parseInt(anchor.slice(at, at + 2), 16)))
+    return Array.from({ length: count }, (_, step) => {
+      const position = step / (count - 1) * (anchors.length - 1)
+      const low = Math.min(Math.trunc(position), anchors.length - 2)
+      const share = position - low
+      // Python's `round` goes to the even number at a half, as `Math.round` does not
+      const mixed = [0, 1, 2].map((channel) => {
+        const value = channels[low]![channel]! + (channels[low + 1]![channel]! - channels[low]![channel]!) * share
+        const floor = Math.floor(value)
+        return value - floor === 0.5 ? (floor % 2 === 0 ? floor : floor + 1) : Math.round(value)
+      })
+      return `#${mixed.map(channel => channel.toString(16).padStart(2, '0')).join('')}`
+    })
+  }
+
+  it('has a precipitation palette that is BrBG sampled at even steps: brown for dry, teal for wet', () => {
+    expect([...sample(BRBG_DRY), ...sample(BRBG_WET)]).toEqual(STRIPE_PALETTES.precipitation)
+    // the ends are ColorBrewer's own darkest brown and darkest blue-green, and the middle pair is pale on both sides
+    expect([STRIPE_PALETTES.precipitation[0], STRIPE_PALETTES.precipitation[15]]).toEqual([BRBG_DRY[0], BRBG_WET[4]])
+    expect([STRIPE_PALETTES.precipitation[7], STRIPE_PALETTES.precipitation[8]]).toEqual([BRBG_DRY[4], BRBG_WET[0]])
+  })
+
+  it('mixes in RGB and keeps the ends, in the sampling the palette is made by', () => {
+    expect(sample(['#000000', '#ffffff'], 2)).toEqual(['#000000', '#ffffff'])
+    expect(sample(['#000000', '#ffffff'], 3)).toEqual(['#000000', '#808080', '#ffffff'])
+    expect(sample(['#000000', '#ff0000', '#ffffff'], 3)).toEqual(['#000000', '#ff0000', '#ffffff'])
+  })
+
+  it('has the 16 colours of the pixels of Ed Hawkins\' own graphics for the temperature, the 8 most saturated of the two palettes', () => {
+    expect(new Set(STRIPE_PALETTES.temperature)).toEqual(new Set([
+      '#08306b',
+      '#08519c',
+      '#2171b5',
+      '#4292c6',
+      '#6baed6',
+      '#9ecae1',
+      '#c6dbef',
+      '#deebf7',
+      '#fee0d2',
+      '#fcbba1',
+      '#fc9272',
+      '#fb6a4a',
+      '#ef3b2c',
+      '#cb181d',
+      '#a50f15',
+      '#67000d',
+    ]))
+  })
+
   it('is the end of the scale for a class beyond it', () => {
     expect(stripeColour('temperature', -3)).toBe('#08306b')
     expect(stripeColour('temperature', 99)).toBe('#67000d')

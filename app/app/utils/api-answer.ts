@@ -24,9 +24,10 @@ export const HTML_TYPE = /^\s*(?:text\/html|application\/xhtml\+xml)\b/i
  */
 const LISTS: Record<string, string> = {
   '/api/stations': 'stations',
-  '/api/stripes/stations': 'stations',
+  // the app's own server's routes, which the stripes of GHCN daily read (GH-4258)
+  '/_ghcn/stations': 'stations',
   '/api/values': 'values',
-  '/api/stripes/values': 'values',
+  '/_ghcn/annual': 'values',
   '/api/interpolate': 'values',
   '/api/summarize': 'values',
   '/api/providers': 'providers',

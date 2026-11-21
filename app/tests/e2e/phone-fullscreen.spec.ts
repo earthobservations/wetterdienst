@@ -109,8 +109,12 @@ test.describe('the map on its side', () => {
     expect(await page.locator('.station-map').evaluate(element => getComputedStyle(element).borderTopLeftRadius)).not.toBe('0px')
     expect(await noHorizontalScroll(page)).toBe(true)
     await page.getByTestId('map-fullscreen').click()
+    // the browser enters full screen after the click, not with it: until then the box is the card's place in the page (GH-4279)
+    await expect.poll(async () => {
+      const box = (await page.getByTestId('map-screen').boundingBox())!
+      return { x: Math.round(box.x), y: Math.round(box.y) }
+    }).toEqual({ x: 0, y: 0 })
     const screen = (await page.getByTestId('map-screen').boundingBox())!
-    expect(screen).toMatchObject({ x: 0, y: 0 })
     expect(screen.height).toBeCloseTo(390, 0)
     const sheet = (await page.getByTestId('map-sheet').boundingBox())!
     expect(sheet.y + sheet.height).toBeLessThanOrEqual(390 + 1)

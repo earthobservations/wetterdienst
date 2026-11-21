@@ -9,9 +9,13 @@ export const MEASUREMENT_PATH = '/measurement'
 /** The entries, in the order of the page. The id is the anchor (`/measurement#wind`) and is never changed once released. */
 export const TOPICS = [
   'temperature',
+  'pressure',
+  'humidity',
   'wind',
   'precipitation',
+  'radiation',
   'sunshine',
+  'visibility',
   'snow',
   'normals',
   'time',
@@ -22,7 +26,7 @@ export type TopicId = (typeof TOPICS)[number]
 
 /** The two sections of the page: the measurements (and the normals that sum them up), and how to read the data */
 export const TOPIC_GROUPS: readonly { id: 'measured' | 'reading', topics: readonly TopicId[] }[] = [
-  { id: 'measured', topics: ['temperature', 'wind', 'precipitation', 'sunshine', 'snow', 'normals'] },
+  { id: 'measured', topics: ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'snow', 'normals'] },
   { id: 'reading', topics: ['time', 'observation-forecast-derived'] },
 ]
 
@@ -55,9 +59,9 @@ export interface TopicRule {
  *
  * The names are the backend's canonical ones, which are built from the quantity first (`temperature_air_max_2m`), so a
  * pattern on the beginning of the name takes a family of them. What a rule leaves out is left out on purpose and
- * `tests/unit/measurement.test.ts` names it: the dew point, the wet-bulb and the water temperature are humidity and
- * hydrology, whose entries are not written yet; the form of precipitation and the soil moisture are not what the entries
- * of precipitation and temperature explain.
+ * `tests/unit/measurement.test.ts` names it: the water temperature is hydrology, whose entry is not written yet; the
+ * form of precipitation, the soil moisture, the UV index, the forecast probabilities and the forecast errors are not what
+ * the entries explain.
  *
  * A parameter whose name ends in `_normal` is a normal of the provider (`sunshine_duration_normal`), whatever it is a
  * normal of, so that rule comes first.
@@ -65,9 +69,13 @@ export interface TopicRule {
 export const TOPIC_RULES: readonly TopicRule[] = [
   { topic: 'normals', pattern: /_normal$/, shown: ['*_normal'] },
   { topic: 'temperature', pattern: /^temperature_(?:air|soil)(?:_|$)/, shown: ['temperature_air_*', 'temperature_soil_*'] },
+  { topic: 'pressure', pattern: /^pressure_air(?:_|$)/, shown: ['pressure_air_*'] },
+  { topic: 'humidity', pattern: /^(?:humidity_(?:relative|absolute)|temperature_(?:dew_point|wet)|pressure_vapor|vapor_pressure_deficit)(?:_|$)/, shown: ['humidity_relative_*', 'humidity_absolute', 'temperature_dew_point_*', 'temperature_wet_*', 'pressure_vapor_*', 'vapor_pressure_deficit_*'] },
   { topic: 'wind', pattern: /^wind_(?:speed|gust|direction|force)(?:_|$)/, shown: ['wind_speed_*', 'wind_gust_*', 'wind_direction_*', 'wind_force_*'] },
   { topic: 'precipitation', pattern: /^precipitation_(?:amount|intensity)(?:_|$)/, shown: ['precipitation_amount_*', 'precipitation_intensity_*'] },
+  { topic: 'radiation', pattern: /^radiation_(?:global|sky|long_wave|short_wave)(?:_|$)/, shown: ['radiation_global_*', 'radiation_sky_*', 'radiation_long_wave_*', 'radiation_short_wave_*'] },
   { topic: 'sunshine', pattern: /^sunshine_duration(?:_|$)/, shown: ['sunshine_duration_*'] },
+  { topic: 'visibility', pattern: /^visibility(?:_|$)/, shown: ['visibility_*'] },
   { topic: 'snow', pattern: /^(?:snow_(?:depth|cover)|water_equivalent_snow_depth)(?:_|$)/, shown: ['snow_depth_*', 'snow_cover', 'water_equivalent_snow_depth_*'] },
 ]
 
