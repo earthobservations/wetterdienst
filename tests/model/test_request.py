@@ -544,8 +544,32 @@ def test_position_by_station_id_takes_an_elevation_any_resolution_knows(
     assert elevation == 18.9
     # the coordinates are the first row's, as they were: both lists give them
     assert (latitude, longitude) == (rows[order[0]]["latitude"], rows[order[0]]["longitude"])
+    # the lookup of whether NOAA knows the id for other parameters reads its lists: not part of this test
+    monkeypatch.setattr(NoaaGhcnRequest, "_knows_station_outside_parameters", lambda _self, _station_id: False)
     with pytest.raises(StationNotFoundError, match="no station found for CAN00000000"):
         request._get_position_by_station_id("CAN00000000")  # noqa: SLF001
+
+
+@pytest.mark.parametrize("method", ["interpolate_by_station_id", "summarize_by_station_id"])
+def test_station_by_id_of_a_provider_whose_list_ignores_the_parameters_is_not_found(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, method: str
+) -> None:
+    """A provider that cannot tell a station that lacks the parameters from an unknown one says it is not found.
+
+    The default of `_knows_station_outside_parameters` is no: the list of such a provider is the same for every
+    parameter, so a station that is not in it is not known (GH-4272). The message says so, and it is no
+    `StationLacksParametersError`, which would tell the caller to change the parameters.
+    """
+    from wetterdienst.exceptions import StationLacksParametersError, StationNotFoundError  # noqa: PLC0415
+
+    request = DwdObservationRequest(parameters=["daily/kl"], periods="recent", settings=default_settings)
+    stations = pl.DataFrame({"station_id": ["00011"], "latitude": [50.0], "longitude": [10.0], "elevation": [100.0]})
+    monkeypatch.setattr(DwdObservationRequest, "_stations_to_select_among", lambda _self: stations)
+    with pytest.raises(
+        StationNotFoundError, match="no station found for 99999: no station of this request has this id"
+    ) as excinfo:
+        getattr(request, method)("99999")
+    assert not isinstance(excinfo.value, StationLacksParametersError)
 
 
 @pytest.mark.parametrize(("old", "new"), [("start_date", "start"), ("end_date", "end")])
@@ -1004,3 +1028,35 @@ def test_dwd_periods_follow_the_instant_of_a_bound_in_a_named_zone(
     # the instants spelled in UTC and in a fixed offset select the same
     assert periods(just_before.astimezone(_UTC)) == periods(just_before)
     assert periods(dt.datetime(2025, 5, 31, 23, 30, tzinfo=dt.timezone(dt.timedelta(hours=2)))) == periods(just_before)
+
+
+@pytest.mark.parametrize("method", ["interpolate_by_station_id", "summarize_by_station_id"])
+def test_station_by_id_of_a_skipped_directory_is_the_502_before_the_hook_is_asked(
+    monkeypatch: pytest.MonkeyPatch, default_settings: Settings, method: str
+) -> None:
+    """A lookup that went without a listing the station may be in says so, whatever the provider knows (GH-4272).
+
+    `StationListingIncompleteError` is the provider's failure, a 502; a station that lacks the parameters is the
+    caller's. The first is checked first, so the hook is not even asked.
+    """
+    from wetterdienst.exceptions import StationLacksParametersError, StationListingIncompleteError  # noqa: PLC0415
+
+    def hook(_self: TimeseriesRequest, _station_id: str) -> bool:
+        msg = "the hook is not asked where a directory was skipped"
+        raise AssertionError(msg)
+
+    request = DwdObservationRequest(parameters=["daily/kl"], periods="recent", settings=default_settings)
+    stations = pl.DataFrame(
+        {"station_id": ["00011"], "latitude": [50.0], "longitude": [10.0], "elevation": [100.0]},
+        schema={"station_id": pl.String, "latitude": pl.Float64, "longitude": pl.Float64, "elevation": pl.Float64},
+    )
+    monkeypatch.setattr(DwdObservationRequest, "_stations_to_select_among", lambda _self: stations)
+    monkeypatch.setattr(DwdObservationRequest, "_gaps_that_may_list", lambda _self, _id: {"`a/`": "it was empty"})
+    monkeypatch.setattr(DwdObservationRequest, "_knows_station_outside_parameters", hook)
+    with pytest.raises(StationListingIncompleteError, match="No station found for 99999"):
+        getattr(request, method)("99999")
+    # and a station that is known is the caller's, where nothing was skipped
+    monkeypatch.setattr(DwdObservationRequest, "_gaps_that_may_list", lambda _self, _id: {})
+    monkeypatch.setattr(DwdObservationRequest, "_knows_station_outside_parameters", lambda _self, _id: True)
+    with pytest.raises(StationLacksParametersError):
+        getattr(request, method)("99999")

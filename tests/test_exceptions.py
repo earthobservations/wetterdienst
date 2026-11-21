@@ -49,6 +49,7 @@ from wetterdienst.exceptions import (
     RequestError,
     ReversedTimeIntervalError,
     StartDateEndDateError,
+    StationLacksParametersError,
     StationListingIncompleteError,
     StationNotFoundError,
     UnknownFormatError,
@@ -78,6 +79,7 @@ _BASES: dict[type[BaseException], tuple[type[WetterdienstError], tuple[type[Base
     ProductOutOfSeasonError: (NotFoundError, (IssueNotFoundError, IndexError, LookupError)),
     NotEnoughDataError: (RequestError, (ValueError,)),
     ProviderNotFoundError: (NotFoundError, (Exception,)),
+    StationLacksParametersError: (RequestError, (ValueError,)),
     StationListingIncompleteError: (UpstreamError, (Exception,)),
     StationNotFoundError: (NotFoundError, (Exception,)),
     ApiNotFoundError: (NotFoundError, (Exception,)),
@@ -183,6 +185,7 @@ _CONSTRUCTOR_ARGS: dict[type[BaseException], tuple] = {
     ProviderRateLimitError: ("https://example.com/a", "the quota is used up", 900),
     ImageTimeoutError: (120.0,),
     ImageTooLargeError: (1, 2, 3),
+    StationLacksParametersError: ("00044", ["daily/data/precipitation_amount"]),
     StationListingIncompleteError: ("00044", {"`a/`": "its listing came back empty or missing"}),
     UnknownFormatError: ("xml", ("csv", "json")),
 }

@@ -23,6 +23,19 @@ leave such a station out, as they do a station with no elevation, instead of bri
 from a height of 0 m ([interpolation at an elevation](../../../../usage/interpolation.md#elevation),
 GH-3708). A station at 12.0 m is a height and is corrected.
 
+## The daily station list for some parameters
+
+The daily list reads `ghcnd-inventory.txt`, which gives the first and last year of each element of each station. A
+request for the whole `daily/data` lists every station the inventory has a line for, from the first year of any of its
+elements to the last. A request that names some parameters (`daily/data/precipitation_amount`) lists only the stations
+whose inventory has at least one of their elements (`name_original`: `PRCP`), and `start_timestamp` and `end_timestamp`
+are the span of those: 1 January of the first year, and 31 December of the last, or none where the last year is the one
+running. With several parameters a station is listed for any of them, and the span runs from the earliest first year to
+the latest last year of the elements it has; no element counts with another. A station asked for by id that has none
+of the named elements is no station of the request: `values` answers empty with the `unknown-station` warning, and
+`interpolate` and `summarize` by its id raise a 404. The whole dataset has no such filter, and a latitude and longitude
+need no id.
+
 ## Where the daily files are read
 
 `daily` reads the per-station files of NCEI, `https://www.ncei.noaa.gov/pub/data/ghcn/daily/by_station/<id>.csv.gz`

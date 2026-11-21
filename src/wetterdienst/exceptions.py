@@ -177,6 +177,34 @@ class StationNotFoundError(NotFoundError):
     """Raised when a station is not found in the station list."""
 
 
+class StationLacksParametersError(RequestError):
+    """Raised when a station is asked for by its id and is known, but has none of the requested parameters.
+
+    `interpolate_by_station_id` and `summarize_by_station_id` look the id up in the station list of the request, and
+    for a provider whose list depends on the parameters (`noaa/ghcn` daily, GH-4270) a station that has other
+    measurements is not in it. That is not a `StationNotFoundError`, which says that the id is wrong: the station
+    exists and the caller changes the parameters, not the id. A `RequestError` (400, `request-refused`), as
+    `NotEnoughDataError`: the request is understood and cannot be served as phrased. `values` by id says the same as
+    an `unknown-station` warning, which an answer has a place for.
+
+    `station_id` is the id asked for, `parameters` the requested ones as `resolution/dataset/parameter`
+    (`resolution/dataset` where every parameter of the dataset was asked for).
+    """
+
+    def __init__(self, station_id: str, parameters: list[str]) -> None:
+        """Keep the id and the parameters, and name them in the message."""
+        self.station_id = station_id
+        self.parameters = list(parameters)
+        super().__init__(
+            f"Station {station_id} exists but has none of the requested parameters ({', '.join(self.parameters)}). "
+            "Change the parameters, not the station."
+        )
+
+    def __reduce__(self) -> tuple:
+        """Rebuild from the id and the parameters, not from the message in `args`, so the error pickles."""
+        return type(self), (self.station_id, self.parameters), self.__dict__
+
+
 class ApiNotFoundError(NotFoundError):
     """Raised when an API is not found in the API list."""
 

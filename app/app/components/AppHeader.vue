@@ -3,7 +3,7 @@ import { inSection } from '~/utils/sections'
 
 // The header of every page but the widget (GH-3518). In the frame of the pages, so the logo stands over the left
 // edge of each page's title. From 64 rem (1024 px at the default text size, wider when the reader has set a larger
-// one) it carries the five tools as tabs, in the order the reader chose (GH-3936, `useTabBar`, the same list as the
+// one) it carries the six tools as tabs, in the order the reader chose (GH-3936, `useTabBar`, the same list as the
 // tab bar's), and the reference as a disclosure; below that four of the tools, the first four of that order
 // (GH-3846), are in the tab bar at the foot of the window (AppTabBar.vue), the others in its menu, and the header
 // keeps the logo, the search and the settings. The start page's tiles, the footer and the palette keep the fixed
@@ -11,9 +11,10 @@ import { inSection } from '~/utils/sections'
 const { t } = useI18n()
 const { headerTools } = useTabBar()
 const route = useRoute()
-// the search is labelled from 80 rem, where the header has room for the word; in rem, so that a reader who has set
-// a larger text size gets the shorter header sooner, as Tailwind's `xl:` does
-const wide = useMediaQuery('(min-width: 80rem)')
+// the search is labelled, and the support heart shown, from 90 rem, where the header has room for the word beside
+// the six tools; in rem, so that a reader who has set a larger text size gets the shorter header sooner, as
+// Tailwind's `xl:` does
+const wide = useMediaQuery('(min-width: 90rem)')
 </script>
 
 <template>
@@ -52,7 +53,7 @@ const wide = useMediaQuery('(min-width: 80rem)')
             icon="i-ph-heart"
             color="neutral"
             variant="ghost"
-            class="max-xl:hidden"
+            class="max-[90rem]:hidden"
             :aria-label="t('nav.support')"
           />
         </UTooltip>

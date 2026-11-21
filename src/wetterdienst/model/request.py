@@ -30,6 +30,7 @@ from wetterdienst.exceptions import (
     ProviderContractError,
     RequestError,
     ReversedTimeIntervalError,
+    StationLacksParametersError,
     StationListingIncompleteError,
     StationNotFoundError,
 )
@@ -1893,6 +1894,32 @@ class TimeseriesRequest:
         latitude, longitude, _ = self._get_position_by_station_id(station_id)
         return latitude, longitude
 
+    def _knows_station_outside_parameters(self, station_id: str) -> bool:  # noqa: ARG002
+        """Tell whether the provider knows a station that the station list of this request does not hold.
+
+        For a provider whose list depends on the requested parameters (`noaa/ghcn` daily holds only the stations that
+        have one of them), where a station asked for by its id and not listed may exist all the same: it lacks the
+        parameters (`StationLacksParametersError`), and the id is not wrong. The default cannot tell and says no,
+        which is the answer for a provider whose list is the same for every parameter: a station that is not in it
+        is not known. A provider overrides it with a lookup that is cheap or already cached, and which is only made
+        once the id is not found.
+        """
+        return False
+
+    def _parameter_names(self) -> list[str]:
+        """Name the requested parameters as `resolution/dataset/parameter`, or `resolution/dataset` for all of one."""
+        by_dataset: dict[tuple[str, str], list[ParameterModel]] = {}
+        for parameter in self.parameters:
+            if isinstance(parameter, ParameterModel):
+                by_dataset.setdefault((parameter.dataset.resolution.name, parameter.dataset.name), []).append(parameter)
+        names = []
+        for (resolution, dataset), parameters in by_dataset.items():
+            if {p.name for p in parameters} == {p.name for p in parameters[0].dataset.parameters}:
+                names.append(f"{resolution}/{dataset}")
+            else:
+                names.extend(f"{resolution}/{dataset}/{p.name}" for p in parameters)
+        return names
+
     def _get_position_by_station_id(
         self,
         station_id: str,
@@ -1914,6 +1941,8 @@ class TimeseriesRequest:
 
         Raises:
             StationNotFoundError: Where the station is not listed.
+            StationLacksParametersError: Where it is not listed and the provider knows it for other parameters than
+                the requested ones (`_knows_station_outside_parameters`).
             StationListingIncompleteError: Where it is not listed and the lookup of the stations went without a listing
                 the station may be in (`dwd/observation`, `dwd/derived`: a directory that came back empty or missing,
                 or that lists no description), so that it is not known to be unknown.
@@ -1928,7 +1957,10 @@ class TimeseriesRequest:
             if gaps := self._gaps_that_may_list(station_id):
                 # not known to be unknown: the lookup went without a listing the station may be in (GH-3834)
                 raise StationListingIncompleteError(station_id, gaps)
-            msg = f"no station found for {station_id}"
+            if self._knows_station_outside_parameters(station_id):
+                # the station exists and only lacks the parameters, which the caller changes, not the id (GH-4272)
+                raise StationLacksParametersError(station_id, self._parameter_names())
+            msg = f"no station found for {station_id}: no station of this request has this id"
             raise StationNotFoundError(msg)
         located = pl.col("latitude").is_not_null() & pl.col("longitude").is_not_null()
         from wetterdienst.core.util import zero_elevation_is_unknown  # noqa: PLC0415

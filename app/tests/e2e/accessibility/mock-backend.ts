@@ -10,6 +10,9 @@ import type {
 } from '../../../shared/types/api'
 import type { StripesFixture } from '../../helpers/stripes-backend'
 import { Buffer } from 'node:buffer'
+import { radarAnswer } from '../../helpers/radar-answer'
+import { radarPng } from '../../helpers/radar-image'
+import { emptyScan } from '../../helpers/storm-cells-answer'
 import { stripesAnswer } from '../../helpers/stripes-answer'
 import { ghcnAnnualOfFixture, valuesOfFixture } from '../../helpers/stripes-backend'
 
@@ -40,6 +43,11 @@ export type Handlers = Record<string, Handler>
 /** What a handler returns to answer with an error instead of a body; `extra` are the fields of a problem beside `detail` */
 export class ApiFailure {
   constructor(readonly status: number, readonly detail: string, readonly extra: Record<string, unknown> = {}) {}
+}
+
+/** What a handler returns to answer with a file instead of JSON (a frame of the radar, GH-3788): its bytes and their type */
+export class ApiBinary {
+  constructor(readonly body: Buffer, readonly contentType: string, readonly headers: Record<string, string> = {}) {}
 }
 
 function parameter(name: string, name_original: string, unit_type: UnitType, unit: string, description: string) {
@@ -431,6 +439,13 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     'stripes/values': url => stripesValues(url.searchParams.get('stations')),
     '_ghcn/stations': () => ({ stations: GHCN_STRIPES_STATIONS }),
     '_ghcn/annual': url => stripesValues(url.searchParams.get('station'), 'midrange'),
+    // the usual scan of the thunderstorm cells: none (GH-4208), and the radar's loop of 49 frames, each an image of cells of rain that drift east (GH-3788)
+    'storm-cells': () => emptyScan(),
+    'radar/frames': () => radarAnswer({ now: now.getTime() }),
+    'radar/frame': (url) => {
+      const start = Math.floor(now.getTime() / 300_000) * 300_000
+      return new ApiBinary(radarPng((Date.parse(url.searchParams.get('time') ?? '') - start) / 60_000), 'image/png', { 'cache-control': 'public, max-age=3600' })
+    },
   }
 }
 
@@ -502,6 +517,8 @@ export async function mockBackend(
         const body = key === 'stripes/values' ? valuesOfFixture(answer) : key === '_ghcn/annual' ? ghcnAnnualOfFixture(answer) : answer
         if (body instanceof ApiFailure)
           await route.fulfill({ status: body.status, json: { ...body.extra, detail: body.detail } })
+        else if (body instanceof ApiBinary)
+          await route.fulfill({ status: 200, body: body.body, contentType: body.contentType, headers: body.headers })
         else
           await route.fulfill({ status: 200, json: body })
       }

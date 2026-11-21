@@ -283,6 +283,7 @@ describe('address', () => {
   // word that only looks like one. An entry that no longer matches is stale and fails.
   const FORMAL_OK: Record<string, Record<string, string>> = {
     cs: { 'language.inclusiveHint': 'a welcome to everyone, which is a plural by meaning ("Vítejte všichni")' },
+    de: { 'radar.about1': 'Sie = die Formel (die Z-R-Beziehung), kein Du-Sie: ein Satz des Textes, nicht an den Leser gerichtet' },
   }
 
   const prose = (text: string) => text.replace(/\{[^{}]*\}/g, '')
@@ -350,6 +351,10 @@ const UI_SAME: Record<string, Same> = {
   'about.linkDocs': { en: ['fr'], de: ['da'], why: COGNATE },
   'nav.home': { en: ['it'], de: ['da', 'nl'], why: COGNATE },
   'nav.explorer': { en: ['de-hh', 'de', 'lb'], why: COGNATE },
+  'nav.radar': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
+  'radar.title': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
+  'radar.aboutDwdLink': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'it', 'lb', 'nl', 'pl'], why: NAME },
+  'radar.pause': { en: ['da', 'de', 'fr'], why: COGNATE },
   'nav.api': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'nav.support': { en: ['da'], why: COGNATE },
   'measurement.topics.wind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },

@@ -13,20 +13,20 @@ Spanish, Italian, Polish, Dutch, Czech, Danish, Luxembourgish and Hamburgisch).
 
 ## What is in it
 
-The five tools, Forecast, Explorer, Climate stripes, History and Map, are tabs in the header; Providers, Glossary,
+The six tools, Forecast, Explorer, Climate stripes, Radar, History and Map, are tabs in the header; Providers, Glossary,
 Measurement and API are under **Reference**; the project's pages (about, support, the legal notices, the documentation) are in the
 footer, the same on every page. On a narrow screen (below 64 rem, 1024 px at the default text size) four of the tools
 are a tab bar at the foot of the screen (under the header in a window lower than 30 rem, such as a phone on its side)
 and its **Menu** opens the rest: a bar holds four tools and the Menu. Until you choose, the four are Forecast,
-Explorer, Climate stripes and History, and the Map is in the Menu's sheet. **Arrange tools** (a link in the Menu,
+Explorer, Climate stripes and Radar, and History and the Map are in the Menu's sheet. **Arrange tools** (a link in the Menu,
 and a card of the Settings) lets you choose which four, and in which order: a list of all the tools, the four of the
 bar above a line and the ones that are only in the Menu below it, with a preview of the bar that follows the list.
 The Menu lists the tools in that order, the four of the bar first, each with a short line in the bar's blue, then the
 ones that are only in the Menu, each with a shorter, fainter line.
 Drag a tool by its handle, or press the arrow buttons on its row (they do the same, by keyboard, screen reader or
 single tap, and say what moved); a tool moved into the bar pushes the one at the line out of it, so the bar always has
-four. The choice stays in the browser. The header of a wide screen shows all five tools as tabs in the same order, and there the
-list is one list of five, with no bar and no Menu. The
+four. The choice stays in the browser. The header of a wide screen shows all six tools as tabs in the same order, and there the
+list is one list of six, with no bar and no Menu. The
 Menu's tab is marked, as the page you are on, on every page that is in its sheet and has no tab: a tool that is not in
 your bar, Providers, Glossary, Measurement and API, About, Support and the Settings. The home page and the legal notices mark
 nothing, and a tool that is in the bar marks its own tab. **Search** (the button in the header, or Ctrl+K
@@ -44,10 +44,11 @@ shown in English, with a note (in German for Low German and Luxembourgish).
 
 | Page | What it does |
 | --- | --- |
-| Home | The five tools, and **Ask the weather**: four suggestions (will it rain tomorrow, was last summer hotter than usual, how windy was a day, where hourly temperatures can be downloaded) that are answered on the page from live data, with the numbers and a chart behind the verdict and a link into the tool that holds the data. The place they are about is a DWD station that can be changed. Nothing is fetched until a question is picked, apart from the look-up of a place that the link names. |
+| Home | The six tools, and **Ask the weather**: four suggestions (will it rain tomorrow, was last summer hotter than usual, how windy was a day, where hourly temperatures can be downloaded) that are answered on the page from live data, with the numbers and a chart behind the verdict and a link into the tool that holds the data. The place they are about is a DWD station that can be changed. Nothing is fetched until a question is picked, apart from the look-up of a place that the link names. |
 | Explorer | Pick a provider and network, a resolution, dataset and parameters, then stations on the map. Three modes: **Station** reads the measurements of the stations, **Interpolation** estimates the values of a point (see [Interpolation & Summary](interpolation.md)), **Summary** takes the nearest station with data at each timestamp. A data viewer shows the table and a chart and downloads the result as CSV, JSON or GeoJSON. |
 | Forecast | The MOSMIX forecast of a DWD station as a meteogram: temperature and dew point, wind with barbs, precipitation by phase, cloud cover and pressure, with Yr's weather symbols over the hours. Each panel has a fixed height and each hour a fixed width, so on a phone the chart scrolls sideways with its axes in view; a dragged box, a pinch or the buttons zoom all panels at once, and the arrow keys step through the hours (`+`, `-` and `0` zoom and reset). `/widget?station=<id>` is the same chart without the page around it, for embedding (`&theme=dark` or `&theme=light` sets the colours). |
 | Climate stripes | The warming stripes of a DWD station or of a station of NOAA's GHCN daily, for temperature or precipitation, which the app makes itself of the annual values of the API (see "What the app serves itself" below), see [Climate Stripes](stripes.md). |
+| Radar | DWD's precipitation radar over Germany on the map: a loop of the last two hours and DWD's forecast of the next two, with a player, the legend in mm/h and DWD's thunderstorm cells on top. |
 | History | The station history of DWD observation, see [Station history](station_history.md). |
 | Map | DWD's stations on a map, with a panel beside it (a sheet under it on a phone). Chips over the map choose the layer: the **forecast stations** (MOSMIX) or the **DWD measurements**, whose resolution and dataset are chosen beside the chips. Pick a station, or click any point: the panel shows the forecast of the nearest forecast station as day rows and the climate stripes of the nearest station that has them, and links to the measurements in the Explorer and to the station history, each at the nearest station of the layer's resolution and dataset, already chosen. **Which station is offered:** the nearest within 100 km of the place; one that still reports before one that has stopped, and the nearest closed one only where none that reports is within reach, with the years it measured. A station reports where the REST API's `end_timestamp` of it, the day of its last value, is within 90 days of the newest end of the list it is in (that list is the clock of its dataset: the daily climate summary is a day or two behind today, the solar radiation 38 days, the snow water equivalent 215 days, the annual datasets about 300), and the list itself is running, its newest end no more than 450 days ago (a list that ended long ago has every station closed). A station with no end has an unknown status: it is not taken for one that reports, and no "since" is told for it. The clock is one station's end: a single end far ahead of the others, but not later than today, takes the stations that are behind it out of the tolerance, which the lists do not show today. A click is on a station's dot, and is that station whatever its status, within the dot as it is drawn and 2 px more, and a click on the yellow disc of the station picked (10.5 px, and 2 px more) keeps it; a tap of a finger (a coarse pointer) reaches 12 px, and in that ring a station that reports comes before the nearest dot. Closed stations stay on the map. Where no station is within 100 km, the panel says so. Changing the layer or the dataset keeps the place, not the number of the station (a forecast point and a measuring station can share a number): the station for the place is picked again in the new list. The panel finds a station by name or number and lists the ones near the centre of the map; by keyboard the arrow keys move the map and **Pick the centre of the map** picks the station within half a kilometre of the centre, else the station for the place at it (the same as a click of a mouse that is not on a dot). The address holds what is shown (`?layer=`, `resolution`, `dataset`, `station`, `lat`, `lon`), so a link opens the same map. Search finds stations, not towns. The tiles are OpenStreetMap's, as on the station pickers. |
 | API | The endpoints, the formats and the [MCP](mcp.md) endpoint of the instance, with examples. |
@@ -260,7 +261,9 @@ and answers the one past the limit with `429 Too Many Requests` and a problem of
 `urn:wetterdienst:problem:rate-limited`, with `Retry-After` (seconds). It does not count the pages, the assets,
 `/docs` and `/openapi.json`, nor the catalogue routes that every page asks for: `/api/version`, `/api/settings`,
 `/api/providers`, `/api/coverage`, `/api/glossary`, `/api/auth` and `/api/health`. The routes count together, one
-limit for a client.
+limit for a client. The images of the Radar tool's frames (`/api/radar/frame`) are the exception: they are counted in a bucket
+of their own, in the same window, with a larger limit (`NUXT_RATE_LIMIT_FRAME_TOKENS`), since one page of the tool asks for 49 of them and
+the browser keeps them for an hour; the list of the frames (`/api/radar/frames`) is counted with the others.
 
 Every counted answer carries `X-RateLimit-Limit`, `X-RateLimit-Remaining` and `X-RateLimit-Reset` (when the window
 ends, in seconds since the epoch).
@@ -269,6 +272,7 @@ ends, in seconds since the epoch).
 |---|---|---|
 | `NUXT_RATE_LIMIT_TOKENS` | `300` | Requests per client in a window |
 | `NUXT_RATE_LIMIT_WINDOW_SECONDS` | `300` | The window: 300 in 300 seconds is 60 a minute |
+| `NUXT_RATE_LIMIT_FRAME_TOKENS` | `1000` | Requests per client in a window for the radar's frame images, a bucket of their own |
 | `NUXT_RATE_LIMIT_ENABLED` | `true` | `false` switches the limit off |
 | `NUXT_RATE_LIMIT_CLIENT_IP_HEADER` | empty | See below |
 

@@ -675,12 +675,16 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
         return df.with_columns((pl.col("value").cast(pl.Float64, strict=False) * factor).alias("value"))
 
 
-def read_daily_inventory(settings: Settings) -> pl.DataFrame | None:
+def read_daily_inventory(settings: Settings) -> pl.DataFrame:
     """Read `ghcnd-inventory.txt`: one row per station and element with the first and last year of its record.
 
     The columns are `station_id`, `element` (as the file writes it, `TAVG`, `TMAX`, `TMIN`, `PRCP`, ...),
-    `start_timestamp` and `end_timestamp`, both the year as an integer. `None` where the file is not there.
+    `start_timestamp` and `end_timestamp`, both the year as an integer. A file that cannot be read is raised, as the
+    `NoInternetError` or `DownloadError` of its download: a station list that is filtered by it must never turn into
+    an unfiltered or an empty one (GH-4270).
     """
+    from typing import cast  # noqa: PLC0415
+
     inventory_url = "https://noaa-ghcn-pds.s3.amazonaws.com/ghcnd-inventory.txt"
     inventory_file = download_file(
         url=inventory_url,
@@ -690,16 +694,46 @@ def read_daily_inventory(settings: Settings) -> pl.DataFrame | None:
         cache_disable=settings.cache_disable,
         use_certifi=settings.use_certifi,
     )
+    # a download that failed is raised here, as the `NoInternetError` or `DownloadError` of it
     inventory_file.raise_if_exception()
-    if isinstance(inventory_file.content, Exception):
-        return None
-    inventory_df = pl.read_csv(inventory_file.content, has_header=False, truncate_ragged_lines=True)
+    inventory_df = pl.read_csv(cast("BytesIO", inventory_file.content), has_header=False, truncate_ragged_lines=True)
     column_specs = ((0, 10), (31, 34), (36, 39), (41, 44))
     inventory_df = read_fwf_from_df(inventory_df, column_specs)
     inventory_df.columns = ["station_id", "element", "start_timestamp", "end_timestamp"]
     return inventory_df.with_columns(
         pl.col("start_timestamp").cast(pl.Int64),
         pl.col("end_timestamp").cast(pl.Int64),
+    )
+
+
+def daily_element_spans(inventory: pl.DataFrame, elements: Iterable[str] | None = None) -> pl.DataFrame:
+    """Give the first and last year of the record each station has of `elements`, the stations that have none left out.
+
+    The columns are `station_id`, `first_year` and `last_year`, as integers. A station is listed where it has at least
+    one of the elements (any, where none are named), and its span runs from the earliest first year to the latest last
+    year of those it has. It is the span the record can reach, not the years with a value.
+    """
+    if elements is not None:
+        inventory = inventory.filter(pl.col("element").is_in(sorted(set(elements))))
+    return inventory.group_by("station_id").agg(
+        pl.col("start_timestamp").min().alias("first_year"), pl.col("end_timestamp").max().alias("last_year")
+    )
+
+
+def _years_to_timestamps(df: pl.DataFrame, start: str, end: str) -> pl.DataFrame:
+    """Turn the first and last year of a record into `start_timestamp` and `end_timestamp`.
+
+    The record starts on 1 January of its first year. The inventory gives the year of the last observation, so a
+    station whose last year is this one is still reporting as far as the list can tell: its end is not 31 December,
+    which has not come yet, but empty, as for a station the provider has not closed (GH-2643); any other ends on
+    31 December of its last year.
+    """
+    this_year = dt.datetime.now(dt.UTC).year
+    return df.with_columns(
+        pl.col(start).cast(pl.String).str.to_datetime("%Y").alias("start_timestamp"),
+        pl.when(pl.col(end) < this_year)
+        .then(pl.col(end).add(1).cast(pl.String).str.to_datetime("%Y").dt.offset_by("-1d"))
+        .alias("end_timestamp"),
     )
 
 
@@ -714,11 +748,11 @@ class NoaaGhcnRequest(TimeseriesRequest):
         from typing import cast  # noqa: PLC0415
 
         data = []
-        for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters)):
+        for dataset, parameters in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters)):
             if dataset.resolution.value == Resolution.HOURLY:
                 data.append(self._create_metaindex_for_ghcn_hourly())
             elif dataset.resolution.value == Resolution.DAILY:
-                data.append(self._create_metaindex_for_ghcn_daily())
+                data.append(self._create_metaindex_for_ghcn_daily(parameters, dataset))
             else:
                 msg = f"Resolution {dataset.resolution.value} is not supported."
                 raise ValueError(msg)
@@ -738,6 +772,30 @@ class NoaaGhcnRequest(TimeseriesRequest):
         if "start_timestamp" not in df.collect_schema().names():
             return df
         return df.filter(~(pl.col("resolution").eq("daily") & pl.col("start_timestamp").is_null()))
+
+    def _knows_station_outside_parameters(self, station_id: str) -> bool:
+        """Tell whether the inventory has a line for a station that this request's daily list leaves out (GH-4272).
+
+        A request for some of the daily parameters lists the stations that have one of them, so a station with only
+        other elements is not in it, and the caller changes the parameters. A station with no line in the inventory has
+        no element at all (147 of 133,039 stations): no other parameters would find it, so it is not found, as it is
+        for the whole dataset. The hourly list is the same for every parameter, so only a daily dataset is asked.
+
+        The inventory is read once, and only where a daily dataset is requested. `read_daily_inventory` downloads it
+        through the cache, which holds it for twelve hours: with `cache_disable` or an expired entry this is a download
+        of the file again, on the path of a station that was not found only. Where it cannot be read
+        the error is raised, as it is for the list.
+        """
+        from typing import cast  # noqa: PLC0415
+
+        daily = any(
+            dataset.resolution.value == Resolution.DAILY
+            for dataset, _ in group_parameters_by_dataset(cast("Iterable[ParameterModel]", self.parameters))
+        )
+        if not daily:
+            return False
+        inventory = read_daily_inventory(cast("Settings", self.settings))
+        return inventory.get_column("station_id").is_in([station_id]).any()
 
     @staticmethod
     def _take_daily_elevation(df: pl.LazyFrame) -> pl.LazyFrame:
@@ -865,8 +923,13 @@ class NoaaGhcnRequest(TimeseriesRequest):
         )
         return df.lazy()
 
-    def _create_metaindex_for_ghcn_daily(self) -> pl.LazyFrame:
+    def _create_metaindex_for_ghcn_daily(self, parameters: list[ParameterModel], dataset: DatasetModel) -> pl.LazyFrame:
         """Acquire station listing for ghcn daily.
+
+        The whole dataset (every parameter of it) lists every station the inventory has a line for, with the span of all
+        its elements. A request for some of its parameters lists the stations whose inventory has at
+        least one of them, with the span of those (`daily_element_spans`, GH-4270); the inventory is read for it as it
+        is for the whole dataset, and a failure to read it is raised, never an unfiltered list.
 
         station listing
         | Variable     | Columns | Type      | Example     |
@@ -936,22 +999,15 @@ class NoaaGhcnRequest(TimeseriesRequest):
         df = _restore_lost_signs(df)
 
         inventory_df = read_daily_inventory(settings)
-        if inventory_df is None:
-            return pl.LazyFrame()
-        inventory_df = inventory_df.group_by(["station_id"]).agg(
-            pl.col("start_timestamp").min(),
-            pl.col("end_timestamp").max(),
+        elements = None
+        if {p.name for p in parameters} != {p.name for p in dataset.parameters}:
+            elements = {p.name_original.upper() for p in parameters}
+        inventory_df = daily_element_spans(inventory_df, elements)
+        inventory_df = _years_to_timestamps(inventory_df, "first_year", "last_year").select(
+            "station_id", "start_timestamp", "end_timestamp"
         )
-        # the inventory gives the year of the last observation, so a station whose last year is this one is
-        # still reporting as far as the list can tell: its end is not 31 December, which has not come yet,
-        # but empty, as for a station the provider has not closed (GH-2643)
-        this_year = dt.datetime.now(dt.UTC).year
-        inventory_df = inventory_df.with_columns(
-            pl.col("start_timestamp").cast(pl.String).str.to_datetime("%Y"),
-            pl.when(pl.col("end_timestamp") < this_year)
-            .then(pl.col("end_timestamp").add(1).cast(pl.String).str.to_datetime("%Y").dt.offset_by("-1d"))
-            .alias("end_timestamp"),
-        )
+        # always a left join: a station with no element asked for has no span, which `_all` leaves out once the
+        # hourly rows of the same station have been given its elevation (GH-3260)
         df = df.join(other=inventory_df, how="left", on=["station_id"], maintain_order="left").lazy()
         df = df.with_columns(
             pl.lit("daily").alias("resolution"),

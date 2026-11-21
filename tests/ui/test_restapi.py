@@ -7824,14 +7824,14 @@ _GEO_REFUSALS = [
         "interpolate",
         {"station": "00001", "timestamp": "2020-06-30"},
         404,
-        "no station found for 00001",
+        "no station found for 00001: no station of this request has this id",
         id="interpolate-unknown-station",
     ),
     pytest.param(
         "summarize",
         {"station": "00001", "timestamp": "2020-06-30"},
         404,
-        "no station found for 00001",
+        "no station found for 00001: no station of this request has this id",
         id="summarize-unknown-station",
     ),
 ]
