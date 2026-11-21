@@ -1,51 +1,47 @@
 <script setup lang="ts">
 import type { Station } from '#shared/types/api'
-import type { QuestionId } from '~/utils/questions'
 import { DateTime } from 'luxon'
 import UseMyLocation from '~/components/UseMyLocation.vue'
 import { PLACE_NETWORK, placeOf } from '~/composables/usePlace'
-import { lastBoxingDay } from '~/utils/answers'
+import { queryOfChoice, queryOfPress, queryWith, readChoices } from '~/utils/ask/chip'
+import { CHIPS, isChip } from '~/utils/ask/registry'
 import { distanceKm, formatDistance } from '~/utils/map-tool'
-import { isQuestion, QUESTIONS } from '~/utils/questions'
 
 // Ask the weather (GH-3518): the questions people bring to a weather service, as suggestions on the home page, each
 // answered here from live data (components/AnswerPanel.vue) and leading into the tool that holds that data, filled in.
 // All about one place, a DWD station, which the reader can change (the place button opens a search of stations).
+// Each question is one definition (utils/ask/chip.ts, the registry in utils/ask/registry.ts): nothing here is about one
+// of them.
 //
 // The suggestions are buttons that are pressed or not (`aria-pressed`): one is open at a time, pressing it again
-// closes it. The open one is in the link (`?ask=summer`, `&day=2025-12-26` for the wind question, `&place=02564` for
-// a place the reader chose), so that an answer can be shared; a link without one opens none, and nothing is fetched
-// until a question is asked. The focus stays on the button; the answer is announced by its live region.
+// closes it. The open one is in the link (`?ask=summer`, with a question's choices, `&day=2025-12-26` for the wind
+// question, and `&place=02564` for a place the reader chose), so that an answer can be shared; a link without one
+// opens none, and nothing is fetched until a question is asked. The focus stays on the button; the answer is announced
+// by its live region.
 const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const { place, setPlace } = usePlace()
 const { questionText } = useQuestions()
 
-const question = computed<QuestionId | null>(() => isQuestion(route.query.ask) ? route.query.ask : null)
-const day = computed(() => {
-  const asked = route.query.day?.toString()
-  // a day the calendar has: `2025-13-45` and `2025-02-30` are what a link can carry, and are no day
-  return asked && /^\d{4}-\d{2}-\d{2}$/.test(asked) && DateTime.fromISO(asked, { zone: 'utc' }).isValid ? asked : lastBoxingDay(DateTime.now())
+const question = computed(() => isChip(route.query.ask) ? route.query.ask : null)
+/** The values of every question's choices, as the link has them: a question's own where the link names none, or none that is one */
+const choices = computed(() => {
+  const now = DateTime.now()
+  return Object.fromEntries(CHIPS.map(chip => [chip.id, readChoices(chip, route.query, now)]))
 })
 
+function toggle(id: string) {
+  void router.replace({ query: queryOfPress(route.query, CHIPS, id, question.value) }).catch(() => {})
+}
+
+function setChoice(param: string, value: string) {
+  if (question.value)
+    void router.replace({ query: queryOfChoice(route.query, question.value, param, value) }).catch(() => {})
+}
+
 /** The link's query with `changes` put over it; a value of null leaves its key out */
-function queryWith(changes: Record<string, string | null>) {
-  const query: Record<string, string> = {}
-  for (const [key, value] of Object.entries({ ...route.query, ...changes })) {
-    if (typeof value === 'string')
-      query[key] = value
-  }
-  return query
-}
-
-function toggle(id: QuestionId) {
-  void router.replace({ query: queryWith({ ask: question.value === id ? null : id, day: id === 'wind' ? (route.query.day?.toString() ?? null) : null }) }).catch(() => {})
-}
-
-function setDay(next: string) {
-  void router.replace({ query: queryWith({ ask: 'wind', day: next }) }).catch(() => {})
-}
+const queryWithChanges = (changes: Record<string, string | null>) => queryWith(route.query, changes)
 
 // a question just opened is brought into view: on a phone its answer lies below the suggestions
 const answer = ref<HTMLElement | null>(null)
@@ -124,7 +120,7 @@ async function onPosition(point: { latitude: number, longitude: number }) {
     placeFailed.value = false
     locatedText.value = t('location.here', { name: found.name, distance: formatDistance(distanceKm(point, found), locale.value) })
     if (route.query.place)
-      void router.replace({ query: queryWith({ place: null }) }).catch(() => {})
+      void router.replace({ query: queryWithChanges({ place: null }) }).catch(() => {})
   }
   catch {
     if (mine === locateRequest)
@@ -144,7 +140,7 @@ const placeButton = ref<HTMLButtonElement | null>(null)
 function onPlace(chosen: { id: string }) {
   placeOpen.value = false
   placeFailed.value = false
-  void router.replace({ query: queryWith({ place: chosen.id }) }).catch(() => {})
+  void router.replace({ query: queryWithChanges({ place: chosen.id }) }).catch(() => {})
 }
 </script>
 
@@ -180,7 +176,7 @@ function onPlace(chosen: { id: string }) {
     <UseMyLocation class="mt-3" :resolving="locating" :status="locatedText" :problem="locateProblem" @position="onPosition" />
 
     <ul class="mt-4 flex flex-wrap gap-2" :aria-label="t('ask.questionsLabel')" data-testid="questions">
-      <li v-for="entry in QUESTIONS" :key="entry.id" class="max-w-full">
+      <li v-for="entry in CHIPS" :key="entry.id" class="max-w-full">
         <button
           type="button"
           class="ask-chip"
@@ -189,14 +185,14 @@ function onPlace(chosen: { id: string }) {
           @click="toggle(entry.id)"
         >
           <UIcon :name="entry.icon" class="size-5 shrink-0" aria-hidden="true" />
-          <span class="min-w-0 text-start">{{ questionText(entry.id, day) }}</span>
+          <span class="min-w-0 text-start">{{ questionText(entry, choices[entry.id]!) }}</span>
         </button>
       </li>
     </ul>
 
     <div ref="answer" class="ask-answer">
       <!-- while the stored position is checked against the browser's permission (GH-4014), nothing is asked about the station it made -->
-      <AnswerPanel v-if="question && !checking" :question="question" :day="day" @update:day="setDay" />
+      <AnswerPanel v-if="question && !checking" :question="question" :choices="choices[question]!" @update:choice="setChoice" />
       <p v-else-if="!question" class="ask-idle" data-testid="ask-idle">
         <UIcon name="i-ph-cursor-click" class="size-5 shrink-0" aria-hidden="true" />
         {{ t('ask.idle') }}
