@@ -12,7 +12,7 @@ from __future__ import annotations
 import threading
 import time
 from io import BytesIO
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import polars as pl
 import pytest
@@ -34,6 +34,9 @@ from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 from wetterdienst.provider.noaa.ghcn import api as ghcn_api
 from wetterdienst.util.network import File
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 #: every network that declares a list, in the order of the registry, which is the order `searched` has
 DECLARED = [
@@ -486,12 +489,16 @@ def test_a_network_that_needs_a_key_the_settings_lack_is_named_and_no_failure(mo
     ]
 
 
-def test_a_keyed_network_without_its_key_is_not_asked_of_the_provider(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_keyed_network_without_its_key_is_not_asked_of_the_provider(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """The real request refuses at its construction, before a request is made: no network is reached for it."""
     declared = Wetterdienst.resolve("aemet", "observation").metadata.station_id_list
     assert declared is not None
     monkeypatch.setattr(station_search, "_declared_lists", lambda: ([("aemet", "observation", declared)], []))
+    # no key from the environment, nor from a `.env` of the working directory, which `Settings` merges into `auth={}`
     monkeypatch.delenv("WD_AUTH__AEMET", raising=False)
+    monkeypatch.chdir(tmp_path)
 
     result = find_stations_by_id(wmo_id="08222", settings=Settings(cache_disable=True, auth={}))
 
