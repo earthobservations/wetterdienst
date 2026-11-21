@@ -107,3 +107,31 @@ describe('exportColumns over rows of different shapes', () => {
     expect(exportColumns(sparse, ['station_id', 'value'])).toEqual(['station_id', 'value', 'taken_station_id'])
   })
 })
+
+// the credit and the note of a file of values (GH-4255)
+describe('valuesToCsv with comments', () => {
+  it('writes each comment as a `#` line before the header, on one line each, and none for an empty one', () => {
+    const csv = valuesToCsv(rows, ['station_id', 'value'], ['Source: DWD', '', 'two\nlines   of  text'])
+    expect(csv).toBe('# Source: DWD\n# two lines of text\nstation_id,value\n01048,1.5\n04411,')
+  })
+
+  it('writes the file as it was without comments, and no comments for no rows', () => {
+    expect(valuesToCsv(rows, ['station_id', 'value'], [])).toBe(valuesToCsv(rows, ['station_id', 'value']))
+    expect(valuesToCsv([], ['station_id'], ['Source: DWD'])).toBe('')
+  })
+})
+
+describe('valuesToJson with metadata', () => {
+  const metadata = { provider: { attribution: 'Source: DWD', license: { name: 'CC BY 4.0', url: 'https://creativecommons.org/licenses/by/4.0/' } }, processing_note: 'Processed.' }
+
+  it('puts a metadata member before the values and keeps the values as they are written without it', () => {
+    const withMetadata = JSON.parse(valuesToJson(rows, ['station_id', 'value'], metadata))
+    expect(Object.keys(withMetadata)).toEqual(['metadata', 'values'])
+    expect(withMetadata.metadata).toEqual(metadata)
+    expect(withMetadata.values).toEqual(JSON.parse(valuesToJson(rows, ['station_id', 'value'])).values)
+  })
+
+  it('writes no member where none is given', () => {
+    expect(Object.keys(JSON.parse(valuesToJson(rows, ['station_id'])))).toEqual(['values'])
+  })
+})

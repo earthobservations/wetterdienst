@@ -484,7 +484,7 @@ describe('a station picked', () => {
     expect(card().findAll('.map-stripes span')).toHaveLength(20)
     // the figure is described in words: the span of the years, the lowest and the highest
     expect(card().find('figcaption').text()).toMatch(/^From 2000 to 2019\. Lowest value 8\.0 .+ in 2000, highest value 9\.0 .+ in 2019\. Colours: the mean of the whole record \(2000–2019\) .+ \(Ed Hawkins. method\)\.$/)
-    expect(card().find('a').attributes('href')).toBe('/stripes?kind=temperature&station=01975')
+    expect(card().find('a[href^="/stripes"]').attributes('href')).toBe('/stripes?kind=temperature&station=01975')
     expect(asked.stripesValues).toEqual(['01975'])
     // made by the app of the generic API (GH-4258): the stations that have stripes are the annual record's, the historical and the recent
     // period of it, and the years are the annual values of the station
@@ -1365,7 +1365,7 @@ describe('the station picked for a place, by the clock of its own dataset', () =
     const card = () => wrapper.find('[data-testid="map-card-stripes"]')
     await vi.waitFor(() => expect(card().text()).toContain('Hamburg-Fuhlsbüttel'))
     expect(card().text()).not.toContain('Hamburg-Alt')
-    expect(card().find('a').attributes('href')).toBe('/stripes?kind=temperature&station=01975')
+    expect(card().find('a[href^="/stripes"]').attributes('href')).toBe('/stripes?kind=temperature&station=01975')
   })
 
   it('has the stripes card take the nearest stopped station where none reports within reach', async () => {
@@ -2377,8 +2377,8 @@ describe('what a pick carries across layers is the pick the reader made last (GH
       const wrapper = await mountMap('/map?layer=measured&station=01975')
       await vi.waitFor(() => expect(headingOf(wrapper).text()).toBe('Hamburg-Fuhlsbüttel'))
       const card = () => wrapper.find('[data-testid="map-card-stripes"]')
-      await vi.waitFor(() => expect(card().find('a').exists()).toBe(true))
-      expect(card().find('a').attributes('href')).toContain('station=01975')
+      await vi.waitFor(() => expect(card().find('a[href^="/stripes"]').exists()).toBe(true))
+      expect(card().find('a[href^="/stripes"]').attributes('href')).toContain('station=01975')
     })
 
     it('has the card of a station that reports skip a closed station that has its number: the one nearest that reports is offered', async () => {
@@ -2542,7 +2542,7 @@ describe('the GHCN daily layer (GH-4078, GH-4267)', () => {
     expect(asked.stripesQueries.at(-1)).toMatchObject({ kind: 'temperature', station: 'GM000010147' })
     // the midrange of the daily maximum and minimum, no 24-hour mean (decision on GH-4222)
     expect(stripes.find('[data-testid="map-stripes-method"]').text()).toContain('midrange of the daily maximum and minimum, not a 24-hour mean')
-    expect(stripes.find('a').attributes('href')).toBe('/stripes?kind=temperature&provider=noaa&network=ghcn&station=GM000010147')
+    expect(stripes.find('a[href^="/stripes"]').attributes('href')).toBe('/stripes?kind=temperature&provider=noaa&network=ghcn&station=GM000010147')
 
     // the Explorer on the network of the layer; the station history is DWD's alone
     const measured = wrapper.find('[data-testid="map-card-measured"]')

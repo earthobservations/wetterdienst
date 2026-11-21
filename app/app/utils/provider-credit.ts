@@ -54,3 +54,40 @@ export function creditHtml(credit: { text: string, license: { label: string, url
     : ''
   return `${escapeHtml(credit.text)}${link}`
 }
+
+// -------------------------------------------------------------------------------------------- the credit beside provider data
+
+/**
+ * The terms the app writes beside provider data and into a file of it (GH-4255): the credit line the provider states and the
+ * licence it publishes under, as `GET /api/providers` lists them (`Provider.attribution` and `Provider.license`) and as the
+ * `metadata.provider` block of an answer holds them (the same two fields). Nothing of it is written in the app: a provider's
+ * credit is the provider's.
+ */
+export interface ProviderTerms {
+  attribution?: string | null
+  license?: { name: string, url: string } | null
+}
+
+/** The terms of the provider `id` in the list `GET /api/providers` answered, or null where the list is not there or has no such provider */
+export function termsOfProvider(providers: readonly ({ provider: string } & ProviderTerms)[] | undefined | null, id: string | null | undefined): ProviderTerms | null {
+  const found = id ? providers?.find(provider => provider.provider === id) : undefined
+  return found ? { attribution: found.attribution ?? null, license: found.license ?? null } : null
+}
+
+/** The address of a licence's terms as a link, only where it is `http(s)`: the text comes from the API, and `javascript:` is never one */
+export const safeHref = (url: string | null | undefined): string | null => url && /^https?:\/\//i.test(url) ? url : null
+
+/**
+ * The lines of a file of data that carry the credit (GH-4255): the provider's credit line, the licence with its address, and
+ * what wetterdienst did to the data, each as one line of text and none where the terms hold nothing (the note is always
+ * there). The same texts as the page shows beside the data.
+ *
+ * @param terms - The provider's terms, or null where they are not known
+ * @param licence - Writes the licence's line from its name and address (`credit.licence`)
+ * @param note - The processing note, in the language of the page
+ * @param fallback - The credit line where the provider states none
+ */
+export function creditLines(terms: ProviderTerms | null, licence: (name: string, url: string) => string, note: string, fallback = ''): string[] {
+  const licenceLine = terms?.license ? licence(terms.license.name, terms.license.url) : ''
+  return [terms?.attribution || fallback, licenceLine, note].filter(line => line.trim() !== '')
+}

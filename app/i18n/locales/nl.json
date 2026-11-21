@@ -523,6 +523,9 @@
     "noResolutions": "Geen tijdreeks: hier valt niets op te sommen.",
     "openExplorer": "Openen in de verkenner"
   },
+  "credit": {
+    "licence": "Licentie: {name} ({url})"
+  },
   "processingNote": {
     "base": "Verwerkt door wetterdienst: de gegevens van de aanbieder zijn in een uniforme tabel gezet en de eenheden zijn omgerekend waar ze afwijken.",
     "estimate": "De waarden zijn geselecteerd of berekend uit de metingen van de aanbieder.",
@@ -727,7 +730,6 @@
     "plotMethodMidrange": "Temperatuur: midden van dagelijks maximum en minimum (GHCN)",
     "plotMethodTavg": "Temperatuur: daggemiddelde (TAVG, GHCN)",
     "plotReference": "Kleuren: gemiddelde van {centre}, ±{sigma} σ van {spread}",
-    "csvLicence": "Licentie: {name} ({url})",
     "barsRelativeTo": "Ten opzichte van het gemiddelde van {period}",
     "variant": {
       "label": "Weergave",

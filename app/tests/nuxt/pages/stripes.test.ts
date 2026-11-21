@@ -1444,12 +1444,12 @@ describe('stripes Page text alternative', () => {
   })
 
   // the stripes drawn for a station, as the backend answers them: a year without a value among them
-  async function showStripes(route = '/stripes?kind=temperature') {
+  async function showStripes(route = '/stripes?kind=temperature', metadata: { provider?: object } = {}) {
     // the station lists the earlier tests fetched are kept by their request, which this one is too
     clearNuxtData()
     registerEndpoint('/api/stations', () => ({ stations: [station] }))
     registerEndpoint('/api/values', asValues(() => ({
-      metadata: {},
+      metadata,
       series: { station, resolution: 'annual', dataset: 'climate_summary', parameter: 'temperature_air_mean_2m', unit: 'degree_celsius' },
       ...answerOf(GAPPY),
     })))
@@ -1528,6 +1528,33 @@ describe('stripes Page text alternative', () => {
     expect(text).not.toContain('Class: how far the year lies')
     expect(text).not.toContain('Colours: the mean of')
     expect(text).not.toContain('Ed Hawkins\' method')
+  })
+
+  // the table has no source line to carry the credit, as the chart does: it is under the table, with the note (GH-4255)
+  it('credits the provider of the answer under the table, with its licence, and the note directly under the credit line', async () => {
+    // the provider's block of the answer: its credit line and its licence
+    await showStripes('/stripes?kind=temperature', { provider: {} })
+    expect(document.body.querySelector('[data-testid="stripes-table-credit"]')).toBeNull()
+    await chooseTable()
+    const credit = document.body.querySelector('[data-testid="stripes-table-credit"]')!
+    const line = credit.querySelector('[data-testid="provider-credit-line"]')!
+    expect(line.textContent!.trim()).toBe('Source: Deutscher Wetterdienst, Creative Commons Attribution 4.0 International')
+    expect(line.querySelector('a')!.getAttribute('href')).toBe('https://creativecommons.org/licenses/by/4.0/')
+    const note = credit.querySelector('[data-testid="processing-note"]')!
+    expect(note.textContent).toMatch(/^Processed by wetterdienst/)
+    expect(note.previousElementSibling).toBe(line)
+    // under the table, and one note only: the chart's own is the chart's view
+    expect(document.body.querySelector('.values-table')!.compareDocumentPosition(credit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(document.body.querySelectorAll('[data-testid="processing-note"]')).toHaveLength(1)
+  })
+
+  it('says the page\'s own source line under the table where the answer carries no provider block, and no licence', async () => {
+    await showStripes()
+    await chooseTable()
+    const credit = document.body.querySelector('[data-testid="stripes-table-credit"]')!
+    expect(credit.querySelector('[data-testid="provider-credit-line"]')!.textContent!.trim()).toBe('Source: Deutscher Wetterdienst')
+    expect(credit.querySelector('a')).toBeNull()
+    expect(credit.querySelector('[data-testid="processing-note"]')).not.toBeNull()
   })
 
   it('names the classes of a precipitation series by wet and dry', async () => {

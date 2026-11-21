@@ -523,6 +523,9 @@
     "noResolutions": "Keine Zeitreihe: hier gibt es nichts aufzulisten.",
     "openExplorer": "Im Explorer öffnen"
   },
+  "credit": {
+    "licence": "Lizenz: {name} ({url})"
+  },
   "processingNote": {
     "base": "Aufbereitet von wetterdienst: Die Daten des Anbieters wurden in eine einheitliche Tabelle gebracht und ihre Einheiten umgerechnet, wo sie abweichen.",
     "estimate": "Die Werte wurden aus den Messwerten des Anbieters ausgewählt oder berechnet.",
@@ -727,7 +730,6 @@
     "plotMethodMidrange": "Temperatur: Mitte aus Tageshöchst- und -tiefstwert (GHCN)",
     "plotMethodTavg": "Temperatur: Tagesmittel (TAVG, GHCN)",
     "plotReference": "Farben: Mittel von {centre}, ±{sigma} σ von {spread}",
-    "csvLicence": "Lizenz: {name} ({url})",
     "barsRelativeTo": "Relativ zum Mittel von {period}",
     "variant": {
       "label": "Darstellung",

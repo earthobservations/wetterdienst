@@ -119,6 +119,28 @@ describe('the climate stripes of the panel', () => {
     expect(new Set(colours(wrapper))).toEqual(new Set([stripeColour('temperature', 8)]))
   })
 
+  // whose data the band is made of, from the terms of the answer it was made of, and what was done to it (GH-4255)
+  it('credits the provider of the answer under the band, with its licence and the note directly under the credit line', async () => {
+    years = twelve(8, 12, 9)
+    const wrapper = await mountStripes()
+    await vi.waitFor(() => expect(wrapper.findAll('.map-stripes span')).toHaveLength(12))
+    const credit = wrapper.find('[data-testid="map-stripes-credit"]')
+    expect(credit.find('[data-testid="provider-credit-line"]').text()).toBe('Source: Deutscher Wetterdienst, Creative Commons Attribution 4.0 International')
+    expect(credit.find('a').attributes('href')).toBe('https://creativecommons.org/licenses/by/4.0/')
+    const note = credit.find('[data-testid="processing-note"]')
+    expect(note.text()).toBe(en.processingNote.base)
+    expect(note.element.previousElementSibling).toBe(credit.find('[data-testid="provider-credit-line"]').element)
+  })
+
+  it('credits NOAA, as its own answer states it, for a station of GHCN daily', async () => {
+    years = twelve(8, 12, 9)
+    const wrapper = await mountStripes('GM000010147', true)
+    await vi.waitFor(() => expect(wrapper.findAll('.map-stripes span')).toHaveLength(12))
+    const credit = wrapper.find('[data-testid="map-stripes-credit"]')
+    expect(credit.find('[data-testid="provider-credit-line"]').text()).toContain('NOAA National Centers for Environmental Information (NCEI)')
+    expect(credit.find('a').attributes('href')).toBe('https://creativecommons.org/publicdomain/zero/1.0/')
+  })
+
   it('says why there are none, in the answer\'s words, and asks again on Retry', async () => {
     status = 422
     const wrapper = await mountStripes()

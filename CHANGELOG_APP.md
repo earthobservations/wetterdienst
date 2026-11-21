@@ -52,6 +52,15 @@ Types of changes:
   page's own (all eleven languages) and not as a failed fetch with the backend's English sentence
   (GH-4258).
 - `[API]` The API page no longer lists the stripes' routes (GH-4258).
+- `[Credit]` Wherever the app shows provider data it now says whose it is, as Ask the weather and the
+  stripes did: the provider's credit line and its licence (a link to its terms), with what
+  wetterdienst did to the data directly under it. New in the Explorer (table and chart; for an
+  interpolation or a summary the note says the values were calculated), the forecast in every view,
+  the map's forecast and stripes cards, the widget (compactly, beside "Powered by"), the history and
+  the stripes' table. The texts come from the API's provider list, none are written in the app.
+  The Explorer's CSV file starts with the credit, the licence and the note as `#` comment lines
+  (read them away with `comment='#'` in pandas), and its JSON file has a `metadata` member
+  (`provider`, `processing_note`) before `values`, which is unchanged (GH-4255).
 
 ### Fixed
 

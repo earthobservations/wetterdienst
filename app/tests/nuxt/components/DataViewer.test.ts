@@ -12,6 +12,7 @@ import DataViewer from '~/components/DataViewer.vue'
 import QueryPanel from '~/components/QueryPanel.vue'
 import { SETTINGS_DEFAULTS } from '~/composables/useSettings'
 import { seriesColour } from '~/utils/explorer-model'
+import { providersAnswer } from '../fixtures/providers'
 
 // DuckDB, as far as Run Query reaches it: the query itself is answered by the test's `answer`, as the
 // Arrow table DuckDB gives, every statement loading the table at once. It gives no result schema,
@@ -303,10 +304,11 @@ describe('dataViewer downloads', () => {
     await vi.waitFor(() => expect(saved).toHaveLength(1))
     expect(asked).toBe(1)
     const text = await saved[0]!.text()
-    // every column the rows carry, those the column picker hides by default included
-    expect(text.split('\n')[0]).toBe('station_id,resolution,dataset,parameter,timestamp,value,quality_flags')
-    expect(text.split('\n')[1]).toContain('01048')
-    expect(text.split('\n')[1]).toContain('1.5')
+    // every column the rows carry, those the column picker hides by default included, after the comment lines of the credit (GH-4255)
+    const lines = text.split('\n').filter(line => !line.startsWith('#'))
+    expect(lines[0]).toBe('station_id,resolution,dataset,parameter,timestamp,value,quality_flags')
+    expect(lines[1]).toContain('01048')
+    expect(lines[1]).toContain('1.5')
   })
 
   it.each(['CSV', 'JSON'])('saves no %s of a table Clear emptied after the menu was opened', async (format) => {
@@ -355,9 +357,99 @@ describe('dataViewer downloads', () => {
     const [csv] = await openDownloads(wrapper)
     csv!.click()
     await vi.waitFor(() => expect(saved).toHaveLength(1))
-    const [header, line] = (await saved[0]!.text()).split('\n')
+    const [header, line] = (await saved[0]!.text()).split('\n').filter(each => !each.startsWith('#'))
     expect(header).toContain('temperature_air_mean_2m')
     expect(line).toContain('1.5')
+  })
+
+  // the credit and the note of the rows, on the page and in the files (GH-4255)
+  const NOTE = 'Processed by wetterdienst: the provider\'s data was reshaped into a uniform table, and its units converted where they differ.'
+  const CC_BY_NAME = 'Creative Commons Attribution 4.0 International'
+  const CC_BY_URL = 'https://creativecommons.org/licenses/by/4.0/'
+
+  it('writes the provider\'s credit, its licence and the note as comment lines before the CSV\'s header', async () => {
+    registerEndpoint('/api/providers', () => providersAnswer())
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="explorer-credit"]').text()).toContain('Source: Deutscher Wetterdienst'))
+    const saved = catchDownload()
+    const [csv] = await openDownloads(wrapper)
+    csv!.click()
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+    const lines = (await saved[0]!.text()).split('\n')
+    expect(lines.slice(0, 3)).toEqual([
+      '# Source: Deutscher Wetterdienst',
+      `# Licence: ${CC_BY_NAME} (${CC_BY_URL})`,
+      `# ${NOTE}`,
+    ])
+    expect(lines[3]).toBe('station_id,resolution,dataset,parameter,timestamp,value,quality_flags')
+    expect(lines).toHaveLength(5)
+  })
+
+  it('writes the credit as a metadata member of the JSON, and leaves its values as they were', async () => {
+    registerEndpoint('/api/providers', () => providersAnswer())
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="explorer-credit"]').text()).toContain('Source: Deutscher Wetterdienst'))
+    const saved = catchDownload()
+    const items = await openDownloads(wrapper)
+    items[1]!.click()
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+    const json = JSON.parse(await saved[0]!.text())
+    expect(json.metadata).toEqual({
+      provider: { attribution: 'Source: Deutscher Wetterdienst', license: { name: CC_BY_NAME, url: CC_BY_URL } },
+      processing_note: NOTE,
+    })
+    expect(json.values).toEqual([row])
+  })
+
+  it('says under the table whose data it is, and the note directly under the credit line', async () => {
+    registerEndpoint('/api/providers', () => providersAnswer())
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="explorer-credit"]').text()).toContain('Source: Deutscher Wetterdienst'))
+    const credit = wrapper.find('[data-testid="explorer-credit"]')
+    expect(credit.find('[data-testid="provider-credit-licence"]').attributes('href')).toBe(CC_BY_URL)
+    expect(credit.find('[data-testid="processing-note"]').text()).toBe(NOTE)
+    expect(credit.find('[data-testid="processing-note"]').element.previousElementSibling).toBe(credit.find('[data-testid="provider-credit-line"]').element)
+    // and in the chart's view, which is of the same rows
+    await wrapper.find('button[aria-label="Show as chart"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[role="figure"]').exists()).toBe(true))
+    expect(wrapper.find('[data-testid="explorer-credit"]').text()).toContain('Source: Deutscher Wetterdienst')
+  })
+
+  it.each([
+    ['interpolation', '/api/interpolate'],
+    ['summary', '/api/summarize'],
+  ] as const)('says of the rows of a %s that they were calculated, on the page and in the files', async (mode, endpoint) => {
+    registerEndpoint('/api/providers', () => providersAnswer())
+    registerEndpoint(endpoint, () => ({ values: [{ ...row, taken_station_ids: ['01048', '04411'] }] }))
+    const { wrapper, viewer } = await mountDataViewer(ref(atPoint(mode)))
+    await fetchData(viewer)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="explorer-credit"]').text()).toContain('Source: Deutscher Wetterdienst'))
+    expect(wrapper.find('[data-testid="explorer-credit"] [data-testid="processing-note"]').text()).toBe(`${NOTE} The values were selected or calculated from the provider's readings.`)
+    const saved = catchDownload()
+    const items = await openDownloads(wrapper)
+    items[0]!.click()
+    await vi.waitFor(() => expect(saved).toHaveLength(1))
+    expect((await saved[0]!.text()).split('\n')[2]).toBe(`# ${NOTE} The values were selected or calculated from the provider's readings.`)
+  })
+
+  it('copies rows to the clipboard without the comment lines', async () => {
+    registerEndpoint('/api/providers', () => providersAnswer())
+    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const written: string[] = []
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text: string) => void written.push(text) } })
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    await wrapper.find('button[aria-label="Copy all values"]').trigger('click')
+    await vi.waitFor(() => expect(written).toHaveLength(1))
+    expect(written[0]).not.toContain('#')
+    // the columns the table shows, a header first
+    expect(written[0]!.split('\n')[0]).toMatch(/^station_id,/)
   })
 
   it('asks for GeoJSON with the request that filled the table, not the selection made since', async () => {

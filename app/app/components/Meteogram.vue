@@ -7,9 +7,11 @@ import { DateTime, Info } from 'luxon'
 import tzLookup from 'tz-lookup'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import MeteogramChart from '~/components/MeteogramChart.vue'
+import ProviderCredit from '~/components/ProviderCredit.vue'
 import WeatherSymbol from '~/components/WeatherSymbol.vue'
 import WeatherSymbolsCredit from '~/components/WeatherSymbolsCredit.vue'
 import { panelToggleStyle, seriesLabelColor } from '~/utils/chart-theme'
+import { MOSMIX_METEOGRAM } from '~/utils/meteogram'
 import { meteogramDays } from '~/utils/meteogram-days'
 import { buildSeries, seriesSpan, snowSeries } from '~/utils/meteogram-series'
 import { meteogramSummary, meteogramTable } from '~/utils/meteogram-summary'
@@ -439,6 +441,10 @@ const summaryStats = computed(() => meteogramSummary(seriesCache.value, units.va
         <!-- the symbols are Yr's, under CC BY 4.0, which asks for the credit where they are shown: the chart that carries it is not here (GH-4193) -->
         <WeatherSymbolsCredit class="mt-3 px-1 text-xs text-muted" data-testid="day-symbols-credit" />
       </div>
+
+      <!-- whose forecast it is (DWD's MOSMIX), and what was done to it, in every view and in the map's panel and the widget (GH-4255): the
+           credits of the symbols and of the snow forecast above are those of products, this is the provider's credit line -->
+      <ProviderCredit :provider="MOSMIX_METEOGRAM.provider" :compact="widget" :class="daysOnly ? '' : 'px-1'" data-testid="meteogram-provider-credit" />
     </div>
   </div>
 </template>

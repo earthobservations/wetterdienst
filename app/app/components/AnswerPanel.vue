@@ -140,12 +140,6 @@ const view = computed(() => outcome.value?.result ? chip.value.present(outcome.v
 const verdict = computed(() => view.value?.verdict ?? '')
 const emptyText = computed(() => chip.value.empty(outcome.value?.loaded ?? null, env, props.choices))
 
-/** Who the data is from, in the words its licence asks for */
-const attribution = computed(() => {
-  const credit = chip.value.credit
-  return credit ? (providerList.value?.providers.find(provider => provider.provider === credit.provider)?.attribution ?? credit.fallback) : ''
-})
-
 // ------------------------------------------------------------------------------------- the tools, filled in
 
 const actions = computed(() => chip.value.actions(env, props.choices, outcome.value?.loaded ?? null))
@@ -247,12 +241,7 @@ function onChoice(param: string, value: unknown) {
           {{ view.note }}
         </p>
         <!-- the credit, and under it what wetterdienst did to the data (GH-3799): the values of these answers are the provider's own values -->
-        <div v-if="chip.credit">
-          <p class="text-sm text-muted">
-            {{ attribution }}
-          </p>
-          <ProcessingNote class="mt-1" />
-        </div>
+        <ProviderCredit v-if="chip.credit" :provider="chip.credit.provider" :fallback="chip.credit.fallback" />
       </div>
     </div>
 

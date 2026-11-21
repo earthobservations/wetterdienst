@@ -18,6 +18,8 @@ import { stackSvgs } from '~/utils/explorer-image'
 import { LARGE_THRESHOLD, pointCount, trendOf } from '~/utils/explorer-model'
 import { formatDate, formatNumber } from '~/utils/format'
 import { limitRefusal } from '~/utils/limit-refusal'
+import { processingNote } from '~/utils/processing-note'
+import { creditLines, termsOfProvider } from '~/utils/provider-credit'
 import { estimateRows, hasNoReadingsYet, untilToday, windowForRefusal } from '~/utils/row-window'
 import { timestampDate } from '~/utils/timestamp'
 import { requestUnitTargets } from '~/utils/unit-targets'
@@ -561,11 +563,22 @@ watch(allValues, () => {
 // fetched, and the column picker hides only its default columns again when it changes. The request
 // sent once its answer is in, which the fetch sets together with its rows: fetchedRequest follows a
 // few microtasks later, and the new rows were drawn in the mode of the request before until then
-const rowsMode = computed((): StationMode => {
+const rowsRequest = computed(() => {
   const answered = valuesStatus.value === 'success' ? sentRequest.value : fetchedRequest.value
-  const request = allValues.value.length ? answered : null
-  return request?.mode ?? stationSelection.value.mode
+  return allValues.value.length ? answered : null
 })
+const rowsMode = computed((): StationMode => rowsRequest.value?.mode ?? stationSelection.value.mode)
+
+// The credit of the rows on screen (GH-4255): the provider they were fetched from, as `GET /api/providers` states its credit line and
+// licence, and what wetterdienst did to them, which for the rows of an interpolation or a summary says they were calculated. Written
+// under the table and the chart, and into the CSV and JSON files; the copy to the clipboard is rows alone.
+const { data: providerList } = useProviders()
+const rowsProvider = computed(() => {
+  const named = rowsRequest.value?.query.provider
+  return typeof named === 'string' && named ? named : (parameterSelection.value.provider ?? null)
+})
+const rowsDerived = computed(() => rowsMode.value !== 'station')
+const rowsTerms = computed(() => termsOfProvider(providerList.value?.providers, rowsProvider.value))
 
 // The columns the table knows, in its order: the ones it, the picker and a download put first
 const TABLE_ORDER: string[] = columnDefinitions.map(c => c.key)
@@ -698,7 +711,16 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
     return
   }
   const columns = columnOptions.value
-  const content = format === 'csv' ? valuesToCsv(sortedValues.value, columns) : valuesToJson(sortedValues.value, columns)
+  const note = processingNote(t, rowsDerived.value)
+  const terms = rowsTerms.value
+  // the credit and the note are in the file, as the stripes' table has them: comment lines before a CSV's header, a `metadata` member
+  // before the `values` of the JSON, where a reader of `values` finds the rows as before
+  const content = format === 'csv'
+    ? valuesToCsv(sortedValues.value, columns, creditLines(terms, (name, url) => t('credit.licence', { name, url }), note))
+    : valuesToJson(sortedValues.value, columns, {
+        provider: { attribution: terms?.attribution || null, license: terms?.license ? { name: terms.license.name, url: terms.license.url } : null },
+        processing_note: note,
+      })
   saveFile(content, fetchedRequest.value?.filename ?? ENDPOINTS.values.filename, format)
 }
 
@@ -1306,6 +1328,12 @@ function setFacetChartRef(parameter: string, chart: ExplorerChartHandle | null) 
           </div>
         </template>
       </UCard>
+      <!-- whose data it is and what was done to it, directly under the table or the chart (GH-4255) -->
+      <ProviderCredit
+        v-if="!valuesPending && allValues.length > 0"
+        :provider="rowsProvider" :derived="rowsDerived"
+        class="mt-3 px-1" data-testid="explorer-credit"
+      />
     </div>
   </div>
 </template>
