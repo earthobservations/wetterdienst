@@ -1995,6 +1995,71 @@ class StormCellsRequest(_RefusesRenamedParameters):
         return self
 
 
+class StationIdsRequest(_RefusesRenamedParameters):
+    """Request model for the search of one WMO number, WIGOS identifier or ICAO code at every provider (GH-4075)."""
+
+    route: ClassVar[str] = "station-ids"
+
+    model_config = {"extra": "forbid"}
+
+    wmo_id: Annotated[
+        list[str] | None,
+        Field(
+            description="WMO station numbers, comma-separated, e.g. '10381,10147'; '1001' is read as '01001'. The "
+            "WIGOS identifier '0-20000-0-<number>' of every one is searched too.",
+        ),
+    ] = None
+    wigos_id: Annotated[
+        list[str] | None,
+        Field(
+            description="WIGOS station ids, comma-separated, e.g. '0-20000-0-10381'; '0-056-…' is read as '0-56-…'. "
+            "One of WMO's own issuer, '0-20000-0-<number>', is the WMO number as well and finds the stations that "
+            "have it.",
+        ),
+    ] = None
+    icao_id: Annotated[
+        list[str] | None,
+        Field(
+            description="ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. The WMO numbers of the stations "
+            "found are searched too, so 'EDDH' finds the stations that list Hamburg's aerodrome by its WMO number "
+            "only.",
+        ),
+    ] = None
+    format: Annotated[
+        Literal["json", "csv"],
+        Field(description="Output format: json (with the metadata block) or csv (the table alone)."),
+    ] = "json"
+    pretty: _PrettyField = False
+
+    @field_validator("wmo_id", mode="before")
+    @classmethod
+    def validate_wmo_id(cls, v: str | int | list | None) -> list[str] | None:
+        """Read the WMO numbers, five digits each."""
+        return _read_station_codes(v, search_wmo_id)
+
+    @field_validator("wigos_id", mode="before")
+    @classmethod
+    def validate_wigos_id(cls, v: str | list | None) -> list[str] | None:
+        """Read the WIGOS station identifiers, in the notation of the `wigos_id` column."""
+        return _read_station_codes(v, search_wigos_id)
+
+    @field_validator("icao_id", mode="before")
+    @classmethod
+    def validate_icao_id(cls, v: str | list | None) -> list[str] | None:
+        """Read the ICAO codes, in upper case."""
+        return _read_station_codes(v, search_icao_id)
+
+    @model_validator(mode="after")
+    def check_an_id_is_given(self) -> StationIdsRequest:
+        """Refuse a search that names no id."""
+        if not (self.wmo_id or self.wigos_id or self.icao_id):
+            message = "At least one of `wmo_id`, `wigos_id` and `icao_id` is required"
+            _raise_rule_errors(
+                self, [_rule_error("missing_one_of", message, one_of=[["wmo_id"], ["wigos_id"], ["icao_id"]])]
+            )
+        return self
+
+
 class KostraRequest(_RefusesRenamedParameters):
     """Request model for the KOSTRA-DWD-2020 heavy-rainfall statistics of DWD at a point."""
 

@@ -148,7 +148,8 @@ for an endpoint, `mark_deprecated(...)` in the handler that reads a parameter.
 ## Response metadata
 
 The JSON answer of `stations`, `values`, `interpolate`, `summarize`, `history`, `issues`, `alerts` and
-the three `stripes` endpoints has a `metadata` member, and so does the GeoJSON of the first four (next to its
+the three `stripes` endpoints has a `metadata` member (`station-ids` has one too, with a `providers` list in place of the
+one `provider`, as its answer holds several providers' stations, see [Find a station by id](station_ids.md)), and so does the GeoJSON of the first four (next to its
 `data`) and of `alerts` (a foreign member of the collection, next to its `snapshot`). It is always there, and
 it says where the data comes from and may be used, what was asked for as the library resolved it, and
 what the answer is missing:
@@ -350,6 +351,10 @@ what the answer is missing:
   [Hub'Eau](../data/provider/eaufrance/hubeau/index.md#stations-at-a-step-no-resolution-has)),
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
   `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
+  `network-failed` (a network `station-ids` asked whose list could not be read, or cannot be imported: it is left out of
+  the search, the others answer, and `searched` of the block names it with the reason),
+  `network-not-configured` (a network `station-ids` asked that needs credentials the server does not hold, `aemet`, `knmi`
+  or `metno`: it is not asked, and never a failure),
   `parameter-without-rows` (a requested parameter that the source holds no values for, see below),
   `file-skipped` (the stations whose file the provider let go, see below), `wmo-ids-unavailable` (the stations of
   `dwd/observation` and `dwd/derived` are listed without `wmo_id` because DWD's Stationslexikon could not be read or
@@ -703,7 +708,7 @@ release commit, with `uv run poe contracts:baseline`.
   can answer a 400 for a `Host` the server does not answer to, a 500, a 503 when the server is working on as many
   requests as it allows, and a 504 when the request times out; a route with a query also the 422. Beyond those: the
   routes that read from a provider (`stations`, `issues`, `history`, `values`, `interpolate`, `summarize`,
-  `stripes/values`, `stripes/image`, `alerts`, `storm-cells`, `kostra`, `radar/frames`, `radar/frame`) the 400 of a refused request, 404, 501 and 502, and `stations`, `values`,
+  `stripes/values`, `stripes/image`, `alerts`, `storm-cells`, `kostra`, `station-ids`, `radar/frames`, `radar/frame`) the 400 of a refused request, 404, 501 and 502, and `stations`, `values`,
   `interpolate` and `summarize` the 403 of `sql` where the server does not enable it; `coverage` a 400, 404 and 501,
   `auth` a 404 and 501, `providers` a 404, `settings` a 400, and `stripes/stations` a 501 and 502. A test makes each
   of these routes fail with each exception of the table of [Errors](#errors) and holds the status it answers to
@@ -943,6 +948,25 @@ http localhost:7890/api/stations provider==dwd network==observation parameters==
 # Acquire list of DWD DMO stations.
 http localhost:7890/api/stations provider==dwd network==dmo parameters==hourly/icon/temperature_air_2m all==true
 ```
+
+### Station ids (a WMO, WIGOS or ICAO id at every provider)
+
+```bash
+# The station with WMO number 10381 at every provider that lists it (about 9 s the first time).
+http localhost:7890/api/station-ids wmo_id==10381
+
+# An aerodrome by its ICAO code: also the stations that list its WMO number only.
+http localhost:7890/api/station-ids icao_id==EDDH
+
+# The identifier of WMO's issuer is the WMO number as well; CSV is the table alone.
+http localhost:7890/api/station-ids wigos_id==0-20000-0-10381 format==csv
+```
+
+At least one of `wmo_id`, `wigos_id` and `icao_id` is required (each one id or several, comma-separated). The answer is
+`{"metadata": ..., "stations": [...]}`, one entry for each station of each network that lists it, with `matched_by` (the
+id of the station that matched) and `match` (`direct` or `equivalent`). Its `metadata` block names the `searched`
+networks and the lists they were read from, and has the licence and credit line of each provider in `providers` instead of
+the one `provider` of the other answers; see [Find a station by id](station_ids.md).
 
 ### Issues (available model-run datetimes)
 
@@ -1248,6 +1272,7 @@ and where an answer cannot be reasoned about it stays out.
 | `values`, `interpolate`, `summarize` | none | no | no | A window in the past is not stable by itself: a provider revises data (the DWD `recent` readings are checked and moved to `historical`, others publish corrections), and an estimate is made from them. |
 | `ndjson` and `csv` of `stations` and `values` | none | no | no | Streamed station by station, before the answer is known: there is no body to tag when the headers go out. |
 | `stripes/*`, `alerts`, `storm-cells`, `auth`, `version`, `settings` | none | no | no | The stripes end with the year being recorded, alerts and storm cells are live, `auth` probes a provider, and the last two describe the instance. |
+| `station-ids` | none | no | no | The lists it reads are cached by the server, but the answer is a search over eighteen networks and is not tagged. |
 | `kostra` | none | no | no | DWD's tables are static (December 2022) and the server keeps them in its own cache for a week, but the answer is not tagged: no route is cached by a client without a decision of its own. |
 | `/health`, `/ready` | `no-store` (`/ready`) | no | no | A probe is asked every time. |
 

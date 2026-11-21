@@ -162,7 +162,7 @@ The command line is a client of the same functions as the REST API: it renders a
 same request gives the same output, and the options are the parameters of the REST API.
 
 - **Commands and options**: `alerts`, `auth`, `cache`, `coverage`, `fields`,
-  `glossary`, `history`, `info`, `interpolate`, `issues`, `kostra`, `providers`, `radar`, `restapi`, `stations`, `storm-cells`, `stripes`
+  `glossary`, `history`, `info`, `interpolate`, `issues`, `kostra`, `providers`, `radar`, `restapi`, `station-ids`, `stations`, `storm-cells`, `stripes`
   (`image`, `stations`), `summarize` and `values`, with their options, the choices of an option and its default. `tests/ui/cli/help.snapshot.txt`
   is the `--help` of every command; `uv run poe cli:snapshot` writes it anew after an intended change.
   `tests/baselines/cli.baseline.json` is every command and every spelling of every option as the last release offered

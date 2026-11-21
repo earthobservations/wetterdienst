@@ -31,6 +31,14 @@ IMAGE_NOTE = "The image is drawn from the provider's annual values."
 IMAGE_OF_CALCULATED_NOTE = "The image is drawn from the annual values calculated above."
 
 
+#: what the answer of the search for a WMO, WIGOS or ICAO id says besides: the stations are the providers' own, chosen
+#: by the id (GH-4075)
+STATION_IDS_NOTE = (
+    "The stations were selected from the station list each provider publishes, by the id searched for and by the "
+    "ids equivalent to it; no station's data was changed."
+)
+
+
 def processing_note(
     *, derived: bool = False, image: bool = False, calculated: str | None = None, image_note: str = IMAGE_NOTE
 ) -> str:

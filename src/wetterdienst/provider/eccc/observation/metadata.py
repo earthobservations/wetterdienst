@@ -37,6 +37,7 @@ _EcccObservationMetadataSpec = {
         "bbox": [-142.0, 41.0, -52.0, 84.0],
     },
     "timezone": "UTC",
+    "station_id_list": {"resolution": "daily", "dataset": "data", "ids": ["wmo_id"]},
     "resolutions": [
         {
             "name": "hourly",

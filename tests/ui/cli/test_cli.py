@@ -50,6 +50,7 @@ def test_cli_help() -> None:
           providers    List the providers and their networks, and describe what...
           radar        List radar stations.
           restapi      Start the Wetterdienst REST API web service.
+          station-ids  Find one WMO number, WIGOS identifier or ICAO code at every...
           stations     Acquire stations.
           storm-cells  Acquire DWD's thunderstorm cells (KONRAD3D).
           stripes      Climate stripes.
@@ -1762,7 +1763,7 @@ def test_the_moved_commands_are_top_level_commands_and_about_is_none() -> None:
     assert set(_MOVED_FROM_ABOUT) <= set(cli.commands)
     assert "about" not in cli.commands
     assert "about" not in cli.list_commands(click.Context(cli))
-    assert len(cli.commands) == 19
+    assert len(cli.commands) == 20
 
     help_text = CliRunner().invoke(cli, ["--help"]).output
     assert "about" not in help_text.split("Commands:", 1)[1]

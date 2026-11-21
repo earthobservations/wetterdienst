@@ -24,10 +24,12 @@ from wetterdienst.model.unit import UnitConverter
 from wetterdienst.options import SkipThreshold, StationWindowEndBuffer  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.ui.response_metadata import (
     ResponseMetadata,
+    StationIdsMetadata,
     alerts_metadata,
     kostra_metadata,
     metadata_to_dict,
     response_metadata,
+    station_ids_metadata,
     storm_cells_metadata,
 )
 from wetterdienst.util.datetime import format_timestamp
@@ -38,6 +40,7 @@ if TYPE_CHECKING:
 
     import polars as pl
 
+    from wetterdienst.core.station_search import StationIdSearchResult
     from wetterdienst.model.history import TimeseriesHistory
     from wetterdienst.model.result import (
         InterpolatedValuesResult,
@@ -472,6 +475,21 @@ def render_kostra(result: DwdKostraResult, fmt: str, *, pretty: bool = False) ->
     if fmt == "csv":
         return result.to_csv(), metadata
     answer = {"metadata": metadata_to_dict(metadata), **result.to_dict()}
+    return dumps_json(answer, indent=4 if pretty else None, ensure_ascii=False), metadata
+
+
+def render_station_ids(
+    result: StationIdSearchResult, fmt: str, *, pretty: bool = False
+) -> tuple[str, StationIdsMetadata]:
+    """Write the stations a search for a WMO, WIGOS or ICAO id found in the format asked for, JSON with the block.
+
+    JSON is `{"metadata": ..., "stations": [...]}`, one entry for each row; CSV is the table alone, with no place for
+    the block, so a CSV answer carries it in the headers (`station_ids_headers`).
+    """
+    metadata = station_ids_metadata(result)
+    if fmt == "csv":
+        return result.df.write_csv(), metadata
+    answer = {"metadata": metadata.model_dump(mode="json"), "stations": result.to_dict()}
     return dumps_json(answer, indent=4 if pretty else None, ensure_ascii=False), metadata
 
 

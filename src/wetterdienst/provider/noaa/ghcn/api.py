@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
+from contextvars import ContextVar
 from dataclasses import dataclass
 from http import HTTPStatus
 from typing import TYPE_CHECKING
@@ -46,6 +47,11 @@ if TYPE_CHECKING:
     from wetterdienst.util.network import File
 
 log = logging.getLogger(__name__)
+
+#: whether the daily station list is read without the inventory beside it, which the search for a WMO, WIGOS or ICAO id
+#: does (`NoaaGhcnRequest._stations_for_id_search`, GH-4075): it needs the stations file only, and the inventory is
+#: 36 MB beside the 11 MB of the stations file
+_WITHOUT_INVENTORY: ContextVar[bool] = ContextVar("wetterdienst_ghcn_without_inventory", default=False)
 
 # how far apart the hourly and the daily list may put a station and still be taken to mean one place
 MAX_DISTANCE_KM_SAME_STATION = 5.0
@@ -773,6 +779,20 @@ class NoaaGhcnRequest(TimeseriesRequest):
             return df
         return df.filter(~(pl.col("resolution").eq("daily") & pl.col("start_timestamp").is_null()))
 
+    def _stations_for_id_search(self) -> pl.DataFrame:
+        """Build the stations of the id search without the inventory, which holds no id (GH-4075).
+
+        The daily list is the file of the stations and the inventory of their elements joined, and the join only gives
+        each station its span. The search reads the stations file alone (11 of the 47 MB), and so lists the 147
+        stations the inventory has no line for, which `all()` leaves out: 146 of them have no data file, so a search
+        may find a station nobody can read values of, and the answer names the list it came from.
+        """
+        token = _WITHOUT_INVENTORY.set(True)
+        try:
+            return super()._stations_for_id_search()
+        finally:
+            _WITHOUT_INVENTORY.reset(token)
+
     def _knows_station_outside_parameters(self, station_id: str) -> bool:
         """Tell whether the inventory has a line for a station that this request's daily list leaves out (GH-4272).
 
@@ -997,6 +1017,11 @@ class NoaaGhcnRequest(TimeseriesRequest):
         )
 
         df = _restore_lost_signs(df)
+
+        if _WITHOUT_INVENTORY.get():
+            # no span, hence no `start_timestamp` and no `end_timestamp` column, which `_all` then does not use to leave
+            # out the stations that have no element
+            return df.with_columns(pl.lit("daily").alias("resolution"), pl.lit("data").alias("dataset")).lazy()
 
         inventory_df = read_daily_inventory(settings)
         elements = None

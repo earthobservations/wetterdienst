@@ -17,6 +17,7 @@ _DwdMosmixMetadataSpec = {
         "bbox": [-180.0, -90.0, 180.0, 90.0],
     },
     "timezone": "Europe/Berlin",
+    "station_id_list": {"resolution": "hourly", "dataset": "small", "ids": ["wmo_id", "icao_id"]},
     "resolutions": [
         {
             "name": "hourly",

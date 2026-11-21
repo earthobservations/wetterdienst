@@ -24,6 +24,7 @@ _MeteoFranceSynopMetadataSpec = {
         "bbox": [-179.0, -67.0, 167.0, 52.0],
     },
     "timezone": "Europe/Paris",
+    "station_id_list": {"resolution": "subdaily", "dataset": "data", "ids": ["wmo_id"]},
     "resolutions": [
         {
             "name": "subdaily",

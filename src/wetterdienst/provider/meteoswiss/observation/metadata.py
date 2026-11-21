@@ -26,6 +26,7 @@ _MeteoswissObservationMetadataSpec = {
         "bbox": [5.9, 45.7, 10.6, 47.9],
     },
     "timezone": "Europe/Zurich",
+    "station_id_list": {"resolution": "daily", "dataset": "data", "ids": ["wmo_id", "wigos_id"]},
     "resolutions": [
         {
             "name": "10_minutes",

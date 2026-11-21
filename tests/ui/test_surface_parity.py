@@ -617,7 +617,8 @@ def test_every_command_spells_pretty_the_same() -> None:
         if any(param.name == "pretty" for param in command.params)
     }
 
-    # stations, history, values, interpolate and summarize, alerts, storm cells, KOSTRA and the stripes' stations
+    # stations, history, values, interpolate and summarize, alerts, storm cells, KOSTRA, the search for an id and the
+    # stripes' stations
     assert set(with_pretty) == {
         "stations",
         "history",
@@ -627,6 +628,7 @@ def test_every_command_spells_pretty_the_same() -> None:
         "alerts",
         "storm-cells",
         "kostra",
+        "station-ids",
         "stripes stations",
     }
     spellings = {

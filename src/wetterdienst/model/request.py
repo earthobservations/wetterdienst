@@ -1113,6 +1113,16 @@ class TimeseriesRequest:
         finally:
             _SELECTING.reset(token)
 
+    def _stations_for_id_search(self) -> pl.DataFrame:
+        """Build the stations the search for a WMO, WIGOS or ICAO id (`wetterdienst.core.station_search`) looks among.
+
+        The list of `_stations_to_select_among`, which that search needs no more of than the ids and the position of a
+        station. A provider whose list costs more than that to build (`noaa/ghcn` reads the daily inventory for the span
+        of each station, which no id depends on) overrides this with the list without it; what `all()` and the filters
+        return does not change.
+        """
+        return self._stations_to_select_among()
+
     def _stations_to_search(self, df_all: pl.DataFrame) -> pl.DataFrame:
         """Give the stations a search by place (`filter_by_rank`, `filter_by_distance`, `filter_by_bbox`) looks among.
 
