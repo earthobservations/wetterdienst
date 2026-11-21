@@ -8,7 +8,7 @@ Adding a chip is three things:
 
 1. one file, `chips/<id>.ts`, that calls `defineChip({...})`;
 2. its translations, in all eleven locales (`i18n/locales/*.json`);
-3. one line in `registry.ts`: `CHIPS = [rain, summer, wind, download, <yours>]`. The order is the order of the buttons.
+3. one line in `registry.ts`: `CHIPS = [rain, season, wind, download, <yours>]`. The order is the order of the buttons.
 
 `tests/unit/ask-chips.test.ts` then holds the new chip to the rest: it must be in the registry, lead into a tool of
 the app, and have every key it uses in all eleven locales. Add the test of your answer function to
@@ -17,15 +17,16 @@ the app, and have every key it uses in all eleven locales. Add the test of your 
 
 ## What a definition holds
 
-Copy `chips/summer.ts` (no choices) or `chips/wind.ts` (a choice) and change it. The types, with a comment on every
+Copy `chips/rain.ts` (no choices), `chips/wind.ts` (a day) or `chips/season.ts` (two selects, one of whose options is offered disabled with its reason) and change it. The types, with a comment on every
 field, are in `chip.ts`.
 
 | Field | What it is |
 | --- | --- |
-| `id` | The name in the link (`?ask=<id>`) and in the test id of the button (`question-<id>`). |
+| `id`, `aliases` | The name in the link (`?ask=<id>`) and in the test id of the button (`question-<id>`). A name the chip had before (`summer`, which became `season`) is an alias: the old link opens the chip, with the choices' defaults, and the link the page writes next carries the id. |
 | `icon`, `tool` | The icon of the button, and the tool (a key of `TOOLS`, `utils/sections.ts`) the answer leads into. The button itself carries no tile: the tile is on the link into the tool. |
 | `quantity` | The quantity whose unit the settings choose (`precipitation`, `temperature`, `speed`, ...). The panel asks again when the reader changes that unit. |
-| `choices` | What the reader can choose about the question, with the name each has in the link. Today a day (`kind: 'date'`, `&day=`). The panel draws a labelled control for each; a choice of another kind adds its kind to `chip.ts` and its control to the panel. |
+| `choices` | What the reader can choose about the question, with the name each has in the link. A day (`kind: 'date'`, `&day=`) or one of a few values (`kind: 'select'`, `&season=`, `&ref=`), whose `options` are handed what the chip fetched and may offer one disabled with its reason in its text. The panel draws a labelled control for each; a choice of another kind adds its kind to `chip.ts` and its control to the panel. |
+| `loadedBy` | The choices `load` reads, where it reads only some of them (the season and the normal are judged from the same monthly means): a change of another choice asks the backend for nothing and works the answer out again. Absent: all of them. |
 | `question`, `from` | The question as the button and the heading say it (a function of the page's environment and the choices), and the key of the line above the heading that says where the answer comes from. |
 | `scale` | The verdicts the answer says, each with the key of its sentence. Empty where the answer is a sentence of its own (the download chip). |
 | `load` | **What it fetches**: provider, network, parameters and window, through the `api` it is handed (`values`, `stations`, `providers`, `coverage`, `kept`). It does not judge the data. |
@@ -34,7 +35,7 @@ field, are in `chip.ts`.
 | `empty`, `actions` | What is said where there is no answer, and the ways into the tools (with their tiles). |
 | `credit` | The provider whose credit line, and the note of what wetterdienst did to the data, close the answer; null where it is no provider's data. |
 | `i18n` | **Every key of the catalogs the definition uses.** The test holds these to all eleven locales, and holds the file to the list: a key it writes and does not list fails. |
-| `explanation` | **How the answer was worked out and what it rests on** (`ChipExplanation`): the entries of "How weather is measured" its terms link to (`topics`), its `steps`, `formulas` and `limits` (ids), its `rules`, the `data` it reads with the link that opens it in the Explorer, and the `numbers` of this answer. The words are in `i18n/methods/en.ts` and `de.ts` under the chip's id. The disclosure under the answer and the section of the page `/methods` are written from it, with no code of their own for a chip. |
+| `explanation` | **How the answer was worked out and what it rests on** (`ChipExplanation`): the entries of "How weather is measured" its terms link to (`topics`), its `steps`, `formulas` and `limits` (ids), its `rules`, the `data` it reads with the link that opens it in the Explorer, and the `numbers` of this answer. The words are in `i18n/methods/en.ts` and `de.ts` under the chip's id; where a line of the numbers names a choice (the season), the texts' `terms` give its words in their own language. The disclosure under the answer and the section of the page `/methods` are written from it, with no code of their own for a chip. |
 
 ## The explanation: every choice has a source or is marked as your own
 

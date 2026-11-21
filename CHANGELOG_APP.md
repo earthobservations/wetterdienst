@@ -16,6 +16,18 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Ask the weather]` The summer question is now a season question with two labelled choices under
+  it: the season (spring, summer, autumn, winter; the winter takes the December before it) and
+  the reference period, every complete WMO 30-year normal from 1961-1990 on (1961-1990 to
+  1991-2020 today, with 2001-2030 added by itself on 1 January 2031). The question, the verdict
+  ("Was last winter colder than usual here?"), the chart, the disclosure and the Methods page say
+  which season and which normal were used. A normal the station has too few seasons of is offered
+  disabled, with how many it has; only complete seasons are compared. The link carries
+  `&season=winter&ref=1961-1990`; `?ask=summer` and `/methods#summer` keep working and mean the
+  summer against the newest normal, as before (GH-3764).
+
 ## [0.57.0] - 2026-11-21
 
 Paired with backend 0.194.0, which it needs: the Radar tool asks the radar routes of 0.194.0, and the

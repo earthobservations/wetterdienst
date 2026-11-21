@@ -79,13 +79,13 @@
     "idle": "Choisis une question : la réponse est donnée ici, à partir de données en direct.",
     "q": {
       "rain": "Va-t-il pleuvoir à {place} demain ?",
-      "summer": "L'été dernier a-t-il été plus chaud que d'habitude ici ?",
+      "season": "{last} a-t-il été {warmth} que d'habitude ici ?",
       "wind": "Quel vent a-t-il fait le {day} ?",
       "download": "Où télécharger des températures horaires ?"
     },
     "from": {
       "rain": "Prévisions, DWD MOSMIX",
-      "summer": "Moyennes mensuelles, DWD",
+      "season": "Moyennes mensuelles, DWD",
       "wind": "Relevés quotidiens, DWD",
       "download": "Tous les services météorologiques"
     },
@@ -125,16 +125,54 @@
       "none": "Les prévisions pour {name} ne vont pas encore jusqu'à demain.",
       "open": "Ouvrir les prévisions complètes"
     },
-    "summer": {
-      "hotter": "Oui, {anomaly} {unit} de plus que d'habitude.",
+    "season": {
+      "warmer": "Oui, {anomaly} {unit} de plus que d'habitude.",
       "cooler": "Non, {anomaly} {unit} de moins que d'habitude.",
       "usual": "Pas vraiment : à peu près comme d'habitude.",
-      "detail": "L'été {year} (juin à août) a eu une moyenne de {mean} {unit} ; les étés de {from} à {to}, de {normal} {unit}.",
-      "rank": "Rang {rank} sur {count} étés depuis {first}, en partant du plus chaud.",
-      "chart": "Chaque été par rapport à la moyenne de {from} à {to}, en {unit}",
-      "none": "Il y a trop peu d'étés complets ici pour comparer.",
+      "coldYes": "Oui, {anomaly} {unit} de moins que d'habitude.",
+      "coldNo": "Non, {anomaly} {unit} de plus que d'habitude.",
+      "coldUsual": "Pas vraiment : à peu près comme d'habitude.",
+      "detail": "{seasonCap} {year} ({months}) : {mean} {unit} en moyenne ; moyenne des {seasons} de {from} à {to} : {normal} {unit}.",
+      "rank": "Rang {rank} sur {count} {seasons} depuis {first}, en partant du plus chaud.",
+      "chart": "Chaque {season} par rapport à la moyenne de {from} à {to}, en {unit}",
+      "none": "Il n'y a ici que trop peu de saisons complètes pour comparer.",
+      "noneNormal": "Cette station n'a que {count} des {of} saisons de {normal} ; il en faut {min} pour comparer.",
       "open": "Ouvrir les moyennes mensuelles",
-      "stripes": "Voir les bandes climatiques"
+      "stripes": "Voir les bandes climatiques",
+      "seasonLabel": "Saison",
+      "refLabel": "Comparé à",
+      "refShort": "{normal} (ici seulement {count} sur {of}, {min} requis)",
+      "refFallback": "{normal} (ici seulement {count} sur {of} ; les précédentes sont utilisées)",
+      "last": {
+        "spring": "Le printemps dernier",
+        "summer": "L'été dernier",
+        "autumn": "L'automne dernier",
+        "winter": "L'hiver dernier"
+      },
+      "warmth": {
+        "spring": "plus chaud",
+        "summer": "plus chaud",
+        "autumn": "plus chaud",
+        "winter": "plus froid"
+      },
+      "name": {
+        "spring": "printemps",
+        "summer": "été",
+        "autumn": "automne",
+        "winter": "hiver"
+      },
+      "plural": {
+        "spring": "printemps",
+        "summer": "étés",
+        "autumn": "automnes",
+        "winter": "hivers"
+      },
+      "months": {
+        "spring": "mars à mai",
+        "summer": "juin à août",
+        "autumn": "septembre à novembre",
+        "winter": "décembre à février"
+      }
     },
     "wind": {
       "calm": "Calme.",

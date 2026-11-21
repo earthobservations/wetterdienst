@@ -41,7 +41,7 @@ test.describe('the suggestions', () => {
     const list = questions(page)
     await expect(list.getByRole('listitem')).toHaveCount(4)
     await expect(list.getByRole('button')).toHaveCount(4)
-    for (const id of ['rain', 'summer', 'wind', 'download'])
+    for (const id of ['rain', 'season', 'wind', 'download'])
       await expect(chip(page, id)).toHaveAttribute('aria-pressed', 'false')
     await expect(chip(page, 'rain')).toContainText('Will it rain in Kiel-Holtenau tomorrow?')
     await expect(page.getByTestId('ask-idle')).toHaveText(en.ask.idle)
@@ -74,16 +74,16 @@ test.describe('the suggestions', () => {
 
   test('answer whether last summer was hotter, and lead into the monthly means and the stripes', async ({ page, baseURL }) => {
     const { asked } = await home(page, baseURL!)
-    await chip(page, 'summer').click()
+    await chip(page, 'season').click()
     await expect(page.getByTestId('answer-verdict')).toContainText('Yes, ')
     await expect(page.getByTestId('answer-verdict')).toContainText('warmer than usual')
     const answer = page.getByTestId('answer')
     await expect(answer).toContainText('Number 1 of')
-    const monthly = answer.getByRole('link', { name: en.ask.summer.open })
+    const monthly = answer.getByRole('link', { name: en.ask.season.open })
     const href = new URL((await monthly.getAttribute('href'))!, baseURL!)
     expect(href.pathname).toBe('/explorer')
     expect(Object.fromEntries(href.searchParams)).toMatchObject({ mode: 'station', provider: 'dwd', network: 'observation', resolution: 'monthly', dataset: 'climate_summary', parameters: 'temperature_air_mean_2m', stations: '02564' })
-    await expect(answer.getByRole('link', { name: en.ask.summer.stripes })).toHaveAttribute('href', '/stripes?kind=temperature&station=02564')
+    await expect(answer.getByRole('link', { name: en.ask.season.stripes })).toHaveAttribute('href', '/stripes?kind=temperature&station=02564')
     expect(askedValues(asked)[0]!.query).toMatchObject({ parameters: 'monthly/climate_summary/temperature_air_mean_2m', stations: '02564' })
   })
 
@@ -118,10 +118,10 @@ test.describe('the suggestions', () => {
 
   test('close when pressed again, and one opens in place of the other', async ({ page, baseURL }) => {
     await home(page, baseURL!)
-    await chip(page, 'summer').click()
+    await chip(page, 'season').click()
     await expect(page.getByTestId('answer')).toBeVisible()
     await chip(page, 'wind').click()
-    await expect(chip(page, 'summer')).toHaveAttribute('aria-pressed', 'false')
+    await expect(chip(page, 'season')).toHaveAttribute('aria-pressed', 'false')
     await expect(chip(page, 'wind')).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('answer')).toHaveCount(1)
     await chip(page, 'wind').click()
@@ -139,12 +139,12 @@ test.describe('the suggestions', () => {
     await page.keyboard.press('Tab')
     await expect(chip(page, 'rain')).toBeFocused()
     await page.keyboard.press('Tab')
-    await expect(chip(page, 'summer')).toBeFocused()
+    await expect(chip(page, 'season')).toBeFocused()
     await page.keyboard.press('Space')
-    await expect(chip(page, 'summer')).toHaveAttribute('aria-pressed', 'true')
-    await expect(chip(page, 'summer')).toBeFocused()
+    await expect(chip(page, 'season')).toHaveAttribute('aria-pressed', 'true')
+    await expect(chip(page, 'season')).toBeFocused()
     await expect(page.getByTestId('answer-verdict')).toBeVisible()
-    await expect(chip(page, 'summer')).toBeFocused()
+    await expect(chip(page, 'season')).toBeFocused()
     // the next Tab stop is the next suggestion, the answer's links come after the list
     await page.keyboard.press('Tab')
     await expect(chip(page, 'wind')).toBeFocused()
@@ -154,7 +154,7 @@ test.describe('the suggestions', () => {
     const { backend } = await home(page, baseURL!)
     const values = backend.handlers.values!
     backend.handlers.values = () => new ApiFailure(422, 'The request could not be processed.')
-    await chip(page, 'summer').click()
+    await chip(page, 'season').click()
     await expect(page.getByTestId('answer').getByText(en.ask.failed)).toBeVisible()
     backend.handlers.values = values
     await page.getByTestId('answer').getByRole('button', { name: en.common.retry }).click()
@@ -164,7 +164,7 @@ test.describe('the suggestions', () => {
   test('open from a link, for the place the link names', async ({ page, baseURL }) => {
     const { asked } = await home(page, baseURL!, '/?ask=summer&place=00183')
     await expect(page.getByTestId('place-button')).toContainText('Arkona')
-    await expect(chip(page, 'summer')).toHaveAttribute('aria-pressed', 'true')
+    await expect(chip(page, 'season')).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('answer-verdict')).toBeVisible()
     expect(askedValues(asked).at(-1)!.query.stations).toBe('00183')
   })
@@ -183,7 +183,7 @@ test.describe('the explanation under an answer (GH-3764)', () => {
 
   test('is a button that opens a region, with the numbers, the sources, the data, the terms and the limits', async ({ page, baseURL }) => {
     await home(page, baseURL!)
-    await chip(page, 'summer').click()
+    await chip(page, 'season').click()
     await expect(page.getByTestId('answer-verdict')).toBeVisible()
     const button = page.getByTestId('explanation-button')
     const region = page.getByTestId('explanation-region')
@@ -204,7 +204,7 @@ test.describe('the explanation under an answer (GH-3764)', () => {
     await expect(page.getByTestId('explanation-explorer')).toHaveAttribute('href', /\/explorer\?.*stations=02564/)
     await expect(region.getByRole('link', { name: 'Climate normals' })).toHaveAttribute('href', '/measurement#normals')
     await expect(page.getByTestId('explanation-limits').getByRole('listitem').first()).toBeVisible()
-    await expect(page.getByTestId('explanation-full')).toHaveAttribute('href', '/methods#summer')
+    await expect(page.getByTestId('explanation-full')).toHaveAttribute('href', '/methods#season')
     // pressed again it closes
     await button.click()
     await expect(button).toHaveAttribute('aria-expanded', 'false')
@@ -246,7 +246,7 @@ test.describe('the explanation under an answer (GH-3764)', () => {
 
   test('is on every chip, the list of services included', async ({ page, baseURL }) => {
     await home(page, baseURL!)
-    for (const id of ['rain', 'summer', 'wind', 'download']) {
+    for (const id of ['rain', 'season', 'wind', 'download']) {
       await chip(page, id).click()
       await expect(page.getByTestId('answer-verdict')).toBeVisible()
       await expect(page.getByTestId('explanation-button')).toBeVisible()
@@ -291,7 +291,7 @@ test.describe('the place', () => {
     await expect(page).toHaveURL(/place=00183/)
     await expect(chip(page, 'rain')).toContainText('Will it rain in Arkona tomorrow?')
 
-    await chip(page, 'summer').click()
+    await chip(page, 'season').click()
     await expect(page.getByTestId('answer-verdict')).toBeVisible()
     expect(askedValues(asked).at(-1)!.query.stations).toBe('00183')
     // the place stays for the next visit
@@ -323,7 +323,7 @@ test.describe('on a phone', () => {
 
   test('the suggestions and an answer fit the width', async ({ page, baseURL }) => {
     await home(page, baseURL!)
-    for (const id of ['rain', 'summer', 'wind', 'download']) {
+    for (const id of ['rain', 'season', 'wind', 'download']) {
       await chip(page, id).click()
       await expect(page.getByTestId('answer')).toBeVisible()
       await expect(page.getByTestId('answer-status')).not.toBeEmpty()
@@ -331,7 +331,7 @@ test.describe('on a phone', () => {
       expect(overflow, id).toBeLessThanOrEqual(0)
     }
     // each suggestion is a target of 44 px or more (WCAG 2.5.8 asks 24)
-    for (const box of await Promise.all(['rain', 'summer', 'wind', 'download'].map(id => chip(page, id).boundingBox())))
+    for (const box of await Promise.all(['rain', 'season', 'wind', 'download'].map(id => chip(page, id).boundingBox())))
       expectAtLeastPx(box!.height, 44)
   })
 })
@@ -371,7 +371,7 @@ test.describe('the labels of the answers\' charts', () => {
       await page.setViewportSize({ width, height: 900 })
       await home(page, baseURL!, '/', language)
       let before = ''
-      for (const id of ['summer', 'rain', 'wind']) {
+      for (const id of ['season', 'rain', 'wind']) {
         await chip(page, id).click()
         // the chart of this question, not the one of the last
         const caption = page.getByRole('figure').locator('figcaption')
@@ -403,7 +403,7 @@ test.describe('the labels of the answers\' charts', () => {
           for (const other of chart.values.slice(at + 1))
             expect(overlap(value, other), `${where}: ${value.text} and ${other.text}`).toBe(false)
         }
-        if (id === 'summer') {
+        if (id === 'season') {
           // the bars hang from a line, and the line has its 0
           const zero = chart.values.find(value => value.kind === 'zero')
           expect(zero, where).toBeDefined()
@@ -414,4 +414,127 @@ test.describe('the labels of the answers\' charts', () => {
       }
     })
   }
+})
+
+// The season and the reference period (GH-3764, step 2a): two labelled selects under the question, which the question's own button does not hold
+test.describe('the season and the reference period', () => {
+  test.use({ viewport: { width: 1280, height: 900 } })
+
+  const seasonSelect = (page: Page) => page.getByRole('combobox', { name: en.ask.season.seasonLabel })
+  const refSelect = (page: Page) => page.getByRole('combobox', { name: en.ask.season.refLabel })
+
+  test('are two labelled selects, and a choice changes the question, the answer and the link, with no new request', async ({ page, baseURL }) => {
+    const { asked } = await home(page, baseURL!)
+    await chip(page, 'season').click()
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    await expect(seasonSelect(page)).toHaveValue('summer')
+    await expect(refSelect(page)).toHaveValue('1991-2020')
+    await expect(refSelect(page).locator('option')).toHaveText(['1961–1990', '1971–2000', '1981–2010', '1991–2020'])
+    // the controls are not in the button, which stays one pressed button
+    await expect(chip(page, 'season').locator('select')).toHaveCount(0)
+    await expect(chip(page, 'season')).toHaveAttribute('aria-pressed', 'true')
+    const requests = askedValues(asked).length
+
+    await seasonSelect(page).selectOption('winter')
+    await expect(chip(page, 'season')).toHaveText('Was last winter colder than usual here?')
+    await expect(page.locator('#answer-heading')).toHaveText('Was last winter colder than usual here?')
+    await expect(page).toHaveURL(/\?ask=season&season=winter$/)
+    // the mock winter is warmer than the normal: the answer to "colder" is no
+    await expect(page.getByTestId('answer-verdict')).toContainText('No, ')
+    await expect(page.getByTestId('answer-verdict')).toContainText('warmer than usual')
+    await refSelect(page).selectOption('1961-1990')
+    await expect(page).toHaveURL(/\?ask=season&season=winter&ref=1961-1990$/)
+    const answer = page.getByTestId('answer')
+    await expect(answer).toContainText('the winters from 1961 to 1990 averaged')
+    await expect(answer.getByRole('figure').locator('figcaption')).toHaveText('Each winter against the average of 1961 to 1990, in °C')
+    await expect(answer).toContainText(/Winter \d{4}\/\d{2} \(December to February\) averaged/)
+    // the live region says the new verdict
+    await expect(page.getByTestId('answer-status')).toHaveText((await page.getByTestId('answer-verdict').textContent())!.trim())
+    // the whole record served every choice: nothing was asked again
+    expect(askedValues(asked)).toHaveLength(requests)
+
+    // the disclosure says which season and which normal were used, and the page of the methods is linked
+    await page.getByTestId('explanation-button').click()
+    await expect(page.getByTestId('explanation-numbers')).toContainText('Compared with the winters of 1961 to 1990: the mean of 30 winters')
+    await expect(page.getByTestId('explanation-full')).toHaveAttribute('href', '/methods#season')
+  })
+
+  test('read the link of a season and a normal, and the link of the old question', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=season&season=autumn&ref=1981-2010')
+    await expect(chip(page, 'season')).toHaveText('Was last autumn warmer than usual here?')
+    await expect(seasonSelect(page)).toHaveValue('autumn')
+    await expect(refSelect(page)).toHaveValue('1981-2010')
+    await expect(page.getByTestId('answer')).toContainText('the autumns from 1981 to 2010 averaged')
+    // a name that is none gives the defaults
+    await page.goto('/?ask=season&season=monsoon&ref=1950-1979')
+    await expect(seasonSelect(page)).toHaveValue('summer')
+    await expect(refSelect(page)).toHaveValue('1991-2020')
+    // `?ask=summer` is the summer against the newest normal, the chip pressed
+    await page.goto('/?ask=summer')
+    await expect(chip(page, 'season')).toHaveAttribute('aria-pressed', 'true')
+    await expect(chip(page, 'season')).toHaveText('Was last summer hotter than usual here?')
+    await expect(page.getByTestId('answer')).toContainText('the summers from 1991 to 2020 averaged')
+  })
+
+  test('offer a normal the station has too few seasons of disabled, with the reason in the option, and say why there is no answer for a link that names it', async ({ page, baseURL }) => {
+    // Arkona's record starts in 1975: 16 of the 30 winters of 1961 to 1990
+    await home(page, baseURL!, '/?ask=season&season=winter&ref=1961-1990&place=00183')
+    const first = refSelect(page).locator('option').first()
+    await expect(first).toBeDisabled()
+    await expect(first).toHaveText('1961–1990 (only 16 of 30 seasons here, 20 needed)')
+    await expect(refSelect(page).locator('option').nth(1)).toBeEnabled()
+    await expect(page.getByTestId('answer')).toContainText('This station has only 16 of the 30 seasons of 1961–1990; 20 are needed to compare.')
+    await expect(page.getByTestId('answer-verdict')).toHaveCount(0)
+    await refSelect(page).selectOption('1971-2000')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+  })
+
+  test('are in German, with the season in the one sentence', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=season&season=winter', 'de')
+    await expect(chip(page, 'season')).toHaveText('War der letzte Winter hier kälter als sonst?')
+    await expect(page.getByRole('combobox', { name: de.ask.season.seasonLabel })).toHaveValue('winter')
+    await expect(page.getByRole('combobox', { name: de.ask.season.refLabel })).toBeVisible()
+    await expect(page.getByTestId('answer')).toContainText(/Der Winter \d{4}\/\d{2} \(Dezember bis Februar\) hatte im Mittel/)
+  })
+
+  test('is reached from the keyboard: the controls follow the button, each with its label', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=season')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    await seasonSelect(page).focus()
+    await expect(seasonSelect(page)).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(refSelect(page)).toBeFocused()
+  })
+})
+
+test.describe('the season and the reference period on a phone', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  for (const language of ['en', 'de', 'es', 'pl']) {
+    test(`fit the width, with controls of 44 px, in ${language}`, async ({ page, baseURL }) => {
+      await home(page, baseURL!, '/?ask=season&season=winter&ref=1961-1990&place=00183', language)
+      await expect(page.getByTestId('answer')).toBeVisible()
+      const choices = page.getByTestId('answer-choices')
+      await expect(choices).toBeVisible()
+      for (const select of await choices.locator('select').all()) {
+        const box = (await select.boundingBox())!
+        expectAtLeastPx(box.height, 44)
+        expect(box.x + box.width, 'inside the page').toBeLessThanOrEqual(390)
+      }
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+      expect(overflow).toBeLessThanOrEqual(0)
+    })
+  }
+
+  test('draw the labels of a winter chart, two years each, without touching', async ({ page, baseURL }) => {
+    await page.setViewportSize({ width: 320, height: 900 })
+    await home(page, baseURL!, '/?ask=season&season=winter')
+    await expect(page.getByRole('figure').getByTestId('answer-bars-label').first()).toBeVisible()
+    const chart = await chartBoxes(page)
+    const labels = chart.labels.sort((a, b) => a.left - b.left)
+    expect(labels.length).toBeGreaterThan(1)
+    for (let at = 1; at < labels.length; at += 1)
+      expect(labels[at - 1]!.right + 1, `${labels[at - 1]!.text} and ${labels[at]!.text}`).toBeLessThanOrEqual(labels[at]!.left)
+    expect(chart.labels.map(label => label.text).some(text => /^\d{4}\/\d{2}$/.test(text))).toBe(true)
+  })
 })

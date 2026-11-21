@@ -203,6 +203,16 @@ meant to be understood, not to be the last word, and **a review by a native spea
   of the summer question (`Tak, o {anomaly} °C cieplej`), and in every language the Beaufort wording of the wind
   verdicts (calm, breezy, windy, stormy), which follows no official word list.
 
+- **Machine-made**: the strings of the season question's choices (`ask.season.*`, `ask.q.season`, GH-3764, step 2a: the season and
+  reference-period selects, the four season names with their agreement, the cold-winter verdicts, the disabled normals' reasons) were
+  written by a language model (Claude) in **all ten locales besides `en`**, `de` included, and no person has read them. The season
+  words carry the grammar (`ask.season.last.*` and `ask.season.warmth.*` hold the article, the verb and the adjective that agree with
+  each season), so no sentence is written per season. Least certain: `de-hh` (`Fröhjohr`, `Harvst`, `köller`, `Johrestied`,
+  `Fröhjohrn`); `lb` (`Joreszäit`, `Hierschter`, `Fréijoeren`); `cs` (`Byl minulý podzim`, `Roční období`); `pl` (`Pora roku`,
+  `zimniejsza`); `da` (`sæson` in the sentences where the name of the season would need a case); `es` (`estaciones del año`, to keep
+  `estaciones` from reading as stations); `it` and `es` (`in più del solito`, `por encima de lo normal`, chosen so that no verdict has to
+  agree in gender with the season).
+
 - **Machine-made**: the strings of the map tool (`mapTool.*`, `nav.map`, `shell.stationsMap` and `shell.stationOnMap`,
   `seo.pages.map`, GH-3650: the chips, the panel, the cards' notes and links, the about text) were written by a language
   model (Claude) in **all ten locales besides `en`**, `de` included, and no person has read them. Least certain: `de-hh`
@@ -309,7 +319,7 @@ the language, not a decision; `pl`, `cs`, `lb` and `de-hh` are as unreviewed as 
 | `it` | `ask.rain.chance` | `Probabilità di pioggia più alta in un'ora` ("within one hour") | `in una singola ora` | low |
 | `it` | `meteogram.chart.weather.sleet`, `meteogram.chart.weather.clear`, `ask.wind.calm` | `Nevischio` (light dry snow), `Soleggiato`, `Calmo` | `Pioggia mista a neve`, `Sereno` (Aeronautica Militare), `Calma` (the Beaufort word) | low |
 | `pl` | `ask.wind.context` | `Dni wokół z silniejszymi porywami` | `Pobliskie dni z silniejszymi porywami` | low |
-| `cs` | `ask.q.summer` | `Bylo poslední léto tady teplejší než obvykle?` (reads as "the final summer") | `Bylo minulé léto tady teplejší než obvykle?` | medium |
+| `cs` | `ask.season.last.*` | `minulé léto` / `minulý podzim` / `minulá zima` (the first suggestion of the row, taken up in GH-3764) | `poslední` was the wording before; `minulé` reads as "last", not "final", but no person has read it | low |
 | `lb` | `seo.pages.explorer` | `liest d'Miessungen` (third person) | `lies d'Miessungen` (the singular imperative, as the other verbs of the sentence); `luet` in `home.featureExportDesc` is the same form | high that it is the third person |
 | `lb` | `providers.attribution` | `Quellenangab` (German) | `Quell, déi du uginn muss` | medium |
 | `lb` | `ask.placeSearching`, `ask.placeFailed`, against the other `ask.place*` and `api.endpoints.interpolate` | `Plaze` and `Uert` for "place" on the same page | one word (`Uert`, plural `Uerter`, or `Plaz`) throughout | medium |
@@ -320,7 +330,7 @@ the language, not a decision; `pl`, `cs`, `lb` and `de-hh` are as unreviewed as 
 | `de` | `ask.placeLabel` | `Gefragt für` | `Frage zu` | medium |
 | `de` | `location.note` | `... bleibt er in diesem Browser gespeichert` (`er` has no antecedent) | name the Standort in the first sentence | low |
 | `de-hh` | `dataViewer.limitNarrow`, `limitNarrowPoint`, `limitStationsBody`, `mapTool.pickedCentre` | `Wähl`, `utwählt` (German forms) next to `utsöcht` | `Söök ... ut` and `utsöcht` throughout | medium |
-| `de-hh` | `ask.summer.usual` | `Nich würklich: so warm as anners.` | add the "about" of en (`ungefähr`, `rund`) | medium |
+| `de-hh` | `ask.season.usual` | `Nich würklich: so warm as anners.` | add the "about" of en (`ungefähr`, `rund`) | medium |
 | `de-hh` | `location.*`, `footer.privacy`, `location.privacyLink` | `Standort`, `ungefähr`, `Datenschutz`, `Rückt` (German words) | Low German words where there are any (`Standoort`/`Städ`, `rund`) | low |
 | `de-hh` | `mapTool.count`, `shell.results`, `mapTool.results` | `Wiest Stationen: {shown}`; `Resultaten` next to `Ergebnisse` in the older texts | a participle (`Stationen wiest`); one word for "results" | low |
 | `nl` | `location.denied` | `Om haar toe te staan` | `Om dit toe te staan` | medium |

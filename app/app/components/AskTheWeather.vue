@@ -4,7 +4,7 @@ import { DateTime } from 'luxon'
 import UseMyLocation from '~/components/UseMyLocation.vue'
 import { PLACE_NETWORK, placeOf } from '~/composables/usePlace'
 import { queryOfChoice, queryOfPress, queryWith, readChoices } from '~/utils/ask/chip'
-import { CHIPS, isChip } from '~/utils/ask/registry'
+import { chipIdOf, CHIPS } from '~/utils/ask/registry'
 import { distanceKm, formatDistance } from '~/utils/map-tool'
 
 // Ask the weather (GH-3518): the questions people bring to a weather service, as suggestions on the home page, each
@@ -14,7 +14,7 @@ import { distanceKm, formatDistance } from '~/utils/map-tool'
 // of them.
 //
 // The suggestions are buttons that are pressed or not (`aria-pressed`): one is open at a time, pressing it again
-// closes it. The open one is in the link (`?ask=summer`, with a question's choices, `&day=2025-12-26` for the wind
+// closes it. The open one is in the link (`?ask=season`, with a question's choices, `&season=winter&ref=1961-1990` for the season question, `&day=2025-12-26` for the wind
 // question, and `&place=02564` for a place the reader chose), so that an answer can be shared; a link without one
 // opens none, and nothing is fetched until a question is asked. The focus stays on the button; the answer is announced
 // by its live region.
@@ -24,7 +24,7 @@ const router = useRouter()
 const { place, setPlace } = usePlace()
 const { questionText } = useQuestions()
 
-const question = computed(() => isChip(route.query.ask) ? route.query.ask : null)
+const question = computed(() => chipIdOf(route.query.ask))
 /** The values of every question's choices, as the link has them: a question's own where the link names none, or none that is one */
 const choices = computed(() => {
   const now = DateTime.now()

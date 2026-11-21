@@ -1,5 +1,5 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
-import { beforeAll, describe, expect, it } from 'vitest'
+import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
 import MethodsPage from '~/pages/methods.vue'
 import { CHIPS } from '~/utils/ask/registry'
@@ -107,9 +107,14 @@ describe('the page in English', () => {
 
   it('links the terms to "How weather is measured" and a chip to the question it answers', async () => {
     const wrapper = await mountSuspended(MethodsPage)
-    const summer = wrapper.find('article#summer')
-    expect(summer.findAll('a').some(link => link.attributes('href') === '/measurement#normals')).toBe(true)
+    const season = wrapper.find('article#season')
+    expect(season.findAll('a').some(link => link.attributes('href') === '/measurement#normals')).toBe(true)
     expect(wrapper.find('[data-testid="method-ask"]').attributes('href')).toBe('/?ask=rain')
+  })
+
+  it('takes a link to the section by the name the chip had (`#summer`) to the section it is now (`#season`)', async () => {
+    await mountSuspended(MethodsPage, { route: '/methods#summer' })
+    await vi.waitFor(() => expect(useRoute().hash).toBe('#season'))
   })
 
   it('has no note where the text is in the language of the page', async () => {

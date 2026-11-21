@@ -79,13 +79,13 @@
     "idle": "Vælg et spørgsmål, så får du svaret her, ud fra aktuelle data.",
     "q": {
       "rain": "Regner det i {place} i morgen?",
-      "summer": "Var sidste sommer varmere end normalt her?",
+      "season": "Var {last} {warmth} end normalt her?",
       "wind": "Hvor meget blæste det den {day}?",
       "download": "Hvor kan jeg downloade timetemperaturer?"
     },
     "from": {
       "rain": "Udsigt, DWD MOSMIX",
-      "summer": "Månedsmiddel, DWD",
+      "season": "Månedsmiddel, DWD",
       "wind": "Døgnværdier, DWD",
       "download": "Alle vejrtjenester"
     },
@@ -125,16 +125,54 @@
       "none": "Udsigten for {name} rækker endnu ikke til i morgen.",
       "open": "Åbn hele udsigten"
     },
-    "summer": {
-      "hotter": "Ja, {anomaly} {unit} varmere end normalt.",
+    "season": {
+      "warmer": "Ja, {anomaly} {unit} varmere end normalt.",
       "cooler": "Nej, {anomaly} {unit} køligere end normalt.",
       "usual": "Egentlig ikke: omtrent som normalt.",
-      "detail": "Sommeren {year} (juni til august) havde et gennemsnit på {mean} {unit}; somrene fra {from} til {to} {normal} {unit}.",
-      "rank": "Nummer {rank} af {count} somre siden {first}, talt fra den varmeste.",
-      "chart": "Hver sommer i forhold til gennemsnittet for {from} til {to}, i {unit}",
-      "none": "Der er for få hele somre her til en sammenligning.",
+      "coldYes": "Ja, {anomaly} {unit} koldere end normalt.",
+      "coldNo": "Nej, {anomaly} {unit} varmere end normalt.",
+      "coldUsual": "Egentlig ikke: omtrent som normalt.",
+      "detail": "{seasonCap} {year} ({months}) havde et gennemsnit på {mean} {unit}; {seasons} fra {from} til {to} {normal} {unit}.",
+      "rank": "Nummer {rank} af {count} ({seasons} siden {first}), talt fra den varmeste.",
+      "chart": "Hver {season} i forhold til gennemsnittet for {from} til {to}, i {unit}",
+      "none": "Der er for få hele sæsoner her til en sammenligning.",
+      "noneNormal": "Stationen har kun {count} af de {of} sæsoner i {normal}; der skal bruges {min} til en sammenligning.",
       "open": "Åbn månedsmidlerne",
-      "stripes": "Se klimastriberne"
+      "stripes": "Se klimastriberne",
+      "seasonLabel": "Sæson",
+      "refLabel": "Sammenlignet med",
+      "refShort": "{normal} (kun {count} af {of} her, {min} kræves)",
+      "refFallback": "{normal} (kun {count} af {of} her; tidligere bruges i stedet)",
+      "last": {
+        "spring": "sidste forår",
+        "summer": "sidste sommer",
+        "autumn": "sidste efterår",
+        "winter": "sidste vinter"
+      },
+      "warmth": {
+        "spring": "varmere",
+        "summer": "varmere",
+        "autumn": "varmere",
+        "winter": "koldere"
+      },
+      "name": {
+        "spring": "forår",
+        "summer": "sommer",
+        "autumn": "efterår",
+        "winter": "vinter"
+      },
+      "plural": {
+        "spring": "forårene",
+        "summer": "somrene",
+        "autumn": "efterårene",
+        "winter": "vinterne"
+      },
+      "months": {
+        "spring": "marts til maj",
+        "summer": "juni til august",
+        "autumn": "september til november",
+        "winter": "december til februar"
+      }
     },
     "wind": {
       "calm": "Stille.",

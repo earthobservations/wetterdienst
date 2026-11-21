@@ -79,13 +79,13 @@
     "idle": "Söök di en Fraag ut, se warrt hier ut aktuelle Daten beantert.",
     "q": {
       "rain": "Regent dat morgen in {place}?",
-      "summer": "Weer de leste Sommer hier hitter as anners?",
+      "season": "Weer {last} hier {warmth} as anners?",
       "wind": "Wo windig weer dat an'n {day}?",
       "download": "Woneem kann ik stünnlike Temperaturen runnerladen?"
     },
     "from": {
       "rain": "Utsicht, DWD MOSMIX",
-      "summer": "Maandmiddel, DWD",
+      "season": "Maandmiddel, DWD",
       "wind": "Dagweerten, DWD",
       "download": "All Wedderdeenste"
     },
@@ -125,16 +125,54 @@
       "none": "De Utsicht för {name} recht noch nich bit morgen.",
       "open": "Hele Utsicht opmaken"
     },
-    "summer": {
-      "hotter": "Jo, {anomaly} {unit} warmer as anners.",
+    "season": {
+      "warmer": "Jo, {anomaly} {unit} warmer as anners.",
       "cooler": "Nee, {anomaly} {unit} köhler as anners.",
       "usual": "Nich würklich: so warm as anners.",
-      "detail": "De Sommer {year} (Juni bit August) harr in'n Middel {mean} {unit}, de Sommers vun {from} bit {to} in'n Middel {normal} {unit}.",
-      "rank": "Platz {rank} vun {count} Sommers siet {first}, vun'n warmsten an tellt.",
-      "chart": "Elk Sommer gegen dat Middel vun {from} bit {to}, in {unit}",
-      "none": "Hier gifft dat to wenig hele Sommers för en Vergliek.",
+      "coldYes": "Jo, {anomaly} {unit} köller as anners.",
+      "coldNo": "Nee, {anomaly} {unit} warmer as anners.",
+      "coldUsual": "Nich würklich: so köhl as anners.",
+      "detail": "{seasonCap} {year} ({months}) harr in'n Middel {mean} {unit}, de {seasons} vun {from} bit {to} in'n Middel {normal} {unit}.",
+      "rank": "Platz {rank} vun {count} (all de {seasons} siet {first}), vun'n warmsten an tellt.",
+      "chart": "Elk {season} gegen dat Middel vun {from} bit {to}, in {unit}",
+      "none": "Hier gifft dat to wenig hele Johrestieden för en Vergliek.",
+      "noneNormal": "De Station hett blots {count} vun de {of} Johrestieden vun {normal}; för den Vergliek warrt {min} bruukt.",
       "open": "Maandmiddel opmaken",
-      "stripes": "Klimastrepen ankieken"
+      "stripes": "Klimastrepen ankieken",
+      "seasonLabel": "Johrestied",
+      "refLabel": "Vergleken mit",
+      "refShort": "{normal} (hier blots {count} vun {of} Johrestieden, {min} nödig)",
+      "refFallback": "{normal} (hier blots {count} vun {of} Johrestieden, dor warrt fröhere nahmen)",
+      "last": {
+        "spring": "dat leste Fröhjohr",
+        "summer": "de leste Sommer",
+        "autumn": "de leste Harvst",
+        "winter": "de leste Winter"
+      },
+      "warmth": {
+        "spring": "warmer",
+        "summer": "hitter",
+        "autumn": "warmer",
+        "winter": "köller"
+      },
+      "name": {
+        "spring": "Fröhjohr",
+        "summer": "Sommer",
+        "autumn": "Harvst",
+        "winter": "Winter"
+      },
+      "plural": {
+        "spring": "Fröhjohrn",
+        "summer": "Sommers",
+        "autumn": "Harvste",
+        "winter": "Winters"
+      },
+      "months": {
+        "spring": "März bit Mai",
+        "summer": "Juni bit August",
+        "autumn": "September bit November",
+        "winter": "December bit Februar"
+      }
     },
     "wind": {
       "calm": "Still.",

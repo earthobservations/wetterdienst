@@ -32,7 +32,7 @@ function has(messages: Record<string, unknown>, key: string): boolean {
 
 describe('the registry', () => {
   it('holds the four chips of the home page, in the order it offers them', () => {
-    expect(CHIPS.map(chip => chip.id)).toEqual(['rain', 'summer', 'wind', 'download'])
+    expect(CHIPS.map(chip => chip.id)).toEqual(['rain', 'season', 'wind', 'download'])
   })
 
   it('holds one definition for every file of chips/, and no id twice', () => {
@@ -124,7 +124,7 @@ describe('the choices of the wind chip, in the link', () => {
     expect(queryOfPress(link, CHIPS, 'wind', 'wind')).toEqual({ day: '2025-12-26', place: '02564' })
     expect(queryOfPress({ ask: 'rain', day: '2025-12-26' }, CHIPS, 'wind', 'rain')).toEqual({ ask: 'wind', day: '2025-12-26' })
     expect(queryOfPress({ ask: 'rain' }, CHIPS, 'wind', 'rain')).toEqual({ ask: 'wind' })
-    expect(queryOfPress(link, CHIPS, 'summer', 'wind')).toEqual({ ask: 'summer', place: '02564' })
+    expect(queryOfPress(link, CHIPS, 'season', 'wind')).toEqual({ ask: 'season', place: '02564' })
     expect(queryOfPress({ place: '02564' }, CHIPS, 'rain', null)).toEqual({ ask: 'rain', place: '02564' })
   })
 

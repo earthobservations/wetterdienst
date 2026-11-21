@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Ref } from 'vue'
 import type { Provider, Station, ValuesResponse } from '#shared/types/api'
-import type { ChipApi, ChipContext, Choices } from '~/utils/ask/chip'
+import type { ChipApi, ChipContext, Choices, SelectChoice } from '~/utils/ask/chip'
 import type { ChipId } from '~/utils/ask/registry'
 import { DateTime } from 'luxon'
 import { describeFetchError } from '~/utils/api-error'
@@ -35,15 +35,40 @@ const nuxtApp = useNuxtApp()
 const chip = computed(() => chipOf(props.question)!)
 
 type Status = 'loading' | 'ready' | 'empty' | 'error'
-const status = ref<Status>('loading')
+/** Where the requests are: under way, answered, or failed */
+const phase = ref<'loading' | 'loaded' | 'error'>('loading')
 const failure = ref('')
+/** What the definition's requests brought back; null while they are under way */
+const fetched = shallowRef<{ loaded: unknown } | null>(null)
+
+/**
+ * The answer, worked out from what was fetched and the choices as they are now: a choice the requests do not read (the season, the normal)
+ * changes the answer here and asks for nothing. Null where the data holds none.
+ */
+const answered = computed<{ result: unknown } | { error: string } | null>(() => {
+  if (!fetched.value)
+    return null
+  try {
+    return { result: chip.value.answer(fetched.value.loaded, context()) }
+  }
+  catch (error) {
+    return { error: describeFetchError(error) }
+  }
+})
+const status = computed<Status>(() => {
+  if (phase.value !== 'loaded')
+    return phase.value
+  return !answered.value || 'error' in answered.value ? 'error' : answered.value.result ? 'ready' : 'empty'
+})
+const failureText = computed(() => failure.value || (answered.value && 'error' in answered.value ? answered.value.error : ''))
 // a Retry that works takes its notice, and the focus in it, away: the focus goes on to the question's heading
 const failureNotice = useTemplateRef<HTMLElement>('failureNotice')
 const heading = useTemplateRef<HTMLElement>('heading')
 useFocusAfterRetry(() => status.value === 'error', failureNotice, heading)
 
 /** What the definition's requests brought back, and the answer it made of that (null where the data holds none) */
-const outcome = shallowRef<{ loaded: unknown, result: unknown } | null>(null)
+const outcome = computed<{ loaded: unknown, result: unknown } | null>(() =>
+  fetched.value && answered.value && 'result' in answered.value ? { loaded: fetched.value.loaded, result: answered.value.result } : null)
 
 // The units the app settings choose (GH-3980), read at each request: the question's own quantity (rain, millimetres; the
 // summer, degrees; the wind, a speed) and whether the values are converted at all. The answer says which unit each
@@ -102,32 +127,36 @@ let asked = 0
 
 async function ask() {
   const turn = ++asked
-  status.value = 'loading'
+  phase.value = 'loading'
   failure.value = ''
-  outcome.value = null
+  fetched.value = null
   try {
-    const here = context()
     // the chip asked, held across the await: a question changed meanwhile must not read this one's data
     const asking = chip.value
-    const loaded = await asking.load(here, api)
-    const result = asking.answer(loaded, here)
+    const loaded = await asking.load(context(), api)
     // only the newest request's data is kept: an older one that returns after it must not replace it (GH-3980)
     if (turn !== asked)
       return
-    outcome.value = { loaded, result }
-    status.value = result ? 'ready' : 'empty'
+    fetched.value = { loaded }
+    phase.value = 'loaded'
   }
   catch (error) {
     if (turn !== asked)
       return
     failure.value = describeFetchError(error)
-    status.value = 'error'
+    phase.value = 'error'
   }
 }
 
-// the question, the place, its choices (the wind's day), or the unit the settings choose for the question: a change of any
-// of them asks again, and one under way is followed by the new one, whose answer is the only one shown
-watch(() => [props.question, place.value.id, JSON.stringify(props.choices), unitsAsked.value], ask, { immediate: true })
+/** The choices the requests read, as one text: the whole of them, or the ones the definition says its `load` reads (the others change the answer, not the request) */
+const requested = computed(() => {
+  const names = chip.value.loadedBy
+  return JSON.stringify(names ? names.map(name => props.choices[name]) : props.choices)
+})
+
+// the question, the place, its choices that the requests read (the wind's day), or the unit the settings choose for the question: a change
+// of any of them asks again, and one under way is followed by the new one, whose answer is the only one shown
+watch(() => [props.question, place.value.id, requested.value, unitsAsked.value], ask, { immediate: true })
 onBeforeUnmount(() => {
   // an answer that comes after the panel is gone says nothing
   asked++
@@ -154,6 +183,10 @@ function onChoice(param: string, value: unknown) {
   if (choice && acceptsChoice(choice, value, now()))
     emit('update:choice', param, String(value))
 }
+/** The options of a choice of a few values, from what was fetched (null before it came): a disabled one says why in its text */
+const optionsOf = (choice: SelectChoice) => choice.options(env, fetched.value?.loaded ?? null, props.choices)
+/** A choice made in a select: the value of the option, which the choice accepts (or the control keeps its own) */
+const onSelect = (param: string, event: Event) => onChoice(param, (event.target as HTMLSelectElement).value)
 </script>
 
 <template>
@@ -167,9 +200,25 @@ function onChoice(param: string, value: unknown) {
       </h3>
     </header>
 
-    <div v-for="choice in chip.choices" :key="choice.param" class="mt-4 flex flex-wrap items-center gap-2">
-      <label :for="choice.inputId" class="text-sm font-medium">{{ t(choice.label) }}</label>
-      <UInput :id="choice.inputId" type="date" :model-value="choices[choice.param]" :max="choice.latest(now())" class="w-44" @update:model-value="onChoice(choice.param, $event)" />
+    <!-- what the reader chooses about the question: real controls with their labels, beside the question's button and not in it -->
+    <div v-if="chip.choices?.length" class="mt-4 flex flex-wrap gap-x-5 gap-y-3" data-testid="answer-choices">
+      <div v-for="choice in chip.choices" :key="choice.param" class="flex min-w-0 max-w-full flex-wrap items-center gap-2">
+        <label :for="choice.inputId" class="text-sm font-medium">{{ t(choice.label) }}</label>
+        <UInput v-if="choice.kind === 'date'" :id="choice.inputId" type="date" :model-value="choices[choice.param]" :max="choice.latest(now())" class="w-44" @update:model-value="onChoice(choice.param, $event)" />
+        <!-- a native select: a disabled option says why in its own text, and it reads and works the same on every screen reader and touch screen -->
+        <select
+          v-else
+          :id="choice.inputId"
+          class="answer-select"
+          :value="choices[choice.param]"
+          :data-testid="`choice-${choice.param}`"
+          @change="onSelect(choice.param, $event)"
+        >
+          <option v-for="option in optionsOf(choice)" :key="option.value" :value="option.value" :disabled="option.disabled || undefined">
+            {{ option.label }}
+          </option>
+        </select>
+      </div>
     </div>
 
     <!-- what a screen reader is told when the answer has come: the verdict, not the whole panel -->
@@ -193,7 +242,7 @@ function onChoice(param: string, value: unknown) {
           variant="subtle"
           icon="i-ph-warning-circle"
           :title="t('ask.failed')"
-          :description="failure"
+          :description="failureText"
           :actions="[{ label: t('common.retry'), onClick: () => ask() }]"
         />
       </div>
@@ -262,6 +311,21 @@ function onChoice(param: string, value: unknown) {
 </template>
 
 <style scoped>
+/* a select of the question's choices: the edge of a control (3:1), a touch target of 44 px, never wider than the panel */
+.answer-select {
+  min-height: 2.75rem;
+  max-width: 100%;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--ui-border-accented);
+  background: var(--ui-bg);
+  color: var(--ui-text-highlighted);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.answer-select:hover {
+  border-color: var(--ui-primary);
+}
 .answer-action {
   display: inline-flex;
   min-height: 2.75rem;

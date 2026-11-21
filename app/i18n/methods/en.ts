@@ -93,63 +93,76 @@ export const methods: MethodTexts = {
       },
     },
 
-    summer: {
-      title: 'Was last summer hotter than usual?',
-      summary: 'The mean temperature of June, July and August at the place\'s station, set against the mean of the summers of the WMO normal 1991 to 2020.',
+    season: {
+      title: 'Was the last season warmer than usual?',
+      summary: 'The mean temperature of the three months of a season (spring, summer, autumn or winter) at the place\'s station, set against the mean of the seasons of a WMO normal: 1961 to 1990, or any later normal that is complete.',
       data: 'DWD\'s monthly station observations (dataset monthly/climate_summary): the monthly mean of the air temperature at 2 m height of the place\'s station, its whole record.',
       steps: {
-        summers: 'For every year in which DWD has the monthly means of June, July and August, the summer is the mean of those three. A summer counts once it is over, from 1 September.',
-        reference: 'The reference is the mean of the summers {from} to {to}, the current climatological standard normal of WMO. If the station has fewer than {minSummers} of those {ofSummers} summers, the summers before the one asked about are used instead, if there are at least {fallbackMin}; with fewer there is no answer.',
-        compare: 'The anomaly is the summer\'s mean minus the reference. The same difference is drawn as a bar for every summer of the station.',
-        verdict: 'The summer is "hotter" if its anomaly is {band} °C or more, "cooler" if it is {band} °C or less below, and "as usual" in between. The rank counts the summers that were warmer.',
+        seasons: 'For every year in which DWD has the monthly means of all three months of the season, the season is the mean of those three: spring is March to May, summer June to August, autumn September to November, and winter December to February, with the December of the year before. A season counts once it is over: from 1 June, 1 September, 1 December and 1 March. The last one that is over is the one asked about.',
+        reference: 'The reference is the mean of the seasons of the normal chosen: 30 years that end in a year ending in 0, from {firstFrom} to {firstTo} on, each one once it is complete. The newest one is the one that opens. A normal is offered only if the station has at least {minSeasons} of its {ofSeasons} seasons of that kind. If the station has fewer of the newest normal, the seasons before the one asked about are used instead, if there are at least {fallbackMin}; with fewer there is no answer.',
+        compare: 'The anomaly is the season\'s mean minus the reference. The same difference is drawn as a bar for every season of that kind at the station.',
+        verdict: 'The season is "warmer" if its anomaly is {band} °C or more, "cooler" if it is {band} °C or less below, and "as usual" in between. The question about a winter asks for "colder", and its answer says yes where the winter was cooler. The rank counts the seasons that were warmer.',
       },
       formulas: {
-        summer: 'summer(year) = (mean of June + mean of July + mean of August) / 3',
-        anomaly: 'anomaly = summer(asked year) − mean of summer(year) over the reference years',
+        season: 'season(year) = (mean of month 1 + mean of month 2 + mean of month 3) / 3; for a winter, month 1 is the December of the year before',
+        anomaly: 'anomaly = season(asked year) − mean of season(year) over the reference years',
       },
       rules: {
         'season': {
-          text: 'A summer is June, July and August.',
-          says: 'DWD says that meteorologists divide the year into seasons of three whole months, and give June, July and August as the summer, because climate statistics are made from data of single months.',
+          text: 'A season is three whole months: spring is March, April and May; summer is June, July and August; autumn is September, October and November; winter is December, January and February.',
+          says: 'DWD says that meteorologists divide the year into seasons of three whole months, each beginning on the first of the month in which the astronomical season begins: spring from 1 March to 31 May, summer from 1 June to 31 August, autumn from 1 September to 30 November and winter from 1 December to the end of February. It says this is done because climate statistics are made from data of single months.',
+        },
+        'winter-year': {
+          text: 'A winter takes the December of the year before: December 2025 with January and February 2026 is the winter 2025/26, which counts as the winter of 2026, the year of its January and February. It is over on 1 March.',
+          says: 'WMO\'s guidelines say that a seasonal normal is the mean of the monthly normals of its months, each taken over the same years of the period. They do not say which December a winter takes.',
+          reason: 'Neither DWD\'s definition of the seasons nor WMO\'s guidelines say which year a winter that spans the turn of the year is named for. wetterdienst names it for the year of its January and February and takes the December before them, so that its three months follow one another, as they do in the weather. WMO\'s normal for December, January and February would average the December of the same years as the January and the February; the two differ only by the December at the ends of the period (for the normal 1991 to 2020, December 1990 against December 2020). This is wetterdienst\'s own choice, and the maintainers have to accept it.',
         },
         'complete-months': {
-          text: 'A summer counts only if the station has the mean of all three months. DWD calculates a monthly mean from the daily values of the month, and only where they are complete (for some stations it has monthly values and no daily ones).',
+          text: 'A season counts only if the station has the mean of all three months. DWD calculates a monthly mean from the daily values of the month, and only where they are complete (for some stations it has monthly values and no daily ones).',
           says: 'WMO\'s guidelines say that if the normal of one of the months of a season is missing, the normal of the season is missing as well. DWD\'s description says its monthly means are calculated from the daily values, and only if the daily values are complete, and that for some stations monthly values exist where no daily values are available.',
         },
         'only-over': {
-          text: 'A summer counts once it is over (from 1 September); the summer that is still running is not compared.',
-          reason: 'A running summer has only some of its weeks, and its mean would be compared with whole summers. The maintainers decided that only complete seasons are compared. No source is needed for that.',
+          text: 'A season counts once it is over: spring from 1 June, summer from 1 September, autumn from 1 December and winter from 1 March. The season that is still running is not compared.',
+          reason: 'A running season has only some of its weeks, and its mean would be compared with whole seasons. The maintainers decided that only complete seasons are compared. No source is needed for that.',
         },
-        'summer-mean': {
-          text: 'The mean of a summer is the plain mean of the three monthly means, each month counting the same, whatever its number of days.',
+        'season-mean': {
+          text: 'The mean of a season is the plain mean of the three monthly means, each month counting the same, whatever its number of days.',
           says: 'WMO\'s guidelines say that a seasonal normal is the mean of the monthly normals of its months. Some weather services weight the months by their number of days; WMO says that is not recommended for products that are exchanged between countries.',
         },
-        'reference-period': {
-          text: 'The reference is the mean of the summers {from} to {to}.',
-          says: 'WMO defines the climatological standard normal as the average over 30 years that ends in a year ending in 0: 1981 to 2010, 1991 to 2020 and so on, calculated again every ten years. A normal is the benchmark that recent observations are compared with.',
+        'default-season': {
+          text: 'The question opens on the summer, and a link that names no season asks about it.',
+          reason: 'No source says which season a question should open on. The summer is the one this question always asked about, so that an old link and a habit keep their meaning; the choice above the answer changes it.',
+        },
+        'reference-choices': {
+          text: 'The reference can be any WMO normal of 30 years that ends in a year ending in 0 and is complete: from {firstFrom} to {firstTo} on, with a new one added on 1 January after its last year. The whole record of the station and a sliding 30 years are not offered.',
+          says: 'WMO defines the climatological standard normal as the average over 30 years that ends in a year ending in 0: 1981 to 2010, 1991 to 2020 and so on. The period 1961 to 1990 is kept as the reference normal for assessing long-term climate change, but it is not a standard normal. A normal in WMO\'s sense is a period average over at least three consecutive ten-year periods that start on 1 January of a year ending in 1, which every period offered here is.',
+        },
+        'reference-default': {
+          text: 'The question opens on the newest normal that is complete. It ends in the year floor((year − 1) / 10) × 10, so it is 1991 to 2020 until the end of 2030, and from 1 January 2031 it is 2001 to 2030.',
+          says: 'WMO says that the climatological standard normal is the most recent 30-year period that finishes in a year ending in 0, and that it is calculated again every ten years.',
         },
         'normal-mean': {
-          text: 'The reference is the mean of the complete summers of its years, each summer counting the same. A year in which a month is missing is left out whole.',
+          text: 'The reference is the mean of the complete seasons of its years, each season counting the same. A year in which a month is missing is left out whole.',
           says: 'WMO\'s guidelines build a seasonal normal as the mean of the three monthly normals of its months, and not from the values of single years. If the normal of one month is missing, the seasonal normal is missing.',
-          reason: 'The chip averages whole summers, so a year with one month missing drops out of the reference entirely, where WMO would still use that year in the other two monthly normals. The two give the same where no month is missing. The way the chip averages is wetterdienst\'s own choice.',
+          reason: 'The chip averages whole seasons, so a year with one month missing drops out of the reference entirely, where WMO would still use that year in the other two monthly normals. The two give the same where no month is missing. The way the chip averages is wetterdienst\'s own choice.',
         },
-        'min-summers': {
-          text: 'The reference needs at least {minSummers} of its {ofSummers} summers. With fewer, the fallback below is used.',
+        'min-seasons': {
+          text: 'A normal is offered only if the station has at least {minSeasons} of its {ofSeasons} seasons of the kind. Another one is shown in the choice, disabled, with how many the station has; the newest one uses the fallback below.',
           says: 'WMO asks, for each month, for valid monthly values in at least 80 % of the years of the period for a normal, which is 24 or more of 30 years.',
-          reason: 'The chip counts complete summers (all three months in the same year), not the years of each month, so the line is not WMO\'s and cannot be compared with it one to one. {minSummers} of {ofSummers} is wetterdienst\'s own line, set so that stations with gaps still get an answer against the WMO period, and the maintainers have to accept it; the reference of such a station is then not a WMO normal in the strict sense.',
+          reason: 'The chip counts complete seasons (all three months in the same year), not the years of each month, so the line is not WMO\'s and cannot be compared with it one to one. {minSeasons} of {ofSeasons} is wetterdienst\'s own line, set so that stations with gaps still get an answer against a WMO period, and the maintainers have to accept it; the reference of such a station is then not a WMO normal in the strict sense.',
         },
         'fallback-period': {
-          text: 'Where the station has too few summers of the normal, the reference is all the summers of the station before the one asked about.',
+          text: 'Where the station has too few seasons of the newest normal, the reference is all the seasons of the station before the one asked about. No other normal is replaced like this: one that is picked is the one used, or is not offered.',
           says: 'WMO calls the mean of monthly values over any specified period an "average", and says that some sources call it a "provisional normal".',
-          reason: 'Taking all earlier summers, and not a period that starts in a year ending in 1 as WMO\'s definition of a period average has it, is wetterdienst\'s own choice.',
+          reason: 'Taking all earlier seasons, and not a period that starts in a year ending in 1 as WMO\'s definition of a period average has it, is wetterdienst\'s own choice. So is leaving the substitute to the newest normal: an answer against other years than the ones the reader picked would not answer the question asked.',
         },
         'fallback-minimum': {
-          text: 'The fallback needs at least {fallbackMin} summers.',
+          text: 'The fallback needs at least {fallbackMin} seasons.',
           says: 'WMO says that for most mean and sum parameters, 10 to 12 years of data gave a predictive skill similar to that of a standard 30-year period.',
-          reason: 'Ten is the lower end of that range, and WMO sets no hard minimum. WMO\'s own definition of a period average, at least ten years starting on 1 January of a year ending in 1, does not fit a fallback of all earlier summers. The line of {fallbackMin} summers is wetterdienst\'s own, and the maintainers have to accept it.',
+          reason: 'Ten is the lower end of that range, and WMO sets no hard minimum. WMO\'s own definition of a period average, at least ten years starting on 1 January of a year ending in 1, does not fit a fallback of all earlier seasons. The line of {fallbackMin} seasons is wetterdienst\'s own, and the maintainers have to accept it.',
         },
         'anomaly': {
-          text: 'The anomaly is the summer\'s mean minus the reference, in degrees.',
+          text: 'The anomaly is the season\'s mean minus the reference, in degrees.',
           says: 'WMO says that a normal is the benchmark against which recent observations are compared, and that many anomaly-based climate datasets are built on it. An anomaly is that difference.',
         },
         'usual-band': {
@@ -157,25 +170,30 @@ export const methods: MethodTexts = {
           reason: 'A band is needed to say "as usual", and half a degree is a round figure chosen by wetterdienst. No source gives a width for the word, and the maintainers have to accept this one.',
         },
         'rank': {
-          text: 'The rank is the number of summers of the station that were warmer, plus one.',
-          reason: 'A plain count needs no assumption about the distribution of summers; it is not a method from a source.',
+          text: 'The rank is the number of seasons of that kind at the station that were warmer, plus one.',
+          reason: 'A plain count needs no assumption about the distribution of seasons; it is not a method from a source.',
         },
       },
       limits: {
-        station: 'The answer is the reading of one station that stands in one place. A town or a region can have had another summer; the stations of DWD differ in height, surroundings and instruments.',
+        station: 'The answer is the reading of one station that stands in one place. A town or a region can have had another season; the stations of DWD differ in height, surroundings and instruments.',
         moved: 'A station that was moved, or that changed its instruments or its times of observation, is not corrected for it: the answer is the station\'s series as DWD publishes it. DWD asks that changes in the station height and in the observation times are kept in mind when trends are read.',
-        gaps: 'One missing day takes the month, and so the summer, out of the comparison, because DWD calculates a monthly mean only from complete daily values (WMO allows up to 10 missing days in a month, and fewer than 5 in a row). A station with gaps has fewer summers.',
-        reference: 'The same summer set against another reference period has another anomaly and can have another verdict; the normal 1991 to 2020 is the current one, and it moves on every ten years. How a normal is made is explained on the page "How weather is measured".',
+        gaps: 'One missing day takes the month, and so the season, out of the comparison, because DWD calculates a monthly mean only from complete daily values (WMO allows up to 10 missing days in a month, and fewer than 5 in a row). A station with gaps has fewer seasons, and a station that began later than a normal has few or none of its seasons: that normal is then not offered.',
+        reference: 'The same season set against another normal has another anomaly and can have another verdict. The normal 1961 to 1990 is WMO\'s reference for climate change, the newest one is the current standard, and a new one comes every ten years. How a normal is made is explained on the page "How weather is measured".',
         band: 'The width of "as usual" is wetterdienst\'s own: a difference of just under and just over the band are nearly the same, but have different words.',
       },
       numbers: {
         station: 'Station: {name} ({id}). The answer is the station\'s, not the town\'s.',
-        summer: 'Summer {year}: June, July and August together average {mean} {unit}.',
-        reference: 'Compared with the summers {from} to {to}: the mean of {count} summers, {normal} {unit}.',
-        referenceFallback: 'The station has too few summers of the WMO normal ({normalFrom} to {normalTo}), so the {count} summers from {from} to {to} are used instead: their mean is {normal} {unit}. That is an average of the station\'s earlier record, not a WMO normal.',
-        anomaly: 'Difference: {anomaly} {unit} (the summer minus the reference).',
+        season: 'In {season} {year} ({months}) the mean was {mean} {unit}.',
+        reference: 'Compared with the {seasons} of {from} to {to}: the mean of {count} {seasons}, {normal} {unit}.',
+        referenceFallback: 'The station has too few {seasons} of the newest WMO normal ({askedFrom} to {askedTo}), so the {count} {seasons} from {from} to {to} are used instead: their mean is {normal} {unit}. That is an average of the station\'s earlier record, not a WMO normal.',
+        anomaly: 'Difference: {anomaly} {unit} (the {season} minus the reference).',
         band: 'Within {band} {unit} either way counts as usual.',
-        rank: 'Rank {rank} of {count} complete summers (rank 1 is the warmest); the record starts in {first}.',
+        rank: 'Rank {rank} of {count} complete seasons of this kind (rank 1 is the warmest); the record starts in {first}.',
+      },
+      terms: {
+        season: { spring: 'spring', summer: 'summer', autumn: 'autumn', winter: 'winter' },
+        seasons: { spring: 'springs', summer: 'summers', autumn: 'autumns', winter: 'winters' },
+        months: { spring: 'March to May', summer: 'June to August', autumn: 'September to November', winter: 'December to February' },
       },
     },
 
@@ -289,7 +307,7 @@ export const methods: MethodTexts = {
       plain: `${WMO} Volume I of its Guide to Instruments and Methods of Observation is the handbook for measuring temperature, wind, precipitation and the other variables. Here it gives the Beaufort scale of wind force, what an average of the wind is, why gusts matter, and what is called a trace of rain.`,
     },
     'wmo-1203': {
-      plain: `${WMO} Its Guidelines on the Calculation of Climate Normals say what a climate normal is, which periods count, how a normal is made from monthly values and how much missing data is allowed. A normal is the average of a long, fixed period that recent weather is compared with. The thirty years became the standard mainly because only thirty years of data were available when it was first recommended. Here it gives the reference period 1991 to 2020, the way a season is calculated and the rules for a station that has too few years.`,
+      plain: `${WMO} Its Guidelines on the Calculation of Climate Normals say what a climate normal is, which periods count, how a normal is made from monthly values and how much missing data is allowed. A normal is the average of a long, fixed period that recent weather is compared with. The thirty years became the standard mainly because only thirty years of data were available when it was first recommended. Here it gives the normals that can be chosen (the reference normal 1961 to 1990 and the later ones), the way a season is calculated and the rules for a station that has too few years.`,
     },
     'dwd-seasons': {
       plain: `${DWD} Its weather lexicon says how meteorologists divide the year: each season is three whole months, because the statistics of the climate are made from the data of single months.`,

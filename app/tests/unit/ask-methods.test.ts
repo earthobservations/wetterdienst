@@ -4,11 +4,11 @@ import { describe, expect, it } from 'vitest'
 import {
   beaufort,
   BEAUFORT,
-  FALLBACK_MIN_SUMMERS,
-  lastSummer,
-  NORMAL_FROM,
-  NORMAL_MIN_SUMMERS,
-  NORMAL_TO,
+  FALLBACK_MIN_SEASONS,
+  lastSeason,
+  NORMAL_FIRST_TO,
+  NORMAL_MIN_SEASONS,
+  NORMAL_YEARS,
   RAIN_AMOUNT,
   RAIN_MAYBE_CHANCE,
   RAIN_MAYBE_MM,
@@ -23,7 +23,7 @@ import {
   WIND_WINDOW_DAYS,
   windOnDay,
 } from '../../app/utils/answers'
-import { fill, placeholders, ruleParams, valueText } from '../../app/utils/ask/method-text'
+import { fill, numberLineText, placeholders, ruleParams, valueText } from '../../app/utils/ask/method-text'
 import { CHIPS } from '../../app/utils/ask/registry'
 import { WORK_IDS, WORKS } from '../../app/utils/ask/works'
 import { isTopic } from '../../app/utils/measurement'
@@ -170,8 +170,8 @@ describe('the numbers of an answer', () => {
   const means = [{ parameter: 'wind_speed_mean', timestamp: '2025-12-26T00:00:00+00:00', value: 9.5 }]
   const cases = {
     rain: { result: rain, loaded: { point: { station_id: '10382', name: 'Berlin-Tegel', distance: 3.2 }, readings, units: {} }, choices: {} },
-    summer: { result: lastSummer(summers(1986, 2026, year => year === 2026 ? 18 : 16), NOW)!, loaded: null, choices: {} },
-    summerFallback: { result: lastSummer(summers(2005, 2026, () => 16), NOW)!, loaded: null, choices: {}, id: 'summer' },
+    season: { result: lastSeason(summers(1986, 2026, year => year === 2026 ? 18 : 16), NOW, { season: 'summer', normal: '1991-2020' })!, loaded: null, choices: { season: 'summer', ref: '1991-2020' } },
+    seasonFallback: { result: lastSeason(summers(2005, 2026, () => 16), NOW, { season: 'summer', normal: '1991-2020' })!, loaded: null, choices: { season: 'summer', ref: '1991-2020' }, id: 'season' },
     wind: { result: windOnDay([...gusts, ...means], '2025-12-26')!, loaded: null, choices: { day: '2025-12-26' } },
     windMeanOnly: { result: windOnDay(means, '2025-12-26')!, loaded: null, choices: { day: '2025-12-26' }, id: 'wind' },
     download: { result: [{ provider: 'dwd' }, { provider: 'noaa' }], loaded: [{ provider: 'dwd' }, { provider: 'noaa' }], choices: {} },
@@ -195,11 +195,31 @@ describe('the numbers of an answer', () => {
   })
 
   it('say the station, and for a fallback say that it is no WMO normal', () => {
-    const summer = CHIPS.find(chip => chip.id === 'summer')!
-    const ids = (fixture: typeof cases[string]) => summer.explanation.numbers(fixture.result, fixture.loaded, env('en'), {}).map(line => line.id)
-    expect(ids(cases.summer!)).toContain('reference')
-    expect(ids(cases.summerFallback!)).toContain('referenceFallback')
-    expect(ids(cases.summer!)).toContain('station')
+    const season = CHIPS.find(chip => chip.id === 'season')!
+    const ids = (fixture: typeof cases[string]) => season.explanation.numbers(fixture.result, fixture.loaded, env('en'), fixture.choices).map(line => line.id)
+    expect(ids(cases.season!)).toContain('reference')
+    expect(ids(cases.seasonFallback!)).toContain('referenceFallback')
+    expect(ids(cases.season!)).toContain('station')
+  })
+
+  it('write the season, its months and its plural in the language of the texts, whatever the language of the page', () => {
+    const season = CHIPS.find(chip => chip.id === 'season')!
+    const winter = lastSeason(
+      Array.from({ length: 66 }, (_, index) => 1961 + index).flatMap(year => [[year - 1, 12], [year, 1], [year, 2]].map(([calendarYear, month]) => ({ parameter: 'temperature_air_mean_2m', timestamp: `${calendarYear}-${String(month).padStart(2, '0')}-01T00:00:00.000000+00:00`, value: year === 2026 ? 3 : 0 }))),
+      NOW,
+      { season: 'winter', normal: '1961-1990' },
+    )!
+    const lines = season.explanation.numbers(winter, null, env('en'), { season: 'winter', ref: '1961-1990' })
+    const said = (texts: typeof en) => lines.map(line => numberLineText(texts, season, line))
+    expect(said(en)).toContain('In winter 2025/26 (December to February) the mean was 3.0 °C.')
+    expect(said(en)).toContain('Compared with the winters of 1961 to 1990: the mean of 30 winters, 0.0 °C.')
+    expect(said(de)).toContain('Im Winter 2025/26 (Dezember bis Februar) lag das Mittel bei 3.0 °C.')
+    expect(said(de)).toContain('Verglichen mit dem Mittel der Winter von 1961 bis 1990: 30 Winter, 0.0 °C.')
+    // every season has its words in both languages, for each name the lines give the season by
+    for (const texts of [en, de]) {
+      for (const name of ['season', 'seasons', 'months'])
+        expect(Object.keys(texts.chips.season!.terms![name]!).sort(), name).toEqual(['autumn', 'spring', 'summer', 'winter'])
+    }
   })
 
   it('say the scale a wind verdict was read by: the gust where there is one, else the mean', () => {
@@ -215,7 +235,7 @@ describe('what is marked as wetterdienst\'s own', () => {
   // what the page says is the project's own, so it is a line of a diff that is read.
   const OWN: Record<string, string[]> = {
     rain: ['nearest-point', 'day', 'min-hours', 'day-total', 'maybe-amount', 'chance-bands', 'highest-chance'],
-    summer: ['only-over', 'normal-mean', 'min-summers', 'fallback-period', 'fallback-minimum', 'usual-band', 'rank'],
+    season: ['winter-year', 'only-over', 'default-season', 'normal-mean', 'min-seasons', 'fallback-period', 'fallback-minimum', 'usual-band', 'rank'],
     wind: ['default-day', 'gust-first', 'gust-words', 'mean-words', 'around-window', 'stronger-count'],
     download: ['networks', 'hourly-temperature', 'order'],
   }
@@ -299,12 +319,12 @@ describe('the numbers of the rules are the ones the code judges by', () => {
     expect(verdictOf(0, 0.29)).toBe('no')
   })
 
-  it('for the summer: 1991 to 2020, 20 of 30 summers, 10 for the fallback and half a degree', () => {
-    expect([NORMAL_FROM, NORMAL_TO, NORMAL_MIN_SUMMERS, FALLBACK_MIN_SUMMERS, USUAL_BAND]).toEqual([1991, 2020, 20, 10, 0.5])
-    expect(rule('summer', 'reference-period').values).toEqual({ from: 1991, to: 2020 })
-    expect(rule('summer', 'min-summers').values).toEqual({ minSummers: 20, ofSummers: 30 })
-    expect(rule('summer', 'fallback-minimum').values).toEqual({ fallbackMin: 10 })
-    expect(rule('summer', 'usual-band').values).toEqual({ band: 0.5 })
+  it('for the season: normals from 1961-1990 on, 20 of 30 seasons, 10 for the fallback and half a degree', () => {
+    expect([NORMAL_FIRST_TO, NORMAL_YEARS, NORMAL_MIN_SEASONS, FALLBACK_MIN_SEASONS, USUAL_BAND]).toEqual([1990, 30, 20, 10, 0.5])
+    expect(rule('season', 'reference-choices').values).toEqual({ firstFrom: 1961, firstTo: 1990, years: 30 })
+    expect(rule('season', 'min-seasons').values).toEqual({ minSeasons: 20, ofSeasons: 30 })
+    expect(rule('season', 'fallback-minimum').values).toEqual({ fallbackMin: 10 })
+    expect(rule('season', 'usual-band').values).toEqual({ band: 0.5 })
   })
 
   /** A summer `anomaly` degrees above the normal of 1991 to 2020 of a station that has all of it */
@@ -314,17 +334,18 @@ describe('the numbers of the rules are the ones the code judges by', () => {
       timestamp: `${year}-0${month}-01T00:00:00.000000+00:00`,
       value: year === 2026 ? 16 + anomaly : 16,
     })))
-    return lastSummer(readings, NOW)!.verdict
+    return lastSeason(readings, NOW, { season: 'summer', normal: '1991-2020' })!.verdict
   }
 
-  it('for the summer: the band is where the verdict changes, and a station with 19 of the 30 summers falls back', () => {
-    expect(summerVerdict(USUAL_BAND)).toBe('hotter')
+  it('for the season: the band is where the verdict changes, and a station with 19 of the 30 summers falls back', () => {
+    expect(summerVerdict(USUAL_BAND)).toBe('warmer')
     expect(summerVerdict(0.4)).toBe('usual')
     expect(summerVerdict(-USUAL_BAND)).toBe('cooler')
     const summers = (from: number, to: number) => Array.from({ length: to - from + 1 }, (_, index) => from + index).flatMap(year => [6, 7, 8].map(month => ({ parameter: 'temperature_air_mean_2m', timestamp: `${year}-0${month}-01T00:00:00.000000+00:00`, value: 16 })))
-    expect(lastSummer(summers(2002, 2026), NOW)!.fallback).toBe(true)
-    expect(lastSummer(summers(2002, 2026), NOW)!.referenceCount).toBe(24)
-    expect(lastSummer(summers(2000, 2026), NOW)!.fallback).toBe(false)
+    const lastSummer = (readings: ReturnType<typeof summers>) => lastSeason(readings, NOW, { season: 'summer', normal: '1991-2020' })!
+    expect(lastSummer(summers(2002, 2026)).fallback).toBe(true)
+    expect(lastSummer(summers(2002, 2026)).referenceCount).toBe(24)
+    expect(lastSummer(summers(2000, 2026)).fallback).toBe(false)
   })
 
   it('for the wind: the lower edges of the Beaufort table of WMO-No. 8, Volume I, Table 5.1 (2024)', () => {

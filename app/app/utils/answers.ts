@@ -146,99 +146,211 @@ export function rainTomorrow(
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Was last summer hotter than usual? DWD's monthly means of the place's station
+// Was last summer, winter ... warmer than usual? DWD's monthly means of the place's station (GH-3518, GH-3764)
 // ---------------------------------------------------------------------------------------------------------------
 
-export type SummerVerdict = 'hotter' | 'cooler' | 'usual'
+/** The meteorological seasons of the northern hemisphere: three whole months each (DWD) */
+export type Season = 'spring' | 'summer' | 'autumn' | 'winter'
+export const SEASONS: readonly Season[] = ['spring', 'summer', 'autumn', 'winter']
+/**
+ * The months of each season. The winter has the December of the year before the one it is named for: the winter 2025/26 is
+ * named 2026, the year of its January and February, and is over on 1 March 2026.
+ */
+export const SEASON_MONTHS: Readonly<Record<Season, readonly [number, number, number]>> = {
+  spring: [3, 4, 5],
+  summer: [6, 7, 8],
+  autumn: [9, 10, 11],
+  winter: [12, 1, 2],
+}
 
-export interface SummerAnswer {
-  verdict: SummerVerdict
+export function isSeason(value: unknown): value is Season {
+  return typeof value === 'string' && (SEASONS as readonly string[]).includes(value)
+}
+
+/** The year a season is named for: that of the month, except for the December of a winter, which belongs to the winter of the next year */
+function seasonYearOf(season: Season, at: DateTime): number {
+  return season === 'winter' && at.month === 12 ? at.year + 1 : at.year
+}
+
+/** The first moment at which a season of a year is over: 1 June, 1 September, 1 December, and 1 March of the year the winter is named for */
+export function seasonOver(season: Season, year: number): DateTime {
+  return DateTime.utc(year, SEASON_MONTHS[season][2], 1).plus({ months: 1 })
+}
+
+/** How a season of a year is written: the year, and for a winter both years it spans (`2025/26`) */
+export function seasonLabel(season: Season, year: number): string {
+  return season === 'winter' ? `${year - 1}/${String(year).slice(2)}` : String(year)
+}
+
+/** The WMO normals: 30 years that end in a year ending in 0, from 1961 to 1990 onward (the reference normal of WMO-No. 1203, §2) */
+export const NORMAL_FIRST_TO = 1990
+export const NORMAL_YEARS = 30
+/** How many of the seasons of a normal a station must have for it */
+export const NORMAL_MIN_SEASONS = 20
+/** Where the newest normal is short, the seasons before the one asked about, if there are this many */
+export const FALLBACK_MIN_SEASONS = 10
+/** Within half a degree is "as usual": smaller than the year-to-year noise of a season mean */
+export const USUAL_BAND = 0.5
+
+/** One normal: `key` is how a link names it (`1961-1990`) */
+export interface Normal {
+  from: number
+  to: number
+  key: string
+}
+
+function normalEndingIn(to: number): Normal {
+  const from = to - NORMAL_YEARS + 1
+  return { from, to, key: `${from}-${to}` }
+}
+
+/** The year the newest complete normal ends in: `floor((year - 1) / 10) * 10`, since a normal is complete on 31 December of its last year */
+export function newestNormalEnd(now: DateTime): number {
+  return Math.max(NORMAL_FIRST_TO, Math.floor((now.toUTC().year - 1) / 10) * 10)
+}
+
+/** Every normal that is complete at `now`, the oldest first: 1961-1990, 1971-2000, 1981-2010 and 1991-2020 in 2026, and 2001-2030 from 2031 */
+export function normalsAt(now: DateTime): Normal[] {
+  const newest = newestNormalEnd(now)
+  const normals: Normal[] = []
+  for (let to = NORMAL_FIRST_TO; to <= newest; to += 10)
+    normals.push(normalEndingIn(to))
+  return normals
+}
+
+/** The newest complete normal: the one a link without `&ref=` means */
+export function newestNormal(now: DateTime): Normal {
+  return normalEndingIn(newestNormalEnd(now))
+}
+
+/** The normal a link names, or null where it names none that is complete at `now` */
+export function normalOf(key: unknown, now: DateTime): Normal | null {
+  return normalsAt(now).find(normal => normal.key === key) ?? null
+}
+
+export type SeasonVerdict = 'warmer' | 'cooler' | 'usual'
+
+export interface SeasonAnswer {
+  verdict: SeasonVerdict
+  season: Season
+  /** The year the season is named for: the one of its January for a winter */
   year: number
-  /** Mean temperature of June, July and August, in `unit` */
+  /** Mean temperature of the three months, in `unit` */
   mean: number
   /** The unit of the temperatures, and of the differences (`anomaly`, the bars): degrees of it */
   unit: string
-  /** The mean of the summers it is compared with, and the first and last of them */
+  /** The mean of the seasons it is compared with, and the first and last year of them (of the normal asked for, or of the seasons before where the station had too few) */
   normal: number
   normalFrom: number
   normalTo: number
+  /** The normal that was asked for (the newest one where the link named none): the answer is not of it where `fallback` */
+  asked: { from: number, to: number }
   /** `mean - normal`, in degrees of `unit` */
   anomaly: number
-  /** 1 for the warmest summer of the record */
+  /** 1 for the warmest season of the record */
   rank: number
-  /** How many complete summers the record has */
-  summers: number
-  /** How many summers the normal is the mean of, and whether they are the summers before the one asked about (the station has too few of the WMO normal) */
+  /** How many complete seasons the record has */
+  seasons: number
+  /** How many seasons the normal is the mean of, and whether they are the seasons before the one asked about (the station has too few of the newest normal) */
   referenceCount: number
   fallback: boolean
-  /** One bar per summer: its difference from the normal */
+  /** One bar per season: its difference from the normal */
   bars: Bar[]
 }
 
-/** The reference period of the WMO, and how many of its summers a station must have for it */
-export const NORMAL_FROM = 1991
-export const NORMAL_TO = 2020
-export const NORMAL_MIN_SUMMERS = 20
-/** Where a station has too few, the summers before the one asked about, if there are this many */
-export const FALLBACK_MIN_SUMMERS = 10
-/** Within half a degree is "as usual": smaller than the year-to-year noise of a summer mean */
-export const USUAL_BAND = 0.5
+/** One complete season of a station: the year it is named for, and the mean of its three months, in degrees Celsius */
+export interface SeasonMean {
+  year: number
+  mean: number
+}
 
-/** The last complete summer (June to August, over by `now`) against the summers of 1991 to 2020, or of the record before it */
-export function lastSummer(readings: Reading[], now: DateTime, unit: string = CANONICAL_UNITS.temperature): SummerAnswer | null {
+/** The complete seasons of a kind in the monthly means (`now` at or after the end of the season; every month of it there), the oldest first, worked out in degrees Celsius, where the half degree of "as usual" is */
+export function seasonMeans(readings: Reading[], season: Season, now: DateTime, unit: string = CANONICAL_UNITS.temperature): SeasonMean[] {
   const months = new Map<number, Map<number, number>>()
   for (const reading of readings) {
     if (reading.value === null)
       continue
     const at = DateTime.fromISO(reading.timestamp, { zone: 'utc' })
-    if (at.month < 6 || at.month > 8)
+    if (!SEASON_MONTHS[season].includes(at.month))
       continue
-    const year = months.get(at.year) ?? new Map<number, number>()
-    // worked out in degrees Celsius, where the half degree of "as usual" is
-    year.set(at.month, toCanonical('temperature', unit, reading.value))
-    months.set(at.year, year)
+    const year = seasonYearOf(season, at)
+    const values = months.get(year) ?? new Map<number, number>()
+    values.set(at.month, toCanonical('temperature', unit, reading.value))
+    months.set(year, values)
   }
-  const summers = [...months.entries()]
-    .filter(([year, values]) => values.size === 3 && now >= DateTime.utc(year, 9, 1))
+  return [...months.entries()]
+    .filter(([year, values]) => values.size === 3 && now >= seasonOver(season, year))
     .map(([year, values]) => ({ year, mean: ([...values.values()].reduce((a, b) => a + b, 0)) / 3 }))
     .sort((a, b) => a.year - b.year)
-  const last = summers.at(-1)
+}
+
+/** How many seasons of a normal a station has (those of the years of the normal) */
+export function countIn(seasons: readonly SeasonMean[], normal: Normal): number {
+  return seasons.filter(each => each.year >= normal.from && each.year <= normal.to).length
+}
+
+/** The normals at `now` with how many seasons of a kind the station has of each, and whether that is enough (`NORMAL_MIN_SEASONS`) */
+export function normalAvailability(readings: Reading[], season: Season, now: DateTime): Array<{ normal: Normal, count: number, enough: boolean }> {
+  const seasons = seasonMeans(readings, season, now)
+  return normalsAt(now).map(normal => ({ normal, count: countIn(seasons, normal), enough: countIn(seasons, normal) >= NORMAL_MIN_SEASONS }))
+}
+
+/** What a question asks: the season, and the normal it is compared with (`1991-2020`; the newest one where it is none that is complete) */
+export interface SeasonRequest {
+  season: Season
+  normal: string
+}
+
+/**
+ * The last complete season of a kind (over by `now`) against the normal asked for. A normal the station has too few
+ * seasons of is no answer (null), except the newest one: there the seasons before the one asked about stand in for it, if
+ * there are enough of them. Null too where the station has no complete season.
+ */
+export function lastSeason(readings: Reading[], now: DateTime, { season, normal: asked }: SeasonRequest, unit: string = CANONICAL_UNITS.temperature): SeasonAnswer | null {
+  const seasons = seasonMeans(readings, season, now, unit)
+  const last = seasons.at(-1)
   if (!last)
     return null
 
-  let reference = summers.filter(summer => summer.year >= NORMAL_FROM && summer.year <= NORMAL_TO)
+  const newest = newestNormal(now)
+  const chosen = normalOf(asked, now) ?? newest
+  let reference = seasons.filter(each => each.year >= chosen.from && each.year <= chosen.to)
   let fallback = false
-  if (reference.length < NORMAL_MIN_SUMMERS) {
+  if (reference.length < NORMAL_MIN_SEASONS) {
+    if (chosen.key !== newest.key)
+      return null
     fallback = true
-    reference = summers.filter(summer => summer.year < last.year)
-    if (reference.length < FALLBACK_MIN_SUMMERS)
+    reference = seasons.filter(each => each.year < last.year)
+    if (reference.length < FALLBACK_MIN_SEASONS)
       return null
   }
-  const normal = reference.reduce((sum, summer) => sum + summer.mean, 0) / reference.length
+  const normal = reference.reduce((sum, each) => sum + each.mean, 0) / reference.length
   // to three decimals, as `toCanonical` is, so that an anomaly on the edge of the band is on it in any unit
   const anomaly = Math.round((last.mean - normal) * 1e3) / 1e3
   // a difference in degrees of the unit, not a temperature in it: 1 K is 1.8 °F
   const degrees = (difference: number) => round1(differenceIn('temperature', unit, difference))
-  const verdict: SummerVerdict = anomaly >= USUAL_BAND ? 'hotter' : anomaly <= -USUAL_BAND ? 'cooler' : 'usual'
+  const verdict: SeasonVerdict = anomaly >= USUAL_BAND ? 'warmer' : anomaly <= -USUAL_BAND ? 'cooler' : 'usual'
   return {
     verdict,
+    season,
     year: last.year,
     mean: round1(fromCanonical('temperature', unit, last.mean)),
     unit,
     normal: round1(fromCanonical('temperature', unit, normal)),
-    normalFrom: reference[0]!.year,
-    normalTo: reference.at(-1)!.year,
+    normalFrom: fallback ? reference[0]!.year : chosen.from,
+    normalTo: fallback ? reference.at(-1)!.year : chosen.to,
+    asked: { from: chosen.from, to: chosen.to },
     anomaly: degrees(anomaly),
-    rank: 1 + summers.filter(summer => summer.mean > last.mean).length,
-    summers: summers.length,
+    rank: 1 + seasons.filter(each => each.mean > last.mean).length,
+    seasons: seasons.length,
     referenceCount: reference.length,
     fallback,
-    bars: summers.map(summer => ({
-      key: String(summer.year),
-      label: String(summer.year),
-      at: summer.year,
-      value: degrees(summer.mean - normal),
-      highlight: summer.year === last.year,
+    bars: seasons.map(each => ({
+      key: String(each.year),
+      label: seasonLabel(season, each.year),
+      at: each.year,
+      value: degrees(each.mean - normal),
+      highlight: each.year === last.year,
     })),
   }
 }

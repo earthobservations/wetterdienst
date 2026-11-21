@@ -28,6 +28,11 @@ export interface ChipMethod {
   limits: Record<string, string>
   /** The lines of "the numbers used" of an answer, by id (`NumberLine.id`), with `{name}` for the answer's own numbers */
   numbers: Record<string, string>
+  /**
+   * The words of a choice, in the language of the texts, for a line whose parameter holds the choice's id: `terms.season.winter` is
+   * what `{season}` says where the answer is about the winter. Absent for a chip with no such words.
+   */
+  terms?: Record<string, Record<string, string>>
 }
 
 /** What a work is, who issues it and why it counts, in plain words; the formal citation is in `works.ts` and stays in the work's own language */
