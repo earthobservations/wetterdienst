@@ -15,8 +15,8 @@ describe('the pages Lighthouse is run on', () => {
     expect((URLS as string[]).filter(url => !url.includes('?'))).toEqual(expect.arrayContaining(paths))
   })
 
-  it('are 19: those and the explorer with a station chosen', () => {
-    expect(URLS).toHaveLength(19)
+  it('are 20: those and the explorer with a station chosen', () => {
+    expect(URLS).toHaveLength(20)
     expect((URLS as string[]).filter(url => url.includes('stations=00011'))).toHaveLength(1)
   })
 })

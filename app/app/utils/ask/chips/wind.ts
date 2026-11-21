@@ -1,8 +1,8 @@
 import type { Value } from '#shared/types/api'
 import type { WindAnswer } from '../../answers'
-import type { AnswerAction, DateChoice } from '../chip'
+import type { AnswerAction, DateChoice, NumberLine } from '../chip'
 import { DateTime } from 'luxon'
-import { lastBoxingDay, WIND_GUST, WIND_MEAN, windOnDay, windWindow } from '../../answers'
+import { BEAUFORT, lastBoxingDay, WIND_FORCES_OF_GUST, WIND_FORCES_OF_MEAN, WIND_GUST, WIND_MEAN, WIND_WINDOW_DAYS, windOnDay, windWindow } from '../../answers'
 import { defineChip } from '../chip'
 
 // How windy was it on a day? DWD's daily climate summary of the place's station (GH-3518).
@@ -26,6 +26,12 @@ const DAY: DateChoice = {
 
 /** What it fetches: the daily gust and mean of the place's station, a week either side of the day (`windWindow`) */
 const FETCH = { provider: 'dwd', network: 'observation', resolution: 'daily', dataset: 'climate_summary', parameters: ['wind_gust_max', 'wind_speed_mean'] } as const
+
+/** The same data in the Explorer: the gust and the mean of the place's station, the days the answer fetches */
+function explorerLink(station: string, day: string, now: DateTime) {
+  const { from, to } = windWindow(day, now)
+  return { path: '/explorer', query: { mode: 'station', provider: FETCH.provider, network: FETCH.network, resolution: FETCH.resolution, dataset: FETCH.dataset, parameters: 'wind_gust_max,wind_speed_mean', stations: station, startDate: from, endDate: to } }
+}
 
 interface Loaded {
   readings: Value[]
@@ -94,10 +100,50 @@ export const wind = defineChip({
     }
   },
 
+  explanation: {
+    topics: ['wind', 'time'],
+    steps: ['station', 'forces', 'verdict', 'around'],
+    formulas: ['force'],
+    rules: [
+      // what is read
+      { id: 'daily-values', kind: 'selection', cites: [{ work: 'dwd-daily-kl', at: 'FX, FM' }, { work: 'wmo-8-i', at: '§5.1.2' }] },
+      { id: 'default-day', kind: 'selection', cites: [], own: true },
+      // how a speed becomes a force
+      { id: 'beaufort', kind: 'band', values: { edges: BEAUFORT }, cites: [{ work: 'wmo-8-i', at: '§5.1.4, Table 5.1' }] },
+      // how a force becomes a word
+      { id: 'gust-first', kind: 'statistic', own: true, cites: [{ work: 'wmo-8-i', at: '§5.1.2, §5.1.3, §5.1.4' }] },
+      { id: 'gust-words', kind: 'band', values: { gustBreezy: WIND_FORCES_OF_GUST.breezy, gustWindy: WIND_FORCES_OF_GUST.windy, gustStormy: WIND_FORCES_OF_GUST.stormy }, own: true, cites: [{ work: 'wmo-8-i', at: 'Table 5.1' }, { work: 'dwd-warnings' }] },
+      { id: 'mean-words', kind: 'band', values: { meanBreezy: WIND_FORCES_OF_MEAN.breezy, meanWindy: WIND_FORCES_OF_MEAN.windy, meanStormy: WIND_FORCES_OF_MEAN.stormy }, own: true, cites: [{ work: 'wmo-8-i', at: 'Table 5.1' }] },
+      // what the day is set beside
+      { id: 'around-window', kind: 'window', values: { days: WIND_WINDOW_DAYS }, cites: [], own: true },
+      { id: 'stronger-count', kind: 'statistic', cites: [], own: true },
+    ],
+    limits: ['station', 'gust', 'missing', 'height', 'window'],
+    data: {
+      provider: FETCH.provider,
+      network: FETCH.network,
+      dataset: `${FETCH.resolution}/${FETCH.dataset}`,
+      parameters: FETCH.parameters,
+      open: ({ place, now }, choices) => explorerLink(place.id, choices.day!, now()),
+    },
+    numbers(answer, _loaded, { number, unitText, place, dayText }) {
+      const unit = unitText(answer.unit)
+      const lines: NumberLine[] = [
+        { id: 'station', params: { name: place.name, id: place.id } },
+        { id: 'day', params: { day: dayText(answer.day, true) } },
+      ]
+      if (answer.mean !== null)
+        lines.push({ id: 'mean', params: { speed: number(answer.mean), unit, force: answer.beaufort ?? 0 } })
+      if (answer.gust !== null)
+        lines.push({ id: 'gust', params: { speed: number(answer.gust), unit, force: answer.gustBeaufort ?? 0 } })
+      const forces = answer.gust !== null ? WIND_FORCES_OF_GUST : WIND_FORCES_OF_MEAN
+      lines.push({ id: answer.gust !== null ? 'scaleGust' : 'scaleMean', params: { breezy: forces.breezy, windy: forces.windy, stormy: forces.stormy } })
+      lines.push({ id: 'around', params: { around: answer.around, stronger: answer.stronger, days: WIND_WINDOW_DAYS } })
+      return lines
+    },
+  },
+
   empty: (_loaded, { t, dayText }, choices) => t('ask.wind.none', { day: dayText(choices.day!, true) }),
 
-  actions({ t, place, now }, choices): AnswerAction[] {
-    const { from, to } = windWindow(choices.day!, now())
-    return [{ key: 'explorer', label: t('ask.wind.open'), tool: 'explorer', to: { path: '/explorer', query: { mode: 'station', provider: FETCH.provider, network: FETCH.network, resolution: FETCH.resolution, dataset: FETCH.dataset, parameters: 'wind_gust_max,wind_speed_mean', stations: place.id, startDate: from, endDate: to } } }]
-  },
+  actions: ({ t, place, now }, choices): AnswerAction[] => [{ key: 'explorer', label: t('ask.wind.open'), tool: 'explorer', to: explorerLink(place.id, choices.day!, now()) }],
 })

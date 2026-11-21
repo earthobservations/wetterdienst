@@ -94,6 +94,24 @@
     "showValues": "Pokaż wartości",
     "tableWhen": "Kiedy",
     "leadsTo": "Otwórz dane w narzędziu",
+    "explain": {
+      "button": "Jak powstała ta odpowiedź?",
+      "failed": "Nie udało się wczytać wyjaśnienia.",
+      "numbers": "Użyte liczby",
+      "rules": "Reguły i skąd pochodzą",
+      "data": "Dane",
+      "terms": "Wyjaśnione pojęcia",
+      "limits": "Czego odpowiedź nie może powiedzieć",
+      "full": "Cała metoda i jej źródła",
+      "own": "Wybór własny wetterdienst.",
+      "source": "Źródło:",
+      "compare": "Porównaj:",
+      "provider": "Dostawca",
+      "dataset": "Zbiór danych",
+      "parameters": "Parametry",
+      "licence": "Licencja",
+      "open": "Otwórz te dane w Eksploratorze"
+    },
     "rain": {
       "yes": "Tak, deszcz jest prawdopodobny.",
       "maybe": "Być może, trochę.",
@@ -162,6 +180,7 @@
       "providers": "Krajowe służby meteorologiczne stojące za danymi: kraj, licencja, wymagane podanie źródła i to, co oferuje każda z nich.",
       "glossary": "Co mierzy każdy parametr pogodowy i klimatyczny oraz w jakiej jednostce zwracane są jego wartości, z wyszukiwaniem po nazwie i wielkości.",
       "measurement": "Jak mierzy się pogodę: przyrządy, jak odczyt staje się wartością, co mówi liczba i czym różnią się dostawcy, ze źródłami.",
+      "methods": "Jak powstają odpowiedzi Ask the weather: kroki i liczby każdej metody, jej opublikowane źródła i wybory własne wetterdienst.",
       "about": "O projekcie open source Wetterdienst i osobach, które go utrzymują.",
       "support": "Wesprzyj Wetterdienst: zgłoś problem, dodaj kod lub przekaż darowiznę.",
       "map": "Mapa stacji Niemieckiej Służby Meteorologicznej: wybierz stację lub dowolny punkt, aby zobaczyć jego prognozę, paski klimatyczne i pomiary.",
@@ -207,6 +226,7 @@
     "api": "API",
     "glossary": "Słownik",
     "measurement": "Pomiar",
+    "methods": "Metody",
     "support": "Wsparcie",
     "map": "Mapa",
     "radar": "Radar"
@@ -495,6 +515,37 @@
       "normals": "Normy klimatyczne",
       "time": "Czas",
       "observationForecastDerived": "Obserwacja, prognoza i dane pochodne"
+    }
+  },
+  "methods": {
+    "title": "Jak powstają odpowiedzi",
+    "subtitle": "Metoda stojąca za każdym pytaniem Ask the weather: kroki, liczby, prace, na których opiera się każdy wybór, i wybory własne wetterdienst",
+    "menuDescription": "Metoda i źródła stojące za każdą odpowiedzią Ask the weather",
+    "tocTitle": "Spis treści",
+    "introTitle": "Jak czytać tę stronę",
+    "introText": "Każde pytanie Ask the weather ma sekcję: metodę krok po kroku, wzór, jeśli go ma, każdy okres, próg i regułę wraz z opublikowaną pracą, z której pochodzi, dane, pojęcia i ograniczenia. Na końcu są cytowane prace, każda z opisem, czym jest i dlaczego się liczy.",
+    "ownText": "Tam, gdzie żadna opublikowana praca nie rozstrzyga wyboru, jest on oznaczony jako własny wetterdienst, z uzasadnieniem. To wybór projektu, a nie reguła nauki o pogodzie, i można go zmienić. Żadna odpowiedź nie opiera się na liczbie, która nie ma źródła ani oznaczenia.",
+    "measurementText": "Pojęcia są wyjaśnione na stronie {page} i w {glossary} i stąd linkowane, zamiast być zapisane dwa razy.",
+    "chipsTitle": "Pytania",
+    "ask": "Zadaj to pytanie",
+    "ownCount": "{own} z {total} wyborów to wybory własne wetterdienst",
+    "stepsTitle": "Metoda krok po kroku",
+    "formulaTitle": "Wzór",
+    "rulesTitle": "Wybory i skąd pochodzą",
+    "says": "Co mówi źródło:",
+    "dataTitle": "Dane",
+    "termsTitle": "Pojęcia",
+    "limitsTitle": "Ograniczenia odpowiedzi",
+    "worksTitle": "Cytowane prace",
+    "worksIntro": "Każda praca mówi prostymi słowami, czym jest, kto ją wydaje i co metody z niej biorą, a potem podaje formalne przypisanie. Tytuły pozostają w języku pracy.",
+    "usedBy": "Używana przez:",
+    "kind": {
+      "period": "Okres",
+      "band": "Próg lub skala",
+      "statistic": "Statystyka",
+      "fallback": "Zastępstwo przy małej liczbie danych",
+      "window": "Okno dni",
+      "selection": "Wybór danych"
     }
   },
   "providers": {

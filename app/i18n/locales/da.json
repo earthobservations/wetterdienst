@@ -94,6 +94,24 @@
     "showValues": "Vis værdierne",
     "tableWhen": "Hvornår",
     "leadsTo": "Åbn dataene i værktøjet",
+    "explain": {
+      "button": "Hvordan blev dette svar til?",
+      "failed": "Forklaringen kunne ikke indlæses.",
+      "numbers": "De anvendte tal",
+      "rules": "Reglerne og hvor de kommer fra",
+      "data": "Dataene",
+      "terms": "Begreber forklaret",
+      "limits": "Hvad svaret ikke kan sige",
+      "full": "Hele metoden og dens kilder",
+      "own": "wetterdiensts eget valg.",
+      "source": "Kilde:",
+      "compare": "Sammenlign:",
+      "provider": "Udbyder",
+      "dataset": "Datasæt",
+      "parameters": "Parametre",
+      "licence": "Licens",
+      "open": "Åbn disse data i Udforskeren"
+    },
     "rain": {
       "yes": "Ja, der kommer sandsynligvis regn.",
       "maybe": "Måske, lidt.",
@@ -162,6 +180,7 @@
       "providers": "De nationale vejrtjenester bag dataene: land, licens, den kildeangivelse der skal gives, og hvad hver enkelt tilbyder.",
       "glossary": "Hvad hver vejr- og klimaparameter måler, og i hvilken enhed værdierne kommer tilbage, med søgning på navn og størrelse.",
       "measurement": "Sådan måles vejret: instrumenter, hvordan en aflæsning bliver til en værdi, hvad tallet siger, og hvor udbyderne adskiller sig, med kilder.",
+      "methods": "Hvordan svarene fra Ask the weather bliver til: trinnene og tallene i hver metode, de udgivne kilder og de valg, wetterdienst selv har truffet.",
       "about": "Om open source-projektet Wetterdienst og de mennesker, der vedligeholder det.",
       "support": "Støt Wetterdienst: meld en fejl, bidrag med kode eller doner.",
       "map": "Et kort over stationerne hos Tysklands vejrtjeneste: vælg en station eller et vilkårligt punkt og se dens udsigt, klimastriber og målinger.",
@@ -207,6 +226,7 @@
     "api": "API",
     "glossary": "Ordliste",
     "measurement": "Måling",
+    "methods": "Metoder",
     "support": "Support",
     "map": "Kort",
     "radar": "Radar"
@@ -495,6 +515,37 @@
       "normals": "Klimanormaler",
       "time": "Tid",
       "observationForecastDerived": "Observation, prognose og afledte data"
+    }
+  },
+  "methods": {
+    "title": "Hvordan svarene bliver til",
+    "subtitle": "Metoden bag hvert spørgsmål i Ask the weather: trinnene, tallene, de værker hvert valg hviler på, og de valg wetterdienst selv har truffet",
+    "menuDescription": "Metoden og kilderne bag hvert svar i Ask the weather",
+    "tocTitle": "Indhold",
+    "introTitle": "Sådan læser du denne side",
+    "introText": "Hvert spørgsmål i Ask the weather har et afsnit: metoden trin for trin, formlen hvis der er en, hver periode, grænse og regel med det udgivne værk, den kommer fra, dataene, begreberne og begrænsningerne. Til sidst står de citerede værker, hvert med hvad det er, og hvorfor det tæller.",
+    "ownText": "Hvor intet udgivet værk træffer et valg, er valget markeret som wetterdiensts eget, med begrundelsen. Det er et valg i projektet, ikke en regel i vejrvidenskaben, og det kan ændres. Intet svar hviler på et tal, der hverken har en kilde eller en markering.",
+    "measurementText": "Begreberne forklares på {page} og i {glossary} og linkes herfra i stedet for at blive skrevet to gange.",
+    "chipsTitle": "Spørgsmålene",
+    "ask": "Stil dette spørgsmål",
+    "ownCount": "{own} af {total} valg er wetterdiensts egne",
+    "stepsTitle": "Metoden, trin for trin",
+    "formulaTitle": "Formel",
+    "rulesTitle": "Valgene og hvor de kommer fra",
+    "says": "Hvad kilden siger:",
+    "dataTitle": "Dataene",
+    "termsTitle": "Begreber",
+    "limitsTitle": "Svarets begrænsninger",
+    "worksTitle": "Citerede værker",
+    "worksIntro": "Hvert værk siger med enkle ord, hvad det er, hvem der udgiver det, og hvad metoderne tager fra det, og giver så den formelle henvisning. Titlerne bliver på værkets eget sprog.",
+    "usedBy": "Bruges af:",
+    "kind": {
+      "period": "Periode",
+      "band": "Grænse eller skala",
+      "statistic": "Statistik",
+      "fallback": "Reserve ved for få data",
+      "window": "Vindue af dage",
+      "selection": "Udvalg af data"
     }
   },
   "providers": {

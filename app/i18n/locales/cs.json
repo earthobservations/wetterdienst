@@ -94,6 +94,24 @@
     "showValues": "Zobrazit hodnoty",
     "tableWhen": "Kdy",
     "leadsTo": "Otevřít data v nástroji",
+    "explain": {
+      "button": "Jak tato odpověď vznikla?",
+      "failed": "Vysvětlení se nepodařilo načíst.",
+      "numbers": "Použitá čísla",
+      "rules": "Pravidla a odkud pocházejí",
+      "data": "Data",
+      "terms": "Vysvětlené pojmy",
+      "limits": "Co odpověď říct nemůže",
+      "full": "Celá metoda a její zdroje",
+      "own": "Vlastní volba wetterdienst.",
+      "source": "Zdroj:",
+      "compare": "Porovnej:",
+      "provider": "Poskytovatel",
+      "dataset": "Datová sada",
+      "parameters": "Parametry",
+      "licence": "Licence",
+      "open": "Otevřít tato data v Průzkumníku"
+    },
     "rain": {
       "yes": "Ano, déšť je pravděpodobný.",
       "maybe": "Možná, trochu.",
@@ -162,6 +180,7 @@
       "providers": "Národní meteorologické služby za daty: země, licence, uvedení zdroje a to, co každá nabízí.",
       "glossary": "Co měří jednotlivé meteorologické a klimatické parametry a v jaké jednotce se vrací jejich hodnoty, s vyhledáváním podle názvu a veličiny.",
       "measurement": "Jak se měří počasí: přístroje, jak se z odečtu stane hodnota, co říká číslo a v čem se poskytovatelé liší, se zdroji.",
+      "methods": "Jak vznikají odpovědi Ask the weather: kroky a čísla každé metody, její zveřejněné zdroje a volby, které udělal wetterdienst sám.",
       "about": "O open source projektu Wetterdienst a lidech, kteří ho spravují.",
       "support": "Podpoř Wetterdienst: nahlas chybu, přispěj kódem nebo daruj.",
       "map": "Mapa stanic Německé meteorologické služby: vyber stanici nebo libovolný bod a uvidíš její předpověď, klimatické pruhy a měření.",
@@ -207,6 +226,7 @@
     "api": "API",
     "glossary": "Slovník",
     "measurement": "Měření",
+    "methods": "Metody",
     "support": "Podpora",
     "map": "Mapa",
     "radar": "Radar"
@@ -495,6 +515,37 @@
       "normals": "Klimatické normály",
       "time": "Čas",
       "observationForecastDerived": "Pozorování, předpověď a odvozená data"
+    }
+  },
+  "methods": {
+    "title": "Jak vznikají odpovědi",
+    "subtitle": "Metoda za každou otázkou Ask the weather: kroky, čísla, díla, o která se každá volba opírá, a volby, které udělal wetterdienst sám",
+    "menuDescription": "Metoda a zdroje za každou odpovědí Ask the weather",
+    "tocTitle": "Obsah",
+    "introTitle": "Jak číst tuto stránku",
+    "introText": "Každá otázka Ask the weather má oddíl: metodu krok za krokem, vzorec, pokud nějaký má, každé období, práh a pravidlo se zveřejněným dílem, z něhož pochází, data, pojmy a omezení. Na konci jsou citovaná díla, každé s tím, čím je a proč se počítá.",
+    "ownText": "Kde žádné zveřejněné dílo volbu neurčuje, je volba označena jako vlastní volba wetterdienst, s odůvodněním. Je to volba projektu, ne pravidlo vědy o počasí, a lze ji změnit. Žádná odpověď se neopírá o číslo, které nemá zdroj ani označení.",
+    "measurementText": "Pojmy jsou vysvětleny na stránce {page} a v {glossary} a odtud jsou odkazovány, místo aby se psaly dvakrát.",
+    "chipsTitle": "Otázky",
+    "ask": "Položit tuto otázku",
+    "ownCount": "{own} z {total} voleb jsou vlastní volby wetterdienst",
+    "stepsTitle": "Metoda krok za krokem",
+    "formulaTitle": "Vzorec",
+    "rulesTitle": "Volby a odkud pocházejí",
+    "says": "Co říká zdroj:",
+    "dataTitle": "Data",
+    "termsTitle": "Pojmy",
+    "limitsTitle": "Omezení odpovědi",
+    "worksTitle": "Citovaná díla",
+    "worksIntro": "Každé dílo jednoduchými slovy říká, čím je, kdo je vydává a co z něj metody berou, a pak uvádí formální citaci. Názvy zůstávají v jazyce díla.",
+    "usedBy": "Používá:",
+    "kind": {
+      "period": "Období",
+      "band": "Práh nebo stupnice",
+      "statistic": "Statistika",
+      "fallback": "Náhrada při nedostatku dat",
+      "window": "Okno dnů",
+      "selection": "Výběr dat"
     }
   },
   "providers": {

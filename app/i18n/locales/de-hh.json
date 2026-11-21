@@ -94,6 +94,24 @@
     "showValues": "Weerten wiesen",
     "tableWhen": "Wannehr",
     "leadsTo": "De Daten in dat Warktüüch apenmaken",
+    "explain": {
+      "button": "Wo is disse Antwoort tostann kamen?",
+      "failed": "De Verklaren keem nich laadt warrn.",
+      "numbers": "De bruukten Tallen",
+      "rules": "De Regeln un woher se kaamt",
+      "data": "De Daten",
+      "terms": "Begrepen verklaart",
+      "limits": "Wat de Antwoort nich seggen kann",
+      "full": "De heele Methood un ehr Quellen",
+      "own": "Egen Entscheidung vun wetterdienst.",
+      "source": "Quell:",
+      "compare": "Tum Vergleken:",
+      "provider": "Anbeder",
+      "dataset": "Datensatz",
+      "parameters": "Parameter",
+      "licence": "Lizenz",
+      "open": "Disse Daten in'n Explorer opmaken"
+    },
     "rain": {
       "yes": "Jo, dat gifft wohrschienlich Regen.",
       "maybe": "Villicht, en beten.",
@@ -162,6 +180,7 @@
       "providers": "De nationalen Wedderdeenste achter de Daten: Land, Lizenz, de Quell, de angeven warrn mutt, un wat elkeen anbeedt.",
       "glossary": "Wat elk Wedder- un Klimaparameter meet un in wecke Eenheit sien Weerten torüchkamen, mit Söök na Naam un Grött.",
       "measurement": "So warrt Wedder meten: Instrumenten, woans ut en Meten en Weert warrt, wat de Tall seggen kann un wo sik Anbeder unnerscheedt, mit Quellen.",
+      "methods": "Wo de Antwoorden vun Ask the weather tostann kaamt: Schritt un Tallen vun jede Methood, ehr utgeven Quellen un wat wetterdienst sülvst entscheden hett.",
       "about": "Över dat Open-Source-Projekt Wetterdienst un de Lüüd, de dat plegen.",
       "support": "Ünnerstütt Wetterdienst: meld een Fehler, bring Code bi oder spend.",
       "map": "Een Kaart vun de Stationen vun den Düütschen Wedderdeenst: Söök di een Station oder een Punkt ut un kiek Utsicht, Klimastrepen un Meetweerten dorto an.",
@@ -207,6 +226,7 @@
     "api": "API",
     "glossary": "Glossar",
     "measurement": "Meten",
+    "methods": "Methoden",
     "support": "Ünnerstütten",
     "map": "Kaart",
     "radar": "Radar"
@@ -495,6 +515,37 @@
       "normals": "Klimanormaalweerten",
       "time": "Tiet",
       "observationForecastDerived": "Beobachten, Vörhersaag un afleedte Daten"
+    }
+  },
+  "methods": {
+    "title": "Wo de Antwoorden tostann kaamt",
+    "subtitle": "De Methood achter jede Fraag vun Ask the weather: de Schritt, de Tallen, de Warken, op de jede Entscheidung opbuut, un wat wetterdienst sülvst entscheden hett",
+    "menuDescription": "De Methood un de Quellen achter jede Antwoort vun Ask the weather",
+    "tocTitle": "Inholt",
+    "introTitle": "So lest du disse Siet",
+    "introText": "Jede Fraag vun Ask the weather hett en Afsnitt: ehr Methood Schritt för Schritt, ehr Formel, wo dat een gifft, jede Tietruum, jede Swell un jede Regel mit dat utgeven Wark, ut dat se kummt, de Daten, de Begrepen un de Grenzen. Achteran staht de nöömten Warken, jedet mit dat, wat dat is un worüm dat tellt.",
+    "ownText": "Wo keen utgeven Wark en Entscheidung drifft, is se as egen vun wetterdienst markeert, mit de Begründung. Se is en Entscheidung vun dat Projekt, keen Regel vun de Wedderkunn, un se lett sik ännern. Keen Antwoort beruht op en Tall, de weder belegt noch markeert is.",
+    "measurementText": "De Begrepen warrt op {page} un in dat {glossary} verklaart un vun hier ut verlinkt, statt twee Maal schreven to warrn.",
+    "chipsTitle": "De Fragen",
+    "ask": "Disse Fraag stellen",
+    "ownCount": "{own} vun {total} Entscheidungen sünd egen vun wetterdienst",
+    "stepsTitle": "De Methood, Schritt för Schritt",
+    "formulaTitle": "Formel",
+    "rulesTitle": "De Entscheidungen un woher se kaamt",
+    "says": "Wat de Quell seggt:",
+    "dataTitle": "De Daten",
+    "termsTitle": "Begrepen",
+    "limitsTitle": "Grenzen vun de Antwoort",
+    "worksTitle": "Nöömte Warken",
+    "worksIntro": "Jedet Wark seggt in eenfache Wöör, wat dat is, wokeen dat rutbringt un wat de Methoden daruut nehmt, un gifft denn de formale Quellenangaav. De Titels blievt in de Spraak vun dat Wark.",
+    "usedBy": "Bruukt vun:",
+    "kind": {
+      "period": "Tietruum",
+      "band": "Swell oder Skala",
+      "statistic": "Statistik",
+      "fallback": "Ersatz bi to wenig Daten",
+      "window": "Finster vun Daag",
+      "selection": "Utwahl vun de Daten"
     }
   },
   "providers": {

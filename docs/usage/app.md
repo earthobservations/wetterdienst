@@ -14,7 +14,7 @@ Spanish, Italian, Polish, Dutch, Czech, Danish, Luxembourgish and Hamburgisch).
 ## What is in it
 
 The six tools, Forecast, Explorer, Climate stripes, Radar, History and Map, are tabs in the header; Providers, Glossary,
-Measurement and API are under **Reference**; the project's pages (about, support, the legal notices, the documentation) are in the
+Measurement, Methods and API are under **Reference**; the project's pages (about, support, the legal notices, the documentation) are in the
 footer, the same on every page. On a narrow screen (below 64 rem, 1024 px at the default text size) four of the tools
 are a tab bar at the foot of the screen (under the header in a window lower than 30 rem, such as a phone on its side)
 and its **Menu** opens the rest: a bar holds four tools and the Menu. Until you choose, the four are Forecast,
@@ -28,7 +28,7 @@ single tap, and say what moved); a tool moved into the bar pushes the one at the
 four. The choice stays in the browser. The header of a wide screen shows all six tools as tabs in the same order, and there the
 list is one list of six, with no bar and no Menu. The
 Menu's tab is marked, as the page you are on, on every page that is in its sheet and has no tab: a tool that is not in
-your bar, Providers, Glossary, Measurement and API, About, Support and the Settings. The home page and the legal notices mark
+your bar, Providers, Glossary, Measurement, Methods and API, About, Support and the Settings. The home page and the legal notices mark
 nothing, and a tool that is in the bar marks its own tab. **Search** (the button in the header, or Ctrl+K
 or ⌘K) goes to any page, to the forecast of a DWD station by its name or to the map opened on it, or to a provider,
 and sets the theme or the language.
@@ -43,9 +43,23 @@ Glossary links each parameter it can to its entry ("How is this measured?"), and
 parameters (`/glossary?topic=wind`). The texts are written in German and English; in another language an entry is
 shown in English, with a note (in German for Low German and Luxembourgish).
 
+**Methods** (`/methods`, "How the answers are worked out") is the reference page behind **Ask the weather**: one section
+for each of its questions, with an anchor (`/methods#summer`), written from the question's own definition, so a new
+question appears on it with no edit of the page. A section has the method step by step, the formula where there is one,
+every period, threshold, statistic and fallback rule with the published work it comes from (the WMO Guide to Instruments
+and Methods of Observation, WMO-No. 8, Volume I, 2024; the WMO Guidelines on the Calculation of Climate Normals,
+WMO-No. 1203, 2017; DWD's own pages and dataset descriptions) and the place in it, the data, the terms (linked to
+"How weather is measured" and the Glossary instead of being written twice) and the limits of the answer. A choice that
+no published work makes is marked **wetterdienst's own choice**, with the reasoning. The page ends with the list of the
+works cited, each with what it is, who issues it and what the methods take from it. Under each answer a button, **How
+was this worked out?** (`aria-expanded`, a region it controls), opens the same in short for that answer: the station and
+its distance, the period and how many years or days it covers, the thresholds, the provider, dataset and licence with a
+link that opens the same data in the Explorer, the terms and the limits, and links to the section and the works. The
+texts are written in German and English, like those of Measurement; the titles of the works stay in their own language.
+
 | Page | What it does |
 | --- | --- |
-| Home | The six tools, and **Ask the weather**: four suggestions (will it rain tomorrow, was last summer hotter than usual, how windy was a day, where hourly temperatures can be downloaded) that are answered on the page from live data, with the numbers and a chart behind the verdict and a link into the tool that holds the data. The place they are about is a DWD station that can be changed. Nothing is fetched until a question is picked, apart from the look-up of a place that the link names. |
+| Home | The six tools, and **Ask the weather**: four suggestions (will it rain tomorrow, was last summer hotter than usual, how windy was a day, where hourly temperatures can be downloaded) that are answered on the page from live data, with the numbers and a chart behind the verdict, a link into the tool that holds the data and, under it, how the answer was worked out and what it rests on (see Methods). The place they are about is a DWD station that can be changed. Nothing is fetched until a question is picked, apart from the look-up of a place that the link names. |
 | Explorer | Pick a provider and network, a resolution, dataset and parameters, then stations on the map. Three modes: **Station** reads the measurements of the stations, **Interpolation** estimates the values of a point (see [Interpolation & Summary](interpolation.md)), **Summary** takes the nearest station with data at each timestamp. A data viewer shows the table and a chart and downloads the result as CSV, JSON or GeoJSON. |
 | Forecast | The MOSMIX forecast of a DWD station as a meteogram: temperature and dew point, wind with barbs, precipitation by phase, cloud cover and pressure, with Yr's weather symbols over the hours. Each panel has a fixed height and each hour a fixed width, so on a phone the chart scrolls sideways with its axes in view; a dragged box, a pinch or the buttons zoom all panels at once, and the arrow keys step through the hours (`+`, `-` and `0` zoom and reset). `/widget?station=<id>` is the same chart without the page around it, for embedding (`&theme=dark` or `&theme=light` sets the colours). |
 | Climate stripes | The warming stripes of a DWD station or of a station of NOAA's GHCN daily, for temperature or precipitation, which the app makes itself of the annual values of the API (see "What the app serves itself" below), see [Climate Stripes](stripes.md). |

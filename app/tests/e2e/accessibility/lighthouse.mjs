@@ -21,7 +21,7 @@ import ts from 'typescript'
 
 // the 16 pages of the spec's first paint (`PAGES` in accessibility.spec.ts), and the explorer with a station chosen
 export const EXPLORER_WITH_STATION = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station&stations=00011'
-export const URLS = ['/', '/explorer', EXPLORER_WITH_STATION, '/stripes', '/meteogram', '/history', '/map', '/radar', '/widget', '/glossary', '/measurement', '/providers', '/providers/dwd', '/api', '/settings', '/about', '/support', '/impressum', '/datenschutz']
+export const URLS = ['/', '/explorer', EXPLORER_WITH_STATION, '/stripes', '/meteogram', '/history', '/map', '/radar', '/widget', '/glossary', '/measurement', '/methods', '/providers', '/providers/dwd', '/api', '/settings', '/about', '/support', '/impressum', '/datenschutz']
 
 const option = (name, fallback) => process.argv.includes(`--${name}`) ? process.argv[process.argv.indexOf(`--${name}`) + 1] : fallback
 

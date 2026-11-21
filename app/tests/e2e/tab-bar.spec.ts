@@ -417,6 +417,7 @@ test.describe('the Menu, on a phone', () => {
     ['/providers', null],
     ['/glossary', null],
     ['/measurement', null],
+    ['/methods', null],
     ['/api', null],
     ['/about', null],
     ['/support', null],
@@ -553,7 +554,7 @@ test.describe('every page, with the browser\'s storage blocked', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 
   // measured on main with localStorage throwing: `/` and `/meteogram` opened, the pages that read the settings did not
-  for (const route of ['/', '/meteogram', '/explorer', '/stripes', '/radar', '/history', '/glossary', '/measurement', '/providers', '/api', '/about', '/support', '/settings']) {
+  for (const route of ['/', '/meteogram', '/explorer', '/stripes', '/radar', '/history', '/glossary', '/measurement', '/methods', '/providers', '/api', '/about', '/support', '/settings']) {
     test(`opens ${route}, with the bar and no error`, async ({ page, baseURL }) => {
       const errors: string[] = []
       page.on('pageerror', error => errors.push(error.message))

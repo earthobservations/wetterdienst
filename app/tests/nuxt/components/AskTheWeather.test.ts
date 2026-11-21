@@ -218,6 +218,75 @@ describe('the suggestions', () => {
     expect(links[0]).toContain('stations=02564')
   })
 
+  // how each answer was worked out (GH-3764): a disclosure under it, whose region the button controls
+  it('say under each answer how it was worked out, in a region that a button opens, with the numbers of the answer', async () => {
+    const wrapper = await mountAsk()
+    await chip(wrapper, 'summer').trigger('click')
+    await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+    const button = wrapper.find('[data-testid="explanation-button"]')
+    const region = wrapper.find('[data-testid="explanation-region"]')
+    expect(button.element.tagName).toBe('BUTTON')
+    expect(button.attributes('type')).toBe('button')
+    expect(button.text()).toBe('How was this worked out?')
+    expect(button.attributes('aria-expanded')).toBe('false')
+    expect(button.attributes('aria-controls')).toBe(region.attributes('id'))
+    expect(region.attributes('role')).toBe('region')
+    expect(region.attributes('aria-labelledby')).toBe(button.attributes('id'))
+    expect(region.attributes('hidden')).toBeDefined()
+    // the button is the only thing of the explanation in the heading that names it, and the answer's own credit is still there
+    expect(wrapper.find('[data-testid="provider-credit-line"]').exists()).toBe(true)
+
+    await button.trigger('click')
+    expect(button.attributes('aria-expanded')).toBe('true')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="explanation-numbers"]').exists()).toBe(true))
+    expect(region.attributes('hidden')).toBeUndefined()
+    const numbers = wrapper.find('[data-testid="explanation-numbers"]').text()
+    expect(numbers).toContain('Station: Kiel-Holtenau (02564)')
+    expect(numbers).toMatch(/Compared with the summers 1991 to 2020: the mean of 30 summers/)
+    expect(numbers).toContain('Within 0.5 °C either way counts as usual.')
+    // each rule is its source, linked to its entry of the works cited, or the mark that it is wetterdienst's own
+    const rules = wrapper.findAll('[data-testid="explanation-rules"] > li')
+    expect(rules.map(rule => rule.attributes('data-rule'))).toEqual(['season', 'complete-months', 'only-over', 'summer-mean', 'reference-period', 'normal-mean', 'min-summers', 'fallback-period', 'fallback-minimum', 'anomaly', 'usual-band', 'rank'])
+    expect(rules.filter(rule => rule.attributes('data-own') !== undefined).map(rule => rule.attributes('data-rule'))).toEqual(['only-over', 'normal-mean', 'min-summers', 'fallback-period', 'fallback-minimum', 'usual-band', 'rank'])
+    expect(wrapper.findAll('[data-testid="own-mark"]')).toHaveLength(7)
+    const season = rules[0]!
+    expect(season.findAll('a').map(link => link.attributes('href'))).toEqual(['/methods#work-dwd-seasons', '/methods#work-dwd-summer'])
+    // the data: the provider, the dataset, the licence the provider's terms give, and the same data in the Explorer
+    const text = region.text()
+    expect(text).toContain('monthly/climate_summary')
+    expect(text).toContain('Creative Commons Attribution 4.0 International')
+    expect(wrapper.find('[data-testid="explanation-explorer"]').attributes('href')).toContain('/explorer?mode=station&provider=dwd&network=observation&resolution=monthly&dataset=climate_summary&parameters=temperature_air_mean_2m&stations=02564')
+    // the terms are the entries of "How weather is measured", not written twice
+    expect(wrapper.findAll('[data-testid="explanation-terms"] a').map(link => link.attributes('href'))).toEqual(expect.arrayContaining(['/measurement#temperature', '/measurement#normals']))
+    expect(wrapper.find('[data-testid="explanation-full"]').attributes('href')).toBe('/methods#summer')
+
+    await button.trigger('click')
+    expect(button.attributes('aria-expanded')).toBe('false')
+  })
+
+  it('say it for the wind and the rain too, and for the list of services, which has no dataset to open', async () => {
+    const wrapper = await mountAsk()
+    await chip(wrapper, 'wind').trigger('click')
+    await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+    await wrapper.find('[data-testid="explanation-button"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="explanation-numbers"]').exists()).toBe(true))
+    expect(wrapper.find('[data-testid="explanation-numbers"]').text()).toContain('Strongest gust: 21.6 m/s, Beaufort force 9.')
+    expect(wrapper.find('[data-testid="explanation-explorer"]').attributes('href')).toContain('parameters=wind_gust_max,wind_speed_mean')
+
+    await chip(wrapper, 'rain').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="explanation-button"]').exists()).toBe(true))
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Yes, rain is likely.'))
+    await wrapper.find('[data-testid="explanation-button"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="explanation-numbers"]').exists()).toBe(true))
+    expect(wrapper.find('[data-testid="explanation-numbers"]').text()).toContain('Forecast point: KIEL-HOLTENAU (10046), 0.6 km from Kiel-Holtenau.')
+
+    await chip(wrapper, 'download').trigger('click')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toMatch(/^Weather services that publish hourly air temperature/))
+    await wrapper.find('[data-testid="explanation-button"]').trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="explanation-numbers"]').exists()).toBe(true))
+    expect(wrapper.find('[data-testid="explanation-explorer"]').exists()).toBe(false)
+  })
+
   // what wetterdienst did to the data, directly under the credit line of the answer's values (GH-3799)
   it('say under the credit line what wetterdienst did to the data, and say none where the answer lists sources', async () => {
     const wrapper = await mountAsk()
