@@ -2056,6 +2056,175 @@
         }
       }
     },
+    "wetterdienst kostra": {
+      "options": {
+        "--debug": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--debug"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--duration": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "integer",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--duration"
+          ],
+          "required": false,
+          "default": null
+        },
+        "--format": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "choice",
+          "choices": [
+            "csv",
+            "json"
+          ],
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--format"
+          ],
+          "required": false,
+          "default": "json"
+        },
+        "--help": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": true,
+          "count": false,
+          "envvar": null,
+          "flag_value": true,
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--help"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--latitude": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "float range",
+          "choices": null,
+          "min": -90,
+          "max": 90,
+          "spellings": [
+            "--latitude"
+          ],
+          "required": true,
+          "default": null
+        },
+        "--longitude": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "float range",
+          "choices": null,
+          "min": -180,
+          "max": 180,
+          "spellings": [
+            "--longitude"
+          ],
+          "required": true,
+          "default": null
+        },
+        "--pretty": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--pretty"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--quiet": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": "true",
+          "type": "boolean",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--quiet"
+          ],
+          "required": false,
+          "default": false
+        },
+        "--return-period": {
+          "param_type_name": "option",
+          "nargs": 1,
+          "multiple": false,
+          "is_flag": false,
+          "count": false,
+          "envvar": null,
+          "flag_value": null,
+          "type": "integer",
+          "choices": null,
+          "min": null,
+          "max": null,
+          "spellings": [
+            "--return-period"
+          ],
+          "required": false,
+          "default": null
+        }
+      }
+    },
     "wetterdienst providers": {
       "options": {
         "--debug": {
@@ -5772,5 +5941,5 @@
       }
     }
   },
-  "x-release": "0.193.0"
+  "x-release": "0.194.0"
 }

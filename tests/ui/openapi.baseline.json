@@ -12,7 +12,7 @@
       "name": "MIT",
       "identifier": "MIT"
     },
-    "version": "0.193.0",
+    "version": "0.194.0",
     "x-api-version": "1"
   },
   "servers": [
@@ -3513,10 +3513,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Station id used as the reference location, e.g. '01048'.",
+              "description": "Station id used as the reference location, e.g. '01048'. The answer is at that station's own altitude, so no `elevation` is needed.",
               "title": "Station"
             },
-            "description": "Station id used as the reference location, e.g. '01048'. Exactly one of station or (latitude and longitude) is required.",
+            "description": "Station id used as the reference location, e.g. '01048'. The answer is at that station's own altitude, so no `elevation` is needed. Exactly one of station or (latitude and longitude) is required.",
             "examples": {
               "example": {
                 "value": "01048"
@@ -4078,10 +4078,10 @@
                   "type": "null"
                 }
               ],
-              "description": "Station id used as the reference location, e.g. '01048'.",
+              "description": "Station id used as the reference location, e.g. '01048'. The answer is at that station's own altitude, so no `elevation` is needed.",
               "title": "Station"
             },
-            "description": "Station id used as the reference location, e.g. '01048'. Exactly one of station or (latitude and longitude) is required.",
+            "description": "Station id used as the reference location, e.g. '01048'. The answer is at that station's own altitude, so no `elevation` is needed. Exactly one of station or (latitude and longitude) is required.",
             "examples": {
               "example": {
                 "value": "01048"
@@ -6003,6 +6003,467 @@
           }
         }
       }
+    },
+    "/api/v1/kostra": {
+      "get": {
+        "tags": [
+          "Heavy rainfall"
+        ],
+        "summary": "Kostra",
+        "description": "Provide DWD's heavy-rainfall statistics (KOSTRA-DWD-2020) of a point via restapi.\n\nReturns the table of the cell of DWD's 5 km grid that holds the point: for each duration of a rain (5 minutes to\n7 days) and each return period (1 to 100 years) its depth in mm (``depth_mm``), its intensity in l/(s ha)\n(``intensity_l_s_ha``) and DWD's uncertainty in plus-minus percent (``uncertainty_percent``, a tolerance of both),\nwith the cell's ``index_rc`` and the position of its centre. Engineers size drains and retention basins with these\nvalues. Pass ``duration`` (and ``return_period``) for the one value you need: a duration reads one table of DWD,\nwithout it all 22 are read (2 s the first time, then from the cache). The values are DWD's statistics for the cell,\nnot measurements at the point. A point outside Germany and a border of about 10 km, or in the sea, is refused.",
+        "operationId": "kostra_api_kostra_get",
+        "parameters": [
+          {
+            "name": "latitude",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 90,
+              "minimum": -90,
+              "description": "Latitude of the point. DWD's grid covers Germany and a border of about 10 km: a point outside it, or in the sea, is refused.",
+              "title": "Latitude"
+            },
+            "description": "Latitude of the point. DWD's grid covers Germany and a border of about 10 km: a point outside it, or in the sea, is refused."
+          },
+          {
+            "name": "longitude",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "number",
+              "maximum": 180,
+              "minimum": -180,
+              "description": "Longitude of the point.",
+              "title": "Longitude"
+            },
+            "description": "Longitude of the point."
+          },
+          {
+            "name": "duration",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    5,
+                    10,
+                    15,
+                    20,
+                    30,
+                    45,
+                    60,
+                    90,
+                    120,
+                    180,
+                    240,
+                    360,
+                    540,
+                    720,
+                    1080,
+                    1440,
+                    2880,
+                    4320,
+                    5760,
+                    7200,
+                    8640,
+                    10080
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this duration of the rain, in minutes: 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 540, 720, 1080, 1440, 2880, 4320, 5760, 7200, 8640, 10080 (5 minutes to 7 days). Without it all 22, for which 22 tables of DWD are read (2 s the first time, then from the cache): give the one you need.",
+              "title": "Duration"
+            },
+            "description": "Only this duration of the rain, in minutes: 5, 10, 15, 20, 30, 45, 60, 90, 120, 180, 240, 360, 540, 720, 1080, 1440, 2880, 4320, 5760, 7200, 8640, 10080 (5 minutes to 7 days). Without it all 22, for which 22 tables of DWD are read (2 s the first time, then from the cache): give the one you need."
+          },
+          {
+            "name": "return_period",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "enum": [
+                    1,
+                    2,
+                    3,
+                    5,
+                    10,
+                    20,
+                    30,
+                    50,
+                    100
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Only this return period, in years: 1, 2, 3, 5, 10, 20, 30, 50, 100. Without it all nine.",
+              "title": "Return Period"
+            },
+            "description": "Only this return period, in years: 1, 2, 3, 5, 10, 20, 30, 50, 100. Without it all nine."
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "type": "string",
+              "description": "Output format: json (with the cell and the metadata block) or csv (the table alone).",
+              "default": "json",
+              "title": "Format"
+            },
+            "description": "Output format: json (with the cell and the metadata block) or csv (the table alone)."
+          },
+          {
+            "name": "pretty",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Pretty-print JSON/GeoJSON output.",
+              "default": false,
+              "title": "Pretty"
+            },
+            "description": "Pretty-print JSON/GeoJSON output."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/_KostraWithMetadataDict"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "title": "Response Kostra Api Kostra Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        }
+      }
+    },
+    "/api/v1/radar/frames": {
+      "get": {
+        "tags": [
+          "Precipitation radar"
+        ],
+        "summary": "Radar Frames",
+        "description": "List the frames of DWD's precipitation radar, a loop of the last hours and the forecast of the next two.\n\nDWD's RV composite: the precipitation over Germany of every 5 minutes. Each frame has the `time` it is valid at\n(UTC), the `run` of DWD it is read from, and is `observation` (the radar analysis, `past` minutes of it, 2 hours by\ndefault) or `forecast` (DWD's extrapolation of the recent movement of the rain, 24 frames to 2 hours after the\nnewest run, unless `forecast=false`). Fetch the image of a frame from `/radar/frame` with its `time` and `run`.\n`image` says where the images lie: `bounds` in WGS84, which a Leaflet `ImageOverlay` takes as they are (the images\nare in Web Mercator, `crs`, so a map of another projection must not stretch them), and `legend` the colours of the\nclasses of the rate in mm/h, as numbers. The newest run is 3 to 8 minutes old when it appears on DWD's server; a\n`radar-stale` warning in `metadata` says that it is much older.",
+        "operationId": "radar_frames_api_radar_frames_get",
+        "parameters": [
+          {
+            "name": "product",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "const": "rv",
+              "type": "string",
+              "description": "The radar product: `rv`, DWD's RV composite, the precipitation of every 5 minutes over Germany from the radar analysis, and DWD's forecast of the next two hours.",
+              "default": "rv",
+              "title": "Product"
+            },
+            "description": "The radar product: `rv`, DWD's RV composite, the precipitation of every 5 minutes over Germany from the radar analysis, and DWD's forecast of the next two hours."
+          },
+          {
+            "name": "past",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 360,
+              "minimum": 0,
+              "description": "How many minutes before the newest run the loop of analysis frames reaches back: one frame every 5 minutes, so the 120 of the default are 25 frames with the newest. DWD keeps about 48 hours.",
+              "default": 120,
+              "title": "Past"
+            },
+            "description": "How many minutes before the newest run the loop of analysis frames reaches back: one frame every 5 minutes, so the 120 of the default are 25 frames with the newest. DWD keeps about 48 hours."
+          },
+          {
+            "name": "forecast",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Add the 24 frames of DWD's forecast of the newest run, 5 to 120 minutes after it. False for the analysis alone.",
+              "default": true,
+              "title": "Forecast"
+            },
+            "description": "Add the 24 frames of DWD's forecast of the newest run, 5 to 120 minutes after it. False for the analysis alone."
+          },
+          {
+            "name": "pretty",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Pretty-print JSON/GeoJSON output.",
+              "default": false,
+              "title": "Pretty"
+            },
+            "description": "Pretty-print JSON/GeoJSON output."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RadarFramesWithMetadataDict"
+                }
+              }
+            },
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its `retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        }
+      }
+    },
+    "/api/v1/radar/frame": {
+      "get": {
+        "tags": [
+          "Precipitation radar"
+        ],
+        "summary": "Radar Frame",
+        "description": "Get the image of one frame of DWD's precipitation radar, as a PNG that a map draws over Germany.\n\nThe `time` (UTC, a multiple of 5 minutes) and the `run` are those of a frame of `/radar/frames`. The image is the\nprecipitation of the 5 minutes that end at `time` as a rate, in the classes of the legend of `/radar/frames`;\nwhere there is no rain, and where the composite has no data, it is transparent. It lies over the `bounds` of that\nanswer and is in Web Mercator (EPSG:3857). One decoded frame serves every reader, so a frame is drawn once.\nGiven `run`, the image is the same for as long as DWD keeps the run (about 48 hours) and may be reused for an hour;\nwithout it, a time after the newest run is a forecast frame of the newest run, which changes every 5 minutes. The\nforecast of a run is served for the newest three runs DWD lists, and a run it does not list is a 404. Load frames a\nfew at a time (4 to 6): the server serves 32 requests at once.",
+        "operationId": "radar_frame_api_radar_frame_get",
+        "parameters": [
+          {
+            "name": "product",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "const": "rv",
+              "type": "string",
+              "description": "The radar product, as for the list of frames.",
+              "default": "rv",
+              "title": "Product"
+            },
+            "description": "The radar product, as for the list of frames."
+          },
+          {
+            "name": "time",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "The time the frame is valid at, ISO 8601 in UTC (`2026-11-19T21:10:00Z`; one without an offset is UTC), a multiple of 5 minutes: the `time` of a frame of the list of frames. A time up to the newest run is the radar analysis, a later one DWD's forecast of the newest run.",
+              "title": "Time"
+            },
+            "description": "The time the frame is valid at, ISO 8601 in UTC (`2026-11-19T21:10:00Z`; one without an offset is UTC), a multiple of 5 minutes: the `time` of a frame of the list of frames. A time up to the newest run is the radar analysis, a later one DWD's forecast of the newest run."
+          },
+          {
+            "name": "run",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "The run the frame is read from, the `run` of a frame of the list of frames, ISO 8601 in UTC. With it the frame is the same for as long as DWD keeps the run (about 48 hours), so an answer may be reused; without it a forecast frame is that of the newest run, which changes every 5 minutes.",
+              "title": "Run"
+            },
+            "description": "The run the frame is read from, the `run` of a frame of the list of frames, ISO 8601 in UTC. With it the frame is the same for as long as DWD keeps the run (about 48 hours), so an answer may be reused; without it a forecast frame is that of the newest run, which changes every 5 minutes."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The frame as an image: an indexed PNG whose colours are the classes of the legend of `/radar/frames` and whose background is transparent. The licence, the credit line and the note on what was done to the data are in the headers, as for every answer that holds no `metadata` block; `X-Wetterdienst-Radar-Time` and `X-Wetterdienst-Radar-Run` say which frame it is.",
+            "content": {
+              "image/png": {}
+            },
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Wetterdienst-Radar-Time": {
+                "description": "The UTC time the frame is valid at.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Wetterdienst-Radar-Run": {
+                "description": "The UTC time of the run of DWD the frame is read from.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "Not Modified: the copy the client holds is still the answer, apart from its `retrieved_at`. There is no body; the headers are those of the 200 that say how it is cached.",
+            "headers": {
+              "ETag": {
+                "description": "A weak tag of the body without the time it was made (`retrieved_at`): send it back as `If-None-Match` to be answered with a 304 while the answer is the same.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "description": "How long the answer may be reused without asking again, `public, max-age=<seconds>`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7192,6 +7653,233 @@
         "title": "QualityKind",
         "description": "One kind of token in the `quality_flags` of a network."
       },
+      "RadarBounds": {
+        "properties": {
+          "west": {
+            "type": "number",
+            "title": "West"
+          },
+          "south": {
+            "type": "number",
+            "title": "South"
+          },
+          "east": {
+            "type": "number",
+            "title": "East"
+          },
+          "north": {
+            "type": "number",
+            "title": "North"
+          }
+        },
+        "type": "object",
+        "required": [
+          "west",
+          "south",
+          "east",
+          "north"
+        ],
+        "title": "RadarBounds",
+        "description": "The bounds of an image in WGS84 degrees: its outer edges."
+      },
+      "RadarFrameEntry": {
+        "properties": {
+          "time": {
+            "type": "string",
+            "title": "Time"
+          },
+          "run": {
+            "type": "string",
+            "title": "Run"
+          },
+          "lead_minutes": {
+            "type": "integer",
+            "title": "Lead Minutes"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "observation",
+              "forecast"
+            ],
+            "title": "Kind"
+          }
+        },
+        "type": "object",
+        "required": [
+          "time",
+          "run",
+          "lead_minutes",
+          "kind"
+        ],
+        "title": "RadarFrameEntry",
+        "description": "A frame: when it is valid, which run it is read from, and whether it is observed or forecast."
+      },
+      "RadarFramesWithMetadataDict": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/ResponseMetadata"
+          },
+          "product": {
+            "$ref": "#/components/schemas/RadarProduct"
+          },
+          "run": {
+            "type": "string",
+            "title": "Run"
+          },
+          "image": {
+            "$ref": "#/components/schemas/RadarImageInfo"
+          },
+          "legend": {
+            "$ref": "#/components/schemas/RadarLegend"
+          },
+          "frames": {
+            "items": {
+              "$ref": "#/components/schemas/RadarFrameEntry"
+            },
+            "type": "array",
+            "title": "Frames"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metadata",
+          "product",
+          "run",
+          "image",
+          "legend",
+          "frames"
+        ],
+        "title": "RadarFramesWithMetadataDict",
+        "description": "The list of the frames of DWD's precipitation radar."
+      },
+      "RadarImageInfo": {
+        "properties": {
+          "crs": {
+            "type": "string",
+            "const": "EPSG:3857",
+            "title": "Crs"
+          },
+          "bounds": {
+            "$ref": "#/components/schemas/RadarBounds"
+          },
+          "width": {
+            "type": "integer",
+            "title": "Width"
+          },
+          "height": {
+            "type": "integer",
+            "title": "Height"
+          },
+          "media_type": {
+            "type": "string",
+            "const": "image/png",
+            "title": "Media Type"
+          }
+        },
+        "type": "object",
+        "required": [
+          "crs",
+          "bounds",
+          "width",
+          "height",
+          "media_type"
+        ],
+        "title": "RadarImageInfo",
+        "description": "Where the image of a frame lies and how it is made."
+      },
+      "RadarLegend": {
+        "properties": {
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          },
+          "transparent_below": {
+            "type": "number",
+            "title": "Transparent Below"
+          },
+          "classes": {
+            "items": {
+              "$ref": "#/components/schemas/RadarLegendClass"
+            },
+            "type": "array",
+            "title": "Classes"
+          }
+        },
+        "type": "object",
+        "required": [
+          "unit",
+          "transparent_below",
+          "classes"
+        ],
+        "title": "RadarLegend",
+        "description": "The legend of the colours of the frames, lightest (lowest rate) first."
+      },
+      "RadarLegendClass": {
+        "properties": {
+          "lower": {
+            "type": "number",
+            "title": "Lower"
+          },
+          "upper": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Upper"
+          },
+          "color": {
+            "type": "string",
+            "title": "Color"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          }
+        },
+        "type": "object",
+        "required": [
+          "lower",
+          "upper",
+          "color",
+          "label"
+        ],
+        "title": "RadarLegendClass",
+        "description": "A class of the legend: a colour and the rates it stands for."
+      },
+      "RadarProduct": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "step_minutes": {
+            "type": "integer",
+            "title": "Step Minutes"
+          },
+          "unit": {
+            "type": "string",
+            "title": "Unit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "step_minutes",
+          "unit"
+        ],
+        "title": "RadarProduct",
+        "description": "The product the frames are of."
+      },
       "Ready": {
         "properties": {
           "status": {
@@ -7345,7 +8033,7 @@
           "processing_note": {
             "type": "string",
             "title": "Processing Note",
-            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, those of the climate stripes what their anomalies and classes are relative to (and, where the years were calculated from daily values, by which rules), and the headers of the stripes' image that it is drawn from the annual values, and those of `storm_cells` that the direction of a cell is calculated from its forecast track. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
+            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, those of the climate stripes what their anomalies and classes are relative to (and, where the years were calculated from daily values, by which rules), and the headers of the stripes' image that it is drawn from the annual values, and those of `storm_cells` that the direction of a cell is calculated from its forecast track, and those of `kostra` that the values are DWD's statistics of the grid cell of the point. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
           },
           "request": {
             "$ref": "#/components/schemas/ResolvedRequest"
@@ -9318,6 +10006,122 @@
         ],
         "title": "_IssuesWithMetadataDict"
       },
+      "_KostraCell": {
+        "properties": {
+          "index_rc": {
+            "type": "string",
+            "title": "Index Rc"
+          },
+          "row": {
+            "type": "integer",
+            "title": "Row"
+          },
+          "column": {
+            "type": "integer",
+            "title": "Column"
+          },
+          "latitude": {
+            "type": "number",
+            "title": "Latitude"
+          },
+          "longitude": {
+            "type": "number",
+            "title": "Longitude"
+          }
+        },
+        "type": "object",
+        "required": [
+          "index_rc",
+          "row",
+          "column",
+          "latitude",
+          "longitude"
+        ],
+        "title": "_KostraCell"
+      },
+      "_KostraValue": {
+        "properties": {
+          "duration_minutes": {
+            "type": "integer",
+            "title": "Duration Minutes"
+          },
+          "return_period_years": {
+            "type": "integer",
+            "title": "Return Period Years"
+          },
+          "depth_mm": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Depth Mm"
+          },
+          "intensity_l_s_ha": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Intensity L S Ha"
+          },
+          "uncertainty_percent": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Uncertainty Percent"
+          }
+        },
+        "type": "object",
+        "required": [
+          "duration_minutes",
+          "return_period_years",
+          "depth_mm",
+          "intensity_l_s_ha",
+          "uncertainty_percent"
+        ],
+        "title": "_KostraValue"
+      },
+      "_KostraWithMetadataDict": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/ResponseMetadata"
+          },
+          "edition": {
+            "type": "string",
+            "title": "Edition"
+          },
+          "cell": {
+            "$ref": "#/components/schemas/_KostraCell"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/_KostraValue"
+            },
+            "type": "array",
+            "title": "Values"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metadata",
+          "edition",
+          "cell",
+          "values"
+        ],
+        "title": "_KostraWithMetadataDict"
+      },
       "_License": {
         "properties": {
           "spdx_id": {
@@ -10723,9 +11527,17 @@
       "description": "Thunderstorm cells of the DWD, detected in its radar data."
     },
     {
+      "name": "Heavy rainfall",
+      "description": "Heavy-rainfall statistics of the DWD (KOSTRA-DWD-2020): the depth, intensity and uncertainty of a rain by duration and return period, at a point in Germany."
+    },
+    {
+      "name": "Precipitation radar",
+      "description": "DWD's precipitation radar over Germany as map images: the frames of the last hours and DWD's forecast of the next two."
+    },
+    {
       "name": "Server",
       "description": "This instance: its version and limits, its settings, and its health."
     }
   ],
-  "x-release": "0.193.0"
+  "x-release": "0.194.0"
 }
