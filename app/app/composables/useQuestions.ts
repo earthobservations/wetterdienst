@@ -1,8 +1,12 @@
-import type { QuestionId } from '~/utils/questions'
+import type { Chip, ChipEnv, Choices, Say } from '~/utils/ask/chip'
 import { DateTime } from 'luxon'
-import { lastBoxingDay } from '~/utils/answers'
+import { formatNumber } from '~/utils/format'
+import { unitText } from '~/utils/units'
 
-/** The questions as a reader sees them: in the language of the page, about the place chosen */
+/**
+ * What the chips of "Ask the weather" may use of the page (`ChipEnv`): the language, the place and the formats. The
+ * questions as a reader sees them, in the language of the page, about the place chosen.
+ */
 export function useQuestions() {
   const { t } = useI18n()
   const { place } = usePlace()
@@ -14,18 +18,23 @@ export function useQuestions() {
       .format(new Date(`${day}T00:00:00Z`))
   }
 
-  function questionText(id: QuestionId, day: string = lastBoxingDay(DateTime.now())): string {
-    switch (id) {
-      case 'rain':
-        return t('ask.q.rain', { place: place.value.name })
-      case 'summer':
-        return t('ask.q.summer')
-      case 'wind':
-        return t('ask.q.wind', { day: dayText(day) })
-      case 'download':
-        return t('ask.q.download')
-    }
+  const env: ChipEnv = {
+    t: t as Say,
+    // read at each use, so that a computed that uses it follows the place
+    get place() {
+      return place.value
+    },
+    number: (value, digits = 1) => formatNumber(value, formatLanguage.value, digits),
+    percent: value => new Intl.NumberFormat(formatLanguage.value, { style: 'percent', maximumFractionDigits: 0 }).format(value),
+    unitText,
+    dayText,
+    now: () => DateTime.now(),
   }
 
-  return { questionText, dayText }
+  /** The question of a chip, as its button and its heading say it, with the values of its choices */
+  function questionText(chip: Chip, choices: Choices): string {
+    return chip.question(env, choices)
+  }
+
+  return { env, questionText, dayText }
 }
