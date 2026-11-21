@@ -94,7 +94,7 @@ describe('privacy policy texts', () => {
     // the map's tiles of that section are asked from OpenStreetMap on the radar as on the map
     expect(sending).toMatch(code === 'de' ? /auf der Karte oder auf dem Radar, lädt Ihr Browser jedoch die Kartenkacheln dieses Ausschnitts von tile\.openstreetmap\.org/ : /on the map or on the radar, however, your browser fetches the map tiles of that area from tile\.openstreetmap\.org/)
     // the section on the third parties says the map's tiles are asked for on the radar too, which the sentence above points to
-    const tiles = texts[code as keyof typeof texts].sections.find(s => s.id === 'third-parties')!.items!.find(item => item.includes('tile.openstreetmap.org'))!
+    const tiles = texts[code as keyof typeof texts].sections.find(s => s.id === 'third-parties')!.items!.find(item => /tile\.openstreetmap\.org/.test(item))!
     expect(tiles).toMatch(code === 'de' ? /oder die Karte des Radars/ : /or the radar's map/)
     // the tick and "Forget" are there as on the map
     expect(storing.match(code === 'de' ? /auf dem Radar/g : /on the radar/g)).toHaveLength(2)
