@@ -141,6 +141,7 @@ describe('the glossary parameters of an entry', () => {
     ['evaporation_amount', 'evaporation'],
     ['evaporation_amount_grass_sand', 'evaporation'],
     ['evaporation_amount_multiday', 'evaporation'],
+    ['temperature_water_evaporation_pan_min', 'evaporation'],
     ['evapotranspiration_last_24h', 'evaporation'],
     ['evapotranspiration_potential_grass_fao', 'evaporation'],
     ['evapotranspiration_potential_last_24h', 'evaporation'],
@@ -196,7 +197,6 @@ describe('the glossary parameters of an entry', () => {
     'count_days_cloud_cover_total_mean_gt_80pct',
     'count_weather_type_fog',
     'count_days_multiday_evaporation',
-    'temperature_water_evaporation_pan_max',
     'frozen_ground_layer_thickness',
     'thawing_thickness_bare_ground',
     'road_surface_condition',
@@ -247,7 +247,7 @@ describe('the glossary parameters of an entry', () => {
     expect(parameterPatterns('humidity')).toEqual(['humidity_relative_*', 'humidity_absolute', 'temperature_dew_point_*', 'temperature_wet_*', 'pressure_vapor_*', 'vapor_pressure_deficit_*'])
     expect(parameterPatterns('radiation')).toEqual(['radiation_global_*', 'radiation_sky_*', 'radiation_long_wave_*', 'radiation_short_wave_*'])
     expect(parameterPatterns('visibility')).toEqual(['visibility_*'])
-    expect(parameterPatterns('evaporation')).toEqual(['evaporation_amount_*', 'evapotranspiration_*'])
+    expect(parameterPatterns('evaporation')).toEqual(['evaporation_amount_*', 'evapotranspiration_*', 'temperature_water_evaporation_pan_*'])
     expect(parameterPatterns('soil-moisture')).toEqual(['soil_moisture_*'])
     expect(parameterPatterns('present-weather')).toEqual(['weather', 'weather_*', 'soil_state_index'])
     expect(parameterPatterns('clouds')).toEqual(['cloud_cover_*', 'cloud_height_*', 'cloud_type_*'])
@@ -386,7 +386,7 @@ describe('what the texts say about which provider has which parameter', () => {
   const providers = join(APP, '..', 'src', 'wetterdienst', 'provider')
   const files = readdirSync(providers, { recursive: true, encoding: 'utf8' })
     .map(file => file.replaceAll('\\', '/'))
-    .filter(file => file.endsWith('/metadata.py'))
+    .filter(file => file.endsWith('.py'))
 
   function providersOf(pattern: RegExp): string[] {
     return files.filter(file => pattern.test(readFileSync(join(providers, file), 'utf8'))).sort()
@@ -399,6 +399,10 @@ describe('what the texts say about which provider has which parameter', () => {
   it('has the weather types at NOAA\'s GHCN-Daily only, and the significant weather at DWD\'s two forecasts', () => {
     expect(providersOf(/"weather_type_/)).toEqual(['noaa/ghcn/metadata.py'])
     expect(providersOf(/"weather_significant/)).toEqual(['dwd/dmo/metadata.py', 'dwd/mosmix/metadata.py'])
+    expect(providersOf(/"weather_last_6h"/)).toEqual(['dwd/dmo/metadata.py', 'dwd/mosmix/metadata.py'])
+    // a provider declares its parameters in `metadata.py` or in `api.py`: both are scanned
+    expect(files.length).toBeGreaterThan(100)
+    expect(files.some(file => file.endsWith('/api.py'))).toBe(true)
   })
 
   it('names the folders of the DWD files that the entries on clouds and present weather rest on', () => {
