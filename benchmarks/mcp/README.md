@@ -199,15 +199,12 @@ in the judge. Two choices:
   | MCP tool | command of the reference |
   | --- | --- |
   | `glossary`, `providers`, `coverage`, `stations`, `values`, `interpolate`, `summarize`, `history`, `alerts`, `issues`, `auth` | the command of the same name |
-  | `stripes_stations` | `stripes stations --kind temperature` (or `precipitation`) |
-  | `stripes_image` | `stripes image ...` (a picture: the cases do not judge it) |
-  | `stripes_values` | **no command** (there is no `stripes values`). Read the series the server reads, `_get_stripes_data` in `ui/core.py`: DWD observation, period `historical`, **temperature** `annual/climate_summary/temperature_air_mean_2m`, **precipitation** `annual/precipitation_more/precipitation_amount`, with `values` and take the year (or years) the case asks for |
 
   **CSV output ends with an empty line** (the last line of `... --format csv | tail -1` is empty, which is not the "empty output"
   above): the examples drop it with `grep -v '^$'`, so the header and every row show, and `| tail -n 2` shows the last row.
 
   Examples (every option is held to the `--help` of its command by a test; note that `coverage`, `providers` and `history` have no
-  `--format` or only `json`, and `stripes stations` takes `--kind`):
+  `--format` or only `json`):
 
   ```bash
   "$REFCLI" glossary --parameter temperature_air_mean_2m --limit 3 2>>"$BENCH/ref.err"
@@ -222,7 +219,7 @@ in the judge. Two choices:
   "$REFCLI" values --provider dwd --network observation --parameters annual/climate_summary/temperature_air_mean_2m --periods historical --stations 03987 --start 1991 --end 1991 --format csv 2>>"$BENCH/ref.err" | grep -v '^$'
   ```
 
-  The last one is the `stripes_values` truth of Potsdam for 1991 (8.91 on 2026-11-12). The library is the other way
+  The last one is the truth of the case `annual-potsdam` for 1991 (8.91 on 2026-11-12). The library is the other way
   (the `python` next to `$REFCLI`, `-I -c "from wetterdienst import Wetterdienst; ..."`, with
   `Wetterdienst.resolve(provider, network)(parameters=..., periods=...).filter_by_station_id(...).values().all().df`). The
   `python` reference is independent of the MCP layer, not of the library.
@@ -579,8 +576,6 @@ wait for it; nothing is edited before):
   after) the call, and the rule that a forecast figure must belong to a timestamp after the subject's call (`future_only`, and
   `span`'s `past_only`) then fails a right answer. Until the re-baseline the rule is judged as written; note it in the comment when a
   run quotes the current hour's row.
-- **Add a case that calls `stripes_stations`.** No case does today. Decided on 2026-11-12, to be added at the next re-baseline,
-  not before.
 - **Add a case in which `interpolate` or `summarize` grows large**, for example a year of daily values, so that a strategy that
   budgets those answers is measured. Decided on 2026-11-12, to be added at the next re-baseline, not before.
 
@@ -970,7 +965,7 @@ are told first.
 | --- | --- |
 | `id` | unique, `kebab-case` |
 | `question` | exactly what the tested agent is asked; relative dates are UTC |
-| `kind` | `forecast`, `observation`, `discovery`, `glossary`, `licence`, `interpolate`, `summarize`, `alerts`, `stripes`, `history`, `coverage`, `unanswerable`, `units` |
+| `kind` | `forecast`, `observation`, `discovery`, `glossary`, `licence`, `interpolate`, `summarize`, `alerts`, `history`, `coverage`, `unanswerable`, `units` |
 | `max_steps` | most calls of the server's tools; generous but meaningful (6 for a forecast by place, 4 for a glossary or licence question) |
 | `checkpoints` | ordered `{id, description, match: [alternative, ...], any_order?}`; the first is required to pass; `any_order` is met by any call of the run |
 | `forbidden` | `{id, description, kind: call, match, window_days_over?}`, `{kind: repeat, tool, max_identical}`, `{kind: answer, regex}` |

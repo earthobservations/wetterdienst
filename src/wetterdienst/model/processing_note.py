@@ -5,7 +5,7 @@
 Licences such as CC BY ask that changes to the data be indicated, and the library changes it: it reshapes what a
 provider publishes into one table, renames parameters and converts units. This is the one sentence that says so, in
 one place, for every provider and every licence. An answer whose values are selected or calculated from readings
-(interpolation, summary) says so as well, and so does an image drawn from the provider's values (climate stripes).
+(interpolation, summary) says so as well, and so does an image drawn from the provider's values (the radar's).
 
 The note is plain information and no claim about what a licence asks for: it is not legal advice, and it does not
 replace the credit line (`attribution`) of the provider.
@@ -24,27 +24,19 @@ PROCESSING_NOTE = (
 #: what an answer whose values are selected or calculated from readings says besides (interpolation, summary)
 DERIVED_NOTE = "The values were selected or calculated from the provider's readings."
 
-#: what the image of climate stripes says besides: it is drawn, and holds no table
-IMAGE_NOTE = "The image is drawn from the provider's annual values."
 
-#: the same for years that were calculated from daily values, which the note has said before it (GH-4222)
-IMAGE_OF_CALCULATED_NOTE = "The image is drawn from the annual values calculated above."
+def processing_note(*, derived: bool = False, calculated: str | None = None, image_note: str | None = None) -> str:
+    """Give the note of an answer: `PROCESSING_NOTE`, then `DERIVED_NOTE` where it applies.
 
-
-def processing_note(
-    *, derived: bool = False, image: bool = False, calculated: str | None = None, image_note: str = IMAGE_NOTE
-) -> str:
-    """Give the note of an answer: `PROCESSING_NOTE`, then `DERIVED_NOTE` and `IMAGE_NOTE` where they apply.
-
-    `calculated` is the sentence of an answer that holds numbers calculated from the values besides them, which says
-    what they are relative to: the climate stripes' anomalies and classes (`StripesReference.note`). `image_note` is
-    what the note says of an `image`.
+    `calculated` is the sentence of an answer that holds numbers calculated from the values besides them (the storm
+    cells' directions, the KOSTRA statistics), and `image_note` what the note says of an image drawn from them (the
+    radar's).
     """
     parts = [PROCESSING_NOTE]
     if derived:
         parts.append(DERIVED_NOTE)
     if calculated:
         parts.append(calculated)
-    if image:
+    if image_note:
         parts.append(image_note)
     return " ".join(parts)

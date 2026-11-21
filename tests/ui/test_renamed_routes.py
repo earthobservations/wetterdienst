@@ -119,6 +119,9 @@ def test_the_table_of_old_names_is_what_the_release_took() -> None:
     derived = {}
     for routes in BASELINE.values():
         for route, names in routes.items():
+            # the routes of that release that are gone (`stripes_values`, `stripes_image`, GH-4258) have no entry
+            if route not in REST and route not in COMMANDS:
+                continue
             had = frozenset(old for old in RENAMED_REQUEST_PARAMETERS if old in {n.replace("-", "_") for n in names})
             if had:
                 derived[route] = derived.get(route, frozenset()) | had
@@ -230,16 +233,13 @@ def test_the_three_surfaces_agree_where_they_share_a_route(mcp_answers: dict[tup
     assert disagreements == []
 
 
-#: the command `stripes values` of 0.139.0 is `stripes image` now (0.173.0), so its options are the latter's
-_COMMAND_NOW = {"stripes_values": "stripes_image"}
-
-
 def test_the_table_of_underscored_options_is_what_the_release_took() -> None:
     """`OLD_UNDERSCORE_OPTIONS_OF_ROUTE` is each command's options spelled with an underscore in 0.139.0."""
+    # the commands of that release that are gone (`stripes values`, GH-4258) have no entry
     derived = {
-        _COMMAND_NOW.get(route, route): frozenset(name for name in names if "_" in name)
+        route: frozenset(name for name in names if "_" in name)
         for route, names in BASELINE["cli"].items()
-        if any("_" in name for name in names)
+        if route in COMMANDS and any("_" in name for name in names)
     }
 
     assert derived == OLD_UNDERSCORE_OPTIONS_OF_ROUTE
@@ -257,8 +257,7 @@ def _underscored(command: click.Command) -> list[str]:
 def test_the_command_line_says_renamed_for_an_underscore_only_where_the_command_had_it(route: str, name: str) -> None:
     """`stations --name_threshold` is click's refusal (0.139.0 had `--name-threshold`)."""
     path, _ = COMMANDS[route]
-    baseline_route = next((old for old, now in _COMMAND_NOW.items() if now == route), route)
-    expected = name in {n for n in BASELINE["cli"].get(baseline_route, ()) if "_" in n}
+    expected = name in {n for n in BASELINE["cli"].get(route, ()) if "_" in n}
 
     result = CliRunner().invoke(cli, [*path, f"--{name}=x"])
 

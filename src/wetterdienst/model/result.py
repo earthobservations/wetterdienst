@@ -42,7 +42,7 @@ from wetterdienst.io.export import (
     require_kaleido,
 )
 from wetterdienst.io.formats import names_of, renders_with_kaleido
-from wetterdienst.model.processing_note import IMAGE_NOTE, processing_note
+from wetterdienst.model.processing_note import processing_note
 from wetterdienst.model.unit import UnitConverter
 from wetterdienst.model.util import create_station_id_from_string, filter_by_date
 from wetterdienst.util.datetime import format_timestamp, timestamps_to_string
@@ -258,17 +258,15 @@ def describe_provider(
     data_updated_at: datetime | None = None,
     *,
     derived: bool = False,
-    image: bool = False,
     calculated: str | None = None,
-    image_note: str = IMAGE_NOTE,
+    image_note: str | None = None,
 ) -> _Metadata:
     """Give the `provider` and `producer` blocks of an answer: who published the data, under which terms, and us.
 
     And `data_updated_at`, the date the source states for the data, where the answer has one, and the
     `processing_note` that says what wetterdienst did to it, with `derived` for values that were selected or calculated
-    and `image` for an image drawn from them (GH-2567); `calculated` adds the sentence of numbers calculated from them
-    besides (the climate stripes' classes, GH-4157). `image_note` is what the note says of the image, which for
-    years calculated from daily values is that it is drawn from them (GH-4222).
+    (GH-2567); `calculated` adds the sentence of numbers calculated from them besides, and `image_note` what the note
+    says of an image drawn from them.
     """
     return {
         "provider": {
@@ -282,7 +280,7 @@ def describe_provider(
         },
         "producer": describe_producer(),
         "data_updated_at": None if data_updated_at is None else format_timestamp(data_updated_at),
-        "processing_note": processing_note(derived=derived, image=image, calculated=calculated, image_note=image_note),
+        "processing_note": processing_note(derived=derived, calculated=calculated, image_note=image_note),
     }
 
 

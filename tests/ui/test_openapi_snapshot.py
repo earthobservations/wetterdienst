@@ -188,18 +188,12 @@ def test_every_json_answer_has_a_schema() -> None:
     assert version == {"$ref": "#/components/schemas/VersionAnswer"}
 
 
-def test_the_pages_and_the_image_say_their_media_type() -> None:
-    """The index is HTML, `robots.txt` text, and the stripes image an image of each format it renders."""
+def test_the_pages_say_their_media_type() -> None:
+    """The index is HTML and `robots.txt` text."""
     paths = build_document()["paths"]
 
     assert set(paths["/"]["get"]["responses"]["200"]["content"]) == {"text/html"}
     assert set(paths["/robots.txt"]["get"]["responses"]["200"]["content"]) == {"text/plain"}
-    assert set(paths["/api/v1/stripes/image"]["get"]["responses"]["200"]["content"]) == {
-        "image/png",
-        "image/jpeg",
-        "image/svg+xml",
-        "application/pdf",
-    }
 
 
 def test_the_api_version_is_in_the_info_and_in_the_paths() -> None:

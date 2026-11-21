@@ -4766,10 +4766,8 @@ def test_a_file_target_has_no_query_string(df_stations: pl.DataFrame, tmp_path: 
     assert [path.name for path in tmp_path.iterdir()] == ["what?.csv"]
 
 
-def test_the_alerts_and_stripes_json_write_null_for_what_is_not_a_finite_number() -> None:
-    """The other JSON writers of a frame, the alerts' own and the climate stripes', write `null` as well (GH-3679)."""
-    import types  # noqa: PLC0415
-
+def test_the_alerts_json_writes_null_for_what_is_not_a_finite_number() -> None:
+    """The other JSON writer of a frame, the alerts' own, writes `null` as well (GH-3679)."""
     from tests.provider.dwd.alerts.test_api import _URL, CAP_XML, _make_zip  # noqa: PLC0415
     from wetterdienst.provider.dwd.alerts.api import (  # noqa: PLC0415
         DwdWeatherAlertGranularity,
@@ -4777,7 +4775,6 @@ def test_the_alerts_and_stripes_json_write_null_for_what_is_not_a_finite_number(
         DwdWeatherAlertRequest,
         DwdWeatherAlertResult,
     )
-    from wetterdienst.ui import render  # noqa: PLC0415
 
     alerts = DwdWeatherAlertRequest._parse_archive(_make_zip(CAP_XML), _URL)  # noqa: SLF001
     df = DwdWeatherAlertRequest._build_dataframe(alerts)  # noqa: SLF001
@@ -4786,21 +4783,3 @@ def test_the_alerts_and_stripes_json_write_null_for_what_is_not_a_finite_number(
     assert _read_strictly(result.to_json())["alerts"][0]["geometry"]["coordinates"] == [None, None]
     feature = _read_strictly(result.to_geojson())["features"][0]
     assert feature["geometry"]["coordinates"] == [None, None]
-
-    data = types.SimpleNamespace(
-        df=pl.DataFrame(
-            {
-                "timestamp": [dt.datetime(2020, 1, 1, tzinfo=ZoneInfo("UTC"))] * 2,
-                "value": [float("nan"), 1.0],
-                "anomaly": [float("inf"), 1.0],
-                "stripe_class": [None, 8],
-            }
-        ),
-        series=types.SimpleNamespace(model_dump=dict),
-        reference=types.SimpleNamespace(model_dump=dict),
-    )
-    request = types.SimpleNamespace(pretty=False)
-    with mock.patch.object(render, "metadata_to_dict", return_value={}):
-        written = _read_strictly(render.render_stripes_values(data, request, None))  # ty: ignore[invalid-argument-type]
-    assert [row["value"] for row in written["values"]] == [None, 1.0]
-    assert [row["anomaly"] for row in written["values"]] == [None, 1.0]

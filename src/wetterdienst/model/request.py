@@ -1093,7 +1093,7 @@ class TimeseriesRequest:
         """Give the directories the last lookup went without that a station may be listed in, with the reason.
 
         A station asked for by its id and not found is perhaps one that only a skipped directory lists:
-        `_get_position_by_station_id` and the stripes raise `StationListingIncompleteError`, not `StationNotFoundError`.
+        `_get_position_by_station_id` raises `StationListingIncompleteError`, not `StationNotFoundError`.
         Every skipped directory may hold it where it can name no station (an empty or missing one); one whose files
         name their stations only where the id is among them. Empty where nothing says it may be there: the station is
         unknown, and the usual 404.

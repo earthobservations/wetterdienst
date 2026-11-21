@@ -303,7 +303,6 @@ def test_a_name_set_before_the_first_use_is_honoured(monkeypatch: pytest.MonkeyP
         pytest.param(["alerts", "--help"], id="alerts-help"),
         pytest.param(["radar", "--help"], id="radar-help"),
         pytest.param(["restapi", "--help"], id="restapi-help"),
-        pytest.param(["stripes", "image", "--help"], id="stripes-image-help"),
         pytest.param(["providers", "--help"], id="providers-help"),
         pytest.param(["coverage", "--help"], id="coverage-help"),
         pytest.param(["glossary", "--help"], id="glossary-help"),
@@ -380,8 +379,6 @@ _KL = ["--parameters", "daily/kl"]
         ),
         pytest.param(["issues", *_DWD, "--station", "1048"], 2, "issue", id="issues"),
         pytest.param(["alerts", "--target", "alerts.txt"], 2, "alerts.txt", id="alerts"),
-        pytest.param(["stripes", "stations", "--kind", "nothing"], 1, "Invalid kind", id="stripes-stations"),
-        pytest.param(["stripes", "image", "--kind", "temperature"], 2, "--station", id="stripes-image"),
         pytest.param(["values", "--stations", "1048", "--proviser", "dwd"], 2, "renamed|provider", id="mistyped"),
     ],
 )

@@ -769,8 +769,8 @@ object. The bounds that a command or a request gives are merged into the ones th
 request winning for a name both give (as the unit targets are); `WD_TS_LIMITS__<NAME>='[low, high]'` sets one name from
 the environment, and a name with a dataset (it has slashes) can only be set in the JSON of `WD_TS_LIMITS`. The REST API
 and the MCP tools take `limits` (JSON) and `plausibility_limits` on `values`, and `/api/settings` reports both as set.
-`interpolate` and `summarize` take neither as a parameter, but read `WD_TS_LIMITS` of the server like any option, and,
-like the stripes, leave out a value that is `suspect:limits`.
+`interpolate` and `summarize` take neither as a parameter, but read `WD_TS_LIMITS` of the server like any option, and
+leave out a value that is `suspect:limits`.
 
 **A forecast follows the mode.** Unlike `range` and the other built-in checks but `floor`, `limits` is not made soft on a network whose `kind` is
 `forecast` (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, `dwd/uvi`): the bounds are yours, so a forecast value outside them is null with
@@ -801,7 +801,7 @@ the mode you chose:
 
 - **soft** (the default): the value is kept and `quality_flags` gains `suspect:source`
   (`X,measurement:T,source:0,suspect:source`). Nothing is nulled, so a default request returns the same values as
-  before, with one more token on the readings the source doubts. An interpolation, a summary, climate stripes and
+  before, with one more token on the readings the source doubts. An interpolation, a summary and
   `skip_empty` leave a `suspect:` value out, as they do for every soft check, so only the flagged values are left out of them, and a station can be skipped
   where it was counted. A bare `plausibility="hard"` (`WD_TS_PLAUSIBILITY=hard`,
   `plausibility=hard` of REST) sets `source` too, and nulls those values: name `source` beside it to keep them.
@@ -1296,9 +1296,8 @@ What no check covers, and why:
 
 ## Soft mode and the rest of the request
 
-- **Interpolation, summary and climate stripes** always leave out a `suspect` value, whatever the mode: a number a check
-  finds implausible has no place in a weighted mean, a nearest station's answer or a year of stripes (which shows as a
-  year without data). The mode changes only what a station's own values show. The values stay rows with no value, as a
+- **Interpolation and summary** always leave out a `suspect` value, whatever the mode: a number a check
+  finds implausible has no place in a weighted mean, or a nearest station's answer. The mode changes only what a station's own values show. The values stay rows with no value, as a
   rejected one does.
 - **`skip_empty`** judges a station by its unflagged values alone: a value flagged `suspect` is no coverage, so a station
   with only such values is skipped. For the checks that used to null (`range`, `elevation`, `consistency`, `floor`, and

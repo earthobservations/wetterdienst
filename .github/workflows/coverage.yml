@@ -15,8 +15,6 @@ on:
       # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
       - 'docs/**'
       - 'app/shared/types/api.ts'
-      # tests/ui/test_stripes_scale.py reads the app's 16 colours of the stripes
-      - 'app/app/utils/stripes.ts'
       - 'app/tests/unit/unit-target-defaults.json'
       - 'pyproject.toml'
       - 'uv.lock'
@@ -37,8 +35,6 @@ on:
       # tests/test_docs.py and tests/test_docs_samples.py read the pages, the provider pages and the others
       - 'docs/**'
       - 'app/shared/types/api.ts'
-      # tests/ui/test_stripes_scale.py reads the app's 16 colours of the stripes
-      - 'app/app/utils/stripes.ts'
       - 'app/tests/unit/unit-target-defaults.json'
       - 'pyproject.toml'
       - 'uv.lock'

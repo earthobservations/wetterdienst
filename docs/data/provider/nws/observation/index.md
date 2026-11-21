@@ -175,7 +175,7 @@ The API returns these flags rarely: of 124,272 quantities in the latest 500 obse
 row written as MADIS words it.
 
 With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`, except `Q`; the
-default is `soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes
+default is `soft`, which keeps the value and writes `suspect:source`, so interpolation and summaries
 leave it out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ```{toctree}

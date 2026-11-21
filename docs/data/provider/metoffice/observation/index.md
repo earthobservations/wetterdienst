@@ -95,7 +95,7 @@ The mapping is made from the documentation and the fixtures of the tests alone: 
 CEDA login, which was not used, so how often a status of `1` occurs in the files is not known.
 
 With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the default is
-`soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes leave it
+`soft`, which keeps the value and writes `suspect:source`, so interpolation and summaries leave it
 out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ## License

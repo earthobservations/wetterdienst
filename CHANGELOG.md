@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Removed
+
+- **Breaking**: the climate stripes leave the backend; the web app draws them itself since
+  app 0.57.0. Gone: the REST routes `/api/v1/stripes/stations`, `/values` and `/image` (and their
+  `/api` aliases), the MCP tools `stripes_stations`, `stripes_values` and `stripes_image`, the
+  command group `wetterdienst stripes`, and the Python modules and functions behind them
+  (`ui/stripes_scale.py`, `ui/stripes_annual.py`, the stripes of `ui/core.py`); they now fail as
+  not found, "No such command" with exit 2 and an unknown tool. Read the annual values with
+  `values` (`dwd/observation` `annual/climate_summary`, `noaa/ghcn` daily) and calculate the
+  anomalies yourself; the app's stripes page has the pictures (GH-4258)
+
 ## [0.194.0] - 2026-11-21
 
 ### Added

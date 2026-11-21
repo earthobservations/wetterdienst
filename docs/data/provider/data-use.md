@@ -109,7 +109,6 @@ to common units, and a value the source documents as missing (`-999`, `---`) is 
   [plausibility checks](../plausibility.md). Whichever the mode, the answer shows what was done.
 - **`interpolate` and `summarize`** calculate or select values from the readings of several stations; they add a
   sentence to the note.
-- **Climate stripes and plots** are drawn from the annual values of DWD stations, or of NOAA GHCN daily stations, whose years are calculated from the daily values; the image headers carry a sentence.
 
 What the licences ask about changes differs. CC BY asks to "indicate if changes were made"; the note in the answer says
 what was done, and a CSV or a spreadsheet written without `with_metadata=True` does not carry it (see
@@ -183,7 +182,7 @@ with the terms of its provider.
 | `tests/provider/station_catalogue_stubs.py`, `tests/provider/value_stubs.py` and the inline text of the tests of each provider | rows of the real station lists and of real values, a few per network, in the provider's own format; some rows are edited (below) | the licence and credit line of that provider on [licences and credit lines](licenses.md) |
 | IMGW rows of the same files and of `tests/provider/imgw/` | a few dozen rows of station lists and daily values, some of them edited | IMGW, CC BY-NC-ND 4.0; credit: „Źródłem pochodzenia danych jest Instytut Meteorologii i Gospodarki Wodnej – Państwowy Instytut Badawczy” and „Dane Instytutu Meteorologii i Gospodarki Wodnej – Państwowego Instytutu Badawczego zostały przetworzone” |
 | LHMT rows of `tests/provider/lhmt/` | a few rows of observations, some of them edited | LHMT, CC BY-SA 4.0, credit "Lietuvos hidrometeorologijos tarnyba (LHMT)" |
-| `docs/assets/readme-stripes.png`, `summary.png`, `interpolation.png` and the output cells of the docs and the README | charts drawn from, and tables of, DWD values | DWD, CC BY 4.0, "Based on data from Deutscher Wetterdienst" |
+| `docs/assets/summary.png`, `interpolation.png` and the output cells of the docs and the README | charts drawn from, and tables of, DWD values | DWD, CC BY 4.0, "Based on data from Deutscher Wetterdienst" |
 | `src/wetterdienst/provider/eumetnet/opera/sites.json.gz` (shipped in the package) | the 205 OPERA radar sites of EUMETNET's database, those with a location and a position, with their numbers converted from text | EUMETNET OPERA, credit "EUMETNET OPERA", source page: EUMETNET's [OPERA database](https://www.eumetnet.eu/wp-content/themes/aeron-child/observations-programme/current-activities/opera/database/OPERA_Database/index.html); OPERA gave its permission in November 2026 to use the list and pass it on; the page states no licence and OPERA has not decided one yet |
 
 The two IMGW sentences are IMGW's own (§ 5 ust. 3 and 4 of its terms, in Polish); the first names the source, the second

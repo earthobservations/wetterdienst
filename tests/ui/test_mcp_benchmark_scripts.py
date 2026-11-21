@@ -4440,18 +4440,18 @@ NEAREST_DAILY = {
         ("observation-paris-last-week", [("values", {**PARIS_VALUES, "stations": "07156"}, True)], False),
         ("observation-paris-last-week", [("values", {**PARIS_VALUES, "name": "Lyon"}, True)], False),
         # Potsdam: the same annual series with `values`, by station or name; a daily series is another one
-        ("stripes-potsdam", [("values", {**POTSDAM_ANNUAL, "stations": "03987"}, True)], True),
+        ("annual-potsdam", [("values", {**POTSDAM_ANNUAL, "stations": "03987"}, True)], True),
         (
-            "stripes-potsdam",
+            "annual-potsdam",
             [("stations", {"name": "Potsdam"}, True), ("values", {**POTSDAM_ANNUAL, "name": "Potsdam"}, True)],
             True,
         ),
         (
-            "stripes-potsdam",
+            "annual-potsdam",
             [("values", {**POTSDAM_ANNUAL, "parameters": "daily/kl", "stations": "03987"}, True)],
             False,
         ),
-        ("stripes-potsdam", [("values", {**POTSDAM_ANNUAL, "stations": "01975"}, True)], False),
+        ("annual-potsdam", [("values", {**POTSDAM_ANNUAL, "stations": "01975"}, True)], False),
         # the nearest station that has data: `values` of the stations a point search found, on the date
         ("summarize-nearest-station", [("values", {**NEAREST_DAILY, "stations": ["03086", "02564"]}, True)], True),
         (

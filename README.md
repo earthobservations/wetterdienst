@@ -21,10 +21,6 @@
 </p>
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/earthobservations/wetterdienst/main/docs/assets/readme-stripes.png" alt="Warming stripes for Hohenpeißenberg, Germany: one stripe per year from 1781 to 2025, blue for cold years and red for warm ones" width="640" height="80"/>
-  <br/>
-  <sub>Hohenpeißenberg, Germany, 1781 to 2025: the mean air temperature of each year, fetched and drawn with wetterdienst.</sub>
-  <br/>
   <strong>Global warming is not an opinion.</strong> <em>Erderwärmung ist keine Meinung.</em>
 </p>
 

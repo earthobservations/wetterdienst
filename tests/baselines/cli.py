@@ -6,7 +6,7 @@
 command line **as it was released**, as data a script is written against, so that a removal fails even where the
 snapshot was regenerated with it:
 
-- each command and group, by its path (`wetterdienst stripes image`);
+- each command and group, by its path (`wetterdienst values`);
 - each option of it by each of its spellings (`--stations`, `-v`), with its type (and the choices, or the range, of
   that type), whether it is required, takes several values, or is a flag, its number of arguments, its default and the
   environment variable it reads;
@@ -37,8 +37,16 @@ from tests.baselines.common import DIRECTORY, read, write
 
 BASELINE = DIRECTORY / "cli.baseline.json"
 
+_STRIPES_GONE = (
+    "the climate stripes left the backend (GH-4258): the web app draws them itself; "
+    "read the annual values with `values`"
+)
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a script
-ACCEPTED_BREAKS: dict[str, str] = {}
+ACCEPTED_BREAKS: dict[str, str] = {
+    "wetterdienst stripes was removed": _STRIPES_GONE,
+    "wetterdienst stripes image was removed": _STRIPES_GONE,
+    "wetterdienst stripes stations was removed": _STRIPES_GONE,
+}
 
 #: the keys of an option that are compared as they are: a change is a finding
 _SAME = ("param_type_name", "nargs", "multiple", "is_flag", "count", "envvar", "flag_value")

@@ -286,8 +286,8 @@ class StationListingIncompleteError(UpstreamError):
 
     `dwd/observation` and `dwd/derived` look the stations up in directories of DWD's server, and go on without one
     that came back empty or missing, or that lists no description of its stations: the answer is partial, and says so
-    with a `file-skipped` warning. An estimate (`interpolate`, `summarize`) or the stripes ask for one station by its
-    id, and have no answer to put the warning in. A station that is not found then may be unknown, or one that only
+    with a `file-skipped` warning. An estimate (`interpolate`, `summarize`) asks for one station by its
+    id, and has no answer to put the warning in. A station that is not found then may be unknown, or one that only
     the skipped directory lists: the request is valid, the cause is upstream, and a 404 would say that the station
     does not exist. So it is this, a 502 over REST, which names the directories.
 

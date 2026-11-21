@@ -133,7 +133,7 @@ first 20,000 rows of the real time observations of 2026-11-02 (the last day, all
 so in `hard` mode a doubtful value of the rolling 30 days is null.
 
 With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the default is
-`soft`, which keeps the value and writes `12,suspect:source`, so interpolation, summaries and climate stripes leave it
+`soft`, which keeps the value and writes `12,suspect:source`, so interpolation and summaries leave it
 out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ```{toctree}

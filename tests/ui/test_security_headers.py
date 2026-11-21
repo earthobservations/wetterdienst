@@ -22,7 +22,6 @@ from tests.ui.test_restapi import (
     _OBSERVATION,
     _stub_result,
     _stub_stream,
-    _stub_stripes_station,
     _values_result_of_shape,
 )
 from wetterdienst.ui import restapi
@@ -113,25 +112,6 @@ def test_a_stream_that_fails_late_still_answers_nosniff(client: TestClient, monk
 
     response = client.get("/api/v1/values", params={**_VALUES, "format": "ndjson"})
 
-    assert _once(response) == ["nosniff"]
-
-
-@pytest.mark.parametrize("fmt", ["png", "jpg", "svg", "pdf"])
-@pytest.mark.usefixtures("figure_draws_itself")
-def test_stripes_image_answers_nosniff_in_every_image_format(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, fmt: str
-) -> None:
-    """An image is a body a browser could take for something else: the header says it is the image."""
-
-    class _Figure:
-        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
-            return b"image"
-
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
-    response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
-
-    assert response.status_code == 200
     assert _once(response) == ["nosniff"]
 
 
@@ -285,32 +265,6 @@ def test_the_index_has_a_policy_and_needs_nothing_it_forbids(client: TestClient)
     assert "javascript:" not in response.text.lower()
     assert "@import" not in response.text
     assert "url(" not in response.text
-
-
-@pytest.mark.usefixtures("figure_draws_itself")
-def test_stripes_svg_has_the_policy_and_the_other_images_none(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Only the SVG is a document a browser runs script in: a policy on a PDF would break the browser's viewer."""
-
-    class _Figure:
-        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
-            return b"image"
-
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
-    policies = {}
-    for fmt in ("png", "jpg", "svg", "pdf"):
-        response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
-        assert response.status_code == 200
-        policies[fmt] = response.headers.get(_CSP)
-
-    assert policies == {
-        "png": None,
-        "jpg": None,
-        "svg": "default-src 'none'; style-src 'unsafe-inline'; img-src data:",
-        "pdf": None,
-    }
 
 
 def test_a_chart_as_svg_has_the_policy(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:

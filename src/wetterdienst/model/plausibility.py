@@ -354,7 +354,7 @@ COVERAGE: dict[str, dict[str, tuple[str, ...]]] = {
 def leave_out_suspect(df: pl.DataFrame) -> pl.DataFrame:
     """Null the value of every reading a soft plausibility check flagged ``suspect:`` (GH-3676).
 
-    An interpolation, a summary, climate stripes and the coverage of ``skip_empty`` read what a station measured, and a
+    An interpolation, a summary and the coverage of ``skip_empty`` read what a station measured, and a
     number that a check finds implausible has no place in them, whatever mode the request gave the check: the mode
     changes what a station's own values show, not what is made of them. The reading stays a row, as a rejected one
     does, with no value.

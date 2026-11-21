@@ -157,9 +157,7 @@ def test_every_documented_route_is_served_under_the_alias_too(client: TestClient
     """
     paths = [path for path in client.get("/openapi.json").json()["paths"] if path.startswith("/api/v1/")]
 
-    assert {"/api/v1/version", "/api/v1/values", "/api/v1/stations", "/api/v1/alerts", "/api/v1/stripes/image"} <= set(
-        paths
-    )
+    assert {"/api/v1/version", "/api/v1/values", "/api/v1/stations", "/api/v1/alerts"} <= set(paths)
     for path in paths:
         if path.endswith(("/alerts", "/storm-cells", "/radar/frames")):
             # needs no parameter, and so goes to the feed
@@ -211,7 +209,7 @@ def test_the_operation_ids_do_not_carry_the_version(client: TestClient) -> None:
     }
 
     assert "values_api_values_get" in operations
-    assert "stripes_image_api_stripes_image_get" in operations
+    assert "stations_api_stations_get" in operations
     assert not [operation for operation in operations if "v1" in operation]
 
 
@@ -241,9 +239,6 @@ def test_the_mcp_tools_are_the_endpoints_under_their_names() -> None:
             "providers",
             "stations",
             "storm_cells",
-            "stripes_image",
-            "stripes_stations",
-            "stripes_values",
             "summarize",
             "values",
         ]
@@ -502,8 +497,6 @@ def test_stations_does_not_take_with_stations(client: TestClient) -> None:
 _EACH_EXCEPTION = pytest.mark.parametrize("error", [pytest.param(case.values[0], id=case.id) for case in STATUS_TABLE])
 
 _SERIES = {"provider": "dwd", "network": "observation", "parameters": "daily/kl/temperature_air_mean_2m"}
-_STRIPES = {"kind": "temperature", "station": "01048"}
-
 #: each route that reads from a provider: the path under `/api/v1`, what it asks for a reader to raise, its query
 _READERS = [
     pytest.param("stations", "get_stations", _STATIONS, id="stations"),
@@ -512,9 +505,6 @@ _READERS = [
     pytest.param("summarize", "get_summarize", {**_SERIES, "station": "01048", "timestamp": "2020-06-30"}, id="s"),
     pytest.param("history", "get_stations", {**_SERIES, "stations": "01048"}, id="history"),
     pytest.param("issues", "get_issues", {"provider": "dwd", "network": "mosmix", "station": "10147"}, id="issues"),
-    pytest.param("stripes/values", "_get_stripes_data", _STRIPES, id="stripes-values"),
-    pytest.param("stripes/image", "_get_stripes_data", _STRIPES, id="stripes-image"),
-    pytest.param("stripes/stations", "_get_stripes_stations", {"kind": "temperature"}, id="stripes-stations"),
 ]
 
 
