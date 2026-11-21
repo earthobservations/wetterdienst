@@ -28,6 +28,7 @@ _NoaaGhcnMetadataSpec = {
         "bbox": [-180.0, -90.0, 180.0, 90.0],
     },
     "timezone": "America/New_York",
+    "station_id_list": {"resolution": "daily", "dataset": "data", "ids": ["wmo_id"]},
     "resolutions": [
         {
             "name": "hourly",

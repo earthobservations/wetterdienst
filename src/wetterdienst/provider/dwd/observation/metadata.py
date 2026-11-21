@@ -11,6 +11,7 @@ _DwdObservationMetadataSpec = {
     "kind": "observation",
     "extent": EXTENT_GERMANY,
     "timezone": "Europe/Berlin",
+    "station_id_list": {"resolution": "daily", "dataset": "climate_summary", "ids": ["wmo_id", "wigos_id"]},
     "resolutions": [
         {
             "name": "1_minute",

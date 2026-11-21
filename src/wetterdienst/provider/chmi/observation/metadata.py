@@ -131,6 +131,7 @@ _ChmiObservationMetadataSpec = {
         "bbox": [12.0, 48.5, 18.9, 51.1],
     },
     "timezone": "Europe/Prague",
+    "station_id_list": {"resolution": "daily", "dataset": "data", "ids": ["wmo_id", "wigos_id"]},
     "resolutions": [
         _resolution("10_minutes", _MINUTE_10_PARAMETERS, date_required=True),
         _resolution("hourly", _HOURLY_PARAMETERS, date_required=True),

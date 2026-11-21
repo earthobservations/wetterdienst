@@ -239,6 +239,7 @@ def test_the_mcp_tools_are_the_endpoints_under_their_names() -> None:
             "issues",
             "kostra",
             "providers",
+            "station_ids",
             "stations",
             "storm_cells",
             "stripes_image",
