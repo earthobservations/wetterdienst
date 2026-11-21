@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.57.0] - 2026-11-21
+
+Paired with backend 0.194.0, which it needs: the Radar tool asks the radar routes of 0.194.0, and the
+stripes' NOAA GHCN years and station list are made of the per-element lists of 0.194.0.
+
 ### Added
 
 - `[Measurement]` Four more entries on the "How weather is measured" page: pressure and its
@@ -2536,7 +2541,8 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.56.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.57.0...HEAD
+[0.57.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.56.0...app-v0.57.0
 [0.56.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.55.0...app-v0.56.0
 [0.55.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.54.0...app-v0.55.0
 [0.54.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.53.0...app-v0.54.0
