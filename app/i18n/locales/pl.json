@@ -158,7 +158,7 @@
       "meteogram": "Prognoza MOSMIX dla stacji DWD jako meteogram: temperatura, wiatr, opady, zachmurzenie i ciśnienie.",
       "stripes": "Paski klimatyczne temperatury lub opadów dla stacji DWD lub NOAA GHCN daily.",
       "history": "Jak zmieniała się stacja DWD w czasie: nazwa, położenie i przyrządy.",
-      "api": "REST API i serwer MCP Wetterdienst: formaty i przykłady dla stacji, wartości, interpolacji i pasków klimatycznych.",
+      "api": "REST API i serwer MCP Wetterdienst: formaty i przykłady dla stacji, wartości i interpolacji.",
       "providers": "Krajowe służby meteorologiczne stojące za danymi: kraj, licencja, wymagane podanie źródła i to, co oferuje każda z nich.",
       "glossary": "Co mierzy każdy parametr pogodowy i klimatyczny oraz w jakiej jednostce zwracane są jego wartości, z wyszukiwaniem po nazwie i wielkości.",
       "measurement": "Jak mierzy się pogodę: przyrządy, jak odczyt staje się wartością, co mówi liczba i czym różnią się dostawcy, ze źródłami.",
@@ -427,20 +427,14 @@
       "history": "Pobierz historię stacji (nazwa, operator, urządzenia, geografia, brakujące dane)",
       "values": "Pobierz wartości obserwacji dla wybranych stacji i parametrów",
       "interpolate": "Interpoluj wartości dla określonej lokalizacji",
-      "summarize": "Uzyskaj podsumowane wartości dla lokalizacji",
-      "stripesStations": "Pobierz stacje do wizualizacji pasków klimatycznych",
-      "stripesValues": "Pobierz wartości pasków klimatycznych ze znacznikami czasu",
-      "stripesImage": "Wygeneruj obraz pasków klimatycznych"
+      "summarize": "Uzyskaj podsumowane wartości dla lokalizacji"
     },
     "examples": {
       "stationsDwd": "Stacje klimatyczne dobowe obserwacji DWD",
       "historyDwd": "Historia stacji obserwacji DWD",
       "valuesDwd": "Wartości klimatyczne dobowe obserwacji DWD",
       "interpolateDwd": "Interpolacja klimatyczna dobowa obserwacji DWD",
-      "summarizeDwd": "Podsumowanie klimatyczne dobowe obserwacji DWD",
-      "stripesStations": "Stacje pasków klimatycznych (temperatura)",
-      "stripesValues": "Wartości pasków klimatycznych (temperatura)",
-      "stripesImage": "Obraz pasków klimatycznych (temperatura)"
+      "summarizeDwd": "Podsumowanie klimatyczne dobowe obserwacji DWD"
     },
     "mcpTitle": "Punkt końcowy MCP",
     "mcpText": "Wetterdienst obsługuje także Model Context Protocol, dzięki czemu asystenci AI mogą pobierać dane pogodowe jako narzędzia: znaleźć stację, a potem odczytać jej pomiary. Udostępnione są te same punkty końcowe co powyżej, przez transport streamable HTTP.",
@@ -715,6 +709,7 @@
     "showDataAvailability": "Pokaż dostępność danych",
     "visualizationTitle": "Wizualizacja",
     "loadingViz": "Ładowanie danych i generowanie wizualizacji …",
+    "noRecord": "Ta stacja nie ma wystarczająco długiego zapisu dla pasków klimatycznych: potrzeba co najmniej {years} lat z danymi.",
     "downloadImage": "Pobierz obraz",
     "downloadPng": "Pobierz jako PNG",
     "downloadJpg": "Pobierz jako JPG",

@@ -158,7 +158,7 @@
       "meteogram": "De MOSMIX-Wedderutsicht för een DWD-Station as Meteogramm: Temperatur, Wind, Nedderslag, Wulken un Luftdruck.",
       "stripes": "Klimastrepen för Temperatur oder Nedderslag vun een Station vun'n Düütschen Wedderdeenst (DWD) oder vun NOAA GHCN daily.",
       "history": "Wo sik een DWD-Station mit de Tiet ännert hett: Naam, Stä un Reedschappen.",
-      "api": "De REST-API un de MCP-Server vun Wetterdienst: Formate un Bispelen för Stationen, Weerten, Interpolatschoon un Klimastrepen.",
+      "api": "De REST-API un de MCP-Server vun Wetterdienst: Formate un Bispelen för Stationen, Weerten un Interpolatschoon.",
       "providers": "De nationalen Wedderdeenste achter de Daten: Land, Lizenz, de Quell, de angeven warrn mutt, un wat elkeen anbeedt.",
       "glossary": "Wat elk Wedder- un Klimaparameter meet un in wecke Eenheit sien Weerten torüchkamen, mit Söök na Naam un Grött.",
       "measurement": "So warrt Wedder meten: Instrumenten, woans ut en Meten en Weert warrt, wat de Tall seggen kann un wo sik Anbeder unnerscheedt, mit Quellen.",
@@ -427,20 +427,14 @@
       "history": "Stationsverloop afropen (Naam, Bedriever, Reedschappen, Geografie, fehlende Daten)",
       "values": "Meetweerten för utsöchte Stationen un Parameter afropen",
       "interpolate": "Weerten för een bestimmten Oort interpoleren",
-      "summarize": "Tosamenfaate Weerten för een Oort afropen",
-      "stripesStations": "Stationen för de Klimastrepen-Visualisatschoon afropen",
-      "stripesValues": "Klimastrepen-Weerten mit Tietstempels afropen",
-      "stripesImage": "Klimastrepen-Bild maken"
+      "summarize": "Tosamenfaate Weerten för een Oort afropen"
     },
     "examples": {
       "stationsDwd": "DWD-Beobachten dagelke Klimastationen",
       "historyDwd": "DWD-Beobachten Stationsverloop",
       "valuesDwd": "DWD-Beobachten dagelke Klimaweerten",
       "interpolateDwd": "DWD-Beobachten dagelke Klima-Interpolatschoon",
-      "summarizeDwd": "DWD-Beobachten dagelke Klima-Tosamenfaat",
-      "stripesStations": "Klimastrepen-Stationen (Temperatur)",
-      "stripesValues": "Klimastrepen-Weerten (Temperatur)",
-      "stripesImage": "Klimastrepen-Bild (Temperatur)"
+      "summarizeDwd": "DWD-Beobachten dagelke Klima-Tosamenfaat"
     },
     "mcpTitle": "MCP-Endpunkt",
     "mcpText": "Wetterdienst snackt ok Model Context Protocol: KI-Assistenten köönt Wedderdaten as Warktüüg afragen – eerst een Station finnen, denn ehr Meetweerten lesen. Dat gifft de sülven Endpunkte as baven, över den Streamable-HTTP-Transport.",
@@ -715,6 +709,7 @@
     "showDataAvailability": "Datenverfögbarkeit wiesen",
     "visualizationTitle": "Visualisatschoon",
     "loadingViz": "Daten warrt laadt un de Visualisatschoon warrt maakt …",
+    "noRecord": "Disse Station hett keen Meetreeg, de lang genoog för Klimastrepen is: Dor warrt mindestens {years} Johren mit Daten bruukt.",
     "downloadImage": "Bild runnerladen",
     "downloadPng": "As PNG runnerladen",
     "downloadJpg": "As JPG runnerladen",

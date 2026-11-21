@@ -204,7 +204,7 @@ const readout = computed(() => {
   if (!m || !row || !cursorBox.value)
     return null
   const rows = [{ id: 'value', label: t('stripes.hoverValue'), value: formatValue(row.value) }]
-  // the class as the backend gives it, with how far the year lies from the mean of the reference
+  // the class as `stripes-scale.ts` gives it, with how far the year lies from the mean of the reference
   rows.push({ id: 'class', label: t('stripes.table.class'), value: `${t(`stripes.table.classes.${props.kind}.${stripeBand(row.stripeClass)}`)} (${formatSigned(row.anomaly, locale.value, 1)} ${props.unit})`.trim() })
   return {
     year: String(row.year),

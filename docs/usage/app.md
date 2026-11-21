@@ -47,7 +47,7 @@ shown in English, with a note (in German for Low German and Luxembourgish).
 | Home | The six tools, and **Ask the weather**: four suggestions (will it rain tomorrow, was last summer hotter than usual, how windy was a day, where hourly temperatures can be downloaded) that are answered on the page from live data, with the numbers and a chart behind the verdict and a link into the tool that holds the data. The place they are about is a DWD station that can be changed. Nothing is fetched until a question is picked, apart from the look-up of a place that the link names. |
 | Explorer | Pick a provider and network, a resolution, dataset and parameters, then stations on the map. Three modes: **Station** reads the measurements of the stations, **Interpolation** estimates the values of a point (see [Interpolation & Summary](interpolation.md)), **Summary** takes the nearest station with data at each timestamp. A data viewer shows the table and a chart and downloads the result as CSV, JSON or GeoJSON. |
 | Forecast | The MOSMIX forecast of a DWD station as a meteogram: temperature and dew point, wind with barbs, precipitation by phase, cloud cover and pressure, with Yr's weather symbols over the hours. Each panel has a fixed height and each hour a fixed width, so on a phone the chart scrolls sideways with its axes in view; a dragged box, a pinch or the buttons zoom all panels at once, and the arrow keys step through the hours (`+`, `-` and `0` zoom and reset). `/widget?station=<id>` is the same chart without the page around it, for embedding (`&theme=dark` or `&theme=light` sets the colours). |
-| Climate stripes | The warming stripes of a DWD station for temperature or precipitation, see [Climate Stripes](stripes.md). |
+| Climate stripes | The warming stripes of a DWD station or of a station of NOAA's GHCN daily, for temperature or precipitation, which the app makes itself of the annual values of the API (see "What the app serves itself" below), see [Climate Stripes](stripes.md). |
 | Radar | DWD's precipitation radar over Germany on the map: a loop of the last two hours and DWD's forecast of the next two, with a player, the legend in mm/h and DWD's thunderstorm cells on top. |
 | History | The station history of DWD observation, see [Station history](station_history.md). |
 | Map | DWD's stations on a map, with a panel beside it (a sheet under it on a phone). Chips over the map choose the layer: the **forecast stations** (MOSMIX) or the **DWD measurements**, whose resolution and dataset are chosen beside the chips. Pick a station, or click any point: the panel shows the forecast of the nearest forecast station as day rows and the climate stripes of the nearest station that has them, and links to the measurements in the Explorer and to the station history, each at the nearest station of the layer's resolution and dataset, already chosen. **Which station is offered:** the nearest within 100 km of the place; one that still reports before one that has stopped, and the nearest closed one only where none that reports is within reach, with the years it measured. A station reports where the REST API's `end_timestamp` of it, the day of its last value, is within 90 days of the newest end of the list it is in (that list is the clock of its dataset: the daily climate summary is a day or two behind today, the solar radiation 38 days, the snow water equivalent 215 days, the annual datasets about 300), and the list itself is running, its newest end no more than 450 days ago (a list that ended long ago has every station closed). A station with no end has an unknown status: it is not taken for one that reports, and no "since" is told for it. The clock is one station's end: a single end far ahead of the others, but not later than today, takes the stations that are behind it out of the tolerance, which the lists do not show today. A click is on a station's dot, and is that station whatever its status, within the dot as it is drawn and 2 px more, and a click on the yellow disc of the station picked (10.5 px, and 2 px more) keeps it; a tap of a finger (a coarse pointer) reaches 12 px, and in that ring a station that reports comes before the nearest dot. Closed stations stay on the map. Where no station is within 100 km, the panel says so. Changing the layer or the dataset keeps the place, not the number of the station (a forecast point and a measuring station can share a number): the station for the place is picked again in the new list. The panel finds a station by name or number and lists the ones near the centre of the map; by keyboard the arrow keys move the map and **Pick the centre of the map** picks the station within half a kilometre of the centre, else the station for the place at it (the same as a click of a mouse that is not on a dot). The address holds what is shown (`?layer=`, `resolution`, `dataset`, `station`, `lat`, `lon`), so a link opens the same map. Search finds stations, not towns. The tiles are OpenStreetMap's, as on the station pickers. |
@@ -71,7 +71,7 @@ from then on the settings are the visitor's own, whatever the server says. A lin
 with the settings once the server has answered for them. **Reset** on the Settings page goes back to the server's
 settings where it has answered in that load, and else to the defaults of the app, and the next load asks the server
 again. The climate stripes, on their page and in the map's panel, ask for the unit the Settings page chooses for
-their kind (`unit_targets` of `/api/stripes/values`) and write the unit the answer names in the sentence, the table
+their kind (`unit_targets` of `/api/values`, or of the app's own `/_ghcn/annual` for GHCN daily) and write the unit the answer names in the sentence, the table
 and the hover texts; the colours are relative and do not change with it. The forecast, its widget, the
 forecast in the map's panel, and the home page's questions ask in the units the Settings page chooses too (and for
 the values as the source has them where conversion is off), and write the unit the answer reports for each
@@ -251,11 +251,11 @@ Google account.
 
 The server limits what costs something, per client. It counts the requests to
 
-- `/api/values`, `/api/stations`, `/api/interpolate`, `/api/summarize`, `/api/stripes/*` and `/api/history`,
+- `/api/values`, `/api/stations`, `/api/interpolate`, `/api/summarize` and `/api/history`,
   and any other route under `/api` that is not one of the catalogue routes below,
 - `/mcp` (a session is many small calls), and
 - `/_ghcn/*`, the app's own routes for NOAA's GHCN daily (the list of its stations for the map, which costs the
-  backend a 44 MB answer the first time),
+  backend a 44 MB answer the first time, and the climate stripes' annual values and station lists, see below),
 
 and answers the one past the limit with `429 Too Many Requests` and a problem of the kind
 `urn:wetterdienst:problem:rate-limited`, with `Retry-After` (seconds). It does not count the pages, the assets,
@@ -319,6 +319,33 @@ The licences of the packages the browser is served (the copyright notices their 
 go with the code) are one file, `/third-party-licenses.txt`, linked from the footer. The production build writes it
 from the packages the bundle holds, so it is in the Docker image and in the release tarball, and the development server
 answers a note in its place.
+
+The climate stripes are made by the app, from the annual values of the generic API: the stations of
+`/api/stations` and the years of `/api/values` (`dwd/observation`, `annual/climate_summary` and
+`annual/precipitation_more`), with the colour scale (the mean of 1971-2000, the standard deviation of 1901-2000)
+calculated in the browser. NOAA's GHCN daily has daily values only, so the app's own server builds the years from them,
+by the rules of WMO-No. 1203, and lists the stations that have a record long enough:
+
+- `GET /_ghcn/annual?kind=temperature&station=USW00094728` (`kind` is `temperature` or `precipitation`, `unit_targets`
+  optional, as `/api/values` takes it) answers one row for each year, the value `null` where the year fails the rules,
+  with the unit, the way the days of a temperature were calculated (`midrange` of the daily maximum and minimum, or
+  `tavg`) and the provider's credit and licence. It reads the station's days from `/api/values` of the backend (up to about
+  25 MB of JSON for a record of 150 years, a third less with `drop_nulls=true`, which it asks for), and answers a few kilobytes.
+- `GET /_ghcn/stations?kind=temperature` answers the stations of GHCN daily that still report (their record reaches into
+  this or the last year) and span ten years or more in the elements the kind is made of, which is the picker's list. It
+  combines the lists `/api/stations` gives for one daily parameter each, with that element's span (backend 0.194.0): for the
+  precipitation `precipitation_amount`; for the temperature `temperature_air_mean_2m` taken with the years
+  `temperature_air_max_2m` and `temperature_air_min_2m` have in common, and reads them one after another (8 to 21 MB of
+  JSON each).
+
+Both are kept in the memory of the server for twelve hours, as the backend keeps the files of NOAA: a station's years
+(at most 1,000 stations, the one used longest ago going first) and the list of the stations of each kind. A station asked
+for by several clients at once is read once, and a failure is not kept. The two stripes routes run at most four reads of the
+backend between them, side by side (a read holds up to 80 MB of memory while it is parsed); another 16 may wait for their turn, for 30 seconds at the
+most, and a read beyond that is answered `503` with a `Retry-After` of 10 seconds. A read whose client has closed the
+connection is given up, in the queue or under way, unless another client waits for the same station, and a read the backend
+does not answer in 90 seconds is a `504`. Neither route is part of the backend's API: a deployment that serves the app serves them, one that serves the backend
+alone does not.
 
 The app does not forward the cookies or the `Authorization` of a client to the backend, on `/api` or on `/mcp`.
 The `/api` and `/mcp` proxies are for their own path of the backend and nothing else: a request whose path resolves

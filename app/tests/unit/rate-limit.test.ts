@@ -17,8 +17,10 @@ describe('what is counted', () => {
     '/api/stations',
     '/api/interpolate',
     '/api/summarize',
-    '/api/stripes/values',
-    '/api/stripes/image',
+    // the app's own server's reads of the backend, which the stripes of GHCN daily are made from (GH-4258)
+    '/_ghcn/annual?kind=temperature&station=USW00094728',
+    '/_ghcn/stations',
+    '/_ghcn/stations/',
     '/api/history',
     '/api/issues',
     // the app's own server's routes for GHCN daily (GH-4267): the first request after a restart costs the backend a 44 MB answer

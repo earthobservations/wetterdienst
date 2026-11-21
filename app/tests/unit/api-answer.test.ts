@@ -26,7 +26,8 @@ describe('unexpectedAnswerReason', () => {
   it('accepts the answers the endpoints give, an empty list included', () => {
     const json = 'application/json'
     expect(unexpectedAnswerReason('/api/stations', { status: 200, contentType: json, data: { stations: [] } })).toBeNull()
-    expect(unexpectedAnswerReason('/api/stripes/values', { status: 200, contentType: json, data: { values: [] } })).toBeNull()
+    expect(unexpectedAnswerReason('/_ghcn/annual', { status: 200, contentType: json, data: { values: [] } })).toBeNull()
+    expect(unexpectedAnswerReason('/_ghcn/stations', { status: 200, contentType: json, data: { stations: [] } })).toBeNull()
     expect(unexpectedAnswerReason('/api/providers', { status: 200, contentType: json, data: { providers: [] } })).toBeNull()
     expect(unexpectedAnswerReason('/api/glossary', { status: 200, contentType: json, data: [] })).toBeNull()
     expect(unexpectedAnswerReason('/api/coverage', { status: 200, contentType: json, data: {} })).toBeNull()

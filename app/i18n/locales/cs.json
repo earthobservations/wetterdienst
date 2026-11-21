@@ -158,7 +158,7 @@
       "meteogram": "Předpověď MOSMIX pro stanici DWD jako meteogram: teplota, vítr, srážky, oblačnost a tlak.",
       "stripes": "Klimatické pruhy teploty nebo srážek pro stanici DWD nebo NOAA GHCN daily.",
       "history": "Jak se stanice DWD v čase měnila: název, poloha a přístroje.",
-      "api": "REST API a server MCP projektu Wetterdienst: formáty a příklady pro stanice, hodnoty, interpolaci a klimatické pruhy.",
+      "api": "REST API a server MCP projektu Wetterdienst: formáty a příklady pro stanice, hodnoty a interpolaci.",
       "providers": "Národní meteorologické služby za daty: země, licence, uvedení zdroje a to, co každá nabízí.",
       "glossary": "Co měří jednotlivé meteorologické a klimatické parametry a v jaké jednotce se vrací jejich hodnoty, s vyhledáváním podle názvu a veličiny.",
       "measurement": "Jak se měří počasí: přístroje, jak se z odečtu stane hodnota, co říká číslo a v čem se poskytovatelé liší, se zdroji.",
@@ -427,20 +427,14 @@
       "history": "Získej historii stanice (název, provozovatel, zařízení, geografie, chybějící data)",
       "values": "Získej hodnoty pozorování pro vybrané stanice a parametry",
       "interpolate": "Interpoluj hodnoty pro konkrétní místo",
-      "summarize": "Získej sumarizované hodnoty pro místo",
-      "stripesStations": "Získej stanice pro vizualizaci klimatických pruhů",
-      "stripesValues": "Získej hodnoty klimatických pruhů s časovými značkami",
-      "stripesImage": "Vygeneruj obrázek klimatických pruhů"
+      "summarize": "Získej sumarizované hodnoty pro místo"
     },
     "examples": {
       "stationsDwd": "Denní klimatické stanice pozorování DWD",
       "historyDwd": "Historie stanic pozorování DWD",
       "valuesDwd": "Denní klimatické hodnoty pozorování DWD",
       "interpolateDwd": "Denní klimatická interpolace pozorování DWD",
-      "summarizeDwd": "Denní klimatická sumarizace pozorování DWD",
-      "stripesStations": "Stanice klimatických pruhů (teplota)",
-      "stripesValues": "Hodnoty klimatických pruhů (teplota)",
-      "stripesImage": "Obrázek klimatických pruhů (teplota)"
+      "summarizeDwd": "Denní klimatická sumarizace pozorování DWD"
     },
     "mcpTitle": "Koncový bod MCP",
     "mcpText": "Wetterdienst mluví také protokolem Model Context Protocol, takže asistenti s umělou inteligencí mohou získávat meteorologická data jako nástroje: najít stanici a pak přečíst její měření. K dispozici jsou stejné koncové body jako výše, přes přenos streamable HTTP.",
@@ -715,6 +709,7 @@
     "showDataAvailability": "Zobrazit dostupnost dat",
     "visualizationTitle": "Vizualizace",
     "loadingViz": "Načítání dat a generování vizualizace …",
+    "noRecord": "Tato stanice nemá dostatečně dlouhou řadu pro klimatické pruhy: je potřeba alespoň {years} let s daty.",
     "downloadImage": "Stáhnout obrázek",
     "downloadPng": "Stáhnout jako PNG",
     "downloadJpg": "Stáhnout jako JPG",

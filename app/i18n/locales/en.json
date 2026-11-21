@@ -158,7 +158,7 @@
       "meteogram": "The MOSMIX forecast of a DWD station as a meteogram: temperature, wind, precipitation, cloud cover and pressure.",
       "stripes": "Climate stripes for the temperature or precipitation record of a station of the German Weather Service (DWD) or NOAA's GHCN daily.",
       "history": "How a DWD station changed over time: its name, location and instruments.",
-      "api": "The REST API and the MCP server of Wetterdienst: formats and examples for stations, values, interpolation and climate stripes.",
+      "api": "The REST API and the MCP server of Wetterdienst: formats and examples for stations, values and interpolation.",
       "providers": "The national weather services behind the data: country, licence, the credit line to give and what each one offers.",
       "glossary": "What each weather and climate parameter measures and the unit its values come back in, searchable by name and quantity.",
       "measurement": "How weather is measured: instruments, how a reading becomes a value, what the number can tell and where providers differ, with sources.",
@@ -427,20 +427,14 @@
       "history": "Retrieve station history (name, operator, devices, geography, missing data)",
       "values": "Retrieve observation values for selected stations and parameters",
       "interpolate": "Interpolate values for a specific location",
-      "summarize": "Get summarized values for a location",
-      "stripesStations": "Get stations for climate stripes visualization",
-      "stripesValues": "Get climate stripes data values with timestamps",
-      "stripesImage": "Generate climate stripes image"
+      "summarize": "Get summarized values for a location"
     },
     "examples": {
       "stationsDwd": "DWD Observation Daily Climate Stations",
       "historyDwd": "DWD Observation Station History",
       "valuesDwd": "DWD Observation Daily Climate Values",
       "interpolateDwd": "DWD Observation Daily Climate Interpolation",
-      "summarizeDwd": "DWD Observation Daily Climate Summary",
-      "stripesStations": "Climate Stripes Stations (Temperature)",
-      "stripesValues": "Climate Stripes Values (Temperature)",
-      "stripesImage": "Climate Stripes Image (Temperature)"
+      "summarizeDwd": "DWD Observation Daily Climate Summary"
     },
     "mcpTitle": "MCP endpoint",
     "mcpText": "Wetterdienst also speaks the Model Context Protocol, so AI assistants can query weather data as tools: find a station, then read its measurements. The same endpoints as above are exposed, over the streamable HTTP transport.",
@@ -715,6 +709,7 @@
     "showDataAvailability": "Show data availability",
     "visualizationTitle": "Visualization",
     "loadingViz": "Loading data and generating visualization …",
+    "noRecord": "This station has no record long enough for climate stripes: at least {years} years with data are needed.",
     "downloadImage": "Download image",
     "downloadPng": "Download as PNG",
     "downloadJpg": "Download as JPG",
