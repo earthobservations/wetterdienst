@@ -97,7 +97,6 @@ def _deferred(module: str, name: str) -> Callable[..., Any]:
 if TYPE_CHECKING:
     # the real functions to a type checker, which holds a call to their signatures, a misspelled keyword included
     from wetterdienst.ui.core import (
-        _plot_stripes,
         get_auth,
         get_glossary,
         get_interpolate,
@@ -116,7 +115,6 @@ else:
     get_summarize = _deferred("wetterdienst.ui.core", "get_summarize")
     get_values = _deferred("wetterdienst.ui.core", "get_values")
     set_logging_level = _deferred("wetterdienst.ui.core", "set_logging_level")
-    _plot_stripes = _deferred("wetterdienst.ui.core", "_plot_stripes")
 
 
 # Shell completion is click's own (`_WETTERDIENST_COMPLETE`, see docs/usage/cli.md). It imports this module and nothing
@@ -1196,27 +1194,6 @@ KOSTRA_EXAMPLES = r"""
     wetterdienst kostra --latitude=53.55 --longitude=9.99
 """
 
-STRIPES_EXAMPLES = r"""
-    # warming stripes for a station, by id or by name
-    wetterdienst stripes image --kind=temperature --station=1048 > warming_stripes.png
-    wetterdienst stripes image --kind=temperature --name=Dresden-Klotzsche --name-threshold=0.7 > warming_stripes.png
-
-    # for the years 2000 to 2020
-    wetterdienst stripes image --kind=temperature --station=1048 --start-year=2000 --end-year=2020 \
-        > warming_stripes.png
-
-    # precipitation stripes, to a file
-    wetterdienst stripes image --kind=precipitation --station=1048 --target=precipitation_stripes.png
-
-    # a station of NOAA GHCN daily, the years calculated from its days by the WMO rules
-    wetterdienst stripes image --provider=noaa --network=ghcn --kind=temperature --station=USW00094728 \
-        > stripes_new_york.png
-
-    # the GHCN stations in a bounding box that the stripes are made for
-    wetterdienst stripes stations --provider=noaa --network=ghcn --kind=temperature \
-        --left=-75 --bottom=40 --right=-73 --top=41
-"""
-
 
 def _refuse_if_callers(e: Exception, request: BaseModel) -> None:
     """Raise a failure caught from a request as a usage error if it is the caller's own mistake.
@@ -1468,7 +1445,7 @@ def _refuse_non_file_target(target: str | None, command: str) -> None:
 
 
 def _route_of(ctx: click.Context) -> str:
-    """Name the route a command is, as its MCP tool is: `stations`, `stripes_image`, `coverage`."""
+    """Name the route a command is, as its MCP tool is: `stations`, `coverage`."""
     names = []
     while ctx.parent is not None:
         names.append(ctx.info_name or "")
@@ -3448,211 +3425,6 @@ def kostra(
 
     output, _ = render_kostra(result, fmt, pretty=pretty)
     print(output)  # noqa: T201
-
-
-@cli.group("stripes", cls=_Group)
-def stripes() -> None:
-    """Climate stripes."""
-
-
-stripes_provider_opt = click.option(
-    "--provider",
-    type=click.STRING,
-    default="dwd",
-    help="Provider of the stations and values: dwd (annual values) or noaa (GHCN daily, the years calculated from the "
-    "days by the WMO rules). Default: dwd",
-)
-stripes_network_opt = click.option(
-    "--network",
-    type=click.STRING,
-    default="observation",
-    help="Network of the provider: observation for dwd, ghcn for noaa. Default: observation",
-)
-
-
-@stripes.command("stations")
-@click.option("--kind", type=click.STRING, required=True, help="Kind of stripes: temperature or precipitation.")
-@stripes_provider_opt
-@stripes_network_opt
-@_bool_opt("--active", default=True, help="Only stations still reporting. Default: true")
-@left_opt
-@bottom_opt
-@right_opt
-@top_opt
-@click.option(
-    "--format",
-    "fmt",
-    type=click.Choice(["json", "geojson", "csv"], case_sensitive=False),
-    default="json",
-    help="Output format. Default: json",
-)
-@pretty_opt
-@debug_opt
-def stripes_stations(
-    kind: str,
-    provider: str,
-    network: str,
-    active: bool,  # noqa: FBT001
-    left: float | None,
-    bottom: float | None,
-    right: float | None,
-    top: float | None,
-    fmt: str,
-    pretty: bool,  # noqa: FBT001
-    debug: bool,  # noqa: FBT001
-) -> None:
-    """List stations for climate stripes."""
-    from wetterdienst.ui.core import StripesStationsRequest, _get_stripes_stations
-    from wetterdienst.ui.render import render_stripes_stations
-    from wetterdienst.ui.response_metadata import result_metadata
-
-    _apply_log_level(debug=debug)
-    begin_response()
-    if kind not in ["temperature", "precipitation"]:
-        msg = f"Invalid kind '{kind}'"
-        raise click.ClickException(msg)
-
-    request = _validate_request(
-        StripesStationsRequest,
-        {
-            "kind": kind,
-            "provider": provider,
-            "network": network,
-            "active": active,
-            "left": left,
-            "bottom": bottom,
-            "right": right,
-            "top": top,
-            "format": fmt,
-            "pretty": pretty,
-        },
-    )
-    stations = _get_stripes_stations(
-        kind=request.kind,
-        active=request.active,
-        provider=request.provider,
-        network=request.network,
-        left=request.left,
-        bottom=request.bottom,
-        right=request.right,
-        top=request.top,
-    )
-    metadata = result_metadata(stations, provider=request.provider, network=request.network, heavy=False)
-    _echo(render_stripes_stations(stations, request, metadata))
-
-
-@stripes.command("image", epilog=_examples(STRIPES_EXAMPLES))
-@click.option("--kind", type=click.STRING, required=True, help="Kind of stripes: temperature or precipitation.")
-@stripes_provider_opt
-@stripes_network_opt
-@click.option("--station", type=click.STRING, help="Station id, instead of --name.")
-@click.option("--name", type=click.STRING, help="Station name, matched fuzzily, instead of --station.")
-@click.option("--name-threshold", type=click.FLOAT, default=0.80, help="Minimum fuzzy-match score. Default: 0.8")
-@click.option("--start-year", type=click.INT, help="First year. Default: the station's first")
-@click.option("--end-year", type=click.INT, help="Last year. Default: the station's last")
-@_bool_opt("--show-title", default=True, help="Show the station name. Default: true")
-@_bool_opt("--show-years", default=True, help="Show the first and last year. Default: true")
-@_bool_opt("--show-data-availability", default=True, help="Mark the years without data. Default: true")
-@click.option(
-    "--format",
-    "fmt",
-    type=click.Choice(["png", "jpg", "svg", "pdf"], case_sensitive=False),
-    default="png",
-    help="Image format. Default: png",
-)
-@click.option("--dpi", type=click.IntRange(min=0, min_open=True), default=300, help="Resolution. Default: 300")
-@click.option(
-    "--target",
-    # a string, not a `Path`: a `Path` collapses the `//` of a URI before it can be refused
-    type=click.Path(dir_okay=False, path_type=str),
-    help="Write the image to this local file instead of stdout.",
-)
-@debug_opt
-def stripes_image(
-    kind: Literal["temperature", "precipitation"],
-    provider: str,
-    network: str,
-    station: str,
-    name: str,
-    start_year: int,
-    end_year: int,
-    name_threshold: float,
-    show_title: bool,  # noqa: FBT001
-    show_years: bool,  # noqa: FBT001
-    show_data_availability: bool,  # noqa: FBT001
-    fmt: str,
-    dpi: int,
-    target: str | None,
-    debug: bool,  # noqa: FBT001
-) -> None:
-    """Create the climate stripes image for a specific station.
-
-    Select the station with exactly one of --station or --name.
-    """
-    from wetterdienst import Settings
-    from wetterdienst.io.export import render_image, require_kaleido
-    from wetterdienst.ui.core import StripesImageRequest
-
-    # the image is written with `Path.write_bytes`, so only a local path is a target: a URI, `file://` included,
-    # would be written to the path read off it (`s3:/bucket/...`) once the station is fetched and the plot rendered
-    if target and "://" in target:
-        msg = "only a local path is supported here, not a URI."
-        raise click.BadParameter(msg, param_hint="--target")
-    # `is not None`: an empty `--target=` is a path to refuse below, not the absence of one that writes to stdout
-    target_path = Path(target) if target is not None else None
-    request = _validate_request(
-        StripesImageRequest,
-        {
-            "kind": kind,
-            "provider": provider,
-            "network": network,
-            "station": station,
-            "name": name,
-            "name_threshold": name_threshold,
-            "start_year": start_year,
-            "end_year": end_year,
-            "show_title": show_title,
-            "show_years": show_years,
-            "show_data_availability": show_data_availability,
-            "format": fmt,
-            "dpi": dpi,
-        },
-    )
-    # the suffix, dot included, so `stripespng` is refused; `.jpeg` is as usual for JPEG as `.jpg`
-    suffixes = (".jpg", ".jpeg") if fmt == "jpg" else (f".{fmt}",)
-    if target_path is not None and target_path.suffix.lower() not in suffixes:
-        msg = f"must have extension {' or '.join(f'{suffix!r}' for suffix in suffixes)}"
-        raise click.BadParameter(msg, param_hint="--target")
-
-    _apply_log_level(debug=debug)
-
-    # the provider request builds its settings from the environment inside the catch-all below:
-    # checked here first, a malformed `WD_*` setting is told by its variable
-    Settings()
-    try:
-        fig = _plot_stripes(request)
-    except Exception as e:
-        # a station that is not found, or years holding too little data, is told in one line, as
-        # `/api/stripes/image` answers it with a 4xx; an upstream failure keeps its traceback
-        _refuse_if_callers(e, request)
-        log.exception("Error while plotting warming stripes")
-        raise click.ClickException(str(e)) from e
-
-    require_kaleido()
-    image = render_image(fig, fmt, scale=dpi / 100)
-
-    if target_path is not None:
-        # rendered outside the handler: talking to the renderer's browser can raise an `OSError` of its own
-        # (choreographer's `ChannelClosedError`), which says nothing about --target
-        try:
-            target_path.write_bytes(image)
-        except OSError as e:
-            # a directory that does not exist or cannot be written; `--target` itself refuses a directory
-            msg = f"Could not write --target: {e}"
-            raise click.ClickException(msg) from e
-        return
-
-    click.echo(image, nl=False)
 
 
 if __name__ == "__main__":

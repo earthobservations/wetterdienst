@@ -9,7 +9,7 @@ tables). Problems of one machine (a proxy, a certificate, an old Raspberry Pi) a
 | --- | --- | --- |
 | `InvalidParameterError`, exit 2, 400 `request-refused` | the request is understood and cannot be served as phrased | read the message, it names the entry and the close match |
 | 422 `invalid-parameters` | a query parameter is unknown or malformed | `errors` names each; check the spelling and the [vocabulary](restapi.md#one-vocabulary) |
-| `NotFoundError`, 404 | a provider, network, resolution, dataset, station or run that does not exist (not a station of `interpolate`, `summarize` or the stripes that only a skipped directory of DWD lists: a 502, below) | look up providers and networks with `providers`, and resolutions and datasets with `coverage` of the network |
+| `NotFoundError`, 404 | a provider, network, resolution, dataset, station or run that does not exist (not a station of `interpolate` or `summarize` that only a skipped directory of DWD lists: a 502, below) | look up providers and networks with `providers`, and resolutions and datasets with `coverage` of the network |
 | `MissingDependencyError`, 501 `dependency-missing` | an extra is not installed | install the extra the message names, see [Installation](quickstart.md#installation) |
 | `CredentialMissingError` or `CredentialRejectedError`, 501 | a provider needs a key and there is none, or it is refused | see [Credentials](#credentials) |
 | `NoInternetError`, exit 1, 503 `upstream-unreachable` | the provider could not be reached | see [Upstream outages](#upstream-outages) |
@@ -91,7 +91,7 @@ The usual reasons:
   again then, or end the window before the current period); and values a hard plausibility check rejected, which the
   estimate does not use. It is one warning, whatever the number of stations or causes, and an estimate tells none of
   `file-skipped`, `other-window-left-out` and `window-not-closed` of a station.
-- **A station of `interpolate`, `summarize` or the stripes is a 502, not a 404.** `No station found for ...` with a
+- **A station of `interpolate` or `summarize` is a 502, not a 404.** `No station found for ...` with a
   directory named says that the lookup of the stations went without that directory of DWD's server (empty, missing, or
   with no description), so a station that only it lists is not found: the station may well exist. Try again later. A
   404 for the same station means every directory was listed and none has it, or the directory that was skipped lists

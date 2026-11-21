@@ -13,7 +13,6 @@ to do.
 | [Interpolation & Summary](interpolation.md) | a series for a point between stations |
 | [Station history](station_history.md) | the changes of a station: names, instruments, position |
 | [Find a station by id](station_ids.md) | one WMO number, WIGOS id or ICAO code at every provider that has it |
-| [Climate Stripes](stripes.md) | warming stripes of a DWD station, from the command line and the REST API |
 | [Units](units.md) | the unit every quantity comes back in, and how to change it |
 | [Export](export.md) | writing a result to a file or a database |
 | [Settings and options](settings.md) | the host's settings and a request's options |
@@ -54,7 +53,6 @@ python-examples.md
 interpolation.md
 station_history.md
 station_ids.md
-stripes.md
 units.md
 export.md
 settings.md

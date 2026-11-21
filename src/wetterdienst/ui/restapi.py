@@ -49,7 +49,6 @@ from wetterdienst.exceptions import (
     UpstreamError,
     WetterdienstError,
 )
-from wetterdienst.io.export import render_image, require_kaleido
 from wetterdienst.io.formats import renders_with_kaleido
 from wetterdienst.metadata.resolution import Resolution
 from wetterdienst.model.metadata import CoverageParameter, Extent  # noqa: TC001, needed at runtime by pydantic
@@ -100,19 +99,9 @@ from wetterdienst.ui.core import (
     StationIdsRequest,
     StationsRequest,
     StormCellsRequest,
-    StripesImageRequest,
-    StripesReference,
-    StripesSeries,
-    StripesStationsRequest,
-    StripesValuesRequest,
     SummaryRequest,
     ValuesRequest,
     _caller_refusal_status,
-    _draw_stripes,
-    _get_stripes_data,
-    _get_stripes_options,
-    _get_stripes_stations,
-    _require_plotting,
     check_timeseries_api,
     coverage_needs_a_network,
     failure_status,
@@ -161,7 +150,6 @@ from wetterdienst.ui.readiness import CHECKS, failed_checks
 from wetterdienst.ui.render import (
     InterpolationSettings,
     StationsSettings,
-    StripesSettings,
     SummarySettings,
     ValuesSettings,
     _applied_settings,
@@ -178,8 +166,6 @@ from wetterdienst.ui.render import (
     render_station_ids,
     render_stations,
     render_storm_cells,
-    render_stripes_stations,
-    render_stripes_values,
 )
 from wetterdienst.ui.response_metadata import (
     API_VERSION,
@@ -190,9 +176,7 @@ from wetterdienst.ui.response_metadata import (
     radar_metadata,
     response_headers,
     response_metadata,
-    result_metadata,
     station_ids_headers,
-    stripes_metadata,
 )
 from wetterdienst.ui.streaming import (
     NDJSON_MEDIA_TYPE,
@@ -203,7 +187,6 @@ from wetterdienst.ui.streaming import (
     stream_response,
 )
 from wetterdienst.util.cli import no_color, setup_logging
-from wetterdienst.util.datetime import timestamps_to_string
 from wetterdienst.util.extras import import_optional
 from wetterdienst.util.hosts import is_loopback, loopback_allowed_hosts, split_listen_address
 from wetterdienst.util.logging import get_one_line_logger
@@ -226,7 +209,6 @@ info = Info()
 TAG_CATALOGUE = "Catalogue"
 TAG_STATIONS = "Stations"
 TAG_VALUES = "Values"
-TAG_STRIPES = "Climate stripes"
 TAG_ALERTS = "Alerts"
 TAG_STORM_CELLS = "Storm cells"
 TAG_KOSTRA = "Heavy rainfall"
@@ -283,11 +265,6 @@ app = FastAPI(
         },
         {"name": TAG_STATIONS, "description": "Find stations and read their history and the runs of a forecast."},
         {"name": TAG_VALUES, "description": "Measurements of stations, or estimated for a point between them."},
-        {
-            "name": TAG_STRIPES,
-            "description": "Climate stripes of a station of DWD (Germany) or NOAA GHCN daily: stations, values and the "
-            "image.",
-        },
         {"name": TAG_ALERTS, "description": "Weather warnings of the DWD."},
         {"name": TAG_STORM_CELLS, "description": "Thunderstorm cells of the DWD, detected in its radar data."},
         {
@@ -387,9 +364,6 @@ REQUEST_EXAMPLES = {
     "dwd_observation_daily_climate_history": "api/history?provider=dwd&network=observation&parameters=daily/kl&stations=00011",  # noqa:E501
     "dwd_observation_daily_climate_interpolation": "api/interpolate?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&timestamp=1986-10-31/1986-11-01",  # noqa:E501
     "dwd_observation_daily_climate_summary": "api/summarize?provider=dwd&network=observation&parameters=daily/kl/temperature_air_mean_2m&station=00071&timestamp=1986-10-31/1986-11-01",  # noqa:E501
-    "dwd_observation_daily_climate_stripes_stations": "api/stripes/stations?kind=temperature",
-    "dwd_observation_daily_climate_stripes_values": "api/stripes/values?kind=temperature&station=1048",
-    "dwd_observation_daily_climate_stripes_image": "api/stripes/image?kind=temperature&station=1048",
     "dwd_mosmix_issues": "api/issues?provider=dwd&network=mosmix&station=10147",
     "dwd_dmo_issues": "api/issues?provider=dwd&network=dmo&station=10147",
     "dwd_swsmos_issues": "api/issues?provider=dwd&network=swsmos&station=A006",
@@ -657,9 +631,7 @@ _MAX_IMAGE_SIDE = 8192
 _DEFAULT_IMAGE_WIDTH, _DEFAULT_IMAGE_HEIGHT = 700, 500
 
 
-def _refuse_oversized_image(
-    width: int | None, height: int | None, scale: float | None, *, lower: str = "width, height or scale"
-) -> None:
+def _refuse_oversized_image(width: int | None, height: int | None, scale: float | None) -> None:
     """Refuse an image larger than `_MAX_IMAGE_SIDE` on a side, with a 400, before anything is fetched.
 
     The request fields only have to be positive, and the caller is whoever can reach the API: each
@@ -673,7 +645,7 @@ def _refuse_oversized_image(
     rendered = ((width or _DEFAULT_IMAGE_WIDTH) * scale, (height or _DEFAULT_IMAGE_HEIGHT) * scale)
     if max(rendered) > _MAX_IMAGE_SIDE:
         error = ImageTooLargeError(rendered[0], rendered[1], _MAX_IMAGE_SIDE)
-        raise ProblemError(400, f"{error} Lower {lower}.", ProblemKind.IMAGE_TOO_LARGE)
+        raise ProblemError(400, f"{error} Lower width, height or scale.", ProblemKind.IMAGE_TOO_LARGE)
 
 
 def _refuse_oversized_chart(request: StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest) -> None:
@@ -699,7 +671,7 @@ async def _refuse_oversized_render(request: Request, exc: ImageTooLargeError) ->
 
 
 # each output format by its media type; the rest are JSON. `image/{format}` named no registered type
-# for jpg or svg, and the stripes image sent `image/pdf` for a PDF (GH-2063)
+# for jpg or svg, and a PDF was sent as `image/pdf` (GH-2063)
 _MEDIA_TYPES = {
     "csv": "text/csv",
     # only a tool's request is answered as one body in ndjson (`_is_streamed`); any other is streamed
@@ -882,20 +854,6 @@ class _StationIdsWithMetadataDict(TypedDict):
     stations: list[_StationIdsStation]
 
 
-class _StripesValue(TypedDict):
-    timestamp: str | None
-    value: float | None
-    anomaly: float | None
-    stripe_class: int | None
-
-
-class _StripesValuesWithMetadataDict(TypedDict):
-    metadata: ResponseMetadata
-    series: StripesSeries
-    reference: StripesReference
-    values: list[_StripesValue]
-
-
 @app.get(
     "/",
     response_class=HTMLResponse,
@@ -1011,9 +969,6 @@ def index() -> HTMLResponse:
                     <li><a href="api/values" target="_blank" rel="noopener">values</a></li>
                     <li><a href="api/interpolate" target="_blank" rel="noopener">interpolation</a></li>
                     <li><a href="api/summarize" target="_blank" rel="noopener">summary</a></li>
-                    <li><a href="api/stripes/stations" target="_blank" rel="noopener">stripes stations</a></li>
-                    <li><a href="api/stripes/values" target="_blank" rel="noopener">stripes values</a></li>
-                    <li><a href="api/stripes/image" target="_blank" rel="noopener">stripes image</a></li>
                     <li><a href="api/alerts" target="_blank" rel="noopener">weather alerts</a></li>
                     <li><a href="api/storm-cells" target="_blank" rel="noopener">storm cells</a></li>
                     <li><a href="api/kostra" target="_blank" rel="noopener">heavy rainfall (KOSTRA)</a></li>
@@ -1027,9 +982,6 @@ def index() -> HTMLResponse:
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_history"]}" target="_blank" rel="noopener">DWD Observation Daily Climate History</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_interpolation"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Interpolation</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_summary"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Summary</a></li>
-                    <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_stations"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Stations</a></li>
-                    <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_values"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Values</a></li>
-                    <li><a href="{REQUEST_EXAMPLES["dwd_observation_daily_climate_stripes_image"]}" target="_blank" rel="noopener">DWD Observation Daily Climate Stripes Image</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_weather_alerts"]}" target="_blank" rel="noopener">DWD Weather Alerts</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_storm_cells"]}" target="_blank" rel="noopener">DWD Storm Cells</a></li>
                     <li><a href="{REQUEST_EXAMPLES["dwd_kostra"]}" target="_blank" rel="noopener">DWD Heavy Rainfall (KOSTRA)</a></li>
@@ -1306,9 +1258,6 @@ _ROUTE_ANSWERS: dict[str, tuple[int, ...]] = {
     "values": (403, *_DATA_ANSWERS),
     "interpolate": (403, *_DATA_ANSWERS),
     "summarize": (403, *_DATA_ANSWERS),
-    "stripes/stations": (501, 502),
-    "stripes/values": _DATA_ANSWERS,
-    "stripes/image": _DATA_ANSWERS,
     "alerts": _DATA_ANSWERS,
     "storm-cells": _DATA_ANSWERS,
     "kostra": _DATA_ANSWERS,
@@ -2363,8 +2312,7 @@ def values(
 def _request_options(
     request: BaseModel,
     given: Collection[str],
-    applied: type[_AppliedSettings | StationsSettings | StripesSettings],
-    base: Options | None = None,
+    applied: type[_AppliedSettings | StationsSettings],
 ) -> Options:
     """Build an endpoint's options from the server's and the fields the request gave.
 
@@ -2379,10 +2327,8 @@ def _request_options(
     valid on their own, an error once the request's fields are added is the request's, and is told
     by its field with the value the request gave, not the dict merged from it and the server's.
 
-    `base` stands in for the server's options where an endpoint fixes some of them itself, as the stripes do
-    (GH-2348, GH-3980).
     """
-    server = base if base is not None else Options()
+    server = Options()
     # each option given by the field that sets it
     passed = {
         str(option.validation_alias): (field, value)
@@ -2797,162 +2743,6 @@ def summarize(
         )
 
     return _answer(content, request.format, metadata)
-
-
-@router.get(
-    "/stripes/stations",
-    response_model=_StationsWithMetadataDict | _StationsWithMetadataOgcFeatureCollection | str,
-    tags=[TAG_STRIPES],
-)
-def stripes_stations(
-    request: Annotated[StripesStationsRequest, Query()],
-    http_request: Request,
-) -> Response:
-    """List the stations climate stripes are made for, of DWD (the default) or of NOAA GHCN daily.
-
-    A station whose record spans fewer than 10 calendar years (first to last, inclusive) is left out, as stripes of
-    fewer than 10 years with data are refused. A station with gaps in a longer span is listed and may still be refused.
-    For GHCN the span is that of the elements the kind is made from (TAVG, TMAX and TMIN for the temperature, PRCP for
-    the precipitation), and `active` keeps the stations whose record reaches into this or the last year.
-
-    `left`, `bottom`, `right` and `top`, all four, keep the stations in a bounding box, as `/api/stations` does: the
-    list of GHCN is long, so ask for the ones in view.
-    """
-    begin_response()
-
-    # the provider request below builds its settings from the environment inside the handler: checked
-    # here first, a malformed server setting is the app's unhandled 500, which does not read its
-    # value back
-    Settings()
-    try:
-        stations = _get_stripes_stations(
-            kind=request.kind,
-            active=request.active,
-            provider=request.provider,
-            network=request.network,
-            left=request.left,
-            bottom=request.bottom,
-            right=request.right,
-            top=request.top,
-        )
-    except Exception as e:
-        # nothing of the caller's reaches the lookup but a kind, a flag, a source and a box its request has checked,
-        # so a failure here is the server's or the data source's, whatever its type
-        raise _logged_server_error(e, "get stripes stations") from e
-    metadata = result_metadata(stations, provider=request.provider, network=request.network, heavy=False)
-    content = render_stripes_stations(stations, request, metadata)
-    if is_tool_request(http_request.scope):
-        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4024)
-        content, metadata = fit_stations(
-            stations,
-            request,
-            content,
-            metadata,
-            lambda cut, block, asked: render_stripes_stations(cut, asked, block),
-        )
-    return _answer(content, request.format, metadata)
-
-
-@router.get("/stripes/values", response_model=_StripesValuesWithMetadataDict | str, tags=[TAG_STRIPES])
-def stripes_values(
-    request: Annotated[StripesValuesRequest, Query()],
-    http_request: Request,
-) -> Response:
-    """Get climate stripes data values with timestamps, and the series they are of.
-
-    The JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.
-    "degree_celsius"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for
-    `/api/values`, e.g. {"temperature": "degree_fahrenheit"}; the server's
-    WD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the
-    quantity where the values are converted, the source's unit where not.
-
-    The colours follow Ed Hawkins' method: each value has its `anomaly` to the mean of 1971-2000 and its
-    `stripe_class`, 0 (the lowest) to 15, in steps of 0.325 standard deviations of the annual values of
-    1901-2000 (+/-2.6 standard deviations in 16 classes, the outermost taking what lies beyond). The `reference`
-    names the mean and the standard deviation, in the unit of the values, and the years they are calculated from;
-    a station with too few years in a period takes its whole record for it (`fallback`). A year's class
-    does not depend on `start_year` and `end_year`, and is the same in any unit.
-
-    `provider` and `network` choose the source: `dwd`/`observation` (the default) reads DWD's annual values, and
-    `noaa`/`ghcn` builds each year from the station's daily values by the WMO rules (WMO-No. 1203). Temperature: a
-    day is the midrange of TMAX and TMIN, which is no 24-hour mean, for every day of the series; TAVG is used only at a
-    station with no day that has both, so that the method does not change along the record and show as a false step. A
-    month counts with at most 10 days missing and at most 4 in a row, and a year with all 12 months counting is the
-    mean of the monthly means. Precipitation: a month counts only when complete, and a year with all 12 months
-    counting is the sum. A year that fails is a gap, and a value that failed a quality check of the source is a missing
-    day. `series` names the daily parameter the years were built from and has the method of the days as `method`:
-    `midrange` or `tavg` (null for DWD's own annual values and for the precipitation); the `processing_note` says it in
-    words.
-    """
-    begin_response()
-
-    # checked outside the handler below, as for `/api/stripes/stations`
-    Settings()
-    # a unit target for a quantity or unit the converter has none for is the request's 400, as for `/api/values`
-    _request_options(request, http_request.query_params.keys(), StripesSettings, _get_stripes_options())
-    try:
-        stripes_data = _get_stripes_data(request)
-    except AssertionError:
-        # a request its model should have refused: our bug, which FastAPI answers as a 500
-        raise
-    except Exception as e:
-        raise _failure(e, request, "get stripes data") from e
-
-    metadata = stripes_metadata(stripes_data, request)
-    if request.format == "csv":
-        content = timestamps_to_string(stripes_data.df).write_csv()
-    else:
-        content = render_stripes_values(stripes_data, request, metadata)
-    return _answer(content, request.format, metadata)
-
-
-@router.get(
-    "/stripes/image",
-    response_class=Response,
-    tags=[TAG_STRIPES],
-    responses={
-        200: {
-            "description": "The image, in the media type of its `format`.",
-            "content": {
-                # no schema: one makes the MCP tool declare an output it does not structure
-                _MEDIA_TYPES[format_]: {}
-                for format_ in ("png", "jpg", "svg", "pdf")
-            },
-        }
-    },
-)
-def stripes_image(
-    request: Annotated[StripesImageRequest, Query()],
-) -> Response:
-    """Generate climate stripes image for a station."""
-    # the image is rendered at `dpi / 100` times plotly's default size
-    _refuse_oversized_image(None, None, request.dpi / 100, lower="dpi")
-
-    begin_response()
-
-    # checked outside the handler below, as for `/api/stripes/stations`
-    Settings()
-    try:
-        # before the record is downloaded: a server without the `plotting` extra refuses at once
-        _require_plotting()
-        stripes_data = _get_stripes_data(request)
-        fig = _draw_stripes(stripes_data, request)
-    except AssertionError:
-        # a request its model should have refused: our bug, which FastAPI answers as a 500
-        raise
-    except Exception as e:
-        raise _failure(e, request, "plot stripes") from e
-    require_kaleido()
-    # the licence, the credit line and the warnings are told in the headers, as for every answer: an image holds
-    # none of it (GH-3581)
-    return Response(
-        content=render_image(fig, request.format, scale=request.dpi / 100),
-        media_type=_MEDIA_TYPES.get(request.format, "application/octet-stream"),
-        headers={
-            **response_headers(stripes_metadata(stripes_data, request, image=True)),
-            **_image_headers(request.format),
-        },
-    )
 
 
 @router.get(

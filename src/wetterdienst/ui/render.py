@@ -32,7 +32,6 @@ from wetterdienst.ui.response_metadata import (
     station_ids_metadata,
     storm_cells_metadata,
 )
-from wetterdienst.util.datetime import format_timestamp
 from wetterdienst.util.json_util import dumps_json
 
 if TYPE_CHECKING:
@@ -56,22 +55,12 @@ if TYPE_CHECKING:
         HistoryRequest,
         InterpolationRequest,
         StationsRequest,
-        StripesData,
-        StripesStationsRequest,
-        StripesValuesRequest,
         SummaryRequest,
         ValuesRequest,
     )
     from wetterdienst.util.response_warnings import ResponseWarning
 
-    _Request: TypeAlias = (
-        StationsRequest
-        | ValuesRequest
-        | InterpolationRequest
-        | SummaryRequest
-        | HistoryRequest
-        | StripesStationsRequest
-    )
+    _Request: TypeAlias = StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest | HistoryRequest
 
 
 #: a radius, factor or gain, which the settings take as infinite or NaN too, written then as a string
@@ -129,14 +118,6 @@ class StationsSettings(BaseModel):
     station_window_end_buffer: StationWindowEndBuffer | None = Field(
         validation_alias="station_window_end_buffer", description=_STATION_WINDOW_END_BUFFER_DESCRIPTION
     )
-
-
-class StripesSettings(BaseModel):
-    """The settings of `/api/stripes/values`: the unit its values are returned in (GH-3980)."""
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-
-    unit_targets: dict[str, str] = Field(validation_alias="unit_targets")
 
 
 def _plausibility_setting(check: str) -> Any:  # noqa: ANN401
@@ -491,35 +472,3 @@ def render_station_ids(
         return result.df.write_csv(), metadata
     answer = {"metadata": metadata.model_dump(mode="json"), "stations": result.to_dict()}
     return dumps_json(answer, indent=4 if pretty else None, ensure_ascii=False), metadata
-
-
-def render_stripes_stations(result: StationsResult, request: StripesStationsRequest, metadata: ResponseMetadata) -> str:
-    """Write the stations climate stripes are made for in the format asked for, the JSON formats with the block."""
-    if request.format == "csv":
-        return result.to_csv()
-    data = result.to_dict() if request.format == "json" else result.to_ogc_feature_collection()
-    return _json_answer(dict(data), request, metadata)
-
-
-def render_stripes_values(data: StripesData, request: StripesValuesRequest, metadata: ResponseMetadata) -> str:
-    """Write the values of climate stripes as JSON (GH-4157).
-
-    The `metadata` block, the `series` they are of, the `reference` their classes are relative to, and the `values`,
-    each with its anomaly to the centre of the reference and its class.
-    """
-    values = [
-        {
-            "timestamp": format_timestamp(row["timestamp"]) if row["timestamp"] else None,
-            "value": row["value"],
-            "anomaly": row["anomaly"],
-            "stripe_class": row["stripe_class"],
-        }
-        for row in data.df.select("timestamp", "value", "anomaly", "stripe_class").iter_rows(named=True)
-    ]
-    answer = {
-        "metadata": metadata_to_dict(metadata),
-        "series": data.series.model_dump(),
-        "reference": data.reference.model_dump(),
-        "values": values,
-    }
-    return dumps_json(answer, indent=4 if request.pretty else None)

@@ -513,7 +513,7 @@ The code is kept as a `raw:` token, as snow depth's is, and a reading with a `ra
   `rejected:limits`.
 - A `-1` of quality 7 comes back as `7,raw:-1` at `0.0`, where a measured reading of quality 7 is `7,suspect:source` (or
   `null` with `7,rejected:source,raw:0.5` under `plausibility={"source": "hard"}`; the decoded `0.0` stays under both).
-  `leave_out_suspect`, which interpolation, summaries, stripes and `skip_empty` apply, nulls the measured one and keeps
+  `leave_out_suspect`, which interpolation, summaries and `skip_empty` apply, nulls the measured one and keeps
   the decoded `0.0`.
 
 Read the `raw:-1` token to tell the two zeros apart.
@@ -665,7 +665,7 @@ Those are a degree of confidence, a treatment or a model, no verdict, and are no
 mapping rests on the documentation and was not probed live.
 
 With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the
-default is `soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes leave it
+default is `soft`, which keeps the value and writes `suspect:source`, so interpolation and summaries leave it
 out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ## License

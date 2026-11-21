@@ -153,7 +153,7 @@ export function barsSubtitle(reference: StripesReferenceView, unit: string, t: (
 
 /**
  * The 16 colours of the stripes, from the lowest class (0) to the highest (15), which `tests/unit/stripes.test.ts` holds to their sources
- * (the backend's image had the same, `wetterdienst/ui/stripes_scale.py`, until GH-4258). Temperature: the eight most saturated classes of
+ * (the backend's image had the same until it was removed, GH-4258). Temperature: the eight most saturated classes of
  * ColorBrewer's 9-class Blues, below the mean of the reference, and Reds above it, as Ed Hawkins' stripes have them.
  * Precipitation: the two halves of ColorBrewer's BrBG, brown for dry and teal for wet, eight sampled along each.
  */

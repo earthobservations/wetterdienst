@@ -88,10 +88,7 @@ MAX_TIMEOUT = 540
 #: two results files of another logic version are not compared
 LOGIC_VERSION = 17
 #: the tools the prompt names (`tests/ui/test_mcp_benchmark_cases.py` holds them to the server's)
-PROMPT_TOOLS = (
-    "alerts, auth, coverage, glossary, history, interpolate, issues, providers, stations, stripes_image, "
-    "stripes_stations, stripes_values, summarize, values"
-)
+PROMPT_TOOLS = "alerts, auth, coverage, glossary, history, interpolate, issues, providers, stations, summarize, values"
 UTC = dt.timezone.utc  # noqa: UP017 - the script also runs on the python3 of a Mac, which is older than 3.11
 #: Claude Code puts a tool result that exceeds its limit in a file and answers with this notice; no Read tool to open it
 SPILL_RE = re.compile(r"^Error: result \(([\d,]+) characters\) exceeds maximum allowed")

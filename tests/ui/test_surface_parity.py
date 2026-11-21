@@ -617,8 +617,7 @@ def test_every_command_spells_pretty_the_same() -> None:
         if any(param.name == "pretty" for param in command.params)
     }
 
-    # stations, history, values, interpolate and summarize, alerts, storm cells, KOSTRA, the search for an id and the
-    # stripes' stations
+    # stations, history, values, interpolate and summarize, alerts, storm cells, KOSTRA and the search for an id
     assert set(with_pretty) == {
         "stations",
         "history",
@@ -629,7 +628,6 @@ def test_every_command_spells_pretty_the_same() -> None:
         "storm-cells",
         "kostra",
         "station-ids",
-        "stripes stations",
     }
     spellings = {
         (tuple(param.opts), param.type.name, param.is_flag, param.flag_value, param.default)
@@ -734,10 +732,6 @@ _SURFACES = {
     core.CoverageRequest: (("coverage",), "/api/coverage", "coverage"),
     core.GlossaryRequest: (("glossary",), "/api/glossary", "glossary"),
     core.ProvidersRequest: (("providers",), "/api/providers", "providers"),
-    core.StripesStationsRequest: (("stripes", "stations"), "/api/stripes/stations", "stripes_stations"),
-    # the data of the stripes has no command of its own yet (GH-3035)
-    core.StripesImageRequest: (("stripes", "image"), "/api/stripes/image", "stripes_image"),
-    core.StripesValuesRequest: (None, "/api/stripes/values", "stripes_values"),
     core.SettingsRequest: (None, "/api/settings", None),
 }
 
@@ -765,9 +759,6 @@ _REST_ONLY_OF = {
     core.ProvidersRequest: {"pretty": "the command line always indents"},
 }
 _NO_COMMAND = {
-    core.StripesValuesRequest: (
-        "the data of the stripes has no command yet: `stripes values`, once the image's name, is not reused (GH-3128)"
-    ),
     core.SettingsRequest: "the settings of the server are reported by REST alone, and are no tool",
 }
 
@@ -1065,7 +1056,6 @@ def test_every_boolean_option_is_one_option_whatever_the_command() -> None:
         "--with-metadata",
         "--humanize",
         "--skip-empty",
-        "--show-title",
     }
     assert [
         (" ".join(path), param.opts[0])
@@ -1160,13 +1150,11 @@ _SELECTION_ROUTES: dict[str, tuple[type[BaseModel], dict[str, str]]] = {
         core.RestSummaryRequest,
         {"provider": "dwd", "network": "observation", "parameters": PARAMETER, "timestamp": "2020-05-02"},
     ),
-    "/api/v1/stripes/values": (core.StripesValuesRequest, {"kind": "temperature"}),
-    "/api/v1/stripes/image": (core.StripesImageRequest, {"kind": "temperature"}),
 }
 
 
 #: the tools of the MCP server that are these operations
-_SELECTION_TOOLS = {"stations", "values", "history", "interpolate", "summarize", "stripes_values", "stripes_image"}
+_SELECTION_TOOLS = {"stations", "values", "history", "interpolate", "summarize"}
 
 
 def _operation(path: str) -> dict[str, Any]:
@@ -1292,7 +1280,7 @@ def test_the_server_answers_the_examples_of_each_alternative_on_a_small_network(
     That is all it shows. A real network is larger, and a server refuses a request that reads more stations than it
     allows (`all=true` on `values` over DWD reads 573 and is a 400 at the default limit). `sql` is a 403 where the
     server does not enable it, which this test does. `history` reads the network's metadata from upstream, which the
-    stand-in does not serve; it, `interpolate`, `summarize` and the two stripes operations are not run here, only
+    stand-in does not serve; it, `interpolate` and `summarize` are not run here, only
     held to the model and to the schemas of their parameters.
     """
     _, base = _SELECTION_ROUTES[path]
@@ -1324,8 +1312,6 @@ _EXPECTED_GROUPS = {
     "/api/v1/history": [["all"], ["stations"]],
     "/api/v1/interpolate": [["station"], ["latitude", "longitude"]],
     "/api/v1/summarize": [["station"], ["latitude", "longitude"]],
-    "/api/v1/stripes/values": [["station"], ["name"]],
-    "/api/v1/stripes/image": [["station"], ["name"]],
 }
 #: parameters to combine, as a client writes them
 _ATOMS = {

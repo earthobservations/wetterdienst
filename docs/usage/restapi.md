@@ -88,7 +88,7 @@ What the endpoints share about which stations a request names:
   the library's `filter_by_name` applies the option of the same name, and `values` reports it in the
   `settings` block. With a point and `rank`, the window leaves out stations before the nearest are taken.
 
-Every timestamp in a JSON or GeoJSON body, of values, stations, history, alerts and stripes alike,
+Every timestamp in a JSON or GeoJSON body, of values, stations, history and alerts alike,
 and the same on the command line and in the MCP tools, is written the one way: ISO 8601 in UTC, to
 the microsecond, with its offset, for instance `2026-09-01T00:00:00.000000+00:00`.
 
@@ -147,8 +147,7 @@ for an endpoint, `mark_deprecated(...)` in the handler that reads a parameter.
 
 ## Response metadata
 
-The JSON answer of `stations`, `values`, `interpolate`, `summarize`, `history`, `issues`, `alerts` and
-the three `stripes` endpoints has a `metadata` member (`station-ids` has one too, with a `providers` list in place of the
+The JSON answer of `stations`, `values`, `interpolate`, `summarize`, `history`, `issues` and `alerts` has a `metadata` member (`station-ids` has one too, with a `providers` list in place of the
 one `provider`, as its answer holds several providers' stations, see [Find a station by id](station_ids.md)), and so does the GeoJSON of the first four (next to its
 `data`) and of `alerts` (a foreign member of the collection, next to its `snapshot`). It is always there, and
 it says where the data comes from and may be used, what was asked for as the library resolved it, and
@@ -225,11 +224,7 @@ what the answer is missing:
   [licences and credit lines](../data/provider/licenses.md).
 - **`processing_note`** says what wetterdienst did to the data, in the same words for every provider and licence:
   "Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ." Licences such as CC BY ask that changes be indicated. The answers of `interpolate` and `summarize` add
-  "The values were selected or calculated from the provider's readings.", and the headers of `stripes/image` add
-  "The image is drawn from the provider's annual values." (from "the annual values calculated above" where the years were calculated from daily values); `stripes/stations` has the plain note, as it is a list of
-  stations, and `stripes/values` adds a sentence on which reference its anomalies and classes were calculated against,
-  and, for `provider=noaa`, one before it on how the annual values were calculated from the daily ones (the WMO rules, see
-  [Climate Stripes](stripes.md)). It is always there on an answer that holds
+  "The values were selected or calculated from the provider's readings.". It is always there on an answer that holds
   provider data (`issues` and `alerts` too, not `providers` or `coverage`), whatever `with_metadata` says, and it is a
   statement of fact about the processing: it does not replace the credit line, and it is not legal advice about what
   your licence asks of you. Where it does not go is on [licences and credit
@@ -491,8 +486,8 @@ what the answer is missing:
   rows, which `values` alone does not say. It carries `stations` (the ids, in the order of the answer, which is the
   catalogue's and not the order they were asked in, the first ten if there are more; the message then gives their
   number). It is told for that selection alone: a point (`rank`, `distance`), a box, a name, `sql` and `all` have
-  empty stations as the ordinary case, a ranked walk stops at the first stations with data, and `interpolate`,
-  `summarize` and `stripes` read stations as candidates or one station and do not tell it.
+  empty stations as the ordinary case, a ranked walk stops at the first stations with data, and `interpolate`
+  and `summarize` read stations as candidates or one station and do not tell it.
 
   A station has no rows when the source holds no values of it in the window (a station the index says begins after
   the window included), or, in the long shape with `drop_nulls` (the default), when all its values were null and
@@ -571,7 +566,7 @@ what the answer is missing:
   read: a station found in another period whose `historical` file list is empty is named by `file-skipped` as for any
   file the provider let go (`values`), or by a second warning of the directory that lists the stations whose history was
   not read (`history`); the two state different facts and both are kept. A station that only the skipped release lists
-  is not found, and `interpolate`, `summarize`, `stripes/values` and `stripes/image` with such a `station` have no
+  is not found, and `interpolate` and `summarize` with such a `station` have no
   answer to put a warning in: an error answer has no `warnings`. They answer a 502 of the kind `upstream-failed`
   whose `detail` names the directory and why it was skipped (``No station found for 00044. The lookup of the stations
   went without the directory `climate/monthly/kl/historical/` (its listing came back empty or missing), so a station
@@ -581,8 +576,7 @@ what the answer is missing:
   no description names its stations in its file names, so only an id among them is, and any other id is the usual 404.
   The MCP tools give the same text, the command line exits 1 with it, and Python raises
   `StationListingIncompleteError`, an `UpstreamError`. A station that is not found where every directory was listed
-  is still the 404, and a name given to `stripes` that matches no station too: a name is the caller's input, not a gap
-  in a listing. A history with the warning is not cached (below). Only a listing that is missing, an index page with
+  is still the 404. A history with the warning is not cached (below). Only a listing that is missing, an index page with
   no link or a link to itself only, or a directory with files and no description of its stations is told this way.
   A connection that cannot be made (503), a reset, a timeout or a 5xx of the server (502 or 504) and a 200 page that
   is no index of a directory (a CDN's error page, a JSON error: a `DownloadError`, a 502) are errors as before, never
@@ -598,9 +592,7 @@ what the answer is missing:
   block, so that a stored answer can be told from one in a later shape.
 
 Where the answer is not about stations, `request.stations` is `null` and `counts.stations` is `0` (the
-warnings of `alerts`), and `counts.rows` counts what it lists: the issues, the alerts. The `metadata` of
-`stripes/values` says what its values are of in a `series` member next to `metadata` (the `station`,
-`resolution`, `dataset`, `parameter` and `unit` of the values), not in the block. `providers` has a
+warnings of `alerts`), and `counts.rows` counts what it lists: the issues, the alerts. `providers` has a
 smaller block, with the `api_version`, `schema_version`, `retrieved_at`, `producer`, `warnings` and the counts of
 providers, networks and the different parameters they declare: its answer is about the library, and
 the terms are those of each provider it lists.
@@ -665,18 +657,18 @@ release commit, with `uv run poe contracts:baseline`.
   There are no terms of service: the data is published under the terms of each provider, which the `metadata` of an
   answer and `providers` state.
 - **Tags** group the operations: `Catalogue` (`coverage`, `providers`, `glossary`, `auth`), `Stations` (`stations`,
-  `issues`, `history`), `Values` (`values`, `interpolate`, `summarize`), `Climate stripes`, `Alerts`, `Storm cells` and `Server`
+  `issues`, `history`), `Values` (`values`, `interpolate`, `summarize`), `Alerts`, `Storm cells` and `Server`
   (`version`, `settings`, `health`, `ready`, the index and `robots.txt`).
 - **`operationId`** is the name of the handler, then the path without the version, then the method, with every
-  non-word character an underscore: `values_api_values_get`, `stripes_image_api_stripes_image_get`. It does not carry the version, so
-  a client generated from the document keeps its method names when the version moves, and the MCP tools are found by it (`values`, `stripes_image`, see [MCP endpoint](#mcp-endpoint)). Changing one is a
+  non-word character an underscore: `values_api_values_get`, `stations_api_stations_get`. It does not carry the version, so
+  a client generated from the document keeps its method names when the version moves, and the MCP tools are found by it (`values`, `stations`, see [MCP endpoint](#mcp-endpoint)). Changing one is a
   break of the API version, as a removed path or parameter is.
 - **Answers** have a schema everywhere: the health check (`Health`), the readiness check (`Ready`), the version (`VersionAnswer`) and the data
-  routes (the response models above), and a media type of their own for the index (`text/html`), `robots.txt`
-  (`text/plain`) and the stripes image (`image/png`, `image/jpeg`, `image/svg+xml`, `application/pdf`).
+  routes (the response models above), and a media type of their own for the index (`text/html`) and `robots.txt`
+  (`text/plain`).
 - **Exclusive parameters** are stated on the operations that have them: `stations` and `values` (`all`, `stations`,
   `name`, a point, a box or `sql`), `history` (`all` or `stations`), `interpolate` and `summarize` (a `station` or a
-  point), and `stripes/values` and `stripes/image` (a `station` or a `name`). The document does not write it as a
+  point). The document does not write it as a
   `oneOf`. That is a keyword of one schema, and these are separate query parameters; the only place for it would be one
   object parameter (`style: form`, `explode: true`) in place of them. Then the operation would no longer list `all`,
   `sql` and the rest, which the check against the last release counts as removed, and the MCP tool would take one
@@ -711,9 +703,9 @@ release commit, with `uv run poe contracts:baseline`.
   can answer a 400 for a `Host` the server does not answer to, a 500, a 503 when the server is working on as many
   requests as it allows, and a 504 when the request times out; a route with a query also the 422. Beyond those: the
   routes that read from a provider (`stations`, `issues`, `history`, `values`, `interpolate`, `summarize`,
-  `stripes/values`, `stripes/image`, `alerts`, `storm-cells`, `kostra`, `station-ids`, `radar/frames`, `radar/frame`) the 400 of a refused request, 404, 501 and 502, and `stations`, `values`,
+  `alerts`, `storm-cells`, `kostra`, `station-ids`, `radar/frames`, `radar/frame`) the 400 of a refused request, 404, 501 and 502, and `stations`, `values`,
   `interpolate` and `summarize` the 403 of `sql` where the server does not enable it; `coverage` a 400, 404 and 501,
-  `auth` a 404 and 501, `providers` a 404, `settings` a 400, and `stripes/stations` a 501 and 502. A test makes each
+  `auth` a 404 and 501, `providers` a 404 and `settings` a 400. A test makes each
   of these routes fail with each exception of the table of [Errors](#errors) and holds the status it answers to
   what the document declares.
 
@@ -735,7 +727,7 @@ learnt on one holds on the others:
   0.139.0 (`stations`, `values`, `history`). A name a route never had is no rename there but an
   unknown parameter: `date` of `stations`, which takes a `timestamp` only, `parameter` of `values`.
   A parameter of one value is singular: the one reference
-  `station` of `interpolate` and `summarize`, the `station` of `issues` and `stripes`, the
+  `station` of `interpolate` and `summarize`, the `station` of `issues`, the
   `parameter` text `glossary` looks for.
 - **A request does not set the log level.** `debug` was a parameter of every data endpoint (not `version`,
   `settings` and `health`) that set the level of the logger of the whole server process, for every caller;
@@ -1118,7 +1110,7 @@ verdict of the source's own quality flag, such as GHCN-Daily `QFLAG` or DMI `val
 `WD_TS_PLAUSIBILITY__RANGE` and so on). A hard check nulls the value and writes `rejected:<check>,raw:<number>` into
 `quality_flags`, a soft check keeps the value and writes `suspect:<check>`; a check not named keeps the server's mode. On a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`, `dwd/pollen`, `dwd/uvi`: `kind` `forecast`) every check but `floor` and `limits` is soft whatever the mode, so `hard` there flags `suspect:<check>` and nulls nothing (`limits` follows its mode).
 See [plausibility checks](../data/plausibility.md). `interpolate` and `summarize` take no mode: they leave out a
-suspect value in any case, and so do `stripes/values` and `stripes/image`.
+suspect value in any case.
 
 The check `limits` judges the bounds you set per parameter, which `limits` of `values` takes as a JSON object of a
 parameter to `[low, high]` (`null` for no bound at an end): `{"temperature_air_mean_2m": [-30, 45]}`. A key is a
@@ -1150,8 +1142,7 @@ for clients you trust with that.
 ## Image size
 
 A chart in an image format (`png`, `jpg`, `webp`, `svg`, `pdf`) is refused with a 400 when a side of
-the image is longer than 8192 px, `scale` applied; for `/api/stripes/image` the size is 700 x 500 px
-times `dpi / 100`. A chart of several parameters is 300 px tall for each, and is measured as drawn.
+the image is longer than 8192 px, `scale` applied. A chart of several parameters is 300 px tall for each, and is measured as drawn.
 The limit holds for the REST API and the MCP tools; the library and the CLI have none.
 
 A chart is drawn by a Chrome that Kaleido starts for the image, and the start of that browser and the
@@ -1274,7 +1265,7 @@ and where an answer cannot be reasoned about it stays out.
 | `stations`, `issues` | none | no | no | A list changes with the provider's catalogue, which the server is not told about. |
 | `values`, `interpolate`, `summarize` | none | no | no | A window in the past is not stable by itself: a provider revises data (the DWD `recent` readings are checked and moved to `historical`, others publish corrections), and an estimate is made from them. |
 | `ndjson` and `csv` of `stations` and `values` | none | no | no | Streamed station by station, before the answer is known: there is no body to tag when the headers go out. |
-| `stripes/*`, `alerts`, `storm-cells`, `auth`, `version`, `settings` | none | no | no | The stripes end with the year being recorded, alerts and storm cells are live, `auth` probes a provider, and the last two describe the instance. |
+| `alerts`, `storm-cells`, `auth`, `version`, `settings` | none | no | no | Alerts and storm cells are live, `auth` probes a provider, and the last two describe the instance. |
 | `station-ids` | none | no | no | The lists it reads are cached by the server, but the answer is a search over the networks that declare id columns and is not tagged. |
 | `kostra` | none | no | no | DWD's tables are static (December 2022) and the server keeps them in its own cache for a week, but the answer is not tagged: no route is cached by a client without a decision of its own. |
 | `/health`, `/ready` | `no-store` (`/ready`) | no | no | A probe is asked every time. |

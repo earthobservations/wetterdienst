@@ -28,6 +28,17 @@ Types of changes:
   network that fails is a warning (`network-failed`); if all fail it is a 502. The first search
   reads about 30 MB, about 9 s (GH-4075)
 
+### Removed
+
+- **Breaking**: the climate stripes leave the backend; the web app draws them itself since app
+  0.57.0. Gone: the REST routes `/api/v1/stripes/stations`, `/values` and `/image` and their
+  `/api` aliases (a 404), the command group `wetterdienst stripes` ("No such command", exit 2),
+  the MCP tools `stripes_stations`, `stripes_values` and `stripes_image` (unknown tools), the
+  modules `wetterdienst.ui.stripes_scale` and `stripes_annual` and `NotEnoughDataError` of
+  `wetterdienst.exceptions` (`ImportError`; nothing raises it any more). Read the annual values
+  with `values` (`dwd/observation` `annual/climate_summary`) and calculate the anomalies
+  yourself; the web app's stripes page has the pictures (GH-4258)
+
 ## [0.194.0] - 2026-11-21
 
 ### Added

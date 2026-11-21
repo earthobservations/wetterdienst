@@ -53,7 +53,6 @@ def test_cli_help() -> None:
           station-ids  Find one WMO number, WIGOS identifier or ICAO code at every...
           stations     Acquire stations.
           storm-cells  Acquire DWD's thunderstorm cells (KONRAD3D).
-          stripes      Climate stripes.
           summarize    Summarize data for a point: the nearest station's value.
           values       Acquire data.
         """,
@@ -653,13 +652,12 @@ def test_every_export_command_can_say_what_to_do_with_an_existing_target() -> No
     one run's rows. This walks the command tree rather than naming the four commands, because the
     gap was a command gaining `--target` without the option that says what a second run does.
 
-    Four commands are excluded because their `--target` never reaches a sink: `alerts` and
-    `history` write text with `Path.write_text`, and `stripes image` writes an
-    image with `fig.write_image`. There is nothing for them to ask what to do with an existing target.
+    Two commands are excluded because their `--target` never reaches a sink: `alerts` and
+    `history` write text with `Path.write_text`. There is nothing for them to ask what to do with an existing target.
     """
     import click  # noqa: PLC0415
 
-    writes_directly = {"alerts", "history", "stripes image"}
+    writes_directly = {"alerts", "history"}
 
     def walk(command: click.Command, path: tuple[str, ...] = ()) -> list[tuple[str, click.Command]]:
         here = (*path, command.name)
@@ -766,14 +764,6 @@ _RADAR_ONE_OF = "Missing option: one of '--dwd', '--all', '--odim-code', '--wmo-
         # an empty value, e.g. from an unset shell variable, selects nothing
         (["radar", "--odim-code="], f"Error: {_RADAR_ONE_OF}\n"),
         (["radar", "--country-name="], f"Error: {_RADAR_ONE_OF}\n"),
-        (["stripes", "image", "--kind=temperature"], "Error: Missing option: one of '--station' or '--name'.\n"),
-        (
-            ["stripes", "image", "--kind=temperature", "--station=1048", "--name=Dresden"],
-            (
-                "Error: Options '--station' and '--name' cannot be used together, "
-                "give exactly one of '--station' or '--name'.\n"
-            ),
-        ),
         # a single value's error is told as click tells an invalid value, with the value refused;
         # --sections is a set, so the position pydantic gives within it points nowhere and is left out
         (
@@ -1165,8 +1155,6 @@ def test_cli_summarize_has_no_use_nearby_station_distance(monkeypatch: pytest.Mo
         pytest.param(["issues", "--provider=dwd", "--network=mosmix", "--station=10147"], id="issues"),
         pytest.param(["interpolate", *_POINT_ARGS], id="interpolate"),
         pytest.param(["summarize", *_POINT_ARGS], id="summarize"),
-        pytest.param(["stripes", "stations", "--kind=temperature"], id="stripes-stations"),
-        pytest.param(["stripes", "image", "--kind=temperature", "--station=1048"], id="stripes-image"),
         pytest.param(["alerts"], id="alerts"),
     ],
 )
@@ -1763,7 +1751,7 @@ def test_the_moved_commands_are_top_level_commands_and_about_is_none() -> None:
     assert set(_MOVED_FROM_ABOUT) <= set(cli.commands)
     assert "about" not in cli.commands
     assert "about" not in cli.list_commands(click.Context(cli))
-    assert len(cli.commands) == 20
+    assert len(cli.commands) == 19
 
     help_text = CliRunner().invoke(cli, ["--help"]).output
     assert "about" not in help_text.split("Commands:", 1)[1]

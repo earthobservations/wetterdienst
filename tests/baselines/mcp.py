@@ -34,8 +34,16 @@ BASELINE = DIRECTORY / "mcp.baseline.json"
 #: the packages whose version shapes the input schemas
 SHAPED_BY = ("fastapi", "pydantic", "fastmcp")
 
+_STRIPES_GONE = (
+    "the climate stripes left the backend (GH-4258): the web app draws them itself; "
+    "read the annual values with `values`"
+)
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {}
+ACCEPTED_BREAKS: dict[str, str] = {
+    "tool stripes_image was removed": _STRIPES_GONE,
+    "tool stripes_stations was removed": _STRIPES_GONE,
+    "tool stripes_values was removed": _STRIPES_GONE,
+}
 
 #: the keys of a schema that describe it for a reader and promise nothing
 _PROSE = frozenset({"description", "title", "examples", "example"})

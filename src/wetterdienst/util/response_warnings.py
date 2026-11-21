@@ -381,18 +381,6 @@ def begin_response() -> None:
     _COUNTED.set({})
 
 
-def forget_response_warning(code: str, parameter: str) -> None:
-    """Take the warning `code` about `parameter` out of those recorded for the answer of the request being served.
-
-    For a caller that asked for a parameter it can do without, and is told that the source has none of it: the climate
-    stripes of GHCN ask for TAVG beside TMAX and TMIN, which most stations do not have, and read the day without it. The
-    line the warning wrote to the log stays.
-    """
-    recorded = _RECORDED.get()
-    if recorded is not None:
-        recorded[:] = [w for w in recorded if not (w["code"] == code and w.get("parameter") == parameter)]
-
-
 def count_response_warning(code: str, count: int, message: str, *, details: dict[str, int] | None = None) -> None:
     """Add `count` to the warning `code` of the request being served, whose `message` has `{count}` for the total.
 

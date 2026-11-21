@@ -4,9 +4,7 @@
 
 Licences such as CC BY ask that changes be indicated. Every answer's `metadata` block has the one `processing_note`
 that says the data was reshaped and its units converted where they differ; the answers of interpolate and summarize
-add that the values were selected or calculated, and the headers of the climate stripes' image that it is drawn from
-the provider's annual values. The stripes' values and stations carry the plain note: they are DWD's own annual values
-and a list of its stations. Offline: the results are the stubs of the REST tests.
+add that the values were selected or calculated. Offline: the results are the stubs of the REST tests.
 """
 
 from __future__ import annotations
@@ -21,15 +19,14 @@ from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
 from tests.conftest import ECCC_ATTRIBUTION
-from tests.ui.test_response_metadata import ENDPOINTS, _Figure, _params
+from tests.ui.test_response_metadata import ENDPOINTS, _params
 from tests.ui.test_restapi import (
     _FETCH_OF_ENDPOINT,
     _OBSERVATION,
     _stub_result,
-    _stub_stripes_station,
     _values_result_of_shape,
 )
-from wetterdienst.model.processing_note import DERIVED_NOTE, IMAGE_NOTE, PROCESSING_NOTE, processing_note
+from wetterdienst.model.processing_note import DERIVED_NOTE, PROCESSING_NOTE, processing_note
 from wetterdienst.model.result import describe_provider
 from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest
 from wetterdienst.provider.eccc.observation import EcccObservationRequest
@@ -43,7 +40,6 @@ from wetterdienst.ui.response_metadata import (
     response_headers,
     response_metadata,
 )
-from wetterdienst.ui.stripes_scale import StripesReference
 from wetterdienst.util.response_warnings import _COUNTED, _RECORDED
 
 if TYPE_CHECKING:
@@ -88,18 +84,17 @@ def _expected(endpoint: str) -> str:
 
 
 def test_the_note_says_what_was_done_and_claims_nothing_of_the_licence() -> None:
-    """One short note for every licence, with what an interpolation, a summary and an image add."""
+    """One short note for every licence, with what an interpolation and a summary add."""
     assert PROCESSING_NOTE == (
         "Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted "
         "where they differ."
     )
     assert DERIVED_NOTE == "The values were selected or calculated from the provider's readings."
-    assert IMAGE_NOTE == "The image is drawn from the provider's annual values."
     assert processing_note() == PROCESSING_NOTE
     assert processing_note(derived=True) == f"{PROCESSING_NOTE} {DERIVED_NOTE}"
-    assert processing_note(image=True) == f"{PROCESSING_NOTE} {IMAGE_NOTE}"
+    assert processing_note(image_note="The image is drawn.") == f"{PROCESSING_NOTE} The image is drawn."
     # it says what happened to the data, not what a licence demands (that is no legal advice)
-    for text in (PROCESSING_NOTE, DERIVED_NOTE, IMAGE_NOTE):
+    for text in (PROCESSING_NOTE, DERIVED_NOTE):
         assert "licen" not in text.lower()
         assert "required" not in text.lower()
         assert "permitted" not in text.lower()
@@ -183,39 +178,6 @@ def test_the_header_is_on_a_json_answer_too(client: TestClient, monkeypatch: pyt
     response = client.get("/api/interpolate", params=_params("/api/interpolate"))
 
     assert unquote(response.headers[PROCESSING_HEADER]) == response.json()["metadata"]["processing_note"]
-
-
-# --- stripes -------------------------------------------------------------------------------------------------------
-
-
-@pytest.mark.usefixtures("figure_draws_itself")
-def test_the_stripes_say_what_their_classes_are_relative_to_and_the_image_that_it_is_drawn(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The values are DWD's own, with the anomaly and class calculated from them (GH-4157); the image is drawn."""
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
-    params = {"kind": "temperature", "station": "01048"}
-
-    values = client.get("/api/stripes/values", params=params)
-    image = client.get("/api/stripes/image", params={**params, "format": "png"})
-
-    reference = StripesReference.model_validate(values.json()["reference"])
-    assert values.json()["metadata"]["processing_note"] == processing_note(calculated=reference.note())
-    assert unquote(values.headers[PROCESSING_HEADER]) == processing_note(calculated=reference.note())
-    assert image.status_code == 200, image.text
-    assert unquote(image.headers[PROCESSING_HEADER]) == processing_note(calculated=reference.note(), image=True)
-    # a record this short has no years of the periods of the method: the whole record is named
-    assert "for the mean the whole record (2000-2009, 10 years)" in reference.note()
-
-
-def test_the_stripes_stations_have_the_plain_note(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The stations climate stripes are made for are listed as they are: reshaped, nothing calculated or drawn."""
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-
-    response = client.get("/api/stripes/stations", params={"kind": "temperature", "active": "false"})
-
-    assert response.json()["metadata"]["processing_note"] == PROCESSING_NOTE
 
 
 # --- the command line ----------------------------------------------------------------------------------------------

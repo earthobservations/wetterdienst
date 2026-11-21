@@ -32,7 +32,7 @@ from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
 from tests.conftest import IS_WINDOWS
-from tests.ui.test_restapi import _stub_stripes_station
+from tests.ui.test_mcp_budget import _stations_of
 from wetterdienst.exceptions import ImageTimeoutError
 from wetterdienst.io import export
 from wetterdienst.io.export import IMAGE_TIMEOUT, render_image
@@ -395,19 +395,22 @@ def test_a_machine_without_chrome_is_the_runtime_error_plotly_raised(monkeypatch
 
 # --- the surfaces ------------------------------------------------------------------------------------------------
 
+_STATIONS_QUERY = {"provider": "dwd", "network": "observation", "parameters": "daily/kl", "all": "true"}
+
 
 @pytest.mark.usefixtures("_no_ambient_settings")
 def test_the_rest_api_answers_a_stuck_image_with_a_504_and_closes_the_browser(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
-    """`/api/stripes/image` was held by a browser that never answered; now it is a 504 problem to retry."""
+    """An image of `/api/stations` was held by a browser that never answered; now it is a 504 problem to retry."""
     events = _fake_kaleido(monkeypatch, stuck=("open",))
     monkeypatch.setattr(export, "IMAGE_TIMEOUT", _SHORT)
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
+    stations = _stations_of(3)
+    monkeypatch.setattr(restapi, "get_stations", lambda **_kwargs: stations)
     client = TestClient(restapi.app, raise_server_exceptions=False)
 
     with caplog.at_level(logging.WARNING):
-        response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048"})
+        response = client.get("/api/stations", params={**_STATIONS_QUERY, "format": "png"})
 
     assert response.status_code == 504, response.text
     problem = response.json()
@@ -427,10 +430,21 @@ def test_the_command_line_tells_a_stuck_image_in_one_line_and_exits_1(
     """Exit 1, as for every failure that is not the request's to rephrase, and no traceback."""
     events = _fake_kaleido(monkeypatch, stuck=("draw",))
     monkeypatch.setattr(export, "IMAGE_TIMEOUT", _SHORT)
-    monkeypatch.setattr("wetterdienst.ui.cli._plot_stripes", lambda _request: go.Figure())
+    stations = _stations_of(3)
+    monkeypatch.setattr("wetterdienst.ui.cli.get_stations", lambda **_kwargs: stations)
 
     with caplog.at_level(logging.ERROR):
-        result = CliRunner().invoke(cli, ["stripes", "image", "--kind=temperature", "--station=01048"])
+        result = CliRunner().invoke(
+            cli,
+            [
+                "stations",
+                "--provider=dwd",
+                "--network=observation",
+                "--parameters=daily/kl",
+                "--all",
+                "--format=png",
+            ],
+        )
 
     assert result.exit_code == 1
     assert isinstance(result.exception, SystemExit)

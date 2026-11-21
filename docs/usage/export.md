@@ -170,7 +170,7 @@ and carry nothing (#2567).
 ## Formats by surface
 
 Which format each surface takes. `all` is `stations`, `values`, `interpolate` and `summarize`, the four commands,
-routes and MCP tools that return a result; `alerts`, `history` and `stripes` have fewer formats and are described
+routes and MCP tools that return a result; `alerts` and `history` have fewer formats and are described
 with their own commands. A file target is chosen by its extension, not by a format, so it has its own column.
 `tests/test_export_formats.py` holds this table to the code: a format that a surface takes and the table leaves
 out, or the other way round, fails it.

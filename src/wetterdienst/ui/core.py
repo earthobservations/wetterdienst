@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import datetime as dt
 import json
 import logging
 import re
@@ -18,9 +17,7 @@ from typing import TYPE_CHECKING, Annotated, Any, ClassVar, Literal, LiteralStri
 import polars as pl
 from pydantic import (
     BaseModel,
-    BeforeValidator,
     Field,
-    SkipValidation,
     ValidationError,
     field_validator,
     model_validator,
@@ -41,22 +38,18 @@ from wetterdienst.exceptions import (
     NoInternetError,
     NoParametersFoundError,
     NoStationPositionsError,
-    NotEnoughDataError,
     NotFoundError,
     ProviderRateLimitError,
     RequestError,
     StartDateEndDateError,
-    StationListingIncompleteError,
-    StationNotFoundError,
     UpstreamError,
 )
 from wetterdienst.metadata.aliases import PARAMETER_ALIASES, use_alias
 from wetterdienst.metadata.parameter_table import Aggregation  # noqa: TC001, needed at runtime by FastAPI
-from wetterdienst.metadata.period import Period
 from wetterdienst.metadata.unit_type import UnitType  # noqa: TC001, needed at runtime by FastAPI
 from wetterdienst.model.limits import LIMITS_DESCRIPTION, Limit, with_aliases_resolved, with_normal_names
 from wetterdienst.model.metadata import parse_parameters, whole_datasets_kept
-from wetterdienst.model.plausibility import CHECKS, Mode, default_mode, forecast_note, hard_means, leave_out_suspect
+from wetterdienst.model.plausibility import CHECKS, Mode, default_mode, forecast_note, hard_means
 from wetterdienst.model.request import (
     DEFAULT_NAME_RANK,
     DEFAULT_NAME_RANK_LISTING,
@@ -65,33 +58,17 @@ from wetterdienst.model.request import (
     limit_to_window,
     require_window,
 )
-from wetterdienst.model.result import _Station  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.model.station_ids import search_icao_id, search_wigos_id, search_wmo_id
 from wetterdienst.options import Options, SkipThreshold, StationWindowEndBuffer, options_from_mapping
 from wetterdienst.provider.dwd.kostra.metadata import DURATIONS as KOSTRA_DURATIONS
 from wetterdienst.provider.dwd.kostra.metadata import RETURN_PERIODS as KOSTRA_RETURN_PERIODS
-from wetterdienst.provider.dwd.observation import DwdObservationRequest
-from wetterdienst.ui.stripes_annual import annual_from_daily, leave_out_failed, temperature_method
-from wetterdienst.ui.stripes_scale import (
-    MIN_RECORD_YEARS,
-    PRECIPITATION_PALETTE,
-    TEMPERATURE_PALETTE,
-    StripesReference,
-    stripe_class,
-    stripes_reference,
-)
 from wetterdienst.util.datetime import format_timestamp, parse_date_window
-from wetterdienst.util.extras import import_optional
 from wetterdienst.util.geo import LATITUDE_MAX, LATITUDE_MIN, LONGITUDE_MAX, LONGITUDE_MIN
 from wetterdienst.util.logging import get_one_line_logger
-from wetterdienst.util.response_warnings import PARAMETER_WITHOUT_ROWS, forget_response_warning
 from wetterdienst.util.ui import read_list
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Hashable
-    from types import ModuleType
-
-    import plotly.graph_objs as go
 
     from wetterdienst.api import StandaloneRequest
     from wetterdienst.model.result import (
@@ -100,7 +77,6 @@ if TYPE_CHECKING:
         SummarizedValuesResult,
         ValuesResult,
     )
-    from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
     from wetterdienst.settings import Settings
 
 log = get_one_line_logger(__name__)
@@ -692,7 +668,7 @@ RENAMED_REQUEST_PARAMETERS: dict[str, str] = {
 
 
 #: the old names of `RENAMED_REQUEST_PARAMETERS` that each route took in 0.139.0, the release the renames are counted
-#: from, by route: the name of its MCP tool (`stations`, `stripes_values`), which is that of its REST path and of its
+#: from, by route: the name of its MCP tool (`stations`, `values`), which is that of its REST path and of its
 #: command (`coverage` was `about coverage` in 0.139.0). A route is told that an old name "was renamed" only if it had
 #: it: a route that already took `stations` and `periods` in 0.139.0 was never renamed from `period`, and a route
 #: added since had no old name at all. `tests/ui/test_renamed_routes.py` holds this to the parameters and options that
@@ -709,8 +685,6 @@ OLD_NAMES_OF_ROUTE: dict[str, frozenset[str]] = {
     "alerts": frozenset({"date"}),
     # the command `fields` only, which still takes all three
     "fields": frozenset({"dataset", "period", "resolution"}),
-    "stripes_values": frozenset({"station"}),
-    "stripes_image": frozenset({"station"}),
 }
 
 
@@ -719,11 +693,11 @@ def old_names_of_route(route: str) -> frozenset[str]:
     return OLD_NAMES_OF_ROUTE.get(route, frozenset())
 
 
-#: the options of a command that were spelled with an underscore in 0.139.0, by route as `OLD_NAMES_OF_ROUTE` has it
-#: (`stripes values` of that release is `stripes image` now): the command line spells them with hyphens, and
-#: `--convert_units` is told it "was renamed to --convert-units" only on a command that had it, not on `stations`,
-#: which spelled `--name-threshold` so already. `tests/ui/test_renamed_routes.py` holds it to the options of that
-#: release's code, as it does `OLD_NAMES_OF_ROUTE` (GH-3869)
+#: the options of a command that were spelled with an underscore in 0.139.0, by route as `OLD_NAMES_OF_ROUTE` has it:
+#: the command line spells them with hyphens, and `--convert_units` is told it "was renamed to --convert-units" only
+#: on a command that had it, not on `stations`, which spelled `--name-threshold` so already.
+#: `tests/ui/test_renamed_routes.py` holds it to the options of that release's code, as it does `OLD_NAMES_OF_ROUTE`
+#: (GH-3869)
 OLD_UNDERSCORE_OPTIONS_OF_ROUTE: dict[str, frozenset[str]] = {
     "stations": frozenset({"if_exists", "with_metadata"}),
     "issues": frozenset({"lead_time"}),
@@ -774,16 +748,6 @@ OLD_UNDERSCORE_OPTIONS_OF_ROUTE: dict[str, frozenset[str]] = {
         }
     ),
     "radar": frozenset({"country_name", "wmo_code"}),
-    "stripes_image": frozenset(
-        {
-            "end_year",
-            "name_threshold",
-            "show_data_availability",
-            "show_title",
-            "show_years",
-            "start_year",
-        }
-    ),
 }
 
 
@@ -966,8 +930,6 @@ STATION_SELECTION = Selection(
 HISTORY_SELECTION = Selection(exactly_one_of=(("all",), ("stations",)))
 #: the reference of `interpolate` and `summarize`: a station, or a point, which needs no rank
 REFERENCE_SELECTION = Selection(exactly_one_of=(("station",), _POINT))
-#: the station of the climate stripes
-STRIPES_SELECTION = Selection(exactly_one_of=(("station",), ("name",)))
 
 #: one value for each parameter of a selection, as the schema of the parameter has it, a list as a list, which the
 #: document spells comma-separated (`explode: false`). A request gives a whole group of them, with a `rank` for the
@@ -1709,7 +1671,7 @@ class IssuesRequest(_RefusesRenamedParameters):
 
 
 # the query parameters of `/api/auth`, `/api/coverage`, `/api/glossary`, `/api/alerts` and `/api/storm-cells`, and of
-# `/api/stripes/stations` below, each a model forbidding others as the other endpoints' requests
+# each a model forbidding others as the other endpoints' requests
 # are: taken loose, a parameter the endpoint does not know was passed over, and the request answered
 # as if it had not been given it (GH-2479)
 class AuthRequest(_RefusesRenamedParameters):
@@ -2922,723 +2884,6 @@ def get_summarize(
         values_ = values_.filtered_by_sql(request.sql_values)
 
     return values_
-
-
-class StripesSeries(BaseModel):
-    """What a series of climate stripes is of: the station, the parameter and the unit of its values."""
-
-    model_config = {"extra": "forbid"}
-
-    # the station as the stations listing has it, which is what the OpenAPI document says of it; the row is
-    # sent as it is and not read back through the model (`SkipValidation`), so the answer is what it always was
-    station: Annotated[_Station, SkipValidation]
-    resolution: str
-    dataset: str
-    parameter: str
-    # the unit `value` comes in, named as `/api/values` names one in its settings' `unit_targets`;
-    # the request's `unit_targets` (GH-3980) and the server's `WD_TS_CONVERT_UNITS` and `WD_TS_UNIT_TARGETS` set it,
-    # the latter two since GH-2372
-    unit: str
-    # how a day of the temperature was calculated where the years were built from days (`noaa/ghcn`): the `midrange`
-    # of TMAX and TMIN, for every day of a station that has both, or `tavg` at one that has no day with both
-    # (GH-4222). Null for the provider's own annual values (DWD) and for the precipitation, whose day is the PRCP
-    method: Annotated[
-        Literal["midrange", "tavg"] | None,
-        Field(
-            description="How a day of the temperature was calculated where the years were built from daily values "
-            "(`noaa`/`ghcn`): `midrange`, the mean of TMAX and TMIN, which is no 24-hour mean, used for every day of a "
-            "station that has both so that the method does not change along the record, or `tavg`, the source's own "
-            "mean, at a station with no day that has both. Null for DWD's own annual values and for the precipitation."
-        ),
-    ] = None
-
-
-class StripesData(BaseModel):
-    """Climate stripes data: what the series is of, and its values."""
-
-    model_config = {"extra": "forbid", "arbitrary_types_allowed": True}
-
-    series: StripesSeries
-    #: what the classes are relative to: the station's whole record, not the window of years shown
-    reference: StripesReference
-    df: pl.DataFrame
-
-
-# Type definitions for CLIMATE_STRIPES_CONFIG
-StripesKind = Literal["temperature", "precipitation"]
-
-#: the sources climate stripes are made from, as (provider, network): DWD's annual values, which the stripes read as
-#: they are, and the daily values of NOAA GHCN, from which the years are calculated by the WMO rules
-#: (`ui/stripes_annual.py`, GH-4222). A request names one and DWD's is the default; any other pair is refused
-STRIPES_SOURCES: tuple[tuple[str, str], ...] = (("dwd", "observation"), ("noaa", "ghcn"))
-STRIPES_DEFAULT_SOURCE = STRIPES_SOURCES[0]
-STRIPES_GHCN_SOURCE = STRIPES_SOURCES[1]
-
-
-def _lower(value: Any) -> Any:  # noqa: ANN401
-    """Read a provider or network in lower case, as every route does; anything else is left for the field to refuse."""
-    return value.strip().lower() if isinstance(value, str) else value
-
-
-_StripesProviderField = Annotated[
-    str,
-    BeforeValidator(_lower),
-    Field(
-        description="Provider of the stations and values the stripes are made from: 'dwd' (annual values, the "
-        "default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). "
-        "Only the pairs dwd/observation and noaa/ghcn are served."
-    ),
-]
-_StripesNetworkField = Annotated[
-    str,
-    BeforeValidator(_lower),
-    Field(
-        description="Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs "
-        "dwd/observation and noaa/ghcn are served."
-    ),
-]
-
-
-def _check_stripes_source(provider: str, network: str) -> list[InitErrorDetails]:
-    """Refuse a provider and network the climate stripes are not made from, and say which they are."""
-    pair = (provider, network)
-    if pair in STRIPES_SOURCES:
-        return []
-    served = ", ".join(f"{provider}/{network}" for provider, network in STRIPES_SOURCES)
-    message = f"Climate stripes are not made from {pair[0]}/{pair[1]}; the sources are {served}"
-    return [
-        _rule_error("unsupported_source", message, ("provider",), pair[0], sources=[list(p) for p in STRIPES_SOURCES])
-    ]
-
-
-def _check_stripes_bbox(request: BaseModel) -> list[InitErrorDetails]:
-    """Check a bounding box is given whole, and runs from west to east and from south to north."""
-    names = ("left", "bottom", "right", "top")
-    given = [name for name in names if getattr(request, name) is not None]
-    if not given:
-        return []
-    errors = [
-        _rule_error("missing_with", f"Field required with {join_names(given)}", (name,), required_with=given)
-        for name in names
-        if name not in given
-    ]
-    if errors:
-        return errors
-    left, bottom, right, top = (getattr(request, name) for name in names)
-    if left >= right:
-        message = f"Input should be greater than left ({left})"
-        errors.append(_rule_error("greater_than_field", message, ("right",), right, field="left", gt=left))
-    if bottom >= top:
-        message = f"Input should be greater than bottom ({bottom})"
-        errors.append(_rule_error("greater_than_field", message, ("top",), top, field="bottom", gt=bottom))
-    return errors
-
-
-class StripesStationsRequest(_RefusesRenamedParameters):
-    """Request model for listing the stations climate stripes are made for, forbidding other parameters (GH-2479)."""
-
-    route: ClassVar[str] = "stripes_stations"
-
-    model_config = {"extra": "forbid"}
-
-    kind: Annotated[
-        StripesKind,
-        Field(description="temperature (annual mean air temperature) or precipitation (annual amount)."),
-    ]
-    provider: _StripesProviderField = STRIPES_DEFAULT_SOURCE[0]
-    network: _StripesNetworkField = STRIPES_DEFAULT_SOURCE[1]
-    active: Annotated[
-        bool, Field(description="Only the stations that still report, i.e. have data in the recent period.")
-    ] = True
-    # a box, as `stations` takes it: the list of GHCN is 133,000 stations long, and a map loads the ones in view
-    left: _LeftField = None
-    bottom: _BottomField = None
-    right: _RightField = None
-    top: _TopField = None
-    format: Annotated[
-        Literal["json", "geojson", "csv"],
-        Field(description="Output format: json, geojson (a feature collection) or csv."),
-    ] = "json"
-    pretty: _PrettyField = False
-
-    @model_validator(mode="after")
-    def check_source_and_box(self) -> StripesStationsRequest:
-        """Check the source is one the stripes are made from, and a bounding box, where one is given, is whole."""
-        _raise_rule_errors(self, [*_check_stripes_source(self.provider, self.network), *_check_stripes_bbox(self)])
-        return self
-
-
-class StripesRequest(_RefusesRenamedParameters):
-    """The station and the years climate stripes are made for, shared by their values and their image.
-
-    Like the other request models, it states its rules once for the CLI, the REST API and MCP, which
-    each checked them by hand before, and answered a refusal in a shape of their own (GH-2060).
-    """
-
-    model_config = {"extra": "forbid"}
-    selection: ClassVar[Selection] = STRIPES_SELECTION
-
-    kind: Annotated[
-        StripesKind,
-        Field(description="temperature (annual mean air temperature) or precipitation (annual amount)."),
-    ]
-    provider: _StripesProviderField = STRIPES_DEFAULT_SOURCE[0]
-    network: _StripesNetworkField = STRIPES_DEFAULT_SOURCE[1]
-    station: Annotated[
-        str | None,
-        Field(description="Station id, e.g. '01048' (dwd) or 'USW00094728' (noaa); give this or name."),
-    ] = None
-    name: Annotated[
-        str | None,
-        Field(description="Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station."),
-    ] = None
-    # as for stations and values, and the CLI's --name-threshold
-    name_threshold: _NameThresholdField = 0.8
-    start_year: Annotated[int | None, Field(description="First year. Default: the station's first.")] = None
-    end_year: Annotated[
-        int | None,
-        Field(description="Last year, after start_year. Default: the station's last."),
-    ] = None
-
-    @model_validator(mode="after")
-    def check_station_and_years(self) -> StripesRequest:
-        """Check the source, exactly one of station or name, and a year range that ends after it starts."""
-        errors = [*_check_stripes_source(self.provider, self.network), *_check_selection(self, self.selection)]
-        if self.start_year is not None and self.end_year is not None and self.end_year <= self.start_year:
-            message = f"Input should be greater than start_year ({self.start_year})"
-            errors.append(
-                _rule_error(
-                    "greater_than_field",
-                    message,
-                    ("end_year",),
-                    self.end_year,
-                    field="start_year",
-                    gt=self.start_year,
-                ),
-            )
-        _raise_rule_errors(self, errors)
-        return self
-
-
-class StripesValuesRequest(StripesRequest):
-    """A request for the values climate stripes are made of."""
-
-    route: ClassVar[str] = "stripes_values"
-
-    format: Annotated[Literal["json", "csv"], Field(description="Output format.")] = "json"
-    pretty: _PrettyField = False
-    unit_targets: Annotated[
-        dict[str, str] | None,
-        Field(
-            description="The unit the values are returned in, as for `/api/values`: a mapping of quantity to unit, "
-            "e.g. {'temperature': 'degree_fahrenheit'}. The unit of the kind is "
-            "reported in `series.unit`. A quantity it leaves out keeps the server's WD_TS_UNIT_TARGETS entry, if "
-            "set. The colours of the stripes image are relative and are the same in any unit."
-        ),
-    ] = None
-
-    @field_validator("unit_targets", mode="before")
-    @classmethod
-    def validate_unit_targets(cls, v: str | dict | None) -> dict | None:
-        """Validate unit targets: a mapping, or the JSON text of one."""
-        if not v:
-            return None
-        if isinstance(v, dict):
-            return v
-        return _load_json(v)
-
-
-class StripesImageRequest(StripesRequest):
-    """A request for a climate stripes image."""
-
-    route: ClassVar[str] = "stripes_image"
-
-    show_title: Annotated[bool, Field(description="Show the station name.")] = True
-    show_years: Annotated[bool, Field(description="Show the first and last year.")] = True
-    show_data_availability: Annotated[bool, Field(description="Mark the years without data.")] = True
-    format: Annotated[Literal["png", "jpg", "svg", "pdf"], Field(description="Image format.")] = "png"
-    dpi: Annotated[int, Field(gt=0, description="Resolution in dots per inch.")] = 300
-
-
-class StripesConfigItem(TypedDict):
-    """Configuration item for climate stripes."""
-
-    request: Callable[..., DwdObservationRequest]
-    #: the 16 colours of the classes, from the lowest to the highest
-    palette: tuple[str, ...]
-
-
-class StripesConfig(TypedDict):
-    """Configuration for climate stripes by kind."""
-
-    temperature: StripesConfigItem
-    precipitation: StripesConfigItem
-
-
-def _get_stripes_options(unit_targets: Mapping[str, str] | None = None, *, humanize: bool | None = None) -> Options:
-    """Give the options the stripes read a station's values with.
-
-    `_get_stripes_data` takes the `value` column of a long frame and draws the gaps in a station's
-    record itself. The rest comes from the environment as for any request, but `WD_TS_SHAPE=wide`
-    left no `value` column (`ColumnNotFoundError`), and `WD_TS_SKIP_EMPTY=true` dropped a station
-    with gaps, leaving no years to draw (GH-2348). Those two are fixed here, as arguments, which
-    outrank the environment's variables, a malformed one included.
-
-    `humanize` is fixed the same way where it is given: `WD_TS_HUMANIZE=false` turns the canonical names of the
-    parameters into the source's, which the years of GHCN, built from the days by those names, cannot be built by
-    (GH-4222). DWD's annual values are read by the one parameter and leave it to the environment.
-
-    `unit_targets` is laid over the ones the environment sets, as for `/api/values`, an entry it gives
-    winning (GH-3980). The colours are relative, so the unit changes the numbers of the answer, not the stripes.
-    """
-    if humanize is None:
-        options = Options(shape="long", skip_empty=False)
-    else:
-        options = Options(shape="long", skip_empty=False, humanize=humanize)
-    return overlay_options(options, {"unit_targets": dict(unit_targets)}) if unit_targets else options
-
-
-def _get_stripes_temperature_request(
-    periods: Period = Period.HISTORICAL, unit_targets: Mapping[str, str] | None = None
-) -> DwdObservationRequest:
-    """Give the request the temperature stripes list their stations and read their values with."""
-    return DwdObservationRequest(
-        parameters=[("annual", "climate_summary", "temperature_air_mean_2m")],
-        periods=periods,
-        options=_get_stripes_options(unit_targets),
-    )
-
-
-def _get_stripes_precipitation_request(
-    periods: Period = Period.HISTORICAL, unit_targets: Mapping[str, str] | None = None
-) -> DwdObservationRequest:
-    """Give the request the precipitation stripes list their stations and read their values with."""
-    return DwdObservationRequest(
-        parameters=[("annual", "precipitation_more", "precipitation_amount")],
-        periods=periods,
-        options=_get_stripes_options(unit_targets),
-    )
-
-
-CLIMATE_STRIPES_CONFIG: StripesConfig = {
-    "temperature": {
-        "request": _get_stripes_temperature_request,
-        "palette": TEMPERATURE_PALETTE,
-    },
-    "precipitation": {
-        "request": _get_stripes_precipitation_request,
-        # brown for dry, teal for wet (GH-2063)
-        "palette": PRECIPITATION_PALETTE,
-    },
-}
-
-
-#: the daily parameters of GHCN the annual values of each kind are calculated from (`ui/stripes_annual.py`), and the
-#: elements of its inventory they are listed under
-GHCN_STRIPES_PARAMETERS: dict[str, tuple[str, ...]] = {
-    "temperature": ("temperature_air_mean_2m", "temperature_air_max_2m", "temperature_air_min_2m"),
-    "precipitation": ("precipitation_amount",),
-}
-
-
-def _get_stripes_ghcn_request(
-    kind: StripesKind, unit_targets: Mapping[str, str] | None = None, *, window: bool = True
-) -> NoaaGhcnRequest:
-    """Give the request the stripes of GHCN daily list their stations and read their days with, the whole record.
-
-    The dataset needs a window (`date_required`) to read days, so with `window` they are asked from before the first
-    record of the network (1700) to now; the station's file is read whole either way. A listing needs none.
-    """
-    from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest  # noqa: PLC0415
-
-    span = {"start": dt.datetime(1700, 1, 1, tzinfo=dt.UTC), "end": dt.datetime.now(dt.UTC)} if window else {}
-    return NoaaGhcnRequest(
-        parameters=[("daily", "data", name) for name in GHCN_STRIPES_PARAMETERS[kind]],
-        options=_get_stripes_options(unit_targets, humanize=True),
-        **span,
-    )
-
-
-def _ghcn_record_years(kind: StripesKind, inventory: pl.DataFrame) -> pl.DataFrame:
-    """Give the first and last year of the record each station has of what the stripes of `kind` are made from.
-
-    The inventory lists a span per element. The precipitation is the span of PRCP; the temperature is that of TAVG
-    taken with the span the two of TMAX and TMIN have together (their later start to their earlier end), since a day
-    has a mean from either. It is the span the record can reach, not the years with a value.
-    """
-    element, start, end = pl.col("element"), pl.col("start_timestamp"), pl.col("end_timestamp")
-
-    def first(name: str) -> pl.Expr:
-        return start.filter(element == name).min()
-
-    def last(name: str) -> pl.Expr:
-        return end.filter(element == name).max()
-
-    if kind == "precipitation":
-        aggregations = (first("PRCP").alias("first_year"), last("PRCP").alias("last_year"))
-    else:
-        both = first("TMAX").is_not_null() & first("TMIN").is_not_null()
-        pair_first = pl.when(both).then(pl.max_horizontal(first("TMAX"), first("TMIN")))
-        pair_last = pl.when(both).then(pl.min_horizontal(last("TMAX"), last("TMIN")))
-        aggregations = (
-            pl.min_horizontal(first("TAVG"), pair_first).alias("first_year"),
-            pl.max_horizontal(last("TAVG"), pair_last).alias("last_year"),
-        )
-    elements = {"temperature": ("TAVG", "TMAX", "TMIN"), "precipitation": ("PRCP",)}[kind]
-    record = inventory.filter(element.is_in(elements)).group_by("station_id").agg(*aggregations)
-    return record.filter(pl.col("first_year").is_not_null() & pl.col("last_year").is_not_null())
-
-
-def _get_stripes_ghcn_stations(kind: StripesKind, *, active: bool = True) -> StationsResult:
-    """List the GHCN daily stations the stripes of `kind` are made for: those whose record can reach `MIN_RECORD_YEARS`.
-
-    As for DWD, the span from the first to the last year its inventory lists is all the listing has, so a record with
-    gaps is listed where the span is long enough. The span is that of the elements the kind is made from
-    (`_ghcn_record_years`), not of any element the station has, and `start_timestamp` and `end_timestamp` say it.
-    A station is active where that record reaches into this or the last year, which is what the recent period of DWD
-    holds, as the years are built from complete years and the one running has not ended.
-    """
-    from wetterdienst.provider.noaa.ghcn.api import read_daily_inventory  # noqa: PLC0415
-
-    request = _get_stripes_ghcn_request(kind, window=False)
-    stations = request.all()
-    inventory = read_daily_inventory(cast("Settings", request.settings))
-    record = _ghcn_record_years(kind, inventory)
-    year = pl.col("last_year")
-    long_enough = year - pl.col("first_year") + 1 >= MIN_RECORD_YEARS
-    this_year = dt.datetime.now(dt.UTC).year
-    record = record.filter(long_enough & (year >= this_year - 1 if active else pl.lit(value=True)))
-    zone = stations.df.schema["start_timestamp"]
-    df = stations.df.drop("start_timestamp", "end_timestamp").join(record, on="station_id", how="inner")
-    df = df.with_columns(
-        pl.datetime(pl.col("first_year"), 1, 1, time_zone="UTC").cast(zone).alias("start_timestamp"),
-        # the year still running has no end, as `_all` leaves it, and the others end on 31 December
-        pl.when(pl.col("last_year") < this_year)
-        .then(pl.datetime(pl.col("last_year"), 12, 31, time_zone="UTC"))
-        .cast(zone)
-        .alias("end_timestamp"),
-    ).drop("first_year", "last_year")
-    columns = [name for name in stations.df.columns if name in df.columns]
-    return replace(stations, df=df.select(columns))
-
-
-def _get_stripes_stations(
-    kind: StripesKind,
-    *,
-    active: bool = True,
-    provider: str = STRIPES_DEFAULT_SOURCE[0],
-    network: str = STRIPES_DEFAULT_SOURCE[1],
-    left: float | None = None,
-    bottom: float | None = None,
-    right: float | None = None,
-    top: float | None = None,
-) -> StationsResult:
-    """List the stations climate stripes are made for, of the source `provider` and `network` name, in a box if given.
-
-    The box, `left`, `bottom`, `right` and `top` all or none, keeps the stations inside it (borders included), as
-    `filter_by_bbox` does; a station with no position is in no box. The listing of GHCN is 133,000 stations long and a
-    map asks for the ones in view (GH-4222). The rules of each listing are those of `_get_stripes_dwd_stations` and
-    `_get_stripes_ghcn_stations`.
-    """
-    if (provider, network) == STRIPES_GHCN_SOURCE:
-        stations = _get_stripes_ghcn_stations(kind, active=active)
-    else:
-        stations = _get_stripes_dwd_stations(kind, active=active)
-    if left is not None and bottom is not None and right is not None and top is not None:
-        inside = pl.col("latitude").is_between(bottom, top) & pl.col("longitude").is_between(left, right)
-        stations = replace(stations, df=stations.df.filter(inside))
-    return stations
-
-
-def _get_stripes_dwd_stations(kind: StripesKind, *, active: bool = True) -> StationsResult:
-    """List the DWD stations climate stripes are made for: those whose record can reach `MIN_RECORD_YEARS` (GH-4157).
-
-    A station whose description gives fewer years than that from its first to its last (`end - start + 1`, by
-    year) is left out, as a request for it is refused. The span is all the listing has: a record with gaps is
-    listed where its span is long enough, and is still refused where it has fewer than `MIN_RECORD_YEARS` years
-    with values, which is only known by reading it. Measured on 2026-11-16, of the active stations listed 5 of 489
-    for the temperature and 61 of 2039 for the precipitation are (23 of 1080 and 180 of 5697 of all of them). The
-    listing's dates and the data disagree the other way for 11 precipitation stations (none of them active), which
-    have 10 or more years with values and a shorter span, and so are not listed. A station with no start or end date
-    is kept.
-    """
-    request = CLIMATE_STRIPES_CONFIG[kind]["request"]
-    stations = request(Period.HISTORICAL).all()
-    long_enough = pl.col("end_timestamp").dt.year() - pl.col("start_timestamp").dt.year() + 1 >= MIN_RECORD_YEARS
-    unknown = pl.col("end_timestamp").is_null() | pl.col("start_timestamp").is_null()
-    stations = replace(stations, df=stations.df.filter(long_enough | unknown))
-    if active:
-        station_ids_active = request(Period.RECENT).all().df.select("station_id")
-        stations = replace(stations, df=stations.df.join(station_ids_active, on="station_id"))
-    return stations
-
-
-def _find_stripes_station(stripes: StripesRequest, request: Any) -> tuple[StationsResult, dict[str, Any]]:  # noqa: ANN401
-    """Find the station a request for stripes names, by id or by name, in the provider request that lists them."""
-    if stripes.station:
-        stations = request.filter_by_station_id(stripes.station)
-    elif stripes.name:
-        stations = request.filter_by_name(stripes.name, threshold=stripes.name_threshold)
-    else:
-        # not reached: the request model refuses a request with neither
-        msg = f"{type(stripes).__name__} gives neither a station nor a name"
-        raise AssertionError(msg)
-
-    # asked of the list rather than caught from indexing it, so an `IndexError` from building the
-    # list is not taken for an unknown station
-    found = stations.to_dict()["stations"]
-    if not found:
-        if stripes.station and (gaps := request._gaps_that_may_list(stripes.station)):  # noqa: SLF001
-            # not known to be unknown: the lookup went without a listing the station may be in (GH-3834)
-            raise StationListingIncompleteError(stripes.station, gaps)
-        parameter = "station_id" if stripes.station else "name"
-        msg = f"No station with a {parameter} similar to '{stripes.station or stripes.name}' found"
-        raise StationNotFoundError(msg)
-    return stations, found[0]
-
-
-def _annual_values_from_days(
-    df: pl.DataFrame, kind: StripesKind
-) -> tuple[pl.DataFrame, Literal["midrange", "tavg"] | None]:
-    """Build the annual values of GHCN from the daily values of a station, and say by which method of day (GH-4222)."""
-    if kind == "temperature":
-        # the three are read to tell which the station has (`temperature_method`), and one that it has none of, most
-        # often TAVG, is not a gap in the answer to warn of
-        for name in GHCN_STRIPES_PARAMETERS[kind]:
-            forget_response_warning(PARAMETER_WITHOUT_ROWS, f"daily/data/{name}")
-    # and a day whose value failed a quality check of the source is a missing day; the year is built from the rest
-    df = leave_out_failed(df)
-    method = temperature_method(df) if kind == "temperature" else None
-    return annual_from_daily(df, kind), method
-
-
-def _get_stripes_data(stripes: StripesRequest) -> StripesData:
-    """Get stripes data for a station of the source the request names, for a request its model has checked.
-
-    The source is DWD's annual values, as they are, or NOAA GHCN's daily values, from which each year is calculated by
-    the WMO rules (`annual_from_daily`, GH-4222); a year that fails them is a gap, and everything after, the minimum
-    record, the reference and its fallback, the classes, is the same for both.
-
-    The `unit_targets` of a request for the values name the unit they are returned in, as for `/api/values`
-    (GH-3980). The class of a year is relative to the station's whole record, never to the years asked for
-    (`start_year`, `end_year`), and so is the same in any unit (GH-4157). The image has no `unit_targets`.
-
-    Returns StripesData with metadata and dataframe.
-    """
-    kind, start_year, end_year = stripes.kind, stripes.start_year, stripes.end_year
-    unit_targets = stripes.unit_targets if isinstance(stripes, StripesValuesRequest) else None
-    from_days = (stripes.provider, stripes.network) == STRIPES_GHCN_SOURCE
-    if from_days:
-        request = _get_stripes_ghcn_request(kind, unit_targets)
-    else:
-        request = CLIMATE_STRIPES_CONFIG[kind]["request"](Period.HISTORICAL, unit_targets=unit_targets)
-
-    stations, station = _find_stripes_station(stripes, request)
-
-    # a value a soft plausibility check flagged suspect is no year with data, whatever the mode (GH-3676)
-    df = leave_out_suspect(stations.values().all().df)
-    annual_method = None
-    if from_days:
-        df, annual_method = _annual_values_from_days(df, kind)
-    df = df.sort("timestamp")
-    df = df.set_sorted("timestamp")
-    # a value that is no finite number (NaN, an infinity) is no year with data: it would make the reference NaN, and
-    # the class of every year with it (GH-4157)
-    df = df.select("timestamp", pl.when(pl.col("value").is_finite()).then(pl.col("value")).alias("value"))
-    # a station that returns no rows has no first and last year to upsample between (polars raises
-    # `ComputeError`); left empty, it is refused below as having data for no year (GH-2369)
-    if not df.is_empty():
-        df = df.upsample("timestamp", every="1y")
-    record = df.filter(pl.col("value").is_not_null())
-    recorded = record.get_column("timestamp").dt.year()
-    if start_year is not None:
-        df = df.filter(pl.col("timestamp").dt.year().ge(start_year))
-    if end_year is not None:
-        df = df.filter(pl.col("timestamp").dt.year().le(end_year))
-
-    # a range holding no year with data drew empty stripes, and one holding a single year stripes of
-    # one colour
-    years_with_data = df.filter(pl.col("value").is_not_null()).get_column("timestamp")
-    if len(years_with_data) < 2:
-        record_text = f"from {recorded.min()} to {recorded.max()}" if len(recorded) else "for no year"
-        msg = (
-            f"At least two years with data are required to create climate stripes; station "
-            f"{station['station_id']} has data {record_text}"
-        )
-        raise NotEnoughDataError(msg)
-    if len(recorded) < MIN_RECORD_YEARS:
-        msg = (
-            f"At least {MIN_RECORD_YEARS} years with data are required to scale climate stripes; station "
-            f"{station['station_id']} has data for {len(recorded)} (from {recorded.min()} to {recorded.max()})"
-        )
-        raise NotEnoughDataError(msg)
-    # from the first year with data to the last: a start or end year falling in a gap of the record
-    # would otherwise label the stripes with a year none of them shows
-    df = df.filter(pl.col("timestamp").is_between(years_with_data.min(), years_with_data.max()))
-
-    # the classes are relative to the station's whole record, never to the window asked for, so a year keeps its
-    # colour whatever `start_year` and `end_year` show (GH-4157)
-    reference = stripes_reference(recorded.to_list(), record.get_column("value").to_list())
-    value = pl.col("value")
-    df = df.with_columns(
-        (value - reference.centre.value).round(4).alias("anomaly"),
-        pl.Series(
-            "stripe_class",
-            [None if v is None else stripe_class(v, reference) for v in df.get_column("value")],
-            dtype=pl.Int64,
-        ),
-        pl.when(value.is_not_null()).then(-0.02).otherwise(None).alias("availability"),
-    )
-
-    # named by the one parameter the values were read for, as is their unit: the target of its
-    # quantity where they were converted, the unit the source publishes them in where not
-    from wetterdienst.core.util import _values_unit  # noqa: PLC0415
-
-    if from_days:
-        # the years are built from days of up to three parameters; the series is named by the one that says what a
-        # year holds (the mean, the amount), whose unit the others share
-        parameter_model = next(p for p in stations.parameters if p.name == GHCN_STRIPES_PARAMETERS[kind][0])
-    else:
-        (parameter_model,) = stations.parameters
-    series = StripesSeries(
-        method=annual_method,
-        station=station,
-        resolution=parameter_model.dataset.resolution.name,
-        dataset=parameter_model.dataset.name,
-        parameter=parameter_model.name,
-        unit=_values_unit(
-            parameter_model,
-            stations.values().unit_converter,
-            convert_units=stations.options.convert_units,
-        ),
-    )
-
-    return StripesData(series=series, reference=reference, df=df)
-
-
-def _require_plotting() -> ModuleType:
-    """Give plotly's graph objects, or raise the `MissingDependencyError` that says to install the `plotting` extra.
-
-    Asked before a station's record is downloaded, so that a server without the extra refuses at once (GH-3581).
-    """
-    return import_optional("plotly.graph_objects", "Plotting warming stripes", extra="plotting")
-
-
-def _plot_stripes(stripes: StripesImageRequest) -> go.Figure:
-    """Create warming stripes for station in Germany, for a request its model has checked."""
-    _require_plotting()
-    return _draw_stripes(_get_stripes_data(stripes), stripes)
-
-
-def _reference_caption(reference: StripesReference) -> str:
-    """Say on the image what its colours are relative to, the whole record where the station is short of a period."""
-    return (
-        f"Colours: mean {reference.centre.first_year}-{reference.centre.last_year}, "
-        f"+/-{reference.range_sigma:g} \u03c3 of {reference.spread.first_year}-{reference.spread.last_year}"
-    )
-
-
-def _draw_stripes(stripes_data: StripesData, stripes: StripesImageRequest) -> go.Figure:
-    """Draw the warming stripes of data `_get_stripes_data` has read, so that the caller can tell whose they are.
-
-    Code similar to: https://www.s4f-freiburg.de/temperaturstreifen/
-    """
-    go = _require_plotting()
-
-    kind = stripes.kind
-    show_title, show_years, show_data_availability = (
-        stripes.show_title,
-        stripes.show_years,
-        stripes.show_data_availability,
-    )
-
-    df = stripes_data.df
-    station_dict = stripes_data.series.station
-    palette = CLIMATE_STRIPES_CONFIG[kind]["palette"]
-    # DWD's stations are in Germany, which the title says; the stations of GHCN are worldwide and name no country
-    if (stripes.provider, stripes.network) == STRIPES_GHCN_SOURCE:
-        from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest  # noqa: PLC0415
-
-        source_text, place = f"Source: {NoaaGhcnRequest.metadata.attribution}.", ""
-    else:
-        source_text, place = "Source: Deutscher Wetterdienst.", ", Germany"
-
-    df_without_nulls = df.drop_nulls("value")
-
-    fig = go.Figure()
-
-    # Add bar trace
-    fig.add_trace(
-        go.Bar(
-            x=df_without_nulls.get_column("timestamp").dt.year(),
-            y=[1.0] * len(df_without_nulls),
-            marker={"color": [palette[stripe] for stripe in df_without_nulls.get_column("stripe_class")]},
-            width=1.0,
-        ),
-    )
-
-    # Add scatter trace for data availability
-    if show_data_availability:
-        fig.add_trace(
-            go.Scatter(
-                x=df.get_column("timestamp").dt.year(),
-                y=df.get_column("availability"),
-                mode="lines",
-                marker={"color": "gold", "size": 5},
-                line={"color": "gold"},
-            ),
-        )
-        fig.add_annotation(
-            x=df.get_column("timestamp").dt.year().min(),
-            xanchor="left",
-            y=-0.05,
-            text="data availability",
-            showarrow=False,
-            align="right",
-            font={"color": "gold"},
-        )
-    # Add source text, and the reference the colours are relative to (GH-4157)
-    fig.add_annotation(
-        x=0.5,
-        y=-0.05,
-        text=f"{source_text} {_reference_caption(stripes_data.reference)}",
-        showarrow=False,
-        xref="paper",
-        yref="paper",
-    )
-    if show_title:
-        fig.update_layout(
-            title=f"Climate stripes ({kind}) for {station_dict['name']}{place} ({station_dict['station_id']})",
-        )
-    if show_years:
-        fig.add_annotation(
-            x=0.05,
-            y=-0.05,
-            text=str(df.get_column("timestamp").dt.year().min()),
-            showarrow=False,
-            xref="paper",
-            yref="paper",
-            xanchor="right",
-        )
-        fig.add_annotation(
-            x=0.95,
-            y=-0.05,
-            text=str(df.get_column("timestamp").dt.year().max()),
-            showarrow=False,
-            xref="paper",
-            yref="paper",
-            xanchor="left",
-        )
-    fig.update_layout(
-        plot_bgcolor="white",
-        xaxis={
-            "showticklabels": False,
-        },
-        yaxis={"range": [None, 1], "showticklabels": False},
-        showlegend=False,
-        margin={"l": 10, "r": 10, "t": 30, "b": 30},
-    )
-    return fig
 
 
 def set_logging_level(*, debug: bool) -> None:
