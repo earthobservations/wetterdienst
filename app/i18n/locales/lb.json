@@ -527,6 +527,9 @@
     "noResolutions": "Keng Zäitreih: hei gëtt et näischt opzelëschten.",
     "openExplorer": "Am Explorer opmaachen"
   },
+  "credit": {
+    "licence": "Lizenz: {name} ({url})"
+  },
   "processingNote": {
     "base": "Veraarbecht vu wetterdienst: D'Daten vum Ubidder goufen an eng eenheetlech Tabell gesat an d'Eenheeten, wou se ofwäichen, ëmgerechent.",
     "estimate": "D'Wäerter goufen aus de Miessunge vum Ubidder ausgewielt oder berechent.",
@@ -731,7 +734,6 @@
     "plotMethodMidrange": "Temperatur: Mëtt aus Deeshéichst- an Deesminimum (GHCN)",
     "plotMethodTavg": "Temperatur: Deeschduerchschnëtt (TAVG, GHCN)",
     "plotReference": "Faarwen: Duerchschnëtt vun {centre}, ±{sigma} σ vun {spread}",
-    "csvLicence": "Lizenz: {name} ({url})",
     "barsRelativeTo": "Relativ zum Duerchschnëtt vun {period}",
     "variant": {
       "label": "Usiicht",

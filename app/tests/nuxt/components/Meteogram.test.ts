@@ -1,13 +1,15 @@
 import process from 'node:process'
-import { mountSuspended } from '@nuxt/test-utils/runtime'
+import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { flushPromises } from '@vue/test-utils'
 import tzLookup from 'tz-lookup'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h, nextTick } from 'vue'
+import { clearNuxtData } from '#app'
 import Meteogram from '~/components/Meteogram.vue'
 import { panelToggleStyle, SERIES_LABEL, seriesLabelColor } from '~/utils/chart-theme'
 import { chromeWithoutLuxembourgish } from '../../helpers/chrome-without-luxembourgish'
 import { snowForecastValues } from '../../helpers/meteogram-forecast'
+import { providersAnswer } from '../fixtures/providers'
 
 // ECharts draws in these tests as it does in a browser, to an SVG string, and every call is recorded: a test reads the
 // option the component gave it, or what that option drew (`tests/helpers/ssr-echarts.ts`)
@@ -604,6 +606,56 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
       'https://github.com/nrkno/yr-weather-symbols',
       'https://creativecommons.org/licenses/by/4.0/',
     ])
+  })
+
+  // DWD's credit line and the processing note directly under it, whichever view shows the forecast (GH-4255); the credits of Yr's symbols
+  // and of the snow forecast are those of products and stay where they were
+  describe('the provider\'s credit', () => {
+    const NOTE = 'Processed by wetterdienst: the provider\'s data was reshaped into a uniform table, and its units converted where they differ.'
+    const credits = () => document.body.querySelectorAll('[data-testid="meteogram-provider-credit"]')
+    async function creditShown() {
+      await vi.waitFor(() => expect(credits()).toHaveLength(1))
+      await vi.waitFor(() => expect(credits()[0]!.textContent).toContain('Source: Deutscher Wetterdienst'))
+      return credits()[0]!
+    }
+    beforeEach(() => {
+      clearNuxtData('providers')
+      registerEndpoint('/api/providers', () => providersAnswer())
+    })
+
+    it('is under the chart, once, with the licence as a link and the note directly under the credit line', async () => {
+      await showMeteogram()
+      const credit = await creditShown()
+      const line = credit.querySelector('[data-testid="provider-credit-line"]')!
+      expect(line.textContent!.trim()).toBe('Source: Deutscher Wetterdienst, Creative Commons Attribution 4.0 International')
+      expect(line.querySelector('a')!.getAttribute('href')).toBe('https://creativecommons.org/licenses/by/4.0/')
+      expect(credit.querySelector('[data-testid="processing-note"]')!.textContent!.trim()).toBe(NOTE)
+      expect(credit.querySelector('[data-testid="processing-note"]')!.previousElementSibling).toBe(line)
+    })
+
+    it.each(['compact', 'table'])('is under the %s view as well, once', async (view) => {
+      await showMeteogram()
+      ;(wrapper!.vm as any).view = view
+      await wrapper!.vm.$nextTick()
+      await vi.waitFor(() => expect(useRouter().currentRoute.value.query.view).toBe(view))
+      await creditShown()
+    })
+
+    it('is under the day rows of the map\'s panel and the widget, in the smaller type of the widget', async () => {
+      clearDrawn()
+      wrapper = await mountSuspended(Meteogram, { props: { values: [...day, ...rain], stationName: 'Berlin', widget: true, daysOnly: true }, attachTo: document.body })
+      const credit = await creditShown()
+      expect(credit.querySelector('[data-testid="provider-credit-line"]')!.className).toContain('text-xs')
+      expect(credit.querySelector('[data-testid="processing-note"]')!.className).toContain('text-[11px]')
+      expect(document.body.querySelector('[data-testid="day-rows"]')!.compareDocumentPosition(credit) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    })
+
+    it('is said in the language of the page', async () => {
+      await inLanguage('de')
+      await showMeteogram()
+      const credit = await creditShown()
+      expect(credit.querySelector('[data-testid="processing-note"]')!.textContent).toMatch(/^Aufbereitet von wetterdienst/)
+    })
   })
 
   it('credits Yr under the cards of a language, in its own words', async () => {

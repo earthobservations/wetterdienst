@@ -317,7 +317,7 @@ function csvComments(data: StripesValuesResponse): string[] {
     referenceFull.value,
     methodNote.value,
     provider?.attribution || t('stripes.plotSource'),
-    licence ? t('stripes.csvLicence', { name: licence.name, url: licence.url }) : '',
+    licence ? t('credit.licence', { name: licence.name, url: licence.url }) : '',
     processingNote(t),
   ]
 }
@@ -650,6 +650,13 @@ watch([
               <ValuesTable
                 v-if="hasPlot && showsTable && tableRows.length"
                 full :caption="plotLabel ?? ''" :columns="tableColumns" :rows="tableRows"
+              />
+              <!-- the table has no source line to carry the credit, as the chart does: it is here, under the table, with the note (GH-4255) -->
+              <ProviderCredit
+                v-if="hasPlot && !plotFailed && showsTable && lastFetchedData"
+                :terms="lastFetchedData.metadata?.provider"
+                :fallback="source === 'ghcn' ? t('stripes.plotSourceGhcn') : t('stripes.plotSource')"
+                class="mt-3" data-testid="stripes-table-credit"
               />
               <div v-if="hasPlot && !plotFailed" class="mt-4">
                 <!-- not modal: a modal menu hides the page from assistive technology (aria-hidden) while its

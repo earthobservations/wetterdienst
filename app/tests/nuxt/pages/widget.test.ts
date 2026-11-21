@@ -2,10 +2,12 @@ import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-uti
 import { setResponseHeader, setResponseStatus } from 'h3'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { defineComponent, h } from 'vue'
+import { clearNuxtData } from '#app'
 import { useSettings } from '#imports'
 import Meteogram from '~/components/Meteogram.vue'
 import WidgetPage from '~/pages/widget.vue'
 import { fill, messagesOf, OTHER_LANGUAGES } from '../fixtures/catalogs'
+import { providersAnswer } from '../fixtures/providers'
 
 // the page's $fetch, passed through to the real one unless a test makes it fail where nothing answered,
 // which no endpoint can do
@@ -384,6 +386,20 @@ describe('widget Page units', () => {
     await vi.waitFor(() => expect(valuesRequests()).toHaveLength(1))
     expect(JSON.parse(valuesRequests()[0]!.searchParams.get('unit_targets')!).temperature).toBe('degree_fahrenheit')
     await vi.waitFor(() => expect(chartUnits()).toEqual({ temperature_air_2m: '°F' }))
+  })
+
+  // the widget's footer keeps its "Powered by wetterdienst", and the forecast carries DWD's credit line, compactly, with the note under it (GH-4255)
+  it('credits DWD under the forecast, compactly, beside the Powered by Wetterdienst footer', async () => {
+    registerEndpoint('/api/providers', () => providersAnswer())
+    clearNuxtData('providers')
+    wrapper = await mountSuspended(WidgetPage, { route: '/widget?station=70001', attachTo: document.body })
+    await vi.waitFor(() => expect(wrapper!.findComponent(Meteogram).exists()).toBe(true))
+    const credit = () => wrapper!.find('[data-testid="meteogram-provider-credit"]')
+    await vi.waitFor(() => expect(credit().text()).toContain('Source: Deutscher Wetterdienst'))
+    expect(credit().find('[data-testid="provider-credit-licence"]').attributes('href')).toBe('https://creativecommons.org/licenses/by/4.0/')
+    expect(credit().find('[data-testid="provider-credit-line"]').classes()).toContain('text-xs')
+    expect(credit().find('[data-testid="processing-note"]').classes()).toContain('text-[11px]')
+    expect(wrapper.text()).toContain('Powered by Wetterdienst · DWD MOSMIX')
   })
 
   it('takes no unit from its address: a parameter of the address that names one is not read', async () => {

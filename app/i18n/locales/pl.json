@@ -527,6 +527,9 @@
     "noResolutions": "To nie jest szereg czasowy: nie ma tu czego wymieniać.",
     "openExplorer": "Otwórz w eksploratorze"
   },
+  "credit": {
+    "licence": "Licencja: {name} ({url})"
+  },
   "processingNote": {
     "base": "Przetworzone przez wetterdienst: dane dostawcy ułożono w jednolitą tabelę, a ich jednostki przeliczono tam, gdzie się różnią.",
     "estimate": "Wartości wybrano lub obliczono na podstawie pomiarów dostawcy.",
@@ -731,7 +734,6 @@
     "plotMethodMidrange": "Temperatura: środek między dobowym maksimum i minimum (GHCN)",
     "plotMethodTavg": "Temperatura: średnia dobowa (TAVG, GHCN)",
     "plotReference": "Kolory: średnia z {centre}, ±{sigma} σ z {spread}",
-    "csvLicence": "Licencja: {name} ({url})",
     "barsRelativeTo": "W odniesieniu do średniej z {period}",
     "variant": {
       "label": "Widok",

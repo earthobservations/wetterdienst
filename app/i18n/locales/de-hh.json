@@ -527,6 +527,9 @@
     "noResolutions": "Keen Tietreeg: hier is nix to wiesen.",
     "openExplorer": "In'n Explorer apenmaken"
   },
+  "credit": {
+    "licence": "Lizenz: {name} ({url})"
+  },
   "processingNote": {
     "base": "Verarbeidt vun wetterdienst: De Daten vun den Anbeder sünd in eene eenheitliche Tabell bröcht un de Eenheiten ümrekent, wo se afwiekt.",
     "estimate": "De Weerten sünd ut de Meetweerten vun den Anbeder utsöcht oder utrekent.",
@@ -731,7 +734,6 @@
     "plotMethodMidrange": "Temperatur: Mitt ut Dag-Hööchst- un Dag-Minnstweert (GHCN)",
     "plotMethodTavg": "Temperatur: Dagsmiddel (TAVG, GHCN)",
     "plotReference": "Klöör: Middel vun {centre}, ±{sigma} σ vun {spread}",
-    "csvLicence": "Lizenz: {name} ({url})",
     "barsRelativeTo": "Relativ to dat Middel vun {period}",
     "variant": {
       "label": "Ansicht",

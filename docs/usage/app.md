@@ -127,7 +127,7 @@ setting for it):
 <iframe
   src="https://wetterdienst.eobs.org/widget?station=<station-id>&theme=light"
   title="Weather forecast"
-  width="100%" height="1000"
+  width="100%" height="1050"
   style="border: 0"
   loading="lazy"
   referrerpolicy="strict-origin-when-cross-origin"></iframe>
@@ -137,10 +137,13 @@ setting for it):
   size) the widget draws the chart, whose height is that of the panels it shows: 674 px for the wind, the
   precipitation, the cloud cover, the temperature and the pressure with the weather symbols above them, and 744 px
   where a thunderstorm has a probability of 10 % or more in the forecast, which adds a panel of 70 px (its plot and
-  the gap above it). With the frame's header, the credits and the legend under the chart, and its footer, the frame
-  needs about 850 px without that panel and about 950 px with it, a little more where the browser shows scroll bars
-  or the legend wraps in a narrow frame: `height="1000"` holds both. In a frame of 40 rem or less the widget shows
-  the day cards, which are about 350 px high. The widget picks the chart or the cards once, when it loads, and keeps
+  the gap above it). With the frame's header, the credits and the legend under the chart, the provider's credit line
+  and the processing note under it, and the footer, the document is about 900 px high without that panel and about
+  1000 px with it (measured in Chrome at 641 to 1280 px), and about 1020 px where the credit and the note wrap to
+  two lines, as in German and French just above 640 px, a little more where the browser shows scroll bars or the
+  legend wraps: `height="1050"` holds all of them. In a frame of 40 rem or less the widget shows the day cards (about
+  350 px high), and the document is about 450 px high at 640 px and about 500 px at 320 px, where the credit takes
+  more lines. The widget picks the chart or the cards once, when it loads, and keeps
   them when the frame is resized later, so a frame whose width can change (a phone turned) needs the chart's height.
   A larger text size in the visitor's browser makes the text under the chart taller.
 - `theme=dark` or `theme=light` sets the colours; leave it out to follow the visitor's setting. The browser keeps the

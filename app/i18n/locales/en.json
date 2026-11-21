@@ -527,6 +527,9 @@
     "noResolutions": "Not a time series: nothing to list here.",
     "openExplorer": "Open in the explorer"
   },
+  "credit": {
+    "licence": "Licence: {name} ({url})"
+  },
   "processingNote": {
     "base": "Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ.",
     "estimate": "The values were selected or calculated from the provider's readings.",
@@ -731,7 +734,6 @@
     "plotMethodMidrange": "Temperature: midpoint of daily max and min (GHCN)",
     "plotMethodTavg": "Temperature: daily mean (TAVG, GHCN)",
     "plotReference": "Colours: mean of {centre}, ±{sigma} σ of {spread}",
-    "csvLicence": "Licence: {name} ({url})",
     "barsRelativeTo": "Relative to the mean of {period}",
     "variant": {
       "label": "Chart style",

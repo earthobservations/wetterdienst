@@ -5,7 +5,7 @@ import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationPicker from '~/components/StationPicker.vue'
 import HistoryPage from '~/pages/history.vue'
 import { dailyClimateSummaryCoverage } from '../fixtures/coverage'
-import { networksAnswer } from '../fixtures/providers'
+import { networksAnswer, providersAnswer } from '../fixtures/providers'
 
 // pages mounted by a test, unmounted after it: a page left mounted can share its fetch with the next
 // test's, useFetch keying a fetch by where it is called and what it asks for
@@ -258,6 +258,20 @@ describe('history Page', () => {
     expect(wrapper.text()).not.toContain('Foo Station')
     expect(wrapper.find('[data-testid="tool-placeholder"]').exists()).toBe(true)
     expect(vm.canFetch).toBe(true)
+  })
+
+  // whose records the station histories are, and what was done to them (GH-4255): DWD's credit line, its licence and the note
+  it('credits DWD under the histories, with the note directly under the credit line, and under no card before them', async () => {
+    registerEndpoint('/api/providers', () => providersAnswer())
+    const { wrapper, showButton } = await mountWithSelection(() => HISTORY)
+    expect(wrapper.find('[data-testid="history-credit"]').exists()).toBe(false)
+    await showButton().trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="history-credit"]').text()).toContain('Source: Deutscher Wetterdienst'), { timeout: 5000 })
+    const credit = wrapper.find('[data-testid="history-credit"]')
+    expect(credit.find('[data-testid="provider-credit-licence"]').attributes('href')).toBe('https://creativecommons.org/licenses/by/4.0/')
+    const note = credit.find('[data-testid="processing-note"]')
+    expect(note.text()).toMatch(/^Processed by wetterdienst/)
+    expect(note.element.previousElementSibling).toBe(credit.find('[data-testid="provider-credit-line"]').element)
   })
 
   it('offers Show again for the same selection after the fetch failed', async () => {

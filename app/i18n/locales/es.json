@@ -527,6 +527,9 @@
     "noResolutions": "No es una serie temporal: aquí no hay nada que listar.",
     "openExplorer": "Abrir en el explorador"
   },
+  "credit": {
+    "licence": "Licencia: {name} ({url})"
+  },
   "processingNote": {
     "base": "Procesado por wetterdienst: los datos del proveedor se han reorganizado en una tabla uniforme y sus unidades se han convertido donde difieren.",
     "estimate": "Los valores se han seleccionado o calculado a partir de las mediciones del proveedor.",
@@ -731,7 +734,6 @@
     "plotMethodMidrange": "Temperatura: punto medio del máximo y el mínimo diarios (GHCN)",
     "plotMethodTavg": "Temperatura: media diaria (TAVG, GHCN)",
     "plotReference": "Colores: media de {centre}, ±{sigma} σ de {spread}",
-    "csvLicence": "Licencia: {name} ({url})",
     "barsRelativeTo": "Relativo a la media de {period}",
     "variant": {
       "label": "Vista",

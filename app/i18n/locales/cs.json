@@ -527,6 +527,9 @@
     "noResolutions": "Není to časová řada: není tu co vypisovat.",
     "openExplorer": "Otevřít v průzkumníku"
   },
+  "credit": {
+    "licence": "Licence dat: {name} ({url})"
+  },
   "processingNote": {
     "base": "Zpracováno nástrojem wetterdienst: data poskytovatele byla uspořádána do jednotné tabulky a jejich jednotky byly přepočteny tam, kde se liší.",
     "estimate": "Hodnoty byly vybrány nebo vypočteny z měření poskytovatele.",
@@ -731,7 +734,6 @@
     "plotMethodMidrange": "Teplota: střed denního maxima a minima (GHCN)",
     "plotMethodTavg": "Teplota: denní průměr (TAVG, GHCN)",
     "plotReference": "Barvy: průměr z {centre}, ±{sigma} σ z {spread}",
-    "csvLicence": "Licence dat: {name} ({url})",
     "barsRelativeTo": "Vzhledem k průměru z {period}",
     "variant": {
       "label": "Zobrazení",

@@ -80,6 +80,12 @@ const descriptionId = useId()
       <p v-if="methodNote" class="mt-1 text-xs text-muted" data-testid="map-stripes-method">
         {{ methodNote }}
       </p>
+      <!-- whose data the band is made of, and what was done to it, from the terms the answer it was made of carries (GH-4255) -->
+      <ProviderCredit
+        :terms="data?.metadata?.provider"
+        :fallback="ghcn ? t('stripes.plotSourceGhcn') : t('stripes.plotSource')"
+        class="mt-2" data-testid="map-stripes-credit"
+      />
     </figure>
     <p v-else class="text-sm text-muted">
       {{ t('mapTool.stripesNone') }}

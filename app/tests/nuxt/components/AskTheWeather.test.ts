@@ -230,6 +230,9 @@ describe('the suggestions', () => {
     const credit = note.element.previousElementSibling
     expect(credit?.tagName).toBe('P')
     expect(credit?.textContent?.trim()).toBeTruthy()
+    // the credit is the one block every place uses (GH-4255): the provider's credit line and its licence as a link to its terms
+    expect(wrapper.find('[data-testid="provider-credit-line"]').text()).toBe('Source: Deutscher Wetterdienst, Creative Commons Attribution 4.0 International')
+    expect(wrapper.find('[data-testid="provider-credit-licence"]').attributes('href')).toBe('https://creativecommons.org/licenses/by/4.0/')
     await chip(wrapper, 'download').trigger('click')
     await vi.waitFor(() => expect(verdict(wrapper).text()).toMatch(/^Weather services that publish hourly air temperature/))
     expect(wrapper.find('[data-testid="processing-note"]').exists()).toBe(false)
