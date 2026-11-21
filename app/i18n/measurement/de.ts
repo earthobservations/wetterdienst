@@ -30,6 +30,31 @@ const DWD_HOURLY_SOLAR = 'https://opendata.dwd.de/climate_environment/CDC/observ
 const DWD_HOURLY_VISIBILITY = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/visibility/BESCHREIBUNG_obsgermany_climate_hourly_visibility_de.pdf'
 const NOAA_GHCNH = 'https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf'
 
+const DWD_HOURLY_CLOUDINESS = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/cloudiness/BESCHREIBUNG_obsgermany_climate_hourly_cloudiness_de.pdf'
+const DWD_HOURLY_WEATHER = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/weather_phenomena/BESCHREIBUNG_obsgermany_climate_hourly_weather_phenomena_de.pdf'
+/** Der abgeleitete Datensatz zum Boden des DWD: Verdunstung und Bodenfeuchte werden von einem Modell berechnet */
+const DWD_SOIL_DAILY_DE = 'https://opendata.dwd.de/climate_environment/CDC/derived_germany/soil/daily/recent/BESCHREIBUNG_derived_ermany_soil_daily_recent_de_v2.pdf'
+const KNMI_DAILY = 'https://www.knmi.nl/nederland-nu/klimatologie/daggegevens'
+const NOAA_GHCN_DAILY = 'https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt'
+
+/** Die Tagesdaten des KNMI, die die Einträge zu Verdunstung und Wolken nennen, wo sich Anbieter unterscheiden */
+function knmi(plain: string, citation: string): MeasurementSource {
+  return {
+    plain: `Das Königlich Niederländische Meteorologische Institut (KNMI) ist der nationale Wetterdienst der Niederlande. ${plain}`,
+    citation,
+    href: KNMI_DAILY,
+  }
+}
+
+/** Der tägliche Datensatz der NOAA, den die Einträge zu Verdunstung, gegenwärtigem Wetter und Wolken nennen, wo sich Anbieter unterscheiden */
+function ghcnDaily(plain: string, citation: string): MeasurementSource {
+  return {
+    plain: `Die National Centers for Environmental Information (NCEI) der amerikanischen NOAA veröffentlichen GHCN-Daily, die täglichen Beobachtungen von Wetterstationen. ${plain}`,
+    citation,
+    href: NOAA_GHCN_DAILY,
+  }
+}
+
 /** Der stündliche Datensatz der NOAA, den die Einträge zu Druck, Feuchte und Sichtweite nennen, wo sich Anbieter unterscheiden */
 function ghcnh(plain: string, citation: string): MeasurementSource {
   return {
@@ -494,6 +519,230 @@ export const measurement: MeasurementTexts = {
         'Die Dateien, die zu den Daten jeder Station gehören, sagen, welches Instrument in welcher Höhe benutzt wurde und woher die Werte stammen.',
         `DWD Climate Data Center, Dateien in den Stationsarchiven stundenwerte_VV_03987_akt.zip, stundenwerte_VV_01048_akt.zip und stundenwerte_VV_01420_akt.zip in ${DWD_HOURLY}visibility/recent/, am 21. November 2026 gelesen für Potsdam (03987), Dresden-Klotzsche (01048) und Frankfurt/Main (01420): Metadaten_Geraete_Sichtweite_*, Metadaten_Parameter_vv_stunde_* und die Spalte V_VV_I der Datendatei; Datensatzbeschreibung „Stündliche Stationsmessungen der Sichtweite für Deutschland“ (Version v24.03, 2024, Abschnitt „Unsicherheiten“).`,
         DWD_HOURLY_VISIBILITY,
+      ),
+    ],
+  },
+
+  'evaporation': {
+    title: 'Verdunstung',
+    summary: 'Die WMO sagt, dass sich die Verdunstung eines ganzen Feldes oder Sees derzeit nicht direkt messen lässt. Gemessen wird das Wasser, das ein Instrument verliert; der Rest wird geschätzt oder berechnet.',
+    parts: [
+      {
+        title: 'Wie gemessen wird',
+        paragraphs: [
+          'Die WMO hält mehrere Größen auseinander. Evaporation ist das Wasser, das von einer offenen Wasserfläche oder vom Boden als Dampf in die Luft geht. Transpiration ist das Wasser, das Pflanzen abgeben. Evapotranspiration ist die Summe aus Boden und Pflanzen, wenn der Boden seine natürliche Feuchte hat. Potenzielle Evapotranspiration ist das Meiste, was von einer geschlossenen, gut mit Wasser versorgten Pflanzendecke verdunsten könnte. Die WMO sagt, dass bei der Verwendung von „potenzieller Evapotranspiration“ klar angegeben werden muss, welche Art von Evaporation und Transpiration sie enthält.',
+          'Die WMO sagt, dass es derzeit nicht praktikabel ist, die Verdunstung einer ausgedehnten natürlichen Wasser- oder Landfläche direkt zu messen. Es gibt indirekte Verfahren: eine Punktmessung mit einem Instrument oder eine Berechnung aus anderen gemessenen Größen des Wetters. Die Verdunstung wird als Wassertiefe in Millimetern angegeben, normalerweise je Tag.',
+          'Verdunstungsschalen werden in Messnetzen häufig eingesetzt: ein offener Behälter mit Wasser, dessen Stand abgelesen wird; der Verlust an Höhe ist die Verdunstung. Die amerikanische Class-A-Schale zum Beispiel ist 25,4 cm tief und hat 120,7 cm Durchmesser, und ihr Wasserstand wird mit einem Hakenmaß abgelesen. Ein Lysimeter ist ein in den Boden eingelassenes, mit Boden gefülltes und bepflanztes Gefäß. Es ist eine Wasserbilanz: Die Evapotranspiration ist der Niederschlag (und die Bewässerung) minus das Wasser, das unten abfließt, minus die Änderung des im Boden gespeicherten Wassers. Die WMO sagt, dass wägbare Lysimeter verlässliche und genaue kurzfristige Werte liefern, wenn die nötigen Vorkehrungen bei Bauweise, Betrieb und Aufstellung getroffen werden.',
+        ],
+      },
+      {
+        title: 'Wie aus einer Messung ein Wert wird',
+        paragraphs: [
+          'Die Verdunstungsrate ist die Wassermenge, die je Flächeneinheit und Zeiteinheit verloren geht, geschrieben als die Tiefe flüssigen Wassers, die diese Menge ergäbe. Die Zeiteinheit ist normalerweise ein Tag. Für Tagessummen verlangt die WMO eine Unsicherheit von 0,1 mm bei Mengen unter 5 mm und von 2 % bei größeren (mit 95 % Konfidenz), und sie sagt, dass die üblichen Instrumente dies im Prinzip erfüllen könnten, dass aber Schwierigkeiten bei der Aufstellung und im praktischen Betrieb viel größere Fehler verursachen. Die WMO nennt 1 mm als vorgeschlagenen erreichbaren Wert.',
+          'Weil eine direkte Messung nicht praktikabel ist, wird die Verdunstung natürlicher Flächen oft berechnet. Als Beispiel nennt die WMO das Verfahren des Königlich Niederländischen Meteorologischen Instituts (KNMI) nach G. F. Makkink, das die tägliche Verdunstung einer Referenzvegetation aus der Mitteltemperatur der Luft des Tages und der Globalstrahlungsmenge des Tages berechnet. Die WMO sagt auch, dass sich die potenzielle oder Referenz-Evapotranspiration bewachsenen Landes mit den Verfahren finden lässt, die für Seen benutzt werden, angepasst an die Vegetation, und dass einige Verfahren Koeffizienten hinzunehmen, die vom Wachstumsstadium der jeweiligen Pflanze abhängen.',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Das Wasser, das eine Schale verliert, ist nicht das Wasser, das ein See oder ein Feld verliert. Die WMO sagt, dass sich die Verdunstungsrate einer natürlichen Fläche notwendigerweise von der eines Verdunstungsmessers unter demselben Wetter unterscheidet, weil die beiden Flächen physikalisch verschieden sind, und dass sich die Werte eines Verdunstungsmessers nicht ohne Anpassung als Verdunstung eines Sees oder als tatsächliche oder potenzielle Evapotranspiration verwenden lassen. Verschiedene Verdunstungsmesser und Lysimeter messen physikalisch Verschiedenes, deshalb sollen das Instrument und seine Aufstellung genau beschrieben werden.',
+          'Die Aufstellung ist wichtig. Eine Schale über dem Boden verdunstet mehr als eine eingelassene, vor allem weil ihre Seiten zusätzliche Strahlungsenergie aufnehmen; eine eingelassene Schale hat geringere Randeffekte, sammelt aber mehr Schmutz, ihre Lecks sind schwerer zu finden, und sie tauscht Wärme mit dem Boden aus. Starker Regen und sehr starker Wind spritzen wahrscheinlich Wasser aus einer Schale und können die Messung ungültig machen. Ist eine Schale zu voll, können 10 % oder mehr des fallenden Regens herausspritzen, wodurch die Verdunstung zu hoch gemessen wird; ist das Wasser zu tief, beschattet der Rand das Wasser, und die Verdunstung sinkt um etwa 2,5 % für jeden Zentimeter unter dem Bezugsniveau (in gemäßigten Breiten).',
+          'Ein Lysimeter verändert den Boden, den es misst. Die WMO nennt als Fehlerquellen unter anderem ein eingeschränktes Wachstum der Wurzeln, einen Bruch zwischen dem Pflanzenbestand im Gefäß und der Umgebung, thermische Unterschiede zur Umgebung und eine Wasserbilanz, die sich von der Umgebung unterscheidet, zum Beispiel durch eingeschränkte Dränage oder weil Oberflächenabfluss und seitliche Bewegung des Bodenwassers verhindert werden. Ein allgemeingültiges internationales Standard-Lysimeter gibt es nicht.',
+          'Die Verdunstungsrate hängt vom Wetter und von der Oberfläche ab. Die WMO ordnet die meteorologischen Faktoren in Energie (großenteils von Sonnen- und Erdstrahlung geliefert) und den Abtransport des Dampfes (Windgeschwindigkeit an der Oberfläche und Unterschied des Dampfdrucks zwischen der Oberfläche und der unteren Luft) und die Oberflächenfaktoren in die Menge und den Zustand des Wassers, die Rauigkeit und bei Pflanzen ihre eigenen Eigenschaften und die Verfügbarkeit von Bodenfeuchte. Jede der beiden Gruppen kann die Rate begrenzen.',
+        ],
+      },
+      {
+        title: 'Wo sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Die Verdunstung, die Wetterdienst vom DWD im abgeleiteten Datensatz zum Boden anbietet, ist berechnet und nicht gemessen. Die Beschreibung des DWD sagt, dass die Werte von Verdunstung, Bodenfeuchte und Bodentemperatur für verschiedene Orte in Deutschland berechnet wurden und normalerweise nicht gemessen werden. Die Werte von Verdunstung und Bodenfeuchte stammen aus dem agrarmeteorologischen Modell AMBAV. Die Dokumentation des Modells nennt die Penman-Monteith-Gleichung als seinen Kern und sagt, dass es routinemäßige Wettermeldungen als Eingang nimmt, in stündlichen oder dreistündlichen Schritten rechnet und Tagessummen auswertet. Der DWD gibt die „reale Verdunstung“ für Gras, Wintergetreide und Mais an, jeweils auf einem Sandboden und auf einem lehmigen Schluff, dazu zwei potenzielle Verdunstungen über Gras, eine nach FAO und eine nach Haude. Der DWD sagt, dass die nach FAO der nach Haude vorzuziehen ist, weil sehr viel mehr einflussnehmende Größen berücksichtigt werden.',
+          'Auch die Vorhersage MOSMIX des DWD hat eine potenzielle Evapotranspiration (evapotranspiration_potential_last_24h), die eine Vorhersage und keine Messung ist: siehe „Beobachtung, Vorhersage und abgeleitete Daten“. Das KNMI gibt in seinen Tagesdaten EV24 an, das sein Dateikopf als potenzielle Evapotranspiration nach Makkink bezeichnet, dem Verfahren, das die WMO beschreibt. Die GHCN-Daily der NOAA hat eine gemessene Größe: EVAP, die Verdunstung von Wasser aus einer Verdunstungsschale, mit MDEV für eine Summe über mehrere Tage und DAEV für die Zahl der Tage, die sie umfasst, sowie der kleinsten und der größten Temperatur des Wassers in der Schale. Diese Seite sagt nichts über die Verdunstung anderer Anbieter.',
+          'Die Namen sind also wichtig: evaporation_amount_* von Wetterdienst aus einer Schale oder aus einem Modell, evapotranspiration_potential_* und evapotranspiration_last_24h sind verschiedene Größen, und nur Größen derselben Art lassen sich vergleichen. Standardmäßig liefert Wetterdienst Millimeter.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Aus Band I, Kapitel 10 zur Verdunstung stammen in diesem Eintrag die Definitionen, die Instrumente, die Fehlerquellen und das Beispiel einer Berechnung.',
+        'Volume I, Chapter 10 (Measurement of evaporation), sections 10.1.1, 10.1.2, 10.1.3, 10.1.4, 10.3, 10.3.1, 10.3.4, 10.3.6, 10.4, 10.4.1, 10.4.3, 10.5.',
+        WMO_I,
+      ),
+      dwdFiles(
+        'Die Beschreibung ihres abgeleiteten Datensatzes sagt, dass Verdunstung, Bodenfeuchte und Bodentemperatur berechnet werden, und mit welchem Modell. Die Dokumentation des Modells sagt, wie es arbeitet.',
+        'DWD Climate Data Center. Berechnete aktuelle Tageswerte von charakteristischen Elementen aus dem Boden und dem Pflanzenbestand, Version v2 (2024), Abschnitte „Zusammenfassung“, „Datenherkunft“ und „Zusatzinformationen“; englische Monatsbeschreibung „Calculated recent monthly values for different characteristic elements of soil and crops“, version v2 (2024; revised 2026-05-28). Löpmeier, F.-J., „Agrarmeteorologisches Modell zur Berechnung der aktuellen Verdunstung (AMBAV)“, Abschnitte 1, 2.1 und 2.2 (opendata.dwd.de/climate_environment/CDC/grids_germany/daily/evapo_r/AMBAV.pdf). Beide am 21. November 2026 gelesen.',
+        DWD_SOIL_DAILY_DE,
+      ),
+      knmi(
+        'Der Kopf ihrer Datei mit Tagesdaten nennt jedes Element und seine Einheit.',
+        'KNMI, daily data of the weather in the Netherlands (daggegevens), file header for station 260 (De Bilt), element EV24, read on 21 November 2026.',
+      ),
+      ghcnDaily(
+        'Ihre Readme nennt jedes Element und seine Einheit.',
+        'NOAA NCEI. Readme of the Global Historical Climatology Network daily (GHCN-Daily), version 3.35, section III: the elements EVAP, MDEV, DAEV, MNPN and MXPN.',
+      ),
+    ],
+  },
+
+  'soil-moisture': {
+    title: 'Bodenfeuchte',
+    summary: 'Die Bodenfeuchte ist, wie viel Wasser im Boden ist. Sie kann als Anteil an der Masse, als Anteil am Volumen oder als Kraft angegeben werden, und was eine Zahl bedeutet, hängt vom Boden ab.',
+    parts: [
+      {
+        title: 'Wie gemessen wird',
+        paragraphs: [
+          'Die WMO sagt, dass Bestimmungen der Bodenfeuchte entweder den Wassergehalt des Bodens oder das Wasserpotenzial des Bodens messen. Der Gehalt ist die Masse oder das Volumen des Wassers im Boden. Das Potenzial beschreibt den Energiezustand des Bodenwassers: Wasser neigt dazu, von einem Ort mit höherem Potenzial zu einem mit niedrigerem zu fließen, und wenn der Boden trocknet, wird das Potenzial negativer, und die Pflanzen können das Wasser schwerer aufnehmen. Die Beziehung zwischen Gehalt und Potenzial ist nicht allgemeingültig; sie hängt vom örtlichen Boden ab.',
+          'Das Grundverfahren ist gravimetrisch. Eine Bodenprobe von etwa 50 g wird entnommen, gewogen, in einem Ofen bei 105 °C getrocknet, bis ihre Masse konstant bleibt, was meist 16 bis 24 Stunden dauert, und wieder gewogen; der Unterschied ist das Wasser. Das ist eine direkte Messung, deshalb nennt die WMO sie den Maßstab, an dem alle anderen Verfahren verglichen werden. Aber die Probenahme zerstört die Probe, die Messung lässt sich an ihr also nicht wiederholen.',
+          'Indirekte Verfahren lassen den Boden an seinem Platz. Eine Neutronensonde wird in ein Rohr im Boden gesenkt: Wasserstoff, der größtenteils im Wasser steckt, bremst die Neutronen, woraus sich der Wassergehalt ergibt. Dielektrische Verfahren wie die Zeitbereichsreflektometrie nutzen, dass flüssiges Wasser etwa 20-mal so viel Permittivität hat wie durchschnittlicher trockener Boden; die WMO sagt, dass sie sich vollständig automatisieren lassen. Das Wasserpotenzial des Bodens wird mit Tensiometern, Widerstandsblöcken und Boden-Psychrometern gemessen. Die WMO beschreibt auch die Messung der Bodenfeuchte durch Satelliten, die die Oberfläche betrachtet.',
+        ],
+      },
+      {
+        title: 'Wie aus einer Messung ein Wert wird',
+        paragraphs: [
+          'Der gravimetrische Wassergehalt ist die Masse des Wassers geteilt durch die Masse des trockenen Bodens. Der volumetrische Wassergehalt ist das Volumen des Wassers geteilt durch das Volumen der ganzen Probe (trockener Boden, Luft und Wasser). Beide werden meist in Prozent angegeben, obwohl viele Forschungsgemeinschaften für das Volumen inzwischen Kubikmeter Wasser je Kubikmeter Boden verwenden. Um den einen in den anderen umzurechnen, braucht man die Dichte des trockenen Bodens. Das Wasserpotenzial des Bodens wird als Energie je Masse, als Druck oder als Höhe einer Wassersäule angegeben.',
+          'Die Bodenfeuchte ändert sich mit der Tiefe, und was gebraucht wird, hängt vom Zweck ab. Die WMO sagt, dass Modelle der Evapotranspiration meist eine flache Tiefe von einigen zehn Zentimetern betreffen, die Landwirtschaft die Feuchte in der Tiefe der Wurzeln braucht, in der Größenordnung eines Meters, und Modelle der Atmosphäre Schichten bis in einige Meter Tiefe verwenden. Die WMO sagt, dass es keine Standardtiefe und kein Standard-Messintervall gibt; die Stationen des International Soil Moisture Network messen meist in mehreren Tiefen zwischen 0,05 m und 0,50 m oder 1 m.',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Eine Messung gilt für einen Ort. Die WMO sagt, dass Böden horizontal und vertikal in Struktur, Bewuchs und Relief stark variieren und dass ein einzelner Beobachtungsort kein absolutes Wissen über die Bodenfeuchte einer Region liefern kann, nur ein relatives über ihre Änderung. Messungen durch Probenahme oder mit einem Instrument im Boden sind nur am Messpunkt verlässlich, die Beschreibung eines Standorts braucht also viele Proben.',
+          'Dieselbe Prozentzahl bedeutet in verschiedenen Böden Verschiedenes. Die WMO beschreibt die Feldkapazität, den Zustand, in dem der Boden nach einer starken Durchfeuchtung alle Feuchte hält, die er gegen die Schwerkraft halten kann, und den Welkepunkt, an dem die Wurzeln die Kräfte, die das Wasser an den Bodenteilchen halten, nicht mehr überwinden können. Das für Pflanzen verfügbare Wasser wird üblicherweise als die Menge zwischen beiden genommen, und sie unterscheidet sich stark zwischen Böden: In sandigen Böden kann sie unter 10 Volumenprozent liegen, in Böden mit viel organischer Substanz über 40 Volumenprozent. Wassergehalte steiniger oder kiesiger Böden können grob irreführend sein.',
+          'Jedes Verfahren hat Grenzen. Die Neutronenmethode lässt sich in den obersten 20 cm des Bodens nicht wirksam einsetzen. Widerstandsblöcke zeigen einen feuchteren Boden an, als es ihn gibt, wenn der Boden salzhaltig ist. Tensiometer arbeiten nur in feuchtem Boden gut, und ihre praktische Grenze liegt bei etwa -85 kPa.',
+        ],
+      },
+      {
+        title: 'Wo sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Die Bodenfeuchte in Wetterdienst stammt aus dem abgeleiteten Datensatz zum Boden des DWD, und sie ist berechnet, nicht gemessen. Der DWD sagt, dass alle berechneten Werte zu Bodenfeuchte und Evapotranspiration aus dem agrarmeteorologischen Modell AMBAV stammen und dass die Werte normalerweise nicht gemessen werden. Als Grund nennt er, dass die Messung der Bodenfeuchte sehr aufwendig und fehlerbehaftet ist. Das Modell braucht stündliches Wetter: Temperatur, Feuchte, Wind, Niederschlag und außerdem Globalstrahlung und langwellige Strahlung. Der DWD sagt, dass die Strahlung nicht an jeder Station gemessen wird und oft aus der Sonnenscheindauer und der Bedeckung abgeleitet wird. Zur Prüfung der Feuchte sagt der DWD, dass sie nur an einzelnen Punkten in Sondermesskampagnen mit Messungen verglichen wurde und gut übereinstimmte.',
+          'Die Einheit ist nicht der Volumenanteil der WMO. Der DWD gibt die Bodenfeuchte in Prozent der nutzbaren Feldkapazität an (% nFK). 100 % ist die Spanne zwischen dem Welkepunkt und der Feldkapazität des Bodens, den das Modell verwendet, 0 % ist also der Welkepunkt und 100 % die Feldkapazität. Der DWD sagt, dass Werte über 100 % korrekt sind und auftreten, wenn der Wassergehalt über der Feldkapazität liegt; in leichten Böden sind bei der selten beobachteten Sättigung bis zu 300 % möglich, aber nur zusammen mit undurchlässigen Sperrschichten oder Bodenfrost. Standardmäßig liefert Wetterdienst die Zahl in Prozent, wie der DWD sie angibt, „Prozent“ bedeutet bei diesen Parametern also Prozent der nutzbaren Feldkapazität und nicht Prozent des Volumens.',
+          'Der DWD rechnet für zwei Böden, einen lehmigen Schluff mit einem Welkepunkt von 13 Volumenprozent und einer Feldkapazität von 37 Volumenprozent und einen lehmigen Sand mit 3 und 17 Volumenprozent, unter Gras, Wintergetreide und Mais. Unter Gras auf dem lehmigen Schluff gibt er die Schichten 0 bis 10 cm, 10 bis 20 cm und so weiter bis 50 bis 60 cm an, und für jede Kombination die Schicht von 0 bis 60 cm. Die Tageswerte stehen im Tagesdatensatz und die Monatsmittel im Monatsdatensatz (soil_moisture_mean_*). Zum Zeitpunkt des Schreibens bietet in Wetterdienst kein anderer Anbieter Bodenfeuchte an, es gibt also keine andere Quelle zum Vergleich.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Aus Band I, Kapitel 11 zur Bodenfeuchte stammen in diesem Eintrag die Definitionen, die Verfahren, ihre Grenzen und die Hinweise zu Tiefe und Repräsentativität.',
+        'Volume I, Chapter 11 (Measurement of soil moisture), sections 11.1.1, 11.1.2, 11.1.3, 11.1.4, 11.2, 11.3.1.1, 11.3.2, 11.4, 11.4.1, 11.4.2, 11.5, 11.6.',
+        WMO_I,
+      ),
+      dwdFiles(
+        'Die Beschreibung ihres abgeleiteten Datensatzes sagt, dass die Bodenfeuchte berechnet wird, mit welchem Modell, mit welchem Eingang und für welche Böden. Ihre Dokumentation zur Bodenfeuchte definiert die Einheit.',
+        'DWD Climate Data Center. Berechnete aktuelle Tageswerte von charakteristischen Elementen aus dem Boden und dem Pflanzenbestand, Version v2 (2024), Abschnitte „Datenherkunft“, „Unsicherheiten“ und „Zusatzinformationen“; englische Monatsbeschreibung „Calculated recent monthly values for different characteristic elements of soil and crops“, version v2 (2024; revised 2026-05-28). DWD, „Bodenfeuchte“ (Dokumentation, Stand März 2024), Abschnitte 1 und 2 (dwd.de/DE/fachnutzer/landwirtschaft/dokumentationen/allgemein/bf_erlaeuterungen.pdf). Beide am 21. November 2026 gelesen.',
+        DWD_SOIL_DAILY_DE,
+      ),
+    ],
+  },
+
+  'present-weather': {
+    title: 'Gegenwärtiges Wetter und Erdbodenzustand',
+    summary: 'Das gegenwärtige Wetter ist eine Beschreibung und keine Zahl: ein Schlüssel, der sagt, was zur Zeit der Beobachtung geschah, etwa Regen, Nebel oder Gewitter. Die WMO sagt, dass derzeit nur ein geschulter Beobachter alles beobachten kann.',
+    parts: [
+      {
+        title: 'Wie gemessen wird',
+        paragraphs: [
+          'Als „Wetter“ bezeichnet die WMO die qualitativen Beschreibungen der Erscheinungen in der Atmosphäre oder auf der Erdoberfläche, die zunächst nicht gemessen werden sollten. Das gegenwärtige Wetter beschreibt die Wettererscheinungen, die zur Zeit der Beobachtung da sind. Das vergangene Wetter beschreibt die bedeutenden Wetterereignisse der letzten Stunde, die zur Zeit der Beobachtung nicht auftraten. Der Erdbodenzustand ist ein verwandter Punkt: der Zustand der Erdoberfläche, der sich aus dem jüngsten Wetter ergibt, in Bezug auf ihre Feuchte oder auf Schichten aus festen, wässrigen oder anderen Teilchen, die sie bedecken.',
+          'Die WMO führt auf, was beobachtet wird: Niederschlag (Regen, Sprühregen, Schnee, Eiskörner, Schneegriesel, Eiskristalle und Hagel), Trübung und schwebende Teilchen (trockener Dunst, Staub, Rauch, feuchter Dunst, Nebel, Schneefegen und Schneetreiben, Staub- und Sandstürme, Staubteufel), Trichterwolken, Böen und Blitze. Die WMO sagt, dass die einzige derzeitige Möglichkeit, alle Formen des Wetters zu beobachten, das Sehen und Hören eines geschulten Beobachters ist. Ein Ereignis kann durch das bestimmt sein, was ein Mensch wahrnimmt: Es ist ein Gewitter, wenn Donner zu hören ist, auch wenn kein Blitz gesehen wird.',
+          'Instrumente decken einen Teil ab. Die WMO sagt, dass kein einzelner Sensor das gesamte gegenwärtige Wetter einordnet. Automatische Systeme verknüpfen Daten mehrerer Sensoren, etwa Sichtweite, Temperatur, Taupunkt, Windgeschwindigkeit und die Unterscheidung von Regen und Schnee, mit Algorithmen. Die Art des Niederschlags wird unter anderem mit Streulichtsensoren, optischen Disdrometern, Doppler-Radaren und Aufprallsensoren erkannt. Gewitter werden hauptsächlich mit Blitzzählern erkannt. Das Beispiel der WMO für Dunst: Hat eine Station Messinstrumente, kann man ziemlich sicher annehmen, dass eine Trübung Dunst ist, wenn die relative Feuchte unter einem bestimmten Wert liegt, zum Beispiel 80 %, und die Sichtweite größer als 1 km ist; feuchter Dunst wird bei hoher Feuchte und einer Sichtweite von 1 km oder mehr gemeldet.',
+          'Der Erdbodenzustand wird von Beobachtern mit den Schlüsseln des Manual on Codes der WMO (WMO-No. 306) gemeldet. Die WMO sagt, dass seine automatische Messung noch relativ neu und nicht weit verbreitet ist. Die WMO sagt, dass die Forschung gezeigt hat, dass sich die Hauptzustände an der Art unterscheiden lassen, wie die Oberfläche Licht reflektiert und streut: trocken, feucht, nass, schneebedeckt, bereift oder vereist. Streulichtsensoren nutzen das; ein kapazitiver Sensor, der nach der WMO noch entwickelt wird, würde die unterschiedlichen Dielektrizitätskonstanten von trockener und nasser Erde nutzen.',
+        ],
+      },
+      {
+        title: 'Wie aus einer Messung ein Wert wird',
+        paragraphs: [
+          'Gegenwärtiges Wetter, vergangenes Wetter und Erdbodenzustand werden als Schlüssel gemeldet. Der Beobachter wählt einen Begriff aus einer großen Zahl von Beschreibungen, die im Manual on Codes (WMO-No. 306) festgelegt sind, und an bemannten Stationen wird der Schlüssel zusammen mit quantitativen Daten gemeldet. Die WMO sagt, dass die Daten hochentwickelter Systeme für das gegenwärtige Wetter als Größen in einem binären Schlüsselformat wie BUFR gemeldet werden sollen, weil der alphanumerische Schlüssel viele Beschränkungen hat. Gibt es zur Zeit der Beobachtung in einer synoptischen Meldung keinen Niederschlag, werden bei der Wahl der Schlüsselzahl die Verhältnisse der letzten Stunde berücksichtigt.',
+          'Die Intensität hat Klassen. Beobachter oder die Instrumente, die sie ersetzen, ordnen Niederschlag als leicht, mäßig oder stark ein. Der Anhang der WMO nennt Kriterien nach der Fallrate, bezogen auf einen Messzeitraum von 3 Minuten: Bei Regen ist leicht unter 2,5 mm je Stunde, mäßig von 2,5 bis unter 10 mm je Stunde, stark von 10 bis unter 50 mm je Stunde und heftig 50 mm je Stunde oder mehr; bei Schnee, im Wasseräquivalent, ist leicht unter 1,0 mm je Stunde, mäßig von 1,0 bis unter 5,0 mm je Stunde und stark 5,0 mm je Stunde oder mehr. Die WMO sagt, dass ein Ereignis des gegenwärtigen Wetters durch einen Zeitraum von 3 Minuten gut bestimmt sein kann und dass das höchste gleitende 3-Minuten-Mittel innerhalb des 10-Minuten-Zeitraums gemeldet werden soll.',
+          'Ein Wort kann in Meldungen und in Klimazusammenfassungen Verschiedenes bedeuten. In synoptischen Meldungen bedeutet „Nebel“ Wasser- oder Eisnebel, der die horizontale Sichtweite an der Erdoberfläche im Allgemeinen auf weniger als 1 km senkt, und die WMO sagt, dass der Begriff überall, wo er in den Schlüsseln für gegenwärtiges und vergangenes Wetter vorkommt, in diesem Sinn zu lesen ist. In Klimazusammenfassungen gelten dagegen alle Fälle mit einer Sichtweite von weniger als 1 km als Nebel.',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Gegenwärtiges Wetter, vergangenes Wetter und Erdbodenzustand sind nach der WMO in erster Linie als qualitative Beschreibung von Wetterereignissen gedacht. Die Niederschlagsmenge ist eine andere Messung (siehe „Niederschlag“), und die Wolken auch (siehe „Wolken“). Ein Schlüssel sagt, welche Art von Wetter es gab, und nicht, wie viel.',
+          'Mit der heutigen Technik, sagt die WMO, können Instrumente für gegenwärtiges und vergangenes Wetter, Wolkenmenge und -höhe und Schneedecke nicht die ganze Bandbreite der Erscheinungen beobachten, menschliche Beobachter dagegen schon. Was die Instrumente erkennen, ist auch nicht überall gleich. Die WMO berichtet von Feldtests, in denen Sensoren für die Niederschlagsart die wichtigen Arten, außer dem allerleichtesten Schnee oder Sprühregen, in über 90 % der Fälle im Vergleich zu einem geschulten Beobachter erkannten, mit einem viel geringeren Anteil bei sehr schwachem Niederschlag. Für Streulichtsensoren wurden je nach Test und Gerät 70 bis 90 % für die häufigen Arten Regen und Schnee berichtet. Gemischter Niederschlag aus Regen und Schnee und Hagel werden weniger gut beobachtet, und nasser oder schmelzender Schnee ist schwer von Regen zu unterscheiden. Die WMO sagt auch, dass diese Sensoren die Qualität oder die Unsicherheit ihrer Meldung nicht angeben.',
+          'Eine Intensität von einem solchen Sensor ist gröber als die eines Messgeräts. Die WMO sagt, dass die Intensität von einem Streulichtsensor meist weniger genau ist als die der herkömmlichen Verfahren wie Wägeniederschlagsmesser oder Kippwaagen und dass sie für eine grobe Angabe wie leicht oder stark brauchbar ist.',
+        ],
+      },
+      {
+        title: 'Wo sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Das stündliche Wetter des DWD ist ein Schlüssel mit einem Text daneben, und die Stationsdateien nennen SYNOP-Wettermeldungen als Quelle, mit den Zeiten in UTC. Die Liste der Schlüssel des DWD hat zwei Bereiche: 0 bis 99 und 100 bis 199 mit eigenen Bedeutungen, zum Beispiel 100 „bei Bewölkung (mehr als 0/8) zum Beobachtungstermin: keine signifikanten Wettererscheinungen beobachtet“, 123 „Regen, nicht gefrierend (nicht zum Beobachtungszeitpunkt): an der Station in der letzten Stunde“ und 161 „Regen, nicht gefrierend: leicht“. In den aktuellen Dateien der drei geprüften Stationen liegt jeder Schlüssel im Bereich 100 bis 199 oder ist -1; bei -1 sagt die Datei „Wetter wurde nicht gemeldet“, und das trifft an diesen Stationen auf 70 bis 72 % der Stunden zu (zum Beispiel 9124 von 13118 Stunden in Potsdam). -1 heißt also nicht, dass das Wetter gut war, und Wetterdienst liefert für diese Stunden keinen Wert. Die Schlüssel der beiden Bereiche werden nicht ineinander umgerechnet.',
+          'Die Daten des DWD zu festen Beobachtungsterminen enthalten einen verschlüsselten Erdbodenzustand („Terminwerte des Erdbodenzustand“, EK_TER, in Wetterdienst der Parameter soil_state_index), den die Stationsdatei aus SYNOP-Meldungen zu den festen Beobachtungsterminen erzeugt sein lässt, seit 2001. Im Ordner recent gibt es ihn für 30 Stationen. An der einen gelesenen Station (Altenstadt, 00125) fehlen mehr als die Hälfte der Einträge (1169 von 1835). Die Datei nennt ihn einen Schlüssel und sagt nicht, welchen; die Schlüsseltabellen stehen im Manual on Codes der WMO, das keine der Quellen dieser Seite ist.',
+          'Die GHCN-Daily der NOAA hält fest, welche Arten von Wetter an einem Tag auftraten, als Wettertypen, ein Element je Art (WT01 Nebel, Eisnebel oder gefrierender Nebel; WT03 Donner; WT05 Hagel; WT06 Glatteis oder Raueis; WT16 Regen; WT18 Schnee, und weitere) und eine zweite Gruppe für Wetter in der Nähe der Station. Wetterdienst nennt sie weather_type_*. Die Vorhersagen MOSMIX und DMO des DWD geben unter weather_significant einen Schlüssel der Vorhersage an, der keine Beobachtung ist: siehe „Beobachtung, Vorhersage und abgeleitete Daten“.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Aus Band I, Kapitel 14 zu gegenwärtigem und vergangenem Wetter und zum Erdbodenzustand stammen in diesem Eintrag die Definitionen, die Verfahren, die Kriterien für die Intensität und die Ergebnisse der Tests von Sensoren. Kapitel 1 desselben Bandes sagt, was Instrumente noch nicht beobachten können.',
+        'Volume I, Chapter 14 (Observation of present and past weather; state of the ground), sections 14.1.1, 14.1.2, 14.1.3, 14.1.4, 14.2, 14.2.1.2, 14.2.1.3, 14.2.1.4, 14.2.2.1, 14.2.3.1, 14.2.3.2, 14.3.1, 14.3.2 and the Annex (criteria for slight, moderate and heavy precipitation intensity); Volume I, Chapter 1 (General), section 1.3.',
+        WMO_I,
+      ),
+      dwdFiles(
+        'Die Beschreibung des Datensatzes, die Liste der Wetterschlüssel und die Dateien, die zu jeder Station gehören, sagen, was der DWD als gegenwärtiges Wetter veröffentlicht, woher die Werte stammen und wofür -1 steht.',
+        `DWD Climate Data Center, Dateien in den Stationsarchiven stundenwerte_WW_03987_akt.zip, stundenwerte_WW_01048_akt.zip und stundenwerte_WW_01420_akt.zip in ${DWD_HOURLY}weather_phenomena/recent/, am 21. November 2026 gelesen für Potsdam (03987), Dresden-Klotzsche (01048) und Frankfurt/Main (01420): Metadaten_Parameter_ww_stunde_* und die Spalte WW der Datendatei; Wetter_Beschreibung.txt im selben Ordner; Datensatzbeschreibung „Stündliche Stationsmessungen der Wetterphaenomene für Deutschland“ (Version v24.03, 2024). Für den Erdbodenzustand: terminwerte_EK_00125_akt.zip in opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/soil/recent/ (Metadaten_Parameter_ek_termin_00125 und die Spalte EK_TER der Datendatei) und die Liste EK_Terminwerte_Beschreibung_Stationen.txt im selben Ordner, am 21. November 2026 gelesen.`,
+        DWD_HOURLY_WEATHER,
+      ),
+      ghcnDaily(
+        'Ihre Readme nennt jedes Element und wofür es steht.',
+        'NOAA NCEI. Readme of the Global Historical Climatology Network daily (GHCN-Daily), version 3.35, section III: the elements WT** (weather type) and WV** (weather in the vicinity).',
+      ),
+    ],
+  },
+
+  'clouds': {
+    title: 'Wolken',
+    summary: 'Die Menge der Wolken, die Höhe ihrer Basis und ihre Art sind drei verschiedene Beobachtungen. Ein Beobachter sieht den ganzen Himmel; ein Ceilometer schaut senkrecht nach oben auf nur einen kleinen Teil davon.',
+    parts: [
+      {
+        title: 'Wie gemessen wird',
+        paragraphs: [
+          'Die WMO definiert eine Wolke als eine Ansammlung sehr kleiner Wassertröpfchen, Eiskristalle oder einer Mischung aus beiden, deren Basis über dem Boden liegt und die vom Beobachtungsort aus wahrnehmbar ist. Beobachtet werden drei Dinge: wie viel vom Himmel bedeckt ist (Wolkenmenge), wie hoch der unterste Teil der Wolke über dem Boden liegt (Höhe der Wolkenbasis) und welche Art von Wolke es ist (Wolkenart). Die WMO sagt, dass die Wolkenmenge traditionell mit dem Auge beobachtet wurde und dass instrumentelle Verfahren inzwischen weithin anerkannt sind und eingesetzt werden.',
+          'Ein Beobachter schätzt den bedeckten Teil des Himmels auf ein Okta genau, ein Achtel des Himmels. Der Beobachter soll den Bereich über sich und die niedrigeren Teile des Himmels gleich gewichten; sind die Wolken sehr ungleichmäßig verteilt, kann der Himmel in Quadranten geteilt und können die Schätzungen addiert werden. Die Schlüsselzahl 9 wird gemeldet, wenn der Himmel wegen Nebel, fallenden Schnees und dergleichen nicht zu sehen ist oder wenn der Beobachter die Menge wegen Dunkelheit oder fremden Lichts nicht schätzen kann. Nachts muss der Beobachter den Augen Zeit geben, sich an die Dunkelheit zu gewöhnen. Wo es kein Instrument gibt, kann die Höhe einer Wolkenbasis nur geschätzt werden, in Bergregionen zum Beispiel durch Vergleich mit den Höhen bekannter Landmarken. Die WMO fügt hinzu, dass eine Wolke wegen der Perspektive auf fernen Hügeln zu ruhen scheinen kann und dass Beobachter am Boden bei tropischen Cumuluswolken mit hoher Basis die Höhe häufig sehr stark unterschätzt haben.',
+          'Die Höhe der Wolkenbasis wird mit einem Ceilometer gemessen. Die WMO sagt, dass das Laser-Ceilometer jetzt das am meisten benutzte Verfahren ist und als das am besten geeignete gelten sollte. Es schickt Pulse nahinfraroten Lichts nach oben und misst, wie lange das von der Wolke gestreute Licht zurück braucht. Die Wolkenmenge lässt sich aus der Reihe der Messwerte eines Ceilometers finden, aus Infrarotsensoren, die die Wärmeabstrahlung des Himmels in vielen Richtungen messen, und aus Kameras, die den ganzen Himmel ansehen. Die WMO sagt, dass die Wolkenart mit einer Ausnahme noch von Menschen beobachtet wird: Die Ausnahme ist ein automatisches Verfahren für die Flugwetter-Meldungen, das Niederschlagsradar und Blitzortung verbindet, um Cumulonimbus und hoch aufragende Cumuluswolken zu erkennen.',
+        ],
+      },
+      {
+        title: 'Wie aus einer Messung ein Wert wird',
+        paragraphs: [
+          'Die Wolkenmenge wird auf einer Skala in Oktas gemeldet, von 0 für einen klaren Himmel bis 8 für einen vollständig bedeckten. 1 steht für ein Okta oder weniger, aber nicht null, und 7 für sieben Oktas oder mehr, aber nicht acht, sodass 0 und 8 einem vollständig klaren oder vollständig bedeckten Himmel vorbehalten bleiben. Die Tabelle der WMO gibt dieselbe Skala auch in Zehnteln an. Im BUFR-Schlüssel wird die gesamte Bedeckung in Prozent angegeben.',
+          'Die WMO unterscheidet die gesamte Wolkenmenge von der Teilmenge. Die gesamte ist der Teil der Himmelskuppel, der von allen sichtbaren Wolken bedeckt ist. Die Teilmenge ist der Teil, der von einer Wolkenart oder -schicht bedeckt ist, als wäre sie die einzige Wolke am Himmel, sodass die Teilmengen zusammen mehr als die gesamte Menge und mehr als acht Oktas ergeben können.',
+          'Ein Instrument hat keinen Blick auf den ganzen Himmel, deshalb baut es eine Menge aus vielen Messwerten auf. Für ein Ceilometer sagt die WMO, dass sich die Wolkenmenge in seiner Reichweite aus dem Anteil der Zeit schätzen lässt, den gut erkannte Schichten einnehmen, unter der Annahme, dass dieses Zeitmittel für den Himmel um die Station steht. Als Beispiel beschreibt die WMO das amerikanische System ASOS: Das Ceilometer nimmt alle 30 Sekunden eine Probe; jede Minute werden die letzten 30 Minuten verarbeitet, die letzten 10 Minuten mit doppeltem Gewicht; die Wolkenhöhen werden zu Schichten gruppiert, und die Menge einer Schicht ergibt sich aus dem Anteil der Proben, die Wolke fanden, umgerechnet, damit sie einer Beobachtung durch einen Menschen entspricht. Zur Wolkenart beschreibt die WMO Klassen: zehn Gattungen im International Cloud Atlas (WMO-No. 407) und für synoptische Meldungen Schlüssel für tiefe, mittelhohe und hohe Wolken, deren Zweck es ist, charakteristische Zustände des Himmels zu melden und nicht einzelne Wolkenarten.',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Ein Ceilometer schaut senkrecht nach oben auf ein kleines Stück Himmel. Die WMO sagt, dass sich die meisten Unterschiede zur Menge, die ein Beobachter schätzt, auf diese begrenzte räumliche Repräsentativität zurückführen lassen und dass das Verfahren darauf beruht, dass die Wolken über das Instrument ziehen und für den ganzen Himmel repräsentativ sind. In einem Vergleich an Küstenstationen der mittleren Breiten stimmte das Ceilometer-Verfahren mit der gesamten Wolkenmenge des Beobachters typischerweise in 85 bis 90 % der Fälle bis auf 2 Oktas überein, und die WMO sagt, dass dieses Ergebnis von den vielen bedeckten Lagen beeinflusst ist (7 oder 8 Oktas etwa 55 % der Zeit). Ein Ceilometer meldet viel öfter 8 Oktas als 7 Oktas, während ein Beobachter Lücken irgendwo in der Wolkendecke sehen kann und 7 und 8 etwa gleich oft meldet.',
+          'Die Höhe einer Wolkenbasis ist nicht so scharf, wie es klingt. Die WMO sagt, dass Studien systematische Unterschiede von 30 bis 50 m in den Höhen der Wolkenbasis von Ceilometern verschiedener Hersteller fanden, die von den Algorithmen herzurühren scheinen, die die Basis festlegen, und dass es für Instrumente keine klare Definition der Wolkenbasis gibt. In Nebel und bei Niederschlag können ernste Fehler auftreten. Der Laser erkennt hohe Cirren womöglich nicht, und feuchte Schichten, Aerosol, Flugzeuge, Vögel, Bewuchs über dem Gerät oder Schnee auf dem Gerät können eine Basis ergeben, die es nicht gibt. Die Tabelle der Anforderungen der WMO verlangt eine Unsicherheit von 1/8 für die Wolkenmenge und sagt, dass 2/8 erreichbar sind; für die Höhe der Basis verlangt sie 10 m bis 100 m und 10 % darüber und gibt als erreichbar etwa 10 m an, mit einer deutlichen Abweichung bei Niederschlag.',
+          'Nachts ist eine Schätzung durch einen Beobachter nach der WMO sehr schwierig, besonders die der Wolkenmenge, und der Beobachter braucht Zeit, damit sich die Augen anpassen. Die WMO sagt, dass scannende Infrarotdetektoren und Infrarotkameras nachts beobachten können und Kameras, die Tageslicht nutzen, nicht; jedes Verfahren hat eigene Nachteile, zum Beispiel kann ein scannender Infrarotdetektor teiltransparente Wolken schlecht einordnen.',
+        ],
+      },
+      {
+        title: 'Wo sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Die stündliche Bedeckung des DWD ist in Achteln, mit einem Kennzeichen, das sagt, ob ein Mensch (P) oder ein Instrument (I) die Beobachtung gemacht hat. In den aktuellen Dateien der drei geprüften Stationen ist fast jeder Wert mit I gekennzeichnet; Potsdam und Dresden-Klotzsche haben 47 mit P gekennzeichnete Werte, Frankfurt/Main keinen. Die Stationsdateien nennen SYNOP-Wettermeldungen als Quelle, mit Zeiten in UTC. Sie führen als Instrument für die gesamte Bedeckung ein Ceilometer vom Typ CHM 15k „Nimbus“ auf, seit dem 21. Juli 2015 in Potsdam (davor ab 2009 ein LD 40 und bis 1997 ein Wolkenhöhenmesser vom Typ IVO), seit dem 19. September 2019 in Dresden-Klotzsche und seit dem 6. August 2021 in Frankfurt/Main. Die Dateien und die Datensatzbeschreibung, die gelesen wurden, sagen nicht, wie aus den Messwerten des Ceilometers die Bedeckung wird. Der DWD sagt, dass viele seiner Stationen zwischen Ende der neunziger Jahre und 2009 von manueller auf automatische Beobachtung umgestellt wurden, und nennt Änderungen der Instrumente und des Beobachtungspersonals unter den Quellen der Unsicherheit für lange Zeitreihen.',
+          'Der Datensatz zur Wolkenart hat bis zu vier Schichten, jede mit einer Art, der Höhe ihrer Basis und ihrer Bedeckung. In den aktuellen Dateien der drei geprüften Stationen gibt es Höhen und Bedeckungen für bis zu drei Schichten, keine Art für irgendeine Schicht und keine vierte Schicht. Der DWD schreibt in manchen Stunden -1; seine Beschreibung nennt nur -999 als fehlenden Wert. Wetterdienst liest -1 als einen Himmel, der nicht zu sehen war, und liefert dafür keinen Wert; das ist die Lesart von Wetterdienst und keine Aussage des DWD. Standardmäßig liefert Wetterdienst die Bedeckung in Prozent des Himmels und die Höhe in Metern.',
+          'Die mittlere Tagesbedeckung des DWD (NM) ist ein arithmetisches Mittel: für die geprüften Stationen seit dem 1. April 2001 aus mindestens 21 Stundenwerten aus SYNOP-Meldungen und davor aus den Beobachtungen zu drei Tageszeiten (in Potsdam 1967 bis 1990 aus vier oder acht). Das KNMI gibt die mittlere Bewölkung des Tages (NG) in Oktas an und schreibt 9 für einen Himmel, der nicht zu sehen ist, was Wetterdienst als keinen Wert liefert. Die GHCN-Daily der NOAA gibt die mittlere Bewölkung als Prozentzahl an und hält die Quellen auseinander: ACMC und ACSC stammen aus Ceilometerdaten im 30-Sekunden-Takt, ACMH und ACSH aus manuellen Beobachtungen, jeweils für Mitternacht bis Mitternacht oder für Sonnenaufgang bis Sonnenuntergang. Die Vorhersagen MOSMIX und DMO des DWD geben die Bedeckung nach Höhenschichten (zum Beispiel cloud_cover_below_2km) und eine effektive Bedeckung an. Das sind Vorhersagen und keine Messungen: siehe „Beobachtung, Vorhersage und abgeleitete Daten“.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Aus Band I, Kapitel 15 zu den Wolken stammen in diesem Eintrag die Definitionen, die Beobachtung mit dem Auge, die Instrumente und ihre Fehler. Kapitel 1 desselben Bandes enthält die Tabelle der Unsicherheiten, die die WMO fordert.',
+        'Volume I, Chapter 15 (Observation and measurement of clouds), sections 15.1.1, 15.1.2, 15.1.3, 15.1.4.1, 15.1.4.2, 15.1.4.3, 15.2.1, 15.2.2, 15.2.3, 15.3, 15.3.1, 15.3.2, 15.3.3, 15.4, 15.4.1.1, 15.4.1.3, 15.5; Volume I, Chapter 1 (General), Annex 1.A, rows 4.1 and 4.2.',
+        WMO_I,
+      ),
+      dwdFiles(
+        'Die Dateien, die zu jeder Station gehören, sagen, welches Instrument sie benutzte und woher die Werte stammen. Die Beschreibungen der Datensätze sagen, was die Zahlen sind.',
+        `DWD Climate Data Center, Dateien in den Stationsarchiven stundenwerte_N_*_akt.zip und stundenwerte_CS_*_akt.zip in ${DWD_HOURLY}cloudiness/recent/ und ${DWD_HOURLY}cloud_type/recent/ und tageswerte_KL_*_akt.zip in ${DWD_KL}recent/, am 21. November 2026 gelesen für Potsdam (03987), Dresden-Klotzsche (01048) und Frankfurt/Main (01420): Metadaten_Geraete_Gesamt_Bedeckungsgrad_*, Metadaten_Parameter_n_stunde_*, Metadaten_Parameter_klima_tag_* (Parameter NM) und die Spalten V_N, V_N_I und V_S1_CS bis V_S4_NS der Datendateien; Datensatzbeschreibungen „Stündliche Stationsmessungen der Wolkenbedeckung für Deutschland“ und „Stündliche Stationsmessungen der Wolkenbedeckung, der Wolkenart und der Wolkenhöhe in bis zu 4 Schichten für Deutschland“ (Version v24.03, 2024).`,
+        DWD_HOURLY_CLOUDINESS,
+      ),
+      knmi(
+        'Der Kopf ihrer Datei mit Tagesdaten nennt jedes Element und seine Einheit.',
+        'KNMI, daily data of the weather in the Netherlands (daggegevens), file header for station 260 (De Bilt), element NG, read on 21 November 2026.',
+      ),
+      ghcnDaily(
+        'Ihre Readme nennt jedes Element und seine Einheit.',
+        'NOAA NCEI. Readme of the Global Historical Climatology Network daily (GHCN-Daily), version 3.35, section III: the elements ACMC, ACMH, ACSC and ACSH.',
       ),
     ],
   },
