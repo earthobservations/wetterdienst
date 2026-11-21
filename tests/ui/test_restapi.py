@@ -646,7 +646,7 @@ def test_stations_dwd_basic(client: TestClient) -> None:
         "name": "Donaueschingen (Landeplatz)",
         "region": "Baden-Württemberg",
         "wmo_id": None,
-        "wigos_id": None,
+        "wigos_id": "0-276-3-11",
         "icao_id": None,
     }
 

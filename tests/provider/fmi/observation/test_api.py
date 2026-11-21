@@ -287,7 +287,7 @@ def test_fmi_observation_stations() -> None:
             "name": "Helsinki Kaisaniemi",
             "region": "Helsinki",
             "wmo_id": "02978",
-            "wigos_id": None,
+            "wigos_id": "0-246-0-100971",
             "icao_id": None,
         },
     ]

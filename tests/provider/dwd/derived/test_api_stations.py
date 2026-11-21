@@ -78,7 +78,7 @@ def test_dwd_derived_soil_stations_filter(default_settings: Settings) -> None:
             "name": "Alzey",
             "region": "Rheinland-Pfalz",
             "wmo_id": None,
-            "wigos_id": None,
+            "wigos_id": "0-276-3-150",
             "icao_id": None,
         },
         {
@@ -265,7 +265,7 @@ def test_dwd_observations_stations_name_with_comma() -> None:
                 "name": "Wacken",
                 "region": "Schleswig-Holstein",
                 "wmo_id": None,
-                "wigos_id": None,
+                "wigos_id": "0-276-3-19172",
                 "icao_id": None,
             },
         ),
