@@ -38,13 +38,6 @@ The answers of `interpolate` and `summarize` add:
 
 > The values were selected or calculated from the provider's readings.
 
-and the headers of the climate stripes' image add:
-
-> The image is drawn from the provider's annual values.
-
-The values and the stations of the climate stripes carry the plain note: they are DWD's own annual values and a list
-of its stations.
-
 The note is information. It does not replace the credit line of the provider, and it does not say what your licence
 asks of you when you pass the data on: if you publish the data or a chart of it, say that it was processed, in your
 own words, next to the credit line.
@@ -61,7 +54,7 @@ own words, next to the credit line.
 
 - A CSV, spreadsheet, JSON, JSON Lines, GeoJSON or Feather file written without `with_metadata=True`: it holds the
   records and nothing else. Give the credit line and say the data was processed where you publish it.
-- The command line's CSV output and the image file `stripes image` writes: neither has a place for it.
+- The command line's CSV output: it has no place for it.
 - The web app does not show it yet (tracked in [#3799](https://github.com/earthobservations/wetterdienst/issues/3799)).
 - The answers of `providers` and `coverage`, which describe the library and its networks and hold no provider's data.
   The list of run times of `issues` and the warnings of `alerts` do carry it.

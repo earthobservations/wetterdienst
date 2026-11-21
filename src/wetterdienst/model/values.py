@@ -1479,7 +1479,7 @@ class TimeseriesValues(ABC, Generic[_UnitT]):
         A parameter that was asked for and came back with nothing counts as zero rather than
         going unmeasured: a request for two parameters where one is missing is not fully covered. So does one whose
         values are all flagged ``suspect:`` by a soft plausibility check: the coverage counts the unflagged values
-        alone, as an interpolation and the climate stripes do.
+        alone, as an interpolation does.
         """
         # a station that returned nothing inside the window covers none of it, and there is no
         # frame under the question to read a span or a dtype off

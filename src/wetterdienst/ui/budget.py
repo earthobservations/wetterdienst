@@ -2,7 +2,7 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """The size budget of an MCP tool's answer of rows (GH-4022, GH-4024).
 
-The answers it holds are those of `values`, `stations`, `interpolate`, `summarize`, the stripes' stations and
+The answers it holds are those of `values`, `stations`, `interpolate`, `summarize` and
 `coverage` (which is no rows but nested: `fit_coverage`).
 
 An assistant reads a tool's answer in its context, and a client saves one of more than 50,000 characters to a file
@@ -13,11 +13,10 @@ characters, and says it was, in a warning of its `metadata` block (`answer-trunc
 the `timestamp` window to ask for it. Nothing is refused: the answer keeps what fits.
 
 The answers of `interpolate` and `summarize` are series of timestamps as those of `values` are, and are cut the same
-way (`fit_values`; their `timestamp` is required, so the start of their window is the part kept). The stripes' stations
-are a list of stations as those of `stations` are, with no way to select (`fit_stations`; the note tells how to
-name a place instead). A `with_metadata` block is kept, and the stations or timestamps are cut to make room for it;
-one with which not even one station or timestamp fits is left out (when one fits without it), and so is the block of
-a name or of a single station, whose rows are not cut, where it is what makes the answer over the budget.
+way (`fit_values`; their `timestamp` is required, so the start of their window is the part kept). A `with_metadata`
+block is kept, and the stations or timestamps are cut to make room for it; one with which not even one station or
+timestamp fits is left out (when one fits without it), and so is the block of a name or of a single station, whose rows
+are not cut, where it is what makes the answer over the budget.
 
 Only a tool's request is cut (`ui.mcp.is_tool_request`). The REST API, the command line and the library answer all of
 it: the app lists every station of a network, and a script reads a whole series.
@@ -39,9 +38,8 @@ from typing import TYPE_CHECKING, Any
 import polars as pl
 
 from wetterdienst.model.result import StationsFilter, StationsResult
-from wetterdienst.ui.core import StripesStationsRequest
 from wetterdienst.ui.mcp import structured_size
-from wetterdienst.ui.response_metadata import response_headers, response_metadata, result_metadata
+from wetterdienst.ui.response_metadata import response_headers, response_metadata
 from wetterdienst.util.response_warnings import ANSWER_TRUNCATED, ResponseWarning, record_response_warning
 
 if TYPE_CHECKING:
@@ -53,7 +51,7 @@ if TYPE_CHECKING:
 
     _SeriesResult = ValuesResult | InterpolatedValuesResult | SummarizedValuesResult
     _SeriesRequest = ValuesRequest | InterpolationRequest | SummaryRequest
-    _ListRequest = StationsRequest | StripesStationsRequest
+    _ListRequest = StationsRequest
 
 log = logging.getLogger(__name__)
 
@@ -138,9 +136,7 @@ def _start_is_nearer_now(first: dt.datetime, last: dt.datetime) -> bool:
 
 
 def _block(result: StationsResult | _SeriesResult, request: _ListRequest | _SeriesRequest) -> ResponseMetadata:
-    """Build the `metadata` block of the answer to `request`; the climate stripes' request names its own source."""
-    if isinstance(request, StripesStationsRequest):
-        return result_metadata(result, provider=request.provider, network=request.network, heavy=False)
+    """Build the `metadata` block of the answer to `request`."""
     return response_metadata(result, request)
 
 
@@ -416,7 +412,6 @@ def fit_values(
 
 def _stations_note(
     *,
-    request: _ListRequest,
     count: int,
     total: int,
     lead: str,
@@ -427,11 +422,10 @@ def _stations_note(
 ) -> str:
     """Write the note of a stations answer cut to its first `count` of `total` stations.
 
-    The list of the climate stripes' stations narrows with a bounding box only: a place goes to the stripes' tools as
-    a `name`, which they match themselves, and `stations` finds a station near a point. The stations of a `distance`
-    are in the order of their distance, so the ones kept are the nearest: `distance` is the one asked for, `farthest`
-    the distance in km of the last station returned, which says what a smaller `distance` would still keep. So are
-    the stations of a `rank` (GH-4036), whose note gives the number asked for instead of a distance.
+    The stations of a `distance` are in the order of their distance, so the ones kept are the nearest: `distance` is
+    the one asked for, `farthest` the distance in km of the last station returned, which says what a smaller
+    `distance` would still keep. So are the stations of a `rank` (GH-4036), whose note gives the number asked for
+    instead of a distance.
     """
     head = f"{lead} {_head(honest=honest)}" if lead else _head(honest=honest)
     if distance is not None or rank is not None:
@@ -452,19 +446,6 @@ def _stations_note(
         )
     returned = "the first station is" if count == 1 else f"the first {count:,} of {total:,} stations are"
     first = f"{head}{returned} returned, in the provider's list order (usually by "
-    if isinstance(request, StripesStationsRequest):
-        only_active = "" if request.active else " `active=true` lists only the stations that still report."
-        boxed = (
-            ""
-            if request.left is not None
-            else " To list the stations of an area, ask again with a bounding box (`left`, `bottom`, `right`, `top`)."
-        )
-        return (
-            f"{first}station id, not by place). {total:,} stations have data for the {request.kind} stripes. To get "
-            "one station, give the station's name (often its town's) as `name` to `stripes_values` or "
-            "`stripes_image`, which match it themselves, or find a station with `stations` (`name`, or latitude, "
-            f"longitude and `rank`).{boxed}{only_active}"
-        )
     return (
         f"{first}station id, not by place, so they are not a sample of the area). {total:,} stations match; narrow "
         "with latitude, longitude and `rank` or `distance`, or `name`."
@@ -500,7 +481,6 @@ def _fit_stations(
         far = cut.get_column("distance").max() if nearest and "distance" in cut.columns else None
         farthest = float(far) if isinstance(far, int | float) else None
         note = _stations_note(
-            request=request,
             count=count,
             total=count_all,
             lead=lead,
@@ -546,11 +526,11 @@ def fit_stations(
     metadata: ResponseMetadata,
     render: Callable[[StationsResult, ResponseMetadata, Any], str | bytes],
 ) -> tuple[str | bytes, ResponseMetadata]:
-    """Cut the answer of a `stations` or `stripes_stations` tool call to the budget, keeping the first stations.
+    """Cut the answer of a `stations` tool call to the budget, keeping the first stations.
 
     The answer is unchanged where it fits. A name asks for a few stations, and so does one station: their rows are
     left as they are (only a `with_metadata` block that is over the budget on its own is left out, with a note).
-    Otherwise (all stations, a bounding box, a distance, a rank, `sql`, ids, the stripes' list) the stations that fit
+    Otherwise (all stations, a bounding box, a distance, a rank, `sql`, ids) the stations that fit
     are kept, in list order (for a distance or a rank the nearest first, which is its order), and the note says how
     many match (or were asked for) and what narrows them. The block is kept and the stations are cut to make room for
     it: only where even one station is over the budget with the block, and fits without it, is the block left out,

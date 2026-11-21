@@ -290,7 +290,7 @@ def test_cli_samples_are_commands_the_cli_parses(where: str, line: str, argument
 def test_the_pages_show_commands_of_every_kind() -> None:
     """The extraction finds the commands (a parser that finds none passes every test above)."""
     shown = {arguments[0] for _, _, arguments in CLI_SAMPLES}
-    assert {"stations", "values", "interpolate", "summarize", "history", "stripes", "restapi"} <= shown
+    assert {"stations", "values", "interpolate", "summarize", "history", "restapi"} <= shown
 
 
 # --- the REST API ---------------------------------------------------------------------------------------------------
@@ -454,7 +454,7 @@ def test_rest_samples_are_requests_the_api_takes(request_: Request, openapi: dic
 def test_the_pages_show_requests_of_every_kind() -> None:
     """The extraction finds the requests (a parser that finds none passes every test above)."""
     shown = {request_.path.removeprefix("/api/") for request_ in REQUESTS}
-    assert {"stations", "values", "coverage", "interpolate", "summarize", "stripes/image"} <= shown
+    assert {"stations", "values", "coverage", "interpolate", "summarize"} <= shown
 
 
 _README_CURL = """\

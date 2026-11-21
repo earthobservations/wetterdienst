@@ -4,9 +4,7 @@ name: App Tests
 # document (tests/ui/openapi.snapshot.json), which the app's types are generated from (GH-3908): a change to the
 # REST contract has to run it. The vitest suite also reads the backend's canonical parameter table and
 # resolution enum (tests/unit/glossary-translations.test.ts), so those two files are in the filter too, and the
-# stripes' scale (app/tests/unit/stripes-answer.test.ts holds the app's test helper to the golden cases the
-# backend's scale writes, tests/ui/stripes_scale.golden.json), so that file and the scale itself are as well,
-# and the processing note (app/tests/unit/processing-note.test.ts holds the app's English text to the backend's
+# processing note (app/tests/unit/processing-note.test.ts holds the app's English text to the backend's
 # src/wetterdienst/model/processing_note.py).
 # The E2E suite also drives a backend started from src/ and lives in app-e2e.yml, which
 # carries the wider filter.
@@ -17,8 +15,6 @@ on:
       - 'src/wetterdienst/metadata/parameter_table.py'
       - 'src/wetterdienst/metadata/resolution.py'
       - 'tests/ui/openapi.snapshot.json'
-      - 'tests/ui/stripes_scale.golden.json'
-      - 'src/wetterdienst/ui/stripes_scale.py'
       - 'src/wetterdienst/model/processing_note.py'
       - '.github/workflows/app-tests.yml'
   push:
@@ -28,8 +24,6 @@ on:
       - 'src/wetterdienst/metadata/parameter_table.py'
       - 'src/wetterdienst/metadata/resolution.py'
       - 'tests/ui/openapi.snapshot.json'
-      - 'tests/ui/stripes_scale.golden.json'
-      - 'src/wetterdienst/ui/stripes_scale.py'
       - 'src/wetterdienst/model/processing_note.py'
       - '.github/workflows/app-tests.yml'
 

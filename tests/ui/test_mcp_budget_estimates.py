@@ -1,12 +1,12 @@
 # Copyright (C) 2018-2025, earthobservations developers.
 # Distributed under the MIT License. See LICENSE for more info.
-"""The budget of a tool's answer also holds for `interpolate`, `summarize`, `stripes_stations` and `with_metadata`.
+"""The budget of a tool's answer also holds for `interpolate`, `summarize` and `with_metadata`.
 
 `interpolate` and `summarize` answer a series of timestamps and are cut as `values` is (at a timestamp, with the
-window of the note, the `timestamp` they require giving the start of the window to keep); the stripes' stations are a
-list of stations and are cut as `stations` is. A `with_metadata` block that is more than the budget on its own is left
-out of an answer of a rank, a distance or a name as well. The REST API, the command line and the library answer all of
-it (GH-4024). Offline: the getters are stood in for with frames of the shape the core hands out.
+window of the note, the `timestamp` they require giving the start of the window to keep). A `with_metadata` block
+that is more than the budget on its own is left out of an answer of a rank, a distance or a name as well. The REST API,
+the command line and the library answer all of it (GH-4024). Offline: the getters are stood in for with frames of the
+shape the core hands out.
 """
 
 from __future__ import annotations
@@ -97,10 +97,6 @@ def _estimate_of(tool: str, days: int) -> InterpolatedValuesResult | SummarizedV
 
 def _stub(monkeypatch: pytest.MonkeyPatch, tool: str, result: Any) -> None:  # noqa: ANN401
     monkeypatch.setattr(restapi, _TOOLS[tool][0], lambda **_kwargs: result)
-
-
-def _stub_stripes(monkeypatch: pytest.MonkeyPatch, result: StationsResult) -> None:
-    monkeypatch.setattr(restapi, "_get_stripes_stations", lambda **_kwargs: result)
 
 
 def _stub_a_rank(monkeypatch: pytest.MonkeyPatch, count: int) -> StationsResult:
@@ -228,71 +224,6 @@ def test_the_block_of_an_estimate_that_is_over_the_budget_is_left_out(
     assert 1 < len(answer["values"]) < 732
 
 
-# --- the stripes' stations ----------------------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("fmt", ["json", "geojson", "csv"])
-def test_the_stripes_stations_are_cut_to_the_first_that_fit(monkeypatch: pytest.MonkeyPatch, fmt: str) -> None:
-    """The list has no selection: its first stations are kept, and the note says to name a place for the stripes."""
-    _stub_stripes(monkeypatch, _stations_of(700, with_umlaut=True))
-
-    response = _tool_client().get("/api/stripes/stations", params={"kind": "precipitation", "format": fmt})
-
-    assert response.status_code == 200
-    note = unquote(response.headers["x-wetterdienst-truncated"])
-    assert "the first " in note
-    assert "700 stations have data for the precipitation stripes" in note
-    assert "give the station's name (often its town's) as `name` to `stripes_values` or `stripes_image`" in note
-    assert "sample of the area" not in note
-    assert "latitude, longitude and `rank` or `distance`" not in note
-    assert "active=true" not in note
-    if fmt == "csv":
-        assert 0 < len(response.text.splitlines()) - 1 < 700
-        assert len(response.text) <= ANSWER_BUDGET
-        return
-    body = response.json()
-    assert _note_of(body) == note
-    assert body["metadata"]["provider"]["name_english"] == "German Weather Service"
-    assert _compact(response.text) <= ANSWER_BUDGET
-    if fmt == "json":
-        kept = [station["station_id"] for station in body["stations"]]
-        assert 0 < len(kept) < 700
-        assert kept == [f"{i:05d}" for i in range(len(kept))]
-        assert body["metadata"]["counts"]["stations"] == len(kept)
-    else:
-        assert 0 < len(body["data"]["features"]) < 700
-
-
-def test_the_stripes_note_says_what_active_does_for_the_whole_list(monkeypatch: pytest.MonkeyPatch) -> None:
-    """With `active=false` the note names `active=true`, which narrows the list to the stations that still report."""
-    _stub_stripes(monkeypatch, _stations_of(700))
-
-    note = _note_of(_tool_client().get("/api/stripes/stations", params={"kind": "temperature", "active": False}).json())
-
-    assert "`active=true` lists only the stations that still report." in note
-    assert "have data for the temperature stripes" in note
-
-
-def test_what_a_client_receives_of_the_stripes_stations_is_within_the_budget(monkeypatch: pytest.MonkeyPatch) -> None:
-    """JSON and CSV (with its sentence), as the client receives them."""
-    _stub_stripes(monkeypatch, _stations_of(700, with_umlaut=True))
-
-    for fmt in ("json", "csv"):
-        result = _client_sees("stripes_stations", {"kind": "temperature", "format": fmt})
-        assert ANSWER_BUDGET - 1_500 < _received(result) <= ANSWER_BUDGET, fmt
-
-
-def test_the_stripes_stations_within_the_budget_are_left_as_they_are(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A short list is no cut."""
-    _stub_stripes(monkeypatch, _stations_of(20))
-
-    response = _tool_client().get("/api/stripes/stations", params={"kind": "temperature"})
-
-    assert len(response.json()["stations"]) == 20
-    assert response.json()["metadata"]["warnings"] == []
-    assert "x-wetterdienst-truncated" not in response.headers
-
-
 # --- `with_metadata` of a few stations ----------------------------------------------------------------------------
 
 
@@ -367,9 +298,7 @@ def test_a_few_stations_with_a_block_that_fits_are_left_as_they_are(monkeypatch:
 
 @pytest.mark.parametrize("tool", ["interpolate", "summarize"])
 @pytest.mark.parametrize("fmt", ["json", "geojson", "csv"])
-def test_the_rest_api_answers_all_of_an_estimate_and_of_the_stripes_stations(
-    monkeypatch: pytest.MonkeyPatch, tool: str, fmt: str
-) -> None:
+def test_the_rest_api_answers_all_of_an_estimate(monkeypatch: pytest.MonkeyPatch, tool: str, fmt: str) -> None:
     """The same requests, not from a tool, come back whole: no note, no header; the budget is not even asked."""
 
     def never(*_args: object, **_kwargs: object) -> None:
@@ -389,15 +318,6 @@ def test_the_rest_api_answers_all_of_an_estimate_and_of_the_stripes_stations(
     assert "answer-truncated" not in response.text
     if fmt == "json":
         assert len(response.json()["values"]) == 1800
-
-    _stub_stripes(monkeypatch, _stations_of(700))
-    listed = _rest_client().get("/api/stripes/stations", params={"kind": "temperature", "format": fmt})
-    assert listed.status_code == 200
-    assert len(listed.text) > ANSWER_BUDGET
-    assert "x-wetterdienst-truncated" not in listed.headers
-    assert "answer-truncated" not in listed.text
-    if fmt == "json":
-        assert len(listed.json()["stations"]) == 700
 
 
 def test_the_rest_answer_of_a_few_stations_with_a_big_block_is_whole(monkeypatch: pytest.MonkeyPatch) -> None:

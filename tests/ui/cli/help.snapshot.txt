@@ -35,7 +35,6 @@ Commands:
   restapi      Start the Wetterdienst REST API web service.
   stations     Acquire stations.
   storm-cells  Acquire DWD's thunderstorm cells (KONRAD3D).
-  stripes      Climate stripes.
   summarize    Summarize data for a point: the nearest station's value.
   values       Acquire data.
 
@@ -773,101 +772,6 @@ Options:
 
   # to a GeoJSON file
   wetterdienst storm-cells --format=geojson --target=file://cells.geojson
-
-
-$ wetterdienst stripes --help
-
-Usage: wetterdienst stripes [OPTIONS] COMMAND [ARGS]...
-
-  Climate stripes.
-
-Options:
-  --help  Show this message and exit.
-
-Commands:
-  image     Create the climate stripes image for a specific station.
-  stations  List stations for climate stripes.
-
-
-$ wetterdienst stripes image --help
-
-Usage: wetterdienst stripes image [OPTIONS]
-
-  Create the climate stripes image for a specific station.
-
-  Select the station with exactly one of --station or --name.
-
-Options:
-  --kind TEXT                     Kind of stripes: temperature or precipitation.  [required]
-  --provider TEXT                 Provider of the stations and values: dwd (annual values) or noaa
-                                  (GHCN daily, the years calculated from the days by the WMO rules).
-                                  Default: dwd
-  --network TEXT                  Network of the provider: observation for dwd, ghcn for noaa.
-                                  Default: observation
-  --station TEXT                  Station id, instead of --name.
-  --name TEXT                     Station name, matched fuzzily, instead of --station.
-  --name-threshold FLOAT          Minimum fuzzy-match score. Default: 0.8
-  --start-year INTEGER            First year. Default: the station's first
-  --end-year INTEGER              Last year. Default: the station's last
-  --show-title BOOLEAN            Show the station name. Default: true
-  --show-years BOOLEAN            Show the first and last year. Default: true
-  --show-data-availability BOOLEAN
-                                  Mark the years without data. Default: true
-  --format [png|jpg|svg|pdf]      Image format. Default: png
-  --dpi INTEGER RANGE             Resolution. Default: 300  [x>0]
-  --target FILE                   Write the image to this local file instead of stdout.
-  --debug BOOLEAN                 Log at debug level. Default: false
-  --quiet BOOLEAN                 Log errors and warnings about the answer only: no progress. Not
-                                  with --debug. Default: false
-  --help                          Show this message and exit.
-
-  Examples:
-
-  # warming stripes for a station, by id or by name
-  wetterdienst stripes image --kind=temperature --station=1048 > warming_stripes.png
-  wetterdienst stripes image --kind=temperature --name=Dresden-Klotzsche --name-threshold=0.7 > warming_stripes.png
-
-  # for the years 2000 to 2020
-  wetterdienst stripes image --kind=temperature --station=1048 --start-year=2000 --end-year=2020 \
-      > warming_stripes.png
-
-  # precipitation stripes, to a file
-  wetterdienst stripes image --kind=precipitation --station=1048 --target=precipitation_stripes.png
-
-  # a station of NOAA GHCN daily, the years calculated from its days by the WMO rules
-  wetterdienst stripes image --provider=noaa --network=ghcn --kind=temperature --station=USW00094728 \
-      > stripes_new_york.png
-
-  # the GHCN stations in a bounding box that the stripes are made for
-  wetterdienst stripes stations --provider=noaa --network=ghcn --kind=temperature \
-      --left=-75 --bottom=40 --right=-73 --top=41
-
-
-$ wetterdienst stripes stations --help
-
-Usage: wetterdienst stripes stations [OPTIONS]
-
-  List stations for climate stripes.
-
-Options:
-  --kind TEXT                  Kind of stripes: temperature or precipitation.  [required]
-  --provider TEXT              Provider of the stations and values: dwd (annual values) or noaa
-                               (GHCN daily, the years calculated from the days by the WMO rules).
-                               Default: dwd
-  --network TEXT               Network of the provider: observation for dwd, ghcn for noaa. Default:
-                               observation
-  --active BOOLEAN             Only stations still reporting. Default: true
-  --left FLOAT                 Select stations in a bounding box: its west longitude.
-  --bottom FLOAT               South latitude of the bounding box.
-  --right FLOAT                East longitude of the bounding box.
-  --top FLOAT                  North latitude of the bounding box.
-  --format [json|geojson|csv]  Output format. Default: json
-  --pretty BOOLEAN             Pretty-print JSON with 4-space indentation, as REST's pretty=true.
-                               Default: false
-  --debug BOOLEAN              Log at debug level. Default: false
-  --quiet BOOLEAN              Log errors and warnings about the answer only: no progress. Not with
-                               --debug. Default: false
-  --help                       Show this message and exit.
 
 
 $ wetterdienst summarize --help

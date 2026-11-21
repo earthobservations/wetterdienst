@@ -12,7 +12,6 @@ to do.
 | [Python Examples](python-examples.md) | ready-to-run snippets per provider and network |
 | [Interpolation & Summary](interpolation.md) | a series for a point between stations |
 | [Station history](station_history.md) | the changes of a station: names, instruments, position |
-| [Climate Stripes](stripes.md) | warming stripes of a DWD station, from the command line and the REST API |
 | [Units](units.md) | the unit every quantity comes back in, and how to change it |
 | [Export](export.md) | writing a result to a file or a database |
 | [Settings and options](settings.md) | the host's settings and a request's options |
@@ -52,7 +51,6 @@ python-api.md
 python-examples.md
 interpolation.md
 station_history.md
-stripes.md
 units.md
 export.md
 settings.md

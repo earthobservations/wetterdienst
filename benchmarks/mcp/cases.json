@@ -1500,17 +1500,15 @@
       "notes": "alerts returns every warning of Germany, each with its full GeoJSON geometry, which can overflow a client's token limit when many are active: a model that has to filter by area_names depends on the answer fitting. Warnings change within hours, hence the pinned snapshot; most of the time there is none for Kiel, and the right answer is then 'none'. dwd/alerts is a standalone network (no provider/network arguments)."
     },
     {
-      "id": "stripes-potsdam",
+      "id": "annual-potsdam",
       "question": "Was the annual mean air temperature at Potsdam higher in 2024 than in 1991? Give both values.",
-      "kind": "stripes",
+      "kind": "observation",
       "max_steps": 4,
       "checkpoints": [
         {
-          "id": "reads-stripes-values",
-          "description": "reads the annual temperature series of Potsdam, for a span covering both years or one call per year: with stripes_values, or the same series (the annual DWD observation series the stripes are made of) with values",
+          "id": "reads-annual-values",
+          "description": "reads the annual temperature series of Potsdam (the annual DWD observation series), for a span covering both years or one call per year",
           "match": [
-            {"tool": "stripes_values", "args": {"kind": "temperature", "name": {"regex": "(?i)potsdam"}}},
-            {"tool": "stripes_values", "args": {"kind": "temperature", "station": {"any_of": ["03987"]}}},
             {
               "tool": "values",
               "args": {
@@ -1538,19 +1536,6 @@
       ],
       "forbidden": [
         {
-          "id": "renders-image",
-          "description": "renders an image to answer a question about two numbers",
-          "kind": "call",
-          "match": {"tool": "stripes_image"}
-        },
-        {
-          "id": "repeats-stripes-values",
-          "description": "calls stripes_values more than twice with the same arguments",
-          "kind": "repeat",
-          "tool": "stripes_values",
-          "max_identical": 2
-        },
-        {
           "id": "repeats-values",
           "description": "calls values more than twice with the same arguments",
           "kind": "repeat",
@@ -1565,8 +1550,15 @@
           "kind": "ground_truth_value",
           "ground_truth": {
             "call": {
-              "tool": "stripes_values",
-              "args": {"kind": "temperature", "station": "03987", "start_year": 2024, "end_year": 2024}
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "annual/climate_summary/temperature_air_mean_2m",
+                "periods": ["historical"],
+                "stations": ["03987"],
+                "timestamp": "2024-01-01/2024-12-31"
+              }
             },
             "pick": "the value"
           },
@@ -1580,8 +1572,15 @@
           "kind": "ground_truth_value",
           "ground_truth": {
             "call": {
-              "tool": "stripes_values",
-              "args": {"kind": "temperature", "station": "03987", "start_year": 1991, "end_year": 1991}
+              "tool": "values",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": "annual/climate_summary/temperature_air_mean_2m",
+                "periods": ["historical"],
+                "stations": ["03987"],
+                "timestamp": "1991-01-01/1991-12-31"
+              }
             },
             "pick": "the value"
           },
@@ -1591,7 +1590,7 @@
       ],
       "tiers": ["small", "large"],
       "needs_key": false,
-      "notes": "stripes_values takes start_year and end_year, which keeps the answer to two rows; without them it is the whole record (130 years). The stripes read the annual DWD observation series (`annual/climate_summary/temperature_air_mean_2m`, period historical, `ui/core.py` `_get_stripes_data`), so `stations` + `values` of that series reaches the same two numbers and is a valid route (the first checkpoint accepts it; a `values` call of another series, a daily one, does not match it); the judge reads the truth from that series with the command line, which has no `stripes values` command."
+      "notes": "The annual DWD observation series (`annual/climate_summary/temperature_air_mean_2m`, period historical) holds both numbers: a `timestamp` window keeps the answer to a row or two, without one it is the whole record (130 years). A `values` call of another series, a daily one, does not match the checkpoint. This was the case of the climate stripes' tools until they left the backend (GH-4258); the question and its numbers are the same."
     },
     {
       "id": "history-kiel-holtenau",

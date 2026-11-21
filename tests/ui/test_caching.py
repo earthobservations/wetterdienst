@@ -23,7 +23,6 @@ from tests.ui.test_restapi import (
     _OBSERVATION,
     _stub_result,
     _stub_stream,
-    _stub_stripes_station,
     _values_result_of_shape,
 )
 from wetterdienst.metadata.cache import CacheExpiry
@@ -590,25 +589,6 @@ def test_stations_are_not_cached(client: TestClient, monkeypatch: pytest.MonkeyP
 
     assert response.status_code == 200
     assert _cache_headers(response) == {}
-
-
-@pytest.mark.usefixtures("figure_draws_itself")
-def test_the_stripes_are_not_cached(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The stripes of a station end with the year being recorded, and the image is drawn from them."""
-
-    class _Figure:
-        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
-            return b"image"
-
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
-
-    values = client.get("/api/v1/stripes/values", params={"kind": "temperature", "station": "01048"})
-    image = client.get("/api/v1/stripes/image", params={"kind": "temperature", "station": "01048", "format": "png"})
-
-    assert (values.status_code, image.status_code) == (200, 200)
-    assert _cache_headers(values) == {}
-    assert _cache_headers(image) == {}
 
 
 @pytest.mark.parametrize("path", ["/api/v1/version", "/api/v1/settings", "/health", "/ready", "/robots.txt"])

@@ -35,9 +35,6 @@ from wetterdienst.provider.dwd.observation import DwdObservationMetadata
 from wetterdienst.ui import core as ui_core
 from wetterdienst.ui import restapi
 from wetterdienst.ui.core import (
-    StripesData,
-    StripesImageRequest,
-    StripesSeries,
     _FormatField,
     get_glossary,
     resolve_network,
@@ -45,7 +42,6 @@ from wetterdienst.ui.core import (
 from wetterdienst.ui.mcp import _TOOL_NAMES
 from wetterdienst.ui.response_metadata import metadata_to_dict, response_metadata
 from wetterdienst.ui.restapi import REQUEST_EXAMPLES
-from wetterdienst.ui.stripes_scale import stripes_reference
 
 if TYPE_CHECKING:
     from opentelemetry.sdk.metrics.export import InMemoryMetricReader
@@ -1920,99 +1916,9 @@ def test_values_dwd_observation_climate_summary_image_pdf(client: TestClient) ->
     assert response.headers["Content-Type"] == "application/pdf"
 
 
-@pytest.mark.remote
-def test_stripes_stations_default(client: TestClient) -> None:
-    """Test default parameters."""
-    response = client.get(
-        "/api/stripes/stations",
-        params={
-            "kind": "temperature",
-        },
-    )
-    assert response.status_code == 200
-    assert response.content
-    data = response.json()
-    assert len(data["stations"]) >= 450
-
-
-@pytest.mark.remote
-def test_stripes_stations_active_false(client: TestClient) -> None:
-    """Test active=False parameter."""
-    response = client.get(
-        "/api/stripes/stations",
-        params={
-            "kind": "temperature",
-            "active": False,
-        },
-    )
-    assert response.status_code == 200
-    assert response.content
-    data = response.json()
-    assert len(data["stations"]) >= 1000
-
-
-@pytest.mark.remote
-def test_stripes_values_default(client: TestClient) -> None:
-    """Test default parameters."""
-    response = client.get(
-        "/api/stripes/values",
-        params={
-            "kind": "temperature",
-            "station": "01048",
-        },
-    )
-    assert response.status_code == 200
-    assert response.content
-    data = response.json()
-    assert "metadata" in data
-    assert "values" in data
-    assert data["series"]["station"]["station_id"] == "01048"
-    assert data["series"]["resolution"] == "annual"
-    assert data["series"]["dataset"] == "climate_summary"
-    assert data["series"]["parameter"] == "temperature_air_mean_2m"
-    assert len(data["values"]) > 0
-    assert all("timestamp" in v and "value" in v for v in data["values"])
-
-
-@pytest.mark.remote
-def test_stripes_values_name(client: TestClient) -> None:
-    """Test name parameter."""
-    response = client.get(
-        "/api/stripes/values",
-        params={
-            "kind": "temperature",
-            "name": "Dresden-Klotzsche",
-        },
-    )
-    assert response.status_code == 200
-    assert response.content
-    data = response.json()
-    assert "metadata" in data
-    assert "values" in data
-
-
-@pytest.mark.remote
-def test_stripes_values_csv_format(client: TestClient) -> None:
-    """Test CSV format."""
-    response = client.get(
-        "/api/stripes/values",
-        params={
-            "kind": "temperature",
-            "station": "01048",
-            "format": "csv",
-        },
-    )
-    assert response.status_code == 200
-    assert response.headers["content-type"] == "text/csv; charset=utf-8"
-    assert b"timestamp,value" in response.content
-
-
 @pytest.mark.parametrize(
     "fmt",
-    sorted(
-        {*get_args(get_args(_FormatField)[0]), *get_args(StripesImageRequest.model_fields["format"].annotation)}
-        - {"json", "geojson", "csv", "html"},
-    ),
+    sorted({*get_args(get_args(_FormatField)[0])} - {"json", "geojson", "csv", "html"}),
 )
 def test_every_image_format_has_its_media_type(fmt: str) -> None:
     """Test each image format a request model allows is sent as its registered media type.
@@ -2020,38 +1926,6 @@ def test_every_image_format_has_its_media_type(fmt: str) -> None:
     A format added to a model without a media type would otherwise go out under a guessed one.
     """
     assert restapi._MEDIA_TYPES[fmt] == _IMAGE_MEDIA_TYPES[fmt]  # noqa: SLF001
-
-
-@pytest.mark.parametrize(
-    ("fmt", "media_type"),
-    [
-        ("png", "image/png"),
-        ("jpg", "image/jpeg"),
-        ("svg", "image/svg+xml"),
-        ("pdf", "application/pdf"),
-    ],
-)
-@pytest.mark.usefixtures("figure_draws_itself")
-def test_stripes_image_is_sent_as_its_media_type(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-    fmt: str,
-    media_type: str,
-) -> None:
-    """Test each stripes image format is sent as the media type registered for it (GH-2063).
-
-    `image/{format}` gave `image/jpg`, `image/svg` and `image/pdf`, none of them registered.
-    """
-
-    class _Figure:
-        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
-            return b"image"
-
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
-    response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048", "format": fmt})
-    assert response.status_code == 200
-    assert response.headers["content-type"] == media_type
 
 
 def _without_plotly(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -2067,257 +1941,6 @@ def _without_plotly(monkeypatch: pytest.MonkeyPatch) -> None:
         return real(name, *args, **kwargs)
 
     monkeypatch.setattr(importlib, "import_module", import_module)
-
-
-def test_stripes_image_without_plotly_is_a_501_before_anything_is_fetched(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A server without the `plotting` extra refuses at once: the record of the station is not downloaded (GH-3581).
-
-    An unknown station would otherwise be a 404 and a known one a download, for the same 501 at the end.
-    """
-    _without_plotly(monkeypatch)
-    monkeypatch.setattr(restapi, "_get_stripes_data", _unreached)
-
-    response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "99999"})
-
-    assert response.status_code == 501
-    assert "optional dependency" in response.json()["detail"]
-
-
-def test_stripes_image_without_kaleido_is_a_501(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Test `/api/stripes/image` without Kaleido is a 501 with the install line in the log (GH-2667).
-
-    Plotly's `RuntimeError` out of `to_image` was a bare 500.
-    """
-
-    def draw(*_args: object, **_kwargs: object) -> bytes:
-        pytest.fail("rendered although Kaleido is missing")
-
-    monkeypatch.setitem(sys.modules, "kaleido", None)
-    monkeypatch.setattr("wetterdienst.io.export._draw", draw)
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: object())
-
-    with caplog.at_level(logging.ERROR):
-        response = client.get("/api/stripes/image", params={"kind": "temperature", "station": "01048"})
-
-    assert response.status_code == 501
-    assert "pip install" not in response.json()["detail"]
-    assert "Rendering an image requires kaleido, which is not installed" in caplog.text
-    assert "pip install wetterdienst[plotting]" in caplog.text
-
-
-@pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])
-@pytest.mark.parametrize(
-    ("query", "detail"),
-    [
-        (
-            {},
-            [
-                {
-                    "type": "missing_one_of",
-                    "loc": ["query"],
-                    "msg": "Exactly one of station or name is required",
-                    "input": None,
-                    "ctx": {"one_of": [["station"], ["name"]]},
-                },
-            ],
-        ),
-        (
-            {"station": "01048", "name": "Dresden-Klotzsche"},
-            [
-                {
-                    "type": "mutually_exclusive",
-                    "loc": ["query", "station"],
-                    "msg": "Cannot be combined with name, give exactly one of station or name",
-                    "input": "01048",
-                    "ctx": {"conflicts_with": ["name"], "one_of": [["station"], ["name"]]},
-                },
-                {
-                    "type": "mutually_exclusive",
-                    "loc": ["query", "name"],
-                    "msg": "Cannot be combined with station, give exactly one of station or name",
-                    "input": "Dresden-Klotzsche",
-                    "ctx": {"conflicts_with": ["station"], "one_of": [["station"], ["name"]]},
-                },
-            ],
-        ),
-        (
-            {"station": "01048", "start_year": "2021", "end_year": "2020"},
-            [
-                {
-                    "type": "greater_than_field",
-                    "loc": ["query", "end_year"],
-                    "msg": "Input should be greater than start_year (2021)",
-                    "input": 2020,
-                    "ctx": {"field": "start_year", "gt": 2021},
-                },
-            ],
-        ),
-        (
-            {"name": "Dresden-Klotzsche", "name_threshold": "1.01"},
-            [
-                {
-                    "type": "less_than_equal",
-                    "loc": ["query", "name_threshold"],
-                    "msg": "Input should be less than or equal to 1",
-                    "input": "1.01",
-                    "ctx": {"le": 1.0},
-                },
-            ],
-        ),
-    ],
-)
-def test_stripes_refused_as_the_other_endpoints_refuse(
-    client: TestClient,
-    endpoint: str,
-    query: dict[str, str],
-    detail: list[dict],
-) -> None:
-    """Test a stripes request is refused with FastAPI's 422, located at each parameter involved.
-
-    Both endpoints checked these by hand and answered a string 400 --
-    "Query arguments 'station' and 'name' are mutually exclusive" -- where the other endpoints answer
-    the same rule with typed entries (GH-2060). Refused before anything is fetched.
-    """
-    response = client.get(endpoint, params={"kind": "temperature", **query})
-    assert response.status_code == 422
-    assert response.json()["errors"] == detail
-
-
-@pytest.mark.remote
-def test_stripes_values_unknown_name(client: TestClient) -> None:
-    """Test unknown name value."""
-    response = client.get(
-        "/api/stripes/values",
-        params={
-            "kind": "temperature",
-            "name": "foobar",
-        },
-    )
-    assert response.status_code == 404
-    assert response.json()["detail"] == "No station with a name similar to 'foobar' found"
-
-
-@pytest.mark.remote
-def test_stripes_values_unknown_format(client: TestClient) -> None:
-    """Test wrong format value."""
-    response = client.get(
-        "/api/stripes/values",
-        params={
-            "kind": "temperature",
-            "station": "01048",
-            "format": "foobar",
-        },
-    )
-    assert response.status_code == 422
-    assert response.json()["errors"][0]["msg"] == "Input should be 'json' or 'csv'"
-
-
-@pytest.mark.remote
-def test_stripes_image_default(client: TestClient) -> None:
-    """Test default parameters."""
-    response = client.get(
-        "/api/stripes/image",
-        params={
-            "kind": "temperature",
-            "station": "01048",
-        },
-    )
-    assert response.status_code == 200
-    assert response.content
-
-
-@pytest.mark.remote
-def test_stripes_image_name(client: TestClient) -> None:
-    """Test name parameter."""
-    response = client.get(
-        "/api/stripes/image",
-        params={
-            "kind": "temperature",
-            "name": "Dresden-Klotzsche",
-        },
-    )
-    assert response.status_code == 200
-    assert response.content
-
-
-@pytest.mark.remote
-@pytest.mark.parametrize(
-    "params",
-    [
-        {"show_title": "true"},
-        {"show_years": "true"},
-        {"show_data_availability": "true"},
-        {"show_title": "false"},
-        {"show_years": "false"},
-        {"show_data_availability": "false"},
-    ],
-)
-def test_stripes_image_non_defaults(client: TestClient, params: dict) -> None:
-    """Test non-default parameters."""
-    response = client.get(
-        "/api/stripes/image",
-        params=params
-        | {
-            "kind": "temperature",
-            "station": "01048",
-            "show_title": "true",
-            "show_years": "true",
-            "show_data_availability": "true",
-        },
-    )
-    assert response.status_code == 200
-    assert response.content
-
-
-@pytest.mark.remote
-def test_stripes_image_unknown_name(client: TestClient) -> None:
-    """Test unknown name value."""
-    response = client.get(
-        "/api/stripes/image",
-        params={
-            "kind": "temperature",
-            "name": "foobar",
-        },
-    )
-    assert response.status_code == 404
-    assert response.json()["detail"] == "No station with a name similar to 'foobar' found"
-
-
-@pytest.mark.remote
-def test_stripes_image_unknown_format(client: TestClient) -> None:
-    """Test wrong format value."""
-    response = client.get(
-        "/api/stripes/image",
-        params={
-            "kind": "temperature",
-            "station": "01048",
-            "format": "foobar",
-        },
-    )
-    assert response.status_code == 422
-    assert response.json()["errors"][0]["msg"] == "Input should be 'png', 'jpg', 'svg' or 'pdf'"
-
-
-@pytest.mark.remote
-def test_stripes_image_wrong_dpi(client: TestClient) -> None:
-    """Test wrong dpi value."""
-    response = client.get(
-        "/api/stripes/image",
-        params={
-            "kind": "temperature",
-            "station": "01048",
-            "dpi": 0,
-        },
-    )
-    assert response.status_code == 422
-    assert response.json()["errors"][0]["msg"] == "Input should be greater than 0"
 
 
 @pytest.mark.remote
@@ -3132,7 +2755,6 @@ def test_a_provider_the_server_cannot_reach_is_a_503(
     [
         ("/api/alerts", "wetterdienst.provider.dwd.alerts.DwdWeatherAlertRequest.query", {}),
         ("/api/storm-cells", "wetterdienst.provider.dwd.storm_cells.DwdStormCellsRequest.query", {}),
-        ("/api/stripes/stations", "wetterdienst.ui.restapi._get_stripes_stations", {"kind": "temperature"}),
     ],
 )
 def test_a_provider_the_server_cannot_reach_is_a_503_without_a_traceback_where_the_handler_is_a_catch_all(
@@ -3279,7 +2901,6 @@ def test_values_a_value_error_from_the_values_is_a_500(
     [
         pytest.param("/api/stations", "get_stations", id="stations"),
         pytest.param("/api/values", "get_values", id="values"),
-        pytest.param("/api/stripes/stations", "_get_stripes_stations", id="stripes-stations"),
         pytest.param("/api/history", "get_stations", id="history"),
     ],
 )
@@ -3306,7 +2927,6 @@ def test_a_500_does_not_name_the_servers_paths_but_the_log_does(
     params = {
         "/api/stations": {**_OBSERVATION, "all": "true"},
         "/api/values": {**_OBSERVATION, "stations": "01048", "timestamp": "2020-06-30"},
-        "/api/stripes/stations": {"kind": "temperature"},
         "/api/history": {**_OBSERVATION, "stations": "01048"},
     }[endpoint]
 
@@ -3634,13 +3254,6 @@ def _raw_network_failures() -> list[tuple[Exception, str]]:
         pytest.param("/api/history", "get_stations", {**_OBSERVATION, "stations": "01048"}, id="history"),
         pytest.param(
             "/api/issues", "get_issues", {"provider": "dwd", "network": "mosmix", "station": "01048"}, id="issues"
-        ),
-        pytest.param("/api/stripes/stations", "_get_stripes_stations", {"kind": "temperature"}, id="stripes-stations"),
-        pytest.param(
-            "/api/stripes/values",
-            "_get_stripes_data",
-            {"kind": "temperature", "station": "01048"},
-            id="stripes-values",
         ),
     ],
 )
@@ -4515,62 +4128,6 @@ def test_stations_a_sql_refusal_keeps_its_400(client: TestClient, monkeypatch: p
     assert 'Referenced column "foo" not found' in response.json()["detail"]
 
 
-def _stub_stripes(monkeypatch: pytest.MonkeyPatch, stations: list[dict], values: dict[int, float | None]) -> None:
-    """Have the temperature stripes read `stations` and these yearly `values` instead of DWD's."""
-    import datetime as dt  # noqa: PLC0415
-
-    import polars as pl  # noqa: PLC0415
-
-    from wetterdienst.ui import core  # noqa: PLC0415
-
-    frame = pl.DataFrame(
-        {
-            "timestamp": [dt.datetime(year, 1, 1, tzinfo=dt.UTC) for year in values],
-            "value": list(values.values()),
-        },
-        schema={"timestamp": pl.Datetime(time_zone="UTC"), "value": pl.Float64},
-    )
-    result = SimpleNamespace(
-        to_dict=lambda: {"stations": stations},
-        values=lambda: SimpleNamespace(all=lambda: SimpleNamespace(df=frame)),
-    )
-    request = SimpleNamespace(filter_by_station_id=lambda _station: result, _gaps_that_may_list=lambda _station: {})
-    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period, **_: request)
-
-
-@pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])
-@pytest.mark.parametrize(
-    ("stations", "values", "status", "detail"),
-    [
-        pytest.param([], {}, 404, "No station with a station_id similar to '99999' found", id="unknown-station"),
-        pytest.param(
-            [{"station_id": "99999", "name": "Somewhere"}],
-            {2000: 1.0},
-            400,
-            "At least two years with data are required to create climate stripes; station 99999 has data "
-            "from 2000 to 2000",
-            id="one-year-with-data",
-        ),
-    ],
-)
-def test_stripes_a_refusal_is_the_callers_4xx(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-    endpoint: str,
-    stations: list[dict],
-    values: dict[int, float | None],
-    status: int,
-    detail: str,
-) -> None:
-    """A station the stripes do not know is a 404, one with too little data the caller's 400 (GH-2276, GH-2634)."""
-    _stub_stripes(monkeypatch, stations, values)
-
-    response = client.get(endpoint, params={"kind": "temperature", "station": "99999"})
-
-    assert response.status_code == status
-    assert response.json()["detail"] == detail
-
-
 _UNEXPECTED = "can only call '.item()' if the dataframe has a single element"
 
 
@@ -4621,23 +4178,6 @@ class _HistoryFails:
             {"provider": "dwd", "network": "mosmix", "station": "10382"},
             id="issues",
         ),
-        pytest.param(
-            "/api/stripes/stations", "_get_stripes_stations", _fail, {"kind": "temperature"}, id="stripes-stations"
-        ),
-        pytest.param(
-            "/api/stripes/values",
-            "_get_stripes_data",
-            _fail,
-            {"kind": "temperature", "station": "01048"},
-            id="stripes-values",
-        ),
-        pytest.param(
-            "/api/stripes/image",
-            "_get_stripes_data",
-            _fail,
-            {"kind": "temperature", "station": "01048"},
-            id="stripes-image",
-        ),
     ],
 )
 def test_a_failure_of_the_lookup_that_is_not_a_refusal_is_a_500(
@@ -4669,13 +4209,6 @@ def _fail_as_a_refusal(*_args: object, **_kwargs: object) -> None:
     ("endpoint", "entry_point", "stub", "params"),
     [
         pytest.param(
-            "/api/stripes/stations",
-            "_get_stripes_stations",
-            _fail_as_a_refusal,
-            {"kind": "temperature"},
-            id="stripes-stations",
-        ),
-        pytest.param(
             "/api/history",
             "get_stations",
             lambda **_kwargs: _HistoryFails("history", _fail_as_a_refusal),
@@ -4701,133 +4234,13 @@ def test_a_failure_where_the_caller_has_no_input_is_a_500_whatever_its_type(
 ) -> None:
     """A refusal's type raised where nothing of the caller's reaches is the source's, and a 500 (GH-2276).
 
-    The station list of the stripes takes no input the signature has not checked, and a history is
-    read once its stations are known, so an `InvalidEnumerationError` there comes from the data.
+    A history is read once its stations are known, so an `InvalidEnumerationError` there comes from the data.
     """
     monkeypatch.setattr(f"wetterdienst.ui.restapi.{entry_point}", stub)
 
     response = client.get(endpoint, params=params)
 
     _is_a_500_naming_only(response, "InvalidEnumerationError", hides=_UNEXPECTED)
-
-
-def test_stripes_an_index_error_building_the_station_is_not_an_unknown_station(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """An `IndexError` from building the stations is a 500, not "No station ... found" (GH-2276)."""
-    from wetterdienst.ui import core  # noqa: PLC0415
-
-    def to_dict() -> None:
-        msg = "list index out of range"
-        raise IndexError(msg)
-
-    request = SimpleNamespace(filter_by_station_id=lambda _station: SimpleNamespace(to_dict=to_dict))
-    monkeypatch.setitem(core.CLIMATE_STRIPES_CONFIG["temperature"], "request", lambda _period, **_: request)
-
-    response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
-
-    _is_a_500_naming_only(response, "IndexError", hides="list index out of range")
-
-
-def test_stripes_values_write_their_timestamps_as_every_other_body_does(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test the stripes' JSON stamps are written in the one format, not as `isoformat` makes them (GH-2633)."""
-    df = pl.DataFrame(
-        {
-            "timestamp": [dt.datetime(2019, 1, 1, tzinfo=dt.UTC), None],
-            "value": [9.5, None],
-            "anomaly": [1.5, None],
-            "stripe_class": [10, None],
-        },
-        schema={
-            "timestamp": pl.Datetime("us", "UTC"),
-            "value": pl.Float64,
-            "anomaly": pl.Float64,
-            "stripe_class": pl.Int64,
-        },
-    )
-    stripes = StripesSeries(
-        station={"station_id": "01048"},
-        resolution="annual",
-        dataset="climate_summary",
-        parameter="temperature_air_mean_2m",
-        unit="degree_celsius",
-    )
-    reference = stripes_reference(list(range(2000, 2012)), [float(n) for n in range(12)])
-    monkeypatch.setattr(
-        restapi, "_get_stripes_data", lambda _request: StripesData(series=stripes, reference=reference, df=df)
-    )
-
-    response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
-
-    assert response.status_code == 200
-    assert response.json()["values"] == [
-        {"timestamp": "2019-01-01T00:00:00.000000+00:00", "value": 9.5, "anomaly": 1.5, "stripe_class": 10},
-        {"timestamp": None, "value": None, "anomaly": None, "stripe_class": None},
-    ]
-    csv = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048", "format": "csv"})
-    assert csv.text.splitlines()[0] == "timestamp,value,anomaly,stripe_class"
-    assert csv.text.splitlines()[1] == "2019-01-01T00:00:00.000000+00:00,9.5,1.5,10"
-
-
-def test_stripes_values_send_the_station_as_it_is_with_the_document_describing_it_as_a_station(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test `series.station` is the station row as it was, though the document types it as a station (GH-3908).
-
-    The document says `_Station` (its columns, and any other a provider adds), so a client generator knows the fields
-    of the station; the answer is the row as the listing gave it, with its keys in its order and no key added or
-    dropped, which a model that read the row back would change.
-    """
-    station = {
-        "elevation": 4.0,
-        "station_id": "01048",
-        "gauge_zero": 1.5,  # a column beyond the core ones, which the schema admits
-        "name": "Dresden-Klotzsche",
-        "resolution": "annual",
-        "dataset": "climate_summary",
-        "start_timestamp": "1934-01-01T00:00:00.000000+00:00",
-        "end_timestamp": None,
-        "latitude": 51.1278,
-        "longitude": 13.7543,
-        "region": "Sachsen",
-    }
-    df = pl.DataFrame(
-        {"timestamp": [dt.datetime(2019, 1, 1, tzinfo=dt.UTC)], "value": [9.5], "anomaly": [1.5], "stripe_class": [10]},
-        schema={
-            "timestamp": pl.Datetime("us", "UTC"),
-            "value": pl.Float64,
-            "anomaly": pl.Float64,
-            "stripe_class": pl.Int64,
-        },
-    )
-    stripes = StripesSeries(
-        station=station,  # ty: ignore[invalid-argument-type]
-        resolution="annual",
-        dataset="climate_summary",
-        parameter="temperature_air_mean_2m",
-        unit="degree_celsius",
-    )
-    reference = stripes_reference(list(range(2000, 2012)), [float(n) for n in range(12)])
-    monkeypatch.setattr(
-        restapi, "_get_stripes_data", lambda _request: StripesData(series=stripes, reference=reference, df=df)
-    )
-
-    response = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"})
-
-    assert response.status_code == 200
-    sent = response.json()["series"]["station"]
-    assert sent == station
-    assert list(sent) == list(station)
-    schemas = client.get("/openapi.json").json()["components"]["schemas"]
-    described = schemas["StripesSeries"]["properties"]["station"]
-    assert described["properties"] == schemas["_Station"]["properties"]
-    assert described["required"] == schemas["_Station"]["required"]
-    assert described["additionalProperties"] is True
 
 
 def test_values_a_unit_target_for_an_unknown_quantity_is_a_400(client: TestClient) -> None:
@@ -5295,39 +4708,6 @@ def test_values_a_unit_target_the_server_environment_got_wrong_is_not_the_caller
     _is_an_unhandled_500(response)
 
 
-@pytest.mark.parametrize(
-    ("endpoint", "params"),
-    [
-        pytest.param("/api/stripes/stations", {"kind": "temperature"}, id="stripes-stations"),
-        pytest.param("/api/stripes/values", {"kind": "temperature", "station": "01048"}, id="stripes-values"),
-        pytest.param("/api/stripes/image", {"kind": "temperature", "station": "01048"}, id="stripes-image"),
-    ],
-)
-def test_stripes_a_setting_the_server_environment_got_wrong_is_not_the_callers(
-    monkeypatch: pytest.MonkeyPatch,
-    tmp_path: pathlib.Path,
-    endpoint: str,
-    params: dict[str, str],
-) -> None:
-    """A malformed `WD_*` setting is the server's bare 500, without its value (GH-2312).
-
-    The stripes build their provider request, and with it its settings, inside a catch-all, which
-    answered the `ValidationError` with a 500 carrying the configured value.
-    """
-    from fastapi.testclient import TestClient  # noqa: PLC0415
-
-    from wetterdienst.ui.restapi import app  # noqa: PLC0415
-
-    (tmp_path / ".env").write_text("WD_CACHE_DISABLE=not-a-bool\n")
-    monkeypatch.chdir(tmp_path)
-    client = TestClient(app, raise_server_exceptions=False)
-
-    response = client.get(endpoint, params=params)
-
-    # the app's answer to an exception nothing handled, so the settings are what failed
-    _is_an_unhandled_500(response)
-
-
 def test_summarize_has_no_use_nearby_station_distance(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -5646,7 +5026,6 @@ def test_restapi_imports_with_a_malformed_setting(tmp_path: pathlib.Path) -> Non
     """
     import os  # noqa: PLC0415
     import subprocess  # noqa: PLC0415
-    import sys  # noqa: PLC0415
 
     result = subprocess.run(
         [sys.executable, "-c", "import wetterdienst.ui.restapi"],
@@ -7013,435 +6392,6 @@ def test_restapi_does_not_configure_opentelemetry_export_from_the_environment(
     assert not [record for record in caplog.records if record.name.startswith("fastapi")]
 
 
-def _stub_stripes_station(monkeypatch: pytest.MonkeyPatch, kind: str, values: list[float]) -> None:
-    """Answer the stripes of station 01048 offline: its listing, and one value a year from 2000."""
-    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
-    from wetterdienst.provider.dwd.observation.api import DwdObservationValues  # noqa: PLC0415
-
-    dataset, name_original = {
-        "temperature": ("climate_summary", "ja_tt"),
-        "precipitation": ("precipitation_more", "ja_rr"),
-    }[kind]
-    stations = pl.DataFrame(
-        [
-            {
-                "resolution": "annual",
-                "dataset": dataset,
-                "station_id": "01048",
-                "start_timestamp": dt.datetime(1934, 1, 1, tzinfo=dt.UTC),
-                "end_timestamp": dt.datetime(2025, 12, 31, tzinfo=dt.UTC),
-                "latitude": 51.1278,
-                "longitude": 13.7543,
-                "elevation": 228.0,
-                "name": "Dresden-Klotzsche",
-                "region": "Sachsen",
-                "wmo_id": None,
-                "wigos_id": None,
-                "icao_id": None,
-            },
-        ],
-        schema_overrides={"wmo_id": pl.String, "wigos_id": pl.String, "icao_id": pl.String},
-    )
-
-    def _all(self: DwdObservationRequest) -> StationsResult:
-        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.ALL)
-
-    def _collect(
-        self: DwdObservationValues,  # noqa: ARG001
-        station_id: str,
-        parameter_or_dataset: object,  # noqa: ARG001
-    ) -> pl.DataFrame:
-        # as the source has them: named by its codes, in the unit it publishes
-        return pl.DataFrame(
-            [
-                {
-                    "station_id": station_id,
-                    "resolution": "annual",
-                    "dataset": dataset,
-                    "parameter": name_original,
-                    "timestamp": dt.datetime(2000 + offset, 1, 1, tzinfo=dt.UTC),
-                    "value": value,
-                    "quality_flags": "10",
-                }
-                for offset, value in enumerate(values)
-            ],
-            schema_overrides={"value": pl.Float64},
-        )
-
-    monkeypatch.setattr(DwdObservationRequest, "all", _all)
-    monkeypatch.setattr(DwdObservationValues, "_collect_station_parameter_or_dataset", _collect)
-
-
-# the stations of the listing the stripes are made from, by id: their first and last year (none: no end date)
-_STRIPES_LISTING: dict[str, tuple[int | None, int | None]] = {
-    "00001": (2001, 2009),  # 9 years: cannot reach the 10 a record needs
-    "00002": (2000, 2009),  # 10 years: just can
-    "00003": (1934, 2025),  # a long record
-    "00004": (2020, 2025),  # 6 years
-    "00005": (2015, None),  # no end date: kept, as nothing rules it out
-    "00006": (None, 2025),  # no start date: kept as well
-}
-_LISTED_STRIPES_STATIONS = ["00002", "00003", "00005", "00006"]
-
-
-def _stub_stripes_listing(monkeypatch: pytest.MonkeyPatch, kind: str) -> None:
-    """Serve `_STRIPES_LISTING` as the stations DWD lists for the stripes' parameter, whole period and recent alike."""
-    from wetterdienst.model.result import StationsFilter, StationsResult  # noqa: PLC0415
-    from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
-
-    dataset = {"temperature": "climate_summary", "precipitation": "precipitation_more"}[kind]
-    stations = pl.DataFrame(
-        [
-            {
-                "resolution": "annual",
-                "dataset": dataset,
-                "station_id": station_id,
-                "start_timestamp": None if first is None else dt.datetime(first, 1, 1, tzinfo=dt.UTC),
-                "end_timestamp": None if last is None else dt.datetime(last, 12, 31, tzinfo=dt.UTC),
-                "latitude": 51.0,
-                "longitude": 13.0,
-                "elevation": 200.0,
-                "name": f"Station {station_id}",
-                "region": "Sachsen",
-                "wmo_id": None,
-                "wigos_id": None,
-                "icao_id": None,
-            }
-            for station_id, (first, last) in _STRIPES_LISTING.items()
-        ],
-        schema_overrides={
-            "start_timestamp": pl.Datetime("us", "UTC"),
-            "end_timestamp": pl.Datetime("us", "UTC"),
-            "wmo_id": pl.String,
-            "wigos_id": pl.String,
-            "icao_id": pl.String,
-        },
-    )
-
-    def _all(self: DwdObservationRequest) -> StationsResult:
-        return StationsResult(request=self, df=stations, _df_all=stations, _stations_filter=StationsFilter.ALL)
-
-    monkeypatch.setattr(DwdObservationRequest, "all", _all)
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize("kind", ["temperature", "precipitation"])
-@pytest.mark.parametrize("active", ["true", "false"])
-def test_stripes_stations_leave_out_the_stations_whose_record_cannot_reach_the_minimum(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, kind: str, active: str
-) -> None:
-    """A station that lists fewer than 10 years is not offered for stripes, as a request for it is refused (GH-4157)."""
-    _stub_stripes_listing(monkeypatch, kind)
-
-    response = client.get("/api/stripes/stations", params={"kind": kind, "active": active})
-
-    assert response.status_code == 200, response.text
-    assert [station["station_id"] for station in response.json()["stations"]] == _LISTED_STRIPES_STATIONS
-    # and the minimum is the one the values are refused with: the same number, not a second one
-    assert ui_core.MIN_RECORD_YEARS == 10
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_mcp_stripes_stations_leave_out_the_stations_whose_record_cannot_reach_the_minimum(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """The MCP tool lists what the endpoint does (GH-4157)."""
-    pytest.importorskip("fastmcp")
-    import asyncio  # noqa: PLC0415
-
-    from fastmcp import Client  # noqa: PLC0415
-
-    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
-
-    _stub_stripes_listing(monkeypatch, "temperature")
-
-    async def _call() -> dict:
-        async with Client(build_mcp_server(restapi.app)) as mcp_client:
-            result = await mcp_client.call_tool("stripes_stations", {"kind": "temperature", "active": False})
-        return json.loads(result.content[0].text)
-
-    data = asyncio.run(_call())["result"]
-    assert [station["station_id"] for station in data["stations"]] == _LISTED_STRIPES_STATIONS
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_the_command_line_lists_the_same_stripes_stations(monkeypatch: pytest.MonkeyPatch) -> None:
-    """`stripes stations` lists what the endpoint does (GH-4157)."""
-    from click.testing import CliRunner  # noqa: PLC0415
-
-    from wetterdienst.ui.cli import cli  # noqa: PLC0415
-
-    _stub_stripes_listing(monkeypatch, "temperature")
-
-    result = CliRunner().invoke(cli, ["stripes", "stations", "--kind=temperature", "--active=false"])
-
-    assert result.exit_code == 0, result.output
-    assert [station["station_id"] for station in json.loads(result.stdout)["stations"]] == _LISTED_STRIPES_STATIONS
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize(
-    ("kind", "environment", "unit", "expected"),
-    [
-        pytest.param("temperature", {}, "degree_celsius", [1.0, 2.0], id="temperature"),
-        pytest.param(
-            "temperature",
-            {"WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}'},
-            "degree_fahrenheit",
-            [33.8, 35.6],
-            id="temperature-fahrenheit",
-        ),
-        pytest.param(
-            "temperature",
-            {"WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}', "WD_TS_CONVERT_UNITS": "false"},
-            "degree_celsius",
-            [1.0, 2.0],
-            id="temperature-fahrenheit-unconverted",
-        ),
-        pytest.param("precipitation", {}, "millimeter", [1.0, 2.0], id="precipitation"),
-        pytest.param(
-            "precipitation",
-            {"WD_TS_UNIT_TARGETS": '{"temperature": "degree_fahrenheit"}'},
-            "millimeter",
-            [1.0, 2.0],
-            id="precipitation-fahrenheit",
-        ),
-    ],
-)
-def test_stripes_values_name_the_unit_the_server_converts_to(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-    kind: str,
-    environment: dict[str, str],
-    unit: str,
-    expected: list[float],
-) -> None:
-    """The stripes metadata names the unit of their values, which the server's settings set (GH-2372).
-
-    The stripes read a station's values with the server's `WD_TS_CONVERT_UNITS` and
-    `WD_TS_UNIT_TARGETS`, so a station whose annual mean was 1.0 °C came back as 33.8 under a
-    Fahrenheit target, with nothing in the metadata saying so. The station's listing and download
-    are stubbed, so the conversion runs and nothing leaves the machine. The station's record is
-    1.0 and 2.0 in the source's unit; `expected` is what comes back.
-    """
-    for name, setting in environment.items():
-        monkeypatch.setenv(name, setting)
-    _stub_stripes_station(monkeypatch, kind, [1.0 + year for year in range(10)])
-
-    response = client.get("/api/stripes/values", params={"kind": kind, "station": "01048"})
-
-    assert response.status_code == 200, response.text
-    data = response.json()
-    assert data["series"]["unit"] == unit
-    assert [item["value"] for item in data["values"]][:2] == expected
-    # named by the parameter the unit is taken from
-    assert (data["series"]["resolution"], data["series"]["dataset"], data["series"]["parameter"]) == {
-        "temperature": ("annual", "climate_summary", "temperature_air_mean_2m"),
-        "precipitation": ("annual", "precipitation_more", "precipitation_amount"),
-    }[kind]
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_mcp_stripes_values_name_the_unit(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The MCP `stripes_values` tool passes on the unit the stripes metadata names (GH-2372)."""
-    pytest.importorskip("fastmcp")
-    import asyncio  # noqa: PLC0415
-
-    from fastmcp import Client  # noqa: PLC0415
-
-    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
-
-    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit"}')
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-
-    async def _call() -> dict:
-        async with Client(build_mcp_server(restapi.app)) as mcp_client:
-            result = await mcp_client.call_tool("stripes_values", {"kind": "temperature", "station": "01048"})
-        return json.loads(result.content[0].text)
-
-    # the tool's answer is the endpoint's, as its output schema (a JSON object or text) has it wrapped
-    data = asyncio.run(_call())["result"]
-    assert data["series"]["unit"] == "degree_fahrenheit"
-    assert [item["value"] for item in data["values"]][:2] == [33.8, 35.6]
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize(
-    ("kind", "unit_targets", "unit", "expected"),
-    [
-        pytest.param("temperature", '{"temperature": "degree_fahrenheit"}', "degree_fahrenheit", [33.8, 35.6], id="f"),
-        pytest.param("temperature", '{"temperature": "degree_celsius"}', "degree_celsius", [1.0, 2.0], id="c"),
-        pytest.param("temperature", '{"temperature": "degree_kelvin"}', "degree_kelvin", [274.15, 275.15], id="k"),
-        pytest.param(
-            "precipitation", '{"precipitation": "liter_per_square_meter"}', "liter_per_square_meter", [1.0, 2.0], id="l"
-        ),
-        # the other quantity is none of the kind's: the unit stays the source's
-        pytest.param("precipitation", '{"temperature": "degree_fahrenheit"}', "millimeter", [1.0, 2.0], id="other"),
-    ],
-)
-def test_stripes_values_take_the_unit_targets_as_the_values_do(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-    kind: str,
-    unit_targets: str,
-    unit: str,
-    expected: list[float],
-) -> None:
-    """`unit_targets` of `/api/stripes/values` chooses the unit of the values, named in `series.unit` (GH-3980)."""
-    _stub_stripes_station(monkeypatch, kind, [1.0 + year for year in range(10)])
-
-    response = client.get(
-        "/api/stripes/values", params={"kind": kind, "station": "01048", "unit_targets": unit_targets}
-    )
-
-    assert response.status_code == 200, response.text
-    data = response.json()
-    assert data["series"]["unit"] == unit
-    assert [item["value"] for item in data["values"]][:2] == pytest.approx(expected)
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_stripes_values_without_unit_targets_are_unchanged(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
-    """A request giving no `unit_targets` is answered in degree Celsius and millimetre, as before (GH-3980)."""
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-    data = client.get("/api/stripes/values", params={"kind": "temperature", "station": "01048"}).json()
-    assert data["series"]["unit"] == "degree_celsius"
-    assert [item["value"] for item in data["values"]][:2] == [1.0, 2.0]
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_stripes_values_unit_targets_win_over_the_servers_for_the_quantity(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """A request's `unit_targets` entry replaces the server's `WD_TS_UNIT_TARGETS` one for its quantity (GH-3980)."""
-    monkeypatch.setenv("WD_TS_UNIT_TARGETS", '{"temperature": "degree_fahrenheit"}')
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-    params = {"kind": "temperature", "station": "01048"}
-    data = client.get("/api/stripes/values", params={**params, "unit_targets": '{"temperature": "degree_kelvin"}'})
-    assert data.json()["series"]["unit"] == "degree_kelvin"
-    # a quantity it leaves out keeps the server's
-    data = client.get(
-        "/api/stripes/values", params={**params, "unit_targets": '{"precipitation": "liter_per_square_meter"}'}
-    )
-    assert data.json()["series"]["unit"] == "degree_fahrenheit"
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize(
-    ("unit_targets", "message"),
-    [
-        ('{"foo": "degree_celsius"}', "Invalid unit targets: quantities not supported: foo."),
-        ('{"temperature": "furlong"}', "Invalid unit targets: Unit furlong not supported for type temperature."),
-    ],
-)
-def test_stripes_values_refuse_unit_targets_as_the_values_route_does(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, unit_targets: str, message: str
-) -> None:
-    """An unknown quantity or unit is the request's 400, worded as `/api/values` words it (GH-3980)."""
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-
-    response = client.get(
-        "/api/stripes/values", params={"kind": "temperature", "station": "01048", "unit_targets": unit_targets}
-    )
-
-    assert response.status_code == 400
-    assert response.json()["detail"].startswith("Invalid value for 'unit_targets': ")
-    assert message in response.json()["detail"]
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize(
-    "variable", [("WD_TS_SHAPE", "bogus"), ("WD_TS_SKIP_EMPTY", "maybe")], ids=["shape", "skip-empty"]
-)
-@pytest.mark.parametrize("unit_targets", [None, '{"temperature": "degree_fahrenheit"}'], ids=["none", "fahrenheit"])
-def test_stripes_values_override_a_malformed_variable_for_their_options(
-    client: TestClient, monkeypatch: pytest.MonkeyPatch, variable: tuple[str, str], unit_targets: str | None
-) -> None:
-    """A malformed WD_TS_SHAPE or WD_TS_SKIP_EMPTY, which the stripes fix themselves, does not stop the route (GH-2348).
-
-    The check of `unit_targets` built the server's options from the environment, which reads them, and answered 500.
-    """
-    monkeypatch.setenv(*variable)
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-    params = {"kind": "temperature", "station": "01048"}
-    if unit_targets:
-        params["unit_targets"] = unit_targets
-
-    response = client.get("/api/stripes/values", params=params)
-
-    assert response.status_code == 200, response.text
-    assert response.json()["series"]["unit"] == ("degree_fahrenheit" if unit_targets else "degree_celsius")
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-@pytest.mark.parametrize(
-    "variable", [("WD_TS_SHAPE", "bogus"), ("WD_TS_SKIP_EMPTY", "maybe")], ids=["shape", "skip-empty"]
-)
-def test_mcp_stripes_values_override_a_malformed_variable_for_their_options(
-    monkeypatch: pytest.MonkeyPatch, variable: tuple[str, str]
-) -> None:
-    """The MCP `stripes_values` tool, which is the route, is as little stopped by a malformed variable (GH-2348)."""
-    pytest.importorskip("fastmcp")
-    import asyncio  # noqa: PLC0415
-
-    from fastmcp import Client  # noqa: PLC0415
-
-    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
-
-    monkeypatch.setenv(*variable)
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-
-    async def _call() -> dict:
-        async with Client(build_mcp_server(restapi.app)) as mcp_client:
-            result = await mcp_client.call_tool(
-                "stripes_values",
-                {"kind": "temperature", "station": "01048", "unit_targets": {"temperature": "degree_fahrenheit"}},
-            )
-        return json.loads(result.content[0].text)
-
-    data = asyncio.run(_call())["result"]
-    assert data["series"]["unit"] == "degree_fahrenheit"
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_stripes_image_takes_no_unit_targets(client: TestClient) -> None:
-    """The image shows no number or unit, so it takes no `unit_targets` (GH-3980)."""
-    response = client.get(
-        "/api/stripes/image",
-        params={"kind": "temperature", "station": "01048", "unit_targets": '{"temperature": "degree_fahrenheit"}'},
-    )
-    assert response.status_code == 422
-
-
-@pytest.mark.usefixtures("_no_ambient_settings")
-def test_mcp_stripes_values_take_unit_targets(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The MCP `stripes_values` tool takes `unit_targets` as an object, like `values` does (GH-3980)."""
-    pytest.importorskip("fastmcp")
-    import asyncio  # noqa: PLC0415
-
-    from fastmcp import Client  # noqa: PLC0415
-
-    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
-
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-
-    async def _call(arguments: dict) -> dict:
-        async with Client(build_mcp_server(restapi.app)) as mcp_client:
-            result = await mcp_client.call_tool(
-                "stripes_values", {"kind": "temperature", "station": "01048", **arguments}
-            )
-        return json.loads(result.content[0].text)
-
-    data = asyncio.run(_call({"unit_targets": {"temperature": "degree_fahrenheit"}}))["result"]
-    assert data["series"]["unit"] == "degree_fahrenheit"
-    assert [item["value"] for item in data["values"]][:2] == [33.8, 35.6]
-    # the default is unchanged
-    data = asyncio.run(_call({}))["result"]
-    assert data["series"]["unit"] == "degree_celsius"
-    assert [item["value"] for item in data["values"]][:2] == [1.0, 2.0]
-
-
 def _stub_a_station_without_position(monkeypatch: pytest.MonkeyPatch) -> None:
     """Stand in for the DWD station list with a station that has no position (GH-2385)."""
     from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
@@ -7551,23 +6501,6 @@ def test_mcp_a_location_out_of_range_is_a_400(
     with pytest.raises(ToolError, match="HTTP error 400") as error:
         asyncio.run(_call())
     assert detail in str(error.value)
-
-
-@pytest.mark.parametrize("endpoint", ["/api/stripes/values", "/api/stripes/image"])
-def test_stripes_a_station_that_returns_no_rows_is_a_400(
-    client: TestClient,
-    monkeypatch: pytest.MonkeyPatch,
-    endpoint: str,
-) -> None:
-    """A listed station whose values come back without rows is the caller's 400, not a 500 (GH-2369)."""
-    _stub_stripes(monkeypatch, [{"station_id": "01048", "name": "Dresden-Klotzsche"}], {})
-
-    response = client.get(endpoint, params={"kind": "temperature", "station": "01048"})
-
-    assert response.status_code == 400
-    assert response.json()["detail"] == (
-        "At least two years with data are required to create climate stripes; station 01048 has data for no year"
-    )
 
 
 @pytest.fixture
@@ -8115,7 +7048,6 @@ _LOOSE_ENDPOINTS = [
         "/api/coverage", {"provider": "dwd", "network": "observation"}, "_resolve_listed_network", id="coverage"
     ),
     pytest.param("/api/glossary", {"parameter": "temperature_air_mean_2m"}, "get_glossary", id="glossary"),
-    pytest.param("/api/stripes/stations", {"kind": "temperature"}, "_get_stripes_stations", id="stripes-stations"),
     pytest.param("/api/alerts", {}, None, id="alerts"),
 ]
 
@@ -8204,9 +7136,7 @@ def test_mcp_renamed_argument_is_named_beside_an_unknown_one(monkeypatch: pytest
 
 
 def _debug_path(tool: str) -> str:
-    """Give the route of a tool: its name, with the stripes' sub-routes as paths."""
-    if tool.startswith("stripes_"):
-        return tool.replace("_", "/", 1)
+    """Give the route of a tool: its name."""
     # `storm_cells` is served at `/storm-cells`
     return tool.replace("_", "-")
 
@@ -8674,20 +7604,6 @@ _LOOKUPS = [
         {"provider": "dwd", "network": "mosmix", "station": "10382"},
         "get issues",
         id="issues",
-    ),
-    pytest.param(
-        "/api/stripes/values",
-        "_get_stripes_data",
-        {"kind": "temperature", "station": "01048"},
-        "get stripes data",
-        id="stripes-values",
-    ),
-    pytest.param(
-        "/api/stripes/image",
-        "_get_stripes_data",
-        {"kind": "temperature", "station": "01048"},
-        "plot stripes",
-        id="stripes-image",
     ),
     pytest.param(
         "/api/history",
@@ -9716,23 +8632,6 @@ def test_image_within_the_limit_goes_on_to_the_provider(size: dict[str, int]) ->
     )
     assert response.status_code == 404
     assert "No API available" in response.json()["detail"]
-
-
-def test_oversized_stripes_image_is_refused_before_anything_is_fetched(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The stripes image is plotly's 700 x 500 times `dpi / 100`, and is refused above 8192 px on a side."""
-    monkeypatch.setattr(restapi, "_get_stripes_data", _unreached)
-    client = TestClient(restapi.app, raise_server_exceptions=False)
-    params = {"kind": "temperature", "station": "01048"}
-
-    response = client.get("/api/stripes/image", params={**params, "dpi": 100_000})
-    assert response.status_code == 400
-    detail = response.json()["detail"]
-    assert "renders no side longer than 8192 px" in detail
-    assert "Lower dpi" in detail
-
-    # 1170 dpi is 8190 px wide, 1171 is 8197: the first is not refused, so it reaches the stub
-    assert client.get("/api/stripes/image", params={**params, "dpi": 1_171}).status_code == 400
-    assert client.get("/api/stripes/image", params={**params, "dpi": 1_170}).status_code == 500
 
 
 def test_mcp_oversized_image_is_refused() -> None:

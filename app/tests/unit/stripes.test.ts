@@ -97,7 +97,7 @@ describe('the colour of a stripe', () => {
   })
 
   // the half-ramps of ColorBrewer's 11-class BrBG without its neutral middle, and the 8 colours of each side mixed in RGB along them at even
-  // steps: our own choice, as Hawkins has no precipitation stripes (the port of `_sample` of the backend's `ui/stripes_scale.py`, GH-4258)
+  // steps: our own choice, as Hawkins has no precipitation stripes (the port of `_sample` of the backend's `ui/stripes_scale.py`, removed by GH-4258)
   const BRBG_DRY = ['#543005', '#8c510a', '#bf812d', '#dfc27d', '#f6e8c3']
   const BRBG_WET = ['#c7eae5', '#80cdc1', '#35978f', '#01665e', '#003c30']
   function sample(anchors: string[], count = 8): string[] {

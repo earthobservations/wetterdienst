@@ -274,30 +274,13 @@ def test_each_kind_of_body_arrives_as_its_own_content(monkeypatch: pytest.Monkey
 
 
 @pytest.mark.parametrize(("fmt", "block"), [("png", ImageContent), ("svg", TextContent), ("pdf", EmbeddedResource)])
-@pytest.mark.usefixtures("figure_draws_itself")
-def test_the_stripes_image_tool_reports_the_licence_the_attribution_and_the_warnings(
+def test_the_image_tool_reports_the_licence_and_the_attribution(
     fmt: str, block: type, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """The image has no `metadata` block, so the headers of the route are what a tool reports them from (GH-3581)."""
-    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
-    from wetterdienst.ui import core  # noqa: PLC0415
-    from wetterdienst.util.response_warnings import warn_response  # noqa: PLC0415
+    _stub_stream(monkeypatch, [_values_result_of_shape("long")])
 
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-    read = core._get_stripes_data  # noqa: SLF001
-
-    def read_and_warn(request: object) -> object:
-        warn_response(restapi.log, "station-skipped", "station 00002 is skipped")
-        return read(request)
-
-    class _Figure:
-        def to_image(self, *_args: object, **_kwargs: object) -> bytes:
-            return b"<svg xmlns='http://www.w3.org/2000/svg'/>" if fmt == "svg" else b"\x89PNG\r\n\x1a\n"
-
-    monkeypatch.setattr(restapi, "_get_stripes_data", read_and_warn)
-    monkeypatch.setattr(restapi, "_draw_stripes", lambda _data, _request: _Figure())
-
-    result, schema = _call(restapi.app, "stripes_image", {"kind": "temperature", "station": "01048", "format": fmt})
+    result, schema = _call(restapi.app, "values", {**_VALUES, "format": fmt})
 
     assert not result.is_error, result.content
     assert isinstance(result.content[0], block)
@@ -305,38 +288,16 @@ def test_the_stripes_image_tool_reports_the_licence_the_attribution_and_the_warn
     assert report["license"] == "CC-BY-4.0"
     assert report["license_url"] == "https://creativecommons.org/licenses/by/4.0/"
     assert "Deutscher Wetterdienst" in report["attribution"]
-    assert report["warnings"] == ["station-skipped"]
     if schema is not None:
         sentence = result.structured_content["result"]
         assert "Licence: CC-BY-4.0 (https://creativecommons.org/licenses/by/4.0/)." in sentence
         assert "Attribution: " in sentence
-        assert sentence.endswith("Warnings: station-skipped.")
-
-
-def test_the_stripes_values_tool_in_csv_tells_the_reference_its_classes_are_relative_to(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """A CSV has no `reference` of its own, so the tool's report and sentence carry it from the headers (GH-4157)."""
-    from tests.ui.test_restapi import _stub_stripes_station  # noqa: PLC0415
-
-    _stub_stripes_station(monkeypatch, "temperature", [1.0 + year for year in range(10)])
-
-    result, schema = _call(restapi.app, "stripes_values", {"kind": "temperature", "station": "01048", "format": "csv"})
-
-    assert not result.is_error, result.content
-    note = result.meta["wetterdienst"]["processing_note"]
-    assert "The anomaly and class of each year were calculated" in note
-    assert "for the mean the whole record (2000-2009, 10 years)" in note
-    if schema is not None:
-        sentence = result.structured_content["result"]
-        assert "timestamp,value,anomaly,stripe_class" in sentence
-        assert note in sentence
 
 
 def test_every_tool_with_a_format_that_is_no_json_admits_a_string_for_it() -> None:
     """The structured content of such an answer is a sentence, which the output schema of the tool has to admit.
 
-    The tools of the other routes (`interpolate`, `summarize`, `alerts`, the stripes) are checked by their schema:
+    The tools of the other routes (`interpolate`, `summarize`, `alerts`) are checked by their schema:
     their routes have the `str` of csv in the response model, as `values` has.
     """
 
@@ -352,13 +313,11 @@ def test_every_tool_with_a_format_that_is_no_json_admits_a_string_for_it() -> No
         checked.append(tool.name)
         if tool.output_schema is not None:
             jsonschema.validate({"result": "a sentence"}, tool.output_schema)
-    assert {"values", "stations", "interpolate", "summarize", "alerts", "stripes_values", "stripes_image"} <= set(
-        checked
-    )
+    assert {"values", "stations", "interpolate", "summarize", "alerts"} <= set(checked)
 
 
 def _app_with_answers() -> FastAPI:
-    """Build a REST app with the route of the stripes image, which declares no output schema.
+    """Build a REST app with a route that declares no output schema.
 
     It answers what `format` names, to try the transport on each kind of answer.
     """
@@ -374,8 +333,8 @@ def _app_with_answers() -> FastAPI:
         "unknown_charset": lambda: Response(b"abc", headers={"content-type": "text/csv; charset=nonsense"}),
     }
 
-    @app.get("/api/stripes/image", response_class=Response)
-    def stripes_image(format: str) -> Response:  # noqa: A002
+    @app.get("/api/glossary", response_class=Response)
+    def glossary(format: str) -> Response:  # noqa: A002
         return answers[format]()
 
     return app
@@ -388,7 +347,7 @@ def test_the_transport_carries_what_is_not_json_and_leaves_the_rest_alone() -> N
     """
     names = ["svg", "png", "plain_4xx", "no_content_type", "geo_json", "latin1", "broken_utf8", "unknown_charset"]
 
-    answers = _calls(_app_with_answers(), [("stripes_image", {"format": name}) for name in names])
+    answers = _calls(_app_with_answers(), [("glossary", {"format": name}) for name in names])
     (svg, schema), (png, _), (refused, _), (typeless, _), (geo, _), (latin1, _), (broken, _), (unknown, _) = answers
 
     assert schema is None

@@ -249,7 +249,7 @@ a repeat of it is no fault. The `B338` and `B773` amount of 5.0 mm is therefore 
 intensity.
 
 The values come back flagged and unchanged by default, and a flagged value drops out of
-`interpolate`, `summarize`, the climate stripes and `skip_empty`, like every value a check finds
+`interpolate`, `summarize` and `skip_empty`, like every value a check finds
 `suspect`. A run shorter than the window cannot be seen (a request for under six hours), as for the
 temperatures.
 

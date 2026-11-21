@@ -9,8 +9,8 @@ from the series of about 2,000 rain gauges, published in December 2022), from
 [`KOSTRA_DWD_2020/tab/`](https://opendata.dwd.de/climate_environment/CDC/grids_germany/return_periods/precipitation/KOSTRA/KOSTRA_DWD_2020/tab/);
 the previous edition, KOSTRA-DWD-2010R, is another grid with depths only and is not read.
 
-KOSTRA has no time axis and no stations, so it is no timeseries network: it is a **point lookup**, as the
-[climate stripes](../../../../usage/stripes.md) and [Storm cells](../storm_cells/index.md) are. Give a point, and get the
+KOSTRA has no time axis and no stations, so it is no timeseries network: it is a **point lookup**, as
+[Storm cells](../storm_cells/index.md) are. Give a point, and get the
 table of the grid cell that holds it, on every surface: `DwdKostraRequest` in Python, `wetterdienst kostra`, REST
 `/api/kostra` and the MCP tool `kostra`.
 

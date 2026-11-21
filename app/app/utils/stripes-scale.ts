@@ -3,9 +3,9 @@ import type { StripesReference, StripesReferenceStat, StripesValueItem } from '#
 /**
  * The colour scale of the climate stripes: Ed Hawkins' method, with a fallback for a short record (GH-4157), and the years the
  * stripes of a station are made of (GH-4258). The app calculates it itself, from the annual values of the API: this is the
- * port of the backend's `ui/stripes_scale.py` and of the years' part of `_get_stripes_data` in `ui/core.py`, which phase 2 of
- * GH-4258 removes there. `tests/unit/stripes-scale.test.ts` holds it to the cases the backend's own tests wrote to
- * `tests/ui/stripes_scale.golden.json` (copied to `tests/unit/stripes_scale.golden.json`).
+ * port of the backend's `ui/stripes_scale.py` and of the years' part of `_get_stripes_data` in `ui/core.py`, which GH-4258
+ * removed there. `tests/unit/stripes-scale.test.ts` holds it to the cases the backend's own tests wrote, which are kept in
+ * `tests/unit/stripes_scale.golden.json`.
  *
  * The method, as `showyourstripes.info`'s FAQ states it: "For each country, the average temperature in 1971-2000 is set as the
  * boundary between blue and red colours, and the colour scale varies from +/- 2.6 standard deviations of the annual average
