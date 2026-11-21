@@ -351,10 +351,13 @@ what the answer is missing:
   [Hub'Eau](../data/provider/eaufrance/hubeau/index.md#stations-at-a-step-no-resolution-has)),
   `deprecated-parameter` (issued when a parameter is deprecated; none is at the moment),
   `network-not-importable` (a network of `providers` that this server cannot import, which is left out),
-  `network-failed` (a network `station-ids` asked whose list could not be read, or cannot be imported: it is left out of
-  the search, the others answer, and `searched` of the block names it with the reason),
-  `network-not-configured` (a network `station-ids` asked that needs credentials the server does not hold, `aemet`, `knmi`
-  or `metno`: it is not asked, and never a failure),
+  `network-failed` (a network `station-ids` asked whose list could not be read, or that cannot be imported: it is left
+  out of the search, the others answer, and `searched` of the block names it with the reason; if every network that was
+  asked fails the answer is a 502),
+  `network-not-configured` (a keyed network `station-ids` would ask that needs credentials the server does not hold: it
+  is not asked, and never a failure),
+  `station-file-unchecked` (a hit of `station-ids` at a network that checks the data file of a station, `noaa/ghcn`,
+  whose file could not be checked, or beyond the eight checked: the station stays in the answer),
   `parameter-without-rows` (a requested parameter that the source holds no values for, see below),
   `file-skipped` (the stations whose file the provider let go, see below), `wmo-ids-unavailable` (the stations of
   `dwd/observation` and `dwd/derived` are listed without `wmo_id` because DWD's Stationslexikon could not be read or
@@ -1272,7 +1275,7 @@ and where an answer cannot be reasoned about it stays out.
 | `values`, `interpolate`, `summarize` | none | no | no | A window in the past is not stable by itself: a provider revises data (the DWD `recent` readings are checked and moved to `historical`, others publish corrections), and an estimate is made from them. |
 | `ndjson` and `csv` of `stations` and `values` | none | no | no | Streamed station by station, before the answer is known: there is no body to tag when the headers go out. |
 | `stripes/*`, `alerts`, `storm-cells`, `auth`, `version`, `settings` | none | no | no | The stripes end with the year being recorded, alerts and storm cells are live, `auth` probes a provider, and the last two describe the instance. |
-| `station-ids` | none | no | no | The lists it reads are cached by the server, but the answer is a search over eighteen networks and is not tagged. |
+| `station-ids` | none | no | no | The lists it reads are cached by the server, but the answer is a search over the networks that declare id columns and is not tagged. |
 | `kostra` | none | no | no | DWD's tables are static (December 2022) and the server keeps them in its own cache for a week, but the answer is not tagged: no route is cached by a client without a decision of its own. |
 | `/health`, `/ready` | `no-store` (`/ready`) | no | no | A probe is asked every time. |
 

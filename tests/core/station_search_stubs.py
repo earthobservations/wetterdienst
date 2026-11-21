@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Any
 import polars as pl
 
 from wetterdienst.core import station_search
+from wetterdienst.provider.noaa.ghcn import api as ghcn_api
 
 if TYPE_CHECKING:
     import pytest
@@ -51,20 +52,39 @@ def station(
     }
 
 
+class Asked(list):
+    """The networks whose list was read, in the order the reads began; `checked` the stations asked for a data file."""
+
+    def __init__(self) -> None:  # noqa: D107
+        super().__init__()
+        self.checked: list[str] = []
+
+
 def serve(
     monkeypatch: pytest.MonkeyPatch,
     networks: dict[str, list[dict[str, Any]] | BaseException],
     *,
     warnings: dict[str, list[ResponseWarning]] | None = None,
-) -> list[str]:
+    files: dict[str, bool | BaseException] | None = None,
+) -> Asked:
     """Serve the declared list of each named network from rows, or raise `networks[name]` where it is an exception.
 
     A declared network the test does not name is a list with no station. Returns the names of the networks read, in
     the order the reads began, for a test that holds which networks were asked. The frame of a network is what
     `_read_network` makes of its stations: the four columns that name the list, the stations, and only those that carry
-    an id.
+    an id. `files` answers the check of the data file of a GHCN hit, by station id: True where it is not named; the
+    stations whose file the test asks about are `False` (no file) or an exception (the check could not be made).
     """
-    asked: list[str] = []
+    asked = Asked()
+
+    def daily_file_exists(station_id: str, _settings: Settings) -> bool:
+        asked.checked.append(station_id)
+        answer = (files or {}).get(station_id, True)
+        if isinstance(answer, BaseException):
+            raise answer
+        return answer
+
+    monkeypatch.setattr(ghcn_api, "daily_file_exists", daily_file_exists)
 
     def read(
         provider: str,

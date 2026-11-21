@@ -11,25 +11,28 @@ from __future__ import annotations
 
 import threading
 import time
+from io import BytesIO
 from typing import Any
 
 import polars as pl
 import pytest
 
 from tests.core.station_search_stubs import KEYED, serve, station
-from tests.provider.station_catalogue_stubs import _meteoswiss, _serve
+from tests.provider.station_catalogue_stubs import _meteoswiss
 from wetterdienst import Settings, Wetterdienst
 from wetterdienst.core import station_search
-from wetterdienst.core.station_search import COLUMNS, MAX_WORKERS, find_stations_by_id
+from wetterdienst.core.station_search import COLUMNS, MAX_FILE_CHECKS, MAX_WORKERS, find_stations_by_id
 from wetterdienst.exceptions import (
     CredentialMissingError,
     DownloadError,
     NoInternetError,
     ProviderRateLimitError,
     RequestError,
+    UpstreamError,
 )
 from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest
 from wetterdienst.provider.noaa.ghcn import api as ghcn_api
+from wetterdienst.util.network import File
 from wetterdienst.util.response_warnings import begin_response, recorded_warnings
 
 #: every network that declares a list, in the order of the registry, which is the order `searched` has
@@ -364,6 +367,97 @@ def test_every_failure_but_a_rate_limit_is_a_warning(monkeypatch: pytest.MonkeyP
     assert {w["code"] for w in result.warnings} == {"network-failed"}
 
 
+def test_a_defect_is_logged_with_its_traceback_and_told_without_its_text(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """Only the failure of a provider or of the configuration is told by its message: a defect is the log's."""
+    serve(
+        monkeypatch,
+        {
+            **HAMBURG,
+            "chmi/observation": DownloadError("https://opendata.chmi.cz/x", "502"),
+            "eccc/observation": ValueError("/srv/secret/path.py line 3 is wrong"),
+        },
+    )
+
+    with caplog.at_level("ERROR"):
+        result = find_stations_by_id(wmo_id="10147")
+
+    by_name = {f"{n.provider}/{n.network}": n for n in result.searched}
+    assert by_name["chmi/observation"].message is not None
+    assert by_name["chmi/observation"].message.startswith("DownloadError: ")
+    assert by_name["eccc/observation"].message == "an unexpected error occurred; the server's log has it"
+    assert "secret" not in str(result.warnings)
+    assert "secret" not in str(result.searched)
+    logged = [record for record in caplog.records if record.exc_info and "eccc/observation" in record.getMessage()]
+    assert len(logged) == 1
+    assert isinstance(logged[0].exc_info[1], ValueError)
+    assert not [record for record in caplog.records if record.exc_info and "chmi" in record.getMessage()]
+
+
+def test_when_every_network_that_was_asked_fails_the_search_is_an_upstream_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An outage is no answer of no station: the error names every network that failed, and not the keyed ones."""
+    failures = {name: NoInternetError(f"https://{name}.example/ is down") for name in DECLARED if name not in KEYED}
+    serve(monkeypatch, {**failures, **{name: CredentialMissingError("set WD_AUTH__X") for name in KEYED}})
+
+    with pytest.raises(UpstreamError) as raised:
+        find_stations_by_id(wmo_id="10147")
+
+    message = str(raised.value)
+    assert message.startswith(f"None of the {len(failures)} networks that were asked could be read")
+    assert all(name in message for name in failures)
+    assert not any(name in message for name in KEYED)
+
+
+def test_one_network_that_answers_is_enough_to_have_an_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The others fail, and the one that answered says there is no such station: an answer, with the warnings."""
+    failures = {name: NoInternetError(f"https://{name}.example/ is down") for name in DECLARED if name != "dwd/mosmix"}
+    serve(monkeypatch, {**failures, "dwd/mosmix": []})
+
+    result = find_stations_by_id(wmo_id="10147")
+
+    assert result.df.is_empty()
+    assert len(result.warnings) == len(failures)
+
+
+def test_networks_that_are_only_not_configured_are_not_a_failure(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With nothing asked at all there is nothing that failed: an empty answer, and a warning for each network."""
+    serve(monkeypatch, {name: CredentialMissingError("set WD_AUTH__X") for name in DECLARED})
+
+    result = find_stations_by_id(wmo_id="10147")
+
+    assert result.df.is_empty()
+    assert {w["code"] for w in result.warnings} == {"network-not-configured"}
+    assert len(result.warnings) == len(DECLARED)
+
+
+def test_a_network_that_cannot_be_imported_is_in_searched_and_a_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Its declaration is not known, so it has no list; it is told as failed, in the place of the registry."""
+    serve(monkeypatch, HAMBURG)
+    resolve = Wetterdienst.resolve
+
+    def broken(provider: str, network: str) -> type:
+        if (provider, network) == ("dmi", "observation"):
+            missing = "No module named 'missing_extra'"
+            raise ModuleNotFoundError(missing, name="missing_extra")
+        return resolve(provider, network)
+
+    monkeypatch.setattr(Wetterdienst, "resolve", staticmethod(broken))
+
+    result = find_stations_by_id(wmo_id="10147")
+
+    names = [f"{n.provider}/{n.network}" for n in result.searched]
+    assert names == DECLARED
+    dmi = result.searched[names.index("dmi/observation")]
+    assert (dmi.status, dmi.resolution, dmi.dataset, dmi.ids) == ("failed", None, None, ())
+    assert dmi.message == "it cannot be imported on this server: the module 'missing_extra' is missing"
+    assert [w["code"] for w in result.warnings] == ["network-failed"]
+    assert "dmi/observation" in result.warnings[0]["message"]
+    assert result.df.height == 3
+
+
 def test_a_rate_limit_is_never_swallowed(monkeypatch: pytest.MonkeyPatch) -> None:
     """A 429 ends the search and is raised as it is (the repository's rule), and no answer is made of the others."""
     serve(monkeypatch, {**HAMBURG, "noaa/ghcn": ProviderRateLimitError("https://noaa-ghcn-pds.s3/", "rate limited", 7)})
@@ -489,40 +583,200 @@ def test_the_real_read_of_a_list_gives_the_stations_with_an_id(monkeypatch: pyte
     assert wmo.searched[0].stations_with_ids == 5
 
 
-GHCN_STATIONS = (
-    "BR000269000  -2.9830  -69.5830    0.0    IPIRANGA(?)                            82200\n"
-    "GM000010147  53.6350    9.9900   11.0    HAMBURG FUHLSBUETTEL           GSN     10147\n"
-    # a station the inventory has no line for: the list of `stations` leaves it out, the lookup has no use for the span
-    "CAN03010010  54.2833 -112.9667  664.0 AB ABEE AGDM                              71285\n"
-)
+def _ghcn_stations_file(*rows: tuple[str, float, float, float, str, str]) -> str:
+    """Write rows (id, latitude, longitude, elevation, name, WMO number) as `ghcnd-stations.txt` has them."""
+    return "".join(
+        f"{sid:<11} {lat:8.4f} {lon:9.4f} {elev:6.1f}    {name:<30}         {wmo}\n"
+        for sid, lat, lon, elev, name, wmo in rows
+    )
+
+
+HAMBURG_ROW = ("GM000010147", 53.635, 9.99, 11.0, "HAMBURG FUHLSBUETTEL", "10147")
+GEISENHEIM_ROW = ("GMM00010628", 49.9833, 7.95, 100.0, "GEISENHEIM", "10628")
+# a station the inventory has no line for: the list of `stations` leaves it out
+EBEE_ROW = ("CAN03010010", 54.2833, -112.9667, 664.0, "ABEE AGDM", "71285")
+GHCN_STATIONS = _ghcn_stations_file(HAMBURG_ROW, GEISENHEIM_ROW, EBEE_ROW)
+READING = b"GM000010147,20260101,TMAX,50,,,E,\n"
+
+
+def _ghcn_downloads(
+    monkeypatch: pytest.MonkeyPatch, *, without_file: tuple[str, ...], inventory: str | None
+) -> list[str]:
+    """Serve the list of GHCN's stations, a file for each station but those named, and the inventory only if given."""
+    asked: list[str] = []
+
+    def download_file(url: str, **_: object) -> File:
+        asked.append(url)
+        if "ghcnd-stations" in url:
+            return File(url=url, content=BytesIO(GHCN_STATIONS.encode("utf8")), status=200)
+        if "ghcnd-inventory" in url:
+            if inventory is None:
+                msg = "the lookup reads no inventory"
+                raise AssertionError(msg)
+            return File(url=url, content=BytesIO(inventory.encode("utf8")), status=200)
+        if any(station in url for station in without_file):
+            return File(url=url, content=FileNotFoundError(url), status=404)
+        return File(url=url, content=BytesIO(READING), status=200)
+
+    monkeypatch.setattr(ghcn_api, "download_file", download_file)
+    return asked
 
 
 def test_ghcn_is_read_without_its_inventory_and_the_list_of_stations_is_not_changed(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """The lookup reads the stations file alone, so it lists the station the inventory has no line for."""
+    """The lookup reads the stations file alone, and `all()` is what it was: no station without an inventory line."""
     _only(monkeypatch, "noaa", "ghcn")
     settings = Settings(cache_disable=True)
-    _serve(monkeypatch, ghcn_api, {"ghcnd-stations": GHCN_STATIONS.encode("utf8")})
+    asked = _ghcn_downloads(monkeypatch, without_file=("GMM00010628",), inventory=None)
 
-    found = find_stations_by_id(wmo_id=[10147, 71285], settings=settings)
+    found = find_stations_by_id(wmo_id=[10147, 71285, 10628], settings=settings)
 
-    # the inventory is not served: a read of it would be the stub's AssertionError, which is a warning of the search
+    # Geisenheim is in the stations file and has no file at NCEI or the mirror: no row, and no warning
     assert found.warnings == []
     assert _rows(found) == [
         ("noaa/ghcn", "CAN03010010", "wmo_id", "direct"),
         ("noaa/ghcn", "GM000010147", "wmo_id", "direct"),
     ]
     assert found.df["resolution"].unique().to_list() == ["daily"]
+    assert not any("inventory" in url for url in asked)
 
-    inventory = "BR000269000  -2.9830  -69.5830 PRCP 1979 1996\nGM000010147  53.6350    9.9900 TMAX 1891 2026\n"
-    _serve(
-        monkeypatch,
-        ghcn_api,
-        {"ghcnd-stations": GHCN_STATIONS.encode("utf8"), "ghcnd-inventory": inventory.encode("utf8")},
-    )
+    inventory = "GM000010147  53.6350    9.9900 TMAX 1891 2026\nGMM00010628  49.9833    7.9500 TMAX 1891 2026\n"
+    _ghcn_downloads(monkeypatch, without_file=(), inventory=inventory)
     listed = NoaaGhcnRequest(parameters=[("daily", "data")], settings=settings).all().df
 
-    # `all()` is what it was: no station without a line of the inventory, and the span from it
-    assert listed["station_id"].to_list() == ["BR000269000", "GM000010147"]
+    assert listed["station_id"].to_list() == ["GM000010147", "GMM00010628"]
     assert listed["start_timestamp"].null_count() == 0
+
+
+# --- the data file of a GHCN hit ----------------------------------------------------------------------------------
+
+
+def _ghcn_hits(count: int) -> list[dict]:
+    return [station(f"GM0000{index:05d}", f"STATION {index}", wmo_id="10628") for index in range(count)]
+
+
+def test_a_ghcn_hit_that_has_no_data_file_is_dropped(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Geisenheim (WMO 10628) is listed with no file and is no row; Hamburg's file is there and its row stays."""
+    served = serve(
+        monkeypatch,
+        {
+            "noaa/ghcn": [
+                station("GMM00010628", "GEISENHEIM", wmo_id="10628"),
+                station("GM000010147", "HAMBURG FUHLSBUETTEL", wmo_id="10147"),
+            ],
+            "dwd/mosmix": [station("10628", "GEISENHEIM", wmo_id="10628")],
+        },
+        files={"GMM00010628": False},
+    )
+
+    result = find_stations_by_id(wmo_id=[10628, 10147])
+
+    assert _rows(result) == [
+        ("dwd/mosmix", "10628", "wmo_id", "direct"),
+        ("noaa/ghcn", "GM000010147", "wmo_id", "direct"),
+    ]
+    assert result.warnings == []
+    # only the hits of the network that asks are checked
+    assert sorted(served.checked) == ["GM000010147", "GMM00010628"]
+
+
+def test_a_ghcn_check_that_cannot_be_made_keeps_the_row_and_warns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """An outage is no file that is not there: the row stays, and the warning names the station and why."""
+    serve(
+        monkeypatch,
+        {"noaa/ghcn": [station("GMM00010628", "GEISENHEIM", wmo_id="10628"), station("GM000010147", wmo_id="10147")]},
+        files={"GMM00010628": NoInternetError("https://www.ncei.noaa.gov/ is down")},
+    )
+
+    result = find_stations_by_id(wmo_id=[10628, 10147])
+
+    assert [row[1] for row in _rows(result)] == ["GM000010147", "GMM00010628"]
+    (warning,) = result.warnings
+    assert warning["code"] == "station-file-unchecked"
+    assert warning["stations"] == ["GMM00010628"]
+    assert "GMM00010628" in warning["message"]
+    assert "NoInternetError" in warning["message"]
+    assert "stays in the answer" in warning["message"]
+
+
+def test_a_defect_in_a_check_is_told_without_its_text(monkeypatch: pytest.MonkeyPatch) -> None:
+    """As for a network: a bug keeps the row, is logged, and is not repeated in the answer."""
+    serve(
+        monkeypatch,
+        {"noaa/ghcn": [station("GMM00010628", wmo_id="10628")]},
+        files={"GMM00010628": KeyError("/srv/secret")},
+    )
+
+    result = find_stations_by_id(wmo_id=10628)
+
+    assert result.df.height == 1
+    assert "secret" not in result.warnings[0]["message"]
+    assert "unexpected error" in result.warnings[0]["message"]
+
+
+def test_a_rate_limit_of_a_check_is_raised(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 429 is never a row kept with a warning."""
+    serve(
+        monkeypatch,
+        {"noaa/ghcn": [station("GMM00010628", wmo_id="10628")]},
+        files={"GMM00010628": ProviderRateLimitError("https://x/", "rate limited", 7)},
+    )
+
+    with pytest.raises(ProviderRateLimitError):
+        find_stations_by_id(wmo_id=10628)
+
+
+def test_the_checks_are_bounded_and_the_hits_beyond_stay_with_a_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+    """At most `MAX_FILE_CHECKS` requests for a network; the others are kept, and named."""
+    served = serve(monkeypatch, {"noaa/ghcn": _ghcn_hits(MAX_FILE_CHECKS + 2)})
+
+    result = find_stations_by_id(wmo_id=10628)
+
+    assert len(served.checked) == MAX_FILE_CHECKS
+    assert result.df.height == MAX_FILE_CHECKS + 2
+    (warning,) = result.warnings
+    assert warning["code"] == "station-file-unchecked"
+    assert warning["stations"] == [f"GM0000{index:05d}" for index in range(MAX_FILE_CHECKS, MAX_FILE_CHECKS + 2)]
+
+
+# --- a station a list repeats, and what a search also looked for --------------------------------------------------
+
+
+def test_a_station_a_list_repeats_is_told_by_its_strongest_match(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The row that matches by an equivalence is first in the list, and the one that matches directly is the row."""
+    serve(
+        monkeypatch,
+        {
+            "chmi/observation": [
+                station("11518", "Praha", wigos_id="0-20000-0-10381"),
+                station("11518", "Praha", wmo_id="10381", wigos_id="0-203-0-11518"),
+                station("11518", "Praha", icao_id="LKPR"),
+            ]
+        },
+    )
+
+    assert _rows(find_stations_by_id(wmo_id="10381", icao_id="LKPR")) == [
+        ("chmi/observation", "11518", "wmo_id", "direct")
+    ]
+    assert _rows(find_stations_by_id(icao_id="LKPR", wigos_id="0-20000-0-10381")) == [
+        ("chmi/observation", "11518", "wigos_id", "direct")
+    ]
+    assert _rows(find_stations_by_id(wmo_id="10381")) == [("chmi/observation", "11518", "wmo_id", "direct")]
+    assert _rows(find_stations_by_id(icao_id="LKPR")) == [("chmi/observation", "11518", "icao_id", "direct")]
+
+
+def test_what_a_search_also_looked_for_does_not_depend_on_a_list_answering(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The equivalents of the ids given are the request's: the same with no station at all."""
+    serve(monkeypatch, {})
+
+    by_wmo = find_stations_by_id(wmo_id="10381")
+    by_wigos = find_stations_by_id(wigos_id="0-20000-0-10381")
+    by_icao = find_stations_by_id(icao_id="EDDH")
+
+    assert by_wmo.also_searched == {"wmo_id": [], "wigos_id": ["0-20000-0-10381"]}
+    assert by_wigos.also_searched == {"wmo_id": ["10381"], "wigos_id": []}
+    assert by_icao.also_searched == {"wmo_id": [], "wigos_id": []}
+    serve(monkeypatch, HAMBURG)
+    assert find_stations_by_id(wmo_id="10381").also_searched == by_wmo.also_searched
+    assert find_stations_by_id(wigos_id="0-20000-0-10381").also_searched == by_wigos.also_searched

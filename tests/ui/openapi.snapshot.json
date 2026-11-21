@@ -2094,7 +2094,7 @@
           "Stations"
         ],
         "summary": "Station Ids",
-        "description": "Find one WMO number, WIGOS identifier or ICAO code at every provider that lists stations with it.\n\nPass `wmo_id`, `wigos_id` or `icao_id` (one or several, comma-separated, at least one) and get one row for\neach station that carries one of them, at every network that publishes the id with its stations (the\n`searched` list of the `metadata` block names them): `provider`, `network`, the `resolution` and `dataset` of the\nstation list it comes from (another dataset of the network may list other stations), `station_id` (what you pass\nto `values`), `name`, `latitude`, `longitude`, `elevation`, `wmo_id`, `wigos_id`, `icao_id`, and `matched_by`\nwith `match`. One WMO number can sit on several stations of one provider (NOAA GHCN has up to four), so the\nanswer is a list.\n\nThe ids are equivalent: the WIGOS identifier `0-20000-0-10381` and the WMO number `10381` find each other, and\nan ICAO code also searches the WMO numbers of the stations it finds, so `icao_id=EDDH` finds Hamburg's DWD\nstation `01975` and NOAA GHCN `GM000010147`, which list no ICAO code. `matched_by` says which id of the station\nmatched (`wmo_id`, `wigos_id` or `icao_id`), and `match` whether it was the id asked for (`direct`) or one\nequivalent to it (`equivalent`).\n\nEvery network is asked, with no narrowing by region. The first search reads the station lists of eighteen\nnetworks, about 30 MB: it takes about 9 s on a good connection and longer on a slow one or when a provider is\nslow; the same search again takes about a second, from the server's cache. Do not repeat it\nwithin a conversation. A network that cannot be read is left out and named in `warnings` (`network-failed`), and\nso is one that needs credentials the server does not hold (`network-not-configured`: `aemet`, `knmi` and\n`metno`); the others answer. No row means no listed station has the id, not an error.",
+        "description": "Find one WMO number, WIGOS identifier or ICAO code at every provider that lists stations with it.\n\nPass `wmo_id`, `wigos_id` or `icao_id` (one or several, comma-separated, at least one) and get one row for\neach station that carries one of them, at every network that publishes the id with its stations (the\n`searched` list of the `metadata` block names them): `provider`, `network`, the `resolution` and `dataset` of the\nstation list it comes from (another dataset of the network may list other stations), `station_id` (what you pass\nto `values`), `name`, `latitude`, `longitude`, `elevation`, `wmo_id`, `wigos_id`, `icao_id`, and `matched_by`\nwith `match`. One WMO number can sit on several stations of one provider (NOAA GHCN has up to four), so the\nanswer is a list.\n\nThe ids are equivalent: the WIGOS identifier `0-20000-0-10381` and the WMO number `10381` find each other, and\nan ICAO code also searches the WMO numbers of the stations it finds, so `icao_id=EDDH` finds Hamburg's DWD\nstation `01975` and NOAA GHCN `GM000010147`, which list no ICAO code. `matched_by` says which id of the station\nmatched (`wmo_id`, `wigos_id` or `icao_id`), and `match` whether it was the id asked for (`direct`) or one\nequivalent to it (`equivalent`).\n\nEvery network that declares id columns is asked, with no narrowing by region. The first search reads their station\nlists, about 30 MB: it takes about 9 s on a good connection and longer on a slow one or when a provider is slow;\nthe same search again takes about a second, from the server's cache. Do not repeat it within a conversation. A\nnetwork that cannot be read is left out and named in `warnings` (`network-failed`) and in `searched`, and keyed\nnetworks without credentials are named in a warning too (`network-not-configured`); the others answer. If every\nnetwork that was asked fails it is a 502 and no answer, since an outage is no station that does not exist. A\nstation of `noaa/ghcn` that has no data file is left out. No row means no listed station has the id, not an error.\nA tool's answer is cut to 40,000 characters, with an `answer-truncated` warning: ask for fewer ids.",
         "operationId": "station_ids_api_station_ids_get",
         "parameters": [
           {
@@ -8594,14 +8594,28 @@
             "title": "Network"
           },
           "resolution": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Resolution",
-            "description": "The resolution of the station list read: another one may list other stations."
+            "description": "The resolution of the station list read: another one may list other stations. Null for a network that cannot be imported on this server, whose declaration is not known."
           },
           "dataset": {
-            "type": "string",
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Dataset",
-            "description": "The dataset of the station list read: another one may list other stations."
+            "description": "The dataset of the station list read: another one may list other stations; null as `resolution`."
           },
           "ids": {
             "items": {

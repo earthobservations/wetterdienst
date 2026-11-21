@@ -1123,6 +1123,19 @@ class TimeseriesRequest:
         """
         return self._stations_to_select_among()
 
+    #: whether the hits of the id search are checked one by one for a data file (`_station_file_exists`): a provider
+    #: whose station list names stations that have no data sets it
+    _checks_station_files: ClassVar[bool] = False
+
+    def _station_file_exists(self, station_id: str) -> bool:  # noqa: ARG002
+        """Tell whether the data of a station the id search found is there, where `_checks_station_files` says so.
+
+        The search asks it only of the hits, a handful for an id. It returns False for a station that has no data,
+        raises what the provider's reader raises for a failure (an `UpstreamError`, a `ProviderRateLimitError` for a
+        429), and is True for a provider that does not ask.
+        """
+        return True
+
     def _stations_to_search(self, df_all: pl.DataFrame) -> pl.DataFrame:
         """Give the stations a search by place (`filter_by_rank`, `filter_by_distance`, `filter_by_bbox`) looks among.
 

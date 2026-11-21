@@ -237,8 +237,13 @@ class StationIdsSearched(BaseModel):
 
     provider: str
     network: str
-    resolution: str = Field(description="The resolution of the station list read: another one may list other stations.")
-    dataset: str = Field(description="The dataset of the station list read: another one may list other stations.")
+    resolution: str | None = Field(
+        description="The resolution of the station list read: another one may list other stations. Null for a network "
+        "that cannot be imported on this server, whose declaration is not known.",
+    )
+    dataset: str | None = Field(
+        description="The dataset of the station list read: another one may list other stations; null as `resolution`.",
+    )
     ids: list[str] = Field(description="The id columns the list fills: `wmo_id`, `wigos_id` and `icao_id`.")
     status: Literal["searched", "failed", "not-configured"] = Field(
         description="`searched` for a list that was read; `failed` for one that could not be, which a warning names; "
@@ -780,21 +785,24 @@ def station_ids_headers(metadata: StationIdsMetadata) -> Mapping[str, str]:
     }
     if metadata.providers:
         headers["X-Wetterdienst-Provider"] = _header_text(", ".join(p.name_english for p in metadata.providers))
-        licences = [
-            f"{provider.name_english}: {_license_label(provider.license)}"
-            for provider in metadata.providers
-            if provider.license is not None
-        ]
+        # as the headers of every other answer write them (the licence by its identifier or name, the credit line as the
+        # provider states it), one entry for each provider in the order of `X-Wetterdienst-Provider`, an entry once
+        licences = list(
+            dict.fromkeys(_license_label(provider.license) for provider in metadata.providers if provider.license)
+        )
         if licences:
-            headers["X-Wetterdienst-License"] = _header_text("; ".join(licences))
+            headers["X-Wetterdienst-License"] = _header_text(", ".join(licences))
             urls = dict.fromkeys(p.license["url"] for p in metadata.providers if p.license is not None)
             headers["Link"] = ", ".join(f'<{url}>; rel="license"' for url in urls)
-        credits_ = [f"{p.name_english}: {p.attribution}" for p in metadata.providers if p.attribution]
+        credits_ = list(dict.fromkeys(p.attribution for p in metadata.providers if p.attribution))
         if credits_:
             headers["X-Wetterdienst-Attribution"] = _header_text("; ".join(credits_))
     headers["X-Wetterdienst-Processing"] = _header_text(metadata.processing_note)
     if metadata.warnings:
         headers["X-Wetterdienst-Warnings"] = ", ".join(dict.fromkeys(w["code"] for w in metadata.warnings))
+    # the note of a tool's answer that was cut (GH-4022): a CSV has no block to carry it
+    if truncated := next((w["message"] for w in metadata.warnings if w["code"] == ANSWER_TRUNCATED), None):
+        headers["X-Wetterdienst-Truncated"] = _header_text(truncated)
     return headers
 
 

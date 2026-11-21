@@ -21,7 +21,7 @@ from click.testing import CliRunner
 from fastapi.testclient import TestClient
 
 from tests.core.station_search_stubs import KEYED, serve, station
-from wetterdienst import exceptions
+from wetterdienst import Wetterdienst, exceptions
 from wetterdienst.core.station_search import COLUMNS
 from wetterdienst.ui import restapi
 from wetterdienst.ui.cli import cli
@@ -111,8 +111,26 @@ def test_rest_csv_is_the_table_with_the_block_in_the_headers(client: TestClient)
     assert response.headers["X-Wetterdienst-Stations"] == "3"
     providers = unquote(response.headers["X-Wetterdienst-Provider"])
     assert providers.startswith("German Weather Service, National Oceanic")
-    assert "CC-BY-4.0" in unquote(response.headers["X-Wetterdienst-License"])
-    assert "Source: Deutscher Wetterdienst" in unquote(response.headers["X-Wetterdienst-Attribution"])
+    # the licences and the credit lines as the headers of every other answer write them, one entry for each provider
+    labels = [
+        (terms.license.spdx_id or terms.license.name)
+        for terms in (
+            Wetterdienst.resolve("dwd", "observation").metadata,
+            Wetterdienst.resolve("noaa", "ghcn").metadata,
+        )
+        if terms.license
+    ]
+    assert unquote(response.headers["X-Wetterdienst-License"]) == ", ".join(dict.fromkeys(labels))
+    assert unquote(response.headers["X-Wetterdienst-License"]).startswith("CC-BY-4.0")
+    credits_ = [
+        terms.attribution
+        for terms in (
+            Wetterdienst.resolve("dwd", "observation").metadata,
+            Wetterdienst.resolve("noaa", "ghcn").metadata,
+        )
+        if terms.attribution
+    ]
+    assert unquote(response.headers["X-Wetterdienst-Attribution"]) == "; ".join(dict.fromkeys(credits_))
     assert 'rel="license"' in response.headers["Link"]
     assert "Processed by wetterdienst" in unquote(response.headers["X-Wetterdienst-Processing"])
     assert "X-Wetterdienst-Warnings" not in response.headers
@@ -408,3 +426,126 @@ def test_cli_a_rate_limit_is_an_error_and_no_answer(monkeypatch: pytest.MonkeyPa
 
     assert result.exit_code == 1
     assert result.stdout == ""
+
+
+# --- every network failed ---------------------------------------------------------------------------------------------
+
+
+def _all_fail(monkeypatch: pytest.MonkeyPatch) -> None:
+    keyed = {name: exceptions.CredentialMissingError("set WD_AUTH__X") for name in KEYED}
+    declared = [
+        f"{provider}/{network}"
+        for provider, networks in Wetterdienst.registry.items()
+        for network in networks
+        if not Wetterdienst.is_standalone(provider, network)
+        and Wetterdienst.resolve(provider, network).metadata.station_id_list is not None
+    ]
+    failing = {
+        name: exceptions.NoInternetError(f"https://{name}.example/ is down") for name in declared if name not in keyed
+    }
+    serve(monkeypatch, {**failing, **keyed})
+
+
+@pytest.mark.parametrize("prefix", ["/api/v1", "/api"])
+def test_rest_when_every_network_that_was_asked_fails_it_is_a_502(monkeypatch: pytest.MonkeyPatch, prefix: str) -> None:
+    """An outage is no `200` with no rows: the problem of an upstream failure."""
+    _all_fail(monkeypatch)
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+
+    response = client.get(f"{prefix}/station-ids", params={"wmo_id": "10147"})
+
+    assert response.status_code == 502, response.text
+    assert response.headers["content-type"].startswith("application/problem+json")
+    assert "Retry-After" in response.headers
+    assert response.json()["type"] == "urn:wetterdienst:problem:upstream-failed"
+    # the problem does not repeat the provider's text, as for every upstream failure: the log and the error name them
+
+
+def test_cli_when_every_network_that_was_asked_fails_it_is_an_error_and_no_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Exit 1, as any upstream failure, and nothing on stdout."""
+    _all_fail(monkeypatch)
+
+    result = _invoke("--wmo-id=10147")
+
+    assert result.exit_code == 1
+    assert result.stdout == ""
+
+
+# --- the budget of a tool's answer ------------------------------------------------------------------------------------
+
+#: a station for each of 400 WMO numbers, with the long names of a list
+MANY = [str(10000 + index) for index in range(400)]
+
+
+def _many(monkeypatch: pytest.MonkeyPatch) -> None:
+    serve(
+        monkeypatch,
+        {
+            "dwd/mosmix": [
+                station(number, f"A STATION WITH A LONG NAME NUMBER {number}", wmo_id=number) for number in MANY
+            ]
+        },
+    )
+
+
+def _client_size(result: ToolResult) -> int:
+    """Count the characters a client receives of a tool's answer, as `ui.budget` counts them."""
+    assert result.structured_content is not None
+    return len(json.dumps(result.structured_content, separators=(",", ":"), ensure_ascii=False))
+
+
+def test_rest_an_answer_is_not_cut(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Only a tool's answer is cut: the REST API answers every station."""
+    _many(monkeypatch)
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+
+    response = client.get("/api/station-ids", params={"wmo_id": ",".join(MANY)})
+
+    assert response.status_code == 200
+    assert len(response.json()["stations"]) == len(MANY)
+    assert len(response.text) > 40_000
+    assert "answer-truncated" not in [w["code"] for w in response.json()["metadata"]["warnings"]]
+
+
+def test_the_mcp_tool_cuts_a_long_answer_to_the_budget_with_a_note(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The first stations that fit, and an `answer-truncated` warning that says how many there are and what to do."""
+    _many(monkeypatch)
+
+    result = _tool_call({"wmo_id": ",".join(MANY)})
+
+    assert not result.is_error, result.content
+    assert _client_size(result) <= 40_000
+    assert result.structured_content is not None
+    data = result.structured_content.get("result", result.structured_content)
+    kept = len(data["stations"])
+    assert 0 < kept < len(MANY)
+    assert [row["station_id"] for row in data["stations"]] == sorted(MANY)[:kept]
+    (warning,) = [w for w in data["metadata"]["warnings"] if w["code"] == "answer-truncated"]
+    assert f"the first {kept:,} of {len(MANY):,} stations are returned" in warning["message"]
+    assert "fewer ids" in warning["message"]
+    assert data["metadata"]["counts"]["stations"] == kept
+
+
+def test_the_mcp_tool_cuts_a_csv_too_and_says_so_in_its_sentence(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The CSV is cut by the characters the client receives, the note in the headers and so in the sentence."""
+    _many(monkeypatch)
+
+    result = _tool_call({"wmo_id": ",".join(MANY), "format": "csv"})
+
+    assert not result.is_error, result.content
+    assert _client_size(result) <= 40_000
+    assert "answer-truncated" in json.dumps(result.structured_content)
+
+
+def test_the_mcp_tool_leaves_a_short_answer_as_it_is(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Within the budget nothing is cut and nothing is told."""
+    serve(monkeypatch, HAMBURG)
+
+    result = _tool_call({"wmo_id": "10147"})
+
+    assert result.structured_content is not None
+    data = result.structured_content.get("result", result.structured_content)
+    assert len(data["stations"]) == 3
+    assert [w["code"] for w in data["metadata"]["warnings"]] == []

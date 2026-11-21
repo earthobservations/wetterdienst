@@ -20,12 +20,13 @@ Types of changes:
 
 - Find one WMO number, WIGOS identifier or ICAO code at every provider that has it:
   `wetterdienst.core.station_search.find_stations_by_id`, `wetterdienst station-ids`,
-  `/api/v1/station-ids` and the MCP tool `station_ids`. It reads the station list that each of 18
-  networks declares (`station_id_list` of its metadata, 15 of them keyless; `aemet`, `knmi` and
-  `metno` only with credentials) and answers one row for each station, with `matched_by` and
-  whether it matched directly or by an equivalence: WIGOS `0-20000-0-N` and WMO `N` are one id, and
-  an ICAO code also searches the WMO numbers of its hits. A network that fails is a warning
-  (`network-failed`). The first search reads about 30 MB, about 9 s (GH-4075)
+  `/api/v1/station-ids` and the MCP tool `station_ids`. It reads the station list that every
+  network declaring id columns (`station_id_list` of its metadata; a keyed network only with
+  credentials) names and answers one row for each station, with `matched_by` and whether it
+  matched directly or by an equivalence: WIGOS `0-20000-0-N` and WMO `N` are one id, and an ICAO
+  code also searches the WMO numbers of its hits. A GHCN hit with no data file is left out. A
+  network that fails is a warning (`network-failed`); if all fail it is a 502. The first search
+  reads about 30 MB, about 9 s (GH-4075)
 
 ## [0.194.0] - 2026-11-21
 

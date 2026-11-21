@@ -391,6 +391,76 @@ class _DailyFile:
         self.file.raise_if_exception()
 
 
+def _download_daily_file(url: str, station_id: str, settings: Settings, *, primary: bool) -> _DailyFile:
+    """Download the file of a station from one source and read it. A 429 is raised, never a failure to go round."""
+    client_kwargs = settings.fsspec_client_kwargs
+    if primary:
+        client_kwargs = {**client_kwargs, "timeout": silence_timeout(NCEI_TIMEOUT_SECONDS)}
+    # what the download was made with names the cache it went to, which `drop_cached_file` needs again
+    address = url.format(station_id=station_id)
+    file = download_file(
+        url=address,
+        cache_dir=settings.cache_dir,
+        ttl=GHCND_BY_STATION_EXPIRY,
+        client_kwargs=client_kwargs,
+        cache_disable=settings.cache_disable,
+        use_certifi=settings.use_certifi,
+        attempts=1 if primary else 2,
+    )
+    if isinstance(file.content, Exception):
+        if file.is_rate_limited:
+            file.raise_if_exception()
+        return _DailyFile(file)
+    try:
+        return _DailyFile(file, frame=_daily_rows(file.content))
+    except (pl.exceptions.PolarsError, ValueError):
+        # a 200 that is no file (a maintenance page, a body cut short) was cached for the whole expiry like any
+        # other: dropped, so that the next request asks again instead of reading the failure back for 12 hours
+        drop_cached_file(
+            url=address,
+            cache_dir=settings.cache_dir,
+            ttl=GHCND_BY_STATION_EXPIRY,
+            client_kwargs=client_kwargs,
+            cache_disable=settings.cache_disable,
+            use_certifi=settings.use_certifi,
+        )
+        return _DailyFile(file, unreadable=True)
+
+
+def _failed_of(primary: _DailyFile, mirror: _DailyFile) -> _DailyFile:
+    """Pick the failure to raise where neither source gave the file and not both said it is not there.
+
+    Where NCEI has no file and the mirror fails the mirror's; where the mirror has none and NCEI fails NCEI's; if both
+    failed, the one that answered, NCEI's if both did.
+    """
+    if primary.gone:
+        return mirror
+    if mirror.gone or primary.answered or not mirror.answered:
+        return primary
+    return mirror
+
+
+def daily_file_exists(station_id: str, settings: Settings) -> bool:
+    """Tell whether NCEI or its mirror has the daily file of a station, which the values of the station are read from.
+
+    The file the values reader reads (`NoaaGhcnValues._read_daily_file`: NCEI's `by_station` file, then the AWS
+    mirror's), downloaded through the same cache, so that a read of the values that follows finds it held. There is no
+    cheaper question: the library's network layer has no HEAD, and the file is 0.1 to 2 MB. False only where both
+    sources answer 404; a failure of either (no connection, a 5xx, a body that is no table) is raised as the values
+    reader raises it, and a 429 is the `ProviderRateLimitError`.
+    """
+    primary = _download_daily_file(GHCND_BY_STATION_URL, station_id, settings, primary=True)
+    if primary.frame is not None:
+        return True
+    mirror = _download_daily_file(GHCND_BY_STATION_MIRROR_URL, station_id, settings, primary=False)
+    if mirror.frame is not None:
+        return True
+    if primary.gone and mirror.gone:
+        return False
+    _failed_of(primary, mirror).raise_failure()
+    return False
+
+
 class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
     """Values class for NOAA GHCN data provider."""
 
@@ -538,38 +608,7 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
 
     def _download_daily(self, url: str, station_id: str, settings: Settings, *, primary: bool) -> _DailyFile:
         """Download the file of a station from one source and read it. A 429 is raised, never a failure to go round."""
-        client_kwargs = settings.fsspec_client_kwargs
-        if primary:
-            client_kwargs = {**client_kwargs, "timeout": silence_timeout(NCEI_TIMEOUT_SECONDS)}
-        # what the download was made with names the cache it went to, which `drop_cached_file` needs again
-        address = url.format(station_id=station_id)
-        file = download_file(
-            url=address,
-            cache_dir=settings.cache_dir,
-            ttl=GHCND_BY_STATION_EXPIRY,
-            client_kwargs=client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-            attempts=1 if primary else 2,
-        )
-        if isinstance(file.content, Exception):
-            if file.is_rate_limited:
-                file.raise_if_exception()
-            return _DailyFile(file)
-        try:
-            return _DailyFile(file, frame=_daily_rows(file.content))
-        except (pl.exceptions.PolarsError, ValueError):
-            # a 200 that is no file (a maintenance page, a body cut short) was cached for the whole expiry like any
-            # other: dropped, so that the next request asks again instead of reading the failure back for 12 hours
-            drop_cached_file(
-                url=address,
-                cache_dir=settings.cache_dir,
-                ttl=GHCND_BY_STATION_EXPIRY,
-                client_kwargs=client_kwargs,
-                cache_disable=settings.cache_disable,
-                use_certifi=settings.use_certifi,
-            )
-            return _DailyFile(file, unreadable=True)
+        return _download_daily_file(url, station_id, settings, primary=primary)
 
     def _read_daily_file(self, station_id: str, settings: Settings) -> tuple[pl.DataFrame, File] | None:
         """Read the file of a station from NCEI, from the AWS mirror when NCEI fails; None for a station neither has.
@@ -601,13 +640,7 @@ class NoaaGhcnValues(TimeseriesValues[DatasetModel]):
             note_skipped_download(SkipCause.WITHDRAWN)
             log.warning(f"GHCN daily has no file for station {station_id}: {primary.file.url}, {mirror.file.url}")
             return None
-        if primary.gone:
-            failed = mirror
-        elif mirror.gone or primary.answered or not mirror.answered:
-            failed = primary
-        else:
-            failed = mirror
-        failed.raise_failure()
+        _failed_of(primary, mirror).raise_failure()
         return None
 
     def _collect_station_parameter_for_daily(self, station_id: str, dataset: DatasetModel) -> pl.DataFrame:
@@ -792,6 +825,18 @@ class NoaaGhcnRequest(TimeseriesRequest):
             return super()._stations_for_id_search()
         finally:
             _WITHOUT_INVENTORY.reset(token)
+
+    _checks_station_files = True
+
+    def _station_file_exists(self, station_id: str) -> bool:
+        """Tell whether the daily file of a station exists, for the hits of the id search (GH-4075).
+
+        The id search lists GHCN's stations without the inventory, so it lists stations that have no file (146 of the
+        147 that the inventory has no line for): a hit is checked with `daily_file_exists`.
+        """
+        from typing import cast  # noqa: PLC0415
+
+        return daily_file_exists(station_id, cast("Settings", self.settings))
 
     def _knows_station_outside_parameters(self, station_id: str) -> bool:
         """Tell whether the inventory has a line for a station that this request's daily list leaves out (GH-4272).

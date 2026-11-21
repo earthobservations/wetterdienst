@@ -70,7 +70,7 @@ from wetterdienst.model.result import (
 from wetterdienst.options import Options
 from wetterdienst.settings import check_settings
 from wetterdienst.ui import forecast_start
-from wetterdienst.ui.budget import fit_coverage, fit_stations, fit_values
+from wetterdienst.ui.budget import fit_coverage, fit_station_ids, fit_stations, fit_values
 from wetterdienst.ui.caching import (
     CATALOGUE_CACHE_CONTROL,
     HISTORY_CACHE_CONTROL,
@@ -2196,6 +2196,7 @@ def stations(
 @router.get("/station-ids", response_model=_StationIdsWithMetadataDict | str, tags=[TAG_STATIONS])
 def station_ids(
     request: Annotated[StationIdsRequest, Query()],
+    http_request: Request,
 ) -> Response:
     """Find one WMO number, WIGOS identifier or ICAO code at every provider that lists stations with it.
 
@@ -2213,12 +2214,14 @@ def station_ids(
     matched (`wmo_id`, `wigos_id` or `icao_id`), and `match` whether it was the id asked for (`direct`) or one
     equivalent to it (`equivalent`).
 
-    Every network is asked, with no narrowing by region. The first search reads the station lists of eighteen
-    networks, about 30 MB: it takes about 9 s on a good connection and longer on a slow one or when a provider is
-    slow; the same search again takes about a second, from the server's cache. Do not repeat it
-    within a conversation. A network that cannot be read is left out and named in `warnings` (`network-failed`), and
-    so is one that needs credentials the server does not hold (`network-not-configured`: `aemet`, `knmi` and
-    `metno`); the others answer. No row means no listed station has the id, not an error.
+    Every network that declares id columns is asked, with no narrowing by region. The first search reads their station
+    lists, about 30 MB: it takes about 9 s on a good connection and longer on a slow one or when a provider is slow;
+    the same search again takes about a second, from the server's cache. Do not repeat it within a conversation. A
+    network that cannot be read is left out and named in `warnings` (`network-failed`) and in `searched`, and keyed
+    networks without credentials are named in a warning too (`network-not-configured`); the others answer. If every
+    network that was asked fails it is a 502 and no answer, since an outage is no station that does not exist. A
+    station of `noaa/ghcn` that has no data file is left out. No row means no listed station has the id, not an error.
+    A tool's answer is cut to 40,000 characters, with an `answer-truncated` warning: ask for fewer ids.
     """
     begin_response()
 
@@ -2234,6 +2237,15 @@ def station_ids(
         raise _failure(e, request, "find stations by id") from e
 
     content, metadata = render_station_ids(result, request.format, pretty=request.pretty)
+    if is_tool_request(http_request.scope):
+        # an assistant reads the answer in its context: cut to the budget, with a note (GH-4022)
+        content, metadata = fit_station_ids(
+            result,
+            request.format,
+            content,
+            metadata,
+            lambda cut: render_station_ids(cut, request.format, pretty=request.pretty),
+        )
     return Response(
         content=content,
         media_type=_MEDIA_TYPES.get(request.format, "application/json"),

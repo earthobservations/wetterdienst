@@ -2,8 +2,9 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """The size budget of an MCP tool's answer of rows (GH-4022, GH-4024).
 
-The answers it holds are those of `values`, `stations`, `interpolate`, `summarize`, the stripes' stations and
-`coverage` (which is no rows but nested: `fit_coverage`).
+The answers it holds are those of `values`, `stations`, `interpolate`, `summarize`, the stripes' stations,
+`station_ids` (`fit_station_ids`: the stations that fit, with a note) and `coverage` (which is no rows but nested:
+`fit_coverage`).
 
 An assistant reads a tool's answer in its context, and a client saves one of more than 50,000 characters to a file
 instead of handing it over (Claude Code does, whatever its tokens). Two calls spilled in the transcripts: a forecast
@@ -41,15 +42,21 @@ import polars as pl
 from wetterdienst.model.result import StationsFilter, StationsResult
 from wetterdienst.ui.core import StripesStationsRequest
 from wetterdienst.ui.mcp import structured_size
-from wetterdienst.ui.response_metadata import response_headers, response_metadata, result_metadata
+from wetterdienst.ui.response_metadata import (
+    response_headers,
+    response_metadata,
+    result_metadata,
+    station_ids_headers,
+)
 from wetterdienst.util.response_warnings import ANSWER_TRUNCATED, ResponseWarning, record_response_warning
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
+    from wetterdienst.core.station_search import StationIdSearchResult
     from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult, ValuesResult
     from wetterdienst.ui.core import InterpolationRequest, StationsRequest, SummaryRequest, ValuesRequest
-    from wetterdienst.ui.response_metadata import ResponseMetadata
+    from wetterdienst.ui.response_metadata import ResponseMetadata, StationIdsMetadata
 
     _SeriesResult = ValuesResult | InterpolatedValuesResult | SummarizedValuesResult
     _SeriesRequest = ValuesRequest | InterpolationRequest | SummaryRequest
@@ -584,6 +591,65 @@ def fit_stations(
         "to stay within the budget."
     )
     return chosen.content, chosen.metadata
+
+
+# --- station ids --------------------------------------------------------------------------------------------------
+
+
+def _station_ids_size(content: str | bytes, fmt: str, metadata: StationIdsMetadata) -> int:
+    """Count the characters a client receives of a `station_ids` answer in `fmt`, the sentence of a CSV included."""
+    text = _text(content)
+    if fmt in _MEDIA_TYPES:
+        headers = {name.lower(): value for name, value in station_ids_headers(metadata).items()}
+        return structured_size(_MEDIA_TYPES[fmt], text, headers)
+    return len(json.dumps(json.loads(text), separators=(",", ":"), ensure_ascii=False)) + _RESULT_WRAPPER
+
+
+def fit_station_ids(
+    result: StationIdSearchResult,
+    fmt: str,
+    content: str | bytes,
+    metadata: StationIdsMetadata,
+    render: Callable[[StationIdSearchResult], tuple[str | bytes, StationIdsMetadata]],
+) -> tuple[str | bytes, StationIdsMetadata]:
+    """Cut the answer of a `station_ids` tool call to the budget, keeping the first stations, with a note.
+
+    The answer is unchanged where it fits. Otherwise the rows that fit are kept, in the order of the answer (provider,
+    network, station id), and the `answer-truncated` warning of its block says how many there are and to ask again with
+    fewer ids. The block is the part that does not shrink (a few thousand characters: each network asked, each
+    provider's licence); where not even one row fits with it the first is kept and the note says that the answer is
+    still over the budget. `render` writes the answer for a cut result.
+    """
+    size = _station_ids_size(content, fmt, metadata)
+    if size <= ANSWER_BUDGET:
+        return content, metadata
+    total = result.df.height
+    tried: dict[int, tuple[str | bytes, StationIdsMetadata, int]] = {}
+
+    def attempt(count: int, *, honest: bool) -> bool:
+        note = (
+            f"{_head(honest=honest)}the first {count:,} of {total:,} stations are returned, in the order of the answer "
+            "(provider, network, station id). Ask again with fewer ids."
+            if count > 1
+            else f"{_head(honest=honest)}the first of {total:,} stations is returned. Ask again with fewer ids."
+        )
+        cut = replace(
+            result,
+            df=result.df.head(count),
+            warnings=[*result.warnings, {"code": ANSWER_TRUNCATED, "message": note}],
+        )
+        body, block = render(cut)
+        tried[count] = (body, block, _station_ids_size(body, fmt, block))
+        return tried[count][2] <= ANSWER_BUDGET
+
+    best = _largest(1, total - 1, lambda count: attempt(count, honest=False), max(1, total * ANSWER_BUDGET // size))
+    if best is None:
+        # not even one row fits beside the block: the first is kept, and the note says the answer is still over
+        attempt(1, honest=True)
+        best = 1
+    body, block, _ = tried[best]
+    log.info(f"Cut a station_ids answer of {total} rows to {best} to stay within the budget.")
+    return body, block
 
 
 # --- coverage -----------------------------------------------------------------------------------------------------

@@ -35,7 +35,7 @@ GHCN lists up to four):
 | `matched_by` | which of the station's ids matched: `wmo_id`, `wigos_id` or `icao_id` |
 | `match` | `direct` where the id asked for is the one the station has, `equivalent` where an id equivalent to it is |
 
-The rows are sorted by provider, network and station id. A station that two lists of one network repeat is one row. No row
+The rows are sorted by provider, network and station id. A station that one list repeats is one row, told by its strongest match. No row
 means no listed station has the id, which is an answer and no error.
 
 The REST API, the command line and the MCP tool wrap the rows in the `metadata` block of every answer, which for this
@@ -96,9 +96,12 @@ list, and `stations` of the dataset you want to read values from says whether it
 declaration to the station list of the network: the columns it names are the ones the list fills.
 
 `noaa/ghcn` is read without `ghcnd-inventory.txt`, which holds the elements of each station and no id (36 MB beside
-the 11 MB of the stations file). So the lookup also finds the 147 stations of the stations file that the
-inventory has no line for, which `stations` leaves out: 146 of them have no data file, so a row of one is a station no
-values can be read of.
+the 11 MB of the stations file). The stations file also lists the 147 stations that the inventory has no line for, which
+`stations` leaves out, and 146 of them have no data file. So each GHCN hit is checked for the daily file the values are
+read from (NCEI's `by_station` file, then the AWS mirror's: one download, held in the cache for a read of the values, for
+each hit, at most eight for a search; there is no cheaper request in the library), and a station with no file is no row:
+WMO `10628` (Geisenheim, `GMM00010628`) is not an answer. A check that cannot be made (no connection, a 5xx) keeps the
+row and is a `station-file-unchecked` warning that names the station; a 429 is raised, as everywhere.
 
 A network that needs a key (`aemet`, `knmi`, `metno`) is asked only where the settings hold its credentials
 (`WD_AUTH__AEMET`, `WD_AUTH__KNMI_EDR`, `WD_AUTH__METNO_FROST`); otherwise it is named in a `network-not-configured`
@@ -113,10 +116,19 @@ second. The MCP tool states the cold latency in its description so that a client
 
 ## Failures
 
-A network whose list cannot be read is a `network-failed` warning that names it and says why; the others answer, and
-the network is in `searched` with its `status` of `failed`. A search that failed at every network is an answer with no
-rows and 18 warnings. A 429 of a provider is the exception, as everywhere in the library: it is never swallowed, the
-search raises the `ProviderRateLimitError` (a 503 with `Retry-After` at REST).
+A network whose list cannot be read, or that cannot be imported on the server, is a `network-failed` warning that names it
+and says why; the others answer, and the network is in `searched` with its `status` of `failed` (a network that cannot
+be imported has a null `resolution` and `dataset`, as its declaration is not known). A failure that is a defect of the
+library is logged with its traceback and told as an unexpected error, not by its text. A network that is merely not
+configured is not counted as asked.
+
+**A search in which every network that was asked failed is an error, not an empty answer**: an `UpstreamError` that names
+the networks (a 502 at REST, exit 1 on the command line), since an outage must never read as no such station. A 429 of a
+provider is the other exception, as everywhere in the library: it is never swallowed, the search raises the
+`ProviderRateLimitError` (a 503 with `Retry-After` at REST).
+
+An MCP tool's answer is cut to 40,000 characters, as that of `stations` is, keeping the first rows, with an
+`answer-truncated` warning that tells to ask for fewer ids.
 
 ## Python
 

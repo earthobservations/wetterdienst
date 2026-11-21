@@ -18,8 +18,14 @@ A row says which of its ids matched (``matched_by``) and whether the id searched
 (``direct``) or came by an equivalence (``equivalent``). The lists are one for each network, named in the row
 (``resolution`` and ``dataset``): another dataset of a network may list stations this one does not.
 
-A network that fails is a warning that names it and the others answer. One that needs credentials the settings do not
-hold is a warning too. A 429 is never swallowed: the search raises the `ProviderRateLimitError`.
+A network that fails is a warning that names it and the others answer; if every network that was asked fails the
+search raises an `UpstreamError` that names them, since an outage is no answer of no station. One that needs
+credentials the settings do not hold is a warning too, and is not counted as asked. A 429 is never swallowed: the
+search raises the `ProviderRateLimitError`.
+
+The hits of a network whose list names stations that have no data (`noaa/ghcn`, read without its inventory) are
+checked one by one for the file of the station, and a station with none is no row. A check that cannot be made keeps
+the row and is a warning.
 """
 
 from __future__ import annotations
@@ -28,28 +34,43 @@ import contextvars
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Any, Literal, ParamSpec, TypeVar, cast
 
 import polars as pl
 
 from wetterdienst.api import Wetterdienst
-from wetterdienst.exceptions import CredentialMissingError, ProviderRateLimitError, RequestError
+from wetterdienst.exceptions import (
+    ConfigurationError,
+    CredentialMissingError,
+    ProviderRateLimitError,
+    RequestError,
+    UpstreamError,
+)
 from wetterdienst.model.station_ids import (
     search_icao_id,
     search_wigos_id,
     search_wmo_id,
     wmo_id_of_wigos_expr,
 )
-from wetterdienst.util.response_warnings import ResponseWarning, begin_response, recorded_warnings, warn_response
+from wetterdienst.util.response_warnings import (
+    ResponseWarning,
+    begin_response,
+    record_response_warning,
+    recorded_warnings,
+    warn_response,
+)
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from concurrent.futures import Future
 
     from wetterdienst.model.metadata import StationIdColumn, StationIdList
     from wetterdienst.settings import Settings
 
 log = logging.getLogger(__name__)
+
+P = ParamSpec("P")
+T = TypeVar("T")
 
 #: how many networks are asked at once: more than the cores of a laptop help with, and fewer than the connections a
 #: host that serves all of them (DWD answers five of the networks) takes kindly
@@ -59,6 +80,13 @@ MAX_WORKERS = 8
 NETWORK_FAILED = "network-failed"
 #: the code of the warning that names a network that needs credentials the settings do not hold
 NETWORK_NOT_CONFIGURED = "network-not-configured"
+#: the code of the warning that names the stations of a hit list whose data file could not be checked, which stay in the
+#: answer
+STATION_FILE_UNCHECKED = "station-file-unchecked"
+
+#: how many hits of one network are checked for a data file: a handful for an id (a WMO number sits on up to four
+#: stations of `noaa/ghcn`), and an ICAO code or a list of ids no more than a few more. Hits beyond it stay unchecked
+MAX_FILE_CHECKS = 8
 
 WMO_ISSUER_PREFIX = "0-20000-0-"
 
@@ -91,9 +119,10 @@ class SearchedNetwork:
 
     provider: str
     network: str
-    #: the resolution and the dataset of the list the network declares for the search
-    resolution: str
-    dataset: str
+    #: the resolution and the dataset of the list the network declares for the search; null for a network that could not
+    #: be imported, whose declaration is not known
+    resolution: str | None
+    dataset: str | None
     #: the id columns that list fills
     ids: tuple[str, ...]
     status: Status
@@ -125,10 +154,14 @@ class StationIdSearchResult:
         return self.df.to_dicts()
 
 
-def _declared_lists() -> tuple[list[tuple[str, str, StationIdList]], list[ResponseWarning]]:
-    """Give the networks that declare a list for the search (provider, network, the list) and the ones left out."""
+def _declared_lists() -> tuple[list[tuple[str, str, StationIdList]], list[SearchedNetwork]]:
+    """Give the networks that declare a list for the search (provider, network, the list) and those that cannot be read.
+
+    A network whose module cannot be imported on this server (a dependency is missing) is a failed entry of `searched`:
+    its declaration is not known, and it is neither asked nor left out unsaid.
+    """
     declared: list[tuple[str, str, StationIdList]] = []
-    problems: list[ResponseWarning] = []
+    failed: list[SearchedNetwork] = []
     for provider, networks in Wetterdienst.registry.items():
         for network in networks:
             if Wetterdienst.is_standalone(provider, network):
@@ -136,16 +169,38 @@ def _declared_lists() -> tuple[list[tuple[str, str, StationIdList]], list[Respon
             try:
                 metadata = Wetterdienst.resolve(provider, network).metadata
             except ImportError as e:
-                problems.append(
-                    {
-                        "code": NETWORK_FAILED,
-                        "message": f"{provider}/{network} cannot be imported on this server and is not searched: {e}",
-                    }
+                # the text of an `ImportError` is the library's and may name a path of the server: the log has all of it
+                log.warning(f"{provider}/{network} cannot be imported: {e}")
+                missing = f": the module '{e.name}' is missing" if isinstance(e, ModuleNotFoundError) and e.name else ""
+                failed.append(
+                    SearchedNetwork(
+                        provider,
+                        network,
+                        None,
+                        None,
+                        (),
+                        "failed",
+                        None,
+                        f"it cannot be imported on this server{missing}",
+                    )
                 )
                 continue
             if metadata.station_id_list is not None:
                 declared.append((provider, network, metadata.station_id_list))
-    return declared, problems
+    return declared, failed
+
+
+def _reason_of(error: Exception, name: str) -> str:
+    """Give why a network failed, for the answer: what an upstream or configuration failure says, else nothing of it.
+
+    A failure of the provider or of the server's configuration has a message that was written to be told. Anything else
+    is a defect of ours, whose text may hold what the caller has no business with: it is logged with its traceback, as
+    the REST API logs the 500 it answers, and the answer says that it happened.
+    """
+    if isinstance(error, UpstreamError | ConfigurationError):
+        return _one_line(error)
+    log.error(f"Failed to read the station list of {name}.", exc_info=error)
+    return "an unexpected error occurred; the server's log has it"
 
 
 def _one_line(error: BaseException) -> str:
@@ -199,16 +254,10 @@ class _Outcome:
     warnings: list[ResponseWarning] = field(default_factory=list)
 
 
-def _submit(
-    pool: ThreadPoolExecutor, provider: str, network: str, declared: StationIdList, settings: Settings
-) -> Future[_Read]:
-    """Start the read of one network in the pool, in a copy of the context of the caller."""
+def _submit(pool: ThreadPoolExecutor, fn: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> Future[T]:
+    """Start `fn` in the pool, in a copy of the context of the caller."""
     context = contextvars.copy_context()
-
-    def read() -> _Read:
-        return context.run(_read_network, provider, network, declared, settings)
-
-    return pool.submit(read)
+    return pool.submit(lambda: context.run(fn, *args, **kwargs))
 
 
 def _read_networks(declared: list[tuple[str, str, StationIdList]], settings: Settings) -> list[_Outcome]:
@@ -227,7 +276,7 @@ def _read_networks(declared: list[tuple[str, str, StationIdList]], settings: Set
                 provider,
                 network,
                 lister,
-                _submit(pool, provider, network, lister, settings),
+                _submit(pool, _read_network, provider, network, lister, settings),
             )
             for provider, network, lister in declared
         ]
@@ -242,7 +291,9 @@ def _read_networks(declared: list[tuple[str, str, StationIdList]], settings: Set
             except CredentialMissingError as e:
                 outcomes.append(_Outcome(SearchedNetwork(*where, "not-configured", None, str(e))))
             except Exception as e:  # noqa: BLE001
-                outcomes.append(_Outcome(SearchedNetwork(*where, "failed", None, _one_line(e))))
+                outcomes.append(
+                    _Outcome(SearchedNetwork(*where, "failed", None, _reason_of(e, f"{provider}/{network}")))
+                )
             else:
                 outcomes.append(_Outcome(SearchedNetwork(*where, "searched", frame.height), frame, recorded))
     return outcomes
@@ -260,6 +311,33 @@ def _wmo_number_of(wmo_id: pl.Expr, wigos_id: pl.Expr) -> pl.Expr:
     return pl.coalesce(wmo_id, wmo_id_of_wigos_expr(wigos_id))
 
 
+def _equivalents(wmo_ids: list[str], wigos_ids: list[str], wmo_of_icao: list[str]) -> dict[str, list[str]]:
+    """Give the ids searched besides the ones asked for, because they are equivalent to them.
+
+    The WMO numbers of the WIGOS identifiers of WMO's issuer that were given and of the stations an ICAO code found,
+    and the WIGOS identifiers of WMO's issuer of every WMO number searched. The first two kinds come from the request
+    alone, so that what a search says it also looked for does not depend on which list answered.
+    """
+    wmo_of_wigos = [number for wigos_id in wigos_ids if (number := _wmo_of_issuer_wigos(wigos_id)) is not None]
+    wmo_equivalent = _unique([*wmo_of_wigos, *wmo_of_icao])
+    wigos_equivalent = _unique(f"{WMO_ISSUER_PREFIX}{number}" for number in _unique([*wmo_ids, *wmo_equivalent]))
+    return {
+        "wmo_id": [number for number in wmo_equivalent if number not in wmo_ids],
+        "wigos_id": [identifier for identifier in wigos_equivalent if identifier not in wigos_ids],
+    }
+
+
+#: the ways a station matches, strongest first: its own id before an equivalent one, and the WMO number before the WIGOS
+#: identifier before the ICAO code. The index is the rank a row is told by
+_MATCHES = (
+    ("wmo_id", "direct"),
+    ("wigos_id", "direct"),
+    ("icao_id", "direct"),
+    ("wmo_id", "equivalent"),
+    ("wigos_id", "equivalent"),
+)
+
+
 def _match(
     stations: pl.DataFrame,
     wmo_ids: list[str],
@@ -268,9 +346,9 @@ def _match(
 ) -> tuple[pl.DataFrame, dict[str, list[str]]]:
     """Select the stations that carry one of the ids, or an id equivalent to it, and say which matched and how.
 
-    Returns the matching rows with `matched_by` and `match`, and the ids searched by an equivalence.
+    A station a list repeats is one row, told by its strongest match. Returns the matching rows with `matched_by` and
+    `match`, and the ids searched by an equivalence.
     """
-    wmo_of_wigos = [number for wigos_id in wigos_ids if (number := _wmo_of_issuer_wigos(wigos_id)) is not None]
     # the ICAO codes are searched first, for the WMO numbers of the stations they find
     by_icao = pl.col("icao_id").is_in(icao_ids)
     wmo_of_icao = (
@@ -280,43 +358,33 @@ def _match(
         .get_column("wmo")
         .to_list()
     )
-    wmo_equivalent = _unique([*wmo_of_wigos, *wmo_of_icao])
-    wmo_searched = _unique([*wmo_ids, *wmo_equivalent])
-    wigos_equivalent = _unique(f"{WMO_ISSUER_PREFIX}{number}" for number in wmo_searched)
-
-    direct_wmo = pl.col("wmo_id").is_in(wmo_ids)
-    direct_wigos = pl.col("wigos_id").is_in(wigos_ids)
-    equivalent_wmo = pl.col("wmo_id").is_in(wmo_equivalent)
-    equivalent_wigos = pl.col("wigos_id").is_in(wigos_equivalent)
+    also = _equivalents(wmo_ids, wigos_ids, wmo_of_icao)
+    conditions = [
+        pl.col("wmo_id").is_in(wmo_ids),
+        pl.col("wigos_id").is_in(wigos_ids),
+        by_icao,
+        pl.col("wmo_id").is_in(also["wmo_id"]),
+        pl.col("wigos_id").is_in(also["wigos_id"]),
+    ]
+    rank = pl.coalesce(
+        *(pl.when(condition).then(pl.lit(index, pl.Int8)) for index, condition in enumerate(conditions)),
+    )
     found = (
-        stations.with_columns(
-            pl.when(direct_wmo)
-            .then(pl.lit("wmo_id"))
-            .when(direct_wigos)
-            .then(pl.lit("wigos_id"))
-            .when(by_icao)
-            .then(pl.lit("icao_id"))
-            .when(equivalent_wmo)
-            .then(pl.lit("wmo_id"))
-            .when(equivalent_wigos)
-            .then(pl.lit("wigos_id"))
+        stations.with_columns(rank.alias("_rank"))
+        .filter(pl.col("_rank").is_not_null())
+        # the strongest match of a station first, so that the one row kept of a station a list repeats is that one
+        .sort("provider", "network", "station_id", "_rank", maintain_order=True)
+        .unique(subset=["provider", "network", "station_id"], keep="first", maintain_order=True)
+        .with_columns(
+            pl.col("_rank")
+            .replace_strict(dict(enumerate(by for by, _ in _MATCHES)), return_dtype=pl.String)
             .alias("matched_by"),
-            pl.when(direct_wmo | direct_wigos | by_icao)
-            .then(pl.lit("direct"))
-            .when(equivalent_wmo | equivalent_wigos)
-            .then(pl.lit("equivalent"))
+            pl.col("_rank")
+            .replace_strict(dict(enumerate(how for _, how in _MATCHES)), return_dtype=pl.String)
             .alias("match"),
         )
-        .filter(pl.col("matched_by").is_not_null())
-        # one row for each station of a network, whatever the list repeats
-        .unique(subset=["provider", "network", "station_id"], keep="first", maintain_order=True)
-        .sort("provider", "network", "station_id")
         .select(COLUMNS)
     )
-    also = {
-        "wmo_id": [number for number in wmo_equivalent if number not in wmo_ids],
-        "wigos_id": [identifier for identifier in wigos_equivalent if identifier not in wigos_ids],
-    }
     return found, also
 
 
@@ -350,7 +418,9 @@ def find_stations_by_id(
     The list of a network is the one it declares, named in each row by `resolution` and `dataset`: the other datasets
     of the network may list stations it does not. A cold search downloads the lists, about 30 MB, in about 9 s on a
     good connection and longer on a slow one; the cache of the library holds each list, so the same search again, or
-    one for another id, takes about a second.
+    one for another id, takes about a second. The hits of `noaa/ghcn`, whose list is read without the inventory and so
+    names stations that have no data, are checked for the data file of the station (one download each, held in the
+    cache for a read of the values), and a station with none is no row.
 
     Args:
         wmo_id: One WMO number or several, as text or as numbers. One to five digits are read as the number with its
@@ -368,6 +438,8 @@ def find_stations_by_id(
     Raises:
         ValueError: no id is given, or one is not in the notation of its kind.
         TypeError: an id is neither a text nor a number.
+        UpstreamError: every network that was asked failed, so that the search knows nothing: it names them. A network
+            that fails while others answer is a warning of the answer.
         ProviderRateLimitError: a provider refused for asking too often (a 429), which is never swallowed.
 
     """
@@ -383,11 +455,21 @@ def find_stations_by_id(
 
         settings = Settings()
 
-    declared, warnings = _declared_lists()
-    for warning in warnings:
-        log.warning(warning["message"])
+    declared, import_failures = _declared_lists()
     outcomes = _read_networks(declared, settings)
+    # in the order of the registry, the networks that could not be imported where they stand
+    order = {
+        f"{provider}/{network}": index
+        for index, (provider, network) in enumerate(
+            (provider, network) for provider, networks in Wetterdienst.registry.items() for network in networks
+        )
+    }
+    outcomes = sorted(
+        [*outcomes, *(_Outcome(entry) for entry in import_failures)],
+        key=lambda outcome: order[f"{outcome.network.provider}/{outcome.network.network}"],
+    )
 
+    warnings: list[ResponseWarning] = []
     frames: list[pl.DataFrame] = []
     for outcome in outcomes:
         network = outcome.network
@@ -404,11 +486,18 @@ def find_stations_by_id(
             frames.append(outcome.frame)
         warnings.extend(w for w in outcome.warnings if w not in warnings)
 
+    _raise_if_nothing_was_read(outcomes)
+
     stations = pl.concat(frames, how="vertical_relaxed") if frames else _empty(with_match=False)
     if stations.is_empty():
-        found, also = _empty(with_match=True), {"wmo_id": [], "wigos_id": []}
+        found, also = _empty(with_match=True), _equivalents(wmo_ids, wigos_ids, [])
     else:
         found, also = _match(stations, wmo_ids, wigos_ids, icao_ids)
+        found, unchecked = _without_stations_that_have_no_file(found, settings)
+        for warning in unchecked:
+            log.warning(warning["message"])
+            record_response_warning(warning["code"], warning["message"], stations=warning.get("stations"))
+        warnings.extend(unchecked)
     return StationIdSearchResult(
         request={"wmo_id": wmo_ids, "wigos_id": wigos_ids, "icao_id": icao_ids},
         also_searched=also,
@@ -416,3 +505,124 @@ def find_stations_by_id(
         searched=[outcome.network for outcome in outcomes],
         warnings=warnings,
     )
+
+
+def _raise_if_nothing_was_read(outcomes: list[_Outcome]) -> None:
+    """Raise the `UpstreamError` of a search in which every network that was asked failed.
+
+    An answer of no station, with a warning for each network, would read as there being no such station: an outage is
+    no data. A network that is merely not configured was never asked and does not count; with none asked at all (no key
+    is held and nothing else declares a list) there is nothing that failed.
+    """
+    asked = [outcome.network for outcome in outcomes if outcome.network.status != "not-configured"]
+    if asked and all(network.status == "failed" for network in asked):
+        named = "; ".join(f"{network.provider}/{network.network} ({network.message})" for network in asked)
+        msg = f"None of the {len(asked)} networks that were asked could be read, so nothing is known of the id: {named}"
+        raise UpstreamError(msg)
+
+
+_Hit = tuple[str, str, str]
+
+
+def _file_checkers(found: pl.DataFrame, settings: Settings) -> dict[tuple[str, str], Any]:
+    """Build the request of each network among the hits whose provider checks the data file of a station."""
+    requests: dict[tuple[str, str], Any] = {}
+    lists = found.select("provider", "network", "resolution", "dataset").unique(maintain_order=True)
+    for provider, network, resolution, dataset in lists.iter_rows():
+        api = Wetterdienst.resolve(provider, network)
+        if api._checks_station_files:  # noqa: SLF001
+            requests[(provider, network)] = api(parameters=[(resolution, dataset)], settings=settings)
+    return requests
+
+
+def _bounded_by_network(hits: list[_Hit]) -> tuple[list[_Hit], dict[str, list[str]]]:
+    """Keep the first `MAX_FILE_CHECKS` hits of each network, and name the stations of the rest by network."""
+    seen: dict[tuple[str, str], int] = {}
+    kept: list[_Hit] = []
+    beyond: dict[str, list[str]] = {}
+    for provider, network, station_id in hits:
+        count = seen.get((provider, network), 0)
+        seen[(provider, network)] = count + 1
+        if count < MAX_FILE_CHECKS:
+            kept.append((provider, network, station_id))
+        else:
+            beyond.setdefault(f"{provider}/{network}", []).append(station_id)
+    return kept, beyond
+
+
+def _check_files(
+    requests: dict[tuple[str, str], Any], hits: list[_Hit]
+) -> tuple[set[_Hit], dict[str, list[tuple[str, str]]]]:
+    """Ask each hit's network whether the station has its file: the hits that have none, and the checks that failed.
+
+    A 429 is raised; any other failure is kept with its reason, by network, for the warning.
+    """
+    gone: set[_Hit] = set()
+    failed: dict[str, list[tuple[str, str]]] = {}
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="station-file-check") as pool:
+        futures = [
+            (hit, _submit(pool, requests[(hit[0], hit[1])]._station_file_exists, hit[2]))  # noqa: SLF001
+            for hit in hits
+        ]
+        for hit, future in futures:
+            provider, network, station_id = hit
+            try:
+                exists = future.result()
+            except ProviderRateLimitError:
+                for _, other in futures:
+                    other.cancel()
+                raise
+            except Exception as e:  # noqa: BLE001
+                reason = _reason_of(e, f"the data file of {station_id} of {provider}/{network}")
+                failed.setdefault(f"{provider}/{network}", []).append((station_id, reason))
+                continue
+            if not exists:
+                log.info(f"{provider}/{network} {station_id} has no data file and is left out of the hits.")
+                gone.add(hit)
+    return gone, failed
+
+
+def _without_stations_that_have_no_file(
+    found: pl.DataFrame, settings: Settings
+) -> tuple[pl.DataFrame, list[ResponseWarning]]:
+    """Drop the hits of a network that has no data for the station, where the network checks it (`noaa/ghcn`).
+
+    A list that names stations without data (GHCN's, read without the inventory) is checked for the hits only: one
+    request each for the file of the station, at most `MAX_FILE_CHECKS` for a network. A check that cannot be made keeps
+    the row and is a `station-file-unchecked` warning that names the station, as is a hit beyond the bound. A 429 is
+    raised.
+    """
+    requests = _file_checkers(found, settings)
+    if not requests:
+        return found, []
+    hits = [
+        hit for hit in found.select("provider", "network", "station_id").iter_rows() if (hit[0], hit[1]) in requests
+    ]
+    checked, beyond = _bounded_by_network(hits)
+    gone, failed = _check_files(requests, checked)
+
+    warnings: list[ResponseWarning] = [
+        {
+            "code": STATION_FILE_UNCHECKED,
+            "message": f"{name}: only the first {MAX_FILE_CHECKS} hits are checked for a data file; "
+            f"{len(stations)} were not, and stay in the answer.",
+            "stations": stations,
+        }
+        for name, stations in beyond.items()
+    ]
+    warnings += [
+        {
+            "code": STATION_FILE_UNCHECKED,
+            "message": f"{name}: the data file of {', '.join(station for station, _ in entries)} could not be "
+            f"checked ({entries[0][1]}); the station stays in the answer, and may have no data.",
+            "stations": [station for station, _ in entries],
+        }
+        for name, entries in failed.items()
+    ]
+    if gone:
+        keys = [
+            {"provider": provider, "network": network, "station_id": station_id}
+            for provider, network, station_id in gone
+        ]
+        found = found.filter(~pl.struct("provider", "network", "station_id").is_in(keys))
+    return found, warnings
