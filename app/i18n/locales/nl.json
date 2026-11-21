@@ -484,9 +484,13 @@
     "untranslatedDe": "Dit onderdeel is nog niet in jouw taal vertaald en wordt in het Duits getoond.",
     "topics": {
       "temperature": "Lucht- en bodemtemperatuur",
+      "pressure": "Luchtdruk",
+      "humidity": "Luchtvochtigheid en dauwpunt",
       "wind": "Wind",
       "precipitation": "Neerslag",
+      "radiation": "Straling",
       "sunshine": "Zonneschijnduur",
+      "visibility": "Zicht",
       "snow": "Sneeuw",
       "normals": "Klimaatnormalen",
       "time": "Tijd",

@@ -484,9 +484,13 @@
     "untranslatedDe": "Ten wpis nie jest jeszcze przetłumaczony na twój język i jest pokazany po niemiecku.",
     "topics": {
       "temperature": "Temperatura powietrza i gruntu",
+      "pressure": "Ciśnienie powietrza",
+      "humidity": "Wilgotność i punkt rosy",
       "wind": "Wiatr",
       "precipitation": "Opady",
+      "radiation": "Promieniowanie",
       "sunshine": "Usłonecznienie",
+      "visibility": "Widzialność",
       "snow": "Śnieg",
       "normals": "Normy klimatyczne",
       "time": "Czas",

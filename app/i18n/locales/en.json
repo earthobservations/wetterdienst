@@ -484,9 +484,13 @@
     "untranslatedDe": "This entry is not yet translated into your language and is shown in German.",
     "topics": {
       "temperature": "Air and soil temperature",
+      "pressure": "Air pressure",
+      "humidity": "Humidity and dew point",
       "wind": "Wind",
       "precipitation": "Precipitation",
+      "radiation": "Radiation",
       "sunshine": "Sunshine duration",
+      "visibility": "Visibility",
       "snow": "Snow",
       "normals": "Climate normals",
       "time": "Time",

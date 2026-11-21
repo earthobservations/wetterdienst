@@ -484,9 +484,13 @@
     "untranslatedDe": "Cette entrée n'est pas encore traduite dans ta langue et s'affiche en allemand.",
     "topics": {
       "temperature": "Température de l'air et du sol",
+      "pressure": "Pression atmosphérique",
+      "humidity": "Humidité et point de rosée",
       "wind": "Vent",
       "precipitation": "Précipitations",
+      "radiation": "Rayonnement",
       "sunshine": "Durée d'ensoleillement",
+      "visibility": "Visibilité",
       "snow": "Neige",
       "normals": "Normales climatiques",
       "time": "Heure et jour",

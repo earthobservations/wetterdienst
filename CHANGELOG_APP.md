@@ -18,6 +18,13 @@ Types of changes:
 
 ### Added
 
+- `[Measurement]` Four more entries on the "How weather is measured" page: pressure and its
+  reduction to sea level (`/measurement#pressure`), humidity and dew point (`#humidity`),
+  radiation (`#radiation`) and visibility (`#visibility`), each with the sources it rests on (the
+  WMO Guide, WMO-No. 8, Volume I, Chapters 3, 4, 7 and 9, and Volume V, Chapter 3, and the
+  providers' own files). They are written in German and English, like the first ones; the Glossary
+  links the pressure, humidity, dew point, radiation and visibility parameters to them
+  (GH-3787).
 - `[Radar]` A tool of its own, the sixth: DWD's precipitation radar over Germany on the map, a loop
   of the last two hours and DWD's forecast of the next two (marked observed or forecast in words
   and by an icon), with a player (play and pause, a step each way, a slider; the loop starts by

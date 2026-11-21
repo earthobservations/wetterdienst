@@ -484,9 +484,13 @@
     "untranslatedDe": "Dës Rubrik ass nach net an deng Sprooch iwwersat a gëtt op Däitsch gewisen.",
     "topics": {
       "temperature": "Loft- a Buedemtemperatur",
+      "pressure": "Loftdrock",
+      "humidity": "Loftfiichtegkeet an Daupunkt",
       "wind": "Wand",
       "precipitation": "Nidderschlag",
+      "radiation": "Stralung",
       "sunshine": "Sonnenscheindauer",
+      "visibility": "Sichtwäit",
       "snow": "Schnéi",
       "normals": "Klimanormalwäerter",
       "time": "Zäit",
