@@ -12,7 +12,11 @@ import type {
 import type { PlaceMatch, PlacesAnswer } from '../../../shared/utils/places'
 import type { StripesFixture } from '../../helpers/stripes-backend'
 import { Buffer } from 'node:buffer'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import process from 'node:process'
 import { prepareStations, searchPrepared } from '../../../app/utils/station-search'
+import { placesOfPhoton } from '../../../shared/utils/places'
 import { radarAnswer } from '../../helpers/radar-answer'
 import { radarPng } from '../../helpers/radar-image'
 import { emptyScan } from '../../helpers/storm-cells-answer'
@@ -405,30 +409,23 @@ function stationSearch(url: URL): StationSearchAnswer {
   return { query, networks, pending: [], failed: [] }
 }
 
-/** The places of Photon's answers for two names, as the route shapes them (GH-3791): the town and the county of "Bad Tölz", three places called "Paris" */
-const PLACES: Array<{ prefix: string, places: PlaceMatch[] }> = [
-  {
-    prefix: 'bad t',
-    places: [
-      { id: 'N240109189', name: 'Bad Tölz', kind: 'town', region: 'Bayern, Deutschland', latitude: 47.7614, longitude: 11.5583 },
-      { id: 'R2145290', name: 'Landkreis Bad Tölz-Wolfratshausen', kind: 'county', region: 'Bayern, Deutschland', latitude: 47.78, longitude: 11.5 },
-    ],
-  },
-  {
-    prefix: 'paris',
-    places: [
-      { id: 'N17807753', name: 'Paris', kind: 'city', region: 'Île-de-France, France', latitude: 48.8566, longitude: 2.3522 },
-      { id: 'N118', name: 'Paris', kind: 'city', region: 'Texas, United States', latitude: 33.6609, longitude: -95.5555 },
-      { id: 'N120', name: 'Paris', kind: 'village', region: 'Henry County, Tennessee, United States', latitude: 36.302, longitude: -88.3267 },
-    ],
-  },
+/** A saved answer of Photon's (tests/fixtures/photon-*.json), read from the app's directory, where the suites run, and when it is asked for: this file is imported by tests that never ask */
+function photonFixture(name: string): unknown {
+  return JSON.parse(readFileSync(resolve(process.cwd(), 'tests/fixtures', `${name}.json`), 'utf8'))
+}
+
+/** The places of the real answers of Photon's for two names, as the route shapes them (GH-3791): "Bad Tölz" and "Paris" */
+const PLACES = [
+  { prefix: 'bad t', fixture: 'photon-badtoelz' },
+  { prefix: 'paris', fixture: 'photon-paris' },
 ]
 
 /** What `GET /_search/places` answers: the places of the two names above, none for any other text */
 function placesSearch(url: URL): PlacesAnswer {
   const query = url.searchParams.get('q') ?? ''
   const found = PLACES.find(entry => query.toLowerCase().startsWith(entry.prefix))
-  return { query, state: 'ok', places: found?.places ?? [], attribution: '© OpenStreetMap contributors' }
+  const places: PlaceMatch[] = found ? placesOfPhoton(photonFixture(found.fixture))! : []
+  return { query, state: 'ok', places, attribution: '© OpenStreetMap contributors' }
 }
 
 /**

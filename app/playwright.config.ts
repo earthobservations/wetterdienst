@@ -72,7 +72,9 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       // read by nuxt.config.ts at build and start: the rate limiter is off for the suite's own server. The search of places asks
       // the stand-in for Photon below, never komoot's public server (GH-3790).
-      env: { WD_E2E: '1', NUXT_PLACES_PHOTON_BASE: `http://127.0.0.1:${PHOTON_PORT}/api/` },
+      // A server that is reused instead of started does not get this, and `tests/e2e/global-setup.ts` stops the run unless that server says
+      // (`NUXT_PLACES_E2E=1`, `GET /_search/places?probe=1`) that it asks the stand-in.
+      env: { WD_E2E: '1', NUXT_PLACES_PHOTON_BASE: `http://127.0.0.1:${PHOTON_PORT}/api/`, NUXT_PLACES_E2E: '1' },
       timeout: process.env.CI ? 300 * 1000 : 120 * 1000,
     },
     {

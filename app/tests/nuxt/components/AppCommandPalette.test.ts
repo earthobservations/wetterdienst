@@ -905,13 +905,38 @@ describe('the command palette finding places by name', () => {
     expect(placeQueries).toHaveLength(1)
   })
 
-  it('sends neither a position nor a text with no letter, which are no name', async () => {
+  it('sends no position, whole or partial, and no text with fewer than three letters, each of which is waited for by itself', async () => {
     const wrapper = await mountPalette()
     const input = wrapper.find('input[role="combobox"]')
-    for (const text of ['52.5200, 13.4000', '47°46\'N 11°33\'E', '10381', '0-20000-0-10381'])
+    for (const text of ['52.5200, 13.4000', '47.76 N', '47.76 N 11.55', 'N 47.7 E', '47°45′N', '47°46\'N 11°33\'E', 'lat 47.7 lon 11.5', '47,7 N 11,5 O', 'A12', 'B 1', '10381', '0-20000-0-10381']) {
       await input.setValue(text)
-    await new Promise(resolve => setTimeout(resolve, 700))
+      await new Promise(resolve => setTimeout(resolve, 450))
+    }
     expect(placeQueries).toEqual([])
+    // and a name with a number, an accent or a hyphen in it still goes
+    await input.setValue('Saint-Étienne')
+    await vi.waitFor(() => expect(placeQueries).toEqual([{ q: 'Saint-Étienne', lang: 'en' }]))
+  }, 20_000)
+
+  it('keeps the option the reader is on where the places arrive above it, so that an Enter pressed as they come takes what was highlighted', async () => {
+    placesMode = 'slow-first'
+    const wrapper = await mountPalette()
+    await wrapper.find('input[role="combobox"]').setValue('bad tölz')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('BERLIN-TEMPELHOF'))
+    const first = wrapper.find('[role="option"][aria-selected="true"]')
+    const before = first.text()
+    expect(before).toContain('BERLIN-TEMPELHOF')
+    // the places are asked for after the stations, and arrive after them: they lead the list
+    await vi.waitFor(() => expect(releasePlaces).not.toBeNull())
+    releasePlaces!()
+    await vi.waitFor(() => expect(wrapper.findAll('[role="group"]')[0]!.text()).toContain('Bad Tölz'))
+    const selected = wrapper.findAll('[role="option"]').filter(option => option.attributes('aria-selected') === 'true')
+    expect(selected).toHaveLength(1)
+    expect(selected[0]!.text()).toBe(before)
+    expect(wrapper.find('input[role="combobox"]').attributes('aria-activedescendant')).toBe(selected[0]!.attributes('id'))
+    // Enter takes it
+    await wrapper.find('input[role="combobox"]').trigger('keydown', { key: 'Enter' })
+    expect(navigateTo).toHaveBeenCalledWith('/map?station=10384')
   })
 
   it('does not show the answer for a text that a newer one has taken the place of, which arrives late', async () => {

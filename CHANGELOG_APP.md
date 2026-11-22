@@ -86,9 +86,10 @@ Types of changes:
   OpenStreetMap's data through Photon (photon.komoot.io), asked by the app's server so that your
   address never reaches komoot (`GET /_search/places`): a group "Places" after a typed position,
   each place leading to the map at its point, with the credit "© OpenStreetMap contributors
-  (ODbL), via Photon". The server keeps answers for 24 h, asks Photon at most 3 times a second in
-  all and rests after a refusal; `NUXT_PLACES_SEARCH=off` switches it off. The privacy policy has a
-  section on it (GH-3791, GH-3790).
+  (ODbL), via Photon". A text under three letters or like a position, whole or partial, is never
+  sent. The server keeps answers for 24 h and asks Photon at most 3 times a second in all, 3 and then
+  1 a second for a client, resting after a refusal; `NUXT_PLACES_SEARCH=off` switches it off. The
+  privacy policy has a section on it (GH-3791, GH-3790).
 
 ### Changed
 

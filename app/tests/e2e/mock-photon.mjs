@@ -6,8 +6,8 @@
 //   DELETE /__requests          forgets them
 //   GET /__health               for Playwright's wait
 //
-// The texts: "bad tölz" and "paris" answer places (and, among them, the streets and shops that the app's server leaves out, and the
-// same town twice); "gedrosselt" answers a 429, "kaputt" a 500, "nichts" no hit. Run by hand: `node tests/e2e/mock-photon.mjs 4100`.
+// The texts: "bad tölz" and "paris" answer places (real answers, see below); "gedrosselt" answers a 429, "kaputt" a 500, "nichts" no hit. Run by hand: `node tests/e2e/mock-photon.mjs 4100`.
+import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import process from 'node:process'
 
@@ -15,26 +15,22 @@ const port = Number(process.argv[2] || process.env.E2E_PHOTON_PORT || 4100)
 /** @type {Array<{ url: string, headers: Record<string, string | string[] | undefined> }>} */
 let requests = []
 
-const feature = (lon, lat, properties) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties })
-
-function BAD_TOELZ(lang) {
-  return [
-    feature(11.5583, 47.7614, { osm_id: 240109189, osm_type: 'N', osm_key: 'place', osm_value: 'town', type: 'city', name: 'Bad Tölz', state: 'Bayern', county: 'Landkreis Bad Tölz-Wolfratshausen', country: lang === 'en' ? 'Germany' : 'Deutschland', countrycode: 'DE' }),
-    feature(11.5584, 47.7615, { osm_id: 2145289, osm_type: 'R', osm_key: 'boundary', osm_value: 'administrative', type: 'city', name: 'Bad Tölz', state: 'Bayern', country: lang === 'en' ? 'Germany' : 'Deutschland', countrycode: 'DE' }),
-    feature(11.55, 47.77, { osm_id: 51, osm_type: 'W', osm_key: 'highway', osm_value: 'residential', type: 'street', name: 'Bad Tölzer Straße', city: 'München', state: 'Bayern', country: 'Deutschland', countrycode: 'DE' }),
-    feature(11.5, 47.78, { osm_id: 2145290, osm_type: 'R', osm_key: 'boundary', osm_value: 'administrative', type: 'county', name: 'Landkreis Bad Tölz-Wolfratshausen', state: 'Bayern', country: lang === 'en' ? 'Germany' : 'Deutschland', countrycode: 'DE' }),
-    feature(11.57, 47.75, { osm_id: 77, osm_type: 'N', osm_key: 'amenity', osm_value: 'cafe', type: 'house', name: 'Café Bad Tölz', city: 'Bad Tölz', country: 'Deutschland', countrycode: 'DE' }),
-  ]
+// The answers are real ones of komoot's server, saved (tests/fixtures/photon-badtoelz.json and photon-paris.json: twelve hits each, with the streets, the
+// buildings and the boundaries that the app's server leaves out, and the same town as a node, a relation and a boundary); the names of the countries are
+// put into the language asked for, as Photon does
+const fixture = name => JSON.parse(readFileSync(new URL(`../fixtures/${name}.json`, import.meta.url), 'utf8'))
+const COUNTRIES = {
+  DE: { en: 'Germany', de: 'Deutschland', fr: 'Allemagne' },
+  FR: { en: 'France', de: 'Frankreich', fr: 'France' },
+  US: { en: 'United States', de: 'Vereinigte Staaten', fr: 'États-Unis' },
 }
-function PARIS(lang) {
-  return [
-    feature(2.3200, 48.8588, { osm_id: 7444, osm_type: 'R', osm_key: 'boundary', osm_value: 'administrative', type: 'city', name: 'Paris', state: 'Île-de-France', country: lang === 'de' ? 'Frankreich' : lang === 'fr' ? 'France' : 'France', countrycode: 'FR' }),
-    feature(2.3522, 48.8566, { osm_id: 17807753, osm_type: 'N', osm_key: 'place', osm_value: 'city', type: 'city', name: 'Paris', state: 'Île-de-France', country: lang === 'de' ? 'Frankreich' : 'France', countrycode: 'FR' }),
-    feature(-95.5555, 33.6609, { osm_id: 118, osm_type: 'N', osm_key: 'place', osm_value: 'city', type: 'city', name: 'Paris', state: 'Texas', country: lang === 'de' ? 'Vereinigte Staaten' : 'United States', countrycode: 'US' }),
-    feature(-82.4, 36.5, { osm_id: 119, osm_type: 'N', osm_key: 'place', osm_value: 'village', type: 'city', name: 'Paris', county: 'Henry County', state: 'Tennessee', country: 'United States', countrycode: 'US' }),
-    feature(2.35, 48.85, { osm_id: 120, osm_type: 'W', osm_key: 'railway', osm_value: 'station', type: 'other', name: 'Paris Gare de Lyon', city: 'Paris', country: 'France', countrycode: 'FR' }),
-    feature(2.55, 49.0, { osm_id: 121, osm_type: 'W', osm_key: 'aeroway', osm_value: 'aerodrome', type: 'other', name: 'Paris-Charles-de-Gaulle', state: 'Île-de-France', country: 'France', countrycode: 'FR' }),
-  ]
+function inLanguage(body, lang) {
+  for (const hit of body.features) {
+    const names = COUNTRIES[hit.properties.countrycode]
+    if (names && lang && names[lang])
+      hit.properties.country = names[lang]
+  }
+  return body
 }
 
 const server = createServer((request, response) => {
@@ -63,8 +59,11 @@ const server = createServer((request, response) => {
     return json(429, { message: 'too many requests' })
   if (q.startsWith('kaputt'))
     return json(500, { message: 'broken' })
-  const features = q.startsWith('bad t') ? BAD_TOELZ(lang) : q.startsWith('paris') ? PARIS(lang) : []
-  return json(200, { type: 'FeatureCollection', features })
+  if (q.startsWith('bad t'))
+    return json(200, inLanguage(fixture('photon-badtoelz'), lang))
+  if (q.startsWith('paris'))
+    return json(200, inLanguage(fixture('photon-paris'), lang))
+  return json(200, { type: 'FeatureCollection', features: [] })
 })
 
 server.listen(port, '127.0.0.1')

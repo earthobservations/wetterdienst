@@ -7,12 +7,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   createPlacesSearch,
   parsePlacesQuery,
+  PLACES_MAX_BODY_BYTES,
   PLACES_PER_SECOND,
   PLACES_PHOTON_BASE,
   PLACES_USER_AGENT,
   placesCacheKey,
   placesSearchHandler,
   placesSearchOn,
+  placesSearchSetting,
+  placesSearchWarning,
+  retryAfterSeconds,
 } from '../../server/utils/placesSearch'
 import { PLACES_ATTRIBUTION } from '../../shared/utils/places'
 
@@ -43,6 +47,12 @@ describe('what the route reads from a request', () => {
     expect(errorsOf({ q: 'ab' })).toEqual(['q'])
     expect(errorsOf({ q: '52.5200, 13.4' })).toEqual(['q'])
     expect(errorsOf({ q: 'x'.repeat(101) })).toEqual(['q'])
+    // a position is no name, whole or partial, and so is a code of two letters: none of them goes to Photon
+    for (const q of ['47.76 N', '47.76 N 11.55', 'N 47.7 E', '47°45′N', 'lat 47.7 lon 11.5', '47,7 N 11,5 O', 'A12', 'B 1'])
+      expect(errorsOf({ q }), q).toEqual(['q'])
+    // and a name with a number or an apostrophe is one
+    for (const q of ['Saint-Étienne', 'Frankfurt am Main', 'Route 66', 'L\'Aquila'])
+      expect(errorsOf({ q }), q).toEqual([])
     expect(errorsOf({ q: ['a', 'b'] })).toEqual(['q'])
     expect(errorsOf({ q: 'Paris', lang: 'de; drop' })).toEqual(['lang'])
     expect(errorsOf({ q: 'Paris', lang: ['de'] })).toEqual(['lang'])
@@ -60,6 +70,26 @@ describe('the switch of the operator', () => {
       expect(placesSearchOn(on), String(on)).toBe(true)
     for (const off of ['off', 'false', '0', 'no', 'disabled', 'of', 'nope'])
       expect(placesSearchOn(off), off).toBe(false)
+  })
+
+  it('warns once at start of a value that is neither on nor off, naming it and saying the search is off, and of no other', () => {
+    expect(placesSearchSetting('Off')).toBe('off')
+    expect(placesSearchSetting('of')).toBe('unrecognised')
+    expect(placesSearchWarning('of')).toBe('NUXT_PLACES_SEARCH="of" is not one of on, true, 1, yes, enabled (on) or off, false, 0, no, disabled (off): the place search is switched off.')
+    for (const quiet of [undefined, '', 'on', 'true', 'off', 'false', 'DISABLED'])
+      expect(placesSearchWarning(quiet), String(quiet)).toBeUndefined()
+  })
+})
+
+describe('what Photon says to wait', () => {
+  it('is its `Retry-After`, in seconds or as a date, at least a second and at most ten minutes, and nothing where it says none', () => {
+    expect(retryAfterSeconds('120', 0)).toBe(120)
+    expect(retryAfterSeconds('0', 0)).toBe(1)
+    expect(retryAfterSeconds('999999', 0)).toBe(600)
+    expect(retryAfterSeconds(new Date(30_000).toUTCString(), 0)).toBe(30)
+    expect(retryAfterSeconds(new Date(0).toUTCString(), 60_000)).toBeNull()
+    for (const none of [null, '', 'soon', '-5'])
+      expect(retryAfterSeconds(none, 0), String(none)).toBeNull()
   })
 })
 
@@ -213,6 +243,104 @@ describe('the search of places', () => {
     expect(asked).toHaveLength(1)
   })
 
+  it('does not send a request that waited for its turn while Photon refused one, and rests for as long as Photon says', async () => {
+    let answer: Response | undefined
+    let open!: () => void
+    const turn = new Promise<void>((resolve) => {
+      open = resolve
+    })
+    // the second request waits for its turn until the test says it has come
+    const { search, asked, clock } = searcher(() => answer ?? photon(BAD_TOELZ), { maxWaitMs: 5000, sleep: async (ms) => {
+      if (ms > 0)
+        await turn
+    } })
+    answer = new Response('slow down', { status: 429, headers: { 'retry-after': '120' } })
+    const first = search.search('bad aaa', 'de')
+    const second = search.search('bad bbb', 'de')
+    second.catch(() => {})
+    await expect(first).rejects.toMatchObject({ status: 503, type: 'urn:wetterdienst:problem:places-busy', retryAfter: 120 })
+    // its turn comes after the refusal: it is not sent
+    open()
+    await expect(second).rejects.toMatchObject({ status: 503, type: 'urn:wetterdienst:problem:places-unavailable' })
+    expect(asked).toHaveLength(1)
+    // the time Photon named, and not the minute, then it is asked again
+    clock.now += 119_000
+    await expect(search.search('bad ccc', 'de')).rejects.toMatchObject({ type: 'urn:wetterdienst:problem:places-unavailable' })
+    clock.now += 1001
+    answer = undefined
+    expect((await search.search('bad ccc', 'de')).length).toBe(1)
+  })
+
+  it('leaves Photon alone for a minute after a refusal that names no time', async () => {
+    const { search, clock } = searcher(() => new Response('no', { status: 429 }))
+    await expect(search.search('bad tölz', 'de')).rejects.toMatchObject({ retryAfter: 60 })
+    clock.now += 59_000
+    await expect(search.search('bad other', 'de')).rejects.toMatchObject({ type: 'urn:wetterdienst:problem:places-unavailable' })
+  })
+
+  it('reads an answer by its bytes, and gives one up that is over the limit, as declared or as it comes', async () => {
+    const big = 'x'.repeat(PLACES_MAX_BODY_BYTES + 1)
+    const declared = () => new Response(JSON.stringify({ features: [], note: big }), { headers: { 'content-type': 'application/json', 'content-length': String(PLACES_MAX_BODY_BYTES + 100) } })
+    const streamed = () => new Response(JSON.stringify({ features: [], note: big }), { headers: { 'content-type': 'application/json' } })
+    for (const answer of [declared, streamed]) {
+      const { search } = searcher(answer)
+      await expect(search.search('bad tölz', 'de')).rejects.toMatchObject({ status: 502, type: 'urn:wetterdienst:problem:places-unexpected-answer' })
+    }
+    // characters are not bytes: 400,000 characters of three bytes each are over the limit, though under it in characters
+    const wide = () => new Response(JSON.stringify({ features: [], note: '€'.repeat(400_000) }), { headers: { 'content-type': 'application/json' } })
+    await expect(searcher(wide).search.search('bad tölz', 'de')).rejects.toMatchObject({ status: 502 })
+    // and one under it is read, accents and all
+    const fine = searcher(() => photon(feature(11.5, 47.7, { osm_key: 'place', osm_value: 'town', name: 'Bad Tölz — Äußere Straße', country: 'Deutschland' })))
+    expect((await fine.search.search('bad tölz', 'de'))[0]!.name).toBe('Bad Tölz — Äußere Straße')
+  })
+
+  it('holds a client to its share of the requests to Photon, three at once and then one a second, which the answers of the cache do not use up, and each client to its own', async () => {
+    const { search, asked, clock } = searcher()
+    for (const text of ['bad one', 'bad two', 'bad three'])
+      await search.search(text, 'de', undefined, '203.0.113.7')
+    await expect(search.search('bad four', 'de', undefined, '203.0.113.7')).rejects.toMatchObject({ status: 429, type: 'urn:wetterdienst:problem:rate-limited', retryAfter: 1 })
+    expect(asked).toHaveLength(3)
+    // a text that is in the cache is no request to Photon
+    for (let again = 0; again < 5; again++)
+      await search.search('bad one', 'de', undefined, '203.0.113.7')
+    expect(asked).toHaveLength(3)
+    // another client has its own share, and the first has one again after a second
+    await search.search('bad four', 'de', undefined, '198.51.100.9')
+    clock.now += 1000
+    await search.search('bad five', 'de', undefined, '203.0.113.7')
+    expect(asked).toHaveLength(5)
+    // no client given (the limit is off): no share
+    for (let n = 0; n < 6; n++) {
+      clock.now += 400
+      await search.search(`bad free ${n}`, 'de')
+    }
+  })
+
+  it('lets a request that has been sent finish and keep its answer, though everybody who asked for it has gone', async () => {
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let sent: AbortSignal | undefined | null
+    const { search, asked } = searcher(async (_url, init) => {
+      sent = init.signal
+      await held
+      return photon(BAD_TOELZ)
+    })
+    const client = new AbortController()
+    const waiting = search.search('bad tölz', 'de', client.signal)
+    await vi.waitFor(() => expect(asked).toHaveLength(1))
+    client.abort()
+    await expect(waiting).rejects.toMatchObject({ name: 'AbortError' })
+    // nothing aborts the request: its own timeout is its only signal
+    release()
+    await vi.waitFor(() => expect(search.cacheSize).toBe(1))
+    expect(sent!.aborted).toBe(false)
+    // the next asker is served from what was kept
+    expect((await search.search('bad tölz', 'de')).length).toBe(1)
+    expect(asked).toHaveLength(1)
+  })
+
   it('stops waiting for its turn when the asker has gone, and then does not ask Photon at all', async () => {
     const clock = { now: 1 }
     const fetcher = vi.fn(async () => photon(BAD_TOELZ))
@@ -249,6 +377,7 @@ describe('the route', () => {
       defineEventHandler: h3.defineEventHandler,
       getQuery: h3.getQuery,
       getRequestHeader: h3.getRequestHeader,
+      getRequestIP: h3.getRequestIP,
       setResponseHeader: h3.setResponseHeader,
       setResponseStatus: h3.setResponseStatus,
       useRuntimeConfig: () => ({ placesSearch: 'on', placesPhotonBase: 'http://photon.stand-in/api/', ...config }),
@@ -345,19 +474,27 @@ describe('the route', () => {
     expect((await resting.json()).type).toBe('urn:wetterdienst:problem:places-unavailable')
   })
 
-  it('stops asking Photon for a client that has gone, where nobody else waits for the same text', async () => {
-    let asking: AbortSignal | undefined
-    const { get } = await serve({}, (_url, init) => new Promise<Response>((_resolve, reject) => {
-      asking = init.signal!
-      init.signal!.addEventListener('abort', () => reject(new DOMException('aborted', 'AbortError')))
-    }))
+  it('lets the request to Photon finish for a client that has gone, and keeps the answer for the next', async () => {
+    let release!: () => void
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    let asking = 0
+    const { get } = await serve({}, async () => {
+      asking++
+      await held
+      return photon(BAD_TOELZ)
+    })
     const client = new AbortController()
     const gone = get('q=bad%20t%C3%B6lz&lang=de', {}, client.signal).catch(() => 'gone')
-    await vi.waitFor(() => expect(asking).toBeDefined())
-    expect(asking!.aborted).toBe(false)
+    await vi.waitFor(() => expect(asking).toBe(1))
     client.abort()
     expect(await gone).toBe('gone')
-    await vi.waitFor(() => expect(asking!.aborted).toBe(true))
+    release()
+    await new Promise(resolve => setTimeout(resolve, 50))
+    const again = await get('q=bad%20t%C3%B6lz&lang=de')
+    expect(again.status).toBe(200)
+    expect(asking).toBe(1)
   })
 
   it('answers a Photon that does not answer in time as a 504 problem', async () => {
@@ -367,4 +504,32 @@ describe('the route', () => {
     expect(response.status).toBe(504)
     expect((await response.json()).type).toBe('urn:wetterdienst:problem:places-timeout')
   }, 10_000)
+
+  it('says where it would send its requests to the end-to-end suite, and only where `placesE2e` is `1`, and asks nobody for it', async () => {
+    const on = await serve({ placesE2e: '1' })
+    const probe = await on.get('probe=1')
+    expect(probe.status).toBe(200)
+    expect(await probe.json()).toEqual({ photon_base: 'http://photon.stand-in/api/' })
+    expect(on.asked).toEqual([])
+    // anywhere else the parameter means nothing: no text, so a 422, and nothing is told
+    for (const config of [{}, { placesE2e: '' }, { placesE2e: 'yes' }]) {
+      const off = await serve(config)
+      const response = await off.get('probe=1')
+      expect(response.status, JSON.stringify(config)).toBe(422)
+      expect(off.asked).toEqual([])
+    }
+  })
+
+  it('holds a client to its share of the requests to Photon, as the address the rate limit reads, and not where that limit is switched off', async () => {
+    const held = await serve({ rateLimit: { enabled: true, clientIpHeader: '' } })
+    const statuses: number[] = []
+    for (const text of ['bad one', 'bad two', 'bad three', 'bad four'])
+      statuses.push((await held.get(`q=${encodeURIComponent(text)}&lang=de`)).status)
+    expect(statuses).toEqual([200, 200, 200, 429])
+    const free = await serve({ rateLimit: { enabled: false } })
+    const open: number[] = []
+    for (const text of ['bad one', 'bad two', 'bad three', 'bad four'])
+      open.push((await free.get(`q=${encodeURIComponent(text)}&lang=de`)).status)
+    expect(open).toEqual([200, 200, 200, 200])
+  })
 })

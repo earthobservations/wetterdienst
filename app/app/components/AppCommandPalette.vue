@@ -620,6 +620,18 @@ const activeId = computed(() => active.value ? optionId(active.value) : undefine
 watch(query, () => {
   activeIndex.value = 0
 })
+// The places come after a pause and an answer, and lead the list: the option the reader is on stays that option (under them) where only places were added or
+// changed, so that an Enter pressed as they arrive takes what was under the highlight and not the place that pushed it down.
+watch(flat, (list, old) => {
+  const isPlace = (item: PaletteItem) => item.id.startsWith('place-osm-')
+  const others = (items: PaletteItem[]) => items.filter(item => !isPlace(item)).map(item => item.id).join('\n')
+  if (!old.length || others(list) !== others(old))
+    return
+  const previous = old[Math.min(activeIndex.value, old.length - 1)]
+  const at = previous ? list.findIndex(item => item.id === previous.id) : -1
+  if (at !== -1)
+    activeIndex.value = at
+})
 // the stations that the search of every network found are what the reader asked for: the first of them is the active option
 watch(idSearch, async (search) => {
   if (search?.status !== 'done' || !search.rows.length)

@@ -192,6 +192,9 @@ export default defineNuxtConfig({
     // stand-in the end-to-end tests ask (`tests/e2e/mock-photon.mjs`, which `playwright.config.ts` sets it to).
     placesSearch: 'on',
     placesPhotonBase: '',
+    // `NUXT_PLACES_E2E=1`, set by the end-to-end suite for its own server only: `GET /_search/places?probe=1` then says where the server would send its
+    // requests, which the suite checks to be its stand-in before it runs, so that no test can reach komoot's server (`tests/e2e/global-setup.ts`).
+    placesE2e: '',
     public: {
       // The address the app is reached at, for what names the pages to the outside: the canonical link and `og:url` of
       // each page, the sitemap and `robots.txt` (`shared/utils/seo.ts`, GH-3497). Public, because the page writes the

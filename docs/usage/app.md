@@ -76,20 +76,23 @@ before what the text finds, so Enter does not take it.
 **Places in the search** (from three letters, 400 ms after the last key) finds a place by its name in OpenStreetMap's data, as a group "Places" after a
 point typed in and before the stations, each with what it is (town, county, mountain, airport, …) and where it lies (`Bad Tölz`, Town · Bayern, Germany). A
 place opens the map at its point (`/map?lat=47.7614&lon=11.5583`), which picks the nearest station as a click there would. The group is shown with the
-credit that OpenStreetMap's licence (ODbL) asks for and "via Photon". A text that is a position or has no letter is no name and is not looked up. The
+credit that OpenStreetMap's licence (ODbL) asks for and "via Photon". A text with fewer than three letters, or that looks like a position (a decimal number, a degree or minute sign, two numbers, a single letter next to a number, or a word for latitude or longitude with a number: `47.76 N`, `N 47.7 E`, `47°45′N`, `lat 47`, `A12`), is no name and is never looked up, whole or partial. The places arrive after the stations; where they lead the list, the option you are on stays the one you are on. The
 places come from Photon (photon.komoot.io, run by komoot; the public server asks for fair use, states no limit and promises no availability), **asked by
 the app's own server and not by your browser**: `GET /_search/places?q=bad%20tölz&lang=de` asks `https://photon.komoot.io/api/?q=&lang=&limit=` with a
 User-Agent that names the project (`wetterdienst-app (+https://github.com/earthobservations/wetterdienst)`) and sends no header of yours, no address
 and no cookie, so komoot sees the server and the text. The route answers the few places the search shows (settlements, regions, countries, mountains,
-waters and airports; not streets or shops; the same town twice once), in `lang` where Photon has it (`de`, `en`, `fr`; every other locale is asked for in
+waters and airports; not streets or shops; the same town twice once), in `lang` where Photon has it (`de`, `en`, `fr`; Luxembourgish is asked for in German, every other locale in
 English, since Photon's public server refuses a language it has not), or the problem it could not (`urn:wetterdienst:problem:places-busy`,
 `places-unavailable`, `places-timeout`, `places-unreachable`, `places-unexpected-answer`, `invalid-parameters` as a 422; a `Retry-After` where there is a
 time to wait). To be fair to Photon the server keeps the answers for 24 h by the text (case and spaces ignored) and the language, up to 5,000 of them,
-asks at most 3 times a second in all (a request that would wait over 1.5 s is refused with a 503, not queued), times a request out after 4 s, and leaves
-Photon alone for 60 s after a 429 or 403 and for 10 s after any other failure. The requests count against the limit of the client like the other
-`/_search` routes. Nothing of a request is logged. The operator switches the places off with `NUXT_PLACES_SEARCH=off` (the route then answers
+asks at most 3 times a second in all (a request that would wait over 1.5 s is refused with a 503, not queued) and for one client at most 3 at once and then one
+a second (a 429; the answers of the cache do not use up that share, and it is not held where `NUXT_RATE_LIMIT_ENABLED=false`), times a request out after 4 s, and
+leaves Photon alone after a 429 or 403 for as long as its `Retry-After` says (a minute where it says none, ten at most), also for the requests that were waiting
+for their turn, and for 10 s after any other failure. A request to Photon that has been sent is let finish and its answer kept, even where the browser has gone.
+The requests count against the limit of the client like the other `/_search` routes: one bucket with every data route, 300 in 5 minutes by default.
+Nothing of a request is logged. The operator switches the places off with `NUXT_PLACES_SEARCH=off` (the route then answers
 `state: "off"` and asks nobody, and the search shows no group; `on`, `true`, `1`, `yes` and `enabled` leave it on, and any other text switches it off, so
-a typing mistake never leaves it running); `NUXT_PLACES_PHOTON_BASE` is the address of Photon's API, empty for komoot's public server (a Photon of your own,
+a typing mistake never leaves it running, and the server says so once when it starts, naming the value); `NUXT_PLACES_PHOTON_BASE` is the address of Photon's API, empty for komoot's public server (a Photon of your own,
 or a stand-in in tests, which never ask komoot).
 
 **Measurement** (`/measurement`, "How weather is measured") explains how a quantity is measured, how a reading becomes

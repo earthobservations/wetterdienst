@@ -20,8 +20,8 @@ async function asked(prefix: string): Promise<PhotonRequest[]> {
   return all.filter(request => (new URL(request.url, 'http://x').searchParams.get('q') ?? '').toLowerCase().startsWith(prefix))
 }
 
-/** A text no earlier run, test or reader has asked for, which the server keeps its answers for a day: the answer is Photon's, not the cache's */
-const fresh = (text: string) => `${text} ${Math.random().toString(36).slice(2, 8)}`
+/** A text (letters only: a number would make it look like a position, which is never sent) that no earlier run, test or reader has asked for, which the server keeps its answers for a day: the answer is Photon's, not the cache's */
+const fresh = (text: string) => `${text} ${Array.from({ length: 6 }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join('')}`
 
 async function openSearch(page: Page, baseURL: string, language = 'en') {
   await page.context().addCookies([{ name: 'wd_lang', value: language, url: baseURL }])
@@ -45,15 +45,19 @@ test.describe('the places of the search', () => {
     const group = page.getByRole('group', { name: 'Places', exact: true })
     await expect(group).toBeVisible()
     const options = group.getByRole('option')
-    // the town, its county; the street, the café and the town's twin of the stand-in are left out
-    await expect(options).toHaveCount(2)
+    // a real answer of Photon's (12 hits): the town, the county once (as a node and as a relation) and a village; the station, the buildings, the park
+    // and the boundaries of another sort are left out
+    await expect(options).toHaveCount(3)
     await expect(options.first()).toContainText('Bad Tölz')
     await expect(options.first()).toContainText('Town · Bayern, Germany')
+    await expect(options.nth(1)).toContainText('Bad Tölz-Wolfratshausen')
     await expect(options.nth(1)).toContainText('County · Bayern, Germany')
+    await expect(options.nth(2)).toContainText('Bad Heilbrunn')
+    await expect(options.nth(2)).toContainText('Village · Landkreis Bad Tölz-Wolfratshausen, Bayern, Germany')
     // the places lead the stations
     await expect(page.getByRole('group').first()).toHaveAccessibleName('Places')
     await options.first().click()
-    await expect(page).toHaveURL(/\/map\?.*lat=47\.7614.*lon=11\.5583/)
+    await expect(page).toHaveURL(/\/map\?.*lat=47\.7610.*lon=11\.5596/)
   })
 
   test('are asked for once for the text, from three letters on and a moment after the last key, and again for a text that is a different one', async ({ page, baseURL }) => {
@@ -135,14 +139,16 @@ test.describe('the places of the search', () => {
     await expect(credit.getByRole('link', { name: 'Photon' })).toHaveAttribute('href', 'https://photon.komoot.io')
   })
 
-  test('are not looked for for a position or a number, which are no names', async ({ page, baseURL }) => {
+  test('are not looked for for a position, whole or partial, or for a number or a code, which are no names', async ({ page, baseURL }) => {
     await openSearch(page, baseURL!)
     const before = (await (await fetch(`${PHOTON}/__requests`)).json() as unknown[]).length
+    const combobox = page.getByRole('combobox')
     await page.keyboard.type('52.5200, 13.4000')
     await expect(page.getByRole('option', { name: /52\.5200, 13\.4000/ })).toBeVisible()
-    await page.waitForTimeout(900)
-    await page.getByRole('combobox').fill('10381')
-    await page.waitForTimeout(900)
+    for (const text of ['47.76 N', '47.76 N 11.55', 'N 47.7 E', '47°45′N', 'lat 47.7 lon 11.5', '47,7 N 11,5 O', 'A12', 'B 1', '10381', '0-20000-0-10381']) {
+      await combobox.fill(text)
+      await page.waitForTimeout(700)
+    }
     expect((await (await fetch(`${PHOTON}/__requests`)).json() as unknown[]).length).toBe(before)
   })
 
@@ -186,6 +192,13 @@ test.describe('the places of the search', () => {
 })
 
 test.describe('the route of the places', () => {
+  test('says it asks the stand-in for Photon on this machine, which `global-setup.ts` has checked before any test ran', async ({ request }) => {
+    const response = await request.get('/_search/places?probe=1')
+    expect(response.status()).toBe(200)
+    expect((await response.json()).photon_base).toBe(`${PHOTON}/api/`)
+    expect(PHOTON).toMatch(/^http:\/\/127\.0\.0\.1:\d+$/)
+  })
+
   test('answers an invalid request as a 422 problem, as the backend does, and asks Photon nothing for it', async ({ request }) => {
     const before = (await (await fetch(`${PHOTON}/__requests`)).json() as unknown[]).length
     for (const query of ['', 'q=ab', 'q=52.5%2C13.4', `q=${'x'.repeat(101)}`, 'q=paris&lang=de%3Bdrop']) {
@@ -204,6 +217,6 @@ test.describe('the route of the places', () => {
     const answer = await response.json()
     expect(answer.state).toBe('ok')
     expect(answer.attribution).toBe('© OpenStreetMap contributors')
-    expect(answer.places.map((place: { name: string, kind: string }) => [place.name, place.kind])).toEqual([['Bad Tölz', 'town'], ['Landkreis Bad Tölz-Wolfratshausen', 'county']])
+    expect(answer.places.map((place: { name: string, kind: string }) => [place.name, place.kind])).toEqual([['Bad Tölz', 'town'], ['Bad Tölz-Wolfratshausen', 'county'], ['Bad Heilbrunn', 'village']])
   })
 })
