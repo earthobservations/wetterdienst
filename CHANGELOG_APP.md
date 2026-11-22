@@ -139,6 +139,15 @@ Types of changes:
   forecast for 2 hours, calculated by displacement, in all eleven languages; the source line and
   its link go to that page (GH-4309).
 
+- `[Translations]` The fourth review of the translations (GH-2610) corrects the texts added since
+  the third in the Radar, the warnings, the Meteogram, the stripes, the day and season questions
+  and "How the answers are worked out": the methods page and its search entry named "Ask the
+  weather" in English in every language and now use the translated name; the position of the
+  warnings is "location" as elsewhere, the hour is `u` in Dutch and `t` in Danish, and one word
+  stands for forecast, fresh snow, snow depth and values within a language. Wrong sentences in
+  Czech, Danish, Dutch, German, French, Italian, Luxembourgish, Low German, Polish and Spanish
+  are fixed; what only a native speaker can decide is listed in `app/i18n/TERMS.md`.
+
 ## [0.57.0] - 2026-11-21
 
 Paired with backend 0.194.0, which it needs: the Radar tool asks the radar routes of 0.194.0, and the
