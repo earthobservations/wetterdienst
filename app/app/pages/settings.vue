@@ -15,10 +15,19 @@ const route = useRoute()
 // scroll is made here as well as by the router, which does not make it on a first load of the address, as the page is
 // drawn after the browser looked for the anchor
 const barHeading = useTemplateRef<HTMLElement>('barHeading')
+//
+// The search of the header leads to a setting by its anchor (`#settings-friendly-labels`, `#settings-unit-speed`, GH-3790): the
+// page scrolls to the control and puts the focus on it. The rows of the unit choices are there only while "Convert units" is on,
+// and a link to one with it off leads to that switch, which is what shows them.
+const reveal = useRevealHash({ fallback: id => id.startsWith('settings-unit-') ? 'settings-convert-units' : undefined })
 function focusBar() {
-  if (route.hash !== '#bar')
+  if (!route.hash)
     return
   nextTick(() => {
+    if (route.hash !== '#bar') {
+      reveal(route.hash)
+      return
+    }
     barHeading.value?.scrollIntoView({ block: 'start' })
     barHeading.value?.focus({ preventScroll: true })
   })

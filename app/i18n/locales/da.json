@@ -257,7 +257,11 @@
       "pypi": "Installer Python-biblioteket med pip"
     },
     "stationsMap": "Station på kortet",
-    "stationOnMap": "Vis station {id} på kortet"
+    "stationOnMap": "Vis station {id} på kortet",
+    "placeGroup": "Sted",
+    "placeOnMap": "Vis dette punkt på kortet",
+    "moreIn": "{count} flere i {page}",
+    "resultsIn": "{group}: {count}"
   },
   "header": {
     "github": "GitHub",

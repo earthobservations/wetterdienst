@@ -190,4 +190,23 @@ describe('settings Page', () => {
     await useRouter().push('/settings#bar')
     await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#bar h2').element))
   })
+
+  // GH-3790: the search of the header leads to a setting by its anchor
+  it('takes the focus to the setting the address names (`#settings-friendly-labels`)', async () => {
+    const wrapper = await mountPage({ attachTo: document.body, route: '/settings#settings-friendly-labels' })
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#settings-friendly-labels').element))
+  })
+
+  it('takes the focus to the row of a unit the address names, where the unit choices are shown', async () => {
+    useSettings().settings.value.convertUnits = true
+    const wrapper = await mountPage({ attachTo: document.body, route: '/settings#settings-unit-speed' })
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#settings-unit-speed').element))
+  })
+
+  it('takes the focus to the switch that shows the unit rows where they are not shown: a link to one of them leads there', async () => {
+    useSettings().settings.value.convertUnits = false
+    const wrapper = await mountPage({ attachTo: document.body, route: '/settings#settings-unit-speed' })
+    expect(wrapper.find('#settings-unit-speed').exists()).toBe(false)
+    await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#settings-convert-units').element))
+  })
 })

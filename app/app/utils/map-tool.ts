@@ -463,7 +463,8 @@ export function stateToQuery(state: MapState): Record<string, string> {
   }
   if (state.stationId)
     query.station = state.stationId
-  if (state.stationId && state.place) {
+  // the place of a pick with no station within reach as well (GH-3790): the address then says where the map was asked about
+  if (state.place) {
     query.lat = state.place.latitude.toFixed(4)
     query.lon = state.place.longitude.toFixed(4)
   }
@@ -484,6 +485,20 @@ export function stateFromQuery(query: Record<string, unknown>): MapState {
       dataset: text(query.dataset) || DEFAULT_MEASURED.dataset,
     },
     stationId,
-    place: stationId && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : null,
+    place: Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : null,
   }
+}
+
+/**
+ * The point an address names with no station (`/map?lat=52.52&lon=13.40`, GH-3790: what the search of the header leads to for a
+ * position typed in), or null: an address that names a station carries its place with it (`?station=10147&lat=&lon=`, which
+ * `stateFromQuery` reads), and a latitude or longitude that is not a number, or is beyond 90 or 180 degrees, is no point.
+ */
+export function pointFromQuery(query: Record<string, unknown>): Point | null {
+  const text = (value: unknown) => (Array.isArray(value) ? value[0] : value)?.toString() || ''
+  if (text(query.station) || text(query.lat) === '' || text(query.lon) === '')
+    return null
+  const latitude = Number(text(query.lat))
+  const longitude = Number(text(query.lon))
+  return Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : null
 }
