@@ -80,6 +80,7 @@
     "q": {
       "rain": "Czy jutro będzie padać w {place}?",
       "season": "Czy {last} tu {warmth} niż zwykle?",
+      "warnings": "Czy są tu ostrzeżenia?",
       "download": "Gdzie mogę pobrać temperatury godzinowe?",
       "day": {
         "wind": "Jak mocno wiało {day}?",
@@ -92,6 +93,7 @@
     "from": {
       "rain": "Prognoza, DWD MOSMIX",
       "season": "Średnie miesięczne, DWD",
+      "warnings": "Oficjalne ostrzeżenia, DWD",
       "download": "Wszystkie służby meteorologiczne",
       "day": "Dane dobowe, DWD"
     },
@@ -261,6 +263,17 @@
       "detail": "Każda otwiera się w Eksploratorze, gotowa do pobrania jako CSV, JSON lub GeoJSON.",
       "none": "Obecnie żadna służba meteorologiczna nie publikuje godzinowej temperatury powietrza.",
       "api": "Albo użyj REST API"
+    },
+    "quotesLabel": "Cytowane teksty",
+    "warnings": {
+      "none": "Nie. Żadne ostrzeżenie DWD nie ma teraz obszaru, który zawiera {place}.",
+      "some": "Tak. DWD ma ostrzeżenia dla {place}.",
+      "highest": "Najwyższy stopień: {level}.",
+      "namedOnly": "Dalszych ostrzeżeń, które wymieniają tylko obszar (morze, wybrzeże), łącznie {count}, nie da się przypisać do {place}.",
+      "quote": "To własne słowa DWD. wetterdienst ich nie ocenia, nie skraca ani nie przeformułowuje.",
+      "outside": "Ostrzeżenia DWD obejmują tylko Niemcy. Żadne źródło ostrzeżeń nie obejmuje {place}.",
+      "open": "Pokaż ostrzeżenia na mapie",
+      "checked": "Sprawdzono: {time}."
     }
   },
   "seo": {
@@ -1321,6 +1334,61 @@
     "positionHide": "Ukryj moją lokalizację na mapie",
     "positionShow": "Pokaż moją lokalizację na mapie",
     "positionMarker": "Twoja lokalizacja, zaokrąglona do około 1 km"
+  },
+  "warnings": {
+    "chip": "Ostrzeżenia",
+    "chipCount": "Ostrzeżenia: {count}",
+    "level": {
+      "1": "Ostrzeżenie pogodowe",
+      "2": "Wyraźne ostrzeżenie pogodowe",
+      "3": "Ostrzeżenie przed groźną pogodą",
+      "4": "Ostrzeżenie przed ekstremalnie groźną pogodą",
+      "preliminary": "Informacja wstępna o groźnej pogodzie",
+      "unknown": "Ostrzeżenie bez podanego stopnia"
+    },
+    "levelOf": "Stopień {level} z 4",
+    "inForce": "Obowiązuje",
+    "upcoming": "Zapowiedziane",
+    "fromTo": "od {from} do {to}",
+    "fromOpen": "od {from}",
+    "until": "do {to}",
+    "issued": "Wydano {time}",
+    "untitled": "Ostrzeżenie pogodowe",
+    "type": "Rodzaj",
+    "levelLabel": "Stopień",
+    "valid": "Ważne",
+    "issuedLabel": "Wydano",
+    "areasLabel": "Obszary",
+    "areasMore": "i {count} więcej",
+    "textGerman": "Własny tekst DWD, po niemiecku: DWD nie podaje tego ostrzeżenia w twoim języku.",
+    "legendDescription": "Kontury ostrzeżeń: stopień 1 ma obrys kropkowany, stopień 2 przerywany, stopień 3 ciągły, a stopień 4 podwójna linia; informacja wstępna ma obrys kreska-kropka. Lista w panelu opisuje każde ostrzeżenie słowami.",
+    "panelTitle": "Ostrzeżenia pogodowe DWD",
+    "panelCount": "Ostrzeżenia obowiązujące lub zapowiedziane w Niemczech: {count}",
+    "panelNone": "W Niemczech nie obowiązuje ani nie jest zapowiedziane żadne ostrzeżenie.",
+    "panelLoading": "Ładowanie ostrzeżeń …",
+    "failed": "Nie udało się załadować ostrzeżeń.",
+    "listLabel": "Ostrzeżenia, najgroźniejsze najpierw",
+    "showAll": "Pokaż wszystkie ({count})",
+    "showFewer": "Pokaż mniej",
+    "asideTitle": "Ostrzeżenia dla obszarów, których mapa nie może narysować",
+    "asideNote": "DWD podaje nazwę obszaru tych ostrzeżeń (morze, wybrzeże), ale nie podaje jego konturu, więc żaden nie jest rysowany.",
+    "checked": "Sprawdzono: {time}.",
+    "refreshNote": "Pytamy ponownie co 5 minut, dopóki ta strona jest otwarta.",
+    "refreshFailed": "Nie udało się odświeżyć ostrzeżeń. Widać stan z {time}.",
+    "stale": "Te ostrzeżenia są stare: ostatnie sprawdzenie: {time}.",
+    "coverage": "DWD ostrzega dla Niemiec i otaczającego je morza.",
+    "bannerTitle": "Ostrzeżenia pogodowe dla tej pozycji",
+    "bannerSome": "Ostrzeżenia DWD dla tej pozycji: {count}",
+    "bannerNone": "Żadne ostrzeżenie DWD nie ma obszaru, który zawiera tę pozycję.",
+    "bannerOutside": "Ostrzeżenia DWD obejmują tylko Niemcy. Żadne źródło ostrzeżeń nie obejmuje tego miejsca.",
+    "bannerFailed": "Nie udało się załadować ostrzeżeń.",
+    "bannerLoading": "Ładowanie ostrzeżeń …",
+    "bannerListLabel": "Ostrzeżenia dla tej pozycji, najgroźniejsze najpierw",
+    "bannerNamedOnly": "Ostrzeżeń, które DWD podaje tylko z nazwą obszaru (morze, wybrzeże), nie przypisuje się do pozycji: {count}.",
+    "bannerOpenMap": "Zobacz je na mapie",
+    "legendHealth": "Ostrzeżenia przed upałem i UV są rysowane w kolorach własnych DWD, z obrysem ich stopnia.",
+    "bannerNoneShort": "Brak ostrzeżeń DWD dla tej pozycji",
+    "bannerDetails": "O tych ostrzeżeniach"
   },
   "dataViewer": {
     "loadingValues": "Ładowanie wartości …",

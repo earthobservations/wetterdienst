@@ -41,9 +41,9 @@ test.describe('the suggestions', () => {
   test('are a list of buttons, none pressed, and ask nothing until one is picked', async ({ page, baseURL }) => {
     const { asked } = await home(page, baseURL!)
     const list = questions(page)
-    await expect(list.getByRole('listitem')).toHaveCount(4)
-    await expect(list.getByRole('button')).toHaveCount(4)
-    for (const id of ['rain', 'season', 'day', 'download'])
+    await expect(list.getByRole('listitem')).toHaveCount(5)
+    await expect(list.getByRole('button')).toHaveCount(5)
+    for (const id of ['rain', 'season', 'day', 'warnings', 'download'])
       await expect(chip(page, id)).toHaveAttribute('aria-pressed', 'false')
     await expect(chip(page, 'rain')).toContainText('Will it rain in Kiel-Holtenau tomorrow?')
     await expect(page.getByTestId('ask-idle')).toHaveText(en.ask.idle)
@@ -333,7 +333,7 @@ test.describe('the explanation under an answer (GH-3764)', () => {
 
   test('is on every chip, the list of services included', async ({ page, baseURL }) => {
     await home(page, baseURL!)
-    for (const id of ['rain', 'season', 'day', 'download']) {
+    for (const id of ['rain', 'season', 'day', 'warnings', 'download']) {
       await chip(page, id).click()
       await expect(page.getByTestId('answer-verdict')).toBeVisible()
       await expect(page.getByTestId('explanation-button')).toBeVisible()
@@ -410,7 +410,7 @@ test.describe('on a phone', () => {
 
   test('the suggestions and an answer fit the width', async ({ page, baseURL }) => {
     await home(page, baseURL!)
-    for (const id of ['rain', 'season', 'day', 'download']) {
+    for (const id of ['rain', 'season', 'day', 'warnings', 'download']) {
       await chip(page, id).click()
       await expect(page.getByTestId('answer')).toBeVisible()
       await expect(page.getByTestId('answer-status')).not.toBeEmpty()
@@ -418,7 +418,7 @@ test.describe('on a phone', () => {
       expect(overflow, id).toBeLessThanOrEqual(0)
     }
     // each suggestion is a target of 44 px or more (WCAG 2.5.8 asks 24)
-    for (const box of await Promise.all(['rain', 'season', 'day', 'download'].map(id => chip(page, id).boundingBox())))
+    for (const box of await Promise.all(['rain', 'season', 'day', 'warnings', 'download'].map(id => chip(page, id).boundingBox())))
       expectAtLeastPx(box!.height, 44)
   })
 })

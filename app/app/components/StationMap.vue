@@ -2,6 +2,7 @@
 import type { Cluster, Grouping } from '~/utils/map-cluster'
 import type { PlacedStation, Point, ReportingRule } from '~/utils/map-tool'
 import type { StormCell } from '~/utils/storm-cells'
+import type { DrawnWarning } from '~/utils/warnings'
 import * as L from 'leaflet'
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { clusterAt, clusterRadius, clusterStations, clusterText, isGroupedAt, reportingSweep, viewForCluster, worldPixels } from '~/utils/map-cluster'
@@ -74,6 +75,10 @@ const props = defineProps<{
   credits?: Array<{ text: string, license: { label: string, url: string } | null }>
   /** A press on a cell of the list: the map centres on it, once for each press (`count`), as a click on a group does */
   centreOn?: { count: number, latitude: number, longitude: number, bounds: { south: number, west: number, north: number, east: number } } | null
+  /** The outlines of DWD's weather warnings to draw under the dots (GH-4295); undefined where the layer is off */
+  warnings?: DrawnWarning[]
+  /** A warning of the list that is opened: the map moves to show it, once for each `count` */
+  showWarning?: { count: number, bounds: { south: number, west: number, north: number, east: number } } | null
 }>()
 
 const emit = defineEmits<{
@@ -104,6 +109,7 @@ let overlayLayer: L.ImageOverlay | null = null
 /** The picture `overlayLayer` shows now (its `url` is set only once the next one is ready) */
 let overlayShown: string | null = null
 let cellLayer: L.LayerGroup | null = null
+let warningLayer: L.LayerGroup | null = null
 let attribution: L.Control.Attribution | null = null
 /** The credit lines of the layers now in the map's attribution, to be taken out again */
 let creditsShown: string[] = []
@@ -118,6 +124,8 @@ const MARKS_PANE = 'station-marks'
 const RADAR_PANE = 'radar'
 const CELLS_PANE = 'storm-cells'
 const CELL_MARKS_PANE = 'storm-cell-marks'
+/** The pane of the warnings' outlines (GH-4295): over the radar's picture (250), under the dots (400), so that a station is seen through the warning it is in */
+const WARNINGS_PANE = 'weather-warnings'
 /** The zoom a press on a cell of the list goes no farther than */
 const CELL_ZOOM_LIMIT = 10
 
@@ -401,6 +409,60 @@ function drawCells() {
   cellLayer = layer
 }
 
+/**
+ * The outlines of DWD's warnings (GH-4295): each warning's polygon (every surface of it, holes as holes) in the fill and the edge of its level, the edge
+ * dotted, dashed, solid or a double line by the level so that the colour is not the only cue; the one opened in the list has a ring and a
+ * stronger fill. None takes a click or a key (`interactive: false`): a click on the map picks a place, and the page tells the warnings of it; the
+ * list in the panel is the keyboard's and the screen reader's way to a warning.
+ */
+function drawWarnings() {
+  if (!map)
+    return
+  warningLayer?.remove()
+  warningLayer = null
+  const warnings = props.warnings ?? []
+  if (!warnings.length)
+    return
+  const layer = L.layerGroup()
+  for (const warning of warnings) {
+    const { style } = warning
+    const outline = warning.outline as L.LatLngExpression[][][]
+    const base = { lineJoin: 'round' as const, interactive: false, pane: WARNINGS_PANE }
+    if (warning.focused) {
+      // the one opened in the list has a ring round its line, a white one and a navy one in it, and a stronger fill: its line is not made heavier, so that a
+      // level 3 never looks heavier than a level 4 for being the one picked
+      L.polygon(outline, { ...base, color: '#ffffff', weight: style.weight + 8, fill: false, className: 'warning-outline-focus' }).addTo(layer)
+      L.polygon(outline, { ...base, color: NAVY, weight: style.weight + 4, fill: false, className: 'warning-outline-focus' }).addTo(layer)
+    }
+    L.polygon(outline, {
+      ...base,
+      color: style.edge,
+      weight: style.weight,
+      dashArray: style.dashArray ?? undefined,
+      fillColor: style.fill,
+      fillOpacity: warning.focused ? Math.min(0.7, style.fillOpacity + 0.25) : style.fillOpacity,
+    }).addTo(layer)
+    // level 4: a light line inside the dark one, a double line, which is no weight that a level 3 can be taken for
+    if (style.double)
+      L.polygon(outline, { ...base, color: '#ffffff', weight: 1.5, fill: false, className: 'warning-outline-double' }).addTo(layer)
+  }
+  layer.addTo(map)
+  warningLayer = layer
+}
+
+/** The presses on a warning of the list that the map has shown */
+let warningShown = 0
+
+/** Moves to show a warning of the list, once for each press: at the zoom that fits its box, at least one in where it is wider than the map, never closer than 10 */
+function showOpenedWarning() {
+  const target = props.showWarning
+  if (!map || !target || target.count <= warningShown)
+    return
+  warningShown = target.count
+  const { south, west, north, east } = target.bounds
+  map.fitBounds([[south, west], [north, east]], { animate: !reducedMotion.value, maxZoom: CELL_ZOOM_LIMIT, padding: [48, 48] })
+}
+
 /** Where the mark goes for a cell with no centre: the middle of its outline's box */
 function outlineCentre(cell: StormCell): L.LatLngTuple | null {
   const points = cell.outline.flat(2)
@@ -605,6 +667,7 @@ onMounted(() => {
   map.createPane(RADAR_PANE).style.zIndex = '250'
   map.createPane(CELLS_PANE).style.zIndex = '420'
   map.createPane(CELL_MARKS_PANE).style.zIndex = '430'
+  map.createPane(WARNINGS_PANE).style.zIndex = '300'
   dots = new (DotLayer as unknown as new (options: L.GridLayerOptions) => L.GridLayer)({ pane: 'overlayPane', updateWhenZooming: false, noWrap: false }).addTo(map)
   // a press on the map while the panel of the layers button is open closes the panel, and the click that belongs to that press is
   // swallowed, a click on a group's disc included. The flag is set by the press (the capture phase is before the panel's own
@@ -642,6 +705,7 @@ onMounted(() => {
     map.fitBounds(props.openOn, { animate: false })
   void drawOverlay()
   drawCells()
+  drawWarnings()
   drawCredits()
   drawSelection()
   drawPosition()
@@ -679,6 +743,7 @@ onBeforeUnmount(() => {
   overlayLayer = null
   overlayShown = null
   cellLayer = null
+  warningLayer = null
   attribution = null
   creditsShown = []
 })
@@ -689,6 +754,8 @@ watch(() => [props.stations, props.reporting, props.grouping], () => {
 })
 watch(() => props.overlay, () => void drawOverlay(), { deep: true })
 watch(() => props.cells, drawCells)
+watch(() => props.warnings, drawWarnings)
+watch(() => props.showWarning, showOpenedWarning)
 watch(() => props.cellsFaded, faded => container.value?.classList.toggle('station-map-cells-faded', Boolean(faded)))
 watch(() => props.credits, drawCredits)
 watch(() => props.centreOn, centreOnCell)

@@ -80,6 +80,7 @@
     "q": {
       "rain": "Bude zítra pršet v {place}?",
       "season": "{last} tady {warmth} než obvykle?",
+      "warnings": "Platí tu nějaké výstrahy?",
       "download": "Kde si můžu stáhnout hodinové teploty?",
       "day": {
         "wind": "Jak foukalo {day}?",
@@ -92,6 +93,7 @@
     "from": {
       "rain": "Předpověď, DWD MOSMIX",
       "season": "Měsíční průměry, DWD",
+      "warnings": "Oficiální výstrahy, DWD",
       "download": "Všechny meteorologické služby",
       "day": "Denní údaje, DWD"
     },
@@ -261,6 +263,17 @@
       "detail": "Každá se otevře v Průzkumníku, připravená ke stažení jako CSV, JSON nebo GeoJSON.",
       "none": "Žádná meteorologická služba teď nezveřejňuje hodinovou teplotu vzduchu.",
       "api": "Nebo použij REST API"
+    },
+    "quotesLabel": "Citované texty",
+    "warnings": {
+      "none": "Ne. Žádná výstraha DWD teď nemá oblast, která obsahuje {place}.",
+      "some": "Ano. DWD má výstrahy pro {place}.",
+      "highest": "Nejvyšší stupeň: {level}.",
+      "namedOnly": "Další výstrahy, které uvádějí jen oblast (moře, pobřeží), celkem {count}, nelze přiřadit k {place}.",
+      "quote": "Jsou to vlastní slova DWD. wetterdienst je nehodnotí, nezkracuje ani nepřeformulovává.",
+      "outside": "Výstrahy DWD platí jen pro Německo. Žádný zdroj výstrah nepokrývá {place}.",
+      "open": "Zobrazit výstrahy na mapě",
+      "checked": "Zjištěno: {time}."
     }
   },
   "seo": {
@@ -1321,6 +1334,61 @@
     "positionHide": "Skrýt moji polohu na mapě",
     "positionShow": "Zobrazit moji polohu na mapě",
     "positionMarker": "Tvoje poloha, zaokrouhlená na zhruba 1 km"
+  },
+  "warnings": {
+    "chip": "Výstrahy",
+    "chipCount": "Výstrahy: {count}",
+    "level": {
+      "1": "Výstraha před počasím",
+      "2": "Výrazná výstraha před počasím",
+      "3": "Výstraha před nebezpečným počasím",
+      "4": "Výstraha před extrémně nebezpečným počasím",
+      "preliminary": "Předběžná informace o nebezpečném počasí",
+      "unknown": "Výstraha bez udaného stupně"
+    },
+    "levelOf": "Stupeň {level} ze 4",
+    "inForce": "Platí",
+    "upcoming": "Oznámeno",
+    "fromTo": "od {from} do {to}",
+    "fromOpen": "od {from}",
+    "until": "do {to}",
+    "issued": "Vydáno {time}",
+    "untitled": "Výstraha před počasím",
+    "type": "Druh",
+    "levelLabel": "Stupeň",
+    "valid": "Platnost",
+    "issuedLabel": "Vydáno",
+    "areasLabel": "Oblasti",
+    "areasMore": "a dalších {count}",
+    "textGerman": "Vlastní text DWD, německy: DWD tuto výstrahu v tvém jazyce nevydává.",
+    "legendDescription": "Obrysy výstrah: stupeň 1 má okraj tečkovaný, stupeň 2 čárkovaný, stupeň 3 plný a stupeň 4 dvojitá čára; předběžná informace má okraj čárka-tečka. Seznam v panelu pojmenovává každou výstrahu slovy.",
+    "panelTitle": "Výstrahy DWD před počasím",
+    "panelCount": "Výstrahy, které platí nebo jsou oznámeny v Německu: {count}",
+    "panelNone": "V Německu neplatí ani není oznámena žádná výstraha.",
+    "panelLoading": "Načítám výstrahy …",
+    "failed": "Výstrahy se nepodařilo načíst.",
+    "listLabel": "Výstrahy, nejzávažnější první",
+    "showAll": "Zobrazit všech {count}",
+    "showFewer": "Zobrazit méně",
+    "asideTitle": "Výstrahy pro oblasti, které mapa nemůže nakreslit",
+    "asideNote": "DWD uvádí oblast těchto výstrah (moře, pobřeží), ale nedává její obrys, proto se žádný nekreslí.",
+    "checked": "Zjištěno: {time}.",
+    "refreshNote": "Dotazujeme se znovu každých 5 minut, dokud je tato stránka otevřená.",
+    "refreshFailed": "Výstrahy se nepodařilo obnovit. Zobrazen je stav z {time}.",
+    "stale": "Tyto výstrahy jsou staré: poslední kontrola byla {time}.",
+    "coverage": "DWD vydává výstrahy pro Německo a moře kolem něj.",
+    "bannerTitle": "Výstrahy před počasím pro tuto polohu",
+    "bannerSome": "Výstrahy DWD pro tuto polohu: {count}",
+    "bannerNone": "Žádná výstraha DWD nemá oblast, která tuto polohu obsahuje.",
+    "bannerOutside": "Výstrahy DWD platí jen pro Německo. Žádný zdroj výstrah toto místo nepokrývá.",
+    "bannerFailed": "Výstrahy se nepodařilo načíst.",
+    "bannerLoading": "Načítám výstrahy …",
+    "bannerListLabel": "Výstrahy pro tuto polohu, nejzávažnější první",
+    "bannerNamedOnly": "Výstrahy, které DWD uvádí jen názvem oblasti (moře, pobřeží), se k poloze nepřiřazují: {count}.",
+    "bannerOpenMap": "Zobrazit na mapě",
+    "legendHealth": "Výstrahy před horkem a UV jsou kresleny vlastními barvami DWD, s okrajem svého stupně.",
+    "bannerNoneShort": "Žádná výstraha DWD pro tuto polohu",
+    "bannerDetails": "O těchto výstrahách"
   },
   "dataViewer": {
     "loadingValues": "Načítání hodnot …",

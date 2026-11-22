@@ -9,6 +9,7 @@ import AskTheWeather from '~/components/AskTheWeather.vue'
 import { DEFAULT_PLACE } from '~/composables/usePlace'
 import { defaultSeason } from '~/utils/answers'
 import { dayValues, KIEL_MOSMIX, rainValues, summerValues } from '../../e2e/accessibility/ask-backend'
+import { alertsAnswer, emptyAlerts } from '../../helpers/warnings-answer'
 import { providersAnswer } from '../fixtures/providers'
 
 // Ask the weather (GH-3518): the suggestions of the home page as buttons that are pressed or not, the answer under
@@ -34,6 +35,12 @@ registerEndpoint('/api/providers', (event) => {
     return { type: 'urn:wetterdienst:problem:not-found', title: 'Not Found', status: 404, detail: 'Not Found' }
   }
   return providersAnswer()
+})
+// DWD's weather warnings (GH-4295): the snapshot of the fixture, or a quiet day's where a test asks for it
+let quietSky = false
+registerEndpoint('/api/alerts', (event) => {
+  const query = record(event, 'alerts')
+  return quietSky ? emptyAlerts() : alertsAnswer({ language: query.get('language') ?? 'en' })
 })
 // the station nearest to a position the reader gave (GH-3651): asked with `rank`, answered by the DWD observation list
 const NEAREST = { station_id: '01975', name: 'Hamburg-Fuhlsbüttel', region: 'Hamburg', latitude: 53.63, longitude: 10, elevation: 11, start_timestamp: null, end_timestamp: null }
@@ -159,6 +166,7 @@ const asked = (path: string) => requests.filter(request => request.path === path
 beforeEach(() => {
   failValues = false
   failFirstProviders = false
+  quietSky = false
   withoutHourly = []
   usePlace().place.value = DEFAULT_PLACE
 })
@@ -176,6 +184,50 @@ afterEach(() => {
   Object.assign(useSettings().settings.value.units, { temperature: 'degree_celsius', speed: 'meter_per_second', precipitation: 'millimeter' })
 })
 
+describe('the question about DWD\'s warnings (GH-4295)', () => {
+  it('says that DWD has warnings for the place, quotes each in DWD\'s own words and counts what has no area, without rating any', async () => {
+    const wrapper = await mountAsk()
+    await chip(wrapper, 'warnings').trigger('click')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Yes. DWD has warnings for Kiel-Holtenau.'))
+    // the English product, the whole snapshot of the community product
+    expect(asked('alerts')[0]!.query.get('language')).toBe('en')
+    expect(asked('alerts')[0]!.query.get('granularity')).toBe('community')
+    const quotes = wrapper.findAll('[data-testid="answer-quote"]')
+    expect(quotes).toHaveLength(1)
+    expect(quotes[0]!.find('h4').text()).toBe('wind gusts')
+    expect(quotes[0]!.text()).toContain('Level 2 of 4 · Marked weather warning · In force')
+    expect(quotes[0]!.text()).toContain('Official WARNING of WIND GUSTS')
+    expect(quotes[0]!.text()).toContain('Single branches may fall. Beware of falling objects.')
+    // the words are DWD's, in its language
+    expect(quotes[0]!.find('.answer-quote-text').attributes('lang')).toBe('en')
+    // the disclosure: whose words they are, what could not be matched, when it was asked
+    const small = wrapper.text()
+    expect(small).toContain('These are DWD\'s own words. wetterdienst does not rate, shorten or reword them.')
+    expect(small).toContain('Further warnings that name only an area (the sea, a coast), 1 in all, cannot be matched to Kiel-Holtenau.')
+    expect(wrapper.find('[data-testid="provider-credit"]').exists()).toBe(true)
+    // the way into the map, with the warnings on at the place
+    expect(wrapper.find('[data-testid="answer-actions"] a').attributes('href')).toBe('/map?warnings=1&lat=54.3776&lon=10.1424')
+    expect(wrapper.find('[data-testid="explanation-button"]').exists()).toBe(true)
+  })
+
+  it('says that no warning of DWD has an area with the place on a quiet day, and no more than that', async () => {
+    quietSky = true
+    const wrapper = await mountAsk()
+    await chip(wrapper, 'warnings').trigger('click')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('No. No warning of DWD has an area that contains Kiel-Holtenau at the moment.'))
+    expect(wrapper.findAll('[data-testid="answer-quote"]')).toHaveLength(0)
+    expect(wrapper.find('[data-testid="answer-status"]').text()).toContain('No. No warning of DWD')
+  })
+
+  it('says plainly that no warnings source covers a place outside Germany, and asks nothing for it', async () => {
+    usePlace().place.value = { id: '01001', name: 'JAN MAYEN', latitude: 70.93, longitude: -8.67, region: null }
+    const wrapper = await mountAsk()
+    await chip(wrapper, 'warnings').trigger('click')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('DWD\'s warnings cover Germany only. No warnings source covers JAN MAYEN.'))
+    expect(asked('alerts')).toHaveLength(0)
+  })
+})
+
 describe('the suggestions', () => {
   it('are a list of buttons that are none of them pressed, and nothing is asked of the backend until one is', async () => {
     const wrapper = await mountAsk()
@@ -183,14 +235,15 @@ describe('the suggestions', () => {
     expect(list.element.tagName).toBe('UL')
     expect(list.attributes('aria-label')).toBe('Questions')
     const buttons = list.findAll('li > button')
-    expect(buttons).toHaveLength(4)
-    expect(buttons.map(button => button.attributes('aria-pressed'))).toEqual(['false', 'false', 'false', 'false'])
-    expect(buttons.map(button => button.attributes('type'))).toEqual(['button', 'button', 'button', 'button'])
+    expect(buttons).toHaveLength(5)
+    expect(buttons.map(button => button.attributes('aria-pressed'))).toEqual(['false', 'false', 'false', 'false', 'false'])
+    expect(buttons.map(button => button.attributes('type'))).toEqual(['button', 'button', 'button', 'button', 'button'])
     expect(buttons[0]!.text()).toBe('Will it rain in Kiel-Holtenau tomorrow?')
     // the question opens on the season completed most recently
     const opens = defaultSeason(DateTime.now())
     expect(buttons[1]!.text()).toBe(`Was last ${opens} ${{ spring: 'warmer', summer: 'hotter', autumn: 'warmer', winter: 'colder' }[opens]} than usual here?`)
-    expect(buttons[3]!.text()).toBe('Where can I download hourly temperatures?')
+    expect(buttons[3]!.text()).toBe('Are there warnings here?')
+    expect(buttons[4]!.text()).toBe('Where can I download hourly temperatures?')
     expect(wrapper.find('[data-testid="ask-idle"]').text()).toBe('Pick a question and it is answered here, from live data.')
     expect(wrapper.find('[data-testid="answer"]').exists()).toBe(false)
     expect(requests).toEqual([])

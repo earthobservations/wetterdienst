@@ -856,6 +856,89 @@ const STATES: State[] = [
     },
   },
   {
+    // DWD's weather warnings on the map (GH-4295): the chip pressed, the outlines drawn, the list in the panel with a warning opened to DWD's words,
+    // the warning with no polygon listed apart, and the legend of the levels in the panel of the layers button
+    page: 'map',
+    state: 'warnings-layer',
+    path: '/map?warnings=1',
+    reach: async (page) => {
+      await expect(page.getByTestId('warnings-aside')).toBeVisible()
+      await page.getByTestId('warnings-list').first().getByTestId('warning-toggle').first().click()
+      await expect(page.getByTestId('warning-details').first()).toBeVisible()
+      await page.getByTestId('map-layers-button').click()
+      await expect(page.getByTestId('warnings-legend')).toBeVisible()
+    },
+  },
+  {
+    // the warnings' list on a phone, under the map
+    page: 'map',
+    state: 'phone-warnings-layer',
+    path: '/map?warnings=1',
+    viewport: { width: 390, height: 844 },
+    reach: async (page) => {
+      await expect(page.getByTestId('warnings-aside')).toBeVisible()
+      await page.getByTestId('warnings-list').first().getByTestId('warning-toggle').first().click()
+      await expect(page.getByTestId('warning-details').first()).toBeVisible()
+    },
+  },
+  {
+    // the warnings' list that could not be loaded, with its Retry
+    page: 'map',
+    state: 'warnings-failed',
+    path: '/map?warnings=1',
+    handlers: { alerts: () => new ApiFailure(502, 'DWD does not answer') },
+    reach: async (page) => {
+      await expect(page.getByTestId('warnings-failed')).toBeVisible()
+    },
+  },
+  {
+    // the banner of the station picked, with a warning opened (GH-4295)
+    page: 'map',
+    state: 'warnings-banner-station',
+    path: '/map?station=10384',
+    reach: async (page) => {
+      const banner = page.getByTestId('map-warnings-banner')
+      await expect(banner.getByTestId('warning-entry')).toBeVisible()
+      await banner.getByTestId('warning-toggle').click()
+      await expect(banner.getByTestId('warning-details')).toBeVisible()
+    },
+  },
+  {
+    // the Forecast's banner over the chart, with a warning opened (GH-4295)
+    page: 'meteogram',
+    state: 'warnings-banner',
+    path: '/meteogram?station=10384',
+    reach: async (page) => {
+      await expect(forecastChart(page)).toBeVisible()
+      const banner = page.getByTestId('warnings-banner')
+      await expect(banner.getByTestId('warning-entry')).toBeVisible()
+      await banner.getByTestId('warning-toggle').click()
+      await expect(banner.getByTestId('warning-details')).toBeVisible()
+    },
+  },
+  {
+    // the Forecast's banner for a position outside Germany: no warnings source covers it
+    page: 'meteogram',
+    state: 'warnings-banner-outside',
+    path: '/meteogram?station=01001',
+    reach: async (page) => {
+      await expect(forecastChart(page)).toBeVisible()
+      await expect(page.getByTestId('warnings-banner-summary')).toBeVisible()
+    },
+  },
+  {
+    // "Are there warnings here?" (GH-4295): the quoted warning in DWD's words, the disclosure under it, the explanation opened
+    page: 'index',
+    state: 'ask-warnings',
+    path: '/?ask=warnings',
+    handlers: askHandlers(),
+    reach: async (page) => {
+      await expect(page.getByTestId('answer-quote')).toBeVisible()
+      await page.getByTestId('explanation-button').click()
+      await expect(page.getByTestId('explanation-rules')).toBeVisible()
+    },
+  },
+  {
     // the radar with the thunderstorm cells drawn and listed, the loop paused on a frame of the forecast (GH-3788)
     page: 'radar',
     state: 'cells-forecast-frame',
