@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
@@ -44,7 +44,7 @@ describe('the anchors', () => {
       expect(topic, topic).toMatch(/^[a-z]+(?:-[a-z]+)*$/)
   })
 
-  it('are the twelve entries written so far, in the order of the issue', () => {
+  it('are the sixteen entries written so far, in the order of the issue', () => {
     // the ids are in links that are printed and shared (and in the explanations of GH-3764): a rename is a breaking change
     expect([...TOPICS]).toEqual([
       'temperature',
@@ -55,6 +55,10 @@ describe('the anchors', () => {
       'radiation',
       'sunshine',
       'visibility',
+      'evaporation',
+      'soil-moisture',
+      'present-weather',
+      'clouds',
       'snow',
       'normals',
       'time',
@@ -73,7 +77,9 @@ describe('the anchors', () => {
     expect(isTopic('wind')).toBe(true)
     expect(isTopic('Wind')).toBe(false)
     expect(isTopic('humidity')).toBe(true)
-    expect(isTopic('evaporation')).toBe(false)
+    expect(isTopic('evaporation')).toBe(true)
+    expect(isTopic('soil-moisture')).toBe(true)
+    expect(isTopic('hydrology')).toBe(false)
     expect(isTopic(undefined)).toBe(false)
     expect(isTopic(['wind'])).toBe(false)
     expect(measurementPath('wind')).toBe('/measurement#wind')
@@ -132,6 +138,30 @@ describe('the glossary parameters of an entry', () => {
     ['visibility_mean', 'visibility'],
     ['visibility_index', 'visibility'],
     ['visibility_measurement_method', 'visibility'],
+    ['evaporation_amount', 'evaporation'],
+    ['evaporation_amount_grass_sand', 'evaporation'],
+    ['evaporation_amount_multiday', 'evaporation'],
+    ['temperature_water_evaporation_pan_min', 'evaporation'],
+    ['evapotranspiration_last_24h', 'evaporation'],
+    ['evapotranspiration_potential_grass_fao', 'evaporation'],
+    ['evapotranspiration_potential_last_24h', 'evaporation'],
+    ['soil_moisture_grass_loamy_silt_10cm_20cm', 'soil-moisture'],
+    ['soil_moisture_corn_sand_00cm_60cm', 'soil-moisture'],
+    ['soil_moisture_mean_winter_cereals_loamy_silt_00cm_60cm', 'soil-moisture'],
+    ['weather', 'present-weather'],
+    ['weather_past', 'present-weather'],
+    ['weather_last_6h', 'present-weather'],
+    ['weather_significant_optional_last_6h', 'present-weather'],
+    ['weather_type_fog', 'present-weather'],
+    ['weather_type_vicinity_thunder', 'present-weather'],
+    ['soil_state_index', 'present-weather'],
+    ['cloud_cover_total', 'clouds'],
+    ['cloud_cover_total_mean_midnight_to_midnight_manual', 'clouds'],
+    ['cloud_cover_total_measurement_method', 'clouds'],
+    ['cloud_cover_layer1', 'clouds'],
+    ['cloud_cover_below_2km', 'clouds'],
+    ['cloud_height_layer3', 'clouds'],
+    ['cloud_type_layer2', 'clouds'],
     ['snow_depth', 'snow'],
     ['snow_depth_new', 'snow'],
     ['snow_cover', 'snow'],
@@ -157,14 +187,19 @@ describe('the glossary parameters of an entry', () => {
     'precipitation_duration',
     'probability_precipitation_convective_last_1h',
     'probability_wind_gust_ge_25kn_last_12h',
-    'soil_moisture_corn_sand_00cm_60cm',
     'wind_movement',
-    'cloud_cover_total',
     'uv_index_max',
     'probability_visibility_below_1000m',
     'error_absolute_pressure_air_site',
     'error_absolute_temperature_dew_point_2m',
-    'evaporation_amount',
+    // what the entries on clouds, weather, evaporation and soil moisture do not explain
+    'cloud_density',
+    'count_days_cloud_cover_total_mean_gt_80pct',
+    'count_weather_type_fog',
+    'count_days_multiday_evaporation',
+    'frozen_ground_layer_thickness',
+    'thawing_thickness_bare_ground',
+    'road_surface_condition',
   ])('give %s no entry', (name) => {
     expect(topicOfParameter(name)).toBeUndefined()
   })
@@ -201,7 +236,7 @@ describe('the glossary parameters of an entry', () => {
   it('leave most of the glossary to entries that follow, but a family that has one is not left out', () => {
     // a parameter of a quantity the first phase explains has its entry: counting these is how a family that a new
     // parameter name starts is noticed (the pattern would not take it), here for the names that exist
-    const families = /^(?:temperature_(?:air|soil|dew_point|wet)|pressure_(?:air|vapor)|humidity_|vapor_pressure|wind_(?:speed|gust|direction|force)|precipitation_(?:amount|intensity)|radiation_|sunshine_duration|visibility|snow_depth|water_equivalent_snow_depth)/
+    const families = /^(?:temperature_(?:air|soil|dew_point|wet)|pressure_(?:air|vapor)|humidity_|vapor_pressure|wind_(?:speed|gust|direction|force)|precipitation_(?:amount|intensity)|radiation_|sunshine_duration|visibility|evapo|soil_moisture|soil_state|weather|cloud_(?:cover|height|type)|snow_depth|water_equivalent_snow_depth)/
     expect(PARAMETERS.filter(name => families.test(name) && topicOfParameter(name) === undefined)).toEqual([])
   })
 
@@ -212,6 +247,10 @@ describe('the glossary parameters of an entry', () => {
     expect(parameterPatterns('humidity')).toEqual(['humidity_relative_*', 'humidity_absolute', 'temperature_dew_point_*', 'temperature_wet_*', 'pressure_vapor_*', 'vapor_pressure_deficit_*'])
     expect(parameterPatterns('radiation')).toEqual(['radiation_global_*', 'radiation_sky_*', 'radiation_long_wave_*', 'radiation_short_wave_*'])
     expect(parameterPatterns('visibility')).toEqual(['visibility_*'])
+    expect(parameterPatterns('evaporation')).toEqual(['evaporation_amount_*', 'evapotranspiration_*', 'temperature_water_evaporation_pan_*'])
+    expect(parameterPatterns('soil-moisture')).toEqual(['soil_moisture_*'])
+    expect(parameterPatterns('present-weather')).toEqual(['weather', 'weather_*', 'soil_state_index'])
+    expect(parameterPatterns('clouds')).toEqual(['cloud_cover_*', 'cloud_height_*', 'cloud_type_*'])
     expect(parameterPatterns('normals')).toEqual(['*_normal'])
     expect(parameterPatterns('time')).toEqual([])
     expect(parameterPatterns('observation-forecast-derived')).toEqual([])
@@ -234,7 +273,7 @@ describe.each([['en', en], ['de', de]] as const)('the text in %s', (_locale, tex
   })
 
   it('has the four parts the issue asks for in every entry that is a measurement', () => {
-    for (const topic of ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'snow'] as const)
+    for (const topic of ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'evaporation', 'soil-moisture', 'present-weather', 'clouds', 'snow'] as const)
       expect(texts[topic].parts, topic).toHaveLength(4)
   })
 
@@ -261,7 +300,7 @@ describe.each([['en', en], ['de', de]] as const)('the text in %s', (_locale, tex
         }
       }
     }
-    for (const topic of ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'snow'] as const)
+    for (const topic of ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'evaporation', 'soil-moisture', 'present-weather', 'clouds', 'snow'] as const)
       expect(texts[topic].sources[0]!.citation, topic).toContain('WMO-No. 8')
     // a source that cites Volume V cites it as its own edition, not in the same citation as a 2024 volume
     for (const topic of TOPICS) {
@@ -273,6 +312,11 @@ describe.each([['en', en], ['de', de]] as const)('the text in %s', (_locale, tex
     expect(texts.humidity.sources[0]!.citation).toContain('Volume I, Chapter 4 (Measurement of humidity)')
     expect(texts.radiation.sources[0]!.citation).toContain('Volume I, Chapter 7 (Measurement of radiation)')
     expect(texts.visibility.sources[0]!.citation).toContain('Volume I, Chapter 9 (Measurement of visibility)')
+    // evaporation I-10, soil moisture I-11, present weather and state of the ground I-14, clouds I-15
+    expect(texts.evaporation.sources[0]!.citation).toContain('Volume I, Chapter 10 (Measurement of evaporation)')
+    expect(texts['soil-moisture'].sources[0]!.citation).toContain('Volume I, Chapter 11 (Measurement of soil moisture)')
+    expect(texts['present-weather'].sources[0]!.citation).toContain('Volume I, Chapter 14 (Observation of present and past weather; state of the ground)')
+    expect(texts.clouds.sources[0]!.citation).toContain('Volume I, Chapter 15 (Observation and measurement of clouds)')
     for (const topic of ['pressure', 'humidity', 'visibility'] as const)
       expect(texts[topic].sources.map(source => source.citation).join(' '), topic).toContain('Volume V (Quality assurance and management of observing systems), Chapter 3 (Data reduction)')
     expect(texts.normals.sources[0]!.citation).toContain('WMO-No. 1203')
@@ -333,5 +377,38 @@ describe('the two texts', () => {
   it('speak to the reader of German in the informal singular (GH-3157)', () => {
     // a capital "Sie" at the start of a sentence is "it" or "they" here, so only the forms that cannot be anything else
     expect(JSON.stringify(de)).not.toMatch(/\b(?:Ihnen|Ihrem|Ihren|Ihrer)\b|\bSie (?:können|müssen|sollten|haben|sind|finden)\b/)
+  })
+})
+
+describe('what the texts say about which provider has which parameter', () => {
+  // the entries say that soil moisture is DWD's modelled one alone, that the weather types are NOAA's GHCN-Daily and that
+  // the weather codes of a forecast are DWD's MOSMIX and DMO: a provider that adds one of these makes the sentence wrong
+  const providers = join(APP, '..', 'src', 'wetterdienst', 'provider')
+  const files = readdirSync(providers, { recursive: true, encoding: 'utf8' })
+    .map(file => file.replaceAll('\\', '/'))
+    .filter(file => file.endsWith('.py'))
+
+  function providersOf(pattern: RegExp): string[] {
+    return files.filter(file => pattern.test(readFileSync(join(providers, file), 'utf8'))).sort()
+  }
+
+  it('has soil moisture at DWD\'s derived network only', () => {
+    expect(providersOf(/"soil_moisture/)).toEqual(['dwd/derived/metadata.py'])
+  })
+
+  it('has the weather types at NOAA\'s GHCN-Daily only, and the significant weather at DWD\'s two forecasts', () => {
+    expect(providersOf(/"weather_type_/)).toEqual(['noaa/ghcn/metadata.py'])
+    expect(providersOf(/"weather_significant/)).toEqual(['dwd/dmo/metadata.py', 'dwd/mosmix/metadata.py'])
+    expect(providersOf(/"weather_last_6h"/)).toEqual(['dwd/dmo/metadata.py', 'dwd/mosmix/metadata.py'])
+    // a provider declares its parameters in `metadata.py` or in `api.py`: both are scanned
+    expect(files.length).toBeGreaterThan(100)
+    expect(files.some(file => file.endsWith('/api.py'))).toBe(true)
+  })
+
+  it('names the folders of the DWD files that the entries on clouds and present weather rest on', () => {
+    expect(JSON.stringify(en.clouds.sources)).toContain('climate/hourly/cloudiness/recent/')
+    expect(JSON.stringify(en['present-weather'].sources)).toContain('climate/hourly/weather_phenomena/recent/')
+    expect(JSON.stringify(de.clouds.sources)).toContain('climate/hourly/cloud_type/recent/')
+    expect(JSON.stringify(de['present-weather'].sources)).toContain('subdaily/soil/recent/')
   })
 })

@@ -16,6 +16,10 @@ export const TOPICS = [
   'radiation',
   'sunshine',
   'visibility',
+  'evaporation',
+  'soil-moisture',
+  'present-weather',
+  'clouds',
   'snow',
   'normals',
   'time',
@@ -26,7 +30,7 @@ export type TopicId = (typeof TOPICS)[number]
 
 /** The two sections of the page: the measurements (and the normals that sum them up), and how to read the data */
 export const TOPIC_GROUPS: readonly { id: 'measured' | 'reading', topics: readonly TopicId[] }[] = [
-  { id: 'measured', topics: ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'snow', 'normals'] },
+  { id: 'measured', topics: ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'evaporation', 'soil-moisture', 'present-weather', 'clouds', 'snow', 'normals'] },
   { id: 'reading', topics: ['time', 'observation-forecast-derived'] },
 ]
 
@@ -60,8 +64,8 @@ export interface TopicRule {
  * The names are the backend's canonical ones, which are built from the quantity first (`temperature_air_max_2m`), so a
  * pattern on the beginning of the name takes a family of them. What a rule leaves out is left out on purpose and
  * `tests/unit/measurement.test.ts` names it: the water temperature is hydrology, whose entry is not written yet; the
- * form of precipitation, the soil moisture, the UV index, the forecast probabilities and the forecast errors are not what
- * the entries explain.
+ * form of precipitation, the UV index, the cloud density, the counts of days, the frozen and thawed layers of the ground,
+ * the forecast probabilities and the forecast errors are not what the entries explain.
  *
  * A parameter whose name ends in `_normal` is a normal of the provider (`sunshine_duration_normal`), whatever it is a
  * normal of, so that rule comes first.
@@ -76,6 +80,10 @@ export const TOPIC_RULES: readonly TopicRule[] = [
   { topic: 'radiation', pattern: /^radiation_(?:global|sky|long_wave|short_wave)(?:_|$)/, shown: ['radiation_global_*', 'radiation_sky_*', 'radiation_long_wave_*', 'radiation_short_wave_*'] },
   { topic: 'sunshine', pattern: /^sunshine_duration(?:_|$)/, shown: ['sunshine_duration_*'] },
   { topic: 'visibility', pattern: /^visibility(?:_|$)/, shown: ['visibility_*'] },
+  { topic: 'evaporation', pattern: /^(?:evapo(?:ration|transpiration)|temperature_water_evaporation_pan)(?:_|$)/, shown: ['evaporation_amount_*', 'evapotranspiration_*', 'temperature_water_evaporation_pan_*'] },
+  { topic: 'soil-moisture', pattern: /^soil_moisture(?:_|$)/, shown: ['soil_moisture_*'] },
+  { topic: 'present-weather', pattern: /^(?:weather|soil_state_index)(?:_|$)/, shown: ['weather', 'weather_*', 'soil_state_index'] },
+  { topic: 'clouds', pattern: /^cloud_(?:cover|height|type)(?:_|$)/, shown: ['cloud_cover_*', 'cloud_height_*', 'cloud_type_*'] },
   { topic: 'snow', pattern: /^(?:snow_(?:depth|cover)|water_equivalent_snow_depth)(?:_|$)/, shown: ['snow_depth_*', 'snow_cover', 'water_equivalent_snow_depth_*'] },
 ]
 
