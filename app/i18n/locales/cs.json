@@ -1100,7 +1100,8 @@
     "groupZoomedReporting": "Přiblíženo na skupinu. Stanic v ní: {shown}, z toho hlásí: {reporting}",
     "whyFarther": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, do {year}.",
     "whyFartherNoEnd": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, konec neznámý.",
-    "pickCloser": "Místo toho vybrat {name}"
+    "pickCloser": "Místo toho vybrat {name}",
+    "resultsOf": "Prvních {shown} z {total} stanic. Napiš víc a zúžíš výběr."
   },
   "radar": {
     "title": "Radar",

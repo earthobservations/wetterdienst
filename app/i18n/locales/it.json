@@ -1100,7 +1100,8 @@
     "groupZoomedReporting": "Ingrandito su un gruppo. Stazioni al suo interno: {shown}, di cui in funzione: {reporting}",
     "whyFarther": "La stazione più vicina ancora in funzione. Più vicina: {name}, a {distance}, fino al {year}.",
     "whyFartherNoEnd": "La stazione più vicina ancora in funzione. Più vicina: {name}, a {distance}, fine non nota.",
-    "pickCloser": "Scegli invece {name}"
+    "pickCloser": "Scegli invece {name}",
+    "resultsOf": "Le prime {shown} stazioni su {total}. Scrivi di più per restringere."
   },
   "radar": {
     "title": "Radar",

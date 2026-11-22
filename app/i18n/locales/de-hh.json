@@ -1100,7 +1100,8 @@
     "groupZoomedReporting": "Op en Gruppe rinzoomt. Stationen dorin: {shown}, dorvun melden: {reporting}",
     "whyFarther": "De dichtste Station, de noch meldt. Dichter bi: {name}, {distance}, bit {year}.",
     "whyFartherNoEnd": "De dichtste Station, de noch meldt. Dichter bi: {name}, {distance}, Enn nich bekannt.",
-    "pickCloser": "{name} statts disse nehmen"
+    "pickCloser": "{name} statts disse nehmen",
+    "resultsOf": "De eersten {shown} vun {total} Stationen. Tipp mehr, üm de Söök to verengen."
   },
   "radar": {
     "title": "Radar",

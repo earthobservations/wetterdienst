@@ -241,3 +241,58 @@ describe('the route', () => {
     expect(problem.request_id).toBeTruthy()
   })
 })
+
+// The two routes as they are wired in production: the route files, with the utilities as Nitro's auto-imports
+describe('the routes as the server wires them', () => {
+  const servers: Server[] = []
+  afterEach(async () => {
+    await Promise.all(servers.splice(0).map(server => new Promise(resolve => server.close(resolve))))
+    vi.unstubAllGlobals()
+  })
+
+  it('make one read of the backend for the stations of GHCN daily between them, the search and the map\'s list', async () => {
+    const realFetch = globalThis.fetch
+    const reads: string[] = []
+    const rows = (prefix: string, count: number) => Array.from({ length: count }, (_, index) => row(`${prefix}${index}`, `HAMBURG ${prefix} ${index}`))
+    vi.stubGlobal('fetch', async (url: string | URL | Request, init?: RequestInit) => {
+      const text = String(url)
+      if (!text.startsWith(BACKEND))
+        return realFetch(url as string, init)
+      reads.push(text.replace(BACKEND, ''))
+      // the whole of GHCN daily is more than 50,000 stations, which is the least a list is kept for
+      const stations = text.includes('network=ghcn') ? rows('G', 50_001) : rows('D', 600)
+      return new Response(JSON.stringify({ metadata: { retrieved_at: 'then' }, stations }), { headers: { 'content-type': 'application/json' } })
+    })
+    const { sharedGhcnMapList, ghcnMapStationsHandler } = await import('../../server/utils/ghcnStations')
+    const search = await import('../../server/utils/stationSearch')
+    for (const [name, value] of Object.entries({
+      defineEventHandler: h3.defineEventHandler,
+      getQuery: h3.getQuery,
+      getRequestHeader: h3.getRequestHeader,
+      handleCacheHeaders: h3.handleCacheHeaders,
+      setResponseHeader: h3.setResponseHeader,
+      setResponseStatus: h3.setResponseStatus,
+      useRuntimeConfig: () => ({ apiBase: BACKEND }),
+      sharedGhcnMapList,
+      ghcnMapStationsHandler,
+      stationSearchHandler: search.stationSearchHandler,
+    }))
+      vi.stubGlobal(name, value)
+    const mapRoute = (await import('../../server/routes/_ghcn/map-stations.get')).default
+    const searchRoute = (await import('../../server/routes/_search/stations.get')).default
+    const app = h3.createApp()
+    app.use('/map', mapRoute)
+    app.use('/search', searchRoute)
+    const server = createServer(h3.toNodeListener(app))
+    servers.push(server)
+    const origin = await new Promise<string>(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`)))
+
+    const found = await (await realFetch(`${origin}/search?q=hamburg%20G`)).json() as StationSearchAnswer
+    expect(found.networks.map(network => network.network)).toContain('ghcn')
+    const columns = await (await realFetch(`${origin}/map`)).json() as { count: number }
+    expect(columns.count).toBe(50_001)
+    // asked again, in the other order, it is still the one read
+    await realFetch(`${origin}/search?q=hamburg%20G%2012`)
+    expect(reads.filter(path => path.includes('network=ghcn'))).toHaveLength(1)
+  })
+})

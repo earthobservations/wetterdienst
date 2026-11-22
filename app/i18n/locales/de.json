@@ -1100,7 +1100,8 @@
     "groupZoomedReporting": "Auf eine Gruppe gezoomt. Stationen darin: {shown}, davon liefern Daten: {reporting}",
     "whyFarther": "Die nächstgelegene Station, die noch Daten liefert. Näher: {name}, {distance}, bis {year}.",
     "whyFartherNoEnd": "Die nächstgelegene Station, die noch Daten liefert. Näher: {name}, {distance}, Ende unbekannt.",
-    "pickCloser": "Stattdessen {name} wählen"
+    "pickCloser": "Stattdessen {name} wählen",
+    "resultsOf": "Die ersten {shown} von {total} Stationen. Tippe mehr, um sie einzugrenzen."
   },
   "radar": {
     "title": "Radar",

@@ -1100,7 +1100,8 @@
     "groupZoomedReporting": "Przybliżono grupę. Stacji w niej: {shown}, z tego działających: {reporting}",
     "whyFarther": "Najbliższa stacja, która nadal działa. Bliżej: {name}, {distance}, do {year}.",
     "whyFartherNoEnd": "Najbliższa stacja, która nadal działa. Bliżej: {name}, {distance}, koniec nieznany.",
-    "pickCloser": "Wybierz zamiast tego {name}"
+    "pickCloser": "Wybierz zamiast tego {name}",
+    "resultsOf": "Pierwsze {shown} z {total} stacji. Wpisz więcej, aby zawęzić wyniki."
   },
   "radar": {
     "title": "Radar",

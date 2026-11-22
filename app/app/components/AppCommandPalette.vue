@@ -93,10 +93,15 @@ async function searchNames(text: string, ticket: number, attempt = 0) {
     const answer = await $fetch<StationSearchAnswer>('/_search/stations', { query: { q: text, limit: GROUP_LIMITS.stations! + 1 }, signal: controller.signal, retry: 0, ...API_ANSWER })
     if (ticket !== stationTicket)
       return
-    stationAnswer.value = answer
     stationsFailed.value = false
-    if (answer.pending.length && attempt < MAX_RETRIES)
+    if (answer.pending.length && attempt < MAX_RETRIES) {
+      stationAnswer.value = answer
       nameRetry = setTimeout(() => void (!closed && ticket === stationTicket && searchNames(text, ticket, attempt + 1)), RETRY_AFTER_MS)
+    }
+    else {
+      // a list that is still not there after the last attempt is one that could not be read, which is said, and which a new text asks for again
+      stationAnswer.value = answer.pending.length ? { ...answer, pending: [], failed: [...answer.failed, ...answer.pending] } : answer
+    }
   }
   catch {
     // a station search that fails (or is given up for a newer one) leaves the pages and actions to choose from
@@ -451,7 +456,7 @@ const shown = computed<PaletteGroup[]>(() => {
       matched.push({ id: 'project', label: t('shell.project'), items })
   }
   const found = [...placeGroup.value, ...stationGroups.value, ...matched, ...wordGroups.value]
-  const settled = !stationsPending.value && !site?.loading.value
+  const settled = !stationsPending.value && !site?.loading.value && !stationAnswer.value?.pending.length
   return orderGroups([...found, ...idGroupsFor(found.reduce((sum, group) => sum + group.items.length, 0), settled)])
 })
 const flat = computed(() => shown.value.flatMap(group => group.items))

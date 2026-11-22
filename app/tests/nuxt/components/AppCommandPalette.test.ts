@@ -54,7 +54,7 @@ registerEndpoint('/api/stations', (event) => {
 
 // the stations of the three networks the search matches by name, as the app's server answers them (GH-3790): what is asked is counted
 const searchQueries: Array<{ q: string, limit: string }> = []
-let searchMode: 'answer' | 'fail' | 'pending-once' = 'answer'
+let searchMode: 'answer' | 'fail' | 'pending-once' | 'pending-always' = 'answer'
 let pendingServed = 0
 const match = (station_id: string, name: string, extra: Record<string, unknown> = {}) => ({ station_id, name, latitude: 52.4, longitude: 13.4, wmo_id: null, first_year: 1950, last_year: null, reporting: true, ...extra })
 registerEndpoint('/_search/stations', (event) => {
@@ -69,6 +69,9 @@ registerEndpoint('/_search/stations', (event) => {
     { network: 'measured', total: 2, stations: [match('00403', 'Berlin-Dahlem (FU)'), match('00430', 'Berlin-Marzahn', { reporting: false, last_year: 2019 })] },
     { network: 'ghcn', total: 14, stations: ['BERLIN', 'BERLIN TEGEL', 'BERLIN-SCHONEFELD', 'BERLIN-BRANDENBURG'].map((name, index) => match(`GM00000${index}`, name)) },
   ]
+  // a list that is never there: no station of the two others, and the third still being read
+  if (searchMode === 'pending-always')
+    return { query: query.get('q'), networks: [], pending: ['ghcn'], failed: [] }
   // a list that is still being read the first time it is asked, and there the next
   if (searchMode === 'pending-once' && pendingServed++ === 0)
     return { query: query.get('q'), networks: networks.slice(0, 2), pending: ['ghcn'], failed: [] }
@@ -239,6 +242,26 @@ describe('the command palette', () => {
     await vi.waitFor(() => expect(wrapper.text()).toContain('BERLIN-SCHONEFELD'), { timeout: 6000 })
     expect(wrapper.find('[role="status"]').text()).not.toContain('Still reading')
     expect(searchQueries).toHaveLength(2)
+  })
+
+  it('ends in the failed state, not in "still reading", when a list is not there after the last attempt', async () => {
+    searchMode = 'pending-always'
+    vi.useFakeTimers()
+    try {
+      const wrapper = await mountPalette()
+      await wrapper.find('input[role="combobox"]').setValue('berl')
+      await vi.advanceTimersByTimeAsync(400)
+      // the first answer says it is still being read, and the palette asks again every 3 s, 25 times
+      for (let step = 0; step < 30; step++)
+        await vi.advanceTimersByTimeAsync(3100)
+      vi.useRealTimers()
+      await vi.waitFor(() => expect(wrapper.find('[role="status"]').text()).toContain('One list of stations could not be read'))
+      expect(wrapper.find('[role="status"]').text()).not.toContain('Still reading')
+      expect(searchQueries.length).toBe(26)
+    }
+    finally {
+      vi.useRealTimers()
+    }
   })
 
   it('says that a list of stations could not be read, and leaves the pages to choose from', async () => {
@@ -555,6 +578,17 @@ describe('the command palette finding a station by its WMO, WIGOS or ICAO id', (
     expect(searchOption(wrapper)).toBeUndefined()
     // four letters that nothing answers are a code
     await input.setValue('eddh')
+    await vi.waitFor(() => expect(searchOption(wrapper)?.text()).toContain('Search all networks for EDDH'))
+  })
+
+  it('does not offer four lower-case letters while a list of stations is still being read, which would show the offer and take it back', async () => {
+    searchMode = 'pending-always'
+    const wrapper = await mountPalette()
+    await wrapper.find('input[role="combobox"]').setValue('eddh')
+    await vi.waitFor(() => expect(wrapper.find('[role="status"]').text()).toContain('Still reading a list of stations'), { timeout: 5000 })
+    expect(searchOption(wrapper)).toBeUndefined()
+    // four capital letters are a code whatever is being read
+    await wrapper.find('input[role="combobox"]').setValue('EDDH')
     await vi.waitFor(() => expect(searchOption(wrapper)?.text()).toContain('Search all networks for EDDH'))
   })
 

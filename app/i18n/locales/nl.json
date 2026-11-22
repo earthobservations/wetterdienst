@@ -1100,7 +1100,8 @@
     "groupZoomedReporting": "Ingezoomd op een groep. Stations erin: {shown}, waarvan actief: {reporting}",
     "whyFarther": "Het dichtstbijzijnde station dat nog meldt. Dichterbij: {name}, {distance}, tot {year}.",
     "whyFartherNoEnd": "Het dichtstbijzijnde station dat nog meldt. Dichterbij: {name}, {distance}, einde onbekend.",
-    "pickCloser": "Kies in plaats daarvan {name}"
+    "pickCloser": "Kies in plaats daarvan {name}",
+    "resultsOf": "De eerste {shown} van {total} stations. Typ meer om ze te beperken."
   },
   "radar": {
     "title": "Radar",

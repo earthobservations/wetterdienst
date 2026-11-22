@@ -1100,7 +1100,8 @@
     "groupZoomedReporting": "Zoomet ind på en gruppe. Stationer i den: {shown}, heraf i drift: {reporting}",
     "whyFarther": "Den nærmeste station, der stadig måler. Tættere på: {name}, {distance}, til {year}.",
     "whyFartherNoEnd": "Den nærmeste station, der stadig måler. Tættere på: {name}, {distance}, slutdato ukendt.",
-    "pickCloser": "Vælg {name} i stedet"
+    "pickCloser": "Vælg {name} i stedet",
+    "resultsOf": "De første {shown} af {total} stationer. Skriv mere for at indsnævre."
   },
   "radar": {
     "title": "Radar",

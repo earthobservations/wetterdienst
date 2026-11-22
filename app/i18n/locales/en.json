@@ -1100,7 +1100,8 @@
     "groupZoomedReporting": "Zoomed in on a group. Stations in it: {shown}, of them reporting: {reporting}",
     "whyFarther": "The nearest station that still reports. Closer: {name}, {distance}, until {year}.",
     "whyFartherNoEnd": "The nearest station that still reports. Closer: {name}, {distance}, no end date known.",
-    "pickCloser": "Pick {name} instead"
+    "pickCloser": "Pick {name} instead",
+    "resultsOf": "Showing the first {shown} of {total} stations. Type more to narrow them down."
   },
   "radar": {
     "title": "Radar",

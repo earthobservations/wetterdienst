@@ -1,7 +1,7 @@
 import type { PreparedStations, StationMatches, StationSearchAnswer } from '../../app/utils/station-search'
 import type { GhcnStationColumns } from '../../shared/types/ghcn-stations'
 import type { GhcnMapList, GhcnProblem, StationSource } from './ghcnStations'
-import { prepareStations, searchPrepared } from '../../app/utils/station-search'
+import { prepareStations, reportsThisOrLastYear, searchPrepared } from '../../app/utils/station-search'
 import { useApiBase } from './apiBase'
 import { createListKeeper, readStationColumns, sharedGhcnMapList } from './ghcnStations'
 import { requestIdOf } from './requestId'
@@ -31,14 +31,6 @@ export const DEFAULT_LIMIT = 4
 /** The longest query that is searched: a name, an id, a few words */
 export const MAX_QUERY_LENGTH = 100
 
-/** The year a station last reported in is this year or last: the rule of the map's GHCN layer (`ghcnReportingRule`), which the lists of the search are given, as they have years and no clock */
-function reportsIn(now: () => number): (lastYear: number | null) => boolean {
-  return (lastYear) => {
-    const threshold = new Date(now()).getUTCFullYear() - 1
-    return lastYear === null || lastYear >= threshold
-  }
-}
-
 export interface StationSearchOptions {
   apiBase?: () => string
   fetcher?: typeof fetch
@@ -67,7 +59,7 @@ export function createStationSearch(options: StationSearchOptions = {}) {
   const now = options.now ?? Date.now
   const waitMs = options.waitMs ?? WAIT_FOR_LIST_MS
   const minimum = options.minimum ?? MIN_SEARCH_STATIONS
-  const reporting = reportsIn(now)
+  const reporting = reportsThisOrLastYear(now)
 
   function ownList(network: 'forecast' | 'measured', source: StationSource): SearchList {
     const keeper = createListKeeper({

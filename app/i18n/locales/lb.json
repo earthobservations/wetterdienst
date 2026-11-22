@@ -1100,7 +1100,8 @@
     "groupZoomedReporting": "Op eng Grupp gezoomt. Statioune dran: {shown}, dovun mellen: {reporting}",
     "whyFarther": "Déi nootst Statioun, déi nach mellt. Méi no: {name}, {distance}, bis {year}.",
     "whyFartherNoEnd": "Déi nootst Statioun, déi nach mellt. Méi no: {name}, {distance}, Enn onbekannt.",
-    "pickCloser": "{name} amplaz huelen"
+    "pickCloser": "{name} amplaz huelen",
+    "resultsOf": "Déi éischt {shown} vun {total} Statioune. Tipp méi, fir se anzegrenzen."
   },
   "radar": {
     "title": "Radar",

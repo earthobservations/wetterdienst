@@ -405,6 +405,29 @@ describe('the list beside the map', () => {
     expect(wrapper.find('[data-testid="map-list"] li .font-semibold').text()).toBe('HAMBURG-FUHLSBUETTEL')
   })
 
+  it('finds a name in either spelling of an umlaut, as the header\'s search does, and says how many stations there are where it lists only the first 20', async () => {
+    const many = Array.from({ length: 25 }, (_, index) => station(`H${index}`, `HAMBURG-TEST ${index}`, 53 + index / 100, 10))
+    FORECAST_STATIONS.push(...many)
+    onTestFinished(() => {
+      for (const one of many)
+        FORECAST_STATIONS.splice(FORECAST_STATIONS.indexOf(one), 1)
+    })
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    const search = wrapper.find('input[type="search"]')
+    // the list writes MUENCHEN: both spellings of the umlaut find it
+    for (const typed of ['münchen', 'muenchen']) {
+      await search.setValue(typed)
+      expect(wrapper.findAll('[data-testid="map-list"] li').map(item => item.find('.font-semibold').text()), typed).toEqual(['MUENCHEN-STADT'])
+      expect(wrapper.find('[data-testid="map-results-of"]').exists()).toBe(false)
+    }
+    await search.setValue('hamburg')
+    expect(wrapper.findAll('[data-testid="map-list"] li')).toHaveLength(20)
+    expect(wrapper.find('[data-testid="map-results-of"]').text()).toBe('Showing the first 20 of 26 stations. Type more to narrow them down.')
+    await search.setValue('hamburg-test 24')
+    expect(wrapper.find('[data-testid="map-results-of"]').exists()).toBe(false)
+  })
+
   it('finds a station by the start of its name, by its number, and says where none matches', async () => {
     const wrapper = await mountMap()
     await listed(wrapper)

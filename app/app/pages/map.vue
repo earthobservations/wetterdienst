@@ -37,7 +37,7 @@ import {
   reportingRule,
   SAME_PLACE_KM,
   searchFromQuery,
-  searchStations,
+  searchStationsCounted,
   stateFromQuery,
   stateToQuery,
   stationAt,
@@ -269,9 +269,12 @@ const datasetChoice = computed({
 const view = ref<Point & { zoom: number }>({ ...HOME_VIEW })
 // the search of the panel starts on the text the address brings (`?q=`, GH-3790: the "more" of the header's search leads here)
 const search = ref(searchFromQuery(route.query))
+/** How many of the stations that answer the search the panel lists */
+const SEARCH_SHOWN = 20
 const searching = computed(() => search.value.trim().length > 0)
 const near = computed(() => nearestStations(stations.value, view.value, 8).map(entry => ({ ...entry, distance: entry.distance as number | null })))
-const found = computed(() => searchStations(stations.value, search.value, 20).map(station => ({ station, distance: null as number | null })))
+const searched = computed(() => searchStationsCounted(stations.value, search.value, SEARCH_SHOWN))
+const found = computed(() => searched.value.stations.map(station => ({ station, distance: null as number | null })))
 const entries = computed(() => searching.value ? found.value : near.value)
 const countLabel = computed(() => t('mapTool.count', { count: stations.value.length, shown: formatNumber(stations.value.length, formatLanguage.value, 0) }))
 const mapLabel = computed(() => t('mapTool.mapLabel', { layer: layerLabel.value }))
@@ -1174,6 +1177,10 @@ function takeAddress(query: Record<string, unknown>) {
                     </button>
                   </li>
                 </ul>
+                <!-- the list shows the best few: how many there are in all is said, as the header's "N more" counts the same stations -->
+                <p v-if="searching && searched.total > found.length" class="mt-2 text-sm text-muted" data-testid="map-results-of">
+                  {{ t('mapTool.resultsOf', { shown: found.length, total: searched.total }) }}
+                </p>
                 <!-- a click on the map, by keyboard: the place at the centre of the map, which the arrow keys move -->
                 <template v-if="!searching && stations.length">
                   <UButton

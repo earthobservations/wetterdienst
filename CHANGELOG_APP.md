@@ -44,16 +44,15 @@ Types of changes:
   WMO Guide, WMO-No. 8, Volume I, Chapters 10, 11, 14 and 15, and the providers' own files). They
   are written in German and English, like the first ones; the Glossary links the evaporation,
   soil moisture, weather and cloud parameters to them (GH-3787).
-- `[Search]` The search finds stations: by name (from three letters) in the forecast's points, DWD's
-  measuring stations and NOAA GHCN daily, a group for each with the provider and network on every
-  result, three stations and a last option ("11 more on the map") that opens the map's own search
-  (`/map?layer=ghcn&q=hamburg`; the map's panel now starts its search on `?q=`). A result opens the
-  map with the station picked on the layer of its network. Umlauts are matched in either spelling
-  (`Fuhlsbüttel`, `FUHLSBUETTEL`). A WMO number, a WIGOS identifier or an ICAO code typed in offers
-  "Search all networks for …", run on Enter and never per key, which lists the stations of every
-  network that has the id (`/api/station-ids`) and leads to the map or, for a network it does not
-  show, the Explorer. The matching is the server's (`GET /_search/stations`, counted by the rate
-  limit), so the browser downloads no list (GH-3790).
+- `[Search]` The search finds stations by name (from three letters) in the forecast's points, DWD's
+  measuring stations and NOAA GHCN daily: a group for each with provider and network on every result,
+  three stations and a last option ("11 more on the map") that opens the map's own search
+  (`/map?layer=ghcn&q=hamburg`), which the map's panel now starts on. Umlauts match in either
+  spelling (`Fuhlsbüttel`, `FUHLSBUETTEL`), in the header and in the map's panel, which also finds
+  WMO numbers now and says "first 20 of N". A WMO number, WIGOS id or ICAO code offers "Search all
+  networks for …" (Enter, never per key; `/api/station-ids`), listing the stations of every network
+  that has it, leading to the map or the Explorer. The server matches (`GET /_search/stations`, rate
+  limited): no list reaches the browser (GH-3790).
 
 ### Changed
 

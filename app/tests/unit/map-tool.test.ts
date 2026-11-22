@@ -25,6 +25,7 @@ import {
   REPORTING_WITHIN_DAYS,
   reportingRule,
   searchStations,
+  searchStationsCounted,
   SELECTED_EDGE_PX,
   SELECTED_RADIUS_PX,
   stateFromQuery,
@@ -36,6 +37,7 @@ import {
   wmoNumber,
   yearOf,
 } from '../../app/utils/map-tool'
+import { prepareStations, reportsThisOrLastYear, searchPrepared } from '../../app/utils/station-search'
 import { chromeWithoutLuxembourgish } from '../helpers/chrome-without-luxembourgish'
 
 // The map tool's logic (GH-3650): what is nearest to a place, how a station is found, where a station is opened and
@@ -118,6 +120,68 @@ describe('the search of the stations', () => {
     expect(searchStations(list, 'kiel').map(entry => entry.station_id)).toEqual(['2', '1'])
   })
 
+  it('finds a name in either spelling of an umlaut, as the header\'s search does: München is MUENCHEN in the lists of the forecast and of GHCN', () => {
+    const lists = {
+      measured: placed([station('03379', 'München-Stadt', 48.1, 11.5), station('01262', 'München-Flughafen', 48.3, 11.8), station('1', 'Berlin', 52, 13)]),
+      ghcn: placed([station('GM000010865', 'MUENCHEN-STADT', 48.1, 11.5), station('GME00122882', 'MUENCHEN FLUGHAFEN', 48.3, 11.8), station('X', 'BERLIN', 52, 13)]),
+    }
+    for (const [layer, list] of Object.entries(lists)) {
+      prepareSearch(list)
+      for (const query of ['münchen', 'muenchen', 'MÜNCHEN stadt', 'Muenchen flug'])
+        expect(searchStations(list, query).length, `${layer}: ${query}`).toBeGreaterThan(0)
+      expect(searchStationsCounted(list, 'münchen', 20).total, layer).toBe(2)
+      expect(searchStationsCounted(list, 'muenchen', 20).total, layer).toBe(2)
+    }
+  })
+
+  it('finds a station by its WMO number, as the header\'s search does, and puts the number before a name that holds it', () => {
+    const list = placed([{ ...station('GM000010147', 'HAMBURG FUHLSBUETTEL', 53.6, 10), wmo_id: '10147' }, station('X1', 'Station 10147 Nord', 50, 8)])
+    expect(searchStations(list, '10147').map(entry => entry.station_id)).toEqual(['GM000010147', 'X1'])
+    expect(searchStations(list, '10147', 1).map(entry => entry.station_id)).toEqual(['GM000010147'])
+  })
+
+  it('says how many stations answer, which the header counts too, where it lists the best few of them', () => {
+    const list = placed(Array.from({ length: 30 }, (_, index) => station(`S${index}`, `Hamburg ${index}`, 53, 10)))
+    const found = searchStationsCounted(list, 'hamburg', 20)
+    expect(found.total).toBe(30)
+    expect(found.stations).toHaveLength(20)
+  })
+
+  it('finds, for every query, the stations the header\'s matcher finds on the same list, in the same order, and counts the same', () => {
+    const rows = [
+      { ...station('GM000010865', 'MUENCHEN-STADT', 48.1, 11.5), wmo_id: '10865', end_timestamp: '1990-12-31T00:00:00+00:00' },
+      { ...station('03379', 'München-Stadt', 48.1, 11.5), wmo_id: '10865' },
+      station('01975', 'Hamburg-Fuhlsbüttel', 53.6, 10),
+      station('GM000010147', 'HAMBURG FUHLSBUETTEL', 53.6, 10),
+      station('02564', 'Kiel-Holtenau', 54.3, 10.1),
+      station('7', 'Straße der Einheit', 51, 9),
+    ]
+    const list = placed(rows)
+    const columns = {
+      count: rows.length,
+      retrieved_at: null,
+      station_id: rows.map(row => row.station_id),
+      latitude: rows.map(row => row.latitude),
+      longitude: rows.map(row => row.longitude),
+      first_year: rows.map(() => null),
+      last_year: rows.map(row => ('end_timestamp' in row ? 1990 : null)),
+      name: rows.map(row => row.name),
+      wmo_id: rows.map(row => ('wmo_id' in row ? row.wmo_id : null)),
+    }
+    const header = prepareStations(columns, reportsThisOrLastYear())
+    for (const query of ['münchen', 'muenchen', '10865', 'fuhlsbuettel', 'Fuhlsbüttel hamburg', 'strasse', 'straße', 'kiel', '01975', 'GM000010147']) {
+      const there = searchPrepared(header, query, 10)
+      const here = searchStationsCounted(list, query, 10)
+      expect(here.stations.map(entry => entry.station_id), query).toEqual(there.stations.map(entry => entry.station_id))
+      expect(here.total, query).toBe(there.total)
+    }
+  })
+
+  it('puts a station that reports before one that has stopped within the same kind of match, as the header does', () => {
+    const list = placed([{ ...station('1', 'Kiel A', 54, 10), end_timestamp: '1990-12-31T00:00:00+00:00' }, station('2', 'Kiel B', 54, 10)])
+    expect(searchStations(list, 'kiel').map(entry => entry.station_id)).toEqual(['2', '1'])
+  })
+
   it('finds nothing for an empty query, and no more than the limit', () => {
     expect(searchStations(ALL, '   ')).toEqual([])
     expect(searchStations(ALL, 'a', 1)).toHaveLength(1)
@@ -143,7 +207,8 @@ describe('the search of the stations', () => {
       const normalize = vi.spyOn(String.prototype, 'normalize')
       try {
         searchStations(prepared, 'münchen stadt')
-        expect(normalize).toHaveBeenCalledTimes(1)
+        // the query in its two spellings, and no name
+        expect(normalize).toHaveBeenCalledTimes(2)
         normalize.mockClear()
         // the list that is not prepared folds its names at every call
         searchStations(LIST, 'münchen stadt')
