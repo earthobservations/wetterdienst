@@ -172,7 +172,11 @@
         "summer": "Juni bis August",
         "autumn": "September bis November",
         "winter": "Dezember bis Februar"
-      }
+      },
+      "seasonShort": "{seasonCap} (hei nëmmen {count} komplett Joreszäiten)",
+      "noteGreyed": "Gro: ze wéineg Joreszäiten bei dëser Statioun. E Normalwäert brauch {min} vu senge {of} Joreszäiten.",
+      "noteAskedSeason": "{seasonCap} huet hei ze wéineg Daten fir ze vergläichen. Amplaz gewisen: {shown}.",
+      "noteAskedNormal": "{asked} huet hei ze wéineg Daten fir dës Joreszäit: {count} vu senge {of} Joreszäiten, {min} néideg. Amplaz gewisen: {shown}."
     },
     "wind": {
       "calm": "Roueg.",

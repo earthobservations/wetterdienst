@@ -22,8 +22,10 @@ const props = defineProps<{
   question: ChipId
   /** The values of the question's choices, as the link has them (`day` for the wind question) */
   choices: Choices
+  /** Only the choices the link names: where it names none, the data gives the default (the season completed most recently that has enough of it) */
+  explicit?: Choices
 }>()
-const emit = defineEmits<{ 'update:choice': [param: string, value: string] }>()
+const emit = defineEmits<{ 'update:choice': [param: string, value: string], 'effective': [choices: Choices] }>()
 
 const { t } = useI18n()
 const { place } = usePlace()
@@ -76,6 +78,21 @@ useFocusAfterRetry(() => status.value === 'error', failureNotice, heading)
 const outcome = computed<{ loaded: unknown, result: unknown } | null>(() =>
   fetchedHere.value && answered.value && 'result' in answered.value ? { loaded: fetchedHere.value.loaded, result: answered.value.result } : null)
 
+// ------------------------------------------------------------------------------------------- the choices as they are
+
+/**
+ * The choices once the data is there: what the link names, but a name the data cannot answer (a season or a normal the station has too
+ * few seasons of) and a default that depends on the data are the definition's to settle; its note says why, and why an option is greyed out
+ */
+const resolved = computed(() => {
+  const found = chip.value.resolveChoices
+  return found && fetchedHere.value ? found(fetchedHere.value.loaded, props.choices, props.explicit ?? {}, env) : { choices: props.choices, note: '' }
+})
+const effective = computed(() => resolved.value.choices)
+// the line under the choices: a polite status, so that a screen reader says it when it comes or changes
+const choiceNote = computed(() => resolved.value.note)
+watch(effective, choices => emit('effective', choices), { immediate: true })
+
 // The units the app settings choose (GH-3980), read at each request: the question's own quantity (rain, millimetres; the
 // summer, degrees; the wind, a speed) and whether the values are converted at all. The answer says which unit each
 // parameter is in (`with_metadata`), and the sentences, the chart and its table are written in that; what the verdicts
@@ -121,7 +138,7 @@ const api: ChipApi = {
 function context(): ChipContext {
   return {
     place: place.value,
-    choices: props.choices,
+    choices: effective.value,
     now: () => DateTime.now(),
     formatLanguage: formatLanguage.value,
     unitTarget: quantity => requestUnitTargets(settings.value.units)[quantity]!,
@@ -171,16 +188,16 @@ onBeforeUnmount(() => {
 // ------------------------------------------------------------------------------------------------- what is said
 
 /** How the answer is written: the definition's words for it, where there is an answer */
-const view = computed(() => outcome.value?.result ? chip.value.present(outcome.value.result, outcome.value.loaded, env, props.choices) : null)
+const view = computed(() => outcome.value?.result ? chip.value.present(outcome.value.result, outcome.value.loaded, env, effective.value) : null)
 const verdict = computed(() => view.value?.verdict ?? '')
-const emptyText = computed(() => chip.value.empty(outcome.value?.loaded ?? null, env, props.choices))
+const emptyText = computed(() => chip.value.empty(outcome.value?.loaded ?? null, env, effective.value))
 
 // What the polite status says: the verdict, or why there is none. A choice that changes the answer but not its words (a season whose verdict
 // is the same sentence) is still announced: the same words are cleared and then set again, which a screen reader reads as a change.
 const statusText = computed(() => status.value === 'ready' ? verdict.value : status.value === 'empty' ? emptyText.value : '')
 const announced = ref('')
 let announceTimer: ReturnType<typeof setTimeout> | undefined
-watch([statusText, () => JSON.stringify(props.choices)], () => {
+watch([statusText, () => JSON.stringify(effective.value)], () => {
   clearTimeout(announceTimer)
   const next = statusText.value
   if (next && next === announced.value) {
@@ -197,7 +214,7 @@ onBeforeUnmount(() => clearTimeout(announceTimer))
 
 // ------------------------------------------------------------------------------------- the tools, filled in
 
-const actions = computed(() => chip.value.actions(env, props.choices, outcome.value?.loaded ?? null))
+const actions = computed(() => chip.value.actions(env, effective.value, outcome.value?.loaded ?? null))
 /** A link into a tool carries the tool's tile; a reference page (`api`) has none */
 const toolOf = (action: { tool?: string }) => TOOLS.find(tool => tool.key === action.tool)
 
@@ -210,7 +227,7 @@ function onChoice(param: string, value: unknown) {
     emit('update:choice', param, String(value))
 }
 /** The options of a choice of a few values, from what was fetched (null before it came): a disabled one says why in its text */
-const optionsOf = (choice: SelectChoice) => choice.options(env, fetchedHere.value?.loaded ?? null, props.choices)
+const optionsOf = (choice: SelectChoice) => choice.options(env, fetchedHere.value?.loaded ?? null, effective.value)
 /** A choice made in a select: the value of the option, which the choice accepts (or the control keeps its own) */
 const onSelect = (param: string, event: Event) => onChoice(param, (event.target as HTMLSelectElement).value)
 </script>
@@ -222,7 +239,7 @@ const onSelect = (param: string, event: Event) => onChoice(param, (event.target 
         {{ t(chip.from) }}
       </p>
       <h3 id="answer-heading" ref="heading" tabindex="-1" class="mt-0.5 break-words outline-none text-xl font-bold leading-snug text-highlighted sm:text-2xl">
-        {{ questionText(chip, choices) }}
+        {{ questionText(chip, effective) }}
       </h3>
     </header>
 
@@ -230,13 +247,13 @@ const onSelect = (param: string, event: Event) => onChoice(param, (event.target 
     <div v-if="chip.choices?.length" class="mt-4 flex flex-wrap gap-x-5 gap-y-3" data-testid="answer-choices">
       <div v-for="choice in chip.choices" :key="choice.param" class="flex min-w-0 max-w-full flex-wrap items-center gap-2">
         <label :for="choice.inputId" class="text-sm font-medium">{{ t(choice.label) }}</label>
-        <UInput v-if="choice.kind === 'date'" :id="choice.inputId" type="date" :model-value="choices[choice.param]" :max="choice.latest(now())" class="w-44" @update:model-value="onChoice(choice.param, $event)" />
+        <UInput v-if="choice.kind === 'date'" :id="choice.inputId" type="date" :model-value="effective[choice.param]" :max="choice.latest(now())" class="w-44" @update:model-value="onChoice(choice.param, $event)" />
         <!-- a native select: a disabled option says why in its own text, and it reads and works the same on every screen reader and touch screen -->
         <select
           v-else
           :id="choice.inputId"
           class="answer-select"
-          :value="choices[choice.param]"
+          :value="effective[choice.param]"
           :data-testid="`choice-${choice.param}`"
           @change="onSelect(choice.param, $event)"
         >
@@ -246,6 +263,10 @@ const onSelect = (param: string, event: Event) => onChoice(param, (event.target 
         </select>
       </div>
     </div>
+    <!-- why an option is greyed out, and why a choice named is not the one shown: a polite status, in the page always so that its change is announced -->
+    <p v-if="chip.resolveChoices" class="text-sm text-muted" :class="choiceNote ? 'mt-3' : ''" role="status" data-testid="choice-note">
+      {{ choiceNote }}
+    </p>
 
     <!-- what a screen reader is told when the answer has come: the verdict, not the whole panel -->
     <p class="sr-only" role="status" data-testid="answer-status">
@@ -318,7 +339,7 @@ const onSelect = (param: string, event: Event) => onChoice(param, (event.target 
         <!-- the credit, and under it what wetterdienst did to the data (GH-3799): the values of these answers are the provider's own values -->
         <ProviderCredit v-if="chip.credit" :provider="chip.credit.provider" :fallback="chip.credit.fallback" />
         <!-- how the answer was worked out and what it rests on (GH-3764): the definition's explanation, for any chip -->
-        <AnswerExplanation v-if="outcome" :key="chip.id" :chip="chip" :loaded="outcome.loaded" :result="outcome.result" :choices="choices" />
+        <AnswerExplanation v-if="outcome" :key="chip.id" :chip="chip" :loaded="outcome.loaded" :result="outcome.result" :choices="effective" />
       </div>
     </div>
 

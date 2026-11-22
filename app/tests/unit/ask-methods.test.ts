@@ -235,7 +235,7 @@ describe('what is marked as wetterdienst\'s own', () => {
   // what the page says is the project's own, so it is a line of a diff that is read.
   const OWN: Record<string, string[]> = {
     rain: ['nearest-point', 'day', 'min-hours', 'day-total', 'maybe-amount', 'chance-bands', 'highest-chance'],
-    season: ['winter-year', 'only-over', 'default-season', 'normal-mean', 'min-seasons', 'fallback-period', 'fallback-minimum', 'usual-band', 'rank'],
+    season: ['winter-year', 'only-over', 'default-season', 'default-normal', 'normal-mean', 'min-seasons', 'fallback-period', 'fallback-minimum', 'usual-band', 'rank'],
     wind: ['default-day', 'gust-first', 'gust-words', 'mean-words', 'around-window', 'stronger-count'],
     download: ['networks', 'hourly-temperature', 'order'],
   }

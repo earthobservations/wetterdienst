@@ -172,7 +172,11 @@
         "summer": "juni tot augustus",
         "autumn": "september tot november",
         "winter": "december tot februari"
-      }
+      },
+      "seasonShort": "{seasonCap} (hier slechts {count} volledige seizoenen)",
+      "noteGreyed": "Grijs: te weinig seizoenen bij dit station. Een normaal vraagt {min} van zijn {of} seizoenen.",
+      "noteAskedSeason": "{seasonCap} heeft hier te weinig gegevens om te vergelijken. In plaats daarvan getoond: {shown}.",
+      "noteAskedNormal": "{asked} heeft hier te weinig gegevens voor dit seizoen: {count} van zijn {of} seizoenen, {min} nodig. In plaats daarvan getoond: {shown}."
     },
     "wind": {
       "calm": "Rustig.",

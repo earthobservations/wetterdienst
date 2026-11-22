@@ -172,7 +172,11 @@
         "summer": "Juni bit August",
         "autumn": "September bit November",
         "winter": "December bit Februar"
-      }
+      },
+      "seasonShort": "{seasonCap} (hier blots {count} hele Johrestieden)",
+      "noteGreyed": "Utgraut: to wenig Johrestieden an disse Station. En Normaalweert bruukt {min} vun sien {of} Johrestieden.",
+      "noteAskedSeason": "{seasonCap} hett hier to wenig Daten för en Vergliek. In de Städ wiest: {shown}.",
+      "noteAskedNormal": "{asked} hett hier för disse Johrestied to wenig Daten: {count} vun sien {of} Johrestieden, {min} nödig. In de Städ wiest: {shown}."
     },
     "wind": {
       "calm": "Still.",

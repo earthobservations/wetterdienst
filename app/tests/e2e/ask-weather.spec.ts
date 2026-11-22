@@ -3,6 +3,8 @@ import type { Asked } from './accessibility/ask-backend'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
+import { DateTime } from 'luxon'
+import { defaultSeason } from '../../app/utils/answers'
 import { askHandlers, lastSummerYear } from './accessibility/ask-backend'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
 import { expectAtLeastPx } from './target-size'
@@ -73,8 +75,8 @@ test.describe('the suggestions', () => {
   })
 
   test('answer whether last summer was hotter, and lead into the monthly means and the stripes', async ({ page, baseURL }) => {
-    const { asked } = await home(page, baseURL!)
-    await chip(page, 'season').click()
+    // the old link asks about the summer, whatever season the question opens on
+    const { asked } = await home(page, baseURL!, '/?ask=summer')
     await expect(page.getByTestId('answer-verdict')).toContainText('Yes, ')
     await expect(page.getByTestId('answer-verdict')).toContainText('warmer than usual')
     const answer = page.getByTestId('answer')
@@ -158,7 +160,7 @@ test.describe('the suggestions', () => {
     await expect(page.getByTestId('answer').getByText(en.ask.failed)).toBeVisible()
     backend.handlers.values = values
     await page.getByTestId('answer').getByRole('button', { name: en.common.retry }).click()
-    await expect(page.getByTestId('answer-verdict')).toContainText('Yes, ')
+    await expect(page.getByTestId('answer-verdict')).toContainText(/^(Yes|No), /)
   })
 
   test('open from a link, for the place the link names', async ({ page, baseURL }) => {
@@ -424,8 +426,7 @@ test.describe('the season and the reference period', () => {
   const refSelect = (page: Page) => page.getByRole('combobox', { name: en.ask.season.refLabel })
 
   test('are two labelled selects, and a choice changes the question, the answer and the link, with no new request', async ({ page, baseURL }) => {
-    const { asked } = await home(page, baseURL!)
-    await chip(page, 'season').click()
+    const { asked } = await home(page, baseURL!, '/?ask=season&season=summer')
     await expect(page.getByTestId('answer-verdict')).toBeVisible()
     await expect(seasonSelect(page)).toHaveValue('summer')
     await expect(refSelect(page)).toHaveValue('1991-2020')
@@ -467,7 +468,8 @@ test.describe('the season and the reference period', () => {
     await expect(page.getByTestId('answer')).toContainText('the autumns from 1981 to 2010 averaged')
     // a name that is none gives the defaults
     await page.goto('/?ask=season&season=monsoon&ref=1950-1979')
-    await expect(seasonSelect(page)).toHaveValue('summer')
+    // the season completed most recently
+    await expect(seasonSelect(page)).toHaveValue(defaultSeason(DateTime.now()))
     await expect(refSelect(page)).toHaveValue('1991-2020')
     // `?ask=summer` is the summer against the newest normal, the chip pressed
     await page.goto('/?ask=summer')
@@ -476,17 +478,46 @@ test.describe('the season and the reference period', () => {
     await expect(page.getByTestId('answer')).toContainText('the summers from 1991 to 2020 averaged')
   })
 
-  test('offer a normal the station has too few seasons of disabled, with the reason in the option, and say why there is no answer for a link that names it', async ({ page, baseURL }) => {
+  test('grey out a normal the station has too few seasons of, with the reason in the option and on the line under the choices, and a link that names it gets the normal the question opens on', async ({ page, baseURL }) => {
     // Arkona's record starts in 1975: 16 of the 30 winters of 1961 to 1990
     await home(page, baseURL!, '/?ask=season&season=winter&ref=1961-1990&place=00183')
     const first = refSelect(page).locator('option').first()
     await expect(first).toBeDisabled()
     await expect(first).toHaveText('1961–1990 = 1960/61–1989/90 (only 16 of 30 seasons here, 20 needed)')
     await expect(refSelect(page).locator('option').nth(1)).toBeEnabled()
-    await expect(page.getByTestId('answer')).toContainText('This station has only 16 of the 30 seasons of 1961–1990 = 1960/61–1989/90; 20 are needed to compare.')
-    await expect(page.getByTestId('answer-verdict')).toHaveCount(0)
-    await refSelect(page).selectOption('1971-2000')
+    // the link named a normal that has too little data here: the newest is shown, and the line under the choices says so
+    await expect(refSelect(page)).toHaveValue('1991-2020')
+    const note = page.getByTestId('choice-note')
+    await expect(note).toHaveAttribute('role', 'status')
+    await expect(note).toContainText('1961–1990 = 1960/61–1989/90 has too little data here for this season: 16 of its 30 seasons, 20 needed. Showing instead: 1991–2020 = 1990/91–2019/20.')
+    await expect(note).toContainText('Greyed out: too few seasons at this station. A normal needs 20 of its 30 seasons.')
     await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    await refSelect(page).selectOption('1971-2000')
+    await expect(note).not.toContainText('has too little data')
+    await expect(note).toContainText('Greyed out')
+  })
+
+  test('grey out a season the station has too little of, with the reason in the option, and a link that names it gets the season the question opens on, with a line that says so', async ({ page, baseURL }) => {
+    // Aue has the winters from 2018/19 on only
+    await home(page, baseURL!, '/?ask=season&season=winter&place=00205')
+    await expect(page.getByTestId('place-button')).toContainText('Aue')
+    const winter = seasonSelect(page).locator('option[value="winter"]')
+    await expect(winter).toBeDisabled()
+    await expect(winter).toHaveText(/^Winter \(only \d+ complete seasons here\)$/)
+    await expect(seasonSelect(page)).not.toHaveValue('winter')
+    const note = page.getByTestId('choice-note')
+    await expect(note).toContainText('Winter has too little data here to compare. Showing instead:')
+    await expect(note).toContainText('Greyed out')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    // the other seasons can be chosen
+    await seasonSelect(page).selectOption('spring')
+    await expect(chip(page, 'season')).toContainText('spring')
+  })
+
+  test('say nothing under the choices where nothing is greyed out', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=season&season=summer')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    await expect(page.getByTestId('choice-note')).toHaveText('')
   })
 
   test('are in German, with the season in the one sentence', async ({ page, baseURL }) => {

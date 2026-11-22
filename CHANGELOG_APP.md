@@ -18,18 +18,18 @@ Types of changes:
 
 ### Added
 
-- `[Ask the weather]` The summer question is now a season question with two labelled choices under
-  it: the season (spring, summer, autumn, winter; the winter takes the December before it) and
-  the reference period, every complete WMO 30-year normal from 1961-1990 on (1961-1990 to
-  1991-2020 today, with 2001-2030 added by itself on 1 January 2031). The question, the verdict
-  ("Was last winter colder than usual here?"), the chart, the disclosure and the Methods page say
-  which season and which normal were used. A normal the station has too few seasons of is offered
-  disabled, with how many it has; only complete seasons are compared. The answer names the normal
-  asked for and the count of its seasons the station has (a station with summers 1994-2020 now
-  reads "the summers from 1991 to 2020", with 27 in the count line, where it read 1994 to 2020); a
-  winter normal is written by its winters (1960/61 to 1989/90). The link carries
-  `&season=winter&ref=1961-1990`; `?ask=summer` and `/methods#summer` (and its rules, such as
-  `#summer-summer-mean`) keep working and mean the summer against the newest normal (GH-3764).
+- `[Ask the weather]` The summer question is now a season question with two labelled choices
+  under it: the season (spring, summer, autumn, winter; the winter takes the December before it)
+  and the reference period, every complete WMO 30-year normal from 1961-1990 on (1961-1990 to
+  1991-2020 today, with 2001-2030 added by itself on 1 January 2031). The question opens on the
+  season completed most recently that the station has enough data for (the summer until 30
+  November, the autumn from 1 December) and on the newest normal with enough seasons. A season or
+  normal the station has too little of is greyed out with the reason in its text, and a line under
+  the choices says why; a link that names one gets the default and the line says so. The answer
+  names the normal asked for and the seasons the station has of it (summers 1994-2020 now read
+  "the summers from 1991 to 2020", count 27, where they read 1994 to 2020); a winter normal is
+  written by its winters (1960/61 to 1989/90). The link carries `&season=winter&ref=1961-1990`;
+  `?ask=summer` (summer, while it has enough data) and `/methods#summer` keep working (GH-3764).
 
 - `[Measurement]` Four more entries on the "How weather is measured" page: evaporation
   (`/measurement#evaporation`), soil moisture (`#soil-moisture`), present weather and the state of

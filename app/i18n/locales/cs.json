@@ -172,7 +172,11 @@
         "summer": "červen až srpen",
         "autumn": "září až listopad",
         "winter": "prosinec až únor"
-      }
+      },
+      "seasonShort": "{seasonCap} (zde jen {count} úplných sezón)",
+      "noteGreyed": "Zašedlé: příliš málo sezón u této stanice. Normál vyžaduje {min} ze svých {of} sezón.",
+      "noteAskedSeason": "{seasonCap} má tady příliš málo dat pro srovnání. Místo toho se zobrazuje: {shown}.",
+      "noteAskedNormal": "{asked} má tady pro toto období příliš málo dat: {count} ze svých {of} sezón, třeba {min}. Místo toho se zobrazuje: {shown}."
     },
     "wind": {
       "calm": "Klidno.",

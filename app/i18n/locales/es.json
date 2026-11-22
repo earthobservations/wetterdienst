@@ -172,7 +172,11 @@
         "summer": "junio a agosto",
         "autumn": "septiembre a noviembre",
         "winter": "diciembre a febrero"
-      }
+      },
+      "seasonShort": "{seasonCap} (aquí solo {count} estaciones del año completas)",
+      "noteGreyed": "En gris: muy pocas estaciones del año en esta estación meteorológica. Un periodo normal pide {min} de sus {of} estaciones del año.",
+      "noteAskedSeason": "{seasonCap} tiene aquí muy pocos datos para comparar. Se muestra en su lugar: {shown}.",
+      "noteAskedNormal": "{asked} tiene aquí muy pocos datos para esta estación del año: {count} de sus {of} estaciones del año, hacen falta {min}. Se muestra en su lugar: {shown}."
     },
     "wind": {
       "calm": "En calma.",

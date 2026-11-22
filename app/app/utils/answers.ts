@@ -316,6 +316,35 @@ export function normalSpan(season: Season, from: number, to: number): { from: st
   return { from: seasonLabel(season, from), to: seasonLabel(season, to) }
 }
 
+/** Whether anything can answer for a season of a kind: a normal with enough seasons, or the newest one with the seasons before standing in */
+export const isAnswerable = (availability: readonly NormalAvailability[]) => availability.some(each => each.enough || each.fallback)
+
+/** The kinds of season, the one that was completed most recently first (on 22 November: summer, spring, winter, autumn; from 1 December: autumn first) */
+export function seasonsByRecency(now: DateTime): Season[] {
+  const over = (season: Season) => {
+    const year = now >= seasonOver(season, now.toUTC().year) ? now.toUTC().year : now.toUTC().year - 1
+    return seasonOver(season, year).toMillis()
+  }
+  return [...SEASONS].sort((a, b) => over(b) - over(a))
+}
+
+/** The season a question opens on where the data is not known: the one completed most recently */
+export function defaultSeason(now: DateTime): Season {
+  return seasonsByRecency(now)[0]!
+}
+
+/** The season a question opens on for a station: the most recently completed with enough data to compare, else the most recently completed */
+export function defaultSeasonFor(readings: Reading[], now: DateTime): Season {
+  const order = seasonsByRecency(now)
+  return order.find(kind => isAnswerable(normalAvailability(readings, kind, now))) ?? order[0]!
+}
+
+/** The normal a question opens on for a station and a season: the newest with enough seasons (the newest also where the seasons before can stand in), else the newest */
+export function defaultNormalFor(readings: Reading[], season: Season, now: DateTime): Normal {
+  const found = normalAvailability(readings, season, now).filter(each => each.enough || each.fallback).at(-1)
+  return found?.normal ?? newestNormal(now)
+}
+
 /** What a question asks: the season, and the normal it is compared with (`1991-2020`; the newest one where it is none that is complete) */
 export interface SeasonRequest {
   season: Season

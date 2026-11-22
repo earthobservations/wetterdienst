@@ -172,7 +172,11 @@
         "summer": "June to August",
         "autumn": "September to November",
         "winter": "December to February"
-      }
+      },
+      "seasonShort": "{seasonCap} (only {count} complete seasons here)",
+      "noteGreyed": "Greyed out: too few seasons at this station. A normal needs {min} of its {of} seasons.",
+      "noteAskedSeason": "{seasonCap} has too little data here to compare. Showing instead: {shown}.",
+      "noteAskedNormal": "{asked} has too little data here for this season: {count} of its {of} seasons, {min} needed. Showing instead: {shown}."
     },
     "wind": {
       "calm": "Calm.",

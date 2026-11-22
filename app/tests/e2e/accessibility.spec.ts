@@ -622,6 +622,19 @@ const STATES: State[] = [
     },
   },
   {
+    // a season the station has too little of is greyed out with the reason in its text, and the line under the choices says why (a link that names it)
+    page: 'index',
+    state: 'ask-season-greyed-season',
+    path: '/?ask=season&season=winter&place=00205',
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('place-button')).toContainText('Aue')
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.season.seasonLabel') }).locator('option[disabled]')).toHaveCount(1)
+      await expect(page.getByTestId('choice-note')).not.toHaveText('')
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    },
+  },
+  {
     // the search of a place of the questions, with a name typed
     page: 'index',
     state: 'ask-place-open',

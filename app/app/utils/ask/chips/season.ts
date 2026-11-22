@@ -1,8 +1,12 @@
 import type { Value } from '#shared/types/api'
 import type { Season, SeasonAnswer } from '../../answers'
-import type { AnswerAction, Choices, NumberLine, SelectChoice } from '../chip'
+import type { AnswerAction, ChipEnv, Choices, NumberLine, SelectChoice } from '../chip'
 import {
+  defaultNormalFor,
+  defaultSeason,
+  defaultSeasonFor,
   FALLBACK_MIN_SEASONS,
+  isAnswerable,
   isSeason,
   lastSeason,
   newestNormal,
@@ -59,15 +63,29 @@ function seasonOf(choices: Choices): Season {
 /** Whether the question asks for the cold: the winter's (colder than usual); the other seasons are asked for the warm */
 const asksCold = (season: Season) => season === 'winter'
 
-/** The season: summer where the link names none (`&season=winter`) */
+/**
+ * The season (`&season=winter`): the one completed most recently where the link names none (and, once the data is there, the most
+ * recent that has enough of it). A season the station has no normal to compare it with, nor seasons enough to stand in for one, is
+ * greyed out, with how many complete seasons of it there are.
+ */
 const SEASON: SelectChoice = {
   kind: 'select',
   param: 'season',
   inputId: 'answer-season',
   label: 'ask.season.seasonLabel',
-  initial: () => 'summer',
+  initial: now => defaultSeason(now),
   values: () => SEASONS,
-  options: ({ t }) => SEASONS.map(kind => ({ value: kind, label: upperFirst(t(`ask.season.name.${kind}`)) })),
+  options({ t, now }, loaded) {
+    return SEASONS.map((kind) => {
+      const label = upperFirst(t(`ask.season.name.${kind}`))
+      if (!loaded)
+        return { value: kind, label }
+      const readings = (loaded as Loaded).readings
+      return isAnswerable(normalAvailability(readings, kind, now()))
+        ? { value: kind, label }
+        : { value: kind, label: t('ask.season.seasonShort', { seasonCap: label, count: seasonMeans(readings, kind, now()).length }), disabled: true }
+    })
+  },
 }
 
 /** The text of a normal as it is read: `1961–1990` */
@@ -102,7 +120,7 @@ const REFERENCE: SelectChoice = {
       if (!have || have.enough)
         return { value: normal.key, label: text }
       // a winter normal says its winters too (1961–1990 is 1960/61 to 1989/90), as the bars are labelled
-      const named = kind === 'winter' ? `${text} = ${spanText(kind, normal.from, normal.to)}` : text
+      const named = normalSaid(kind, normal.from, normal.to)
       const params = { normal: named, count: have.count, of: NORMAL_YEARS, min: NORMAL_MIN_SEASONS, seasons }
       // the newest normal can be chosen where the seasons before stand in for it; where too few of those exist, it is short like the older ones
       return have.fallback
@@ -110,6 +128,12 @@ const REFERENCE: SelectChoice = {
         : { value: normal.key, label: t('ask.season.refShort', params), disabled: true }
     })
   },
+}
+
+/** A normal as it is said in a sentence: `1961–1990`, and for a winter the winters too (`1961–1990 = 1960/61–1989/90`) */
+function normalSaid(kind: Season, from: number, to: number): string {
+  const text = normalText(from, to)
+  return kind === 'winter' ? `${text} = ${spanText(kind, from, to)}` : text
 }
 
 export const season = defineChip({
@@ -122,8 +146,33 @@ export const season = defineChip({
   tool: 'explorer',
   quantity: 'temperature',
   choices: [SEASON, REFERENCE],
+  // `?ask=summer` asked about the summer, and still does
+  aliasChoices: { summer: { season: 'summer' } },
   // the whole record is fetched whatever the season and the normal: a change of either is no new request
   loadedBy: [],
+  resolveChoices(loaded: Loaded | null, choices: Choices, explicit: Choices, { t, now }: ChipEnv) {
+    if (!loaded)
+      return { choices, note: '' }
+    const readings = loaded.readings
+    const notes: string[] = []
+    // the season the link or the reader names, unless it has too little data here: then the one the question opens on
+    const askedKind = isSeason(explicit.season) ? explicit.season : null
+    // where no season can be compared at all, the one named stays: the answer says there is too little data, and nothing better is to be shown
+    const anyAnswerable = SEASONS.some(each => isAnswerable(normalAvailability(readings, each, now())))
+    const kind = askedKind && (!anyAnswerable || isAnswerable(normalAvailability(readings, askedKind, now()))) ? askedKind : defaultSeasonFor(readings, now())
+    if (askedKind && askedKind !== kind)
+      notes.push(t('ask.season.noteAskedSeason', { seasonCap: upperFirst(t(`ask.season.name.${askedKind}`)), shown: t(`ask.season.name.${kind}`) }))
+    const availability = normalAvailability(readings, kind, now())
+    const askedNormal = normalOf(explicit.ref, now())
+    const asked = askedNormal ? availability.find(each => each.normal.key === askedNormal.key) : undefined
+    const normal = asked && (asked.enough || asked.fallback) ? asked.normal : defaultNormalFor(readings, kind, now())
+    if (askedNormal && asked && normal.key !== askedNormal.key)
+      notes.push(t('ask.season.noteAskedNormal', { asked: normalSaid(kind, askedNormal.from, askedNormal.to), count: asked.count, of: NORMAL_YEARS, min: NORMAL_MIN_SEASONS, shown: normalSaid(kind, normal.from, normal.to) }))
+    // something is greyed out in the choices: the line under them says why
+    if (SEASONS.some(each => !isAnswerable(normalAvailability(readings, each, now()))) || availability.some(each => !each.enough && !each.fallback))
+      notes.push(t('ask.season.noteGreyed', { min: NORMAL_MIN_SEASONS, of: NORMAL_YEARS }))
+    return { choices: { season: kind, ref: normal.key }, note: notes.join(' ') }
+  },
   question(env, choices) {
     const kind = seasonOf(choices)
     return env.t('ask.q.season', { last: env.t(`ask.season.last.${kind}`), warmth: env.t(`ask.season.warmth.${kind}`) })
@@ -146,6 +195,10 @@ export const season = defineChip({
     REFERENCE.label,
     'ask.season.refShort',
     'ask.season.refFallback',
+    'ask.season.seasonShort',
+    'ask.season.noteGreyed',
+    'ask.season.noteAskedSeason',
+    'ask.season.noteAskedNormal',
     ...SEASONS.flatMap(kind => [
       `ask.season.last.${kind}`,
       `ask.season.warmth.${kind}`,
@@ -221,6 +274,7 @@ export const season = defineChip({
       // what it is compared with, and which normals are offered
       { id: 'reference-choices', kind: 'period', values: { firstFrom: NORMAL_FIRST_TO - NORMAL_YEARS + 1, firstTo: NORMAL_FIRST_TO, years: NORMAL_YEARS }, cites: [{ work: 'wmo-1203', at: '§2, §3' }] },
       { id: 'reference-default', kind: 'period', cites: [{ work: 'wmo-1203', at: '§2, §3, §5.1' }] },
+      { id: 'default-normal', kind: 'selection', cites: [], own: true },
       { id: 'normal-mean', kind: 'statistic', own: true, cites: [{ work: 'wmo-1203', at: '§4.3.3 (a)' }] },
       { id: 'min-seasons', kind: 'fallback', values: { minSeasons: NORMAL_MIN_SEASONS, ofSeasons: NORMAL_YEARS }, own: true, cites: [{ work: 'wmo-1203', at: '§4.4.2' }] },
       // where the station has too few of the newest normal
@@ -269,9 +323,7 @@ export const season = defineChip({
     const asked = normalOf(choices.ref, now())
     const have = loaded && asked ? normalAvailability((loaded as Loaded).readings, kind, now()).find(each => each.normal.key === asked.key) : null
     if (have && !have.enough && !have.fallback && seasonMeans((loaded as Loaded).readings, kind, now()).length > 0) {
-      const text = normalText(asked!.from, asked!.to)
-      const named = kind === 'winter' ? `${text} = ${spanText(kind, asked!.from, asked!.to)}` : text
-      return t('ask.season.noneNormal', { normal: named, count: have.count, of: NORMAL_YEARS, min: NORMAL_MIN_SEASONS, seasons })
+      return t('ask.season.noneNormal', { normal: normalSaid(kind, asked!.from, asked!.to), count: have.count, of: NORMAL_YEARS, min: NORMAL_MIN_SEASONS, seasons })
     }
     return t('ask.season.none', { seasons })
   },

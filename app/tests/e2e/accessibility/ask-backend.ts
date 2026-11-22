@@ -52,12 +52,14 @@ export function rainValues(station: string) {
 /** The year a station's record of monthly means starts in: Arkona's starts in 1975, so that it has 16 of the 30 years of 1961 to 1990 and that normal is offered disabled */
 const FIRST_YEAR: Record<string, number> = { '00183': 1975 }
 const FIRST_YEAR_DEFAULT = 1961
+/** Aue has only the winters from 2018/19 on, so that the season is greyed out there (8 complete winters, and 2 of the 30 of 1991-2020) */
+const FIRST_WINTER: Record<string, number> = { '00205': 2019 }
 
 /** The temperature of a season of a year: a level, a slow warming (none for the summer, which the first spec fixed), a swing, and a known last season */
 function seasonMean(season: MockSeason, year: number, last: number): number {
   const level = { spring: 8.2, summer: 16.2, autumn: 9.6, winter: 1 }[season]
   if (year === last)
-    return { spring: 10.3, summer: 18.1, autumn: 11.4, winter: 4.1 }[season]
+    return { spring: 12.3, summer: 18.1, autumn: 11.4, winter: 4.1 }[season]
   const warming = season === 'summer' ? 0 : 0.04 * (year - 1961)
   return level + warming + 1.2 * Math.sin(year * (MONTHS[season][0]! + 1))
 }
@@ -75,6 +77,8 @@ export function monthlyValues(station: string, now = DateTime.now()) {
       const season = (Object.keys(MONTHS) as MockSeason[]).find(each => MONTHS[each].includes(month))!
       const named = season === 'winter' && month === 12 ? year + 1 : year
       if (named < firstYear)
+        continue
+      if (season === 'winter' && named < (FIRST_WINTER[station] ?? 0))
         continue
       const value = Math.round(seasonMean(season, named, lastOf[season]) * 100) / 100
       rows.push(reading(station, 'monthly', 'climate_summary', 'temperature_air_mean_2m', `${year}-${String(month).padStart(2, '0')}-01T00:00:00+00:00`, value))

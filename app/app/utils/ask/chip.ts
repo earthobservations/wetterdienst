@@ -243,6 +243,8 @@ export interface ChipDefinition<Id extends string, Loaded, Result> {
   aliases?: readonly string[]
   /** Rules the old section had under other names, by the old id (`summer-mean`) to the new one (`season-mean`): `/methods#summer-summer-mean` goes to `#season-season-mean`. A rule of the same id needs no entry */
   renamedRules?: Readonly<Record<string, string>>
+  /** What an old name of the chip names of its choices, by the old name: `?ask=summer` asks about the summer, not about the season the chip opens on now. Counts as the link's own choice */
+  aliasChoices?: Readonly<Record<string, Choices>>
   /** The icon of the chip's button, an Iconify name the app bundles */
   icon: string
   /** The tool the answer leads into */
@@ -257,6 +259,13 @@ export interface ChipDefinition<Id extends string, Loaded, Result> {
    * request, and the answer is worked out again from what was fetched. Absent: every choice is read by `load`.
    */
   loadedBy?: readonly string[]
+  /**
+   * The choices as they are for the data that came, where the link does not say or names what the data cannot answer: the defaults that
+   * depend on the place (the season completed most recently that has enough data), and the fall back off a choice with too little data.
+   * `choices` are the link's with the data-less defaults, `explicit` only what the link names. The note says why a choice was not the one
+   * named, and why an option is greyed out, in the language of the page; empty where there is nothing to say. Absent: the link's choices are used.
+   */
+  resolveChoices?: (loaded: Loaded | null, choices: Choices, explicit: Choices, env: ChipEnv) => { choices: Choices, note: string }
   /** The question, as the button and the heading of the answer say it; `choices` are the ones the link has */
   question: (env: ChipEnv, choices: Choices) => string
   /** The i18n key of the line above the question's heading: where the answer comes from */
@@ -312,9 +321,23 @@ function isValue(choice: Choice, text: string, now: DateTime): boolean {
   return choice.kind === 'date' ? isCalendarDay(text) : choice.values(now).includes(text)
 }
 
+/** The choices a link names, and only those that are values of theirs (an old name of the chip names its own, `aliasChoices`): where a default depends on the data, it is the data's to give */
+export function readExplicit(chip: Chip, query: Record<string, unknown>, now: DateTime): Choices {
+  const preset = chip.aliasChoices?.[String(query.ask)] ?? {}
+  const found: Record<string, string> = {}
+  for (const choice of chip.choices ?? []) {
+    const raw = (query[choice.param] as { toString: () => string } | null | undefined)?.toString()
+    const value = raw && isValue(choice, raw, now) ? raw : preset[choice.param]
+    if (value && isValue(choice, value, now))
+      found[choice.param] = value
+  }
+  return found
+}
+
 /** The values of a chip's choices, read from a link's query */
 export function readChoices(chip: Chip, query: Record<string, unknown>, now: DateTime): Choices {
-  return Object.fromEntries((chip.choices ?? []).map(choice => [choice.param, readChoice(choice, query[choice.param], now)]))
+  const preset = chip.aliasChoices?.[String(query.ask)] ?? {}
+  return Object.fromEntries((chip.choices ?? []).map(choice => [choice.param, readChoice(choice, query[choice.param] ?? preset[choice.param], now)]))
 }
 
 /** Whether a value the reader chose is one the choice takes: a day, not after `latest`, or one of its values */
@@ -346,6 +369,8 @@ export function queryOfPress(link: Record<string, unknown>, chips: readonly Chip
 }
 
 /** The query a change of a choice makes: the chip is the open one, with the value */
-export function queryOfChoice(link: Record<string, unknown>, id: string, param: string, value: string): Record<string, string> {
-  return queryWith(link, { ask: id, [param]: value })
+export function queryOfChoice(link: Record<string, unknown>, id: string, param: string, value: string, own: Choices = {}): Record<string, string> {
+  // what an old name of the chip named (`?ask=summer` named the summer) is written out, since the new name does not say it
+  const named = Object.fromEntries(Object.entries(own).filter(([name]) => name !== param && typeof link[name] !== 'string'))
+  return queryWith(link, { ...named, ask: id, [param]: value })
 }

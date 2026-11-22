@@ -99,7 +99,7 @@ export const methods: MethodTexts = {
       data: 'DWD\'s monthly station observations (dataset monthly/climate_summary): the monthly mean of the air temperature at 2 m height of the place\'s station, its whole record.',
       steps: {
         seasons: 'For every year in which DWD has the monthly means of all three months of the season, the season is the mean of those three: spring is March to May, summer June to August, autumn September to November, and winter December to February, with the December of the year before. A season counts once it is over: from 1 June, 1 September, 1 December and 1 March. The last one that is over is the one asked about.',
-        reference: 'The reference is the mean of the seasons of the normal chosen: 30 years that end in a year ending in 0, from {firstFrom} to {firstTo} on, each one once it is complete. The newest one is the one that opens. A normal is offered only if the station has at least {minSeasons} of its {ofSeasons} seasons of that kind. If the station has fewer of the newest normal, the seasons before the one asked about are used instead, if there are at least {fallbackMin}; with fewer there is no answer.',
+        reference: 'The reference is the mean of the seasons of the normal chosen: 30 years that end in a year ending in 0, from {firstFrom} to {firstTo} on, each one once it is complete. The question opens on the newest one that the station has enough seasons of. A normal can be compared only if the station has at least {minSeasons} of its {ofSeasons} seasons of that kind; one that has fewer is greyed out in the choice, and an answer for it says so. If the station has fewer of the newest normal, the seasons before the one asked about are used instead, if there are at least {fallbackMin}; with fewer there is no answer.',
         compare: 'The anomaly is the season\'s mean minus the reference. The same difference is drawn as a bar for every season of that kind at the station.',
         verdict: 'The season is "warmer" if its anomaly is {band} °C or more, "cooler" if it is {band} °C or less below, and "as usual" in between. The question about a winter asks for "colder", and its answer says yes where the winter was cooler. The rank counts the seasons that were warmer.',
       },
@@ -130,8 +130,8 @@ export const methods: MethodTexts = {
           says: 'WMO\'s guidelines say that a seasonal normal is the mean of the monthly normals of its months. Some weather services weight the months by their number of days; WMO says that is not recommended for products that are exchanged between countries.',
         },
         'default-season': {
-          text: 'The question opens on the summer, and a link that names no season asks about it.',
-          reason: 'No source says which season a question should open on. The summer is the one this question always asked about, so that an old link and a habit keep their meaning; the choice above the answer changes it.',
+          text: 'The question opens on the season that was completed most recently and that the station has enough data for: the autumn from 1 December, the winter from 1 March, the spring from 1 June and the summer from 1 September. A season has enough data where the station has at least {minSeasons} of the {ofSeasons} seasons of some normal, or where the seasons before the last can stand in for the newest normal (see below). Where the latest has too little, it opens on the next most recent. A link or a choice of the reader that names a season keeps it, and the link ?ask=summer names the summer; a season with too little data is greyed out, and a link that names one gets the season the question opens on, with a line that says so.',
+          reason: 'No source says which season a question should open on. The one completed most recently is the one people ask about, and the data decides where the latest has too little of it. This replaces the earlier choice (always the summer), which the maintainers had accepted, so it needs accepting again.',
         },
         'reference-choices': {
           text: 'The reference can be any WMO normal of 30 years that ends in a year ending in 0 and is complete: from {firstFrom} to {firstTo} on, with a new one added on 1 January after its last year. The whole record of the station and a sliding 30 years are not offered.',
@@ -141,18 +141,22 @@ export const methods: MethodTexts = {
           text: 'The question opens on the newest normal that is complete. It ends in the year floor((year − 1) / 10) × 10, so it is 1991 to 2020 until the end of 2030, and from 1 January 2031 it is 2001 to 2030.',
           says: 'WMO says that the climatological standard normal is the most recent 30-year period that finishes in a year ending in 0, and that it is calculated again every ten years.',
         },
+        'default-normal': {
+          text: 'The question opens on the newest of the normals that the station has enough seasons of for the chosen season: at least {minSeasons} of its {ofSeasons}, or, for the newest normal, enough seasons before the last for the fallback below. A normal that the reader or a link names is kept; where it is greyed out for the season, the normal the question opens on is used instead, and a line says so.',
+          reason: 'No source says which of the normals to open on. The newest is the current standard, and the question passes to an older one only where the station cannot be compared with a newer. The maintainers have to accept it.',
+        },
         'normal-mean': {
           text: 'The reference is the mean of the complete seasons of its years, each season counting the same. A season in which a month is missing is left out whole.',
           says: 'WMO\'s guidelines build a seasonal normal as the mean of the three monthly normals of its months, and not from the values of single years. If the normal of one month is missing, the seasonal normal is missing.',
           reason: 'The chip averages whole seasons, so a year with one month missing drops out of the reference entirely, where WMO would still use that year in the other two monthly normals. The two give the same where no month is missing. The way the chip averages is wetterdienst\'s own choice.',
         },
         'min-seasons': {
-          text: 'A normal is offered only if the station has at least {minSeasons} of its {ofSeasons} seasons of the kind. Another one is shown in the choice, disabled, with how many the station has; the newest one uses the fallback below.',
+          text: 'A normal can be compared only if the station has at least {minSeasons} of its {ofSeasons} seasons of the kind. Another one is greyed out in the choice, with how many the station has, and an answer for it says so; the newest one uses the fallback below.',
           says: 'WMO asks, for each month, for valid monthly values in at least 80 % of the years of the period for a normal, which is 24 or more of 30 years.',
           reason: 'The chip counts complete seasons (all three months of the season, for a winter with the December before it), not the years of each month, so the line is not WMO\'s and cannot be compared with it one to one. {minSeasons} of {ofSeasons} is wetterdienst\'s own line, set so that stations with gaps still get an answer against a WMO period, and the maintainers have to accept it; the reference of such a station is then not a WMO normal in the strict sense.',
         },
         'fallback-period': {
-          text: 'Where the station has too few seasons of the newest normal, the reference is all the seasons of the station before the one asked about. No other normal is replaced like this: one that is picked is the one used, or is not offered.',
+          text: 'Where the station has too few seasons of the newest normal, the reference is all the seasons of the station before the one asked about. No other normal is replaced like this: one that is picked is the one used, or is greyed out.',
           says: 'WMO calls the mean of monthly values over any specified period an "average", and says that some sources call it a "provisional normal".',
           reason: 'Taking all earlier seasons, and not a period that starts in a year ending in 1 as WMO\'s definition of a period average has it, is wetterdienst\'s own choice. So is leaving the substitute to the newest normal: an answer against other years than the ones the reader picked would not answer the question asked.',
         },
@@ -177,7 +181,7 @@ export const methods: MethodTexts = {
       limits: {
         station: 'The answer is the reading of one station that stands in one place. A town or a region can have had another season; the stations of DWD differ in height, surroundings and instruments.',
         moved: 'A station that was moved, or that changed its instruments or its times of observation, is not corrected for it: the answer is the station\'s series as DWD publishes it. DWD asks that changes in the station height and in the observation times are kept in mind when trends are read.',
-        gaps: 'One missing day takes the month, and so the season, out of the comparison, because DWD calculates a monthly mean only from complete daily values (WMO allows up to 10 missing days in a month, and fewer than 5 in a row). A station with gaps has fewer seasons, and a station that began later than a normal has few or none of its seasons: that normal is then not offered.',
+        gaps: 'One missing day takes the month, and so the season, out of the comparison, because DWD calculates a monthly mean only from complete daily values (WMO allows up to 10 missing days in a month, and fewer than 5 in a row). A station with gaps has fewer seasons, and a station that began later than a normal has few or none of its seasons: that normal is then greyed out.',
         reference: 'The same season set against another normal has another anomaly and can have another verdict. The normal 1961 to 1990 is WMO\'s reference for climate change, the newest one is the current standard, and a new one comes every ten years. How a normal is made is explained on the page "How weather is measured".',
         band: 'The width of "as usual" is wetterdienst\'s own: a difference of just under and just over the band are nearly the same, but have different words.',
       },

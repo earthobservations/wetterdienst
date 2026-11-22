@@ -172,7 +172,11 @@
         "summer": "da giugno ad agosto",
         "autumn": "da settembre a novembre",
         "winter": "da dicembre a febbraio"
-      }
+      },
+      "seasonShort": "{seasonCap} (qui solo {count} stagioni complete)",
+      "noteGreyed": "In grigio: troppe poche stagioni in questa stazione. Un periodo normale richiede {min} delle sue {of} stagioni.",
+      "noteAskedSeason": "{seasonCap} ha qui troppo pochi dati per un confronto. Mostrato al suo posto: {shown}.",
+      "noteAskedNormal": "{asked} ha qui troppo pochi dati per questa stagione: {count} delle sue {of} stagioni, ne servono {min}. Mostrato al suo posto: {shown}."
     },
     "wind": {
       "calm": "Calmo.",

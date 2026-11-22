@@ -6,6 +6,9 @@ import { DateTime } from 'luxon'
 import { describe, expect, it } from 'vitest'
 import {
   countIn,
+  defaultNormalFor,
+  defaultSeason,
+  defaultSeasonFor,
   lastSeason,
   newestNormal,
   newestNormalEnd,
@@ -17,6 +20,7 @@ import {
   seasonMeans,
   seasonOver,
   SEASONS,
+  seasonsByRecency,
 } from '../../app/utils/answers'
 import { acceptsChoice, queryOfChoice, queryOfPress, readChoices } from '../../app/utils/ask/chip'
 import { season } from '../../app/utils/ask/chips/season'
@@ -464,5 +468,171 @@ describe('the question, which follows the season', () => {
     expect(verdictOf('summer', 12)).toBe('Yes, 2 °C warmer than usual.')
     expect(verdictOf('summer', 8)).toBe('No, 2 °C cooler than usual.')
     expect(verdictOf('summer', 10.2)).toBe('Not really: about as warm as usual.')
+  })
+})
+
+// ------------------------------------------------------------------------- the defaults, and what a greyed-out choice does (GH-3764)
+
+describe('the season a question opens on', () => {
+  const on = (iso: string) => defaultSeason(at(iso))
+
+  it('is the season completed most recently: summer until 30 November, autumn from 1 December, winter from 1 March, spring from 1 June, summer from 1 September', () => {
+    expect(on('2026-11-22T10:00:00Z')).toBe('summer')
+    expect(on('2026-11-30T23:59:59Z')).toBe('summer')
+    expect(on('2026-12-01T00:00:00Z')).toBe('autumn')
+    expect(on('2027-02-28T23:59:59Z')).toBe('autumn')
+    expect(on('2027-03-01T00:00:00Z')).toBe('winter')
+    expect(on('2027-05-31T23:59:59Z')).toBe('winter')
+    expect(on('2027-06-01T00:00:00Z')).toBe('spring')
+    expect(on('2027-08-31T23:59:59Z')).toBe('spring')
+    expect(on('2027-09-01T00:00:00Z')).toBe('summer')
+  })
+
+  it('orders all four by how recently each was completed', () => {
+    expect(seasonsByRecency(at('2026-11-22T10:00:00Z'))).toEqual(['summer', 'spring', 'winter', 'autumn'])
+    expect(seasonsByRecency(at('2026-12-01T00:00:00Z'))).toEqual(['autumn', 'summer', 'spring', 'winter'])
+  })
+
+  it('is, for a station, the most recent that has enough data, and the next most recent where the latest has too little', () => {
+    const now = at('2026-11-22T10:00:00Z')
+    const full = (kind: typeof SEASONS[number]) => monthly(kind, 1961, 2026)
+    // every season complete: the summer
+    expect(defaultSeasonFor([...full('summer'), ...full('spring')], now)).toBe('summer')
+    // a summer record of five years only: too little for any normal or the fallback, so the spring
+    expect([...monthly('summer', 2022, 2026), ...full('spring')]).not.toEqual([])
+    expect(defaultSeasonFor([...monthly('summer', 2022, 2026), ...full('spring')], now)).toBe('spring')
+    // neither summer nor spring: the winter, and with nothing at all, the most recent as it is
+    expect(defaultSeasonFor([...monthly('summer', 2022, 2026), ...monthly('spring', 2024, 2026), ...full('winter')], now)).toBe('winter')
+    expect(defaultSeasonFor([], now)).toBe('summer')
+  })
+
+  it('counts a station with ten seasons before the last as having enough: the newest normal can be replaced by them', () => {
+    const now = at('2026-11-22T10:00:00Z')
+    expect(defaultSeasonFor([...monthly('summer', 2016, 2026), ...monthly('spring', 1961, 2026)], now)).toBe('summer')
+    expect(defaultSeasonFor([...monthly('summer', 2017, 2026), ...monthly('spring', 1961, 2026)], now)).toBe('spring')
+  })
+})
+
+describe('the normal a question opens on', () => {
+  const now = at('2026-11-22T10:00:00Z')
+
+  it('is the newest with enough seasons for the season, and an older one where the station began later', () => {
+    expect(defaultNormalFor(monthly('winter', 1961, 2026), 'winter', now).key).toBe('1991-2020')
+    // 1991-2020 has 15 summers, not enough; the seasons before the last (more than ten) stand in for it
+    expect(defaultNormalFor(monthly('summer', 2006, 2026), 'summer', now).key).toBe('1991-2020')
+  })
+
+  it('is the newest where no normal has enough, and where the fallback cannot answer either', () => {
+    expect(defaultNormalFor([], 'summer', now).key).toBe('1991-2020')
+    expect(defaultNormalFor(monthly('summer', 2024, 2026), 'summer', now).key).toBe('1991-2020')
+  })
+
+  it('stays on the newest where the seasons before the last can stand in for it, even where the station has little of it', () => {
+    // winters 1961-1999: 1961-1990 has enough, 1981-2010 (19) has not, the newest has 9 and 38 seasons stand before the last: the fallback answers
+    const readings = monthly('winter', 1961, 1999)
+    const ok = (key: string) => normalAvailability(readings, 'winter', at('2026-11-22T10:00:00Z')).find(each => each.normal.key === key)!
+    expect(ok('1961-1990')).toMatchObject({ enough: true })
+    expect(ok('1981-2010')).toMatchObject({ enough: false, fallback: false })
+    // nothing complete after 1999, so the last season is 1999 and 38 stand before it: the newest normal is answered by them
+    expect(ok('1991-2020')).toMatchObject({ enough: false, fallback: true })
+    expect(defaultNormalFor(readings, 'winter', at('2026-11-22T10:00:00Z')).key).toBe('1991-2020')
+  })
+})
+
+describe('the choices as the data settles them', () => {
+  const NOW = DateTime.fromISO('2026-11-22T10:00:00', { zone: BERLIN })
+  const env: ChipEnv = {
+    t: (key, params) => `${key}${params ? JSON.stringify(params) : ''}`,
+    place: { id: '02564', name: 'Kiel-Holtenau', latitude: 54.3776, longitude: 10.1424 },
+    number: value => String(value),
+    percent: value => `${value}`,
+    unitText: unit => unit,
+    dayText: day => day,
+    now: () => NOW,
+  }
+  const loaded = (readings: Reading[]) => ({ readings, units: {} }) as never
+  const resolve = (readings: Reading[] | null, explicit: Record<string, string>, choices = { season: 'summer', ref: '1991-2020' }) => season.resolveChoices!(readings ? loaded(readings) : null, choices, explicit, env)
+  const whole = [...monthly('summer', 1961, 2026), ...monthly('spring', 1961, 2026), ...monthly('winter', 1961, 2026), ...monthly('autumn', 1961, 2026)]
+  // Arkona's kind of record: from 1975, so 16 of the 30 years of 1961-1990
+  const from1975 = [...monthly('summer', 1975, 2026), ...monthly('winter', 1975, 2026)]
+
+  it('are the link\'s own where the data is not there yet', () => {
+    expect(resolve(null, {})).toEqual({ choices: { season: 'summer', ref: '1991-2020' }, note: '' })
+  })
+
+  it('open on the most recent season and the newest normal that have enough data where the link names none, with no line where nothing is greyed out', () => {
+    expect(resolve(whole, {})).toEqual({ choices: { season: 'summer', ref: '1991-2020' }, note: '' })
+  })
+
+  it('open on the next most recent season where the latest has too little data, and the line says why options are greyed out', () => {
+    const readings = [...monthly('summer', 2022, 2026), ...monthly('spring', 1961, 2026)]
+    const settled = resolve(readings, {})
+    expect(settled.choices).toEqual({ season: 'spring', ref: '1991-2020' })
+    expect(settled.note).toContain('ask.season.noteGreyed')
+    expect(settled.note).toContain('"min":20,"of":30')
+    // nothing was named: no sentence about a season that was not
+    expect(settled.note).not.toContain('noteAskedSeason')
+  })
+
+  it('keep a season and a normal the link names, and a normal the reader picked while changing the season', () => {
+    expect(resolve(whole, { season: 'winter', ref: '1971-2000' }).choices).toEqual({ season: 'winter', ref: '1971-2000' })
+    // `?ask=summer` names the summer even where the question would open on another season
+    expect(resolve(whole, { season: 'summer' }, { season: 'summer', ref: '1991-2020' }).choices.season).toBe('summer')
+  })
+
+  it('give a link that names a greyed-out season the default season, and say that the named one has too little data', () => {
+    const readings = [...monthly('summer', 2022, 2026), ...monthly('spring', 1961, 2026)]
+    const settled = resolve(readings, { season: 'summer' })
+    expect(settled.choices.season).toBe('spring')
+    expect(settled.note).toContain('ask.season.noteAskedSeason')
+    expect(settled.note).toContain('"seasonCap":"Ask.season.name.summer"')
+    expect(settled.note).toContain('"shown":"ask.season.name.spring"')
+  })
+
+  it('give a link that names a greyed-out normal the season\'s default normal, and say that it has too little data', () => {
+    const settled = resolve(from1975, { season: 'winter', ref: '1961-1990' })
+    expect(settled.choices).toEqual({ season: 'winter', ref: '1991-2020' })
+    expect(settled.note).toContain('ask.season.noteAskedNormal')
+    expect(settled.note).toContain('1961–1990 = 1960/61–1989/90')
+    expect(settled.note).toContain('"count":16')
+    expect(settled.note).toContain('ask.season.noteGreyed')
+  })
+
+  it('move off a greyed-out normal when the season changes to one that cannot be compared with it, and say so', () => {
+    // the summers of 1961 on are whole, the winters from 1975: 1961-1990 is fine for the summer, greyed out for the winter
+    const readings = [...monthly('summer', 1961, 2026), ...monthly('winter', 1975, 2026)]
+    expect(resolve(readings, { season: 'summer', ref: '1961-1990' }).choices.ref).toBe('1961-1990')
+    const moved = resolve(readings, { season: 'winter', ref: '1961-1990' })
+    expect(moved.choices).toEqual({ season: 'winter', ref: '1991-2020' })
+    expect(moved.note).toContain('ask.season.noteAskedNormal')
+  })
+
+  it('say nothing of a season or normal that is named and has enough data, and nothing is greyed out', () => {
+    expect(resolve(whole, { season: 'autumn', ref: '1981-2010' }).note).toBe('')
+  })
+
+  it('leave a station with no complete season as it is: the answer says there is too little, and nothing named is replaced', () => {
+    const settled = resolve([], { season: 'winter', ref: '1961-1990' })
+    expect(settled.choices.season).toBe('winter')
+    expect(settled.note).not.toContain('noteAskedSeason')
+  })
+})
+
+describe('the options, greyed out with the reason in their text', () => {
+  const now = DateTime.fromISO('2026-11-22T10:00:00', { zone: BERLIN })
+  const env = { t: (key: string, params?: Record<string, unknown>) => `${key}${params ? JSON.stringify(params) : ''}`, now: () => now } as unknown as ChipEnv
+  const [seasonChoice] = season.choices!
+  const options = (readings: Reading[] | null) => (seasonChoice as Extract<typeof seasonChoice, { kind: 'select' }>).options(env, readings ? { readings, units: {} } : null, { season: 'summer', ref: '1991-2020' })
+
+  it('lists all four seasons, none greyed out before the data has come', () => {
+    expect(options(null).map(option => [option.value, option.disabled])).toEqual([['spring', undefined], ['summer', undefined], ['autumn', undefined], ['winter', undefined]])
+  })
+
+  it('greys out a season no normal can be compared with, with how many complete seasons the station has', () => {
+    const list = options([...monthly('summer', 1961, 2026), ...monthly('winter', 2022, 2026)])
+    expect(list.map(option => option.disabled)).toEqual([true, undefined, true, true])
+    const winter = list.find(option => option.value === 'winter')!
+    expect(winter.label).toContain('ask.season.seasonShort')
+    expect(winter.label).toContain('"count":5')
   })
 })

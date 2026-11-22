@@ -172,7 +172,11 @@
         "summer": "juni til august",
         "autumn": "september til november",
         "winter": "december til februar"
-      }
+      },
+      "seasonShort": "{seasonCap} (kun {count} hele sæsoner her)",
+      "noteGreyed": "Nedtonet: for få sæsoner ved denne station. En normal kræver {min} af sine {of} sæsoner.",
+      "noteAskedSeason": "{seasonCap} har for få data her til en sammenligning. Vist i stedet: {shown}.",
+      "noteAskedNormal": "{asked} har for få data her for denne sæson: {count} af sine {of} sæsoner, {min} kræves. Vist i stedet: {shown}."
     },
     "wind": {
       "calm": "Stille.",
