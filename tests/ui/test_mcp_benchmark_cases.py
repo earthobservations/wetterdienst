@@ -49,7 +49,6 @@ KINDS = {
     "interpolate",
     "summarize",
     "alerts",
-    "stripes",
     "history",
     "coverage",
     "unanswerable",
@@ -103,7 +102,6 @@ ENUM_ARGS = (
     ("values", "shape"),
     ("alerts", "granularity"),
     ("alerts", "language"),
-    ("stripes_values", "kind"),
     ("history", "sections"),
 )
 PERIODS = {period.value for period in Period}
@@ -735,7 +733,6 @@ def test_there_are_enough_cases_and_they_cover_the_tools(tools: dict[str, dict[s
         "interpolate",
         "summarize",
         "alerts",
-        "stripes_values",
         "history",
         "coverage",
         "glossary",
@@ -826,10 +823,9 @@ def _mutated(data: dict[str, Any], old: str, new: str) -> dict[str, Any]:
             "takes no argument",
             id="argument-renamed",
         ),
-        pytest.param('"stripes_values"', '"stripe_values"', "no such tool", id="tool-renamed"),
+        pytest.param('"tool": "alerts"', '"tool": "alert"', "no such tool", id="tool-renamed"),
         pytest.param('"synop"', '"synoptic"', "network", id="network-renamed"),
         pytest.param('"geosphere"', '"geospheres"', "no provider", id="provider-renamed"),
-        pytest.param('"kind": "temperature"', '"kind": "temp"', "takes none of", id="enum-value-gone"),
         pytest.param('"shape": "wide"', '"shape": "tall"', "takes none of", id="shape-value-gone"),
         pytest.param('"future"', '"futur"', "periods", id="period-misspelled"),
         pytest.param(

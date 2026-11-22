@@ -380,9 +380,9 @@ def test_the_size_counted_is_what_the_client_gets_of_the_json(monkeypatch: pytes
     escaped = json.dumps(body)
     request = type("Request", (), {"format": "json", "pretty": False})()
     wrapped = len(json.dumps({"result": body}, separators=(",", ":"), ensure_ascii=False))
-    assert answer_size(escaped, request, None) == wrapped  # ty: ignore[invalid-argument-type]
+    assert answer_size(escaped, request, None) == wrapped
     pretty = type("Request", (), {"format": "json", "pretty": True})()
-    assert answer_size(json.dumps(body, indent=4), pretty, None) == answer_size(escaped, request, None)  # ty: ignore[invalid-argument-type]
+    assert answer_size(json.dumps(body, indent=4), pretty, None) == answer_size(escaped, request, None)
 
 
 # --- stations -----------------------------------------------------------------------------------------------------
@@ -613,19 +613,18 @@ def test_the_note_of_one_station_is_told_in_the_singular() -> None:
     """One station kept is "the nearest station is returned" or "the first station is returned", not "1 of N"."""
     from wetterdienst.ui.budget import _stations_note  # noqa: PLC0415
 
-    request = type("Request", (), {})()
-    near = _stations_note(request=request, count=1, total=9, lead="", honest=True, distance=500, farthest=0.4)  # ty: ignore[invalid-argument-type]
+    near = _stations_note(count=1, total=9, lead="", honest=True, distance=500, farthest=0.4)
     assert "the nearest station is returned, nearest first (the farthest returned is 0.4 km away)." in near
     assert "9 stations lie within 500 km of the point" in near
     assert "1 of" not in near
-    asked = _stations_note(request=request, count=1, total=9, lead="", honest=True, rank=9, farthest=0.4)  # ty: ignore[invalid-argument-type]
+    asked = _stations_note(count=1, total=9, lead="", honest=True, rank=9, farthest=0.4)
     assert "the nearest station is returned, nearest first (the farthest returned is 0.4 km away)." in asked
     assert "9 stations were asked for with `rank`" in asked
     assert "1 of" not in asked
-    first = _stations_note(request=request, count=1, total=9, lead="", honest=True)  # ty: ignore[invalid-argument-type]
+    first = _stations_note(count=1, total=9, lead="", honest=True)
     assert "the first station is returned, in the provider's list order" in first
     assert "1 of" not in first
-    many = _stations_note(request=request, count=3, total=9, lead="", honest=True)  # ty: ignore[invalid-argument-type]
+    many = _stations_note(count=3, total=9, lead="", honest=True)
     assert "the first 3 of 9 stations are returned" in many
 
 

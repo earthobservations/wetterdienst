@@ -30,7 +30,7 @@ Météo-France. `0` is no verdict, null says the station ran no automated checks
 temperature data suspect" and the others are quantities the network does not report.
 
 With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the default is
-`soft`, which keeps the value and writes `1,suspect:source`, so interpolation, summaries and climate stripes leave it
+`soft`, which keeps the value and writes `1,suspect:source`, so interpolation and summaries leave it
 out. The check `consistency` already leaves an air temperature that carries `1` out of its comparison with the road
 surface. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 

@@ -24,9 +24,8 @@ from urllib.parse import quote
 from pydantic import BaseModel, ConfigDict, Field
 
 from wetterdienst.metadata.parameter_table import Aggregation  # noqa: TC001, needed at runtime by pydantic
-from wetterdienst.metadata.period import Period
 from wetterdienst.model.metadata import TimestampPosition, is_quality_flag
-from wetterdienst.model.processing_note import IMAGE_NOTE
+from wetterdienst.model.processing_note import STATION_IDS_NOTE, processing_note
 from wetterdienst.model.quality_legend import QualityKind, quality_legend
 from wetterdienst.model.result import (
     StationsFilter,
@@ -50,6 +49,8 @@ from wetterdienst.util.response_warnings import (
 if TYPE_CHECKING:
     from collections.abc import Iterable, Mapping, Sequence
 
+    from wetterdienst.core.station_search import StationIdSearchResult
+    from wetterdienst.metadata.period import Period
     from wetterdienst.model.metadata import ParameterModel
     from wetterdienst.model.result import _ProviderTerms, _ValuesResult
     from wetterdienst.options import Options
@@ -58,8 +59,6 @@ if TYPE_CHECKING:
         InterpolationRequest,
         IssuesRequest,
         StationsRequest,
-        StripesData,
-        StripesRequest,
         SummaryRequest,
         ValuesRequest,
     )
@@ -229,6 +228,118 @@ class CatalogueMetadata(BaseModel):
     )
 
 
+class StationIdsSearched(BaseModel):
+    """A network the search for a WMO, WIGOS or ICAO id asked, the list it read and what came of it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str
+    network: str
+    resolution: str | None = Field(
+        description="The resolution of the station list read: another one may list other stations. Null for a network "
+        "that cannot be imported on this server, whose declaration is not known.",
+    )
+    dataset: str | None = Field(
+        description="The dataset of the station list read: another one may list other stations; null as `resolution`.",
+    )
+    ids: list[str] = Field(description="The id columns the list fills: `wmo_id`, `wigos_id` and `icao_id`.")
+    status: Literal["searched", "failed", "not-configured"] = Field(
+        description="`searched` for a list that was read; `failed` for one that could not be, which a warning names; "
+        "`not-configured` for a network that needs credentials the server does not hold, which a warning names.",
+    )
+    stations_with_ids: int | None = Field(
+        description="How many stations of the list carry at least one id; null for a list that was not read.",
+    )
+    message: str | None = Field(description="Why a list that was not read was not; null for one that was.")
+
+
+class StationIdsAlsoSearched(BaseModel):
+    """The ids searched besides the ones given, because they are equivalent to them."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    wmo_id: list[str] = Field(
+        description="WMO numbers: those of a WIGOS identifier of WMO's issuer (`0-20000-0-<number>`) that was given, "
+        "and of the stations an ICAO code found.",
+    )
+    wigos_id: list[str] = Field(
+        description="WIGOS identifiers of WMO's issuer (`0-20000-0-<number>`) of every WMO number searched.",
+    )
+
+
+class StationIdsRequestInfo(BaseModel):
+    """What was asked: the ids given, each in the notation of its column, and the ones searched besides."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    wmo_id: list[str]
+    wigos_id: list[str]
+    icao_id: list[str]
+    also_searched: StationIdsAlsoSearched
+
+
+class StationIdsProvider(BaseModel):
+    """A provider that has a station in the answer: who published its list, and under which terms."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    provider: str = Field(description="The name a request calls it by, `dwd`.")
+    name_local: str
+    name_english: str
+    country: str
+    copyright: str
+    url: str
+    license: _License | None = Field(
+        description="The terms the provider publishes its data under; null where it states none.",
+    )
+    attribution: str | None = Field(description="The credit line to cite; null where the provider states none.")
+
+
+class StationIdsCounts(BaseModel):
+    """How much a search for an id found, and how many of the networks answered."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    stations: int = Field(description="How many stations (rows) the answer has.")
+    providers: int = Field(description="How many providers have a station in it.")
+    networks_searched: int = Field(description="How many networks were asked.")
+    networks_answered: int = Field(description="How many of them read their list.")
+
+
+class StationIdsMetadata(BaseModel):
+    """The `metadata` block of the answer of a search for a WMO, WIGOS or ICAO id (`/api/station-ids`).
+
+    The answer holds the stations of several providers, so the block has no one `provider`: `providers` gives the
+    licence and the credit line of each provider that has a station in the answer, and `searched` tells every network
+    that was asked, with its list. The versions, the time, the producer, the processing note and the warnings are the
+    members every block has.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    api_version: str
+    schema_version: str
+    retrieved_at: str = Field(description="When this answer was made, in UTC.")
+    producer: _Producer
+    processing_note: str = Field(
+        description="What wetterdienst did to the data: the stations were taken from each provider's station list, "
+        "reshaped into a uniform table, and selected by the id, and by the ids equivalent to it.",
+    )
+    request: StationIdsRequestInfo
+    counts: StationIdsCounts
+    searched: list[StationIdsSearched] = Field(
+        description="Every network the search asked, each with the list it read and what came of it.",
+    )
+    providers: list[StationIdsProvider] = Field(
+        description="The providers that have a station in the answer, with their licence and credit line.",
+    )
+    warnings: list[ResponseWarning] = Field(
+        description="What the answer is missing but did not fail on, each with a stable `code` and a `message`: a "
+        "network whose list could not be read (`network-failed`) or that needs credentials the server does not "
+        "hold (`network-not-configured`) is left out of the search and told here.",
+    )
+
+
 class ResponseMetadata(BaseModel):
     """The `metadata` block of an answer."""
 
@@ -255,9 +366,7 @@ class ResponseMetadata(BaseModel):
     processing_note: str = Field(
         description="What wetterdienst did to the data: it was reshaped into a uniform table and its units "
         "converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected "
-        "or calculated from the provider's readings, those of the climate stripes what their anomalies and classes "
-        "are relative to (and, where the years were calculated from daily values, by which rules), and the headers "
-        "of the stripes' image that it is drawn from the annual values, and those of `storm_cells` that the "
+        "or calculated from the provider's readings, those of `storm_cells` that the "
         "direction of a cell is calculated from its forecast track, and those of `kostra` that the values are DWD's "
         "statistics of the grid cell of the point. The same "
         "text for every provider and licence, so that a licence that asks for changes to be indicated has them said; "
@@ -325,7 +434,6 @@ def result_metadata(
 ) -> ResponseMetadata:
     """Build the block of an answer made from `result` when the request does not name the provider and network.
 
-    The climate stripes' stations are listed for the source their request names, which the caller passes on.
     `response_metadata` is this for the requests that name them.
     """
     stations = result if isinstance(result, StationsResult) else result.stations
@@ -419,23 +527,20 @@ def _block_without_result(
     stations: int,
     rows: int,
     data_updated_at: dt.datetime | None = None,
-    image: bool = False,
     calculated: str | None = None,
-    image_note: str = IMAGE_NOTE,
+    image_note: str | None = None,
 ) -> ResponseMetadata:
     """Build the block of an answer that is made from no stations result: the provider's terms and the request.
 
     The date the source states for the data is the caller's to give, for an answer that has one (the warnings), and
-    so is whether the answer is an `image` drawn from the values (the climate stripes' image) and the `calculated`
-    sentence of numbers calculated from them besides (the stripes' classes).
+    so are the `calculated` sentence of numbers calculated from the readings and the `image_note` of an image drawn
+    from them.
     """
     return ResponseMetadata(
         api_version=API_VERSION,
         schema_version=SCHEMA_VERSION,
         retrieved_at=_retrieved_at(),
-        **describe_provider(
-            _provider_terms(api), data_updated_at, image=image, calculated=calculated, image_note=image_note
-        ),
+        **describe_provider(_provider_terms(api), data_updated_at, calculated=calculated, image_note=image_note),
         request=request,
         counts=Counts(stations=stations, rows=rows),
         crs=Crs(),
@@ -458,59 +563,6 @@ def issues_metadata(api: object, request: IssuesRequest, issues: Sequence[str]) 
         ),
         stations=1,
         rows=len(issues),
-    )
-
-
-def stripes_metadata(data: StripesData, request: StripesRequest, *, image: bool = False) -> ResponseMetadata:
-    """Build the block of climate stripes (`/api/stripes/values` and `/image`), made of the values of the source asked.
-
-    The values are DWD's own annual values, or those calculated from the daily values of NOAA GHCN by the WMO rules
-    (GH-4222), which the note says besides what the anomalies and classes are relative to (GH-4157). The CSV's and the
-    image's headers carry it; `image` is for the headers of the image, which add that it is drawn from them.
-    """
-    from wetterdienst.ui.core import GHCN_STRIPES_PARAMETERS, STRIPES_GHCN_SOURCE  # noqa: PLC0415
-
-    stripes = data.series
-    calculated = data.reference.note()
-    if (request.provider, request.network) == STRIPES_GHCN_SOURCE:
-        from wetterdienst.model.processing_note import IMAGE_OF_CALCULATED_NOTE  # noqa: PLC0415
-        from wetterdienst.provider.noaa.ghcn import NoaaGhcnRequest  # noqa: PLC0415
-        from wetterdienst.ui.stripes_annual import annual_note  # noqa: PLC0415
-
-        api: object = NoaaGhcnRequest
-        # every parameter the years were built from
-        parameters = [
-            f"{stripes.resolution}/{stripes.dataset}/{name}" for name in GHCN_STRIPES_PARAMETERS[request.kind]
-        ]
-        reference = data.reference.note("the annual values calculated above")
-        calculated = f"{annual_note(request.kind, stripes.method)} {reference}"
-        image_note = IMAGE_OF_CALCULATED_NOTE
-    else:
-        from wetterdienst.provider.dwd.observation import DwdObservationRequest  # noqa: PLC0415
-
-        api = DwdObservationRequest
-        parameters = [f"{stripes.resolution}/{stripes.dataset}/{stripes.parameter}"]
-        image_note = IMAGE_NOTE
-    return _block_without_result(
-        api,
-        ResolvedRequest(
-            provider=request.provider,
-            network=request.network,
-            parameters=parameters,
-            periods=[Period.HISTORICAL.value],
-            start=None,
-            end=None,
-            stations=StationsSelected(
-                filter=(StationsFilter.BY_STATION_ID if request.station else StationsFilter.BY_NAME).value,
-                count=1,
-                ids=[str(stripes.station["station_id"])],
-            ),
-        ),
-        stations=1,
-        rows=data.df.height,
-        image=image,
-        calculated=calculated,
-        image_note=image_note,
     )
 
 
@@ -589,10 +641,107 @@ def radar_metadata(frames: int, *, image: bool, data_updated_at: dt.datetime | N
         stations=0,
         rows=frames,
         data_updated_at=data_updated_at,
-        image=image,
         calculated=RADAR_FRAMES_NOTE,
-        image_note=RADAR_IMAGE_NOTE,
+        image_note=RADAR_IMAGE_NOTE if image else None,
     )
+
+
+def station_ids_metadata(result: StationIdSearchResult) -> StationIdsMetadata:
+    """Build the block of the search for a WMO, WIGOS or ICAO id (`/api/station-ids`), which holds several providers.
+
+    Each provider with a station in the answer is named with its terms, and every network asked with the list it read.
+    The warnings are the search's own (`result.warnings`: the networks it left out, and what the lists said of
+    themselves) and those recorded for the response being served, which are the same where it began a record
+    (`begin_response`), told once.
+    """
+    from wetterdienst.api import Wetterdienst  # noqa: PLC0415
+
+    in_answer = list(dict.fromkeys(result.df.get_column("provider")))
+    # a provider is what its networks say of it, and they agree (`tests/ui/test_providers.py` holds the registry to it)
+    first_network = {name: next(iter(Wetterdienst.registry[name])) for name in in_answer}
+    providers = []
+    for name in in_answer:
+        terms = Wetterdienst.resolve(name, first_network[name]).metadata
+        providers.append(
+            StationIdsProvider(
+                provider=name,
+                name_local=terms.name_local,
+                name_english=terms.name_english,
+                country=terms.country,
+                copyright=terms.copyright,
+                url=terms.url,
+                license=cast("_License", terms.license.model_dump()) if terms.license else None,
+                attribution=terms.attribution,
+            )
+        )
+    searched = [
+        StationIdsSearched(
+            provider=network.provider,
+            network=network.network,
+            resolution=network.resolution,
+            dataset=network.dataset,
+            ids=list(network.ids),
+            status=network.status,
+            stations_with_ids=network.stations_with_ids,
+            message=network.message,
+        )
+        for network in result.searched
+    ]
+    return StationIdsMetadata(
+        api_version=API_VERSION,
+        schema_version=SCHEMA_VERSION,
+        retrieved_at=_retrieved_at(),
+        producer=describe_producer(),
+        processing_note=processing_note(calculated=STATION_IDS_NOTE),
+        request=StationIdsRequestInfo(
+            wmo_id=result.request["wmo_id"],
+            wigos_id=result.request["wigos_id"],
+            icao_id=result.request["icao_id"],
+            also_searched=StationIdsAlsoSearched(
+                wmo_id=result.also_searched["wmo_id"], wigos_id=result.also_searched["wigos_id"]
+            ),
+        ),
+        counts=StationIdsCounts(
+            stations=result.df.height,
+            providers=len(providers),
+            networks_searched=len(searched),
+            networks_answered=sum(network.status == "searched" for network in searched),
+        ),
+        searched=searched,
+        providers=providers,
+        warnings=[*result.warnings, *(w for w in recorded_warnings() if w not in result.warnings)],
+    )
+
+
+def station_ids_headers(metadata: StationIdsMetadata) -> Mapping[str, str]:
+    """Give the headers that say what the block of a search for an id says, for the CSV, which has no place for it."""
+    headers = {
+        "X-Wetterdienst-API-Version": metadata.api_version,
+        "X-Wetterdienst-Schema-Version": metadata.schema_version,
+        "X-Wetterdienst-Retrieved-At": metadata.retrieved_at,
+        "X-Wetterdienst-Stations": str(metadata.counts.stations),
+    }
+    if metadata.providers:
+        headers["X-Wetterdienst-Provider"] = _header_text(", ".join(p.name_english for p in metadata.providers))
+        # as the headers of every other answer write them (the licence by its identifier or name, the credit line as the
+        # provider states it), one entry for each provider in the order of `X-Wetterdienst-Provider`, an entry once
+        licences = list(
+            dict.fromkeys(_license_label(provider.license) for provider in metadata.providers if provider.license)
+        )
+        if licences:
+            headers["X-Wetterdienst-License"] = _header_text(", ".join(licences))
+            urls = dict.fromkeys(p.license["url"] for p in metadata.providers if p.license is not None)
+            headers["Link"] = ", ".join(f'<{url}>; rel="license"' for url in urls)
+        credits_ = list(dict.fromkeys(p.attribution for p in metadata.providers if p.attribution))
+        if credits_:
+            headers["X-Wetterdienst-Attribution"] = _header_text("; ".join(credits_))
+    headers["X-Wetterdienst-Processing"] = _header_text(metadata.processing_note)
+    if metadata.warnings:
+        headers["X-Wetterdienst-Warnings"] = ", ".join(dict.fromkeys(w["code"] for w in metadata.warnings))
+    # the note of a tool's answer that was cut (GH-4022): a CSV has no block to carry it
+    if truncated := next((w["message"] for w in metadata.warnings if w["code"] == ANSWER_TRUNCATED), None):
+        headers["X-Wetterdienst-Truncated"] = _header_text(truncated)
+    return headers
 
 
 def metadata_to_dict(metadata: ResponseMetadata) -> dict[str, Any]:

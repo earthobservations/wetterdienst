@@ -262,7 +262,7 @@ progress at the Faroe and Greenland stations 06014, 06009, 04390, 04208 and 0420
 114 m/s of 06013 and 04341 that the library has met all carry it.
 
 With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the
-default is `soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes leave it
+default is `soft`, which keeps the value and writes `suspect:source`, so interpolation and summaries leave it
 out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ## The count behind a value (`n`)
@@ -284,8 +284,7 @@ daily values of Greenland before the automation are the mean, extreme or sum of 
 (`n:8` for the temperature, pressure, humidity, wind, vapour pressure and cloud cover of 04360 Tasiilaq on
 1975-06-01/02, 1995-06-01/02 and 2005-06-01/02, all `validity:true`), so half of 8 is the threshold, and it still
 catches the days of 04219 from 1 or 2 readings. The 14 of 28 days and the 183 of 365 days are half of the shortest month
-and year. A value soft-flagged `suspect:source` is a row without a value in `interpolate`, `summarize` and the climate
-stripes, as every `suspect:` value is.
+and year. A value soft-flagged `suspect:source` is a row without a value in `interpolate`, `summarize`, as every `suspect:` value is.
 The value is kept as `suspect:source` (`manual,validity:true,n:2,suspect:source`, the 16.8 hPa of 04219 on 2026-03-03)
 and null as `rejected:source,raw:<text>` with `plausibility={"source": "hard"}`, the same switch as `validity:false`.
 

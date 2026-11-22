@@ -26,6 +26,12 @@ Types of changes:
   only with "Remember my position" (`wd-location`) and sent to no request: the radar is the same for
   everyone. The privacy policy lists the radar among the places and for the map tiles, and says so
   (GH-4287).
+- `[Measurement]` Four more entries on the "How weather is measured" page: evaporation
+  (`/measurement#evaporation`), soil moisture (`#soil-moisture`), present weather and the state of
+  the ground (`#present-weather`) and clouds (`#clouds`), each with the sources it rests on (the
+  WMO Guide, WMO-No. 8, Volume I, Chapters 10, 11, 14 and 15, and the providers' own files). They
+  are written in German and English, like the first ones; the Glossary links the evaporation,
+  soil moisture, weather and cloud parameters to them (GH-3787).
 
 ## [0.57.0] - 2026-11-21
 

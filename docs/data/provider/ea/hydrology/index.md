@@ -40,7 +40,7 @@ readings the API gave for 2024-01-01 (read 2026-11-02), 1,378 were `Good`, 563 `
 `Suspect,suspect:source`.
 
 With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`; the
-default is `soft`, which keeps the value and writes `suspect:source`, so interpolation, summaries and climate stripes leave it
+default is `soft`, which keeps the value and writes `suspect:source`, so interpolation and summaries leave it
 out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ```{toctree}

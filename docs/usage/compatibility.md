@@ -162,8 +162,7 @@ The command line is a client of the same functions as the REST API: it renders a
 same request gives the same output, and the options are the parameters of the REST API.
 
 - **Commands and options**: `alerts`, `auth`, `cache`, `coverage`, `fields`,
-  `glossary`, `history`, `info`, `interpolate`, `issues`, `kostra`, `providers`, `radar`, `restapi`, `stations`, `storm-cells`, `stripes`
-  (`image`, `stations`), `summarize` and `values`, with their options, the choices of an option and its default. `tests/ui/cli/help.snapshot.txt`
+  `glossary`, `history`, `info`, `interpolate`, `issues`, `kostra`, `providers`, `radar`, `restapi`, `station-ids`, `stations`, `storm-cells`, `summarize` and `values`, with their options, the choices of an option and its default. `tests/ui/cli/help.snapshot.txt`
   is the `--help` of every command; `uv run poe cli:snapshot` writes it anew after an intended change.
   `tests/baselines/cli.baseline.json` is every command and every spelling of every option as the last release offered
   it (see below).
@@ -354,8 +353,7 @@ library reads them more closely, which is a fix and not a break; `spdx_id` is nu
 AEMET, IPMA, NWS), and `license` is null only where a provider states no terms that could be read, which is then
 named with its reason in `LICENSE_NOT_STATED` of `tests/ui/test_response_metadata.py` (empty today). The licence of the
 data is the provider's, not wetterdienst's. `processing_note` was added as a member (an addition, after 0.183.0): one fixed text for every
-answer that holds provider data, longer by a sentence for an answer of `interpolate` and `summarize` and for the
-headers of the climate stripes' image. Its wording may be improved, which is a fix; that an answer carries it is not
+answer that holds provider data, longer by a sentence for an answer of `interpolate` and `summarize`. Its wording may be improved, which is a fix; that an answer carries it is not
 changed. ECCC's `license` and `attribution` changed once, to the licence of the data server it is read from (a
 correction). Every provider's terms are listed on
 [licences and credit lines](../data/provider/licenses.md).
@@ -428,8 +426,10 @@ the `ts_*` settings (deprecated in 0.148.0, removed in 0.160.0), `use_nearby_sta
 in 0.173.0, earlier than announced.
 
 `Wetterdienst(provider, network)` is a `TypeError` that names `Wetterdienst.resolve`, and `wetterdienst stripes
-values` is "No such command". The name `stripes values` is **never reused** for other output: a command for the
-yearly values that `/api/stripes/values` answers would get another name, as an addition.
+values` is "No such command". The name `stripes values` is **never reused** for other output, and since the climate
+stripes left the backend (in the release after 0.194.0, GH-4258: the web app draws them itself) the same holds for the
+whole `stripes` group of the command line, the `/stripes/...` routes of the REST API and the `stripes_...` tools of
+MCP: a command, route or tool of that name that does something else would get another name, as an addition.
 
 Removal is a **Breaking** change, and so a major version from 1.0, with one exception: a provider, a network or a
 parameter whose upstream source has ended is removed in a minor release, announced as **Breaking** (see

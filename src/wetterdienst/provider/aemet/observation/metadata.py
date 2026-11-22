@@ -85,6 +85,7 @@ _AemetObservationMetadataSpec = {
     },
     "timezone": "Europe/Madrid",
     "auth": True,
+    "station_id_list": {"resolution": "daily", "dataset": "data", "ids": ["wmo_id"]},
     "resolutions": [
         {
             "name": "hourly",

@@ -1,7 +1,7 @@
 /**
  * A stand-in for the days of a station of NOAA GHCN daily, written as `/api/values` gives them, for the tests of the annual values
- * the app's server calculates from them (GH-4258). It is the port of `tests/ui/ghcn_stripes_stub.py` of the backend, which the
- * backend's own tests of the stripes read through the library, and so the numbers are the same: a station whose annual mean
+ * the app's server calculates from them (GH-4258). It is the port of `tests/ui/ghcn_stripes_stub.py` of the backend (removed by
+ * GH-4258), which its own tests of the stripes read through the library, and so the numbers are the same: a station whose annual mean
  * temperature is 10.0 degrees in `FIRST_YEAR` and 0.2 more with each year after it (a TMAX of 15.0 and a TMIN of 5.0, plus 0.2 a
  * year each, that swing against each other so that the mean of a day is the same every day), and 1.0 and 3.0 mm of rain on
  * alternate days. So a year's temperature is known without calculating it, and a year the rules fail is the only way it differs.

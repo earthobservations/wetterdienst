@@ -76,7 +76,7 @@ parameters are, see [one vocabulary](restapi.md#one-vocabulary)) and the same an
 | `alerts` | `/api/v1/alerts` | the weather warnings of DWD: all of Germany unless given a place (`latitude` and `longitude`, or `name`), so pass it |
 | `storm_cells` | `/api/v1/storm-cells` | the thunderstorm cells of DWD, now or within the last 48 hours: all of Germany unless given a point and `distance` (km) or a box (`left`, `bottom`, `right`, `top`), so pass one; `track=false` and `geometry=centroid` keep a long list short. The answer is not cut |
 | `kostra` | `/api/v1/kostra` | the heavy-rainfall statistics of DWD (KOSTRA-DWD-2020) for a point in Germany: the depth, intensity and uncertainty of a rain by duration and return period. Pass a `duration` (minutes, one of 22) and a `return_period` (years) for the one value you need: without them it reads 22 files and answers 198 rows. A point outside Germany and its border is refused |
-| `stripes_stations`, `stripes_values`, `stripes_image` | `/api/v1/stripes/...` | climate stripes, see [Climate Stripes](stripes.md) |
+| `station_ids` | `/api/v1/station-ids` | one WMO number, WIGOS identifier or ICAO code at every provider that lists stations with it, as a list with the provider, network, `station_id` and which id matched, see [Find a station by id](station_ids.md). It asks the station list of every network that declares id columns at once: about 9 s the first time, longer on a slow day (the tool's description says so), then about a second. A network that cannot be read, or needs a key the server does not hold, is left out and named in a warning; the answer is cut to the budget like `stations`'s |
 
 The routes of the precipitation radar (`/api/v1/radar/frames` and `/radar/frame`, map images for a page to draw) are no tools.
 
@@ -120,7 +120,7 @@ data and the warnings that the REST API sends in headers for these formats (the 
 in the `_meta` of the result, under `wetterdienst`). For data (`csv` and `ndjson`) the body follows the sentence in the
 structured content, since a client may hand the model that alone; a chart is not repeated. An `html` chart loads plotly.js
 from the CDN, so the page is a few kilobytes (9 KB for one station) where the REST API sends it inline, about 4.8 MB,
-and the page needs the network to draw. The default is `json` (`png` for `stripes_image`, which only draws), which
+and the page needs the network to draw. The default is `json`, which
 the assistant reads without further ado: a chart is for a client that shows it, and a long `csv` goes through the
 context of the assistant.
 
@@ -160,7 +160,7 @@ before now, answers no row and says so. The REST API, the command line and Pytho
 
 An assistant reads the answer of a tool in its context, and Claude Code saves a result of more than 50,000 characters to
 a file instead of handing it over (it counts characters, not tokens). So the answer of `values`, `stations`,
-`interpolate`, `summarize`, `stripes_stations` and `coverage` is held to **40,000 characters** of what the client receives, in
+`interpolate`, `summarize` and `coverage` is held to **40,000 characters** of what the client receives, in
 `json`, `geojson`, `csv` and `ndjson`: for JSON the answer as the client gets it, `metadata` and `with_metadata`
 included, and for `csv` and `ndjson` the structured content as JSON: the sentence of the tool, which carries the
 licence and the note below, and the body, each newline and quote of it written as the escape it is there. A chart is
@@ -184,10 +184,6 @@ An answer over the budget is cut, not refused, and says so:
   So is a large `rank` (700 asks for as many): the nearest stations that fit are kept, nearest first, and the note says
   how many the `rank` asked for, how many are returned and how far the farthest of them is, and suggests a smaller
   `rank`. A `rank` that fits is unchanged.
-- **`stripes_stations`** is cut like `stations`: the first stations of the list. It selects by a bounding box only, so the
-  note says to give the place as `name` to `stripes_values` or `stripes_image`, which match it themselves, to find a
-  station with `stations`, or to ask for a box. The list of the temperature stripes is 175,000 characters, that of the precipitation
-  stripes 733,000.
 - **`coverage`** is not rows but resolutions, datasets and parameters with a description each, and noaa/ghcn (59,000
   characters), dwd/observation (89,000) and dwd/phenology (139,000) are over the budget. It is cut in steps, each only
   where the one before is still over: the answer as it is; the `description` of every parameter null (everything else

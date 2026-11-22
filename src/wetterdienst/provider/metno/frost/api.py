@@ -96,6 +96,7 @@ _MetnoFrostMetadataSpec = {
     },
     "timezone": "Europe/Oslo",
     "auth": True,
+    "station_id_list": {"resolution": "hourly", "dataset": "data", "ids": ["wmo_id", "wigos_id"]},
     "resolutions": [
         {
             "name": "10_minutes",

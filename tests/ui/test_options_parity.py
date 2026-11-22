@@ -397,10 +397,8 @@ def test_mcp_tool_object_argument_sets_the_option(
 
 
 #: the object arguments of a tool whose options are not taken through a getter of the REST API, which these cases stand
-#: in for: the stripes build theirs in `ui/core` for one parameter, and their own tests hold the argument (GH-3980)
-_OBJECT_ARGUMENTS_HELD_ELSEWHERE = {
-    ("stripes_values", "unit_targets"): "tests/ui/test_restapi.py::test_mcp_stripes_values_take_unit_targets",
-}
+#: in for, with the test that holds each; none is left since the climate stripes went (GH-4258)
+_OBJECT_ARGUMENTS_HELD_ELSEWHERE: dict[tuple[str, str], str] = {}
 
 
 def test_every_object_argument_of_a_tool_is_held_to_an_object_case(mcp_server: object) -> None:
@@ -674,24 +672,6 @@ def test_a_request_is_built_with_the_options_given() -> None:
     assert (built.options.humanize, built.options.shape) == (False, "wide")
 
 
-def test_the_stripes_read_the_values_long_and_whole_whatever_the_environment_sets(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test the stripes' requests are built with a long shape and no skipping of stations (GH-2348).
-
-    They take the `value` column of a long frame and draw the gaps themselves.
-    """
-    from wetterdienst.ui import core  # noqa: PLC0415
-
-    monkeypatch.setenv("WD_TS_SHAPE", "wide")
-    monkeypatch.setenv("WD_TS_SKIP_EMPTY", "true")
-    monkeypatch.setenv("WD_TS_HUMANIZE", "false")
-    for request in (core._get_stripes_temperature_request(), core._get_stripes_precipitation_request()):  # noqa: SLF001
-        assert (request.options.shape, request.options.skip_empty) == ("long", False)
-        # what is not replaced is the environment's
-        assert request.options.humanize is False
-
-
 def test_the_glossary_reports_the_units_of_the_options_given() -> None:
     """Test the glossary names the unit a values request with these options returns."""
     from wetterdienst.ui.core import get_glossary  # noqa: PLC0415
@@ -707,16 +687,6 @@ def test_the_glossary_reads_the_environments_options_when_given_none(monkeypatch
     monkeypatch.setenv("WD_TS_UNIT_TARGETS", json.dumps(_FAHRENHEIT))
     entries = get_glossary(parameter="temperature_air_mean_2m")
     assert {entry["unit"] for entry in entries if entry["unit_type"] == "temperature"} == {"degree_fahrenheit"}
-
-
-def test_the_stripes_override_a_malformed_variable_for_their_options(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test a malformed WD_TS_SHAPE or WD_TS_SKIP_EMPTY, which the stripes' arguments outrank, does not stop them."""
-    from wetterdienst.ui import core  # noqa: PLC0415
-
-    monkeypatch.setenv("WD_TS_SHAPE", "bogus")
-    monkeypatch.setenv("WD_TS_SKIP_EMPTY", "maybe")
-    request = core._get_stripes_temperature_request()  # noqa: SLF001
-    assert (request.options.shape, request.options.skip_empty) == ("long", False)
 
 
 @pytest.mark.parametrize("path", ["/api/settings", "/api/settings?humanize=false", "/api/glossary"])

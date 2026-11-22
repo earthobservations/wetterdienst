@@ -67,7 +67,7 @@ the test of the mapping is a row written as `meta4.csv` words it.
 
 With `plausibility={"source": "hard"}` the value is null and the token is `rejected:source,raw:<text>`, except
 for the milder level `Suspect`, which stays `suspect:source`; the default is `soft`, which keeps the value and writes
-`suspect:source` for both, so interpolation, summaries, climate stripes and `skip_empty` leave it out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
+`suspect:source` for both, so interpolation, summaries and `skip_empty` leave it out. See [the check `source`](../../../plausibility.md#the-sources-own-verdict-source).
 
 ## License
 

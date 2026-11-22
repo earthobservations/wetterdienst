@@ -1,8 +1,8 @@
 import { isSuspect, roundHalfEven, yearTimestamp } from '../../app/utils/stripes-scale'
 
 // The annual values of the climate stripes for a source that publishes days only: NOAA GHCN daily (GH-4222, moved to the app's
-// server by GH-4258). The port of the backend's `ui/stripes_annual.py`, which phase 2 of GH-4258 removes there;
-// `tests/unit/stripes-annual.test.ts` holds it to that module's own tests.
+// server by GH-4258). The port of the backend's `ui/stripes_annual.py`, which GH-4258 removed there;
+// `tests/unit/stripes-annual.test.ts` holds it to the cases of that module's own tests.
 //
 // DWD publishes annual values, which the stripes read as they are. GHCN-Daily has daily values only, so the year is built
 // from the days, by the rules of the WMO Guidelines on the Calculation of Climate Normals (WMO-No. 1203):

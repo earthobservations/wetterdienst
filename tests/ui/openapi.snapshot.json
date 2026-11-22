@@ -2088,6 +2088,166 @@
         }
       }
     },
+    "/api/v1/station-ids": {
+      "get": {
+        "tags": [
+          "Stations"
+        ],
+        "summary": "Station Ids",
+        "description": "Find one WMO number, WIGOS identifier or ICAO code at every provider that lists stations with it.\n\nPass `wmo_id`, `wigos_id` or `icao_id` (one or several, comma-separated, at least one) and get one row for\neach station that carries one of them, at every network that publishes the id with its stations (the\n`searched` list of the `metadata` block names them): `provider`, `network`, the `resolution` and `dataset` of the\nstation list it comes from (another dataset of the network may list other stations), `station_id` (what you pass\nto `values`), `name`, `latitude`, `longitude`, `elevation`, `wmo_id`, `wigos_id`, `icao_id`, and `matched_by`\nwith `match`. One WMO number can sit on several stations of one provider (NOAA GHCN has up to four), so the\nanswer is a list.\n\nThe ids are equivalent: the WIGOS identifier `0-20000-0-10381` and the WMO number `10381` find each other, and\nan ICAO code also searches the WMO numbers of the stations it finds, so `icao_id=EDDH` finds Hamburg's DWD\nstation `01975` and NOAA GHCN `GM000010147`, which list no ICAO code. `matched_by` says which id of the station\nmatched (`wmo_id`, `wigos_id` or `icao_id`), and `match` whether it was the id asked for (`direct`) or one\nequivalent to it (`equivalent`).\n\nEvery network that declares id columns is asked, with no narrowing by region. The first search reads their station\nlists, about 30 MB: it takes about 9 s on a good connection and longer on a slow one or when a provider is slow;\nthe same search again takes about a second, from the server's cache. Do not repeat it within a conversation. A\nnetwork that cannot be read is left out and named in `warnings` (`network-failed`) and in `searched`, and keyed\nnetworks without credentials are named in a warning too (`network-not-configured`); the others answer. If every\nnetwork that was asked fails it is a 502 and no answer, since an outage is no station that does not exist. A\nstation of `noaa/ghcn` that has no data file is left out. No row means no listed station has the id, not an error.\nA tool's answer is cut to 40,000 characters, with an `answer-truncated` warning: ask for fewer ids.",
+        "operationId": "station_ids_api_station_ids_get",
+        "parameters": [
+          {
+            "name": "wmo_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "WMO station numbers, comma-separated, e.g. '10381,10147'; '1001' is read as '01001'. The WIGOS identifier '0-20000-0-<number>' of every one is searched too.",
+              "title": "Wmo Id"
+            },
+            "description": "WMO station numbers, comma-separated, e.g. '10381,10147'; '1001' is read as '01001'. The WIGOS identifier '0-20000-0-<number>' of every one is searched too.",
+            "style": "form",
+            "explode": false
+          },
+          {
+            "name": "wigos_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "WIGOS station ids, comma-separated, e.g. '0-20000-0-10381'; '0-056-…' is read as '0-56-…'. One of WMO's own issuer, '0-20000-0-<number>', is the WMO number as well and finds the stations that have it.",
+              "title": "Wigos Id"
+            },
+            "description": "WIGOS station ids, comma-separated, e.g. '0-20000-0-10381'; '0-056-…' is read as '0-56-…'. One of WMO's own issuer, '0-20000-0-<number>', is the WMO number as well and finds the stations that have it.",
+            "style": "form",
+            "explode": false
+          },
+          {
+            "name": "icao_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. The WMO numbers of the stations found are searched too, so 'EDDH' finds the stations that list Hamburg's aerodrome by its WMO number only.",
+              "title": "Icao Id"
+            },
+            "description": "ICAO codes, comma-separated, e.g. 'EDDH,EDDB'; any case. The WMO numbers of the stations found are searched too, so 'EDDH' finds the stations that list Hamburg's aerodrome by its WMO number only.",
+            "style": "form",
+            "explode": false
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "json",
+                "csv"
+              ],
+              "type": "string",
+              "description": "Output format: json (with the metadata block) or csv (the table alone).",
+              "default": "json",
+              "title": "Format"
+            },
+            "description": "Output format: json (with the metadata block) or csv (the table alone)."
+          },
+          {
+            "name": "pretty",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Pretty-print JSON/GeoJSON output.",
+              "default": false,
+              "title": "Pretty"
+            },
+            "description": "Pretty-print JSON/GeoJSON output."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/_StationIdsWithMetadataDict"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ],
+                  "title": "Response Station Ids Api Station Ids Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Problem"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          },
+          "501": {
+            "$ref": "#/components/responses/NotImplemented"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
+          },
+          "503": {
+            "$ref": "#/components/responses/Unavailable"
+          },
+          "504": {
+            "$ref": "#/components/responses/GatewayTimeout"
+          }
+        }
+      }
+    },
     "/api/v1/issues": {
       "get": {
         "tags": [
@@ -4490,752 +4650,6 @@
             [
               "latitude",
               "longitude"
-            ]
-          ]
-        }
-      }
-    },
-    "/api/v1/stripes/stations": {
-      "get": {
-        "tags": [
-          "Climate stripes"
-        ],
-        "summary": "Stripes Stations",
-        "description": "List the stations climate stripes are made for, of DWD (the default) or of NOAA GHCN daily.\n\nA station whose record spans fewer than 10 calendar years (first to last, inclusive) is left out, as stripes of\nfewer than 10 years with data are refused. A station with gaps in a longer span is listed and may still be refused.\nFor GHCN the span is that of the elements the kind is made from (TAVG, TMAX and TMIN for the temperature, PRCP for\nthe precipitation), and `active` keeps the stations whose record reaches into this or the last year.\n\n`left`, `bottom`, `right` and `top`, all four, keep the stations in a bounding box, as `/api/stations` does: the\nlist of GHCN is long, so ask for the ones in view.",
-        "operationId": "stripes_stations_api_stripes_stations_get",
-        "parameters": [
-          {
-            "name": "kind",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "enum": [
-                "temperature",
-                "precipitation"
-              ],
-              "type": "string",
-              "description": "temperature (annual mean air temperature) or precipitation (annual amount).",
-              "title": "Kind"
-            },
-            "description": "temperature (annual mean air temperature) or precipitation (annual amount)."
-          },
-          {
-            "name": "provider",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served.",
-              "default": "dwd",
-              "title": "Provider"
-            },
-            "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served."
-          },
-          {
-            "name": "network",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served.",
-              "default": "observation",
-              "title": "Network"
-            },
-            "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served."
-          },
-          {
-            "name": "active",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "description": "Only the stations that still report, i.e. have data in the recent period.",
-              "default": true,
-              "title": "Active"
-            },
-            "description": "Only the stations that still report, i.e. have data in the recent period."
-          },
-          {
-            "name": "left",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "number",
-                  "maximum": 180,
-                  "minimum": -180
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Western longitude of the bounding box.",
-              "title": "Left"
-            },
-            "description": "Western longitude of the bounding box."
-          },
-          {
-            "name": "bottom",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "number",
-                  "maximum": 90,
-                  "minimum": -90
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Southern latitude of the bounding box.",
-              "title": "Bottom"
-            },
-            "description": "Southern latitude of the bounding box."
-          },
-          {
-            "name": "right",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "number",
-                  "maximum": 180,
-                  "minimum": -180
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Eastern longitude of the bounding box.",
-              "title": "Right"
-            },
-            "description": "Eastern longitude of the bounding box."
-          },
-          {
-            "name": "top",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "number",
-                  "maximum": 90,
-                  "minimum": -90
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Northern latitude of the bounding box.",
-              "title": "Top"
-            },
-            "description": "Northern latitude of the bounding box."
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "json",
-                "geojson",
-                "csv"
-              ],
-              "type": "string",
-              "description": "Output format: json, geojson (a feature collection) or csv.",
-              "default": "json",
-              "title": "Format"
-            },
-            "description": "Output format: json, geojson (a feature collection) or csv."
-          },
-          {
-            "name": "pretty",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "description": "Pretty-print JSON/GeoJSON output.",
-              "default": false,
-              "title": "Pretty"
-            },
-            "description": "Pretty-print JSON/GeoJSON output."
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/_StationsWithMetadataDict"
-                    },
-                    {
-                      "$ref": "#/components/schemas/_StationsWithMetadataOgcFeatureCollection"
-                    },
-                    {
-                      "type": "string"
-                    }
-                  ],
-                  "title": "Response Stripes Stations Api Stripes Stations Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          },
-          "501": {
-            "$ref": "#/components/responses/NotImplemented"
-          },
-          "502": {
-            "$ref": "#/components/responses/BadGateway"
-          },
-          "503": {
-            "$ref": "#/components/responses/Unavailable"
-          },
-          "504": {
-            "$ref": "#/components/responses/GatewayTimeout"
-          }
-        }
-      }
-    },
-    "/api/v1/stripes/values": {
-      "get": {
-        "tags": [
-          "Climate stripes"
-        ],
-        "summary": "Stripes Values",
-        "description": "Get climate stripes data values with timestamps, and the series they are of.\n\nThe JSON `series` names the station, the parameter and the unit of the values in `unit`, e.g.\n\"degree_celsius\"; `metadata` is the block every answer has. `unit_targets` chooses the unit, as for\n`/api/values`, e.g. {\"temperature\": \"degree_fahrenheit\"}; the server's\nWD_TS_CONVERT_UNITS and WD_TS_UNIT_TARGETS set it where the request gives none: the target of the\nquantity where the values are converted, the source's unit where not.\n\nThe colours follow Ed Hawkins' method: each value has its `anomaly` to the mean of 1971-2000 and its\n`stripe_class`, 0 (the lowest) to 15, in steps of 0.325 standard deviations of the annual values of\n1901-2000 (+/-2.6 standard deviations in 16 classes, the outermost taking what lies beyond). The `reference`\nnames the mean and the standard deviation, in the unit of the values, and the years they are calculated from;\na station with too few years in a period takes its whole record for it (`fallback`). A year's class\ndoes not depend on `start_year` and `end_year`, and is the same in any unit.\n\n`provider` and `network` choose the source: `dwd`/`observation` (the default) reads DWD's annual values, and\n`noaa`/`ghcn` builds each year from the station's daily values by the WMO rules (WMO-No. 1203). Temperature: a\nday is the midrange of TMAX and TMIN, which is no 24-hour mean, for every day of the series; TAVG is used only at a\nstation with no day that has both, so that the method does not change along the record and show as a false step. A\nmonth counts with at most 10 days missing and at most 4 in a row, and a year with all 12 months counting is the\nmean of the monthly means. Precipitation: a month counts only when complete, and a year with all 12 months\ncounting is the sum. A year that fails is a gap, and a value that failed a quality check of the source is a missing\nday. `series` names the daily parameter the years were built from and has the method of the days as `method`:\n`midrange` or `tavg` (null for DWD's own annual values and for the precipitation); the `processing_note` says it in\nwords.",
-        "operationId": "stripes_values_api_stripes_values_get",
-        "parameters": [
-          {
-            "name": "kind",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "enum": [
-                "temperature",
-                "precipitation"
-              ],
-              "type": "string",
-              "description": "temperature (annual mean air temperature) or precipitation (annual amount).",
-              "title": "Kind"
-            },
-            "description": "temperature (annual mean air temperature) or precipitation (annual amount)."
-          },
-          {
-            "name": "provider",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served.",
-              "default": "dwd",
-              "title": "Provider"
-            },
-            "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served."
-          },
-          {
-            "name": "network",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served.",
-              "default": "observation",
-              "title": "Network"
-            },
-            "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served."
-          },
-          {
-            "name": "station",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Station id, e.g. '01048' (dwd) or 'USW00094728' (noaa); give this or name.",
-              "title": "Station"
-            },
-            "description": "Station id, e.g. '01048' (dwd) or 'USW00094728' (noaa); give this or name. Exactly one of station or name is required.",
-            "examples": {
-              "example": {
-                "value": "01048"
-              }
-            }
-          },
-          {
-            "name": "name",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station.",
-              "title": "Name"
-            },
-            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station. Exactly one of station or name is required.",
-            "examples": {
-              "example": {
-                "value": "Hamburg Fuhlsbüttel"
-              }
-            }
-          },
-          {
-            "name": "name_threshold",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "maximum": 1,
-              "minimum": 0,
-              "description": "Minimum fuzzy-match score for `name` (0 = any match, 1 = exact).",
-              "default": 0.8,
-              "title": "Name Threshold"
-            },
-            "description": "Minimum fuzzy-match score for `name` (0 = any match, 1 = exact)."
-          },
-          {
-            "name": "start_year",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "First year. Default: the station's first.",
-              "title": "Start Year"
-            },
-            "description": "First year. Default: the station's first."
-          },
-          {
-            "name": "end_year",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Last year, after start_year. Default: the station's last.",
-              "title": "End Year"
-            },
-            "description": "Last year, after start_year. Default: the station's last."
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "json",
-                "csv"
-              ],
-              "type": "string",
-              "description": "Output format.",
-              "default": "json",
-              "title": "Format"
-            },
-            "description": "Output format."
-          },
-          {
-            "name": "pretty",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "description": "Pretty-print JSON/GeoJSON output.",
-              "default": false,
-              "title": "Pretty"
-            },
-            "description": "Pretty-print JSON/GeoJSON output."
-          },
-          {
-            "name": "unit_targets",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "object",
-                  "additionalProperties": {
-                    "type": "string"
-                  }
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "The unit the values are returned in, as for `/api/values`: a mapping of quantity to unit, e.g. {'temperature': 'degree_fahrenheit'}. The unit of the kind is reported in `series.unit`. A quantity it leaves out keeps the server's WD_TS_UNIT_TARGETS entry, if set. The colours of the stripes image are relative and are the same in any unit.",
-              "title": "Unit Targets"
-            },
-            "description": "The unit the values are returned in, as for `/api/values`: a mapping of quantity to unit, e.g. {'temperature': 'degree_fahrenheit'}. The unit of the kind is reported in `series.unit`. A quantity it leaves out keeps the server's WD_TS_UNIT_TARGETS entry, if set. The colours of the stripes image are relative and are the same in any unit."
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "$ref": "#/components/schemas/_StripesValuesWithMetadataDict"
-                    },
-                    {
-                      "type": "string"
-                    }
-                  ],
-                  "title": "Response Stripes Values Api Stripes Values Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          },
-          "501": {
-            "$ref": "#/components/responses/NotImplemented"
-          },
-          "502": {
-            "$ref": "#/components/responses/BadGateway"
-          },
-          "503": {
-            "$ref": "#/components/responses/Unavailable"
-          },
-          "504": {
-            "$ref": "#/components/responses/GatewayTimeout"
-          }
-        },
-        "x-wetterdienst-selection": {
-          "exactly_one_of": [
-            [
-              "station"
-            ],
-            [
-              "name"
-            ]
-          ]
-        }
-      }
-    },
-    "/api/v1/stripes/image": {
-      "get": {
-        "tags": [
-          "Climate stripes"
-        ],
-        "summary": "Stripes Image",
-        "description": "Generate climate stripes image for a station.",
-        "operationId": "stripes_image_api_stripes_image_get",
-        "parameters": [
-          {
-            "name": "kind",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "enum": [
-                "temperature",
-                "precipitation"
-              ],
-              "type": "string",
-              "description": "temperature (annual mean air temperature) or precipitation (annual amount).",
-              "title": "Kind"
-            },
-            "description": "temperature (annual mean air temperature) or precipitation (annual amount)."
-          },
-          {
-            "name": "provider",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served.",
-              "default": "dwd",
-              "title": "Provider"
-            },
-            "description": "Provider of the stations and values the stripes are made from: 'dwd' (annual values, the default) or 'noaa' (GHCN daily, whose years are calculated from its daily values by the WMO rules). Only the pairs dwd/observation and noaa/ghcn are served."
-          },
-          {
-            "name": "network",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served.",
-              "default": "observation",
-              "title": "Network"
-            },
-            "description": "Network of the provider: 'observation' for dwd (the default), 'ghcn' for noaa. Only the pairs dwd/observation and noaa/ghcn are served."
-          },
-          {
-            "name": "station",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Station id, e.g. '01048' (dwd) or 'USW00094728' (noaa); give this or name.",
-              "title": "Station"
-            },
-            "description": "Station id, e.g. '01048' (dwd) or 'USW00094728' (noaa); give this or name. Exactly one of station or name is required.",
-            "examples": {
-              "example": {
-                "value": "01048"
-              }
-            }
-          },
-          {
-            "name": "name",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station.",
-              "title": "Name"
-            },
-            "description": "Station name, matched fuzzily, e.g. 'Hamburg Fuhlsbüttel'; give this or station. Exactly one of station or name is required.",
-            "examples": {
-              "example": {
-                "value": "Hamburg Fuhlsbüttel"
-              }
-            }
-          },
-          {
-            "name": "name_threshold",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "number",
-              "maximum": 1,
-              "minimum": 0,
-              "description": "Minimum fuzzy-match score for `name` (0 = any match, 1 = exact).",
-              "default": 0.8,
-              "title": "Name Threshold"
-            },
-            "description": "Minimum fuzzy-match score for `name` (0 = any match, 1 = exact)."
-          },
-          {
-            "name": "start_year",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "First year. Default: the station's first.",
-              "title": "Start Year"
-            },
-            "description": "First year. Default: the station's first."
-          },
-          {
-            "name": "end_year",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "Last year, after start_year. Default: the station's last.",
-              "title": "End Year"
-            },
-            "description": "Last year, after start_year. Default: the station's last."
-          },
-          {
-            "name": "show_title",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "description": "Show the station name.",
-              "default": true,
-              "title": "Show Title"
-            },
-            "description": "Show the station name."
-          },
-          {
-            "name": "show_years",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "description": "Show the first and last year.",
-              "default": true,
-              "title": "Show Years"
-            },
-            "description": "Show the first and last year."
-          },
-          {
-            "name": "show_data_availability",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "boolean",
-              "description": "Mark the years without data.",
-              "default": true,
-              "title": "Show Data Availability"
-            },
-            "description": "Mark the years without data."
-          },
-          {
-            "name": "format",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "enum": [
-                "png",
-                "jpg",
-                "svg",
-                "pdf"
-              ],
-              "type": "string",
-              "description": "Image format.",
-              "default": "png",
-              "title": "Format"
-            },
-            "description": "Image format."
-          },
-          {
-            "name": "dpi",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "exclusiveMinimum": 0,
-              "description": "Resolution in dots per inch.",
-              "default": 300,
-              "title": "Dpi"
-            },
-            "description": "Resolution in dots per inch."
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "The image, in the media type of its `format`.",
-            "content": {
-              "image/png": {},
-              "image/jpeg": {},
-              "image/svg+xml": {},
-              "application/pdf": {}
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Problem"
-                }
-              }
-            }
-          },
-          "400": {
-            "$ref": "#/components/responses/BadRequest"
-          },
-          "404": {
-            "$ref": "#/components/responses/NotFound"
-          },
-          "500": {
-            "$ref": "#/components/responses/InternalError"
-          },
-          "501": {
-            "$ref": "#/components/responses/NotImplemented"
-          },
-          "502": {
-            "$ref": "#/components/responses/BadGateway"
-          },
-          "503": {
-            "$ref": "#/components/responses/Unavailable"
-          },
-          "504": {
-            "$ref": "#/components/responses/GatewayTimeout"
-          }
-        },
-        "x-wetterdienst-selection": {
-          "exactly_one_of": [
-            [
-              "station"
-            ],
-            [
-              "name"
             ]
           ]
         }
@@ -8032,7 +7446,7 @@
           "processing_note": {
             "type": "string",
             "title": "Processing Note",
-            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, those of the climate stripes what their anomalies and classes are relative to (and, where the years were calculated from daily values, by which rules), and the headers of the stripes' image that it is drawn from the annual values, and those of `storm_cells` that the direction of a cell is calculated from its forecast track, and those of `kostra` that the values are DWD's statistics of the grid cell of the point. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
+            "description": "What wetterdienst did to the data: it was reshaped into a uniform table and its units converted where they differ. The answers of `interpolate` and `summarize` add that the values were selected or calculated from the provider's readings, those of `storm_cells` that the direction of a cell is calculated from its forecast track, and those of `kostra` that the values are DWD's statistics of the grid cell of the point. The same text for every provider and licence, so that a licence that asks for changes to be indicated has them said; no legal advice."
           },
           "request": {
             "$ref": "#/components/schemas/ResolvedRequest"
@@ -8186,6 +7600,335 @@
         "title": "SourceQualityFlag",
         "description": "A quality flag the source publishes beside the values of a dataset."
       },
+      "StationIdsAlsoSearched": {
+        "properties": {
+          "wmo_id": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Wmo Id",
+            "description": "WMO numbers: those of a WIGOS identifier of WMO's issuer (`0-20000-0-<number>`) that was given, and of the stations an ICAO code found."
+          },
+          "wigos_id": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Wigos Id",
+            "description": "WIGOS identifiers of WMO's issuer (`0-20000-0-<number>`) of every WMO number searched."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "wmo_id",
+          "wigos_id"
+        ],
+        "title": "StationIdsAlsoSearched",
+        "description": "The ids searched besides the ones given, because they are equivalent to them."
+      },
+      "StationIdsCounts": {
+        "properties": {
+          "stations": {
+            "type": "integer",
+            "title": "Stations",
+            "description": "How many stations (rows) the answer has."
+          },
+          "providers": {
+            "type": "integer",
+            "title": "Providers",
+            "description": "How many providers have a station in it."
+          },
+          "networks_searched": {
+            "type": "integer",
+            "title": "Networks Searched",
+            "description": "How many networks were asked."
+          },
+          "networks_answered": {
+            "type": "integer",
+            "title": "Networks Answered",
+            "description": "How many of them read their list."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "stations",
+          "providers",
+          "networks_searched",
+          "networks_answered"
+        ],
+        "title": "StationIdsCounts",
+        "description": "How much a search for an id found, and how many of the networks answered."
+      },
+      "StationIdsMetadata": {
+        "properties": {
+          "api_version": {
+            "type": "string",
+            "title": "Api Version"
+          },
+          "schema_version": {
+            "type": "string",
+            "title": "Schema Version"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "title": "Retrieved At",
+            "description": "When this answer was made, in UTC."
+          },
+          "producer": {
+            "$ref": "#/components/schemas/_Producer"
+          },
+          "processing_note": {
+            "type": "string",
+            "title": "Processing Note",
+            "description": "What wetterdienst did to the data: the stations were taken from each provider's station list, reshaped into a uniform table, and selected by the id, and by the ids equivalent to it."
+          },
+          "request": {
+            "$ref": "#/components/schemas/StationIdsRequestInfo"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/StationIdsCounts"
+          },
+          "searched": {
+            "items": {
+              "$ref": "#/components/schemas/StationIdsSearched"
+            },
+            "type": "array",
+            "title": "Searched",
+            "description": "Every network the search asked, each with the list it read and what came of it."
+          },
+          "providers": {
+            "items": {
+              "$ref": "#/components/schemas/StationIdsProvider"
+            },
+            "type": "array",
+            "title": "Providers",
+            "description": "The providers that have a station in the answer, with their licence and credit line."
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/ResponseWarning"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "description": "What the answer is missing but did not fail on, each with a stable `code` and a `message`: a network whose list could not be read (`network-failed`) or that needs credentials the server does not hold (`network-not-configured`) is left out of the search and told here."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "api_version",
+          "schema_version",
+          "retrieved_at",
+          "producer",
+          "processing_note",
+          "request",
+          "counts",
+          "searched",
+          "providers",
+          "warnings"
+        ],
+        "title": "StationIdsMetadata",
+        "description": "The `metadata` block of the answer of a search for a WMO, WIGOS or ICAO id (`/api/station-ids`).\n\nThe answer holds the stations of several providers, so the block has no one `provider`: `providers` gives the\nlicence and the credit line of each provider that has a station in the answer, and `searched` tells every network\nthat was asked, with its list. The versions, the time, the producer, the processing note and the warnings are the\nmembers every block has."
+      },
+      "StationIdsProvider": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "description": "The name a request calls it by, `dwd`."
+          },
+          "name_local": {
+            "type": "string",
+            "title": "Name Local"
+          },
+          "name_english": {
+            "type": "string",
+            "title": "Name English"
+          },
+          "country": {
+            "type": "string",
+            "title": "Country"
+          },
+          "copyright": {
+            "type": "string",
+            "title": "Copyright"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/_License"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The terms the provider publishes its data under; null where it states none."
+          },
+          "attribution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attribution",
+            "description": "The credit line to cite; null where the provider states none."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider",
+          "name_local",
+          "name_english",
+          "country",
+          "copyright",
+          "url",
+          "license",
+          "attribution"
+        ],
+        "title": "StationIdsProvider",
+        "description": "A provider that has a station in the answer: who published its list, and under which terms."
+      },
+      "StationIdsRequestInfo": {
+        "properties": {
+          "wmo_id": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Wmo Id"
+          },
+          "wigos_id": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Wigos Id"
+          },
+          "icao_id": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Icao Id"
+          },
+          "also_searched": {
+            "$ref": "#/components/schemas/StationIdsAlsoSearched"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "wmo_id",
+          "wigos_id",
+          "icao_id",
+          "also_searched"
+        ],
+        "title": "StationIdsRequestInfo",
+        "description": "What was asked: the ids given, each in the notation of its column, and the ones searched besides."
+      },
+      "StationIdsSearched": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "network": {
+            "type": "string",
+            "title": "Network"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolution",
+            "description": "The resolution of the station list read: another one may list other stations. Null for a network that cannot be imported on this server, whose declaration is not known."
+          },
+          "dataset": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Dataset",
+            "description": "The dataset of the station list read: another one may list other stations; null as `resolution`."
+          },
+          "ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Ids",
+            "description": "The id columns the list fills: `wmo_id`, `wigos_id` and `icao_id`."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "searched",
+              "failed",
+              "not-configured"
+            ],
+            "title": "Status",
+            "description": "`searched` for a list that was read; `failed` for one that could not be, which a warning names; `not-configured` for a network that needs credentials the server does not hold, which a warning names."
+          },
+          "stations_with_ids": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stations With Ids",
+            "description": "How many stations of the list carry at least one id; null for a list that was not read."
+          },
+          "message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Message",
+            "description": "Why a list that was not read was not; null for one that was."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "provider",
+          "network",
+          "resolution",
+          "dataset",
+          "ids",
+          "status",
+          "stations_with_ids",
+          "message"
+        ],
+        "title": "StationIdsSearched",
+        "description": "A network the search for a WMO, WIGOS or ICAO id asked, the list it read and what came of it."
+      },
       "StationsFilter": {
         "type": "string",
         "enum": [
@@ -8239,270 +7982,6 @@
         ],
         "title": "StationsSelected",
         "description": "The stations an answer is about."
-      },
-      "StripesReference": {
-        "properties": {
-          "centre": {
-            "$ref": "#/components/schemas/StripesReferenceStat",
-            "description": "The mean the anomaly is taken to: the blue/red boundary."
-          },
-          "spread": {
-            "$ref": "#/components/schemas/StripesReferenceStat",
-            "description": "The standard deviation of the annual values the classes span."
-          },
-          "range_sigma": {
-            "type": "number",
-            "title": "Range Sigma",
-            "description": "The scale reaches this many standard deviations to either side of the centre."
-          },
-          "classes": {
-            "type": "integer",
-            "title": "Classes",
-            "description": "The number of classes, from the lowest value (0) to the highest."
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "centre",
-          "spread",
-          "range_sigma",
-          "classes"
-        ],
-        "title": "StripesReference",
-        "description": "What the colour classes of the stripes are relative to, and so which scale a year's class is read on."
-      },
-      "StripesReferenceStat": {
-        "properties": {
-          "value": {
-            "type": "number",
-            "title": "Value",
-            "description": "The mean (centre) or the standard deviation (spread), in the unit of the values."
-          },
-          "first_year": {
-            "type": "integer",
-            "title": "First Year",
-            "description": "The first year the number was calculated from."
-          },
-          "last_year": {
-            "type": "integer",
-            "title": "Last Year",
-            "description": "The last year the number was calculated from."
-          },
-          "years": {
-            "type": "integer",
-            "title": "Years",
-            "description": "How many years with data it was calculated from."
-          },
-          "fallback": {
-            "type": "boolean",
-            "title": "Fallback",
-            "description": "True where the station has too few years with data in the period of the method (1971-2000 for the mean, 1901-2000 for the standard deviation) and the whole record stands in for it."
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "value",
-          "first_year",
-          "last_year",
-          "years",
-          "fallback"
-        ],
-        "title": "StripesReferenceStat",
-        "description": "One number of the reference, and which years it was calculated from."
-      },
-      "StripesSeries": {
-        "properties": {
-          "station": {
-            "properties": {
-              "resolution": {
-                "type": "string",
-                "title": "Resolution"
-              },
-              "dataset": {
-                "type": "string",
-                "title": "Dataset"
-              },
-              "station_id": {
-                "type": "string",
-                "title": "Station Id"
-              },
-              "start_timestamp": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Start Timestamp"
-              },
-              "end_timestamp": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "End Timestamp"
-              },
-              "latitude": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Latitude"
-              },
-              "longitude": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Longitude"
-              },
-              "elevation": {
-                "anyOf": [
-                  {
-                    "type": "number"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Elevation"
-              },
-              "name": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Name"
-              },
-              "region": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Region"
-              },
-              "wmo_id": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Wmo Id"
-              },
-              "wigos_id": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Wigos Id"
-              },
-              "icao_id": {
-                "anyOf": [
-                  {
-                    "type": "string"
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Icao Id"
-              }
-            },
-            "additionalProperties": true,
-            "type": "object",
-            "required": [
-              "resolution",
-              "dataset",
-              "station_id",
-              "start_timestamp",
-              "end_timestamp",
-              "latitude",
-              "longitude",
-              "elevation",
-              "name",
-              "region",
-              "wmo_id",
-              "wigos_id",
-              "icao_id"
-            ],
-            "title": "_Station",
-            "description": "Type definition for station."
-          },
-          "resolution": {
-            "type": "string",
-            "title": "Resolution"
-          },
-          "dataset": {
-            "type": "string",
-            "title": "Dataset"
-          },
-          "parameter": {
-            "type": "string",
-            "title": "Parameter"
-          },
-          "unit": {
-            "type": "string",
-            "title": "Unit"
-          },
-          "method": {
-            "anyOf": [
-              {
-                "type": "string",
-                "enum": [
-                  "midrange",
-                  "tavg"
-                ]
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Method",
-            "description": "How a day of the temperature was calculated where the years were built from daily values (`noaa`/`ghcn`): `midrange`, the mean of TMAX and TMIN, which is no 24-hour mean, used for every day of a station that has both so that the method does not change along the record, or `tavg`, the source's own mean, at a station with no day that has both. Null for DWD's own annual values and for the precipitation."
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "station",
-          "resolution",
-          "dataset",
-          "parameter",
-          "unit"
-        ],
-        "title": "StripesSeries",
-        "description": "What a series of climate stripes is of: the station, the parameter and the unit of its values."
       },
       "SummarySettings": {
         "properties": {
@@ -10530,6 +10009,162 @@
         "title": "_Station",
         "description": "Type definition for station."
       },
+      "_StationIdsStation": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider"
+          },
+          "network": {
+            "type": "string",
+            "title": "Network"
+          },
+          "resolution": {
+            "type": "string",
+            "title": "Resolution"
+          },
+          "dataset": {
+            "type": "string",
+            "title": "Dataset"
+          },
+          "station_id": {
+            "type": "string",
+            "title": "Station Id"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Name"
+          },
+          "latitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latitude"
+          },
+          "longitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Longitude"
+          },
+          "elevation": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Elevation"
+          },
+          "wmo_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wmo Id"
+          },
+          "wigos_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wigos Id"
+          },
+          "icao_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icao Id"
+          },
+          "matched_by": {
+            "type": "string",
+            "enum": [
+              "wmo_id",
+              "wigos_id",
+              "icao_id"
+            ],
+            "title": "Matched By"
+          },
+          "match": {
+            "type": "string",
+            "enum": [
+              "direct",
+              "equivalent"
+            ],
+            "title": "Match"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "network",
+          "resolution",
+          "dataset",
+          "station_id",
+          "name",
+          "latitude",
+          "longitude",
+          "elevation",
+          "wmo_id",
+          "wigos_id",
+          "icao_id",
+          "matched_by",
+          "match"
+        ],
+        "title": "_StationIdsStation"
+      },
+      "_StationIdsWithMetadataDict": {
+        "properties": {
+          "metadata": {
+            "$ref": "#/components/schemas/StationIdsMetadata"
+          },
+          "stations": {
+            "items": {
+              "$ref": "#/components/schemas/_StationIdsStation"
+            },
+            "type": "array",
+            "title": "Stations"
+          }
+        },
+        "type": "object",
+        "required": [
+          "metadata",
+          "stations"
+        ],
+        "title": "_StationIdsWithMetadataDict"
+      },
       "_StationsOgcFeature": {
         "properties": {
           "type": {
@@ -10690,90 +10325,6 @@
           "features"
         ],
         "title": "_StormCellsWithMetadataOgcFeatureCollection"
-      },
-      "_StripesValue": {
-        "properties": {
-          "timestamp": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Timestamp"
-          },
-          "value": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Value"
-          },
-          "anomaly": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Anomaly"
-          },
-          "stripe_class": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Stripe Class"
-          }
-        },
-        "type": "object",
-        "required": [
-          "timestamp",
-          "value",
-          "anomaly",
-          "stripe_class"
-        ],
-        "title": "_StripesValue"
-      },
-      "_StripesValuesWithMetadataDict": {
-        "properties": {
-          "metadata": {
-            "$ref": "#/components/schemas/ResponseMetadata"
-          },
-          "series": {
-            "$ref": "#/components/schemas/StripesSeries"
-          },
-          "reference": {
-            "$ref": "#/components/schemas/StripesReference"
-          },
-          "values": {
-            "items": {
-              "$ref": "#/components/schemas/_StripesValue"
-            },
-            "type": "array",
-            "title": "Values"
-          }
-        },
-        "type": "object",
-        "required": [
-          "metadata",
-          "series",
-          "reference",
-          "values"
-        ],
-        "title": "_StripesValuesWithMetadataDict"
       },
       "_SummarizedValuesItemDict": {
         "properties": {
@@ -11512,10 +11063,6 @@
     {
       "name": "Values",
       "description": "Measurements of stations, or estimated for a point between them."
-    },
-    {
-      "name": "Climate stripes",
-      "description": "Climate stripes of a station of DWD (Germany) or NOAA GHCN daily: stations, values and the image."
     },
     {
       "name": "Alerts",

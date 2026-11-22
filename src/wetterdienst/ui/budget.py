@@ -2,8 +2,9 @@
 # Distributed under the MIT License. See LICENSE for more info.
 """The size budget of an MCP tool's answer of rows (GH-4022, GH-4024).
 
-The answers it holds are those of `values`, `stations`, `interpolate`, `summarize`, the stripes' stations and
-`coverage` (which is no rows but nested: `fit_coverage`).
+The answers it holds are those of `values`, `stations`, `interpolate`, `summarize`,
+`station_ids` (`fit_station_ids`: the stations that fit, with a note) and `coverage` (which is no rows but nested:
+`fit_coverage`).
 
 An assistant reads a tool's answer in its context, and a client saves one of more than 50,000 characters to a file
 instead of handing it over (Claude Code does, whatever its tokens). Two calls spilled in the transcripts: a forecast
@@ -13,11 +14,10 @@ characters, and says it was, in a warning of its `metadata` block (`answer-trunc
 the `timestamp` window to ask for it. Nothing is refused: the answer keeps what fits.
 
 The answers of `interpolate` and `summarize` are series of timestamps as those of `values` are, and are cut the same
-way (`fit_values`; their `timestamp` is required, so the start of their window is the part kept). The stripes' stations
-are a list of stations as those of `stations` are, with no way to select (`fit_stations`; the note tells how to
-name a place instead). A `with_metadata` block is kept, and the stations or timestamps are cut to make room for it;
-one with which not even one station or timestamp fits is left out (when one fits without it), and so is the block of
-a name or of a single station, whose rows are not cut, where it is what makes the answer over the budget.
+way (`fit_values`; their `timestamp` is required, so the start of their window is the part kept). A `with_metadata`
+block is kept, and the stations or timestamps are cut to make room for it; one with which not even one station or
+timestamp fits is left out (when one fits without it), and so is the block of a name or of a single station, whose rows
+are not cut, where it is what makes the answer over the budget.
 
 Only a tool's request is cut (`ui.mcp.is_tool_request`). The REST API, the command line and the library answer all of
 it: the app lists every station of a network, and a script reads a whole series.
@@ -39,21 +39,25 @@ from typing import TYPE_CHECKING, Any
 import polars as pl
 
 from wetterdienst.model.result import StationsFilter, StationsResult
-from wetterdienst.ui.core import StripesStationsRequest
 from wetterdienst.ui.mcp import structured_size
-from wetterdienst.ui.response_metadata import response_headers, response_metadata, result_metadata
+from wetterdienst.ui.response_metadata import (
+    response_headers,
+    response_metadata,
+    station_ids_headers,
+)
 from wetterdienst.util.response_warnings import ANSWER_TRUNCATED, ResponseWarning, record_response_warning
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
+    from wetterdienst.core.station_search import StationIdSearchResult
     from wetterdienst.model.result import InterpolatedValuesResult, SummarizedValuesResult, ValuesResult
     from wetterdienst.ui.core import InterpolationRequest, StationsRequest, SummaryRequest, ValuesRequest
-    from wetterdienst.ui.response_metadata import ResponseMetadata
+    from wetterdienst.ui.response_metadata import ResponseMetadata, StationIdsMetadata
 
     _SeriesResult = ValuesResult | InterpolatedValuesResult | SummarizedValuesResult
     _SeriesRequest = ValuesRequest | InterpolationRequest | SummaryRequest
-    _ListRequest = StationsRequest | StripesStationsRequest
+    _ListRequest = StationsRequest
 
 log = logging.getLogger(__name__)
 
@@ -138,9 +142,7 @@ def _start_is_nearer_now(first: dt.datetime, last: dt.datetime) -> bool:
 
 
 def _block(result: StationsResult | _SeriesResult, request: _ListRequest | _SeriesRequest) -> ResponseMetadata:
-    """Build the `metadata` block of the answer to `request`; the climate stripes' request names its own source."""
-    if isinstance(request, StripesStationsRequest):
-        return result_metadata(result, provider=request.provider, network=request.network, heavy=False)
+    """Build the `metadata` block of the answer to `request`."""
     return response_metadata(result, request)
 
 
@@ -416,7 +418,6 @@ def fit_values(
 
 def _stations_note(
     *,
-    request: _ListRequest,
     count: int,
     total: int,
     lead: str,
@@ -427,11 +428,10 @@ def _stations_note(
 ) -> str:
     """Write the note of a stations answer cut to its first `count` of `total` stations.
 
-    The list of the climate stripes' stations narrows with a bounding box only: a place goes to the stripes' tools as
-    a `name`, which they match themselves, and `stations` finds a station near a point. The stations of a `distance`
-    are in the order of their distance, so the ones kept are the nearest: `distance` is the one asked for, `farthest`
-    the distance in km of the last station returned, which says what a smaller `distance` would still keep. So are
-    the stations of a `rank` (GH-4036), whose note gives the number asked for instead of a distance.
+    The stations of a `distance` are in the order of their distance, so the ones kept are the nearest: `distance` is
+    the one asked for, `farthest` the distance in km of the last station returned, which says what a smaller
+    `distance` would still keep. So are the stations of a `rank` (GH-4036), whose note gives the number asked for
+    instead of a distance.
     """
     head = f"{lead} {_head(honest=honest)}" if lead else _head(honest=honest)
     if distance is not None or rank is not None:
@@ -452,19 +452,6 @@ def _stations_note(
         )
     returned = "the first station is" if count == 1 else f"the first {count:,} of {total:,} stations are"
     first = f"{head}{returned} returned, in the provider's list order (usually by "
-    if isinstance(request, StripesStationsRequest):
-        only_active = "" if request.active else " `active=true` lists only the stations that still report."
-        boxed = (
-            ""
-            if request.left is not None
-            else " To list the stations of an area, ask again with a bounding box (`left`, `bottom`, `right`, `top`)."
-        )
-        return (
-            f"{first}station id, not by place). {total:,} stations have data for the {request.kind} stripes. To get "
-            "one station, give the station's name (often its town's) as `name` to `stripes_values` or "
-            "`stripes_image`, which match it themselves, or find a station with `stations` (`name`, or latitude, "
-            f"longitude and `rank`).{boxed}{only_active}"
-        )
     return (
         f"{first}station id, not by place, so they are not a sample of the area). {total:,} stations match; narrow "
         "with latitude, longitude and `rank` or `distance`, or `name`."
@@ -500,7 +487,6 @@ def _fit_stations(
         far = cut.get_column("distance").max() if nearest and "distance" in cut.columns else None
         farthest = float(far) if isinstance(far, int | float) else None
         note = _stations_note(
-            request=request,
             count=count,
             total=count_all,
             lead=lead,
@@ -546,11 +532,11 @@ def fit_stations(
     metadata: ResponseMetadata,
     render: Callable[[StationsResult, ResponseMetadata, Any], str | bytes],
 ) -> tuple[str | bytes, ResponseMetadata]:
-    """Cut the answer of a `stations` or `stripes_stations` tool call to the budget, keeping the first stations.
+    """Cut the answer of a `stations` tool call to the budget, keeping the first stations.
 
     The answer is unchanged where it fits. A name asks for a few stations, and so does one station: their rows are
     left as they are (only a `with_metadata` block that is over the budget on its own is left out, with a note).
-    Otherwise (all stations, a bounding box, a distance, a rank, `sql`, ids, the stripes' list) the stations that fit
+    Otherwise (all stations, a bounding box, a distance, a rank, `sql`, ids) the stations that fit
     are kept, in list order (for a distance or a rank the nearest first, which is its order), and the note says how
     many match (or were asked for) and what narrows them. The block is kept and the stations are cut to make room for
     it: only where even one station is over the budget with the block, and fits without it, is the block left out,
@@ -584,6 +570,65 @@ def fit_stations(
         "to stay within the budget."
     )
     return chosen.content, chosen.metadata
+
+
+# --- station ids --------------------------------------------------------------------------------------------------
+
+
+def _station_ids_size(content: str | bytes, fmt: str, metadata: StationIdsMetadata) -> int:
+    """Count the characters a client receives of a `station_ids` answer in `fmt`, the sentence of a CSV included."""
+    text = _text(content)
+    if fmt in _MEDIA_TYPES:
+        headers = {name.lower(): value for name, value in station_ids_headers(metadata).items()}
+        return structured_size(_MEDIA_TYPES[fmt], text, headers)
+    return len(json.dumps(json.loads(text), separators=(",", ":"), ensure_ascii=False)) + _RESULT_WRAPPER
+
+
+def fit_station_ids(
+    result: StationIdSearchResult,
+    fmt: str,
+    content: str | bytes,
+    metadata: StationIdsMetadata,
+    render: Callable[[StationIdSearchResult], tuple[str | bytes, StationIdsMetadata]],
+) -> tuple[str | bytes, StationIdsMetadata]:
+    """Cut the answer of a `station_ids` tool call to the budget, keeping the first stations, with a note.
+
+    The answer is unchanged where it fits. Otherwise the rows that fit are kept, in the order of the answer (provider,
+    network, station id), and the `answer-truncated` warning of its block says how many there are and to ask again with
+    fewer ids. The block is the part that does not shrink (a few thousand characters: each network asked, each
+    provider's licence); where not even one row fits with it the first is kept and the note says that the answer is
+    still over the budget. `render` writes the answer for a cut result.
+    """
+    size = _station_ids_size(content, fmt, metadata)
+    if size <= ANSWER_BUDGET:
+        return content, metadata
+    total = result.df.height
+    tried: dict[int, tuple[str | bytes, StationIdsMetadata, int]] = {}
+
+    def attempt(count: int, *, honest: bool) -> bool:
+        note = (
+            f"{_head(honest=honest)}the first {count:,} of {total:,} stations are returned, in the order of the answer "
+            "(provider, network, station id). Ask again with fewer ids."
+            if count > 1
+            else f"{_head(honest=honest)}the first of {total:,} stations is returned. Ask again with fewer ids."
+        )
+        cut = replace(
+            result,
+            df=result.df.head(count),
+            warnings=[*result.warnings, {"code": ANSWER_TRUNCATED, "message": note}],
+        )
+        body, block = render(cut)
+        tried[count] = (body, block, _station_ids_size(body, fmt, block))
+        return tried[count][2] <= ANSWER_BUDGET
+
+    best = _largest(1, total - 1, lambda count: attempt(count, honest=False), max(1, total * ANSWER_BUDGET // size))
+    if best is None:
+        # not even one row fits beside the block: the first is kept, and the note says the answer is still over
+        attempt(1, honest=True)
+        best = 1
+    body, block, _ = tried[best]
+    log.info(f"Cut a station_ids answer of {total} rows to {best} to stay within the budget.")
+    return body, block
 
 
 # --- coverage -----------------------------------------------------------------------------------------------------

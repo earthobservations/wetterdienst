@@ -21,7 +21,7 @@ import {
 
 // The climate stripes' scale, which the app calculates itself (GH-4258). It is the port of the backend's `ui/stripes_scale.py`
 // and of the years' part of `_get_stripes_data`, held here to the cases of the backend's own tests
-// (`tests/ui/test_stripes_scale.py`): the golden file is a copy of the one that test writes, `tests/ui/stripes_scale.golden.json`.
+// (`tests/ui/test_stripes_scale.py`, removed by GH-4258): the golden file, `stripes_scale.golden.json`, is the one that test wrote.
 
 interface Stat { value: number, first_year: number, last_year: number, years: number, fallback: boolean }
 interface GoldenCase { name: string, years: number[], values: number[], reference: { centre: Stat, spread: Stat }, classes: number[] }

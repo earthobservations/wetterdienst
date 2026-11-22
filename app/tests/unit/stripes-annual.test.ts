@@ -17,7 +17,7 @@ import * as stub from '../helpers/ghcn-stripes-stub'
 // The annual values the stripes of NOAA's GHCN daily are made of, built from the days by the WMO rules (WMO-No. 1203) in the app's
 // server (GH-4258). The cases are those of the backend's own tests of the module this is the port of
 // (`tests/ui/test_stripes_annual.py`, GH-4222), and of the stub station of its tests of the stripes
-// (`tests/ui/ghcn_stripes_stub.py`, `test_stripes_ghcn.py`): the same numbers, so that the port is held to the backend's answers.
+// (`tests/ui/ghcn_stripes_stub.py`, `test_stripes_ghcn.py`), which GH-4258 removed with them: the same numbers.
 
 type Day = string
 const iso = (date: Date) => date.toISOString().slice(0, 10)

@@ -24,13 +24,14 @@ from wetterdienst.model.unit import UnitConverter
 from wetterdienst.options import SkipThreshold, StationWindowEndBuffer  # noqa: TC001, needed at runtime by pydantic
 from wetterdienst.ui.response_metadata import (
     ResponseMetadata,
+    StationIdsMetadata,
     alerts_metadata,
     kostra_metadata,
     metadata_to_dict,
     response_metadata,
+    station_ids_metadata,
     storm_cells_metadata,
 )
-from wetterdienst.util.datetime import format_timestamp
 from wetterdienst.util.json_util import dumps_json
 
 if TYPE_CHECKING:
@@ -38,6 +39,7 @@ if TYPE_CHECKING:
 
     import polars as pl
 
+    from wetterdienst.core.station_search import StationIdSearchResult
     from wetterdienst.model.history import TimeseriesHistory
     from wetterdienst.model.result import (
         InterpolatedValuesResult,
@@ -53,22 +55,12 @@ if TYPE_CHECKING:
         HistoryRequest,
         InterpolationRequest,
         StationsRequest,
-        StripesData,
-        StripesStationsRequest,
-        StripesValuesRequest,
         SummaryRequest,
         ValuesRequest,
     )
     from wetterdienst.util.response_warnings import ResponseWarning
 
-    _Request: TypeAlias = (
-        StationsRequest
-        | ValuesRequest
-        | InterpolationRequest
-        | SummaryRequest
-        | HistoryRequest
-        | StripesStationsRequest
-    )
+    _Request: TypeAlias = StationsRequest | ValuesRequest | InterpolationRequest | SummaryRequest | HistoryRequest
 
 
 #: a radius, factor or gain, which the settings take as infinite or NaN too, written then as a string
@@ -126,14 +118,6 @@ class StationsSettings(BaseModel):
     station_window_end_buffer: StationWindowEndBuffer | None = Field(
         validation_alias="station_window_end_buffer", description=_STATION_WINDOW_END_BUFFER_DESCRIPTION
     )
-
-
-class StripesSettings(BaseModel):
-    """The settings of `/api/stripes/values`: the unit its values are returned in (GH-3980)."""
-
-    model_config = ConfigDict(extra="forbid", populate_by_name=True)
-
-    unit_targets: dict[str, str] = Field(validation_alias="unit_targets")
 
 
 def _plausibility_setting(check: str) -> Any:  # noqa: ANN401
@@ -475,33 +459,16 @@ def render_kostra(result: DwdKostraResult, fmt: str, *, pretty: bool = False) ->
     return dumps_json(answer, indent=4 if pretty else None, ensure_ascii=False), metadata
 
 
-def render_stripes_stations(result: StationsResult, request: StripesStationsRequest, metadata: ResponseMetadata) -> str:
-    """Write the stations climate stripes are made for in the format asked for, the JSON formats with the block."""
-    if request.format == "csv":
-        return result.to_csv()
-    data = result.to_dict() if request.format == "json" else result.to_ogc_feature_collection()
-    return _json_answer(dict(data), request, metadata)
+def render_station_ids(
+    result: StationIdSearchResult, fmt: str, *, pretty: bool = False
+) -> tuple[str, StationIdsMetadata]:
+    """Write the stations a search for a WMO, WIGOS or ICAO id found in the format asked for, JSON with the block.
 
-
-def render_stripes_values(data: StripesData, request: StripesValuesRequest, metadata: ResponseMetadata) -> str:
-    """Write the values of climate stripes as JSON (GH-4157).
-
-    The `metadata` block, the `series` they are of, the `reference` their classes are relative to, and the `values`,
-    each with its anomaly to the centre of the reference and its class.
+    JSON is `{"metadata": ..., "stations": [...]}`, one entry for each row; CSV is the table alone, with no place for
+    the block, so a CSV answer carries it in the headers (`station_ids_headers`).
     """
-    values = [
-        {
-            "timestamp": format_timestamp(row["timestamp"]) if row["timestamp"] else None,
-            "value": row["value"],
-            "anomaly": row["anomaly"],
-            "stripe_class": row["stripe_class"],
-        }
-        for row in data.df.select("timestamp", "value", "anomaly", "stripe_class").iter_rows(named=True)
-    ]
-    answer = {
-        "metadata": metadata_to_dict(metadata),
-        "series": data.series.model_dump(),
-        "reference": data.reference.model_dump(),
-        "values": values,
-    }
-    return dumps_json(answer, indent=4 if request.pretty else None)
+    metadata = station_ids_metadata(result)
+    if fmt == "csv":
+        return result.df.write_csv(), metadata
+    answer = {"metadata": metadata.model_dump(mode="json"), "stations": result.to_dict()}
+    return dumps_json(answer, indent=4 if pretty else None, ensure_ascii=False), metadata

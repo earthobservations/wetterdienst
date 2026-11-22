@@ -165,10 +165,6 @@ class ProductOutOfSeasonError(IssueNotFoundError):
     """
 
 
-class NotEnoughDataError(RequestError):
-    """Raised when what a request selects holds too little data to answer it."""
-
-
 class ProviderNotFoundError(NotFoundError):
     """Raised when a provider is not found in the provider list."""
 
@@ -183,9 +179,9 @@ class StationLacksParametersError(RequestError):
     `interpolate_by_station_id` and `summarize_by_station_id` look the id up in the station list of the request, and
     for a provider whose list depends on the parameters (`noaa/ghcn` daily, GH-4270) a station that has other
     measurements is not in it. That is not a `StationNotFoundError`, which says that the id is wrong: the station
-    exists and the caller changes the parameters, not the id. A `RequestError` (400, `request-refused`), as
-    `NotEnoughDataError`: the request is understood and cannot be served as phrased. `values` by id says the same as
-    an `unknown-station` warning, which an answer has a place for.
+    exists and the caller changes the parameters, not the id. A `RequestError` (400, `request-refused`): the
+    request is understood and cannot be served as phrased. `values` by id says the same as an `unknown-station`
+    warning, which an answer has a place for.
 
     `station_id` is the id asked for, `parameters` the requested ones as `resolution/dataset/parameter`
     (`resolution/dataset` where every parameter of the dataset was asked for).
@@ -286,10 +282,10 @@ class StationListingIncompleteError(UpstreamError):
 
     `dwd/observation` and `dwd/derived` look the stations up in directories of DWD's server, and go on without one
     that came back empty or missing, or that lists no description of its stations: the answer is partial, and says so
-    with a `file-skipped` warning. An estimate (`interpolate`, `summarize`) or the stripes ask for one station by its
-    id, and have no answer to put the warning in. A station that is not found then may be unknown, or one that only
-    the skipped directory lists: the request is valid, the cause is upstream, and a 404 would say that the station
-    does not exist. So it is this, a 502 over REST, which names the directories.
+    with a `file-skipped` warning. An estimate (`interpolate`, `summarize`) asks for one station by its id, and has
+    no answer to put the warning in. A station that is not found then may be unknown, or one that only the skipped
+    directory lists: the request is valid, the cause is upstream, and a 404 would say that the station does not
+    exist. So it is this, a 502 over REST, which names the directories.
 
     `station_id` is the id asked for, `gaps` the directories the lookup went without, each with the reason. Not a
     `StationNotFoundError`: it is the provider's side that failed, and the same request can succeed once DWD has

@@ -163,6 +163,7 @@ _RmiObservationMetadataSpec = {
     },
     "timezone": "Europe/Brussels",
     "auth": False,
+    "station_id_list": {"resolution": "10_minutes", "dataset": "data", "ids": ["wmo_id", "wigos_id"]},
     "resolutions": [
         {
             "name": "10_minutes",

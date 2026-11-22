@@ -63,7 +63,7 @@ point of their own, `Wetterdienst.resolve_standalone`, and `resolve` refuses the
 `resolve_standalone("dwd", "radar")` the `DwdRadarValues` class. The classes can also be imported, which is
 what the examples do.
 
-The point lookups are in no registry: the climate stripes, and `DwdKostraRequest` of the heavy-rainfall statistics
+The point lookup is in no registry: `DwdKostraRequest` of the heavy-rainfall statistics
 ([KOSTRA](../data/provider/dwd/kostra/index.md)), which is imported from `wetterdienst.provider.dwd.kostra`.
 
 ```{code-cell}
@@ -779,7 +779,7 @@ options = Options(
 A name that is no parameter, a `low` above `high`, both ends `None` and a bound that is NaN or infinite are errors
 (`WD_TS_LIMITS` is the JSON of the mapping, with pairs as lists). A forecast network follows the mode of `limits` too (hard nulls, soft flags).
 
-Interpolation, summary and climate stripes leave out a suspect value in any mode, and `skip_empty` counts the unflagged
+Interpolation and summary leave out a suspect value in any mode, and `skip_empty` counts the unflagged
 values alone. [Plausibility checks](../data/plausibility.md)
 describes each check, the networks and datasets it covers, the tokens with filters for them, and the caveats.
 

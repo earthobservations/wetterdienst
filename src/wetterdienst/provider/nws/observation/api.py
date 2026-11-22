@@ -113,6 +113,7 @@ _NwsObservationMetadataSpec = {
         "bbox": [-178.0, -15.0, 180.0, 72.0],
     },
     "timezone": "America/New_York",
+    "station_id_list": {"resolution": "hourly", "dataset": "data", "ids": ["wmo_id"]},
     "resolutions": [
         {
             "name": "hourly",
