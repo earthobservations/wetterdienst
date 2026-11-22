@@ -86,7 +86,7 @@
         "wind": "Jak foukalo {day}?",
         "sun": "Jak moc svítilo slunce {day}?",
         "rain": "Kolik pršelo {day}?",
-        "temperature": "Bylo {day} horko, nebo zima?",
+        "temperature": "Jak teplo nebo chladno bylo {day}?",
         "snow": "Ležel {day} sníh?"
       }
     },

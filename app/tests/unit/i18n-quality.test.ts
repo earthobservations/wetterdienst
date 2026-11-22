@@ -550,11 +550,12 @@ describe('text copied from en or de', () => {
 
   it('names the home page\'s feature in the language of the page, not by its English title', () => {
     // `methods.*` and `seo.pages.methods` named "Ask the weather" in English in all eleven locales, although each
-    // translates `ask.title` (GH-2610, fourth pass); a text that points to the feature uses the translated title
+    // translates `ask.title` (GH-2610, fourth pass): this scans every UI string of every locale but en, in any case,
+    // since a text that points to the feature uses the translated title
     const title = ui.en!['ask.title']!
     expect(title).toBe('Ask the weather')
     const left = others.flatMap(locale =>
-      Object.entries(ui[locale]!).filter(([, text]) => text.includes(title)).map(([key]) => `${locale} ${key}`))
+      Object.entries(ui[locale]!).filter(([, text]) => text.toLowerCase().includes(title.toLowerCase())).map(([key]) => `${locale} ${key}`))
     expect(left).toEqual([])
   })
 

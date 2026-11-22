@@ -1526,7 +1526,7 @@
     "subtitle": "Haal de stationsgeschiedenis op, zoals naam, beheerder, apparaten en parameters.",
     "aboutButton": "Over stationsgeschiedenis",
     "about1": "De stationsgeschiedenis legt de administratieve en fysieke wijzigingen vast die een weerstation tijdens zijn levensduur heeft ondergaan. Een station kan zijn hernoemd, van beheerder zijn veranderd, zijn verplaatst, zijn instrumenten vervangen hebben gekregen of perioden met ontbrekende gegevens hebben gehad — dit alles wordt bijgehouden als records met tijdstempel.",
-    "about2": "De geschiedenis is momenteel alleen beschikbaar voor de DWD-observatienetwerk. Selecteer een resolutie en dataset om de beschikbare stations te filteren en kies vervolgens een of meer stations om hun geschiedenis op te halen.",
+    "about2": "De geschiedenis is momenteel alleen beschikbaar voor het DWD-observatienetwerk. Selecteer een resolutie en dataset om de beschikbare stations te filteren en kies vervolgens een of meer stations om hun geschiedenis op te halen.",
     "about3": "De volgende geschiedenissecties zijn beschikbaar: naam (wijzigingen in de naam van het station en de beheerder), parameter (in de loop van de tijd gemeten parameters), apparaat (wijzigingen in instrumenten en meetmethoden), geografie (wijzigingen in locatie en hoogte) en ontbrekende gegevens (hiaten in de meetreeks).",
     "datasetSelectionTitle": "Datasetselectie",
     "datasetHint": "Geschiedenis is alleen beschikbaar voor DWD-observatiedatasets",
