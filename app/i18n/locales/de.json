@@ -630,6 +630,7 @@
     "sourcesTitle": "Quellen",
     "untranslatedEn": "Dieser Eintrag ist noch nicht in deine Sprache übersetzt und wird auf Englisch gezeigt.",
     "untranslatedDe": "Dieser Eintrag ist noch nicht in deine Sprache übersetzt und wird auf Deutsch gezeigt.",
+    "toolRadar": "Das Radar-Werkzeug öffnen",
     "topics": {
       "temperature": "Luft- und Bodentemperatur",
       "pressure": "Luftdruck",
@@ -645,12 +646,15 @@
       "clouds": "Wolken",
       "snow": "Schnee",
       "automaticStations": "Automatische Wetterstationen",
+      "radar": "Radar",
       "urbanStations": "Stationen in der Stadt",
       "roadStations": "Straßenwetterstationen",
       "fromMeasurementToValue": "Von der Messung zum Wert",
       "normals": "Klimanormalwerte",
+      "waterLevel": "Wasserstand und Abfluss",
       "time": "Zeit",
-      "observationForecastDerived": "Beobachtung, Vorhersage und abgeleitete Daten"
+      "observationForecastDerived": "Beobachtung, Vorhersage und abgeleitete Daten",
+      "dataQuality": "Datenqualität"
     }
   },
   "methods": {

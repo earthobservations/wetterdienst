@@ -630,6 +630,7 @@
     "sourcesTitle": "Sources",
     "untranslatedEn": "This entry is not yet translated into your language and is shown in English.",
     "untranslatedDe": "This entry is not yet translated into your language and is shown in German.",
+    "toolRadar": "Open the Radar tool",
     "topics": {
       "temperature": "Air and soil temperature",
       "pressure": "Air pressure",
@@ -645,12 +646,15 @@
       "clouds": "Clouds",
       "snow": "Snow",
       "automaticStations": "Automatic weather stations",
+      "radar": "Radar",
       "urbanStations": "Urban stations",
       "roadStations": "Road weather stations",
       "fromMeasurementToValue": "From measurement to value",
       "normals": "Climate normals",
+      "waterLevel": "Water level and discharge",
       "time": "Time",
-      "observationForecastDerived": "Observation, forecast and derived data"
+      "observationForecastDerived": "Observation, forecast and derived data",
+      "dataQuality": "Data quality"
     }
   },
   "methods": {

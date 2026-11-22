@@ -45,6 +45,17 @@ const DWD_URBAN_TU = 'https://opendata.dwd.de/climate_environment/CDC/observatio
 const DWD_ROAD = 'opendata.dwd.de/weather/weather_reports/road_weather_stations/'
 const DWD_ROAD_TEMPLATE = 'https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/bufr/bufr_templates_sws_national_pdf.pdf?__blob=publicationFile&v=3'
 const DWD_ROAD_NOTICE = 'https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/bufr/sws_sh10_code_pdf.pdf?__blob=publicationFile&v=4'
+
+/** The radar of the DWD: its page on the radar products and the sheets of its composites, RADVOR and RADOLAN */
+const DWD_RADAR_PRODUCTS = 'https://www.dwd.de/EN/ourservices/radar_products/radar_products.html'
+const DWD_RADVOR = 'https://www.dwd.de/DE/leistungen/radvor/radvor.html'
+const DWD_RADOLAN = 'https://www.dwd.de/DE/leistungen/radolan/radolan.html'
+/** The hydrology services whose own pages the entry on water level and discharge rests on, and WMO's Guide to Hydrological Practices */
+const WMO_168 = 'https://community.wmo.int/en/product/605'
+const WSV_HELP = 'https://pegelonline.wsv.de/gast/hilfe'
+const EA_HYDROLOGY = 'https://environment.data.gov.uk/hydrology/doc/reference'
+const HUBEAU_HYDROMETRY = 'https://hubeau.eaufrance.fr/page/api-hydrometrie'
+const IMGW_HYDROLOGY = 'https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/'
 const WETTERDIENST_DOCS = 'https://wetterdienst.readthedocs.io/en/latest/data/'
 const KNMI_DAILY = 'https://www.knmi.nl/nederland-nu/klimatologie/daggegevens'
 const NOAA_GHCN_DAILY = 'https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt'
@@ -869,6 +880,75 @@ export const measurement: MeasurementTexts = {
     ],
   },
 
+  'radar': {
+    title: 'Radar',
+    summary: 'A weather radar measures the echo that rain, snow or hail sends back, not the precipitation on the ground. A formula turns the echo into a rate, and DWD joins its radars into pictures of Germany.',
+    parts: [
+      {
+        title: 'How it is measured',
+        paragraphs: [
+          'A weather radar sends short pulses of radio waves from a rotating antenna and listens for the echo that comes back. WMO says that the radars best suited to observe the atmosphere use frequencies of 3 to 10 GHz, which are wavelengths of 10 to 3 cm. The time between the pulse and its echo gives the distance of the target. How strong the echo is depends on the size and the number of the particles in the volume that the beam fills, and WMO says that this strength is used to determine the reflectivity factor (Z), from which the intensity of precipitation is estimated through empirical relations. The beam widens with distance: a beam of a nominal 1° is 0.9 km wide at 50 km, 1.7 km at 100 km and 3.5 km at 200 km.',
+          'The echo is not always from rain. WMO lists insects, birds, planes, sand and dust, ground clutter and even variations of the refractive index of the air as other things that a weather radar can detect. The current generation of radars has dual polarization: the pulses are sent with horizontal and vertical polarization at the same time. WMO says that the main benefits are better data quality, because the radar can tell what the target is (birds, insects, precipitation and its type, clutter), and the classification of hydrometeors and the estimation of precipitation; for forecast applications, dual polarization can identify hail and the boundary between rain and snow.',
+          'DWD operates a network of 17 operational weather radars with dual-polarization Doppler technology. A further radar at the Hohenpeißenberg observatory serves for quality assurance and for testing new hardware and software. The horizontal range of the radars is up to 180 km, and in the vertical their coverage reaches from near the ground to above 10 km. DWD\'s scan strategy is a cycle of 5 minutes. It starts with a precipitation scan close to the ground, in which the antenna follows the terrain (range 150 km). It continues with a volume scan of ten rotations at fixed elevation angles: six from 5.5° down to 0.5° (range 180 km), then four at 8°, 12°, 17° and 25°, with a range that decreases from 160 km to 120 km as the angle increases. The cycle ends with a vertical scan into the sky, for calibration.',
+        ],
+      },
+      {
+        title: 'How a reading becomes a value',
+        paragraphs: [
+          'One echo says little. WMO explains that the particles in the volume of the beam are continuously shuffling relative to one another, so that little significance can be attached to a single echo intensity, and that at least 25 to 30 pulses must be integrated to estimate the mean intensity reasonably. Further averaging in range, azimuth and time is often done, at the expense of a coarser spatial resolution.',
+          'The strength of the echo is then turned into a precipitation rate with a relation between Z and the rate R: Z = A R^b. WMO says that this relation is not unique, because different drop size distributions can give the same echo, and that many relations have been developed for different climates and storm types. The nominal and typical values are A = 200 and b = 1.6 (Marshall and Palmer), which can be applied to an accuracy of a factor of two for both rain and snow. WMO quotes a survey in which 80 % of the operational weather radars used this relation.',
+          'The measurements of a radar are in polar coordinates, and the radars of a network are combined. WMO says that polar data are converted to two- or three-dimensional Cartesian grids by interpolation, and that for areas where the coverage of radars overlaps, the algorithms are based on the nearest radar, on the maximum value or on an estimate of data quality. DWD\'s composites are such pictures of the whole network, on grids of 1 km or 250 m.',
+          'DWD publishes several composites of Germany, each described by a sheet of its own. The RV composite is the precipitation accumulated over 5 minutes, in mm, on a grid of 1 km × 1 km (1200 × 1100 cells), every 5 minutes; for the graphical display DWD scaled it up to one hour (mm in 1 h). The RS composite is the precipitation of one hour. The WN composite is a reflectivity composite of the precipitation scan, in dBZ, and the HX and DMAX composites are reflectivity composites of the precipitation scan and of the volume scan, on a grid of 250 m × 250 m. The VII composite is the ice mass that the radar sees in a vertical column of air, and the HymecNG composite gives the type of precipitation 2 m above the ground in 11 classes (large hail, small hail, graupel, freezing rain, freezing drizzle, snow, sleet, rain, drizzle, not classifiable, no precipitation); for both of these DWD says that other kinds of data, among them model data, are used besides the radar scan.',
+          'DWD offers the RV and WN composites also with a forecast for 2 hours, which is calculated by displacement. The principle of this nowcasting, as DWD describes it for its system RADVOR, is to recognize similar structures in successive radar pictures of precipitation, to determine how they are displaced across Germany, and to extrapolate that displacement into the future, in steps of 5 minutes up to 2 hours. It is no weather model. WMO describes nowcasting in the same way: traditionally it is an automated linear extrapolation of the current situation. An assumption of the example that WMO gives is that the precipitation system persists, with no evolution, and the skill of this example was very high for the first 20 to 30 minutes. See "Observation, forecast and derived data".',
+          'DWD also adjusts the radar precipitation to the ground. Its procedure RADOLAN combines the hourly values of rain gauges with the 17 radars into precipitation data for the whole of Germany. DWD says that radar cannot measure the precipitation near the ground directly, only the signals that the hydrometeors reflect in the atmosphere, so that a quantitatively correct radar analysis has to be calibrated with rain gauges on the ground. The best product is a composite of hourly precipitation totals with an intensity resolution of 0.1 mm and a spatial resolution of 1 km², which is available within 30 minutes and has been calculated every ten minutes since 25 April 2018. DWD\'s page shows the hourly totals as the product RW, and the totals of 24 hours as SF.',
+        ],
+      },
+      {
+        title: 'What the number can and cannot tell',
+        paragraphs: [
+          'A radar looks at the air above the ground. WMO explains that the beam rises with distance, and that because of the beam width, the tilt of the beam and the curvature of the Earth, radar measurements of precipitation at long ranges are lower than at the surface. At long ranges the beam is wide and may not be filled with precipitation, and it can overshoot shallow weather. For good quantitative estimates, WMO gives an effective range of about 80 km for a radar with a beam 1° wide and of 110 to 120 km for one with a beam 0.65° wide, without adjustment. Reflectivity usually decreases with height, so that the radar underestimates rain in stratiform weather and snow.',
+          'The rate is an estimate. WMO says that the natural variability of drop sizes is an important source of uncertainty of the Z–R relation, and that radar estimates compare with the spot measurements of rain gauges within a factor of two. Part of the difference is that a gauge samples an extremely small area (100 or 200 cm²), while the radar integrates over a much larger scale (1 to 4 km²). WMO says that comparisons with gauges should be made routinely as a check on the radar, and that adjustments should be made if a bias is clearly indicated, but judiciously, because tuning for one situation may create problems in others. For what a gauge catches, see "Precipitation".',
+          'Not every echo is precipitation. WMO says that ground clutter (echoes of buildings, hills and mountains) has to be eliminated for precipitation estimation, that anomalous propagation, in which the beam is bent toward the ground, causes ground echoes that are eliminated in the same manner, and that echoes of insects and birds are noise for precipitation measurement. Mountains and obstacles can block the beam partly or completely, which results in underestimates. Heavy rain attenuates the signal, especially at the short wavelengths of 5 and 3 cm, and a wet radome, the cover of the antenna, can attenuate it too. Wind turbines are a source of echoes that are difficult to remove. WMO adds that quantitative applications of weather radar are still in development, whereas the qualitative use for understanding and detecting severe storms is mature.',
+          'A radar picture is no map of rain gauges. In the Radar tool of this app each colour is a class of the rate over 5 minutes, and a rate under 0.1 mm/h is as transparent as a place with no data, so that no colour does not mean no rain. A frame that is marked as forecast is the extrapolation of the recent movement of the rain, not a measurement.',
+        ],
+      },
+      {
+        title: 'Where providers differ',
+        paragraphs: [
+          'Wetterdienst has radar data from one provider, DWD (dwd/radar). Besides the composites above it has the RADOLAN products and the polar data of single radars (the sweeps, in the ODIM HDF5 format, and other products of a site). Its radar command also lists the radar sites of other countries, from the database of EUMETNET OPERA, but only as a list of sites: wetterdienst has no radar data of any other provider, and this page says nothing about how the radars of other countries are operated. WMO names OPERA, the European Operational Programme for the Exchange of Weather Radar Information, as a multinational model in which radar products are exchanged to generate composites.',
+          'The names of the products do not always say what they hold. In wetterdienst RV_REFLECTIVITY is the precipitation of 5 minutes, not a reflectivity, and RS_PRECIPITATION_SUM is the precipitation of one hour; WN_REFLECTIVITY, HX_REFLECTIVITY and DMAX_REFLECTIVITY are reflectivities in dBZ.',
+          'The Radar tool of this app (/radar) shows the RV composite: the last two hours and DWD\'s forecast of the next two, in a frame every 5 minutes. Wetterdienst turns the sum of 5 minutes into a rate in mm/h (by multiplying it with 12), sorts it into seven classes (0.1 to under 0.5, 0.5 to 1, 1 to 2.5, 2.5 to 5, 5 to 10, 10 to 25, and 25 mm/h and more), and redraws the grid of DWD, which is in a polar stereographic projection, as a picture in the Web Mercator projection, in which each pixel takes the cell it lies in. The newest picture is some 5 to 15 minutes old when it is shown, because DWD publishes a run 3 to 8 minutes after its time. The tool says so when the newest run is more than 20 minutes old, which means that DWD\'s feed has stopped.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Volume III, Chapter 7 on radar measurements is where this entry takes how a radar measures, how the echo becomes a rate, composites, nowcasting and the sources of error from.',
+        'Volume III (Observing systems), Chapter 7 (Radar measurements), sections 7.1.1, 7.2.1, 7.2.5, 7.4.1, 7.5.3, 7.8.2, 7.9, 7.10.3, 7.10.4.1, 7.10.4.2, 7.10.4.3, 7.11.',
+        WMO_III,
+      ),
+      dwdFiles(
+        'Its page on radar products describes its radar network and its scan strategy, and each composite has a sheet that says what it holds, in German.',
+        'DWD. Radar products, dwd.de/EN/ourservices/radar_products/radar_products.html; the product sheets "Radarkomposit" RV, WN, HX, DMAX, RS, VII and HymecNG, linked from dwd.de/DE/leistungen/radarprodukte/radarprodukte.html, read on 22 November 2026.',
+        DWD_RADAR_PRODUCTS,
+      ),
+      dwdFiles(
+        'Its page on RADVOR describes the nowcasting that gives the forecast of the next two hours.',
+        'DWD. RADVOR (Radar-Niederschlagsvorhersage), dwd.de/DE/leistungen/radvor/radvor.html, read on 22 November 2026.',
+        DWD_RADVOR,
+      ),
+      dwdFiles(
+        'Its page on RADOLAN describes how radar and rain gauges are combined into hourly and daily precipitation.',
+        'DWD. Analysen radarbasierter stündlicher (RW) und täglicher (SF) Niederschlagshöhen (RADOLAN), dwd.de/DE/leistungen/radolan/radolan.html, read on 22 November 2026.',
+        DWD_RADOLAN,
+      ),
+      {
+        plain: 'The documentation of the library wetterdienst describes the radar products as the library serves them, and how the Radar tool of this app turns the RV composite into the classes of its legend.',
+        citation: 'Wetterdienst documentation, the pages "Radar" (dwd/radar, with the section "Radar frames on the REST API") and "Python examples" (the radar sites of EUMETNET OPERA).',
+        href: `${WETTERDIENST_DOCS}provider/dwd/radar/index.html`,
+      },
+    ],
+  },
   'urban-stations': {
     title: 'Urban stations',
     summary: 'WMO says that most developed sites make it impossible to follow the standard rules for the exposure of instruments. An urban station is therefore placed to stand for a kind of district of the city, and what it measures is the local climate of that district.',
@@ -1103,6 +1183,81 @@ export const measurement: MeasurementTexts = {
     ],
   },
 
+  'water-level': {
+    title: 'Water level and discharge',
+    summary: 'A water level is a height above the zero of one gauge, and a discharge is the volume of water that passes a cross-section each second, which is usually calculated from the level. Neither can be compared between gauges without knowing how it was made.',
+    parts: [
+      {
+        title: 'How it is measured',
+        paragraphs: [
+          'WMO defines the water level, or stage, as the elevation of the water surface of a stream, lake or other water body relative to a datum. At a gauge it is read from the zero of the gauge. WMO says that the gauge should be set so that a reading of zero is below the lowest anticipated stage, to avoid negative readings, that its datum should be checked annually by levelling from local benchmarks, that the same gauge datum should be kept throughout the period of record, and that, if feasible, it should be tied to a national or regional datum.',
+          'The German WSV says the same in its own words. The water level (Wasserstand) is the vertical distance of a point of the water surface above the gauge zero (Pegelnullpunkt) of the staff gauge, usually given in centimetres, and it says nothing about the local depth of the water or about the height relative to the surrounding terrain. The gauge zero, on the other hand, is absolute: it is given in metres above Normalhöhennull (NHN, in the height system DHHN92), it is fixed by the operator of the gauge and it is mostly below the lowest water level that was measured over a long time. WSV\'s example is the gauge Dresden: a water level of 176 cm and a gauge zero of 102.68 m above NHN make a water surface of 104.44 m above NHN.',
+          'WMO names several instruments for the level. A staff gauge, a graduated vertical staff, is read by an observer. A commonly used recording gauge is a float in a stilling well that is connected to the river by pipes. A pressure gauge calculates the level from the pressure of the water above a fixed point less the air pressure, with a factor for the weight of the water, which changes with its temperature and salinity. Ultrasonic and radar sensors above the water measure the distance to the water surface from the time an echo takes; the speed of sound depends on the air temperature, which is compensated for, and WMO says that the radar sensor is not affected by it. WMO says that at continuous-record gauging stations hourly recordings are normally sufficient on most rivers, that small or flashy streams and urban catchments need more frequent ones, and that in general it is recommended to record as often as the battery and the memory of the data logger allow.',
+          'WMO defines the river discharge as the rate at which water flows through a cross-section, a volume per unit of time. It can be measured at a given time by several methods, and the choice depends on the site. The classic one is the velocity-area method: the depth is measured at several verticals across the river with a rod or a sounding line, the velocity with a current meter at one or more points of each vertical, and the discharges of the segments between the verticals are summed. WMO also describes dilution methods and the moving-boat, ultrasonic, electromagnetic, acoustic Doppler and image-based methods, and says that the accuracy of a measurement depends on the time it takes and on how much the stage and the discharge change meanwhile.',
+        ],
+      },
+      {
+        title: 'How a reading becomes a value',
+        paragraphs: [
+          'A gauge records the level, and the discharge is usually calculated from it. WMO says that normally the discharge shall be related to the corresponding stage at a gauging station, and that for most gauging stations the stage-discharge relation is defined by plotting the measured discharges against the stages at the time. Many gaugings over a wide range of flows give a continuous rating curve, and the discharge is computed by applying the rating curve to the series of levels. The French Hub\'Eau says the same about its stations: a station can carry observations of height and of flow, "directly measured or calculated from a rating curve" (our translation; the source writes "courbe de tarage").',
+          'A rating curve is not fixed. WMO says that the relation depends on the control of the channel: it can change with scour and deposition, with the growth of water plants and, in autumn, with leaves, and with ice, and that periodic measurements are necessary to follow it, with a minimum of 10 discharge measurements per year recommended. WMO adds that compiling rating curves takes interpretation and decisions, that they are subject to scrutiny and sometimes revision after further gaugings, especially at high flows, and that historic rating curves should be preserved so that flows can be recomputed. A discharge that was computed once can be computed again.',
+          'Wetterdienst names the statistic in the name of the parameter. stage and discharge are the values of the series, stage_max, stage_mean and stage_min the highest, the mean and the lowest level of a period, and discharge_max, discharge_mean and discharge_min the same for the discharge.',
+        ],
+      },
+      {
+        title: 'What the number can and cannot tell',
+        paragraphs: [
+          'A level says nothing about the depth of the water, and two levels can be compared only against the same zero: each gauge has its own. To get the height of the water above sea level, add the gauge zero, as in the example of WSV. Wetterdienst gives the gauge zero in the station list of WSV, Hub\'Eau and IMGW (gauge_zero), with its datum for WSV and Hub\'Eau (gauge_zero_datum); the datum of the gauges of IMGW is not stated in the list. The documentation of wetterdienst says that the datums differ between stations, so that two gauge zeros should be compared only where their datums agree.',
+          'A gauge zero can move. WMO says it is important to keep the same one throughout the period of record, and the level series of IMGW show what happens otherwise. The documentation of wetterdienst finds steps in the level of some Polish gauges that the discharge does not share: at Warszawa-Nadwilanówka the mean level of the month goes from 118 cm in October 1990 to 311 cm in November 1990, while the discharge goes from 396 to 379 m³/s. It explains the steps of some gauges by a moved gauge zero that IMGW does not date. A trend of a level across such a step is no trend of the river.',
+          'The discharge is less certain than the level. WMO\'s general guidance on the recommended accuracy of a discharge is 5 % at the 95 per cent confidence interval. WMO says that the recommended accuracy depends mainly on the use of the data, on the available instruments and on the available financial resources, so that it is a flexible range, and that in many countries national standards regulate it. A discharge that is calculated from the level has the limits of the rating curve: WMO says that an estimated stage-discharge relation should not be extrapolated, and that at many sites the discharge is not a unique function of the stage. Backwater, tides, the operation of a reservoir downstream or a fast change of the stage can make the same level belong to different discharges. In floods, when measuring is impossible, WMO says that the peak discharge may be determined afterwards by indirect methods, from high-water marks and the geometry of the channel. Ice cover changes the relation too, and its effect can be determined accurately only by measuring the discharge.',
+          'A groundwater level is read in an observation well. WMO describes manual methods, the most common being a weighted tape that is lowered from a defined point at the well head until it is below the water, after which the length of its wet part is subtracted, and automatic recorders, of which WMO calls the float-actuated one the most suitable analogue recorder. WSV publishes the groundwater level in metres above NHN and the Environment Agency in metres above Ordnance Datum (mAOD), so that these are heights above a datum and not depths below the ground.',
+          'Wetterdienst runs no range check on the stage, the discharge, the groundwater level and the flow speed, because they have a datum of their own, and a tidal river can run backwards. See "Data quality".',
+        ],
+      },
+      {
+        title: 'Where providers differ',
+        paragraphs: [
+          'Wetterdienst has water level and discharge from four providers: WSV (wsv/pegel, Germany), the Environment Agency (ea/hydrology, England), Hub\'Eau (eaufrance/hubeau, France) and IMGW (imgw/hydrology, Poland). A test reads every provider of the library and holds that these four are the only ones that have a stage and a discharge. Wetterdienst names the level stage and the discharge discharge for all four, and converts them to one unit, by default metres and m³/s. The other hydrology services of the world are not read for this page.',
+          'WSV, the Federal Waterways and Shipping Administration, publishes in PEGELONLINE the levels and discharges of gauges on the federal waterways and the coast. It says that these are unchecked raw data (ungeprüfte Rohdaten) and that it takes no responsibility for their correctness. Its REST interface gives the last 31 days, and each series has an interval of its own, of 1, 5, 10, 15 or 60 minutes, by which wetterdienst files the station. WSV says that the level is usually given in centimetres; the documentation of wetterdienst adds that at some gauges it is published in metres above NN, which wetterdienst converts. WSV writes legal time, the local time of the year, where wetterdienst returns UTC (see "Time"). The pages of WSV that were read say nothing about how the discharge of a series is determined. WSV also publishes characteristic levels of a gauge, among them the mean low water (MNW), the mean water level (MW), the mean high water (MHW), the highest known water level (HHW) and three marks (I, II and III), which are set with the federal states as guide values for shipping and at which restrictions such as closures apply; wetterdienst gives them in metres as columns of the station list.',
+          'The Environment Agency\'s Hydrology API, with nearly eight thousand monitoring stations, has the flow as 15-minute values and as daily values (mean, minimum and maximum), the river level the same (daily minimum and maximum), and the groundwater level. Its reference gives the river level in metres in three kinds: relative to the Ordnance Survey datum (mAOD), relative to a local stage datum (mASD), or in metres with an unspecified datum (m). Wetterdienst\'s stage is of the last kind, so it is relative to a datum that is not stated. The documentation of wetterdienst says that a daily value covers the 24 hours from 09:00 to 09:00 and that the source gives no time zone; the reference page that was read does not state it. Every reading carries the Agency\'s own word for its quality (Good, Estimated, Suspect, Unchecked or Missing) and, for a daily value, whether it is based on complete data. The reference does not say how the flow is derived. Among the other flags of a reading it lists names that refer to a rating (WithinRating, NoRating, ExtrapolateUpperPart, ExtrapolateLowerPart, BeyondUpperLimit and BeyondLowerLimit), which wetterdienst does not return.',
+          'Hub\'Eau is the open data platform of the French water information service Eaufrance. Its hydrometry data come from the platform PHyC, which the Service Central Vigicrues operates: near-real-time measurements of the water height (H) and the flow (Q) of the French network of about 5000 hydrometric stations, which the regional directorates for environment, planning and housing (DREAL) and other producers operate, stored every 5 to 60 minutes, with a history of one month. The height is in millimetres and the flow in litres per second, which wetterdienst converts. A station can carry the height, the flow or both. Hub\'Eau does not say at which interval a station reports; wetterdienst measures it from the time stamps, so that a station is filed under 5, 6, 10, 15 or 60 minutes, and a station that reports at another step, such as 30 minutes, is not served. The height is relative to the zero of the gauge of the station, so that stations share no reference level. Hub\'Eau\'s terms say that its datasets contain raw data, provided without reprocessing. Every observation carries a qualification code of seven possible ones (see "Data quality"). The API also has elaborated values: the daily and monthly mean flow, for some stations back to 1900, and the highest and lowest instantaneous flow and the highest instantaneous height of each day and month. Wetterdienst does not serve them.',
+          'IMGW, the Polish Institute of Meteorology and Water Management, publishes daily and monthly files: the level and the discharge of each day, and the mean, minimum and maximum of each month. It arranges them by hydrological year, which starts on 1 November of the year before: the hydrological year 2016 is the time from 1 November 2015 to 31 October 2016. The level is in centimetres and the discharge in m³/s. IMGW\'s list of changes says for the hydrological years 2017 and 2019 that the data were added except for the discharges, which "will be added after their control is finished" (our translation), and the discharges followed later. Wetterdienst returns no quality flag for WSV or for IMGW\'s hydrology.',
+        ],
+      },
+    ],
+    sources: [
+      {
+        plain: 'The World Meteorological Organization (WMO) is the United Nations agency in which the national weather and hydrological services agree on how weather and water are measured. Volume I of its Guide to Hydrological Practices describes how water levels and discharges are measured and turned into hydrological information; this entry takes the gauges, the measurement of discharge, the rating curve, its limits and the recommended accuracy from it.',
+        citation: 'WMO (2008). Guide to Hydrological Practices, Volume I: Hydrology – From Measurement to Hydrological Information (WMO-No. 168), 2008 edition, updated in 2025. Chapter 2 (Methods of observation), section 2.3.3 and Table I.2.5; Chapter 5 (Surface water quantity and sediment measurement), sections 5.1.1, 5.1.2, 5.1.3.1, 5.1.4, 5.3.1, 5.3.2, 5.3.4, 5.3.5.1, 5.3.7.1, 5.4.5.1, 5.4.5.2 and 5.4.5.3; Chapter 6 (Groundwater), section 6.4.1; Chapter 9 (Data processing and quality control), sections 9.6.2.1 to 9.6.2.4.',
+        href: WMO_168,
+      },
+      {
+        plain: 'The Federal Waterways and Shipping Administration (WSV) of Germany publishes the water levels of the federal waterways on its portal PEGELONLINE. Its help page explains the water level, the gauge zero and the characteristic levels, and its pages on the webservices say that the data are unchecked raw data and how the data are served.',
+        citation: 'WSV. PEGELONLINE: Hilfe (pegelonline.wsv.de/gast/hilfe); Webservices & APIs, Übersicht (pegelonline.wsv.de/webservice/ueberblick); REST-API, Dokumentation (pegelonline.wsv.de/webservice/dokuRestapi), read on 22 November 2026.',
+        href: WSV_HELP,
+      },
+      {
+        plain: 'The Environment Agency of England publishes river flows, river levels and groundwater levels in its Hydrology API. Its reference says which series there are, in which units and with which quality words.',
+        citation: 'Environment Agency. Hydrology API, API Documentation (environment.data.gov.uk/hydrology/doc/reference), read on 22 November 2026.',
+        href: EA_HYDROLOGY,
+      },
+      {
+        plain: 'Hub\'Eau is the open data platform of the French water information service. Its page on the hydrometry API says where the data come from, in which units they are given and what a station can carry, and its terms say what the data are.',
+        citation: 'Hub\'Eau (Eaufrance). API "Hydrométrie" (hubeau.eaufrance.fr/page/api-hydrometrie) and Conditions générales (hubeau.eaufrance.fr/page/conditions-generales), read on 22 November 2026.',
+        href: HUBEAU_HYDROMETRY,
+      },
+      {
+        plain: 'The Polish Institute of Meteorology and Water Management (IMGW-PIB) publishes its hydrological observations on its public data portal, with a general information file and a list of changes in the folder of the data.',
+        citation: 'IMGW-PIB. Dane hydrologiczne, the files hydrologia_info_ogolne.txt and lista_zmian_hydro.txt in danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/, read on 22 November 2026.',
+        href: IMGW_HYDROLOGY,
+      },
+      {
+        plain: 'The documentation of the library wetterdienst describes the four hydrology networks as the library serves them: the units, the gauge zeros and their datums, the intervals and the steps in some level series.',
+        citation: 'Wetterdienst documentation, the pages "Pegel" (wsv/pegel), "Hydrology" (ea/hydrology, imgw/hydrology) and "Hubeau" (eaufrance/hubeau).',
+        href: `${WETTERDIENST_DOCS}provider/wsv/pegel/index.html`,
+      },
+    ],
+  },
   'time': {
     title: 'Time: what an hour and a day are in the data',
     summary: 'Timestamps are in UTC, a stamp can mean the start or the end of an interval, and a day is not always midnight to midnight.',
@@ -1194,6 +1349,70 @@ export const measurement: MeasurementTexts = {
         'Volume V, Chapter 3 on data reduction describes how the signal of an instrument becomes a meteorological variable.',
         'Volume V (Quality assurance and management of observing systems), Chapter 3 (Data reduction), sections 3.1.1, 3.1.3, 3.5, 3.6.',
       ),
+    ],
+  },
+  'data-quality': {
+    title: 'Data quality: the sources\' flags and wetterdienst\'s checks',
+    summary: 'Some sources mark a value as doubtful, and wetterdienst checks values against limits that no real measurement breaks. What happens to a doubtful value is your choice, and the flag stays with it.',
+    parts: [
+      {
+        title: 'What the source says about a value',
+        paragraphs: [
+          'Many sources mark a value in a quality flag of their own and publish it all the same: a GHCN-Daily value that failed a check, a Frost value of quality code 7, an Environment Agency reading that is Suspect, a Hub\'Eau value with the code 12, "doubtful". Wetterdienst returns this flag as the source wrote it, in the column quality_flags. The flag of the source comes first, further kinds of flag follow as kind:code, and the text that the source wrote in place of a missing value comes last, as raw:-999.',
+          'The flags of two sources are not comparable. The sources call the field by many names and the meaning of a code differs from provider to provider, so that a code from one says nothing about a code from another, and none is a scale of better and worse unless the documentation says so. The QN of DWD, for example, says how far the control of a row has gone, from 1 (only formal control) to 10 (quality control finished); a larger number is a more thorough check, and the data up to 1980 reach 5 at best.',
+          'A source\'s word for a doubtful value is not always a verdict. Wetterdienst reads only the codes that the documentation of the provider words as the verdict that a value failed a check, is erroneous, suspect, doubtful or of poor quality. What the documentation words as a degree of uncertainty, as a treatment (estimated, corrected, interpolated), as a missing value or as no control at all (such as Unchecked of the Environment Agency) is no verdict and is not read. Where a flag is read, the check source applies it.',
+          'Such flags are common. Of the first 20,000 rows of the real-time observations of Hub\'Eau that wetterdienst read on 2 November 2026, 2,170 had the code "doubtful" and 17,830 the code "not qualified", which means that no control was made. See "Water level and discharge".',
+        ],
+      },
+      {
+        title: 'What wetterdienst checks',
+        paragraphs: [
+          'A plausibility check judges numbers that no sensor can have produced and that are no code of the source: 4021 °C for a daily maximum, a station pressure that the elevation of the station does not allow, a sensor that held one value for a month. There are nine checks, each for the parameters it has a rule for. They are: range, a reading outside the physical range of its parameter; elevation, a station pressure that the standard atmosphere does not allow at the elevation of the station; stuck, a sensor that held one value for longer than it should; step, a reading that differs from the one before it by more than the weather does in that time, or that jumps away from both neighbours and back; relations, two readings of one row that contradict each other, such as a maximum below the mean, a dew point above the air temperature or a gust below the mean wind; consistency, a reading that another parameter of the same file contradicts; floor, a model value a little below the floor of its quantity, such as a small negative rainfall of a forecast; limits, a bound that you set yourself; and source, the verdict of the source.',
+          'WMO describes the same kinds of checks for an automatic weather station: a plausible value, which is a gross check against the absolute limits of variability of the quantity; a plausible rate of change; a minimum required variability, where a long period without significant change is an indication of a malfunction, for example of a cup and vane anemometer starting to jam; and checks of one measured variable against others, for example that the dew point cannot exceed the air temperature. WMO says that without data quality control the data of an automatic station are likely to contain undetected errors.',
+          'The limits are generous and the same for every provider. The bound of a quantity rests, in this order, on the extreme that the World Weather and Climate Extremes Archive of WMO lists, on a limit that follows from the definition of the quantity (a share is 0 to 100 %), or on a named source, and it is rounded outward, so that the check finds a value that is a defect of the source and never a record. The air temperature, for example, is held to -90 to 60 °C, the records being 56.7 °C (Furnace Creek, 1913) and -89.2 °C (Vostok, 1983). The limits for a run of identical values come from published quality controls (HadISD, ECA&D and the study of Durre and others for GHCN-Daily); a limit that no source publishes is a derivation of wetterdienst, and the documentation says so.',
+        ],
+      },
+      {
+        title: 'What happens to a doubtful value',
+        paragraphs: [
+          'Each check has a mode. In hard mode the value is null and the number that the source wrote stays in quality_flags, as rejected:<check>,raw:<number>. In soft mode the value is kept and quality_flags says suspect:<check>. There is no mode that skips a check: a soft check keeps the value, and the flag keeps the judgement visible. Hard is the default for range, elevation, consistency, floor and limits; soft is the default for stuck, step, relations and source. The documentation gives the reasons: identical readings are a sign of a stuck sensor and no proof, a front is a real step, a relation cannot tell which of two readings is wrong, and the verdict of source is the source\'s and not that of the library.',
+          'A forecast is judged soft, but for two checks. It is the output of a model and no reading, so a value that a check finds is kept and flagged suspect:range, and never nulled. The two exceptions are floor, which sets a small negative value of the model to the floor of its quantity and keeps the number, and limits, the bounds that you set yourself.',
+          'An interpolation and a summary always leave out a value that is flagged suspect, whatever the mode, because a number that a check finds implausible has no place in a weighted mean. The mode is set for each check, in Python, on the command line and in the REST API, with the option plausibility.',
+          'What a source documents is no judgement and has no mode. A -999, a ---, a NaN, a trace of rain or a calm wind that the source documents as such is decoded in both modes, and the text of the source stays in quality_flags as raw: alone. A rejected: before raw: is the judgement of wetterdienst.',
+        ],
+      },
+      {
+        title: 'What the number can and cannot tell',
+        paragraphs: [
+          'A check says that a number is possible, not that it is right. Because the limits are generous, a wrong value inside them passes, and a value that is flagged suspect may be correct: a check of a relation flags both readings of a contradicting pair, so that a good air temperature can be flagged beside a wrong dew point.',
+          'Some quantities have no bound: derived quantities, codes and flags, and the hydrology gauges (stage, discharge, groundwater level, the distance to the gauge and the flow speed), which have a datum of their own, and a tidal river can run backwards. A number there stays as the source wrote it, apart from the verdicts of the source that are read. See "Water level and discharge".',
+          'A check never reads more than the reader read. What stuck finds depends on which values were read, and a check that compares two readings needs both in the same file, so that a dataset that a provider collects one parameter at a time, such as WSV, the Environment Agency, Hub\'Eau and IMGW\'s hydrology, has no second reading to compare with.',
+        ],
+      },
+      {
+        title: 'Where providers differ',
+        paragraphs: [
+          'Not every provider has a flag. For WSV, IMGW\'s hydrology, FMI, KNMI, IPMA, LHMT, MeteoSwiss, AEMET, Geosphere and the synop data of Météo-France, quality_flags is null apart from the tokens of the checks of wetterdienst, and so it is for DWD\'s MOSMIX, DMO, POI, SWSMOS and radar. DWD\'s observation data carry the control level QN of each row, which says how far the control has gone and is no verdict.',
+          'The check source reads the verdict of ten providers: NOAA GHCN (daily and hourly), MET Norway Frost, CHMI, DMI, the road stations of DWD, the Environment Agency, Hub\'Eau, Météo-France, the Met Office and NWS. The documentation of wetterdienst lists, for each, the codes that count with the wording of the provider.',
+        ],
+      },
+    ],
+    sources: [
+      {
+        plain: 'The documentation of the library wetterdienst lists the nine checks, the limits they apply with the sources the limits rest on, the modes, and the flags and the verdicts of each provider. This entry takes what the checks do and how they are set from it.',
+        citation: 'Wetterdienst documentation, the pages "Plausibility checks" (data/plausibility.md) and "Quality flags" (data/quality-flags.md), and the modules wetterdienst.model.quality_flags and wetterdienst.model.plausibility_ranges.',
+        href: `${WETTERDIENST_DOCS}plausibility.html`,
+      },
+      wmoGuide(
+        'Volume III, Chapter 1 on measurements at automatic weather stations lists the quality control that such a station should make, and what happens without it.',
+        'Volume III (Observing systems), Chapter 1 (Measurements at automatic weather stations), sections 1.4.2 and 1.5.',
+        WMO_III,
+      ),
+      {
+        plain: 'The limits for a run of identical values come from published quality controls of weather data, which the documentation of wetterdienst names: the quality control of the global database of synoptic reports HadISD, the study of the quality assurance of GHCN-Daily and the algorithms of the European Climate Assessment & Dataset.',
+        citation: 'Dunn, R. J. H., et al. (2012). HadISD: a quality-controlled global synoptic report database for selected variables at long-term stations from 1973–2011. Climate of the Past 8, 1649–1679. Durre, I., et al. (2010). Comprehensive Automated Quality Assurance of Daily Surface Observations. Journal of Applied Meteorology and Climatology 49, 1615–1633. KNMI (2021). Algorithm Theoretical Basis Document (ECA&D), version 11, section 3.',
+        href: 'https://doi.org/10.5194/cp-8-1649-2012',
+      },
     ],
   },
 }

@@ -46,6 +46,15 @@ describe('the page in English', () => {
     expect(wrapper.findAll('h2').map(h => h.text())).toEqual(['Contents', 'Sources and edition', 'What is measured, and how', 'Reading the data'])
   })
 
+  it('points the entry on radar to the Radar tool, and no other entry to a tool', async () => {
+    const wrapper = await mountSuspended(MeasurementPage)
+    const links = wrapper.findAll('[data-testid="measurement-tools"] a')
+    expect(links.map(link => link.attributes('href'))).toEqual(['/radar'])
+    expect(links[0]!.text()).toBe('Open the Radar tool')
+    expect(wrapper.find('#radar [data-testid="measurement-tools"]').exists()).toBe(true)
+    wrapper.unmount()
+  })
+
   it('has its headings in order: no level is skipped on the way down', async () => {
     const wrapper = await mountSuspended(MeasurementPage)
     const levels = headingLevels(wrapper.element)
@@ -197,6 +206,9 @@ describe('the glossary', () => {
     { name: 'evaporation_amount_grass_sand', unit_type: 'precipitation', unit: 'millimeter', unit_symbol: 'mm', description: 'Depth of water evaporated from sand under grass.' },
     { name: 'water_film_thickness', unit_type: 'length_tiny', unit: 'millimeter', unit_symbol: 'mm', description: 'Thickness of the film of water lying on the road surface.' },
     { name: 'road_surface_condition', unit_type: 'dimensionless', unit: 'dimensionless', unit_symbol: '', description: 'Coded condition of the road surface as a road station reports it.' },
+    { name: 'stage', unit_type: 'length_medium', unit: 'meter', unit_symbol: 'm', description: 'Water level at the gauge, measured against the gauge datum.' },
+    { name: 'discharge_mean', unit_type: 'volume_per_time', unit: 'cubic_meter_per_second', unit_symbol: 'm³/s', description: 'Mean discharge over the period.' },
+    { name: 'flow_speed', unit_type: 'speed', unit: 'meter_per_second', unit_symbol: 'm/s', description: 'Speed at which the water is flowing past the gauge.' },
     { name: 'road_surface_condition_forecast', unit_type: 'dimensionless', unit: 'dimensionless', unit_symbol: '', description: 'Coded condition of the road surface as a road weather model forecasts it.' },
   ]
   registerEndpoint('/api/glossary', () => entries)
@@ -228,6 +240,8 @@ describe('the glossary', () => {
       '/measurement#road-stations',
       '/measurement#soil-moisture',
       '/measurement#temperature',
+      '/measurement#water-level',
+      '/measurement#water-level',
       '/measurement#wind',
     ])
     // the link says which parameter it is for, to a screen reader that lists the links of the page
@@ -266,6 +280,14 @@ describe('the glossary', () => {
     const shown = (wrapper.vm as any).entries.map((entry: { name: string }) => entry.name)
     expect([...shown].sort()).toEqual(['road_surface_condition', 'water_film_thickness'])
     expect(wrapper.find('[data-testid="glossary-topic"]').text()).toContain('Only “Road weather stations”')
+  })
+
+  it('shows the parameters of the entry on water level and discharge, and not the speed of the current', async () => {
+    await useLocale('en')
+    const wrapper = await mountGlossary('/glossary?topic=water-level')
+    const shown = (wrapper.vm as any).entries.map((entry: { name: string }) => entry.name)
+    expect([...shown].sort()).toEqual(['discharge_mean', 'stage'])
+    expect(wrapper.find('[data-testid="glossary-topic"]').text()).toContain('Only “Water level and discharge”')
   })
 
   it('takes an entry that explains no parameter for no filter, as an id that is none', async () => {

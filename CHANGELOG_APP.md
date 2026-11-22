@@ -73,6 +73,15 @@ Types of changes:
   volume on the page, in its 2024 edition), Volume V, Chapters 2 and 3, and DWD's own files and
   notices. The Glossary links `road_surface_condition`, `water_film_thickness` and
   `temperature_surface` to the road weather stations (GH-3787).
+- `[Measurement]` The last three entries of the "How weather is measured" page: radar
+  (`/measurement#radar`, with a link to the Radar tool), water level and discharge
+  (`#water-level`, from WMO's Guide to Hydrological Practices, WMO-No. 168, Volume I, and the pages
+  of WSV, the Environment Agency, Hub'Eau and IMGW) and data quality (`#data-quality`, in the new
+  section "Reading the data": the flags of the sources and wetterdienst's plausibility checks).
+  Radar rests on WMO-No. 8, Volume III, Chapter 7, and DWD's pages on its radar network, composites,
+  RADVOR and RADOLAN. The Glossary links `stage_*`, `discharge_*` and `groundwater_level` to water
+  level and discharge. The search index may be 55 kB gzipped for a language (it was 50), since the
+  largest, Luxembourgish, is 50.7 kB with them (GH-3787).
 - `[Search]` The search finds stations by name (from three letters) in the lists you choose in the
   settings, "Stations in the search": the forecast's points (DWD MOSMIX, the backend's best five
   for the name, names only) and NOAA GHCN daily on, DWD's measuring stations off until turned on

@@ -630,6 +630,7 @@
     "sourcesTitle": "Kilder",
     "untranslatedEn": "Dette indlæg er endnu ikke oversat til dit sprog og vises på engelsk.",
     "untranslatedDe": "Dette indlæg er endnu ikke oversat til dit sprog og vises på tysk.",
+    "toolRadar": "Åbn radarværktøjet",
     "topics": {
       "temperature": "Luft- og jordtemperatur",
       "pressure": "Lufttryk",
@@ -645,12 +646,15 @@
       "clouds": "Skyer",
       "snow": "Sne",
       "automaticStations": "Automatiske vejrstationer",
+      "radar": "Radar",
       "urbanStations": "Stationer i byen",
       "roadStations": "Vejrstationer ved vejene",
       "fromMeasurementToValue": "Fra måling til værdi",
       "normals": "Klimanormaler",
+      "waterLevel": "Vandstand og vandføring",
       "time": "Tid",
-      "observationForecastDerived": "Observation, prognose og afledte data"
+      "observationForecastDerived": "Observation, prognose og afledte data",
+      "dataQuality": "Datakvalitet"
     }
   },
   "methods": {

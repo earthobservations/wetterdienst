@@ -630,6 +630,7 @@
     "sourcesTitle": "Zdroje",
     "untranslatedEn": "Toto heslo ještě není přeloženo do tvého jazyka a zobrazuje se anglicky.",
     "untranslatedDe": "Toto heslo ještě není přeloženo do tvého jazyka a zobrazuje se německy.",
+    "toolRadar": "Otevřít nástroj Radar",
     "topics": {
       "temperature": "Teplota vzduchu a půdy",
       "pressure": "Tlak vzduchu",
@@ -645,12 +646,15 @@
       "clouds": "Oblačnost",
       "snow": "Sníh",
       "automaticStations": "Automatické meteorologické stanice",
+      "radar": "Radar",
       "urbanStations": "Městské stanice",
       "roadStations": "Silniční meteorologické stanice",
       "fromMeasurementToValue": "Od měření k hodnotě",
       "normals": "Klimatické normály",
+      "waterLevel": "Vodní stav a průtok",
       "time": "Čas",
-      "observationForecastDerived": "Pozorování, předpověď a odvozená data"
+      "observationForecastDerived": "Pozorování, předpověď a odvozená data",
+      "dataQuality": "Kvalita dat"
     }
   },
   "methods": {

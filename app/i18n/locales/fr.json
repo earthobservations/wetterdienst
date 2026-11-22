@@ -630,6 +630,7 @@
     "sourcesTitle": "Sources",
     "untranslatedEn": "Cette entrée n'est pas encore traduite dans ta langue et s'affiche en anglais.",
     "untranslatedDe": "Cette entrée n'est pas encore traduite dans ta langue et s'affiche en allemand.",
+    "toolRadar": "Ouvrir l'outil Radar",
     "topics": {
       "temperature": "Température de l'air et du sol",
       "pressure": "Pression atmosphérique",
@@ -645,12 +646,15 @@
       "clouds": "Nuages",
       "snow": "Neige",
       "automaticStations": "Stations météorologiques automatiques",
+      "radar": "Radar",
       "urbanStations": "Stations urbaines",
       "roadStations": "Stations météorologiques routières",
       "fromMeasurementToValue": "De la mesure à la valeur",
       "normals": "Normales climatiques",
+      "waterLevel": "Hauteur d'eau et débit",
       "time": "Heure et jour",
-      "observationForecastDerived": "Observation, prévision et données dérivées"
+      "observationForecastDerived": "Observation, prévision et données dérivées",
+      "dataQuality": "Qualité des données"
     }
   },
   "methods": {

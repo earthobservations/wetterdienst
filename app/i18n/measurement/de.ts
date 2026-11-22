@@ -45,6 +45,17 @@ const DWD_URBAN_TU = 'https://opendata.dwd.de/climate_environment/CDC/observatio
 const DWD_ROAD = 'opendata.dwd.de/weather/weather_reports/road_weather_stations/'
 const DWD_ROAD_TEMPLATE = 'https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/bufr/bufr_templates_sws_national_pdf.pdf?__blob=publicationFile&v=3'
 const DWD_ROAD_NOTICE = 'https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/bufr/sws_sh10_code_pdf.pdf?__blob=publicationFile&v=4'
+
+/** Das Radar des DWD: seine Seite zu den Radarprodukten und die Blätter seiner Komposite, RADVOR und RADOLAN */
+const DWD_RADAR_PRODUCTS = 'https://www.dwd.de/DE/leistungen/radarprodukte/radarprodukte.html'
+const DWD_RADVOR = 'https://www.dwd.de/DE/leistungen/radvor/radvor.html'
+const DWD_RADOLAN = 'https://www.dwd.de/DE/leistungen/radolan/radolan.html'
+/** Die Hydrologiedienste, auf deren eigene Seiten sich der Eintrag zu Wasserstand und Abfluss stützt, und der Guide to Hydrological Practices der WMO */
+const WMO_168 = 'https://community.wmo.int/en/product/605'
+const WSV_HELP = 'https://pegelonline.wsv.de/gast/hilfe'
+const EA_HYDROLOGY = 'https://environment.data.gov.uk/hydrology/doc/reference'
+const HUBEAU_HYDROMETRY = 'https://hubeau.eaufrance.fr/page/api-hydrometrie'
+const IMGW_HYDROLOGY = 'https://danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/'
 const WETTERDIENST_DOCS = 'https://wetterdienst.readthedocs.io/en/latest/data/'
 const KNMI_DAILY = 'https://www.knmi.nl/nederland-nu/klimatologie/daggegevens'
 const NOAA_GHCN_DAILY = 'https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt'
@@ -869,6 +880,75 @@ export const measurement: MeasurementTexts = {
     ],
   },
 
+  'radar': {
+    title: 'Radar',
+    summary: 'Ein Wetterradar misst das Echo, das Regen, Schnee oder Hagel zurückschicken, nicht den Niederschlag am Boden. Eine Formel macht aus dem Echo eine Rate, und der DWD fügt seine Radare zu Bildern von Deutschland zusammen.',
+    parts: [
+      {
+        title: 'Wie gemessen wird',
+        paragraphs: [
+          'Ein Wetterradar sendet von einer sich drehenden Antenne kurze Impulse aus Radiowellen aus und lauscht auf das Echo, das zurückkommt. Die WMO sagt, dass die Radare, die sich am besten für die Beobachtung der Atmosphäre eignen, Frequenzen von 3 bis 10 GHz nutzen, also Wellenlängen von 10 bis 3 cm. Die Zeit zwischen dem Impuls und seinem Echo gibt die Entfernung des Ziels an. Wie stark das Echo ist, hängt von der Größe und der Zahl der Teilchen in dem Volumen ab, das der Strahl füllt, und die WMO sagt, dass diese Stärke genutzt wird, um den Reflektivitätsfaktor (Z) zu bestimmen, aus dem über empirische Beziehungen die Intensität des Niederschlags geschätzt wird. Der Strahl wird mit der Entfernung breiter: Ein Strahl von nominell 1° ist in 50 km Entfernung 0,9 km breit, in 100 km 1,7 km und in 200 km 3,5 km.',
+          'Das Echo stammt nicht immer vom Regen. Die WMO nennt Insekten, Vögel, Flugzeuge, Sand und Staub, Bodenechos (Clutter) und sogar Schwankungen des Brechungsindex der Luft als andere Dinge, die ein Wetterradar erfassen kann. Die aktuelle Generation der Radare hat Dual-Polarisation: Die Impulse werden gleichzeitig mit horizontaler und mit vertikaler Polarisation gesendet. Die WMO sagt, dass die Hauptvorteile eine bessere Datenqualität sind, weil das Radar erkennen kann, was das Ziel ist (Vögel, Insekten, Niederschlag und seine Art, Clutter), sowie die Klassifizierung von Hydrometeoren und die Schätzung des Niederschlags; für Vorhersagen kann die Dual-Polarisation Hagel und die Grenze zwischen Regen und Schnee erkennen.',
+          'Der DWD betreibt ein Netz von 17 operationellen Wetterradaren mit Dual-Polarisations-Doppler-Technik. Ein weiteres Radar am Observatorium Hohenpeißenberg dient der Qualitätssicherung und dem Testen neuer Hard- und Software. Die horizontale Reichweite der Radare beträgt bis zu 180 km, und in der Vertikalen reicht ihre Abdeckung von bodennah bis über 10 km. Die Scanstrategie des DWD ist ein Zyklus von 5 Minuten. Er beginnt mit einem Niederschlags-Scan nahe am Boden, bei dem die Antenne dem Gelände folgt (Reichweite 150 km). Es folgt ein Volumen-Scan aus zehn Umdrehungen bei festen Elevationswinkeln: sechs von 5,5° hinunter bis 0,5° (Reichweite 180 km), dann vier bei 8°, 12°, 17° und 25°, mit einer Reichweite, die mit dem Winkel von 160 km auf 120 km abnimmt. Der Zyklus endet mit einem senkrechten Scan in den Himmel, zur Kalibrierung.',
+        ],
+      },
+      {
+        title: 'Wie aus einer Messung ein Wert wird',
+        paragraphs: [
+          'Ein Echo sagt wenig. Die WMO erklärt, dass sich die Teilchen im Volumen des Strahls ständig gegeneinander verschieben, sodass einer einzelnen Echointensität wenig Bedeutung zukommt, und dass mindestens 25 bis 30 Impulse integriert werden müssen, um die mittlere Intensität einigermaßen zu schätzen. Eine weitere Mittelung in Entfernung, Azimut und Zeit wird oft vorgenommen, auf Kosten einer gröberen räumlichen Auflösung.',
+          'Die Stärke des Echos wird dann mit einer Beziehung zwischen Z und der Rate R in eine Niederschlagsrate umgerechnet: Z = A R^b. Die WMO sagt, dass diese Beziehung nicht eindeutig ist, weil verschiedene Tropfengrößenverteilungen dasselbe Echo ergeben können, und dass viele Beziehungen für verschiedene Klimate und Sturmarten entwickelt wurden. Die nominellen und typischen Werte sind A = 200 und b = 1,6 (Marshall und Palmer); sie lassen sich für Regen wie für Schnee auf einen Faktor zwei genau anwenden. Die WMO zitiert eine Umfrage, in der 80 % der operationellen Wetterradare diese Beziehung nutzten.',
+          'Die Messungen eines Radars liegen in Polarkoordinaten vor, und die Radare eines Netzes werden zusammengefügt. Die WMO sagt, dass Polardaten durch Interpolation in zwei- oder dreidimensionale kartesische Gitter umgerechnet werden und dass für Gebiete, in denen sich die Abdeckung von Radaren überlappt, die Algorithmen auf dem nächsten Radar, auf dem Höchstwert oder auf einer Schätzung der Datenqualität beruhen. Die Komposite des DWD sind solche Bilder des gesamten Netzes, auf Gittern von 1 km oder 250 m.',
+          'Der DWD veröffentlicht mehrere Komposite von Deutschland, jedes mit einem eigenen Produktblatt. Das RV-Komposit ist der über 5 Minuten akkumulierte Niederschlag in mm auf einem Gitter von 1 km × 1 km (1200 × 1100 Zellen), alle 5 Minuten; für die grafische Darstellung hat der DWD es auf eine Stunde hochgerechnet (mm in 1 h). Das RS-Komposit ist der Niederschlag einer Stunde. Das WN-Komposit ist ein Reflektivitäts-Komposit des Niederschlags-Scans, in dBZ, und die Komposite HX und DMAX sind Reflektivitäts-Komposite des Niederschlags-Scans und des Volumen-Scans, auf einem Gitter von 250 m × 250 m. Das VII-Komposit ist die Eismasse, die das Radar in einer senkrechten Luftsäule erfasst, und das HymecNG-Komposit gibt die Niederschlagsart in 2 m Höhe über Grund in 11 Klassen an (großer Hagel, kleiner Hagel, Graupel, gefrierender Regen, gefrierender Sprühregen, Schnee, Schneeregen, Regen, Sprühregen, nicht klassifizierbar, kein Niederschlag); für diese beiden sagt der DWD, dass neben dem Radar-Scan weitere Datenarten genutzt werden, darunter Modelldaten.',
+          'Der DWD bietet das RV- und das WN-Komposit auch mit einer Vorhersage für 2 Stunden an, die durch Verlagerung berechnet wird. Das Prinzip dieses Nowcastings, wie der DWD es für sein System RADVOR beschreibt, ist es, ähnliche Strukturen in aufeinanderfolgenden Radarbildern des Niederschlags zu erkennen, zu bestimmen, wie sie sich über Deutschland verlagern, und diese Verlagerung in 5-Minuten-Schritten bis zu 2 Stunden in die Zukunft fortzuschreiben. Es ist kein Wettermodell. Die WMO beschreibt Nowcasting ebenso: Traditionell ist es eine automatisierte lineare Extrapolation der aktuellen Lage. Eine Annahme des Beispiels, das die WMO gibt, ist, dass das Niederschlagssystem fortbesteht, ohne Entwicklung, und die Güte dieses Beispiels war in den ersten 20 bis 30 Minuten sehr hoch. Siehe „Beobachtung, Vorhersage und abgeleitete Daten“.',
+          'Der DWD eicht den Radarniederschlag auch an den Boden an. Sein Verfahren RADOLAN verbindet die Stundenwerte von Niederschlagsmessern mit den 17 Radaren zu Niederschlagsdaten für ganz Deutschland. Der DWD sagt, dass Radar den bodennahen Niederschlag nicht direkt messen kann, sondern nur die Signale, die die Hydrometeore in der Atmosphäre reflektieren, sodass eine quantitativ richtige Radaranalyse mit Niederschlagsmessern am Boden geeicht werden muss. Das beste Produkt ist ein Komposit stündlicher Niederschlagshöhen mit einer Intensitätsauflösung von 0,1 mm und einer räumlichen Auflösung von 1 km², das innerhalb von 30 Minuten verfügbar ist und seit dem 25. April 2018 alle zehn Minuten berechnet wird. Die Seite des DWD zeigt die Stundensummen als Produkt RW und die Summen von 24 Stunden als SF.',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Ein Radar schaut auf die Luft über dem Boden. Die WMO erklärt, dass der Strahl mit der Entfernung ansteigt und dass wegen der Strahlbreite, der Neigung des Strahls und der Erdkrümmung Radarmessungen des Niederschlags in großen Entfernungen niedriger sind als am Boden. In großen Entfernungen ist der Strahl breit und womöglich nicht mit Niederschlag gefüllt, und er kann flache Wetterlagen überschießen. Für gute quantitative Schätzungen nennt die WMO ohne Anpassung eine effektive Reichweite von etwa 80 km für ein Radar mit einem 1° breiten Strahl und von 110 bis 120 km für eines mit einem 0,65° breiten Strahl. Die Reflektivität nimmt meist mit der Höhe ab, sodass das Radar Regen bei schichtförmigem Wetter und Schnee unterschätzt.',
+          'Die Rate ist eine Schätzung. Die WMO sagt, dass die natürliche Schwankung der Tropfengrößen eine wichtige Quelle der Unsicherheit der Z–R-Beziehung ist und dass Radarschätzungen mit den punktuellen Messungen von Niederschlagsmessern innerhalb eines Faktors zwei übereinstimmen. Ein Teil des Unterschieds ist, dass ein Niederschlagsmesser eine äußerst kleine Fläche erfasst (100 oder 200 cm²), während das Radar über einen viel größeren Maßstab integriert (1 bis 4 km²). Die WMO sagt, dass Vergleiche mit Niederschlagsmessern routinemäßig als Kontrolle des Radars gemacht werden sollen und dass Anpassungen vorgenommen werden sollen, wenn ein Fehler deutlich erkennbar ist, aber mit Bedacht, weil das Abstimmen für eine Lage in anderen Lagen Probleme schaffen kann. Zu dem, was ein Niederschlagsmesser auffängt, siehe „Niederschlag“.',
+          'Nicht jedes Echo ist Niederschlag. Die WMO sagt, dass Bodenechos (Echos von Gebäuden, Hügeln und Bergen) für die Niederschlagsschätzung beseitigt werden müssen, dass anomale Ausbreitung, bei der der Strahl zum Boden hin gebogen wird, Bodenechos verursacht, die auf dieselbe Weise beseitigt werden, und dass Echos von Insekten und Vögeln für die Niederschlagsmessung Rauschen sind. Berge und Hindernisse können den Strahl teilweise oder ganz abschatten, was zu Unterschätzungen führt. Starker Regen schwächt das Signal ab, besonders bei den kurzen Wellenlängen von 5 und 3 cm, und ein nasses Radom, die Hülle der Antenne, kann es ebenfalls abschwächen. Windkraftanlagen sind eine Quelle von Echos, die sich schwer entfernen lassen. Die WMO fügt hinzu, dass quantitative Anwendungen des Wetterradars noch in Entwicklung sind, während die qualitative Nutzung zum Verstehen und Erkennen schwerer Stürme ausgereift ist.',
+          'Ein Radarbild ist keine Karte von Niederschlagsmessern. Im Radar-Werkzeug dieser App ist jede Farbe eine Klasse der Rate über 5 Minuten, und eine Rate unter 0,1 mm/h ist so durchsichtig wie ein Ort ohne Daten, sodass keine Farbe nicht heißt, dass es nicht regnet. Ein Bild, das als Vorhersage markiert ist, ist die Fortschreibung der jüngsten Bewegung des Regens, keine Messung.',
+        ],
+      },
+      {
+        title: 'Worin sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Wetterdienst hat Radardaten von einem Anbieter, dem DWD (dwd/radar). Neben den oben genannten Kompositen hat es die RADOLAN-Produkte und die Polardaten einzelner Radare (die Sweeps im Format ODIM HDF5 und andere Produkte eines Standorts). Sein Befehl radar listet auch die Radarstandorte anderer Länder aus der Datenbank von EUMETNET OPERA auf, aber nur als Liste von Standorten: Wetterdienst hat keine Radardaten eines anderen Anbieters, und diese Seite sagt nichts darüber, wie die Radare anderer Länder betrieben werden. Die WMO nennt OPERA, das European Operational Programme for the Exchange of Weather Radar Information, als multinationales Modell, in dem Radarprodukte ausgetauscht werden, um Komposite zu erzeugen.',
+          'Die Namen der Produkte sagen nicht immer, was sie enthalten. In Wetterdienst ist RV_REFLECTIVITY der Niederschlag von 5 Minuten und keine Reflektivität, und RS_PRECIPITATION_SUM ist der Niederschlag einer Stunde; WN_REFLECTIVITY, HX_REFLECTIVITY und DMAX_REFLECTIVITY sind Reflektivitäten in dBZ.',
+          'Das Radar-Werkzeug dieser App (/radar) zeigt das RV-Komposit: die letzten zwei Stunden und die Vorhersage des DWD für die nächsten zwei, in einem Bild alle 5 Minuten. Wetterdienst rechnet die Summe von 5 Minuten in eine Rate in mm/h um (indem es sie mit 12 multipliziert), ordnet sie sieben Klassen zu (0,1 bis unter 0,5, 0,5 bis 1, 1 bis 2,5, 2,5 bis 5, 5 bis 10, 10 bis 25 und 25 mm/h und mehr) und zeichnet das Gitter des DWD, das in einer polar-stereografischen Projektion liegt, als Bild in der Web-Mercator-Projektion neu, in dem jedes Pixel die Zelle übernimmt, in der es liegt. Das neueste Bild ist beim Anzeigen etwa 5 bis 15 Minuten alt, weil der DWD einen Lauf 3 bis 8 Minuten nach seiner Zeit veröffentlicht. Das Werkzeug sagt es, wenn der neueste Lauf mehr als 20 Minuten alt ist, was bedeutet, dass der Datenstrom des DWD stehen geblieben ist.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Band III, Kapitel 7 über Radarmessungen ist, woher dieser Eintrag übernimmt, wie ein Radar misst, wie aus dem Echo eine Rate wird, was Komposite und Nowcasting sind und welche Fehlerquellen es gibt.',
+        'Volume III (Observing systems), Chapter 7 (Radar measurements), sections 7.1.1, 7.2.1, 7.2.5, 7.4.1, 7.5.3, 7.8.2, 7.9, 7.10.3, 7.10.4.1, 7.10.4.2, 7.10.4.3, 7.11.',
+        WMO_III,
+      ),
+      dwdFiles(
+        'Seine Seite zu den Radarprodukten beschreibt sein Radarnetz und seine Scanstrategie, und zu jedem Komposit gibt es ein Produktblatt, das sagt, was es enthält.',
+        'DWD. Radar products, dwd.de/EN/ourservices/radar_products/radar_products.html; die Produktblätter „Radarkomposit“ RV, WN, HX, DMAX, RS, VII und HymecNG, verlinkt von dwd.de/DE/leistungen/radarprodukte/radarprodukte.html, am 22. November 2026 gelesen.',
+        DWD_RADAR_PRODUCTS,
+      ),
+      dwdFiles(
+        'Seine Seite zu RADVOR beschreibt das Nowcasting, das die Vorhersage der nächsten zwei Stunden liefert.',
+        'DWD. RADVOR (Radar-Niederschlagsvorhersage), dwd.de/DE/leistungen/radvor/radvor.html, am 22. November 2026 gelesen.',
+        DWD_RADVOR,
+      ),
+      dwdFiles(
+        'Seine Seite zu RADOLAN beschreibt, wie Radar und Niederschlagsmesser zu stündlichen und täglichen Niederschlagshöhen verbunden werden.',
+        'DWD. Analysen radarbasierter stündlicher (RW) und täglicher (SF) Niederschlagshöhen (RADOLAN), dwd.de/DE/leistungen/radolan/radolan.html, am 22. November 2026 gelesen.',
+        DWD_RADOLAN,
+      ),
+      {
+        plain: 'Die Dokumentation der Bibliothek Wetterdienst beschreibt die Radarprodukte so, wie die Bibliothek sie liefert, und wie das Radar-Werkzeug dieser App das RV-Komposit in die Klassen seiner Legende umrechnet.',
+        citation: 'Wetterdienst documentation, the pages "Radar" (dwd/radar, with the section "Radar frames on the REST API") and "Python examples" (the radar sites of EUMETNET OPERA).',
+        href: `${WETTERDIENST_DOCS}provider/dwd/radar/index.html`,
+      },
+    ],
+  },
   'urban-stations': {
     title: 'Stationen in der Stadt',
     summary: 'Die WMO sagt, dass die meisten bebauten Standorte es unmöglich machen, die üblichen Regeln für die Aufstellung von Instrumenten einzuhalten. Eine Stadtstation wird deshalb so gesetzt, dass sie für eine Art Stadtviertel steht, und was sie misst, ist das Lokalklima dieses Viertels.',
@@ -1103,6 +1183,81 @@ export const measurement: MeasurementTexts = {
     ],
   },
 
+  'water-level': {
+    title: 'Wasserstand und Abfluss',
+    summary: 'Ein Wasserstand ist eine Höhe über dem Nullpunkt eines einzelnen Pegels, und ein Abfluss ist die Wassermenge, die in jeder Sekunde durch einen Querschnitt fließt und meist aus dem Wasserstand berechnet wird. Keines von beiden lässt sich zwischen Pegeln vergleichen, ohne zu wissen, wie es entstanden ist.',
+    parts: [
+      {
+        title: 'Wie gemessen wird',
+        paragraphs: [
+          'Die WMO definiert den Wasserstand (englisch stage) als die Höhe der Wasseroberfläche eines Flusses, Sees oder anderen Gewässers relativ zu einem Bezugsniveau. An einem Pegel wird er vom Nullpunkt des Pegels abgelesen. Die WMO sagt, dass der Pegel so gesetzt werden soll, dass ein Ablesewert von null unter dem niedrigsten erwarteten Wasserstand liegt, um negative Werte zu vermeiden, dass sein Bezugsniveau jährlich durch Nivellement von örtlichen Festpunkten geprüft werden soll, dass über den gesamten Zeitraum der Aufzeichnung dasselbe Bezugsniveau des Pegels beibehalten werden soll und dass es, wenn möglich, an ein nationales oder regionales Bezugsniveau angebunden werden soll.',
+          'Die deutsche WSV sagt dasselbe mit eigenen Worten. Der Wasserstand ist der lotrechte Abstand eines Punktes der Wasseroberfläche über dem Pegelnullpunkt der Pegellatte, meist in Zentimetern angegeben, und er sagt nichts über die örtliche Wassertiefe oder über die Höhe relativ zum umgebenden Gelände. Der Pegelnullpunkt dagegen ist absolut: Er wird in Metern über Normalhöhennull (NHN, im Höhensystem DHHN92) angegeben, vom Betreiber des Pegels festgelegt und liegt meist unter dem niedrigsten Wasserstand, der über eine lange Zeit gemessen wurde. Das Beispiel der WSV ist der Pegel Dresden: Ein Wasserstand von 176 cm und ein Pegelnullpunkt von 102,68 m über NHN ergeben eine Wasseroberfläche von 104,44 m über NHN.',
+          'Die WMO nennt mehrere Geräte für den Wasserstand. Eine Pegellatte, ein senkrechter Maßstab mit Einteilung, wird von einem Beobachter abgelesen. Ein häufig genutzter schreibender Pegel ist ein Schwimmer in einem Pegelbrunnen, der durch Rohre mit dem Fluss verbunden ist. Ein Drucksensor berechnet den Wasserstand aus dem Druck des Wassers über einem festen Punkt abzüglich des Luftdrucks, mit einem Faktor für das Gewicht des Wassers, das sich mit Temperatur und Salzgehalt ändert. Ultraschall- und Radarsensoren über dem Wasser messen den Abstand zur Wasseroberfläche aus der Zeit, die ein Echo braucht; die Schallgeschwindigkeit hängt von der Lufttemperatur ab, was ausgeglichen wird, und die WMO sagt, dass der Radarsensor davon nicht betroffen ist. Die WMO sagt, dass an Pegeln mit kontinuierlicher Aufzeichnung stündliche Aufzeichnungen an den meisten Flüssen normalerweise genügen, dass kleine oder schnell reagierende Bäche und städtische Einzugsgebiete häufigere brauchen und dass allgemein empfohlen wird, so oft aufzuzeichnen, wie die Batterie und der Speicher des Datenloggers erlauben.',
+          'Die WMO definiert den Abfluss eines Flusses als die Rate, mit der Wasser durch einen Querschnitt fließt, ein Volumen je Zeiteinheit. Er kann zu einem gegebenen Zeitpunkt mit mehreren Verfahren gemessen werden, und die Wahl hängt vom Standort ab. Das klassische ist das Geschwindigkeits-Flächen-Verfahren: Die Tiefe wird an mehreren Lotrechten quer über den Fluss mit einer Stange oder einer Peilleine gemessen, die Geschwindigkeit mit einem Strömungsmesser an einem oder mehreren Punkten jeder Lotrechten, und die Abflüsse der Abschnitte zwischen den Lotrechten werden summiert. Die WMO beschreibt auch Verdünnungsverfahren sowie das Verfahren mit fahrendem Boot und das Ultraschall-, das elektromagnetische, das akustische Doppler- und die bildbasierten Verfahren, und sie sagt, dass die Genauigkeit einer Messung von der Zeit abhängt, die sie braucht, und davon, wie stark sich Wasserstand und Abfluss währenddessen ändern.',
+        ],
+      },
+      {
+        title: 'Wie aus einer Messung ein Wert wird',
+        paragraphs: [
+          'Ein Pegel zeichnet den Wasserstand auf, und der Abfluss wird meist aus ihm berechnet. Die WMO sagt, dass der Abfluss normalerweise auf den zugehörigen Wasserstand an einer Abflussmessstelle bezogen werden soll und dass die Beziehung zwischen Wasserstand und Abfluss für die meisten Messstellen definiert wird, indem die gemessenen Abflüsse gegen die Wasserstände zur selben Zeit aufgetragen werden. Viele Messungen über einen weiten Bereich von Abflüssen ergeben eine durchgehende Abflusskurve (englisch rating curve), und der Abfluss wird berechnet, indem die Abflusskurve auf die Reihe der Wasserstände angewendet wird. Das französische Hub\'Eau sagt dasselbe über seine Stationen: Eine Station kann Beobachtungen der Höhe und des Abflusses tragen, „direkt gemessen oder aus einer Abflusskurve berechnet“ (unsere Übersetzung; die Quelle schreibt „courbe de tarage“).',
+          'Eine Abflusskurve ist nicht fest. Die WMO sagt, dass die Beziehung von der Kontrolle des Gerinnes abhängt: Sie kann sich mit Auskolkung und Ablagerung, mit dem Wuchs von Wasserpflanzen und im Herbst mit Laub sowie mit Eis ändern, und dass regelmäßige Messungen nötig sind, um ihr zu folgen, wobei mindestens 10 Abflussmessungen im Jahr empfohlen werden. Die WMO fügt hinzu, dass das Erstellen von Abflusskurven Auslegung und Entscheidungen verlangt, dass sie nach weiteren Messungen, besonders bei hohen Abflüssen, geprüft und manchmal überarbeitet werden und dass frühere Abflusskurven aufbewahrt werden sollen, damit Abflüsse neu berechnet werden können. Ein Abfluss, der einmal berechnet wurde, kann noch einmal berechnet werden.',
+          'Wetterdienst nennt die Statistik im Namen des Parameters. stage und discharge sind die Werte der Reihe, stage_max, stage_mean und stage_min der höchste, der mittlere und der niedrigste Wasserstand eines Zeitraums, und discharge_max, discharge_mean und discharge_min dasselbe für den Abfluss.',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Ein Wasserstand sagt nichts über die Tiefe des Wassers, und zwei Wasserstände lassen sich nur gegen denselben Nullpunkt vergleichen: Jeder Pegel hat seinen eigenen. Um die Höhe des Wassers über dem Meer zu erhalten, addiert man den Pegelnullpunkt, wie im Beispiel der WSV. Wetterdienst gibt den Pegelnullpunkt in der Stationsliste von WSV, Hub\'Eau und IMGW an (gauge_zero), bei WSV und Hub\'Eau mit seinem Bezugsniveau (gauge_zero_datum); das Bezugsniveau der Pegel des IMGW steht nicht in der Liste. Die Dokumentation von Wetterdienst sagt, dass sich die Bezugsniveaus zwischen Stationen unterscheiden, sodass zwei Pegelnullpunkte nur verglichen werden sollten, wo ihre Bezugsniveaus übereinstimmen.',
+          'Ein Pegelnullpunkt kann sich verschieben. Die WMO sagt, es sei wichtig, über den gesamten Zeitraum der Aufzeichnung denselben beizubehalten, und die Wasserstandsreihen des IMGW zeigen, was sonst geschieht. Die Dokumentation von Wetterdienst findet bei einigen polnischen Pegeln Sprünge im Wasserstand, die der Abfluss nicht mitmacht: In Warszawa-Nadwilanówka geht der Monatsmittelwert des Wasserstands von 118 cm im Oktober 1990 auf 311 cm im November 1990, während der Abfluss von 396 auf 379 m³/s geht. Sie erklärt die Sprünge einiger Pegel mit einem verschobenen Pegelnullpunkt, den das IMGW nicht datiert. Ein Trend eines Wasserstands über einen solchen Sprung hinweg ist kein Trend des Flusses.',
+          'Der Abfluss ist unsicherer als der Wasserstand. Die allgemeine Empfehlung der WMO für die Genauigkeit eines Abflusses ist 5 % im 95-Prozent-Vertrauensbereich. Die WMO sagt, dass die empfohlene Genauigkeit vor allem von der Verwendung der Daten, von den verfügbaren Geräten und von den verfügbaren Finanzmitteln abhängt, sodass sie ein flexibler Bereich ist, und dass sie in vielen Ländern durch nationale Normen geregelt wird. Ein Abfluss, der aus dem Wasserstand berechnet wird, hat die Grenzen der Abflusskurve: Die WMO sagt, dass eine geschätzte Beziehung zwischen Wasserstand und Abfluss nicht extrapoliert werden soll und dass der Abfluss an vielen Orten keine eindeutige Funktion des Wasserstands ist. Rückstau, Gezeiten, der Betrieb eines Speichers unterhalb oder eine schnelle Änderung des Wasserstands können machen, dass derselbe Wasserstand zu verschiedenen Abflüssen gehört. Bei Hochwasser, wenn Messen unmöglich ist, kann der Spitzenabfluss laut WMO nachträglich mit indirekten Verfahren bestimmt werden, aus Hochwassermarken und der Geometrie des Gerinnes. Auch eine Eisdecke ändert die Beziehung, und ihre Wirkung lässt sich nur genau bestimmen, indem man den Abfluss misst.',
+          'Ein Grundwasserstand wird in einer Beobachtungsbohrung abgelesen. Die WMO beschreibt manuelle Verfahren, von denen das häufigste ein beschwertes Maßband ist, das von einem festgelegten Punkt am Brunnenkopf hinuntergelassen wird, bis es unter dem Wasser ist, und von dessen Länge dann der nasse Teil abgezogen wird, sowie automatische Schreiber, von denen die WMO den schwimmergesteuerten für den am besten geeigneten analogen Schreiber hält. Die WSV veröffentlicht den Grundwasserstand in Metern über NHN und die Environment Agency in Metern über Ordnance Datum (mAOD), sodass es Höhen über einem Bezugsniveau sind und keine Tiefen unter dem Boden.',
+          'Wetterdienst macht keine Bereichsprüfung für Wasserstand, Abfluss, Grundwasserstand und Fließgeschwindigkeit, weil sie ein eigenes Bezugsniveau haben und ein Fluss mit Gezeiten rückwärts fließen kann. Siehe „Datenqualität“.',
+        ],
+      },
+      {
+        title: 'Worin sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Wetterdienst hat Wasserstand und Abfluss von vier Anbietern: WSV (wsv/pegel, Deutschland), der Environment Agency (ea/hydrology, England), Hub\'Eau (eaufrance/hubeau, Frankreich) und dem IMGW (imgw/hydrology, Polen). Ein Test liest jeden Anbieter der Bibliothek und hält fest, dass diese vier die einzigen sind, die einen stage und einen discharge haben. Wetterdienst nennt den Wasserstand bei allen vieren stage und den Abfluss discharge und rechnet sie in eine Einheit um, standardmäßig Meter und m³/s. Die anderen hydrologischen Dienste der Welt sind für diese Seite nicht gelesen.',
+          'Die WSV, die Wasserstraßen- und Schifffahrtsverwaltung des Bundes, veröffentlicht in PEGELONLINE die Wasserstände und Abflüsse von Pegeln an den Bundeswasserstraßen und an der Küste. Sie sagt, dass es ungeprüfte Rohdaten sind und dass sie keine Haftung für ihre Richtigkeit übernimmt. Ihre REST-Schnittstelle liefert die letzten 31 Tage, und jede Reihe hat ein eigenes Intervall von 1, 5, 10, 15 oder 60 Minuten, nach dem Wetterdienst die Station einordnet. Die WSV sagt, dass der Wasserstand meist in Zentimetern angegeben wird; die Dokumentation von Wetterdienst ergänzt, dass er an einigen Pegeln in Metern über NN veröffentlicht wird, was Wetterdienst umrechnet. Die WSV schreibt gesetzliche Zeit, die Ortszeit des Jahres, wo Wetterdienst UTC liefert (siehe „Zeit“). Die gelesenen Seiten der WSV sagen nichts darüber, wie der Abfluss einer Reihe bestimmt wird. Die WSV veröffentlicht auch kennzeichnende Wasserstände eines Pegels, darunter das mittlere Niedrigwasser (MNW), den mittleren Wasserstand (MW), das mittlere Hochwasser (MHW), den höchsten bekannten Wasserstand (HHW) und drei Marken (I, II und III), die mit den Bundesländern als Richtwerte für die Schifffahrt festgelegt sind und bei deren Erreichen Beschränkungen wie Sperrungen gelten; Wetterdienst gibt sie in Metern als Spalten der Stationsliste an.',
+          'Die Hydrology API der Environment Agency mit fast achttausend Messstationen hat den Abfluss als 15-Minuten-Werte und als Tageswerte (Mittel, Minimum und Maximum), den Flusswasserstand ebenso (Tagesminimum und Tagesmaximum) sowie den Grundwasserstand. Ihre Referenz gibt den Flusswasserstand in Metern in drei Arten an: relativ zum Ordnance-Survey-Bezugsniveau (mAOD), relativ zu einem örtlichen Pegelbezugsniveau (mASD) oder in Metern mit einem nicht angegebenen Bezugsniveau (m). Der stage von Wetterdienst ist von der letzten Art, also relativ zu einem Bezugsniveau, das nicht angegeben ist. Die Dokumentation von Wetterdienst sagt, dass ein Tageswert die 24 Stunden von 09:00 bis 09:00 abdeckt und dass die Quelle keine Zeitzone angibt; die gelesene Referenzseite nennt das nicht. Jede Messung trägt das eigene Wort der Agency für ihre Qualität (Good, Estimated, Suspect, Unchecked oder Missing) und bei einem Tageswert, ob er auf vollständigen Daten beruht. Die Referenz sagt nicht, wie der Abfluss abgeleitet wird. Unter den anderen Kennzeichen einer Messung führt sie Namen auf, die sich auf eine Abflusskurve beziehen (WithinRating, NoRating, ExtrapolateUpperPart, ExtrapolateLowerPart, BeyondUpperLimit und BeyondLowerLimit), die Wetterdienst nicht zurückgibt.',
+          'Hub\'Eau ist die Open-Data-Plattform des französischen Wasserinformationsdienstes Eaufrance. Seine Hydrometrie-Daten stammen von der Plattform PHyC, die der Service Central Vigicrues betreibt: Messungen der Wasserhöhe (H) und des Abflusses (Q) in nahezu Echtzeit vom französischen Netz von etwa 5000 hydrometrischen Stationen, die die regionalen Direktionen für Umwelt, Planung und Wohnungswesen (DREAL) und andere Erzeuger betreiben, alle 5 bis 60 Minuten gespeichert, mit einem Verlauf von einem Monat. Die Höhe ist in Millimetern und der Abfluss in Litern je Sekunde angegeben, was Wetterdienst umrechnet. Eine Station kann die Höhe, den Abfluss oder beides tragen. Hub\'Eau sagt nicht, in welchem Intervall eine Station meldet; Wetterdienst misst es an den Zeitstempeln, sodass eine Station unter 5, 6, 10, 15 oder 60 Minuten eingeordnet wird und eine Station, die in einem anderen Schritt meldet, etwa 30 Minuten, nicht geliefert wird. Die Höhe ist relativ zum Nullpunkt des Pegels der Station, sodass Stationen kein gemeinsames Bezugsniveau haben. Die Nutzungsbedingungen von Hub\'Eau sagen, dass seine Datensätze Rohdaten enthalten, die ohne Weiterverarbeitung bereitgestellt werden. Jede Beobachtung trägt einen Qualifizierungscode aus sieben möglichen (siehe „Datenqualität“). Die API hat auch aufbereitete Werte: den mittleren Abfluss je Tag und Monat, für einige Stationen bis zurück ins Jahr 1900, sowie den höchsten und den niedrigsten Momentanabfluss und die höchste Momentanhöhe jedes Tages und Monats. Wetterdienst liefert sie nicht.',
+          'Das IMGW, das polnische Institut für Meteorologie und Wasserwirtschaft, veröffentlicht tägliche und monatliche Dateien: den Wasserstand und den Abfluss jedes Tages sowie Mittel, Minimum und Maximum jedes Monats. Es ordnet sie nach hydrologischen Jahren, die am 1. November des Vorjahres beginnen: Das hydrologische Jahr 2016 ist die Zeit vom 1. November 2015 bis zum 31. Oktober 2016. Der Wasserstand ist in Zentimetern und der Abfluss in m³/s. Die Änderungsliste des IMGW sagt für die hydrologischen Jahre 2017 und 2019, dass die Daten hinzugefügt wurden, außer den Abflüssen, die „nach dem Abschluss ihrer Kontrolle hinzugefügt werden“ (unsere Übersetzung), und die Abflüsse folgten später. Wetterdienst gibt für WSV und für die Hydrologie des IMGW kein Qualitätskennzeichen zurück.',
+        ],
+      },
+    ],
+    sources: [
+      {
+        plain: 'Die Weltorganisation für Meteorologie (WMO) ist die Organisation der Vereinten Nationen, in der sich die nationalen Wetter- und Hydrologiedienste darauf einigen, wie Wetter und Wasser gemessen werden. Band I ihres Guide to Hydrological Practices beschreibt, wie Wasserstände und Abflüsse gemessen und zu hydrologischen Informationen werden; dieser Eintrag übernimmt daraus die Pegel, die Messung des Abflusses, die Abflusskurve, ihre Grenzen und die empfohlene Genauigkeit.',
+        citation: 'WMO (2008). Guide to Hydrological Practices, Volume I: Hydrology – From Measurement to Hydrological Information (WMO-No. 168), 2008 edition, updated in 2025. Chapter 2 (Methods of observation), section 2.3.3 and Table I.2.5; Chapter 5 (Surface water quantity and sediment measurement), sections 5.1.1, 5.1.2, 5.1.3.1, 5.1.4, 5.3.1, 5.3.2, 5.3.4, 5.3.5.1, 5.3.7.1, 5.4.5.1, 5.4.5.2 and 5.4.5.3; Chapter 6 (Groundwater), section 6.4.1; Chapter 9 (Data processing and quality control), sections 9.6.2.1 to 9.6.2.4.',
+        href: WMO_168,
+      },
+      {
+        plain: 'Die Wasserstraßen- und Schifffahrtsverwaltung des Bundes (WSV) veröffentlicht die Wasserstände der Bundeswasserstraßen auf ihrem Portal PEGELONLINE. Ihre Hilfeseite erklärt den Wasserstand, den Pegelnullpunkt und die kennzeichnenden Wasserstände, und ihre Seiten zu den Webservices sagen, dass die Daten ungeprüfte Rohdaten sind und wie sie geliefert werden.',
+        citation: 'WSV. PEGELONLINE: Hilfe (pegelonline.wsv.de/gast/hilfe); Webservices & APIs, Übersicht (pegelonline.wsv.de/webservice/ueberblick); REST-API, Dokumentation (pegelonline.wsv.de/webservice/dokuRestapi), am 22. November 2026 gelesen.',
+        href: WSV_HELP,
+      },
+      {
+        plain: 'Die Environment Agency von England veröffentlicht Flussabflüsse, Flusswasserstände und Grundwasserstände in ihrer Hydrology API. Ihre Referenz sagt, welche Reihen es gibt, in welchen Einheiten und mit welchen Qualitätswörtern.',
+        citation: 'Environment Agency. Hydrology API, API Documentation (environment.data.gov.uk/hydrology/doc/reference), am 22. November 2026 gelesen.',
+        href: EA_HYDROLOGY,
+      },
+      {
+        plain: 'Hub\'Eau ist die Open-Data-Plattform des französischen Wasserinformationsdienstes. Seine Seite zur Hydrometrie-API sagt, woher die Daten kommen, in welchen Einheiten sie angegeben sind und was eine Station tragen kann, und seine Nutzungsbedingungen sagen, was die Daten sind.',
+        citation: 'Hub\'Eau (Eaufrance). API "Hydrométrie" (hubeau.eaufrance.fr/page/api-hydrometrie) und Conditions générales (hubeau.eaufrance.fr/page/conditions-generales), am 22. November 2026 gelesen.',
+        href: HUBEAU_HYDROMETRY,
+      },
+      {
+        plain: 'Das polnische Institut für Meteorologie und Wasserwirtschaft (IMGW-PIB) veröffentlicht seine hydrologischen Beobachtungen auf seinem Portal für öffentliche Daten, mit einer Datei mit allgemeinen Informationen und einer Änderungsliste im Ordner der Daten.',
+        citation: 'IMGW-PIB. Dane hydrologiczne, die Dateien hydrologia_info_ogolne.txt und lista_zmian_hydro.txt in danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/, am 22. November 2026 gelesen.',
+        href: IMGW_HYDROLOGY,
+      },
+      {
+        plain: 'Die Dokumentation der Bibliothek Wetterdienst beschreibt die vier Hydrologie-Netze so, wie die Bibliothek sie liefert: die Einheiten, die Pegelnullpunkte und ihre Bezugsniveaus, die Intervalle und die Sprünge in einigen Wasserstandsreihen.',
+        citation: 'Wetterdienst documentation, the pages "Pegel" (wsv/pegel), "Hydrology" (ea/hydrology, imgw/hydrology) and "Hubeau" (eaufrance/hubeau).',
+        href: `${WETTERDIENST_DOCS}provider/wsv/pegel/index.html`,
+      },
+    ],
+  },
   'time': {
     title: 'Zeit: was eine Stunde und ein Tag in den Daten sind',
     summary: 'Zeitstempel sind in UTC, ein Stempel kann den Anfang oder das Ende eines Intervalls meinen, und ein Tag geht nicht immer von Mitternacht bis Mitternacht.',
@@ -1194,6 +1349,70 @@ export const measurement: MeasurementTexts = {
         'Band V, Kapitel 3 zur Datenreduktion beschreibt, wie aus dem Signal eines Instruments eine meteorologische Größe wird.',
         'Volume V (Quality assurance and management of observing systems), Chapter 3 (Data reduction), sections 3.1.1, 3.1.3, 3.5, 3.6.',
       ),
+    ],
+  },
+  'data-quality': {
+    title: 'Datenqualität: die Kennzeichen der Quellen und die Prüfungen von Wetterdienst',
+    summary: 'Manche Quellen markieren einen Wert als zweifelhaft, und Wetterdienst prüft Werte an Grenzen, die keine echte Messung überschreitet. Was mit einem zweifelhaften Wert geschieht, entscheidest du, und das Kennzeichen bleibt bei ihm.',
+    parts: [
+      {
+        title: 'Was die Quelle über einen Wert sagt',
+        paragraphs: [
+          'Viele Quellen markieren einen Wert in einem eigenen Qualitätskennzeichen und veröffentlichen ihn trotzdem: einen Wert von GHCN-Daily, der eine Prüfung nicht bestanden hat, einen Wert von Frost mit dem Qualitätscode 7, eine Messung der Environment Agency, die Suspect ist, einen Wert von Hub\'Eau mit dem Code 12, „zweifelhaft“. Wetterdienst gibt dieses Kennzeichen so zurück, wie die Quelle es geschrieben hat, in der Spalte quality_flags. Das Kennzeichen der Quelle steht zuerst, weitere Arten von Kennzeichen folgen als kind:code, und der Text, den die Quelle anstelle eines fehlenden Werts geschrieben hat, steht zuletzt, als raw:-999.',
+          'Die Kennzeichen zweier Quellen sind nicht vergleichbar. Die Quellen nennen das Feld mit vielen Namen, und die Bedeutung eines Codes ist von Anbieter zu Anbieter verschieden, sodass ein Code des einen nichts über einen Code des anderen sagt und keiner eine Skala von besser und schlechter ist, wenn die Dokumentation es nicht sagt. Das QN des DWD zum Beispiel sagt, wie weit die Kontrolle einer Zeile gediehen ist, von 1 (nur formale Kontrolle) bis 10 (Qualitätskontrolle abgeschlossen); eine größere Zahl ist eine gründlichere Kontrolle, und die Daten bis 1980 erreichen höchstens 5.',
+          'Das Wort einer Quelle für einen zweifelhaften Wert ist nicht immer ein Urteil. Wetterdienst liest nur die Codes, die die Dokumentation des Anbieters als Urteil formuliert, dass ein Wert eine Prüfung nicht bestanden hat, fehlerhaft, verdächtig, zweifelhaft oder von schlechter Qualität ist. Was die Dokumentation als Grad der Unsicherheit formuliert, als Behandlung (geschätzt, korrigiert, interpoliert), als fehlenden Wert oder als gar keine Kontrolle (etwa Unchecked der Environment Agency), ist kein Urteil und wird nicht gelesen. Wo ein Kennzeichen gelesen wird, wendet die Prüfung source es an.',
+          'Solche Kennzeichen sind häufig. Von den ersten 20.000 Zeilen der Echtzeitbeobachtungen von Hub\'Eau, die Wetterdienst am 2. November 2026 gelesen hat, hatten 2.170 den Code „zweifelhaft“ und 17.830 den Code „nicht qualifiziert“, was heißt, dass keine Kontrolle gemacht wurde. Siehe „Wasserstand und Abfluss“.',
+        ],
+      },
+      {
+        title: 'Was Wetterdienst prüft',
+        paragraphs: [
+          'Eine Plausibilitätsprüfung beurteilt Zahlen, die kein Sensor erzeugt haben kann und die kein Code der Quelle sind: 4021 °C für ein Tagesmaximum, einen Stationsdruck, den die Höhe der Station nicht zulässt, einen Sensor, der einen Monat lang einen Wert hielt. Es gibt neun Prüfungen, jede für die Parameter, für die sie eine Regel hat. Es sind: range, eine Messung außerhalb des physikalischen Bereichs ihres Parameters; elevation, ein Stationsdruck, den die Standardatmosphäre in der Höhe der Station nicht zulässt; stuck, ein Sensor, der länger einen Wert hielt, als er sollte; step, eine Messung, die sich von der davor um mehr unterscheidet, als das Wetter in dieser Zeit tut, oder die von beiden Nachbarn weg und wieder zurück springt; relations, zwei Messungen einer Zeile, die sich widersprechen, etwa ein Maximum unter dem Mittel, ein Taupunkt über der Lufttemperatur oder eine Böe unter dem mittleren Wind; consistency, eine Messung, der ein anderer Parameter derselben Datei widerspricht; floor, ein Modellwert wenig unter der Untergrenze seiner Größe, etwa ein kleiner negativer Niederschlag einer Vorhersage; limits, eine Grenze, die du selbst setzt; und source, das Urteil der Quelle.',
+          'Die WMO beschreibt dieselben Arten von Prüfungen für eine automatische Wetterstation: einen plausiblen Wert, eine grobe Prüfung gegen die absoluten Grenzen der Veränderlichkeit der Größe; eine plausible Änderungsrate; eine geforderte Mindestveränderlichkeit, bei der ein langer Zeitraum ohne nennenswerte Änderung ein Zeichen für eine Störung ist, zum Beispiel eines Schalenstern-Anemometers, das zu klemmen beginnt; und Prüfungen einer gemessenen Größe gegen andere, zum Beispiel dass der Taupunkt die Lufttemperatur nicht übersteigen kann. Die WMO sagt, dass die Daten einer automatischen Station ohne Datenqualitätskontrolle wahrscheinlich unentdeckte Fehler enthalten.',
+          'Die Grenzen sind großzügig und für jeden Anbieter dieselben. Die Grenze einer Größe stützt sich der Reihe nach auf das Extrem, das das World Weather and Climate Extremes Archive der WMO aufführt, auf eine Grenze, die sich aus der Definition der Größe ergibt (ein Anteil ist 0 bis 100 %), oder auf eine genannte Quelle, und sie wird nach außen gerundet, sodass die Prüfung einen Wert findet, der ein Fehler der Quelle ist, und nie einen Rekord. Die Lufttemperatur zum Beispiel wird auf -90 bis 60 °C begrenzt, bei Rekorden von 56,7 °C (Furnace Creek, 1913) und -89,2 °C (Vostok, 1983). Die Grenzen für eine Folge gleicher Werte stammen aus veröffentlichten Qualitätskontrollen (HadISD, ECA&D und die Studie von Durre und anderen für GHCN-Daily); eine Grenze, die keine Quelle veröffentlicht, ist eine Herleitung von Wetterdienst, und die Dokumentation sagt es.',
+        ],
+      },
+      {
+        title: 'Was mit einem zweifelhaften Wert geschieht',
+        paragraphs: [
+          'Jede Prüfung hat einen Modus. Im Modus hard ist der Wert null, und die Zahl, die die Quelle geschrieben hat, bleibt in quality_flags, als rejected:<check>,raw:<number>. Im Modus soft bleibt der Wert erhalten, und quality_flags sagt suspect:<check>. Es gibt keinen Modus, der eine Prüfung überspringt: Eine weiche Prüfung behält den Wert, und das Kennzeichen hält das Urteil sichtbar. Hart ist der Standard für range, elevation, consistency, floor und limits; weich ist der Standard für stuck, step, relations und source. Die Dokumentation nennt die Gründe: Gleiche Messungen sind ein Zeichen für einen festgefahrenen Sensor und kein Beweis, eine Front ist ein echter Sprung, eine Relation kann nicht sagen, welche von zwei Messungen falsch ist, und das Urteil von source ist das der Quelle und nicht das der Bibliothek.',
+          'Eine Vorhersage wird weich beurteilt, bis auf zwei Prüfungen. Sie ist die Ausgabe eines Modells und keine Messung, sodass ein Wert, den eine Prüfung findet, behalten und als suspect:range markiert und nie auf null gesetzt wird. Die beiden Ausnahmen sind floor, das einen kleinen negativen Wert des Modells auf die Untergrenze seiner Größe setzt und die Zahl behält, und limits, die Grenzen, die du selbst setzt.',
+          'Eine Interpolation und eine Zusammenfassung lassen einen Wert, der als suspect markiert ist, immer weg, gleich welcher Modus, weil eine Zahl, die eine Prüfung unplausibel findet, in einem gewichteten Mittel nichts zu suchen hat. Der Modus wird für jede Prüfung gesetzt, in Python, auf der Kommandozeile und in der REST-API, mit der Option plausibility.',
+          'Was eine Quelle dokumentiert, ist kein Urteil und hat keinen Modus. Ein -999, ein ---, ein NaN, eine Spur Regen oder ein windstiller Wind, den die Quelle als solchen dokumentiert, wird in beiden Modi entschlüsselt, und der Text der Quelle bleibt in quality_flags als raw: allein. Ein rejected: vor raw: ist das Urteil von Wetterdienst.',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Eine Prüfung sagt, dass eine Zahl möglich ist, nicht dass sie stimmt. Weil die Grenzen großzügig sind, geht ein falscher Wert innerhalb von ihnen durch, und ein Wert, der als suspect markiert ist, kann richtig sein: Eine Prüfung einer Relation markiert beide Messungen eines widersprüchlichen Paars, sodass eine gute Lufttemperatur neben einem falschen Taupunkt markiert sein kann.',
+          'Manche Größen haben keine Grenze: abgeleitete Größen, Codes und Kennzeichen sowie die Pegel der Hydrologie (Wasserstand, Abfluss, Grundwasserstand, der Abstand zum Pegel und die Fließgeschwindigkeit), die ein eigenes Bezugsniveau haben, und ein Fluss mit Gezeiten kann rückwärts fließen. Eine Zahl dort bleibt, wie die Quelle sie geschrieben hat, abgesehen von den Urteilen der Quelle, die gelesen werden. Siehe „Wasserstand und Abfluss“.',
+          'Eine Prüfung liest nie mehr, als der Leser gelesen hat. Was stuck findet, hängt davon ab, welche Werte gelesen wurden, und eine Prüfung, die zwei Messungen vergleicht, braucht beide in derselben Datei, sodass ein Datensatz, den ein Anbieter einen Parameter nach dem anderen sammelt, wie WSV, die Environment Agency, Hub\'Eau und die Hydrologie des IMGW, keine zweite Messung zum Vergleichen hat.',
+        ],
+      },
+      {
+        title: 'Worin sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Nicht jeder Anbieter hat ein Kennzeichen. Bei WSV, der Hydrologie des IMGW, FMI, KNMI, IPMA, LHMT, MeteoSwiss, AEMET, Geosphere und den Synop-Daten von Météo-France ist quality_flags null, abgesehen von den Tokens der Prüfungen von Wetterdienst, und so ist es bei MOSMIX, DMO, POI, SWSMOS und Radar des DWD. Die Beobachtungsdaten des DWD tragen die Kontrollstufe QN jeder Zeile, die sagt, wie weit die Kontrolle gediehen ist, und kein Urteil ist.',
+          'Die Prüfung source liest das Urteil von zehn Anbietern: NOAA GHCN (täglich und stündlich), MET Norway Frost, CHMI, DMI, die Straßenstationen des DWD, die Environment Agency, Hub\'Eau, Météo-France, das Met Office und NWS. Die Dokumentation von Wetterdienst führt für jeden die Codes auf, die zählen, mit dem Wortlaut des Anbieters.',
+        ],
+      },
+    ],
+    sources: [
+      {
+        plain: 'Die Dokumentation der Bibliothek Wetterdienst listet die neun Prüfungen auf, die Grenzen, die sie anwenden, mit den Quellen, auf die sich die Grenzen stützen, die Modi sowie die Kennzeichen und Urteile jedes Anbieters. Dieser Eintrag übernimmt daraus, was die Prüfungen tun und wie sie gesetzt werden.',
+        citation: 'Wetterdienst documentation, the pages "Plausibility checks" (data/plausibility.md) and "Quality flags" (data/quality-flags.md), and the modules wetterdienst.model.quality_flags and wetterdienst.model.plausibility_ranges.',
+        href: `${WETTERDIENST_DOCS}plausibility.html`,
+      },
+      wmoGuide(
+        'Band III, Kapitel 1 über Messungen an automatischen Wetterstationen führt die Qualitätskontrolle auf, die eine solche Station machen soll, und was ohne sie geschieht.',
+        'Volume III (Observing systems), Chapter 1 (Measurements at automatic weather stations), sections 1.4.2 and 1.5.',
+        WMO_III,
+      ),
+      {
+        plain: 'Die Grenzen für eine Folge gleicher Werte stammen aus veröffentlichten Qualitätskontrollen von Wetterdaten, die die Dokumentation von Wetterdienst nennt: die Qualitätskontrolle der globalen Datenbank von Synop-Meldungen HadISD, die Studie zur Qualitätssicherung von GHCN-Daily und die Algorithmen des European Climate Assessment & Dataset.',
+        citation: 'Dunn, R. J. H., et al. (2012). HadISD: a quality-controlled global synoptic report database for selected variables at long-term stations from 1973–2011. Climate of the Past 8, 1649–1679. Durre, I., et al. (2010). Comprehensive Automated Quality Assurance of Daily Surface Observations. Journal of Applied Meteorology and Climatology 49, 1615–1633. KNMI (2021). Algorithm Theoretical Basis Document (ECA&D), version 11, section 3.',
+        href: 'https://doi.org/10.5194/cp-8-1649-2012',
+      },
     ],
   },
 }
