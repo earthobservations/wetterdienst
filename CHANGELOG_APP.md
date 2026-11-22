@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.58.0] - 2026-11-22
+
+Paired with backend 0.195.0, which it needs: the search asks the `station-ids` route of 0.195.0 for a WMO
+number, WIGOS identifier or ICAO code.
+
 ### Added
 
 - `[Weather warnings]` DWD's official warnings in the app (GH-4295). On the map a chip "Warnings"
@@ -138,9 +143,6 @@ Types of changes:
   stopped operating at the end of February 2026. It says what DWD's radar products page says: a
   forecast for 2 hours, calculated by displacement, in all eleven languages; the source line and
   its link go to that page (GH-4309).
-
-### Fixed
-
 - `[Explorer]` The values table is a named region that takes the keyboard's focus, so that on a
   phone, where it is wider than the screen, the arrow keys scroll it (it was a scrolling area no
   key reached, WCAG 2.1.1). Nothing else of it changes (GH-4312).
@@ -2678,7 +2680,8 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.57.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.58.0...HEAD
+[0.58.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.57.0...app-v0.58.0
 [0.57.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.56.0...app-v0.57.0
 [0.56.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.55.0...app-v0.56.0
 [0.55.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.54.0...app-v0.55.0
