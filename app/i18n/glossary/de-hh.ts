@@ -433,7 +433,7 @@ export const parameters: Record<string, string> = {
   discharge_max: 'Hööchsten Afloop',
   discharge_mean: 'Middleren Afloop',
   discharge_min: 'Sietsten Afloop',
-  distance_river_gauge_height: 'Pegelnullpunkthööch',
+  distance_river_gauge_height: 'Ünnerscheed twüschen Fluss- un Pegelhööch',
   electric_conductivity: 'Elektrische Leetfähigkeit',
   evaporation_amount: 'Verdunsten',
   evaporation_amount_corn_loamy_silt: 'Verdunsten, lehmigen Slick ünner Mais',

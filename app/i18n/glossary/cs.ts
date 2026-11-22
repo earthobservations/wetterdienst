@@ -433,7 +433,7 @@ export const parameters: Record<string, string> = {
   discharge_max: 'Maximální průtok',
   discharge_mean: 'Průměrný průtok',
   discharge_min: 'Minimální průtok',
-  distance_river_gauge_height: 'Výška nuly vodočtu',
+  distance_river_gauge_height: 'Rozdíl mezi výškou řeky a vodočtu',
   electric_conductivity: 'Elektrická vodivost',
   evaporation_amount: 'Výpar',
   evaporation_amount_corn_loamy_silt: 'Výpar, hlinitá hlína pod kukuřicí',

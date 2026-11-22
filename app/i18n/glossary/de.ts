@@ -451,7 +451,7 @@ export const parameters: Record<string, string> = {
   discharge_max: 'Höchster Abfluss',
   discharge_mean: 'Mittlerer Abfluss',
   discharge_min: 'Niedrigster Abfluss',
-  distance_river_gauge_height: 'Pegelnullpunktshöhe',
+  distance_river_gauge_height: 'Differenz zwischen Fluss- und Pegelhöhe',
   electric_conductivity: 'Elektrische Leitfähigkeit',
   evaporation_amount: 'Verdunstung',
   evaporation_amount_corn_loamy_silt: 'Verdunstung, lehmiger Schluff unter Mais',

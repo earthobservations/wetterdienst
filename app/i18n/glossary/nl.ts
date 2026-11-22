@@ -433,7 +433,7 @@ export const parameters: Record<string, string> = {
   discharge_max: 'Maximale afvoer',
   discharge_mean: 'Gemiddelde afvoer',
   discharge_min: 'Minimale afvoer',
-  distance_river_gauge_height: 'Peilnulhoogte',
+  distance_river_gauge_height: 'Verschil tussen rivier- en peilhoogte',
   electric_conductivity: 'Elektrische geleidbaarheid',
   evaporation_amount: 'Verdamping',
   evaporation_amount_corn_loamy_silt: 'Verdamping, lemig silt onder mais',

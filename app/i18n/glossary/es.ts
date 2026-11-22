@@ -433,7 +433,7 @@ export const parameters: Record<string, string> = {
   discharge_max: 'Caudal máximo',
   discharge_mean: 'Caudal medio',
   discharge_min: 'Caudal mínimo',
-  distance_river_gauge_height: 'Cota del cero de la escala',
+  distance_river_gauge_height: 'Diferencia entre la altura del río y la de la escala',
   electric_conductivity: 'Conductividad eléctrica',
   evaporation_amount: 'Evaporación',
   evaporation_amount_corn_loamy_silt: 'Evaporación, limo franco bajo maíz',
