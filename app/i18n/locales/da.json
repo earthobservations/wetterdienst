@@ -80,14 +80,20 @@
     "q": {
       "rain": "Regner det i {place} i morgen?",
       "season": "Var {last} {warmth} end normalt her?",
-      "wind": "Hvor meget blæste det den {day}?",
-      "download": "Hvor kan jeg downloade timetemperaturer?"
+      "download": "Hvor kan jeg downloade timetemperaturer?",
+      "day": {
+        "wind": "Hvor meget blæste det den {day}?",
+        "sun": "Hvor meget sol var der den {day}?",
+        "rain": "Hvor meget regnede det den {day}?",
+        "temperature": "Var det varmt eller koldt den {day}?",
+        "snow": "Lå der sne den {day}?"
+      }
     },
     "from": {
       "rain": "Udsigt, DWD MOSMIX",
       "season": "Månedsmiddel, DWD",
-      "wind": "Døgnværdier, DWD",
-      "download": "Alle vejrtjenester"
+      "download": "Alle vejrtjenester",
+      "day": "Døgnværdier, DWD"
     },
     "working": "Svaret regnes ud …",
     "failed": "Svaret kunne ikke regnes ud.",
@@ -188,9 +194,67 @@
       "context": "Dage omkring med kraftigere vindstød: {stronger} af {around}.",
       "chartGust": "Kraftigste vindstød pr. dag, i {unit}",
       "chartMean": "Middelvind pr. dag, i {unit}",
-      "none": "Der er ingen vindmålinger her for den {day}.",
+      "none": "Der er ingen vindmålinger her for den {day}."
+    },
+    "day": {
       "dayLabel": "Dato",
-      "open": "Åbn disse dage i Udforskeren"
+      "open": "Åbn disse dage i Udforskeren",
+      "measureLabel": "Måling",
+      "measure": {
+        "wind": "vind",
+        "sun": "sol",
+        "rain": "regn",
+        "temperature": "varme og kulde",
+        "snow": "sne"
+      },
+      "measureShort": "{measureCap} (ingen måling her for den {day})",
+      "noteGreyed": "Nedtonet, ingen måling her for den {day}: {measures}.",
+      "noteAskedMeasure": "{measureCap}: ingen måling her for den {day}. Viser i stedet: {shown}.",
+      "sun": {
+        "dull": "Dystert.",
+        "mixed": "Vekslende.",
+        "sunny": "Solrigt.",
+        "detail": "{hours} timers sol, {share} af de {possible} timer, der var mulige her.",
+        "chart": "Sol pr. dag, i {unit}",
+        "none": "Der er ingen solmålinger her for den {day}."
+      },
+      "rain": {
+        "dry": "Tørt.",
+        "light": "Lidt regn.",
+        "wet": "Vådt.",
+        "veryWet": "Meget vådt.",
+        "detail": "{amount} {unit} nedbør over døgnet.",
+        "chart": "Nedbør pr. dag, i {unit}",
+        "none": "Der er ingen nedbørsmålinger her for den {day}."
+      },
+      "temperature": {
+        "hot": "En hed dag.",
+        "summer": "En sommerdag.",
+        "tropical": "En tropenat.",
+        "ice": "En isdag.",
+        "frost": "En frostdag.",
+        "ordinary": "Hverken frost eller sommerdag.",
+        "range": "Højeste {max} {unit}, laveste {min} {unit}.",
+        "classes": "Tæller som: {classes}.",
+        "chartMax": "Højeste temperatur pr. dag, i {unit}",
+        "chartMin": "Laveste temperatur pr. dag, i {unit}",
+        "none": "Der er ingen temperaturmålinger her for den {day}."
+      },
+      "snow": {
+        "noSnow": "Ingen sne på jorden.",
+        "cover": "Sne på jorden.",
+        "depth": "Snedybde {depth} {unit}.",
+        "fresh": "{fresh} {unit} nysne.",
+        "chart": "Snedybde pr. dag, i {unit}",
+        "none": "Der er ingen snedybdemålinger her for den {day}."
+      },
+      "class": {
+        "hot": "hed dag",
+        "summer": "sommerdag",
+        "tropical": "tropenat",
+        "ice": "isdag",
+        "frost": "frostdag"
+      }
     },
     "download": {
       "answer": "Vejrtjenester, der udgiver lufttemperatur pr. time: {count}.",

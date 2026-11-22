@@ -80,14 +80,20 @@
     "q": {
       "rain": "Regnet es morgen in {place}?",
       "season": "War {last} hier {warmth} als sonst?",
-      "wind": "Wie windig war es am {day}?",
-      "download": "Wo kann ich stündliche Temperaturen herunterladen?"
+      "download": "Wo kann ich stündliche Temperaturen herunterladen?",
+      "day": {
+        "wind": "Wie windig war es am {day}?",
+        "sun": "Wie sonnig war es am {day}?",
+        "rain": "Wie nass war es am {day}?",
+        "temperature": "Wie heiß oder kalt war es am {day}?",
+        "snow": "Lag am {day} Schnee?"
+      }
     },
     "from": {
       "rain": "Vorhersage, DWD MOSMIX",
       "season": "Monatsmittel, DWD",
-      "wind": "Tageswerte, DWD",
-      "download": "Alle Wetterdienste"
+      "download": "Alle Wetterdienste",
+      "day": "Tageswerte, DWD"
     },
     "working": "Die Antwort wird ermittelt …",
     "failed": "Die Antwort ließ sich nicht ermitteln.",
@@ -188,9 +194,67 @@
       "context": "Tage rundherum mit stärkeren Böen: {stronger} von {around}.",
       "chartGust": "Stärkste Böe pro Tag, in {unit}",
       "chartMean": "Mittlerer Wind pro Tag, in {unit}",
-      "none": "Für den {day} gibt es hier keine Windmessungen.",
+      "none": "Für den {day} gibt es hier keine Windmessungen."
+    },
+    "day": {
       "dayLabel": "Tag",
-      "open": "Diese Tage im Explorer öffnen"
+      "open": "Diese Tage im Explorer öffnen",
+      "measureLabel": "Messgröße",
+      "measure": {
+        "wind": "Wind",
+        "sun": "Sonne",
+        "rain": "Regen",
+        "temperature": "Hitze und Kälte",
+        "snow": "Schnee"
+      },
+      "measureShort": "{measureCap} (hier keine Messung für den {day})",
+      "noteGreyed": "Ausgegraut, hier ohne Wert am {day}: {measures}.",
+      "noteAskedMeasure": "{measureCap}: hier kein Wert für den {day}. Stattdessen gezeigt: {shown}.",
+      "sun": {
+        "dull": "Trüb.",
+        "mixed": "Teils sonnig.",
+        "sunny": "Sonnig.",
+        "detail": "{hours} h Sonnenschein, {share} der {possible} h, die hier möglich waren.",
+        "chart": "Sonnenschein pro Tag, in {unit}",
+        "none": "Für den {day} gibt es hier keine Sonnenscheinmessung."
+      },
+      "rain": {
+        "dry": "Trocken.",
+        "light": "Etwas Regen.",
+        "wet": "Nass.",
+        "veryWet": "Sehr nass.",
+        "detail": "{amount} {unit} Niederschlag über den Tag.",
+        "chart": "Niederschlag pro Tag, in {unit}",
+        "none": "Für den {day} gibt es hier keine Niederschlagsmessung."
+      },
+      "temperature": {
+        "hot": "Ein heißer Tag.",
+        "summer": "Ein Sommertag.",
+        "tropical": "Eine Tropennacht.",
+        "ice": "Ein Eistag.",
+        "frost": "Ein Frosttag.",
+        "ordinary": "Weder Frost noch Sommertag.",
+        "range": "Höchstwert {max} {unit}, Tiefstwert {min} {unit}.",
+        "classes": "Zählt als: {classes}.",
+        "chartMax": "Höchsttemperatur pro Tag, in {unit}",
+        "chartMin": "Tiefsttemperatur pro Tag, in {unit}",
+        "none": "Für den {day} gibt es hier keine Temperaturmessungen."
+      },
+      "snow": {
+        "noSnow": "Kein Schnee auf dem Boden.",
+        "cover": "Schnee auf dem Boden.",
+        "depth": "Schneehöhe {depth} {unit}.",
+        "fresh": "{fresh} {unit} Neuschnee.",
+        "chart": "Schneehöhe pro Tag, in {unit}",
+        "none": "Für den {day} gibt es hier keine Schneehöhenmessung."
+      },
+      "class": {
+        "hot": "Heißer Tag",
+        "summer": "Sommertag",
+        "tropical": "Tropennacht",
+        "ice": "Eistag",
+        "frost": "Frosttag"
+      }
     },
     "download": {
       "answer": "Wetterdienste mit stündlicher Lufttemperatur: {count}.",

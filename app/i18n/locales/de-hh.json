@@ -80,14 +80,20 @@
     "q": {
       "rain": "Regent dat morgen in {place}?",
       "season": "Weer {last} hier {warmth} as anners?",
-      "wind": "Wo windig weer dat an'n {day}?",
-      "download": "Woneem kann ik stünnlike Temperaturen runnerladen?"
+      "download": "Woneem kann ik stünnlike Temperaturen runnerladen?",
+      "day": {
+        "wind": "Wo windig weer dat an'n {day}?",
+        "sun": "Wo sünnig weer dat an'n {day}?",
+        "rain": "Wo natt weer dat an'n {day}?",
+        "temperature": "Wo heet oder kold weer dat an'n {day}?",
+        "snow": "Leeg an'n {day} Snee?"
+      }
     },
     "from": {
       "rain": "Utsicht, DWD MOSMIX",
       "season": "Maandmiddel, DWD",
-      "wind": "Dagweerten, DWD",
-      "download": "All Wedderdeenste"
+      "download": "All Wedderdeenste",
+      "day": "Dagweerten, DWD"
     },
     "working": "De Antwoort warrt utrekent …",
     "failed": "De Antwoort leet sik nich utreken.",
@@ -188,9 +194,67 @@
       "context": "Daag rundüm mit stärkere Bööen: {stronger} vun {around}.",
       "chartGust": "Stärkste Böö per Dag, in {unit}",
       "chartMean": "Middel-Wind per Dag, in {unit}",
-      "none": "För den {day} gifft dat hier keen Windmeten.",
+      "none": "För den {day} gifft dat hier keen Windmeten."
+    },
+    "day": {
       "dayLabel": "Dag",
-      "open": "Disse Daag in'n Explorer opmaken"
+      "open": "Disse Daag in'n Explorer opmaken",
+      "measureLabel": "Meetgröött",
+      "measure": {
+        "wind": "Wind",
+        "sun": "Sünn",
+        "rain": "Regen",
+        "temperature": "Hitt un Köll",
+        "snow": "Snee"
+      },
+      "measureShort": "{measureCap} (hier keen Meten för den {day})",
+      "noteGreyed": "Utgraut, hier ohn Weert an'n {day}: {measures}.",
+      "noteAskedMeasure": "{measureCap} hett hier keen Weert för den {day}. In Stä wiest: {shown}.",
+      "sun": {
+        "dull": "Trüüb.",
+        "mixed": "Deelwies sünnig.",
+        "sunny": "Sünnig.",
+        "detail": "{hours} Stünn Sünn, {share} vun de {possible} Stünn, de hier mööglich weren.",
+        "chart": "Sünn per Dag, in {unit}",
+        "none": "För den {day} gifft dat hier keen Sünnmeten."
+      },
+      "rain": {
+        "dry": "Dröög.",
+        "light": "En beten Regen.",
+        "wet": "Natt.",
+        "veryWet": "Bannig natt.",
+        "detail": "{amount} {unit} Nedderslag över den Dag.",
+        "chart": "Nedderslag per Dag, in {unit}",
+        "none": "För den {day} gifft dat hier keen Nedderslagmeten."
+      },
+      "temperature": {
+        "hot": "En heten Dag.",
+        "summer": "En Sommerdag.",
+        "tropical": "En Tropennacht.",
+        "ice": "En Iesdag.",
+        "frost": "En Frostdag.",
+        "ordinary": "Nich Frost un nich Sommerdag.",
+        "range": "Högst {max} {unit}, leegst {min} {unit}.",
+        "classes": "Telt as: {classes}.",
+        "chartMax": "Hööchsttemperatur per Dag, in {unit}",
+        "chartMin": "Leegsttemperatur per Dag, in {unit}",
+        "none": "För den {day} gifft dat hier keen Temperaturmeten."
+      },
+      "snow": {
+        "noSnow": "Keen Snee op'n Grund.",
+        "cover": "Snee op'n Grund.",
+        "depth": "Sneehööchde {depth} {unit}.",
+        "fresh": "{fresh} {unit} frischen Snee.",
+        "chart": "Sneehööchde per Dag, in {unit}",
+        "none": "För den {day} gifft dat hier keen Sneehööchdemeten."
+      },
+      "class": {
+        "hot": "Heten Dag",
+        "summer": "Sommerdag",
+        "tropical": "Tropennacht",
+        "ice": "Iesdag",
+        "frost": "Frostdag"
+      }
     },
     "download": {
       "answer": "Wedderdeenste mit stünnlike Lufttemperatur: {count}.",

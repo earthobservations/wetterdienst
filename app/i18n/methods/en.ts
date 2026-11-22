@@ -201,27 +201,40 @@ export const methods: MethodTexts = {
       },
     },
 
-    wind: {
-      title: 'How windy was it on a day?',
-      summary: 'The strongest gust and the mean wind of a day at the place\'s station, turned into a Beaufort force and a word, and set beside the days around it.',
-      data: 'DWD\'s daily station observations (dataset daily/climate_summary): the daily highest wind gust (wind_gust_max) and the daily mean wind speed (wind_speed_mean) of the place\'s station, for the {days} days either side of the day.',
+    day: {
+      title: 'What was a day like?',
+      summary: 'How windy, sunny, wet, hot or cold, or snowy a day was at the place\'s station, put into a word by a scale that a published source gives where there is one, and set beside the days around it.',
+      data: 'DWD\'s daily station observations (dataset daily/climate_summary): the highest wind gust (wind_gust_max) and the mean wind speed (wind_speed_mean), the sunshine duration (sunshine_duration), the precipitation (precipitation_amount), the highest and lowest air temperature at 2 m (temperature_air_max_2m, temperature_air_min_2m) and the snow depth (snow_depth) of the place\'s station, and its fresh snow (snow_depth_new, from the daily precipitation dataset daily/precipitation_more) where it has any, for the {days} days either side of the day.',
       steps: {
-        station: 'The values of the day, and of the {days} days before and after it (none after yesterday), are fetched for the place\'s station: the day\'s strongest gust and its mean wind speed.',
-        forces: 'Each speed is turned into a force of the Beaufort scale, from 0 to 12, by the table of WMO. The force is the number of lower edges of the table that the speed has reached.',
-        verdict: 'Where the station has a gust for the day, the word comes from its force: calm below force {gustBreezy}, breezy from {gustBreezy}, windy from {gustWindy}, stormy from {gustStormy}. Without a gust the mean is used, one force lower: from {meanBreezy}, {meanWindy} and {meanStormy}.',
-        around: 'The day is set beside the days around it: how many of them had a stronger value than the day.',
+        station: 'The values of the day, and of the {days} days before and after it (none after yesterday), are fetched for the place\'s station, all measures in one request: the wind gust and mean, the sunshine duration, the precipitation, the highest and lowest temperature, the snow depth and the fresh snow. Choosing another measure asks for nothing new.',
+        wind: 'Wind: each speed is turned into a force of the Beaufort scale, from 0 to 12, by the table of WMO. Where the station has a gust for the day, the word comes from its force: calm below force {gustBreezy}, breezy from {gustBreezy}, windy from {gustWindy}, stormy from {gustStormy}. Without a gust the mean is used, one force lower: from {meanBreezy}, {meanWindy} and {meanStormy}.',
+        sun: 'Sun: the sunshine duration of the day is divided by the sunshine that was possible at the station\'s latitude that day, the time the Sun\'s centre is above a flat horizon, which follows from the Sun\'s declination (about a quarter of an hour shorter than the sunrise to sunset of the tables, which count refraction and the Sun\'s disc). Below {dullBelow} % of it the day is dull, from {sunnyFrom} % it is sunny, and between the two it is mixed.',
+        rain: 'Rain: the precipitation of the day, in millimetres, is dry below {dryMm} mm, a little rain from there, wet from {wetMm} mm and very wet from {veryWetMm} mm.',
+        temperature: 'Heat and cold: the highest and the lowest temperature of the day are held against the days that DWD names: a hot day (highest temperature {hotDay} °C or more), a summer day (from {summerDay} °C), a tropical night (lowest temperature {tropicalFrom} °C or more), an ice day (highest below {iceBelow} °C) and a frost day (lowest below {frostBelow} °C). The first of them in this order names the day, and the others it belongs to are listed with it.',
+        snow: 'Snow: snow lies where the snow depth of the day is above {snowAboveCm} cm. The depth is given, and the fresh snow where the station reports it.',
+        around: 'The day is set beside the days around it, as a chart of them. For the wind it is also counted how many of them had a stronger value than the day.',
       },
       formulas: {
         force: 'force = the number of lower edges of the Beaufort table (0.3, 1.6, 3.4 … 32.7 m/s) that the speed is at or above',
+        daylength: 'sin δ = sin ε · sin λ (δ: the Sun\'s declination, ε: the obliquity of the ecliptic, 23.439°, λ: the Sun\'s ecliptic longitude); cos t = −tan φ · tan δ (t: the hour angle of sunrise, φ: the latitude); possible sunshine = 2 · t ÷ 15° per hour',
+        share: 'share = sunshine duration ÷ possible sunshine, not above 100 %',
       },
       rules: {
         'daily-values': {
-          text: 'The values are the daily highest wind gust and the daily mean wind speed of the station, in the unit chosen in the settings.',
-          says: 'DWD\'s description of its daily data lists the daily maximum of the wind gust and the daily mean of the wind velocity, both in m/s. WMO asks that the wind speed of reports is an average over 10 minutes.',
+          text: 'The values are the station\'s daily values: the highest wind gust and the mean wind speed, the sunshine duration, the precipitation, the highest and lowest air temperature at 2 m, the snow depth, and the fresh snow where the station has it. They are in the unit chosen in the settings, except the sunshine, which is always in hours.',
+          says: 'DWD\'s description of its daily data lists FX, the daily maximum of the wind gust, and FM, the daily mean of the wind velocity (m/s), SDK, the daily sunshine duration (h), RSK, the daily precipitation height (mm), TXK and TNK, the daily maximum and minimum of the temperature at 2 m height (°C), and SHK_TAG, the daily snow depth (cm). The description of its daily precipitation data lists SH_TAG, the height of the snow pack, and NSH_TAG, the fresh snow depth (cm).',
         },
         'default-day': {
-          text: 'A link with no day asks about the last 26 December whose readings can be in: this year\'s from 28 December on, otherwise last year\'s. The reader can pick any day up to yesterday.',
-          reason: 'The day is an example the project chose to show what the answer looks like; it has no meaning for the method. No source applies.',
+          text: 'A link with no day asks about the same date last year. A 29 February, which the year before did not have, asks about 28 February. The reader can pick any day up to yesterday.',
+          reason: 'The day is an example the project chose to show what the answer looks like: the same date a year ago has its readings in the data, and it is in the same season as today. It has no meaning for the method. No source applies. It replaces the last 26 December that the question opened on before.',
+        },
+        'default-measure': {
+          text: 'A link with no measure asks about the wind, the question this chip always was. Where the station has no wind reading for the day, it opens on the first measure that it has a reading of: sun, rain, heat and cold, snow.',
+          reason: 'The wind is what the question asked about before it had a choice, so that links and habits keep their meaning, and falling back to a measure with data shows an answer rather than an empty one. No source applies.',
+        },
+        'measure-reading': {
+          text: 'A measure is offered only if the station has a reading of it for the day. The others are greyed out with that said, and a link that names one gets the default, with a line that says so. Heat and cold need both the highest and the lowest temperature, the wind either the gust or the mean.',
+          reason: 'A verdict made from a reading that is not there would be made up. Both temperatures are needed because a frost day cannot be ruled out without the lowest one. No source applies.',
         },
         'beaufort': {
           text: 'A speed becomes a force by the table of WMO: the lower edges of force 1 to 12 are {edges} m/s.',
@@ -242,6 +255,64 @@ export const methods: MethodTexts = {
           says: 'WMO\'s table names force 4 a moderate breeze, force 6 a strong breeze and force 8 a gale.',
           reason: 'A mean is lower than the gust of the same hour, so the lines are one force lower than those for a gust. No source gives them.',
         },
+        'sun-share': {
+          text: 'The sunshine duration of the day is compared with the sunshine that was possible at the station\'s latitude that day, as a share from 0 to 100 %.',
+          says: 'WMO defines sunshine duration as the time for which the direct solar irradiance exceeds 120 W per square metre (§8.1.1), and says that for climatological purposes a "relative daily sunshine duration" is used, which relates the sunshine duration to the extra-terrestrial possible one, written SD0 (§8.1.2).',
+        },
+        'day-length': {
+          text: 'The possible sunshine is the length of the day at the station\'s latitude: the Sun\'s declination on that day gives the hour angle of sunrise, and the day is twice that angle at 15 degrees to the hour, on a flat horizon (the Sun\'s centre at the horizon, with no refraction: about a quarter of an hour shorter than the sunrise to sunset of the tables). A day on which the Sun does not rise has no answer.',
+          says: 'WMO gives the approximate formulae of the Astronomical Almanac for the position of the Sun, from which the declination follows (Annex 7.F), and, for a mathematical horizon, the hour angle of sunrise and sunset as cos t = −tan(latitude) · tan(declination) (Annex 7.G).',
+        },
+        'sun-bands': {
+          text: 'By the share of the possible sunshine: dull below {dullBelow} %, mixed from {dullBelow} %, sunny from {sunnyFrom} %.',
+          says: 'WMO describes three ranges of the relative daily sunshine duration: "cloudy sky" from 0 up to 0.3, "scattered clouds" from 0.3 up to 0.7 and "fair weather" from 0.7 to 1.0. It uses them to say how much the requirements on a sunshine recorder depend on the cloudiness of the place.',
+          reason: 'The edges are WMO\'s. Calling the three ranges "dull", "mixed" and "sunny" is wetterdienst\'s own use of them: WMO uses them to describe the cloudiness a recorder has to cope with, not the weather of a day, and no source names a verdict for a day.',
+        },
+        'rain-trace': {
+          text: 'A day with less than {dryMm} mm of precipitation is dry.',
+          says: 'WMO says that daily amounts of precipitation should be read to the nearest 0.2 mm and, if feasible, to the nearest 0.1 mm, and that amounts less than 0.1 mm are generally referred to as trace amounts.',
+          reason: 'The edge is WMO\'s. The word "dry" for a day below it is wetterdienst\'s own: WMO calls such amounts traces and names no class of day.',
+        },
+        'rain-wet-day': {
+          text: 'From {wetMm} mm the day is wet. The days between {dryMm} mm and {wetMm} mm have a little rain.',
+          says: 'WMO\'s guidelines list the number of days with precipitation of 1 mm or more among the principal climatological parameters of a station\'s normals.',
+          reason: 'WMO\'s table counts the days of 1 mm or more and names no class: calling such a day "wet", and one between the two edges "a little rain", is wetterdienst\'s own wording. No source names a day.',
+        },
+        'rain-very-wet': {
+          text: 'From {veryWetMm} mm the day is very wet.',
+          says: 'The same table lists the number of days with a daily precipitation of 5, 10, 50, 100 and 150 mm or more among the secondary parameters; 10 mm is one of those thresholds.',
+          reason: 'WMO lists thresholds to count days by, not words for them. The word "very wet" for the days from 10 mm, and leaving out the thresholds of 5 mm and of 50 mm and more, are wetterdienst\'s own: four words are enough to describe a day, and the amount is always given with it.',
+        },
+        'heat-days': {
+          text: 'A summer day has a highest temperature of {summerDay} °C or more, a hot day {hotDay} °C or more.',
+          says: 'DWD defines the Sommertag as a day with a highest air temperature of at least 25.0 °C and the Heiße Tag as one with at least 30.0 °C. WMO\'s guidelines list the number of days with a maximum temperature of 25, 30, 35 and 40 °C or more among the secondary parameters of normals.',
+        },
+        'cold-days': {
+          text: 'A frost day has a lowest temperature below {frostBelow} °C, an ice day a highest temperature below {iceBelow} °C. An ice day is a frost day too.',
+          says: 'DWD defines the Frosttag as a day whose lowest air temperature is below 0.0 °C and the Eistag as one whose highest is below 0.0 °C. WMO\'s guidelines list the number of days with a maximum temperature below 0 °C and with a minimum below 0 °C among the secondary parameters of normals.',
+        },
+        'tropical-night': {
+          text: 'A tropical night has a lowest temperature of {tropicalFrom} °C or more.',
+          says: 'DWD defines the Tropennacht as a night in which the lowest air temperature is 20 °C or more, measured from 18 UTC to 06 UTC.',
+        },
+        'tropical-daily-minimum': {
+          text: 'The lowest temperature of the station\'s day stands in for the lowest temperature of the night: a day whose lowest temperature is {tropicalFrom} °C or more counts as a tropical night.',
+          says: 'DWD measures the night from 18 UTC to 06 UTC.',
+          reason: 'The station\'s daily data has no minimum of the night alone. The daily minimum is that of the day, and a night lies over two days, so this is an approximation: where the day never fell below 20 °C, the hours of two nights that lie in it (00 to 06 and 18 to 24 UTC) did not either, but the other half of each night belongs to the next or the previous day and is not looked at.',
+        },
+        'class-order': {
+          text: 'A day is named by the first class that it belongs to, in this order: hot day, summer day, tropical night, ice day, frost day. The other classes it belongs to are listed with the word. A day with none is called "neither frost nor a summer day".',
+          says: 'DWD calls the days on which a threshold of a meteorological parameter is reached or passed "Kenntage" (days that characterise a time of the year), and names the Sommertag, the Heiße Tag, the Frosttag and the Eistag among them.',
+          reason: 'Every hot day is a summer day and every ice day is a frost day, so the stronger class says more. The heat comes before the cold because hardly any day is both (it would need a range of more than 25 K within the day); where one is, both are listed. The order is wetterdienst\'s, and no source gives one.',
+        },
+        'snow-lies': {
+          text: 'Snow lies where the snow depth of the day is above {snowAboveCm} cm. Otherwise there is no snow on the ground.',
+          says: 'WMO\'s guidelines list the number of days with a snow depth above 0, 1, 10 and 50 cm among the secondary parameters of normals; above 0 cm is the first of them.',
+        },
+        'fresh-snow': {
+          text: 'The fresh snow of the day is added where the station reports it. It comes from DWD\'s daily precipitation dataset, as the climate summary has none.',
+          says: 'DWD\'s description of its daily precipitation data lists SH_TAG, the height of the snow pack, and NSH_TAG, the fresh snow depth, both in cm.',
+        },
         'around-window': {
           text: 'The day is set beside the {days} days before it and the {days} days after it, none of them after yesterday.',
           reason: 'A week either side is enough to show whether the day was unusual for that spell of weather, and short enough that the season hardly changes. No source gives a window.',
@@ -252,11 +323,17 @@ export const methods: MethodTexts = {
         },
       },
       limits: {
-        station: 'The wind of one station is not the wind of a town or a region. WMO says it is nearly impossible to find a place where the wind speed is representative of a large area, and that the exposure of the anemometer is the most difficult aspect of wind measurement.',
-        gust: 'A Beaufort force of a gust is not the force of the wind: reported wind is averaged over 10 minutes, the table gives the equivalents of such speeds, and a gust lasts seconds. "Stormy" here means a strong gust, not a "storm" (force 10 of WMO\'s table) in the sense of a mean wind.',
-        missing: 'A day for which the station has neither a gust nor a mean has no answer. Without a gust the word comes from the mean, on the scale that is one force lower.',
-        height: 'The Beaufort table is for a height of 10 m above open ground. DWD\'s stations differ in the height of the sensor, and a sensor at another height reads another speed; the page "How weather is measured" gives an example.',
-        window: 'The days around the day do not reach beyond yesterday, because later days are not in the data yet.',
+        'station': 'The readings of one station are not the weather of a town or a region: sun, rain, wind and frost differ over a few kilometres. WMO says it is nearly impossible to find a place where the wind speed is representative of a large area, and that the exposure of the anemometer is the most difficult aspect of wind measurement.',
+        'missing': 'A measure that the station has no reading of for the day has no answer, and its option is greyed out. Without a gust the wind\'s word comes from the mean, on the scale that is one force lower.',
+        'window': 'The days around the day do not reach beyond yesterday, because later days are not in the data yet.',
+        'time': 'A day is not the same 24 hours in every column of DWD\'s daily data. From April 2001, at the stations checked, the precipitation covers 06:00 UTC to 06:00 UTC of the next day, the highest and lowest temperature and the sunshine duration cover 00:00 to 24:00 UTC, and the snow depth is the reading of 06 UTC. The page "How weather is measured" explains it.',
+        'gust': 'A Beaufort force of a gust is not the force of the wind: reported wind is averaged over 10 minutes, the table gives the equivalents of such speeds, and a gust lasts seconds. "Stormy" here means a strong gust, not a "storm" (force 10 of WMO\'s table) in the sense of a mean wind.',
+        'height': 'The Beaufort table is for a height of 10 m above open ground. DWD\'s stations differ in the height of the sensor, and a sensor at another height reads another speed; the page "How weather is measured" gives an example.',
+        'horizon': 'The possible sunshine is the day on a flat horizon, counted to the Sun\'s centre and with no refraction, as WMO\'s SD0 is: about a quarter of an hour shorter than the sunrise to sunset of the tables. A sunshine recorder needs the Sun some degrees above the horizon (WMO asks for a free view of it wherever it is more than 3° up), and hills, buildings and trees at the station take more, so even a cloudless day usually stays a little under 100 %.',
+        'recorder': 'Sunshine duration is measured to about a tenth of an hour at best (WMO asks for ±0.1 h). WMO says the highest precision is needed where high cloud layers dim the direct sunlight to around 120 W per square metre, and that a dominantly clouded sky shows the highest percentage of deviations from the reference: a dull day is the least certain one.',
+        'gauge': 'A rain gauge measures at one point, and the wind makes it catch less than falls: WMO calls the wind the greatest source of disturbance in precipitation measurements and says the undercatch of rain in a standard gauge can be as high as 10 %.',
+        'night': 'A tropical night is a night from 18 UTC to 06 UTC, and the answer looks at the station\'s day from 00:00 to 24:00 UTC. In Germany local time is one or two hours ahead of UTC.',
+        'snow-reading': 'DWD\'s snow depth is the reading of 06 UTC at the stations checked: snow that fell and melted during the day is not in it, and a day with fresh snow can show a depth of 0 cm. The fresh snow is a value of its own that not every station reports; where it has none, the answer says so. The link into the Explorer opens the snow depth; the fresh snow is in the dataset daily/precipitation_more.',
       },
       numbers: {
         station: 'Station: {name} ({id}).',
@@ -266,6 +343,21 @@ export const methods: MethodTexts = {
         scaleGust: 'Scale used, by the gust: calm below force {breezy}, breezy from {breezy}, windy from {windy}, stormy from {stormy}.',
         scaleMean: 'The station has no gust for this day, so the mean is used: calm below force {breezy}, breezy from {breezy}, windy from {windy}, stormy from {stormy}.',
         around: 'In the days around it (up to {days} either side), {around} have a value and {stronger} of them had a stronger one.',
+        sunHours: 'Sunshine: {hours} h. At {latitude}° N the Sun could shine {possible} h that day, so the day had {share} of the possible sunshine.',
+        sunScale: 'Scale used: dull below {dull}, mixed from {dull}, sunny from {sunny} of the possible sunshine.',
+        rainAmount: 'Precipitation of the day: {amount} {unit}.',
+        rainScale: 'Scale used: dry below {dry} {unit}, a little rain from {dry}, wet from {wet}, very wet from {veryWet} {unit}.',
+        tempRange: 'Highest temperature {max} {unit}, lowest {min} {unit}.',
+        tempClass: 'The day counts as: {kind}.',
+        tempScale: 'Days counted: a summer day has a highest temperature from {summer} {unit}, a hot day from {hot} {unit}, an ice day below {ice} {unit}; a frost day has a lowest temperature below {frost} {unit}, a tropical night from {tropical} {unit}.',
+        snowDepth: 'Snow depth: {depth} {unit}.',
+        snowFresh: 'Fresh snow: {fresh} {unit}.',
+        snowNoFresh: 'The station has no reading of fresh snow for this day.',
+        snowScale: 'Snow counts as lying where the depth is above {above} {unit}.',
+        window: 'The chart shows up to {days} days either side of the day; {given} of its days have a reading.',
+      },
+      terms: {
+        kind: { hot: 'hot day', summer: 'summer day', tropical: 'tropical night', ice: 'ice day', frost: 'frost day' },
       },
     },
 
@@ -308,10 +400,10 @@ export const methods: MethodTexts = {
 
   works: {
     'wmo-8-i': {
-      plain: `${WMO} Volume I of its Guide to Instruments and Methods of Observation is the handbook for measuring temperature, wind, precipitation and the other variables. Here it gives the Beaufort scale of wind force, what an average of the wind is, why gusts matter, and what is called a trace of rain.`,
+      plain: `${WMO} Volume I of its Guide to Instruments and Methods of Observation is the handbook for measuring temperature, wind, precipitation and the other variables. Here it gives the Beaufort scale of wind force, what an average of the wind is, why gusts matter, what is called a trace of rain, how sunshine duration is defined and how its relative form is read, and the formulae for the position of the Sun, from which the length of a day follows.`,
     },
     'wmo-1203': {
-      plain: `${WMO} Its Guidelines on the Calculation of Climate Normals say what a climate normal is, which periods count, how a normal is made from monthly values and how much missing data is allowed. A normal is the average of a long, fixed period that recent weather is compared with. The thirty years became the standard mainly because only thirty years of data were available when it was first recommended. Here it gives the normals that can be chosen (the reference normal 1961 to 1990 and the later ones), the way a season is calculated and the rules for a station that has too few years.`,
+      plain: `${WMO} Its Guidelines on the Calculation of Climate Normals say what a climate normal is, which periods count, how a normal is made from monthly values and how much missing data is allowed. A normal is the average of a long, fixed period that recent weather is compared with. The thirty years became the standard mainly because only thirty years of data were available when it was first recommended. Here it gives the normals that can be chosen (the reference normal 1961 to 1990 and the later ones), the way a season is calculated, the rules for a station that has too few years, and its list of the days that a station's normals count: days with a given amount of precipitation, with a maximum or minimum temperature above or below a line, and with snow on the ground.`,
     },
     'dwd-seasons': {
       plain: `${DWD} Its weather lexicon says how meteorologists divide the year: each season is three whole months, because the statistics of the climate are made from the data of single months.`,
@@ -323,7 +415,16 @@ export const methods: MethodTexts = {
       plain: `${DWD} The description of its monthly station dataset says where the monthly values come from: they are calculated from the daily values, and only if the daily values of the month are complete. It also asks readers to note changes of the station height and of the observation times.`,
     },
     'dwd-daily-kl': {
-      plain: `${DWD} The description of its daily station dataset names the parameters and their units. Here it says that FX is the daily maximum of the wind gust and FM the daily mean of the wind velocity, both in m/s.`,
+      plain: `${DWD} The description of its daily station dataset names the parameters and their units. Here it says that FX is the daily maximum of the wind gust and FM the daily mean of the wind velocity, both in m/s, and names the sunshine duration (SDK), the precipitation height (RSK), the highest and lowest temperature at 2 m (TXK, TNK) and the snow depth (SHK_TAG).`,
+    },
+    'dwd-daily-more-precip': {
+      plain: `${DWD} The description of its daily precipitation dataset names the parameters and their units. Here it says that SH_TAG is the height of the snow pack and NSH_TAG the fresh snow depth, both in cm.`,
+    },
+    'dwd-kenntage': {
+      plain: `${DWD} In an article of 13 August 2025 it explains its "Kenntage", the days on which a threshold of a meteorological parameter is reached or passed, as a second way, besides the average temperature, to judge a season. It names the Sommertag (a highest temperature of at least 25.0 °C), the Heiße Tag (30.0 °C), the Frosttag (a lowest temperature below 0.0 °C) and the Eistag (a highest temperature below 0.0 °C).`,
+    },
+    'dwd-tropennacht': {
+      plain: `${DWD} Its weather lexicon defines the Tropennacht as a night in which the lowest air temperature is 20 °C or more, measured from 18 UTC to 06 UTC, and says that at most of its stations there is, on average, less than one a year.`,
     },
     'dwd-warnings': {
       plain: `${DWD} It publishes the criteria of its weather warnings. For the wind they give a gust speed in km/h and the matching force of the Beaufort scale for each level of warning, at about 10 m above open ground.`,

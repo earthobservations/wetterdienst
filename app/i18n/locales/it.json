@@ -80,14 +80,20 @@
     "q": {
       "rain": "Domani pioverà a {place}?",
       "season": "{last} {warmth} del solito qui?",
-      "wind": "Quanto vento c'era il {day}?",
-      "download": "Dove posso scaricare le temperature orarie?"
+      "download": "Dove posso scaricare le temperature orarie?",
+      "day": {
+        "wind": "Quanto vento c'era il {day}?",
+        "sun": "Quanto sole c'era il {day}?",
+        "rain": "Quanto ha piovuto il {day}?",
+        "temperature": "Faceva caldo o freddo il {day}?",
+        "snow": "C'era neve il {day}?"
+      }
     },
     "from": {
       "rain": "Previsioni, DWD MOSMIX",
       "season": "Medie mensili, DWD",
-      "wind": "Dati giornalieri, DWD",
-      "download": "Tutti i servizi meteorologici"
+      "download": "Tutti i servizi meteorologici",
+      "day": "Dati giornalieri, DWD"
     },
     "working": "Sto calcolando la risposta …",
     "failed": "Non è stato possibile calcolare la risposta.",
@@ -188,9 +194,67 @@
       "context": "Giorni vicini con raffiche più forti: {stronger} su {around}.",
       "chartGust": "Raffica più forte al giorno, in {unit}",
       "chartMean": "Vento medio al giorno, in {unit}",
-      "none": "Qui non ci sono misure del vento per il {day}.",
+      "none": "Qui non ci sono misure del vento per il {day}."
+    },
+    "day": {
       "dayLabel": "Giorno",
-      "open": "Apri questi giorni nell'Esploratore"
+      "open": "Apri questi giorni nell'Esploratore",
+      "measureLabel": "Grandezza",
+      "measure": {
+        "wind": "vento",
+        "sun": "sole",
+        "rain": "pioggia",
+        "temperature": "caldo e freddo",
+        "snow": "neve"
+      },
+      "measureShort": "{measureCap} (nessuna misura qui per il {day})",
+      "noteGreyed": "In grigio, nessuna misura qui per il {day}: {measures}.",
+      "noteAskedMeasure": "{measureCap}: nessuna misura qui per il {day}. Mostrato invece: {shown}.",
+      "sun": {
+        "dull": "Grigio.",
+        "mixed": "Variabile.",
+        "sunny": "Soleggiato.",
+        "detail": "{hours} h di sole, il {share} delle {possible} h possibili qui.",
+        "chart": "Sole al giorno, in {unit}",
+        "none": "Qui non ci sono misure del sole per il {day}."
+      },
+      "rain": {
+        "dry": "Asciutto.",
+        "light": "Un po' di pioggia.",
+        "wet": "Piovoso.",
+        "veryWet": "Molto piovoso.",
+        "detail": "{amount} {unit} di precipitazioni nella giornata.",
+        "chart": "Precipitazioni al giorno, in {unit}",
+        "none": "Qui non ci sono misure delle precipitazioni per il {day}."
+      },
+      "temperature": {
+        "hot": "Un giorno caldo.",
+        "summer": "Un giorno d'estate.",
+        "tropical": "Una notte tropicale.",
+        "ice": "Un giorno di ghiaccio.",
+        "frost": "Un giorno di gelo.",
+        "ordinary": "Né gelo né giorno d'estate.",
+        "range": "Massima {max} {unit}, minima {min} {unit}.",
+        "classes": "Conta come: {classes}.",
+        "chartMax": "Temperatura massima al giorno, in {unit}",
+        "chartMin": "Temperatura minima al giorno, in {unit}",
+        "none": "Qui non ci sono misure della temperatura per il {day}."
+      },
+      "snow": {
+        "noSnow": "Niente neve al suolo.",
+        "cover": "Neve al suolo.",
+        "depth": "Altezza della neve {depth} {unit}.",
+        "fresh": "{fresh} {unit} di neve fresca.",
+        "chart": "Altezza della neve al giorno, in {unit}",
+        "none": "Qui non ci sono misure dell'altezza della neve per il {day}."
+      },
+      "class": {
+        "hot": "giorno caldo",
+        "summer": "giorno d'estate",
+        "tropical": "notte tropicale",
+        "ice": "giorno di ghiaccio",
+        "frost": "giorno di gelo"
+      }
     },
     "download": {
       "answer": "Servizi meteorologici che pubblicano la temperatura oraria dell'aria: {count}.",

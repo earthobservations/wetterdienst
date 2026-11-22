@@ -20,7 +20,7 @@ import { unitsOfAnswer } from '~/utils/units'
 // hands back.
 const props = defineProps<{
   question: ChipId
-  /** The values of the question's choices, as the link has them (`day` for the wind question) */
+  /** The values of the question's choices, as the link has them (`day` for the day question) */
   choices: Choices
   /** Only the choices the link names: where it names none, the data gives the default (the season completed most recently that has enough of it) */
   explicit?: Choices
@@ -100,11 +100,12 @@ watch(effective, choices => emit('effective', choices), { immediate: true })
 const { settings } = useSettings()
 /** The unit of the question's quantity the settings choose, and whether they convert: what a change of refetches the answer for */
 const unitsAsked = computed(() => {
-  const quantity = chip.value.quantity
-  if (!quantity)
+  const quantities = [chip.value.quantity ?? []].flat()
+  if (!quantities.length)
     return ''
   // where nothing is converted the unit chosen changes nothing of the answer
-  return JSON.stringify(settings.value.convertUnits ? [true, requestUnitTargets(settings.value.units)[quantity]] : [false])
+  const targets = requestUnitTargets(settings.value.units)
+  return JSON.stringify(settings.value.convertUnits ? [true, ...quantities.map(quantity => targets[quantity])] : [false])
 })
 
 // The requests a definition makes, with the app's settings and error handling
@@ -177,7 +178,7 @@ const requested = computed(() => {
   return JSON.stringify(names ? names.map(name => props.choices[name]) : props.choices)
 })
 
-// the question, the place, its choices that the requests read (the wind's day), or the unit the settings choose for the question: a change
+// the question, the place, its choices that the requests read (the day question's day), or the unit the settings choose for the question: a change
 // of any of them asks again, and one under way is followed by the new one, whose answer is the only one shown
 watch(() => [props.question, place.value.id, requested.value, unitsAsked.value], ask, { immediate: true })
 onBeforeUnmount(() => {

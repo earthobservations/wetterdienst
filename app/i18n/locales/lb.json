@@ -80,14 +80,20 @@
     "q": {
       "rain": "Reent et muer zu {place}?",
       "season": "War {last} hei {warmth} wéi soss?",
-      "wind": "Wéi windeg war et den {day}?",
-      "download": "Wou kann ech Stonnentemperaturen eroflueden?"
+      "download": "Wou kann ech Stonnentemperaturen eroflueden?",
+      "day": {
+        "wind": "Wéi windeg war et den {day}?",
+        "sun": "Wéi vill Sonn war et den {day}?",
+        "rain": "Wéi vill huet et den {day} gereent?",
+        "temperature": "Wéi waarm oder kal war et den {day}?",
+        "snow": "Louch den {day} Schnéi?"
+      }
     },
     "from": {
       "rain": "Prognos, DWD MOSMIX",
       "season": "Méintlech Mëttelwäerter, DWD",
-      "wind": "Deeglech Wäerter, DWD",
-      "download": "All d'Wiederdéngschter"
+      "download": "All d'Wiederdéngschter",
+      "day": "Deeglech Wäerter, DWD"
     },
     "working": "D'Äntwert gëtt ausgerechent …",
     "failed": "D'Äntwert konnt net ausgerechent ginn.",
@@ -188,9 +194,67 @@
       "context": "Deeg ronderëm mat méi staarke Wandstéiss: {stronger} vun {around}.",
       "chartGust": "Stäerkste Wandstouss pro Dag, an {unit}",
       "chartMean": "Mëttlere Wand pro Dag, an {unit}",
-      "none": "Hei ginn et keng Wandmiessunge fir den {day}.",
+      "none": "Hei ginn et keng Wandmiessunge fir den {day}."
+    },
+    "day": {
       "dayLabel": "Datum",
-      "open": "Dës Deeg am Explorer opmaachen"
+      "open": "Dës Deeg am Explorer opmaachen",
+      "measureLabel": "Miessgréisst",
+      "measure": {
+        "wind": "Wand",
+        "sun": "Sonn",
+        "rain": "Reen",
+        "temperature": "Hëtzt a Kälte",
+        "snow": "Schnéi"
+      },
+      "measureShort": "{measureCap} (hei keng Miessung fir den {day})",
+      "noteGreyed": "Gro, hei keng Miessung fir den {day}: {measures}.",
+      "noteAskedMeasure": "{measureCap}: hei keng Miessung fir den {day}. Amplaz gëtt gewisen: {shown}.",
+      "sun": {
+        "dull": "Düster.",
+        "mixed": "Wiesselhaft.",
+        "sunny": "Sonneg.",
+        "detail": "{hours} h Sonn, {share} vun de {possible} h, déi hei méiglech waren.",
+        "chart": "Sonn pro Dag, an {unit}",
+        "none": "Hei ginn et keng Sonnemiessunge fir den {day}."
+      },
+      "rain": {
+        "dry": "Dréchen.",
+        "light": "E bëssen Reen.",
+        "wet": "Naass.",
+        "veryWet": "Ganz naass.",
+        "detail": "{amount} {unit} Nidderschlag iwwer den Dag.",
+        "chart": "Nidderschlag pro Dag, an {unit}",
+        "none": "Hei ginn et keng Nidderschlagsmiessunge fir den {day}."
+      },
+      "temperature": {
+        "hot": "Een Hëtztdag.",
+        "summer": "E Summerdag.",
+        "tropical": "Eng Tropennuecht.",
+        "ice": "En Äisdag.",
+        "frost": "E Frostdag.",
+        "ordinary": "Weder Frascht nach Summerdag.",
+        "range": "Héchstwäert {max} {unit}, Tiefstwäert {min} {unit}.",
+        "classes": "Zielt als: {classes}.",
+        "chartMax": "Héchsttemperatur pro Dag, an {unit}",
+        "chartMin": "Tiefsttemperatur pro Dag, an {unit}",
+        "none": "Hei ginn et keng Temperaturmiessunge fir den {day}."
+      },
+      "snow": {
+        "noSnow": "Kee Schnéi um Buedem.",
+        "cover": "Schnéi um Buedem.",
+        "depth": "Schnéihéicht {depth} {unit}.",
+        "fresh": "{fresh} {unit} neie Schnéi.",
+        "chart": "Schnéihéicht pro Dag, an {unit}",
+        "none": "Hei ginn et keng Schnéihéichtmiessunge fir den {day}."
+      },
+      "class": {
+        "hot": "Hëtztdag",
+        "summer": "Summerdag",
+        "tropical": "Tropennuecht",
+        "ice": "Äisdag",
+        "frost": "Frostdag"
+      }
     },
     "download": {
       "answer": "Wiederdéngschter, déi d'Lofttemperatur pro Stonn publizéieren: {count}.",

@@ -4,16 +4,16 @@ import { DateTime } from 'luxon'
 import { describe, expect, it } from 'vitest'
 import {
   beaufort,
+  dayWindow,
   hourlyNetworks,
   hourlyTemperatureIn,
-  lastBoxingDay,
   lastSeason,
   mapLimited,
   RAIN_AMOUNT,
   RAIN_CHANCE,
   rainTomorrow,
+  sameDayLastYear,
   windOnDay,
-  windWindow,
 } from '../../app/utils/answers'
 import { run10382Values } from '../helpers/mosmix-run'
 
@@ -158,11 +158,24 @@ describe('how windy was it on a day', () => {
     expect(windOnDay(days({ '2025-12-25': 12 }), '2025-12-26')).toBeNull()
   })
 
-  it('means last year\'s 26 December until this year\'s readings can be in, and fetches no day of the future', () => {
-    expect(lastBoxingDay(NOW)).toBe('2025-12-26')
-    expect(lastBoxingDay(DateTime.fromISO('2026-12-28T09:00:00'))).toBe('2026-12-26')
-    expect(windWindow('2025-12-26', NOW)).toEqual({ from: '2025-12-19', to: '2026-01-02' })
-    expect(windWindow('2026-10-27', NOW)).toEqual({ from: '2026-10-20', to: '2026-10-28' })
+  it('means the same date last year, and fetches no day of the future', () => {
+    expect(sameDayLastYear(NOW)).toBe('2025-10-29')
+    expect(sameDayLastYear(DateTime.fromISO('2026-12-28T09:00:00'))).toBe('2025-12-28')
+    expect(sameDayLastYear(DateTime.fromISO('2027-01-01T00:30:00'))).toBe('2026-01-01')
+    expect(dayWindow('2025-12-26', NOW)).toEqual({ from: '2025-12-19', to: '2026-01-02' })
+    expect(dayWindow('2026-10-27', NOW)).toEqual({ from: '2026-10-20', to: '2026-10-28' })
+  })
+
+  it('has no 29 February last year, and takes the day before it: 28 February', () => {
+    // 2028 is a leap year, the year before it is not: today's 29 February has no date a year ago
+    expect(sameDayLastYear(DateTime.fromISO('2028-02-29T12:00:00', { zone: BERLIN }))).toBe('2027-02-28')
+    // the day after a leap day is a plain date; and a 29 February that did exist last year (2028 asked in 2029) is not asked for
+    expect(sameDayLastYear(DateTime.fromISO('2028-03-01T12:00:00', { zone: BERLIN }))).toBe('2027-03-01')
+    expect(sameDayLastYear(DateTime.fromISO('2029-02-28T12:00:00', { zone: BERLIN }))).toBe('2028-02-28')
+    expect(sameDayLastYear(DateTime.fromISO('2029-03-01T12:00:00', { zone: BERLIN }))).toBe('2028-03-01')
+    // it is a day the question can ask about: a day before today
+    for (const now of ['2028-02-29T00:05:00', '2026-11-22T23:59:00', '2027-03-01T08:00:00'])
+      expect(sameDayLastYear(DateTime.fromISO(now, { zone: BERLIN })) < DateTime.fromISO(now, { zone: BERLIN }).toISODate()!).toBe(true)
   })
 })
 
