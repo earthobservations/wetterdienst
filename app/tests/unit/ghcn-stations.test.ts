@@ -289,6 +289,19 @@ describe('reading the list from the backend', () => {
       expect(logged.mock.calls[0]![0]).toMatch(/was not the CSV of the list/)
     })
 
+    it('cut cleanly at a line end, which only the number of stations the backend named can tell', async () => {
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const shorter = csvOf(STATIONS.slice(0, -1))
+      const named = { 'x-wetterdienst-stations': String(STATIONS.length) }
+      const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(csvAnswer(shorter, RETRIEVED_AT, named)), ANY)
+      expect(read).toMatchObject({ status: 502, body: { type: 'urn:wetterdienst:problem:unexpected-answer', detail: expect.stringContaining('cut short') } })
+      expect(read).not.toHaveProperty('station_id')
+      expect(logged.mock.calls[0]![0]).toMatch(/was not the CSV of the list/)
+      // the whole list with the number named, more rows than stations (one listed twice), or no number named, are read
+      for (const [text, headers] of [[whole, named], [`${whole}${whole.slice(whole.indexOf('\n') + 1)}`, named], [shorter, {}]] as const)
+        expect(await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(csvAnswer(text, RETRIEVED_AT, headers)), ANY)).toHaveProperty('station_id')
+    })
+
     it('is told as it is read in pieces of any size', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {})
       const text = whole.slice(0, whole.lastIndexOf('\n', whole.length - 2) + 20)

@@ -16,6 +16,8 @@ import { CsvFormatError, CsvRecordReader } from './csvRecords'
 export const GHCN_STATIONS_PATH = '/stations?provider=noaa&network=ghcn&parameters=daily/data&all=true&format=csv'
 /** The header of the answer that says when the backend made it: a CSV has no place for that in its body */
 const RETRIEVED_AT_HEADER = 'x-wetterdienst-retrieved-at'
+/** How many stations the backend's answer holds, known before its body is sent: fewer rows than that is a body cut short */
+const STATIONS_HEADER = 'x-wetterdienst-stations'
 /** The columns of the CSV that the list is made of, by the name in its header row */
 const CSV_COLUMNS = ['station_id', 'latitude', 'longitude', 'start_timestamp', 'end_timestamp', 'name', 'wmo_id'] as const
 /** How much of a body may be read before its header row is complete: the real one is 120 bytes, and a body with no line end in 16 KB is no CSV */
@@ -142,10 +144,12 @@ function numberOf(field: string | null | undefined): number | null {
  *
  * @param chunks - The body of the answer, in the pieces it arrives in
  * @param retrievedAt - When the backend made the list
+ * @param stations - How many stations the backend said its answer holds (`X-Wetterdienst-Stations`), or null where it did not say:
+ *   a body that ends cleanly at a line end but holds fewer rows (a hop that ended the stream instead of breaking it) is cut short
  * @returns The columns
  * @throws NotTheListError where the body is no CSV of the stations, or is cut short
  */
-export async function readGhcnStationColumns(chunks: AsyncIterable<Uint8Array> | Iterable<Uint8Array>, retrievedAt: string | null = null): Promise<GhcnStationColumns> {
+export async function readGhcnStationColumns(chunks: AsyncIterable<Uint8Array> | Iterable<Uint8Array>, retrievedAt: string | null = null, stations: number | null = null): Promise<GhcnStationColumns> {
   const columns: GhcnStationColumns = { count: 0, retrieved_at: retrievedAt, station_id: [], latitude: [], longitude: [], first_year: [], last_year: [], name: [], wmo_id: [] }
   // the place of each column that is read in the header row: null until that is read, when every field of it is
   let at: Places | null = null
@@ -200,6 +204,9 @@ export async function readGhcnStationColumns(chunks: AsyncIterable<Uint8Array> |
   }
   if (!at)
     throw new NotTheListError(`The answer of the API is not the CSV of the stations: it has no header row. ${ADDRESS_HINT}`, 'no body')
+  // the rows after the header: a station listed twice would make more, a body cut at a line end fewer
+  if (stations !== null && rows - 1 < stations)
+    throw new NotTheListError('The answer of the API for the stations is cut short: it holds fewer rows than the stations it names.', `${rows - 1} rows of ${stations} stations`)
   columns.count = columns.station_id.length
   return columns
 }
@@ -262,7 +269,8 @@ export async function readGhcnMapStations(apiBase: string, requestId: string, fe
   }
   let columns: GhcnStationColumns
   try {
-    columns = await readGhcnStationColumns(chunksOf(response.body), response.headers.get(RETRIEVED_AT_HEADER))
+    const named = Number(response.headers.get(STATIONS_HEADER) ?? Number.NaN)
+    columns = await readGhcnStationColumns(chunksOf(response.body), response.headers.get(RETRIEVED_AT_HEADER), Number.isInteger(named) && named >= 0 ? named : null)
   }
   catch (failure) {
     if (!(failure instanceof NotTheListError))

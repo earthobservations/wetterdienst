@@ -45,6 +45,10 @@ describe('the reader of CSV', () => {
     expect(() => read('a,b\n1,"2"')).toThrow(/line end/)
   })
 
+  it('takes the LF after a CR and a comma for a line end of its own, not the second half of a CRLF', () => {
+    expect(read('h1,h2\r,\nx,y\n')).toEqual([['h1', 'h2'], [null, null], ['x', 'y']])
+  })
+
   it('throws for a quoted field that is never closed, which a cut body is', () => {
     expect(() => read('a,b\n1,"2\n3,4\n')).toThrow(/never closed/)
   })

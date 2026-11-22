@@ -75,6 +75,8 @@ export class CsvRecordReader {
         continue
       }
       if (byte === COMMA) {
+        // a comma ends a line end that began with a CR: an LF after it is a line end of its own
+        this.afterCarriageReturn = false
         this.endField(chunk, start, at)
         start = at + 1
       }
