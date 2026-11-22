@@ -433,7 +433,7 @@ export const parameters: Record<string, string> = {
   discharge_max: 'Portata massima',
   discharge_mean: 'Portata media',
   discharge_min: 'Portata minima',
-  distance_river_gauge_height: 'Quota dello zero idrometrico',
+  distance_river_gauge_height: 'Differenza tra l\'altezza del fiume e quella dell\'idrometro',
   electric_conductivity: 'Conducibilità elettrica',
   evaporation_amount: 'Evaporazione',
   evaporation_amount_corn_loamy_silt: 'Evaporazione, limo argilloso sotto mais',

@@ -139,6 +139,12 @@ Types of changes:
   forecast for 2 hours, calculated by displacement, in all eleven languages; the source line and
   its link go to that page (GH-4309).
 
+### Fixed
+
+- `[Explorer]` The values table is a named region that takes the keyboard's focus, so that on a
+  phone, where it is wider than the screen, the arrow keys scroll it (it was a scrolling area no
+  key reached, WCAG 2.1.1). Nothing else of it changes (GH-4312).
+
 ## [0.57.0] - 2026-11-21
 
 Paired with backend 0.194.0, which it needs: the Radar tool asks the radar routes of 0.194.0, and the
