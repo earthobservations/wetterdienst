@@ -45,8 +45,8 @@ export type Choices = Readonly<Record<string, string>>
 
 /**
  * A choice the reader makes about the question, kept in the link (`&day=2025-12-26`): `param` is its name there. The
- * link is read with `initial` as the value where it names none, or names one that is no value. Only a day exists
- * for now (`kind`); a choice of another kind adds its kind here, and the control of it to the panel.
+ * link is read with `initial` as the value where it names none, or names one that is no value. A day and one of a few
+ * values exist (`kind`); a choice of another kind adds its kind here, and the control of it to the panel.
  */
 export interface DateChoice {
   kind: 'date'
@@ -61,7 +61,34 @@ export interface DateChoice {
   /** The last value the control takes (`YYYY-MM-DD`) */
   latest: (now: DateTime) => string
 }
-export type Choice = DateChoice
+
+/** One value of a choice of a few: what the control writes for it, and the text of its option (which says why, where it cannot be chosen) */
+export interface SelectOption {
+  value: string
+  /** The option as it is read: the reason it cannot be chosen is in it, since a native option has no other place for one */
+  label: string
+  /** Shown and not to be chosen: what the data of the place does not carry */
+  disabled?: boolean
+}
+
+/**
+ * A choice of a few values (`&season=winter`, `&ref=1961-1990`), drawn as a labelled select. The values that are valid are
+ * the ones `values` names at the time (a list that grows by itself: the normals of a year), and a link that names another
+ * gets `initial`. An option may be offered disabled, with its reason, for what the data of the place does not carry (`options`
+ * is handed what the chip fetched, null before it came); a link may still name it, and the answer then says why it has none.
+ */
+export interface SelectChoice {
+  kind: 'select'
+  param: string
+  inputId: string
+  label: string
+  initial: (now: DateTime) => string
+  /** The values a link may name, at `now` */
+  values: (now: DateTime) => readonly string[]
+  /** The options of the control, from what was fetched (null before it came) and the choices as they are */
+  options: (env: ChipEnv, loaded: unknown, choices: Choices) => SelectOption[]
+}
+export type Choice = DateChoice | SelectChoice
 
 /** What the page gives `load` and `answer`, besides the requests */
 export interface ChipContext {
@@ -210,8 +237,14 @@ export interface ChipExplanation<Loaded, Result> {
  * does not carry an answer). A registry holds the definitions as `Chip` (see `defineChip`).
  */
 export interface ChipDefinition<Id extends string, Loaded, Result> {
-  /** The name in the link (`?ask=summer`) and in the test id of the chip (`question-summer`) */
+  /** The name in the link (`?ask=season`) and in the test id of the chip (`question-season`) */
   id: Id
+  /** Other names a link may carry for the chip (`?ask=summer`, the name of the chip it grew out of): a link keeps meaning what it meant, and the chip is the same */
+  aliases?: readonly string[]
+  /** Rules the old section had under other names, by the old id (`summer-mean`) to the new one (`season-mean`): `/methods#summer-summer-mean` goes to `#season-season-mean`. A rule of the same id needs no entry */
+  renamedRules?: Readonly<Record<string, string>>
+  /** What an old name of the chip names of its choices, by the old name: `?ask=summer` asks about the summer, not about the season the chip opens on now. Counts as the link's own choice */
+  aliasChoices?: Readonly<Record<string, Choices>>
   /** The icon of the chip's button, an Iconify name the app bundles */
   icon: string
   /** The tool the answer leads into */
@@ -220,6 +253,19 @@ export interface ChipDefinition<Id extends string, Loaded, Result> {
   quantity?: Quantity
   /** The choices of the question, with their names in the link; the question's own, so another chip's link carries none of them */
   choices?: readonly Choice[]
+  /**
+   * The names in the link of the choices `load` reads, where it reads some of them only (the season and the normal are
+   * judged from the same monthly means, so the panel asks again for neither): a change of any other choice is no new
+   * request, and the answer is worked out again from what was fetched. Absent: every choice is read by `load`.
+   */
+  loadedBy?: readonly string[]
+  /**
+   * The choices as they are for the data that came, where the link does not say or names what the data cannot answer: the defaults that
+   * depend on the place (the season completed most recently that has enough data), and the fall back off a choice with too little data.
+   * `choices` are the link's with the data-less defaults, `explicit` only what the link names. The note says why a choice was not the one
+   * named, and why an option is greyed out, in the language of the page; empty where there is nothing to say. Absent: the link's choices are used.
+   */
+  resolveChoices?: (loaded: Loaded | null, choices: Choices, explicit: Choices, env: ChipEnv) => { choices: Choices, note: string }
   /** The question, as the button and the heading of the answer say it; `choices` are the ones the link has */
   question: (env: ChipEnv, choices: Choices) => string
   /** The i18n key of the line above the question's heading: where the answer comes from */
@@ -267,18 +313,37 @@ export function isCalendarDay(value: string): boolean {
 /** The value of a choice as the link carries it, or the choice's own where the link has none, or none that is one */
 export function readChoice(choice: Choice, raw: unknown, now: DateTime): string {
   const asked = (raw as { toString: () => string } | null | undefined)?.toString()
-  return asked && isCalendarDay(asked) ? asked : choice.initial(now)
+  return asked && isValue(choice, asked, now) ? asked : choice.initial(now)
+}
+
+/** Whether a text is a value the choice takes: a day the calendar has, or one of the values of the choice */
+function isValue(choice: Choice, text: string, now: DateTime): boolean {
+  return choice.kind === 'date' ? isCalendarDay(text) : choice.values(now).includes(text)
+}
+
+/** The choices a link names, and only those that are values of theirs (an old name of the chip names its own, `aliasChoices`): where a default depends on the data, it is the data's to give */
+export function readExplicit(chip: Chip, query: Record<string, unknown>, now: DateTime): Choices {
+  const preset = chip.aliasChoices?.[String(query.ask)] ?? {}
+  const found: Record<string, string> = {}
+  for (const choice of chip.choices ?? []) {
+    const raw = (query[choice.param] as { toString: () => string } | null | undefined)?.toString()
+    const value = raw && isValue(choice, raw, now) ? raw : preset[choice.param]
+    if (value && isValue(choice, value, now))
+      found[choice.param] = value
+  }
+  return found
 }
 
 /** The values of a chip's choices, read from a link's query */
 export function readChoices(chip: Chip, query: Record<string, unknown>, now: DateTime): Choices {
-  return Object.fromEntries((chip.choices ?? []).map(choice => [choice.param, readChoice(choice, query[choice.param], now)]))
+  const preset = chip.aliasChoices?.[String(query.ask)] ?? {}
+  return Object.fromEntries((chip.choices ?? []).map(choice => [choice.param, readChoice(choice, query[choice.param] ?? preset[choice.param], now)]))
 }
 
-/** Whether a value the reader typed is one the choice takes: a day, not after `latest` */
+/** Whether a value the reader chose is one the choice takes: a day, not after `latest`, or one of its values */
 export function acceptsChoice(choice: Choice, value: unknown, now: DateTime): boolean {
   const text = String(value ?? '')
-  return /^\d{4}-\d{2}-\d{2}$/.test(text) && text <= choice.latest(now)
+  return choice.kind === 'date' ? /^\d{4}-\d{2}-\d{2}$/.test(text) && text <= choice.latest(now) : choice.values(now).includes(text)
 }
 
 /** The link's query with `changes` put over it; a value of null leaves its key out, and so does a value that is no text */
@@ -304,6 +369,8 @@ export function queryOfPress(link: Record<string, unknown>, chips: readonly Chip
 }
 
 /** The query a change of a choice makes: the chip is the open one, with the value */
-export function queryOfChoice(link: Record<string, unknown>, id: string, param: string, value: string): Record<string, string> {
-  return queryWith(link, { ask: id, [param]: value })
+export function queryOfChoice(link: Record<string, unknown>, id: string, param: string, value: string, own: Choices = {}): Record<string, string> {
+  // what an old name of the chip named (`?ask=summer` named the summer) is written out, since the new name does not say it
+  const named = Object.fromEntries(Object.entries(own).filter(([name]) => name !== param && typeof link[name] !== 'string'))
+  return queryWith(link, { ...named, ask: id, [param]: value })
 }

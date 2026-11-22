@@ -79,13 +79,13 @@
     "idle": "Vyber otázku a odpověď se zde objeví z aktuálních dat.",
     "q": {
       "rain": "Bude zítra pršet v {place}?",
-      "summer": "Bylo poslední léto tady teplejší než obvykle?",
+      "season": "{last} tady {warmth} než obvykle?",
       "wind": "Jak foukalo {day}?",
       "download": "Kde si můžu stáhnout hodinové teploty?"
     },
     "from": {
       "rain": "Předpověď, DWD MOSMIX",
-      "summer": "Měsíční průměry, DWD",
+      "season": "Měsíční průměry, DWD",
       "wind": "Denní údaje, DWD",
       "download": "Všechny meteorologické služby"
     },
@@ -125,16 +125,58 @@
       "none": "Předpověď pro {name} ještě nesahá do zítřka.",
       "open": "Otevřít celou předpověď"
     },
-    "summer": {
-      "hotter": "Ano, o {anomaly} {unit} tepleji než obvykle.",
+    "season": {
+      "warmer": "Ano, o {anomaly} {unit} tepleji než obvykle.",
       "cooler": "Ne, o {anomaly} {unit} chladněji než obvykle.",
       "usual": "Ani ne: zhruba jako obvykle.",
-      "detail": "Léto {year} (červen až srpen) mělo průměr {mean} {unit}; léta {from} až {to} průměr {normal} {unit}.",
-      "rank": "Pořadí {rank} z {count} let od roku {first}, od nejteplejšího.",
-      "chart": "Každé léto oproti průměru {from} až {to}, v {unit}",
-      "none": "Je tu příliš málo úplných letních sezón pro srovnání.",
+      "coldYes": "Ano, o {anomaly} {unit} chladněji než obvykle.",
+      "coldNo": "Ne, o {anomaly} {unit} tepleji než obvykle.",
+      "coldUsual": "Ani ne: zhruba jako obvykle.",
+      "detail": "{seasonCap} {year} ({months}): průměr {mean} {unit}; průměr {from} až {to} ({seasons}): {normal} {unit}.",
+      "rank": "Pořadí {rank} z {count} ({seasons} od roku {first}), od nejteplejšího.",
+      "chart": "Každá sezóna ({season}) oproti průměru {from} až {to}, v {unit}",
+      "none": "Je tu příliš málo úplných sezón pro srovnání.",
+      "noneNormal": "Tato stanice má jen {count} z {of} sezón období {normal}; pro srovnání je třeba {min}.",
       "open": "Otevřít měsíční průměry",
-      "stripes": "Zobrazit klimatické pruhy"
+      "stripes": "Zobrazit klimatické pruhy",
+      "seasonLabel": "Roční období",
+      "refLabel": "Porovnání s",
+      "refShort": "{normal} (zde jen {count} z {of}, třeba {min})",
+      "refFallback": "{normal} (zde jen {count} z {of}; použijí se dřívější)",
+      "last": {
+        "spring": "Bylo minulé jaro",
+        "summer": "Bylo minulé léto",
+        "autumn": "Byl minulý podzim",
+        "winter": "Byla minulá zima"
+      },
+      "warmth": {
+        "spring": "teplejší",
+        "summer": "teplejší",
+        "autumn": "teplejší",
+        "winter": "chladnější"
+      },
+      "name": {
+        "spring": "jaro",
+        "summer": "léto",
+        "autumn": "podzim",
+        "winter": "zima"
+      },
+      "plural": {
+        "spring": "jara",
+        "summer": "léta",
+        "autumn": "podzimy",
+        "winter": "zimy"
+      },
+      "months": {
+        "spring": "březen až květen",
+        "summer": "červen až srpen",
+        "autumn": "září až listopad",
+        "winter": "prosinec až únor"
+      },
+      "seasonShort": "{seasonCap} (zde jen {count} úplných sezón)",
+      "noteGreyed": "Zašedlé: příliš málo sezón u této stanice. Normál vyžaduje {min} ze svých {of} sezón.",
+      "noteAskedSeason": "{seasonCap} má tady příliš málo dat pro srovnání. Místo toho se zobrazuje: {shown}.",
+      "noteAskedNormal": "{asked} má tady pro toto období příliš málo dat: {count} ze svých {of} sezón, třeba {min}. Místo toho se zobrazuje: {shown}."
     },
     "wind": {
       "calm": "Klidno.",
@@ -511,7 +553,7 @@
     "menuDescription": "Jak se měří veličina, jak se z odečtu stane hodnota a co může číslo říct",
     "tocTitle": "Obsah",
     "editionTitle": "Zdroje a vydání",
-    "editionText": "Každé heslo uvádí své zdroje: nejdřív jednoduše, co zdroj je a co říká, potom formální citaci. Hlavním zdrojem je Guide to Instruments and Methods of Observation (WMO-No. 8) Světové meteorologické organizace, citovaný podle svazku a kapitoly: svazky I a II ve vydání z roku 2024, svazek V ve vydání z roku 2023, které je platné. Existuje předběžné vydání z roku 2026; tato stránka ho nepoužívá. Když heslo říká, co dělá poskytovatel, uvádí vlastní soubor poskytovatele.",
+    "editionText": "Každé heslo uvádí své zdroje: nejdřív jednoduše, co zdroj je a co říká, potom formální citaci. Hlavním zdrojem je Guide to Instruments and Methods of Observation (WMO-No. 8) Světové meteorologické organizace, citovaný podle svazku a kapitoly: svazky I, II a III ve vydání z roku 2024, svazek V ve vydání z roku 2023, které je platné. Existuje předběžné vydání z roku 2026; tato stránka ho nepoužívá. Když heslo říká, co dělá poskytovatel, uvádí vlastní soubor poskytovatele.",
     "editionLink": "WMO-No. 8 u WMO",
     "groupMeasured": "Co se měří a jak",
     "groupReading": "Čtení dat",
@@ -536,6 +578,10 @@
       "presentWeather": "Aktuální počasí a stav půdy",
       "clouds": "Oblačnost",
       "snow": "Sníh",
+      "automaticStations": "Automatické meteorologické stanice",
+      "urbanStations": "Městské stanice",
+      "roadStations": "Silniční meteorologické stanice",
+      "fromMeasurementToValue": "Od měření k hodnotě",
       "normals": "Klimatické normály",
       "time": "Čas",
       "observationForecastDerived": "Pozorování, předpověď a odvozená data"

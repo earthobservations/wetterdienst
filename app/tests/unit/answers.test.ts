@@ -7,7 +7,7 @@ import {
   hourlyNetworks,
   hourlyTemperatureIn,
   lastBoxingDay,
-  lastSummer,
+  lastSeason,
   mapLimited,
   RAIN_AMOUNT,
   RAIN_CHANCE,
@@ -93,7 +93,10 @@ function summers(first: number, last: number, base: (year: number) => number): R
   })))
 }
 
-describe('was last summer hotter than usual', () => {
+/** The question the chip always asked: the last summer against the newest normal (1991 to 2020 in 2026) */
+const lastSummer = (readings: Reading[], now: DateTime, unit?: string) => lastSeason(readings, now, { season: 'summer', normal: '1991-2020' }, unit)
+
+describe('was last summer warmer than usual', () => {
   it('compares the last complete summer with 1991 to 2020', () => {
     const readings = summers(1986, 2026, year => year === 2026 ? 18 : 16)
     const answer = lastSummer(readings, NOW)!
@@ -101,9 +104,9 @@ describe('was last summer hotter than usual', () => {
     expect(answer.normal).toBe(16)
     expect([answer.normalFrom, answer.normalTo]).toEqual([1991, 2020])
     expect(answer.anomaly).toBe(2)
-    expect(answer.verdict).toBe('hotter')
+    expect(answer.verdict).toBe('warmer')
     expect(answer.rank).toBe(1)
-    expect(answer.summers).toBe(41)
+    expect(answer.seasons).toBe(41)
     expect(answer.bars.at(-1)).toMatchObject({ label: '2026', value: 2, highlight: true })
   })
 
@@ -227,13 +230,13 @@ describe('the coverages the download question asks for', () => {
 describe('the answers in the unit of the settings', () => {
   const fahrenheit = (celsius: number) => celsius * 1.8 + 32
 
-  describe('was last summer hotter than usual', () => {
+  describe('was last summer warmer than usual', () => {
     const inFahrenheit = (readings: Reading[]) => readings.map(reading => ({ ...reading, value: reading.value === null ? null : fahrenheit(reading.value) }))
     const inKelvin = (readings: Reading[]) => readings.map(reading => ({ ...reading, value: reading.value === null ? null : reading.value + 273.15 }))
 
     it.each([
-      ['hotter', 18],
-      ['hotter', 16.5],
+      ['warmer', 18],
+      ['warmer', 16.5],
       ['usual', 16.4],
       ['usual', 15.6],
       ['cooler', 15.4],
@@ -253,7 +256,7 @@ describe('the answers in the unit of the settings', () => {
       expect(answer.bars.at(-1)!.value).toBe(3.6)
       // the same summers in the same order, whatever the unit
       expect(answer.rank).toBe(1)
-      expect(answer.summers).toBe(41)
+      expect(answer.seasons).toBe(41)
       const kelvin = lastSummer(inKelvin(celsius), NOW, 'K')!
       expect([kelvin.mean, kelvin.normal, kelvin.anomaly]).toEqual([291.2, 289.2, 2])
     })

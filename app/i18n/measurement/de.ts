@@ -6,15 +6,17 @@
  * des Eintrags, nach Band, Kapitel und Abschnitt, oder auf die Datei des Anbieters, die der Eintrag nennt; was keine
  * Quelle trägt, steht nicht da. Die Titel der zitierten Werke bleiben in ihrer Sprache.
  *
- * Die Ausgaben des WMO-Leitfadens sind die jeweils aktuellen der Bände: die von 2024 für Band I und II (gegen die
- * offiziellen PDFs geprüft; die Kapitel 2, 5 und 8 von Band I und Kapitel 2 von Band II sind der Text der Ausgabe 2023)
- * und die von 2023 für Band V. Die vorläufige Ausgabe 2026 wird nicht verwendet.
+ * Die Ausgaben des WMO-Leitfadens sind die jeweils aktuellen der Bände: die von 2024 für Band I, II und III (gegen die
+ * offiziellen PDFs geprüft; die Kapitel 2, 5 und 8 von Band I, Kapitel 2 von Band II und alle Kapitel von Band III
+ * außer Kapitel 5 sind der Text der Ausgabe 2023) und die von 2023 für Band V. Die vorläufige Ausgabe 2026 wird nicht
+ * verwendet.
  */
 
 import type { MeasurementSource, MeasurementTexts } from './types'
 
 const WMO_I = 'https://library.wmo.int/records/item/68695-guide-to-instruments-and-methods-of-observation'
 const WMO_II = 'https://library.wmo.int/records/item/68660-guide-to-instruments-and-methods-of-observation'
+const WMO_III = 'https://library.wmo.int/records/item/68661-guide-to-instruments-and-methods-of-observation'
 const WMO_V = 'https://library.wmo.int/records/item/68663-guide-to-instruments-and-methods-of-observation'
 const DWD_DAILY = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/BESCHREIBUNG_obsgermany-climate-daily-kl_de.pdf'
 
@@ -34,6 +36,16 @@ const DWD_HOURLY_CLOUDINESS = 'https://opendata.dwd.de/climate_environment/CDC/o
 const DWD_HOURLY_WEATHER = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/weather_phenomena/BESCHREIBUNG_obsgermany_climate_hourly_weather_phenomena_de.pdf'
 /** Der abgeleitete Datensatz zum Boden des DWD: Verdunstung und Bodenfeuchte werden von einem Modell berechnet */
 const DWD_SOIL_DAILY_DE = 'https://opendata.dwd.de/climate_environment/CDC/derived_germany/soil/daily/recent/BESCHREIBUNG_derived_ermany_soil_daily_recent_de_v2.pdf'
+/** Der Monatsdatensatz des DWD: seine Beschreibung sagt, wie ein Monatswert gebildet wird und was bei den Tagesmitteln zu beachten ist */
+const DWD_MONTHLY = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/monthly/kl/BESCHREIBUNG_obsgermany-climate-monthly-kl_de.pdf'
+/** Die Stadtklimastationen des DWD (climate_urban): die Beschreibung der stündlichen Lufttemperatur und Luftfeuchte sagt, wofür die Stationen da sind */
+const DWD_URBAN = 'opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/'
+const DWD_URBAN_TU = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/air_temperature/recent/BESCHREIBUNG_obsgermany_climate_urban_hourly_tu_recent_de.pdf'
+/** Die Straßenwetterstationen des DWD: das BUFR-Template sagt, was eine Station meldet, der Hinweis zum SH10-Schlüssel, was die Daten sind und was nicht */
+const DWD_ROAD = 'opendata.dwd.de/weather/weather_reports/road_weather_stations/'
+const DWD_ROAD_TEMPLATE = 'https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/bufr/bufr_templates_sws_national_pdf.pdf?__blob=publicationFile&v=3'
+const DWD_ROAD_NOTICE = 'https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/bufr/sws_sh10_code_pdf.pdf?__blob=publicationFile&v=4'
+const WETTERDIENST_DOCS = 'https://wetterdienst.readthedocs.io/en/latest/data/'
 const KNMI_DAILY = 'https://www.knmi.nl/nederland-nu/klimatologie/daggegevens'
 const NOAA_GHCN_DAILY = 'https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt'
 
@@ -67,7 +79,7 @@ function ghcnh(plain: string, citation: string): MeasurementSource {
 /** Was die WMO ist, einmal, für jeden Eintrag, der ihren Leitfaden nennt */
 const WMO_PLAIN = 'Die Weltorganisation für Meteorologie (WMO) ist die Organisation der Vereinten Nationen, in der sich die nationalen Wetterdienste darauf einigen, wie Wetter gemessen und verglichen wird. Der Leitfaden Guide to Instruments and Methods of Observation ist ihr Handbuch dafür.'
 
-/** Band I und II: die Ausgabe 2024, die aktuelle */
+/** Band I, II und III: die Ausgabe 2024, die aktuelle */
 function wmoGuide(plain: string, citation: string, href: string): MeasurementSource {
   return { plain: `${WMO_PLAIN} ${plain}`, citation: `WMO (2024). Guide to Instruments and Methods of Observation (WMO-No. 8), 2024 edition. ${citation}`, href }
 }
@@ -793,6 +805,253 @@ export const measurement: MeasurementTexts = {
         `${STATION_FILES} Metadaten_Geraete_Schneehoehe_* und Metadaten_Parameter_klima_tag_*; Datensatzbeschreibung „Tägliche Niederschlagsbeobachtungen für Deutschland“ (more_precip, Version v24.3, 2024). Environment and Climate Change Canada, Climate glossary, „Climatological Day“ (climate.weather.gc.ca/glossary_e.html).`,
         'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/more_precip/BESCHREIBUNG_obsgermany-climate-daily-more_precip_de.pdf',
       ),
+    ],
+  },
+
+  'automatic-stations': {
+    title: 'Automatische Wetterstationen',
+    summary: 'Eine automatische Wetterstation misst und meldet ohne Beobachter. Software bildet ihre Werte aus vielen Abtastwerten, und die WMO sagt, dass das, was ein Instrument von Wolken, Sichtweite und gegenwärtigem Wetter beobachtet, nicht dasselbe ist wie das, was ein Mensch beobachtet.',
+    parts: [
+      {
+        title: 'Wie gemessen wird',
+        paragraphs: [
+          'Die WMO definiert eine automatische Wetterstation (AWS) als „meteorologische Station, an der Beobachtungen automatisch gemacht und übertragen werden“ (im Original: „meteorological station at which observations are made and transmitted automatically“). Ihre Hauptaufgaben sind, die Messungen der Wetterelemente mit Sensoren in elektrische Signale zu verwandeln, diese Signale zu meteorologischen Daten zu verarbeiten und das Ergebnis aufzuzeichnen oder zu übertragen. Eine Station mit AWS kann vollautomatisch sein oder ein Mischsystem, in dem ein Beobachter visuelle Beobachtungen ergänzt.',
+          'Eine AWS ist meist kein eigenständiges Gerät. Die WMO beschreibt sie als Teil eines Systems mit drei Hauptelementen: der Station mit den angeschlossenen Sensoren, einem Modem oder einer Schnittstelle zu einem Telekommunikationsnetz und einem zentralen Verarbeitungssystem, das mit den Daten aller Stationen des Messnetzes gespeist wird. Die zentrale Recheneinheit der Station erfasst, verarbeitet, speichert und überträgt die Daten.',
+          'Die WMO ordnet AWS vier Kategorien zu, wobei manche Geräte mehrere abdecken. Leichte Stationen messen wenige Größen wie Niederschlag oder Lufttemperatur. „Basis“-Stationen messen typischerweise Lufttemperatur, relative Luftfeuchte, Windgeschwindigkeit und -richtung, Niederschlag und manchmal Luftdruck. „Erweiterte“ Stationen messen zusätzlich Sonnenstrahlung, Sonnenscheindauer, Bodentemperatur, Verdunstung und so weiter. Die vierte Kategorie sind Basis- oder erweiterte Stationen mit automatischer Beobachtung von Sichtweite, Wolkenuntergrenze und gegenwärtigem Wetter.',
+          'Zu ihren Gründen für die Automatisierung zählt die WMO Beobachtungen von Orten, an denen keine Menschen verfügbar oder die schwer erreichbar sind, Daten 24 Stunden am Tag an bemannten Stationen, zuverlässigere Messung durch digitale Verfahren, Messnetze, die auf dieselbe vereinheitlichte Weise messen, und Messen und Melden mit hoher Frequenz oder fortlaufend. Sie sagt, dass alle modernen Messinstrumente für eine AWS geeignet sind, mit Bedingungen wie robust zu sein, wenig Wartung und Reinigung zu brauchen und leicht austauschbar zu sein. Band I des Leitfadens beschreibt die Instrumente, und die anderen Einträge dieser Seite folgen ihm.',
+        ],
+      },
+      {
+        title: 'Wie aus einer Messung ein Wert wird',
+        paragraphs: [
+          'Die Software einer AWS erledigt die Schritte vom Signal zum Wert. Als Arbeitsschritte, die typischerweise nötig sind, nennt die WMO einige oder alle der folgenden: das Ausgangssignal des Instruments abtasten, es in meteorologische Daten umrechnen, linearisieren, mitteln, Qualitätskontrolle, Datenreduktion, Meldungen formatieren und prüfen sowie die Daten speichern, übertragen und anzeigen. Die Linearisierung, sagt die WMO, sollte immer vor der Berechnung eines Mittelwerts erfolgen.',
+          'Abtasten und Mitteln gehören zusammen. Als allgemein anerkannte Faustregel gilt, mindestens einmal während der Zeitkonstante des Instruments abzutasten. Wegen der kleinräumigen Veränderlichkeit der Atmosphäre und des Rauschens, das Elektronik hineinträgt, nennt die WMO das Mitteln ein höchst wünschenswertes Verfahren, um die Unsicherheit gemeldeter Daten zu verringern. Sie verweist auf ihre Tabelle der Anforderungen, die empfiehlt, „momentane“ Werte der meisten Größen als Ein-Minuten-Mittel zu bilden, außer bei Wind und Sichtweite. Windmessungen brauchen, sagt die WMO, eine hohe Erfassungsrate und eine Berechnung von Mittelwerten und Böen über längere Zeiträume (10 Minuten für den synoptischen Gebrauch, 2 Minuten für den lokalen Flugwetterdienst); die Berechnung kann auf der Station erfolgen, aber viele moderne Windmesser haben sie eingebaut.',
+          'Die Statistiken bildet die Station oder das zentrale System. Die WMO nennt Extremwerte über einen oder mehrere Zeiträume (zum Beispiel bei der Temperatur), Gesamtmengen über Zeiträume von Minuten bis Tagen (zum Beispiel beim Regen), Mittelwerte über verschiedene Zeiträume und integrierte Werte (zum Beispiel bei der Strahlung), und sie nennt abgeleitete Größen wie den Taupunkt und den Luftdruck auf Meereshöhe. Sie stellt einen Trend fest, wo das Telekommunikationsnetz es erlaubt, Ein-Minuten-Daten zentral zu sammeln und dort zu verarbeiten. Siehe „Von der Messung zum Wert“.',
+          'Die Meldungen, die die Station verlassen, werden verschlüsselt. Die WMO stellt den Übergang von alphanumerischen Schlüsseln, typischerweise SYNOP, zu tabellengesteuerten Schlüsseln wie BUFR fest und sagt, dass das Verschlüsseln von Standardmeldungen in einer zentralen Verarbeitungsplattform im Allgemeinen einfacher ist.',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Die WMO sagt, dass die Leistung der heutigen Elektronik kein begrenzender Faktor mehr dafür ist, die geforderte Genauigkeit zu erreichen: Die Messunsicherheiten einer AWS hängen vor allem mit den Eigenschaften der Instrumente selbst und ihrer Aufstellung zusammen. Die bestehenden Leitlinien für den Standort konventioneller Stationen, sagt die WMO, gelten auch für AWS.',
+          'Automatisierung ändert, was beobachtet wird. Die WMO sagt, dass die Wolkenbedeckung meist aus der Höhe der Wolkenuntergrenze abgeleitet wird, die ein Ceilometer misst, zusammengefasst oder gemittelt über einen Zeitraum von 10, 30 oder 60 Minuten, während ein Mensch eine größere Sicht auf den Himmel hat, zumindest tagsüber; die automatische Messung steht für eine Linie durch den Himmel in Richtung der Höhenwinde, die mit der ganzen Himmelsansicht eines Menschen in einem Moment nicht übereinstimmen muss. Eine Messung der Sichtweite steht für den Ort des Instruments, es sei denn, mehrere Sichtweitenmesser sind aufgestellt, während ein Mensch ringsum schaut, aber durch die vorhandenen Sichtmarken begrenzt ist. Ein Instrument für das gegenwärtige Wetter kann derzeit nicht die ganze Bandbreite der Schlüsselzahlen für das gegenwärtige Wetter erkennen, die ein Mensch melden kann. Mit den Worten der WMO: Manuelle und automatische Beobachtungen von Sichtweite, Wolkenbedeckung und gegenwärtigem Wetter sind deutlich verschieden.',
+          'Ein Teil der Arbeit ist nicht automatisiert. Die WMO führt auf, dass die Qualität mancher Beobachtungen sich verschlechtern kann, weil Schlüsselteile des Messvorgangs nicht automatisiert sind, zum Beispiel das Reinigen der Kuppel eines Strahlungsinstruments oder einer Verdunstungsschale, und dass der Wechsel von manuellen visuellen Beobachtungen zu automatischen Messungen die Art mancher Beobachtungen so ändern kann, dass es für die Klimaüberwachung zählt. Instrumente mit elektrischem Ausgang driften mit der Zeit, sagt die WMO, sie brauchen deshalb regelmäßige Prüfung und Kalibrierung, und der Netzbetreiber soll alle 6 bis 12 Monate eine regelmäßige Feldprüfung organisieren, je nach Instrumenten, Zugang zu den Standorten und Wartungsorganisation.',
+          'Wo eine Station Daten für Klimaaufzeichnungen liefert, verlangt die WMO überlappende Zeiträume vergleichbarer Messungen zwischen den alten und den neuen Instrumenten sowie eine Dokumentation der Unterschiede zwischen altem und neuem Standort und der Wechsel der Instrumente. Als allgemeine Richtwerte schlägt sie 12 Monate Überlappung für Windgeschwindigkeit und -richtung vor, 24 Monate für Temperatur, Feuchte, Sonnenschein und Verdunstung und 60 Monate für Niederschlag, und sie nennt 24 Monate, zwei Jahreszeitenzyklen, einen brauchbaren Kompromiss.',
+          'Die Station prüft ihre eigenen Abtastwerte. Die WMO beschreibt Prüfungen auf einen plausiblen Wert und eine plausible Änderungsrate, auf ein Instrument, das nicht mehr auf das Wetter reagiert, auf die Zahl gültiger Abtastwerte in einem Zeitraum und gegen andere gemessene Größen (der Taupunkt kann die Lufttemperatur nicht übersteigen). Sie sagt, dass die Daten einer Station, die keine Qualitätskontrolle und keine Prüfung ihrer Meldungen hat, wahrscheinlich unentdeckte Fehler enthalten und dass die Prüfungen oft zwischen Station und zentralem System aufgeteilt sind.',
+          'Auch wie eine Station gebaut ist, begrenzt, was sie sagen kann. Die WMO schreibt über „Alles-in-einem“-Bauarten, dass einige ihrer Instrumente schwer zu kalibrieren und oft schlecht dokumentiert sind und dass alle Größen in derselben Höhe gemessen werden, was sie eine große Schwäche nennt: Bei etwa 2 m Montagehöhe ist die Windmessung sehr empfindlich für die Fläche darunter; bei 10 m Montagehöhe, um den Empfehlungen für den Wind zu folgen, werden auch die anderen Größen in 10 m gemessen, was den Standortempfehlungen nicht entspricht.',
+        ],
+      },
+      {
+        title: 'Wo sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Die Stationsdateien des DWD sagen, aus welcher Art automatischer Station ein Wert stammt und seit wann. In Potsdam sind die Winddaten hinter dem Tagesmittel der Windgeschwindigkeit und der höchsten Tagesböe, schreibt der DWD, von August 1992 bis April 2002 und wieder von Juni 2002 bis August 2003 aus 10-Minuten-Mitteln automatischer Stationen der ersten Generation (MIRIAM/AFMS2 genannt) erzeugt und seit dem 1. September 2003 aus denen der zweiten Generation (AMDA genannt); für den Mai 2002 nennt die Datei SYNOP-Meldungen, die international verschlüsselten Beobachtungen. In Frankfurt/Main stammen die stündliche Lufttemperatur und die relative Luftfeuchte von November 1993 bis April 2001 von automatischen Stationen der ersten Generation und seitdem aus SYNOP-Meldungen.',
+          'Der DWD sagt, dass zwischen dem Ende der neunziger Jahre und 2009 viele seiner Stationen von manueller auf automatische Beobachtung umgestellt wurden. Seine Beschreibung des Monatsdatensatzes nennt Änderungen der Instrumente und des Beobachtungspersonals unter den Quellen der Unsicherheit langer Reihen.',
+          'Der DWD kennzeichnet manche Beobachtungen als von einem Menschen oder von einem Instrument gemacht: Seine stündliche Wolkenbedeckung und seine stündliche Sichtweite tragen einen Indikator, P für einen Menschen und I für ein Instrument (siehe „Wolken“ und „Sichtweite“). Die WMO beschreibt Straßenwetterstationen als automatische Wetterstationen für einen besonderen Zweck (siehe „Straßenwetterstationen“). Diese Seite sagt nichts über die automatischen Stationen anderer Anbieter.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Aus Band III, Kapitel 1 zu Messungen an automatischen Wetterstationen stammen in diesem Eintrag die Definition, die Arten von Stationen, die Schritte vom Signal zum Wert, die Qualitätskontrolle und die Unterschiede zwischen automatischer und manueller Beobachtung.',
+        'Volume III (Observing systems), Chapter 1 (Measurements at automatic weather stations), sections 1.1.1, 1.1.2, 1.1.3, 1.1.4, 1.1.5, 1.2.3, 1.3.1, 1.4.2, 1.4.2.2, 1.4.2.5, 1.4.2.7, 1.5, 1.6, 1.7.2.',
+        WMO_III,
+      ),
+      dwdFiles(
+        'Die Dateien, die zu den Daten jeder Station gehören, sagen, aus welcher Art Station ein Wert stammt. Die Beschreibung seines Tagesdatensatzes sagt, dass viele Stationen von manueller auf automatische Beobachtung umgestellt wurden.',
+        `${STATION_FILES} Metadaten_Parameter_klima_tag_* (Parameter FM und FX von Potsdam); Stundenarchiv stundenwerte_TU_01420_akt.zip in ${DWD_HOURLY}air_temperature/recent/ (Metadaten_Parameter_tu_stunde_01420), am 22. November 2026 gelesen; Datensatzbeschreibung „Tägliche Stationsbeobachtungen (Temperatur, Druck, Niederschlag, Sonnenscheindauer, etc.) für Deutschland“, Version v24.3 (2024), Abschnitt „Datenherkunft“.`,
+        DWD_DAILY,
+      ),
+      dwdFiles(
+        'Die Beschreibung seines Monatsdatensatzes führt die Quellen der Unsicherheit langer Reihen auf, darunter Änderungen der Instrumente und des Beobachtungspersonals.',
+        'DWD Climate Data Center. Datensatzbeschreibung „Monatliche Stationsbeobachtungen (Temperatur, Niederschlag, Sonnenscheindauer, Wind und Bewölkung) für Deutschland“, Version v24.03 (2024), Abschnitt „Unsicherheiten“, am 22. November 2026 gelesen.',
+        DWD_MONTHLY,
+      ),
+    ],
+  },
+
+  'urban-stations': {
+    title: 'Stationen in der Stadt',
+    summary: 'Die WMO sagt, dass die meisten bebauten Standorte es unmöglich machen, die üblichen Regeln für die Aufstellung von Instrumenten einzuhalten. Eine Stadtstation wird deshalb so gesetzt, dass sie für eine Art Stadtviertel steht, und was sie misst, ist das Lokalklima dieses Viertels.',
+    parts: [
+      {
+        title: 'Wie gemessen wird',
+        paragraphs: [
+          'Die Maßeinheiten und die Instrumente sind dieselben wie in anderen Umgebungen, sagt die WMO; besonders an einer Stadt sind die Wahl des Standorts, die Aufstellung der Instrumente und die Dokumentation. Die WMO nennt den Grund: Die meisten bebauten Standorte machen es unmöglich, den üblichen Leitlinien für Standortwahl und Aufstellung aus Band I zu folgen, weil Gebäude und Bäume den Luftstrom und den Strahlungsaustausch behindern, der Boden mit unnatürlichen Oberflächen bedeckt ist und menschliche Tätigkeiten Abwärme und Wasserdampf abgeben. Sie fügt hinzu, dass es manchmal nötig ist, eine Aufstellung über nicht standardmäßigen Oberflächen in nicht standardmäßigen Höhen hinzunehmen, die Beobachtungen auf zwei oder mehr Orte aufzuteilen oder näher als üblich an Gebäuden oder Abwärmeaustritten zu stehen.',
+          'Die WMO unterscheidet drei Maßstäbe. Der Mikromaßstab ist der einzelner Gebäude, Bäume, Straßen und Höfe, von weniger als 1 m bis zu Hunderten von Metern, wo Oberflächen- und Lufttemperaturen auf sehr kurzen Strecken um mehrere Grad schwanken können. Der lokale Maßstab ist der eines Viertels mit ähnlicher Bebauung, ein bis mehrere Kilometer, und das ist es, was eine übliche Klimastation überwachen soll. Der Mesomaßstab ist der der ganzen Stadt, typischerweise Dutzende Kilometer, und eine einzelne Station kann ihn nicht abbilden.',
+          'In der Senkrechten bilden die Gebäude und Bäume die Stadtkronenschicht (urban canopy layer). Die WMO sagt, dass ein Instrument unterhalb einer bestimmten Höhe, der Durchmischungshöhe (blending height), Mikroklima-Abweichungen erfassen kann und dass es oberhalb davon ein durchmischtes Signal „sieht“, das für den lokalen Maßstab steht. Faustregeln und Feldmessungen deuten darauf hin, dass diese Höhe bei dicht bebauten und gleichförmigen Standorten bis auf das 1,5-Fache der mittleren Höhe der Gebäude und Bäume sinken kann, in Gebieten geringer Dichte aber mehr als das 4-Fache beträgt.',
+          'Die WMO beschreibt zwei Wege, die Instrumente aufzustellen: in der Stadtkronenschicht an einer Stelle, die von typischen Bedingungen umgeben ist, mit den Sensoren in Höhen wie an nicht städtischen Standorten, oder auf einem hohen Mast über der Rauigkeitsschicht. Im Allgemeinen, sagt sie, funktioniert der erste am besten für Lufttemperatur und Luftfeuchte und der zweite für Windgeschwindigkeit und -richtung und für Niederschlag, sodass Stadtstationen oft aus Instrumenten bestehen, die sowohl unter als auch über Dachhöhe stehen.',
+          'Um das Viertel zu wählen, ordnet die WMO städtische Formen sieben städtischen Klimazonen zu, von dicht bebauten Zentren mit hohen Gebäuden bis zu halbländlicher Bebauung mit verstreuten Häusern, nach Höhe und Abstand der Gebäude und dem Anteil versiegelten Bodens. Innerhalb einer Zone sucht sie eine einigermaßen gleichförmige Bebauung und nennt, was zu meiden ist: ungewöhnlich feuchte Flecken in einem sonst trockenen Gebiet, einzelne Gebäude, die mehr als die halbe mittlere Gebäudehöhe herausragen, einen großen asphaltierten Parkplatz in einem Gebiet bewässerter Gärten, eine große, konzentrierte Wärmequelle und den Übergang zwischen zwei Zonen. Dächer haben eigene, abweichende Mikroklimate, sagt die WMO, und sind sehr schlechte Orte für Lufttemperatur, Luftfeuchte, Wind und Niederschlag, außer die Instrumente stehen auf sehr hohen Masten; für die einfallende Strahlung können sie gut sein.',
+          'Für die Lufttemperatur eignen sich die üblichen Sensoren, sagt die WMO, mit besonderer Sorgfalt bei Strahlungsschutz und Belüftung. Die Standardhöhe des Strahlungsschutzes von 1,25 bis 2 m ist zulässig, aber es kann besser sein, größere Höhen zuzulassen, weil Beobachtungen in Straßenschluchten durch den größten Teil der Stadtkronenschicht sehr geringe Temperaturgradienten zeigen, sofern der Sensor mehr als 1 m von einer Fläche entfernt ist: Messungen in 3 oder 5 m unterscheiden sich nicht sehr von denen in Standardhöhe, haben etwas größere Einzugsgebiete, liegen außer Reichweite und bekommen weniger Wärme von Fahrzeugabgasen und weniger Staub ab.',
+          'Für den Wind sagt die WMO, dass ein Ort, der die Regel für offenes Gelände erfüllt (der Windmesser 10 m über dem Boden, Hindernisse mindestens das 10-Fache ihrer Höhe entfernt), in typischen Stadtvierteln nicht zu finden ist und dass einer, den es gibt, mit ziemlicher Sicherheit nicht repräsentativ für die Zone ist. In dicht bebauten Vierteln mit ziemlich gleichmäßiger Gebäudehöhe empfiehlt sie einen Windmesser auf einem Mast offener Bauart in mindestens dem 1,5-Fachen der mittleren Höhe der Gebäude und Bäume. Windgeschwindigkeit oder -richtung in dicht bebauten Gebieten mit mehreren Hochhäusern zu messen, empfiehlt sie nicht, außer es wird ein sehr hoher Turm benutzt.',
+        ],
+      },
+      {
+        title: 'Wie aus einer Messung ein Wert wird',
+        paragraphs: [
+          'Aus der Messung wird ein Wert wie an jeder anderen Station: Die WMO sagt, dass Zeitpunkt und Häufigkeit der Beobachtungen und das Verschlüsseln der Meldungen den entsprechenden Normen folgen sollen und dass für automatische Stationen die Empfehlungen ihres Kapitels über automatische Stationen gelten (siehe „Automatische Wetterstationen“). Anders ist die Fläche, für die ein Wert steht.',
+          'Ein Sensor sieht nur einen Teil seiner Umgebung, sagt die WMO: sein Quellgebiet (source area). Für ein nach unten blickendes Strahlungsmessgerät ist es ein Kreis um das Instrument, dessen Größe von der Höhe des Sensors abhängt. Für ein Thermometer, ein Hygrometer oder einen Windmesser, deren Messwert durch Turbulenz zu ihnen getragen wird, ist es eine Ellipse, die windaufwärts liegt und sich mit der Windrichtung und mit der Stabilität der Luft bewegt. Als Schätzungen gibt die WMO an, dass die Entfernung, die für einen Sensor in Strahlungsschutzhöhe, etwa 1,5 m, zählt, einige Dutzend Meter bei neutralen Bedingungen beträgt und vielleicht mehr als 100 m bei stabiler Luft und dass der Einflusskreis auf einen Temperatur- oder Feuchtesensor in dieser Höhe typischerweise einen Radius von etwa 0,5 km haben dürfte, abhängig von der Bebauungsdichte. Die unmittelbare Umgebung der Station nennt sie bei Weitem die wichtigste.',
+          'Wird der Wind in einer Siedlung in verschiedenen Höhen gemessen, beschreibt die WMO, wie man die Werte mit dem logarithmischen Windprofil auf eine gemeinsame Höhe bringt, in dem die Höhen von der Verschiebungshöhe (displacement height) an gezählt werden, der Höhe des „Bodens“ in der Luft, den die Gebäude bilden; sie sagt, dass eine geeignete Bezugshöhe 50 m über der Verschiebungshöhe sein könnte. Wo es keinen geeigneten Ort für einen Windsensor gibt, kann der Wind in der Bezugshöhe aus den Beobachtungen einer anderen Stadtstation oder des Flughafens berechnet werden.',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Die WMO sagt, dass in Städten das Interesse dem Stadteffekt selbst gilt: der Änderung der Wettergrößen, wenn eine Stadt wächst, verglichen mit dem, was ohne sie geschehen wäre. Diese Frage ist, sagt die WMO, im Grunde nicht zu beantworten, sobald die Stadt gebaut ist, die Beurteilung von Stadteffekten ist mit methodischen Schwierigkeiten behaftet, und es ist keine „Wahrheit“ möglich, nur Ersatznäherungen.',
+          'Eine Station steht für eine Art Viertel. Lufttemperatur und Luftfeuchte in der Stadtkronenschicht können lokal repräsentativ sein, wenn der Standort sorgfältig gewählt ist, sagt die WMO; werden sie über Dachhöhe beobachtet, gibt es keine gesicherte Verbindung zwischen ihnen und den Werten in der Stadtkronenschicht. Wind und turbulente Flüsse sollen über der Rauigkeitsschicht gemessen werden, wo gezeigt werden muss, dass die beitragende Fläche für die Zone repräsentativ ist. Eine Station, die den Namen einer Stadt trägt, muss nicht in ihr stehen: Für die Strahlung hält die WMO fest, dass Standorte oft an ländlichen oder abgelegenen Orten liegen, um die Schadstoffe der Städte zu meiden, und dass selbst bei einer Station mit dem Namen einer Stadt die Metadaten meist zeigen, dass sie weit außerhalb der Stadtgrenzen liegt.',
+          'Niederschlagsmesser kommen in der Stadt schlecht zurecht. Für den Niederschlag nennt die WMO vier Probleme: Bäume und Gebäude, die Niederschlag auf dem Weg zum Boden auffangen, harte Flächen, die Wasser in den Messer spritzen, und überhängende Gegenstände, die hineintropfen, die sehr örtliche Anhäufung oder das Fehlen niederschlagführender Luftströmung um Hindernisse und die Böigkeit des Windes zusammen mit dem Messer selbst, die zu Unter- oder Überfang führt. Auf einem Mast über den Dächern trifft ein Messer mehr Wind als nahe am Boden, sein Ergebnis muss deshalb korrigiert werden. Übliche Verdunstungsinstrumente werden in der Stadtkronenschicht nicht empfohlen, weil die Oberflächen von Schalen und Lysimetern für die Umgebung eines Stadtstandorts wahrscheinlich nicht repräsentativ sind (siehe „Verdunstung“).',
+          'Städte ändern sich, und damit ändert sich, was eine Station sieht. Die WMO sagt, dass Stadtstandorte eine ungewöhnlich hohe Komplexität und eine größere Neigung zur Veränderung haben und dass häufig aktualisierte Metadaten deshalb so wichtig sind wie die Messungen selbst; ohne eine gute Beschreibung der Station ist es unmöglich, die Messungen mit dem umgebenden Gelände zu verbinden.',
+        ],
+      },
+      {
+        title: 'Wo sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Wetterdienst hat Stadtstationen von einem Anbieter, dem DWD, in den Datensätzen, deren Namen mit urban_ beginnen (zum Beispiel 10_minutes/urban_temperature_air). Der DWD sagt in seiner Beschreibung, dass die Messungen in Städten gemacht werden, um die Stadt mit dem umgebenden Land zu vergleichen, dass die Stationen wegen ihrer städtischen Lage die üblichen WMO-Standards nicht erfüllen können und stattdessen der WMO-Anleitung für Stadtstandorte von T. R. Oke folgen (WMO Instruments and Observing Methods Report No. 81, 2006) und dass die Daten des Ordners recent/ noch nicht vollständig qualitätsgeprüft sind. Er führt Kriterien für die Lage in der Stadt auf: eine Lage in der Innenstadt, ein Punkt, der für sein Viertel typisch ist, ein Ort möglichst inmitten zusammenhängender Bebauung und nicht an einem Übergang zwischen Vierteln, ein Boden, der zur Umgebung passt, ein Abstand zum nächsten Haus von der Hälfte des üblichen Häuserabstands, aber nicht weniger als 5 m, und keine Lage in einem Park oder unter Bäumen.',
+          'Der DWD sagt, dass seine Stadtdaten eine eingeschränkte Repräsentativität und Qualität haben, und empfiehlt den Nutzern, das zu beachten. Rekordwerte für Deutschland, sagt er, werden nicht aus diesen Stationen abgeleitet, sondern nur aus Klimastationen, die die üblichen WMO-Anforderungen erfüllen und außerhalb der Städte stehen. Als die Unsicherheit, die in Städten überwiegt, nennt er örtliche Einflüsse wie Abschirmungen und spiegelnde Flächen.',
+          'Die Stationen und ihre Instrumente unterscheiden sich. Die 10-Minuten-Lufttemperatur hat in der Liste des Ordners recent sechs Stationen: Berlin-Alexanderplatz (seit Juli 2015), Freiburg-Mitte, Hannover-Nordstadt, Dresden-Neustadt, Regensburg-Mitte und Hamburg-Neustadt (seit Juli 2024). Nicht jede Station hat jede Größe: Den stündlichen Luftdruck und die stündliche Bodentemperatur des Ordners recent gibt es nur für Berlin-Alexanderplatz. Die Stationsdateien führen die Höhen der Sensoren auf, wo sie welche haben. In Berlin-Alexanderplatz werden die Lufttemperatur und die Feuchte in 2 m Höhe über dem Boden gemessen, der Niederschlagsmesser in 1 m und der Windsensor in 368 m; in Freiburg-Mitte, Dresden-Neustadt und Regensburg-Mitte ist der Windsensor in 2 m Höhe über dem Boden aufgeführt, und die Windarchive von Hannover-Nordstadt und Hamburg-Neustadt führen keinen auf. Die WMO rät, den Wind über der Rauigkeitsschicht zu messen (siehe oben); die Dateien sagen nicht, warum drei Stationen ihren Windsensor in 2 m Höhe aufführen.',
+          'Der DWD beschreibt, wie seine Werte gebildet werden. Die Stationsdateien beschreiben die 10-Minuten-Lufttemperatur und -Feuchte der sechs Stationen als „momentane“ Werte in 2 m Höhe, in UTC. In den Stundendateien ist der Wert für die Stunde x der von 10 Minuten davor: Unter UTC 11 ist, schreibt der DWD, das Mittel des Ein-Minuten-Intervalls abgelegt, das um UTC 10:50 endet.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Aus Band III, Kapitel 9 zu Beobachtungen in der Stadt stammen in diesem Eintrag die Maßstäbe, die Wahl des Standorts, die Aufstellung der Instrumente, die Grenzen der Werte und die Hinweise zu Metadaten.',
+        'Volume III (Observing systems), Chapter 9 (Urban observations), sections 9.1, 9.1.1.1, 9.1.1.2, 9.1.1.3, 9.1.1.4, 9.1.1.5, 9.1.1.6, 9.2.2, 9.3.2.1, 9.3.5.2, 9.3.6, 9.3.7, 9.3.10, 9.4, 9.5, 9.6.1, 9.6.3, Table 9.1.',
+        WMO_III,
+      ),
+      dwdFiles(
+        'Die Beschreibung seines Stadtklima-Datensatzes sagt, wofür die Stationen da sind und wie ihre Standorte gewählt wurden. Die Dateien, die zu den Daten jeder Station gehören, nennen die Sensoren und ihre Höhen.',
+        `DWD Climate Data Center, Dateien in ${DWD_URBAN}, am 22. November 2026 gelesen: Datensatzbeschreibung „Aktuelle stündliche Lufttemperatur und Luftfeuchte, gemessen an Stadtklimastationen, für ausgewählte urbane Räume in Deutschland“ (hourly/air_temperature/recent/, zuletzt editiert am 19. Dezember 2018); die Stationsliste zehn_st_min_tu_Beschreibung_Stationen.txt (10_minutes/air_temperature/recent/) und die Ordner hourly/pressure/recent/ und hourly/soil_temperature/recent/; in den Stationsarchiven 10minutenwerte_TU_STADT_*_akt.zip, 10minutenwerte_FF_STADT_*_akt.zip und 10minutenwerte_RR_STADT_00399_akt.zip: Metadaten_Geraete_Lufttemperatur_*, Metadaten_Geraete_Rel_Feuchte_*, Metadaten_Geraete_Geschw_Mittel_*, Metadaten_Geraete_Niederschlagshoehe_* und Metadaten_Parameter_zehn_st_min_tu_*.`,
+        DWD_URBAN_TU,
+      ),
+    ],
+  },
+
+  'road-stations': {
+    title: 'Straßenwetterstationen',
+    summary: 'Eine Straßenwetterstation steht neben der Straße und misst, was ein Straßenbetreiber braucht: die Luft sowie die Temperatur und den Zustand der Fahrbahn. Sie ist für die Straße aufgestellt, also keine Standardstation.',
+    parts: [
+      {
+        title: 'Wie gemessen wird',
+        paragraphs: [
+          'Straßenwetterstationen dienen den Betreibern von Straßennetzen. Die WMO sagt, dass betriebliche Entscheidungen, etwa Straßenwetterinformationen herauszugeben und mit Enteisen und Schneeräumen zu beginnen, von straßenmeteorologischen Beobachtungen abhängen, die zunehmend von automatischen Wetterstationen für diesen besonderen Zweck gemacht werden. Sie nennt vier Hauptbedürfnisse der Betreiber: die Echtzeitbeobachtung des Straßenwetters, eine bessere Vorhersage der Temperatur der Fahrbahnoberfläche, eine Straßenklima-Datenbank und verlässliche Daten. Straßenbetreiber brauchen keine außerordentlich genauen Messungen, mit Ausnahme der Fahrbahntemperatur; sie wollen Daten, die so verlässlich wie möglich sind.',
+          'Die WMO führt die Messungen auf, die an einer Straßenwetterstation wichtig sind, um den Zustand der Straße vorherzusagen: Lufttemperatur und Luftfeuchte, Windgeschwindigkeit und -richtung, Menge und Art des Niederschlags, Sichtweite, Global- und langwellige Strahlung, Fahrbahntemperatur und Fahrbahnzustand. Die Luftsensoren sollen den üblichen Regeln des Leitfadens folgen. Für Straßenstationen fügt die WMO hinzu, dass das Thermometer nicht über Beton oder Asphalt montiert sein soll, die die gemessene Temperatur erhöhen könnten, und nicht im Sprühwasser der Räder vorbeifahrender Fahrzeuge, und dass ein Psychrometer mit feuchtem Thermometer nicht empfohlen wird, weil Kohlenwasserstoffe den Docht fortlaufend verunreinigen.',
+          'Die Fahrbahntemperatur wird mit einem Sensor gemessen, der in die Straße eingebaut ist. Die WMO beschreibt aktive Sensoren auf der Grundlage eines 100-Ohm-Platinwiderstands, die in der Ebene der Straße liegen müssen, ohne Mulde, in der sich Wasser sammeln könnte, und außerhalb der Spurrillen der Reifen, sonst wird die Sensoroberfläche verschmutzt und die Messung durch Reibungswärme beeinflusst. Die Temperatur des Straßenkörpers kann auch in 5, 10 und 20 cm unter der Fahrbahnoberfläche gemessen werden. Der Sensor für den Fahrbahnzustand schätzt, ob die Fläche trocken, nass, bereift oder vereist ist, und die Gefriertemperatur des Wassers darauf: Er erwärmt und kühlt dann den Sensor mit dem Peltier-Effekt, und die Abkühlungsrate hängt vom Zustand der Fläche und von der Gefriertemperatur ab.',
+          'Der Niederschlag wird meist mit einer Kippwaage gemessen, bei der Schritte von meist 0,2 mm summiert werden und die für Schnee beheizt sein kann, und die Art des Niederschlags mit Sensoren, die sie elektronisch oder optisch schätzen. Die Sichtweite wird mit Transmissometern und Vorwärtsstreumessern gemessen, und die WMO stellt fest, dass Straßenbetreiber an Sichtweiten unter 200 m interessiert sind, der Gefahrenschwelle. Der Wind wird in der Standardhöhe von 10 m in offenem Gelände gemessen.',
+        ],
+      },
+      {
+        title: 'Wie aus einer Messung ein Wert wird',
+        paragraphs: [
+          'Die Rohsignale der Sensoren müssen zu repräsentativen Mittelwerten verarbeitet oder gefiltert werden, sagt die WMO, entweder in aktiven Sensoren, in der Schnittstelle der Datenerfassungseinheit oder in der höheren Verarbeitung der Station; die Mittelungszeiten sind die der Tabelle der Anforderungen in Band I, Kapitel 1 (siehe „Von der Messung zum Wert“). Algorithmen, die auf die Ausgaben der Sensoren wirken, sollen aus maßgeblichen Quellen stammen und gründlich geprüft sein, und jeder hauseigene Algorithmus soll in den Stationsmetadaten oder in Netzhandbüchern festgehalten werden.',
+          'Station und zentraler Rechner teilen sich die Arbeit. Die WMO beschreibt einen Trend zu mehr Verarbeitung in der Außeneinheit, sagt aber, dass ein Netz von Stationen, die nicht komplexer sind als für eine verlässliche Datenerfassung nötig, mit einem zentralen Rechner für die komplexen Algorithmen, die Qualitätssicherung und die Schlüsselumsetzung ein verlässlicheres und billigeres System sein kann. Ein Beispiel für das, was berechnet werden kann, ist eine extrapolierte Fahrbahntemperatur: Ein Algorithmus nimmt die letzten Messungen und bildet eine quadratische Gleichung, aus der Schätzungen der Temperatur über die nächsten 3 Stunden berechnet werden können; die WMO nutzt sie in ihren Beispielen für Alarme.',
+          'Die WMO sagt, dass die Planer eines Straßennetzes die Standardschlüssel der WMO für Meldungen bedenken sollen, die es anderen Nutzern wie den nationalen Wetterdiensten erlauben, die Daten zu empfangen und in anderen meteorologischen Anwendungen zu nutzen. Das Verschlüsseln kann auf der Station geschehen oder, wie es wahrscheinlicher ist, im zentralen Rechner nach der Qualitätssicherung der Daten.',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Eine Straßenstation ist für die Straße aufgestellt. Sie muss neben der Fahrbahn stehen, damit die Sensoren für die Fahrbahn eingebaut werden können, sodass ein Kompromiss bei idealem meteorologischem Standort und idealer Aufstellung entstehen kann, sagt die WMO, und sie weist Nutzer, die Straßenmessungen in anderen meteorologischen Anwendungen verwenden wollen, auf wichtige Abweichungen hin, zum Beispiel bei der Aufstellung der Sensoren. Der Standort neben der Straße soll im Allgemeinen eben sein, mit kurzem Gras und nicht von Gebäuden oder Bäumen beschattet.',
+          'Der Sensor für den Fahrbahnzustand ist ein Sonderfall. Die WMO sagt, dass es schwierig ist sicherzustellen, dass sein Messwert für den wahren Fahrbahnzustand repräsentativ ist, wegen der kleinen Probe, der Lage auf der Straße und unterschiedlicher Einbaupraxis, und dass seine Messung von der Verkehrsdichte abhängt und sonst zeitlich nicht sehr stabil ist. Der Sensor für die Fahrbahntemperatur braucht eine thermische Trägheit, die zu der der Fahrbahnoberfläche passt, eine Oberfläche mit geringer Absorption im Infrarot, um den Strahlungsfehler klein zu halten, und bei Kabeln über 20 m einen Ausgleich des Kabelwiderstands. Die Fahrbahntemperatur aus der Ferne mit Wärmebild-Infrarotsensoren zu messen, ist wegen des Sprühwassers der Fahrzeugreifen im Allgemeinen nicht praktikabel, sagt die WMO.',
+          'Die Luft- und Niederschlagssensoren haben die Fehler der anderen Einträge und einige eigene. Die WMO sagt, dass Feuchtesensoren unter Verunreinigung durch Luft- und Fahrzeugschadstoffe leiden und dass ihre Kalibrierung mindestens alle sechs Monate geprüft werden soll, besonders vor der Wintersaison. Eine Kippwaage ist nicht zufriedenstellend, um den Beginn sehr leichten Regens oder lang anhaltende Frostperioden anzuzeigen, und ihre Summen sind niedriger als die wahren Werte wegen Windeffekten um die Öffnung, Verdunstung aus den Wippen zwischen Schauern und Verlust zwischen den Kippungen der Wippen bei starkem Regen. Für die Art des Niederschlags sagt die WMO, dass es den vorhandenen Sensoren an Unterscheidungsvermögen und stabiler Reproduzierbarkeit fehlt.',
+          'Die Straße ist ein schwieriger Ort für eine Station. Die WMO nennt Vibrationen, Störungen durch Fahrzeugzündungen, Abgasbelastung, Korrosion durch Salznebel und Beschädigung als Probleme von Straßenstationen, und sie sagt, dass es für einen Straßenbetreiber sehr schwierig ist, fehlerhafte Messungen zu erkennen; grobe Sensorfehler können von der Software der Station erkannt werden, die dann einen Alarm auslösen soll.',
+        ],
+      },
+      {
+        title: 'Wo sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Wetterdienst hat Straßenwetterstationen von einem Anbieter, dem DWD (dwd/road, 15-Minuten-Daten). Der DWD veröffentlicht die Meldungen der Stationen als BUFR-Dateien, eine für jede Stationsgruppe alle 15 Minuten. In seinem Hinweis zur Verwertung der Daten der Glättemeldeanlagen sagt er, dass die Straßenbauverwaltungen der Länder die Daten an den DWD übermitteln, dass es ungeprüfte Punktmessungen sind, die nicht die Verhältnisse auf einem Straßenabschnitt widerspiegeln, und dass kein Anspruch auf regelmäßige und vollständige Datenlieferungen besteht.',
+          'Das BUFR-Template des DWD für Straßenwetterinformationen (Stand März 2015) sagt, was eine Station meldet: die Lufttemperatur (trockenes Thermometer), den Taupunkt, die relative Luftfeuchte und die Sichtweite; die Temperatur der Fahrbahnoberfläche; die Temperatur unter der Fahrbahnoberfläche, die erste in 0,30 m Tiefe und eine zweite zum Beispiel in 0,15 oder 0,07 m; die Dicke des Wasserfilms und den Fahrbahnzustand; den Niederschlag (Intensitätsklasse, Intensität, Art und Menge); den Wind und die höchste Böe; und Angaben zur Funktionsweise der Station. Der DWD merkt an, dass die meisten Stationen nur eine Position und eine Temperatur unter der Straße melden und dass die Standardzeitspanne einer Meldung 15 Minuten beträgt. Wetterdienst gibt die Temperatur der Fahrbahnoberfläche als temperature_surface zurück, den Wasserfilm als water_film_thickness (standardmäßig in Millimetern, wo der DWD Meter schreibt) und den Zustand der Fahrbahn als road_surface_condition. Welche Sensoren eine Station hat, ist unterschiedlich: Die ältere Beschreibung des DWD zum Schlüssel der Straßenwetterdaten (SH10, Stand Mai 2001) sagt, dass Glättemeldeanlagen in der Regel keine Sichtweite, keine Niederschlagshöhen oder Intensitätsklassen und keine Wasserfilmdicke messen.',
+          'Die Unterlagen des DWD nennen noch einiges, das sich von Station zu Station unterscheidet. Die Position des Straßensensors ist als Fahrspur verschlüsselt, zwischen oder in den Rollstreifen; in der Beschreibung des Schlüssels durch den DWD ist die Standardposition der Fahrbahntemperatur die äußerste Überholspur, mittig zwischen den Rollstreifen. Einige Stationen können nur zwischen trocken, nicht trocken und glatt unterscheiden: Für sie hat der DWD die Schlüsselzahlen 6 (Glätte) und 7 (nicht trocken) in die Tabelle des Fahrbahnzustands aufgenommen, die außerdem 0 trocken, 1 feucht, 2 nass, 3 Reif, 4 Schnee und 5 Eis hat. Der DWD sagt, dass es keine einheitliche Definition von Klassen der Wasserfilmdicke gibt. In den am 22. November 2026 gelesenen Dateien mehrerer Stationsgruppen ist die Höhe des Lufttemperatursensors in einigen zwischen 4 und 5 m angegeben (4 m, 4,05 m oder 5 m, nach der Dokumentation von wetterdienst) und in anderen gar nicht, wo die WMO 1,25 bis 2 m verlangt. Der Mittelungszeitraum des Windes ist je Stationsgruppe verschieden: Die Beschreibung des Schlüssels durch den DWD sagt, dass nur der Wind gemittelt wird, über 10 Minuten, und dass die übrigen Werte die aktuellen Werte jeder Viertelstunde sind, während die Dateien einiger Gruppen dafür 15 Minuten, einen Zeitraum von 0 oder keinen nennen (Dokumentation des Datensatzes von wetterdienst).',
+          'Die Namen der Parameter unterscheiden nicht zwischen Vorhersage und Messung. temperature_surface ist auch der Name der Vorhersage der Fahrbahntemperatur im Straßenwetter-Vorhersagemodell SWSMOS des DWD (dwd/swsmos, aus einem Straßenwettermodell), und die Vorhersage hat eigene Schlüsselzahlen für den Fahrbahnzustand (road_surface_condition_forecast, 1 trocken, 2 feucht, 3 Schnee, 4 Reif, 5 gefrierende Nässe, 6 Glatteis), die nicht die der Stationen sind. Siehe „Beobachtung, Vorhersage und abgeleitete Daten“. Diese Seite sagt nichts über die Straßenwetterstationen anderer Anbieter.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Aus Band III, Kapitel 10 zu straßenmeteorologischen Messungen stammen in diesem Eintrag der Zweck der Stationen, die Messungen, die Sensoren und ihre typischen Probleme.',
+        'Volume III (Observing systems), Chapter 10 (Road meteorological measurements), sections 10.1.2, 10.1.3, 10.2.1, 10.3.1, 10.3.1.1, 10.3.1.2, 10.3.1.3, 10.3.1.4, 10.3.1.6, 10.3.1.7, 10.3.1.8, 10.3.1.9, 10.4.1, 10.4.2, 10.5.2, 10.8.1, 10.8.2, 10.9, 10.10.1.',
+        WMO_III,
+      ),
+      dwdFiles(
+        'Sein BUFR-Template für Straßenwetterinformationen sagt, was eine Straßenwetterstation meldet und wie die Schlüssel aufgebaut sind.',
+        `DWD. „BUFR Template für Straßenwetter Informationen“ (nationales Template der Straßenwetterstationen, Stand März 2015), die Anmerkungen und die Schlüsseltabellen, am 22. November 2026 gelesen; das Verzeichnis ${DWD_ROAD}, dessen Liste für jede Stationsgruppe alle 15 Minuten eine Datei zeigt.`,
+        DWD_ROAD_TEMPLATE,
+      ),
+      dwdFiles(
+        'Sein Hinweis zu den Daten der Glättemeldeanlagen sagt, woher die Daten stammen und was sie sind und was nicht. Die Beschreibung des älteren Schlüssels, die dabei ist, sagt, welche Werte gemittelt werden.',
+        'DWD. „Verwertung der Daten von Glättemeldeanlagen (GMA Daten)“ und die Anlage „Aufbau und Inhalt des Straßenwetterdatenschlüssels (SH10)“ (Stand Mai 2001), am 22. November 2026 gelesen.',
+        DWD_ROAD_NOTICE,
+      ),
+      {
+        plain: 'Die Dokumentation der Bibliothek wetterdienst beschreibt die Straßenwetterdaten, wie die Bibliothek sie liefert, mit dem Mittelungszeitraum, den die Dateien jeder Stationsgruppe nennen, und den Sensorhöhen, die sie angeben.',
+        citation: 'Wetterdienst documentation, the pages „Road: 15_minutes“ (dwd/road) and „SWSMOS: hourly“ (dwd/swsmos).',
+        href: `${WETTERDIENST_DOCS}provider/dwd/road/15_minutes.html`,
+      },
+    ],
+  },
+
+  'from-measurement-to-value': {
+    title: 'Von der Messung zum Wert: wie Mittelwerte, Summen, Maxima und Minima entstehen',
+    summary: 'Ein Wert ist selten ein einzelner Messwert. Eine Station nimmt viele Abtastwerte und bildet daraus den Wert als Mittel, als Summe, als Höchst- oder als Tiefstwert, und wie das geschieht, entscheidet, was die Zahl bedeutet.',
+    parts: [
+      {
+        title: 'Vom Signal zum Messwert',
+        paragraphs: [
+          'Ein Sensor misst die Wettergröße nicht unmittelbar. Die WMO nennt Instrumentenmesswerte in physikalischen Einheiten Daten der Stufe I (Level I) und die meteorologischen Größen selbst, die man direkt erhalten oder aus Daten der Stufe I ableiten kann, Daten der Stufe II (Level II). Ihr Beispiel: Ein Sensor kann die Sichtweite nicht messen, die eine Größe der Stufe II ist; er misst den Extinktionskoeffizienten, eine Größe der Stufe I.',
+          'Auf dem Weg vom Sensor zum Wert führt die WMO unter anderen Schritten auf: das Abtasten des Signals, das Anwenden der Kalibrierung, das Linearisieren (ein Signal, das nicht genau proportional zur Größe ist, wird begradigt), das Bilden von Statistiken wie dem Mittelwert, das Ableiten verwandter Größen, Korrekturen und Qualitätskontrolle. Die Reihenfolge ist nur ungefähr aufeinanderfolgend, aber die Linearisierung muss vor dem Mitteln kommen: Erst zu mitteln und dann zu linearisieren liefert ein anderes Ergebnis, wenn das Signal während des Mittelungszeitraums nicht konstant ist.',
+          'Abgetastet wird das Signal eines Sensors, nicht die Atmosphäre. Die WMO sagt, dass eine atmosphärische Größe nie abgetastet wird, nur das Ausgangssignal eines Sensors dafür, und dass Sensoren langsamer reagieren, als sich die Atmosphäre ändert, und Rauschen hinzufügen. Ein Abtastwert (sample) ist eine einzelne Messung, eine Beobachtung ist das Ergebnis des Abtastvorgangs und wird aus einer Reihe von Abtastwerten abgeleitet. Das Beispiel der WMO ist eine Temperatur, die jede Minute gemessen wird (die Abtastwerte), ein daraus berechnetes 10-Minuten-Mittel und dieses Mittel, das alle 3 Stunden in einer synoptischen Meldung übertragen wird (die Beobachtung).',
+        ],
+      },
+      {
+        title: 'Wie aus einer Messung ein Wert wird',
+        paragraphs: [
+          'Ein Mittelwert glättet die kleinräumige Veränderlichkeit der Atmosphäre und das Rauschen des Instruments. Für den internationalen Austausch und viele operationelle Anwendungen muss, sagt die WMO, ein gemeldeter Messwert für die vorangegangenen 2 oder 10 Minuten beim Wind stehen und laut Übereinkunft für 1 bis 10 Minuten bei anderen Größen. Manche konventionellen Sensoren reagieren in etwa einer Minute, ein einzelner Messwert von ihnen ist deshalb dem Sinn nach ein Ein-Minuten-Mittel. Die Tabelle der Anforderungen der WMO kennzeichnet jede Größe als momentan, gemittelt oder summiert: Für einen „momentanen“ Wert gilt ein Mittel über 1 Minute als Minimum und am besten geeignet, und Mittel über bis zu 10 Minuten sind zulässig; ein „gemittelter“ Wert ist ein Mittel über einen festen Zeitraum, den die Anforderungen der Verschlüsselung festlegen; eine „Summe“ ist eine Summe über einen festen Zeitraum.',
+          'Das arithmetische Mittel ist das, was man normalerweise unter einem Mittelwert versteht. Das exponentielle Mittel ist die Ausgabe des einfachsten Tiefpassfilters und die einfachste Antwort eines Sensors auf die Schwankungen der Atmosphäre; wenn seine Zeitkonstante etwa die Hälfte der Zeit beträgt, über die ein Mittel berechnet wird, sind die beiden praktisch nicht zu unterscheiden.',
+          'Die Größe, die gemittelt wird, ist nicht immer die, die gemeldet wird. Die Tabelle der WMO nennt die kartesischen Komponenten für Windgeschwindigkeit und -richtung, die absolute Feuchte für den Taupunkt und den Extinktionskoeffizienten für die Sichtweite, weil das Mitteln einer Größe, die nicht linear ist, ein anderes Ergebnis liefert, wenn sie sich während des Zeitraums ändert.',
+          'Maxima und Minima sind eigene Größen. Die WMO sagt, dass neben den Mittelwerten Extremwerte und andere Größen bestimmt werden müssen, die für bestimmte Zeiträume repräsentativ sind, je nach Zweck der Beobachtung, und sie nennt die Böe als Beispiel, für das höhere Abtastraten nötig sind: Abtastwerte, mit denen Extremwerte von Schwankungen wie Böen geschätzt werden, sollen mindestens viermal so oft genommen werden wie die für Mittelwerte. Für die Böe selbst empfiehlt die WMO, das höchste 3-Sekunden-Mittel aufzuzeichnen (siehe „Wind“), und ihre Tabelle führt die Extremwerte der Lufttemperatur als momentane Werte mit einer Zeitkonstante von 20 Sekunden und einer Mittelungszeit von 1 Minute auf.',
+          'Summen können aus kleineren Summen zusammengezählt werden. Unter den Statistiken, die eine Station berechnet, führt die WMO Gesamtmengen über Zeiträume von Minuten bis Tagen auf, mit Regen als Beispiel, und integrierte Werte, mit Strahlung als Beispiel. Sie werden auf der Station oder in einer zentralen Verarbeitungsplattform berechnet, aus momentanen Daten oder Extremwerten und aus Summen über kleine Zeiträume, zum Beispiel eine Stunde.',
+          'Wo der Wert gebildet wird, ist eine Entwurfsentscheidung. Die WMO stellt einen Trend fest, wo das Telekommunikationsnetz es erlaubt, Ein-Minuten-Daten zentral zu sammeln und die Statistiken in einer zentralen Verarbeitungsplattform zu berechnen. Sie sagt, dass die Algorithmen, die die Werte ableiten, so wichtig sind wie die Wahl des Instruments, dass kleine und feine Änderungen im Lauf der Zeit später erhebliche Auswirkungen haben können und dass ein Verzeichnis der Algorithmen und der Softwareversionen als Metadaten geführt werden soll.',
+        ],
+      },
+      {
+        title: 'Was die Zahl sagen kann und was nicht',
+        paragraphs: [
+          'Ein Mittel aus wenigen Messwerten kann falsch sein. Das Beispiel der WMO ist eine Temperatur, die alle drei Stunden abgelesen wird: Ändert sie sich gleichmäßig, wie sie es meist tut, ist ein aus den acht Messwerten berechnetes Tagesmittel hinreichend stabil, hat aber ein Gewitter die Temperatur 30 Minuten lang um viele Grad gesenkt, ist das berechnete Mittel falsch. Die Verlässlichkeit von Tagesmitteln, sagt die WMO, hängt davon ab, dass es auf Zeitskalen kürzer als der Abstand der Messwerte meist wenig Veränderung gibt; ein kurzes Ereignis wie das Gewitter beeinflusst das Mittel und die Streuungsmaße. Ein einzelner Messwert pro Tag zu einer festen Zeit liefert keine gute Schätzung der mittleren Monatstemperatur, sagt die WMO, und die Unsicherheit eines Mittels ist umgekehrt proportional zur Quadratwurzel der Zahl der Beobachtungen.',
+          'Ein Extremwert hängt vom Instrument ab. Die WMO sagt, dass aufgezeichnete Böen durch das Ansprechverhalten des Instruments geglättet werden und dass das aufgezeichnete Maximum über ein Mehrfaches seiner Zeitkonstante gemittelt ist.',
+          'Die WMO sagt, dass es bei der Verarbeitung meteorologischer Daten meist ein richtiges Verfahren, einen richtigen Algorithmus oder Ansatz gibt und dass es viele Näherungen geben kann, deren Gültigkeit von gut bis nutzlos reicht. Wie ein Anbieter seine Tages- oder Monatswerte bildet, sagt die Dokumentation des Anbieters selbst; dieser Eintrag nimmt das nicht an.',
+          'Auch Korrekturen und Qualitätskontrolle formen den Wert. Die WMO sagt, dass die Algorithmen für Korrekturen, etwa für die Aufstellung, auf Studien beruhen können, die nicht ganz endgültig sind, dass in Zukunft andere Algorithmen entstehen können und dass es ratsam ist, sie zu dokumentieren, damit die ursprünglichen unkorrigierten Daten wiederhergestellt werden können. Die Qualitätskontrolle, sagt die WMO, funktioniert am besten, wenn jede Beobachtung aus einer hinreichend großen Zahl qualitätsgeprüfter Abtastwerte berechnet wird, weil Abtastwerte mit großen Ausreißerfehlern dann aussortiert werden können und die Berechnung ohne sie weitergehen kann, und die Zahl gültiger Abtastwerte in einem Zeitraum entscheidet, ob das Mittel gültig ist.',
+        ],
+      },
+      {
+        title: 'Wo sich die Anbieter unterscheiden',
+        paragraphs: [
+          'Der DWD sagt in den Dateien, die zu den Daten jeder Station gehören, wie seine Tageswerte gebildet werden, und die Regel ändert sich mit der Zeit. Ab dem 1. April 2001 ist an den drei geprüften Stationen das Tagesmittel von Temperatur, relativer Luftfeuchte, Dampfdruck, Luftdruck und Bedeckungsgrad das arithmetische Mittel aus mindestens 21 Stundenwerten aus SYNOP-Meldungen, und das Tagesmaximum und -minimum der Lufttemperatur sind der höchste und der tiefste Wert, gemessen von 00:00 bis 24:00 UTC. Davor nennen die Dateien andere Regeln. Von 1991 (in Frankfurt/Main schon ab 1935) bis März 2001 wird das Tagesmittel der Temperatur aus den drei Beobachtungsterminen der Klimastationen mit der Formel TMK=(TT1+TT2+(TT3*2))/4 berechnet, in der der dritte Wert doppelt zählt (die Termine sind 07, 14 und 21 Uhr mittlere Ortszeit, seit 1987 07:30, 14:30 und 21:30 MEZ); in Potsdam nennen die Dateien dieselbe Formel bis 1966 und in Dresden-Klotzsche von 1934 bis 1945. In Potsdam (ab 1967) und Dresden-Klotzsche (ab 1960) ist es bis 1990 das arithmetische Mittel aus vier oder acht Beobachtungswerten, die auf den synoptischen Hauptterminen um 00, 06, 12 und 18 UTC beruhen.',
+          'Der DWD weist selbst darauf hin. Seine Beschreibung der Monatsdaten sagt, dass für eine statistische Auswertung die Formel beachtet werden soll, mit der die Tagesmittel berechnet wurden, die sich zeitlich und je Station ändern kann und in den Dateien Metadaten_Parameter steht, und dass erst ab 1936 vereinheitlichte Formeln angewendet wurden. Welchen Zeitabschnitt ein Tageswert abdeckt, hat sich ebenfalls geändert: siehe „Zeit“.',
+          'Der DWD berechnet seine Monatsmittel aus den Tageswerten, und nur, wenn die Tageswerte vollständig sind: Fehlen welche, wird kein Monatsmittel angegeben. Für einige Stationen gibt es nur Monatswerte, ohne Tageswerte, und sie sind so aufgenommen, wie sie sind. Die Monatsdaten haben unter anderem das Monatsmittel der Tagesmaxima der Temperatur, den höchsten der Tageshöchstwerte im Monat, den niedrigsten der Tagestiefstwerte und die Monatssumme des Niederschlags. Die Regel der WMO für Klimanormalwerte ist eine andere: siehe „Klimanormalwerte“.',
+          'Wetterdienst sagt für jeden Parameter, was für ein Wert er ist. Die Aggregation eines Parameters wird seinem Namen entnommen, wenn der Name eine Statistik nennt (zum Beispiel _mean, _max oder _min), und sonst dem, was der Anbieter angibt. Ein Wert ist „instant“, wenn er ein einzelner Messwert ist, wobei ein Mittel über höchstens 5 Minuten noch als Messwert zählt, und „mean“, „max“, „min“ oder „sum“ und so weiter, wenn er eine Statistik eines Intervalls ist; null heißt, dass die Quelle es nicht angibt, nicht dass der Wert ein Messwert oder ein Mittel ist. Manche DWD-Werte sagen in ihrer eigenen Beschreibung, wie sie gebildet werden: siehe „Stationen in der Stadt“ für einen Stundenwert, der das Ein-Minuten-Mittel ist, das 10 Minuten vor seinem Zeitstempel endet.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuideV(
+        'Aus Band V, Kapitel 2 zum Abtasten und Kapitel 3 zur Datenreduktion stammen in diesem Eintrag die Schritte vom Signal zum Wert, das Mitteln, die Größen, die gemittelt werden, die Extremwerte und die Folgen zu weniger Abtastwerte.',
+        'Volume V (Quality assurance and management of observing systems), Chapter 2 (Sampling meteorological variables), sections 2.1, 2.1.1, 2.1.2, 2.4.2, 2.4.3; Chapter 3 (Data reduction), sections 3.1.1, 3.1.3, 3.4, 3.5, 3.6, 3.7.',
+      ),
+      wmoGuide(
+        'In Band I, Kapitel 1 steht die Tabelle der Anforderungen, die sagt, welche Größen momentan, gemittelt oder summiert sind und über welche Zeit. Aus Band III, Kapitel 1 zu automatischen Wetterstationen stammen in diesem Eintrag die Statistiken, die eine Station berechnet, wo sie sie berechnet und die Prüfungen der Zahl gültiger Abtastwerte.',
+        'Volume I, Chapter 1 (General), Annex 1.A, rows 1.2 and 5.3 and note 4; Volume III (Observing systems), Chapter 1 (Measurements at automatic weather stations), sections 1.4.2.5, 1.5.',
+        WMO_I,
+      ),
+      dwdFiles(
+        'Die Dateien, die zu den Daten jeder Station gehören, sagen, mit welcher Formel und aus welchen Werten ein Tageswert gebildet wird. Die Beschreibung seines Monatsdatensatzes sagt, wie ein Monatswert gebildet wird und was bei den Tagesmitteln zu beachten ist.',
+        `${STATION_FILES} Metadaten_Parameter_klima_tag_* (Parameter TMK, TXK, TNK, UPM, VPM, PM und NM); Datensatzbeschreibung „Monatliche Stationsbeobachtungen (Temperatur, Niederschlag, Sonnenscheindauer, Wind und Bewölkung) für Deutschland“, Version v24.03 (2024), Abschnitte „Datenherkunft“ und „Hinweise für Anwendungen“, am 22. November 2026 gelesen.`,
+        DWD_MONTHLY,
+      ),
+      {
+        plain: 'Die Dokumentation der Bibliothek wetterdienst sagt, was ihr Feld aggregation über einen Wert angibt: ob er ein Messwert oder eine Statistik ist.',
+        citation: 'Wetterdienst documentation, „Parameters“, section „Aggregation and timestamp position in the answers“.',
+        href: `${WETTERDIENST_DOCS}parameters.html`,
+      },
     ],
   },
 

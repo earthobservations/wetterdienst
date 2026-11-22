@@ -1,11 +1,13 @@
 import type { H3Event } from 'h3'
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
+import { DateTime } from 'luxon'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { clearNuxtData, clearNuxtState } from '#app'
 import { useSettings } from '#imports'
 import AskTheWeather from '~/components/AskTheWeather.vue'
 import { DEFAULT_PLACE } from '~/composables/usePlace'
+import { defaultSeason } from '~/utils/answers'
 import { KIEL_MOSMIX, rainValues, summerValues, windValues } from '../../e2e/accessibility/ask-backend'
 import { providersAnswer } from '../fixtures/providers'
 
@@ -86,6 +88,9 @@ function inUnits(values: Array<{ parameter: string, value: number | null }>, que
   return { values: converted, metadata: { parameters } }
 }
 // an answer of the values that waits for the test where it asks (a request to hold)
+let flatRecord = false
+// the winters of a young record: only the last four
+let onlyYoungWinter = false
 let holdValues: Promise<void> | null = null
 // the speed unit of the only requests to hold, where the test holds those of one unit and lets the others through
 let holdOnlySpeed: string | null = null
@@ -101,7 +106,10 @@ registerEndpoint('/api/values', async (event) => {
   const parameters = query.get('parameters') ?? ''
   if (query.get('network') === 'mosmix')
     return inUnits(rainValues(station), query)
-  return inUnits(parameters.startsWith('monthly/') ? summerValues(station) : windValues(station, query.get('timestamp')), query)
+  // a record of flat 10 degrees with a summer of 12: every normal gives the same verdict sentence
+  const young = (rows: ReturnType<typeof summerValues>) => onlyYoungWinter ? rows.filter(row => !(/-(?:12|01|02)-/.test(row.timestamp) && row.timestamp < '2022')) : rows
+  const monthly = () => flatRecord ? summerValues(station).map(row => ({ ...row, value: row.timestamp.startsWith('2026-0') && /-0[3-8]-/.test(row.timestamp) ? 12 : 10 })) : young(summerValues(station))
+  return inUnits(parameters.startsWith('monthly/') ? monthly() : windValues(station, query.get('timestamp')), query)
 })
 function coverage() {
   return {
@@ -143,6 +151,8 @@ afterEach(() => {
   requests.length = 0
   holdValues = null
   holdOnlySpeed = null
+  flatRecord = false
+  onlyYoungWinter = false
   Object.assign(useSettings().settings.value, { convertUnits: true })
   Object.assign(useSettings().settings.value.units, { temperature: 'degree_celsius', speed: 'meter_per_second', precipitation: 'millimeter' })
 })
@@ -158,7 +168,9 @@ describe('the suggestions', () => {
     expect(buttons.map(button => button.attributes('aria-pressed'))).toEqual(['false', 'false', 'false', 'false'])
     expect(buttons.map(button => button.attributes('type'))).toEqual(['button', 'button', 'button', 'button'])
     expect(buttons[0]!.text()).toBe('Will it rain in Kiel-Holtenau tomorrow?')
-    expect(buttons[1]!.text()).toBe('Was last summer hotter than usual here?')
+    // the question opens on the season completed most recently
+    const opens = defaultSeason(DateTime.now())
+    expect(buttons[1]!.text()).toBe(`Was last ${opens} ${{ spring: 'warmer', summer: 'hotter', autumn: 'warmer', winter: 'colder' }[opens]} than usual here?`)
     expect(buttons[3]!.text()).toBe('Where can I download hourly temperatures?')
     expect(wrapper.find('[data-testid="ask-idle"]').text()).toBe('Pick a question and it is answered here, from live data.')
     expect(wrapper.find('[data-testid="answer"]').exists()).toBe(false)
@@ -168,7 +180,7 @@ describe('the suggestions', () => {
   it('carry no colour of a tile: the tiles are the tools\' marks, and only the links into the tools have one', async () => {
     const wrapper = await mountAsk()
     expect(wrapper.find('[data-testid="questions"] .tile').exists()).toBe(false)
-    await chip(wrapper, 'summer').trigger('click')
+    await chip(wrapper, 'season').trigger('click')
     await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
     // the monthly means open the Explorer (rain blue), the stripes the stripes (coral)
     const tiles = wrapper.findAll('[data-testid="answer-actions"] .tile').map(tile => tile.classes().find(name => name.startsWith('tile-') && name !== 'tile'))
@@ -196,7 +208,7 @@ describe('the suggestions', () => {
 
   it('answer the summer, wind and download questions', async () => {
     const wrapper = await mountAsk()
-    await chip(wrapper, 'summer').trigger('click')
+    await chip(wrapper, 'season').trigger('click')
     await vi.waitFor(() => expect(verdict(wrapper).text()).toContain('warmer than usual'))
     expect(asked('values').at(-1)!.query.get('stations')).toBe('02564')
 
@@ -204,7 +216,7 @@ describe('the suggestions', () => {
     await vi.waitFor(() => expect(wrapper.find('#answer-day').exists()).toBe(true))
     await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
     await vi.waitFor(() => expect(chip(wrapper, 'wind').attributes('aria-pressed')).toBe('true'))
-    expect(chip(wrapper, 'summer').attributes('aria-pressed')).toBe('false')
+    expect(chip(wrapper, 'season').attributes('aria-pressed')).toBe('false')
 
     await chip(wrapper, 'download').trigger('click')
     await vi.waitFor(() => expect(verdict(wrapper).text()).toMatch(/^Weather services that publish hourly air temperature: \d+\.$/))
@@ -221,7 +233,7 @@ describe('the suggestions', () => {
   // how each answer was worked out (GH-3764): a disclosure under it, whose region the button controls
   it('say under each answer how it was worked out, in a region that a button opens, with the numbers of the answer', async () => {
     const wrapper = await mountAsk()
-    await chip(wrapper, 'summer').trigger('click')
+    await chip(wrapper, 'season').trigger('click')
     await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
     const button = wrapper.find('[data-testid="explanation-button"]')
     const region = wrapper.find('[data-testid="explanation-region"]')
@@ -242,13 +254,13 @@ describe('the suggestions', () => {
     expect(region.attributes('hidden')).toBeUndefined()
     const numbers = wrapper.find('[data-testid="explanation-numbers"]').text()
     expect(numbers).toContain('Station: Kiel-Holtenau (02564)')
-    expect(numbers).toMatch(/Compared with the summers 1991 to 2020: the mean of 30 summers/)
+    expect(numbers).toMatch(/Compared with the summers of 1991 to 2020: the mean of 30 summers/)
     expect(numbers).toContain('Within 0.5 °C either way counts as usual.')
     // each rule is its source, linked to its entry of the works cited, or the mark that it is wetterdienst's own
     const rules = wrapper.findAll('[data-testid="explanation-rules"] > li')
-    expect(rules.map(rule => rule.attributes('data-rule'))).toEqual(['season', 'complete-months', 'only-over', 'summer-mean', 'reference-period', 'normal-mean', 'min-summers', 'fallback-period', 'fallback-minimum', 'anomaly', 'usual-band', 'rank'])
-    expect(rules.filter(rule => rule.attributes('data-own') !== undefined).map(rule => rule.attributes('data-rule'))).toEqual(['only-over', 'normal-mean', 'min-summers', 'fallback-period', 'fallback-minimum', 'usual-band', 'rank'])
-    expect(wrapper.findAll('[data-testid="own-mark"]')).toHaveLength(7)
+    expect(rules.map(rule => rule.attributes('data-rule'))).toEqual(['season', 'winter-year', 'complete-months', 'only-over', 'season-mean', 'default-season', 'reference-choices', 'reference-default', 'default-normal', 'normal-mean', 'min-seasons', 'fallback-period', 'fallback-minimum', 'anomaly', 'usual-band', 'rank'])
+    expect(rules.filter(rule => rule.attributes('data-own') !== undefined).map(rule => rule.attributes('data-rule'))).toEqual(['winter-year', 'only-over', 'default-season', 'default-normal', 'normal-mean', 'min-seasons', 'fallback-period', 'fallback-minimum', 'usual-band', 'rank'])
+    expect(wrapper.findAll('[data-testid="own-mark"]')).toHaveLength(10)
     const season = rules[0]!
     expect(season.findAll('a').map(link => link.attributes('href'))).toEqual(['/methods#work-dwd-seasons', '/methods#work-dwd-summer'])
     // the data: the provider, the dataset, the licence the provider's terms give, and the same data in the Explorer
@@ -258,7 +270,7 @@ describe('the suggestions', () => {
     expect(wrapper.find('[data-testid="explanation-explorer"]').attributes('href')).toContain('/explorer?mode=station&provider=dwd&network=observation&resolution=monthly&dataset=climate_summary&parameters=temperature_air_mean_2m&stations=02564')
     // the terms are the entries of "How weather is measured", not written twice
     expect(wrapper.findAll('[data-testid="explanation-terms"] a').map(link => link.attributes('href'))).toEqual(expect.arrayContaining(['/measurement#temperature', '/measurement#normals']))
-    expect(wrapper.find('[data-testid="explanation-full"]').attributes('href')).toBe('/methods#summer')
+    expect(wrapper.find('[data-testid="explanation-full"]').attributes('href')).toBe('/methods#season')
 
     await button.trigger('click')
     expect(button.attributes('aria-expanded')).toBe('false')
@@ -290,7 +302,7 @@ describe('the suggestions', () => {
   // what wetterdienst did to the data, directly under the credit line of the answer's values (GH-3799)
   it('say under the credit line what wetterdienst did to the data, and say none where the answer lists sources', async () => {
     const wrapper = await mountAsk()
-    await chip(wrapper, 'summer').trigger('click')
+    await chip(wrapper, 'season').trigger('click')
     await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
     const note = wrapper.find('[data-testid="processing-note"]')
     expect(note.element.tagName).toBe('P')
@@ -346,15 +358,147 @@ describe('the suggestions', () => {
     expect(asked('coverage')).toHaveLength(first)
   })
 
+  // the season and the reference period (GH-3764, step 2a): two labelled selects under the question's heading, beside its button
+  describe('the season and the reference period', () => {
+    const selectOf = (wrapper: Awaited<ReturnType<typeof mountAsk>>, param: string) => wrapper.find(`[data-testid="choice-${param}"]`)
+    const optionsOf = (wrapper: Awaited<ReturnType<typeof mountAsk>>, param: string) => selectOf(wrapper, param).findAll('option').map(option => ({ value: option.attributes('value'), text: option.text(), disabled: option.attributes('disabled') !== undefined }))
+
+    it('are two real selects with their labels, outside the question\'s button, which stays one pressed button', async () => {
+      const wrapper = await mountAsk('/?ask=season&season=summer')
+      await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+      for (const [param, label] of [['season', 'Season'], ['ref', 'Compared with']] as const) {
+        const select = selectOf(wrapper, param)
+        expect(select.element.tagName).toBe('SELECT')
+        expect(wrapper.find(`label[for="${select.attributes('id')}"]`).text()).toBe(label)
+        expect(select.element.closest('button')).toBeNull()
+      }
+      expect(chip(wrapper, 'season').attributes('aria-pressed')).toBe('true')
+      expect(chip(wrapper, 'season').findAll('select')).toHaveLength(0)
+      expect(optionsOf(wrapper, 'season').map(option => option.text)).toEqual(['Spring', 'Summer', 'Autumn', 'Winter'])
+      expect((selectOf(wrapper, 'season').element as HTMLSelectElement).value).toBe('summer')
+      expect(optionsOf(wrapper, 'ref').map(option => option.value)).toEqual(['1961-1990', '1971-2000', '1981-2010', '1991-2020'])
+      expect((selectOf(wrapper, 'ref').element as HTMLSelectElement).value).toBe('1991-2020')
+    })
+
+    it('read the link, say the question and the answer for it, and name the season and the normal in the answer, the chart and the disclosure', async () => {
+      const wrapper = await mountAsk('/?ask=season&season=winter&ref=1961-1990')
+      await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+      expect(chip(wrapper, 'season').text()).toBe('Was last winter colder than usual here?')
+      expect(wrapper.find('#answer-heading').text()).toBe('Was last winter colder than usual here?')
+      // the mock winter is warmer than the normal: the answer to "colder" is no
+      expect(verdict(wrapper).text()).toMatch(/^No, [\d.]+ °C warmer than usual\.$/)
+      const answer = wrapper.find('[data-testid="answer"]').text()
+      expect(answer).toMatch(/Winter \d{4}\/\d{2} \(December to February\) averaged/)
+      expect(answer).toContain('the winters from 1960/61 to 1989/90 averaged')
+      expect(answer).toContain('Each winter against the average of 1960/61 to 1989/90')
+      expect((selectOf(wrapper, 'season').element as HTMLSelectElement).value).toBe('winter')
+      expect((selectOf(wrapper, 'ref').element as HTMLSelectElement).value).toBe('1961-1990')
+
+      await wrapper.find('[data-testid="explanation-button"]').trigger('click')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="explanation-numbers"]').exists()).toBe(true))
+      const numbers = wrapper.find('[data-testid="explanation-numbers"]').text()
+      expect(numbers).toMatch(/In winter \d{4}\/\d{2} \(December to February\) the mean was/)
+      expect(numbers).toContain('Compared with the winters of 1960/61 to 1989/90: the mean of 30 winters')
+    })
+
+    it('change the answer and the link when a choice is made, and ask the backend for nothing more: the whole record serves every season', async () => {
+      const wrapper = await mountAsk('/?ask=season')
+      await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+      const before = asked('values').length
+      await selectOf(wrapper, 'season').setValue('winter')
+      await vi.waitFor(() => expect(chip(wrapper, 'season').text()).toBe('Was last winter colder than usual here?'))
+      expect(useRoute().query).toMatchObject({ ask: 'season', season: 'winter' })
+      await selectOf(wrapper, 'ref').setValue('1961-1990')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="answer"]').text()).toContain('the winters from 1960/61 to 1989/90'))
+      expect(useRoute().query).toMatchObject({ ask: 'season', season: 'winter', ref: '1961-1990' })
+      expect(asked('values')).toHaveLength(before)
+      // the live region says the new verdict
+      expect(wrapper.find('[data-testid="answer-status"]').text()).toBe(verdict(wrapper).text())
+    })
+
+    it('keep the old link `?ask=summer` meaning the summer against the newest normal, and write the new name once a choice is made', async () => {
+      const wrapper = await mountAsk('/?ask=summer')
+      await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+      expect(chip(wrapper, 'season').attributes('aria-pressed')).toBe('true')
+      expect(chip(wrapper, 'season').text()).toBe('Was last summer hotter than usual here?')
+      expect(wrapper.find('[data-testid="answer"]').text()).toContain('the summers from 1991 to 2020 averaged')
+      await selectOf(wrapper, 'season').setValue('spring')
+      await vi.waitFor(() => expect(useRoute().query.ask).toBe('season'))
+      expect(chip(wrapper, 'season').text()).toBe('Was last spring warmer than usual here?')
+    })
+
+    it('fall back to the defaults for values that are none', async () => {
+      const wrapper = await mountAsk('/?ask=season&season=monsoon&ref=1950-1979')
+      await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+      expect((selectOf(wrapper, 'season').element as HTMLSelectElement).value).toBe('summer')
+      expect((selectOf(wrapper, 'ref').element as HTMLSelectElement).value).toBe('1991-2020')
+    })
+
+    it('grey out a normal the station has too few seasons of, with how many it has in the option, and say why on the line under the choices', async () => {
+      // Arkona's record starts in 1975: 16 of the 30 years of 1961 to 1990
+      usePlace().place.value = { id: '00183', name: 'Arkona', latitude: 54.68, longitude: 13.43, region: 'Mecklenburg-Vorpommern' }
+      const wrapper = await mountAsk('/?ask=season&season=winter')
+      await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+      const options = optionsOf(wrapper, 'ref')
+      expect(options.map(option => option.disabled)).toEqual([true, false, false, false])
+      expect(options[0]!.text).toBe('1961–1990 = 1960/61–1989/90 (only 16 of 30 seasons here, 20 needed)')
+      const note = wrapper.find('[data-testid="choice-note"]')
+      expect(note.attributes('role')).toBe('status')
+      expect(note.text()).toBe('Greyed out: too few seasons at this station. A normal needs 20 of its 30 seasons.')
+    })
+
+    it('answer a link that names a greyed-out normal with the normal the question opens on, and say that the named one has too little data', async () => {
+      usePlace().place.value = { id: '00183', name: 'Arkona', latitude: 54.68, longitude: 13.43, region: 'Mecklenburg-Vorpommern' }
+      const wrapper = await mountAsk('/?ask=season&season=winter&ref=1961-1990')
+      await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+      expect((selectOf(wrapper, 'ref').element as HTMLSelectElement).value).toBe('1991-2020')
+      const note = wrapper.find('[data-testid="choice-note"]').text()
+      expect(note).toContain('1961–1990 = 1960/61–1989/90 has too little data here for this season: 16 of its 30 seasons, 20 needed. Showing instead: 1991–2020 = 1990/91–2019/20.')
+      expect(note).toContain('Greyed out')
+      expect(wrapper.find('[data-testid="answer"]').text()).toContain('the winters from 1990/91 to 2019/20 averaged')
+      // the other normals answer
+      await selectOf(wrapper, 'ref').setValue('1971-2000')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="answer"]').text()).toContain('the winters from 1970/71 to 1999/00 averaged'))
+      expect(wrapper.find('[data-testid="choice-note"]').text()).not.toContain('too little data')
+    })
+
+    it('grey out a season the station has too little of, and a link that names it gets the season the question opens on, with a line that says so', async () => {
+      // a young record: the winters since 2022 only
+      onlyYoungWinter = true
+      const wrapper = await mountAsk('/?ask=season&season=winter')
+      await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+      const winter = optionsOf(wrapper, 'season').find(option => option.value === 'winter')!
+      expect(winter.disabled).toBe(true)
+      expect(winter.text).toMatch(/^Winter \(only \d+ complete seasons here\)$/)
+      expect((selectOf(wrapper, 'season').element as HTMLSelectElement).value).not.toBe('winter')
+      expect(wrapper.find('[data-testid="choice-note"]').text()).toContain('Winter has too little data here to compare. Showing instead:')
+    })
+
+    it('say nothing under the choices where nothing is greyed out', async () => {
+      const wrapper = await mountAsk('/?ask=season&season=summer')
+      await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+      expect(wrapper.find('[data-testid="choice-note"]').text()).toBe('')
+    })
+
+    it('are in German, with the season as a parameter of one sentence', async () => {
+      await useNuxtApp().$i18n.setLocale('de')
+      const wrapper = await mountAsk('/?ask=season&season=winter')
+      await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+      expect(chip(wrapper, 'season').text()).toBe('War der letzte Winter hier kälter als sonst?')
+      expect(wrapper.find('label[for="answer-season"]').text()).toBe('Jahreszeit')
+      await useNuxtApp().$i18n.setLocale('en')
+    })
+  })
+
   it('close when the one open is pressed again, and the link follows', async () => {
     const wrapper = await mountAsk()
-    await chip(wrapper, 'summer').trigger('click')
-    await vi.waitFor(() => expect(chip(wrapper, 'summer').attributes('aria-pressed')).toBe('true'))
+    await chip(wrapper, 'season').trigger('click')
+    await vi.waitFor(() => expect(chip(wrapper, 'season').attributes('aria-pressed')).toBe('true'))
     await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
-    expect(useRoute().query.ask).toBe('summer')
-    await chip(wrapper, 'summer').trigger('click')
+    expect(useRoute().query.ask).toBe('season')
+    await chip(wrapper, 'season').trigger('click')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="answer"]').exists()).toBe(false))
-    expect(chip(wrapper, 'summer').attributes('aria-pressed')).toBe('false')
+    expect(chip(wrapper, 'season').attributes('aria-pressed')).toBe('false')
     expect(useRoute().query.ask).toBeUndefined()
     expect(wrapper.find('[data-testid="ask-idle"]').exists()).toBe(true)
   })
@@ -376,7 +520,7 @@ describe('the suggestions', () => {
   it('say that the answer could not be worked out, with a way to ask again', async () => {
     failValues = true
     const wrapper = await mountAsk()
-    await chip(wrapper, 'summer').trigger('click')
+    await chip(wrapper, 'season').trigger('click')
     await vi.waitFor(() => expect(wrapper.text()).toContain('The answer could not be worked out.'))
     expect(wrapper.text()).toContain('The request could not be processed.')
     expect(wrapper.find('[data-testid="answer-status"]').text()).toBe('')
@@ -388,7 +532,7 @@ describe('the suggestions', () => {
   it('hand the focus from the Retry that worked to the heading of the question', async () => {
     failValues = true
     const wrapper = await mountAsk()
-    await chip(wrapper, 'summer').trigger('click')
+    await chip(wrapper, 'season').trigger('click')
     await vi.waitFor(() => expect(wrapper.text()).toContain('The answer could not be worked out.'))
     const retry = wrapper.findAll('button').find(button => button.text() === 'Retry')!
     ;(retry.element as HTMLElement).focus()
@@ -403,7 +547,7 @@ describe('the suggestions', () => {
     const wrapper = await mountAsk()
     expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Arkona')
     expect(chip(wrapper, 'rain').text()).toBe('Will it rain in Arkona tomorrow?')
-    await chip(wrapper, 'summer').trigger('click')
+    await chip(wrapper, 'season').trigger('click')
     await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
     expect(asked('values')[0]!.query.get('stations')).toBe('00183')
   })
@@ -454,7 +598,7 @@ describe('the place from the reader\'s position', () => {
     expect(wrapper.find('[data-testid="use-my-location-status"]').text()).toMatch(/^Asking about Hamburg-Fuhlsbüttel, the station \d+(\.\d)? km from your position\.$/)
     expect(chip(wrapper, 'rain').text()).toBe('Will it rain in Hamburg-Fuhlsbüttel tomorrow?')
 
-    await chip(wrapper, 'summer').trigger('click')
+    await chip(wrapper, 'season').trigger('click')
     await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
     expect(asked('values')[0]!.query.get('stations')).toBe('01975')
   })
@@ -607,7 +751,7 @@ describe('the place from the reader\'s position', () => {
     expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Kiel-Holtenau')
     expect(asked('stations')).toEqual([])
     // the questions still work
-    await chip(wrapper, 'summer').trigger('click')
+    await chip(wrapper, 'season').trigger('click')
     await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
   })
 })

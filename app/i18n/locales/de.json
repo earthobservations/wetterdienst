@@ -79,13 +79,13 @@
     "idle": "Such dir eine Frage aus, sie wird hier aus aktuellen Daten beantwortet.",
     "q": {
       "rain": "Regnet es morgen in {place}?",
-      "summer": "War der letzte Sommer hier heißer als sonst?",
+      "season": "War {last} hier {warmth} als sonst?",
       "wind": "Wie windig war es am {day}?",
       "download": "Wo kann ich stündliche Temperaturen herunterladen?"
     },
     "from": {
       "rain": "Vorhersage, DWD MOSMIX",
-      "summer": "Monatsmittel, DWD",
+      "season": "Monatsmittel, DWD",
       "wind": "Tageswerte, DWD",
       "download": "Alle Wetterdienste"
     },
@@ -125,16 +125,58 @@
       "none": "Die Vorhersage für {name} reicht noch nicht bis morgen.",
       "open": "Ganze Vorhersage öffnen"
     },
-    "summer": {
-      "hotter": "Ja, {anomaly} {unit} wärmer als sonst.",
+    "season": {
+      "warmer": "Ja, {anomaly} {unit} wärmer als sonst.",
       "cooler": "Nein, {anomaly} {unit} kühler als sonst.",
       "usual": "Nicht wirklich: etwa so warm wie sonst.",
-      "detail": "Der Sommer {year} (Juni bis August) hatte im Mittel {mean} {unit}, die Sommer von {from} bis {to} im Mittel {normal} {unit}.",
-      "rank": "Platz {rank} von {count} Sommern seit {first}, vom wärmsten an gezählt.",
-      "chart": "Jeder Sommer gegenüber dem Mittel von {from} bis {to}, in {unit}",
-      "none": "Hier gibt es zu wenige vollständige Sommer für einen Vergleich.",
+      "coldYes": "Ja, {anomaly} {unit} kälter als sonst.",
+      "coldNo": "Nein, {anomaly} {unit} wärmer als sonst.",
+      "coldUsual": "Nicht wirklich: etwa so kalt wie sonst.",
+      "detail": "Der {seasonCap} {year} ({months}) hatte im Mittel {mean} {unit}, die {seasons} von {from} bis {to} im Mittel {normal} {unit}.",
+      "rank": "Platz {rank} von {count} (alle {seasons} seit {first}), vom wärmsten an gezählt.",
+      "chart": "Jeder {season} gegenüber dem Mittel von {from} bis {to}, in {unit}",
+      "none": "Hier gibt es zu wenige vollständige Jahreszeiten für einen Vergleich.",
+      "noneNormal": "Die Station hat nur {count} der {of} Jahreszeiten von {normal}; für den Vergleich braucht es {min}.",
       "open": "Monatsmittel öffnen",
-      "stripes": "Klimastreifen ansehen"
+      "stripes": "Klimastreifen ansehen",
+      "seasonLabel": "Jahreszeit",
+      "refLabel": "Verglichen mit",
+      "refShort": "{normal} (hier nur {count} von {of} Jahreszeiten, {min} nötig)",
+      "refFallback": "{normal} (hier nur {count} von {of} Jahreszeiten, es werden frühere genommen)",
+      "last": {
+        "spring": "der letzte Frühling",
+        "summer": "der letzte Sommer",
+        "autumn": "der letzte Herbst",
+        "winter": "der letzte Winter"
+      },
+      "warmth": {
+        "spring": "wärmer",
+        "summer": "heißer",
+        "autumn": "wärmer",
+        "winter": "kälter"
+      },
+      "name": {
+        "spring": "Frühling",
+        "summer": "Sommer",
+        "autumn": "Herbst",
+        "winter": "Winter"
+      },
+      "plural": {
+        "spring": "Frühlinge",
+        "summer": "Sommer",
+        "autumn": "Herbste",
+        "winter": "Winter"
+      },
+      "months": {
+        "spring": "März bis Mai",
+        "summer": "Juni bis August",
+        "autumn": "September bis November",
+        "winter": "Dezember bis Februar"
+      },
+      "seasonShort": "{seasonCap} (hier nur {count} vollständige Jahreszeiten)",
+      "noteGreyed": "Ausgegraut: zu wenige Jahreszeiten an dieser Station. Ein Normalwert braucht {min} seiner {of} Jahreszeiten.",
+      "noteAskedSeason": "{seasonCap} hat hier zu wenige Daten für einen Vergleich. Stattdessen gezeigt: {shown}.",
+      "noteAskedNormal": "{asked} hat hier für diese Jahreszeit zu wenige Daten: {count} seiner {of} Jahreszeiten, {min} nötig. Stattdessen gezeigt: {shown}."
     },
     "wind": {
       "calm": "Ruhig.",
@@ -511,7 +553,7 @@
     "menuDescription": "Wie eine Größe gemessen wird, wie aus einer Messung ein Wert wird und was die Zahl sagen kann",
     "tocTitle": "Inhalt",
     "editionTitle": "Quellen und Ausgabe",
-    "editionText": "Jeder Eintrag nennt seine Quellen: erst in einfachen Worten, was die Quelle ist und was sie sagt, dann die formale Quellenangabe. Die Hauptquelle ist der Guide to Instruments and Methods of Observation (WMO-No. 8) der Weltorganisation für Meteorologie, zitiert nach Band und Kapitel: Band I und II in der Ausgabe 2024, Band V in seiner Ausgabe 2023, der aktuellen. Eine vorläufige Ausgabe 2026 gibt es; diese Seite verwendet sie nicht. Wo ein Eintrag sagt, was ein Anbieter tut, nennt er die eigene Datei des Anbieters.",
+    "editionText": "Jeder Eintrag nennt seine Quellen: erst in einfachen Worten, was die Quelle ist und was sie sagt, dann die formale Quellenangabe. Die Hauptquelle ist der Guide to Instruments and Methods of Observation (WMO-No. 8) der Weltorganisation für Meteorologie, zitiert nach Band und Kapitel: Band I, II und III in der Ausgabe 2024, Band V in seiner Ausgabe 2023, der aktuellen. Eine vorläufige Ausgabe 2026 gibt es; diese Seite verwendet sie nicht. Wo ein Eintrag sagt, was ein Anbieter tut, nennt er die eigene Datei des Anbieters.",
     "editionLink": "WMO-No. 8 bei der WMO",
     "groupMeasured": "Was gemessen wird, und wie",
     "groupReading": "Die Daten lesen",
@@ -536,6 +578,10 @@
       "presentWeather": "Gegenwärtiges Wetter und Erdbodenzustand",
       "clouds": "Wolken",
       "snow": "Schnee",
+      "automaticStations": "Automatische Wetterstationen",
+      "urbanStations": "Stationen in der Stadt",
+      "roadStations": "Straßenwetterstationen",
+      "fromMeasurementToValue": "Von der Messung zum Wert",
       "normals": "Klimanormalwerte",
       "time": "Zeit",
       "observationForecastDerived": "Beobachtung, Vorhersage und abgeleitete Daten"

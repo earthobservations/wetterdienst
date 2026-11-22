@@ -60,9 +60,19 @@ export function ruleParams(rules: readonly Rule[], tag: string): Record<string, 
   return Object.fromEntries(rules.flatMap(rule => Object.entries(rule.values ?? {}).map(([name, value]) => [name, valueText(value, tag)])))
 }
 
-/** One line of "the numbers used" as it is written */
+/**
+ * One line of "the numbers used" as it is written. A name of the line's parameters that the chip's texts list under `terms`
+ * (the season, its months and its plural) holds an id there (`winter`), which is written as the texts' own language has it.
+ */
 export function numberLineText(texts: MethodTexts, chip: Chip, line: NumberLine): string {
-  return fill(texts.chips[chip.id]?.numbers[line.id] ?? '', line.params)
+  const method = texts.chips[chip.id]
+  const params: Record<string, string | number> = { ...line.params }
+  for (const [name, words] of Object.entries(method?.terms ?? {})) {
+    const id = line.params[name]
+    if (typeof id === 'string' && id in words)
+      params[name] = words[id]!
+  }
+  return fill(method?.numbers[line.id] ?? '', params)
 }
 
 /** Where in a work a rule's source is, as a link names it: "WMO-No. 1203 (2017), §3" */

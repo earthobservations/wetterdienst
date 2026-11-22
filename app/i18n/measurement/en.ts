@@ -6,15 +6,17 @@
  * which the entry names; a statement that no source supports is not here. `de.ts` says the same, entry for entry
  * (`tests/unit/measurement.test.ts` holds the two to each other).
  *
- * The editions of the WMO Guide are the current ones of each volume: the 2024 edition of Volumes I and II (checked
- * against the official PDFs, whose chapters 2, 5 and 8 of Volume I and chapter 2 of Volume II are the text of the 2023
- * edition) and the 2023 edition of Volume V. The provisional 2026 edition is not used.
+ * The editions of the WMO Guide are the current ones of each volume: the 2024 edition of Volumes I, II and III (checked
+ * against the official PDFs, whose chapters 2, 5 and 8 of Volume I, chapter 2 of Volume II and all chapters of Volume III
+ * but chapter 5 are the text of the 2023 edition) and the 2023 edition of Volume V. The provisional 2026 edition is not
+ * used.
  */
 
 import type { MeasurementSource, MeasurementTexts } from './types'
 
 const WMO_I = 'https://library.wmo.int/records/item/68695-guide-to-instruments-and-methods-of-observation'
 const WMO_II = 'https://library.wmo.int/records/item/68660-guide-to-instruments-and-methods-of-observation'
+const WMO_III = 'https://library.wmo.int/records/item/68661-guide-to-instruments-and-methods-of-observation'
 const WMO_V = 'https://library.wmo.int/records/item/68663-guide-to-instruments-and-methods-of-observation'
 const DWD_DAILY = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/DESCRIPTION_obsgermany-climate-daily-kl_en.pdf'
 
@@ -34,6 +36,16 @@ const DWD_HOURLY_CLOUDINESS = 'https://opendata.dwd.de/climate_environment/CDC/o
 const DWD_HOURLY_WEATHER = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/weather_phenomena/DESCRIPTION_obsgermany_climate_hourly_weather_phenomena_en.pdf'
 /** The derived soil dataset of the DWD: evaporation and soil moisture are calculated by a model (the English description is the monthly one) */
 const DWD_SOIL_MONTHLY = 'https://opendata.dwd.de/climate_environment/CDC/derived_germany/soil/monthly/recent/DESCRIPTION_derived_germany-soil-monthly-v2_en.pdf'
+/** The monthly dataset of the DWD, whose description says how a monthly value is formed and what to consider about the daily means */
+const DWD_MONTHLY = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/monthly/kl/DESCRIPTION_obsgermany-climate-monthly-kl_en.pdf'
+/** The urban climate stations of the DWD (climate_urban): the description of the hourly air temperature and humidity says what the stations are for */
+const DWD_URBAN = 'opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/'
+const DWD_URBAN_TU = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate_urban/hourly/air_temperature/recent/DESCRIPTION_obsgermany_climate_urban_hourly_tu_recent_en.pdf'
+/** The road weather stations of the DWD: the BUFR template says what a station reports, the notice of the SH10 code what the data are and are not */
+const DWD_ROAD = 'opendata.dwd.de/weather/weather_reports/road_weather_stations/'
+const DWD_ROAD_TEMPLATE = 'https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/bufr/bufr_templates_sws_national_pdf.pdf?__blob=publicationFile&v=3'
+const DWD_ROAD_NOTICE = 'https://www.dwd.de/DE/leistungen/opendata/help/schluessel_datenformate/bufr/sws_sh10_code_pdf.pdf?__blob=publicationFile&v=4'
+const WETTERDIENST_DOCS = 'https://wetterdienst.readthedocs.io/en/latest/data/'
 const KNMI_DAILY = 'https://www.knmi.nl/nederland-nu/klimatologie/daggegevens'
 const NOAA_GHCN_DAILY = 'https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt'
 
@@ -67,7 +79,7 @@ function ghcnh(plain: string, citation: string): MeasurementSource {
 /** What the WMO is, once, for every entry that cites its Guide */
 const WMO_PLAIN = 'The World Meteorological Organization (WMO) is the United Nations agency in which the national weather services agree on how weather is measured and compared. Its Guide to Instruments and Methods of Observation is the handbook for it.'
 
-/** Volumes I and II: the 2024 edition, the current one */
+/** Volumes I, II and III: the 2024 edition, the current one */
 function wmoGuide(plain: string, citation: string, href: string): MeasurementSource {
   return { plain: `${WMO_PLAIN} ${plain}`, citation: `WMO (2024). Guide to Instruments and Methods of Observation (WMO-No. 8), 2024 edition. ${citation}`, href }
 }
@@ -793,6 +805,253 @@ export const measurement: MeasurementTexts = {
         `${STATION_FILES} Metadaten_Geraete_Schneehoehe_* and Metadaten_Parameter_klima_tag_*; dataset description "Daily precipitation observations for Germany" (more_precip, version v24.3, 2024). Environment and Climate Change Canada, Climate glossary, "Climatological Day" (climate.weather.gc.ca/glossary_e.html).`,
         'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/more_precip/DESCRIPTION_obsgermany-climate-daily-more_precip_en.pdf',
       ),
+    ],
+  },
+
+  'automatic-stations': {
+    title: 'Automatic weather stations',
+    summary: 'An automatic weather station measures and reports without an observer. Software forms its values from many samples, and WMO says that what an instrument observes of clouds, visibility and present weather is not the same as what a person observes.',
+    parts: [
+      {
+        title: 'How it is measured',
+        paragraphs: [
+          'WMO defines an automatic weather station (AWS) as a "meteorological station at which observations are made and transmitted automatically". Its main functions are to turn the measurements of the weather elements into electrical signals with sensors, to process these signals into meteorological data, and to record or transmit the result. A station with an AWS can be fully automatic, or a mixed system in which an observer adds visual observations.',
+          'An AWS is usually not a stand-alone device. WMO describes it as part of a system with three main elements: the station with the sensors connected to it, a modem or interface to a telecommunication network, and a central processing system that is fed by the data of all the stations of the network. The central processing unit of the station acquires, processes, stores and transmits the data.',
+          'WMO sorts AWSs into four categories, though some equipment covers several of them. Light stations measure a few variables such as precipitation or air temperature. "Basic" stations typically measure air temperature, relative humidity, wind speed and direction, precipitation and sometimes air pressure. "Extended" stations add solar radiation, sunshine duration, soil temperature, evaporation and so forth. The fourth category is basic or extended stations with automatic observation of visibility, cloud-base height and present weather.',
+          'WMO gives, among its reasons for automation, observations from places where people are not available or that are hard to reach, data 24 hours a day at staffed stations, more reliable measurement by digital techniques, networks that are measured in the same standardized way, and measuring and reporting at high frequency or continuously. It says that all modern sensing instruments are suited for use with an AWS, with constraints such as being robust, needing little maintenance and cleaning, and being easy to exchange. Volume I of the Guide describes the instruments, and the other entries of this page follow it.',
+        ],
+      },
+      {
+        title: 'How a reading becomes a value',
+        paragraphs: [
+          'The software of an AWS does the steps from the signal to the value. WMO lists as the operations that are typically required, some or all of: sampling the output of the instrument, converting it to meteorological data, linearization, averaging, quality control, data reduction, message formatting and checking, and storing, transmitting and displaying the data. Linearization, WMO says, should always be carried out before an average is calculated.',
+          'Sampling and averaging go together. A generally accepted rule of thumb is to sample at least once during the time constant of the instrument. Because of the small-scale variability of the atmosphere and the noise that electronics introduce, WMO calls averaging a most desirable process for reducing the uncertainty of reported data. It points to its table of requirements, which recommends that "instantaneous" values of most variables be a one-minute average, except for wind and visibility. Wind measurements, WMO says, need a high acquisition rate and a calculation of mean values and gusts over larger periods (10 minutes for synoptic use, 2 minutes for local aeronautical use); the calculation can be done on the station, but many modern anemometers have it built in.',
+          'The statistics are formed by the station or by the central system. WMO names extremes over one or more periods (for example for temperature), total amounts over periods from minutes to days (for example for rain), means over different periods and integrated values (for example for radiation), and it names quantities that are derived, such as the dew point and the pressure at sea level. It notes a tendency, where the telecommunication network allows it, to collect one-minute data centrally and to process them there. See "From measurement to value".',
+          'The messages that leave the station are coded. WMO notes the transition from alphanumeric codes, typically SYNOP, to table-driven codes such as BUFR, and says that the coding of standard messages is generally easier in a central processing platform.',
+        ],
+      },
+      {
+        title: 'What the number can and cannot tell',
+        paragraphs: [
+          'WMO says that the performance of today\'s electronics is no longer a limiting factor in reaching the required accuracy: the measurement uncertainties of an AWS are mainly linked to the characteristics of the instruments themselves and their exposure. The existing guidelines for the siting of conventional stations, WMO says, are also valid for AWSs.',
+          'Automation changes what is observed. WMO says that cloud cover is usually derived from the cloud-base height that a ceilometer measures, combined or averaged over a period of 10, 30 or 60 minutes, while a person has a larger view of the sky, at least by day; the automated measurement represents a line through the sky in the direction of the upper winds, which may not correlate with the whole sky seen by a person at one moment. A measurement of visibility represents the place of the instrument unless several meters are installed, while a person looks all around but is limited by the landmarks that there are. A present-weather instrument is not currently able to identify the full range of present-weather codes that a person can report. In WMO\'s words, manual and automated observations of visibility, cloud cover and present weather are distinctly different.',
+          'Some of the work is not automated. WMO lists that the quality of some observations may deteriorate because key parts of the measurement process are not automated, for example cleaning the dome of a radiation instrument or an evaporation pan, and that the move from manual visual observations to automated measurements may change the nature of some observations in a way that matters for climate monitoring. Instruments with electrical outputs drift in time, WMO says, so they need regular inspection and calibration, and the network manager should organize a regular field inspection every 6 to 12 months, depending on the instruments, the access to the sites and the maintenance organization.',
+          'Where a station provides data for climate records, WMO asks for overlapping periods of comparable measurements between the old and the new instruments, and for documentation of the differences between the old and the new site and of the changes of instruments. As general guidelines it suggests 12 months of overlap for wind speed and direction, 24 months for temperature, humidity, sunshine and evaporation, and 60 months for precipitation, and it calls 24 months, two seasonal cycles, a useful compromise.',
+          'The station checks its own samples. WMO describes checks for a plausible value and a plausible rate of change, for an instrument that no longer reacts to the weather, for the number of valid samples in a period, and against other measured variables (the dew point cannot exceed the air temperature). It says that, if a station has no data quality control and no checks of its messages, its data are likely to contain undetected errors, and that the checks are often split between the station and the central system.',
+          'How a station is built also limits what it can tell. WMO writes of "all-in-one" designs that some of their instruments are difficult to calibrate and often poorly documented, and that all the parameters are measured at the same height, which it calls a strong weakness: mounted at about 2 m, the wind measurement is very sensitive to the surface below; mounted at 10 m to follow the recommendations for wind, the other parameters are measured at 10 m too, which does not comply with the siting recommendations.',
+        ],
+      },
+      {
+        title: 'Where providers differ',
+        paragraphs: [
+          'DWD\'s station files say which kind of automatic station a value comes from, and since when. At Potsdam the wind data behind the daily mean wind speed and the daily highest gust are, DWD writes, generated from 10-minute means of automatic stations of the first generation (named MIRIAM/AFMS2) from August 1992 to April 2002 and again from June 2002 to August 2003, and of the second generation (named AMDA) since 1 September 2003; for May 2002 the file names SYNOP weather reports, the internationally coded observations. At Frankfurt/Main the hourly air temperature and relative humidity come from automatic stations of the first generation from November 1993 to April 2001, and from SYNOP weather reports since.',
+          'DWD says that between the end of the nineties and 2009 many of its stations changed from manual to automated observation. Its description of the monthly dataset names changes of instruments and of the observing personnel among the sources of uncertainty of long series.',
+          'DWD marks some observations as made by a person or by an instrument: its hourly cloud cover and its hourly visibility carry an indicator, P for a person and I for an instrument (see "Clouds" and "Visibility"). WMO describes road weather stations as special-purpose automatic weather stations (see "Road weather stations"). This page says nothing about the automatic stations of other providers.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Volume III, Chapter 1 on measurements at automatic weather stations is where this entry takes the definition, the kinds of station, the steps from the signal to the value, the quality control and the differences between automated and manual observation from.',
+        'Volume III (Observing systems), Chapter 1 (Measurements at automatic weather stations), sections 1.1.1, 1.1.2, 1.1.3, 1.1.4, 1.1.5, 1.2.3, 1.3.1, 1.4.2, 1.4.2.2, 1.4.2.5, 1.4.2.7, 1.5, 1.6, 1.7.2.',
+        WMO_III,
+      ),
+      dwdFiles(
+        'The files that come with each station\'s data say from which kind of station a value comes. The description of its daily dataset says that many stations changed from manual to automated observation.',
+        `${STATION_FILES} Metadaten_Parameter_klima_tag_* (parameters FM and FX of Potsdam); hourly archive stundenwerte_TU_01420_akt.zip in ${DWD_HOURLY}air_temperature/recent/ (Metadaten_Parameter_tu_stunde_01420), read on 22 November 2026; dataset description "Daily station observations (temperature, pressure, precipitation, sunshine duration, etc.) for Germany", version v24.3 (2024), section "Data origin".`,
+        DWD_DAILY,
+      ),
+      dwdFiles(
+        'The description of its monthly dataset lists the sources of uncertainty of long series, among them changes of instruments and of observing personnel.',
+        'DWD Climate Data Center. Dataset description "Monthly station observations (temperature, precipitation, sunshine duration, wind and cloud cover) for Germany", version v24.03 (2024), section "Uncertainties", read on 22 November 2026.',
+        DWD_MONTHLY,
+      ),
+    ],
+  },
+
+  'urban-stations': {
+    title: 'Urban stations',
+    summary: 'WMO says that most developed sites make it impossible to follow the standard rules for the exposure of instruments. An urban station is therefore placed to stand for a kind of district of the city, and what it measures is the local climate of that district.',
+    parts: [
+      {
+        title: 'How it is measured',
+        paragraphs: [
+          'The units and the instruments are the same as in other environments, WMO says; what is special about a city is the choice of the site, the exposure of the instruments and the documentation. WMO gives the reason: most developed sites make it impossible to follow the standard guidelines for site selection and exposure of Volume I, because buildings and trees obstruct the airflow and the exchange of radiation, the ground is covered with unnatural surfaces, and human activities give off waste heat and water vapour. It adds that it is sometimes necessary to accept exposure over non-standard surfaces at non-standard heights, to split the observations between two or more places, or to be closer than usual to buildings or waste heat exhausts.',
+          'WMO distinguishes three scales. The microscale is that of individual buildings, trees, streets and courtyards, from less than 1 m to hundreds of metres, where surface and air temperatures may vary by several degrees within very short distances. The local scale is that of a neighbourhood with similar development, one to several kilometres, which is what a standard climate station is designed to monitor. The mesoscale is that of the whole city, typically tens of kilometres, and a single station is not able to represent it.',
+          'In the vertical, the buildings and trees form the urban canopy layer. WMO says that an instrument below a certain height, the blending height, may register microclimate anomalies, and that above it the instrument "sees" a blended signal that is representative of the local scale. Rule-of-thumb estimates and field measurements indicate that this height can be as low as 1.5 times the mean height of the buildings and trees at densely built and homogeneous sites, but greater than 4 times in areas of low density.',
+          'WMO describes two ways to place the instruments: in the canopy layer at a spot that is surrounded by typical conditions, with the sensors at heights similar to those at non-urban sites, or on a tall tower above the roughness layer. In general, it says, the first works best for air temperature and humidity, and the second for wind speed and direction and for precipitation, so urban stations often consist of instruments both below and above roof level.',
+          'To choose the district, WMO sorts urban forms into seven urban climate zones, from intensely developed centres with tall buildings to semi-rural development with scattered houses, by the height and spacing of the buildings and the share of sealed ground. Within a zone it looks for reasonably homogeneous development and names what to avoid: unusually wet patches in an otherwise dry area, individual buildings that jut up by more than half the average building height, a large paved car park in an area of irrigated gardens, a large concentrated heat source, and the transition between two zones. Rooftops have anomalous microclimates of their own, WMO says, and are very poor places for air temperature, humidity, wind and precipitation unless the instruments are on very tall masts; they can be good for incoming radiation.',
+          'For the air temperature the usual sensors suit, WMO says, with particular care for radiation shielding and ventilation. The standard screen height of 1.25 to 2 m is acceptable, but it may be better to allow greater heights, because observations in canyons show very slight air temperature gradients through most of the canopy layer, provided that the sensor is more than 1 m from a surface: measurements at 3 or 5 m are not very different from those at the standard height, they have slightly greater source areas, they are out of easy reach and they get less of the heat of vehicle exhaust and less dust.',
+          'For the wind, WMO says that a place that meets the open-country rule (the anemometer 10 m above the ground, obstacles at least 10 times their height away) cannot be found in typical urban districts, and that one that exists is almost certainly not representative of the zone. In densely built districts with fairly even building height it recommends an anemometer on a mast of open construction at least 1.5 times the mean height of the buildings and trees. It does not recommend measuring wind speed or direction in densely built areas with several high-rise buildings unless a very tall tower is used.',
+        ],
+      },
+      {
+        title: 'How a reading becomes a value',
+        paragraphs: [
+          'The reading becomes a value as at any other station: WMO says that the timing and frequency of observations and the coding of reports should follow appropriate standards, and that for automated stations the recommendations of its chapter on automatic stations apply (see "Automatic weather stations"). What differs is the area that a value stands for.',
+          'A sensor sees only part of its surroundings, WMO says: its source area. For a radiometer that looks down, it is a circle around the instrument whose size depends on the height of the sensor. For a thermometer, a hygrometer or an anemometer, whose reading is carried to it by turbulence, it is an ellipse that lies upwind and moves with the wind direction and with how stable the air is. WMO gives as estimates that the distance that matters for a sensor at screen height, about 1.5 m, is a few tens of metres in neutral conditions and perhaps more than 100 m when the air is stable, and that the circle of influence on a screen-level temperature or humidity sensor is thought to have a radius of about 0.5 km typically, depending on the building density. It calls the immediate environment of the station by far the most critical.',
+          'Where the wind is measured at different heights in one settlement, WMO describes how to bring the values to a common height with the logarithmic wind profile, in which the heights are counted from the displacement height, the level of the "ground" aloft that the buildings form; it says that a suitable reference height could be 50 m above the displacement height. Where there is no suitable place for a wind sensor, the wind at the reference height can be calculated from the observations of another urban station or of the airport.',
+        ],
+      },
+      {
+        title: 'What the number can and cannot tell',
+        paragraphs: [
+          'WMO says that in urban areas there is interest in the urban effect itself: the change of weather variables as a city develops, compared with what would have happened had it not been built. That question is essentially unanswerable once the city is built, WMO says, the assessment of urban effects is fraught with methodological difficulties, and no "truth" is possible, only surrogate approximations.',
+          'One station stands for one kind of district. Air temperature and humidity in the canopy layer can be locally representative if the site is carefully selected, WMO says; if they are observed above roof level, there is no established link between them and the values within the canopy layer. Wind and the turbulent fluxes should be measured above the roughness layer, where the area that contributes has to be shown to be representative of the zone. A station that carries a city\'s name need not stand in it: for radiation, WMO notes that sites are often in rural or remote places to avoid the pollutants of cities, and that even when a station has the name of a city, the metadata usually reveal that it is located well outside the urban limits.',
+          'Rain gauges cope badly with the city. For precipitation WMO names four problems: trees and buildings that catch precipitation on its way to the ground, hard surfaces that splash water into the gauge and overhanging objects that drip into it, the very local concentration or absence of precipitation-bearing airflow around obstacles, and the gustiness of the wind together with the gauge itself, which causes under- or over-catch. On a mast above the roofs, a gauge meets more wind than near the ground, so its output has to be corrected. Standard evaporation instruments are not recommended in the canopy layer, because the surfaces of pans and lysimeters are probably not representative of the surroundings of an urban site (see "Evaporation").',
+          'Cities change, and so does what a station sees. WMO says that urban sites have an unusually high degree of complexity and a greater tendency to change, and that frequently updated metadata are therefore as important as the measurements themselves; without a good description of the station, it is impossible to link the measurements to the surrounding terrain.',
+        ],
+      },
+      {
+        title: 'Where providers differ',
+        paragraphs: [
+          'Wetterdienst has urban stations from one provider, DWD, in the datasets whose names begin with urban_ (for example 10_minutes/urban_temperature_air). DWD says in its description that the measurements are made in cities to compare the city with the surrounding country, that the stations cannot meet the usual WMO standards because of their urban position and follow instead the WMO guidance on urban sites by T. R. Oke (WMO Instruments and Observing Methods Report No. 81, 2006), and that the data of the folder recent/ are not yet fully quality-checked. It lists criteria for the position within a city: an inner-city position, a point that is typical for its district, preferably a place within continuous building and not at a transition between districts, a ground that matches the surroundings, a distance to the next house of half the usual distance between houses but not less than 5 m, and no place in a park or under trees.',
+          'DWD says that its urban data have a limited representativeness and quality and recommends that users keep this in mind. Records for Germany, it says, are not taken from these stations but only from climate stations that meet the usual WMO requirements and stand outside the cities. It names local influences such as shielding and reflecting surfaces as the uncertainty that dominates in urban areas.',
+          'The stations and their instruments differ. The 10-minute air temperature has six stations in the list of the recent folder: Berlin-Alexanderplatz (since July 2015), Freiburg-Mitte, Hannover-Nordstadt, Dresden-Neustadt, Regensburg-Mitte and Hamburg-Neustadt (since July 2024). Not every station has every quantity: the hourly pressure and soil temperature of the recent folder exist for Berlin-Alexanderplatz only. The station files list the heights of the sensors where they have them. At Berlin-Alexanderplatz the air temperature and the humidity are measured 2 m above the ground, the rain gauge 1 m and the wind sensor 368 m; at Freiburg-Mitte, Dresden-Neustadt and Regensburg-Mitte the wind sensor is listed 2 m above the ground, and the wind archives of Hannover-Nordstadt and Hamburg-Neustadt list none. WMO advises measuring the wind above the roughness layer (see above); the files do not say why three stations list their wind sensor at 2 m.',
+          'DWD describes how its values are formed. The station files describe the 10-minute air temperature and humidity of the six stations as "momentane" (instantaneous) values in 2 m height, in UTC. In the hourly files the value for hour x is the one measured 10 minutes before: at UTC 11, DWD writes, the mean of the one-minute interval ending at UTC 10:50 is given.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Volume III, Chapter 9 on urban observations is where this entry takes the scales, the choice of the site, the exposure of the instruments, the limits of the values and the remarks on metadata from.',
+        'Volume III (Observing systems), Chapter 9 (Urban observations), sections 9.1, 9.1.1.1, 9.1.1.2, 9.1.1.3, 9.1.1.4, 9.1.1.5, 9.1.1.6, 9.2.2, 9.3.2.1, 9.3.5.2, 9.3.6, 9.3.7, 9.3.10, 9.4, 9.5, 9.6.1, 9.6.3, Table 9.1.',
+        WMO_III,
+      ),
+      dwdFiles(
+        'The description of its urban dataset says what the stations are for and how their sites were chosen. The files that come with each station name the sensors and their heights.',
+        `DWD Climate Data Center, files in ${DWD_URBAN}, read on 22 November 2026: dataset description "Recent hourly air temperature and humidity, observed at urban stations for selected urban areas in Germany" (hourly/air_temperature/recent/, last edited 19 December 2018); the station list zehn_st_min_tu_Beschreibung_Stationen.txt (10_minutes/air_temperature/recent/) and the folders hourly/pressure/recent/ and hourly/soil_temperature/recent/; inside the station archives 10minutenwerte_TU_STADT_*_akt.zip, 10minutenwerte_FF_STADT_*_akt.zip and 10minutenwerte_RR_STADT_00399_akt.zip: Metadaten_Geraete_Lufttemperatur_*, Metadaten_Geraete_Rel_Feuchte_*, Metadaten_Geraete_Geschw_Mittel_*, Metadaten_Geraete_Niederschlagshoehe_* and Metadaten_Parameter_zehn_st_min_tu_*.`,
+        DWD_URBAN_TU,
+      ),
+    ],
+  },
+
+  'road-stations': {
+    title: 'Road weather stations',
+    summary: 'A road weather station stands beside the road and measures what a road manager needs: the air, and the temperature and the state of the road surface. It is placed for the road, so it is not a standard station.',
+    parts: [
+      {
+        title: 'How it is measured',
+        paragraphs: [
+          'Road weather stations serve the managers of road networks. WMO says that operational decisions, such as issuing road weather information and starting de-icing and snow clearing, depend on road meteorological observations, which are increasingly made by special-purpose automatic weather stations. It names four main needs of the managers: real-time observation of the road weather, a better forecast of the temperature of the pavement surface, a road climate database and reliable data. Road managers do not need exceedingly accurate measurements, with the exception of the road-surface temperature; they want data that are as reliable as possible.',
+          'WMO lists the measurements that are important at a road weather station for forecasting the state of the road: air temperature and humidity, wind speed and direction, amount and type of precipitation, visibility, global and long-wave radiation, road-surface temperature and road-surface condition. The air sensors should follow the usual rules of the Guide. For road stations WMO adds that the thermometer should not be mounted above concrete or asphalt, which could inflate the measured temperature, nor in the water spray of the wheels of passing traffic, and that a wet-bulb psychrometer is not recommended because hydrocarbons continually contaminate its wick.',
+          'The road-surface temperature is measured with a sensor that is embedded in the road. WMO describes active sensors based on a 100-ohm platinum resistance, which have to lie in the plane of the road with no depression where water could gather, and out of the line of the tyre tracks, otherwise the sensor surface is soiled and the measurement is affected by friction heating. The temperature of the pavement can also be measured at 5, 10 and 20 cm below the road surface. The road-surface condition sensor estimates whether the surface is dry, wet, frosted or icy, and the freezing temperature of the water on it: it heats and then cools the sensor using the Peltier effect, and the rate of cooling depends on the surface condition and the freezing temperature.',
+          'Precipitation is usually measured with a tipping-bucket gauge, where increments of usually 0.2 mm are summed and which may be heated for snow, and the type of precipitation with sensors that estimate it electronically or optically. Visibility is measured with transmissometers and forward-scatter meters, and WMO notes that road managers are interested in visibilities below 200 m, the danger threshold. Wind is measured at the standard height of 10 m in an open area.',
+        ],
+      },
+      {
+        title: 'How a reading becomes a value',
+        paragraphs: [
+          'The raw signals of the sensors must be processed or filtered into representative average values, WMO says, either in active sensors, in the interface of the data-acquisition unit or in the higher-level processing of the station; the averaging times are those of the table of requirements in Volume I, Chapter 1 (see "From measurement to value"). Algorithms that act on the outputs of the sensors should come from authoritative sources and be rigorously tested, and any in-house algorithm should be recorded in the station metadata or in network manuals.',
+          'Station and central computer share the work. WMO describes a move to more processing in the remote unit, but says that a network of stations that are no more complex than necessary for reliable data acquisition, with a central computer for the complex algorithms, the quality assurance and the code translation, may be a more reliable and less costly system. One example of what can be calculated is an extrapolated road-surface temperature: an algorithm takes the last measurements and creates a quadratic equation, from which estimates of the temperature over the next 3 hours can be calculated; WMO uses it in its examples of alarms.',
+          'WMO says that the designers of a road network should consider WMO\'s standard message coding, which lets other users such as the national weather services receive the data and use them in other meteorological applications. The coding can be done at the station or, as is more likely, in the central computer after the quality assurance of the data.',
+        ],
+      },
+      {
+        title: 'What the number can and cannot tell',
+        paragraphs: [
+          'A road station is placed for the road. It has to stand next to the roadway so that the road-surface sensors can be installed, so some compromise on ideal meteorological siting and exposure may occur, WMO says, and it advises users who want to use road measurements in other meteorological applications of important deviations, in sensor exposure for example. The site next to the road should in general be level, with short grass, and not shaded by buildings or trees.',
+          'The road-surface condition sensor is a special case. WMO says that it is difficult to ensure that its response is representative of the true road-surface condition, because of the small sample, the location on the road and variable embedding practices, and that its measurement depends on traffic density and is otherwise not very stable with time. The road-surface temperature sensor needs a thermal lag that matches that of the road surface, a surface finish with low absorptance in the infrared to minimize radiation error and, for cables longer than 20 m, a compensation of the cable resistance. Measuring the road-surface temperature from a distance with thermal infrared sensors is generally not practical, WMO says, because of the water spray from vehicle tyres.',
+          'The air and precipitation sensors have the errors of the other entries and some of their own. WMO says that humidity sensors suffer from contamination by atmospheric and vehicle pollution, and that their calibration should be checked at least every six months, particularly before the winter season. A tipping-bucket gauge is not satisfactory for indicating the onset of very light rain or in prolonged periods of freezing weather, and its totals will be lower than the true values because of wind effects around the orifice, evaporation from the buckets between showers and loss between tips of the buckets in heavy rain. For the type of precipitation, WMO says that existing sensors are lacking in discrimination and stable reproducibility.',
+          'The road is a hard place for a station. WMO names vibration, interference from vehicle ignition, exhaust pollution, corrosion from salt spray and damage as problems of road stations, and it says that it is very difficult for a road manager to detect erroneous measurements; gross sensor faults may be detected by the software of the station, which should then raise an alarm.',
+        ],
+      },
+      {
+        title: 'Where providers differ',
+        paragraphs: [
+          'Wetterdienst has road weather stations from one provider, DWD (dwd/road, 15-minute data). DWD publishes the reports of the stations as BUFR files, one for each group of stations every 15 minutes. In its notice on the use of the data of the black-ice warning systems (Glättemeldeanlagen) it says that the road construction administrations of the federal states pass the data to DWD, that they are unchecked point measurements which do not reflect the conditions on a stretch of road, and that there is no claim to regular and complete deliveries.',
+          'DWD\'s BUFR template for road weather information (status March 2015) says what a station reports: the air temperature (dry thermometer), the dew point, the relative humidity and the visibility; the temperature of the road surface; the temperature below the road surface, the first at 0.30 m depth and a second one for example at 0.15 or 0.07 m; the thickness of the water film and the road-surface condition; the precipitation (intensity class, intensity, type and amount); the wind and the highest gust; and information on the functioning of the station. DWD notes that most stations report only one position and one temperature below the road, and that the standard period of a report is 15 minutes. Wetterdienst returns the temperature of the road surface as temperature_surface, the film of water as water_film_thickness (in millimetres by default, where DWD writes metres) and the condition of the surface as road_surface_condition. Which sensors a station has differs: DWD\'s older description of the code of the road weather data (SH10, status May 2001) says that black-ice warning systems usually measure no visibility, no precipitation amounts or intensity classes and no water film thickness.',
+          'DWD\'s documents give a few more things that differ by station. The position of the road sensor is coded as a lane, between or in the wheel tracks; in DWD\'s description of the code the standard position of the road-surface temperature is the outermost passing lane, between the wheel tracks. Some stations can only distinguish between dry, not dry and slippery: for them DWD added the codes 6 (glaze) and 7 (not dry) to the table of the road-surface condition, which also has 0 dry, 1 moist, 2 wet, 3 rime, 4 snow and 5 ice. DWD says that there is no uniform definition of classes of the water film thickness. In the files of several groups of stations read on 22 November 2026, the height of the air-temperature sensor is given between 4 and 5 m in some (4 m, 4.05 m or 5 m, by wetterdienst\'s documentation) and not at all in others, where WMO asks for 1.25 to 2 m. The averaging period of the wind differs by group of stations: DWD\'s description of the code says that only the wind is averaged, over 10 minutes, and that the other values are the current values of each quarter of an hour, while the files of some groups name 15 minutes, a period of 0, or none (wetterdienst\'s documentation of the dataset).',
+          'The names of the parameters do not tell a forecast from a measurement. temperature_surface is also the name of the forecast of the road-surface temperature in DWD\'s road weather forecast SWSMOS (dwd/swsmos, from a road weather model), and the forecast has its own codes for the road-surface condition (road_surface_condition_forecast, 1 dry, 2 moist, 3 snow, 4 hoar frost, 5 freezing wetness, 6 glaze ice), which are not those of the stations. See "Observation, forecast and derived data". This page says nothing about the road weather stations of other providers.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Volume III, Chapter 10 on road meteorological measurements is where this entry takes the purpose of the stations, the measurements, the sensors and their typical problems from.',
+        'Volume III (Observing systems), Chapter 10 (Road meteorological measurements), sections 10.1.2, 10.1.3, 10.2.1, 10.3.1, 10.3.1.1, 10.3.1.2, 10.3.1.3, 10.3.1.4, 10.3.1.6, 10.3.1.7, 10.3.1.8, 10.3.1.9, 10.4.1, 10.4.2, 10.5.2, 10.8.1, 10.8.2, 10.9, 10.10.1.',
+        WMO_III,
+      ),
+      dwdFiles(
+        'Its BUFR template for road weather information says what a road weather station reports and how the codes are laid out.',
+        `DWD. "BUFR Template für Straßenwetter Informationen" (national template of the road weather stations, status March 2015), the notes and the code tables, read on 22 November 2026; the directory ${DWD_ROAD}, whose listing shows a file for each group of stations every 15 minutes.`,
+        DWD_ROAD_TEMPLATE,
+      ),
+      dwdFiles(
+        'Its notice on the data of the black-ice warning systems says where the data come from and what they are and are not. The description of the older code that comes with it says which values are averaged.',
+        'DWD. "Verwertung der Daten von Glättemeldeanlagen (GMA Daten)" and the annex "Aufbau und Inhalt des Straßenwetterdatenschlüssels (SH10)" (status May 2001), read on 22 November 2026.',
+        DWD_ROAD_NOTICE,
+      ),
+      {
+        plain: 'The documentation of the library wetterdienst describes the road weather data as the library gives them, with the averaging period that the files of each group of stations name and the sensor heights that they state.',
+        citation: 'Wetterdienst documentation, the pages "Road: 15_minutes" (dwd/road) and "SWSMOS: hourly" (dwd/swsmos).',
+        href: `${WETTERDIENST_DOCS}provider/dwd/road/15_minutes.html`,
+      },
+    ],
+  },
+
+  'from-measurement-to-value': {
+    title: 'From measurement to value: how means, sums, maxima and minima are formed',
+    summary: 'A value is rarely a single reading. A station takes many samples and forms the value from them as a mean, a sum, a highest or a lowest, and how that is done decides what the number means.',
+    parts: [
+      {
+        title: 'From signal to reading',
+        paragraphs: [
+          'A sensor does not measure the weather variable directly. WMO calls instrument readings in physical units Level I data, and the meteorological variables themselves, which can be obtained directly or derived from Level I data, Level II data. Its example: a sensor cannot measure visibility, which is a Level II quantity; it measures the extinction coefficient, a Level I quantity.',
+          'On the way from the sensor to the value, WMO lists among other steps the sampling of the signal, the application of the calibration, the linearization (a signal that is not exactly proportional to the quantity is straightened out), the extraction of statistics such as the average, the derivation of related variables, corrections and quality control. The order is only approximately sequential, but linearization has to come before the average is taken: averaging first and linearizing afterwards gives a different result when the signal is not constant during the averaging period.',
+          'What is sampled is the signal of a sensor, not the atmosphere. WMO says that an atmospheric variable is never sampled, only the output of a sensor of it, and that sensors respond more slowly than the atmosphere changes and add noise. A sample is a single measurement, an observation is the result of the sampling process and is derived from a number of samples. WMO\'s example is a temperature measured every minute (the samples), a 10-minute average calculated from them, and this average transmitted in a synoptic report every 3 hours (the observation).',
+        ],
+      },
+      {
+        title: 'How a reading becomes a value',
+        paragraphs: [
+          'A mean smooths the small-scale variability of the atmosphere and the noise of the instrument. For international exchange and many operational applications, WMO says, a reported measurement must be representative of the previous 2 or 10 minutes for wind and, by convention, of 1 to 10 minutes for other quantities. Some conventional sensors respond within about a minute, so a single reading from them is notionally a one-minute average. WMO\'s table of requirements marks each variable as instantaneous, averaged or totalled: for an "instantaneous" value an average over 1 minute is considered the minimum and most suitable, and averages over up to 10 minutes are acceptable; an "averaged" value is an average over a fixed period set by the coding requirements; a "total" is a total over a fixed period.',
+          'The arithmetic average is what is normally meant by an average. The exponential average is the output of the simplest low-pass filter and the simplest response of a sensor to the fluctuations of the atmosphere; when its time constant is about half the time over which an average is calculated, the two are practically indistinguishable.',
+          'The quantity that is averaged is not always the one that is reported. WMO\'s table names the Cartesian components for wind speed and direction, the absolute humidity for the dew point and the extinction coefficient for the visibility, because averaging a quantity that is not linear gives a different result when it changes during the period.',
+          'Maxima and minima are variables of their own. WMO says that besides the averages, extremes and other variables that are representative for specific periods must be determined, depending on the purpose of the observation, and it names the gust as an example for which higher sampling rates are needed: samples used to estimate extremes of fluctuations, such as gusts, should be taken at least four times as often as those for averages. For the gust itself WMO recommends recording the highest 3-second average (see "Wind"), and its table lists the extremes of the air temperature as instantaneous values with a time constant of 20 seconds and an averaging time of 1 minute.',
+          'Sums can be added up from smaller sums. Among the statistics that a station calculates WMO lists total amounts over periods from minutes to days, with rain as its example, and integrated values, with radiation as its example. They are calculated at the station or in a central processing platform, from instantaneous data or extremes and from totals over small periods, for example one hour.',
+          'Where the value is formed is a design choice. WMO notes a tendency, where the telecommunication network allows it, to collect one-minute data centrally and to calculate the statistics in a central processing platform. It says that the algorithms that derive the values are as important as the choice of instrument, that small and subtle changes over time can have significant effects afterwards, and that a register of the algorithms and of the software versions should be kept as metadata.',
+        ],
+      },
+      {
+        title: 'What the number can and cannot tell',
+        paragraphs: [
+          'A mean from few readings can be wrong. WMO\'s example is a temperature read every three hours: if it changes smoothly, as it usually does, a daily average calculated from the eight readings is acceptably stable, but if a thunderstorm has lowered the temperature by many degrees for 30 minutes, the calculated average is wrong. The reliability of daily averages, WMO says, depends on there usually being little variation on time scales shorter than the spacing of the readings; a short event such as the thunderstorm affects the mean and the measures of spread. A single reading each day at a fixed time will not give a good estimate of the mean monthly temperature, WMO says, and the uncertainty of a mean is inversely proportional to the square root of the number of observations.',
+          'An extreme depends on the instrument. WMO says that recorded gusts are smoothed by the response of the instrument and that the recorded maximum is averaged over several times its time constant.',
+          'WMO says that in processing meteorological data there is usually one correct procedure, algorithm or approach, and that there may be many approximations ranging in validity from good to useless. How a provider forms its daily or monthly values is for the provider\'s own documentation to say; this entry does not assume it.',
+          'Corrections and quality control shape the value too. WMO says that the algorithms for corrections, such as those for exposure, may be based on studies that are not entirely definitive, that different algorithms may be derived in the future, and that it is advisable to document them so that the original uncorrected data can be recovered. Quality control, WMO says, works best when each observation is calculated from a reasonably large number of quality-controlled samples, because samples with large spurious errors can then be isolated and excluded and the calculation can still go on uncontaminated by them, and the number of valid samples in a period decides whether the average is valid.',
+        ],
+      },
+      {
+        title: 'Where providers differ',
+        paragraphs: [
+          'DWD states in the files that come with each station how its daily values are formed, and the rule changes with time. From 1 April 2001, at the three stations checked, the daily mean of the temperature, the relative humidity, the vapour pressure, the pressure and the cloud cover is the arithmetic mean of at least 21 hourly values from SYNOP weather reports, and the daily maximum and minimum of the air temperature are the highest and the lowest measured from 00:00 to 24:00 UTC. Before that the files name other rules. From 1991 (at Frankfurt/Main already from 1935) to March 2001 the daily mean temperature is calculated from the three observation times of the climate stations with the formula TMK=(TT1+TT2+(TT3*2))/4, in which the third value counts twice (the times are 07, 14 and 21 hours local mean time, since 1987 07:30, 14:30 and 21:30 MEZ); at Potsdam the files name the same formula up to 1966 and at Dresden-Klotzsche from 1934 to 1945. At Potsdam (from 1967) and Dresden-Klotzsche (from 1960), up to 1990, it is the arithmetic mean of four or eight observation values, which are based on the main synoptic observations at 00, 06, 12 and 18 UTC.',
+          'DWD points this out itself. Its description of the monthly data says that, for a statistical analysis, the formula used to calculate the daily means should be considered, which may change over time and for each station individually and is in the Metadaten_Parameter files, and that standardized formulas were applied only from 1936 onwards. Which stretch of time a daily value covers has changed too: see "Time".',
+          'DWD calculates its monthly means from the daily values, and only if the daily values are complete: if some are missing, no monthly mean is given. For some stations only monthly values exist, without daily values, and they are included as they are. The monthly data have, among others, the monthly mean of the daily maxima of the temperature, the highest of the daily maxima in the month, the lowest of the daily minima and the monthly sum of the precipitation. The rule of WMO for climate normals is another one: see "Climate normals".',
+          'Wetterdienst says for each parameter what kind of value it is. The aggregation of a parameter is taken from its name where the name states a statistic (for example _mean, _max or _min) and otherwise from what the provider declares. A value is "instant" if it is a single reading, where a mean over at most 5 minutes still counts as a reading, and "mean", "max", "min" or "sum" and so on if it is a statistic of an interval; null means that the source does not state it, not that the value is a reading or a mean. Some DWD values say how they are formed in their own description: see "Urban stations" for an hourly value that is the one-minute mean ending 10 minutes before its time stamp.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuideV(
+        'Volume V, Chapter 2 on sampling and Chapter 3 on data reduction are where this entry takes the steps from the signal to the value, the averaging, the quantities to average, the extremes and the effects of too few samples from.',
+        'Volume V (Quality assurance and management of observing systems), Chapter 2 (Sampling meteorological variables), sections 2.1, 2.1.1, 2.1.2, 2.4.2, 2.4.3; Chapter 3 (Data reduction), sections 3.1.1, 3.1.3, 3.4, 3.5, 3.6, 3.7.',
+      ),
+      wmoGuide(
+        'Volume I, Chapter 1 holds the table of requirements that says which variables are instantaneous, averaged or totalled and over which time. Volume III, Chapter 1 on automatic weather stations is where this entry takes the statistics that a station calculates, where it calculates them and the checks on the number of valid samples from.',
+        'Volume I, Chapter 1 (General), Annex 1.A, rows 1.2 and 5.3 and note 4; Volume III (Observing systems), Chapter 1 (Measurements at automatic weather stations), sections 1.4.2.5, 1.5.',
+        WMO_I,
+      ),
+      dwdFiles(
+        'The files that come with each station\'s data say with which formula and from which values a daily value is formed. The description of its monthly dataset says how a monthly value is formed and what to consider about the daily means.',
+        `${STATION_FILES} Metadaten_Parameter_klima_tag_* (parameters TMK, TXK, TNK, UPM, VPM, PM and NM); dataset description "Monthly station observations (temperature, precipitation, sunshine duration, wind and cloud cover) for Germany", version v24.03 (2024), sections "Data origin" and "Considerations for applications", read on 22 November 2026.`,
+        DWD_MONTHLY,
+      ),
+      {
+        plain: 'The documentation of the library wetterdienst says what its field aggregation states about a value: whether it is a reading or a statistic.',
+        citation: 'Wetterdienst documentation, "Parameters", section "Aggregation and timestamp position in the answers".',
+        href: `${WETTERDIENST_DOCS}parameters.html`,
+      },
     ],
   },
 

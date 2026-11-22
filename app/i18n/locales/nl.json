@@ -79,13 +79,13 @@
     "idle": "Kies een vraag, het antwoord komt hier, uit actuele gegevens.",
     "q": {
       "rain": "Gaat het morgen regenen in {place}?",
-      "summer": "Was de afgelopen zomer hier warmer dan normaal?",
+      "season": "Was {last} hier {warmth} dan normaal?",
       "wind": "Hoe hard waaide het op {day}?",
       "download": "Waar kan ik temperaturen per uur downloaden?"
     },
     "from": {
       "rain": "Verwachting, DWD MOSMIX",
-      "summer": "Maandgemiddelden, DWD",
+      "season": "Maandgemiddelden, DWD",
       "wind": "Dagwaarden, DWD",
       "download": "Alle weerdiensten"
     },
@@ -125,16 +125,58 @@
       "none": "De verwachting voor {name} reikt nog niet tot morgen.",
       "open": "Volledige verwachting openen"
     },
-    "summer": {
-      "hotter": "Ja, {anomaly} {unit} warmer dan normaal.",
+    "season": {
+      "warmer": "Ja, {anomaly} {unit} warmer dan normaal.",
       "cooler": "Nee, {anomaly} {unit} koeler dan normaal.",
       "usual": "Niet echt: ongeveer zoals normaal.",
-      "detail": "Zomer {year} (juni tot augustus) was gemiddeld {mean} {unit}; de zomers van {from} tot {to} gemiddeld {normal} {unit}.",
-      "rank": "Plaats {rank} van {count} zomers sinds {first}, vanaf de warmste geteld.",
-      "chart": "Elke zomer tegenover het gemiddelde van {from} tot {to}, in {unit}",
-      "none": "Er zijn hier te weinig volledige zomers om te vergelijken.",
+      "coldYes": "Ja, {anomaly} {unit} kouder dan normaal.",
+      "coldNo": "Nee, {anomaly} {unit} warmer dan normaal.",
+      "coldUsual": "Niet echt: ongeveer zoals normaal.",
+      "detail": "{seasonCap} {year} ({months}) was gemiddeld {mean} {unit}; de {seasons} van {from} tot {to} gemiddeld {normal} {unit}.",
+      "rank": "Plaats {rank} van {count} {seasons} sinds {first}, vanaf de warmste geteld.",
+      "chart": "Elke {season} tegenover het gemiddelde van {from} tot {to}, in {unit}",
+      "none": "Er zijn hier te weinig volledige seizoenen om te vergelijken.",
+      "noneNormal": "Dit station heeft maar {count} van de {of} seizoenen van {normal}; er zijn er {min} nodig om te vergelijken.",
       "open": "Maandgemiddelden openen",
-      "stripes": "Klimaatstrepen bekijken"
+      "stripes": "Klimaatstrepen bekijken",
+      "seasonLabel": "Seizoen",
+      "refLabel": "Vergeleken met",
+      "refShort": "{normal} (hier slechts {count} van {of} seizoenen, {min} nodig)",
+      "refFallback": "{normal} (hier slechts {count} van {of} seizoenen; eerdere worden gebruikt)",
+      "last": {
+        "spring": "de afgelopen lente",
+        "summer": "de afgelopen zomer",
+        "autumn": "de afgelopen herfst",
+        "winter": "de afgelopen winter"
+      },
+      "warmth": {
+        "spring": "warmer",
+        "summer": "warmer",
+        "autumn": "warmer",
+        "winter": "kouder"
+      },
+      "name": {
+        "spring": "lente",
+        "summer": "zomer",
+        "autumn": "herfst",
+        "winter": "winter"
+      },
+      "plural": {
+        "spring": "lentes",
+        "summer": "zomers",
+        "autumn": "herfsten",
+        "winter": "winters"
+      },
+      "months": {
+        "spring": "maart tot mei",
+        "summer": "juni tot augustus",
+        "autumn": "september tot november",
+        "winter": "december tot februari"
+      },
+      "seasonShort": "{seasonCap} (hier slechts {count} volledige seizoenen)",
+      "noteGreyed": "Grijs: te weinig seizoenen bij dit station. Een normaal vraagt {min} van zijn {of} seizoenen.",
+      "noteAskedSeason": "{seasonCap} heeft hier te weinig gegevens om te vergelijken. In plaats daarvan getoond: {shown}.",
+      "noteAskedNormal": "{asked} heeft hier te weinig gegevens voor dit seizoen: {count} van zijn {of} seizoenen, {min} nodig. In plaats daarvan getoond: {shown}."
     },
     "wind": {
       "calm": "Rustig.",
@@ -511,7 +553,7 @@
     "menuDescription": "Hoe een grootheid wordt gemeten, hoe een meting een waarde wordt en wat het getal kan zeggen",
     "tocTitle": "Inhoud",
     "editionTitle": "Bronnen en editie",
-    "editionText": "Elk onderdeel noemt zijn bronnen: eerst in gewone woorden wat de bron is en wat ze zegt, daarna de formele bronvermelding. De hoofdbron is de Guide to Instruments and Methods of Observation (WMO-No. 8) van de Wereld Meteorologische Organisatie, aangehaald per deel en hoofdstuk: de delen I en II in de editie van 2024, deel V in zijn editie van 2023, die de huidige is. Er bestaat een voorlopige editie van 2026; deze pagina gebruikt die niet. Waar een onderdeel zegt wat een aanbieder doet, noemt het het eigen bestand van de aanbieder.",
+    "editionText": "Elk onderdeel noemt zijn bronnen: eerst in gewone woorden wat de bron is en wat ze zegt, daarna de formele bronvermelding. De hoofdbron is de Guide to Instruments and Methods of Observation (WMO-No. 8) van de Wereld Meteorologische Organisatie, aangehaald per deel en hoofdstuk: de delen I, II en III in de editie van 2024, deel V in zijn editie van 2023, die de huidige is. Er bestaat een voorlopige editie van 2026; deze pagina gebruikt die niet. Waar een onderdeel zegt wat een aanbieder doet, noemt het het eigen bestand van de aanbieder.",
     "editionLink": "WMO-No. 8 bij de WMO",
     "groupMeasured": "Wat er wordt gemeten, en hoe",
     "groupReading": "De gegevens lezen",
@@ -536,6 +578,10 @@
       "presentWeather": "Actueel weer en toestand van de grond",
       "clouds": "Bewolking",
       "snow": "Sneeuw",
+      "automaticStations": "Automatische weerstations",
+      "urbanStations": "Stadsstations",
+      "roadStations": "Wegweerstations",
+      "fromMeasurementToValue": "Van meting tot waarde",
       "normals": "Klimaatnormalen",
       "time": "Tijd",
       "observationForecastDerived": "Waarneming, voorspelling en afgeleide gegevens"

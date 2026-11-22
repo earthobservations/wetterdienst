@@ -18,6 +18,19 @@ Types of changes:
 
 ### Added
 
+- `[Ask the weather]` The summer question is now a season question with two labelled choices
+  under it: the season (spring, summer, autumn, winter; the winter takes the December before it)
+  and the reference period, every complete WMO 30-year normal from 1961-1990 on (1961-1990 to
+  1991-2020 today, with 2001-2030 added by itself on 1 January 2031). The question opens on the
+  season completed most recently that the station has enough data for (the summer until 30
+  November, the autumn from 1 December) and on the newest normal with enough seasons. A season or
+  normal the station has too little of is greyed out with the reason in its text, and a line under
+  the choices says why; a link that names one gets the default and the line says so. The answer
+  names the normal asked for and the seasons the station has of it (summers 1994-2020 now read
+  "the summers from 1991 to 2020", count 27, where they read 1994 to 2020); a winter normal is
+  written by its winters (1960/61 to 1989/90). The link carries `&season=winter&ref=1961-1990`;
+  `?ask=summer` (summer, while it has enough data) and `/methods#summer` keep working (GH-3764).
+
 - `[Radar]` "Use my location", as on the map: the radar marks your position (a white disc with a
   navy edge, over the picture and the thunderstorm cells), centres on it and zooms to about 9, and a
   button hides and shows the marker. Marking and centring wait until the radar picture is in, so
@@ -44,6 +57,13 @@ Types of changes:
   WMO Guide, WMO-No. 8, Volume I, Chapters 10, 11, 14 and 15, and the providers' own files). They
   are written in German and English, like the first ones; the Glossary links the evaporation,
   soil moisture, weather and cloud parameters to them (GH-3787).
+- `[Measurement]` Four more entries on the "How weather is measured" page: automatic weather
+  stations (`/measurement#automatic-stations`), urban stations (`#urban-stations`), road weather
+  stations (`#road-stations`) and how a value is formed, as a mean, a sum, a maximum or a minimum
+  (`#from-measurement-to-value`). They rest on WMO-No. 8, Volume III, Chapters 1, 9 and 10 (a new
+  volume on the page, in its 2024 edition), Volume V, Chapters 2 and 3, and DWD's own files and
+  notices. The Glossary links `road_surface_condition`, `water_film_thickness` and
+  `temperature_surface` to the road weather stations (GH-3787).
 - `[Search]` The search finds stations by name (from three letters) in the forecast's points, DWD's
   measuring stations and NOAA GHCN daily: a group for each with provider and network on every result,
   three stations and a last option ("11 more on the map") that opens the map's own search
