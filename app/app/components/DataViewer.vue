@@ -1228,8 +1228,10 @@ function setFacetChartRef(parameter: string, chart: ExplorerChartHandle | null) 
           <div v-else-if="allValues.length === 0" class="flex items-center justify-center py-12 text-gray-500 dark:text-gray-400">
             {{ t('dataViewer.emptyHint') }}
           </div>
+          <!-- the table's box scrolls, so it takes the focus, named by the section's heading: a scrolling area no key reaches fails 2.1.1 (GH-4312) -->
           <UTable
             v-else-if="viewMode === 'table'" :data="paginatedValues" :columns="columns" sticky
+            role="region" tabindex="0" :aria-labelledby="dataTitleId"
             :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }"
           />
           <div v-else class="py-4">
