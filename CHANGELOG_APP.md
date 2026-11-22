@@ -64,15 +64,15 @@ Types of changes:
   volume on the page, in its 2024 edition), Volume V, Chapters 2 and 3, and DWD's own files and
   notices. The Glossary links `road_surface_condition`, `water_film_thickness` and
   `temperature_surface` to the road weather stations (GH-3787).
-- `[Search]` The search finds stations by name (from three letters) in the forecast's points, DWD's
-  measuring stations and NOAA GHCN daily: a group for each with provider and network on every result,
-  three stations and a last option ("11 more on the map") that opens the map's own search
-  (`/map?layer=ghcn&q=hamburg`), which the map's panel now starts on. Umlauts match in either
-  spelling (`Fuhlsbüttel`, `FUHLSBUETTEL`), in the header and in the map's panel, which also finds
-  WMO numbers now and says "first 20 of N". A WMO number, WIGOS id or ICAO code offers "Search all
-  networks for …" (Enter, never per key; `/api/station-ids`), listing the stations of every network
-  that has it, leading to the map or the Explorer. The server matches (`GET /_search/stations`, rate
-  limited): no list reaches the browser (GH-3790).
+- `[Search]` The search finds stations by name (from three letters) in the lists you choose in the
+  settings, "Stations in the search": the forecast's points (DWD MOSMIX, from the backend) and NOAA
+  GHCN daily on, DWD's measuring stations off until turned on (the server reads that list the first
+  time anyone asks). A group for each, provider and network on every result, three stations and a
+  last option ("11 more on the map") that opens the map's panel search, which now starts on `?q=`.
+  Umlauts match in either spelling, in the header and in the map's panel, which finds WMO numbers
+  too and says "first 20 of N". A WMO number, WIGOS id or ICAO code offers "Search all networks for
+  …" on Enter, whatever the settings say (`/api/station-ids`), leading to the map or the Explorer.
+  GHCN is matched by the server on the map's list; no list reaches the browser (GH-3790).
 
 ### Changed
 

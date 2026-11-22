@@ -5,7 +5,7 @@ import type { PaletteGroup, PaletteItem } from '~/utils/palette'
 import type { Hit } from '~/utils/search-index'
 import type { Tile } from '~/utils/sections'
 import type { TypedStationId } from '~/utils/station-hits'
-import type { SearchNetwork, StationSearchAnswer } from '~/utils/station-search'
+import type { SearchNetwork, StationMatch, StationSearchAnswer } from '~/utils/station-search'
 import { DateTime } from 'luxon'
 import { PLACE_NETWORK, placeOf } from '~/composables/usePlace'
 import { readChoices } from '~/utils/ask/chip'
@@ -24,14 +24,16 @@ import { itemOfIdRow, itemOfStation, moreStationsLink, parseStationId, sortedIdR
 // there are is said in a polite live region. The list is the one scrolling box, and takes the focus by Tab too, so a
 // keyboard can scroll it (WCAG 2.1.1); there its keys are the field's.
 //
-// The stations (GH-3790) are matched by the app's own server, not here and not by the backend: `GET /_search/stations?q=` matches the
-// three lists the map shows (DWD's forecast points, DWD's measuring stations, NOAA GHCN daily) that it keeps in memory, and answers the
-// best few of each with how many there are (`server/utils/stationSearch.ts`), from three letters on and a moment after the last key; the
-// browser never downloads a list for it (the GHCN one is 133k stations). Each network is a group, each result names the provider and the
-// network and leads to the map with the station picked, and a last option leads to the map's own search. A WMO number (five digits), a
-// WIGOS identifier or an ICAO code typed in is also offered, never run on its own, to every network at once (`GET /api/station-ids`, which
-// reads about 30 MB of station lists, 9 s cold): Enter on "Search all networks for ..." runs it and the stations it finds are listed as a
-// group, each leading to the map where it shows the network and else to the Explorer. The rest is matched here (utils/palette.ts).
+// The stations (GH-3790) are looked for by name in the lists the reader chose in the settings ("Stations in the search"), from three letters
+// on and a moment after the last key, and the browser never downloads a list for it. The forecast's points (DWD MOSMIX) are asked of the
+// backend by name (`GET /api/stations?name=`, its best five), as they always were. NOAA GHCN daily (133k stations) and, where the reader
+// turned them on, DWD's measuring stations are matched by the app's own server (`GET /_search/stations?q=&lists=`, `server/utils/stationSearch.ts`),
+// which keeps them in memory (the GHCN one is the list of the map's own route) and answers the best few of each with how many there are. Each
+// list is a group, each result names the provider and the network and leads to the map with the station picked, and a last option leads to
+// the map's own search. A WMO number (five digits), a WIGOS identifier or an ICAO code typed in is also offered, never run on its own, to
+// every network at once whatever the settings say (`GET /api/station-ids`, which reads about 30 MB of station lists, 9 s cold): Enter on
+// "Search all networks for ..." runs it and the stations it finds are listed as a group, each leading to the map where it shows the
+// network and else to the Explorer. The rest is matched here (utils/palette.ts).
 //
 // The words of the app (GH-3790) are matched here too, in the browser: a full-text index of the pages built with the app
 // (`modules/search-index`), the glossary the backend gives, the questions of "Ask the weather" and a position typed in
@@ -85,35 +87,96 @@ onBeforeUnmount(() => {
   clearTimeout(nameRetry)
 })
 
-/** Asks the server for the best stations of the three networks for a text (the search mode); a network that is still being read is asked for again after a pause */
-async function searchNames(text: string, ticket: number, attempt = 0) {
-  nameSearch?.abort()
-  const controller = nameSearch = new AbortController()
+/** The lists of stations the reader chose in the settings ("Stations in the search", GH-3790), which are the ones asked for */
+const { settings } = useSettings()
+/** The forecast's points are asked of the backend by name, as they always were; the lists of the other two are the app server's, which is told which */
+const SERVED = ['measured', 'ghcn'] as const
+
+/** The best few stations of the forecast's points for a text, from the backend's own search by name (its best five): null where it could not be asked */
+async function forecastStations(text: string, signal: AbortSignal): Promise<StationMatch[] | null> {
   try {
-    const answer = await $fetch<StationSearchAnswer>('/_search/stations', { query: { q: text, limit: GROUP_LIMITS.stations! + 1 }, signal: controller.signal, retry: 0, ...API_ANSWER })
-    if (ticket !== stationTicket)
-      return
-    stationsFailed.value = false
-    if (answer.pending.length && attempt < MAX_RETRIES) {
-      stationAnswer.value = answer
-      nameRetry = setTimeout(() => void (!closed && ticket === stationTicket && searchNames(text, ticket, attempt + 1)), RETRY_AFTER_MS)
-    }
-    else {
-      // a list that is still not there after the last attempt is one that could not be read, which is said, and which a new text asks for again
-      stationAnswer.value = answer.pending.length ? { ...answer, pending: [], failed: [...answer.failed, ...answer.pending] } : answer
-    }
+    const answer = await $fetch<{ stations: Station[] }>('/api/stations', {
+      query: { provider: 'dwd', network: 'mosmix', parameters: 'hourly/large', name: text },
+      signal,
+      retry: 0,
+      ...API_ANSWER,
+    })
+    return (answer.stations ?? []).slice(0, 5).map(station => ({
+      station_id: station.station_id,
+      name: station.name ?? null,
+      latitude: station.latitude ?? 0,
+      longitude: station.longitude ?? 0,
+      wmo_id: station.wmo_id ?? null,
+      first_year: null,
+      last_year: null,
+      reporting: true,
+    }))
   }
   catch {
-    // a station search that fails (or is given up for a newer one) leaves the pages and actions to choose from
-    if (ticket === stationTicket && !controller.signal.aborted) {
-      stationAnswer.value = null
-      stationsFailed.value = true
-    }
+    return null
   }
-  finally {
-    if (ticket === stationTicket)
-      stationsPending.value = false
+}
+
+/** The best few stations of the lists of the app's server that were chosen for a text, or null where it could not be asked */
+async function servedStations(text: string, lists: string[], signal: AbortSignal): Promise<StationSearchAnswer | null> {
+  try {
+    return await $fetch<StationSearchAnswer>('/_search/stations', { query: { q: text, limit: GROUP_LIMITS.stations! + 1, lists: lists.join(',') }, signal, retry: 0, ...API_ANSWER })
   }
+  catch {
+    return null
+  }
+}
+
+/**
+ * Asks for the best stations of the lists the reader chose (the search mode): the forecast's points of the backend, the others of the
+ * app's server, each at once; a list of the server that is still being read is asked for again after a pause, and after the last attempt
+ * it is one that could not be read. A list that is not chosen is not asked for.
+ */
+async function searchNames(text: string, ticket: number, attempt = 0, forecast?: StationMatch[] | null) {
+  nameSearch?.abort()
+  const controller = nameSearch = new AbortController()
+  const chosen = settings.value.searchStations
+  const served = SERVED.filter(list => chosen[list])
+  const wantsForecast = chosen.forecast
+  // the forecast's answer of the first attempt is kept for the ones that follow: only the lists of the server are asked for again
+  const [mosmix, own] = await Promise.all([
+    wantsForecast ? (attempt === 0 ? forecastStations(text, controller.signal) : Promise.resolve(forecast ?? null)) : Promise.resolve(undefined),
+    served.length ? servedStations(text, served, controller.signal) : Promise.resolve(undefined),
+  ])
+  // given up for a newer text, or the dialog is gone: the answer is no longer wanted
+  if (ticket !== stationTicket)
+    return
+  stationsPending.value = false
+  if (controller.signal.aborted)
+    return
+  const failed: SearchNetwork[] = [...(own === null ? served : own?.failed ?? []), ...(mosmix === null ? ['forecast' as const] : [])]
+  const pending = own?.pending ?? []
+  if (!wantsForecast && !served.length) {
+    stationAnswer.value = null
+    stationsFailed.value = false
+    return
+  }
+  // everything that was asked for could not be: no answer, which is said
+  if ((!wantsForecast || mosmix === null) && (!served.length || own === null)) {
+    stationAnswer.value = null
+    stationsFailed.value = true
+    return
+  }
+  stationsFailed.value = false
+  const networks: StationSearchAnswer['networks'] = []
+  if (mosmix && mosmix.length)
+    networks.push({ network: 'forecast', total: mosmix.length, stations: mosmix })
+  networks.push(...(own?.networks ?? []))
+  const retrying = pending.length > 0 && attempt < MAX_RETRIES
+  stationAnswer.value = {
+    query: text,
+    networks,
+    pending: retrying ? pending : [],
+    // a list that is still not there after the last attempt is one that could not be read, which is said, and which a new text asks for again
+    failed: retrying ? failed : [...failed, ...pending],
+  }
+  if (retrying)
+    nameRetry = setTimeout(() => void (!closed && ticket === stationTicket && searchNames(text, ticket, attempt + 1, mosmix)), RETRY_AFTER_MS)
 }
 
 // a key that changes what is asked gives up what is in flight for the text before it: the answer is no longer wanted
@@ -341,7 +404,9 @@ const stationGroups = computed<PaletteGroup[]>(() => {
       to: moreStationsLink(found.network, answer.query),
       more: true,
     })
-    return { id: info.group, label: t(STATION_HEADINGS[found.network]), items: limitCounted(items, found.total, GROUP_LIMITS.stations!, more) }
+    // the backend's search by name gives its best five and no count: they are all shown, and the map's own search has the rest
+    const shown = found.network === 'forecast' ? items : limitCounted(items, found.total, GROUP_LIMITS.stations!, more)
+    return { id: info.group, label: t(STATION_HEADINGS[found.network]), items: shown }
   })
 })
 

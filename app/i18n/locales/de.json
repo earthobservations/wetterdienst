@@ -405,7 +405,9 @@
       "reorderedHeader": "{tool} steht jetzt an Platz {position} von {total} in der Kopfzeile.",
       "resetHeader": "Reihenfolge zurücksetzen",
       "resetDoneHeader": "Die Reihenfolge ist wieder wie zu Beginn: {tools}."
-    }
+    },
+    "searchStationsTitle": "Stationen in der Suche",
+    "searchStationsHint": "Die Listen, in denen die Suche (Strg/⌘ K) eine Station nach ihrem Namen findet. Eine WMO-, WIGOS- oder ICAO-Kennung wird mit der Eingabetaste in allen Netzwerken gesucht, was auch hier gewählt ist."
   },
   "units": {
     "degree_celsius": "Grad Celsius (°C)",

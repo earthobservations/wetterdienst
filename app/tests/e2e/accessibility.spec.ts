@@ -578,6 +578,11 @@ const STATES: State[] = [
     path: '/',
     reach: async (page, locale) => {
       await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      // DWD's measuring stations are a list of the search that a reader turns on (the setting is kept in the browser)
+      await page.evaluate(() => localStorage.setItem('wd_settings', JSON.stringify({ version: 2, searchStations: { forecast: true, measured: true, ghcn: true } })))
+      await page.reload()
+      // the shortcut is the app's: it listens once the page has been drawn
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
       await page.keyboard.press('Control+k')
       await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
       await page.keyboard.type('hamburg')
@@ -927,11 +932,28 @@ const STATES: State[] = [
     path: '/',
     viewport: { width: 390, height: 844 },
     reach: async (page, locale) => {
+      // DWD's measuring stations are a list of the search that a reader turns on (the setting is kept in the browser)
+      await page.evaluate(() => localStorage.setItem('wd_settings', JSON.stringify({ version: 2, searchStations: { forecast: true, measured: true, ghcn: true } })))
+      await page.reload()
+      // the shortcut is the app's: it listens once the page has been drawn
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
       await page.getByRole('button', { name: message(locale, 'shell.search') }).click()
       await expect(page.getByRole('dialog')).toBeVisible()
       await page.keyboard.type('hamburg')
       await expect(page.getByRole('group', { name: message(locale, 'shell.stationsGhcn'), exact: true })).toBeVisible()
       await expect.poll(async () => Math.round((await page.getByRole('dialog').boundingBox())!.x)).toBe(0)
+    },
+  },
+  {
+    // the lists of stations the search looks in by name (GH-3790): a group of three checkboxes under a heading the search leads to; DWD's measuring
+    // stations turned on, which is a change from the defaults (the forecast's points and GHCN daily on)
+    page: 'settings',
+    state: 'search-stations-setting',
+    path: '/settings#settings-search-stations',
+    reach: async (page, locale) => {
+      await expect(page.locator('#settings-search-stations')).toBeFocused()
+      await page.getByRole('checkbox', { name: message(locale, 'mapTool.layerMeasured') }).click()
+      await expect(page.getByRole('checkbox', { name: message(locale, 'mapTool.layerMeasured') })).toBeChecked()
     },
   },
   {

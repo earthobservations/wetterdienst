@@ -44,24 +44,32 @@ your words in its own field). A result leads to its anchor: an entry (`/measurem
 sources when the app is built, one file for each language, and loaded the first time the search is opened, not with the page; the glossary
 is the one the glossary page loads, asked for at that moment; nothing is sent anywhere else.
 
-**Stations in the search** (from three letters on, a moment after the last key): the names and ids of the three lists the map shows, each a group
-of its own with the provider and the network on every result: the forecast's points (DWD MOSMIX), DWD's measuring stations (the daily
-climate summary's list) and NOAA GHCN daily (133k stations). Three stations of a network are shown, the best first (a name that starts with the
-words before one that holds them, a station that reports before one that has stopped, with the year it ended in), and a last option ("11 more on the
-map (NOAA GHCN daily)") opens the map's own search of the layer on what you typed (`/map?layer=ghcn&q=hamburg`). A result opens the map with the station
-picked, on the layer of its network (`/map?station=10147`, `/map?layer=measured&station=01975`, `/map?layer=ghcn&station=GM000010147`). The names are
-matched in either spelling of an umlaut (`Fuhlsbüttel` and `FUHLSBUETTEL`, `München` and `MUENCHEN`, which the forecast's and NOAA's lists write), and an id or
-a WMO number matches as it is written in the lists (`1975` is `01975`). The map's own search of the panel is the same matcher (one function, `matchStations`), so it finds the same stations in the same order, in either spelling and by WMO number, lists the best 20 and says "Showing the first 20 of N stations" where there are more, where the header's "N more" is that total less the three it shows. The matching is the app's server's, not the browser's: `GET /_search/stations?q=hamburg&limit=4`
-matches the three lists, which the server keeps in its memory for a day (the GHCN one is the list of the map's own route, `/_ghcn/map-stations`, kept once for both),
-and answers the best few of each with how many there are, 2 kB for a key, so the browser never downloads a list for it (the GHCN one is 8 MB). A list that is not
-there yet (the first request after a start reads it from the backend: GHCN daily's in 3 to 5 s, a minute at the most) is named in the answer as `pending`, which the
-search says and asks again for after a pause; one that could not be read is `failed`, and not asked for again for 30 s. A **WMO number** (five digits, `10381`), a **WIGOS
-identifier** (`0-20000-0-10381`, `0-276-3-…`) or an **ICAO code** (four letters, `EDDH`) typed in also offers "Search all networks for 10381": it is run on Enter or a
-click and never for a key (it asks the backend's `GET /api/station-ids`, which reads about 30 MB of station lists: about 9 s the first time, a second after), says "Searching all
-networks …" while it runs, is given up when you type something else, and lists the stations of every network that carries the id, each with its provider, network and
-id: a network the map shows leads to the map with the station picked, any other to the Explorer with the provider, network, resolution, dataset and station chosen (it says "opens the
-Explorer"). Four letters are a word as often as a code (`wind`, `kiel`): unless they are typed in capitals, the offer for them is made only where nothing else answers the
-text, and it never comes before what the text finds, so Enter does not take it.
+**Stations in the search** (from three letters on, a moment after the last key) looks in the lists that you choose in the settings, under
+"Stations in the search" (kept in the browser like the other settings): the forecast's points (DWD MOSMIX), DWD's measuring stations (the daily
+climate summary's list) and NOAA GHCN daily (133k stations). **MOSMIX and GHCN are on, DWD's measuring stations are off** until you turn them on.
+Each list is a group of its own, with the provider and the network on every result. Three stations of a list are shown, the best first (a name that
+starts with the words before one that holds them, a station that reports before one that has stopped, with the year it ended in), and a last option
+("11 more on the map (NOAA GHCN daily)") opens the map's own search of the layer on what you typed (`/map?layer=ghcn&q=hamburg`). A result opens the
+map with the station picked, on the layer of its network (`/map?station=10147`, `/map?layer=measured&station=01975`, `/map?layer=ghcn&station=GM000010147`).
+The names are matched in either spelling of an umlaut (`Fuhlsbüttel` and `FUHLSBUETTEL`, `München` and `MUENCHEN`), and an id or a WMO number matches as
+it is written in the lists (`1975` is `01975`). The map's own search of the panel is the same matcher (one function, `matchStations`), so it finds the
+same stations in the same order, in either spelling and by WMO number, lists the best 20 and says "Showing the first 20 of N stations" where there are
+more; the header's "N more" is that total less the three it shows. Where the matching runs: the forecast's points are asked of the backend by name
+(`GET /api/stations?provider=dwd&network=mosmix&name=`, its best five), as they always were, and the server of the app keeps none of them. GHCN daily
+and DWD's measuring stations are matched by the server of the app, which keeps each in its memory for a day and is told which to look in:
+`GET /_search/stations?q=hamburg&limit=4&lists=measured,ghcn` answers the best few of each with how many there are, 2 kB for a key, so the browser
+never downloads a list. The GHCN list is the one the map's own route keeps (`/_ghcn/map-stations`), read once for both as a stream of CSV
+(`format=csv`) into columns; DWD's measuring stations (1,284 stations, a few hundred kilobytes) are read the same way, but only the first time a search
+asks for them, which is when someone has turned them on. A list that is not there yet (the first read after a start: GHCN daily's takes seconds) is named in
+the answer as `pending`, which the search says and asks again for after a pause, 25 times at most and then says it could not be read; one that could not
+be read is `failed`, and not asked for again for 30 s. A **WMO number** (five digits, `10381`), a **WIGOS identifier** (`0-20000-0-10381`,
+`0-276-3-…`) or an **ICAO code** (four letters, `EDDH`) typed in also offers "Search all networks for 10381", **whatever the settings choose**: it is run
+on Enter or a click and never for a key (it asks the backend's `GET /api/station-ids`, which reads about 30 MB of station lists: about 9 s the first time,
+a second after), says "Searching all networks …" while it runs, is given up when you type something else, and lists the stations of every network that
+carries the id, each with its provider, network and id: a network the map shows leads to the map with the station picked, any other to the Explorer with the
+provider, network, resolution, dataset and station chosen (it says "opens the Explorer"). Four letters are a word as often as a code (`wind`, `kiel`):
+unless they are typed in capitals, the offer for them is made only where nothing else answers the text and every list has answered, and it never comes
+before what the text finds, so Enter does not take it.
 
 **Measurement** (`/measurement`, "How weather is measured") explains how a quantity is measured, how a reading becomes
 a value, what the number can and cannot tell and where providers differ, one entry for each quantity with an anchor
@@ -306,7 +314,7 @@ The server limits what costs something, per client. It counts the requests to
 - `/mcp` (a session is many small calls), and
 - `/_ghcn/*`, the app's own routes for NOAA's GHCN daily (the list of its stations for the map, which costs the
   backend a 44 MB answer the first time, and the climate stripes' annual values and station lists, see below),
-- `/_search/*`, the stations the search finds by name (`GET /_search/stations`, matched in the lists the server keeps; a key of
+- `/_search/*`, the stations the search finds by name (`GET /_search/stations`, matched in the GHCN and DWD measuring station lists the server keeps; a key of
   the search is a request, so it is counted with the others),
 
 and answers the one past the limit with `429 Too Many Requests` and a problem of the kind

@@ -405,7 +405,9 @@
       "reorderedHeader": "{tool} moved to place {position} of {total} in the header.",
       "resetHeader": "Reset the order",
       "resetDoneHeader": "The order is back to its default: {tools}."
-    }
+    },
+    "searchStationsTitle": "Stations in the search",
+    "searchStationsHint": "The lists the search (Ctrl/⌘ K) finds a station by name in. A WMO, WIGOS or ICAO id is searched in every network on Enter, whatever is chosen here."
   },
   "units": {
     "degree_celsius": "Degrees Celsius (°C)",

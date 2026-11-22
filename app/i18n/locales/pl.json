@@ -405,7 +405,9 @@
       "reorderedHeader": "{tool} jest teraz na miejscu {position} z {total} w nagłówku.",
       "resetHeader": "Przywróć kolejność",
       "resetDoneHeader": "Kolejność wróciła do ustawień początkowych: {tools}."
-    }
+    },
+    "searchStationsTitle": "Stacje w wyszukiwaniu",
+    "searchStationsHint": "Listy, w których wyszukiwarka (Ctrl/⌘ K) znajduje stację po nazwie. Identyfikator WMO, WIGOS lub kod ICAO jest po naciśnięciu Enter szukany we wszystkich sieciach, niezależnie od tego, co wybierzesz tutaj."
   },
   "units": {
     "degree_celsius": "Stopnie Celsjusza (°C)",

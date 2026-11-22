@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { clearNuxtData } from '#app'
 import AppCommandPalette from '~/components/AppCommandPalette.vue'
 import { DEFAULT_PLACE } from '~/composables/usePlace'
+import { SEARCH_STATIONS_DEFAULTS, useSettings } from '~/composables/useSettings'
 import { providersAnswer } from '../fixtures/providers'
 
 // The command palette of the search (GH-3518): the ARIA combobox with a listbox, its keys, and what it finds.
@@ -53,28 +54,28 @@ registerEndpoint('/api/stations', (event) => {
 })
 
 // the stations of the three networks the search matches by name, as the app's server answers them (GH-3790): what is asked is counted
-const searchQueries: Array<{ q: string, limit: string }> = []
+const searchQueries: Array<{ q: string, limit: string, lists: string }> = []
 let searchMode: 'answer' | 'fail' | 'pending-once' | 'pending-always' = 'answer'
 let pendingServed = 0
 const match = (station_id: string, name: string, extra: Record<string, unknown> = {}) => ({ station_id, name, latitude: 52.4, longitude: 13.4, wmo_id: null, first_year: 1950, last_year: null, reporting: true, ...extra })
 registerEndpoint('/_search/stations', (event) => {
   const query = new URL(event.path, 'http://localhost').searchParams
-  searchQueries.push({ q: query.get('q') ?? '', limit: query.get('limit') ?? '' })
+  searchQueries.push({ q: query.get('q') ?? '', limit: query.get('limit') ?? '', lists: query.get('lists') ?? '' })
   if (searchMode === 'fail') {
     setResponseStatus(event, 500)
     return { detail: 'down' }
   }
+  const lists = (query.get('lists') ?? '').split(',')
   const networks = [
-    { network: 'forecast', total: 1, stations: [match('10384', 'BERLIN-TEMPELHOF', { wmo_id: '10384' })] },
     { network: 'measured', total: 2, stations: [match('00403', 'Berlin-Dahlem (FU)'), match('00430', 'Berlin-Marzahn', { reporting: false, last_year: 2019 })] },
     { network: 'ghcn', total: 14, stations: ['BERLIN', 'BERLIN TEGEL', 'BERLIN-SCHONEFELD', 'BERLIN-BRANDENBURG'].map((name, index) => match(`GM00000${index}`, name)) },
-  ]
+  ].filter(found => lists.includes(found.network))
   // a list that is never there: no station of the two others, and the third still being read
   if (searchMode === 'pending-always')
     return { query: query.get('q'), networks: [], pending: ['ghcn'], failed: [] }
   // a list that is still being read the first time it is asked, and there the next
   if (searchMode === 'pending-once' && pendingServed++ === 0)
-    return { query: query.get('q'), networks: networks.slice(0, 2), pending: ['ghcn'], failed: [] }
+    return { query: query.get('q'), networks: networks.filter(found => found.network !== 'ghcn'), pending: ['ghcn'], failed: [] }
   return { query: query.get('q'), networks, pending: [], failed: [] }
 })
 // the search of every network for an id (GH-4286): it takes seconds, so the test decides when it is done
@@ -102,6 +103,11 @@ registerEndpoint('/api/station-ids', async (event) => {
   }
 })
 
+/** What the reader chose in the settings for the lists of stations of the search: the forecast's points and GHCN daily are on, DWD's measuring stations off */
+function chooseLists(chosen: Partial<typeof SEARCH_STATIONS_DEFAULTS>) {
+  useSettings().settings.value.searchStations = { ...SEARCH_STATIONS_DEFAULTS, ...chosen }
+}
+
 const mounted: Array<{ unmount: () => void }> = []
 async function mountPalette() {
   const wrapper = await mountSuspended(AppCommandPalette, { attachTo: document.body })
@@ -114,6 +120,7 @@ afterEach(() => {
   clearNuxtData()
   stationQueries.length = 0
   stationNetworks.length = 0
+  useSettings().settings.value.searchStations = { ...SEARCH_STATIONS_DEFAULTS }
   searchQueries.length = 0
   idQueries.length = 0
   searchMode = 'answer'
@@ -172,9 +179,10 @@ describe('the command palette', () => {
     expect(navigateTo).toHaveBeenCalledWith('/map')
   })
 
-  it('finds the stations of three networks by name, each in a group of its own with the provider and network on every result, and opens the map on one', async () => {
+  it('finds the stations of three lists by name, each in a group of its own with the provider and network on every result, and opens the map on one', async () => {
     // real timers: Vue ignores a click whose time stamp is earlier than the moment its handler was attached, which a
     // clock that was faked and then restored makes of every click after it
+    chooseLists({ measured: true })
     const wrapper = await mountPalette()
     const input = wrapper.find('input[role="combobox"]')
     await input.setValue('berl')
@@ -192,13 +200,16 @@ describe('the command palette', () => {
     // a station that has stopped says when
     expect(measured[1]!.text()).toContain('DWD · measurements · 00430 · ended 2019')
     expect(groups[2]!.find('[role="option"]').text()).toContain('NOAA · GHCN daily · GM000000')
-    // none of what the backend's own name search answered before: the app's server does the matching
-    expect(stationQueries).toEqual([])
+    // the forecast's points are the backend's own name search, as ever, the other two the app's server
+    expect(stationQueries).toEqual(['berl'])
+    expect(stationNetworks).toEqual(['dwd/mosmix'])
+    expect(searchQueries).toEqual([{ q: 'berl', limit: '4', lists: 'measured,ghcn' }])
     await forecast.trigger('click')
     expect(navigateTo).toHaveBeenCalledWith('/map?station=10384')
   })
 
   it('leads a station of DWD\'s measurements and of GHCN daily to the map on their layers', async () => {
+    chooseLists({ measured: true })
     const wrapper = await mountPalette()
     await wrapper.find('input[role="combobox"]').setValue('berl')
     await vi.waitFor(() => expect(wrapper.text()).toContain('Berlin-Dahlem'))
@@ -224,6 +235,7 @@ describe('the command palette', () => {
   })
 
   it('says the number of stations of each network in the live region, and does not count the option that leads on', async () => {
+    chooseLists({ measured: true })
     const wrapper = await mountPalette()
     await wrapper.find('input[role="combobox"]').setValue('berl')
     await vi.waitFor(() => expect(wrapper.text()).toContain('BERLIN-TEMPELHOF'))
@@ -269,8 +281,50 @@ describe('the command palette', () => {
     const wrapper = await mountPalette()
     await wrapper.find('input[role="combobox"]').setValue('berl')
     await vi.waitFor(() => expect(wrapper.find('[role="status"]').text()).toContain('could not be read'))
-    // the pages are still there, and no network's stations
-    expect(wrapper.findAll('[role="group"]').map(group => wrapper.find(`[id="${group.attributes('aria-labelledby')}"]`).text()).some(heading => heading.startsWith('Stations:'))).toBe(false)
+    // the list of the server is not there, the forecast's points, which the backend answers, are
+    const headings = wrapper.findAll('[role="group"]').map(group => wrapper.find(`[id="${group.attributes('aria-labelledby')}"]`).text())
+    expect(headings).toContain('Stations: DWD forecast')
+    expect(headings).not.toContain('Stations: NOAA GHCN daily')
+  })
+
+  it('looks only in the lists the settings choose: the forecast\'s points and GHCN daily by default, DWD\'s measuring stations not', async () => {
+    const wrapper = await mountPalette()
+    await wrapper.find('input[role="combobox"]').setValue('berl')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('BERLIN-SCHONEFELD'))
+    const headings = wrapper.findAll('[role="group"]').map(group => wrapper.find(`[id="${group.attributes('aria-labelledby')}"]`).text())
+    expect(headings.slice(0, 2)).toEqual(['Stations: DWD forecast', 'Stations: NOAA GHCN daily'])
+    expect(headings).not.toContain('Stations: DWD measurements')
+    // the server is told which of its lists, and the list of the measuring stations is not one of them
+    expect(searchQueries).toEqual([{ q: 'berl', limit: '4', lists: 'ghcn' }])
+  })
+
+  it('asks the server for the measuring stations only once they are chosen, and not for a list that is turned off', async () => {
+    chooseLists({ forecast: false, ghcn: false, measured: true })
+    const wrapper = await mountPalette()
+    await wrapper.find('input[role="combobox"]').setValue('berl')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Berlin-Dahlem'))
+    expect(searchQueries).toEqual([{ q: 'berl', limit: '4', lists: 'measured' }])
+    // the backend is not asked for the forecast's points
+    expect(stationQueries).toEqual([])
+    const headings = wrapper.findAll('[role="group"]').map(group => wrapper.find(`[id="${group.attributes('aria-labelledby')}"]`).text())
+    expect(headings).toContain('Stations: DWD measurements')
+    expect(headings).not.toContain('Stations: DWD forecast')
+    expect(headings).not.toContain('Stations: NOAA GHCN daily')
+  })
+
+  it('asks nothing for a name where every list is turned off, and still offers the search of every network for an id', async () => {
+    chooseLists({ forecast: false, ghcn: false, measured: false })
+    const wrapper = await mountPalette()
+    const input = wrapper.find('input[role="combobox"]')
+    await input.setValue('berl')
+    await new Promise(resolve => setTimeout(resolve, 600))
+    expect(searchQueries).toEqual([])
+    expect(stationQueries).toEqual([])
+    await input.setValue('10381')
+    await vi.waitFor(() => expect(wrapper.findAll('[role="option"]').some(option => option.text().includes('Search all networks for 10381'))).toBe(true))
+    await input.trigger('keydown', { key: 'Enter' })
+    await vi.waitFor(() => expect(idQueries).toEqual([{ wmo_id: '10381' }]))
+    expect(searchQueries).toEqual([])
   })
 
   it('moves the active option with the arrow keys, round the ends', async () => {
@@ -305,7 +359,7 @@ describe('the command palette', () => {
     useColorMode().preference = 'system'
   })
 
-  it('finds a station by its name from three letters on, asking the server once the typing stops, for three stations and one more of each network', async () => {
+  it('finds a station by its name from three letters on, asking once the typing stops, the backend for the forecast\'s points and the server for GHCN daily', async () => {
     vi.useFakeTimers()
     try {
       const wrapper = await mountPalette()
@@ -319,7 +373,8 @@ describe('the command palette', () => {
       await vi.advanceTimersByTimeAsync(400)
       vi.useRealTimers()
       await vi.waitFor(() => expect(wrapper.text()).toContain('BERLIN-TEMPELHOF'))
-      expect(searchQueries).toEqual([{ q: 'berl', limit: '4' }])
+      expect(searchQueries).toEqual([{ q: 'berl', limit: '4', lists: 'ghcn' }])
+      expect(stationQueries).toEqual(['berl'])
       expect(wrapper.text()).toContain('DWD · MOSMIX forecast · 10384')
     }
     finally {
@@ -455,6 +510,7 @@ describe('the command palette finding the words of the app', () => {
   })
 
   it('puts a point first, then the stations, then the pages of the tools, then the words of the app', async () => {
+    chooseLists({ measured: true })
     const wrapper = await mountPalette()
     // a text that is a position, a forecast and a glossary word at once would be odd: the order is the list of GROUP_ORDER, held here by what a query gives
     await typed(wrapper, 'forecast', 'BERLIN-TEMPELHOF')

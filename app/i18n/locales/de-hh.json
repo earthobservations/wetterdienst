@@ -405,7 +405,9 @@
       "reorderedHeader": "{tool} steiht nu op Platz {position} vun {total} in de Koppreeg.",
       "resetHeader": "Reegfolg trüchsetten",
       "resetDoneHeader": "De Reegfolg is wedder as vörher: {tools}."
-    }
+    },
+    "searchStationsTitle": "Stationen in de Söök",
+    "searchStationsHint": "De Lisen, in de de Söök (Strg/⌘ K) en Station na ehren Naam finnt. En WMO-, WIGOS- oder ICAO-Kennen warrt mit de Enter-Tast in all Nettwarken söcht, egaal wat hier utwählt is."
   },
   "units": {
     "degree_celsius": "Grad Celsius (°C)",

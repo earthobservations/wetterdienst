@@ -6,20 +6,27 @@ import { useApiBase } from './apiBase'
 import { createListKeeper, readStationColumns, sharedGhcnMapList } from './ghcnStations'
 import { requestIdOf } from './requestId'
 
-// The stations the search of the header finds by name or number (GH-3790): `GET /_search/stations?q=hamburg&limit=4` matches the query
-// against the three lists the app shows on its map, which the server keeps in its memory for a day, and answers the best stations of
-// each. The browser asks for a few hundred bytes for a keystroke, and never for a list: the forecast's points (5,649, 1.5 MB of the
-// backend's JSON), DWD's measuring stations (1,284, 0.5 MB) and NOAA GHCN daily (132,894, 44 MB, which the browser would have to read
-// as 2 MB of columns, `/_ghcn/map-stations`, and fold 133k names of). The GHCN list is the one the map's route keeps
-// (`sharedGhcnMapList`), so a visit that has used both has made one read of the backend.
+// The stations the search of the header finds by name or number (GH-3790): `GET /_search/stations?q=hamburg&limit=4&lists=ghcn,measured`
+// matches the query against the lists of the map that the reader chose in the settings ("Stations in the search") and that the server keeps
+// in its memory for a day, and answers the best stations of each. The browser asks for a few hundred bytes for a keystroke, and never for a
+// list. There are two lists here:
+//
+// - NOAA GHCN daily (132,894 stations): the one the map's route keeps (`sharedGhcnMapList`, read as a stream of CSV, GH-4299), so that a
+//   visit that has used both has made one read of the backend.
+// - DWD's measuring stations (1,284, 0.2 MB of CSV): read the first time a search asks for them, which is when a reader has turned them on,
+//   through the same streamed reader.
+//
+// The forecast's points (DWD MOSMIX) are not kept here: the palette asks the backend for them by name, as it always has. A list that is
+// not asked for is never read.
 //
 // The route is not under `/api`, which is the backend's namespace and is proxied to it as it is; it counts against the rate limit of the
 // server like the routes of `/_ghcn` (`server/utils/rateLimit.ts`).
 
-/** What a list of stations the search matches is read from: the forecast's points */
-export const FORECAST_SOURCE: StationSource = { path: '/stations?provider=dwd&network=mosmix&parameters=hourly/large&all=true', what: 'the forecast stations', network: 'DWD MOSMIX' }
-/** The stations that measure: DWD's observations, as the map opens with them (`daily/climate_summary`) */
-export const MEASURED_SOURCE: StationSource = { path: '/stations?provider=dwd&network=observation&parameters=daily/climate_summary&all=true', what: 'the measuring stations', network: 'DWD observations' }
+/** The stations that measure: DWD's observations, as the map opens with them (`daily/climate_summary`), as the CSV that the streamed reader reads */
+export const MEASURED_SOURCE: StationSource = { path: '/stations?provider=dwd&network=observation&parameters=daily/climate_summary&all=true&format=csv', what: 'the measuring stations', network: 'DWD observations' }
+/** The lists this route serves, which a request names in `lists` */
+export const SERVED_LISTS = ['measured', 'ghcn'] as const
+export type ServedList = typeof SERVED_LISTS[number]
 /** The fewest stations of one of these lists that is kept: a part of a list (the backend's cold start, a provider that failed) is not the list for a day */
 export const MIN_SEARCH_STATIONS = 500
 
@@ -44,9 +51,9 @@ export interface StationSearchOptions {
 
 type Outcome = { kind: 'matches', matches: StationMatches } | { kind: 'pending' } | { kind: 'failed' }
 
-/** What `searchLists` is given for each network: a way to ask for the list, prepared */
+/** What the search is given for each list: a way to ask for it, prepared */
 interface SearchList {
-  network: 'forecast' | 'measured' | 'ghcn'
+  network: ServedList
   prepared: (requestId: string) => Promise<PreparedStations | 'pending' | GhcnProblem>
 }
 
@@ -61,7 +68,7 @@ export function createStationSearch(options: StationSearchOptions = {}) {
   const minimum = options.minimum ?? MIN_SEARCH_STATIONS
   const reporting = reportsThisOrLastYear(now)
 
-  function ownList(network: 'forecast' | 'measured', source: StationSource): SearchList {
+  function ownList(network: ServedList, source: StationSource): SearchList {
     const keeper = createListKeeper({
       now: options.now,
       what: source.what,
@@ -98,13 +105,14 @@ export function createStationSearch(options: StationSearchOptions = {}) {
     },
   }
 
-  const lists: SearchList[] = [ownList('forecast', FORECAST_SOURCE), ownList('measured', MEASURED_SOURCE), ghcnList]
+  const all: Record<ServedList, SearchList> = { ghcn: ghcnList, measured: ownList('measured', MEASURED_SOURCE) }
 
   /**
-   * The best `limit` stations of each network for a query. A network whose list is still being read is `pending` (the caller asks again
-   * in a moment) and one that could not be read `failed`; the others answer.
+   * The best `limit` stations of each list asked for, for a query. A list whose reading is not done is `pending` (the caller asks again
+   * in a moment) and one that could not be read `failed`; the others answer. A list that is not asked for is not read.
    */
-  async function search(query: string, limit: number, requestId: string): Promise<StationSearchAnswer> {
+  async function search(query: string, limit: number, requestId: string, asked: readonly ServedList[] = SERVED_LISTS): Promise<StationSearchAnswer> {
+    const lists = SERVED_LISTS.filter(name => asked.includes(name)).map(name => all[name])
     const outcomes = await Promise.all(lists.map(async (list): Promise<Outcome> => {
       const prepared = await list.prepared(requestId)
       if (prepared === 'pending')
@@ -132,6 +140,8 @@ export function createStationSearch(options: StationSearchOptions = {}) {
 export interface StationSearchQuery {
   q: string
   limit: number
+  /** The lists to search, in the order the answer has them */
+  lists: ServedList[]
 }
 
 /** What a request names, or the problem (a 422, in the shape of the backend's) that says what is wrong with it */
@@ -150,10 +160,19 @@ export function parseSearchQuery(query: Record<string, unknown>): StationSearchQ
     else
       limit = given
   }
-  return errors.length ? { errors } : { q, limit }
+  // the lists the reader chose: GHCN daily where none is named
+  let lists: ServedList[] = ['ghcn']
+  if (query.lists !== undefined && query.lists !== '') {
+    const named = typeof query.lists === 'string' ? query.lists.split(',') : []
+    if (!named.length || named.some(name => !(SERVED_LISTS as readonly string[]).includes(name)))
+      errors.push({ loc: ['query', 'lists'], msg: `Input should be a comma-separated list of ${SERVED_LISTS.map(name => `'${name}'`).join(' and ')}` })
+    else
+      lists = SERVED_LISTS.filter(name => named.includes(name))
+  }
+  return errors.length ? { errors } : { q, limit, lists }
 }
 
-/** The handler of `GET /_search/stations?q=&limit=` */
+/** The handler of `GET /_search/stations?q=&limit=&lists=` */
 export function stationSearchHandler(options: StationSearchOptions = {}) {
   const { search } = createStationSearch(options)
   return defineEventHandler(async (event) => {
@@ -174,7 +193,7 @@ export function stationSearchHandler(options: StationSearchOptions = {}) {
         errors: parsed.errors,
       }
     }
-    const answer = await search(parsed.q, parsed.limit, requestId)
+    const answer = await search(parsed.q, parsed.limit, requestId, parsed.lists)
     // an answer that lacks a list is for now: a browser or a shared cache keeps no copy of it
     setResponseHeader(event, 'cache-control', answer.pending.length || answer.failed.length ? 'no-store' : 'private, max-age=300')
     return answer

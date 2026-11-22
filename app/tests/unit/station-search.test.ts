@@ -115,8 +115,10 @@ describe('the matching of the stations', () => {
 
 describe('the query of the route', () => {
   it('wants a query of at most 100 characters and a limit of 1 to 10, and answers the problem as the backend does', () => {
-    expect(parseSearchQuery({ q: ' hamburg ' })).toEqual({ q: 'hamburg', limit: DEFAULT_LIMIT })
-    expect(parseSearchQuery({ q: 'a', limit: '10' })).toEqual({ q: 'a', limit: 10 })
+    expect(parseSearchQuery({ q: ' hamburg ' })).toEqual({ q: 'hamburg', limit: DEFAULT_LIMIT, lists: ['ghcn'] })
+    expect(parseSearchQuery({ q: 'a', limit: '10' })).toEqual({ q: 'a', limit: 10, lists: ['ghcn'] })
+    expect(parseSearchQuery({ q: 'a', lists: 'ghcn,measured' })).toMatchObject({ lists: ['measured', 'ghcn'] })
+    expect(parseSearchQuery({ q: 'a', lists: 'measured' })).toMatchObject({ lists: ['measured'] })
     expect(parseSearchQuery({})).toEqual({ errors: [{ loc: ['query', 'q'], msg: 'Field required' }] })
     expect(parseSearchQuery({ q: 'x'.repeat(101) })).toMatchObject({ errors: [{ loc: ['query', 'q'] }] })
     for (const limit of ['0', `${MAX_LIMIT + 1}`, 'many', '-1', '1.5'])
@@ -130,6 +132,12 @@ const h3 = nuxtRequire('h3') as typeof import('h3')
 
 const BACKEND = 'http://backend.internal:7890/api'
 
+/** The CSV of a list of stations as the backend gives it (`format=csv`), a row for each, with the headers that the app's server checks the body against */
+function csvResponse(rows: ReturnType<typeof row>[]) {
+  const lines = ['station_id,latitude,longitude,start_timestamp,end_timestamp,name,wmo_id', ...rows.map(entry => [entry.station_id, entry.latitude, entry.longitude, entry.start_timestamp, entry.end_timestamp ?? '', JSON.stringify(entry.name ?? ''), entry.wmo_id ?? ''].join(','))]
+  return new Response(`${lines.join('\n')}\n`, { headers: { 'content-type': 'text/csv', 'x-wetterdienst-stations': String(rows.length), 'x-wetterdienst-retrieved-at': 'then' } })
+}
+
 describe('the route', () => {
   const servers: Server[] = []
   afterEach(async () => {
@@ -138,11 +146,11 @@ describe('the route', () => {
     vi.restoreAllMocks()
   })
 
-  const FORECAST = [row('10147', 'HAMBURG-FUHLSBUETTEL', '10147'), row('10148', 'HAMBURG-NEUWIEDENTHAL'), ...Array.from({ length: 600 }, (_, i) => row(`X${i}`, `OTHER ${i}`))]
   const MEASURED = [row('01975', 'Hamburg-Fuhlsbüttel', '10147'), row('02597', 'Hamburg-Billwerder', null, 1997), ...Array.from({ length: 600 }, (_, i) => row(`M${i}`, `ELSEWHERE ${i}`))]
   const GHCN = [row('GM000010147', 'HAMBURG-FUHLSBUETTEL', '10147'), row('USC00123456', 'HAMBURG', null, 1980), ...Array.from({ length: 600 }, (_, i) => row(`G${i}`, `PLACE ${i}`))]
 
-  const bodyOf = (rows: ReturnType<typeof row>[]) => new Response(JSON.stringify({ metadata: { retrieved_at: 'then' }, stations: rows }), { headers: { 'content-type': 'application/json' } })
+  /** The backend's answer as the app's server asks for it: the CSV of the list, with the headers that say how many stations it holds and when it was made */
+  const bodyOf = (rows: ReturnType<typeof row>[]) => csvResponse(rows)
 
   /** A server with the route on it and the backend answering from `answerFor` (what each list's path is asked for is counted) */
   async function serve(answerFor: (path: string) => Response | Promise<Response>, waitMs = 2000) {
@@ -170,42 +178,63 @@ describe('the route', () => {
     return { asked, get: (query: string) => fetch(`${origin}/?${query}`) }
   }
 
-  const ofPath = (path: string) => path.includes('network=mosmix') ? FORECAST : path.includes('network=ghcn') ? GHCN : MEASURED
+  const ofPath = (path: string) => path.includes('network=ghcn') ? GHCN : MEASURED
 
-  it('answers the best stations of each of the three networks, and how many there are, from one read of each list', async () => {
+  it('answers the best stations of each list asked for, and how many there are, from one read of each list', async () => {
     const { asked, get } = await serve(path => bodyOf(ofPath(path)))
-    const first = await get('q=hamburg&limit=1')
+    const first = await get('q=hamburg&limit=1&lists=ghcn,measured')
     expect(first.status).toBe(200)
     const answer = await first.json() as StationSearchAnswer
     expect(answer.networks.map(n => [n.network, n.total, n.stations.map(s => s.station_id)])).toEqual([
-      ['forecast', 2, ['10147']],
       ['measured', 2, ['01975']],
       ['ghcn', 2, ['GM000010147']],
     ])
     expect(answer.pending).toEqual([])
     expect(answer.failed).toEqual([])
     expect(first.headers.get('cache-control')).toBe('private, max-age=300')
-    await get('q=billwerder')
-    expect(asked).toHaveLength(3)
-    expect(asked.some(path => path.includes('network=mosmix'))).toBe(true)
+    await get('q=billwerder&lists=ghcn,measured')
+    expect(asked).toHaveLength(2)
+    // both are CSV, asked for with the format the streamed reader reads
+    expect(asked.every(path => path.includes('format=csv'))).toBe(true)
+  })
+
+  it('reads only the lists that are asked for, and a list the first time it is: the measuring stations are not read for a request that does not name them', async () => {
+    const { asked, get } = await serve(path => bodyOf(ofPath(path)))
+    // GHCN daily where no list is named
+    const first = await (await get('q=hamburg')).json() as StationSearchAnswer
+    expect(first.networks.map(n => n.network)).toEqual(['ghcn'])
+    expect(asked.some(path => path.includes('network=observation'))).toBe(false)
+    const second = await (await get('q=hamburg&lists=measured')).json() as StationSearchAnswer
+    expect(second.networks.map(n => n.network)).toEqual(['measured'])
+    expect(asked.filter(path => path.includes('network=ghcn'))).toHaveLength(1)
+    expect(asked.filter(path => path.includes('network=observation'))).toHaveLength(1)
+  })
+
+  it('answers a list that it does not serve as a 422 problem, the forecast\'s points among them, which the backend is asked for by name', async () => {
+    const { get } = await serve(path => bodyOf(ofPath(path)))
+    for (const lists of ['forecast', 'ghcn,forecast', 'x', ',']) {
+      const response = await get(`q=hamburg&lists=${lists}`)
+      expect(response.status, lists).toBe(422)
+      expect(((await response.json()) as { detail: string }).detail).toContain('lists:')
+    }
   })
 
   it('leaves out a network that has no station for the query', async () => {
     const { get } = await serve(path => bodyOf(ofPath(path)))
-    const answer = await (await get('q=billwerder')).json() as StationSearchAnswer
+    const answer = await (await get('q=billwerder&lists=ghcn,measured')).json() as StationSearchAnswer
     expect(answer.networks.map(n => n.network)).toEqual(['measured'])
   })
 
   it('names the lists that could not be read and answers the others, with no copy kept by a cache', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
     const { get, asked } = await serve(path => path.includes('network=ghcn') ? new Response('down', { status: 503 }) : bodyOf(ofPath(path)))
-    const response = await get('q=hamburg')
+    const response = await get('q=hamburg&lists=ghcn,measured')
     const answer = await response.json() as StationSearchAnswer
     expect(answer.failed).toEqual(['ghcn'])
-    expect(answer.networks.map(n => n.network)).toEqual(['forecast', 'measured'])
+    expect(answer.networks.map(n => n.network)).toEqual(['measured'])
     expect(response.headers.get('cache-control')).toBe('no-store')
     // the backend is not asked again at every keystroke after a failure
-    await get('q=hamburg')
+    await get('q=hamburg&lists=ghcn,measured')
     expect(asked.filter(path => path.includes('network=ghcn'))).toHaveLength(1)
   })
 
@@ -219,12 +248,12 @@ describe('the route', () => {
         await slow
       return bodyOf(ofPath(path))
     }, 50)
-    const first = await (await get('q=hamburg')).json() as StationSearchAnswer
+    const first = await (await get('q=hamburg&lists=ghcn,measured')).json() as StationSearchAnswer
     expect(first.pending).toEqual(['ghcn'])
-    expect(first.networks.map(n => n.network)).toEqual(['forecast', 'measured'])
+    expect(first.networks.map(n => n.network)).toEqual(['measured'])
     release!()
     await vi.waitFor(async () => {
-      const next = await (await get('q=hamburg')).json() as StationSearchAnswer
+      const next = await (await get('q=hamburg&lists=ghcn,measured')).json() as StationSearchAnswer
       expect(next.pending).toEqual([])
       expect(next.networks.map(n => n.network)).toContain('ghcn')
     })
@@ -260,8 +289,7 @@ describe('the routes as the server wires them', () => {
         return realFetch(url as string, init)
       reads.push(text.replace(BACKEND, ''))
       // the whole of GHCN daily is more than 50,000 stations, which is the least a list is kept for
-      const stations = text.includes('network=ghcn') ? rows('G', 50_001) : rows('D', 600)
-      return new Response(JSON.stringify({ metadata: { retrieved_at: 'then' }, stations }), { headers: { 'content-type': 'application/json' } })
+      return csvResponse(text.includes('network=ghcn') ? rows('G', 50_001) : rows('D', 600))
     })
     const { sharedGhcnMapList, ghcnMapStationsHandler } = await import('../../server/utils/ghcnStations')
     const search = await import('../../server/utils/stationSearch')
@@ -287,12 +315,12 @@ describe('the routes as the server wires them', () => {
     servers.push(server)
     const origin = await new Promise<string>(resolve => server.listen(0, '127.0.0.1', () => resolve(`http://127.0.0.1:${(server.address() as AddressInfo).port}`)))
 
-    const found = await (await realFetch(`${origin}/search?q=hamburg%20G`)).json() as StationSearchAnswer
+    const found = await (await realFetch(`${origin}/search?q=hamburg%20G&lists=ghcn`)).json() as StationSearchAnswer
     expect(found.networks.map(network => network.network)).toContain('ghcn')
     const columns = await (await realFetch(`${origin}/map`)).json() as { count: number }
     expect(columns.count).toBe(50_001)
     // asked again, in the other order, it is still the one read
-    await realFetch(`${origin}/search?q=hamburg%20G%2012`)
+    await realFetch(`${origin}/search?q=hamburg%20G%2012&lists=ghcn`)
     expect(reads.filter(path => path.includes('network=ghcn'))).toHaveLength(1)
   })
 })

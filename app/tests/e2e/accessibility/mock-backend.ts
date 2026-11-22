@@ -387,16 +387,18 @@ const SEARCH_GHCN: Station[] = [
 ]
 
 const SEARCH_LISTS = {
-  forecast: prepareStations(searchColumns(MOSMIX_STATIONS), reportsIn),
   measured: prepareStations(searchColumns(SEARCH_MEASURED), reportsIn),
   ghcn: prepareStations(searchColumns(SEARCH_GHCN), reportsIn),
 }
 
-/** What `GET /_search/stations` answers: the real matching, on the mock's lists */
+/** What `GET /_search/stations` answers: the real matching, on the mock's lists, for the lists that are asked for */
 function stationSearch(url: URL): StationSearchAnswer {
   const query = url.searchParams.get('q') ?? ''
   const limit = Number(url.searchParams.get('limit') ?? 4)
-  const networks = (['forecast', 'measured', 'ghcn'] as const)
+  // the lists the reader chose that the server keeps (the forecast's points are the backend's own search by name, `/api/stations?name=`)
+  const lists = (url.searchParams.get('lists') ?? 'ghcn').split(',')
+  const networks = (['measured', 'ghcn'] as const)
+    .filter(network => lists.includes(network))
     .map(network => ({ network, ...searchPrepared(SEARCH_LISTS[network], query, limit) }))
     .filter(found => found.total > 0)
   return { query, networks, pending: [], failed: [] }

@@ -405,7 +405,9 @@
       "reorderedHeader": "{tool} est maintenant à la place {position} sur {total} dans l'en-tête.",
       "resetHeader": "Réinitialiser l'ordre",
       "resetDoneHeader": "L'ordre est revenu à son état d'origine : {tools}."
-    }
+    },
+    "searchStationsTitle": "Stations dans la recherche",
+    "searchStationsHint": "Les listes où la recherche (Ctrl/⌘ K) trouve une station par son nom. Un identifiant WMO, WIGOS ou ICAO est cherché avec Entrée dans tous les réseaux, quoi que tu choisisses ici."
   },
   "units": {
     "degree_celsius": "Degrés Celsius (°C)",

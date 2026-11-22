@@ -405,7 +405,9 @@
       "reorderedHeader": "{tool} je nyní na místě {position} z {total} v záhlaví.",
       "resetHeader": "Obnovit pořadí",
       "resetDoneHeader": "Pořadí je zpět ve výchozím stavu: {tools}."
-    }
+    },
+    "searchStationsTitle": "Stanice ve vyhledávání",
+    "searchStationsHint": "Seznamy, ve kterých vyhledávání (Ctrl/⌘ K) najde stanici podle jména. Identifikátor WMO, WIGOS nebo kód ICAO se po stisku Enter hledá ve všech sítích, ať tu zvolíš cokoli."
   },
   "units": {
     "degree_celsius": "Stupně Celsia (°C)",

@@ -405,7 +405,9 @@
       "reorderedHeader": "{tool} steet elo op Plaz {position} vu {total} am Kapp.",
       "resetHeader": "Reiefolleg zrécksetzen",
       "resetDoneHeader": "D'Reiefolleg ass erëm wéi um Ufank: {tools}."
-    }
+    },
+    "searchStationsTitle": "Statioune an der Sich",
+    "searchStationsHint": "D'Lëschten, an deenen d'Sich (Ctrl/⌘ K) eng Statioun no hirem Numm fënnt. Eng WMO-, WIGOS- oder ICAO-Kennung gëtt mat Enter an alle Netzwierker gesicht, egal wat hei gewielt ass."
   },
   "units": {
     "degree_celsius": "Grad Celsius (°C)",

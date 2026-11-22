@@ -405,7 +405,9 @@
       "reorderedHeader": "{tool} står nu på plads {position} af {total} i sidehovedet.",
       "resetHeader": "Nulstil rækkefølgen",
       "resetDoneHeader": "Rækkefølgen er tilbage til standard: {tools}."
-    }
+    },
+    "searchStationsTitle": "Stationer i søgningen",
+    "searchStationsHint": "De lister, som søgningen (Ctrl/⌘ K) finder en station efter navn i. Et WMO-, WIGOS- eller ICAO-id søges med Enter i alle netværk, uanset hvad du vælger her."
   },
   "units": {
     "degree_celsius": "Grader Celsius (°C)",

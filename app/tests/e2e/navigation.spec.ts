@@ -12,6 +12,11 @@ import { mockBackend } from './accessibility/mock-backend'
 const en = JSON.parse(readFileSync(fileURLToPath(new URL('../../i18n/locales/en.json', import.meta.url)), 'utf-8'))
 const de = JSON.parse(readFileSync(fileURLToPath(new URL('../../i18n/locales/de.json', import.meta.url)), 'utf-8'))
 
+/** The lists of stations the search looks in by name, all three: DWD's measuring stations are off until a reader turns them on in the settings (GH-3790) */
+async function chooseAllLists(page: Page) {
+  await page.addInitScript(() => localStorage.setItem('wd_settings', JSON.stringify({ version: 2, searchStations: { forecast: true, measured: true, ghcn: true } })))
+}
+
 async function open(page: Page, baseURL: string, path: string, language = 'en') {
   await page.context().addCookies([{ name: 'wd_lang', value: language, url: baseURL }])
   await mockBackend(page, baseURL)
@@ -211,6 +216,7 @@ test.describe('the search', () => {
 
   // the stations (GH-3790): matched by the app's own server on the lists it keeps, which the mock backend stands in for with the real matching
   test('finds stations of the forecast, of DWD and of GHCN daily by name, each in a group with its provider and network, and opens the map on one', async ({ page, baseURL }) => {
+    await chooseAllLists(page)
     await open(page, baseURL!, '/')
     await page.keyboard.press('Control+k')
     const dialog = page.getByRole('dialog', { name: en.shell.search })
@@ -232,6 +238,40 @@ test.describe('the search', () => {
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(/\/map\?station=10147/)
     await expect(page.getByTestId('map-station-name')).toContainText('HAMBURG-FUHLSBUETTEL')
+  })
+
+  test('looks in the lists the settings choose: DWD\'s measuring stations are off until they are turned on in "Stations in the search", and the choice is kept', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    await page.keyboard.press('Control+k')
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    await expect(dialog.getByRole('combobox', { name: en.shell.search })).toBeFocused()
+    await page.keyboard.type('hamburg')
+    await expect(dialog.getByRole('group', { name: en.shell.stationsGhcn, exact: true })).toBeVisible()
+    await expect(dialog.getByRole('group', { name: en.shell.stationsForecast, exact: true })).toBeVisible()
+    await expect(dialog.getByRole('group', { name: en.shell.stationsMeasured, exact: true })).toHaveCount(0)
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    // turned on in the settings
+    await page.goto('/settings#settings-search-stations')
+    await expect(page.locator('#settings-search-stations')).toBeFocused()
+    await page.getByRole('checkbox', { name: en.mapTool.layerMeasured }).click()
+    await expect(page.getByRole('checkbox', { name: en.mapTool.layerMeasured })).toBeChecked()
+    // kept: a reload still has it, and the search finds the measuring stations
+    await page.reload()
+    await expect(page.getByRole('checkbox', { name: en.mapTool.layerMeasured })).toBeChecked()
+    await page.keyboard.press('Control+k')
+    await expect(dialog.getByRole('combobox', { name: en.shell.search })).toBeFocused()
+    await page.keyboard.type('hamburg')
+    await expect(dialog.getByRole('group', { name: en.shell.stationsMeasured, exact: true })).toBeVisible()
+    // turned off again, the forecast's points are not asked for
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await page.getByRole('checkbox', { name: en.mapTool.layerForecast }).click()
+    await page.keyboard.press('Control+k')
+    await expect(dialog.getByRole('combobox', { name: en.shell.search })).toBeFocused()
+    await page.keyboard.type('hamburg')
+    await expect(dialog.getByRole('group', { name: en.shell.stationsMeasured, exact: true })).toBeVisible()
+    await expect(dialog.getByRole('group', { name: en.shell.stationsForecast, exact: true })).toHaveCount(0)
   })
 
   test('leads a station of GHCN daily to the map on its layer, and the "more" of a network to the map\'s own search', async ({ page, baseURL }) => {

@@ -405,7 +405,9 @@
       "reorderedHeader": "{tool} staat nu op plaats {position} van {total} in de koptekst.",
       "resetHeader": "Volgorde herstellen",
       "resetDoneHeader": "De volgorde is weer zoals aan het begin: {tools}."
-    }
+    },
+    "searchStationsTitle": "Stations in de zoekfunctie",
+    "searchStationsHint": "De lijsten waarin de zoekfunctie (Ctrl/⌘ K) een station op naam vindt. Een WMO-, WIGOS- of ICAO-code wordt met Enter in alle netwerken gezocht, wat je hier ook kiest."
   },
   "units": {
     "degree_celsius": "Graden Celsius (°C)",
