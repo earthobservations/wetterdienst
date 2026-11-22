@@ -418,9 +418,32 @@ def test_cli_a_request_that_is_not_one_is_a_usage_error(monkeypatch: pytest.Monk
     assert asked == []
 
 
-def test_cli_a_rate_limit_is_an_error_and_no_answer(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A provider's 429 is never a warning: exit 1 and nothing on stdout."""
+def test_cli_a_network_that_answers_429_is_a_warning_and_the_others_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One provider's 429 is no error (GH-4303): the rows of the others, and the warning in the block."""
     serve(monkeypatch, {**HAMBURG, "noaa/ghcn": exceptions.ProviderRateLimitError("https://x/", "rate limited", 7)})
+
+    result = _invoke("--wmo-id=10147")
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.stdout)
+    assert len(data["stations"]) == 2
+    assert [w["code"] for w in data["metadata"]["warnings"]] == ["network-rate-limited"]
+
+
+def test_cli_when_every_network_that_was_asked_is_rate_limited_it_is_an_error_and_no_answer(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Exit 1 and nothing on stdout, as for a 429 of a single request."""
+    keyed = {name: exceptions.CredentialMissingError("set WD_AUTH__X") for name in KEYED}
+    limits = {
+        f"{provider}/{network}": exceptions.ProviderRateLimitError("https://x/", "rate limited", 7)
+        for provider, networks in Wetterdienst.registry.items()
+        for network in networks
+        if not Wetterdienst.is_standalone(provider, network)
+        and f"{provider}/{network}" not in KEYED
+        and Wetterdienst.resolve(provider, network).metadata.station_id_list is not None
+    }
+    serve(monkeypatch, {**limits, **keyed})
 
     result = _invoke("--wmo-id=10147")
 
@@ -459,6 +482,60 @@ def test_rest_when_every_network_that_was_asked_fails_it_is_a_502(monkeypatch: p
     assert "Retry-After" in response.headers
     assert response.json()["type"] == "urn:wetterdienst:problem:upstream-failed"
     # the problem does not repeat the provider's text, as for every upstream failure: the log and the error name them
+
+
+def test_rest_a_network_that_answers_429_is_a_warning_and_the_others_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One provider's 429 is a 200 with the others' rows and a warning that names it and its wait (GH-4303)."""
+    serve(
+        monkeypatch,
+        {
+            **HAMBURG,
+            "aemet/observation": exceptions.ProviderRateLimitError("https://aemet.example/", "rate limited", 42),
+        },
+    )
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+
+    response = client.get("/api/v1/station-ids", params={"wmo_id": "10147"})
+
+    assert response.status_code == 200, response.text
+    assert len(response.json()["stations"]) == 3
+    metadata = response.json()["metadata"]
+    (warning,) = metadata["warnings"]
+    assert warning["code"] == "network-rate-limited"
+    assert "aemet/observation" in warning["message"]
+    assert "retry after 42 s" in warning["message"]
+    assert response.headers["X-Wetterdienst-Warnings"] == "network-rate-limited"
+    aemet = next(n for n in metadata["searched"] if n["provider"] == "aemet")
+    assert (aemet["status"], aemet["stations_with_ids"]) == ("rate-limited", None)
+    assert metadata["counts"]["networks_answered"] < metadata["counts"]["networks_searched"]
+
+
+@pytest.mark.parametrize("prefix", ["/api/v1", "/api"])
+def test_rest_when_every_network_that_was_asked_is_rate_limited_it_is_the_429_answer(
+    monkeypatch: pytest.MonkeyPatch, prefix: str
+) -> None:
+    """As a 429 of a single request: the 503 of `upstream-quota-exhausted` with the longest `Retry-After`."""
+    names = [
+        f"{provider}/{network}"
+        for provider, networks in Wetterdienst.registry.items()
+        for network in networks
+        if not Wetterdienst.is_standalone(provider, network)
+        and Wetterdienst.resolve(provider, network).metadata.station_id_list is not None
+    ]
+    limits: dict[str, Any] = {
+        name: exceptions.ProviderRateLimitError(f"https://{name}.example/", "rate limited", 10 + index)
+        for index, name in enumerate(n for n in names if n not in KEYED)
+    }
+    keyed = {name: exceptions.CredentialMissingError(f"{name}: set WD_AUTH__X") for name in KEYED}
+    serve(monkeypatch, {**limits, **keyed})
+    client = TestClient(restapi.app, raise_server_exceptions=False)
+
+    response = client.get(f"{prefix}/station-ids", params={"wmo_id": "10147"})
+
+    assert response.status_code == 503, response.text
+    assert response.headers["content-type"].startswith("application/problem+json")
+    assert response.headers["Retry-After"] == str(10 + len(limits) - 1)
+    assert response.json()["type"] == "urn:wetterdienst:problem:upstream-quota-exhausted"
 
 
 def test_cli_when_every_network_that_was_asked_fails_it_is_an_error_and_no_answer(

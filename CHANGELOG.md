@@ -25,8 +25,11 @@ Types of changes:
   credentials) names and answers one row for each station, with `matched_by` and whether it
   matched directly or by an equivalence: WIGOS `0-20000-0-N` and WMO `N` are one id, and an ICAO
   code also searches the WMO numbers of its hits. A GHCN hit with no data file is left out. A
-  network that fails is a warning (`network-failed`); if all fail it is a 502. The first search
-  reads about 30 MB, about 9 s (GH-4075)
+  network that fails is a warning (`network-failed`) and so is one whose provider answers 429
+  (`network-rate-limited`, with the wait it asks for; `searched[].status` `rate-limited`), the
+  others answer; if all failed it is a 502, and if all failed or were rate-limited with a 429
+  among them it is the 503 of a rate limit with `Retry-After`. The first search reads about 30 MB,
+  about 9 s (GH-4075, GH-4303)
 
 ### Removed
 

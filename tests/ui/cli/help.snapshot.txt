@@ -572,9 +572,9 @@ Usage: wetterdienst station-ids [OPTIONS]
   dataset of the list, station_id, name, position, the three ids, and which id matched (matched_by)
   and whether it was the id asked for or an equivalent one (match). The ids are equivalent: the
   WIGOS identifier 0-20000-0-10381 and the WMO number 10381 find each other, and an ICAO code also
-  searches the WMO numbers of the stations it finds. A network that cannot be read, or needs
-  credentials that are not set, is left out and named in a warning; if every network that was asked
-  fails the command fails.
+  searches the WMO numbers of the stations it finds. A network that cannot be read, needs
+  credentials that are not set, or is rate-limited by its provider, is left out and named in a
+  warning; if every network that was asked failed or was rate-limited the command fails.
 
   The first search reads about 30 MB of station lists and takes about 9 s on a good connection,
   longer on a slow one; the next is served from the cache in about a second.
