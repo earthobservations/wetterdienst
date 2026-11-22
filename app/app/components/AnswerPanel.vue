@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Ref } from 'vue'
 import type { Provider, Station, ValuesResponse } from '#shared/types/api'
-import type { ChipApi, ChipContext, Choices } from '~/utils/ask/chip'
+import type { ChipApi, ChipContext, Choices, SelectChoice } from '~/utils/ask/chip'
 import type { ChipId } from '~/utils/ask/registry'
 import { DateTime } from 'luxon'
 import { describeFetchError } from '~/utils/api-error'
@@ -22,8 +22,10 @@ const props = defineProps<{
   question: ChipId
   /** The values of the question's choices, as the link has them (`day` for the wind question) */
   choices: Choices
+  /** Only the choices the link names: where it names none, the data gives the default (the season completed most recently that has enough of it) */
+  explicit?: Choices
 }>()
-const emit = defineEmits<{ 'update:choice': [param: string, value: string] }>()
+const emit = defineEmits<{ 'update:choice': [param: string, value: string], 'effective': [choices: Choices] }>()
 
 const { t } = useI18n()
 const { place } = usePlace()
@@ -35,15 +37,61 @@ const nuxtApp = useNuxtApp()
 const chip = computed(() => chipOf(props.question)!)
 
 type Status = 'loading' | 'ready' | 'empty' | 'error'
-const status = ref<Status>('loading')
+/** Where the requests are: under way, answered, or failed */
+const phase = ref<'loading' | 'loaded' | 'error'>('loading')
 const failure = ref('')
+/** What the definition's requests brought back; null while they are under way */
+/** and the chip it was fetched for: a question switched meanwhile must not have the new chip read the old one's data */
+const fetched = shallowRef<{ loaded: unknown, chip: string } | null>(null)
+/** What was fetched for the chip that is open now, or null */
+const fetchedHere = computed(() => fetched.value && fetched.value.chip === chip.value.id ? fetched.value : null)
+
+/**
+ * The answer, worked out from what was fetched and the choices as they are now: a choice the requests do not read (the season, the normal)
+ * changes the answer here and asks for nothing. Null where the data holds none.
+ */
+const answered = computed<{ result: unknown } | { error: string } | null>(() => {
+  if (!fetchedHere.value)
+    return null
+  try {
+    return { result: chip.value.answer(fetchedHere.value.loaded, context()) }
+  }
+  catch (error) {
+    return { error: describeFetchError(error) }
+  }
+})
+const status = computed<Status>(() => {
+  if (phase.value !== 'loaded')
+    return phase.value
+  // data of another question, for the moment before the new one is asked: nothing is said of it
+  if (!fetchedHere.value)
+    return 'loading'
+  return !answered.value || 'error' in answered.value ? 'error' : answered.value.result ? 'ready' : 'empty'
+})
+const failureText = computed(() => failure.value || (answered.value && 'error' in answered.value ? answered.value.error : ''))
 // a Retry that works takes its notice, and the focus in it, away: the focus goes on to the question's heading
 const failureNotice = useTemplateRef<HTMLElement>('failureNotice')
 const heading = useTemplateRef<HTMLElement>('heading')
 useFocusAfterRetry(() => status.value === 'error', failureNotice, heading)
 
 /** What the definition's requests brought back, and the answer it made of that (null where the data holds none) */
-const outcome = shallowRef<{ loaded: unknown, result: unknown } | null>(null)
+const outcome = computed<{ loaded: unknown, result: unknown } | null>(() =>
+  fetchedHere.value && answered.value && 'result' in answered.value ? { loaded: fetchedHere.value.loaded, result: answered.value.result } : null)
+
+// ------------------------------------------------------------------------------------------- the choices as they are
+
+/**
+ * The choices once the data is there: what the link names, but a name the data cannot answer (a season or a normal the station has too
+ * few seasons of) and a default that depends on the data are the definition's to settle; its note says why, and why an option is greyed out
+ */
+const resolved = computed(() => {
+  const found = chip.value.resolveChoices
+  return found && fetchedHere.value ? found(fetchedHere.value.loaded, props.choices, props.explicit ?? {}, env) : { choices: props.choices, note: '' }
+})
+const effective = computed(() => resolved.value.choices)
+// the line under the choices: a polite status, so that a screen reader says it when it comes or changes
+const choiceNote = computed(() => resolved.value.note)
+watch(effective, choices => emit('effective', choices), { immediate: true })
 
 // The units the app settings choose (GH-3980), read at each request: the question's own quantity (rain, millimetres; the
 // summer, degrees; the wind, a speed) and whether the values are converted at all. The answer says which unit each
@@ -90,7 +138,7 @@ const api: ChipApi = {
 function context(): ChipContext {
   return {
     place: place.value,
-    choices: props.choices,
+    choices: effective.value,
     now: () => DateTime.now(),
     formatLanguage: formatLanguage.value,
     unitTarget: quantity => requestUnitTargets(settings.value.units)[quantity]!,
@@ -102,32 +150,36 @@ let asked = 0
 
 async function ask() {
   const turn = ++asked
-  status.value = 'loading'
+  phase.value = 'loading'
   failure.value = ''
-  outcome.value = null
+  fetched.value = null
   try {
-    const here = context()
     // the chip asked, held across the await: a question changed meanwhile must not read this one's data
     const asking = chip.value
-    const loaded = await asking.load(here, api)
-    const result = asking.answer(loaded, here)
+    const loaded = await asking.load(context(), api)
     // only the newest request's data is kept: an older one that returns after it must not replace it (GH-3980)
     if (turn !== asked)
       return
-    outcome.value = { loaded, result }
-    status.value = result ? 'ready' : 'empty'
+    fetched.value = { loaded, chip: asking.id }
+    phase.value = 'loaded'
   }
   catch (error) {
     if (turn !== asked)
       return
     failure.value = describeFetchError(error)
-    status.value = 'error'
+    phase.value = 'error'
   }
 }
 
-// the question, the place, its choices (the wind's day), or the unit the settings choose for the question: a change of any
-// of them asks again, and one under way is followed by the new one, whose answer is the only one shown
-watch(() => [props.question, place.value.id, JSON.stringify(props.choices), unitsAsked.value], ask, { immediate: true })
+/** The choices the requests read, as one text: the whole of them, or the ones the definition says its `load` reads (the others change the answer, not the request) */
+const requested = computed(() => {
+  const names = chip.value.loadedBy
+  return JSON.stringify(names ? names.map(name => props.choices[name]) : props.choices)
+})
+
+// the question, the place, its choices that the requests read (the wind's day), or the unit the settings choose for the question: a change
+// of any of them asks again, and one under way is followed by the new one, whose answer is the only one shown
+watch(() => [props.question, place.value.id, requested.value, unitsAsked.value], ask, { immediate: true })
 onBeforeUnmount(() => {
   // an answer that comes after the panel is gone says nothing
   asked++
@@ -136,13 +188,33 @@ onBeforeUnmount(() => {
 // ------------------------------------------------------------------------------------------------- what is said
 
 /** How the answer is written: the definition's words for it, where there is an answer */
-const view = computed(() => outcome.value?.result ? chip.value.present(outcome.value.result, outcome.value.loaded, env, props.choices) : null)
+const view = computed(() => outcome.value?.result ? chip.value.present(outcome.value.result, outcome.value.loaded, env, effective.value) : null)
 const verdict = computed(() => view.value?.verdict ?? '')
-const emptyText = computed(() => chip.value.empty(outcome.value?.loaded ?? null, env, props.choices))
+const emptyText = computed(() => chip.value.empty(outcome.value?.loaded ?? null, env, effective.value))
+
+// What the polite status says: the verdict, or why there is none. A choice that changes the answer but not its words (a season whose verdict
+// is the same sentence) is still announced: the same words are cleared and then set again, which a screen reader reads as a change.
+const statusText = computed(() => status.value === 'ready' ? verdict.value : status.value === 'empty' ? emptyText.value : '')
+const announced = ref('')
+let announceTimer: ReturnType<typeof setTimeout> | undefined
+watch([statusText, () => JSON.stringify(effective.value)], () => {
+  clearTimeout(announceTimer)
+  const next = statusText.value
+  if (next && next === announced.value) {
+    announced.value = ''
+    announceTimer = setTimeout(() => {
+      announced.value = next
+    }, 100)
+  }
+  else {
+    announced.value = next
+  }
+}, { immediate: true })
+onBeforeUnmount(() => clearTimeout(announceTimer))
 
 // ------------------------------------------------------------------------------------- the tools, filled in
 
-const actions = computed(() => chip.value.actions(env, props.choices, outcome.value?.loaded ?? null))
+const actions = computed(() => chip.value.actions(env, effective.value, outcome.value?.loaded ?? null))
 /** A link into a tool carries the tool's tile; a reference page (`api`) has none */
 const toolOf = (action: { tool?: string }) => TOOLS.find(tool => tool.key === action.tool)
 
@@ -154,6 +226,10 @@ function onChoice(param: string, value: unknown) {
   if (choice && acceptsChoice(choice, value, now()))
     emit('update:choice', param, String(value))
 }
+/** The options of a choice of a few values, from what was fetched (null before it came): a disabled one says why in its text */
+const optionsOf = (choice: SelectChoice) => choice.options(env, fetchedHere.value?.loaded ?? null, effective.value)
+/** A choice made in a select: the value of the option, which the choice accepts (or the control keeps its own) */
+const onSelect = (param: string, event: Event) => onChoice(param, (event.target as HTMLSelectElement).value)
 </script>
 
 <template>
@@ -163,18 +239,38 @@ function onChoice(param: string, value: unknown) {
         {{ t(chip.from) }}
       </p>
       <h3 id="answer-heading" ref="heading" tabindex="-1" class="mt-0.5 break-words outline-none text-xl font-bold leading-snug text-highlighted sm:text-2xl">
-        {{ questionText(chip, choices) }}
+        {{ questionText(chip, effective) }}
       </h3>
     </header>
 
-    <div v-for="choice in chip.choices" :key="choice.param" class="mt-4 flex flex-wrap items-center gap-2">
-      <label :for="choice.inputId" class="text-sm font-medium">{{ t(choice.label) }}</label>
-      <UInput :id="choice.inputId" type="date" :model-value="choices[choice.param]" :max="choice.latest(now())" class="w-44" @update:model-value="onChoice(choice.param, $event)" />
+    <!-- what the reader chooses about the question: real controls with their labels, beside the question's button and not in it -->
+    <div v-if="chip.choices?.length" class="mt-4 flex flex-wrap gap-x-5 gap-y-3" data-testid="answer-choices">
+      <div v-for="choice in chip.choices" :key="choice.param" class="flex min-w-0 max-w-full flex-wrap items-center gap-2">
+        <label :for="choice.inputId" class="text-sm font-medium">{{ t(choice.label) }}</label>
+        <UInput v-if="choice.kind === 'date'" :id="choice.inputId" type="date" :model-value="effective[choice.param]" :max="choice.latest(now())" class="w-44" @update:model-value="onChoice(choice.param, $event)" />
+        <!-- a native select: a disabled option says why in its own text, and it reads and works the same on every screen reader and touch screen -->
+        <select
+          v-else
+          :id="choice.inputId"
+          class="answer-select"
+          :value="effective[choice.param]"
+          :data-testid="`choice-${choice.param}`"
+          @change="onSelect(choice.param, $event)"
+        >
+          <option v-for="option in optionsOf(choice)" :key="option.value" :value="option.value" :disabled="option.disabled || undefined">
+            {{ option.label }}
+          </option>
+        </select>
+      </div>
     </div>
+    <!-- why an option is greyed out, and why a choice named is not the one shown: a polite status, in the page always so that its change is announced -->
+    <p v-if="chip.resolveChoices" class="text-sm text-muted" :class="choiceNote ? 'mt-3' : ''" role="status" data-testid="choice-note">
+      {{ choiceNote }}
+    </p>
 
     <!-- what a screen reader is told when the answer has come: the verdict, not the whole panel -->
     <p class="sr-only" role="status" data-testid="answer-status">
-      {{ status === 'ready' ? verdict : status === 'empty' ? emptyText : '' }}
+      {{ announced }}
     </p>
 
     <div class="mt-5">
@@ -193,7 +289,7 @@ function onChoice(param: string, value: unknown) {
           variant="subtle"
           icon="i-ph-warning-circle"
           :title="t('ask.failed')"
-          :description="failure"
+          :description="failureText"
           :actions="[{ label: t('common.retry'), onClick: () => ask() }]"
         />
       </div>
@@ -243,7 +339,7 @@ function onChoice(param: string, value: unknown) {
         <!-- the credit, and under it what wetterdienst did to the data (GH-3799): the values of these answers are the provider's own values -->
         <ProviderCredit v-if="chip.credit" :provider="chip.credit.provider" :fallback="chip.credit.fallback" />
         <!-- how the answer was worked out and what it rests on (GH-3764): the definition's explanation, for any chip -->
-        <AnswerExplanation v-if="outcome" :key="chip.id" :chip="chip" :loaded="outcome.loaded" :result="outcome.result" :choices="choices" />
+        <AnswerExplanation v-if="outcome" :key="chip.id" :chip="chip" :loaded="outcome.loaded" :result="outcome.result" :choices="effective" />
       </div>
     </div>
 
@@ -262,6 +358,21 @@ function onChoice(param: string, value: unknown) {
 </template>
 
 <style scoped>
+/* a select of the question's choices: the edge of a control (3:1), a touch target of 44 px, never wider than the panel */
+.answer-select {
+  min-height: 2.75rem;
+  max-width: 100%;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid var(--ui-border-accented);
+  background: var(--ui-bg);
+  color: var(--ui-text-highlighted);
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+.answer-select:hover {
+  border-color: var(--ui-primary);
+}
 .answer-action {
   display: inline-flex;
   min-height: 2.75rem;

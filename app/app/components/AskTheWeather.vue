@@ -3,8 +3,8 @@ import type { Station } from '#shared/types/api'
 import { DateTime } from 'luxon'
 import UseMyLocation from '~/components/UseMyLocation.vue'
 import { PLACE_NETWORK, placeOf } from '~/composables/usePlace'
-import { queryOfChoice, queryOfPress, queryWith, readChoices } from '~/utils/ask/chip'
-import { CHIPS, isChip } from '~/utils/ask/registry'
+import { queryOfChoice, queryOfPress, queryWith, readChoices, readExplicit } from '~/utils/ask/chip'
+import { chipIdOf, chipOf, CHIPS } from '~/utils/ask/registry'
 import { distanceKm, formatDistance } from '~/utils/map-tool'
 
 // Ask the weather (GH-3518): the questions people bring to a weather service, as suggestions on the home page, each
@@ -14,7 +14,7 @@ import { distanceKm, formatDistance } from '~/utils/map-tool'
 // of them.
 //
 // The suggestions are buttons that are pressed or not (`aria-pressed`): one is open at a time, pressing it again
-// closes it. The open one is in the link (`?ask=summer`, with a question's choices, `&day=2025-12-26` for the wind
+// closes it. The open one is in the link (`?ask=season`, with a question's choices, `&season=winter&ref=1961-1990` for the season question, `&day=2025-12-26` for the wind
 // question, and `&place=02564` for a place the reader chose), so that an answer can be shared; a link without one
 // opens none, and nothing is fetched until a question is asked. The focus stays on the button; the answer is announced
 // by its live region.
@@ -24,7 +24,7 @@ const router = useRouter()
 const { place, setPlace } = usePlace()
 const { questionText } = useQuestions()
 
-const question = computed(() => isChip(route.query.ask) ? route.query.ask : null)
+const question = computed(() => chipIdOf(route.query.ask))
 /** The values of every question's choices, as the link has them: a question's own where the link names none, or none that is one */
 const choices = computed(() => {
   const now = DateTime.now()
@@ -35,9 +35,19 @@ function toggle(id: string) {
   void router.replace({ query: queryOfPress(route.query, CHIPS, id, question.value) }).catch(() => {})
 }
 
+/** Only what the link names of the open question's choices: the data gives the rest (the season completed most recently that has enough of it) */
+const explicit = computed(() => {
+  const open = chipOf(question.value)
+  return open ? readExplicit(open, route.query, DateTime.now()) : {}
+})
+/** The open question's choices as the panel settled them once its data came, for the button to say what the heading says */
+const settled = ref<Record<string, string> | null>(null)
+watch(question, () => {
+  settled.value = null
+})
 function setChoice(param: string, value: string) {
   if (question.value)
-    void router.replace({ query: queryOfChoice(route.query, question.value, param, value) }).catch(() => {})
+    void router.replace({ query: queryOfChoice(route.query, question.value, param, value, explicit.value) }).catch(() => {})
 }
 
 /** The link's query with `changes` put over it; a value of null leaves its key out */
@@ -185,14 +195,14 @@ function onPlace(chosen: { id: string }) {
           @click="toggle(entry.id)"
         >
           <UIcon :name="entry.icon" class="size-5 shrink-0" aria-hidden="true" />
-          <span class="min-w-0 text-start">{{ questionText(entry, choices[entry.id]!) }}</span>
+          <span class="min-w-0 text-start">{{ questionText(entry, entry.id === question && settled ? settled : choices[entry.id]!) }}</span>
         </button>
       </li>
     </ul>
 
     <div ref="answer" class="ask-answer">
       <!-- while the stored position is checked against the browser's permission (GH-4014), nothing is asked about the station it made -->
-      <AnswerPanel v-if="question && !checking" :question="question" :choices="choices[question]!" @update:choice="setChoice" />
+      <AnswerPanel v-if="question && !checking" :question="question" :choices="choices[question]!" :explicit="explicit" @update:choice="setChoice" @effective="settled = $event" />
       <p v-else-if="!question" class="ask-idle" data-testid="ask-idle">
         <UIcon name="i-ph-cursor-click" class="size-5 shrink-0" aria-hidden="true" />
         {{ t('ask.idle') }}

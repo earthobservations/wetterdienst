@@ -78,8 +78,9 @@ describe('what it finds and where it leads', () => {
   })
 
   it('finds a method, a section of it and a work, at the anchors of the page of the methods', () => {
-    const summer = find('en', 'summer').find(hit => hit.kind === 'method')!
-    expect(summer.to).toBe('/methods#summer')
+    // the summer question became the season question (GH-3764): "summer" still finds it
+    const season = find('en', 'summer').find(hit => hit.kind === 'method')!
+    expect(season.to).toBe('/methods#season')
     const work = find('en', 'WMO-No. 1203').find(hit => hit.to.startsWith('/methods#work-'))!
     expect(work.to).toBe('/methods#work-wmo-1203')
   })
@@ -106,7 +107,7 @@ describe('what it finds and where it leads', () => {
       expect(targets.has(`/measurement#${topic}`), topic).toBe(true)
     for (const id of WORK_IDS)
       expect(targets.has(`/methods#${workAnchor(id)}`), id).toBe(true)
-    for (const chip of ['rain', 'summer', 'wind', 'download'])
+    for (const chip of ['rain', 'season', 'wind', 'download'])
       expect(targets.has(`/methods#${chip}`), chip).toBe(true)
   })
 })

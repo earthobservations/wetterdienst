@@ -92,63 +92,80 @@ export const methods: MethodTexts = {
       },
     },
 
-    summer: {
-      title: 'War der letzte Sommer heißer als üblich?',
-      summary: 'Die mittlere Temperatur von Juni, Juli und August an der Station des Ortes, verglichen mit dem Mittel der Sommer des WMO-Normalwerts 1991 bis 2020.',
+    season: {
+      title: 'War die letzte Jahreszeit wärmer als üblich?',
+      summary: 'Die mittlere Temperatur der drei Monate einer Jahreszeit (Frühling, Sommer, Herbst oder Winter) an der Station des Ortes, verglichen mit dem Mittel der Jahreszeiten eines WMO-Normalwerts: 1961 bis 1990 oder jedes spätere, das vollständig ist.',
       data: 'Die monatlichen Stationsbeobachtungen des DWD (Datensatz monthly/climate_summary): das Monatsmittel der Lufttemperatur in 2 m Höhe an der Station des Ortes, ihre ganze Reihe.',
       steps: {
-        summers: 'Für jedes Jahr, in dem der DWD die Monatsmittel von Juni, Juli und August hat, ist der Sommer das Mittel dieser drei. Ein Sommer zählt, sobald er vorbei ist, ab dem 1. September.',
-        reference: 'Die Referenz ist das Mittel der Sommer {from} bis {to}, des aktuellen klimatologischen Standardnormalwerts der WMO. Hat die Station weniger als {minSummers} dieser {ofSummers} Sommer, werden stattdessen die Sommer vor dem erfragten genommen, wenn es mindestens {fallbackMin} sind; bei weniger gibt es keine Antwort.',
-        compare: 'Die Abweichung ist das Mittel des Sommers minus die Referenz. Dieselbe Differenz ist als Balken für jeden Sommer der Station gezeichnet.',
-        verdict: 'Der Sommer ist „heißer“, wenn seine Abweichung {band} °C oder mehr beträgt, „kühler“, wenn sie {band} °C oder mehr darunter liegt, und dazwischen „wie üblich“. Der Rang zählt die Sommer, die wärmer waren.',
+        seasons: 'Für jedes Jahr, in dem der DWD die Monatsmittel aller drei Monate der Jahreszeit hat, ist die Jahreszeit das Mittel dieser drei: Frühling ist März bis Mai, Sommer Juni bis August, Herbst September bis November und Winter Dezember bis Februar, mit dem Dezember des Vorjahres. Eine Jahreszeit zählt, sobald sie vorbei ist: ab dem 1. Juni, 1. September, 1. Dezember und 1. März. Die letzte, die vorbei ist, ist die erfragte.',
+        reference: 'Die Referenz ist das Mittel der Jahreszeiten des gewählten Normalwerts: 30 Jahre, die in einem auf 0 endenden Jahr enden, von {firstFrom} bis {firstTo} an, jeder, sobald er vollständig ist. Die Frage öffnet auf dem neuesten, von dem die Station genug Jahreszeiten hat. Ein Normalwert kann nur verglichen werden, wenn die Station mindestens {minSeasons} seiner {ofSeasons} Jahreszeiten dieser Art hat; einer mit weniger ist in der Auswahl ausgegraut, und eine Antwort dafür sagt es. Hat die Station weniger vom neuesten Normalwert, werden stattdessen die Jahreszeiten vor der erfragten genommen, wenn es mindestens {fallbackMin} sind; bei weniger gibt es keine Antwort.',
+        compare: 'Die Abweichung ist das Mittel der Jahreszeit minus die Referenz. Dieselbe Differenz ist als Balken für jede Jahreszeit dieser Art an der Station gezeichnet.',
+        verdict: 'Die Jahreszeit ist „wärmer“, wenn ihre Abweichung {band} °C oder mehr beträgt, „kühler“, wenn sie {band} °C oder mehr darunter liegt, und dazwischen „wie üblich“. Die Frage nach einem Winter fragt nach „kälter“, und ihre Antwort sagt Ja, wo der Winter kühler war. Der Rang zählt die Jahreszeiten, die wärmer waren.',
       },
       formulas: {
-        summer: 'Sommer(Jahr) = (Mittel Juni + Mittel Juli + Mittel August) / 3',
-        anomaly: 'Abweichung = Sommer(erfragtes Jahr) − Mittel der Sommer(Jahr) über die Referenzjahre',
+        season: 'Jahreszeit(Jahr) = (Mittel Monat 1 + Mittel Monat 2 + Mittel Monat 3) / 3; bei einem Winter ist Monat 1 der Dezember des Vorjahres',
+        anomaly: 'Abweichung = Jahreszeit(erfragtes Jahr) − Mittel der Jahreszeit(Jahr) über die Referenzjahre',
       },
       rules: {
         'season': {
-          text: 'Ein Sommer sind Juni, Juli und August.',
-          says: 'Der DWD sagt, dass Meteorologen das Jahr in Jahreszeiten aus drei vollen Monaten teilen und Juni, Juli und August als Sommer nehmen, weil die Statistiken des Klimas aus den Daten einzelner Monate gemacht werden.',
+          text: 'Eine Jahreszeit sind drei volle Monate: Frühling sind März, April und Mai; Sommer sind Juni, Juli und August; Herbst sind September, Oktober und November; Winter sind Dezember, Januar und Februar.',
+          says: 'Der DWD sagt, dass Meteorologen das Jahr in Jahreszeiten aus drei vollen Monaten teilen, die jeweils am Ersten des Monats beginnen, in dem astronomisch die Jahreszeit beginnt: Frühling vom 1. März bis 31. Mai, Sommer vom 1. Juni bis 31. August, Herbst vom 1. September bis 30. November und Winter vom 1. Dezember bis Ende Februar. Er sagt, das geschehe, weil die Statistiken des Klimas aus den Daten einzelner Monate gemacht werden.',
+        },
+        'winter-year': {
+          text: 'Ein Winter nimmt den Dezember des Vorjahres: Dezember 2025 mit Januar und Februar 2026 ist der Winter 2025/26, der als Winter 2026 zählt, des Jahres seines Januars und Februars. Er ist am 1. März vorbei. Ein Winter-Normalwert wird mit den Jahren seiner Winter geschrieben: der Normalwert 1961 bis 1990 sind die Winter 1960/61 bis 1989/90.',
+          says: 'Die Richtlinien der WMO sagen, dass ein Jahreszeiten-Normalwert das Mittel der Monatsnormalwerte seiner Monate ist. Sie sagen nicht, welchen Dezember ein Winter nimmt.',
+          reason: 'Weder die Definition der Jahreszeiten des DWD noch die Richtlinien der WMO sagen, nach welchem Jahr ein Winter benannt wird, der über den Jahreswechsel reicht. wetterdienst benennt ihn nach dem Jahr seines Januars und Februars und nimmt den Dezember davor, damit seine drei Monate aufeinander folgen, wie sie es im Wetter tun. Nach der Lesart von wetterdienst würde der Normalwert der WMO für Dezember, Januar und Februar den Dezember derselben Jahre mitteln wie den Januar und den Februar; beide unterscheiden sich nur durch den Dezember an den Enden des Zeitraums (beim Normalwert 1991 bis 2020: Dezember 1990 gegen Dezember 2020). Das ist eine eigene Wahl von wetterdienst, und die Maintainer müssen sie annehmen.',
         },
         'complete-months': {
-          text: 'Ein Sommer zählt nur, wenn die Station das Mittel aller drei Monate hat. Der DWD berechnet ein Monatsmittel aus den Tageswerten des Monats, und nur, wo sie vollständig sind (für manche Stationen hat er Monatswerte und keine Tageswerte).',
+          text: 'Eine Jahreszeit zählt nur, wenn die Station das Mittel aller drei Monate hat. Der DWD berechnet ein Monatsmittel aus den Tageswerten des Monats, und nur, wo sie vollständig sind (für manche Stationen hat er Monatswerte und keine Tageswerte).',
           says: 'Die Richtlinien der WMO sagen: Fehlt der Normalwert eines der Monate einer Jahreszeit, fehlt auch der Normalwert der Jahreszeit. Die Beschreibung des DWD sagt, seine Monatsmittel würden aus den Tageswerten berechnet, und nur, wenn die Tageswerte vollständig sind, und dass es für manche Stationen Monatswerte gibt, wo keine Tageswerte vorliegen.',
         },
         'only-over': {
-          text: 'Ein Sommer zählt, sobald er vorbei ist (ab 1. September); der Sommer, der noch läuft, wird nicht verglichen.',
-          reason: 'Ein laufender Sommer hat erst einen Teil seiner Wochen, und sein Mittel würde mit ganzen Sommern verglichen. Die Maintainer haben entschieden, dass nur vollständige Jahreszeiten verglichen werden. Dafür braucht es keine Quelle.',
+          text: 'Eine Jahreszeit zählt, sobald sie vorbei ist: der Frühling ab dem 1. Juni, der Sommer ab dem 1. September, der Herbst ab dem 1. Dezember und der Winter ab dem 1. März. Die Jahreszeit, die noch läuft, wird nicht verglichen.',
+          reason: 'Eine laufende Jahreszeit hat erst einen Teil ihrer Wochen, und ihr Mittel würde mit ganzen Jahreszeiten verglichen. Die Maintainer haben entschieden, dass nur vollständige Jahreszeiten verglichen werden. Dafür braucht es keine Quelle.',
         },
-        'summer-mean': {
-          text: 'Das Mittel eines Sommers ist das einfache Mittel der drei Monatsmittel; jeder Monat zählt gleich, gleich wie viele Tage er hat.',
+        'season-mean': {
+          text: 'Das Mittel einer Jahreszeit ist das einfache Mittel der drei Monatsmittel; jeder Monat zählt gleich, gleich wie viele Tage er hat.',
           says: 'Die Richtlinien der WMO sagen, dass ein Jahreszeiten-Normalwert das Mittel der Monatsnormalwerte seiner Monate ist. Manche Wetterdienste gewichten die Monate nach ihrer Zahl an Tagen; die WMO sagt, das werde für Produkte, die zwischen Ländern ausgetauscht werden, nicht empfohlen.',
         },
-        'reference-period': {
-          text: 'Die Referenz ist das Mittel der Sommer {from} bis {to}.',
-          says: 'Die WMO definiert den klimatologischen Standardnormalwert als Durchschnitt über 30 Jahre, der in einem auf 0 endenden Jahr endet: 1981 bis 2010, 1991 bis 2020 und so fort, alle zehn Jahre neu berechnet. Ein Normalwert ist der Maßstab, mit dem aktuelle Beobachtungen verglichen werden.',
+        'default-season': {
+          text: 'Die Frage öffnet auf der Jahreszeit, die zuletzt abgeschlossen wurde und von der die Station genug Daten hat: der Herbst ab dem 1. Dezember, der Winter ab dem 1. März, der Frühling ab dem 1. Juni und der Sommer ab dem 1. September. Eine Jahreszeit hat genug Daten, wenn die Station mindestens {minSeasons} der {ofSeasons} Jahreszeiten irgendeines Normalwerts hat oder wenn die Jahreszeiten vor der letzten den neuesten Normalwert ersetzen können (siehe unten). Hat die jüngste zu wenig, öffnet sie auf der nächstjüngeren. Ein Link oder eine Wahl in der Auswahl, die eine Jahreszeit nennt, behält sie, und der Link ?ask=summer nennt den Sommer; eine Jahreszeit mit zu wenig Daten ist ausgegraut, und ein Link, der eine nennt, bekommt die Jahreszeit, auf der die Frage öffnet, mit einer Zeile, die das sagt.',
+          reason: 'Keine Quelle sagt, auf welcher Jahreszeit eine Frage öffnen soll. Die zuletzt abgeschlossene ist die, nach der gefragt wird, und die Daten entscheiden, wo die jüngste zu wenig davon hat. Das ersetzt die frühere Wahl (immer der Sommer), die die Maintainer angenommen hatten, und muss deshalb neu angenommen werden.',
+        },
+        'reference-choices': {
+          text: 'Die Referenz kann jeder WMO-Normalwert über 30 Jahre sein, der in einem auf 0 endenden Jahr endet und vollständig ist: von {firstFrom} bis {firstTo} an, mit einem neuen am 1. Januar nach seinem letzten Jahr. Die ganze Reihe der Station und ein gleitender Zeitraum von 30 Jahren werden nicht angeboten.',
+          says: 'Die WMO definiert den klimatologischen Standardnormalwert als Durchschnitt über 30 Jahre, der in einem auf 0 endenden Jahr endet: 1981 bis 2010, 1991 bis 2020 und so fort. Der Zeitraum 1961 bis 1990 bleibt als Referenz-Normalwert für die Bewertung langfristiger Klimaänderungen erhalten, ist aber kein Standardnormalwert. Ein Normalwert im Sinne der WMO ist ein Zeitraumdurchschnitt über mindestens drei aufeinanderfolgende Zehnjahreszeiträume, die am 1. Januar eines auf 1 endenden Jahres beginnen, und das ist jeder Zeitraum, der hier angeboten wird.',
+        },
+        'reference-default': {
+          text: 'Die Frage öffnet auf dem neuesten Normalwert, der vollständig ist. Er endet im Jahr floor((Jahr − 1) / 10) × 10, ist also von 1991 bis 2020, bis Ende 2030, und ab dem 1. Januar 2031 von 2001 bis 2030.',
+          says: 'Die WMO sagt, der klimatologische Standardnormalwert sei der jüngste 30-Jahres-Zeitraum, der in einem auf 0 endenden Jahr endet, und werde alle zehn Jahre neu berechnet.',
+        },
+        'default-normal': {
+          text: 'Die Frage öffnet auf dem neuesten der Normalwerte, von dem die Station für die gewählte Jahreszeit genug Jahreszeiten hat: mindestens {minSeasons} seiner {ofSeasons} oder, beim neuesten Normalwert, genug Jahreszeiten vor der letzten für den Ersatz unten. Ein Normalwert, den ein Link oder die Auswahl nennt, bleibt; ist er für die Jahreszeit ausgegraut, gilt stattdessen der, auf dem die Frage öffnet, und eine Zeile sagt es.',
+          reason: 'Keine Quelle sagt, auf welchem der Normalwerte eine Frage öffnen soll. Der neueste ist der aktuelle Standard, und die Frage geht nur dort auf einen älteren über, wo die Station nicht mit einem neueren verglichen werden kann. Die Maintainer müssen das annehmen.',
         },
         'normal-mean': {
-          text: 'Die Referenz ist das Mittel der vollständigen Sommer ihrer Jahre, jeder Sommer zählt gleich. Ein Jahr, in dem ein Monat fehlt, fällt ganz heraus.',
+          text: 'Die Referenz ist das Mittel der vollständigen Jahreszeiten ihrer Jahre, jede Jahreszeit zählt gleich. Eine Jahreszeit, in der ein Monat fehlt, fällt ganz heraus.',
           says: 'Die Richtlinien der WMO bilden einen Jahreszeiten-Normalwert als Mittel der drei Monatsnormalwerte seiner Monate und nicht aus den Werten einzelner Jahre. Fehlt der Normalwert eines Monats, fehlt der Jahreszeiten-Normalwert.',
-          reason: 'Der Chip mittelt ganze Sommer; ein Jahr, in dem ein Monat fehlt, fällt also ganz aus der Referenz, wo die WMO dieses Jahr in den beiden anderen Monatsnormalwerten noch verwenden würde. Wo kein Monat fehlt, kommt dasselbe heraus. Die Art, wie der Chip mittelt, ist eine eigene Wahl von wetterdienst.',
+          reason: 'Der Chip mittelt ganze Jahreszeiten; ein Jahr, in dem ein Monat fehlt, fällt also ganz aus der Referenz, wo die WMO dieses Jahr in den beiden anderen Monatsnormalwerten noch verwenden würde. Wo kein Monat fehlt, kommt dasselbe heraus. Die Art, wie der Chip mittelt, ist eine eigene Wahl von wetterdienst.',
         },
-        'min-summers': {
-          text: 'Die Referenz braucht mindestens {minSummers} ihrer {ofSummers} Sommer. Bei weniger gilt der Ersatz unten.',
+        'min-seasons': {
+          text: 'Ein Normalwert kann nur verglichen werden, wenn die Station mindestens {minSeasons} seiner {ofSeasons} Jahreszeiten dieser Art hat. Ein anderer ist in der Auswahl ausgegraut, mit der Zahl, die die Station hat, und eine Antwort dafür sagt es; für den neuesten gilt der Ersatz unten.',
           says: 'Die WMO verlangt für einen Normalwert, für jeden Monat, gültige Monatswerte in mindestens 80 % der Jahre des Zeitraums, das sind 24 oder mehr von 30 Jahren.',
-          reason: 'Der Chip zählt vollständige Sommer (alle drei Monate im selben Jahr), nicht die Jahre jedes einzelnen Monats; die Grenze ist also nicht die der WMO und lässt sich nicht eins zu eins mit ihr vergleichen. {minSummers} von {ofSummers} ist eine eigene Grenze von wetterdienst, gesetzt, damit auch Stationen mit Lücken eine Antwort gegen den WMO-Zeitraum bekommen, und die Maintainer müssen sie annehmen; die Referenz einer solchen Station ist dann kein Normalwert der WMO im strengen Sinn.',
+          reason: 'Der Chip zählt vollständige Jahreszeiten (alle drei Monate der Jahreszeit, bei einem Winter mit dem Dezember davor), nicht die Jahre jedes einzelnen Monats; die Grenze ist also nicht die der WMO und lässt sich nicht eins zu eins mit ihr vergleichen. {minSeasons} von {ofSeasons} ist eine eigene Grenze von wetterdienst, gesetzt, damit auch Stationen mit Lücken eine Antwort gegen einen WMO-Zeitraum bekommen, und die Maintainer müssen sie annehmen; die Referenz einer solchen Station ist dann kein Normalwert der WMO im strengen Sinn.',
         },
         'fallback-period': {
-          text: 'Hat die Station zu wenige Sommer des Normalwerts, sind die Referenz alle Sommer der Station vor dem erfragten.',
+          text: 'Hat die Station zu wenige Jahreszeiten des neuesten Normalwerts, sind die Referenz alle Jahreszeiten der Station vor der erfragten. Kein anderer Normalwert wird so ersetzt: ein gewählter wird verwendet oder ist ausgegraut.',
           says: 'Die WMO nennt das Mittel von Monatswerten über einen beliebigen festgelegten Zeitraum einen „Durchschnitt“ und sagt, manche Quellen nennten ihn „vorläufigen Normalwert“.',
-          reason: 'Alle früheren Sommer zu nehmen, und nicht einen Zeitraum, der in einem auf 1 endenden Jahr beginnt, wie es die Definition des Zeitraumdurchschnitts der WMO vorsieht, ist eine eigene Wahl von wetterdienst.',
+          reason: 'Alle früheren Jahreszeiten zu nehmen, und nicht einen Zeitraum, der in einem auf 1 endenden Jahr beginnt, wie es die Definition des Zeitraumdurchschnitts der WMO vorsieht, ist eine eigene Wahl von wetterdienst. Ebenso, den Ersatz dem neuesten Normalwert vorzubehalten: eine Antwort gegen andere Jahre als die gewählten würde die gestellte Frage nicht beantworten.',
         },
         'fallback-minimum': {
-          text: 'Der Ersatz braucht mindestens {fallbackMin} Sommer.',
+          text: 'Der Ersatz braucht mindestens {fallbackMin} Jahreszeiten.',
           says: 'Die WMO sagt, dass bei den meisten Mittelwert- und Summen-Parametern 10 bis 12 Jahre Daten eine ähnliche Vorhersagekraft hatten wie ein üblicher 30-jähriger Zeitraum.',
-          reason: 'Zehn ist das untere Ende dieser Spanne, und die WMO setzt kein festes Minimum. Die eigene Definition des Zeitraumdurchschnitts der WMO, mindestens zehn Jahre ab dem 1. Januar eines auf 1 endenden Jahres, passt nicht zu einem Ersatz aus allen früheren Sommern. Die Grenze von {fallbackMin} Sommern ist eine eigene von wetterdienst, und die Maintainer müssen sie annehmen.',
+          reason: 'Zehn ist das untere Ende dieser Spanne, und die WMO setzt kein festes Minimum. Die eigene Definition des Zeitraumdurchschnitts der WMO, mindestens zehn Jahre ab dem 1. Januar eines auf 1 endenden Jahres, passt nicht zu einem Ersatz aus allen früheren Jahreszeiten. Die Grenze von {fallbackMin} Jahreszeiten ist eine eigene von wetterdienst, und die Maintainer müssen sie annehmen.',
         },
         'anomaly': {
-          text: 'Die Abweichung ist das Mittel des Sommers minus die Referenz, in Grad.',
+          text: 'Die Abweichung ist das Mittel der Jahreszeit minus die Referenz, in Grad.',
           says: 'Die WMO sagt, ein Normalwert sei der Maßstab, mit dem aktuelle Beobachtungen verglichen werden, und viele auf Abweichungen beruhende Klimadatensätze bauen darauf auf. Eine Abweichung ist diese Differenz.',
         },
         'usual-band': {
@@ -156,25 +173,30 @@ export const methods: MethodTexts = {
           reason: 'Für „wie üblich“ braucht es ein Band, und ein halbes Grad ist eine runde Zahl, die wetterdienst gewählt hat. Keine Quelle nennt eine Breite für das Wort, und die Maintainer müssen diese annehmen.',
         },
         'rank': {
-          text: 'Der Rang ist die Zahl der Sommer der Station, die wärmer waren, plus eins.',
-          reason: 'Eine einfache Zählung braucht keine Annahme über die Verteilung der Sommer; sie ist kein Verfahren aus einer Quelle.',
+          text: 'Der Rang ist die Zahl der Jahreszeiten dieser Art an der Station, die wärmer waren, plus eins.',
+          reason: 'Eine einfache Zählung braucht keine Annahme über die Verteilung der Jahreszeiten; sie ist kein Verfahren aus einer Quelle.',
         },
       },
       limits: {
-        station: 'Die Antwort ist die Messung einer einzelnen Station, die an einem Ort steht. In einer Stadt oder Region kann der Sommer anders gewesen sein; die Stationen des DWD unterscheiden sich in Höhe, Umgebung und Instrumenten.',
+        station: 'Die Antwort ist die Messung einer einzelnen Station, die an einem Ort steht. In einer Stadt oder Region kann die Jahreszeit anders gewesen sein; die Stationen des DWD unterscheiden sich in Höhe, Umgebung und Instrumenten.',
         moved: 'Eine Station, die versetzt wurde oder ihre Instrumente oder Beobachtungszeiten geändert hat, wird dafür nicht korrigiert: Die Antwort ist die Reihe der Station, wie der DWD sie veröffentlicht. Der DWD bittet, Änderungen der Stationshöhe und der Beobachtungszeiten zu beachten, wenn Trends gelesen werden.',
-        gaps: 'Ein fehlender Tag nimmt den Monat und damit den Sommer aus dem Vergleich, weil der DWD ein Monatsmittel nur aus vollständigen Tageswerten berechnet (die WMO lässt in einem Monat bis zu 10 fehlende Tage zu, und weniger als 5 in Folge). Eine Station mit Lücken hat weniger Sommer.',
-        reference: 'Derselbe Sommer, gegen einen anderen Referenzzeitraum gelegt, hat eine andere Abweichung und kann eine andere Antwort haben; der Normalwert 1991 bis 2020 ist der aktuelle und rückt alle zehn Jahre weiter. Wie ein Normalwert entsteht, steht auf der Seite „So wird Wetter gemessen“.',
+        gaps: 'Ein fehlender Tag nimmt den Monat und damit die Jahreszeit aus dem Vergleich, weil der DWD ein Monatsmittel nur aus vollständigen Tageswerten berechnet (die WMO lässt in einem Monat bis zu 10 fehlende Tage zu, und weniger als 5 in Folge). Eine Station mit Lücken hat weniger Jahreszeiten, und eine Station, die später begann als ein Normalwert, hat wenige oder keine seiner Jahreszeiten: dieser Normalwert ist dann ausgegraut.',
+        reference: 'Dieselbe Jahreszeit, gegen einen anderen Normalwert gelegt, hat eine andere Abweichung und kann eine andere Antwort haben. Der Normalwert 1961 bis 1990 ist die Referenz der WMO für den Klimawandel, der neueste ist der aktuelle Standard, und alle zehn Jahre kommt ein neuer. Wie ein Normalwert entsteht, steht auf der Seite „So wird Wetter gemessen“.',
         band: 'Die Breite von „wie üblich“ ist eine eigene von wetterdienst: Eine Differenz knapp unter und knapp über dem Band ist fast dasselbe, hat aber verschiedene Wörter.',
       },
       numbers: {
         station: 'Station: {name} ({id}). Die Antwort ist die der Station, nicht die der Stadt.',
-        summer: 'Sommer {year}: Juni, Juli und August zusammen im Mittel {mean} {unit}.',
-        reference: 'Verglichen mit den Sommern {from} bis {to}: das Mittel von {count} Sommern, {normal} {unit}.',
-        referenceFallback: 'Die Station hat zu wenige Sommer des WMO-Normalwerts ({normalFrom} bis {normalTo}), deshalb werden stattdessen die {count} Sommer von {from} bis {to} genommen: ihr Mittel ist {normal} {unit}. Das ist ein Durchschnitt der früheren Reihe der Station, kein Normalwert der WMO.',
-        anomaly: 'Differenz: {anomaly} {unit} (der Sommer minus die Referenz).',
+        season: 'Im {season} {year} ({months}) lag das Mittel bei {mean} {unit}.',
+        reference: 'Verglichen mit dem Mittel der {seasons} von {from} bis {to}: {count} {seasons}, {normal} {unit}.',
+        referenceFallback: 'Die Station hat zu wenige {seasons} des neuesten WMO-Normalwerts ({askedFrom} bis {askedTo}), deshalb werden stattdessen die {count} {seasons} von {from} bis {to} genommen: ihr Mittel ist {normal} {unit}. Das ist ein Durchschnitt der früheren Reihe der Station, kein Normalwert der WMO.',
+        anomaly: 'Differenz: {anomaly} {unit} (der {season} minus die Referenz).',
         band: 'Innerhalb von {band} {unit} in beide Richtungen gilt als üblich.',
-        rank: 'Rang {rank} von {count} vollständigen Sommern (Rang 1 ist der wärmste); die Reihe beginnt {first}.',
+        rank: 'Rang {rank} von {count} vollständigen Jahreszeiten dieser Art (Rang 1 ist der wärmste); die Reihe beginnt {first}.',
+      },
+      terms: {
+        season: { spring: 'Frühling', summer: 'Sommer', autumn: 'Herbst', winter: 'Winter' },
+        seasons: { spring: 'Frühlinge', summer: 'Sommer', autumn: 'Herbste', winter: 'Winter' },
+        months: { spring: 'März bis Mai', summer: 'Juni bis August', autumn: 'September bis November', winter: 'Dezember bis Februar' },
       },
     },
 
@@ -288,7 +310,7 @@ export const methods: MethodTexts = {
       plain: `${WMO} Band I ihres Leitfadens Guide to Instruments and Methods of Observation ist das Handbuch für die Messung von Temperatur, Wind, Niederschlag und den anderen Größen. Hier liefert er die Beaufortskala der Windstärke, was ein Mittel des Windes ist, warum Böen wichtig sind und was eine Spur Regen heißt.`,
     },
     'wmo-1203': {
-      plain: `${WMO} Ihre Richtlinien zur Berechnung von Klimanormalwerten (WMO Guidelines on the Calculation of Climate Normals) sagen, was ein Klimanormalwert ist, welche Zeiträume zählen, wie ein Normalwert aus Monatswerten entsteht und wie viele fehlende Daten erlaubt sind. Ein Normalwert ist der Durchschnitt über einen langen, festen Zeitraum, mit dem das aktuelle Wetter verglichen wird. Dreißig Jahre wurden vor allem deshalb zum Standard, weil bei der ersten Empfehlung nur dreißig Jahre Daten vorlagen. Hier liefern sie den Referenzzeitraum 1991 bis 2020, die Berechnung einer Jahreszeit und die Regeln für eine Station mit zu wenigen Jahren.`,
+      plain: `${WMO} Ihre Richtlinien zur Berechnung von Klimanormalwerten (WMO Guidelines on the Calculation of Climate Normals) sagen, was ein Klimanormalwert ist, welche Zeiträume zählen, wie ein Normalwert aus Monatswerten entsteht und wie viele fehlende Daten erlaubt sind. Ein Normalwert ist der Durchschnitt über einen langen, festen Zeitraum, mit dem das aktuelle Wetter verglichen wird. Dreißig Jahre wurden vor allem deshalb zum Standard, weil bei der ersten Empfehlung nur dreißig Jahre Daten vorlagen. Hier liefern sie die Normalwerte, die gewählt werden können (den Referenz-Normalwert 1961 bis 1990 und die späteren), die Berechnung einer Jahreszeit und die Regeln für eine Station mit zu wenigen Jahren.`,
     },
     'dwd-seasons': {
       plain: `${DWD} Sein Wetterlexikon sagt, wie Meteorologen das Jahr teilen: Jede Jahreszeit sind drei volle Monate, weil die Statistiken des Klimas aus den Daten einzelner Monate gemacht werden.`,

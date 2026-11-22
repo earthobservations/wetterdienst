@@ -79,13 +79,13 @@
     "idle": "Wiel eng Fro, d'Äntwert kënnt hei, aus aktuellen Daten.",
     "q": {
       "rain": "Reent et muer zu {place}?",
-      "summer": "War de leschte Summer hei méi waarm wéi soss?",
+      "season": "War {last} hei {warmth} wéi soss?",
       "wind": "Wéi windeg war et den {day}?",
       "download": "Wou kann ech Stonnentemperaturen eroflueden?"
     },
     "from": {
       "rain": "Prognos, DWD MOSMIX",
-      "summer": "Méintlech Mëttelwäerter, DWD",
+      "season": "Méintlech Mëttelwäerter, DWD",
       "wind": "Deeglech Wäerter, DWD",
       "download": "All d'Wiederdéngschter"
     },
@@ -125,16 +125,58 @@
       "none": "D'Prognos fir {name} geet nach net bis muer.",
       "open": "Ganz Prognos opmaachen"
     },
-    "summer": {
-      "hotter": "Jo, {anomaly} {unit} méi waarm wéi soss.",
+    "season": {
+      "warmer": "Jo, {anomaly} {unit} méi waarm wéi soss.",
       "cooler": "Neen, {anomaly} {unit} méi kill wéi soss.",
       "usual": "Net wierklech: ongeféier wéi soss.",
-      "detail": "De Summer {year} (Juni bis August) hat am Mëttel {mean} {unit}; d'Summere vun {from} bis {to} am Mëttel {normal} {unit}.",
-      "rank": "Plaz {rank} vun {count} Summeren zënter {first}, vum wäermsten un gezielt.",
-      "chart": "All Summer géint de Mëttelwäert vun {from} bis {to}, an {unit}",
-      "none": "Hei ginn et ze wéineg komplett Summere fir ze vergläichen.",
+      "coldYes": "Jo, {anomaly} {unit} méi kal wéi soss.",
+      "coldNo": "Neen, {anomaly} {unit} méi waarm wéi soss.",
+      "coldUsual": "Net wierklech: ongeféier wéi soss.",
+      "detail": "{seasonCap} {year} ({months}) hat am Mëttel {mean} {unit}; d'{seasons} vun {from} bis {to} am Mëttel {normal} {unit}.",
+      "rank": "Plaz {rank} vun {count} ({seasons} zënter {first}), vum wäermsten un gezielt.",
+      "chart": "All {season} géint de Mëttelwäert vun {from} bis {to}, an {unit}",
+      "none": "Hei ginn et ze wéineg komplett Joreszäiten fir ze vergläichen.",
+      "noneNormal": "Dës Statioun huet nëmmen {count} vun {of} Joreszäite vun {normal}; fir ze vergläichen sinn der {min} néideg.",
       "open": "Méintlech Mëttelwäerter opmaachen",
-      "stripes": "Klimasträifen ukucken"
+      "stripes": "Klimasträifen ukucken",
+      "seasonLabel": "Joreszäit",
+      "refLabel": "Verglach mat",
+      "refShort": "{normal} (hei nëmmen {count} vun {of}, {min} néideg)",
+      "refFallback": "{normal} (hei nëmmen {count} vun {of}; fréier ginn amplaz benotzt)",
+      "last": {
+        "spring": "dat lescht Fréijoer",
+        "summer": "de leschte Summer",
+        "autumn": "de leschte Hierscht",
+        "winter": "de leschte Wanter"
+      },
+      "warmth": {
+        "spring": "méi waarm",
+        "summer": "méi waarm",
+        "autumn": "méi waarm",
+        "winter": "méi kal"
+      },
+      "name": {
+        "spring": "Fréijoer",
+        "summer": "Summer",
+        "autumn": "Hierscht",
+        "winter": "Wanter"
+      },
+      "plural": {
+        "spring": "Fréijoeren",
+        "summer": "Summeren",
+        "autumn": "Hierschter",
+        "winter": "Wanteren"
+      },
+      "months": {
+        "spring": "Mäerz bis Mee",
+        "summer": "Juni bis August",
+        "autumn": "September bis November",
+        "winter": "Dezember bis Februar"
+      },
+      "seasonShort": "{seasonCap} (hei nëmmen {count} komplett Joreszäiten)",
+      "noteGreyed": "Gro: ze wéineg Joreszäiten bei dëser Statioun. E Normalwäert brauch {min} vu senge {of} Joreszäiten.",
+      "noteAskedSeason": "{seasonCap} huet hei ze wéineg Daten fir ze vergläichen. Amplaz gewisen: {shown}.",
+      "noteAskedNormal": "{asked} huet hei ze wéineg Daten fir dës Joreszäit: {count} vu senge {of} Joreszäiten, {min} néideg. Amplaz gewisen: {shown}."
     },
     "wind": {
       "calm": "Roueg.",

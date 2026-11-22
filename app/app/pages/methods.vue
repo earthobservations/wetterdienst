@@ -9,13 +9,14 @@ import { WORK_IDS, workAnchor, WORKS } from '~/utils/ask/works'
 
 // "How the answers are worked out" (GH-3764, steps 1b and 1c): the reference page of the methods of Ask the weather, in the
 // Reference group beside the Glossary and "How weather is measured". One section for each chip of the registry, written from its
-// definition (`ChipExplanation`) so that a new chip is on the page with no edit of it, each with an anchor (`/methods#summer`), and at
+// definition (`ChipExplanation`) so that a new chip is on the page with no edit of it, each with an anchor (`/methods#season`), and at
 // the end the list of the works cited, each with an anchor (`/methods#work-wmo-1203`). The disclosure under each answer links here.
 //
 // The texts are long and are written in German and English (`i18n/methods/`), as the entries of "How weather is measured" are: a reader of
 // another language sees the text in English, with a note, and a reader of Low German or Luxembourgish in German.
 const { t, locale } = useI18n()
 const route = useRoute()
+const router = useRouter()
 
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('methods.title') })
@@ -36,7 +37,7 @@ const works = WORK_IDS.map(id => ({
   usedBy: CHIPS.filter(chip => worksOf(chip).includes(id)).map(chip => chip.id),
 }))
 
-// A link to a section (`#summer`) or a work (`#work-wmo-1203`) takes the reader to its heading and puts the focus there, so that a keyboard
+// A link to a section (`#season`) or a work (`#work-wmo-1203`) takes the reader to its heading and puts the focus there, so that a keyboard
 // and a screen reader continue at the section and not at the link that was used; the router scrolls (and respects reduced motion). The
 // anchor of anything that is not a section or a work (a rule) is left to the browser.
 const anchors = new Set<string>([...CHIPS.map(chip => chip.id), ...WORK_IDS.map(workAnchor)])
@@ -60,12 +61,28 @@ function onAnchor(id: string) {
     reveal(`#${id}`)
   }
 }
+// A link to a section by the name the chip had (`#summer`, now `#season`) goes to the section it always meant, and one to a rule of it
+// (`#summer-summer-mean`) to that rule under its new name (`#season-season-mean`)
+function followOldName(hash: string): boolean {
+  const id = hash.slice(1)
+  for (const chip of CHIPS) {
+    for (const old of chip.aliases ?? []) {
+      if (id === old || id.startsWith(`${old}-`)) {
+        const rule = id.slice(old.length + 1)
+        const target = rule ? `${chip.id}-${chip.renamedRules?.[rule] ?? rule}` : chip.id
+        void router.replace({ hash: `#${target}` }).catch(() => {})
+        return true
+      }
+    }
+  }
+  return false
+}
 onMounted(() => {
-  if (route.hash)
+  if (route.hash && !followOldName(route.hash))
     void nextTick(() => reveal(route.hash))
 })
 watch(() => route.hash, (hash) => {
-  if (hash)
+  if (hash && !followOldName(hash))
     void nextTick(() => reveal(hash))
 })
 

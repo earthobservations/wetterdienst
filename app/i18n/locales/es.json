@@ -79,13 +79,13 @@
     "idle": "Elige una pregunta: se responde aquí, con datos en directo.",
     "q": {
       "rain": "¿Lloverá mañana en {place}?",
-      "summer": "¿Fue el verano pasado más caluroso de lo normal aquí?",
+      "season": "¿Fue {last} {warmth} de lo normal aquí?",
       "wind": "¿Cuánto viento hizo el {day}?",
       "download": "¿Dónde puedo descargar temperaturas horarias?"
     },
     "from": {
       "rain": "Pronóstico, DWD MOSMIX",
-      "summer": "Medias mensuales, DWD",
+      "season": "Medias mensuales, DWD",
       "wind": "Datos diarios, DWD",
       "download": "Todos los servicios meteorológicos"
     },
@@ -125,16 +125,58 @@
       "none": "El pronóstico para {name} aún no llega hasta mañana.",
       "open": "Abrir el pronóstico completo"
     },
-    "summer": {
-      "hotter": "Sí, {anomaly} {unit} más cálido de lo normal.",
-      "cooler": "No, {anomaly} {unit} más fresco de lo normal.",
+    "season": {
+      "warmer": "Sí, {anomaly} {unit} por encima de lo normal.",
+      "cooler": "No, {anomaly} {unit} por debajo de lo normal.",
       "usual": "No mucho: más o menos como siempre.",
-      "detail": "El verano de {year} (junio a agosto) tuvo una media de {mean} {unit}; los veranos de {from} a {to}, de {normal} {unit}.",
-      "rank": "Puesto {rank} de {count} veranos desde {first}, empezando por el más cálido.",
-      "chart": "Cada verano frente a la media de {from} a {to}, en {unit}",
-      "none": "Aquí hay muy pocos veranos completos para comparar.",
+      "coldYes": "Sí, {anomaly} {unit} por debajo de lo normal.",
+      "coldNo": "No, {anomaly} {unit} por encima de lo normal.",
+      "coldUsual": "No mucho: más o menos como siempre.",
+      "detail": "{seasonCap} {year} ({months}): media de {mean} {unit}; media de {from} a {to} ({seasons}): {normal} {unit}.",
+      "rank": "Puesto {rank} de {count} ({seasons} desde {first}), ordenados de mayor a menor temperatura media.",
+      "chart": "Cada {season} frente a la media de {from} a {to}, en {unit}",
+      "none": "Aquí hay muy pocas estaciones del año completas para comparar.",
+      "noneNormal": "Esta estación solo tiene {count} de las {of} estaciones del año del periodo {normal}; hacen falta {min} para comparar.",
       "open": "Abrir las medias mensuales",
-      "stripes": "Ver las franjas climáticas"
+      "stripes": "Ver las franjas climáticas",
+      "seasonLabel": "Estación del año",
+      "refLabel": "Comparado con",
+      "refShort": "{normal} (aquí solo {count} de {of}, hacen falta {min})",
+      "refFallback": "{normal} (aquí solo {count} de {of}; se usan las anteriores)",
+      "last": {
+        "spring": "la primavera pasada",
+        "summer": "el verano pasado",
+        "autumn": "el otoño pasado",
+        "winter": "el invierno pasado"
+      },
+      "warmth": {
+        "spring": "más cálida",
+        "summer": "más caluroso",
+        "autumn": "más cálido",
+        "winter": "más frío"
+      },
+      "name": {
+        "spring": "primavera",
+        "summer": "verano",
+        "autumn": "otoño",
+        "winter": "invierno"
+      },
+      "plural": {
+        "spring": "primaveras",
+        "summer": "veranos",
+        "autumn": "otoños",
+        "winter": "inviernos"
+      },
+      "months": {
+        "spring": "marzo a mayo",
+        "summer": "junio a agosto",
+        "autumn": "septiembre a noviembre",
+        "winter": "diciembre a febrero"
+      },
+      "seasonShort": "{seasonCap} (aquí solo {count} estaciones del año completas)",
+      "noteGreyed": "En gris: muy pocas estaciones del año en esta estación meteorológica. Un periodo normal pide {min} de sus {of} estaciones del año.",
+      "noteAskedSeason": "{seasonCap} tiene aquí muy pocos datos para comparar. Se muestra en su lugar: {shown}.",
+      "noteAskedNormal": "{asked} tiene aquí muy pocos datos para esta estación del año: {count} de sus {of} estaciones del año, hacen falta {min}. Se muestra en su lugar: {shown}."
     },
     "wind": {
       "calm": "En calma.",

@@ -635,6 +635,47 @@ const STATES: State[] = [
     },
   },
   {
+    // the season question with its choices (GH-3764, step 2a): the season and the normal as labelled selects, a winter against 1961-1990, the
+    // disclosure opened so that what it says of the choice is scanned too
+    page: 'index',
+    state: 'ask-season-choices',
+    path: '/?ask=season&season=winter&ref=1961-1990',
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.season.seasonLabel') })).toBeVisible()
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.season.refLabel') })).toBeVisible()
+      await page.getByTestId('explanation-button').click()
+      await expect(page.getByTestId('explanation-rules')).toBeVisible()
+    },
+  },
+  {
+    // the same on a phone, at a station that has too few winters of 1961-1990: the normal is offered disabled with the reason, and the answer says why there is none
+    page: 'index',
+    state: 'ask-season-disabled-phone',
+    path: '/?ask=season&season=winter&ref=1961-1990&place=00183',
+    viewport: { width: 390, height: 844 },
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('place-button')).toContainText('Arkona')
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.season.refLabel') }).locator('option').first()).toBeDisabled()
+      await expect(page.getByTestId('answer')).toContainText('16')
+    },
+  },
+  {
+    // a season the station has too little of is greyed out with the reason in its text, and the line under the choices says why (a link that names it)
+    page: 'index',
+    state: 'ask-season-greyed-season',
+    path: '/?ask=season&season=winter&place=00205',
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('place-button')).toContainText('Aue')
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.season.seasonLabel') }).locator('option[disabled]')).toHaveCount(1)
+      await expect(page.getByTestId('choice-note')).not.toHaveText('')
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    },
+  },
+  {
     // the search of a place of the questions, with a name typed
     page: 'index',
     state: 'ask-place-open',
