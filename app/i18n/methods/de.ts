@@ -200,27 +200,40 @@ export const methods: MethodTexts = {
       },
     },
 
-    wind: {
-      title: 'Wie windig war es an einem Tag?',
-      summary: 'Die stärkste Böe und der mittlere Wind eines Tages an der Station des Ortes, übersetzt in eine Beaufort-Stärke und ein Wort und neben die Tage drumherum gelegt.',
-      data: 'Die täglichen Stationsbeobachtungen des DWD (Datensatz daily/climate_summary): die höchste Windböe des Tages (wind_gust_max) und die mittlere Windgeschwindigkeit des Tages (wind_speed_mean) der Station des Ortes, für die {days} Tage vor und nach dem Tag.',
+    day: {
+      title: 'Wie war ein Tag?',
+      summary: 'Wie windig, sonnig, nass, heiß oder kalt oder verschneit ein Tag an der Station des Ortes war, mit einer Skala in ein Wort gefasst, die eine veröffentlichte Quelle vorgibt, wo es eine gibt, und neben die Tage drumherum gelegt.',
+      data: 'Die täglichen Stationsbeobachtungen des DWD (Datensatz daily/climate_summary): die höchste Windböe (wind_gust_max) und die mittlere Windgeschwindigkeit (wind_speed_mean), die Sonnenscheindauer (sunshine_duration), der Niederschlag (precipitation_amount), die höchste und die niedrigste Lufttemperatur in 2 m (temperature_air_max_2m, temperature_air_min_2m) und die Schneehöhe (snow_depth) der Station des Ortes, dazu ihr Neuschnee (snow_depth_new, aus dem Tagesdatensatz des Niederschlags daily/precipitation_more), wo sie einen hat, für die {days} Tage vor und nach dem Tag.',
       steps: {
-        station: 'Für die Station des Ortes werden die Werte des Tages und der {days} Tage davor und danach geholt (keine nach gestern): die stärkste Böe des Tages und seine mittlere Windgeschwindigkeit.',
-        forces: 'Jede Geschwindigkeit wird mit der Tabelle der WMO in eine Stärke der Beaufortskala von 0 bis 12 übersetzt. Die Stärke ist die Zahl der unteren Grenzen der Tabelle, die die Geschwindigkeit erreicht hat.',
-        verdict: 'Hat die Station für den Tag eine Böe, kommt das Wort aus deren Stärke: ruhig unter Stärke {gustBreezy}, leicht windig ab {gustBreezy}, windig ab {gustWindy}, stürmisch ab {gustStormy}. Ohne Böe gilt das Mittel, eine Stärke niedriger: ab {meanBreezy}, {meanWindy} und {meanStormy}.',
-        around: 'Der Tag wird neben die Tage drumherum gelegt: wie viele von ihnen einen stärkeren Wert hatten als der Tag.',
+        station: 'Für die Station des Ortes werden die Werte des Tages und der {days} Tage davor und danach geholt (keine nach gestern), alle Messgrößen in einer Anfrage: Windböe und Wind im Mittel, Sonnenscheindauer, Niederschlag, höchste und niedrigste Temperatur, Schneehöhe und Neuschnee. Eine andere Messgröße zu wählen, fragt nichts Neues ab.',
+        wind: 'Wind: Jede Geschwindigkeit wird mit der Tabelle der WMO in eine Stärke der Beaufortskala von 0 bis 12 übersetzt. Hat die Station für den Tag eine Böe, kommt das Wort aus deren Stärke: ruhig unter Stärke {gustBreezy}, leicht windig ab {gustBreezy}, windig ab {gustWindy}, stürmisch ab {gustStormy}. Ohne Böe gilt das Mittel, eine Stärke niedriger: ab {meanBreezy}, {meanWindy} und {meanStormy}.',
+        sun: 'Sonne: Die Sonnenscheindauer des Tages wird durch die Sonnenscheindauer geteilt, die an diesem Tag auf der Breite der Station möglich war, die Zeit, in der die Sonnenmitte über einem freien Horizont steht, die sich aus der Deklination der Sonne ergibt (etwa eine Viertelstunde kürzer als der Tag von Sonnenaufgang bis Sonnenuntergang der Tabellen, die Brechung und die Sonnenscheibe mitzählen). Unter {dullBelow} % davon ist der Tag trüb, ab {sunnyFrom} % sonnig, dazwischen teils sonnig.',
+        rain: 'Regen: Der Niederschlag des Tages in Millimetern ist trocken unter {dryMm} mm, etwas Regen von da an, nass ab {wetMm} mm und sehr nass ab {veryWetMm} mm.',
+        temperature: 'Hitze und Kälte: Die höchste und die niedrigste Temperatur des Tages werden an den Tagen gemessen, die der DWD benennt: ein Heißer Tag (Höchsttemperatur {hotDay} °C oder mehr), ein Sommertag (ab {summerDay} °C), eine Tropennacht (Tiefsttemperatur {tropicalFrom} °C oder mehr), ein Eistag (Höchsttemperatur unter {iceBelow} °C) und ein Frosttag (Tiefsttemperatur unter {frostBelow} °C). Die erste davon in dieser Reihenfolge benennt den Tag, die anderen, zu denen er gehört, werden dazu aufgeführt.',
+        snow: 'Schnee: Schnee liegt, wo die Schneehöhe des Tages über {snowAboveCm} cm beträgt. Die Höhe wird genannt, dazu der Neuschnee, wo die Station ihn meldet.',
+        around: 'Der Tag wird neben die Tage drumherum gelegt, als Diagramm. Beim Wind wird außerdem gezählt, wie viele von ihnen einen stärkeren Wert hatten als der Tag.',
       },
       formulas: {
         force: 'Stärke = Zahl der unteren Grenzen der Beaufort-Tabelle (0,3; 1,6; 3,4 … 32,7 m/s), bei denen die Geschwindigkeit gleich oder darüber liegt',
+        daylength: 'sin δ = sin ε · sin λ (δ: Deklination der Sonne, ε: Schiefe der Ekliptik, 23,439°, λ: ekliptikale Länge der Sonne); cos t = −tan φ · tan δ (t: Stundenwinkel des Sonnenaufgangs, φ: geografische Breite); mögliche Sonnenscheindauer = 2 · t ÷ 15° je Stunde',
+        share: 'Anteil = Sonnenscheindauer ÷ mögliche Sonnenscheindauer, nicht über 100 %',
       },
       rules: {
         'daily-values': {
-          text: 'Die Werte sind die höchste Windböe des Tages und die mittlere Windgeschwindigkeit des Tages der Station, in der Einheit der Einstellungen.',
-          says: 'Die Beschreibung der Tagesdaten des DWD führt das Tagesmaximum der Windböe und das Tagesmittel der Windgeschwindigkeit auf, beide in m/s. Die WMO verlangt, dass die Windgeschwindigkeit in Meldungen ein Mittel über 10 Minuten ist.',
+          text: 'Die Werte sind die Tageswerte der Station: die höchste Windböe und die mittlere Windgeschwindigkeit, die Sonnenscheindauer, der Niederschlag, die höchste und die niedrigste Lufttemperatur in 2 m, die Schneehöhe und der Neuschnee, wo die Station ihn hat. Sie stehen in der Einheit der Einstellungen, nur die Sonnenscheindauer immer in Stunden.',
+          says: 'Die Beschreibung der Tagesdaten des DWD führt FX, das Tagesmaximum der Windböe, und FM, das Tagesmittel der Windgeschwindigkeit (m/s), SDK, die tägliche Sonnenscheindauer (h), RSK, die tägliche Niederschlagshöhe (mm), TXK und TNK, das Tagesmaximum und das Tagesminimum der Temperatur in 2 m Höhe (°C), und SHK_TAG, die tägliche Schneehöhe (cm), auf. Die Beschreibung seiner Tagesdaten des Niederschlags führt SH_TAG, die Höhe der Schneedecke, und NSH_TAG, die Neuschneehöhe (cm), auf.',
         },
         'default-day': {
-          text: 'Ein Link ohne Tag fragt nach dem letzten 26. Dezember, dessen Messwerte schon da sein können: ab dem 28. Dezember der des laufenden Jahres, sonst der des Vorjahres. Die Leserin oder der Leser kann jeden Tag bis gestern wählen.',
-          reason: 'Der Tag ist ein Beispiel, das das Projekt gewählt hat, um zu zeigen, wie die Antwort aussieht; für das Verfahren hat er keine Bedeutung. Keine Quelle trifft hier zu.',
+          text: 'Ein Link ohne Tag fragt nach dem gleichen Datum des Vorjahres. Ein 29. Februar, den das Vorjahr nicht hatte, fragt nach dem 28. Februar. Die Leserin oder der Leser kann jeden Tag bis gestern wählen.',
+          reason: 'Der Tag ist ein Beispiel, das das Projekt gewählt hat, um zu zeigen, wie die Antwort aussieht: Das gleiche Datum vor einem Jahr hat seine Messwerte in den Daten, und es liegt in der gleichen Jahreszeit wie heute. Für das Verfahren hat er keine Bedeutung. Keine Quelle trifft hier zu. Er ersetzt den letzten 26. Dezember, auf dem die Frage vorher aufging.',
+        },
+        'default-measure': {
+          text: 'Ein Link ohne Messgröße fragt nach dem Wind, der Frage, die dieser Chip immer war. Hat die Station für den Tag keinen Windwert, geht er auf der ersten Messgröße auf, von der sie einen Wert hat: Sonne, Regen, Hitze und Kälte, Schnee.',
+          reason: 'Der Wind ist, wonach die Frage fragte, bevor sie eine Wahl hatte, damit Links und Gewohnheiten ihre Bedeutung behalten, und der Rückgriff auf eine Messgröße mit Daten zeigt eine Antwort statt einer leeren. Keine Quelle trifft hier zu.',
+        },
+        'measure-reading': {
+          text: 'Eine Messgröße wird nur angeboten, wenn die Station für den Tag einen Wert von ihr hat. Die anderen sind ausgegraut, mit dem Grund, und ein Link, der eine nennt, bekommt die Voreinstellung, mit einer Zeile, die das sagt. Hitze und Kälte brauchen die höchste und die niedrigste Temperatur, der Wind die Böe oder das Mittel.',
+          reason: 'Ein Urteil aus einem Wert, der nicht da ist, wäre erfunden. Beide Temperaturen sind nötig, weil sich ein Frosttag ohne die niedrigste nicht ausschließen lässt. Keine Quelle trifft hier zu.',
         },
         'beaufort': {
           text: 'Eine Geschwindigkeit wird mit der Tabelle der WMO zur Stärke: Die unteren Grenzen der Stärken 1 bis 12 sind {edges} m/s.',
@@ -241,6 +254,64 @@ export const methods: MethodTexts = {
           says: 'Die Tabelle der WMO nennt Stärke 4 eine mäßige Brise, Stärke 6 einen starken Wind und Stärke 8 einen stürmischen Wind.',
           reason: 'Ein Mittel liegt niedriger als die Böe derselben Stunde, deshalb liegen die Grenzen eine Stärke unter denen für eine Böe. Keine Quelle nennt sie.',
         },
+        'sun-share': {
+          text: 'Die Sonnenscheindauer des Tages wird mit der Sonnenscheindauer verglichen, die an diesem Tag auf der Breite der Station möglich war, als Anteil von 0 bis 100 %.',
+          says: 'Die WMO definiert die Sonnenscheindauer als die Zeit, in der die direkte Sonnenstrahlung 120 W je Quadratmeter überschreitet (§8.1.1), und sagt, für klimatologische Zwecke werde eine „relative tägliche Sonnenscheindauer“ verwendet, die die Sonnenscheindauer auf die außerirdisch mögliche bezieht, geschrieben SD0 (§8.1.2).',
+        },
+        'day-length': {
+          text: 'Die mögliche Sonnenscheindauer ist die Länge des Tages auf der Breite der Station: Die Deklination der Sonne an diesem Tag ergibt den Stundenwinkel des Sonnenaufgangs, und der Tag ist das Doppelte dieses Winkels bei 15 Grad je Stunde, bei freiem Horizont (die Sonnenmitte am Horizont, ohne Brechung: etwa eine Viertelstunde kürzer als der Tag von Sonnenaufgang bis Sonnenuntergang der Tabellen). Ein Tag, an dem die Sonne nicht aufgeht, hat keine Antwort.',
+          says: 'Die WMO gibt die Näherungsformeln des Astronomical Almanac für den Stand der Sonne an, aus denen die Deklination folgt (Annex 7.F), und für einen mathematischen Horizont den Stundenwinkel von Sonnenauf- und -untergang als cos t = −tan(Breite) · tan(Deklination) (Annex 7.G).',
+        },
+        'sun-bands': {
+          text: 'Nach dem Anteil der möglichen Sonnenscheindauer: trüb unter {dullBelow} %, teils sonnig ab {dullBelow} %, sonnig ab {sunnyFrom} %.',
+          says: 'Die WMO beschreibt drei Bereiche der relativen täglichen Sonnenscheindauer: „bedeckter Himmel“ von 0 bis unter 0,3, „aufgelockerte Bewölkung“ von 0,3 bis unter 0,7 und „Schönwetter“ von 0,7 bis 1,0. Sie nutzt sie, um zu sagen, wie sehr die Anforderungen an einen Sonnenscheinautographen von der Bewölkung des Ortes abhängen.',
+          reason: 'Die Grenzen sind die der WMO. Die drei Bereiche „trüb“, „teils sonnig“ und „sonnig“ zu nennen, ist die eigene Verwendung durch wetterdienst: Die WMO nutzt sie, um die Bewölkung zu beschreiben, mit der ein Messgerät zurechtkommen muss, nicht das Wetter eines Tages, und keine Quelle nennt ein Urteil für einen Tag.',
+        },
+        'rain-trace': {
+          text: 'Ein Tag mit weniger als {dryMm} mm Niederschlag ist trocken.',
+          says: 'Die WMO sagt, tägliche Niederschlagsmengen sollten auf 0,2 mm und, wenn möglich, auf 0,1 mm genau abgelesen werden, und Mengen unter 0,1 mm würden allgemein als Spuren bezeichnet.',
+          reason: 'Die Grenze ist die der WMO. Das Wort „trocken“ für einen Tag darunter ist die eigene Wahl von wetterdienst: Die WMO nennt solche Mengen Spuren und benennt keine Klasse von Tagen.',
+        },
+        'rain-wet-day': {
+          text: 'Ab {wetMm} mm ist der Tag nass. Die Tage zwischen {dryMm} mm und {wetMm} mm haben etwas Regen.',
+          says: 'Die Richtlinien der WMO führen die Zahl der Tage mit 1 mm Niederschlag oder mehr unter den wichtigsten klimatologischen Größen der Normalwerte einer Station auf.',
+          reason: 'Die Tabelle der WMO zählt die Tage ab 1 mm und nennt keine Klasse: Einen solchen Tag „nass“ und einen zwischen den beiden Grenzen „etwas Regen“ zu nennen, ist die eigene Wortwahl von wetterdienst. Keine Quelle benennt einen Tag.',
+        },
+        'rain-very-wet': {
+          text: 'Ab {veryWetMm} mm ist der Tag sehr nass.',
+          says: 'Dieselbe Tabelle führt die Zahl der Tage mit einem Tagesniederschlag von 5, 10, 50, 100 und 150 mm oder mehr unter den sekundären Größen auf; 10 mm ist eine dieser Schwellen.',
+          reason: 'Die WMO nennt Schwellen, nach denen Tage gezählt werden, keine Wörter dafür. Das Wort „sehr nass“ für die Tage ab 10 mm und das Weglassen der Schwellen von 5 mm und von 50 mm und mehr sind die eigene Wahl von wetterdienst: Vier Wörter genügen, um einen Tag zu beschreiben, und die Menge steht immer dabei.',
+        },
+        'heat-days': {
+          text: 'Ein Sommertag hat eine Höchsttemperatur von {summerDay} °C oder mehr, ein Heißer Tag {hotDay} °C oder mehr.',
+          says: 'Der DWD definiert den Sommertag als Tag mit einer Höchsttemperatur der Luft von mindestens 25,0 °C und den Heißen Tag als Tag mit mindestens 30,0 °C. Die Richtlinien der WMO führen die Zahl der Tage mit einer Höchsttemperatur von 25, 30, 35 und 40 °C oder mehr unter den sekundären Größen der Normalwerte auf.',
+        },
+        'cold-days': {
+          text: 'Ein Frosttag hat eine Tiefsttemperatur unter {frostBelow} °C, ein Eistag eine Höchsttemperatur unter {iceBelow} °C. Ein Eistag ist auch ein Frosttag.',
+          says: 'Der DWD definiert den Frosttag als Tag, dessen Tiefsttemperatur der Luft unter 0,0 °C liegt, und den Eistag als Tag, dessen Höchsttemperatur unter 0,0 °C liegt. Die Richtlinien der WMO führen die Zahl der Tage mit einer Höchsttemperatur unter 0 °C und mit einer Tiefsttemperatur unter 0 °C unter den sekundären Größen der Normalwerte auf.',
+        },
+        'tropical-night': {
+          text: 'Eine Tropennacht hat eine Tiefsttemperatur von {tropicalFrom} °C oder mehr.',
+          says: 'Der DWD definiert die Tropennacht als Nacht, in der die Tiefsttemperatur der Luft 20 °C oder mehr beträgt, gemessen von 18 UTC bis 06 UTC.',
+        },
+        'tropical-daily-minimum': {
+          text: 'Die Tiefsttemperatur des Tages der Station steht für die Tiefsttemperatur der Nacht: Ein Tag, dessen Tiefsttemperatur {tropicalFrom} °C oder mehr beträgt, zählt als Tropennacht.',
+          says: 'Der DWD misst die Nacht von 18 UTC bis 06 UTC.',
+          reason: 'Die Tagesdaten der Station haben kein Minimum allein der Nacht. Das Tagesminimum ist das des Tages, und eine Nacht liegt über zwei Tagen, das ist also eine Näherung: Wo der Tag nie unter 20 °C fiel, taten es auch die Stunden zweier Nächte, die in ihm liegen (00 bis 06 und 18 bis 24 UTC), nicht, aber die andere Hälfte jeder Nacht gehört zum nächsten oder zum vorigen Tag und wird nicht betrachtet.',
+        },
+        'class-order': {
+          text: 'Ein Tag wird nach der ersten Klasse benannt, zu der er gehört, in dieser Reihenfolge: Heißer Tag, Sommertag, Tropennacht, Eistag, Frosttag. Die anderen Klassen, zu denen er gehört, werden beim Wort aufgeführt. Ein Tag ohne eine davon heißt „weder Frost noch Sommertag“.',
+          says: 'Der DWD nennt die Tage, an denen ein Schwellenwert eines meteorologischen Parameters erreicht oder überschritten wird, „Kenntage“, und führt den Sommertag, den Heißen Tag, den Frosttag und den Eistag darunter auf.',
+          reason: 'Jeder Heiße Tag ist ein Sommertag und jeder Eistag ein Frosttag, die stärkere Klasse sagt also mehr. Die Hitze steht vor der Kälte, weil kaum ein Tag beides ist (dafür bräuchte er eine Spanne von mehr als 25 K innerhalb des Tages); wo einer es ist, werden beide aufgeführt. Die Reihenfolge ist die von wetterdienst, keine Quelle gibt eine vor.',
+        },
+        'snow-lies': {
+          text: 'Schnee liegt, wo die Schneehöhe des Tages über {snowAboveCm} cm beträgt. Sonst liegt kein Schnee.',
+          says: 'Die Richtlinien der WMO führen die Zahl der Tage mit einer Schneehöhe über 0, 1, 10 und 50 cm unter den sekundären Größen der Normalwerte auf; über 0 cm ist die erste davon.',
+        },
+        'fresh-snow': {
+          text: 'Der Neuschnee des Tages kommt dazu, wo die Station ihn meldet. Er stammt aus dem Tagesdatensatz des Niederschlags des DWD, da die Klimazusammenfassung keinen hat.',
+          says: 'Die Beschreibung der Tagesdaten des Niederschlags des DWD führt SH_TAG, die Höhe der Schneedecke, und NSH_TAG, die Neuschneehöhe, beide in cm, auf.',
+        },
         'around-window': {
           text: 'Der Tag wird neben die {days} Tage davor und die {days} Tage danach gelegt, keiner davon nach gestern.',
           reason: 'Eine Woche nach beiden Seiten reicht, um zu zeigen, ob der Tag für diese Wetterlage ungewöhnlich war, und ist kurz genug, dass sich die Jahreszeit kaum ändert. Keine Quelle nennt ein Fenster.',
@@ -251,11 +322,17 @@ export const methods: MethodTexts = {
         },
       },
       limits: {
-        station: 'Der Wind einer Station ist nicht der Wind einer Stadt oder Region. Die WMO sagt, es sei fast unmöglich, einen Ort zu finden, dessen Windgeschwindigkeit für ein großes Gebiet repräsentativ ist, und die Aufstellung des Windmessers sei der schwierigste Punkt der Windmessung.',
-        gust: 'Eine Beaufort-Stärke einer Böe ist nicht die Stärke des Windes: Der gemeldete Wind ist über 10 Minuten gemittelt, die Tabelle gibt die Entsprechungen solcher Geschwindigkeiten an, und eine Böe dauert Sekunden. „Stürmisch“ heißt hier eine starke Böe, kein schwerer Sturm (Stärke 10 der Tabelle der WMO) im Sinn eines mittleren Windes.',
-        missing: 'Ein Tag, für den die Station weder eine Böe noch ein Mittel hat, bekommt keine Antwort. Ohne Böe kommt das Wort aus dem Mittel, auf der Skala, die eine Stärke niedriger liegt.',
-        height: 'Die Beaufort-Tabelle gilt für 10 m Höhe über offenem Gelände. Die Stationen des DWD unterscheiden sich in der Höhe des Sensors, und ein Sensor in anderer Höhe misst eine andere Geschwindigkeit; die Seite „So wird Wetter gemessen“ nennt ein Beispiel.',
-        window: 'Die Tage um den Tag reichen nicht über gestern hinaus, weil spätere Tage noch nicht in den Daten sind.',
+        'station': 'Die Werte einer Station sind nicht das Wetter einer Stadt oder Region: Sonne, Regen, Wind und Frost unterscheiden sich schon auf wenigen Kilometern. Die WMO sagt, es sei fast unmöglich, einen Ort zu finden, dessen Windgeschwindigkeit für ein großes Gebiet repräsentativ ist, und die Aufstellung des Windmessers sei der schwierigste Punkt der Windmessung.',
+        'missing': 'Eine Messgröße, von der die Station für den Tag keinen Wert hat, bekommt keine Antwort, und ihre Auswahl ist ausgegraut. Ohne Böe kommt das Wort beim Wind aus dem Mittel, auf der Skala, die eine Stärke niedriger liegt.',
+        'window': 'Die Tage um den Tag reichen nicht über gestern hinaus, weil spätere Tage noch nicht in den Daten sind.',
+        'time': 'Ein Tag ist nicht in jeder Spalte der Tagesdaten des DWD derselbe Zeitraum von 24 Stunden. Seit April 2001 umfasst der Niederschlag an den geprüften Stationen 06:00 UTC bis 06:00 UTC des Folgetags, die höchste und die niedrigste Temperatur und die Sonnenscheindauer 00:00 bis 24:00 UTC, und die Schneehöhe ist der Wert von 06 UTC. Die Seite „So wird Wetter gemessen“ erklärt es.',
+        'gust': 'Eine Beaufort-Stärke einer Böe ist nicht die Stärke des Windes: Der gemeldete Wind ist über 10 Minuten gemittelt, die Tabelle gibt die Entsprechungen solcher Geschwindigkeiten an, und eine Böe dauert Sekunden. „Stürmisch“ heißt hier eine starke Böe, kein schwerer Sturm (Stärke 10 der Tabelle der WMO) im Sinn eines mittleren Windes.',
+        'height': 'Die Beaufort-Tabelle gilt für 10 m Höhe über offenem Gelände. Die Stationen des DWD unterscheiden sich in der Höhe des Sensors, und ein Sensor in anderer Höhe misst eine andere Geschwindigkeit; die Seite „So wird Wetter gemessen“ nennt ein Beispiel.',
+        'horizon': 'Die mögliche Sonnenscheindauer ist der Tag bei freiem Horizont, bis zur Sonnenmitte gezählt und ohne Brechung, wie die SD0 der WMO: etwa eine Viertelstunde kürzer als der Tag von Sonnenaufgang bis Sonnenuntergang der Tabellen. Ein Sonnenscheinautograph braucht die Sonne einige Grad über dem Horizont (die WMO verlangt freie Sicht, wo sie mehr als 3° hoch steht), und Hügel, Gebäude und Bäume an der Station nehmen mehr, deshalb bleibt auch ein wolkenloser Tag meist etwas unter 100 %.',
+        'recorder': 'Die Sonnenscheindauer wird bestenfalls auf etwa eine Zehntelstunde genau gemessen (die WMO verlangt ±0,1 h). Die WMO sagt, die höchste Genauigkeit sei dort nötig, wo hohe Wolkenschichten das direkte Sonnenlicht auf etwa 120 W je Quadratmeter dämpfen, und bei überwiegend bedecktem Himmel zeige sich der höchste Anteil an Abweichungen vom Referenzgerät: Ein trüber Tag ist der unsicherste.',
+        'gauge': 'Ein Regenmesser misst an einem Punkt, und der Wind lässt ihn weniger auffangen, als fällt: Die WMO nennt den Wind die größte Störquelle bei Niederschlagsmessungen und sagt, der Fehlbetrag bei Regen in einem Standardgerät könne bis zu 10 % betragen.',
+        'night': 'Eine Tropennacht ist eine Nacht von 18 UTC bis 06 UTC, und die Antwort betrachtet den Tag der Station von 00:00 bis 24:00 UTC. In Deutschland ist die Ortszeit eine oder zwei Stunden vor UTC.',
+        'snow-reading': 'Die Schneehöhe des DWD ist an den geprüften Stationen der Wert von 06 UTC: Schnee, der am Tag fiel und schmolz, ist darin nicht, und ein Tag mit Neuschnee kann eine Höhe von 0 cm zeigen. Der Neuschnee ist ein eigener Wert, den nicht jede Station meldet; wo sie keinen hat, sagt die Antwort es. Der Link in den Explorer öffnet die Schneehöhe; der Neuschnee liegt im Datensatz daily/precipitation_more.',
       },
       numbers: {
         station: 'Station: {name} ({id}).',
@@ -265,6 +342,21 @@ export const methods: MethodTexts = {
         scaleGust: 'Verwendete Skala, nach der Böe: ruhig unter Stärke {breezy}, leicht windig ab {breezy}, windig ab {windy}, stürmisch ab {stormy}.',
         scaleMean: 'Die Station hat für diesen Tag keine Böe, deshalb gilt das Mittel: ruhig unter Stärke {breezy}, leicht windig ab {breezy}, windig ab {windy}, stürmisch ab {stormy}.',
         around: 'In den Tagen drumherum (bis zu {days} nach beiden Seiten) haben {around} einen Wert, und {stronger} davon hatten einen stärkeren.',
+        sunHours: 'Sonnenschein: {hours} h. Auf {latitude}° N konnte die Sonne an diesem Tag {possible} h scheinen, der Tag hatte also {share} der möglichen Sonnenscheindauer.',
+        sunScale: 'Verwendete Skala: trüb unter {dull}, teils sonnig ab {dull}, sonnig ab {sunny} der möglichen Sonnenscheindauer.',
+        rainAmount: 'Niederschlag des Tages: {amount} {unit}.',
+        rainScale: 'Verwendete Skala: trocken unter {dry} {unit}, etwas Regen ab {dry}, nass ab {wet}, sehr nass ab {veryWet} {unit}.',
+        tempRange: 'Höchsttemperatur {max} {unit}, Tiefsttemperatur {min} {unit}.',
+        tempClass: 'Der Tag zählt als: {kind}.',
+        tempScale: 'Gezählte Tage: Ein Sommertag hat eine Höchsttemperatur ab {summer} {unit}, ein Heißer Tag ab {hot} {unit}, ein Eistag unter {ice} {unit}; ein Frosttag hat eine Tiefsttemperatur unter {frost} {unit}, eine Tropennacht ab {tropical} {unit}.',
+        snowDepth: 'Schneehöhe: {depth} {unit}.',
+        snowFresh: 'Neuschnee: {fresh} {unit}.',
+        snowNoFresh: 'Die Station hat für diesen Tag keinen Wert für Neuschnee.',
+        snowScale: 'Schnee gilt als liegend, wo die Höhe über {above} {unit} beträgt.',
+        window: 'Das Diagramm zeigt bis zu {days} Tage nach beiden Seiten des Tages; {given} seiner Tage haben einen Wert.',
+      },
+      terms: {
+        kind: { hot: 'Heißer Tag', summer: 'Sommertag', tropical: 'Tropennacht', ice: 'Eistag', frost: 'Frosttag' },
       },
     },
 
@@ -389,10 +481,10 @@ export const methods: MethodTexts = {
 
   works: {
     'wmo-8-i': {
-      plain: `${WMO} Band I ihres Leitfadens Guide to Instruments and Methods of Observation ist das Handbuch für die Messung von Temperatur, Wind, Niederschlag und den anderen Größen. Hier liefert er die Beaufortskala der Windstärke, was ein Mittel des Windes ist, warum Böen wichtig sind und was eine Spur Regen heißt.`,
+      plain: `${WMO} Band I ihres Leitfadens Guide to Instruments and Methods of Observation ist das Handbuch für die Messung von Temperatur, Wind, Niederschlag und den anderen Größen. Hier liefert er die Beaufortskala der Windstärke, was ein Mittel des Windes ist, warum Böen wichtig sind was eine Spur Regen heißt, wie die Sonnenscheindauer definiert ist und wie ihre relative Form gelesen wird, und die Formeln für den Stand der Sonne, aus denen die Länge eines Tages folgt.`,
     },
     'wmo-1203': {
-      plain: `${WMO} Ihre Richtlinien zur Berechnung von Klimanormalwerten (WMO Guidelines on the Calculation of Climate Normals) sagen, was ein Klimanormalwert ist, welche Zeiträume zählen, wie ein Normalwert aus Monatswerten entsteht und wie viele fehlende Daten erlaubt sind. Ein Normalwert ist der Durchschnitt über einen langen, festen Zeitraum, mit dem das aktuelle Wetter verglichen wird. Dreißig Jahre wurden vor allem deshalb zum Standard, weil bei der ersten Empfehlung nur dreißig Jahre Daten vorlagen. Hier liefern sie die Normalwerte, die gewählt werden können (den Referenz-Normalwert 1961 bis 1990 und die späteren), die Berechnung einer Jahreszeit und die Regeln für eine Station mit zu wenigen Jahren.`,
+      plain: `${WMO} Ihre Richtlinien zur Berechnung von Klimanormalwerten (WMO Guidelines on the Calculation of Climate Normals) sagen, was ein Klimanormalwert ist, welche Zeiträume zählen, wie ein Normalwert aus Monatswerten entsteht und wie viele fehlende Daten erlaubt sind. Ein Normalwert ist der Durchschnitt über einen langen, festen Zeitraum, mit dem das aktuelle Wetter verglichen wird. Dreißig Jahre wurden vor allem deshalb zum Standard, weil bei der ersten Empfehlung nur dreißig Jahre Daten vorlagen. Hier liefern sie die Normalwerte, die gewählt werden können (den Referenz-Normalwert 1961 bis 1990 und die späteren), die Berechnung einer Jahreszeit, die Regeln für eine Station mit zu wenigen Jahren und ihre Liste der Tage, die die Normalwerte einer Station zählen: Tage mit einer bestimmten Niederschlagsmenge, mit einer Höchst- oder Tiefsttemperatur über oder unter einer Linie und mit Schnee auf dem Boden.`,
     },
     'dwd-seasons': {
       plain: `${DWD} Sein Wetterlexikon sagt, wie Meteorologen das Jahr teilen: Jede Jahreszeit sind drei volle Monate, weil die Statistiken des Klimas aus den Daten einzelner Monate gemacht werden.`,
@@ -404,7 +496,16 @@ export const methods: MethodTexts = {
       plain: `${DWD} Die Beschreibung seines Datensatzes der Monatswerte sagt, woher die Monatswerte kommen: Sie werden aus den Tageswerten berechnet, und nur, wenn die Tageswerte des Monats vollständig sind. Sie bittet auch, Änderungen der Stationshöhe und der Beobachtungszeiten zu beachten.`,
     },
     'dwd-daily-kl': {
-      plain: `${DWD} Die Beschreibung seines Datensatzes der Tageswerte nennt die Parameter und ihre Einheiten. Hier sagt sie, dass FX das Tagesmaximum der Windböe und FM das Tagesmittel der Windgeschwindigkeit ist, beide in m/s.`,
+      plain: `${DWD} Die Beschreibung seines Datensatzes der Tageswerte nennt die Parameter und ihre Einheiten. Hier sagt sie, dass FX das Tagesmaximum der Windböe und FM das Tagesmittel der Windgeschwindigkeit ist, beide in m/s, und nennt die Sonnenscheindauer (SDK), die Niederschlagshöhe (RSK), die höchste und die niedrigste Temperatur in 2 m (TXK, TNK) und die Schneehöhe (SHK_TAG).`,
+    },
+    'dwd-daily-more-precip': {
+      plain: `${DWD} Die Beschreibung seines Datensatzes der Tageswerte des Niederschlags nennt die Parameter und ihre Einheiten. Hier sagt sie, dass SH_TAG die Höhe der Schneedecke und NSH_TAG die Neuschneehöhe ist, beide in cm.`,
+    },
+    'dwd-kenntage': {
+      plain: `${DWD} In einem Artikel vom 13. August 2025 erklärt er seine „Kenntage“, die Tage, an denen ein Schwellenwert eines meteorologischen Parameters erreicht oder überschritten wird, als zweiten Weg neben der Durchschnittstemperatur, eine Jahreszeit zu beurteilen. Er nennt den Sommertag (eine Höchsttemperatur von mindestens 25,0 °C), den Heißen Tag (30,0 °C), den Frosttag (eine Tiefsttemperatur unter 0,0 °C) und den Eistag (eine Höchsttemperatur unter 0,0 °C).`,
+    },
+    'dwd-tropennacht': {
+      plain: `${DWD} Sein Wetterlexikon definiert die Tropennacht als Nacht, in der die Tiefsttemperatur der Luft 20 °C oder mehr beträgt, gemessen von 18 UTC bis 06 UTC, und sagt, dass es an den meisten seiner Stationen im Mittel weniger als eine im Jahr gibt.`,
     },
     'dwd-warnings': {
       plain: `${DWD} Er veröffentlicht die Kriterien seiner Wetterwarnungen. Für den Wind nennen sie für jede Warnstufe eine Böengeschwindigkeit in km/h und die zugehörige Stärke der Beaufortskala, in etwa 10 m Höhe über offenem Gelände.`,

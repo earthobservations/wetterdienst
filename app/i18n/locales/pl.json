@@ -80,16 +80,22 @@
     "q": {
       "rain": "Czy jutro będzie padać w {place}?",
       "season": "Czy {last} tu {warmth} niż zwykle?",
-      "wind": "Jak mocno wiało {day}?",
       "warnings": "Czy są tu ostrzeżenia?",
-      "download": "Gdzie mogę pobrać temperatury godzinowe?"
+      "download": "Gdzie mogę pobrać temperatury godzinowe?",
+      "day": {
+        "wind": "Jak mocno wiało {day}?",
+        "sun": "Ile było słońca {day}?",
+        "rain": "Ile padało {day}?",
+        "temperature": "Było gorąco czy zimno {day}?",
+        "snow": "Czy leżał śnieg {day}?"
+      }
     },
     "from": {
       "rain": "Prognoza, DWD MOSMIX",
       "season": "Średnie miesięczne, DWD",
-      "wind": "Dane dobowe, DWD",
       "warnings": "Oficjalne ostrzeżenia, DWD",
-      "download": "Wszystkie służby meteorologiczne"
+      "download": "Wszystkie służby meteorologiczne",
+      "day": "Dane dobowe, DWD"
     },
     "working": "Obliczanie odpowiedzi …",
     "failed": "Nie udało się obliczyć odpowiedzi.",
@@ -190,9 +196,67 @@
       "context": "Dni wokół z silniejszymi porywami: {stronger} z {around}.",
       "chartGust": "Najsilniejszy poryw w ciągu dnia, w {unit}",
       "chartMean": "Średni wiatr w ciągu dnia, w {unit}",
-      "none": "Brak tu pomiarów wiatru z dnia {day}.",
+      "none": "Brak tu pomiarów wiatru z dnia {day}."
+    },
+    "day": {
       "dayLabel": "Dzień",
-      "open": "Otwórz te dni w Eksploratorze"
+      "open": "Otwórz te dni w Eksploratorze",
+      "measureLabel": "Wielkość",
+      "measure": {
+        "wind": "wiatr",
+        "sun": "słońce",
+        "rain": "deszcz",
+        "temperature": "upał i mróz",
+        "snow": "śnieg"
+      },
+      "measureShort": "{measureCap} (brak tu pomiaru z dnia {day})",
+      "noteGreyed": "Wyszarzone, brak tu pomiaru z dnia {day}: {measures}.",
+      "noteAskedMeasure": "{measureCap}: brak tu pomiaru z dnia {day}. Pokazano zamiast tego: {shown}.",
+      "sun": {
+        "dull": "Pochmurno.",
+        "mixed": "Zmiennie.",
+        "sunny": "Słonecznie.",
+        "detail": "{hours} godz. słońca, czyli {share} z możliwych tu {possible} godz.",
+        "chart": "Słońce w ciągu dnia, w {unit}",
+        "none": "Brak tu pomiarów słońca z dnia {day}."
+      },
+      "rain": {
+        "dry": "Sucho.",
+        "light": "Trochę deszczu.",
+        "wet": "Mokro.",
+        "veryWet": "Bardzo mokro.",
+        "detail": "{amount} {unit} opadu w ciągu doby.",
+        "chart": "Opad w ciągu dnia, w {unit}",
+        "none": "Brak tu pomiarów opadów z dnia {day}."
+      },
+      "temperature": {
+        "hot": "Dzień upalny.",
+        "summer": "Dzień letni.",
+        "tropical": "Noc tropikalna.",
+        "ice": "Dzień mroźny.",
+        "frost": "Dzień z przymrozkiem.",
+        "ordinary": "Ani mróz, ani dzień letni.",
+        "range": "Maksimum {max} {unit}, minimum {min} {unit}.",
+        "classes": "Liczy się jako: {classes}.",
+        "chartMax": "Najwyższa temperatura w ciągu dnia, w {unit}",
+        "chartMin": "Najniższa temperatura w ciągu dnia, w {unit}",
+        "none": "Brak tu pomiarów temperatury z dnia {day}."
+      },
+      "snow": {
+        "noSnow": "Bez śniegu na ziemi.",
+        "cover": "Śnieg na ziemi.",
+        "depth": "Wysokość pokrywy śnieżnej {depth} {unit}.",
+        "fresh": "{fresh} {unit} świeżego śniegu.",
+        "chart": "Wysokość śniegu w ciągu dnia, w {unit}",
+        "none": "Brak tu pomiarów wysokości śniegu z dnia {day}."
+      },
+      "class": {
+        "hot": "dzień upalny",
+        "summer": "dzień letni",
+        "tropical": "noc tropikalna",
+        "ice": "dzień mroźny",
+        "frost": "dzień z przymrozkiem"
+      }
     },
     "download": {
       "answer": "Służby meteorologiczne publikujące godzinową temperaturę powietrza: {count}.",

@@ -80,16 +80,22 @@
     "q": {
       "rain": "Gaat het morgen regenen in {place}?",
       "season": "Was {last} hier {warmth} dan normaal?",
-      "wind": "Hoe hard waaide het op {day}?",
       "warnings": "Zijn er hier waarschuwingen?",
-      "download": "Waar kan ik temperaturen per uur downloaden?"
+      "download": "Waar kan ik temperaturen per uur downloaden?",
+      "day": {
+        "wind": "Hoe hard waaide het op {day}?",
+        "sun": "Hoe zonnig was het op {day}?",
+        "rain": "Hoe nat was het op {day}?",
+        "temperature": "Hoe warm of koud was het op {day}?",
+        "snow": "Lag er sneeuw op {day}?"
+      }
     },
     "from": {
       "rain": "Verwachting, DWD MOSMIX",
       "season": "Maandgemiddelden, DWD",
-      "wind": "Dagwaarden, DWD",
       "warnings": "Officiële waarschuwingen, DWD",
-      "download": "Alle weerdiensten"
+      "download": "Alle weerdiensten",
+      "day": "Dagwaarden, DWD"
     },
     "working": "Het antwoord wordt berekend …",
     "failed": "Het antwoord kon niet worden berekend.",
@@ -190,9 +196,67 @@
       "context": "Dagen eromheen met sterkere windstoten: {stronger} van {around}.",
       "chartGust": "Sterkste windstoot per dag, in {unit}",
       "chartMean": "Gemiddelde wind per dag, in {unit}",
-      "none": "Er zijn hier geen windmetingen voor {day}.",
+      "none": "Er zijn hier geen windmetingen voor {day}."
+    },
+    "day": {
       "dayLabel": "Datum",
-      "open": "Deze dagen openen in de Verkenner"
+      "open": "Deze dagen openen in de Verkenner",
+      "measureLabel": "Grootheid",
+      "measure": {
+        "wind": "wind",
+        "sun": "zon",
+        "rain": "regen",
+        "temperature": "warmte en kou",
+        "snow": "sneeuw"
+      },
+      "measureShort": "{measureCap} (hier geen meting voor {day})",
+      "noteGreyed": "Grijs, geen meting hier voor {day}: {measures}.",
+      "noteAskedMeasure": "{measureCap}: hier geen meting voor {day}. In plaats daarvan getoond: {shown}.",
+      "sun": {
+        "dull": "Somber.",
+        "mixed": "Wisselend.",
+        "sunny": "Zonnig.",
+        "detail": "{hours} uur zon, {share} van de {possible} uur die hier mogelijk waren.",
+        "chart": "Zon per dag, in {unit}",
+        "none": "Er zijn hier geen zonmetingen voor {day}."
+      },
+      "rain": {
+        "dry": "Droog.",
+        "light": "Een beetje regen.",
+        "wet": "Nat.",
+        "veryWet": "Erg nat.",
+        "detail": "{amount} {unit} neerslag over de dag.",
+        "chart": "Neerslag per dag, in {unit}",
+        "none": "Er zijn hier geen neerslagmetingen voor {day}."
+      },
+      "temperature": {
+        "hot": "Een hete dag.",
+        "summer": "Een zomerse dag.",
+        "tropical": "Een tropische nacht.",
+        "ice": "Een ijsdag.",
+        "frost": "Een vorstdag.",
+        "ordinary": "Geen vorst en geen zomerse dag.",
+        "range": "Hoogste {max} {unit}, laagste {min} {unit}.",
+        "classes": "Telt als: {classes}.",
+        "chartMax": "Hoogste temperatuur per dag, in {unit}",
+        "chartMin": "Laagste temperatuur per dag, in {unit}",
+        "none": "Er zijn hier geen temperatuurmetingen voor {day}."
+      },
+      "snow": {
+        "noSnow": "Geen sneeuw op de grond.",
+        "cover": "Sneeuw op de grond.",
+        "depth": "Sneeuwhoogte {depth} {unit}.",
+        "fresh": "{fresh} {unit} verse sneeuw.",
+        "chart": "Sneeuwhoogte per dag, in {unit}",
+        "none": "Er zijn hier geen sneeuwhoogtemetingen voor {day}."
+      },
+      "class": {
+        "hot": "hete dag",
+        "summer": "zomerse dag",
+        "tropical": "tropische nacht",
+        "ice": "ijsdag",
+        "frost": "vorstdag"
+      }
     },
     "download": {
       "answer": "Weerdiensten die de luchttemperatuur per uur publiceren: {count}.",

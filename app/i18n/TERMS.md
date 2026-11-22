@@ -213,6 +213,20 @@ meant to be understood, not to be the last word, and **a review by a native spea
   `estaciones` from reading as stations); `it` and `es` (`in più del solito`, `por encima de lo normal`, chosen so that no verdict has to
   agree in gender with the season).
 
+- **Machine-made**: the strings of the day question's measure (`ask.day.*`, `ask.q.day.*`, GH-3764, step 2b: the measure select and its five
+  options, the five questions, the verdicts of sun, rain, heat and cold and snow, the lines under them, the chart captions, the reasons of
+  a greyed-out measure) were written by a language model (Claude) in **all ten locales besides `en`**, `de` included, and no person has
+  read them. Each measure has a sentence of its own for the question (`ask.q.day.sun`, ...) and not one sentence with the measure as a
+  word, because the grammar of French, Spanish, Italian, Polish and Czech changes with it ("Quel vent a-t-il fait", "Combien de soleil
+  y a-t-il eu", "¿Hubo nieve?", "Ile padało", "Ležel sníh"). The names of the days that DWD names (`ask.day.class.*`, the verdicts of heat
+  and cold) follow the national service where the model knew its word (`pl` IMGW: `dzień upalny`, `dzień letni`, `noc tropikalna`,
+  `dzień mroźny`; `cs` ČHMÚ: `tropický den`, `letní den`, `tropická noc`, `ledový den`, `mrazový den`; `nl` KNMI: `zomerse dag`, `ijsdag`,
+  `vorstdag`, `tropische nacht`) and are a literal rendering elsewhere. Least certain: the label of the select (`Meetgröött` `de-hh`,
+  `Miessgréisst` `lb`, `Grandezza` `it`, `Grootheid` `nl`, `Wielkość` `pl`, `Veličina` `cs`, `Medida` `es`, `Måling` `da`); the
+  sun verdicts (`Deelwies sünnig`, `Wiesselhaft`, `Dystert`, `Zataženo`); `fr` `jour sans dégel` for an ice day and `journée chaude` for
+  a hot day; `es` `día de hielo` and `día de helada`; `da` `tropenat`, `isdag` and `en hed dag`; `lb` `Hëtztdag`, `Äisdag`; `de-hh`
+  throughout.
+
 - **Machine-made**: the strings of the map tool (`mapTool.*`, `nav.map`, `shell.stationsMap` and `shell.stationOnMap`,
   `seo.pages.map`, GH-3650: the chips, the panel, the cards' notes and links, the about text) were written by a language
   model (Claude) in **all ten locales besides `en`**, `de` included, and no person has read them. Least certain: `de-hh`

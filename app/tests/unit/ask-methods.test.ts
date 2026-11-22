@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 import {
   beaufort,
   BEAUFORT,
+  DAY_WINDOW_DAYS,
   FALLBACK_MIN_SEASONS,
   lastSeason,
   NORMAL_FIRST_TO,
@@ -20,12 +21,31 @@ import {
   USUAL_BAND,
   WIND_FORCES_OF_GUST,
   WIND_FORCES_OF_MEAN,
-  WIND_WINDOW_DAYS,
   windOnDay,
 } from '../../app/utils/answers'
 import { fill, numberLineText, placeholders, ruleParams, valueText } from '../../app/utils/ask/method-text'
 import { CHIPS } from '../../app/utils/ask/registry'
 import { WORK_IDS, WORKS } from '../../app/utils/ask/works'
+import {
+  DAY_PARAMETERS,
+  FROST_DAY_MIN_BELOW,
+  HOT_DAY_MAX_FROM,
+  ICE_DAY_MAX_BELOW,
+  RAIN_DRY_BELOW_MM,
+  RAIN_VERY_WET_FROM_MM,
+  RAIN_WET_FROM_MM,
+  rainOnDay,
+  rainVerdictOf,
+  SNOW_LIES_ABOVE_CM,
+  snowOnDay,
+  SUMMER_DAY_MAX_FROM,
+  SUN_SHARE_DULL_BELOW,
+  SUN_SHARE_SUNNY_FROM,
+  sunOnDay,
+  sunVerdictOf,
+  temperatureOnDay,
+  TROPICAL_NIGHT_MIN_FROM,
+} from '../../app/utils/day'
 import { isTopic } from '../../app/utils/measurement'
 import { methods as de } from '../../i18n/methods/de'
 import { methods as en } from '../../i18n/methods/en'
@@ -166,14 +186,21 @@ describe('the numbers of an answer', () => {
 
   const readings = Array.from({ length: 48 }, (_, index) => ({ parameter: RAIN_AMOUNT, timestamp: DateTime.fromISO('2026-10-29T12:00:00Z', { zone: 'utc' }).plus({ hours: index }).toISO()!, value: index === 26 ? 1.5 : 0 }))
   const rain = rainTomorrow(readings, 'Europe/Berlin', NOW)!
+  const dayReadings = (parameter: string, value: number) => [{ parameter, timestamp: '2025-12-26T00:00:00+00:00', value }, { parameter, timestamp: '2025-12-27T00:00:00+00:00', value: value / 2 }]
   const gusts = [{ parameter: 'wind_gust_max', timestamp: '2025-12-26T00:00:00+00:00', value: 22 }, { parameter: 'wind_gust_max', timestamp: '2025-12-27T00:00:00+00:00', value: 9 }]
   const means = [{ parameter: 'wind_speed_mean', timestamp: '2025-12-26T00:00:00+00:00', value: 9.5 }]
   const cases = {
     rain: { result: rain, loaded: { point: { station_id: '10382', name: 'Berlin-Tegel', distance: 3.2 }, readings, units: {} }, choices: {} },
     season: { result: lastSeason(summers(1986, 2026, year => year === 2026 ? 18 : 16), NOW, { season: 'summer', normal: '1991-2020' })!, loaded: null, choices: { season: 'summer', ref: '1991-2020' } },
     seasonFallback: { result: lastSeason(summers(2005, 2026, () => 16), NOW, { season: 'summer', normal: '1991-2020' })!, loaded: null, choices: { season: 'summer', ref: '1991-2020' }, id: 'season' },
-    wind: { result: windOnDay([...gusts, ...means], '2025-12-26')!, loaded: null, choices: { day: '2025-12-26' } },
-    windMeanOnly: { result: windOnDay(means, '2025-12-26')!, loaded: null, choices: { day: '2025-12-26' }, id: 'wind' },
+    wind: { result: { measure: 'wind', answer: windOnDay([...gusts, ...means], '2025-12-26')! }, loaded: null, choices: { measure: 'wind', day: '2025-12-26' }, id: 'day' },
+    windMeanOnly: { result: { measure: 'wind', answer: windOnDay(means, '2025-12-26')! }, loaded: null, choices: { measure: 'wind', day: '2025-12-26' }, id: 'day' },
+    sun: { result: { measure: 'sun', answer: sunOnDay(dayReadings(DAY_PARAMETERS.sun, 3.5), '2025-12-26', 54.38)! }, loaded: null, choices: { measure: 'sun', day: '2025-12-26' }, id: 'day' },
+    dayRain: { result: { measure: 'rain', answer: rainOnDay(dayReadings(DAY_PARAMETERS.rain, 4.2), '2025-12-26')! }, loaded: null, choices: { measure: 'rain', day: '2025-12-26' }, id: 'day' },
+    heat: { result: { measure: 'temperature', answer: temperatureOnDay([...dayReadings(DAY_PARAMETERS.tmax, 31), ...dayReadings(DAY_PARAMETERS.tmin, 21)], '2025-12-26')! }, loaded: null, choices: { measure: 'temperature', day: '2025-12-26' }, id: 'day' },
+    cold: { result: { measure: 'temperature', answer: temperatureOnDay([...dayReadings(DAY_PARAMETERS.tmax, 12), ...dayReadings(DAY_PARAMETERS.tmin, 4)], '2025-12-26')! }, loaded: null, choices: { measure: 'temperature', day: '2025-12-26' }, id: 'day' },
+    snow: { result: { measure: 'snow', answer: snowOnDay([...dayReadings(DAY_PARAMETERS.snow, 12), ...dayReadings(DAY_PARAMETERS.newSnow, 4)], '2025-12-26')! }, loaded: null, choices: { measure: 'snow', day: '2025-12-26' }, id: 'day' },
+    snowNoFresh: { result: { measure: 'snow', answer: snowOnDay(dayReadings(DAY_PARAMETERS.snow, 0), '2025-12-26')! }, loaded: null, choices: { measure: 'snow', day: '2025-12-26' }, id: 'day' },
     download: { result: [{ provider: 'dwd' }, { provider: 'noaa' }], loaded: [{ provider: 'dwd' }, { provider: 'noaa' }], choices: {} },
   } as Record<string, { result: unknown, loaded: unknown, choices: Record<string, string>, id?: string }>
 
@@ -223,7 +250,7 @@ describe('the numbers of an answer', () => {
   })
 
   it('say the scale a wind verdict was read by: the gust where there is one, else the mean', () => {
-    const wind = CHIPS.find(chip => chip.id === 'wind')!
+    const wind = CHIPS.find(chip => chip.id === 'day')!
     const ids = (fixture: typeof cases[string]) => wind.explanation.numbers(fixture.result, fixture.loaded, env('en'), fixture.choices).map(line => line.id)
     expect(ids(cases.wind!)).toContain('scaleGust')
     expect(ids(cases.windMeanOnly!)).toContain('scaleMean')
@@ -236,7 +263,7 @@ describe('what is marked as wetterdienst\'s own', () => {
   const OWN: Record<string, string[]> = {
     rain: ['nearest-point', 'day', 'min-hours', 'day-total', 'maybe-amount', 'chance-bands', 'highest-chance'],
     season: ['winter-year', 'only-over', 'default-season', 'default-normal', 'normal-mean', 'min-seasons', 'fallback-period', 'fallback-minimum', 'usual-band', 'rank'],
-    wind: ['default-day', 'gust-first', 'gust-words', 'mean-words', 'around-window', 'stronger-count'],
+    day: ['default-day', 'default-measure', 'measure-reading', 'gust-first', 'gust-words', 'mean-words', 'sun-bands', 'rain-trace', 'rain-wet-day', 'rain-very-wet', 'tropical-daily-minimum', 'class-order', 'around-window', 'stronger-count'],
     warnings: ['in-force', 'edge', 'named-only', 'coverage', 'language', 'order', 'refresh'],
     download: ['networks', 'hourly-temperature', 'order'],
   }
@@ -352,7 +379,7 @@ describe('the numbers of the rules are the ones the code judges by', () => {
   it('for the wind: the lower edges of the Beaufort table of WMO-No. 8, Volume I, Table 5.1 (2024)', () => {
     // read from the table of the official PDF: force 1 from 0.3 m/s, 2 from 1.6, 3 from 3.4, 4 from 5.5, 5 from 8.0, 6 from 10.8, 7 from 13.9, 8 from 17.2, 9 from 20.8, 10 from 24.5, 11 from 28.5, 12 from 32.7
     expect([...BEAUFORT]).toEqual([0.3, 1.6, 3.4, 5.5, 8.0, 10.8, 13.9, 17.2, 20.8, 24.5, 28.5, 32.7])
-    expect(rule('wind', 'beaufort').values).toEqual({ edges: BEAUFORT })
+    expect(rule('day', 'beaufort').values).toEqual({ edges: BEAUFORT })
     expect(BEAUFORT.map((edge, index) => beaufort(edge) === index + 1)).toEqual(Array.from({ length: 12 }).fill(true))
     expect(beaufort(0.2)).toBe(0)
   })
@@ -360,16 +387,81 @@ describe('the numbers of the rules are the ones the code judges by', () => {
   it('for the wind: the forces of the words, by the gust and by the mean, and a week either side', () => {
     expect(WIND_FORCES_OF_GUST).toEqual({ breezy: 5, windy: 7, stormy: 9 })
     expect(WIND_FORCES_OF_MEAN).toEqual({ breezy: 4, windy: 6, stormy: 8 })
-    expect(WIND_WINDOW_DAYS).toBe(7)
-    expect(rule('wind', 'gust-words').values).toEqual({ gustBreezy: 5, gustWindy: 7, gustStormy: 9 })
-    expect(rule('wind', 'mean-words').values).toEqual({ meanBreezy: 4, meanWindy: 6, meanStormy: 8 })
-    expect(rule('wind', 'around-window').values).toEqual({ days: 7 })
+    expect(DAY_WINDOW_DAYS).toBe(7)
+    expect(rule('day', 'gust-words').values).toEqual({ gustBreezy: 5, gustWindy: 7, gustStormy: 9 })
+    expect(rule('day', 'mean-words').values).toEqual({ meanBreezy: 4, meanWindy: 6, meanStormy: 8 })
+    expect(rule('day', 'around-window').values).toEqual({ days: 7 })
     const day = (parameter: string, value: number) => windOnDay([{ parameter, timestamp: '2025-12-26T00:00:00+00:00', value }], '2025-12-26')!.verdict
     // the edge of each force: the lowest speed of it, which is the word's line
     const gust = (force: number) => day('wind_gust_max', BEAUFORT[force - 1]!)
     expect([gust(4), gust(5), gust(6), gust(7), gust(8), gust(9), gust(12)]).toEqual(['calm', 'breezy', 'breezy', 'windy', 'windy', 'stormy', 'stormy'])
     const mean = (force: number) => day('wind_speed_mean', BEAUFORT[force - 1]!)
     expect([mean(3), mean(4), mean(5), mean(6), mean(7), mean(8)]).toEqual(['calm', 'breezy', 'breezy', 'windy', 'windy', 'stormy'])
+  })
+})
+
+describe('the numbers of the rules of the day question are the ones the code judges by', () => {
+  const rule = (id: string) => CHIPS.find(each => each.id === 'day')!.explanation.rules.find(each => each.id === id)!
+
+  it('for the sun: below 30 % dull and from 70 % sunny, the edges of WMO-No. 8, §8.1.3', () => {
+    expect([SUN_SHARE_DULL_BELOW, SUN_SHARE_SUNNY_FROM]).toEqual([0.3, 0.7])
+    expect(rule('sun-bands').values).toEqual({ dullBelow: 30, sunnyFrom: 70 })
+    expect([sunVerdictOf(0.2999), sunVerdictOf(0.3), sunVerdictOf(0.6999), sunVerdictOf(0.7)]).toEqual(['dull', 'mixed', 'mixed', 'sunny'])
+  })
+
+  it('for the rain: 0.1 mm, 1 mm and 10 mm', () => {
+    expect([RAIN_DRY_BELOW_MM, RAIN_WET_FROM_MM, RAIN_VERY_WET_FROM_MM]).toEqual([0.1, 1, 10])
+    expect(rule('rain-trace').values).toEqual({ dryMm: 0.1 })
+    expect(rule('rain-wet-day').values).toEqual({ wetMm: 1 })
+    expect(rule('rain-very-wet').values).toEqual({ veryWetMm: 10 })
+    expect([0.09, 0.1, 0.99, 1, 9.99, 10].map(rainVerdictOf)).toEqual(['dry', 'light', 'light', 'wet', 'wet', 'veryWet'])
+  })
+
+  it('for heat and cold: the days of DWD, 25, 30, 20 and 0 °C', () => {
+    expect([SUMMER_DAY_MAX_FROM, HOT_DAY_MAX_FROM, TROPICAL_NIGHT_MIN_FROM, ICE_DAY_MAX_BELOW, FROST_DAY_MIN_BELOW]).toEqual([25, 30, 20, 0, 0])
+    expect(rule('heat-days').values).toEqual({ summerDay: 25, hotDay: 30 })
+    expect(rule('cold-days').values).toEqual({ frostBelow: 0, iceBelow: 0 })
+    expect(rule('tropical-night').values).toEqual({ tropicalFrom: 20 })
+  })
+
+  it('for the snow: above 0 cm', () => {
+    expect(SNOW_LIES_ABOVE_CM).toBe(0)
+    expect(rule('snow-lies').values).toEqual({ snowAboveCm: 0 })
+  })
+
+  it('cite the work and the place in it that the scale is taken from', () => {
+    const cites = (id: string) => rule(id).cites.map(citation => `${citation.work}${citation.at ? ` ${citation.at}` : ''}`)
+    expect(cites('sun-bands')).toEqual(['wmo-8-i §8.1.3'])
+    expect(cites('rain-trace')).toEqual(['wmo-8-i §6.1.2'])
+    expect(cites('rain-wet-day')).toEqual(['wmo-1203 Table 1'])
+    expect(cites('heat-days')).toEqual(['dwd-kenntage', 'wmo-1203 Table 1'])
+    expect(cites('tropical-night')).toEqual(['dwd-tropennacht'])
+    expect(cites('snow-lies')).toEqual(['wmo-1203 Table 1'])
+  })
+})
+
+describe('the disclosure of an answer shows the rules of the measure that was asked, and the page of the methods all of them', () => {
+  const day = CHIPS.find(each => each.id === 'day')!
+  const scope = (measure: string) => day.explanation.scope!({ measure, day: '2025-12-26' })
+  const all = day.explanation.rules.map(rule => rule.id)
+
+  it('lists the rules of the shared part and of the one measure, and no other measure\'s', () => {
+    expect(scope('sun').rules).toEqual(expect.arrayContaining(['daily-values', 'default-day', 'around-window', 'sun-share', 'day-length', 'sun-bands']))
+    expect(scope('sun').rules).not.toContain('beaufort')
+    expect(scope('wind').rules).toContain('beaufort')
+    expect(scope('wind').rules).not.toContain('sun-bands')
+  })
+
+  it('has every rule, limit and topic of the chip in the scope of some measure, so that none is only on the page', () => {
+    const measures = ['wind', 'sun', 'rain', 'temperature', 'snow']
+    expect([...new Set(measures.flatMap(measure => scope(measure).rules))].sort()).toEqual([...all].sort())
+    expect([...new Set(measures.flatMap(measure => scope(measure).limits))].sort()).toEqual([...day.explanation.limits].sort())
+    expect([...new Set(measures.flatMap(measure => scope(measure).topics))].sort()).toEqual([...day.explanation.topics].sort())
+  })
+
+  it('names the fresh snow with the dataset it is read from', () => {
+    expect(scope('snow').parameters).toEqual(['snow_depth', 'snow_depth_new (daily/precipitation_more)'])
+    expect(scope('sun').parameters).toEqual(['sunshine_duration'])
   })
 })
 

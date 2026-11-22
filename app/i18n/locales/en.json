@@ -80,16 +80,22 @@
     "q": {
       "rain": "Will it rain in {place} tomorrow?",
       "season": "Was {last} {warmth} than usual here?",
-      "wind": "How windy was it on {day}?",
       "warnings": "Are there warnings here?",
-      "download": "Where can I download hourly temperatures?"
+      "download": "Where can I download hourly temperatures?",
+      "day": {
+        "wind": "How windy was it on {day}?",
+        "sun": "How sunny was it on {day}?",
+        "rain": "How wet was it on {day}?",
+        "temperature": "How hot or cold was it on {day}?",
+        "snow": "Was there snow on {day}?"
+      }
     },
     "from": {
       "rain": "Forecast, DWD MOSMIX",
       "season": "Monthly means, DWD",
-      "wind": "Daily readings, DWD",
       "warnings": "Official warnings, DWD",
-      "download": "All weather services"
+      "download": "All weather services",
+      "day": "Daily readings, DWD"
     },
     "working": "Working out the answer …",
     "failed": "The answer could not be worked out.",
@@ -190,9 +196,67 @@
       "context": "Days around it with stronger gusts: {stronger} of {around}.",
       "chartGust": "Strongest gust per day, in {unit}",
       "chartMean": "Mean wind per day, in {unit}",
-      "none": "There are no wind readings here for {day}.",
+      "none": "There are no wind readings here for {day}."
+    },
+    "day": {
       "dayLabel": "Day",
-      "open": "Open these days in the Explorer"
+      "open": "Open these days in the Explorer",
+      "measureLabel": "Measure",
+      "measure": {
+        "wind": "wind",
+        "sun": "sunshine",
+        "rain": "rain",
+        "temperature": "heat and cold",
+        "snow": "snow"
+      },
+      "measureShort": "{measureCap} (no reading here for {day})",
+      "noteGreyed": "Greyed out, with no reading here for {day}: {measures}.",
+      "noteAskedMeasure": "{measureCap}: no reading here for {day}. Showing instead: {shown}.",
+      "sun": {
+        "dull": "Dull.",
+        "mixed": "Mixed.",
+        "sunny": "Sunny.",
+        "detail": "{hours} h of sunshine, {share} of the {possible} h that were possible here.",
+        "chart": "Sunshine per day, in {unit}",
+        "none": "There is no sunshine reading here for {day}."
+      },
+      "rain": {
+        "dry": "Dry.",
+        "light": "A little rain.",
+        "wet": "Wet.",
+        "veryWet": "Very wet.",
+        "detail": "{amount} {unit} of precipitation over the day.",
+        "chart": "Precipitation per day, in {unit}",
+        "none": "There is no precipitation reading here for {day}."
+      },
+      "temperature": {
+        "hot": "A hot day.",
+        "summer": "A summer day.",
+        "tropical": "A tropical night.",
+        "ice": "An ice day.",
+        "frost": "A frost day.",
+        "ordinary": "Neither frost nor a summer day.",
+        "range": "Highest {max} {unit}, lowest {min} {unit}.",
+        "classes": "Counts as: {classes}.",
+        "chartMax": "Highest temperature per day, in {unit}",
+        "chartMin": "Lowest temperature per day, in {unit}",
+        "none": "There is no temperature reading here for {day}."
+      },
+      "snow": {
+        "noSnow": "No snow on the ground.",
+        "cover": "Snow on the ground.",
+        "depth": "Snow depth {depth} {unit}.",
+        "fresh": "{fresh} {unit} of fresh snow.",
+        "chart": "Snow depth per day, in {unit}",
+        "none": "There is no snow depth reading here for {day}."
+      },
+      "class": {
+        "hot": "hot day",
+        "summer": "summer day",
+        "tropical": "tropical night",
+        "ice": "ice day",
+        "frost": "frost day"
+      }
     },
     "download": {
       "answer": "Weather services that publish hourly air temperature: {count}.",

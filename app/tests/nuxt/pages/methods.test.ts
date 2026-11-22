@@ -124,6 +124,24 @@ describe('the page in English', () => {
     await vi.waitFor(() => expect(useRoute().hash).toBe('#season-anomaly'))
   })
 
+  it('takes a link to the wind section by the name the chip had (`#wind`) to the day section it is now, and its rules (`#wind-beaufort`) with it', async () => {
+    await mountSuspended(MethodsPage, { route: '/methods#wind' })
+    await vi.waitFor(() => expect(useRoute().hash).toBe('#day'))
+    await mountSuspended(MethodsPage, { route: '/methods#wind-beaufort' })
+    await vi.waitFor(() => expect(useRoute().hash).toBe('#day-beaufort'))
+  })
+
+  it('shows the section of the day question with the rules of every measure, each with its source or its mark', async () => {
+    const wrapper = await mountSuspended(MethodsPage)
+    const day = wrapper.find('article#day')
+    expect(day.exists()).toBe(true)
+    for (const rule of ['beaufort', 'sun-share', 'day-length', 'sun-bands', 'rain-trace', 'rain-wet-day', 'rain-very-wet', 'heat-days', 'cold-days', 'tropical-night', 'tropical-daily-minimum', 'class-order', 'snow-lies', 'fresh-snow'])
+      expect(day.find(`#day-${rule}`).exists(), rule).toBe(true)
+    // the works the scales are taken from are on the list of works cited
+    for (const work of ['wmo-8-i', 'wmo-1203', 'dwd-kenntage', 'dwd-tropennacht', 'dwd-daily-more-precip'])
+      expect(wrapper.find(`#work-${work}`).exists(), work).toBe(true)
+  })
+
   it('has no note where the text is in the language of the page', async () => {
     const wrapper = await mountSuspended(MethodsPage)
     expect(wrapper.find('[data-testid="methods-note"]').exists()).toBe(false)

@@ -676,6 +676,47 @@ const STATES: State[] = [
     },
   },
   {
+    // the day question with its measure (GH-3764, step 2b): the measure and the day as labelled controls, a sunny-or-dull day, the disclosure opened
+    // so that the rules of the measure, their sources and the marks of what is wetterdienst's own are scanned too
+    page: 'index',
+    state: 'ask-day-choices',
+    path: '/?ask=day&measure=sun&day=2025-12-26',
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.day.measureLabel') })).toBeVisible()
+      await page.getByTestId('explanation-button').click()
+      await expect(page.getByTestId('explanation-rules')).toBeVisible()
+    },
+  },
+  {
+    // the temperature of a day: bars that hang from a line (a frost day has negative minima around it), with the classes the day counts as
+    page: 'index',
+    state: 'ask-day-temperature',
+    path: '/?ask=day&measure=temperature&day=2025-12-26',
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.day.measureLabel') })).toBeVisible()
+      await page.getByText(message(locale, 'ask.showValues'), { exact: true }).click()
+      await expect(page.getByRole('table')).toBeVisible()
+    },
+  },
+  {
+    // a phone, at a station that has no snow reading: the snow measure is offered disabled with the reason in its option, and the line under the choices says why
+    page: 'index',
+    state: 'ask-day-greyed-phone',
+    path: '/?ask=day&day=2025-12-26&place=00183',
+    viewport: { width: 390, height: 844 },
+    handlers: askHandlers(),
+    reach: async (page, locale) => {
+      await expect(page.getByTestId('place-button')).toContainText('Arkona')
+      await expect(page.getByRole('combobox', { name: message(locale, 'ask.day.measureLabel') }).locator('option[disabled]')).toHaveCount(1)
+      await expect(page.getByTestId('choice-note')).not.toHaveText('')
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    },
+  },
+  {
     // the search of a place of the questions, with a name typed
     page: 'index',
     state: 'ask-place-open',

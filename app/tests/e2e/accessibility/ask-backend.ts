@@ -92,17 +92,38 @@ export function summerValues(station: string) {
   return monthlyValues(station)
 }
 
-export function windValues(station: string, range: string | null) {
+/** Stations of the mock that have no snow depth reading (a coastal station): the snow measure is greyed out there, with its reason */
+export const WITHOUT_SNOW = new Set(['00183'])
+
+/**
+ * The daily readings of a fortnight (the day question, GH-3764): the wind, the sunshine, the precipitation, the highest and the lowest
+ * temperature, the snow depth and, on two days, the fresh snow. 26 December 2025 is a stormy, dull, wet frost day with snow on the ground, 20 December
+ * a calm, sunny, dry and ordinary one with none; the days between and around follow a plain curve (the one that is not either is
+ * mild and dry), so that each verdict has a day to be read from.
+ */
+export function dayValues(station: string, range: string | null) {
   const [from, to] = (range ?? '2025-12-19/2026-01-02').split('/')
   const first = DateTime.fromISO(from!, { zone: 'utc' })
   const days = Math.round(DateTime.fromISO(to!, { zone: 'utc' }).diff(first, 'days').days)
   return Array.from({ length: days + 1 }, (_, index) => first.plus({ days: index })).flatMap((day) => {
     const stamp = `${day.toISODate()}T00:00:00+00:00`
     const stormy = day.month === 12 && day.day === 26
-    return [
+    const sunny = day.month === 12 && day.day === 20
+    const rows = [
       reading(station, 'daily', 'climate_summary', 'wind_gust_max', stamp, stormy ? 21.6 : 5 + 2 * Math.sin(day.day)),
       reading(station, 'daily', 'climate_summary', 'wind_speed_mean', stamp, stormy ? 9.1 : 3.2 + Math.cos(day.day)),
+      reading(station, 'daily', 'climate_summary', 'sunshine_duration', stamp, stormy ? 1.4 : sunny ? 5.6 : 2.5 + Math.sin(day.day)),
+      reading(station, 'daily', 'climate_summary', 'precipitation_amount', stamp, stormy ? 6.4 : sunny ? 0 : Math.max(0, Math.round(2 * Math.sin(day.day) * 10) / 10)),
+      reading(station, 'daily', 'climate_summary', 'temperature_air_max_2m', stamp, stormy ? 3.4 : sunny ? 7.2 : 6 + Math.sin(day.day)),
+      reading(station, 'daily', 'climate_summary', 'temperature_air_min_2m', stamp, stormy ? -1.2 : sunny ? 2.1 : 2 + Math.cos(day.day)),
     ]
+    if (!WITHOUT_SNOW.has(station)) {
+      rows.push(reading(station, 'daily', 'climate_summary', 'snow_depth', stamp, stormy ? 4 : 0))
+      // the fresh snow is a value of its own, which only some stations report: this one reports it for the stormy day
+      if (stormy)
+        rows.push(reading(station, 'daily', 'precipitation_more', 'snow_depth_new', stamp, 2))
+    }
+    return rows
   })
 }
 
@@ -126,7 +147,7 @@ export function askHandlers(asked: Asked[] = []): Handlers {
         return { values: rainValues(station) }
       if (parameters.startsWith('monthly/'))
         return { values: monthlyValues(station) }
-      return { values: windValues(station, url.searchParams.get('timestamp')) }
+      return { values: dayValues(station, url.searchParams.get('timestamp')) }
     },
   }
 }
