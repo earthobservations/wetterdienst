@@ -651,7 +651,9 @@ PARAMETER_TABLE: tuple[CanonicalParameter, ...] = (
         "discharge_min", "volume_per_time", "Lowest discharge observed over the period.", aggregation="min"
     ),
     CanonicalParameter(
-        "distance_river_gauge_height", "length_medium", "Height of the gauge zero point above the reference datum."
+        "distance_river_gauge_height",
+        "length_medium",
+        "Difference between river and gauge height, as NOAA GHCN-Daily defines GAHT.",
     ),
     CanonicalParameter(
         "electric_conductivity",
