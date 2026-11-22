@@ -89,6 +89,13 @@ Types of changes:
   for each network (the forecast's points, DWD measurements, NOAA GHCN daily); a station leads to
   the map, where its forecast is one click away (GH-3790).
 
+### Fixed
+
+- `[Radar]` The About text no longer names RADVOR as the system behind the forecast, which DWD
+  stopped operating at the end of February 2026. It says what DWD's radar products page says: a
+  forecast for 2 hours, calculated by displacement, in all eleven languages; the source line and
+  its link go to that page (GH-4309).
+
 ## [0.57.0] - 2026-11-21
 
 Paired with backend 0.194.0, which it needs: the Radar tool asks the radar routes of 0.194.0, and the

@@ -354,7 +354,6 @@ const UI_SAME: Record<string, Same> = {
   'nav.explorer': { en: ['de-hh', 'de', 'lb'], why: COGNATE },
   'nav.radar': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'radar.title': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
-  'radar.aboutDwdLink': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'radar.pause': { en: ['da', 'de', 'fr'], why: COGNATE },
   'nav.api': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'nav.support': { en: ['da'], why: COGNATE },

@@ -400,7 +400,7 @@ describe('the legend, the credit and the note', () => {
     expect(about.exists()).toBe(true)
     expect(about.text()).toContain('WMO-No. 8')
     expect(about.text()).toContain('Volume III, Chapter 7')
-    expect(about.find('a').attributes('href')).toBe('https://www.dwd.de/DE/leistungen/radvor/radvor.html')
+    expect(about.find('a').attributes('href')).toBe('https://www.dwd.de/EN/ourservices/radar_products/radar_products.html')
     expect(text(wrapper)).toContain('The forecast is no weather model')
   })
 })
