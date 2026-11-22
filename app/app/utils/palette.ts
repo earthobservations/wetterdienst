@@ -21,6 +21,8 @@ export interface PaletteItem {
   current?: boolean
   /** The last item of a group that has more results than it shows: it leads to the page that has them all */
   more?: boolean
+  /** An action that leaves the search open: the dialog stays, and the action says what it is doing (GH-3790: the search of all networks for an id) */
+  keepOpen?: boolean
 }
 
 export interface PaletteGroup {
@@ -70,14 +72,18 @@ export function filterGroups(groups: PaletteGroup[], query: string): PaletteGrou
 // ------------------------------------------------------------------------------------------------ the groups (GH-3790)
 
 /**
- * The order of the groups, which follows what a reader most likely means: a point they typed, then stations, then the
+ * The order of the groups, which follows what a reader most likely means: a point they typed, then stations (the three networks whose
+ * lists are matched by name, then the stations of every network that carry an id typed in; the offer of that search for four letters, which are as
+ * often a word, is after the words), then the
  * pages (which a name finds: `glossary` is the Glossary before any text that says the word), then the words of the app and,
  * last, the actions. A group that is not named comes last.
  */
 export const GROUP_ORDER = [
   'place',
-  'stations',
-  'stations-map',
+  'stations-forecast',
+  'stations-measured',
+  'stations-ghcn',
+  'station-ids',
   'tools',
   'reference',
   'providers',
@@ -87,6 +93,7 @@ export const GROUP_ORDER = [
   'method',
   'glossary',
   'settings',
+  'station-ids-icao',
   'theme',
   'language',
 ] as const
@@ -106,6 +113,8 @@ export function orderGroups(groups: PaletteGroup[]): PaletteGroup[] {
 
 /** How many results each group of the words of the app shows before its "more" */
 export const GROUP_LIMITS: Record<string, number> = {
+  // the stations of each network the search matches by name (GH-3790)
+  stations: 3,
   questions: 4,
   measurement: 3,
   method: 3,
@@ -124,6 +133,18 @@ export function limitItems(items: PaletteItem[], limit: number, more?: (hidden: 
     return items
   const shown = items.slice(0, limit)
   return more ? [...shown, more(items.length - limit)] : shown
+}
+
+/**
+ * The few results of a kind whose total is known without having all of them (the stations the server counted, GH-3790): `items` are the
+ * best ones, at least `limit + 1` of them where there are so many. As `limitItems`, a group one over its limit shows that result; past
+ * it the first `limit` stay and a last item, which the caller makes (`more`, told how many are left out), leads on.
+ */
+export function limitCounted(items: PaletteItem[], total: number, limit: number, more?: (hidden: number) => PaletteItem): PaletteItem[] {
+  if (total <= limit + 1)
+    return items.slice(0, total)
+  const shown = items.slice(0, limit)
+  return more ? [...shown, more(total - limit)] : shown
 }
 
 /** The line under a result of the app's own words: where in the page it is, then what it says */

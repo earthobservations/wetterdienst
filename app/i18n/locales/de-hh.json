@@ -244,9 +244,7 @@
     "searchEmpty": "Nix funnen",
     "results": "Resultaten",
     "resultsCount": "{count} Resultat | {count} Resultaten",
-    "stations": "Utsicht för en Station",
     "stationsHint": "Tipp dree Bookstaven oder mehr, üm en Station to finnen",
-    "stationForecast": "Utsicht för Station {id}",
     "keysHint": "↑ ↓ utsöken, Enter opmaken, Esc dichtmaken",
     "desc": {
       "support": "En Fehler mellen, wat Nees wünschen oder dat Projekt ünnerstütten",
@@ -256,12 +254,30 @@
       "github": "De Code, de Issues un de Pull Requests",
       "pypi": "De Python-Bibliothek mit pip installeren"
     },
-    "stationsMap": "Station op de Kaart",
-    "stationOnMap": "Station {id} op de Kaart wiesen",
     "placeGroup": "Oort",
     "placeOnMap": "Düssen Punkt op de Kaart wiesen",
     "moreIn": "{count} mehr in {page}",
-    "resultsIn": "{group}: {count}"
+    "resultsIn": "{group}: {count}",
+    "stationsForecast": "Stationen: DWD-Utsicht",
+    "stationsMeasured": "Stationen: DWD-Meetweerten",
+    "stationsGhcn": "Stationen: NOAA GHCN, daglich",
+    "stationNetworks": {
+      "forecast": "MOSMIX-Utsicht",
+      "measured": "Meetweerten",
+      "ghcn": "GHCN, daglich"
+    },
+    "stationEnded": "to Enn {year}",
+    "moreOnMap": "{count} mehr op de Kaart ({network})",
+    "searchAllNetworks": "All Nettwarken na {id} dörchsöken",
+    "searchAllNetworksHint": "Fraagt jeden Anbeder, de de Kennen föhrt; duert en paar Sekunnen",
+    "searchingAllNetworks": "All Nettwarken warrt dörchsöcht …",
+    "allNetworksNone": "Keen Station in en Nettwark hett {id}",
+    "allNetworksFailed": "Dat Söken in all Nettwarken hett nich klappt. Drück de Enter-Tast, üm dat noch mal to versöken",
+    "stationsWithId": "Stationen mit {id}",
+    "opensExplorer": "maakt den Explorer apen",
+    "stationListReading": "En Stationenlist warrt noch lest; dat kaamt villicht noch mehr Resultaten",
+    "stationListFailed": "En Stationenlist leet sik nich lesen",
+    "allNetworksGroup": "All Nettwarken"
   },
   "header": {
     "github": "GitHub",

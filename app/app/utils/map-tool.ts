@@ -490,6 +490,35 @@ export function stateFromQuery(query: Record<string, unknown>): MapState {
 }
 
 /**
+ * Where the map is opened on a station of a layer (GH-3790: what a station found by the search leads to): the layer, the source of
+ * the measurements where the layer is DWD's, and the station picked. What is the default is left out, so that a forecast point is
+ * `/map?station=10147`.
+ *
+ * @example
+ * mapStationLink('ghcn', 'GM000010147') // '/map?layer=ghcn&station=GM000010147'
+ */
+export function mapStationLink(layer: MapLayer, stationId: string, source: MeasuredSource = DEFAULT_MEASURED): string {
+  const query = new URLSearchParams(stateToQuery({ layer, source: layer === 'measured' ? source : DEFAULT_MEASURED, stationId, place: null }))
+  return `/map?${query}`
+}
+
+/**
+ * Where the map is opened with its search of a layer started on a text (GH-3790: the "more" of the stations the header's search found):
+ * `/map?layer=ghcn&q=hamburg`, the stations of the layer whose name or number holds it listed in the panel.
+ */
+export function mapSearchLink(layer: MapLayer, query: string): string {
+  const params = new URLSearchParams(stateToQuery({ layer, source: DEFAULT_MEASURED, stationId: null, place: null }))
+  params.set('q', query)
+  return `/map?${params}`
+}
+
+/** The text an address starts the map's search with (`?q=`), or an empty text */
+export function searchFromQuery(query: Record<string, unknown>): string {
+  const value = Array.isArray(query.q) ? query.q[0] : query.q
+  return typeof value === 'string' ? value.slice(0, 100) : ''
+}
+
+/**
  * The point an address names with no station (`/map?lat=52.52&lon=13.40`, GH-3790: what the search of the header leads to for a
  * position typed in), or null: an address that names a station carries its place with it (`?station=10147&lat=&lon=`, which
  * `stateFromQuery` reads), and a latitude or longitude that is not a number, or is beyond 90 or 180 degrees, is no point.

@@ -244,9 +244,7 @@
     "searchEmpty": "Aucun résultat",
     "results": "Résultats",
     "resultsCount": "{count} résultat | {count} résultats",
-    "stations": "Prévisions pour une station",
     "stationsHint": "Tape trois lettres ou plus pour trouver une station",
-    "stationForecast": "Prévisions pour la station {id}",
     "keysHint": "↑ ↓ pour choisir, Entrée pour ouvrir, Échap pour fermer",
     "desc": {
       "support": "Signaler un bug, proposer une fonction ou soutenir le projet",
@@ -256,12 +254,30 @@
       "github": "Le code, les tickets et les pull requests",
       "pypi": "Installer la bibliothèque Python avec pip"
     },
-    "stationsMap": "Station sur la carte",
-    "stationOnMap": "Afficher la station {id} sur la carte",
     "placeGroup": "Lieu",
     "placeOnMap": "Afficher ce point sur la carte",
     "moreIn": "{count} de plus dans {page}",
-    "resultsIn": "{group} : {count}"
+    "resultsIn": "{group} : {count}",
+    "stationsForecast": "Stations : prévisions du DWD",
+    "stationsMeasured": "Stations : mesures du DWD",
+    "stationsGhcn": "Stations : NOAA GHCN quotidien",
+    "stationNetworks": {
+      "forecast": "prévisions MOSMIX",
+      "measured": "mesures",
+      "ghcn": "GHCN quotidien"
+    },
+    "stationEnded": "terminée en {year}",
+    "moreOnMap": "{count} de plus sur la carte ({network})",
+    "searchAllNetworks": "Chercher {id} dans tous les réseaux",
+    "searchAllNetworksHint": "Interroge chaque fournisseur qui tient cet identifiant ; prend quelques secondes",
+    "searchingAllNetworks": "Recherche dans tous les réseaux …",
+    "allNetworksNone": "Aucune station d'aucun réseau n'a {id}",
+    "allNetworksFailed": "La recherche dans tous les réseaux a échoué. Appuie sur Entrée pour réessayer",
+    "stationsWithId": "Stations avec {id}",
+    "opensExplorer": "ouvre l'Explorateur",
+    "stationListReading": "Une liste de stations est encore en cours de lecture ; d'autres résultats peuvent suivre",
+    "stationListFailed": "Une liste de stations n'a pas pu être lue",
+    "allNetworksGroup": "Tous les réseaux"
   },
   "header": {
     "github": "GitHub",

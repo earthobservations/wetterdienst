@@ -244,9 +244,7 @@
     "searchEmpty": "Sin resultados",
     "results": "Resultados",
     "resultsCount": "{count} resultado | {count} resultados",
-    "stations": "Pronóstico para una estación",
     "stationsHint": "Escribe tres letras o más para encontrar una estación",
-    "stationForecast": "Pronóstico para la estación {id}",
     "keysHint": "↑ ↓ para elegir, Intro para abrir, Esc para cerrar",
     "desc": {
       "support": "Informar de un error, pedir una función o apoyar el proyecto",
@@ -256,12 +254,30 @@
       "github": "El código, las incidencias y las pull requests",
       "pypi": "Instalar la biblioteca de Python con pip"
     },
-    "stationsMap": "Estación en el mapa",
-    "stationOnMap": "Mostrar la estación {id} en el mapa",
     "placeGroup": "Lugar",
     "placeOnMap": "Mostrar este punto en el mapa",
     "moreIn": "{count} más en {page}",
-    "resultsIn": "{group}: {count}"
+    "resultsIn": "{group}: {count}",
+    "stationsForecast": "Estaciones: pronóstico del DWD",
+    "stationsMeasured": "Estaciones: mediciones del DWD",
+    "stationsGhcn": "Estaciones: NOAA GHCN diario",
+    "stationNetworks": {
+      "forecast": "pronóstico MOSMIX",
+      "measured": "mediciones",
+      "ghcn": "GHCN diario"
+    },
+    "stationEnded": "finalizada en {year}",
+    "moreOnMap": "{count} más en el mapa ({network})",
+    "searchAllNetworks": "Buscar {id} en todas las redes",
+    "searchAllNetworksHint": "Pregunta a cada proveedor que lleva el identificador; tarda unos segundos",
+    "searchingAllNetworks": "Buscando en todas las redes …",
+    "allNetworksNone": "Ninguna estación de ninguna red tiene {id}",
+    "allNetworksFailed": "La búsqueda en todas las redes ha fallado. Pulsa Intro para intentarlo de nuevo",
+    "stationsWithId": "Estaciones con {id}",
+    "opensExplorer": "abre el Explorador",
+    "stationListReading": "Todavía se está leyendo una lista de estaciones; pueden llegar más resultados",
+    "stationListFailed": "No se pudo leer una lista de estaciones",
+    "allNetworksGroup": "Todas las redes"
   },
   "header": {
     "github": "GitHub",

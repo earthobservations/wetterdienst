@@ -32,7 +32,7 @@ What was decided for #2559 (maintainer, 2026-11-10), which is closed with the pu
   (`values-limit-refused`, and at 320 px `values-limit-refused-narrow`) and the note under the date range that
   says the page started one (`default-range-note`), and the chooser of the phone bar's four tools on the
   settings page at 390 px, with a tool moved, and at 320 px (`phone-bar-chooser`, `phone-bar-chooser-narrow`), the About page at 390 px
-  scrolled down with both bars slid away (`phone-bars-hidden`, GH-4226) and the search at 390 px open as a bar over the top bar (`phone-search-open`), with the words of the app typed (`phone-search-words`, GH-3790; at 1280 px `search-words` and, for a position typed in, `search-place`) and the radar with the cells listed and the loop on a frame of the forecast (`cells-forecast-frame`, and at 390 px `phone-radar`, GH-3788).
+  scrolled down with both bars slid away (`phone-bars-hidden`, GH-4226) and the search at 390 px open as a bar over the top bar (`phone-search-open`), with the words of the app typed (`phone-search-words`, GH-3790; at 1280 px `search-words` and, for a position typed in, `search-place`; the stations of three networks found by name `search-stations` and at 390 px `phone-search-stations`, and a WMO number with the stations of every network that carries it `search-station-ids`, GH-3790) and the radar with the cells listed and the loop on a frame of the forecast (`cells-forecast-frame`, and at 390 px `phone-radar`, GH-3788).
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
 so it reaches neither the backend nor a provider. Map tiles and every other request to another host are

@@ -52,6 +52,53 @@ registerEndpoint('/api/stations', (event) => {
   return { stations: [{ station_id: '10384', name: 'BERLIN-TEMPELHOF', region: null, latitude: 52.47, longitude: 13.4, elevation: 49, start_timestamp: null, end_timestamp: null }] }
 })
 
+// the stations of the three networks the search matches by name, as the app's server answers them (GH-3790): what is asked is counted
+const searchQueries: Array<{ q: string, limit: string }> = []
+let searchMode: 'answer' | 'fail' | 'pending-once' = 'answer'
+let pendingServed = 0
+const match = (station_id: string, name: string, extra: Record<string, unknown> = {}) => ({ station_id, name, latitude: 52.4, longitude: 13.4, wmo_id: null, first_year: 1950, last_year: null, reporting: true, ...extra })
+registerEndpoint('/_search/stations', (event) => {
+  const query = new URL(event.path, 'http://localhost').searchParams
+  searchQueries.push({ q: query.get('q') ?? '', limit: query.get('limit') ?? '' })
+  if (searchMode === 'fail') {
+    setResponseStatus(event, 500)
+    return { detail: 'down' }
+  }
+  const networks = [
+    { network: 'forecast', total: 1, stations: [match('10384', 'BERLIN-TEMPELHOF', { wmo_id: '10384' })] },
+    { network: 'measured', total: 2, stations: [match('00403', 'Berlin-Dahlem (FU)'), match('00430', 'Berlin-Marzahn', { reporting: false, last_year: 2019 })] },
+    { network: 'ghcn', total: 14, stations: ['BERLIN', 'BERLIN TEGEL', 'BERLIN-SCHONEFELD', 'BERLIN-BRANDENBURG'].map((name, index) => match(`GM00000${index}`, name)) },
+  ]
+  // a list that is still being read the first time it is asked, and there the next
+  if (searchMode === 'pending-once' && pendingServed++ === 0)
+    return { query: query.get('q'), networks: networks.slice(0, 2), pending: ['ghcn'], failed: [] }
+  return { query: query.get('q'), networks, pending: [], failed: [] }
+})
+// the search of every network for an id (GH-4286): it takes seconds, so the test decides when it is done
+const idQueries: Array<Record<string, string>> = []
+let releaseIds: (() => void) | null = null
+let idAnswer: 'rows' | 'none' | 'fail' = 'rows'
+registerEndpoint('/api/station-ids', async (event) => {
+  idQueries.push(Object.fromEntries(new URL(event.path, 'http://localhost').searchParams))
+  await new Promise<void>((resolve) => {
+    releaseIds = resolve
+  })
+  if (idAnswer === 'fail') {
+    setResponseStatus(event, 502)
+    return { detail: 'down' }
+  }
+  const row = (extra: Record<string, unknown>) => ({ resolution: 'daily', dataset: 'climate_summary', name: 'X', latitude: 53.6, longitude: 10, elevation: 11, wmo_id: '10381', wigos_id: null, icao_id: null, matched_by: 'wmo_id', match: 'direct', ...extra })
+  return {
+    stations: idAnswer === 'none'
+      ? []
+      : [
+          row({ provider: 'noaa', network: 'ghcn', resolution: 'daily', dataset: 'data', station_id: 'GM000010381', name: 'BERLIN-DAHLEM', match: 'equivalent' }),
+          row({ provider: 'dwd', network: 'observation', station_id: '00403', name: 'Berlin-Dahlem (FU)' }),
+          row({ provider: 'metno', network: 'observation', resolution: 'hourly', dataset: 'temperature_air', station_id: 'SN18700', name: 'OSLO-BLINDERN' }),
+        ],
+  }
+})
+
 const mounted: Array<{ unmount: () => void }> = []
 async function mountPalette() {
   const wrapper = await mountSuspended(AppCommandPalette, { attachTo: document.body })
@@ -64,6 +111,13 @@ afterEach(() => {
   clearNuxtData()
   stationQueries.length = 0
   stationNetworks.length = 0
+  searchQueries.length = 0
+  idQueries.length = 0
+  searchMode = 'answer'
+  pendingServed = 0
+  idAnswer = 'rows'
+  releaseIds?.()
+  releaseIds = null
   failStations = false
   navigateTo.mockClear()
 })
@@ -115,7 +169,7 @@ describe('the command palette', () => {
     expect(navigateTo).toHaveBeenCalledWith('/map')
   })
 
-  it('finds a station by name and offers to open the map on it, beside its forecast', async () => {
+  it('finds the stations of three networks by name, each in a group of its own with the provider and network on every result, and opens the map on one', async () => {
     // real timers: Vue ignores a click whose time stamp is earlier than the moment its handler was attached, which a
     // clock that was faked and then restored makes of every click after it
     const wrapper = await mountPalette()
@@ -123,12 +177,77 @@ describe('the command palette', () => {
     await input.setValue('berl')
     await vi.waitFor(() => expect(wrapper.text()).toContain('BERLIN-TEMPELHOF'))
     const groups = wrapper.findAll('[role="group"]')
-    const onMap = groups.find(group => group.text().includes('Show station 10384 on the map'))!
-    // a group of its own, named for what it does, right after the forecast of the station
-    expect(wrapper.find(`[id="${onMap.attributes('aria-labelledby')}"]`).text()).toBe('Station on the map')
-    expect(groups.indexOf(onMap)).toBe(groups.findIndex(group => group.text().includes('Forecast for station 10384')) + 1)
-    await onMap.find('[role="option"]').trigger('click')
+    const heading = (group: DOMWrapper<Element>) => wrapper.find(`[id="${group.attributes('aria-labelledby')}"]`).text()
+    const headings = groups.map(heading)
+    expect(headings.slice(0, 3)).toEqual(['Stations: DWD forecast', 'Stations: DWD measurements', 'Stations: NOAA GHCN daily'])
+    const forecast = groups[0]!.find('[role="option"]')
+    expect(forecast.text()).toContain('BERLIN-TEMPELHOF')
+    expect(forecast.text()).toContain('DWD · MOSMIX forecast · 10384')
+    const measured = groups[1]!.findAll('[role="option"]')
+    expect(measured).toHaveLength(2)
+    expect(measured[0]!.text()).toContain('DWD · measurements · 00403')
+    // a station that has stopped says when
+    expect(measured[1]!.text()).toContain('DWD · measurements · 00430 · ended 2019')
+    expect(groups[2]!.find('[role="option"]').text()).toContain('NOAA · GHCN daily · GM000000')
+    // none of what the backend's own name search answered before: the app's server does the matching
+    expect(stationQueries).toEqual([])
+    await forecast.trigger('click')
     expect(navigateTo).toHaveBeenCalledWith('/map?station=10384')
+  })
+
+  it('leads a station of DWD\'s measurements and of GHCN daily to the map on their layers', async () => {
+    const wrapper = await mountPalette()
+    await wrapper.find('input[role="combobox"]').setValue('berl')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Berlin-Dahlem'))
+    const options = wrapper.findAll('[role="option"]')
+    await options.find(option => option.text().includes('Berlin-Dahlem'))!.trigger('click')
+    expect(navigateTo).toHaveBeenLastCalledWith('/map?layer=measured&station=00403')
+    await options.find(option => option.text().includes('BERLIN-SCHONEFELD'))!.trigger('click')
+    expect(navigateTo).toHaveBeenLastCalledWith('/map?layer=ghcn&station=GM000002')
+  })
+
+  it('shows three stations of a network and a last option for the others, which opens the map\'s own search on the text', async () => {
+    const wrapper = await mountPalette()
+    await wrapper.find('input[role="combobox"]').setValue('berl')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('BERLIN-SCHONEFELD'))
+    const ghcn = wrapper.findAll('[role="group"]').find(group => group.text().includes('GM000000'))!
+    const options = ghcn.findAll('[role="option"]')
+    // 14 stations: three of them and "11 more", not the four the server sent
+    expect(options).toHaveLength(4)
+    expect(ghcn.text()).not.toContain('BERLIN-BRANDENBURG')
+    expect(options.at(-1)!.text()).toBe('11 more on the map (NOAA GHCN daily)')
+    await options.at(-1)!.trigger('click')
+    expect(navigateTo).toHaveBeenCalledWith('/map?layer=ghcn&q=berl')
+  })
+
+  it('says the number of stations of each network in the live region, and does not count the option that leads on', async () => {
+    const wrapper = await mountPalette()
+    await wrapper.find('input[role="combobox"]').setValue('berl')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('BERLIN-TEMPELHOF'))
+    const status = wrapper.find('[role="status"]').text()
+    expect(status).toContain('Stations: DWD forecast: 1')
+    expect(status).toContain('Stations: DWD measurements: 2')
+    expect(status).toContain('Stations: NOAA GHCN daily: 3')
+  })
+
+  it('asks a network whose list is still being read again after a pause, says so, and then lists its stations', async () => {
+    searchMode = 'pending-once'
+    const wrapper = await mountPalette()
+    await wrapper.find('input[role="combobox"]').setValue('berl')
+    await vi.waitFor(() => expect(wrapper.find('[role="status"]').text()).toContain('Still reading a list of stations'))
+    expect(wrapper.text()).not.toContain('BERLIN-SCHONEFELD')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('BERLIN-SCHONEFELD'), { timeout: 6000 })
+    expect(wrapper.find('[role="status"]').text()).not.toContain('Still reading')
+    expect(searchQueries).toHaveLength(2)
+  })
+
+  it('says that a list of stations could not be read, and leaves the pages to choose from', async () => {
+    searchMode = 'fail'
+    const wrapper = await mountPalette()
+    await wrapper.find('input[role="combobox"]').setValue('berl')
+    await vi.waitFor(() => expect(wrapper.find('[role="status"]').text()).toContain('could not be read'))
+    // the pages are still there, and no network's stations
+    expect(wrapper.findAll('[role="group"]').map(group => wrapper.find(`[id="${group.attributes('aria-labelledby')}"]`).text()).some(heading => heading.startsWith('Stations:'))).toBe(false)
   })
 
   it('moves the active option with the arrow keys, round the ends', async () => {
@@ -163,22 +282,22 @@ describe('the command palette', () => {
     useColorMode().preference = 'system'
   })
 
-  it('finds the forecast of a station by its name from three letters on, asking the backend once the typing stops', async () => {
+  it('finds a station by its name from three letters on, asking the server once the typing stops, for three stations and one more of each network', async () => {
     vi.useFakeTimers()
     try {
       const wrapper = await mountPalette()
       const input = wrapper.find('input[role="combobox"]')
       await input.setValue('be')
       await vi.advanceTimersByTimeAsync(400)
-      expect(stationQueries).toEqual([])
+      expect(searchQueries).toEqual([])
       expect(wrapper.find('[role="status"]').text()).toContain('Type three letters or more')
       await input.setValue('ber')
       await input.setValue('berl')
       await vi.advanceTimersByTimeAsync(400)
       vi.useRealTimers()
       await vi.waitFor(() => expect(wrapper.text()).toContain('BERLIN-TEMPELHOF'))
-      expect(stationQueries).toEqual(['berl'])
-      expect(wrapper.text()).toContain('Forecast for station 10384')
+      expect(searchQueries).toEqual([{ q: 'berl', limit: '4' }])
+      expect(wrapper.text()).toContain('DWD · MOSMIX forecast · 10384')
     }
     finally {
       vi.useRealTimers()
@@ -318,8 +437,9 @@ describe('the command palette finding the words of the app', () => {
     await typed(wrapper, 'forecast', 'BERLIN-TEMPELHOF')
     await vi.waitFor(() => expect(headings(wrapper)).toContain('How weather is measured'))
     const order = headings(wrapper)
-    expect(order.indexOf('Forecast for a station')).toBeLessThan(order.indexOf('Station on the map'))
-    expect(order.indexOf('Station on the map')).toBeLessThan(order.indexOf('Tools'))
+    expect(order.indexOf('Stations: DWD forecast')).toBeLessThan(order.indexOf('Stations: DWD measurements'))
+    expect(order.indexOf('Stations: DWD measurements')).toBeLessThan(order.indexOf('Stations: NOAA GHCN daily'))
+    expect(order.indexOf('Stations: NOAA GHCN daily')).toBeLessThan(order.indexOf('Tools'))
     expect(order.indexOf('Tools')).toBeLessThan(order.indexOf('How weather is measured'))
   })
 
@@ -361,6 +481,149 @@ describe('the command palette finding the words of the app', () => {
     expect(input.attributes('aria-activedescendant')).toBe(options[0]!.attributes('id'))
     await input.trigger('keydown', { key: 'ArrowUp' })
     expect(input.attributes('aria-activedescendant')).toBe(options.at(-1)!.attributes('id'))
+  })
+})
+
+// The ids of WMO and ICAO, asked of every network on request (GH-3790, GH-4286)
+describe('the command palette finding a station by its WMO, WIGOS or ICAO id', () => {
+  const headings = (wrapper: Awaited<ReturnType<typeof mountPalette>>) =>
+    wrapper.findAll('[role="group"]').map(group => wrapper.find(`[id="${group.attributes('aria-labelledby')}"]`).text())
+  const searchOption = (wrapper: Awaited<ReturnType<typeof mountPalette>>) =>
+    wrapper.findAll('[role="option"]').find(option => option.text().includes('Search all networks for'))
+
+  it('offers the search of all networks for a WMO number, a WIGOS identifier and an ICAO code, and asks nothing before it is chosen', async () => {
+    const wrapper = await mountPalette()
+    const input = wrapper.find('input[role="combobox"]')
+    for (const [typed, shown] of [['10381', '10381'], ['0-20000-0-10381', '0-20000-0-10381'], ['eddh', 'EDDH']]) {
+      await input.setValue(typed)
+      await vi.waitFor(() => expect(searchOption(wrapper)?.text()).toContain(`Search all networks for ${shown}`))
+      expect(searchOption(wrapper)!.text()).toContain('Asks every provider that lists the id; takes a few seconds')
+    }
+    expect(idQueries).toEqual([])
+    // a text that is no id has no such option
+    await input.setValue('hamburg')
+    await vi.waitFor(() => expect(searchOption(wrapper)).toBeUndefined())
+  })
+
+  it('runs it on Enter, keeps the search open and says it is searching, then lists the stations, each with its provider and network, and leads to the map or the Explorer', async () => {
+    const wrapper = await mountPalette()
+    const input = wrapper.find('input[role="combobox"]')
+    await input.setValue('10381')
+    await vi.waitFor(() => expect(searchOption(wrapper)).toBeDefined())
+    // the option is the first one where no list has the number, and Enter takes it
+    expect(wrapper.find('[role="option"][aria-selected="true"]').text()).toContain('Search all networks for 10381')
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(wrapper.emitted('done')).toBeUndefined()
+    await vi.waitFor(() => expect(idQueries).toEqual([{ wmo_id: '10381' }]))
+    await vi.waitFor(() => expect(wrapper.find('[role="status"]').text()).toBe('Searching all networks …'))
+    expect(searchOption(wrapper)!.text()).toContain('Searching all networks …')
+    releaseIds!()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('OSLO-BLINDERN'))
+    const group = wrapper.findAll('[role="group"]').find(candidate => candidate.text().includes('OSLO-BLINDERN'))!
+    expect(wrapper.find(`[id="${group.attributes('aria-labelledby')}"]`).text()).toBe('Stations with 10381')
+    const options = group.findAll('[role="option"]')
+    // the ones that carry the number asked for come before the equivalent one
+    expect(options.map(option => option.text())).toEqual([
+      expect.stringContaining('Berlin-Dahlem (FU)'),
+      expect.stringContaining('OSLO-BLINDERN'),
+      expect.stringContaining('BERLIN-DAHLEM'),
+    ])
+    expect(options[0]!.text()).toContain('DWD · measurements · 00403')
+    expect(options[1]!.text()).toContain('met.no · observation · SN18700 · opens the Explorer')
+    expect(options[2]!.text()).toContain('NOAA · GHCN daily · GM000010381')
+    // the first of them is the active one, and the search found what it was asked for: the live region counts it
+    expect(wrapper.find('[role="option"][aria-selected="true"]').text()).toContain('Berlin-Dahlem (FU)')
+    expect(wrapper.find('[role="status"]').text()).toContain('Stations with 10381: 3')
+    await options[0]!.trigger('click')
+    expect(navigateTo).toHaveBeenLastCalledWith('/map?layer=measured&station=00403')
+    await options[2]!.trigger('click')
+    expect(navigateTo).toHaveBeenLastCalledWith('/map?layer=ghcn&station=GM000010381')
+    await options[1]!.trigger('click')
+    expect(navigateTo.mock.lastCall![0]).toBe('/explorer?provider=metno&network=observation&resolution=hourly&dataset=temperature_air&mode=station&stations=SN18700')
+  })
+
+  it('does not take a word of four letters for an id: it is offered only where nothing else answers the word', async () => {
+    const wrapper = await mountPalette()
+    const input = wrapper.find('input[role="combobox"]')
+    await input.setValue('wind')
+    // the words of the app come when their index has loaded: they answer the word, and no search of every network is offered
+    await vi.waitFor(() => expect(headings(wrapper)).toContain('How weather is measured'), { timeout: 5000 })
+    expect(searchOption(wrapper)).toBeUndefined()
+    // a theme is an answer as well
+    await input.setValue('dark')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Dark'))
+    expect(searchOption(wrapper)).toBeUndefined()
+    // four letters that nothing answers are a code
+    await input.setValue('eddh')
+    await vi.waitFor(() => expect(searchOption(wrapper)?.text()).toContain('Search all networks for EDDH'))
+  })
+
+  it('offers it for four capital letters, which are a code as a word is not, after what the letters find, and Enter does not take it', async () => {
+    const wrapper = await mountPalette()
+    const input = wrapper.find('input[role="combobox"]')
+    await input.setValue('WIND')
+    await vi.waitFor(() => expect(headings(wrapper)).toContain('How weather is measured'), { timeout: 5000 })
+    const options = wrapper.findAll('[role="option"]')
+    expect(options[0]!.text()).not.toContain('Search all networks')
+    expect(options.map(option => option.attributes('id')).indexOf(searchOption(wrapper)!.attributes('id'))).toBeGreaterThan(0)
+    await input.trigger('keydown', { key: 'Enter' })
+    expect(wrapper.emitted('done')).toHaveLength(1)
+    expect(idQueries).toEqual([])
+  })
+
+  it('asks for a WIGOS identifier and an ICAO code by the parameter of their own', async () => {
+    const wrapper = await mountPalette()
+    const input = wrapper.find('input[role="combobox"]')
+    await input.setValue('0-20000-0-10381')
+    await vi.waitFor(() => expect(searchOption(wrapper)).toBeDefined())
+    await input.trigger('keydown', { key: 'Enter' })
+    await vi.waitFor(() => expect(idQueries).toEqual([{ wigos_id: '0-20000-0-10381' }]))
+    await input.setValue('eddh')
+    await vi.waitFor(() => expect(searchOption(wrapper)).toBeDefined())
+    await input.trigger('keydown', { key: 'Enter' })
+    await vi.waitFor(() => expect(idQueries.at(-1)).toEqual({ icao_id: 'EDDH' }))
+  })
+
+  it('gives the search up when something else is typed, and shows none of its stations for the next text', async () => {
+    const wrapper = await mountPalette()
+    const input = wrapper.find('input[role="combobox"]')
+    await input.setValue('10381')
+    await vi.waitFor(() => expect(searchOption(wrapper)).toBeDefined())
+    await input.trigger('keydown', { key: 'Enter' })
+    await vi.waitFor(() => expect(idQueries).toHaveLength(1))
+    await input.setValue('10382')
+    await vi.waitFor(() => expect(searchOption(wrapper)!.text()).toContain('Search all networks for 10382'))
+    // the first search is over: its answer arrives and is nobody's
+    releaseIds!()
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(wrapper.text()).not.toContain('OSLO-BLINDERN')
+    expect(searchOption(wrapper)!.text()).toContain('Asks every provider')
+    expect(headings(wrapper)).toContain('All networks')
+  })
+
+  it('says where no network has the id, and where the search failed, and offers the search again', async () => {
+    idAnswer = 'none'
+    const wrapper = await mountPalette()
+    const input = wrapper.find('input[role="combobox"]')
+    await input.setValue('99999')
+    await vi.waitFor(() => expect(searchOption(wrapper)).toBeDefined())
+    await input.trigger('keydown', { key: 'Enter' })
+    await vi.waitFor(() => expect(idQueries).toHaveLength(1))
+    releaseIds!()
+    await vi.waitFor(() => expect(searchOption(wrapper)!.text()).toContain('No station of any network has 99999'))
+    idAnswer = 'fail'
+    await input.trigger('keydown', { key: 'Enter' })
+    await vi.waitFor(() => expect(idQueries).toHaveLength(2))
+    releaseIds!()
+    await vi.waitFor(() => expect(searchOption(wrapper)!.text()).toContain('The search of all networks failed. Press Enter to try again'))
+  })
+
+  it('has no search of all networks in its place mode', async () => {
+    const wrapper = await mountSuspended(AppCommandPalette, { attachTo: document.body, props: { mode: 'place' } })
+    mounted.push(wrapper)
+    await wrapper.find('input[role="combobox"]').setValue('10381')
+    await new Promise(resolve => setTimeout(resolve, 50))
+    expect(wrapper.text()).not.toContain('Search all networks')
   })
 })
 

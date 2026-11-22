@@ -244,9 +244,7 @@
     "searchEmpty": "Näischt fonnt",
     "results": "Resultater",
     "resultsCount": "{count} Resultat | {count} Resultater",
-    "stations": "Prognos fir eng Statioun",
     "stationsHint": "Tipp dräi Buschtawen oder méi, fir eng Statioun ze fannen",
-    "stationForecast": "Prognos fir d'Statioun {id}",
     "keysHint": "↑ ↓ wielen, Enter opmaachen, Esc zoumaachen",
     "desc": {
       "support": "E Feeler mellen, eng Funktioun froen oder de Projet ënnerstëtzen",
@@ -256,12 +254,30 @@
       "github": "De Code, d'Issues an d'Pull Requests",
       "pypi": "D'Python-Bibliothéik mat pip installéieren"
     },
-    "stationsMap": "Statioun op der Kaart",
-    "stationOnMap": "Statioun {id} op der Kaart weisen",
     "placeGroup": "Uert",
     "placeOnMap": "Dësen Punkt op der Kaart weisen",
     "moreIn": "{count} méi an {page}",
-    "resultsIn": "{group}: {count}"
+    "resultsIn": "{group}: {count}",
+    "stationsForecast": "Statioune: DWD-Prognos",
+    "stationsMeasured": "Statioune: DWD-Miessungen",
+    "stationsGhcn": "Statioune: NOAA GHCN deeglech",
+    "stationNetworks": {
+      "forecast": "MOSMIX-Prognos",
+      "measured": "Miessungen",
+      "ghcn": "GHCN deeglech"
+    },
+    "stationEnded": "ofgeschloss {year}",
+    "moreOnMap": "{count} méi op der Kaart ({network})",
+    "searchAllNetworks": "All Netzwierker no {id} duerchsichen",
+    "searchAllNetworksHint": "Freet all Ubidder, déi d'Kennung féieren; dauert e puer Sekonnen",
+    "searchingAllNetworks": "All Netzwierker ginn duerchsicht …",
+    "allNetworksNone": "Keng Statioun vun engem Netzwierk huet {id}",
+    "allNetworksFailed": "D'Sich an all Netzwierker huet net geklappt. Dréck op Enter, fir et nach eng Kéier ze probéieren",
+    "stationsWithId": "Statioune mat {id}",
+    "opensExplorer": "mécht den Explorer op",
+    "stationListReading": "Eng Statiounslëscht gëtt nach gelies; et kënne méi Resultater kommen",
+    "stationListFailed": "Eng Statiounslëscht konnt net gelies ginn",
+    "allNetworksGroup": "All Netzwierker"
   },
   "header": {
     "github": "GitHub",

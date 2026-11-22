@@ -36,6 +36,22 @@ Types of changes:
   WMO Guide, WMO-No. 8, Volume I, Chapters 10, 11, 14 and 15, and the providers' own files). They
   are written in German and English, like the first ones; the Glossary links the evaporation,
   soil moisture, weather and cloud parameters to them (GH-3787).
+- `[Search]` The search finds stations: by name (from three letters) in the forecast's points, DWD's
+  measuring stations and NOAA GHCN daily, a group for each with the provider and network on every
+  result, three stations and a last option ("11 more on the map") that opens the map's own search
+  (`/map?layer=ghcn&q=hamburg`; the map's panel now starts its search on `?q=`). A result opens the
+  map with the station picked on the layer of its network. Umlauts are matched in either spelling
+  (`Fuhlsbüttel`, `FUHLSBUETTEL`). A WMO number, a WIGOS identifier or an ICAO code typed in offers
+  "Search all networks for …", run on Enter and never per key, which lists the stations of every
+  network that has the id (`/api/station-ids`) and leads to the map or, for a network it does not
+  show, the Explorer. The matching is the server's (`GET /_search/stations`, counted by the rate
+  limit), so the browser downloads no list (GH-3790).
+
+### Changed
+
+- `[Search]` The groups "Forecast for a station" and "Station on the map" are replaced by one group
+  for each network (the forecast's points, DWD measurements, NOAA GHCN daily); a station leads to
+  the map, where its forecast is one click away (GH-3790).
 
 ## [0.57.0] - 2026-11-21
 

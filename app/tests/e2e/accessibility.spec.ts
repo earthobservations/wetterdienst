@@ -554,9 +554,46 @@ const STATES: State[] = [
       await page.keyboard.press('Control+k')
       await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
       await page.keyboard.type('ber')
-      // the station is listed twice, as its forecast and as a station on the map (GH-3650): either is the state
+      // the station of the forecast's points, in the group of its network (GH-3790)
       await expect(page.getByRole('option', { name: /BERLIN-TEMPELHOF/ }).first()).toBeVisible()
       await page.keyboard.press('ArrowDown')
+    },
+  },
+  {
+    // stations of three networks found by name (GH-3790): a group for each of the forecast's points, DWD's measuring stations and NOAA GHCN daily,
+    // each result with its provider and network, and the last option of the group that has more than it shows, which leads to the map's search
+    page: 'index',
+    state: 'search-stations',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
+      await page.keyboard.type('hamburg')
+      await expect(page.getByRole('group', { name: message(locale, 'shell.stationsGhcn'), exact: true })).toBeVisible()
+      await expect(page.getByRole('group', { name: message(locale, 'shell.stationsMeasured'), exact: true })).toBeVisible()
+      await expect(page.getByRole('group', { name: message(locale, 'shell.stationsForecast'), exact: true })).toBeVisible()
+      await page.keyboard.press('ArrowDown')
+    },
+  },
+  {
+    // a WMO number typed in (GH-3790): the stations of the lists that have it, and the option that asks every network for it; run, the stations
+    // of four networks in a group of their own, one of them leading to the Explorer
+    page: 'index',
+    state: 'search-station-ids',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
+      await page.keyboard.type('10381')
+      const option = page.getByRole('option', { name: message(locale, 'shell.searchAllNetworks').replace('{id}', '10381') })
+      await expect(option).toBeVisible()
+      await page.keyboard.press('Enter')
+      await expect(page.getByRole('group', { name: message(locale, 'shell.stationsWithId').replace('{id}', '10381'), exact: true })).toBeVisible()
+      await expect(page.getByRole('option', { name: /AEMET/ })).toBeVisible()
     },
   },
   {
@@ -792,6 +829,21 @@ const STATES: State[] = [
       await expect(page.getByRole('dialog')).toBeVisible()
       await page.keyboard.type('temp')
       await expect(page.getByRole('group', { name: message(locale, 'glossary.title'), exact: true })).toBeVisible()
+      await expect.poll(async () => Math.round((await page.getByRole('dialog').boundingBox())!.x)).toBe(0)
+    },
+  },
+  {
+    // the stations found by name on a phone (GH-3790): the groups of the three networks under the bar at the top
+    page: 'index',
+    state: 'phone-search-stations',
+    keepFocus: true,
+    path: '/',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'shell.search') }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await page.keyboard.type('hamburg')
+      await expect(page.getByRole('group', { name: message(locale, 'shell.stationsGhcn'), exact: true })).toBeVisible()
       await expect.poll(async () => Math.round((await page.getByRole('dialog').boundingBox())!.x)).toBe(0)
     },
   },

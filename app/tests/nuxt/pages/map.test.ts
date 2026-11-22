@@ -754,6 +754,16 @@ describe('the address', () => {
     expect(asked.stations.some(query => query.parameters === 'hourly/temperature_air')).toBe(true)
   })
 
+  it('starts the search of the panel on the text of the address (`?q=`), which the "more" of the header\'s search leads to', async () => {
+    const wrapper = await mountMap('/map?layer=measured&q=hamburg')
+    await vi.waitFor(() => expect(wrapper.findAll('[data-testid="map-list"] li').map(item => item.find('.font-semibold').text())).toEqual(['Hamburg-Fuhlsbüttel']))
+    expect((wrapper.find('input[type="search"]').element as HTMLInputElement).value).toBe('hamburg')
+    expect(wrapper.find('.map-list-title').text()).toBe('Results')
+    // the text is the search's: the address the page writes does not carry it on
+    await useRouter().push({ path: '/map', query: { layer: 'measured', q: 'arkona' } })
+    await vi.waitFor(() => expect(wrapper.findAll('[data-testid="map-list"] li').map(item => item.find('.font-semibold').text())).toEqual(['Arkona']))
+  })
+
   it('says where the address names a station the layer does not have, and shows the list', async () => {
     const wrapper = await mountMap('/map?station=00000')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-unknown"]').exists()).toBe(true))

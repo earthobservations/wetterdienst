@@ -244,9 +244,7 @@
     "searchEmpty": "Nichts gefunden",
     "results": "Ergebnisse",
     "resultsCount": "{count} Treffer | {count} Treffer",
-    "stations": "Vorhersage für eine Station",
     "stationsHint": "Tippe drei Buchstaben oder mehr, um eine Station zu finden",
-    "stationForecast": "Vorhersage für Station {id}",
     "keysHint": "↑ ↓ wählen, Enter öffnen, Esc schließen",
     "desc": {
       "support": "Einen Fehler melden, eine Funktion wünschen oder das Projekt unterstützen",
@@ -256,12 +254,30 @@
       "github": "Der Code, die Issues und die Pull Requests",
       "pypi": "Die Python-Bibliothek mit pip installieren"
     },
-    "stationsMap": "Station auf der Karte",
-    "stationOnMap": "Station {id} auf der Karte zeigen",
     "placeGroup": "Ort",
     "placeOnMap": "Diesen Punkt auf der Karte zeigen",
     "moreIn": "{count} weitere in {page}",
-    "resultsIn": "{group}: {count}"
+    "resultsIn": "{group}: {count}",
+    "stationsForecast": "Stationen: DWD-Vorhersage",
+    "stationsMeasured": "Stationen: DWD-Messwerte",
+    "stationsGhcn": "Stationen: NOAA GHCN täglich",
+    "stationNetworks": {
+      "forecast": "MOSMIX-Vorhersage",
+      "measured": "Messwerte",
+      "ghcn": "GHCN täglich"
+    },
+    "stationEnded": "beendet {year}",
+    "moreOnMap": "{count} weitere auf der Karte ({network})",
+    "searchAllNetworks": "Alle Netzwerke nach {id} durchsuchen",
+    "searchAllNetworksHint": "Fragt jeden Anbieter, der die Kennung führt; dauert ein paar Sekunden",
+    "searchingAllNetworks": "Alle Netzwerke werden durchsucht …",
+    "allNetworksNone": "Keine Station eines Netzwerks hat {id}",
+    "allNetworksFailed": "Die Suche in allen Netzwerken ist fehlgeschlagen. Drücke die Eingabetaste, um es erneut zu versuchen",
+    "stationsWithId": "Stationen mit {id}",
+    "opensExplorer": "öffnet den Explorer",
+    "stationListReading": "Eine Stationsliste wird noch gelesen; es können weitere Ergebnisse folgen",
+    "stationListFailed": "Eine Stationsliste konnte nicht gelesen werden",
+    "allNetworksGroup": "Alle Netzwerke"
   },
   "header": {
     "github": "GitHub",
