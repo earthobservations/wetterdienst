@@ -15,6 +15,7 @@ import threading
 import time
 from contextlib import contextmanager
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -86,7 +87,8 @@ class NginxLike:
             if files is not None:
                 return 200, [("Content-Type", "text/html")], self.page(path, files)
         elif self.redirect and self.files_of(f"{path}/") is not None:
-            return 301, [("Location", f"{path}/")], b""
+            # percent-encoded, so that no request text writes a header line of its own (no CR or LF, GH-4290)
+            return 301, [("Location", quote(f"{path}/", safe="/"))], b""
         return 404, [], b""
 
 

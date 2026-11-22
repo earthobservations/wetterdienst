@@ -19,6 +19,7 @@ from collections.abc import Callable, Iterator
 from io import BytesIO
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock
+from urllib.parse import urlparse
 
 import pytest
 from aiohttp import ClientResponseError, ClientTimeout
@@ -118,7 +119,7 @@ def _serve(
             return _ok(stations.encode("utf8"))(url)
         if "ghcnd-inventory" in url:
             return _ok(inventory.encode("utf8"))(url)
-        return pick(ncei if "ncei.noaa.gov" in url else aws, url)(url)
+        return pick(ncei if urlparse(url).hostname == urlparse(NCEI).hostname else aws, url)(url)
 
     monkeypatch.setattr(api, "download_file", download_file)
     return calls
