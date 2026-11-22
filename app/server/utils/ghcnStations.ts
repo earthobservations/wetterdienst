@@ -14,8 +14,11 @@ import { CsvFormatError, CsvRecordReader } from './csvRecords'
 
 /** What the backend is asked for: the whole network, every station with its first and last year, as the CSV that it streams */
 export const GHCN_STATIONS_PATH = '/stations?provider=noaa&network=ghcn&parameters=daily/data&all=true&format=csv'
+const GHCN_SOURCE: StationSource = { path: GHCN_STATIONS_PATH, what: 'the GHCN stations', network: 'NOAA GHCN daily' }
 /** The header of the answer that says when the backend made it: a CSV has no place for that in its body */
 const RETRIEVED_AT_HEADER = 'x-wetterdienst-retrieved-at'
+/** The header that lists the codes of the warnings of the answer, which a CSV has no place for in its body */
+const WARNINGS_HEADER = 'x-wetterdienst-warnings'
 /** How many stations the backend's answer holds, known before its body is sent: fewer rows than that is a body cut short */
 const STATIONS_HEADER = 'x-wetterdienst-stations'
 /** The columns of the CSV that the list is made of, by the name in its header row */
@@ -228,20 +231,44 @@ export async function readGhcnStationColumns(chunks: AsyncIterable<Uint8Array> |
  * @param minimum - The fewest stations of a list that is kept
  * @returns The columns, or the problem to answer with
  */
-export async function readGhcnMapStations(apiBase: string, requestId: string, fetcher: typeof fetch = globalThis.fetch, minimum = MIN_STATIONS): Promise<GhcnStationColumns | GhcnProblem> {
+export function readGhcnMapStations(apiBase: string, requestId: string, fetcher: typeof fetch = globalThis.fetch, minimum = MIN_STATIONS): Promise<GhcnStationColumns | GhcnProblem> {
+  return readStationColumns(apiBase, GHCN_SOURCE, requestId, fetcher, minimum)
+}
+
+/** What a list of stations is read from, and how it is named in a log line and in a problem: `path` is the backend's, `what` and `network` complete the sentences (`for the GHCN stations`, `for NOAA GHCN daily`) */
+export interface StationSource {
+  path: string
+  what: string
+  network: string
+  /** Whether an answer whose `X-Wetterdienst-Warnings` names `file-skipped` is refused: the backend left a file of the list out and answered the rest, which is a part of the list that must not be kept for a day */
+  refuseSkipped?: boolean
+}
+
+/**
+ * {@link readGhcnMapStations} for any list of stations the backend gives as CSV: the same checks, the same problems, the same streamed
+ * read. The list of DWD's measuring stations that the search keeps (GH-3790) is read through it.
+ *
+ * @param apiBase - The backend's `/api` URL
+ * @param source - Which list, and the words it is named by
+ * @param requestId - The id the request is known by in the backend's log and in the problem
+ * @param fetcher - `fetch`, or the one that stands in for it
+ * @param minimum - The fewest stations of a list that is kept
+ * @returns The columns, or the problem to answer with
+ */
+export async function readStationColumns(apiBase: string, source: StationSource, requestId: string, fetcher: typeof fetch = globalThis.fetch, minimum = MIN_STATIONS): Promise<GhcnStationColumns | GhcnProblem> {
   let response: Response
   try {
-    response = await fetcher(`${apiBase}${GHCN_STATIONS_PATH}`, { headers: { 'x-request-id': requestId }, signal: AbortSignal.timeout(BACKEND_TIMEOUT_MS) })
+    response = await fetcher(`${apiBase}${source.path}`, { headers: { 'x-request-id': requestId }, signal: AbortSignal.timeout(BACKEND_TIMEOUT_MS) })
   }
   catch (failure) {
     // the cause names the backend's host and port: for whoever runs the app, in the log, not in the answer
-    console.error(`Request ${requestId} to the backend for the GHCN stations failed:`, (failure as { cause?: unknown })?.cause ?? failure)
+    console.error(`Request ${requestId} to the backend for ${source.what} failed:`, (failure as { cause?: unknown })?.cause ?? failure)
     return problem(502, BACKEND_UNREACHABLE_TYPE, 'Bad Gateway', 'The backend could not be reached. The cause is in the server log.', requestId)
   }
   const contentType = response.headers.get('content-type')
   /** A reset, or the timeout, part-way through the body: the answer is not an empty one, and says what it is */
   const unreadable = (failure: unknown) => {
-    console.error(`Request ${requestId} to the backend for the GHCN stations could not be read to its end:`, (failure as { cause?: unknown })?.cause ?? failure)
+    console.error(`Request ${requestId} to the backend for ${source.what} could not be read to its end:`, (failure as { cause?: unknown })?.cause ?? failure)
     return problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', 'The answer of the API could not be read to its end. The cause is in the server log.', requestId)
   }
   if (!response.ok) {
@@ -264,8 +291,15 @@ export async function readGhcnMapStations(apiBase: string, requestId: string, fe
   if (HTML_TYPE.test(contentType ?? '')) {
     // a page is not read, and the connection is let go
     void response.body?.cancel().catch(() => {})
-    console.error(`Request ${requestId} to the backend for the GHCN stations was answered with ${contentType}, not the list of stations.`)
+    console.error(`Request ${requestId} to the backend for ${source.what} was answered with ${contentType}, not the list of stations.`)
     return problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', describeWrongKind(contentType), requestId)
+  }
+  // the codes of what the backend left out of the answer, which it lists in this header (`file-skipped, answer-truncated`): a list with a file
+  // left out is a part of the list
+  if (source.refuseSkipped && /(?:^|[\s,])file-skipped(?:$|[\s,])/.test(response.headers.get(WARNINGS_HEADER) ?? '')) {
+    void response.body?.cancel().catch(() => {})
+    console.error(`Request ${requestId} to the backend for ${source.what} was answered with the warning file-skipped: a part of the list.`)
+    return problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', `The backend answered for ${source.network} with a file of its list left out (warning \`file-skipped\`), a part of the list.`, requestId)
   }
   let columns: GhcnStationColumns
   try {
@@ -275,13 +309,13 @@ export async function readGhcnMapStations(apiBase: string, requestId: string, fe
   catch (failure) {
     if (!(failure instanceof NotTheListError))
       return unreadable(failure)
-    console.error(`Request ${requestId} to the backend for the GHCN stations was not the CSV of the list (${contentType}): ${failure.message}`)
+    console.error(`Request ${requestId} to the backend for ${source.what} was not the CSV of the list (${contentType}): ${failure.message}`)
     return problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', failure.detail, requestId)
   }
   // the network has 133k stations: none, or a part of them, is an answer that is not the list, which a day of cache would keep
   if (columns.count < Math.max(1, minimum)) {
-    console.error(`Request ${requestId} to the backend for the GHCN stations was answered with ${columns.count} stations, fewer than the ${minimum} of a whole list.`)
-    return problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', `The backend answered with ${columns.count} stations for NOAA GHCN daily, a part of its list.`, requestId)
+    console.error(`Request ${requestId} to the backend for ${source.what} was answered with ${columns.count} stations, fewer than the ${minimum} of a whole list.`)
+    return problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', `The backend answered with ${columns.count} stations for ${source.network}, a part of its list.`, requestId)
   }
   return columns
 }
@@ -291,42 +325,46 @@ const MAX_AGE_SECONDS = 24 * 60 * 60
 /** How long after a failure the backend is not asked again: the problem is answered again, or the stale list served */
 const RETRY_AFTER_FAILURE_MS = RETRY_AFTER_SECONDS * 1000
 
-export interface GhcnHandlerOptions {
-  apiBase?: () => string
-  fetcher?: typeof fetch
-  now?: () => number
-  /** The fewest stations of a list that is kept (`MIN_STATIONS`) */
-  minimum?: number
-}
-
-interface KeptList {
-  /** The list as the text that is sent: made once, so that a request does not make 8 MB of it again */
-  text: string
-  etag: string
+/** A list the server keeps, with when it was made */
+export interface KeptList<V> {
+  value: V
   modified: Date
   madeAt: number
 }
 
 /**
- * The handler of `GET /_ghcn/map-stations`: the list of the stations as columns, kept in the memory of the process for a day. It is
- * made when the first request comes (the others that come meanwhile wait for the same backend answer) and sent as the text it was
- * made as, with an `ETag`, so that a repeated request is answered 304 and a hit costs no more than sending it. Once the day is over
- * the list in hand is sent still, and the next is made behind it (stale-while-revalidate).
- *
- * A failure is nobody's list: it is not kept, and it is answered with its problem, `cache-control: no-store`, since a shared cache in
- * front of the app would keep a 502 for the day otherwise. A backend that fails, or answers fast and wrongly, is not asked again at
- * every request (a read of it is 44 MB): for 30 s after a failure the problem is answered again, with the time that is left as its
- * `Retry-After`, where there is no list, and the list in hand is served where there is one, whose refresh waits as long.
- *
- * Nitro's own cache (`defineCachedEventHandler`) is not used because its storage stringifies the entry and parses its 8 MB again at every hit.
- *
- * @param options - What a test stands in for
- * @returns The event handler
+ * What a request for a kept list is answered with: the list, the problem (with the time that is left of the back-off, where it is
+ * that), or, where the list is still being made after `waitMs`, that it is
  */
-export function ghcnMapStationsHandler(options: GhcnHandlerOptions = {}) {
-  const apiBase = options.apiBase ?? useApiBase
+export type KeeperAnswer<V> = { kept: KeptList<V> } | { problem: GhcnProblem, waitSeconds?: number } | { pending: true }
+
+export interface ListKeeperOptions<V> {
+  /** Reads the list from the backend: the value to keep, or the problem it cannot be made of */
+  read: (requestId: string) => Promise<V | GhcnProblem>
+  now?: () => number
+  /** What the list is called in a log line (`the GHCN stations`) */
+  what?: string
+}
+
+function isProblem(read: unknown): read is GhcnProblem {
+  return typeof read === 'object' && read !== null && 'body' in read && 'headers' in read && 'status' in read
+}
+
+/**
+ * A list of the backend that the server keeps in memory for a day, as {@link ghcnMapStationsHandler} keeps its own (and the search
+ * of the app, GH-3790, keeps DWD's measuring stations the same way). The first request makes it (the others that come meanwhile
+ * wait for the same read); once the day is over the list in hand is served still and the next is made behind it
+ * (stale-while-revalidate). A failure is nobody's list: it is not kept, and for 30 s after it the backend is not asked again at
+ * every request (a read of it is 44 MB for GHCN daily): the problem is answered again with the time that is left, or the list in hand
+ * is served, whose refresh waits as long.
+ *
+ * @param options - How the list is read, and what a test stands in for
+ * @returns `get`, which answers a request, and `peek`, which gives what is kept without asking
+ */
+export function createListKeeper<V>(options: ListKeeperOptions<V>) {
   const now = options.now ?? Date.now
-  let kept: KeptList | null = null
+  const what = options.what ?? 'the stations'
+  let kept: KeptList<V> | null = null
   let pending: Promise<GhcnProblem | null> | null = null
   /** The failure that the next requests are answered with until `backoffUntil`, and no request is made to the backend before it */
   let failure: GhcnProblem | null = null
@@ -335,22 +373,21 @@ export function ghcnMapStationsHandler(options: GhcnHandlerOptions = {}) {
   /** Makes the list (once, whoever asks while it is made): null where it is kept, else the problem */
   function make(requestId: string): Promise<GhcnProblem | null> {
     pending ??= (async () => {
-      let read: Awaited<ReturnType<typeof readGhcnMapStations>>
+      let read: V | GhcnProblem
       try {
-        read = await readGhcnMapStations(apiBase(), requestId, options.fetcher, options.minimum)
+        read = await options.read(requestId)
       }
       catch (unexpected) {
         // nothing the reader does not catch is allowed to reject what the requests wait for, or to be nobody's to handle
-        console.error(`Request ${requestId} for the GHCN stations failed unexpectedly:`, unexpected)
+        console.error(`Request ${requestId} for ${what} failed unexpectedly:`, unexpected)
         read = problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', 'The list of the stations could not be made. The cause is in the server log.', requestId)
       }
-      if ('body' in read) {
+      if (isProblem(read)) {
         failure = read
         backoffUntil = now() + RETRY_AFTER_FAILURE_MS
         return read
       }
-      const text = JSON.stringify(read)
-      kept = { text, etag: `W/"${createHash('sha1').update(text).digest('base64url')}"`, modified: new Date(now()), madeAt: now() }
+      kept = { value: read, modified: new Date(now()), madeAt: now() }
       failure = null
       backoffUntil = 0
       return null
@@ -359,6 +396,96 @@ export function ghcnMapStationsHandler(options: GhcnHandlerOptions = {}) {
     })
     return pending
   }
+
+  /**
+   * The list for a request. `waitMs` is how long to wait for a list that is being made: past it the answer is `pending`, and the
+   * list is made on (the search answers the stations it has and asks again, a list of 133k stations being a minute at the most).
+   */
+  async function get(requestId: string, { waitMs }: { waitMs?: number } = {}): Promise<KeeperAnswer<V>> {
+    if (!kept) {
+      // the backend failed a moment ago: it is not asked again for every page view
+      if (failure && now() < backoffUntil)
+        return { problem: failure, waitSeconds: Math.max(1, Math.ceil((backoffUntil - now()) / 1000)) }
+      const making = make(requestId)
+      let failed: GhcnProblem | null | 'late'
+      if (waitMs === undefined) {
+        failed = await making
+      }
+      else {
+        let timer: ReturnType<typeof setTimeout> | undefined
+        failed = await Promise.race([making, new Promise<'late'>((resolve) => {
+          timer = setTimeout(resolve, waitMs, 'late')
+        })])
+        clearTimeout(timer)
+      }
+      if (failed === 'late')
+        return { pending: true }
+      if (failed)
+        return { problem: failed }
+    }
+    else if (now() - kept.madeAt >= MAX_AGE_SECONDS * 1000 && !pending && now() >= backoffUntil) {
+      void make(requestId)
+    }
+    return { kept: kept! }
+  }
+
+  return { get, peek: () => kept }
+}
+
+export interface GhcnHandlerOptions {
+  apiBase?: () => string
+  fetcher?: typeof fetch
+  now?: () => number
+  /** The fewest stations of a list that is kept (`MIN_STATIONS`) */
+  minimum?: number
+  /** The list the route serves, where it is shared with another route (the search, GH-3790): `sharedGhcnMapList` */
+  list?: GhcnMapList
+}
+
+/** The list as it is kept: the columns, and the text that is sent, made once, so that a request does not make 8 MB of it again */
+export interface GhcnMapListEntry {
+  columns: GhcnStationColumns
+  text: string
+  etag: string
+}
+
+export type GhcnMapList = ReturnType<typeof createGhcnMapList>
+
+/** The kept list of the stations of GHCN daily, made as the route and the search of the app read it */
+export function createGhcnMapList(options: Omit<GhcnHandlerOptions, 'list'> = {}) {
+  const apiBase = options.apiBase ?? useApiBase
+  return createListKeeper<GhcnMapListEntry>({
+    now: options.now,
+    what: 'the GHCN stations',
+    read: async (requestId) => {
+      const read = await readGhcnMapStations(apiBase(), requestId, options.fetcher, options.minimum)
+      if ('body' in read)
+        return read
+      const text = JSON.stringify(read)
+      return { columns: read, text, etag: `W/"${createHash('sha1').update(text).digest('base64url')}"` }
+    },
+  })
+}
+
+/** The one list of the process, which the route `/_ghcn/map-stations` and the search `/_search/stations` both read: one read of the backend (44 MB) serves both */
+export const sharedGhcnMapList: GhcnMapList = createGhcnMapList()
+
+/**
+ * The handler of `GET /_ghcn/map-stations`: the list of the stations as columns, kept in the memory of the process for a day (see
+ * {@link createListKeeper} for how a failure and a stale list are handled). It is sent as the text it was made as, with an `ETag`, so
+ * that a repeated request is answered 304 and a hit costs no more than sending it.
+ *
+ * A failure is answered with its problem, `cache-control: no-store`, since a shared cache in front of the app would keep a 502 for
+ * the day otherwise.
+ *
+ * Nitro's own cache (`defineCachedEventHandler`) is not used because its storage stringifies the entry and parses its 8 MB again at every hit.
+ *
+ * @param options - What a test stands in for, or the list the route serves
+ * @returns The event handler
+ */
+export function ghcnMapStationsHandler(options: GhcnHandlerOptions = {}) {
+  const now = options.now ?? Date.now
+  const list = options.list ?? createGhcnMapList(options)
 
   /** Answers with a problem: its status and headers, never cached, and the time that is left of the back-off as when to try again */
   function answerProblem(event: H3Event, failed: GhcnProblem, waitSeconds?: number) {
@@ -373,23 +500,15 @@ export function ghcnMapStationsHandler(options: GhcnHandlerOptions = {}) {
 
   return defineEventHandler(async (event) => {
     const requestId = globalThis.crypto.randomUUID().replaceAll('-', '')
-    if (!kept) {
-      // the backend failed a moment ago: it is not asked again for every page view
-      if (failure && now() < backoffUntil)
-        return answerProblem(event, failure, Math.max(1, Math.ceil((backoffUntil - now()) / 1000)))
-      const failed = await make(requestId)
-      if (failed)
-        return answerProblem(event, failed)
-    }
-    else if (now() - kept.madeAt >= MAX_AGE_SECONDS * 1000 && !pending && now() >= backoffUntil) {
-      void make(requestId)
-    }
-    const list = kept!
+    const answer = await list.get(requestId)
+    if (!('kept' in answer))
+      return 'problem' in answer ? answerProblem(event, answer.problem, answer.waitSeconds) : undefined
+    const { value, modified, madeAt } = answer.kept
     // the day that is left of the list, which a shared cache in front of the app may keep it for, and the day it may be served after it
-    const remaining = Math.max(0, MAX_AGE_SECONDS - Math.floor((now() - list.madeAt) / 1000))
-    if (handleCacheHeaders(event, { modifiedTime: list.modified, etag: list.etag, cacheControls: [`s-maxage=${remaining}`, `stale-while-revalidate=${MAX_AGE_SECONDS}`] }))
+    const remaining = Math.max(0, MAX_AGE_SECONDS - Math.floor((now() - madeAt) / 1000))
+    if (handleCacheHeaders(event, { modifiedTime: modified, etag: value.etag, cacheControls: [`s-maxage=${remaining}`, `stale-while-revalidate=${MAX_AGE_SECONDS}`] }))
       return
     setResponseHeader(event, 'content-type', 'application/json')
-    return list.text
+    return value.text
   })
 }

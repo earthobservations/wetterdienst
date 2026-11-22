@@ -26,6 +26,8 @@ describe('what is counted', () => {
     // the app's own server's routes for GHCN daily (GH-4267): the first request after a restart costs the backend a 44 MB answer
     '/_ghcn/map-stations',
     '/_ghcn/map-stations?x=1',
+    // the stations the search of the header finds by name (GH-3790), matched in the lists the server keeps
+    '/_search/stations?q=hamburg',
     '/mcp',
     '/mcp/v1',
     '/mcp/v1/anything',

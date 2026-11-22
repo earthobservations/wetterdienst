@@ -1,5 +1,7 @@
 import type { Station } from '#shared/types/api'
+import type { PreparedStations, StationFields } from './station-search'
 import { withData } from './format'
+import { matchStations, prepareStations, reportsThisOrLastYear } from './station-search'
 
 /**
  * The map tool (GH-3650): what the map shows, how far a place is from a station, and where each kind of station is
@@ -355,45 +357,54 @@ export function stationAt(stations: PlacedStation[], point: Point, tolerance: nu
   return nearest && nearest.distance <= tolerance ? nearest.station : null
 }
 
-/** A text as a search compares it: case and accents aside */
-function foldText(text: string): string {
-  return text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+/** The list of stations as the matching of the search reads it, prepared once for the list (`prepareSearch`) */
+const PREPARED = new WeakMap<object, PreparedStations<StationFields>>()
+
+/** The year of the first four characters of a timestamp (`1997-12-31T00:00:00+00:00`): no date is made of it, which 133k stations would cost */
+function yearOfStamp(timestamp?: string | null): number | null {
+  const year = timestamp ? Number.parseInt(timestamp.slice(0, 4), 10) : Number.NaN
+  return Number.isNaN(year) ? null : year
 }
 
-/** The names and ids of a list as a search compares them, folded once for the list (`prepareSearch`) */
-const FOLDED = new WeakMap<object, { names: string[], ids: string[] }>()
+function prepared(stations: Station[]): PreparedStations<StationFields> {
+  return prepareStations({
+    name: stations.map(station => station.name ?? null),
+    station_id: stations.map(station => station.station_id),
+    wmo_id: stations.map(station => station.wmo_id ?? null),
+    last_year: stations.map(station => yearOfStamp(station.end_timestamp)),
+  }, reportsThisOrLastYear())
+}
 
 /**
- * Folds the names and ids of a list once, for `searchStations` to compare a query with: a list of 133k stations (GHCN daily) is not
+ * Folds the names of a list once, for `searchStations` to compare a query with: a list of 133k stations (GHCN daily) is not
  * to have every name folded at every keystroke (35 ms on a laptop, more on a phone). The search finds what it finds without it, only
  * more slowly; the list must not change after it (a new list is prepared again).
  */
 export function prepareSearch(stations: Station[]): void {
-  FOLDED.set(stations, { names: stations.map(station => foldText(station.name ?? '')), ids: stations.map(station => foldText(station.station_id)) })
+  PREPARED.set(stations, prepared(stations))
+}
+
+/** The stations that answer a search of the panel, and how many there are in all */
+export interface StationSearch<S> {
+  total: number
+  stations: S[]
 }
 
 /**
- * The stations whose name or id holds every word of a query, case and accents aside, the ones whose name starts
- * with it first. At most `limit`.
+ * The stations whose name, id or WMO number holds every word of a query, case and accents aside and in either spelling of an umlaut
+ * (`München`, `MUENCHEN`), best first: the same rule as the header's search (`matchStations`), which finds the same stations in the same
+ * order, a station that reports before one that has stopped. At most `limit` are returned and `total` is how many there are.
  */
+export function searchStationsCounted<S extends Station>(stations: S[], query: string, limit = 20): StationSearch<S> {
+  const list = PREPARED.get(stations) ?? prepared(stations)
+  // the panel finds a station from the first letter, where the header waits for three
+  const { total, indexes } = matchStations(list, query, limit, 1)
+  return { total, stations: indexes.map(index => stations[index]!) }
+}
+
+/** {@link searchStationsCounted}, the stations alone */
 export function searchStations<S extends Station>(stations: S[], query: string, limit = 20): S[] {
-  const words = foldText(query).split(/\s+/).filter(Boolean)
-  if (!words.length)
-    return []
-  const prepared = FOLDED.get(stations)
-  const starts: S[] = []
-  const contains: S[] = []
-  for (const [index, station] of stations.entries()) {
-    const name = prepared ? prepared.names[index]! : foldText(station.name ?? '')
-    const id = prepared ? prepared.ids[index]! : foldText(station.station_id)
-    if (!words.every(word => `${name} ${id}`.includes(word)))
-      continue
-    if (name.startsWith(words[0]!) || id === words[0])
-      starts.push(station)
-    else
-      contains.push(station)
-  }
-  return [...starts, ...contains].slice(0, limit)
+  return searchStationsCounted(stations, query, limit).stations
 }
 
 /**
@@ -487,6 +498,35 @@ export function stateFromQuery(query: Record<string, unknown>): MapState {
     stationId,
     place: Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : null,
   }
+}
+
+/**
+ * Where the map is opened on a station of a layer (GH-3790: what a station found by the search leads to): the layer, the source of
+ * the measurements where the layer is DWD's, and the station picked. What is the default is left out, so that a forecast point is
+ * `/map?station=10147`.
+ *
+ * @example
+ * mapStationLink('ghcn', 'GM000010147') // '/map?layer=ghcn&station=GM000010147'
+ */
+export function mapStationLink(layer: MapLayer, stationId: string, source: MeasuredSource = DEFAULT_MEASURED): string {
+  const query = new URLSearchParams(stateToQuery({ layer, source: layer === 'measured' ? source : DEFAULT_MEASURED, stationId, place: null }))
+  return `/map?${query}`
+}
+
+/**
+ * Where the map is opened with its search of a layer started on a text (GH-3790: the "more" of the stations the header's search found):
+ * `/map?layer=ghcn&q=hamburg`, the stations of the layer whose name or number holds it listed in the panel.
+ */
+export function mapSearchLink(layer: MapLayer, query: string): string {
+  const params = new URLSearchParams(stateToQuery({ layer, source: DEFAULT_MEASURED, stationId: null, place: null }))
+  params.set('q', query)
+  return `/map?${params}`
+}
+
+/** The text an address starts the map's search with (`?q=`), or an empty text */
+export function searchFromQuery(query: Record<string, unknown>): string {
+  const value = Array.isArray(query.q) ? query.q[0] : query.q
+  return typeof value === 'string' ? value.slice(0, 100) : ''
 }
 
 /**
