@@ -162,6 +162,15 @@ export function frameUrl(frame: Pick<RadarFrame, 'time' | 'run'>, product: strin
 /** The key of a frame, which the loop keeps what it knows of it by (loaded, failed): a frame of another run is another image */
 export const frameKey = (frame: Pick<RadarFrame, 'time' | 'run'>): string => `${frame.run}|${frame.time}`
 
+/**
+ * Whether a place lies within the box of the radar's images (WGS84 degrees), the edges included: a position outside it is told, and the
+ * map is not moved to it (the picture is the only data, and there is none there). The box is the outer box of DWD's polar-stereographic
+ * grid, so its corners hold no data: inside the box is inside the picture, not a claim that the radar sees every point of it.
+ */
+export function isWithinBounds(point: { latitude: number, longitude: number }, bounds: RadarBounds): boolean {
+  return point.latitude >= bounds.south && point.latitude <= bounds.north && point.longitude >= bounds.west && point.longitude <= bounds.east
+}
+
 /** The corners of the images as a Leaflet's bounds: `[[south, west], [north, east]]` (in Leaflet's default CRS, which is EPSG:3857) */
 export function leafletBounds(bounds: RadarBounds): [[number, number], [number, number]] {
   return [[bounds.south, bounds.west], [bounds.north, bounds.east]]

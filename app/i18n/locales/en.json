@@ -979,6 +979,7 @@
     "locating": "Finding your position …",
     "remember": "Remember my position in this browser",
     "note": "Rounded to about 1 km and used only to find the nearest station. It stays in this browser only if you tick the box.",
+    "noteRadar": "Rounded to about 1 km and used only to show your position on the map. It stays in this browser only if you tick the box.",
     "privacyLink": "More in the privacy policy",
     "remembered": "Remembered position: {position}",
     "forget": "Forget my position",
@@ -1188,7 +1189,16 @@
     "framesLoadingLive": "Loading the radar frames …",
     "framesReady": "The radar frames are loaded.",
     "unavailable": "The radar is not available on this server.",
-    "framesNone": "None of the radar frames could be loaded."
+    "framesNone": "None of the radar frames could be loaded.",
+    "positionTitle": "Your position",
+    "positionShown": "Your position is marked on the map, at about {position}.",
+    "positionHidden": "Your position is hidden on the map.",
+    "positionOutside": "Your position is outside the radar picture, so the map stays where it is.",
+    "positionWaiting": "Waiting for the radar picture to check where your position lies …",
+    "positionNoRadar": "There is no radar picture to check your position against, so the map stays where it is.",
+    "positionHide": "Hide my position on the map",
+    "positionShow": "Show my position on the map",
+    "positionMarker": "Your position, rounded to about 1 km"
   },
   "dataViewer": {
     "loadingValues": "Loading values …",

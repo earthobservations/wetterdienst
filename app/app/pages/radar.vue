@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { Point } from '~/utils/map-tool'
 import type { RadarFrame } from '~/utils/radar'
 import type { StormCell } from '~/utils/storm-cells'
 import { defineAsyncComponent } from 'vue'
@@ -7,7 +8,8 @@ import ProcessingNote from '~/components/ProcessingNote.vue'
 import RadarLegend from '~/components/RadarLegend.vue'
 import RadarPlayer from '~/components/RadarPlayer.vue'
 import RadarStormCells from '~/components/RadarStormCells.vue'
-import { cellsShownOn, describeFrame, formatFrameTime, frameKey, frameUrl, isUnavailable, leafletBounds, RADAR_VIEW } from '~/utils/radar'
+import UseMyLocation from '~/components/UseMyLocation.vue'
+import { cellsShownOn, describeFrame, formatFrameTime, frameKey, frameUrl, isUnavailable, isWithinBounds, leafletBounds, RADAR_VIEW } from '~/utils/radar'
 import { cellView } from '~/utils/storm-cells'
 
 // The Radar tool (GH-3788): DWD's precipitation radar over Germany as a loop of the last two hours and DWD's forecast of the next two, on
@@ -20,6 +22,10 @@ import { cellView } from '~/utils/storm-cells'
 // once they are all in hand, unless the system asks for less motion. The list is asked for again every 5 minutes, the cells every 5
 // minutes while they are on. A radar that is more than 20 minutes behind is told stale, and cells of a scan over 20 minutes old are not
 // drawn. The forecast is an extrapolation of the recent movement of the rain, not a weather model, and the page says so.
+//
+// The reader's own position (GH-4287) is the map tool's "Use my location" (`UseMyLocation.vue`, `useMyLocation`: asked only on a press,
+// rounded to about 1 km in the browser, kept only with the tick): the map marks it and centres on it, and the marker can be hidden. The
+// radar is the same picture for everyone, so the position goes to no request of the backend; it is only drawn.
 
 const { t } = useI18n()
 const formatLanguage = useFormatLanguage()
@@ -163,6 +169,103 @@ function centreCell(cell: StormCell) {
     document.querySelector('.radar-stage')?.scrollIntoView({ block: 'start', behavior: reducedMotion.value ? 'auto' : 'smooth' })
 }
 
+// ---- the reader's own position (GH-4287) ----------------------------------------------------------------------------
+
+/** The position the reader gave by "Use my location", rounded to about 1 km: set by a press, so a remembered position is shown only on one */
+const myPosition = ref<Point | null>(null)
+/** Counts the presses whose position is inside the radar's picture: the map centres on it once for each, and on nothing else */
+const locateCount = ref(0)
+/** The marker can be hidden and shown again; a press of the button shows it */
+const markerShown = ref(true)
+/**
+ * A press whose position has not been compared with the box of the radar's images yet, because the list of the frames that holds the box is not
+ * in (or did not come): the marking, the centring and the phone's scroll wait for the comparison, since a position that turns out to be outside
+ * is to leave the map where it was
+ */
+const awaiting = ref(false)
+/** The wait has taken long enough to be told */
+const waitedLong = ref(false)
+const WAIT_TOLD_AFTER_MS = 1000
+let waitClock: ReturnType<typeof setTimeout> | undefined
+function endWait() {
+  clearTimeout(waitClock)
+  waitedLong.value = false
+}
+onBeforeUnmount(() => clearTimeout(waitClock))
+const { position: rememberedPosition } = useMyLocation()
+// "Forget my position" takes the marker off the map and ends a wait
+watch(rememberedPosition, (now) => {
+  if (now)
+    return
+  myPosition.value = null
+  awaiting.value = false
+  endWait()
+})
+/** Whether the position is within the box of the radar's images; null while the answer with that box is not in */
+const insideRadar = computed(() => myPosition.value && loop.value ? isWithinBounds(myPosition.value, loop.value.bounds) : null)
+/** What the map marks: a position that is inside the radar's picture, and not hidden; one that is outside, or not compared yet, is not */
+const markedPosition = computed(() => myPosition.value && markerShown.value && insideRadar.value === true ? myPosition.value : null)
+/** The way to hide the marker is there while there is a marker to hide or show */
+const canHide = computed(() => myPosition.value !== null && insideRadar.value === true)
+/** The position as the status says where the marker is: rounded, and only in this page (it is sent nowhere) */
+const positionText = computed(() => myPosition.value ? `${myPosition.value.latitude.toFixed(2)}, ${myPosition.value.longitude.toFixed(2)}` : '')
+/** What is said of the position, politely, under the button (a status of the component) */
+const positionStatus = computed(() => {
+  if (!myPosition.value)
+    return ''
+  if (insideRadar.value === false)
+    return t('radar.positionOutside')
+  if (insideRadar.value === null) {
+    // the radar did not come (a server with no radar, or a failure): there is no picture to compare with, and the map is not moved
+    if (radar.status.value === 'error')
+      return t('radar.positionNoRadar')
+    return waitedLong.value ? t('radar.positionWaiting') : ''
+  }
+  return markerShown.value ? t('radar.positionShown', { position: positionText.value }) : t('radar.positionHidden')
+})
+
+/** Brings the map into view on a phone, where it is over the panel */
+async function showMap() {
+  if (wide.value)
+    return
+  await nextTick()
+  document.querySelector('.radar-stage')?.scrollIntoView({ block: 'start', behavior: reducedMotion.value ? 'auto' : 'smooth' })
+}
+
+/** The press that waits is settled once the box is known: a position inside is centred on (and the map is brought into view), one outside leaves the map where it was */
+function settle() {
+  if (!awaiting.value || insideRadar.value === null)
+    return
+  awaiting.value = false
+  endWait()
+  if (insideRadar.value) {
+    locateCount.value++
+    void showMap()
+  }
+}
+watch(insideRadar, settle)
+
+/** A press of "Use my location" that gave a position: it is shown again if it was hidden, and compared with the radar's picture before anything moves */
+function onPosition(point: Point) {
+  myPosition.value = point
+  markerShown.value = true
+  awaiting.value = true
+  endWait()
+  waitClock = setTimeout(() => {
+    waitedLong.value = true
+  }, WAIT_TOLD_AFTER_MS)
+  settle()
+}
+
+// the focus was on the way to hide the marker when it went (the position turned out to be outside, or was forgotten): it goes to the button that asks again
+watch(canHide, (now, before) => {
+  if (!before || now)
+    return
+  const lost = document.activeElement instanceof HTMLElement && document.activeElement.matches('[data-testid="radar-position-toggle"]')
+  if (lost)
+    void nextTick(() => document.querySelector<HTMLElement>('[data-testid="use-my-location-button"]')?.focus())
+}, { flush: 'pre' })
+
 const licenseLink = computed(() => loop.value?.credit?.license ?? null)
 </script>
 
@@ -254,6 +357,26 @@ const licenseLink = computed(() => loop.value?.credit?.license ?? null)
               </template>
             </section>
 
+            <!-- the reader's own position (GH-4287): "Use my location" as on the map, and the way to hide its marker -->
+            <section class="radar-card" aria-labelledby="radar-position-title" data-testid="radar-position">
+              <h2 id="radar-position-title" class="radar-card-title">
+                <UIcon name="i-ph-map-pin" class="radar-card-icon" />
+                {{ t('radar.positionTitle') }}
+              </h2>
+              <UseMyLocation use="radar" :keep-offered="myPosition !== null" :status="positionStatus" @position="onPosition" />
+              <UButton
+                v-if="canHide"
+                type="button"
+                color="neutral"
+                variant="outline"
+                size="sm"
+                :icon="markerShown ? 'i-ph-eye-slash' : 'i-ph-eye'"
+                :label="markerShown ? t('radar.positionHide') : t('radar.positionShow')"
+                data-testid="radar-position-toggle"
+                @click="markerShown = !markerShown"
+              />
+            </section>
+
             <!-- the thunderstorm cells of the latest scan, in words (GH-4208) -->
             <RadarStormCells
               v-model:on="cellsOn"
@@ -304,6 +427,9 @@ const licenseLink = computed(() => loop.value?.credit?.license ?? null)
                   :cells-faded="cellsFaded"
                   :credits="credits"
                   :centre-on="cellCentre"
+                  :position="markedPosition"
+                  :position-label="t('radar.positionMarker')"
+                  :locate="locateCount"
                 />
               </ClientOnly>
             </div>

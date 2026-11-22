@@ -1,6 +1,7 @@
 import { mountSuspended } from '@nuxt/test-utils/runtime'
 import { afterEach, beforeEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { clearNuxtState } from '#app'
+import { useState } from '#imports'
 import UseMyLocation from '~/components/UseMyLocation.vue'
 import { usePlace } from '~/composables/usePlace'
 import { LOCATION_STORAGE_KEY } from '~/utils/geolocation'
@@ -93,6 +94,28 @@ describe('at first', () => {
     const alert = wrapper.find('[data-testid="use-my-location-problem"]')
     expect(alert.attributes('role')).toBe('alert')
     expect(alert.text()).toBe('The station could not be looked up.')
+  })
+})
+
+describe('with `keepOffered` off (the radar, GH-4287)', () => {
+  it('shows no box and no note for a position that is in hand but was not pressed for here, and the box and the radar\'s note once the page offers it', async () => {
+    mockBrowser()
+    useState<{ latitude: number, longitude: number } | null>('wd-location-position', () => null).value = { latitude: 52.52, longitude: 13.4 }
+    const wrapper = await mountControl({ keepOffered: false, use: 'radar' })
+    expect(box(wrapper).exists()).toBe(false)
+    expect(note(wrapper).exists()).toBe(false)
+    expect(button(wrapper).attributes('aria-describedby')).toBeUndefined()
+    await wrapper.setProps({ keepOffered: true })
+    expect(box(wrapper).exists()).toBe(true)
+    expect(note(wrapper).text()).toContain('used only to show your position on the map')
+  })
+
+  it('is on by default: the other pages offer the box for a position in hand, as before', async () => {
+    mockBrowser()
+    useState<{ latitude: number, longitude: number } | null>('wd-location-position', () => null).value = { latitude: 52.52, longitude: 13.4 }
+    const wrapper = await mountControl()
+    expect(box(wrapper).exists()).toBe(true)
+    expect(note(wrapper).text()).toContain('used only to find the nearest station')
   })
 })
 

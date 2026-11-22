@@ -979,6 +979,7 @@
     "locating": "Je locatie wordt bepaald …",
     "remember": "Mijn locatie onthouden in deze browser",
     "note": "Afgerond op ongeveer 1 km en alleen gebruikt om het dichtstbijzijnde station te vinden. Ze blijft alleen in deze browser staan als je het vakje aanvinkt.",
+    "noteRadar": "Afgerond op ongeveer 1 km en alleen gebruikt om je locatie op de kaart te tonen. Ze blijft alleen in deze browser staan als je het vakje aanvinkt.",
     "privacyLink": "Meer in de privacyverklaring",
     "remembered": "Onthouden locatie: {position}",
     "forget": "Mijn locatie vergeten",
@@ -1188,7 +1189,16 @@
     "framesLoadingLive": "De radarbeelden worden geladen …",
     "framesReady": "De radarbeelden zijn geladen.",
     "unavailable": "De radar is op deze server niet beschikbaar.",
-    "framesNone": "Er kon geen enkel radarbeeld worden geladen."
+    "framesNone": "Er kon geen enkel radarbeeld worden geladen.",
+    "positionTitle": "Jouw locatie",
+    "positionShown": "Je locatie is gemarkeerd op de kaart, bij ongeveer {position}.",
+    "positionHidden": "Je locatie is verborgen op de kaart.",
+    "positionOutside": "Je locatie ligt buiten het radarbeeld, dus de kaart blijft waar hij is.",
+    "positionWaiting": "Wachten op het radarbeeld om te controleren waar je locatie ligt …",
+    "positionNoRadar": "Er is geen radarbeeld om je locatie mee te vergelijken, dus de kaart blijft waar hij is.",
+    "positionHide": "Mijn locatie op de kaart verbergen",
+    "positionShow": "Mijn locatie op de kaart tonen",
+    "positionMarker": "Je locatie, afgerond op ongeveer 1 km"
   },
   "dataViewer": {
     "loadingValues": "Waarden laden …",

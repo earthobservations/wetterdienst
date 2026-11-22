@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { clockSkew } from '../../app/utils/provider-credit'
-import { CELLS_WINDOW_MS, cellsShownOn, classLimits, classRange, describeFrame, formatFrameTime, frameKey, frameUrl, indexAfterRefresh, isStale, isUnavailable, leafletBounds, newestAge, nextReady, openingIndex, parseLoop, preloadOrder, STALE_AFTER_MS } from '../../app/utils/radar'
+import { CELLS_WINDOW_MS, cellsShownOn, classLimits, classRange, describeFrame, formatFrameTime, frameKey, frameUrl, indexAfterRefresh, isStale, isUnavailable, isWithinBounds, leafletBounds, newestAge, nextReady, openingIndex, parseLoop, preloadOrder, STALE_AFTER_MS } from '../../app/utils/radar'
 import { RADAR_BOUNDS, radarAnswer } from '../helpers/radar-answer'
 
 // The Radar tool's reading of the backend's list of frames (GH-3788): the frames in time order, the bounds a Leaflet image overlay takes,
@@ -75,6 +75,19 @@ describe('the address of a frame and the bounds of the images', () => {
 
   it('gives Leaflet [[south, west], [north, east]]', () => {
     expect(leafletBounds(RADAR_BOUNDS)).toEqual([[45.6823, 1.4633], [56.2194, 18.7316]])
+  })
+
+  it('says whether a place is within the box of the images, the edges included (GH-4287)', () => {
+    expect(isWithinBounds({ latitude: 51.34, longitude: 12.37 }, RADAR_BOUNDS)).toBe(true)
+    expect(isWithinBounds({ latitude: RADAR_BOUNDS.south, longitude: RADAR_BOUNDS.west }, RADAR_BOUNDS)).toBe(true)
+    expect(isWithinBounds({ latitude: RADAR_BOUNDS.north, longitude: RADAR_BOUNDS.east }, RADAR_BOUNDS)).toBe(true)
+    // just beyond each edge, and far away (Madrid, Reykjavik, the southern hemisphere)
+    expect(isWithinBounds({ latitude: RADAR_BOUNDS.south - 0.01, longitude: 10 }, RADAR_BOUNDS)).toBe(false)
+    expect(isWithinBounds({ latitude: RADAR_BOUNDS.north + 0.01, longitude: 10 }, RADAR_BOUNDS)).toBe(false)
+    expect(isWithinBounds({ latitude: 50, longitude: RADAR_BOUNDS.west - 0.01 }, RADAR_BOUNDS)).toBe(false)
+    expect(isWithinBounds({ latitude: 50, longitude: RADAR_BOUNDS.east + 0.01 }, RADAR_BOUNDS)).toBe(false)
+    expect(isWithinBounds({ latitude: 40.4168, longitude: -3.7038 }, RADAR_BOUNDS)).toBe(false)
+    expect(isWithinBounds({ latitude: -33.9, longitude: 12.37 }, RADAR_BOUNDS)).toBe(false)
   })
 })
 

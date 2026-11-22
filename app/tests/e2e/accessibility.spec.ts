@@ -53,6 +53,16 @@ interface Target {
   ready?: (page: Page, locale: Locale) => Promise<void>
 }
 
+/** The radar, with the reader's position given by a press of "Use my location" and marked on its map (GH-4287) */
+async function showPosition(page: Page, locale: Locale, position: { latitude: number, longitude: number }) {
+  await page.context().grantPermissions(['geolocation'])
+  await page.context().setGeolocation(position)
+  await expect(page.getByTestId('radar-newest')).toBeVisible()
+  await expect(page.getByTestId('radar-cells-item').first()).toBeVisible()
+  await page.getByRole('button', { name: message(locale, 'location.button') }).click()
+  await expect(page.getByRole('img', { name: message(locale, 'radar.positionMarker') })).toHaveCount(1)
+}
+
 // every page of the app, as it is first shown
 const PAGES: Target[] = [
   { page: 'index', path: '/' },
@@ -770,6 +780,42 @@ const STATES: State[] = [
     reach: async (page) => {
       await expect(page.getByTestId('radar-newest')).toBeVisible()
       await expect(page.getByTestId('radar-cells-item').first()).toBeVisible()
+    },
+  },
+  {
+    // the radar with the reader's own position marked over the picture and the cells, centred on (GH-4287): the marker, its name, the status and the button that hides it
+    page: 'radar',
+    state: 'position-shown',
+    path: '/radar',
+    handlers: { 'storm-cells': () => exampleScan() },
+    reach: async (page, locale) => {
+      await showPosition(page, locale, { latitude: 51.34, longitude: 12.37 })
+      await expect(page.getByTestId('radar-position-toggle')).toBeVisible()
+    },
+  },
+  {
+    // the same on a phone, where the map is over the panel and comes into view
+    page: 'radar',
+    state: 'phone-position-shown',
+    path: '/radar',
+    viewport: { width: 390, height: 844 },
+    handlers: { 'storm-cells': () => exampleScan() },
+    reach: async (page, locale) => {
+      await showPosition(page, locale, { latitude: 51.34, longitude: 12.37 })
+      await expect(page.getByTestId('radar-position-toggle')).toBeVisible()
+    },
+  },
+  {
+    // a position outside the radar's area: told in the status, no marker, the map where it was (GH-4287)
+    page: 'radar',
+    state: 'position-outside',
+    path: '/radar',
+    reach: async (page, locale) => {
+      await page.context().grantPermissions(['geolocation'])
+      await page.context().setGeolocation({ latitude: 40.4168, longitude: -3.7038 })
+      await expect(page.getByTestId('radar-newest')).toBeVisible()
+      await page.getByRole('button', { name: message(locale, 'location.button') }).click()
+      await expect(page.getByTestId('use-my-location-status')).toHaveText(message(locale, 'radar.positionOutside'))
     },
   },
   {
