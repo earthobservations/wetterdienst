@@ -560,6 +560,37 @@ const STATES: State[] = [
     },
   },
   {
+    // the search with words of the app typed (GH-3790): the groups of the entries, the glossary, the settings and the questions, each with its
+    // few results and the option that leads on; "temp" is in a word of every language (the glossary is found by the English names as well)
+    page: 'index',
+    state: 'search-words',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
+      await page.keyboard.type('temp')
+      await expect(page.getByRole('group', { name: message(locale, 'glossary.title'), exact: true })).toBeVisible()
+      await expect(page.getByRole('group', { name: message(locale, 'measurement.title'), exact: true })).toBeVisible()
+      await page.keyboard.press('ArrowDown')
+    },
+  },
+  {
+    // a position typed into the search: a place that leads to the map, before every other group (GH-3790)
+    page: 'index',
+    state: 'search-place',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
+      await page.keyboard.type('52.52, 13.40')
+      await expect(page.getByRole('option', { name: /52\.5200, 13\.4000/ })).toBeVisible()
+    },
+  },
+  {
     // Ask the weather (GH-3518): a question open, with its verdict, its bars and the links into the tools
     page: 'index',
     state: 'ask-answer-open',
@@ -787,6 +818,21 @@ const STATES: State[] = [
       await expect(page.getByRole('dialog')).toBeVisible()
       await expect(page.getByRole('option').first()).toBeVisible()
       // it has stopped opening
+      await expect.poll(async () => Math.round((await page.getByRole('dialog').boundingBox())!.x)).toBe(0)
+    },
+  },
+  {
+    // the search on a phone with words of the app typed (GH-3790): the groups under the bar at the top, on the narrow layout
+    page: 'index',
+    state: 'phone-search-words',
+    keepFocus: true,
+    path: '/',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'shell.search') }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await page.keyboard.type('temp')
+      await expect(page.getByRole('group', { name: message(locale, 'glossary.title'), exact: true })).toBeVisible()
       await expect.poll(async () => Math.round((await page.getByRole('dialog').boundingBox())!.x)).toBe(0)
     },
   },

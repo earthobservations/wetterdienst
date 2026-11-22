@@ -31,6 +31,18 @@ Types of changes:
   written by its winters (1960/61 to 1989/90). The link carries `&season=winter&ref=1961-1990`;
   `?ask=summer` (summer, while it has enough data) and `/methods#summer` keep working (GH-3764).
 
+- `[Search]` The search (Ctrl/⌘ K) finds the app's own words, in your language and in English, with
+  case and accents ignored: the entries of "How weather is measured", the sections and works of
+  the methods, the glossary, the cards of About and Support, each setting (the units, plain-language
+  labels, the tab bar) and the questions of Ask the weather, each at its page and anchor
+  (`/measurement#wind`, `/glossary#temperature_air_mean_2m`, `/settings#settings-friendly-labels`),
+  in groups of a few results with a last option that opens the page that has more. A position typed
+  in (`52.52, 13.40`, `52°31'N 13°24'E`) is a place that opens the map at that point (GH-3790).
+- `[Map]` `/map?lat=&lon=` without a station picks the station for that place as a click would and
+  moves the map to the position, also where no station is within reach or the list fails, and the
+  address keeps it; the Glossary starts its field with `?q=` (following it while open), filters by
+  the rule of the search (every word, any order, accents ignored; the unit's symbol too) and goes
+  to an entry by its name (`/glossary#wind_speed`) (GH-3790).
 - `[Measurement]` Four more entries on the "How weather is measured" page: evaporation
   (`/measurement#evaporation`), soil moisture (`#soil-moisture`), present weather and the state of
   the ground (`#present-weather`) and clouds (`#clouds`), each with the sources it rests on (the

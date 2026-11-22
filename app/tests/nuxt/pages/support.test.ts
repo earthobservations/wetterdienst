@@ -94,4 +94,29 @@ describe('support Page', () => {
 
     expect(html).toContain('paypal.me')
   })
+
+  // GH-3790: the search of the header leads to a card by its anchor
+  it('takes the focus to the heading of the card the address names', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+
+    const wrapper = await mountSuspended(SupportPage, { attachTo: document.body, route: '/support#support-donate' })
+    try {
+      await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#support-donate').element))
+    }
+    finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('has an anchor for each of its four cards', async () => {
+    vi.mocked(globalThis.fetch).mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 200 }),
+    )
+
+    const wrapper = await mountSuspended(SupportPage)
+    for (const id of ['support-report', 'support-contribute', 'support-discussions', 'support-donate'])
+      expect(wrapper.find(`h2#${id}`).exists(), id).toBe(true)
+  })
 })

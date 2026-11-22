@@ -299,7 +299,11 @@
       "pypi": "De Python-bibliotheek installeren met pip"
     },
     "stationsMap": "Station op de kaart",
-    "stationOnMap": "Station {id} op de kaart tonen"
+    "stationOnMap": "Station {id} op de kaart tonen",
+    "placeGroup": "Plaats",
+    "placeOnMap": "Dit punt op de kaart tonen",
+    "moreIn": "{count} meer in {page}",
+    "resultsIn": "{group}: {count}"
   },
   "header": {
     "github": "GitHub",

@@ -299,7 +299,11 @@
       "pypi": "Zainstaluj bibliotekę Python przez pip"
     },
     "stationsMap": "Stacja na mapie",
-    "stationOnMap": "Pokaż stację {id} na mapie"
+    "stationOnMap": "Pokaż stację {id} na mapie",
+    "placeGroup": "Miejsce",
+    "placeOnMap": "Pokaż ten punkt na mapie",
+    "moreIn": "Jeszcze {count} w: {page}",
+    "resultsIn": "{group}: {count}"
   },
   "header": {
     "github": "GitHub",

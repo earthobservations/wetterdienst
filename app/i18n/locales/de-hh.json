@@ -299,7 +299,11 @@
       "pypi": "De Python-Bibliothek mit pip installeren"
     },
     "stationsMap": "Station op de Kaart",
-    "stationOnMap": "Station {id} op de Kaart wiesen"
+    "stationOnMap": "Station {id} op de Kaart wiesen",
+    "placeGroup": "Oort",
+    "placeOnMap": "Düssen Punkt op de Kaart wiesen",
+    "moreIn": "{count} mehr in {page}",
+    "resultsIn": "{group}: {count}"
   },
   "header": {
     "github": "GitHub",

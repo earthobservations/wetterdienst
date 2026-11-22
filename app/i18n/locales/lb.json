@@ -299,7 +299,11 @@
       "pypi": "D'Python-Bibliothéik mat pip installéieren"
     },
     "stationsMap": "Statioun op der Kaart",
-    "stationOnMap": "Statioun {id} op der Kaart weisen"
+    "stationOnMap": "Statioun {id} op der Kaart weisen",
+    "placeGroup": "Uert",
+    "placeOnMap": "Dësen Punkt op der Kaart weisen",
+    "moreIn": "{count} méi an {page}",
+    "resultsIn": "{group}: {count}"
   },
   "header": {
     "github": "GitHub",
