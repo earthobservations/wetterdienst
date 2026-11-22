@@ -80,14 +80,20 @@
     "q": {
       "rain": "Bude zítra pršet v {place}?",
       "season": "{last} tady {warmth} než obvykle?",
-      "wind": "Jak foukalo {day}?",
-      "download": "Kde si můžu stáhnout hodinové teploty?"
+      "download": "Kde si můžu stáhnout hodinové teploty?",
+      "day": {
+        "wind": "Jak foukalo {day}?",
+        "sun": "Jak moc svítilo slunce {day}?",
+        "rain": "Kolik pršelo {day}?",
+        "temperature": "Jak bylo {day} horko nebo zima?",
+        "snow": "Ležel {day} sníh?"
+      }
     },
     "from": {
       "rain": "Předpověď, DWD MOSMIX",
       "season": "Měsíční průměry, DWD",
-      "wind": "Denní údaje, DWD",
-      "download": "Všechny meteorologické služby"
+      "download": "Všechny meteorologické služby",
+      "day": "Denní údaje, DWD"
     },
     "working": "Počítám odpověď …",
     "failed": "Odpověď se nepodařilo spočítat.",
@@ -188,9 +194,67 @@
       "context": "Okolní dny se silnějšími nárazy: {stronger} z {around}.",
       "chartGust": "Nejsilnější náraz za den, v {unit}",
       "chartMean": "Průměrný vítr za den, v {unit}",
-      "none": "Pro {day} tu nejsou žádná měření větru.",
+      "none": "Pro {day} tu nejsou žádná měření větru."
+    },
+    "day": {
       "dayLabel": "Den",
-      "open": "Otevřít tyto dny v Průzkumníku"
+      "open": "Otevřít tyto dny v Průzkumníku",
+      "measureLabel": "Veličina",
+      "measure": {
+        "wind": "vítr",
+        "sun": "slunce",
+        "rain": "déšť",
+        "temperature": "horko a zima",
+        "snow": "sníh"
+      },
+      "measureShort": "{measureCap} (pro {day} tu není měření)",
+      "noteGreyed": "Zašedlé: stanice pro {day} nemá měření.",
+      "noteAskedMeasure": "{measureCap}: pro {day} tu není měření. Místo toho se zobrazuje: {shown}.",
+      "sun": {
+        "dull": "Zataženo.",
+        "mixed": "Proměnlivo.",
+        "sunny": "Slunečno.",
+        "detail": "{hours} h slunečního svitu, tedy {share} z {possible} h, které tu byly možné.",
+        "chart": "Sluneční svit za den, v {unit}",
+        "none": "Pro {day} tu nejsou žádná měření slunečního svitu."
+      },
+      "rain": {
+        "dry": "Sucho.",
+        "light": "Trochu deště.",
+        "wet": "Mokro.",
+        "veryWet": "Velmi mokro.",
+        "detail": "{amount} {unit} srážek za den.",
+        "chart": "Srážky za den, v {unit}",
+        "none": "Pro {day} tu nejsou žádná měření srážek."
+      },
+      "temperature": {
+        "hot": "Tropický den.",
+        "summer": "Letní den.",
+        "tropical": "Tropická noc.",
+        "ice": "Ledový den.",
+        "frost": "Mrazový den.",
+        "ordinary": "Ani mráz, ani letní den.",
+        "range": "Maximum {max} {unit}, minimum {min} {unit}.",
+        "classes": "Počítá se jako: {classes}.",
+        "chartMax": "Nejvyšší teplota za den, v {unit}",
+        "chartMin": "Nejnižší teplota za den, v {unit}",
+        "none": "Pro {day} tu nejsou žádná měření teploty."
+      },
+      "snow": {
+        "noSnow": "Žádný sníh na zemi.",
+        "cover": "Sníh na zemi.",
+        "depth": "Výška sněhu {depth} {unit}.",
+        "fresh": "{fresh} {unit} nového sněhu.",
+        "chart": "Výška sněhu za den, v {unit}",
+        "none": "Pro {day} tu nejsou žádná měření výšky sněhu."
+      },
+      "class": {
+        "hot": "tropický den",
+        "summer": "letní den",
+        "tropical": "tropická noc",
+        "ice": "ledový den",
+        "frost": "mrazový den"
+      }
     },
     "download": {
       "answer": "Meteorologické služby, které zveřejňují hodinovou teplotu vzduchu: {count}.",

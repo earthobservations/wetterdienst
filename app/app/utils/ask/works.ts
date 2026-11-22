@@ -52,8 +52,26 @@ export const WORKS = {
   },
   'dwd-daily-kl': {
     short: 'DWD daily station observations',
-    citation: 'Deutscher Wetterdienst (2024). Daily station observations (temperature, pressure, precipitation, sunshine duration, etc.) for Germany, Version v24.3, dataset description (DESCRIPTION_obsgermany-climate-daily-kl_en.pdf), parameters FX and FM.',
+    citation: 'Deutscher Wetterdienst (2024). Daily station observations (temperature, pressure, precipitation, sunshine duration, etc.) for Germany, Version v24.3, dataset description (DESCRIPTION_obsgermany-climate-daily-kl_en.pdf), parameters FX, FM, SDK, RSK, TXK, TNK and SHK_TAG.',
     href: 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/DESCRIPTION_obsgermany-climate-daily-kl_en.pdf',
+    issuer: 'dwd',
+  },
+  'dwd-daily-more-precip': {
+    short: 'DWD daily precipitation observations',
+    citation: 'Deutscher Wetterdienst (2024). Daily station observations of precipitation (precipitation height, snow depth, height of newly fallen snow, form of precipitation) for Germany, dataset description (DESCRIPTION_obsgermany-climate-daily-more_precip_en.pdf), parameters SH_TAG and NSH_TAG.',
+    href: 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/more_precip/DESCRIPTION_obsgermany-climate-daily-more_precip_en.pdf',
+    issuer: 'dwd',
+  },
+  'dwd-kenntage': {
+    short: 'DWD (2025): Kenntage des Sommers',
+    citation: 'Deutscher Wetterdienst (2025). Thema des Tages, 13 August 2025: „Sommerlich, heiß, sehr heiß? – ‚Kenntage‘ des Sommers 2025“, which defines the Sommertag, the Heiße Tag, the Frosttag and the Eistag. Read on 22 November 2026.',
+    href: 'https://www.dwd.de/DE/wetter/thema_des_tages/2025/8/13.html',
+    issuer: 'dwd',
+  },
+  'dwd-tropennacht': {
+    short: 'DWD Wetterlexikon: Tropennacht',
+    citation: 'Deutscher Wetterdienst. Wetterlexikon, Glossar, entry „Tropennacht“. dwd.de/DE/service/lexikon, read on 22 November 2026.',
+    href: 'https://www.dwd.de/DE/service/lexikon/Functions/glossar.html?lv2=102672&lv3=102802',
     issuer: 'dwd',
   },
   'dwd-warnings': {

@@ -443,8 +443,8 @@ export const BEAUFORT = [0.3, 1.6, 3.4, 5.5, 8.0, 10.8, 13.9, 17.2, 20.8, 24.5, 
  */
 export const WIND_FORCES_OF_GUST = { breezy: 5, windy: 7, stormy: 9 } as const
 export const WIND_FORCES_OF_MEAN = { breezy: 4, windy: 6, stormy: 8 } as const
-/** The days either side of the day asked about that the wind answer fetches and compares with */
-export const WIND_WINDOW_DAYS = 7
+/** The days either side of the day asked about that the answers of a day fetch and compare with */
+export const DAY_WINDOW_DAYS = 7
 
 export function beaufort(speed: number): number {
   return BEAUFORT.filter(edge => speed >= edge).length
@@ -500,18 +500,21 @@ export function windOnDay(readings: Reading[], day: string, unit: string = CANON
   }
 }
 
-/** The 26 December the question means: this year's once its readings can be in, else last year's */
-export function lastBoxingDay(now: DateTime): string {
-  const year = now.month === 12 && now.day >= 28 ? now.year : now.year - 1
-  return `${year}-12-26`
+/**
+ * The day the question opens on (GH-3764): the same date last year, as `YYYY-MM-DD`. A 29 February has no such day in the
+ * year before (nor in the 3 before a leap year), and the day before it, 28 February, stands in: the calendar's own rule for a
+ * year back from a 29 February (luxon clamps to the last day of the month).
+ */
+export function sameDayLastYear(now: DateTime): string {
+  return now.minus({ years: 1 }).toISODate()!
 }
 
-/** A week either side of `day`, and none of it in the future: the span the wind answer fetches */
-export function windWindow(day: string, now: DateTime): { from: string, to: string } {
+/** A week either side of `day`, and none of it in the future: the span the answers of a day fetch, for the chart around it */
+export function dayWindow(day: string, now: DateTime): { from: string, to: string } {
   const at = DateTime.fromISO(day, { zone: 'utc' })
   const yesterday = now.toUTC().startOf('day').minus({ days: 1 })
-  const to = DateTime.min(at.plus({ days: WIND_WINDOW_DAYS }), yesterday)
-  return { from: at.minus({ days: WIND_WINDOW_DAYS }).toISODate()!, to: DateTime.max(to, at).toISODate()! }
+  const to = DateTime.min(at.plus({ days: DAY_WINDOW_DAYS }), yesterday)
+  return { from: at.minus({ days: DAY_WINDOW_DAYS }).toISODate()!, to: DateTime.max(to, at).toISODate()! }
 }
 
 // ---------------------------------------------------------------------------------------------------------------

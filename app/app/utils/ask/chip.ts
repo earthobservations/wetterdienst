@@ -227,6 +227,11 @@ export interface ChipExplanation<Loaded, Result> {
   rules: readonly Rule[]
   /** The limits of the answer: the ids of their texts (`limits.<id>`) */
   limits: readonly string[]
+  /**
+   * What the disclosure under an answer shows of all this where the chip answers several questions (the measures of the day question): the ids of the rules, limits
+   * and terms, and the parameters of the data, that belong to the choices it is asked with. Absent: all of them. The page of the methods shows every one.
+   */
+  scope?: (choices: Choices) => { rules: readonly string[], limits: readonly string[], topics: readonly TopicId[], parameters: readonly string[] }
   data: ExplanationData<Loaded>
   /** The numbers of this answer: the station, the period and how many years or days it covers, the thresholds */
   numbers: (result: Result, loaded: Loaded, env: ChipEnv, choices: Choices) => NumberLine[]
@@ -249,8 +254,8 @@ export interface ChipDefinition<Id extends string, Loaded, Result> {
   icon: string
   /** The tool the answer leads into */
   tool: ToolKey
-  /** The quantity whose unit the settings choose for the answer, and a change of which asks it again */
-  quantity?: Quantity
+  /** The quantity (or the quantities: the day question reads a speed, a depth of rain, a temperature and a depth of snow) whose unit the settings choose for the answer, and a change of which asks it again */
+  quantity?: Quantity | readonly Quantity[]
   /** The choices of the question, with their names in the link; the question's own, so another chip's link carries none of them */
   choices?: readonly Choice[]
   /**

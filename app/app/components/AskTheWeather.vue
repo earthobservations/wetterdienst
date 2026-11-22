@@ -14,7 +14,7 @@ import { distanceKm, formatDistance } from '~/utils/map-tool'
 // of them.
 //
 // The suggestions are buttons that are pressed or not (`aria-pressed`): one is open at a time, pressing it again
-// closes it. The open one is in the link (`?ask=season`, with a question's choices, `&season=winter&ref=1961-1990` for the season question, `&day=2025-12-26` for the wind
+// closes it. The open one is in the link (`?ask=season`, with a question's choices, `&season=winter&ref=1961-1990` for the season question, `&measure=sun&day=2025-12-26` for the day
 // question, and `&place=02564` for a place the reader chose), so that an answer can be shared; a link without one
 // opens none, and nothing is fetched until a question is asked. The focus stays on the button; the answer is announced
 // by its live region.

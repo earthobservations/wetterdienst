@@ -1,8 +1,8 @@
 import type { Chip } from './chip'
+import { day } from './chips/day'
 import { download } from './chips/download'
 import { rain } from './chips/rain'
 import { season } from './chips/season'
-import { wind } from './chips/wind'
 
 // The chips of "Ask the weather" (components/AskTheWeather.vue), in the order the home page offers them: the questions
 // people bring to a weather service, each one definition (`chip.ts`) answered from data the app fetches and leading into
@@ -10,7 +10,7 @@ import { wind } from './chips/wind'
 // nothing else (GH-3518): the tile appears on the link that leads into the tool.
 //
 // A new chip is registered here, and nowhere else in the code: `README.md` next to this file.
-export const CHIPS = [rain, season, wind, download] as const
+export const CHIPS = [rain, season, day, download] as const
 
 export type ChipId = typeof CHIPS[number]['id']
 

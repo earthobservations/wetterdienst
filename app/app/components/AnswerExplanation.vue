@@ -65,7 +65,12 @@ const params = computed(() => ruleParams(explanation.value.rules, textLanguage.v
 
 const numbers = computed(() => explanation.value.numbers(props.result, props.loaded, env, props.choices).map(line => ({ id: line.id, text: numberLineText(texts.value!.method, props.chip, line) })))
 
-const rules = computed(() => explanation.value.rules.map((rule) => {
+/** What of the rules, limits and terms belongs to the choices, for a chip that answers several questions (the measures of the day question); null: all */
+const scope = computed(() => explanation.value.scope?.(props.choices) ?? null)
+const limits = computed(() => explanation.value.limits.filter(id => !scope.value || scope.value.limits.includes(id)))
+const parameters = computed(() => scope.value?.parameters ?? explanation.value.data.parameters)
+
+const rules = computed(() => explanation.value.rules.filter(rule => !scope.value || scope.value.rules.includes(rule.id)).map((rule) => {
   const words = method.value?.rules[rule.id]
   return {
     ...rule,
@@ -80,7 +85,7 @@ const terms = computed(() => termsOfProvider(providerList.value?.providers, expl
 const licence = computed(() => terms.value?.license ? { name: terms.value.license.name, href: safeHref(terms.value.license.url) } : null)
 const explorer = computed(() => explanation.value.data.open(env, props.choices, props.loaded))
 
-const topics = computed(() => explanation.value.topics.map(topic => ({
+const topics = computed(() => explanation.value.topics.filter(topic => !scope.value || scope.value.topics.includes(topic)).map(topic => ({
   topic,
   title: texts.value!.measurement[topic].title,
   summary: texts.value!.measurement[topic].summary,
@@ -180,10 +185,10 @@ const link = 'text-primary-700 dark:text-primary-500 underline hover:no-underlin
                   {{ explanation.data.dataset }}
                 </dd>
               </template>
-              <template v-if="explanation.data.parameters.length">
+              <template v-if="parameters.length">
                 <dt>{{ t('ask.explain.parameters') }}</dt>
                 <dd class="break-words font-mono">
-                  {{ explanation.data.parameters.join(', ') }}
+                  {{ parameters.join(', ') }}
                 </dd>
               </template>
               <template v-if="licence">
@@ -227,7 +232,7 @@ const link = 'text-primary-700 dark:text-primary-500 underline hover:no-underlin
               {{ t('ask.explain.limits') }}
             </h5>
             <ul class="mt-1.5 list-disc space-y-1 ps-5 text-toned" data-testid="explanation-limits">
-              <li v-for="id in explanation.limits" :key="id" :lang="lang">
+              <li v-for="id in limits" :key="id" :lang="lang">
                 {{ fill(method.limits[id] ?? '', params) }}
               </li>
             </ul>

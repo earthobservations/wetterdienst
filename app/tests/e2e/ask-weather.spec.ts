@@ -43,7 +43,7 @@ test.describe('the suggestions', () => {
     const list = questions(page)
     await expect(list.getByRole('listitem')).toHaveCount(4)
     await expect(list.getByRole('button')).toHaveCount(4)
-    for (const id of ['rain', 'season', 'wind', 'download'])
+    for (const id of ['rain', 'season', 'day', 'download'])
       await expect(chip(page, id)).toHaveAttribute('aria-pressed', 'false')
     await expect(chip(page, 'rain')).toContainText('Will it rain in Kiel-Holtenau tomorrow?')
     await expect(page.getByTestId('ask-idle')).toHaveText(en.ask.idle)
@@ -91,18 +91,103 @@ test.describe('the suggestions', () => {
 
   test('answer how windy a day was, for a day the reader can change', async ({ page, baseURL }) => {
     const { asked } = await home(page, baseURL!, '/?ask=wind&day=2025-12-26')
-    await expect(chip(page, 'wind')).toHaveAttribute('aria-pressed', 'true')
+    await expect(chip(page, 'day')).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.wind.stormy)
     await expect(page.getByTestId('answer')).toContainText('Strongest gust 21.6 m/s, Beaufort 9.')
-    await expect(chip(page, 'wind')).toContainText('How windy was it on 26 December?')
+    await expect(chip(page, 'day')).toContainText('How windy was it on 26 December?')
     expect(askedValues(asked)[0]!.query.timestamp).toBe('2025-12-19/2026-01-02')
 
-    await page.getByLabel(en.ask.wind.dayLabel, { exact: true }).fill('2025-12-20')
+    await page.getByLabel(en.ask.day.dayLabel, { exact: true }).fill('2025-12-20')
     await expect(page).toHaveURL(/day=2025-12-20/)
     await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.wind.calm)
-    const link = page.getByTestId('answer').getByRole('link', { name: en.ask.wind.open })
+    const link = page.getByTestId('answer').getByRole('link', { name: en.ask.day.open })
     const href = new URL((await link.getAttribute('href'))!, baseURL!)
     expect(Object.fromEntries(href.searchParams)).toMatchObject({ resolution: 'daily', parameters: 'wind_gust_max,wind_speed_mean', startDate: '2025-12-13', endDate: '2025-12-27' })
+  })
+
+  test('answer the day question for the measure the reader chooses, in a labelled select that is no part of the question\'s button', async ({ page, baseURL }) => {
+    const { asked } = await home(page, baseURL!, '/?ask=day&day=2025-12-26')
+    const select = page.getByRole('combobox', { name: en.ask.day.measureLabel })
+    await expect(select).toBeVisible()
+    await expect(select).toHaveValue('wind')
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.wind.stormy)
+    // the measure is outside the button of the question, which stays a toggle
+    await expect(chip(page, 'day')).toHaveAttribute('aria-pressed', 'true')
+    await expect(chip(page, 'day').getByRole('combobox')).toHaveCount(0)
+
+    await select.selectOption('sun')
+    await expect(page).toHaveURL(/ask=day/)
+    await expect(page).toHaveURL(/measure=sun/)
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.day.sun.dull)
+    await expect(chip(page, 'day')).toContainText('How sunny was it on 26 December?')
+    await expect(page.getByTestId('answer').getByRole('heading', { level: 3 })).toHaveText('How sunny was it on 26 December?')
+    await expect(page.getByTestId('answer-status')).toHaveText(en.ask.day.sun.dull)
+    // the same request answers every measure: a change of the measure asks nothing
+    expect(askedValues(asked)).toHaveLength(1)
+    expect(askedValues(asked)[0]!.query.parameters).toContain('daily/climate_summary/sunshine_duration')
+
+    await select.selectOption('temperature')
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.day.temperature.frost)
+    await expect(page.getByTestId('answer')).toContainText('Highest 3.4 °C, lowest -1.2 °C.')
+    await select.selectOption('snow')
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.day.snow.cover)
+    await expect(page.getByTestId('answer')).toContainText('2.0 cm of fresh snow.')
+    const link = page.getByTestId('answer').getByRole('link', { name: en.ask.day.open })
+    expect(Object.fromEntries(new URL((await link.getAttribute('href'))!, baseURL!).searchParams)).toMatchObject({ resolution: 'daily', parameters: 'snow_depth', startDate: '2025-12-19', endDate: '2026-01-02' })
+    expect(askedValues(asked)).toHaveLength(1)
+
+    // a new day asks again, and keeps the measure
+    await page.getByLabel(en.ask.day.dayLabel, { exact: true }).fill('2025-12-20')
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.day.snow.noSnow)
+    await expect(page).toHaveURL(/measure=snow/)
+    expect(askedValues(asked)).toHaveLength(2)
+  })
+
+  test('keep the old link: `?ask=wind` is the day question about the wind, and the page writes the new name once a choice is made', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=wind&day=2025-12-26')
+    await expect(chip(page, 'day')).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('combobox', { name: en.ask.day.measureLabel })).toHaveValue('wind')
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.wind.stormy)
+    await page.getByRole('combobox', { name: en.ask.day.measureLabel }).selectOption('rain')
+    await expect(page).toHaveURL(/ask=day/)
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.day.rain.wet)
+  })
+
+  test('open on the same date last year, for the wind, where the link names no day', async ({ page, baseURL }) => {
+    const { asked } = await home(page, baseURL!, '/?ask=day')
+    const lastYear = DateTime.now().minus({ years: 1 })
+    await expect(page.getByLabel(en.ask.day.dayLabel, { exact: true })).toHaveValue(lastYear.toISODate()!)
+    await expect(chip(page, 'day')).toContainText(`How windy was it on ${lastYear.setLocale('en').toFormat('d MMMM')}?`)
+    expect(askedValues(asked)[0]!.query.timestamp!.split('/')[0]).toBe(lastYear.minus({ days: 7 }).toISODate())
+  })
+
+  test('grey out a measure the station has no reading of, with the reason in the option and in the line under the choices', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=day&day=2025-12-26&place=00183')
+    await expect(page.getByTestId('place-button')).toContainText('Arkona')
+    const select = page.getByRole('combobox', { name: en.ask.day.measureLabel })
+    const snow = select.locator('option[value="snow"]')
+    await expect(snow).toBeDisabled()
+    await expect(snow).toHaveText(/^Snow \(no reading here for .+\)$/)
+    await expect(select.locator('option[disabled]')).toHaveCount(1)
+    const note = page.getByTestId('choice-note')
+    await expect(note).toHaveText(/^Greyed out: this station has no reading of it for .+\.$/)
+    await expect(note).toHaveAttribute('role', 'status')
+    // a link that names it gets the wind, and the line says so
+    await home(page, baseURL!, '/?ask=day&measure=snow&day=2025-12-26&place=00183')
+    await expect(select).toHaveValue('wind')
+    await expect(page.getByTestId('choice-note')).toContainText('Snow has no reading here for')
+    await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.wind.stormy)
+  })
+
+  test('say the question in German for each measure, and the measure and its options in the language of the page', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=day&day=2025-12-26', 'de')
+    const select = page.getByRole('combobox', { name: de.ask.day.measureLabel })
+    await expect(select).toBeVisible()
+    for (const [value, question] of [['wind', 'Wie windig war es am 26. Dezember?'], ['sun', 'Wie sonnig war es am 26. Dezember?'], ['rain', 'Wie nass war es am 26. Dezember?'], ['temperature', 'Wie heiß oder kalt war es am 26. Dezember?'], ['snow', 'Lag am 26. Dezember Schnee?']] as const) {
+      await select.selectOption(value)
+      await expect(page.getByTestId('answer').getByRole('heading', { level: 3 })).toHaveText(question)
+    }
+    await expect(page.getByTestId('answer-verdict')).toHaveText(de.ask.day.snow.cover)
   })
 
   test('answer where hourly temperatures can be downloaded, each source leading into the Explorer filled in', async ({ page, baseURL }) => {
@@ -122,11 +207,11 @@ test.describe('the suggestions', () => {
     await home(page, baseURL!)
     await chip(page, 'season').click()
     await expect(page.getByTestId('answer')).toBeVisible()
-    await chip(page, 'wind').click()
+    await chip(page, 'day').click()
     await expect(chip(page, 'season')).toHaveAttribute('aria-pressed', 'false')
-    await expect(chip(page, 'wind')).toHaveAttribute('aria-pressed', 'true')
+    await expect(chip(page, 'day')).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByTestId('answer')).toHaveCount(1)
-    await chip(page, 'wind').click()
+    await chip(page, 'day').click()
     await expect(page.getByTestId('answer')).toHaveCount(0)
     await expect(page).not.toHaveURL(/ask=/)
     await expect(page.getByTestId('ask-idle')).toBeVisible()
@@ -149,7 +234,7 @@ test.describe('the suggestions', () => {
     await expect(chip(page, 'season')).toBeFocused()
     // the next Tab stop is the next suggestion, the answer's links come after the list
     await page.keyboard.press('Tab')
-    await expect(chip(page, 'wind')).toBeFocused()
+    await expect(chip(page, 'day')).toBeFocused()
   })
 
   test('say so where the backend cannot answer, with a way to ask again', async ({ page, baseURL }) => {
@@ -223,8 +308,8 @@ test.describe('the explanation under an answer (GH-3764)', () => {
     await expect(button).toBeFocused()
     await expect(page.getByTestId('explanation-numbers')).toContainText('Beaufort')
     await page.getByTestId('explanation-full').click()
-    await expect(page).toHaveURL(/\/methods#wind$/)
-    await expect(page.locator('#wind-title')).toBeFocused()
+    await expect(page).toHaveURL(/\/methods#day$/)
+    await expect(page.locator('#day-title')).toBeFocused()
   })
 
   test('is in the language of the page, German where the text is, with the note where it is not', async ({ page, baseURL }) => {
@@ -248,7 +333,7 @@ test.describe('the explanation under an answer (GH-3764)', () => {
 
   test('is on every chip, the list of services included', async ({ page, baseURL }) => {
     await home(page, baseURL!)
-    for (const id of ['rain', 'season', 'wind', 'download']) {
+    for (const id of ['rain', 'season', 'day', 'download']) {
       await chip(page, id).click()
       await expect(page.getByTestId('answer-verdict')).toBeVisible()
       await expect(page.getByTestId('explanation-button')).toBeVisible()
@@ -325,7 +410,7 @@ test.describe('on a phone', () => {
 
   test('the suggestions and an answer fit the width', async ({ page, baseURL }) => {
     await home(page, baseURL!)
-    for (const id of ['rain', 'season', 'wind', 'download']) {
+    for (const id of ['rain', 'season', 'day', 'download']) {
       await chip(page, id).click()
       await expect(page.getByTestId('answer')).toBeVisible()
       await expect(page.getByTestId('answer-status')).not.toBeEmpty()
@@ -333,7 +418,7 @@ test.describe('on a phone', () => {
       expect(overflow, id).toBeLessThanOrEqual(0)
     }
     // each suggestion is a target of 44 px or more (WCAG 2.5.8 asks 24)
-    for (const box of await Promise.all(['rain', 'season', 'wind', 'download'].map(id => chip(page, id).boundingBox())))
+    for (const box of await Promise.all(['rain', 'season', 'day', 'download'].map(id => chip(page, id).boundingBox())))
       expectAtLeastPx(box!.height, 44)
   })
 })
@@ -373,7 +458,7 @@ test.describe('the labels of the answers\' charts', () => {
       await page.setViewportSize({ width, height: 900 })
       await home(page, baseURL!, '/', language)
       let before = ''
-      for (const id of ['season', 'rain', 'wind']) {
+      for (const id of ['season', 'rain', 'day']) {
         await chip(page, id).click()
         // the chart of this question, not the one of the last
         const caption = page.getByRole('figure').locator('figcaption')
@@ -568,4 +653,32 @@ test.describe('the season and the reference period on a phone', () => {
       expect(labels[at - 1]!.right + 1, `${labels[at - 1]!.text} and ${labels[at]!.text}`).toBeLessThanOrEqual(labels[at]!.left)
     expect(chart.labels.map(label => label.text).some(text => /^\d{4}\/\d{2}$/.test(text))).toBe(true)
   })
+})
+
+test.describe('the labels of the day question\'s charts, for every measure', () => {
+  for (const [width, language] of [[320, 'de'], [390, 'en'], [1280, 'en']] as const) {
+    test(`do not touch each other, and the page does not scroll sideways, at ${width} px in ${language}`, async ({ page, baseURL }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await home(page, baseURL!, '/?ask=day&day=2025-12-26', language)
+      const select = page.getByRole('combobox', { name: language === 'de' ? de.ask.day.measureLabel : en.ask.day.measureLabel })
+      for (const measure of ['wind', 'sun', 'rain', 'temperature', 'snow']) {
+        await select.selectOption(measure)
+        await expect(page.getByRole('figure').getByTestId('answer-bars-label').first()).toBeVisible()
+        const chart = await chartBoxes(page)
+        const where = `${measure} at ${width} px in ${language}`
+        const labels = chart.labels.sort((a, b) => a.left - b.left)
+        expect(labels.length, where).toBeGreaterThan(1)
+        for (let at = 1; at < labels.length; at += 1)
+          expect(labels[at - 1]!.right + 1, `${where}: ${labels[at - 1]!.text} and ${labels[at]!.text}`).toBeLessThanOrEqual(labels[at]!.left)
+        for (const label of labels) {
+          expect(label.left, where).toBeGreaterThanOrEqual(chart.plot.left - 1)
+          expect(label.right, where).toBeLessThanOrEqual(chart.plot.right + 1)
+        }
+        expect(chart.figure.right, where).toBeLessThanOrEqual(chart.page)
+        // the choices wrap and fit the width: nothing of the answer is wider than the page
+        const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)
+        expect(overflow, where).toBeLessThanOrEqual(0)
+      }
+    })
+  }
 })

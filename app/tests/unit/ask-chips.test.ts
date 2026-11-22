@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { DateTime } from 'luxon'
 import { describe, expect, it } from 'vitest'
-import { acceptsChoice, queryOfChoice, queryOfPress, readChoices } from '../../app/utils/ask/chip'
+import { acceptsChoice, queryOfChoice, queryOfPress, readChoices, readExplicit } from '../../app/utils/ask/chip'
 import { chipOf, CHIPS, isChip } from '../../app/utils/ask/registry'
 import { TOOLS } from '../../app/utils/sections'
 
@@ -32,7 +32,7 @@ function has(messages: Record<string, unknown>, key: string): boolean {
 
 describe('the registry', () => {
   it('holds the four chips of the home page, in the order it offers them', () => {
-    expect(CHIPS.map(chip => chip.id)).toEqual(['rain', 'season', 'wind', 'download'])
+    expect(CHIPS.map(chip => chip.id)).toEqual(['rain', 'season', 'day', 'download'])
   })
 
   it('holds one definition for every file of chips/, and no id twice', () => {
@@ -95,40 +95,61 @@ describe.each(CHIPS.map(chip => [chip.id, chip] as const))('the %s chip', (id, c
   })
 })
 
-describe('the choices of the wind chip, in the link', () => {
-  const wind = chipOf('wind')!
+describe('the choices of the day chip, in the link', () => {
+  const day = chipOf('day')!
   const NOW = DateTime.fromISO('2026-11-21T10:00:00', { zone: 'Europe/Berlin' })
 
-  it('read the day of `&day=`, and the last 26 December where the link has none or none that is a day', () => {
-    expect(readChoices(wind, { day: '2025-12-26' }, NOW)).toEqual({ day: '2025-12-26' })
-    expect(readChoices(wind, {}, NOW)).toEqual({ day: '2025-12-26' })
-    for (const day of ['2025-13-45', '2025-02-30', 'yesterday', ''])
-      expect(readChoices(wind, { day }, NOW)).toEqual({ day: '2025-12-26' })
-    expect(readChoices(wind, { day: '2024-03-01' }, NOW)).toEqual({ day: '2024-03-01' })
+  it('read the day of `&day=`, and the same date last year where the link has none or none that is a day', () => {
+    expect(readChoices(day, { day: '2025-12-26' }, NOW)).toEqual({ measure: 'wind', day: '2025-12-26' })
+    expect(readChoices(day, {}, NOW)).toEqual({ measure: 'wind', day: '2025-11-21' })
+    for (const bad of ['2025-13-45', '2025-02-30', 'yesterday', ''])
+      expect(readChoices(day, { day: bad }, NOW)).toEqual({ measure: 'wind', day: '2025-11-21' })
+    expect(readChoices(day, { day: '2024-03-01' }, NOW)).toEqual({ measure: 'wind', day: '2024-03-01' })
+  })
+
+  it('read the measure of `&measure=`, the wind where the link has none or none that is one', () => {
+    for (const measure of ['wind', 'sun', 'rain', 'temperature', 'snow'])
+      expect(readChoices(day, { measure, day: '2025-12-26' }, NOW).measure).toBe(measure)
+    for (const measure of ['', 'Sun', 'heat', 'snowfall', 'constructor'])
+      expect(readChoices(day, { measure, day: '2025-12-26' }, NOW).measure).toBe('wind')
+  })
+
+  it('keep the old link: `?ask=wind` is the day chip asking about the wind, and a measure of the link is its own', () => {
+    expect(chipOf('wind')).toBe(day)
+    expect(readExplicit(day, { ask: 'wind', day: '2025-12-26' }, NOW)).toEqual({ measure: 'wind', day: '2025-12-26' })
+    // the wind and the day of an old link are what the reader sees, and a new measure is not taken away by the alias
+    expect(readExplicit(day, { ask: 'wind', measure: 'sun' }, NOW)).toEqual({ measure: 'sun' })
+    expect(readExplicit(day, { ask: 'day', day: '2025-12-26' }, NOW)).toEqual({ day: '2025-12-26' })
+    expect(readChoices(day, { ask: 'wind', day: '2025-12-26' }, NOW)).toEqual({ measure: 'wind', day: '2025-12-26' })
   })
 
   it('are none for a chip without them', () => {
     expect(readChoices(chipOf('rain')!, { day: '2025-12-26' }, NOW)).toEqual({})
   })
 
-  it('take a day up to yesterday', () => {
-    const [day] = wind.choices!
-    expect(acceptsChoice(day!, '2026-11-20', NOW)).toBe(true)
-    expect(acceptsChoice(day!, '2026-11-21', NOW)).toBe(false)
-    expect(acceptsChoice(day!, '', NOW)).toBe(false)
-    expect(acceptsChoice(day!, 'x', NOW)).toBe(false)
+  it('take a day up to yesterday, and one of the five measures', () => {
+    const [measure, dayChoice] = day.choices!
+    expect(acceptsChoice(dayChoice!, '2026-11-20', NOW)).toBe(true)
+    expect(acceptsChoice(dayChoice!, '2026-11-21', NOW)).toBe(false)
+    expect(acceptsChoice(dayChoice!, '', NOW)).toBe(false)
+    expect(acceptsChoice(dayChoice!, 'x', NOW)).toBe(false)
+    expect(['wind', 'sun', 'rain', 'temperature', 'snow'].map(value => acceptsChoice(measure!, value, NOW))).toEqual([true, true, true, true, true])
+    expect(['', 'heat', 'Sun'].map(value => acceptsChoice(measure!, value, NOW))).toEqual([false, false, false])
   })
 
-  it('are kept by a press on the wind chip, closing it too, and taken out by a press on any other', () => {
-    const link = { ask: 'wind', day: '2025-12-26', place: '02564' }
-    expect(queryOfPress(link, CHIPS, 'wind', 'wind')).toEqual({ day: '2025-12-26', place: '02564' })
-    expect(queryOfPress({ ask: 'rain', day: '2025-12-26' }, CHIPS, 'wind', 'rain')).toEqual({ ask: 'wind', day: '2025-12-26' })
-    expect(queryOfPress({ ask: 'rain' }, CHIPS, 'wind', 'rain')).toEqual({ ask: 'wind' })
-    expect(queryOfPress(link, CHIPS, 'season', 'wind')).toEqual({ ask: 'season', place: '02564' })
+  it('are kept by a press on the day chip, closing it too, and taken out by a press on any other', () => {
+    const link = { ask: 'day', measure: 'sun', day: '2025-12-26', place: '02564' }
+    expect(queryOfPress(link, CHIPS, 'day', 'day')).toEqual({ measure: 'sun', day: '2025-12-26', place: '02564' })
+    expect(queryOfPress({ ask: 'rain', day: '2025-12-26' }, CHIPS, 'day', 'rain')).toEqual({ ask: 'day', day: '2025-12-26' })
+    expect(queryOfPress({ ask: 'rain' }, CHIPS, 'day', 'rain')).toEqual({ ask: 'day' })
+    expect(queryOfPress(link, CHIPS, 'season', 'day')).toEqual({ ask: 'season', place: '02564' })
     expect(queryOfPress({ place: '02564' }, CHIPS, 'rain', null)).toEqual({ ask: 'rain', place: '02564' })
   })
 
-  it('are written by a change of the day, which opens the wind chip', () => {
-    expect(queryOfChoice({ ask: 'wind', day: '2025-12-26', place: '02564' }, 'wind', 'day', '2024-01-05')).toEqual({ ask: 'wind', day: '2024-01-05', place: '02564' })
+  it('are written by a change of the day or the measure, which opens the day chip', () => {
+    expect(queryOfChoice({ ask: 'day', day: '2025-12-26', place: '02564' }, 'day', 'day', '2024-01-05')).toEqual({ ask: 'day', day: '2024-01-05', place: '02564' })
+    expect(queryOfChoice({ ask: 'day', day: '2025-12-26' }, 'day', 'measure', 'snow')).toEqual({ ask: 'day', day: '2025-12-26', measure: 'snow' })
+    // an old link names the wind and no more: the link the page writes next says so
+    expect(queryOfChoice({ ask: 'wind', day: '2025-12-26' }, 'day', 'day', '2024-01-05', { measure: 'wind', day: '2025-12-26' })).toEqual({ ask: 'day', day: '2024-01-05', measure: 'wind' })
   })
 })

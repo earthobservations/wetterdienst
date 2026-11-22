@@ -365,6 +365,7 @@ const UI_SAME: Record<string, Same> = {
   'ask.season.warmth.autumn': { en: ['de-hh', 'nl'], why: COGNATE },
   'ask.season.name.winter': { en: ['nl'], why: COGNATE },
   'ask.season.plural.winter': { en: ['nl'], why: COGNATE },
+  'ask.day.measure.wind': { en: ['nl'], why: COGNATE },
   'ask.explain.dataset': { en: ['it', 'nl'], why: COGNATE },
   'ask.explain.parameters': { en: ['nl'], why: COGNATE },
   'methods.formulaTitle': { en: ['it'], de: ['da'], why: COGNATE },

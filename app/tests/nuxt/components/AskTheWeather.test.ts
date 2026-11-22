@@ -8,7 +8,7 @@ import { useSettings } from '#imports'
 import AskTheWeather from '~/components/AskTheWeather.vue'
 import { DEFAULT_PLACE } from '~/composables/usePlace'
 import { defaultSeason } from '~/utils/answers'
-import { KIEL_MOSMIX, rainValues, summerValues, windValues } from '../../e2e/accessibility/ask-backend'
+import { dayValues, KIEL_MOSMIX, rainValues, summerValues } from '../../e2e/accessibility/ask-backend'
 import { providersAnswer } from '../fixtures/providers'
 
 // Ask the weather (GH-3518): the suggestions of the home page as buttons that are pressed or not, the answer under
@@ -64,7 +64,23 @@ const FROM_MILLIMETERS: Record<string, [string, (value: number) => number]> = {
   millimeter: ['mm', value => value],
   liter_per_square_meter: ['l/m²', value => value],
 }
+const FROM_CENTIMETERS: Record<string, [string, (value: number) => number]> = {
+  centimeter: ['cm', value => value],
+  meter: ['m', value => value / 100],
+  millimeter: ['mm', value => value * 10],
+}
+const FROM_HOURS: Record<string, [string, (value: number) => number]> = {
+  hour: ['h', value => value],
+  minute: ['min', value => value * 60],
+  second: ['s', value => value * 3600],
+}
 const QUANTITIES: Record<string, [string, Record<string, [string, (value: number) => number]>]> = {
+  temperature_air_max_2m: ['temperature', FROM_CELSIUS],
+  temperature_air_min_2m: ['temperature', FROM_CELSIUS],
+  precipitation_amount: ['precipitation', FROM_MILLIMETERS],
+  snow_depth: ['length_short', FROM_CENTIMETERS],
+  snow_depth_new: ['length_short', FROM_CENTIMETERS],
+  sunshine_duration: ['duration', FROM_HOURS],
   temperature_air_mean_2m: ['temperature', FROM_CELSIUS],
   precipitation_amount_significant_weather_last_1h: ['precipitation', FROM_MILLIMETERS],
   wind_gust_max: ['speed', FROM_METERS_PER_SECOND],
@@ -109,7 +125,7 @@ registerEndpoint('/api/values', async (event) => {
   // a record of flat 10 degrees with a summer of 12: every normal gives the same verdict sentence
   const young = (rows: ReturnType<typeof summerValues>) => onlyYoungWinter ? rows.filter(row => !(/-(?:12|01|02)-/.test(row.timestamp) && row.timestamp < '2022')) : rows
   const monthly = () => flatRecord ? summerValues(station).map(row => ({ ...row, value: row.timestamp.startsWith('2026-0') && /-0[3-8]-/.test(row.timestamp) ? 12 : 10 })) : young(summerValues(station))
-  return inUnits(parameters.startsWith('monthly/') ? monthly() : windValues(station, query.get('timestamp')), query)
+  return inUnits(parameters.startsWith('monthly/') ? monthly() : dayValues(station, query.get('timestamp')), query)
 })
 function coverage() {
   return {
@@ -126,6 +142,9 @@ registerEndpoint('/api/coverage', (event) => {
   }
   return coverage()
 })
+
+/** What the day question asks the backend to convert to: one target for each quantity it reads (the sunshine always in hours) */
+const DAY_TARGETS = { speed: 'meter_per_second', precipitation: 'millimeter', temperature: 'degree_celsius', length_short: 'centimeter', duration: 'hour' }
 
 const mounted: Array<{ unmount: () => void }> = []
 async function mountAsk(route = '/') {
@@ -212,10 +231,10 @@ describe('the suggestions', () => {
     await vi.waitFor(() => expect(verdict(wrapper).text()).toContain('warmer than usual'))
     expect(asked('values').at(-1)!.query.get('stations')).toBe('02564')
 
-    await chip(wrapper, 'wind').trigger('click')
+    await chip(wrapper, 'day').trigger('click')
     await vi.waitFor(() => expect(wrapper.find('#answer-day').exists()).toBe(true))
     await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
-    await vi.waitFor(() => expect(chip(wrapper, 'wind').attributes('aria-pressed')).toBe('true'))
+    await vi.waitFor(() => expect(chip(wrapper, 'day').attributes('aria-pressed')).toBe('true'))
     expect(chip(wrapper, 'season').attributes('aria-pressed')).toBe('false')
 
     await chip(wrapper, 'download').trigger('click')
@@ -277,8 +296,7 @@ describe('the suggestions', () => {
   })
 
   it('say it for the wind and the rain too, and for the list of services, which has no dataset to open', async () => {
-    const wrapper = await mountAsk()
-    await chip(wrapper, 'wind').trigger('click')
+    const wrapper = await mountAsk('/?ask=day&day=2025-12-26')
     await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
     await wrapper.find('[data-testid="explanation-button"]').trigger('click')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="explanation-numbers"]').exists()).toBe(true))
@@ -505,16 +523,160 @@ describe('the suggestions', () => {
 
   it('open from a link that names the question, and the day of the wind one', async () => {
     const wrapper = await mountAsk('/?ask=wind&day=2025-12-26')
-    expect(chip(wrapper, 'wind').attributes('aria-pressed')).toBe('true')
-    expect(chip(wrapper, 'wind').text()).toBe('How windy was it on 26 December?')
+    expect(chip(wrapper, 'day').attributes('aria-pressed')).toBe('true')
+    expect(chip(wrapper, 'day').text()).toBe('How windy was it on 26 December?')
     await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Stormy.'))
     expect(asked('values')[0]!.query.get('timestamp')).toBe('2025-12-19/2026-01-02')
   })
 
-  it.each(['2025-13-45', '2025-02-30'])('keep the section, and the last Boxing Day, for a link whose day (%s) is no day', async (day) => {
+  // the day question's measures (GH-3764, step 2b): wind, sun, rain, heat and cold, snow, from the one request the wind was
+  describe('the day question and its measure', () => {
+    const open = async (query: string) => {
+      const wrapper = await mountAsk(`/?${query}`)
+      await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+      return wrapper
+    }
+    const measure = (wrapper: Awaited<ReturnType<typeof mountAsk>>) => wrapper.find('#answer-measure')
+    const arkona = { id: '00183', name: 'Arkona', latitude: 54.68, longitude: 13.43, region: 'Mecklenburg-Vorpommern' }
+
+    it('has the measure as a labelled native select beside the day, outside the button of the question', async () => {
+      const wrapper = await open('ask=day&day=2025-12-26')
+      const select = measure(wrapper)
+      expect(select.element.tagName).toBe('SELECT')
+      expect(wrapper.find('label[for="answer-measure"]').text()).toBe('Measure')
+      expect(wrapper.find('label[for="answer-day"]').text()).toBe('Day')
+      expect(select.findAll('option').map(option => [option.attributes('value'), option.text()])).toEqual([
+        ['wind', 'Wind'],
+        ['sun', 'Sunshine'],
+        ['rain', 'Rain'],
+        ['temperature', 'Heat and cold'],
+        ['snow', 'Snow'],
+      ])
+      expect((select.element as HTMLSelectElement).value).toBe('wind')
+      expect(chip(wrapper, 'day').element.contains(select.element)).toBe(false)
+      expect(chip(wrapper, 'day').attributes('aria-pressed')).toBe('true')
+    })
+
+    it.each([
+      ['sun', 'How sunny was it on 26 December?', 'Dull.', '1.4 h of sunshine, 20%'],
+      ['rain', 'How wet was it on 26 December?', 'Wet.', '6.4 mm of precipitation over the day.'],
+      ['temperature', 'How hot or cold was it on 26 December?', 'A frost day.', 'Highest 3.4 °C, lowest -1.2 °C.'],
+      ['snow', 'Was there snow on 26 December?', 'Snow on the ground.', 'Snow depth 4.0 cm.'],
+    ])('says the %s of the day, in the question, the verdict and the lines under it', async (name, question, word, line) => {
+      const wrapper = await open(`ask=day&measure=${name}&day=2025-12-26`)
+      expect(chip(wrapper, 'day').text()).toBe(question)
+      expect(wrapper.find('[data-testid="answer"] h3').text()).toBe(question)
+      await vi.waitFor(() => expect(verdict(wrapper).text()).toBe(word))
+      expect(wrapper.find('[data-testid="answer"]').text()).toContain(line)
+      expect((measure(wrapper).element as HTMLSelectElement).value).toBe(name)
+      expect(wrapper.find('figure figcaption').text()).toMatch(/ per day, in /)
+      // the link into the Explorer opens the measure's own parameters
+      const parameters = { sun: 'sunshine_duration', rain: 'precipitation_amount', temperature: 'temperature_air_max_2m,temperature_air_min_2m', snow: 'snow_depth' }[name]
+      expect(wrapper.find('[data-testid="answer-actions"] a').attributes('href')).toContain(`parameters=${parameters}`)
+    })
+
+    it('says a calm, sunny, dry, ordinary day with no snow for 20 December', async () => {
+      const read = async (name: string) => {
+        const wrapper = await open(`ask=day&measure=${name}&day=2025-12-20`)
+        await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+        return verdict(wrapper).text()
+      }
+      expect(await read('wind')).toBe('Calm.')
+      expect(await read('sun')).toBe('Sunny.')
+      expect(await read('rain')).toBe('Dry.')
+      expect(await read('temperature')).toBe('Neither frost nor a summer day.')
+      expect(await read('snow')).toBe('No snow on the ground.')
+    })
+
+    it('adds the fresh snow where the station reports it, and the classes a day counts as', async () => {
+      const snow = await open('ask=day&measure=snow&day=2025-12-26')
+      expect(snow.find('[data-testid="answer"]').text()).toContain('2.0 cm of fresh snow.')
+      const cold = await open('ask=day&measure=temperature&day=2025-12-26')
+      expect(cold.find('[data-testid="answer"]').text()).toContain('Counts as: frost day.')
+    })
+
+    it('changes the measure with the select, in the link, the question and the verdict, and asks the backend nothing new', async () => {
+      const wrapper = await open('ask=wind&day=2025-12-26')
+      await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Stormy.'))
+      expect(asked('values')).toHaveLength(1)
+      await measure(wrapper).setValue('sun')
+      await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Dull.'))
+      // the old name of the chip is replaced by the new one
+      await vi.waitFor(() => expect(useRoute().query.ask).toBe('day'))
+      expect(useRoute().query.measure).toBe('sun')
+      expect(useRoute().query.day).toBe('2025-12-26')
+      expect(chip(wrapper, 'day').text()).toBe('How sunny was it on 26 December?')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="answer-status"]').text()).toBe('Dull.'))
+      await new Promise(resolve => setTimeout(resolve, 30))
+      expect(asked('values')).toHaveLength(1)
+      // all the parameters of every measure are in that one request, the fresh snow from its own dataset
+      const parameters = asked('values')[0]!.query.get('parameters')!.split(',')
+      expect(parameters).toEqual(expect.arrayContaining(['daily/climate_summary/wind_gust_max', 'daily/climate_summary/sunshine_duration', 'daily/climate_summary/precipitation_amount', 'daily/climate_summary/temperature_air_max_2m', 'daily/climate_summary/temperature_air_min_2m', 'daily/climate_summary/snow_depth', 'daily/precipitation_more/snow_depth_new']))
+    })
+
+    it('asks again for a new day, whatever the measure', async () => {
+      const wrapper = await open('ask=day&measure=rain&day=2025-12-26')
+      await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Wet.'))
+      await wrapper.find('#answer-day').setValue('2025-12-20')
+      await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Dry.'))
+      expect(asked('values')).toHaveLength(2)
+      expect(asked('values')[1]!.query.get('timestamp')).toBe('2025-12-13/2025-12-27')
+      expect(useRoute().query.measure).toBe('rain')
+    })
+
+    it('opens on the wind where the link names no measure, and on the same date last year where it names no day', async () => {
+      const wrapper = await open('ask=day')
+      const lastYear = DateTime.now().minus({ years: 1 })
+      expect(chip(wrapper, 'day').text()).toBe(`How windy was it on ${lastYear.setLocale('en').toFormat('d MMMM')}?`)
+      expect((wrapper.find('#answer-day').element as HTMLInputElement).value).toBe(lastYear.toISODate())
+      const window = asked('values')[0]!.query.get('timestamp')!.split('/')
+      expect(window[0]).toBe(lastYear.minus({ days: 7 }).toISODate())
+    })
+
+    it('greys out a measure the station has no reading of for the day, with the reason in its option and in a line under the choices', async () => {
+      usePlace().setPlace(arkona)
+      const wrapper = await open('ask=day&day=2025-12-26')
+      await vi.waitFor(() => expect(measure(wrapper).findAll('option[disabled]')).toHaveLength(1))
+      const disabled = measure(wrapper).find('option[disabled]')
+      expect(disabled.attributes('value')).toBe('snow')
+      expect(disabled.text()).toMatch(/^Snow \(no reading here for .+\)$/)
+      expect(wrapper.find('[data-testid="choice-note"]').text()).toMatch(/^Greyed out: this station has no reading of it for .+\.$/)
+      expect(wrapper.find('[data-testid="choice-note"]').attributes('role')).toBe('status')
+      // the others can be chosen
+      expect(measure(wrapper).findAll('option:not([disabled])')).toHaveLength(4)
+    })
+
+    it('shows the wind, and says why, where a link names a measure the station has no reading of', async () => {
+      usePlace().setPlace(arkona)
+      const wrapper = await open('ask=day&measure=snow&day=2025-12-26')
+      await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Stormy.'))
+      expect((measure(wrapper).element as HTMLSelectElement).value).toBe('wind')
+      expect(wrapper.find('[data-testid="choice-note"]').text()).toMatch(/Snow has no reading here for .+\. Showing instead: wind\./)
+      expect(chip(wrapper, 'day').text()).toBe('How windy was it on 26 December?')
+    })
+
+    it('says in the explanation the rules of the measure, with the mark of what is wetterdienst\'s own, and links the sources', async () => {
+      const wrapper = await open('ask=day&measure=sun&day=2025-12-26')
+      await vi.waitFor(() => expect(verdict(wrapper).exists()).toBe(true))
+      await wrapper.find('[data-testid="explanation-button"]').trigger('click')
+      await vi.waitFor(() => expect(wrapper.find('[data-testid="explanation-numbers"]').exists()).toBe(true))
+      const rules = wrapper.findAll('[data-testid="explanation-rules"] > li').map(rule => rule.attributes('data-rule'))
+      expect(rules).toEqual(['daily-values', 'default-day', 'default-measure', 'measure-reading', 'sun-share', 'day-length', 'sun-bands', 'around-window'])
+      expect(wrapper.findAll('[data-testid="explanation-rules"] > li[data-own]').map(rule => rule.attributes('data-rule'))).toEqual(['default-day', 'default-measure', 'measure-reading', 'sun-bands', 'around-window'])
+      expect(wrapper.find('[data-testid="explanation-numbers"]').text()).toMatch(/Sunshine: 1\.4 h\. At 54\.38° N the Sun could shine 7\.1 h that day, so the day had 20% of the possible sunshine\./)
+      const sources = wrapper.findAll('[data-testid="explanation-rules"] a').map(link => link.attributes('href'))
+      expect(sources).toEqual(expect.arrayContaining(['/methods#work-wmo-8-i', '/methods#work-dwd-daily-kl']))
+      const region = wrapper.find('[data-testid="explanation-region"]').text()
+      // the parameters listed are those of the measure asked about
+      expect(region).toMatch(/Parameterssunshine_durationLicence/)
+      expect(wrapper.find('[data-testid="explanation-full"]').attributes('href')).toBe('/methods#day')
+    })
+  })
+
+  it.each(['2025-13-45', '2025-02-30'])('keep the section, and the same date last year, for a link whose day (%s) is no day', async (day) => {
     const wrapper = await mountAsk(`/?ask=wind&day=${day}`)
     expect(wrapper.find('[data-testid="ask"]').exists()).toBe(true)
-    expect(chip(wrapper, 'wind').text()).toMatch(/^How windy was it on 26 December\?$/)
+    expect(chip(wrapper, 'day').text()).toBe(`How windy was it on ${DateTime.now().minus({ years: 1 }).setLocale('en').toFormat('d MMMM')}?`)
   })
 
   it('say that the answer could not be worked out, with a way to ask again', async () => {
@@ -789,7 +951,7 @@ describe('the answers in the unit of the settings', () => {
     settings().units.speed = unit
     const wrapper = await mountAsk('/?ask=wind&day=2025-12-26')
     await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Stormy.'))
-    expect(JSON.parse(asked('values')[0]!.query.get('unit_targets')!)).toEqual({ speed: unit })
+    expect(JSON.parse(asked('values')[0]!.query.get('unit_targets')!)).toEqual({ ...DAY_TARGETS, speed: unit })
     expect(wrapper.text()).toContain(`Strongest gust ${gust}`)
     expect(wrapper.text()).toMatch(new RegExp(`Strongest gust [\\d.]+ ${symbol.replace('/', '\\/')}, Beaufort 9\\.`))
     expect(wrapper.text()).toMatch(new RegExp(`Mean wind [\\d.]+ ${symbol.replace('/', '\\/')}, Beaufort 5\\.`))
@@ -823,18 +985,30 @@ describe('the answers in the unit of the settings', () => {
     settings().units.speed = 'kilometer_per_hour'
     await vi.waitFor(() => expect(asked('values')).toHaveLength(2))
     await vi.waitFor(() => expect(wrapper.text()).toContain('km/h'))
-    expect(JSON.parse(asked('values')[1]!.query.get('unit_targets')!)).toEqual({ speed: 'kilometer_per_hour' })
+    expect(JSON.parse(asked('values')[1]!.query.get('unit_targets')!)).toEqual({ ...DAY_TARGETS, speed: 'kilometer_per_hour' })
     await new Promise(resolve => setTimeout(resolve, 30))
     expect(asked('values')).toHaveLength(2)
   })
 
-  it('leaves the answer as it is where the unit of another quantity changes', async () => {
+  it('leaves the answer as it is where the unit of a quantity it does not read changes', async () => {
     const wrapper = await mountAsk('/?ask=wind&day=2025-12-26')
     await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Stormy.'))
-    settings().units.temperature = 'degree_fahrenheit'
-    settings().units.precipitation = 'liter_per_square_meter'
+    settings().units.pressure = 'pascal'
+    settings().units.fraction = 'one_eighth'
     await new Promise(resolve => setTimeout(resolve, 30))
     expect(asked('values')).toHaveLength(1)
+  })
+
+  it('asks again where the unit of any quantity the day question reads changes, the temperature of the wind answer included: one request serves every measure', async () => {
+    const wrapper = await mountAsk('/?ask=day&measure=temperature&day=2025-12-26')
+    await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('A frost day.'))
+    expect(wrapper.text()).toContain('Highest 3.4 °C, lowest -1.2 °C.')
+    settings().units.temperature = 'degree_fahrenheit'
+    await vi.waitFor(() => expect(asked('values')).toHaveLength(2))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Highest 38.1 °F, lowest 29.8 °F.'))
+    // 29.8 °F is below 32 °F: the verdict is the same in every unit
+    expect(verdict(wrapper).text()).toBe('A frost day.')
+    expect(JSON.parse(asked('values')[1]!.query.get('unit_targets')!)).toEqual({ ...DAY_TARGETS, temperature: 'degree_fahrenheit' })
   })
 
   it('shows the answer of the newest request where the unit changes while one is under way, followed by one more fetch', async () => {
