@@ -4,8 +4,9 @@ import { gzipSync } from 'node:zlib'
 import { describe, expect, it } from 'vitest'
 import { WORK_IDS, workAnchor } from '../../app/utils/ask/works'
 import { TOPICS } from '../../app/utils/measurement'
+import { prettifyId } from '../../app/utils/prettify-id'
 import { glossaryDocs, longTextLanguage, messageOf } from '../../app/utils/search-docs'
-import { bestPerTarget, buildIndex, searchIndex } from '../../app/utils/search-index'
+import { bestPerTarget, buildIndex, matchesQuery, searchIndex } from '../../app/utils/search-index'
 import { MESSAGE_SOURCES } from '../../app/utils/search-sources'
 import { UNIT_TARGET_TYPES } from '../../app/utils/unit-targets'
 import { SEARCH_LOCALES, searchIndexFor, searchLabelsFor } from '../../modules/search-index/build'
@@ -146,5 +147,33 @@ describe('the glossary', () => {
 
   it('is found by the unit symbol where it has a word', () => {
     expect(searchIndex(index, 'km')[0]).toMatchObject({ title: 'Windgeschwindigkeit' })
+  })
+
+  it('shows an id with no label as the words of it, as the glossary page does', () => {
+    const docs = glossaryDocs([{ name: 'wind_gust_max', description: 'Highest gust' }], name => prettifyId(name))
+    expect(docs[0]!.title).toBe('Wind Gust Max')
+  })
+
+  // "5 more in Glossary" opens the page with the query in its field: the page filters by `matchesQuery`, which has to give the
+  // entries the search counted, whatever the words, their order, their accents or what they are found in
+  it('is filtered by the page as the search finds it, for the same words', () => {
+    const rows = [
+      { name: 'temperature_dew_point_mean_2m', description: 'Temperature at which the air is saturated', unit_symbol: '°C' },
+      { name: 'wind_speed', description: 'Mean speed of the wind', unit_symbol: 'km/h' },
+      { name: 'wind_gust_max', description: 'Highest gust of the wind', unit_symbol: 'm/s' },
+      { name: 'sunshine_duration', description: 'Duration of sunshine', unit_symbol: 'h' },
+    ]
+    const cs: Record<string, string> = { temperature_dew_point_mean_2m: 'Rosný bod (2 m)', wind_speed: 'Rychlost větru', wind_gust_max: 'Náraz větru', sunshine_duration: 'Délka slunečního svitu' }
+    const label = (name: string) => cs[name] ?? name
+    const found = buildIndex(glossaryDocs(rows, label))
+    for (const query of ['rosny bod', 'BOD ROSNY', 'rosný', 'naraz vetru', 'vetru naraz', 'wind', 'km', 'gust_max', 'mean 2m', 'saturated air', 'zzz', 'slunecniho']) {
+      const byPage = rows.filter(row => matchesQuery(query, [label(row.name), row.name, row.unit_symbol, row.description])).map(row => `/glossary#${row.name}`)
+      const bySearch = searchIndex(found, query).map(hit => hit.to)
+      expect([...bySearch].sort(), query).toEqual([...byPage].sort())
+    }
+    expect(matchesQuery('rosny bod', [label('temperature_dew_point_mean_2m')])).toBe(true)
+    expect(matchesQuery('bod rosny', ['Rosný bod (2 m)'])).toBe(true)
+    // no word of its own: the field filters nothing
+    expect(matchesQuery('a', ['Wind'])).toBe(true)
   })
 })

@@ -639,6 +639,8 @@ const holdView = ref(false)
 /** Moves the map to a position, once for each: the count is what tells the map there is a new one */
 const goTo = ref<(Point & { count: number }) | null>(null)
 let pendingAddressPoint: Point | null = null
+/** The position the address named, which stays its place where no station is within reach of it */
+const typedPoint = ref<Point | null>(null)
 /** The position of the address that was taken last, so that the address written after the pick (`?station=&lat=&lon=`) takes nothing and the same position typed again later is taken */
 let takenPoint: string | null = null
 function pickAddressPoint(point: Point) {
@@ -648,7 +650,6 @@ function pickAddressPoint(point: Point) {
     holdView.value = false
   })
   pickAt(point, SAME_PLACE_KM, false, 0, 0, { kind: 'unknown' })
-  goTo.value = { ...point, count: (goTo.value?.count ?? 0) + 1 }
 }
 function takeAddressPoint(query: Record<string, unknown>) {
   const point = pointFromQuery(query)
@@ -656,8 +657,11 @@ function takeAddressPoint(query: Record<string, unknown>) {
   if (key === takenPoint)
     return
   takenPoint = key
+  typedPoint.value = point
   if (!point)
     return
+  // the map moves to the position at once, whether or not the list of stations comes (a failed list shows its error and the map is where it was asked about)
+  goTo.value = { ...point, count: (goTo.value?.count ?? 0) + 1 }
   if (listStatus.value === 'success')
     pickAddressPoint(point)
   else
@@ -867,7 +871,9 @@ function stationName(station: Station) {
 // ---- the address follows what is shown, and what the address says from outside is taken ---------------------------
 
 // the reader's own position is not written into the address, which is copied and shared: the station is
-const state = computed<MapState>(() => ({ layer: layer.value, source: source.value, stationId: selectedId.value, place: origin.value.kind === 'position' ? null : place.value }))
+/** The place the address says: the one picked beside a station, or the position of the address's own that no station is within reach of (GH-3790); a click that finds no station is not written, as before */
+const addressPlace = computed(() => place.value ?? (!selectedId.value && noStationNear.value && anchor.value && typedPoint.value && distanceKm(anchor.value, typedPoint.value) < 0.001 ? anchor.value : null))
+const state = computed<MapState>(() => ({ layer: layer.value, source: source.value, stationId: selectedId.value, place: origin.value.kind === 'position' ? null : addressPlace.value }))
 const queryOf = (map: MapState) => JSON.stringify(stateToQuery(map))
 
 watch(state, (shown) => {

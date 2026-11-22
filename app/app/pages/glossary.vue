@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { GlossaryEntry } from '#shared/types/api'
 import { isTopic, measurementPath, parameterPatterns, topicLabelKey, topicOfParameter } from '~/utils/measurement'
+import { matchesQuery } from '~/utils/search-index'
 
 const { t } = useI18n()
 const formatLanguage = useFormatLanguage()
@@ -26,6 +27,10 @@ const { data: glossary, pending } = useFetch<GlossaryEntry[]>('/api/glossary', A
 // `?q=` is the search the field starts with: the "more" of the search of the header (GH-3790) opens the glossary on what was typed
 const route = useRoute()
 const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
+// the address's `?q=` is followed while the page is open (the search of the header leads here from the glossary itself)
+watch(() => route.query.q, (value) => {
+  search.value = typeof value === 'string' ? value : ''
+})
 const unitType = ref<string | undefined>(undefined)
 
 // The entry of "How weather is measured" (GH-3787) whose parameters are shown: `?topic=wind`, the link of an entry's
@@ -47,7 +52,7 @@ const unitTypeItems = computed(() => [
 ])
 
 const entries = computed<GlossaryEntry[]>(() => {
-  const term = search.value.trim().toLowerCase()
+  const term = search.value.trim()
   const matching = (glossary.value ?? []).filter((entry) => {
     if (unitType.value && entry.unit_type !== unitType.value)
       return false
@@ -55,11 +60,9 @@ const entries = computed<GlossaryEntry[]>(() => {
       return false
     if (!term)
       return true
-    // match the id, the friendly label and the description, so searching either
-    // "sunshine" or "Sonnenschein" finds the same entry
-    return entry.name.toLowerCase().includes(term)
-      || parameterLabel(entry.name).toLowerCase().includes(term)
-      || entry.description.toLowerCase().includes(term)
+    // the rule of the search's glossary results (utils/search-index.ts), so that "5 more in Glossary" shows what was counted: every
+    // word of the field, in any order, folded, in the label, the id, the unit's symbol or the description
+    return matchesQuery(term, [parameterLabel(entry.name), entry.name, entry.unit_symbol, entry.description])
   })
   // the API returns them ordered by raw id, which bears no relation to the order of the labels on
   // screen once those are translated
@@ -143,7 +146,7 @@ watch([glossary, () => route.hash], async () => {
             :id="entry.name"
             :key="entry.name"
             tabindex="-1"
-            class="glossary-entry border-t border-gray-200 dark:border-gray-800 pt-3 first:border-t-0 first:pt-0"
+            class="border-t border-gray-200 dark:border-gray-800 pt-3 first:border-t-0 first:pt-0"
           >
             <div class="flex items-baseline justify-between gap-3 flex-wrap">
               <span class="font-medium">{{ parameterLabel(entry.name) }}</span>

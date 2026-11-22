@@ -7,26 +7,35 @@ export interface Coordinates {
 }
 
 /**
- * The letters a language writes the east and the west with, besides N and S. East is E everywhere, and where a language
- * writes it with another letter as well (German and Dutch `O` for Ost/Oost, Danish `Ø`) that one is east too; where `O`
- * is the west (French, Spanish and Italian: Ouest, Oeste, Ovest) it is that.
+ * What a language writes a position with. The letters of the four directions (N and S, E and W are every language's, and where a
+ * language has more they are added: German and Dutch `O` for Ost/Oost is east, Danish `Ø` east and `V` vest west; where `O` is the
+ * west (French, Spanish and Italian: Ouest, Oeste, Ovest) it is that; Czech has `S` sever for the north, `J` jih, `V` východ and
+ * `Z` západ, where the letter `S` of English is the south: the clash is settled for the reader's own language only), and whether its
+ * numbers have a decimal comma, which makes `0,5` one number and no pair.
  */
 export interface Hemispheres {
+  north: string
+  south: string
   east: string
   west: string
+  decimalComma: boolean
 }
 
-export const HEMISPHERES: Hemispheres = { east: 'E', west: 'W' }
+export const HEMISPHERES: Hemispheres = { north: 'N', south: 'S', east: 'E', west: 'W', decimalComma: false }
 
-/** The hemisphere letters of a locale of the app (`de-hh` and `lb` write `O` for east, as German does) */
+/** The letters and the decimal sign of a locale of the app (`de-hh` and `lb` write as German does) */
 export function hemispheresOf(locale: string): Hemispheres {
   const language = locale.split('-')[0]!
   if (['de', 'nl', 'lb'].includes(language))
-    return { east: 'EO', west: 'W' }
+    return { ...HEMISPHERES, east: 'EO', decimalComma: true }
   if (language === 'da')
-    return { east: 'EØ', west: 'W' }
+    return { ...HEMISPHERES, east: 'E\u00D8', west: 'WV', decimalComma: true }
   if (['fr', 'es', 'it'].includes(language))
-    return { east: 'E', west: 'WO' }
+    return { ...HEMISPHERES, west: 'WO', decimalComma: true }
+  if (language === 'cs')
+    return { north: 'NS', south: 'J', east: 'EV', west: 'WZ', decimalComma: true }
+  if (language === 'pl')
+    return { ...HEMISPHERES, decimalComma: true }
   return HEMISPHERES
 }
 
@@ -58,22 +67,31 @@ function normalise(text: string): string {
 }
 
 /** A pair of signed decimal degrees: `52.52, 13.40`, `52.52 13.40`, `52,52 13,40`, `52.52; 13.40`, `52.52° 13.40°` */
-function decimalPair(text: string): Coordinates | null {
+function decimalPair(text: string, rules: Hemispheres): Coordinates | null {
+  const marked = text.includes('°')
   const plain = text.replace(/ ?°/g, '')
   const signed = String.raw`[-+]?${NUMBER}`
-  let match: RegExpMatchArray | null
-  // a semicolon separates, and either number may have a decimal comma
-  if ((match = plain.match(new RegExp(String.raw`^(${signed}) ?; ?(${signed})$`))))
+  const point = String.raw`[-+]?\d+(?:\.\d+)?`
+  const comma = String.raw`[-+]?\d+,\d+`
+  const patterns = [
+    // a semicolon separates, and either number may have a decimal comma
+    new RegExp(String.raw`^(${signed}) ?; ?(${signed})$`),
+    // only a space separates
+    new RegExp(String.raw`^(${signed}) (${signed})$`),
+    // a comma separates, and the numbers have a decimal point or none (`52.52, 13.40`): never a decimal comma, which is no separator
+    new RegExp(String.raw`^(${point}) ?, ?(${point})$`),
+    // a comma and a space separate numbers that have a decimal comma on both sides (`52,52, 13,40`), where the language writes one
+    ...(rules.decimalComma ? [new RegExp(String.raw`^(${comma}), (${comma})$`)] : []),
+  ]
+  for (const pattern of patterns) {
+    const match = plain.match(pattern)
+    if (!match)
+      continue
+    // two whole numbers are no position (a year and a month, `1,5`, `10,20`, two station numbers), unless a degree sign says so
+    if (!marked && /^[-+]?\d+$/.test(match[1]!) && /^[-+]?\d+$/.test(match[2]!))
+      return null
     return inRange(numberOf(match[1]!), numberOf(match[2]!))
-  // a comma separates, where the numbers have a decimal point or none: `52.52, 13.40`, `52,13`
-  if ((match = plain.match(/^([-+]?\d+(?:\.\d+)?) ?, ?([-+]?\d+(?:\.\d+)?)$/)))
-    return inRange(numberOf(match[1]!), numberOf(match[2]!))
-  // numbers with a decimal comma, separated by a comma and a space: `52,52, 13,40`
-  if ((match = plain.match(/^([-+]?\d+,\d+), ([-+]?\d+,\d+)$/)))
-    return inRange(numberOf(match[1]!), numberOf(match[2]!))
-  // only a space separates: one of the numbers has decimals, so that two whole numbers ("2024 11") are no point
-  if ((match = plain.match(new RegExp(String.raw`^(${signed}) (${signed})$`))) && /[.,]\d/.test(plain))
-    return inRange(numberOf(match[1]!), numberOf(match[2]!))
+  }
   return null
 }
 
@@ -96,7 +114,7 @@ function degrees(text: string): number | null {
  * `52°31'12"N 13°24'18"E`, `13.40E 52.52N`. The letters give the sign, so a minus beside one is no position.
  */
 function withLetters(text: string, hemispheres: Hemispheres): Coordinates | null {
-  const known = `NS${hemispheres.east}${hemispheres.west}`.toUpperCase()
+  const known = `${hemispheres.north}${hemispheres.south}${hemispheres.east}${hemispheres.west}`.toUpperCase()
   const found = [...text.matchAll(/[a-zöø]/gi)]
   if (found.length !== 2 || found.some(letter => !known.includes(letter[0]!.toUpperCase())))
     return null
@@ -111,22 +129,22 @@ function withLetters(text: string, hemispheres: Hemispheres): Coordinates | null
   const [first, second] = parts as [{ letter: string, value: number | null }, { letter: string, value: number | null }]
   if (first.value === null || second.value === null)
     return null
-  const northSouth = (letter: string) => letter === 'N' || letter === 'S'
+  const northSouth = (letter: string) => hemispheres.north.includes(letter) || hemispheres.south.includes(letter)
   // one half is the latitude and the other the longitude
   if (northSouth(first.letter) === northSouth(second.letter))
     return null
-  const signed = (half: { letter: string, value: number | null }) => ['S', ...hemispheres.west.toUpperCase().split('')].includes(half.letter) ? -half.value! : half.value!
+  const signed = (half: { letter: string, value: number | null }) => [...hemispheres.south, ...hemispheres.west].includes(half.letter) ? -half.value! : half.value!
   const [latitude, longitude] = northSouth(first.letter) ? [first, second] : [second, first]
   return inRange(signed(latitude!), signed(longitude!))
 }
 
 /**
  * The position a text names, or null where it is none. Latitude comes first unless hemisphere letters say otherwise. Two
- * whole numbers with only a space between are not taken (a year and a month, two station numbers). Degrees, minutes and
+ * whole numbers are not taken, whatever is between them (a year and a month, `1,5`, two station numbers) unless they carry degree signs. Degrees, minutes and
  * seconds need their hemisphere letters; without them the position is in decimal degrees.
  *
  * @param text What was typed
- * @param hemispheres The letters the language writes the east and the west with
+ * @param hemispheres The letters and the decimal sign of the language (`hemispheresOf`)
  * @example
  * parseCoordinates('52.52, 13.40') // { latitude: 52.52, longitude: 13.4 }
  * parseCoordinates('52°31\'N 13°24\'E') // { latitude: 52.5166…, longitude: 13.4 }
@@ -139,7 +157,7 @@ export function parseCoordinates(text: string, hemispheres: Hemispheres = HEMISP
     return withLetters(normal, hemispheres)
   if (/['"]/.test(normal))
     return null
-  return decimalPair(normal)
+  return decimalPair(normal, hemispheres)
 }
 
 /** A position as the search shows it: signed degrees with four decimals, as the map's address writes them */

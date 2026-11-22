@@ -1,6 +1,7 @@
 import type { GlossaryEntry } from '#shared/types/api'
 import type { Chip } from '~/utils/ask/chip'
 import type { Hit, SearchIndex } from '~/utils/search-index'
+import { prettifyId } from '~/utils/prettify-id'
 import { glossaryDocs } from '~/utils/search-docs'
 import { bestPerTarget, buildIndex, searchIndex } from '~/utils/search-index'
 
@@ -67,7 +68,7 @@ export function useSiteSearch() {
     try {
       const [entries, labels] = await Promise.all([glossaryEntries(), labelsLoaded])
       // the name the glossary page shows: the label of the language, or the backend's name where the setting for plain-language labels is off
-      const label = (name: string) => settings.value.friendlyLabels ? labels?.[name] ?? name : name
+      const label = (name: string) => settings.value.friendlyLabels ? labels?.[name] ?? prettifyId(name) : name
       if (!closed)
         glossary.value = buildIndex(glossaryDocs(entries, label))
     }

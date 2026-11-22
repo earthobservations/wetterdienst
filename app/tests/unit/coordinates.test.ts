@@ -29,13 +29,35 @@ describe('a position in decimal degrees', () => {
   it('reads a decimal comma where a semicolon or a space or a comma and a space separate', () => {
     near('52,52 13,40', 52.52, 13.4)
     near('52,52; 13,40', 52.52, 13.4)
-    near('52,52, 13,40', 52.52, 13.4)
+    near('52,52, 13,40', 52.52, 13.4, hemispheresOf('de'))
   })
 
-  it('reads whole numbers only with a comma or a semicolon between them', () => {
-    near('52, 13', 52, 13)
-    expect(parseCoordinates('52 13')).toBeNull()
-    expect(parseCoordinates('2024 11')).toBeNull()
+  it('does not read two whole numbers, whatever is between them: a year and a month, two station numbers, a decimal comma', () => {
+    for (const locale of ['en', 'de', 'fr', 'nl', 'pl', 'cs', 'da', 'es', 'it', 'lb', 'de-hh']) {
+      for (const text of ['52 13', '2024 11', '52, 13', '1,5', '0,5', '10,20', '00011, 00044', '52;13', '10384 10147'])
+        expect(parseCoordinates(text, hemispheresOf(locale)), `${locale}: ${text}`).toBeNull()
+    }
+  })
+
+  it('reads whole numbers that carry a degree sign', () => {
+    near('52°, 13°', 52, 13)
+    near('52° 13°', 52, 13)
+  })
+
+  it('reads a decimal point in every language, with a comma or without one', () => {
+    for (const locale of ['en', 'de', 'fr', 'cs', 'da']) {
+      near('52.5, 13.4', 52.5, 13.4, hemispheresOf(locale))
+      near('52.5,13.4', 52.5, 13.4, hemispheresOf(locale))
+      near('52.5 13', 52.5, 13, hemispheresOf(locale))
+    }
+  })
+
+  it('reads a decimal comma with a comma and a space between only where the language writes one', () => {
+    for (const locale of ['de', 'fr', 'nl', 'pl', 'cs', 'da', 'es', 'it', 'lb', 'de-hh'])
+      near('52,52, 13,40', 52.52, 13.4, hemispheresOf(locale))
+    expect(parseCoordinates('52,52, 13,40', hemispheresOf('en'))).toBeNull()
+    // no space: `52,5,13,4` is a list of numbers
+    expect(parseCoordinates('52,5,13,4', hemispheresOf('de'))).toBeNull()
   })
 
   it('reads a degree sign after the numbers', () => {
@@ -46,8 +68,8 @@ describe('a position in decimal degrees', () => {
   it('does not read a latitude beyond 90 or a longitude beyond 180', () => {
     expect(parseCoordinates('91.0, 13.4')).toBeNull()
     expect(parseCoordinates('52.5, 181.0')).toBeNull()
-    near('90, 180', 90, 180)
-    near('-90, -180', -90, -180)
+    near('90.0, 180.0', 90, 180)
+    near('-90.0, -180.0', -90, -180)
   })
 
   it('does not read what is no pair', () => {
@@ -106,6 +128,23 @@ describe('a position with hemisphere letters', () => {
     expect(parseCoordinates('52°31\'N 13°24\'O', hemispheresOf('en'))).toBeNull()
   })
 
+  it('takes the Danish V for the west and the Czech S, J, V and Z for north, south, east and west, in those languages only', () => {
+    near('52°31\'N 13°24\'V', 52 + 31 / 60, -13.4, hemispheresOf('da'))
+    near('33°52\'S 151°12\'Ø', -(33 + 52 / 60), 151.2, hemispheresOf('da'))
+    // Czech: S is the north, and the south is J
+    near('52°31\'S 13°24\'V', 52 + 31 / 60, 13.4, hemispheresOf('cs'))
+    near('33°52\'J 151°12\'V', -(33 + 52 / 60), 151.2, hemispheresOf('cs'))
+    near('40°43\'S 74°0\'Z', 40 + 43 / 60, -74, hemispheresOf('cs'))
+    near('52.52 S 13.40 V', 52.52, 13.4, hemispheresOf('cs'))
+    // the Czech letters are not English: S is the south there, and V and Z are no letters
+    near('33.87S 151.21E', -33.87, 151.21, hemispheresOf('en'))
+    expect(parseCoordinates('52°31\'N 13°24\'V', hemispheresOf('en'))).toBeNull()
+    expect(parseCoordinates('33°52\'J 151°12\'E', hemispheresOf('en'))).toBeNull()
+    expect(parseCoordinates('33°52\'J 151°12\'E', hemispheresOf('de'))).toBeNull()
+    // Czech readers still write N, E and W
+    near('52°31\'N 13°24\'E', 52 + 31 / 60, 13.4, hemispheresOf('cs'))
+  })
+
   it('does not read a minus beside a letter, two latitudes, a letter that is no hemisphere or an angle that is none', () => {
     for (const text of ['-52.5N 13.4E', '52.5N 13.4N', '52.5E 13.4W', '52.5X 13.4E', '52°61\'N 13°24\'E', '52.5°31\'N 13°24\'E', '52.5N', '52.5N 13.4', 'N 52.5 13.4', '95N 13E', '52N 190E', 'Berlin 52.5N 13.4E', 'no 12 so 13'])
       expect(parseCoordinates(text), text).toBeNull()
@@ -129,7 +168,9 @@ describe('what the search shows and where it leads', () => {
   it('knows the letters of each locale of the app', () => {
     expect(hemispheresOf('de-hh').east).toContain('O')
     expect(hemispheresOf('nl').east).toContain('O')
-    expect(hemispheresOf('pl')).toEqual({ east: 'E', west: 'W' })
+    expect(hemispheresOf('pl')).toMatchObject({ east: 'E', west: 'W', decimalComma: true })
+    expect(hemispheresOf('en').decimalComma).toBe(false)
+    expect(hemispheresOf('de').decimalComma).toBe(true)
     expect(hemispheresOf('it').west).toContain('O')
   })
 })

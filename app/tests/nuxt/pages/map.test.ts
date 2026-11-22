@@ -1279,7 +1279,6 @@ describe('an address that names a position and no station', () => {
 
   it('waits for the list of stations, which a pick is made from', async () => {
     const wrapper = await mountMap('/map?lat=48.1&lon=11.5')
-    expect(stage.props.goTo ?? null).toBeNull()
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('MUENCHEN-STADT'))
     expect(stage.props.goTo).toMatchObject({ latitude: 48.1, longitude: 11.5 })
   })
@@ -1289,6 +1288,20 @@ describe('an address that names a position and no station', () => {
     await vi.waitFor(() => expect(stage.props.goTo).toMatchObject({ latitude: -33.9, longitude: 151.2, count: 1 }))
     await vi.waitFor(() => expect(wrapper.text()).toContain('No station within'))
     expect(stage.props.selected).toBeNull()
+    // the address keeps the position, so that a link and a reload ask about the same place; and it takes nothing more of it
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query).toEqual({ lat: '-33.9000', lon: '151.2000' }))
+    expect(stage.props.goTo.count).toBe(1)
+    expect(wrapper.text()).toContain('No station within')
+  })
+
+  it('moves the map to the position where the list of stations fails, and shows the failure', async () => {
+    stationsFailures = 3
+    const wrapper = await mountMap('/map?lat=52.52&lon=13.4')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-failure"]').exists()).toBe(true))
+    expect(stage.props.goTo).toMatchObject({ latitude: 52.52, longitude: 13.4, count: 1 })
+    expect(stage.props.selected).toBeNull()
+    // the position is still the address's
+    expect(useRouter().currentRoute.value.query).toMatchObject({ lat: '52.52', lon: '13.4' })
   })
 
   it('takes a position that the search of the header writes while the map is open, once, and again where it is typed again', async () => {

@@ -463,7 +463,8 @@ export function stateToQuery(state: MapState): Record<string, string> {
   }
   if (state.stationId)
     query.station = state.stationId
-  if (state.stationId && state.place) {
+  // the place of a pick with no station within reach as well (GH-3790): the address then says where the map was asked about
+  if (state.place) {
     query.lat = state.place.latitude.toFixed(4)
     query.lon = state.place.longitude.toFixed(4)
   }
@@ -484,7 +485,7 @@ export function stateFromQuery(query: Record<string, unknown>): MapState {
       dataset: text(query.dataset) || DEFAULT_MEASURED.dataset,
     },
     stationId,
-    place: stationId && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : null,
+    place: Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180 ? { latitude, longitude } : null,
   }
 }
 

@@ -58,8 +58,21 @@ export function tokenize(text: string): string[] {
   return fold(text).split(/[^\p{L}\p{N}]+/u).filter(word => word.length > 1 || /\d/.test(word))
 }
 
+/**
+ * Whether a text answers a query as the search does: every word of the query is in a term that holds it, in any order, folded.
+ * The same rule as `searchIndex`, for a list that filters by itself (the glossary page's field), so that the page and the
+ * search's "5 more in Glossary" show the same entries. A query with no word of its own (one letter) answers everything.
+ */
+export function matchesQuery(query: string, texts: ReadonlyArray<string | null | undefined>): boolean {
+  const words = [...new Set(tokenize(query))]
+  if (!words.length)
+    return true
+  const terms = tokenize(texts.map(plain).join(' '))
+  return words.every(word => terms.some(term => term.includes(word)))
+}
+
 /** `{name}` of the texts that are filled in with numbers, which are no words */
-function plain(text: string | undefined): string {
+function plain(text: string | null | undefined): string {
   return (text ?? '').replace(/\{\w+\}/g, ' ')
 }
 

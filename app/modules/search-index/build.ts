@@ -45,15 +45,11 @@ const GLOSSARIES: Record<string, { parameters: Record<string, string> }> = {
   'pl': glossaryPl,
 }
 
-/** The files an index is built from, which the development server watches */
+/** The files an index is built from that the development server reads again when they change: the catalogs; the other sources are loaded with this module, see `index.ts` */
 export function searchSources(locale: string): string[] {
-  const language = longTextLanguage(locale)
   return [
     join(APP, 'i18n', 'locales', `${locale}.json`),
     join(APP, 'i18n', 'locales', 'en.json'),
-    join(APP, 'i18n', 'measurement', `${language}.ts`),
-    join(APP, 'i18n', 'methods', `${language}.ts`),
-    join(APP, 'i18n', 'glossary', `${locale}.ts`),
   ]
 }
 
