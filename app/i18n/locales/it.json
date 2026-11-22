@@ -1059,10 +1059,9 @@
   "valueDetails": {
     "station": "Stazione",
     "unit": "Unità",
-    "difference": "Differenza (2 − 1)",
-    "order": "Le stazioni nell'ordine dell'elenco: prima {first}, seconda {second}. La differenza è la seconda stazione meno la prima, nell'unità del parametro; per una somma è indicata anche come quota della somma della prima stazione.",
-    "sumNote": "Una somma viene mostrata solo per i parametri che sono quantità per intervallo, come la precipitazione o la durata dell'insolazione. Per una media, una misura, un massimo o un minimo non avrebbe alcun significato.",
+    "sumNote": "Una somma viene mostrata solo per i parametri che sono quantità per intervallo, come la precipitazione o la durata dell'insolazione, e non dove la finestra di un parametro è più lunga delle sue righe (un totale su 6 ore in righe orarie): le finestre si sovrappongono. Per una media, una misura, un massimo o un minimo non avrebbe alcun significato.",
     "noSum": "nessuna somma per questo parametro",
+    "noSumOverlap": "nessuna somma: le finestre di questo parametro si sovrappongono",
     "noValue": "nessun valore"
   },
   "stationTable": {

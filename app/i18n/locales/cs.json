@@ -1059,10 +1059,9 @@
   "valueDetails": {
     "station": "Stanice",
     "unit": "Jednotka",
-    "difference": "Rozdíl (2 − 1)",
-    "order": "Stanice v pořadí, v jakém jsou uvedeny: první {first}, druhá {second}. Rozdíl je druhá stanice mínus první, v jednotce parametru; u součtu je uveden také jako podíl součtu první stanice.",
-    "sumNote": "Součet se zobrazuje jen u parametrů, které jsou množstvím za interval, například srážky nebo trvání slunečního svitu. U průměru, naměřené hodnoty, maxima nebo minima by neměl žádný význam.",
+    "sumNote": "Součet se zobrazuje jen u parametrů, které jsou množstvím za interval, například srážky nebo trvání slunečního svitu, a ne tam, kde je okno parametru delší než jeho řádky (šestihodinový úhrn v hodinových řádcích): okna se překrývají. U průměru, naměřené hodnoty, maxima nebo minima by neměl žádný význam.",
     "noSum": "pro tento parametr není součet",
+    "noSumOverlap": "žádný součet: okna tohoto parametru se překrývají",
     "noValue": "žádná hodnota"
   },
   "stationTable": {

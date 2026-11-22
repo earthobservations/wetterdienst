@@ -1059,10 +1059,9 @@
   "valueDetails": {
     "station": "Station",
     "unit": "Eenheit",
-    "difference": "Unnerscheed (2 − 1)",
-    "order": "De Stationen in de Reeg vun de List: eerste {first}, tweete {second}. De Unnerscheed is de tweete Station minus de eerste, in de Eenheit vun den Parameter; bi en Summ ok as Deel vun de Summ vun de eerste Station.",
-    "sumNote": "En Summ warrt blots för Parameter wiest, de Mengen je Interval sünd, as Nedderslag oder Sünnenschiendauer. Bi en Middel, en Meetweert, en Maximum oder en Minimum harr se keen Bedüden.",
+    "sumNote": "En Summ warrt blots för Parameter wiest, de Mengen je Interval sünd, as Nedderslag oder Sünnenschiendauer, un nich, wo dat Tietfinster vun en Parameter länger is as sien Reegen (en 6-Stünnen-Summ in stünnlichen Reegen): de Finsters överlappt sik. Bi en Middel, en Meetweert, en Maximum oder en Minimum harr se keen Bedüden.",
     "noSum": "keen Summ för disse Parameter",
+    "noSumOverlap": "keen Summ: de Tietfinsters vun disse Parameter överlappt sik",
     "noValue": "keen Weert"
   },
   "stationTable": {

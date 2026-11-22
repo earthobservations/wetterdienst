@@ -1059,10 +1059,9 @@
   "valueDetails": {
     "station": "Station",
     "unit": "Eenheid",
-    "difference": "Verschil (2 − 1)",
-    "order": "De stations in de volgorde van de lijst: eerste {first}, tweede {second}. Het verschil is het tweede station min het eerste, in de eenheid van de parameter; bij een som ook als aandeel van de som van het eerste station.",
-    "sumNote": "Een som wordt alleen getoond voor parameters die hoeveelheden per interval zijn, zoals neerslag of zonneschijnduur. Bij een gemiddelde, een meting, een maximum of een minimum zou ze niets betekenen.",
+    "sumNote": "Een som wordt alleen getoond voor parameters die hoeveelheden per interval zijn, zoals neerslag of zonneschijnduur, en niet waar het venster van een parameter langer is dan zijn rijen (een totaal over 6 uur in uurrijen): de vensters overlappen elkaar. Bij een gemiddelde, een meting, een maximum of een minimum zou ze niets betekenen.",
     "noSum": "geen som voor deze parameter",
+    "noSumOverlap": "geen som: de vensters van deze parameter overlappen elkaar",
     "noValue": "geen waarde"
   },
   "stationTable": {

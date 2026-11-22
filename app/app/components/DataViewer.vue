@@ -1083,12 +1083,14 @@ async function saveStacked(charts: ExplorerChartHandle[], format: ImageFormat) {
 }
 
 // The value details (GH-4296): count, min, max, mean and sum of what is shown, of each parameter and of each station of the
-// request, and the difference of two stations. A point's rows (interpolation, summary) are one series. What a parameter is
-// relative to its interval (`aggregation`) comes from the answer's own `metadata.parameters`, never from its name
+// request. A point's rows (interpolation, summary) are one series. What a parameter is relative to its interval
+// (`aggregation`) and its unit come from the answer's own `metadata.parameters`, never from its name. They describe the
+// values as fetched: rows the query panel has rewritten (a SQL that rescales or rounds `value`) may no longer be in that unit
+// or add up, so those rows get no unit and no sum, and the other numbers are taken as they are
 const detailsOfRows = computed(() => valueDetails(displayData.value, {
   split: rowsMode.value === 'station',
   stations: rowsRequest.value?.stations ?? [],
-  parameters: valuesData.value?.metadata?.parameters ?? [],
+  parameters: isDataTransformed.value ? [] : (valuesData.value?.metadata?.parameters ?? []),
 }))
 
 // Expose stats and fetch function for parent component

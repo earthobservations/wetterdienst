@@ -5,15 +5,15 @@ import { defineComponent, h } from 'vue'
 import ValueDetails from '~/components/ValueDetails.vue'
 import { valueDetails } from '~/utils/value-details'
 
-// The value details' table (GH-4296): a row for each station of each parameter, the difference of two stations under them,
-// a sum only for what adds up, the words and numbers in the language of the page, and the table readable by a screen reader
+// The value details' table (GH-4296): a row for each station of each parameter, a sum only for what adds up, the words and
+// numbers in the language of the page, and the table readable by a screen reader
 
 const hamburg = { id: '01975', name: 'Hamburg-Fuhlsbüttel' }
 const munich = { id: '03379', name: 'München-Stadt' }
 
 const parameters = [
-  { dataset: 'climate_summary', name: 'precipitation_amount', unit: 'mm', aggregation: 'sum' as const },
-  { dataset: 'climate_summary', name: 'temperature_air_mean_2m', unit: '°C', aggregation: 'mean' as const },
+  { resolution: 'daily', dataset: 'climate_summary', name: 'precipitation_amount', unit: 'mm', aggregation: 'sum' as const },
+  { resolution: 'daily', dataset: 'climate_summary', name: 'temperature_air_mean_2m', unit: '°C', aggregation: 'mean' as const },
 ]
 
 function reading(station_id: string, parameter: string, value: number | null) {
@@ -50,45 +50,42 @@ afterEach(async () => {
   await setLocale('en')
 })
 
-const cells = (row: { findAll: (selector: string) => { text: () => string }[] }) => row.findAll('th, td').map(cell => cell.text())
-
 describe('valueDetails table', () => {
-  it('has one row for each station of each parameter, and the difference of two under them', async () => {
+  it('has one row for each station of each parameter, and nothing else', async () => {
     const wrapper = await mountDetails()
     const groups = wrapper.findAll('[data-testid="value-details-group"]')
     expect(groups).toHaveLength(2)
     for (const group of groups)
-      expect(group.findAll('tr')).toHaveLength(3)
-    const [rain] = groups
-    expect(rain!.findAll('[data-testid="value-details-station"]').map(cell => cell.text())).toEqual(['1.Hamburg-Fuhlsbüttel01975', '2.München-Stadt03379'])
-    expect(rain!.find('[data-testid="value-details-difference"]').exists()).toBe(true)
+      expect(group.findAll('tr')).toHaveLength(2)
+    expect(groups[0]!.findAll('[data-testid="value-details-station"]').map(cell => cell.text())).toEqual(['Hamburg-Fuhlsbüttel, 01975', 'München-Stadt, 03379'])
+    // the stations are not compared: no difference, no order sentence
+    expect(wrapper.find('[data-testid="value-details-difference"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="value-details-order"]').exists()).toBe(false)
   })
 
-  it('says which station is the first and which the second, and what the difference is', async () => {
-    const wrapper = await mountDetails()
-    const order = wrapper.get('[data-testid="value-details-order"]').text()
-    expect(order).toContain('first Hamburg-Fuhlsbüttel (01975)')
-    expect(order).toContain('second München-Stadt (03379)')
-    expect(order).toContain('second station less the first')
-  })
-
-  it('writes the difference of a sum with its sign and as a share of the first, and has no sum for a temperature', async () => {
+  it('has the sum of the rain and none for a temperature, with its words for a screen reader', async () => {
     const wrapper = await mountDetails()
     const [rain, temperature] = wrapper.findAll('[data-testid="value-details-group"]')
-    // 22.5 mm first, 17.5 mm second
-    expect(rain!.get('[data-testid="value-details-difference"] [data-testid="value-details-sum"]').text()).toMatch(/^[-−]5\.00\s*\([-−]22\.2%\)$/)
     expect(rain!.findAll('[data-testid="value-details-row"]').map(row => row.get('[data-testid="value-details-sum"]').text())).toEqual(['22.50', '17.50'])
     const sums = temperature!.findAll('[data-testid="value-details-sum"]')
-    expect(sums).toHaveLength(3)
+    expect(sums).toHaveLength(2)
     for (const sum of sums) {
       expect(sum.text()).toContain('no sum for this parameter')
       expect(sum.find('[aria-hidden="true"]').text()).toBe('—')
     }
-    // the mean's difference is a rise, signed
-    expect(cells(temperature!.get('[data-testid="value-details-difference"]'))).toEqual(['Difference (2 − 1)', '', '+2.00', '+2.00', '+2.00', expect.stringContaining('no sum')])
   })
 
-  it('says the sums are for what adds up, below the table', async () => {
+  it('says why there is no sum where the windows overlap, and says so below the table', async () => {
+    const six = [{ resolution: 'hourly', dataset: 'data', name: 'precipitation_amount_last_6h', unit: 'mm', aggregation: 'sum' as const }]
+    const rows = [{ station_id: '01975', dataset: 'data', parameter: 'precipitation_amount_last_6h', value: 1 }, { station_id: '01975', dataset: 'data', parameter: 'precipitation_amount_last_6h', value: 2 }]
+    const wrapper = await mountDetails(valueDetails(rows, { split: true, stations: [hamburg], parameters: six }))
+    const sum = wrapper.get('[data-testid="value-details-sum"]')
+    expect(sum.text()).toContain('no sum: the windows of this parameter overlap')
+    expect(sum.find('[aria-hidden="true"]').text()).toBe('—')
+    expect(wrapper.get('[data-testid="value-details-sum-note"]').text()).toContain('windows overlap')
+  })
+
+  it('says the sums are for what adds up, below the table, where one is missing', async () => {
     const wrapper = await mountDetails()
     expect(wrapper.get('[data-testid="value-details-sum-note"]').text()).toContain('only for parameters that are amounts per interval')
     const onlyRain = await mountDetails(build(twoStations.slice(0, 4)))
@@ -107,81 +104,119 @@ describe('valueDetails table', () => {
     expect(wrapper.findAll('thead th').map(th => th.text())).not.toContain('Unit')
   })
 
-  it('has no station column and no difference for a point, one row for each parameter', async () => {
+  it('has no station column for a point, one row for each parameter', async () => {
     const wrapper = await mountDetails(build(twoStations, [], false))
     expect(wrapper.findAll('thead th').map(th => th.text())).toEqual(['Dataset', 'Parameter', 'Unit', 'Count', 'Min', 'Max', 'Mean', 'Sum'])
     expect(wrapper.findAll('[data-testid="value-details-row"]')).toHaveLength(2)
-    expect(wrapper.find('[data-testid="value-details-difference"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="value-details-order"]').exists()).toBe(false)
   })
 
-  it('has one station\'s rows with its name and id and no order or difference', async () => {
+  it('has one station\'s rows with its name and id', async () => {
     const wrapper = await mountDetails(build(twoStations.filter(row => row.station_id === '01975'), [hamburg]))
-    expect(wrapper.findAll('[data-testid="value-details-station"]').map(cell => cell.text())).toEqual(['Hamburg-Fuhlsbüttel01975', 'Hamburg-Fuhlsbüttel01975'])
-    expect(wrapper.find('[data-testid="value-details-order"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="value-details-difference"]').exists()).toBe(false)
+    expect(wrapper.findAll('[data-testid="value-details-station"]').map(cell => cell.text())).toEqual(['Hamburg-Fuhlsbüttel, 01975', 'Hamburg-Fuhlsbüttel, 01975'])
   })
 
   it('names a station by its id where it has no name, and shows a missing value as a dash with its words', async () => {
     const wrapper = await mountDetails(build([reading('01975', 'precipitation_amount', 1), reading('03379', 'precipitation_amount', null)], [hamburg, { id: '03379', name: null }]))
     const rows = wrapper.findAll('[data-testid="value-details-row"]')
-    expect(rows[1]!.get('[data-testid="value-details-station"]').text()).toContain('2.03379')
+    expect(rows[1]!.get('[data-testid="value-details-station"]').text()).toBe('03379')
     expect(rows[1]!.text()).toContain('no value')
-    expect(cells(wrapper.get('[data-testid="value-details-difference"]'))).toEqual(['Difference (2 − 1)', '', expect.stringContaining('no value'), expect.stringContaining('no value'), expect.stringContaining('no value'), expect.stringContaining('no value')])
+    expect(rows[1]!.get('[data-testid="value-details-sum"]').text()).toContain('no value')
   })
 
   describe('as a table a screen reader reads', () => {
-    it('is a named region that takes the focus, with a caption, headers with their scope and a station as the header of its row', async () => {
+    it('is a box that takes the focus, named once by its caption, with headers with their scope and a station as the header of its row', async () => {
       const wrapper = await mountDetails()
-      const region = wrapper.get('[role="region"]')
-      expect(region.attributes('tabindex')).toBe('0')
-      expect(region.attributes('aria-label')).toBe('Values Details')
+      const box = wrapper.get('[data-testid="value-details-scroll"]')
+      expect(box.attributes('tabindex')).toBe('0')
+      // the caption names the table; a second name on the box would be read twice
+      expect(box.attributes('aria-label')).toBeUndefined()
+      expect(box.attributes('role')).toBeUndefined()
       expect(wrapper.get('caption').text()).toBe('Values Details')
       expect(wrapper.findAll('thead th').every(th => th.attributes('scope') === 'col')).toBe(true)
       const group = wrapper.get('[data-testid="value-details-group"]')
-      // the parameter heads its rows, the station its own, as the difference does
-      expect(group.findAll('th').map(th => [th.attributes('scope'), th.attributes('rowspan') ?? null])).toEqual([['rowgroup', '3'], ['row', null], ['row', null], ['row', null]])
-      expect(group.findAll('td').slice(0, 2).map(td => td.attributes('rowspan'))).toEqual(['3', '3'])
+      // the parameter heads its rows, each station its own
+      expect(group.findAll('th').map(th => [th.attributes('scope'), th.attributes('rowspan') ?? null])).toEqual([['rowgroup', '2'], ['row', null], ['row', null]])
+      expect(group.findAll('td').slice(0, 2).map(td => td.attributes('rowspan'))).toEqual(['2', '2'])
+    })
+
+    it('keeps a station\'s name and id apart for a screen reader, which reads the comma', async () => {
+      const wrapper = await mountDetails()
+      const cell = wrapper.get('[data-testid="value-details-station"]')
+      const comma = cell.get('.sr-only')
+      expect(comma.text()).toBe(',')
+      // the id follows its name in the order of the page, not only below it on screen
+      expect(cell.text()).toBe('Hamburg-Fuhlsbüttel, 01975')
     })
 
     it('has the parameter as the header of its row where there is one row for it', async () => {
       const wrapper = await mountDetails(build(twoStations, [], false))
       expect(wrapper.get('[data-testid="value-details-group"] th').attributes('scope')).toBe('row')
     })
-
-    it('says the difference by its sign in the text, not by colour: no colour class of a rise or a fall', async () => {
-      const wrapper = await mountDetails()
-      const row = wrapper.get('[data-testid="value-details-difference"]')
-      expect(row.html()).not.toMatch(/text-(red|green|blue|emerald|rose|sky)-/)
-      expect(row.text()).toMatch(/[+−-]/)
-    })
   })
 })
 
+// what each locale's glossary says of the ids below, spelled out rather than read from the glossary the page is held to
+const urban = [
+  { resolution: '10_minutes', dataset: 'urban_wind', name: 'wind_direction_mean_last_10min', unit: '°', aggregation: 'mean' as const },
+  { resolution: '10_minutes', dataset: 'urban_wind', name: 'wind_speed_mean_last_10min', unit: 'm/s', aggregation: 'mean' as const },
+]
+const urbanRows = ['wind_direction_mean_last_10min', 'wind_speed_mean_last_10min'].map(parameter => ({ station_id: '01048', resolution: '10_minutes', dataset: 'urban_wind', parameter, timestamp: '2020-01-01T00:00:00Z', value: 2.5 }))
+const NAMES = {
+  en: { dataset: 'Urban wind', direction: 'Mean wind direction (last 10 min)', speed: 'Mean wind speed (last 10 min)', noSum: 'no sum for this parameter', decimal: '2.50' },
+  de: { dataset: 'Stadtklima: Wind', direction: 'Mittlere Windrichtung (letzte 10 min)', speed: 'Mittlere Windgeschwindigkeit (letzte 10 min)', noSum: 'keine Summe für diesen Parameter', decimal: '2,50' },
+  fr: { dataset: 'Vent urbain', direction: 'Direction moyenne du vent (10 dernières min)', speed: 'Vitesse moyenne du vent (10 dernières min)', noSum: 'pas de somme pour ce paramètre', decimal: '2,50' },
+  pl: { dataset: 'Wiatr miejski', direction: 'Średni kierunek wiatru (ostatnie 10 min)', speed: 'Średnia prędkość wiatru (ostatnie 10 min)', noSum: 'brak sumy dla tego parametru', decimal: '2,50' },
+}
+
 describe('valueDetails table in the language of the page', () => {
-  it.each([
-    ['de', { first: 'erste Hamburg-Fuhlsbüttel (01975)', difference: 'Differenz (2 − 1)', unit: 'Einheit', noSum: 'keine Summe' }],
-    ['fr', { first: 'première Hamburg-Fuhlsbüttel (01975)', difference: 'Différence (2 − 1)', unit: 'Unité', noSum: 'pas de somme' }],
-    ['pl', { first: 'pierwsza Hamburg-Fuhlsbüttel (01975)', difference: 'Różnica (2 − 1)', unit: 'Jednostka', noSum: 'brak sumy' }],
-  ])('names the stations, the difference and the missing sum in %s', async (locale, words) => {
+  it.each(Object.keys(NAMES) as (keyof typeof NAMES)[])('names the dataset and the parameters by the glossary\'s labels, and not by their ids, in %s', async (locale) => {
     await setLocale(locale)
-    const wrapper = await mountDetails()
-    expect(wrapper.get('[data-testid="value-details-order"]').text()).toContain(words.first)
-    expect(wrapper.get('[data-testid="value-details-difference"] th').text()).toBe(words.difference)
-    expect(wrapper.findAll('thead th').map(th => th.text())).toContain(words.unit)
-    expect(wrapper.text()).toContain(words.noSum)
+    const n = NAMES[locale]
+    const wrapper = await mountDetails(valueDetails(urbanRows, { split: true, stations: [{ id: '01048', name: null }], parameters: urban }))
+    const groups = wrapper.findAll('[data-testid="value-details-group"]')
+    // the parameter heads its group of rows, and the dataset is the cell before it (and, on a phone, a line under it)
+    expect(groups.map(group => group.findAll('th')[0]!.text())).toEqual([`${n.direction} ${n.dataset}`, `${n.speed} ${n.dataset}`])
+    expect(groups.map(group => group.findAll('td')[0]!.text())).toEqual([n.dataset, n.dataset])
+    // the raw ids and their prettified forms are nowhere
+    const text = wrapper.text()
+    for (const id of ['wind_direction_mean_last_10min', 'wind_speed_mean_last_10min', 'urban_wind', 'Wind Direction Mean Last 10min', 'Urban Wind'])
+      expect(text, id).not.toContain(id)
+  })
+
+  it('shows the raw ids where plain-language labels are off', async () => {
+    const wrapper = await mountDetails(valueDetails(urbanRows, { split: true, stations: [{ id: '01048', name: null }], parameters: urban }))
+    const { settings } = useSettings()
+    settings.value = { ...settings.value, friendlyLabels: false }
+    try {
+      await wrapper.vm.$nextTick()
+      expect(wrapper.text()).toContain('wind_direction_mean_last_10min')
+      expect(wrapper.text()).toContain('urban_wind')
+    }
+    finally {
+      settings.value = { ...settings.value, friendlyLabels: true }
+    }
+  })
+
+  it.each(Object.keys(NAMES) as (keyof typeof NAMES)[])('writes the numbers with the decimal separator and the missing sum in words of %s', async (locale) => {
+    await setLocale(locale)
+    const n = NAMES[locale]
+    const wrapper = await mountDetails(valueDetails(urbanRows, { split: true, stations: [{ id: '01048', name: null }], parameters: urban }))
+    const row = wrapper.get('[data-testid="value-details-row"]')
+    // `toFixed` writes a point in every language: "2.50" where German, French and Polish read "2,50"
+    expect(row.findAll('td').map(cell => cell.text())).toContain(n.decimal)
+    expect(row.get('[data-testid="value-details-sum"]').text()).toContain(n.noSum)
   })
 
   it.each([
-    // the percent sign is spaced as the language spaces it: "-22,2 %" in German and French, "-22,2%" in Polish
-    ['de', ['22,50', '17,50'], /^[-−]5,00\s*\([-−]22,2\s?%\)$/],
-    ['fr', ['22,50', '17,50'], /^[-−]5,00\s*\([-−]22,2\s?%\)$/],
-    ['pl', ['22,50', '17,50'], /^[-−]5,00\s*\([-−]22,2\s?%\)$/],
-  ])('writes the numbers with the decimal separator of %s, the share with its percent sign', async (locale, sums, difference) => {
+    ['de', { unit: 'Einheit', overlap: 'keine Summe: die Zeitfenster dieses Parameters überlappen sich' }],
+    ['fr', { unit: 'Unité', overlap: 'pas de somme : les fenêtres de ce paramètre se chevauchent' }],
+    ['pl', { unit: 'Jednostka', overlap: 'brak sumy: okna tego parametru nakładają się' }],
+  ])('has the unit column and the reason of overlapping windows in %s', async (locale, words) => {
     await setLocale(locale)
-    const wrapper = await mountDetails()
-    const rain = wrapper.get('[data-testid="value-details-group"]')
-    expect(rain.findAll('[data-testid="value-details-row"]').map(row => row.get('[data-testid="value-details-sum"]').text())).toEqual(sums)
-    expect(rain.get('[data-testid="value-details-difference"] [data-testid="value-details-sum"]').text().replace(/[\xA0\u202F]/g, ' ')).toMatch(difference)
+    const six = [{ resolution: 'hourly', dataset: 'data', name: 'precipitation_amount_last_6h', unit: 'mm', aggregation: 'sum' as const }]
+    const rows = [{ station_id: '01975', dataset: 'data', parameter: 'precipitation_amount_last_6h', value: 1 }]
+    const wrapper = await mountDetails(valueDetails(rows, { split: true, stations: [hamburg], parameters: six }))
+    expect(wrapper.findAll('thead th').map(th => th.text())).toContain(words.unit)
+    expect(wrapper.get('[data-testid="value-details-sum"]').text()).toContain(words.overlap)
   })
 })

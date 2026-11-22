@@ -2,10 +2,12 @@ import type { Aggregation } from '#shared/types/api'
 import { field, fieldText } from './values-export'
 
 // The Explorer's value details (GH-4296): count, min, max, mean and sum of the values shown, of each parameter and, where
-// stations were asked for, of each station, with the difference of two. Pure: the table and the tests read it from here.
+// stations were asked for, of each station. Pure: the table and the tests read it from here.
 
 /** What the answer says of a parameter (`metadata.parameters` of a `with_metadata` answer): the unit its values are in, and what they are relative to their interval */
 export interface ParameterFact {
+  /** The resolution of its rows, which the window its name states is compared with */
+  resolution?: string | null
   dataset: string
   /** The canonical name */
   name: string
@@ -33,26 +35,16 @@ export interface DetailRow {
   sum: number | null
 }
 
-/** The second station's numbers less the first's, each null where either has none */
-export interface DetailDifference {
-  min: number | null
-  max: number | null
-  mean: number | null
-  sum: number | null
-  /** The difference of the sums as a fraction of the first's (0.1 is +10 %); null where the first is 0 or has none */
-  sumShare: number | null
-}
-
 export interface DetailGroup {
   dataset: string
   parameter: string
   /** The unit of the values, where the answer names it */
   unit: string | null
-  /** Whether the sum is shown: the parameter's `aggregation` is `sum` or `count` */
+  /** Whether the sum is shown: the parameter's `aggregation` is one that adds up, and its windows do not overlap */
   sums: boolean
+  /** Why a parameter whose aggregation adds up has no sum: the window its name states is longer than its rows, so the windows of consecutive rows overlap */
+  overlap: boolean
   rows: DetailRow[]
-  /** Of exactly two stations, the second less the first */
-  difference: DetailDifference | null
 }
 
 export interface ValueDetails {
@@ -64,13 +56,49 @@ export interface ValueDetails {
 
 /**
  * The aggregations whose values add up to a total of the period: a rainfall or a sunshine duration (`sum`), the number of
- * hours or days of something (`count`). A mean, a reading, a maximum or a minimum added up means nothing, and so does an
- * aggregation the answer does not state: never guessed from a name.
+ * hours or days of something (`count`) or of days with an event (`occurrence`). A mean, a reading, a maximum or a minimum
+ * added up means nothing, and so does an aggregation the answer does not state: never guessed from a name.
  */
-const SUMMED: ReadonlySet<string> = new Set<Aggregation>(['sum', 'count'])
+const SUMMED: ReadonlySet<string> = new Set<Aggregation>(['sum', 'count', 'occurrence'])
 
 export function sumsUp(aggregation: string | null | undefined): boolean {
   return aggregation != null && SUMMED.has(aggregation)
+}
+
+/** The minutes of a row of each resolution; none for one whose rows have no fixed length (`subdaily` is three readings of a day) */
+const RESOLUTION_MINUTES: Readonly<Record<string, number | undefined>> = {
+  '1_minute': 1,
+  '5_minutes': 5,
+  '6_minutes': 6,
+  '10_minutes': 10,
+  '15_minutes': 15,
+  'hourly': 60,
+  '6_hours': 360,
+  'daily': 1440,
+  'monthly': 28 * 1440,
+  'annual': 365 * 1440,
+}
+
+/** The minutes of the window a canonical name states, `_last_3h` or `_last_10min`: null for a name that states none */
+export function windowMinutes(name: string): number | null {
+  const match = /_last_(\d+)(min|h|d)(?:_|$)/.exec(name)
+  if (!match)
+    return null
+  return Number(match[1]) * { min: 1, h: 60, d: 1440 }[match[2] as 'min' | 'h' | 'd']
+}
+
+/**
+ * Whether the window a name states is longer than the rows it is in, so that each row's total takes in hours the row
+ * before took in, and the sum of the rows counts them twice: `precipitation_amount_last_6h` in hourly rows. A window
+ * the same length as the row (`_last_1h` hourly) does not overlap. Where the rows have no fixed length the windows
+ * cannot be told not to overlap, and are taken to.
+ */
+export function windowsOverlap(name: string, resolution: string | null | undefined): boolean {
+  const window = windowMinutes(name)
+  if (window === null)
+    return false
+  const row = resolution ? RESOLUTION_MINUTES[resolution] : undefined
+  return row === undefined || window > row
 }
 
 interface Running {
@@ -78,18 +106,6 @@ interface Running {
   min: number
   max: number
   sum: number
-}
-
-function difference(first: DetailRow, second: DetailRow, sums: boolean): DetailDifference {
-  const less = (a: number | null, b: number | null) => a === null || b === null ? null : b - a
-  const sum = sums ? less(first.sum, second.sum) : null
-  return {
-    min: less(first.min, second.min),
-    max: less(first.max, second.max),
-    mean: less(first.mean, second.mean),
-    sum,
-    sumShare: sum !== null && first.sum !== null && first.sum !== 0 ? sum / Math.abs(first.sum) : null,
-  }
 }
 
 /**
@@ -162,7 +178,9 @@ export function valueDetails(
   const groups: DetailGroup[] = []
   for (const [key, { dataset, parameter }] of [...parameters].sort(([a], [b]) => a.localeCompare(b))) {
     const fact = facts.get(key)
-    const sums = sumsUp(fact?.aggregation)
+    const adds = sumsUp(fact?.aggregation)
+    const overlap = adds && fact !== undefined && windowsOverlap(fact.name, fact.resolution)
+    const sums = adds && !overlap
     const rowsOf = stations.map((station): DetailRow => {
       const entry = running.get(key)?.get(station.id)
       if (!entry || entry.count === 0)
@@ -174,8 +192,8 @@ export function valueDetails(
       parameter,
       unit: fact?.unit ?? null,
       sums,
+      overlap,
       rows: rowsOf,
-      difference: split && rowsOf.length === 2 ? difference(rowsOf[0]!, rowsOf[1]!, sums) : null,
     })
   }
 

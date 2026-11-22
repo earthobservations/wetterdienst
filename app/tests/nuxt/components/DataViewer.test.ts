@@ -1918,8 +1918,7 @@ describe('dataViewer facets\' station colours', () => {
 
 describe('dataViewer parameter statistics of many values', () => {
   it('takes a parameter of more values than a call takes arguments, where it threw', async () => {
-    const parameters = [{ dataset: '', name: 'precipitation_amount', name_original: 'rsk', unit: 'mm', aggregation: 'sum' }]
-    registerEndpoint('/api/values', () => ({ values: [row], metadata: { parameters } }))
+    registerEndpoint('/api/values', () => ({ values: [row] }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     // past V8's argument limit of about 120k, as 3 years of one station's 10-minute values
@@ -1927,9 +1926,10 @@ describe('dataViewer parameter statistics of many values', () => {
     const rows = Array.from({ length: count }, (_, i) => ({ parameter: 'precipitation_amount', value: i - 100_000 }))
     wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', rows)
     await wrapper.vm.$nextTick()
+    // the mean is the running sum over the count, so the sum is held to it; the rows of a query have no sum of their own
     const sum = (count * (count - 1)) / 2 - count * 100_000
     expect(detailsRows(viewer)).toEqual([
-      { parameter: 'precipitation_amount', dataset: '', count, min: -100_000, max: 99_999, mean: sum / count, sum },
+      { parameter: 'precipitation_amount', dataset: '', count, min: -100_000, max: 99_999, mean: sum / count, sum: null },
     ])
   })
 })
@@ -1950,7 +1950,7 @@ describe('dataViewer value details by station', () => {
     interpolation: { source: 'manual' },
     dateRange: {},
   })
-  interface Details { split: boolean, stations: { id: string, name: string | null }[], groups: { parameter: string, unit: string | null, sums: boolean, rows: { count: number, sum: number | null }[], difference: { mean: number | null, sum: number | null, sumShare: number | null } | null }[] }
+  interface Details { split: boolean, stations: { id: string, name: string | null }[], groups: { parameter: string, unit: string | null, sums: boolean, rows: { count: number, sum: number | null }[] }[] }
   const detailsOf = (viewer: Awaited<ReturnType<typeof mountDataViewer>>['viewer']) => (viewer.vm as unknown as { valueDetails: Details }).valueDetails
 
   it('asks for the answer\'s own facts of the parameters, and for nothing else of the download\'s query', async () => {
@@ -1986,9 +1986,7 @@ describe('dataViewer value details by station', () => {
     const [rain, temperature] = details.groups
     expect(details.groups.map(group => [group.parameter, group.unit, group.sums])).toEqual([['precipitation_amount', 'mm', true], ['temperature_air_mean_2m', '\u00B0C', false]])
     expect(rain!.rows.map(({ count, sum }) => [count, sum])).toEqual([[1, 4], [2, 5]])
-    expect(rain!.difference).toMatchObject({ sum: 1, sumShare: 0.25 })
     expect(temperature!.rows.map(({ count, sum }) => [count, sum])).toEqual([[1, null], [1, null]])
-    expect(temperature!.difference).toMatchObject({ mean: -4, sum: null, sumShare: null })
   })
 
   it('keeps the stations of the request as they were asked for, where the selection moves on while the table stays', async () => {
@@ -2007,10 +2005,31 @@ describe('dataViewer value details by station', () => {
     await fetchData(viewer)
     const [rain] = detailsOf(viewer).groups
     expect(rain!.rows.map(({ count }) => count)).toEqual([1, 0])
-    expect(rain!.difference).toMatchObject({ sum: null, sumShare: null })
   })
 
-  it.each(['interpolation', 'summary'] as const)('takes a %s as one series, with no station and no difference', async (mode) => {
+  it('shows no sum of a window longer than the rows, by the resolution the answer states', async () => {
+    const hourly = { resolution: 'hourly', dataset: 'climate_summary', unit: 'mm', aggregation: 'sum' }
+    registerEndpoint('/api/values', () => ({
+      values: [at('01048', 'precipitation_amount_last_6h', 1), at('01048', 'precipitation_amount_last_1h', 2)],
+      metadata: { parameters: [{ ...hourly, name: 'precipitation_amount_last_6h' }, { ...hourly, name: 'precipitation_amount_last_1h' }] },
+    }))
+    const { viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    expect(detailsOf(viewer).groups.map(group => [group.parameter, group.sums, group.rows[0]!.sum])).toEqual([['precipitation_amount_last_1h', true, 2], ['precipitation_amount_last_6h', false, null]])
+  })
+
+  it('gives rows the query panel has rewritten no unit and no sum, whatever the query did to `value`', async () => {
+    registerEndpoint('/api/values', () => ({ values: [at('01048', 'precipitation_amount', 4), at('01048', 'precipitation_amount', 6)], metadata }))
+    const { wrapper, viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    expect(detailsOf(viewer).groups.map(group => [group.unit, group.sums, group.rows[0]!.sum])).toEqual([['mm', true, 10]])
+    // `SELECT station_id, dataset, parameter, value / 25.4 AS value FROM data`, the rain in inches
+    wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [at('01048', 'precipitation_amount', 4 / 25.4), at('01048', 'precipitation_amount', 6 / 25.4)])
+    await wrapper.vm.$nextTick()
+    expect(detailsOf(viewer).groups.map(group => [group.unit, group.sums, group.rows[0]!.sum, group.rows[0]!.count])).toEqual([[null, false, null, 2]])
+  })
+
+  it.each(['interpolation', 'summary'] as const)('takes a %s as one series, with no station', async (mode) => {
     registerEndpoint(mode === 'interpolation' ? '/api/interpolate' : '/api/summarize', () => ({
       values: [at('', 'precipitation_amount', 2), at('', 'precipitation_amount', 3, 2)],
       metadata,
@@ -2021,7 +2040,6 @@ describe('dataViewer value details by station', () => {
     expect(details.split).toBe(false)
     expect(details.groups).toHaveLength(1)
     expect(details.groups[0]!.rows.map(({ count, sum }) => [count, sum])).toEqual([[2, 5]])
-    expect(details.groups[0]!.difference).toBeNull()
   })
 })
 

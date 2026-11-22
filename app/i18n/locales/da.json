@@ -1059,10 +1059,9 @@
   "valueDetails": {
     "station": "Station",
     "unit": "Enhed",
-    "difference": "Forskel (2 − 1)",
-    "order": "Stationerne i den rækkefølge, de står i listen: første {first}, anden {second}. Forskellen er den anden station minus den første, i parameterens enhed; for en sum angives den også som andel af den første stations sum.",
-    "sumNote": "En sum vises kun for parametre, der er mængder pr. interval, som nedbør eller solskinstimer. For et gennemsnit, en aflæsning, et maksimum eller et minimum ville den ikke betyde noget.",
+    "sumNote": "En sum vises kun for parametre, der er mængder pr. interval, som nedbør eller solskinstimer, og ikke hvor en parameters vindue er længere end dens rækker (en total over 6 timer i timerækker): vinduerne overlapper. For et gennemsnit, en aflæsning, et maksimum eller et minimum ville den ikke betyde noget.",
     "noSum": "ingen sum for denne parameter",
+    "noSumOverlap": "ingen sum: vinduerne for denne parameter overlapper",
     "noValue": "ingen værdi"
   },
   "stationTable": {

@@ -1059,10 +1059,9 @@
   "valueDetails": {
     "station": "Estación",
     "unit": "Unidad",
-    "difference": "Diferencia (2 − 1)",
-    "order": "Las estaciones en el orden de la lista: primera {first}, segunda {second}. La diferencia es la segunda estación menos la primera, en la unidad del parámetro; para una suma se da también como porcentaje de la suma de la primera estación.",
-    "sumNote": "Solo se muestra una suma para los parámetros que son cantidades por intervalo, como la precipitación o la duración de la insolación. Para una media, una lectura, un máximo o un mínimo no tendría ningún significado.",
+    "sumNote": "Solo se muestra una suma para los parámetros que son cantidades por intervalo, como la precipitación o la duración de la insolación, y no donde la ventana de un parámetro es más larga que sus filas (un total de 6 horas en filas horarias): las ventanas se solapan. Para una media, una lectura, un máximo o un mínimo no tendría ningún significado.",
     "noSum": "sin suma para este parámetro",
+    "noSumOverlap": "sin suma: las ventanas de este parámetro se solapan",
     "noValue": "sin valor"
   },
   "stationTable": {
