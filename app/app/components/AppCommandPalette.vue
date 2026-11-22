@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import type { Station } from '#shared/types/api'
+import type { Station, StationIdsResponse, StationIdsStation } from '#shared/types/api'
 import type { Place } from '~/composables/usePlace'
 import type { PaletteGroup, PaletteItem } from '~/utils/palette'
 import type { Hit } from '~/utils/search-index'
 import type { Tile } from '~/utils/sections'
+import type { TypedStationId } from '~/utils/station-hits'
+import type { SearchNetwork, StationMatch, StationSearchAnswer } from '~/utils/station-search'
 import { DateTime } from 'luxon'
 import { PLACE_NETWORK, placeOf } from '~/composables/usePlace'
 import { readChoices } from '~/utils/ask/chip'
 import { coordinatesText, hemispheresOf, mapAtPoint, parseCoordinates } from '~/utils/coordinates'
-import { countsByGroup, filterGroups, GROUP_LIMITS, itemOfHit, limitItems, orderGroups } from '~/utils/palette'
+import { countsByGroup, filterGroups, GROUP_LIMITS, itemOfHit, limitCounted, limitItems, orderGroups } from '~/utils/palette'
 import { EXTERNAL, HOME, LEGAL, MAP_TOOL, PROJECT, REFERENCE, TOOLS } from '~/utils/sections'
+import { itemOfIdRow, itemOfStation, moreStationsLink, parseStationId, sortedIdRows, STATION_NETWORKS } from '~/utils/station-hits'
 
 // The command palette of the search (GH-3518), inside the dialog of AppSearch.vue. One field that goes to every page
 // (each with the line that says what it is for), to a provider's page, to the forecast of a station found by its
@@ -21,8 +24,16 @@ import { EXTERNAL, HOME, LEGAL, MAP_TOOL, PROJECT, REFERENCE, TOOLS } from '~/ut
 // there are is said in a polite live region. The list is the one scrolling box, and takes the focus by Tab too, so a
 // keyboard can scroll it (WCAG 2.1.1); there its keys are the field's.
 //
-// The stations come from the backend (`GET /api/stations` with `name`, its best five matches), from three letters
-// on and a moment after the last key; the rest is matched here (utils/palette.ts).
+// The stations (GH-3790) are looked for by name in the lists the reader chose in the settings ("Stations in the search"), from three letters
+// on and a moment after the last key, and the browser never downloads a list for it. The forecast's points (DWD MOSMIX) are asked of the
+// backend by name (`GET /api/stations?name=`, its best five), as they always were. NOAA GHCN daily (133k stations) and, where the reader
+// turned them on, DWD's measuring stations are matched by the app's own server (`GET /_search/stations?q=&lists=`, `server/utils/stationSearch.ts`),
+// which keeps them in memory (the GHCN one is the list of the map's own route) and answers the best few of each with how many there are. Each
+// list is a group, each result names the provider and the network and leads to the map with the station picked, and a last option leads to
+// the map's own search. A WMO number (five digits), a WIGOS identifier or an ICAO code typed in is also offered, never run on its own, to
+// every network at once whatever the settings say (`GET /api/station-ids`, which reads about 30 MB of station lists, 9 s cold): Enter on
+// "Search all networks for ..." runs it and the stations it finds are listed as a group, each leading to the map where it shows the
+// network and else to the Explorer. The rest is matched here (utils/palette.ts).
 //
 // The words of the app (GH-3790) are matched here too, in the browser: a full-text index of the pages built with the app
 // (`modules/search-index`), the glossary the backend gives, the questions of "Ask the weather" and a position typed in
@@ -52,15 +63,150 @@ const listId = useId()
 const placeMode = computed(() => props.mode === 'place')
 const MIN_STATION_QUERY = computed(() => placeMode.value ? 2 : 3)
 const { setPlace } = usePlace()
+/** The places of the questions (the place mode): the backend's matches of DWD's measuring stations */
 const stations = ref<Station[]>([])
+/** The stations of the lists the reader chose that the search finds by name (the search mode): the forecast's points of the backend, the others as the app's server matched them (GH-3790) */
+const stationAnswer = shallowRef<StationSearchAnswer | null>(null)
 const stationsPending = ref(false)
 const stationsFailed = ref(false)
 let stationTicket = 0
 // a search typed just before the dialog closed asks for nothing once it is gone
 let closed = false
+/** The request for the stations in flight, and the timer that asks again for a list that is still being read */
+let nameSearch: AbortController | null = null
+let nameRetry: ReturnType<typeof setTimeout> | undefined
+/** How long the search waits before it asks the server again for a network whose list is still being read (GHCN daily's is 3 s when the backend is warm, a minute when it is not), and how often */
+const RETRY_AFTER_MS = 3000
+const MAX_RETRIES = 25
+/** The search of every network for an id in flight */
+let idSearchRequest: AbortController | null = null
 onBeforeUnmount(() => {
   closed = true
+  nameSearch?.abort()
+  idSearchRequest?.abort()
+  clearTimeout(nameRetry)
 })
+
+/** The lists of stations the reader chose in the settings ("Stations in the search", GH-3790), which are the ones asked for */
+const { settings } = useSettings()
+/** The forecast's points are asked of the backend by name, as they always were; the lists of the other two are the app server's, which is told which */
+const SERVED = ['measured', 'ghcn'] as const
+
+/** The best few stations of the forecast's points for a text, from the backend's own search by name (its best five): null where it could not be asked */
+async function forecastStations(text: string, signal: AbortSignal): Promise<StationMatch[] | null> {
+  try {
+    const answer = await $fetch<{ stations: Station[] }>('/api/stations', {
+      query: { provider: 'dwd', network: 'mosmix', parameters: 'hourly/large', name: text },
+      signal,
+      retry: 0,
+      ...API_ANSWER,
+    })
+    return (answer.stations ?? []).slice(0, 5).map(station => ({
+      station_id: station.station_id,
+      name: station.name ?? null,
+      latitude: station.latitude ?? 0,
+      longitude: station.longitude ?? 0,
+      wmo_id: station.wmo_id ?? null,
+      first_year: null,
+      last_year: null,
+      reporting: true,
+    }))
+  }
+  catch {
+    return null
+  }
+}
+
+/** The best few stations of the lists of the app's server that were chosen for a text, or null where it could not be asked */
+async function servedStations(text: string, lists: string[], signal: AbortSignal): Promise<StationSearchAnswer | null> {
+  try {
+    return await $fetch<StationSearchAnswer>('/_search/stations', { query: { q: text, limit: GROUP_LIMITS.stations! + 1, lists: lists.join(',') }, signal, retry: 0, ...API_ANSWER })
+  }
+  catch {
+    return null
+  }
+}
+
+/**
+ * Asks for the best stations of the lists the reader chose (the search mode): the forecast's points of the backend, the others of the
+ * app's server, each at once; a list of the server that is still being read is asked for again after a pause, and after the last attempt
+ * it is one that could not be read. A list that is not chosen is not asked for.
+ */
+async function searchNames(text: string, ticket: number, attempt = 0, forecast?: StationMatch[] | null) {
+  nameSearch?.abort()
+  const controller = nameSearch = new AbortController()
+  const chosen = settings.value.searchStations
+  const served = SERVED.filter(list => chosen[list])
+  const wantsForecast = chosen.forecast
+  // the forecast's answer of the first attempt is kept for the ones that follow: only the lists of the server are asked for again
+  const forecastAsked = wantsForecast ? (attempt === 0 ? forecastStations(text, controller.signal) : Promise.resolve(forecast ?? null)) : Promise.resolve(undefined)
+  const servedAsked = served.length ? servedStations(text, served, controller.signal) : Promise.resolve(undefined)
+  /** Whether the answer is still wanted: not given up for a newer text, nor the dialog gone */
+  const wanted = () => ticket === stationTicket && !controller.signal.aborted
+
+  /** Makes what is known of the answer the one that is shown: `own` is undefined where the server's lists are not asked for or are still being read (`waiting`) */
+  function publish(mosmix: StationMatch[] | null | undefined, own: StationSearchAnswer | null | undefined, waiting: boolean) {
+    const failed: SearchNetwork[] = [...(own === null ? served : own?.failed ?? []), ...(mosmix === null ? ['forecast' as const] : [])]
+    // the lists of the server that have not answered yet are still being read
+    const pending: SearchNetwork[] = waiting ? [...served] : own?.pending ?? []
+    // everything that was asked for could not be: no answer, which is said
+    if ((!wantsForecast || mosmix === null) && (!served.length || own === null)) {
+      stationAnswer.value = null
+      stationsFailed.value = true
+      return pending
+    }
+    stationsFailed.value = false
+    const networks: StationSearchAnswer['networks'] = []
+    if (mosmix && mosmix.length)
+      networks.push({ network: 'forecast', total: mosmix.length, stations: mosmix })
+    networks.push(...(own?.networks ?? []))
+    const retrying = waiting || (pending.length > 0 && attempt < MAX_RETRIES)
+    stationAnswer.value = {
+      query: text,
+      networks,
+      pending: retrying ? pending : [],
+      // a list that is still not there after the last attempt is one that could not be read, which is said, and which a new text asks for again
+      failed: retrying ? failed : [...failed, ...pending],
+    }
+    return pending
+  }
+
+  if (!wantsForecast && !served.length) {
+    stationAnswer.value = null
+    stationsFailed.value = false
+    stationsPending.value = false
+    return
+  }
+  // the forecast's points are the backend's and answer at once: they are shown as soon as they are there, and not held behind the server's
+  // wait for a list that is being read (5 s for GHCN daily on a cold start)
+  let mosmix: StationMatch[] | null | undefined
+  if (served.length && wantsForecast && attempt === 0) {
+    mosmix = await forecastAsked
+    if (ticket !== stationTicket)
+      return
+    stationsPending.value = false
+    if (controller.signal.aborted)
+      return
+    publish(mosmix, undefined, true)
+  }
+  const [forecastDone, own] = await Promise.all([forecastAsked, servedAsked])
+  mosmix = forecastDone
+  if (ticket !== stationTicket)
+    return
+  stationsPending.value = false
+  if (!wanted())
+    return
+  const pending = publish(mosmix, own, false)
+  if (pending.length > 0 && attempt < MAX_RETRIES)
+    nameRetry = setTimeout(() => void (!closed && ticket === stationTicket && searchNames(text, ticket, attempt + 1, mosmix)), RETRY_AFTER_MS)
+}
+
+// a key that changes what is asked gives up what is in flight for the text before it: the answer is no longer wanted
+watch(query, () => {
+  nameSearch?.abort()
+  clearTimeout(nameRetry)
+})
+
 watchDebounced(query, async (value) => {
   if (closed)
     return
@@ -68,6 +214,7 @@ watchDebounced(query, async (value) => {
   const ticket = ++stationTicket
   if (text.length < MIN_STATION_QUERY.value) {
     stations.value = []
+    stationAnswer.value = null
     stationsPending.value = false
     // a failure was of the text before: the text now is a hint, announced as one
     stationsFailed.value = false
@@ -75,19 +222,16 @@ watchDebounced(query, async (value) => {
   }
   stationsPending.value = true
   stationsFailed.value = false
+  if (!placeMode.value) {
+    await searchNames(text, ticket)
+    return
+  }
   try {
-    const answer = await $fetch<{ stations: Station[] }>('/api/stations', {
-      query: placeMode.value
-        ? { ...PLACE_NETWORK, name: text }
-        : { provider: 'dwd', network: 'mosmix', parameters: 'hourly/large', name: text },
-      ...API_ANSWER,
-    })
+    const answer = await $fetch<{ stations: Station[] }>('/api/stations', { query: { ...PLACE_NETWORK, name: text }, ...API_ANSWER })
     if (ticket === stationTicket) {
       // a station that stopped reporting years ago has no recent weather to ask about
       const recent = Date.now() - 2 * 365 * 86_400_000
-      stations.value = placeMode.value
-        ? (answer.stations ?? []).filter(station => !station.end_timestamp || Date.parse(station.end_timestamp) > recent).slice(0, 8)
-        : (answer.stations ?? []).slice(0, 5)
+      stations.value = (answer.stations ?? []).filter(station => !station.end_timestamp || Date.parse(station.end_timestamp) > recent).slice(0, 8)
     }
   }
   catch {
@@ -255,34 +399,118 @@ const pageGroups = computed<PaletteGroup[]>(() => {
   ]
 })
 
-// the stations are the backend's matches already, as the places are; the pages and actions are matched here
-const stationGroups = computed<PaletteGroup[]>(() => [
-  {
-    id: 'stations',
-    label: t('shell.stations'),
-    items: stations.value.map(station => ({
-      id: `station-${station.station_id}`,
-      label: station.name ?? station.station_id,
-      description: t('shell.stationForecast', { id: station.station_id }),
-      icon: 'i-ph-sun-fill',
-      tile: 'sun',
-      to: `/meteogram?station=${station.station_id}`,
-    })),
-  },
-  // the same stations, opened on the map: the map takes a forecast station of its address (`?station=`)
-  {
-    id: 'stations-map',
-    label: t('shell.stationsMap'),
-    items: stations.value.map(station => ({
-      id: `station-map-${station.station_id}`,
-      label: station.name ?? station.station_id,
-      description: t('shell.stationOnMap', { id: station.station_id }),
-      icon: MAP_TOOL.icon,
-      tile: MAP_TOOL.tile,
-      to: `${MAP_TOOL.to}?station=${station.station_id}`,
-    })),
-  },
-])
+// ---- the stations (GH-3790) ----------------------------------------------------------------------------------------
+
+/** What the lines of a station say, in the reader's language */
+const stationWords = computed(() => ({
+  network: (network: SearchNetwork) => t(`shell.stationNetworks.${network}`),
+  ended: (year: number) => t('shell.stationEnded', { year }),
+}))
+const STATION_HEADINGS = { forecast: 'shell.stationsForecast', measured: 'shell.stationsMeasured', ghcn: 'shell.stationsGhcn' } as const
+/** The icons the map's layers have in its panel */
+const STATION_ICONS = { forecast: 'i-ph-sun', measured: 'i-ph-thermometer-simple', ghcn: 'i-ph-globe-hemisphere-west' } as const
+const LAYER_LABELS = { forecast: 'mapTool.layerForecast', measured: 'mapTool.layerMeasured', ghcn: 'mapTool.layerGhcn' } as const
+
+// the stations are the server's matches already, as the places are; the pages and actions are matched here
+const stationGroups = computed<PaletteGroup[]>(() => {
+  const answer = stationAnswer.value
+  if (!answer || !text.value)
+    return []
+  return answer.networks.map((found) => {
+    const info = STATION_NETWORKS[found.network]
+    const items = found.stations.map(station => itemOfStation(found.network, station, stationWords.value, STATION_ICONS[found.network]))
+    const more = (hidden: number): PaletteItem => ({
+      id: `more-${info.group}`,
+      label: t('shell.moreOnMap', { count: hidden, network: t(LAYER_LABELS[found.network]) }),
+      icon: 'i-ph-arrow-right',
+      to: moreStationsLink(found.network, answer.query),
+      more: true,
+    })
+    // the backend's search by name gives its best five and no count: they are all shown, and the map's own search has the rest
+    const shown = found.network === 'forecast' ? items : limitCounted(items, found.total, GROUP_LIMITS.stations!, more)
+    return { id: info.group, label: t(STATION_HEADINGS[found.network]), items: shown }
+  })
+})
+
+/** What is typed, where it is an id of WMO's or ICAO's schemes: offered to every network, not run for it */
+const typedId = computed(() => placeMode.value ? null : parseStationId(text.value))
+/** The search of every network for an id: running, answered (with the stations, maybe none) or failed */
+interface IdSearch {
+  id: string
+  status: 'running' | 'done' | 'failed'
+  rows: StationIdsStation[]
+}
+const idSearch = shallowRef<IdSearch | null>(null)
+const explorerTool = TOOLS.find(tool => tool.key === 'explorer')
+
+async function searchAllNetworks(typed: TypedStationId) {
+  idSearchRequest?.abort()
+  const controller = idSearchRequest = new AbortController()
+  idSearch.value = { id: typed.id, status: 'running', rows: [] }
+  try {
+    const answer = await $fetch<StationIdsResponse>('/api/station-ids', { query: { [typed.param]: typed.id }, signal: controller.signal, retry: 0, ...API_ANSWER })
+    if (controller.signal.aborted)
+      return
+    idSearch.value = { id: typed.id, status: 'done', rows: sortedIdRows(answer.stations ?? []) }
+  }
+  catch {
+    if (!controller.signal.aborted)
+      idSearch.value = { id: typed.id, status: 'failed', rows: [] }
+  }
+}
+
+// a text that is no longer the id that was searched for gives up the search, and its stations are gone with it
+watch(typedId, (typed) => {
+  if (idSearch.value && idSearch.value.id !== typed?.id) {
+    idSearchRequest?.abort()
+    idSearch.value = null
+  }
+})
+
+/**
+ * The group of the search of every network for the id that is typed, or of the stations it found. Four letters are a word as often as a code
+ * (`wind`, `kiel`, `dark`): where they are not typed in capitals, as a code is, the offer for them is made only where nothing else answers the
+ * text, once the stations and the index of the words are in; and it follows what else is found, so that Enter is never taken for it.
+ *
+ * @param others - How many results the text has apart from this group
+ * @param settled - Whether the stations and the words of the text have been looked for
+ */
+function idGroupsFor(others: number, settled: boolean): PaletteGroup[] {
+  const typed = typedId.value
+  if (!typed)
+    return []
+  const search = idSearch.value?.id === typed.id ? idSearch.value : null
+  if (!search && typed.kind === 'icao' && typed.id !== text.value && !(settled && others === 0))
+    return []
+  const label = t('shell.stationsWithId', { id: typed.id })
+  if (search?.status === 'done' && search.rows.length) {
+    const providers = new Map((providerList.value?.providers ?? []).map(provider => [provider.provider, provider.name_short]))
+    const words = (provider: string) => ({ provider: providers.get(provider) ?? provider.toUpperCase(), network: stationWords.value.network, opensExplorer: t('shell.opensExplorer') })
+    return [{
+      id: 'station-ids',
+      label,
+      items: search.rows.map(row => itemOfIdRow(row, words(row.provider), { map: MAP_TOOL.icon, explorer: explorerTool?.icon ?? 'i-ph-arrow-right' })),
+    }]
+  }
+  const hint = !search
+    ? t('shell.searchAllNetworksHint')
+    : search.status === 'running'
+      ? t('shell.searchingAllNetworks')
+      : search.status === 'failed' ? t('shell.allNetworksFailed') : t('shell.allNetworksNone', { id: typed.id })
+  return [{
+    id: typed.kind === 'icao' ? 'station-ids-icao' : 'station-ids',
+    // what it is, until it has found stations: a group of one option that asks every network
+    label: t('shell.allNetworksGroup'),
+    items: [{
+      id: 'station-ids-search',
+      label: t('shell.searchAllNetworks', { id: typed.id }),
+      description: hint,
+      icon: 'i-ph-globe-hemisphere-west',
+      keepOpen: true,
+      run: () => void searchAllNetworks(typed),
+    }],
+  }]
+}
 
 const placesGroup = computed<PaletteGroup>(() => ({
   id: 'places',
@@ -314,7 +542,9 @@ const shown = computed<PaletteGroup[]>(() => {
     else
       matched.push({ id: 'project', label: t('shell.project'), items })
   }
-  return orderGroups([...placeGroup.value, ...stationGroups.value, ...matched, ...wordGroups.value])
+  const found = [...placeGroup.value, ...stationGroups.value, ...matched, ...wordGroups.value]
+  const settled = !stationsPending.value && !site?.loading.value && !stationAnswer.value?.pending.length
+  return orderGroups([...found, ...idGroupsFor(found.reduce((sum, group) => sum + group.items.length, 0), settled)])
 })
 const flat = computed(() => shown.value.flatMap(group => group.items))
 const optionId = (item: PaletteItem) => `${listId}-${item.id}`
@@ -323,6 +553,15 @@ const activeId = computed(() => active.value ? optionId(active.value) : undefine
 
 watch(query, () => {
   activeIndex.value = 0
+})
+// the stations that the search of every network found are what the reader asked for: the first of them is the active option
+watch(idSearch, async (search) => {
+  if (search?.status !== 'done' || !search.rows.length)
+    return
+  await nextTick()
+  const first = flat.value.findIndex(item => item.id.startsWith('station-id-'))
+  if (first !== -1)
+    activeIndex.value = first
 })
 watch(activeId, async (id) => {
   await nextTick()
@@ -338,6 +577,9 @@ const status = computed(() => {
       return t('ask.placeFailed')
     return query.value.trim().length < MIN_STATION_QUERY.value ? t('ask.placeHint') : t('shell.resultsCount', flat.value.length)
   }
+  // the search of every network for an id takes seconds: said while it runs, and again when it is done by the count of what it found
+  if (idSearch.value?.status === 'running' && idSearch.value.id === typedId.value?.id)
+    return t('shell.searchingAllNetworks')
   // what is typed is searched when the index of the pages is there (GH-3790)
   if (text.value && site?.loading.value && !flat.value.length)
     return t('common.loading')
@@ -345,7 +587,12 @@ const status = computed(() => {
   const count = t('shell.resultsCount', flat.value.filter(item => !item.more).length)
   const typed = text.value.length
   const groupsSaid = typed > 0 && flat.value.length ? `${count}. ${countsByGroup(shown.value, (group, number) => t('shell.resultsIn', { group, count: number }))}` : count
-  return typed > 0 && typed < MIN_STATION_QUERY.value ? `${groupsSaid}. ${t('shell.stationsHint')}` : groupsSaid
+  const said = typed > 0 && typed < MIN_STATION_QUERY.value ? `${groupsSaid}. ${t('shell.stationsHint')}` : groupsSaid
+  // a list of stations that is still being read, or could not be, is said: the results may grow, or lack a network's
+  const answer = typed >= MIN_STATION_QUERY.value ? stationAnswer.value : null
+  if (answer?.pending.length)
+    return `${said}. ${t('shell.stationListReading')}`
+  return stationsFailed.value || answer?.failed.length ? `${said}. ${t('shell.stationListFailed')}` : said
 })
 
 const emptyText = computed(() => {
@@ -357,7 +604,9 @@ const emptyText = computed(() => {
 function choose(item: PaletteItem | undefined) {
   if (!item)
     return
-  emit('done')
+  // an action that works on, as the search of every network does, leaves the search open to show what it finds
+  if (!item.keepOpen)
+    emit('done')
   if (item.run)
     item.run()
   else if (item.external && item.to)

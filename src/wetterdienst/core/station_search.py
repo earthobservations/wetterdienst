@@ -20,12 +20,16 @@ A row says which of its ids matched (``matched_by``) and whether the id searched
 
 A network that fails is a warning that names it and the others answer; if every network that was asked fails the
 search raises an `UpstreamError` that names them, since an outage is no answer of no station. One that needs
-credentials the settings do not hold is a warning too, and is not counted as asked. A 429 is never swallowed: the
-search raises the `ProviderRateLimitError`.
+credentials the settings do not hold is a warning too, and is not counted as asked. A network that answers 429 is a
+warning as well (`network-rate-limited`: it names the network and the wait the provider asks for) and the others
+answer: the search asks eighteen providers, and one that limits this installation must not take the other seventeen
+down (GH-4303). Only if every network that was asked failed or was rate-limited is it an error, and with one 429 among
+them it is the `ProviderRateLimitError` (the longest wait of them), not the `UpstreamError`, since the same search can
+succeed once the limit resets. A single request of one provider keeps the rule: a 429 is never swallowed.
 
 The hits of a network whose list names stations that have no data (`noaa/ghcn`, read without its inventory) are
-checked one by one for the file of the station, and a station with none is no row. A check that cannot be made keeps
-the row and is a warning.
+checked one by one for the file of the station, and a station with none is no row. A check that cannot be made, a 429
+included, keeps the row and is a warning.
 """
 
 from __future__ import annotations
@@ -78,6 +82,8 @@ MAX_WORKERS = 8
 
 #: the code of the warning that names a network whose list could not be read, which the others answer without
 NETWORK_FAILED = "network-failed"
+#: the code of the warning that names a network that answered 429, which the others answer without (GH-4303)
+NETWORK_RATE_LIMITED = "network-rate-limited"
 #: the code of the warning that names a network that needs credentials the settings do not hold
 NETWORK_NOT_CONFIGURED = "network-not-configured"
 #: the code of the warning that names the stations of a hit list whose data file could not be checked, which stay in the
@@ -110,7 +116,7 @@ COLUMNS = [
 
 _ID_COLUMNS: tuple[StationIdColumn, ...] = ("wmo_id", "wigos_id", "icao_id")
 
-Status = Literal["searched", "failed", "not-configured"]
+Status = Literal["searched", "failed", "not-configured", "rate-limited"]
 
 
 @dataclass(frozen=True)
@@ -137,7 +143,7 @@ class StationIdSearchResult:
     """The answer of `find_stations_by_id`: the stations, and what was asked and how it went.
 
     `df` has one row per station and network (`COLUMNS`), sorted by provider, network and station id. `searched` names
-    each network that was asked, whether it answered, failed or was not configured.
+    each network that was asked, whether it answered, failed, was rate-limited or was not configured.
     """
 
     #: the ids as given, each in the notation of its column
@@ -203,6 +209,11 @@ def _reason_of(error: Exception, name: str) -> str:
     return "an unexpected error occurred; the server's log has it"
 
 
+def _wait_of(error: ProviderRateLimitError) -> str:
+    """Say the wait a provider asks for, as `Retry-After` would: in seconds, or that none was given."""
+    return f"retry after {error.retry_after} s" if error.retry_after else "the provider names no wait"
+
+
 def _one_line(error: BaseException) -> str:
     """Give an error as one line of text that names its kind, for the warning of a network that failed."""
     text = " ".join(str(error).split())
@@ -252,6 +263,8 @@ class _Outcome:
     network: SearchedNetwork
     frame: pl.DataFrame | None = None
     warnings: list[ResponseWarning] = field(default_factory=list)
+    #: the 429 of a network that was rate-limited, for the wait it asks and for the error a search of nothing raises
+    rate_limit: ProviderRateLimitError | None = None
 
 
 def _submit(pool: ThreadPoolExecutor, fn: Callable[P, T], *args: P.args, **kwargs: P.kwargs) -> Future[T]:
@@ -263,9 +276,8 @@ def _submit(pool: ThreadPoolExecutor, fn: Callable[P, T], *args: P.args, **kwarg
 def _read_networks(declared: list[tuple[str, str, StationIdList]], settings: Settings) -> list[_Outcome]:
     """Read the declared list of every network at once, in the order they are declared.
 
-    A network that fails, or needs credentials the settings do not hold, is an outcome that says so, and the others
-    are read all the same. A 429 is the one failure that ends the search: it is raised (`ProviderRateLimitError`) once
-    the reads that are running are done.
+    A network that fails, answers 429 or needs credentials the settings do not hold is an outcome that says so, and the
+    others are read all the same (GH-4303).
     """
     outcomes: list[_Outcome] = []
     with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="station-id-search") as pool:
@@ -284,10 +296,9 @@ def _read_networks(declared: list[tuple[str, str, StationIdList]], settings: Set
             where = (provider, network, lister.resolution, lister.dataset, lister.ids)
             try:
                 frame, recorded = future.result()
-            except ProviderRateLimitError:
-                for *_, other in futures:
-                    other.cancel()
-                raise
+            except ProviderRateLimitError as e:
+                message = f"{e.reason.rstrip('.')}; {_wait_of(e)}"
+                outcomes.append(_Outcome(SearchedNetwork(*where, "rate-limited", None, message), rate_limit=e))
             except CredentialMissingError as e:
                 outcomes.append(_Outcome(SearchedNetwork(*where, "not-configured", None, str(e))))
             except Exception as e:  # noqa: BLE001
@@ -440,7 +451,9 @@ def find_stations_by_id(
         TypeError: an id is neither a text nor a number.
         UpstreamError: every network that was asked failed, so that the search knows nothing: it names them. A network
             that fails while others answer is a warning of the answer.
-        ProviderRateLimitError: a provider refused for asking too often (a 429), which is never swallowed.
+        ProviderRateLimitError: every network that was asked failed or was rate-limited (a 429), and at least one was
+            rate-limited: it carries the longest wait asked for. A network that answers 429 while others answer is a
+            `network-rate-limited` warning of the answer.
 
     """
     if wmo_id is None and wigos_id is None and icao_id is None:
@@ -478,6 +491,10 @@ def find_stations_by_id(
             message = f"{name} needs credentials the settings do not hold, so it is not searched: {network.message}"
             warnings.append({"code": NETWORK_NOT_CONFIGURED, "message": message})
             warn_response(log, NETWORK_NOT_CONFIGURED, message)
+        elif network.status == "rate-limited":
+            message = f"{name} is rate-limited and is not searched: {network.message}"
+            warnings.append({"code": NETWORK_RATE_LIMITED, "message": message})
+            warn_response(log, NETWORK_RATE_LIMITED, message)
         elif network.status == "failed":
             message = f"{name} could not be read and is not searched: {network.message}"
             warnings.append({"code": NETWORK_FAILED, "message": message})
@@ -508,17 +525,33 @@ def find_stations_by_id(
 
 
 def _raise_if_nothing_was_read(outcomes: list[_Outcome]) -> None:
-    """Raise the `UpstreamError` of a search in which every network that was asked failed.
+    """Raise the error of a search in which every network that was asked failed or was rate-limited.
 
     An answer of no station, with a warning for each network, would read as there being no such station: an outage is
-    no data. A network that is merely not configured was never asked and does not count; with none asked at all (no key
-    is held and nothing else declares a list) there is nothing that failed.
+    no data. With a 429 among them it is the `ProviderRateLimitError` (the REST API answers it as it answers a 429
+    today, a 503 with `Retry-After`), which carries the longest wait of the 429s, since the search is worth repeating
+    once all of them have reset; with none it is the `UpstreamError` that names the networks. A network that is merely
+    not configured was never asked and does not count; with none asked at all (no key is held and nothing else
+    declares a list) there is nothing that failed.
     """
-    asked = [outcome.network for outcome in outcomes if outcome.network.status != "not-configured"]
-    if asked and all(network.status == "failed" for network in asked):
-        named = "; ".join(f"{network.provider}/{network.network} ({network.message})" for network in asked)
+    asked = [outcome for outcome in outcomes if outcome.network.status != "not-configured"]
+    if not asked or any(outcome.network.status == "searched" for outcome in asked):
+        return
+    named = "; ".join(
+        f"{outcome.network.provider}/{outcome.network.network} ({outcome.network.message})" for outcome in asked
+    )
+    limited = [outcome.rate_limit for outcome in asked if outcome.rate_limit is not None]
+    if not limited:
         msg = f"None of the {len(asked)} networks that were asked could be read, so nothing is known of the id: {named}"
         raise UpstreamError(msg)
+    waits = [error.retry_after for error in limited if error.retry_after]
+    longest = max(waits) if waits else None
+    again = f"; the longest wait asked for is {longest} s" if longest else ""
+    reason = (
+        f"None of the {len(asked)} networks that were asked could be read, {len(limited)} of them because the "
+        f"provider limits how often this installation asks, so nothing is known of the id: {named}{again}"
+    )
+    raise ProviderRateLimitError(limited[0].url, reason, longest)
 
 
 _Hit = tuple[str, str, str]
@@ -555,10 +588,12 @@ def _check_files(
 ) -> tuple[set[_Hit], dict[str, list[tuple[str, str]]]]:
     """Ask each hit's network whether the station has its file: the hits that have none, and the checks that failed.
 
-    A 429 is raised; any other failure is kept with its reason, by network, for the warning.
+    A failure is kept with its reason, by network, for the warning, and so is a 429 (GH-4303): the row stays, and the
+    checks of that network that have not begun are not made, so that the host that refused is not asked again.
     """
     gone: set[_Hit] = set()
     failed: dict[str, list[tuple[str, str]]] = {}
+    limited: dict[str, str] = {}
     with ThreadPoolExecutor(max_workers=MAX_WORKERS, thread_name_prefix="station-file-check") as pool:
         futures = [
             (hit, _submit(pool, requests[(hit[0], hit[1])]._station_file_exists, hit[2]))  # noqa: SLF001
@@ -566,12 +601,20 @@ def _check_files(
         ]
         for hit, future in futures:
             provider, network, station_id = hit
+            name = f"{provider}/{network}"
+            if future.cancelled():
+                failed.setdefault(name, []).append((station_id, limited[name]))
+                continue
             try:
                 exists = future.result()
-            except ProviderRateLimitError:
-                for _, other in futures:
-                    other.cancel()
-                raise
+            except ProviderRateLimitError as e:
+                reason = f"rate-limited: {e.reason.rstrip('.')}; {_wait_of(e)}"
+                limited.setdefault(name, reason)
+                failed.setdefault(name, []).append((station_id, reason))
+                for other_hit, other in futures:
+                    if other_hit[:2] == (provider, network):
+                        other.cancel()
+                continue
             except Exception as e:  # noqa: BLE001
                 reason = _reason_of(e, f"the data file of {station_id} of {provider}/{network}")
                 failed.setdefault(f"{provider}/{network}", []).append((station_id, reason))
@@ -589,8 +632,8 @@ def _without_stations_that_have_no_file(
 
     A list that names stations without data (GHCN's, read without the inventory) is checked for the hits only: one
     request each for the file of the station, at most `MAX_FILE_CHECKS` for a network. A check that cannot be made keeps
-    the row and is a `station-file-unchecked` warning that names the station, as is a hit beyond the bound. A 429 is
-    raised.
+    the row and is a `station-file-unchecked` warning that names the station, as is a hit beyond the bound; a 429 is
+    such a check, and the network's checks that have not begun are left unmade (GH-4303).
     """
     requests = _file_checkers(found, settings)
     if not requests:

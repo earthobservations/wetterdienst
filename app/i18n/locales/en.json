@@ -363,9 +363,7 @@
     "searchEmpty": "Nothing found",
     "results": "Results",
     "resultsCount": "{count} result | {count} results",
-    "stations": "Forecast for a station",
     "stationsHint": "Type three letters or more to find a station",
-    "stationForecast": "Forecast for station {id}",
     "keysHint": "↑ ↓ to choose, Enter to open, Esc to close",
     "desc": {
       "support": "Report a bug, ask for a feature or support the project",
@@ -375,12 +373,30 @@
       "github": "The code, the issues and the pull requests",
       "pypi": "Install the Python library with pip"
     },
-    "stationsMap": "Station on the map",
-    "stationOnMap": "Show station {id} on the map",
     "placeGroup": "Place",
     "placeOnMap": "Show this point on the map",
     "moreIn": "{count} more in {page}",
-    "resultsIn": "{group}: {count}"
+    "resultsIn": "{group}: {count}",
+    "stationsForecast": "Stations: DWD forecast",
+    "stationsMeasured": "Stations: DWD measurements",
+    "stationsGhcn": "Stations: NOAA GHCN daily",
+    "stationNetworks": {
+      "forecast": "MOSMIX forecast",
+      "measured": "measurements",
+      "ghcn": "GHCN daily"
+    },
+    "stationEnded": "ended {year}",
+    "moreOnMap": "{count} more on the map ({network})",
+    "searchAllNetworks": "Search all networks for {id}",
+    "searchAllNetworksHint": "Asks every provider that lists the id; takes a few seconds",
+    "searchingAllNetworks": "Searching all networks …",
+    "allNetworksNone": "No station of any network has {id}",
+    "allNetworksFailed": "The search of all networks failed. Press Enter to try again",
+    "stationsWithId": "Stations with {id}",
+    "opensExplorer": "opens the Explorer",
+    "stationListReading": "Still reading a list of stations; more results may follow",
+    "stationListFailed": "One list of stations could not be read",
+    "allNetworksGroup": "All networks"
   },
   "header": {
     "github": "GitHub",
@@ -466,7 +482,9 @@
       "reorderedHeader": "{tool} moved to place {position} of {total} in the header.",
       "resetHeader": "Reset the order",
       "resetDoneHeader": "The order is back to its default: {tools}."
-    }
+    },
+    "searchStationsTitle": "Stations in the search",
+    "searchStationsHint": "The lists the search (Ctrl/⌘ K) finds a station by name in. A WMO, WIGOS or ICAO id is searched in every network on Enter, whatever is chosen here."
   },
   "units": {
     "degree_celsius": "Degrees Celsius (°C)",
@@ -1207,7 +1225,8 @@
     "groupZoomedReporting": "Zoomed in on a group. Stations in it: {shown}, of them reporting: {reporting}",
     "whyFarther": "The nearest station that still reports. Closer: {name}, {distance}, until {year}.",
     "whyFartherNoEnd": "The nearest station that still reports. Closer: {name}, {distance}, no end date known.",
-    "pickCloser": "Pick {name} instead"
+    "pickCloser": "Pick {name} instead",
+    "resultsOf": "Showing the first {shown} of {total} stations. Type more to narrow them down."
   },
   "radar": {
     "title": "Radar",

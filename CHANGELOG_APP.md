@@ -89,6 +89,21 @@ Types of changes:
   volume on the page, in its 2024 edition), Volume V, Chapters 2 and 3, and DWD's own files and
   notices. The Glossary links `road_surface_condition`, `water_film_thickness` and
   `temperature_surface` to the road weather stations (GH-3787).
+- `[Search]` The search finds stations by name (from three letters) in the lists you choose in the
+  settings, "Stations in the search": the forecast's points (DWD MOSMIX, the backend's best five
+  for the name, names only) and NOAA GHCN daily on, DWD's measuring stations off until turned on
+  (the server reads that list the first time anyone asks). A group for each, provider and network
+  on every result; GHCN and DWD show three and a last option ("11 more on the map") that opens the
+  map's panel search, which now starts on `?q=`. Umlauts match in either spelling there and in the
+  map's panel, which finds WMO numbers too and says "first 20 of N". A WMO number, WIGOS id or ICAO
+  code offers "Search all networks for …" on Enter, whatever the settings say (`/api/station-ids`),
+  leading to the map or the Explorer. The server matches GHCN on the map's list (GH-3790).
+
+### Changed
+
+- `[Search]` The groups "Forecast for a station" and "Station on the map" are replaced by one group
+  for each network (the forecast's points, DWD measurements, NOAA GHCN daily); a station leads to
+  the map, where its forecast is one click away (GH-3790).
 
 ## [0.57.0] - 2026-11-21
 

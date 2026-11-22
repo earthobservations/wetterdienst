@@ -36,7 +36,8 @@ import {
   REACH_KM,
   reportingRule,
   SAME_PLACE_KM,
-  searchStations,
+  searchFromQuery,
+  searchStationsCounted,
   stateFromQuery,
   stateToQuery,
   stationAt,
@@ -267,10 +268,14 @@ const datasetChoice = computed({
 // ---- the view of the map, and the stations near its centre ------------------------------------------------------
 
 const view = ref<Point & { zoom: number }>({ ...HOME_VIEW })
-const search = ref('')
+// the search of the panel starts on the text the address brings (`?q=`, GH-3790: the "more" of the header's search leads here)
+const search = ref(searchFromQuery(route.query))
+/** How many of the stations that answer the search the panel lists */
+const SEARCH_SHOWN = 20
 const searching = computed(() => search.value.trim().length > 0)
 const near = computed(() => nearestStations(stations.value, view.value, 8).map(entry => ({ ...entry, distance: entry.distance as number | null })))
-const found = computed(() => searchStations(stations.value, search.value, 20).map(station => ({ station, distance: null as number | null })))
+const searched = computed(() => searchStationsCounted(stations.value, search.value, SEARCH_SHOWN))
+const found = computed(() => searched.value.stations.map(station => ({ station, distance: null as number | null })))
 const entries = computed(() => searching.value ? found.value : near.value)
 const countLabel = computed(() => t('mapTool.count', { count: stations.value.length, shown: formatNumber(stations.value.length, formatLanguage.value, 0) }))
 const mapLabel = computed(() => t('mapTool.mapLabel', { layer: layerLabel.value }))
@@ -918,7 +923,7 @@ const queryOf = (map: MapState) => JSON.stringify(stateToQuery(map))
 
 watch(state, (shown) => {
   // the keys that are the map's are replaced, any other the address has stays
-  const rest = Object.fromEntries(Object.entries(route.query).filter(([key]) => !['layer', 'resolution', 'dataset', 'station', 'lat', 'lon', 'warnings'].includes(key)))
+  const rest = Object.fromEntries(Object.entries(route.query).filter(([key]) => !['layer', 'resolution', 'dataset', 'station', 'lat', 'lon', 'q', 'warnings'].includes(key)))
   // always asked, even where the address already says it: a write of an earlier state that is still on its way is then
   // replaced by this one (the router lets the newer navigation cancel the older), and does not land after it. A
   // rejected or duplicate navigation is no error of the page
@@ -939,6 +944,10 @@ watch(() => route.query.warnings, (value) => {
 watch(() => route.query, (query) => {
   takeAddress(query)
   takeAddressPoint(query)
+  // a text the address brings starts the search of the panel; the page's own writes carry none
+  const typed = searchFromQuery(query)
+  if (typed)
+    search.value = typed
 })
 function takeAddress(query: Record<string, unknown>) {
   const named = stateFromQuery(query)
@@ -1222,6 +1231,10 @@ function takeAddress(query: Record<string, unknown>) {
                     </button>
                   </li>
                 </ul>
+                <!-- the list shows the best few: how many there are in all is said, as the header's "N more" counts the same stations -->
+                <p v-if="searching && searched.total > found.length" class="mt-2 text-sm text-muted" data-testid="map-results-of">
+                  {{ t('mapTool.resultsOf', { shown: found.length, total: searched.total }) }}
+                </p>
                 <!-- a click on the map, by keyboard: the place at the centre of the map, which the arrow keys move -->
                 <template v-if="!searching && stations.length">
                   <UButton

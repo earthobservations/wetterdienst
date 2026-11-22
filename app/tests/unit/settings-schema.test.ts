@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { coerceSettings, seedFromServer, SETTINGS_DEFAULTS, SETTINGS_VERSION, settingsFromServer, wdSettingsSchema } from '../../app/composables/useSettings'
+import { coerceSettings, SEARCH_STATIONS_DEFAULTS, seedFromServer, SETTINGS_DEFAULTS, SETTINGS_VERSION, settingsFromServer, wdSettingsSchema } from '../../app/composables/useSettings'
 import { DEFAULT_TOOL_ORDER } from '../../app/utils/tab-bar'
 
 describe('settings schema', () => {
@@ -51,6 +51,28 @@ describe('settings schema', () => {
     const result = coerceSettings(stored)
     expect(result.units.temperature).toBe('degree_fahrenheit')
     expect(result.units.duration).toBe('hour')
+  })
+
+  describe('the lists of stations the search looks in by name (GH-3790)', () => {
+    it('are the forecast\'s points and GHCN daily on and DWD\'s measuring stations off, which the defaults and an empty blob say', () => {
+      expect(SEARCH_STATIONS_DEFAULTS).toEqual({ forecast: true, measured: false, ghcn: true })
+      expect(SETTINGS_DEFAULTS.searchStations).toEqual(SEARCH_STATIONS_DEFAULTS)
+      expect(coerceSettings({}).searchStations).toEqual(SEARCH_STATIONS_DEFAULTS)
+    })
+
+    it('are read from what an earlier version stored, which has none, with the other settings kept', () => {
+      const { searchStations: _none, ...earlier } = structuredClone(SETTINGS_DEFAULTS)
+      const result = coerceSettings({ ...earlier, friendlyLabels: false })
+      expect(result.searchStations).toEqual(SEARCH_STATIONS_DEFAULTS)
+      expect(result.friendlyLabels).toBe(false)
+    })
+
+    it('keep a choice, and a field that is no choice is the default for that list alone', () => {
+      expect(coerceSettings({ ...structuredClone(SETTINGS_DEFAULTS), searchStations: { forecast: false, measured: true, ghcn: false } }).searchStations).toEqual({ forecast: false, measured: true, ghcn: false })
+      expect(coerceSettings({ ...structuredClone(SETTINGS_DEFAULTS), searchStations: { forecast: 'no', measured: true } }).searchStations).toEqual(SEARCH_STATIONS_DEFAULTS)
+      // an outdated version is salvaged field by field
+      expect(coerceSettings({ version: 1, searchStations: { forecast: false, measured: false, ghcn: true } }).searchStations).toEqual({ forecast: false, measured: false, ghcn: true })
+    })
   })
 
   describe('the stripes\' time series and trend line, which are no options any more (GH-4170)', () => {

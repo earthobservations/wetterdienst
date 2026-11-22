@@ -349,6 +349,10 @@ what the answer is missing:
   `network-failed` (a network `station-ids` asked whose list could not be read, or that cannot be imported: it is left
   out of the search, the others answer, and `searched` of the block names it with the reason; if every network that was
   asked fails the answer is a 502),
+  `network-rate-limited` (a network `station-ids` asked whose provider answered 429: it is left out of the search, the
+  others answer, and the message and `searched` of the block name it with the wait the provider asks for; if every
+  network that was asked failed or was rate-limited, with a 429 among them, the answer is the 503 of a provider's rate
+  limit with `Retry-After`),
   `network-not-configured` (a keyed network `station-ids` would ask that needs credentials the server does not hold: it
   is not asked, and never a failure),
   `station-file-unchecked` (a hit of `station-ids` at a network that checks the data file of a station, `noaa/ghcn`,

@@ -352,7 +352,7 @@ def test_a_network_that_fails_is_a_warning_and_the_others_answer(monkeypatch: py
     assert "could not be reached" in warning["message"]
 
 
-def test_every_failure_but_a_rate_limit_is_a_warning(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_every_failure_is_a_warning(monkeypatch: pytest.MonkeyPatch) -> None:
     """A provider's error page, a defect of one reader: the network is left out, whichever exception it was."""
     serve(
         monkeypatch,
@@ -461,12 +461,85 @@ def test_a_network_that_cannot_be_imported_is_in_searched_and_a_warning(monkeypa
     assert result.df.height == 3
 
 
-def test_a_rate_limit_is_never_swallowed(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A 429 ends the search and is raised as it is (the repository's rule), and no answer is made of the others."""
-    serve(monkeypatch, {**HAMBURG, "noaa/ghcn": ProviderRateLimitError("https://noaa-ghcn-pds.s3/", "rate limited", 7)})
+def test_a_network_that_answers_429_is_a_warning_and_the_others_answer(monkeypatch: pytest.MonkeyPatch) -> None:
+    """One provider that limits this installation does not end the search (GH-4303): it is named with its wait."""
+    serve(
+        monkeypatch,
+        {**HAMBURG, "aemet/observation": ProviderRateLimitError("https://aemet.example/", "rate limited", 7)},
+    )
+    begin_response()
 
-    with pytest.raises(ProviderRateLimitError):
+    result = find_stations_by_id(wmo_id="10147")
+
+    assert [row[0] for row in _rows(result)] == ["dwd/mosmix", "dwd/observation", "noaa/ghcn"]
+    limited = next(n for n in result.searched if (n.provider, n.network) == ("aemet", "observation"))
+    assert limited.status == "rate-limited"
+    assert limited.stations_with_ids is None
+    assert limited.message == "rate limited; retry after 7 s"
+    (warning,) = result.warnings
+    assert warning["code"] == "network-rate-limited"
+    assert "aemet/observation" in warning["message"]
+    assert "retry after 7 s" in warning["message"]
+    assert "https://" not in warning["message"]
+    # the warning is recorded for the response being served, like the others
+    assert [w["code"] for w in recorded_warnings()] == ["network-rate-limited"]
+
+
+def test_a_429_that_names_no_wait_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A quota gives no wait: the warning does not make one up."""
+    serve(monkeypatch, {**HAMBURG, "aemet/observation": ProviderRateLimitError("https://x/", "quota used up", None)})
+
+    result = find_stations_by_id(wmo_id="10147")
+
+    assert "the provider names no wait" in result.warnings[0]["message"]
+
+
+def test_when_every_network_that_was_asked_is_rate_limited_the_search_raises_the_429(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An outage of every provider is no answer of no station: the 429 is raised with the longest wait asked for."""
+    waits = {name: 5 + index for index, name in enumerate(n for n in DECLARED if n not in KEYED)}
+    limits = {
+        name: ProviderRateLimitError(f"https://{name}.example/", "rate limited", wait) for name, wait in waits.items()
+    }
+    serve(monkeypatch, {**limits, **{name: CredentialMissingError("set WD_AUTH__X") for name in KEYED}})
+
+    with pytest.raises(ProviderRateLimitError) as raised:
         find_stations_by_id(wmo_id="10147")
+
+    assert raised.value.retry_after == max(waits.values())
+    assert f"None of the {len(waits)} networks that were asked could be read" in raised.value.reason
+    assert f"the longest wait asked for is {max(waits.values())} s" in raised.value.reason
+    assert all(name in raised.value.reason for name in waits)
+    assert not any(name in raised.value.reason for name in KEYED)
+
+
+def test_a_mix_of_failed_and_rate_limited_networks_raises_the_429(monkeypatch: pytest.MonkeyPatch) -> None:
+    """With a 429 among the failures the search can succeed later: it is the rate limit, not the 502."""
+    names = [name for name in DECLARED if name not in KEYED]
+    mixed: dict[str, list[dict[str, Any]] | BaseException] = {
+        name: NoInternetError(f"https://{name}.example/ is down") for name in names
+    }
+    mixed[names[0]] = ProviderRateLimitError("https://first.example/", "rate limited", 30)
+    serve(monkeypatch, {**mixed, **{name: CredentialMissingError("set WD_AUTH__X") for name in KEYED}})
+
+    with pytest.raises(ProviderRateLimitError) as raised:
+        find_stations_by_id(wmo_id="10147")
+
+    assert raised.value.retry_after == 30
+    assert raised.value.url == "https://first.example/"
+    assert all(name in raised.value.reason for name in names)
+
+
+def test_a_429_without_any_wait_among_all_limited_networks_carries_none(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The REST API puts its own default where the error holds no wait."""
+    limits = {name: ProviderRateLimitError("https://x/", "quota", None) for name in DECLARED if name not in KEYED}
+    serve(monkeypatch, {**limits, **{name: CredentialMissingError("set WD_AUTH__X") for name in KEYED}})
+
+    with pytest.raises(ProviderRateLimitError) as raised:
+        find_stations_by_id(wmo_id="10147")
+
+    assert raised.value.retry_after is None
 
 
 def test_a_network_that_needs_a_key_the_settings_lack_is_named_and_no_failure(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -722,16 +795,53 @@ def test_a_defect_in_a_check_is_told_without_its_text(monkeypatch: pytest.Monkey
     assert "unexpected error" in result.warnings[0]["message"]
 
 
-def test_a_rate_limit_of_a_check_is_raised(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A 429 is never a row kept with a warning."""
+def test_a_rate_limit_of_a_check_keeps_the_row_and_warns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A 429 of the file's host is a check that cannot be made (GH-4303): the row stays, the warning gives the wait."""
     serve(
         monkeypatch,
         {"noaa/ghcn": [station("GMM00010628", wmo_id="10628")]},
         files={"GMM00010628": ProviderRateLimitError("https://x/", "rate limited", 7)},
     )
 
-    with pytest.raises(ProviderRateLimitError):
-        find_stations_by_id(wmo_id=10628)
+    result = find_stations_by_id(wmo_id=10628)
+
+    assert [row[1] for row in _rows(result)] == ["GMM00010628"]
+    (warning,) = result.warnings
+    assert warning["code"] == "station-file-unchecked"
+    assert warning["stations"] == ["GMM00010628"]
+    assert "retry after 7 s" in warning["message"]
+    assert "stays in the answer" in warning["message"]
+
+
+def test_after_a_429_of_a_check_the_checks_that_have_not_begun_are_not_made(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The host that refused is not asked again by the checks still waiting; their stations are told unchecked."""
+    monkeypatch.setattr(station_search, "MAX_WORKERS", 1)
+    hits = _ghcn_hits(4)
+    ids = [row["station_id"] for row in hits]
+    served = serve(
+        monkeypatch,
+        {"noaa/ghcn": hits},
+        files={ids[0]: ProviderRateLimitError("https://x/", "rate limited", 7)},
+    )
+    check = ghcn_api.daily_file_exists
+
+    def slow(station_id: str, settings: Settings) -> bool:
+        # the one worker is busy with the second check while the 429 of the first is read, and cancels the others
+        if station_id != ids[0]:
+            time.sleep(0.3)
+        return check(station_id, settings)
+
+    monkeypatch.setattr(ghcn_api, "daily_file_exists", slow)
+
+    result = find_stations_by_id(wmo_id=10628)
+
+    assert result.df.height == 4
+    assert served.checked[0] == ids[0]
+    assert ids[3] not in served.checked
+    (warning,) = result.warnings
+    assert warning["code"] == "station-file-unchecked"
+    assert ids[0] in warning["stations"]
+    assert ids[3] in warning["stations"]
 
 
 def test_the_checks_are_bounded_and_the_hits_beyond_stay_with_a_warning(monkeypatch: pytest.MonkeyPatch) -> None:

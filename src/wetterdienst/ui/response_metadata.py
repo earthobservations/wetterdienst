@@ -243,9 +243,10 @@ class StationIdsSearched(BaseModel):
         description="The dataset of the station list read: another one may list other stations; null as `resolution`.",
     )
     ids: list[str] = Field(description="The id columns the list fills: `wmo_id`, `wigos_id` and `icao_id`.")
-    status: Literal["searched", "failed", "not-configured"] = Field(
+    status: Literal["searched", "failed", "not-configured", "rate-limited"] = Field(
         description="`searched` for a list that was read; `failed` for one that could not be, which a warning names; "
-        "`not-configured` for a network that needs credentials the server does not hold, which a warning names.",
+        "`not-configured` for a network that needs credentials the server does not hold, which a warning names; "
+        "`rate-limited` for a network whose provider answered 429, which a warning names with the wait it asks for.",
     )
     stations_with_ids: int | None = Field(
         description="How many stations of the list carry at least one id; null for a list that was not read.",
@@ -335,8 +336,9 @@ class StationIdsMetadata(BaseModel):
     )
     warnings: list[ResponseWarning] = Field(
         description="What the answer is missing but did not fail on, each with a stable `code` and a `message`: a "
-        "network whose list could not be read (`network-failed`) or that needs credentials the server does not "
-        "hold (`network-not-configured`) is left out of the search and told here.",
+        "network whose list could not be read (`network-failed`), that needs credentials the server does not "
+        "hold (`network-not-configured`) or whose provider answered 429 (`network-rate-limited`) is left out of the "
+        "search and told here.",
     )
 
 

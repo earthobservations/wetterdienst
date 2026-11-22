@@ -44,7 +44,7 @@ answer says:
 - `request`: the ids as given, each in the notation of its column, and `also_searched`, the ids that were searched
   besides because they are equivalent (below);
 - `searched`: every network that was asked, with the list it read, the id columns that list fills, the number of
-  stations of it that carry an id, and its `status`: `searched`, `failed` or `not-configured`;
+  stations of it that carry an id, and its `status`: `searched`, `failed`, `rate-limited` or `not-configured`;
 - `providers`: the licence and the credit line of each provider that has a station in the answer, since the answer holds
   several providers' data (there is no one `provider` as in the answers of `stations`);
 - `counts`, `warnings`, the versions, the time and the `processing_note`, as every block has them.
@@ -101,7 +101,8 @@ the 11 MB of the stations file). The stations file also lists the 147 stations t
 read from (NCEI's `by_station` file, then the AWS mirror's: one download, held in the cache for a read of the values, for
 each hit, at most eight for a search; there is no cheaper request in the library), and a station with no file is no row:
 WMO `10628` (Geisenheim, `GMM00010628`) is not an answer. A check that cannot be made (no connection, a 5xx) keeps the
-row and is a `station-file-unchecked` warning that names the station; a 429 is raised, as everywhere.
+row and is a `station-file-unchecked` warning that names the station, as is a 429 of the file's host (the checks of that
+network that have not begun are left unmade).
 
 A network that needs a key (`aemet`, `knmi`, `metno`) is asked only where the settings hold its credentials
 (`WD_AUTH__AEMET`, `WD_AUTH__KNMI_EDR`, `WD_AUTH__METNO_FROST`); otherwise it is named in a `network-not-configured`
@@ -122,10 +123,17 @@ be imported has a null `resolution` and `dataset`, as its declaration is not kno
 library is logged with its traceback and told as an unexpected error, not by its text. A network that is merely not
 configured is not counted as asked.
 
-**A search in which every network that was asked failed is an error, not an empty answer**: an `UpstreamError` that names
-the networks (a 502 at REST, exit 1 on the command line), since an outage must never read as no such station. A 429 of a
-provider is the other exception, as everywhere in the library: it is never swallowed, the search raises the
-`ProviderRateLimitError` (a 503 with `Retry-After` at REST).
+A network whose provider answers 429 is a `network-rate-limited` warning, not the end of the search: it names the network and
+the wait the provider asks for (`retry after 30 s`, or that the provider names none), the others answer, and the network is
+in `searched` with its `status` of `rate-limited`. One keyed provider that limits this installation (AEMET's quota is the
+usual one) must not take the other seventeen networks down. It is the one rule of the library that differs from a single
+request, where a 429 is never swallowed: a search asks many providers, and an answer of the others says what it lacks.
+
+**A search in which every network that was asked failed or was rate-limited is an error, not an empty answer**, since an
+outage or a limit must never read as no such station. With no 429 among them it is an `UpstreamError` that names the
+networks (a 502 at REST, exit 1 on the command line). With at least one it is the `ProviderRateLimitError`, which names
+them too and carries the longest wait asked for (a 503 with `Retry-After` at REST, exit 1 on the command line), since the
+same search can succeed once the limit resets.
 
 An MCP tool's answer is cut to 40,000 characters, as that of `stations` is, keeping the first rows, with an
 `answer-truncated` warning that tells to ask for fewer ids.

@@ -363,9 +363,7 @@
     "searchEmpty": "Intet fundet",
     "results": "Resultater",
     "resultsCount": "{count} resultat | {count} resultater",
-    "stations": "Udsigt for en station",
     "stationsHint": "Skriv tre bogstaver eller flere for at finde en station",
-    "stationForecast": "Udsigt for station {id}",
     "keysHint": "↑ ↓ vælg, Enter åbn, Esc luk",
     "desc": {
       "support": "Meld en fejl, ønsk en funktion eller støt projektet",
@@ -375,12 +373,30 @@
       "github": "Koden, issues og pull requests",
       "pypi": "Installer Python-biblioteket med pip"
     },
-    "stationsMap": "Station på kortet",
-    "stationOnMap": "Vis station {id} på kortet",
     "placeGroup": "Sted",
     "placeOnMap": "Vis dette punkt på kortet",
     "moreIn": "{count} flere i {page}",
-    "resultsIn": "{group}: {count}"
+    "resultsIn": "{group}: {count}",
+    "stationsForecast": "Stationer: DWD-udsigt",
+    "stationsMeasured": "Stationer: DWD-målinger",
+    "stationsGhcn": "Stationer: NOAA GHCN dagligt",
+    "stationNetworks": {
+      "forecast": "MOSMIX-udsigt",
+      "measured": "målinger",
+      "ghcn": "GHCN dagligt"
+    },
+    "stationEnded": "afsluttet {year}",
+    "moreOnMap": "{count} flere på kortet ({network})",
+    "searchAllNetworks": "Søg efter {id} i alle netværk",
+    "searchAllNetworksHint": "Spørger hver udbyder, der fører id'et; tager et par sekunder",
+    "searchingAllNetworks": "Søger i alle netværk …",
+    "allNetworksNone": "Ingen station i noget netværk har {id}",
+    "allNetworksFailed": "Søgningen i alle netværk mislykkedes. Tryk på Enter for at prøve igen",
+    "stationsWithId": "Stationer med {id}",
+    "opensExplorer": "åbner Udforsker",
+    "stationListReading": "En stationsliste læses stadig; flere resultater kan følge",
+    "stationListFailed": "En stationsliste kunne ikke læses",
+    "allNetworksGroup": "Alle netværk"
   },
   "header": {
     "github": "GitHub",
@@ -466,7 +482,9 @@
       "reorderedHeader": "{tool} står nu på plads {position} af {total} i sidehovedet.",
       "resetHeader": "Nulstil rækkefølgen",
       "resetDoneHeader": "Rækkefølgen er tilbage til standard: {tools}."
-    }
+    },
+    "searchStationsTitle": "Stationer i søgningen",
+    "searchStationsHint": "De lister, som søgningen (Ctrl/⌘ K) finder en station efter navn i. Et WMO-, WIGOS- eller ICAO-id søges med Enter i alle netværk, uanset hvad du vælger her."
   },
   "units": {
     "degree_celsius": "Grader Celsius (°C)",
@@ -1207,7 +1225,8 @@
     "groupZoomedReporting": "Zoomet ind på en gruppe. Stationer i den: {shown}, heraf i drift: {reporting}",
     "whyFarther": "Den nærmeste station, der stadig måler. Tættere på: {name}, {distance}, til {year}.",
     "whyFartherNoEnd": "Den nærmeste station, der stadig måler. Tættere på: {name}, {distance}, slutdato ukendt.",
-    "pickCloser": "Vælg {name} i stedet"
+    "pickCloser": "Vælg {name} i stedet",
+    "resultsOf": "De første {shown} af {total} stationer. Skriv mere for at indsnævre."
   },
   "radar": {
     "title": "Radar",

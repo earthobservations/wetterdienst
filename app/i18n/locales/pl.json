@@ -363,9 +363,7 @@
     "searchEmpty": "Brak wyników",
     "results": "Wyniki",
     "resultsCount": "{count} wynik | {count} wyniki | {count} wyników",
-    "stations": "Prognoza dla stacji",
     "stationsHint": "Wpisz co najmniej trzy litery, aby znaleźć stację",
-    "stationForecast": "Prognoza dla stacji {id}",
     "keysHint": "↑ ↓ wybierz, Enter otwórz, Esc zamknij",
     "desc": {
       "support": "Zgłoś błąd, zaproponuj funkcję lub wesprzyj projekt",
@@ -375,12 +373,30 @@
       "github": "Kod, zgłoszenia i pull requesty",
       "pypi": "Zainstaluj bibliotekę Python przez pip"
     },
-    "stationsMap": "Stacja na mapie",
-    "stationOnMap": "Pokaż stację {id} na mapie",
     "placeGroup": "Miejsce",
     "placeOnMap": "Pokaż ten punkt na mapie",
     "moreIn": "Jeszcze {count} w: {page}",
-    "resultsIn": "{group}: {count}"
+    "resultsIn": "{group}: {count}",
+    "stationsForecast": "Stacje: prognoza DWD",
+    "stationsMeasured": "Stacje: pomiary DWD",
+    "stationsGhcn": "Stacje: NOAA GHCN dzienne",
+    "stationNetworks": {
+      "forecast": "prognoza MOSMIX",
+      "measured": "pomiary",
+      "ghcn": "GHCN dzienne"
+    },
+    "stationEnded": "zakończona {year}",
+    "moreOnMap": "Jeszcze {count} na mapie ({network})",
+    "searchAllNetworks": "Szukaj {id} we wszystkich sieciach",
+    "searchAllNetworksHint": "Pyta każdego dostawcę, który prowadzi taki identyfikator; trwa kilka sekund",
+    "searchingAllNetworks": "Przeszukiwanie wszystkich sieci …",
+    "allNetworksNone": "Żadna stacja żadnej sieci nie ma {id}",
+    "allNetworksFailed": "Wyszukiwanie we wszystkich sieciach się nie udało. Naciśnij Enter, aby spróbować ponownie",
+    "stationsWithId": "Stacje z {id}",
+    "opensExplorer": "otwiera Eksplorator",
+    "stationListReading": "Lista stacji jest jeszcze wczytywana; mogą pojawić się kolejne wyniki",
+    "stationListFailed": "Nie udało się wczytać jednej z list stacji",
+    "allNetworksGroup": "Wszystkie sieci"
   },
   "header": {
     "github": "GitHub",
@@ -466,7 +482,9 @@
       "reorderedHeader": "{tool} jest teraz na miejscu {position} z {total} w nagłówku.",
       "resetHeader": "Przywróć kolejność",
       "resetDoneHeader": "Kolejność wróciła do ustawień początkowych: {tools}."
-    }
+    },
+    "searchStationsTitle": "Stacje w wyszukiwaniu",
+    "searchStationsHint": "Listy, w których wyszukiwarka (Ctrl/⌘ K) znajduje stację po nazwie. Identyfikator WMO, WIGOS lub kod ICAO jest po naciśnięciu Enter szukany we wszystkich sieciach, niezależnie od tego, co wybierzesz tutaj."
   },
   "units": {
     "degree_celsius": "Stopnie Celsjusza (°C)",
@@ -1207,7 +1225,8 @@
     "groupZoomedReporting": "Przybliżono grupę. Stacji w niej: {shown}, z tego działających: {reporting}",
     "whyFarther": "Najbliższa stacja, która nadal działa. Bliżej: {name}, {distance}, do {year}.",
     "whyFartherNoEnd": "Najbliższa stacja, która nadal działa. Bliżej: {name}, {distance}, koniec nieznany.",
-    "pickCloser": "Wybierz zamiast tego {name}"
+    "pickCloser": "Wybierz zamiast tego {name}",
+    "resultsOf": "Pierwsze {shown} z {total} stacji. Wpisz więcej, aby zawęzić wyniki."
   },
   "radar": {
     "title": "Radar",

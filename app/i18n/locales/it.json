@@ -363,9 +363,7 @@
     "searchEmpty": "Nessun risultato",
     "results": "Risultati",
     "resultsCount": "{count} risultato | {count} risultati",
-    "stations": "Previsioni per una stazione",
     "stationsHint": "Scrivi tre lettere o più per trovare una stazione",
-    "stationForecast": "Previsioni per la stazione {id}",
     "keysHint": "↑ ↓ per scegliere, Invio per aprire, Esc per chiudere",
     "desc": {
       "support": "Segnala un errore, chiedi una funzione o sostieni il progetto",
@@ -375,12 +373,30 @@
       "github": "Il codice, le segnalazioni e le pull request",
       "pypi": "Installa la libreria Python con pip"
     },
-    "stationsMap": "Stazione sulla mappa",
-    "stationOnMap": "Mostra la stazione {id} sulla mappa",
     "placeGroup": "Luogo",
     "placeOnMap": "Mostra questo punto sulla mappa",
     "moreIn": "Altri {count} in {page}",
-    "resultsIn": "{group}: {count}"
+    "resultsIn": "{group}: {count}",
+    "stationsForecast": "Stazioni: previsioni del DWD",
+    "stationsMeasured": "Stazioni: misurazioni del DWD",
+    "stationsGhcn": "Stazioni: NOAA GHCN giornaliero",
+    "stationNetworks": {
+      "forecast": "previsioni MOSMIX",
+      "measured": "misurazioni",
+      "ghcn": "GHCN giornaliero"
+    },
+    "stationEnded": "conclusa nel {year}",
+    "moreOnMap": "Altri {count} sulla mappa ({network})",
+    "searchAllNetworks": "Cerca {id} in tutte le reti",
+    "searchAllNetworksHint": "Interroga ogni fornitore che tiene l'identificativo; richiede qualche secondo",
+    "searchingAllNetworks": "Ricerca in tutte le reti …",
+    "allNetworksNone": "Nessuna stazione di nessuna rete ha {id}",
+    "allNetworksFailed": "La ricerca in tutte le reti non è riuscita. Premi Invio per riprovare",
+    "stationsWithId": "Stazioni con {id}",
+    "opensExplorer": "apre l'Esploratore",
+    "stationListReading": "Un elenco di stazioni è ancora in lettura; possono seguire altri risultati",
+    "stationListFailed": "Non è stato possibile leggere un elenco di stazioni",
+    "allNetworksGroup": "Tutte le reti"
   },
   "header": {
     "github": "GitHub",
@@ -466,7 +482,9 @@
       "reorderedHeader": "{tool} è ora al posto {position} di {total} nell'intestazione.",
       "resetHeader": "Ripristina l'ordine",
       "resetDoneHeader": "L'ordine è tornato come all'inizio: {tools}."
-    }
+    },
+    "searchStationsTitle": "Stazioni nella ricerca",
+    "searchStationsHint": "Gli elenchi in cui la ricerca (Ctrl/⌘ K) trova una stazione per nome. Un identificativo WMO, WIGOS o ICAO viene cercato con Invio in tutte le reti, qualunque cosa tu scelga qui."
   },
   "units": {
     "degree_celsius": "Gradi Celsius (°C)",
@@ -1207,7 +1225,8 @@
     "groupZoomedReporting": "Ingrandito su un gruppo. Stazioni al suo interno: {shown}, di cui in funzione: {reporting}",
     "whyFarther": "La stazione più vicina ancora in funzione. Più vicina: {name}, a {distance}, fino al {year}.",
     "whyFartherNoEnd": "La stazione più vicina ancora in funzione. Più vicina: {name}, a {distance}, fine non nota.",
-    "pickCloser": "Scegli invece {name}"
+    "pickCloser": "Scegli invece {name}",
+    "resultsOf": "Le prime {shown} stazioni su {total}. Scrivi di più per restringere."
   },
   "radar": {
     "title": "Radar",
