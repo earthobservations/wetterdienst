@@ -37,16 +37,8 @@ from tests.baselines.common import DIRECTORY, read, write
 
 BASELINE = DIRECTORY / "cli.baseline.json"
 
-_STRIPES_GONE = (
-    "the climate stripes left the backend (GH-4258): the web app draws them itself; "
-    "read the annual values with `values`"
-)
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a script
-ACCEPTED_BREAKS: dict[str, str] = {
-    "wetterdienst stripes was removed": _STRIPES_GONE,
-    "wetterdienst stripes image was removed": _STRIPES_GONE,
-    "wetterdienst stripes stations was removed": _STRIPES_GONE,
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 #: the keys of an option that are compared as they are: a change is a finding
 _SAME = ("param_type_name", "nargs", "multiple", "is_flag", "count", "envvar", "flag_value")

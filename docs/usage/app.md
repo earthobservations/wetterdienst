@@ -37,7 +37,7 @@ and works of the methods, the glossary (by the label you see, the English one, t
 setting (the units, plain-language labels, the tab bar) and the questions of Ask the weather, which open on the home page.
 A position typed in (`52.52, 13.40`, `-33.87 151.21`, `52°31'N 13°24'E`; the hemisphere letters of your language, so `O` is east in German and
 west in French, `V` is west in Danish and Czech has `S J V Z`; two whole numbers are no position, so `1,5` and `10384 10147` are not) is a place that opens the map at that point, and picks the station for it as a click on the map would
-(`/map?lat=52.5200&lon=13.4000`). The results are in groups, a point first, then stations, then the rest; a group shows
+(`/map?lat=52.5200&lon=13.4000`). The results are in groups, a point first, then the places, then stations, then the rest; a group shows
 a few results and, where its page has more, a last option ("5 more in Glossary") that opens the page (the glossary with
 your words in its own field). A result leads to its anchor: an entry (`/measurement#wind`), a glossary parameter
 (`/glossary#temperature_air_mean_2m`), a setting (`/settings#settings-friendly-labels`). The index of the pages is built from the
@@ -73,14 +73,37 @@ provider, network, resolution, dataset and station chosen (it says "opens the Ex
 unless they are typed in capitals, the offer for them is made only where nothing else answers the text and every list has answered, and it never comes
 before what the text finds, so Enter does not take it.
 
+**Places in the search** (from three letters, 400 ms after the last key) finds a place by its name in OpenStreetMap's data, as a group "Places" after a
+point typed in and before the stations, each with what it is (town, county, mountain, airport, …) and where it lies (`Bad Tölz`, Town · Bayern, Germany). A
+place opens the map at its point (`/map?lat=47.7614&lon=11.5583`), which picks the nearest station as a click there would. The group is shown with the
+credit that OpenStreetMap's licence (ODbL) asks for and "via Photon". A text with fewer than three letters, or that looks like a position (a decimal number, a degree or minute sign, two numbers, a single letter next to a number, or a word for latitude or longitude with a number: `47.76 N`, `N 47.7 E`, `47°45′N`, `lat 47`, `A12`), is no name and is never looked up, whole or partial. The places arrive after the stations; where they lead the list, the option you are on stays the one you are on. The
+places come from Photon (photon.komoot.io, run by komoot; the public server asks for fair use, states no limit and promises no availability), **asked by
+the app's own server and not by your browser**: `GET /_search/places?q=bad%20tölz&lang=de` asks `https://photon.komoot.io/api/?q=&lang=&limit=` with a
+User-Agent that names the project (`wetterdienst-app (+https://github.com/earthobservations/wetterdienst)`) and sends no header of yours, no address
+and no cookie, so komoot sees the server and the text. The route answers the few places the search shows (settlements, regions, countries, mountains,
+waters and airports; not streets or shops; the same town twice once), in `lang` where Photon has it (`de`, `en`, `fr`; Luxembourgish is asked for in German, every other locale in
+English, since Photon's public server refuses a language it has not), or the problem it could not (`urn:wetterdienst:problem:places-busy`,
+`places-unavailable`, `places-timeout`, `places-unreachable`, `places-unexpected-answer`, `invalid-parameters` as a 422; a `Retry-After` where there is a
+time to wait). To be fair to Photon the server keeps the answers for 24 h by the text (case and spaces ignored) and the language, up to 5,000 of them,
+asks at most 3 times a second in all (a request that would wait over 1.5 s is refused with a 503, not queued) and for one client at most 3 at once and then one
+a second (a 429; the answers of the cache do not use up that share, and it is not held where `NUXT_RATE_LIMIT_ENABLED=false`), times a request out after 4 s, and
+leaves Photon alone after a 429 or 403 for as long as its `Retry-After` says (a minute where it says none, ten at most), also for the requests that were waiting
+for their turn, and for 10 s after any other failure. A request to Photon that has been sent is let finish and its answer kept, even where the browser has gone.
+The requests count against the limit of the client like the other `/_search` routes: one bucket with every data route, 300 in 5 minutes by default.
+Nothing of a request is logged. The operator switches the places off with `NUXT_PLACES_SEARCH=off` (the route then answers
+`state: "off"` and asks nobody, and the search shows no group; `on`, `true`, `1`, `yes` and `enabled` leave it on, and any other text switches it off, so
+a typing mistake never leaves it running, and the server says so once when it starts, naming the value); `NUXT_PLACES_PHOTON_BASE` is the address of Photon's API, empty for komoot's public server (a Photon of your own,
+or a stand-in in tests, which never ask komoot).
+
 **Measurement** (`/measurement`, "How weather is measured") explains how a quantity is measured, how a reading becomes
 a value, what the number can and cannot tell and where providers differ, one entry for each quantity with an anchor
 (`/measurement#wind`) and the sources it rests on: the WMO Guide to Instruments and Methods of Observation (WMO-No. 8:
-Volumes I, II and III of 2024, Volume V of 2023, the current editions) by volume and chapter, and the providers' own files. The entries so far are air and soil temperature, pressure,
+Volumes I, II and III of 2024, Volume V of 2023, the current editions) by volume and chapter, the Guide to Hydrological Practices
+(WMO-No. 168, Volume I) for water level and discharge, and the providers' own files. The entries are air and soil temperature, pressure,
 humidity and dew point, wind, precipitation, radiation, sunshine duration, visibility, evaporation, soil moisture,
-present weather and the state of the ground, clouds, snow, automatic weather stations, urban stations, road weather
-stations, how a value is formed (means, sums, maxima and minima), climate normals, time, and observation, forecast and
-derived data. The
+present weather and the state of the ground, clouds, snow, automatic weather stations, radar (with a link to the Radar tool), urban stations,
+road weather stations, how a value is formed (means, sums, maxima and minima), climate normals, water level and discharge, time,
+observation, forecast and derived data, and data quality (the flags of the sources and the plausibility checks). The
 Glossary links each parameter it can to its entry ("How is this measured?"), and the entry links back to its
 parameters (`/glossary?topic=wind`). The texts are written in German and English; in another language an entry is
 shown in English, with a note (in German for Low German and Luxembourgish).
@@ -102,7 +125,7 @@ texts are written in German and English, like those of Measurement; the titles o
 | Page | What it does |
 | --- | --- |
 | Home | The six tools, and **Ask the weather**: five suggestions (will it rain tomorrow, was a season warmer than usual, what a day was like, are there warnings here, where hourly temperatures can be downloaded) that are answered on the page from live data, with the numbers and a chart behind the verdict, a link into the tool that holds the data and, under it, how the answer was worked out and what it rests on (see Methods). The place they are about is a DWD station that can be changed. The season question has two choices under it, as labelled selects: the **season** (spring, summer, autumn or winter, the winter being December to February with the December before it) and the **reference period**, every complete WMO 30-year normal from 1961–1990 on (1961–1990 to 1991–2020 in 2026; each later one is added on 1 January after it ends, so 2001–2030 appears in 2031). Only a complete season is compared (a winter counts from 1 March), and a season or a normal the station has too little of (fewer than 20 of a normal's 30 seasons) is greyed out with the count in its option, with a line under the choices that says why. The question opens on the season completed most recently that has enough data and on the newest normal with enough seasons; a link that names a greyed-out one gets that default and the line says so. The link carries them (`?ask=season&season=winter&ref=1961-1990`); a value that is none gives the defaults, and the older `?ask=summer` is the summer. The day question has two choices under it, as labelled selects: the **measure** (wind, sunshine, rain, heat and cold, or snow) and the **day** (the same date last year when the link names none, 28 February for a 29 February; any day up to yesterday). The question and the verdict follow the measure, and one request fetches every measure, so a change of it asks nothing new. Each measure has its scale, named in the disclosure with its source or marked as wetterdienst's own: the wind by the Beaufort force of the strongest gust (calm, breezy, windy, stormy); the sun by the share of the sunshine that was possible at the station's latitude that day (dull below 30 %, mixed, sunny from 70 %; the ranges of WMO-No. 8, §8.1.3); the rain by the day's precipitation (dry below 0.1 mm, light, wet from 1 mm, very wet from 10 mm); heat and cold by the days DWD names (hot day from 30 °C, summer day from 25 °C, tropical night from 20 °C, ice day with a maximum below 0 °C, frost day with a minimum below 0 °C); the snow by the snow depth (snow on the ground above 0 cm), with the fresh snow where the station reports it. A measure the station has no reading of for the day is greyed out with the reason in its option, and a line under the choices says why. The link carries them (`?ask=day&measure=sun&day=2025-12-26`); the older `?ask=wind&day=2025-12-26` is the wind of that day. Nothing is fetched until a question is picked, apart from the look-up of a place that the link names. |
-| Explorer | Pick a provider and network, a resolution, dataset and parameters, then stations on the map. Three modes: **Station** reads the measurements of the stations, **Interpolation** estimates the values of a point (see [Interpolation & Summary](interpolation.md)), **Summary** takes the nearest station with data at each timestamp. A data viewer shows the table and a chart and downloads the result as CSV, JSON or GeoJSON. |
+| Explorer | Pick a provider and network, a resolution, dataset and parameters, then stations on the map. Three modes: **Station** reads the measurements of the stations, **Interpolation** estimates the values of a point (see [Interpolation & Summary](interpolation.md)), **Summary** takes the nearest station with data at each timestamp. A data viewer shows the table and a chart and downloads the result as CSV, JSON or GeoJSON. Its **Values Details** give count, min, max, mean and sum of each parameter, one row for each station chosen (named by its name and id, with the unit of the parameter in a column), in the order the stations are listed (a link keeps its order). A sum is shown only for a parameter that adds up, one whose `aggregation` in the answer is `sum`, `count` or `occurrence` (precipitation, sunshine duration, days with an event); for a temperature, a mean or a reading it is a dash, and so it is for a parameter whose name states a window longer than its rows (`precipitation_amount_last_6h` in hourly rows), whose windows overlap, while a window as long as the row (`_last_1h` hourly) still sums. Rows the query panel has rewritten get no unit and no sum. An interpolation or a summary is one series and has no station column. The downloads do not carry the details. |
 | Forecast | The MOSMIX forecast of a DWD station as a meteogram: temperature and dew point, wind with barbs, precipitation by phase, cloud cover and pressure, with Yr's weather symbols over the hours. Each panel has a fixed height and each hour a fixed width, so on a phone the chart scrolls sideways with its axes in view; a dragged box, a pinch or the buttons zoom all panels at once, and the arrow keys step through the hours (`+`, `-` and `0` zoom and reset). `/widget?station=<id>` is the same chart without the page around it, for embedding (`&theme=dark` or `&theme=light` sets the colours). |
 | Climate stripes | The warming stripes of a DWD station or of a station of NOAA's GHCN daily, for temperature or precipitation, which the app makes itself of the annual values of the API (see "What the app serves itself" below). |
 | Radar | DWD's precipitation radar over Germany on the map: a loop of the last two hours and DWD's forecast of the next two, with a player, the legend in mm/h and DWD's thunderstorm cells on top. "Use my location" marks your position on the map and centres it there (rounded to about 1 km in the browser, kept only if you tick "Remember my position", sent to no request) and the marker can be hidden. |
@@ -347,8 +370,8 @@ The server limits what costs something, per client. It counts the requests to
 - `/mcp` (a session is many small calls), and
 - `/_ghcn/*`, the app's own routes for NOAA's GHCN daily (the list of its stations for the map, which costs the
   backend a 44 MB answer the first time, and the climate stripes' annual values and station lists, see below),
-- `/_search/*`, the stations the search finds by name (`GET /_search/stations`, matched in the GHCN and DWD measuring station lists the server keeps; a key of
-  the search is a request, so it is counted with the others),
+- `/_search/*`, the stations and places the search finds by name (`GET /_search/stations`, matched in the GHCN and DWD measuring station lists the server keeps,
+  and `GET /_search/places`, which asks Photon; a key of the search is a request, so it is counted with the others),
 
 and answers the one past the limit with `429 Too Many Requests` and a problem of the kind
 `urn:wetterdienst:problem:rate-limited`, with `Retry-After` (seconds). It does not count the pages, the assets,

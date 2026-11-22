@@ -396,7 +396,24 @@
     "opensExplorer": "öffnet den Explorer",
     "stationListReading": "Eine Stationsliste wird noch gelesen; es können weitere Ergebnisse folgen",
     "stationListFailed": "Eine Stationsliste konnte nicht gelesen werden",
-    "allNetworksGroup": "Alle Netzwerke"
+    "allNetworksGroup": "Alle Netzwerke",
+    "placesGroup": "Orte",
+    "placeKinds": {
+      "city": "Großstadt",
+      "town": "Stadt",
+      "village": "Dorf",
+      "hamlet": "Weiler",
+      "district": "Stadtteil",
+      "county": "Landkreis",
+      "region": "Bundesland oder Region",
+      "country": "Land",
+      "island": "Insel",
+      "mountain": "Berg",
+      "water": "Gewässer",
+      "airport": "Flughafen"
+    },
+    "placesCredit": "{osm} ({licence}) · Orte über {photon}",
+    "placesFailed": "Orte konnten gerade nicht gesucht werden. Weitertippen versucht es erneut."
   },
   "header": {
     "github": "GitHub",
@@ -643,6 +660,7 @@
     "sourcesTitle": "Quellen",
     "untranslatedEn": "Dieser Eintrag ist noch nicht in deine Sprache übersetzt und wird auf Englisch gezeigt.",
     "untranslatedDe": "Dieser Eintrag ist noch nicht in deine Sprache übersetzt und wird auf Deutsch gezeigt.",
+    "toolRadar": "Das Radar-Werkzeug öffnen",
     "topics": {
       "temperature": "Luft- und Bodentemperatur",
       "pressure": "Luftdruck",
@@ -658,12 +676,15 @@
       "clouds": "Wolken",
       "snow": "Schnee",
       "automaticStations": "Automatische Wetterstationen",
+      "radar": "Radar",
       "urbanStations": "Stationen in der Stadt",
       "roadStations": "Straßenwetterstationen",
       "fromMeasurementToValue": "Von der Messung zum Wert",
       "normals": "Klimanormalwerte",
+      "waterLevel": "Wasserstand und Abfluss",
       "time": "Zeit",
-      "observationForecastDerived": "Beobachtung, Vorhersage und abgeleitete Daten"
+      "observationForecastDerived": "Beobachtung, Vorhersage und abgeleitete Daten",
+      "dataQuality": "Datenqualität"
     }
   },
   "methods": {
@@ -1056,6 +1077,14 @@
     "modeHowItWorks": "So funktioniert es",
     "removeParameterDistance": "Entfernung für {parameter} löschen"
   },
+  "valueDetails": {
+    "station": "Station",
+    "unit": "Einheit",
+    "sumNote": "Eine Summe wird nur für Parameter gezeigt, die Mengen je Intervall sind, etwa Niederschlag oder Sonnenscheindauer, und nicht, wo das Zeitfenster eines Parameters länger ist als seine Zeilen (eine 6-Stunden-Summe in stündlichen Zeilen): die Fenster überlappen sich. Bei einem Mittel, einem Messwert, einem Maximum oder einem Minimum hätte sie keine Bedeutung.",
+    "noSum": "keine Summe für diesen Parameter",
+    "noSumOverlap": "keine Summe: die Zeitfenster dieses Parameters überlappen sich",
+    "noValue": "kein Wert"
+  },
   "stationTable": {
     "stationId": "Stations-ID",
     "name": "Name",
@@ -1234,9 +1263,9 @@
     "aboutButton": "Über das Radar",
     "about1": "Ein Wetterradar sendet Funkimpulse aus und wartet auf das Echo, das Regen, Schnee oder Hagel zurückwirft. Wie stark das Echo ist, hängt von Größe und Zahl der Tropfen oder Flocken ab, und eine empirische Formel (die Z-R-Beziehung) macht daraus eine Niederschlagsrate in Millimetern pro Stunde. Sie stimmt nur auf etwa einen Faktor zwei, weil verschiedene Tropfengrößenverteilungen dasselbe Echo geben können (WMO-Nr. 8, 2024, Band III, 7.1.1, 7.9, 7.10.4.2). Der DWD fügt seine Radare alle 5 Minuten zu einem Bild von Deutschland zusammen.",
     "about2": "Radar hat Grenzen. Sein Strahl steigt mit der Entfernung vom Radar, sodass er weit entfernt über niedrigen Niederschlag hinwegzieht und nicht misst, was den Boden erreicht; ohne Korrekturen nennt die WMO die Messwerte für ein Radar mit 1° breitem Strahl nur bis etwa 80 km quantitativ brauchbar (7.2.2, 7.9, 7.10.4.1). Gebäude, Hügel und Berge geben Bodenechos, die kein Regen sind und entfernt werden müssen (7.5.3, 7.9). Berge können den Strahl abschatten, sodass Niederschlag dahinter unterschätzt wird (7.9). Wo Schnee schmilzt, stört eine Schicht, in der Eis und Wasser gemischt sind, das Echo (7.10.4.1, 7.10.4.2). Die Farben sind Klassen der Rate über 5 Minuten, keine Messung eines Regenmessers.",
-    "about3": "Die Vorhersage ist kein Wettermodell. Der DWD sucht ähnliche Strukturen in aufeinanderfolgenden Radarbildern, bestimmt ihre Verlagerung und extrapoliert diese in die Zukunft, in 5-Minuten-Schritten bis zu 2 Stunden (DWD, RADVOR). Die WMO merkt an, dass das klassische Nowcasting (Kürzestfristvorhersage) dieser Art annimmt, dass sich die Echos nicht entwickeln, und nennt die Treffsicherheit ihres Beispiels für die ersten 20 bis 30 Minuten sehr hoch (7.10.3). Die als Vorhersage markierten Bilder sind die Extrapolation, die als gemessen markierten zeigen, was das Radar gemessen hat.",
-    "aboutSources": "Quellen: WMO, Guide to Instruments and Methods of Observation (WMO-Nr. 8), Ausgabe 2024, Band III, Kapitel 7 (Radarmessungen), die oben genannten Abschnitte; DWD, Beschreibung des Produkts RADVOR (das RV-Komposit).",
-    "aboutDwdLink": "DWD: RADVOR",
+    "about3": "Die Vorhersage ist kein Wettermodell. Die Vorhersage des DWD für 2 Stunden wird durch Verlagerung berechnet: ähnliche Strukturen in aufeinanderfolgenden Radarbildern werden gesucht, ihre Verlagerung wird bestimmt und in die Zukunft extrapoliert (DWD, Radarprodukte). Die WMO merkt an, dass das klassische Nowcasting (Kürzestfristvorhersage) dieser Art annimmt, dass sich die Echos nicht entwickeln, und nennt die Treffsicherheit ihres Beispiels für die ersten 20 bis 30 Minuten sehr hoch (7.10.3). Die als Vorhersage markierten Bilder sind die Extrapolation, die als gemessen markierten zeigen, was das Radar gemessen hat.",
+    "aboutSources": "Quellen: WMO, Guide to Instruments and Methods of Observation (WMO-Nr. 8), Ausgabe 2024, Band III, Kapitel 7 (Radarmessungen), die oben genannten Abschnitte; DWD, Radarprodukte (die Komposite RV und WN, mit einer Vorhersage für 2 Stunden, berechnet durch Verlagerung).",
+    "aboutDwdLink": "DWD: Radarprodukte",
     "loopTitle": "Die Schleife",
     "playerLabel": "Radarschleife",
     "play": "Abspielen",

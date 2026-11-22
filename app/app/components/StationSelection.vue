@@ -103,11 +103,11 @@ watch(allStations, (stations) => {
   if (!props.initialStationIds?.length)
     return
 
-  // Find stations matching the initial IDs
+  // Find stations matching the initial IDs, in the order of the link: it is the order the list of the stations chosen is in
+  // (the value details name the stations in it), so a reload or a shared link must not put them in another
   const restoredStations = props.initialStationIds
     .map(id => stations.find(s => s.station_id === id))
     .filter((s): s is Station => s !== undefined)
-    .sort((a, b) => a.station_id.localeCompare(b.station_id))
 
   if (restoredStations.length > 0) {
     selectedStations.value = restoredStations

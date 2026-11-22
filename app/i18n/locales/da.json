@@ -396,7 +396,24 @@
     "opensExplorer": "åbner Udforsker",
     "stationListReading": "En stationsliste læses stadig; flere resultater kan følge",
     "stationListFailed": "En stationsliste kunne ikke læses",
-    "allNetworksGroup": "Alle netværk"
+    "allNetworksGroup": "Alle netværk",
+    "placesGroup": "Steder",
+    "placeKinds": {
+      "city": "Storby",
+      "town": "By",
+      "village": "Landsby",
+      "hamlet": "Lille landsby",
+      "district": "Bydel",
+      "county": "Distrikt",
+      "region": "Delstat eller region",
+      "country": "Land",
+      "island": "Ø",
+      "mountain": "Bjerg",
+      "water": "Vandområde",
+      "airport": "Lufthavn"
+    },
+    "placesCredit": "{osm} ({licence}) · steder via {photon}",
+    "placesFailed": "Steder kunne ikke søges lige nu. Skriv videre for at prøve igen."
   },
   "header": {
     "github": "GitHub",
@@ -643,6 +660,7 @@
     "sourcesTitle": "Kilder",
     "untranslatedEn": "Dette indlæg er endnu ikke oversat til dit sprog og vises på engelsk.",
     "untranslatedDe": "Dette indlæg er endnu ikke oversat til dit sprog og vises på tysk.",
+    "toolRadar": "Åbn radarværktøjet",
     "topics": {
       "temperature": "Luft- og jordtemperatur",
       "pressure": "Lufttryk",
@@ -658,12 +676,15 @@
       "clouds": "Skyer",
       "snow": "Sne",
       "automaticStations": "Automatiske vejrstationer",
+      "radar": "Radar",
       "urbanStations": "Stationer i byen",
       "roadStations": "Vejrstationer ved vejene",
       "fromMeasurementToValue": "Fra måling til værdi",
       "normals": "Klimanormaler",
+      "waterLevel": "Vandstand og vandføring",
       "time": "Tid",
-      "observationForecastDerived": "Observation, prognose og afledte data"
+      "observationForecastDerived": "Observation, prognose og afledte data",
+      "dataQuality": "Datakvalitet"
     }
   },
   "methods": {
@@ -1056,6 +1077,14 @@
     "modeHowItWorks": "Sådan fungerer det",
     "removeParameterDistance": "Fjern afstanden for {parameter}"
   },
+  "valueDetails": {
+    "station": "Station",
+    "unit": "Enhed",
+    "sumNote": "En sum vises kun for parametre, der er mængder pr. interval, som nedbør eller solskinstimer, og ikke hvor en parameters vindue er længere end dens rækker (en total over 6 timer i timerækker): vinduerne overlapper. For et gennemsnit, en aflæsning, et maksimum eller et minimum ville den ikke betyde noget.",
+    "noSum": "ingen sum for denne parameter",
+    "noSumOverlap": "ingen sum: vinduerne for denne parameter overlapper",
+    "noValue": "ingen værdi"
+  },
   "stationTable": {
     "stationId": "Stations-id",
     "name": "Navn",
@@ -1234,9 +1263,9 @@
     "aboutButton": "Om radaren",
     "about1": "En vejrradar sender pulser af radiobølger ud og venter på det ekko, som regn, sne eller hagl kaster tilbage. Hvor stærkt ekkoet er, afhænger af størrelsen og antallet af dråber eller flager, og en empirisk formel (Z–R-sammenhængen) regner det om til en nedbørsintensitet i millimeter i timen. Formlen holder kun med en faktor to, fordi forskellige dråbestørrelsesfordelinger kan give det samme ekko (WMO-No. 8, 2024, bind III, 7.1.1, 7.9, 7.10.4.2). DWD samler sine radarer til ét billede af Tyskland hvert 5. minut.",
     "about2": "Radar har grænser. Strålen stiger med afstanden fra radaren, så langt væk går den over lav nedbør og måler ikke det, der når jorden; uden korrektioner kalder WMO aflæsningerne kvantitativt brugbare kun til omkring 80 km for en radar med en stråle på 1° (7.2.2, 7.9, 7.10.4.1). Bygninger, bakker og bjerge giver jordekkoer, der ikke er regn og skal fjernes (7.5.3, 7.9). Bjerge kan blokere strålen, så nedbør bag dem undervurderes (7.9). Hvor sne smelter, forstyrrer et lag, hvor is og vand er blandet, ekkoet (7.10.4.1, 7.10.4.2). Farverne er klasser af intensiteten over 5 minutter, ikke en aflæsning fra en regnmåler.",
-    "about3": "Udsigten er ikke en vejrmodel. DWD finder lignende strukturer i på hinanden følgende radarbilleder, bestemmer deres forskydning og fremskriver den ind i fremtiden, i trin på 5 minutter op til 2 timer (DWD, RADVOR). WMO bemærker, at den traditionelle nowcast af denne slags antager, at intet ekko udvikler sig, og kalder dygtigheden i sit eksempel meget høj de første 20 til 30 minutter (7.10.3). Billederne markeret som udsigt er fremskrivningen; dem markeret som målt viser, hvad radaren har målt.",
-    "aboutSources": "Kilder: WMO, Guide to Instruments and Methods of Observation (WMO-No. 8), udgaven fra 2024, bind III, kapitel 7 (radarmålinger), de ovenfor nævnte afsnit; DWD, beskrivelse af produktet RADVOR (RV-kompositten).",
-    "aboutDwdLink": "DWD: RADVOR",
+    "about3": "Udsigten er ikke en vejrmodel. DWD's udsigt for 2 timer beregnes ved forskydning: lignende strukturer i på hinanden følgende radarbilleder findes, deres forskydning bestemmes og fremskrives ind i fremtiden (DWD, radarprodukter). WMO bemærker, at den traditionelle nowcast af denne slags antager, at intet ekko udvikler sig, og kalder dygtigheden i sit eksempel meget høj de første 20 til 30 minutter (7.10.3). Billederne markeret som udsigt er fremskrivningen; dem markeret som målt viser, hvad radaren har målt.",
+    "aboutSources": "Kilder: WMO, Guide to Instruments and Methods of Observation (WMO-No. 8), udgaven fra 2024, bind III, kapitel 7 (radarmålinger), de ovenfor nævnte afsnit; DWD, radarprodukter (kompositterne RV og WN med en udsigt for 2 timer, beregnet ved forskydning).",
+    "aboutDwdLink": "DWD: radarprodukter",
     "loopTitle": "Loopet",
     "playerLabel": "Radarloop",
     "play": "Afspil",

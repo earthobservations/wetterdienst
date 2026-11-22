@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.195.0] - 2026-11-22
+
 ### Added
 
 - Find one WMO number, WIGOS identifier or ICAO code at every provider that has it:
@@ -8434,7 +8436,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.194.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.195.0...HEAD
+[0.195.0]: https://github.com/earthobservations/wetterdienst/compare/v0.194.0...v0.195.0
 [0.194.0]: https://github.com/earthobservations/wetterdienst/compare/v0.193.0...v0.194.0
 [0.193.0]: https://github.com/earthobservations/wetterdienst/compare/v0.192.0...v0.193.0
 [0.192.0]: https://github.com/earthobservations/wetterdienst/compare/v0.191.0...v0.192.0

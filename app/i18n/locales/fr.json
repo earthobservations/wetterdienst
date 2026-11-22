@@ -396,7 +396,24 @@
     "opensExplorer": "ouvre l'Explorateur",
     "stationListReading": "Une liste de stations est encore en cours de lecture ; d'autres résultats peuvent suivre",
     "stationListFailed": "Une liste de stations n'a pas pu être lue",
-    "allNetworksGroup": "Tous les réseaux"
+    "allNetworksGroup": "Tous les réseaux",
+    "placesGroup": "Lieux",
+    "placeKinds": {
+      "city": "Grande ville",
+      "town": "Ville",
+      "village": "Village",
+      "hamlet": "Hameau",
+      "district": "Quartier",
+      "county": "Comté ou district",
+      "region": "État ou région",
+      "country": "Pays",
+      "island": "Île",
+      "mountain": "Montagne",
+      "water": "Plan d'eau",
+      "airport": "Aéroport"
+    },
+    "placesCredit": "{osm} ({licence}) · lieux via {photon}",
+    "placesFailed": "Les lieux n'ont pas pu être recherchés pour le moment. Continue à taper pour réessayer."
   },
   "header": {
     "github": "GitHub",
@@ -643,6 +660,7 @@
     "sourcesTitle": "Sources",
     "untranslatedEn": "Cette entrée n'est pas encore traduite dans ta langue et s'affiche en anglais.",
     "untranslatedDe": "Cette entrée n'est pas encore traduite dans ta langue et s'affiche en allemand.",
+    "toolRadar": "Ouvrir l'outil Radar",
     "topics": {
       "temperature": "Température de l'air et du sol",
       "pressure": "Pression atmosphérique",
@@ -658,12 +676,15 @@
       "clouds": "Nuages",
       "snow": "Neige",
       "automaticStations": "Stations météorologiques automatiques",
+      "radar": "Radar",
       "urbanStations": "Stations urbaines",
       "roadStations": "Stations météorologiques routières",
       "fromMeasurementToValue": "De la mesure à la valeur",
       "normals": "Normales climatiques",
+      "waterLevel": "Hauteur d'eau et débit",
       "time": "Heure et jour",
-      "observationForecastDerived": "Observation, prévision et données dérivées"
+      "observationForecastDerived": "Observation, prévision et données dérivées",
+      "dataQuality": "Qualité des données"
     }
   },
   "methods": {
@@ -1056,6 +1077,14 @@
     "modeHowItWorks": "Comment ça marche",
     "removeParameterDistance": "Supprimer la distance de {parameter}"
   },
+  "valueDetails": {
+    "station": "Station",
+    "unit": "Unité",
+    "sumNote": "Une somme n'est affichée que pour les paramètres qui sont des quantités par intervalle, comme les précipitations ou la durée d'ensoleillement, et non lorsque la fenêtre d'un paramètre est plus longue que ses lignes (un total sur 6 heures dans des lignes horaires) : les fenêtres se chevauchent. Pour une moyenne, une mesure, un maximum ou un minimum, elle n'aurait aucun sens.",
+    "noSum": "pas de somme pour ce paramètre",
+    "noSumOverlap": "pas de somme : les fenêtres de ce paramètre se chevauchent",
+    "noValue": "aucune valeur"
+  },
   "stationTable": {
     "stationId": "Identifiant de station",
     "name": "Nom",
@@ -1234,9 +1263,9 @@
     "aboutButton": "À propos du radar",
     "about1": "Un radar météo émet des impulsions d'ondes radio et attend l'écho que la pluie, la neige ou la grêle renvoie. La force de l'écho dépend de la taille et du nombre des gouttes ou des flocons, et une formule empirique (la relation Z-R) la transforme en intensité de précipitation en millimètres par heure. Cette formule n'est exacte qu'à un facteur deux près, car des distributions de tailles de gouttes différentes peuvent donner le même écho (OMM-N° 8, 2024, volume III, 7.1.1, 7.9, 7.10.4.2). Le DWD assemble ses radars en une seule image de l'Allemagne toutes les 5 minutes.",
     "about2": "Le radar a ses limites. Son faisceau monte avec la distance au radar : loin de lui, il passe au-dessus de faibles précipitations et ne mesure pas ce qui atteint le sol ; sans corrections, l'OMM juge les mesures utilisables quantitativement seulement jusqu'à environ 80 km pour un radar à faisceau de 1° (7.2.2, 7.9, 7.10.4.1). Les bâtiments, les collines et les montagnes donnent des échos de sol qui ne sont pas de la pluie et doivent être retirés (7.5.3, 7.9). Les montagnes peuvent bloquer le faisceau, si bien que les précipitations derrière elles sont sous-estimées (7.9). Là où la neige fond, une couche où la glace et l'eau sont mêlées perturbe l'écho (7.10.4.1, 7.10.4.2). Les couleurs sont des classes de l'intensité sur 5 minutes, pas la mesure d'un pluviomètre.",
-    "about3": "La prévision n'est pas un modèle météorologique. Le DWD repère des structures semblables dans des images radar successives, détermine leur déplacement et l'extrapole dans le futur, par pas de 5 minutes jusqu'à 2 heures (DWD, RADVOR). L'OMM note que le nowcast traditionnel de ce genre suppose qu'aucun écho n'évolue, et juge très élevée la performance de son exemple pendant les 20 à 30 premières minutes (7.10.3). Les images marquées comme prévision sont l'extrapolation ; celles marquées comme observées montrent ce que le radar a mesuré.",
-    "aboutSources": "Sources : OMM, Guide des instruments et des méthodes d'observation (OMM-N° 8), édition 2024, volume III, chapitre 7 (mesures radar), les sections citées plus haut ; DWD, description du produit RADVOR (le composite RV).",
-    "aboutDwdLink": "DWD : RADVOR",
+    "about3": "La prévision n'est pas un modèle météorologique. La prévision à 2 heures du DWD est calculée par déplacement : on repère des structures semblables dans des images radar successives, on détermine leur déplacement et on l'extrapole dans le futur (DWD, produits radar). L'OMM note que le nowcast traditionnel de ce genre suppose qu'aucun écho n'évolue, et juge très élevée la performance de son exemple pendant les 20 à 30 premières minutes (7.10.3). Les images marquées comme prévision sont l'extrapolation ; celles marquées comme observées montrent ce que le radar a mesuré.",
+    "aboutSources": "Sources : OMM, Guide des instruments et des méthodes d'observation (OMM-N° 8), édition 2024, volume III, chapitre 7 (mesures radar), les sections citées plus haut ; DWD, produits radar (les composites RV et WN, avec une prévision à 2 heures calculée par déplacement).",
+    "aboutDwdLink": "DWD : produits radar",
     "loopTitle": "La boucle",
     "playerLabel": "Boucle radar",
     "play": "Lecture",

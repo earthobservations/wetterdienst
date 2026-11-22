@@ -9,9 +9,14 @@ import type {
   UnitType,
   Value,
 } from '../../../shared/types/api'
+import type { PlaceMatch, PlacesAnswer } from '../../../shared/utils/places'
 import type { StripesFixture } from '../../helpers/stripes-backend'
 import { Buffer } from 'node:buffer'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import process from 'node:process'
 import { prepareStations, searchPrepared } from '../../../app/utils/station-search'
+import { placesOfPhoton } from '../../../shared/utils/places'
 import { radarAnswer } from '../../helpers/radar-answer'
 import { radarPng } from '../../helpers/radar-image'
 import { emptyScan } from '../../helpers/storm-cells-answer'
@@ -251,10 +256,12 @@ function observationValues(url: URL): Value[] {
   const stations = (url.searchParams.getAll('stations').join(',') || '00011').split(',')
   const values: Value[] = []
   for (const station_id of stations) {
+    // another station reads a little more than the first one the mock knows, so that two stations differ
+    const offset = station_id === '00011' ? 0 : (Number(station_id) % 5) + 1
     for (const name of parameters) {
       for (let day = 0; day < 30; day++) {
         // a fixed curve, not a random one: the same page for every scan
-        const base = name.includes('max') ? 18 : name.includes('min') ? 6 : name.includes('precipitation') ? 2 : 12
+        const base = (name.includes('max') ? 18 : name.includes('min') ? 6 : name.includes('precipitation') ? 2 : 12) + offset
         values.push({
           station_id,
           resolution: 'daily',
@@ -268,6 +275,29 @@ function observationValues(url: URL): Value[] {
     }
   }
   return values
+}
+
+/**
+ * What `with_metadata` adds to a `/api/values` answer that the app reads: the facts of each parameter, with the unit its values are
+ * in and what they are relative to their interval (`aggregation`), as the backend states them: a precipitation is a sum, a maximum
+ * and a minimum are what they say, a temperature or a humidity is a mean
+ */
+function observationMetadata(url: URL) {
+  const requested = (url.searchParams.get('parameters') ?? '').split(',').filter(Boolean)
+  const names = requested.map(entry => entry.split('/')[2]).filter((name): name is string => Boolean(name))
+  return {
+    parameters: (names.length ? names : ['temperature_air_mean_2m']).map(name => ({
+      resolution: 'daily',
+      dataset: 'climate_summary',
+      name,
+      name_original: name,
+      description: null,
+      quantity: name.includes('precipitation') ? 'precipitation' : 'temperature',
+      unit: name.includes('precipitation') ? 'mm' : '\u00B0C',
+      aggregation: name.includes('precipitation') ? 'sum' : name.includes('max') ? 'max' : name.includes('min') ? 'min' : 'mean',
+      timestamp_position: null,
+    })),
+  }
 }
 
 /** Three days of hourly MOSMIX values from the hour of `now` on, for each series the meteogram draws */
@@ -405,6 +435,25 @@ function stationSearch(url: URL): StationSearchAnswer {
   return { query, networks, pending: [], failed: [] }
 }
 
+/** A saved answer of Photon's (tests/fixtures/photon-*.json), read from the app's directory, where the suites run, and when it is asked for: this file is imported by tests that never ask */
+function photonFixture(name: string): unknown {
+  return JSON.parse(readFileSync(resolve(process.cwd(), 'tests/fixtures', `${name}.json`), 'utf8'))
+}
+
+/** The places of the real answers of Photon's for two names, as the route shapes them (GH-3791): "Bad Tölz" and "Paris" */
+const PLACES = [
+  { prefix: 'bad t', fixture: 'photon-badtoelz' },
+  { prefix: 'paris', fixture: 'photon-paris' },
+]
+
+/** What `GET /_search/places` answers: the places of the two names above, none for any other text */
+function placesSearch(url: URL): PlacesAnswer {
+  const query = url.searchParams.get('q') ?? ''
+  const found = PLACES.find(entry => query.toLowerCase().startsWith(entry.prefix))
+  const places: PlaceMatch[] = found ? placesOfPhoton(photonFixture(found.fixture))! : []
+  return { query, state: 'ok', places, attribution: '© OpenStreetMap contributors' }
+}
+
 /**
  * What `GET /api/station-ids` answers: the stations of several networks that carry the id, as the backend lists them: Hamburg-Fuhlsbüttel's for
  * 10147 and EDDH (which the lists of the search have too), and Berlin-Dahlem's for any other id (10381 is its WMO number)
@@ -509,7 +558,9 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     'values': (url) => {
       if (isSnowRequest(url))
         return snowValues(url, now)
-      return { values: url.searchParams.get('network') === 'mosmix' ? forecastValues(url, now) : observationValues(url) }
+      if (url.searchParams.get('network') === 'mosmix')
+        return { values: forecastValues(url, now) }
+      return { values: observationValues(url), ...(url.searchParams.get('with_metadata') === 'true' ? { metadata: observationMetadata(url) } : {}) }
     },
     'issues': () => ({ issues: ['2026-10-14T09:00:00+00:00', '2026-10-14T15:00:00+00:00', '2026-10-14T21:00:00+00:00'] }),
     'history': () => HISTORY,
@@ -520,6 +571,8 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     '_ghcn/stations': () => ({ stations: GHCN_STRIPES_STATIONS }),
     // the search of the header (GH-3790): the app's own server's matching of the lists, and the backend's search of every network for an id
     '_search/stations': stationSearch,
+    // the places by name, which the app's server asks Photon for (GH-3791)
+    '_search/places': placesSearch,
     'station-ids': stationIds,
     // the list of the stations of GHCN daily as the app's server hands it to the map, as columns (GH-4267)
     '_ghcn/map-stations': () => searchColumns(SEARCH_GHCN),

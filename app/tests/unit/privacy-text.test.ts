@@ -25,6 +25,7 @@ describe('privacy policy texts', () => {
       expect(other.paragraphs.length, `${section.id} paragraphs`).toBe(section.paragraphs.length)
       expect(other.items?.length, `${section.id} items`).toBe(section.items?.length)
       expect(other.link, `${section.id} link`).toEqual(section.link)
+      expect(other.links, `${section.id} links`).toEqual(section.links)
     }
   })
 
@@ -98,6 +99,38 @@ describe('privacy policy texts', () => {
     expect(tiles).toMatch(code === 'de' ? /oder die Karte des Radars/ : /or the radar's map/)
     // the tick and "Forget" are there as on the map
     expect(storing.match(code === 'de' ? /auf dem Radar/g : /on the radar/g)).toHaveLength(2)
+  })
+
+  it.each(Object.keys(texts))('have a section on the place search in %s: Photon of komoot GmbH, asked by the server from three letters on, not the reader\'s browser or address, 24 hours, and the legal basis (GH-3791)', (code) => {
+    const policy = texts[code as keyof typeof texts]
+    const section = policy.sections.find(s => s.id === 'places')!
+    const text = section.paragraphs.join(' ')
+    expect(section.icon).toBe('i-ph-map-pin')
+    expect(section.link).toEqual({ label: 'photon.komoot.io', href: 'https://photon.komoot.io' })
+    // and komoot's own privacy policy, which says what it does with a request
+    expect(section.links).toEqual([{ label: 'komoot.com/privacy', href: 'https://www.komoot.com/privacy' }])
+    expect(text).toContain('Photon')
+    expect(text).toContain('komoot GmbH')
+    expect(text).toContain('OpenStreetMap')
+    expect(text).toMatch(code === 'de' ? /Ab drei Buchstaben/ : /From three letters on/)
+    // sent each time the reader pauses (0.4 s, the palette's `PLACES_DEBOUNCE_MS`), so that the states on the way to a name are sent too, which it says
+    expect(text).toMatch(code === 'de' ? /jedes Mal, wenn Sie beim Tippen kurz innehalten \(0,4 Sekunden\)/ : /each time you pause typing \(0\.4 seconds\)/)
+    expect(text).toMatch(code === 'de' ? /Zwischenstände Ihrer Eingabe/ : /Intermediate states of what you type are therefore sent too/)
+    // what is never sent: under three letters, and what looks like a position, as `looksLikePosition` has it
+    expect(text).toMatch(code === 'de' ? /weniger als drei Buchstaben hat oder wie eine Position aussieht: wenn er eine Dezimalzahl, ein Grad- oder Minutenzeichen, zwei Zahlen, einen einzelnen Buchstaben neben einer Zahl oder ein Wort für Breite oder Länge mit einer Zahl enthält/ : /has fewer than three letters or looks like a position: if it contains a decimal number, a degree or minute sign, two numbers, a single letter next to a number, or a word for latitude or longitude with a number/)
+    expect(text).toMatch(code === 'de' ? /vom Server der Web-App – nicht von Ihrem Browser –/ : /by the web app's server, not by your browser/)
+    expect(text).toMatch(code === 'de' ? /nicht aber Ihre IP-Adresse/ : /but not your IP address/)
+    expect(text).toMatch(code === 'de' ? /keine Cookies, keine Angaben Ihres Browsers, keinen Referer/ : /no cookies, no browser details, no Referer/)
+    expect(text).toMatch(code === 'de' ? /24 Stunden/ : /24 hours/)
+    expect(text).toMatch(code === 'de' ? /kein Protokoll darüber, wer wonach gefragt hat/ : /keeps no record of who asked for what/)
+    expect(text).toMatch(code === 'de' ? /Art\. 6 Abs\. 1 lit\. f DSGVO/ : /Art\. 6\(1\)\(f\) GDPR/)
+    // the sentence about sharing names komoot, which receives the text from the operator's server and not from the reader's browser
+    const recipients = policy.sections.find(s => s.id === 'recipients')!.paragraphs.join(' ')
+    expect(recipients).toContain('komoot')
+    // and says that komoot is no processor of the operator's: the processor is Hetzner
+    expect(recipients).toMatch(code === 'de' ? /das kein Auftragsverarbeiter des Betreibers ist, sondern den eingegebenen Text selbst erhält/ : /which is not a processor of the operator but receives the typed text itself/)
+    // Photon is asked by the server, so it is no host of the Content Security Policy, and the section on the third parties that the browser asks does not list it
+    expect(JSON.stringify(policy.sections.find(s => s.id === 'third-parties'))).not.toContain('komoot')
   })
 
   it.each(Object.keys(texts))('state no retention period in days in %s: none is configured, only the cookie has a lifetime', (code) => {

@@ -396,7 +396,24 @@
     "opensExplorer": "apre l'Esploratore",
     "stationListReading": "Un elenco di stazioni è ancora in lettura; possono seguire altri risultati",
     "stationListFailed": "Non è stato possibile leggere un elenco di stazioni",
-    "allNetworksGroup": "Tutte le reti"
+    "allNetworksGroup": "Tutte le reti",
+    "placesGroup": "Luoghi",
+    "placeKinds": {
+      "city": "Città",
+      "town": "Cittadina",
+      "village": "Villaggio",
+      "hamlet": "Frazione",
+      "district": "Quartiere",
+      "county": "Provincia o contea",
+      "region": "Stato o regione",
+      "country": "Paese",
+      "island": "Isola",
+      "mountain": "Montagna",
+      "water": "Specchio d'acqua",
+      "airport": "Aeroporto"
+    },
+    "placesCredit": "{osm} ({licence}) · luoghi tramite {photon}",
+    "placesFailed": "Al momento non è stato possibile cercare i luoghi. Continua a scrivere per riprovare."
   },
   "header": {
     "github": "GitHub",
@@ -643,6 +660,7 @@
     "sourcesTitle": "Fonti",
     "untranslatedEn": "Questa voce non è ancora tradotta nella tua lingua e viene mostrata in inglese.",
     "untranslatedDe": "Questa voce non è ancora tradotta nella tua lingua e viene mostrata in tedesco.",
+    "toolRadar": "Apri lo strumento Radar",
     "topics": {
       "temperature": "Temperatura dell'aria e del suolo",
       "pressure": "Pressione atmosferica",
@@ -658,12 +676,15 @@
       "clouds": "Nuvole",
       "snow": "Neve",
       "automaticStations": "Stazioni meteorologiche automatiche",
+      "radar": "Radar",
       "urbanStations": "Stazioni urbane",
       "roadStations": "Stazioni meteorologiche stradali",
       "fromMeasurementToValue": "Dalla misura al valore",
       "normals": "Normali climatiche",
+      "waterLevel": "Livello idrometrico e portata",
       "time": "Ora e giorno",
-      "observationForecastDerived": "Osservazione, previsione e dati derivati"
+      "observationForecastDerived": "Osservazione, previsione e dati derivati",
+      "dataQuality": "Qualità dei dati"
     }
   },
   "methods": {
@@ -1056,6 +1077,14 @@
     "modeHowItWorks": "Come funziona",
     "removeParameterDistance": "Rimuovi la distanza di {parameter}"
   },
+  "valueDetails": {
+    "station": "Stazione",
+    "unit": "Unità",
+    "sumNote": "Una somma viene mostrata solo per i parametri che sono quantità per intervallo, come la precipitazione o la durata dell'insolazione, e non dove la finestra di un parametro è più lunga delle sue righe (un totale su 6 ore in righe orarie): le finestre si sovrappongono. Per una media, una misura, un massimo o un minimo non avrebbe alcun significato.",
+    "noSum": "nessuna somma per questo parametro",
+    "noSumOverlap": "nessuna somma: le finestre di questo parametro si sovrappongono",
+    "noValue": "nessun valore"
+  },
   "stationTable": {
     "stationId": "ID stazione",
     "name": "Nome",
@@ -1234,9 +1263,9 @@
     "aboutButton": "Informazioni sul radar",
     "about1": "Un radar meteorologico emette impulsi di onde radio e attende l'eco che pioggia, neve o grandine rimandano indietro. La forza dell'eco dipende dalla dimensione e dal numero delle gocce o dei fiocchi, e una formula empirica (la relazione Z-R) la trasforma in un'intensità di precipitazione in millimetri all'ora. La formula vale solo entro un fattore due, perché distribuzioni diverse delle dimensioni delle gocce possono dare lo stesso eco (OMM-N. 8, 2024, volume III, 7.1.1, 7.9, 7.10.4.2). Il DWD unisce i suoi radar in un'unica immagine della Germania ogni 5 minuti.",
     "about2": "Il radar ha dei limiti. Il suo fascio sale con la distanza dal radar, quindi lontano passa sopra precipitazioni basse e non misura ciò che arriva al suolo; senza correzioni, l'OMM considera le misure utili quantitativamente solo fino a circa 80 km per un radar con un fascio largo 1° (7.2.2, 7.9, 7.10.4.1). Edifici, colline e montagne danno echi dal suolo che non sono pioggia e vanno eliminati (7.5.3, 7.9). Le montagne possono bloccare il fascio, per cui le precipitazioni dietro di esse sono sottostimate (7.9). Dove la neve si scioglie, uno strato in cui ghiaccio e acqua sono mescolati disturba l'eco (7.10.4.1, 7.10.4.2). I colori sono classi dell'intensità su 5 minuti, non la lettura di un pluviometro.",
-    "about3": "La previsione non è un modello meteorologico. Il DWD cerca strutture simili in immagini radar successive, ne determina lo spostamento e lo estrapola nel futuro, a passi di 5 minuti fino a 2 ore (DWD, RADVOR). L'OMM osserva che il nowcast tradizionale di questo tipo presume che nessun eco si evolva, e giudica molto alta l'abilità del suo esempio nei primi 20-30 minuti (7.10.3). Le immagini contrassegnate come previsione sono l'estrapolazione; quelle contrassegnate come osservate mostrano ciò che il radar ha misurato.",
-    "aboutSources": "Fonti: OMM, Guide to Instruments and Methods of Observation (OMM-N. 8), edizione 2024, volume III, capitolo 7 (misure radar), le sezioni citate sopra; DWD, descrizione del prodotto RADVOR (il composito RV).",
-    "aboutDwdLink": "DWD: RADVOR",
+    "about3": "La previsione non è un modello meteorologico. La previsione a 2 ore del DWD è calcolata per spostamento: si cercano strutture simili in immagini radar successive, se ne determina lo spostamento e lo si estrapola nel futuro (DWD, prodotti radar). L'OMM osserva che il nowcast tradizionale di questo tipo presume che nessun eco si evolva, e giudica molto alta l'abilità del suo esempio nei primi 20-30 minuti (7.10.3). Le immagini contrassegnate come previsione sono l'estrapolazione; quelle contrassegnate come osservate mostrano ciò che il radar ha misurato.",
+    "aboutSources": "Fonti: OMM, Guide to Instruments and Methods of Observation (OMM-N. 8), edizione 2024, volume III, capitolo 7 (misure radar), le sezioni citate sopra; DWD, prodotti radar (i compositi RV e WN, con una previsione a 2 ore calcolata per spostamento).",
+    "aboutDwdLink": "DWD: prodotti radar",
     "loopTitle": "La sequenza",
     "playerLabel": "Sequenza radar",
     "play": "Riproduci",

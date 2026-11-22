@@ -52,10 +52,12 @@ describe('the index of each language', () => {
   // 40 kB until the four entries on the kinds of station and on how a value is formed (GH-3787) took Luxembourgish, which
   // is shown the German texts and is the largest, to 44.6 kB (German 43.9 kB). The formal citations (file names, folders and
   // addresses, which nobody searches for) are no longer indexed, which gives 42.9 kB for Luxembourgish and 42.2 kB for German.
-  // Each further entry adds about 1.7 kB in German: 50 kB is the budget for the entries still to come
-  it('stays small enough to load when the search is opened: 50 kB gzipped for a language, with the labels of its parameters', () => {
+  // Each further entry added about 1.7 kB in German, until the last three (radar, water level and discharge, and the quality of the
+  // data) took Luxembourgish to 50.7 kB, Low German to 50.5 and German to 49.8: the three are long (the one on water level rests
+  // on four services and a WMO guide). 55 kB is the budget since, with room for the entry on phenology that is left for later
+  it('stays small enough to load when the search is opened: 55 kB gzipped for a language, with the labels of its parameters', () => {
     for (const locale of SEARCH_LOCALES)
-      expect(gzipSync(JSON.stringify({ index: searchIndexFor(locale), labels: searchLabelsFor(locale) })).length, locale).toBeLessThan(50_000)
+      expect(gzipSync(JSON.stringify({ index: searchIndexFor(locale), labels: searchLabelsFor(locale) })).length, locale).toBeLessThan(55_000)
   })
 
   it('has the labels of the glossary\'s parameters in its own language, which the glossary results are shown by', () => {
@@ -87,7 +89,8 @@ describe('what it finds and where it leads', () => {
 
   it('finds the cards of About and Support, and each setting at its own anchor', () => {
     expect(find('en', 'donations')[0]!.to).toBe('/support#support-donate')
-    expect(find('en', 'hydrology')[0]!.to).toBe('/about#about-people')
+    // the entry on water level and discharge says hydrology too, and comes first; the card that names the maintainer's hydrology is found as well
+    expect(find('en', 'hydrology').map(hit => hit.to)).toContain('/about#about-people')
     expect(find('en', 'convert').map(hit => hit.to)).toContain('/settings#settings-convert-units')
     expect(find('de', 'Windgeschwindigkeit').map(hit => hit.to)).toContain('/settings#settings-unit-speed')
     // a reader of German finds the English name of a setting as well

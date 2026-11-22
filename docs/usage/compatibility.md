@@ -44,7 +44,7 @@ module with a reason, together with a **Breaking** changelog entry; an entry tha
 fails as stale. A baseline is written only in a release commit, with `uv run poe contracts:baseline` (which writes the
 OpenAPI one too), and each says which release it is of (`x-release`), which a test holds to `pyproject.toml`; see
 [Release strategy](https://github.com/earthobservations/wetterdienst/blob/main/.github/RELEASE_STRATEGY.md).
-The baselines are those of 0.194.0 until the next release.
+The baselines are those of 0.195.0 until the next release.
 
 ## What counts as breaking
 
@@ -427,7 +427,7 @@ in 0.173.0, earlier than announced.
 
 `Wetterdienst(provider, network)` is a `TypeError` that names `Wetterdienst.resolve`, and `wetterdienst stripes
 values` is "No such command". The name `stripes values` is **never reused** for other output, and since the climate
-stripes left the backend (in the release after 0.194.0, GH-4258: the web app draws them itself) the same holds for the
+stripes left the backend (in 0.195.0, GH-4258: the web app draws them itself) the same holds for the
 whole `stripes` group of the command line, the `/stripes/...` routes of the REST API and the `stripes_...` tools of
 MCP: a command, route or tool of that name that does something else would get another name, as an addition.
 

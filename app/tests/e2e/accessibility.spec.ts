@@ -207,6 +207,18 @@ const STATES: State[] = [
     },
   },
   {
+    // the value details of two stations (GH-4296): a row for each station of each parameter
+    page: 'explorer',
+    state: 'value-details-two-stations',
+    path: `${EXPLORER}&stations=00011,00044`,
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
+      await expect(page.getByRole('table').first()).toBeVisible()
+      await page.getByRole('button', { name: message(locale, 'explorer.valuesDetails'), exact: true }).click()
+      await expect(page.getByTestId('value-details-row').first()).toBeVisible()
+    },
+  },
+  {
     page: 'explorer',
     state: 'values-error',
     path: EXPLORER_WITH_STATION,
@@ -643,6 +655,23 @@ const STATES: State[] = [
     },
   },
   {
+    // the places OpenStreetMap has for a name, found by the app's server through Photon (GH-3791): a group of their own before the stations, with
+    // the credit of the licence and the name of the service under the list; the first place is the active option
+    page: 'index',
+    state: 'search-places',
+    keepFocus: true,
+    path: '/',
+    reach: async (page, locale) => {
+      await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible()
+      await page.keyboard.press('Control+k')
+      await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
+      await page.keyboard.type('paris')
+      await expect(page.getByRole('group', { name: message(locale, 'shell.placesGroup'), exact: true })).toBeVisible()
+      await expect(page.getByTestId('places-credit')).toBeVisible()
+      await page.keyboard.press('ArrowDown')
+    },
+  },
+  {
     // Ask the weather (GH-3518): a question open, with its verdict, its bars and the links into the tools
     page: 'index',
     state: 'ask-answer-open',
@@ -1065,6 +1094,22 @@ const STATES: State[] = [
       await expect(page.getByRole('dialog')).toBeVisible()
       await page.keyboard.type('hamburg')
       await expect(page.getByRole('group', { name: message(locale, 'shell.stationsGhcn'), exact: true })).toBeVisible()
+      await expect.poll(async () => Math.round((await page.getByRole('dialog').boundingBox())!.x)).toBe(0)
+    },
+  },
+  {
+    // the places found by name on a phone (GH-3791): the group and the credit under the bar at the top
+    page: 'index',
+    state: 'phone-search-places',
+    keepFocus: true,
+    path: '/',
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'shell.search') }).click()
+      await expect(page.getByRole('dialog')).toBeVisible()
+      await page.keyboard.type('paris')
+      await expect(page.getByRole('group', { name: message(locale, 'shell.placesGroup'), exact: true })).toBeVisible()
+      await expect(page.getByTestId('places-credit')).toBeVisible()
       await expect.poll(async () => Math.round((await page.getByRole('dialog').boundingBox())!.x)).toBe(0)
     },
   },

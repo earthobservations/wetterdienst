@@ -1,0 +1,350 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 935181,
+        "osm_key": "place",
+        "osm_value": "town",
+        "type": "city",
+        "name": "Bad Tölz",
+        "county": "Landkreis Bad Tölz-Wolfratshausen",
+        "state": "Bayern",
+        "country": "Deutschland",
+        "countrycode": "DE",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          11.529361,
+          47.8295446,
+          11.6127155,
+          47.7402752
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.559607,
+          47.7610013
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "N",
+        "osm_id": 240060717,
+        "osm_key": "place",
+        "osm_value": "county",
+        "type": "other",
+        "name": "Bad Tölz-Wolfratshausen",
+        "state": "Bayern",
+        "country": "Deutschland",
+        "postcode": "83670",
+        "countrycode": "DE"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.4873095,
+          47.7825524
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "N",
+        "osm_id": 3222103261,
+        "osm_key": "railway",
+        "osm_value": "station",
+        "type": "house",
+        "name": "Bad Tölz",
+        "street": "Bahnhofplatz",
+        "district": "Eichmühle",
+        "city": "Bad Tölz",
+        "county": "Landkreis Bad Tölz-Wolfratshausen",
+        "state": "Bayern",
+        "country": "Deutschland",
+        "postcode": "83646",
+        "countrycode": "DE"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.5735926,
+          47.7603672
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 20012526,
+        "osm_key": "boundary",
+        "osm_value": "political",
+        "type": "other",
+        "name": "Bad Tölz-Wolfratshausen – Miesbach",
+        "state": "Bayern",
+        "country": "Deutschland",
+        "countrycode": "DE",
+        "extent": [
+          11.2628115,
+          47.9802069,
+          12.0625112,
+          47.4951069
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.7149388,
+          47.7376726
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 62472,
+        "osm_key": "boundary",
+        "osm_value": "administrative",
+        "type": "county",
+        "name": "Landkreis Bad Tölz-Wolfratshausen",
+        "state": "Bayern",
+        "country": "Deutschland",
+        "countrycode": "DE",
+        "extra": {
+          "admin_level": "6"
+        },
+        "extent": [
+          11.2628115,
+          47.9802069,
+          11.6801787,
+          47.4951069
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.5263504,
+          47.7376726
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 43139616,
+        "osm_key": "building",
+        "osm_value": "industrial",
+        "type": "house",
+        "name": "Isarkraftwerk Bad Tölz",
+        "street": "Zum Isarkraftwerk",
+        "city": "Bad Tölz",
+        "county": "Landkreis Bad Tölz-Wolfratshausen",
+        "state": "Bayern",
+        "country": "Deutschland",
+        "postcode": "83646",
+        "countrycode": "DE",
+        "extent": [
+          11.5395667,
+          47.7777136,
+          11.5400194,
+          47.7775063
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.5397931,
+          47.7776065
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 503414150,
+        "osm_key": "waterway",
+        "osm_value": "fish_pass",
+        "type": "other",
+        "name": "Fischaufstiegshilfe am Kraftwerk Bad Tölz",
+        "city": "Bad Tölz",
+        "county": "Landkreis Bad Tölz-Wolfratshausen",
+        "state": "Bayern",
+        "country": "Deutschland",
+        "postcode": "83646",
+        "countrycode": "DE",
+        "extent": [
+          11.5384611,
+          47.7787235,
+          11.5392383,
+          47.7775569
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.5388098,
+          47.7782499
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 48460741,
+        "osm_key": "landuse",
+        "osm_value": "industrial",
+        "type": "locality",
+        "name": "Umspannwerk Bad Tölz",
+        "city": "Bad Tölz",
+        "county": "Landkreis Bad Tölz-Wolfratshausen",
+        "state": "Bayern",
+        "country": "Deutschland",
+        "countrycode": "DE",
+        "extent": [
+          11.5707934,
+          47.7443593,
+          11.5717104,
+          47.7437061
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.5712415,
+          47.7440216
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 1259563354,
+        "osm_key": "landuse",
+        "osm_value": "industrial",
+        "type": "locality",
+        "name": "Stadtwerke Bad Tölz",
+        "district": "Eichmühle",
+        "city": "Bad Tölz",
+        "county": "Landkreis Bad Tölz-Wolfratshausen",
+        "state": "Bayern",
+        "country": "Deutschland",
+        "countrycode": "DE",
+        "extent": [
+          11.5602309,
+          47.7569965,
+          11.5625395,
+          47.7558546
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.5612209,
+          47.756364
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 291496772,
+        "osm_key": "leisure",
+        "osm_value": "nature_reserve",
+        "type": "other",
+        "name": "Isarauen zwischen Schäftlarn und Bad Tölz",
+        "city": "Wolfratshauser Forst",
+        "county": "Landkreis Bad Tölz-Wolfratshausen",
+        "state": "Bayern",
+        "country": "Deutschland",
+        "countrycode": "DE",
+        "extent": [
+          11.4309844,
+          47.9705187,
+          11.5557908,
+          47.7905422
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.4804208,
+          47.880601
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "W",
+        "osm_id": 41552604,
+        "osm_key": "leisure",
+        "osm_value": "park",
+        "type": "other",
+        "name": "Kurpark Bad Tölz",
+        "city": "Bad Tölz",
+        "county": "Landkreis Bad Tölz-Wolfratshausen",
+        "state": "Bayern",
+        "country": "Deutschland",
+        "countrycode": "DE",
+        "extent": [
+          11.5443409,
+          47.7591583,
+          11.5468855,
+          47.7570943
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.5454035,
+          47.7581955
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 935232,
+        "osm_key": "place",
+        "osm_value": "village",
+        "type": "city",
+        "name": "Bad Heilbrunn",
+        "county": "Landkreis Bad Tölz-Wolfratshausen",
+        "state": "Bayern",
+        "country": "Deutschland",
+        "countrycode": "DE",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          11.3979012,
+          47.7921958,
+          11.4993621,
+          47.717384
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.455267,
+          47.7463564
+        ]
+      }
+    }
+  ]
+}

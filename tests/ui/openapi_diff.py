@@ -56,16 +56,8 @@ from typing import Any
 #: and `timestamp_position` (`coverage`, `glossary`, the `metadata` block).
 CLOSED_RESPONSE_ENUMS = frozenset({"aggregation", "timestamp_position"})
 
-_STRIPES_GONE = (
-    "the climate stripes left the backend (GH-4258): the web app draws them itself; "
-    "read the annual values with `values`"
-)
 #: what an approved break says: the finding as `breaking_changes` words it, then why it is no break of a client
-ACCEPTED_BREAKS: dict[str, str] = {
-    "/api/v1/stripes/image was removed": _STRIPES_GONE,
-    "/api/v1/stripes/stations was removed": _STRIPES_GONE,
-    "/api/v1/stripes/values was removed": _STRIPES_GONE,
-}
+ACCEPTED_BREAKS: dict[str, str] = {}
 
 _METHODS = frozenset({"get", "put", "post", "delete", "options", "head", "patch", "trace"})
 

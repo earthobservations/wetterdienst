@@ -7,6 +7,7 @@ import type { StationMode, StationSelectionState } from '~/types/station-selecti
 import type { ImageFormat } from '~/utils/chart-image'
 import type { SvgPart } from '~/utils/explorer-image'
 import type { ExplorerSeries } from '~/utils/explorer-model'
+import type { DetailStation } from '~/utils/value-details'
 import { h } from 'vue'
 import ExplorerChart from '~/components/ExplorerChart.vue'
 import LimitNotice from '~/components/LimitNotice.vue'
@@ -16,13 +17,14 @@ import { downloadBlob, svgToBlob } from '~/utils/chart-image'
 import { readDocumentChartTheme } from '~/utils/chart-theme'
 import { stackSvgs } from '~/utils/explorer-image'
 import { LARGE_THRESHOLD, pointCount, trendOf } from '~/utils/explorer-model'
-import { formatDate, formatNumber } from '~/utils/format'
+import { formatDate } from '~/utils/format'
 import { limitRefusal } from '~/utils/limit-refusal'
 import { processingNote } from '~/utils/processing-note'
 import { creditLines, termsOfProvider } from '~/utils/provider-credit'
 import { estimateRows, hasNoReadingsYet, untilToday, windowForRefusal } from '~/utils/row-window'
 import { timestampDate } from '~/utils/timestamp'
 import { requestUnitTargets } from '~/utils/unit-targets'
+import { valueDetails } from '~/utils/value-details'
 import { exportColumns, field, fieldText, valuesToCsv, valuesToJson } from '~/utils/values-export'
 
 const props = defineProps<{
@@ -38,7 +40,7 @@ const emit = defineEmits<{
   applyRange: [range: { startDate: string, endDate: string }]
 }>()
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
 const serverLimits = useServerLimits()
 const { parameterLabel, resolutionLabel, datasetLabel } = useParameterLabel()
 const { settings: appSettings } = useSettings()
@@ -270,14 +272,23 @@ const refusalContext = computed((): RefusalContext => {
   }
 })
 
+// The stations the request names, in the order the picker lists them, as the value details name them: kept with the request
+// they were asked for, as the selection moves on while the answer is on its way. A point has none
+const requestedStations = computed((): DetailStation[] => {
+  if (stationSelection.value.mode !== 'station')
+    return []
+  const stations: Partial<Station>[] = stationSelection.value.selection?.stations ?? []
+  return stations.flatMap(({ station_id, name }) => station_id ? [{ id: station_id, name: name ?? null }] : [])
+})
+
 // the request the selection makes: what Fetch sends, and what holdsSelection compares with
-const selectedRequest = computed(() => ({ ...selectedEndpoint.value, query: apiQuery.value, context: refusalContext.value }))
+const selectedRequest = computed(() => ({ ...selectedEndpoint.value, query: apiQuery.value, context: refusalContext.value, stations: requestedStations.value }))
 
 // The request behind the table: set by Fetch alone, and the one the table's values are fetched with,
 // so the table, its error and a GeoJSON download of it answer to the same request whatever is
 // selected since. Bound to the live selection instead, the fetch kept a request of its own beside
 // this one, which a selection changed mid-fetch, or Clear, could part from what the table showed.
-interface ValuesRequest { endpoint: string, filename: string, mode: StationMode, query: Record<string, unknown>, context: RefusalContext }
+interface ValuesRequest { endpoint: string, filename: string, mode: StationMode, query: Record<string, unknown>, context: RefusalContext, stations: DetailStation[] }
 const fetchedRequest = shallowRef<ValuesRequest | null>(null)
 // the request Fetch sent last, which the table's values are fetched with; it becomes fetchedRequest
 // only once it has answered, so until then the table, the file name and GeoJSON keep to the last one
@@ -306,7 +317,9 @@ const { data: valuesData, pending: valuesPending, error: valuesError, status: va
   {
     key: `${useId()}-values`,
     method: 'GET',
-    query: computed(() => sentRequest.value?.query ?? {}),
+    // `with_metadata` brings the answer's own facts of each parameter, which the value details read their unit and
+    // what a value is relative to (`aggregation`) from: only the fetch asks for it, not a download of the request
+    query: computed(() => sentRequest.value ? { ...sentRequest.value.query, with_metadata: true } : {}),
     lazy: true,
     immediate: false,
     // fetched by Fetch alone, not whenever the request it reads changes
@@ -1069,71 +1082,20 @@ async function saveStacked(charts: ExplorerChartHandle[], format: ImageFormat) {
   downloadBlob(blob, `chart.${format}`)
 }
 
-// Parameter statistics
-interface ParameterStats {
-  parameter: string
-  dataset: string
-  count: number
-  min: number | null
-  max: number | null
-  mean: number | null
-  sum: number | null
-}
-
-// Statistics are taken of long rows alone, those that carry a parameter and a value, numeric or
-// missing: a wide-shaped row (a column per parameter) and a query's own columns (`avg_value`) carry
-// none, and grouped as long rows they showed one row for an undefined parameter, counting nothing
-const parameterStats = computed((): ParameterStats[] => {
-  // a running count, min, max and sum: spreading the values into Math.min/max throws past the
-  // engine's argument limit (about 120k in V8, 65,536 in JavaScriptCore)
-  const statsMap = new Map<string, { count: number, min: number, max: number, sum: number, dataset: string, parameter: string }>()
-
-  for (const row of displayData.value) {
-    const parameter = field(row, 'parameter')
-    const value = field(row, 'value')
-    if (typeof parameter !== 'string' || (typeof value !== 'number' && value !== null))
-      continue
-    // as the table shows it: a query may leave the dataset out, or give one of its own, a year
-    const dataset = fieldText(field(row, 'dataset'))
-    const key = `${dataset}/${parameter}`
-    let entry = statsMap.get(key)
-    if (!entry) {
-      entry = { count: 0, min: Infinity, max: -Infinity, sum: 0, dataset, parameter }
-      statsMap.set(key, entry)
-    }
-    if (value !== null) {
-      entry.count++
-      entry.min = Math.min(entry.min, value)
-      entry.max = Math.max(entry.max, value)
-      entry.sum += value
-    }
-  }
-
-  const stats: ParameterStats[] = []
-  for (const { count, min, max, sum, dataset, parameter } of statsMap.values()) {
-    if (count === 0)
-      stats.push({ parameter, dataset, count, min: null, max: null, mean: null, sum: null })
-    else
-      stats.push({ parameter, dataset, count, min, max, mean: sum / count, sum })
-  }
-
-  return stats.sort((a, b) => `${a.dataset}/${a.parameter}`.localeCompare(`${b.dataset}/${b.parameter}`))
-})
-
-const statsTableColumns = computed<TableColumn<ParameterStats>[]>(() => [
-  { accessorKey: 'dataset', header: t('dataViewer.statDataset'), cell: ({ row }) => datasetLabel(row.original.dataset) },
-  { accessorKey: 'parameter', header: t('dataViewer.statParameter'), cell: ({ row }) => parameterLabel(row.original.parameter) },
-  { accessorKey: 'count', header: t('dataViewer.statCount') },
-  { accessorKey: 'min', header: t('dataViewer.statMin'), cell: ({ row }) => row.original.min != null ? formatNumber(row.original.min, locale.value, 2) : '-' },
-  { accessorKey: 'max', header: t('dataViewer.statMax'), cell: ({ row }) => row.original.max != null ? formatNumber(row.original.max, locale.value, 2) : '-' },
-  { accessorKey: 'mean', header: t('dataViewer.statMean'), cell: ({ row }) => row.original.mean != null ? formatNumber(row.original.mean, locale.value, 2) : '-' },
-  { accessorKey: 'sum', header: t('dataViewer.statSum'), cell: ({ row }) => row.original.sum != null ? formatNumber(row.original.sum, locale.value, 2) : '-' },
-])
+// The value details (GH-4296): count, min, max, mean and sum of what is shown, of each parameter and of each station of the
+// request. A point's rows (interpolation, summary) are one series. What a parameter is relative to its interval
+// (`aggregation`) and its unit come from the answer's own `metadata.parameters`, never from its name. They describe the
+// values as fetched: rows the query panel has rewritten (a SQL that rescales or rounds `value`) may no longer be in that unit
+// or add up, so those rows get no unit and no sum, and the other numbers are taken as they are
+const detailsOfRows = computed(() => valueDetails(displayData.value, {
+  split: rowsMode.value === 'station',
+  stations: rowsRequest.value?.stations ?? [],
+  parameters: isDataTransformed.value ? [] : (valuesData.value?.metadata?.parameters ?? []),
+}))
 
 // Expose stats and fetch function for parent component
 defineExpose({
-  parameterStats,
-  statsTableColumns,
+  valueDetails: detailsOfRows,
   fetchData,
   clearData,
   canFetchData,
