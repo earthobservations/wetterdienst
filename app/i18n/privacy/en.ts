@@ -9,7 +9,7 @@ import type { PrivacyPolicy } from './de'
 
 export const privacy: PrivacyPolicy = {
   title: 'Privacy policy',
-  updated: 'Last updated: 21 November 2026',
+  updated: 'Last updated: 22 November 2026',
   binding: 'This is a translation. The German version (Datenschutzerklärung) is the legally binding one.',
   intro: 'This policy describes which personal data is processed when you visit wetterdienst.eobs.org and when you use the REST API and the MCP server of Wetterdienst. There are no user accounts, no registration, no analytics or tracking services and no advertising.',
   controller: {
@@ -83,6 +83,17 @@ export const privacy: PrivacyPolicy = {
       ],
     },
     {
+      id: 'places',
+      icon: 'i-ph-map-pin',
+      title: 'Place search (Photon)',
+      paragraphs: [
+        'From three letters on, what you type in the search (Ctrl/⌘ K) is sent each time you pause typing (0.4 seconds) by the web app\'s server, not by your browser, to Photon (photon.komoot.io), a service of komoot GmbH that searches OpenStreetMap data for places. Intermediate states of what you type are therefore sent too (for example "bad t" on the way to "bad tölz"). Photon thereby receives the typed text, a language code (de, en or fr) and the address of the web app\'s server, but not your IP address and nothing else about you: no cookies, no browser details, no Referer. A text is not sent if it has fewer than three letters or looks like a position: if it contains a decimal number, a degree or minute sign, two numbers, a single letter next to a number, or a word for latitude or longitude with a number. The web app\'s server keeps the answers, with the text they belong to, in its memory for 24 hours so as not to ask again for the same text, and keeps no record of who asked for what. What komoot does with the requests is outside the operator\'s influence; komoot\'s own information applies to it.',
+        'The legal basis is Art. 6(1)(f) GDPR. The legitimate interest is that a place can be found by its name. You trigger the request yourself by typing; because the server makes it, without your IP address, the interference is slight.',
+      ],
+      link: { label: 'photon.komoot.io', href: 'https://photon.komoot.io' },
+      links: [{ label: 'komoot.com/privacy', href: 'https://www.komoot.com/privacy' }],
+    },
+    {
       id: 'links',
       icon: 'i-ph-arrow-square-out',
       title: 'External links',
@@ -111,7 +122,7 @@ export const privacy: PrivacyPolicy = {
       icon: 'i-ph-share-network',
       title: 'Sharing with third parties',
       paragraphs: [
-        'Data is not shared with third parties, except for the processor named above, Hetzner. The providers named under "Resources from third parties" receive data directly from your browser, not from the operator.',
+        'Data is not shared with third parties, except for the processor named above, Hetzner, and, for the place search, komoot (Photon), which is not a processor of the operator but receives the typed text itself (see "Place search (Photon)"). The providers named under "Resources from third parties" receive data directly from your browser, not from the operator.',
       ],
     },
     {

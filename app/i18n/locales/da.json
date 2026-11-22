@@ -396,7 +396,24 @@
     "opensExplorer": "åbner Udforsker",
     "stationListReading": "En stationsliste læses stadig; flere resultater kan følge",
     "stationListFailed": "En stationsliste kunne ikke læses",
-    "allNetworksGroup": "Alle netværk"
+    "allNetworksGroup": "Alle netværk",
+    "placesGroup": "Steder",
+    "placeKinds": {
+      "city": "Storby",
+      "town": "By",
+      "village": "Landsby",
+      "hamlet": "Lille landsby",
+      "district": "Bydel",
+      "county": "Distrikt",
+      "region": "Delstat eller region",
+      "country": "Land",
+      "island": "Ø",
+      "mountain": "Bjerg",
+      "water": "Vandområde",
+      "airport": "Lufthavn"
+    },
+    "placesCredit": "{osm} ({licence}) · steder via {photon}",
+    "placesFailed": "Steder kunne ikke søges lige nu. Skriv videre for at prøve igen."
   },
   "header": {
     "github": "GitHub",

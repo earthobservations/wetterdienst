@@ -1,0 +1,382 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 71525,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Paris",
+        "state": "Île-de-France",
+        "country": "France",
+        "countrycode": "FR",
+        "extra": {
+          "admin_level": "6"
+        },
+        "extent": [
+          2.224122,
+          48.902156,
+          2.4697602,
+          48.8155755
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.3483915,
+          48.8534951
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 7444,
+        "osm_key": "boundary",
+        "osm_value": "administrative",
+        "type": "district",
+        "name": "Paris",
+        "city": "Paris",
+        "state": "Île-de-France",
+        "country": "France",
+        "countrycode": "FR",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          2.224122,
+          48.902156,
+          2.4697602,
+          48.8155755
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.320041,
+          48.8588897
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 115357,
+        "osm_key": "place",
+        "osm_value": "town",
+        "type": "city",
+        "name": "Paris",
+        "county": "Lamar",
+        "state": "Texas",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -95.6279045,
+          33.7383126,
+          -95.4354005,
+          33.6206314
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -95.555513,
+          33.6617962
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 130722,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Paris",
+        "county": "Bourbon",
+        "state": "Kentucky",
+        "country": "United States",
+        "postcode": "40361",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -84.307326,
+          38.238271,
+          -84.232089,
+          38.164922
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -84.2492072,
+          38.2132087
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 1641193,
+        "osm_key": "boundary",
+        "osm_value": "administrative",
+        "type": "district",
+        "name": "Paris",
+        "city": "Paris",
+        "state": "Île-de-France",
+        "country": "France",
+        "countrycode": "FR",
+        "extra": {
+          "admin_level": "7"
+        },
+        "extent": [
+          2.224122,
+          48.902156,
+          2.4697602,
+          48.8155755
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          2.320041,
+          48.8588897
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 6678712,
+        "osm_key": "place",
+        "osm_value": "town",
+        "type": "city",
+        "name": "Paris",
+        "county": "Logan",
+        "state": "Arkansas",
+        "country": "United States",
+        "postcode": "72855",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -93.761965,
+          35.3065882,
+          -93.6755169,
+          35.2681485
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -93.7294452,
+          35.2924747
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 126166,
+        "osm_key": "place",
+        "osm_value": "town",
+        "type": "city",
+        "name": "Paris",
+        "county": "Edgar",
+        "state": "Illinois",
+        "country": "United States",
+        "postcode": "61944",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -87.721046,
+          39.649981,
+          -87.649203,
+          39.581493
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -87.6961374,
+          39.611146
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 197171,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Paris",
+        "county": "Henry",
+        "state": "Tennessee",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -88.367113,
+          36.329016,
+          -88.265067,
+          36.266003
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -88.3258578,
+          36.3019461
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 12165996,
+        "osm_key": "place",
+        "osm_value": "town",
+        "type": "city",
+        "name": "Paris",
+        "county": "Oxford",
+        "state": "Maine",
+        "country": "United States",
+        "postcode": "04281",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -70.566213,
+          44.3124081,
+          -70.414966,
+          44.1754185
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -70.5128377,
+          44.2236314
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 3669583,
+        "osm_key": "place",
+        "osm_value": "village",
+        "type": "city",
+        "name": "Paris",
+        "county": "Oneida",
+        "state": "New York",
+        "country": "United States",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "7"
+        },
+        "extent": [
+          -75.327514,
+          43.023448,
+          -75.207338,
+          42.935665
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -75.3137775,
+          43.0006253
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 140787,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Paris",
+        "county": "Monroe",
+        "state": "Missouri",
+        "country": "United States",
+        "postcode": "65275",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -92.02148,
+          39.489278,
+          -91.991679,
+          39.469158
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -92.0012811,
+          39.4808721
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "osm_type": "R",
+        "osm_id": 121447,
+        "osm_key": "place",
+        "osm_value": "city",
+        "type": "city",
+        "name": "Paris",
+        "county": "Bear Lake",
+        "state": "Idaho",
+        "country": "United States",
+        "postcode": "83261",
+        "countrycode": "US",
+        "extra": {
+          "admin_level": "8"
+        },
+        "extent": [
+          -111.420357,
+          42.243621,
+          -111.386069,
+          42.212268
+        ]
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -111.4032297,
+          42.2340495
+        ]
+      }
+    }
+  ]
+}

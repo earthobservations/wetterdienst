@@ -128,6 +128,8 @@ tests/e2e/
 ├── api.spec.ts           # API endpoint tests
 ├── pages.spec.ts         # Page navigation and UI tests
 ├── integration.spec.ts   # Full user flow tests
+├── search-places.spec.ts # The places of the search, through the app's server to mock-photon.mjs
+├── mock-photon.mjs       # A stand-in for Photon (photon.komoot.io), started by playwright.config.ts; komoot is never asked
 └── accessibility.spec.ts # axe scans of every page, on request (A11Y=1; mocked backend)
 ```
 

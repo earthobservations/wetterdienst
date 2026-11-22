@@ -54,6 +54,12 @@ export class TtlCache<T> {
     return this.entries.size
   }
 
+  /** Whether a fresh value of `key` is held (it is not made the one used last) */
+  has(key: string): boolean {
+    const held = this.entries.get(key)
+    return !!held && held.expires > this.now()
+  }
+
   /**
    * The value of `key`: the one held while it is fresh, else the one `load` works out (called once for any number of askers
    * that come while it runs).

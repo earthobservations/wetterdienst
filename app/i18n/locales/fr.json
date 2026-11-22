@@ -396,7 +396,24 @@
     "opensExplorer": "ouvre l'Explorateur",
     "stationListReading": "Une liste de stations est encore en cours de lecture ; d'autres résultats peuvent suivre",
     "stationListFailed": "Une liste de stations n'a pas pu être lue",
-    "allNetworksGroup": "Tous les réseaux"
+    "allNetworksGroup": "Tous les réseaux",
+    "placesGroup": "Lieux",
+    "placeKinds": {
+      "city": "Grande ville",
+      "town": "Ville",
+      "village": "Village",
+      "hamlet": "Hameau",
+      "district": "Quartier",
+      "county": "Comté ou district",
+      "region": "État ou région",
+      "country": "Pays",
+      "island": "Île",
+      "mountain": "Montagne",
+      "water": "Plan d'eau",
+      "airport": "Aéroport"
+    },
+    "placesCredit": "{osm} ({licence}) · lieux via {photon}",
+    "placesFailed": "Les lieux n'ont pas pu être recherchés pour le moment. Continue à taper pour réessayer."
   },
   "header": {
     "github": "GitHub",

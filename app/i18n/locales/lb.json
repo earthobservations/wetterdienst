@@ -396,7 +396,24 @@
     "opensExplorer": "mécht den Explorer op",
     "stationListReading": "Eng Statiounslëscht gëtt nach gelies; et kënne méi Resultater kommen",
     "stationListFailed": "Eng Statiounslëscht konnt net gelies ginn",
-    "allNetworksGroup": "All Netzwierker"
+    "allNetworksGroup": "All Netzwierker",
+    "placesGroup": "Uerter",
+    "placeKinds": {
+      "city": "Grouss Stad",
+      "town": "Stad",
+      "village": "Duerf",
+      "hamlet": "Weiler",
+      "district": "Quartier",
+      "county": "Landkrees",
+      "region": "Staat oder Regioun",
+      "country": "Land",
+      "island": "Insel",
+      "mountain": "Bierg",
+      "water": "Gewässer",
+      "airport": "Fluchhafen"
+    },
+    "placesCredit": "{osm} ({licence}) · Uerter iwwer {photon}",
+    "placesFailed": "Uerter konnte just net gesicht ginn. Schreif weider, fir et nach eng Kéier ze probéieren."
   },
   "header": {
     "github": "GitHub",

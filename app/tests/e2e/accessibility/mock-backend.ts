@@ -9,9 +9,14 @@ import type {
   UnitType,
   Value,
 } from '../../../shared/types/api'
+import type { PlaceMatch, PlacesAnswer } from '../../../shared/utils/places'
 import type { StripesFixture } from '../../helpers/stripes-backend'
 import { Buffer } from 'node:buffer'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import process from 'node:process'
 import { prepareStations, searchPrepared } from '../../../app/utils/station-search'
+import { placesOfPhoton } from '../../../shared/utils/places'
 import { radarAnswer } from '../../helpers/radar-answer'
 import { radarPng } from '../../helpers/radar-image'
 import { emptyScan } from '../../helpers/storm-cells-answer'
@@ -430,6 +435,25 @@ function stationSearch(url: URL): StationSearchAnswer {
   return { query, networks, pending: [], failed: [] }
 }
 
+/** A saved answer of Photon's (tests/fixtures/photon-*.json), read from the app's directory, where the suites run, and when it is asked for: this file is imported by tests that never ask */
+function photonFixture(name: string): unknown {
+  return JSON.parse(readFileSync(resolve(process.cwd(), 'tests/fixtures', `${name}.json`), 'utf8'))
+}
+
+/** The places of the real answers of Photon's for two names, as the route shapes them (GH-3791): "Bad Tölz" and "Paris" */
+const PLACES = [
+  { prefix: 'bad t', fixture: 'photon-badtoelz' },
+  { prefix: 'paris', fixture: 'photon-paris' },
+]
+
+/** What `GET /_search/places` answers: the places of the two names above, none for any other text */
+function placesSearch(url: URL): PlacesAnswer {
+  const query = url.searchParams.get('q') ?? ''
+  const found = PLACES.find(entry => query.toLowerCase().startsWith(entry.prefix))
+  const places: PlaceMatch[] = found ? placesOfPhoton(photonFixture(found.fixture))! : []
+  return { query, state: 'ok', places, attribution: '© OpenStreetMap contributors' }
+}
+
 /**
  * What `GET /api/station-ids` answers: the stations of several networks that carry the id, as the backend lists them: Hamburg-Fuhlsbüttel's for
  * 10147 and EDDH (which the lists of the search have too), and Berlin-Dahlem's for any other id (10381 is its WMO number)
@@ -547,6 +571,8 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     '_ghcn/stations': () => ({ stations: GHCN_STRIPES_STATIONS }),
     // the search of the header (GH-3790): the app's own server's matching of the lists, and the backend's search of every network for an id
     '_search/stations': stationSearch,
+    // the places by name, which the app's server asks Photon for (GH-3791)
+    '_search/places': placesSearch,
     'station-ids': stationIds,
     // the list of the stations of GHCN daily as the app's server hands it to the map, as columns (GH-4267)
     '_ghcn/map-stations': () => searchColumns(SEARCH_GHCN),

@@ -108,6 +108,14 @@ Types of changes:
   map's panel, which finds WMO numbers too and says "first 20 of N". A WMO number, WIGOS id or ICAO
   code offers "Search all networks for …" on Enter, whatever the settings say (`/api/station-ids`),
   leading to the map or the Explorer. The server matches GHCN on the map's list (GH-3790).
+- `[Search]` The search finds places by name (from three letters, 400 ms after the last key) in
+  OpenStreetMap's data through Photon (photon.komoot.io), asked by the app's server so that your
+  address never reaches komoot (`GET /_search/places`): a group "Places" after a typed position,
+  each place leading to the map at its point, with the credit "© OpenStreetMap contributors
+  (ODbL), via Photon". A text under three letters or like a position, whole or partial, is never
+  sent. The server keeps answers for 24 h and asks Photon at most 3 times a second in all, 3 and then
+  1 a second for a client, resting after a refusal; `NUXT_PLACES_SEARCH=off` switches it off. The
+  privacy policy has a section on it (GH-3791, GH-3790).
 
 ### Changed
 

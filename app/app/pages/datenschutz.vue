@@ -80,6 +80,10 @@ const operator = OPERATOR
           </ul>
           <p v-if="section.link">
             <a :href="section.link.href" target="_blank" rel="noopener noreferrer" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">{{ section.link.label }}</a>
+            <template v-for="more in section.links ?? []" :key="more.href">
+              <span aria-hidden="true"> · </span>
+              <a :href="more.href" target="_blank" rel="noopener noreferrer" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">{{ more.label }}</a>
+            </template>
           </p>
         </div>
       </UCard>

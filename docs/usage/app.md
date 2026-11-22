@@ -37,7 +37,7 @@ and works of the methods, the glossary (by the label you see, the English one, t
 setting (the units, plain-language labels, the tab bar) and the questions of Ask the weather, which open on the home page.
 A position typed in (`52.52, 13.40`, `-33.87 151.21`, `52°31'N 13°24'E`; the hemisphere letters of your language, so `O` is east in German and
 west in French, `V` is west in Danish and Czech has `S J V Z`; two whole numbers are no position, so `1,5` and `10384 10147` are not) is a place that opens the map at that point, and picks the station for it as a click on the map would
-(`/map?lat=52.5200&lon=13.4000`). The results are in groups, a point first, then stations, then the rest; a group shows
+(`/map?lat=52.5200&lon=13.4000`). The results are in groups, a point first, then the places, then stations, then the rest; a group shows
 a few results and, where its page has more, a last option ("5 more in Glossary") that opens the page (the glossary with
 your words in its own field). A result leads to its anchor: an entry (`/measurement#wind`), a glossary parameter
 (`/glossary#temperature_air_mean_2m`), a setting (`/settings#settings-friendly-labels`). The index of the pages is built from the
@@ -72,6 +72,28 @@ carries the id, each with its provider, network and id: a network the map shows 
 provider, network, resolution, dataset and station chosen (it says "opens the Explorer"). Four letters are a word as often as a code (`wind`, `kiel`):
 unless they are typed in capitals, the offer for them is made only where nothing else answers the text and every list has answered, and it never comes
 before what the text finds, so Enter does not take it.
+
+**Places in the search** (from three letters, 400 ms after the last key) finds a place by its name in OpenStreetMap's data, as a group "Places" after a
+point typed in and before the stations, each with what it is (town, county, mountain, airport, …) and where it lies (`Bad Tölz`, Town · Bayern, Germany). A
+place opens the map at its point (`/map?lat=47.7614&lon=11.5583`), which picks the nearest station as a click there would. The group is shown with the
+credit that OpenStreetMap's licence (ODbL) asks for and "via Photon". A text with fewer than three letters, or that looks like a position (a decimal number, a degree or minute sign, two numbers, a single letter next to a number, or a word for latitude or longitude with a number: `47.76 N`, `N 47.7 E`, `47°45′N`, `lat 47`, `A12`), is no name and is never looked up, whole or partial. The places arrive after the stations; where they lead the list, the option you are on stays the one you are on. The
+places come from Photon (photon.komoot.io, run by komoot; the public server asks for fair use, states no limit and promises no availability), **asked by
+the app's own server and not by your browser**: `GET /_search/places?q=bad%20tölz&lang=de` asks `https://photon.komoot.io/api/?q=&lang=&limit=` with a
+User-Agent that names the project (`wetterdienst-app (+https://github.com/earthobservations/wetterdienst)`) and sends no header of yours, no address
+and no cookie, so komoot sees the server and the text. The route answers the few places the search shows (settlements, regions, countries, mountains,
+waters and airports; not streets or shops; the same town twice once), in `lang` where Photon has it (`de`, `en`, `fr`; Luxembourgish is asked for in German, every other locale in
+English, since Photon's public server refuses a language it has not), or the problem it could not (`urn:wetterdienst:problem:places-busy`,
+`places-unavailable`, `places-timeout`, `places-unreachable`, `places-unexpected-answer`, `invalid-parameters` as a 422; a `Retry-After` where there is a
+time to wait). To be fair to Photon the server keeps the answers for 24 h by the text (case and spaces ignored) and the language, up to 5,000 of them,
+asks at most 3 times a second in all (a request that would wait over 1.5 s is refused with a 503, not queued) and for one client at most 3 at once and then one
+a second (a 429; the answers of the cache do not use up that share, and it is not held where `NUXT_RATE_LIMIT_ENABLED=false`), times a request out after 4 s, and
+leaves Photon alone after a 429 or 403 for as long as its `Retry-After` says (a minute where it says none, ten at most), also for the requests that were waiting
+for their turn, and for 10 s after any other failure. A request to Photon that has been sent is let finish and its answer kept, even where the browser has gone.
+The requests count against the limit of the client like the other `/_search` routes: one bucket with every data route, 300 in 5 minutes by default.
+Nothing of a request is logged. The operator switches the places off with `NUXT_PLACES_SEARCH=off` (the route then answers
+`state: "off"` and asks nobody, and the search shows no group; `on`, `true`, `1`, `yes` and `enabled` leave it on, and any other text switches it off, so
+a typing mistake never leaves it running, and the server says so once when it starts, naming the value); `NUXT_PLACES_PHOTON_BASE` is the address of Photon's API, empty for komoot's public server (a Photon of your own,
+or a stand-in in tests, which never ask komoot).
 
 **Measurement** (`/measurement`, "How weather is measured") explains how a quantity is measured, how a reading becomes
 a value, what the number can and cannot tell and where providers differ, one entry for each quantity with an anchor
@@ -348,8 +370,8 @@ The server limits what costs something, per client. It counts the requests to
 - `/mcp` (a session is many small calls), and
 - `/_ghcn/*`, the app's own routes for NOAA's GHCN daily (the list of its stations for the map, which costs the
   backend a 44 MB answer the first time, and the climate stripes' annual values and station lists, see below),
-- `/_search/*`, the stations the search finds by name (`GET /_search/stations`, matched in the GHCN and DWD measuring station lists the server keeps; a key of
-  the search is a request, so it is counted with the others),
+- `/_search/*`, the stations and places the search finds by name (`GET /_search/stations`, matched in the GHCN and DWD measuring station lists the server keeps,
+  and `GET /_search/places`, which asks Photon; a key of the search is a request, so it is counted with the others),
 
 and answers the one past the limit with `429 Too Many Requests` and a problem of the kind
 `urn:wetterdienst:problem:rate-limited`, with `Retry-After` (seconds). It does not count the pages, the assets,

@@ -3,6 +3,8 @@ import { defineConfig, devices } from '@playwright/test'
 
 // the port the app is served on; the default is the app's own, E2E_PORT lets a run beside a dev server use another
 const PORT = process.env.E2E_PORT || '4000'
+// the stand-in for Photon the app's server asks for places (tests/e2e/mock-photon.mjs): 100 above the app's port, so that runs on two ports do not meet
+const PHOTON_PORT = process.env.E2E_PHOTON_PORT || String(Number(PORT) + 100)
 
 // the specs that print pages to a PDF (the sizes of the charts' text; the icons and labels of a print without
 // background graphics): they run in Chromium, the others in Firefox
@@ -60,15 +62,26 @@ export default defineConfig({
         // },
       ],
 
-  webServer: {
-    // In CI, test against the real production build (catches bundling/build
-    // regressions the dev server would never surface); locally, keep the fast
-    // dev-server iteration loop.
-    command: process.env.CI ? `npm run build && npm run preview -- --port ${PORT}` : `npm run dev -- --port ${PORT}`,
-    url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
-    // read by nuxt.config.ts at build and start: the rate limiter is off for the suite's own server
-    env: { WD_E2E: '1' },
-    timeout: process.env.CI ? 300 * 1000 : 120 * 1000,
-  },
+  webServer: [
+    {
+      // In CI, test against the real production build (catches bundling/build
+      // regressions the dev server would never surface); locally, keep the fast
+      // dev-server iteration loop.
+      command: process.env.CI ? `npm run build && npm run preview -- --port ${PORT}` : `npm run dev -- --port ${PORT}`,
+      url: `http://localhost:${PORT}`,
+      reuseExistingServer: !process.env.CI,
+      // read by nuxt.config.ts at build and start: the rate limiter is off for the suite's own server. The search of places asks
+      // the stand-in for Photon below, never komoot's public server (GH-3790).
+      // A server that is reused instead of started does not get this, and `tests/e2e/global-setup.ts` stops the run unless that server says
+      // (`NUXT_PLACES_E2E=1`, `GET /_search/places?probe=1`) that it asks the stand-in.
+      env: { WD_E2E: '1', NUXT_PLACES_PHOTON_BASE: `http://127.0.0.1:${PHOTON_PORT}/api/`, NUXT_PLACES_E2E: '1' },
+      timeout: process.env.CI ? 300 * 1000 : 120 * 1000,
+    },
+    {
+      // the stand-in for Photon (tests/e2e/mock-photon.mjs): the app's server asks it for places, and the tests read what it was asked
+      command: `node tests/e2e/mock-photon.mjs ${PHOTON_PORT}`,
+      url: `http://127.0.0.1:${PHOTON_PORT}/__health`,
+      reuseExistingServer: !process.env.CI,
+    },
+  ],
 })

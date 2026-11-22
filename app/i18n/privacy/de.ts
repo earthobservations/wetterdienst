@@ -21,6 +21,8 @@ export interface PrivacySection {
   items?: string[]
   /** One link after the list */
   link?: { label: string, href: string }
+  /** More links after `link` */
+  links?: Array<{ label: string, href: string }>
 }
 
 export interface PrivacyPolicy {
@@ -37,7 +39,7 @@ export interface PrivacyPolicy {
 
 export const privacy: PrivacyPolicy = {
   title: 'Datenschutzerklärung',
-  updated: 'Stand: 21. November 2026',
+  updated: 'Stand: 22. November 2026',
   intro: 'Diese Erklärung beschreibt, welche personenbezogenen Daten beim Besuch von wetterdienst.eobs.org und bei der Nutzung der REST-API und des MCP-Servers von Wetterdienst verarbeitet werden. Es gibt keine Benutzerkonten, keine Registrierung, keine Analyse- oder Tracking-Dienste und keine Werbung.',
   controller: {
     title: 'Verantwortlicher',
@@ -110,6 +112,17 @@ export const privacy: PrivacyPolicy = {
       ],
     },
     {
+      id: 'places',
+      icon: 'i-ph-map-pin',
+      title: 'Ortssuche (Photon)',
+      paragraphs: [
+        'Ab drei Buchstaben wird das, was Sie in die Suche (Strg/⌘ K) eingeben, jedes Mal, wenn Sie beim Tippen kurz innehalten (0,4 Sekunden), vom Server der Web-App – nicht von Ihrem Browser – an Photon (photon.komoot.io) gesendet, einen Dienst der komoot GmbH, der Orte anhand von OpenStreetMap-Daten sucht. Es werden dabei auch Zwischenstände Ihrer Eingabe gesendet (zum Beispiel „bad t“ auf dem Weg zu „bad tölz“). Photon erhält dabei den eingegebenen Text, ein Sprachkürzel (de, en oder fr) und die Adresse des Servers der Web-App, nicht aber Ihre IP-Adresse und nichts sonst über Sie: keine Cookies, keine Angaben Ihres Browsers, keinen Referer. Ein Text wird nicht gesendet, wenn er weniger als drei Buchstaben hat oder wie eine Position aussieht: wenn er eine Dezimalzahl, ein Grad- oder Minutenzeichen, zwei Zahlen, einen einzelnen Buchstaben neben einer Zahl oder ein Wort für Breite oder Länge mit einer Zahl enthält. Der Server der Web-App behält die Antworten samt dem Text, zu dem sie gehören, 24 Stunden im Arbeitsspeicher, um denselben Text nicht erneut abzufragen, und führt kein Protokoll darüber, wer wonach gefragt hat. Was komoot mit den Anfragen macht, liegt außerhalb des Einflusses des Betreibers; dafür gelten die Hinweise von komoot.',
+        'Rechtsgrundlage ist Art. 6 Abs. 1 lit. f DSGVO. Das berechtigte Interesse ist, dass sich ein Ort anhand seines Namens finden lässt. Die Anfrage lösen Sie selbst durch Ihre Eingabe aus; weil sie vom Server und ohne Ihre IP-Adresse gestellt wird, ist der Eingriff gering.',
+      ],
+      link: { label: 'photon.komoot.io', href: 'https://photon.komoot.io' },
+      links: [{ label: 'komoot.com/privacy', href: 'https://www.komoot.com/privacy' }],
+    },
+    {
       id: 'links',
       icon: 'i-ph-arrow-square-out',
       title: 'Externe Links',
@@ -138,7 +151,7 @@ export const privacy: PrivacyPolicy = {
       icon: 'i-ph-share-network',
       title: 'Weitergabe an Dritte',
       paragraphs: [
-        'Eine Weitergabe von Daten an Dritte findet nicht statt, mit Ausnahme des oben genannten Auftragsverarbeiters Hetzner. Die im Abschnitt „Ressourcen von Dritten“ genannten Anbieter erhalten Daten unmittelbar von Ihrem Browser, nicht vom Betreiber.',
+        'Eine Weitergabe von Daten an Dritte findet nicht statt, mit Ausnahme des oben genannten Auftragsverarbeiters Hetzner und, für die Ortssuche, von komoot (Photon), das kein Auftragsverarbeiter des Betreibers ist, sondern den eingegebenen Text selbst erhält (siehe „Ortssuche (Photon)“). Die im Abschnitt „Ressourcen von Dritten“ genannten Anbieter erhalten Daten unmittelbar von Ihrem Browser, nicht vom Betreiber.',
       ],
     },
     {

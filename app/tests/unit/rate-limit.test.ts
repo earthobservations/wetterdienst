@@ -28,6 +28,8 @@ describe('what is counted', () => {
     '/_ghcn/map-stations?x=1',
     // the stations the search of the header finds by name (GH-3790), matched in the lists the server keeps
     '/_search/stations?q=hamburg',
+    // the places by name, which the server asks Photon for (GH-3791): counted like the stations
+    '/_search/places?q=bad%20t%C3%B6lz&lang=de',
     '/mcp',
     '/mcp/v1',
     '/mcp/v1/anything',
