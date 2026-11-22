@@ -963,6 +963,7 @@
     "locating": "Standort warrt söcht …",
     "remember": "Mien Standort in disse Browser beholen",
     "note": "Op ungefähr 1 km rundt un blots bruukt, üm de neegste Station to finnen. Blots wenn du dat Höken sett'st, blifft he in disse Browser bewahrt.",
+    "noteRadar": "Op ungefähr 1 km rundt un blots bruukt, üm dien Standort op de Kaart to wiesen. Blots wenn du dat Höken sett'st, blifft he in disse Browser bewahrt.",
     "privacyLink": "Mehr in de Datenschutzerklärung",
     "remembered": "Beholen Standort: {position}",
     "forget": "Mien Standort vergeten",
@@ -1172,7 +1173,16 @@
     "framesLoadingLive": "De Radarbilder warrt laadt …",
     "framesReady": "De Radarbilder sünd laadt.",
     "unavailable": "Dat Radar is op disse Server nich verfögbor.",
-    "framesNone": "Keen Radarbild kunn laadt warrn."
+    "framesNone": "Keen Radarbild kunn laadt warrn.",
+    "positionTitle": "Dien Standort",
+    "positionShown": "Dien Standort is op de Kaart markeert, bi ungefähr {position}.",
+    "positionHidden": "Dien Standort is op de Kaart wegdaan.",
+    "positionOutside": "Dien Standort liggt buten dat Radarbild, dorüm blifft de Kaart, woneem se is.",
+    "positionWaiting": "Töövt op dat Radarbild, üm dien Standort to pröven …",
+    "positionNoRadar": "Dor is keen Radarbild, mit dat sik dien Standort afglieken leet, dorüm blifft de Kaart, woneem se is.",
+    "positionHide": "Mien Standort op de Kaart wegdoon",
+    "positionShow": "Mien Standort op de Kaart wiesen",
+    "positionMarker": "Dien Standort, op ungefähr 1 km rundt"
   },
   "dataViewer": {
     "loadingValues": "Weerten warrt laadt …",

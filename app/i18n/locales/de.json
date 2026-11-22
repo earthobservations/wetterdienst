@@ -963,6 +963,7 @@
     "locating": "Standort wird ermittelt …",
     "remember": "Meinen Standort in diesem Browser merken",
     "note": "Auf etwa 1 km gerundet und nur für die Suche nach der nächsten Station genutzt. Nur wenn du das Häkchen setzt, bleibt er in diesem Browser gespeichert.",
+    "noteRadar": "Auf etwa 1 km gerundet und nur genutzt, um deinen Standort auf der Karte zu zeigen. Nur wenn du das Häkchen setzt, bleibt er in diesem Browser gespeichert.",
     "privacyLink": "Mehr in der Datenschutzerklärung",
     "remembered": "Gemerkter Standort: {position}",
     "forget": "Meinen Standort vergessen",
@@ -1172,7 +1173,16 @@
     "framesLoadingLive": "Die Radarbilder werden geladen …",
     "framesReady": "Die Radarbilder sind geladen.",
     "unavailable": "Das Radar ist auf diesem Server nicht verfügbar.",
-    "framesNone": "Kein Radarbild konnte geladen werden."
+    "framesNone": "Kein Radarbild konnte geladen werden.",
+    "positionTitle": "Dein Standort",
+    "positionShown": "Dein Standort ist auf der Karte markiert, bei etwa {position}.",
+    "positionHidden": "Dein Standort ist auf der Karte ausgeblendet.",
+    "positionOutside": "Dein Standort liegt außerhalb des Radarbilds, deshalb bleibt die Karte, wo sie ist.",
+    "positionWaiting": "Es wird auf das Radarbild gewartet, um deinen Standort zu prüfen …",
+    "positionNoRadar": "Es gibt kein Radarbild, mit dem sich dein Standort abgleichen ließe, deshalb bleibt die Karte, wo sie ist.",
+    "positionHide": "Meinen Standort auf der Karte ausblenden",
+    "positionShow": "Meinen Standort auf der Karte anzeigen",
+    "positionMarker": "Dein Standort, auf etwa 1 km gerundet"
   },
   "dataViewer": {
     "loadingValues": "Werte werden geladen …",

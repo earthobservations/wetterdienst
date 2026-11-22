@@ -17,14 +17,14 @@ import type { Point } from '~/utils/map-tool'
 //   button, which discloses the position and "Forget" and replaces the box and the note. "Forget" takes the position
 //   back to nothing, and the next press starts again.
 //
-// What the position is used for is the page's: it takes `position` and finds the station. What it has to say about
+// What the position is used for is the page's: it takes `position` and finds the station (the radar, GH-4287, only marks it on its map). What it has to say about
 // it, the nearest station and how far, goes in `status`, and a failure of its own in `problem`.
 //
 // With `offerOnly` it is the second half alone, for a page that shows the position's result somewhere the button is not
 // (the map's station card): the box and the note, or the "Stored" control, and no button and no status or alert, which
 // the page's one full copy holds. The state is shared, so a tick or a forget in either is seen by the other; the page
 // shows one of them at a time, so that there are never two controls of the same kind to tab to.
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   /** The position is being turned into a station: the button says so */
   resolving?: boolean
   /** Only the choice to keep the position and the "Stored" control, no button, status or alert */
@@ -33,7 +33,11 @@ const props = defineProps<{
   status?: string
   /** A failure of what was done with it, announced at once */
   problem?: string
-}>()
+  /** What the position is used for, in the note under the box: the nearest station (the default), or only to be shown on the radar's map (GH-4287) */
+  use?: 'station' | 'radar'
+  /** Whether the box that keeps the position (and its note) is offered while a position is in hand; the radar offers it only after a press on the radar, not for a position that came from another page */
+  keepOffered?: boolean
+}>(), { keepOffered: true })
 
 const emit = defineEmits<{
   /** The position, rounded, after a press of the button */
@@ -46,7 +50,7 @@ const { t } = useI18n()
 const { position, failure, busy, remember, notKept, notKeptCount, withdrawn, remembered, locate, rememberPosition, forget } = useMyLocation()
 
 /** The box and its note: a position is in hand and nothing is stored */
-const offerToKeep = computed(() => position.value !== null && !remembered.value)
+const offerToKeep = computed(() => position.value !== null && !remembered.value && props.keepOffered)
 const positionText = computed(() => position.value ? `${position.value.latitude.toFixed(2)}, ${position.value.longitude.toFixed(2)}` : '')
 const open = ref(false)
 const button = useTemplateRef<{ $el: HTMLElement }>('button')
@@ -169,7 +173,7 @@ watch(remembered, (now) => {
         @update:model-value="keep"
       />
       <p :id="noteId" class="text-xs text-gray-600 dark:text-gray-400" data-testid="use-my-location-note">
-        {{ t('location.note') }}
+        {{ t(use === 'radar' ? 'location.noteRadar' : 'location.note') }}
         <NuxtLink to="/datenschutz#location" target="_blank" class="text-primary-700 dark:text-primary-500 underline hover:no-underline" data-testid="use-my-location-privacy">
           {{ t('location.privacyLink') }}
         </NuxtLink>

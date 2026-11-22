@@ -963,6 +963,7 @@
     "locating": "Zjišťuje se tvoje poloha …",
     "remember": "Zapamatovat si moji polohu v tomto prohlížeči",
     "note": "Zaokrouhlená na zhruba 1 km a použitá jen k nalezení nejbližší stanice. V tomto prohlížeči zůstane, jen když zaškrtneš políčko.",
+    "noteRadar": "Zaokrouhlená na zhruba 1 km a použitá jen k zobrazení tvé polohy na mapě. V tomto prohlížeči zůstane, jen když zaškrtneš políčko.",
     "privacyLink": "Více v zásadách ochrany osobních údajů",
     "remembered": "Zapamatovaná poloha: {position}",
     "forget": "Zapomenout moji polohu",
@@ -1172,7 +1173,16 @@
     "framesLoadingLive": "Načítání radarových snímků …",
     "framesReady": "Radarové snímky jsou načteny.",
     "unavailable": "Radar není na tomto serveru dostupný.",
-    "framesNone": "Nepodařilo se načíst žádný radarový snímek."
+    "framesNone": "Nepodařilo se načíst žádný radarový snímek.",
+    "positionTitle": "Tvoje poloha",
+    "positionShown": "Tvoje poloha je označena na mapě, zhruba na {position}.",
+    "positionHidden": "Tvoje poloha je na mapě skrytá.",
+    "positionOutside": "Tvoje poloha leží mimo radarový snímek, mapa proto zůstává, kde je.",
+    "positionWaiting": "Čekám na radarový snímek, abych zjistil, kde tvoje poloha leží …",
+    "positionNoRadar": "Není k dispozici radarový snímek, se kterým by šlo tvou polohu porovnat, mapa proto zůstává, kde je.",
+    "positionHide": "Skrýt moji polohu na mapě",
+    "positionShow": "Zobrazit moji polohu na mapě",
+    "positionMarker": "Tvoje poloha, zaokrouhlená na zhruba 1 km"
   },
   "dataViewer": {
     "loadingValues": "Načítání hodnot …",

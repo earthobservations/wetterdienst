@@ -18,6 +18,14 @@ Types of changes:
 
 ### Added
 
+- `[Radar]` "Use my location", as on the map: the radar marks your position (a white disc with a
+  navy edge, over the picture and the thunderstorm cells), centres on it and zooms to about 9, and a
+  button hides and shows the marker. Marking and centring wait until the radar picture is in, so
+  that a position outside the picture is told and the map stays where it was (the picture's corners
+  hold no data). The position is asked only on a press, rounded to about 1 km in the browser, kept
+  only with "Remember my position" (`wd-location`) and sent to no request: the radar is the same for
+  everyone. The privacy policy lists the radar among the places and for the map tiles, and says so
+  (GH-4287).
 - `[Search]` The search (Ctrl/⌘ K) finds the app's own words, in your language and in English, with
   case and accents ignored: the entries of "How weather is measured", the sections and works of
   the methods, the glossary, the cards of About and Support, each setting (the units, plain-language
