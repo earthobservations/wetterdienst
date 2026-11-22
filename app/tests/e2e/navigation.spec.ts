@@ -5,7 +5,7 @@ import { expect, test } from '@playwright/test'
 import { REFERENCE } from '../../app/utils/sections'
 import { mockBackend } from './accessibility/mock-backend'
 
-// The shell of the app (GH-3518): the header with the six tools and the reference, the search, the tab bar and the
+// The shell of the app (GH-3518): the header with the seven tools and the reference, the search, the tab bar and the
 // menu sheet of the narrow layout, the skip link, and the one frame every page sits in. The backend is the
 // accessibility spec's mock, so nothing here reaches a provider.
 
@@ -31,7 +31,7 @@ test.describe('the wide header', () => {
   test('names the tools as tabs and marks the one of the page', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/stripes')
     const nav = page.getByRole('navigation', { name: en.shell.mainNav })
-    for (const key of ['meteogram', 'explorer', 'stripes', 'history', 'map'])
+    for (const key of ['meteogram', 'explorer', 'stripes', 'history', 'map', 'compare'])
       await expect(nav.getByRole('link', { name: en.nav[key], exact: true })).toBeVisible()
     await expect(nav.getByRole('link', { name: en.nav.stripes, exact: true })).toHaveAttribute('aria-current', 'page')
     await expect(nav.locator('[aria-current="page"]')).toHaveCount(1)

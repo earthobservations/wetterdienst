@@ -87,13 +87,17 @@
         "rain": "Hoe nat was het op {day}?",
         "temperature": "Hoe warm of koud was het op {day}?",
         "snow": "Lag er sneeuw op {day}?"
-      }
+      },
+      "monthrain": "Was het deze maand natter dan dezelfde maand vorig jaar?",
+      "nearby": "Is het hier warmer dan bij een station in de buurt?"
     },
     "from": {
       "rain": "Verwachting, DWD MOSMIX",
       "season": "Maandgemiddelden, DWD",
       "download": "Alle weerdiensten",
-      "day": "Dagwaarden, DWD"
+      "day": "Dagwaarden, DWD",
+      "monthrain": "Dagelijkse neerslag, DWD",
+      "nearby": "Dagelijkse temperaturen, DWD"
     },
     "working": "Het antwoord wordt berekend …",
     "failed": "Het antwoord kon niet worden berekend.",
@@ -261,6 +265,28 @@
       "detail": "Elk opent in de Verkenner, klaar om te downloaden als CSV, JSON of GeoJSON.",
       "none": "Op dit moment publiceert geen weerdienst de luchttemperatuur per uur.",
       "api": "Of gebruik de REST-API"
+    },
+    "monthrain": {
+      "wetter": "Ja, {difference} {unit} natter dan op dezelfde dagen vorig jaar.",
+      "drier": "Nee, {difference} {unit} droger dan op dezelfde dagen vorig jaar.",
+      "similar": "Niet echt: ongeveer even nat als vorig jaar.",
+      "detail": "{month}: {sum} {unit} op {days} dagen. {lastMonth}, dezelfde dagen: {lastSum} {unit}.",
+      "fallback": "Slechts {count} dagen van de lopende maand hebben in beide jaren een meting ({min} zijn nodig); daarom wordt de laatste volledige maand, {month}, vergeleken.",
+      "chart": "Regen op dezelfde dagen van de maand, in {unit}",
+      "none": "Er zijn hier te weinig dagen met een meting in beide jaren om te vergelijken ({min} zijn nodig).",
+      "open": "De twee stukken naast elkaar vergelijken"
+    },
+    "nearby": {
+      "warmer": "Ja, {difference} {unit} warmer dan bij {name}.",
+      "cooler": "Nee, {difference} {unit} koeler dan bij {name}.",
+      "same": "Niet echt: ongeveer even warm als bij {name}.",
+      "detail": "Gemiddelde luchttemperatuur op {days} dagen met een meting op beide plekken: {here} {unit} hier, {there} {unit} bij {name}.",
+      "where": "{name} ({id}) ligt {distance} km van {place} en ligt op {there} m boven zeeniveau; {place} ligt op {here} m. Hoger gelegen stations zijn meestal koeler.",
+      "whereNoHeight": "{name} ({id}) ligt {distance} km van {place}.",
+      "chart": "Hier min {name}, per dag, in {unit}",
+      "none": "Geen ander station binnen {distance} km meldt nu dagelijkse temperaturen.",
+      "noneDays": "Slechts {count} dagen hebben zowel hier als bij {name} een meting; er zijn er {min} nodig om te vergelijken.",
+      "open": "De twee stations naast elkaar vergelijken"
     }
   },
   "seo": {
@@ -290,7 +316,8 @@
       "about": "Over het open-sourceproject Wetterdienst en de mensen die het onderhouden.",
       "support": "Ondersteun Wetterdienst: meld een probleem, draag code bij of doneer.",
       "map": "Een kaart van de stations van de Duitse weerdienst: kies een station of een willekeurig punt voor de verwachting, de klimaatstrepen en de metingen.",
-      "radar": "De neerslagradar van het DWD boven Duitsland als lus van de afgelopen twee uur, met de verwachting voor de komende twee en de onweerscellen erbovenop."
+      "radar": "De neerslagradar van het DWD boven Duitsland als lus van de afgelopen twee uur, met de verwachting voor de komende twee en de onweerscellen erbovenop.",
+      "compare": "Twee stations, of twee perioden van één station, naast elkaar voor één parameter van de waarnemingen van de DWD: een grafiek en een tabel met het verschil."
     }
   },
   "values": {
@@ -335,7 +362,8 @@
     "methods": "Methoden",
     "support": "Ondersteuning",
     "map": "Kaart",
-    "radar": "Radar"
+    "radar": "Radar",
+    "compare": "Vergelijken"
   },
   "shell": {
     "skipToContent": "Naar de inhoud",
@@ -731,7 +759,8 @@
     "forecast": "Zoek een station of kies er een op de kaart om de verwachting te zien",
     "explorer": "Selecteer parameters, kies dan een station of een punt, via zoeken of op de kaart, en klik op “Tonen” om gegevens te laden",
     "stripes": "Zoek een station of kies er een op de kaart en klik op “Tonen” om klimaatstrepen te maken",
-    "history": "Zoek stations of kies ze op de kaart en klik op “Tonen” om hun geschiedenis te laden"
+    "history": "Zoek stations of kies ze op de kaart en klik op “Tonen” om hun geschiedenis te laden",
+    "compare": "Zoek stations of kies ze op de kaart, kies een parameter en klik op “Tonen” om twee stations of twee perioden te vergelijken"
   },
   "meteogram": {
     "title": "Weersverwachting",
@@ -1043,6 +1072,64 @@
     "modeHowItWorks": "Hoe het werkt",
     "removeParameterDistance": "Afstand voor {parameter} verwijderen"
   },
+  "compare": {
+    "title": "Vergelijken",
+    "byLabel": "Wat wordt vergeleken",
+    "byStations": "Twee stations",
+    "byPeriods": "Twee perioden",
+    "stationA": "Station A",
+    "stationB": "Station B",
+    "station": "Station",
+    "period": "Periode",
+    "periodA": "Periode A",
+    "periodB": "Periode B",
+    "start": "Van",
+    "end": "Tot",
+    "sameStation": "Kies twee verschillende stations.",
+    "periodTooLong": "Een vergelijking omvat hooguit {max} {unit}. Kies een kortere periode.",
+    "stepDays": "dagen",
+    "stepMonths": "maanden",
+    "differs": "De twee kanten zijn niet dezelfde soort getal ({reason}); daarom wordt er geen verschil berekend.",
+    "reason": {
+      "resolution": "een andere resolutie",
+      "dataset": "een andere dataset",
+      "parameter": "een andere parameter",
+      "unit": "een andere eenheid",
+      "aggregation": "de waarden staan voor verschillende dingen, zoals een gemiddelde en een totaal",
+      "position": "de dagen worden niet op hetzelfde tijdstip afgebakend"
+    },
+    "alignDaysStations": "Uitgelijnd op kalenderdatum: dezelfde dag van beide stations.",
+    "alignMonthsStations": "Uitgelijnd op kalendermaand: dezelfde maand van beide stations.",
+    "alignDaysPeriods": "Uitgelijnd op dag van de periode: dag 1 van A met dag 1 van B, dag 2 met dag 2, enzovoort. Beide perioden zijn getekend op de data van periode A.",
+    "alignMonthsPeriods": "Uitgelijnd op maand van de periode: maand 1 van A met maand 1 van B, enzovoort. Beide perioden zijn getekend op de maanden van periode A.",
+    "alignUnequal": "Periode {shorter} is korter: haar {count} {unit} worden vergeleken met de eerste {count} van de andere, en de {rest} die volgen hebben geen partner en geen verschil.",
+    "summaryCompared": "{compared} van {rows} {unit} vergeleken: beide kanten hebben daarin een waarde.",
+    "noValues": "Geen enkele stap heeft aan beide kanten een waarde, dus er valt niets af te trekken.",
+    "summaryMean": "Gemiddeld is A {a} {unit} en B {b} {unit}; B − A = {difference} {unit}.",
+    "summarySum": "In totaal is A {a} {unit} en B {b} {unit}; B − A = {difference} {unit}.",
+    "chartLabel": "Grafiek van {parameter}: A, {a}, en B, {b}",
+    "chartAlternative": "De tabel hieronder bevat elke waarde van de grafiek.",
+    "tableTitle": "Waarden en verschil",
+    "tableCaption": "{parameter} ({unit}) van A, {a}, en B, {b}, met B − A",
+    "colDay": "Dag",
+    "colMonth": "Maand",
+    "colDateA": "Datum A",
+    "colDateB": "Datum B",
+    "colA": "A ({unit})",
+    "colB": "B ({unit})",
+    "colDifference": "B − A ({unit})",
+    "noteDifference": "Het verschil is kant B min kant A, in {unit}. Waar een kant geen waarde heeft, is er geen verschil: een ontbrekende waarde telt nooit als nul.",
+    "noteTotal": "De waarden zijn totalen (of aantallen) van een dag of een maand, dus het verschil is het verschil tussen de twee totalen van dezelfde stap, en de totalen hierboven zijn sommen over de stappen die beide kanten hebben.",
+    "outdated": "De keuzes zijn veranderd sinds deze tabel is gemaakt. Druk op Tonen om ze te vergelijken.",
+    "creditBoth": "Beide kanten komen uit deze bron:",
+    "fileSides": "Kant A: {a}. Kant B: {b}.",
+    "subtitle": "Twee stations of twee perioden, naast elkaar, voor één parameter",
+    "aboutButton": "Over Vergelijken",
+    "about1": "Vergelijken zet twee stations, of twee perioden van één station, naast elkaar voor één parameter van de waarnemingen van de DWD, het dagelijkse of maandelijkse klimaatoverzicht: een grafiek met beide reeksen en een tabel met het verschil.",
+    "about2": "Twee stations worden gekoppeld op kalenderdatum: dezelfde dag, of dezelfde maand, van beide. Twee perioden van één station worden gekoppeld op hun plaats in de periode: de eerste dag van A met de eerste dag van B, de tweede met de tweede. Een periode die korter is dan de andere, wordt vergeleken voor zover ze reikt. Het verschil is altijd kant B min kant A, in de eenheid van de waarden; waar een kant geen waarde heeft, is er geen verschil, en een ontbrekende waarde telt nooit als nul.",
+    "about3": "Wat wordt vergeleken moet dezelfde soort getal zijn: dezelfde resolutie, dezelfde dataset, dezelfde parameter en dezelfde eenheid, en een waarde die voor dezelfde tijdspanne staat. Is dat niet zo, dan zegt het hulpmiddel dat en berekent het geen verschil. Stations verschillen in hoogte en omgeving, dus een verschil tussen twee stations is niet altijd een verschil in het weer. De nieuwste dagen komen uit de recente gegevens van de DWD, waarvan de DWD zegt dat de kwaliteitscontrole niet is afgerond.",
+    "selectParameter": "Kies een parameter"
+  },
   "stationTable": {
     "stationId": "Station-id",
     "name": "Naam",
@@ -1213,7 +1300,8 @@
     "whyFarther": "Het dichtstbijzijnde station dat nog meldt. Dichterbij: {name}, {distance}, tot {year}.",
     "whyFartherNoEnd": "Het dichtstbijzijnde station dat nog meldt. Dichterbij: {name}, {distance}, einde onbekend.",
     "pickCloser": "Kies in plaats daarvan {name}",
-    "resultsOf": "De eerste {shown} van {total} stations. Typ meer om ze te beperken."
+    "resultsOf": "De eerste {shown} van {total} stations. Typ meer om ze te beperken.",
+    "openCompare": "Vergelijken met een ander station"
   },
   "radar": {
     "title": "Radar",

@@ -87,13 +87,17 @@
         "rain": "Wo natt weer dat an'n {day}?",
         "temperature": "Wo heet oder kold weer dat an'n {day}?",
         "snow": "Leeg an'n {day} Snee?"
-      }
+      },
+      "monthrain": "Weer disse Moond natter as de sülvige Moond vörig Johr?",
+      "nearby": "Is dat hier warmer as an en Station in de Neeg?"
     },
     "from": {
       "rain": "Utsicht, DWD MOSMIX",
       "season": "Maandmiddel, DWD",
       "download": "All Wedderdeenste",
-      "day": "Dagweerten, DWD"
+      "day": "Dagweerten, DWD",
+      "monthrain": "Daagliche Nedderslag, DWD",
+      "nearby": "Daagliche Temperaturen, DWD"
     },
     "working": "De Antwoort warrt utrekent …",
     "failed": "De Antwoort leet sik nich utreken.",
@@ -261,6 +265,28 @@
       "detail": "Elkeen geiht in'n Explorer op, klaar to'n Runnerladen as CSV, JSON oder GeoJSON.",
       "none": "Jüst nu nennt keen Wedderdeenst en stünnlike Lufttemperatur.",
       "api": "Oder de REST-API bruken"
+    },
+    "monthrain": {
+      "wetter": "Jo, {difference} {unit} natter as an de sülvigen Daag vörig Johr.",
+      "drier": "Nee, {difference} {unit} dröger as an de sülvigen Daag vörig Johr.",
+      "similar": "Nich recht: so ungefähr so natt as vörig Johr.",
+      "detail": "{month}: {sum} {unit} an {days} Daag. {lastMonth}, de sülvigen Daag: {lastSum} {unit}.",
+      "fallback": "Blots {count} Daag vun'n lopen Moond hebbt in beide Johren en Metung ({min} gellt dat to hebben), dorüm warrt de letzte kumplette Moond, {month}, vergleken.",
+      "chart": "Regen an de sülvigen Daag vun'n Moond, in {unit}",
+      "none": "Hier gifft dat to wenig Daag mit en Metung in beide Johren, um to vergleken ({min} gellt dat to hebben).",
+      "open": "De beiden Stücken nevenenanner vergleken"
+    },
+    "nearby": {
+      "warmer": "Jo, {difference} {unit} warmer as in {name}.",
+      "cooler": "Nee, {difference} {unit} köhler as in {name}.",
+      "same": "Nich recht: so ungefähr so warm as in {name}.",
+      "detail": "Middel vun de Luchttemperatur an {days} Daag mit en Metung an beide Steden: {here} {unit} hier, {there} {unit} in {name}.",
+      "where": "{name} ({id}) liggt {distance} km vun {place} af un liggt up {there} m över'n Seespegel; {place} liggt up {here} m. Hööger liggen Stationen sünd meist köhler.",
+      "whereNoHeight": "{name} ({id}) liggt {distance} km vun {place} af.",
+      "chart": "Hier minus {name}, elk Dag, in {unit}",
+      "none": "Keen anner Station binnen {distance} km meldt nu daagliche Temperaturen.",
+      "noneDays": "Blots {count} Daag hebbt en Metung hier un ok in {name}; to'n Vergleken gellt dat {min} to hebben.",
+      "open": "De beiden Stationen nevenenanner vergleken"
     }
   },
   "seo": {
@@ -290,7 +316,8 @@
       "about": "Över dat Open-Source-Projekt Wetterdienst un de Lüüd, de dat plegen.",
       "support": "Ünnerstütt Wetterdienst: meld een Fehler, bring Code bi oder spend.",
       "map": "Een Kaart vun de Stationen vun den Düütschen Wedderdeenst: Söök di een Station oder een Punkt ut un kiek Utsicht, Klimastrepen un Meetweerten dorto an.",
-      "radar": "Dat Regenradar vun den DWD över Düütschland as Loop vun de leetsten twee Stünnen mit de Utsicht för de nächsten twee un de Dunnerwedder-Zellen dorop."
+      "radar": "Dat Regenradar vun den DWD över Düütschland as Loop vun de leetsten twee Stünnen mit de Utsicht för de nächsten twee un de Dunnerwedder-Zellen dorop.",
+      "compare": "Twee Stationen oder twee Tietrüüm vun een Station nevenenanner för een Parameter vun de Beobachtungen vun'n DWD: een Bild un een Tabell mit'n Unnerscheed."
     }
   },
   "values": {
@@ -335,7 +362,8 @@
     "methods": "Methoden",
     "support": "Ünnerstütten",
     "map": "Kaart",
-    "radar": "Radar"
+    "radar": "Radar",
+    "compare": "Vergliken"
   },
   "shell": {
     "skipToContent": "Na'n Inholt springen",
@@ -731,7 +759,8 @@
     "forecast": "Söök na een Station oder söök een op de Kaart ut – denn gifft dat de Utsicht.",
     "explorer": "Söök Parameter ut, denn een Station oder een Punkt – per Söök oder op de Kaart – un klick op „Wiesen“, denn warrt de Daten laadt.",
     "stripes": "Söök na een Station oder söök een op de Kaart ut un klick op „Wiesen“ – denn gifft dat Klimastrepen.",
-    "history": "Söök na Stationen oder söök se op de Kaart ut un klick op „Wiesen“ – denn warrt ehr Chronik laadt."
+    "history": "Söök na Stationen oder söök se op de Kaart ut un klick op „Wiesen“ – denn warrt ehr Chronik laadt.",
+    "compare": "Söök na Stationen oder söök se op de Kaart ut, söök en Parameter ut un klick op „Wiesen“, um twee Stationen oder twee Tietrüüm to vergleken"
   },
   "meteogram": {
     "title": "Wedderutsicht",
@@ -1043,6 +1072,64 @@
     "modeHowItWorks": "So warkt dat",
     "removeParameterDistance": "Entfernen för {parameter} wegmaken"
   },
+  "compare": {
+    "title": "Vergliken",
+    "byLabel": "Wat vergleken warrt",
+    "byStations": "Twee Stationen",
+    "byPeriods": "Twee Tietrüüm",
+    "stationA": "Station A",
+    "stationB": "Station B",
+    "station": "Station",
+    "period": "Tietruum",
+    "periodA": "Tietruum A",
+    "periodB": "Tietruum B",
+    "start": "Vun",
+    "end": "Bit",
+    "sameStation": "Söök twee verscheden Stationen ut.",
+    "periodTooLong": "Een Vergliek hett hööchstens {max} {unit}. Söök en körter Tietruum ut.",
+    "stepDays": "Daag",
+    "stepMonths": "Mööns",
+    "differs": "De beiden Sieden sünd nich de sülvige Aart Tall ({reason}); dorüm warrt keen Unnerscheed utrekent.",
+    "reason": {
+      "resolution": "en anner Oplösung",
+      "dataset": "en anner Datensatz",
+      "parameter": "en anner Parameter",
+      "unit": "en anner Eenheit",
+      "aggregation": "de Weerten staht för Verscheden's, to'n Bispill en Middel un en Summ",
+      "position": "de Daag sünd nich to'r sülvigen Tied afgrenzt"
+    },
+    "alignDaysStations": "Na't Kalenderdatum utricht: de sülvige Dag vun beide Stationen.",
+    "alignMonthsStations": "Na'n Kalendermoond utricht: de sülvige Moond vun beide Stationen.",
+    "alignDaysPeriods": "Na'n Dag vun't Tietruum utricht: Dag 1 vun A mit Dag 1 vun B, Dag 2 mit Dag 2 un so wieder. Beide Tietrüüm sünd up de Daten vun't Tietruum A tekent.",
+    "alignMonthsPeriods": "Na'n Moond vun't Tietruum utricht: Moond 1 vun A mit Moond 1 vun B un so wieder. Beide Tietrüüm sünd up de Mööns vun't Tietruum A tekent.",
+    "alignUnequal": "Tietruum {shorter} is körter: sien {count} {unit} warrt mit de eersten {count} vun't anner vergleken, un de {rest} dorna hebbt keen Partner un keen Unnerscheed.",
+    "summaryCompared": "{compared} vun {rows} {unit} vergleken: dor hebbt beide Sieden en Weert.",
+    "noValues": "Keen Schritt hett up beide Sieden en Weert, dor gifft dat nix aftotrecken.",
+    "summaryMean": "Im Middel is A {a} {unit} un B {b} {unit}; B − A = {difference} {unit}.",
+    "summarySum": "Tohoop is A {a} {unit} un B {b} {unit}; B − A = {difference} {unit}.",
+    "chartLabel": "Bild vun {parameter}: A, {a}, un B, {b}",
+    "chartAlternative": "De Tabell dorünner hett jeden Weert vun't Bild.",
+    "tableTitle": "Weerten un Unnerscheed",
+    "tableCaption": "{parameter} ({unit}) vun A, {a}, un B, {b}, mit B − A",
+    "colDay": "Dag",
+    "colMonth": "Moond",
+    "colDateA": "Datum A",
+    "colDateB": "Datum B",
+    "colA": "A ({unit})",
+    "colB": "B ({unit})",
+    "colDifference": "B − A ({unit})",
+    "noteDifference": "De Unnerscheed is Siet B minus Siet A, in {unit}. Wo en Siet keen Weert hett, gifft dat keen Unnerscheed: en fehlen Weert gellt nienich as null.",
+    "noteTotal": "De Weerten sünd Summen (oder Tallen) vun'n Dag oder Moond, de Unnerscheed is also de Unnerscheed twüschen de twee Summen vun'n sülvigen Schritt, un de Summen baven sünd Summen över de Schritten, de beide Sieden hebbt.",
+    "outdated": "De Utwahl hett sik ännert, siet disse Tabell maakt wurr. Drück up Wiesen, um se to vergleken.",
+    "creditBoth": "Beide Sieden kaamt ut disse Quell:",
+    "fileSides": "Siet A: {a}. Siet B: {b}.",
+    "subtitle": "Twee Stationen oder twee Tietrüüm nevenenanner för een Parameter",
+    "aboutButton": "Över Vergliken",
+    "about1": "Vergliken stellt twee Stationen, oder twee Tietrüüm vun een Station, nevenenanner för een Parameter vun de Beobachtungen vun'n DWD, de daagliche oder mönatliche Klimaöversicht: een Bild mit beide Reeg un een Tabell mit'n Unnerscheed.",
+    "about2": "Twee Stationen warrt na't Kalenderdatum paart: de sülvige Dag, oder de sülvige Moond, vun beide. Twee Tietrüüm vun een Station warrt na ehren Platz in't Tietruum paart: de eerste Dag vun A mit'n eersten Dag vun B, de tweete mit'n tweeten. En Tietruum, dat körter is as dat anner, warrt vergleken, so wiet as dat langt. De Unnerscheed is jümmers Siet B minus Siet A, in de Eenheit vun de Weerten; wo en Siet keen Weert hett, gifft dat keen Unnerscheed, un en fehlen Weert gellt nienich as null.",
+    "about3": "Wat vergleken warrt, mutt de sülvige Aart Tall ween: de sülvige Oplösung, de sülvige Datensatz, de sülvige Parameter un de sülvige Eenheit, un en Weert, de för de sülvige Tietspann steiht. Is dat nich so, seggt dat Warktüüch dat un rekent keen Unnerscheed ut. Stationen sünd verscheden in Höcht un Ümgeven, en Unnerscheed twüschen twee Stationen is also nich jümmers en Unnerscheed vun't Weer. De niegsten Daag kaamt ut de jüngsten Daten vun'n DWD, bi de de Qualitätskuntroll na'n DWD nich afslaten is.",
+    "selectParameter": "Parameter utsöken"
+  },
   "stationTable": {
     "stationId": "Stations-ID",
     "name": "Naam",
@@ -1213,7 +1300,8 @@
     "whyFarther": "De dichtste Station, de noch meldt. Dichter bi: {name}, {distance}, bit {year}.",
     "whyFartherNoEnd": "De dichtste Station, de noch meldt. Dichter bi: {name}, {distance}, Enn nich bekannt.",
     "pickCloser": "{name} statts disse nehmen",
-    "resultsOf": "De eersten {shown} vun {total} Stationen. Tipp mehr, üm de Söök to verengen."
+    "resultsOf": "De eersten {shown} vun {total} Stationen. Tipp mehr, üm de Söök to verengen.",
+    "openCompare": "Mit en anner Station vergleken"
   },
   "radar": {
     "title": "Radar",

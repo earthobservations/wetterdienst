@@ -446,6 +446,16 @@ export function measurementsLink(source: MeasuredSource, stationId: string, netw
   return `/explorer?${new URLSearchParams({ ...network, ...source, mode: 'station', stations: stationId })}`
 }
 
+/**
+ * Where the station is compared with another (GH-4296): the Compare tool, with the station as side A, where the source is one it
+ * compares (the daily or the monthly climate summary of DWD's observations); null for another source (the hourly one)
+ */
+export function compareLink(source: MeasuredSource, stationId: string): string | null {
+  if (source.dataset !== 'climate_summary' || !['daily', 'monthly'].includes(source.resolution))
+    return null
+  return `/compare?${new URLSearchParams({ compare: 'stations', resolution: source.resolution, stations: stationId })}`
+}
+
 /** Where the history of a station is opened: the station history, on the source and with the station chosen */
 export function historyLink(source: MeasuredSource, stationId: string): string {
   return `/history?${new URLSearchParams({ ...MEASURED_NETWORK, ...source, stations: stationId })}`

@@ -532,7 +532,7 @@
 /* A tab of the header: the tool's tile and name. The tab of the page one is on is bolder, and carries a bar on the
    header's lower edge (navy by day, the sun by night). The bold name takes no more room than the plain one, so the
    tabs do not move when the page changes: the bold width is reserved by an invisible copy (`data-text`). */
-/* six tools and the reference in the header: a tab is a little narrower below 90 rem than above it, so that the longer
+/* seven tools and the reference in the header: a tab is a little narrower below 90 rem than above it, so that the longer
    languages (Italian and French, GH-3650) still fit at 1024 and 1280 px, where the header holds the search's word too */
 .nav-tab {
   --nav-tab-pad: 0.5rem;
@@ -556,9 +556,10 @@
     gap: 0.5rem;
   }
 }
-/* the tools' tiles are left out of the tabs below 80 rem: six tabs and the reference do not fit with them at 1024 px
-   in Italian or French (GH-3788); the name is the tab's, the tile only a picture of it */
-@media (width < 80rem) {
+/* the tools' tiles are left out of the tabs below 120 rem (1920 px): seven tabs and the reference, with the search's word and the
+   support heart from 90 rem, do not fit with them in Italian at 1600 px, nor in French, Spanish, German, Dutch or Polish at
+   1440 px, nor in any of them at 1280 px (GH-4296; it was 80 rem for six tabs, GH-3788). The name is the tab's, the tile only a picture of it */
+@media (width < 120rem) {
   .nav-tab .tile {
     display: none;
   }

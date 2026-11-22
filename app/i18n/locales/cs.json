@@ -87,13 +87,17 @@
         "rain": "Kolik pršelo {day}?",
         "temperature": "Jak bylo {day} horko nebo zima?",
         "snow": "Ležel {day} sníh?"
-      }
+      },
+      "monthrain": "Pršelo tento měsíc víc než ve stejném měsíci loni?",
+      "nearby": "Je tu tepleji než na nedaleké stanici?"
     },
     "from": {
       "rain": "Předpověď, DWD MOSMIX",
       "season": "Měsíční průměry, DWD",
       "download": "Všechny meteorologické služby",
-      "day": "Denní údaje, DWD"
+      "day": "Denní údaje, DWD",
+      "monthrain": "Denní srážky, DWD",
+      "nearby": "Denní teploty, DWD"
     },
     "working": "Počítám odpověď …",
     "failed": "Odpověď se nepodařilo spočítat.",
@@ -261,6 +265,28 @@
       "detail": "Každá se otevře v Průzkumníku, připravená ke stažení jako CSV, JSON nebo GeoJSON.",
       "none": "Žádná meteorologická služba teď nezveřejňuje hodinovou teplotu vzduchu.",
       "api": "Nebo použij REST API"
+    },
+    "monthrain": {
+      "wetter": "Ano, o {difference} {unit} víc než ve stejných dnech loni.",
+      "drier": "Ne, o {difference} {unit} méně než ve stejných dnech loni.",
+      "similar": "Spíš ne: zhruba stejně vlhko jako loni.",
+      "detail": "{month}: {sum} {unit} za {days} dnů. {lastMonth}, stejné dny: {lastSum} {unit}.",
+      "fallback": "Jen {count} dnů probíhajícího měsíce má měření v obou letech (je potřeba {min}), proto se porovnává poslední celý měsíc, {month}.",
+      "chart": "Déšť ve stejných dnech měsíce v {unit}",
+      "none": "Je tu příliš málo dnů s měřením v obou letech na porovnání (je potřeba {min}).",
+      "open": "Porovnat oba úseky vedle sebe"
+    },
+    "nearby": {
+      "warmer": "Ano, o {difference} {unit} tepleji než v místě {name}.",
+      "cooler": "Ne, o {difference} {unit} chladněji než v místě {name}.",
+      "same": "Spíš ne: zhruba stejně teplo jako v místě {name}.",
+      "detail": "Průměrná teplota vzduchu za {days} dnů s měřením na obou místech: {here} {unit} tady, {there} {unit} v místě {name}.",
+      "where": "{name} ({id}) je od místa {place} vzdálena {distance} km a leží ve výšce {there} m n. m.; {place} leží ve výšce {here} m. Výše položené stanice bývají chladnější.",
+      "whereNoHeight": "{name} ({id}) je od místa {place} vzdálena {distance} km.",
+      "chart": "Tady minus {name}, den po dni, v {unit}",
+      "none": "Žádná další stanice do {distance} km teď nehlásí denní teploty.",
+      "noneDays": "Jen {count} dnů má měření tady i v místě {name}; k porovnání je potřeba {min}.",
+      "open": "Porovnat obě stanice vedle sebe"
     }
   },
   "seo": {
@@ -290,7 +316,8 @@
       "about": "O open source projektu Wetterdienst a lidech, kteří ho spravují.",
       "support": "Podpoř Wetterdienst: nahlas chybu, přispěj kódem nebo daruj.",
       "map": "Mapa stanic Německé meteorologické služby: vyber stanici nebo libovolný bod a uvidíš její předpověď, klimatické pruhy a měření.",
-      "radar": "Srážkový radar DWD nad Německem jako smyčka posledních dvou hodin s předpovědí na další dvě a bouřkovými buňkami navrchu."
+      "radar": "Srážkový radar DWD nad Německem jako smyčka posledních dvou hodin s předpovědí na další dvě a bouřkovými buňkami navrchu.",
+      "compare": "Dvě stanice nebo dvě období jedné stanice vedle sebe pro jeden parametr pozorování DWD: jeden graf a jedna tabulka s rozdílem."
     }
   },
   "values": {
@@ -335,7 +362,8 @@
     "methods": "Metody",
     "support": "Podpora",
     "map": "Mapa",
-    "radar": "Radar"
+    "radar": "Radar",
+    "compare": "Porovnat"
   },
   "shell": {
     "skipToContent": "Přejít na obsah",
@@ -731,7 +759,8 @@
     "forecast": "Vyhledej stanici nebo ji vyber na mapě a uvidíš její předpověď",
     "explorer": "Vyber parametry, pak stanici nebo bod, vyhledáním nebo na mapě, a kliknutím na „Zobrazit“ načti data",
     "stripes": "Vyhledej stanici nebo ji vyber na mapě a kliknutím na „Zobrazit“ vytvoř klimatické pruhy",
-    "history": "Vyhledej stanice nebo je vyber na mapě a kliknutím na „Zobrazit“ načti jejich historii"
+    "history": "Vyhledej stanice nebo je vyber na mapě a kliknutím na „Zobrazit“ načti jejich historii",
+    "compare": "Vyhledej stanice nebo je vyber na mapě, vyber parametr a kliknutím na „Zobrazit“ porovnej dvě stanice nebo dvě období"
   },
   "meteogram": {
     "title": "Předpověď počasí",
@@ -1043,6 +1072,64 @@
     "modeHowItWorks": "Jak to funguje",
     "removeParameterDistance": "Odebrat vzdálenost pro {parameter}"
   },
+  "compare": {
+    "title": "Porovnat",
+    "byLabel": "Co se porovnává",
+    "byStations": "Dvě stanice",
+    "byPeriods": "Dvě období",
+    "stationA": "Stanice A",
+    "stationB": "Stanice B",
+    "station": "Stanice",
+    "period": "Období",
+    "periodA": "Období A",
+    "periodB": "Období B",
+    "start": "Od",
+    "end": "Do",
+    "sameStation": "Vyber dvě různé stanice.",
+    "periodTooLong": "Porovnání pojme nejvýše {max} {unit}. Vyber kratší období.",
+    "stepDays": "dnů",
+    "stepMonths": "měsíců",
+    "differs": "Obě strany nejsou stejný druh čísla ({reason}), proto se rozdíl nepočítá.",
+    "reason": {
+      "resolution": "jiné rozlišení",
+      "dataset": "jiná datová sada",
+      "parameter": "jiný parametr",
+      "unit": "jiná jednotka",
+      "aggregation": "hodnoty znamenají různé věci, například průměr a součet",
+      "position": "dny nejsou vymezeny ve stejnou dobu"
+    },
+    "alignDaysStations": "Zarovnáno podle data v kalendáři: stejný den obou stanic.",
+    "alignMonthsStations": "Zarovnáno podle měsíce v kalendáři: stejný měsíc obou stanic.",
+    "alignDaysPeriods": "Zarovnáno podle dne v období: den 1 období A s dnem 1 období B, den 2 s dnem 2 a tak dále. Obě období jsou vykreslena na data období A.",
+    "alignMonthsPeriods": "Zarovnáno podle měsíce v období: měsíc 1 období A s měsícem 1 období B a tak dále. Obě období jsou vykreslena na měsíce období A.",
+    "alignUnequal": "Období {shorter} je kratší: jeho {count} {unit} se porovnává s prvními {count} druhého a {rest} následujících nemá protějšek ani rozdíl.",
+    "summaryCompared": "Porovnáno {compared} z {rows} {unit}: v nich mají obě strany hodnotu.",
+    "noValues": "Žádný krok nemá hodnotu na obou stranách, takže není co odečíst.",
+    "summaryMean": "V průměru je A {a} {unit} a B {b} {unit}; B − A = {difference} {unit}.",
+    "summarySum": "Celkem je A {a} {unit} a B {b} {unit}; B − A = {difference} {unit}.",
+    "chartLabel": "Graf: {parameter}, A, {a}, a B, {b}",
+    "chartAlternative": "Tabulka níže obsahuje každou hodnotu grafu.",
+    "tableTitle": "Hodnoty a rozdíl",
+    "tableCaption": "{parameter} ({unit}) pro A, {a}, a B, {b}, s rozdílem B − A",
+    "colDay": "Den",
+    "colMonth": "Měsíc",
+    "colDateA": "Datum A",
+    "colDateB": "Datum B",
+    "colA": "A ({unit})",
+    "colB": "B ({unit})",
+    "colDifference": "B − A ({unit})",
+    "noteDifference": "Rozdíl je strana B minus strana A v jednotce {unit}. Kde strana nemá hodnotu, není rozdíl: chybějící hodnota se nikdy nepočítá jako nula.",
+    "noteTotal": "Hodnoty jsou součty (nebo počty) za den či měsíc, takže rozdíl je rozdíl dvou součtů téhož kroku a součty výše jsou součty přes kroky, které mají obě strany.",
+    "outdated": "Výběr se od vytvoření této tabulky změnil. Stiskni Zobrazit, aby se porovnal.",
+    "creditBoth": "Obě strany pocházejí z tohoto zdroje:",
+    "fileSides": "Strana A: {a}. Strana B: {b}.",
+    "subtitle": "Dvě stanice nebo dvě období vedle sebe pro jeden parametr",
+    "aboutButton": "O porovnání",
+    "about1": "Porovnání staví vedle sebe dvě stanice nebo dvě období jedné stanice pro jeden parametr pozorování DWD, denního nebo měsíčního klimatického souhrnu: jeden graf s oběma řadami a jednu tabulku s rozdílem.",
+    "about2": "Dvě stanice se párují podle data v kalendáři: stejný den nebo stejný měsíc obou. Dvě období jedné stanice se párují podle místa v období: první den období A s prvním dnem období B, druhý s druhým. Období, které je kratší než druhé, se porovnává, jak daleko sahá. Rozdíl je vždy strana B minus strana A v jednotce hodnot; kde strana nemá hodnotu, není rozdíl a chybějící hodnota se nikdy nepočítá jako nula.",
+    "about3": "To, co se porovnává, musí být stejný druh čísla: stejné rozlišení, stejná datová sada, stejný parametr a stejná jednotka a hodnota, která znamená stejný úsek času. Pokud tomu tak není, nástroj to řekne a rozdíl nepočítá. Stanice se liší výškou a okolím, takže rozdíl mezi dvěma stanicemi není vždy rozdílem počasí. Nejnovější dny pocházejí z aktuálních dat DWD, jejichž kontrola kvality podle DWD není dokončena.",
+    "selectParameter": "Vyber parametr"
+  },
   "stationTable": {
     "stationId": "ID stanice",
     "name": "Název",
@@ -1213,7 +1300,8 @@
     "whyFarther": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, do {year}.",
     "whyFartherNoEnd": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, konec neznámý.",
     "pickCloser": "Místo toho vybrat {name}",
-    "resultsOf": "Prvních {shown} z {total} stanic. Napiš víc a zúžíš výběr."
+    "resultsOf": "Prvních {shown} z {total} stanic. Napiš víc a zúžíš výběr.",
+    "openCompare": "Porovnat s jinou stanicí"
   },
   "radar": {
     "title": "Radar",

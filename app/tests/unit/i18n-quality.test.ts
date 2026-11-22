@@ -331,6 +331,7 @@ describe('address', () => {
 const NAME = 'a name, a format or a product, written the same in every language'
 const UNIT = 'an international unit name, written the same'
 const COGNATE = 'the ordinary word in that language is spelled the same'
+const SIDE = 'the letter of a side and a unit slot, no word'
 
 interface Same { en?: string[], de?: string[], why: string }
 
@@ -464,6 +465,18 @@ const UI_SAME: Record<string, Same> = {
   'history.colDescription': { en: ['fr'], why: COGNATE },
   'history.colMethod': { de: ['nl'], why: COGNATE },
   'meteogram.chart.blockHours': { en: ['cs', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'pl'], why: UNIT },
+  'compare.stationA': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
+  'compare.stationB': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
+  'compare.station': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
+  'compare.period': { en: ['lb'], why: COGNATE },
+  'compare.periodA': { en: ['lb'], why: COGNATE },
+  'compare.periodB': { en: ['lb'], why: COGNATE },
+  'compare.colDateA': { en: ['fr'], de: ['cs', 'nl'], why: COGNATE },
+  'compare.colDateB': { en: ['fr'], de: ['cs', 'nl'], why: COGNATE },
+  'compare.colA': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: SIDE },
+  'compare.colB': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: SIDE },
+  'compare.colDifference': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: SIDE },
+  'compare.fileSides': { en: ['da'], why: COGNATE },
 }
 
 const GLOSSARY_SAME: Record<string, Same> = {

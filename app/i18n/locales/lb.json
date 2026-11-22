@@ -87,13 +87,17 @@
         "rain": "Wéi vill huet et den {day} gereent?",
         "temperature": "Wéi waarm oder kal war et den {day}?",
         "snow": "Louch den {day} Schnéi?"
-      }
+      },
+      "monthrain": "Wor dëse Mount méi naass wéi deeselwechte Mount d'lescht Joer?",
+      "nearby": "Ass et hei méi waarm wéi op enger Statioun an der Géigend?"
     },
     "from": {
       "rain": "Prognos, DWD MOSMIX",
       "season": "Méintlech Mëttelwäerter, DWD",
       "download": "All d'Wiederdéngschter",
-      "day": "Deeglech Wäerter, DWD"
+      "day": "Deeglech Wäerter, DWD",
+      "monthrain": "Deeglechen Nidderschlag, DWD",
+      "nearby": "Deeglech Temperaturen, DWD"
     },
     "working": "D'Äntwert gëtt ausgerechent …",
     "failed": "D'Äntwert konnt net ausgerechent ginn.",
@@ -261,6 +265,28 @@
       "detail": "All eenzelen geet am Explorer op, prett fir als CSV, JSON oder GeoJSON erofzelueden.",
       "none": "Elo publizéiert kee Wiederdéngscht d'Lofttemperatur pro Stonn.",
       "api": "Oder benotz d'REST-API"
+    },
+    "monthrain": {
+      "wetter": "Jo, {difference} {unit} méi wéi un deeselwechten Deeg d'lescht Joer.",
+      "drier": "Neen, {difference} {unit} manner wéi un deeselwechten Deeg d'lescht Joer.",
+      "similar": "Net wierklech: ongeféier esou naass wéi d'lescht Joer.",
+      "detail": "{month}: {sum} {unit} op {days} Deeg. {lastMonth}, déiselwecht Deeg: {lastSum} {unit}.",
+      "fallback": "Nëmmen {count} Deeg vum lafende Mount hunn a béid Joren eng Miessung ({min} brauch et), dofir gëtt de leschte komplette Mount, {month}, verglach.",
+      "chart": "Reen un deeselwechten Deeg vum Mount, a(n) {unit}",
+      "none": "Hei gëtt et ze wéineg Deeg mat enger Miessung a béid Joren, fir ze vergläichen ({min} brauch et).",
+      "open": "Déi zwou Stécker niewuneneen vergläichen"
+    },
+    "nearby": {
+      "warmer": "Jo, {difference} {unit} méi waarm wéi zu {name}.",
+      "cooler": "Neen, {difference} {unit} méi kill wéi zu {name}.",
+      "same": "Net wierklech: ongeféier esou waarm wéi zu {name}.",
+      "detail": "Mëttel vun der Loufttemperatur un {days} Deeg mat enger Miessung op béide Plazen: {here} {unit} hei, {there} {unit} zu {name}.",
+      "where": "{name} ({id}) ass {distance} km vu(n) {place} ewech a läit op {there} m iwwer dem Mieresspigel; {place} läit op {here} m. Méi héich Statiounen sinn normalerweis méi kill.",
+      "whereNoHeight": "{name} ({id}) ass {distance} km vu(n) {place} ewech.",
+      "chart": "Hei minus {name}, all Dag, a(n) {unit}",
+      "none": "Keng aner Statioun bannent {distance} km mellt elo deeglech Temperaturen.",
+      "noneDays": "Nëmmen {count} Deeg hunn eng Miessung souwuel hei wéi och zu {name}; {min} brauch et, fir ze vergläichen.",
+      "open": "Déi zwou Statiounen niewuneneen vergläichen"
     }
   },
   "seo": {
@@ -290,7 +316,8 @@
       "about": "Iwwer dat Open-Source-Projet Wetterdienst an d'Leit, déi et ënnerhalen.",
       "support": "Ënnerstëtz Wetterdienst: mell e Problem, dréi Code bäi oder spend.",
       "map": "Eng Kaart vun de Statioune vum Däitsche Wiederdéngscht: Wiel eng Statioun oder e beléiwege Punkt a kuck d'Prognos, d'Klimasträifen an d'Miessungen derzou.",
-      "radar": "Den Nidderschlagsradar vum DWD iwwer Däitschland als Schleif vun de leschten zwou Stonnen, mat der Prognos fir déi nächst zwou an den Donnerwieder-Zellen driwwer."
+      "radar": "Den Nidderschlagsradar vum DWD iwwer Däitschland als Schleif vun de leschten zwou Stonnen, mat der Prognos fir déi nächst zwou an den Donnerwieder-Zellen driwwer.",
+      "compare": "Zwou Statiounen oder zwou Perioden vun enger Statioun niewuneneen fir ee Parameter vun den Observatioune vum DWD: ee Diagramm an eng Tabell mam Ënnerscheed."
     }
   },
   "values": {
@@ -335,7 +362,8 @@
     "methods": "Methoden",
     "support": "Ënnerstëtzung",
     "map": "Kaart",
-    "radar": "Radar"
+    "radar": "Radar",
+    "compare": "Vergläichen"
   },
   "shell": {
     "skipToContent": "Op den Inhalt sprangen",
@@ -731,7 +759,8 @@
     "forecast": "Sich eng Statioun oder wiel eng op der Kaart, fir hir Prognos ze gesinn",
     "explorer": "Wiel Parameteren aus, wiel dann eng Statioun oder e Punkt, iwwer d'Sich oder op der Kaart, a klick op „Weisen“, fir d'Daten ze lueden",
     "stripes": "Sich eng Statioun oder wiel eng op der Kaart a klick op „Weisen“, fir Klimasträifen ze erstellen",
-    "history": "Sich Statiounen oder wiel se op der Kaart a klick op „Weisen“, fir hiren Historique ze lueden"
+    "history": "Sich Statiounen oder wiel se op der Kaart a klick op „Weisen“, fir hiren Historique ze lueden",
+    "compare": "Sich Statiounen oder wiel se op der Kaart, wiel e Parameter a klick op „Weisen“, fir zwou Statiounen oder zwou Perioden ze vergläichen"
   },
   "meteogram": {
     "title": "Wiederprognos",
@@ -1043,6 +1072,64 @@
     "modeHowItWorks": "Wéi et funktionéiert",
     "removeParameterDistance": "Distanz fir {parameter} läschen"
   },
+  "compare": {
+    "title": "Vergläichen",
+    "byLabel": "Wat verglach gëtt",
+    "byStations": "Zwou Statiounen",
+    "byPeriods": "Zwou Perioden",
+    "stationA": "Statioun A",
+    "stationB": "Statioun B",
+    "station": "Statioun",
+    "period": "Period",
+    "periodA": "Period A",
+    "periodB": "Period B",
+    "start": "Vun",
+    "end": "Bis",
+    "sameStation": "Wiel zwou verschidde Statiounen.",
+    "periodTooLong": "E Vergläich ëmfaasst héchstens {max} {unit}. Wiel eng méi kuerz Period.",
+    "stepDays": "Deeg",
+    "stepMonths": "Méint",
+    "differs": "Déi zwou Säite sinn net déiselwecht Zort Zuel ({reason}); dofir gëtt keen Ënnerscheed berechent.",
+    "reason": {
+      "resolution": "eng aner Opléisung",
+      "dataset": "en anert Datesaz",
+      "parameter": "en aneren Parameter",
+      "unit": "eng aner Eenheet",
+      "aggregation": "d'Wäerter stinn fir Verschiddenes, zum Beispill e Mëttel an eng Zomm",
+      "position": "d'Deeg sinn net zur selwechter Zäit ofgegrenzt"
+    },
+    "alignDaysStations": "No Kalenderdatum ausgeriicht: dee selwechten Dag vu béide Statiounen.",
+    "alignMonthsStations": "No Kalennermount ausgeriicht: deen selwechte Mount vu béide Statiounen.",
+    "alignDaysPeriods": "Nom Dag vun der Period ausgeriicht: Dag 1 vun A mat Dag 1 vu B, Dag 2 mat Dag 2 asw. Béid Perioden si mat den Datume vun der Period A gezeechent.",
+    "alignMonthsPeriods": "Nom Mount vun der Period ausgeriicht: Mount 1 vun A mat Mount 1 vu B asw. Béid Perioden si mat de Méint vun der Period A gezeechent.",
+    "alignUnequal": "D'Period {shorter} ass méi kuerz: hir {count} {unit} ginn mat den éischten {count} vun deer anerer verglach, an déi {rest} duerno hunn kee Partner a keen Ënnerscheed.",
+    "summaryCompared": "{compared} vun {rows} {unit} verglach: do hunn béid Säite e Wäert.",
+    "noValues": "Kee Schrëtt huet op béide Säite e Wäert, et gëtt also näischt ofzezéien.",
+    "summaryMean": "Am Duerchschnëtt ass A {a} {unit} a B {b} {unit}; B − A = {difference} {unit}.",
+    "summarySum": "Insgesamt ass A {a} {unit} a B {b} {unit}; B − A = {difference} {unit}.",
+    "chartLabel": "Diagramm vum {parameter}: A, {a}, a B, {b}",
+    "chartAlternative": "D'Tabell hei drënner enthält all Wäert vum Diagramm.",
+    "tableTitle": "Wäerter an Ënnerscheed",
+    "tableCaption": "{parameter} ({unit}) vun A, {a}, a vu B, {b}, mat B − A",
+    "colDay": "Dag",
+    "colMonth": "Mount",
+    "colDateA": "Datum A",
+    "colDateB": "Datum B",
+    "colA": "A ({unit})",
+    "colB": "B ({unit})",
+    "colDifference": "B − A ({unit})",
+    "noteDifference": "Den Ënnerscheed ass Säit B minus Säit A, a(n) {unit}. Wou eng Säit kee Wäert huet, gëtt et keen Ënnerscheed: e feelende Wäert zielt ni als null.",
+    "noteTotal": "D'Wäerter sinn Zommen (oder Unzuelen) vun engem Dag oder engem Mount, den Ënnerscheed ass also den Ënnerscheed tëscht den zwou Zomme vum selwechte Schrëtt, an d'Zomme virun sinn Zomme vun de Schrëtt, déi béid Säite hunn.",
+    "outdated": "D'Auswiel huet sech geännert, zënter dës Tabell gemaach gouf. Dréck op Weisen, fir se ze vergläichen.",
+    "creditBoth": "Béid Säite kommen aus dëser Quell:",
+    "fileSides": "Säit A: {a}. Säit B: {b}.",
+    "subtitle": "Zwou Statiounen oder zwou Perioden niewuneneen fir ee Parameter",
+    "aboutButton": "Iwwer Vergläichen",
+    "about1": "Vergläichen stellt zwou Statiounen, oder zwou Perioden vun enger Statioun, niewuneneen fir ee Parameter vun den Observatioune vum DWD, déi deeglech oder monatlech Klimaiwwersiicht: ee Diagramm mat béide Reien an eng Tabell mam Ënnerscheed.",
+    "about2": "Zwou Statiounen ginn no Kalenderdatum gepaart: dee selwechten Dag, oder deen deeselwechte Mount, vu béiden. Zwou Perioden vun enger Statioun ginn no hirer Plaz an der Period gepaart: den éischten Dag vun A mam éischten Dag vu B, den zweeten mam zweeten. Eng Period, déi méi kuerz ass wéi déi aner, gëtt verglach, sou wäit wéi si geet. Den Ënnerscheed ass émmer Säit B minus Säit A, an der Eenheet vun de Wäerter; wou eng Säit kee Wäert huet, gëtt et keen Ënnerscheed, an e feelende Wäert zielt ni als null.",
+    "about3": "Wat verglach gëtt, muss déiselwecht Zort Zuel sinn: déiselwecht Opléisung, datselwecht Datesaz, deeselwechte Parameter an déiselwecht Eenheet, an e Wäert, deen fir déiselwecht Zäitspan steet. Wann dat net esou ass, seet d'Werkzeug et a berechent keen Ënnerscheed. Statiounen ënnerscheeden sech a Héicht an Ëmgéigend, en Ënnerscheed tëscht zwou Statiounen ass also net ëmmer en Ënnerscheed vum Wieder. Déi neisten Deeg kommen aus de rezenten Date vum DWD, bei deenen d'Qualitéitskontroll laut DWD net ofgeschloss ass.",
+    "selectParameter": "E Parameter wielen"
+  },
   "stationTable": {
     "stationId": "Statiouns-ID",
     "name": "Numm",
@@ -1213,7 +1300,8 @@
     "whyFarther": "Déi nootst Statioun, déi nach mellt. Méi no: {name}, {distance}, bis {year}.",
     "whyFartherNoEnd": "Déi nootst Statioun, déi nach mellt. Méi no: {name}, {distance}, Enn onbekannt.",
     "pickCloser": "{name} amplaz huelen",
-    "resultsOf": "Déi éischt {shown} vun {total} Statioune. Tipp méi, fir se anzegrenzen."
+    "resultsOf": "Déi éischt {shown} vun {total} Statioune. Tipp méi, fir se anzegrenzen.",
+    "openCompare": "Mat enger anerer Statioun vergläichen"
   },
   "radar": {
     "title": "Radar",

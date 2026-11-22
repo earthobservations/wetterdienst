@@ -396,6 +396,116 @@ export const methods: MethodTexts = {
         parameters: 'The coverage was searched for the parameters {names}.',
       },
     },
+
+    monthrain: {
+      title: 'Was this month wetter than the same month last year?',
+      summary: 'The rain of the days of this month so far at the place\'s station, set against the rain of the same days of the same month a year before.',
+      data: 'DWD\'s daily station observations (dataset daily/climate_summary): the daily precipitation height of the place\'s station, from the month before this one a year ago up to yesterday.',
+      steps: {
+        days: 'The days of this month from the 1st up to the newest day with a reading are paired with the same days of the month a year before: the 1st with the 1st, the 2nd with the 2nd, and so on. A day counts only if the station has a reading in both years. If fewer than {minDays} days can be paired, the last complete month is compared with the same month a year before it, and the answer says so.',
+        sums: 'The daily amounts of the paired days are added up, once for this year and once for last year. Both sums are over exactly the same days of the month.',
+        verdict: 'The month is "wetter" if its sum is above last year\'s by more than the band, "drier" if it is below by more than the band, and "about as wet" within it. The band is {similarMm} mm or {similarShare} % of the larger sum, whichever is more.',
+      },
+      formulas: {
+        sums: 'sum(year) = amount of day 1 + amount of day 2 + … over the days that both years have a reading for; difference = sum(this year) − sum(last year)',
+      },
+      rules: {
+        'daily-precipitation': {
+          text: 'The rain of a day is DWD\'s daily precipitation height of the place\'s station.',
+          says: 'DWD\'s description of its daily station observations lists the column RSK as the "daily precipitation height", in mm, and names the daily sum among the ways the data are processed.',
+        },
+        'month-so-far': {
+          text: 'This month is compared as far as it has gone: from the 1st to the newest day with a reading, which is yesterday at the latest.',
+          reason: 'The question says "this month", which is not over. Comparing it with a whole month a year ago would make it look dry, so only the days that have happened are compared. No source says how to compare a running month.',
+        },
+        'same-days': {
+          text: 'The days are paired by their number in the month: the 5th with the 5th. Only days with a reading in both years are added up. A 29 February has no partner and is left out.',
+          reason: 'The same days of the month are the fair comparison of a month that is not over. A day that is missing in one year is left out of both sums, so that a gap is never counted as a dry day. This is a choice of the app.',
+        },
+        'min-days': {
+          text: 'At least {minDays} days must be paired. With fewer (the first days of a month) the last complete month is compared with the same month a year before it.',
+          reason: 'A sum over two or three days is mostly luck, and the first days of every month would be a poor answer. A week is a round line chosen by wetterdienst; no source gives one.',
+        },
+        'month-sum': {
+          text: 'The rain of a month is the sum of the daily amounts of the paired days.',
+          reason: 'Adding the days is plain arithmetic, and the monthly total is by definition the sum of the daily ones. Which days are added is the rule above.',
+        },
+        'similar-band': {
+          text: 'The two sums are "about the same" if they differ by no more than {similarMm} mm or {similarShare} % of the larger one, whichever is more.',
+          reason: 'A millimetre is within what a rain gauge resolves, and a tenth of a wet month is within what chance moves from one year to the next. Both numbers are round ones chosen by wetterdienst; no source gives a line for "about as wet".',
+        },
+      },
+      limits: {
+        station: 'The answer is about one station. Rain falls unevenly, and a shower can wet one place and miss another a few kilometres away.',
+        recent: 'The newest days come from DWD\'s directory of recent data, for which DWD says quality control has not been completed, so there may always be changes in the values.',
+        gauge: 'A sum of rain says how much fell, not how it fell: a month can be as wet as another with one storm or with many days of drizzle.',
+        band: 'The words "wetter", "drier" and "about as wet" depend on the band, which is wetterdienst\'s own. The sums and their difference are given in the answer.',
+      },
+      numbers: {
+        station: 'Station: {name} ({id}).',
+        month: 'Compared: {month} and {lastMonth}, {days} days with a reading in both.',
+        sums: 'Rain of those days: {sum} {unit} in {month}, {lastSum} {unit} in {lastMonth}.',
+        difference: 'This year minus last year: {difference} {unit}.',
+        band: 'Band of "about as wet": {similarMm} mm or {similarShare} % of the larger sum, whichever is more.',
+        fallback: 'Only {count} days of the running month could be paired, fewer than the {min} needed, so the last complete month is compared.',
+      },
+    },
+
+    nearby: {
+      title: 'Is it warmer here than at a station nearby?',
+      summary: 'The mean temperature of the last month at the place\'s station, set against that of the nearest other station that reports now.',
+      data: 'DWD\'s daily station observations (dataset daily/climate_summary): the daily mean of the air temperature of the place\'s station and of the other station, for the last {windowDays} days up to yesterday.',
+      steps: {
+        station: 'The stations nearest to the place are looked through, nearest first, for one that is not the place\'s own, lies within {maxKm} km and has readings from the last {reportsDays} days. The first one is used. If there is none, there is no answer.',
+        days: 'The last {windowDays} days up to yesterday are taken. A day counts only if both stations have a daily mean for it. If fewer than {minDays} days can be paired there is no answer.',
+        means: 'The daily means of the paired days are averaged for each station, and the mean of the other station is subtracted from the mean of the place.',
+        verdict: 'The place is "warmer" if its mean is above the other station\'s by more than {band} °C, "cooler" if it is below by more than {band} °C, and "about the same" within it. The chart shows the difference of each day.',
+      },
+      formulas: {
+        means: 'difference = mean over the paired days of (temperature here) − mean over the same days of (temperature at the other station)',
+      },
+      rules: {
+        'daily-mean': {
+          text: 'The temperature of a day is DWD\'s daily mean of the air temperature of the station.',
+          says: 'DWD\'s description of its daily station observations lists the column TMK as the "daily mean of temperature", in °C.',
+        },
+        'nearest-station': {
+          text: 'The other station is the nearest one that is not the place\'s own, lies within {maxKm} km, and has readings from the last {reportsDays} days.',
+          reason: 'Within some tens of kilometres the weather is mostly the same weather, which is what "nearby" asks for; further off the two are not comparable. A station that stopped reporting has no recent days to compare. Both lines are chosen by wetterdienst; no source gives them.',
+        },
+        'window': {
+          text: 'The last {windowDays} days up to yesterday are compared.',
+          reason: 'A month is what "lately" means, long enough that one warm night does not decide and short enough to be about now. It is a choice of the app; yesterday is the newest day that is published.',
+        },
+        'common-days': {
+          text: 'At least {minDays} of the {windowDays} days must have a mean at both stations, else there is no answer. Days that only one station has are left out of both means.',
+          reason: 'Averaging different days at the two stations would compare the weather of those days, not the stations. Two thirds of the window is a line chosen by wetterdienst; no source gives one.',
+        },
+        'mean-difference': {
+          text: 'The difference is the mean of the place\'s daily means minus the mean of the other station\'s, over the paired days.',
+          reason: 'The plain mean of the daily means is the simplest summary of a month and uses no assumption. It is a choice of the app.',
+        },
+        'same-band': {
+          text: 'The means are "about the same" if they differ by no more than {band} °C.',
+          reason: 'Half a degree is the band the app also uses for "as usual" in the question about the season, and is within what the height or the site of two stations changes. It is chosen by wetterdienst; no source gives it.',
+        },
+      },
+      limits: {
+        height: 'Air is usually cooler the higher a station lies, and a station in a town is usually warmer than one in a field. A difference between the two stations can come from where they are and not from the weather. The answer gives both heights where the list has them.',
+        recent: 'The newest days come from DWD\'s directory of recent data, for which DWD says quality control has not been completed, so there may always be changes in the values.',
+        station: 'The other station is chosen by the rules above, not for being the most alike. Another one nearby can give another answer.',
+        days: 'Where days are missing, the means are of the days both have, which is fewer than {windowDays}; the answer says how many.',
+        band: 'The words "warmer", "cooler" and "about the same" depend on the band, which is wetterdienst\'s own. The means and their difference are given in the answer.',
+      },
+      numbers: {
+        station: 'Station: {name} ({id}).',
+        other: 'The other station: {name} ({id}), {distance} km away.',
+        days: '{days} of the last {window} days, {from} to {to}, have a mean at both stations.',
+        means: 'Mean of those days: {here} {unit} here, {there} {unit} at the other station.',
+        difference: 'Here minus there: {difference} {unit}.',
+        band: 'Band of "about the same": {band} °C.',
+      },
+    },
   },
 
   works: {

@@ -87,13 +87,17 @@
         "rain": "Hvor meget regnede det den {day}?",
         "temperature": "Var det varmt eller koldt den {day}?",
         "snow": "Lå der sne den {day}?"
-      }
+      },
+      "monthrain": "Har denne måned været våd i forhold til samme måned sidste år?",
+      "nearby": "Er det varmere her end på en station i nærheden?"
     },
     "from": {
       "rain": "Udsigt, DWD MOSMIX",
       "season": "Månedsmiddel, DWD",
       "download": "Alle vejrtjenester",
-      "day": "Døgnværdier, DWD"
+      "day": "Døgnværdier, DWD",
+      "monthrain": "Daglig nedbør, DWD",
+      "nearby": "Daglige temperaturer, DWD"
     },
     "working": "Svaret regnes ud …",
     "failed": "Svaret kunne ikke regnes ud.",
@@ -261,6 +265,28 @@
       "detail": "Hver enkelt åbner i Udforskeren, klar til download som CSV, JSON eller GeoJSON.",
       "none": "Ingen vejrtjeneste udgiver lufttemperatur pr. time lige nu.",
       "api": "Eller brug REST-API'et"
+    },
+    "monthrain": {
+      "wetter": "Ja, {difference} {unit} mere end samme dage sidste år.",
+      "drier": "Nej, {difference} {unit} mindre end samme dage sidste år.",
+      "similar": "Ikke rigtig: omtrent lige så vådt som sidste år.",
+      "detail": "{month}: {sum} {unit} på {days} dage. {lastMonth}, samme dage: {lastSum} {unit}.",
+      "fallback": "Kun {count} dage i den igangværende måned har en måling begge år (der skal bruges {min}), så den seneste hele måned, {month}, sammenlignes.",
+      "chart": "Regn på de samme dage i måneden, i {unit}",
+      "none": "Her er for få dage med en måling begge år til at sammenligne (der skal bruges {min}).",
+      "open": "Sammenlign de to strækninger side om side"
+    },
+    "nearby": {
+      "warmer": "Ja, {difference} {unit} varmere end ved {name}.",
+      "cooler": "Nej, {difference} {unit} køligere end ved {name}.",
+      "same": "Ikke rigtig: omtrent lige så varmt som ved {name}.",
+      "detail": "Middeltemperatur i luften på {days} dage med en måling begge steder: {here} {unit} her, {there} {unit} ved {name}.",
+      "where": "{name} ({id}) ligger {distance} km fra {place} og {there} m over havets overflade; {place} ligger {here} m oppe. Højere liggende stationer er som regel køligere.",
+      "whereNoHeight": "{name} ({id}) ligger {distance} km fra {place}.",
+      "chart": "Her minus {name}, dag for dag, i {unit}",
+      "none": "Ingen anden station inden for {distance} km melder lige nu daglige temperaturer.",
+      "noneDays": "Kun {count} dage har en måling både her og ved {name}; der skal bruges {min} for at sammenligne.",
+      "open": "Sammenlign de to stationer side om side"
     }
   },
   "seo": {
@@ -290,7 +316,8 @@
       "about": "Om open source-projektet Wetterdienst og de mennesker, der vedligeholder det.",
       "support": "Støt Wetterdienst: meld en fejl, bidrag med kode eller doner.",
       "map": "Et kort over stationerne hos Tysklands vejrtjeneste: vælg en station eller et vilkårligt punkt og se dens udsigt, klimastriber og målinger.",
-      "radar": "DWD's nedbørsradar over Tyskland som et loop af de seneste to timer med udsigten for de næste to og tordencellerne ovenpå."
+      "radar": "DWD's nedbørsradar over Tyskland som et loop af de seneste to timer med udsigten for de næste to og tordencellerne ovenpå.",
+      "compare": "To stationer eller to perioder for én station side om side for én parameter i DWD's observationer: ét diagram og én tabel med forskellen."
     }
   },
   "values": {
@@ -335,7 +362,8 @@
     "methods": "Metoder",
     "support": "Support",
     "map": "Kort",
-    "radar": "Radar"
+    "radar": "Radar",
+    "compare": "Sammenlign"
   },
   "shell": {
     "skipToContent": "Gå til indhold",
@@ -731,7 +759,8 @@
     "forecast": "Søg efter en station eller vælg en på kortet for at se dens udsigt",
     "explorer": "Vælg parametre, vælg derefter en station eller et punkt, via søgning eller på kortet, og klik på “Vis” for at indlæse data",
     "stripes": "Søg efter en station eller vælg en på kortet, og klik derefter på “Vis” for at oprette klimastriber",
-    "history": "Søg efter stationer eller vælg dem på kortet, og klik derefter på “Vis” for at indlæse deres historik"
+    "history": "Søg efter stationer eller vælg dem på kortet, og klik derefter på “Vis” for at indlæse deres historik",
+    "compare": "Søg efter stationer eller vælg dem på kortet, vælg en parameter, og klik derefter på “Vis” for at sammenligne to stationer eller to perioder"
   },
   "meteogram": {
     "title": "Vejrudsigt",
@@ -1043,6 +1072,64 @@
     "modeHowItWorks": "Sådan fungerer det",
     "removeParameterDistance": "Fjern afstanden for {parameter}"
   },
+  "compare": {
+    "title": "Sammenlign",
+    "byLabel": "Hvad der sammenlignes",
+    "byStations": "To stationer",
+    "byPeriods": "To perioder",
+    "stationA": "Station A",
+    "stationB": "Station B",
+    "station": "Station",
+    "period": "Periode",
+    "periodA": "Periode A",
+    "periodB": "Periode B",
+    "start": "Fra",
+    "end": "Til",
+    "sameStation": "Vælg to forskellige stationer.",
+    "periodTooLong": "En sammenligning rummer højst {max} {unit}. Vælg en kortere periode.",
+    "stepDays": "dage",
+    "stepMonths": "måneder",
+    "differs": "De to sider er ikke samme slags tal ({reason}), så der beregnes ingen forskel.",
+    "reason": {
+      "resolution": "en anden opløsning",
+      "dataset": "et andet datasæt",
+      "parameter": "en anden parameter",
+      "unit": "en anden enhed",
+      "aggregation": "værdierne står for forskellige ting, for eksempel et gennemsnit og en sum",
+      "position": "døgnene afgrænses ikke på samme tidspunkt"
+    },
+    "alignDaysStations": "Stillet op efter kalenderdato: samme dag på begge stationer.",
+    "alignMonthsStations": "Stillet op efter kalendermåned: samme måned på begge stationer.",
+    "alignDaysPeriods": "Stillet op efter dag i perioden: dag 1 i A med dag 1 i B, dag 2 med dag 2 og så videre. Begge perioder er tegnet på datoerne i periode A.",
+    "alignMonthsPeriods": "Stillet op efter måned i perioden: måned 1 i A med måned 1 i B og så videre. Begge perioder er tegnet på månederne i periode A.",
+    "alignUnequal": "Periode {shorter} er kortere: dens {count} {unit} sammenlignes med de første {count} i den anden, og de {rest} derefter har ingen partner og ingen forskel.",
+    "summaryCompared": "{compared} af {rows} {unit} sammenlignet: begge sider har en værdi i dem.",
+    "noValues": "Intet trin har en værdi på begge sider, så der er intet at trække fra.",
+    "summaryMean": "I gennemsnit er A {a} {unit} og B {b} {unit}; B − A = {difference} {unit}.",
+    "summarySum": "I alt er A {a} {unit} og B {b} {unit}; B − A = {difference} {unit}.",
+    "chartLabel": "Diagram over {parameter}: A, {a}, og B, {b}",
+    "chartAlternative": "Tabellen herunder indeholder alle diagrammets værdier.",
+    "tableTitle": "Værdier og forskel",
+    "tableCaption": "{parameter} ({unit}) for A, {a}, og B, {b}, med B − A",
+    "colDay": "Dag",
+    "colMonth": "Måned",
+    "colDateA": "Dato A",
+    "colDateB": "Dato B",
+    "colA": "A ({unit})",
+    "colB": "B ({unit})",
+    "colDifference": "B − A ({unit})",
+    "noteDifference": "Forskellen er side B minus side A i {unit}. Hvor en side ikke har en værdi, er der ingen forskel: en manglende værdi tæller aldrig som nul.",
+    "noteTotal": "Værdierne er summer (eller antal) for en dag eller en måned, så forskellen er forskellen mellem de to summer for samme trin, og summerne ovenfor er summer over de trin, begge sider har.",
+    "outdated": "Valget er ændret, siden denne tabel blev lavet. Tryk på Vis for at sammenligne dem.",
+    "creditBoth": "Begge sider kommer fra denne kilde:",
+    "fileSides": "Side A: {a}. Side B: {b}.",
+    "subtitle": "To stationer eller to perioder side om side for én parameter",
+    "aboutButton": "Om Sammenlign",
+    "about1": "Sammenlign stiller to stationer, eller to perioder for én station, side om side for én parameter i DWD's observationer, den daglige eller månedlige klimaoversigt: ét diagram med begge serier og én tabel med forskellen.",
+    "about2": "To stationer parres efter kalenderdato: samme dag, eller samme måned, på begge. To perioder for én station parres efter deres plads i perioden: første dag i A med første dag i B, anden med anden. En periode, der er kortere end den anden, sammenlignes, så langt den rækker. Forskellen er altid side B minus side A i værdiernes enhed; hvor en side ikke har en værdi, er der ingen forskel, og en manglende værdi tæller aldrig som nul.",
+    "about3": "Det, der sammenlignes, skal være samme slags tal: samme opløsning, samme datasæt, samme parameter og samme enhed og en værdi, der står for samme tidsrum. Er det ikke tilfældet, siger værktøjet det og beregner ingen forskel. Stationer er forskellige i højde og omgivelser, så en forskel mellem to stationer er ikke altid en forskel i vejret. De nyeste dage kommer fra DWD's seneste data, hvor kvalitetskontrollen ifølge DWD ikke er afsluttet.",
+    "selectParameter": "Vælg en parameter"
+  },
   "stationTable": {
     "stationId": "Stations-id",
     "name": "Navn",
@@ -1213,7 +1300,8 @@
     "whyFarther": "Den nærmeste station, der stadig måler. Tættere på: {name}, {distance}, til {year}.",
     "whyFartherNoEnd": "Den nærmeste station, der stadig måler. Tættere på: {name}, {distance}, slutdato ukendt.",
     "pickCloser": "Vælg {name} i stedet",
-    "resultsOf": "De første {shown} af {total} stationer. Skriv mere for at indsnævre."
+    "resultsOf": "De første {shown} af {total} stationer. Skriv mere for at indsnævre.",
+    "openCompare": "Sammenlign med en anden station"
   },
   "radar": {
     "title": "Radar",

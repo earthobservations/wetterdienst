@@ -522,12 +522,12 @@ describe('a station picked', () => {
     await listed(wrapper)
     stage.emit('pick', NEAR_HAMBURG)
     const card = () => wrapper.find('[data-testid="map-card-measured"]')
-    await vi.waitFor(() => expect(card().findAll('a')).toHaveLength(2))
+    await vi.waitFor(() => expect(card().findAll('a')).toHaveLength(3))
     expect(card().find('h3').text()).toBe('Measurements')
     expect(card().text()).toContain('Climate summary, Daily')
     expect(card().text()).toContain('since 1891')
     expect(card().text()).toMatch(/Hamburg-Fuhlsbüttel, \d+ km away/)
-    const [explorer, history] = card().findAll('a')
+    const [explorer, history, compare] = card().findAll('a')
     const explorerLink = new URL(explorer!.attributes('href')!, 'http://x')
     expect(explorerLink.pathname).toBe('/explorer')
     expect(Object.fromEntries(explorerLink.searchParams)).toEqual({
@@ -543,6 +543,9 @@ describe('a station picked', () => {
     expect(historyLink.pathname).toBe('/history')
     expect(Object.fromEntries(historyLink.searchParams)).toMatchObject({ provider: 'dwd', network: 'observation', dataset: 'climate_summary', stations: '01975' })
     expect(history!.text()).toBe('Open the station history')
+    // the Compare tool with this station as side A (GH-4296), for the source of the card
+    expect(compare!.attributes('href')).toBe('/compare?compare=stations&resolution=daily&stations=01975')
+    expect(compare!.text()).toBe('Compare with another station')
   })
 
   it('says for how long a station that has stopped measured', async () => {
@@ -741,7 +744,7 @@ describe('the answers that fail', () => {
     expect(card().find('[role="alert"]').text()).toBe('The stations could not be loaded')
     registerEndpoint('/api/stations', stationsOf)
     await card().find('button').trigger('click')
-    await vi.waitFor(() => expect(card().findAll('a')).toHaveLength(2))
+    await vi.waitFor(() => expect(card().findAll('a')).toHaveLength(3))
   })
 })
 

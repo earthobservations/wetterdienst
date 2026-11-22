@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   clickReach,
   closerStoppedStation,
+  compareLink,
   DEFAULT_MEASURED,
   distanceKm,
   DOT_SLOP_PX,
@@ -300,6 +301,16 @@ describe('where a station is opened', () => {
       mode: 'station',
       stations: '00011',
     })
+  })
+
+  it('has its comparison in the Compare tool (GH-4296), the station as side A, where the source is one it compares', () => {
+    const link = new URL(compareLink(DEFAULT_MEASURED, '00011')!, 'http://x')
+    expect(link.pathname).toBe('/compare')
+    expect(Object.fromEntries(link.searchParams)).toEqual({ compare: 'stations', resolution: 'daily', stations: '00011' })
+    expect(Object.fromEntries(new URL(compareLink({ resolution: 'monthly', dataset: 'climate_summary' }, '00011')!, 'http://x').searchParams).resolution).toBe('monthly')
+    // the hourly values and the other datasets are not what Compare reads: no link
+    expect(compareLink({ resolution: 'hourly', dataset: 'temperature_air' }, '00011')).toBeNull()
+    expect(compareLink({ resolution: 'daily', dataset: 'more_precip' }, '00011')).toBeNull()
   })
 
   it('has its history in the station history, on the source and with the station chosen', () => {

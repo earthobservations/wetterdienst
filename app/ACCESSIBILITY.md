@@ -32,7 +32,7 @@ What was decided for #2559 (maintainer, 2026-11-10), which is closed with the pu
   (`values-limit-refused`, and at 320 px `values-limit-refused-narrow`) and the note under the date range that
   says the page started one (`default-range-note`), and the chooser of the phone bar's four tools on the
   settings page at 390 px, with a tool moved, and at 320 px (`phone-bar-chooser`, `phone-bar-chooser-narrow`), the About page at 390 px
-  scrolled down with both bars slid away (`phone-bars-hidden`, GH-4226) and the search at 390 px open as a bar over the top bar (`phone-search-open`), with the words of the app typed (`phone-search-words`, GH-3790; at 1280 px `search-words` and, for a position typed in, `search-place`; the stations of three lists found by name, with all three chosen in the settings, `search-stations` and at 390 px `phone-search-stations`, a WMO number with the stations of every network that carries it `search-station-ids`, and the settings page's group of checkboxes "Stations in the search" with one turned on `search-stations-setting`, GH-3790) and the radar with the cells listed and the loop on a frame of the forecast (`cells-forecast-frame`, and at 390 px `phone-radar`, GH-3788).
+  scrolled down with both bars slid away (`phone-bars-hidden`, GH-4226) and the search at 390 px open as a bar over the top bar (`phone-search-open`), with the words of the app typed (`phone-search-words`, GH-3790; at 1280 px `search-words` and, for a position typed in, `search-place`; the stations of three lists found by name, with all three chosen in the settings, `search-stations` and at 390 px `phone-search-stations`, a WMO number with the stations of every network that carries it `search-station-ids`, and the settings page's group of checkboxes "Stations in the search" with one turned on `search-stations-setting`, GH-3790) and the radar with the cells listed and the loop on a frame of the forecast (`cells-forecast-frame`, and at 390 px `phone-radar`, GH-3788), the Compare tool with two stations, with two periods, refused and at 390 px (`stations-result`, `periods-result`, `refused`, `phone-result`, GH-4296) and the two comparisons of Ask the weather (`ask-monthrain`, `ask-nearby`).
 
 The spec answers every `/api/*` request itself, in the browser (`tests/e2e/accessibility/mock-backend.ts`),
 so it reaches neither the backend nor a provider. Map tiles and every other request to another host are
@@ -351,6 +351,22 @@ under it and a panel beside it (under it on a phone, in the order the window sho
 | 3.1.1 Times | A frame's time is written in the reader's own zone with the zone's name ("09:10 MEZ"), the weekday where it is not today; the language is the page's (`formatFrameTime`). |
 
 Not checked: a screen reader on a phone (VoiceOver, TalkBack), and the slider by touch with 200 % text.
+
+The Compare tool (`/compare`, GH-4296), by `tests/unit/compare-model.test.ts`, `tests/nuxt/pages/compare.test.ts`, `tests/e2e/compare.spec.ts` and the
+page `compare` and the states `compare: stations-result`, `periods-result`, `refused` and `phone-result` of the accessibility spec (the two new Ask
+the weather questions are `index: ask-monthrain` and `ask-nearby`). It is a form in the left column and the result in the right one (under it on a
+phone, in the order the window shows them), made of the Explorer's chart (`ExplorerChart.vue`) and a table:
+
+| Criterion | How Compare meets it |
+| --- | --- |
+| 1.4.1, 1.1.1 Two series | The two sides are told apart by more than colour: A is a solid line with round markers, B a dashed line with square markers (`ExplorerSeries.look`), in the legend as in the plot, and each is named in the legend ("A · Station", "B · Station"). The figure has a name that says what it shows and a description that says the table below holds every value of the chart. |
+| 1.1.1, 1.3.1 The table as the chart's alternative | Every value of the chart is in a real table with a caption, column headers (`scope="col"`) and the step as a row header, the dates of both sides, both values and the difference, with the unit in the header; a missing value is an empty cell and never a zero. The region that scrolls has a name and is a stop of the keyboard (`tabindex="0"`), so Page Up and Page Down reach every row. |
+| 3.3.1, 3.3.2, 4.1.3 The form | Every control has a visible label (the station pickers are labelled "Station A" and "Station B"; the dates "From" and "To" in a group named by the period); a period that ends before it starts or is longer than 3660 days, and two sides that are one station, are told in a line of text with `role="alert"`, and Show is off until they are put right. Loading and the summary of the numbers are `role="status"`. The two ways of comparing are two buttons, the chosen one `aria-pressed`. |
+| 3.3.1 Refusal | Sides that are not the same kind of number (another resolution, dataset, parameter or unit, or a value for another stretch of time) are said in a warning with the reason, and there is no table and no difference. |
+| 1.4.10 Reflow, 2.5.8 Target size | No sideways scroll at 390 px; the table scrolls in its own region. The buttons are 24 px or more. |
+| 1.4.3 Contrast | The text is the app's tokens (`text-muted`, `text-gray-600 dark:text-gray-400`), held by `button-contrast.test.ts`. |
+
+Not checked: a screen reader on a phone, and the chart's readout by touch.
 
 The station picker of the Explorer, History, Forecast and Stripes (GH-3877), by the tests of `tests/nuxt/components/StationPicker.test.ts`, the
 keyboard tests and the `station-map` states of the accessibility spec, and `tests/e2e/i18n-layout.spec.ts` at 320 px (Chrome):

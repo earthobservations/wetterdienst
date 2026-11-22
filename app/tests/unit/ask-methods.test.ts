@@ -26,6 +26,7 @@ import {
 import { fill, numberLineText, placeholders, ruleParams, valueText } from '../../app/utils/ask/method-text'
 import { CHIPS } from '../../app/utils/ask/registry'
 import { WORK_IDS, WORKS } from '../../app/utils/ask/works'
+import { monthRain, nearbyWarmer } from '../../app/utils/compare-answers'
 import {
   DAY_PARAMETERS,
   FROST_DAY_MIN_BELOW,
@@ -201,6 +202,9 @@ describe('the numbers of an answer', () => {
     cold: { result: { measure: 'temperature', answer: temperatureOnDay([...dayReadings(DAY_PARAMETERS.tmax, 12), ...dayReadings(DAY_PARAMETERS.tmin, 4)], '2025-12-26')! }, loaded: null, choices: { measure: 'temperature', day: '2025-12-26' }, id: 'day' },
     snow: { result: { measure: 'snow', answer: snowOnDay([...dayReadings(DAY_PARAMETERS.snow, 12), ...dayReadings(DAY_PARAMETERS.newSnow, 4)], '2025-12-26')! }, loaded: null, choices: { measure: 'snow', day: '2025-12-26' }, id: 'day' },
     snowNoFresh: { result: { measure: 'snow', answer: snowOnDay(dayReadings(DAY_PARAMETERS.snow, 0), '2025-12-26')! }, loaded: null, choices: { measure: 'snow', day: '2025-12-26' }, id: 'day' },
+    monthrain: { result: monthRain(Array.from({ length: 30 }, (_, index) => ({ parameter: 'precipitation_amount', timestamp: `2025-10-${String(index + 1).padStart(2, '0')}T00:00:00+00:00`, value: 1 })).concat(Array.from({ length: 22 }, (_, index) => ({ parameter: 'precipitation_amount', timestamp: `2026-10-${String(index + 1).padStart(2, '0')}T00:00:00+00:00`, value: 2 }))), NOW)!, loaded: null, choices: {} },
+    monthrainFallback: { result: monthRain(Array.from({ length: 30 }, (_, index) => ({ parameter: 'precipitation_amount', timestamp: `2025-09-${String(index + 1).padStart(2, '0')}T00:00:00+00:00`, value: 1 })).concat(Array.from({ length: 30 }, (_, index) => ({ parameter: 'precipitation_amount', timestamp: `2026-09-${String(index + 1).padStart(2, '0')}T00:00:00+00:00`, value: 2 })), [{ parameter: 'precipitation_amount', timestamp: '2026-10-01T00:00:00+00:00', value: 1 }]), NOW)!, loaded: null, choices: {}, id: 'monthrain' },
+    nearby: { result: nearbyWarmer(Array.from({ length: 30 }, (_, index) => DateTime.fromISO('2026-09-29', { zone: 'utc' }).plus({ days: index }).toISODate()!).flatMap(date => [{ station_id: '02564', parameter: 'temperature_air_mean_2m', timestamp: `${date}T00:00:00+00:00`, value: 12 }, { station_id: '02597', parameter: 'temperature_air_mean_2m', timestamp: `${date}T00:00:00+00:00`, value: 11 }]), '02564', '02597', NOW)!, loaded: { other: { station_id: '02597', name: 'Kiel-Leuchtturm', distance: 9.4 } }, choices: {} },
     download: { result: [{ provider: 'dwd' }, { provider: 'noaa' }], loaded: [{ provider: 'dwd' }, { provider: 'noaa' }], choices: {} },
   } as Record<string, { result: unknown, loaded: unknown, choices: Record<string, string>, id?: string }>
 
@@ -264,6 +268,8 @@ describe('what is marked as wetterdienst\'s own', () => {
     rain: ['nearest-point', 'day', 'min-hours', 'day-total', 'maybe-amount', 'chance-bands', 'highest-chance'],
     season: ['winter-year', 'only-over', 'default-season', 'default-normal', 'normal-mean', 'min-seasons', 'fallback-period', 'fallback-minimum', 'usual-band', 'rank'],
     day: ['default-day', 'default-measure', 'measure-reading', 'gust-first', 'gust-words', 'mean-words', 'sun-bands', 'rain-trace', 'rain-wet-day', 'rain-very-wet', 'tropical-daily-minimum', 'class-order', 'around-window', 'stronger-count'],
+    monthrain: ['month-so-far', 'same-days', 'min-days', 'month-sum', 'similar-band'],
+    nearby: ['nearest-station', 'window', 'common-days', 'mean-difference', 'same-band'],
     download: ['networks', 'hourly-temperature', 'order'],
   }
 

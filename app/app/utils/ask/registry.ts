@@ -1,6 +1,8 @@
 import type { Chip } from './chip'
 import { day } from './chips/day'
 import { download } from './chips/download'
+import { monthrain } from './chips/monthrain'
+import { nearby } from './chips/nearby'
 import { rain } from './chips/rain'
 import { season } from './chips/season'
 
@@ -10,7 +12,7 @@ import { season } from './chips/season'
 // nothing else (GH-3518): the tile appears on the link that leads into the tool.
 //
 // A new chip is registered here, and nowhere else in the code: `README.md` next to this file.
-export const CHIPS = [rain, season, day, download] as const
+export const CHIPS = [rain, season, day, monthrain, nearby, download] as const
 
 export type ChipId = typeof CHIPS[number]['id']
 

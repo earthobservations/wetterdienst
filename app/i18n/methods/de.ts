@@ -395,6 +395,116 @@ export const methods: MethodTexts = {
         parameters: 'Die Abdeckung wurde nach den Parametern {names} durchsucht.',
       },
     },
+
+    monthrain: {
+      title: 'War dieser Monat nasser als der gleiche Monat im Vorjahr?',
+      summary: 'Der Regen der bisherigen Tage dieses Monats an der Station des Ortes, verglichen mit dem Regen derselben Tage desselben Monats ein Jahr zuvor.',
+      data: 'Die täglichen Stationsbeobachtungen des DWD (Datensatz daily/climate_summary): die tägliche Niederschlagshöhe der Station des Ortes, vom Monat vor diesem im Vorjahr bis gestern.',
+      steps: {
+        days: 'Die Tage dieses Monats vom 1. bis zum neuesten Tag mit Messwert werden mit denselben Tagen des Monats ein Jahr zuvor gepaart: der 1. mit dem 1., der 2. mit dem 2. und so weiter. Ein Tag zählt nur, wenn die Station in beiden Jahren einen Messwert hat. Lassen sich weniger als {minDays} Tage paaren, wird der letzte vollständige Monat mit demselben Monat ein Jahr davor verglichen, und die Antwort sagt das.',
+        sums: 'Die Tagesmengen der gepaarten Tage werden addiert, einmal für dieses Jahr und einmal für das Vorjahr. Beide Summen gehören zu genau denselben Tagen des Monats.',
+        verdict: 'Der Monat ist „nasser“, wenn seine Summe um mehr als das Band über der des Vorjahres liegt, „trockener“, wenn sie um mehr als das Band darunter liegt, und „etwa so nass“ innerhalb davon. Das Band sind {similarMm} mm oder {similarShare} % der größeren Summe, je nachdem, was mehr ist.',
+      },
+      formulas: {
+        sums: 'Summe(Jahr) = Menge von Tag 1 + Menge von Tag 2 + … über die Tage, für die beide Jahre einen Messwert haben; Differenz = Summe(dieses Jahr) − Summe(Vorjahr)',
+      },
+      rules: {
+        'daily-precipitation': {
+          text: 'Der Regen eines Tages ist die tägliche Niederschlagshöhe des DWD an der Station des Ortes.',
+          says: 'Die Beschreibung der täglichen Stationsbeobachtungen des DWD führt die Spalte RSK als „daily precipitation height“ (tägliche Niederschlagshöhe) in mm auf und nennt die Tagessumme unter den Arten der Verarbeitung der Daten.',
+        },
+        'month-so-far': {
+          text: 'Dieser Monat wird so weit verglichen, wie er gekommen ist: vom 1. bis zum neuesten Tag mit Messwert, spätestens gestern.',
+          reason: 'Die Frage sagt „dieser Monat“, und der ist noch nicht vorbei. Ihn mit einem ganzen Monat des Vorjahres zu vergleichen, ließe ihn trocken wirken, also werden nur die Tage verglichen, die schon gewesen sind. Keine Quelle sagt, wie man einen laufenden Monat vergleicht.',
+        },
+        'same-days': {
+          text: 'Die Tage werden nach ihrer Nummer im Monat gepaart: der 5. mit dem 5. Nur Tage mit Messwert in beiden Jahren werden addiert. Ein 29. Februar hat keinen Partner und bleibt unberücksichtigt.',
+          reason: 'Dieselben Tage des Monats sind der faire Vergleich eines Monats, der nicht vorbei ist. Ein Tag, der in einem Jahr fehlt, fällt aus beiden Summen, damit eine Lücke nie als trockener Tag zählt. Das ist eine Entscheidung der App.',
+        },
+        'min-days': {
+          text: 'Mindestens {minDays} Tage müssen sich paaren lassen. Bei weniger (den ersten Tagen eines Monats) wird der letzte vollständige Monat mit demselben Monat ein Jahr davor verglichen.',
+          reason: 'Eine Summe über zwei oder drei Tage ist vor allem Zufall, und die ersten Tage jedes Monats gäben eine schlechte Antwort. Eine Woche ist eine runde Grenze, die wetterdienst gewählt hat; keine Quelle nennt eine.',
+        },
+        'month-sum': {
+          text: 'Der Regen eines Monats ist die Summe der Tagesmengen der gepaarten Tage.',
+          reason: 'Tage zu addieren ist einfache Rechnung, und die Monatssumme ist per Definition die Summe der Tagessummen. Welche Tage addiert werden, sagt die Regel davor.',
+        },
+        'similar-band': {
+          text: 'Die beiden Summen sind „etwa gleich“, wenn sie sich um höchstens {similarMm} mm oder {similarShare} % der größeren unterscheiden, je nachdem, was mehr ist.',
+          reason: 'Ein Millimeter liegt innerhalb dessen, was ein Regenmesser auflöst, und ein Zehntel eines nassen Monats liegt innerhalb dessen, was der Zufall von einem Jahr zum nächsten verschiebt. Beide Zahlen sind runde Zahlen, die wetterdienst gewählt hat; keine Quelle nennt eine Grenze für „etwa so nass“.',
+        },
+      },
+      limits: {
+        station: 'Die Antwort gilt für eine Station. Regen fällt ungleich verteilt, und ein Schauer kann einen Ort treffen und einen anderen, wenige Kilometer entfernt, verfehlen.',
+        recent: 'Die neuesten Tage stammen aus dem Verzeichnis der jüngsten Daten des DWD, bei denen die Qualitätskontrolle laut DWD noch nicht abgeschlossen ist; die Werte können sich daher noch ändern.',
+        gauge: 'Eine Regensumme sagt, wie viel gefallen ist, nicht wie: Ein Monat kann mit einem Gewitter ebenso nass sein wie ein anderer mit vielen Tagen Nieselregen.',
+        band: 'Die Worte „nasser“, „trockener“ und „etwa so nass“ hängen vom Band ab, das wetterdienst selbst gesetzt hat. Die Summen und ihre Differenz stehen in der Antwort.',
+      },
+      numbers: {
+        station: 'Station: {name} ({id}).',
+        month: 'Verglichen: {month} und {lastMonth}, {days} Tage mit Messwert in beiden.',
+        sums: 'Regen dieser Tage: {sum} {unit} im {month}, {lastSum} {unit} im {lastMonth}.',
+        difference: 'Dieses Jahr minus Vorjahr: {difference} {unit}.',
+        band: 'Band von „etwa so nass“: {similarMm} mm oder {similarShare} % der größeren Summe, je nachdem, was mehr ist.',
+        fallback: 'Nur {count} Tage des laufenden Monats ließen sich paaren, weniger als die nötigen {min}; darum wird der letzte vollständige Monat verglichen.',
+      },
+    },
+
+    nearby: {
+      title: 'Ist es hier wärmer als an einer Station in der Nähe?',
+      summary: 'Die Mitteltemperatur des letzten Monats an der Station des Ortes, verglichen mit der der nächsten anderen Station, die jetzt Daten liefert.',
+      data: 'Die täglichen Stationsbeobachtungen des DWD (Datensatz daily/climate_summary): das Tagesmittel der Lufttemperatur der Station des Ortes und der anderen Station, für die letzten {windowDays} Tage bis gestern.',
+      steps: {
+        station: 'Die Stationen in der Nähe des Ortes werden, die nächste zuerst, nach einer durchgesehen, die nicht die eigene des Ortes ist, höchstens {maxKm} km entfernt liegt und Messwerte aus den letzten {reportsDays} Tagen hat. Die erste wird genommen. Gibt es keine, gibt es keine Antwort.',
+        days: 'Die letzten {windowDays} Tage bis gestern werden genommen. Ein Tag zählt nur, wenn beide Stationen ein Tagesmittel dafür haben. Lassen sich weniger als {minDays} Tage paaren, gibt es keine Antwort.',
+        means: 'Die Tagesmittel der gepaarten Tage werden für jede Station gemittelt, und das Mittel der anderen Station wird vom Mittel des Ortes abgezogen.',
+        verdict: 'Der Ort ist „wärmer“, wenn sein Mittel um mehr als {band} °C über dem der anderen Station liegt, „kühler“, wenn es um mehr als {band} °C darunter liegt, und „etwa gleich“ innerhalb davon. Das Diagramm zeigt die Differenz jedes Tages.',
+      },
+      formulas: {
+        means: 'Differenz = Mittel über die gepaarten Tage von (Temperatur hier) − Mittel über dieselben Tage von (Temperatur an der anderen Station)',
+      },
+      rules: {
+        'daily-mean': {
+          text: 'Die Temperatur eines Tages ist das Tagesmittel der Lufttemperatur des DWD an der Station.',
+          says: 'Die Beschreibung der täglichen Stationsbeobachtungen des DWD führt die Spalte TMK als „daily mean of temperature“ (Tagesmittel der Temperatur) in °C auf.',
+        },
+        'nearest-station': {
+          text: 'Die andere Station ist die nächste, die nicht die eigene des Ortes ist, höchstens {maxKm} km entfernt liegt und Messwerte aus den letzten {reportsDays} Tagen hat.',
+          reason: 'Innerhalb einiger zehn Kilometer ist das Wetter meist dasselbe Wetter, und das meint „in der Nähe“; weiter weg sind beide nicht vergleichbar. Eine Station, die nicht mehr meldet, hat keine jüngsten Tage zum Vergleichen. Beide Grenzen hat wetterdienst gewählt; keine Quelle nennt sie.',
+        },
+        'window': {
+          text: 'Verglichen werden die letzten {windowDays} Tage bis gestern.',
+          reason: 'Ein Monat ist, was „zuletzt“ bedeutet: lang genug, dass eine warme Nacht nicht entscheidet, und kurz genug, um von jetzt zu handeln. Das ist eine Entscheidung der App; gestern ist der neueste veröffentlichte Tag.',
+        },
+        'common-days': {
+          text: 'Mindestens {minDays} der {windowDays} Tage müssen an beiden Stationen ein Mittel haben, sonst gibt es keine Antwort. Tage, die nur eine Station hat, fallen aus beiden Mitteln.',
+          reason: 'Verschiedene Tage an den beiden Stationen zu mitteln, verglichen das Wetter dieser Tage und nicht die Stationen. Zwei Drittel des Fensters sind eine Grenze, die wetterdienst gewählt hat; keine Quelle nennt eine.',
+        },
+        'mean-difference': {
+          text: 'Die Differenz ist das Mittel der Tagesmittel des Ortes minus das Mittel der anderen Station, über die gepaarten Tage.',
+          reason: 'Das einfache Mittel der Tagesmittel ist die schlichteste Zusammenfassung eines Monats und braucht keine Annahme. Das ist eine Entscheidung der App.',
+        },
+        'same-band': {
+          text: 'Die Mittel sind „etwa gleich“, wenn sie sich um höchstens {band} °C unterscheiden.',
+          reason: 'Ein halbes Grad ist das Band, das die App auch für „wie üblich“ in der Frage nach der Jahreszeit nimmt, und liegt innerhalb dessen, was Höhe oder Standort zweier Stationen ändern. Es ist von wetterdienst gewählt; keine Quelle nennt es.',
+        },
+      },
+      limits: {
+        height: 'Die Luft ist meist kühler, je höher eine Station liegt, und eine Station in einer Stadt ist meist wärmer als eine auf freiem Feld. Ein Unterschied zwischen den beiden Stationen kann vom Ort kommen und nicht vom Wetter. Die Antwort nennt beide Höhen, wo die Liste sie hat.',
+        recent: 'Die neuesten Tage stammen aus dem Verzeichnis der jüngsten Daten des DWD, bei denen die Qualitätskontrolle laut DWD noch nicht abgeschlossen ist; die Werte können sich daher noch ändern.',
+        station: 'Die andere Station wird nach den obigen Regeln gewählt, nicht weil sie die ähnlichste wäre. Eine andere in der Nähe kann eine andere Antwort geben.',
+        days: 'Wo Tage fehlen, sind die Mittel die der Tage, die beide haben, und das sind weniger als {windowDays}; die Antwort sagt, wie viele.',
+        band: 'Die Worte „wärmer“, „kühler“ und „etwa gleich“ hängen vom Band ab, das wetterdienst selbst gesetzt hat. Die Mittel und ihre Differenz stehen in der Antwort.',
+      },
+      numbers: {
+        station: 'Station: {name} ({id}).',
+        other: 'Die andere Station: {name} ({id}), {distance} km entfernt.',
+        days: '{days} der letzten {window} Tage, {from} bis {to}, haben an beiden Stationen ein Mittel.',
+        means: 'Mittel dieser Tage: {here} {unit} hier, {there} {unit} an der anderen Station.',
+        difference: 'Hier minus dort: {difference} {unit}.',
+        band: 'Band von „etwa gleich“: {band} °C.',
+      },
+    },
   },
 
   works: {

@@ -87,13 +87,17 @@
         "rain": "Ile padało {day}?",
         "temperature": "Było gorąco czy zimno {day}?",
         "snow": "Czy leżał śnieg {day}?"
-      }
+      },
+      "monthrain": "Czy ten miesiąc był bardziej deszczowy niż ten sam miesiąc rok temu?",
+      "nearby": "Czy tu jest cieplej niż na pobliskiej stacji?"
     },
     "from": {
       "rain": "Prognoza, DWD MOSMIX",
       "season": "Średnie miesięczne, DWD",
       "download": "Wszystkie służby meteorologiczne",
-      "day": "Dane dobowe, DWD"
+      "day": "Dane dobowe, DWD",
+      "monthrain": "Dobowe opady, DWD",
+      "nearby": "Dobowe temperatury, DWD"
     },
     "working": "Obliczanie odpowiedzi …",
     "failed": "Nie udało się obliczyć odpowiedzi.",
@@ -261,6 +265,28 @@
       "detail": "Każda otwiera się w Eksploratorze, gotowa do pobrania jako CSV, JSON lub GeoJSON.",
       "none": "Obecnie żadna służba meteorologiczna nie publikuje godzinowej temperatury powietrza.",
       "api": "Albo użyj REST API"
+    },
+    "monthrain": {
+      "wetter": "Tak, o {difference} {unit} więcej niż w tych samych dniach rok temu.",
+      "drier": "Nie, o {difference} {unit} mniej niż w tych samych dniach rok temu.",
+      "similar": "Raczej nie: mniej więcej tak samo deszczowo jak rok temu.",
+      "detail": "{month}: {sum} {unit} w {days} dniach. {lastMonth}, te same dni: {lastSum} {unit}.",
+      "fallback": "Tylko {count} dni bieżącego miesiąca ma pomiar w obu latach (potrzeba {min}), więc porównywany jest ostatni pełny miesiąc, {month}.",
+      "chart": "Deszcz w tych samych dniach miesiąca, w {unit}",
+      "none": "Jest tu za mało dni z pomiarem w obu latach, by porównać (potrzeba {min}).",
+      "open": "Porównaj oba odcinki obok siebie"
+    },
+    "nearby": {
+      "warmer": "Tak, o {difference} {unit} cieplej niż w miejscowości {name}.",
+      "cooler": "Nie, o {difference} {unit} chłodniej niż w miejscowości {name}.",
+      "same": "Raczej nie: mniej więcej tak samo ciepło jak w miejscowości {name}.",
+      "detail": "Średnia temperatura powietrza z {days} dni z pomiarem w obu miejscach: {here} {unit} tutaj, {there} {unit} w miejscowości {name}.",
+      "where": "{name} ({id}) jest oddalona o {distance} km od miejsca {place} i leży na wysokości {there} m n.p.m.; {place} leży na wysokości {here} m. Stacje położone wyżej bywają chłodniejsze.",
+      "whereNoHeight": "{name} ({id}) jest oddalona o {distance} km od miejsca {place}.",
+      "chart": "Tutaj minus {name}, dzień po dniu, w {unit}",
+      "none": "Żadna inna stacja w promieniu {distance} km nie podaje teraz dobowych temperatur.",
+      "noneDays": "Tylko {count} dni ma pomiar zarówno tutaj, jak i w miejscowości {name}; do porównania potrzeba {min}.",
+      "open": "Porównaj obie stacje obok siebie"
     }
   },
   "seo": {
@@ -290,7 +316,8 @@
       "about": "O projekcie open source Wetterdienst i osobach, które go utrzymują.",
       "support": "Wesprzyj Wetterdienst: zgłoś problem, dodaj kod lub przekaż darowiznę.",
       "map": "Mapa stacji Niemieckiej Służby Meteorologicznej: wybierz stację lub dowolny punkt, aby zobaczyć jego prognozę, paski klimatyczne i pomiary.",
-      "radar": "Radar opadów DWD nad Niemcami jako pętla z ostatnich dwóch godzin z prognozą na kolejne dwie i komórkami burzowymi na wierzchu."
+      "radar": "Radar opadów DWD nad Niemcami jako pętla z ostatnich dwóch godzin z prognozą na kolejne dwie i komórkami burzowymi na wierzchu.",
+      "compare": "Dwie stacje albo dwa okresy jednej stacji obok siebie dla jednego parametru obserwacji DWD: jeden wykres i jedna tabela z różnicą."
     }
   },
   "values": {
@@ -335,7 +362,8 @@
     "methods": "Metody",
     "support": "Wsparcie",
     "map": "Mapa",
-    "radar": "Radar"
+    "radar": "Radar",
+    "compare": "Porównaj"
   },
   "shell": {
     "skipToContent": "Przejdź do treści",
@@ -731,7 +759,8 @@
     "forecast": "Wyszukaj stację lub wybierz ją na mapie, aby zobaczyć jej prognozę",
     "explorer": "Wybierz parametry, a następnie stację lub punkt, wyszukując albo na mapie, i kliknij „Pokaż”, aby wczytać dane",
     "stripes": "Wyszukaj stację lub wybierz ją na mapie i kliknij „Pokaż”, aby utworzyć paski klimatyczne",
-    "history": "Wyszukaj stacje lub wybierz je na mapie i kliknij „Pokaż”, aby wczytać ich historię"
+    "history": "Wyszukaj stacje lub wybierz je na mapie i kliknij „Pokaż”, aby wczytać ich historię",
+    "compare": "Wyszukaj stacje lub wybierz je na mapie, wybierz parametr i kliknij „Pokaż”, aby porównać dwie stacje albo dwa okresy"
   },
   "meteogram": {
     "title": "Prognoza pogody",
@@ -1043,6 +1072,64 @@
     "modeHowItWorks": "Jak to działa",
     "removeParameterDistance": "Usuń odległość dla {parameter}"
   },
+  "compare": {
+    "title": "Porównaj",
+    "byLabel": "Co się porównuje",
+    "byStations": "Dwie stacje",
+    "byPeriods": "Dwa okresy",
+    "stationA": "Stacja A",
+    "stationB": "Stacja B",
+    "station": "Stacja",
+    "period": "Okres",
+    "periodA": "Okres A",
+    "periodB": "Okres B",
+    "start": "Od",
+    "end": "Do",
+    "sameStation": "Wybierz dwie różne stacje.",
+    "periodTooLong": "Porównanie obejmuje najwyżej {max} {unit}. Wybierz krótszy okres.",
+    "stepDays": "dni",
+    "stepMonths": "miesięcy",
+    "differs": "Obie strony nie są tym samym rodzajem liczby ({reason}), więc różnica nie jest liczona.",
+    "reason": {
+      "resolution": "inna rozdzielczość",
+      "dataset": "inny zbiór danych",
+      "parameter": "inny parametr",
+      "unit": "inna jednostka",
+      "aggregation": "wartości oznaczają różne rzeczy, na przykład średnią i sumę",
+      "position": "doby nie są wyznaczane o tej samej godzinie"
+    },
+    "alignDaysStations": "Dopasowanie według daty kalendarzowej: ten sam dzień obu stacji.",
+    "alignMonthsStations": "Dopasowanie według miesiąca kalendarzowego: ten sam miesiąc obu stacji.",
+    "alignDaysPeriods": "Dopasowanie według dnia okresu: dzień 1 okresu A z dniem 1 okresu B, dzień 2 z dniem 2 i tak dalej. Oba okresy są narysowane na datach okresu A.",
+    "alignMonthsPeriods": "Dopasowanie według miesiąca okresu: miesiąc 1 okresu A z miesiącem 1 okresu B i tak dalej. Oba okresy są narysowane na miesiącach okresu A.",
+    "alignUnequal": "Okres {shorter} jest krótszy: jego {count} {unit} porównuje się z pierwszymi {count} drugiego, a {rest} kolejnych nie ma pary ani różnicy.",
+    "summaryCompared": "Porównano {compared} z {rows} {unit}: w nich obie strony mają wartość.",
+    "noValues": "Żaden krok nie ma wartości po obu stronach, więc nie ma czego odejmować.",
+    "summaryMean": "Średnio A wynosi {a} {unit}, a B {b} {unit}; B − A = {difference} {unit}.",
+    "summarySum": "Łącznie A wynosi {a} {unit}, a B {b} {unit}; B − A = {difference} {unit}.",
+    "chartLabel": "Wykres: {parameter}, A, {a}, i B, {b}",
+    "chartAlternative": "Tabela poniżej zawiera każdą wartość z wykresu.",
+    "tableTitle": "Wartości i różnica",
+    "tableCaption": "{parameter} ({unit}) dla A, {a}, i B, {b}, z różnicą B − A",
+    "colDay": "Dzień",
+    "colMonth": "Miesiąc",
+    "colDateA": "Data A",
+    "colDateB": "Data B",
+    "colA": "A ({unit})",
+    "colB": "B ({unit})",
+    "colDifference": "B − A ({unit})",
+    "noteDifference": "Różnica to strona B minus strona A, w {unit}. Tam, gdzie strona nie ma wartości, nie ma różnicy: brakująca wartość nigdy nie liczy się jako zero.",
+    "noteTotal": "Wartości są sumami (lub liczbami) z doby albo miesiąca, więc różnica to różnica dwóch sum z tego samego kroku, a sumy powyżej to sumy z kroków, które mają obie strony.",
+    "outdated": "Wybór zmienił się od czasu utworzenia tej tabeli. Naciśnij Pokaż, aby je porównać.",
+    "creditBoth": "Obie strony pochodzą z tego źródła:",
+    "fileSides": "Strona A: {a}. Strona B: {b}.",
+    "subtitle": "Dwie stacje albo dwa okresy obok siebie dla jednego parametru",
+    "aboutButton": "O porównywaniu",
+    "about1": "Porównanie zestawia obok siebie dwie stacje albo dwa okresy jednej stacji dla jednego parametru obserwacji DWD, dobowego lub miesięcznego zestawienia klimatycznego: jeden wykres z obiema seriami i jedną tabelę z różnicą.",
+    "about2": "Dwie stacje są parowane według daty kalendarzowej: ten sam dzień lub ten sam miesiąc obu. Dwa okresy jednej stacji są parowane według miejsca w okresie: pierwszy dzień okresu A z pierwszym dniem okresu B, drugi z drugim. Okres krótszy od drugiego jest porównywany tak daleko, jak sięga. Różnica to zawsze strona B minus strona A, w jednostce wartości; tam, gdzie strona nie ma wartości, nie ma różnicy, a brakująca wartość nigdy nie liczy się jako zero.",
+    "about3": "To, co się porównuje, musi być tym samym rodzajem liczby: ta sama rozdzielczość, ten sam zbiór danych, ten sam parametr i ta sama jednostka oraz wartość oznaczająca ten sam odcinek czasu. Jeśli tak nie jest, narzędzie to mówi i nie liczy różnicy. Stacje różnią się wysokością i otoczeniem, więc różnica między dwiema stacjami nie zawsze jest różnicą pogody. Najnowsze dni pochodzą z bieżących danych DWD, których kontrola jakości, według DWD, nie jest zakończona.",
+    "selectParameter": "Wybierz parametr"
+  },
   "stationTable": {
     "stationId": "Identyfikator stacji",
     "name": "Nazwa",
@@ -1213,7 +1300,8 @@
     "whyFarther": "Najbliższa stacja, która nadal działa. Bliżej: {name}, {distance}, do {year}.",
     "whyFartherNoEnd": "Najbliższa stacja, która nadal działa. Bliżej: {name}, {distance}, koniec nieznany.",
     "pickCloser": "Wybierz zamiast tego {name}",
-    "resultsOf": "Pierwsze {shown} z {total} stacji. Wpisz więcej, aby zawęzić wyniki."
+    "resultsOf": "Pierwsze {shown} z {total} stacji. Wpisz więcej, aby zawęzić wyniki.",
+    "openCompare": "Porównaj z inną stacją"
   },
   "radar": {
     "title": "Radar",

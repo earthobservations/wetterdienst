@@ -41,9 +41,9 @@ test.describe('the suggestions', () => {
   test('are a list of buttons, none pressed, and ask nothing until one is picked', async ({ page, baseURL }) => {
     const { asked } = await home(page, baseURL!)
     const list = questions(page)
-    await expect(list.getByRole('listitem')).toHaveCount(4)
-    await expect(list.getByRole('button')).toHaveCount(4)
-    for (const id of ['rain', 'season', 'day', 'download'])
+    await expect(list.getByRole('listitem')).toHaveCount(6)
+    await expect(list.getByRole('button')).toHaveCount(6)
+    for (const id of ['rain', 'season', 'day', 'monthrain', 'nearby', 'download'])
       await expect(chip(page, id)).toHaveAttribute('aria-pressed', 'false')
     await expect(chip(page, 'rain')).toContainText('Will it rain in Kiel-Holtenau tomorrow?')
     await expect(page.getByTestId('ask-idle')).toHaveText(en.ask.idle)
@@ -203,6 +203,61 @@ test.describe('the suggestions', () => {
     expect(Object.fromEntries(href.searchParams)).toMatchObject({ provider: 'dwd', network: 'observation', resolution: 'hourly', dataset: 'temperature_air', parameters: 'temperature_air_mean_2m', stations: '02564' })
   })
 
+  test('answer whether this month was wetter than the same month last year, from the same days of both, and lead into the Compare tool', async ({ page, baseURL }) => {
+    const { asked, backend } = await home(page, baseURL!, '/?ask=monthrain')
+    await expect(chip(page, 'monthrain')).toHaveAttribute('aria-pressed', 'true')
+    await expect(chip(page, 'monthrain')).toContainText('Was this month wetter than the same month last year?')
+    // the mock's rain is 0.5 mm a day more than the year before on every day of the month: the answer is that, for as many days as were paired
+    const answer = page.getByTestId('answer')
+    await expect(answer).toContainText(' mm on ')
+    const days = Number(/ mm on (\d+) days/.exec(await answer.textContent())![1])
+    expect(days).toBeGreaterThanOrEqual(7)
+    await expect(page.getByTestId('answer-verdict')).toHaveText(`Yes, ${(days * 0.5).toFixed(1)} mm wetter than the same days last year.`)
+    await expect(answer.getByRole('figure')).toBeVisible()
+    // it asked for the daily precipitation of the place's station, over the months it may be about
+    expect(askedValues(asked)[0]!.query).toMatchObject({ provider: 'dwd', network: 'observation', parameters: 'daily/climate_summary/precipitation_amount', stations: '02564' })
+    // the Compare tool opens with that station and the two stretches
+    const compare = answer.getByRole('link', { name: en.ask.monthrain.open })
+    const href = new URL((await compare.getAttribute('href'))!, baseURL!)
+    expect(href.pathname).toBe('/compare')
+    expect(Object.fromEntries(href.searchParams)).toMatchObject({ compare: 'periods', resolution: 'daily', parameter: 'precipitation_amount', stations: '02564' })
+    expect(href.searchParams.get('periodA')).toMatch(/^\d{4}-\d{2}-01\/\d{4}-\d{2}-\d{2}$/)
+    // and the credit and the method are there as for every chip
+    await expect(page.getByTestId('provider-credit')).toContainText('Source: Deutscher Wetterdienst')
+    await page.getByTestId('explanation-button').click()
+    await expect(page.getByTestId('explanation')).toContainText('The days are paired by their number in the month')
+    expect(backend.unanswered).toEqual([])
+  })
+
+  test('answer whether it is warmer here than at the nearest station that reports now, naming it, with the heights, and lead into the Compare tool', async ({ page, baseURL }) => {
+    const { asked } = await home(page, baseURL!, '/?ask=nearby')
+    await expect(chip(page, 'nearby')).toContainText('Is it warmer here than at a station nearby?')
+    // the nearest station that reports is Kiel-Leuchtturm, 9.4 km away: the closer Altstadt stopped in 2018 and is passed over
+    await expect(page.getByTestId('answer-verdict')).toHaveText('Yes, 1.0 °C warmer than at Kiel-Leuchtturm.')
+    const answer = page.getByTestId('answer')
+    await expect(answer).toContainText('Kiel-Leuchtturm (02597) is 9.4 km from Kiel-Holtenau and lies 3 m above sea level; Kiel-Holtenau lies 27 m. Higher stations are usually cooler.')
+    await expect(answer).toContainText(/Mean air temperature on 30 days with a reading at both: \d+\.\d °C here, \d+\.\d °C at Kiel-Leuchtturm\./)
+    expect(askedValues(asked)[0]!.query).toMatchObject({ parameters: 'daily/climate_summary/temperature_air_mean_2m', stations: '02564,02597' })
+    const compare = answer.getByRole('link', { name: en.ask.nearby.open })
+    const href = new URL((await compare.getAttribute('href'))!, baseURL!)
+    expect(href.pathname).toBe('/compare')
+    expect(Object.fromEntries(href.searchParams)).toMatchObject({ compare: 'stations', resolution: 'daily', parameter: 'temperature_air_mean_2m', stations: '02564,02597' })
+    // the link opens the same two stations over the same thirty days in the tool, with the place as side A
+    await compare.click()
+    await expect(page).toHaveURL(/\/compare\?/)
+    await expect(page.getByTestId('compare-table')).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByTestId('compare-mean')).toContainText('B − A = -1 °C')
+  })
+
+  test('say the rules of the comparison with a station nearby: the daily mean from DWD\'s description, the rest the project\'s own, in the disclosure', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=nearby')
+    await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    await page.getByTestId('explanation-button').click()
+    const rules = page.getByTestId('explanation-rules')
+    await expect(rules).toContainText('DWD daily station observations, TMK')
+    await expect(rules.getByTestId('own-mark').first()).toBeVisible()
+  })
+
   test('close when pressed again, and one opens in place of the other', async ({ page, baseURL }) => {
     await home(page, baseURL!)
     await chip(page, 'season').click()
@@ -333,7 +388,7 @@ test.describe('the explanation under an answer (GH-3764)', () => {
 
   test('is on every chip, the list of services included', async ({ page, baseURL }) => {
     await home(page, baseURL!)
-    for (const id of ['rain', 'season', 'day', 'download']) {
+    for (const id of ['rain', 'season', 'day', 'monthrain', 'nearby', 'download']) {
       await chip(page, id).click()
       await expect(page.getByTestId('answer-verdict')).toBeVisible()
       await expect(page.getByTestId('explanation-button')).toBeVisible()
@@ -410,7 +465,7 @@ test.describe('on a phone', () => {
 
   test('the suggestions and an answer fit the width', async ({ page, baseURL }) => {
     await home(page, baseURL!)
-    for (const id of ['rain', 'season', 'day', 'download']) {
+    for (const id of ['rain', 'season', 'day', 'monthrain', 'nearby', 'download']) {
       await chip(page, id).click()
       await expect(page.getByTestId('answer')).toBeVisible()
       await expect(page.getByTestId('answer-status')).not.toBeEmpty()

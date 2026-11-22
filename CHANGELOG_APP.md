@@ -18,6 +18,17 @@ Types of changes:
 
 ### Added
 
+- `[Compare]` A seventh tool, **Compare**: two stations over one period, or one station over two
+  periods, for one parameter of DWD's daily or monthly climate summary, in one chart (side B is
+  dashed with square markers) and one table with the difference, B minus A, in the unit of the
+  values. Stations are matched by calendar date, periods by their place in the period; a day a side
+  lacks has no difference and is never zero; sides that are not the same kind of number are refused
+  with the reason. Credit and processing note stand under it, CSV and JSON hold both sides, and
+  the address holds the comparison. It is in the header and the Menu's sheet of the tab bar, in the
+  map's station panel and in two new Ask the weather suggestions (this month against the same
+  month last year, and here against a station nearby). The header's tiles show from 1920 px so
+  that seven tabs fit (GH-4296).
+
 - `[Ask the weather]` The summer question is now a season question with two labelled choices
   under it: the season (spring, summer, autumn, winter; the winter takes the December before it)
   and the reference period, every complete WMO 30-year normal from 1961-1990 on (1961-1990 to

@@ -87,13 +87,17 @@
         "rain": "Wie nass war es am {day}?",
         "temperature": "Wie heiß oder kalt war es am {day}?",
         "snow": "Lag am {day} Schnee?"
-      }
+      },
+      "monthrain": "War dieser Monat nasser als der gleiche Monat im Vorjahr?",
+      "nearby": "Ist es hier wärmer als an einer Station in der Nähe?"
     },
     "from": {
       "rain": "Vorhersage, DWD MOSMIX",
       "season": "Monatsmittel, DWD",
       "download": "Alle Wetterdienste",
-      "day": "Tageswerte, DWD"
+      "day": "Tageswerte, DWD",
+      "monthrain": "Tägliche Niederschläge, DWD",
+      "nearby": "Tägliche Temperaturen, DWD"
     },
     "working": "Die Antwort wird ermittelt …",
     "failed": "Die Antwort ließ sich nicht ermitteln.",
@@ -261,6 +265,28 @@
       "detail": "Jeder öffnet sich im Explorer, bereit zum Download als CSV, JSON oder GeoJSON.",
       "none": "Gerade nennt kein Wetterdienst eine stündliche Lufttemperatur.",
       "api": "Oder die REST-API nutzen"
+    },
+    "monthrain": {
+      "wetter": "Ja, {difference} {unit} nasser als an denselben Tagen im Vorjahr.",
+      "drier": "Nein, {difference} {unit} trockener als an denselben Tagen im Vorjahr.",
+      "similar": "Eher nicht: etwa so nass wie im Vorjahr.",
+      "detail": "{month}: {sum} {unit} an {days} Tagen. {lastMonth}, dieselben Tage: {lastSum} {unit}.",
+      "fallback": "Nur {count} Tage des laufenden Monats haben in beiden Jahren einen Messwert ({min} sind nötig); darum wird der letzte vollständige Monat, {month}, verglichen.",
+      "chart": "Regen an denselben Tagen des Monats, in {unit}",
+      "none": "Hier gibt es zu wenige Tage mit Messwert in beiden Jahren zum Vergleichen ({min} sind nötig).",
+      "open": "Die beiden Zeitspannen nebeneinander vergleichen"
+    },
+    "nearby": {
+      "warmer": "Ja, {difference} {unit} wärmer als in {name}.",
+      "cooler": "Nein, {difference} {unit} kühler als in {name}.",
+      "same": "Eher nicht: etwa so warm wie in {name}.",
+      "detail": "Mittlere Lufttemperatur an {days} Tagen mit Messwert an beiden: hier {here} {unit}, in {name} {there} {unit}.",
+      "where": "{name} ({id}) liegt {distance} km von {place} entfernt auf {there} m über dem Meeresspiegel; {place} liegt auf {here} m. Höher gelegene Stationen sind meist kühler.",
+      "whereNoHeight": "{name} ({id}) liegt {distance} km von {place} entfernt.",
+      "chart": "Hier minus {name}, je Tag, in {unit}",
+      "none": "Keine andere Station im Umkreis von {distance} km meldet jetzt tägliche Temperaturen.",
+      "noneDays": "Nur {count} Tage haben sowohl hier als auch in {name} einen Messwert; zum Vergleichen sind {min} nötig.",
+      "open": "Die beiden Stationen nebeneinander vergleichen"
     }
   },
   "seo": {
@@ -290,7 +316,8 @@
       "about": "Über das Open-Source-Projekt Wetterdienst und die Menschen, die es pflegen.",
       "support": "Wetterdienst unterstützen: Fehler melden, Code beitragen oder spenden.",
       "map": "Eine Karte der Stationen des Deutschen Wetterdienstes: Wähle eine Station oder einen beliebigen Punkt und sieh Vorhersage, Klimastreifen und Messwerte dazu.",
-      "radar": "Das Niederschlagsradar des DWD über Deutschland als Schleife der letzten zwei Stunden mit der Vorhersage der nächsten zwei und den Gewitterzellen darüber."
+      "radar": "Das Niederschlagsradar des DWD über Deutschland als Schleife der letzten zwei Stunden mit der Vorhersage der nächsten zwei und den Gewitterzellen darüber.",
+      "compare": "Zwei Stationen oder zwei Zeiträume einer Station nebeneinander für einen Parameter der Beobachtungen des DWD: ein Diagramm und eine Tabelle mit der Differenz."
     }
   },
   "values": {
@@ -335,7 +362,8 @@
     "methods": "Methoden",
     "support": "Unterstützen",
     "map": "Karte",
-    "radar": "Radar"
+    "radar": "Radar",
+    "compare": "Vergleichen"
   },
   "shell": {
     "skipToContent": "Zum Inhalt springen",
@@ -731,7 +759,8 @@
     "forecast": "Suche nach einer Station oder wähle eine auf der Karte, um ihre Vorhersage zu sehen",
     "explorer": "Wähle Parameter, dann eine Station oder einen Punkt, per Suche oder auf der Karte, und klicke auf „Anzeigen“, um Daten zu laden",
     "stripes": "Suche nach einer Station oder wähle eine auf der Karte und klicke auf „Anzeigen“, um Klimastreifen zu erstellen",
-    "history": "Suche nach Stationen oder wähle sie auf der Karte und klicke auf „Anzeigen“, um ihren Verlauf zu laden"
+    "history": "Suche nach Stationen oder wähle sie auf der Karte und klicke auf „Anzeigen“, um ihren Verlauf zu laden",
+    "compare": "Suche nach Stationen oder wähle sie auf der Karte, wähle einen Parameter und klicke auf „Anzeigen“, um zwei Stationen oder zwei Zeiträume zu vergleichen"
   },
   "meteogram": {
     "title": "Wettervorhersage",
@@ -1043,6 +1072,64 @@
     "modeHowItWorks": "So funktioniert es",
     "removeParameterDistance": "Entfernung für {parameter} löschen"
   },
+  "compare": {
+    "title": "Vergleichen",
+    "byLabel": "Was verglichen wird",
+    "byStations": "Zwei Stationen",
+    "byPeriods": "Zwei Zeiträume",
+    "stationA": "Station A",
+    "stationB": "Station B",
+    "station": "Station",
+    "period": "Zeitraum",
+    "periodA": "Zeitraum A",
+    "periodB": "Zeitraum B",
+    "start": "Von",
+    "end": "Bis",
+    "sameStation": "Wähle zwei verschiedene Stationen.",
+    "periodTooLong": "Ein Vergleich umfasst höchstens {max} {unit}. Wähle einen kürzeren Zeitraum.",
+    "stepDays": "Tage",
+    "stepMonths": "Monate",
+    "differs": "Die beiden Seiten sind nicht dieselbe Art von Zahl ({reason}); darum wird keine Differenz berechnet.",
+    "reason": {
+      "resolution": "eine andere Auflösung",
+      "dataset": "ein anderer Datensatz",
+      "parameter": "ein anderer Parameter",
+      "unit": "eine andere Einheit",
+      "aggregation": "die Werte stehen für Verschiedenes, etwa ein Mittel und eine Summe",
+      "position": "die Tage sind nicht zur selben Zeit abgegrenzt"
+    },
+    "alignDaysStations": "Nach Kalenderdatum ausgerichtet: derselbe Tag beider Stationen.",
+    "alignMonthsStations": "Nach Kalendermonat ausgerichtet: derselbe Monat beider Stationen.",
+    "alignDaysPeriods": "Nach Tag des Zeitraums ausgerichtet: Tag 1 von A mit Tag 1 von B, Tag 2 mit Tag 2 und so weiter. Beide Zeiträume sind auf den Daten von Zeitraum A gezeichnet.",
+    "alignMonthsPeriods": "Nach Monat des Zeitraums ausgerichtet: Monat 1 von A mit Monat 1 von B und so weiter. Beide Zeiträume sind auf den Monaten von Zeitraum A gezeichnet.",
+    "alignUnequal": "Zeitraum {shorter} ist kürzer: seine {count} {unit} werden mit den ersten {count} des anderen verglichen, und die {rest} danach haben keinen Partner und keine Differenz.",
+    "summaryCompared": "{compared} von {rows} {unit} verglichen: In ihnen haben beide Seiten einen Wert.",
+    "noValues": "Kein Schritt hat auf beiden Seiten einen Wert; es gibt also nichts zu subtrahieren.",
+    "summaryMean": "Im Mittel ist A {a} {unit} und B {b} {unit}; B − A = {difference} {unit}.",
+    "summarySum": "Insgesamt ist A {a} {unit} und B {b} {unit}; B − A = {difference} {unit}.",
+    "chartLabel": "Diagramm von {parameter}: A, {a}, und B, {b}",
+    "chartAlternative": "Die Tabelle darunter enthält jeden Wert des Diagramms.",
+    "tableTitle": "Werte und Differenz",
+    "tableCaption": "{parameter} ({unit}) von A, {a}, und B, {b}, mit B − A",
+    "colDay": "Tag",
+    "colMonth": "Monat",
+    "colDateA": "Datum A",
+    "colDateB": "Datum B",
+    "colA": "A ({unit})",
+    "colB": "B ({unit})",
+    "colDifference": "B − A ({unit})",
+    "noteDifference": "Die Differenz ist Seite B minus Seite A, in {unit}. Wo eine Seite keinen Wert hat, gibt es keine Differenz: Ein fehlender Wert zählt nie als null.",
+    "noteTotal": "Die Werte sind Summen (oder Anzahlen) eines Tages oder Monats; die Differenz ist daher die Differenz der beiden Summen desselben Schritts, und die Summen oben sind Summen über die Schritte, die beide Seiten haben.",
+    "outdated": "Die Auswahl hat sich geändert, seit diese Tabelle erstellt wurde. Drücke Anzeigen, um sie zu vergleichen.",
+    "creditBoth": "Beide Seiten stammen aus dieser Quelle:",
+    "fileSides": "Seite A: {a}. Seite B: {b}.",
+    "subtitle": "Zwei Stationen oder zwei Zeiträume nebeneinander für einen Parameter",
+    "aboutButton": "Über Vergleichen",
+    "about1": "Vergleichen stellt zwei Stationen oder zwei Zeiträume einer Station nebeneinander, für einen Parameter der Beobachtungen des DWD, der täglichen oder der monatlichen Klimazusammenfassung: ein Diagramm mit beiden Reihen und eine Tabelle mit der Differenz.",
+    "about2": "Zwei Stationen werden nach Kalenderdatum gepaart: derselbe Tag oder derselbe Monat beider. Zwei Zeiträume einer Station werden nach ihrer Stelle im Zeitraum gepaart: der erste Tag von A mit dem ersten Tag von B, der zweite mit dem zweiten. Ein Zeitraum, der kürzer ist als der andere, wird so weit verglichen, wie er reicht. Die Differenz ist immer Seite B minus Seite A, in der Einheit der Werte; wo eine Seite keinen Wert hat, gibt es keine Differenz, und ein fehlender Wert zählt nie als null.",
+    "about3": "Was verglichen wird, muss dieselbe Art von Zahl sein: dieselbe Auflösung, derselbe Datensatz, derselbe Parameter und dieselbe Einheit, und ein Wert, der für dieselbe Zeitspanne steht. Ist das nicht so, sagt das Werkzeug es und berechnet keine Differenz. Stationen unterscheiden sich in Höhe und Umgebung, ein Unterschied zwischen zwei Stationen ist daher nicht immer ein Unterschied des Wetters. Die neuesten Tage stammen aus den jüngsten Daten des DWD, bei denen die Qualitätskontrolle laut DWD nicht abgeschlossen ist.",
+    "selectParameter": "Parameter wählen"
+  },
   "stationTable": {
     "stationId": "Stations-ID",
     "name": "Name",
@@ -1213,7 +1300,8 @@
     "whyFarther": "Die nächstgelegene Station, die noch Daten liefert. Näher: {name}, {distance}, bis {year}.",
     "whyFartherNoEnd": "Die nächstgelegene Station, die noch Daten liefert. Näher: {name}, {distance}, Ende unbekannt.",
     "pickCloser": "Stattdessen {name} wählen",
-    "resultsOf": "Die ersten {shown} von {total} Stationen. Tippe mehr, um sie einzugrenzen."
+    "resultsOf": "Die ersten {shown} von {total} Stationen. Tippe mehr, um sie einzugrenzen.",
+    "openCompare": "Mit einer anderen Station vergleichen"
   },
   "radar": {
     "title": "Radar",

@@ -1,5 +1,6 @@
 import type { Handlers } from './mock-backend'
 import { DateTime } from 'luxon'
+import { climateAnswer, climateRequest } from './compare-backend'
 import { defaultHandlers, STATIONS } from './mock-backend'
 
 // What the home page's questions are answered from (components/AnswerPanel.vue), as the mock backend gives it: the
@@ -8,6 +9,13 @@ import { defaultHandlers, STATIONS } from './mock-backend'
 // them, and relative to the day the spec runs on, as the questions are.
 
 export const KIEL_MOSMIX = { station_id: '10046', name: 'KIEL-HOLTENAU', region: null, latitude: 54.38, longitude: 10.15, elevation: 28, start_timestamp: null, end_timestamp: null, distance: 0.6 }
+
+/** The stations the comparison with a station nearby looks through: Holtenau itself, Kiel-Leuchtturm 9.4 km away, and a station that closed in 2018 */
+export const NEAR_KIEL = [
+  { station_id: '02564', name: 'Kiel-Holtenau', region: 'Schleswig-Holstein', latitude: 54.3776, longitude: 10.1424, elevation: 27, start_timestamp: '1950-01-01T00:00:00+00:00', end_timestamp: STATIONS[0]!.end_timestamp, distance: 0 },
+  { station_id: '02597', name: 'Kiel-Leuchtturm', region: 'Schleswig-Holstein', latitude: 54.5, longitude: 10.27, elevation: 3, start_timestamp: '1950-01-01T00:00:00+00:00', end_timestamp: STATIONS[0]!.end_timestamp, distance: 9.4 },
+  { station_id: '02600', name: 'Kiel-Altstadt', region: 'Schleswig-Holstein', latitude: 54.32, longitude: 10.13, elevation: 5, start_timestamp: '1950-01-01T00:00:00+00:00', end_timestamp: '2018-12-31T00:00:00+00:00', distance: 6.1 },
+]
 
 /** Every request the questions made, by path and its query, so that a spec can say what was asked and what was not */
 export interface Asked {
@@ -137,7 +145,14 @@ export function askHandlers(asked: Asked[] = []): Handlers {
       // the forecast point nearest a place
       if (url.searchParams.get('network') === 'mosmix' && url.searchParams.has('latitude'))
         return { stations: [KIEL_MOSMIX] }
-      return base.stations!(url, route)
+      // the stations nearest a place that report daily values (the comparison with a station nearby, GH-4296): the place's own, one 9 km away, and one that has closed
+      if (url.searchParams.get('network') === 'observation' && url.searchParams.has('latitude') && url.searchParams.get('rank'))
+        return { stations: NEAR_KIEL }
+      const answer = base.stations!(url, route) as { stations: Array<{ station_id: string }> }
+      // the list of the observation stations that the Compare tool's pickers read has the stations round Kiel too, so that a link of a chip opens them
+      if (url.searchParams.get('network') === 'observation' && !url.searchParams.has('name') && !url.searchParams.has('stations') && url.searchParams.get('all') === 'true')
+        return { stations: [...answer.stations, ...NEAR_KIEL.filter(station => !answer.stations.some(each => each.station_id === station.station_id))] }
+      return answer
     },
     values: (url) => {
       record('values', url)
@@ -145,6 +160,10 @@ export function askHandlers(asked: Asked[] = []): Handlers {
       const parameters = url.searchParams.get('parameters') ?? ''
       if (url.searchParams.get('network') === 'mosmix')
         return { values: rainValues(station) }
+      // the two comparisons: the daily precipitation and the daily mean temperature of a window, for one station or for two
+      const comparison = climateRequest(url)
+      if (comparison)
+        return climateAnswer(comparison)
       if (parameters.startsWith('monthly/'))
         return { values: monthlyValues(station) }
       return { values: dayValues(station, url.searchParams.get('timestamp')) }

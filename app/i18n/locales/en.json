@@ -87,13 +87,17 @@
         "rain": "How wet was it on {day}?",
         "temperature": "How hot or cold was it on {day}?",
         "snow": "Was there snow on {day}?"
-      }
+      },
+      "monthrain": "Was this month wetter than the same month last year?",
+      "nearby": "Is it warmer here than at a station nearby?"
     },
     "from": {
       "rain": "Forecast, DWD MOSMIX",
       "season": "Monthly means, DWD",
       "download": "All weather services",
-      "day": "Daily readings, DWD"
+      "day": "Daily readings, DWD",
+      "monthrain": "Daily precipitation, DWD",
+      "nearby": "Daily temperatures, DWD"
     },
     "working": "Working out the answer …",
     "failed": "The answer could not be worked out.",
@@ -261,6 +265,28 @@
       "detail": "Each one opens in the Explorer, ready to download as CSV, JSON or GeoJSON.",
       "none": "No weather service lists hourly air temperature right now.",
       "api": "Or use the REST API"
+    },
+    "monthrain": {
+      "wetter": "Yes, {difference} {unit} wetter than the same days last year.",
+      "drier": "No, {difference} {unit} drier than the same days last year.",
+      "similar": "Not really: about as wet as last year.",
+      "detail": "{month}: {sum} {unit} on {days} days. {lastMonth}, the same days: {lastSum} {unit}.",
+      "fallback": "Only {count} days of the running month have a reading in both years ({min} are needed), so the last complete month, {month}, is compared.",
+      "chart": "Rain of the same days of the month, in {unit}",
+      "none": "There are too few days with a reading in both years here to compare ({min} are needed).",
+      "open": "Compare the two stretches side by side"
+    },
+    "nearby": {
+      "warmer": "Yes, {difference} {unit} warmer than at {name}.",
+      "cooler": "No, {difference} {unit} cooler than at {name}.",
+      "same": "Not really: about as warm as at {name}.",
+      "detail": "Mean air temperature on {days} days with a reading at both: {here} {unit} here, {there} {unit} at {name}.",
+      "where": "{name} ({id}) is {distance} km from {place} and lies {there} m above sea level; {place} lies {here} m. Higher stations are usually cooler.",
+      "whereNoHeight": "{name} ({id}) is {distance} km from {place}.",
+      "chart": "Here minus {name}, each day, in {unit}",
+      "none": "No other station within {distance} km reports daily temperatures now.",
+      "noneDays": "Only {count} days have a reading both here and at {name}; {min} are needed to compare.",
+      "open": "Compare the two stations side by side"
     }
   },
   "seo": {
@@ -290,7 +316,8 @@
       "about": "About the open-source project Wetterdienst and the people who maintain it.",
       "support": "Support Wetterdienst: report an issue, contribute code or donate.",
       "map": "A map of the stations of the German Weather Service: pick a station or any point for its forecast, its climate stripes and its measurements.",
-      "radar": "DWD's precipitation radar over Germany as a loop of the last two hours with the forecast of the next two, and the thunderstorm cells on top."
+      "radar": "DWD's precipitation radar over Germany as a loop of the last two hours with the forecast of the next two, and the thunderstorm cells on top.",
+      "compare": "Two stations, or two periods of one station, side by side for one parameter of DWD's observations: one chart and one table with the difference."
     }
   },
   "values": {
@@ -335,7 +362,8 @@
     "methods": "Methods",
     "support": "Support",
     "map": "Map",
-    "radar": "Radar"
+    "radar": "Radar",
+    "compare": "Compare"
   },
   "shell": {
     "skipToContent": "Skip to content",
@@ -731,7 +759,8 @@
     "forecast": "Search for a station or pick one on the map to see its forecast",
     "explorer": "Select parameters, then choose a station or a point, by search or on the map, and click “Show” to load data",
     "stripes": "Search for a station or pick one on the map, then click “Show” to create climate stripes",
-    "history": "Search for stations or pick them on the map, then click “Show” to load their histories"
+    "history": "Search for stations or pick them on the map, then click “Show” to load their histories",
+    "compare": "Search for stations or pick them on the map, choose a parameter, then click “Show” to compare two stations or two periods"
   },
   "meteogram": {
     "title": "Weather forecast",
@@ -1043,6 +1072,64 @@
     "modeHowItWorks": "How it works",
     "removeParameterDistance": "Remove the distance for {parameter}"
   },
+  "compare": {
+    "title": "Compare",
+    "byLabel": "What is compared",
+    "byStations": "Two stations",
+    "byPeriods": "Two periods",
+    "stationA": "Station A",
+    "stationB": "Station B",
+    "station": "Station",
+    "period": "Period",
+    "periodA": "Period A",
+    "periodB": "Period B",
+    "start": "From",
+    "end": "To",
+    "sameStation": "Choose two different stations.",
+    "periodTooLong": "A comparison holds at most {max} {unit}. Choose a shorter period.",
+    "stepDays": "days",
+    "stepMonths": "months",
+    "differs": "The two sides are not the same kind of number ({reason}), so no difference is calculated.",
+    "reason": {
+      "resolution": "another resolution",
+      "dataset": "another dataset",
+      "parameter": "another parameter",
+      "unit": "another unit",
+      "aggregation": "the values stand for different things, such as a mean and a total",
+      "position": "the days are not cut at the same time"
+    },
+    "alignDaysStations": "Aligned by calendar date: the same day of both stations.",
+    "alignMonthsStations": "Aligned by calendar month: the same month of both stations.",
+    "alignDaysPeriods": "Aligned by day of the period: day 1 of A with day 1 of B, day 2 with day 2, and so on. Both periods are drawn on the dates of period A.",
+    "alignMonthsPeriods": "Aligned by month of the period: month 1 of A with month 1 of B, and so on. Both periods are drawn on the months of period A.",
+    "alignUnequal": "Period {shorter} is shorter: its {count} {unit} are compared with the first {count} of the other, and the {rest} that follow have no partner and no difference.",
+    "summaryCompared": "{compared} of {rows} {unit} compared: both sides have a value in them.",
+    "noValues": "No step has a value on both sides, so there is nothing to subtract.",
+    "summaryMean": "On average, A is {a} {unit} and B is {b} {unit}; B − A = {difference} {unit}.",
+    "summarySum": "In total, A is {a} {unit} and B is {b} {unit}; B − A = {difference} {unit}.",
+    "chartLabel": "Chart of {parameter}: A, {a}, and B, {b}",
+    "chartAlternative": "The table below holds every value of the chart.",
+    "tableTitle": "Values and difference",
+    "tableCaption": "{parameter} ({unit}) of A, {a}, and B, {b}, with B − A",
+    "colDay": "Day",
+    "colMonth": "Month",
+    "colDateA": "Date A",
+    "colDateB": "Date B",
+    "colA": "A ({unit})",
+    "colB": "B ({unit})",
+    "colDifference": "B − A ({unit})",
+    "noteDifference": "The difference is side B minus side A, in {unit}. Where a side has no value there is no difference: a missing value is never counted as zero.",
+    "noteTotal": "The values are totals (or counts) of a day or a month, so the difference is the difference between the two totals of the same step, and the totals above are sums over the steps both sides have.",
+    "outdated": "The choices have changed since this table was made. Press Show to compare them.",
+    "creditBoth": "Both sides come from this source:",
+    "fileSides": "Side A: {a}. Side B: {b}.",
+    "subtitle": "Two stations or two periods, side by side, for one parameter",
+    "aboutButton": "About Compare",
+    "about1": "Compare puts two stations, or two periods of one station, side by side for one parameter of DWD's observations, the daily or the monthly climate summary: one chart with both series, and one table with the difference.",
+    "about2": "Two stations are matched by calendar date: the same day, or the same month, of both. Two periods of one station are matched by their place in the period: the first day of A with the first day of B, the second with the second. A period that is shorter than the other is compared as far as it reaches. The difference is always side B minus side A, in the unit of the values; where a side has no value there is no difference, and a missing value is never counted as zero.",
+    "about3": "What is compared must be the same kind of number: the same resolution, dataset, parameter and unit, and a value that stands for the same stretch of time. If it is not, the tool says so and calculates no difference. Stations differ in height and surroundings, so a difference between two stations is not always a difference of weather. The newest days are from DWD's recent data, for which DWD says that quality control is not complete.",
+    "selectParameter": "Select a parameter"
+  },
   "stationTable": {
     "stationId": "Station ID",
     "name": "Name",
@@ -1213,7 +1300,8 @@
     "whyFarther": "The nearest station that still reports. Closer: {name}, {distance}, until {year}.",
     "whyFartherNoEnd": "The nearest station that still reports. Closer: {name}, {distance}, no end date known.",
     "pickCloser": "Pick {name} instead",
-    "resultsOf": "Showing the first {shown} of {total} stations. Type more to narrow them down."
+    "resultsOf": "Showing the first {shown} of {total} stations. Type more to narrow them down.",
+    "openCompare": "Compare with another station"
   },
   "radar": {
     "title": "Radar",

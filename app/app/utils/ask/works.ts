@@ -52,7 +52,7 @@ export const WORKS = {
   },
   'dwd-daily-kl': {
     short: 'DWD daily station observations',
-    citation: 'Deutscher Wetterdienst (2024). Daily station observations (temperature, pressure, precipitation, sunshine duration, etc.) for Germany, Version v24.3, dataset description (DESCRIPTION_obsgermany-climate-daily-kl_en.pdf), parameters FX, FM, SDK, RSK, TXK, TNK and SHK_TAG.',
+    citation: 'Deutscher Wetterdienst (2024). Daily station observations (temperature, pressure, precipitation, sunshine duration, etc.) for Germany, Version v24.3, dataset description (DESCRIPTION_obsgermany-climate-daily-kl_en.pdf), parameters FX, FM, SDK, RSK, TMK, TXK, TNK and SHK_TAG.',
     href: 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/kl/DESCRIPTION_obsgermany-climate-daily-kl_en.pdf',
     issuer: 'dwd',
   },

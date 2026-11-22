@@ -13,6 +13,10 @@ const props = defineProps<{
   multiple?: boolean
   /** Whose picker it is: each tool remembers its own mode, the list or the map */
   tool: StationPickerTool
+  /** A visible label of the choice: Compare names its pickers "Station A" and "Station B" */
+  label?: string
+  /** The key of the request for the list of stations, where two pickers on one page each hold a list of their own (Compare's two sides): one key would make the one cancel the other's request */
+  fetchKey?: string
 }>()
 
 const emit = defineEmits(['update:modelValue', 'update:selectedStations'])
@@ -44,6 +48,7 @@ const hasRestoredInitialStations = ref(false)
 const { data: stationsData, pending: stationsPending, error: stationsError, refresh: refreshStations } = useFetch<StationsResponse>(
   '/api/stations',
   {
+    ...(props.fetchKey ? { key: props.fetchKey } : {}),
     query: computed(() => ({
       provider: props.parameterSelection.provider,
       network: props.parameterSelection.network,
@@ -173,6 +178,7 @@ function onPick(val: Station[]) {
 <template>
   <StationPicker
     :tool="tool"
+    :label="label"
     :stations="allStations"
     :selected="selectedStations"
     :multiple="multiple"

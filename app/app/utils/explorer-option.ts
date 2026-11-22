@@ -365,16 +365,16 @@ function legendSeries(input: ExplorerOptionInput, frame: ExplorerFrame, ink: Ink
           type: 'line',
           silent: true,
           shape: { x1: item.x, y1: middle, x2: item.x + LEGEND_SWATCH, y2: middle },
-          style: { stroke: off ? ink.muted : colour, lineWidth: entry.kind === 'trend' ? 3 : 2, lineDash: entry.kind === 'trend' || off ? [5, 3] : undefined, lineCap: 'butt' },
+          style: { stroke: off ? ink.muted : colour, lineWidth: entry.kind === 'trend' ? 3 : 2, lineDash: entry.kind === 'trend' || entry.look?.dashed || off ? [5, 3] : undefined, lineCap: 'butt' },
         },
       ]
       if (entry.kind === 'values' && !large) {
-        children.push({
-          type: 'circle',
-          silent: true,
-          shape: { cx: item.x + LEGEND_SWATCH / 2, cy: middle, r: 3.5 },
-          style: { fill: off ? 'transparent' : colour, stroke: off ? ink.muted : colour, lineWidth: 1.5 },
-        })
+        const mark = { fill: off ? 'transparent' : colour, stroke: off ? ink.muted : colour, lineWidth: 1.5 }
+        const cx = item.x + LEGEND_SWATCH / 2
+        // the marker the series is drawn with: a circle, or the square of Compare's side B
+        children.push(entry.look?.symbol === 'rect'
+          ? { type: 'rect', silent: true, shape: { x: cx - 3.5, y: middle - 3.5, width: 7, height: 7 }, style: mark }
+          : { type: 'circle', silent: true, shape: { cx, cy: middle, r: 3.5 }, style: mark })
       }
       children.push({
         type: 'text',
@@ -473,12 +473,12 @@ export function buildExplorerOption(input: ExplorerOptionInput, frame: ExplorerF
       z: trend ? 3 : 2,
       data: points.x.map((moment, index) => [moment, points.y[index]]),
       showSymbol: !trend && !large,
-      symbol: 'circle',
+      symbol: item.look?.symbol ?? 'circle',
       symbolSize: MARKER_SIZE,
       // a gap in the data is a gap in the line
       connectNulls: false,
       itemStyle: { color: colour },
-      lineStyle: { color: colour, width: trend ? 4 : large ? 1 : 2, type: trend ? 'dashed' : 'solid' },
+      lineStyle: { color: colour, width: trend ? 4 : large ? 1 : 2, type: trend || item.look?.dashed ? 'dashed' : 'solid' },
     })
     // a chart of many points has no markers, and a point between two gaps has no line to be drawn by: it is a dot of its own
     if (large && !trend && points.y.some((_, index) => isolated(points.y, index))) {
@@ -489,7 +489,7 @@ export function buildExplorerOption(input: ExplorerOptionInput, frame: ExplorerF
         z: 2,
         data: points.x.map((moment, index) => [moment, isolated(points.y, index) ? points.y[index] : null]),
         showSymbol: true,
-        symbol: 'circle',
+        symbol: item.look?.symbol ?? 'circle',
         symbolSize: ISOLATED_SIZE,
         lineStyle: { width: 0 },
         itemStyle: { color: colour },

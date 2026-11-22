@@ -14,6 +14,11 @@ export interface ExplorerSeries {
   colorIndex: number
   kind: 'values' | 'trend'
   /**
+   * How the line is drawn besides its colour, so that two series are told apart by more than the colour (WCAG 1.4.1): dashed, and the
+   * shape of its markers. Absent: a solid line with round markers. The Compare tool's side B is dashed with square markers.
+   */
+  look?: { dashed?: boolean, symbol?: 'circle' | 'rect' | 'triangle' | 'diamond' }
+  /**
    * The resolution the answer gave the series' rows (`hourly`, `monthly`, ...), where they all have one: what a line is
    * broken by where rows are missing (`gapRuleOf`). Absent for a trendline and where the rows' resolutions differ.
    */

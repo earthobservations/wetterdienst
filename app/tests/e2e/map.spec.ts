@@ -95,7 +95,7 @@ test.describe('the map tool on a wide screen', () => {
     const nav = page.getByRole('navigation', { name: en.shell.mainNav })
     const links = nav.getByRole('link')
     await expect(links.filter({ hasText: en.nav.map })).toHaveAttribute('aria-current', 'page')
-    expect(await nav.locator('ul > li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.radar, en.nav.history, en.nav.map])
+    expect(await nav.locator('ul > li').allInnerTexts()).toEqual([en.nav.meteogram, en.nav.explorer, en.nav.stripes, en.nav.radar, en.nav.history, en.nav.map, en.nav.compare])
     await expect(page.locator('.page-header .tile-map')).toBeVisible()
   })
 
@@ -148,6 +148,8 @@ test.describe('the map tool on a wide screen', () => {
     const explorer = measured.getByRole('link', { name: en.mapTool.openExplorer })
     await expect(explorer).toHaveAttribute('href', /stations=00131/)
     await expect(measured.getByRole('link', { name: en.mapTool.openHistory })).toHaveAttribute('href', /stations=00131/)
+    // the Compare tool with this station as side A (GH-4296), for the source of the layer: the daily climate summary
+    await expect(measured.getByRole('link', { name: en.mapTool.openCompare })).toHaveAttribute('href', '/compare?compare=stations&resolution=daily&stations=00131')
 
     // the explorer opens with the station chosen
     await explorer.click()

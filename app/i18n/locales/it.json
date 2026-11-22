@@ -87,13 +87,17 @@
         "rain": "Quanto ha piovuto il {day}?",
         "temperature": "Faceva caldo o freddo il {day}?",
         "snow": "C'era neve il {day}?"
-      }
+      },
+      "monthrain": "Questo mese è stato più piovoso dello stesso mese dell'anno scorso?",
+      "nearby": "Qui fa più caldo che in una stazione vicina?"
     },
     "from": {
       "rain": "Previsioni, DWD MOSMIX",
       "season": "Medie mensili, DWD",
       "download": "Tutti i servizi meteorologici",
-      "day": "Dati giornalieri, DWD"
+      "day": "Dati giornalieri, DWD",
+      "monthrain": "Precipitazioni giornaliere, DWD",
+      "nearby": "Temperature giornaliere, DWD"
     },
     "working": "Sto calcolando la risposta …",
     "failed": "Non è stato possibile calcolare la risposta.",
@@ -261,6 +265,28 @@
       "detail": "Ognuno si apre nell'Esploratore, pronto da scaricare in CSV, JSON o GeoJSON.",
       "none": "Al momento nessun servizio meteorologico pubblica la temperatura oraria dell'aria.",
       "api": "Oppure usa l'API REST"
+    },
+    "monthrain": {
+      "wetter": "Sì, {difference} {unit} in più rispetto agli stessi giorni dell'anno scorso.",
+      "drier": "No, {difference} {unit} in meno rispetto agli stessi giorni dell'anno scorso.",
+      "similar": "Non proprio: piovoso più o meno come l'anno scorso.",
+      "detail": "{month}: {sum} {unit} in {days} giorni. {lastMonth}, gli stessi giorni: {lastSum} {unit}.",
+      "fallback": "Solo {count} giorni del mese in corso hanno una misura in entrambi gli anni (ne servono {min}); perciò si confronta l'ultimo mese completo, {month}.",
+      "chart": "Pioggia degli stessi giorni del mese, in {unit}",
+      "none": "Qui ci sono troppo pochi giorni con una misura in entrambi gli anni per confrontare (ne servono {min}).",
+      "open": "Confronta i due tratti fianco a fianco"
+    },
+    "nearby": {
+      "warmer": "Sì, {difference} {unit} più caldo che a {name}.",
+      "cooler": "No, {difference} {unit} più fresco che a {name}.",
+      "same": "Non proprio: caldo più o meno come a {name}.",
+      "detail": "Temperatura media dell'aria in {days} giorni con una misura in entrambi i posti: {here} {unit} qui, {there} {unit} a {name}.",
+      "where": "{name} ({id}) dista {distance} km da {place} e si trova a {there} m sul livello del mare; {place} si trova a {here} m. Le stazioni più alte sono di solito più fresche.",
+      "whereNoHeight": "{name} ({id}) dista {distance} km da {place}.",
+      "chart": "Qui meno {name}, giorno per giorno, in {unit}",
+      "none": "Nessun'altra stazione entro {distance} km trasmette ora temperature giornaliere.",
+      "noneDays": "Solo {count} giorni hanno una misura sia qui sia a {name}; ne servono {min} per confrontare.",
+      "open": "Confronta le due stazioni fianco a fianco"
     }
   },
   "seo": {
@@ -290,7 +316,8 @@
       "about": "Informazioni sul progetto open source Wetterdienst e sulle persone che lo mantengono.",
       "support": "Sostenere Wetterdienst: segnalare un problema, contribuire con codice o donare.",
       "map": "Una mappa delle stazioni del Servizio meteorologico tedesco: scegli una stazione o un punto qualsiasi per vedere le sue previsioni, le sue strisce climatiche e le sue misurazioni.",
-      "radar": "Il radar delle precipitazioni del DWD sulla Germania come sequenza delle ultime due ore, con la previsione delle prossime due e le celle temporalesche sopra."
+      "radar": "Il radar delle precipitazioni del DWD sulla Germania come sequenza delle ultime due ore, con la previsione delle prossime due e le celle temporalesche sopra.",
+      "compare": "Due stazioni, o due periodi di una stazione, affiancati per un parametro delle osservazioni del DWD: un grafico e una tabella con la differenza."
     }
   },
   "values": {
@@ -335,7 +362,8 @@
     "methods": "Metodi",
     "support": "Supporto",
     "map": "Mappa",
-    "radar": "Radar"
+    "radar": "Radar",
+    "compare": "Confronta"
   },
   "shell": {
     "skipToContent": "Vai al contenuto",
@@ -731,7 +759,8 @@
     "forecast": "Cerca una stazione o sceglila sulla mappa per vedere la sua previsione",
     "explorer": "Seleziona i parametri, poi scegli una stazione o un punto, con la ricerca o sulla mappa, e fai clic su «Mostra» per caricare i dati",
     "stripes": "Cerca una stazione o sceglila sulla mappa e fai clic su «Mostra» per creare le strisce climatiche",
-    "history": "Cerca le stazioni o sceglile sulla mappa e fai clic su «Mostra» per caricarne la cronologia"
+    "history": "Cerca le stazioni o sceglile sulla mappa e fai clic su «Mostra» per caricarne la cronologia",
+    "compare": "Cerca stazioni o sceglile sulla mappa, scegli un parametro e fai clic su «Mostra» per confrontare due stazioni o due periodi"
   },
   "meteogram": {
     "title": "Previsioni meteo",
@@ -1043,6 +1072,64 @@
     "modeHowItWorks": "Come funziona",
     "removeParameterDistance": "Rimuovi la distanza di {parameter}"
   },
+  "compare": {
+    "title": "Confronta",
+    "byLabel": "Che cosa si confronta",
+    "byStations": "Due stazioni",
+    "byPeriods": "Due periodi",
+    "stationA": "Stazione A",
+    "stationB": "Stazione B",
+    "station": "Stazione",
+    "period": "Periodo",
+    "periodA": "Periodo A",
+    "periodB": "Periodo B",
+    "start": "Dal",
+    "end": "Al",
+    "sameStation": "Scegli due stazioni diverse.",
+    "periodTooLong": "Un confronto comprende al massimo {max} {unit}. Scegli un periodo più breve.",
+    "stepDays": "giorni",
+    "stepMonths": "mesi",
+    "differs": "I due lati non sono lo stesso tipo di numero ({reason}); perciò non viene calcolata alcuna differenza.",
+    "reason": {
+      "resolution": "un'altra risoluzione",
+      "dataset": "un altro dataset",
+      "parameter": "un altro parametro",
+      "unit": "un'altra unità",
+      "aggregation": "i valori rappresentano cose diverse, come una media e un totale",
+      "position": "i giorni non sono delimitati alla stessa ora"
+    },
+    "alignDaysStations": "Allineato per data del calendario: lo stesso giorno di entrambe le stazioni.",
+    "alignMonthsStations": "Allineato per mese del calendario: lo stesso mese di entrambe le stazioni.",
+    "alignDaysPeriods": "Allineato per giorno del periodo: il giorno 1 di A con il giorno 1 di B, il giorno 2 con il giorno 2, e così via. Entrambi i periodi sono disegnati sulle date del periodo A.",
+    "alignMonthsPeriods": "Allineato per mese del periodo: il mese 1 di A con il mese 1 di B, e così via. Entrambi i periodi sono disegnati sui mesi del periodo A.",
+    "alignUnequal": "Il periodo {shorter} è più breve: i suoi {count} {unit} sono confrontati con i primi {count} dell'altro, e i {rest} successivi non hanno controparte né differenza.",
+    "summaryCompared": "{compared} di {rows} {unit} confrontati: in essi entrambi i lati hanno un valore.",
+    "noValues": "Nessun passo ha un valore su entrambi i lati, quindi non c'è nulla da sottrarre.",
+    "summaryMean": "In media A è {a} {unit} e B è {b} {unit}; B − A = {difference} {unit}.",
+    "summarySum": "In totale A è {a} {unit} e B è {b} {unit}; B − A = {difference} {unit}.",
+    "chartLabel": "Grafico di {parameter}: A, {a}, e B, {b}",
+    "chartAlternative": "La tabella qui sotto contiene ogni valore del grafico.",
+    "tableTitle": "Valori e differenza",
+    "tableCaption": "{parameter} ({unit}) di A, {a}, e di B, {b}, con B − A",
+    "colDay": "Giorno",
+    "colMonth": "Mese",
+    "colDateA": "Data A",
+    "colDateB": "Data B",
+    "colA": "A ({unit})",
+    "colB": "B ({unit})",
+    "colDifference": "B − A ({unit})",
+    "noteDifference": "La differenza è il lato B meno il lato A, in {unit}. Dove un lato non ha valore non c'è differenza: un valore mancante non viene mai contato come zero.",
+    "noteTotal": "I valori sono totali (o conteggi) di un giorno o di un mese, quindi la differenza è quella fra i due totali dello stesso passo, e i totali qui sopra sono somme sui passi che entrambi i lati hanno.",
+    "outdated": "La selezione è cambiata da quando è stata creata questa tabella. Premi Mostra per confrontarli.",
+    "creditBoth": "Entrambi i lati provengono da questa fonte:",
+    "fileSides": "Lato A: {a}. Lato B: {b}.",
+    "subtitle": "Due stazioni o due periodi, affiancati, per un parametro",
+    "aboutButton": "Informazioni su Confronta",
+    "about1": "Confronta affianca due stazioni, o due periodi di una stazione, per un parametro delle osservazioni del DWD, il riepilogo climatico giornaliero o mensile: un grafico con entrambe le serie e una tabella con la differenza.",
+    "about2": "Due stazioni sono abbinate per data del calendario: lo stesso giorno, o lo stesso mese, di entrambe. Due periodi di una stazione sono abbinati per la loro posizione nel periodo: il primo giorno di A con il primo giorno di B, il secondo con il secondo. Un periodo più breve dell'altro è confrontato fin dove arriva. La differenza è sempre il lato B meno il lato A, nell'unità dei valori; dove un lato non ha valore non c'è differenza, e un valore mancante non viene mai contato come zero.",
+    "about3": "Ciò che si confronta deve essere lo stesso tipo di numero: la stessa risoluzione, lo stesso dataset, lo stesso parametro e la stessa unità, e un valore che rappresenti lo stesso intervallo di tempo. Altrimenti lo strumento lo dice e non calcola alcuna differenza. Le stazioni differiscono per altezza e dintorni, quindi una differenza fra due stazioni non è sempre una differenza di tempo. I giorni più recenti vengono dai dati recenti del DWD, il cui controllo di qualità, dice il DWD, non è completo.",
+    "selectParameter": "Scegli un parametro"
+  },
   "stationTable": {
     "stationId": "ID stazione",
     "name": "Nome",
@@ -1213,7 +1300,8 @@
     "whyFarther": "La stazione più vicina ancora in funzione. Più vicina: {name}, a {distance}, fino al {year}.",
     "whyFartherNoEnd": "La stazione più vicina ancora in funzione. Più vicina: {name}, a {distance}, fine non nota.",
     "pickCloser": "Scegli invece {name}",
-    "resultsOf": "Le prime {shown} stazioni su {total}. Scrivi di più per restringere."
+    "resultsOf": "Le prime {shown} stazioni su {total}. Scrivi di più per restringere.",
+    "openCompare": "Confronta con un'altra stazione"
   },
   "radar": {
     "title": "Radar",

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { expect, test } from '@playwright/test'
 import { exampleScan } from '../helpers/storm-cells-answer'
 import { askHandlers } from './accessibility/ask-backend'
+import { compareHandlers } from './accessibility/compare-backend'
 import { scanHover, scanKeyboard } from './accessibility/interact'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
 import { compareToBaseline, readBaseline, RECORDING, scan, variantKey } from './accessibility/scan'
@@ -84,6 +85,12 @@ const PAGES: Target[] = [
     ready: async (page) => { await expect(page.getByTestId('radar-newest')).toBeVisible() },
   },
   {
+    // the compare tool (GH-4296): the form, and the placeholder where the result will be
+    page: 'compare',
+    path: '/compare',
+    ready: async (page, locale) => { await expect(page.getByRole('heading', { level: 1, name: message(locale, 'compare.title') })).toBeVisible() },
+  },
+  {
     page: 'widget',
     path: '/widget',
     // the widget has no heading: it says which parameter it lacks
@@ -137,6 +144,10 @@ interface State {
 
 const EXPLORER = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station'
 const EXPLORER_WITH_STATION = `${EXPLORER}&stations=00011`
+
+/** The compare tool with a comparison a link names (GH-4296): two stations over a month, and one station over two months of two years */
+const COMPARE_STATIONS = '/compare?compare=stations&resolution=daily&parameter=temperature_air_mean_2m&stations=00011,00044&startDate=2026-03-01&endDate=2026-03-31'
+const COMPARE_PERIODS = '/compare?compare=periods&resolution=daily&parameter=temperature_air_mean_2m&stations=00011&periodA=2025-03-01/2025-03-31&periodB=2026-03-01/2026-03-31'
 
 /** The explorer's chart (ECharts, drawn as SVG): its SVG is in the canvas once it has */
 const explorerChart = (page: Page) => page.locator('.xc-canvas[data-drawn="true"] svg').first()
@@ -640,6 +651,75 @@ const STATES: State[] = [
       await expect(page.getByRole('combobox', { name: message(locale, 'shell.search') })).toBeFocused()
       await page.keyboard.type('52.52, 13.40')
       await expect(page.getByRole('option', { name: /52\.5200, 13\.4000/ })).toBeVisible()
+    },
+  },
+  {
+    // the compare tool with two stations compared (GH-4296): the chart with both series, the summary, the table with its difference column, the credit
+    page: 'compare',
+    state: 'stations-result',
+    path: COMPARE_STATIONS,
+    handlers: compareHandlers(),
+    reach: async (page) => {
+      await expect(page.getByTestId('compare-table')).toBeVisible()
+      await expect(explorerChart(page)).toBeVisible()
+    },
+  },
+  {
+    // two periods of one station, aligned by their place in the period, and the note that says so
+    page: 'compare',
+    state: 'periods-result',
+    path: COMPARE_PERIODS,
+    handlers: compareHandlers(),
+    reach: async (page) => {
+      await expect(page.getByTestId('compare-table')).toBeVisible()
+      await expect(explorerChart(page)).toBeVisible()
+    },
+  },
+  {
+    // the two sides are not the same kind of number: the tool says so and has no table
+    page: 'compare',
+    state: 'refused',
+    path: COMPARE_PERIODS,
+    handlers: {
+      ...compareHandlers(),
+      values: (url) => {
+        const later = (url.searchParams.get('timestamp') ?? '').startsWith('2026')
+        return { metadata: { parameters: [{ resolution: 'daily', dataset: 'climate_summary', name: 'temperature_air_mean_2m', name_original: 'tmk', description: null, quantity: 'temperature', unit: later ? 'K' : '°C', aggregation: 'mean', timestamp_position: 'start' }] }, values: [] }
+      },
+    },
+    reach: async (page) => {
+      await expect(page.getByTestId('compare-refused')).toBeVisible()
+    },
+  },
+  {
+    // on a phone: the form, then the result, in one column
+    page: 'compare',
+    state: 'phone-result',
+    path: COMPARE_STATIONS,
+    viewport: { width: 390, height: 844 },
+    handlers: compareHandlers(),
+    reach: async (page) => {
+      await expect(page.getByTestId('compare-table')).toBeVisible()
+      await expect(explorerChart(page)).toBeVisible()
+    },
+  },
+  {
+    // the two new questions of Ask the weather (GH-4296): the answer with its chart and the link into the Compare tool
+    page: 'index',
+    state: 'ask-monthrain',
+    path: '/?ask=monthrain',
+    handlers: askHandlers(),
+    reach: async (page) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+    },
+  },
+  {
+    page: 'index',
+    state: 'ask-nearby',
+    path: '/?ask=nearby',
+    handlers: askHandlers(),
+    reach: async (page) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
     },
   },
   {

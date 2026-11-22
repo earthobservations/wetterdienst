@@ -87,13 +87,17 @@
         "rain": "¿Cuánto llovió el {day}?",
         "temperature": "¿Hizo calor o frío el {day}?",
         "snow": "¿Hubo nieve el {day}?"
-      }
+      },
+      "monthrain": "¿Ha llovido más este mes que el mismo mes del año pasado?",
+      "nearby": "¿Hace más calor aquí que en una estación cercana?"
     },
     "from": {
       "rain": "Pronóstico, DWD MOSMIX",
       "season": "Medias mensuales, DWD",
       "download": "Todos los servicios meteorológicos",
-      "day": "Datos diarios, DWD"
+      "day": "Datos diarios, DWD",
+      "monthrain": "Precipitación diaria, DWD",
+      "nearby": "Temperaturas diarias, DWD"
     },
     "working": "Calculando la respuesta …",
     "failed": "No se pudo calcular la respuesta.",
@@ -261,6 +265,28 @@
       "detail": "Cada uno se abre en el Explorador, listo para descargar en CSV, JSON o GeoJSON.",
       "none": "Ahora mismo ningún servicio meteorológico publica la temperatura horaria del aire.",
       "api": "O usa la API REST"
+    },
+    "monthrain": {
+      "wetter": "Sí, {difference} {unit} más que en los mismos días del año pasado.",
+      "drier": "No, {difference} {unit} menos que en los mismos días del año pasado.",
+      "similar": "No exactamente: más o menos igual de lluvioso que el año pasado.",
+      "detail": "{month}: {sum} {unit} en {days} días. {lastMonth}, los mismos días: {lastSum} {unit}.",
+      "fallback": "Solo {count} días del mes en curso tienen una medición en ambos años (hacen falta {min}), así que se compara el último mes completo, {month}.",
+      "chart": "Lluvia de los mismos días del mes, en {unit}",
+      "none": "Aquí hay muy pocos días con medición en ambos años para comparar (hacen falta {min}).",
+      "open": "Comparar los dos tramos lado a lado"
+    },
+    "nearby": {
+      "warmer": "Sí, {difference} {unit} más cálido que en {name}.",
+      "cooler": "No, {difference} {unit} más fresco que en {name}.",
+      "same": "No exactamente: más o menos igual de cálido que en {name}.",
+      "detail": "Temperatura media del aire en {days} días con medición en ambos sitios: {here} {unit} aquí, {there} {unit} en {name}.",
+      "where": "{name} ({id}) está a {distance} km de {place} y se encuentra a {there} m sobre el nivel del mar; {place} está a {here} m. Las estaciones más altas suelen ser más frescas.",
+      "whereNoHeight": "{name} ({id}) está a {distance} km de {place}.",
+      "chart": "Aquí menos {name}, cada día, en {unit}",
+      "none": "Ninguna otra estación a menos de {distance} km informa ahora de temperaturas diarias.",
+      "noneDays": "Solo {count} días tienen medición tanto aquí como en {name}; hacen falta {min} para comparar.",
+      "open": "Comparar las dos estaciones lado a lado"
     }
   },
   "seo": {
@@ -290,7 +316,8 @@
       "about": "Sobre el proyecto de código abierto Wetterdienst y las personas que lo mantienen.",
       "support": "Apoyar Wetterdienst: informar de un problema, aportar código o donar.",
       "map": "Un mapa de las estaciones del Servicio Meteorológico Alemán: elige una estación o un punto cualquiera para ver su pronóstico, sus franjas climáticas y sus mediciones.",
-      "radar": "El radar de precipitación del DWD sobre Alemania como bucle de las dos últimas horas, con el pronóstico de las dos siguientes y las celdas de tormenta encima."
+      "radar": "El radar de precipitación del DWD sobre Alemania como bucle de las dos últimas horas, con el pronóstico de las dos siguientes y las celdas de tormenta encima.",
+      "compare": "Dos estaciones, o dos periodos de una estación, lado a lado para un parámetro de las observaciones del DWD: un gráfico y una tabla con la diferencia."
     }
   },
   "values": {
@@ -335,7 +362,8 @@
     "methods": "Métodos",
     "support": "Ayuda",
     "map": "Mapa",
-    "radar": "Radar"
+    "radar": "Radar",
+    "compare": "Comparar"
   },
   "shell": {
     "skipToContent": "Saltar al contenido",
@@ -731,7 +759,8 @@
     "forecast": "Busca una estación o elige una en el mapa para ver su pronóstico",
     "explorer": "Selecciona parámetros, luego elige una estación o un punto, con la búsqueda o en el mapa, y haz clic en «Mostrar» para cargar los datos",
     "stripes": "Busca una estación o elige una en el mapa y haz clic en «Mostrar» para crear franjas climáticas",
-    "history": "Busca estaciones o elígelas en el mapa y haz clic en «Mostrar» para cargar su historial"
+    "history": "Busca estaciones o elígelas en el mapa y haz clic en «Mostrar» para cargar su historial",
+    "compare": "Busca estaciones o elígelas en el mapa, elige un parámetro y haz clic en «Mostrar» para comparar dos estaciones o dos periodos"
   },
   "meteogram": {
     "title": "Pronóstico del tiempo",
@@ -1043,6 +1072,64 @@
     "modeHowItWorks": "Cómo funciona",
     "removeParameterDistance": "Eliminar la distancia de {parameter}"
   },
+  "compare": {
+    "title": "Comparar",
+    "byLabel": "Qué se compara",
+    "byStations": "Dos estaciones",
+    "byPeriods": "Dos periodos",
+    "stationA": "Estación A",
+    "stationB": "Estación B",
+    "station": "Estación",
+    "period": "Periodo",
+    "periodA": "Periodo A",
+    "periodB": "Periodo B",
+    "start": "Desde",
+    "end": "Hasta",
+    "sameStation": "Elige dos estaciones distintas.",
+    "periodTooLong": "Una comparación abarca como máximo {max} {unit}. Elige un periodo más corto.",
+    "stepDays": "días",
+    "stepMonths": "meses",
+    "differs": "Los dos lados no son la misma clase de número ({reason}); por eso no se calcula ninguna diferencia.",
+    "reason": {
+      "resolution": "otra resolución",
+      "dataset": "otro conjunto de datos",
+      "parameter": "otro parámetro",
+      "unit": "otra unidad",
+      "aggregation": "los valores representan cosas distintas, como una media y un total",
+      "position": "los días no se cortan a la misma hora"
+    },
+    "alignDaysStations": "Alineado por fecha del calendario: el mismo día de ambas estaciones.",
+    "alignMonthsStations": "Alineado por mes del calendario: el mismo mes de ambas estaciones.",
+    "alignDaysPeriods": "Alineado por día del periodo: el día 1 de A con el día 1 de B, el día 2 con el día 2, y así sucesivamente. Ambos periodos se dibujan sobre las fechas del periodo A.",
+    "alignMonthsPeriods": "Alineado por mes del periodo: el mes 1 de A con el mes 1 de B, y así sucesivamente. Ambos periodos se dibujan sobre los meses del periodo A.",
+    "alignUnequal": "El periodo {shorter} es más corto: sus {count} {unit} se comparan con los primeros {count} del otro, y los {rest} siguientes no tienen pareja ni diferencia.",
+    "summaryCompared": "{compared} de {rows} {unit} comparados: ambos lados tienen un valor en ellos.",
+    "noValues": "Ningún paso tiene un valor en ambos lados, así que no hay nada que restar.",
+    "summaryMean": "De media, A es {a} {unit} y B es {b} {unit}; B − A = {difference} {unit}.",
+    "summarySum": "En total, A es {a} {unit} y B es {b} {unit}; B − A = {difference} {unit}.",
+    "chartLabel": "Gráfico de {parameter}: A, {a}, y B, {b}",
+    "chartAlternative": "La tabla de abajo contiene todos los valores del gráfico.",
+    "tableTitle": "Valores y diferencia",
+    "tableCaption": "{parameter} ({unit}) de A, {a}, y de B, {b}, con B − A",
+    "colDay": "Día",
+    "colMonth": "Mes",
+    "colDateA": "Fecha A",
+    "colDateB": "Fecha B",
+    "colA": "A ({unit})",
+    "colB": "B ({unit})",
+    "colDifference": "B − A ({unit})",
+    "noteDifference": "La diferencia es el lado B menos el lado A, en {unit}. Donde un lado no tiene valor no hay diferencia: un valor que falta nunca cuenta como cero.",
+    "noteTotal": "Los valores son totales (o recuentos) de un día o de un mes, así que la diferencia es la diferencia entre los dos totales del mismo paso, y los totales de arriba son sumas de los pasos que tienen ambos lados.",
+    "outdated": "La selección ha cambiado desde que se hizo esta tabla. Pulsa Mostrar para compararlos.",
+    "creditBoth": "Ambos lados proceden de esta fuente:",
+    "fileSides": "Lado A: {a}. Lado B: {b}.",
+    "subtitle": "Dos estaciones o dos periodos, lado a lado, para un parámetro",
+    "aboutButton": "Acerca de Comparar",
+    "about1": "Comparar pone lado a lado dos estaciones, o dos periodos de una estación, para un parámetro de las observaciones del DWD, el resumen climático diario o mensual: un gráfico con ambas series y una tabla con la diferencia.",
+    "about2": "Dos estaciones se emparejan por fecha del calendario: el mismo día, o el mismo mes, de ambas. Dos periodos de una estación se emparejan por su lugar en el periodo: el primer día de A con el primer día de B, el segundo con el segundo. Un periodo más corto que el otro se compara hasta donde llega. La diferencia es siempre el lado B menos el lado A, en la unidad de los valores; donde un lado no tiene valor no hay diferencia, y un valor que falta nunca cuenta como cero.",
+    "about3": "Lo que se compara debe ser la misma clase de número: la misma resolución, el mismo conjunto de datos, el mismo parámetro y la misma unidad, y un valor que represente el mismo lapso. Si no es así, la herramienta lo dice y no calcula ninguna diferencia. Las estaciones difieren en altura y entorno, así que una diferencia entre dos estaciones no siempre es una diferencia del tiempo. Los días más recientes proceden de los datos recientes del DWD, cuyo control de calidad, según el DWD, no está completo.",
+    "selectParameter": "Elegir un parámetro"
+  },
   "stationTable": {
     "stationId": "ID de estación",
     "name": "Nombre",
@@ -1213,7 +1300,8 @@
     "whyFarther": "La estación más cercana que sigue informando. Más cerca: {name}, a {distance}, hasta {year}.",
     "whyFartherNoEnd": "La estación más cercana que sigue informando. Más cerca: {name}, a {distance}, fin desconocido.",
     "pickCloser": "Elegir {name} en su lugar",
-    "resultsOf": "Las primeras {shown} de {total} estaciones. Escribe más para acotarlas."
+    "resultsOf": "Las primeras {shown} de {total} estaciones. Escribe más para acotarlas.",
+    "openCompare": "Comparar con otra estación"
   },
   "radar": {
     "title": "Radar",

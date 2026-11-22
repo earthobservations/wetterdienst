@@ -11,7 +11,7 @@ import { TOOLS } from './sections'
 /** The tools in the bar; the Menu is the fifth item beside them */
 export const BAR_SIZE = 4
 
-/** The tools in the order of the header: the default bar is Forecast, Explorer, Stripes and the Radar (GH-3788), History and the Map beneath */
+/** The tools in the order of the header: the default bar is Forecast, Explorer, Stripes and the Radar (GH-3788), History, the Map and Compare (GH-4296) beneath */
 export const DEFAULT_TOOL_ORDER: readonly string[] = TOOLS.map(tool => tool.key)
 
 /**

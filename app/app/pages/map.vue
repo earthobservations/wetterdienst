@@ -14,6 +14,7 @@ import { GHCN_STATIONS_ROUTE, stationsOfColumns } from '~/utils/ghcn-stations'
 import { GROUPING_COMPULSORY_ABOVE, groupingFor, isGroupedAt } from '~/utils/map-cluster'
 import {
   closerStoppedStation,
+  compareLink,
   DEFAULT_MEASURED,
   distanceKm,
   findSameStation,
@@ -1106,6 +1107,8 @@ function takeAddress(query: Record<string, unknown>) {
                   <div class="flex flex-col items-start">
                     <UButton :to="measurementsLink(source, measuredPoint.station.station_id)" :label="t('mapTool.openExplorer')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
                     <UButton :to="historyLink(source, measuredPoint.station.station_id)" :label="t('mapTool.openHistory')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" />
+                    <!-- two stations side by side: this one is side A of the Compare tool (GH-4296) -->
+                    <UButton v-if="compareLink(source, measuredPoint.station.station_id)" :to="compareLink(source, measuredPoint.station.station_id)!" :label="t('mapTool.openCompare')" trailing-icon="i-ph-arrow-right" variant="link" class="map-link" data-testid="map-open-compare" />
                   </div>
                 </template>
                 <p v-else-if="measured.status.value === 'pending' || measured.status.value === 'idle'" class="map-card-note" role="status">

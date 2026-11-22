@@ -29,14 +29,17 @@ export const TOOLS: Section[] = [
   { key: 'radar', to: '/radar', group: 'tools', label: 'nav.radar', description: 'radar.subtitle', icon: 'i-ph-target-fill', tile: 'navy' },
   { key: 'history', to: '/history', group: 'tools', label: 'nav.history', description: 'history.subtitle', icon: 'i-ph-clock-counter-clockwise-fill', tile: 'wind' },
   { key: 'map', to: '/map', group: 'tools', label: 'nav.map', description: 'mapTool.subtitle', icon: 'i-ph-map-trifold-fill', tile: 'map' },
+  // the seventh tool (GH-4296): two stations or two periods side by side. Its tile is the teal of History's, since the seven tools have six
+  // colours (the logo's four, the map's violet and the radar's navy); a tab bar that holds four tools keeps it in the Menu's sheet
+  { key: 'compare', to: '/compare', group: 'tools', label: 'nav.compare', description: 'compare.subtitle', icon: 'i-ph-scales-fill', tile: 'wind' },
 ]
 
 /** The map, which the search opens on a station (`/map?station=`) */
 export const MAP_TOOL: Section = TOOLS.find(tool => tool.key === 'map')!
 
 // Which of the tools have a tab in the bar of the narrow layout is the reader's choice, with Forecast, Explorer, Stripes
-// and the Radar as the default (`utils/tab-bar.ts`, GH-3846): six tools and the Menu are seven items, more than a tab bar
-// holds (GH-3650), so the bar holds four tools and the Menu; History and the Map are in the Menu until the reader moves them (the default bar is Forecast, Explorer, Stripes and the Radar, GH-3788). The header of the wide layout shows all of `TOOLS`.
+// and the Radar as the default (`utils/tab-bar.ts`, GH-3846): seven tools and the Menu are eight items, more than a tab bar
+// holds (GH-3650), so the bar holds four tools and the Menu; History, the Map and Compare (GH-4296) are in the Menu until the reader moves them (the default bar is Forecast, Explorer, Stripes and the Radar, GH-3788). The header of the wide layout shows all of `TOOLS`.
 
 export const REFERENCE: Section[] = [
   { key: 'providers', to: '/providers', group: 'reference', label: 'nav.providers', description: 'providers.subtitle', icon: 'i-ph-buildings' },
