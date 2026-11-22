@@ -191,6 +191,10 @@ describe('the glossary', () => {
     { name: 'temperature_dew_point_2m', unit_type: 'temperature', unit: 'degree_celsius', unit_symbol: '°C', description: 'Dew point at 2 m above ground.' },
     { name: 'pressure_vapor', unit_type: 'pressure', unit: 'hectopascal', unit_symbol: 'hPa', description: 'Partial pressure of water vapour.' },
     { name: 'cloud_cover_total', unit_type: 'fraction', unit: 'percent', unit_symbol: '%', description: 'Total cloud cover.' },
+    { name: 'weather', unit_type: 'dimensionless', unit: 'dimensionless', unit_symbol: '', description: 'Coded present weather at the time of observation.' },
+    { name: 'soil_state_index', unit_type: 'dimensionless', unit: 'dimensionless', unit_symbol: '', description: 'Coded state of the ground surface.' },
+    { name: 'soil_moisture_grass_sand_00cm_60cm', unit_type: 'fraction', unit: 'percent', unit_symbol: '%', description: 'Soil moisture in sand under grass.' },
+    { name: 'evaporation_amount_grass_sand', unit_type: 'precipitation', unit: 'millimeter', unit_symbol: 'mm', description: 'Depth of water evaporated from sand under grass.' },
   ]
   registerEndpoint('/api/glossary', () => entries)
 
@@ -208,7 +212,19 @@ describe('the glossary', () => {
     const wrapper = await mountGlossary()
     const hrefs = wrapper.findAll('a').map(link => link.attributes('href')).filter(href => href?.startsWith('/measurement'))
     // one link for each parameter: the relative humidity, the dew point and the vapour pressure share the humidity entry
-    expect(hrefs.sort()).toEqual(['/measurement#humidity', '/measurement#humidity', '/measurement#humidity', '/measurement#normals', '/measurement#temperature', '/measurement#wind'])
+    expect(hrefs.sort()).toEqual([
+      '/measurement#clouds',
+      '/measurement#evaporation',
+      '/measurement#humidity',
+      '/measurement#humidity',
+      '/measurement#humidity',
+      '/measurement#normals',
+      '/measurement#present-weather',
+      '/measurement#present-weather',
+      '/measurement#soil-moisture',
+      '/measurement#temperature',
+      '/measurement#wind',
+    ])
     // the link says which parameter it is for, to a screen reader that lists the links of the page
     expect(wrapper.find('a[href="/measurement#wind"]').text()).toContain('How is this measured?')
     expect(wrapper.find('a[href="/measurement#wind"]').text()).toContain('Maximum wind gust')
@@ -231,6 +247,14 @@ describe('the glossary', () => {
     expect(wrapper.find('[data-testid="glossary-topic"]').text()).toContain('Only “Humidity and dew point”')
   })
 
+  it('shows the parameters of the entry on present weather and the state of the ground, whose id has a hyphen', async () => {
+    await useLocale('en')
+    const wrapper = await mountGlossary('/glossary?topic=present-weather')
+    const shown = (wrapper.vm as any).entries.map((entry: { name: string }) => entry.name)
+    expect([...shown].sort()).toEqual(['soil_state_index', 'weather'])
+    expect(wrapper.find('[data-testid="glossary-topic"]').text()).toContain('Only “Present weather and state of the ground”')
+  })
+
   it('takes an entry that explains no parameter for no filter, as an id that is none', async () => {
     await useLocale('en')
     const wrapper = await mountGlossary('/glossary?topic=time')
@@ -240,7 +264,7 @@ describe('the glossary', () => {
 
   it('takes a topic that is none for no filter', async () => {
     await useLocale('en')
-    const wrapper = await mountGlossary('/glossary?topic=evaporation')
+    const wrapper = await mountGlossary('/glossary?topic=hydrology')
     expect((wrapper.vm as any).entries).toHaveLength(entries.length)
     expect(wrapper.find('[data-testid="glossary-topic"]').exists()).toBe(false)
   })

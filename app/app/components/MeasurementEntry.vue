@@ -67,7 +67,7 @@ const headingId = computed(() => `${props.topic}-title`)
         {{ t('measurement.fieldsText') }}
       </p>
       <ul class="mt-2 flex flex-wrap gap-2">
-        <li v-for="pattern in patterns" :key="pattern" class="rounded-md bg-elevated px-2 py-0.5 font-mono text-sm">
+        <li v-for="pattern in patterns" :key="pattern" class="max-w-full break-all rounded-md bg-elevated px-2 py-0.5 font-mono text-sm">
           {{ pattern }}
         </li>
       </ul>
