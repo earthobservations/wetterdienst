@@ -80,6 +80,7 @@
     "q": {
       "rain": "Reent et muer zu {place}?",
       "season": "War {last} hei {warmth} wéi soss?",
+      "warnings": "Gëtt et hei Warnungen?",
       "download": "Wou kann ech Stonnentemperaturen eroflueden?",
       "day": {
         "wind": "Wéi windeg war et den {day}?",
@@ -92,6 +93,7 @@
     "from": {
       "rain": "Prognos, DWD MOSMIX",
       "season": "Méintlech Mëttelwäerter, DWD",
+      "warnings": "Amtlech Warnungen, DWD",
       "download": "All d'Wiederdéngschter",
       "day": "Deeglech Wäerter, DWD"
     },
@@ -261,6 +263,17 @@
       "detail": "All eenzelen geet am Explorer op, prett fir als CSV, JSON oder GeoJSON erofzelueden.",
       "none": "Elo publizéiert kee Wiederdéngscht d'Lofttemperatur pro Stonn.",
       "api": "Oder benotz d'REST-API"
+    },
+    "quotesLabel": "Zitéiert Texter",
+    "warnings": {
+      "none": "Nee. Keng Warnung vum DWD huet de Moment e Gebitt, dat {place} enthält.",
+      "some": "Jo. Den DWD huet Warnungen fir {place}.",
+      "highest": "Déi héchst Stuf: {level}.",
+      "namedOnly": "Weider Warnungen, déi nëmmen e Gebitt nennen (d'Mier, eng Küst), am Ganzen {count}, kënnen net {place} zougeuerdnet ginn.",
+      "quote": "Dat sinn dem DWD seng eege Wierder. wetterdienst bewäert se net, kierzt se net a formuléiert se net ëm.",
+      "outside": "D'Warnunge vum DWD gëllen nëmmen fir Däitschland. Keng Quell fir Warnunge deckt {place} of.",
+      "open": "D'Warnunge op der Kaart weisen",
+      "checked": "Offrufft: {time}."
     }
   },
   "seo": {
@@ -1312,6 +1325,61 @@
     "positionHide": "Meng Positioun op der Kaart verstoppen",
     "positionShow": "Meng Positioun op der Kaart weisen",
     "positionMarker": "Deng Positioun, op ongeféier 1 km ofgerënnt"
+  },
+  "warnings": {
+    "chip": "Warnungen",
+    "chipCount": "Warnungen: {count}",
+    "level": {
+      "1": "Wiederwarnung",
+      "2": "Markant Wiederwarnung",
+      "3": "Warnung virun schwéierem Wieder",
+      "4": "Warnung virun extremem Wieder",
+      "preliminary": "Viraginformatioun iwwer schwéiert Wieder",
+      "unknown": "Warnung ouni Angab vun der Stuf"
+    },
+    "levelOf": "Stuf {level} vu 4",
+    "inForce": "Gëlt",
+    "upcoming": "Ugekënnegt",
+    "fromTo": "vun {from} bis {to}",
+    "fromOpen": "ab {from}",
+    "until": "bis {to}",
+    "issued": "Erausginn {time}",
+    "untitled": "Wiederwarnung",
+    "type": "Zort",
+    "levelLabel": "Stuf",
+    "valid": "Gëlteg",
+    "issuedLabel": "Erausginn",
+    "areasLabel": "Gebidder",
+    "areasMore": "an {count} méi",
+    "textGerman": "Den eegenen Text vum DWD, op Däitsch: den DWD gëtt dës Warnung net a dénger Sprooch eraus.",
+    "legendDescription": "Ëmrëss vun de Warnungen: Stuf 1 huet e gepunkte Rand, Stuf 2 e gestrachenen, Stuf 3 en duerchgängegen a Stuf 4 eng duebel Linn; d'Viraginformatioun huet e Rand mat Strich a Punkt. D'Lëscht am Panel nennt all Warnung a Wierder.",
+    "panelTitle": "Wiederwarnunge vum DWD",
+    "panelCount": "Warnungen, déi a Däitschland gëllen oder ugekënnegt sinn: {count}",
+    "panelNone": "A Däitschland gëlt keng Warnung, a keng ass ugekënnegt.",
+    "panelLoading": "D'Warnunge ginn gelueden …",
+    "failed": "D'Warnunge konnten net gelueden ginn.",
+    "listLabel": "Warnungen, déi schwéierst als éischt",
+    "showAll": "All {count} weisen",
+    "showFewer": "Manner weisen",
+    "asideTitle": "Warnunge fir Gebidder, déi d'Kaart net zeechne kann",
+    "asideNote": "Den DWD nennt d'Gebitt vun dëse Warnungen (d'Mier, eng Küst), gëtt awer keen Ëmrëss derfir un, dofir gëtt keen gezeechent.",
+    "checked": "Offrufft: {time}.",
+    "refreshNote": "All 5 Minutten nei offruffen, wann dës Säit op ass.",
+    "refreshFailed": "D'Warnunge konnten net aktualiséiert ginn. Gewise gëtt de Stand vun {time}.",
+    "stale": "Dës Warnunge sinn al: déi lescht Offro war {time}.",
+    "coverage": "Den DWD warnt fir Däitschland an d'Mier ronderëm.",
+    "bannerTitle": "Wiederwarnunge fir dës Positioun",
+    "bannerSome": "Warnunge vum DWD fir dës Positioun: {count}",
+    "bannerNone": "Keng Warnung vum DWD huet e Gebitt, dat dës Positioun enthält.",
+    "bannerOutside": "D'Warnunge vum DWD gëllen nëmmen fir Däitschland. Keng Quell fir Warnunge deckt dësen Ort of.",
+    "bannerFailed": "D'Warnunge konnten net gelueden ginn.",
+    "bannerLoading": "D'Warnunge ginn gelueden …",
+    "bannerListLabel": "Warnunge fir dës Positioun, déi schwéierst als éischt",
+    "bannerNamedOnly": "Warnungen, déi den DWD nëmmen mat engem Gebittsnumm ugëtt (d'Mier, eng Küst), ginn enger Positioun net zougeuerdnet: {count}.",
+    "bannerOpenMap": "Op der Kaart kucken",
+    "legendHealth": "Hëtzt- an UV-Warnunge ginn an den eegene Faarwe vum DWD gezeechent, mat dem Rand vun hirer Stuf.",
+    "bannerNoneShort": "Keng Warnung vum DWD fir dës Positioun",
+    "bannerDetails": "Iwwer dës Warnungen"
   },
   "dataViewer": {
     "loadingValues": "Wäerter ginn gelueden …",

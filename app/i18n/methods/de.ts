@@ -360,6 +360,88 @@ export const methods: MethodTexts = {
       },
     },
 
+    warnings: {
+      title: 'Gibt es hier Warnungen?',
+      summary: 'Die amtlichen Wetterwarnungen des DWD, deren Gebiet die Position des Ortes enthält, zitiert in den eigenen Worten des DWD.',
+      data: 'Die Wetterwarnungen des DWD: der Schnappschuss aller Warnungen, die in Deutschland gelten oder angekündigt sind und die der DWD als Nachrichten des Common Alerting Protocol (CAP) veröffentlicht, im Produkt nach Gemeinden (COMMUNEUNION_DWD_STAT). Jede Warnung hat ihr Ereignis, ihre Stufe, ihre Zeiten, ihre Texte und ihr Polygon. Die Warnung ist die Aussage des DWD: wetterdienst liest sie und gibt sie weiter.',
+      steps: {
+        snapshot: 'Der neueste Schnappschuss der Warnungen des DWD wird vom Backend von wetterdienst gelesen, in der Sprache der Seite, wo der DWD seine Warnungen darin schreibt (Deutsch, Englisch, Spanisch, Französisch und Polnisch), sonst auf Deutsch. Nachrichten mit dem Status Test, Nachrichten, die andere aufheben, und Nachrichten, die ein Ereignis vorzeitig beenden (AllClear), fallen heraus.',
+        place: 'Die Position des Ortes ist die Position seiner Wetterstation. Eine Warnung gilt für den Ort, wenn ein Polygon der Warnung die Position enthält. Das Land in einem Loch eines Polygons (eine Insel in einer Warnung für das Meer um sie herum) gehört nicht zur Warnung.',
+        inforce: 'Eine Warnung zählt, solange ihr Beginn gekommen und ihr Ende nicht gekommen ist. Eine Warnung, die der DWD für später angekündigt hat, wird als angekündigt genannt, mit ihrer Zeit, und eine Warnung, deren Ende vorbei ist, bleibt weg, weil der Schnappschuss der Uhr ein paar Minuten nachgehen kann.',
+        words: 'Für jede Warnung des Ortes zitiert die Antwort die Worte des DWD, wie der DWD sie geschrieben hat: das Ereignis, die Überschrift, die Beschreibung und die Handlungsempfehlung, mit der Stufe, die der DWD gibt, ihren Zeiten und der Zeit, zu der sie ausgegeben wurde. Nichts wird hinzugefügt, gekürzt oder umformuliert, und die Antwort sagt nicht, was zu tun ist: Das ist die Anweisung des DWD.',
+      },
+      formulas: {},
+      rules: {
+        'product': {
+          text: 'Die Warnungen sind die Nachrichten des Common Alerting Protocol (CAP) des DWD, der vollständige Schnappschuss des Produkts nach Gemeinden.',
+          says: 'Der DWD sagt, er stelle seine öffentlichen Warnungen im maschinenlesbaren Format des Common Alerting Protocol bereit, damit möglichst viele Nutzer und Anwendungen sie verwenden können.',
+        },
+        'dropped': {
+          text: 'Eine Nachricht mit dem Status Test, eine, die frühere aufhebt, und eine mit dem Antworttyp AllClear (das vorzeitige oder teilweise Ende eines Ereignisses) wird nicht als Warnung gezeigt.',
+          says: 'Das Profil sagt, eine Testnachricht diene nur der technischen Prüfung und alle Empfänger ignorierten sie, eine Aufhebung hebe die früheren Nachrichten auf, die sie nennt, zum Beispiel eine irrtümlich gesendete, und eine Aktualisierung mit dem Antworttyp AllClear sage, dass das Ereignis keine Gefahr mehr darstellt, als vorzeitiges oder ausdrückliches Ende.',
+        },
+        'levels': {
+          text: 'Die Stufe einer Warnung ist die, die der DWD ihrem Schweregrad gibt: Minor ist Stufe 1, Moderate Stufe 2, Severe Stufe 3 und Extreme Stufe 4. Die Namen sind die des DWD: Wetterwarnung, markante Wetterwarnung, Unwetterwarnung und extreme Unwetterwarnung.',
+          says: 'Das Profil ordnet die vier Werte des Schweregrads den vier Stufen des DWD und ihren Farben zu: Gelb, Orange, Rot und Violett (ein dunkles Rosa in seiner Tabelle der Farben, die der DWD im Web verwendet).',
+        },
+        'preliminary': {
+          text: 'Die Vorabinformation Unwetter des DWD wird an ihrer Dringlichkeit erkannt, die Future ist, oder an ihrer deutschen Überschrift, die mit „VORABINFORMATION“ beginnt, nie an ihrem Ereigniscode. Sie wird als das gezeigt, was sie ist, als Vorabinformation, mit einer eigenen Form und einem strichpunktierten Rand und ohne Stufennummer.',
+          says: 'Das Profil nennt die Dringlichkeit Future eine Beratung, wo eine Warnung die Dringlichkeit Immediate hat, und gibt der Vorabinformation die Überschrift „VORABINFORMATION UNWETTER“. Es führt die Ereignistypen der Vorabinformation auf (schwere Gewitter, orkanartige Böen, extrem ergiebiger Dauerregen, starker Schneefall, Glatteis, starkes Tauwetter) mit denselben Codes, die eine schwere Warnung der gleichen Art hat, der Code allein unterscheidet die beiden also nicht, und gibt ihr in seiner Tabelle der Farben eine eigene Farbe.',
+        },
+        'health-colours': {
+          text: 'Die medizin-meteorologischen Warnungen (Hitze, starke Hitze, extreme Hitze und der UV-Index) werden in der Farbe gezeichnet, die der DWD mitsendet, mit dem Rand ihrer Stufe; jede andere Warnung wird in der Farbe ihrer Stufe gezeichnet.',
+          says: 'Das Profil gibt jeder Nachricht eine bevorzugte Farbe für die Darstellung und führt die Hitze- und UV-Warnungen als eigene Warnungen auf, mit eigenen Farben in der Tabelle der Farben, die der DWD im Web verwendet: sehr helles Violett, Violett und zartes Magenta.',
+        },
+        'in-force': {
+          text: 'Eine Warnung gilt von ihrem Beginn bis zu ihrem Ende; eine ohne Ende gilt, bis der DWD sie aus dem Schnappschuss nimmt. Eine, deren Beginn später liegt, ist angekündigt.',
+          says: 'Das Profil legt den Beginn als den erwarteten Anfang des Ereignisses fest und das Ende als sein erwartetes Ende und sagt, dass manche Ereignistypen kein Ende haben.',
+          reason: 'Der Schnappschuss enthält die Warnungen, die der DWD ausgegeben hat, die geltenden und die für später angekündigten. Welche davon jetzt gelten, wird hier aus ihren eigenen Zeiten entschieden, weil der Schnappschuss ein paar Minuten älter sein kann als die Uhr.',
+        },
+        'polygon': {
+          text: 'Eine Warnung gilt für den Ort, wenn eines ihrer Polygone die Position enthält und die Position nicht in einem Loch dieses Polygons liegt.',
+          says: 'Das Profil beschreibt das Gebiet einer Warnung als Polygon und die Löcher („Ausschlusspolygone“) als Gebiete ohne Warnung, die daraus ausgeschnitten werden.',
+        },
+        'edge': {
+          text: 'Eine Position genau auf dem Rand eines Polygons liegt darin.',
+          reason: 'Eine Position auf der Grenze zwischen zwei gewarnten Gebieten gehört dann zu beiden und nicht zu keinem. Das ist auch die Regel des Backends von wetterdienst für seinen eigenen Filter nach Punkt; keine Quelle schreibt sie vor.',
+        },
+        'named-only': {
+          text: 'Eine Warnung ohne Polygon, nur mit einem Gebietsnamen und einer Warnzelle (das Meer und die Küste, im Produkt nach Gemeinden), wird nie einer Position zugeordnet: Die Antwort sagt, wie viele es gibt und dass die Karte sie auflistet.',
+          says: 'Das Profil sagt, ein Gebiet sei entweder ein Polygon oder eine geografische Einheit, die durch ihre Geocodes angegeben wird, und führt die Warnzellen der Meere und der Küstengebiete als eigene Typen auf.',
+          reason: 'Eine solche Warnung über ihren Namen einem Ort zuzuordnen wäre geraten: Ein Name, der passt, sagt nichts darüber, ob der Ort im gewarnten Gebiet liegt. wetterdienst rät nicht und zeichnet keinen Umriss, den der DWD nicht gegeben hat.',
+        },
+        'coverage': {
+          text: 'Der DWD warnt für Deutschland und das Meer um es herum. Von einem Ort außerhalb des Rechtecks von {west}° bis {east}° Ost und {south}° bis {north}° Nord heißt es, dass es für ihn keine Quelle für Warnungen gibt, und nichts wird für ihn abgefragt.',
+          reason: 'Das Rechteck ist die Ausdehnung, die wetterdienst für das Netz der Warnungen angibt. Es ist grob und reicht in die Nachbarländer hinein, ein Ort darin kann also trotzdem außerhalb Deutschlands liegen; die Antwort sagt dann, dass keine Warnung des DWD ein Gebiet hat, das ihn enthält, und das stimmt.',
+        },
+        'language': {
+          text: 'Die Texte sind die des DWD, in der Sprache der Seite, wo der DWD sie schreibt (Deutsch, Englisch, Spanisch, Französisch und Polnisch); in jeder anderen Sprache wird der deutsche Text gezeigt, mit einem Hinweis.',
+          reason: 'Der deutsche Text des DWD ist das Original, das jede Warnung hat. Eine Übersetzung durch wetterdienst würde dem DWD Worte in den Mund legen. Wo der DWD keinen Text in der Sprache der Seite hat, zeigt wetterdienst deshalb den deutschen Text des DWD und sagt das.',
+        },
+        'order': {
+          text: 'Die höchste Stufe steht zuerst, die geltenden vor den angekündigten, dann der frühere Beginn.',
+          reason: 'Wer nur die erste Zeile liest, soll die höchste Stufe lesen, die der DWD gibt. Die Reihenfolge stuft nichts ein, was der DWD nicht eingestuft hat: Die Stufe ist die des DWD.',
+        },
+        'refresh': {
+          text: 'Der Schnappschuss wird alle {minutes} Minuten neu abgefragt, solange eine Seite mit Warnungen offen ist, und gilt nach {staleMinutes} Minuten ohne einen neuen als alt.',
+          reason: 'Das Backend hält den neuesten Schnappschuss {minutes} Minuten vor, wer früher fragt, fragt also nach derselben Datei. {staleMinutes} Minuten sind drei verpasste Abfragen: Die Seite sagt dann, dass das Gezeigte alt ist, statt es als den Himmel von jetzt zu zeigen.',
+        },
+      },
+      limits: {
+        statement: 'Die Antwort ist, was der DWD sagt, keine Vorhersage von uns. Sie kann nicht sagen, dass nichts geschieht: Keine Warnung des DWD für einen Ort ist kein Versprechen von Ruhe, und eine Warnung ist kein Versprechen, dass es am Ort eintritt.',
+        polygon: 'Ein Polygon folgt den Grenzen der Gemeinden oder Kreise, für die eine Warnung ausgegeben ist, ein Ort liegt also nach diesem Polygon darin oder nicht. Die Position ist die der Wetterstation, die einige Kilometer von dem Ort entfernt sein kann, der gemeint ist.',
+        named: 'Warnungen, die der DWD nur mit einem Namen angibt, das Meer und die Küste, haben in diesem Produkt kein Polygon und werden nie einem Ort zugeordnet. Die Karte listet sie auf.',
+        altitude: 'Die Polygone des DWD folgen den Grenzen der Gemeinden, und die Höhengrenzen einer Warnung (eine Warnung für Höhen über 1000 m, zum Beispiel) liest das Backend von wetterdienst nicht: In der App gilt die Warnung für die ganze Gemeinde, und ihre Beschreibung nennt die Höhe.',
+        time: 'Die Zeiten sind in der Zeitzone des Geräts des Lesers geschrieben. Der Schnappschuss kann beim Lesen ein paar Minuten alt sein, und die Zeit der Abfrage steht unter der Antwort.',
+      },
+      numbers: {
+        place: 'Ort: {place}, bei {latitude}, {longitude} (die Position seiner Wetterstation).',
+        count: 'Geltende oder angekündigte Warnungen: {here} für diese Position, {total} in Deutschland.',
+        named: 'Warnungen, die nur ein Gebiet nennen und keiner Position zugeordnet werden: {count}.',
+        checked: 'Der Schnappschuss wurde um {time} abgefragt; der DWD gab seine neueste Warnmeldung um {latest} aus.',
+      },
+    },
+
     download: {
       title: 'Wo kann ich stündliche Temperaturen herunterladen?',
       summary: 'Die Wetterdienste, deren Messungen wetterdienst im Stundenschritt mit der Lufttemperatur darin lesen kann.',
@@ -427,6 +509,9 @@ export const methods: MethodTexts = {
     },
     'dwd-warnings': {
       plain: `${DWD} Er veröffentlicht die Kriterien seiner Wetterwarnungen. Für den Wind nennen sie für jede Warnstufe eine Böengeschwindigkeit in km/h und die zugehörige Stärke der Beaufortskala, in etwa 10 m Höhe über offenem Gelände.`,
+    },
+    'dwd-cap-profile': {
+      plain: `${DWD} Sein CAP-Profil beschreibt das Format seiner Warnnachrichten. Hier gibt es die vier Stufen des Schweregrads und ihre Farben, den Status und die Art einer Nachricht (Test und Aufhebung), die Polygone und die Löcher, die daraus ausgeschnitten werden, die Vorabinformation Unwetter und die Typen der Warnzellen.`,
     },
     'dwd-mosmix': {
       plain: `${DWD} MOSMIX ist seine Vorhersage für Orte: Sie nimmt die Vorhersagen von Wettermodellen und korrigiert sie statistisch mit dem, was Wetterstationen gemessen haben, weil jedes Modell den Boden vereinfacht und systematische Fehler hat.`,

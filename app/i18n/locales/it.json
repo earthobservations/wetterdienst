@@ -80,6 +80,7 @@
     "q": {
       "rain": "Domani pioverà a {place}?",
       "season": "{last} {warmth} del solito qui?",
+      "warnings": "Ci sono avvisi qui?",
       "download": "Dove posso scaricare le temperature orarie?",
       "day": {
         "wind": "Quanto vento c'era il {day}?",
@@ -92,6 +93,7 @@
     "from": {
       "rain": "Previsioni, DWD MOSMIX",
       "season": "Medie mensili, DWD",
+      "warnings": "Avvisi ufficiali, DWD",
       "download": "Tutti i servizi meteorologici",
       "day": "Dati giornalieri, DWD"
     },
@@ -261,6 +263,17 @@
       "detail": "Ognuno si apre nell'Esploratore, pronto da scaricare in CSV, JSON o GeoJSON.",
       "none": "Al momento nessun servizio meteorologico pubblica la temperatura oraria dell'aria.",
       "api": "Oppure usa l'API REST"
+    },
+    "quotesLabel": "Testi citati",
+    "warnings": {
+      "none": "No. Nessun avviso del DWD ha ora un'area che contenga {place}.",
+      "some": "Sì. Il DWD ha avvisi per {place}.",
+      "highest": "Il livello più alto: {level}.",
+      "namedOnly": "Altri avvisi che nominano solo un'area (il mare, una costa), {count} in tutto, non si possono associare a {place}.",
+      "quote": "Sono le parole del DWD stesso. wetterdienst non le valuta, non le accorcia e non le riformula.",
+      "outside": "Gli avvisi del DWD valgono solo per la Germania. Nessuna fonte di avvisi copre {place}.",
+      "open": "Mostra gli avvisi sulla mappa",
+      "checked": "Consultato: {time}."
     }
   },
   "seo": {
@@ -1312,6 +1325,61 @@
     "positionHide": "Nascondi la mia posizione sulla mappa",
     "positionShow": "Mostra la mia posizione sulla mappa",
     "positionMarker": "La tua posizione, arrotondata a circa 1 km"
+  },
+  "warnings": {
+    "chip": "Avvisi",
+    "chipCount": "Avvisi: {count}",
+    "level": {
+      "1": "Avviso meteo",
+      "2": "Avviso meteo marcato",
+      "3": "Avviso di maltempo severo",
+      "4": "Avviso di maltempo severo estremo",
+      "preliminary": "Informazione preliminare su maltempo severo",
+      "unknown": "Avviso, livello non indicato"
+    },
+    "levelOf": "Livello {level} di 4",
+    "inForce": "In vigore",
+    "upcoming": "Annunciato",
+    "fromTo": "da {from} a {to}",
+    "fromOpen": "da {from}",
+    "until": "fino a {to}",
+    "issued": "Emesso {time}",
+    "untitled": "Avviso meteo",
+    "type": "Tipo",
+    "levelLabel": "Livello",
+    "valid": "Validità",
+    "issuedLabel": "Emesso",
+    "areasLabel": "Aree",
+    "areasMore": "e altre {count}",
+    "textGerman": "Testo originale del DWD, in tedesco: il DWD non pubblica questo avviso nella tua lingua.",
+    "legendDescription": "Contorni degli avvisi: il livello 1 ha il bordo a puntini, il livello 2 tratteggiato, il livello 3 continuo e il livello 4 a doppia linea; l'informazione preliminare ha il bordo a tratto e punto. L'elenco nel pannello nomina ogni avviso a parole.",
+    "panelTitle": "Avvisi meteo del DWD",
+    "panelCount": "Avvisi in vigore o annunciati in Germania: {count}",
+    "panelNone": "Nessun avviso è in vigore o annunciato in Germania.",
+    "panelLoading": "Caricamento degli avvisi …",
+    "failed": "Non è stato possibile caricare gli avvisi.",
+    "listLabel": "Avvisi, i più gravi per primi",
+    "showAll": "Mostra tutti e {count}",
+    "showFewer": "Mostra meno",
+    "asideTitle": "Avvisi per aree che la mappa non può disegnare",
+    "asideNote": "Il DWD indica l'area di questi avvisi (il mare, una costa) ma non ne dà il contorno, perciò non ne viene disegnato nessuno.",
+    "checked": "Consultato: {time}.",
+    "refreshNote": "Richiesto di nuovo ogni 5 minuti finché questa pagina è aperta.",
+    "refreshFailed": "Non è stato possibile aggiornare gli avvisi. Sono mostrati quelli di {time}.",
+    "stale": "Questi avvisi sono vecchi: l'ultima consultazione risale a {time}.",
+    "coverage": "Il DWD emette avvisi per la Germania e il mare che la circonda.",
+    "bannerTitle": "Avvisi meteo per questa posizione",
+    "bannerSome": "Avvisi del DWD per questa posizione: {count}",
+    "bannerNone": "Nessun avviso del DWD ha un'area che contenga questa posizione.",
+    "bannerOutside": "Gli avvisi del DWD valgono solo per la Germania. Nessuna fonte di avvisi copre questo luogo.",
+    "bannerFailed": "Non è stato possibile caricare gli avvisi.",
+    "bannerLoading": "Caricamento degli avvisi …",
+    "bannerListLabel": "Avvisi per questa posizione, i più gravi per primi",
+    "bannerNamedOnly": "Gli avvisi che il DWD indica solo con il nome di un'area (il mare, una costa) non sono associati a una posizione: {count}.",
+    "bannerOpenMap": "Vedili sulla mappa",
+    "legendHealth": "Gli avvisi di caldo e UV sono disegnati con i colori propri del DWD, con il bordo del loro livello.",
+    "bannerNoneShort": "Nessun avviso del DWD per questa posizione",
+    "bannerDetails": "Su questi avvisi"
   },
   "dataViewer": {
     "loadingValues": "Caricamento dei valori …",

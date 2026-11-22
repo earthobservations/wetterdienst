@@ -34,6 +34,8 @@ const LISTS: Record<string, string> = {
   '/api/issues': 'issues',
   '/api/history': 'histories',
   '/api/storm-cells': 'cells',
+  // DWD's weather warnings (GH-4295): an empty list is a quiet day's answer, not a missing one
+  '/api/alerts': 'alerts',
   '/api/radar/frames': 'frames',
   // the app's own server's list of the stations of GHCN daily, as columns (GH-4267)
   '/_ghcn/map-stations': 'station_id',

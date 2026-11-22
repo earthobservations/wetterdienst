@@ -17,6 +17,7 @@ import { radarPng } from '../../helpers/radar-image'
 import { emptyScan } from '../../helpers/storm-cells-answer'
 import { stripesAnswer } from '../../helpers/stripes-answer'
 import { ghcnAnnualOfFixture, valuesOfFixture } from '../../helpers/stripes-backend'
+import { alertsAnswer } from '../../helpers/warnings-answer'
 
 // What the accessibility spec shows the app instead of a backend.
 //
@@ -525,6 +526,8 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     '_ghcn/annual': url => stripesValues(url.searchParams.get('station'), 'midrange'),
     // the usual scan of the thunderstorm cells: none (GH-4208), and the radar's loop of 49 frames, each an image of cells of rain that drift east (GH-3788)
     'storm-cells': () => emptyScan(),
+    // DWD's weather warnings (GH-4295): the realistic snapshot of `tests/helpers/warnings-answer.ts`, one of which has no polygon, in the language of the product asked for
+    'alerts': url => alertsAnswer({ now: now.getTime(), language: url.searchParams.get('language') ?? 'en' }),
     'radar/frames': () => radarAnswer({ now: now.getTime() }),
     'radar/frame': (url) => {
       const start = Math.floor(now.getTime() / 300_000) * 300_000

@@ -48,6 +48,7 @@ import {
   yearOf,
 } from '~/utils/map-tool'
 import { fetchStripesStations, stripesFetch } from '~/utils/stripes-source'
+import { drawn, drawnOf, inWarningBox, withoutOutline } from '~/utils/warnings'
 
 // The map tool (GH-3650), from the design of #3580: the stations of the layer chosen in the panel of the layers button over the map, and a
 // panel beside it (a sheet under it on a phone) that finds a station by name, lists the ones near the centre of the
@@ -313,6 +314,43 @@ const selected = computed<PlacedStation | null>(() => {
 })
 /** The place picked on the map, where it is not the station itself (more than half a kilometre from it) */
 const place = computed(() => anchor.value && selected.value && distanceKm(anchor.value, selected.value) > SAME_PLACE_KM ? anchor.value : null)
+// ---- DWD's weather warnings (GH-4295) ---------------------------------------------------------------------------
+
+// A layer over the stations, switched by the chip over the map (`?warnings=1` in the address): the outlines of the warnings in force or announced,
+// drawn under the dots, and in the panel their list (the keyboard's way to a warning) and, for the station or place picked, the banner of the
+// warnings whose polygon contains it. The snapshot is asked for while the layer is on, or a station is picked (the banner is there with the layer
+// off as well), and every 5 minutes after. A warning DWD gives by area name alone has no polygon: it is listed apart and never drawn.
+const warningsOn = ref(route.query.warnings === '1')
+/** The place the banner is about: the place picked on the map where there is one, else the station's position */
+const bannerPoint = computed<Point | null>(() => anchor.value ?? (selected.value ? { latitude: selected.value.latitude, longitude: selected.value.longitude } : null))
+// the snapshot is asked for while the layer is on, or for a place picked that DWD warns for: nothing is asked for a place outside Germany
+const warnings = useWarnings(() => warningsOn.value || (bannerPoint.value !== null && inWarningBox(bannerPoint.value)))
+/** The warning opened in the list, which the map draws stronger */
+const focusedWarning = ref<string | null>(null)
+/** A warning opened in the list: the map moves to show it, once for each press */
+const showWarning = ref<{ count: number, bounds: { south: number, west: number, north: number, east: number } } | null>(null)
+let warningPresses = 0
+function onWarningFocus(id: string | null) {
+  focusedWarning.value = id
+  const box = id ? warnings.snapshot.value?.warnings.find(warning => warning.id === id)?.box : null
+  if (box)
+    showWarning.value = { count: ++warningPresses, bounds: box }
+}
+const warningsDrawn = computed(() => warningsOn.value && warnings.snapshot.value
+  ? drawnOf(drawn(warnings.snapshot.value.warnings, warnings.now.value), focusedWarning.value)
+  : undefined)
+/** The outlines and the list are about the snapshot in hand: none to count while it has not come */
+const warningsCount = computed(() => warnings.snapshot.value ? drawn(warnings.snapshot.value.warnings, warnings.now.value).length + withoutOutline(warnings.snapshot.value.warnings, warnings.now.value).length : null)
+const warningsChipLabel = computed(() => warningsOn.value && warningsCount.value !== null ? t('warnings.chipCount', { count: warningsCount.value }) : t('warnings.chip'))
+/** The credit line of the outlines in the map's attribution, while they are drawn */
+const warningsCredit = computed(() => {
+  const credit = warningsOn.value ? warnings.snapshot.value?.credit : null
+  return credit?.attribution ? [{ text: credit.attribution, license: credit.license ? { label: credit.license.spdx ?? credit.license.name, url: credit.license.url } : null }] : []
+})
+watch(warningsOn, (on) => {
+  if (!on)
+    focusedWarning.value = null
+})
 /** The number of a station of the address that the layer does not have, told in the panel */
 const unknownStation = ref<string | null>(null)
 /** A point that the layer has no station within reach of, told in the panel */
@@ -459,14 +497,16 @@ const reporting = computed(() => layer.value === 'measured' ? reportingRule(stat
  * Whether the legend of the dots and the groups has something to say: on the measuring layer (a filled dot reports, a hollow one has
  * stopped) and where the stations are grouped at this zoom. It is in the layers panel (GH-4227), and the map's own description says it too
  */
-const legendShown = computed(() => (Boolean(reporting.value) || groupedNow.value) && listStatus.value === 'success' && stations.value.length > 0)
+const stationLegendShown = computed(() => (Boolean(reporting.value) || groupedNow.value) && listStatus.value === 'success' && stations.value.length > 0)
+const legendShown = computed(() => stationLegendShown.value || warningsOn.value)
 /** The legend as sentences, for the map's description (a screen reader does not see the dots and the discs, nor opens the panel to learn what they are) */
 const legendDescription = computed(() => {
   if (!legendShown.value)
     return ''
   const sentences = [
-    ...(reporting.value ? [t('mapTool.legendDotsDescription')] : []),
+    ...(reporting.value && stationLegendShown.value ? [t('mapTool.legendDotsDescription')] : []),
     ...(groupedNow.value ? [reporting.value ? t('mapTool.legendGroupShare') : t('mapTool.legendGroup')] : []),
+    ...(warningsOn.value ? [t('warnings.legendDescription')] : []),
   ]
   return sentences.map(sentence => `${sentence.replace(/\.$/, '')}.`).join(' ')
 })
@@ -883,11 +923,19 @@ const queryOf = (map: MapState) => JSON.stringify(stateToQuery(map))
 
 watch(state, (shown) => {
   // the keys that are the map's are replaced, any other the address has stays
-  const rest = Object.fromEntries(Object.entries(route.query).filter(([key]) => !['layer', 'resolution', 'dataset', 'station', 'lat', 'lon', 'q'].includes(key)))
+  const rest = Object.fromEntries(Object.entries(route.query).filter(([key]) => !['layer', 'resolution', 'dataset', 'station', 'lat', 'lon', 'q', 'warnings'].includes(key)))
   // always asked, even where the address already says it: a write of an earlier state that is still on its way is then
   // replaced by this one (the router lets the newer navigation cancel the older), and does not land after it. A
   // rejected or duplicate navigation is no error of the page
-  void router.replace({ query: { ...rest, ...stateToQuery(shown) } }).catch(() => {})
+  void router.replace({ query: { ...rest, ...stateToQuery(shown), ...(warningsOn.value ? { warnings: '1' } : {}) } }).catch(() => {})
+})
+// the chip is in the address too (`?warnings=1`), so that a link opens the map with the warnings on, as the Ask the weather question's does
+watch(warningsOn, (on) => {
+  const { warnings: _, ...rest } = route.query
+  void router.replace({ query: { ...rest, ...(on ? { warnings: '1' } : {}) } }).catch(() => {})
+})
+watch(() => route.query.warnings, (value) => {
+  warningsOn.value = value === '1'
 })
 
 // An address that names another map than the one shown, from outside the page (the header's search while the map is
@@ -988,6 +1036,9 @@ function takeAddress(query: Record<string, unknown>) {
                      list and the card are never both in the page, so there is one of them to tab to -->
                 <UseMyLocation v-if="origin.kind === 'position'" offer-only class="mt-2" @forgotten="focusDetailHeading" />
               </div>
+
+              <!-- DWD's warnings whose polygon contains the place picked (GH-4295): with the layer on or off, for the station or the place of the pick -->
+              <WarningsBanner v-if="bannerPoint" :point="bannerPoint" :source="warnings" id-prefix="map-banner" data-testid="map-warnings-banner" />
 
               <!-- the forecast, at the nearest forecast point -->
               <section class="map-card" aria-labelledby="map-forecast-title" data-testid="map-card-forecast">
@@ -1134,6 +1185,9 @@ function takeAddress(query: Record<string, unknown>) {
               <p v-if="noStationNear" class="text-sm text-warning" role="status" data-testid="map-none-near">
                 {{ t('mapTool.noStationNear', { distance: reach }) }}
               </p>
+              <!-- the layer's list of the warnings, and for a click that found no station the warnings of the place (GH-4295) -->
+              <WarningsBanner v-if="warningsOn && noStationNear && anchor" :point="anchor" :source="warnings" id-prefix="map-place-banner" />
+              <WarningsPanel v-if="warningsOn" :source="warnings" :focused="focusedWarning" @focus="onWarningFocus" />
               <p v-if="listStatus === 'success'" class="text-sm text-muted sm:hidden" data-testid="map-count-panel">
                 {{ countLabel }}
               </p>
@@ -1224,7 +1278,7 @@ function takeAddress(query: Record<string, unknown>) {
                       </template>
                     </template>
                     <template #legend>
-                      <ul class="map-legend" data-testid="map-legend">
+                      <ul v-if="stationLegendShown" class="map-legend" data-testid="map-legend">
                         <template v-if="reporting">
                           <li>
                             <span class="map-legend-dot" aria-hidden="true" data-testid="map-legend-reporting" />
@@ -1240,6 +1294,7 @@ function takeAddress(query: Record<string, unknown>) {
                           {{ reporting ? t('mapTool.legendGroupShare') : t('mapTool.legendGroup') }}
                         </li>
                       </ul>
+                      <WarningsLegend v-if="warningsOn" />
                     </template>
                   </MapLayers>
                 </div>
@@ -1251,6 +1306,11 @@ function takeAddress(query: Record<string, unknown>) {
                       <UIcon name="i-ph-circle-notch" class="size-4 motion-safe:animate-spin" />
                       {{ t('mapTool.loadingStations') }}
                     </span>
+                    <!-- the layer of DWD's weather warnings (GH-4295): a toggle, whose state is `aria-pressed` and, for the eye, a check beside the label (no colour alone) -->
+                    <button type="button" class="map-status map-chip" :aria-pressed="warningsOn" data-testid="map-warnings-chip" @click="warningsOn = !warningsOn">
+                      <UIcon :name="warningsOn ? 'i-ph-check-circle-fill' : 'i-ph-warning'" class="size-4" aria-hidden="true" />
+                      {{ warningsChipLabel }}
+                    </button>
                   </div>
                   <UAlert
                     v-if="listStatus === 'error'"
@@ -1274,6 +1334,9 @@ function takeAddress(query: Record<string, unknown>) {
                     :stations="stations"
                     :selected="selected"
                     :recentre="recentre"
+                    :warnings="warningsDrawn"
+                    :show-warning="showWarning"
+                    :credits="warningsCredit"
                     :go-to="goTo"
                     :position="myPosition"
                     :locate="locateCount"
@@ -1535,6 +1598,22 @@ function takeAddress(query: Record<string, unknown>) {
   overflow: visible;
   white-space: normal;
   text-overflow: clip;
+}
+.map-status.map-chip {
+  min-height: 2.75rem;
+  padding-inline: 1rem;
+  border: 1px solid var(--ui-border-accented);
+  font-weight: 600;
+  cursor: pointer;
+}
+.map-status.map-chip:hover {
+  background: var(--ui-bg-elevated);
+}
+/* on: the edge is heavier and the label bolder as well as the check, so the state is no colour alone */
+.map-status.map-chip[aria-pressed="true"] {
+  border-color: var(--ui-text-highlighted);
+  border-width: 2px;
+  color: var(--ui-text-highlighted);
 }
 .map-status {
   display: inline-flex;

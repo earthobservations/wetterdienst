@@ -80,6 +80,7 @@
     "q": {
       "rain": "Regner det i {place} i morgen?",
       "season": "Var {last} {warmth} end normalt her?",
+      "warnings": "Er der varsler her?",
       "download": "Hvor kan jeg downloade timetemperaturer?",
       "day": {
         "wind": "Hvor meget blæste det den {day}?",
@@ -92,6 +93,7 @@
     "from": {
       "rain": "Udsigt, DWD MOSMIX",
       "season": "Månedsmiddel, DWD",
+      "warnings": "Officielle varsler, DWD",
       "download": "Alle vejrtjenester",
       "day": "Døgnværdier, DWD"
     },
@@ -261,6 +263,17 @@
       "detail": "Hver enkelt åbner i Udforskeren, klar til download som CSV, JSON eller GeoJSON.",
       "none": "Ingen vejrtjeneste udgiver lufttemperatur pr. time lige nu.",
       "api": "Eller brug REST-API'et"
+    },
+    "quotesLabel": "Citerede tekster",
+    "warnings": {
+      "none": "Nej. Intet varsel fra DWD har lige nu et område, der indeholder {place}.",
+      "some": "Ja. DWD har varsler for {place}.",
+      "highest": "Det højeste niveau: {level}.",
+      "namedOnly": "Yderligere varsler, der kun nævner et område (havet, en kyst), {count} i alt, kan ikke knyttes til {place}.",
+      "quote": "Det er DWD's egne ord. wetterdienst vurderer, forkorter eller omformulerer dem ikke.",
+      "outside": "DWD's varsler dækker kun Tyskland. Ingen kilde til varsler dækker {place}.",
+      "open": "Vis varslerne på kortet",
+      "checked": "Hentet: {time}."
     }
   },
   "seo": {
@@ -1312,6 +1325,61 @@
     "positionHide": "Skjul min placering på kortet",
     "positionShow": "Vis min placering på kortet",
     "positionMarker": "Din placering, afrundet til omkring 1 km"
+  },
+  "warnings": {
+    "chip": "Varsler",
+    "chipCount": "Varsler: {count}",
+    "level": {
+      "1": "Vejrvarsel",
+      "2": "Markant vejrvarsel",
+      "3": "Varsel om hårdt vejr",
+      "4": "Varsel om ekstremt hårdt vejr",
+      "preliminary": "Forhåndsinformation om hårdt vejr",
+      "unknown": "Varsel uden angivet niveau"
+    },
+    "levelOf": "Niveau {level} af 4",
+    "inForce": "Gælder",
+    "upcoming": "Varslet",
+    "fromTo": "fra {from} til {to}",
+    "fromOpen": "fra {from}",
+    "until": "til {to}",
+    "issued": "Udsendt {time}",
+    "untitled": "Vejrvarsel",
+    "type": "Varseltype",
+    "levelLabel": "Niveau",
+    "valid": "Gyldig",
+    "issuedLabel": "Udsendt",
+    "areasLabel": "Områder",
+    "areasMore": "og {count} flere",
+    "textGerman": "DWD's egen tekst, på tysk: DWD udsender ikke dette varsel på dit sprog.",
+    "legendDescription": "Varslernes omrids: niveau 1 har en prikket kant, niveau 2 en stiplet, niveau 3 en hel og niveau 4 en dobbeltlinje; forhåndsinformation har en kant med streg og prik. Listen i panelet nævner hvert varsel med ord.",
+    "panelTitle": "DWD's vejrvarsler",
+    "panelCount": "Varsler, der gælder eller er varslet i Tyskland: {count}",
+    "panelNone": "Intet varsel gælder eller er varslet i Tyskland.",
+    "panelLoading": "Indlæser varslerne …",
+    "failed": "Varslerne kunne ikke indlæses.",
+    "listLabel": "Varsler, de alvorligste først",
+    "showAll": "Vis alle {count}",
+    "showFewer": "Vis færre",
+    "asideTitle": "Varsler for områder, kortet ikke kan tegne",
+    "asideNote": "DWD nævner området for disse varsler (havet, en kyst) men giver ikke noget omrids, så der tegnes intet.",
+    "checked": "Hentet: {time}.",
+    "refreshNote": "Hentes igen hvert 5. minut, mens denne side er åben.",
+    "refreshFailed": "Varslerne kunne ikke opdateres. Der vises dem fra {time}.",
+    "stale": "Disse varsler er gamle: sidste kontrol var {time}.",
+    "coverage": "DWD varsler for Tyskland og havet omkring.",
+    "bannerTitle": "Vejrvarsler for denne position",
+    "bannerSome": "DWD's varsler for denne position: {count}",
+    "bannerNone": "Intet varsel fra DWD har et område, der indeholder denne position.",
+    "bannerOutside": "DWD's varsler dækker kun Tyskland. Ingen kilde til varsler dækker dette sted.",
+    "bannerFailed": "Varslerne kunne ikke indlæses.",
+    "bannerLoading": "Indlæser varslerne …",
+    "bannerListLabel": "Varsler for denne position, de alvorligste først",
+    "bannerNamedOnly": "Varsler, som DWD kun giver med et områdenavn (havet, en kyst), knyttes ikke til en position: {count}.",
+    "bannerOpenMap": "Se dem på kortet",
+    "legendHealth": "Varsler om hede og UV tegnes i DWD's egne farver til dem, med kanten for deres niveau.",
+    "bannerNoneShort": "Intet varsel fra DWD for denne position",
+    "bannerDetails": "Om disse varsler"
   },
   "dataViewer": {
     "loadingValues": "Indlæser værdier …",

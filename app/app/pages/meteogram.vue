@@ -447,6 +447,14 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
                 />
               </div>
             </template>
+            <!-- DWD's warnings whose polygon contains the forecast point (GH-4295), over the chart: a polite status, and rows that open to DWD's own words -->
+            <WarningsBanner
+              v-if="selectedStation.latitude != null && selectedStation.longitude != null"
+              :point="{ latitude: selectedStation.latitude, longitude: selectedStation.longitude }"
+              map-link
+              id-prefix="forecast-banner"
+              class="mb-4"
+            />
             <Meteogram
               :values="values"
               :snow-values="snowValues"
