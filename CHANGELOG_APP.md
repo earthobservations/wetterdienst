@@ -78,8 +78,9 @@ Types of changes:
   (`#water-level`, from WMO's Guide to Hydrological Practices, WMO-No. 168, Volume I, and the pages
   of WSV, the Environment Agency, Hub'Eau and IMGW) and data quality (`#data-quality`, in the new
   section "Reading the data": the flags of the sources and wetterdienst's plausibility checks).
-  Radar rests on WMO-No. 8, Volume III, Chapter 7, and DWD's pages on its radar network, composites,
-  RADVOR and RADOLAN. The Glossary links `stage_*`, `discharge_*` and `groundwater_level` to water
+  Radar rests on WMO-No. 8, Volume III, Chapter 7, and DWD's pages on its radar network, its
+  composites with their forecast by displacement (the principle from RADVOR, its nowcasting system
+  until February 2026) and RADOLAN. The Glossary links `stage_*`, `discharge_*` and `groundwater_level` to water
   level and discharge. The search index may be 55 kB gzipped for a language (it was 50), since the
   largest, Luxembourgish, is 50.7 kB with them (GH-3787).
 - `[Search]` The search finds stations by name (from three letters) in the lists you choose in the
