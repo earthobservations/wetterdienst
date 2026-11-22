@@ -22,20 +22,23 @@ export const TOPICS = [
   'clouds',
   'snow',
   'automatic-stations',
+  'radar',
   'urban-stations',
   'road-stations',
   'from-measurement-to-value',
   'normals',
+  'water-level',
   'time',
   'observation-forecast-derived',
+  'data-quality',
 ] as const
 
 export type TopicId = (typeof TOPICS)[number]
 
 /** The two sections of the page: the measurements (and the normals that sum them up), and how to read the data */
 export const TOPIC_GROUPS: readonly { id: 'measured' | 'reading', topics: readonly TopicId[] }[] = [
-  { id: 'measured', topics: ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'evaporation', 'soil-moisture', 'present-weather', 'clouds', 'snow', 'automatic-stations', 'urban-stations', 'road-stations', 'from-measurement-to-value', 'normals'] },
-  { id: 'reading', topics: ['time', 'observation-forecast-derived'] },
+  { id: 'measured', topics: ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'evaporation', 'soil-moisture', 'present-weather', 'clouds', 'snow', 'automatic-stations', 'radar', 'urban-stations', 'road-stations', 'from-measurement-to-value', 'normals', 'water-level'] },
+  { id: 'reading', topics: ['time', 'observation-forecast-derived', 'data-quality'] },
 ]
 
 /** Whether a string is the id of an entry */
@@ -67,12 +70,15 @@ export interface TopicRule {
  *
  * The names are the backend's canonical ones, which are built from the quantity first (`temperature_air_max_2m`), so a
  * pattern on the beginning of the name takes a family of them. What a rule leaves out is left out on purpose and
- * `tests/unit/measurement.test.ts` names it: the water temperature is hydrology, whose entry is not written yet; the
- * form of precipitation, the UV index, the cloud density, the counts of days, the frozen and thawed layers of the ground,
- * the radiant temperature of the urban stations, the road surface condition of a forecast, the forecast probabilities and
- * the forecast errors are not what the entries explain. The entries on the kinds of station (automatic, urban, road) and on
- * how a value is formed explain no parameter, except that of the road stations, which explains the road surface: a mean, a
- * maximum or a minimum is in the name of a parameter of any quantity, and its quantity's entry says what it is.
+ * `tests/unit/measurement.test.ts` names it: the water temperature, the speed and the direction of the current and the
+ * height of the gauge of GHCN-Daily (the entry on water level and discharge explains the level, the discharge and the
+ * groundwater level, and these are none of them), the form of precipitation, the UV index, the cloud density, the counts
+ * of days, the frozen and thawed layers of the ground, the radiant temperature of the urban stations, the road surface
+ * condition of a forecast, the forecast probabilities and the forecast errors are not what the entries explain. The
+ * entries on the kinds of station (automatic, urban, road), on radar, on how a value is formed and on the quality of the
+ * data explain no parameter, except that of the road stations, which explains the road surface: a mean, a maximum or a
+ * minimum is in the name of a parameter of any quantity, and its quantity's entry says what it is; radar has no parameter
+ * of the glossary, and the quality flags are no parameters (`/api/glossary` leaves them out).
  *
  * A parameter whose name ends in `_normal` is a normal of the provider (`sunshine_duration_normal`), whatever it is a
  * normal of, so that rule comes first.
@@ -94,7 +100,27 @@ export const TOPIC_RULES: readonly TopicRule[] = [
   { topic: 'snow', pattern: /^(?:snow_(?:depth|cover)|water_equivalent_snow_depth)(?:_|$)/, shown: ['snow_depth_*', 'snow_cover', 'water_equivalent_snow_depth_*'] },
   // the names of exactly these three: the forecast's `road_surface_condition_forecast` and the grass probe's `temperature_surface_mean` are no road station
   { topic: 'road-stations', pattern: /^(?:road_surface_condition|water_film_thickness|temperature_surface)$/, shown: ['road_surface_condition', 'water_film_thickness', 'temperature_surface'] },
+  // the level and the discharge of a gauge, and the level of the groundwater table: not the water temperature or the current
+  { topic: 'water-level', pattern: /^(?:stage|discharge|groundwater_level)(?:_|$)/, shown: ['stage_*', 'discharge_*', 'groundwater_level'] },
 ]
+
+/**
+ * The tools of the app an entry points to, for a reader who wants to see what the entry describes: the page of the tool
+ * and the key of the catalog (`i18n/locales`) of the words of the link.
+ */
+export const TOPIC_TOOLS: Partial<Record<TopicId, readonly { to: string, labelKey: string }[]>> = {
+  radar: [{ to: '/radar', labelKey: 'measurement.toolRadar' }],
+}
+
+/**
+ * The tools of the app an entry points to.
+ *
+ * @param topic The id of the entry
+ * @returns The page and the label key of each tool, none for an entry that points to no tool
+ */
+export function topicTools(topic: TopicId): readonly { to: string, labelKey: string }[] {
+  return TOPIC_TOOLS[topic] ?? []
+}
 
 /**
  * The entry that explains a parameter of the glossary.

@@ -10,6 +10,7 @@ import {
   topicLabelKey,
   topicOfParameter,
   TOPICS,
+  topicTools,
 } from '../../app/utils/measurement'
 import { measurement as de } from '../../i18n/measurement/de'
 import { measurement as en } from '../../i18n/measurement/en'
@@ -44,7 +45,7 @@ describe('the anchors', () => {
       expect(topic, topic).toMatch(/^[a-z]+(?:-[a-z]+)*$/)
   })
 
-  it('are the twenty entries written so far, in the order of the issue', () => {
+  it('are the twenty-three entries of the issue, in its order', () => {
     // the ids are in links that are printed and shared (and in the explanations of GH-3764): a rename is a breaking change
     expect([...TOPICS]).toEqual([
       'temperature',
@@ -61,20 +62,23 @@ describe('the anchors', () => {
       'clouds',
       'snow',
       'automatic-stations',
+      'radar',
       'urban-stations',
       'road-stations',
       'from-measurement-to-value',
       'normals',
+      'water-level',
       'time',
       'observation-forecast-derived',
+      'data-quality',
     ])
   })
 
   it('are in the two sections of the page, each entry in one', () => {
     expect(TOPIC_GROUPS.flatMap(group => group.topics)).toEqual([...TOPICS])
     expect(TOPIC_GROUPS.map(group => group.id)).toEqual(['measured', 'reading'])
-    // "Reading the data" holds the time, and observation, forecast and derived data, after the measurements (the maintainer, 2026-11-20)
-    expect(TOPIC_GROUPS[1]!.topics).toEqual(['time', 'observation-forecast-derived'])
+    // "Reading the data" holds the time, observation, forecast and derived data, and the quality of the data, after the measurements (the maintainer, 2026-11-20)
+    expect(TOPIC_GROUPS[1]!.topics).toEqual(['time', 'observation-forecast-derived', 'data-quality'])
   })
 
   it('are told from other strings, and give the address of an entry', () => {
@@ -85,6 +89,9 @@ describe('the anchors', () => {
     expect(isTopic('soil-moisture')).toBe(true)
     expect(isTopic('road-stations')).toBe(true)
     expect(isTopic('from-measurement-to-value')).toBe(true)
+    expect(isTopic('radar')).toBe(true)
+    expect(isTopic('water-level')).toBe(true)
+    expect(isTopic('data-quality')).toBe(true)
     expect(isTopic('hydrology')).toBe(false)
     expect(isTopic(undefined)).toBe(false)
     expect(isTopic(['wind'])).toBe(false)
@@ -96,6 +103,8 @@ describe('the anchors', () => {
     expect(topicLabelKey('observation-forecast-derived')).toBe('measurement.topics.observationForecastDerived')
     expect(topicLabelKey('from-measurement-to-value')).toBe('measurement.topics.fromMeasurementToValue')
     expect(topicLabelKey('road-stations')).toBe('measurement.topics.roadStations')
+    expect(topicLabelKey('water-level')).toBe('measurement.topics.waterLevel')
+    expect(topicLabelKey('data-quality')).toBe('measurement.topics.dataQuality')
     for (const locale of Object.keys(catalogs)) {
       for (const topic of TOPICS)
         expect(typeof message(locale, topicLabelKey(topic)), `${locale} ${topic}`).toBe('string')
@@ -173,6 +182,15 @@ describe('the glossary parameters of an entry', () => {
     ['road_surface_condition', 'road-stations'],
     ['water_film_thickness', 'road-stations'],
     ['temperature_surface', 'road-stations'],
+    ['stage', 'water-level'],
+    ['stage_max', 'water-level'],
+    ['stage_mean', 'water-level'],
+    ['stage_min', 'water-level'],
+    ['discharge', 'water-level'],
+    ['discharge_max', 'water-level'],
+    ['discharge_mean', 'water-level'],
+    ['discharge_min', 'water-level'],
+    ['groundwater_level', 'water-level'],
     ['snow_depth', 'snow'],
     ['snow_depth_new', 'snow'],
     ['snow_cover', 'snow'],
@@ -187,9 +205,17 @@ describe('the glossary parameters of an entry', () => {
   })
 
   it.each([
-    // water: an entry that is not written yet
+    // the water: the entry on water level and discharge explains the level, the discharge and the groundwater level, and not
+    // the temperature of the water, the speed or the direction of the current (WSV), the height of the gauge of GHCN-Daily
+    // (NOAA's difference between the height of the river and of the gauge, which is no gauge zero), the clearance height under
+    // a bridge or the content of a reservoir
     'temperature_water',
-    'discharge',
+    'temperature_water_mean',
+    'flow_speed',
+    'flow_direction',
+    'distance_river_gauge_height',
+    'clearance_height',
+    'volume_reservoir',
     // what the entries do not explain
     'precipitation_form',
     'precipitation_type_flags',
@@ -253,7 +279,7 @@ describe('the glossary parameters of an entry', () => {
   it('leave most of the glossary to entries that follow, but a family that has one is not left out', () => {
     // a parameter of a quantity the first phase explains has its entry: counting these is how a family that a new
     // parameter name starts is noticed (the pattern would not take it), here for the names that exist
-    const families = /^(?:temperature_(?:air|soil|dew_point|wet)|pressure_(?:air|vapor)|humidity_|vapor_pressure|wind_(?:speed|gust|direction|force)|precipitation_(?:amount|intensity)|radiation_|sunshine_duration|visibility|evapo|soil_moisture|soil_state|weather|cloud_(?:cover|height|type)|snow_depth|water_equivalent_snow_depth|road_surface_condition$|water_film|temperature_surface$)/
+    const families = /^(?:temperature_(?:air|soil|dew_point|wet)|pressure_(?:air|vapor)|humidity_|vapor_pressure|wind_(?:speed|gust|direction|force)|precipitation_(?:amount|intensity)|radiation_|sunshine_duration|visibility|evapo|soil_moisture|soil_state|weather|cloud_(?:cover|height|type)|snow_depth|water_equivalent_snow_depth|road_surface_condition$|water_film|temperature_surface$|stage|discharge|groundwater_level)/
     expect(PARAMETERS.filter(name => families.test(name) && topicOfParameter(name) === undefined)).toEqual([])
   })
 
@@ -269,10 +295,13 @@ describe('the glossary parameters of an entry', () => {
     expect(parameterPatterns('present-weather')).toEqual(['weather', 'weather_*', 'soil_state_index'])
     expect(parameterPatterns('clouds')).toEqual(['cloud_cover_*', 'cloud_height_*', 'cloud_type_*'])
     expect(parameterPatterns('road-stations')).toEqual(['road_surface_condition', 'water_film_thickness', 'temperature_surface'])
+    expect(parameterPatterns('water-level')).toEqual(['stage_*', 'discharge_*', 'groundwater_level'])
     // the entries on the kinds of station and on how a value is formed explain no parameter: a mean, a maximum or a
     // minimum is in the name of the parameter of every quantity, and the entry of that quantity says what it is
     expect(parameterPatterns('automatic-stations')).toEqual([])
     expect(parameterPatterns('urban-stations')).toEqual([])
+    expect(parameterPatterns('radar')).toEqual([])
+    expect(parameterPatterns('data-quality')).toEqual([])
     expect(parameterPatterns('from-measurement-to-value')).toEqual([])
     expect(parameterPatterns('normals')).toEqual(['*_normal'])
     expect(parameterPatterns('time')).toEqual([])
@@ -296,7 +325,7 @@ describe.each([['en', en], ['de', de]] as const)('the text in %s', (locale, text
   })
 
   it('has the four parts the issue asks for in every entry that is a measurement', () => {
-    for (const topic of ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'evaporation', 'soil-moisture', 'present-weather', 'clouds', 'snow', 'automatic-stations', 'urban-stations', 'road-stations', 'from-measurement-to-value'] as const)
+    for (const topic of ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'evaporation', 'soil-moisture', 'present-weather', 'clouds', 'snow', 'automatic-stations', 'radar', 'urban-stations', 'road-stations', 'from-measurement-to-value', 'water-level'] as const)
       expect(texts[topic].parts, topic).toHaveLength(4)
   })
 
@@ -323,7 +352,7 @@ describe.each([['en', en], ['de', de]] as const)('the text in %s', (locale, text
         }
       }
     }
-    for (const topic of ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'evaporation', 'soil-moisture', 'present-weather', 'clouds', 'snow', 'automatic-stations', 'urban-stations', 'road-stations', 'from-measurement-to-value'] as const)
+    for (const topic of ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'evaporation', 'soil-moisture', 'present-weather', 'clouds', 'snow', 'automatic-stations', 'radar', 'urban-stations', 'road-stations', 'from-measurement-to-value'] as const)
       expect(texts[topic].sources[0]!.citation, topic).toContain('WMO-No. 8')
     // a source that cites Volume V cites it as its own edition, not in the same citation as a 2024 volume
     for (const topic of TOPICS) {
@@ -350,6 +379,16 @@ describe.each([['en', en], ['de', de]] as const)('the text in %s', (locale, text
     expect(value).toContain('Volume I, Chapter 1 (General), Annex 1.A')
     for (const topic of ['pressure', 'humidity', 'visibility'] as const)
       expect(texts[topic].sources.map(source => source.citation).join(' '), topic).toContain('Volume V (Quality assurance and management of observing systems), Chapter 3 (Data reduction)')
+    // radar III-7, and the data quality III-1 (sections 1.4.2 and 1.5) beside the pages of the library
+    expect(texts.radar.sources[0]!.citation).toContain('Volume III (Observing systems), Chapter 7 (Radar measurements)')
+    expect(texts['data-quality'].sources.map(source => source.citation).join(' ')).toContain('Volume III (Observing systems), Chapter 1 (Measurements at automatic weather stations), sections 1.4.2 and 1.5')
+    // water level and discharge rest on the Guide to Hydrological Practices (WMO-No. 168, Volume I, 2008 edition updated in 2025), not on WMO-No. 8
+    const hydrology = texts['water-level'].sources[0]!.citation
+    expect(hydrology).toContain('WMO-No. 168')
+    expect(hydrology).toContain('2008 edition, updated in 2025')
+    expect(hydrology).toContain('Chapter 5 (Surface water quantity and sediment measurement)')
+    expect(hydrology).toContain('Chapter 9 (Data processing and quality control), sections 9.6.2.1 to 9.6.2.4')
+    expect(hydrology).not.toContain('WMO-No. 8')
     expect(texts.normals.sources[0]!.citation).toContain('WMO-No. 1203')
     expect(texts['observation-forecast-derived'].sources.map(source => source.citation).join(' ')).toContain('Volume V')
     expect(texts.temperature.sources.map(source => source.citation).join(' ')).toContain('WMO (2023)')
@@ -471,5 +510,80 @@ describe('what the texts say about which provider has which parameter', () => {
     expect(JSON.stringify(en['present-weather'].sources)).toContain('climate/hourly/weather_phenomena/recent/')
     expect(JSON.stringify(de.clouds.sources)).toContain('climate/hourly/cloud_type/recent/')
     expect(JSON.stringify(de['present-weather'].sources)).toContain('subdaily/soil/recent/')
+  })
+
+  it('has radar data at DWD only: the entry says wetterdienst has radar from one provider, and lists the sites of other countries without data', () => {
+    // the radar sites of other countries are a list (EUMETNET OPERA), which is no values class
+    expect(providersOf(/class \w*Radar\w*Values\b/)).toEqual(['dwd/radar/api.py'])
+    expect(files.some(file => file.startsWith('eumetnet/opera/'))).toBe(true)
+    expect(providersOf(/class \w*Opera\w*(?:Request|Values)\b/)).toEqual([])
+  })
+
+  it('has water level and discharge at four providers, and the groundwater level at two: the entry on water level names them', () => {
+    // the entry says that wetterdienst has a stage and a discharge from WSV, the Environment Agency, Hub'Eau and IMGW, and
+    // names the groundwater level of WSV and of the Environment Agency: a provider that adds one makes the sentence wrong
+    expect(providersOf(/"stage"/)).toEqual(['ea/hydrology/api.py', 'eaufrance/hubeau/api.py', 'imgw/hydrology/api.py', 'wsv/pegel/api.py'])
+    expect(providersOf(/"discharge"/)).toEqual(['ea/hydrology/api.py', 'eaufrance/hubeau/api.py', 'imgw/hydrology/api.py', 'wsv/pegel/api.py'])
+    expect(providersOf(/"groundwater_level"/)).toEqual(['ea/hydrology/api.py', 'wsv/pegel/api.py'])
+    // the gauge zero is in the station list of WSV, Hub'Eau and IMGW, and not in the Environment Agency's
+    expect(providersOf(/"gauge_zero"/)).toEqual(['eaufrance/hubeau/api.py', 'imgw/hydrology/api.py', 'wsv/pegel/api.py'])
+    expect(providersOf(/"gauge_zero_datum"/)).toEqual(['eaufrance/hubeau/api.py', 'imgw/hydrology/api.py', 'wsv/pegel/api.py'])
+    for (const text of [en['water-level'], de['water-level']]) {
+      const body = JSON.stringify(text.parts)
+      for (const provider of ['wsv/pegel', 'ea/hydrology', 'eaufrance/hubeau', 'imgw/hydrology'])
+        expect(body, provider).toContain(provider)
+    }
+  })
+
+  it('names the pages of the services and of DWD that the entries on radar and on water level rest on', () => {
+    expect(JSON.stringify(en.radar.sources)).toContain('radar_products/radar_products.html')
+    expect(JSON.stringify(de.radar.sources)).toContain('radarprodukte/radarprodukte.html')
+    expect(JSON.stringify(en.radar.sources)).toContain('radvor/radvor.html')
+    expect(JSON.stringify(en.radar.sources)).toContain('radolan/radolan.html')
+    for (const texts of [en, de]) {
+      const hydrology = JSON.stringify(texts['water-level'].sources)
+      for (const page of ['pegelonline.wsv.de/gast/hilfe', 'environment.data.gov.uk/hydrology/doc/reference', 'hubeau.eaufrance.fr/page/api-hydrometrie', 'danepubliczne.imgw.pl/data/dane_pomiarowo_obserwacyjne/dane_hydrologiczne/'])
+        expect(hydrology, page).toContain(page)
+    }
+  })
+
+  describe('the quality of the data', () => {
+    // the entry says that there are nine checks, that the check `source` reads the verdict of ten providers, and which
+    // providers return no flag: the page of the documentation that the entry rests on says it, and the entry follows it
+    const docs = join(APP, '..', 'docs', 'data')
+    const plausibility = readFileSync(join(docs, 'plausibility.md'), 'utf8')
+    const flags = readFileSync(join(docs, 'quality-flags.md'), 'utf8')
+
+    it('has nine checks in the documentation', () => {
+      const table = plausibility.slice(plausibility.indexOf('## The checks'), plausibility.indexOf('### The limit of a run'))
+      const checks = [...table.matchAll(/^\| `([a-z]+)` \|/gm)].map(match => match[1])
+      expect(checks).toEqual(['range', 'elevation', 'stuck', 'step', 'relations', 'consistency', 'floor', 'limits', 'source'])
+      // and the entry names each of them, in the words of the documentation
+      for (const check of checks)
+        expect(JSON.stringify(en['data-quality'].parts), check).toContain(check)
+    })
+
+    it('has the check `source` at ten providers', () => {
+      const coverage = plausibility.slice(plausibility.indexOf('<!-- coverage:start -->'), plausibility.indexOf('<!-- coverage:end -->'))
+      const providers = new Set([...coverage.matchAll(/^\| `source` \| `([a-z]+)\//gm)].map(match => match[1]))
+      expect([...providers].sort()).toEqual(['chmi', 'dmi', 'dwd', 'ea', 'eaufrance', 'meteofrance', 'metno', 'metoffice', 'noaa', 'nws'])
+    })
+
+    it('has no flag for the providers the entry says return none, and QN for DWD\'s observation', () => {
+      const row = flags.split('\n').find(line => line.startsWith('| IMGW hydrology, WSV, FMI, KNMI, IPMA, LHMT, MeteoSwiss, AEMET, Geosphere, Météo-France synop |'))
+      expect(row).toContain('| null (apart from the `suspect:`/`rejected:` and `raw:` tokens)')
+      expect(flags).toContain('| DWD mosmix, dmo, poi, swsmos, radar and the other DWD networks | null')
+      expect(flags).toMatch(/\| DWD observation \| `QN`, the quality control level/)
+    })
+  })
+
+  it('points the entry on radar to the Radar tool, in the words of every language, and to nothing else', () => {
+    expect(topicTools('radar')).toEqual([{ to: '/radar', labelKey: 'measurement.toolRadar' }])
+    for (const topic of TOPICS.filter(topic => topic !== 'radar'))
+      expect(topicTools(topic), topic).toEqual([])
+    for (const locale of Object.keys(catalogs))
+      expect(typeof message(locale, 'measurement.toolRadar'), locale).toBe('string')
+    // the page is there
+    expect(readdirSync(join(APP, 'app', 'pages'))).toContain('radar.vue')
   })
 })

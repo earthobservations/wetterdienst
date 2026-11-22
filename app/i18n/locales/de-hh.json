@@ -643,6 +643,7 @@
     "sourcesTitle": "Quellen",
     "untranslatedEn": "Disse Indrag gifft dat noch nich op Platt; he warrt op Engelsch wiest.",
     "untranslatedDe": "Disse Indrag gifft dat noch nich op Platt; he warrt op Hochdüütsch wiest.",
+    "toolRadar": "Dat Radar-Warktüüg opmaken",
     "topics": {
       "temperature": "Luft- un Bodentemperatur",
       "pressure": "Luftdruck",
@@ -658,12 +659,15 @@
       "clouds": "Wulken",
       "snow": "Snee",
       "automaticStations": "Automaatsche Weerstationen",
+      "radar": "Radar",
       "urbanStations": "Stationen in de Stadt",
       "roadStations": "Weerstationen an de Straat",
       "fromMeasurementToValue": "Vun't Meten to'n Weert",
       "normals": "Klimanormaalweerten",
+      "waterLevel": "Waterstand un Afloop",
       "time": "Tiet",
-      "observationForecastDerived": "Beobachten, Vörhersaag un afleedte Daten"
+      "observationForecastDerived": "Beobachten, Vörhersaag un afleedte Daten",
+      "dataQuality": "Qualiteet vun de Daten"
     }
   },
   "methods": {

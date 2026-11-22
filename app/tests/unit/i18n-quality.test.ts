@@ -359,6 +359,7 @@ const UI_SAME: Record<string, Same> = {
   'nav.api': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'nav.support': { en: ['da'], why: COGNATE },
   'measurement.topics.wind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },
+  'measurement.topics.radar': { en: ['cs', 'da', 'de-hh', 'de', 'es', 'fr', 'it', 'lb', 'nl', 'pl'], why: NAME },
   'measurement.sourcesTitle': { en: ['fr'], why: COGNATE },
   'ask.explain.licence': { en: ['cs', 'fr'], why: COGNATE },
   'ask.season.warmth.spring': { en: ['de-hh', 'nl'], why: COGNATE },

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { MeasurementEntry } from '~~/i18n/measurement/types'
 import type { TopicId } from '~/utils/measurement'
-import { measurementPath, parameterPatterns } from '~/utils/measurement'
+import { measurementPath, parameterPatterns, topicTools } from '~/utils/measurement'
 
 // One entry of the page "How weather is measured" (GH-3787): a heading with an anchor of its own, a sentence that says
 // what it is about, its parts (how it is measured, how a reading becomes a value, what the number can and cannot tell,
@@ -21,6 +21,8 @@ const props = defineProps<{
 const emit = defineEmits<{ anchor: [topic: TopicId] }>()
 const { t } = useI18n()
 const patterns = computed(() => parameterPatterns(props.topic))
+// the tools of the app that show what the entry describes (the Radar tool, for the entry on radar)
+const tools = computed(() => topicTools(props.topic))
 const headingId = computed(() => `${props.topic}-title`)
 </script>
 
@@ -58,6 +60,17 @@ const headingId = computed(() => `${props.topic}-title`)
         </p>
       </section>
     </div>
+
+    <p v-if="tools.length" class="mt-5" data-testid="measurement-tools">
+      <NuxtLink
+        v-for="tool in tools"
+        :key="tool.to"
+        :to="tool.to"
+        class="text-primary-700 dark:text-primary-500 underline hover:no-underline"
+      >
+        {{ t(tool.labelKey) }}
+      </NuxtLink>
+    </p>
 
     <section v-if="patterns.length" class="mt-5">
       <h4 class="text-base font-semibold text-highlighted">

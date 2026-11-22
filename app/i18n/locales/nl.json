@@ -643,6 +643,7 @@
     "sourcesTitle": "Bronnen",
     "untranslatedEn": "Dit onderdeel is nog niet in jouw taal vertaald en wordt in het Engels getoond.",
     "untranslatedDe": "Dit onderdeel is nog niet in jouw taal vertaald en wordt in het Duits getoond.",
+    "toolRadar": "Open de radartool",
     "topics": {
       "temperature": "Lucht- en bodemtemperatuur",
       "pressure": "Luchtdruk",
@@ -658,12 +659,15 @@
       "clouds": "Bewolking",
       "snow": "Sneeuw",
       "automaticStations": "Automatische weerstations",
+      "radar": "Radar",
       "urbanStations": "Stadsstations",
       "roadStations": "Wegweerstations",
       "fromMeasurementToValue": "Van meting tot waarde",
       "normals": "Klimaatnormalen",
+      "waterLevel": "Waterstand en afvoer",
       "time": "Tijd",
-      "observationForecastDerived": "Waarneming, voorspelling en afgeleide gegevens"
+      "observationForecastDerived": "Waarneming, voorspelling en afgeleide gegevens",
+      "dataQuality": "Gegevenskwaliteit"
     }
   },
   "methods": {

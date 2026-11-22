@@ -643,6 +643,7 @@
     "sourcesTitle": "Quellen",
     "untranslatedEn": "Dës Rubrik ass nach net an deng Sprooch iwwersat a gëtt op Englesch gewisen.",
     "untranslatedDe": "Dës Rubrik ass nach net an deng Sprooch iwwersat a gëtt op Däitsch gewisen.",
+    "toolRadar": "Radar-Tool opmaachen",
     "topics": {
       "temperature": "Loft- a Buedemtemperatur",
       "pressure": "Loftdrock",
@@ -658,12 +659,15 @@
       "clouds": "Wolleken",
       "snow": "Schnéi",
       "automaticStations": "Automatesch Wiederstatiounen",
+      "radar": "Radar",
       "urbanStations": "Statiounen an der Stad",
       "roadStations": "Stroossewiederstatiounen",
       "fromMeasurementToValue": "Vun der Miessung zum Wäert",
       "normals": "Klimanormalwäerter",
+      "waterLevel": "Waasserstand an Ofloss",
       "time": "Zäit",
-      "observationForecastDerived": "Observatioun, Prévisioun an ofgeleet Daten"
+      "observationForecastDerived": "Observatioun, Prévisioun an ofgeleet Daten",
+      "dataQuality": "Qualitéit vun den Daten"
     }
   },
   "methods": {
