@@ -209,4 +209,35 @@ describe('settings Page', () => {
     expect(wrapper.find('#settings-unit-speed').exists()).toBe(false)
     await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#settings-convert-units').element))
   })
+
+  // GH-3790: the lists of stations the search of the header finds a station by name in
+  describe('the stations in the search', () => {
+    const box = (wrapper: Awaited<ReturnType<typeof mountPage>>, list: string) => wrapper.find(`[data-testid="search-stations-${list}"]`)
+
+    it('is a group of three checkboxes named by their lists, with the forecast\'s points and GHCN daily on and DWD\'s measuring stations off', async () => {
+      const wrapper = await mountPage()
+      const group = wrapper.find('fieldset[aria-describedby="settings-search-stations-hint"]')
+      expect(group.exists()).toBe(true)
+      expect(group.find('legend').text()).toBe('Stations in the search')
+      expect(wrapper.find('#settings-search-stations-hint').text()).toContain('WMO, WIGOS or ICAO id')
+      const labels = group.findAll('label').map(label => label.text())
+      expect(labels).toEqual(['Forecast stations', 'DWD measurements', 'NOAA GHCN daily'])
+      expect(group.findAll('[role="checkbox"]').map(checkbox => checkbox.attributes('aria-checked'))).toEqual(['true', 'false', 'true'])
+      expect(useSettings().settings.value.searchStations).toEqual({ forecast: true, measured: false, ghcn: true })
+    })
+
+    it('keeps what is chosen in the settings, and gives the defaults back on Reset', async () => {
+      const wrapper = await mountPage()
+      await box(wrapper, 'measured').trigger('click')
+      await box(wrapper, 'forecast').trigger('click')
+      expect(useSettings().settings.value.searchStations).toEqual({ forecast: false, measured: true, ghcn: true })
+      useSettings().reset()
+      expect(useSettings().settings.value.searchStations).toEqual({ forecast: true, measured: false, ghcn: true })
+    })
+
+    it('takes the focus to its heading when the address names it (`#settings-search-stations`), which the search finds it by', async () => {
+      const wrapper = await mountPage({ attachTo: document.body, route: '/settings#settings-search-stations' })
+      await vi.waitFor(() => expect(document.activeElement).toBe(wrapper.find('#settings-search-stations').element))
+    })
+  })
 })

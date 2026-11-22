@@ -350,9 +350,7 @@
     "searchEmpty": "Nic nenalezeno",
     "results": "Výsledky",
     "resultsCount": "{count} výsledek | {count} výsledky | {count} výsledků",
-    "stations": "Předpověď pro stanici",
     "stationsHint": "Napiš aspoň tři písmena a najdeš stanici",
-    "stationForecast": "Předpověď pro stanici {id}",
     "keysHint": "↑ ↓ vybrat, Enter otevřít, Esc zavřít",
     "desc": {
       "support": "Nahlásit chybu, navrhnout funkci nebo podpořit projekt",
@@ -362,12 +360,30 @@
       "github": "Kód, hlášení chyb a pull requesty",
       "pypi": "Nainstalovat knihovnu pro Python pomocí pip"
     },
-    "stationsMap": "Stanice na mapě",
-    "stationOnMap": "Zobrazit stanici {id} na mapě",
     "placeGroup": "Místo",
     "placeOnMap": "Zobrazit tento bod na mapě",
     "moreIn": "Dalších {count} v: {page}",
-    "resultsIn": "{group}: {count}"
+    "resultsIn": "{group}: {count}",
+    "stationsForecast": "Stanice: předpověď DWD",
+    "stationsMeasured": "Stanice: měření DWD",
+    "stationsGhcn": "Stanice: NOAA GHCN denní",
+    "stationNetworks": {
+      "forecast": "předpověď MOSMIX",
+      "measured": "měření",
+      "ghcn": "GHCN denní"
+    },
+    "stationEnded": "ukončena {year}",
+    "moreOnMap": "Dalších {count} na mapě ({network})",
+    "searchAllNetworks": "Hledat {id} ve všech sítích",
+    "searchAllNetworksHint": "Zeptá se každého poskytovatele, který takový identifikátor vede; trvá několik sekund",
+    "searchingAllNetworks": "Prohledávám všechny sítě …",
+    "allNetworksNone": "Žádná stanice žádné sítě nemá {id}",
+    "allNetworksFailed": "Hledání ve všech sítích selhalo. Stiskni Enter a zkus to znovu",
+    "stationsWithId": "Stanice s {id}",
+    "opensExplorer": "otevře Průzkumník",
+    "stationListReading": "Seznam stanic se ještě načítá; mohou přibýt další výsledky",
+    "stationListFailed": "Jeden seznam stanic se nepodařilo načíst",
+    "allNetworksGroup": "Všechny sítě"
   },
   "header": {
     "github": "GitHub",
@@ -453,7 +469,9 @@
       "reorderedHeader": "{tool} je nyní na místě {position} z {total} v záhlaví.",
       "resetHeader": "Obnovit pořadí",
       "resetDoneHeader": "Pořadí je zpět ve výchozím stavu: {tools}."
-    }
+    },
+    "searchStationsTitle": "Stanice ve vyhledávání",
+    "searchStationsHint": "Seznamy, ve kterých vyhledávání (Ctrl/⌘ K) najde stanici podle jména. Identifikátor WMO, WIGOS nebo kód ICAO se po stisku Enter hledá ve všech sítích, ať tu zvolíš cokoli."
   },
   "units": {
     "degree_celsius": "Stupně Celsia (°C)",
@@ -1194,7 +1212,8 @@
     "groupZoomedReporting": "Přiblíženo na skupinu. Stanic v ní: {shown}, z toho hlásí: {reporting}",
     "whyFarther": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, do {year}.",
     "whyFartherNoEnd": "Nejbližší stanice, která stále hlásí. Blíž: {name}, {distance}, konec neznámý.",
-    "pickCloser": "Místo toho vybrat {name}"
+    "pickCloser": "Místo toho vybrat {name}",
+    "resultsOf": "Prvních {shown} z {total} stanic. Napiš víc a zúžíš výběr."
   },
   "radar": {
     "title": "Radar",

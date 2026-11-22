@@ -1,7 +1,7 @@
 import type { PaletteGroup } from '../../app/utils/palette'
 import type { Hit } from '../../app/utils/search-index'
 import { describe, expect, it } from 'vitest'
-import { countsByGroup, filterGroups, fold, GROUP_LIMITS, GROUP_ORDER, hitDescription, itemOfHit, limitItems, orderGroups, scoreOf } from '../../app/utils/palette'
+import { countsByGroup, filterGroups, fold, GROUP_LIMITS, GROUP_ORDER, hitDescription, itemOfHit, limitCounted, limitItems, orderGroups, scoreOf } from '../../app/utils/palette'
 
 // What the search finds (GH-3518, AppCommandPalette.vue)
 
@@ -54,7 +54,7 @@ describe('the order of the groups', () => {
   const group = (id: string, ...labels: string[]): PaletteGroup => ({ id, label: id, items: labels.map(label => item(label)) })
 
   it('puts a point first, then the stations, then the pages, then the words of the app, then the actions', () => {
-    const shuffled = [group('language', 'x'), group('glossary', 'x'), group('project', 'x'), group('stations-map', 'x'), group('place', 'x'), group('settings', 'x'), group('tools', 'x'), group('stations', 'x'), group('questions', 'x'), group('measurement', 'x'), group('method', 'x'), group('reference', 'x'), group('providers', 'x'), group('theme', 'x')]
+    const shuffled = [group('language', 'x'), group('glossary', 'x'), group('project', 'x'), group('station-ids', 'x'), group('station-ids-icao', 'x'), group('place', 'x'), group('settings', 'x'), group('tools', 'x'), group('stations-ghcn', 'x'), group('stations-forecast', 'x'), group('stations-measured', 'x'), group('questions', 'x'), group('measurement', 'x'), group('method', 'x'), group('reference', 'x'), group('providers', 'x'), group('theme', 'x')]
     expect(orderGroups(shuffled).map(entry => entry.id)).toEqual([...GROUP_ORDER])
   })
 
@@ -86,9 +86,30 @@ describe('the few results of a group', () => {
     expect(limitItems(items, 3).map(entry => entry.label)).toEqual(['a', 'b', 'c'])
   })
 
-  it('has a limit for each group of the words of the app', () => {
-    for (const id of ['questions', 'measurement', 'method', 'glossary', 'settings', 'project'])
+  it('has a limit for each group of the words of the app and for the stations of each network', () => {
+    for (const id of ['stations', 'questions', 'measurement', 'method', 'glossary', 'settings', 'project'])
       expect(GROUP_LIMITS[id], id).toBeGreaterThan(0)
+  })
+})
+
+describe('the few stations of a network, whose total the server counted', () => {
+  // the server gives the best limit + 1 of them, however many there are
+  const best = ['a', 'b', 'c', 'd'].map(label => item(label))
+  const more = (hidden: number) => ({ id: 'more', label: `${hidden} more`, more: true })
+
+  it('shows all of them where there are no more than the limit and one', () => {
+    expect(limitCounted(best.slice(0, 2), 2, 3, more).map(entry => entry.label)).toEqual(['a', 'b'])
+    expect(limitCounted(best, 4, 3, more).map(entry => entry.label)).toEqual(['a', 'b', 'c', 'd'])
+  })
+
+  it('shows the limit and says how many there are besides, from the total and not from the few it was given', () => {
+    const limited = limitCounted(best, 133, 3, more)
+    expect(limited.map(entry => entry.label)).toEqual(['a', 'b', 'c', '130 more'])
+    expect(limited.at(-1)!.more).toBe(true)
+  })
+
+  it('cuts at the limit where there is nowhere to lead to', () => {
+    expect(limitCounted(best, 133, 3).map(entry => entry.label)).toEqual(['a', 'b', 'c'])
   })
 })
 

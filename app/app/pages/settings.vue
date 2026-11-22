@@ -121,6 +121,29 @@ function unitItems(units: readonly string[]) {
         <TabBarChooser />
       </UCard>
 
+      <!-- The lists of stations the search of the header finds a station by name in (GH-3790) -->
+      <UCard>
+        <template #header>
+          <div class="flex items-center gap-2">
+            <UIcon name="i-ph-magnifying-glass" class="text-primary-600 dark:text-primary-500 shrink-0" />
+            <h2 id="settings-search-stations" tabindex="-1" class="text-lg font-bold outline-none">
+              {{ t('settings.searchStationsTitle') }}
+            </h2>
+          </div>
+        </template>
+        <fieldset class="space-y-3" aria-describedby="settings-search-stations-hint">
+          <legend class="sr-only">
+            {{ t('settings.searchStationsTitle') }}
+          </legend>
+          <p id="settings-search-stations-hint" class="text-sm text-gray-500 dark:text-gray-400">
+            {{ t('settings.searchStationsHint') }}
+          </p>
+          <UCheckbox v-model="settings.searchStations.forecast" :label="t('mapTool.layerForecast')" data-testid="search-stations-forecast" />
+          <UCheckbox v-model="settings.searchStations.measured" :label="t('mapTool.layerMeasured')" data-testid="search-stations-measured" />
+          <UCheckbox v-model="settings.searchStations.ghcn" :label="t('mapTool.layerGhcn')" data-testid="search-stations-ghcn" />
+        </fieldset>
+      </UCard>
+
       <!-- Display & data -->
       <UCard>
         <template #header>

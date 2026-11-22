@@ -31,6 +31,7 @@ export const MESSAGE_SOURCES: readonly MessageSource[] = [
   { kind: 'support', to: '/support#support-discussions', title: 'support.discussionsTitle', text: ['support.discussionsText', 'support.discussionsButton'] },
   { kind: 'support', to: '/support#support-donate', title: 'support.donateTitle', text: ['support.donateText'] },
   { kind: 'settings', to: '/settings#bar', title: 'settings.bar.title', text: ['settings.bar.hint', 'settings.bar.instructions', 'settings.bar.hintHeader'] },
+  { kind: 'settings', to: '/settings#settings-search-stations', title: 'settings.searchStationsTitle', text: ['settings.searchStationsHint', 'mapTool.layerForecast', 'mapTool.layerMeasured', 'mapTool.layerGhcn'] },
   { kind: 'settings', to: '/settings#settings-friendly-labels', title: 'settings.friendlyLabels', context: 'settings.units', text: ['settings.friendlyLabelsHint'] },
   { kind: 'settings', to: '/settings#settings-convert-units', title: 'settings.convertUnits', context: 'settings.units', text: ['settings.convertUnitsHint'] },
   // one row for each unit type the page offers, in the order of its list

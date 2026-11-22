@@ -110,6 +110,21 @@ export interface StationsResponse {
 
 export type StationsQuery = Query<'stations_api_stations_get'>
 
+/**
+ * One station `GET /api/station-ids` found: the network and the list it comes from, the id the network numbers it by (`station_id`, what
+ * `values` takes) and its WMO, WIGOS and ICAO ids where it has them. `matched_by` says which of them matched, `match` whether it was the
+ * one asked for (`direct`) or an equivalent one
+ */
+export type StationIdsStation = Reads<Schemas['_StationIdsStation'], 'provider' | 'network' | 'resolution' | 'dataset' | 'station_id' | 'name' | 'latitude' | 'longitude' | 'matched_by' | 'match'>
+
+/** The answer of `GET /api/station-ids` as far as the app reads it: the stations; its `metadata` block (what was searched, the warnings) is not read */
+export interface StationIdsResponse {
+  stations: StationIdsStation[]
+}
+
+/** The query of `GET /api/station-ids`: one or several WMO numbers, WIGOS identifiers or ICAO codes */
+export type StationIdsQuery = Query<'station_ids_api_station_ids_get'>
+
 // ============================================================================
 // Values API
 // ============================================================================
