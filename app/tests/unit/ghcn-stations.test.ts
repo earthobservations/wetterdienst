@@ -1,6 +1,7 @@
 import type { Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import type { GhcnStationColumns } from '../../shared/types/ghcn-stations'
+import { readFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { createRequire } from 'node:module'
 import process from 'node:process'
@@ -36,8 +37,50 @@ const STATIONS = [
   backendStation('GM000010147', 53.6332, 9.9881, '1891-01-01T00:00:00.000000+00:00', null, 'HAMBURG-FUHLSBUETTEL', '10147'),
 ]
 
-function answer(stations: unknown[], retrieved_at = '2026-11-20T16:19:25.183109+00:00') {
-  return new Response(JSON.stringify({ metadata: { retrieved_at }, stations }), { headers: { 'content-type': 'application/json' } })
+const CSV_COLUMNS = ['resolution', 'dataset', 'station_id', 'start_timestamp', 'end_timestamp', 'latitude', 'longitude', 'elevation', 'name', 'region', 'wmo_id', 'wigos_id', 'icao_id']
+const RETRIEVED_AT = '2026-11-20T16:19:25.183109+00:00'
+
+/** A field as the backend's CSV writer writes it: nothing for null, quotes where the text has a comma, a quote or a line end, and for the empty text */
+function csvField(value: unknown): string {
+  if (value === null || value === undefined)
+    return ''
+  const text = String(value)
+  return text === '' || /[",\r\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text
+}
+
+/** The CSV the backend answers `format=csv` with: its header row, a row for each station, every row ended by a line end */
+function csvOf(stations: unknown[]): string {
+  const rows = (stations as Array<Record<string, unknown>>).map(station => CSV_COLUMNS.map(column => csvField(station[column])).join(','))
+  return `${[CSV_COLUMNS.join(','), ...rows].join('\n')}\n`
+}
+
+/** The backend's answer for `format=csv`: the CSV, and when it was made in the header, as the backend sends it */
+function answer(stations: unknown[], retrieved_at = RETRIEVED_AT) {
+  return csvAnswer(csvOf(stations), retrieved_at)
+}
+
+function csvAnswer(text: string, retrieved_at: string | null = RETRIEVED_AT, headers: Record<string, string> = {}) {
+  return new Response(text, { headers: { 'content-type': 'text/csv; charset=utf-8', ...(retrieved_at ? { 'x-wetterdienst-retrieved-at': retrieved_at } : {}), ...headers } })
+}
+
+/** A body that arrives in pieces of `size` bytes, as a network delivers it, and then ends as `ending` says (nothing: it ends; an error: it fails) */
+function pieces(text: string, size: number, ending?: Error) {
+  const bytes = new TextEncoder().encode(text)
+  let at = 0
+  return new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (at < bytes.length) {
+        controller.enqueue(bytes.slice(at, at + size))
+        at += size
+      }
+      else if (ending) {
+        controller.error(ending)
+      }
+      else {
+        controller.close()
+      }
+    },
+  })
 }
 
 afterEach(() => {
@@ -129,9 +172,9 @@ describe('reading the list from the backend', () => {
     const fetcher = vi.fn().mockResolvedValue(answer(STATIONS))
     const read = await readGhcnMapStations(BACKEND, 'req-1', fetcher, ANY)
     expect(fetcher.mock.calls[0]![0]).toBe(`${BACKEND}${GHCN_STATIONS_PATH}`)
-    expect(GHCN_STATIONS_PATH).toContain('provider=noaa&network=ghcn&parameters=daily/data&all=true')
+    expect(GHCN_STATIONS_PATH).toContain('provider=noaa&network=ghcn&parameters=daily/data&all=true&format=csv')
     expect(fetcher.mock.calls[0]![1]).toMatchObject({ headers: { 'x-request-id': 'req-1' } })
-    expect(read).toMatchObject({ count: 3, retrieved_at: '2026-11-20T16:19:25.183109+00:00' })
+    expect(read).toMatchObject({ count: 3, retrieved_at: RETRIEVED_AT })
   })
 
   it('answers a backend that cannot be reached as a 502 problem that names no host, with when to retry, and logs the cause', async () => {
@@ -158,35 +201,151 @@ describe('reading the list from the backend', () => {
     expect(read).toMatchObject({ status: 502, body: { type: 'urn:wetterdienst:problem:unexpected-answer', detail: expect.stringContaining('503') } })
   })
 
-  it('says that a body that could not be read to its end is that, keeps the cause in the log, and never calls it JSON that is none', async () => {
+  it('says that a body that could not be read to its end is that, keeps the cause in the log, and never calls it a CSV that is none', async () => {
     const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
     const reset = new Error('read ECONNRESET')
-    const response = new Response('x', { headers: { 'content-type': 'application/json' } })
-    vi.spyOn(response, 'text').mockRejectedValue(reset)
+    // the header row and a row arrive, and then the connection fails
+    const response = new Response(pieces(csvOf(STATIONS.slice(0, 1)), 64, reset), { headers: { 'content-type': 'text/csv', 'x-wetterdienst-retrieved-at': RETRIEVED_AT } })
     const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(response), ANY)
     expect(read).toMatchObject({ status: 502, body: { type: 'urn:wetterdienst:problem:unexpected-answer', detail: expect.stringContaining('could not be read to its end') } })
-    expect(JSON.stringify(read)).not.toMatch(/ECONNRESET|not valid JSON|not JSON/)
+    expect(JSON.stringify(read)).not.toMatch(/ECONNRESET|not the CSV|cut short/)
     expect(logged.mock.calls[0]).toContain(reset)
   })
 
-  it('says that a body that is no JSON is that, in the words the app uses for it, and logs the error', async () => {
-    const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
-    const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(new Response('{"stations": [', { headers: { 'content-type': 'application/json' } })), ANY)
-    expect(read).toMatchObject({ status: 502, body: { detail: 'The API answered with application/json, but the body is not valid JSON. The address of the API may be wrong, or a proxy in front of it answered instead of it.' } })
-    expect(logged.mock.calls[0]![1]).toBeInstanceOf(SyntaxError)
-    const plain = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(new Response('nope', { headers: { 'content-type': 'text/plain' } })), ANY)
-    expect(plain).toMatchObject({ status: 502, body: { detail: expect.stringContaining('text/plain, not JSON') } })
+  it('answers a body that is read to its end by the timeout, which cuts it part-way, as one that could not be read', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const timeout = new DOMException('The operation was aborted due to timeout', 'TimeoutError')
+    const response = new Response(pieces(csvOf(STATIONS), 100_000, timeout), { headers: { 'content-type': 'text/csv' } })
+    const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(response), ANY)
+    expect(read).toMatchObject({ status: 502, body: { detail: expect.stringContaining('could not be read to its end') } })
   })
 
-  it.each([
-    ['a page of HTML', () => new Response('<html>gateway</html>', { headers: { 'content-type': 'text/html' } })],
-    ['JSON with no stations', () => new Response('{"detail":"x"}', { headers: { 'content-type': 'application/json' } })],
-    ['no station at all, which is an outage and no network of none', () => answer([])],
-  ])('answers %s as a 502 and never as a list of none, which a day of cache would keep', async (_, make) => {
+  it('gives the fetch the timeout of 90 s, which reads of the body are held to as well', async () => {
+    const timeout = vi.spyOn(AbortSignal, 'timeout')
+    await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(answer(STATIONS)), ANY)
+    expect(timeout).toHaveBeenCalledWith(90_000)
+  })
+
+  describe('answers what is no CSV of the stations as a 502 problem in the words of the app, logs why, and never as a list', () => {
+    const noCsv = [
+      ['a page of HTML', () => new Response('<html>gateway</html>', { headers: { 'content-type': 'text/html' } }), 'web page'],
+      ['a page of HTML that says it is CSV', () => csvAnswer('<html>\n<body>gateway</body>\n</html>\n'), 'header row has no'],
+      ['the JSON of the answer that was asked before the CSV', () => new Response(JSON.stringify({ metadata: {}, stations: STATIONS }), { headers: { 'content-type': 'application/json' } }), 'no header row'],
+      ['JSON with no stations', () => new Response('{"detail":"x"}', { headers: { 'content-type': 'application/json' } }), 'no header row'],
+      ['a CSV that is not of stations', () => csvAnswer('a,b,c\n1,2,3\n'), 'header row has no'],
+      ['a CSV with no column of the stations\' longitude', () => csvAnswer('station_id,latitude,start_timestamp,end_timestamp,name,wmo_id\nA,1,,,,\n'), '`longitude`'],
+      ['a body that is no text', () => csvAnswer('x'.repeat(40_000)), 'no header row'],
+      ['an empty body', () => csvAnswer(''), 'no header row'],
+    ] as const
+
+    it.each(noCsv)('%s', async (_, make, said) => {
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(make()), ANY)
+      expect(read).toMatchObject({ status: 502, body: { type: 'urn:wetterdienst:problem:unexpected-answer', detail: expect.stringContaining(said) } })
+      expect(read).not.toHaveProperty('station_id')
+      expect(logged).toHaveBeenCalled()
+    })
+
+    it('and a page of HTML is not read at all', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const cancelled = vi.fn()
+      const body = new ReadableStream({ start: controller => controller.enqueue(new TextEncoder().encode('<html>')), cancel: cancelled })
+      await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(new Response(body, { headers: { 'content-type': 'text/html' } })), ANY)
+      expect(cancelled).toHaveBeenCalled()
+    })
+
+    it('and a body that has no line end in its first 16 KB is not read to its end', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const cancelled = vi.fn()
+      let sent = 0
+      const body = new ReadableStream({
+        pull(controller) {
+          sent++
+          controller.enqueue(new TextEncoder().encode('x'.repeat(8192)))
+        },
+        cancel: cancelled,
+      })
+      const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(new Response(body, { headers: { 'content-type': 'text/csv' } })), ANY)
+      expect(read).toMatchObject({ status: 502, body: { detail: expect.stringContaining('no header row') } })
+      expect(cancelled).toHaveBeenCalled()
+      expect(sent).toBeLessThan(10)
+    })
+  })
+
+  describe('answers a CSV that is cut short or malformed as a 502 problem, and never as the shorter list, which a day of cache would keep', () => {
+    const whole = csvOf(STATIONS)
+
+    it.each([
+      ['in the middle of a row, which has fewer fields than the header row', whole.slice(0, whole.lastIndexOf('\n', whole.length - 2) + 20)],
+      ['at the end of a row\'s field, with the fields that are empty gone', whole.slice(0, whole.lastIndexOf(',,,,') + 1)],
+      ['after a row that has no line end, whatever it has', whole.slice(0, -1)],
+      ['inside a quoted field', `${csvOf(STATIONS.slice(0, 1))}daily,data,XX000000009,,,1,2,3,"SAINT`],
+      ['at a row that has more fields than the header row', `${whole}daily,data,XX000000009,,,1,2,3,NAME,,,,,EXTRA\n`],
+    ])('cut %s', async (_, text) => {
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(csvAnswer(text)), ANY)
+      expect(read).toMatchObject({ status: 502, body: { type: 'urn:wetterdienst:problem:unexpected-answer', detail: expect.stringContaining('cut short or malformed') } })
+      expect(read).not.toHaveProperty('station_id')
+      expect(logged.mock.calls[0]![0]).toMatch(/was not the CSV of the list/)
+    })
+
+    it('cut cleanly at a line end, which only the number of stations the backend named can tell', async () => {
+      const logged = vi.spyOn(console, 'error').mockImplementation(() => {})
+      const shorter = csvOf(STATIONS.slice(0, -1))
+      const named = { 'x-wetterdienst-stations': String(STATIONS.length) }
+      const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(csvAnswer(shorter, RETRIEVED_AT, named)), ANY)
+      expect(read).toMatchObject({ status: 502, body: { type: 'urn:wetterdienst:problem:unexpected-answer', detail: expect.stringContaining('cut short') } })
+      expect(read).not.toHaveProperty('station_id')
+      expect(logged.mock.calls[0]![0]).toMatch(/was not the CSV of the list/)
+      // the whole list with the number named, more rows than stations (one listed twice), or no number named, are read
+      for (const [text, headers] of [[whole, named], [`${whole}${whole.slice(whole.indexOf('\n') + 1)}`, named], [shorter, {}]] as const)
+        expect(await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(csvAnswer(text, RETRIEVED_AT, headers)), ANY)).toHaveProperty('station_id')
+    })
+
+    it('is told as it is read in pieces of any size', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {})
+      const text = whole.slice(0, whole.lastIndexOf('\n', whole.length - 2) + 20)
+      for (const size of [1, 7, 4096]) {
+        const response = new Response(pieces(text, size), { headers: { 'content-type': 'text/csv' } })
+        expect(await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(response), ANY)).toMatchObject({ status: 502 })
+      }
+    })
+  })
+
+  it('refuses no station at all, which is an outage and no network of none', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
-    const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(make()), ANY)
-    expect(read).toMatchObject({ status: 502, body: { type: 'urn:wetterdienst:problem:unexpected-answer' } })
-    expect(read).not.toHaveProperty('station_id')
+    const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(answer([])), ANY)
+    expect(read).toMatchObject({ status: 502, body: { type: 'urn:wetterdienst:problem:unexpected-answer', detail: expect.stringContaining('0 stations') } })
+  })
+
+  it('takes `retrieved_at` from the header of the answer, which a CSV has no place for in its body, and null where it has none', async () => {
+    expect(await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(answer(STATIONS, 'the header')), ANY)).toMatchObject({ retrieved_at: 'the header' })
+    expect(await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(csvAnswer(csvOf(STATIONS), null)), ANY)).toMatchObject({ count: 3, retrieved_at: null })
+  })
+
+  it('makes the columns of the recorded answer of the backend, as its JSON gave them, whichever the pieces its body arrives in', async () => {
+    const recorded = JSON.parse(readFileSync(new URL('../helpers/ghcn-stations-fixture/ghcn-stations.recorded.json', import.meta.url), 'utf8'))
+    const text = readFileSync(new URL('../helpers/ghcn-stations-fixture/ghcn-stations.recorded.csv', import.meta.url), 'utf8')
+    const expected = compactGhcnStations(recorded.stations, recorded.metadata.retrieved_at)
+    // what the recording holds: names with a comma, a quote, a line end, accents and Cyrillic, an empty name and one that is null, a WMO number
+    // that is padded, empty or not there, an open end, no start, a position that is not exact in binary, one that is written as an exponent, and none
+    expect(expected.count).toBe(recorded.stations.length - 1)
+    expect(expected.name).toEqual(expect.arrayContaining(['ORDJONIKIDZE,ZERNOSOVHOZ', 'SAINT-ÉTIENNE, "LE HAUT"', 'MOUNT\nSTROMLO', 'МОСКВА ВДНХ', '', null]))
+    expect(expected.wmo_id).toEqual(expect.arrayContaining(['07475', '27612', null]))
+    expect(expected.last_year).toContain(null)
+    expect(expected.first_year).toContain(null)
+    expect(expected.latitude).toContain(0.1 + 0.2)
+    expect(expected.longitude).toContain(1e-7)
+    for (const size of [text.length, 4096, 64, 13, 3, 1]) {
+      const response = new Response(pieces(text, size), { headers: { 'content-type': 'text/csv; charset=utf-8', 'x-wetterdienst-retrieved-at': recorded.metadata.retrieved_at } })
+      const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(response), ANY)
+      expect(read).toEqual(expected)
+    }
+  })
+
+  it('makes the columns of the same rows from the CSV and from the JSON, in a CSV that ends its lines with CRLF as well', async () => {
+    const read = await readGhcnMapStations(BACKEND, 'req-1', vi.fn().mockResolvedValue(csvAnswer(csvOf(STATIONS).replaceAll('\n', '\r\n'))), ANY)
+    expect(read).toEqual(compactGhcnStations(STATIONS, RETRIEVED_AT))
   })
 
   it('refuses a list of fewer than 50,000 stations as a part of the list, and keeps one of 50,000', async () => {
