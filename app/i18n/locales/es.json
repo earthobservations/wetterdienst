@@ -1005,6 +1005,7 @@
     "locating": "Buscando tu ubicación …",
     "remember": "Recordar mi ubicación en este navegador",
     "note": "Redondeada a aproximadamente 1 km y usada solo para encontrar la estación más cercana. Solo se queda en este navegador si marcas la casilla.",
+    "noteRadar": "Redondeada a aproximadamente 1 km y usada solo para mostrar tu ubicación en el mapa. Solo se queda en este navegador si marcas la casilla.",
     "privacyLink": "Más en la política de privacidad",
     "remembered": "Ubicación recordada: {position}",
     "forget": "Olvidar mi ubicación",
@@ -1214,7 +1215,16 @@
     "framesLoadingLive": "Cargando las imágenes de radar …",
     "framesReady": "Las imágenes de radar están cargadas.",
     "unavailable": "El radar no está disponible en este servidor.",
-    "framesNone": "No se pudo cargar ninguna imagen de radar."
+    "framesNone": "No se pudo cargar ninguna imagen de radar.",
+    "positionTitle": "Tu ubicación",
+    "positionShown": "Tu ubicación está marcada en el mapa, en torno a {position}.",
+    "positionHidden": "Tu ubicación está oculta en el mapa.",
+    "positionOutside": "Tu ubicación queda fuera de la imagen del radar, así que el mapa se queda donde está.",
+    "positionWaiting": "Esperando la imagen del radar para comprobar dónde está tu ubicación …",
+    "positionNoRadar": "No hay imagen del radar con la que comparar tu ubicación, así que el mapa se queda donde está.",
+    "positionHide": "Ocultar mi ubicación en el mapa",
+    "positionShow": "Mostrar mi ubicación en el mapa",
+    "positionMarker": "Tu ubicación, redondeada a aproximadamente 1 km"
   },
   "dataViewer": {
     "loadingValues": "Cargando valores …",

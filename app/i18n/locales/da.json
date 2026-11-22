@@ -1005,6 +1005,7 @@
     "locating": "Finder din placering …",
     "remember": "Husk min placering i denne browser",
     "note": "Afrundet til omkring 1 km og kun brugt til at finde den nærmeste station. Den bliver kun i denne browser, hvis du sætter hak.",
+    "noteRadar": "Afrundet til omkring 1 km og kun brugt til at vise din placering på kortet. Den bliver kun i denne browser, hvis du sætter hak.",
     "privacyLink": "Mere i privatlivspolitikken",
     "remembered": "Husket placering: {position}",
     "forget": "Glem min placering",
@@ -1214,7 +1215,16 @@
     "framesLoadingLive": "Indlæser radarbillederne …",
     "framesReady": "Radarbillederne er indlæst.",
     "unavailable": "Radaren er ikke tilgængelig på denne server.",
-    "framesNone": "Ingen radarbilleder kunne indlæses."
+    "framesNone": "Ingen radarbilleder kunne indlæses.",
+    "positionTitle": "Din placering",
+    "positionShown": "Din placering er markeret på kortet, ved omkring {position}.",
+    "positionHidden": "Din placering er skjult på kortet.",
+    "positionOutside": "Din placering ligger uden for radarbilledet, så kortet bliver, hvor det er.",
+    "positionWaiting": "Venter på radarbilledet for at se, hvor din placering ligger …",
+    "positionNoRadar": "Der er intet radarbillede at sammenligne din placering med, så kortet bliver, hvor det er.",
+    "positionHide": "Skjul min placering på kortet",
+    "positionShow": "Vis min placering på kortet",
+    "positionMarker": "Din placering, afrundet til omkring 1 km"
   },
   "dataViewer": {
     "loadingValues": "Indlæser værdier …",

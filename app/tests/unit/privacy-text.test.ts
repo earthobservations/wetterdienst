@@ -86,6 +86,20 @@ describe('privacy policy texts', () => {
     expect(browser.paragraphs[1]).toMatch(code === 'de' ? /§ 25 Abs\. 1 TDDDG/ : /Section 25\(1\) TDDDG/)
   })
 
+  it.each(Object.keys(texts))('name the radar in the section on the location in %s: the position is only shown there, not sent to the backend (GH-4287)', (code) => {
+    const section = texts[code as keyof typeof texts].sections.find(s => s.id === 'location')!
+    const [places, sending, storing] = section.paragraphs
+    expect(places).toMatch(code === 'de' ? /auf dem Radar/ : /on the radar/)
+    expect(sending).toMatch(code === 'de' ? /Auf dem Radar wird Ihr Standort nur als Markierung angezeigt und die Karte auf ihn zentriert; auch dort werden die Koordinaten nicht an das Backend gesendet/ : /On the radar your position is only shown as a marker and the map centred on it; the coordinates are not sent to the backend there either/)
+    // the map's tiles of that section are asked from OpenStreetMap on the radar as on the map
+    expect(sending).toMatch(code === 'de' ? /auf der Karte oder auf dem Radar, lädt Ihr Browser jedoch die Kartenkacheln dieses Ausschnitts von tile\.openstreetmap\.org/ : /on the map or on the radar, however, your browser fetches the map tiles of that area from tile\.openstreetmap\.org/)
+    // the section on the third parties says the map's tiles are asked for on the radar too, which the sentence above points to
+    const tiles = texts[code as keyof typeof texts].sections.find(s => s.id === 'third-parties')!.items!.find(item => /tile\.openstreetmap\.org/.test(item))!
+    expect(tiles).toMatch(code === 'de' ? /oder die Karte des Radars/ : /or the radar's map/)
+    // the tick and "Forget" are there as on the map
+    expect(storing.match(code === 'de' ? /auf dem Radar/g : /on the radar/g)).toHaveLength(2)
+  })
+
   it.each(Object.keys(texts))('state no retention period in days in %s: none is configured, only the cookie has a lifetime', (code) => {
     expect(allText(texts[code as keyof typeof texts])).not.toMatch(/\b(?!365\b)\d+\s*(days|Tage)\b/)
   })
