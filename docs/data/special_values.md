@@ -119,3 +119,19 @@ These values are returned as the source writes them, with no token:
   floor that spares the deserts (1 % at the hourly data of Death Valley, Tamanrasset and Atacama) reaches them, so they
   are a judgement call: kept, as published, with no token (GH-3773);
 - a sunshine duration longer than the daylight but within its span plus 5 % (above that `range` rejects it; a station's sensor known to be stuck, RMI, is `stuck`'s).
+
+## Not checked against the live source
+
+Some special values and descriptions of three providers were left unchecked against the source, which the issue
+[GH-3137](https://github.com/earthobservations/wetterdienst/issues/3137) lists as needing a key or a login (state of
+2026-11-22):
+
+- `metoffice/observation`: the stub serves the `NA` text only. A wind direction of 0 and the cloud code 9 are mapped as
+  the page above says, from the files read, and the MIDAS tables word no code 9 for the cloud;
+- `aemet` and the KNMI NetCDF files: a stub and the reader only. Whether KNMI's 10-minute `n` carries a 9 is not known,
+  as the text export has no 10-minute `n`;
+- the descriptions of `knmi`, `aemet` and `metoffice` were not compared with their source, as those of the other
+  providers were.
+
+Until they are, the rules on this page apply to these providers as written. A code that a source documents and the
+library does not map shows as a value: report it as an issue.

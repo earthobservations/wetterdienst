@@ -141,13 +141,32 @@ same way, with their own issuers.
 The name and the position of a station come from the station description of its dataset and period
 (e.g. `KL_Tageswerte_Beschreibung_Stationen.txt`), and the stations that you can request are those that the
 description lists and that have a data file. A few stations have data files and no line in the description
-of any period (read 2026-10-22, among others: 01018, 02996 and 05047 in `daily/climate_summary`, eleven stations in
-`daily/weather_phenomena_more`, seven in `10_minutes/precipitation`, two in `1_minute/precipitation`). They are
-not listed and their data cannot be requested, as there is no position and no name to offer them with. When the
-stations of a dataset are read for all of its periods, wetterdienst logs a warning that names them, once for each
-process, so that a missing station is explained; a request for some periods only does not, as another period
-may list the station. The remedy is DWD's, which publishes the files and not the lines
-([GH-3258](https://github.com/earthobservations/wetterdienst/issues/3258)).
+of any period. They are not listed and their data cannot be requested, as there is no position and no name to offer
+them with. When the stations of a dataset are read for all of its periods, wetterdienst logs a warning that names them,
+once for each process, so that a missing station is explained; a request for some periods only does not, as another
+period may list the station. The remedy is DWD's, which publishes the files and not the lines. DWD was asked on
+2026-11-07 to add the missing lines and has not answered (2026-11-22); until it does, the stations stay unlisted
+([GH-3258](https://github.com/earthobservations/wetterdienst/issues/3258)). A late answer is a new issue.
+
+Read on 2026-11-07 against the live server, 24 stations in 20 directories under `observations_germany/climate/`
+(`multi_annual` was not read). A station counts only if no station description of the dataset has a line for it, in any
+period or year:
+
+| Directories | Stations with files and no line |
+|---|---|
+| `daily/kl`, `daily/weather_phenomena`, `monthly/kl`, `monthly/weather_phenomena`, `annual/kl`, `annual/weather_phenomena`, `subdaily/air_temperature`, `cloudiness`, `moisture`, `soil`, `visibility`, `wind` | 01018, 02996, 05047 |
+| `daily/water_equiv` | 01018, 04167 |
+| `daily/more_weather_phenomena` | 00047, 01018, 01315, 02072, 03733, 03802, 04655, 05047, 05171, 05206, 05678 |
+| `hourly/wind_synop` | 00991, 02039 |
+| `10_minutes/precipitation` | 01315, 02072, 03432, 03704, 04211, 05206, 05678 |
+| `10_minutes/solar` | 07432 |
+| `10_minutes/extreme_wind` | 03775 |
+| `1_minute/precipitation` | 15851 (`recent/1minutenwerte_nieder_15851_akt.zip`) |
+| `10_minutes/wind_test` | 00430, 02100, 03023 (a directory wetterdienst does not read) |
+
+03704 and 04211 of `1_minute/precipitation` have a line in the description of another year. `monthly/climate_indices`
+and the third `annual` dataset show nothing with this count, but their layout was not looked at further, so the list may
+not be complete. The `dwd/derived` soil stations are on [its page](../derived/index.md).
 
 ## Parameter details
 

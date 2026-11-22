@@ -56,6 +56,16 @@ read 2026-10-17), so `quality_flags` `0` tells nothing here.
 The periods are a list in the reader (`_NO_SUNSHINE`), read off the layers on 2026-10-17; the rest of
 the station's series, and the other stations, are not touched. Other sensors of 6477 were not checked.
 
+## The stamp of the 10-minute record
+
+The 10-minute stamp is read as the end of its interval, as RMI's documentation words it ("over the last 10 min"), and
+that fits the daily sum, the hourly mean and the global radiation. One observation goes against it for the other
+parameters: at Uccle (6447) RMI's SYNOP layer at hour H equals the 10-minute record stamped H-10 (wind speed and
+direction to the digit, station pressure within 0.03 hPa, precipitation within 0.15 mm in 91 of 91 reports). Either
+the SYNOP layer is built from the record one step before the hour, or these stamps are interval starts. The data
+cannot settle it; RMI has not answered (2026-11-22). The library keeps the end reading, and the row of the
+[time reference](../../../time_reference.md) stays unverified ([GH-3137](https://github.com/earthobservations/wetterdienst/issues/3137)).
+
 ## License
 
 Data is © RMI (Royal Meteorological Institute of Belgium) and licensed under
