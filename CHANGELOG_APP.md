@@ -44,6 +44,13 @@ Types of changes:
   WMO Guide, WMO-No. 8, Volume I, Chapters 10, 11, 14 and 15, and the providers' own files). They
   are written in German and English, like the first ones; the Glossary links the evaporation,
   soil moisture, weather and cloud parameters to them (GH-3787).
+- `[Measurement]` Four more entries on the "How weather is measured" page: automatic weather
+  stations (`/measurement#automatic-stations`), urban stations (`#urban-stations`), road weather
+  stations (`#road-stations`) and how a value is formed, as a mean, a sum, a maximum or a minimum
+  (`#from-measurement-to-value`). They rest on WMO-No. 8, Volume III, Chapters 1, 9 and 10 (a new
+  volume on the page, in its 2024 edition), Volume V, Chapters 2 and 3, and DWD's own files and
+  notices. The Glossary links `road_surface_condition`, `water_film_thickness` and
+  `temperature_surface` to the road weather stations (GH-3787).
 
 ## [0.57.0] - 2026-11-21
 

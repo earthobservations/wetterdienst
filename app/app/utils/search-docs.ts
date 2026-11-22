@@ -67,7 +67,8 @@ function measurementDocs(input: DocsInput): SearchDoc[] {
       kind: 'measurement',
       title: entry.title,
       context: say(input, 'measurement.sourcesTitle'),
-      text: entry.sources.map(source => `${source.plain} ${source.citation}`).join(' '),
+      // the sentence in plain words only: the formal citation is file names, folders and addresses, which nobody searches for
+      text: entry.sources.map(source => source.plain).join(' '),
       keywords,
       to,
     })
@@ -93,7 +94,7 @@ function methodDocs(input: DocsInput): SearchDoc[] {
   }
   for (const [id, work] of Object.entries(WORKS)) {
     const text = input.methods.works[id as keyof typeof WORKS]
-    docs.push({ kind: 'method', title: work.short, context: say(input, 'methods.worksTitle'), summary: excerpt(text?.plain ?? ''), text: work.citation, to: `/methods#work-${id}` })
+    docs.push({ kind: 'method', title: work.short, context: say(input, 'methods.worksTitle'), summary: excerpt(text?.plain ?? ''), text: text?.plain ?? '', to: `/methods#work-${id}` })
   }
   return docs
 }
