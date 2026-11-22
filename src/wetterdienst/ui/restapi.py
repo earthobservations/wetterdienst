@@ -2167,8 +2167,10 @@ def station_ids(
     lists, about 30 MB: it takes about 9 s on a good connection and longer on a slow one or when a provider is slow;
     the same search again takes about a second, from the server's cache. Do not repeat it within a conversation. A
     network that cannot be read is left out and named in `warnings` (`network-failed`) and in `searched`, and keyed
-    networks without credentials are named in a warning too (`network-not-configured`); the others answer. If every
-    network that was asked fails it is a 502 and no answer, since an outage is no station that does not exist. A
+    networks without credentials are named in a warning too (`network-not-configured`), and one that answers 429 is
+    named with the wait it asks for (`network-rate-limited`); the others answer. If every network that was asked
+    fails it is a 502 and no answer, and if every one failed or was rate-limited, with at least one 429, it is the
+    503 of a provider's rate limit with `Retry-After`, since an outage is no station that does not exist. A
     station of `noaa/ghcn` that has no data file is left out. No row means no listed station has the id, not an error.
     A tool's answer is cut to 40,000 characters, with an `answer-truncated` warning: ask for fewer ids.
     """
