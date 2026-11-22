@@ -1060,6 +1060,14 @@
     "modeHowItWorks": "How it works",
     "removeParameterDistance": "Remove the distance for {parameter}"
   },
+  "valueDetails": {
+    "station": "Station",
+    "unit": "Unit",
+    "sumNote": "A sum is shown only for parameters that are amounts per interval, such as precipitation or sunshine duration, and not where the window of a parameter is longer than its rows (a 6-hour total in hourly rows): the windows overlap. For a mean, a reading, a maximum or a minimum it would mean nothing.",
+    "noSum": "no sum for this parameter",
+    "noSumOverlap": "no sum: the windows of this parameter overlap",
+    "noValue": "no value"
+  },
   "stationTable": {
     "stationId": "Station ID",
     "name": "Name",

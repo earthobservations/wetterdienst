@@ -114,6 +114,15 @@ Types of changes:
 - `[Search]` The groups "Forecast for a station" and "Station on the map" are replaced by one group
   for each network (the forecast's points, DWD measurements, NOAA GHCN daily); a station leads to
   the map, where its forecast is one click away (GH-3790).
+- `[Explorer]` The value details are split by station, always: a row for each station of each
+  parameter, named by its name and id, and the unit of the parameter in a column. The sum is shown
+  only for a parameter whose aggregation in the answer is `sum`, `count` or `occurrence` (rain,
+  sunshine duration, days with an event) and is a dash for a temperature or a mean, which it used to
+  add up, and for a window longer than the rows (`_last_6h` in hourly rows), whose windows overlap.
+  Rows a query has rewritten get no unit and no sum. Interpolation and Summary stay one series.
+  Stations restored from a shared link keep the link's order instead of being sorted by id. The
+  fetch asks for `with_metadata` to read the units and aggregations; downloads are unchanged
+  (GH-4296).
 
 ## [0.57.0] - 2026-11-21
 

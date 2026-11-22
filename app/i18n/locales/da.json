@@ -1060,6 +1060,14 @@
     "modeHowItWorks": "Sådan fungerer det",
     "removeParameterDistance": "Fjern afstanden for {parameter}"
   },
+  "valueDetails": {
+    "station": "Station",
+    "unit": "Enhed",
+    "sumNote": "En sum vises kun for parametre, der er mængder pr. interval, som nedbør eller solskinstimer, og ikke hvor en parameters vindue er længere end dens rækker (en total over 6 timer i timerækker): vinduerne overlapper. For et gennemsnit, en aflæsning, et maksimum eller et minimum ville den ikke betyde noget.",
+    "noSum": "ingen sum for denne parameter",
+    "noSumOverlap": "ingen sum: vinduerne for denne parameter overlapper",
+    "noValue": "ingen værdi"
+  },
   "stationTable": {
     "stationId": "Stations-id",
     "name": "Navn",

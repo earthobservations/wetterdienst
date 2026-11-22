@@ -1060,6 +1060,14 @@
     "modeHowItWorks": "So funktioniert es",
     "removeParameterDistance": "Entfernung für {parameter} löschen"
   },
+  "valueDetails": {
+    "station": "Station",
+    "unit": "Einheit",
+    "sumNote": "Eine Summe wird nur für Parameter gezeigt, die Mengen je Intervall sind, etwa Niederschlag oder Sonnenscheindauer, und nicht, wo das Zeitfenster eines Parameters länger ist als seine Zeilen (eine 6-Stunden-Summe in stündlichen Zeilen): die Fenster überlappen sich. Bei einem Mittel, einem Messwert, einem Maximum oder einem Minimum hätte sie keine Bedeutung.",
+    "noSum": "keine Summe für diesen Parameter",
+    "noSumOverlap": "keine Summe: die Zeitfenster dieses Parameters überlappen sich",
+    "noValue": "kein Wert"
+  },
   "stationTable": {
     "stationId": "Stations-ID",
     "name": "Name",

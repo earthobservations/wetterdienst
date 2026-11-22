@@ -106,6 +106,18 @@ describe('stationSelection', () => {
     expect(calls).toBe(1)
   })
 
+  it('restores the stations in the order of the shared URL, not the order of their ids', async () => {
+    // the value details name the stations in the order of the list, so a reload or a shared link must not reorder them (GH-4296)
+    registerEndpoint('/api/stations', () => ({
+      stations: ['00001', '00044', '03379', '01975'].map(station_id => ({ station_id, name: `Station ${station_id}`, region: 'x', latitude: 52.5, longitude: 13.4 })),
+    }))
+
+    const wrapper = await mountSelection({ tool: 'explorer', parameterSelection, initialStationIds: ['03379', '01975', '00044'], multiple: true })
+    const vm = wrapper.vm as any
+    await vi.waitFor(() => expect(vm.selectedStations).toHaveLength(3))
+    expect(vm.selectedStations.map((station: { station_id: string }) => station.station_id)).toEqual(['03379', '01975', '00044'])
+  })
+
   it('resets stationsLoaded on a failed fetch, so reopening the picker retries', async () => {
     let failing = true
     registerEndpoint('/api/stations', (event) => {

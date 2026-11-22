@@ -251,10 +251,12 @@ function observationValues(url: URL): Value[] {
   const stations = (url.searchParams.getAll('stations').join(',') || '00011').split(',')
   const values: Value[] = []
   for (const station_id of stations) {
+    // another station reads a little more than the first one the mock knows, so that two stations differ
+    const offset = station_id === '00011' ? 0 : (Number(station_id) % 5) + 1
     for (const name of parameters) {
       for (let day = 0; day < 30; day++) {
         // a fixed curve, not a random one: the same page for every scan
-        const base = name.includes('max') ? 18 : name.includes('min') ? 6 : name.includes('precipitation') ? 2 : 12
+        const base = (name.includes('max') ? 18 : name.includes('min') ? 6 : name.includes('precipitation') ? 2 : 12) + offset
         values.push({
           station_id,
           resolution: 'daily',
@@ -268,6 +270,29 @@ function observationValues(url: URL): Value[] {
     }
   }
   return values
+}
+
+/**
+ * What `with_metadata` adds to a `/api/values` answer that the app reads: the facts of each parameter, with the unit its values are
+ * in and what they are relative to their interval (`aggregation`), as the backend states them: a precipitation is a sum, a maximum
+ * and a minimum are what they say, a temperature or a humidity is a mean
+ */
+function observationMetadata(url: URL) {
+  const requested = (url.searchParams.get('parameters') ?? '').split(',').filter(Boolean)
+  const names = requested.map(entry => entry.split('/')[2]).filter((name): name is string => Boolean(name))
+  return {
+    parameters: (names.length ? names : ['temperature_air_mean_2m']).map(name => ({
+      resolution: 'daily',
+      dataset: 'climate_summary',
+      name,
+      name_original: name,
+      description: null,
+      quantity: name.includes('precipitation') ? 'precipitation' : 'temperature',
+      unit: name.includes('precipitation') ? 'mm' : '\u00B0C',
+      aggregation: name.includes('precipitation') ? 'sum' : name.includes('max') ? 'max' : name.includes('min') ? 'min' : 'mean',
+      timestamp_position: null,
+    })),
+  }
 }
 
 /** Three days of hourly MOSMIX values from the hour of `now` on, for each series the meteogram draws */
@@ -509,7 +534,9 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     'values': (url) => {
       if (isSnowRequest(url))
         return snowValues(url, now)
-      return { values: url.searchParams.get('network') === 'mosmix' ? forecastValues(url, now) : observationValues(url) }
+      if (url.searchParams.get('network') === 'mosmix')
+        return { values: forecastValues(url, now) }
+      return { values: observationValues(url), ...(url.searchParams.get('with_metadata') === 'true' ? { metadata: observationMetadata(url) } : {}) }
     },
     'issues': () => ({ issues: ['2026-10-14T09:00:00+00:00', '2026-10-14T15:00:00+00:00', '2026-10-14T21:00:00+00:00'] }),
     'history': () => HISTORY,

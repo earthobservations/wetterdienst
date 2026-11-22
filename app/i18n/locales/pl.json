@@ -1060,6 +1060,14 @@
     "modeHowItWorks": "Jak to działa",
     "removeParameterDistance": "Usuń odległość dla {parameter}"
   },
+  "valueDetails": {
+    "station": "Stacja",
+    "unit": "Jednostka",
+    "sumNote": "Suma jest pokazywana tylko dla parametrów, które są ilościami na przedział, takich jak opad czy czas usłonecznienia, i nie tam, gdzie okno parametru jest dłuższe niż jego wiersze (suma z 6 godzin w wierszach godzinowych): okna nakładają się. Dla średniej, odczytu, maksimum lub minimum nie miałaby sensu.",
+    "noSum": "brak sumy dla tego parametru",
+    "noSumOverlap": "brak sumy: okna tego parametru nakładają się",
+    "noValue": "brak wartości"
+  },
   "stationTable": {
     "stationId": "Identyfikator stacji",
     "name": "Nazwa",

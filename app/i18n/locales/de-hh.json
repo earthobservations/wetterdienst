@@ -1060,6 +1060,14 @@
     "modeHowItWorks": "So warkt dat",
     "removeParameterDistance": "Entfernen för {parameter} wegmaken"
   },
+  "valueDetails": {
+    "station": "Station",
+    "unit": "Eenheit",
+    "sumNote": "En Summ warrt blots för Parameter wiest, de Mengen je Interval sünd, as Nedderslag oder Sünnenschiendauer, un nich, wo dat Tietfinster vun en Parameter länger is as sien Reegen (en 6-Stünnen-Summ in stünnlichen Reegen): de Finsters överlappt sik. Bi en Middel, en Meetweert, en Maximum oder en Minimum harr se keen Bedüden.",
+    "noSum": "keen Summ för disse Parameter",
+    "noSumOverlap": "keen Summ: de Tietfinsters vun disse Parameter överlappt sik",
+    "noValue": "keen Weert"
+  },
   "stationTable": {
     "stationId": "Stations-ID",
     "name": "Naam",

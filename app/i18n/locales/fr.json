@@ -1060,6 +1060,14 @@
     "modeHowItWorks": "Comment ça marche",
     "removeParameterDistance": "Supprimer la distance de {parameter}"
   },
+  "valueDetails": {
+    "station": "Station",
+    "unit": "Unité",
+    "sumNote": "Une somme n'est affichée que pour les paramètres qui sont des quantités par intervalle, comme les précipitations ou la durée d'ensoleillement, et non lorsque la fenêtre d'un paramètre est plus longue que ses lignes (un total sur 6 heures dans des lignes horaires) : les fenêtres se chevauchent. Pour une moyenne, une mesure, un maximum ou un minimum, elle n'aurait aucun sens.",
+    "noSum": "pas de somme pour ce paramètre",
+    "noSumOverlap": "pas de somme : les fenêtres de ce paramètre se chevauchent",
+    "noValue": "aucune valeur"
+  },
   "stationTable": {
     "stationId": "Identifiant de station",
     "name": "Nom",

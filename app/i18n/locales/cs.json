@@ -1060,6 +1060,14 @@
     "modeHowItWorks": "Jak to funguje",
     "removeParameterDistance": "Odebrat vzdálenost pro {parameter}"
   },
+  "valueDetails": {
+    "station": "Stanice",
+    "unit": "Jednotka",
+    "sumNote": "Součet se zobrazuje jen u parametrů, které jsou množstvím za interval, například srážky nebo trvání slunečního svitu, a ne tam, kde je okno parametru delší než jeho řádky (šestihodinový úhrn v hodinových řádcích): okna se překrývají. U průměru, naměřené hodnoty, maxima nebo minima by neměl žádný význam.",
+    "noSum": "pro tento parametr není součet",
+    "noSumOverlap": "žádný součet: okna tohoto parametru se překrývají",
+    "noValue": "žádná hodnota"
+  },
   "stationTable": {
     "stationId": "ID stanice",
     "name": "Název",

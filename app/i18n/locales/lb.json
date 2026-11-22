@@ -1060,6 +1060,14 @@
     "modeHowItWorks": "Wéi et funktionéiert",
     "removeParameterDistance": "Distanz fir {parameter} läschen"
   },
+  "valueDetails": {
+    "station": "Statioun",
+    "unit": "Eenheet",
+    "sumNote": "Eng Zomm gëtt nëmmen fir Parameter gewisen, déi Mengte pro Intervall sinn, wéi Nidderschlag oder Sonnescheindauer, an net do, wou d'Fënster vun engem Parameter méi laang ass wéi seng Zeilen (en 6-Stonne-Total an Zeile pro Stonn): d'Fënsteren iwwerlappen séch. Bei engem Duerchschnëtt, engem Miesswäert, engem Maximum oder engem Minimum hätt se keng Bedeitung.",
+    "noSum": "keng Zomm fir dësen Parameter",
+    "noSumOverlap": "keng Zomm: d'Fënsteren vun dësem Parameter iwwerlappen séch",
+    "noValue": "kee Wäert"
+  },
   "stationTable": {
     "stationId": "Statiouns-ID",
     "name": "Numm",

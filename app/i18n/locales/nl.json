@@ -1060,6 +1060,14 @@
     "modeHowItWorks": "Hoe het werkt",
     "removeParameterDistance": "Afstand voor {parameter} verwijderen"
   },
+  "valueDetails": {
+    "station": "Station",
+    "unit": "Eenheid",
+    "sumNote": "Een som wordt alleen getoond voor parameters die hoeveelheden per interval zijn, zoals neerslag of zonneschijnduur, en niet waar het venster van een parameter langer is dan zijn rijen (een totaal over 6 uur in uurrijen): de vensters overlappen elkaar. Bij een gemiddelde, een meting, een maximum of een minimum zou ze niets betekenen.",
+    "noSum": "geen som voor deze parameter",
+    "noSumOverlap": "geen som: de vensters van deze parameter overlappen elkaar",
+    "noValue": "geen waarde"
+  },
   "stationTable": {
     "stationId": "Station-id",
     "name": "Naam",

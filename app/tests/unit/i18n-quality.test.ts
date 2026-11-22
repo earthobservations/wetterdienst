@@ -435,6 +435,7 @@ const UI_SAME: Record<string, Same> = {
   'explorer.shape': { de: ['da'], why: COGNATE },
   'explorer.shapeLong': { en: ['fr'], de: ['da', 'nl'], why: COGNATE },
   'explorer.stationsDetails': { de: ['nl'], why: COGNATE },
+  'valueDetails.station': { en: ['da', 'de-hh', 'de', 'fr', 'nl'], why: COGNATE },
   'stationTable.name': { en: ['de'], why: COGNATE },
   'stationTable.region': { en: ['cs', 'da', 'de-hh', 'de', 'pl'], why: COGNATE },
   'stationTable.latitude': { en: ['fr'], why: COGNATE },
