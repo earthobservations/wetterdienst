@@ -195,6 +195,9 @@ describe('the glossary', () => {
     { name: 'soil_state_index', unit_type: 'dimensionless', unit: 'dimensionless', unit_symbol: '', description: 'Coded state of the ground surface.' },
     { name: 'soil_moisture_grass_sand_00cm_60cm', unit_type: 'fraction', unit: 'percent', unit_symbol: '%', description: 'Soil moisture in sand under grass.' },
     { name: 'evaporation_amount_grass_sand', unit_type: 'precipitation', unit: 'millimeter', unit_symbol: 'mm', description: 'Depth of water evaporated from sand under grass.' },
+    { name: 'water_film_thickness', unit_type: 'length_tiny', unit: 'millimeter', unit_symbol: 'mm', description: 'Thickness of the film of water lying on the road surface.' },
+    { name: 'road_surface_condition', unit_type: 'dimensionless', unit: 'dimensionless', unit_symbol: '', description: 'Coded condition of the road surface as a road station reports it.' },
+    { name: 'road_surface_condition_forecast', unit_type: 'dimensionless', unit: 'dimensionless', unit_symbol: '', description: 'Coded condition of the road surface as a road weather model forecasts it.' },
   ]
   registerEndpoint('/api/glossary', () => entries)
 
@@ -221,6 +224,8 @@ describe('the glossary', () => {
       '/measurement#normals',
       '/measurement#present-weather',
       '/measurement#present-weather',
+      '/measurement#road-stations',
+      '/measurement#road-stations',
       '/measurement#soil-moisture',
       '/measurement#temperature',
       '/measurement#wind',
@@ -253,6 +258,14 @@ describe('the glossary', () => {
     const shown = (wrapper.vm as any).entries.map((entry: { name: string }) => entry.name)
     expect([...shown].sort()).toEqual(['soil_state_index', 'weather'])
     expect(wrapper.find('[data-testid="glossary-topic"]').text()).toContain('Only “Present weather and state of the ground”')
+  })
+
+  it('shows the parameters of the entry on road weather stations, and not the road surface of a forecast', async () => {
+    await useLocale('en')
+    const wrapper = await mountGlossary('/glossary?topic=road-stations')
+    const shown = (wrapper.vm as any).entries.map((entry: { name: string }) => entry.name)
+    expect([...shown].sort()).toEqual(['road_surface_condition', 'water_film_thickness'])
+    expect(wrapper.find('[data-testid="glossary-topic"]').text()).toContain('Only “Road weather stations”')
   })
 
   it('takes an entry that explains no parameter for no filter, as an id that is none', async () => {

@@ -44,7 +44,7 @@ describe('the anchors', () => {
       expect(topic, topic).toMatch(/^[a-z]+(?:-[a-z]+)*$/)
   })
 
-  it('are the sixteen entries written so far, in the order of the issue', () => {
+  it('are the twenty entries written so far, in the order of the issue', () => {
     // the ids are in links that are printed and shared (and in the explanations of GH-3764): a rename is a breaking change
     expect([...TOPICS]).toEqual([
       'temperature',
@@ -60,6 +60,10 @@ describe('the anchors', () => {
       'present-weather',
       'clouds',
       'snow',
+      'automatic-stations',
+      'urban-stations',
+      'road-stations',
+      'from-measurement-to-value',
       'normals',
       'time',
       'observation-forecast-derived',
@@ -79,6 +83,8 @@ describe('the anchors', () => {
     expect(isTopic('humidity')).toBe(true)
     expect(isTopic('evaporation')).toBe(true)
     expect(isTopic('soil-moisture')).toBe(true)
+    expect(isTopic('road-stations')).toBe(true)
+    expect(isTopic('from-measurement-to-value')).toBe(true)
     expect(isTopic('hydrology')).toBe(false)
     expect(isTopic(undefined)).toBe(false)
     expect(isTopic(['wind'])).toBe(false)
@@ -88,6 +94,8 @@ describe('the anchors', () => {
 
   it('have a short name in the catalog of every language, under a camel case key', () => {
     expect(topicLabelKey('observation-forecast-derived')).toBe('measurement.topics.observationForecastDerived')
+    expect(topicLabelKey('from-measurement-to-value')).toBe('measurement.topics.fromMeasurementToValue')
+    expect(topicLabelKey('road-stations')).toBe('measurement.topics.roadStations')
     for (const locale of Object.keys(catalogs)) {
       for (const topic of TOPICS)
         expect(typeof message(locale, topicLabelKey(topic)), `${locale} ${topic}`).toBe('string')
@@ -162,6 +170,9 @@ describe('the glossary parameters of an entry', () => {
     ['cloud_cover_below_2km', 'clouds'],
     ['cloud_height_layer3', 'clouds'],
     ['cloud_type_layer2', 'clouds'],
+    ['road_surface_condition', 'road-stations'],
+    ['water_film_thickness', 'road-stations'],
+    ['temperature_surface', 'road-stations'],
     ['snow_depth', 'snow'],
     ['snow_depth_new', 'snow'],
     ['snow_cover', 'snow'],
@@ -178,7 +189,6 @@ describe('the glossary parameters of an entry', () => {
   it.each([
     // water: an entry that is not written yet
     'temperature_water',
-    'temperature_surface',
     'discharge',
     // what the entries do not explain
     'precipitation_form',
@@ -199,7 +209,14 @@ describe('the glossary parameters of an entry', () => {
     'count_days_multiday_evaporation',
     'frozen_ground_layer_thickness',
     'thawing_thickness_bare_ground',
-    'road_surface_condition',
+    // what the entries on the road stations and the urban stations do not explain: the road surface condition and the
+    // surface temperature of a forecast, the surface temperature of a probe on grass (RMI), the radiant temperature
+    // of DWD's urban stations (no source read for the page says what it is) and the form of the precipitation a road
+    // station reports (a code of its own, whose bits the entry does not explain)
+    'road_surface_condition_forecast',
+    'temperature_surface_mean',
+    'temperature_radiant_2m',
+    'precipitation_type_flags',
   ])('give %s no entry', (name) => {
     expect(topicOfParameter(name)).toBeUndefined()
   })
@@ -236,7 +253,7 @@ describe('the glossary parameters of an entry', () => {
   it('leave most of the glossary to entries that follow, but a family that has one is not left out', () => {
     // a parameter of a quantity the first phase explains has its entry: counting these is how a family that a new
     // parameter name starts is noticed (the pattern would not take it), here for the names that exist
-    const families = /^(?:temperature_(?:air|soil|dew_point|wet)|pressure_(?:air|vapor)|humidity_|vapor_pressure|wind_(?:speed|gust|direction|force)|precipitation_(?:amount|intensity)|radiation_|sunshine_duration|visibility|evapo|soil_moisture|soil_state|weather|cloud_(?:cover|height|type)|snow_depth|water_equivalent_snow_depth)/
+    const families = /^(?:temperature_(?:air|soil|dew_point|wet)|pressure_(?:air|vapor)|humidity_|vapor_pressure|wind_(?:speed|gust|direction|force)|precipitation_(?:amount|intensity)|radiation_|sunshine_duration|visibility|evapo|soil_moisture|soil_state|weather|cloud_(?:cover|height|type)|snow_depth|water_equivalent_snow_depth|road_surface_condition$|water_film|temperature_surface$)/
     expect(PARAMETERS.filter(name => families.test(name) && topicOfParameter(name) === undefined)).toEqual([])
   })
 
@@ -251,13 +268,19 @@ describe('the glossary parameters of an entry', () => {
     expect(parameterPatterns('soil-moisture')).toEqual(['soil_moisture_*'])
     expect(parameterPatterns('present-weather')).toEqual(['weather', 'weather_*', 'soil_state_index'])
     expect(parameterPatterns('clouds')).toEqual(['cloud_cover_*', 'cloud_height_*', 'cloud_type_*'])
+    expect(parameterPatterns('road-stations')).toEqual(['road_surface_condition', 'water_film_thickness', 'temperature_surface'])
+    // the entries on the kinds of station and on how a value is formed explain no parameter: a mean, a maximum or a
+    // minimum is in the name of the parameter of every quantity, and the entry of that quantity says what it is
+    expect(parameterPatterns('automatic-stations')).toEqual([])
+    expect(parameterPatterns('urban-stations')).toEqual([])
+    expect(parameterPatterns('from-measurement-to-value')).toEqual([])
     expect(parameterPatterns('normals')).toEqual(['*_normal'])
     expect(parameterPatterns('time')).toEqual([])
     expect(parameterPatterns('observation-forecast-derived')).toEqual([])
   })
 })
 
-describe.each([['en', en], ['de', de]] as const)('the text in %s', (_locale, texts) => {
+describe.each([['en', en], ['de', de]] as const)('the text in %s', (locale, texts) => {
   it('has an entry for each anchor, and no other', () => {
     expect(Object.keys(texts).sort()).toEqual([...TOPICS].sort())
   })
@@ -273,7 +296,7 @@ describe.each([['en', en], ['de', de]] as const)('the text in %s', (_locale, tex
   })
 
   it('has the four parts the issue asks for in every entry that is a measurement', () => {
-    for (const topic of ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'evaporation', 'soil-moisture', 'present-weather', 'clouds', 'snow'] as const)
+    for (const topic of ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'evaporation', 'soil-moisture', 'present-weather', 'clouds', 'snow', 'automatic-stations', 'urban-stations', 'road-stations', 'from-measurement-to-value'] as const)
       expect(texts[topic].parts, topic).toHaveLength(4)
   })
 
@@ -288,19 +311,19 @@ describe.each([['en', en], ['de', de]] as const)('the text in %s', (_locale, tex
     }
   })
 
-  it('cites the WMO Guide by the edition of each volume (I and II: 2024, V: 2023), by volume, chapter and section, and the normals by their number', () => {
+  it('cites the WMO Guide by the edition of each volume (I, II and III: 2024, V: 2023), by volume, chapter and section, and the normals by their number', () => {
     for (const topic of TOPICS) {
       for (const { citation } of texts[topic].sources.filter(source => source.citation.includes('WMO-No. 8'))) {
-        expect(citation, topic).toMatch(/Volume (?:I|II|V)[ ,(].*Chapter \d.*sections? \d/)
+        expect(citation, topic).toMatch(/Volume (?:III|II|I|V)[ ,(].*Chapter \d.*sections? \d/)
         // the edition goes with the volume: the current one of each
-        for (const volume of citation.matchAll(/Volume (I{1,2}|V)\b/g)) {
+        for (const volume of citation.matchAll(/Volume (III|II|I|V)\b/g)) {
           const year = volume[1] === 'V' ? '2023' : '2024'
           expect(citation, `${topic}: Volume ${volume[1]}`).toContain(`WMO (${year}).`)
           expect(citation, `${topic}: Volume ${volume[1]}`).toContain(`${year} edition`)
         }
       }
     }
-    for (const topic of ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'evaporation', 'soil-moisture', 'present-weather', 'clouds', 'snow'] as const)
+    for (const topic of ['temperature', 'pressure', 'humidity', 'wind', 'precipitation', 'radiation', 'sunshine', 'visibility', 'evaporation', 'soil-moisture', 'present-weather', 'clouds', 'snow', 'automatic-stations', 'urban-stations', 'road-stations', 'from-measurement-to-value'] as const)
       expect(texts[topic].sources[0]!.citation, topic).toContain('WMO-No. 8')
     // a source that cites Volume V cites it as its own edition, not in the same citation as a 2024 volume
     for (const topic of TOPICS) {
@@ -317,6 +340,14 @@ describe.each([['en', en], ['de', de]] as const)('the text in %s', (_locale, tex
     expect(texts['soil-moisture'].sources[0]!.citation).toContain('Volume I, Chapter 11 (Measurement of soil moisture)')
     expect(texts['present-weather'].sources[0]!.citation).toContain('Volume I, Chapter 14 (Observation of present and past weather; state of the ground)')
     expect(texts.clouds.sources[0]!.citation).toContain('Volume I, Chapter 15 (Observation and measurement of clouds)')
+    // automatic stations III-1, urban stations III-9, road weather stations III-10, and from measurement to value V-2 and V-3 (with the table of Volume I, Chapter 1)
+    expect(texts['automatic-stations'].sources[0]!.citation).toContain('Volume III (Observing systems), Chapter 1 (Measurements at automatic weather stations)')
+    expect(texts['urban-stations'].sources[0]!.citation).toContain('Volume III (Observing systems), Chapter 9 (Urban observations)')
+    expect(texts['road-stations'].sources[0]!.citation).toContain('Volume III (Observing systems), Chapter 10 (Road meteorological measurements)')
+    const value = texts['from-measurement-to-value'].sources.map(source => source.citation).join(' ')
+    expect(value).toContain('Volume V (Quality assurance and management of observing systems), Chapter 2 (Sampling meteorological variables)')
+    expect(value).toContain('Chapter 3 (Data reduction)')
+    expect(value).toContain('Volume I, Chapter 1 (General), Annex 1.A')
     for (const topic of ['pressure', 'humidity', 'visibility'] as const)
       expect(texts[topic].sources.map(source => source.citation).join(' '), topic).toContain('Volume V (Quality assurance and management of observing systems), Chapter 3 (Data reduction)')
     expect(texts.normals.sources[0]!.citation).toContain('WMO-No. 1203')
@@ -333,6 +364,18 @@ describe.each([['en', en], ['de', de]] as const)('the text in %s', (_locale, tex
   it('names the edition of the Guide it uses, and has none of the provisional 2026 one', () => {
     for (const entry of Object.values(texts))
       expect(JSON.stringify(entry)).not.toMatch(/2026 edition|Ausgabe 2026/)
+  })
+
+  it('refers to another entry by the short name it has in the catalog of the language, and to one that exists', () => {
+    const names = new Set(TOPICS.map(topic => message(locale, topicLabelKey(topic)) as string))
+    const quoted = locale === 'en' ? /\b[Ss]ee "([^"]+)"/g : /\b[Ss]iehe „([^“]+)“/g
+    const found: string[] = []
+    for (const entry of Object.values(texts)) {
+      for (const paragraph of entry.parts.flatMap(part => part.paragraphs))
+        found.push(...[...paragraph.matchAll(quoted)].map(match => match[1]!))
+    }
+    expect(found.length).toBeGreaterThan(10)
+    expect(found.filter(name => !names.has(name))).toEqual([])
   })
 
   it('has no placeholder text', () => {
@@ -403,6 +446,24 @@ describe('what the texts say about which provider has which parameter', () => {
     // a provider declares its parameters in `metadata.py` or in `api.py`: both are scanned
     expect(files.length).toBeGreaterThan(100)
     expect(files.some(file => file.endsWith('/api.py'))).toBe(true)
+  })
+
+  it('has urban stations at DWD\'s observation network only, and the road weather stations at DWD\'s road network, whose names its forecast shares', () => {
+    // the entries on the urban and the road weather stations say that wetterdienst has them from one provider
+    expect(providersOf(/"urban_/)).toEqual(['dwd/observation/metadata.py'])
+    expect(providersOf(/"road_surface_condition"/)).toEqual(['dwd/road/api.py'])
+    expect(providersOf(/"water_film_thickness"/)).toEqual(['dwd/road/api.py'])
+    // temperature_surface is a measurement of the stations and the forecast of DWD's SWSMOS: the entry says the name does not tell which
+    expect(providersOf(/"temperature_surface"/)).toEqual(['dwd/road/api.py', 'dwd/swsmos/metadata.py'])
+    expect(providersOf(/"road_surface_condition_forecast"/)).toEqual(['dwd/swsmos/metadata.py'])
+  })
+
+  it('names the folders of the DWD files that the entries on the automatic, urban and road weather stations rest on', () => {
+    expect(JSON.stringify(en['automatic-stations'].sources)).toContain('climate/hourly/air_temperature/recent/')
+    expect(JSON.stringify(en['urban-stations'].sources)).toContain('climate_urban/')
+    expect(JSON.stringify(de['urban-stations'].sources)).toContain('10minutenwerte_TU_STADT_')
+    expect(JSON.stringify(en['road-stations'].sources)).toContain('weather/weather_reports/road_weather_stations/')
+    expect(JSON.stringify(de['road-stations'].sources)).toContain('SH10')
   })
 
   it('names the folders of the DWD files that the entries on clouds and present weather rest on', () => {

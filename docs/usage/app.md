@@ -36,10 +36,11 @@ and sets the theme or the language.
 **Measurement** (`/measurement`, "How weather is measured") explains how a quantity is measured, how a reading becomes
 a value, what the number can and cannot tell and where providers differ, one entry for each quantity with an anchor
 (`/measurement#wind`) and the sources it rests on: the WMO Guide to Instruments and Methods of Observation (WMO-No. 8:
-Volumes I and II of 2024, Volume V of 2023, the current editions) by volume and chapter, and the providers' own files. The entries so far are air and soil temperature, pressure,
+Volumes I, II and III of 2024, Volume V of 2023, the current editions) by volume and chapter, and the providers' own files. The entries so far are air and soil temperature, pressure,
 humidity and dew point, wind, precipitation, radiation, sunshine duration, visibility, evaporation, soil moisture,
-present weather and the state of the ground, clouds, snow, climate normals, time, and observation, forecast and derived
-data. The
+present weather and the state of the ground, clouds, snow, automatic weather stations, urban stations, road weather
+stations, how a value is formed (means, sums, maxima and minima), climate normals, time, and observation, forecast and
+derived data. The
 Glossary links each parameter it can to its entry ("How is this measured?"), and the entry links back to its
 parameters (`/glossary?topic=wind`). The texts are written in German and English; in another language an entry is
 shown in English, with a note (in German for Low German and Luxembourgish).
