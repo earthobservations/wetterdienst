@@ -44,8 +44,15 @@ describe('the index of each language', () => {
     expect(hits.some(hit => hit.to === '/measurement#humidity')).toBe(true)
   })
 
-  // 40 kB until the four entries on the kinds of station and on how a value is formed (GH-3787) took the German index to 44 kB;
-  // every entry of the page that follows adds about a kilobyte of its own, so this is the budget for the entries still to come
+  it('indexes the sentence in plain words of a source and not its formal citation, which is file names and addresses', () => {
+    expect(find('en', '10minutenwerte')).toEqual([])
+    expect(find('de', 'Metadaten_Geraete_Lufttemperatur')).toEqual([])
+  })
+
+  // 40 kB until the four entries on the kinds of station and on how a value is formed (GH-3787) took Luxembourgish, which
+  // is shown the German texts and is the largest, to 44.6 kB (German 43.9 kB). The formal citations (file names, folders and
+  // addresses, which nobody searches for) are no longer indexed, which gives 42.9 kB for Luxembourgish and 42.2 kB for German.
+  // Each further entry adds about 1.7 kB in German: 50 kB is the budget for the entries still to come
   it('stays small enough to load when the search is opened: 50 kB gzipped for a language, with the labels of its parameters', () => {
     for (const locale of SEARCH_LOCALES)
       expect(gzipSync(JSON.stringify({ index: searchIndexFor(locale), labels: searchLabelsFor(locale) })).length, locale).toBeLessThan(50_000)
