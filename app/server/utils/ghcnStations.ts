@@ -1,16 +1,26 @@
 import type { H3Event } from 'h3'
 import type { GhcnStationColumns } from '../../shared/types/ghcn-stations'
 import { createHash } from 'node:crypto'
-import { describeUnreadable, describeWrongKind, HTML_TYPE, UNEXPECTED_ANSWER_TYPE } from '../../app/utils/api-answer'
+import { describeWrongKind, HTML_TYPE, UNEXPECTED_ANSWER_TYPE } from '../../app/utils/api-answer'
 import { useApiBase } from './apiBase'
+import { CsvFormatError, CsvRecordReader } from './csvRecords'
 
 // The list of the stations of NOAA GHCN daily that the map shows (GH-4267), made from the backend's own answer for
-// `noaa/ghcn` (133k stations, 44 MB of JSON, 3.8 MB gzipped, 3 s) as the columns the map needs, so that the browser asks
-// for 2 MB once and not for the 44 MB. `ghcnMapStationsHandler` keeps it for a day; the route is `server/routes/_ghcn/map-stations.get.ts`,
-// outside `/api`, which is the backend's namespace and is proxied to it as it is (the rate limit counts every route of `/_ghcn/`).
+// `noaa/ghcn` (133k stations, 16 MB of CSV, 3 s) as the columns the map needs, so that the browser asks for 2 MB once and not
+// for the 44 MB that the same list is as JSON. The CSV is read as it arrives, a row at a time, into the columns, and is never
+// held as a text or as an object for each station (GH-4299). `ghcnMapStationsHandler` keeps the columns for a day; the route is
+// `server/routes/_ghcn/map-stations.get.ts`, outside `/api`, which is the backend's namespace and is proxied to it as it is
+// (the rate limit counts every route of `/_ghcn/`).
 
-/** What the backend is asked for: the whole network, every station with its first and last year */
-export const GHCN_STATIONS_PATH = '/stations?provider=noaa&network=ghcn&parameters=daily/data&all=true'
+/** What the backend is asked for: the whole network, every station with its first and last year, as the CSV that it streams */
+export const GHCN_STATIONS_PATH = '/stations?provider=noaa&network=ghcn&parameters=daily/data&all=true&format=csv'
+/** The header of the answer that says when the backend made it: a CSV has no place for that in its body */
+const RETRIEVED_AT_HEADER = 'x-wetterdienst-retrieved-at'
+/** The columns of the CSV that the list is made of, by the name in its header row */
+const CSV_COLUMNS = ['station_id', 'latitude', 'longitude', 'start_timestamp', 'end_timestamp', 'name', 'wmo_id'] as const
+/** How much of a body may be read before its header row is complete: the real one is 120 bytes, and a body with no line end in 16 KB is no CSV */
+const MAX_HEADER_BYTES = 16 * 1024
+const ADDRESS_HINT = 'The address of the API may be wrong, or a proxy in front of it answered instead of it.'
 
 /**
  * How long the backend may take: it answers in 3 s with a warm cache, and a cold one reads and parses NOAA's list first (a minute at
@@ -86,12 +96,124 @@ function problem(status: number, type: string, title: string, detail: string, re
   }
 }
 
+/** An answer that is not the list: `detail` is what the problem says, the message is for the log */
+class NotTheListError extends Error {
+  constructor(readonly detail: string, message: string) {
+    super(message)
+  }
+}
+
+/** Where each column that is read is in the header row of the CSV */
+type Places = Record<typeof CSV_COLUMNS[number], number>
+
+/** The pieces of a body, which are let go of (the connection is cancelled) where the reading stops, whether it is at the end or not */
+async function* chunksOf(body: ReadableStream<Uint8Array> | null): AsyncGenerator<Uint8Array> {
+  if (!body)
+    return
+  const reader = body.getReader()
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done)
+        return
+      yield value
+    }
+  }
+  finally {
+    void reader.cancel().catch(() => {})
+  }
+}
+
+/** A number of the CSV: null where the field is empty or no finite number, as a position that is not there */
+function numberOf(field: string | null | undefined): number | null {
+  if (!field)
+    return null
+  const number = Number(field)
+  return Number.isFinite(number) ? number : null
+}
+
+/**
+ * Reads the CSV of the backend's list from the pieces of its body into the columns of `compactGhcnStations`, by the same rules
+ * and so into the same columns for the same list: a station with no position is left out, the years are the first four digits of
+ * the timestamps, the name is null where it is empty, and the WMO number is trimmed and null where it is empty. The text is
+ * checked as it comes: the header row must name every column that is read, every row must have as many fields as the header (a
+ * cut one has fewer), a quote must be closed, and the last row must be ended by its line end, as every row of the backend's is.
+ * The bytes are decoded field by field and only for the columns that are read: no text of the whole is made.
+ *
+ * @param chunks - The body of the answer, in the pieces it arrives in
+ * @param retrievedAt - When the backend made the list
+ * @returns The columns
+ * @throws NotTheListError where the body is no CSV of the stations, or is cut short
+ */
+export async function readGhcnStationColumns(chunks: AsyncIterable<Uint8Array> | Iterable<Uint8Array>, retrievedAt: string | null = null): Promise<GhcnStationColumns> {
+  const columns: GhcnStationColumns = { count: 0, retrieved_at: retrievedAt, station_id: [], latitude: [], longitude: [], first_year: [], last_year: [], name: [], wmo_id: [] }
+  // the place of each column that is read in the header row: null until that is read, when every field of it is
+  let at: Places | null = null
+  let wanted: Set<number> | null = null
+  let width = 0
+  let rows = 0
+  const reader = new CsvRecordReader(column => wanted === null || wanted.has(column), (fields) => {
+    rows++
+    if (!at) {
+      const names = fields.map(field => field ?? '')
+      const found = CSV_COLUMNS.map(name => names.indexOf(name))
+      const missing = CSV_COLUMNS.filter((_, index) => found[index] === -1)
+      if (missing.length)
+        throw new NotTheListError(`The answer of the API is not the CSV of the stations: its header row has no ${missing.map(name => `\`${name}\``).join(', ')}. ${ADDRESS_HINT}`, `header row without ${missing.join(', ')}`)
+      at = Object.fromEntries(CSV_COLUMNS.map((name, index) => [name, found[index]!])) as Places
+      wanted = new Set(found)
+      width = names.length
+      return
+    }
+    if (fields.length !== width)
+      throw new NotTheListError('The answer of the API for the stations is cut short or malformed: a row has another number of fields than the header row.', `row ${rows} has ${fields.length} fields, the header row ${width}`)
+    const stationId = fields[at.station_id]
+    const latitude = numberOf(fields[at.latitude])
+    const longitude = numberOf(fields[at.longitude])
+    // the ones with a position: a map can show no other
+    if (typeof stationId !== 'string' || latitude === null || longitude === null)
+      return
+    columns.station_id.push(stationId)
+    columns.latitude.push(latitude)
+    columns.longitude.push(longitude)
+    columns.first_year.push(yearOf(fields[at.start_timestamp]))
+    columns.last_year.push(yearOf(fields[at.end_timestamp]))
+    columns.name.push(fields[at.name] ?? null)
+    columns.wmo_id.push(fields[at.wmo_id]?.trim() || null)
+  })
+  let received = 0
+  try {
+    for await (const chunk of chunks) {
+      reader.push(chunk)
+      received += chunk.byteLength
+      // a body that is no CSV does not have to be read to its end to be told so
+      if (!at && received > MAX_HEADER_BYTES)
+        throw new NotTheListError(`The answer of the API is not the CSV of the stations: it has no header row. ${ADDRESS_HINT}`, 'no header row in the first 16 KB')
+    }
+    reader.end()
+  }
+  catch (failure) {
+    // a body that never got to the end of its first line is a JSON object or a text, not a CSV that was cut short
+    if (failure instanceof CsvFormatError)
+      throw new NotTheListError(at ? 'The answer of the API for the stations is cut short or malformed.' : `The answer of the API is not the CSV of the stations: it has no header row. ${ADDRESS_HINT}`, failure.message)
+    throw failure
+  }
+  if (!at)
+    throw new NotTheListError(`The answer of the API is not the CSV of the stations: it has no header row. ${ADDRESS_HINT}`, 'no body')
+  columns.count = columns.station_id.length
+  return columns
+}
+
 /**
  * Asks the backend for the stations of GHCN daily and makes the columns of them, or says why it cannot: never a list that is
  * empty or partial for want of an answer, which the route would keep for a day. The backend that cannot be reached, a body that
- * cannot be read to its end, a page of HTML or a text that is no JSON for its answer, JSON of another form, a list of fewer than
- * `minimum` stations, and the backend's own error (its problem, with its status) are each a problem of a 5xx or the backend's
- * status, which is no cache entry.
+ * cannot be read to its end, a page of HTML or a text that is no CSV of the stations for its answer, a CSV that is cut short (a
+ * row with fewer fields than the header, a row that is not ended, a quote that is not closed), a list of fewer than `minimum`
+ * stations, and the backend's own error (its problem, with its status) are each a problem of a 5xx or the backend's status, which
+ * is no cache entry.
+ *
+ * The CSV is read from the body as it arrives and never held as a whole (GH-4299). It has no place for `retrieved_at` in its
+ * body, so that is the backend's header `X-Wetterdienst-Retrieved-At`, which says what `metadata.retrieved_at` of the JSON does.
  *
  * @param apiBase - The backend's `/api` URL
  * @param requestId - The id the request is known by in the backend's log and in the problem
@@ -110,16 +232,19 @@ export async function readGhcnMapStations(apiBase: string, requestId: string, fe
     return problem(502, BACKEND_UNREACHABLE_TYPE, 'Bad Gateway', 'The backend could not be reached. The cause is in the server log.', requestId)
   }
   const contentType = response.headers.get('content-type')
-  let text: string
-  try {
-    text = await response.text()
-  }
-  catch (failure) {
-    // a reset, or the timeout, part-way through the body: the answer is not an empty one, and says what it is
+  /** A reset, or the timeout, part-way through the body: the answer is not an empty one, and says what it is */
+  const unreadable = (failure: unknown) => {
     console.error(`Request ${requestId} to the backend for the GHCN stations could not be read to its end:`, (failure as { cause?: unknown })?.cause ?? failure)
     return problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', 'The answer of the API could not be read to its end. The cause is in the server log.', requestId)
   }
   if (!response.ok) {
+    let text: string
+    try {
+      text = await response.text()
+    }
+    catch (failure) {
+      return unreadable(failure)
+    }
     // the backend's own problem is kept as it is, with its status
     try {
       const sent = JSON.parse(text) as GhcnProblem['body']
@@ -130,22 +255,21 @@ export async function readGhcnMapStations(apiBase: string, requestId: string, fe
     return problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', `The backend answered ${response.status} for the stations.`, requestId)
   }
   if (HTML_TYPE.test(contentType ?? '')) {
+    // a page is not read, and the connection is let go
+    void response.body?.cancel().catch(() => {})
     console.error(`Request ${requestId} to the backend for the GHCN stations was answered with ${contentType}, not the list of stations.`)
     return problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', describeWrongKind(contentType), requestId)
   }
-  let answer: { stations?: unknown, metadata?: { retrieved_at?: string } } | null
+  let columns: GhcnStationColumns
   try {
-    answer = JSON.parse(text)
+    columns = await readGhcnStationColumns(chunksOf(response.body), response.headers.get(RETRIEVED_AT_HEADER))
   }
   catch (failure) {
-    console.error(`Request ${requestId} to the backend for the GHCN stations was not valid JSON:`, failure)
-    return problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', describeUnreadable(contentType), requestId)
+    if (!(failure instanceof NotTheListError))
+      return unreadable(failure)
+    console.error(`Request ${requestId} to the backend for the GHCN stations was not the CSV of the list (${contentType}): ${failure.message}`)
+    return problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', failure.detail, requestId)
   }
-  if (!answer || !Array.isArray(answer.stations)) {
-    console.error(`Request ${requestId} to the backend for the GHCN stations had no list of stations.`)
-    return problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', 'The answer of the API does not have the form of this endpoint: no list of `stations`.', requestId)
-  }
-  const columns = compactGhcnStations(answer.stations as BackendStation[], answer.metadata?.retrieved_at ?? null)
   // the network has 133k stations: none, or a part of them, is an answer that is not the list, which a day of cache would keep
   if (columns.count < Math.max(1, minimum)) {
     console.error(`Request ${requestId} to the backend for the GHCN stations was answered with ${columns.count} stations, fewer than the ${minimum} of a whole list.`)
