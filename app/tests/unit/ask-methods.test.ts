@@ -237,6 +237,7 @@ describe('what is marked as wetterdienst\'s own', () => {
     rain: ['nearest-point', 'day', 'min-hours', 'day-total', 'maybe-amount', 'chance-bands', 'highest-chance'],
     season: ['winter-year', 'only-over', 'default-season', 'default-normal', 'normal-mean', 'min-seasons', 'fallback-period', 'fallback-minimum', 'usual-band', 'rank'],
     wind: ['default-day', 'gust-first', 'gust-words', 'mean-words', 'around-window', 'stronger-count'],
+    warnings: ['in-force', 'edge', 'named-only', 'coverage', 'language', 'order', 'refresh'],
     download: ['networks', 'hourly-temperature', 'order'],
   }
 

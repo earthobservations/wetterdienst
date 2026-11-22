@@ -24,6 +24,12 @@ async function open(page: Page, baseURL: string, path = PAGE, size?: { width: nu
   const backend = await mockBackend(page, baseURL)
   await page.goto(path)
   await expect(svg(page)).toBeVisible()
+  if (!path.startsWith('/widget')) {
+    // the banner of DWD's warnings over the chart (GH-4295) has arrived, which pushes the chart down by its height: the chart is where it stays, and is
+    // brought up under the header, so that a pointer measured against it is over it and not below the window
+    await expect(page.getByTestId('warnings-banner-summary')).not.toHaveText('Loading the warnings …')
+    await page.evaluate(() => window.scrollTo(0, (document.querySelector('.mg-stage')?.getBoundingClientRect().top ?? 0) + window.scrollY - 120))
+  }
   // drawn: the day names are in it
   await expect(svg(page).locator('text').first()).toBeVisible()
   return backend

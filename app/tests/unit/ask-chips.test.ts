@@ -31,8 +31,8 @@ function has(messages: Record<string, unknown>, key: string): boolean {
 }
 
 describe('the registry', () => {
-  it('holds the four chips of the home page, in the order it offers them', () => {
-    expect(CHIPS.map(chip => chip.id)).toEqual(['rain', 'season', 'wind', 'download'])
+  it('holds the five chips of the home page, in the order it offers them', () => {
+    expect(CHIPS.map(chip => chip.id)).toEqual(['rain', 'season', 'wind', 'warnings', 'download'])
   })
 
   it('holds one definition for every file of chips/, and no id twice', () => {

@@ -18,6 +18,21 @@ Types of changes:
 
 ### Added
 
+- `[Weather warnings]` DWD's official warnings in the app (GH-4295). On the map a chip "Warnings"
+  over the map draws the outlines of the warnings in force or announced (`/map?warnings=1`), the
+  level told by an edge as well as a colour (dotted, dashed, solid, heavy; the legend is in the
+  layers panel), and lists them in the panel, each opening to DWD's own type, level, times,
+  headline, description and instruction; a warning DWD gives by area name alone (the sea, a coast)
+  has no polygon and is listed apart, never drawn. The station or place picked on the map and the
+  Forecast show a banner of the warnings whose polygon contains the position, with the issue time
+  (a polite status; the widget has none). Outside Germany they say plainly that no warnings source
+  covers the place. A new question "Are there warnings here?" in Ask the weather quotes the
+  warnings for the place in DWD's words, never rating them; its rules are marked as DWD's CAP
+  profile or as wetterdienst's own in "How was this worked out?" and on `/methods`. The texts are
+  DWD's, in your language where DWD writes in it (German, English, Spanish, French, Polish), else
+  its German, which the page says. The warnings are asked for again every 5 minutes while a page
+  that shows them is open.
+
 - `[Ask the weather]` The summer question is now a season question with two labelled choices
   under it: the season (spring, summer, autumn, winter; the winter takes the December before it)
   and the reference period, every complete WMO 30-year normal from 1961-1990 on (1961-1990 to

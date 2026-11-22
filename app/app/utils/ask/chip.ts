@@ -4,6 +4,7 @@ import type { Bar } from '../answers'
 import type { TopicId } from '../measurement'
 import type { TOOLS } from '../sections'
 import type { Quantity } from '../units'
+import type { WarningSnapshot } from '../warnings'
 import type { WorkId } from './works'
 import { DateTime } from 'luxon'
 
@@ -108,6 +109,8 @@ export interface ChipApi {
   stations: (query: Record<string, string | number>) => Promise<Station[]>
   providers: () => Promise<Provider[]>
   coverage: (query: Record<string, string>) => Promise<ProviderNetworkCoverageResponse>
+  /** DWD's weather warnings: the latest snapshot of the community product, in the product (`de`, `en`, `es`, `fr`, `mul`) that holds the texts in the reader's language (GH-4295) */
+  alerts: (product: string) => Promise<WarningSnapshot>
   /**
    * What a chip looks up once for the visit and keeps (the promise is kept, under `key`): a lookup that does not depend
    * on the place. One that fails is forgotten, so that the next question asks again.
@@ -138,6 +141,23 @@ export interface AnswerListItem {
   place?: string
 }
 
+/**
+ * A text of a provider that an answer quotes (GH-4295): its words as the provider wrote them, with who wrote them and what they are about, which the
+ * panel sets apart from the answer's own sentences. The answer does not rate, shorten or reword it.
+ */
+export interface AnswerQuote {
+  key: string
+  /** What it is about, in the provider's words (the event of a warning) */
+  heading: string
+  /** The facts under the heading, each a line the answer wrote: the level, when it is in force, when it was issued */
+  facts: string[]
+  /** The provider's paragraphs, in the language `lang` */
+  paragraphs: string[]
+  lang: string
+  /** A line under the quote, the note that the text is not in the language of the page */
+  note: string
+}
+
 /** What the panel writes of an answer */
 export interface AnswerView {
   /** The first line, large: the verdict, or what the answer is */
@@ -146,6 +166,8 @@ export interface AnswerView {
   details: string[]
   chart: AnswerChart | null
   list: { testId: string, items: AnswerListItem[] } | null
+  /** Texts of the provider the answer quotes (a warning's words), none for an answer that quotes nothing */
+  quotes?: AnswerQuote[]
   /** A line in small print under the rest, for what the answer is about (the forecast point); empty for none */
   note: string
 }

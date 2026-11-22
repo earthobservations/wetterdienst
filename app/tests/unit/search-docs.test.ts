@@ -107,7 +107,7 @@ describe('what it finds and where it leads', () => {
       expect(targets.has(`/measurement#${topic}`), topic).toBe(true)
     for (const id of WORK_IDS)
       expect(targets.has(`/methods#${workAnchor(id)}`), id).toBe(true)
-    for (const chip of ['rain', 'season', 'wind', 'download'])
+    for (const chip of ['rain', 'season', 'wind', 'warnings', 'download'])
       expect(targets.has(`/methods#${chip}`), chip).toBe(true)
   })
 })
