@@ -697,6 +697,63 @@
       },
       "required": []
     },
+    "station_ids": {
+      "type": "object",
+      "properties": {
+        "wmo_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "wigos_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "icao_id": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "format": {
+          "type": "string",
+          "enum": [
+            "json",
+            "csv"
+          ],
+          "default": "json"
+        },
+        "pretty": {
+          "type": "boolean",
+          "default": false
+        }
+      },
+      "required": []
+    },
     "stations": {
       "type": "object",
       "properties": {
@@ -1130,284 +1187,6 @@
         }
       },
       "required": []
-    },
-    "stripes_image": {
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "enum": [
-            "temperature",
-            "precipitation"
-          ]
-        },
-        "provider": {
-          "type": "string",
-          "default": "dwd"
-        },
-        "network": {
-          "type": "string",
-          "default": "observation"
-        },
-        "station": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "name_threshold": {
-          "type": "number",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "default": 0.8
-        },
-        "start_year": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "end_year": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "show_title": {
-          "type": "boolean",
-          "default": true
-        },
-        "show_years": {
-          "type": "boolean",
-          "default": true
-        },
-        "show_data_availability": {
-          "type": "boolean",
-          "default": true
-        },
-        "format": {
-          "type": "string",
-          "enum": [
-            "png",
-            "jpg",
-            "svg",
-            "pdf"
-          ],
-          "default": "png"
-        },
-        "dpi": {
-          "type": "integer",
-          "exclusiveMinimum": 0.0,
-          "default": 300
-        }
-      },
-      "required": [
-        "kind"
-      ]
-    },
-    "stripes_stations": {
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "enum": [
-            "temperature",
-            "precipitation"
-          ]
-        },
-        "provider": {
-          "type": "string",
-          "default": "dwd"
-        },
-        "network": {
-          "type": "string",
-          "default": "observation"
-        },
-        "active": {
-          "type": "boolean",
-          "default": true
-        },
-        "left": {
-          "anyOf": [
-            {
-              "type": "number",
-              "maximum": 180.0,
-              "minimum": -180.0
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "bottom": {
-          "anyOf": [
-            {
-              "type": "number",
-              "maximum": 90.0,
-              "minimum": -90.0
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "right": {
-          "anyOf": [
-            {
-              "type": "number",
-              "maximum": 180.0,
-              "minimum": -180.0
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "top": {
-          "anyOf": [
-            {
-              "type": "number",
-              "maximum": 90.0,
-              "minimum": -90.0
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "format": {
-          "type": "string",
-          "enum": [
-            "json",
-            "geojson",
-            "csv"
-          ],
-          "default": "json"
-        },
-        "pretty": {
-          "type": "boolean",
-          "default": false
-        }
-      },
-      "required": [
-        "kind"
-      ]
-    },
-    "stripes_values": {
-      "type": "object",
-      "properties": {
-        "kind": {
-          "type": "string",
-          "enum": [
-            "temperature",
-            "precipitation"
-          ]
-        },
-        "provider": {
-          "type": "string",
-          "default": "dwd"
-        },
-        "network": {
-          "type": "string",
-          "default": "observation"
-        },
-        "station": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "name": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "name_threshold": {
-          "type": "number",
-          "maximum": 1.0,
-          "minimum": 0.0,
-          "default": 0.8
-        },
-        "start_year": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "end_year": {
-          "anyOf": [
-            {
-              "type": "integer"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "format": {
-          "type": "string",
-          "enum": [
-            "json",
-            "csv"
-          ],
-          "default": "json"
-        },
-        "pretty": {
-          "type": "boolean",
-          "default": false
-        },
-        "unit_targets": {
-          "anyOf": [
-            {
-              "additionalProperties": {
-                "type": "string"
-              },
-              "type": "object"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "required": [
-        "kind"
-      ]
     },
     "summarize": {
       "type": "object",
@@ -2169,5 +1948,5 @@
       ]
     }
   },
-  "x-release": "0.194.0"
+  "x-release": "0.195.0"
 }
