@@ -1043,6 +1043,15 @@
     "modeHowItWorks": "Come funziona",
     "removeParameterDistance": "Rimuovi la distanza di {parameter}"
   },
+  "valueDetails": {
+    "station": "Stazione",
+    "unit": "Unità",
+    "difference": "Differenza (2 − 1)",
+    "order": "Le stazioni nell'ordine dell'elenco: prima {first}, seconda {second}. La differenza è la seconda stazione meno la prima, nell'unità del parametro; per una somma è indicata anche come quota della somma della prima stazione.",
+    "sumNote": "Una somma viene mostrata solo per i parametri che sono quantità per intervallo, come la precipitazione o la durata dell'insolazione. Per una media, una misura, un massimo o un minimo non avrebbe alcun significato.",
+    "noSum": "nessuna somma per questo parametro",
+    "noValue": "nessun valore"
+  },
   "stationTable": {
     "stationId": "ID stazione",
     "name": "Nome",

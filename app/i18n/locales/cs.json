@@ -1043,6 +1043,15 @@
     "modeHowItWorks": "Jak to funguje",
     "removeParameterDistance": "Odebrat vzdálenost pro {parameter}"
   },
+  "valueDetails": {
+    "station": "Stanice",
+    "unit": "Jednotka",
+    "difference": "Rozdíl (2 − 1)",
+    "order": "Stanice v pořadí, v jakém jsou uvedeny: první {first}, druhá {second}. Rozdíl je druhá stanice mínus první, v jednotce parametru; u součtu je uveden také jako podíl součtu první stanice.",
+    "sumNote": "Součet se zobrazuje jen u parametrů, které jsou množstvím za interval, například srážky nebo trvání slunečního svitu. U průměru, naměřené hodnoty, maxima nebo minima by neměl žádný význam.",
+    "noSum": "pro tento parametr není součet",
+    "noValue": "žádná hodnota"
+  },
   "stationTable": {
     "stationId": "ID stanice",
     "name": "Název",

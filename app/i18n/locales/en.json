@@ -1043,6 +1043,15 @@
     "modeHowItWorks": "How it works",
     "removeParameterDistance": "Remove the distance for {parameter}"
   },
+  "valueDetails": {
+    "station": "Station",
+    "unit": "Unit",
+    "difference": "Difference (2 − 1)",
+    "order": "The stations in the order they are listed: first {first}, second {second}. The difference is the second station less the first, in the unit of the parameter; for a sum it is also given as a share of the first station's sum.",
+    "sumNote": "A sum is shown only for parameters that are amounts per interval, such as precipitation or sunshine duration. For a mean, a reading, a maximum or a minimum it would mean nothing.",
+    "noSum": "no sum for this parameter",
+    "noValue": "no value"
+  },
   "stationTable": {
     "stationId": "Station ID",
     "name": "Name",

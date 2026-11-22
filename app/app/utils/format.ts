@@ -55,22 +55,38 @@ export function formatNumber(value: number, locale: string, digits: number): str
  * formatSigned(-0.004, 'en', 1) // '0.0'
  */
 export function formatSigned(value: number, locale: string, digits: number): string {
-  return numberFormat(locale, digits, true).format(value)
+  return numberFormat(locale, digits, 'signed').format(value)
+}
+
+/**
+ * A share as the language writes a percentage, with its sign written out for a rise (`+8.1 %` in German, `+8.1%` in
+ * English): `fraction` is the share as a fraction (0.081 is 8.1 %). A share that rounds to zero is written without a sign.
+ * @example
+ * formatSignedPercent(0.081, 'de', 1) // '+8,1 %'
+ */
+export function formatSignedPercent(fraction: number, locale: string, digits: number): string {
+  return numberFormat(locale, digits, 'percent').format(fraction)
 }
 
 // A table of 240 rows of 13 numbers is 3,000 calls, and a formatter is dear to make (it was 17 ms of the Meteogram's mount):
 // one for each language, number of digits and way of writing the sign, and none that outlives the `Intl` that made it (a test swaps it)
 const numberFormats = new Map<string, Intl.NumberFormat>()
 let numberFormatClass = Intl.NumberFormat
-function numberFormat(locale: string, digits: number, signed = false): Intl.NumberFormat {
+type NumberStyle = 'plain' | 'signed' | 'percent'
+const STYLES: Record<NumberStyle, Intl.NumberFormatOptions> = {
+  plain: {},
+  signed: { signDisplay: 'exceptZero' },
+  percent: { style: 'percent', signDisplay: 'exceptZero' },
+}
+function numberFormat(locale: string, digits: number, style: NumberStyle = 'plain'): Intl.NumberFormat {
   if (Intl.NumberFormat !== numberFormatClass) {
     numberFormats.clear()
     numberFormatClass = Intl.NumberFormat
   }
-  const key = `${locale}|${digits}|${signed}`
+  const key = `${locale}|${digits}|${style}`
   let format = numberFormats.get(key)
   if (!format) {
-    format = new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), { minimumFractionDigits: digits, maximumFractionDigits: digits, ...(signed ? { signDisplay: 'exceptZero' as const } : {}) })
+    format = new Intl.NumberFormat(withData(locale, Intl.NumberFormat.supportedLocalesOf), { minimumFractionDigits: digits, maximumFractionDigits: digits, ...STYLES[style] })
     numberFormats.set(key, format)
   }
   return format

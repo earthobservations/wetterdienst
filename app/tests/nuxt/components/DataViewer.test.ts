@@ -1803,9 +1803,15 @@ describe('dataViewer chart series apart from the table\'s sort', () => {
   })
 })
 
+// the value details' rows as one list: a group's parameter and dataset with each station's numbers
+function detailsRows(viewer: Awaited<ReturnType<typeof mountDataViewer>>['viewer']) {
+  const { valueDetails } = viewer.vm as unknown as { valueDetails: { groups: { parameter: string, dataset: string, rows: { count: number, min: number | null, max: number | null, mean: number | null, sum: number | null }[] }[] } }
+  return valueDetails.groups.flatMap(({ parameter, dataset, rows }) => rows.map(({ count, min, max, mean, sum }) => ({ parameter, dataset, count, min, max, mean, sum })))
+}
+
 describe('dataViewer parameter statistics of rows that are not long values', () => {
   function stats(viewer: Awaited<ReturnType<typeof mountDataViewer>>['viewer']) {
-    return (viewer.vm as unknown as { parameterStats: unknown[] }).parameterStats
+    return detailsRows(viewer)
   }
 
   it('takes none of a wide-shaped table, where it showed one row for an undefined parameter', async () => {
@@ -1825,7 +1831,7 @@ describe('dataViewer parameter statistics of rows that are not long values', () 
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     await wrapper.vm.$nextTick()
-    expect(stats(viewer)).toEqual([{ parameter: 'temperature_air_mean_2m', dataset: 'climate_summary', count: 1, min: 1.5, max: 1.5, mean: 1.5, sum: 1.5 }])
+    expect(stats(viewer)).toEqual([{ parameter: 'temperature_air_mean_2m', dataset: 'climate_summary', count: 1, min: 1.5, max: 1.5, mean: 1.5, sum: null }])
     const panel = wrapper.findComponent(QueryPanel)
     // `SELECT timestamp, parameter, AVG(value) AS avg_value FROM data GROUP BY timestamp, parameter`
     panel.vm.$emit('dataTransformed', [{ timestamp: '2020-01-01T00:00:00Z', parameter: 'temperature_air_mean_2m', avg_value: 1.5 }])
@@ -1836,7 +1842,7 @@ describe('dataViewer parameter statistics of rows that are not long values', () 
     panel.vm.$emit('dataTransformed', [{ parameter: 'precipitation_amount', value: 2 }, { parameter: 'precipitation_amount', value: 4 }, { parameter: 'wind_speed', value: null }, { parameter: 'wind_speed', value: '3' }, { parameter: 'humidity', value: '50' }])
     await wrapper.vm.$nextTick()
     expect(stats(viewer)).toEqual([
-      { parameter: 'precipitation_amount', dataset: '', count: 2, min: 2, max: 4, mean: 3, sum: 6 },
+      { parameter: 'precipitation_amount', dataset: '', count: 2, min: 2, max: 4, mean: 3, sum: null },
       { parameter: 'wind_speed', dataset: '', count: 0, min: null, max: null, mean: null, sum: null },
     ])
   })
@@ -1849,8 +1855,8 @@ describe('dataViewer parameter statistics of rows that are not long values', () 
     wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', [{ dataset: 2019, parameter: 'wind_speed', value: 1 }, { dataset: 2020, parameter: 'wind_speed', value: 3 }])
     await wrapper.vm.$nextTick()
     expect(stats(viewer)).toEqual([
-      { parameter: 'wind_speed', dataset: '2019', count: 1, min: 1, max: 1, mean: 1, sum: 1 },
-      { parameter: 'wind_speed', dataset: '2020', count: 1, min: 3, max: 3, mean: 3, sum: 3 },
+      { parameter: 'wind_speed', dataset: '2019', count: 1, min: 1, max: 1, mean: 1, sum: null },
+      { parameter: 'wind_speed', dataset: '2020', count: 1, min: 3, max: 3, mean: 3, sum: null },
     ])
   })
 })
@@ -1912,18 +1918,110 @@ describe('dataViewer facets\' station colours', () => {
 
 describe('dataViewer parameter statistics of many values', () => {
   it('takes a parameter of more values than a call takes arguments, where it threw', async () => {
-    registerEndpoint('/api/values', () => ({ values: [row] }))
+    const parameters = [{ dataset: '', name: 'precipitation_amount', name_original: 'rsk', unit: 'mm', aggregation: 'sum' }]
+    registerEndpoint('/api/values', () => ({ values: [row], metadata: { parameters } }))
     const { wrapper, viewer } = await mountDataViewer()
     await fetchData(viewer)
     // past V8's argument limit of about 120k, as 3 years of one station's 10-minute values
     const count = 200_000
-    const rows = Array.from({ length: count }, (_, i) => ({ parameter: 'temperature_air_mean_2m', value: i - 100_000 }))
+    const rows = Array.from({ length: count }, (_, i) => ({ parameter: 'precipitation_amount', value: i - 100_000 }))
     wrapper.findComponent(QueryPanel).vm.$emit('dataTransformed', rows)
     await wrapper.vm.$nextTick()
     const sum = (count * (count - 1)) / 2 - count * 100_000
-    expect((viewer.vm as unknown as { parameterStats: unknown[] }).parameterStats).toEqual([
-      { parameter: 'temperature_air_mean_2m', dataset: '', count, min: -100_000, max: 99_999, mean: sum / count, sum },
+    expect(detailsRows(viewer)).toEqual([
+      { parameter: 'precipitation_amount', dataset: '', count, min: -100_000, max: 99_999, mean: sum / count, sum },
     ])
+  })
+})
+
+// the value details by station (GH-4296): the stations of the request in the order listed, named, each with the numbers of its
+// own values; the aggregation of the answer's own `metadata.parameters` says which parameter has a sum
+describe('dataViewer value details by station', () => {
+  const metadata = {
+    parameters: [
+      { resolution: 'daily', dataset: 'climate_summary', name: 'temperature_air_mean_2m', name_original: 'tmk', unit: '\u00B0C', aggregation: 'mean' },
+      { resolution: 'daily', dataset: 'climate_summary', name: 'precipitation_amount', name_original: 'rsk', unit: 'mm', aggregation: 'sum' },
+    ],
+  }
+  const at = (station_id: string, parameter: string, value: number | null, day = 1) => ({ ...row, station_id, parameter, value, timestamp: `2020-01-0${day}T00:00:00Z` })
+  const stationsOf = (...ids: string[]): StationSelectionState => ({
+    mode: 'station',
+    selection: { stations: ids.map(id => ({ station_id: id, name: `Station ${id}` }) as Station) },
+    interpolation: { source: 'manual' },
+    dateRange: {},
+  })
+  interface Details { split: boolean, stations: { id: string, name: string | null }[], groups: { parameter: string, unit: string | null, sums: boolean, rows: { count: number, sum: number | null }[], difference: { mean: number | null, sum: number | null, sumShare: number | null } | null }[] }
+  const detailsOf = (viewer: Awaited<ReturnType<typeof mountDataViewer>>['viewer']) => (viewer.vm as unknown as { valueDetails: Details }).valueDetails
+
+  it('asks for the answer\'s own facts of the parameters, and for nothing else of the download\'s query', async () => {
+    const queries: Record<string, unknown>[] = []
+    registerEndpoint('/api/values', (event) => {
+      queries.push({ ...getQuery(event) })
+      return { values: [row], metadata }
+    })
+    const { viewer } = await mountDataViewer()
+    await fetchData(viewer)
+    expect(queries).toHaveLength(1)
+    expect(queries[0]!.with_metadata).toBe('true')
+  })
+
+  it('takes the stations of the request in the order listed, named, each of their own values, and a sum only where the parameter adds up', async () => {
+    registerEndpoint('/api/values', () => ({
+      values: [
+        at('04411', 'temperature_air_mean_2m', 10),
+        at('04411', 'precipitation_amount', 4),
+        at('01048', 'temperature_air_mean_2m', 6),
+        at('01048', 'precipitation_amount', 2, 1),
+        at('01048', 'precipitation_amount', 3, 2),
+      ],
+      metadata,
+    }))
+    // 04411 is listed first, whatever the order of the rows
+    const { viewer } = await mountDataViewer(ref(stationsOf('04411', '01048')))
+    await fetchData(viewer)
+    await flushPromises()
+    const details = detailsOf(viewer)
+    expect(details.split).toBe(true)
+    expect(details.stations).toEqual([{ id: '04411', name: 'Station 04411' }, { id: '01048', name: 'Station 01048' }])
+    const [rain, temperature] = details.groups
+    expect(details.groups.map(group => [group.parameter, group.unit, group.sums])).toEqual([['precipitation_amount', 'mm', true], ['temperature_air_mean_2m', '\u00B0C', false]])
+    expect(rain!.rows.map(({ count, sum }) => [count, sum])).toEqual([[1, 4], [2, 5]])
+    expect(rain!.difference).toMatchObject({ sum: 1, sumShare: 0.25 })
+    expect(temperature!.rows.map(({ count, sum }) => [count, sum])).toEqual([[1, null], [1, null]])
+    expect(temperature!.difference).toMatchObject({ mean: -4, sum: null, sumShare: null })
+  })
+
+  it('keeps the stations of the request as they were asked for, where the selection moves on while the table stays', async () => {
+    registerEndpoint('/api/values', () => ({ values: [at('04411', 'precipitation_amount', 1), at('01048', 'precipitation_amount', 2)], metadata }))
+    const selection = ref(stationsOf('04411', '01048'))
+    const { viewer } = await mountDataViewer(selection)
+    await fetchData(viewer)
+    selection.value = stationsOf('01048', '04411')
+    await flushPromises()
+    expect(detailsOf(viewer).stations.map(({ id }) => id)).toEqual(['04411', '01048'])
+  })
+
+  it('lists a station that has no value, with none, where the other has some', async () => {
+    registerEndpoint('/api/values', () => ({ values: [at('04411', 'precipitation_amount', 1)], metadata }))
+    const { viewer } = await mountDataViewer(ref(stationsOf('04411', '01048')))
+    await fetchData(viewer)
+    const [rain] = detailsOf(viewer).groups
+    expect(rain!.rows.map(({ count }) => count)).toEqual([1, 0])
+    expect(rain!.difference).toMatchObject({ sum: null, sumShare: null })
+  })
+
+  it.each(['interpolation', 'summary'] as const)('takes a %s as one series, with no station and no difference', async (mode) => {
+    registerEndpoint(mode === 'interpolation' ? '/api/interpolate' : '/api/summarize', () => ({
+      values: [at('', 'precipitation_amount', 2), at('', 'precipitation_amount', 3, 2)],
+      metadata,
+    }))
+    const { viewer } = await mountDataViewer(ref(atPoint(mode)))
+    await fetchData(viewer)
+    const details = detailsOf(viewer)
+    expect(details.split).toBe(false)
+    expect(details.groups).toHaveLength(1)
+    expect(details.groups[0]!.rows.map(({ count, sum }) => [count, sum])).toEqual([[2, 5]])
+    expect(details.groups[0]!.difference).toBeNull()
   })
 })
 
@@ -2343,40 +2441,6 @@ describe('dataViewer names what it shows in the active locale', () => {
       expect(wrapper.findAll('[role="figure"]').map(figure => figure.attributes('aria-label'))).toEqual([n.direction, n.speed].map(parameter => chartOf[locale](label(parameter))))
       expect(idsIn(wrapper.text())).toEqual([])
     })
-
-    it('names the parameter statistics\' dataset and parameter by their labels', async () => {
-      const { viewer } = await mountIn(locale, false)
-      const { parameterStats, statsTableColumns } = viewer.vm as unknown as {
-        parameterStats: { dataset: string, parameter: string }[]
-        statsTableColumns: { accessorKey: string, cell?: (context: { row: { original: unknown } }) => string }[]
-      }
-      const cell = (key: string, original: unknown) => statsTableColumns.find(column => column.accessorKey === key)!.cell!({ row: { original } })
-      expect(parameterStats.map(stat => [cell('dataset', stat), cell('parameter', stat)])).toEqual([[n.dataset, n.direction], [n.dataset, n.speed]])
-    })
-
-    it('writes the statistics\' numbers with the locale\'s decimal separator', async () => {
-      // `toFixed` writes a point in every language: "2.50" where German, French and Polish read "2,50"
-      const { viewer } = await mountIn(locale, false)
-      const { parameterStats, statsTableColumns } = viewer.vm as unknown as {
-        parameterStats: { parameter: string }[]
-        statsTableColumns: { accessorKey: string, cell?: (context: { row: { original: unknown } }) => string }[]
-      }
-      const cell = (key: string, original: unknown) => statsTableColumns.find(column => column.accessorKey === key)!.cell!({ row: { original } })
-      const wind = parameterStats.find(stat => stat.parameter === 'wind_speed_mean_last_10min')!
-      expect(['min', 'max', 'mean', 'sum'].map(key => cell(key, wind))).toEqual(['2,50', '2,50', '2,50', '2,50'])
-    })
-  })
-
-  it('writes the statistics\' numbers with a point in English, and nothing as a dash', async () => {
-    const { viewer } = await mountIn('en', false)
-    const { parameterStats, statsTableColumns } = viewer.vm as unknown as {
-      parameterStats: { parameter: string }[]
-      statsTableColumns: { accessorKey: string, cell?: (context: { row: { original: unknown } }) => string }[]
-    }
-    const cell = (key: string, original: unknown) => statsTableColumns.find(column => column.accessorKey === key)!.cell!({ row: { original } })
-    const wind = parameterStats.find(stat => stat.parameter === 'wind_speed_mean_last_10min')!
-    expect(['min', 'max', 'mean', 'sum'].map(key => cell(key, wind))).toEqual(['2.50', '2.50', '2.50', '2.50'])
-    expect(cell('mean', { mean: null })).toBe('-')
   })
 
   // a day's row each of the two parameters, from 2020-01-01 on: each series long enough for a trendline

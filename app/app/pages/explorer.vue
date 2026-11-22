@@ -1253,7 +1253,7 @@ function removeParameterDistance(id: string, paramName: string) {
             </template>
           </UCollapsible>
 
-          <UCollapsible v-if="dataViewerRef?.parameterStats?.length">
+          <UCollapsible v-if="dataViewerRef?.valueDetails?.groups.length">
             <UButton
               :label="t('explorer.valuesDetails')"
               variant="subtle"
@@ -1263,11 +1263,7 @@ function removeParameterDistance(id: string, paramName: string) {
             />
             <template #content>
               <div class="pt-4">
-                <UTable
-                  :data="dataViewerRef.parameterStats"
-                  :columns="dataViewerRef.statsTableColumns"
-                  :ui="{ td: 'py-1 px-2', th: 'py-1 px-2' }"
-                />
+                <ValueDetails :details="dataViewerRef.valueDetails" />
               </div>
             </template>
           </UCollapsible>

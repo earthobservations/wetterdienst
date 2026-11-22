@@ -1043,6 +1043,15 @@
     "modeHowItWorks": "Sådan fungerer det",
     "removeParameterDistance": "Fjern afstanden for {parameter}"
   },
+  "valueDetails": {
+    "station": "Station",
+    "unit": "Enhed",
+    "difference": "Forskel (2 − 1)",
+    "order": "Stationerne i den rækkefølge, de står i listen: første {first}, anden {second}. Forskellen er den anden station minus den første, i parameterens enhed; for en sum angives den også som andel af den første stations sum.",
+    "sumNote": "En sum vises kun for parametre, der er mængder pr. interval, som nedbør eller solskinstimer. For et gennemsnit, en aflæsning, et maksimum eller et minimum ville den ikke betyde noget.",
+    "noSum": "ingen sum for denne parameter",
+    "noValue": "ingen værdi"
+  },
   "stationTable": {
     "stationId": "Stations-id",
     "name": "Navn",

@@ -1043,6 +1043,15 @@
     "modeHowItWorks": "Wéi et funktionéiert",
     "removeParameterDistance": "Distanz fir {parameter} läschen"
   },
+  "valueDetails": {
+    "station": "Statioun",
+    "unit": "Eenheet",
+    "difference": "Differenz (2 − 1)",
+    "order": "D'Statioune an der Reiefolleg vun der Lëscht: éischt {first}, zweet {second}. D'Differenz ass déi zweet Statioun minus déi éischt, an der Eenheet vum Parameter; bei enger Zomm och als Undeel vun der Zomm vun der éischter Statioun.",
+    "sumNote": "Eng Zomm gëtt nëmmen fir Parameter gewisen, déi Mengte pro Intervall sinn, wéi Nidderschlag oder Sonnescheindauer. Bei engem Duerchschnëtt, engem Miesswäert, engem Maximum oder engem Minimum hätt se keng Bedeitung.",
+    "noSum": "keng Zomm fir dësen Parameter",
+    "noValue": "kee Wäert"
+  },
   "stationTable": {
     "stationId": "Statiouns-ID",
     "name": "Numm",

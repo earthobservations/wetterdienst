@@ -207,6 +207,18 @@ const STATES: State[] = [
     },
   },
   {
+    // the value details of two stations (GH-4296): a row for each station of each parameter, the difference of the second less the first
+    page: 'explorer',
+    state: 'value-details-two-stations',
+    path: `${EXPLORER}&stations=00011,00044`,
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
+      await expect(page.getByRole('table').first()).toBeVisible()
+      await page.getByRole('button', { name: message(locale, 'explorer.valuesDetails'), exact: true }).click()
+      await expect(page.getByTestId('value-details-difference').first()).toBeVisible()
+    },
+  },
+  {
     page: 'explorer',
     state: 'values-error',
     path: EXPLORER_WITH_STATION,

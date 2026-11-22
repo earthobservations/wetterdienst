@@ -1043,6 +1043,15 @@
     "modeHowItWorks": "So warkt dat",
     "removeParameterDistance": "Entfernen för {parameter} wegmaken"
   },
+  "valueDetails": {
+    "station": "Station",
+    "unit": "Eenheit",
+    "difference": "Unnerscheed (2 − 1)",
+    "order": "De Stationen in de Reeg vun de List: eerste {first}, tweete {second}. De Unnerscheed is de tweete Station minus de eerste, in de Eenheit vun den Parameter; bi en Summ ok as Deel vun de Summ vun de eerste Station.",
+    "sumNote": "En Summ warrt blots för Parameter wiest, de Mengen je Interval sünd, as Nedderslag oder Sünnenschiendauer. Bi en Middel, en Meetweert, en Maximum oder en Minimum harr se keen Bedüden.",
+    "noSum": "keen Summ för disse Parameter",
+    "noValue": "keen Weert"
+  },
   "stationTable": {
     "stationId": "Stations-ID",
     "name": "Naam",

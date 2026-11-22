@@ -1043,6 +1043,15 @@
     "modeHowItWorks": "Jak to działa",
     "removeParameterDistance": "Usuń odległość dla {parameter}"
   },
+  "valueDetails": {
+    "station": "Stacja",
+    "unit": "Jednostka",
+    "difference": "Różnica (2 − 1)",
+    "order": "Stacje w kolejności z listy: pierwsza {first}, druga {second}. Różnica to druga stacja minus pierwsza, w jednostce parametru; dla sumy podana także jako udział w sumie pierwszej stacji.",
+    "sumNote": "Suma jest pokazywana tylko dla parametrów, które są ilościami na przedział, takich jak opad czy czas usłonecznienia. Dla średniej, odczytu, maksimum lub minimum nie miałaby sensu.",
+    "noSum": "brak sumy dla tego parametru",
+    "noValue": "brak wartości"
+  },
   "stationTable": {
     "stationId": "Identyfikator stacji",
     "name": "Nazwa",
