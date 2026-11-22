@@ -80,6 +80,12 @@ export const WORKS = {
     href: 'https://www.dwd.de/DE/wetter/warnungen_aktuell/kriterien/warnkriterien.html',
     issuer: 'dwd',
   },
+  'dwd-cap-profile': {
+    short: 'DWD CAP profile 2.1.12',
+    citation: 'Deutscher Wetterdienst (2021). CAP DWD Profile for the Common Alerting Protocol v1.2, Version 2.1.12, 26 July 2021 (cap_dwd_profile_en_pdf_1_12.pdf), sections 1.1, 2.2.1.4, 2.2.1.5, 2.2.2.6, 2.2.2.10, 2.2.2.11, 2.2.3.3, 3.1.2, 3.5 and 3.6.1, read on 22 November 2026.',
+    href: 'https://www.dwd.de/DE/leistungen/opendata/help/warnungen/cap_dwd_profile_en_pdf_1_12.pdf?__blob=publicationFile&v=3',
+    issuer: 'dwd',
+  },
   'dwd-mosmix': {
     short: 'DWD MOSMIX',
     citation: 'Deutscher Wetterdienst. Model Output Statistics-MIX (MOSMIX). dwd.de/EN/ourservices/met_application_mosmix/met_application_mosmix.html, read on 21 November 2026.',

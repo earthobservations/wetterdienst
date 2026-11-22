@@ -80,6 +80,7 @@
     "q": {
       "rain": "Gaat het morgen regenen in {place}?",
       "season": "Was {last} hier {warmth} dan normaal?",
+      "warnings": "Zijn er hier waarschuwingen?",
       "download": "Waar kan ik temperaturen per uur downloaden?",
       "day": {
         "wind": "Hoe hard waaide het op {day}?",
@@ -92,6 +93,7 @@
     "from": {
       "rain": "Verwachting, DWD MOSMIX",
       "season": "Maandgemiddelden, DWD",
+      "warnings": "Officiële waarschuwingen, DWD",
       "download": "Alle weerdiensten",
       "day": "Dagwaarden, DWD"
     },
@@ -261,6 +263,17 @@
       "detail": "Elk opent in de Verkenner, klaar om te downloaden als CSV, JSON of GeoJSON.",
       "none": "Op dit moment publiceert geen weerdienst de luchttemperatuur per uur.",
       "api": "Of gebruik de REST-API"
+    },
+    "quotesLabel": "Aangehaalde teksten",
+    "warnings": {
+      "none": "Nee. Geen waarschuwing van de DWD heeft nu een gebied dat {place} bevat.",
+      "some": "Ja. De DWD heeft waarschuwingen voor {place}.",
+      "highest": "Het hoogste niveau: {level}.",
+      "namedOnly": "Verdere waarschuwingen die alleen een gebied noemen (de zee, een kust), {count} in totaal, kunnen niet aan {place} worden gekoppeld.",
+      "quote": "Dit zijn de eigen woorden van de DWD. wetterdienst beoordeelt, verkort of herformuleert ze niet.",
+      "outside": "De waarschuwingen van de DWD gelden alleen voor Duitsland. Geen bron van waarschuwingen dekt {place}.",
+      "open": "De waarschuwingen op de kaart tonen",
+      "checked": "Opgevraagd: {time}."
     }
   },
   "seo": {
@@ -1312,6 +1325,61 @@
     "positionHide": "Mijn locatie op de kaart verbergen",
     "positionShow": "Mijn locatie op de kaart tonen",
     "positionMarker": "Je locatie, afgerond op ongeveer 1 km"
+  },
+  "warnings": {
+    "chip": "Waarschuwingen",
+    "chipCount": "Waarschuwingen: {count}",
+    "level": {
+      "1": "Weerwaarschuwing",
+      "2": "Opvallende weerwaarschuwing",
+      "3": "Waarschuwing voor zwaar weer",
+      "4": "Waarschuwing voor extreem zwaar weer",
+      "preliminary": "Voorinformatie over zwaar weer",
+      "unknown": "Waarschuwing, niveau niet opgegeven"
+    },
+    "levelOf": "Niveau {level} van 4",
+    "inForce": "Van kracht",
+    "upcoming": "Aangekondigd",
+    "fromTo": "van {from} tot {to}",
+    "fromOpen": "vanaf {from}",
+    "until": "tot {to}",
+    "issued": "Uitgegeven {time}",
+    "untitled": "Weerwaarschuwing",
+    "type": "Soort",
+    "levelLabel": "Niveau",
+    "valid": "Geldig",
+    "issuedLabel": "Uitgegeven",
+    "areasLabel": "Gebieden",
+    "areasMore": "en nog {count}",
+    "textGerman": "Eigen tekst van de DWD, in het Duits: de DWD geeft deze waarschuwing niet uit in jouw taal.",
+    "legendDescription": "Omtrekken van de waarschuwingen: niveau 1 heeft een gestippelde rand, niveau 2 een gestreepte, niveau 3 een doorgetrokken en niveau 4 een dubbele lijn; voorinformatie heeft een streep-punt-rand. De lijst in het paneel noemt elke waarschuwing in woorden.",
+    "panelTitle": "Weerwaarschuwingen van de DWD",
+    "panelCount": "Waarschuwingen die van kracht of aangekondigd zijn in Duitsland: {count}",
+    "panelNone": "In Duitsland is geen waarschuwing van kracht of aangekondigd.",
+    "panelLoading": "De waarschuwingen worden geladen …",
+    "failed": "De waarschuwingen konden niet worden geladen.",
+    "listLabel": "Waarschuwingen, de zwaarste eerst",
+    "showAll": "Alle {count} tonen",
+    "showFewer": "Minder tonen",
+    "asideTitle": "Waarschuwingen voor gebieden die de kaart niet kan tekenen",
+    "asideNote": "De DWD noemt het gebied van deze waarschuwingen (de zee, een kust) maar geeft er geen omtrek van, dus er wordt er geen getekend.",
+    "checked": "Opgevraagd: {time}.",
+    "refreshNote": "Elke 5 minuten opnieuw opgevraagd zolang deze pagina openstaat.",
+    "refreshFailed": "De waarschuwingen konden niet worden vernieuwd. Getoond wordt de stand van {time}.",
+    "stale": "Deze waarschuwingen zijn oud: de laatste controle was {time}.",
+    "coverage": "De DWD waarschuwt voor Duitsland en de zee eromheen.",
+    "bannerTitle": "Weerwaarschuwingen voor deze positie",
+    "bannerSome": "Waarschuwingen van de DWD voor deze positie: {count}",
+    "bannerNone": "Geen waarschuwing van de DWD heeft een gebied dat deze positie bevat.",
+    "bannerOutside": "De waarschuwingen van de DWD gelden alleen voor Duitsland. Geen bron van waarschuwingen dekt deze plaats.",
+    "bannerFailed": "De waarschuwingen konden niet worden geladen.",
+    "bannerLoading": "De waarschuwingen worden geladen …",
+    "bannerListLabel": "Waarschuwingen voor deze positie, de zwaarste eerst",
+    "bannerNamedOnly": "Waarschuwingen die de DWD alleen met de naam van een gebied geeft (de zee, een kust) worden niet aan een positie gekoppeld: {count}.",
+    "bannerOpenMap": "Bekijk ze op de kaart",
+    "legendHealth": "Hitte- en UV-waarschuwingen zijn getekend in de eigen kleuren van de DWD, met de rand van hun niveau.",
+    "bannerNoneShort": "Geen waarschuwing van de DWD voor deze positie",
+    "bannerDetails": "Over deze waarschuwingen"
   },
   "dataViewer": {
     "loadingValues": "Waarden laden …",

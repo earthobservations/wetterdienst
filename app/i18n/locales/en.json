@@ -80,6 +80,7 @@
     "q": {
       "rain": "Will it rain in {place} tomorrow?",
       "season": "Was {last} {warmth} than usual here?",
+      "warnings": "Are there warnings here?",
       "download": "Where can I download hourly temperatures?",
       "day": {
         "wind": "How windy was it on {day}?",
@@ -92,6 +93,7 @@
     "from": {
       "rain": "Forecast, DWD MOSMIX",
       "season": "Monthly means, DWD",
+      "warnings": "Official warnings, DWD",
       "download": "All weather services",
       "day": "Daily readings, DWD"
     },
@@ -261,6 +263,17 @@
       "detail": "Each one opens in the Explorer, ready to download as CSV, JSON or GeoJSON.",
       "none": "No weather service lists hourly air temperature right now.",
       "api": "Or use the REST API"
+    },
+    "quotesLabel": "Quoted texts",
+    "warnings": {
+      "none": "No. No warning of DWD has an area that contains {place} at the moment.",
+      "some": "Yes. DWD has warnings for {place}.",
+      "highest": "The highest level: {level}.",
+      "namedOnly": "Further warnings that name only an area (the sea, a coast), {count} in all, cannot be matched to {place}.",
+      "quote": "These are DWD's own words. wetterdienst does not rate, shorten or reword them.",
+      "outside": "DWD's warnings cover Germany only. No warnings source covers {place}.",
+      "open": "Show the warnings on the map",
+      "checked": "Checked: {time}."
     }
   },
   "seo": {
@@ -1312,6 +1325,61 @@
     "positionHide": "Hide my position on the map",
     "positionShow": "Show my position on the map",
     "positionMarker": "Your position, rounded to about 1 km"
+  },
+  "warnings": {
+    "chip": "Warnings",
+    "chipCount": "Warnings: {count}",
+    "level": {
+      "1": "Weather warning",
+      "2": "Marked weather warning",
+      "3": "Severe weather warning",
+      "4": "Extreme severe weather warning",
+      "preliminary": "Preliminary information on severe weather",
+      "unknown": "Warning, level not given"
+    },
+    "levelOf": "Level {level} of 4",
+    "inForce": "In force",
+    "upcoming": "Announced",
+    "fromTo": "{from} to {to}",
+    "fromOpen": "from {from}",
+    "until": "until {to}",
+    "issued": "Issued {time}",
+    "untitled": "Weather warning",
+    "type": "Type",
+    "levelLabel": "Level",
+    "valid": "Valid",
+    "issuedLabel": "Issued",
+    "areasLabel": "Areas",
+    "areasMore": "and {count} more",
+    "textGerman": "DWD's own text, in German: DWD does not give this warning in your language.",
+    "legendDescription": "Warning outlines: level 1 has a dotted edge, level 2 a dashed one, level 3 a solid one and level 4 a double line; preliminary information has a dash-dotted edge. The list in the panel names every warning in words.",
+    "panelTitle": "Weather warnings of DWD",
+    "panelCount": "Warnings in force or announced in Germany: {count}",
+    "panelNone": "No warning is in force or announced in Germany.",
+    "panelLoading": "Loading the warnings …",
+    "failed": "The warnings could not be loaded.",
+    "listLabel": "Warnings, the most severe first",
+    "showAll": "Show all {count}",
+    "showFewer": "Show fewer",
+    "asideTitle": "Warnings for areas the map cannot draw",
+    "asideNote": "DWD names the area of these warnings (the sea, a coast) but gives no outline for it, so none is drawn.",
+    "checked": "Checked: {time}.",
+    "refreshNote": "Asked again every 5 minutes while this page is open.",
+    "refreshFailed": "The warnings could not be refreshed. Shown are the ones from {time}.",
+    "stale": "These warnings are old: the last check was {time}.",
+    "coverage": "DWD warns for Germany and the sea around it.",
+    "bannerTitle": "Weather warnings for this position",
+    "bannerSome": "Warnings of DWD for this position: {count}",
+    "bannerNone": "No warning of DWD has an area that contains this position.",
+    "bannerOutside": "DWD's warnings cover Germany only. No warnings source covers this place.",
+    "bannerFailed": "The warnings could not be loaded.",
+    "bannerLoading": "Loading the warnings …",
+    "bannerListLabel": "Warnings for this position, the most severe first",
+    "bannerNamedOnly": "Warnings that DWD gives by area name alone (the sea, a coast) are not matched to a position: {count}.",
+    "bannerOpenMap": "See them on the map",
+    "legendHealth": "Heat and UV warnings are drawn in DWD's own colours for them, with the edge of their level.",
+    "bannerNoneShort": "No DWD warning for this position",
+    "bannerDetails": "About these warnings"
   },
   "dataViewer": {
     "loadingValues": "Loading values …",

@@ -10,6 +10,7 @@ import { chipOf } from '~/utils/ask/registry'
 import { TOOLS } from '~/utils/sections'
 import { requestUnitTargets } from '~/utils/unit-targets'
 import { unitsOfAnswer } from '~/utils/units'
+import { parseWarnings, WARNINGS_TIMEOUT_MS } from '~/utils/warnings'
 
 // The answer to one of the home page's questions (GH-3518), worked out from what the backend answers, with the chart that
 // backs it and the way into the tool that holds the data, filled in. Nothing is said that the data does not say:
@@ -27,7 +28,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ 'update:choice': [param: string, value: string], 'effective': [choices: Choices] }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { place } = usePlace()
 const formatLanguage = useFormatLanguage()
 const { env, questionText } = useQuestions()
@@ -124,6 +125,10 @@ const api: ChipApi = {
     return providerList.value?.providers ?? (await $fetch<{ providers: Provider[] }>('/api/providers', API_FETCH)).providers
   },
   coverage: query => $fetch('/api/coverage', { query, ...API_FETCH }),
+  // DWD's warnings: the whole snapshot of the community product, which the answer reads the place's warnings from (GH-4295)
+  async alerts(product) {
+    return parseWarnings(await $fetch('/api/alerts', { query: { granularity: 'community', language: product }, timeout: WARNINGS_TIMEOUT_MS, ...API_FETCH }))
+  },
   // what is kept for the visit (the promise is kept, as the server settings' is): a state of the page under the chip's own key
   kept<T>(key: string, load: () => Promise<T>): Promise<T> {
     const kept = nuxtApp.runWithContext(() => useState<Promise<unknown> | undefined>(key, () => undefined)) as Ref<Promise<unknown> | undefined>
@@ -142,6 +147,7 @@ function context(): ChipContext {
     choices: effective.value,
     now: () => DateTime.now(),
     formatLanguage: formatLanguage.value,
+    locale: locale.value,
     unitTarget: quantity => requestUnitTargets(settings.value.units)[quantity]!,
   }
 }
@@ -334,6 +340,26 @@ const onSelect = (param: string, event: Event) => onChoice(param, (event.target 
           </li>
         </ul>
 
+        <!-- what the provider wrote, quoted as it wrote it, apart from the answer's own sentences (a warning of DWD, GH-4295): the text is the provider's, in its language -->
+        <ul v-if="view?.quotes?.length" class="answer-quotes" :aria-label="t('ask.quotesLabel')" data-testid="answer-quotes">
+          <li v-for="quote in view.quotes" :key="quote.key" class="answer-quote" data-testid="answer-quote">
+            <h4 class="font-semibold text-highlighted">
+              {{ quote.heading }}
+            </h4>
+            <p v-for="fact in quote.facts" :key="fact" class="text-sm text-toned">
+              {{ fact }}
+            </p>
+            <div v-if="quote.paragraphs.length" class="answer-quote-text" :lang="quote.lang">
+              <p v-for="paragraph in quote.paragraphs" :key="paragraph">
+                {{ paragraph }}
+              </p>
+            </div>
+            <p v-if="quote.note" class="text-sm text-muted" data-testid="answer-quote-note">
+              {{ quote.note }}
+            </p>
+          </li>
+        </ul>
+
         <p v-if="view?.note" class="text-sm text-muted">
           {{ view.note }}
         </p>
@@ -400,6 +426,30 @@ const onSelect = (param: string, event: Event) => onChoice(param, (event.target 
   border-radius: 0.75rem;
   border: 1px solid var(--ui-border);
   transition: border-color 150ms, background-color 150ms;
+}
+.answer-quotes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.answer-quote {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.75rem 0.875rem;
+  border: 1px solid var(--ui-border);
+  border-radius: 0.75rem;
+}
+/* DWD's own words: set off by a rule at the edge, line breaks kept (its instructions are lists) */
+.answer-quote-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding-inline-start: 0.75rem;
+  border-inline-start: 3px solid var(--ui-border-accented);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  color: var(--ui-text-toned);
 }
 .answer-source:hover {
   border-color: var(--ui-border-accented);

@@ -7,6 +7,7 @@ import { clearNuxtData, clearNuxtState, useMyLocation, useRouter } from '#import
 import MapPage from '~/pages/map.vue'
 import { compactGhcnStations } from '../../../server/utils/ghcnStations'
 import { ghcnAnnualAnswer, valuesAnswer } from '../../helpers/stripes-backend'
+import { alertsAnswer } from '../../helpers/warnings-answer'
 
 // The map tool (GH-3650): the layers the chips choose, the station a click or the list picks and what the panel shows
 // of it, the answers that are empty or fail, the address, and the order of the map and its panel on a phone. The map
@@ -22,7 +23,7 @@ vi.mock('~/components/StationMap.vue', async () => {
   return {
     __esModule: true,
     default: defineComponent({
-      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping', 'panelOpen', 'describedBy', 'fullscreen', 'hold', 'goTo'],
+      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping', 'panelOpen', 'describedBy', 'fullscreen', 'hold', 'goTo', 'warnings', 'showWarning', 'credits'],
       emits: ['pick', 'view', 'group'],
       setup(props, { emit }) {
         stage.props = props
@@ -227,6 +228,12 @@ registerEndpoint('/api/values', stripesValuesOf(false))
 registerEndpoint('/_ghcn/annual', stripesValuesOf(true))
 registerEndpoint('/_ghcn/map-stations', ghcnListOf)
 registerEndpoint('/api/coverage', () => COVERAGE)
+// DWD's weather warnings (GH-4295): the snapshot of the fixture, and how often it was asked for
+const alertsAsked = { count: 0 }
+registerEndpoint('/api/alerts', () => {
+  alertsAsked.count++
+  return alertsAnswer()
+})
 
 const originalMatchMedia = window.matchMedia
 const mounted: Array<{ unmount: () => void }> = []
@@ -289,6 +296,7 @@ afterEach(async () => {
   ghcnDetailFailures = 0
   ghcnListFailures = 0
   ghcnListAsked.count = 0
+  alertsAsked.count = 0
   ghcnListDelay = 0
   ghcnFiller = 0
   openDetails?.()
@@ -2867,5 +2875,93 @@ describe('the GHCN daily layer (GH-4078, GH-4267)', () => {
       await chooseLayer(wrapper, 'ghcn')
       await vi.waitFor(() => expect(wrapper.find('[data-testid="map-none-near"]').exists()).toBe(true), { timeout: 3000 })
     })
+  })
+})
+
+describe('the weather warnings of DWD (GH-4295)', () => {
+  const warningsChip = (wrapper: Awaited<ReturnType<typeof mountMap>>) => wrapper.find('[data-testid="map-warnings-chip"]')
+
+  it('is a chip over the map, off until it is pressed, and asks for nothing and draws nothing while it is off', async () => {
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    expect(warningsChip(wrapper).attributes('aria-pressed')).toBe('false')
+    expect(warningsChip(wrapper).text()).toBe('Warnings')
+    expect(wrapper.find('[data-testid="warnings-panel"]').exists()).toBe(false)
+    expect(stage.props.warnings).toBeUndefined()
+    expect(alertsAsked.count).toBe(0)
+  })
+
+  it('draws the outlines that have a polygon when pressed, lists every warning in the panel and puts the chip in the address', async () => {
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    await warningsChip(wrapper).trigger('click')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="warnings-panel-summary"]').text()).toBe('Warnings in force or announced in Germany: 6'))
+    expect(warningsChip(wrapper).attributes('aria-pressed')).toBe('true')
+    expect(warningsChip(wrapper).text()).toBe('Warnings: 6')
+    // five outlines: the warning of the sea has none, and is listed apart
+    expect(stage.props.warnings).toHaveLength(5)
+    expect(stage.props.warnings.every((warning: { focused: boolean }) => !warning.focused)).toBe(true)
+    expect(wrapper.find('[data-testid="warnings-aside"] [data-testid="warning-title"]').text()).toBe('near gale')
+    expect(stage.props.credits).toEqual([{ text: 'Source: Deutscher Wetterdienst', license: { label: 'CC-BY-4.0', url: 'https://creativecommons.org/licenses/by/4.0/' } }])
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.warnings).toBe('1'))
+    // the legend of the levels is in the layers panel, and the map's description says the edges
+    expect(wrapper.find('[data-testid="warnings-legend"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="map-legend-description"]').text()).toContain('level 1 has a dotted edge')
+    // pressed again it takes everything away, and the chip out of the address
+    await warningsChip(wrapper).trigger('click')
+    await vi.waitFor(() => expect(stage.props.warnings).toBeUndefined())
+    expect(wrapper.find('[data-testid="warnings-panel"]').exists()).toBe(false)
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query.warnings).toBeUndefined())
+  })
+
+  it('is on where the address says so, and its link keeps a station that is picked', async () => {
+    const wrapper = await mountMap('/map?warnings=1&station=10384')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('BERLIN-TEMPELHOF'))
+    expect(warningsChip(wrapper).attributes('aria-pressed')).toBe('true')
+    expect(stage.props.warnings).toHaveLength(5)
+    expect(useRouter().currentRoute.value.query).toMatchObject({ warnings: '1', station: '10384' })
+  })
+
+  it('opens a warning of the list, which the map draws stronger and moves to once, and takes the emphasis off where it is closed', async () => {
+    const wrapper = await mountMap('/map?warnings=1')
+    await vi.waitFor(() => expect(wrapper.findAll('[data-testid="warnings-list"] [data-testid="warning-toggle"]').length).toBeGreaterThan(0))
+    await wrapper.find('[data-testid="warnings-list"] [data-testid="warning-toggle"]').trigger('click')
+    await vi.waitFor(() => expect(stage.props.warnings.filter((warning: { focused: boolean }) => warning.focused)).toHaveLength(1))
+    // the thunderstorm of Hamburg, the most severe, whose box the map is moved to
+    expect(stage.props.showWarning).toMatchObject({ count: 1, bounds: { south: 53.4, north: 53.8, west: 9.7, east: 11.4 } })
+    await wrapper.find('[data-testid="warnings-list"] [data-testid="warning-toggle"]').trigger('click')
+    await vi.waitFor(() => expect(stage.props.warnings.some((warning: { focused: boolean }) => warning.focused)).toBe(false))
+    // closing it does not move the map again
+    expect(stage.props.showWarning.count).toBe(1)
+  })
+
+  it('shows the banner of the station picked with the chip off, with the warning whose polygon contains it, and asks only then', async () => {
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    expect(alertsAsked.count).toBe(0)
+    stage.emit('pick', { latitude: 52.47, longitude: 13.4, tolerance: 0.5 })
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-warnings-banner"] [data-testid="warning-title"]').text()).toBe('fog'))
+    expect(wrapper.find('[data-testid="map-warnings-banner-summary"], [data-testid="warnings-banner-summary"]').text()).toBe('Warnings of DWD for this position: 1')
+    expect(alertsAsked.count).toBe(1)
+    // the layer is off: no outline, no list of the whole snapshot
+    expect(stage.props.warnings).toBeUndefined()
+    expect(wrapper.find('[data-testid="warnings-panel"]').exists()).toBe(false)
+  })
+
+  it('has the banner about the place a click picked, where it is not the station itself', async () => {
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    // Hamburg-Fuhlsbüttel is in the thunderstorm; a click in the box of the fog and some way from Berlin-Tempelhof is in the fog
+    stage.emit('pick', { latitude: 52.65, longitude: 13.6, tolerance: 0.5 })
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-warnings-banner"] [data-testid="warning-title"]').text()).toBe('fog'))
+  })
+
+  it('says for a place outside Germany that no warnings source covers it, and asks nothing for the list', async () => {
+    const wrapper = await mountMap()
+    await listed(wrapper)
+    stage.emit('pick', { latitude: 48.72, longitude: 2.38, tolerance: 0.5 })
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="warnings-banner-summary"]').text()).toBe('DWD\'s warnings cover Germany only. No warnings source covers this place.'))
+    // nothing was asked for: the snapshot is no use for a place DWD does not warn for
+    expect(alertsAsked.count).toBe(0)
   })
 })

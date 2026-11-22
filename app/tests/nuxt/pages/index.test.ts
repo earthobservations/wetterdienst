@@ -279,7 +279,7 @@ describe('index Page', () => {
     // the page's own title and the six tools come first, the description of the data after the questions
     expect(headings[0]).toBe('Wetterdienst')
     expect(ask).toBeLessThan(headings.indexOf('What data you get'))
-    expect(wrapper.findAll('[data-testid="questions"] button')).toHaveLength(4)
+    expect(wrapper.findAll('[data-testid="questions"] button')).toHaveLength(5)
     // the six tools of the hero are still there, each a link to its tool
     const tools = wrapper.findAll('.home-tasks a').map(link => link.attributes('href'))
     expect(tools).toEqual(['/meteogram', '/explorer', '/stripes', '/radar', '/history', '/map'])
