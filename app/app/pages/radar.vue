@@ -279,7 +279,7 @@ const licenseLink = computed(() => loop.value?.credit?.license ?? null)
           <p>{{ t('radar.about3') }}</p>
           <p class="text-sm" data-testid="radar-sources">
             {{ t('radar.aboutSources') }}
-            <NuxtLink to="https://www.dwd.de/DE/leistungen/radvor/radvor.html" external target="_blank" rel="noopener" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
+            <NuxtLink to="https://www.dwd.de/EN/ourservices/radar_products/radar_products.html" external target="_blank" rel="noopener" class="text-primary-700 dark:text-primary-500 underline hover:no-underline">
               {{ t('radar.aboutDwdLink') }}
             </NuxtLink>
           </p>

@@ -124,6 +124,13 @@ Types of changes:
   fetch asks for `with_metadata` to read the units and aggregations; downloads are unchanged
   (GH-4296).
 
+### Fixed
+
+- `[Radar]` The About text no longer names RADVOR as the system behind the forecast, which DWD
+  stopped operating at the end of February 2026. It says what DWD's radar products page says: a
+  forecast for 2 hours, calculated by displacement, in all eleven languages; the source line and
+  its link go to that page (GH-4309).
+
 ## [0.57.0] - 2026-11-21
 
 Paired with backend 0.194.0, which it needs: the Radar tool asks the radar routes of 0.194.0, and the

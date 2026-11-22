@@ -186,7 +186,7 @@ test.describe('the radar on a wide screen', () => {
     await page.getByRole('button', { name: en.radar.aboutButton }).click()
     await expect(page.getByText('The forecast is no weather model')).toBeVisible()
     await expect(page.getByTestId('radar-sources')).toContainText('WMO-No. 8')
-    await expect(page.getByTestId('radar-sources').getByRole('link')).toHaveAttribute('href', 'https://www.dwd.de/DE/leistungen/radvor/radvor.html')
+    await expect(page.getByTestId('radar-sources').getByRole('link')).toHaveAttribute('href', 'https://www.dwd.de/EN/ourservices/radar_products/radar_products.html')
   })
 })
 
