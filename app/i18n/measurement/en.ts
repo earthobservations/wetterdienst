@@ -30,6 +30,31 @@ const DWD_HOURLY_SOLAR = 'https://opendata.dwd.de/climate_environment/CDC/observ
 const DWD_HOURLY_VISIBILITY = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/visibility/DESCRIPTION_obsgermany_climate_hourly_visibility_en.pdf'
 const NOAA_GHCNH = 'https://www.ncei.noaa.gov/oa/global-historical-climatology-network/hourly/doc/ghcnh_DOCUMENTATION.pdf'
 
+const DWD_HOURLY_CLOUDINESS = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/cloudiness/DESCRIPTION_obsgermany_climate_hourly_cloudiness_en.pdf'
+const DWD_HOURLY_WEATHER = 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/hourly/weather_phenomena/DESCRIPTION_obsgermany_climate_hourly_weather_phenomena_en.pdf'
+/** The derived soil dataset of the DWD: evaporation and soil moisture are calculated by a model (the English description is the monthly one) */
+const DWD_SOIL_MONTHLY = 'https://opendata.dwd.de/climate_environment/CDC/derived_germany/soil/monthly/recent/DESCRIPTION_derived_germany-soil-monthly-v2_en.pdf'
+const KNMI_DAILY = 'https://www.knmi.nl/nederland-nu/klimatologie/daggegevens'
+const NOAA_GHCN_DAILY = 'https://www.ncei.noaa.gov/pub/data/ghcn/daily/readme.txt'
+
+/** KNMI's daily data, which the entries on evaporation and clouds name where providers differ */
+function knmi(plain: string, citation: string): MeasurementSource {
+  return {
+    plain: `The Royal Netherlands Meteorological Institute (KNMI) is the national weather service of the Netherlands. ${plain}`,
+    citation,
+    href: KNMI_DAILY,
+  }
+}
+
+/** NOAA's daily dataset, which the entries on evaporation, present weather and clouds name where providers differ */
+function ghcnDaily(plain: string, citation: string): MeasurementSource {
+  return {
+    plain: `The National Centers for Environmental Information (NCEI) of the United States' NOAA publish GHCN-Daily, the daily observations of weather stations. ${plain}`,
+    citation,
+    href: NOAA_GHCN_DAILY,
+  }
+}
+
 /** NOAA's hourly dataset, which the entries on pressure, humidity and visibility name where providers differ */
 function ghcnh(plain: string, citation: string): MeasurementSource {
   return {
@@ -494,6 +519,230 @@ export const measurement: MeasurementTexts = {
         'The files that come with each station\'s data say which instrument it used, at which height, and where the values come from.',
         `DWD Climate Data Center, files inside the station archives stundenwerte_VV_03987_akt.zip, stundenwerte_VV_01048_akt.zip and stundenwerte_VV_01420_akt.zip in ${DWD_HOURLY}visibility/recent/, read on 21 November 2026 for Potsdam (03987), Dresden-Klotzsche (01048) and Frankfurt/Main (01420): Metadaten_Geraete_Sichtweite_*, Metadaten_Parameter_vv_stunde_* and the column V_VV_I of the data file; dataset description "Hourly station observations of visibility for Germany" (version v24.03, 2024, section "Uncertainties").`,
         DWD_HOURLY_VISIBILITY,
+      ),
+    ],
+  },
+
+  'evaporation': {
+    title: 'Evaporation',
+    summary: 'WMO says that measuring the evaporation of a whole field or lake directly is not practicable at present. Pans and lysimeters measure the water they lose; the rest is estimated or calculated.',
+    parts: [
+      {
+        title: 'How it is measured',
+        paragraphs: [
+          'WMO keeps several quantities apart. Evaporation is the water that leaves an open water surface or the ground as vapour. Transpiration is the water that plants give off. Evapotranspiration is the sum from soil and plants when the ground has its natural moisture. Potential evapotranspiration is the most that could evaporate from a continuous cover of vegetation that is well supplied with water. WMO says that when "potential evapotranspiration" is used, the kind of evaporation and transpiration it contains must be stated clearly.',
+          'WMO says that measuring the evaporation of a large natural water or land surface directly is not practicable at present. WMO says that the methods are generally indirect: a point measurement with an instrument, or a calculation from other measured quantities of the weather. Evaporation is given as a depth of water in millimetres, normally per day.',
+          'Evaporation pans are frequently used in networks: an open tank of water whose level is read, and the loss of level, with the rain that fell taken into account, is the evaporation. The United States Class A pan, for example, is 25.4 cm deep and 120.7 cm across, and its water level is read with a hook gauge. A lysimeter is a vessel sunk into the ground, filled with soil and planted. It is a water budget: the evapotranspiration is the precipitation (and irrigation) minus the water that drains through the bottom minus the change in the water stored in the soil. WMO says that weighable lysimeters give reliable and precise short-term values if the necessary precautions in design, operation and siting are taken.',
+        ],
+      },
+      {
+        title: 'How a reading becomes a value',
+        paragraphs: [
+          'The rate of evaporation is the amount of water that leaves a unit of area in a unit of time, written as the depth of liquid water that this amount would make. The unit of time is normally a day. For daily totals WMO asks for an uncertainty of 0.1 mm for amounts under 5 mm and 2 % for larger ones (at the 95 % confidence level), and it says that in principle the usual instruments could meet this but that difficulties with exposure and practical operation cause much larger errors. WMO mentions 1 mm as a figure proposed as achievable.',
+          'Because direct measurement is not practicable, evaporation from natural surfaces is often calculated. WMO gives as an example the procedure of the Royal Netherlands Meteorological Institute (KNMI), after G. F. Makkink, which calculates the daily reference vegetation evaporation from the mean air temperature of the day and the day\'s amount of global radiation. WMO also says that the potential or reference evapotranspiration of vegetated land can be found with the methods used for lakes, adapted to vegetation, and that some methods add coefficients that depend on the growth stage of each crop.',
+        ],
+      },
+      {
+        title: 'What the number can and cannot tell',
+        paragraphs: [
+          'The water lost from a pan is not the water lost from a lake or a field. WMO says that the evaporation rate of a natural surface necessarily differs from that of an evaporimeter exposed to the same weather, because the two surfaces are physically different, and that the values of an evaporimeter cannot be used without adjustment as evaporation from a lake or as actual or potential evapotranspiration. Different evaporimeters and lysimeters measure physically different things, so the instrument and its exposure should be described precisely.',
+          'The exposure matters. A pan above the ground evaporates more than a sunken one, mainly because its sides take up additional radiant energy; a sunken pan has smaller boundary effects but collects more dirt, its leaks are harder to find, and it exchanges heat with the soil. Heavy rain and very high winds are likely to splash water out of a pan and may invalidate the measurement. If a pan is too full, as much as 10 % or more of the rain that falls can splash out, which makes evaporation read too high; if the water is too low, the rim shades the water and evaporation falls by about 2.5 % for each centimetre below the reference level (in temperate regions).',
+          'A lysimeter changes the ground it measures. WMO lists among the sources of error a restricted growth of the roots, a discontinuity between the plant cover inside the vessel and the surroundings, thermal differences from the surroundings, and a water budget that differs from the surroundings, for example through restricted drainage or because surface runoff and the lateral movement of soil water are prevented. There is no universal international standard lysimeter.',
+          'The rate of evaporation depends on the weather and on the surface. WMO groups the meteorological factors as energy (supplied largely by solar and terrestrial radiation) and the transport of the vapour away (wind speed at the surface, and the difference in vapour pressure between the surface and the lower air), and the surface factors as the amount and state of the water, the roughness, and for plants their own characteristics and the availability of soil moisture. Either group can limit the rate.',
+        ],
+      },
+      {
+        title: 'Where providers differ',
+        paragraphs: [
+          'The evaporation that wetterdienst offers from DWD, in the derived dataset for soil, is calculated and not measured. DWD\'s description says that the values of evaporation, soil moisture and soil temperature were calculated for various places in Germany and are usually not measured. The values of evaporation and soil moisture come from the agrometeorological model AMBAV. The model\'s documentation names the Penman-Monteith equation as its core, and says that it takes routine weather reports as input, calculates in hourly or three-hourly steps and evaluates daily totals. DWD gives the "real" evaporation (reale Verdunstung) for grass, winter cereals and maize, each on a sand and on a loamy silt soil, and two potential evaporations over grass, one after the FAO method and one after Haude. DWD says that the FAO one is preferable to the one after Haude because many more influencing quantities are taken into account.',
+          'The name of a parameter does not tell a forecast from a calculation. evapotranspiration_potential_last_24h is a forecast of DWD\'s MOSMIX (see "Observation, forecast and derived data"), and it is also the name of KNMI\'s EV24, which KNMI\'s file header names the potential evapotranspiration after Makkink, the procedure that WMO describes as a calculation from the mean air temperature and the global radiation of the day. evapotranspiration_potential_grass_fao is DWD\'s, from its model, and also MeteoSwiss\'s, whose documentation was not read, so nothing is said about how it is formed. NOAA\'s GHCN-Daily has a measured quantity: EVAP, the evaporation of water from an evaporation pan, with MDEV for a total over several days and DAEV for the number of days it covers, and the minimum and maximum temperature of the water in the pan. This page says nothing about the evaporation of other providers.',
+          'So the names matter: wetterdienst\'s evaporation_amount_* from a pan or from a model, evapotranspiration_potential_* and evapotranspiration_last_24h are different quantities, and only quantities of the same kind can be compared. By default wetterdienst returns millimetres.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Volume I, Chapter 10 on evaporation is where this entry takes the definitions, the instruments, the sources of error and the example of a calculation from.',
+        'Volume I, Chapter 10 (Measurement of evaporation), sections 10.1.1, 10.1.2, 10.1.3, 10.1.4, 10.3, 10.3.1, 10.3.4, 10.3.6, 10.4, 10.4.1, 10.4.3, 10.5.',
+        WMO_I,
+      ),
+      dwdFiles(
+        'The description of its derived dataset says that evaporation, soil moisture and soil temperature are calculated, and from which model. The documentation of the model says how it works.',
+        'DWD Climate Data Center. Calculated recent monthly values for different characteristic elements of soil and crops, version v2 (2024; revised 2026-05-28), sections "Abstract", "Data origin" and "Additional information"; German daily description "Berechnete aktuelle Tageswerte von charakteristischen Elementen aus dem Boden und dem Pflanzenbestand", version v2 (2024). Löpmeier, F.-J., "Agrarmeteorologisches Modell zur Berechnung der aktuellen Verdunstung (AMBAV)", sections 1 and 2.1 and 2.2 (opendata.dwd.de/climate_environment/CDC/grids_germany/daily/evapo_r/AMBAV.pdf). Both read on 21 November 2026.',
+        DWD_SOIL_MONTHLY,
+      ),
+      knmi(
+        'The header of its daily data file names each element and its unit.',
+        'KNMI, daily data of the weather in the Netherlands (daggegevens), file header for station 260 (De Bilt), element EV24, read on 21 November 2026.',
+      ),
+      ghcnDaily(
+        'Its readme names each element and its unit.',
+        'NOAA NCEI. Readme of the Global Historical Climatology Network daily (GHCN-Daily), version 3.35, section III: the elements EVAP, MDEV, DAEV, MNPN and MXPN.',
+      ),
+    ],
+  },
+
+  'soil-moisture': {
+    title: 'Soil moisture',
+    summary: 'Soil moisture is how much water is in the ground. It can be given as a share of mass, a share of volume or as the energy with which the soil holds the water (the water potential), and what a number means depends on the soil.',
+    parts: [
+      {
+        title: 'How it is measured',
+        paragraphs: [
+          'WMO says that soil moisture determinations measure either the soil water content or the soil water potential. The content is the mass or volume of water in the soil. The potential describes the energy state of the soil water: water tends to flow from a place of higher potential to one of lower potential, and as soil dries the potential becomes more negative and plants find it harder to take water up. The relation between content and potential is not universal; it depends on the local soil.',
+          'The basic technique is gravimetric. A soil sample of about 50 g is taken, weighed, dried in an oven at 105 °C until its mass stays constant, which usually takes 16 to 24 hours, and weighed again; the difference is the water. This is a direct measurement, so WMO calls it the standard against which all other methods are compared. But the sampling destroys the sample, so the measurement cannot be repeated on it.',
+          'Indirect methods leave the soil in place. A neutron probe is lowered into a tube in the ground: hydrogen, most of it in water, slows the neutrons, which gives the water content. Dielectric methods, such as time-domain reflectometry, use the fact that liquid water has about 20 times the permittivity of average dry soil; WMO says that these can be fully automated. The soil water potential is measured with tensiometers, resistance blocks and soil psychrometers. WMO also describes the measurement of soil moisture by satellites, which looks at the surface.',
+        ],
+      },
+      {
+        title: 'How a reading becomes a value',
+        paragraphs: [
+          'The gravimetric water content is the mass of water divided by the mass of dry soil. The volumetric water content is the volume of water divided by the volume of the whole sample (dry soil, air and water). Both are usually given in per cent, although many research communities now use cubic metres of water per cubic metre of soil for the volume. To turn one into the other the density of the dry soil is needed. The soil water potential is given as energy per mass, as a pressure or as the height of a column of water.',
+          'Soil moisture changes with depth, and what is needed depends on the use. WMO says that models of evapotranspiration mostly concern a shallow depth of tens of centimetres, agriculture needs the moisture at the depth of the roots, of the order of a metre, and models of the atmosphere use layers down to a few metres. WMO says that there is no standard depth or measuring interval; the stations of the International Soil Moisture Network mostly measure at several depths between 0.05 m and 0.50 m or 1 m.',
+        ],
+      },
+      {
+        title: 'What the number can and cannot tell',
+        paragraphs: [
+          'A reading is for one place. WMO says that soil varies a lot, horizontally and vertically, in structure, cover and relief, and that a single observation location cannot give absolute knowledge of the soil moisture of a region, only relative knowledge of how it changes. Measurements by sampling or with an instrument in the ground are reliable only at the point of measurement, so describing a site takes many samples.',
+          'The same percentage means different things in different soils. WMO describes the field capacity, the state in which the soil holds all the moisture it can hold against gravity after a heavy wetting, and the wilting point, at which the roots can no longer overcome the forces that hold the water to the soil particles. The water available to plants is commonly taken as the quantity between the two, and it varies a lot between soils: in sandy soils it may be less than 10 volume per cent, in soils with much organic matter over 40 volume per cent. Water contents of stony or gravelly soils can be grossly misleading.',
+          'Each method has limits. The neutron method cannot be used effectively in the top 20 cm of soil. Resistance blocks read a wetter soil than there is if the soil is saline, although gypsum blocks are less sensitive to this. Tensiometers work well only in wet soil, and their practical limit is about -85 kPa.',
+        ],
+      },
+      {
+        title: 'Where providers differ',
+        paragraphs: [
+          'The soil moisture in wetterdienst is that of DWD\'s derived dataset for soil, and it is calculated, not measured. DWD says that all calculated values of soil moisture and evapotranspiration come from the agrometeorological model AMBAV, and that the values are usually not measured. As the reason it gives that the measurement of soil moisture is very costly and prone to error. The model needs hourly weather: temperature, humidity, wind, precipitation and also global and long-wave radiation. DWD says that the radiation is not measured at every station and is often derived from the sunshine duration and the cloud cover. For the check of the moisture DWD says that it was compared with measurements only at single points, in special campaigns, and agreed well.',
+          'The unit is not the volume fraction of WMO. DWD gives soil moisture in per cent of the usable field capacity (% nFK). 100 % is the span between the wilting point and the field capacity of the soil that the model uses, so 0 % is the wilting point and 100 % the field capacity. DWD says that values above 100 % are correct and occur when the water content is above the field capacity; in light soils, at the rarely observed saturation of the soil, up to 300 % are possible, but only with impermeable layers or frozen ground. By default wetterdienst returns the number in per cent as DWD gives it, so for these parameters "per cent" means per cent of the usable field capacity and not per cent of the volume.',
+          'DWD calculates for two soils, a loamy silt with a wilting point of 13 volume per cent and a field capacity of 37 volume per cent, and a loamy sand with 3 and 17 volume per cent, under grass, winter cereals and maize. Under grass on the loamy silt it gives the layers 0 to 10 cm, 10 to 20 cm and so on to 50 to 60 cm, and for each combination the layer from 0 to 60 cm. The daily values are in the daily dataset and the monthly means in the monthly dataset (soil_moisture_mean_*). At the time of writing no other provider in wetterdienst offers soil moisture, so there is no other source to compare it with.',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Volume I, Chapter 11 on soil moisture is where this entry takes the definitions, the methods, their limits and the remarks on depth and representativeness from.',
+        'Volume I, Chapter 11 (Measurement of soil moisture), sections 11.1.1, 11.1.2, 11.1.3, 11.1.4, 11.2, 11.3.1.1, 11.3.2, 11.4, 11.4.1, 11.4.2, 11.5, 11.6.',
+        WMO_I,
+      ),
+      dwdFiles(
+        'The description of its derived dataset says that soil moisture is calculated, from which model, with which input, and in which soils. Its documentation of soil moisture defines the unit.',
+        'DWD Climate Data Center. Calculated recent monthly values for different characteristic elements of soil and crops, version v2 (2024; revised 2026-05-28), sections "Abstract", "Data origin", "Validation and uncertainty estimate", "Uncertainties" and "Additional information"; German daily description "Berechnete aktuelle Tageswerte von charakteristischen Elementen aus dem Boden und dem Pflanzenbestand", version v2 (2024), section "Unsicherheiten". DWD, "Bodenfeuchte" (Dokumentation, status March 2024), sections 1 and 2 (dwd.de/DE/fachnutzer/landwirtschaft/dokumentationen/allgemein/bf_erlaeuterungen.pdf). Both read on 21 November 2026.',
+        DWD_SOIL_MONTHLY,
+      ),
+    ],
+  },
+
+  'present-weather': {
+    title: 'Present weather and state of the ground',
+    summary: 'Present weather is a description, not a number: a code that says what was happening at the time of the observation, such as rain, fog or thunder. WMO says that at present only a trained observer can observe all of it.',
+    parts: [
+      {
+        title: 'How it is measured',
+        paragraphs: [
+          'WMO calls "weather" the qualitative descriptions of the phenomena in the atmosphere or on the Earth\'s surface that were at first not meant to be measured. Present weather describes the weather phenomena present at the time of the observation. Past weather describes the significant weather events of the previous hour that were not occurring at the time of the observation. State of the ground is a related item: the condition of the Earth\'s surface that results from recent weather, in terms of its moisture or of any layers of solid, watery or other particles that cover it.',
+          'WMO lists what is observed: precipitation (rain, drizzle, snow, ice pellets, snow grains, diamond dust and hail), obscurity and suspended particles (haze, dust, smoke, mist, fog, drifting and blowing snow, dust and sand storms, dust devils), funnel clouds, squalls and lightning. WMO says that the only current ability to observe all the forms of weather is the seeing and hearing of a trained human observer. An event can be defined by what a person perceives: it is a thunderstorm when thunder is heard, even if no lightning is seen.',
+          'Instruments cover part of it. WMO says that no single sensor classifies all present weather. Automatic systems combine data from several sensors, such as visibility, temperature, dew point, wind speed and the distinction between rain and snow, with algorithms. The type of precipitation is detected by scatter sensors, optical disdrometers, Doppler radars and impact detectors, among others. Thunderstorms are mainly detected with lightning counters. WMO\'s example for haze: if a station has instruments, it is fairly safe to take an obscurity as haze if the relative humidity is below a certain value, for example 80 %, and the visibility is within certain limits, for example greater than 1 km horizontally and greater than 2 km vertically; mist is reported at high humidity and a visibility of 1 km or more.',
+          'The state of the ground is reported by observers with the codes of WMO\'s Manual on Codes (WMO-No. 306). WMO says that measuring it automatically is still relatively new and not widely used. WMO says that research has shown that the main states can be told apart by the way the surface reflects and scatters light: dry, humid, wet, snow-covered, rimed or iced. Scatter sensors use this; a capacitive sensor, which WMO says is still being developed, would use the different dielectric constants of dry and wet earth.',
+        ],
+      },
+      {
+        title: 'How a reading becomes a value',
+        paragraphs: [
+          'Present weather, past weather and the state of the ground are reported as codes. The observer chooses a term from a large number of descriptions laid down in the Manual on Codes (WMO-No. 306), and at staffed stations the code is reported together with quantitative data. WMO says that the data of sophisticated present weather systems should be reported as quantities in a binary code format such as BUFR, because the alphanumeric code has many restrictions. In a synoptic report, if there is no precipitation at the time of the observation, the conditions of the last hour are taken into account when choosing the code figure.',
+          'Intensity has classes. Observers, or the instruments that replace them, classify precipitation as slight, moderate or heavy. WMO\'s annex gives criteria by the rate of fall, based on a measurement period of 3 minutes: for rain slight is below 2.5 mm per hour, moderate from 2.5 up to 10 mm per hour, heavy from 10 up to 50 mm per hour and violent 50 mm per hour or more; for snow, in water equivalent, slight is below 1.0 mm per hour, moderate from 1.0 up to 5.0 mm per hour and heavy 5.0 mm per hour or more. WMO says that a present weather event may be well defined by a period of 3 minutes, and that the highest running 3-minute average within the 10-minute period should be reported.',
+          'A word can mean something different in reports and in climate summaries. In synoptic reports "fog" means water or ice fog that generally reduces the horizontal visibility at the surface to less than 1 km, and WMO says that wherever the term occurs in the present weather and past weather codes it should be read in this sense. In climatological summaries, all occasions of visibility of less than 1 km are regarded as fog.',
+        ],
+      },
+      {
+        title: 'What the number can and cannot tell',
+        paragraphs: [
+          'Present weather, past weather and the state of the ground are, WMO says, primarily meant as a qualitative description of weather events. The amount of precipitation is a different measurement (see "Precipitation"), and the clouds too (see "Clouds"). A code says what kind of weather there was, and not how much.',
+          'With current technology, WMO says, instruments for present and past weather, cloud amount and height, and snow cover are not able to observe the whole range of phenomena, whereas human observers are. What the instruments detect is also not the same for every type of instrument. WMO reports field tests in which sensors for the type of precipitation detected the major types, except the very lightest snow or drizzle, in over 90 % of the cases compared with a trained observer, with a much lower share for very slight precipitation. Scatter sensors were reported at 70 to 90 % for the common types, rain and snow, depending on the test and the instrument. Mixed precipitation of rain and snow and hail are observed less well, and wet or melting snow is difficult to tell from rain. WMO also says that these sensors do not give the quality or the uncertainty of their report.',
+          'An intensity from such a sensor is rougher than one from a gauge. WMO says that the intensity from a scatter sensor is usually less accurate than that from conventional methods such as weighing or tipping-bucket rain gauges, and that for a coarse indication such as slight or heavy it is usable.',
+        ],
+      },
+      {
+        title: 'Where providers differ',
+        paragraphs: [
+          'DWD\'s hourly weather phenomena are a code, with a text beside it, and the station files name SYNOP weather reports as the source, with the times in UTC. DWD\'s list of codes has two ranges: 0 to 99, and 100 to 199 with meanings of their own, for example 100 "with cloud cover (more than 0/8) at the time of observation: no significant weather phenomena observed", 123 "rain, not freezing (not at the time of observation): at the station in the last hour" and 161 "rain, not freezing: light". In the recent files of the three stations checked, every code is in the range 100 to 199 or is -1; for -1 the file says "weather was not reported", and that is the case in 70 to 72 % of the hours at these stations (for example 9124 of 13118 hours at Potsdam). So -1 does not say what the weather was, fine or not, and wetterdienst returns no value for these hours. The codes of the two ranges are not converted into each other.',
+          'DWD\'s data for fixed observation times contain a coded state of the ground ("Terminwerte des Erdbodenzustand", EK_TER, parameter soil_state_index in wetterdienst), which the station file says is generated from SYNOP reports at the fixed observation times, since 2001. In the recent folder it exists for 30 stations. At the one station read (Altenstadt, 00125) more than half of the entries are missing (1169 of 1835). The file calls it a code and does not say which one; the code tables are in WMO\'s Manual on Codes, which is not one of the sources of this page.',
+          'NOAA\'s GHCN-Daily records which kinds of weather occurred on a day as weather types, one element for each kind (WT01 fog, ice fog or freezing fog; WT03 thunder; WT05 hail; WT06 glaze or rime; WT16 rain; WT18 snow, and others) and a second set for weather in the vicinity of the station. Wetterdienst names them weather_type_*. DWD\'s forecasts MOSMIX and DMO give forecast codes under weather_significant* and weather_last_6h, which are not observations: see "Observation, forecast and derived data".',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Volume I, Chapter 14 on present and past weather and the state of the ground is where this entry takes the definitions, the methods, the criteria for intensity and the results of the tests of sensors from. Chapter 1 of the same volume says what instruments cannot yet observe.',
+        'Volume I, Chapter 14 (Observation of present and past weather; state of the ground), sections 14.1.1, 14.1.2, 14.1.3, 14.1.4, 14.2, 14.2.1.2, 14.2.1.3, 14.2.1.4, 14.2.2.1, 14.2.3.1, 14.2.3.2, 14.3.1, 14.3.2 and the Annex (criteria for slight, moderate and heavy precipitation intensity); Volume I, Chapter 1 (General), section 1.3.',
+        WMO_I,
+      ),
+      dwdFiles(
+        'The description of the dataset, the list of the weather codes and the files that come with each station say what DWD publishes as present weather, where the values come from, and what -1 stands for.',
+        `DWD Climate Data Center, files inside the station archives stundenwerte_WW_03987_akt.zip, stundenwerte_WW_01048_akt.zip and stundenwerte_WW_01420_akt.zip in ${DWD_HOURLY}weather_phenomena/recent/, read on 21 November 2026 for Potsdam (03987), Dresden-Klotzsche (01048) and Frankfurt/Main (01420): Metadaten_Parameter_ww_stunde_* and the column WW of the data file; Wetter_Beschreibung.txt in the same folder; dataset description "Hourly station observations of weather phenomena for Germany" (version v24.03, 2024). For the state of the ground: terminwerte_EK_00125_akt.zip in opendata.dwd.de/climate_environment/CDC/observations_germany/climate/subdaily/soil/recent/ (Metadaten_Parameter_ek_termin_00125 and the column EK_TER of the data file) and the list EK_Terminwerte_Beschreibung_Stationen.txt in the same folder, read on 21 November 2026.`,
+        DWD_HOURLY_WEATHER,
+      ),
+      ghcnDaily(
+        'Its readme names each element and what it stands for.',
+        'NOAA NCEI. Readme of the Global Historical Climatology Network daily (GHCN-Daily), version 3.35, section III: the elements WT** (weather type) and WV** (weather in the vicinity).',
+      ),
+    ],
+  },
+
+  'clouds': {
+    title: 'Clouds',
+    summary: 'The amount of cloud, the height of its base and its kind are three different observations. An observer sees the whole sky; a ceilometer looks straight up at one small part of it.',
+    parts: [
+      {
+        title: 'How it is measured',
+        paragraphs: [
+          'WMO defines a cloud as a collection of very small water droplets, ice crystals or a mixture of both, whose base is above the ground and which can be seen from the place of observation. Three things are observed: how much of the sky is covered (cloud amount), how high the lowest part of the cloud is above the ground (cloud-base height) and what kind of cloud it is (cloud type). WMO says that cloud amount was traditionally observed by eye, and that instrumental methods are now widely accepted and used.',
+          'An observer estimates the part of the sky that is covered to the nearest okta, an eighth of the sky. The observer should give equal weight to the area overhead and to the lower parts of the sky; if the clouds are very unevenly spread, the sky can be divided into quadrants and the estimates added. The code figure 9 is reported when the sky cannot be seen because of fog, falling snow and the like, or when the observer cannot estimate the amount because of darkness or other lighting. At night the observer must let the eyes get used to the dark. Where there is no instrument, the height of a cloud base can only be estimated, in mountainous areas for example by comparing it with the heights of known landmarks. WMO adds that because of perspective a cloud can seem to rest on distant hills, and that for tropical cumulus clouds with a high base, surface observers have frequently underestimated the height very seriously.',
+          'The height of the cloud base is measured with a ceilometer. WMO says that the laser ceilometer is the method most used now and should be considered the most appropriate. It sends pulses of near-infrared light upwards and measures how long the light scattered by the cloud takes to come back. Cloud amount can be found from the series of a ceilometer\'s readings, from infrared sensors that measure the thermal emission of the sky in many directions, and from cameras that look at the whole sky. WMO says that for most cloud types the only method is still visual, and that cloud type is still generally observed by people; one automatic method exists, for the aviation weather reports, which combines precipitation radar and lightning detection to tell cumulonimbus and towering cumulus.',
+        ],
+      },
+      {
+        title: 'How a reading becomes a value',
+        paragraphs: [
+          'Cloud amount is reported on a scale of oktas, from 0 for a clear sky to 8 for a completely covered one. 1 stands for one okta or less but not zero, and 7 for seven oktas or more but not eight, so that 0 and 8 are kept for a sky that is completely clear or completely covered. WMO\'s table also gives the same scale in tenths. In the BUFR code, the total cloud cover is given in per cent.',
+          'WMO tells the total cloud amount from the partial one. The total is the part of the sky dome covered by all the clouds that can be seen. The partial amount is the part covered by a type or layer of cloud as if it were the only cloud in the sky, so partial amounts can add up to more than the total and to more than eight oktas.',
+          'A ceilometer has no view of the whole sky, so it builds an amount from many readings. WMO says that the amount of cloud within the range of a ceilometer can be estimated from the share of the time that well-identified layers occupy, assuming that this time average stands for the sky around the station. As an example WMO describes the American system ASOS: the ceilometer takes a sample every 30 seconds; every minute the last 30 minutes are processed, the last 10 minutes with double weight; the cloud heights are grouped into layers, and the amount of a layer comes from the share of the samples that found cloud, converted to be equivalent to a human observation. For cloud type, WMO describes classes: ten genera in the International Cloud Atlas (WMO-No. 407), and for synoptic reports codes for low, middle and high clouds, whose purpose is to report characteristic states of the sky rather than individual cloud types.',
+        ],
+      },
+      {
+        title: 'What the number can and cannot tell',
+        paragraphs: [
+          'A ceilometer looks straight up at a small piece of sky. WMO says that most differences from the amount estimated by an observer can be attributed to this limited spatial representativeness, and that the method relies on the clouds moving over the instrument and being representative of the whole sky. In a comparison at coastal stations at mid-latitudes, the ceilometer method agreed within 2 oktas with the observer\'s total cloud amount typically in 85 to 90 % of the cases, and WMO says that this result is affected by the many overcast situations (7 or 8 oktas about 55 % of the time). A ceilometer reports 8 oktas much more often than 7 oktas, while an observer can see gaps anywhere in the cloud cover and reports 7 and 8 about equally often.',
+          'The height of a cloud base is not as sharp as it sounds. WMO says that studies found systematic differences of 30 to 50 m in the cloud-base heights of ceilometers of different manufacturers, which seem to come from the algorithms that place the base, and that for instruments there is no clear definition of a cloud base. In fog and during precipitation serious errors can occur. The laser may not detect high cirrus, and moist layers, aerosol, aircraft, birds, vegetation overhead or snow on the instrument can give a base that is not there. WMO\'s table of requirements asks for an uncertainty of 1/8 for the cloud amount, and says that 2/8 is achievable; for the height of the base it asks for 10 m up to 100 m and 10 % above, and puts what is achievable at about 10 m against a hard target (not a cloud), with a significant bias during precipitation.',
+          'WMO says that there are occasions when it is very difficult to estimate cloud amount, especially at night, and that the observer needs time for the eyes to adjust; on moonless nights the total can usually be estimated from the part of the sky in which the stars are dimmed or hidden by cloud, although haze alone can hide stars near the horizon. WMO says that scanning infrared detectors and infrared cameras can observe at night and that cameras which use daylight cannot; each method has disadvantages of its own, for example a scanning infrared detector finds it hard to classify partly transparent cloud.',
+        ],
+      },
+      {
+        title: 'Where providers differ',
+        paragraphs: [
+          'DWD\'s hourly cloud cover is in eighths, with an indicator that says whether a person (P) or an instrument (I) made the observation. In the recent files of the three stations checked, almost every value is marked I; Potsdam and Dresden-Klotzsche have 47 values marked P, Frankfurt/Main none. The station files name SYNOP weather reports as the source, with times in UTC. They list as the instrument for the total cloud cover a ceilometer of the type CHM 15k "Nimbus" since 21 July 2015 at Potsdam (before it an LD 40 from 2009 and a cloud-height meter of the type IVO until 1997), since 19 September 2019 at Dresden-Klotzsche and since 6 August 2021 at Frankfurt/Main. The files and the dataset description that were read do not say how the readings of the ceilometer become the cover. DWD says that many of its stations changed from manual to automatic observation between the end of the nineties and 2009, and names changes of instruments and of the observing personnel among the sources of uncertainty for long time series.',
+          'The cloud-type dataset has up to four layers, each with a type, the height of its base and its cover. In the recent files of the three stations checked there are heights and covers for up to three layers, no type for any layer and no fourth layer. DWD writes -1 in some hours; its description names only -999 as a missing value. Wetterdienst reads -1 as a sky that could not be seen and returns no value for it; that is wetterdienst\'s reading, not a statement of DWD. By default wetterdienst returns the cover in per cent of the sky and the height in metres.',
+          'DWD\'s daily mean cloud cover (NM) is an arithmetic mean: for the stations checked, since 1 April 2001 of at least 21 hourly values from SYNOP reports, and before that of the observations at three times of day (in 1967 to 1990 at Potsdam of four or eight). KNMI gives the mean cloud cover of the day (NG) in oktas and writes 9 for a sky that cannot be seen, which wetterdienst returns as no value. NOAA\'s GHCN-Daily gives the average cloudiness as a percentage and keeps the sources apart: ACMC and ACSC are from ceilometer data at 30-second intervals, ACMH and ACSH from manual observations, each for midnight to midnight or for sunrise to sunset. DWD\'s forecasts MOSMIX and DMO give cloud cover by layer of height (for example cloud_cover_below_2km) and an effective cloud cover. These are forecasts, not measurements: see "Observation, forecast and derived data".',
+        ],
+      },
+    ],
+    sources: [
+      wmoGuide(
+        'Volume I, Chapter 15 on clouds is where this entry takes the definitions, the observation by eye, the instruments and their errors from. Chapter 1 of the same volume holds the table of the uncertainties WMO asks for.',
+        'Volume I, Chapter 15 (Observation and measurement of clouds), sections 15.1.1, 15.1.2, 15.1.3, 15.1.4.1, 15.1.4.2, 15.1.4.3, 15.2.1, 15.2.2, 15.2.3, 15.3, 15.3.1, 15.3.2, 15.3.3, 15.4, 15.4.1.1, 15.4.1.3, 15.5; Volume I, Chapter 1 (General), Annex 1.A, rows 4.1 and 4.2.',
+        WMO_I,
+      ),
+      dwdFiles(
+        'The files that come with each station say which instrument it used and where the values come from. The descriptions of the datasets say what the numbers are.',
+        `DWD Climate Data Center, files inside the station archives stundenwerte_N_*_akt.zip and stundenwerte_CS_*_akt.zip in ${DWD_HOURLY}cloudiness/recent/ and ${DWD_HOURLY}cloud_type/recent/ and tageswerte_KL_*_akt.zip in ${DWD_KL}recent/, read on 21 November 2026 for Potsdam (03987), Dresden-Klotzsche (01048) and Frankfurt/Main (01420): Metadaten_Geraete_Gesamt_Bedeckungsgrad_*, Metadaten_Parameter_n_stunde_*, Metadaten_Parameter_klima_tag_* (parameter NM) and the columns V_N, V_N_I and V_S1_CS to V_S4_NS of the data files; dataset descriptions "Hourly station observations of cloudiness for Germany" and "Hourly station observations of cloud cover, cloud type and cloud height in up to 4 layers for Germany" (version v24.03, 2024).`,
+        DWD_HOURLY_CLOUDINESS,
+      ),
+      knmi(
+        'The header of its daily data file names each element and its unit.',
+        'KNMI, daily data of the weather in the Netherlands (daggegevens), file header for station 260 (De Bilt), element NG, read on 21 November 2026.',
+      ),
+      ghcnDaily(
+        'Its readme names each element and its unit.',
+        'NOAA NCEI. Readme of the Global Historical Climatology Network daily (GHCN-Daily), version 3.35, section III: the elements ACMC, ACMH, ACSC and ACSH.',
       ),
     ],
   },

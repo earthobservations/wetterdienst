@@ -28,6 +28,12 @@ Types of changes:
 - `[Map]` `/map?lat=&lon=` without a station picks the station for that place as a click would and
   moves the map to the position, also where no station is within reach; the Glossary starts its
   field with `?q=` and goes to an entry by its name (`/glossary#wind_speed`) (GH-3790).
+- `[Measurement]` Four more entries on the "How weather is measured" page: evaporation
+  (`/measurement#evaporation`), soil moisture (`#soil-moisture`), present weather and the state of
+  the ground (`#present-weather`) and clouds (`#clouds`), each with the sources it rests on (the
+  WMO Guide, WMO-No. 8, Volume I, Chapters 10, 11, 14 and 15, and the providers' own files). They
+  are written in German and English, like the first ones; the Glossary links the evaporation,
+  soil moisture, weather and cloud parameters to them (GH-3787).
 
 ## [0.57.0] - 2026-11-21
 
