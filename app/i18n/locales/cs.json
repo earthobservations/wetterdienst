@@ -1267,9 +1267,9 @@
     "valid": "Platnost",
     "issuedLabel": "Vydáno",
     "areasLabel": "Oblasti",
-    "areasMore": "{names} a dalších {count}",
+    "areasMore": "a dalších {count}",
     "textGerman": "Vlastní text DWD, německy: DWD tuto výstrahu v tvém jazyce nevydává.",
-    "legendDescription": "Obrysy výstrah: stupeň 1 má okraj tečkovaný, stupeň 2 čárkovaný, stupeň 3 plný a stupeň 4 silný plný; předběžná informace má okraj čárka-tečka. Seznam v panelu pojmenovává každou výstrahu slovy.",
+    "legendDescription": "Obrysy výstrah: stupeň 1 má okraj tečkovaný, stupeň 2 čárkovaný, stupeň 3 plný a stupeň 4 dvojitá čára; předběžná informace má okraj čárka-tečka. Seznam v panelu pojmenovává každou výstrahu slovy.",
     "panelTitle": "Výstrahy DWD před počasím",
     "panelCount": "Výstrahy, které platí nebo jsou oznámeny v Německu: {count}",
     "panelNone": "V Německu neplatí ani není oznámena žádná výstraha.",
@@ -1293,7 +1293,10 @@
     "bannerLoading": "Načítám výstrahy …",
     "bannerListLabel": "Výstrahy pro tuto polohu, nejzávažnější první",
     "bannerNamedOnly": "Výstrahy, které DWD uvádí jen názvem oblasti (moře, pobřeží), se k poloze nepřiřazují: {count}.",
-    "bannerOpenMap": "Zobrazit na mapě"
+    "bannerOpenMap": "Zobrazit na mapě",
+    "legendHealth": "Výstrahy před horkem a UV jsou kresleny vlastními barvami DWD, s okrajem svého stupně.",
+    "bannerNoneShort": "Žádná výstraha DWD pro tuto polohu",
+    "bannerDetails": "O těchto výstrahách"
   },
   "dataViewer": {
     "loadingValues": "Načítání hodnot …",

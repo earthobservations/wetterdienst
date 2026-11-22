@@ -1267,9 +1267,9 @@
     "valid": "Geldig",
     "issuedLabel": "Uitgegeven",
     "areasLabel": "Gebieden",
-    "areasMore": "{names} en nog {count}",
+    "areasMore": "en nog {count}",
     "textGerman": "Eigen tekst van de DWD, in het Duits: de DWD geeft deze waarschuwing niet uit in jouw taal.",
-    "legendDescription": "Omtrekken van de waarschuwingen: niveau 1 heeft een gestippelde rand, niveau 2 een gestreepte, niveau 3 een doorgetrokken en niveau 4 een dikke doorgetrokken; voorinformatie heeft een streep-punt-rand. De lijst in het paneel noemt elke waarschuwing in woorden.",
+    "legendDescription": "Omtrekken van de waarschuwingen: niveau 1 heeft een gestippelde rand, niveau 2 een gestreepte, niveau 3 een doorgetrokken en niveau 4 een dubbele lijn; voorinformatie heeft een streep-punt-rand. De lijst in het paneel noemt elke waarschuwing in woorden.",
     "panelTitle": "Weerwaarschuwingen van de DWD",
     "panelCount": "Waarschuwingen die van kracht of aangekondigd zijn in Duitsland: {count}",
     "panelNone": "In Duitsland is geen waarschuwing van kracht of aangekondigd.",
@@ -1293,7 +1293,10 @@
     "bannerLoading": "De waarschuwingen worden geladen …",
     "bannerListLabel": "Waarschuwingen voor deze positie, de zwaarste eerst",
     "bannerNamedOnly": "Waarschuwingen die de DWD alleen met de naam van een gebied geeft (de zee, een kust) worden niet aan een positie gekoppeld: {count}.",
-    "bannerOpenMap": "Bekijk ze op de kaart"
+    "bannerOpenMap": "Bekijk ze op de kaart",
+    "legendHealth": "Hitte- en UV-waarschuwingen zijn getekend in de eigen kleuren van de DWD, met de rand van hun niveau.",
+    "bannerNoneShort": "Geen waarschuwing van de DWD voor deze positie",
+    "bannerDetails": "Over deze waarschuwingen"
   },
   "dataViewer": {
     "loadingValues": "Waarden laden …",

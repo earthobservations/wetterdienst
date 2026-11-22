@@ -1267,9 +1267,9 @@
     "valid": "Ważne",
     "issuedLabel": "Wydano",
     "areasLabel": "Obszary",
-    "areasMore": "{names} i {count} więcej",
+    "areasMore": "i {count} więcej",
     "textGerman": "Własny tekst DWD, po niemiecku: DWD nie podaje tego ostrzeżenia w twoim języku.",
-    "legendDescription": "Kontury ostrzeżeń: stopień 1 ma obrys kropkowany, stopień 2 przerywany, stopień 3 ciągły, a stopień 4 gruby ciągły; informacja wstępna ma obrys kreska-kropka. Lista w panelu opisuje każde ostrzeżenie słowami.",
+    "legendDescription": "Kontury ostrzeżeń: stopień 1 ma obrys kropkowany, stopień 2 przerywany, stopień 3 ciągły, a stopień 4 podwójna linia; informacja wstępna ma obrys kreska-kropka. Lista w panelu opisuje każde ostrzeżenie słowami.",
     "panelTitle": "Ostrzeżenia pogodowe DWD",
     "panelCount": "Ostrzeżenia obowiązujące lub zapowiedziane w Niemczech: {count}",
     "panelNone": "W Niemczech nie obowiązuje ani nie jest zapowiedziane żadne ostrzeżenie.",
@@ -1293,7 +1293,10 @@
     "bannerLoading": "Ładowanie ostrzeżeń …",
     "bannerListLabel": "Ostrzeżenia dla tej pozycji, najgroźniejsze najpierw",
     "bannerNamedOnly": "Ostrzeżeń, które DWD podaje tylko z nazwą obszaru (morze, wybrzeże), nie przypisuje się do pozycji: {count}.",
-    "bannerOpenMap": "Zobacz je na mapie"
+    "bannerOpenMap": "Zobacz je na mapie",
+    "legendHealth": "Ostrzeżenia przed upałem i UV są rysowane w kolorach własnych DWD, z obrysem ich stopnia.",
+    "bannerNoneShort": "Brak ostrzeżeń DWD dla tej pozycji",
+    "bannerDetails": "O tych ostrzeżeniach"
   },
   "dataViewer": {
     "loadingValues": "Ładowanie wartości …",

@@ -71,7 +71,7 @@ test.describe('the layer over the map', () => {
     const panel = page.getByTestId('warnings-panel')
     await expect(panel.getByTestId('warnings-panel-summary')).toHaveText('Warnings in force or announced in Germany: 6')
     const titles = panel.getByTestId('warnings-list').first().getByTestId('warning-title')
-    await expect(titles).toHaveText(['thunderstorm', 'PRELIMINARY INFORMATION SEVERE THUNDERSTORMS', 'wind gusts', 'glaze', 'fog'])
+    await expect(titles).toHaveText(['thunderstorm', 'PRELIMINARY INFORMATION SEVERE THUNDERSTORMS', 'glaze', 'wind gusts', 'fog'])
     // the credit of the data is in the map's attribution and under the list
     await expect(page.locator('.leaflet-control-attribution')).toContainText('Source: Deutscher Wetterdienst')
     await expect(panel.getByTestId('provider-credit')).toContainText('Source: Deutscher Wetterdienst')
@@ -100,15 +100,19 @@ test.describe('the layer over the map', () => {
       'Level 4 of 4 · Extreme severe weather warning',
       'Preliminary information on severe weather',
     ])
-    const dashes = await page.locator('.warnings-swatch rect').evaluateAll(rects => rects.map(rect => rect.getAttribute('stroke-dasharray')))
+    const dashes = await page.locator('.warnings-swatch rect:not([stroke="#ffffff"])').evaluateAll(rects => rects.map(rect => rect.getAttribute('stroke-dasharray')))
     expect(dashes).toEqual(['2 5', '9 5', null, null, '12 4 2 4'])
-    const widths = await page.locator('.warnings-swatch rect').evaluateAll(rects => rects.map(rect => Number(rect.getAttribute('stroke-width'))))
+    const widths = await page.locator('.warnings-swatch rect:not([stroke="#ffffff"])').evaluateAll(rects => rects.map(rect => Number(rect.getAttribute('stroke-width'))))
     expect(widths[3]).toBeGreaterThan(widths[2]!)
     // the map's description says it as well, for a screen reader
     await expect(page.getByTestId('map-legend-description')).toContainText('level 1 has a dotted edge')
-    // the outlines of the map carry the same edges
+    // level 4 is a double line: a light line inside the dark one in its swatch
+    await expect(page.locator('.warnings-swatch rect[stroke="#ffffff"]')).toHaveCount(1)
+    // heat and UV warnings are drawn in DWD's own colours, said in the legend
+    await expect(page.getByTestId('warnings-legend-health')).toHaveText(en.warnings.legendHealth)
+    // the outlines of the map carry the same edges: the two severe warnings (level 3) are solid
     const mapDashes = await paths(page).evaluateAll(all => all.map(path => path.getAttribute('stroke-dasharray')))
-    expect(mapDashes.filter(dash => dash === null)).toHaveLength(1)
+    expect(mapDashes.filter(dash => dash === null)).toHaveLength(2)
     expect(new Set(mapDashes).size).toBeGreaterThan(2)
   })
 
@@ -117,6 +121,7 @@ test.describe('the layer over the map', () => {
     const list = page.getByTestId('warnings-list').first()
     const first = list.getByTestId('warning-entry').first()
     const before = await paths(page).evaluateAll(all => all.map(path => Number(path.getAttribute('stroke-width'))))
+    await expect(page.locator('.warning-outline-focus')).toHaveCount(0)
     await first.getByTestId('warning-toggle').click()
     await expect(first.getByTestId('warning-toggle')).toHaveAttribute('aria-expanded', 'true')
     const details = first.getByTestId('warning-details')
@@ -127,13 +132,16 @@ test.describe('the layer over the map', () => {
     await expect(details.getByTestId('warning-description')).toHaveText('Thunderstorms occur. Gale-force gusts up to 80 km/h and heavy rain accompany them.')
     await expect(details.getByTestId('warning-instruction')).toContainText('Lightning strikes may occur')
     // DWD's words, in the language of the page
-    await expect(details.locator('[lang="en"]')).toBeVisible()
-    // the outline of that warning is heavier than before
-    await expect.poll(async () => paths(page).evaluateAll(all => Math.max(...all.map(path => Number(path.getAttribute('stroke-width')))))).toBeGreaterThan(Math.max(...before))
+    await expect(details.locator('[lang="en"]').first()).toBeVisible()
+    // the outline of that warning has a ring (a white and a navy line round it), and its own line is no heavier than it was: a level 3 never looks
+    // heavier than a level 4 for being the one opened
+    await expect(page.locator('.warning-outline-focus')).toHaveCount(2)
+    const after = await paths(page).evaluateAll(all => all.filter(path => !path.classList.contains('warning-outline-focus')).map(path => Number(path.getAttribute('stroke-width'))))
+    expect(after).toEqual(before)
     // pressed again it closes, and the emphasis goes
     await first.getByTestId('warning-toggle').click()
     await expect(details).toBeHidden()
-    await expect.poll(async () => paths(page).evaluateAll(all => Math.max(...all.map(path => Number(path.getAttribute('stroke-width')))))).toBe(Math.max(...before))
+    await expect(page.locator('.warning-outline-focus')).toHaveCount(0)
   })
 
   test('lists the warning that has no polygon apart, with its area, and draws no outline for it', async ({ page, baseURL }) => {
@@ -290,14 +298,41 @@ test.describe('the banner of the forecast', () => {
   test('says that no warning of DWD has an area with the position where none has', async ({ page, baseURL }) => {
     // the forecast point of Berlin has the fog, which the mock lets end in the next hours; a quiet day has none
     await open(page, baseURL!, '/meteogram?station=10384', { alerts: () => emptyAlerts() })
-    await expect(page.getByTestId('warnings-banner-summary')).toHaveText('No warning of DWD has an area that contains this position.')
+    await expect(page.getByTestId('warnings-banner-summary')).toHaveText('No DWD warning for this position')
     await expect(page.getByTestId('warning-entry')).toHaveCount(0)
+    // one line
+    expect((await page.getByTestId('warnings-banner').boundingBox())!.height).toBeLessThan(64)
+  })
+
+  test('is one line while it loads and one line on a quiet day, so that the chart does not move when the snapshot arrives', async ({ page, baseURL }) => {
+    let release!: () => void
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    await open(page, baseURL!, '/meteogram?station=10384', {
+      alerts: async () => {
+        await gate
+        return emptyAlerts()
+      },
+    })
+    await expect(page.getByTestId('warnings-banner-summary')).toHaveText(en.warnings.bannerLoading)
+    await expect(page.locator('.mg-stage')).toBeVisible()
+    const loading = { banner: (await page.getByTestId('warnings-banner').boundingBox())!, chart: (await page.locator('.mg-stage').boundingBox())! }
+    release()
+    await expect(page.getByTestId('warnings-banner-summary')).toHaveText('No DWD warning for this position')
+    const quiet = { banner: (await page.getByTestId('warnings-banner').boundingBox())!, chart: (await page.locator('.mg-stage').boundingBox())! }
+    expect(Math.abs(quiet.banner.height - loading.banner.height)).toBeLessThanOrEqual(1)
+    expect(Math.abs(quiet.chart.y - loading.chart.y)).toBeLessThanOrEqual(1)
+    expect(quiet.banner.height).toBeLessThan(64)
   })
 
   test('says plainly that no warnings source covers a forecast point outside Germany', async ({ page, baseURL }) => {
-    await open(page, baseURL!, '/meteogram?station=01001')
+    const { asked } = await open(page, baseURL!, '/meteogram?station=01001')
     await expect(page.getByTestId('warnings-banner-summary')).toHaveText('DWD\'s warnings cover Germany only. No warnings source covers this place.')
     await expect(page.getByTestId('warning-entry')).toHaveCount(0)
+    // one line, and nothing was asked for
+    expect((await page.getByTestId('warnings-banner').boundingBox())!.height).toBeLessThan(64)
+    expect(asked).toEqual([])
   })
 })
 
@@ -311,7 +346,7 @@ test.describe('the language of DWD\'s texts', () => {
     await banner.getByTestId('warning-toggle').click()
     await expect(banner.getByTestId('warning-language-note')).toHaveText(catalog('cs').warnings.textGerman)
     await expect(banner.getByTestId('warning-description')).toHaveText('Es tritt zeitweise Nebel mit Sichtweiten unter 150 Metern auf.')
-    await expect(banner.locator('[lang="de"]')).toBeVisible()
+    await expect(banner.locator('[lang="de"]').first()).toBeVisible()
     expect(asked).toEqual(['?granularity=community&language=de'])
   })
 
@@ -321,7 +356,7 @@ test.describe('the language of DWD\'s texts', () => {
     await expect(banner.getByTestId('warning-title')).toHaveText('mgła')
     await banner.getByTestId('warning-toggle').click()
     await expect(banner.getByTestId('warning-language-note')).toHaveCount(0)
-    await expect(banner.locator('[lang="pl"]')).toBeVisible()
+    await expect(banner.locator('[lang="pl"]').first()).toBeVisible()
     expect(asked).toEqual(['?granularity=community&language=mul'])
   })
 })
@@ -372,7 +407,7 @@ test.describe('the question "Are there warnings here?"', () => {
     const region = page.getByTestId('explanation-region')
     await expect(region.getByTestId('explanation-numbers')).toContainText('Warnings in force or announced: 1 for this position, 6 in Germany.')
     const rules = region.locator('[data-rule]')
-    await expect(rules).toHaveCount(12)
+    await expect(rules).toHaveCount(13)
     await expect(region.getByTestId('own-mark')).toHaveCount(7)
     await expect(region.getByRole('link', { name: /DWD CAP profile 2.1.12/ }).first()).toBeVisible()
     await expect(region).toContainText('wetterdienst\'s own choice.')
@@ -390,6 +425,12 @@ test.describe('the question "Are there warnings here?"', () => {
     await expect(quote.getByRole('heading', { level: 4 })).toHaveText('WINDBÖEN')
     await expect(quote.locator('[lang="de"]')).toContainText('Amtliche WARNUNG vor WINDBÖEN')
     await expect(page.getByTestId('answer-quote-note')).toHaveText(catalog('cs').warnings.textGerman)
+  })
+
+  test('quotes DWD\'s German text with the note on the Low German page too, which is formatted as German', async ({ page, baseURL }) => {
+    await home(page, baseURL!, '/?ask=warnings', 'de-hh')
+    await expect(page.getByTestId('answer-quote').locator('[lang="de"]')).toContainText('Amtliche WARNUNG vor WINDBÖEN')
+    await expect(page.getByTestId('answer-quote-note')).toHaveText(catalog('de-hh').warnings.textGerman)
   })
 
   test('says in German what the German page asks, and quotes the German text without a note', async ({ page, baseURL }) => {

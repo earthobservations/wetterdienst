@@ -1267,9 +1267,9 @@
     "valid": "Vigencia",
     "issuedLabel": "Emitido",
     "areasLabel": "Zonas",
-    "areasMore": "{names} y {count} más",
+    "areasMore": "y {count} más",
     "textGerman": "Texto original del DWD, en alemán: el DWD no publica este aviso en tu idioma.",
-    "legendDescription": "Contornos de los avisos: el nivel 1 tiene el borde punteado, el nivel 2 discontinuo, el nivel 3 continuo y el nivel 4 continuo y grueso; la información previa tiene el borde de trazo y punto. La lista del panel nombra cada aviso con palabras.",
+    "legendDescription": "Contornos de los avisos: el nivel 1 tiene el borde punteado, el nivel 2 discontinuo, el nivel 3 continuo y el nivel 4 de doble línea; la información previa tiene el borde de trazo y punto. La lista del panel nombra cada aviso con palabras.",
     "panelTitle": "Avisos meteorológicos del DWD",
     "panelCount": "Avisos en vigor o anunciados en Alemania: {count}",
     "panelNone": "No hay ningún aviso en vigor ni anunciado en Alemania.",
@@ -1293,7 +1293,10 @@
     "bannerLoading": "Cargando los avisos …",
     "bannerListLabel": "Avisos para esta posición, los más graves primero",
     "bannerNamedOnly": "Los avisos que el DWD da solo por nombre de zona (el mar, una costa) no se asignan a una posición: {count}.",
-    "bannerOpenMap": "Verlos en el mapa"
+    "bannerOpenMap": "Verlos en el mapa",
+    "legendHealth": "Los avisos de calor y de UV se dibujan con los colores propios del DWD para ellos, con el borde de su nivel.",
+    "bannerNoneShort": "Ningún aviso del DWD para esta posición",
+    "bannerDetails": "Sobre estos avisos"
   },
   "dataViewer": {
     "loadingValues": "Cargando valores …",

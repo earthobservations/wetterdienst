@@ -1267,9 +1267,9 @@
     "valid": "Gültig",
     "issuedLabel": "Ausgegeben",
     "areasLabel": "Gebiete",
-    "areasMore": "{names} und {count} weitere",
+    "areasMore": "und {count} weitere",
     "textGerman": "Der eigene Text des DWD, auf Deutsch: Der DWD gibt diese Warnung nicht in deiner Sprache heraus.",
-    "legendDescription": "Umrisse der Warnungen: Stufe 1 hat einen gepunkteten Rand, Stufe 2 einen gestrichelten, Stufe 3 einen durchgezogenen und Stufe 4 einen dicken durchgezogenen; die Vorabinformation hat einen strichpunktierten Rand. Die Liste im Seitenbereich nennt jede Warnung in Worten.",
+    "legendDescription": "Umrisse der Warnungen: Stufe 1 hat einen gepunkteten Rand, Stufe 2 einen gestrichelten, Stufe 3 einen durchgezogenen und Stufe 4 eine Doppellinie; die Vorabinformation hat einen strichpunktierten Rand. Die Liste im Seitenbereich nennt jede Warnung in Worten.",
     "panelTitle": "Wetterwarnungen des DWD",
     "panelCount": "Geltende oder angekündigte Warnungen in Deutschland: {count}",
     "panelNone": "In Deutschland gilt keine Warnung, und keine ist angekündigt.",
@@ -1293,7 +1293,10 @@
     "bannerLoading": "Die Warnungen werden geladen …",
     "bannerListLabel": "Warnungen für diese Position, die schwerste zuerst",
     "bannerNamedOnly": "Warnungen, die der DWD nur mit einem Gebietsnamen angibt (das Meer, eine Küste), werden keiner Position zugeordnet: {count}.",
-    "bannerOpenMap": "Auf der Karte ansehen"
+    "bannerOpenMap": "Auf der Karte ansehen",
+    "legendHealth": "Hitze- und UV-Warnungen sind in den eigenen Farben des DWD für sie gezeichnet, mit dem Rand ihrer Stufe.",
+    "bannerNoneShort": "Keine DWD-Warnung für diese Position",
+    "bannerDetails": "Zu diesen Warnungen"
   },
   "dataViewer": {
     "loadingValues": "Werte werden geladen …",

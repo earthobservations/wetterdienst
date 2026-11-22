@@ -10,7 +10,7 @@ import { chipOf } from '~/utils/ask/registry'
 import { TOOLS } from '~/utils/sections'
 import { requestUnitTargets } from '~/utils/unit-targets'
 import { unitsOfAnswer } from '~/utils/units'
-import { parseWarnings } from '~/utils/warnings'
+import { parseWarnings, WARNINGS_TIMEOUT_MS } from '~/utils/warnings'
 
 // The answer to one of the home page's questions (GH-3518), worked out from what the backend answers, with the chart that
 // backs it and the way into the tool that holds the data, filled in. Nothing is said that the data does not say:
@@ -28,7 +28,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ 'update:choice': [param: string, value: string], 'effective': [choices: Choices] }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const { place } = usePlace()
 const formatLanguage = useFormatLanguage()
 const { env, questionText } = useQuestions()
@@ -126,7 +126,7 @@ const api: ChipApi = {
   coverage: query => $fetch('/api/coverage', { query, ...API_FETCH }),
   // DWD's warnings: the whole snapshot of the community product, which the answer reads the place's warnings from (GH-4295)
   async alerts(product) {
-    return parseWarnings(await $fetch('/api/alerts', { query: { granularity: 'community', language: product }, ...API_FETCH }))
+    return parseWarnings(await $fetch('/api/alerts', { query: { granularity: 'community', language: product }, timeout: WARNINGS_TIMEOUT_MS, ...API_FETCH }))
   },
   // what is kept for the visit (the promise is kept, as the server settings' is): a state of the page under the chip's own key
   kept<T>(key: string, load: () => Promise<T>): Promise<T> {
@@ -146,6 +146,7 @@ function context(): ChipContext {
     choices: effective.value,
     now: () => DateTime.now(),
     formatLanguage: formatLanguage.value,
+    locale: locale.value,
     unitTarget: quantity => requestUnitTargets(settings.value.units)[quantity]!,
   }
 }

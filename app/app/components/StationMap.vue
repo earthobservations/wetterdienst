@@ -411,7 +411,7 @@ function drawCells() {
 
 /**
  * The outlines of DWD's warnings (GH-4295): each warning's polygon (every surface of it, holes as holes) in the fill and the edge of its level, the edge
- * dotted, dashed, solid or heavy by the level so that the colour is not the only cue; the one opened in the list is drawn with a heavier edge and a
+ * dotted, dashed, solid or a double line by the level so that the colour is not the only cue; the one opened in the list has a ring and a
  * stronger fill. None takes a click or a key (`interactive: false`): a click on the map picks a place, and the page tells the warnings of it; the
  * list in the panel is the keyboard's and the screen reader's way to a warning.
  */
@@ -426,16 +426,25 @@ function drawWarnings() {
   const layer = L.layerGroup()
   for (const warning of warnings) {
     const { style } = warning
-    L.polygon(warning.outline as L.LatLngExpression[][][], {
+    const outline = warning.outline as L.LatLngExpression[][][]
+    const base = { lineJoin: 'round' as const, interactive: false, pane: WARNINGS_PANE }
+    if (warning.focused) {
+      // the one opened in the list has a ring round its line, a white one and a navy one in it, and a stronger fill: its line is not made heavier, so that a
+      // level 3 never looks heavier than a level 4 for being the one picked
+      L.polygon(outline, { ...base, color: '#ffffff', weight: style.weight + 8, fill: false, className: 'warning-outline-focus' }).addTo(layer)
+      L.polygon(outline, { ...base, color: NAVY, weight: style.weight + 4, fill: false, className: 'warning-outline-focus' }).addTo(layer)
+    }
+    L.polygon(outline, {
+      ...base,
       color: style.edge,
-      weight: warning.focused ? style.weight + 2.5 : style.weight,
+      weight: style.weight,
       dashArray: style.dashArray ?? undefined,
       fillColor: style.fill,
       fillOpacity: warning.focused ? Math.min(0.7, style.fillOpacity + 0.25) : style.fillOpacity,
-      lineJoin: 'round',
-      interactive: false,
-      pane: WARNINGS_PANE,
     }).addTo(layer)
+    // level 4: a light line inside the dark one, a double line, which is no weight that a level 3 can be taken for
+    if (style.double)
+      L.polygon(outline, { ...base, color: '#ffffff', weight: 1.5, fill: false, className: 'warning-outline-double' }).addTo(layer)
   }
   layer.addTo(map)
   warningLayer = layer

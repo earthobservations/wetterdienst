@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Warning, WarningsTranslate } from '~/utils/warnings'
-import { LEVEL_STYLES, levelKey, phaseOf, styleKey, wordsOf } from '~/utils/warnings'
+import { levelKey, phaseOf, styleOf, wordsOf } from '~/utils/warnings'
 
 // One warning of DWD (GH-4295), as a row that opens: what a reader needs to know it at a glance (the level as a number and in words, the
 // event, when it is in force) and, opened, DWD's own words for it, unchanged: type, headline, description and instruction, where it was issued
@@ -26,7 +26,7 @@ const emit = defineEmits<{ toggle: [] }>()
 const { t, locale } = useI18n()
 const formatLanguage = useFormatLanguage()
 
-const style = computed(() => LEVEL_STYLES[styleKey(props.warning)])
+const style = computed(() => styleOf(props.warning))
 const phase = computed(() => phaseOf(props.warning, props.now))
 const words = computed(() => wordsOf(props.warning, t as WarningsTranslate, locale.value, formatLanguage.value, props.now))
 const mark = computed(() => props.warning.kind === 'preliminary' ? '!' : props.warning.level ? String(props.warning.level) : '?')
@@ -44,7 +44,7 @@ const mark = computed(() => props.warning.kind === 'preliminary' ? '!' : props.w
     >
       <span class="warning-mark" :style="{ background: style.edge }" aria-hidden="true">{{ mark }}</span>
       <span class="min-w-0 flex-1">
-        <span class="block font-semibold text-highlighted break-words" data-testid="warning-title">{{ words.title }}</span>
+        <span class="block font-semibold text-highlighted break-words" :lang="words.language" data-testid="warning-title">{{ words.title }}</span>
         <span class="block text-sm text-toned" data-testid="warning-level">{{ words.level }}</span>
         <span class="block text-sm text-muted" data-testid="warning-when">
           {{ words.phase }}<template v-if="words.validity">
@@ -63,7 +63,9 @@ const mark = computed(() => props.warning.kind === 'preliminary' ? '!' : props.w
       <dl class="warning-facts">
         <template v-if="words.text.event">
           <dt>{{ t('warnings.type') }}</dt>
-          <dd>{{ words.text.event }}</dd>
+          <dd :lang="words.language">
+            {{ words.text.event }}
+          </dd>
         </template>
         <dt>{{ t('warnings.levelLabel') }}</dt>
         <dd>{{ words.level }}</dd>
@@ -79,7 +81,12 @@ const mark = computed(() => props.warning.kind === 'preliminary' ? '!' : props.w
         </template>
         <template v-if="words.areas">
           <dt>{{ t('warnings.areasLabel') }}</dt>
-          <dd>{{ words.areas }}</dd>
+          <!-- the names of the areas are DWD's German ones whatever the language of the text -->
+          <dd>
+            <span lang="de">{{ words.areas }}</span><template v-if="words.areasMore">
+              {{ ' ' }}{{ words.areasMore }}
+            </template>
+          </dd>
         </template>
       </dl>
       <div v-if="words.text.headline || words.text.description || words.text.instruction" class="warning-words" :lang="words.language">

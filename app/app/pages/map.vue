@@ -47,7 +47,7 @@ import {
   yearOf,
 } from '~/utils/map-tool'
 import { fetchStripesStations, stripesFetch } from '~/utils/stripes-source'
-import { drawn, drawnOf, withoutOutline } from '~/utils/warnings'
+import { drawn, drawnOf, inWarningBox, withoutOutline } from '~/utils/warnings'
 
 // The map tool (GH-3650), from the design of #3580: the stations of the layer chosen in the panel of the layers button over the map, and a
 // panel beside it (a sheet under it on a phone) that finds a station by name, lists the ones near the centre of the
@@ -316,7 +316,10 @@ const place = computed(() => anchor.value && selected.value && distanceKm(anchor
 // warnings whose polygon contains it. The snapshot is asked for while the layer is on, or a station is picked (the banner is there with the layer
 // off as well), and every 5 minutes after. A warning DWD gives by area name alone has no polygon: it is listed apart and never drawn.
 const warningsOn = ref(route.query.warnings === '1')
-const warnings = useWarnings(() => warningsOn.value || Boolean(selected.value))
+/** The place the banner is about: the place picked on the map where there is one, else the station's position */
+const bannerPoint = computed<Point | null>(() => anchor.value ?? (selected.value ? { latitude: selected.value.latitude, longitude: selected.value.longitude } : null))
+// the snapshot is asked for while the layer is on, or for a place picked that DWD warns for: nothing is asked for a place outside Germany
+const warnings = useWarnings(() => warningsOn.value || (bannerPoint.value !== null && inWarningBox(bannerPoint.value)))
 /** The warning opened in the list, which the map draws stronger */
 const focusedWarning = ref<string | null>(null)
 /** A warning opened in the list: the map moves to show it, once for each press */
@@ -343,9 +346,6 @@ watch(warningsOn, (on) => {
   if (!on)
     focusedWarning.value = null
 })
-/** The place the banner is about: the place picked on the map where there is one, else the station's position */
-const bannerPoint = computed<Point | null>(() => anchor.value ?? (selected.value ? { latitude: selected.value.latitude, longitude: selected.value.longitude } : null))
-
 /** The number of a station of the address that the layer does not have, told in the panel */
 const unknownStation = ref<string | null>(null)
 /** A point that the layer has no station within reach of, told in the panel */

@@ -1267,9 +1267,9 @@
     "valid": "Valid",
     "issuedLabel": "Issued",
     "areasLabel": "Areas",
-    "areasMore": "{names} and {count} more",
+    "areasMore": "and {count} more",
     "textGerman": "DWD's own text, in German: DWD does not give this warning in your language.",
-    "legendDescription": "Warning outlines: level 1 has a dotted edge, level 2 a dashed one, level 3 a solid one and level 4 a heavy solid one; preliminary information has a dash-dotted edge. The list in the panel names every warning in words.",
+    "legendDescription": "Warning outlines: level 1 has a dotted edge, level 2 a dashed one, level 3 a solid one and level 4 a double line; preliminary information has a dash-dotted edge. The list in the panel names every warning in words.",
     "panelTitle": "Weather warnings of DWD",
     "panelCount": "Warnings in force or announced in Germany: {count}",
     "panelNone": "No warning is in force or announced in Germany.",
@@ -1293,7 +1293,10 @@
     "bannerLoading": "Loading the warnings …",
     "bannerListLabel": "Warnings for this position, the most severe first",
     "bannerNamedOnly": "Warnings that DWD gives by area name alone (the sea, a coast) are not matched to a position: {count}.",
-    "bannerOpenMap": "See them on the map"
+    "bannerOpenMap": "See them on the map",
+    "legendHealth": "Heat and UV warnings are drawn in DWD's own colours for them, with the edge of their level.",
+    "bannerNoneShort": "No DWD warning for this position",
+    "bannerDetails": "About these warnings"
   },
   "dataViewer": {
     "loadingValues": "Loading values …",

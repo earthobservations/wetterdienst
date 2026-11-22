@@ -1267,9 +1267,9 @@
     "valid": "Gellt",
     "issuedLabel": "Rutgeven",
     "areasLabel": "Gebeden",
-    "areasMore": "{names} un {count} mehr",
+    "areasMore": "un {count} mehr",
     "textGerman": "De egen Text vun den DWD, op Hoochdüütsch: De DWD gifft disse Warnung nich in dien Spraak rut.",
-    "legendDescription": "Ümrieten vun de Warnungen: Stuuf 1 hett en punkteerten Rand, Stuuf 2 en streken, Stuuf 3 en dörchgahn un Stuuf 4 en dicken dörchgahn; de Vörinformatschoon hett en Strich-Punkt-Rand. De List in den Sietenbalken nennt jede Warnung in Würd.",
+    "legendDescription": "Ümrieten vun de Warnungen: Stuuf 1 hett en punkteerten Rand, Stuuf 2 en streken, Stuuf 3 en dörchgahn un Stuuf 4 en Dubbellien; de Vörinformatschoon hett en Strich-Punkt-Rand. De List in den Sietenbalken nennt jede Warnung in Würd.",
     "panelTitle": "Wedderwarnungen vun den DWD",
     "panelCount": "Warnungen, de gellt oder ankünnigt sünd, in Düütschland: {count}",
     "panelNone": "In Düütschland gellt keen Warnung, un keen is ankünnigt.",
@@ -1293,7 +1293,10 @@
     "bannerLoading": "De Warnungen warrt laadt …",
     "bannerListLabel": "Warnungen för disse Positschoon, de swaarste toerst",
     "bannerNamedOnly": "Warnungen, de de DWD blots mit en Gebeetsnaam angifft (de See, en Küst), warrt keen Positschoon towiest: {count}.",
-    "bannerOpenMap": "Op de Kaart ankieken"
+    "bannerOpenMap": "Op de Kaart ankieken",
+    "legendHealth": "Hitt- un UV-Warnungen warrt in de egen Klören vun den DWD tekent, mit den Rand vun ehr Stuuf.",
+    "bannerNoneShort": "Keen Warnung vun den DWD för disse Positschoon",
+    "bannerDetails": "Över disse Warnungen"
   },
   "dataViewer": {
     "loadingValues": "Weerten warrt laadt …",

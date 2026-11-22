@@ -98,6 +98,8 @@ export interface ChipContext {
   now: () => DateTime
   /** The language to sort and write in, as `Intl` takes it (`useFormatLanguage()`'s answer) */
   formatLanguage: string
+  /** The app's own locale (`de`, `de-hh`, `lb`, `pl`): which of a provider's texts the reader gets is decided by it, not by the language a number is written in (Low German is formatted as German and is not German) */
+  locale: string
   /** The unit the settings choose for a quantity, as the backend's `unit_targets` take it */
   unitTarget: (quantity: Quantity) => string
 }

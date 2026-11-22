@@ -1267,9 +1267,9 @@
     "valid": "Gëlteg",
     "issuedLabel": "Erausginn",
     "areasLabel": "Gebidder",
-    "areasMore": "{names} an {count} méi",
+    "areasMore": "an {count} méi",
     "textGerman": "Den eegenen Text vum DWD, op Däitsch: den DWD gëtt dës Warnung net a dénger Sprooch eraus.",
-    "legendDescription": "Ëmrëss vun de Warnungen: Stuf 1 huet e gepunkte Rand, Stuf 2 e gestrachenen, Stuf 3 en duerchgängegen a Stuf 4 en décken duerchgängegen; d'Viraginformatioun huet e Rand mat Strich a Punkt. D'Lëscht am Panel nennt all Warnung a Wierder.",
+    "legendDescription": "Ëmrëss vun de Warnungen: Stuf 1 huet e gepunkte Rand, Stuf 2 e gestrachenen, Stuf 3 en duerchgängegen a Stuf 4 eng duebel Linn; d'Viraginformatioun huet e Rand mat Strich a Punkt. D'Lëscht am Panel nennt all Warnung a Wierder.",
     "panelTitle": "Wiederwarnunge vum DWD",
     "panelCount": "Warnungen, déi a Däitschland gëllen oder ugekënnegt sinn: {count}",
     "panelNone": "A Däitschland gëlt keng Warnung, a keng ass ugekënnegt.",
@@ -1293,7 +1293,10 @@
     "bannerLoading": "D'Warnunge ginn gelueden …",
     "bannerListLabel": "Warnunge fir dës Positioun, déi schwéierst als éischt",
     "bannerNamedOnly": "Warnungen, déi den DWD nëmmen mat engem Gebittsnumm ugëtt (d'Mier, eng Küst), ginn enger Positioun net zougeuerdnet: {count}.",
-    "bannerOpenMap": "Op der Kaart kucken"
+    "bannerOpenMap": "Op der Kaart kucken",
+    "legendHealth": "Hëtzt- an UV-Warnunge ginn an den eegene Faarwe vum DWD gezeechent, mat dem Rand vun hirer Stuf.",
+    "bannerNoneShort": "Keng Warnung vum DWD fir dës Positioun",
+    "bannerDetails": "Iwwer dës Warnungen"
   },
   "dataViewer": {
     "loadingValues": "Wäerter ginn gelueden …",

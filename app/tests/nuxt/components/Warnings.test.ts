@@ -72,12 +72,77 @@ describe('the banner of a position', () => {
     expect(button.attributes('aria-expanded')).toBe('false')
   })
 
-  it('says that no warning of DWD has an area with the position, for a position in a hole as for one with none, and lists nothing', async () => {
+  it('says in one line that no DWD warning is for the position, for a position in a hole as for one with none, and lists nothing', async () => {
     for (const point of [KIEL_HOLE, { latitude: 50.2, longitude: 9.1 }]) {
       const wrapper = await mountBanner(point, source(alertsAnswer()))
-      expect(summary(wrapper)).toBe('No warning of DWD has an area that contains this position.')
+      expect(summary(wrapper)).toBe('No DWD warning for this position')
       expect(wrapper.find('[data-testid="warning-entry"]').exists()).toBe(false)
+      // one line: the title is for a screen reader, the time, the source and the button for the notes are in the line
+      expect(wrapper.find('section').classes()).toContain('warnings-banner-compact')
+      expect(wrapper.find('#warnings-banner-title').classes()).toContain('sr-only')
+      expect(wrapper.find('[data-testid="warnings-banner-checked"]').text()).toMatch(/^· Checked: /)
+      expect(wrapper.find('[data-testid="warnings-banner-attribution"]').text()).toBe('· Source: Deutscher Wetterdienst')
     }
+  })
+
+  it('has the whole sentence, the coverage, the licence and the processing note behind the button of the quiet line, which says whether it is open', async () => {
+    const wrapper = await mountBanner(KIEL_HOLE, source(alertsAnswer()))
+    const button = wrapper.find('[data-testid="warnings-banner-details-button"]')
+    expect(button.attributes('aria-label')).toBe('About these warnings')
+    expect(button.attributes('aria-expanded')).toBe('false')
+    expect(wrapper.find('[data-testid="warnings-banner-details"]').isVisible()).toBe(false)
+    await button.trigger('click')
+    expect(button.attributes('aria-expanded')).toBe('true')
+    expect(button.attributes('aria-controls')).toBe(wrapper.find('[data-testid="warnings-banner-details"]').attributes('id'))
+    const details = wrapper.find('[data-testid="warnings-banner-details"]')
+    expect(details.isVisible()).toBe(true)
+    expect(details.text()).toContain('No warning of DWD has an area that contains this position.')
+    expect(details.text()).toContain('DWD warns for Germany and the sea around it.')
+    expect(details.find('[data-testid="provider-credit-licence"]').attributes('href')).toBe('https://creativecommons.org/licenses/by/4.0/')
+    expect(details.find('[data-testid="processing-note"]').exists()).toBe(true)
+  })
+
+  it('is one line too while it loads, and for a place outside Germany, and a warning opens it', async () => {
+    expect((await mountBanner(KIEL, source(null, { status: 'pending' }))).find('section').classes()).toContain('warnings-banner-compact')
+    expect((await mountBanner(JAN_MAYEN, source(alertsAnswer()))).find('section').classes()).toContain('warnings-banner-compact')
+    const some = await mountBanner(KIEL, source(alertsAnswer()))
+    expect(some.find('section').classes()).not.toContain('warnings-banner-compact')
+    expect(some.find('#warnings-banner-title').classes()).not.toContain('sr-only')
+  })
+
+  it('asks for nothing for a position outside Germany', async () => {
+    const asked: string[] = []
+    const origin = globalThis.$fetch
+    ;(globalThis as { $fetch: unknown }).$fetch = ((url: string) => {
+      asked.push(url)
+      return Promise.resolve(alertsAnswer())
+    }) as never
+    try {
+      const outside = await mountSuspended(WarningsBanner, { props: { point: JAN_MAYEN }, attachTo: document.body })
+      mounted.push(outside)
+      await new Promise(resolve => setTimeout(resolve, 50))
+      expect(asked).toEqual([])
+      expect(outside.find('[data-testid="warnings-banner-summary"]').text()).toBe('DWD\'s warnings cover Germany only. No warnings source covers this place.')
+    }
+    finally {
+      ;(globalThis as { $fetch: unknown }).$fetch = origin
+    }
+  })
+
+  it('says both that a refresh failed and that the snapshot is old, where both hold', async () => {
+    const both = await mountBanner(KIEL, source(alertsAnswer(), { refreshFailed: true, stale: true }))
+    expect(both.find('[data-testid="warnings-banner-refresh-failed"]').exists()).toBe(true)
+    expect(both.find('[data-testid="warnings-banner-stale"]').exists()).toBe(true)
+  })
+
+  it('puts the language of DWD\'s text on every element that holds it: the title, the type, the words, and the names of the areas in German', async () => {
+    const wrapper = await mountBanner(KIEL, source(alertsAnswer()))
+    await wrapper.find('[data-testid="warning-toggle"]').trigger('click')
+    expect(wrapper.find('[data-testid="warning-title"]').attributes('lang')).toBe('en')
+    const details = wrapper.find('[data-testid="warning-details"]')
+    expect(details.find('dd[lang="en"]').text()).toBe('wind gusts')
+    expect(details.find('.warning-words').attributes('lang')).toBe('en')
+    expect(details.find('span[lang="de"]').text()).toBe('Stadt Kiel, Kreis Rendsburg-Eckernförde')
   })
 
   it('says nothing of the warning that has no area for any position, except that there are some, and where they are listed', async () => {
@@ -95,7 +160,7 @@ describe('the banner of a position', () => {
   it('has no note of warnings that name only an area where there are none', async () => {
     const wrapper = await mountBanner(KIEL, source(emptyAlerts()))
     expect(wrapper.find('[data-testid="warnings-banner-named"]').exists()).toBe(false)
-    expect(summary(wrapper)).toBe('No warning of DWD has an area that contains this position.')
+    expect(summary(wrapper)).toBe('No DWD warning for this position')
   })
 
   it('lists a warning announced for later after the ones in force, marked as announced', async () => {
@@ -135,7 +200,8 @@ describe('the banner of a position', () => {
 
   it('has the time of the check, the coverage, the credit and the processing note', async () => {
     const wrapper = await mountBanner(KIEL, source(alertsAnswer()))
-    expect(wrapper.find('[data-testid="warnings-banner-checked"]').text()).toMatch(/^Checked: .+ DWD warns for Germany and the sea around it\.$/)
+    expect(wrapper.find('[data-testid="warnings-banner-checked"]').text()).toMatch(/^Checked: .+\.$/)
+    expect(wrapper.find('[data-testid="warnings-banner-details"]').text()).toContain('DWD warns for Germany and the sea around it.')
     const credit = wrapper.find('[data-testid="provider-credit"]')
     expect(credit.text()).toContain('Source: Deutscher Wetterdienst')
     expect(credit.find('[data-testid="provider-credit-licence"]').attributes('href')).toBe('https://creativecommons.org/licenses/by/4.0/')
@@ -163,7 +229,7 @@ describe('the panel of the map\'s layer', () => {
     expect(wrapper.find('[data-testid="warnings-panel-summary"]').attributes('role')).toBe('status')
     // the first list is the map's; the second, under the aside's heading, is the warnings with no outline
     const titles = wrapper.findAll('[data-testid="warnings-list"]')[0]!.findAll('[data-testid="warning-title"]').map(title => title.text())
-    expect(titles).toEqual(['thunderstorm', 'PRELIMINARY INFORMATION SEVERE THUNDERSTORMS', 'wind gusts', 'glaze', 'fog'])
+    expect(titles).toEqual(['thunderstorm', 'PRELIMINARY INFORMATION SEVERE THUNDERSTORMS', 'glaze', 'wind gusts', 'fog'])
   })
 
   it('lists the warning that has no polygon apart, with its area names and a note that none is drawn', async () => {

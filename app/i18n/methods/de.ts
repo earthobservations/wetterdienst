@@ -273,7 +273,7 @@ export const methods: MethodTexts = {
       summary: 'Die amtlichen Wetterwarnungen des DWD, deren Gebiet die Position des Ortes enthält, zitiert in den eigenen Worten des DWD.',
       data: 'Die Wetterwarnungen des DWD: der Schnappschuss aller Warnungen, die in Deutschland gelten oder angekündigt sind und die der DWD als Nachrichten des Common Alerting Protocol (CAP) veröffentlicht, im Produkt nach Gemeinden (COMMUNEUNION_DWD_STAT). Jede Warnung hat ihr Ereignis, ihre Stufe, ihre Zeiten, ihre Texte und ihr Polygon. Die Warnung ist die Aussage des DWD: wetterdienst liest sie und gibt sie weiter.',
       steps: {
-        snapshot: 'Der neueste Schnappschuss der Warnungen des DWD wird vom Backend von wetterdienst gelesen, in der Sprache der Seite, wo der DWD seine Warnungen darin schreibt (Deutsch, Englisch, Spanisch, Französisch und Polnisch), sonst auf Deutsch. Nachrichten mit dem Status Test und Nachrichten, die andere aufheben, fallen heraus.',
+        snapshot: 'Der neueste Schnappschuss der Warnungen des DWD wird vom Backend von wetterdienst gelesen, in der Sprache der Seite, wo der DWD seine Warnungen darin schreibt (Deutsch, Englisch, Spanisch, Französisch und Polnisch), sonst auf Deutsch. Nachrichten mit dem Status Test, Nachrichten, die andere aufheben, und Nachrichten, die ein Ereignis vorzeitig beenden (AllClear), fallen heraus.',
         place: 'Die Position des Ortes ist die Position seiner Wetterstation. Eine Warnung gilt für den Ort, wenn ein Polygon der Warnung die Position enthält. Das Land in einem Loch eines Polygons (eine Insel in einer Warnung für das Meer um sie herum) gehört nicht zur Warnung.',
         inforce: 'Eine Warnung zählt, solange ihr Beginn gekommen und ihr Ende nicht gekommen ist. Eine Warnung, die der DWD für später angekündigt hat, wird als angekündigt genannt, mit ihrer Zeit, und eine Warnung, deren Ende vorbei ist, bleibt weg, weil der Schnappschuss der Uhr ein paar Minuten nachgehen kann.',
         words: 'Für jede Warnung des Ortes zitiert die Antwort die Worte des DWD, wie der DWD sie geschrieben hat: das Ereignis, die Überschrift, die Beschreibung und die Handlungsempfehlung, mit der Stufe, die der DWD gibt, ihren Zeiten und der Zeit, zu der sie ausgegeben wurde. Nichts wird hinzugefügt, gekürzt oder umformuliert, und die Antwort sagt nicht, was zu tun ist: Das ist die Anweisung des DWD.',
@@ -285,16 +285,20 @@ export const methods: MethodTexts = {
           says: 'Der DWD sagt, er stelle seine öffentlichen Warnungen im maschinenlesbaren Format des Common Alerting Protocol bereit, damit möglichst viele Nutzer und Anwendungen sie verwenden können.',
         },
         'dropped': {
-          text: 'Eine Nachricht mit dem Status Test und eine Nachricht, die frühere aufhebt, wird nicht als Warnung gezeigt.',
-          says: 'Das Profil sagt, eine Testnachricht diene nur der technischen Prüfung und alle Empfänger ignorierten sie, und eine Aufhebung hebe die früheren Nachrichten auf, die sie nennt, zum Beispiel eine irrtümlich gesendete.',
+          text: 'Eine Nachricht mit dem Status Test, eine, die frühere aufhebt, und eine mit dem Antworttyp AllClear (das vorzeitige oder teilweise Ende eines Ereignisses) wird nicht als Warnung gezeigt.',
+          says: 'Das Profil sagt, eine Testnachricht diene nur der technischen Prüfung und alle Empfänger ignorierten sie, eine Aufhebung hebe die früheren Nachrichten auf, die sie nennt, zum Beispiel eine irrtümlich gesendete, und eine Aktualisierung mit dem Antworttyp AllClear sage, dass das Ereignis keine Gefahr mehr darstellt, als vorzeitiges oder ausdrückliches Ende.',
         },
         'levels': {
           text: 'Die Stufe einer Warnung ist die, die der DWD ihrem Schweregrad gibt: Minor ist Stufe 1, Moderate Stufe 2, Severe Stufe 3 und Extreme Stufe 4. Die Namen sind die des DWD: Wetterwarnung, markante Wetterwarnung, Unwetterwarnung und extreme Unwetterwarnung.',
           says: 'Das Profil ordnet die vier Werte des Schweregrads den vier Stufen des DWD und ihren Farben zu: Gelb, Orange, Rot und Violett (ein dunkles Rosa in seiner Tabelle der Farben, die der DWD im Web verwendet).',
         },
         'preliminary': {
-          text: 'Die Vorabinformation Unwetter des DWD wird als das gezeigt, was sie ist, als Vorabinformation, mit einer eigenen Form und einem strichpunktierten Rand und ohne Stufennummer.',
-          says: 'Das Profil führt die Ereignistypen der Vorabinformation auf, für schwere Gewitter, orkanartige Böen, extrem ergiebigen Dauerregen, starken Schneefall, Glatteis und starkes Tauwetter, und gibt ihr in seiner Tabelle der Farben eine eigene Farbe.',
+          text: 'Die Vorabinformation Unwetter des DWD wird an ihrer Dringlichkeit erkannt, die Future ist, oder an ihrer deutschen Überschrift, die mit „VORABINFORMATION“ beginnt, nie an ihrem Ereigniscode. Sie wird als das gezeigt, was sie ist, als Vorabinformation, mit einer eigenen Form und einem strichpunktierten Rand und ohne Stufennummer.',
+          says: 'Das Profil nennt die Dringlichkeit Future eine Beratung, wo eine Warnung die Dringlichkeit Immediate hat, und gibt der Vorabinformation die Überschrift „VORABINFORMATION UNWETTER“. Es führt die Ereignistypen der Vorabinformation auf (schwere Gewitter, orkanartige Böen, extrem ergiebiger Dauerregen, starker Schneefall, Glatteis, starkes Tauwetter) mit denselben Codes, die eine schwere Warnung der gleichen Art hat, der Code allein unterscheidet die beiden also nicht, und gibt ihr in seiner Tabelle der Farben eine eigene Farbe.',
+        },
+        'health-colours': {
+          text: 'Die medizin-meteorologischen Warnungen (Hitze, starke Hitze, extreme Hitze und der UV-Index) werden in der Farbe gezeichnet, die der DWD mitsendet, mit dem Rand ihrer Stufe; jede andere Warnung wird in der Farbe ihrer Stufe gezeichnet.',
+          says: 'Das Profil gibt jeder Nachricht eine bevorzugte Farbe für die Darstellung und führt die Hitze- und UV-Warnungen als eigene Warnungen auf, mit eigenen Farben in der Tabelle der Farben, die der DWD im Web verwendet: sehr helles Violett, Violett und zartes Magenta.',
         },
         'in-force': {
           text: 'Eine Warnung gilt von ihrem Beginn bis zu ihrem Ende; eine ohne Ende gilt, bis der DWD sie aus dem Schnappschuss nimmt. Eine, deren Beginn später liegt, ist angekündigt.',
@@ -335,6 +339,7 @@ export const methods: MethodTexts = {
         statement: 'Die Antwort ist, was der DWD sagt, keine Vorhersage von uns. Sie kann nicht sagen, dass nichts geschieht: Keine Warnung des DWD für einen Ort ist kein Versprechen von Ruhe, und eine Warnung ist kein Versprechen, dass es am Ort eintritt.',
         polygon: 'Ein Polygon folgt den Grenzen der Gemeinden oder Kreise, für die eine Warnung ausgegeben ist, ein Ort liegt also nach diesem Polygon darin oder nicht. Die Position ist die der Wetterstation, die einige Kilometer von dem Ort entfernt sein kann, der gemeint ist.',
         named: 'Warnungen, die der DWD nur mit einem Namen angibt, das Meer und die Küste, haben in diesem Produkt kein Polygon und werden nie einem Ort zugeordnet. Die Karte listet sie auf.',
+        altitude: 'Die Polygone des DWD folgen den Grenzen der Gemeinden, und die Höhengrenzen einer Warnung (eine Warnung für Höhen über 1000 m, zum Beispiel) liest das Backend von wetterdienst nicht: In der App gilt die Warnung für die ganze Gemeinde, und ihre Beschreibung nennt die Höhe.',
         time: 'Die Zeiten sind in der Zeitzone des Geräts des Lesers geschrieben. Der Schnappschuss kann beim Lesen ein paar Minuten alt sein, und die Zeit der Abfrage steht unter der Antwort.',
       },
       numbers: {

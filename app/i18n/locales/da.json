@@ -1267,9 +1267,9 @@
     "valid": "Gyldig",
     "issuedLabel": "Udsendt",
     "areasLabel": "Områder",
-    "areasMore": "{names} og {count} flere",
+    "areasMore": "og {count} flere",
     "textGerman": "DWD's egen tekst, på tysk: DWD udsender ikke dette varsel på dit sprog.",
-    "legendDescription": "Varslernes omrids: niveau 1 har en prikket kant, niveau 2 en stiplet, niveau 3 en hel og niveau 4 en tyk hel; forhåndsinformation har en kant med streg og prik. Listen i panelet nævner hvert varsel med ord.",
+    "legendDescription": "Varslernes omrids: niveau 1 har en prikket kant, niveau 2 en stiplet, niveau 3 en hel og niveau 4 en dobbeltlinje; forhåndsinformation har en kant med streg og prik. Listen i panelet nævner hvert varsel med ord.",
     "panelTitle": "DWD's vejrvarsler",
     "panelCount": "Varsler, der gælder eller er varslet i Tyskland: {count}",
     "panelNone": "Intet varsel gælder eller er varslet i Tyskland.",
@@ -1293,7 +1293,10 @@
     "bannerLoading": "Indlæser varslerne …",
     "bannerListLabel": "Varsler for denne position, de alvorligste først",
     "bannerNamedOnly": "Varsler, som DWD kun giver med et områdenavn (havet, en kyst), knyttes ikke til en position: {count}.",
-    "bannerOpenMap": "Se dem på kortet"
+    "bannerOpenMap": "Se dem på kortet",
+    "legendHealth": "Varsler om hede og UV tegnes i DWD's egne farver til dem, med kanten for deres niveau.",
+    "bannerNoneShort": "Intet varsel fra DWD for denne position",
+    "bannerDetails": "Om disse varsler"
   },
   "dataViewer": {
     "loadingValues": "Indlæser værdier …",

@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from '@playwright/test'
 import { chartLayout } from '../../app/utils/meteogram-geometry'
+import { emptyAlerts } from '../helpers/warnings-answer'
 import { mockBackend } from './accessibility/mock-backend'
 
 // The forecast chart (GH-4059): Apache ECharts, drawn as SVG at a fixed height for each panel and a fixed width for each
@@ -21,15 +22,10 @@ const announced = (page: Page) => page.getByTestId('meteogram-announce')
 async function open(page: Page, baseURL: string, path = PAGE, size?: { width: number, height: number }) {
   if (size)
     await page.setViewportSize(size)
-  const backend = await mockBackend(page, baseURL)
+  // a quiet day: the banner of DWD's warnings over the chart (GH-4295) is one line, as high while it loads as after, so that the chart does not move under the pointer
+  const backend = await mockBackend(page, baseURL, { alerts: () => emptyAlerts() })
   await page.goto(path)
   await expect(svg(page)).toBeVisible()
-  if (!path.startsWith('/widget')) {
-    // the banner of DWD's warnings over the chart (GH-4295) has arrived, which pushes the chart down by its height: the chart is where it stays, and is
-    // brought up under the header, so that a pointer measured against it is over it and not below the window
-    await expect(page.getByTestId('warnings-banner-summary')).not.toHaveText('Loading the warnings …')
-    await page.evaluate(() => window.scrollTo(0, (document.querySelector('.mg-stage')?.getBoundingClientRect().top ?? 0) + window.scrollY - 120))
-  }
   // drawn: the day names are in it
   await expect(svg(page).locator('text').first()).toBeVisible()
   return backend
@@ -374,6 +370,8 @@ test.describe('the readout (WCAG 1.4.13)', () => {
   // or two need to stay in the hour, which a fixed x does not do (the gutter and the width of the chart differ by a few px between the
   // engines and the widths of the labels). The middle is found where the hour under the pointer changes, a pixel at a time.
   async function overPlot(page: Page, fraction = 0.3) {
+    // the banner of DWD's warnings (GH-4295) is a line over the chart, which is lower by its height: the chart is brought into the window, so that a pointer measured against it is over it
+    await page.locator('.mg-stage').scrollIntoViewIfNeeded()
     const box = (await page.locator('.mg-stage').boundingBox())!
     const y = box.y + box.height * 0.6
     const base = box.x + 71 + (box.width - 81) * fraction
@@ -486,6 +484,7 @@ test.describe('the zoom', () => {
   test('is linked: a box dragged on a panel zooms them all, and the reset goes back', async ({ page, baseURL }) => {
     await open(page, baseURL!, PAGE, { width: 1280, height: 900 })
     const initial = await labelSpacing(page)
+    await page.locator('.mg-stage').scrollIntoViewIfNeeded()
     const box = (await page.locator('.mg-stage').boundingBox())!
     const y = box.y + 200
     await page.mouse.move(box.x + 120, y)

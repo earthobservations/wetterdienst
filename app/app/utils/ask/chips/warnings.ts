@@ -1,6 +1,6 @@
 import type { Warning, WarningSnapshot } from '../../warnings'
 import type { AnswerAction, AnswerQuote, NumberLine } from '../chip'
-import { clockOf, inWarningBox, languageOf, notOver, productFor, WARNING_BOX, WARNINGS_REFRESH_MS, WARNINGS_STALE_AFTER_MS, warningsAt, withoutOutline, wordsOf } from '../../warnings'
+import { clockOf, inWarningBox, notOver, productFor, WARNING_BOX, WARNINGS_REFRESH_MS, WARNINGS_STALE_AFTER_MS, warningsAt, withoutOutline, wordsOf } from '../../warnings'
 import { defineChip } from '../chip'
 
 // Are there warnings here? DWD's official weather warnings for the position of the place (GH-4295). The warning is DWD's statement: the answer
@@ -14,8 +14,8 @@ const FETCH = { provider: 'dwd', network: 'alerts' } as const
 interface Loaded {
   /** The snapshot; null where the place is outside DWD's box and nothing was asked */
   snapshot: WarningSnapshot | null
-  /** The language of the page, whose texts are read where DWD has them (`textFor`) */
-  language: string
+  /** The locale of the page, whose texts are read where DWD has them (`textFor`) */
+  locale: string
   /** The language the page writes times in */
   formatLanguage: string
 }
@@ -68,17 +68,18 @@ export const warnings = defineChip({
     'warnings.textGerman',
   ],
 
-  async load({ place, formatLanguage }, api): Promise<Loaded> {
+  async load({ place, formatLanguage, locale }, api): Promise<Loaded> {
     // outside the box of DWD's warnings nothing is asked: no source of warnings covers the place
     if (!inWarningBox(place))
-      return { snapshot: null, language: languageOf(formatLanguage), formatLanguage }
-    return { snapshot: await api.alerts(productFor(formatLanguage).product), language: languageOf(formatLanguage), formatLanguage }
+      return { snapshot: null, locale, formatLanguage }
+    return { snapshot: await api.alerts(productFor(locale).product), locale, formatLanguage }
   },
 
   answer(loaded, { place, now }): WarningsAnswer | null {
     if (!loaded.snapshot)
       return null
-    const at = now().toMillis()
+    // by the server's clock, as the answer's own time says it was (the device's may be wrong)
+    const at = now().toMillis() + loaded.snapshot.clockSkewMs
     const all = loaded.snapshot.warnings
     return {
       here: warningsAt(all, place, at),
@@ -89,9 +90,9 @@ export const warnings = defineChip({
 
   present(answer, loaded, env) {
     const { t, place } = env
-    const at = env.now().toMillis()
+    const at = env.now().toMillis() + (loaded!.snapshot?.clockSkewMs ?? 0)
     const quotes: AnswerQuote[] = answer.here.map((warning) => {
-      const words = wordsOf(warning, t, loaded!.language, loaded!.formatLanguage, at)
+      const words = wordsOf(warning, t, loaded!.locale, loaded!.formatLanguage, at)
       const paragraphs = [words.text.headline, words.text.description, words.text.instruction].filter((paragraph): paragraph is string => paragraph !== null)
       return {
         key: warning.id,
@@ -114,7 +115,7 @@ export const warnings = defineChip({
     return {
       verdict: answer.here.length ? t('ask.warnings.some', { place: place.name }) : t('ask.warnings.none', { place: place.name }),
       // the highest level the warnings of DWD have, in its own word: a fact of the data, and no rating of ours
-      details: answer.here.length ? [t('ask.warnings.highest', { level: wordsOf(answer.here[0]!, t, loaded!.language, loaded!.formatLanguage, at).level })] : [],
+      details: answer.here.length ? [t('ask.warnings.highest', { level: wordsOf(answer.here[0]!, t, loaded!.locale, loaded!.formatLanguage, at).level })] : [],
       chart: null,
       list: null,
       quotes,
@@ -129,10 +130,11 @@ export const warnings = defineChip({
     rules: [
       // which warnings, and which of them count
       { id: 'product', kind: 'selection', cites: [{ work: 'dwd-cap-profile', at: '§1.1' }] },
-      { id: 'dropped', kind: 'selection', cites: [{ work: 'dwd-cap-profile', at: '§2.2.1.4, §2.2.1.5' }] },
+      { id: 'dropped', kind: 'selection', cites: [{ work: 'dwd-cap-profile', at: '§2.2.1.4, §2.2.1.5, §2.2.2.4' }] },
       // what a warning says
       { id: 'levels', kind: 'band', cites: [{ work: 'dwd-cap-profile', at: '§2.2.2.6, §3.5' }] },
-      { id: 'preliminary', kind: 'selection', cites: [{ work: 'dwd-cap-profile', at: '§3.1.2' }] },
+      { id: 'preliminary', kind: 'selection', cites: [{ work: 'dwd-cap-profile', at: '§2.2.2.5, §2.2.2.13, §3.1.2' }] },
+      { id: 'health-colours', kind: 'selection', cites: [{ work: 'dwd-cap-profile', at: '§2.2.2.8, §3.1.5, §3.5' }] },
       { id: 'in-force', kind: 'window', own: true, cites: [{ work: 'dwd-cap-profile', at: '§2.2.2.10, §2.2.2.11' }] },
       // which warnings are for the place
       { id: 'polygon', kind: 'selection', cites: [{ work: 'dwd-cap-profile', at: '§2.2.3.3' }] },
@@ -144,7 +146,7 @@ export const warnings = defineChip({
       { id: 'order', kind: 'selection', own: true, cites: [] },
       { id: 'refresh', kind: 'window', own: true, values: { minutes: WARNINGS_REFRESH_MS / 60_000, staleMinutes: WARNINGS_STALE_AFTER_MS / 60_000 }, cites: [] },
     ],
-    limits: ['statement', 'polygon', 'named', 'time'],
+    limits: ['statement', 'polygon', 'named', 'altitude', 'time'],
     data: {
       provider: FETCH.provider,
       network: FETCH.network,
@@ -155,8 +157,9 @@ export const warnings = defineChip({
     },
     numbers(answer, loaded, env): NumberLine[] {
       const { place, number } = env
-      const checked = clockOf(loaded.snapshot?.retrievedAt ?? null, loaded.formatLanguage, env.now().toMillis())
-      const latest = clockOf(loaded.snapshot?.latestIssue ?? null, loaded.formatLanguage, env.now().toMillis())
+      const at = env.now().toMillis() + (loaded.snapshot?.clockSkewMs ?? 0)
+      const checked = clockOf(loaded.snapshot?.retrievedAt ?? null, loaded.formatLanguage, at)
+      const latest = clockOf(loaded.snapshot?.latestIssue ?? null, loaded.formatLanguage, at)
       const lines: NumberLine[] = [
         { id: 'place', params: { place: place.name, latitude: number(place.latitude, 4), longitude: number(place.longitude, 4) } },
         { id: 'count', params: { here: answer.here.length, total: answer.total } },

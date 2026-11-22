@@ -2928,5 +2928,7 @@ describe('the weather warnings of DWD (GH-4295)', () => {
     await listed(wrapper)
     stage.emit('pick', { latitude: 48.72, longitude: 2.38, tolerance: 0.5 })
     await vi.waitFor(() => expect(wrapper.find('[data-testid="warnings-banner-summary"]').text()).toBe('DWD\'s warnings cover Germany only. No warnings source covers this place.'))
+    // nothing was asked for: the snapshot is no use for a place DWD does not warn for
+    expect(alertsAsked.count).toBe(0)
   })
 })

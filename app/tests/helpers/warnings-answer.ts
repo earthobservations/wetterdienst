@@ -27,6 +27,9 @@ export interface AlertFixture {
   urgency?: string
   status?: string
   msg_type?: string
+  response_type?: string
+  /** `AREA_COLOR`, "r g b" (default the yellow of level 1) */
+  areaColor?: string
   /** The texts by language: `de`, `en`, `pl` */
   texts: Record<'de' | 'en' | 'pl', { event: string, headline: string, description: string, instruction: string }>
 }
@@ -134,8 +137,9 @@ export const ALERTS: AlertFixture[] = [
   {
     alert_id: '2.49.0.0.276.0.DWD.PVW.6.GLAZE-BLACKFOREST.MUL',
     event: 'GLATTEIS',
-    event_code: '84',
-    severity: 'Moderate',
+    // GLATTEIS is code 85, which DWD gives the preliminary information on glaze too (§3.1.1, §3.1.2): this is a severe warning, level 3, announced for later
+    event_code: '85',
+    severity: 'Severe',
     onsetHours: 3,
     endHours: 9,
     sentHours: -0.5,
@@ -164,6 +168,11 @@ export interface AnswerOptions {
   alerts?: AlertFixture[]
 }
 
+/** The fields of a block that differ from the German one's, which is all a translation of the multilingual product carries */
+function differing<T extends Record<string, string>>(block: T, german: T): Partial<T> {
+  return Object.fromEntries(Object.entries(block).filter(([key, value]) => value !== german[key])) as Partial<T>
+}
+
 /** One alert as `to_dict` writes it, in the product's language; `mul` is German with the other languages as `translations` */
 export function alertEntry(fixture: AlertFixture, now: number, language = 'en') {
   const base = {
@@ -173,7 +182,7 @@ export function alertEntry(fixture: AlertFixture, now: number, language = 'en') 
     category: 'Met',
     event_code: fixture.event_code,
     groups: [],
-    response_type: 'Prepare',
+    response_type: fixture.response_type ?? 'Prepare',
     urgency: fixture.urgency ?? 'Immediate',
     severity: fixture.severity,
     certainty: 'Likely',
@@ -184,7 +193,7 @@ export function alertEntry(fixture: AlertFixture, now: number, language = 'en') 
     sender_name: 'Deutscher Wetterdienst',
     web: 'https://dwd.de/warnungen',
     contact: 'Deutscher Wetterdienst',
-    area_color: '255 235 59',
+    area_color: fixture.areaColor ?? '255 235 59',
     parameters: [],
     warncell_ids: fixture.warncell_ids,
     area_names: fixture.area_names,
@@ -196,7 +205,8 @@ export function alertEntry(fixture: AlertFixture, now: number, language = 'en') 
       ...base,
       ...fixture.texts.de,
       language: 'de-DE',
-      translations: [{ language: 'en', ...fixture.texts.en }, { language: 'pl', ...fixture.texts.pl }],
+      // as the backend sends them: a translation holds only the fields in which it differs from the German first block
+      translations: [{ language: 'en', ...differing(fixture.texts.en, fixture.texts.de) }, { language: 'pl', ...differing(fixture.texts.pl, fixture.texts.de) }],
     }
   }
   const own = language === 'de' ? fixture.texts.de : fixture.texts.en

@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
 import { useNuxtApp } from '#app'
 import { useWarnings } from '~/composables/useWarnings'
-import { WARNINGS_REFRESH_MS, WARNINGS_STALE_AFTER_MS } from '~/utils/warnings'
+import { WARNINGS_CLOCK_MS, WARNINGS_REFRESH_MS, WARNINGS_STALE_AFTER_MS, WARNINGS_TIMEOUT_MS } from '~/utils/warnings'
 import { alertsAnswer, emptyAlerts } from '../../helpers/warnings-answer'
 
 // The refresh of DWD's weather warnings (GH-4295): the snapshot is asked for while the layer or a banner wants it and the tab is in
@@ -121,9 +121,95 @@ describe('the snapshot of the warnings', () => {
   it('leaves no timer when its scope is stopped', async () => {
     const { scope } = mount()
     await settle()
-    expect(vi.getTimerCount()).toBe(1)
+    // the next request, and the clock of the minute
+    expect(vi.getTimerCount()).toBe(2)
     scope.stop()
     expect(vi.getTimerCount()).toBe(0)
+  })
+})
+
+describe('a request that does not answer', () => {
+  it('is given up after 30 seconds as a failed one, so that the next is scheduled and the warnings do not freeze', async () => {
+    const { warnings } = mount()
+    await settle()
+    // the next refresh hangs
+    fetched.mockImplementation(() => new Promise(() => {}))
+    await vi.advanceTimersByTimeAsync(WARNINGS_REFRESH_MS)
+    expect(fetched).toHaveBeenCalledTimes(2)
+    expect(warnings.refreshFailed.value).toBe(false)
+    await vi.advanceTimersByTimeAsync(WARNINGS_TIMEOUT_MS)
+    expect(warnings.refreshFailed.value).toBe(true)
+    expect(warnings.snapshot.value!.warnings).toHaveLength(6)
+    // and the one after it is asked for, which answers
+    fetched.mockImplementation(async () => emptyAlerts(Date.now()))
+    await vi.advanceTimersByTimeAsync(WARNINGS_REFRESH_MS)
+    expect(fetched).toHaveBeenCalledTimes(3)
+    expect(warnings.snapshot.value!.warnings).toEqual([])
+    expect(warnings.refreshFailed.value).toBe(false)
+  })
+
+  it('leaves no timer of the request behind when it answers', async () => {
+    mount()
+    await settle()
+    // the next refresh and the clock: not a timeout that outlives the answer
+    expect(vi.getTimerCount()).toBe(2)
+  })
+
+  it('is a failure for a first request that hangs, which Retry asks again', async () => {
+    fetched.mockImplementation(() => new Promise(() => {}))
+    const { warnings } = mount()
+    await vi.advanceTimersByTimeAsync(WARNINGS_TIMEOUT_MS)
+    expect(warnings.status.value).toBe('error')
+    fetched.mockImplementation(async () => alertsAnswer({ now: Date.now() }))
+    await warnings.retry()
+    expect(warnings.status.value).toBe('success')
+  })
+})
+
+describe('the clock the warnings are judged by', () => {
+  it('moves every minute while the warnings are wanted, with no request, and is the server\'s', async () => {
+    const { warnings } = mount()
+    await settle()
+    const first = warnings.now.value
+    await vi.advanceTimersByTimeAsync(WARNINGS_CLOCK_MS)
+    expect(warnings.now.value - first).toBe(WARNINGS_CLOCK_MS)
+    expect(fetched).toHaveBeenCalledTimes(1)
+    // a warning that ends is over with no new request: the one of the fixture that ends in 4 hours
+    await vi.advanceTimersByTimeAsync(4 * 3_600_000)
+    expect(warnings.now.value - first).toBeGreaterThan(4 * 3_600_000)
+  })
+
+  it('does not move while nothing wants the warnings or the tab is hidden, and moves again on its return', async () => {
+    const { wanted, warnings } = mount()
+    await settle()
+    wanted.value = false
+    await nextTick()
+    const stopped = warnings.now.value
+    await vi.advanceTimersByTimeAsync(WARNINGS_CLOCK_MS * 3)
+    expect(warnings.now.value).toBe(stopped)
+    wanted.value = true
+    await settle()
+    expect(warnings.now.value).toBeGreaterThan(stopped)
+  })
+
+  it('is the device\'s clock and how far the answer said it was from the server\'s', async () => {
+    // the server's clock is an hour behind the device's
+    fetched.mockImplementation(async () => alertsAnswer({ now: Date.now() - 3_600_000 }))
+    const { warnings } = mount()
+    await settle()
+    expect(warnings.snapshot.value!.clockSkewMs).toBeLessThan(-3_590_000)
+    expect(Math.abs(warnings.now.value - (Date.now() - 3_600_000))).toBeLessThan(10_000)
+  })
+
+  it('makes the snapshot old with no request, by the clock alone, once it is more than 15 minutes behind', async () => {
+    const { warnings } = mount()
+    await settle()
+    expect(warnings.stale.value).toBe(false)
+    // the refreshes are asked for and refused: the snapshot ages, and says both
+    fetched.mockRejectedValue(new Error('offline'))
+    await vi.advanceTimersByTimeAsync(WARNINGS_STALE_AFTER_MS + 2 * WARNINGS_CLOCK_MS)
+    expect(warnings.refreshFailed.value).toBe(true)
+    expect(warnings.stale.value).toBe(true)
   })
 })
 

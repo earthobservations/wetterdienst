@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { chipOf } from '../../app/utils/ask/registry'
 import {
+  areaColorOf,
   containsPoint,
   drawn,
   drawnOf,
@@ -15,6 +16,7 @@ import {
   phaseOf,
   productFor,
   sortWarnings,
+  styleOf,
   textFor,
   warningsAt,
   withoutOutline,
@@ -44,6 +46,10 @@ describe('the level of a severity', () => {
   it('has a style for each level that is told by its edge as well as by its colour', () => {
     const edges = [1, 2, 3, 4, 'preliminary', 'unknown'].map(key => LEVEL_STYLES[key as 1].dashArray === null ? `solid ${LEVEL_STYLES[key as 1].weight}` : LEVEL_STYLES[key as 1].dashArray)
     expect(new Set(edges).size).toBe(edges.length)
+    // the level 4 is a double line, which no weight of a level 3 can be taken for
+    expect(LEVEL_STYLES[4].double).toBe(true)
+    expect([1, 2, 3, 'preliminary', 'unknown'].some(key => LEVEL_STYLES[key as 1].double)).toBe(false)
+    expect(LEVEL_STYLES[4].weight - LEVEL_STYLES[3].weight).toBeGreaterThan(1.5)
     // the weight grows with the level
     const weights = [1, 2, 3, 4].map(level => LEVEL_STYLES[level as 1].weight)
     expect(weights).toEqual(weights.toSorted((a, b) => a - b))
@@ -54,7 +60,7 @@ describe('reading the answer', () => {
   it('reads every warning of the snapshot, the most severe first', () => {
     const { warnings } = snapshot()
     expect(warnings).toHaveLength(6)
-    expect(warnings.map(warning => warning.level)).toEqual([3, 3, 2, 2, 1, 1])
+    expect(warnings.map(warning => warning.level)).toEqual([3, 3, 3, 2, 1, 1])
     expect(warnings[0]!.texts.en!.event).toBe('thunderstorm')
   })
 
@@ -74,9 +80,58 @@ describe('reading the answer', () => {
     expect(coast.warncellIds).toEqual(['501000001'])
   })
 
-  it('marks DWD\'s preliminary information by its event code, and a warning is no preliminary information', () => {
-    const kinds = Object.fromEntries(snapshot().warnings.map(warning => [warning.eventCode, warning.kind]))
-    expect(kinds).toEqual({ 40: 'preliminary', 31: 'warning', 51: 'warning', 59: 'warning', 14: 'warning', 84: 'warning' })
+  it('tells DWD\'s preliminary information by its urgency, and a severe warning of the same event code is a warning', () => {
+    const kinds = Object.fromEntries(snapshot().warnings.map(warning => [warning.id.split('.').at(-2), warning.kind]))
+    expect(kinds).toEqual({ 'WIND-KIEL': 'warning', 'THUNDER-HAMBURG': 'warning', 'FOG-BERLIN': 'warning', 'NEARGALE-COAST': 'warning', 'PRELIM-MUNICH': 'preliminary', 'GLAZE-BLACKFOREST': 'warning' })
+    // GLATTEIS, code 85, which the preliminary information on glaze has too (§3.1.1, §3.1.2): a severe warning, level 3, in the colour of its level
+    const glaze = snapshot().warnings.find(warning => warning.eventCode === '85')!
+    expect(glaze).toMatchObject({ kind: 'warning', level: 3 })
+    expect(styleOf(glaze)).toBe(LEVEL_STYLES[3])
+  })
+
+  it('tells the preliminary information by its German headline where the urgency is not Future, and by no event code at all', () => {
+    const entry = alertEntry(ALERTS[0]!, NOW, 'de')
+    for (const code of ['40', '55', '65', '75', '85', '89', '99'])
+      expect(parseWarning({ ...entry, event_code: code })!.kind, code).toBe('warning')
+    expect(parseWarning({ ...entry, urgency: 'Future' })!.kind).toBe('preliminary')
+    expect(parseWarning({ ...entry, headline: 'VORABINFORMATION UNWETTER: SCHWERES GEWITTER' })!.kind).toBe('preliminary')
+    expect(parseWarning({ ...entry, headline: 'Amtliche WARNUNG vor VORABINFORMATION' })!.kind).toBe('warning')
+  })
+
+  it('drops a message that ends an event early, the response type AllClear, with the Test and the Cancel', () => {
+    const entry = alertEntry(ALERTS[0]!, NOW)
+    expect(parseWarning({ ...entry, response_type: 'AllClear' })).toBeNull()
+    expect(parseWarning({ ...entry, response_type: 'allclear' })).toBeNull()
+    expect(parseWarning({ ...entry, response_type: 'Prepare' })).not.toBeNull()
+    expect(parseWarnings({ ...alertsAnswer({ now: NOW }), alerts: [{ ...entry, response_type: 'AllClear' }, entry] }).warnings).toHaveLength(1)
+  })
+
+  it('reads a translation that carries only the fields in which it differs, with the German field for the rest', () => {
+    const entry = { ...alertEntry(ALERTS[0]!, NOW, 'mul'), translations: [{ language: 'en', event: 'wind gusts', headline: 'Official WARNING of WIND GUSTS' }, { language: 'pl', instruction: 'UWAGA!' }] }
+    const warning = parseWarning(entry)!
+    // English has no description or instruction of its own: they are the German ones
+    expect(warning.texts.en).toEqual({ event: 'wind gusts', headline: 'Official WARNING of WIND GUSTS', description: warning.texts.de!.description, instruction: warning.texts.de!.instruction })
+    expect(warning.texts.pl).toMatchObject({ event: warning.texts.de!.event, instruction: 'UWAGA!' })
+    // the answer of the backend sends no more than the differing fields
+    const sent = alertEntry({ ...ALERTS[0]!, texts: { ...ALERTS[0]!.texts, en: { ...ALERTS[0]!.texts.de, headline: 'Official WARNING' } } }, NOW, 'mul')
+    expect(sent.translations![0]).toEqual({ language: 'en', headline: 'Official WARNING' })
+  })
+
+  it('reads DWD\'s own colour of a message, and uses it for the heat and UV warnings only', () => {
+    expect(areaColorOf('204 153 255')).toBe('#cc99ff')
+    expect(areaColorOf('255 235 59')).toBe('#ffeb3b')
+    for (const wrong of ['', null, '1 2', '1 2 3 4', '256 0 0', 'a b c', '1.5 2 3'])
+      expect(areaColorOf(wrong), String(wrong)).toBeNull()
+    const heat = parseWarning(alertEntry({ ...ALERTS[2]!, event_code: '247', severity: 'Moderate', areaColor: '204 153 255' }, NOW))!
+    expect(heat.areaColor).toBe('#cc99ff')
+    // the colour of DWD for it, with the edge of its level and a darker edge of the colour
+    expect(styleOf(heat)).toMatchObject({ fill: '#cc99ff', dashArray: LEVEL_STYLES[2].dashArray, weight: LEVEL_STYLES[2].weight })
+    expect(styleOf(heat).edge).toBe('#70548c')
+    // an ordinary warning keeps the colour of its level, whatever AREA_COLOR it carries
+    const fog = parseWarning(alertEntry({ ...ALERTS[2]!, areaColor: '1 2 3' }, NOW))!
+    expect(styleOf(fog)).toBe(LEVEL_STYLES[1])
+    // the health warning without a colour is drawn in its level's
+    expect(styleOf(parseWarning(alertEntry({ ...ALERTS[2]!, event_code: '246', areaColor: 'x' }, NOW))!)).toBe(LEVEL_STYLES[1])
   })
 
   it('holds the texts of the product asked for, and the translations of `mul` beside the German one', () => {
@@ -274,6 +329,7 @@ describe('the language of the texts', () => {
     expect(productFor('fr')).toEqual({ product: 'fr', language: 'fr' })
     expect(productFor('pl-PL')).toEqual({ product: 'mul', language: 'pl' })
     expect(productFor('de-DE')).toEqual({ product: 'de', language: 'de' })
+    expect(productFor('en')).toEqual({ product: 'en', language: 'en' })
   })
 
   it('asks the German product, DWD\'s own text, for a language DWD does not write in', () => {
@@ -294,6 +350,17 @@ describe('the language of the texts', () => {
     expect(found).toMatchObject({ language: 'de', inLocale: false })
     expect(found.text.headline).toBe('Amtliche UNWETTERWARNUNG vor GEWITTER')
     expect(textFor(warning, 'de-DE').inLocale).toBe(true)
+    expect(textFor(warning, 'de').inLocale).toBe(true)
+  })
+
+  it('says the text is German, not the language of the page, for every locale whose text is the German original except German itself: Low German and Luxembourgish too', () => {
+    const warning = snapshot('de').warnings[0]!
+    for (const locale of ['de-hh', 'lb', 'cs', 'da', 'it', 'nl'])
+      expect(textFor(warning, locale), locale).toMatchObject({ language: 'de', inLocale: false })
+    // Polish has a text of its own where the product has it
+    const multilingual = snapshot('mul').warnings[0]!
+    expect(textFor(multilingual, 'pl')).toMatchObject({ language: 'pl', inLocale: true })
+    expect(textFor(multilingual, 'de-hh')).toMatchObject({ language: 'de', inLocale: false })
   })
 
   it('quotes DWD\'s words as they are, with their line breaks, and rewrites none', () => {
@@ -327,8 +394,8 @@ describe('what the map draws', () => {
 describe('the question "Are there warnings here?"', () => {
   const chip = chipOf('warnings')!
   const KIEL = { id: '02564', name: 'Kiel-Holtenau', latitude: 54.3776, longitude: 10.1424 }
-  const context = (place = KIEL) => ({ place, choices: {}, now: () => ({ toMillis: () => NOW }) as never, formatLanguage: 'en-GB', unitTarget: () => 'x' })
-  const loaded = (language = 'en') => ({ snapshot: snapshot(language), language, formatLanguage: 'en-GB' })
+  const context = (place = KIEL) => ({ place, choices: {}, now: () => ({ toMillis: () => NOW }) as never, formatLanguage: 'en-GB', locale: 'en', unitTarget: () => 'x' })
+  const loaded = (language = 'en') => ({ snapshot: snapshot(language), locale: language, formatLanguage: 'en-GB' })
 
   it('says that a warning of DWD has the place in an area, quotes it, and counts what has no area', () => {
     const answer = chip.answer(loaded(), context()) as { here: unknown[], namedOnly: number, total: number }
@@ -343,7 +410,7 @@ describe('the question "Are there warnings here?"', () => {
   })
 
   it('has no answer outside the box of DWD, where nothing was fetched: the question says no source covers the place', () => {
-    expect(chip.answer({ snapshot: null, language: 'en', formatLanguage: 'en-GB' }, context({ id: '01001', name: 'JAN MAYEN', latitude: 70.93, longitude: -8.67 }))).toBeNull()
+    expect(chip.answer({ snapshot: null, locale: 'en', formatLanguage: 'en-GB' }, context({ id: '01001', name: 'JAN MAYEN', latitude: 70.93, longitude: -8.67 }))).toBeNull()
   })
 
   it('does not fetch for a place outside the box of DWD', async () => {
@@ -367,10 +434,10 @@ describe('the question "Are there warnings here?"', () => {
         return snapshot()
       },
     } as never
-    await chip.load({ ...context(), formatLanguage: 'pl-PL' }, api)
-    await chip.load({ ...context(), formatLanguage: 'cs-CZ' }, api)
-    await chip.load({ ...context(), formatLanguage: 'es-ES' }, api)
-    expect(asked).toEqual(['mul', 'de', 'es'])
+    // by the app's own locale: Low German is formatted as German and is asked for as German, and told so
+    for (const [locale, formatLanguage] of [['pl', 'pl-PL'], ['cs', 'cs-CZ'], ['es', 'es-ES'], ['de-hh', 'de-DE'], ['lb', 'lb-LU']])
+      await chip.load({ ...context(), locale, formatLanguage }, api)
+    expect(asked).toEqual(['mul', 'de', 'es', 'de', 'de'])
   })
 
   it('is no judgement: it says what DWD says, its words unchanged, and never says what to do or that there is nothing to fear', () => {
@@ -394,11 +461,30 @@ describe('the question "Are there warnings here?"', () => {
   })
 
   it('says it quotes German where DWD has no text in the language of the page', () => {
-    const german = { snapshot: snapshot('de'), language: 'cs', formatLanguage: 'cs-CZ' }
+    const german = { snapshot: snapshot('de'), locale: 'cs', formatLanguage: 'cs-CZ' }
     const env = { t: (key: string) => key, place: KIEL, number: String, percent: String, unitText: String, dayText: String, now: () => ({ toMillis: () => NOW }) as never }
     const view = chip.present(chip.answer(german, context())!, german, env as never, {})
     expect(view.quotes![0]!.lang).toBe('de')
     expect(view.quotes![0]!.note).toBe('warnings.textGerman')
+  })
+
+  it('says the German text with the note for Low German and Luxembourgish too, which are formatted as German', () => {
+    for (const locale of ['de-hh', 'lb']) {
+      const german = { snapshot: snapshot('de'), locale, formatLanguage: 'de-DE' }
+      const env = { t: (key: string) => key, place: KIEL, number: String, percent: String, unitText: String, dayText: String, now: () => ({ toMillis: () => NOW }) as never }
+      const view = chip.present(chip.answer(german, context())!, german, env as never, {})
+      expect(view.quotes![0]!.note, locale).toBe('warnings.textGerman')
+    }
+  })
+
+  it('judges what is in force by the server\'s clock: a device that is behind is corrected by the skew of the answer', () => {
+    // a warning that ended an hour before the server's NOW; the device is two hours behind
+    const ended = parseWarnings(alertsAnswer({ now: NOW, alerts: [{ ...ALERTS[0]!, onsetHours: -5, endHours: -1 }] }))
+    const early = { ...context(), now: () => ({ toMillis: () => NOW - 2 * HOUR }) as never }
+    // by the device's clock alone it is still in force
+    expect((chip.answer({ ...loaded(), snapshot: { ...ended, clockSkewMs: 0 } }, early) as { here: unknown[] }).here).toHaveLength(1)
+    // by the server's, which the skew of the answer gives, it is over
+    expect((chip.answer({ ...loaded(), snapshot: { ...ended, clockSkewMs: 2 * HOUR } }, early) as { here: unknown[] }).here).toHaveLength(0)
   })
 
   it('has every rule as DWD\'s CAP profile or as its own, and leads into the map with the warnings on at the place', () => {

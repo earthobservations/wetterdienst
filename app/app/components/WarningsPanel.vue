@@ -67,7 +67,7 @@ const checked = computed(() => {
         <UIcon name="i-ph-warning" class="size-4 shrink-0" aria-hidden="true" />
         {{ t('warnings.refreshFailed', { time: checked }) }}
       </p>
-      <p v-else-if="data.stale.value" class="warnings-panel-note" data-testid="warnings-stale">
+      <p v-if="data.stale.value" class="warnings-panel-note" data-testid="warnings-stale">
         <UIcon name="i-ph-warning" class="size-4 shrink-0" aria-hidden="true" />
         {{ t('warnings.stale', { time: checked }) }}
       </p>

@@ -274,7 +274,7 @@ export const methods: MethodTexts = {
       summary: 'The official weather warnings of DWD whose area contains the position of the place, quoted in DWD\'s own words.',
       data: 'DWD\'s weather warnings: the snapshot of all warnings in force or announced in Germany that DWD publishes as Common Alerting Protocol (CAP) messages, in the product by municipality (COMMUNEUNION_DWD_STAT). Each warning has its event, its level, its times, its texts and its polygon. The warning is DWD\'s statement: wetterdienst reads it and passes it on.',
       steps: {
-        snapshot: 'The latest snapshot of DWD\'s warnings is read from the backend of wetterdienst, in the language of the page where DWD writes its warnings in it (German, English, Spanish, French and Polish), else in German. Messages of the status Test and messages that cancel others are dropped.',
+        snapshot: 'The latest snapshot of DWD\'s warnings is read from the backend of wetterdienst, in the language of the page where DWD writes its warnings in it (German, English, Spanish, French and Polish), else in German. Messages of the status Test, messages that cancel others and messages that end an event early (AllClear) are dropped.',
         place: 'The position of the place is the position of its weather station. A warning is for the place if a polygon of the warning contains the position. The land inside a hole of a polygon (an island in a warning for the sea around it) is not in the warning.',
         inforce: 'A warning counts while its onset has come and its end has not. A warning that DWD has announced for later is said to be announced, with its time, and a warning whose end has passed is left out, since the snapshot can be a few minutes behind the clock.',
         words: 'For each warning of the place the answer quotes DWD\'s words as DWD wrote them: the event, the headline, the description and the instruction, with the level DWD gives, its times and the time it was issued. Nothing is added, shortened or reworded, and the answer does not say what to do: that is DWD\'s instruction.',
@@ -286,16 +286,20 @@ export const methods: MethodTexts = {
           says: 'DWD says that it makes its public warnings available in the machine-readable Common Alerting Protocol format, so that as many users and applications as possible can use them.',
         },
         'dropped': {
-          text: 'A message whose status is Test, and a message that cancels earlier ones, is not shown as a warning.',
-          says: 'The profile says that a test message is for technical testing only and that all recipients disregard it, and that a cancel message cancels the earlier messages it names, for example one sent by mistake.',
+          text: 'A message whose status is Test, one that cancels earlier ones, and one whose response type is AllClear (the early or partial end of an event) is not shown as a warning.',
+          says: 'The profile says that a test message is for technical testing only and that all recipients disregard it, that a cancel message cancels the earlier messages it names, for example one sent by mistake, and that an update with the response type AllClear tells that the event no longer poses a threat, as an early or explicit expiration.',
         },
         'levels': {
           text: 'The level of a warning is the one DWD gives its severity: Minor is level 1, Moderate level 2, Severe level 3 and Extreme level 4. The names are DWD\'s: weather warning, marked weather warning, severe weather warning and extreme severe weather warning.',
           says: 'The profile ties the four values of the severity to DWD\'s four levels and their colours: yellow, orange, red and violet (a dark pink in its table of the colours DWD uses on the web).',
         },
         'preliminary': {
-          text: 'DWD\'s preliminary information on severe weather ("Vorabinformation Unwetter") is shown as what it is, preliminary information, with a shape and a dash-dotted edge of its own and no level number.',
-          says: 'The profile lists the event types of the preliminary information, for severe thunderstorms, hurricane-force gusts, extremely persistent rain, heavy snowfall, glaze and heavy thaw, and gives it a colour of its own in its table of colours.',
+          text: 'DWD\'s preliminary information on severe weather ("Vorabinformation Unwetter") is told by its urgency, which is Future, or by its German headline, which begins "VORABINFORMATION", never by its event code. It is shown as what it is, preliminary information, with a shape and a dash-dotted edge of its own and no level number.',
+          says: 'The profile calls the urgency Future an advisory, where a warning has the urgency Immediate, and gives the preliminary information the headline "VORABINFORMATION UNWETTER". It lists the event types of the preliminary information (severe thunderstorms, hurricane-force gusts, extremely persistent rain, heavy snowfall, glaze, heavy thaw) with the same codes that a severe warning of the same kind has, so the code alone does not tell the two apart, and gives it a colour of its own in its table of colours.',
+        },
+        'health-colours': {
+          text: 'The medical and public health warnings (heat, strong heat, extreme heat and the UV index) are drawn in the colour DWD sends with them, with the edge of their level; every other warning is drawn in the colour of its level.',
+          says: 'The profile gives each message a preferred colour for visualisation, and lists the heat and UV warnings as warnings of their own, with colours of their own in the table of the colours DWD uses on the web: very light violet, violet and soft magenta.',
         },
         'in-force': {
           text: 'A warning is in force from its onset until its end; one with no end is in force until DWD takes it out of the snapshot. One whose onset is later is announced.',
@@ -336,6 +340,7 @@ export const methods: MethodTexts = {
         statement: 'The answer is what DWD says, not a forecast of its own. It cannot say that nothing happens: no warning of DWD for a place is no promise of calm, and a warning is no promise that it happens at the place.',
         polygon: 'A polygon follows the borders of the municipalities or districts a warning is issued for, so a place is in it or not by that polygon. The position is that of the weather station, which can be some kilometres from the place the reader means.',
         named: 'Warnings that DWD gives by name alone, the sea and the coast, have no polygon in this product and are never matched to a place. The map lists them.',
+        altitude: 'DWD\'s polygons follow the borders of the municipalities, and the height limits of a warning (a warning for the heights above 1000 m, say) are not read by the backend of wetterdienst: in the app the warning is for the whole municipality, and its description says the height.',
         time: 'The times are written in the time zone of the reader\'s device. The snapshot can be a few minutes old when it is read, and the time of the check is told under the answer.',
       },
       numbers: {

@@ -28,6 +28,12 @@ export type WarningKind = 'warning' | 'preliminary'
 /** How often the snapshot is asked for again while the warnings are wanted: the backend keeps the latest snapshot for 5 minutes (`CacheExpiry.FIVE_MINUTES`), so asking more often only asks for the same file */
 export const WARNINGS_REFRESH_MS = 5 * 60 * 1000
 
+/** A request that has not answered after this long is given up as a failed one, so that the next is scheduled (a request that hangs would otherwise stop the refresh for good) */
+export const WARNINGS_TIMEOUT_MS = 30 * 1000
+
+/** How often the clock the warnings are judged by moves while they are wanted, with no request: a warning that begins or ends, and a snapshot that grows old, are seen at once */
+export const WARNINGS_CLOCK_MS = 60 * 1000
+
 /** After this long without a snapshot that arrived, what is in hand is said to be old: three refreshes */
 export const WARNINGS_STALE_AFTER_MS = 3 * WARNINGS_REFRESH_MS
 
@@ -70,6 +76,8 @@ export interface Warning {
   onset: string | null
   expires: string | null
   sent: string | null
+  /** DWD's own colour for the message (`AREA_COLOR`) as a hex colour, used for the health warnings (heat, UV) whose colours are not the levels'; null where it gives none */
+  areaColor: string | null
   /** The areas the warning is issued for, which the community product names by warn cell */
   areaNames: string[]
   warncellIds: string[]
@@ -103,20 +111,45 @@ export function levelOfSeverity(severity: unknown): WarningLevel | null {
   return (found ?? null) as WarningLevel | null
 }
 
-/** The event codes of DWD's preliminary information on severe weather (CAP DWD profile 2.1.12, §3.1.2; 99 is its test) */
-export const PRELIMINARY_EVENT_CODES: readonly string[] = ['40', '55', '65', '75', '85', '89', '99']
+/**
+ * Whether a message is DWD's preliminary information on severe weather ("Vorabinformation Unwetter"), which is not told by its event code: the
+ * profile gives the same codes to a severe warning (§3.1.1: 85 is GLATTEIS, 55 ORKANBÖEN, 40 SCHWERES GEWITTER mit ORKANBÖEN) and to the
+ * preliminary information of the same kind (§3.1.2). It is told by its `urgency`, which is `Future` for an advisory where a warning is `Immediate`
+ * (§2.2.2.5), and by its headline, which begins "VORABINFORMATION UNWETTER" (§2.2.2.13), in the German text every message has.
+ */
+export function isPreliminary(urgency: unknown, texts: Record<string, WarningText>): boolean {
+  if (String(urgency ?? '').toLowerCase() === 'future')
+    return true
+  const german = texts.de
+  return [german?.headline, german?.event].some(one => one !== null && one !== undefined && /^VORABINFORMATION\b/i.test(one))
+}
+
+/** The event types of the medical and public health warnings, which DWD draws in colours of their own (heat, strong heat, extreme heat, UV index: §3.1.5, §3.5) */
+export const HEALTH_EVENT_CODES: readonly string[] = ['246', '247', '248']
+
+/** DWD's own colour of a message (`AREA_COLOR`, "255 235 59", §2.2.2.8) as a hex colour, or null where it gives none or one that is no colour */
+export function areaColorOf(value: unknown): string | null {
+  const parts = String(value ?? '').trim().split(/\s+/).map(Number)
+  if (parts.length !== 3 || parts.some(part => !Number.isInteger(part) || part < 0 || part > 255))
+    return null
+  return `#${parts.map(part => part.toString(16).padStart(2, '0')).join('')}`
+}
 
 /** The first subtag of a language as DWD writes it (`de-DE` is `de`), lower case */
 export function languageOf(tag: unknown): string {
   return String(tag ?? '').split('-')[0]!.toLowerCase()
 }
 
-function textOf(record: Record<string, unknown>): WarningText {
+/**
+ * The texts of a block. A translation of the multilingual product carries only the fields in which it differs from the first (German) block (the
+ * backend's `translations`), so a field it does not carry is the German one; the first block has all of them.
+ */
+function textOf(record: Record<string, unknown>, original?: WarningText): WarningText {
   return {
-    event: text(record.event),
-    headline: text(record.headline),
-    description: text(record.description),
-    instruction: text(record.instruction),
+    event: text(record.event) ?? original?.event ?? null,
+    headline: text(record.headline) ?? original?.headline ?? null,
+    description: text(record.description) ?? original?.description ?? null,
+    instruction: text(record.instruction) ?? original?.instruction ?? null,
   }
 }
 
@@ -135,21 +168,22 @@ function boxOf(outline: LatLng[][][]): Box | null {
 
 /**
  * One entry of the answer's `alerts` as a {@link Warning}, or null for what is no warning to show: not an object, no
- * identifier, a message of `Test` status ("technical testing only, all recipients disregard", §2.2.1.4) or a `Cancel` (it
- * cancels earlier messages, §2.2.1.5), which a snapshot of the warnings in force should not hold and which is dropped here
- * if it does.
+ * identifier, a message of `Test` status ("technical testing only, all recipients disregard", §2.2.1.4), a `Cancel` (it
+ * cancels earlier messages, §2.2.1.5) or one whose response type is `AllClear` (the early or partial expiration of an event, §2.2.1.5, §2.2.2.4,
+ * §3.7.3), which a snapshot of the warnings in force should not hold and which is dropped here if it does.
  */
 export function parseWarning(entry: unknown, index = 0): Warning | null {
   if (!isRecord(entry))
     return null
-  if (text(entry.status)?.toLowerCase() === 'test' || text(entry.msg_type)?.toLowerCase() === 'cancel')
+  if (text(entry.status)?.toLowerCase() === 'test' || text(entry.msg_type)?.toLowerCase() === 'cancel' || text(entry.response_type)?.toLowerCase() === 'allclear')
     return null
   const texts: Record<string, WarningText> = {}
-  texts[languageOf(entry.language) || 'de'] = textOf(entry)
+  const first = textOf(entry)
+  texts[languageOf(entry.language) || 'de'] = first
   if (Array.isArray(entry.translations)) {
     for (const translation of entry.translations) {
       if (isRecord(translation) && languageOf(translation.language))
-        texts[languageOf(translation.language)] ??= textOf(translation)
+        texts[languageOf(translation.language)] ??= textOf(translation, first)
     }
   }
   const outline = outlineOf(entry.geometry)
@@ -157,7 +191,7 @@ export function parseWarning(entry: unknown, index = 0): Warning | null {
   const strings = (value: unknown) => Array.isArray(value) ? value.filter((one): one is string => typeof one === 'string' && one.trim() !== '') : []
   return {
     id: text(entry.alert_id) ?? `alert-${index}`,
-    kind: eventCode !== null && PRELIMINARY_EVENT_CODES.includes(eventCode) ? 'preliminary' : 'warning',
+    kind: isPreliminary(entry.urgency, texts) ? 'preliminary' : 'warning',
     level: levelOfSeverity(entry.severity),
     texts,
     eventCode,
@@ -165,6 +199,7 @@ export function parseWarning(entry: unknown, index = 0): Warning | null {
     onset: time(entry.onset),
     expires: time(entry.expires),
     sent: time(entry.sent),
+    areaColor: areaColorOf(entry.area_color),
     areaNames: strings(entry.area_names),
     warncellIds: strings(entry.warncell_ids),
     outline,
@@ -318,15 +353,19 @@ export function productFor(locale: string): { product: AlertsProduct, language: 
 
 /**
  * The text a reader gets: DWD's in the language of the page where it has one, else the German one (the original, which every
- * message has first). `translated` is whether the text is in the language of the page, which the page says where it is not.
+ * message has first). `inLocale` is whether the text is in the language of the page, which the page says where it is not: so it is for
+ * every locale of the app whose text is the German original except German itself. The locale is the app's own (`de`, `de-hh`, `lb`, `pl`), never the
+ * language a number is formatted in: Low German (`de-hh`) reads DWD's German, and is told so.
  */
 export function textFor(warning: Pick<Warning, 'texts'>, locale: string): { text: WarningText, language: string, inLocale: boolean } {
   const wanted = languageOf(locale)
-  const found = warning.texts[wanted]
+  // Low German is a language of its own, which DWD does not write in; its code shares the first subtag with German
+  const own = locale.toLowerCase().startsWith('de-hh') ? '' : wanted
+  const found = own ? warning.texts[own] : undefined
   if (found && (found.headline || found.description))
-    return { text: found, language: wanted, inLocale: true }
+    return { text: found, language: own, inLocale: true }
   const german = warning.texts.de ?? Object.values(warning.texts)[0] ?? { event: null, headline: null, description: null, instruction: null }
-  return { text: german, language: 'de', inLocale: wanted === 'de' }
+  return { text: german, language: 'de', inLocale: own === 'de' }
 }
 
 // ------------------------------------------------------------------------------------------------------- the drawing
@@ -343,13 +382,15 @@ export interface LevelStyle {
   weight: number
   dashArray: string | null
   fillOpacity: number
+  /** Drawn as a double line (a light line inside the dark one): the level 4's, which is told from level 3's by more than 1.5 px of weight */
+  double?: boolean
 }
 
 export const LEVEL_STYLES: Record<WarningLevel | 'preliminary' | 'unknown', LevelStyle> = {
   1: { fill: '#ffeb3b', edge: '#7a6200', weight: 2, dashArray: '2 5', fillOpacity: 0.34 },
   2: { fill: '#fb8c00', edge: '#a14d00', weight: 2.5, dashArray: '9 5', fillOpacity: 0.36 },
   3: { fill: '#e53935', edge: '#a51c1a', weight: 3.5, dashArray: null, fillOpacity: 0.38 },
-  4: { fill: '#880e4f', edge: '#880e4f', weight: 5, dashArray: null, fillOpacity: 0.42 },
+  4: { fill: '#880e4f', edge: '#880e4f', weight: 6, dashArray: null, fillOpacity: 0.42, double: true },
   preliminary: { fill: '#ff8080', edge: '#b3261e', weight: 2.5, dashArray: '12 4 2 4', fillOpacity: 0.24 },
   unknown: { fill: '#8a93a6', edge: '#5b6577', weight: 2, dashArray: '1 6', fillOpacity: 0.2 },
 }
@@ -357,6 +398,23 @@ export const LEVEL_STYLES: Record<WarningLevel | 'preliminary' | 'unknown', Leve
 /** The key of the style of a warning in {@link LEVEL_STYLES} */
 export function styleKey(warning: Pick<Warning, 'kind' | 'level'>): WarningLevel | 'preliminary' | 'unknown' {
   return warning.kind === 'preliminary' ? 'preliminary' : warning.level ?? 'unknown'
+}
+
+/** The edge of a colour that holds 3:1 against the map's light tiles: its channels at 55 %, which no colour of DWD's palette fails */
+function darker(hex: string): string {
+  const channels = [1, 3, 5].map(at => Math.round(Number.parseInt(hex.slice(at, at + 2), 16) * 0.55))
+  return `#${channels.map(channel => channel.toString(16).padStart(2, '0')).join('')}`
+}
+
+/**
+ * The style of a warning: its level's, except for the medical and public health warnings (heat, strong heat, extreme heat, the UV index), which DWD draws in colours of
+ * their own and sends as the message's `AREA_COLOR`: they keep the edge of their level, in the darker tone of DWD's colour, so that the level is still told by its edge
+ */
+export function styleOf(warning: Pick<Warning, 'kind' | 'level' | 'eventCode' | 'areaColor'>): LevelStyle {
+  const style = LEVEL_STYLES[styleKey(warning)]
+  if (warning.kind === 'warning' && warning.areaColor && warning.eventCode !== null && HEALTH_EVENT_CODES.includes(warning.eventCode))
+    return { ...style, fill: warning.areaColor, edge: darker(warning.areaColor) }
+  return style
 }
 
 /** What the map is given of a warning to draw: its outline and how it looks, and whether it is the one picked from the list */
@@ -372,7 +430,7 @@ export function drawnOf(warnings: readonly Warning[], focused: string | null): D
   return warnings
     .filter(warning => warning.outline.length > 0)
     .toSorted((a, b) => (a.level ?? 0) - (b.level ?? 0))
-    .map(warning => ({ id: warning.id, style: LEVEL_STYLES[styleKey(warning)], outline: warning.outline, focused: warning.id === focused }))
+    .map(warning => ({ id: warning.id, style: styleOf(warning), outline: warning.outline, focused: warning.id === focused }))
 }
 
 /** The area a list names a warning's areas by: the first few, and how many more there are */
@@ -401,7 +459,9 @@ export interface WarningWords {
   validity: string
   /** The time DWD issued it, as the reader's zone writes it; empty where it has none */
   issued: string
+  /** The first names of the areas, which are DWD's German ones, and in the words of the page how many more there are (null for none) */
   areas: string
+  areasMore: string | null
   /** DWD's own words, and the language they are in (`de`, the original, where DWD has none in the page's) */
   text: WarningText
   language: string
@@ -430,7 +490,8 @@ export function wordsOf(warning: Warning, t: WarningsTranslate, locale: string, 
     phase: phaseOf(warning, now) === 'upcoming' ? t('warnings.upcoming') : t('warnings.inForce'),
     validity: from && to ? t('warnings.fromTo', { from, to }) : from ? t('warnings.fromOpen', { from }) : to ? t('warnings.until', { to }) : '',
     issued: clockOf(warning.sent, formatLanguage, now),
-    areas: names.length > AREAS_SHOWN ? t('warnings.areasMore', { names: names.slice(0, AREAS_SHOWN).join(', '), count: names.length - AREAS_SHOWN }) : names.join(', '),
+    areas: names.slice(0, AREAS_SHOWN).join(', '),
+    areasMore: names.length > AREAS_SHOWN ? t('warnings.areasMore', { count: names.length - AREAS_SHOWN }) : null,
     text: found.text,
     language: found.language,
     inLocale: found.inLocale,

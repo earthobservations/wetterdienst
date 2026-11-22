@@ -115,14 +115,16 @@ community product, the whole snapshot of Germany) in three places, and in no oth
 
 - **The map.** The chip **Warnings** over the map (`/map?warnings=1`) draws the outline of each warning that has a polygon,
   under the station dots, in DWD's colour of its level with an edge that is dotted (level 1), dashed (2), solid (3) or
-  heavy (4), and dash-dotted for DWD's preliminary information on severe weather; the legend, in the panel of the layers
+  a double line (4), and dash-dotted for DWD's preliminary information on severe weather; the legend, in the panel of the layers
   button, says each in words. The panel lists every warning in force or announced, the most severe first; each row opens to
   DWD's own text (type, level, times, issue time, areas, headline, description, instruction) and is drawn stronger on the
   map. A warning that DWD gives by area name alone (the sea and the coast, which the community product has no polygon for)
   is listed under "Warnings for areas the map cannot draw" and is never given an outline.
 - **The station or place picked, and the Forecast.** A banner lists the warnings whose polygon contains the position (the
   place picked on the map where a click picked one, else the station's position; in the Forecast the forecast point),
-  tested in the browser against the snapshot (an edge counts as inside, a hole as outside). The warnings that name only an
+  tested in the browser against the snapshot (an edge counts as inside, a hole as outside). On a quiet day, and outside
+  Germany, it is one line ("No DWD warning for this position · Checked: 14:07 · Source: Deutscher Wetterdienst", with a button
+  for the notes), so that the chart under it does not move; a warning opens it. The warnings that name only an
   area are not matched to a position: the banner says that there are some and where the map lists them. Outside Germany and
   the sea round it (the box of the network, 3° to 16° E and 47° to 56° N) it says that no warnings source covers the place.
 - **Ask the weather.** "Are there warnings here?" says whether a warning of DWD has an area that contains the place, quotes
@@ -130,7 +132,12 @@ community product, the whole snapshot of Germany) in three places, and in no oth
   rules are on `/methods#warnings`: each is DWD's CAP profile, with the place in it, or marked as wetterdienst's own.
 
 The snapshot is asked for while a page that shows warnings is open and in front, and again every 5 minutes, which is how long the
-backend keeps it; a refresh that fails keeps what is shown and says so, and a snapshot more than 15 minutes old is said to be old.
+backend keeps it (a request that does not answer in 30 seconds is given up, and the next is scheduled); the clock the warnings are
+judged by is the server's and moves every minute without a request, so a warning that begins or ends changes on the page at once.
+A refresh that fails keeps what is shown and says so, and a snapshot more than 15 minutes old is said to be old: both are said where
+both hold. Nothing is asked for a place outside the box of DWD's network. DWD's polygons are per municipality and the backend does not
+read the height limits of a warning (a warning for heights above 1000 m, say): in the app it is for the whole municipality, and its
+description says the height. The heat and UV warnings are drawn in DWD's own colours for them, with the edge of their level.
 Each warning shows the time DWD issued it, and the page the time it last asked. The texts come in the language of the page
 where DWD writes them (German, English, Spanish and French as products of their own, Polish from the multilingual one);
 in any other language DWD's German text is shown, with a note. The link carries the chip (`warnings=1`).
