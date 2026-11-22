@@ -65,7 +65,7 @@ const MIN_STATION_QUERY = computed(() => placeMode.value ? 2 : 3)
 const { setPlace } = usePlace()
 /** The places of the questions (the place mode): the backend's matches of DWD's measuring stations */
 const stations = ref<Station[]>([])
-/** The stations of the three networks the search finds by name (the search mode), as the app's server matched them (GH-3790) */
+/** The stations of the lists the reader chose that the search finds by name (the search mode): the forecast's points of the backend, the others as the app's server matched them (GH-3790) */
 const stationAnswer = shallowRef<StationSearchAnswer | null>(null)
 const stationsPending = ref(false)
 const stationsFailed = ref(false)
@@ -139,43 +139,65 @@ async function searchNames(text: string, ticket: number, attempt = 0, forecast?:
   const served = SERVED.filter(list => chosen[list])
   const wantsForecast = chosen.forecast
   // the forecast's answer of the first attempt is kept for the ones that follow: only the lists of the server are asked for again
-  const [mosmix, own] = await Promise.all([
-    wantsForecast ? (attempt === 0 ? forecastStations(text, controller.signal) : Promise.resolve(forecast ?? null)) : Promise.resolve(undefined),
-    served.length ? servedStations(text, served, controller.signal) : Promise.resolve(undefined),
-  ])
-  // given up for a newer text, or the dialog is gone: the answer is no longer wanted
-  if (ticket !== stationTicket)
-    return
-  stationsPending.value = false
-  if (controller.signal.aborted)
-    return
-  const failed: SearchNetwork[] = [...(own === null ? served : own?.failed ?? []), ...(mosmix === null ? ['forecast' as const] : [])]
-  const pending = own?.pending ?? []
+  const forecastAsked = wantsForecast ? (attempt === 0 ? forecastStations(text, controller.signal) : Promise.resolve(forecast ?? null)) : Promise.resolve(undefined)
+  const servedAsked = served.length ? servedStations(text, served, controller.signal) : Promise.resolve(undefined)
+  /** Whether the answer is still wanted: not given up for a newer text, nor the dialog gone */
+  const wanted = () => ticket === stationTicket && !controller.signal.aborted
+
+  /** Makes what is known of the answer the one that is shown: `own` is undefined where the server's lists are not asked for or are still being read (`waiting`) */
+  function publish(mosmix: StationMatch[] | null | undefined, own: StationSearchAnswer | null | undefined, waiting: boolean) {
+    const failed: SearchNetwork[] = [...(own === null ? served : own?.failed ?? []), ...(mosmix === null ? ['forecast' as const] : [])]
+    // the lists of the server that have not answered yet are still being read
+    const pending: SearchNetwork[] = waiting ? [...served] : own?.pending ?? []
+    // everything that was asked for could not be: no answer, which is said
+    if ((!wantsForecast || mosmix === null) && (!served.length || own === null)) {
+      stationAnswer.value = null
+      stationsFailed.value = true
+      return pending
+    }
+    stationsFailed.value = false
+    const networks: StationSearchAnswer['networks'] = []
+    if (mosmix && mosmix.length)
+      networks.push({ network: 'forecast', total: mosmix.length, stations: mosmix })
+    networks.push(...(own?.networks ?? []))
+    const retrying = waiting || (pending.length > 0 && attempt < MAX_RETRIES)
+    stationAnswer.value = {
+      query: text,
+      networks,
+      pending: retrying ? pending : [],
+      // a list that is still not there after the last attempt is one that could not be read, which is said, and which a new text asks for again
+      failed: retrying ? failed : [...failed, ...pending],
+    }
+    return pending
+  }
+
   if (!wantsForecast && !served.length) {
     stationAnswer.value = null
     stationsFailed.value = false
+    stationsPending.value = false
     return
   }
-  // everything that was asked for could not be: no answer, which is said
-  if ((!wantsForecast || mosmix === null) && (!served.length || own === null)) {
-    stationAnswer.value = null
-    stationsFailed.value = true
+  // the forecast's points are the backend's and answer at once: they are shown as soon as they are there, and not held behind the server's
+  // wait for a list that is being read (5 s for GHCN daily on a cold start)
+  let mosmix: StationMatch[] | null | undefined
+  if (served.length && wantsForecast && attempt === 0) {
+    mosmix = await forecastAsked
+    if (ticket !== stationTicket)
+      return
+    stationsPending.value = false
+    if (controller.signal.aborted)
+      return
+    publish(mosmix, undefined, true)
+  }
+  const [forecastDone, own] = await Promise.all([forecastAsked, servedAsked])
+  mosmix = forecastDone
+  if (ticket !== stationTicket)
     return
-  }
-  stationsFailed.value = false
-  const networks: StationSearchAnswer['networks'] = []
-  if (mosmix && mosmix.length)
-    networks.push({ network: 'forecast', total: mosmix.length, stations: mosmix })
-  networks.push(...(own?.networks ?? []))
-  const retrying = pending.length > 0 && attempt < MAX_RETRIES
-  stationAnswer.value = {
-    query: text,
-    networks,
-    pending: retrying ? pending : [],
-    // a list that is still not there after the last attempt is one that could not be read, which is said, and which a new text asks for again
-    failed: retrying ? failed : [...failed, ...pending],
-  }
-  if (retrying)
+  stationsPending.value = false
+  if (!wanted())
+    return
+  const pending = publish(mosmix, own, false)
+  if (pending.length > 0 && attempt < MAX_RETRIES)
     nameRetry = setTimeout(() => void (!closed && ticket === stationTicket && searchNames(text, ticket, attempt + 1, mosmix)), RETRY_AFTER_MS)
 }
 

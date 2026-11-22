@@ -55,15 +55,22 @@ registerEndpoint('/api/stations', (event) => {
 
 // the stations of the three networks the search matches by name, as the app's server answers them (GH-3790): what is asked is counted
 const searchQueries: Array<{ q: string, limit: string, lists: string }> = []
-let searchMode: 'answer' | 'fail' | 'pending-once' | 'pending-always' = 'answer'
+let searchMode: 'answer' | 'fail' | 'pending-once' | 'pending-always' | 'slow' = 'answer'
+/** The answer of the server that a test holds back (`slow`) until it lets it go */
+let releaseSearch: (() => void) | null = null
 let pendingServed = 0
 const match = (station_id: string, name: string, extra: Record<string, unknown> = {}) => ({ station_id, name, latitude: 52.4, longitude: 13.4, wmo_id: null, first_year: 1950, last_year: null, reporting: true, ...extra })
-registerEndpoint('/_search/stations', (event) => {
+registerEndpoint('/_search/stations', async (event) => {
   const query = new URL(event.path, 'http://localhost').searchParams
   searchQueries.push({ q: query.get('q') ?? '', limit: query.get('limit') ?? '', lists: query.get('lists') ?? '' })
   if (searchMode === 'fail') {
     setResponseStatus(event, 500)
     return { detail: 'down' }
+  }
+  if (searchMode === 'slow') {
+    await new Promise<void>((resolve) => {
+      releaseSearch = resolve
+    })
   }
   const lists = (query.get('lists') ?? '').split(',')
   const networks = [
@@ -123,6 +130,8 @@ afterEach(() => {
   useSettings().settings.value.searchStations = { ...SEARCH_STATIONS_DEFAULTS }
   searchQueries.length = 0
   idQueries.length = 0
+  releaseSearch?.()
+  releaseSearch = null
   searchMode = 'answer'
   pendingServed = 0
   idAnswer = 'rows'
@@ -254,6 +263,24 @@ describe('the command palette', () => {
     await vi.waitFor(() => expect(wrapper.text()).toContain('BERLIN-SCHONEFELD'), { timeout: 6000 })
     expect(wrapper.find('[role="status"]').text()).not.toContain('Still reading')
     expect(searchQueries).toHaveLength(2)
+  })
+
+  it('shows the forecast\'s points as soon as the backend has them, and not behind the server that is still answering for its lists', async () => {
+    searchMode = 'slow'
+    const wrapper = await mountPalette()
+    await wrapper.find('input[role="combobox"]').setValue('berl')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('BERLIN-TEMPELHOF'))
+    // the server has been asked and has not answered: GHCN daily is not there, and the live region says that more may follow
+    expect(searchQueries).toHaveLength(1)
+    expect(wrapper.text()).not.toContain('BERLIN-SCHONEFELD')
+    expect(wrapper.find('[role="status"]').text()).toContain('Still reading a list of stations')
+    releaseSearch!()
+    await vi.waitFor(() => expect(wrapper.text()).toContain('BERLIN-SCHONEFELD'))
+    expect(wrapper.text()).toContain('BERLIN-TEMPELHOF')
+    expect(wrapper.find('[role="status"]').text()).not.toContain('Still reading')
+    // one request to each, not a second one for the answer that was shown first
+    expect(searchQueries).toHaveLength(1)
+    expect(stationQueries).toEqual(['berl'])
   })
 
   it('ends in the failed state, not in "still reading", when a list is not there after the last attempt', async () => {

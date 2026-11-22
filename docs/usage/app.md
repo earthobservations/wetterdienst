@@ -47,12 +47,14 @@ is the one the glossary page loads, asked for at that moment; nothing is sent an
 **Stations in the search** (from three letters on, a moment after the last key) looks in the lists that you choose in the settings, under
 "Stations in the search" (kept in the browser like the other settings): the forecast's points (DWD MOSMIX), DWD's measuring stations (the daily
 climate summary's list) and NOAA GHCN daily (133k stations). **MOSMIX and GHCN are on, DWD's measuring stations are off** until you turn them on.
-Each list is a group of its own, with the provider and the network on every result. Three stations of a list are shown, the best first (a name that
-starts with the words before one that holds them, a station that reports before one that has stopped, with the year it ended in), and a last option
-("11 more on the map (NOAA GHCN daily)") opens the map's own search of the layer on what you typed (`/map?layer=ghcn&q=hamburg`). A result opens the
+Each list is a group of its own, with the provider and the network on every result. Of GHCN daily and DWD's measuring stations three stations are shown,
+the best first (a name that starts with the words before one that holds them, a station that reports before one that has stopped, with the year it
+ended in), and a last option ("11 more on the map (NOAA GHCN daily)") opens the map's own search of the layer on what you typed
+(`/map?layer=ghcn&q=hamburg`). The forecast's points are the backend's best five for the name, all shown, with no "more" (the backend gives no count);
+the backend matches names only, so a number such as `10147` is found in them through "Search all networks for …" and not by this search. A result opens the
 map with the station picked, on the layer of its network (`/map?station=10147`, `/map?layer=measured&station=01975`, `/map?layer=ghcn&station=GM000010147`).
-The names are matched in either spelling of an umlaut (`Fuhlsbüttel` and `FUHLSBUETTEL`, `München` and `MUENCHEN`), and an id or a WMO number matches as
-it is written in the lists (`1975` is `01975`). The map's own search of the panel is the same matcher (one function, `matchStations`), so it finds the
+In GHCN daily and DWD's measuring stations the names are matched in either spelling of an umlaut (`Fuhlsbüttel` and `FUHLSBUETTEL`, `München` and
+`MUENCHEN`), and an id or a WMO number matches as it is written in the lists (`1975` is `01975`). The map's own search of the panel is the same matcher (one function, `matchStations`), so it finds the
 same stations in the same order, in either spelling and by WMO number, lists the best 20 and says "Showing the first 20 of N stations" where there are
 more; the header's "N more" is that total less the three it shows. Where the matching runs: the forecast's points are asked of the backend by name
 (`GET /api/stations?provider=dwd&network=mosmix&name=`, its best five), as they always were, and the server of the app keeps none of them. GHCN daily

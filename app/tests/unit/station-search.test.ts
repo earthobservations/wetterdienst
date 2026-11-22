@@ -6,7 +6,7 @@ import { createRequire } from 'node:module'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { foldSpelled, prepareStations, searchPrepared } from '../../app/utils/station-search'
 import { createGhcnMapList } from '../../server/utils/ghcnStations'
-import { DEFAULT_LIMIT, MAX_LIMIT, parseSearchQuery, stationSearchHandler } from '../../server/utils/stationSearch'
+import { DEFAULT_LIMIT, MAX_LIMIT, MIN_SEARCH_STATIONS, parseSearchQuery, stationSearchHandler } from '../../server/utils/stationSearch'
 
 // The stations the search of the header finds by name or number (GH-3790): the matching, and the route that matches the lists the server keeps.
 
@@ -133,9 +133,9 @@ const h3 = nuxtRequire('h3') as typeof import('h3')
 const BACKEND = 'http://backend.internal:7890/api'
 
 /** The CSV of a list of stations as the backend gives it (`format=csv`), a row for each, with the headers that the app's server checks the body against */
-function csvResponse(rows: ReturnType<typeof row>[]) {
+function csvResponse(rows: ReturnType<typeof row>[], headers: Record<string, string> = {}) {
   const lines = ['station_id,latitude,longitude,start_timestamp,end_timestamp,name,wmo_id', ...rows.map(entry => [entry.station_id, entry.latitude, entry.longitude, entry.start_timestamp, entry.end_timestamp ?? '', JSON.stringify(entry.name ?? ''), entry.wmo_id ?? ''].join(','))]
-  return new Response(`${lines.join('\n')}\n`, { headers: { 'content-type': 'text/csv', 'x-wetterdienst-stations': String(rows.length), 'x-wetterdienst-retrieved-at': 'then' } })
+  return new Response(`${lines.join('\n')}\n`, { headers: { 'content-type': 'text/csv', 'x-wetterdienst-stations': String(rows.length), 'x-wetterdienst-retrieved-at': 'then', ...headers } })
 }
 
 describe('the route', () => {
@@ -153,7 +153,7 @@ describe('the route', () => {
   const bodyOf = (rows: ReturnType<typeof row>[]) => csvResponse(rows)
 
   /** A server with the route on it and the backend answering from `answerFor` (what each list's path is asked for is counted) */
-  async function serve(answerFor: (path: string) => Response | Promise<Response>, waitMs = 2000) {
+  async function serve(answerFor: (path: string) => Response | Promise<Response>, waitMs = 2000, minimum = 500) {
     for (const [name, value] of Object.entries({
       defineEventHandler: h3.defineEventHandler,
       getQuery: h3.getQuery,
@@ -169,7 +169,7 @@ describe('the route', () => {
       asked.push(path)
       return answerFor(path)
     })
-    const options = { apiBase: () => BACKEND, fetcher: fetcher as unknown as typeof fetch, minimum: 500, waitMs }
+    const options = { apiBase: () => BACKEND, fetcher: fetcher as unknown as typeof fetch, minimum, waitMs }
     const app = h3.createApp()
     app.use(stationSearchHandler({ ...options, ghcn: createGhcnMapList(options) }))
     const server = createServer(h3.toNodeListener(app))
@@ -236,6 +236,32 @@ describe('the route', () => {
     // the backend is not asked again at every keystroke after a failure
     await get('q=hamburg&lists=ghcn,measured')
     expect(asked.filter(path => path.includes('network=ghcn'))).toHaveLength(1)
+  })
+
+  it('refuses a list of DWD\'s measuring stations that the backend answered with a file left out (the warning `file-skipped`), and keeps it for no day', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { get, asked } = await serve(path => path.includes('network=observation') ? csvResponse(MEASURED, { 'x-wetterdienst-warnings': 'network-failed, file-skipped' }) : bodyOf(ofPath(path)))
+    const answer = await (await get('q=hamburg&lists=ghcn,measured')).json() as StationSearchAnswer
+    expect(answer.failed).toEqual(['measured'])
+    expect(answer.networks.map(n => n.network)).toEqual(['ghcn'])
+    // not asked again at every key after it
+    await get('q=hamburg&lists=measured')
+    expect(asked.filter(path => path.includes('network=observation'))).toHaveLength(1)
+    // other warnings are no reason, and the list of GHCN daily is not held to this
+    const other = await serve(path => path.includes('network=observation') ? csvResponse(MEASURED, { 'x-wetterdienst-warnings': 'answer-truncated' }) : csvResponse(GHCN, { 'x-wetterdienst-warnings': 'file-skipped' }))
+    const kept = await (await other.get('q=hamburg&lists=ghcn,measured')).json() as StationSearchAnswer
+    expect(kept.failed).toEqual([])
+    expect(kept.networks.map(n => n.network)).toEqual(['measured', 'ghcn'])
+  })
+
+  it('keeps no list of DWD\'s measuring stations of fewer than the floor, which is 1,000 of its 1,284', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(MIN_SEARCH_STATIONS).toBe(1000)
+    const thousand = (count: number) => Array.from({ length: count }, (_, index) => row(`M${index}`, `HAMBURG M ${index}`))
+    const short = await serve(path => path.includes('network=observation') ? bodyOf(thousand(999)) : bodyOf(ofPath(path)), 2000, MIN_SEARCH_STATIONS)
+    expect(((await (await short.get('q=hamburg&lists=measured')).json()) as StationSearchAnswer).failed).toEqual(['measured'])
+    const whole = await serve(path => path.includes('network=observation') ? bodyOf(thousand(1000)) : bodyOf(ofPath(path)), 2000, MIN_SEARCH_STATIONS)
+    expect(((await (await whole.get('q=hamburg&lists=measured')).json()) as StationSearchAnswer).failed).toEqual([])
   })
 
   it('does not hold the answer for a list that is slow, says it is still being read, and has it on the next request', async () => {

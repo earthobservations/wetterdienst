@@ -17,6 +17,8 @@ export const GHCN_STATIONS_PATH = '/stations?provider=noaa&network=ghcn&paramete
 const GHCN_SOURCE: StationSource = { path: GHCN_STATIONS_PATH, what: 'the GHCN stations', network: 'NOAA GHCN daily' }
 /** The header of the answer that says when the backend made it: a CSV has no place for that in its body */
 const RETRIEVED_AT_HEADER = 'x-wetterdienst-retrieved-at'
+/** The header that lists the codes of the warnings of the answer, which a CSV has no place for in its body */
+const WARNINGS_HEADER = 'x-wetterdienst-warnings'
 /** How many stations the backend's answer holds, known before its body is sent: fewer rows than that is a body cut short */
 const STATIONS_HEADER = 'x-wetterdienst-stations'
 /** The columns of the CSV that the list is made of, by the name in its header row */
@@ -238,6 +240,8 @@ export interface StationSource {
   path: string
   what: string
   network: string
+  /** Whether an answer whose `X-Wetterdienst-Warnings` names `file-skipped` is refused: the backend left a file of the list out and answered the rest, which is a part of the list that must not be kept for a day */
+  refuseSkipped?: boolean
 }
 
 /**
@@ -290,6 +294,13 @@ export async function readStationColumns(apiBase: string, source: StationSource,
     console.error(`Request ${requestId} to the backend for ${source.what} was answered with ${contentType}, not the list of stations.`)
     return problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', describeWrongKind(contentType), requestId)
   }
+  // the codes of what the backend left out of the answer, which it lists in this header (`file-skipped, answer-truncated`): a list with a file
+  // left out is a part of the list
+  if (source.refuseSkipped && /(?:^|[\s,])file-skipped(?:$|[\s,])/.test(response.headers.get(WARNINGS_HEADER) ?? '')) {
+    void response.body?.cancel().catch(() => {})
+    console.error(`Request ${requestId} to the backend for ${source.what} was answered with the warning file-skipped: a part of the list.`)
+    return problem(502, UNEXPECTED_ANSWER_TYPE, 'Bad Gateway', `The backend answered for ${source.network} with a file of its list left out (warning \`file-skipped\`), a part of the list.`, requestId)
+  }
   let columns: GhcnStationColumns
   try {
     const named = Number(response.headers.get(STATIONS_HEADER) ?? Number.NaN)
@@ -341,7 +352,7 @@ function isProblem(read: unknown): read is GhcnProblem {
 
 /**
  * A list of the backend that the server keeps in memory for a day, as {@link ghcnMapStationsHandler} keeps its own (and the search
- * of the app, GH-3790, keeps the three lists it matches the same way). The first request makes it (the others that come meanwhile
+ * of the app, GH-3790, keeps DWD's measuring stations the same way). The first request makes it (the others that come meanwhile
  * wait for the same read); once the day is over the list in hand is served still and the next is made behind it
  * (stale-while-revalidate). A failure is nobody's list: it is not kept, and for 30 s after it the backend is not asked again at
  * every request (a read of it is 44 MB for GHCN daily): the problem is answered again with the time that is left, or the list in hand

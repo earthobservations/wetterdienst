@@ -23,12 +23,12 @@ import { requestIdOf } from './requestId'
 // server like the routes of `/_ghcn` (`server/utils/rateLimit.ts`).
 
 /** The stations that measure: DWD's observations, as the map opens with them (`daily/climate_summary`), as the CSV that the streamed reader reads */
-export const MEASURED_SOURCE: StationSource = { path: '/stations?provider=dwd&network=observation&parameters=daily/climate_summary&all=true&format=csv', what: 'the measuring stations', network: 'DWD observations' }
+export const MEASURED_SOURCE: StationSource = { path: '/stations?provider=dwd&network=observation&parameters=daily/climate_summary&all=true&format=csv', what: 'the measuring stations', network: 'DWD observations', refuseSkipped: true }
 /** The lists this route serves, which a request names in `lists` */
 export const SERVED_LISTS = ['measured', 'ghcn'] as const
 export type ServedList = typeof SERVED_LISTS[number]
-/** The fewest stations of one of these lists that is kept: a part of a list (the backend's cold start, a provider that failed) is not the list for a day */
-export const MIN_SEARCH_STATIONS = 500
+/** The fewest stations of DWD's measuring stations that are kept: the list has 1,284, and a part of it (the backend's cold start, a provider that failed) is not the list for a day; a file the backend skipped is refused by its warning besides */
+export const MIN_SEARCH_STATIONS = 1000
 
 /** How long the search waits for a list that is being made, in milliseconds; past it the answer is without that list's stations, and says it is still being read */
 const WAIT_FOR_LIST_MS = 5000
@@ -58,8 +58,8 @@ interface SearchList {
 }
 
 /**
- * The three lists the search matches, each kept as the map's list of GHCN daily is (`createListKeeper`), prepared once (names folded) when
- * it is made. One that cannot be read does not take the others with it.
+ * The two lists the server matches, GHCN daily (the map's own list) and DWD's measuring stations, each kept as the map's list is
+ * (`createListKeeper`), prepared once (names folded) when it is made. One that cannot be read does not take the other with it.
  */
 export function createStationSearch(options: StationSearchOptions = {}) {
   const apiBase = options.apiBase ?? useApiBase
