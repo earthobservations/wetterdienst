@@ -22,7 +22,7 @@ vi.mock('~/components/StationMap.vue', async () => {
   return {
     __esModule: true,
     default: defineComponent({
-      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping', 'panelOpen', 'describedBy', 'fullscreen', 'hold'],
+      props: ['stations', 'selected', 'place', 'label', 'recentre', 'reporting', 'position', 'locate', 'grouping', 'panelOpen', 'describedBy', 'fullscreen', 'hold', 'goTo'],
       emits: ['pick', 'view', 'group'],
       setup(props, { emit }) {
         stage.props = props
@@ -1258,6 +1258,69 @@ describe('an address edited by hand', () => {
     const wrapper = await mountMap('/map?station=10865')
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').exists()).toBe(true))
     expect(stage.props.recentre).toBe(1)
+  })
+})
+
+// A position of the address with no station (GH-3790): what the search of the header leads to for coordinates typed in
+describe('an address that names a position and no station', () => {
+  it('picks the station for the place as a click on the map would, and moves the map to the position, not to the station', async () => {
+    const wrapper = await mountMap('/map?lat=52.5200&lon=13.4000')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('BERLIN-TEMPELHOF'))
+    expect(stage.props.selected.station_id).toBe('10384')
+    // the place is the position, which is not the station's (it is 6 km off it)
+    expect(stage.props.place).toEqual({ latitude: 52.52, longitude: 13.4 })
+    expect(stage.props.goTo).toMatchObject({ latitude: 52.52, longitude: 13.4, count: 1 })
+    // the station is not what the map is recentred on, and it is kept where it is
+    expect(stage.props.recentre).toBe(0)
+    // the address says the station and the place from then on, so that a link is the same map
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query).toEqual({ station: '10384', lat: '52.5200', lon: '13.4000' }))
+    expect(wrapper.find('[data-testid="map-announcement"]').text()).toBe('BERLIN-TEMPELHOF chosen')
+  })
+
+  it('waits for the list of stations, which a pick is made from', async () => {
+    const wrapper = await mountMap('/map?lat=48.1&lon=11.5')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('MUENCHEN-STADT'))
+    expect(stage.props.goTo).toMatchObject({ latitude: 48.1, longitude: 11.5 })
+  })
+
+  it('says that there is no station within reach where there is none, and still moves the map to the position', async () => {
+    const wrapper = await mountMap('/map?lat=-33.9&lon=151.2')
+    await vi.waitFor(() => expect(stage.props.goTo).toMatchObject({ latitude: -33.9, longitude: 151.2, count: 1 }))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('No station within'))
+    expect(stage.props.selected).toBeNull()
+    // the address keeps the position, so that a link and a reload ask about the same place; and it takes nothing more of it
+    await vi.waitFor(() => expect(useRouter().currentRoute.value.query).toEqual({ lat: '-33.9000', lon: '151.2000' }))
+    expect(stage.props.goTo.count).toBe(1)
+    expect(wrapper.text()).toContain('No station within')
+  })
+
+  it('moves the map to the position where the list of stations fails, and shows the failure', async () => {
+    stationsFailures = 3
+    const wrapper = await mountMap('/map?lat=52.52&lon=13.4')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-failure"]').exists()).toBe(true))
+    expect(stage.props.goTo).toMatchObject({ latitude: 52.52, longitude: 13.4, count: 1 })
+    expect(stage.props.selected).toBeNull()
+    // the position is still the address's
+    expect(useRouter().currentRoute.value.query).toMatchObject({ lat: '52.52', lon: '13.4' })
+  })
+
+  it('takes a position that the search of the header writes while the map is open, once, and again where it is typed again', async () => {
+    const wrapper = await mountMap('/map?station=10865')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('MUENCHEN-STADT'))
+    const router = useRouter()
+    await router.push('/map?lat=52.5200&lon=13.4000')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('BERLIN-TEMPELHOF'))
+    expect(stage.props.goTo.count).toBe(1)
+    await router.push('/map?lat=53.6&lon=10.0')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-station-name"]').text()).toBe('HAMBURG-FUHLSBUETTEL'))
+    expect(stage.props.goTo.count).toBe(2)
+  })
+
+  it('is no position for a latitude or a longitude that is not one: the plain map', async () => {
+    const wrapper = await mountMap('/map?lat=north&lon=13.4')
+    await vi.waitFor(() => expect(stage.props.stations.length).toBeGreaterThan(0))
+    expect(stage.props.goTo ?? null).toBeNull()
+    expect(wrapper.find('[data-testid="map-station-name"]').exists()).toBe(false)
   })
 })
 

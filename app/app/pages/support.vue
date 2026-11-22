@@ -3,6 +3,8 @@ const { t } = useI18n()
 
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('support.title') })
+// a card the search leads to (`/support#support-donate`, GH-3790): scrolled to, and its heading has the focus
+useRevealHash({ auto: true })
 </script>
 
 <template>
@@ -13,7 +15,7 @@ useHead({ title: () => t('support.title') })
         <template #header>
           <div class="flex items-center gap-2">
             <UIcon name="i-ph-bug" class="text-primary-600 dark:text-primary-500 shrink-0" />
-            <h2 class="text-lg font-bold">
+            <h2 id="support-report" tabindex="-1" class="text-lg font-bold focus-visible:outline-none">
               {{ t('support.reportTitle') }}
             </h2>
           </div>
@@ -32,7 +34,7 @@ useHead({ title: () => t('support.title') })
         <template #header>
           <div class="flex items-center gap-2">
             <UIcon name="i-ph-git-pull-request" class="text-primary-600 dark:text-primary-500 shrink-0" />
-            <h2 class="text-lg font-bold">
+            <h2 id="support-contribute" tabindex="-1" class="text-lg font-bold focus-visible:outline-none">
               {{ t('support.contributeTitle') }}
             </h2>
           </div>
@@ -51,7 +53,7 @@ useHead({ title: () => t('support.title') })
         <template #header>
           <div class="flex items-center gap-2">
             <UIcon name="i-ph-chat-circle" class="text-primary-600 dark:text-primary-500 shrink-0" />
-            <h2 class="text-lg font-bold">
+            <h2 id="support-discussions" tabindex="-1" class="text-lg font-bold focus-visible:outline-none">
               {{ t('support.discussionsTitle') }}
             </h2>
           </div>
@@ -70,7 +72,7 @@ useHead({ title: () => t('support.title') })
         <template #header>
           <div class="flex items-center gap-2">
             <UIcon name="i-ph-heart" class="text-primary-600 dark:text-primary-500 shrink-0" />
-            <h2 class="text-lg font-bold">
+            <h2 id="support-donate" tabindex="-1" class="text-lg font-bold focus-visible:outline-none">
               {{ t('support.donateTitle') }}
             </h2>
           </div>

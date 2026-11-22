@@ -228,6 +228,110 @@ test.describe('the search', () => {
   })
 })
 
+// The words of the app, a position and the questions (GH-3790): the index is built with the app and loaded when the search is opened
+test.describe('the search of the words of the app', () => {
+  test.use({ viewport: { width: 1280, height: 800 } })
+
+  async function search(page: Page, text: string) {
+    await page.keyboard.press('Control+k')
+    const dialog = page.getByRole('dialog', { name: en.shell.search })
+    await expect(dialog.getByRole('combobox', { name: en.shell.search })).toBeFocused()
+    await page.keyboard.type(text)
+    return dialog
+  }
+
+  test('loads the index of the language when the search opens, not with the page', async ({ page, baseURL }) => {
+    // the index is a script of its own: told by what is in it
+    const indexes: string[] = []
+    page.on('response', async (response) => {
+      if (response.request().resourceType() === 'script' && (await response.text().catch(() => '')).includes('"postings"'))
+        indexes.push(response.url())
+    })
+    await open(page, baseURL!, '/')
+    await page.waitForLoadState('networkidle')
+    expect(indexes).toEqual([])
+    await search(page, 'dew point')
+    await expect(page.getByRole('option', { name: /Humidity and dew point/ })).toBeVisible()
+    // the one of the language of the page, once
+    await expect.poll(() => indexes.length).toBe(1)
+  })
+
+  test('finds an entry of "How weather is measured" and takes the reader to it, at its anchor', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const dialog = await search(page, 'dew point')
+    const group = dialog.getByRole('group', { name: en.measurement.title, exact: true })
+    await expect(group.getByRole('option').first()).toContainText('Humidity and dew point')
+    await page.keyboard.press('ArrowDown')
+    for (let step = 0; step < 20 && !(await group.getByRole('option').first().getAttribute('aria-selected') === 'true'); step++)
+      await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/measurement#humidity$/)
+    await expect(page.locator('#humidity-title')).toBeFocused()
+  })
+
+  test('finds a word in German, ignoring case', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/', 'de')
+    await page.keyboard.press('Control+k')
+    await page.keyboard.type('TAUPUNKT')
+    await expect(page.getByRole('option', { name: /Luftfeuchte und Taupunkt/ })).toBeVisible()
+  })
+
+  test('finds a parameter of the glossary and goes to its entry, which has the focus', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const dialog = await search(page, 'dew point')
+    const group = dialog.getByRole('group', { name: en.glossary.title, exact: true })
+    await expect(group.getByRole('option').first()).toContainText('Dew point')
+    await group.getByRole('option').first().click()
+    await expect(page).toHaveURL(/\/glossary#temperature_dew_point_2m$/)
+    await expect(page.locator('[id="temperature_dew_point_2m"]')).toBeFocused()
+  })
+
+  test('shows a few results with a last option that opens the page that has them all', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const dialog = await search(page, 'units')
+    const group = dialog.getByRole('group', { name: en.common.settings, exact: true })
+    await expect(group.getByRole('option')).toHaveCount(4)
+    await group.getByRole('option').last().click()
+    await expect(page).toHaveURL(/\/settings$/)
+  })
+
+  test('leads a setting to its own control', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const dialog = await search(page, 'plain-language')
+    await dialog.getByRole('option', { name: /Plain-language labels/ }).click()
+    await expect(page).toHaveURL(/\/settings#settings-friendly-labels$/)
+    await expect(page.locator('#settings-friendly-labels')).toBeFocused()
+  })
+
+  test('finds a question of Ask the weather and opens it on the home page', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/settings')
+    const dialog = await search(page, 'rain')
+    const group = dialog.getByRole('group', { name: en.ask.title, exact: true })
+    await group.getByRole('option').first().click()
+    await expect(page).toHaveURL(/\/\?ask=rain$/)
+    await expect(page.getByTestId('question-rain')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('takes coordinates as a place that leads to the map at that point, before everything else', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const dialog = await search(page, '52°31\'N 13°24\'E')
+    const place = dialog.getByRole('group').first()
+    await expect(place).toContainText('52.5167, 13.4000')
+    await expect(dialog.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
+    await page.keyboard.press('Enter')
+    await expect(page).toHaveURL(/\/map\?(?:.*&)?lat=52\.5167&lon=13\.4000/)
+    // the map picks the station for the place, as a click would
+    await expect(page.getByTestId('map-station-name')).toBeVisible()
+  })
+
+  test('says how many results each group has, in the live region', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/')
+    const dialog = await search(page, 'dew point')
+    await expect(dialog.getByRole('status')).toContainText(new RegExp(`${en.measurement.title}: \\d+`))
+    await expect(dialog.getByRole('status')).toContainText(new RegExp(`${en.glossary.title}: \\d+`))
+  })
+})
+
 test.describe('the skip link', () => {
   test('is the first stop, and takes the focus past the header to the page', async ({ page, baseURL }) => {
     await open(page, baseURL!, '/glossary')

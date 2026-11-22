@@ -42,6 +42,8 @@ const props = defineProps<{
   label: string
   /** Raised for a station picked outside the map (the address, the list): the map moves to it, once */
   recentre?: number
+  /** A position the map is to move to (a position typed into the search, GH-3790): it moves once for each `count` */
+  goTo?: { latitude: number, longitude: number, count: number } | null
   /** The reader's own position (GH-3651), marked as a target of its own; a press of "Use my location" raises `locate` */
   position?: Point | null
   /** Raised for each press that gave a position: the map centres on it, once */
@@ -467,6 +469,18 @@ function centreOnPosition() {
   map.setView([props.position.latitude, props.position.longitude], Math.max(map.getZoom(), 9), { animate: !reducedMotion.value })
 }
 
+/** The positions of the address that the map has moved to, by count */
+let wentTo = 0
+
+/** Moves to the position of the address, at a zoom where the stations of the neighbourhood are seen, once for each */
+function goToPosition() {
+  const target = props.goTo
+  if (!map || !target || target.count <= wentTo)
+    return
+  wentTo = target.count
+  map.setView([target.latitude, target.longitude], Math.max(map.getZoom(), 9), { animate: !reducedMotion.value })
+}
+
 /** The picks from outside the map that it has moved to */
 let recentred = 0
 
@@ -616,6 +630,7 @@ onMounted(() => {
   drawPosition()
   reveal()
   centreOnPosition()
+  goToPosition()
   emitView()
 })
 
@@ -664,6 +679,7 @@ watch(() => [props.selected, props.place, props.recentre, props.position], () =>
   drawSelection()
   reveal()
 })
+watch(() => props.goTo, goToPosition)
 watch(() => [props.position, props.locate], () => {
   drawPosition()
   centreOnPosition()

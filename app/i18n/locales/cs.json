@@ -257,7 +257,11 @@
       "pypi": "Nainstalovat knihovnu pro Python pomocí pip"
     },
     "stationsMap": "Stanice na mapě",
-    "stationOnMap": "Zobrazit stanici {id} na mapě"
+    "stationOnMap": "Zobrazit stanici {id} na mapě",
+    "placeGroup": "Místo",
+    "placeOnMap": "Zobrazit tento bod na mapě",
+    "moreIn": "Dalších {count} v: {page}",
+    "resultsIn": "{group}: {count}"
   },
   "header": {
     "github": "GitHub",
