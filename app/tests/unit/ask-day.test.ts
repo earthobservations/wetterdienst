@@ -199,6 +199,10 @@ describe('heat and cold', () => {
     expect(temperatureOnDay(rows, DAY)!.barsAre).toBe('min')
     expect(temperatureOnDay(rows, DAY)!.bars.map(bar => bar.value)).toEqual([-2, -1])
     expect(temperatureOnDay(both(-3, -9), DAY)!.barsAre).toBe('max')
+    // a day that is only a tropical night is named by its minimum, which the bars draw
+    expect(temperatureOnDay(both(24, 21), DAY)!.verdict).toBe('tropical')
+    expect(temperatureOnDay(both(24, 21), DAY)!.barsAre).toBe('min')
+    expect(temperatureOnDay(both(32, 21), DAY)!.barsAre).toBe('max')
     expect(temperatureOnDay(both(20, 10), DAY)!.barsAre).toBe('max')
   })
 

@@ -208,7 +208,7 @@
         "snow": "sneeuw"
       },
       "measureShort": "{measureCap} (hier geen meting voor {day})",
-      "noteGreyed": "Grijs: het station heeft er geen meting voor {day}.",
+      "noteGreyed": "Grijs, geen meting hier voor {day}: {measures}.",
       "noteAskedMeasure": "{measureCap}: hier geen meting voor {day}. In plaats daarvan getoond: {shown}.",
       "sun": {
         "dull": "Somber.",

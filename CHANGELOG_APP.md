@@ -30,18 +30,15 @@ Types of changes:
   "the summers from 1991 to 2020", count 27, where they read 1994 to 2020); a winter normal is
   written by its winters (1960/61 to 1989/90). The link carries `&season=winter&ref=1961-1990`;
   `?ask=summer` (summer, while it has enough data) and `/methods#summer` keep working (GH-3764).
-- `[Ask the weather]` The wind question is now a day question with a choice of what to ask about:
-  wind, sunshine, rain, heat and cold, or snow, as a labelled select beside the day. The question
-  and the verdict follow it ("How sunny was it on 26 December?" "Dull."), in all eleven languages,
-  and a change of the measure asks the backend nothing new: one request fetches every measure.
-  Each verdict has its scale, named in "How was this worked out?" with its source or marked as
-  wetterdienst's own: sun as the share of the sunshine possible at the station's latitude that day
-  (dull below 30 %, sunny from 70 %, the ranges of WMO-No. 8, §8.1.3), rain (dry below 0.1 mm, wet
-  from 1 mm, very wet from 10 mm), the days DWD names (ice, frost, summer and hot day, tropical
-  night) and snow on the ground above 0 cm, with the fresh snow where the station reports it. A
-  measure the station has no reading of for the day is greyed out with the reason in its option.
-  The question opens on the same date last year (28 February for a 29 February) instead of the last
-  26 December. `?ask=wind&day=...` and `/methods#wind` keep working (GH-3764).
+- `[Ask the weather]` The wind question is now a day question with a choice of what to ask
+  about: wind, sunshine, rain, heat and cold, or snow, as a labelled select beside the day. The
+  question and verdict follow it ("How sunny was it on 26 December?" "Dull."), in all eleven
+  languages, and a change of the measure asks the backend nothing. Each scale is named in "How was
+  this worked out?" with its source or marked as wetterdienst's own (sun as the share of the
+  possible sunshine, rain, the days DWD names, snow above 0 cm). A measure the station has no
+  reading of for the day is greyed out with the reason. The question opens on the same date last
+  year instead of the last 26 December; `?ask=wind&day=...` and `/methods#wind` keep working
+  (GH-3764).
 
 - `[Radar]` "Use my location", as on the map: the radar marks your position (a white disc with a
   navy edge, over the picture and the thunderstorm cells), centres on it and zooms to about 9, and a

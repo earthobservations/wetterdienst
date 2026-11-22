@@ -208,7 +208,7 @@
         "snow": "sne"
       },
       "measureShort": "{measureCap} (ingen måling her for den {day})",
-      "noteGreyed": "Nedtonet: stationen har ingen måling for den {day}.",
+      "noteGreyed": "Nedtonet, ingen måling her for den {day}: {measures}.",
       "noteAskedMeasure": "{measureCap}: ingen måling her for den {day}. Viser i stedet: {shown}.",
       "sun": {
         "dull": "Dystert.",

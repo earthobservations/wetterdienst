@@ -58,7 +58,7 @@ export const WORKS = {
   },
   'dwd-daily-more-precip': {
     short: 'DWD daily precipitation observations',
-    citation: 'Deutscher Wetterdienst (2024). Daily station observations of precipitation (precipitation height, snow depth, height of newly fallen snow, form of precipitation) for Germany, dataset description (DESCRIPTION_obsgermany-climate-daily-more_precip_en.pdf), parameters SH_TAG and NSH_TAG.',
+    citation: 'Deutscher Wetterdienst (2024). Daily precipitation observations for Germany, Version v24.3, dataset description (DESCRIPTION_obsgermany-climate-daily-more_precip_en.pdf), parameters SH_TAG and NSH_TAG.',
     href: 'https://opendata.dwd.de/climate_environment/CDC/observations_germany/climate/daily/more_precip/DESCRIPTION_obsgermany-climate-daily-more_precip_en.pdf',
     issuer: 'dwd',
   },

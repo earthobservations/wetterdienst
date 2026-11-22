@@ -208,7 +208,7 @@
         "snow": "sníh"
       },
       "measureShort": "{measureCap} (pro {day} tu není měření)",
-      "noteGreyed": "Zašedlé: stanice pro {day} nemá měření.",
+      "noteGreyed": "Zašedlé, pro {day} tu není měření: {measures}.",
       "noteAskedMeasure": "{measureCap}: pro {day} tu není měření. Místo toho se zobrazuje: {shown}.",
       "sun": {
         "dull": "Zataženo.",

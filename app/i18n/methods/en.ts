@@ -208,8 +208,8 @@ export const methods: MethodTexts = {
       steps: {
         station: 'The values of the day, and of the {days} days before and after it (none after yesterday), are fetched for the place\'s station, all measures in one request: the wind gust and mean, the sunshine duration, the precipitation, the highest and lowest temperature, the snow depth and the fresh snow. Choosing another measure asks for nothing new.',
         wind: 'Wind: each speed is turned into a force of the Beaufort scale, from 0 to 12, by the table of WMO. Where the station has a gust for the day, the word comes from its force: calm below force {gustBreezy}, breezy from {gustBreezy}, windy from {gustWindy}, stormy from {gustStormy}. Without a gust the mean is used, one force lower: from {meanBreezy}, {meanWindy} and {meanStormy}.',
-        sun: 'Sun: the sunshine duration of the day is divided by the sunshine that was possible at the station\'s latitude that day, the time between sunrise and sunset on a flat horizon, which follows from the Sun\'s declination. Below {dullBelow} % of it the day is dull, from {sunnyFrom} % it is sunny, and between the two it is mixed.',
-        rain: 'Rain: the precipitation of the day, in millimetres, is dry below {dryMm} mm, light from there, wet from {wetMm} mm and very wet from {veryWetMm} mm.',
+        sun: 'Sun: the sunshine duration of the day is divided by the sunshine that was possible at the station\'s latitude that day, the time the Sun\'s centre is above a flat horizon, which follows from the Sun\'s declination (about a quarter of an hour shorter than the sunrise to sunset of the tables, which count refraction and the Sun\'s disc). Below {dullBelow} % of it the day is dull, from {sunnyFrom} % it is sunny, and between the two it is mixed.',
+        rain: 'Rain: the precipitation of the day, in millimetres, is dry below {dryMm} mm, a little rain from there, wet from {wetMm} mm and very wet from {veryWetMm} mm.',
         temperature: 'Heat and cold: the highest and the lowest temperature of the day are held against the days that DWD names: a hot day (highest temperature {hotDay} °C or more), a summer day (from {summerDay} °C), a tropical night (lowest temperature {tropicalFrom} °C or more), an ice day (highest below {iceBelow} °C) and a frost day (lowest below {frostBelow} °C). The first of them in this order names the day, and the others it belongs to are listed with it.',
         snow: 'Snow: snow lies where the snow depth of the day is above {snowAboveCm} cm. The depth is given, and the fresh snow where the station reports it.',
         around: 'The day is set beside the days around it, as a chart of them. For the wind it is also counted how many of them had a stronger value than the day.',
@@ -226,7 +226,7 @@ export const methods: MethodTexts = {
         },
         'default-day': {
           text: 'A link with no day asks about the same date last year. A 29 February, which the year before did not have, asks about 28 February. The reader can pick any day up to yesterday.',
-          reason: 'The day is an example the project chose to show what the answer looks like: the same date a year ago has its readings in the data for certain, and it is in the same season as today. It has no meaning for the method. No source applies. It replaces the last 26 December that the question opened on before.',
+          reason: 'The day is an example the project chose to show what the answer looks like: the same date a year ago has its readings in the data, and it is in the same season as today. It has no meaning for the method. No source applies. It replaces the last 26 December that the question opened on before.',
         },
         'default-measure': {
           text: 'A link with no measure asks about the wind, the question this chip always was. Where the station has no wind reading for the day, it opens on the first measure that it has a reading of: sun, rain, heat and cold, snow.',
@@ -260,7 +260,7 @@ export const methods: MethodTexts = {
           says: 'WMO defines sunshine duration as the time for which the direct solar irradiance exceeds 120 W per square metre (§8.1.1), and says that for climatological purposes a "relative daily sunshine duration" is used, which relates the sunshine duration to the extra-terrestrial possible one, written SD0 (§8.1.2).',
         },
         'day-length': {
-          text: 'The possible sunshine is the length of the day at the station\'s latitude: the Sun\'s declination on that day gives the hour angle of sunrise, and the day is twice that angle at 15 degrees to the hour, on a flat horizon. A day on which the Sun does not rise has no answer.',
+          text: 'The possible sunshine is the length of the day at the station\'s latitude: the Sun\'s declination on that day gives the hour angle of sunrise, and the day is twice that angle at 15 degrees to the hour, on a flat horizon (the Sun\'s centre at the horizon, with no refraction: about a quarter of an hour shorter than the sunrise to sunset of the tables). A day on which the Sun does not rise has no answer.',
           says: 'WMO gives the approximate formulae of the Astronomical Almanac for the position of the Sun, from which the declination follows (Annex 7.F), and, for a mathematical horizon, the hour angle of sunrise and sunset as cos t = −tan(latitude) · tan(declination) (Annex 7.G).',
         },
         'sun-bands': {
@@ -271,10 +271,12 @@ export const methods: MethodTexts = {
         'rain-trace': {
           text: 'A day with less than {dryMm} mm of precipitation is dry.',
           says: 'WMO says that daily amounts of precipitation should be read to the nearest 0.2 mm and, if feasible, to the nearest 0.1 mm, and that amounts less than 0.1 mm are generally referred to as trace amounts.',
+          reason: 'The edge is WMO\'s. The word "dry" for a day below it is wetterdienst\'s own: WMO calls such amounts traces and names no class of day.',
         },
         'rain-wet-day': {
-          text: 'From {wetMm} mm the day is wet. The days between {dryMm} mm and {wetMm} mm are light.',
+          text: 'From {wetMm} mm the day is wet. The days between {dryMm} mm and {wetMm} mm have a little rain.',
           says: 'WMO\'s guidelines list the number of days with precipitation of 1 mm or more among the principal climatological parameters of a station\'s normals.',
+          reason: 'WMO\'s table counts the days of 1 mm or more and names no class: calling such a day "wet", and one between the two edges "a little rain", is wetterdienst\'s own wording. No source names a day.',
         },
         'rain-very-wet': {
           text: 'From {veryWetMm} mm the day is very wet.',
@@ -301,7 +303,7 @@ export const methods: MethodTexts = {
         'class-order': {
           text: 'A day is named by the first class that it belongs to, in this order: hot day, summer day, tropical night, ice day, frost day. The other classes it belongs to are listed with the word. A day with none is called "neither frost nor a summer day".',
           says: 'DWD calls the days on which a threshold of a meteorological parameter is reached or passed "Kenntage" (days that characterise a time of the year), and names the Sommertag, the Heiße Tag, the Frosttag and the Eistag among them.',
-          reason: 'Every hot day is a summer day and every ice day is a frost day, so the stronger class says more. The heat comes before the cold only because no day is both. The order is wetterdienst\'s, and no source gives one.',
+          reason: 'Every hot day is a summer day and every ice day is a frost day, so the stronger class says more. The heat comes before the cold because hardly any day is both (it would need a range of more than 25 K within the day); where one is, both are listed. The order is wetterdienst\'s, and no source gives one.',
         },
         'snow-lies': {
           text: 'Snow lies where the snow depth of the day is above {snowAboveCm} cm. Otherwise there is no snow on the ground.',
@@ -327,11 +329,11 @@ export const methods: MethodTexts = {
         'time': 'A day is not the same 24 hours in every column of DWD\'s daily data. From April 2001, at the stations checked, the precipitation covers 06:00 UTC to 06:00 UTC of the next day, the highest and lowest temperature and the sunshine duration cover 00:00 to 24:00 UTC, and the snow depth is the reading of 06 UTC. The page "How weather is measured" explains it.',
         'gust': 'A Beaufort force of a gust is not the force of the wind: reported wind is averaged over 10 minutes, the table gives the equivalents of such speeds, and a gust lasts seconds. "Stormy" here means a strong gust, not a "storm" (force 10 of WMO\'s table) in the sense of a mean wind.',
         'height': 'The Beaufort table is for a height of 10 m above open ground. DWD\'s stations differ in the height of the sensor, and a sensor at another height reads another speed; the page "How weather is measured" gives an example.',
-        'horizon': 'The possible sunshine is the day on a flat horizon. A sunshine recorder needs the Sun some degrees above the horizon (WMO asks for a free view of it wherever it is more than 3° up), and hills, buildings and trees at the station take more, so even a cloudless day stays under 100 %.',
-        'recorder': 'Sunshine duration is measured to about a tenth of an hour at best (WMO asks for ±0.1 h), and thin high cloud that dims the Sun to about the line of 120 W per square metre is where the recorders disagree most.',
+        'horizon': 'The possible sunshine is the day on a flat horizon, counted to the Sun\'s centre and with no refraction, as WMO\'s SD0 is: about a quarter of an hour shorter than the sunrise to sunset of the tables. A sunshine recorder needs the Sun some degrees above the horizon (WMO asks for a free view of it wherever it is more than 3° up), and hills, buildings and trees at the station take more, so even a cloudless day usually stays a little under 100 %.',
+        'recorder': 'Sunshine duration is measured to about a tenth of an hour at best (WMO asks for ±0.1 h). WMO says the highest precision is needed where high cloud layers dim the direct sunlight to around 120 W per square metre, and that a dominantly clouded sky shows the highest percentage of deviations from the reference: a dull day is the least certain one.',
         'gauge': 'A rain gauge measures at one point, and the wind makes it catch less than falls: WMO calls the wind the greatest source of disturbance in precipitation measurements and says the undercatch of rain in a standard gauge can be as high as 10 %.',
         'night': 'A tropical night is a night from 18 UTC to 06 UTC, and the answer looks at the station\'s day from 00:00 to 24:00 UTC. In Germany local time is one or two hours ahead of UTC.',
-        'snow-reading': 'DWD\'s snow depth is the reading of 06 UTC at the stations checked: snow that fell and melted during the day is not in it, and a day with fresh snow can show a depth of 0 cm. The fresh snow is a value of its own that not every station reports; where it has none, the answer says so.',
+        'snow-reading': 'DWD\'s snow depth is the reading of 06 UTC at the stations checked: snow that fell and melted during the day is not in it, and a day with fresh snow can show a depth of 0 cm. The fresh snow is a value of its own that not every station reports; where it has none, the answer says so. The link into the Explorer opens the snow depth; the fresh snow is in the dataset daily/precipitation_more.',
       },
       numbers: {
         station: 'Station: {name} ({id}).',
@@ -344,7 +346,7 @@ export const methods: MethodTexts = {
         sunHours: 'Sunshine: {hours} h. At {latitude}° N the Sun could shine {possible} h that day, so the day had {share} of the possible sunshine.',
         sunScale: 'Scale used: dull below {dull}, mixed from {dull}, sunny from {sunny} of the possible sunshine.',
         rainAmount: 'Precipitation of the day: {amount} {unit}.',
-        rainScale: 'Scale used: dry below {dry} {unit}, light from {dry}, wet from {wet}, very wet from {veryWet} {unit}.',
+        rainScale: 'Scale used: dry below {dry} {unit}, a little rain from {dry}, wet from {wet}, very wet from {veryWet} {unit}.',
         tempRange: 'Highest temperature {max} {unit}, lowest {min} {unit}.',
         tempClass: 'The day counts as: {kind}.',
         tempScale: 'Days counted: a summer day has a highest temperature from {summer} {unit}, a hot day from {hot} {unit}, an ice day below {ice} {unit}; a frost day has a lowest temperature below {frost} {unit}, a tropical night from {tropical} {unit}.',

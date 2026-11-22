@@ -640,7 +640,7 @@ describe('the suggestions', () => {
       const disabled = measure(wrapper).find('option[disabled]')
       expect(disabled.attributes('value')).toBe('snow')
       expect(disabled.text()).toMatch(/^Snow \(no reading here for .+\)$/)
-      expect(wrapper.find('[data-testid="choice-note"]').text()).toMatch(/^Greyed out: this station has no reading of it for .+\.$/)
+      expect(wrapper.find('[data-testid="choice-note"]').text()).toMatch(/^Greyed out, with no reading here for .+: snow\.$/)
       expect(wrapper.find('[data-testid="choice-note"]').attributes('role')).toBe('status')
       // the others can be chosen
       expect(measure(wrapper).findAll('option:not([disabled])')).toHaveLength(4)
@@ -651,7 +651,7 @@ describe('the suggestions', () => {
       const wrapper = await open('ask=day&measure=snow&day=2025-12-26')
       await vi.waitFor(() => expect(verdict(wrapper).text()).toBe('Stormy.'))
       expect((measure(wrapper).element as HTMLSelectElement).value).toBe('wind')
-      expect(wrapper.find('[data-testid="choice-note"]').text()).toMatch(/Snow has no reading here for .+\. Showing instead: wind\./)
+      expect(wrapper.find('[data-testid="choice-note"]').text()).toMatch(/Snow: no reading here for .+\. Showing instead: wind\./)
       expect(chip(wrapper, 'day').text()).toBe('How windy was it on 26 December?')
     })
 

@@ -208,8 +208,8 @@
         "snow": "Schnee"
       },
       "measureShort": "{measureCap} (hier keine Messung für den {day})",
-      "noteGreyed": "Ausgegraut: Die Station hat dafür keinen Wert für den {day}.",
-      "noteAskedMeasure": "{measureCap} hat hier keinen Wert für den {day}. Stattdessen gezeigt: {shown}.",
+      "noteGreyed": "Ausgegraut, hier ohne Wert am {day}: {measures}.",
+      "noteAskedMeasure": "{measureCap}: hier kein Wert für den {day}. Stattdessen gezeigt: {shown}.",
       "sun": {
         "dull": "Trüb.",
         "mixed": "Teils sonnig.",
@@ -228,7 +228,7 @@
         "none": "Für den {day} gibt es hier keine Niederschlagsmessung."
       },
       "temperature": {
-        "hot": "Ein Heißer Tag.",
+        "hot": "Ein heißer Tag.",
         "summer": "Ein Sommertag.",
         "tropical": "Eine Tropennacht.",
         "ice": "Ein Eistag.",

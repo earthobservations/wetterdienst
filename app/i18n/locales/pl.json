@@ -208,7 +208,7 @@
         "snow": "śnieg"
       },
       "measureShort": "{measureCap} (brak tu pomiaru z dnia {day})",
-      "noteGreyed": "Wyszarzone: stacja nie ma pomiaru z dnia {day}.",
+      "noteGreyed": "Wyszarzone, brak tu pomiaru z dnia {day}: {measures}.",
       "noteAskedMeasure": "{measureCap}: brak tu pomiaru z dnia {day}. Pokazano zamiast tego: {shown}.",
       "sun": {
         "dull": "Pochmurno.",

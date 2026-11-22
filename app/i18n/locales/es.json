@@ -208,7 +208,7 @@
         "snow": "nieve"
       },
       "measureShort": "{measureCap} (sin medición aquí para el {day})",
-      "noteGreyed": "En gris: la estación no tiene medición para el {day}.",
+      "noteGreyed": "En gris, sin medición aquí para el {day}: {measures}.",
       "noteAskedMeasure": "{measureCap}: sin medición aquí para el {day}. Se muestra en su lugar: {shown}.",
       "sun": {
         "dull": "Gris.",

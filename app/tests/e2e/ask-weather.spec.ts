@@ -170,12 +170,12 @@ test.describe('the suggestions', () => {
     await expect(snow).toHaveText(/^Snow \(no reading here for .+\)$/)
     await expect(select.locator('option[disabled]')).toHaveCount(1)
     const note = page.getByTestId('choice-note')
-    await expect(note).toHaveText(/^Greyed out: this station has no reading of it for .+\.$/)
+    await expect(note).toHaveText(/^Greyed out, with no reading here for .+: snow\.$/)
     await expect(note).toHaveAttribute('role', 'status')
     // a link that names it gets the wind, and the line says so
     await home(page, baseURL!, '/?ask=day&measure=snow&day=2025-12-26&place=00183')
     await expect(select).toHaveValue('wind')
-    await expect(page.getByTestId('choice-note')).toContainText('Snow has no reading here for')
+    await expect(page.getByTestId('choice-note')).toContainText('Snow: no reading here for')
     await expect(page.getByTestId('answer-verdict')).toHaveText(en.ask.wind.stormy)
   })
 

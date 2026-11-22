@@ -208,8 +208,8 @@
         "snow": "snow"
       },
       "measureShort": "{measureCap} (no reading here for {day})",
-      "noteGreyed": "Greyed out: this station has no reading of it for {day}.",
-      "noteAskedMeasure": "{measureCap} has no reading here for {day}. Showing instead: {shown}.",
+      "noteGreyed": "Greyed out, with no reading here for {day}: {measures}.",
+      "noteAskedMeasure": "{measureCap}: no reading here for {day}. Showing instead: {shown}.",
       "sun": {
         "dull": "Dull.",
         "mixed": "Mixed.",

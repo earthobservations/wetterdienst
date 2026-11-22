@@ -208,7 +208,7 @@
         "snow": "Schnéi"
       },
       "measureShort": "{measureCap} (hei keng Miessung fir den {day})",
-      "noteGreyed": "Gro: d'Statioun huet fir den {day} keng Miessung.",
+      "noteGreyed": "Gro, hei keng Miessung fir den {day}: {measures}.",
       "noteAskedMeasure": "{measureCap}: hei keng Miessung fir den {day}. Amplaz gëtt gewisen: {shown}.",
       "sun": {
         "dull": "Düster.",

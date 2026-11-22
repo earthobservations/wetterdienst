@@ -208,10 +208,10 @@
         "snow": "neige"
       },
       "measureShort": "{measureCap} (pas de mesure ici pour le {day})",
-      "noteGreyed": "Grisé : la station n'a pas de mesure pour le {day}.",
+      "noteGreyed": "Grisé, pas de mesure ici pour le {day} : {measures}.",
       "noteAskedMeasure": "{measureCap} : pas de mesure ici pour le {day}. À la place : {shown}.",
       "sun": {
-        "dull": "Terne.",
+        "dull": "Peu ensoleillé.",
         "mixed": "Variable.",
         "sunny": "Ensoleillé.",
         "detail": "{hours} h d'ensoleillement, soit {share} des {possible} h possibles ici.",

@@ -208,7 +208,7 @@
         "snow": "Snee"
       },
       "measureShort": "{measureCap} (hier keen Meten för den {day})",
-      "noteGreyed": "Utgraut: De Station hett dorför keen Weert för den {day}.",
+      "noteGreyed": "Utgraut, hier ohn Weert an'n {day}: {measures}.",
       "noteAskedMeasure": "{measureCap} hett hier keen Weert för den {day}. In Stä wiest: {shown}.",
       "sun": {
         "dull": "Trüüb.",

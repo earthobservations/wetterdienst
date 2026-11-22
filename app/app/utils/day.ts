@@ -238,8 +238,8 @@ export function temperatureOnDay(readings: Reading[], day: string, unit = '°C')
   if (max === null || min === null)
     return null
   const classes = temperatureClasses(toCanonical('temperature', unit, max), toCanonical('temperature', unit, min))
-  // the cold that names the day is its minimum, except for an ice day, which its maximum names
-  const barsAre = classes.includes('frost') && !classes.includes('ice') ? 'min' : 'max'
+  // the temperature that names the day is drawn: the minimum for a frost day and for a tropical night, the maximum for the rest (an ice day is named by its maximum)
+  const barsAre = (classes.includes('frost') && !classes.includes('ice')) || classes[0] === 'tropical' ? 'min' : 'max'
   return {
     verdict: classes[0] ?? 'ordinary',
     day,

@@ -175,7 +175,7 @@ export const day = defineChip({
     if (asked && asked !== measure)
       notes.push(t('ask.day.noteAskedMeasure', { measureCap: upperFirst(t(`ask.day.measure.${asked}`)), day: dayName, shown: t(`ask.day.measure.${measure}`) }))
     if (have.length > 0 && have.length < MEASURES.length)
-      notes.push(t('ask.day.noteGreyed', { day: dayName }))
+      notes.push(t('ask.day.noteGreyed', { day: dayName, measures: MEASURES.filter(each => !have.includes(each)).map(each => t(`ask.day.measure.${each}`)).join(', ') }))
     return { choices: { ...choices, measure }, note: notes.join(' ') }
   },
   question: (env, choices) => env.t(`ask.q.day.${measureOf(choices)}`, { day: env.dayText(choices.day!) }),
@@ -332,8 +332,8 @@ export const day = defineChip({
       { id: 'day-length', kind: 'statistic', cites: [{ work: 'wmo-8-i', at: 'Annex 7.F, Annex 7.G' }] },
       { id: 'sun-bands', kind: 'band', values: { dullBelow: SUN_SHARE_DULL_BELOW * 100, sunnyFrom: SUN_SHARE_SUNNY_FROM * 100 }, own: true, cites: [{ work: 'wmo-8-i', at: '§8.1.3' }] },
       // rain: the bands of a day's precipitation
-      { id: 'rain-trace', kind: 'band', values: { dryMm: RAIN_DRY_BELOW_MM }, cites: [{ work: 'wmo-8-i', at: '§6.1.2' }] },
-      { id: 'rain-wet-day', kind: 'band', values: { wetMm: RAIN_WET_FROM_MM }, cites: [{ work: 'wmo-1203', at: 'Table 1' }] },
+      { id: 'rain-trace', kind: 'band', values: { dryMm: RAIN_DRY_BELOW_MM }, own: true, cites: [{ work: 'wmo-8-i', at: '§6.1.2' }] },
+      { id: 'rain-wet-day', kind: 'band', values: { wetMm: RAIN_WET_FROM_MM }, own: true, cites: [{ work: 'wmo-1203', at: 'Table 1' }] },
       { id: 'rain-very-wet', kind: 'band', values: { veryWetMm: RAIN_VERY_WET_FROM_MM }, own: true, cites: [{ work: 'wmo-1203', at: 'Table 1' }] },
       // heat and cold: the days DWD names by their temperature
       { id: 'heat-days', kind: 'band', values: { summerDay: SUMMER_DAY_MAX_FROM, hotDay: HOT_DAY_MAX_FROM }, cites: [{ work: 'dwd-kenntage' }, { work: 'wmo-1203', at: 'Table 1' }] },

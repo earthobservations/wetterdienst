@@ -263,7 +263,7 @@ describe('what is marked as wetterdienst\'s own', () => {
   const OWN: Record<string, string[]> = {
     rain: ['nearest-point', 'day', 'min-hours', 'day-total', 'maybe-amount', 'chance-bands', 'highest-chance'],
     season: ['winter-year', 'only-over', 'default-season', 'default-normal', 'normal-mean', 'min-seasons', 'fallback-period', 'fallback-minimum', 'usual-band', 'rank'],
-    day: ['default-day', 'default-measure', 'measure-reading', 'gust-first', 'gust-words', 'mean-words', 'sun-bands', 'rain-very-wet', 'tropical-daily-minimum', 'class-order', 'around-window', 'stronger-count'],
+    day: ['default-day', 'default-measure', 'measure-reading', 'gust-first', 'gust-words', 'mean-words', 'sun-bands', 'rain-trace', 'rain-wet-day', 'rain-very-wet', 'tropical-daily-minimum', 'class-order', 'around-window', 'stronger-count'],
     download: ['networks', 'hourly-temperature', 'order'],
   }
 
