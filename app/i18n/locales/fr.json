@@ -1333,7 +1333,7 @@
     "areasLabel": "Zones",
     "areasMore": "et {count} de plus",
     "textGerman": "Texte original du DWD, en allemand : le DWD ne publie pas cet avertissement dans ta langue.",
-    "legendDescription": "Contours des avertissements : le niveau 1 a un bord pointillé, le niveau 2 un bord en tirets, le niveau 3 un bord plein et le niveau 4 un bord en double ligne ; l'information préalable a un bord en tirets et points. La liste du panneau nomme chaque avertissement avec des mots.",
+    "legendDescription": "Contours des avertissements : le niveau 1 a un bord pointillé, le niveau 2 un bord en tirets, le niveau 3 un bord plein et le niveau 4 un bord en double ligne ; l'information préalable a un bord en tirets et points. La liste du panneau nomme chaque avertissement avec des mots.",
     "panelTitle": "Avertissements météo du DWD",
     "panelCount": "Avertissements en vigueur ou annoncés en Allemagne : {count}",
     "panelNone": "Aucun avertissement n'est en vigueur ni annoncé en Allemagne.",
