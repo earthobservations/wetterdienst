@@ -196,6 +196,22 @@ const STATES: State[] = [
     },
   },
   {
+    // the values table on a phone: its box scrolls sideways, so it is a focusable, named region (2.1.1), and its controls are 24 px targets (GH-4312)
+    page: 'explorer',
+    state: 'phone-values-table',
+    path: EXPLORER_WITH_STATION,
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
+      await expect(page.getByRole('table').first()).toBeVisible()
+      // Playwright scrolled the Show button into view to click it, which leaves the station picker's switch at the top of the window, half
+      // under the top bar (the bars hide on a reader's scroll, which this was not, GH-4226): the page is put back at its top, where
+      // nothing is under a bar, so that the state is the same on every run
+      await page.evaluate(() => window.scrollTo(0, 0))
+      await expect(page.locator('html')).not.toHaveAttribute('data-bars', 'hidden')
+    },
+  },
+  {
     page: 'explorer',
     state: 'values-chart',
     path: EXPLORER_WITH_STATION,
