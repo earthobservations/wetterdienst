@@ -257,7 +257,11 @@
       "pypi": "Install the Python library with pip"
     },
     "stationsMap": "Station on the map",
-    "stationOnMap": "Show station {id} on the map"
+    "stationOnMap": "Show station {id} on the map",
+    "placeGroup": "Place",
+    "placeOnMap": "Show this point on the map",
+    "moreIn": "{count} more in {page}",
+    "resultsIn": "{group}: {count}"
   },
   "header": {
     "github": "GitHub",

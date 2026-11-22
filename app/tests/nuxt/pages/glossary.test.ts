@@ -1,6 +1,6 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { describe, expect, it, vi } from 'vitest'
-import { clearNuxtData } from '#app'
+import { clearNuxtData, useRouter } from '#imports'
 import GlossaryPage from '~/pages/glossary.vue'
 
 // the page reads the vocabulary through `useFetch`, which goes via `$fetch` rather than the global
@@ -103,6 +103,74 @@ describe('glossary Page', () => {
     const wrapper = await mountGlossary()
     const shown = (wrapper.vm as any).entries.map((entry: { name: string }) => entry.name)
     expect(shown).toEqual(['temperature_air_mean_2m', 'sunshine_duration'])
+  })
+
+  // GH-3790: what the search of the header leads to
+  it('starts with the search that the address names (`?q=`), which is the "more" of the search of the header', async () => {
+    served = entries
+    clearNuxtData()
+    const wrapper = await mountSuspended(GlossaryPage, { route: '/glossary?q=sunshine' })
+    await vi.waitFor(() => expect((wrapper.vm as any).pending).toBe(false), { timeout: 5000 })
+    expect((wrapper.find('input').element as HTMLInputElement).value).toBe('sunshine')
+    expect((wrapper.vm as any).entries.map((entry: { name: string }) => entry.name)).toEqual(['sunshine_duration'])
+  })
+
+  it('filters as the search does: every word, in any order, folded, in the label, the id, the unit or the description', async () => {
+    served = entries
+    clearNuxtData()
+    const wrapper = await mountSuspended(GlossaryPage, { route: '/glossary?q=GROUND%20temperature' })
+    await vi.waitFor(() => expect((wrapper.vm as any).pending).toBe(false), { timeout: 5000 })
+    const shown = () => (wrapper.vm as any).entries.map((entry: { name: string }) => entry.name)
+    expect(shown()).toEqual(['temperature_air_mean_2m'])
+    await wrapper.find('input').setValue('duration sunshine')
+    expect(shown()).toEqual(['sunshine_duration'])
+  })
+
+  it('follows `?q=` while it is open: the "more" of the search of the header, used on the glossary itself', async () => {
+    served = entries
+    clearNuxtData()
+    const wrapper = await mountSuspended(GlossaryPage, { route: '/glossary' })
+    await vi.waitFor(() => expect((wrapper.vm as any).pending).toBe(false), { timeout: 5000 })
+    expect((wrapper.vm as any).entries).toHaveLength(2)
+    await useRouter().push('/glossary?q=sunshine')
+    await vi.waitFor(() => expect((wrapper.find('input').element as HTMLInputElement).value).toBe('sunshine'))
+    expect((wrapper.vm as any).entries.map((entry: { name: string }) => entry.name)).toEqual(['sunshine_duration'])
+    await useRouter().push('/glossary')
+    await vi.waitFor(() => expect((wrapper.find('input').element as HTMLInputElement).value).toBe(''))
+    expect((wrapper.vm as any).entries).toHaveLength(2)
+  })
+
+  it('has an anchor for every entry: its name', async () => {
+    served = entries
+    clearNuxtData()
+    const wrapper = await mountGlossary()
+    expect(wrapper.find('[id="sunshine_duration"]').text()).toContain('Length of time')
+    expect(wrapper.find('[id="temperature_air_mean_2m"]').exists()).toBe(true)
+  })
+
+  it('takes the reader to the entry the address names, once the list is there, and puts the focus on it', async () => {
+    served = entries
+    clearNuxtData()
+    const wrapper = await mountSuspended(GlossaryPage, { route: '/glossary#sunshine_duration', attachTo: document.body })
+    try {
+      await vi.waitFor(() => expect(document.activeElement?.id).toBe('sunshine_duration'), { timeout: 5000 })
+    }
+    finally {
+      wrapper.unmount()
+    }
+  })
+
+  it('shows an entry that the address names where the search the address also names hides it', async () => {
+    served = entries
+    clearNuxtData()
+    const wrapper = await mountSuspended(GlossaryPage, { route: '/glossary?q=temperature#sunshine_duration', attachTo: document.body })
+    try {
+      await vi.waitFor(() => expect(document.activeElement?.id).toBe('sunshine_duration'), { timeout: 5000 })
+      expect((wrapper.find('input').element as HTMLInputElement).value).toBe('')
+    }
+    finally {
+      wrapper.unmount()
+    }
   })
 
   // last, because it serves a third entry and the `useFetch` cache is shared across these mounts
