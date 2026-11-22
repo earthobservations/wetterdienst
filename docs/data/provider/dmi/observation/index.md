@@ -136,7 +136,9 @@ moisture", in Danish bladfugt) the minutes with a wet leaf and `vapour_pressure_
 the hourly mean temperature and mean relative humidity. DMI publishes these four by the hour and the day and not by the
 month or the year. The hourly `temp_soil_30` is not served: DMI names no source for it ("N/A" in its calculation
 table; the 10 cm value is documented as the mean of the hour) and states the mean only for the day, "the average of all
-hourly values within a day", so the hour waits for DMI's answer.
+hourly values within a day", so the hour waits for DMI's answer. DMI customer service said on 2026-11-12 that it had forwarded the question and has
+not answered it (2026-11-22). Only the daily mean is served; the hourly value can be added later without changing
+anything served now.
 
 The mean wind direction at minute 0 is `mean_wind_dir_min0` (`wind_direction_mean_last_10min`, hourly only, 47
 stations: 40 of Greenland and 7 of the Faroe Islands in the station list of 2026-11-02), beside `mean_wind_dir`, the
@@ -222,6 +224,15 @@ published as the metObs parameter `snow_cover_man`, which DMI's calculation tabl
 on 2026-04-30 and 2026-05-03), with the codes 0 to 4 (not percent: 4 at 20000 on 2026-01-07 to 2026-01-11) and 0 only
 in October and November 2026. 21 of those stations, such as 20119, 20315 and 31509, are none of the 91 of the
 climate data. The library reads the climate data only, so it serves no snow cover after 2015-11-21.
+
+DMI customer service answered the follow-up on 2026-11-19. `snow_cover_man` is reported once a day in the snow season
+by manual observers: 0 means less than a quarter of the ground is covered, 1 about a quarter, 2 about half, 3 about
+three quarters and 4 all of it. metObs is raw data and is not checked at all; the climate data is checked by DMI's
+climatologists, which is why the two offer different parameters. DMI says that `snow_cover` of the climate data may have
+stopped in 2015 because it is no longer quality checked, and has forwarded the question to its climatologists, who have
+not answered (2026-11-22). wetterdienst does not read `snow_cover_man` (maintainer
+decision of 2026-11-12 and 2026-11-19), so the snow cover stays as the climate data has it, ending on 2015-11-21. An
+answer that changes this is a new issue ([GH-3762](https://github.com/earthobservations/wetterdienst/issues/3762)).
 
 The mean vapour pressure (`pressure_vapor_mean`) is not checked itself: DMI computes it from the checked mean
 temperature and mean relative humidity (DMI customer service, 2026-11-12), and its records still carry `qcStatus`

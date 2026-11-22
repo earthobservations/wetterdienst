@@ -23,6 +23,36 @@ leave such a station out, as they do a station with no elevation, instead of bri
 from a height of 0 m ([interpolation at an elevation](../../../../usage/interpolation.md#elevation),
 GH-3708). A station at 12.0 m is a height and is corrected.
 
+## Lost signs in the station lists
+
+Both station lists have lost the sign of some stations' coordinates: 48 stations (UK, Spain, France, Algeria, Burkina
+Faso and others) are listed east of Greenwich where they lie west of it, 6 to 4,571 km off, and 7 are listed north of
+the equator where they lie south of it. The daily list (`ghcnd-stations.txt`) and the hourly list
+(`ghcnh-station-list.csv`) have it, sometimes the same station in only one of them. Each was checked against two or
+more other sources (ECA&D, the other GHCN list, ISD history, DWD MOSMIX, OpenStreetMap, Wikipedia, AEMET); ECA&D's
+key-less station lists carry the true west position of the UKE, SPE and FRE ids.
+
+NOAA NCEI was sent a report of every position corrected here on 2026-11-01 and has not answered (2026-11-22). The
+reader corrects them from a table in `provider/noaa/ghcn/api.py` (`LOST_LONGITUDE_SIGN_STATIONS`,
+`LOST_LATITUDE_SIGN_STATIONS`). A row is changed only while the list still gives exactly the position the table
+recorded when the station was checked, so a list that NOAA corrects, or moves, is read as NOAA gives it, and an id the
+list uses for another station is not touched. The table stays until NOAA has fixed its lists. Each correction is listed
+in [Migrating](../../../../usage/migrating.md) with the release that made it.
+
+The table is not complete. A station was found by comparing the daily with the hourly list (a latitude within 0.06
+degree and a longitude that agrees only with the sign reversed), which finds only a station that has a partner in the
+other list within a few km. Three more were seen and are not corrected, as two independent sources do not yet agree on
+them: Gecitkale, Yulinu/Takokagyn (RSM00025187) and Shemya. Check a position that looks wrong against a second source,
+and report it as an issue.
+
+## `TAXN` is not served
+
+The readme of GHCN-Daily (v3.35) defines `TAXN` as "Average daily temperature computed as (TMAX+TMIN)/2.0". Nothing is
+published under it: `ghcnd-inventory.txt` has no `TAXN` row among its 144 elements, and the whole of
+`by_year/2026.csv.gz` (27.2 million rows) has none (read 2026-11-08). So there is nothing to serve, and
+`temperature_air_mean_2m` (`TAVG`) is the daily mean the files hold. A mean of the two extremes you can compute from the
+`TMAX` and `TMIN` that are served ([GH-3762](https://github.com/earthobservations/wetterdienst/issues/3762)).
+
 ## The daily station list for some parameters
 
 The daily list reads `ghcnd-inventory.txt`, which gives the first and last year of each element of each station. A
