@@ -40,7 +40,28 @@ The derived products currently supported are:
 **Stations without a line in the station list:** the `soil` directories hold files of nine stations that
 `stations_list_soil.txt` does not carry (01584, 02110, 02814, 02968, 03612, 04261, 05941, 07350, 13710, read
 2026-10-22). They are not listed and their data cannot be requested; a warning that names them is logged,
-once a process, when the stations are read for all periods ([GH-3258](https://github.com/earthobservations/wetterdienst/issues/3258)).
+once a process, when the stations are read for all periods. DWD was asked on 2026-11-07 to add the lines and has not
+answered (2026-11-22); `dwd/derived` was not read again then ([GH-3258](https://github.com/earthobservations/wetterdienst/issues/3258)).
+
+## Sheets of DWD that the data contradict
+
+Three of DWD's description sheets of this network say something the files rule out. The questions were sent to DWD
+on 2026-11-07 and are not answered (2026-11-22). Until DWD answers, wetterdienst changes no name and no value, and the
+description of each parameter says what the data show:
+
+- **The hour of DUETT** (`hourly/radiation_global`, `hourly/sunshine_duration`): the sheet calls the stamp the end of
+  the synoptic hour and gives that hour as (HH-1):50 to HH:50 under DATA ORIGIN and as (HH-2):50 to (HH-1):50 under
+  CONSIDERATIONS FOR APPLICATIONS. DWD's 10-minute station data fit (HH-2):50 to (HH-1):50 best, which is what the
+  descriptions of the two parameters say.
+- **The English sheet of the cooling degree hours:** the English sheets in the `cdh_13`, `cdh_16` and `cdh_18`
+  directories (`..._hdh_..._en.pdf`, in `recent/`) are the text of the heating degree days sheet (Monatsgradtage,
+  Heiztage, 15 degree Celsius), not that of the cooling degree hours. The docs link the English sheet one directory up
+  (`..._cdh_..._en.pdf`) instead.
+- **The unit of `cooling_degree_hour`:** the sheet gives "Kelvin * day" for Kuehlgradstunden, where the values are K*h
+  (2,562.3 for 545 cooling hours at the reference of 13 degree Celsius, Grossenkneten, September 2026). The unit
+  returned is `°Ch`.
+
+A late answer is a new issue.
 
 ## Positions of the stations
 

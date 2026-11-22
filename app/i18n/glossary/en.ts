@@ -456,7 +456,7 @@ export const parameters: Record<string, string> = {
   discharge_max: 'Maximum discharge',
   discharge_mean: 'Mean discharge',
   discharge_min: 'Minimum discharge',
-  distance_river_gauge_height: 'Gauge datum height',
+  distance_river_gauge_height: 'Difference between river and gauge height',
   electric_conductivity: 'Electrical conductivity',
   evaporation_amount: 'Evaporation',
   evaporation_amount_corn_loamy_silt: 'Evaporation, loamy silt under corn',

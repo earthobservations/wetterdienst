@@ -433,7 +433,7 @@ export const parameters: Record<string, string> = {
   discharge_max: 'Débit maximal',
   discharge_mean: 'Débit moyen',
   discharge_min: 'Débit minimal',
-  distance_river_gauge_height: 'Altitude du zéro de l\'échelle',
+  distance_river_gauge_height: 'Différence entre la hauteur de la rivière et celle de l\'échelle',
   electric_conductivity: 'Conductivité électrique',
   evaporation_amount: 'Évaporation',
   evaporation_amount_corn_loamy_silt: 'Évaporation, limon argileux sous maïs',

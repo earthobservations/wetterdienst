@@ -53,6 +53,18 @@ flagged `suspect:range`, the value kept, as every forecast value outside the ran
 the wind that MOSMIX-L writes below 0 now and then (`RSunD` to -10 %, `N05` to -8 %, `wwS` -1 %, `FF` -0.51 m/s) are not
 named by the floor and are held to the range, 0 at the low end: `suspect:range`. `E_DD`, a signed error, has no bound.
 
+## The 24 hours of `TM`
+
+`temperature_air_mean_2m_last_24h` (`TM`, MOSMIX-L only) is "Mean temperature during the last 24 hours" in DWD's
+element table, given at the 06 UTC steps; which 24 hours is not stated. Against the hourly `TTT` of the same file, the
+run of 2026-10-19 at 10 stations (100 values) fits the UTC day before the step's date (00 to 24 UTC, ending 6 hours
+before the step) with a mean absolute difference of 0.33 K, the 24 hours ending at the step with 0.55 K and the UTC day
+of the step with 1.1 K. That points one way and is not conclusive. The question was sent to DWD on 2026-10-19 and
+2026-11-08 and is not answered (2026-11-22), so the parameter keeps its name, and its description and the
+[time reference](../../../time_reference.md) say that the window is unconfirmed and which way the data point. If DWD
+answers, the answer decides, and a rename is then a breaking change, announced as such
+([GH-3137](https://github.com/earthobservations/wetterdienst/issues/3137)).
+
 ## Update date
 
 A forecast is dated by its model run: the `data_updated_at` of the

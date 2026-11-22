@@ -433,7 +433,7 @@ export const parameters: Record<string, string> = {
   discharge_max: 'Maksimal vandføring',
   discharge_mean: 'Middelvandføring',
   discharge_min: 'Minimal vandføring',
-  distance_river_gauge_height: 'Nulpunktshøjde',
+  distance_river_gauge_height: 'Forskel mellem flod- og pejlehøjde',
   electric_conductivity: 'Elektrisk ledningsevne',
   evaporation_amount: 'Fordampning',
   evaporation_amount_corn_loamy_silt: 'Fordampning, leret silt under majs',

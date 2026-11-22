@@ -146,6 +146,17 @@ const stripesChart = (page: Page) => page.locator('.sc-canvas[data-drawn="true"]
 /** The forecast's chart (ECharts): its SVG is in the container once it has */
 const forecastChart = (page: Page) => page.locator('.mg-canvas svg').first()
 
+/**
+ * The page back at its top, for a state on a phone that clicks a button further down: Playwright scrolls the button into view to click it,
+ * which can leave a control (the station picker's switch) at the top of the window half under the fixed top bar. The bars hide on a
+ * reader's scroll, which this was not (GH-4226), so axe finds that control "partially obscured" (`target-size`), on some runs and not
+ * on others. At the top nothing is under a bar, so the state is the same on every run.
+ */
+async function backAtTop(page: Page) {
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await expect(page.locator('html')).not.toHaveAttribute('data-bars', 'hidden')
+}
+
 /** A map with markers: Leaflet puts one icon, or a cluster, in the page for each */
 async function mapWithStations(page: Page) {
   await expect(page.locator('.leaflet-marker-icon').first()).toBeVisible()
@@ -193,6 +204,18 @@ const STATES: State[] = [
     reach: async (page, locale) => {
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
       await expect(page.getByRole('table').first()).toBeVisible()
+    },
+  },
+  {
+    // the values table on a phone: its box scrolls sideways, so it is a focusable, named region (2.1.1), and its controls are 24 px targets (GH-4312)
+    page: 'explorer',
+    state: 'phone-values-table',
+    path: EXPLORER_WITH_STATION,
+    viewport: { width: 390, height: 844 },
+    reach: async (page, locale) => {
+      await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
+      await expect(page.getByRole('table').first()).toBeVisible()
+      await backAtTop(page)
     },
   },
   {
@@ -279,6 +302,7 @@ const STATES: State[] = [
     reach: async (page, locale) => {
       await page.getByRole('button', { name: message(locale, 'common.fetch'), exact: true }).click()
       await expect(page.getByTestId('limit-apply')).toBeVisible()
+      await backAtTop(page)
       // the notice's text and buttons wrap, and none reaches past the screen (1.4.10): the page itself
       // is wider at 320 px where a station is chosen, which is the explorer's own and no concern of the notice
       const past = await page.evaluate(() => {

@@ -433,7 +433,7 @@ export const parameters: Record<string, string> = {
   discharge_max: 'Przepływ maksymalny',
   discharge_mean: 'Przepływ średni',
   discharge_min: 'Przepływ minimalny',
-  distance_river_gauge_height: 'Wysokość zera wodowskazu',
+  distance_river_gauge_height: 'Różnica między wysokością rzeki a wodowskazu',
   electric_conductivity: 'Przewodność elektryczna',
   evaporation_amount: 'Parowanie',
   evaporation_amount_corn_loamy_silt: 'Parowanie, pył gliniasty pod kukurydzą',
