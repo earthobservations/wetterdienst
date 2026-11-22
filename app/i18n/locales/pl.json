@@ -383,7 +383,24 @@
     "opensExplorer": "otwiera Eksplorator",
     "stationListReading": "Lista stacji jest jeszcze wczytywana; mogą pojawić się kolejne wyniki",
     "stationListFailed": "Nie udało się wczytać jednej z list stacji",
-    "allNetworksGroup": "Wszystkie sieci"
+    "allNetworksGroup": "Wszystkie sieci",
+    "placesGroup": "Miejsca",
+    "placeKinds": {
+      "city": "Duże miasto",
+      "town": "Miasto",
+      "village": "Wieś",
+      "hamlet": "Osada",
+      "district": "Dzielnica",
+      "county": "Powiat",
+      "region": "Stan lub region",
+      "country": "Kraj",
+      "island": "Wyspa",
+      "mountain": "Góra",
+      "water": "Akwen",
+      "airport": "Lotnisko"
+    },
+    "placesCredit": "{osm} ({licence}) · miejsca przez {photon}",
+    "placesFailed": "Nie udało się teraz wyszukać miejsc. Pisz dalej, aby spróbować ponownie."
   },
   "header": {
     "github": "GitHub",

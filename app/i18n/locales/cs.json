@@ -383,7 +383,24 @@
     "opensExplorer": "otevře Průzkumník",
     "stationListReading": "Seznam stanic se ještě načítá; mohou přibýt další výsledky",
     "stationListFailed": "Jeden seznam stanic se nepodařilo načíst",
-    "allNetworksGroup": "Všechny sítě"
+    "allNetworksGroup": "Všechny sítě",
+    "placesGroup": "Místa",
+    "placeKinds": {
+      "city": "Velkoměsto",
+      "town": "Město",
+      "village": "Vesnice",
+      "hamlet": "Osada",
+      "district": "Čtvrť",
+      "county": "Okres",
+      "region": "Stát nebo region",
+      "country": "Stát",
+      "island": "Ostrov",
+      "mountain": "Hora",
+      "water": "Vodní plocha",
+      "airport": "Letiště"
+    },
+    "placesCredit": "{osm} ({licence}) · místa přes {photon}",
+    "placesFailed": "Místa se teď nepodařilo vyhledat. Piš dál a zkus to znovu."
   },
   "header": {
     "github": "GitHub",

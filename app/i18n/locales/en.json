@@ -383,7 +383,24 @@
     "opensExplorer": "opens the Explorer",
     "stationListReading": "Still reading a list of stations; more results may follow",
     "stationListFailed": "One list of stations could not be read",
-    "allNetworksGroup": "All networks"
+    "allNetworksGroup": "All networks",
+    "placesGroup": "Places",
+    "placeKinds": {
+      "city": "City",
+      "town": "Town",
+      "village": "Village",
+      "hamlet": "Hamlet",
+      "district": "District",
+      "county": "County",
+      "region": "State or region",
+      "country": "Country",
+      "island": "Island",
+      "mountain": "Mountain",
+      "water": "Water",
+      "airport": "Airport"
+    },
+    "placesCredit": "{osm} ({licence}) · places via {photon}",
+    "placesFailed": "Places could not be searched just now. Keep typing to try again."
   },
   "header": {
     "github": "GitHub",

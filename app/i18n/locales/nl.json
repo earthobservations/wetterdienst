@@ -383,7 +383,24 @@
     "opensExplorer": "opent de Verkenner",
     "stationListReading": "Een lijst met stations wordt nog gelezen; er kunnen meer resultaten volgen",
     "stationListFailed": "Een lijst met stations kon niet worden gelezen",
-    "allNetworksGroup": "Alle netwerken"
+    "allNetworksGroup": "Alle netwerken",
+    "placesGroup": "Plaatsen",
+    "placeKinds": {
+      "city": "Grote stad",
+      "town": "Stad",
+      "village": "Dorp",
+      "hamlet": "Gehucht",
+      "district": "Wijk",
+      "county": "District of county",
+      "region": "Staat of regio",
+      "country": "Land",
+      "island": "Eiland",
+      "mountain": "Berg",
+      "water": "Water",
+      "airport": "Luchthaven"
+    },
+    "placesCredit": "{osm} ({licence}) · plaatsen via {photon}",
+    "placesFailed": "Plaatsen konden nu niet worden gezocht. Blijf typen om het opnieuw te proberen."
   },
   "header": {
     "github": "GitHub",

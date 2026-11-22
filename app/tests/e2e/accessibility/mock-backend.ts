@@ -9,6 +9,7 @@ import type {
   UnitType,
   Value,
 } from '../../../shared/types/api'
+import type { PlaceMatch, PlacesAnswer } from '../../../shared/utils/places'
 import type { StripesFixture } from '../../helpers/stripes-backend'
 import { Buffer } from 'node:buffer'
 import { prepareStations, searchPrepared } from '../../../app/utils/station-search'
@@ -404,6 +405,32 @@ function stationSearch(url: URL): StationSearchAnswer {
   return { query, networks, pending: [], failed: [] }
 }
 
+/** The places of Photon's answers for two names, as the route shapes them (GH-3791): the town and the county of "Bad Tölz", three places called "Paris" */
+const PLACES: Array<{ prefix: string, places: PlaceMatch[] }> = [
+  {
+    prefix: 'bad t',
+    places: [
+      { id: 'N240109189', name: 'Bad Tölz', kind: 'town', region: 'Bayern, Deutschland', latitude: 47.7614, longitude: 11.5583 },
+      { id: 'R2145290', name: 'Landkreis Bad Tölz-Wolfratshausen', kind: 'county', region: 'Bayern, Deutschland', latitude: 47.78, longitude: 11.5 },
+    ],
+  },
+  {
+    prefix: 'paris',
+    places: [
+      { id: 'N17807753', name: 'Paris', kind: 'city', region: 'Île-de-France, France', latitude: 48.8566, longitude: 2.3522 },
+      { id: 'N118', name: 'Paris', kind: 'city', region: 'Texas, United States', latitude: 33.6609, longitude: -95.5555 },
+      { id: 'N120', name: 'Paris', kind: 'village', region: 'Henry County, Tennessee, United States', latitude: 36.302, longitude: -88.3267 },
+    ],
+  },
+]
+
+/** What `GET /_search/places` answers: the places of the two names above, none for any other text */
+function placesSearch(url: URL): PlacesAnswer {
+  const query = url.searchParams.get('q') ?? ''
+  const found = PLACES.find(entry => query.toLowerCase().startsWith(entry.prefix))
+  return { query, state: 'ok', places: found?.places ?? [], attribution: '© OpenStreetMap contributors' }
+}
+
 /**
  * What `GET /api/station-ids` answers: the stations of several networks that carry the id, as the backend lists them: Hamburg-Fuhlsbüttel's for
  * 10147 and EDDH (which the lists of the search have too), and Berlin-Dahlem's for any other id (10381 is its WMO number)
@@ -519,6 +546,8 @@ export function defaultHandlers(now: Date = new Date()): Handlers {
     '_ghcn/stations': () => ({ stations: GHCN_STRIPES_STATIONS }),
     // the search of the header (GH-3790): the app's own server's matching of the lists, and the backend's search of every network for an id
     '_search/stations': stationSearch,
+    // the places by name, which the app's server asks Photon for (GH-3791)
+    '_search/places': placesSearch,
     'station-ids': stationIds,
     // the list of the stations of GHCN daily as the app's server hands it to the map, as columns (GH-4267)
     '_ghcn/map-stations': () => searchColumns(SEARCH_GHCN),

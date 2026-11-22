@@ -100,6 +100,29 @@ describe('privacy policy texts', () => {
     expect(storing.match(code === 'de' ? /auf dem Radar/g : /on the radar/g)).toHaveLength(2)
   })
 
+  it.each(Object.keys(texts))('have a section on the place search in %s: Photon of komoot GmbH, asked by the server from three letters on, not the reader\'s browser or address, 24 hours, and the legal basis (GH-3791)', (code) => {
+    const policy = texts[code as keyof typeof texts]
+    const section = policy.sections.find(s => s.id === 'places')!
+    const text = section.paragraphs.join(' ')
+    expect(section.icon).toBe('i-ph-map-pin')
+    expect(section.link).toEqual({ label: 'photon.komoot.io', href: 'https://photon.komoot.io' })
+    expect(text).toContain('Photon')
+    expect(text).toContain('komoot GmbH')
+    expect(text).toContain('OpenStreetMap')
+    expect(text).toMatch(code === 'de' ? /Ab drei Buchstaben/ : /From three letters on/)
+    expect(text).toMatch(code === 'de' ? /vom Server der Web-App – nicht von Ihrem Browser –/ : /by the web app's server, not by your browser/)
+    expect(text).toMatch(code === 'de' ? /nicht aber Ihre IP-Adresse/ : /but not your IP address/)
+    expect(text).toMatch(code === 'de' ? /keine Cookies, keine Angaben Ihres Browsers, keinen Referer/ : /no cookies, no browser details, no Referer/)
+    expect(text).toMatch(code === 'de' ? /24 Stunden/ : /24 hours/)
+    expect(text).toMatch(code === 'de' ? /kein Protokoll darüber, wer wonach gefragt hat/ : /keeps no record of who asked for what/)
+    expect(text).toMatch(code === 'de' ? /Art\. 6 Abs\. 1 lit\. f DSGVO/ : /Art\. 6\(1\)\(f\) GDPR/)
+    // the sentence about sharing names komoot, which receives the text from the operator's server and not from the reader's browser
+    const recipients = policy.sections.find(s => s.id === 'recipients')!.paragraphs.join(' ')
+    expect(recipients).toContain('komoot')
+    // Photon is asked by the server, so it is no host of the Content Security Policy, and the section on the third parties that the browser asks does not list it
+    expect(JSON.stringify(policy.sections.find(s => s.id === 'third-parties'))).not.toContain('komoot')
+  })
+
   it.each(Object.keys(texts))('state no retention period in days in %s: none is configured, only the cookie has a lifetime', (code) => {
     expect(allText(texts[code as keyof typeof texts])).not.toMatch(/\b(?!365\b)\d+\s*(days|Tage)\b/)
   })

@@ -2,7 +2,7 @@ import type { DOMWrapper } from '@vue/test-utils'
 import { mockNuxtImport, mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { setResponseStatus } from 'h3'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { clearNuxtData } from '#app'
+import { clearNuxtData, clearNuxtState } from '#app'
 import AppCommandPalette from '~/components/AppCommandPalette.vue'
 import { DEFAULT_PLACE } from '~/composables/usePlace'
 import { SEARCH_STATIONS_DEFAULTS, useSettings } from '~/composables/useSettings'
@@ -110,6 +110,36 @@ registerEndpoint('/api/station-ids', async (event) => {
   }
 })
 
+// the places by name, as the app's server answers them from Photon (GH-3790, GH-3791): what is asked is counted; only "bad tölz" and "paris" have places
+const placeQueries: Array<{ q: string, lang: string }> = []
+let placesMode: 'answer' | 'off' | 'fail' | 'slow-first' = 'answer'
+/** The first answer of the server that a test holds back (`slow-first`) until it lets it go */
+let releasePlaces: (() => void) | null = null
+const osmPlace = (id: string, name: string, kind: string, region: string | null, latitude: number, longitude: number) => ({ id, name, kind, region, latitude, longitude })
+const PLACES: Record<string, ReturnType<typeof osmPlace>[]> = {
+  'bad t': [osmPlace('N240109189', 'Bad Tölz', 'town', 'Bayern, Deutschland', 47.7614, 11.5583), osmPlace('R2145290', 'Landkreis Bad Tölz-Wolfratshausen', 'county', 'Bayern, Deutschland', 47.78, 11.5)],
+  'paris': [osmPlace('N17807753', 'Paris', 'city', 'Île-de-France, France', 48.8566, 2.3522), osmPlace('N118', 'Paris', 'city', 'Texas, United States', 33.6609, -95.5555)],
+}
+registerEndpoint('/_search/places', async (event) => {
+  const query = new URL(event.path, 'http://localhost').searchParams
+  const q = query.get('q') ?? ''
+  placeQueries.push({ q, lang: query.get('lang') ?? '' })
+  if (placesMode === 'off')
+    return { query: q, state: 'off', places: [], attribution: '© OpenStreetMap contributors' }
+  if (placesMode === 'fail') {
+    setResponseStatus(event, 503)
+    return { type: 'urn:wetterdienst:problem:places-busy', title: 'Service Unavailable', status: 503, detail: 'busy' }
+  }
+  // the first request is held back until the test lets it go: a newer text overtakes it
+  if (placesMode === 'slow-first' && placeQueries.length === 1) {
+    await new Promise<void>((resolve) => {
+      releasePlaces = resolve
+    })
+  }
+  const key = Object.keys(PLACES).find(name => q.toLowerCase().startsWith(name))
+  return { query: q, state: 'ok', places: key ? PLACES[key] : [], attribution: '© OpenStreetMap contributors' }
+})
+
 /** What the reader chose in the settings for the lists of stations of the search: the forecast's points and GHCN daily are on, DWD's measuring stations off */
 function chooseLists(chosen: Partial<typeof SEARCH_STATIONS_DEFAULTS>) {
   useSettings().settings.value.searchStations = { ...SEARCH_STATIONS_DEFAULTS, ...chosen }
@@ -137,6 +167,11 @@ afterEach(() => {
   idAnswer = 'rows'
   releaseIds?.()
   releaseIds = null
+  placeQueries.length = 0
+  placesMode = 'answer'
+  releasePlaces?.()
+  releasePlaces = null
+  clearNuxtState('places-search-off')
   failStations = false
   navigateTo.mockClear()
 })
@@ -803,5 +838,144 @@ describe('the command palette as the search of a place', () => {
     await vi.waitFor(() => expect(wrapper.find('[role="status"]').text()).toContain('could not'), { timeout: 5000 })
     await input.setValue('a')
     await vi.waitFor(() => expect(wrapper.find('[role="status"]').text()).toBe('Type the name of a town or weather station.'), { timeout: 5000 })
+  })
+})
+
+describe('the command palette finding places by name', () => {
+  /** The headings of the groups, in the order they are shown */
+  const headingsOf = (wrapper: Awaited<ReturnType<typeof mountPalette>>) => wrapper.findAll('[role="group"]').map(group => wrapper.find(`[id="${group.attributes('aria-labelledby')}"]`).text())
+
+  it('shows the places OpenStreetMap has for a name as a group of their own, each with what it is and where it lies, before the stations', async () => {
+    const wrapper = await mountPalette()
+    await wrapper.find('input[role="combobox"]').setValue('bad tölz')
+    await vi.waitFor(() => expect(headingsOf(wrapper)[0]).toBe('Places'))
+    const group = wrapper.findAll('[role="group"]')[0]!
+    const options = group.findAll('[role="option"]')
+    expect(options.map(option => option.text())).toEqual(['Bad TölzTown · Bayern, Deutschland', 'Landkreis Bad Tölz-WolfratshausenCounty · Bayern, Deutschland'])
+    // the stations are after them, in the order of the other groups
+    await vi.waitFor(() => expect(headingsOf(wrapper)).toContain('Stations: DWD forecast'))
+    expect(headingsOf(wrapper).slice(0, 2)).toEqual(['Places', 'Stations: DWD forecast'])
+  })
+
+  it('leads a place to the map at its point, which picks the nearest station there, in the way a position that is typed in does', async () => {
+    const wrapper = await mountPalette()
+    await wrapper.find('input[role="combobox"]').setValue('bad tölz')
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Bayern, Deutschland'))
+    await wrapper.findAll('[role="option"]').find(option => option.text().startsWith('Bad Tölz'))!.trigger('click')
+    expect(navigateTo).toHaveBeenCalledWith('/map?lat=47.7614&lon=11.5583')
+  })
+
+  it('shows the credit of OpenStreetMap\'s licence and the name of the service with the places, as links, and none where there are no places', async () => {
+    const wrapper = await mountPalette()
+    expect(wrapper.find('[data-testid="places-credit"]').exists()).toBe(false)
+    await wrapper.find('input[role="combobox"]').setValue('paris')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="places-credit"]').exists()).toBe(true))
+    const credit = wrapper.find('[data-testid="places-credit"]')
+    expect(credit.text()).toBe('© OpenStreetMap contributors (ODbL) · places via Photon')
+    const links = credit.findAll('a')
+    expect(links.map(link => [link.text(), link.attributes('href')])).toEqual([
+      ['© OpenStreetMap contributors', 'https://www.openstreetmap.org/copyright'],
+      ['ODbL', 'https://opendatacommons.org/licenses/odbl/1-0/'],
+      ['Photon', 'https://photon.komoot.io'],
+    ])
+    for (const link of links) {
+      expect(link.attributes('target')).toBe('_blank')
+      expect(link.attributes('rel')).toBe('noopener noreferrer')
+    }
+    // the credit is outside the listbox, whose children are options and groups
+    expect(wrapper.find('[role="listbox"]').find('[data-testid="places-credit"]').exists()).toBe(false)
+    // and gone with the places
+    await wrapper.find('input[role="combobox"]').setValue('zzz nothing')
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="places-credit"]').exists()).toBe(false))
+  })
+
+  it('asks from three characters on, a moment after the last key, once, and in the language of the interface', async () => {
+    const wrapper = await mountPalette()
+    const input = wrapper.find('input[role="combobox"]')
+    await input.setValue('ba')
+    await new Promise(resolve => setTimeout(resolve, 600))
+    expect(placeQueries).toEqual([])
+    // keys in quick succession are one request, for the text they end in
+    for (const text of ['bad', 'bad ', 'bad t', 'bad tö', 'bad tölz'])
+      await input.setValue(text)
+    await new Promise(resolve => setTimeout(resolve, 200))
+    expect(placeQueries).toEqual([])
+    await vi.waitFor(() => expect(placeQueries).toEqual([{ q: 'bad tölz', lang: 'en' }]))
+    await new Promise(resolve => setTimeout(resolve, 200))
+    expect(placeQueries).toHaveLength(1)
+  })
+
+  it('sends neither a position nor a text with no letter, which are no name', async () => {
+    const wrapper = await mountPalette()
+    const input = wrapper.find('input[role="combobox"]')
+    for (const text of ['52.5200, 13.4000', '47°46\'N 11°33\'E', '10381', '0-20000-0-10381'])
+      await input.setValue(text)
+    await new Promise(resolve => setTimeout(resolve, 700))
+    expect(placeQueries).toEqual([])
+  })
+
+  it('does not show the answer for a text that a newer one has taken the place of, which arrives late', async () => {
+    placesMode = 'slow-first'
+    const wrapper = await mountPalette()
+    const input = wrapper.find('input[role="combobox"]')
+    await input.setValue('bad tölz')
+    await vi.waitFor(() => expect(placeQueries).toHaveLength(1))
+    await input.setValue('paris')
+    await vi.waitFor(() => expect(placeQueries).toHaveLength(2))
+    await vi.waitFor(() => expect(wrapper.text()).toContain('Île-de-France'))
+    // the first answer is let go after the second was shown, and is not
+    releasePlaces!()
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(wrapper.text()).toContain('Île-de-France')
+    expect(wrapper.text()).not.toContain('Bad Tölz')
+  })
+
+  it('says so in the live region where the places could not be searched, and leaves the stations and the pages', async () => {
+    placesMode = 'fail'
+    const wrapper = await mountPalette()
+    await wrapper.find('input[role="combobox"]').setValue('berl')
+    await vi.waitFor(() => expect(wrapper.find('[role="status"]').text()).toContain('Places could not be searched just now. Keep typing to try again.'))
+    expect(headingsOf(wrapper)).not.toContain('Places')
+    expect(headingsOf(wrapper)).toContain('Stations: DWD forecast')
+    // the next text asks again, and is answered
+    placesMode = 'answer'
+    await wrapper.find('input[role="combobox"]').setValue('paris')
+    await vi.waitFor(() => expect(headingsOf(wrapper)).toContain('Places'))
+    expect(wrapper.find('[role="status"]').text()).not.toContain('Places could not be searched')
+  })
+
+  it('shows no group and asks no more where the server says the operator has switched the search of places off', async () => {
+    placesMode = 'off'
+    const wrapper = await mountPalette()
+    const input = wrapper.find('input[role="combobox"]')
+    await input.setValue('paris')
+    await vi.waitFor(() => expect(placeQueries).toHaveLength(1))
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(headingsOf(wrapper)).not.toContain('Places')
+    expect(wrapper.find('[data-testid="places-credit"]').exists()).toBe(false)
+    // nothing about it in the live region: it is no failure
+    expect(wrapper.find('[role="status"]').text()).not.toContain('Places could not')
+    await input.setValue('bad tölz')
+    await new Promise(resolve => setTimeout(resolve, 700))
+    expect(placeQueries).toHaveLength(1)
+  })
+
+  it('counts the places in the live region, with the number of each group, and keeps one active option of the combobox', async () => {
+    const wrapper = await mountPalette()
+    await wrapper.find('input[role="combobox"]').setValue('paris')
+    await vi.waitFor(() => expect(wrapper.find('[role="status"]').text()).toContain('Places: 2'))
+    const options = wrapper.findAll('[role="option"]')
+    expect(options.filter(option => option.attributes('aria-selected') === 'true')).toHaveLength(1)
+    // the places are named by their heading for a screen reader
+    const group = wrapper.findAll('[role="group"]')[0]!
+    expect(wrapper.find(`[id="${group.attributes('aria-labelledby')}"]`).text()).toBe('Places')
+  })
+
+  it('asks for no places in the place mode of "Ask the weather", whose results are stations', async () => {
+    const wrapper = await mountSuspended(AppCommandPalette, { attachTo: document.body, props: { mode: 'place' } })
+    mounted.push(wrapper)
+    await wrapper.find('input[role="combobox"]').setValue('paris')
+    await new Promise(resolve => setTimeout(resolve, 700))
+    expect(placeQueries).toEqual([])
   })
 })

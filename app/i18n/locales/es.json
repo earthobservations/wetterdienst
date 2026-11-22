@@ -383,7 +383,24 @@
     "opensExplorer": "abre el Explorador",
     "stationListReading": "Todavía se está leyendo una lista de estaciones; pueden llegar más resultados",
     "stationListFailed": "No se pudo leer una lista de estaciones",
-    "allNetworksGroup": "Todas las redes"
+    "allNetworksGroup": "Todas las redes",
+    "placesGroup": "Lugares",
+    "placeKinds": {
+      "city": "Ciudad",
+      "town": "Población",
+      "village": "Pueblo",
+      "hamlet": "Caserío",
+      "district": "Barrio",
+      "county": "Condado o distrito",
+      "region": "Estado o región",
+      "country": "País",
+      "island": "Isla",
+      "mountain": "Montaña",
+      "water": "Masa de agua",
+      "airport": "Aeropuerto"
+    },
+    "placesCredit": "{osm} ({licence}) · lugares a través de {photon}",
+    "placesFailed": "No se pudieron buscar lugares en este momento. Sigue escribiendo para volver a intentarlo."
   },
   "header": {
     "github": "GitHub",

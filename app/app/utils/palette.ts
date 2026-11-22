@@ -72,7 +72,7 @@ export function filterGroups(groups: PaletteGroup[], query: string): PaletteGrou
 // ------------------------------------------------------------------------------------------------ the groups (GH-3790)
 
 /**
- * The order of the groups, which follows what a reader most likely means: a point they typed, then stations (the three networks whose
+ * The order of the groups, which follows what a reader most likely means: a point they typed, then the places OpenStreetMap has for a name, then stations (the three networks whose
  * lists are matched by name, then the stations of every network that carry an id typed in; the offer of that search for four letters, which are as
  * often a word, is after the words), then the
  * pages (which a name finds: `glossary` is the Glossary before any text that says the word), then the words of the app and,
@@ -80,6 +80,7 @@ export function filterGroups(groups: PaletteGroup[], query: string): PaletteGrou
  */
 export const GROUP_ORDER = [
   'place',
+  'places-osm',
   'stations-forecast',
   'stations-measured',
   'stations-ghcn',

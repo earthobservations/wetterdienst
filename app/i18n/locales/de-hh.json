@@ -383,7 +383,24 @@
     "opensExplorer": "maakt den Explorer apen",
     "stationListReading": "En Stationenlist warrt noch lest; dat kaamt villicht noch mehr Resultaten",
     "stationListFailed": "En Stationenlist leet sik nich lesen",
-    "allNetworksGroup": "All Nettwarken"
+    "allNetworksGroup": "All Nettwarken",
+    "placesGroup": "Oorten",
+    "placeKinds": {
+      "city": "Grootstadt",
+      "town": "Stadt",
+      "village": "Dörp",
+      "hamlet": "Wieler",
+      "district": "Stadtdeel",
+      "county": "Landkreis",
+      "region": "Land oder Region",
+      "country": "Land",
+      "island": "Eiland",
+      "mountain": "Barg",
+      "water": "Water",
+      "airport": "Flogplatz"
+    },
+    "placesCredit": "{osm} ({licence}) · Oorten över {photon}",
+    "placesFailed": "Oorten leten sik jüst nich söken. Schriev wieder, dat noch mal to versöken."
   },
   "header": {
     "github": "GitHub",

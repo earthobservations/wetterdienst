@@ -383,7 +383,24 @@
     "opensExplorer": "öffnet den Explorer",
     "stationListReading": "Eine Stationsliste wird noch gelesen; es können weitere Ergebnisse folgen",
     "stationListFailed": "Eine Stationsliste konnte nicht gelesen werden",
-    "allNetworksGroup": "Alle Netzwerke"
+    "allNetworksGroup": "Alle Netzwerke",
+    "placesGroup": "Orte",
+    "placeKinds": {
+      "city": "Großstadt",
+      "town": "Stadt",
+      "village": "Dorf",
+      "hamlet": "Weiler",
+      "district": "Stadtteil",
+      "county": "Landkreis",
+      "region": "Bundesland oder Region",
+      "country": "Land",
+      "island": "Insel",
+      "mountain": "Berg",
+      "water": "Gewässer",
+      "airport": "Flughafen"
+    },
+    "placesCredit": "{osm} ({licence}) · Orte über {photon}",
+    "placesFailed": "Orte konnten gerade nicht gesucht werden. Weitertippen versucht es erneut."
   },
   "header": {
     "github": "GitHub",

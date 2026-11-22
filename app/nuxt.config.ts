@@ -185,6 +185,13 @@ export default defineNuxtConfig({
     // `NUXT_GOOGLE_SITE_VERIFICATION`; empty, nothing is answered, and a value that is no name is ignored with a warning.
     // Not a file of `public/`, which every build and every self-hosted instance would serve as its own.
     googleSiteVerification: '',
+    // The search of places by name (GH-3790, GH-3791): this server asks Photon (photon.komoot.io) for them, for the search of the header
+    // (`server/utils/placesSearch.ts`). `NUXT_PLACES_SEARCH=off` is the operator's switch: the route then asks nobody and the search shows
+    // no places (`on`, `true`, `1`, `yes` and `enabled` leave it on; any other text switches it off, so that a typing mistake never leaves
+    // it running). `NUXT_PLACES_PHOTON_BASE` is the address of Photon's API, empty for komoot's public server: a self-hosted Photon, or the
+    // stand-in the end-to-end tests ask (`tests/e2e/mock-photon.mjs`, which `playwright.config.ts` sets it to).
+    placesSearch: 'on',
+    placesPhotonBase: '',
     public: {
       // The address the app is reached at, for what names the pages to the outside: the canonical link and `og:url` of
       // each page, the sitemap and `robots.txt` (`shared/utils/seo.ts`, GH-3497). Public, because the page writes the

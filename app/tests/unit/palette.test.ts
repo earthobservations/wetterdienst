@@ -53,8 +53,8 @@ const hit = (title: string, to: string, extra: Partial<Hit> = {}): Hit => ({ kin
 describe('the order of the groups', () => {
   const group = (id: string, ...labels: string[]): PaletteGroup => ({ id, label: id, items: labels.map(label => item(label)) })
 
-  it('puts a point first, then the stations, then the pages, then the words of the app, then the actions', () => {
-    const shuffled = [group('language', 'x'), group('glossary', 'x'), group('project', 'x'), group('station-ids', 'x'), group('station-ids-icao', 'x'), group('place', 'x'), group('settings', 'x'), group('tools', 'x'), group('stations-ghcn', 'x'), group('stations-forecast', 'x'), group('stations-measured', 'x'), group('questions', 'x'), group('measurement', 'x'), group('method', 'x'), group('reference', 'x'), group('providers', 'x'), group('theme', 'x')]
+  it('puts a point first, then the places of OpenStreetMap, then the stations, then the pages, then the words of the app, then the actions', () => {
+    const shuffled = [group('language', 'x'), group('glossary', 'x'), group('project', 'x'), group('station-ids', 'x'), group('station-ids-icao', 'x'), group('place', 'x'), group('places-osm', 'x'), group('settings', 'x'), group('tools', 'x'), group('stations-ghcn', 'x'), group('stations-forecast', 'x'), group('stations-measured', 'x'), group('questions', 'x'), group('measurement', 'x'), group('method', 'x'), group('reference', 'x'), group('providers', 'x'), group('theme', 'x')]
     expect(orderGroups(shuffled).map(entry => entry.id)).toEqual([...GROUP_ORDER])
   })
 

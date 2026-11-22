@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Station, StationIdsResponse, StationIdsStation } from '#shared/types/api'
+import type { PlaceMatch, PlacesAnswer } from '#shared/utils/places'
 import type { Place } from '~/composables/usePlace'
 import type { PaletteGroup, PaletteItem } from '~/utils/palette'
 import type { Hit } from '~/utils/search-index'
@@ -7,6 +8,7 @@ import type { Tile } from '~/utils/sections'
 import type { TypedStationId } from '~/utils/station-hits'
 import type { SearchNetwork, StationMatch, StationSearchAnswer } from '~/utils/station-search'
 import { DateTime } from 'luxon'
+import { isPlaceQuery, ODBL_URL, OSM_COPYRIGHT_URL, PHOTON_URL, photonLang } from '#shared/utils/places'
 import { PLACE_NETWORK, placeOf } from '~/composables/usePlace'
 import { readChoices } from '~/utils/ask/chip'
 import { coordinatesText, hemispheresOf, mapAtPoint, parseCoordinates } from '~/utils/coordinates'
@@ -34,6 +36,13 @@ import { itemOfIdRow, itemOfStation, moreStationsLink, parseStationId, sortedIdR
 // every network at once whatever the settings say (`GET /api/station-ids`, which reads about 30 MB of station lists, 9 s cold): Enter on
 // "Search all networks for ..." runs it and the stations it finds are listed as a group, each leading to the map where it shows the
 // network and else to the Explorer. The rest is matched here (utils/palette.ts).
+//
+// The places (GH-3790, GH-3791) are looked for by name from three letters on, 400 ms after the last key, by the app's own server, which asks Photon
+// (photon.komoot.io, OpenStreetMap's data) for them (`GET /_search/places?q=&lang=`, `server/utils/placesSearch.ts`): the reader's browser
+// never reaches komoot, so its address does not. They are a group of their own, after a point that is typed in, each leading to the map at that
+// point, which picks the station nearest to it; the group is shown with the credit that OpenStreetMap's licence asks for, and with "via Photon".
+// A position or a text with no letter is no name and is not sent. Where the operator has switched the search of places off, the server says so
+// and the palette asks no more and shows no group.
 //
 // The words of the app (GH-3790) are matched here too, in the browser: a full-text index of the pages built with the app
 // (`modules/search-index`), the glossary the backend gives, the questions of "Ask the weather" and a position typed in
@@ -80,10 +89,20 @@ const RETRY_AFTER_MS = 3000
 const MAX_RETRIES = 25
 /** The search of every network for an id in flight */
 let idSearchRequest: AbortController | null = null
+/** The places of the text, as the app's server found them (`GET /_search/places`), and the request for them in flight */
+const places = shallowRef<PlaceMatch[]>([])
+const placesFailed = ref(false)
+let placesTicket = 0
+let placesRequest: AbortController | null = null
+/** Where the operator has switched the search of places off, the server says so once and the visit asks no more */
+const placesOff = useState('places-search-off', () => false)
+/** How long the search of places waits after the last key: longer than the stations', since every text asked for is a request to a service of a third party */
+const PLACES_DEBOUNCE_MS = 400
 onBeforeUnmount(() => {
   closed = true
   nameSearch?.abort()
   idSearchRequest?.abort()
+  placesRequest?.abort()
   clearTimeout(nameRetry)
 })
 
@@ -204,8 +223,38 @@ async function searchNames(text: string, ticket: number, attempt = 0, forecast?:
 // a key that changes what is asked gives up what is in flight for the text before it: the answer is no longer wanted
 watch(query, () => {
   nameSearch?.abort()
+  placesRequest?.abort()
   clearTimeout(nameRetry)
 })
+
+watchDebounced(query, async (value) => {
+  const ticket = ++placesTicket
+  placesRequest?.abort()
+  const text = value.trim()
+  // a text that is a position or has no letter is no name of a place, and is not sent to anybody
+  if (closed || placeMode.value || placesOff.value || !isPlaceQuery(text) || parseCoordinates(text, hemispheresOf(locale.value))) {
+    places.value = []
+    placesFailed.value = false
+    return
+  }
+  const controller = placesRequest = new AbortController()
+  try {
+    const answer = await $fetch<PlacesAnswer>('/_search/places', { query: { q: text, lang: photonLang(locale.value) }, signal: controller.signal, retry: 0, ...API_ANSWER })
+    if (ticket !== placesTicket || controller.signal.aborted)
+      return
+    if (answer.state === 'off')
+      placesOff.value = true
+    places.value = answer.state === 'off' ? [] : answer.places
+    placesFailed.value = false
+  }
+  catch {
+    // a failure leaves the rest of the search as it is, and is said in the live region; the next text asks again
+    if (ticket === placesTicket && !controller.signal.aborted) {
+      places.value = []
+      placesFailed.value = true
+    }
+  }
+}, { debounce: PLACES_DEBOUNCE_MS })
 
 watchDebounced(query, async (value) => {
   if (closed)
@@ -291,6 +340,23 @@ const placeGroup = computed<PaletteGroup[]>(() => point.value
       }],
     }]
   : [])
+
+/** The places OpenStreetMap has for the text, each leading to the map at its point, which picks the nearest station there (GH-3791) */
+const osmPlacesGroup = computed<PaletteGroup[]>(() => {
+  if (placeMode.value || placesOff.value || !places.value.length || !isPlaceQuery(text.value))
+    return []
+  return [{
+    id: 'places-osm',
+    label: t('shell.placesGroup'),
+    items: places.value.map(place => ({
+      id: `place-osm-${place.id}`,
+      label: place.name,
+      description: [t(`shell.placeKinds.${place.kind}`), place.region].filter(Boolean).join(' · '),
+      icon: 'i-ph-map-pin',
+      to: mapAtPoint({ latitude: place.latitude, longitude: place.longitude }),
+    })),
+  }]
+})
 
 /** The icon of each kind of result of the app's own words: the page's, as the reference and the project show it */
 const HIT_ICONS: Record<string, string> = {
@@ -542,7 +608,7 @@ const shown = computed<PaletteGroup[]>(() => {
     else
       matched.push({ id: 'project', label: t('shell.project'), items })
   }
-  const found = [...placeGroup.value, ...stationGroups.value, ...matched, ...wordGroups.value]
+  const found = [...placeGroup.value, ...osmPlacesGroup.value, ...stationGroups.value, ...matched, ...wordGroups.value]
   const settled = !stationsPending.value && !site?.loading.value && !stationAnswer.value?.pending.length
   return orderGroups([...found, ...idGroupsFor(found.reduce((sum, group) => sum + group.items.length, 0), settled)])
 })
@@ -590,10 +656,15 @@ const status = computed(() => {
   const said = typed > 0 && typed < MIN_STATION_QUERY.value ? `${groupsSaid}. ${t('shell.stationsHint')}` : groupsSaid
   // a list of stations that is still being read, or could not be, is said: the results may grow, or lack a network's
   const answer = typed >= MIN_STATION_QUERY.value ? stationAnswer.value : null
+  // places that could not be searched for are said as well, whatever else the text found
+  const placesSaid = placesFailed.value && isPlaceQuery(text.value) ? `. ${t('shell.placesFailed')}` : ''
   if (answer?.pending.length)
-    return `${said}. ${t('shell.stationListReading')}`
-  return stationsFailed.value || answer?.failed.length ? `${said}. ${t('shell.stationListFailed')}` : said
+    return `${said}. ${t('shell.stationListReading')}${placesSaid}`
+  return `${stationsFailed.value || answer?.failed.length ? `${said}. ${t('shell.stationListFailed')}` : said}${placesSaid}`
 })
+
+/** Whether the places are shown, which is when their credit is: OpenStreetMap's licence asks for it with the data, and Photon is named as the way to it */
+const showsPlaces = computed(() => shown.value.some(group => group.id === 'places-osm'))
 
 const emptyText = computed(() => {
   if (!placeMode.value)
@@ -709,6 +780,26 @@ function onKeydown(event: KeyboardEvent) {
     <p v-else class="flex-1 px-6 py-10 text-center text-muted">
       {{ emptyText }}
     </p>
+
+    <!-- the credit of the places (OpenStreetMap's licence, ODbL) and the service that found them, with the group (GH-3791) -->
+    <i18n-t
+      v-if="showsPlaces"
+      keypath="shell.placesCredit"
+      tag="p"
+      scope="global"
+      data-testid="places-credit"
+      class="border-t border-default px-4 py-2 text-xs text-muted"
+    >
+      <template #osm>
+        <a :href="OSM_COPYRIGHT_URL" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2">© OpenStreetMap contributors</a>
+      </template>
+      <template #licence>
+        <a :href="ODBL_URL" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2">ODbL</a>
+      </template>
+      <template #photon>
+        <a :href="PHOTON_URL" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2">Photon</a>
+      </template>
+    </i18n-t>
 
     <div class="flex items-center justify-between gap-4 border-t border-default px-4 py-2.5 text-xs text-muted">
       <p role="status" aria-live="polite" class="min-w-0">
