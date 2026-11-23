@@ -9,9 +9,11 @@ import { inWarningBox, warningsAt, withoutOutline } from '~/utils/warnings'
 // and in the map's panel, over the cards of the station picked. The position is told to be in a warning only by the polygon of the warning, tested
 // here against the snapshot the page holds (`warningsAt`). The warnings that DWD gives by area name alone (the sea, a coast: the community product
 // has no polygon for them) cannot be placed, so nothing is said of them for the position, except that there are some and where they are listed
-// (the map's list). Outside DWD's box (Germany and the sea round it) no warnings source covers the place, which is said plainly, and nothing is asked for.
+// (the map's list). Outside DWD's box (Germany and the sea round it) no warnings source covers the place: there is no banner at all (GH-4328), since a
+// box that says "nothing here" on every foreign station looks like an alert and takes the best space of a phone for a message nobody acts on, and nothing
+// is asked for. The Forecast's credits say instead that its warnings are Germany's only (`meteogram.warningsNote`).
 //
-// It is one line where there is nothing to read (loading, a failure, a quiet day, a place outside Germany), so that a quiet day does not push the chart
+// It is one line where there is nothing to read (loading, a failure, a quiet day), so that a quiet day does not push the chart
 // down: "No DWD warning for this position · Checked: 14:07 · Source: Deutscher Wetterdienst", with a button for the notes, the licence and the processing note. A
 // warning for the position opens it to its title, its rows and the full notes. The summary is a polite status (`role="status"`), which a screen
 // reader says when it comes or changes and never as an interruption; it carries no time, so a refresh that changes nothing is not said again.
@@ -37,8 +39,6 @@ const here = computed(() => data.snapshot.value ? warningsAt(data.snapshot.value
 const namedOnly = computed(() => data.snapshot.value ? withoutOutline(data.snapshot.value.warnings, data.now.value).length : 0)
 
 const status = computed(() => {
-  if (!covered.value)
-    return 'outside'
   if (data.snapshot.value)
     return here.value.length ? 'some' : 'none'
   return data.status.value === 'error' ? 'error' : 'loading'
@@ -46,7 +46,6 @@ const status = computed(() => {
 const compact = computed(() => status.value !== 'some')
 const summary = computed(() => {
   switch (status.value) {
-    case 'outside': return t('warnings.bannerOutside')
     case 'some': return t('warnings.bannerSome', { count: here.value.length })
     case 'none': return t('warnings.bannerNoneShort')
     case 'error': return t('warnings.bannerFailed')
@@ -67,7 +66,7 @@ const detailsOpen = ref(false)
 </script>
 
 <template>
-  <section class="warnings-banner" :class="[`warnings-banner-${status}`, { 'warnings-banner-compact': compact }]" :aria-labelledby="titleId" data-testid="warnings-banner">
+  <section v-if="covered" class="warnings-banner" :class="[`warnings-banner-${status}`, { 'warnings-banner-compact': compact }]" :aria-labelledby="titleId" data-testid="warnings-banner">
     <!-- the title is the section's name for a screen reader; it is seen where there is a warning to read under it -->
     <h3 :id="titleId" class="warnings-banner-title" :class="{ 'sr-only': compact }">
       <UIcon name="i-ph-warning" class="warnings-banner-icon" aria-hidden="true" />
@@ -146,7 +145,7 @@ const detailsOpen = ref(false)
   flex-wrap: wrap;
   align-items: center;
   gap: 0.25rem 0.5rem;
-  /* the height of the quiet line with its 44 px button: the loading line and the line outside Germany are as high, so that nothing under the banner moves */
+  /* the height of the quiet line with its 44 px button: the loading line is as high, so that nothing under the banner moves */
   min-height: 3.375rem;
   padding: 0.25rem 0.75rem;
 }
