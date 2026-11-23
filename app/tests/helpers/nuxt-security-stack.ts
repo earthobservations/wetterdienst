@@ -14,15 +14,9 @@ const nuxtRequire = createRequire(createRequire(import.meta.url).resolve('nuxt/p
 
 export const h3 = nuxtRequire('h3') as typeof import('h3')
 
-// h3's mark on a request whose body `readBody` or `readRawBody` has read whole (and cached)
+// h3's mark on a request whose body `readBody` or `readRawBody` has begun to read: it is set when the reading
+// starts, before the last byte is in
 export const RAW_BODY = Symbol.for('h3RawBody')
-
-// What nuxt-security's defaults give every route (`defaultConfig.mjs`), before the app or a route changes it
-const MODULE_DEFAULTS: Rules = {
-  enabled: true,
-  xssValidator: { methods: ['GET', 'POST'], throwError: true },
-  requestSizeLimiter: { maxRequestSizeInBytes: 2e6, maxUploadFileRequestInBytes: 8e6, throwError: true },
-}
 
 type Rules = Record<string, unknown>
 
@@ -61,13 +55,24 @@ export async function loadSecurityStack(): Promise<SecurityStack> {
     security: Rules
     routeRules: Record<string, { security?: Rules }>
   }
+  // What nuxt-security's defaults give every route (`defaultConfig.mjs`), before the app or a route changes it: read
+  // from the installed module, so that an upgrade changes the control with it
+  const { defaultSecurityConfig } = await import(/* @vite-ignore */ join(APP, 'node_modules', 'nuxt-security', 'dist', 'defaultConfig.mjs')) as {
+    defaultSecurityConfig: (serverUrl: string, strict: boolean) => Rules
+  }
+  const defaults = defaultSecurityConfig('', false)
+  const moduleDefaults: Rules = {
+    enabled: true,
+    xssValidator: defaults.xssValidator,
+    requestSizeLimiter: defaults.requestSizeLimiter,
+  }
   const context = await import(/* @vite-ignore */ join(SECURITY, 'nitro', 'context', 'index.js')) as Context
   const { default: xssValidator } = await import(/* @vite-ignore */ join(SECURITY, 'server', 'middleware', 'xssValidator.js'))
   function setRules(mode: RulesMode): void {
     const rules = context.getAppSecurityOptions()
     for (const key of Object.keys(rules))
       delete rules[key]
-    const global: Rules = structuredClone(MODULE_DEFAULTS)
+    const global: Rules = structuredClone(moduleDefaults)
     if (mode === 'app') {
       // a rule that the app gives (`xssValidator: false`) replaces the module's
       for (const name of ['xssValidator', 'requestSizeLimiter']) {

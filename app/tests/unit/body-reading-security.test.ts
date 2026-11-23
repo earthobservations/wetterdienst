@@ -16,7 +16,7 @@ import { h3, loadSecurityStack, RAW_BODY } from '../helpers/nuxt-security-stack'
 //
 // Here the real middleware of nuxt-security (both of them) runs in front of the app's `/api` proxy and a path
 // that is no route, with the rules it resolves from the app's config. A body that was read whole is h3's mark on
-// the request (`RAW_BODY`), which `readBody` and `readRawBody` set when they have it all.
+// the request (`RAW_BODY`), which `readBody` and `readRawBody` set when the reading starts.
 vi.mock('@tailwindcss/vite', () => ({ default: () => ({ name: 'tailwindcss-stub' }) }))
 // the `#imports` of the module's `requestSizeLimiter` (a Nuxt alias, which this project does not have)
 vi.mock('#imports', () => ({ useRuntimeConfig: () => ({}) }))

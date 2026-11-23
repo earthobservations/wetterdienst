@@ -260,7 +260,7 @@ export default defineNuxtConfig({
     // of 16 MiB was read whole. Nothing needs it. The app's server takes a body in one route only, `/mcp`
     // (JSON-RPC, which the backend validates; its proxy caps what it reads, `server/utils/mcpProxy.ts`); the
     // `/api` proxy and every other route are GET and read none. It is no defence against injection either: the
-    // page escapes what it shows (Vue), and the Content-Security-Policy below is what limits a script. For a GET it
+    // page escapes what it shows (Vue), and the Content-Security-Policy below is what limits a script on a page. For a GET it
     // only filtered the query, which no route of the app puts in a page unescaped.
     xssValidator: false,
     headers: {

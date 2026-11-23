@@ -22,7 +22,8 @@ Types of changes:
   for the whole app: it read the body of any POST, on any path (one that does not exist included),
   into memory before a route was picked, and a chunked body was not limited. The app's server takes
   a body in one route only, `/mcp`, which caps what it reads; the `/api` proxy takes no body. A GET
-  query is no longer filtered either; the page escapes what it shows and the CSP stays (GH-4364).
+  query is no longer filtered either: one with `<` (`sql_values=value < 5`) was refused with a 400
+  and now reaches the backend. The page escapes what it shows and the CSP stays (GH-4364).
 
 ## [0.59.0] - 2026-11-23
 
