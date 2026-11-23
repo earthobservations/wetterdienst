@@ -3851,27 +3851,48 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("daily", "data", "EV24"): "Potential evapotranspiration (Makkink)",
         ("daily", "data", "FG"): "Mean wind speed",
         ("daily", "data", "FXX"): "Maximum wind gust",
-        ("daily", "data", "NG"): "Mean cloud cover",
+        ("daily", "data", "NG"): (
+            'Mean cloud cover, in octants. The source\'s 9 is "9=sky invisible" ("9=bovenlucht onzichtbaar"), '
+            "no cover, and is null."
+        ),
         ("daily", "data", "PG"): (
             "Daily mean sea level pressure, calculated as a mean of the 24 pressure values of that day "
             "(midnight to midnight UTC)."
         ),
         ("daily", "data", "Q"): "Global solar radiation",
-        ("daily", "data", "RH"): "Precipitation amount",
-        ("daily", "data", "SQ"): "Sunshine duration",
+        ("daily", "data", "RH"): (
+            'Precipitation amount. The source writes -1 for less than 0.05 mm ("-1 for <0.05 mm"), which is '
+            "returned as 0.0."
+        ),
+        ("daily", "data", "SQ"): (
+            "Sunshine duration, calculated from global radiation. The source writes -1 for less than 0.05 hour "
+            '("-1 for <0.05 hour"), which is returned as 0.0.'
+        ),
         ("daily", "data", "TG"): "Mean temperature",
         ("daily", "data", "TN"): "Minimum temperature",
         ("daily", "data", "TX"): "Maximum temperature",
         ("daily", "data", "UG"): "Mean relative atmospheric humidity",
-        ("hourly", "data", "DD"): "Past 10 minute mean wind direction, representative for 10 meters",
+        ("hourly", "data", "DD"): (
+            "Past 10 minute mean wind direction, representative for 10 meters. The source's codes "
+            '"0=windstil" (calm) and "990=veranderlijk" (variable) are no bearing and are null.'
+        ),
         ("hourly", "data", "DR"): "Precipitation duration",
         ("hourly", "data", "FH"): "Mean wind speed",
         ("hourly", "data", "FX"): "Maximum wind gust",
-        ("hourly", "data", "N"): "Cloud cover",
-        ("hourly", "data", "P"): "Air pressure",
+        ("hourly", "data", "N"): (
+            'Cloud cover, in octants, at the time of observation. The source\'s 9 is "9=sky invisible", no cover, '
+            "and is null."
+        ),
+        ("hourly", "data", "P"): "Air pressure reduced to mean sea level, at the time of observation.",
         ("hourly", "data", "Q"): "Global solar radiation",
-        ("hourly", "data", "RH"): "Precipitation amount",
-        ("hourly", "data", "SQ"): "Sunshine duration",
+        ("hourly", "data", "RH"): (
+            'Precipitation amount. The source writes -1 for less than 0.05 mm ("-1 for <0.05 mm"), which is '
+            "returned as 0.0."
+        ),
+        ("hourly", "data", "SQ"): (
+            "Sunshine duration, calculated from global radiation. The source writes -1 for less than 0.05 hour "
+            '("-1 for <0.05 hour"), which is returned as 0.0.'
+        ),
         ("hourly", "data", "T"): "Temperature",
         ("hourly", "data", "TD"): "Dew point temperature",
         ("hourly", "data", "U"): "Relative atmospheric humidity",
@@ -3987,7 +4008,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "to water at its existing pressure and humidity."
         ),
         ("hourly", "weather", "msl_pressure"): "Mean sea level air pressure, to the nearest 0.1 hPa.",
-        ("hourly", "weather", "prst_wx_id"): "Present weather code.",
+        ("hourly", "weather", "prst_wx_id"): (
+            "Present weather code. Which code table it is in depends on `src_opr_type`: a manual observation (1) uses "
+            "WMO table 4677, an automatic one (7) WMO table 4680."
+        ),
         ("hourly", "weather", "q10mnt_mxgst_spd"): "Maximum gust speed over 10 minutes, knots.",
         ("hourly", "weather", "rltv_hum"): "Calculated relative humidity.",
         ("hourly", "weather", "snow_depth"): "Snow depth, cm.",

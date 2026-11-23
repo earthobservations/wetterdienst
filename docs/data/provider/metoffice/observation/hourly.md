@@ -50,7 +50,7 @@
 | {term}`sunshine_duration`              | wmo_hr_sun_dur   | Readings from the newer automatic sun sensor, which has replaced the Campbell Stokes recorder.                                                                                                                                                                                       | h    |
 | {term}`snow_depth`                     | snow_depth       | Snow depth, cm.                                                                                                                                                                                                                                                                      | cm   |
 | {term}`cloud_cover_total` | cld_ttl_amt_id | Total cloud amount code, in oktas. The source's 9, the sky obscured (the tables name no code for it), is null. | 1/8 |
-| {term}`weather`                        | prst_wx_id       | Present weather code.                                                                                                                                                                                                                                                                | -    |
+| {term}`weather`                        | prst_wx_id       | Present weather code. Which code table it is in depends on `src_opr_type`: a manual observation (1) uses WMO table 4677, an automatic one (7) WMO table 4680. | -    |
 
 ### wind
 
