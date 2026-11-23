@@ -35,6 +35,15 @@ Types of changes:
   "Weather warnings: Germany only, from DWD". The Ask the weather question "Are there warnings
   here?" still answers plainly for a place outside Germany (GH-4328).
 
+### Security
+
+- `[Dependencies]` Nuxt is 4.6.4, with `@nuxt/nitro-server`, `@nuxt/vite-server`,
+  `@nuxt/vite-builder` and `@nuxt/schema`, which fixes the open Nuxt advisories. Overrides in
+  `pnpm-workspace.yaml` floor `node-forge` at 1.4.3, `minimatch` at 11.0.1 and `glob` at 14.0.2
+  (build and lint tooling only, no copy ships in the app). The search index is written as JSON
+  with `<`, `>`, `&`, `/`, U+2028 and U+2029 escaped instead of text built by hand. The app looks
+  and works the same (GH-4340).
+
 ### Fixed
 
 - `[German]` The glossary names `precipitation_amount` and its maximum labels "Niederschlagshöhe",
