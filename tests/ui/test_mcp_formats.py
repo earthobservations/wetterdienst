@@ -30,6 +30,7 @@ from fastapi import FastAPI, Response
 from fastmcp import Client
 from mcp_types import EmbeddedResource, ImageContent, TextContent
 
+from tests.ui.mcp_image_timeout import raise_if_image_timeout
 from tests.ui.test_operations import _VALUES, _no_ambient_settings, _selection_of  # noqa: F401
 from tests.ui.test_restapi import _stub_stream, _values_result_of_shape
 from wetterdienst.model.processing_note import PROCESSING_NOTE
@@ -42,6 +43,22 @@ if TYPE_CHECKING:
     from fastmcp.tools import ToolResult
 
 pytestmark = pytest.mark.usefixtures("_no_ambient_settings")
+
+
+@pytest.fixture(autouse=True)
+def _the_server_waits_for_a_slow_render(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Give a tool's request longer than the renderer has, so that a slow image is the renderer's timeout (GH-4367).
+
+    Every image is drawn by Kaleido/Chrome, which on a loaded runner under xdist outlasted the server's 60 s and was
+    answered 504 (GH-3586). That is the request's timeout, which is no image timeout and is not rerun. The tests hold
+    the format of each answer, not how long a render takes, so the server waits for as long as a slow provider is
+    given in a remote test, and a render that is too slow is the renderer's own `ImageTimeoutError`, which is rerun.
+    A test of the timeout itself sets a short one in its own body, which is after this. The ambient settings are
+    cleared first, which would take this variable out as well.
+    """
+    request.getfixturevalue("_no_ambient_settings")
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "300")
+
 
 #: what each format of a chart or a listing comes back as through a tool
 _BLOCK_OF_FORMAT: dict[str, type] = {
@@ -61,15 +78,20 @@ _BLOCK_OF_FORMAT: dict[str, type] = {
 def _calls(
     app: FastAPI, calls: Sequence[tuple[str, Mapping[str, Any]]]
 ) -> list[tuple[ToolResult, dict[str, Any] | None]]:
-    """Make the calls on one server built from `app`, in one session; give each result with its tool's output schema."""
+    """Make the calls on one server built from `app`, in one session; give each result with its tool's output schema.
+
+    A call whose image was not rendered in time raises `ImageTimeoutError`, which the suite reruns (GH-4367).
+    """
 
     async def call() -> list[tuple[ToolResult, dict[str, Any] | None]]:
         async with Client(build_mcp_server(app)) as client:
             schemas = {tool.name: tool.output_schema for tool in await client.list_tools()}
-            return [
-                (await client.call_tool(tool, dict(arguments), raise_on_error=False), schemas[tool])
-                for tool, arguments in calls
-            ]
+            answers = []
+            for tool, arguments in calls:
+                result = await client.call_tool(tool, dict(arguments), raise_on_error=False)
+                raise_if_image_timeout(result)
+                answers.append((result, schemas[tool]))
+            return answers
 
     return asyncio.run(call())
 
@@ -82,16 +104,18 @@ def _call(app: FastAPI, tool: str, arguments: Mapping[str, Any]) -> tuple[ToolRe
 def _every_format(tool: str, arguments: Mapping[str, Any]) -> tuple[dict[str, ToolResult], dict[str, Any] | None]:
     """Call a tool of the real app in each format its input schema offers, in one session.
 
-    Gives the results by format and the output schema of the tool.
+    Gives the results by format and the output schema of the tool. An image that was not rendered in time raises
+    `ImageTimeoutError`, which the suite reruns (GH-4367).
     """
 
     async def call() -> tuple[dict[str, ToolResult], dict[str, Any] | None]:
         async with Client(build_mcp_server(restapi.app)) as client:
             listed = next(t for t in await client.list_tools() if t.name == tool)
             formats = listed.input_schema["properties"]["format"]["enum"]
-            answers = {
-                fmt: await client.call_tool(tool, {**arguments, "format": fmt}, raise_on_error=False) for fmt in formats
-            }
+            answers = {}
+            for fmt in formats:
+                answers[fmt] = await client.call_tool(tool, {**arguments, "format": fmt}, raise_on_error=False)
+                raise_if_image_timeout(answers[fmt])
             return answers, listed.output_schema
 
     return asyncio.run(call())
@@ -109,6 +133,18 @@ def _warn_then_answer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(DwdObservationRequest._values, "query", query)  # noqa: SLF001
 
 
+def test_the_server_waits_longer_for_a_tool_than_the_renderer_has() -> None:
+    """The request's timeout is more than `IMAGE_TIMEOUT`, so that a slow image is the renderer's error (GH-4367).
+
+    A render of 60 to 120 s, with the 60 s that a request has by default, was answered with the 504 of the request:
+    no `ImageTimeoutError`, so no rerun.
+    """
+    from wetterdienst.io.export import IMAGE_TIMEOUT  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    assert Settings().restapi_timeout > IMAGE_TIMEOUT
+
+
 @pytest.mark.parametrize("tool", ["values", "stations"])
 def test_a_tool_that_advertises_a_format_answers_in_it(tool: str, monkeypatch: pytest.MonkeyPatch) -> None:
     """Each format of `values` and `stations` is an answer without an error whose structured content fits the schema.
@@ -117,10 +153,6 @@ def test_a_tool_that_advertises_a_format_answers_in_it(tool: str, monkeypatch: p
     have no body for the `metadata` block, and, for `values`, the warning the reader raised.
     """
     _stub_stream(monkeypatch, [_values_result_of_shape("long")])
-    # Every image format of the map of the stations is drawn by Kaleido/Chrome, which on a loaded runner under xdist
-    # outlasted the server's 60 s and was answered 504 (GH-3586). The test holds the format of each answer, not how
-    # long a render takes, so the server may take as long as a slow provider is given in a remote test.
-    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "300")
     arguments = {**_VALUES, "parameters": "daily/climate_summary/temperature_air_mean_2m"}
     if tool == "stations":
         arguments = {key: value for key, value in arguments.items() if key != "stations"} | {"all": True}
