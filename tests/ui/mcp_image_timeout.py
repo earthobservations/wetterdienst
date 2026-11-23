@@ -15,6 +15,7 @@ alone: any other error, a 504 of an upstream provider included, is a result that
 
 from __future__ import annotations
 
+import functools
 import re
 from typing import TYPE_CHECKING, Any
 
@@ -24,11 +25,20 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
 
 
+@functools.cache
 def _the_error_text_of_an_image_timeout() -> re.Pattern[str]:
-    """Give the text a tool's error has for the `image-timeout` 504: its status line and the detail REST sends."""
+    """Give the text a tool's error has for the `image-timeout` 504: its status line and the detail REST sends.
+
+    The detail is the one `restapi._image_timeout` writes, which also logs a warning about a timeout that did not
+    happen: its logger is off for the one call, so that no test's log tells of an image that was drawn.
+    """
     from wetterdienst.ui import restapi  # noqa: PLC0415 -- the app is only there where the tests of it are
 
-    detail = restapi._image_timeout(ImageTimeoutError(None), "draw the image").detail  # noqa: SLF001
+    was_disabled, restapi.log.disabled = restapi.log.disabled, True
+    try:
+        detail = restapi._image_timeout(ImageTimeoutError(None), "draw the image").detail  # noqa: SLF001
+    finally:
+        restapi.log.disabled = was_disabled
     return re.compile(rf"Error calling tool '(?P<tool>[^']+)': HTTP error 504: Gateway Timeout - {re.escape(detail)}")
 
 

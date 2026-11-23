@@ -44,6 +44,22 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.usefixtures("_no_ambient_settings")
 
+
+@pytest.fixture(autouse=True)
+def _the_server_waits_for_a_slow_render(request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Give a tool's request longer than the renderer has, so that a slow image is the renderer's timeout (GH-4367).
+
+    Every image is drawn by Kaleido/Chrome, which on a loaded runner under xdist outlasted the server's 60 s and was
+    answered 504 (GH-3586). That is the request's timeout, which is no image timeout and is not rerun. The tests hold
+    the format of each answer, not how long a render takes, so the server waits for as long as a slow provider is
+    given in a remote test, and a render that is too slow is the renderer's own `ImageTimeoutError`, which is rerun.
+    A test of the timeout itself sets a short one in its own body, which is after this. The ambient settings are
+    cleared first, which would take this variable out as well.
+    """
+    request.getfixturevalue("_no_ambient_settings")
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "300")
+
+
 #: what each format of a chart or a listing comes back as through a tool
 _BLOCK_OF_FORMAT: dict[str, type] = {
     "json": TextContent,
@@ -117,6 +133,18 @@ def _warn_then_answer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(DwdObservationRequest._values, "query", query)  # noqa: SLF001
 
 
+def test_the_server_waits_longer_for_a_tool_than_the_renderer_has() -> None:
+    """The request's timeout is more than `IMAGE_TIMEOUT`, so that a slow image is the renderer's error (GH-4367).
+
+    A render of 60 to 120 s, with the 60 s that a request has by default, was answered with the 504 of the request:
+    no `ImageTimeoutError`, so no rerun.
+    """
+    from wetterdienst.io.export import IMAGE_TIMEOUT  # noqa: PLC0415
+    from wetterdienst.settings import Settings  # noqa: PLC0415
+
+    assert Settings().restapi_timeout > IMAGE_TIMEOUT
+
+
 @pytest.mark.parametrize("tool", ["values", "stations"])
 def test_a_tool_that_advertises_a_format_answers_in_it(tool: str, monkeypatch: pytest.MonkeyPatch) -> None:
     """Each format of `values` and `stations` is an answer without an error whose structured content fits the schema.
@@ -125,10 +153,6 @@ def test_a_tool_that_advertises_a_format_answers_in_it(tool: str, monkeypatch: p
     have no body for the `metadata` block, and, for `values`, the warning the reader raised.
     """
     _stub_stream(monkeypatch, [_values_result_of_shape("long")])
-    # Every image format of the map of the stations is drawn by Kaleido/Chrome, which on a loaded runner under xdist
-    # outlasted the server's 60 s and was answered 504 (GH-3586). The test holds the format of each answer, not how
-    # long a render takes, so the server may take as long as a slow provider is given in a remote test.
-    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "300")
     arguments = {**_VALUES, "parameters": "daily/climate_summary/temperature_air_mean_2m"}
     if tool == "stations":
         arguments = {key: value for key, value in arguments.items() if key != "stations"} | {"all": True}

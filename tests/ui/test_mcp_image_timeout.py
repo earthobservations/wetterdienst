@@ -11,7 +11,9 @@ Offline: the renderer is stood in for, as the readers are in `test_mcp_formats.p
 
 from __future__ import annotations
 
+import logging
 import os
+import time
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any
 
@@ -21,7 +23,8 @@ pytest.importorskip("fastmcp")
 
 from mcp_types import EmbeddedResource, ImageContent, TextContent
 
-from tests.ui.mcp_image_timeout import raise_if_image_timeout
+from tests.test_rerun_rate_limit import _only_rerun, _rerun_except
+from tests.ui.mcp_image_timeout import _the_error_text_of_an_image_timeout, raise_if_image_timeout
 from tests.ui.test_mcp_formats import _call, _stub_stream, _values_result_of_shape
 from tests.ui.test_operations import _VALUES, _no_ambient_settings  # noqa: F401
 from wetterdienst.exceptions import ImageTimeoutError
@@ -114,6 +117,41 @@ def test_a_real_tool_error_that_is_no_image_timeout_is_still_the_result(monkeypa
     assert "HTTP error 400" in result.content[0].text
 
 
+def test_the_helper_writes_nothing_to_the_log_of_a_test_that_failed_for_another_reason(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The server logs a warning of an image timeout where it writes the detail: not one for a 400 that is read here."""
+    _the_error_text_of_an_image_timeout.cache_clear()  # the pattern is built in this test, where the log is read
+    with caplog.at_level(logging.DEBUG):
+        raise_if_image_timeout(_error("Error calling tool 'values': HTTP error 400: Bad Request - nope"))
+        with pytest.raises(ImageTimeoutError):
+            raise_if_image_timeout(_error(_IMAGE_TIMEOUT_TEXT))
+
+    assert caplog.records == []
+
+
+def test_a_request_that_outlasts_the_servers_timeout_is_no_image_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A render slower than the request's timeout is the 504 of the request, which is not the renderer's, nor rerun.
+
+    This is why `test_mcp_formats.py` gives the server more time than the renderer has: with the timeout of the
+    request first, a slow image fails there as it is, and the matcher is not widened to take it.
+    """
+    _stub_stream(monkeypatch, [_values_result_of_shape("long")])
+    monkeypatch.setenv("WD_RESTAPI_TIMEOUT", "0.3")
+
+    def slow(_figure: object, _fmt: str, **_kwargs: object) -> bytes:
+        time.sleep(1.5)
+        return b"\x89PNG\r\n\x1a\n"
+
+    monkeypatch.setattr(result_module, "render_image", slow)
+
+    result, _ = _call(restapi.app, "values", {**_VALUES, "format": "png"})
+
+    assert result.is_error
+    assert "HTTP error 504" in result.content[0].text
+    assert "image was not rendered" not in result.content[0].text
+
+
 _INNER = """
 import pytest
 from pathlib import Path
@@ -161,9 +199,6 @@ def test_an_image_that_times_out_once_in_a_tool_is_rerun_and_passes(
     monkeypatch.setenv("PYTHONPATH", os.pathsep.join(filter(None, [str(request.config.rootpath), existing])))
     pytester.makeconftest("pytest_plugins = ['tests.conftest']\n")
     pytester.makepyfile(test_inner=_INNER)
-    only_rerun = request.config.getoption("only_rerun") or request.config.getini("only_rerun")
-    assert only_rerun, "the suite reruns only what addopts names"
-    rerun_except = request.config.getoption("rerun_except") or request.config.getini("rerun_except")
 
     result = pytester.runpytest_subprocess(
         "-p",
@@ -174,8 +209,8 @@ def test_an_image_that_times_out_once_in_a_tool_is_rerun_and_passes(
         "2",
         "--reruns-delay",
         "0",
-        *(argument for pattern in only_rerun for argument in ("--only-rerun", pattern)),
-        *(argument for pattern in rerun_except for argument in ("--rerun-except", pattern)),
+        *_only_rerun(request),
+        *_rerun_except(request),
     )
 
     # `times_out=1` passes on its second attempt; `times_out=3` meets the timeout in the run and in both reruns
