@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import datetime as dt
+import json
+import re
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
@@ -22,6 +24,7 @@ from wetterdienst.ui.restapi import API_PREFIX, MCP_ALIAS_PREFIX, MCP_PREFIX
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
+    from typing import Any
 
     from fastapi import FastAPI
 
@@ -155,7 +158,7 @@ def test_the_tool_surface_is_the_same_at_both_paths(app: FastAPI) -> None:
 
 @pytest.mark.parametrize("path", MCP_PATHS)
 def test_the_endpoint_is_stateless_at_either_path(app: FastAPI, path: str) -> None:
-    """No session is created, and a list of the tools and a call work without an `initialize` (GH-3088)."""
+    """No session is kept, and a list of the tools and a call work without an `initialize` (GH-3088, GH-4341)."""
     initialize = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -171,10 +174,10 @@ def test_the_endpoint_is_stateless_at_either_path(app: FastAPI, path: str) -> No
     with TestClient(app) as client:
         response = client.post(path, json=initialize, headers=HEADERS)
         assert response.status_code == 200
-        assert "mcp-session-id" not in response.headers
         for given in (HEADERS, {**HEADERS, "mcp-session-id": "left-over-from-a-server-that-kept-one"}):
             listed = client.post(path, json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, headers=given)
             assert listed.status_code == 200
+            assert "mcp-session-id" not in listed.headers
             assert "stations" in listed.text
             called = client.post(path, json=call, headers=given)
             assert called.status_code == 200
@@ -319,3 +322,395 @@ def test_the_oauth_discovery_of_either_path_is_a_404(path: str, document: str) -
 def test_the_mcp_paths_are_no_rest_routes() -> None:
     """The OpenAPI document lists no MCP path, so the endpoint is no tool of itself."""
     assert not [path for path in restapi.app.openapi()["paths"] if path.startswith(("/mcp", "/.well-known"))]
+
+
+_SESSION_ID = re.compile(r"[\x21-\x7e]+")
+_TOOLS_LIST = {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}
+_TOOL_CALL = {
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": {"name": "glossary", "arguments": {"limit": 1}},
+}
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_initialize_answers_with_a_fresh_session_id_at_either_path(app: FastAPI, path: str) -> None:
+    """`initialize` carries an `Mcp-Session-Id` of visible ASCII, a new one each time (GH-4341)."""
+    with TestClient(app) as client:
+        ids = [client.post(path, json=_INITIALIZE, headers=HEADERS).headers.get("mcp-session-id") for _ in range(3)]
+
+    assert all(session_id and _SESSION_ID.fullmatch(session_id) for session_id in ids)
+    assert len(set(ids)) == 3
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_initialize_is_answered_by_the_endpoint_and_a_refusal_gets_no_id(app: FastAPI, path: str) -> None:
+    """The body is replayed as sent: the answer is the endpoint's own, with the id added; a refused one has none."""
+    with TestClient(app) as client:
+        response = client.post(path, json=_INITIALIZE, headers=HEADERS)
+        # a batch is refused by the endpoint (400), so no session is announced for it
+        batch = client.post(path, json=[_INITIALIZE], headers=HEADERS)
+
+    assert response.status_code == 200
+    assert "protocolVersion" in response.text
+    assert "Wetterdienst" in response.text
+    assert response.headers["mcp-session-id"]
+    assert batch.status_code == 400
+    assert "mcp-session-id" not in batch.headers
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_a_request_that_is_no_initialize_gets_no_id(app: FastAPI, path: str) -> None:
+    """A list, a call, a notification and a body that is no JSON are served as they were, with no id (GH-4341)."""
+    notification = {"jsonrpc": "2.0", "method": "notifications/initialized"}
+    with TestClient(app) as client:
+        for body in (_TOOLS_LIST, _TOOL_CALL, notification):
+            response = client.post(path, json=body, headers=HEADERS)
+            assert response.status_code in (200, 202), body
+            assert "mcp-session-id" not in response.headers, body
+        garbage = client.post(path, content=b"not json", headers=HEADERS)
+        assert "mcp-session-id" not in garbage.headers
+        assert garbage.status_code == 400
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_the_id_is_neither_stored_nor_checked(app: FastAPI, path: str) -> None:
+    """The id of an `initialize`, another, and none, are served alike, and nothing is kept (GH-4341, GH-3088)."""
+    with TestClient(app) as client:
+        issued = client.post(path, json=_INITIALIZE, headers=HEADERS).headers["mcp-session-id"]
+        for given in (
+            HEADERS,
+            {**HEADERS, "mcp-session-id": issued},
+            {**HEADERS, "mcp-session-id": "never-issued"},
+        ):
+            listed = client.post(path, json=_TOOLS_LIST, headers=given)
+            assert listed.status_code == 200
+            assert "stations" in listed.text
+            called = client.post(path, json=_TOOL_CALL, headers=given)
+            assert called.status_code == 200
+            assert "clearance_height" in called.text
+            assert "mcp-session-id" not in called.headers
+        # a second initialize that carries the id is a new one, not the continuation of a session
+        again = client.post(path, json=_INITIALIZE, headers={**HEADERS, "mcp-session-id": issued})
+        assert again.status_code == 200
+        assert again.headers["mcp-session-id"] != issued
+        assert client.delete(path, headers={**HEADERS, "mcp-session-id": issued}).status_code == 405
+        manager = next(
+            route.endpoint.session_manager for route in app.router.routes if getattr(route, "path", "") == path
+        )
+        assert manager.stateless is True
+        assert not manager._server_instances  # noqa: SLF001
+
+
+@pytest.mark.usefixtures("stations")
+def test_the_official_sdk_client_takes_the_id_and_ends_without_an_error(app: FastAPI) -> None:
+    """The `mcp` client keeps the id, sends it on, and its `DELETE` on closing and its `GET` are answered 405 (GH-4341).
+
+    What the client does with the id, observed: it sends it with every later request; on closing it sends a `DELETE`,
+    and a 405 is logged by the SDK at debug level as "Server does not allow session termination"; and after the
+    `initialized` notification it opens a `GET` stream, which a stateless server refuses with 405, and which it tries
+    twice (a second after the first) before giving up, silently. No call fails.
+    """
+    import httpx2  # noqa: PLC0415
+    from mcp import ClientSession  # noqa: PLC0415
+    from mcp.client.streamable_http import streamable_http_client  # noqa: PLC0415
+
+    seen: list[tuple[str, int, str | None, str | None]] = []
+
+    async def record(response: httpx2.Response) -> None:
+        request = response.request
+        seen.append(
+            (
+                request.method,
+                response.status_code,
+                request.headers.get("mcp-session-id"),
+                response.headers.get("mcp-session-id"),
+            )
+        )
+
+    async def run() -> tuple[list[str], str]:
+        http_client = httpx2.AsyncClient(
+            transport=httpx2.ASGITransport(app=app),
+            headers=HEADERS,
+            event_hooks={"response": [record]},
+        )
+        async with (
+            app.router.lifespan_context(app),
+            http_client,
+            streamable_http_client(f"http://testserver{MCP_PREFIX}", http_client=http_client) as streams,
+            ClientSession(streams[0], streams[1]) as session,
+        ):
+            await session.initialize()
+            names = [tool.name for tool in (await session.list_tools()).tools]
+            result = await session.call_tool(
+                "stations", {"provider": "dwd", "network": "observation", "parameters": "daily/kl", "all": True}
+            )
+            text = result.content[0].text  # ty: ignore[unresolved-attribute]
+        return names, text
+
+    names, text = asyncio.run(run())
+
+    assert {"coverage", "stations", "values"} <= set(names)
+    assert "01048" in text
+    posts = [entry for entry in seen if entry[0] == "POST"]
+    assert posts[0][2] is None
+    issued = posts[0][3]
+    assert issued
+    assert all(sent == issued and status in (200, 202) for _, status, sent, _ in posts[1:])
+    assert [entry[1] for entry in seen if entry[0] == "DELETE"] == [405]
+    gets = [entry[1] for entry in seen if entry[0] == "GET"]
+    assert gets
+    assert set(gets) == {405}
+
+
+_MIB = 1024 * 1024
+
+
+def _post_in_chunks(
+    app: FastAPI, path: str, chunks: list[bytes], *, declare: int | str | None = None
+) -> tuple[int, dict[str, str], bytes, int]:
+    """POST `chunks` to the app as one request, as an ASGI server delivers a body: one message for each chunk.
+
+    Answers the status, the headers and the body of the response, and how many times the app called `receive`: a
+    wrapper that reads a body it was not to read shows in that count. `declare` is the `Content-Length` to send, none
+    for a chunked body.
+    """
+    calls = 0
+    pending = list(chunks)
+
+    async def receive() -> dict[str, Any]:
+        nonlocal calls
+        calls += 1
+        if pending:
+            return {"type": "http.request", "body": pending.pop(0), "more_body": bool(pending)}
+        # a client stays connected while it waits for the answer, which the SDK streams as it comes
+        await asyncio.sleep(0.3)
+        return {"type": "http.disconnect"}
+
+    started: dict[str, Any] = {}
+    body = bytearray()
+
+    async def send(message: dict[str, Any]) -> None:
+        if message["type"] == "http.response.start":
+            started.update(message)
+        else:
+            body.extend(message.get("body", b""))
+
+    headers = [
+        (b"host", b"testserver"),
+        (b"accept", HEADERS["Accept"].encode()),
+        (b"content-type", b"application/json"),
+    ]
+    if declare is not None:
+        headers.append((b"content-length", str(declare).encode()))
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": path,
+        "raw_path": path.encode(),
+        "root_path": "",
+        "query_string": b"",
+        "headers": headers,
+        "client": ("testclient", 50000),
+        "server": ("testserver", 80),
+    }
+
+    async def run() -> None:
+        async with app.router.lifespan_context(app):
+            await app(scope, receive, send)
+
+    asyncio.run(run())
+    response_headers = {name.decode().lower(): value.decode() for name, value in started["headers"]}
+    return started["status"], response_headers, bytes(body), calls
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_a_chunked_initialize_gets_the_id_and_reaches_the_sdk_whole(app: FastAPI, path: str) -> None:
+    """An `initialize` in several chunks, with no `Content-Length`: it gets the id, and the SDK reads all of it."""
+    raw = json.dumps(_INITIALIZE).encode()
+    chunks = [raw[i : i + 20] for i in range(0, len(raw), 20)]
+    assert len(chunks) > 3
+
+    status, headers, body, _ = _post_in_chunks(app, path, chunks)
+
+    assert status == 200
+    assert headers["mcp-session-id"]
+    # the SDK read the whole body: it answers for the protocol version it was sent
+    assert b"protocolVersion" in body
+    assert b'"id":1' in body
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_a_body_that_declares_more_than_the_limit_is_refused_without_being_read(app: FastAPI, path: str) -> None:
+    """A declared `Content-Length` over the SDK's 4 MiB is a 413 before any of the body is read (GH-4341)."""
+    chunks = [b"x" * _MIB] * 8
+
+    status, headers, _, calls = _post_in_chunks(app, path, chunks, declare=8 * _MIB)
+
+    assert status == 413
+    assert "mcp-session-id" not in headers
+    assert calls == 0
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_an_oversized_chunked_body_is_cut_by_the_sdk_not_read_by_the_wrapper(app: FastAPI, path: str) -> None:
+    """A chunked body of 64 MiB with no `Content-Length` is a 413 after the SDK's 4 MiB, not after all of it."""
+    chunks = [b"x" * _MIB] * 64
+
+    status, headers, _, calls = _post_in_chunks(app, path, chunks)
+
+    assert status == 413
+    assert "mcp-session-id" not in headers
+    # 4 MiB and the chunk that goes past it, and one read of the wrapper's before; not the 64 chunks
+    assert calls <= 8
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_an_initialize_padded_past_the_cap_is_served_as_before_with_no_id(app: FastAPI, path: str) -> None:
+    """A body past what the wrapper inspects is not read for a method: the endpoint answers it, with no id."""
+    padded = json.dumps({**_INITIALIZE, "padding": "x" * (128 * 1024)}).encode()
+    # 20 KiB chunks: three are within the cap and held when the fourth goes past it, and the SDK must get all of them
+    chunks = [padded[i : i + 20 * 1024] for i in range(0, len(padded), 20 * 1024)]
+    assert len(chunks) > 4
+
+    status, headers, body, _ = _post_in_chunks(app, path, chunks)
+
+    assert status == 200
+    assert "mcp-session-id" not in headers
+    assert b"protocolVersion" in body
+
+
+async def _feed(messages: list[dict[str, Any]], *, then: dict[str, Any] | None = None) -> Any:  # noqa: ANN401
+    """Run the reader of the start of a body over `messages`, and answer what it gives and how many it asked for."""
+    from wetterdienst.ui import mcp  # noqa: PLC0415
+
+    asked = 0
+
+    async def receive() -> dict[str, Any]:
+        nonlocal asked
+        asked += 1
+        # a point to cancel at, as a server's `receive` has: an endless stream must end in the timeout, not hang the run
+        await asyncio.sleep(0)
+        if messages:
+            return messages.pop(0)
+        return then or {"type": "http.disconnect"}
+
+    replay, body = await mcp._read_start_of_body(receive)  # noqa: SLF001
+    return list(replay), body, asked
+
+
+def test_a_body_of_one_byte_messages_is_held_as_one_message() -> None:
+    """A body that comes one byte at a time is a single message and a buffer, not a message for each byte."""
+    body = b'{"jsonrpc":"2.0","id":1,"method":"initialize"}'
+    messages = [
+        {"type": "http.request", "body": body[i : i + 1], "more_body": i < len(body) - 1} for i in range(len(body))
+    ]
+
+    replay, read, asked = asyncio.run(_feed(messages))
+
+    assert read == body
+    assert replay == [{"type": "http.request", "body": body, "more_body": False}]
+    assert asked == len(body)
+
+
+def test_the_messages_of_a_body_up_to_the_cap_are_held_as_one() -> None:
+    """65535 messages of a byte are still one message held, and the one that goes past the cap is kept as it came."""
+    cap = 64 * 1024
+    messages = [{"type": "http.request", "body": b"x", "more_body": True} for _ in range(cap)]
+    crossing = {"type": "http.request", "body": b"y", "more_body": True}
+
+    replay, read, _ = asyncio.run(_feed([*messages, crossing]))
+
+    assert read is None
+    assert len(replay) == 2
+    assert replay[0] == {"type": "http.request", "body": b"x" * cap, "more_body": True}
+    assert replay[1] is crossing
+
+
+def test_the_messages_after_the_body_are_kept_for_the_endpoint() -> None:
+    """A disconnect that ends the body is replayed after it."""
+    disconnect = {"type": "http.disconnect"}
+
+    replay, read, _ = asyncio.run(_feed([{"type": "http.request", "body": b"ab", "more_body": True}], then=disconnect))
+
+    assert read == b"ab"
+    assert replay == [{"type": "http.request", "body": b"ab", "more_body": True}, disconnect]
+
+
+def test_empty_messages_that_end_are_waited_for() -> None:
+    """A few messages with no bytes, then the body: it is all read, and the empty ones are not replayed."""
+    body = b'{"jsonrpc":"2.0","id":1,"method":"initialize"}'
+    messages = [{"type": "http.request", "body": b"", "more_body": True}] * 10
+    messages.append({"type": "http.request", "body": body, "more_body": False})
+
+    replay, read, _ = asyncio.run(_feed(messages))
+
+    assert read == body
+    assert replay == [{"type": "http.request", "body": body, "more_body": False}]
+
+
+def test_an_endless_stream_of_empty_messages_is_given_up_on() -> None:
+    """A server that sends `more_body` and nothing else without end does not hold the wrapper: it hands over."""
+    empty = {"type": "http.request", "body": b"", "more_body": True}
+
+    async def run() -> Any:  # noqa: ANN401
+        return await asyncio.wait_for(_feed([], then=empty), timeout=5)
+
+    replay, read, asked = asyncio.run(run())
+
+    assert read is None
+    assert replay == [{"type": "http.request", "body": b"", "more_body": True}]
+    assert asked < 200
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_empty_messages_before_an_initialize_are_served_with_the_id(app: FastAPI, path: str) -> None:
+    """Through the app: empty messages, then the body, and the SDK reads the `initialize` all the same."""
+    raw = json.dumps(_INITIALIZE).encode()
+
+    status, headers, body, _ = _post_in_chunks(app, path, [b"", b"", raw[:30], b"", raw[30:]])
+
+    assert status == 200
+    assert headers["mcp-session-id"]
+    assert b"protocolVersion" in body
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_a_content_length_of_thousands_of_digits_is_no_number_and_no_error(app: FastAPI, path: str) -> None:
+    """A `Content-Length` of leading zeros, longer than `int` takes from a string, is served as one with none."""
+    raw = json.dumps(_INITIALIZE).encode()
+
+    status, headers, body, _ = _post_in_chunks(app, path, [raw], declare="0" * 5000 + str(len(raw)))
+
+    assert status == 200
+    assert headers["mcp-session-id"]
+    assert b"protocolVersion" in body
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_a_deeply_nested_body_is_a_400_not_a_500(app: FastAPI, path: str) -> None:
+    """A body nested deeper than a parser takes is the SDK's parse error (400), as it was before the id (GH-4341)."""
+    # deep enough for the C scanner of `json` too, whose limit is far above the interpreter's recursion limit
+    nested = b"[" * 30000 + b"]" * 30000
+    raw = b'{"jsonrpc":"2.0","id":1,"method":"initialize","params":' + nested + b"}"
+    assert len(raw) < 64 * 1024
+
+    status, headers, _, _ = _post_in_chunks(app, path, [raw])
+
+    assert status == 400
+    assert "mcp-session-id" not in headers
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_a_notification_named_initialize_gets_no_id(app: FastAPI, path: str) -> None:
+    """The id answers a request: a message named `initialize` that has no `id` is a notification (GH-4341)."""
+    notification = {key: value for key, value in _INITIALIZE.items() if key != "id"}
+
+    with TestClient(app) as client:
+        response = client.post(path, json=notification, headers=HEADERS)
+
+    assert "mcp-session-id" not in response.headers

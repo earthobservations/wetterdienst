@@ -16,7 +16,7 @@ import { isStale, parseLoop, PAST_MINUTES, RADAR_PRODUCT, RADAR_REFRESH_MS } fro
 export function useRadarFrames(active: () => boolean, options: { interval?: number, load?: () => Promise<unknown> } = {}) {
   const polled = usePolledAnswer<RadarLoop>(active, {
     interval: options.interval ?? RADAR_REFRESH_MS,
-    load: options.load ?? (() => $fetch('/api/radar/frames', { query: { product: RADAR_PRODUCT, past: PAST_MINUTES, forecast: true }, ...API_FETCH })),
+    load: options.load ?? (() => $fetch<unknown>('/api/radar/frames', { query: { product: RADAR_PRODUCT, past: PAST_MINUTES, forecast: true }, ...API_FETCH })),
     parse: parseLoop,
   })
   // the age is the server's time: the device's clock plus how far it was from the server's when the answer came (`clockSkewMs`)

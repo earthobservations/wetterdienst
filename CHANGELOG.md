@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- The MCP endpoint (`/mcp/v1`, `/mcp`) answers `initialize` with an `Mcp-Session-Id`, a new random
+  one each time, for the clients that expect one. The endpoint stays stateless (GH-3088): the id is
+  neither stored nor checked, and a request is served alike with it, another or none (GH-4341)
+
 ### Fixed
 
 - The MCP tool `alerts` keeps an answer over 40,000 characters within it (Kiel's three warnings were

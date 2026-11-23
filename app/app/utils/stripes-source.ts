@@ -21,7 +21,7 @@ export type StripesSource = 'dwd' | 'ghcn'
 export type StripesFetch = <T>(url: string, options?: { query?: Record<string, string> }) => Promise<T>
 
 /** `$fetch` with what every read of the API has (an answer that is no JSON is a failure, one retry of a transient one): what the pages give the functions below */
-export const stripesFetch: StripesFetch = (url, options) => $fetch(url, { ...options, ...API_FETCH }) as Promise<never>
+export const stripesFetch: StripesFetch = (url, options) => $fetch<never>(url, { ...options, ...API_FETCH })
 
 /** The annual parameter of DWD's observations each kind of stripes is made of */
 export const DWD_STRIPES_PARAMETER: Record<StripesKind, string> = {

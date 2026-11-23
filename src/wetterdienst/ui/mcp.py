@@ -32,6 +32,8 @@ from __future__ import annotations
 
 import base64
 import json
+import secrets
+from collections import deque
 from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
@@ -94,6 +96,151 @@ def _mark_tool_requests(app: ASGIApp) -> ASGIApp:
             HTML_PLOTLYJS.reset(token)
 
     return marked
+
+
+#: the header that names a session in the streamable-HTTP transport (the specification's `MCP-Session-Id`)
+SESSION_ID_HEADER = "mcp-session-id"
+
+#: how much of a request body `AnnounceSessionId` reads to see the method: an `initialize` is under 1 KB, so a body
+#: past this is no `initialize` for it, and is passed on untouched, with its size left to the SDK's own limit (4 MiB,
+#: `RequestBodyLimitMiddleware`), which the wrapper must not defeat by reading a body of any size first
+_INSPECTED_BODY_BYTES = 64 * 1024
+
+#: how many messages of a body that bring no bytes (`more_body` and nothing else) `AnnounceSessionId` waits for before
+#: it gives up looking: they count toward no cap, and a server may send them without end
+_MAX_EMPTY_MESSAGES = 64
+
+
+def _is_initialize(body: bytes) -> bool:
+    """Tell whether a request body is a JSON-RPC `initialize` request: a message with an `id`, or a batch of one.
+
+    A notification named `initialize` (no `id`) is no request, and gets no session.
+    """
+    # cheap first: most bodies are a `tools/call`, which is not parsed here
+    if b"initialize" not in body:
+        return False
+    from pydantic_core import from_json  # noqa: PLC0415
+
+    try:
+        # the SDK's own parser, whose depth is limited: `json.loads` raises a `RecursionError` on a deeply nested body,
+        # which would be a 500 where the SDK answers 400
+        message = from_json(body)
+    except ValueError:
+        return False
+    messages = message if isinstance(message, list) else [message]
+    return any(isinstance(item, dict) and item.get("method") == "initialize" and "id" in item for item in messages)
+
+
+def _declared_length(scope: Scope) -> int | None:
+    """Give the `Content-Length` a request declares, or None where it declares none (a chunked body) or no number."""
+    for name, value in scope["headers"]:
+        if name.lower() == b"content-length":
+            try:
+                # a number of thousands of digits is refused by `int` itself
+                return int(value) if value.isdigit() else None
+            except ValueError:
+                return None
+    return None
+
+
+async def _read_start_of_body(receive: Receive) -> tuple[deque[MutableMapping[str, Any]], bytes | None]:
+    """Read the start of a body, and give the messages to replay with the body they hold.
+
+    Reads up to `_INSPECTED_BODY_BYTES`, into one buffer, and waits for at most `_MAX_EMPTY_MESSAGES` messages that
+    bring nothing, so that neither a body of many small messages nor a stream of empty ones is held or waited for
+    without end. The body is None where the start is not all there is within those bounds: the messages then end
+    with what was read, and the rest is still to come from `receive`. The messages are the body read as one message
+    (the chunks of a body are no part of what an application may rely on), the message that went past the cap as it
+    came, and a message that is no part of the body (a disconnect) after it.
+    """
+    buffer = bytearray()
+    more_body = False
+    seen_request = False
+    empty = 0
+    messages: deque[MutableMapping[str, Any]] = deque()
+    while True:
+        message = await receive()
+        if message["type"] != "http.request":
+            if seen_request:
+                messages.append({"type": "http.request", "body": bytes(buffer), "more_body": more_body})
+            messages.append(message)
+            return messages, bytes(buffer)
+        seen_request = True
+        chunk = message.get("body", b"")
+        if len(buffer) + len(chunk) > _INSPECTED_BODY_BYTES:
+            messages.append({"type": "http.request", "body": bytes(buffer), "more_body": True})
+            messages.append(message)
+            return messages, None
+        buffer.extend(chunk)
+        more_body = bool(message.get("more_body", False))
+        if not more_body:
+            messages.append({"type": "http.request", "body": bytes(buffer), "more_body": False})
+            return messages, bytes(buffer)
+        if not chunk:
+            empty += 1
+            if empty > _MAX_EMPTY_MESSAGES:
+                messages.append({"type": "http.request", "body": bytes(buffer), "more_body": True})
+                return messages, None
+
+
+class AnnounceSessionId:
+    """Answer an `initialize` request with an `Mcp-Session-Id`, and keep nothing (GH-4341).
+
+    The endpoint is stateless (GH-3088): the transport of the SDK makes a new one for each request, without an id, so
+    no hook sends one. A client that expects the id of a server it talks to over the streamable-HTTP transport
+    (`initialize` is where the specification has a session start) gets a fresh random one here, on an HTTP 2xx answer
+    to a JSON-RPC request named `initialize`, and on no other response. That is the status of the answer, not the
+    outcome of the call: in SSE mode the SDK answers 200 and then sends an error in the stream for invalid params. The
+    server neither stores nor checks the id (it is no credential): a later request is served alike with this id, with
+    another, or with none, and no id is unknown (no 404).
+
+    The start of the body is read to see the method, up to `_INSPECTED_BODY_BYTES`, and replayed to the endpoint, so
+    that the endpoint reads what the client sent and its own limit on the size of a body holds. A request that is no
+    `POST`, one that declares a larger body, and one whose body is no `initialize` pass as they are.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        """Wrap `app`, the endpoint of the transport."""
+        # `Any`: the endpoint is the `StreamableHTTPASGIApp` of FastMCP, whose `session_manager` is read through this
+        self.app: Any = app
+
+    @property
+    def session_manager(self) -> Any:  # noqa: ANN401
+        """The session manager of the wrapped endpoint, which the app's lifespan starts and a test reads."""
+        return self.app.session_manager
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Serve a request, adding the id to the start of the response to a successful `initialize`."""
+        if scope["type"] != "http" or scope["method"] != "POST":
+            await self.app(scope, receive, send)
+            return
+        declared = _declared_length(scope)
+        if declared is not None and declared > _INSPECTED_BODY_BYTES:
+            await self.app(scope, receive, send)
+            return
+        messages, body = await _read_start_of_body(receive)
+
+        # the messages read first, as they came, then the real `receive`: the SDK's limit sees the rest of a body that
+        # went past the cap as it comes
+        async def replay() -> MutableMapping[str, Any]:
+            return messages.popleft() if messages else await receive()
+
+        if body is None or not _is_initialize(body):
+            await self.app(scope, replay, send)
+            return
+
+        async def announce(message: MutableMapping[str, Any]) -> None:
+            if message["type"] == "http.response.start" and 200 <= message["status"] < 300:
+                headers = [
+                    (name, value)
+                    for name, value in message.get("headers", [])
+                    if name.lower() != SESSION_ID_HEADER.encode()
+                ]
+                headers.append((SESSION_ID_HEADER.encode(), secrets.token_urlsafe(16).encode()))
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, replay, announce)
 
 
 INSTRUCTIONS = """\

@@ -13,19 +13,19 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 [Values, units and timestamps](#values-units-and-timestamps) and [Failures](#failures). If you come from a release
 before 0.139.0, read the **Breaking** entries up to it first.
 
-The web app is released as a pair with the backend: `app-v0.58.0` is the app of 0.195.0, where the stripes routes are
-gone (it needs the `station-ids` route of 0.195.0 for the search by WMO number, WIGOS identifier or ICAO code, draws
-the stripes itself from `stations` and `values`, and needs the radar routes of 0.194.0 for the Radar tool and the
+The web app is released as a pair with the backend: `app-v0.59.0` is the app of 0.196.0, where the stripes routes are
+gone (it needs the `station-ids` route of 0.195.0 for the search by WMO number, WIGOS identifier or ICAO code, draws the
+stripes itself from `stations` and `values`, and needs the radar routes of 0.194.0 for the Radar tool and the
 per-element lists of `noaa/ghcn` of 0.194.0 for the stripes' station list, the `provider` and `network` of the stripes
 of 0.192.0, the stripes' `reference`, `stripe_class` and `anomaly` and the stations' `wmo_id` of 0.191.0, the dataset
 `hourly/snow` of `dwd/mosmix` for the snow panel of the forecast, and otherwise no more of the backend than
 `app-v0.47.0`, the app of 0.186.0, which needs it: it asks for `unit_targets` on the stripes and reads the separate
-`providers` and `coverage`; `app-v0.57.0` went with 0.194.0 and works with 0.195.0, `app-v0.56.0` with 0.193.0 and
-works with 0.194.0, `app-v0.55.0` and `app-v0.54.0` with 0.192.0, `app-v0.53.0` with 0.191.0, `app-v0.52.0` with
-0.190.0, `app-v0.51.1` with 0.189.1, `app-v0.51.0` with 0.189.0, `app-v0.50.0` with 0.188.0, `app-v0.49.0` with 0.187.1,
-`app-v0.48.0` with 0.187.0 and `app-v0.46.0` with 0.185.0; every app before `app-v0.57.0` asks the stripes routes that
-0.195.0 removes, so it stays with the backend it went with). Upgrade both
-([The web app and the image](compatibility.md#the-web-app-and-the-image)).
+`providers` and `coverage`; `app-v0.58.0` went with 0.195.0 and works with 0.196.0, `app-v0.57.0` with 0.194.0 and works
+with 0.195.0, `app-v0.56.0` with 0.193.0 and works with 0.194.0, `app-v0.55.0` and `app-v0.54.0` with 0.192.0,
+`app-v0.53.0` with 0.191.0, `app-v0.52.0` with 0.190.0, `app-v0.51.1` with 0.189.1, `app-v0.51.0` with 0.189.0,
+`app-v0.50.0` with 0.188.0, `app-v0.49.0` with 0.187.1, `app-v0.48.0` with 0.187.0 and `app-v0.46.0` with 0.185.0; every
+app before `app-v0.57.0` asks the stripes routes that 0.195.0 removes, so it stays with the backend it went with).
+Upgrade both ([The web app and the image](compatibility.md#the-web-app-and-the-image)).
 
 Two things that still worked in 0.172.0 are removed in 0.173.0, earlier than announced for 1.0.0:
 `Wetterdienst(provider, network)` and `wetterdienst stripes values`. Write
@@ -440,7 +440,7 @@ arguments are the query parameters. In addition:
 | the tools `values` and `stations` returned the whole answer, whatever its size | **Breaking**: an answer is cut to 40,000 characters, `metadata` included, in every format (a CSV or NDJSON answer is counted as the JSON the client receives), with an `answer-truncated` warning (for CSV also the `X-Wetterdienst-Truncated` header). `values` keeps whole timestamps, the end nearest to now or the start of a given `timestamp` window, and the note names the next window; `stations` without `name` keeps the first stations (the nearest, for a `rank` or a `distance`) and says how many match. Ask for a `timestamp` window, or use the REST API or the library for the whole answer; those are unchanged | 0.187.0, GH-4022, GH-4029, GH-4036 |
 | the tools `interpolate`, `summarize`, `stripes_stations` and `coverage` returned the whole answer | **Breaking**: the same 40,000-character cut. `interpolate` and `summarize` keep whole timestamps from the start of their `timestamp` window; `stripes_stations` keeps the first stations (give a station's name to `stripes_values` or `stripes_image`); `coverage` sends the parameters' `description` as null, then whole datasets in order, and its note names the datasets left out and how to ask for them. REST, command line and Python are unchanged | 0.187.0, GH-4024 |
 | the tool `values` of a forecast network (`dwd/mosmix`, `dwd/dmo`, `dwd/swsmos`) without a `timestamp`, or with one of whole days, returned the whole model run, past hours of today included | **Breaking**: it starts at the current hour (UTC), and a `timestamp` of whole days (`2026-11-12`, `2026-11-12/2026-11-14`) that contains now leaves today's earlier hours out; a `forecast-from-now` warning (for CSV also the `X-Wetterdienst-Forecast-From-Now` header) names the `timestamp` to ask for them. To read the past hours, pass a window with a time part (`2026-11-12T10:00/2026-11-12T14:00`). REST, command line and Python return the whole run as before | 0.187.0, GH-4025 |
-| the endpoint kept a session | stateless: no `mcp-session-id`, no `initialize` needed before `tools/list` or `tools/call`; `DELETE` and the `GET` that opens a stream answer 405. A client that depended on being given a session id has to stop | 0.159.0, GH-3088 |
+| the endpoint kept a session | stateless: no session kept, no `initialize` needed before `tools/list` or `tools/call`; `DELETE` and the `GET` that opens a stream answer 405. A client that depended on a session id being kept has to stop; `initialize` returns an `mcp-session-id` again since GH-4341, which is neither stored nor checked | 0.159.0, GH-3088, GH-4341 |
 | `/mcp` | `/mcp/v1` is the endpoint to configure; `/mcp` stays as an alias of the current version | 0.158.0, GH-3074 (nothing to change) |
 
 ## Docker and deployment

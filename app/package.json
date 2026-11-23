@@ -1,11 +1,11 @@
 {
   "name": "wetterdienst_app",
   "type": "module",
-  "version": "0.58.0",
+  "version": "0.59.0",
   "private": true,
   "packageManager": "pnpm@11.22.0+sha512.1ff870c4c6133dfd88fb2afc46dd13d47f09c9794b438c6fdb47ca98caf3bc16381ee0be93a091b8e3824cf01f889f46d7d9e20910fb0be1ab0fb5baa80dd621",
   "engines": {
-    "node": ">=24.15.0"
+    "node": ">=26.13.1"
   },
   "scripts": {
     "build": "nuxt build",
@@ -14,7 +14,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare && pnpm gen:api-types",
     "gen:api-types": "node scripts/gen-api-types.mjs",
-    "typecheck": "pnpm gen:api-types && nuxt typecheck",
+    "typecheck": "pnpm gen:api-types && node scripts/typecheck.mjs",
     "lint": "oxlint && eslint .",
     "lint:fix": "oxlint --fix && eslint . --fix",
     "test": "vitest",
@@ -73,7 +73,7 @@
     "happy-dom": "^21.0.4",
     "openapi-typescript": "^7.13.0",
     "oxlint": "^1.86.0",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "vitest": "^4.1.12",
     "vue-tsc": "^3.3.12"
   }
