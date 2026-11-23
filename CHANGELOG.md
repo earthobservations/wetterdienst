@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+### Security
+
+- The `pdf` extra needs pypdf 7.1.1 (was 6.21.4): denial-of-service advisories on a crafted PDF
+  that the description reader reaches are fixed only in 7.x (GH-4350)
+
 ## [0.196.0] - 2026-11-23
 
 ### Changed
@@ -45,11 +50,6 @@ Types of changes:
   `distance_river_gauge_height` (GHCN-Daily's `GAHT`) as the height of the gauge zero point. It is,
   as GHCN-Daily writes it, the "difference between river and gauge height"; the app's label
   says so in all eleven languages. The values are unchanged (GH-4310)
-
-### Security
-
-- The `pdf` extra needs pypdf 7.1.1 (was 6.21.4): denial-of-service advisories on a crafted PDF
-  that the description reader reaches are fixed only in 7.x (GH-4350)
 
 ## [0.195.0] - 2026-11-22
 
