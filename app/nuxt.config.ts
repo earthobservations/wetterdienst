@@ -306,6 +306,7 @@ export default defineNuxtConfig({
     // body of a POST (JSON-RPC, which the backend validates) as it came. nuxt-security's `xssValidator` reads the
     // whole body before the proxy runs, with no limit, and leaves nothing in the stream to forward; its
     // `requestSizeLimiter` answers 413 from 2,000,000 bytes, below the backend's limit. Both are off here (GH-4362).
+    // (`/mcp/**` matches `/mcp` as well; the plain key is belt and braces)
     '/mcp': { security: { xssValidator: false, requestSizeLimiter: false } },
     '/mcp/**': { security: { xssValidator: false, requestSizeLimiter: false } },
     // Who may frame `/widget` is not a rule of this list: see `server/plugins/widget-frame.ts`.

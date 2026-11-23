@@ -43,7 +43,7 @@ const PAYLOAD_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
  * A declared `Content-Length` over `limit` is answered without reading a byte. For a chunked body, the read
  * stops when it passes `limit`, which closes the connection: the 413 is best effort there, and a client that is
  * still sending may see the connection reset instead (the body is not drained, since a client of MCP sends its
- * length).
+ * length). The request is paused, not destroyed, and the answer closes the connection.
  *
  * @param event The request
  * @param limit The most bytes to take
@@ -58,20 +58,38 @@ async function readBodyUpTo(event: H3Event, limit: number): Promise<Uint8Array<A
   const declared = Number(getRequestHeader(event, 'content-length'))
   if (declared > limit)
     return 'too-large'
-  const chunks: Uint8Array[] = []
-  let size = 0
-  try {
-    for await (const chunk of req as AsyncIterable<Uint8Array>) {
+  // Listeners, not `for await`: leaving that loop early destroys the request, and nitro's graceful shutdown
+  // (`res.on('finish', () => { req.socket._isIdle = true })`) then meets a null socket and throws an uncaught
+  // exception for every oversized body. Here the request is only paused, and the socket closes after the 413.
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = []
+    let size = 0
+    function done(result: Uint8Array<ArrayBuffer> | undefined | 'too-large'): void {
+      req.off('data', onData)
+      req.off('end', onEnd)
+      req.off('error', onError)
+      req.off('close', onError)
+      if (result === 'too-large')
+        req.pause()
+      resolve(result)
+    }
+    function onData(chunk: Buffer): void {
       size += chunk.length
       if (size > limit)
-        return 'too-large'
+        return done('too-large')
       chunks.push(chunk)
     }
-  }
-  catch {
-    return undefined
-  }
-  return size ? new Uint8Array(Buffer.concat(chunks)) : undefined
+    function onEnd(): void {
+      done(size ? new Uint8Array(Buffer.concat(chunks)) : undefined)
+    }
+    function onError(): void {
+      done(undefined)
+    }
+    req.on('data', onData)
+    req.on('end', onEnd)
+    req.on('error', onError)
+    req.on('close', onError)
+  })
 }
 
 export function mcpProxyHandler() {

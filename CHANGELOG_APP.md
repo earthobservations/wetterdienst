@@ -63,8 +63,8 @@ Types of changes:
   problem: a declared `Content-Length` before any of the body is read, a chunked body (best effort,
   the connection is closed) as soon as it passes the limit. It held a body of any size in memory
   first, and nuxt-security's request size limit answered 413 from 2 MB, with an h3 error. Both of
-  its checks on the body are off for `/mcp`, and a body that something has read before the proxy is
-  answered 500, never forwarded empty (GH-4362).
+  its request checks (the XSS filter and the size limit) are off for `/mcp`, and a body that
+  something has read before the proxy is answered 500, never forwarded empty (GH-4362).
 
 ## [0.58.0] - 2026-11-22
 

@@ -14,6 +14,7 @@ const h3 = nuxtRequire('h3') as typeof import('h3')
 const servers: Server[] = []
 // the paths the backend was asked for
 const asked: string[] = []
+const finishFailures: Error[] = []
 const config = { apiBase: '' }
 let app: string
 
@@ -50,6 +51,18 @@ beforeAll(async () => {
     vi.stubGlobal(name, value)
   const { mcpProxyHandler } = await import('../../server/utils/mcpProxy')
   const router = h3.createApp()
+  // What nitro's graceful shutdown does for every response (`res.on('finish', () => { req.socket._isIdle = true })`),
+  // which throws on a request that was destroyed (its socket is null): the failures are kept here
+  router.use(h3.defineEventHandler((event) => {
+    event.node.res.on('finish', () => {
+      try {
+        (event.node.req.socket as unknown as { _isIdle: boolean })._isIdle = true
+      }
+      catch (failure) {
+        finishFailures.push(failure as Error)
+      }
+    })
+  }))
   router.use(mcpProxyHandler())
   const proxy = createServer(h3.toNodeListener(router))
   const stub = createServer(backend)
@@ -190,6 +203,23 @@ describe('the /mcp proxy and the size of the body', () => {
     expect(status).toBe(413)
     expect(JSON.parse(body).status).toBe(413)
     expect(asked).toEqual([])
+  })
+
+  it('leaves the socket of an oversized chunked body in place, so that what runs when the response finishes does not throw', async () => {
+    finishFailures.length = 0
+    for (let i = 0; i < 5; i++)
+      await chunkedRequest(limit + 64 * 1024, 64 * 1024).catch(() => undefined)
+    // the `finish` events come after the answers
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    expect(finishFailures.map(failure => failure.message)).toEqual([])
+  })
+
+  it('passes a chunked body just under the limit, intact', async () => {
+    const { status, body } = await chunkedRequest(limit - 1, 100_000)
+
+    expect(status).toBe(200)
+    expect(JSON.parse(body).body).toHaveLength(limit - 1)
   })
 
   it('passes a chunked body of exactly the limit, and a body that is not there', async () => {
