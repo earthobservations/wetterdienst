@@ -15,6 +15,7 @@ import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import TYPE_CHECKING, cast
+from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo
 
 import polars as pl
@@ -61,7 +62,13 @@ class _Handler(BaseHTTPRequestHandler):
             server.requests.append(self.path)
             server.active += 1
             server.max_active = max(server.max_active, server.active)
+            held = server.holds.get(self.path)
+            arrival = server.arrivals.setdefault(self.path, threading.Event())
+        arrival.set()
         try:
+            # answered late: a test that relies on the hold is on the racy ordering again, which it must hear of
+            if held is not None and not held.wait(timeout=20):
+                server.expired.append(self.path)
             if server.gate is not None and not self.path.startswith("/0/"):
                 server.gate.wait(timeout=20)
             time.sleep(server.delay(self.path))
@@ -96,12 +103,27 @@ class _Upstream(ThreadingHTTPServer):
         self.max_active = 0
         #: while set and not yet released, the files of the stations after the first are held back
         self.gate: threading.Event | None = None
+        #: the files whose answer is held back until the test sets the event, and the files that have been asked for
+        self.holds: dict[str, threading.Event] = {}
+        self.arrivals: dict[str, threading.Event] = {}
+        #: the held files that were answered because 20 s were up, not because the test let them go
+        self.expired: list[str] = []
         self.lock = threading.Lock()
 
     @property
     def url(self) -> str:
         """The address."""
         return f"http://127.0.0.1:{self.server_port}"
+
+    def hold(self, path: str) -> threading.Event:
+        """Hold the answer to ``path`` back until the event that is returned is set."""
+        with self.lock:
+            return self.holds.setdefault(path, threading.Event())
+
+    def arrival(self, path: str) -> threading.Event:
+        """Give the event that is set when ``path`` has been asked for (its answer may still be held)."""
+        with self.lock:
+            return self.arrivals.setdefault(path, threading.Event())
 
     def asked(self, station: int) -> list[str]:
         """Give the paths asked of one station, in the order they came."""
@@ -163,9 +185,13 @@ def upstream() -> Iterator[_Upstream]:
     try:
         yield server
     finally:
+        # a test that failed must not leave a handler (and the fetch thread that waits for it) held for 20 s
+        for event in list(server.holds.values()):
+            event.set()
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+    assert server.expired == [], "a held answer was not let go in time: the test ran on the ordering it holds back"
 
 
 @pytest.fixture(autouse=True)
@@ -350,6 +376,38 @@ def _wait_for_no_threads() -> None:
     assert _fetch_threads() == []
 
 
+class _FetchWatch:
+    """Events that say what the fetch-ahead has done, so that a test waits for it instead of for a time.
+
+    ``noted`` is set when a 429 has been kept by the fetch-ahead (which then fetches nothing more), and ``ended(path)``
+    when the thread that began with ``path`` has returned from its station, whatever it ended with.
+    """
+
+    def __init__(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        self.noted = threading.Event()
+        self._ended: dict[str, threading.Event] = {}
+        self._lock = threading.Lock()
+        note_rate_limit, fetch = FetchAhead._note_rate_limit, FetchAhead._fetch  # noqa: SLF001
+
+        def noting(fetching: FetchAhead, error: ProviderRateLimitError) -> None:
+            note_rate_limit(fetching, error)
+            self.noted.set()
+
+        def fetching(ahead: FetchAhead, job: fetch_ahead._Fetch) -> None:
+            try:
+                fetch(ahead, job)
+            finally:
+                self.ended(urlsplit(job.urls[0]).path).set()
+
+        monkeypatch.setattr(FetchAhead, "_note_rate_limit", noting)
+        monkeypatch.setattr(FetchAhead, "_fetch", fetching)
+
+    def ended(self, path: str) -> threading.Event:
+        """Give the event that is set when the station fetched ahead from ``path`` on is done."""
+        with self._lock:
+            return self._ended.setdefault(path, threading.Event())
+
+
 def _station_ids(results: Sequence[ValuesResult]) -> list[str]:
     return [result.df.get_column("station_id")[0] for result in results]
 
@@ -527,10 +585,16 @@ def test_nothing_more_is_fetched_ahead_after_a_429(
 ) -> None:
     """A provider that says to wait is not asked for the files of the next stations by the threads of the walk."""
     upstream.statuses = {"/1/0": 429}
+    # the refusal comes once the walk is at station 0 and ends when it is noted, so that the walk neither raises it
+    # while it is still at station 0 nor plans station 2 before it is known (nothing is fetched after it is noted)
+    release = upstream.hold("/1/0")
+    watch = _FetchWatch(monkeypatch)
     reader = _reader(monkeypatch, tmp_path, stations=6, urls_of=_files(upstream, 3), depth=1)
 
     results = reader.query()
     next(results)
+    release.set()
+    assert watch.noted.wait(timeout=20), "no 429 was noted (has FetchAhead._note_rate_limit been bypassed?)"
     with pytest.raises(ProviderRateLimitError):
         next(results)
     upstream.settle()
@@ -543,17 +607,36 @@ def test_nothing_more_is_fetched_ahead_after_a_429(
 def test_the_other_threads_stop_at_the_429_before_the_walk_comes_to_raise_it(
     upstream: _Upstream, monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """The walk raises the 429 at the next station; until then the threads ahead do not go on asking the provider."""
+    """The walk raises the 429 at the next station; until then the threads ahead do not go on asking the provider.
+
+    Ordered by gates, not by time: both files ahead are asked for and held, the 429 of station 1 is let go and noted,
+    and only then is the file of station 2 let go, so that the thread of station 2 is under way with its first file
+    when the 429 comes, however busy the machine is. (Let go earlier, the 429 can reach the walk while it is still at
+    station 0, or end the planning before station 2 is fetched for: both are what the contract allows.)
+    """
     upstream.statuses = {"/1/0": 429}
-    # the file of station 2 that is under way when the 429 comes is the last one it asks for
-    upstream.delay = lambda path: 0.3 if path.startswith("/2/") else 0.0
+    release_429 = upstream.hold("/1/0")
+    release_second = upstream.hold("/2/0")
+    watch = _FetchWatch(monkeypatch)
     reader = _reader(monkeypatch, tmp_path, stations=6, urls_of=_files(upstream, 3), depth=2)
 
     results = reader.query()
     next(results)
-    upstream.settle({1, 2})
+    assert upstream.arrival("/1/0").wait(timeout=20), "/1/0 was never asked for"
+    assert upstream.arrival("/2/0").wait(timeout=20), "/2/0 was never asked for"
+    release_429.set()
+    assert watch.noted.wait(timeout=20), "no 429 was noted (has FetchAhead._note_rate_limit been bypassed?)"
+    # the file of station 2 that is under way when the 429 comes is the last one it asks for
+    release_second.set()
+    assert watch.ended("/2/0").wait(timeout=20), (
+        "the fetch of station 2 did not end (has FetchAhead._fetch been bypassed?)"
+    )
 
     assert upstream.asked(2) == ["/2/0"]
+    assert upstream.asked(1) == ["/1/0"]
+    # the walk raises it at the next station
+    with pytest.raises(ProviderRateLimitError):
+        next(results)
     results.close()
 
 
@@ -567,17 +650,31 @@ def test_a_429_noted_while_planning_does_not_wait_for_the_download_of_the_statio
             raise ProviderRateLimitError(upstream.url, "limited", RATE_LIMIT_WAIT)
         return _files(upstream, 1)(station_id)
 
-    upstream.delay = lambda path: 3.0 if path.startswith("/1/") else 0.0
+    # the file of station 1 is held until the end of the test: a walk that waited for it would not come back
+    held = upstream.hold("/1/0")
     reader = _reader(monkeypatch, tmp_path, stations=6, urls_of=_files(upstream, 1), depth=2, named=named)
 
     results = reader.query()
     next(results)
-    started = time.monotonic()
-    with pytest.raises(ProviderRateLimitError):
-        next(results)
+    assert upstream.arrival("/1/0").wait(timeout=20), "/1/0 was never asked for"
+    raised: list[BaseException] = []
 
-    # the file of station 1 takes 3 s; the walk that raises for station 3, planned from station 1, does not wait for it
-    assert time.monotonic() - started < 1.5
+    def walk() -> None:
+        try:
+            next(results)
+        except BaseException as error:  # noqa: BLE001 -- handed to the test
+            raised.append(error)
+
+    walker = threading.Thread(target=walk, daemon=True)
+    try:
+        # the walk that raises for station 3, planned from station 1, does not wait for the file of station 1
+        walker.start()
+        walker.join(timeout=10)
+        assert not walker.is_alive(), "the walk waits for the download of the station in hand"
+    finally:
+        held.set()
+        walker.join(timeout=20)
+    assert [type(error) for error in raised] == [ProviderRateLimitError]
 
 
 def test_a_429_met_by_the_hook_that_names_the_files_ends_the_walk(
@@ -624,10 +721,18 @@ def test_nothing_more_is_fetched_ahead_after_a_failure(
 ) -> None:
     """After an outage (not a 404) the host is not asked for the next stations: the walk goes on one at a time."""
     upstream.statuses = {"/1/0": 503}
+    # the outage is answered once the walk is at station 0 and has ended the thread of station 1 when the walk goes on:
+    # nothing is fetched after the failure is known, and the walk may plan station 2 before that
+    release = upstream.hold("/1/0")
+    watch = _FetchWatch(monkeypatch)
     reader = _reader(monkeypatch, tmp_path, stations=6, urls_of=_files(upstream, 1), depth=1)
 
     results = reader.query()
     next(results)
+    release.set()
+    assert watch.ended("/1/0").wait(timeout=20), (
+        "the fetch of station 1 did not end (has FetchAhead._fetch been bypassed?)"
+    )
     with pytest.raises(DownloadError):
         next(results)
 
