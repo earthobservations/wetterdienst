@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- `[Translations]` The fourth review of the translations corrects the texts added since the third
+  in the Radar, the warnings, the Meteogram, the stripes and the day and season questions. The
+  methods page and its search entry no longer name "Ask the weather" in English in any language;
+  fresh snow, snow depth and values are one word within a language, and wrong sentences in ten
+  languages are fixed. What only a native speaker can decide is listed in `app/i18n/TERMS.md`
+  (GH-2610).
+
 ## [0.58.0] - 2026-11-22
 
 Paired with backend 0.195.0, which it needs: the search asks the `station-ids` route of 0.195.0 for a WMO

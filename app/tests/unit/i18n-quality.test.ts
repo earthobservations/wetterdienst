@@ -548,6 +548,17 @@ describe('text copied from en or de', () => {
     expect(copies(glossary, GLOSSARY_SAME).stale).toEqual([])
   })
 
+  it('names the home page\'s feature in the language of the page, not by its English title', () => {
+    // `methods.*` and `seo.pages.methods` named "Ask the weather" in English in all eleven locales, although each
+    // translates `ask.title` (GH-2610, fourth pass): this scans every UI string of every locale but en, in any case,
+    // since a text that points to the feature uses the translated title
+    const title = ui.en!['ask.title']!
+    expect(title).toBe('Ask the weather')
+    const left = others.flatMap(locale =>
+      Object.entries(ui[locale]!).filter(([, text]) => text.toLowerCase().includes(title.toLowerCase())).map(([key]) => `${locale} ${key}`))
+    expect(left).toEqual([])
+  })
+
   it('names a reason for every entry', () => {
     for (const entry of [...Object.values(UI_SAME), ...Object.values(GLOSSARY_SAME)])
       expect(entry.why.length).toBeGreaterThan(10)
