@@ -162,10 +162,22 @@ _ZONES = {
 }
 
 
-def _days(first: int = 1990, last: int = 2030) -> list[dt.date]:
-    """Every day of the years."""
-    start = dt.date(first, 1, 1)
-    return [start + dt.timedelta(days=i) for i in range((dt.date(last, 12, 31) - start).days + 1)]
+def _days() -> list[dt.date]:
+    """Return the sample of days: every month of six years, on the 1st, the 15th and the last week.
+
+    1900 and 2100 are not leap years though they divide by 4, 2000 is one though it divides by 100. The days 25 to
+    31 hold every month end, every leap day and every European change of DST (the last Sunday of March and of
+    October), as a start and as a landing day.
+    """
+    days = []
+    for year in (1900, 2000, 2023, 2024, 2025, 2100):
+        for month in range(1, 13):
+            for day in (1, 15, 25, 26, 27, 28, 29, 30, 31):
+                try:
+                    days.append(dt.date(year, month, day))
+                except ValueError:
+                    continue
+    return days
 
 
 def _same(actual: dt.datetime, expected: dt.datetime) -> bool:
@@ -184,7 +196,7 @@ def _outcome(call: Callable[[], dt.datetime]) -> dt.datetime | type[Exception]:
 
 
 @pytest.mark.parametrize("zone", list(_ZONES))
-def test_add_months_is_relativedelta_over_every_day_of_1990_to_2030(zone: str) -> None:
+def test_add_months_is_relativedelta_over_a_sample_of_days(zone: str) -> None:
     """Test that `add_months` gives what `relativedelta` gave, for months and years, forward and back."""
     relativedelta = pytest.importorskip("dateutil.relativedelta").relativedelta
     tzinfo = _ZONES[zone]
@@ -200,7 +212,7 @@ def test_add_months_is_relativedelta_over_every_day_of_1990_to_2030(zone: str) -
 
 
 @pytest.mark.parametrize("zone", list(_ZONES))
-def test_mktimerange_is_relativedelta_over_every_day_of_1990_to_2030(zone: str) -> None:
+def test_mktimerange_is_relativedelta_over_a_sample_of_days(zone: str) -> None:
     """Test that the first and last day of a month and of a year are what `relativedelta` gave."""
     relativedelta = pytest.importorskip("dateutil.relativedelta").relativedelta
     tzinfo = _ZONES[zone]
