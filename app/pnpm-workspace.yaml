@@ -6,12 +6,6 @@
 minimumReleaseAge: 4320
 minimumReleaseAgeExcludePrune: true
 confirmModulesPurge: false
-
-minimumReleaseAgeExclude:
-  - '@nuxt/kit@3.21.10'
-  - '@nuxt/test-utils@4.1.0'
-  - esbuild@0.28.1
-
 trustPolicy: no-downgrade
 shellEmulator: true
 
@@ -24,10 +18,25 @@ overrides:
   # their patched backports (1.1.21, 2.1.7), with no floor.
   brace-expansion@>=4.0.0 <5.0.12: ^5.0.12
   esbuild@>=0.27.3 <0.28.1: ^0.28.1
+  # glob (build and lint tooling only: nitropack's @vercel/nft, js-beautify,
+  # @intlify/eslint-plugin-vue-i18n), GHSA-3g3m-2fjr-6pw4: an aborted walk keeps reading
+  # directories. Affects >= 9.0.0 up to 14.0.1, fixed in 14.0.2. The advisory names no patched
+  # release in a lower major line, so each affected copy (10.x, 13.x) moves to 14.x, whose
+  # `glob()` and `globSync()` its consumers call.
+  glob@>=9.0.0 <14.0.2: ^14.0.2
   # katex (dev-only, via @antfu/eslint-config -> @eslint/markdown -> micromark-extension-math):
   # fixed in 0.18.2 (0.18.11 is deprecated in favour of 0.19.0), but micromark-extension-math
   # asks for ^0.16.0 and has no newer release. Drop this once it admits the fixed line.
   katex@<0.18.2: ^0.19.0
+  # minimatch (lint and build tooling only: eslint's config-array, glob), GHSA-g3hv-75wg-m249:
+  # denial of service by a glob pattern. Affects >= 7.0.0, fixed in 11.0.1, with no patched
+  # release in a lower major line, so the 9.x and 10.x copies move to 11.x, whose `Minimatch`
+  # class they use. The 3.x and 5.x copies are outside the advisory and stay.
+  minimatch@>=7.0.0 <11.0.1: ^11.0.1
+  # node-forge (via nitropack > listhen, the development server's self-signed certificate):
+  # GHSA-rhr8-3pm8-cq29, GHSA-6qrw-m8cv-hcxf, GHSA-7wch-p9px-956x, GHSA-jc66-7q78-782g and
+  # more, all fixed in 1.4.3; listhen asks for ^1.3.1, which admits the vulnerable 1.4.0.
+  node-forge@<1.4.3: ^1.4.3
   # qs (GHSA-6pq8-jhm2-2vcw, fixed in 6.16.1): @duckdb/duckdb-wasm pins qs 6.16.0 exactly and
   # ships no code that loads it (its dist never requires qs), so this only keeps the vulnerable
   # copy out of the lock file. Drop this once duckdb-wasm asks for a fixed qs.
