@@ -35,7 +35,7 @@ from pathlib import Path
 
 import pytest
 
-from tests.metadata.test_parameter_statistics import _MEAN_WINDOW, _source_description
+from tests.metadata.test_parameter_statistics import _MEAN_WINDOW, _mean_window_of, _source_description
 from tests.test_api import ALL_METADATA
 from wetterdienst.metadata.parameter_table import PARAMETERS
 from wetterdienst.model.metadata import ParameterModel
@@ -307,7 +307,7 @@ def _mean_window_minutes(evidence: str) -> int | None:
 
     "1-minute mean, averaged to 10 minutes" is a 10-minute mean, so the longest window counts.
     """
-    windows = [int(g) for match in _MEAN_WINDOW.finditer(evidence) for g in match.groups() if g]
+    windows = [_mean_window_of(match) for match in _MEAN_WINDOW.finditer(evidence)]
     windows += [int(match.group(1)) for match in _AVERAGED_TO.finditer(evidence)]
     return max(windows) if windows else None
 
