@@ -3058,6 +3058,11 @@ def _is_temperature(name: str) -> bool:
     return name.startswith("temperature_air")
 
 
+def _hour_of(moment: dt.datetime) -> dt.datetime:
+    """Give the start of the hour `moment` is in: a forecast answer starts there, so that hour still counts as valid."""
+    return moment.replace(minute=0, second=0, microsecond=0)
+
+
 def span_of_values(
     fact: dict[str, Any],
     rows: list[dict[str, Any]],
@@ -3071,10 +3076,11 @@ def span_of_values(
 ) -> dict[str, Any]:
     """Give the span a `ground_truth_span` fact allows, from the rows of the judge's own `values` call.
 
-    For a fact with `future_only` (the forecasts) the rows are those after `now` and up to `hours` hours later (the
-    judge's next 48 hours); otherwise all of them (`window="all"` forces that). The span is the lowest and highest value
-    widened by the fact's `margin` and kept inside its `sanity`. Each `RESULT:` figure of the answer in a temperature
-    unit is converted to degrees Celsius and said to be inside it or not; a figure in another unit is `None`.
+    For a fact with `future_only` (the forecasts) the rows are those from the hour `now` is in (the current hour: an MCP
+    forecast answer starts there on purpose) and up to `hours` hours after `now` (the judge's next 48 hours); otherwise
+    all of them (`window="all"` forces that). The span is the lowest and highest value widened by the fact's
+    `margin` and kept inside its `sanity`. Each `RESULT:` figure of the answer in a temperature unit is converted to
+    degrees Celsius and said to be inside it or not; a figure in another unit is `None`.
 
     A reference may hold several parameters (the hourly temperature and the 12-hour maximum and minimum): the rows say
     which in `parameter`. Without `parameters` the air temperatures are kept and the others (wind, probabilities) left
@@ -3082,9 +3088,10 @@ def span_of_values(
     it equals, the one it came from. A call that holds none of the parameters asked for is an error.
 
     With `called_at` (when the subject's `values` result was retrieved) a figure is also looked up among those rows,
-    to the rounding it was written with: `timing` says `past_only` when every row it equals is stamped at or before
-    that time (a forecast figure must belong to an hour after the call: an hour already past is an observation, which
-    fails), `after` when one is stamped later, `no_match` when no row equals it (a derived figure: judge it yourself).
+    to the rounding it was written with: `timing` says `past_only` when every row it equals is stamped before the
+    hour of that time (a forecast figure must belong to the current hour of the call or a later one: an hour already
+    past is an observation, which fails; the figure of the 11:00 hour of a call made at 11:30 is valid), `after` when
+    one is stamped at that hour or later, `no_match` when no row equals it (a derived figure: judge it yourself).
     Without `called_at` there is no `timing`, and `timing_note` says why.
     """
     margin = float(fact.get("margin", fact.get("tolerance", 0)))
@@ -3110,7 +3117,9 @@ def span_of_values(
     chosen: list[float] = []
     series: dict[str, list[float]] = {}
     for value, stamp, name in stamped:
-        if window == "future" and (stamp is None or not moment < stamp <= moment + dt.timedelta(hours=hours)):
+        if window == "future" and (
+            stamp is None or not _hour_of(moment) <= stamp <= moment + dt.timedelta(hours=hours)
+        ):
             continue
         chosen.append(value)
         series.setdefault(name, []).append(value)
@@ -3138,8 +3147,9 @@ def span_of_values(
             hits = [(stamp, name) for value, stamp, name in stamped if abs(value - celsius) <= slack + 1e-9]
             figure["matched_parameters"] = list(dict.fromkeys(name for _, name in hits if name))
             if called_at is not None:
-                before = [stamp for stamp, _ in hits if stamp is not None and stamp <= called_at]
-                later = [stamp for stamp, _ in hits if stamp is None or stamp > called_at]
+                this_hour = _hour_of(called_at)
+                before = [stamp for stamp, _ in hits if stamp is not None and stamp < this_hour]
+                later = [stamp for stamp, _ in hits if stamp is None or stamp >= this_hour]
                 figure["timing"] = "no_match" if not hits else "past_only" if before and not later else "after"
                 figure["rows_before_the_call"] = [x.isoformat() for x in before[:5]]
         figures.append(figure)

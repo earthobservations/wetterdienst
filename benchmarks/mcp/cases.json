@@ -550,13 +550,6 @@
       ],
       "forbidden": [
         {
-          "id": "wide-long-window",
-          "description": "asks for shape=wide over a window of more than 3 days, or without a window (overflows the client)",
-          "kind": "call",
-          "match": {"tool": "values", "args": {"shape": "wide"}},
-          "window_days_over": 3
-        },
-        {
           "id": "estimates-instead",
           "description": "uses interpolate or summarize for a plain observation question",
           "kind": "call",
@@ -601,7 +594,7 @@
       ],
       "tiers": ["large"],
       "needs_key": false,
-      "notes": "meteofrance/synop is 3-hourly, station 07156 PARIS-MONTSOURIS; noaa/ghcn hourly and meteofrance/observation hourly are other valid sources, so the judge mirrors the subject's source. A window of 7 days in shape=wide overflowed the client's token limit on 2026-10-28. 'Last 7 days' is the 7 UTC days up to and including yesterday; a source that publishes with a delay may hold fewer days, and the span is then taken over what the judge's own call returns."
+      "notes": "meteofrance/synop is 3-hourly, station 07156 PARIS-MONTSOURIS; noaa/ghcn hourly and meteofrance/observation hourly are other valid sources, so the judge mirrors the subject's source. A window of 7 days in shape=wide overflowed the client's token limit on 2026-10-28; the forbidden rule `wide-long-window` that held it was dropped for the re-baseline of #4318 (a change that keeps a wide answer small makes it obsolete). 'Last 7 days' is the 7 UTC days up to and including yesterday; a source that publishes with a delay may hold fewer days, and the span is then taken over what the judge's own call returns."
     },
     {
       "id": "providers-brazil",
@@ -1453,6 +1446,135 @@
       "tiers": ["small", "large"],
       "needs_key": false,
       "notes": "The other opt-in tool, asked for by what it does. `summarize` is not a text summary, which a small model has taken it for. `stations` (by point) and then `values` of the nearest station that has data reaches the same value and station, so the first checkpoint accepts it too (a large model took that route on 2026-11-12); a value or a station that is not the one `summarize` returns fails the facts, not the checkpoint."
+    },
+    {
+      "id": "interpolate-year-of-daily-values",
+      "question": "Interpolate the daily mean air temperature for the point 52.52 N, 13.40 E for every day of 2025 from the surrounding DWD stations. Which day was the warmest and which the coldest, and what were their values?",
+      "kind": "interpolate",
+      "max_steps": 6,
+      "checkpoints": [
+        {
+          "id": "interpolates",
+          "description": "calls interpolate for the point, with the daily mean air temperature, for a window in 2025 (the year, a month or an interval of days)",
+          "match": [
+            {
+              "tool": "interpolate",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": {"any_of": ["daily/climate_summary/temperature_air_mean_2m", "daily/climate_summary", "daily/kl"]},
+                "latitude": {"between": [52.4, 52.6]},
+                "longitude": {"between": [13.3, 13.5]},
+                "timestamp": {"regex": "^2025"}
+              }
+            }
+          ]
+        }
+      ],
+      "forbidden": [
+        {
+          "id": "repeats-interpolate",
+          "description": "calls interpolate more than twice with the same arguments",
+          "kind": "repeat",
+          "tool": "interpolate",
+          "max_identical": 2
+        }
+      ],
+      "facts": [
+        {
+          "id": "warmest-day",
+          "description": "names the date on which the judge's own interpolate call for the whole year has its highest value",
+          "kind": "ground_truth_text",
+          "ground_truth": {
+            "call": {
+              "tool": "interpolate",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/temperature_air_mean_2m"],
+                "latitude": 52.52,
+                "longitude": 13.4,
+                "timestamp": "2025"
+              }
+            },
+            "pick": "the date (the timestamp) of the highest value of the year"
+          },
+          "answer_matches_any_of": ["2025-07-02", "2 July 2025", "July 2, 2025", "02.07.2025", "2nd of July"]
+        },
+        {
+          "id": "warmest-value",
+          "description": "the value the answer gives for the warmest day equals the highest value of the judge's own interpolate call for the whole year",
+          "kind": "ground_truth_value",
+          "ground_truth": {
+            "call": {
+              "tool": "interpolate",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/temperature_air_mean_2m"],
+                "latitude": 52.52,
+                "longitude": 13.4,
+                "timestamp": "2025"
+              }
+            },
+            "pick": "the highest value of the year"
+          },
+          "expected": 27.97,
+          "tolerance": 0.3,
+          "unit": "degree_celsius"
+        },
+        {
+          "id": "coldest-day",
+          "description": "names the date on which the judge's own interpolate call for the whole year has its lowest value",
+          "kind": "ground_truth_text",
+          "ground_truth": {
+            "call": {
+              "tool": "interpolate",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/temperature_air_mean_2m"],
+                "latitude": 52.52,
+                "longitude": 13.4,
+                "timestamp": "2025"
+              }
+            },
+            "pick": "the date (the timestamp) of the lowest value of the year"
+          },
+          "answer_matches_any_of": ["2025-12-25", "25 December 2025", "December 25, 2025", "25.12.2025", "Christmas Day"]
+        },
+        {
+          "id": "coldest-value",
+          "description": "the value the answer gives for the coldest day equals the lowest value of the judge's own interpolate call for the whole year",
+          "kind": "ground_truth_value",
+          "ground_truth": {
+            "call": {
+              "tool": "interpolate",
+              "args": {
+                "provider": "dwd",
+                "network": "observation",
+                "parameters": ["daily/climate_summary/temperature_air_mean_2m"],
+                "latitude": 52.52,
+                "longitude": 13.4,
+                "timestamp": "2025"
+              }
+            },
+            "pick": "the lowest value of the year"
+          },
+          "expected": -7.23,
+          "tolerance": 0.3,
+          "unit": "degree_celsius"
+        },
+        {
+          "id": "says-estimate",
+          "description": "says the values are interpolated estimates, not measurements",
+          "kind": "answer_regex",
+          "any_of": ["(?i)interpolat", "(?i)estimate"]
+        }
+      ],
+      "tiers": ["large"],
+      "needs_key": false,
+      "notes": "The answer that grows: 365 daily rows of interpolate come to about 100,000 characters (measured on 2026-11-23, DWD 2025, the point of the Berlin case), so the MCP answer is cut to the 40,000-character budget with a note that names the window to ask for the rest, and the question can only be answered by reading the whole year in windows (a month or a quarter at a time) or by one call whose cut answer is read as the whole year, which fails the facts. The warmest day (2025-07-02, 27.97) leads the second (2025-08-15, 26.09) by 1.9 K and the coldest (2025-12-25, -7.23) the second (2025-02-17, -5.51) by 1.7 K, so the days are unambiguous; `expected` is the result of 2026-11-23, only to see a drift. A year of 2025 is complete and no longer revised, but read the judge's own call for the same year, never the case file. The judge's call is the CLI one with `--timestamp 2025` (a model that pages makes several calls, none is the truth of the whole year); read its rows in full (`--format json`, never cut). The date facts accept the spellings named in `answer_matches_any_of` and any other that is the same day. A model that answers from the first cut answer names a day of the first months and fails both pairs of facts, which is the failure the case is for."
     },
     {
       "id": "alerts-kiel",
