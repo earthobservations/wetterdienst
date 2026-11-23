@@ -25,6 +25,15 @@ Types of changes:
   answers are the same, with fewer requests. No wind direction is read without its speed any more:
   an hourly `0` beside a speed of 0 is a calm (null, `raw:0`) in every request (GH-4321)
 
+### Fixed
+
+- **Breaking**: `aemet/observation` daily `wind_direction_gust_max` is null with `raw:88` where the
+  source writes 88, "sin dato" (no data) in the units text of `dir`, as it is for the 99. It was
+  `rejected:range,raw:880` with `range: hard`, and 880.0 with `suspect:range` with `range: soft`,
+  so `range: soft` no longer returns it: filter on `raw:88`. The AEMET daily `dir` and `prec`
+  descriptions and the KNMI 10-minute, monthly and annual `FXX` ones now carry the source's own
+  words and codes (GH-4321)
+
 ## [0.195.0] - 2026-11-22
 
 ### Added
