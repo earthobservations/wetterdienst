@@ -1296,6 +1296,10 @@
   .dark .text-error {
     color: var(--ui-color-error-700);
   }
+  /* and the warning text (shade 800, as the light page has it: a page printed from the dark theme prints as the light one) */
+  .dark .text-warning {
+    color: var(--ui-color-warning-800);
+  }
   html,
   body {
     background: #ffffff !important;
