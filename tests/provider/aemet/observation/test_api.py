@@ -733,6 +733,14 @@ def _not_skipped(monkeypatch: pytest.MonkeyPatch) -> pl.DataFrame:
         return pytest.fail(f"skipped: {skipped}")
 
 
+def test_aemet_observation_daily_wind_direction_88_is_no_data() -> None:
+    """Test that the 88 of the wind direction ("sin dato") is null with its text, as the 99 is, and not 880 degrees."""
+    direction, raw = parse_wind_direction("v")
+    df = pl.DataFrame({"v": ["88", "99", "08", "36", "0"]}).select(direction.alias("direction"), raw.alias("raw"))
+    assert df.get_column("direction").to_list() == [None, None, 80.0, 360.0, 0.0]
+    assert df.get_column("raw").to_list() == ["88", "99", None, None, None]
+
+
 @pytest.mark.parametrize(
     "refusal",
     [

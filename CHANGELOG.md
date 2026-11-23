@@ -16,6 +16,13 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- AEMET daily wind direction: the code `88` ("sin dato", no data in the source's units text) is null
+  with `raw:88`, as the `99` is. It was 880 degrees under `plausibility="soft"`. The AEMET daily
+  `dir` and `prec` descriptions and the KNMI 10-minute, monthly and annual `FXX` ones now carry
+  the source's own words and codes (GH-4321)
+
 ## [0.195.0] - 2026-11-22
 
 ### Added
