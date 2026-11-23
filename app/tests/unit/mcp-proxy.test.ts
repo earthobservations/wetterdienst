@@ -14,6 +14,7 @@ const h3 = nuxtRequire('h3') as typeof import('h3')
 const servers: Server[] = []
 // the paths the backend was asked for
 const asked: string[] = []
+const finishFailures: Error[] = []
 const config = { apiBase: '' }
 let app: string
 
@@ -50,6 +51,18 @@ beforeAll(async () => {
     vi.stubGlobal(name, value)
   const { mcpProxyHandler } = await import('../../server/utils/mcpProxy')
   const router = h3.createApp()
+  // What nitro's graceful shutdown does for every response (`res.on('finish', () => { req.socket._isIdle = true })`),
+  // which throws on a request that was destroyed (its socket is null): the failures are kept here
+  router.use(h3.defineEventHandler((event) => {
+    event.node.res.on('finish', () => {
+      try {
+        (event.node.req.socket as unknown as { _isIdle: boolean })._isIdle = true
+      }
+      catch (failure) {
+        finishFailures.push(failure as Error)
+      }
+    })
+  }))
   router.use(mcpProxyHandler())
   const proxy = createServer(h3.toNodeListener(router))
   const stub = createServer(backend)
@@ -135,6 +148,96 @@ describe('the /mcp proxy and the answer of the backend', () => {
     expect(response.headers.get('server')).toBeNull()
     expect(response.headers.get('set-cookie')).toBeNull()
     expect(response.headers.get('alt-svc')).toBeNull()
+  })
+})
+
+// A request of a body in chunks of `chunk` bytes, with no `Content-Length` (so `Transfer-Encoding: chunked`) unless
+// `declared` is given. The server may answer and close before the client is done, which is no error here.
+function chunkedRequest(total: number, chunk: number, headers: Record<string, string> = {}): Promise<{ status: number, body: string }> {
+  return new Promise((resolve, reject) => {
+    const { port } = new URL(app)
+    const request = httpRequest({ host: '127.0.0.1', port, path: '/mcp/v1', method: 'POST', headers: { 'content-type': 'application/json', ...headers } }, (response) => {
+      let text = ''
+      response.on('data', (part) => {
+        text += part
+      })
+      response.on('end', () => resolve({ status: response.statusCode ?? 0, body: text }))
+    })
+    const state = { failed: false }
+    request.on('error', (error) => {
+      state.failed = true
+      reject(error)
+    })
+    let written = 0
+    const write = (): void => {
+      while (written < total && !state.failed) {
+        const size = Math.min(chunk, total - written)
+        written += size
+        if (!request.write(Buffer.alloc(size, 0x61)))
+          return void request.once('drain', write)
+      }
+      if (!state.failed)
+        request.end()
+    }
+    write()
+  })
+}
+
+describe('the /mcp proxy and the size of the body', () => {
+  const limit = 4 * 1024 * 1024
+
+  it('answers a declared body over the limit a 413 problem with the request id, without reading it or asking the backend', async () => {
+    asked.length = 0
+    // the body is never sent: the header alone is refused (a client that sent it would wait for nothing)
+    const { status, body } = await rawRequest('/mcp/v1', 'POST', { 'content-type': 'application/json', 'content-length': String(limit + 1), 'x-request-id': 'big.1' })
+
+    expect(status).toBe(413)
+    expect(JSON.parse(body)).toMatchObject({ type: 'urn:wetterdienst:problem:payload-too-large', status: 413, request_id: 'big.1' })
+    expect(asked).toEqual([])
+  })
+
+  it('answers a chunked body that passes the limit a 413, without asking the backend', async () => {
+    asked.length = 0
+    const { status, body } = await chunkedRequest(limit + 64 * 1024, 64 * 1024)
+
+    expect(status).toBe(413)
+    expect(JSON.parse(body).status).toBe(413)
+    expect(asked).toEqual([])
+  })
+
+  it('leaves the socket of an oversized chunked body in place, so that what runs when the response finishes does not throw', async () => {
+    finishFailures.length = 0
+    for (let i = 0; i < 5; i++)
+      await chunkedRequest(limit + 64 * 1024, 64 * 1024).catch(() => undefined)
+    // the `finish` events come after the answers
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    expect(finishFailures.map(failure => failure.message)).toEqual([])
+  })
+
+  it('passes a chunked body just under the limit, intact', async () => {
+    const { status, body } = await chunkedRequest(limit - 1, 100_000)
+
+    expect(status).toBe(200)
+    expect(JSON.parse(body).body).toHaveLength(limit - 1)
+  })
+
+  it('passes a chunked body of exactly the limit, and a body that is not there', async () => {
+    asked.length = 0
+    const { status, body } = await chunkedRequest(limit, 64 * 1024)
+    expect(status).toBe(200)
+    expect(JSON.parse(body).body).toHaveLength(limit)
+
+    expect((await sent({ method: 'POST' })).body).toBe('')
+  })
+
+  it('passes an initialize with its body intact', async () => {
+    const initialize = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } } })
+    const { response, body, headers } = await sent({ method: 'POST', body: initialize, headers: { 'content-type': 'application/json' } })
+
+    expect(response.status).toBe(200)
+    expect(body).toBe(initialize)
+    expect(headers['content-length']).toBe(String(initialize.length))
   })
 })
 
