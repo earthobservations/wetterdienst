@@ -492,7 +492,7 @@ const GLOSSARY_SAME: Record<string, Same> = {
   'parameters.temperature_air': { de: ['da'], why: COGNATE },
   'parameters.temperature_air_0_05m': { de: ['da'], why: COGNATE },
   'parameters.temperature_air_mean_0_05m': { de: ['da'], why: COGNATE },
-  'parameters.temperature_air_mean_0_1m': { de: ['da'], why: COGNATE },
+  'parameters.temperature_air_0_1m': { de: ['da'], why: COGNATE },
 }
 
 /**

@@ -585,7 +585,7 @@ export const parameters: Record<string, string> = {
   temperature_air_max_2m_last_12h: 'Maximální teplota (2 m, posledních 12 h)',
   temperature_air_max_2m_mean: 'Průměrná maximální teplota (2 m)',
   temperature_air_max_2m_multiday: 'Maximální teplota (2 m), několik dní dohromady',
-  temperature_air_mean_0_1m: 'Teplota vzduchu (10 cm)',
+  temperature_air_0_1m: 'Teplota vzduchu (10 cm)',
   temperature_air_mean_grass_height: 'Teplota vzduchu (výška trávy)',
   temperature_air_mean_2m_last_24h: 'Teplota vzduchu (2 m, posledních 24 h)',
   temperature_air_mean_2m_yesterday: 'Teplota vzduchu (2 m), předchozí den',

@@ -437,7 +437,7 @@ def test_near_ground_air_temperatures_carry_no_lapse_rate() -> None:
     That is the same reason the soil and concrete temperatures carry no rate, so the grass minimum
     and its kin do not get the free-atmosphere one either.
     """
-    for name in ("temperature_air_min_0_05m", "temperature_air_max_0_05m", "temperature_air_mean_0_1m"):
+    for name in ("temperature_air_min_0_05m", "temperature_air_max_0_05m", "temperature_air_0_1m"):
         assert PARAMETERS[name].lapse_rate is None, name
 
 

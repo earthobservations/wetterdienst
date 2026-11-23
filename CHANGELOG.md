@@ -18,6 +18,12 @@ Types of changes:
 
 ### Changed
 
+- **Breaking**: `knmi/observation` 10-minute `tg` is `temperature_air_0_1m`, no longer
+  `temperature_air_mean_0_1m`, and declares aggregation `instant`: KNMI's description is "Past 1
+  minute mean air temperature at 10 centimeters", a reading and not the mean of the 10 minutes, as
+  for `ta` and `td`. The values are unchanged; the old name is refused with the new one named.
+  The results carry the new name: the `parameter` column, and the column name in wide shape. Use
+  the new name to filter and key the result (GH-4330)
 - `metno/frost` takes a 404 or a 412 for a window as no data. The request for the whole dataset,
   which asks every element, is asked once; the request for each parameter and the listing of the
   time series that followed a 404 are gone. In a sample of 208 (station, element, resolution)
