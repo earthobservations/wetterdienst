@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Build]` The app needs Node 26 (`engines.node` is now `>=26.13.1`; the image and the CI run on
+  it) instead of Node 24. Run it from source with Node 26 (GH-4342).
+
 ## [0.59.0] - 2026-11-23
 
 Paired with backend 0.196.0, which is live; it needs no route newer than 0.195.0.
