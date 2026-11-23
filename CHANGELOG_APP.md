@@ -26,6 +26,12 @@ Types of changes:
 
 ### Fixed
 
+- `[German]` The glossary names `precipitation_amount` and its maximum labels "Niederschlagshöhe",
+  DWD's term, as the other precipitation labels, instead of "Niederschlagsmenge". In Low German
+  (`de-hh`) snow is `Snee`, fresh snow `Niesnee`, snow depth `Sneehööchde`, a height in a compound
+  `-hööchde`, a degree in a compound `graad` (`Köhlgraadstünn`, `Heizgraaddaag`) and humidity
+  `Füchtigkeit`, in the interface and the glossary alike, where each had two or three spellings
+  (Part of GH-2610).
 - `[Credit lines]` A provider's credit line starts in the reader's language: "Source: Deutscher
   Wetterdienst" reads "Quelle: Deutscher Wetterdienst" on a German page and "Source : Deutscher
   Wetterdienst" on a French one, on every page that shows it (the forecast, the explorer, the
