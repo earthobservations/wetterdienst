@@ -16,6 +16,12 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- wetterdienst no longer depends on `python-dateutil`; a small helper does the month arithmetic with
+  the same dates, so code that imports `dateutil` through wetterdienst must depend on it itself
+  (GH-4349)
+
 ## [0.196.0] - 2026-11-23
 
 ### Changed
@@ -32,9 +38,6 @@ Types of changes:
   pairs they found data in none of the 12 that answered 404 when asked alone (GH-3137), so the
   answers are the same, with fewer requests. No wind direction is read without its speed any more:
   an hourly `0` beside a speed of 0 is a calm (null, `raw:0`) in every request (GH-4321)
-- wetterdienst no longer depends on `python-dateutil`; a small helper does the month arithmetic with
-  the same dates, so code that imports `dateutil` through wetterdienst must depend on it itself
-  (GH-4349)
 
 ### Fixed
 
