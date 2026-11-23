@@ -408,15 +408,23 @@ def render_issues(issues: list[str], metadata: ResponseMetadata, *, pretty: bool
     return dumps_json(answer, indent=4 if pretty else None)
 
 
-def render_alerts(result: DwdWeatherAlertResult, fmt: str, *, pretty: bool = False) -> tuple[str, ResponseMetadata]:
+def render_alerts(
+    result: DwdWeatherAlertResult,
+    fmt: str,
+    *,
+    pretty: bool = False,
+    metadata: ResponseMetadata | None = None,
+) -> tuple[str, ResponseMetadata]:
     """Write the warnings in the format asked for, the JSON formats with the `metadata` block, which is given back too.
+
+    `metadata` is the block, where the caller has built it (a tool's answer cut to the budget carries its note).
 
     A GeoJSON `FeatureCollection` holds the block as a foreign member (RFC 7946 6.1) next to its `snapshot`; CSV has no
     place for it, so a CSV answer carries it in the headers alone (`response_headers`).
     """
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
 
-    metadata = alerts_metadata(DwdWeatherAlertRequest, result.df.height, result.data_updated_at)
+    metadata = metadata or alerts_metadata(DwdWeatherAlertRequest, result.df.height, result.data_updated_at)
     if fmt == "csv":
         return result.to_csv(), metadata
     data = result.to_dict() if fmt == "json" else result.to_ogc_feature_collection()
