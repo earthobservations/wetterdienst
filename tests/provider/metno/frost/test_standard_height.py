@@ -18,24 +18,18 @@ code of that sensor's reading.
 from __future__ import annotations
 
 import datetime as dt
+from typing import TYPE_CHECKING
 
 import polars as pl
-import pytest
 
 from tests.provider.metno.frost.test_values_failures import _answered_by, _values
 from wetterdienst.provider.metno.frost import api as frost_api
 from wetterdienst.util.response_warnings import begin_response
 
+if TYPE_CHECKING:
+    import pytest
+
 UTC = dt.UTC
-PATHS = ["batch", "single", "discovery"]
-AVAILABLE = {
-    "data": [
-        {
-            "validFrom": "1940-01-01T00:00:00Z",
-            "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0",
-        }
-    ]
-}
 TEMPERATURE = "air_temperature"
 HUMIDITY = "relative_humidity"
 SPEED = "wind_speed"
@@ -76,20 +70,13 @@ def _read(
     start: str,
     end: str,
     station: str = "SN18700",
-    path: str = "batch",
     options: dict | None = None,
 ) -> pl.DataFrame:
-    """Give the values of ``parameters`` that Frost's ``answer`` makes by the reader ``path`` reaches."""
-    requested = list(parameters)
-    if path == "single":
-        # the single reader is reached by a parameter of a dataset whose batch 404s
-        resolution = parameters[0][0]
-        helper = {"hourly": "pressure_air_site", "10_minutes": "precipitation_amount", "daily": "snow_depth"}
-        requested.append((resolution, "data", helper.get(resolution, "precipitation_amount")))
+    """Give the values of ``parameters`` that Frost's ``answer`` makes."""
     values, _ = _values(
         monkeypatch,
-        _answered_by(path, answer, AVAILABLE),
-        requested,
+        _answered_by(answer),
+        parameters,
         start=dt.datetime.fromisoformat(start).replace(tzinfo=UTC),
         end=dt.datetime.fromisoformat(end).replace(tzinfo=UTC),
         station=station,
@@ -123,11 +110,8 @@ OSLO = [
 ]
 
 
-@pytest.mark.parametrize("path", PATHS)
-def test_metno_frost_temperature_is_the_2_m_sensor_where_it_has_a_value(
-    monkeypatch: pytest.MonkeyPatch, path: str
-) -> None:
-    """Test that SN18700 returns the 2 m temperature, whichever height Frost answers first, on every reader.
+def test_metno_frost_temperature_is_the_2_m_sensor_where_it_has_a_value(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that SN18700 returns the 2 m temperature, whichever height Frost answers first.
 
     The three hours have a value at both heights, and the 10 m one came first and was returned (2.4, 2.6, 2.9; quality
     code 2). The hour of 2026-03-05 has 2 m only, and is returned as it was.
@@ -138,7 +122,6 @@ def test_metno_frost_temperature_is_the_2_m_sensor_where_it_has_a_value(
         [("hourly", "data", "temperature_air_2m")],
         "2025-11-01T00:00",
         "2026-03-06T00:00",
-        path=path,
     )
     assert df["value"].to_list() == [2.5, 2.7, 3.0, 4.7]
     # the codes are those of the 2 m sensor
@@ -167,9 +150,8 @@ FORNEBU_HUMIDITY = [
 ]
 
 
-@pytest.mark.parametrize("path", PATHS)
 def test_metno_frost_humidity_is_the_2_m_sensor_and_the_nearest_height_fills_a_gap(
-    monkeypatch: pytest.MonkeyPatch, path: str
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that the humidity of a station with three heights is the 2 m one, and the nearest one where it has none.
 
@@ -182,7 +164,6 @@ def test_metno_frost_humidity_is_the_2_m_sensor_and_the_nearest_height_fills_a_g
         "2025-11-01T00:00",
         "2025-11-01T01:00",
         station="SN17850",
-        path=path,
     )
     assert df["value"].to_list() == [99.0, 92.0]
     assert df["quality_flags"].to_list() == ["0", "2"]
@@ -311,28 +292,6 @@ def test_metno_frost_a_bearing_follows_its_speed_to_the_other_height_of_a_statio
     assert _of(df, "wind_direction_mean_last_10min")["value"].to_list() == [135.0]
 
 
-def test_metno_frost_a_bearing_asked_for_alone_is_the_standard_height_where_it_has_a_value(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test that the direction is the 10 m one, then the other, when it is read without the speed.
-
-    The batch holds the whole dataset, so the speed is read and the pair is chosen (the hour of 07:00 has the 2 m pair).
-    A bearing read by itself (the single and the discovery readers, which are reached only after a 404 of the whole)
-    has no speed to pair with and is the standard height where it has a value.
-    """
-    df = _read(
-        monkeypatch,
-        _answer(WIND_PAIRS),
-        [WIND[1]],
-        "2025-11-01T00:00",
-        "2026-06-05T00:00",
-        station="SN44300",
-        path="single",
-    )
-    # the bearing of 2 m is the only one at 10 m's gap, and is served by itself
-    assert df["value"].to_list() == [119.0, 346.0, 346.0, 346.0, 346.0]
-
-
 # SN12550 lists a wind speed at 10 m, which holds 2 hours of the year: its wind is the 2 m one (36 of the 67 stations
 # with two heights are like it)
 NO_TEN_METRES = [
@@ -374,8 +333,7 @@ OFFSHORE = [
 ]
 
 
-@pytest.mark.parametrize("path", PATHS)
-def test_metno_frost_the_gust_of_a_platform_is_the_10_m_one(monkeypatch: pytest.MonkeyPatch, path: str) -> None:
+def test_metno_frost_the_gust_of_a_platform_is_the_10_m_one(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that SN76922 returns the 10 m gust, where the core returned the one of 121 m (9.6) and 50 m (9.1)."""
     df = _read(
         monkeypatch,
@@ -384,7 +342,6 @@ def test_metno_frost_the_gust_of_a_platform_is_the_10_m_one(monkeypatch: pytest.
         "2022-07-22T00:00",
         "2022-07-22T06:00",
         station="SN76922",
-        path=path,
     )
     assert df["value"].to_list() == [7.1, 6.7]
     assert df["quality_flags"].to_list() == ["0", "0"]

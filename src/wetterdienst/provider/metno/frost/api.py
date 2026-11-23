@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from datetime import UTC, datetime, timedelta
@@ -466,7 +465,7 @@ MetnoFrostMetadata = build_metadata_model(_MetnoFrostMetadataSpec, "MetnoFrostMe
 #   (10 to 24 January 2026), in 1,014 of 1,068; 1,014 of their 1,030 readings of a speed of 0 have a direction of 0. It
 #   is null with `raw:0` beside a speed of 0 of the same reading and level, as every provider that writes a calm
 #   returns it (`calm`, GH-3833), and a 0 beside a speed above 0 stays. The dataset is requested whole, so its reading
-#   has the speed; the single and the discovery readers ask for the direction alone, and a 0 stays there. A station
+#   has the speed (a 404 is no data, and no reader asks for the direction alone, GH-4321). A station
 #   may measure the wind at several heights (`_prefer_standard_height`, GH-3844): the speed and the direction of a
 #   time are of one height (the 10 m one where it has both, else the nearest that has both), a calm or a -3 there is
 #   what the hour is, and the bearing of another height does not fill it; only where no height has both are they
@@ -1019,7 +1018,7 @@ def _tell_not_returned(
 ) -> None:
     """Tell what a read of the observations left out of the answer or marked (`_tell_left_out`, `tell_open_window`).
 
-    ``kept`` is the frame the station returns (all the series of a discovery), whose dates a date left out is not.
+    ``kept`` is the frame the station returns, whose dates a date left out is not.
     ``estimate`` is whether the values are read for `interpolate` or `summarize` (`_leaves_open_out`).
     """
     leaves_out = _leaves_open_out(resolution, estimate=estimate)
@@ -1162,9 +1161,8 @@ def _prefer_standard_height(df: pl.DataFrame) -> pl.DataFrame:
        that no bearing is lost.
 
     The speed and the direction are in the frame whatever was asked for, the dataset being read whole, so the speed of
-    a request for the speed alone is the speed of the pair too: it is the same for an hour in every request. The two
-    readers that read a parameter by itself (after a 404 of the whole dataset, where no data was found) have no pair to
-    see, and choose the speed, or the direction, as any other parameter. The gust is no part of the pair.
+    a request for the speed alone is the speed of the pair too: it is the same for an hour in every request. The gust
+    is no part of the pair.
 
     A parameter that is not in `_STANDARD_HEIGHT`, and a frame without `_LEVEL`, are as they were.
     """
@@ -1254,22 +1252,6 @@ class MetnoFrostValues(TimeseriesValues):
         "&referencetime={start}/{end}"
         "&timeresolutions={time_resolution}"
     )
-    _available_time_series_url = (
-        "https://frost.met.no/observations/availableTimeSeries/v0.jsonld"
-        "?sources={station_id}"
-        "&elements={element}"
-        "&timeresolutions={time_resolution}"
-    )
-    _observations_url_ts = (
-        "https://frost.met.no/observations/v0.jsonld"
-        "?sources={source_id}"
-        "&elements={element}"
-        "&referencetime={start}/{end}"
-        "&timeresolutions={time_resolution}"
-        "&timeseriesids={ts_id}"
-        "&performancecategories={perf_cats}"
-        "&exposurecategories={expo_cats}"
-    )
 
     def _collect_station_parameter_or_dataset(
         self,
@@ -1323,18 +1305,14 @@ class MetnoFrostValues(TimeseriesValues):
             cache_disable=settings.cache_disable,
             use_certifi=settings.use_certifi,
         )
-        # the status is read before the generic failure warning below: a 404 or 412 says there is
-        # nothing (or that a fallback applies), not that the request failed
+        # the status is read before the generic failure warning below: a 404 or 412 says there is nothing, not that
+        # the request failed
         # 412: no data for this station/elements/period combination
+        # 404: Frost's "No data found" for a window without data. It is no data: asking the elements one by one and
+        # through the time series found data in none of the 12 such series of a sample of 208 (GH-3137, GH-4321)
         _raise_if_unanswered(file)
-        if file.status == 412:
+        if file.status in (404, 412):
             return pl.DataFrame()
-        # 404: Frost's "No data found" for a window without data. The elements are resolved one by one and then
-        # through the time series, which found data in none of the 12 such series of a sample of 208 (GH-3137)
-        if file.status == 404:
-            return self._collect_after_batch_404(
-                station_id, dataset, parameters, start_date, end_date, settings, client_kwargs
-            )
         if isinstance(file.content, Exception):
             note_skipped_download(file.skip_cause)
             log.warning(f"Failed to download {url}: {file.content}")
@@ -1383,274 +1361,6 @@ class MetnoFrostValues(TimeseriesValues):
             estimate=self._left_out_of_estimate is not None,
         )
         return read.frame
-
-    def _collect_after_batch_404(
-        self,
-        station_id: str,
-        dataset: DatasetModel,
-        batched: list[ParameterModel],
-        start_date: datetime,
-        end_date: datetime,
-        settings: Settings,
-        client_kwargs: dict,
-    ) -> pl.DataFrame:
-        """Resolve the requested parameters one by one after the request for `batched` 404'd.
-
-        Only the parameters that were asked for: the batch fetched the whole dataset, but its extra
-        rows are dropped later, so resolving them would spend requests on nothing. A batch of one
-        element is the single request itself, which just failed, so that goes straight to discovery.
-        """
-        requested = {
-            parameter.name_original
-            for parameter in self.sr.parameters
-            if (parameter.dataset.resolution.name, parameter.dataset.name) == (dataset.resolution.name, dataset.name)
-        }
-        resolve = self._collect_via_time_series_discovery if len(batched) == 1 else self._collect_single_parameter
-        frames = [
-            resolve(station_id, parameter, start_date, end_date, settings, client_kwargs)
-            for parameter in batched
-            if parameter.name_original in requested
-        ]
-        frames = [frame for frame in frames if not frame.is_empty()]
-        return pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
-
-    def _collect_single_parameter(
-        self,
-        station_id: str,
-        parameter: ParameterModel,
-        start_date: datetime,
-        end_date: datetime,
-        settings: Settings,
-        client_kwargs: dict,
-    ) -> pl.DataFrame:
-        """Fetch a single parameter directly, falling back to time-series discovery on 404.
-
-        Used when a batched multi-element request 404s, to resolve each parameter
-        individually before the time series are asked for (`_collect_via_time_series_discovery`).
-        """
-        url = self._observations_url.format(
-            station_id=station_id,
-            element=parameter.name_original,
-            start=_frost_time(start_date),
-            end=_frost_end(end_date, parameter.dataset.resolution.name),
-            time_resolution=parameter.dataset.resolution.name_original,
-        )
-        log.info(f"Acquiring data from {url}")
-        asked_at = _now()
-        file = download_file(
-            url=url,
-            cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.FIVE_MINUTES,
-            client_kwargs=client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
-        # the status before the body, as in `_collect_station_parameter_or_dataset`
-        # 412: no data for this station/element/period combination
-        _raise_if_unanswered(file)
-        if file.status == 412:
-            return pl.DataFrame()
-        # 404: no data in the window; the time series are asked for (see `_collect_via_time_series_discovery`)
-        if file.status == 404:
-            return self._collect_via_time_series_discovery(
-                station_id, parameter, start_date, end_date, settings, client_kwargs
-            )
-        if isinstance(file.content, Exception):
-            note_skipped_download(file.skip_cause)
-            log.warning(f"Failed to download {url}: {file.content}")
-            return pl.DataFrame()
-        # a 200 with no body
-        if file.is_empty:
-            note_skipped_download(SkipCause.MAINTENANCE)
-            log.warning(f"Frost answered {file.url} with an empty body")
-            return pl.DataFrame()
-
-        df = pl.read_json(file.content)
-        if not _has_observations(df):
-            return pl.DataFrame()
-
-        df = df.select(pl.col("data").explode(empty_as_null=True))
-        df = df.unnest("data")
-        df = df.with_columns(
-            pl.col("referenceTime")
-            .str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
-            .dt.replace_time_zone("UTC"),
-        )
-        df = df.explode("observations", empty_as_null=True)
-        df = df.unnest("observations")
-        # keep only matching elementId (the Frost response may include multiple elements)
-        df = df.filter(pl.col("elementId").eq(parameter.name_original))
-        read = _read_observations(
-            df,
-            pl.lit(parameter.name_original, dtype=pl.String),
-            parameter.dataset.resolution.name,
-            station_id,
-            served_at(file, asked_at),
-            estimate=self._left_out_of_estimate is not None,
-        )
-        _tell_not_returned(
-            read,
-            read.frame,
-            {parameter.name_original: _full_name(parameter)},
-            start_date,
-            end_date,
-            parameter.dataset.resolution.name,
-            estimate=self._left_out_of_estimate is not None,
-        )
-        return read.frame
-
-    def _collect_via_time_series_discovery(  # noqa: C901
-        self,
-        station_id: str,
-        parameter_or_dataset: ParameterModel,
-        start_date: datetime,
-        end_date: datetime,
-        settings: Settings,
-        client_kwargs: dict,
-    ) -> pl.DataFrame:
-        """Fall back to availableTimeSeries discovery when the direct query returns 404.
-
-        The time series of an element carry a `timeseriesids`, `performancecategories` and `exposurecategories`
-        that the availableTimeSeries endpoint lists, and the query is asked once more with them. Frost's 404 is "No
-        data found" for a window without data, and it was the same 404 with them in each of the 12 series that
-        answered one in a sample of 208 (4 stations, 2026-11-06, GH-3137): the step has not been seen to find data
-        that the direct query did not.
-        """
-        element = parameter_or_dataset.name_original
-        resolution = parameter_or_dataset.dataset.resolution.name_original
-        resolution_name = parameter_or_dataset.dataset.resolution.name
-
-        avail_url = self._available_time_series_url.format(
-            station_id=station_id,
-            element=element,
-            time_resolution=resolution,
-        )
-        log.info(f"Discovering time series via {avail_url}")
-        avail_file = download_file(
-            url=avail_url,
-            cache_dir=settings.cache_dir,
-            ttl=CacheExpiry.ONE_HOUR,
-            client_kwargs=client_kwargs,
-            cache_disable=settings.cache_disable,
-            use_certifi=settings.use_certifi,
-        )
-        # as for the observations below, a 404 or 412 says there is nothing, not that the request failed
-        _raise_if_unanswered(avail_file)
-        if avail_file.status in (404, 412):
-            return pl.DataFrame()
-        if isinstance(avail_file.content, Exception):
-            note_skipped_download(avail_file.skip_cause)
-            log.warning(f"Failed to download {avail_url}: {avail_file.content}")
-            return pl.DataFrame()
-        if avail_file.is_empty:
-            note_skipped_download(SkipCause.MAINTENANCE)
-            log.warning(f"Frost answered {avail_file.url} with an empty body")
-            return pl.DataFrame()
-
-        ts_list = json.loads(avail_file.content.read()).get("data", [])
-        frames = []
-        left_outs = []
-        open_windows = []
-        asked: set[str] = set()
-        for ts in ts_list:
-            valid_from = datetime.fromisoformat(ts["validFrom"].rstrip("Z")).replace(tzinfo=UTC)
-            valid_to_str = ts.get("validTo")
-            valid_to = (
-                datetime.fromisoformat(valid_to_str.rstrip("Z")).replace(tzinfo=UTC) if valid_to_str else end_date
-            )
-            range_start = max(start_date, valid_from)
-            range_end = min(end_date, valid_to)
-            # a series that starts after the end but on its date, as a daily snow depth read at 06:00 UTC, has
-            # values in the window (GH-2729)
-            if range_start >= _frost_end_exclusive(range_end, resolution_name):
-                continue
-
-            params = parse_qs(urlparse(ts["uri"]).query)
-            obs_url = self._observations_url_ts.format(
-                source_id=params.get("sources", [station_id])[0],
-                element=element,
-                start=_frost_time(range_start),
-                end=_frost_end(range_end, resolution_name),
-                time_resolution=resolution,
-                ts_id=params.get("timeseriesids", ["0"])[0],
-                perf_cats=params.get("performancecategories", [""])[0],
-                expo_cats=params.get("exposurecategories", [""])[0],
-            )
-            # the series of one element that differ in `timeOffset` only are listed apart and have one `timeseriesids`:
-            # their query is the same where their validity is, and answers the rows of every offset (GH-3832)
-            if obs_url in asked:
-                continue
-            asked.add(obs_url)
-            log.info(f"Acquiring data from {obs_url}")
-            asked_at = _now()
-            obs_file = download_file(
-                url=obs_url,
-                cache_dir=settings.cache_dir,
-                ttl=CacheExpiry.FIVE_MINUTES,
-                client_kwargs=client_kwargs,
-                cache_disable=settings.cache_disable,
-                use_certifi=settings.use_certifi,
-            )
-            _raise_if_unanswered(obs_file)
-            # Frost's own "no data": 404 "No data was found for the query parameters" (a series the listing named
-            # may have a gap in the window), 412 "No available time series for the query parameters"
-            if obs_file.status in (404, 412):
-                continue
-            if isinstance(obs_file.content, Exception):
-                note_skipped_download(obs_file.skip_cause)
-                log.warning(f"Failed to download {obs_url}: {obs_file.content}")
-                continue
-            if obs_file.is_empty:
-                note_skipped_download(SkipCause.MAINTENANCE)
-                log.warning(f"Frost answered {obs_file.url} with an empty body")
-                continue
-
-            df = pl.read_json(obs_file.content)
-            if not _has_observations(df):
-                continue
-            df = df.select(pl.col("data").explode(empty_as_null=True)).unnest("data")
-            df = df.with_columns(
-                pl.col("referenceTime")
-                .str.to_datetime(format="%Y-%m-%dT%H:%M:%S%.fZ", time_unit="us")
-                .dt.replace_time_zone("UTC"),
-            )
-            df = df.explode("observations", empty_as_null=True).unnest("observations")
-            df = df.filter(pl.col("elementId").eq(element))
-            read = _read_observations(
-                df,
-                pl.lit(element, dtype=pl.String),
-                resolution_name,
-                station_id,
-                served_at(obs_file, asked_at),
-                estimate=self._left_out_of_estimate is not None,
-            )
-            left_outs.append(read.left_out)
-            open_windows.append(read.open_window)
-            if not read.frame.is_empty():
-                frames.append(read.frame)
-
-        kept = pl.concat(frames, how="diagonal_relaxed") if frames else pl.DataFrame()
-        # the series of one station are read apart: a `-1` of one can come first to a reading of another (idempotent)
-        if not kept.is_empty():
-            kept = _a_reading_beats_a_minus_one(kept)
-        # a date is left out when no series of the station returned it
-        read = _Read(
-            kept,
-            pl.concat([frame for frame in left_outs if not frame.is_empty()] or [pl.DataFrame()]).unique(),
-            pl.concat(open_windows).group_by("parameter", "timestamp").agg(pl.col("closes").min())
-            if open_windows
-            else no_open_window(),
-        )
-        _tell_not_returned(
-            read,
-            kept,
-            {element: _full_name(parameter_or_dataset)},
-            start_date,
-            end_date,
-            resolution_name,
-            estimate=self._left_out_of_estimate is not None,
-        )
-        return kept
 
 
 def _probe_frost_credentials(settings: Settings) -> bool | None:
