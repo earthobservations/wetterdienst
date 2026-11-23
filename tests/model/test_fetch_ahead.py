@@ -69,8 +69,8 @@ class _Handler(BaseHTTPRequestHandler):
             # answered late: a test that relies on the hold is on the racy ordering again, which it must hear of
             if held is not None and not held.wait(timeout=20):
                 server.expired.append(self.path)
-            if server.gate is not None and not self.path.startswith("/0/"):
-                server.gate.wait(timeout=20)
+            if server.gate is not None and not self.path.startswith("/0/") and not server.gate.wait(timeout=20):
+                server.expired.append(self.path)
             time.sleep(server.delay(self.path))
         finally:
             # the wait for the upstream ends here, before the answer is written: a client that has its answer asks the
@@ -101,7 +101,8 @@ class _Upstream(ThreadingHTTPServer):
         self.requests: list[str] = []
         self.active = 0
         self.max_active = 0
-        #: while set and not yet released, the files of the stations after the first are held back
+        #: while set and not yet released, the files of the stations after the first are held back (answered late
+        #: after 20 s, which fails the test at teardown like a hold that expired does)
         self.gate: threading.Event | None = None
         #: the files whose answer is held back until the test sets the event, and the files that have been asked for
         self.holds: dict[str, threading.Event] = {}
@@ -124,6 +125,11 @@ class _Upstream(ThreadingHTTPServer):
         """Give the event that is set when ``path`` has been asked for (its answer may still be held)."""
         with self.lock:
             return self.arrivals.setdefault(path, threading.Event())
+
+    def open_now(self) -> int:
+        """Give the connections that are open at this moment: asked for and not yet answered."""
+        with self.lock:
+            return self.active
 
     def asked(self, station: int) -> list[str]:
         """Give the paths asked of one station, in the order they came."""
@@ -355,8 +361,10 @@ def _walk_time(
     fastest of several is the one it got least wrong.
 
     With ``hold_ahead`` the files of the stations after the first are held back at the server until that many have
-    been asked for, so that the overlap does not depend on how soon the threads ahead start: every one of them is open
-    at that moment, whatever the machine does, and the walk goes on once they are let go.
+    been asked for, so that the overlap does not depend on how soon the threads ahead start: that many are open at
+    that moment (counted by what is open then, not by the high-water mark, which the walk's own files and a gate that
+    was let go late would also raise), whatever the machine does, and the walk goes on once they are let go. The time
+    that is returned then includes the gated phase and means nothing.
     """
     best = float("inf")
     upstream.max_active = 0
@@ -379,7 +387,8 @@ def _walk_time(
             results = reader.query()
             read = [next(results)]
             upstream.wait_for(hold_ahead)
-            assert upstream.max_active >= hold_ahead, f"{hold_ahead} files were asked for and are not open at once"
+            # the files of the station in hand are answered, so what is open now is the files ahead, held
+            assert upstream.open_now() >= hold_ahead, f"{hold_ahead} files were asked for and are not open at once"
             upstream.gate.set()
             read.extend(results)
             upstream.gate = None
@@ -906,7 +915,8 @@ def test_a_walk_holds_no_more_than_depth_connections_beside_its_own(
     results = reader.query()
     next(results)
     upstream.wait_for(2)
-    assert upstream.max_active >= 2, "two files were asked for ahead and are not open at once"
+    # the files of the station in hand are answered, so what is open now is the files ahead, held
+    assert upstream.open_now() >= 2, "two files were asked for ahead and are not open at once"
     upstream.gate.set()
     list(results)
 
@@ -957,9 +967,9 @@ def test_the_files_of_many_stations_are_fetched_side_by_side_and_not_one_station
 
     That is what makes it faster, and it is counted by the server and not timed: a busy machine slows each wait and
     the ratio of the clocks of the two walks with it (4 where nothing else runs, 1.04 at a load of 50, GH-3976), but it
-    does not change how many waits are in hand at the same time. One at a time without the fetch-ahead, three or more
-    with it, and each file asked for once either way: what is fetched ahead is what the walk then reads, not fetched
-    again. The seconds are the benchmark's, in the pull request.
+    does not change how many waits are in hand at the same time. One at a time without the fetch-ahead, four with it
+    (the threads ahead, held at the server until all four have asked), and each file asked for once either way: what is
+    fetched ahead is what the walk then reads, not fetched again. The seconds are the benchmark's, in the pull request.
     """
     upstream.delay = lambda _path: 0.05
     _, sequential_overlap = _walk_time(upstream, monkeypatch, tmp_path, depth=0, attempts=1, stations=24, files=1)
@@ -1182,9 +1192,15 @@ def test_a_station_with_two_files_is_still_read_faster(
     # is what the collection does by itself and a busy machine could only make shorter than the delay
     release = upstream.hold("/0/0")
     walked: list[int] = []
-    walk = threading.Thread(
-        target=lambda: walked.append(_walk_time(upstream, monkeypatch, tmp_path, depth=0, **kwargs)[1])
-    )
+    failures: list[BaseException] = []
+
+    def walk_without_fetch_ahead() -> None:
+        try:
+            walked.append(_walk_time(upstream, monkeypatch, tmp_path, depth=0, **kwargs)[1])
+        except BaseException as error:  # noqa: BLE001
+            failures.append(error)
+
+    walk = threading.Thread(target=walk_without_fetch_ahead, daemon=True)
     walk.start()
     try:
         assert upstream.arrival("/0/1").wait(timeout=20), "/0/1 was never asked for while /0/0 was held"
@@ -1192,6 +1208,8 @@ def test_a_station_with_two_files_is_still_read_faster(
         release.set()
         walk.join(timeout=30)
     assert not walk.is_alive(), "the walk without the fetch-ahead did not end"
+    if failures:
+        raise failures[0]
     (sequential_overlap,) = walked
     _, ahead_overlap = _walk_time(upstream, monkeypatch, tmp_path, depth=4, hold_ahead=4, **kwargs)
 
