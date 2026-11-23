@@ -4476,6 +4476,63 @@ def test_a_valid_other_route_meets_the_first_checkpoint_and_a_wrong_one_does_not
     assert not any(v.startswith("non-wetterdienst") for v in verdict["violations"])
 
 
+YEAR_INTERPOLATE = {
+    "provider": "dwd",
+    "network": "observation",
+    "parameters": "daily/climate_summary/temperature_air_mean_2m",
+    "latitude": 52.52,
+    "longitude": 13.4,
+}
+
+
+@pytest.mark.parametrize(
+    ("timestamps", "first_met", "violations"),
+    [
+        (["2025"], True, []),
+        (["2025-01/2025-04", "2025-05/2025-08", "2025-09/2025-12"], True, []),
+        (["2025-12-26"], True, []),  # a day of 2025 is a window in 2025: the facts decide whether the year was read
+        (["2024"], False, []),
+        (["2025", "2025", "2025"], True, ["repeats-interpolate"]),
+    ],
+)
+def test_the_year_of_daily_values_case_takes_a_window_in_2025_and_is_not_asked_to_page_by_hand(
+    timestamps: list[str], *, first_met: bool, violations: list[str]
+) -> None:
+    """The case that makes `interpolate` grow: any window of 2025 meets the checkpoint; one call 3 times repeats."""
+    verdict = _evaluate_calls(
+        "interpolate-year-of-daily-values",
+        *(_call("interpolate", {**YEAR_INTERPOLATE, "timestamp": t}) for t in timestamps),
+    )
+
+    assert verdict["first_checkpoint_met"] is first_met
+    assert [v for v in verdict["violations"] if v == "repeats-interpolate"] == violations
+
+
+def test_the_year_of_daily_values_case_is_a_key_less_interpolate_case_with_judgeable_facts() -> None:
+    """Warmest and coldest day, each with its date and value, against the judge's own call for the year."""
+    case = bench.find_case(bench.load_cases(), "interpolate-year-of-daily-values")
+    facts = {f["id"]: f for f in case["facts"]}
+
+    assert (case["kind"], case["needs_key"], case["tiers"]) == ("interpolate", False, ["large"])
+    assert set(facts) == {"warmest-day", "warmest-value", "coldest-day", "coldest-value", "says-estimate"}
+    for fact in ("warmest-day", "warmest-value", "coldest-day", "coldest-value"):
+        call = facts[fact]["ground_truth"]["call"]
+        assert (call["tool"], call["args"]["timestamp"]) == ("interpolate", "2025"), fact
+
+
+def test_the_paris_case_no_longer_forbids_a_wide_answer_over_a_long_window() -> None:
+    """The maintainer dropped `wide-long-window` of Paris on 2026-11-12; the forecast cases keep it."""
+    forbidden = {c["id"]: {f["id"] for f in c["forbidden"]} for c in bench.load_cases()["cases"]}
+
+    assert "wide-long-window" not in forbidden["observation-paris-last-week"]
+    assert "wide-long-window" in forbidden["forecast-nairobi"]
+    verdict = _evaluate_calls(
+        "observation-paris-last-week", _call("values", {**PARIS_VALUES, "name": "Paris", "shape": "wide"})
+    )
+    assert "wide-long-window" not in verdict["violations"]
+    assert verdict["first_checkpoint_met"] is True
+
+
 @pytest.mark.parametrize("case_id", ["units-humidity-percent", "units-wind-speed"])
 def test_summarize_after_a_values_call_that_spilled_stays_a_failure(case_id: str) -> None:
     """The fallback on `summarize` is what the case is for: the headline fails and `estimates-instead` shows."""
@@ -5255,7 +5312,7 @@ def test_init_and_probe_record_the_sql_setting_and_compare_warns_when_it_differs
 
 
 def test_the_span_flags_a_forecast_figure_that_belongs_to_an_hour_before_the_call() -> None:
-    """The 11:00 hour was past when the subject called at 11:30: a figure that is only that hour is `past_only`."""
+    """The 10:00 hour was past when the subject called at 11:30: a figure that is only that hour is `past_only`."""
     case = bench.find_case(bench.load_cases(), "forecast-nairobi")
     fact = next(f for f in case["facts"] if f["id"] == "temperatures-plausible")
     rows = _rows(
@@ -5266,9 +5323,9 @@ def test_the_span_flags_a_forecast_figure_that_belongs_to_an_hour_before_the_cal
         ("2026-11-12T14:00:00+00:00", 25.1),
     )
     answer = (
-        "RESULT: 23.4 °C | the 11:00 hour\nRESULT: 26.0 °C | the 13:00 hour\n"
+        "RESULT: 21.0 °C | the 10:00 hour\nRESULT: 26.0 °C | the 13:00 hour\n"
         "RESULT: 25.1 °C | the noon hour, or 14:00\nRESULT: 24.3 °C | a derived mean\n"
-        "RESULT: 74.12 °F | 23.4 C in F\nRESULT: 3 m/s | wind"
+        "RESULT: 69.8 °F | 21 C in F\nRESULT: 3 m/s | wind"
     )
     now = bench._timestamp("2026-11-12T11:40:00+00:00")  # noqa: SLF001
     called = bench._timestamp("2026-11-12T11:30:00+00:00")  # noqa: SLF001
@@ -5277,10 +5334,44 @@ def test_the_span_flags_a_forecast_figure_that_belongs_to_an_hour_before_the_cal
 
     assert found["called_at"] == "2026-11-12T11:30:00+00:00"
     assert [f.get("timing") for f in found["figures"]] == ["past_only", "after", "after", "no_match", "past_only", None]
-    assert found["figures"][0]["rows_before_the_call"] == ["2026-11-12T11:00:00+00:00"]
+    assert found["figures"][0]["rows_before_the_call"] == ["2026-11-12T10:00:00+00:00"]
     without = bench.span_of_values(fact, rows, answer=answer, now=now)
     assert all("timing" not in f for f in without["figures"])
-    assert found["values_used"] == 3
+    assert found["values_used"] == 4  # the current hour (11:00) is in the window, the 10:00 hour is not
+
+
+@pytest.mark.parametrize(
+    ("called", "now"),
+    [
+        ("2026-11-12T11:30:00+00:00", "2026-11-12T11:40:00+00:00"),
+        ("2026-11-12T11:00:00+00:00", "2026-11-12T11:00:00+00:00"),
+        ("2026-11-12T11:59:59+00:00", "2026-11-12T11:59:59+00:00"),
+        ("2026-11-12T17:00:00+05:30", "2026-11-12T17:10:00+05:30"),  # 11:30 UTC: the hour is UTC's, not the offset's
+    ],
+)
+def test_a_forecast_figure_stamped_at_the_current_hour_of_the_call_counts_as_valid(called: str, now: str) -> None:
+    """An MCP forecast answer starts at the current hour on purpose (GH-4030): its first row is valid."""
+    case = bench.find_case(bench.load_cases(), "forecast-nairobi")
+    fact = next(f for f in case["facts"] if f["id"] == "temperatures-plausible")
+    rows = _rows(
+        ("2026-11-12T10:00:00+00:00", 30.0),  # the hour before: past, outside the window
+        ("2026-11-12T11:00:00+00:00", 23.4),  # the current hour of the call: valid
+        ("2026-11-12T12:00:00+00:00", 25.1),
+    )
+    answer = "RESULT: 23.4 °C | the current hour\nRESULT: 30.0 °C | the hour before"
+
+    found = bench.span_of_values(
+        fact,
+        rows,
+        answer=answer,
+        now=bench._timestamp(now),  # noqa: SLF001
+        called_at=bench._timestamp(called),  # noqa: SLF001
+    )
+
+    assert [f["timing"] for f in found["figures"]] == ["after", "past_only"]
+    assert found["figures"][0]["rows_before_the_call"] == []
+    assert (found["values_used"], found["min"], found["max"]) == (2, 23.4, 25.1)
+    assert found["figures"][0]["in_span"] is True
 
 
 def test_the_span_command_takes_the_call_time_from_the_analysis_or_the_option(
@@ -5292,7 +5383,7 @@ def test_the_span_command_takes_the_call_time_from_the_analysis_or_the_option(
         json.dumps(
             {
                 "case": "forecast-nairobi",
-                "answer": "RESULT: 23.4 °C | the 11:00 hour",
+                "answer": "RESULT: 23.4 °C | the 10:00 hour",
                 "calls": [
                     {"tool": "stations", "retrieved_at": "2026-11-12T09:00:00+00:00"},
                     {"tool": "values", "retrieved_at": "2026-11-12T11:30:00+00:00"},
@@ -5303,7 +5394,7 @@ def test_the_span_command_takes_the_call_time_from_the_analysis_or_the_option(
     )
     values = tmp_path / "v.json"
     values.write_text(
-        json.dumps(_rows(("2026-11-12T11:00:00+00:00", 23.4), ("2026-11-12T15:00:00+00:00", 20.0))), encoding="utf-8"
+        json.dumps(_rows(("2026-11-12T10:00:00+00:00", 23.4), ("2026-11-12T15:00:00+00:00", 20.0))), encoding="utf-8"
     )
     base = ["span", "--analysis", str(path), "--values", str(values), "--now", "2026-11-12T11:40:00+00:00"]
 
@@ -5334,14 +5425,14 @@ def _series_rows() -> list[dict[str, Any]]:
     return [
         {"parameter": "temperature_air_2m", "timestamp": "2026-11-12T13:00:00+00:00", "value": 20.0},
         {"parameter": "temperature_air_2m", "timestamp": "2026-11-12T18:00:00+00:00", "value": 15.0},
-        {"parameter": "temperature_air_max_2m_last_12h", "timestamp": "2026-11-12T11:00:00+00:00", "value": 23.4},
+        {"parameter": "temperature_air_max_2m_last_12h", "timestamp": "2026-11-12T10:00:00+00:00", "value": 23.4},
         {"parameter": "temperature_air_max_2m_last_12h", "timestamp": "2026-11-13T00:00:00+00:00", "value": 21.9},
         {"parameter": "wind_speed", "timestamp": "2026-11-12T14:00:00+00:00", "value": 40.0},
     ]
 
 
 def test_a_reference_with_several_parameters_keeps_the_air_temperatures_and_names_the_series_of_a_figure() -> None:
-    """Wind cannot widen the span; each figure says which series it equals; the 11:00 max is an hour already past."""
+    """Wind cannot widen the span; each figure says which series it equals; the 10:00 max is an hour already past."""
     case = bench.find_case(bench.load_cases(), "forecast-nairobi")
     fact = next(f for f in case["facts"] if f["id"] == "temperatures-plausible")
     answer = "RESULT: 23.4 °C | the 12-hour maximum\nRESULT: 21.9 °C | the next 12-hour maximum\nRESULT: 20 °C | now"
@@ -5470,7 +5561,7 @@ def test_a_tool_answer_the_server_cut_is_counted_apart_and_shown_in_the_digest_a
     assert f"{GLOSSARY} [small] repeat 1" in bench.report(results)
     results["runs"][0]["truncated_calls"] = 0
     assert "had their answer cut" not in bench.report(results)
-    assert bench.LOGIC_VERSION == 17
+    assert bench.LOGIC_VERSION == 18
 
 
 # ------------------------------------------------ the note of a cut answer and the next call, the transcript's time
@@ -5564,14 +5655,14 @@ def test_span_falls_back_on_the_transcript_time_of_the_call_when_the_answer_has_
     """A CSV answer has no metadata block: the time the transcript stamped on the `values` result is the call time."""
     values = tmp_path / "v.json"
     values.write_text(
-        json.dumps(_rows(("2026-11-12T11:00:00+00:00", 23.4), ("2026-11-12T15:00:00+00:00", 20.0))), "utf-8"
+        json.dumps(_rows(("2026-11-12T10:00:00+00:00", 23.4), ("2026-11-12T15:00:00+00:00", 20.0))), "utf-8"
     )
     base = ["span", "--values", str(values), "--now", "2026-11-12T11:40:00+00:00"]
 
     def run(calls: list[dict[str, Any]], *extra: str) -> dict[str, Any]:
         path = tmp_path / "a.analysis.json"
         path.write_text(
-            json.dumps({"case": "forecast-nairobi", "answer": "RESULT: 23.4 °C | the 11:00 hour", "calls": calls}),
+            json.dumps({"case": "forecast-nairobi", "answer": "RESULT: 23.4 °C | the 10:00 hour", "calls": calls}),
             encoding="utf-8",
         )
         assert bench.main([*base, "--analysis", str(path), *extra]) == 0
