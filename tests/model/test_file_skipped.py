@@ -26,8 +26,6 @@ from aiohttp import ClientResponseError, ClientSSLError
 from tests.model.test_parameter_without_rows_failures import (
     _aemet_serving,
     _envelope,
-    _frost_kind,
-    _frost_listing,
     _refused,
 )
 from tests.provider.aemet.observation.test_api import BARCELONA, MADRID_RETIRO, _values
@@ -317,18 +315,11 @@ def test_fmi_names_the_station_whose_query_it_answers_with_a_400(monkeypatch: py
 
 
 @pytest.mark.parametrize(("status", "told"), [(500, True), (404, False)], ids=["500 failed", "404 is no data"])
-def test_frost_names_the_station_whose_series_failed(
+def test_frost_names_the_station_whose_request_failed(
     monkeypatch: pytest.MonkeyPatch, status: int, *, told: bool
 ) -> None:
-    """A failed series is let go; Frost's 404 for it is its answer that there is no data."""
-
-    def observations(url: str) -> File:
-        kind = _frost_kind(url)
-        if kind == "available":
-            return _frost_listing(url)
-        return _frost_answer(url, status if kind == "series" else 404)
-
-    values, _seen = _frost_values(monkeypatch, observations)
+    """A failed request is let go; Frost's 404 for it is its answer that there is no data."""
+    values, _seen = _frost_values(monkeypatch, lambda url: _frost_answer(url, status))
     begin_response()
     assert values.all().df.is_empty()
     assert [w["stations"] for w in _told()] == ([["SN18700"]] if told else [])

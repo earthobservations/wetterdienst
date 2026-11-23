@@ -80,18 +80,7 @@ def frost(monkeypatch: pytest.MonkeyPatch) -> None:
         (_STAMPS[1], "PT18H", 7.0),
         (_STAMPS[2], "PT18H", 8.0),
     ]
-    available = {
-        "data": [
-            {
-                "validFrom": "1940-01-01T00:00:00Z",
-                "timeOffset": offset,
-                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0"
-                f"&timeoffsets={offset}",
-            }
-            for offset in ("PT18H", "PT6H")
-        ]
-    }
-    observations = _answered_by("batch", _offset_answer("sum(precipitation_amount P1D)", readings), available)
+    observations = _answered_by(_offset_answer("sum(precipitation_amount P1D)", readings))
 
     def download(*, url: str, **_: object) -> File:
         # the catalogue's request for the series of every station is served as the reader's own tests serve it

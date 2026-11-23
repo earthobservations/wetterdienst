@@ -49,14 +49,6 @@ SOURCES = {
         },
     ],
 }
-AVAILABLE = {
-    "data": [
-        {
-            "validFrom": "2000-01-01T00:00:00Z",
-            "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0",
-        },
-    ],
-}
 OBSERVATIONS = {
     "data": [
         {
@@ -118,33 +110,6 @@ def test_metno_frost_every_dataset_is_date_required() -> None:
 
     assert datasets
     assert [(resolution, dataset) for resolution, dataset, required in datasets if not required] == []
-
-
-def test_metno_frost_values_404_reaches_the_discovery_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that a 404 on the batched request resolves each parameter, and on that, discovers the time series.
-
-    `download_file` hands back a 404 as an exception with no body. The values request used to
-    treat that as an empty file before it read the status, so neither fallback for an element
-    that needs `timeseriesids` could run (GH-2494).
-    """
-
-    def observations(url: str) -> File:
-        if "availableTimeSeries" in url:
-            return _ok(url, AVAILABLE)
-        if "timeseriesids=" in url:
-            return _ok(url, OBSERVATIONS)
-        return _failed(url, 404)
-
-    values, seen = _values(monkeypatch, observations)
-    df = values.all().df
-    # the dataset is requested in one batch, which 404s; then the parameter that was asked for is
-    # requested alone, which 404s as well, and its time series are discovered and read
-    assert len(values.sr.parameters[0].dataset.parameters) > 1
-    assert "," in seen[1].split("elements=")[1].split("&")[0]
-    assert sum("availableTimeSeries" in url for url in seen) == 1
-    assert sum("timeseriesids=" in url for url in seen) == 1
-    assert df["parameter"].to_list() == ["temperature_air_2m"]
-    assert df["value"].to_list() == [2.7]
 
 
 def test_metno_frost_values_carry_the_quality_code_as_a_whole_number(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -300,35 +265,6 @@ def test_metno_frost_daily_snow_depth_is_stamped_at_midnight_of_its_date(monkeyp
     assert df["timestamp"].to_list() == [START, START, END, START]
 
 
-def test_metno_frost_daily_snow_depth_is_stamped_at_midnight_when_requested_alone(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test that the request for one parameter, after a 404 on the batch, stamps the snow depth likewise (GH-2729)."""
-
-    def observations(url: str) -> File:
-        return _ok(url, DAILY_OBSERVATIONS) if "elements=surface_snow_thickness&" in url else _failed(url, 404)
-
-    values, _ = _daily_values(monkeypatch, observations)
-    df = values.all().df.filter(pl.col("parameter") == "snow_depth")
-    assert df["timestamp"].to_list() == [START, END]
-    assert df["value"].to_list() == [12.0, 11.0]
-
-
-def test_metno_frost_daily_snow_depth_is_stamped_at_midnight_when_discovered(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that a daily time series found by discovery is stamped likewise (GH-2729)."""
-
-    def observations(url: str) -> File:
-        if "availableTimeSeries" in url:
-            return _ok(url, AVAILABLE)
-        if "timeseriesids=" in url:
-            return _ok(url, DAILY_OBSERVATIONS)
-        return _failed(url, 404)
-
-    values, _ = _daily_values(monkeypatch, observations)
-    df = values.all().df.filter(pl.col("parameter") == "snow_depth")
-    assert df["timestamp"].to_list() == [START, END]
-
-
 @pytest.mark.parametrize("status", [400, 409])
 def test_metno_frost_values_failure_is_warned_about(
     monkeypatch: pytest.MonkeyPatch,
@@ -348,136 +284,45 @@ def test_metno_frost_values_failure_is_warned_about(
     ]
 
 
-def test_metno_frost_values_single_parameter_failure_is_warned_about(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Test that the single-parameter request warns for a refusal other than a 404 or 412 as well."""
-    values, seen = _values(monkeypatch, lambda url: _failed(url, 409))
-    parameter = values.sr.parameters[0]
-    with caplog.at_level("WARNING", logger=LOGGER):
-        df = values._collect_single_parameter("SN18700", parameter, START, END, values.sr.settings, {})  # noqa: SLF001
-    assert df.is_empty()
-    assert [record.getMessage() for record in caplog.records if record.name == LOGGER] == [
-        f"Failed to download {seen[-1]}: upstream answered 409",
-    ]
-
-
-def test_metno_frost_values_412_is_no_data(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
-    """Test that a 412, Frost's answer for no data in the window, is empty and goes unwarned."""
-    values, seen = _values(monkeypatch, lambda url: _failed(url, 412))
-    with caplog.at_level("WARNING", logger=LOGGER):
-        df = values.all().df
-    assert df.is_empty()
-    assert len(seen) == 2
-    assert [record for record in caplog.records if record.name == LOGGER] == []
-
-
-def test_metno_frost_values_discovered_series_failure_is_warned_about(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Test that a failed request for a discovered time series is warned about, not taken for no data."""
-
-    def observations(url: str) -> File:
-        if "availableTimeSeries" in url:
-            return _ok(url, AVAILABLE)
-        return _failed(url, 404 if "timeseriesids=" not in url else 409)
-
-    values, _seen = _values(monkeypatch, observations)
-    with caplog.at_level("WARNING", logger=LOGGER):
-        df = values.all().df
-    assert df.is_empty()
-    warned = [record.getMessage() for record in caplog.records if record.name == LOGGER]
-    assert len(warned) == 1
-    assert all(
-        message.startswith("Failed to download ") and message.endswith(": upstream answered 409") for message in warned
-    )
-    assert all("timeseriesids=" in message for message in warned)
-
-
-def test_metno_frost_values_discovery_failure_is_warned_about(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """Test that a failed request for the available time series is warned about, not taken for no data."""
-    values, seen = _values(monkeypatch, lambda url: _failed(url, 404 if "availableTimeSeries" not in url else 409))
-    with caplog.at_level("WARNING", logger=LOGGER):
-        df = values.all().df
-    assert df.is_empty()
-    warned = [record.getMessage() for record in caplog.records if record.name == LOGGER]
-    assert len(warned) == 1
-    assert all(message.startswith("Failed to download ") for message in warned)
-    assert all("availableTimeSeries" in message for message in warned)
-    assert not any("timeseriesids=" in url for url in seen)
-
-
 @pytest.mark.parametrize("status", [404, 412])
-def test_metno_frost_values_no_time_series_is_no_data(
+@pytest.mark.parametrize(
+    ("requested", "many"),
+    [
+        pytest.param([("hourly", "data", "temperature_air_2m")], True, id="one-of-many-parameters"),
+        pytest.param([("6_hours", "data", "precipitation_amount")], False, id="dataset-of-one-parameter"),
+    ],
+)
+def test_metno_frost_values_404_and_412_are_no_data_and_asked_nothing_more(
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
     status: int,
+    requested: list[tuple[str, str, str]],
+    *,
+    many: bool,
 ) -> None:
-    """Test that a 404 or 412 for the available time series, Frost's answer for none, goes unwarned."""
-    values, _seen = _values(monkeypatch, lambda url: _failed(url, status if "availableTimeSeries" in url else 404))
+    """Test that a 404 and a 412, Frost's answers for no data in the window, are empty, unwarned, asked once (GH-4321).
+
+    A 404 was once followed by one request for each parameter and by the listing of the time series. The request asks
+    every element, so a 404 means that none has data; asking an element alone found a 404 in 12 of 208 pairs and the
+    time-series form found data in none of those 12 (GH-3137): the answer is no data, and it is not asked again.
+    """
+    values, seen = _values(monkeypatch, lambda url: _failed(url, status), requested)
+    # the ids hold what they say: the dataset has several parameters, or one
+    n_parameters = len(values.sr.parameters[0].dataset.parameters)
+    assert n_parameters > 1 if many else n_parameters == 1
     with caplog.at_level("WARNING", logger=LOGGER):
         df = values.all().df
     assert df.is_empty()
+    # the stations and the one request for the dataset, with the elements of all its parameters, and nothing else
+    assert len(seen) == 2
+    assert [url for url in seen if "/sources/" not in url] == [seen[-1]]
+    assert "availableTimeSeries" not in seen[-1]
     assert [record for record in caplog.records if record.name == LOGGER] == []
 
 
 def _observation_requests(seen: list[str]) -> list[str]:
     """Give the observation and time series requests of a run, leaving out the stations request."""
     return [url for url in seen if "/sources/" not in url]
-
-
-def test_metno_frost_values_404_fallback_asks_for_the_requested_parameters_only(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test that the fallback after a 404 on the batch resolves what was asked for, not the whole dataset (GH-2554)."""
-    requested = [("hourly", "data", "temperature_air_2m"), ("hourly", "data", "wind_speed_mean_last_10min")]
-    values, seen = _values(monkeypatch, lambda url: _failed(url, 404), requested)
-    assert values.all().df.is_empty()
-    batch, *rest = _observation_requests(seen)
-    assert len(values.sr.parameters[0].dataset.parameters) > len(requested)
-    assert batch.count(",") == len(values.sr.parameters[0].dataset.parameters) - 1
-    # one request alone and one discovery per requested parameter, and nothing for the rest
-    assert [url.split("elements=")[1].split("&")[0] for url in rest if "availableTimeSeries" not in url] == [
-        "air_temperature",
-        "wind_speed",
-    ]
-    assert [url.split("elements=")[1].split("&")[0] for url in rest if "availableTimeSeries" in url] == [
-        "air_temperature",
-        "wind_speed",
-    ]
-
-
-def test_metno_frost_values_404_on_a_one_parameter_dataset_is_not_asked_again(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that a 404 on a dataset of one parameter goes straight to discovery, not to the URL that 404'd (GH-2554)."""
-
-    def observations(url: str) -> File:
-        if "availableTimeSeries" in url:
-            return _ok(url, AVAILABLE)
-        if "timeseriesids=" in url:
-            return _ok(url, precipitation)
-        return _failed(url, 404)
-
-    precipitation = {
-        "data": [
-            {
-                **OBSERVATIONS["data"][0],
-                "observations": [{"elementId": "sum(precipitation_amount PT6H)", "value": 1.5, "qualityCode": 0}],
-            },
-        ],
-    }
-    values, seen = _values(monkeypatch, observations, [("6_hours", "data", "precipitation_amount")])
-    df = values.all().df
-    requests = _observation_requests(seen)
-    assert len(values.sr.parameters[0].dataset.parameters) == 1
-    assert len(requests) == len(set(requests)) == 3
-    assert ["availableTimeSeries" in url for url in requests] == [False, True, False]
-    assert "timeseriesids=" in requests[2]
-    assert df["value"].to_list() == [1.5]
 
 
 # Frost's answers without an observation: no `data` at all, an empty or null list of it, an entry with no
@@ -503,7 +348,7 @@ def test_metno_frost_values_200_without_observations_is_no_data(
     empty: dict,
     requested: tuple[str, str, str],
 ) -> None:
-    """Test that an empty 200, for any resolution, is no data: unwarned, and costing no discovery (GH-3750).
+    """Test that an empty 200, for any resolution, is no data: unwarned, and asked once (GH-3750).
 
     The 6-hourly precipitation was once taken to discovery on such an answer (GH-3748). Frost answers that query
     with 200 and the observations, and the empty frame the caller then saw was the range check's, on a -1.
@@ -515,24 +360,6 @@ def test_metno_frost_values_200_without_observations_is_no_data(
     # one request for the dataset, none for its parameters one by one
     assert len(_observation_requests(seen)) == 1
     assert [record for record in caplog.records if record.name == LOGGER] == []
-
-
-@pytest.mark.parametrize("empty", EMPTY_ANSWERS)
-def test_metno_frost_values_single_parameter_200_without_observations_is_no_data(
-    monkeypatch: pytest.MonkeyPatch,
-    empty: dict,
-) -> None:
-    """Test that after a 404 on the batch, an empty 200 for one parameter costs no discovery (GH-3750)."""
-
-    def observations(url: str) -> File:
-        batched = "," in url.split("elements=")[1].split("&", maxsplit=1)[0]
-        return _failed(url, 404) if batched else _ok(url, empty)
-
-    requested = [("hourly", "data", "temperature_air_2m"), ("hourly", "data", "wind_speed_mean_last_10min")]
-    values, seen = _values(monkeypatch, observations, requested)
-    assert values.all().df.is_empty()
-    assert all("availableTimeSeries" not in url for url in seen)
-    assert len(_observation_requests(seen)) == 3
 
 
 def test_metno_frost_decodes_the_precipitation_code_from_the_cut_off_year_only() -> None:
@@ -574,61 +401,6 @@ def test_metno_frost_decodes_the_precipitation_code_from_the_cut_off_year_only()
     ]  # fmt: skip
 
 
-AVAILABLE_TWO = {
-    "data": [
-        {
-            "validFrom": "2000-01-01T00:00:00Z",
-            "uri": f"https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids={series}",
-        }
-        for series in (0, 1)
-    ],
-}
-
-
-@pytest.mark.parametrize("empty", EMPTY_ANSWERS)
-def test_metno_frost_values_discovered_series_without_observations_moves_on_to_the_next(
-    monkeypatch: pytest.MonkeyPatch,
-    empty: dict,
-) -> None:
-    """Test that a discovered series answered 200 without observations is skipped, and the next is read (GH-3750)."""
-
-    def observations(url: str) -> File:
-        if "availableTimeSeries" in url:
-            return _ok(url, AVAILABLE_TWO)
-        if "timeseriesids=0" in url:
-            return _ok(url, empty)
-        if "timeseriesids=1" in url:
-            return _ok(url, OBSERVATIONS)
-        return _failed(url, 404)
-
-    values, seen = _values(monkeypatch, observations)
-    df = values.all().df
-    assert sum("timeseriesids=" in url for url in seen) == 2
-    assert df["parameter"].to_list() == ["temperature_air_2m"]
-    assert df["value"].to_list() == [2.7]
-
-
-@pytest.mark.parametrize("empty", EMPTY_ANSWERS)
-def test_metno_frost_values_discovered_series_all_without_observations_is_no_data(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-    empty: dict,
-) -> None:
-    """Test that time series that all answer 200 without observations make an empty frame, unwarned (GH-3750)."""
-
-    def observations(url: str) -> File:
-        if "availableTimeSeries" in url:
-            return _ok(url, AVAILABLE_TWO)
-        return _ok(url, empty) if "timeseriesids=" in url else _failed(url, 404)
-
-    values, seen = _values(monkeypatch, observations)
-    with caplog.at_level("WARNING", logger=LOGGER):
-        df = values.all().df
-    assert df.is_empty()
-    assert sum("timeseriesids=" in url for url in seen) == 2
-    assert [record for record in caplog.records if record.name == LOGGER] == []
-
-
 def test_metno_frost_values_a_batch_with_an_entry_without_observations_keeps_the_others(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -638,20 +410,6 @@ def test_metno_frost_values_a_batch_with_an_entry_without_observations_keeps_the
     df = values.all().df
     assert df["parameter"].to_list() == ["temperature_air_2m"]
     assert df["value"].to_list() == [2.7]
-
-
-def test_metno_frost_values_404_fallback_for_one_parameter_leaves_its_siblings_alone(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test that the fallback for one parameter model resolves that parameter, not its siblings (GH-2554)."""
-    requested = [("hourly", "data", "temperature_air_2m"), ("hourly", "data", "wind_speed_mean_last_10min")]
-    values, seen = _values(monkeypatch, lambda url: _failed(url, 404), requested)
-    assert values._collect_station_parameter_or_dataset("SN18700", values.sr.parameters[1]).is_empty()  # noqa: SLF001
-    # the request for that parameter alone, then its discovery; air_temperature is never asked for
-    assert [url.split("elements=")[1].split("&")[0] for url in _observation_requests(seen)] == [
-        "wind_speed",
-        "wind_speed",
-    ]
 
 
 OSLO = ZoneInfo("Europe/Oslo")
@@ -682,30 +440,6 @@ def test_metno_frost_values_bounds_are_sent_as_utc(monkeypatch: pytest.MonkeyPat
     assert values.sr.end == dt.datetime(2025, 3, 30, 21, tzinfo=dt.UTC)
     assert values.all().df.is_empty()
     [url] = _observation_requests(seen)
-    assert REFERENCE_TIME in url
-
-
-def test_metno_frost_values_single_parameter_bounds_are_sent_as_utc(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that the request for one parameter converts the bounds to UTC as well (GH-2681)."""
-    values, seen = _oslo_values(monkeypatch, lambda url: _failed(url, 412))
-    values._collect_single_parameter(  # noqa: SLF001
-        "SN18700", values.sr.parameters[0], values.sr.start, values.sr.end, values.sr.settings, {}
-    )
-    [url] = _observation_requests(seen)
-    assert REFERENCE_TIME in url
-
-
-def test_metno_frost_values_discovered_series_bounds_are_sent_as_utc(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that the request for a discovered time series converts the bounds to UTC as well (GH-2681)."""
-
-    def observations(url: str) -> File:
-        if "availableTimeSeries" in url:
-            return _ok(url, AVAILABLE)
-        return _failed(url, 412 if "timeseriesids=" in url else 404)
-
-    values, seen = _oslo_values(monkeypatch, observations)
-    assert values.all().df.is_empty()
-    [url] = [url for url in seen if "timeseriesids=" in url]
     assert REFERENCE_TIME in url
 
 
@@ -809,26 +543,6 @@ def test_metno_frost_hourly_request_gets_the_value_stamped_at_its_end(monkeypatc
     assert df["value"].to_list() == [2.7, 3.1]
 
 
-def test_metno_frost_single_parameter_request_ends_after_its_window(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that the request for one parameter and the one for a discovered series extend the end as well."""
-    values, seen = _values(monkeypatch, lambda url: _failed(url, 412), DAILY)
-    values._collect_single_parameter(  # noqa: SLF001
-        "SN18700", values.sr.parameters[2], values.sr.start, values.sr.end, values.sr.settings, {}
-    )
-    [url] = _observation_requests(seen)
-    assert "referencetime=2020-01-01T00:00:00/2020-01-03T00:00:00" in url
-
-    def observations(url: str) -> File:
-        if "availableTimeSeries" in url:
-            return _ok(url, AVAILABLE)
-        return _failed(url, 412 if "timeseriesids=" in url else 404)
-
-    values, seen = _values(monkeypatch, observations, DAILY)
-    assert values.all().df.is_empty()
-    [url] = [url for url in seen if "timeseriesids=" in url][:1]
-    assert "referencetime=2020-01-01T00:00:00/2020-01-03T00:00:00" in url
-
-
 def test_metno_frost_values_beyond_the_window_are_cut_off(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that a row Frost answers beyond the window, the end being asked for later, is left out (GH-2746)."""
     beyond = {
@@ -840,32 +554,6 @@ def test_metno_frost_values_beyond_the_window_are_cut_off(monkeypatch: pytest.Mo
     values, _ = _daily_values(monkeypatch, lambda url: _ok(url, payload))
     df = values.all().df.filter(pl.col("parameter") == "snow_depth")
     assert df["timestamp"].to_list() == [START, END]
-
-
-def test_metno_frost_discovered_daily_series_starting_on_the_end_date_is_asked_for(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test that a daily series that starts at 06:00 UTC of the end date is read for that date (GH-2729)."""
-    available = {
-        "data": [
-            {
-                "validFrom": "2020-01-02T06:00:00Z",
-                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0",
-            },
-        ],
-    }
-
-    def observations(url: str) -> File:
-        if "availableTimeSeries" in url:
-            return _ok(url, available)
-        if "timeseriesids=" in url:
-            return _frost(DAILY_OBSERVATIONS)(url)
-        return _failed(url, 404)
-
-    values, seen = _values(monkeypatch, observations, DAILY, start=START, end=END)
-    df = values.all().df.filter(pl.col("parameter") == "snow_depth")
-    assert df["timestamp"].to_list() == [END]
-    assert any("referencetime=2020-01-02T06:00:00/2020-01-03T00:00:00" in url for url in seen)
 
 
 @pytest.mark.parametrize(
@@ -920,7 +608,7 @@ def test_metno_frost_sunshine_duration_is_read_as_hours(
     assert df["value"].to_list() == [pytest.approx(hours)]
 
 
-# --- a window over the limit, an answer without quality codes, `-1` through every reader (GH-3748) -----------------
+# --- a window over the limit, an answer without quality codes, `-1` of the precipitation (GH-3748) -----------------
 
 FROM = frost_api._NO_PRECIPITATION_FROM_YEAR  # noqa: SLF001
 TOO_MANY = (
@@ -1067,33 +755,6 @@ def test_metno_frost_window_over_the_limit_is_told_by_a_full_error_response_whos
     assert any(at > 500 for at in reasons_at)
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery", "series"])
-def test_metno_frost_window_over_the_limit_is_told_by_every_reader(monkeypatch: pytest.MonkeyPatch, path: str) -> None:
-    """Test that the batch, the single parameter, the discovery listing and the discovered series all read a 403 why.
-
-    Each of the four requests of a values read is refused as Frost refuses a window of too many observations, with the
-    body of that answer on the file it came back as (GH-3748, GH-4048).
-    """
-    from wetterdienst.exceptions import InvalidTimeIntervalError  # noqa: PLC0415
-
-    def observations(url: str) -> File:
-        batched = "," in url.split("elements=")[1].split("&", maxsplit=1)[0]
-        if "availableTimeSeries" in url:
-            return _failed(url, 403, TOO_MANY) if path == "discovery" else _ok(url, AVAILABLE)
-        if "timeseriesids=" in url:
-            return _failed(url, 403, TOO_MANY)
-        if path == "batch" or (path == "single" and not batched):
-            return _failed(url, 403, TOO_MANY)
-        return _failed(url, 404)
-
-    requested = [("hourly", "data", "temperature_air_2m")]
-    if path == "single":
-        requested.append(("hourly", "data", "wind_speed_mean_last_10min"))
-    values, _ = _values(monkeypatch, observations, requested)
-    with pytest.raises(InvalidTimeIntervalError, match="narrow the window"):
-        values.all()
-
-
 @pytest.mark.parametrize("status", [401, 404, 412, 500])
 def test_metno_frost_only_a_403_is_read_for_its_window(monkeypatch: pytest.MonkeyPatch, status: int) -> None:
     """Test that a refusal other than a 403 is read as it was, whatever a body might say."""
@@ -1152,69 +813,46 @@ def test_metno_frost_429_is_the_rate_limit_error_with_the_wait_frost_sent(
     assert "429" in excinfo.value.reason
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
-def test_metno_frost_answer_without_any_quality_code_is_read(monkeypatch: pytest.MonkeyPatch, path: str) -> None:
+def test_metno_frost_answer_without_any_quality_code_is_read(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test that observations none of which has a `qualityCode` are read, with no code in `quality_flags` (GH-3748).
 
     Frost leaves the key out of an observation it has no code for (SN30320 `daily`, 2015-05-01); selecting the column
-    raised a `ColumnNotFoundError` in all three readers.
+    raised a `ColumnNotFoundError` in every reader there was.
     """
     element = "sum(precipitation_amount P1D)"
     answer = _precipitation_answer(element, [("2020-01-01T00:00:00.000Z", 2.5, None)])
 
-    def observations(url: str) -> File:
-        batched = "," in url.split("elements=")[1].split("&", maxsplit=1)[0]
-        if "availableTimeSeries" in url:
-            return _ok(url, AVAILABLE)
-        if "timeseriesids=" in url:
-            return _ok(url, answer)
-        if path == "batch" or (path == "single" and not batched):
-            return _ok(url, answer)
-        return _failed(url, 404)
-
     requested = [("daily", "data", "precipitation_amount")]
-    if path == "single":
-        requested.append(("daily", "data", "temperature_air_mean_2m"))
-    values, _ = _values(monkeypatch, observations, requested, start=START, end=END)
+    values, _ = _values(monkeypatch, lambda url: _ok(url, answer), requested, start=START, end=END)
     df = values.all().df.filter(pl.col("parameter") == "precipitation_amount")
     assert df["value"].to_list() == [2.5]
     assert df["quality_flags"].to_list() == [None]
 
 
-# (element, resolution, years from the cut-off, the values that come back, the readers that reach it); the 6-hourly
-# dataset has one parameter, so a request of it goes to discovery on a 404 and the single reader is not reached
+# (element, resolution, years from the cut-off, the values that come back)
 _MINUS_ONE_CASES = [
-    ("sum(precipitation_amount PT6H)", "6_hours", 0, [0.0, 1.3], ("batch", "discovery"), "6_hours-from"),
-    ("sum(precipitation_amount PT6H)", "6_hours", -1, [1.3], ("batch", "discovery"), "6_hours-before"),
-    ("sum(precipitation_amount PT1H)", "hourly", 0, [0.0, 1.3], ("batch", "single", "discovery"), "hourly-from"),
-    ("sum(precipitation_amount PT1H)", "hourly", -1, [1.3], ("batch", "single", "discovery"), "hourly-before"),
+    pytest.param("sum(precipitation_amount PT6H)", "6_hours", 0, [0.0, 1.3], id="6_hours-from"),
+    pytest.param("sum(precipitation_amount PT6H)", "6_hours", -1, [1.3], id="6_hours-before"),
+    pytest.param("sum(precipitation_amount PT1H)", "hourly", 0, [0.0, 1.3], id="hourly-from"),
+    pytest.param("sum(precipitation_amount PT1H)", "hourly", -1, [1.3], id="hourly-before"),
     # the daily -1 is 0.0 mm as Frost states, in every year: no cut-off year (GH-3820)
-    ("sum(precipitation_amount P1D)", "daily", 0, [0.0, 1.3], ("batch", "single", "discovery"), "daily-from"),
-    ("sum(precipitation_amount P1D)", "daily", -1, [0.0, 1.3], ("batch", "single", "discovery"), "daily-before"),
+    pytest.param("sum(precipitation_amount P1D)", "daily", 0, [0.0, 1.3], id="daily-from"),
+    pytest.param("sum(precipitation_amount P1D)", "daily", -1, [0.0, 1.3], id="daily-before"),
 ]
 
 
-@pytest.mark.parametrize(
-    ("path", "element", "resolution", "year_offset", "expected"),
-    [
-        pytest.param(path, element, resolution, offset, expected, id=f"{case_id}-{path}")
-        for element, resolution, offset, expected, paths, case_id in _MINUS_ONE_CASES
-        for path in paths
-    ],
-)
-def test_metno_frost_minus_one_of_precipitation_is_read_the_same_by_every_reader(
+@pytest.mark.parametrize(("element", "resolution", "year_offset", "expected"), _MINUS_ONE_CASES)
+def test_metno_frost_minus_one_of_precipitation_is_read_from_the_cut_off_year_and_not_before(
     monkeypatch: pytest.MonkeyPatch,
-    path: str,
     element: str,
     resolution: str,
     year_offset: int,
     expected: list[float],
 ) -> None:
-    """Test that the batch, the single and the discovered series all decode `-1`, from the cut-off year and not before.
+    """Test that `-1` of the precipitation sums is decoded from the cut-off year and not before.
 
-    The discovery read once decoded nothing and every test passed (GH-3748): all three go through one rule. Before the
-    cut-off year the code is null and the row is dropped, so that nothing false is returned for the old series. The
-    daily sum has no cut-off year: its -1 is 0.0 mm in both (GH-3820).
+    Before the cut-off year the code is null and the row is dropped, so that nothing false is returned for the old
+    series. The daily sum has no cut-off year: its -1 is 0.0 mm in both (GH-3820).
     """
     year = FROM + year_offset
     start = dt.datetime(year, 1, 1, tzinfo=ZoneInfo("UTC"))
@@ -1222,30 +860,8 @@ def test_metno_frost_minus_one_of_precipitation_is_read_the_same_by_every_reader
     answer = _precipitation_answer(
         element, [(f"{year}-01-01T00:00:00.000Z", -1, 2), (f"{year}-01-02T00:00:00.000Z", 1.3, 0)]
     )
-    available = {
-        "data": [
-            {
-                "validFrom": "1940-01-01T00:00:00Z",
-                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0",
-            }
-        ]
-    }
-
-    def observations(url: str) -> File:
-        batched = "," in url.split("elements=")[1].split("&", maxsplit=1)[0]
-        if "availableTimeSeries" in url:
-            return _ok(url, available)
-        if "timeseriesids=" in url:
-            return _ok(url, answer)
-        if path == "batch" or (path == "single" and not batched):
-            return _ok(url, answer)
-        return _failed(url, 404)
-
     requested = [(resolution, "data", "precipitation_amount")]
-    if path == "single":
-        sibling = {"hourly": "temperature_air_2m", "daily": "temperature_air_mean_2m"}[resolution]
-        requested.append((resolution, "data", sibling))
-    values, _ = _values(monkeypatch, observations, requested, start=start, end=end)
+    values, _ = _values(monkeypatch, lambda url: _ok(url, answer), requested, start=start, end=end)
     df = values.all().df.filter(pl.col("parameter") == "precipitation_amount")
     assert sorted(df["value"].to_list()) == expected
     if expected == [0.0, 1.3]:
@@ -1339,23 +955,15 @@ def _offset_answer(element: str, readings: list[tuple[str, str, float]]) -> dict
     }
 
 
-def _answered_by(path: str, answer: dict, available: dict) -> Callable[[str], File]:
-    """Give the stub of the upstream that serves ``answer`` to the reader ``path`` reaches."""
+def _answered_by(answer: dict) -> Callable[[str], File]:
+    """Give the stub of the upstream that serves ``answer`` to every request."""
 
     def observations(url: str) -> File:
-        batched = "," in url.split("elements=")[1].split("&", maxsplit=1)[0]
-        if "availableTimeSeries" in url:
-            return _ok(url, available)
-        if "timeseriesids=" in url:
-            return _ok(url, answer)
-        if path == "batch" or (path == "single" and not batched):
-            return _ok(url, answer)
-        return _failed(url, 404)
+        return _ok(url, answer)
 
     return observations
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 @pytest.mark.parametrize(
     ("element", "resolution", "stamps", "end"),
     [
@@ -1375,9 +983,8 @@ def _answered_by(path: str, answer: dict, available: dict) -> Callable[[str], Fi
         ),
     ],
 )
-def test_metno_frost_precipitation_sum_is_the_series_of_the_standard_offset_by_every_reader(
+def test_metno_frost_precipitation_sum_is_the_series_of_the_standard_offset(
     monkeypatch: pytest.MonkeyPatch,
-    path: str,
     element: str,
     resolution: str,
     stamps: list[str],
@@ -1388,7 +995,7 @@ def test_metno_frost_precipitation_sum_is_the_series_of_the_standard_offset_by_e
     Frost answers both series of the sum for a date, `PT18H` (18-18 UTC) and `PT6H` (06-06 UTC): "Standard sampling
     period for precipitation is 07-06 UTC" (https://frost.met.no/dataclarifications.html). The core kept the first row
     of a reading, `PT18H`, so the sum of another window came back under a description of 06-06 (SN50540, 2026-10-29:
-    4.0 for 22.3). All three readers choose the rows of the standard offset; the order of the answer is no part of it.
+    4.0 for 22.3). The rows of the standard offset are chosen; the order of the answer is no part of it.
     """
     # the 18-18 sum before the 06-06 sum on the first date, as Frost answers it, and after it on the second
     readings = [
@@ -1397,28 +1004,12 @@ def test_metno_frost_precipitation_sum_is_the_series_of_the_standard_offset_by_e
         (stamps[1], "PT6H", 1.6),
         (stamps[1], "PT18H", 0.1),
     ]
-    available = {
-        "data": [
-            {
-                "validFrom": "1940-01-01T00:00:00Z",
-                "timeOffset": offset,
-                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0"
-                f"&timeoffsets={offset}",
-            }
-            for offset in ("PT18H", "PT6H")
-        ]
-    }
-    observations = _answered_by(path, _offset_answer(element, readings), available)
+    observations = _answered_by(_offset_answer(element, readings))
     requested = [(resolution, "data", "precipitation_amount")]
-    if path == "single":
-        requested.append((resolution, "data", "temperature_air_mean_2m"))
     start = dt.datetime.fromisoformat(stamps[0])
-    values, seen = _values(monkeypatch, observations, requested, start=start, end=end)
+    values, _ = _values(monkeypatch, observations, requested, start=start, end=end)
     df = values.all().df.filter(pl.col("parameter") == "precipitation_amount").sort("timestamp")
     assert df["value"].to_list() == [22.3, 1.6]
-    if path == "discovery":
-        # the two series of the listing have one time series id: the series of the other offset is not asked for again
-        assert sum("timeseriesids=" in url for url in seen) == 1
 
 
 def test_metno_frost_precipitation_sum_of_a_date_that_only_the_other_series_has_is_not_returned(
@@ -1528,7 +1119,7 @@ def test_metno_frost_wind_direction_of_a_calm_is_null_and_a_0_beside_a_wind_stay
 
 
 def test_metno_frost_wind_direction_without_a_speed_beside_stays_as_it_is() -> None:
-    """Test that a direction of 0 whose speed is not in the frame stays, as in the single and discovery readers."""
+    """Test that a direction of 0 whose speed is not in the frame stays: it has no speed to be a calm beside."""
     decoded = frost_api._decode_sentinels(  # noqa: SLF001
         _wind([("wind_from_direction", "10", 0.0, 0), ("wind_from_direction", "10", 0.0, 1)])
     )
@@ -1619,7 +1210,6 @@ def _told(code: str) -> list[dict]:
     return [warning for warning in recorded_warnings() if warning["code"] == code]
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 @pytest.mark.parametrize(
     ("element", "resolution", "stamps", "name"),
     [
@@ -1639,9 +1229,8 @@ def _told(code: str) -> list[dict]:
         ),
     ],
 )
-def test_metno_frost_dates_only_the_other_series_has_are_told_by_every_reader(
+def test_metno_frost_dates_only_the_other_series_has_are_told(
     monkeypatch: pytest.MonkeyPatch,
-    path: str,
     element: str,
     resolution: str,
     stamps: list[str],
@@ -1660,21 +1249,8 @@ def test_metno_frost_dates_only_the_other_series_has_are_told_by_every_reader(
         (stamps[1], "PT18H", 7.0),
         (stamps[2], "PT18H", 8.0),
     ]
-    available = {
-        "data": [
-            {
-                "validFrom": "1940-01-01T00:00:00Z",
-                "timeOffset": offset,
-                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0"
-                f"&timeoffsets={offset}",
-            }
-            for offset in ("PT18H", "PT6H")
-        ]
-    }
-    observations = _answered_by(path, _offset_answer(element, readings), available)
+    observations = _answered_by(_offset_answer(element, readings))
     requested = [(resolution, "data", "precipitation_amount")]
-    if path == "single":
-        requested.append((resolution, "data", "temperature_air_mean_2m"))
     # the window ends with the second date: the third is not in the answer, and not counted
     values, _ = _values(
         monkeypatch,
@@ -1709,10 +1285,9 @@ def test_metno_frost_dates_only_the_other_series_has_are_told_by_every_reader(
     assert [w for w in _told("parameter-without-rows") if w["parameter"] in (resolution + "/data", name)] == []
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 @pytest.mark.parametrize("asked", ["named", "whole"])
 def test_metno_frost_a_station_with_only_the_other_series_is_no_station_without_values(
-    monkeypatch: pytest.MonkeyPatch, path: str, asked: str
+    monkeypatch: pytest.MonkeyPatch, asked: str
 ) -> None:
     """Test that a window with the 18-18 series only is told as that, and is not "the source has no values" (GH-3832).
 
@@ -1724,21 +1299,8 @@ def test_metno_frost_a_station_with_only_the_other_series_is_no_station_without_
         "sum(precipitation_amount P1D)",
         [("2020-01-01T00:00:00.000Z", "PT18H", 5.0), ("2020-01-02T00:00:00.000Z", "PT18H", 7.0)],
     )
-    available = {
-        "data": [
-            {
-                "validFrom": "1940-01-01T00:00:00Z",
-                "timeOffset": "PT18H",
-                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0"
-                "&timeoffsets=PT18H",
-            }
-        ]
-    }
-    observations = _answered_by(path, answer, available)
+    observations = _answered_by(answer)
     requested = [("daily", "data", "precipitation_amount")] if asked == "named" else [("daily", "data")]
-    if path == "single":
-        # the single reader is reached by a parameter of a dataset whose batch 404s
-        requested = [("daily", "data", "precipitation_amount"), ("daily", "data", "temperature_air_mean_2m")]
     values, _ = _values(monkeypatch, observations, requested, start=START, end=END)
     begin_response()
     assert values.all().df.is_empty()
@@ -1782,53 +1344,30 @@ EXTREME_STAMPS = ["2020-01-01T00:00:00.000Z", "2020-01-02T00:00:00.000Z", "2020-
 EXTREME_END = dt.datetime(2020, 1, 3, tzinfo=dt.UTC)
 
 
-def _available_offsets(*offsets: str) -> dict:
-    """Give the listing of the series of one element at SN18700, one `timeseriesids`, that differ in `timeOffset`."""
-    return {
-        "data": [
-            {
-                "validFrom": "1940-01-01T00:00:00Z",
-                "timeOffset": offset,
-                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0"
-                f"&timeoffsets={offset}",
-            }
-            for offset in offsets
-        ]
-    }
-
-
 def _extreme_values(
     monkeypatch: pytest.MonkeyPatch,
-    path: str,
     element: str,
     name: str,
     readings: list[tuple[str, str, float]],
     start: str = EXTREME_STAMPS[0],
     end: dt.datetime = EXTREME_END,
 ) -> pl.DataFrame:
-    """Give the frame a reader of `path` returns for the daily extreme `name`, Frost answering `readings`."""
-    offsets = sorted({offset for _, offset, _ in readings})
-    observations = _answered_by(path, _offset_answer(element, readings), _available_offsets(*offsets))
+    """Give the frame a read returns for the daily extreme `name`, Frost answering `readings`."""
+    observations = _answered_by(_offset_answer(element, readings))
     requested = [("daily", "data", name)]
-    if path == "single":
-        requested.append(("daily", "data", "temperature_air_mean_2m"))
     values, _ = _values(monkeypatch, observations, requested, start=dt.datetime.fromisoformat(start), end=end)
     begin_response()
     return values.all().df.filter(pl.col("parameter") == name).sort("timestamp")
 
 
 def _told_of(name: str) -> list[dict]:
-    """Give the warnings that name the parameter `name`.
-
-    The mean that makes the single reader the one reached has no rows, and is told as that.
-    """
+    """Give the warnings that name the parameter `name`."""
     return [w for w in recorded_warnings() if w.get("parameter", "").endswith(name)]
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 @pytest.mark.parametrize(("element", "name"), EXTREMES)
-def test_metno_frost_daily_temperature_extreme_is_the_18_18_series_by_every_reader(
-    monkeypatch: pytest.MonkeyPatch, path: str, element: str, name: str
+def test_metno_frost_daily_temperature_extreme_is_the_18_18_series(
+    monkeypatch: pytest.MonkeyPatch, element: str, name: str
 ) -> None:
     """Test that a station with both series returns the `PT18H` extreme on every date it has (GH-3843).
 
@@ -1846,15 +1385,14 @@ def test_metno_frost_daily_temperature_extreme_is_the_18_18_series_by_every_read
         # a gap of the `PT18H` series
         (EXTREME_STAMPS[2], "PT0H", 8.0),
     ]
-    df = _extreme_values(monkeypatch, path, element, name, readings)
+    df = _extreme_values(monkeypatch, element, name, readings)
     assert df["value"].to_list() == [6.0, 7.0]
     assert df["timestamp"].to_list() == [dt.datetime(2020, 1, 1, tzinfo=dt.UTC), dt.datetime(2020, 1, 2, tzinfo=dt.UTC)]
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 @pytest.mark.parametrize(("element", "name"), EXTREMES)
 def test_metno_frost_daily_temperature_extreme_of_a_station_without_the_18_18_series_has_no_values(
-    monkeypatch: pytest.MonkeyPatch, path: str, element: str, name: str
+    monkeypatch: pytest.MonkeyPatch, element: str, name: str
 ) -> None:
     """Test that a station that has `PT0H` only returns no extreme, and the answer says so (GH-3843).
 
@@ -1863,7 +1401,7 @@ def test_metno_frost_daily_temperature_extreme_of_a_station_without_the_18_18_se
     (9 for the maximum), and the answer is no "the source has no values": the source has them.
     """
     readings = [(EXTREME_STAMPS[0], "PT0H", 5.0), (EXTREME_STAMPS[1], "PT0H", 7.0)]
-    df = _extreme_values(monkeypatch, path, element, name, readings)
+    df = _extreme_values(monkeypatch, element, name, readings)
     assert df.is_empty()
     (warning,) = _told("other-window-left-out")
     assert warning["parameter"] == f"daily/data/{name}"
@@ -1871,10 +1409,9 @@ def test_metno_frost_daily_temperature_extreme_of_a_station_without_the_18_18_se
     assert [w for w in _told_of(name) if w["code"] == "parameter-without-rows"] == []
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 @pytest.mark.parametrize(("element", "name"), EXTREMES)
 def test_metno_frost_daily_temperature_extreme_dates_of_the_calendar_day_only_are_told(
-    monkeypatch: pytest.MonkeyPatch, path: str, element: str, name: str
+    monkeypatch: pytest.MonkeyPatch, element: str, name: str
 ) -> None:
     """Test that a date with the calendar-day extreme only is left out and told (GH-3843).
 
@@ -1889,7 +1426,7 @@ def test_metno_frost_daily_temperature_extreme_dates_of_the_calendar_day_only_ar
         (EXTREME_STAMPS[1], "PT0H", 7.0),
         (EXTREME_STAMPS[2], "PT0H", 8.0),
     ]
-    df = _extreme_values(monkeypatch, path, element, name, readings)
+    df = _extreme_values(monkeypatch, element, name, readings)
     assert df["value"].to_list() == [6.0]
     (warning,) = _told("other-window-left-out")
     assert warning["parameter"] == f"daily/data/{name}"
@@ -1903,10 +1440,9 @@ def test_metno_frost_daily_temperature_extreme_dates_of_the_calendar_day_only_ar
     assert [w for w in _told("parameter-without-rows") if w["parameter"] in ("daily/data", f"daily/data/{name}")] == []
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 @pytest.mark.parametrize(("element", "name"), EXTREMES)
 def test_metno_frost_daily_temperature_extreme_of_a_gap_date_does_not_depend_on_the_window(
-    monkeypatch: pytest.MonkeyPatch, path: str, element: str, name: str
+    monkeypatch: pytest.MonkeyPatch, element: str, name: str
 ) -> None:
     """Test that a date of a gap of `PT18H` is left out whether or not the window holds a `PT18H` row (GH-3843).
 
@@ -1915,7 +1451,7 @@ def test_metno_frost_daily_temperature_extreme_of_a_gap_date_does_not_depend_on_
     is the answer of Frost here: only the `PT0H` row.
     """
     readings = [(EXTREME_STAMPS[2], "PT0H", 8.0)]
-    df = _extreme_values(monkeypatch, path, element, name, readings, start=EXTREME_STAMPS[2])
+    df = _extreme_values(monkeypatch, element, name, readings, start=EXTREME_STAMPS[2])
     assert df.is_empty()
     (warning,) = _told("other-window-left-out")
     assert "on 1 date that is not in the answer (SN18700 1)" in warning["message"]
@@ -1955,9 +1491,8 @@ def test_metno_frost_daily_temperature_extremes_are_chosen_each_for_itself(monke
     assert warning["parameter"] == "daily/data/temperature_air_min_2m"
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 def test_metno_frost_daily_temperature_extreme_left_out_of_another_offset_does_not_name_the_calendar_day(
-    monkeypatch: pytest.MonkeyPatch, path: str
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that the warning does not call a `PT6H` row the calendar-day series (GH-3843).
 
@@ -1965,7 +1500,7 @@ def test_metno_frost_daily_temperature_extreme_left_out_of_another_offset_does_n
     out as any other offset's is, and the warning names the series it is no more than "another" one.
     """
     readings = [(EXTREME_STAMPS[0], "PT6H", 1.0), (EXTREME_STAMPS[1], "PT6H", 2.0)]
-    df = _extreme_values(monkeypatch, path, "min(air_temperature P1D)", "temperature_air_min_2m", readings)
+    df = _extreme_values(monkeypatch, "min(air_temperature P1D)", "temperature_air_min_2m", readings)
     assert df.is_empty()
     (warning,) = _told("other-window-left-out")
     assert "on 2 dates that are not in the answer (SN18700 2)" in warning["message"]
@@ -1973,94 +1508,20 @@ def test_metno_frost_daily_temperature_extreme_left_out_of_another_offset_does_n
     assert "calendar-day series" not in warning["message"]
 
 
-def _discovery_by_query(
-    monkeypatch: pytest.MonkeyPatch, queries: list[tuple[str, str | None, list[tuple[str, str, float]]]]
-) -> tuple[pl.DataFrame, list[dict]]:
-    """Give the frame the discovery returns for the daily maximum, and the warnings, of series that differ in validity.
-
-    ``queries`` are the series of the station in the order the listing gives them: the `timeseriesids`, its `validTo`
-    (None for open) and what Frost answers for its query, `(reference time, offset, value)`.
-    """
-    element = "max(air_temperature P1D)"
-    answers = {ts: _offset_answer(element, readings) for ts, _, readings in queries}
-    starts = {ts: stamp[:4] for ts, _, readings in queries for stamp, _, _ in readings}
-    available = {
-        "data": [
-            {
-                "validFrom": f"{starts[ts]}-01-01T00:00:00Z",
-                "validTo": valid_to,
-                "timeOffset": "PT0H",
-                "uri": f"https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids={ts}",
-            }
-            for ts, valid_to, _ in queries
-        ]
-    }
-
-    def observations(url: str) -> File:
-        if "availableTimeSeries" in url:
-            return _ok(url, available)
-        if "timeseriesids=" in url:
-            return _ok(url, answers[url.split("timeseriesids=")[1].split("&", maxsplit=1)[0]])
-        return _failed(url, 404)
-
-    values, _ = _values(
-        monkeypatch,
-        observations,
-        [("daily", "data", "temperature_air_max_2m")],
-        start=dt.datetime(2000, 1, 1, tzinfo=dt.UTC),
-        end=dt.datetime(2006, 1, 3, tzinfo=dt.UTC),
-    )
-    begin_response()
-    return values.all().df, recorded_warnings()
-
-
-@pytest.mark.parametrize("pt18h_in", ["the earlier query", "the later query"])
-def test_metno_frost_daily_temperature_extreme_is_chosen_over_the_queries_of_the_discovery(
-    monkeypatch: pytest.MonkeyPatch, pt18h_in: str
-) -> None:
-    """Test that the discovery keeps `PT18H` and leaves the calendar day out in whichever query each is (GH-3843).
-
-    Two series of the station that differ in their validity are two queries. The `PT18H` rows are in the earlier or in
-    the later one, the calendar-day rows of the other query are left out and told, and what each query holds is counted
-    once.
-    """
-    first, second = "2000-01-02T00:00:00.000Z", "2006-01-02T00:00:00.000Z"
-    if pt18h_in == "the earlier query":
-        queries = [
-            ("0", "2005-12-31T00:00:00Z", [(first, "PT0H", 1.0), (first, "PT18H", 2.0)]),
-            ("1", None, [(second, "PT0H", 3.0)]),
-        ]
-        expected = [2.0]
-    else:
-        queries = [
-            ("0", "2005-12-31T00:00:00Z", [(first, "PT0H", 1.0)]),
-            ("1", None, [(second, "PT0H", 3.0), (second, "PT18H", 4.0)]),
-        ]
-        expected = [4.0]
-    df, _ = _discovery_by_query(monkeypatch, queries)
-    assert df["value"].to_list() == expected
-    (warning,) = _told("other-window-left-out")
-    assert "on 1 date that is not in the answer (SN18700 1)" in warning["message"]
-
-
 MEAN_STAMPS = ["2020-01-01T00:00:00.000Z", "2020-01-02T00:00:00.000Z", "2020-01-03T00:00:00.000Z"]
 
 
 def _mean_values(
     monkeypatch: pytest.MonkeyPatch,
-    path: str,
     resolution: str,
     readings: list[tuple[str, str, float]],
     start: str = MEAN_STAMPS[0],
     end: str = MEAN_STAMPS[1],
 ) -> pl.DataFrame:
-    """Give the frame a reader of `path` returns for the mean of `resolution`, Frost answering `readings`."""
+    """Give the frame a read returns for the mean of `resolution`, Frost answering `readings`."""
     element = f"mean(air_temperature {'P1M' if resolution == 'monthly' else 'P1D'})"
-    offsets = sorted({offset for _, offset, _ in readings})
-    observations = _answered_by(path, _offset_answer(element, readings), _available_offsets(*offsets))
+    observations = _answered_by(_offset_answer(element, readings))
     requested = [(resolution, "data", "temperature_air_mean_2m")]
-    if path == "single":
-        requested.append((resolution, "data", "precipitation_amount"))
     values, _ = _values(
         monkeypatch,
         observations,
@@ -2072,10 +1533,9 @@ def _mean_values(
     return values.all().df.filter(pl.col("parameter") == "temperature_air_mean_2m").sort("timestamp")
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 @pytest.mark.parametrize("resolution", ["daily", "monthly"])
-def test_metno_frost_the_mean_temperature_is_the_calendar_day_series_by_every_reader(
-    monkeypatch: pytest.MonkeyPatch, path: str, resolution: str
+def test_metno_frost_the_mean_temperature_is_the_calendar_day_series(
+    monkeypatch: pytest.MonkeyPatch, resolution: str
 ) -> None:
     """Test that the daily and monthly mean is the `PT0H` series alone, and a date that only `PT6H` has is left out.
 
@@ -2086,7 +1546,7 @@ def test_metno_frost_the_mean_temperature_is_the_calendar_day_series_by_every_re
     """
     stamps = MEAN_STAMPS if resolution == "daily" else ["2020-01-01T00:00:00.000Z", "2020-02-01T00:00:00.000Z"]
     readings = [(stamps[0], "PT0H", 1.0), (stamps[0], "PT6H", 2.0), (stamps[1], "PT6H", 3.0)]
-    df = _mean_values(monkeypatch, path, resolution, readings, start=stamps[0], end=stamps[1])
+    df = _mean_values(monkeypatch, resolution, readings, start=stamps[0], end=stamps[1])
     assert df["value"].to_list() == [1.0]
     assert df["timestamp"].to_list() == [dt.datetime(2020, 1, 1, tzinfo=dt.UTC)]
     (warning,) = _told("other-window-left-out")
@@ -2110,25 +1570,23 @@ def test_metno_frost_the_mean_temperature_is_the_calendar_day_series_by_every_re
     assert [w for w in _told_of("temperature_air_mean_2m") if w["code"] == "parameter-without-rows"] == []
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 def test_metno_frost_the_mean_temperature_of_a_date_that_only_pt6h_has_does_not_depend_on_the_window(
-    monkeypatch: pytest.MonkeyPatch, path: str
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that a date that `PT0H` lacks is left out in a window of that date and in a wider one (GH-3855)."""
     readings = [(MEAN_STAMPS[0], "PT0H", 1.0), (MEAN_STAMPS[1], "PT6H", 3.0), (MEAN_STAMPS[2], "PT0H", 5.0)]
-    df = _mean_values(monkeypatch, path, "daily", readings, start=MEAN_STAMPS[1], end=MEAN_STAMPS[1])
+    df = _mean_values(monkeypatch, "daily", readings, start=MEAN_STAMPS[1], end=MEAN_STAMPS[1])
     assert df.is_empty()
     (warning,) = _told("other-window-left-out")
     assert "on 1 date that is not in the answer (SN18700 1)" in warning["message"]
-    df = _mean_values(monkeypatch, path, "daily", readings, start=MEAN_STAMPS[0], end=MEAN_STAMPS[2])
+    df = _mean_values(monkeypatch, "daily", readings, start=MEAN_STAMPS[0], end=MEAN_STAMPS[2])
     assert df["value"].to_list() == [1.0, 5.0]
     (warning,) = _told("other-window-left-out")
     assert "on 1 date that is not in the answer (SN18700 1)" in warning["message"]
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 def test_metno_frost_the_mean_temperature_of_a_station_that_has_no_pt0h_series_has_no_values(
-    monkeypatch: pytest.MonkeyPatch, path: str
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that a station with `PT6H` (or `PT18H`) only returns no mean, and says so (GH-3855).
 
@@ -2136,7 +1594,7 @@ def test_metno_frost_the_mean_temperature_of_a_station_that_has_no_pt0h_series_h
     only. The answer is the "other series" one, never "the source has no values": the source has them.
     """
     readings = [(MEAN_STAMPS[0], "PT6H", 1.0), (MEAN_STAMPS[1], "PT6H", 2.0)]
-    df = _mean_values(monkeypatch, path, "daily", readings)
+    df = _mean_values(monkeypatch, "daily", readings)
     assert df.is_empty()
     (warning,) = _told("other-window-left-out")
     assert "on 2 dates that are not in the answer (SN18700 2)" in warning["message"]
@@ -2376,36 +1834,6 @@ def test_metno_frost_a_parameter_that_was_not_asked_for_is_not_told(monkeypatch:
     assert _told("other-window-left-out") == []
 
 
-def test_metno_frost_a_date_is_counted_once_however_many_series_answer_it(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Test that the discovery counts a date left out once, though two of its queries both return it (GH-3832).
-
-    SN85380 for 2013 to 2015 was told as 15 dates by the discovery and as the true 9 by the other readers: two queries
-    (the series of a station differ in their validity) answer the same rows, and the dates are joined, not summed.
-    """
-    answer = _offset_answer(
-        "sum(precipitation_amount P1D)",
-        [("2020-01-01T00:00:00.000Z", "PT18H", 5.0), ("2020-01-02T00:00:00.000Z", "PT18H", 7.0)],
-    )
-    available = {
-        "data": [
-            {
-                "validFrom": f"2020-01-01T{hour}:00:00Z",
-                "timeOffset": "PT18H",
-                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0&timeoffsets=PT18H",
-            }
-            for hour in ("00", "06")
-        ]
-    }
-    observations = _answered_by("discovery", answer, available)
-    values, seen = _values(monkeypatch, observations, [("daily", "data", "precipitation_amount")], start=START, end=END)
-    begin_response()
-    assert values.all().df.is_empty()
-    # two queries, as the series differ in their validity
-    assert sum("timeseriesids=" in url for url in seen) == 2
-    (warning,) = _told("other-window-left-out")
-    assert "on 2 dates that are not in the answer (SN18700 2)" in warning["message"]
-
-
 # --- the -1 of the daily precipitation sum, and the one station that writes it for a day nobody read (GH-3820) -------
 
 DAILY_SUM = "sum(precipitation_amount P1D)"
@@ -2414,15 +1842,13 @@ WEEKLY_READER = "SN81930"
 
 
 def _minus_one_days(
-    monkeypatch: pytest.MonkeyPatch, path: str, station: str, element: str, stamps: list[str], offset: str = "PT6H"
+    monkeypatch: pytest.MonkeyPatch, station: str, element: str, stamps: list[str], offset: str = "PT6H"
 ) -> pl.DataFrame:
-    """Give what a reader of `path` returns for `station` if Frost answers -1 on the first date and 1.3 on the next."""
+    """Give what a read returns for `station` if Frost answers -1 on the first date and 1.3 on the next."""
     readings = [(stamps[0], offset, -1.0), (stamps[1], offset, 1.3)]
     resolution = "monthly" if element.endswith("P1M)") else "daily"
-    observations = _answered_by(path, _offset_answer(element, readings), _available_offsets(offset))
+    observations = _answered_by(_offset_answer(element, readings))
     requested = [(resolution, "data", "precipitation_amount")]
-    if path == "single":
-        requested.append((resolution, "data", "temperature_air_mean_2m"))
     values, _ = _values(
         monkeypatch,
         observations,
@@ -2435,7 +1861,6 @@ def _minus_one_days(
     return values.all().df.filter(pl.col("parameter") == "precipitation_amount").sort("timestamp")
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 @pytest.mark.parametrize(
     ("station", "year", "value"),
     [
@@ -2452,7 +1877,7 @@ def _minus_one_days(
     ],
 )
 def test_metno_frost_daily_minus_one_is_no_precipitation_but_a_weekly_readers_unread_day(
-    monkeypatch: pytest.MonkeyPatch, path: str, station: str, year: int, value: float | None
+    monkeypatch: pytest.MonkeyPatch, station: str, year: int, value: float | None
 ) -> None:
     """Test that the daily `-1` is 0.0 mm with `raw:-1` at every station and year, except SN81930 up to 1993 (GH-3820).
 
@@ -2461,22 +1886,21 @@ def test_metno_frost_daily_minus_one_is_no_precipitation_but_a_weekly_readers_un
     reading (the neighbours are wet on 48.0 % of those days, on 49.2 % of all days): null, with the code kept.
     """
     stamps = [f"{year}-03-01T00:00:00.000Z", f"{year}-03-02T00:00:00.000Z"]
-    df = _minus_one_days(monkeypatch, path, station, DAILY_SUM, stamps)
+    df = _minus_one_days(monkeypatch, station, DAILY_SUM, stamps)
     assert df["value"].to_list() == [value, 1.3]
     # the code is kept for the 0.0 and for the null alike, as the last token
     assert df["quality_flags"].to_list()[0] == "raw:-1"
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 def test_metno_frost_daily_minus_one_of_a_weekly_reader_is_by_the_year_of_the_date_not_of_the_window(
-    monkeypatch: pytest.MonkeyPatch, path: str
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that the last day of 1993 is unread and the first of 1994 is dry, in one window and in another (GH-3820)."""
     stamps = ["1993-12-31T00:00:00.000Z", "1994-01-01T00:00:00.000Z"]
-    df = _minus_one_days(monkeypatch, path, WEEKLY_READER, DAILY_SUM, stamps)
+    df = _minus_one_days(monkeypatch, WEEKLY_READER, DAILY_SUM, stamps)
     assert df["value"].to_list() == [None, 1.3]
     stamps = ["1994-01-01T00:00:00.000Z", "1994-01-02T00:00:00.000Z"]
-    df = _minus_one_days(monkeypatch, path, WEEKLY_READER, DAILY_SUM, stamps)
+    df = _minus_one_days(monkeypatch, WEEKLY_READER, DAILY_SUM, stamps)
     assert df["value"].to_list() == [0.0, 1.3]
 
 
@@ -2489,7 +1913,7 @@ def test_metno_frost_daily_minus_one_of_a_weekly_reader_is_dropped_by_default_an
         ("1993-03-02T00:00:00.000Z", "PT6H", 2.0),
         ("1994-03-01T00:00:00.000Z", "PT6H", -1.0),
     ]
-    observations = _answered_by("batch", _offset_answer(DAILY_SUM, readings), _available_offsets("PT6H"))
+    observations = _answered_by(_offset_answer(DAILY_SUM, readings))
     values, _ = _values(
         monkeypatch,
         observations,
@@ -2576,7 +2000,7 @@ def test_metno_frost_the_zero_of_a_daily_minus_one_is_not_judged_by_the_checks_a
     """
     readings = [(MEAN_STAMPS[0], "PT6H", -1.0), (MEAN_STAMPS[1], "PT6H", 0.0), (MEAN_STAMPS[2], "PT6H", 1.3)]
     for drop_nulls in (True, False):
-        observations = _answered_by("batch", _offset_answer(DAILY_SUM, readings), _available_offsets("PT6H"))
+        observations = _answered_by(_offset_answer(DAILY_SUM, readings))
         values, _ = _values(
             monkeypatch,
             observations,
@@ -2593,9 +2017,8 @@ def test_metno_frost_the_zero_of_a_daily_minus_one_is_not_judged_by_the_checks_a
             assert df["quality_flags"].to_list()[1].startswith("rejected:limits")
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 def test_metno_frost_a_reading_of_a_day_beats_the_minus_one_of_another_stamp_of_the_day(
-    monkeypatch: pytest.MonkeyPatch, path: str
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that a day stamped several times keeps its reading, wherever its `-1` is, and a day of `-1` alone is 0.0.
 
@@ -2614,10 +2037,8 @@ def test_metno_frost_a_reading_of_a_day_beats_the_minus_one_of_another_stamp_of_
         ("2026-11-07T10:00:00.000Z", "PT6H", 0.1),
         ("2026-11-07T12:00:00.000Z", "PT6H", 0.1),
     ]
-    observations = _answered_by(path, _offset_answer(DAILY_SUM, readings), _available_offsets("PT6H"))
+    observations = _answered_by(_offset_answer(DAILY_SUM, readings))
     requested = [("daily", "data", "precipitation_amount")]
-    if path == "single":
-        requested.append(("daily", "data", "temperature_air_mean_2m"))
     values, _ = _values(
         monkeypatch,
         observations,
@@ -2630,50 +2051,6 @@ def test_metno_frost_a_reading_of_a_day_beats_the_minus_one_of_another_stamp_of_
     df = values.all().df.filter(pl.col("parameter") == "precipitation_amount").sort("timestamp")
     assert df["value"].to_list() == [pytest.approx(0.1), 0.0, pytest.approx(0.1)]
     assert df["quality_flags"].to_list() == [None, "raw:-1", None]
-
-
-def test_metno_frost_a_reading_beats_the_minus_one_of_another_series_of_the_discovery(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    """Test that the discovery, which reads each `timeseriesids` apart, leaves out a `-1` for a reading of another.
-
-    The `-1` of series 0 is stamped 00:00 and the 0.1 of series 1 10:00 of the same date (GH-3820).
-    """
-    answers = {
-        "0": _offset_answer(DAILY_SUM, [("2026-11-07T00:00:00.000Z", "PT6H", -1.0)]),
-        "1": _offset_answer(DAILY_SUM, [("2026-11-07T10:00:00.000Z", "PT6H", 0.1)]),
-    }
-    available = {
-        "data": [
-            {
-                "validFrom": "2026-11-01T00:00:00Z",
-                "timeOffset": "PT6H",
-                "uri": f"https://frost.met.no/observations/v0.jsonld?sources=SN644700:0&timeseriesids={ts}",
-            }
-            for ts in answers
-        ]
-    }
-
-    def observations(url: str) -> File:
-        if "availableTimeSeries" in url:
-            return _ok(url, available)
-        if "timeseriesids=" in url:
-            return _ok(url, answers[url.split("timeseriesids=")[1].split("&", maxsplit=1)[0]])
-        return _failed(url, 404)
-
-    values, seen = _values(
-        monkeypatch,
-        observations,
-        [("daily", "data", "precipitation_amount")],
-        start=dt.datetime(2026, 11, 7, tzinfo=dt.UTC),
-        end=dt.datetime(2026, 11, 7, tzinfo=dt.UTC),
-        options={"drop_nulls": False},
-        station="SN644700",
-    )
-    df = values.all().df
-    assert sum("timeseriesids=" in url for url in seen) == 2
-    assert df["value"].to_list() == [pytest.approx(0.1)]
-    assert df["quality_flags"].to_list() == [None]
 
 
 def test_metno_frost_a_reading_beats_a_minus_one_of_the_daily_sum_alone() -> None:

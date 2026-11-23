@@ -78,15 +78,11 @@ def _refused(url: str, status: int = 429) -> File:
     [(412, True), (404, True), (429, False), (500, False)],
     ids=["412 is no data", "404 is no data", "429 refused", "500 failed"],
 )
-def test_frost_values_say_nothing_of_a_discovery_that_failed(
+def test_frost_values_say_nothing_of_a_request_that_failed(
     monkeypatch: pytest.MonkeyPatch, status: int, *, told: bool
 ) -> None:
-    """Frost answers 412 or 404 for the available time series when there are none; anything else is let go."""
-
-    def observations(url: str) -> File:
-        return _frost_answer(url, status) if "availableTimeSeries" in url else _frost_answer(url, 404)
-
-    values, _seen = _frost_values(monkeypatch, observations)
+    """Frost answers 412 or 404 for a window with no data (GH-4321); anything else is let go."""
+    values, _seen = _frost_values(monkeypatch, lambda url: _frost_answer(url, status))
     begin_response()
     assert values.all().df.is_empty()
     assert [warning["stations"] for warning in _told()] == ([["SN18700"]] if told else [])
@@ -278,78 +274,27 @@ def test_fmi_values_say_nothing_of_an_exception_report(
 # the sites that a provider gives up on a file at, one test each: a note removed must fail one of them
 
 
-def _frost_kind(url: str) -> str:
-    """Tell which of the requests of Frost's values a URL is: the batch, one parameter, the listing, a series."""
-    if "availableTimeSeries" in url:
-        return "available"
-    if "timeseriesids=" in url:
-        return "series"
-    return "batch" if "," in url.split("elements=")[1].split("&", maxsplit=1)[0] else "single"
-
-
 def _empty_body(url: str) -> File:
     return File(url=url, content=BytesIO(b""), status=200)
 
 
-_FROST_ANSWERS = {
-    "batch empty": {"batch": _empty_body},
-    "single empty": {"single": _empty_body},
-    "available empty": {"available": _empty_body},
-    "series empty": {"series": _empty_body},
-    "batch failed": {"batch": lambda url: _frost_answer(url, 500)},
-    "single failed": {"single": lambda url: _frost_answer(url, 500)},
-    "series failed": {"series": lambda url: _frost_answer(url, 500)},
-}
-
-
-def _frost_listing(url: str) -> File:
-    from tests.provider.metno.frost.test_values_failures import AVAILABLE  # noqa: PLC0415
-    from tests.provider.metno.frost.test_values_failures import _ok as frost_ok  # noqa: PLC0415
-
-    return frost_ok(url, AVAILABLE)
-
-
-@pytest.mark.parametrize("case", _FROST_ANSWERS)
-def test_frost_values_say_nothing_of_a_body_that_is_empty(monkeypatch: pytest.MonkeyPatch, case: str) -> None:
-    """A 200 with no body, and a series the listing just named that is not there, are files let go."""
-    answers = {
-        "batch": lambda url: _frost_answer(url, 404),
-        "single": lambda url: _frost_answer(url, 404),
-        "available": _frost_listing,
-        "series": lambda url: _frost_answer(url, 404),
-        **_FROST_ANSWERS[case],
-    }
-
-    values, _seen = _frost_values(monkeypatch, lambda url: answers[_frost_kind(url)](url))
+@pytest.mark.parametrize(
+    ("answer", "reason"),
+    [
+        pytest.param(_empty_body, "an error page or an empty body came in its place", id="empty"),
+        pytest.param(lambda url: _frost_answer(url, 500), "the download failed", id="failed"),
+    ],
+)
+def test_frost_values_say_nothing_of_a_body_that_is_empty(
+    monkeypatch: pytest.MonkeyPatch, answer: Callable[[str], File], reason: str
+) -> None:
+    """A 200 with no body, and a download that failed, are files let go."""
+    values, _seen = _frost_values(monkeypatch, answer)
     begin_response()
     assert values.all().df.is_empty()
     assert _told() == []
     (skipped,) = [w for w in recorded_warnings() if w["code"] == "file-skipped"]
-    # an empty 200 is an error page or an empty body, a failed series a failed download
-    reason = "an error page or an empty body came in its place" if "empty" in case else "the download failed"
     assert f": {reason}." in skipped["message"]
-
-
-@pytest.mark.parametrize("status", [404, 412])
-def test_frost_values_tell_of_a_series_that_frost_answers_has_no_data(
-    monkeypatch: pytest.MonkeyPatch, status: int
-) -> None:
-    """Frost's 404 and 412 are its answer for none, and are told.
-
-    The 404 is "No data was found for the query parameters" (a listed series may have a gap in the window), the 412 "No
-    available time series for the query parameters" (Frost's swagger of `/observations/v0`).
-    """
-
-    def observations(url: str) -> File:
-        kind = _frost_kind(url)
-        if kind == "available":
-            return _frost_listing(url)
-        return _frost_answer(url, status if kind == "series" else 404)
-
-    values, _seen = _frost_values(monkeypatch, observations)
-    begin_response()
-    assert values.all().df.is_empty()
-    assert len(_told()) == 1
 
 
 # AEMET: the link of the data that an envelope of 200 named is not there
