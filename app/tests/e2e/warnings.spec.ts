@@ -326,13 +326,19 @@ test.describe('the banner of the forecast', () => {
     expect(quiet.banner.height).toBeLessThan(64)
   })
 
-  test('says plainly that no warnings source covers a forecast point outside Germany', async ({ page, baseURL }) => {
+  test('has no banner for a forecast point outside Germany, and one line in the credits that says the warnings are Germany\'s (GH-4328)', async ({ page, baseURL }) => {
     const { asked } = await open(page, baseURL!, '/meteogram?station=01001')
-    await expect(page.getByTestId('warnings-banner-summary')).toHaveText('DWD\'s warnings cover Germany only. No warnings source covers this place.')
+    await expect(page.getByTestId('meteogram-warnings-note')).toHaveText('Weather warnings: Germany only, from DWD')
+    await expect(page.getByTestId('warnings-banner')).toHaveCount(0)
     await expect(page.getByTestId('warning-entry')).toHaveCount(0)
-    // one line, and nothing was asked for
-    expect((await page.getByTestId('warnings-banner').boundingBox())!.height).toBeLessThan(64)
+    // nothing was asked for
     expect(asked).toEqual([])
+  })
+
+  test('has the line in the credits for a German forecast point too', async ({ page, baseURL }) => {
+    await open(page, baseURL!, '/meteogram?station=10384')
+    await expect(page.getByTestId('warnings-banner')).toBeVisible()
+    await expect(page.getByTestId('meteogram-warnings-note')).toHaveText('Weather warnings: Germany only, from DWD')
   })
 })
 

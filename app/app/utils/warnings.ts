@@ -39,7 +39,7 @@ export const WARNINGS_STALE_AFTER_MS = 3 * WARNINGS_REFRESH_MS
 
 /**
  * Where DWD warns: the box of the network's `extent` in the backend (`dwd/alerts/api.py`: Germany and the sea round its
- * coast), as `[west, south, east, north]`. A position outside it has no warnings source, which the app says plainly;
+ * coast), as `[west, south, east, north]`. A position outside it has no warnings source: the banners are not shown there (GH-4328) and Ask the weather says it plainly;
  * inside it, a position may still be in a neighbouring country, which a box cannot tell, so what is said there is
  * that no warning of DWD has an area that contains it.
  */
