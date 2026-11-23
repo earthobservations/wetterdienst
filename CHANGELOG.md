@@ -22,6 +22,27 @@ Types of changes:
   one each time, for the clients that expect one. The endpoint stays stateless (GH-3088): the id is
   neither stored nor checked, and a request is served alike with it, another or none (GH-4341)
 
+### Changed
+
+- FastAPI 0.165 and Starlette 1.10 are the tested versions of the `restapi` and `mcp` extras. A
+  tool call over `/mcp` no longer records fastapi's `fastapi.dependencies`, `fastapi.endpoint` and
+  `fastapi.serialization` spans of the tool's own REST request in an OpenTelemetry trace; the tool
+  call's span stays (GH-4351)
+- A 422 for a missing parameter has the `input` of its `errors` entry hold only what the request
+  gave; it no longer carries the defaults the server filled in, as it did before FastAPI 0.148
+  (GH-4351)
+
+### Security
+
+- The floors of the `restapi` and `mcp` extras are FastAPI 0.163.2 (was 0.142) and Starlette 1.3.1
+  (was 1.3), for GHSA-f56c-v883-vx8r (high): before 0.163.2, FastAPI did excessive CPU work, with
+  work growing quadratically, when it extracted the parameters of a request with many query
+  parameters, headers or form fields, which could block a worker's event loop and delay its other
+  requests, a denial of service. Starlette 1.3.1 fixes GHSA-82w8-qh3p-5jfq (form field limits
+  ignored; no route reads a form). An existing installation must upgrade FastAPI itself
+  (`pip install -U "fastapi>=0.163.2"`); a reverse proxy's request limits reduce the impact
+  (GH-4351)
+
 ## [0.196.0] - 2026-11-23
 
 ### Changed
