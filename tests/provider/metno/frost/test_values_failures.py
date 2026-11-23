@@ -286,10 +286,10 @@ def test_metno_frost_values_failure_is_warned_about(
 
 @pytest.mark.parametrize("status", [404, 412])
 @pytest.mark.parametrize(
-    "requested",
+    ("requested", "many"),
     [
-        pytest.param([("hourly", "data", "temperature_air_2m")], id="one-of-many-parameters"),
-        pytest.param([("6_hours", "data", "precipitation_amount")], id="dataset-of-one-parameter"),
+        pytest.param([("hourly", "data", "temperature_air_2m")], True, id="one-of-many-parameters"),
+        pytest.param([("6_hours", "data", "precipitation_amount")], False, id="dataset-of-one-parameter"),
     ],
 )
 def test_metno_frost_values_404_and_412_are_no_data_and_asked_nothing_more(
@@ -297,13 +297,19 @@ def test_metno_frost_values_404_and_412_are_no_data_and_asked_nothing_more(
     caplog: pytest.LogCaptureFixture,
     status: int,
     requested: list[tuple[str, str, str]],
+    *,
+    many: bool,
 ) -> None:
     """Test that a 404 and a 412, Frost's answers for no data in the window, are empty, unwarned, asked once (GH-4321).
 
-    A 404 was once followed by one request for each parameter and by the listing of the time series, which found
-    data in none of the 12 such series of a sample of 208 (GH-3137): the answer is no data, and it is not asked again.
+    A 404 was once followed by one request for each parameter and by the listing of the time series. The request asks
+    every element, so a 404 means that none has data; asking an element alone found a 404 in 12 of 208 pairs and the
+    time-series form found data in none of those 12 (GH-3137): the answer is no data, and it is not asked again.
     """
     values, seen = _values(monkeypatch, lambda url: _failed(url, status), requested)
+    # the ids hold what they say: the dataset has several parameters, or one
+    n_parameters = len(values.sr.parameters[0].dataset.parameters)
+    assert n_parameters > 1 if many else n_parameters == 1
     with caplog.at_level("WARNING", logger=LOGGER):
         df = values.all().df
     assert df.is_empty()

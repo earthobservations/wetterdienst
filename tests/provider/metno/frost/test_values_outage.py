@@ -57,7 +57,7 @@ def test_metno_frost_values_raise_a_download_error_for_a_request_that_did_not_an
 
 
 def test_metno_frost_values_raise_no_internet_error_as_it_is(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A connection that could not be made is the `NoInternetError` it was (GH-2640), ."""
+    """A connection that could not be made is the `NoInternetError` it was (GH-2640)."""
     offline = NoInternetError("no route to host")
     values, _seen = _values(monkeypatch, _outage(offline, 503))
     with pytest.raises(NoInternetError) as raised:

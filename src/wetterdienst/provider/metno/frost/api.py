@@ -1308,8 +1308,9 @@ class MetnoFrostValues(TimeseriesValues):
         # the status is read before the generic failure warning below: a 404 or 412 says there is nothing, not that
         # the request failed
         # 412: no data for this station/elements/period combination
-        # 404: Frost's "No data found" for a window without data. It is no data: asking the elements one by one and
-        # through the time series found data in none of the 12 such series of a sample of 208 (GH-3137, GH-4321)
+        # 404: Frost's "No data found" for a window without data. The request asks every element of the dataset, so a
+        # 404 means that none has data. Asking an element alone found data in 196 of 208 (station, element,
+        # resolution) pairs and a 404 in 12, and the time-series form found none for those 12 (GH-3137, GH-4321)
         _raise_if_unanswered(file)
         if file.status in (404, 412):
             return pl.DataFrame()

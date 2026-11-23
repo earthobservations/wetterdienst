@@ -4308,8 +4308,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "height) is a calm and is returned as null; a 0 beside a speed above 0 stays. At a station with several "
             "heights the speed and the direction are of one height: 10 m if it has both, else the nearest height that "
             "has both; a calm or a -3 there is the answer for the hour: no other height fills it. Where no height has "
-            "both, each is the 10 m one "
-            "first, else the nearest."
+            "both, each is the 10 m one first, else the nearest."
         ),
         ("hourly", "data", "wind_speed"): (
             "Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the "

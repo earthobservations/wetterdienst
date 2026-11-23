@@ -217,6 +217,37 @@ def test_metno_frost_the_speed_and_the_bearing_are_a_pair_of_one_height(monkeypa
     assert direction["quality_flags"].to_list() == ["0", "2", "2", "2", "2"]
 
 
+def test_metno_frost_a_bearing_asked_for_alone_is_chosen_through_the_speed_of_its_pair(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test that the direction asked for alone is the bearing of the pair, though only the direction is returned.
+
+    The request is for the whole dataset whatever parameters were asked for, so the speed is read and the pair of one
+    height is chosen (GH-3844, GH-4321: no parameter is read by itself any more). At SN44300 the hours of `WIND_PAIRS`
+    give 119 (the 10 m pair) and 346 (the 2 m pair, where 10 m has no bearing). One more hour has a bearing at both
+    heights and a speed at 2 m only: the pair is the 2 m one, so its bearing (200) is served, not the 10 m one (45) that
+    a bearing read alone would take as the standard height.
+    """
+    hours = [
+        *WIND_PAIRS,
+        (
+            "2026-06-04T10:00",
+            [(DIRECTION, 10, 45, 0, "PT0H"), (DIRECTION, 2, 200, 2, "PT0H"), (SPEED, 2, 5.7, 2, "PT0H")],
+        ),
+    ]
+    df = _read(
+        monkeypatch,
+        _answer(hours),
+        [WIND[1]],
+        "2025-11-01T00:00",
+        "2026-06-05T00:00",
+        station="SN44300",
+    )
+    assert df["parameter"].unique().to_list() == ["wind_direction_mean_last_10min"]
+    assert df["value"].to_list() == [119.0, 346.0, 346.0, 346.0, 346.0, 200.0]
+    assert df["quality_flags"].to_list() == ["0", "2", "2", "2", "2", "2"]
+
+
 def test_metno_frost_a_time_with_no_whole_pair_has_each_standard_first(monkeypatch: pytest.MonkeyPatch) -> None:
     """Test the last step of the rule: no height has both, so the speed and the bearing are each chosen apart.
 
