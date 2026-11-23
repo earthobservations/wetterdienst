@@ -94,6 +94,7 @@ class NginxLike:
 
 def _header_text(text: str) -> str:
     """Refuse a header name or value that holds a CR or LF: it would write a header line of its own (GH-4340)."""
+    # strip, then compare: this is the shape CodeQL recognises as a sanitizer, so do not simplify it
     clean = text.replace("\r", "").replace("\n", "")
     if clean != text:
         msg = f"header text must not hold CR or LF: {text!r}"

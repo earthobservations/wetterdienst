@@ -38,11 +38,10 @@ Types of changes:
 ### Security
 
 - `[Dependencies]` Nuxt is 4.6.4, with `@nuxt/nitro-server`, `@nuxt/vite-server`,
-  `@nuxt/vite-builder` and `@nuxt/schema`, which fixes the open Nuxt advisories (with `@nuxt/cli`
-  4.0.3, since 4.0.1 fails to restart the dev server on Nuxt 4.6.4), and the lock file floors
-  `node-forge` at 1.4.3, `minimatch` at 11.0.1 and `glob` at 14.0.2 (build and lint tooling only,
-  no copy ships in the app). The search index is written from its data with escaped JSON
-  instead of text built by hand, so no text of a catalog can end the module early. The app looks
+  `@nuxt/vite-builder` and `@nuxt/schema`, which fixes the open Nuxt advisories. Overrides in
+  `pnpm-workspace.yaml` floor `node-forge` at 1.4.3, `minimatch` at 11.0.1 and `glob` at 14.0.2
+  (build and lint tooling only, no copy ships in the app). The search index is written as JSON
+  with `<`, `>`, `&`, `/`, U+2028 and U+2029 escaped instead of text built by hand. The app looks
   and works the same (GH-4340).
 
 ### Fixed
