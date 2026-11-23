@@ -1,4 +1,0 @@
-{
-  "extends": "../.nuxt/tsconfig.app.json",
-  "files": ["./vue-shim.d.ts"]
-}

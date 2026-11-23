@@ -14,7 +14,7 @@
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare && pnpm gen:api-types",
     "gen:api-types": "node scripts/gen-api-types.mjs",
-    "typecheck": "pnpm gen:api-types && node scripts/typecheck.mjs",
+    "typecheck": "pnpm gen:api-types && nuxt typecheck --checker golar",
     "lint": "oxlint && eslint .",
     "lint:fix": "oxlint --fix && eslint . --fix",
     "test": "vitest",
@@ -57,6 +57,7 @@
   "devDependencies": {
     "@antfu/eslint-config": "^9.5.1",
     "@axe-core/playwright": "^4.13.0",
+    "@golar/vue": "^0.1.11",
     "@iconify-json/ph": "^1.2.2",
     "@iconify-json/simple-icons": "^1.2.100",
     "@intlify/eslint-plugin-vue-i18n": "^4.5.1",
@@ -70,11 +71,11 @@
     "@vue/test-utils": "^2.5.1",
     "eslint": "^10.11.0",
     "eslint-plugin-oxlint": "^1.86.0",
+    "golar": "^0.1.11",
     "happy-dom": "^21.0.4",
     "openapi-typescript": "^7.13.0",
     "oxlint": "^1.86.0",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.12",
-    "vue-tsc": "^3.3.12"
+    "vitest": "^4.1.12"
   }
 }

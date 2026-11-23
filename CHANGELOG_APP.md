@@ -20,6 +20,10 @@ Types of changes:
 
 - `[Build]` The app needs Node 26 (`engines.node` is now `>=26.13.1`; the image and the CI run on
   it) instead of Node 24. Run it from source with Node 26 (GH-4342).
+- `[Build]` `pnpm typecheck` checks the `.vue` files and the `.ts` code in one run with Golar
+  (`nuxt typecheck --checker golar`) instead of vue-tsc plus `tsc`, about four times faster; it is
+  the stricter on `v-model`, so a `UInput` of the Stripes page that holds a year as `number | null`
+  now takes `.nullable` (an emptied field is `null`, as the page's own checks assume) (GH-4353).
 
 ## [0.59.0] - 2026-11-23
 

@@ -9,8 +9,6 @@
 // dependency, which pnpm resolves to the app's TypeScript 7 and which neither `overrides` nor
 // `packageExtensions` can redirect, so the peer is replaced by a dependency on 6.0.3 (only for a package
 // that declares one). Drop each entry once the tool supports TypeScript 7 (#4343):
-//   vue-tsc             type-checks the `.vue` files and loads `typescript/lib/tsc`; with TypeScript 7
-//                       it fails at start with ERR_PACKAGE_PATH_NOT_EXPORTED: './lib/tsc'
 //   openapi-typescript  (`pnpm gen:api-types`) builds the types with `ts.factory`, which TypeScript 7
 //                       does not export: "Cannot read properties of undefined (reading
 //                       'createKeywordTypeNode')"
@@ -19,7 +17,6 @@
 //                       that read types; typescript-eslint refuses TypeScript 7.0 at load ("does not
 //                       support TS 7.0") and supports it from 7.1 (typescript-eslint#10940)
 const NEEDS_TYPESCRIPT_6 = new Set([
-  'vue-tsc',
   'openapi-typescript',
   'typescript-eslint',
   'ts-api-utils',
