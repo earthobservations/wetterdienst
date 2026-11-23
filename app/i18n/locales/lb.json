@@ -749,7 +749,9 @@
     "openExplorer": "Am Explorer opmaachen"
   },
   "credit": {
-    "licence": "Lizenz: {name} ({url})"
+    "licence": "Lizenz: {name} ({url})",
+    "source": "Quell",
+    "dataSource": "Datequell"
   },
   "processingNote": {
     "base": "Veraarbecht vu wetterdienst: D'Daten vum Ubidder goufen an eng eenheetlech Tabell gesat an d'Eenheeten, wou se ofwäichen, ëmgerechent.",

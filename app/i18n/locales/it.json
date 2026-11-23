@@ -749,7 +749,9 @@
     "openExplorer": "Apri nell'esploratore"
   },
   "credit": {
-    "licence": "Licenza: {name} ({url})"
+    "licence": "Licenza: {name} ({url})",
+    "source": "Fonte",
+    "dataSource": "Fonte dei dati"
   },
   "processingNote": {
     "base": "Elaborato da wetterdienst: i dati del fornitore sono stati riorganizzati in una tabella uniforme e le loro unità convertite dove differiscono.",

@@ -59,7 +59,8 @@ const checked = computed(() => {
   return at ? formatFrameTime(at.getTime(), formatLanguage.value, data.now.value) : ''
 })
 /** DWD's credit line, from the answer's own terms, else from the list of providers */
-const attribution = computed(() => data.snapshot.value?.credit?.attribution ?? termsOfProvider(providerList.value?.providers, 'dwd')?.attribution ?? 'Deutscher Wetterdienst')
+const creditLine = useCreditLine()
+const attribution = computed(() => creditLine(data.snapshot.value?.credit?.attribution ?? termsOfProvider(providerList.value?.providers, 'dwd')?.attribution ?? 'Deutscher Wetterdienst'))
 const titleId = computed(() => `${props.idPrefix}-title`)
 const detailsId = computed(() => `${props.idPrefix}-details`)
 const detailsOpen = ref(false)

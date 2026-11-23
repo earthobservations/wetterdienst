@@ -411,6 +411,7 @@ const UI_SAME: Record<string, Same> = {
   'glossary.parametersTitle': { en: ['nl'], why: COGNATE },
   'providers.licence': { en: ['cs', 'fr'], why: COGNATE },
   'providers.parametersCount': { en: ['nl'], why: COGNATE },
+  'credit.source': { en: ['fr'], why: COGNATE },
   'providers.source': { en: ['fr'], why: COGNATE },
   'meteogram.chart.panelTemperature': { de: ['da'], why: COGNATE },
   'meteogram.chart.panelWind': { en: ['de-hh', 'de', 'nl'], why: COGNATE },
