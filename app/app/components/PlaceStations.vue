@@ -37,6 +37,10 @@ const summary = computed(() => {
     return t('place.looking', { place: props.place.name })
   if (props.state === 'failed')
     return t('place.failed')
+  // the reader opened the nearest station anyway: its forecast is shown, called the station's and not the place's
+  const opened = props.near.find(entry => entry.station.station_id === props.selectedId)
+  if (!closest.value && opened)
+    return t('place.shownAnyway', { station: stationShortLabel(opened.station), place: props.place.name, distance: distance(opened.distanceKm) })
   if (closest.value)
     return t('place.closest', { station: stationShortLabel(closest.value.station), place: props.place.name, distance: distance(closest.value.distanceKm) })
   return nearest.value
@@ -81,7 +85,7 @@ const summary = computed(() => {
             variant="outline"
             class="ms-auto"
             :label="closest ? t('place.show') : t('place.showAnyway')"
-            :aria-label="closest ? t('place.showStation', { station: stationShortLabel(entry.station) }) : t('place.showAnywayStation', { station: stationShortLabel(entry.station), place: place.name })"
+            :aria-label="closest ? t('place.showStation', { station: stationShortLabel(entry.station) }) : t('place.showAnywayStation', { station: stationShortLabel(entry.station), place: place.name, distance: distance(entry.distanceKm) })"
             @click="$emit('pick', entry.station)"
           />
         </span>

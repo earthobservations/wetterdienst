@@ -24,8 +24,13 @@ export function rankedStations(handlers: Handlers = defaultHandlers(), asked: Ar
   return {
     ...handlers,
     stations: async (url, route) => {
-      if (!url.searchParams.has('latitude'))
-        return list(url, route)
+      if (!url.searchParams.has('latitude')) {
+        // a link's station by its id: the points round Bad Tölz are stations of the forecast as well
+        const wanted = url.searchParams.getAll('stations').flatMap(ids => ids.split(','))
+        const own = wanted.length && url.searchParams.get('network') === 'mosmix' ? MOSMIX_BAD_TOELZ.filter(station => wanted.includes(station.station_id)) : []
+        const answer = await list(url, route) as { stations: Station[] }
+        return own.length ? { stations: [...answer.stations, ...own] } : answer
+      }
       asked.push(Object.fromEntries(url.searchParams))
       // the list the position ranks: the request without it
       const whole = new URL(url)

@@ -263,7 +263,8 @@
       "answer": "Weerdiensten die de luchttemperatuur per uur publiceren: {count}.",
       "detail": "Elk opent in de Verkenner, klaar om te downloaden als CSV, JSON of GeoJSON.",
       "none": "Op dit moment publiceert geen weerdienst de luchttemperatuur per uur.",
-      "api": "Of gebruik de REST-API"
+      "api": "Of gebruik de REST-API",
+      "station": "{station}, {distance} km van {place}"
     },
     "quotesLabel": "Aangehaalde teksten",
     "warnings": {
@@ -278,7 +279,7 @@
     },
     "far": "Er is geen weerstation binnen {reach} km van {place}. Het dichtstbijzijnde, {station}, ligt op {distance} en wat het meet is niet het weer van {place}, dus er wordt geen antwoord gegeven.",
     "stationUsed": "Afgelezen bij {station}, het weerstation dat het dichtst bij {place} ligt, op {distance}.",
-    "townNoStation": "Voor deze plaats is geen weerstation gevonden."
+    "townNoStation": "Voor {place} is geen weerstation gevonden. Er wordt geen antwoord gegeven tot je een plaats kiest."
   },
   "seo": {
     "title": "Wetterdienst – open weer- en klimaatdata van nationale weerdiensten",
@@ -1178,7 +1179,9 @@
     "show": "Tonen",
     "showStation": "De voorspelling van {station} tonen",
     "showAnyway": "Toch tonen",
-    "showAnywayStation": "De voorspelling van {station} toch tonen: het is niet de voorspelling voor {place}"
+    "showAnywayStation": "Toch tonen: de voorspelling van {station}, op {distance}, is niet de voorspelling voor {place}",
+    "shownAnyway": "Getoond wordt de voorspelling van {station}, op {distance} van {place}. Het is niet de voorspelling voor {place}.",
+    "chosen": "Plaats gekozen: {place}. De coördinaten zijn ingevuld."
   },
   "interpolation": {
     "source": "Bron",

@@ -1053,6 +1053,10 @@ describe('the command palette finding places by name', () => {
       await vi.waitFor(() => expect(placeQueries).toHaveLength(1))
       await new Promise(resolve => setTimeout(resolve, 100))
       expect(wrapper.find('[data-testid="places-credit"]').exists()).toBe(false)
+      // a second text asks nobody: the server has said so once
+      await wrapper.find('input[role="combobox"]').setValue('bad tölz')
+      await new Promise(resolve => setTimeout(resolve, 700))
+      expect(placeQueries).toHaveLength(1)
     })
   })
 })

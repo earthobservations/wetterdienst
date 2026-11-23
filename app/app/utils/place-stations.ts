@@ -26,6 +26,19 @@ export interface PositionedStation {
   latitude?: number | null
   longitude?: number | null
   elevation?: number | null
+  /** The day of its last value, or null where it still reports (or the list says nothing of it) */
+  end_timestamp?: string | null
+}
+
+/** How long ago the last value of a station may be for it to still report: two years, as the search of places for the home page's question holds it */
+export const REPORTING_WITHIN_MS = 2 * 365 * 86_400_000
+
+/** Whether a station still reports: it has no end, or its last value is not older than two years */
+export function isReporting(station: Pick<PositionedStation, 'end_timestamp'>, now = Date.now()): boolean {
+  if (!station.end_timestamp)
+    return true
+  const end = Date.parse(station.end_timestamp)
+  return Number.isNaN(end) || end > now - REPORTING_WITHIN_MS
 }
 
 /** A station near a place: how far it is, and how much higher or lower it stands than the closest one (a place has no height of its own to compare with) */
@@ -48,6 +61,14 @@ export function stationsNear<S extends PositionedStation>(place: Point, stations
     ...near,
     heightDifference: index === 0 || closest == null || near.station.elevation == null ? null : Math.round(near.station.elevation - closest),
   }))
+}
+
+/**
+ * The closest station that still reports: a closed station has no weather now, and a town with a closed one nearest is better served by a farther one that reports.
+ * Null where none of the stations reports. Its distance may be beyond the reach: that is for the caller to say.
+ */
+export function nearestReporting<S extends PositionedStation>(place: Point, stations: readonly S[], now = Date.now()): NearStation<S> | null {
+  return stationsNear(place, stations.filter(station => isReporting(station, now)), 1)[0] ?? null
 }
 
 /** Whether a station that far is the place's: within `PLACE_REACH_KM` */

@@ -263,7 +263,8 @@
       "answer": "Służby meteorologiczne publikujące godzinową temperaturę powietrza: {count}.",
       "detail": "Każda otwiera się w Eksploratorze, gotowa do pobrania jako CSV, JSON lub GeoJSON.",
       "none": "Obecnie żadna służba meteorologiczna nie publikuje godzinowej temperatury powietrza.",
-      "api": "Albo użyj REST API"
+      "api": "Albo użyj REST API",
+      "station": "{station}, {distance} km od miejsca {place}"
     },
     "quotesLabel": "Cytowane teksty",
     "warnings": {
@@ -278,7 +279,7 @@
     },
     "far": "W promieniu {reach} km od miejsca {place} nie ma żadnej stacji pogodowej. Najbliższa, {station}, jest oddalona o {distance}, a to, co mierzy, nie jest pogodą w miejscu {place}, dlatego nie ma odpowiedzi.",
     "stationUsed": "Odczytano ze stacji {station}, najbliższej stacji pogodowej od miejsca {place}, w odległości {distance}.",
-    "townNoStation": "Dla tego miejsca nie znaleziono żadnej stacji pogodowej."
+    "townNoStation": "Dla miejsca {place} nie znaleziono żadnej stacji pogodowej. Odpowiedź pojawi się dopiero po wybraniu miejsca."
   },
   "seo": {
     "title": "Wetterdienst – otwarte dane pogodowe i klimatyczne krajowych służb meteorologicznych",
@@ -1178,7 +1179,9 @@
     "show": "Pokaż",
     "showStation": "Pokaż prognozę dla stacji {station}",
     "showAnyway": "Pokaż mimo to",
-    "showAnywayStation": "Pokaż mimo to prognozę dla stacji {station}: to nie jest prognoza dla miejsca {place}"
+    "showAnywayStation": "Pokaż mimo to: prognoza dla stacji {station}, w odległości {distance}, nie jest prognozą dla miejsca {place}",
+    "shownAnyway": "Pokazana jest prognoza dla stacji {station}, w odległości {distance} od miejsca {place}. To nie jest prognoza dla miejsca {place}.",
+    "chosen": "Wybrano miejsce: {place}. Współrzędne zostały wypełnione."
   },
   "interpolation": {
     "source": "Źródło",

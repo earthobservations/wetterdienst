@@ -129,8 +129,21 @@ describe('the stations near a place that was chosen', () => {
     expect(rows[0]!.text()).not.toContain('closest')
     const button = rows[0]!.find('button')
     expect(button.text()).toBe('Show anyway')
-    expect(button.attributes('aria-label')).toMatch(/^Show the forecast of [A-Z -]+ \([A-Z0-9]+\) anyway: it is not the forecast of Paris$/)
+    // the visible label is in the accessible name (WCAG 2.5.3), with the station and how far it is
+    expect(button.attributes('aria-label')).toMatch(/^Show anyway: the forecast of [A-Z -]+ \([A-Z0-9]+\), \d+ km away, is not the forecast of Paris$/)
+    expect(button.attributes('aria-label')).toContain(button.text())
     expect(wrapper.text()).not.toContain('A place has no height')
+  })
+
+  it('says that the station is shown as the station\'s, and not the place\'s, once the nearest was opened anyway', async () => {
+    const paris = { latitude: 48.8566, longitude: 2.3522 }
+    const near = stationsNear(paris, STATIONS)
+    const wrapper = await mountStations({ place: { name: 'Paris', region: 'Île-de-France, France', ...paris }, near, selectedId: near[0]!.station.station_id })
+    const summary = wrapper.find('[data-testid="place-summary"]').text()
+    expect(summary).toMatch(/^Shown: the forecast of [A-Z -]+ \([A-Z0-9]+\), \d+ km from Paris\. It is not the forecast of Paris\.$/)
+    // not the sentence that says none is shown
+    expect(summary).not.toContain('none is shown')
+    expect(wrapper.find('[data-testid="place-station-list"] li').attributes('aria-current')).toBe('true')
   })
 
   it('says so where there is no station at all, while it looks, and where it could not', async () => {
@@ -283,6 +296,33 @@ describe('the station search that also finds places', () => {
     vm(wrapper).selectedItems = vm(wrapper).items[1]
     expect(wrapper.emitted('update:place')![0]![0]).toMatchObject({ id: 'N240109189', name: 'Bad Tölz', latitude: 47.7614, longitude: 11.5583 })
     expect(wrapper.emitted('update:selected')).toBeUndefined()
+  })
+
+  it('has headings and is not virtualised where the list is short, and has none and stays virtualised where the text still keeps over 300 stations', async () => {
+    const many = Array.from({ length: 400 }, (_, index) => station(`T${index}`, `TOWNSTATION ${index}`, 48, 11, 500))
+    const wrapper = await mountPicker({ stations: many })
+    vm(wrapper).searchTerm = 'town'
+    await vi.waitFor(() => expect(placeQueries).toHaveLength(1))
+    await vi.waitFor(() => expect(vm(wrapper).placeItems.length).toBeGreaterThanOrEqual(0))
+    expect(vm(wrapper).headed).toBe(false)
+    vm(wrapper).searchTerm = 'bad tölz'
+    await vi.waitFor(() => expect(vm(wrapper).placeItems).toHaveLength(2))
+    // "bad tölz" keeps none of the 400: short, so headed
+    expect(vm(wrapper).headed).toBe(true)
+  })
+
+  it('has no place left the moment the text is no name any more (backspaced under three letters, cleared), not a pause later', async () => {
+    const wrapper = await mountPicker()
+    vm(wrapper).searchTerm = 'bad tölz'
+    await vi.waitFor(() => expect(vm(wrapper).placeItems).toHaveLength(2))
+    vm(wrapper).searchTerm = 'ba'
+    await nextTick()
+    expect(vm(wrapper).placeItems).toEqual([])
+    // and none of the headings with them: the list is the stations again
+    expect(vm(wrapper).items.some((item: { type?: string }) => item.type === 'label')).toBe(false)
+    vm(wrapper).searchTerm = ''
+    await nextTick()
+    expect(vm(wrapper).items).toHaveLength(STATIONS.length)
   })
 
   it('still picks a station of the list', async () => {

@@ -263,7 +263,8 @@
       "answer": "Weather services that publish hourly air temperature: {count}.",
       "detail": "Each one opens in the Explorer, ready to download as CSV, JSON or GeoJSON.",
       "none": "No weather service lists hourly air temperature right now.",
-      "api": "Or use the REST API"
+      "api": "Or use the REST API",
+      "station": "{station}, {distance} km from {place}"
     },
     "quotesLabel": "Quoted texts",
     "warnings": {
@@ -278,7 +279,7 @@
     },
     "far": "There is no weather station within {reach} km of {place}. The nearest, {station}, is {distance} away, and what it measures is not the weather of {place}, so no answer is given.",
     "stationUsed": "Read at {station}, the weather station nearest to {place}, {distance} away.",
-    "townNoStation": "No weather station could be found for this place."
+    "townNoStation": "No weather station could be found for {place}. No answer is given until you choose a place."
   },
   "seo": {
     "title": "Wetterdienst – open weather and climate data from national weather services",
@@ -1178,7 +1179,9 @@
     "show": "Show",
     "showStation": "Show the forecast of {station}",
     "showAnyway": "Show anyway",
-    "showAnywayStation": "Show the forecast of {station} anyway: it is not the forecast of {place}"
+    "showAnywayStation": "Show anyway: the forecast of {station}, {distance} away, is not the forecast of {place}",
+    "shownAnyway": "Shown: the forecast of {station}, {distance} from {place}. It is not the forecast of {place}.",
+    "chosen": "Place chosen: {place}. The coordinates are filled in."
   },
   "interpolation": {
     "source": "Source",

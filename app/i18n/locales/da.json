@@ -263,7 +263,8 @@
       "answer": "Vejrtjenester, der udgiver lufttemperatur pr. time: {count}.",
       "detail": "Hver enkelt åbner i Udforskeren, klar til download som CSV, JSON eller GeoJSON.",
       "none": "Ingen vejrtjeneste udgiver lufttemperatur pr. time lige nu.",
-      "api": "Eller brug REST-API'et"
+      "api": "Eller brug REST-API'et",
+      "station": "{station}, {distance} km fra {place}"
     },
     "quotesLabel": "Citerede tekster",
     "warnings": {
@@ -278,7 +279,7 @@
     },
     "far": "Der er ingen vejrstation inden for {reach} km af {place}. Den nærmeste, {station}, er {distance} væk, og det, den måler, er ikke vejret ved {place}, så der gives intet svar.",
     "stationUsed": "Aflæst ved {station}, den vejrstation, der ligger nærmest {place}, {distance} væk.",
-    "townNoStation": "Der blev ikke fundet nogen vejrstation for dette sted."
+    "townNoStation": "Der blev ikke fundet nogen vejrstation for {place}. Der gives intet svar, før du vælger et sted."
   },
   "seo": {
     "title": "Wetterdienst – åbne vejr- og klimadata fra nationale vejrtjenester",
@@ -1178,7 +1179,9 @@
     "show": "Vis",
     "showStation": "Vis prognosen for {station}",
     "showAnyway": "Vis alligevel",
-    "showAnywayStation": "Vis alligevel prognosen for {station}: det er ikke prognosen for {place}"
+    "showAnywayStation": "Vis alligevel: prognosen for {station}, {distance} væk, er ikke prognosen for {place}",
+    "shownAnyway": "Viser prognosen for {station}, {distance} fra {place}. Det er ikke prognosen for {place}.",
+    "chosen": "Sted valgt: {place}. Koordinaterne er udfyldt."
   },
   "interpolation": {
     "source": "Kilde",

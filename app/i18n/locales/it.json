@@ -263,7 +263,8 @@
       "answer": "Servizi meteorologici che pubblicano la temperatura oraria dell'aria: {count}.",
       "detail": "Ognuno si apre nell'Esploratore, pronto da scaricare in CSV, JSON o GeoJSON.",
       "none": "Al momento nessun servizio meteorologico pubblica la temperatura oraria dell'aria.",
-      "api": "Oppure usa l'API REST"
+      "api": "Oppure usa l'API REST",
+      "station": "{station}, a {distance} km da {place}"
     },
     "quotesLabel": "Testi citati",
     "warnings": {
@@ -278,7 +279,7 @@
     },
     "far": "Non c'è nessuna stazione meteorologica entro {reach} km da {place}. La più vicina, {station}, è a {distance} e ciò che misura non è il tempo di {place}, perciò non viene data nessuna risposta.",
     "stationUsed": "Letto a {station}, la stazione meteorologica più vicina a {place}, a {distance}.",
-    "townNoStation": "Non è stata trovata nessuna stazione meteorologica per questo luogo."
+    "townNoStation": "Non è stata trovata nessuna stazione meteorologica per {place}. Non viene data nessuna risposta finché non scegli un luogo."
   },
   "seo": {
     "title": "Wetterdienst – dati meteorologici e climatici aperti dei servizi meteorologici nazionali",
@@ -1178,7 +1179,9 @@
     "show": "Mostra",
     "showStation": "Mostra la previsione di {station}",
     "showAnyway": "Mostra comunque",
-    "showAnywayStation": "Mostra comunque la previsione di {station}: non è la previsione di {place}"
+    "showAnywayStation": "Mostra comunque: la previsione di {station}, a {distance}, non è la previsione di {place}",
+    "shownAnyway": "Mostrata la previsione di {station}, a {distance} da {place}. Non è la previsione di {place}.",
+    "chosen": "Luogo scelto: {place}. Le coordinate sono compilate."
   },
   "interpolation": {
     "source": "Fonte",

@@ -263,7 +263,8 @@
       "answer": "Wedderdeenste mit stünnlike Lufttemperatur: {count}.",
       "detail": "Elkeen geiht in'n Explorer op, klaar to'n Runnerladen as CSV, JSON oder GeoJSON.",
       "none": "Jüst nu nennt keen Wedderdeenst en stünnlike Lufttemperatur.",
-      "api": "Oder de REST-API bruken"
+      "api": "Oder de REST-API bruken",
+      "station": "{station}, {distance} km vun {place}"
     },
     "quotesLabel": "Anföhrte Texte",
     "warnings": {
@@ -278,7 +279,7 @@
     },
     "far": "Binnen {reach} km vun {place} gifft dat keen Weerstation. De neegste, {station}, is {distance} weg, un wat se meet, is nich dat Weer vun {place}; dorüm gifft dat keen Antwoort.",
     "stationUsed": "Aflesen bi {station}, de Weerstation, de {place} an'n neegsten liggt, {distance} weg.",
-    "townNoStation": "För düssen Oort wöör keen Weerstation funnen."
+    "townNoStation": "För {place} wöör keen Weerstation funnen. Een Antwoort gifft dat eerst, wenn du een Oort utsöökst."
   },
   "seo": {
     "title": "Wetterdienst – apen Wedder- un Klimadaten vun nationale Wedderdeenste",
@@ -1178,7 +1179,9 @@
     "show": "Wiesen",
     "showStation": "Utsicht vun {station} wiesen",
     "showAnyway": "Doch wiesen",
-    "showAnywayStation": "Utsicht vun {station} doch wiesen: Dat is nich de Utsicht för {place}"
+    "showAnywayStation": "Doch wiesen: De Utsicht för {station}, {distance} weg, is nich de Utsicht för {place}",
+    "shownAnyway": "Wiest warrt de Utsicht för {station}, {distance} vun {place} weg. Dat is nich de Utsicht för {place}.",
+    "chosen": "Oort utsöcht: {place}. De Koordinaten sünd utfüllt."
   },
   "interpolation": {
     "source": "Quell",

@@ -608,6 +608,21 @@ describe('a place found by its name as the point', () => {
     expect(wrapper.find('[data-testid="interpolation-place"]').exists()).toBe(false)
   })
 
+  it('says in a polite status that the place was chosen and the coordinates filled in, and says nothing once it is gone', async () => {
+    const { wrapper, vm } = await selection('manual')
+    onTestFinished(() => wrapper.unmount())
+    const status = wrapper.find('[data-testid="interpolation-place-status"]')
+    expect(status.attributes('role')).toBe('status')
+    expect(status.attributes('aria-live')).toBe('polite')
+    expect(status.text()).toBe('')
+    vm.onPlace(badToelz)
+    await settle()
+    expect(status.text()).toBe('Place chosen: Bad Tölz, Bayern, Germany. The coordinates are filled in.')
+    await wrapper.find('[data-testid="interpolation-place"] button').trigger('click')
+    await settle()
+    expect(status.text()).toBe('')
+  })
+
   it('is let go on a button that keeps the coordinates', async () => {
     const { wrapper, model, vm } = await selection('manual')
     onTestFinished(() => wrapper.unmount())

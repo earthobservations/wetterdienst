@@ -1,6 +1,5 @@
 import type { Station } from '#shared/types/api'
-import { distanceKm } from '~/utils/map-tool'
-import { PLACE_REACH_KM } from '~/utils/place-stations'
+import { nearestReporting, PLACE_REACH_KM } from '~/utils/place-stations'
 
 /**
  * The place the home page's questions are about: a DWD weather station, as `GET /api/stations` lists it for the
@@ -66,20 +65,23 @@ export function placeOf(station: Station): Place | null {
 }
 
 /**
- * A town found by its name (GH-3791) as the place of the questions, with the measuring station nearest to it: null where there is none to name (the list
- * of stations is empty). The station is used where it is within reach; beyond it the questions say there is no station near, and name this one.
+ * A town found by its name (GH-3791) as the place of the questions, with the measuring station nearest to it that still reports (a closed one has no
+ * weather now): null where none of the stations reports. The station is used where it is within reach; beyond it the questions say there is no
+ * station near, and name this one.
  */
-export function townPlace(town: { name: string, region: string | null, latitude: number, longitude: number }, nearest: Station | undefined): Place | null {
-  if (!nearest || nearest.latitude == null || nearest.longitude == null)
+export function townPlace(town: { name: string, region: string | null, latitude: number, longitude: number }, stations: readonly Station[], now = Date.now()): Place | null {
+  const found = nearestReporting(town, stations, now)
+  if (!found)
     return null
-  const distance = distanceKm(town, { latitude: nearest.latitude, longitude: nearest.longitude })
+  const nearest = found.station
+  const distance = found.distanceKm
   return {
     id: nearest.station_id,
     name: town.name,
     region: town.region,
     latitude: town.latitude,
     longitude: town.longitude,
-    town: { station: { id: nearest.station_id, name: nearest.name ?? nearest.station_id, latitude: nearest.latitude, longitude: nearest.longitude, distanceKm: distance } },
+    town: { station: { id: nearest.station_id, name: nearest.name ?? nearest.station_id, latitude: nearest.latitude as number, longitude: nearest.longitude as number, distanceKm: distance } },
   }
 }
 

@@ -86,7 +86,14 @@ const initialStationId = defineModel<string | undefined>('initialStationId')
 
 // A place found by its name (GH-3791) fills the point with its position, to the four decimals a link keeps. It has no height, so no elevation comes with it, and
 // where none is given the readings are not brought to a height: the temperature is not corrected for height, which is said beside the point.
+// what a screen reader is told when a place fills the point: a polite status, set by the choice and gone with the place
+const placeAnnounced = ref('')
+watch(() => modelValue.value.place, (place) => {
+  if (!place)
+    placeAnnounced.value = ''
+})
 function onPlace(match: PlaceMatch) {
+  placeAnnounced.value = t('place.chosen', { place: [match.name, match.region].filter(Boolean).join(', ') })
   // the link's station, if it was still to be restored, is not brought back over the place
   initialStationId.value = undefined
   fromPlace({ name: match.name, region: match.region, latitude: Number(match.latitude.toFixed(4)), longitude: Number(match.longitude.toFixed(4)) })
@@ -190,6 +197,9 @@ const displayCoords = computed(() => {
     <div v-if="modelValue.source === 'manual'" class="space-y-4">
       <!-- the point by the name of a place (GH-3791): the field finds it, the place chosen is shown with its point and fills the coordinates -->
       <PlaceField :label="t('place.fieldLabel')" @pick="onPlace" />
+      <p class="sr-only" role="status" aria-live="polite" data-testid="interpolation-place-status">
+        {{ placeAnnounced }}
+      </p>
       <div v-if="modelValue.place" class="rounded-lg border border-default p-3 text-sm" data-testid="interpolation-place">
         <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
           <UIcon name="i-ph-map-pin" class="size-4 shrink-0 text-primary-600 dark:text-primary-500" aria-hidden="true" />

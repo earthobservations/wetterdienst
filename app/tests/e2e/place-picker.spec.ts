@@ -148,8 +148,14 @@ test.describe('the Forecast finds places', () => {
     await expect(page.locator('[role="figure"]')).toHaveCount(0)
     expect([...new URL(page.url()).searchParams.keys()]).not.toContain('station')
     // the nearest may still be opened, which says it is not the place's
-    await place.getByRole('button', { name: /anyway: it is not the forecast of Paris/ }).click()
+    // the visible label is in its name, with the station and how far it is
+    const anyway = place.getByRole('button', { name: /^Show anyway: the forecast of KOCHEL AM SEE \(M0816\), 681 km away, is not the forecast of Paris$/ })
+    await expect(anyway).toHaveText('Show anyway')
+    await anyway.click()
     await expect(page).toHaveURL(/station=M0816/)
+    // the forecast is the station's and the box says so, not that none is shown
+    await expect(summary).toContainText('Shown: the forecast of KOCHEL AM SEE (M0816), 681 km from Paris. It is not the forecast of Paris.')
+    await expect(summary).not.toContainText('none is shown')
   })
 
   test('is opened from a link without asking Photon again: the place, its name and where it lies are in the link', async ({ page, baseURL }) => {
@@ -164,6 +170,19 @@ test.describe('the Forecast finds places', () => {
     await expect(page).toHaveURL(/station=M0814/)
     await expect(place.getByTestId('place-summary')).toContainText('closest forecast station to Bad Tölz')
     expect(searched()).toEqual([])
+  })
+
+  test('keeps the station, the run and the place of a link that names all three, and shows the link\'s station and not the closest', async ({ page, baseURL }) => {
+    await backend(page, baseURL!)
+    await page.addInitScript(() => localStorage.setItem('wd-station-picker', JSON.stringify({ forecast: 'list' })))
+    await page.goto('/meteogram?station=M0818&issue=2026-10-14T09:00:00&horizon=3d&lat=47.7610&lon=11.5596&placeName=Bad%20T%C3%B6lz&placeRegion=Bayern%2C%20Germany')
+    const place = page.getByTestId('place-stations')
+    await expect(place.getByTestId('place-name')).toHaveText('Bad Tölz')
+    await expect(place.getByTestId('place-station-list').getByRole('listitem').nth(1)).toHaveAttribute('aria-current', 'true')
+    await expect(page.getByRole('combobox', { name: 'Model run' }).or(page.locator('#meteogram-run'))).toHaveValue('2026-10-14T09:00:00')
+    await page.waitForTimeout(500)
+    const query = Object.fromEntries(new URL(page.url()).searchParams)
+    expect(query).toMatchObject({ station: 'M0818', issue: '2026-10-14T09:00:00', horizon: '3d', placeName: 'Bad Tölz', lat: '47.7610' })
   })
 
   test('is a combobox that keyboard alone operates, that says how many results there are, and whose targets are 24 px or more', async ({ page, baseURL }) => {
@@ -240,7 +259,7 @@ test.describe('Ask the weather finds a town', () => {
     await expect(station).toContainText('km away.')
     expect(questions.filter(entry => entry.path === 'values' && entry.query.stations === '00125').length).toBeGreaterThan(0)
     // the station is asked for by the town's position, one nearest
-    expect(positioned.find(query => query.network === 'observation')).toMatchObject({ latitude: '47.761', longitude: '11.5596', rank: '1' })
+    expect(positioned.find(query => query.network === 'observation')).toMatchObject({ latitude: '47.761', longitude: '11.5596', rank: '5' })
   })
 
   test('says there is no weather station near a town that has none within 50 km, names the nearest, and gives no answer', async ({ page, baseURL }) => {
@@ -261,6 +280,28 @@ test.describe('Ask the weather finds a town', () => {
     await page.getByTestId('question-rain').click()
     await expect(page.getByTestId('answer')).toContainText('There is no forecast point within 50 km of Paris.')
     await expect(page.getByTestId('answer-verdict')).toHaveCount(0)
+  })
+
+  test('names the station and its distance on the row of the download question that opens DWD\'s measurements, for a town near one', async ({ page, baseURL }) => {
+    await backend(page, baseURL!)
+    await page.addInitScript(() => localStorage.removeItem('wd-place'))
+    await page.goto('/?ask=download&lat=47.7610&lon=11.5596&placeName=Bad%20T%C3%B6lz&placeRegion=Bayern%2C%20Germany')
+    const sources = page.getByTestId('answer-sources')
+    const dwd = sources.getByRole('link', { name: /German Weather Service|DWD/ }).first()
+    await expect(dwd).toContainText('Andechs-Rothenfeld, 37 km from Bad Tölz')
+    await expect(dwd).not.toContainText('· Bad Tölz')
+    expect(new URL((await dwd.getAttribute('href'))!, baseURL!).searchParams.get('stations')).toBe('00125')
+  })
+
+  test('offers no station on that row, and names none, for a town with none within 50 km', async ({ page, baseURL }) => {
+    await backend(page, baseURL!)
+    await page.addInitScript(() => localStorage.removeItem('wd-place'))
+    await page.goto('/?ask=download&lat=48.8566&lon=2.3522&placeName=Paris&placeRegion=France')
+    const dwd = page.getByTestId('answer-sources').getByRole('link', { name: /German Weather Service|DWD/ }).first()
+    await expect(dwd).toBeVisible()
+    await expect(dwd).not.toContainText('Paris')
+    await expect(dwd).not.toContainText('Donaueschingen')
+    expect(new URL((await dwd.getAttribute('href'))!, baseURL!).searchParams.has('stations')).toBe(false)
   })
 
   test('takes the town of a link without asking Photon again', async ({ page, baseURL }) => {

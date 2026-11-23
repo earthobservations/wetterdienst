@@ -2,6 +2,7 @@ import type { ChipApi, ChipContext, ChipEnv } from '../../app/utils/ask/chip'
 import { describe, expect, it, vi } from 'vitest'
 import { stationOf } from '../../app/utils/ask/chip'
 import { day } from '../../app/utils/ask/chips/day'
+import { download } from '../../app/utils/ask/chips/download'
 import { rain } from '../../app/utils/ask/chips/rain'
 import { season } from '../../app/utils/ask/chips/season'
 import { PLACE_REACH_KM } from '../../app/utils/place-stations'
@@ -25,7 +26,7 @@ function env(place: ChipEnv['place']): ChipEnv {
   return {
     t: (key, params) => `${key} ${JSON.stringify(params ?? {})}`,
     place,
-    number: value => String(value),
+    number: (value, digits = 1) => value.toFixed(digits),
     percent: value => `${value * 100}%`,
     unitText: unit => unit,
     dayText: day => day,
@@ -94,5 +95,42 @@ describe('the rain question for a town', () => {
 
   it('says none for a place with no forecast point at all, as it did', async () => {
     expect(await rain.load(context(TOWN), api(null))).toBeNull()
+  })
+})
+
+describe('the download question for a town (GH-3791)', () => {
+  const sources = [
+    { provider: 'dwd', name: 'DWD', countryCode: 'DE', network: 'observation', dataset: 'temperature_air', parameter: 'temperature_air_mean_2m' },
+    { provider: 'noaa', name: 'NOAA', countryCode: 'US', network: 'ghcn', dataset: 'data', parameter: 'temperature_air_mean_2m' },
+  ] as never
+  const view = (place: Parameters<typeof env>[0]) => download.present(sources, sources, env(place), {})
+  const itemOf = (place: Parameters<typeof env>[0], provider: string) => view(place).list!.items.find(item => item.key.startsWith(provider))!
+
+  it('labels the DWD row with the station, its distance and the town, and opens that station, where the station is within reach', () => {
+    const item = itemOf(TOWN, 'dwd')
+    expect(item.place).toContain('ask.download.station')
+    expect(item.place).toContain('"station":"Andechs-Rothenfeld"')
+    expect(item.place).toContain('"distance":"37"')
+    expect(item.place).toContain('"place":"Bad Tölz"')
+    expect((item.to as { query: Record<string, string> }).query.stations).toBe('00125')
+  })
+
+  it('names the town and no station for a station that is the place, as it did', () => {
+    const item = itemOf(STATION_PLACE, 'dwd')
+    expect(item.place).toBe('Kiel-Holtenau')
+    expect((item.to as { query: Record<string, string> }).query.stations).toBe('02564')
+  })
+
+  it('offers no station and names none beyond 50 km: the row opens the service, and says nothing of a place it does not serve', () => {
+    const far = { ...TOWN, town: { station: { ...TOWN.town.station, distanceKm: 466 } } }
+    const item = itemOf(far, 'dwd')
+    expect(item.place).toBeUndefined()
+    expect((item.to as { query: Record<string, string> }).query).not.toHaveProperty('stations')
+  })
+
+  it('has no station in the row of another service, whatever the place', () => {
+    const item = itemOf(TOWN, 'noaa')
+    expect(item.place).toBeUndefined()
+    expect((item.to as { query: Record<string, string> }).query).not.toHaveProperty('stations')
   })
 })

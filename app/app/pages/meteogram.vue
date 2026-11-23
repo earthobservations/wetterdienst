@@ -181,7 +181,8 @@ async function loadNear(): Promise<void> {
 /** A place chosen in the search: its closest forecast station is picked, or none where none is within reach (the one before is not the place's) */
 async function onPlace(match: PlaceMatch) {
   cancelRestore()
-  place.value = { name: match.name, region: match.region, latitude: match.latitude, longitude: match.longitude }
+  // the position to four decimals (about 10 m), as a link keeps it and as it is sent to the backend: Photon's full precision goes nowhere
+  place.value = { name: match.name, region: match.region, latitude: Number(match.latitude.toFixed(4)), longitude: Number(match.longitude.toFixed(4)) }
   selectedStation.value = null
   await loadNear()
   if (nearState.value === 'ready')
@@ -320,7 +321,9 @@ watch(selectedStation, (station) => {
     availableIssues.value = []
     // A rejected navigation (e.g. superseded by a subsequent replace() before
     // this one resolves) would otherwise be an unhandled promise rejection.
-    void router.replace({ query: placeQuery() }).catch(() => {})
+    // not while the station of the link is being looked up: the link's station, its run and the display of the chart are still to come, and a link written now would take them away
+    if (!isRestoringFromUrl.value)
+      void router.replace({ query: placeQuery() }).catch(() => {})
   }
 })
 
@@ -342,8 +345,8 @@ watch([selectedStation, selectedIssue, unitsAsked], ([station]) => {
 // Sync station + issue to URL (fires once when both change together)
 watch([selectedStation, selectedIssue, place], ([station, issue]) => {
   if (!station) {
-    // a place with no station within reach is in the link all the same
-    if (place.value)
+    // a place with no station within reach is in the link all the same; but not while the link's own station is being looked up (see above)
+    if (place.value && !isRestoringFromUrl.value)
       void router.replace({ query: placeQuery() }).catch(() => {})
     return
   }

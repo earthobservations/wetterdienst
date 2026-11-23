@@ -263,7 +263,8 @@
       "answer": "Meteorologické služby, které zveřejňují hodinovou teplotu vzduchu: {count}.",
       "detail": "Každá se otevře v Průzkumníku, připravená ke stažení jako CSV, JSON nebo GeoJSON.",
       "none": "Žádná meteorologická služba teď nezveřejňuje hodinovou teplotu vzduchu.",
-      "api": "Nebo použij REST API"
+      "api": "Nebo použij REST API",
+      "station": "{station}, {distance} km od místa {place}"
     },
     "quotesLabel": "Citované texty",
     "warnings": {
@@ -278,7 +279,7 @@
     },
     "far": "V okruhu {reach} km od místa {place} není žádná meteorologická stanice. Nejbližší, {station}, je vzdálená {distance} a to, co měří, není počasí v místě {place}, proto se neposkytuje žádná odpověď.",
     "stationUsed": "Odečteno ve stanici {station}, nejbližší meteorologické stanici od místa {place}, ve vzdálenosti {distance}.",
-    "townNoStation": "Pro toto místo se nepodařilo najít žádnou meteorologickou stanici."
+    "townNoStation": "Pro místo {place} se nepodařilo najít žádnou meteorologickou stanici. Odpověď se neposkytne, dokud nevybereš místo."
   },
   "seo": {
     "title": "Wetterdienst – otevřená data o počasí a klimatu od národních meteorologických služeb",
@@ -1178,7 +1179,9 @@
     "show": "Zobrazit",
     "showStation": "Zobrazit předpověď stanice {station}",
     "showAnyway": "Přesto zobrazit",
-    "showAnywayStation": "Přesto zobrazit předpověď stanice {station}: není to předpověď pro místo {place}"
+    "showAnywayStation": "Přesto zobrazit: předpověď stanice {station}, ve vzdálenosti {distance}, není předpovědí pro místo {place}",
+    "shownAnyway": "Zobrazuje se předpověď stanice {station}, ve vzdálenosti {distance} od místa {place}. Není to předpověď pro místo {place}.",
+    "chosen": "Vybráno místo: {place}. Souřadnice jsou vyplněny."
   },
   "interpolation": {
     "source": "Zdroj",

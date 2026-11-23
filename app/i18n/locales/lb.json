@@ -263,7 +263,8 @@
       "answer": "Wiederdéngschter, déi d'Lofttemperatur pro Stonn publizéieren: {count}.",
       "detail": "All eenzelen geet am Explorer op, prett fir als CSV, JSON oder GeoJSON erofzelueden.",
       "none": "Elo publizéiert kee Wiederdéngscht d'Lofttemperatur pro Stonn.",
-      "api": "Oder benotz d'REST-API"
+      "api": "Oder benotz d'REST-API",
+      "station": "{station}, {distance} km vun {place}"
     },
     "quotesLabel": "Zitéiert Texter",
     "warnings": {
@@ -278,7 +279,7 @@
     },
     "far": "Bannent {reach} km vun {place} gëtt et keng Wiederstatioun. Déi nootst, {station}, ass {distance} ewech, an dat, wat si moosst, ass net d'Wieder vun {place}, dofir gëtt et keng Äntwert.",
     "stationUsed": "Gelies bei {station}, der Wiederstatioun, déi {place} am nootsten ass, {distance} ewech.",
-    "townNoStation": "Fir dës Plaz gouf keng Wiederstatioun fonnt."
+    "townNoStation": "Fir {place} gouf keng Wiederstatioun fonnt. Et gëtt keng Äntwert, bis du eng Plaz wielt."
   },
   "seo": {
     "title": "Wetterdienst – oppen Wieder- a Klimadaten vun nationale Wiederdéngschter",
@@ -1178,7 +1179,9 @@
     "show": "Weisen",
     "showStation": "D'Prognos vun {station} weisen",
     "showAnyway": "Trotzdeem weisen",
-    "showAnywayStation": "D'Prognos vun {station} trotzdeem weisen: Et ass net d'Prognos fir {place}"
+    "showAnywayStation": "Trotzdeem weisen: D'Prognos vun {station}, {distance} ewech, ass net d'Prognos fir {place}",
+    "shownAnyway": "Gewisen gëtt d'Prognos vun {station}, {distance} vun {place} ewech. Et ass net d'Prognos fir {place}.",
+    "chosen": "Plaz gewielt: {place}. D'Koordinaten sinn ausgefëllt."
   },
   "interpolation": {
     "source": "Quell",

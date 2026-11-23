@@ -29,6 +29,7 @@ import type { PlaceMatch } from '#shared/utils/places'
 import type { Point } from '~/utils/map-tool'
 import type { StationPickerStation } from '~/utils/station'
 import type { StationPickerMode, StationPickerTool } from '~/utils/station-picker-mode'
+import { isPlaceQuery } from '#shared/utils/places'
 import SegmentedControl from '~/components/SegmentedControl.vue'
 import UseMyLocation from '~/components/UseMyLocation.vue'
 import { distanceKm, formatDistance } from '~/utils/map-tool'
@@ -176,7 +177,8 @@ const searchTerm = ref('')
 const placesWanted = computed(() => !!props.places && mode.value === 'list')
 const { places: placesFound, failed: placesFailed, off: placesOff } = usePlacesSearch(searchTerm, { enabled: placesWanted })
 const PLACE_PREFIX = 'place:'
-const placeItems = computed(() => !placesWanted.value || placesOff.value
+// the places of the text before this one are gone with the text that is no name any more (backspaced to two letters, cleared): at once, not a pause later
+const placeItems = computed(() => !placesWanted.value || placesOff.value || !isPlaceQuery(searchTerm.value)
   ? []
   : placesFound.value.map(place => ({
       label: place.name,
@@ -191,12 +193,19 @@ const shownStations = computed(() => {
   const term = folded(searchTerm.value.trim())
   return !props.places || !term ? stationItems.value : stationItems.value.filter(item => folded(item.label).includes(term))
 })
-const items = computed(() => placeItems.value.length
+/**
+ * Whether the list has headings ("Places", "Forecast stations"): the menu then draws it as named groups (role group, labelled by its heading) and is not virtualised, which is
+ * only for a list that is short: the text of three letters has narrowed the stations, and a text that still keeps over `HEADED_LIST_MAX` of them has the places and the stations
+ * with no headings in a virtualised list, the places told from the stations by their pin and what they are.
+ */
+const HEADED_LIST_MAX = 300
+const headed = computed(() => placeItems.value.length > 0 && shownStations.value.length <= HEADED_LIST_MAX)
+const items = computed(() => headed.value
   ? [{ type: 'label' as const, label: t('shell.placesGroup') }, ...placeItems.value, ...(shownStations.value.length ? [{ type: 'label' as const, label: t('stationSelection.stationsGroup') }, ...shownStations.value] : [])]
-  : shownStations.value)
+  : [...placeItems.value, ...shownStations.value])
 
 // A virtualised list draws a heading (a label of the menu) as a bare element with `aria-setsize` and `aria-posinset`, which no role allows (axe: aria-allowed-attr, critical),
-// so the list that has places in it (and headings) is not virtualised: the text of three letters has already narrowed the stations to the ones it keeps.
+// so a list with headings is not virtualised, and is short (`headed`).
 // What a screen reader is told of the search (the menu has no count of its own): how many results the text has, a moment after the last key, and
 // that the places could not be searched where they could not
 const resultCount = computed(() => placeItems.value.length + shownStations.value.length)
@@ -383,7 +392,7 @@ async function clearAll() {
         :multiple="multiple"
         :loading="loading"
         searchable
-        :virtualize="!placeItems.length"
+        :virtualize="!headed"
         color="primary"
         class="w-full"
         :class="{ 'needs-input': selected.length === 0 }"

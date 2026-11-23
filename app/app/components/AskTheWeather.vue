@@ -91,14 +91,19 @@ const NO_TOWN = { lat: null, lon: null, placeName: null, placeRegion: null }
 // A link that names a town (`?lat=&lon=&placeName=`, GH-3791) asks about it without asking the search of places again: the station nearest to it is looked up once
 // (the stations request, ranked by the town's position) and the town is kept as the reader's place, with that station: the answers name it and how far it is.
 const townProblem = ref(false)
+/** The town that could not be given a station: said by name, so that the answer of the place before is not taken for its */
+const townProblemName = ref('')
+/** How many of the stations nearest to a town are asked for, to find the nearest one that still reports */
+const TOWN_CANDIDATES = 5
 /** The town of the link is being looked up: no question is asked about the place before it, which is not the town's */
 const townPending = ref(false)
 async function resolveTown(town: PlaceInLink): Promise<boolean> {
   const response = await $fetch<{ stations: Station[] }>('/api/stations', {
-    query: { ...PLACE_NETWORK, latitude: town.latitude, longitude: town.longitude, rank: 1 },
+    // a few candidates, the nearest first: the nearest one may have stopped reporting, and the town's station is the nearest that still does
+    query: { ...PLACE_NETWORK, latitude: town.latitude, longitude: town.longitude, rank: TOWN_CANDIDATES },
     ...API_FETCH,
   })
-  const found = townPlace(town, response.stations?.[0])
+  const found = townPlace(town, response.stations ?? [])
   if (!found)
     return false
   setPlace(found)
@@ -113,6 +118,7 @@ watch(() => [route.query.lat, route.query.lon, route.query.placeName, route.quer
   if (current.town && current.name === named.name && Math.abs(current.latitude - named.latitude) < 0.00006 && Math.abs(current.longitude - named.longitude) < 0.00006)
     return
   townProblem.value = false
+  townProblemName.value = named.name
   townPending.value = true
   try {
     townProblem.value = !(await resolveTown(named))
@@ -204,6 +210,7 @@ async function onTown(match: PlaceMatch) {
   placeFailed.value = false
   townProblem.value = false
   const town: PlaceInLink = { name: match.name, region: match.region, latitude: Number(match.latitude.toFixed(4)), longitude: Number(match.longitude.toFixed(4)) }
+  townProblemName.value = town.name
   try {
     townProblem.value = !(await resolveTown(town))
   }
@@ -243,7 +250,7 @@ async function onTown(match: PlaceMatch) {
       </button>
       <span v-if="place.town && place.region" class="text-sm text-muted" data-testid="place-region">{{ place.region }}</span>
       <span v-if="placeFailed" class="text-sm text-error" role="status">{{ t('ask.placeNotFound') }}</span>
-      <span v-if="townProblem" class="text-sm text-error" role="status">{{ t('ask.townNoStation') }}</span>
+      <span v-if="townProblem" class="text-sm text-error" role="status" data-testid="town-problem">{{ t('ask.townNoStation', { place: townProblemName }) }}</span>
     </div>
 
     <UseMyLocation class="mt-3" :resolving="locating" :status="locatedText" :problem="locateProblem" @position="onPosition" />
@@ -265,7 +272,8 @@ async function onTown(match: PlaceMatch) {
 
     <div ref="answer" class="ask-answer">
       <!-- while the stored position is checked against the browser's permission (GH-4014), nothing is asked about the station it made -->
-      <AnswerPanel v-if="question && !checking && !townPending" :question="question" :choices="choices[question]!" :explicit="explicit" @update:choice="setChoice" @effective="settled = $event" />
+      <!-- a town that could not be given a station is no reason to answer for the place before: nothing is said of it until the reader picks -->
+      <AnswerPanel v-if="question && !checking && !townPending && !townProblem" :question="question" :choices="choices[question]!" :explicit="explicit" @update:choice="setChoice" @effective="settled = $event" />
       <p v-else-if="!question" class="ask-idle" data-testid="ask-idle">
         <UIcon name="i-ph-cursor-click" class="size-5 shrink-0" aria-hidden="true" />
         {{ t('ask.idle') }}

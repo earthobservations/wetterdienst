@@ -263,7 +263,8 @@
       "answer": "Wetterdienste mit stündlicher Lufttemperatur: {count}.",
       "detail": "Jeder öffnet sich im Explorer, bereit zum Download als CSV, JSON oder GeoJSON.",
       "none": "Gerade nennt kein Wetterdienst eine stündliche Lufttemperatur.",
-      "api": "Oder die REST-API nutzen"
+      "api": "Oder die REST-API nutzen",
+      "station": "{station}, {distance} km von {place}"
     },
     "quotesLabel": "Zitierte Texte",
     "warnings": {
@@ -278,7 +279,7 @@
     },
     "far": "Innerhalb von {reach} km um {place} gibt es keine Wetterstation. Die nächste, {station}, ist {distance} entfernt, und was sie misst, ist nicht das Wetter von {place}; deshalb gibt es keine Antwort.",
     "stationUsed": "Abgelesen bei {station}, der Wetterstation, die {place} am nächsten liegt, {distance} entfernt.",
-    "townNoStation": "Für diesen Ort wurde keine Wetterstation gefunden."
+    "townNoStation": "Für {place} wurde keine Wetterstation gefunden. Eine Antwort gibt es erst, wenn du einen Ort wählst."
   },
   "seo": {
     "title": "Wetterdienst – offene Wetter- und Klimadaten von nationalen Wetterdiensten",
@@ -1178,7 +1179,9 @@
     "show": "Zeigen",
     "showStation": "Vorhersage für {station} zeigen",
     "showAnyway": "Trotzdem zeigen",
-    "showAnywayStation": "Vorhersage für {station} trotzdem zeigen: Das ist nicht die Vorhersage für {place}"
+    "showAnywayStation": "Trotzdem zeigen: Die Vorhersage für {station}, {distance} entfernt, ist nicht die Vorhersage für {place}",
+    "shownAnyway": "Gezeigt wird die Vorhersage für {station}, {distance} von {place} entfernt. Das ist nicht die Vorhersage für {place}.",
+    "chosen": "Ort gewählt: {place}. Die Koordinaten sind ausgefüllt."
   },
   "interpolation": {
     "source": "Quelle",
