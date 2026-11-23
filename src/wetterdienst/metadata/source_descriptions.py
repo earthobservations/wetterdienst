@@ -3794,7 +3794,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "Discontinuity (MD)"
         ),
         ("10_minutes", "data", "fx"): (
-            "Past 19 minute maximum wind gust, representative for 10 meters, in meters per second"
+            "Past 19 minute maximum wind gust, representative for 10 meters, in meters per second (as KNMI writes it)"
         ),
         ("10_minutes", "data", "n"): (
             "Past 30 minute total cloud cover, in okta. The source words no code; the files carry a 9 at fog "
@@ -3829,7 +3829,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("annual", "data", "FXX"): (
             "Annual maximum wind gust, representative for 10 meters, in meters per second. "
-            "Highest 3 second average of the day."
+            "Highest 3 second average of the day (as KNMI writes it; the value is the year's)."
         ),
         ("annual", "data", "NG"): ("Annual mean cloud cover, in okta. 9=sky invisible."),
         ("annual", "data", "PG"): ("Annual mean sea level pressure, in hectopascal."),
@@ -3912,7 +3912,7 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ),
         ("monthly", "data", "FXX"): (
             "Monthly maximum wind gust, representative for 10 meters, in meters per second. "
-            "Highest 3 second mean of the year."
+            "Highest 3 second mean of the year (as KNMI writes it; the value is the month's)."
         ),
         ("monthly", "data", "NG"): ("Monthly mean cloud cover, in okta. 9=sky invisible."),
         ("monthly", "data", "PG"): ("Monthly mean sea level pressure, in hectopascal."),

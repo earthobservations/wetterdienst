@@ -120,18 +120,20 @@ These values are returned as the source writes them, with no token:
   are a judgement call: kept, as published, with no token (GH-3773);
 - a sunshine duration longer than the daylight but within its span plus 5 % (above that `range` rejects it; a station's sensor known to be stuck, RMI, is `stuck`'s).
 
-## Not checked against the live source
+## Checked late against the live source
 
-Some special values and descriptions of three providers were left unchecked against the source, which the issue
-[GH-3137](https://github.com/earthobservations/wetterdienst/issues/3137) lists as needing a key or a login (state of
-2026-11-22):
+[GH-3137](https://github.com/earthobservations/wetterdienst/issues/3137) listed three providers whose special values
+and descriptions needed a key or a login to check. Read on 2026-11-22 and 2026-11-23
+([GH-4321](https://github.com/earthobservations/wetterdienst/issues/4321)):
 
-- `metoffice/observation`: the stub serves the `NA` text only. A wind direction of 0 and the cloud code 9 are mapped as
-  the page above says, from the files read, and the MIDAS tables word no code 9 for the cloud;
-- `aemet` and the KNMI NetCDF files: a stub and the reader only. Whether KNMI's 10-minute `n` carries a 9 is not known,
-  as the text export has no 10-minute `n`;
-- the descriptions of `knmi`, `aemet` and `metoffice` were not compared with their source, as those of the other
-  providers were.
+- `aemet`: the reader against a live answer (Madrid Retiro, daily, monthly, annual and the latest hourly: the values
+  equal the raw rows), and its 39 descriptions against the `metadatos` of each answer. The units text of the daily
+  `dir` words the `88` ("sin dato") that the reader maps beside the `99`;
+- `knmi`: the descriptions against the collections' metadata of the EDR API (10-minute, monthly and annual) and the
+  headers of the daily and hourly text exports. The 10-minute `n` carries a 9 (fog, the sky invisible), which the
+  reader maps as the hourly one;
+- `metoffice/observation`: the descriptions against the MIDAS tables. The stub serves the `NA` text only; a wind
+  direction of 0 and the cloud code 9 are mapped as the page above says, from the files read, and the MIDAS tables
+  word no code 9 for the cloud.
 
-Until they are, the rules on this page apply to these providers as written. A code that a source documents and the
-library does not map shows as a value: report it as an issue.
+A code that a source documents and the library does not map shows as a value: report it as an issue.

@@ -197,7 +197,7 @@ def test_aemet_observation_values_daily(monkeypatch: pytest.MonkeyPatch) -> None
     assert value_on("humidity_relative_max", day1) == pytest.approx(80.0)
     assert value_on("humidity_relative_min", day1) == pytest.approx(48.0)
 
-    # 2020-01-02 has dir=99 (calm/variable), which AEMET encodes with a sentinel value
+    # 2020-01-02 has dir=99 (variable direction), which AEMET encodes with a sentinel value
     # rather than an actual direction. The parser must turn that into a null rather than
     # a bogus 990°; with the default drop_nulls=True, a null value means no row at all.
     day2 = dt.datetime(2020, 1, 2, tzinfo=UTC)

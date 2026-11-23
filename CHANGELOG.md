@@ -18,10 +18,12 @@ Types of changes:
 
 ### Fixed
 
-- AEMET daily wind direction: the code `88` ("sin dato", no data in the source's units text) is null
-  with `raw:88`, as the `99` is. It was 880 degrees under `plausibility="soft"`. The AEMET daily
-  `dir` and `prec` descriptions and the KNMI 10-minute, monthly and annual `FXX` ones now carry
-  the source's own words and codes (GH-4321)
+- **Breaking**: `aemet/observation` daily `wind_direction_gust_max` is null with `raw:88` where the
+  source writes 88, "sin dato" (no data) in the units text of `dir`, as it is for the 99. It was
+  `rejected:range,raw:880` with `range: hard`, and 880.0 with `suspect:range` with `range: soft`,
+  so `range: soft` no longer returns it: filter on `raw:88`. The AEMET daily `dir` and `prec`
+  descriptions and the KNMI 10-minute, monthly and annual `FXX` ones now carry the source's own
+  words and codes (GH-4321)
 
 ## [0.195.0] - 2026-11-22
 
