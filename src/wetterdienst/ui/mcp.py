@@ -70,10 +70,10 @@ def is_tool_request(scope: MutableMapping[str, Any]) -> bool:
     The REST app's fastapi telemetry gives these no server span, no `http.server.*` metrics and no
     exception log of their own (GH-2432): their spans would start a trace of their own, cut off from
     the tool call's, and the metrics would count each tool call twice. A tool called over `/mcp/v1`
-    (or its alias `/mcp`) runs in that request's context, so before fastapi 0.142.4 fastapi recorded the tool
-    request's operation spans, its telemetry data and a validation failure of its parameters as the MCP
-    request's, the spans beneath the tool call's span; from 0.142.4 it records none of them. The middleware of
-    `opentelemetry-instrumentation-fastapi`, where it runs, does not read fastapi's `exclude` and still records them.
+    (or its alias `/mcp`) runs in that request's context, and fastapi isolates the telemetry of an excluded
+    request, so it records none of the tool request's operation spans, telemetry data or validation failure. The
+    middleware of `opentelemetry-instrumentation-fastapi`, where it runs, does not read fastapi's `exclude` and still
+    records them.
 
     A scope key, not the Host header or `server`, tells them apart, because a client sets its own
     Host header, some ASGI servers build `server` from it, and no client can set a scope key.
