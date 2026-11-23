@@ -1166,12 +1166,17 @@ const STATES: State[] = [
     handlers: rankedStations(askHandlers()),
     reach: async (page, locale) => {
       await openForecastSearch(page)
-      await page.keyboard.type('bad tölz')
+      // "bad t" keeps places and a station of the list: two groups, each with its own heading
+      await page.keyboard.type('bad t')
       await expect(page.getByRole('listbox').getByRole('option', { name: /Bad Tölz/ }).first()).toBeVisible()
       await expect(page.getByTestId('places-credit')).toBeVisible()
       await expect(page.getByTestId('station-picker-results')).toHaveText(/\S/)
       await page.keyboard.press('ArrowDown')
       await expect(page.getByRole('group', { name: message(locale, 'shell.placesGroup'), exact: true })).toBeVisible()
+      await expect(page.getByRole('group', { name: message(locale, 'stationSelection.stationsGroup'), exact: true })).toBeVisible()
+      await expect(page.getByRole('listbox').getByRole('group')).toHaveCount(2)
+      const headings = await page.getByRole('listbox').getByRole('group').evaluateAll(groups => groups.map(group => group.getAttribute('aria-labelledby')))
+      expect(new Set(headings).size).toBe(2)
     },
   },
   {

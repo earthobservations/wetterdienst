@@ -1181,7 +1181,8 @@
     "showAnyway": "Trotzdem zeigen",
     "showAnywayStation": "Trotzdem zeigen: Die Vorhersage für {station}, {distance} entfernt, ist nicht die Vorhersage für {place}",
     "shownAnyway": "Gezeigt wird die Vorhersage für {station}, {distance} von {place} entfernt. Das ist nicht die Vorhersage für {place}.",
-    "chosen": "Ort gewählt: {place}. Die Koordinaten sind ausgefüllt."
+    "chosen": "Ort gewählt: {place}. Die Koordinaten sind ausgefüllt.",
+    "linkStationNotFound": "Die im Link genannte Station {station} wurde nicht gefunden."
   },
   "interpolation": {
     "source": "Quelle",

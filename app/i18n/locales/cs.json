@@ -1181,7 +1181,8 @@
     "showAnyway": "Přesto zobrazit",
     "showAnywayStation": "Přesto zobrazit: předpověď stanice {station}, ve vzdálenosti {distance}, není předpovědí pro místo {place}",
     "shownAnyway": "Zobrazuje se předpověď stanice {station}, ve vzdálenosti {distance} od místa {place}. Není to předpověď pro místo {place}.",
-    "chosen": "Vybráno místo: {place}. Souřadnice jsou vyplněny."
+    "chosen": "Vybráno místo: {place}. Souřadnice jsou vyplněny.",
+    "linkStationNotFound": "Stanice {station} uvedená v odkazu nebyla nalezena."
   },
   "interpolation": {
     "source": "Zdroj",

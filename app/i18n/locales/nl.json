@@ -1181,7 +1181,8 @@
     "showAnyway": "Toch tonen",
     "showAnywayStation": "Toch tonen: de voorspelling van {station}, op {distance}, is niet de voorspelling voor {place}",
     "shownAnyway": "Getoond wordt de voorspelling van {station}, op {distance} van {place}. Het is niet de voorspelling voor {place}.",
-    "chosen": "Plaats gekozen: {place}. De coördinaten zijn ingevuld."
+    "chosen": "Plaats gekozen: {place}. De coördinaten zijn ingevuld.",
+    "linkStationNotFound": "Het station {station} uit de link is niet gevonden."
   },
   "interpolation": {
     "source": "Bron",

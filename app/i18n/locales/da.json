@@ -1181,7 +1181,8 @@
     "showAnyway": "Vis alligevel",
     "showAnywayStation": "Vis alligevel: prognosen for {station}, {distance} væk, er ikke prognosen for {place}",
     "shownAnyway": "Viser prognosen for {station}, {distance} fra {place}. Det er ikke prognosen for {place}.",
-    "chosen": "Sted valgt: {place}. Koordinaterne er udfyldt."
+    "chosen": "Sted valgt: {place}. Koordinaterne er udfyldt.",
+    "linkStationNotFound": "Stationen {station}, der står i linket, blev ikke fundet."
   },
   "interpolation": {
     "source": "Kilde",

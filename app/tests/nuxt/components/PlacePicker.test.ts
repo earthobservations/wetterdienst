@@ -44,7 +44,7 @@ registerEndpoint('/_search/places', (event) => {
   return {
     query: q,
     state: 'ok',
-    places: q.toLowerCase().startsWith('bad t') ? [place('N240109189', 'Bad Tölz', 'town', 'Bayern, Germany', 47.7614, 11.5583), place('R1', 'Landkreis Bad Tölz-Wolfratshausen', 'county', 'Bayern, Germany', 47.78, 11.5)] : [],
+    places: q.toLowerCase().startsWith('town') ? [place('N5', 'Townsville', 'city', 'Queensland, Australia', -19.26, 146.8)] : q.toLowerCase().startsWith('bad t') ? [place('N240109189', 'Bad Tölz', 'town', 'Bayern, Germany', 47.7614, 11.5583), place('R1', 'Landkreis Bad Tölz-Wolfratshausen', 'county', 'Bayern, Germany', 47.78, 11.5)] : [],
     attribution: '© OpenStreetMap contributors',
   }
 })
@@ -266,6 +266,8 @@ describe('the station search that also finds places', () => {
   }
   const vm = (wrapper: Awaited<ReturnType<typeof mountPicker>>) => wrapper.vm as any
   const labels = (items: Array<{ label: string, type?: string }>) => items.map(item => item.type ? `[${item.label}]` : item.label)
+  /** The groups of a headed list: each an array of its heading and its items */
+  const groups = (items: unknown) => (items as Array<Array<{ label: string, type?: string }>>).map(group => labels(group))
 
   it('lists the stations only, as before, until a text of three letters has places', async () => {
     const wrapper = await mountPicker()
@@ -277,15 +279,27 @@ describe('the station search that also finds places', () => {
     expect(labels(vm(wrapper).items)).toEqual(['TEGERNSEE (ID: M0818)', 'HAMBURG-FUHLSBUETTEL (ID: 10147)'])
   })
 
-  it('puts the places before the stations, under headings, once the text has places', async () => {
+  it('puts the places before the stations, as two groups of their own each with its heading, once the text has places', async () => {
+    const wrapper = await mountPicker()
+    vm(wrapper).searchTerm = 'bad t'
+    await vi.waitFor(() => expect(placeQueries).toEqual([{ q: 'bad t', lang: 'en' }]))
+    await vi.waitFor(() => expect(vm(wrapper).headed).toBe(true))
+    // two arrays (the menu draws an array of arrays as one group each, each labelled by its own heading with its own id), not one flat array with two labels
+    expect(Array.isArray(vm(wrapper).items[0])).toBe(true)
+    expect(groups(vm(wrapper).items)).toEqual([
+      ['[Places]', 'Bad Tölz', 'Landkreis Bad Tölz-Wolfratshausen'],
+      ['[Forecast stations]', 'BAD TOELZ (ID: M0814)'],
+    ])
+    expect(vm(wrapper).items[0][1]).toMatchObject({ description: 'Town · Bayern, Germany', value: 'place:N240109189' })
+    // the credit that OpenStreetMap's licence asks for is under the list, and the count is said
+    expect(vm(wrapper).resultCount).toBe(3)
+  })
+
+  it('has a heading for the places only where no station is kept by the text, and none for an empty group', async () => {
     const wrapper = await mountPicker()
     vm(wrapper).searchTerm = 'bad tölz'
-    await vi.waitFor(() => expect(placeQueries).toEqual([{ q: 'bad tölz', lang: 'en' }]))
-    await vi.waitFor(() => expect(labels(vm(wrapper).items)[0]).toBe('[Places]'))
-    // no station is named "Tölz" (the one of the list spells it "TOELZ"), and a heading with nothing under it is left out
-    expect(labels(vm(wrapper).items)).toEqual(['[Places]', 'Bad Tölz', 'Landkreis Bad Tölz-Wolfratshausen'])
-    expect(vm(wrapper).items[1]).toMatchObject({ description: 'Town · Bayern, Germany', value: 'place:N240109189' })
-    // the credit that OpenStreetMap's licence asks for is under the list, and the count is said
+    await vi.waitFor(() => expect(vm(wrapper).headed).toBe(true))
+    expect(groups(vm(wrapper).items)).toEqual([['[Places]', 'Bad Tölz', 'Landkreis Bad Tölz-Wolfratshausen']])
     expect(vm(wrapper).resultCount).toBe(2)
   })
 
@@ -293,22 +307,32 @@ describe('the station search that also finds places', () => {
     const wrapper = await mountPicker()
     vm(wrapper).searchTerm = 'bad tölz'
     await vi.waitFor(() => expect(vm(wrapper).placeItems).toHaveLength(2))
-    vm(wrapper).selectedItems = vm(wrapper).items[1]
+    vm(wrapper).selectedItems = vm(wrapper).placeItems[0]
     expect(wrapper.emitted('update:place')![0]![0]).toMatchObject({ id: 'N240109189', name: 'Bad Tölz', latitude: 47.7614, longitude: 11.5583 })
     expect(wrapper.emitted('update:selected')).toBeUndefined()
   })
 
-  it('has headings and is not virtualised where the list is short, and has none and stays virtualised where the text still keeps over 300 stations', async () => {
+  it('has headings and is not virtualised where the list is short', async () => {
+    const wrapper = await mountPicker()
+    vm(wrapper).searchTerm = 'bad t'
+    await vi.waitFor(() => expect(vm(wrapper).placeItems).toHaveLength(2))
+    expect(vm(wrapper).headed).toBe(true)
+    expect(wrapper.findComponent({ name: 'USelectMenu' }).props('virtualize')).toBe(false)
+  })
+
+  it('has no headings and stays virtualised where the text has places and still keeps over 300 stations', async () => {
     const many = Array.from({ length: 400 }, (_, index) => station(`T${index}`, `TOWNSTATION ${index}`, 48, 11, 500))
     const wrapper = await mountPicker({ stations: many })
     vm(wrapper).searchTerm = 'town'
-    await vi.waitFor(() => expect(placeQueries).toHaveLength(1))
-    await vi.waitFor(() => expect(vm(wrapper).placeItems.length).toBeGreaterThanOrEqual(0))
+    // the text has a place (the stand-in has one for "town") and keeps all 400 stations
+    await vi.waitFor(() => expect(vm(wrapper).placeItems).toHaveLength(1))
+    expect(vm(wrapper).shownStations).toHaveLength(400)
     expect(vm(wrapper).headed).toBe(false)
-    vm(wrapper).searchTerm = 'bad tölz'
-    await vi.waitFor(() => expect(vm(wrapper).placeItems).toHaveLength(2))
-    // "bad tölz" keeps none of the 400: short, so headed
-    expect(vm(wrapper).headed).toBe(true)
+    // one flat list: the place, then the stations, no heading, the menu virtualised
+    expect(vm(wrapper).items).toHaveLength(401)
+    expect(vm(wrapper).items.some((item: { type?: string } | unknown[]) => Array.isArray(item) || (item as { type?: string }).type === 'label')).toBe(false)
+    expect(vm(wrapper).items[0]).toMatchObject({ label: 'Townsville', value: 'place:N5' })
+    expect(wrapper.findComponent({ name: 'USelectMenu' }).props('virtualize')).toBe(true)
   })
 
   it('has no place left the moment the text is no name any more (backspaced under three letters, cleared), not a pause later', async () => {

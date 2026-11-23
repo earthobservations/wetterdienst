@@ -23,11 +23,13 @@ describe('the forecast page with a place', () => {
   const requests: Array<Record<string, unknown>> = []
   let holdStation: Promise<void> | undefined
   let holdNear: Promise<void> | undefined
+  let failStation = false
 
   beforeEach(() => {
     requests.length = 0
     holdStation = undefined
     holdNear = undefined
+    failStation = false
     globalThis.fetch = vi.fn(async () => new Response(JSON.stringify({ values: [] }), { status: 200 }))
     endpoints.push(registerEndpoint('/api/stations', async (event) => {
       const query = getQuery(event)
@@ -39,6 +41,8 @@ describe('the forecast page with a place', () => {
       }
       if (holdStation)
         await holdStation
+      if (failStation)
+        throw createError({ statusCode: 503, statusMessage: 'busy' })
       const station = STATIONS[String(query.stations)]
       return { stations: station ? [station] : [] }
     }))
@@ -93,6 +97,49 @@ describe('the forecast page with a place', () => {
     expect(vm().selectedStation?.station_id).toBe('M0818')
     await new Promise(resolve => setTimeout(resolve, 100))
     expect(useRoute().query).toMatchObject({ station: 'M0818', issue: ISSUE, horizon: '3d' })
+  })
+
+  it('shows the station the header search names from a place view, when its lookup is slow: the place goes at once and the old station is not written back', async () => {
+    wrapper = await mountSuspended(MeteogramPage, { route: `/meteogram?${LINK}` })
+    await vi.waitFor(() => expect(vm().selectedStation?.station_id).toBe('M0814'))
+    await vi.waitFor(() => expect(useRoute().query.station).toBe('M0814'))
+    const { promise, release } = held()
+    holdStation = promise
+    // Ctrl/⌘ K, a station: the link has no place
+    await navigateTo('/meteogram?station=M0816')
+    await vi.waitFor(() => expect(requests.filter(query => query.stations === 'M0816')).toHaveLength(1))
+    // the place is gone, and the address was not rewritten with the station that was shown
+    await vi.waitFor(() => expect(vm().place).toBeNull())
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(useRoute().query.station).toBe('M0816')
+    release()
+    await vi.waitFor(() => expect(vm().selectedStation?.station_id).toBe('M0816'))
+    await new Promise(resolve => setTimeout(resolve, 100))
+    expect(useRoute().query.station).toBe('M0816')
+    expect(useRoute().query.placeName).toBeUndefined()
+  })
+
+  it('shows the place\'s closest station, and says the link\'s station was not found, where the station of a link with a place is unknown', async () => {
+    wrapper = await mountSuspended(MeteogramPage, { route: `/meteogram?station=XXXX&${LINK}` })
+    await vi.waitFor(() => expect(vm().selectedStation?.station_id).toBe('M0814'))
+    expect(vm().stationMissing).toBe('XXXX')
+    await vi.waitFor(() => expect(useRoute().query.station).toBe('M0814'))
+    expect(useRoute().query.placeName).toBe('Bad Tölz')
+    await vi.waitFor(() => expect(wrapper!.find('[data-testid="place-station-missing"]').text()).toBe('The station XXXX named in the link was not found.'))
+  })
+
+  it('does the same where the lookup of the link\'s station fails', async () => {
+    failStation = true
+    wrapper = await mountSuspended(MeteogramPage, { route: `/meteogram?station=M0818&${LINK}` })
+    await vi.waitFor(() => expect(vm().selectedStation?.station_id).toBe('M0814'))
+    expect(vm().stationMissing).toBe('M0818')
+  })
+
+  it('has nothing to fall back to where a link names an unknown station and no place, as it did', async () => {
+    wrapper = await mountSuspended(MeteogramPage, { route: '/meteogram?station=XXXX' })
+    await new Promise(resolve => setTimeout(resolve, 200))
+    expect(vm().selectedStation).toBeNull()
+    expect(vm().stationMissing).toBe('')
   })
 
   it('picks the closest station of a link that names a place and no station, and writes both to the address', async () => {

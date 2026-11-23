@@ -72,7 +72,7 @@ describe('the town of a link', () => {
     await vi.waitFor(() => expect(wrapper.find('[data-testid="place-button"]').text()).toContain('Bad Tölz'))
     expect(wrapper.find('[data-testid="place-region"]').text()).toBe('Bayern, Germany')
     const nearest = asked('stations').find(request => request.query.get('network') === 'observation')!
-    expect(Object.fromEntries(nearest.query)).toMatchObject({ provider: 'dwd', network: 'observation', parameters: 'daily/climate_summary', latitude: '47.761', longitude: '11.5596', rank: '5' })
+    expect(Object.fromEntries(nearest.query)).toMatchObject({ provider: 'dwd', network: 'observation', parameters: 'daily/climate_summary', latitude: '47.761', longitude: '11.5596', rank: '20' })
     expect(usePlace().place.value).toMatchObject({
       name: 'Bad Tölz',
       region: 'Bayern, Germany',
@@ -168,6 +168,26 @@ describe('the town of a link', () => {
     await vi.waitFor(() => expect(wrapper.find('[data-testid="town-problem"]').exists()).toBe(true))
     await new Promise(resolve => setTimeout(resolve, 50))
     expect(wrapper.find('[data-testid="answer"]').exists()).toBe(false)
+    expect(asked('values')).toEqual([])
+  })
+
+  it('reaches past a cluster of closed stations: twenty are asked for, and the first that reports of them is the town\'s', async () => {
+    // the five nearest are all closed (a closed cluster), the sixth reports
+    candidates = [
+      ...Array.from({ length: 5 }, (_, index) => ({ ...ANDECHS, station_id: `0090${index}`, name: `Closed ${index}`, latitude: 47.77 + index / 1000, longitude: 11.55, end_timestamp: '2019-12-31T00:00:00+00:00' }) as never),
+      ANDECHS,
+    ]
+    const wrapper = await mountAsk(`${TOWN}&ask=season`)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="answer-station"]').exists()).toBe(true))
+    expect(asked('stations').find(request => request.query.get('network') === 'observation')!.query.get('rank')).toBe('20')
+    expect(wrapper.find('[data-testid="answer-station"]').text()).toContain('Andechs-Rothenfeld (00125)')
+    expect(asked('values')[0]!.query.get('stations')).toBe('00125')
+  })
+
+  it('has none where the twenty are all closed, and says so', async () => {
+    candidates = Array.from({ length: 20 }, (_, index) => ({ ...ANDECHS, station_id: `0080${index}`, name: `Closed ${index}`, end_timestamp: '2019-12-31T00:00:00+00:00' }) as never)
+    const wrapper = await mountAsk(`${TOWN}&ask=season`)
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="town-problem"]').exists()).toBe(true))
     expect(asked('values')).toEqual([])
   })
 

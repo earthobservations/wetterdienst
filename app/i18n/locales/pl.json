@@ -1181,7 +1181,8 @@
     "showAnyway": "Pokaż mimo to",
     "showAnywayStation": "Pokaż mimo to: prognoza dla stacji {station}, w odległości {distance}, nie jest prognozą dla miejsca {place}",
     "shownAnyway": "Pokazana jest prognoza dla stacji {station}, w odległości {distance} od miejsca {place}. To nie jest prognoza dla miejsca {place}.",
-    "chosen": "Wybrano miejsce: {place}. Współrzędne zostały wypełnione."
+    "chosen": "Wybrano miejsce: {place}. Współrzędne zostały wypełnione.",
+    "linkStationNotFound": "Nie znaleziono stacji {station} podanej w linku."
   },
   "interpolation": {
     "source": "Źródło",

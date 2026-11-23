@@ -104,6 +104,50 @@ test.describe('the Forecast finds places', () => {
     expect(request!.headers.referer).toBeUndefined()
   })
 
+  test('draws the places and the stations as two groups of their own, each named by its heading, with ids of their own', async ({ page, baseURL }) => {
+    await backend(page, baseURL!)
+    await openSearch(page)
+    // "bad t" keeps a place of the stand-in and a station of the list
+    await page.keyboard.type('bad t')
+    const listbox = page.getByRole('listbox')
+    const places = listbox.getByRole('group', { name: 'Places', exact: true })
+    const stations = listbox.getByRole('group', { name: 'Forecast stations', exact: true })
+    await expect(places).toBeVisible()
+    await expect(stations).toBeVisible()
+    await expect(listbox.getByRole('group')).toHaveCount(2)
+    await expect(places.getByRole('option', { name: /^Bad Tölz.*Town/ })).toBeVisible()
+    await expect(stations.getByRole('option', { name: /BAD TOELZ/ })).toBeVisible()
+    // each group is labelled by a heading of its own
+    const labelledBy = await listbox.getByRole('group').evaluateAll(groups => groups.map(group => group.getAttribute('aria-labelledby')))
+    expect(new Set(labelledBy).size).toBe(2)
+    expect(labelledBy).not.toContain(null)
+  })
+
+  test('shows the place\'s closest station, and says the station of a link was not found, for a link with a place and a station that is none', async ({ page, baseURL }) => {
+    await backend(page, baseURL!)
+    await page.addInitScript(() => localStorage.setItem('wd-station-picker', JSON.stringify({ forecast: 'list' })))
+    await page.goto('/meteogram?station=XXXX&lat=47.7610&lon=11.5596&placeName=Bad%20T%C3%B6lz&placeRegion=Bayern%2C%20Germany')
+    const place = page.getByTestId('place-stations')
+    await expect(place.getByTestId('place-station-missing')).toHaveText('The station XXXX named in the link was not found.')
+    await expect(place.getByTestId('place-summary')).toContainText('Showing BAD TOELZ (M0814), the closest forecast station to Bad Tölz')
+    await expect(page).toHaveURL(/station=M0814/)
+  })
+
+  test('shows the station the header search names from a place view', async ({ page, baseURL }) => {
+    await backend(page, baseURL!)
+    await page.addInitScript(() => localStorage.setItem('wd-station-picker', JSON.stringify({ forecast: 'list' })))
+    await page.goto('/meteogram?lat=47.7610&lon=11.5596&placeName=Bad%20T%C3%B6lz&placeRegion=Bayern%2C%20Germany')
+    await expect(page).toHaveURL(/station=M0814/)
+    // the station of a link of the header's search, from the page the place is shown on
+    await page.evaluate(() => {
+      history.pushState({}, '', '/meteogram?station=M0816')
+      window.dispatchEvent(new PopStateEvent('popstate'))
+    })
+    await expect(page.getByTestId('place-stations')).toHaveCount(0)
+    await expect(page).toHaveURL(/station=M0816/)
+    await expect(page.locator('[data-testid="station-picker"] button[aria-haspopup="listbox"]').first()).toContainText('KOCHEL AM SEE')
+  })
+
   test('shows another station of the list on a press, keeps the place, and names the station chosen in the link', async ({ page, baseURL }) => {
     await backend(page, baseURL!)
     const { search } = await openSearch(page)
@@ -259,7 +303,7 @@ test.describe('Ask the weather finds a town', () => {
     await expect(station).toContainText('km away.')
     expect(questions.filter(entry => entry.path === 'values' && entry.query.stations === '00125').length).toBeGreaterThan(0)
     // the station is asked for by the town's position, one nearest
-    expect(positioned.find(query => query.network === 'observation')).toMatchObject({ latitude: '47.761', longitude: '11.5596', rank: '5' })
+    expect(positioned.find(query => query.network === 'observation')).toMatchObject({ latitude: '47.761', longitude: '11.5596', rank: '20' })
   })
 
   test('says there is no weather station near a town that has none within 50 km, names the nearest, and gives no answer', async ({ page, baseURL }) => {

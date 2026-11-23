@@ -1181,7 +1181,8 @@
     "showAnyway": "Trotzdeem weisen",
     "showAnywayStation": "Trotzdeem weisen: D'Prognos vun {station}, {distance} ewech, ass net d'Prognos fir {place}",
     "shownAnyway": "Gewisen gëtt d'Prognos vun {station}, {distance} vun {place} ewech. Et ass net d'Prognos fir {place}.",
-    "chosen": "Plaz gewielt: {place}. D'Koordinaten sinn ausgefëllt."
+    "chosen": "Plaz gewielt: {place}. D'Koordinaten sinn ausgefëllt.",
+    "linkStationNotFound": "D'Statioun {station} aus dem Link gouf net fonnt."
   },
   "interpolation": {
     "source": "Quell",

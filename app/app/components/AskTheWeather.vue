@@ -93,13 +93,13 @@ const NO_TOWN = { lat: null, lon: null, placeName: null, placeRegion: null }
 const townProblem = ref(false)
 /** The town that could not be given a station: said by name, so that the answer of the place before is not taken for its */
 const townProblemName = ref('')
-/** How many of the stations nearest to a town are asked for, to find the nearest one that still reports */
-const TOWN_CANDIDATES = 5
+/** How many of the stations nearest to a town are asked for, to find the nearest one that still reports: twenty reach past a cluster of closed ones, and a town whose twenty nearest are all closed has none */
+const TOWN_CANDIDATES = 20
 /** The town of the link is being looked up: no question is asked about the place before it, which is not the town's */
 const townPending = ref(false)
 async function resolveTown(town: PlaceInLink): Promise<boolean> {
   const response = await $fetch<{ stations: Station[] }>('/api/stations', {
-    // a few candidates, the nearest first: the nearest one may have stopped reporting, and the town's station is the nearest that still does
+    // the nearest stations, the nearest first: the nearest one may have stopped reporting, and the town's station is the nearest that still does
     query: { ...PLACE_NETWORK, latitude: town.latitude, longitude: town.longitude, rank: TOWN_CANDIDATES },
     ...API_FETCH,
   })

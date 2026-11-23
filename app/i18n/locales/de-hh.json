@@ -1181,7 +1181,8 @@
     "showAnyway": "Doch wiesen",
     "showAnywayStation": "Doch wiesen: De Utsicht för {station}, {distance} weg, is nich de Utsicht för {place}",
     "shownAnyway": "Wiest warrt de Utsicht för {station}, {distance} vun {place} weg. Dat is nich de Utsicht för {place}.",
-    "chosen": "Oort utsöcht: {place}. De Koordinaten sünd utfüllt."
+    "chosen": "Oort utsöcht: {place}. De Koordinaten sünd utfüllt.",
+    "linkStationNotFound": "De in den Link nöömte Station {station} wöör nich funnen."
   },
   "interpolation": {
     "source": "Quell",

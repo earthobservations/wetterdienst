@@ -200,8 +200,13 @@ const shownStations = computed(() => {
  */
 const HEADED_LIST_MAX = 300
 const headed = computed(() => placeItems.value.length > 0 && shownStations.value.length <= HEADED_LIST_MAX)
+// With headings the items are two groups (an array of arrays, as the menu takes them): each is drawn as a `role="group"` of its own, labelled by its own heading with its own id.
+// One flat array with two labels would be drawn as one group and the two labels would share an id.
 const items = computed(() => headed.value
-  ? [{ type: 'label' as const, label: t('shell.placesGroup') }, ...placeItems.value, ...(shownStations.value.length ? [{ type: 'label' as const, label: t('stationSelection.stationsGroup') }, ...shownStations.value] : [])]
+  ? [
+      [{ type: 'label' as const, label: t('shell.placesGroup') }, ...placeItems.value],
+      ...(shownStations.value.length ? [[{ type: 'label' as const, label: t('stationSelection.stationsGroup') }, ...shownStations.value]] : []),
+    ]
   : [...placeItems.value, ...shownStations.value])
 
 // A virtualised list draws a heading (a label of the menu) as a bare element with `aria-setsize` and `aria-posinset`, which no role allows (axe: aria-allowed-attr, critical),

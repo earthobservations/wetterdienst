@@ -17,6 +17,8 @@ const props = defineProps<{
   state: 'loading' | 'failed' | 'ready'
   /** The id of the station whose weather is shown */
   selectedId?: string
+  /** The station a link named that was not found, where the closest of the place is shown in its place */
+  missingStation?: string
 }>()
 defineEmits<{ pick: [station: Station] }>()
 
@@ -61,6 +63,10 @@ const summary = computed(() => {
 
     <p class="text-sm" :class="state === 'failed' || (state === 'ready' && !closest) ? 'text-toned' : 'text-muted'" role="status" data-testid="place-summary">
       {{ summary }}
+    </p>
+
+    <p v-if="missingStation" class="text-sm text-error" role="status" data-testid="place-station-missing">
+      {{ t('place.linkStationNotFound', { station: missingStation }) }}
     </p>
 
     <ul v-if="state === 'ready' && listed.length" class="flex flex-col divide-y divide-default" :aria-label="t('place.stationsLabel', { place: place.name })" data-testid="place-station-list">

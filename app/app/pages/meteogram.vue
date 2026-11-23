@@ -32,6 +32,10 @@ const place = ref<PlaceInLink | null>(null)
 const stationsNearPlace = ref<NearStation<Station>[]>([])
 const nearState = ref<'loading' | 'failed' | 'ready'>('ready')
 let nearTicket = 0
+/** The station a link named that could not be found, where the page fell back to the place's closest: told beside the place, never silently */
+const stationMissing = ref('')
+/** The lookup of the stations near the place of the link, which the link's own station waits for where it has to fall back to the closest */
+let placeLookup: Promise<void> | null = null
 const values = ref<any[]>([])
 // the unit of each parameter of the values, as the answer says (GH-3980)
 const units = ref<Record<string, string>>({})
@@ -142,6 +146,7 @@ function onPickerWants(wanted: boolean) {
 // Single-station picker: the picker hands over the one station picked; a pick replaces the one before, and none is
 // only handed over by code (the picker has no way to clear a single station)
 function onPick(picked: Station[]) {
+  stationMissing.value = ''
   // a station the reader picked (by name, on the map, by position) is no longer the place's: the place goes
   place.value = null
   stationsNearPlace.value = []
@@ -181,6 +186,7 @@ async function loadNear(): Promise<void> {
 /** A place chosen in the search: its closest forecast station is picked, or none where none is within reach (the one before is not the place's) */
 async function onPlace(match: PlaceMatch) {
   cancelRestore()
+  stationMissing.value = ''
   // the position to four decimals (about 10 m), as a link keeps it and as it is sent to the backend: Photon's full precision goes nowhere
   place.value = { name: match.name, region: match.region, latitude: Number(match.latitude.toFixed(4)), longitude: Number(match.longitude.toFixed(4)) }
   selectedStation.value = null
@@ -203,7 +209,8 @@ async function applyPlaceFromUrl() {
     stationsNearPlace.value = []
     return
   }
-  await loadNear()
+  placeLookup = loadNear()
+  await placeLookup
   if (nearState.value === 'ready' && !route.query.station && !selectedStation.value)
     selectedStation.value = stationForPlace(stationsNearPlace.value)?.station ?? null
 }
@@ -298,6 +305,20 @@ function cancelRestore() {
   isRestoringFromUrl.value = false
 }
 
+/**
+ * The station a link names could not be found (it is not a forecast station, or the lookup failed): where the link names a place too, the page shows the
+ * place's closest station as a link without a station would, and says that the station of the link was not found. Without a place there is nothing to fall back to.
+ */
+async function fallBackToPlace(stationId: string, ticket: number) {
+  if (!placeOfQuery(route.query))
+    return
+  await placeLookup
+  if (ticket !== restoreTicket || selectedStation.value || nearState.value !== 'ready')
+    return
+  stationMissing.value = stationId
+  selectedStation.value = stationForPlace(stationsNearPlace.value)?.station ?? null
+}
+
 // Auto-fetch and sync URL whenever a station is chosen or cleared
 watch(selectedStation, (station) => {
   if (!applyingUrl) {
@@ -343,13 +364,18 @@ watch([selectedStation, selectedIssue, unitsAsked], ([station]) => {
 })
 
 // Sync station + issue to URL (fires once when both change together)
-watch([selectedStation, selectedIssue, place], ([station, issue]) => {
+watch([selectedStation, selectedIssue, place], ([station, issue, here], [before, run, was]) => {
   if (!station) {
     // a place with no station within reach is in the link all the same; but not while the link's own station is being looked up (see above)
     if (place.value && !isRestoringFromUrl.value)
       void router.replace({ query: placeQuery() }).catch(() => {})
     return
   }
+  // not while the link's station is being looked up either: the station still shown is the one before, and writing it would take the link's away (the header's search
+  // from a place view to another station: the place goes at once, the new station is still on its way)
+  // (the reader's own change of the station or the run while it is looked up is written all the same: it ends the lookup, as the route watcher below sees)
+  if (isRestoringFromUrl.value && station === before && issue === run && here !== was)
+    return
   const q: Record<string, string> = { station: station.station_id, ...placeQuery() }
   if (issue)
     q.issue = issue
@@ -387,7 +413,10 @@ async function restoreFromUrl() {
     if (ticket !== restoreTicket)
       return
     const station = (res.stations ?? [])[0]
+    if (!station)
+      await fallBackToPlace(stationId, ticket)
     if (station) {
+      stationMissing.value = ''
       // a link without a run is the latest one, not the run chosen for the station before
       applyingUrl = true
       // the run of the URL as it is now: a link to the same station may have taken the run away while it was looked up
@@ -403,7 +432,8 @@ async function restoreFromUrl() {
     }
   }
   catch {
-    // ignore – station ID in URL may be invalid, just start fresh
+    // ignore – station ID in URL may be invalid, just start fresh; with a place in the link, its closest station is shown instead
+    await fallBackToPlace(stationId, ticket)
   }
   finally {
     // an earlier request leaves the flags to the later one that is still under way
@@ -509,6 +539,7 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
               :near="stationsNearPlace"
               :state="nearState"
               :selected-id="selectedStation?.station_id"
+              :missing-station="stationMissing"
               @pick="onPickNear"
             />
           </UCard>

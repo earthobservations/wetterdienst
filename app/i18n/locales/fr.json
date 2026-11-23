@@ -1181,7 +1181,8 @@
     "showAnyway": "Afficher quand même",
     "showAnywayStation": "Afficher quand même : la prévision de {station}, à {distance}, n'est pas la prévision de {place}",
     "shownAnyway": "Affichage de la prévision de {station}, à {distance} de {place}. Ce n'est pas la prévision de {place}.",
-    "chosen": "Lieu choisi : {place}. Les coordonnées sont remplies."
+    "chosen": "Lieu choisi : {place}. Les coordonnées sont remplies.",
+    "linkStationNotFound": "La station {station} citée dans le lien n'a pas été trouvée."
   },
   "interpolation": {
     "source": "Source",
