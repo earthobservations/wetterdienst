@@ -29,9 +29,8 @@ Types of changes:
 
 ### Changed
 
-- `[Build]` The app runs on Node 26 (`engines.node` is `>=26.13.1`, and the image and CI use it) and
-  is built with TypeScript 7. `pnpm typecheck` checks the `.ts` code with `tsc` 7 and the `.vue`
-  files with `vue-tsc` on TypeScript 6.0.3; either failing fails it (GH-4342).
+- `[Build]` The app needs Node 26 (`engines.node` is now `>=26.13.1`; the image and the CI run on
+  it) instead of Node 24. Run it from source with Node 26 (GH-4342).
 - `[Weather warnings]` The Forecast and the map's panel show no warnings box for a place outside
   Germany any more, where it said that no warnings source covers the place. Inside Germany nothing
   changes. The Forecast's credits say it in one plain line instead, in all eleven languages:

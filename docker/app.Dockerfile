@@ -2,10 +2,11 @@
 FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS base
 WORKDIR /app
 
-# The corepack that ships with this Node image, not the latest one fetched on every build. It
-# provides `pnpm` at the version and hash of `packageManager` in app/package.json, which is
-# where that pin lives.
-RUN rm -f /usr/local/bin/yarn /usr/local/bin/yarnpkg && \
+# Node has not shipped corepack since Node 25, so a pinned one is installed (not the latest, fetched on
+# every build; Dependabot does not bump this version: raise it by hand). It provides `pnpm` at the version
+# and hash of `packageManager` in app/package.json, which is where that pin lives. Its install scripts
+# are not run.
+RUN npm install --global --ignore-scripts corepack@0.36.0 && \
     corepack enable pnpm
 
 # ─── deps: install node_modules ───────────────────────────────────────────────

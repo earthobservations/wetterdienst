@@ -7,8 +7,8 @@
 // it has no `lib/tsc` and no classic JavaScript API. A tool that loads that API gets its own copy of
 // TypeScript 6.0.3 here, and only that tool (#4342). Each of them declares `typescript` as a peer
 // dependency, which pnpm resolves to the app's TypeScript 7 and which neither `overrides` nor
-// `packageExtensions` can redirect, so the peer is replaced by a dependency on 6.0.3. Drop each entry
-// once the tool supports TypeScript 7 (#4343):
+// `packageExtensions` can redirect, so the peer is replaced by a dependency on 6.0.3 (only for a package
+// that declares one). Drop each entry once the tool supports TypeScript 7 (#4343):
 //   vue-tsc             type-checks the `.vue` files and loads `typescript/lib/tsc`; with TypeScript 7
 //                       it fails at start with ERR_PACKAGE_PATH_NOT_EXPORTED: './lib/tsc'
 //   openapi-typescript  (`pnpm gen:api-types`) builds the types with `ts.factory`, which TypeScript 7
@@ -34,10 +34,8 @@ module.exports = {
       if (pkg.name === 'swagger-ui-dist' && pkg.dependencies) {
         delete pkg.dependencies['@scarf/scarf']
       }
-      if (needsTypescript6(pkg.name)) {
-        if (pkg.peerDependencies) {
-          delete pkg.peerDependencies.typescript
-        }
+      if (needsTypescript6(pkg.name) && pkg.peerDependencies?.typescript) {
+        delete pkg.peerDependencies.typescript
         if (pkg.peerDependenciesMeta) {
           delete pkg.peerDependenciesMeta.typescript
         }
