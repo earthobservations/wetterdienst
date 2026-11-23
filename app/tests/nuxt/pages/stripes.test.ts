@@ -912,13 +912,15 @@ describe('stripes Page values that could not be fetched', () => {
   // the requests the page makes, each settled however it ended
   let requests: Promise<unknown>[] = []
   function recordRequests() {
-    const original = globalThis.$fetch
+    // typed loosely: the app's route types make TypeScript 7 give up ("Excessive stack depth") on `$fetch`'s own type
+    type LooseFetch = (...args: unknown[]) => Promise<unknown>
+    const original = globalThis.$fetch as unknown as LooseFetch
     requests = []
-    vi.spyOn(globalThis, '$fetch').mockImplementation(((...args: Parameters<typeof original>) => {
+    vi.spyOn(globalThis as unknown as { $fetch: LooseFetch }, '$fetch').mockImplementation((...args) => {
       const request = original(...args)
       requests.push(request.catch(() => {}))
       return request
-    }) as typeof original)
+    })
   }
   // every request recorded settled, and the page done with its answer
   async function settled() {

@@ -42,7 +42,7 @@ pnpm install
 pnpm dev            # dev server, port 4000
 pnpm build
 pnpm lint           # oxlint + eslint
-pnpm typecheck      # generates the answers' types from tests/ui/openapi.snapshot.json (pnpm gen:api-types, git-ignored app/.generated/), then nuxt typecheck
+pnpm typecheck      # generates the answers' types from tests/ui/openapi.snapshot.json (pnpm gen:api-types, git-ignored app/.generated/), then `scripts/typecheck.mjs`: vue-tsc (TypeScript 6.0.3, for the .vue files) and tsc 7 (the .ts code); both run and either fails the command
 pnpm test:ci        # vitest run
 pnpm test:e2e       # playwright
 pnpm test:a11y      # the axe accessibility spec, on request only (not in test:e2e); see app/ACCESSIBILITY.md

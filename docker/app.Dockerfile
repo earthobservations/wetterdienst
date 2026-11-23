@@ -1,5 +1,5 @@
 # ─── base: node + pnpm ────────────────────────────────────────────────────────
-FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS base
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS base
 WORKDIR /app
 
 # The corepack that ships with this Node image, not the latest one fetched on every build. It
@@ -53,7 +53,7 @@ COPY app/icon-scan.ts ./
 RUN pnpm run build
 
 # ─── prod: production runtime ─────────────────────────────────────────────────
-FROM node:24-alpine@sha256:44fce696f38ba8c987c4db89954051000bbd05ffd8d8659ba15ed4a8602e937f AS prod
+FROM node:26-alpine@sha256:6bd9ab43c0ec0190ca7b2d193906cb8b7edf6e7f4afa43ddeccd6452710bffb5 AS prod
 WORKDIR /app
 
 RUN apk add --no-cache curl
