@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime as dt
+import json
 import re
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
@@ -23,6 +24,7 @@ from wetterdienst.ui.restapi import API_PREFIX, MCP_ALIAS_PREFIX, MCP_PREFIX
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator, Iterator
+    from typing import Any
 
     from fastapi import FastAPI
 
@@ -460,3 +462,144 @@ def test_the_official_sdk_client_takes_the_id_and_ends_without_an_error(app: Fas
     gets = [entry[1] for entry in seen if entry[0] == "GET"]
     assert gets
     assert set(gets) == {405}
+
+
+_MIB = 1024 * 1024
+
+
+def _post_in_chunks(
+    app: FastAPI, path: str, chunks: list[bytes], *, declare: int | None = None
+) -> tuple[int, dict[str, str], bytes, int]:
+    """POST `chunks` to the app as one request, as an ASGI server delivers a body: one message for each chunk.
+
+    Answers the status, the headers and the body of the response, and how many times the app called `receive`: a
+    wrapper that reads a body it was not to read shows in that count. `declare` is the `Content-Length` to send, none
+    for a chunked body.
+    """
+    calls = 0
+    pending = list(chunks)
+
+    async def receive() -> dict[str, Any]:
+        nonlocal calls
+        calls += 1
+        if pending:
+            return {"type": "http.request", "body": pending.pop(0), "more_body": bool(pending)}
+        # a client stays connected while it waits for the answer, which the SDK streams as it comes
+        await asyncio.sleep(0.3)
+        return {"type": "http.disconnect"}
+
+    started: dict[str, Any] = {}
+    body = bytearray()
+
+    async def send(message: dict[str, Any]) -> None:
+        if message["type"] == "http.response.start":
+            started.update(message)
+        else:
+            body.extend(message.get("body", b""))
+
+    headers = [
+        (b"host", b"testserver"),
+        (b"accept", HEADERS["Accept"].encode()),
+        (b"content-type", b"application/json"),
+    ]
+    if declare is not None:
+        headers.append((b"content-length", str(declare).encode()))
+    scope = {
+        "type": "http",
+        "asgi": {"version": "3.0"},
+        "http_version": "1.1",
+        "method": "POST",
+        "scheme": "http",
+        "path": path,
+        "raw_path": path.encode(),
+        "root_path": "",
+        "query_string": b"",
+        "headers": headers,
+        "client": ("testclient", 50000),
+        "server": ("testserver", 80),
+    }
+
+    async def run() -> None:
+        async with app.router.lifespan_context(app):
+            await app(scope, receive, send)
+
+    asyncio.run(run())
+    response_headers = {name.decode().lower(): value.decode() for name, value in started["headers"]}
+    return started["status"], response_headers, bytes(body), calls
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_a_chunked_initialize_gets_the_id_and_reaches_the_sdk_whole(app: FastAPI, path: str) -> None:
+    """An `initialize` in several chunks, with no `Content-Length`: it gets the id, and the SDK reads all of it."""
+    raw = json.dumps(_INITIALIZE).encode()
+    chunks = [raw[i : i + 20] for i in range(0, len(raw), 20)]
+    assert len(chunks) > 3
+
+    status, headers, body, _ = _post_in_chunks(app, path, chunks)
+
+    assert status == 200
+    assert headers["mcp-session-id"]
+    # the SDK read the whole body: it answers for the protocol version it was sent
+    assert b"protocolVersion" in body
+    assert b'"id":1' in body
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_a_body_that_declares_more_than_the_limit_is_refused_without_being_read(app: FastAPI, path: str) -> None:
+    """A declared `Content-Length` over the SDK's 4 MiB is a 413 before any of the body is read (GH-4341)."""
+    chunks = [b"x" * _MIB] * 8
+
+    status, headers, _, calls = _post_in_chunks(app, path, chunks, declare=8 * _MIB)
+
+    assert status == 413
+    assert "mcp-session-id" not in headers
+    assert calls == 0
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_an_oversized_chunked_body_is_cut_by_the_sdk_not_read_by_the_wrapper(app: FastAPI, path: str) -> None:
+    """A chunked body of 64 MiB with no `Content-Length` is a 413 after the SDK's 4 MiB, not after all of it."""
+    chunks = [b"x" * _MIB] * 64
+
+    status, headers, _, calls = _post_in_chunks(app, path, chunks)
+
+    assert status == 413
+    assert "mcp-session-id" not in headers
+    # 4 MiB and the chunk that goes past it, and one read of the wrapper's before; not the 64 chunks
+    assert calls <= 8
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_an_initialize_padded_past_the_cap_is_served_as_before_with_no_id(app: FastAPI, path: str) -> None:
+    """A body past what the wrapper inspects is not read for a method: the endpoint answers it, with no id."""
+    padded = json.dumps({**_INITIALIZE, "padding": "x" * (128 * 1024)}).encode()
+
+    status, headers, _, _ = _post_in_chunks(app, path, [padded[:70000], padded[70000:]])
+
+    assert status == 200
+    assert "mcp-session-id" not in headers
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_a_deeply_nested_body_is_a_400_not_a_500(app: FastAPI, path: str) -> None:
+    """A body nested deeper than a parser takes is the SDK's parse error (400), as it was before the id (GH-4341)."""
+    # deep enough for the C scanner of `json` too, whose limit is far above the interpreter's recursion limit
+    nested = b"[" * 30000 + b"]" * 30000
+    raw = b'{"jsonrpc":"2.0","id":1,"method":"initialize","params":' + nested + b"}"
+    assert len(raw) < 64 * 1024
+
+    status, headers, _, _ = _post_in_chunks(app, path, [raw])
+
+    assert status == 400
+    assert "mcp-session-id" not in headers
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_a_notification_named_initialize_gets_no_id(app: FastAPI, path: str) -> None:
+    """The id answers a request: a message named `initialize` that has no `id` is a notification (GH-4341)."""
+    notification = {key: value for key, value in _INITIALIZE.items() if key != "id"}
+
+    with TestClient(app) as client:
+        response = client.post(path, json=notification, headers=HEADERS)
+
+    assert "mcp-session-id" not in response.headers

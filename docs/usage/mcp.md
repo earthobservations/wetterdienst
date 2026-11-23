@@ -234,8 +234,8 @@ create a session at `initialize` and has nothing to expire, and a request needs 
 `tools/call` work without an `initialize`. The response to `initialize` carries an `mcp-session-id` header, a fresh
 random one each time, for the clients that expect one from a streamable-HTTP server; the server neither stores nor
 checks it. A request that carries it, another, or none is served alike, and none is unknown (no 404). A client of the
-`mcp` package sends the id back with its requests. The two requests that belong to a session are answered with a 405, as the specification
-lets a server do: `DELETE` (ending a session; clients that send it on closing carry on) and `GET` (opening a stream
+`mcp` package sends the id back with its requests. The id is no credential. The two requests that belong to a session
+are answered with a 405, as the specification lets a server do: `DELETE` (ending a session; clients that send it on closing carry on) and `GET` (opening a stream
 of messages from the server, of which a server of tools has none; the `mcp` client, which opens one once it has an
 id, tries it twice and gives up without an error). A tool's answer is one body and is not streamed
 (`format=ndjson` and `csv` are text content of the result, held to the same `rows` limit as every other format of

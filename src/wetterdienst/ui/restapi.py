@@ -3131,7 +3131,7 @@ def _mount_mcp(rest_app: FastAPI) -> bool:
         Route(
             route.path,
             endpoint=AnnounceSessionId(route.endpoint),
-            methods=sorted(route.methods or ()),
+            methods=sorted(route.methods) if route.methods else None,
             name=route.name,
         )
         if isinstance(route, Route) and route.path == MCP_PREFIX
