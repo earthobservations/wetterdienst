@@ -30,6 +30,7 @@ from fastapi import FastAPI, Response
 from fastmcp import Client
 from mcp_types import EmbeddedResource, ImageContent, TextContent
 
+from tests.ui.mcp_image_timeout import raise_if_image_timeout
 from tests.ui.test_operations import _VALUES, _no_ambient_settings, _selection_of  # noqa: F401
 from tests.ui.test_restapi import _stub_stream, _values_result_of_shape
 from wetterdienst.model.processing_note import PROCESSING_NOTE
@@ -61,15 +62,20 @@ _BLOCK_OF_FORMAT: dict[str, type] = {
 def _calls(
     app: FastAPI, calls: Sequence[tuple[str, Mapping[str, Any]]]
 ) -> list[tuple[ToolResult, dict[str, Any] | None]]:
-    """Make the calls on one server built from `app`, in one session; give each result with its tool's output schema."""
+    """Make the calls on one server built from `app`, in one session; give each result with its tool's output schema.
+
+    A call whose image was not rendered in time raises `ImageTimeoutError`, which the suite reruns (GH-4367).
+    """
 
     async def call() -> list[tuple[ToolResult, dict[str, Any] | None]]:
         async with Client(build_mcp_server(app)) as client:
             schemas = {tool.name: tool.output_schema for tool in await client.list_tools()}
-            return [
-                (await client.call_tool(tool, dict(arguments), raise_on_error=False), schemas[tool])
-                for tool, arguments in calls
-            ]
+            answers = []
+            for tool, arguments in calls:
+                result = await client.call_tool(tool, dict(arguments), raise_on_error=False)
+                raise_if_image_timeout(result)
+                answers.append((result, schemas[tool]))
+            return answers
 
     return asyncio.run(call())
 
@@ -82,16 +88,18 @@ def _call(app: FastAPI, tool: str, arguments: Mapping[str, Any]) -> tuple[ToolRe
 def _every_format(tool: str, arguments: Mapping[str, Any]) -> tuple[dict[str, ToolResult], dict[str, Any] | None]:
     """Call a tool of the real app in each format its input schema offers, in one session.
 
-    Gives the results by format and the output schema of the tool.
+    Gives the results by format and the output schema of the tool. An image that was not rendered in time raises
+    `ImageTimeoutError`, which the suite reruns (GH-4367).
     """
 
     async def call() -> tuple[dict[str, ToolResult], dict[str, Any] | None]:
         async with Client(build_mcp_server(restapi.app)) as client:
             listed = next(t for t in await client.list_tools() if t.name == tool)
             formats = listed.input_schema["properties"]["format"]["enum"]
-            answers = {
-                fmt: await client.call_tool(tool, {**arguments, "format": fmt}, raise_on_error=False) for fmt in formats
-            }
+            answers = {}
+            for fmt in formats:
+                answers[fmt] = await client.call_tool(tool, {**arguments, "format": fmt}, raise_on_error=False)
+                raise_if_image_timeout(answers[fmt])
             return answers, listed.output_schema
 
     return asyncio.run(call())
