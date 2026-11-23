@@ -330,7 +330,7 @@ Notes:
 
 | network | resolution | datasets | source time zone | reference time | verified |
 | --- | --- | --- | --- | --- | --- |
-| observation | 10\_minutes | data | UTC | mixed (end (of the preceding 10 minutes, and ta, td, rh, p0 and pp are the 'past minute mean' at that end): ta, td, rh, p0, pp, tg, tb, fx, qg, ss, n, vv, rg, dr; differ by station: dd, ff partly 'middle' at listed stations; the library stamps the end (the file name)) | yes |
+| observation | 10\_minutes | data | UTC | mixed (end (of the preceding 10 minutes, and ta, td, rh, p0, pp and tg are the 'past minute mean' at that end): ta, td, rh, p0, pp, tg, tb, fx, qg, ss, n, vv, rg, dr; differ by station: dd, ff partly 'middle' at listed stations; the library stamps the end (the file name)) | yes |
 | observation | hourly | data | UTC | end (of the preceding hour; T/TD/U/P 'past 1 minute' values at that end; FH/FX/RH/DR/SQ/Q hourly aggregates); the library stamps the end (file name + 1 h) | yes |
 | observation | daily | data | UTC | start (UTC day 00-24 labelled with its date; KNMI's NetCDF time is the end) | yes |
 | observation | monthly | data | UTC | start (calendar month labelled with its first day; KNMI's NetCDF time is the end) | yes |

@@ -585,7 +585,7 @@ export const parameters: Record<string, string> = {
   temperature_air_max_2m_last_12h: 'Hööchsttemperatur (2 m, lest 12 h)',
   temperature_air_max_2m_mean: 'Middlere Hööchsttemperatur (2 m)',
   temperature_air_max_2m_multiday: 'Hööchsttemperatur (2 m), mehr Daag tosamenfaat',
-  temperature_air_mean_0_1m: 'Lufttemperatur (10 cm)',
+  temperature_air_0_1m: 'Lufttemperatur (10 cm)',
   temperature_air_mean_grass_height: 'Lufttemperatur (Grashööch)',
   temperature_air_mean_2m_last_24h: 'Lufttemperatur (2 m, lest 24 h)',
   temperature_air_mean_2m_yesterday: 'Lufttemperatur (2 m), Vördag',

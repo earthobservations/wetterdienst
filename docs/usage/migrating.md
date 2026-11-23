@@ -179,6 +179,7 @@ release ([Parameter names](compatibility.md#parameter-names-units-and-timestamps
 | `temperature_dew_point_mean_2m`, `temperature_air_mean_0_05m`, `temperature_wet_mean_2m`, `temperature_radiant_mean_2m` | `temperature_dew_point_2m`, `temperature_air_0_05m`, `temperature_wet_2m`, `temperature_radiant_2m` | the same rows (the road and SWSMOS dew points were renamed again, see the rows below) | 0.145.0 |
 | `temperature_soil_mean_0_02m` to `temperature_soil_mean_2m` | `temperature_soil_0_02m` to `temperature_soil_2m` | the same rows | 0.145.0 |
 | `temperature_surface_mean` | `temperature_surface` | `dwd/road`, `dwd/swsmos` | 0.145.0, GH-2660 |
+| `temperature_air_mean_0_1m` | `temperature_air_0_1m` | `knmi/observation` 10-minute `tg`, "Past 1 minute mean air temperature at 10 centimeters": a reading, aggregation `instant`, as its siblings `ta` and `td` | unreleased, GH-4330 |
 | `wind_speed`, `wind_direction` | `wind_speed_mean`, `wind_direction_mean` | rows whose source states the mean of the row's interval (46 rows, 13 networks) | 0.160.0, GH-3151 |
 | `wind_speed`, `wind_direction` | `wind_speed_mean_last_10min`, `wind_direction_mean_last_10min` | hourly means over the last 10 minutes: `aemet`, `dwd` (wind synoptic, POI), `fmi`, `knmi` (direction), `meteofrance` (observation and SYNOP), `metno/frost`, `smhi` | 0.145.0 to 0.160.0, GH-2697, GH-2707, GH-2733, GH-2835, GH-3151 |
 | `wind_speed`, `wind_direction` | `wind_speed_mean_last_2min`, `wind_direction_mean_last_2min` | `nws/observation`; `eccc/observation` hourly direction | 0.155.0, GH-2837, GH-2838 |
@@ -450,10 +451,10 @@ arguments are the query parameters. In addition:
 
 ## Verified
 
-The parameter tables above were checked against the code of both releases. 409 parameters that a dataset of 0.139.0
+The parameter tables above were checked against the code of both releases. 410 parameters that a dataset of 0.139.0
 has are not in the current release under the same name; each is requested from it, and a test
 (`tests/metadata/test_gone_since_0_139_0.py`) holds each to the answer below; the numbers of this paragraph are
-computed from the same list. 376 of the refusals name a replacement, and that replacement exists in the same network, resolution
+computed from the same list. 377 of the refusals name a replacement, and that replacement exists in the same network, resolution
 and dataset. The other 33 are:
 
 - the removals, with no replacement: `temperature_soil_mean_1m` of DWD daily (GH-2700), `wind_direction_gust_max` of

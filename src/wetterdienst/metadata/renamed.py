@@ -137,6 +137,8 @@ RENAMED_PARAMETERS: dict[str, str] = {
     # GH-2659: MOSMIX's error of ttt and td follows them to the spot names
     "error_absolute_temperature_air_mean_2m": "error_absolute_temperature_air_2m",
     "error_absolute_temperature_dew_point_mean_2m": "error_absolute_temperature_dew_point_2m",
+    # GH-4330: KNMI's 10-minute `tg` is "Past 1 minute mean air temperature at 10 centimeters", a reading, as `ta`
+    "temperature_air_mean_0_1m": "temperature_air_0_1m",
     # GH-2843: MOSMIX's RRad1 is a relative global irradiance, no probability
     "probability_radiation_global_last_1h": "radiation_global_relative_last_1h",
     # GH-2844: the window of a synoptic past weather is 6 hours at 00, 06, 12 and 18 UTC and 3 hours at the others

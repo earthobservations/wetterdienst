@@ -414,16 +414,6 @@ def test_a_spot_name_does_not_carry_a_description_that_states_a_mean() -> None:
     assert not wrong, "\n".join(wrong)
 
 
-# a `_mean_` name whose source states a mean over a window shorter than the row's interval, by site, with the
-# reason. The table has a mean name at 10 cm (`temperature_air_mean_0_1m`) and no spot one, so a spot name would be
-# a new canonical parameter and a rename of the one a caller reads (GH-4321)
-_MEAN_NAME_OVER_A_SHORTER_WINDOW = {
-    "KnmiObservationMetadata 10_minutes/data/temperature_air_mean_0_1m [tg]": (
-        "KNMI's 10-minute `tg` is a 1-minute mean at 10 cm; the table has no spot name at that height"
-    ),
-}
-
-
 def test_a_sub_daily_mean_name_needs_a_description_that_states_a_mean() -> None:
     """Below daily resolution a `_mean_` temperature name is for a source that says it is a mean.
 
@@ -437,7 +427,6 @@ def test_a_sub_daily_mean_name_needs_a_description_that_states_a_mean() -> None:
             resolution not in _COARSE_RESOLUTIONS
             and _MEAN_NAME.match(parameter.name)
             and not _states_a_mean(evidence, resolution)
-            and site not in _MEAN_NAME_OVER_A_SHORTER_WINDOW
         ):
             wrong.append(f"{site}: named a mean, but the source says {evidence!r}")
     assert not wrong, "\n".join(wrong)
@@ -554,8 +543,9 @@ def test_a_spot_name_behaves_as_the_mean_name_beside_it() -> None:
         )
         if counterpart not in PARAMETERS:
             # no dataset declares the mean radiant temperature, so the table has no entry to be kept in step with:
-            # DWD's urban 10-minute set only has the reading (GH-2614, GH-2651)
-            if name != "temperature_radiant_2m":
+            # DWD's urban 10-minute set only has the reading (GH-2614, GH-2651). The same for the air temperature at
+            # 10 cm: KNMI's `tg` is a 1-minute reading and no source states a mean there (GH-4330)
+            if name not in ("temperature_radiant_2m", "temperature_air_0_1m"):
                 wrong.append(f"{name}: has no {counterpart}")
             continue
         for field in ("unit_type", "interpolation", "zero_inflated", "lapse_rate"):
