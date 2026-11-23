@@ -22,6 +22,14 @@ Types of changes:
   one each time, for the clients that expect one. The endpoint stays stateless (GH-3088): the id is
   neither stored nor checked, and a request is served alike with it, another or none (GH-4341)
 
+### Changed
+
+- FastAPI 0.165 and Starlette 1.10 are the tested versions of the `restapi` and `mcp` extras (the
+  floors stay at FastAPI 0.142 and Starlette 1.3). With FastAPI 0.142.4 and later, a tool call over
+  `/mcp` no longer records fastapi's `fastapi.dependencies`, `fastapi.endpoint` and
+  `fastapi.serialization` spans of the tool's own REST request in an OpenTelemetry trace; the tool
+  call's span stays (GH-4351)
+
 ## [0.196.0] - 2026-11-23
 
 ### Changed

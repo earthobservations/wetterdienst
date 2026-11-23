@@ -6623,8 +6623,9 @@ def test_mcp_tool_call_over_mcp_is_recorded_as_the_mcp_request_only(
 ) -> None:
     """A tool call over `/mcp` records the `/mcp` requests, not the tool's REST request (GH-2432).
 
-    The tool's request runs in the context of the `/mcp` request, so fastapi's operation spans for it
-    sit beneath the tool call's span.
+    The tool's request runs in the context of the `/mcp` request. Before fastapi 0.142.4 its operation
+    spans sat beneath the tool call's span; from 0.142.4 fastapi records none for an excluded request.
+    Either way none starts a trace of its own: whatever is recorded sits beneath the tool call's span.
     """
     pytest.importorskip("fastmcp")
     from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
@@ -6667,8 +6668,9 @@ def test_mcp_tool_call_over_mcp_is_recorded_as_the_mcp_request_only(
     assert _request_durations(metrics) == {"/mcp": 3}
     (tool_call,) = [span for span in spans.get_finished_spans() if span.name == "tools/call glossary"]
     operations = [span for span in spans.get_finished_spans() if span.name.startswith("fastapi.")]
-    assert {span.name for span in operations} == {"fastapi.dependencies", "fastapi.endpoint", "fastapi.serialization"}
-    assert {span.parent.span_id for span in operations if span.parent} == {tool_call.context.span_id}
+    assert {span.name for span in operations} <= {"fastapi.dependencies", "fastapi.endpoint", "fastapi.serialization"}
+    assert {span.parent.span_id for span in operations if span.parent} <= {tool_call.context.span_id}
+    assert {span.context.trace_id for span in operations} <= {tool_call.context.trace_id}
 
 
 def test_values_a_failed_dwd_download_is_a_502_not_an_empty_result(
