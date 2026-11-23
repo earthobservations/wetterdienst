@@ -43,6 +43,12 @@ Types of changes:
   (build and lint tooling only, no copy ships in the app). The search index is written as JSON
   with `<`, `>`, `&`, `/`, U+2028 and U+2029 escaped instead of text built by hand. The app looks
   and works the same (GH-4340).
+- `[MCP]` The `/mcp` proxy refuses a request body over 4 MiB, the backend's own limit, with a 413
+  problem: a declared `Content-Length` before any of the body is read, a chunked body (best effort,
+  the connection is closed) as soon as it passes the limit. It held a body of any size in memory
+  first, and nuxt-security's request size limit answered 413 from 2 MB, with an h3 error. Both of
+  its request checks (the XSS filter and the size limit) are off for `/mcp`, and a body that
+  something has read before the proxy is answered 500, never forwarded empty (GH-4362).
 
 ### Fixed
 
