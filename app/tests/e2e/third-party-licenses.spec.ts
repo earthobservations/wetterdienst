@@ -21,6 +21,7 @@ const NOT_IN_THE_BUNDLE: Record<string, string> = {
   '@tailwindcss/vite': 'a Vite plugin that runs in the build; the CSS it makes is tailwindcss\'s',
   '@vueuse/nuxt': 'a Nuxt module that registers the auto-imports of @vueuse/core; the code that runs is @vueuse/core\'s',
   'nuxt-security': 'a Nuxt module whose headers and middleware run on the server',
+  'vue': 'its one file in the client build is `export * from \'@vue/runtime-dom\'` and development-only code, which rolldown 1.2.19 and later leave out of the chunk (1.2.12 listed the file); the Vue code that runs is @vue/runtime-core, @vue/runtime-dom, @vue/reactivity and @vue/shared, each in the file with its own MIT notice',
 }
 
 /** Whether the lockfile has a package of exactly this name and version (a key of its `packages:` section) */

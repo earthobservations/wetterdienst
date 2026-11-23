@@ -16,6 +16,16 @@ Types of changes:
 
 ## [Unreleased]
 
+### Fixed
+
+- The MCP tool `alerts` keeps an answer over 40,000 characters within it (Kiel's three warnings were
+  184,612, so a client saved them to a file): each warning loses its `geometry` and area lists (a
+  `name` keeps up to 25 matching areas), then the least severe warnings go, with an
+  `answer-truncated` warning. A `name` matching no area adds `no-area-matched`. Other answers, REST,
+  the command line and Python are unchanged (GH-4338)
+
+## [0.196.0] - 2026-11-23
+
 ### Changed
 
 - **Breaking**: `knmi/observation` 10-minute `tg` is `temperature_air_0_1m`, no longer
@@ -33,17 +43,16 @@ Types of changes:
 
 ### Fixed
 
-- The MCP tool `alerts` keeps an answer over 40,000 characters within it (Kiel's three warnings were
-  184,612, so a client saved them to a file): each warning loses its `geometry` and area lists (a
-  `name` keeps up to 25 matching areas), then the least severe warnings go, with an
-  `answer-truncated` warning. A `name` matching no area adds `no-area-matched`. Other answers, REST,
-  the command line and Python are unchanged (GH-4338)
 - **Breaking**: `aemet/observation` daily `wind_direction_gust_max` is null with `raw:88` where the
   source writes 88, "sin dato" (no data) in the units text of `dir`, as it is for the 99. It was
   `rejected:range,raw:880` with `range: hard`, and 880.0 with `suspect:range` with `range: soft`,
   so `range: soft` no longer returns it: filter on `raw:88`. The AEMET daily `dir` and `prec`
   descriptions and the KNMI 10-minute, monthly and annual `FXX` ones now carry the source's own
   words and codes (GH-4321)
+- The glossary (`/api/glossary`, the MCP `glossary` tool, the app's glossary page) described
+  `distance_river_gauge_height` (GHCN-Daily's `GAHT`) as the height of the gauge zero point. It is,
+  as GHCN-Daily writes it, the "difference between river and gauge height"; the app's label
+  says so in all eleven languages. The values are unchanged (GH-4310)
 
 ## [0.195.0] - 2026-11-22
 
@@ -125,10 +134,6 @@ Types of changes:
   provider pages described `sunshine_duration` and its 3-hour and previous-day forms as the time
   "the sun shone unobstructed". They now say what WMO defines: the time during which the direct
   solar irradiance exceeded 120 W/m² (GH-4263)
-- The glossary (`/api/glossary`, the MCP `glossary` tool, the app's glossary page) described
-  `distance_river_gauge_height` (GHCN-Daily's `GAHT`) as the height of the gauge zero point. It is,
-  as GHCN-Daily writes it, the "difference between river and gauge height"; the app's label
-  says so in all eleven languages. The values are unchanged (GH-4310)
 
 ## [0.193.0] - 2026-11-20
 
@@ -8465,7 +8470,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.195.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.196.0...HEAD
+[0.196.0]: https://github.com/earthobservations/wetterdienst/compare/v0.195.0...v0.196.0
 [0.195.0]: https://github.com/earthobservations/wetterdienst/compare/v0.194.0...v0.195.0
 [0.194.0]: https://github.com/earthobservations/wetterdienst/compare/v0.193.0...v0.194.0
 [0.193.0]: https://github.com/earthobservations/wetterdienst/compare/v0.192.0...v0.193.0
