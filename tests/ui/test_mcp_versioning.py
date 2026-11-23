@@ -468,7 +468,7 @@ _MIB = 1024 * 1024
 
 
 def _post_in_chunks(
-    app: FastAPI, path: str, chunks: list[bytes], *, declare: int | None = None
+    app: FastAPI, path: str, chunks: list[bytes], *, declare: int | str | None = None
 ) -> tuple[int, dict[str, str], bytes, int]:
     """POST `chunks` to the app as one request, as an ASGI server delivers a body: one message for each chunk.
 
@@ -573,11 +573,122 @@ def test_an_oversized_chunked_body_is_cut_by_the_sdk_not_read_by_the_wrapper(app
 def test_an_initialize_padded_past_the_cap_is_served_as_before_with_no_id(app: FastAPI, path: str) -> None:
     """A body past what the wrapper inspects is not read for a method: the endpoint answers it, with no id."""
     padded = json.dumps({**_INITIALIZE, "padding": "x" * (128 * 1024)}).encode()
+    # 20 KiB chunks: three are within the cap and held when the fourth goes past it, and the SDK must get all of them
+    chunks = [padded[i : i + 20 * 1024] for i in range(0, len(padded), 20 * 1024)]
+    assert len(chunks) > 4
 
-    status, headers, _, _ = _post_in_chunks(app, path, [padded[:70000], padded[70000:]])
+    status, headers, body, _ = _post_in_chunks(app, path, chunks)
 
     assert status == 200
     assert "mcp-session-id" not in headers
+    assert b"protocolVersion" in body
+
+
+async def _feed(messages: list[dict[str, Any]], *, then: dict[str, Any] | None = None) -> Any:  # noqa: ANN401
+    """Run the reader of the start of a body over `messages`, and answer what it gives and how many it asked for."""
+    from wetterdienst.ui import mcp  # noqa: PLC0415
+
+    asked = 0
+
+    async def receive() -> dict[str, Any]:
+        nonlocal asked
+        asked += 1
+        # a point to cancel at, as a server's `receive` has: an endless stream must end in the timeout, not hang the run
+        await asyncio.sleep(0)
+        if messages:
+            return messages.pop(0)
+        return then or {"type": "http.disconnect"}
+
+    replay, body = await mcp._read_start_of_body(receive)  # noqa: SLF001
+    return list(replay), body, asked
+
+
+def test_a_body_of_one_byte_messages_is_held_as_one_message() -> None:
+    """A body that comes one byte at a time is a single message and a buffer, not a message for each byte."""
+    body = b'{"jsonrpc":"2.0","id":1,"method":"initialize"}'
+    messages = [
+        {"type": "http.request", "body": body[i : i + 1], "more_body": i < len(body) - 1} for i in range(len(body))
+    ]
+
+    replay, read, asked = asyncio.run(_feed(messages))
+
+    assert read == body
+    assert replay == [{"type": "http.request", "body": body, "more_body": False}]
+    assert asked == len(body)
+
+
+def test_the_messages_of_a_body_up_to_the_cap_are_held_as_one() -> None:
+    """65535 messages of a byte are still one message held, and the one that goes past the cap is kept as it came."""
+    cap = 64 * 1024
+    messages = [{"type": "http.request", "body": b"x", "more_body": True} for _ in range(cap)]
+    crossing = {"type": "http.request", "body": b"y", "more_body": True}
+
+    replay, read, _ = asyncio.run(_feed([*messages, crossing]))
+
+    assert read is None
+    assert len(replay) == 2
+    assert replay[0] == {"type": "http.request", "body": b"x" * cap, "more_body": True}
+    assert replay[1] is crossing
+
+
+def test_the_messages_after_the_body_are_kept_for_the_endpoint() -> None:
+    """A disconnect that ends the body is replayed after it."""
+    disconnect = {"type": "http.disconnect"}
+
+    replay, read, _ = asyncio.run(_feed([{"type": "http.request", "body": b"ab", "more_body": True}], then=disconnect))
+
+    assert read == b"ab"
+    assert replay == [{"type": "http.request", "body": b"ab", "more_body": True}, disconnect]
+
+
+def test_empty_messages_that_end_are_waited_for() -> None:
+    """A few messages with no bytes, then the body: it is all read, and the empty ones are not replayed."""
+    body = b'{"jsonrpc":"2.0","id":1,"method":"initialize"}'
+    messages = [{"type": "http.request", "body": b"", "more_body": True}] * 10
+    messages.append({"type": "http.request", "body": body, "more_body": False})
+
+    replay, read, _ = asyncio.run(_feed(messages))
+
+    assert read == body
+    assert replay == [{"type": "http.request", "body": body, "more_body": False}]
+
+
+def test_an_endless_stream_of_empty_messages_is_given_up_on() -> None:
+    """A server that sends `more_body` and nothing else without end does not hold the wrapper: it hands over."""
+    empty = {"type": "http.request", "body": b"", "more_body": True}
+
+    async def run() -> Any:  # noqa: ANN401
+        return await asyncio.wait_for(_feed([], then=empty), timeout=5)
+
+    replay, read, asked = asyncio.run(run())
+
+    assert read is None
+    assert replay == [{"type": "http.request", "body": b"", "more_body": True}]
+    assert asked < 200
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_empty_messages_before_an_initialize_are_served_with_the_id(app: FastAPI, path: str) -> None:
+    """Through the app: empty messages, then the body, and the SDK reads the `initialize` all the same."""
+    raw = json.dumps(_INITIALIZE).encode()
+
+    status, headers, body, _ = _post_in_chunks(app, path, [b"", b"", raw[:30], b"", raw[30:]])
+
+    assert status == 200
+    assert headers["mcp-session-id"]
+    assert b"protocolVersion" in body
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_a_content_length_of_thousands_of_digits_is_no_number_and_no_error(app: FastAPI, path: str) -> None:
+    """A `Content-Length` of leading zeros, longer than `int` takes from a string, is served as one with none."""
+    raw = json.dumps(_INITIALIZE).encode()
+
+    status, headers, body, _ = _post_in_chunks(app, path, [raw], declare="0" * 5000 + str(len(raw)))
+
+    assert status == 200
+    assert headers["mcp-session-id"]
+    assert b"protocolVersion" in body
 
 
 @pytest.mark.parametrize("path", MCP_PATHS)

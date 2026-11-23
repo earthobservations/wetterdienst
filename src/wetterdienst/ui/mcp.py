@@ -106,6 +106,10 @@ SESSION_ID_HEADER = "mcp-session-id"
 #: `RequestBodyLimitMiddleware`), which the wrapper must not defeat by reading a body of any size first
 _INSPECTED_BODY_BYTES = 64 * 1024
 
+#: how many messages of a body that bring no bytes (`more_body` and nothing else) `AnnounceSessionId` waits for before
+#: it gives up looking: they count toward no cap, and a server may send them without end
+_MAX_EMPTY_MESSAGES = 64
+
 
 def _is_initialize(body: bytes) -> bool:
     """Tell whether a request body is a JSON-RPC `initialize` request: a message with an `id`, or a batch of one.
@@ -131,31 +135,52 @@ def _declared_length(scope: Scope) -> int | None:
     """Give the `Content-Length` a request declares, or None where it declares none (a chunked body) or no number."""
     for name, value in scope["headers"]:
         if name.lower() == b"content-length":
-            return int(value) if value.isdigit() else None
+            try:
+                # a number of thousands of digits is refused by `int` itself
+                return int(value) if value.isdigit() else None
+            except ValueError:
+                return None
     return None
 
 
 async def _read_start_of_body(receive: Receive) -> tuple[deque[MutableMapping[str, Any]], bytes | None]:
-    """Read the messages of a body up to `_INSPECTED_BODY_BYTES`, and give them with the body they hold.
+    """Read the start of a body, and give the messages to replay with the body they hold.
 
-    The body is None where it is past the cap, and then the last message read is the one that went past it: the rest
-    of the body is still to be received. Nothing is copied but the chunks within the cap.
+    Reads up to `_INSPECTED_BODY_BYTES`, into one buffer, and waits for at most `_MAX_EMPTY_MESSAGES` messages that
+    bring nothing, so that neither a body of many small messages nor a stream of empty ones is held or waited for
+    without end. The body is None where the start is not all there is within those bounds: the messages then end
+    with what was read, and the rest is still to come from `receive`. The messages are the body read as one message
+    (the chunks of a body are no part of what an application may rely on), the message that went past the cap as it
+    came, and a message that is no part of the body (a disconnect) after it.
     """
+    buffer = bytearray()
+    more_body = False
+    seen_request = False
+    empty = 0
     messages: deque[MutableMapping[str, Any]] = deque()
-    chunks: list[bytes] = []
-    size = 0
     while True:
         message = await receive()
-        messages.append(message)
         if message["type"] != "http.request":
-            return messages, b"".join(chunks)
+            if seen_request:
+                messages.append({"type": "http.request", "body": bytes(buffer), "more_body": more_body})
+            messages.append(message)
+            return messages, bytes(buffer)
+        seen_request = True
         chunk = message.get("body", b"")
-        size += len(chunk)
-        if size > _INSPECTED_BODY_BYTES:
+        if len(buffer) + len(chunk) > _INSPECTED_BODY_BYTES:
+            messages.append({"type": "http.request", "body": bytes(buffer), "more_body": True})
+            messages.append(message)
             return messages, None
-        chunks.append(chunk)
-        if not message.get("more_body", False):
-            return messages, b"".join(chunks)
+        buffer.extend(chunk)
+        more_body = bool(message.get("more_body", False))
+        if not more_body:
+            messages.append({"type": "http.request", "body": bytes(buffer), "more_body": False})
+            return messages, bytes(buffer)
+        if not chunk:
+            empty += 1
+            if empty > _MAX_EMPTY_MESSAGES:
+                messages.append({"type": "http.request", "body": bytes(buffer), "more_body": True})
+                return messages, None
 
 
 class AnnounceSessionId:
@@ -169,10 +194,9 @@ class AnnounceSessionId:
     server neither stores nor checks the id (it is no credential): a later request is served alike with this id, with
     another, or with none, and no id is unknown (no 404).
 
-    The start of the body is read to see the method, up to `_INSPECTED_BODY_BYTES`, and replayed to the endpoint as it
-    came, with the chunks it was sent in, so the endpoint reads what the client sent and its own limit on the size of a
-    body holds. A request that is no `POST`, one that declares a larger body, and one whose body is no `initialize`
-    pass as they are.
+    The start of the body is read to see the method, up to `_INSPECTED_BODY_BYTES`, and replayed to the endpoint, so
+    that the endpoint reads what the client sent and its own limit on the size of a body holds. A request that is no
+    `POST`, one that declares a larger body, and one whose body is no `initialize` pass as they are.
     """
 
     def __init__(self, app: ASGIApp) -> None:
