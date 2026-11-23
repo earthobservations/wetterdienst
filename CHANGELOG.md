@@ -16,6 +16,8 @@ Types of changes:
 
 ## [Unreleased]
 
+## [0.196.0] - 2026-11-23
+
 ### Changed
 
 - **Breaking**: `knmi/observation` 10-minute `tg` is `temperature_air_0_1m`, no longer
@@ -8460,7 +8462,8 @@ Types of changes:
 - Add Gh Action for release
 - Rename library
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.195.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/v0.196.0...HEAD
+[0.196.0]: https://github.com/earthobservations/wetterdienst/compare/v0.195.0...v0.196.0
 [0.195.0]: https://github.com/earthobservations/wetterdienst/compare/v0.194.0...v0.195.0
 [0.194.0]: https://github.com/earthobservations/wetterdienst/compare/v0.193.0...v0.194.0
 [0.193.0]: https://github.com/earthobservations/wetterdienst/compare/v0.192.0...v0.193.0

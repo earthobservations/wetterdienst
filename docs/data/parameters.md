@@ -380,7 +380,7 @@ The rows, by network, resolution and dataset (`field` is the source's own name):
 
 #### DWD POI and NWS: a mean the source gives in other words
 
-Two sources state a mean without the word, and had kept the plain name (GH-3134, unreleased):
+Two sources state a mean without the word, and had kept the plain name (GH-3134, 0.186.0):
 
 - DWD POI's three irradiances of the preceding hour, `global_radiation_last_hour` ("Globalstrahlung (letzte Stunde)"),
   `diffuse_solar_radiation_last_hour` ("Diffuse Strahlung (letzte Stunde)") and `direct_solar_radiation_last_hour`
