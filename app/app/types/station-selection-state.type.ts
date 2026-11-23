@@ -1,3 +1,5 @@
+import type { PlaceInLink } from '~/utils/place-link'
+
 export type StationMode = 'station' | 'interpolation' | 'summary'
 
 export type InterpolationSource = 'manual' | 'station'
@@ -16,6 +18,11 @@ export interface InterpolationSelection {
    */
   elevation?: number
   station?: Station
+  /**
+   * The place the coordinates are the position of (GH-3791), where they were found by its name: shown with the point, and kept in the link. It goes
+   * where the coordinates are typed over or the point is given by a station. A place has no height: no elevation is taken from it.
+   */
+  place?: PlaceInLink
 }
 
 export interface DateRange {

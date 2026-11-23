@@ -4,9 +4,12 @@ import type { Provider, Station, ValuesResponse } from '#shared/types/api'
 import type { ChipApi, ChipContext, Choices, SelectChoice } from '~/utils/ask/chip'
 import type { ChipId } from '~/utils/ask/registry'
 import { DateTime } from 'luxon'
+import { townTooFar } from '~/composables/usePlace'
 import { describeFetchError } from '~/utils/api-error'
 import { acceptsChoice } from '~/utils/ask/chip'
 import { chipOf } from '~/utils/ask/registry'
+import { formatDistance } from '~/utils/map-tool'
+import { PLACE_REACH_KM } from '~/utils/place-stations'
 import { TOOLS } from '~/utils/sections'
 import { requestUnitTargets } from '~/utils/unit-targets'
 import { unitsOfAnswer } from '~/utils/units'
@@ -37,9 +40,19 @@ const nuxtApp = useNuxtApp()
 
 const chip = computed(() => chipOf(props.question)!)
 
-type Status = 'loading' | 'ready' | 'empty' | 'error'
-/** Where the requests are: under way, answered, or failed */
-const phase = ref<'loading' | 'loaded' | 'error'>('loading')
+type Status = 'loading' | 'ready' | 'empty' | 'error' | 'far'
+/** Where the requests are: under way, answered, or failed; `far`: none were made, since the station nearest to the town is too far to be its (GH-3791) */
+const phase = ref<'loading' | 'loaded' | 'error' | 'far'>('loading')
+
+/**
+ * The station a question reads (`readsStation`) for a town (GH-3791): which it is and how far from the town, said under the answer. Where it is farther than
+ * `PLACE_REACH_KM` nothing is asked and the panel says so, names the nearest and gives no answer: a distant station is never stretched into the answer for a place.
+ */
+const town = computed(() => chip.value.readsStation ? place.value.town?.station ?? null : null)
+const townFar = computed(() => !!town.value && townTooFar(place.value))
+const townDistance = computed(() => town.value ? formatDistance(town.value.distanceKm, locale.value) : '')
+const townStation = computed(() => town.value ? `${town.value.name} (${town.value.id})` : '')
+const farText = computed(() => town.value ? t('ask.far', { place: place.value.name, reach: PLACE_REACH_KM, station: townStation.value, distance: townDistance.value }) : '')
 const failure = ref('')
 /** What the definition's requests brought back; null while they are under way */
 /** and the chip it was fetched for: a question switched meanwhile must not have the new chip read the old one's data */
@@ -157,9 +170,13 @@ let asked = 0
 
 async function ask() {
   const turn = ++asked
-  phase.value = 'loading'
   failure.value = ''
   fetched.value = null
+  if (townFar.value) {
+    phase.value = 'far'
+    return
+  }
+  phase.value = 'loading'
   try {
     // the chip asked, held across the await: a question changed meanwhile must not read this one's data
     const asking = chip.value
@@ -186,7 +203,7 @@ const requested = computed(() => {
 
 // the question, the place, its choices that the requests read (the day question's day), or the unit the settings choose for the question: a change
 // of any of them asks again, and one under way is followed by the new one, whose answer is the only one shown
-watch(() => [props.question, place.value.id, requested.value, unitsAsked.value], ask, { immediate: true })
+watch(() => [props.question, place.value.id, townFar.value, requested.value, unitsAsked.value], ask, { immediate: true })
 onBeforeUnmount(() => {
   // an answer that comes after the panel is gone says nothing
   asked++
@@ -201,7 +218,7 @@ const emptyText = computed(() => chip.value.empty(outcome.value?.loaded ?? null,
 
 // What the polite status says: the verdict, or why there is none. A choice that changes the answer but not its words (a season whose verdict
 // is the same sentence) is still announced: the same words are cleared and then set again, which a screen reader reads as a change.
-const statusText = computed(() => status.value === 'ready' ? verdict.value : status.value === 'empty' ? emptyText.value : '')
+const statusText = computed(() => status.value === 'ready' ? verdict.value : status.value === 'empty' ? emptyText.value : status.value === 'far' ? farText.value : '')
 const announced = ref('')
 let announceTimer: ReturnType<typeof setTimeout> | undefined
 watch([statusText, () => JSON.stringify(effective.value)], () => {
@@ -301,6 +318,12 @@ const onSelect = (param: string, event: Event) => onChoice(param, (event.target 
         />
       </div>
 
+      <!-- a town with no station near it (GH-3791): said plainly, the nearest named, and no answer made of a station that is another place's -->
+      <p v-else-if="status === 'far'" class="flex items-start gap-2 text-toned" data-testid="answer-far">
+        <UIcon name="i-ph-map-pin" class="mt-0.5 size-5 shrink-0 text-muted" aria-hidden="true" />
+        {{ farText }}
+      </p>
+
       <p v-else-if="status === 'empty'" class="flex items-start gap-2 text-toned">
         <UIcon name="i-ph-question" class="mt-0.5 size-5 shrink-0 text-muted" />
         {{ emptyText }}
@@ -363,6 +386,10 @@ const onSelect = (param: string, event: Event) => onChoice(param, (event.target 
         <p v-if="view?.note" class="text-sm text-muted">
           {{ view.note }}
         </p>
+        <!-- for a town: the station the answer is read at, and how far it is (GH-3791) -->
+        <p v-if="town" class="text-sm text-muted" data-testid="answer-station">
+          {{ t('ask.stationUsed', { station: townStation, place: place.name, distance: townDistance }) }}
+        </p>
         <!-- the credit, and under it what wetterdienst did to the data (GH-3799): the values of these answers are the provider's own values -->
         <ProviderCredit v-if="chip.credit" :provider="chip.credit.provider" :fallback="chip.credit.fallback" />
         <!-- how the answer was worked out and what it rests on (GH-3764): the definition's explanation, for any chip -->
@@ -371,7 +398,7 @@ const onSelect = (param: string, event: Event) => onChoice(param, (event.target 
     </div>
 
     <!-- into the tool that holds the data, with the tool's tile: the colour says which tool it is -->
-    <ul v-if="actions.length && status !== 'loading'" class="mt-6 flex flex-wrap gap-2" :aria-label="t('ask.leadsTo')" data-testid="answer-actions">
+    <ul v-if="actions.length && status !== 'loading' && status !== 'far'" class="mt-6 flex flex-wrap gap-2" :aria-label="t('ask.leadsTo')" data-testid="answer-actions">
       <li v-for="action in actions" :key="action.key">
         <NuxtLink :to="action.to" class="answer-action">
           <ToolTile v-if="toolOf(action)" :tile="toolOf(action)!.tile" :icon="toolOf(action)!.icon" size="1.75rem" />

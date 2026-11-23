@@ -1,5 +1,6 @@
 import type { Ref } from 'vue'
 import type { InterpolationSelection } from '~/types/station-selection-state.type'
+import type { PlaceInLink } from '~/utils/place-link'
 
 /**
  * Read a box as the number it names, or nothing.
@@ -10,6 +11,12 @@ import type { InterpolationSelection } from '~/types/station-selection-state.typ
 function numberFromBox(value: string | number): number | undefined {
   const parsed = Number.parseFloat(String(value))
   return Number.isFinite(parsed) ? parsed : undefined
+}
+
+/** Whether coordinates are the position of a place, to the four decimals a link keeps it with */
+function isPositionOf(place: { latitude: number, longitude: number }, point: { latitude?: number, longitude?: number }): boolean {
+  return point.latitude !== undefined && point.longitude !== undefined
+    && Math.abs(point.latitude - place.latitude) < 0.00006 && Math.abs(point.longitude - place.longitude) < 0.00006
 }
 
 /**
@@ -47,10 +54,12 @@ export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
   // them, which in station mode is nothing, so writing all three together let an elevation arriving
   // from a station take that station's coordinates out with it
   watch([latitudeInput, longitudeInput], ([latitude, longitude]) => {
+    const point = { latitude: numberFromBox(latitude), longitude: numberFromBox(longitude) }
     modelValue.value = {
       ...modelValue.value,
-      latitude: numberFromBox(latitude),
-      longitude: numberFromBox(longitude),
+      ...point,
+      // coordinates typed over the place's are no longer its position (GH-3791): the place is not kept beside them
+      place: modelValue.value.place && isPositionOf(modelValue.value.place, point) ? modelValue.value.place : undefined,
     }
   })
 
@@ -81,8 +90,16 @@ export function useInterpolationPoint(modelValue: Ref<InterpolationSelection>) {
 
   /** Take the point from a station. */
   function fromStation(station: Station | undefined) {
-    modelValue.value = { ...modelValue.value, ...pointFromStation(station) }
+    modelValue.value = { ...modelValue.value, ...pointFromStation(station), place: undefined }
   }
 
-  return { latitudeInput, longitudeInput, elevationInput, fromStation, pointFromStation }
+  /**
+   * Take the point from a place found by its name (GH-3791): its position, and the place itself, to be shown with it. A place has no height, so no
+   * elevation is taken from it, and one that was there (a station's, or typed) is left out: the readings are not brought to a height the place does not have.
+   */
+  function fromPlace(place: PlaceInLink) {
+    modelValue.value = { ...modelValue.value, source: 'manual', station: undefined, latitude: place.latitude, longitude: place.longitude, elevation: undefined, place }
+  }
+
+  return { latitudeInput, longitudeInput, elevationInput, fromStation, fromPlace, pointFromStation }
 }

@@ -7,6 +7,7 @@ import { exampleScan } from '../helpers/storm-cells-answer'
 import { askHandlers } from './accessibility/ask-backend'
 import { scanHover, scanKeyboard } from './accessibility/interact'
 import { ApiFailure, mockBackend } from './accessibility/mock-backend'
+import { rankedStations } from './accessibility/place-backend'
 import { compareToBaseline, readBaseline, RECORDING, scan, variantKey } from './accessibility/scan'
 
 // Accessibility, measured: every page, in light and dark and in two languages, scanned with axe
@@ -122,6 +123,21 @@ const PAGES: Target[] = [
   { page: 'datenschutz', path: '/datenschutz' },
 ]
 
+/** The Forecast's station search, open (a button with a popup: its name is the placeholder until something is chosen) */
+async function openForecastSearch(page: Page) {
+  await page.locator('[data-testid="station-picker"] button[aria-haspopup="listbox"]').first().click()
+  await expect(page.getByRole('listbox')).toBeVisible()
+}
+
+/** A place chosen in the Forecast's station search by typing its name: the place, with its stations, is on the page */
+async function choosePlaceInForecast(page: Page, text: string, name: RegExp) {
+  await openForecastSearch(page)
+  await page.keyboard.type(text)
+  await page.getByRole('listbox').getByRole('option', { name }).first().click()
+  await expect(page.getByTestId('place-stations')).toBeVisible()
+  await expect(page.getByTestId('place-summary')).toHaveText(/\S/)
+}
+
 interface State {
   page: string
   state: string
@@ -137,6 +153,9 @@ interface State {
 
 const EXPLORER = '/explorer?provider=dwd&network=observation&resolution=daily&dataset=climate_summary&parameters=temperature_air_max_2m,temperature_air_mean_2m&mode=station'
 const EXPLORER_WITH_STATION = `${EXPLORER}&stations=00011`
+/** The Explorer's interpolation, which takes the point by the name of a place (GH-3791), and the link of a place that fills it */
+const EXPLORER_INTERPOLATION = EXPLORER.replace('mode=station', 'mode=interpolation')
+const BAD_TOELZ_LINK = 'lat=47.7610&lon=11.5596&placeName=Bad%20T%C3%B6lz&placeRegion=Bayern%2C%20Germany'
 
 /** The explorer's chart (ECharts, drawn as SVG): its SVG is in the canvas once it has */
 const explorerChart = (page: Page) => page.locator('.xc-canvas[data-drawn="true"] svg').first()
@@ -1136,6 +1155,124 @@ const STATES: State[] = [
       await expect(page.getByRole('group', { name: message(locale, 'shell.placesGroup'), exact: true })).toBeVisible()
       await expect(page.getByTestId('places-credit')).toBeVisible()
       await expect.poll(async () => Math.round((await page.getByRole('dialog').boundingBox())!.x)).toBe(0)
+    },
+  },
+  {
+    // the Forecast's station search with the places of a name next to its stations (GH-3791): a combobox whose list has a group "Places" before the stations,
+    // the credit of the licence under it, and a polite count of the results; the first place is the active option
+    page: 'meteogram',
+    state: 'place-search',
+    keepFocus: true,
+    path: '/meteogram',
+    handlers: rankedStations(askHandlers()),
+    reach: async (page, locale) => {
+      await openForecastSearch(page)
+      // "bad t" keeps places and a station of the list: two groups, each with its own heading
+      await page.keyboard.type('bad t')
+      await expect(page.getByRole('listbox').getByRole('option', { name: /Bad Tölz/ }).first()).toBeVisible()
+      await expect(page.getByTestId('places-credit')).toBeVisible()
+      await expect(page.getByTestId('station-picker-results')).toHaveText(/\S/)
+      await page.keyboard.press('ArrowDown')
+      await expect(page.getByRole('group', { name: message(locale, 'shell.placesGroup'), exact: true })).toBeVisible()
+      await expect(page.getByRole('group', { name: message(locale, 'stationSelection.stationsGroup'), exact: true })).toBeVisible()
+      await expect(page.getByRole('listbox').getByRole('group')).toHaveCount(2)
+      const headings = await page.getByRole('listbox').getByRole('group').evaluateAll(groups => groups.map(group => group.getAttribute('aria-labelledby')))
+      expect(new Set(headings).size).toBe(2)
+    },
+  },
+  {
+    // a place chosen in the Forecast (GH-3791): its name and where it lies, the closest forecast station picked, and the stations near it with their
+    // distance and their height against the closest one's
+    page: 'meteogram',
+    state: 'place-chosen',
+    path: '/meteogram',
+    handlers: rankedStations(askHandlers()),
+    reach: async (page) => {
+      await choosePlaceInForecast(page, 'bad tölz', /Bad Tölz/)
+      await expect(page.getByTestId('place-station-list').getByRole('listitem')).toHaveCount(4)
+    },
+  },
+  {
+    // a place with no forecast station within 50 km (GH-3791): the nearest is named and no forecast is shown as the place's
+    page: 'meteogram',
+    state: 'place-none-near',
+    path: '/meteogram',
+    handlers: rankedStations(askHandlers()),
+    reach: async (page) => {
+      await choosePlaceInForecast(page, 'paris', /Paris/)
+      await expect(page.getByTestId('place-summary')).toContainText('50')
+    },
+  },
+  {
+    // the place chosen on a phone (GH-3791): the place and its stations under the search in one column
+    page: 'meteogram',
+    state: 'phone-place-chosen',
+    path: '/meteogram',
+    viewport: { width: 390, height: 844 },
+    handlers: rankedStations(askHandlers()),
+    reach: async (page) => {
+      await choosePlaceInForecast(page, 'bad tölz', /Bad Tölz/)
+      await expect(page.getByTestId('place-station-list').getByRole('listitem')).toHaveCount(4)
+    },
+  },
+  {
+    // the place of "Ask the weather" searched by name (GH-3791): the dialog's list with the towns before the stations, and the credit
+    page: 'index',
+    state: 'ask-place-search',
+    keepFocus: true,
+    path: '/',
+    handlers: rankedStations(askHandlers()),
+    reach: async (page, locale) => {
+      await page.getByTestId('place-button').click()
+      await expect(page.getByRole('combobox')).toBeFocused()
+      await page.keyboard.type('bad tölz')
+      await expect(page.getByRole('group', { name: message(locale, 'shell.placesGroup'), exact: true })).toBeVisible()
+      await expect(page.getByTestId('places-credit')).toBeVisible()
+    },
+  },
+  {
+    // a town as the place of a question (GH-3791): the answer names the station it was read at and how far it is from the town
+    page: 'index',
+    state: 'ask-town-answer',
+    path: `/?ask=season&${BAD_TOELZ_LINK}`,
+    handlers: rankedStations(askHandlers()),
+    reach: async (page) => {
+      await expect(page.getByTestId('answer-verdict')).toBeVisible()
+      await expect(page.getByTestId('answer-station')).toBeVisible()
+    },
+  },
+  {
+    // a town with no weather station within 50 km (GH-3791): the question says so, names the nearest, and gives no answer
+    page: 'index',
+    state: 'ask-town-far',
+    path: '/?ask=season&lat=48.8566&lon=2.3522&placeName=Paris&placeRegion=%C3%8Ele-de-France%2C%20France',
+    handlers: rankedStations(askHandlers()),
+    reach: async (page) => {
+      await expect(page.getByTestId('answer-far')).toBeVisible()
+    },
+  },
+  {
+    // the Explorer's point given by the name of a place (GH-3791): the field that finds it, the place with where it lies, the coordinates it filled in and
+    // the note that the temperature is not corrected for height
+    page: 'explorer',
+    state: 'interpolation-place',
+    path: `${EXPLORER_INTERPOLATION}&interpolationSource=manual&${BAD_TOELZ_LINK}`,
+    reach: async (page) => {
+      await expect(page.getByTestId('interpolation-place')).toBeVisible()
+      await expect(page.getByTestId('interpolation-place-height')).toBeVisible()
+    },
+  },
+  {
+    // the field that finds a place, open on a name (GH-3791): the places of the name with the credit under them
+    page: 'explorer',
+    state: 'interpolation-place-search',
+    keepFocus: true,
+    path: EXPLORER_INTERPOLATION,
+    reach: async (page) => {
+      await page.getByTestId('place-field').click()
+      await page.keyboard.type('bad tölz')
+      await expect(page.getByRole('listbox').getByRole('option', { name: /Bad Tölz/ }).first()).toBeVisible()
+      await expect(page.getByTestId('places-credit')).toBeVisible()
     },
   },
   {

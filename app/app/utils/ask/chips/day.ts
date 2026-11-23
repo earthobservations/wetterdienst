@@ -27,7 +27,7 @@ import {
   TROPICAL_NIGHT_MIN_FROM,
 } from '../../day'
 import { fromCanonical } from '../../units'
-import { defineChip } from '../chip'
+import { defineChip, stationOf } from '../chip'
 
 // What was a day like? DWD's daily readings of the place's station (GH-3518): how windy, sunny, wet, hot or cold, or snowy it was
 // (GH-3764, step 2b). It began as the question "How windy was it on 26 December?", which is the wind measure of it and is what the old
@@ -157,6 +157,7 @@ export const day = defineChip({
   aliases: ['wind'],
   icon: 'i-ph-calendar-dots',
   tool: 'explorer',
+  readsStation: true,
   quantity: ['speed', 'precipitation', 'temperature', 'length_short'],
   choices: [MEASURE, DAY],
   // `?ask=wind&day=...` asked how windy the day was, and still does
@@ -368,7 +369,7 @@ export const day = defineChip({
       open: ({ place, now }, choices) => explorerLink(place.id, choices.day!, measureOf(choices), now()),
     },
     numbers(result, _loaded, { number, percent, unitText, place, dayText }, _choices): NumberLine[] {
-      const station: NumberLine[] = [{ id: 'station', params: { name: place.name, id: place.id } }, { id: 'day', params: { day: dayText(result.answer.day, true) } }]
+      const station: NumberLine[] = [{ id: 'station', params: { name: stationOf(place).name, id: place.id } }, { id: 'day', params: { day: dayText(result.answer.day, true) } }]
       const around = (answer: { bars: { value: number | null }[] }): NumberLine => ({ id: 'window', params: { days: DAY_WINDOW_DAYS, given: answer.bars.filter(bar => bar.value !== null).length } })
       switch (result.measure) {
         case 'wind': {

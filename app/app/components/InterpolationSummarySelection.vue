@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { PlaceMatch } from '#shared/utils/places'
 import type { ParameterSelectionState } from '~/types/parameter-selection-state.type'
 import type { InterpolationSelection, InterpolationSource } from '~/types/station-selection-state.type'
 
@@ -18,7 +19,7 @@ const sourceOptions = computed(() => [
 
 // the point, and the boxes that describe it -- see `useInterpolationPoint` for why the coordinates
 // and the elevation are kept apart
-const { latitudeInput, longitudeInput, elevationInput, fromStation, pointFromStation } = useInterpolationPoint(modelValue)
+const { latitudeInput, longitudeInput, elevationInput, fromStation, fromPlace, pointFromStation } = useInterpolationPoint(modelValue)
 
 // For station selection
 const selectedStation = ref<Station | undefined>(modelValue.value.station)
@@ -83,6 +84,24 @@ const noStationToOffer = computed(() => stationsStatus.value === 'success' && !s
 // typed over it
 const initialStationId = defineModel<string | undefined>('initialStationId')
 
+// A place found by its name (GH-3791) fills the point with its position, to the four decimals a link keeps. It has no height, so no elevation comes with it, and
+// where none is given the readings are not brought to a height: the temperature is not corrected for height, which is said beside the point.
+// what a screen reader is told when a place fills the point: a polite status, set by the choice and gone with the place
+const placeAnnounced = ref('')
+watch(() => modelValue.value.place, (place) => {
+  if (!place)
+    placeAnnounced.value = ''
+})
+function onPlace(match: PlaceMatch) {
+  placeAnnounced.value = t('place.chosen', { place: [match.name, match.region].filter(Boolean).join(', ') })
+  // the link's station, if it was still to be restored, is not brought back over the place
+  initialStationId.value = undefined
+  fromPlace({ name: match.name, region: match.region, latitude: Number(match.latitude.toFixed(4)), longitude: Number(match.longitude.toFixed(4)) })
+}
+function forgetPlace() {
+  modelValue.value = { ...modelValue.value, place: undefined }
+}
+
 watch(stationsStatus, (status) => {
   const id = initialStationId.value
   if (status !== 'success' || !id)
@@ -141,7 +160,7 @@ function setSource(source: InterpolationSource) {
     // back to the station still in the select: it names its elevation again, where the watcher below
     // stays silent, the selection itself not having changed. With nothing selected it says
     // nothing -- taking its empty answer would clear coordinates someone had just typed
-    ? { ...modelValue.value, source, ...(selectedStation.value ? pointFromStation(selectedStation.value) : {}) }
+    ? { ...modelValue.value, source, place: undefined, ...(selectedStation.value ? pointFromStation(selectedStation.value) : {}) }
     // the elevation came from wherever the point did, so it goes with it
     : { ...modelValue.value, source, elevation: undefined }
 }
@@ -175,27 +194,54 @@ const displayCoords = computed(() => {
       </UFieldGroup>
     </div>
 
-    <div v-if="modelValue.source === 'manual'" class="flex gap-4">
-      <UFormField :label="t('interpolation.latitude')" class="flex-1">
-        <UInput
-          v-model="latitudeInput"
-          type="number"
-          step="0.0001"
-          :placeholder="t('interpolation.example', { value: '52.5200' })"
-          class="w-full"
-          :class="{ 'needs-input': modelValue.latitude === undefined }"
-        />
-      </UFormField>
-      <UFormField :label="t('interpolation.longitude')" class="flex-1">
-        <UInput
-          v-model="longitudeInput"
-          type="number"
-          step="0.0001"
-          :placeholder="t('interpolation.example', { value: '13.4050' })"
-          class="w-full"
-          :class="{ 'needs-input': modelValue.longitude === undefined }"
-        />
-      </UFormField>
+    <div v-if="modelValue.source === 'manual'" class="space-y-4">
+      <!-- the point by the name of a place (GH-3791): the field finds it, the place chosen is shown with its point and fills the coordinates -->
+      <PlaceField :label="t('place.fieldLabel')" @pick="onPlace" />
+      <p class="sr-only" role="status" aria-live="polite" data-testid="interpolation-place-status">
+        {{ placeAnnounced }}
+      </p>
+      <div v-if="modelValue.place" class="rounded-lg border border-default p-3 text-sm" data-testid="interpolation-place">
+        <div class="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <UIcon name="i-ph-map-pin" class="size-4 shrink-0 text-primary-600 dark:text-primary-500" aria-hidden="true" />
+          <span class="font-bold" data-testid="interpolation-place-name">{{ modelValue.place.name }}</span>
+          <span v-if="modelValue.place.region" class="text-muted" data-testid="interpolation-place-region">{{ modelValue.place.region }}</span>
+          <UButton
+            size="md"
+            color="neutral"
+            variant="ghost"
+            icon="i-ph-x"
+            class="ms-auto"
+            :label="t('place.forget')"
+            :aria-label="t('place.forgetPlace', { place: modelValue.place.name })"
+            @click="forgetPlace"
+          />
+        </div>
+        <p v-if="modelValue.elevation === undefined" class="mt-1 text-muted" data-testid="interpolation-place-height">
+          {{ t('place.notCorrected') }}
+        </p>
+      </div>
+      <div class="flex gap-4">
+        <UFormField :label="t('interpolation.latitude')" class="flex-1">
+          <UInput
+            v-model="latitudeInput"
+            type="number"
+            step="0.0001"
+            :placeholder="t('interpolation.example', { value: '52.5200' })"
+            class="w-full"
+            :class="{ 'needs-input': modelValue.latitude === undefined }"
+          />
+        </UFormField>
+        <UFormField :label="t('interpolation.longitude')" class="flex-1">
+          <UInput
+            v-model="longitudeInput"
+            type="number"
+            step="0.0001"
+            :placeholder="t('interpolation.example', { value: '13.4050' })"
+            class="w-full"
+            :class="{ 'needs-input': modelValue.longitude === undefined }"
+          />
+        </UFormField>
+      </div>
     </div>
 
     <div v-else>

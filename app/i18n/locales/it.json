@@ -131,7 +131,8 @@
       "pointNoDistance": "Previsioni per {name}, il punto di previsione più vicino a {place}.",
       "chart": "Pioggia per ora domani, in {unit}",
       "none": "Le previsioni per {name} non arrivano ancora a domani.",
-      "open": "Apri le previsioni complete"
+      "open": "Apri le previsioni complete",
+      "far": "Non c'è nessun punto di previsione entro {reach} km da {place}. Il più vicino, {name}, è a {distance} km e la sua previsione non è la previsione di {place}, perciò non ne viene mostrata nessuna."
     },
     "season": {
       "warmer": "Sì, {anomaly} {unit} in più del solito.",
@@ -262,7 +263,8 @@
       "answer": "Servizi meteorologici che pubblicano la temperatura oraria dell'aria: {count}.",
       "detail": "Ognuno si apre nell'Esploratore, pronto da scaricare in CSV, JSON o GeoJSON.",
       "none": "Al momento nessun servizio meteorologico pubblica la temperatura oraria dell'aria.",
-      "api": "Oppure usa l'API REST"
+      "api": "Oppure usa l'API REST",
+      "station": "{station}, a {distance} km da {place}"
     },
     "quotesLabel": "Testi citati",
     "warnings": {
@@ -274,7 +276,10 @@
       "outside": "Gli avvisi del DWD valgono solo per la Germania. Nessuna fonte di avvisi copre {place}.",
       "open": "Mostra gli avvisi sulla mappa",
       "checked": "Consultato: {time}."
-    }
+    },
+    "far": "Non c'è nessuna stazione meteorologica entro {reach} km da {place}. La più vicina, {station}, è a {distance} e ciò che misura non è il tempo di {place}, perciò non viene data nessuna risposta.",
+    "stationUsed": "Letto a {station}, la stazione meteorologica più vicina a {place}, a {distance}.",
+    "townNoStation": "Non è stata trovata nessuna stazione meteorologica per {place}. Non viene data nessuna risposta finché non scegli un luogo."
   },
   "seo": {
     "title": "Wetterdienst – dati meteorologici e climatici aperti dei servizi meteorologici nazionali",
@@ -1129,7 +1134,8 @@
     "modeMap": "Mappa",
     "selectedStation": "Stazione selezionata:",
     "removeStation": "Rimuovi {name} dalla selezione",
-    "announceList": "Ricerca di stazioni"
+    "announceList": "Ricerca di stazioni",
+    "stationsGroup": "Stazioni di previsione"
   },
   "location": {
     "button": "Usa la mia posizione",
@@ -1152,6 +1158,34 @@
     "noneNear": "Nessuna stazione trovata vicino alla tua posizione.",
     "lookupFailed": "Non è stato possibile cercare la stazione più vicina. Riprova o usa la ricerca.",
     "here": "La domanda riguarda {name}, la stazione a {distance} dalla tua posizione."
+  },
+  "place": {
+    "fieldLabel": "Cerca un luogo",
+    "fieldHelp": "Scrivi il nome di una città, regione, montagna o aeroporto; la sua posizione compila le coordinate.",
+    "fieldPlaceholder": "Il nome di un luogo …",
+    "searchOff": "La ricerca di luoghi è disattivata su questo server.",
+    "typeHint": "Scrivi almeno tre lettere di un nome.",
+    "forget": "Rimuovi",
+    "forgetPlace": "Rimuovi il luogo {place} e mantieni le coordinate",
+    "notCorrected": "Un luogo non ha una quota propria, quindi la temperatura non è corretta per la quota.",
+    "heightUnknown": "Quota non indicata",
+    "height": "Quota {height} m",
+    "heightNote": "Un luogo non ha una quota propria: i valori tra parentesi sono il dislivello rispetto alla stazione più vicina.",
+    "looking": "Ricerca delle stazioni vicino a {place} …",
+    "failed": "Non è stato possibile cercare le stazioni vicine al luogo. Scegli una stazione o riprova con il luogo.",
+    "closest": "Mostrata {station}, la stazione di previsione più vicina a {place}, a {distance}.",
+    "noneNear": "Nessuna stazione di previsione si trova entro {reach} km da {place}. La più vicina, {station}, è a {distance}; la sua previsione non è la previsione di {place}, perciò non ne viene mostrata nessuna.",
+    "noneAtAll": "Nessuna stazione di previsione trovata vicino a {place}.",
+    "stationsLabel": "Stazioni di previsione vicino a {place}",
+    "closestTag": "la più vicina",
+    "shown": "Mostrata",
+    "show": "Mostra",
+    "showStation": "Mostra la previsione di {station}",
+    "showAnyway": "Mostra comunque",
+    "showAnywayStation": "Mostra comunque: la previsione di {station}, a {distance}, non è la previsione di {place}",
+    "shownAnyway": "Mostrata la previsione di {station}, a {distance} da {place}. Non è la previsione di {place}.",
+    "chosen": "Luogo scelto: {place}. Le coordinate sono compilate.",
+    "linkStationNotFound": "La stazione {station} indicata nel link non è stata trovata."
   },
   "interpolation": {
     "source": "Fonte",
