@@ -131,7 +131,8 @@
       "pointNoDistance": "Předpověď pro {name}, nejbližší bod předpovědi k místu {place}.",
       "chart": "Déšť po hodinách zítra, v {unit}",
       "none": "Předpověď pro {name} ještě nesahá do zítřka.",
-      "open": "Otevřít celou předpověď"
+      "open": "Otevřít celou předpověď",
+      "far": "V okruhu {reach} km od místa {place} není žádný bod předpovědi. Nejbližší, {name}, je vzdálený {distance} km a jeho předpověď není předpovědí pro místo {place}, proto se žádná nezobrazuje."
     },
     "season": {
       "warmer": "Ano, o {anomaly} {unit} tepleji než obvykle.",
@@ -262,7 +263,8 @@
       "answer": "Meteorologické služby, které zveřejňují hodinovou teplotu vzduchu: {count}.",
       "detail": "Každá se otevře v Průzkumníku, připravená ke stažení jako CSV, JSON nebo GeoJSON.",
       "none": "Žádná meteorologická služba teď nezveřejňuje hodinovou teplotu vzduchu.",
-      "api": "Nebo použij REST API"
+      "api": "Nebo použij REST API",
+      "station": "{station}, {distance} km od místa {place}"
     },
     "quotesLabel": "Citované texty",
     "warnings": {
@@ -274,7 +276,10 @@
       "outside": "Výstrahy DWD platí jen pro Německo. Žádný zdroj výstrah nepokrývá {place}.",
       "open": "Zobrazit výstrahy na mapě",
       "checked": "Zkontrolováno: {time}."
-    }
+    },
+    "far": "V okruhu {reach} km od místa {place} není žádná meteorologická stanice. Nejbližší, {station}, je vzdálená {distance} a to, co měří, není počasí v místě {place}, proto se neposkytuje žádná odpověď.",
+    "stationUsed": "Odečteno ve stanici {station}, nejbližší meteorologické stanici od místa {place}, ve vzdálenosti {distance}.",
+    "townNoStation": "Pro místo {place} se nepodařilo najít žádnou meteorologickou stanici. Odpověď se neposkytne, dokud nevybereš místo."
   },
   "seo": {
     "title": "Wetterdienst – otevřená data o počasí a klimatu od národních meteorologických služeb",
@@ -1129,7 +1134,8 @@
     "modeMap": "Mapa",
     "selectedStation": "Vybraná stanice:",
     "removeStation": "Odebrat {name} z výběru",
-    "announceList": "Hledání stanic"
+    "announceList": "Hledání stanic",
+    "stationsGroup": "Stanice předpovědi"
   },
   "location": {
     "button": "Použít moji polohu",
@@ -1152,6 +1158,34 @@
     "noneNear": "V blízkosti tvé polohy nebyla nalezena žádná stanice.",
     "lookupFailed": "Nejbližší stanici se nepodařilo vyhledat. Zkus to znovu nebo použij vyhledávání.",
     "here": "Dotaz se týká místa {name}, stanice {distance} od tvé polohy."
+  },
+  "place": {
+    "fieldLabel": "Najít místo",
+    "fieldHelp": "Napiš název města, oblasti, hory nebo letiště; jeho poloha vyplní souřadnice.",
+    "fieldPlaceholder": "Název místa …",
+    "searchOff": "Hledání míst je na tomto serveru vypnuté.",
+    "typeHint": "Napiš alespoň tři písmena názvu.",
+    "forget": "Odebrat",
+    "forgetPlace": "Odebrat místo {place} a ponechat souřadnice",
+    "notCorrected": "Místo nemá vlastní nadmořskou výšku, proto se teplota nekoriguje na výšku.",
+    "heightUnknown": "Výška není uvedena",
+    "height": "Výška {height} m",
+    "heightNote": "Místo nemá vlastní výšku: hodnoty v závorkách jsou rozdíl výšky oproti nejbližší stanici.",
+    "looking": "Hledám stanice poblíž místa {place} …",
+    "failed": "Stanice poblíž místa se nepodařilo vyhledat. Vyber stanici nebo zkus místo znovu.",
+    "closest": "Zobrazuje se {station}, nejbližší stanice předpovědi k místu {place}, ve vzdálenosti {distance}.",
+    "noneNear": "Žádná stanice předpovědi není blíž než {reach} km od místa {place}. Nejbližší, {station}, je vzdálená {distance}; její předpověď není předpovědí pro místo {place}, proto se žádná nezobrazuje.",
+    "noneAtAll": "Poblíž místa {place} nebyla nalezena žádná stanice předpovědi.",
+    "stationsLabel": "Stanice předpovědi poblíž místa {place}",
+    "closestTag": "nejbližší",
+    "shown": "Zobrazeno",
+    "show": "Zobrazit",
+    "showStation": "Zobrazit předpověď stanice {station}",
+    "showAnyway": "Přesto zobrazit",
+    "showAnywayStation": "Přesto zobrazit: předpověď stanice {station}, ve vzdálenosti {distance}, není předpovědí pro místo {place}",
+    "shownAnyway": "Zobrazuje se předpověď stanice {station}, ve vzdálenosti {distance} od místa {place}. Není to předpověď pro místo {place}.",
+    "chosen": "Vybráno místo: {place}. Souřadnice jsou vyplněny.",
+    "linkStationNotFound": "Stanice {station} uvedená v odkazu nebyla nalezena."
   },
   "interpolation": {
     "source": "Zdroj",

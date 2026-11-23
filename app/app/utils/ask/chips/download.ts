@@ -2,7 +2,8 @@ import type { TemperatureSource } from '../../answers'
 import type { AnswerAction, ChipApi, ChipPlace, NumberLine } from '../chip'
 import { COVERAGE_REQUESTS_AT_ONCE, HOURLY_TEMPERATURE, hourlyNetworks, hourlyTemperatureIn, mapLimited } from '../../answers'
 import { flagEmoji } from '../../country'
-import { defineChip } from '../chip'
+import { PLACE_REACH_KM } from '../../place-stations'
+import { defineChip, stationOf } from '../chip'
 
 // Where can I download hourly temperatures? The backend's providers and their coverage (GH-3518). The answer does not depend
 // on the place or the language, so what is found is kept for the visit.
@@ -30,6 +31,9 @@ async function findSources(api: ChipApi): Promise<TemperatureSource[]> {
   return found.filter((source): source is TemperatureSource => source !== null)
 }
 
+/** Whether the place's own station is the DWD measuring stations' and is one to name: a station within reach, or a place that is a station (GH-3791: a town beyond 50 km has none, and no station is offered for it) */
+const hasStation = (place: ChipPlace) => !place.town || place.town.station.distanceKm <= PLACE_REACH_KM
+
 function sourceLink(source: TemperatureSource, place: ChipPlace) {
   return {
     path: '/explorer',
@@ -40,8 +44,8 @@ function sourceLink(source: TemperatureSource, place: ChipPlace) {
       resolution: 'hourly',
       dataset: source.dataset,
       parameters: source.parameter,
-      // the place's station, where the service is the place's own
-      ...(source.provider === 'dwd' && source.network === 'observation' ? { stations: place.id } : {}),
+      // the place's station, where the service is the place's own and the place has one near it
+      ...(source.provider === 'dwd' && source.network === 'observation' && hasStation(place) ? { stations: stationOf(place).id } : {}),
     },
   }
 }
@@ -63,6 +67,7 @@ export const download = defineChip({
     'ask.download.detail',
     'ask.download.none',
     'ask.download.api',
+    'ask.download.station',
   ],
 
   async load({ formatLanguage }, api): Promise<TemperatureSource[]> {
@@ -75,7 +80,7 @@ export const download = defineChip({
 
   answer: sources => sources.length ? sources : null,
 
-  present: (sources, _loaded, { t, place }) => ({
+  present: (sources, _loaded, { t, place, number }) => ({
     verdict: t('ask.download.answer', { count: sources.length }),
     details: [t('ask.download.detail')],
     chart: null,
@@ -87,7 +92,10 @@ export const download = defineChip({
         mark: flagEmoji(source.countryCode),
         title: source.name,
         detail: `${source.network} · ${source.dataset}`,
-        ...(source.provider === 'dwd' && source.network === 'observation' ? { place: place.name } : {}),
+        // the station the link opens: named as the station it is, and for a town with its distance from it ("Andechs-Rothenfeld, 37 km from Bad Tölz"), not by the name of the town
+        ...(source.provider === 'dwd' && source.network === 'observation' && hasStation(place)
+          ? { place: place.town ? t('ask.download.station', { station: stationOf(place).name, distance: number(place.town.station.distanceKm, 0), place: place.name }) : place.name }
+          : {}),
       })),
     },
     note: '',

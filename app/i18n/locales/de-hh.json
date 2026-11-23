@@ -131,7 +131,8 @@
       "pointNoDistance": "Utsicht för {name}, den neegsten Utsichtspunkt to {place}.",
       "chart": "Regen per Stünn morgen, in {unit}",
       "none": "De Utsicht för {name} recht noch nich bit morgen.",
-      "open": "Hele Utsicht opmaken"
+      "open": "Hele Utsicht opmaken",
+      "far": "Binnen {reach} km vun {place} gifft dat keen Utsichtspunkt. De neegste, {name}, is {distance} km weg, un sien Utsicht is nich de Utsicht för {place}; dorüm warrt keen wiest."
     },
     "season": {
       "warmer": "Jo, {anomaly} {unit} warmer as anners.",
@@ -262,7 +263,8 @@
       "answer": "Wedderdeenste mit stünnlike Lufttemperatur: {count}.",
       "detail": "Elkeen geiht in'n Explorer op, klaar to'n Runnerladen as CSV, JSON oder GeoJSON.",
       "none": "Jüst nu nennt keen Wedderdeenst en stünnlike Lufttemperatur.",
-      "api": "Oder de REST-API bruken"
+      "api": "Oder de REST-API bruken",
+      "station": "{station}, {distance} km vun {place}"
     },
     "quotesLabel": "Anföhrte Texte",
     "warnings": {
@@ -274,7 +276,10 @@
       "outside": "De Warnungen vun den DWD gellt blots för Düütschland. Keen Born för Warnungen deckt {place} af.",
       "open": "Warnungen op de Kaart wiesen",
       "checked": "Afraagt: {time}."
-    }
+    },
+    "far": "Binnen {reach} km vun {place} gifft dat keen Weerstation. De neegste, {station}, is {distance} weg, un wat se meet, is nich dat Weer vun {place}; dorüm gifft dat keen Antwoort.",
+    "stationUsed": "Aflesen bi {station}, de Weerstation, de {place} an'n neegsten liggt, {distance} weg.",
+    "townNoStation": "För {place} wöör keen Weerstation funnen. Een Antwoort gifft dat eerst, wenn du een Oort utsöökst."
   },
   "seo": {
     "title": "Wetterdienst – apen Wedder- un Klimadaten vun nationale Wedderdeenste",
@@ -1129,7 +1134,8 @@
     "modeMap": "Kaart",
     "selectedStation": "Utsöchte Station:",
     "removeStation": "{name} ut de Utwahl wegmaken",
-    "announceList": "Stationssöök"
+    "announceList": "Stationssöök",
+    "stationsGroup": "Utsichtstationen"
   },
   "location": {
     "button": "Mien Standort bruken",
@@ -1152,6 +1158,34 @@
     "noneNear": "In de Neg vun dien Standort is keen Station funnen worrn.",
     "lookupFailed": "De neegste Station leet sik nich afropen. Versöök dat noch mal oder bruuk dat Söken.",
     "here": "Fraagt warrt na {name}, de Station {distance} vun dien Standort af."
+  },
+  "place": {
+    "fieldLabel": "Oort söken",
+    "fieldHelp": "Schriev den Naam vun een Stadt, Regioon, Barg oder Flegerhaven; sien Posischoon fillt de Koordinaten ut.",
+    "fieldPlaceholder": "De Naam vun een Oort …",
+    "searchOff": "De Oortensöök is op düssen Server utschalt.",
+    "typeHint": "Schriev mindestens dree Bookstaven vun een Naam.",
+    "forget": "Wegdoon",
+    "forgetPlace": "Oort {place} wegdoon un de Koordinaten behollen",
+    "notCorrected": "Een Oort hett keen eegen Höögde, dorüm warrt de Temperatur nich na de Höögde torechtmaakt.",
+    "heightUnknown": "Höögde nich angeven",
+    "height": "Höögde {height} m",
+    "heightNote": "Een Oort hett keen eegen Höögde: De Weerten in Klammern sünd de Höögdenünnerscheed to de neegste Station.",
+    "looking": "Söök Stationen in de Neegde vun {place} …",
+    "failed": "De Stationen in de Neegde vun den Oort leten sik nich söken. Söök di een Station ut oder versöök den Oort noch mal.",
+    "closest": "Wiest warrt {station}, de neegste Utsichtstation bi {place}, {distance} weg.",
+    "noneNear": "Keen Utsichtstation liggt binnen {reach} km vun {place}. De neegste, {station}, is {distance} weg; ehr Utsicht is nich de Utsicht för {place}, dorüm warrt keen wiest.",
+    "noneAtAll": "In de Neegde vun {place} wöör keen Utsichtstation funnen.",
+    "stationsLabel": "Utsichtstationen in de Neegde vun {place}",
+    "closestTag": "neegste",
+    "shown": "Wiest",
+    "show": "Wiesen",
+    "showStation": "Utsicht vun {station} wiesen",
+    "showAnyway": "Doch wiesen",
+    "showAnywayStation": "Doch wiesen: De Utsicht för {station}, {distance} weg, is nich de Utsicht för {place}",
+    "shownAnyway": "Wiest warrt de Utsicht för {station}, {distance} vun {place} weg. Dat is nich de Utsicht för {place}.",
+    "chosen": "Oort utsöcht: {place}. De Koordinaten sünd utfüllt.",
+    "linkStationNotFound": "De in den Link nöömte Station {station} wöör nich funnen."
   },
   "interpolation": {
     "source": "Quell",
