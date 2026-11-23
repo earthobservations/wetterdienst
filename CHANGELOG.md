@@ -30,6 +30,9 @@ Types of changes:
   pairs they found data in none of the 12 that answered 404 when asked alone (GH-3137), so the
   answers are the same, with fewer requests. No wind direction is read without its speed any more:
   an hourly `0` beside a speed of 0 is a calm (null, `raw:0`) in every request (GH-4321)
+- The `pdf` extra allows pypdf 7 (`>=6.21.4,<8`), which the DWD description PDFs are read with.
+  Nothing changes for a caller: the reader calls only `PdfReader`, `pages` and `extract_text`, which
+  7.0 leaves as they were (GH-4350)
 
 ### Fixed
 

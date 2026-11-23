@@ -204,7 +204,7 @@ mysql = [
     "sqlalchemy>=2,<3",
 ]
 pdf = [
-    "pypdf>=6.21.4,<7",  # seven DoS advisories on a crafted PDF, fixed in 6.21.3 and 6.21.4 (GH-4130)
+    "pypdf>=6.21.4,<8",  # seven DoS advisories on a crafted PDF, fixed in 6.21.3 and 6.21.4 (GH-4130)
 ]
 plotting = [
     "kaleido>=1.3.0",
