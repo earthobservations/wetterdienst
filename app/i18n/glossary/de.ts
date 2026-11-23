@@ -62,9 +62,9 @@ export const parameters: Record<string, string> = {
   wind_force_beaufort_mean: 'Mittlere Windstärke (Beaufort)',
 
   // Precipitation
-  precipitation_amount: 'Niederschlagsmenge',
-  precipitation_amount_max: 'Maximale Niederschlagsmenge',
-  precipitation_amount_max_30min: 'Maximale Niederschlagsmenge (30 min)',
+  precipitation_amount: 'Niederschlagshöhe',
+  precipitation_amount_max: 'Maximale Niederschlagshöhe',
+  precipitation_amount_max_30min: 'Maximale Niederschlagshöhe (30 min)',
   precipitation_form: 'Niederschlagsart',
   precipitation_type_flags: 'Niederschlagsart-Kennungen',
   precipitation_duration: 'Niederschlagsdauer',

@@ -124,6 +124,18 @@ describe('privacy policy texts', () => {
     expect(text).toMatch(code === 'de' ? /24 Stunden/ : /24 hours/)
     expect(text).toMatch(code === 'de' ? /kein Protokoll darüber, wer wonach gefragt hat/ : /keeps no record of who asked for what/)
     expect(text).toMatch(code === 'de' ? /Art\. 6 Abs\. 1 lit\. f DSGVO/ : /Art\. 6\(1\)\(f\) GDPR/)
+    // what is typed in the three more fields goes the same way (GH-3791, approved wording): the scope names them
+    expect(text).toContain(code === 'de'
+      ? 'in die Suche (Strg/⌘ K), in die Stationssuche der Vorhersage, in die Ortssuche von „Frag das Wetter“ und in das Feld „Ort suchen“ des Explorers (Interpolation und Zusammenfassung) eingeben'
+      : 'what you type in the search (Ctrl/⌘ K), in the station search of the forecast, in the place search of "Ask the weather" and in the field "Find a place" of the explorer (interpolation and summary) is sent')
+    // a place chosen is not sent to Photon again: its position goes to the backend and is in the address of the page
+    expect(text).toContain(code === 'de'
+      ? 'Ein Ort, den Sie wählen, wird nicht erneut an Photon gesendet: Seine Position (auf vier Nachkommastellen) wird als Koordinaten der Stationsanfrage, die die nächstgelegenen Stationen findet, an das Backend dieses Dienstes gesendet (siehe „Protokolldaten“), und in der Vorhersage, in „Frag das Wetter“ und im Explorer steht sie in der Adresse der Seite (lat, lon, placeName, placeRegion), damit ein Link, den Sie weitergeben, den Ort ohne neue Suche zeigt.'
+      : 'A place you choose is not sent to Photon again: its position (to four decimal places) is sent to the backend of this service as the coordinates of the stations request that finds the stations nearest to it (see "Log data"), and in the forecast, in "Ask the weather" and in the explorer it is part of the address of the page (lat, lon, placeName, placeRegion), so that a link you share shows the place without a new search.')
+    // the entry of the browser's storage that can hold a town
+    const storage = JSON.stringify(policy.sections)
+    expect(storage).toContain(code === 'de' ? 'oder ein über seinen Namen gefundener Ort (Name, Position und Region, mit Nummer, Name, Position und Entfernung der nächsten Station)' : 'or a town found by its name (its name, position and region, with the number, name, position and distance of the station nearest to it)')
+    expect(storage).toContain('lat, lon, placeName, placeRegion')
     // the sentence about sharing names komoot, which receives the text from the operator's server and not from the reader's browser
     const recipients = policy.sections.find(s => s.id === 'recipients')!.paragraphs.join(' ')
     expect(recipients).toContain('komoot')

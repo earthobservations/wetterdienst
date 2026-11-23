@@ -11,6 +11,7 @@ import InterpolationSummarySelection from '~/components/InterpolationSummarySele
 import ParameterSelection from '~/components/ParameterSelection.vue'
 import StationSelection from '~/components/StationSelection.vue'
 import { STATION_DISTANCE_DEFAULTS } from '~/types/data-settings.type'
+import { placeOfQuery } from '~/utils/place-link'
 import { defaultRange, HIGH_RESOLUTION_MAX_VALUES } from '~/utils/row-window'
 import { MAX_ADDITIONAL_STATIONS, MAX_STATION_DISTANCE, serverDataSettings } from '~/utils/server-settings'
 import { requestUnitTargets } from '~/utils/unit-targets'
@@ -85,6 +86,12 @@ function toQuery(paramSel: ParameterSelectionState, stationSel: StationSelection
         q.lat = stationSel.interpolation.latitude.toString()
       if (stationSel.interpolation.longitude !== undefined)
         q.lon = stationSel.interpolation.longitude.toString()
+      // the place the coordinates are the position of (GH-3791), so that a shared link shows it without asking the search of places again
+      if (stationSel.interpolation.place) {
+        q.placeName = stationSel.interpolation.place.name
+        if (stationSel.interpolation.place.region)
+          q.placeRegion = stationSel.interpolation.place.region
+      }
     }
     else if (stationSel.interpolation.station) {
       q.interpolationStation = stationSel.interpolation.station.station_id
@@ -141,6 +148,8 @@ const stationSelectionState = ref<StationSelectionState>({
     latitude: numberFromQuery(route.query.lat),
     longitude: numberFromQuery(route.query.lon),
     elevation: numberFromQuery(route.query.elevation),
+    // the place the link names for the coordinates (GH-3791): only for a point given by coordinates
+    place: route.query.interpolationSource === 'station' ? undefined : placeOfQuery(route.query) ?? undefined,
   },
   dateRange: {
     startDate: route.query.startDate?.toString(),

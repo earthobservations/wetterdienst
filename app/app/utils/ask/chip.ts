@@ -22,8 +22,13 @@ export type ToolKey = typeof TOOLS[number]['key']
 /** Translates a key of the catalogs (`ask.…`), with its parameters */
 export type Say = (key: string, params?: Record<string, string | number>) => string
 
-/** The place the chips are about: a DWD station */
-export type ChipPlace = Pick<Place, 'id' | 'name' | 'latitude' | 'longitude'>
+/** The place the chips are about: a DWD station, or a town (GH-3791) with the station nearest to it in `town` */
+export type ChipPlace = Pick<Place, 'id' | 'name' | 'latitude' | 'longitude' | 'town'>
+
+/** The station the answers about a place are read at: the place itself where it is a station, the nearest one where it is a town (GH-3791) */
+export function stationOf(place: ChipPlace): { id: string, name: string } {
+  return place.town ? { id: place.town.station.id, name: place.town.station.name } : { id: place.id, name: place.name }
+}
 
 /** What the pure parts of a definition (the question, the words of an answer) may use of the page */
 export interface ChipEnv {
@@ -278,6 +283,12 @@ export interface ChipDefinition<Id extends string, Loaded, Result> {
   icon: string
   /** The tool the answer leads into */
   tool: ToolKey
+  /**
+   * The answer is read at the station of the place's measurements, `place.id` (GH-3791): for a town, the nearest one. The panel then says which station it is and how
+   * far from the town, and where none is within reach it asks nothing and says there is no station near. Absent: the answer is no station's (the warnings, the list of
+   * sources), or it finds its own nearest point, as the forecast does, and says so itself.
+   */
+  readsStation?: boolean
   /** The quantity (or the quantities: the day question reads a speed, a depth of rain, a temperature and a depth of snow) whose unit the settings choose for the answer, and a change of which asks it again */
   quantity?: Quantity | readonly Quantity[]
   /** The choices of the question, with their names in the link; the question's own, so another chip's link carries none of them */

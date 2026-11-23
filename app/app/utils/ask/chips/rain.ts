@@ -3,6 +3,8 @@ import type { RainAnswer } from '../../answers'
 import type { AnswerAction, NumberLine } from '../chip'
 import tzLookup from 'tz-lookup'
 import { RAIN_AMOUNT, RAIN_AMOUNTS, RAIN_CHANCE, RAIN_MAYBE_CHANCE, RAIN_MAYBE_MM, RAIN_MIN_HOURS, RAIN_WET_HOUR_MM, RAIN_YES_CHANCE, RAIN_YES_MM, rainTomorrow } from '../../answers'
+import { distanceKm } from '../../map-tool'
+import { PLACE_REACH_KM } from '../../place-stations'
 import { defineChip } from '../chip'
 
 // Will it rain tomorrow? DWD MOSMIX, the forecast point nearest the place (GH-3518).
@@ -20,6 +22,8 @@ const FETCH = { provider: 'dwd', network: 'mosmix', dataset: 'hourly/large' } as
 const EXPLAINED_PARAMETERS = [RAIN_AMOUNT, 'precipitation_amount_significant_weather_last_6h', 'precipitation_amount_significant_weather_last_12h', 'precipitation_amount_significant_weather_last_24h', RAIN_CHANCE] as const
 
 interface Loaded {
+  /** The forecast point nearest the place, and whether it is too far to be the forecast of a town (GH-3791: `PLACE_REACH_KM`): then nothing is answered, and the point is named */
+  far: boolean
   point: Station
   readings: Value[]
   units: Record<string, string>
@@ -45,6 +49,7 @@ export const rain = defineChip({
     'ask.rain.pointNoDistance',
     'ask.rain.chart',
     'ask.rain.none',
+    'ask.rain.far',
     'ask.rain.open',
   ],
 
@@ -53,6 +58,11 @@ export const rain = defineChip({
     const point = near[0]
     if (!point)
       return null
+    // a town (a place found by its name) has the forecast of a point only where one is near: beyond reach the forecast is another place's, and none is fetched
+    const away = (point as Station & { distance?: number }).distance
+      ?? (point.latitude != null && point.longitude != null ? distanceKm(place, { latitude: point.latitude, longitude: point.longitude }) : 0)
+    if (place.town && away > PLACE_REACH_KM)
+      return { far: true, point, readings: [], units: {} }
     // the chance is a probability, which the sentence writes as a percentage whatever the settings' unit for fractions
     // (oktas, say, are no way to write one): asked as a decimal, and read by the unit the answer gives where it is not
     const { readings, units } = await api.values({
@@ -62,11 +72,11 @@ export const rain = defineChip({
       stations: point.station_id,
       unit_targets: JSON.stringify({ precipitation: unitTarget('precipitation'), fraction: 'decimal' }),
     })
-    return { point, readings, units }
+    return { far: false, point, readings, units }
   },
 
   answer(loaded, { place, now }): RainAnswer | null {
-    if (!loaded)
+    if (!loaded || loaded.far)
       return null
     const { readings, units } = loaded
     return rainTomorrow(readings, tzLookup(place.latitude, place.longitude), now(), { precipitation: units[RAIN_AMOUNT], fraction: units[RAIN_CHANCE] })
@@ -143,9 +153,11 @@ export const rain = defineChip({
     },
   },
 
-  empty: (loaded, env) => env.t('ask.rain.none', { name: loaded?.point.name ?? env.place.name }),
+  empty: (loaded, env) => loaded?.far
+    ? env.t('ask.rain.far', { place: env.place.name, reach: PLACE_REACH_KM, name: loaded.point.name ?? loaded.point.station_id, distance: env.number((loaded.point as Station & { distance?: number }).distance ?? distanceKm(env.place, loaded.point as { latitude: number, longitude: number }), 0) })
+    : env.t('ask.rain.none', { name: loaded?.point.name ?? env.place.name }),
 
-  actions: (env, _choices, loaded): AnswerAction[] => loaded
+  actions: (env, _choices, loaded): AnswerAction[] => loaded && !loaded.far
     ? [{ key: 'forecast', label: env.t('ask.rain.open'), tool: 'forecast', to: { path: '/meteogram', query: { station: loaded.point.station_id } } }]
     : [],
 })

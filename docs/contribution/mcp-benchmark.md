@@ -19,10 +19,11 @@ providers, so run the cases you need. Nothing of it lives in `.claude/`: it is a
 ## Run it
 
 Open Claude Code in a checkout of the repository and tell it: *"follow `benchmarks/mcp/README.md` for the smoke run"* (all
-27 cases that need no key, both tiers, 1 repeat: 54 runs) or *"... for the baseline"* (the same with 5 repeats: 270 runs).
+28 cases that need no key, both tiers, 1 repeat: 56 runs) or *"... for the baseline"* (the same with 5 repeats: 280 runs).
 The README is the whole instruction: prerequisites, a local server of `main` in a git worktree, the results file, the runs
 (at most 3 at once), how the orchestrating Claude judges what has to be read, how it reports on
-[#3546](https://github.com/earthobservations/wetterdienst/issues/3546) with comments and a secret gist of the results, how
+the strategy's issue it is given ([#4318](https://github.com/earthobservations/wetterdienst/issues/4318) for the schema work,
+[#4319](https://github.com/earthobservations/wetterdienst/issues/4319) for the descriptions) with comments and a secret gist of the results, how
 to stop, and what to do when something breaks. The script counts everything that can be counted from the transcript of the
 tested model, so that two runs are compared on the same arithmetic; the judge reads the rest against ground truth it obtains
 itself.

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Station, StationIdsResponse, StationIdsStation } from '#shared/types/api'
-import type { PlaceMatch, PlacesAnswer } from '#shared/utils/places'
+import type { PlaceMatch } from '#shared/utils/places'
 import type { Place } from '~/composables/usePlace'
 import type { PaletteGroup, PaletteItem } from '~/utils/palette'
 import type { Hit } from '~/utils/search-index'
@@ -8,7 +8,7 @@ import type { Tile } from '~/utils/sections'
 import type { TypedStationId } from '~/utils/station-hits'
 import type { SearchNetwork, StationMatch, StationSearchAnswer } from '~/utils/station-search'
 import { DateTime } from 'luxon'
-import { isPlaceQuery, ODBL_URL, OSM_COPYRIGHT_URL, PHOTON_URL, photonLang } from '#shared/utils/places'
+import { isPlaceQuery } from '#shared/utils/places'
 import { PLACE_NETWORK, placeOf } from '~/composables/usePlace'
 import { readChoices } from '~/utils/ask/chip'
 import { coordinatesText, hemispheresOf, mapAtPoint, parseCoordinates } from '~/utils/coordinates'
@@ -51,12 +51,14 @@ import { itemOfIdRow, itemOfStation, moreStationsLink, parseStationId, sortedIdR
 // is `GROUP_ORDER` of utils/palette.ts: a point, the stations, the rest.
 //
 // In its place mode (`mode="place"`, the home page's "Ask the weather") it is the same field and list for one thing
-// only: the place the questions are about. It lists DWD's measuring stations by name (from two letters on), a station
-// that has stopped reporting long ago left out, and choosing one makes it the reader's place (composables/usePlace.ts).
+// only: the place the questions are about. It lists the towns OpenStreetMap has for the text (the places above, from three letters on,
+// with the same credit), then DWD's measuring stations by name (from two letters on), a station that has stopped reporting long ago left
+// out. A station chosen is the reader's place (composables/usePlace.ts); a town is handed to the page (`town`), which finds the station
+// nearest to it, and the answers say which that is and how far.
 const props = withDefaults(defineProps<{
   mode?: 'search' | 'place'
 }>(), { mode: 'search' })
-const emit = defineEmits<{ done: [], place: [place: Place] }>()
+const emit = defineEmits<{ done: [], place: [place: Place], town: [town: PlaceMatch] }>()
 
 const { t, locale, setLocale } = useI18n()
 const colorMode = useColorMode()
@@ -89,20 +91,15 @@ const RETRY_AFTER_MS = 3000
 const MAX_RETRIES = 25
 /** The search of every network for an id in flight */
 let idSearchRequest: AbortController | null = null
-/** The places of the text, as the app's server found them (`GET /_search/places`), and the request for them in flight */
-const places = shallowRef<PlaceMatch[]>([])
-const placesFailed = ref(false)
-let placesTicket = 0
-let placesRequest: AbortController | null = null
-/** Where the operator has switched the search of places off, the server says so once and the visit asks no more */
-const placesOff = useState('places-search-off', () => false)
-/** How long the search of places waits after the last key: longer than the stations', since every text asked for is a request to a service of a third party */
-const PLACES_DEBOUNCE_MS = 400
+/**
+ * The places of the text, as the app's server found them (`GET /_search/places`): the same search as every field that finds places (`usePlacesSearch`).
+ * In the place mode too, where a place found is the town the questions are about.
+ */
+const { places, failed: placesFailed, off: placesOff } = usePlacesSearch(query, { skip: text => !!parseCoordinates(text, hemispheresOf(locale.value)) })
 onBeforeUnmount(() => {
   closed = true
   nameSearch?.abort()
   idSearchRequest?.abort()
-  placesRequest?.abort()
   clearTimeout(nameRetry)
 })
 
@@ -223,38 +220,8 @@ async function searchNames(text: string, ticket: number, attempt = 0, forecast?:
 // a key that changes what is asked gives up what is in flight for the text before it: the answer is no longer wanted
 watch(query, () => {
   nameSearch?.abort()
-  placesRequest?.abort()
   clearTimeout(nameRetry)
 })
-
-watchDebounced(query, async (value) => {
-  const ticket = ++placesTicket
-  placesRequest?.abort()
-  const text = value.trim()
-  // a text that is a position or has no letter is no name of a place, and is not sent to anybody
-  if (closed || placeMode.value || placesOff.value || !isPlaceQuery(text) || parseCoordinates(text, hemispheresOf(locale.value))) {
-    places.value = []
-    placesFailed.value = false
-    return
-  }
-  const controller = placesRequest = new AbortController()
-  try {
-    const answer = await $fetch<PlacesAnswer>('/_search/places', { query: { q: text, lang: photonLang(locale.value) }, signal: controller.signal, retry: 0, ...API_ANSWER })
-    if (ticket !== placesTicket || controller.signal.aborted)
-      return
-    if (answer.state === 'off')
-      placesOff.value = true
-    places.value = answer.state === 'off' ? [] : answer.places
-    placesFailed.value = false
-  }
-  catch {
-    // a failure leaves the rest of the search as it is, and is said in the live region; the next text asks again
-    if (ticket === placesTicket && !controller.signal.aborted) {
-      places.value = []
-      placesFailed.value = true
-    }
-  }
-}, { debounce: PLACES_DEBOUNCE_MS })
 
 watchDebounced(query, async (value) => {
   if (closed)
@@ -341,9 +308,12 @@ const placeGroup = computed<PaletteGroup[]>(() => point.value
     }]
   : [])
 
-/** The places OpenStreetMap has for the text, each leading to the map at its point, which picks the nearest station there (GH-3791) */
+/**
+ * The places OpenStreetMap has for the text (GH-3791), each leading to the map at its point, which picks the nearest station there; in the place mode
+ * (the questions of "Ask the weather") each is the town the questions are about, which the page makes the place of them
+ */
 const osmPlacesGroup = computed<PaletteGroup[]>(() => {
-  if (placeMode.value || placesOff.value || !places.value.length || !isPlaceQuery(text.value))
+  if (placesOff.value || !places.value.length || !isPlaceQuery(text.value))
     return []
   return [{
     id: 'places-osm',
@@ -353,7 +323,7 @@ const osmPlacesGroup = computed<PaletteGroup[]>(() => {
       label: place.name,
       description: [t(`shell.placeKinds.${place.kind}`), place.region].filter(Boolean).join(' · '),
       icon: 'i-ph-map-pin',
-      to: mapAtPoint({ latitude: place.latitude, longitude: place.longitude }),
+      ...(placeMode.value ? { run: () => emit('town', place) } : { to: mapAtPoint({ latitude: place.latitude, longitude: place.longitude }) }),
     })),
   }]
 })
@@ -594,9 +564,9 @@ const placesGroup = computed<PaletteGroup>(() => ({
 }))
 
 const shown = computed<PaletteGroup[]>(() => {
-  // the places are the backend's matches, as they are
+  // the towns (OpenStreetMap's places) lead the stations, which are the backend's matches, as they are
   if (placeMode.value)
-    return [placesGroup.value].filter(group => group.items.length)
+    return [...osmPlacesGroup.value, placesGroup.value].filter(group => group.items.length)
   const matched = filterGroups(pageGroups.value, query.value)
   // the cards of About and Support, found by their words, are with the pages of the project
   const cards = site && text.value ? site.findPages(text.value).filter(hit => hit.kind === 'about' || hit.kind === 'support').map(hit => itemOfHit(hit, HIT_ICONS[hit.kind]!)) : []
@@ -651,9 +621,11 @@ const status = computed(() => {
   if (stationsPending.value)
     return placeMode.value ? t('ask.placeSearching') : t('common.loading')
   if (placeMode.value) {
+    // places that could not be searched are said whatever the stations found, as in the search
+    const placesSaid = placesFailed.value && isPlaceQuery(text.value) ? ` ${t('shell.placesFailed')}` : ''
     if (stationsFailed.value)
-      return t('ask.placeFailed')
-    return query.value.trim().length < MIN_STATION_QUERY.value ? t('ask.placeHint') : t('shell.resultsCount', flat.value.length)
+      return `${t('ask.placeFailed')}${placesSaid}`
+    return query.value.trim().length < MIN_STATION_QUERY.value ? t('ask.placeHint') : `${t('shell.resultsCount', flat.value.length)}${placesSaid}`
   }
   // the search of every network for an id takes seconds: said while it runs, and again when it is done by the count of what it found
   if (idSearch.value?.status === 'running' && idSearch.value.id === typedId.value?.id)
@@ -794,24 +766,7 @@ function onKeydown(event: KeyboardEvent) {
     </p>
 
     <!-- the credit of the places (OpenStreetMap's licence, ODbL) and the service that found them, with the group (GH-3791) -->
-    <i18n-t
-      v-if="showsPlaces"
-      keypath="shell.placesCredit"
-      tag="p"
-      scope="global"
-      data-testid="places-credit"
-      class="border-t border-default px-4 py-2 text-xs text-muted"
-    >
-      <template #osm>
-        <a :href="OSM_COPYRIGHT_URL" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2">© OpenStreetMap contributors</a>
-      </template>
-      <template #licence>
-        <a :href="ODBL_URL" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2">ODbL</a>
-      </template>
-      <template #photon>
-        <a :href="PHOTON_URL" target="_blank" rel="noopener noreferrer" class="underline underline-offset-2">Photon</a>
-      </template>
-    </i18n-t>
+    <PlacesCredit v-if="showsPlaces" class="border-t border-default px-4 py-2" />
 
     <div class="flex items-center justify-between gap-4 border-t border-default px-4 py-2.5 text-xs text-muted">
       <p role="status" aria-live="polite" class="min-w-0">

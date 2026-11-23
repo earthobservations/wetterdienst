@@ -131,7 +131,8 @@
       "pointNoDistance": "Forecast for {name}, the forecast point nearest to {place}.",
       "chart": "Rain per hour tomorrow, in {unit}",
       "none": "The forecast for {name} does not reach tomorrow yet.",
-      "open": "Open the full forecast"
+      "open": "Open the full forecast",
+      "far": "There is no forecast point within {reach} km of {place}. The nearest, {name}, is {distance} km away, and its forecast is not the forecast of {place}, so none is shown."
     },
     "season": {
       "warmer": "Yes, {anomaly} {unit} warmer than usual.",
@@ -262,7 +263,8 @@
       "answer": "Weather services that publish hourly air temperature: {count}.",
       "detail": "Each one opens in the Explorer, ready to download as CSV, JSON or GeoJSON.",
       "none": "No weather service lists hourly air temperature right now.",
-      "api": "Or use the REST API"
+      "api": "Or use the REST API",
+      "station": "{station}, {distance} km from {place}"
     },
     "quotesLabel": "Quoted texts",
     "warnings": {
@@ -274,7 +276,10 @@
       "outside": "DWD's warnings cover Germany only. No warnings source covers {place}.",
       "open": "Show the warnings on the map",
       "checked": "Checked: {time}."
-    }
+    },
+    "far": "There is no weather station within {reach} km of {place}. The nearest, {station}, is {distance} away, and what it measures is not the weather of {place}, so no answer is given.",
+    "stationUsed": "Read at {station}, the weather station nearest to {place}, {distance} away.",
+    "townNoStation": "No weather station could be found for {place}. No answer is given until you choose a place."
   },
   "seo": {
     "title": "Wetterdienst – open weather and climate data from national weather services",
@@ -1129,7 +1134,8 @@
     "modeMap": "Map",
     "selectedStation": "Selected station:",
     "removeStation": "Remove {name} from the selection",
-    "announceList": "Station search"
+    "announceList": "Station search",
+    "stationsGroup": "Forecast stations"
   },
   "location": {
     "button": "Use my location",
@@ -1152,6 +1158,34 @@
     "noneNear": "No station was found near your position.",
     "lookupFailed": "The nearest station could not be looked up. Try again, or use the search.",
     "here": "Asking about {name}, the station {distance} from your position."
+  },
+  "place": {
+    "fieldLabel": "Find a place",
+    "fieldHelp": "Type the name of a town, region, mountain or airport; its position fills in the coordinates.",
+    "fieldPlaceholder": "The name of a place …",
+    "searchOff": "The search of places is switched off on this server.",
+    "typeHint": "Type at least three letters of a name.",
+    "forget": "Remove",
+    "forgetPlace": "Remove the place {place} and keep its coordinates",
+    "notCorrected": "A place has no height of its own, so the temperature is not corrected for height.",
+    "heightUnknown": "Height not given",
+    "height": "Height {height} m",
+    "heightNote": "A place has no height of its own: the values in brackets are the difference in height from the closest station.",
+    "looking": "Looking for stations near {place} …",
+    "failed": "The stations near the place could not be looked up. Choose a station or try the place again.",
+    "closest": "Showing {station}, the closest forecast station to {place}, {distance} away.",
+    "noneNear": "No forecast station is within {reach} km of {place}. The nearest, {station}, is {distance} away, so its forecast is not the forecast of {place} and none is shown.",
+    "noneAtAll": "No forecast station was found near {place}.",
+    "stationsLabel": "Forecast stations near {place}",
+    "closestTag": "closest",
+    "shown": "Shown",
+    "show": "Show",
+    "showStation": "Show the forecast of {station}",
+    "showAnyway": "Show anyway",
+    "showAnywayStation": "Show anyway: the forecast of {station}, {distance} away, is not the forecast of {place}",
+    "shownAnyway": "Shown: the forecast of {station}, {distance} from {place}. It is not the forecast of {place}.",
+    "chosen": "Place chosen: {place}. The coordinates are filled in.",
+    "linkStationNotFound": "The station {station} named in the link was not found."
   },
   "interpolation": {
     "source": "Source",
