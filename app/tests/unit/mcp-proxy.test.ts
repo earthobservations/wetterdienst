@@ -73,6 +73,9 @@ beforeAll(async () => {
 
 afterAll(async () => {
   vi.unstubAllGlobals()
+  // a connection that a failing test left open would keep `close` waiting
+  for (const server of servers)
+    server.closeAllConnections()
   await Promise.all(servers.map(server => new Promise(resolve => server.close(resolve))))
 })
 
@@ -161,7 +164,10 @@ const CLOSED_BY_THE_PROXY = new Set(['EPIPE', 'ECONNRESET'])
 // A request of a body in chunks of `chunk` bytes, with no `Content-Length` (so `Transfer-Encoding: chunked`) unless
 // `declared` is given. `readNothing` is a client that never reads the answer (it can only learn of the 413 from the
 // closed connection); `stopAfter` is one that writes that many bytes, then waits for the answer before it writes more.
-// Any other error than a closed connection rejects.
+// Any other error than a closed connection rejects, and so does a request with no outcome after `HANG_AFTER_MS`, so
+// that a proxy that hangs is a named failure and leaves no socket open.
+const HANG_AFTER_MS = 2000
+
 function chunkedRequest(
   total: number,
   chunk: number,
@@ -170,11 +176,12 @@ function chunkedRequest(
 ): Promise<ChunkedOutcome> {
   return new Promise((resolve, reject) => {
     const { port } = new URL(app)
-    const state = { finished: false, answered: false }
+    const state: { finished: boolean, answered: boolean, hung?: ReturnType<typeof setTimeout> } = { finished: false, answered: false }
     const finish = (outcome: ChunkedOutcome): void => {
       if (state.finished)
         return
       state.finished = true
+      clearTimeout(state.hung)
       resolve(outcome)
     }
     const request = httpRequest({ host: '127.0.0.1', port, path: '/mcp/v1', method: 'POST', headers: { 'content-type': 'application/json', ...headers } }, (response) => {
@@ -191,6 +198,13 @@ function chunkedRequest(
       response.on('error', error => finish({ closed: (error as NodeJS.ErrnoException).code ?? error.message }))
       response.on('aborted', () => finish({ closed: 'aborted' }))
     })
+    state.hung = setTimeout(() => {
+      if (state.finished)
+        return
+      state.finished = true
+      request.destroy()
+      reject(new Error(`chunkedRequest: no outcome after ${HANG_AFTER_MS} ms, the proxy neither answered nor closed the connection`))
+    }, HANG_AFTER_MS)
     if (readNothing)
       request.on('socket', socket => socket.pause())
     request.on('error', (error: NodeJS.ErrnoException) => {
@@ -202,12 +216,13 @@ function chunkedRequest(
       if (CLOSED_BY_THE_PROXY.has(error.code ?? ''))
         return finish({ closed: error.code as string })
       state.finished = true
+      clearTimeout(state.hung)
       reject(error)
     })
     let written = 0
     const write = (): void => {
       while (written < total && written < stopAfter && !state.finished) {
-        const size = Math.min(chunk, total - written)
+        const size = Math.min(chunk, total - written, stopAfter - written)
         written += size
         if (!request.write(Buffer.alloc(size, 0x61)))
           return void request.once('drain', write)
@@ -217,6 +232,13 @@ function chunkedRequest(
     }
     write()
   })
+}
+
+// That the backend was not asked. A request that the proxy forwarded and did not await would reach the stub after the
+// answer, so this waits a moment first; a fixed wait only narrows that window, it proves nothing.
+async function expectBackendNotAsked(): Promise<void> {
+  await new Promise(resolve => setTimeout(resolve, 50))
+  expect(asked).toEqual([])
 }
 
 // An outcome that is the 413 problem of the proxy, which is what the client reads when it reads anything
@@ -245,7 +267,7 @@ describe('the /mcp proxy and the size of the body', () => {
     const outcome = await chunkedRequest(limit + 64 * 1024, 64 * 1024)
 
     expectPayloadTooLarge(outcome)
-    expect(asked).toEqual([])
+    await expectBackendNotAsked()
   })
 
   it('closes the connection of a client that writes on and never reads, which is no failure of the proxy', async () => {
@@ -253,18 +275,23 @@ describe('the /mcp proxy and the size of the body', () => {
     // far more than the limit, so that the client is still writing when the proxy closes, and it reads no 413
     const outcome = await chunkedRequest(limit * 8, 1024 * 1024, {}, { readNothing: true })
 
+    // It shows that the proxy does not read the whole body before it closes; it does not bound how much it reads
+    // (a limit of 16 MiB would pass), which the test of the client that stops one byte over the limit does.
     expect(outcome).toEqual({ closed: expect.stringMatching(/^(EPIPE|ECONNRESET)$/) })
-    expect(asked).toEqual([])
+    await expectBackendNotAsked()
   })
 
   it('answers a client that stops writing after the limit its 413, which it reads', async () => {
     asked.length = 0
-    // it wrote the bytes that pass the limit and waits: nothing of it is written to a closed socket
-    const outcome = await chunkedRequest(limit * 8, 64 * 1024, { 'x-request-id': 'chunked.1' }, { stopAfter: limit + 64 * 1024 })
+    // It writes one byte more than the limit and waits for the answer. That byte is what the proxy refuses, so the
+    // limit is pinned exactly: with a larger limit the proxy waits for more and the client gets no answer (the request
+    // is destroyed after `HANG_AFTER_MS`). Writing a whole chunk over the limit would leave part of it unflushed when
+    // the proxy closes, and that is written to a closed socket now and then (EPIPE).
+    const outcome = await chunkedRequest(limit * 8, 64 * 1024, { 'x-request-id': 'chunked.1' }, { stopAfter: limit + 1 })
 
     expect(outcome).toMatchObject({ status: 413 })
     expect(JSON.parse((outcome as { body: string }).body)).toMatchObject({ type: 'urn:wetterdienst:problem:payload-too-large', status: 413, request_id: 'chunked.1' })
-    expect(asked).toEqual([])
+    await expectBackendNotAsked()
   })
 
   it('leaves the socket of an oversized chunked body in place, so that what runs when the response finishes does not throw', async () => {
