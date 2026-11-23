@@ -749,7 +749,9 @@
     "openExplorer": "Otevřít v průzkumníku"
   },
   "credit": {
-    "licence": "Licence dat: {name} ({url})"
+    "licence": "Licence dat: {name} ({url})",
+    "source": "Zdroj",
+    "dataSource": "Zdroj dat"
   },
   "processingNote": {
     "base": "Zpracováno nástrojem wetterdienst: data poskytovatele byla uspořádána do jednotné tabulky a jejich jednotky byly přepočteny tam, kde se liší.",

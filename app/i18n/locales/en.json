@@ -749,7 +749,9 @@
     "openExplorer": "Open in the explorer"
   },
   "credit": {
-    "licence": "Licence: {name} ({url})"
+    "licence": "Licence: {name} ({url})",
+    "source": "Source",
+    "dataSource": "Data source"
   },
   "processingNote": {
     "base": "Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ.",
