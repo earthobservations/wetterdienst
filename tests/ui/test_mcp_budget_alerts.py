@@ -63,7 +63,9 @@ def _a_coast() -> bytes:
     The real warning of 2026-11-23 for Schleswig-Holstein (frost, 1,429 areas) was 80,000 characters; the message
     of the stubs has 150 areas and one polygon, which is 12,000.
     """
-    text = CAP_COMMUNITY_KIEL.decode("utf-8")
+    # the stub file has the line endings of the checkout (`\r\n` on Windows): the patterns below and the areas written
+    # here have `\n`
+    text = CAP_COMMUNITY_KIEL.decode("utf-8").replace("\r\n", "\n")
     polygon = re.search(r"    <area>\s*<areaDesc>polygonal event area</areaDesc>.*?</area>\n", text, re.DOTALL)
     assert polygon
     areas = "".join(
