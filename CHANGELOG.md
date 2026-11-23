@@ -41,6 +41,10 @@ Types of changes:
   so `range: soft` no longer returns it: filter on `raw:88`. The AEMET daily `dir` and `prec`
   descriptions and the KNMI 10-minute, monthly and annual `FXX` ones now carry the source's own
   words and codes (GH-4321)
+- The glossary (`/api/glossary`, the MCP `glossary` tool, the app's glossary page) described
+  `distance_river_gauge_height` (GHCN-Daily's `GAHT`) as the height of the gauge zero point. It is,
+  as GHCN-Daily writes it, the "difference between river and gauge height"; the app's label
+  says so in all eleven languages. The values are unchanged (GH-4310)
 
 ## [0.195.0] - 2026-11-22
 
@@ -122,10 +126,6 @@ Types of changes:
   provider pages described `sunshine_duration` and its 3-hour and previous-day forms as the time
   "the sun shone unobstructed". They now say what WMO defines: the time during which the direct
   solar irradiance exceeded 120 W/m² (GH-4263)
-- The glossary (`/api/glossary`, the MCP `glossary` tool, the app's glossary page) described
-  `distance_river_gauge_height` (GHCN-Daily's `GAHT`) as the height of the gauge zero point. It is,
-  as GHCN-Daily writes it, the "difference between river and gauge height"; the app's label
-  says so in all eleven languages. The values are unchanged (GH-4310)
 
 ## [0.193.0] - 2026-11-20
 
