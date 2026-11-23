@@ -32,6 +32,8 @@ from __future__ import annotations
 
 import base64
 import json
+import secrets
+from collections import deque
 from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
@@ -94,6 +96,78 @@ def _mark_tool_requests(app: ASGIApp) -> ASGIApp:
             HTML_PLOTLYJS.reset(token)
 
     return marked
+
+
+#: the header that names a session in the streamable-HTTP transport (the specification's `MCP-Session-Id`)
+SESSION_ID_HEADER = "mcp-session-id"
+
+
+def _is_initialize(body: bytes) -> bool:
+    """Tell whether a request body is a JSON-RPC `initialize` request, or a batch that holds one."""
+    try:
+        message = json.loads(body)
+    except ValueError:
+        return False
+    messages = message if isinstance(message, list) else [message]
+    return any(isinstance(item, dict) and item.get("method") == "initialize" for item in messages)
+
+
+class AnnounceSessionId:
+    """Answer an `initialize` with an `Mcp-Session-Id`, and keep nothing (GH-4341).
+
+    The endpoint is stateless (GH-3088): the transport of the SDK makes a new one for each request, without an id, so
+    no hook sends one. A client that expects the id of a server it talks to over the streamable-HTTP transport
+    (`initialize` is where the specification has a session start) gets a fresh random one here, on the response to a
+    successful `initialize` and on no other. The server neither stores nor checks it: a later request is served alike
+    with this id, with another, or with none, and no id is unknown (no 404).
+
+    The body is read to see the method, and replayed to the endpoint as it came, so the endpoint reads what the client
+    sent. A request that is no `POST`, or whose body is no `initialize`, passes as it is.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        """Wrap `app`, the endpoint of the transport."""
+        # `Any`: the endpoint is the `StreamableHTTPASGIApp` of FastMCP, whose `session_manager` is read through this
+        self.app: Any = app
+
+    @property
+    def session_manager(self) -> Any:  # noqa: ANN401
+        """The session manager of the wrapped endpoint, which the app's lifespan starts and a test reads."""
+        return self.app.session_manager
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        """Serve a request, adding the id to the start of the response to a successful `initialize`."""
+        if scope["type"] != "http" or scope["method"] != "POST":
+            await self.app(scope, receive, send)
+            return
+        messages: deque[MutableMapping[str, Any]] = deque()
+        body = b""
+        while True:
+            message = await receive()
+            messages.append(message)
+            if message["type"] != "http.request":
+                break
+            body += message.get("body", b"")
+            if not message.get("more_body", False):
+                break
+
+        async def replay() -> MutableMapping[str, Any]:
+            return messages.popleft() if messages else await receive()
+
+        if not _is_initialize(body):
+            await self.app(scope, replay, send)
+            return
+
+        async def announce(message: MutableMapping[str, Any]) -> None:
+            if message["type"] == "http.response.start" and 200 <= message["status"] < 300:
+                headers = [
+                    (name, value) for name, value in message.get("headers", []) if name.lower() != b"mcp-session-id"
+                ]
+                headers.append((SESSION_ID_HEADER.encode(), secrets.token_urlsafe(16).encode()))
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, replay, announce)
 
 
 INSTRUCTIONS = """\

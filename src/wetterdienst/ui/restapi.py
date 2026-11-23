@@ -3092,7 +3092,8 @@ def _mount_mcp(rest_app: FastAPI) -> bool:
     contract version, and ``/mcp`` is an alias of the current one, as ``/api`` is of ``/api/v1``.
     Both paths are routes to the one endpoint, so they share the session manager and
     the server is built once, and a tool answers alike on either (GH-3074). The endpoint is stateless (GH-3088):
-    every request stands alone, no session is created or kept, and a request needs no `initialize` before it. The MCP
+    every request stands alone, no session is kept, and a request needs no `initialize` before it. An `initialize`
+    is answered with an `Mcp-Session-Id` that the server neither stores nor checks (GH-4341). The MCP
     streamable-http session manager runs via the sub-app's lifespan, which is *composed* with
     ``rest_app``'s existing lifespan here (not replaced), so any current or future app
     startup/shutdown still runs; the existing REST routes keep working with or without the
@@ -3106,7 +3107,7 @@ def _mount_mcp(rest_app: FastAPI) -> bool:
         from fastmcp.utilities.lifespan import combine_lifespans  # noqa: PLC0415
         from starlette.routing import Route  # noqa: PLC0415
 
-        from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+        from wetterdienst.ui.mcp import AnnounceSessionId, build_mcp_server  # noqa: PLC0415
 
         # stateless: the tools hold no session state, so no session is kept (GH-3088)
         mcp_app = build_mcp_server(rest_app).http_app(path=MCP_PREFIX, stateless_http=True)
@@ -3125,7 +3126,18 @@ def _mount_mcp(rest_app: FastAPI) -> bool:
     # app's existing lifespan (rather than replacing it, which would drop any app startup/shutdown).
     # The alias is a second route to the pinned route's own endpoint: not a second `http_app`, whose
     # lifespan would start a second session manager and enter the server's lifespan a second time
-    mcp_routes = list(mcp_app.router.routes)
+    # the endpoint answers an `initialize` with an `Mcp-Session-Id` that nothing keeps or checks (GH-4341)
+    mcp_routes = [
+        Route(
+            route.path,
+            endpoint=AnnounceSessionId(route.endpoint),
+            methods=sorted(route.methods or ()),
+            name=route.name,
+        )
+        if isinstance(route, Route) and route.path == MCP_PREFIX
+        else route
+        for route in mcp_app.router.routes
+    ]
     rest_app.router.routes.extend(mcp_routes)
     rest_app.router.routes.extend(
         Route(MCP_ALIAS_PREFIX, endpoint=route.endpoint, methods=sorted(route.methods) if route.methods else None)

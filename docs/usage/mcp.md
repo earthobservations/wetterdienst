@@ -230,11 +230,14 @@ has the rest.
 ## Stateless
 
 The endpoint keeps no session. The tools hold no state: each is a request to the REST API, so the server does not
-create a session at `initialize`, sends no `mcp-session-id` header and has nothing to expire, and a request needs no
-earlier one: `tools/list` and `tools/call` work without an `initialize`. A request that carries an `mcp-session-id`
-is served as one without. The two requests that belong to a session are answered with a 405, as the specification
+create a session at `initialize` and has nothing to expire, and a request needs no earlier one: `tools/list` and
+`tools/call` work without an `initialize`. The response to `initialize` carries an `mcp-session-id` header, a fresh
+random one each time, for the clients that expect one from a streamable-HTTP server; the server neither stores nor
+checks it. A request that carries it, another, or none is served alike, and none is unknown (no 404). A client of the
+`mcp` package sends the id back with its requests. The two requests that belong to a session are answered with a 405, as the specification
 lets a server do: `DELETE` (ending a session; clients that send it on closing carry on) and `GET` (opening a stream
-of messages from the server, of which a server of tools has none). A tool's answer is one body and is not streamed
+of messages from the server, of which a server of tools has none; the `mcp` client, which opens one once it has an
+id, tries it twice and gives up without an error). A tool's answer is one body and is not streamed
 (`format=ndjson` and `csv` are text content of the result, held to the same `rows` limit as every other format of
 a tool, not the higher `stream_rows` of the REST API). A tool makes its request to the
 API in process, so it is held to the [limits](restapi.md#limits), the [timeout](restapi.md#timeout) and the

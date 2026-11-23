@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime as dt
+import re
 from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
@@ -155,7 +156,7 @@ def test_the_tool_surface_is_the_same_at_both_paths(app: FastAPI) -> None:
 
 @pytest.mark.parametrize("path", MCP_PATHS)
 def test_the_endpoint_is_stateless_at_either_path(app: FastAPI, path: str) -> None:
-    """No session is created, and a list of the tools and a call work without an `initialize` (GH-3088)."""
+    """No session is kept, and a list of the tools and a call work without an `initialize` (GH-3088, GH-4341)."""
     initialize = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -171,10 +172,10 @@ def test_the_endpoint_is_stateless_at_either_path(app: FastAPI, path: str) -> No
     with TestClient(app) as client:
         response = client.post(path, json=initialize, headers=HEADERS)
         assert response.status_code == 200
-        assert "mcp-session-id" not in response.headers
         for given in (HEADERS, {**HEADERS, "mcp-session-id": "left-over-from-a-server-that-kept-one"}):
             listed = client.post(path, json={"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, headers=given)
             assert listed.status_code == 200
+            assert "mcp-session-id" not in listed.headers
             assert "stations" in listed.text
             called = client.post(path, json=call, headers=given)
             assert called.status_code == 200
@@ -319,3 +320,143 @@ def test_the_oauth_discovery_of_either_path_is_a_404(path: str, document: str) -
 def test_the_mcp_paths_are_no_rest_routes() -> None:
     """The OpenAPI document lists no MCP path, so the endpoint is no tool of itself."""
     assert not [path for path in restapi.app.openapi()["paths"] if path.startswith(("/mcp", "/.well-known"))]
+
+
+_SESSION_ID = re.compile(r"[\x21-\x7e]+")
+_TOOLS_LIST = {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}
+_TOOL_CALL = {
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": {"name": "glossary", "arguments": {"limit": 1}},
+}
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_initialize_answers_with_a_fresh_session_id_at_either_path(app: FastAPI, path: str) -> None:
+    """`initialize` carries an `Mcp-Session-Id` of visible ASCII, a new one each time (GH-4341)."""
+    with TestClient(app) as client:
+        ids = [client.post(path, json=_INITIALIZE, headers=HEADERS).headers.get("mcp-session-id") for _ in range(3)]
+
+    assert all(session_id and _SESSION_ID.fullmatch(session_id) for session_id in ids)
+    assert len(set(ids)) == 3
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_initialize_is_answered_by_the_endpoint_and_a_refusal_gets_no_id(app: FastAPI, path: str) -> None:
+    """The body is replayed as sent: the answer is the endpoint's own, with the id added; a refused one has none."""
+    with TestClient(app) as client:
+        response = client.post(path, json=_INITIALIZE, headers=HEADERS)
+        # a batch is refused by the endpoint (400), so no session is announced for it
+        batch = client.post(path, json=[_INITIALIZE], headers=HEADERS)
+
+    assert response.status_code == 200
+    assert "protocolVersion" in response.text
+    assert "Wetterdienst" in response.text
+    assert response.headers["mcp-session-id"]
+    assert batch.status_code == 400
+    assert "mcp-session-id" not in batch.headers
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_a_request_that_is_no_initialize_gets_no_id(app: FastAPI, path: str) -> None:
+    """A list, a call, a notification and a body that is no JSON are served as they were, with no id (GH-4341)."""
+    notification = {"jsonrpc": "2.0", "method": "notifications/initialized"}
+    with TestClient(app) as client:
+        for body in (_TOOLS_LIST, _TOOL_CALL, notification):
+            response = client.post(path, json=body, headers=HEADERS)
+            assert response.status_code in (200, 202), body
+            assert "mcp-session-id" not in response.headers, body
+        garbage = client.post(path, content=b"not json", headers=HEADERS)
+        assert "mcp-session-id" not in garbage.headers
+        assert garbage.status_code == 400
+
+
+@pytest.mark.parametrize("path", MCP_PATHS)
+def test_the_id_is_neither_stored_nor_checked(app: FastAPI, path: str) -> None:
+    """The id of an `initialize`, another, and none, are served alike, and nothing is kept (GH-4341, GH-3088)."""
+    with TestClient(app) as client:
+        issued = client.post(path, json=_INITIALIZE, headers=HEADERS).headers["mcp-session-id"]
+        for given in (
+            HEADERS,
+            {**HEADERS, "mcp-session-id": issued},
+            {**HEADERS, "mcp-session-id": "never-issued"},
+        ):
+            listed = client.post(path, json=_TOOLS_LIST, headers=given)
+            assert listed.status_code == 200
+            assert "stations" in listed.text
+            called = client.post(path, json=_TOOL_CALL, headers=given)
+            assert called.status_code == 200
+            assert "clearance_height" in called.text
+            assert "mcp-session-id" not in called.headers
+        # a second initialize that carries the id is a new one, not the continuation of a session
+        again = client.post(path, json=_INITIALIZE, headers={**HEADERS, "mcp-session-id": issued})
+        assert again.status_code == 200
+        assert again.headers["mcp-session-id"] != issued
+        assert client.delete(path, headers={**HEADERS, "mcp-session-id": issued}).status_code == 405
+        manager = next(
+            route.endpoint.session_manager for route in app.router.routes if getattr(route, "path", "") == path
+        )
+        assert manager.stateless is True
+        assert not manager._server_instances  # noqa: SLF001
+
+
+@pytest.mark.usefixtures("stations")
+def test_the_official_sdk_client_takes_the_id_and_ends_without_an_error(app: FastAPI) -> None:
+    """The `mcp` client keeps the id, sends it on, and its `DELETE` on closing and its `GET` are answered 405 (GH-4341).
+
+    What the client does with the id, observed: it sends it with every later request; on closing it sends a `DELETE`,
+    and a 405 is logged by the SDK at debug level as "Server does not allow session termination"; and after the
+    `initialized` notification it opens a `GET` stream, which a stateless server refuses with 405, and which it tries
+    twice (a second after the first) before giving up, silently. No call fails.
+    """
+    import httpx2  # noqa: PLC0415
+    from mcp import ClientSession  # noqa: PLC0415
+    from mcp.client.streamable_http import streamable_http_client  # noqa: PLC0415
+
+    seen: list[tuple[str, int, str | None, str | None]] = []
+
+    async def record(response: httpx2.Response) -> None:
+        request = response.request
+        seen.append(
+            (
+                request.method,
+                response.status_code,
+                request.headers.get("mcp-session-id"),
+                response.headers.get("mcp-session-id"),
+            )
+        )
+
+    async def run() -> tuple[list[str], str]:
+        http_client = httpx2.AsyncClient(
+            transport=httpx2.ASGITransport(app=app),
+            headers=HEADERS,
+            event_hooks={"response": [record]},
+        )
+        async with (
+            app.router.lifespan_context(app),
+            http_client,
+            streamable_http_client(f"http://testserver{MCP_PREFIX}", http_client=http_client) as streams,
+            ClientSession(streams[0], streams[1]) as session,
+        ):
+            await session.initialize()
+            names = [tool.name for tool in (await session.list_tools()).tools]
+            result = await session.call_tool(
+                "stations", {"provider": "dwd", "network": "observation", "parameters": "daily/kl", "all": True}
+            )
+            text = result.content[0].text  # ty: ignore[unresolved-attribute]
+        return names, text
+
+    names, text = asyncio.run(run())
+
+    assert {"coverage", "stations", "values"} <= set(names)
+    assert "01048" in text
+    posts = [entry for entry in seen if entry[0] == "POST"]
+    assert posts[0][2] is None
+    issued = posts[0][3]
+    assert issued
+    assert all(sent == issued and status in (200, 202) for _, status, sent, _ in posts[1:])
+    assert [entry[1] for entry in seen if entry[0] == "DELETE"] == [405]
+    gets = [entry[1] for entry in seen if entry[0] == "GET"]
+    assert gets
+    assert set(gets) == {405}
