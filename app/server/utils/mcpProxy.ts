@@ -1,5 +1,7 @@
+import type { H3Event } from 'h3'
+import { Buffer } from 'node:buffer'
 import { useApiBase } from './apiBase'
-import { answerNotFound, urlUnder } from './proxyPath'
+import { answerNotFound, answerPayloadTooLarge, urlUnder } from './proxyPath'
 import { requestIdOf } from './requestId'
 
 // Shared handler that proxies the app's `/mcp` and `/mcp/v1` (and any sub-path) through to the backend's MCP
@@ -20,7 +22,40 @@ const MCP_ACCEPT = 'application/json, text/event-stream'
 // its own.
 const FORWARDED_HEADERS = ['content-type', 'mcp-session-id', 'mcp-protocol-version', 'last-event-id', 'x-request-id']
 
+// The largest request body the proxy takes, the backend's own: the MCP SDK's `DEFAULT_MAX_REQUEST_BODY_SIZE`
+// (4 MiB), which its `RequestBodyLimitMiddleware` refuses a body over. The proxy refuses it first, since it holds
+// a body in memory to forward it, and a caller must not make it hold one of any size (GH-4362).
+export const MAX_BODY_BYTES = 4 * 1024 * 1024
+
 const PAYLOAD_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+
+/**
+ * Reads the body of the request, never more than `limit` bytes of it.
+ *
+ * @param event The request
+ * @param limit The most bytes to take
+ * @returns The body, `undefined` if there is none (or it cannot be read), or `'too-large'` as soon as it passes
+ * `limit`, with the rest of it unread: a declared `Content-Length` over it is not read at all
+ */
+async function readBodyUpTo(event: H3Event, limit: number): Promise<Uint8Array<ArrayBuffer> | undefined | 'too-large'> {
+  const declared = Number(getRequestHeader(event, 'content-length'))
+  if (declared > limit)
+    return 'too-large'
+  const chunks: Uint8Array[] = []
+  let size = 0
+  try {
+    for await (const chunk of event.node.req as AsyncIterable<Uint8Array>) {
+      size += chunk.length
+      if (size > limit)
+        return 'too-large'
+      chunks.push(chunk)
+    }
+  }
+  catch {
+    return undefined
+  }
+  return size ? new Uint8Array(Buffer.concat(chunks)) : undefined
+}
 
 export function mcpProxyHandler() {
   return defineEventHandler(async (event) => {
@@ -42,8 +77,9 @@ export function mcpProxyHandler() {
     // otherwise send the required pair.
     const accept = getRequestHeader(event, 'accept') || ''
     headers.accept = accept.includes('text/event-stream') ? accept : MCP_ACCEPT
-    const raw = PAYLOAD_METHODS.has(event.method) ? await readRawBody(event, false).catch(() => undefined) : undefined
-    const body = raw && new Uint8Array(raw)
+    const body = PAYLOAD_METHODS.has(event.method) ? await readBodyUpTo(event, MAX_BODY_BYTES) : undefined
+    if (body === 'too-large')
+      return answerPayloadTooLarge(event, requestIdOf(getRequestHeader(event, 'x-request-id')), MAX_BODY_BYTES)
     return sendProxy(event, target, {
       fetchOptions: { method: event.method, body, headers },
       onResponse() {

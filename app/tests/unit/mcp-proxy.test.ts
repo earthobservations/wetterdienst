@@ -138,6 +138,79 @@ describe('the /mcp proxy and the answer of the backend', () => {
   })
 })
 
+// A request of a body in chunks of `chunk` bytes, with no `Content-Length` (so `Transfer-Encoding: chunked`) unless
+// `declared` is given. The server may answer and close before the client is done, which is no error here.
+function chunkedRequest(total: number, chunk: number, headers: Record<string, string> = {}): Promise<{ status: number, body: string }> {
+  return new Promise((resolve, reject) => {
+    const { port } = new URL(app)
+    const request = httpRequest({ host: '127.0.0.1', port, path: '/mcp/v1', method: 'POST', headers: { 'content-type': 'application/json', ...headers } }, (response) => {
+      let text = ''
+      response.on('data', (part) => {
+        text += part
+      })
+      response.on('end', () => resolve({ status: response.statusCode ?? 0, body: text }))
+    })
+    const state = { failed: false }
+    request.on('error', (error) => {
+      state.failed = true
+      reject(error)
+    })
+    let written = 0
+    const write = (): void => {
+      while (written < total && !state.failed) {
+        const size = Math.min(chunk, total - written)
+        written += size
+        if (!request.write(Buffer.alloc(size, 0x61)))
+          return void request.once('drain', write)
+      }
+      if (!state.failed)
+        request.end()
+    }
+    write()
+  })
+}
+
+describe('the /mcp proxy and the size of the body', () => {
+  const limit = 4 * 1024 * 1024
+
+  it('answers a declared body over the limit a 413 problem with the request id, without reading it or asking the backend', async () => {
+    asked.length = 0
+    // the body is never sent: the header alone is refused (a client that sent it would wait for nothing)
+    const { status, body } = await rawRequest('/mcp/v1', 'POST', { 'content-type': 'application/json', 'content-length': String(limit + 1), 'x-request-id': 'big.1' })
+
+    expect(status).toBe(413)
+    expect(JSON.parse(body)).toMatchObject({ type: 'urn:wetterdienst:problem:payload-too-large', status: 413, request_id: 'big.1' })
+    expect(asked).toEqual([])
+  })
+
+  it('answers a chunked body that passes the limit a 413, without asking the backend', async () => {
+    asked.length = 0
+    const { status, body } = await chunkedRequest(limit + 64 * 1024, 64 * 1024)
+
+    expect(status).toBe(413)
+    expect(JSON.parse(body).status).toBe(413)
+    expect(asked).toEqual([])
+  })
+
+  it('passes a chunked body of exactly the limit, and a body that is not there', async () => {
+    asked.length = 0
+    const { status, body } = await chunkedRequest(limit, 64 * 1024)
+    expect(status).toBe(200)
+    expect(JSON.parse(body).body).toHaveLength(limit)
+
+    expect((await sent({ method: 'POST' })).body).toBe('')
+  })
+
+  it('passes an initialize with its body intact', async () => {
+    const initialize = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } } })
+    const { response, body, headers } = await sent({ method: 'POST', body: initialize, headers: { 'content-type': 'application/json' } })
+
+    expect(response.status).toBe(200)
+    expect(body).toBe(initialize)
+    expect(headers['content-length']).toBe(String(initialize.length))
+  })
+})
+
 // A request with the path as the client wrote it: `fetch` normalises `..` before it sends anything
 function rawRequest(path: string, method = 'GET', headers: Record<string, string> = {}, body?: string): Promise<{ status: number, body: string }> {
   return new Promise((resolve, reject) => {

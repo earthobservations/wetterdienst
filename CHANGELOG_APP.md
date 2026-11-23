@@ -57,6 +57,12 @@ Types of changes:
   languages are fixed. What only a native speaker can decide is listed in `app/i18n/TERMS.md`
   (GH-2610).
 
+### Security
+
+- `[MCP]` The `/mcp` proxy refuses a request body over 4 MiB, the backend's own limit, with a 413
+  before reading it (a declared `Content-Length`) or as soon as it passes the limit (a chunked
+  body), where it held a body of any size in memory first (GH-4362).
+
 ## [0.58.0] - 2026-11-22
 
 Paired with backend 0.195.0, which it needs: the search asks the `station-ids` route of 0.195.0 for a WMO
