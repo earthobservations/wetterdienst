@@ -34,7 +34,8 @@ jobs:
   e2e-tests:
     name: E2E Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # the suite runs about 31-41 minutes on one Firefox worker, plus about 5 minutes of setup; raised from 45 for GH-4340, when nuxt 4.6.4 made it slower
+    timeout-minutes: 60
 
     defaults:
       run:
