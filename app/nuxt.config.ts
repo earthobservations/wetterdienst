@@ -254,6 +254,15 @@ export default defineNuxtConfig({
     // `rolldownOptions.output.minify.compress.dropConsole`: the app reports a failed chart, map or DuckDB query
     // with `console.error` on purpose (the specs assert it), and that is what a bug report needs from a browser.
     removeLoggers: false,
+    // nuxt-security's `xssValidator` is off for the whole app (GH-4364). For a POST it calls h3's `readBody`, which
+    // reads the whole body into memory before any route runs, on any path, one that does not exist included, and
+    // its `requestSizeLimiter` looks only at a declared `Content-Length` of a POST, PUT or DELETE: a chunked body
+    // of 16 MiB was read whole. Nothing needs it. The app's server takes a body in one route only, `/mcp`
+    // (JSON-RPC, which the backend validates; its proxy caps what it reads, `server/utils/mcpProxy.ts`); the
+    // `/api` proxy and every other route are GET and read none. It is no defence against injection either: the
+    // page escapes what it shows (Vue), and the Content-Security-Policy below is what limits a script. For a GET it
+    // only filtered the query, which no route of the app puts in a page unescaped.
+    xssValidator: false,
     headers: {
       // nuxt-security defaults this to 'no-referrer', which strips the Referer
       // header. OpenStreetMap's tile servers reject refererless requests
@@ -303,12 +312,12 @@ export default defineNuxtConfig({
     // it for the page only, so the assets say it themselves.
     '/_nuxt/**': { headers: { 'Cross-Origin-Embedder-Policy': 'credentialless' } },
     // The `/mcp` proxy owns the limit of a request body (`MAX_BODY_BYTES`, the backend's 4 MiB) and forwards the
-    // body of a POST (JSON-RPC, which the backend validates) as it came. nuxt-security's `xssValidator` reads the
-    // whole body before the proxy runs, with no limit, and leaves nothing in the stream to forward; its
-    // `requestSizeLimiter` answers 413 from 2,000,000 bytes, below the backend's limit. Both are off here (GH-4362).
+    // body of a POST (JSON-RPC, which the backend validates) as it came. nuxt-security's `requestSizeLimiter`
+    // answers 413 from 2,000,000 bytes, below the backend's limit, so it is off here (GH-4362). Its `xssValidator`
+    // is off for the whole app, see `security` above (GH-4364).
     // (`/mcp/**` matches `/mcp` as well; the plain key is belt and braces)
-    '/mcp': { security: { xssValidator: false, requestSizeLimiter: false } },
-    '/mcp/**': { security: { xssValidator: false, requestSizeLimiter: false } },
+    '/mcp': { security: { requestSizeLimiter: false } },
+    '/mcp/**': { security: { requestSizeLimiter: false } },
     // Who may frame `/widget` is not a rule of this list: see `server/plugins/widget-frame.ts`.
   },
 
