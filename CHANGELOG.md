@@ -30,6 +30,9 @@ Types of changes:
   pairs they found data in none of the 12 that answered 404 when asked alone (GH-3137), so the
   answers are the same, with fewer requests. No wind direction is read without its speed any more:
   an hourly `0` beside a speed of 0 is a calm (null, `raw:0`) in every request (GH-4321)
+- `python-dateutil` 3 and 4 are allowed (`>=2.8.2,<5`, was `<3`). Its `relativedelta`, used for
+  month and year spans and the IMGW hydrology folder window, gives the same dates on 4.0, which
+  needs Python 3.11 and drops `six`; 3.0 adds `tzdata` (GH-4349)
 
 ### Fixed
 
