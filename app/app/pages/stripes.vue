@@ -17,6 +17,7 @@ import { stripesCsv, stripesTableColumns, stripesTableYears } from '~/utils/stri
 import { stripesUnitTargets, unitSymbol } from '~/utils/unit-targets'
 
 const { t, locale } = useI18n()
+const creditLine = useCreditLine()
 
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('stripes.title') })
@@ -316,7 +317,7 @@ function csvComments(data: StripesValuesResponse): string[] {
     plotTitle(data),
     referenceFull.value,
     methodNote.value,
-    provider?.attribution || t('stripes.plotSource'),
+    creditLine(provider?.attribution) || t('stripes.plotSource'),
     licence ? t('credit.licence', { name: licence.name, url: licence.url }) : '',
     processingNote(t),
   ]

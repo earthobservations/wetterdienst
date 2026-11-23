@@ -749,7 +749,9 @@
     "openExplorer": "In'n Explorer apenmaken"
   },
   "credit": {
-    "licence": "Lizenz: {name} ({url})"
+    "licence": "Lizenz: {name} ({url})",
+    "source": "Quell",
+    "dataSource": "Datenquell"
   },
   "processingNote": {
     "base": "Verarbeidt vun wetterdienst: De Daten vun den Anbeder sünd in eene eenheitliche Tabell bröcht un de Eenheiten ümrekent, wo se afwiekt.",

@@ -749,7 +749,9 @@
     "openExplorer": "Åbn i udforskeren"
   },
   "credit": {
-    "licence": "Licens: {name} ({url})"
+    "licence": "Licens: {name} ({url})",
+    "source": "Kilde",
+    "dataSource": "Datakilde"
   },
   "processingNote": {
     "base": "Behandlet af wetterdienst: Udbyderens data er lagt ind i en ensartet tabel, og enhederne er omregnet, hvor de afviger.",

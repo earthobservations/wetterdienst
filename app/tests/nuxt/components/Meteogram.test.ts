@@ -613,9 +613,9 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
   describe('the provider\'s credit', () => {
     const NOTE = 'Processed by wetterdienst: the provider\'s data was reshaped into a uniform table, and its units converted where they differ.'
     const credits = () => document.body.querySelectorAll('[data-testid="meteogram-provider-credit"]')
-    async function creditShown() {
+    async function creditShown(label = 'Source: Deutscher Wetterdienst') {
       await vi.waitFor(() => expect(credits()).toHaveLength(1))
-      await vi.waitFor(() => expect(credits()[0]!.textContent).toContain('Source: Deutscher Wetterdienst'))
+      await vi.waitFor(() => expect(credits()[0]!.textContent).toContain(label))
       return credits()[0]!
     }
     beforeEach(() => {
@@ -653,7 +653,8 @@ describe('meteogram numbers and day labels in the active language', { timeout: 1
     it('is said in the language of the page', async () => {
       await inLanguage('de')
       await showMeteogram()
-      const credit = await creditShown()
+      const credit = await creditShown('Quelle: Deutscher Wetterdienst')
+      expect(credit.querySelector('[data-testid="provider-credit-line"]')!.textContent!.trim()).toBe('Quelle: Deutscher Wetterdienst, Creative Commons Attribution 4.0 International')
       expect(credit.querySelector('[data-testid="processing-note"]')!.textContent).toMatch(/^Aufbereitet von wetterdienst/)
     })
   })
