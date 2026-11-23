@@ -262,6 +262,13 @@ _VALUES_WINDOW_ADVICE = (
     "shape=wide."
 )
 
+# The sentences that end the description of the `alerts` tool, which only the tool has: its answer is cut to the same
+# budget, and a name that matches no area is told apart (GH-4338).
+_ALERTS_ADVICE = (
+    "An answer over 40,000 characters leaves the polygon and areas out of each warning (`answer-truncated`). A `name` "
+    "that matches no area is told by `no-area-matched`: that is no all-clear."
+)
+
 
 def _annotate_tool(
     route: HTTPRoute,  # noqa: ARG001
@@ -287,6 +294,8 @@ def _annotate_tool(
     if component.name == "values":
         # the tool's own advice, so that the REST document, which these descriptions come from, is not changed (GH-4022)
         component.description = f"{(component.description or '').rstrip()}\n\n{_VALUES_WINDOW_ADVICE}"
+    elif component.name == "alerts":
+        component.description = f"{(component.description or '').rstrip()}\n\n{_ALERTS_ADVICE}"
     # keyword arguments, which the type checker holds to the fields; they go out on the wire as
     # `readOnlyHint` and so on
     component.annotations = ToolAnnotations(

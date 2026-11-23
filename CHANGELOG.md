@@ -33,13 +33,11 @@ Types of changes:
 
 ### Fixed
 
-- The MCP tool `alerts` answers within 40,000 characters, with an `answer-truncated` warning. The
-  three warnings for Kiel were 172,000 characters, so a client saved them to a file and the model
-  got none. Each warning's `geometry` is null and its `area_names` and `warncell_ids` are empty
-  (a `name` keeps the areas that match it), and where that is still too much the least severe
-  warnings are named and left out. A `name` that matches no area of any warning in force adds a
-  `no-area-matched` warning to the tool's answer, which is no all-clear for the place. REST, the
-  command line and Python are unchanged (GH-4338)
+- The MCP tool `alerts` keeps an answer over 40,000 characters within it (Kiel's three warnings were
+  184,612, so a client saved them to a file): each warning loses its `geometry` and area lists (a
+  `name` keeps up to 25 matching areas), then the least severe warnings go, with an
+  `answer-truncated` warning. A `name` matching no area adds `no-area-matched`. Other answers, REST,
+  the command line and Python are unchanged (GH-4338)
 - **Breaking**: `aemet/observation` daily `wind_direction_gust_max` is null with `raw:88` where the
   source writes 88, "sin dato" (no data) in the units text of `dir`, as it is for the 99. It was
   `rejected:range,raw:880` with `range: hard`, and 880.0 with `suspect:range` with `range: soft`,

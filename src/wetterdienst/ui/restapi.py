@@ -2828,10 +2828,7 @@ def alerts(
     in every area that has it) or warn cell id. ``timestamp`` (ISO 8601, UTC if no offset) selects a historical
     snapshot from DWD's rolling ~48-hour window; omit it for the latest snapshot. An empty result is an answer, not
     an error: no warning is active, or none is for the place, which a ``no-alerts-for-place`` warning in ``metadata``
-    says in the words of what was asked. A tool's answer is cut to 40,000 characters, with an ``answer-truncated``
-    warning: a warning is mostly its polygon and the list of its areas, which are left out of each warning to make the
-    answer fit, and then the least severe warnings, as many as do not fit. A tool's ``name`` that matches no area of any
-    warning in force is told by a ``no-area-matched`` warning, which is no all-clear for the place.
+    says in the words of what was asked.
     """
     from wetterdienst.provider.dwd.alerts import DwdWeatherAlertRequest  # noqa: PLC0415
     from wetterdienst.provider.dwd.alerts.api import NO_AREA_MATCHED, no_area_matched_message  # noqa: PLC0415
@@ -2861,7 +2858,7 @@ def alerts(
     name = alerts_request.name
     if tool and name is not None and result.name_matched is False:
         # an assistant read an empty answer for a name that found no area as "no warning" (GH-4338)
-        record_response_warning(NO_AREA_MATCHED, no_area_matched_message(name))
+        record_response_warning(NO_AREA_MATCHED, no_area_matched_message(name, point=request.latitude is not None))
     content, metadata = render_alerts(result, request.format, pretty=request.pretty)
     if tool:
         # an assistant reads the answer in its context: cut to the budget, with a note (GH-4338)
@@ -2872,7 +2869,7 @@ def alerts(
             metadata,
             lambda cut, block: render_alerts(cut, request.format, pretty=request.pretty, metadata=block)[0],
             name=name,
-            placed=request.latitude is not None or name is not None,
+            point=request.latitude is not None,
         )
     return _answer(content, request.format, metadata)
 

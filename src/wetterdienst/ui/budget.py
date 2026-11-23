@@ -828,6 +828,11 @@ _SEVERITIES = ("extreme", "severe", "moderate", "minor")
 _URGENCIES = ("immediate", "expected", "future", "past")
 #: how many of the warnings left out a note names
 _NAMED_LEFT_OUT = 8
+#: the most areas that match a `name` that are kept for a warning where all of them are too many. A kept area is an
+#: area name and its warn cell id, about 40 characters, so 25 are about 1,000 characters: the 1.1 to 1.6 KB of a slimmed
+#: warning plus that is 2.5 KB, so 15 warnings of a storm day still fit the budget, where a name that matches 1,500
+#: areas of each is 60 KB
+AREA_CAP = 25
 
 
 def _worst_first(df: pl.DataFrame) -> pl.DataFrame:
@@ -850,16 +855,15 @@ def _worst_first(df: pl.DataFrame) -> pl.DataFrame:
     )
 
 
-def _slimmed(df: pl.DataFrame, name: str | None) -> pl.DataFrame:
-    """Give the warnings without their polygon and areas: `geometry` null, `area_names` and `warncell_ids` empty.
+def _matching_areas(df: pl.DataFrame, name: str | None) -> tuple[list[list[str]], list[list[str]]]:
+    """Give, for each warning, the area names and the warn cell ids that match the `name`; empty lists without one.
 
-    A warning is mostly those three columns (a warning for a coast lists 1,700 areas). For a `name` the areas that match
-    it are kept: a name that is no id matches the words of an area's name, one of digits the warn cell id.
+    A name that is no id matches the words of an area's name, one of digits the warn cell id.
     """
     from wetterdienst.provider.dwd.alerts.place import names_match  # noqa: PLC0415
 
-    def keep(column: str, *, by_name: bool) -> pl.Series:
-        lists = [
+    def keep(column: str, *, by_name: bool) -> list[list[str]]:
+        return [
             [
                 item
                 for item in items or []
@@ -867,12 +871,21 @@ def _slimmed(df: pl.DataFrame, name: str | None) -> pl.DataFrame:
             ]
             for items in df.get_column(column).to_list()
         ]
-        return pl.Series(column, lists, dtype=pl.List(pl.String))
 
+    return keep("area_names", by_name=True), keep("warncell_ids", by_name=False)
+
+
+def _slimmed(df: pl.DataFrame, areas: tuple[list[list[str]], list[list[str]]], cap: int | None) -> pl.DataFrame:
+    """Give the warnings without their polygon and areas: `geometry` null, the lists those of `areas` or empty.
+
+    A warning is mostly those three columns (a warning for a coast lists 1,700 areas). `areas` are those that match the
+    name, of which `cap` are kept for each warning where it is given.
+    """
+    names, cells = ([match[:cap] for match in matches] for matches in areas)
     return df.with_columns(
         pl.lit(None, dtype=pl.String).alias("geometry"),
-        keep("area_names", by_name=True),
-        keep("warncell_ids", by_name=False),
+        pl.Series("area_names", names, dtype=pl.List(pl.String)),
+        pl.Series("warncell_ids", cells, dtype=pl.List(pl.String)),
     )
 
 
@@ -895,25 +908,51 @@ def _left_out_warnings(df: pl.DataFrame) -> str:
     return ", ".join(named) + (f" and {more:,} more" if more else "")
 
 
-def _alerts_note(*, shown: int, left_out: pl.DataFrame, name: str | None, placed: bool, honest: bool = False) -> str:
+def _capped_warnings(df: pl.DataFrame, areas: tuple[list[list[str]], list[list[str]]], cap: int) -> str:
+    """Name the warnings that have more matching areas than `cap`, `event (n match)`, as many as a note names."""
+    counts = [
+        (event, max(len(names), len(cells)))
+        for event, names, cells in zip(df.get_column("event").to_list(), *areas, strict=True)
+    ]
+    over = [f"{event} ({count:,} match)" for event, count in counts if count > cap]
+    shown = ", ".join(over[:_NAMED_LEFT_OUT])
+    return shown + (f" and {len(over) - _NAMED_LEFT_OUT:,} more" if len(over) > _NAMED_LEFT_OUT else "")
+
+
+def _alerts_note(
+    *,
+    shown: int,
+    left_out: pl.DataFrame,
+    name: str | None,
+    point: bool,
+    capped: str = "",
+    cap: int | None = None,
+    honest: bool = False,
+) -> str:
     """Write the note of an `alerts` answer cut to the budget: what is left of a warning, which are, how to ask.
 
-    `shown` is the number of warnings returned and `left_out` the rows of the others, `placed` whether the request
-    names a place (a point or a name).
+    `shown` is the number of warnings returned and `left_out` the rows of the others, `name` the name of the request
+    and `point` whether it has a point. `cap` is the number of matching areas kept for each warning where they were
+    capped, and `capped` the warnings that have more.
     """
-    if name is not None:
+    if cap is not None:
+        areas = f"the first {cap:,} of the areas that match the name are kept for each warning, and {capped} have more"
+    elif name is not None:
         areas = "the areas that match the name are kept"
-    elif placed:
+    elif point:
         areas = "no area is listed"
     else:
-        areas = "no area is listed, though the warnings are for all of Germany"
+        areas = (
+            "no area is listed: these are the warnings in force somewhere in Germany, and the answer does not say where"
+        )
     text = (
         f"{_head(honest=honest)}the polygon (`geometry`) and the lists of areas (`area_names`, `warncell_ids`) of each "
         f"warning are left out ({areas}); they are not available through this tool, the REST API, the command line and "
         "Python give them. "
     )
+    placed = point or name is not None
     if left_out.is_empty():
-        text += f"All {shown:,} warnings are returned."
+        text += "The warning is returned." if shown == 1 else f"All {shown:,} warnings are returned."
         return (
             text if placed else f"{text} Pass a place (`latitude` and `longitude`, or `name`) for the warnings for it."
         )
@@ -923,11 +962,13 @@ def _alerts_note(*, shown: int, left_out: pl.DataFrame, name: str | None, placed
         f"Of {shown + count:,} warnings {words} returned, the most severe first (then the most urgent, then the "
         f"earliest onset). The {count:,} left out {'is' if count == 1 else 'are'}: {_left_out_warnings(left_out)}. "
     )
-    return text + (
-        "Ask for a smaller place: a `name` of one area narrows a point (both must hold)."
-        if placed
-        else "Pass a place, a point (`latitude` and `longitude`) or a `name`, for the warnings for it alone."
-    )
+    if name is not None:
+        advice = "Ask for a smaller place: a more specific `name`, one area or its warn cell id."
+    elif point:
+        advice = "Ask for a smaller place: add a `name` of one area to the point (both must hold)."
+    else:
+        advice = "Pass a place, a point (`latitude` and `longitude`) or a `name`, for the warnings for it alone."
+    return text + advice
 
 
 def fit_alerts(
@@ -938,47 +979,67 @@ def fit_alerts(
     render: Callable[[DwdWeatherAlertResult, ResponseMetadata], str],
     *,
     name: str | None = None,
-    placed: bool = False,
+    point: bool = False,
 ) -> tuple[str | bytes, ResponseMetadata]:
     """Cut an `alerts` tool answer to the budget in steps, each only where the one before is still over it (GH-4338).
 
     A warning is mostly its polygon and the areas it is issued for: one for a coast is 80,000 characters, and the
-    answer for Kiel on 2026-11-23 was 172,000 for three, so no warning can be kept with them and the answer fit.
-    1. The answer as it is, where it fits. 2. Every warning without its `geometry` and its lists of areas (for a
-    `name`, the areas that match it are kept), everything else of it as it is: a few thousand characters each. 3. Where
-    that is still over the budget, as many of those warnings as fit, whole, the most severe first (then the most urgent,
-    then the earliest onset). A request for a place holds the warnings for it only, so none needs to go first for it.
-    The `answer-truncated` warning of the block says what was left out of each warning, names the warnings left out and
-    says how to ask for a narrower answer. Where not even one warning fits the worst is kept and the note says that the
-    answer is still over the budget. `render` writes the answer of a cut result with the block it is given; `name` is
-    the name of the request and `placed` tells whether it names a place at all.
+    answer for Kiel on 2026-11-23 was 184,612 for three warnings, so no warning can be kept with them and the answer
+    fit. 1. The answer as it is, where it fits. 2. Every warning without its `geometry` and its lists of areas (for a
+    `name`, the areas that match it are kept), everything else of it as it is: a few thousand characters each. 3. For a
+    `name` that matches many areas (1,500 in a coast's warning), only the first `AREA_CAP` of them for each warning, the
+    note naming the warnings that have more. 4. Where that is still over the budget, as many of those warnings as fit,
+    whole, the most severe first (then the most urgent, then the earliest onset). A request for a place holds the
+    warnings for it only, so none needs to go first for it. The `answer-truncated` warning of the block says what was
+    left out of each warning, names the warnings left out and says how to ask for a narrower answer. Where not even one
+    warning fits the worst is kept and the note says that the answer is still over the budget. `render` writes the
+    answer of a cut result with the block it is given; `name` is the name of the request and `point` whether it has a
+    point.
     """
     if _size_in(content, fmt, metadata) <= ANSWER_BUDGET or result.df.is_empty():
         return content, metadata
-    ordered = _slimmed(_worst_first(result.df), name)
+    ordered = _worst_first(result.df)
+    areas = _matching_areas(ordered, name)
     total = ordered.height
-    tried: dict[int, tuple[str, ResponseMetadata, int]] = {}
+    # the caps to try: none, then `AREA_CAP` where a warning has more matching areas than that
+    caps: list[int | None] = [None]
+    if any(len(match) > AREA_CAP for matches in areas for match in matches):
+        caps.append(AREA_CAP)
+    tried: dict[tuple[int | None, int], tuple[str, ResponseMetadata, int]] = {}
 
-    def attempt(count: int, *, honest: bool = False) -> bool:
-        note = _alerts_note(shown=count, left_out=ordered.slice(count), name=name, placed=placed, honest=honest)
+    def attempt(count: int, cap: int | None, *, honest: bool = False) -> bool:
+        slim = _slimmed(ordered, areas, cap)
+        note = _alerts_note(
+            shown=count,
+            left_out=slim.slice(count),
+            name=name,
+            point=point,
+            capped=_capped_warnings(ordered, areas, cap) if cap is not None else "",
+            cap=cap,
+            honest=honest,
+        )
         block = metadata.model_copy(
             update={
                 "counts": metadata.counts.model_copy(update={"rows": count}),
                 "warnings": [*metadata.warnings, ResponseWarning(code=ANSWER_TRUNCATED, message=note)],
             }
         )
-        body = render(_cut_result(result, ordered.head(count)), block)
-        tried[count] = (body, block, _size_in(body, fmt, block))
-        return tried[count][2] <= ANSWER_BUDGET
+        body = render(_cut_result(result, slim.head(count)), block)
+        tried[cap, count] = (body, block, _size_in(body, fmt, block))
+        return tried[cap, count][2] <= ANSWER_BUDGET
 
-    best = total if attempt(total) else None
-    if best is None and total > 1:
+    # all the warnings first, with the caps in turn; the last cap is the one that drops warnings if it must
+    cap = caps[-1]
+    best = total if any(attempt(total, each) for each in caps) else None
+    if best is not None:
+        cap = next(each for each in caps if tried[each, total][2] <= ANSWER_BUDGET)
+    elif total > 1:
         guess = max(1, total * ANSWER_BUDGET // _size_in(content, fmt, metadata))
-        best = _largest(1, total - 1, attempt, guess)
+        best = _largest(1, total - 1, lambda count: attempt(count, cap), guess)
     if best is None:
         # not even the worst warning fits, slimmed as it is: it is kept, and the note says the answer is still over
-        attempt(1, honest=True)
+        attempt(1, cap, honest=True)
         best = 1
-    body, block, _ = tried[best]
+    body, block, _ = tried[cap, best]
     log.info(f"Cut an alerts answer of {total} warnings to {best} to stay within the budget.")
     return body, block

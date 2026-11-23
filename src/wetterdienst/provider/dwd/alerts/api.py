@@ -68,13 +68,22 @@ NO_ALERTS_FOR_PLACE = "no-alerts-for-place"
 NO_AREA_MATCHED = "no-area-matched"
 
 
-def no_area_matched_message(name: str) -> str:
-    """Say that no area of any warning in force is named `name`, which is no all-clear for the place."""
+def no_area_matched_message(name: str, *, point: bool = False) -> str:
+    """Say that no area of any warning in force is named `name`, which is no all-clear for the place.
+
+    With a `point` the advice is to drop the name, the point alone giving the warnings for the place; without one it is
+    to ask by point.
+    """
+    advice = (
+        "The point alone gives the warnings for the place: ask again without the name."
+        if point
+        else "Ask by point (`latitude` and `longitude`) to be sure."
+    )
     return (
         f'No area of any warning in force is named {name!r}, so the name matched nothing. That is not "no warning" '
         "for the place: a place without a warning is in none of the lists, and a name that is not DWD's German "
         "('München', not 'Munich'; 'Stadt Kiel' is found by 'Kiel' or 'Stadt Kiel', not 'Kiel, Stadt') is in none "
-        "either. Ask by point (`latitude` and `longitude`) to be sure."
+        f"either. {advice}"
     )
 
 

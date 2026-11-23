@@ -3,15 +3,17 @@
 """A tool's `alerts` answer is cut to the size budget, and a name that matches no area is told (GH-4338).
 
 A DWD warning is mostly its polygon and the areas it is issued for: on 2026-11-23 the three warnings for Kiel were
-172,000 characters, 1.3 million for the whole of Germany, and Claude Code saved every such result to a file, so the
-model got no warning at all. The answer of a tool leaves the polygon and the areas out of each warning where it is over
-`ANSWER_BUDGET`, and then the least severe warnings; the REST API, the command line and the library answer all of it.
+184,612 characters (REST JSON), 1.3 million for the whole of Germany, and Claude Code saved every such result to a
+file, so the model got no warning at all. The answer of a tool leaves the polygon and the areas out of each warning
+where it is over `ANSWER_BUDGET`, caps the areas a broad `name` keeps, and then drops the least severe warnings; the
+REST API, the command line and the library answer all of it.
 The snapshot is real messages of DWD (`tests/provider/dwd/alerts/stubs.py`), repeated with other identifiers and
 severities where a test needs more warnings than there are messages.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 import re
 import uuid
@@ -31,7 +33,7 @@ from tests.provider.dwd.alerts.stubs import (
 from tests.ui.test_mcp_budget import _client_sees, _compact, _received, _rest_client, _tool_client
 from tests.ui.test_operations import _no_ambient_settings  # noqa: F401
 from wetterdienst.ui import budget, restapi
-from wetterdienst.ui.budget import ANSWER_BUDGET
+from wetterdienst.ui.budget import ANSWER_BUDGET, AREA_CAP
 
 pytestmark = pytest.mark.usefixtures("_no_ambient_settings")
 
@@ -102,6 +104,12 @@ def small(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
+def broad(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Serve three warnings for a coast (1,650 areas each) of three severities, the least severe first."""
+    serve_snapshot(monkeypatch, *(_variant(_a_coast(), severity) for severity in ("Minor", "Extreme", "Moderate")))
+
+
+@pytest.fixture
 def many(monkeypatch: pytest.MonkeyPatch) -> None:
     """Serve 80 warnings of every severity: slimmed, they are still more than the budget."""
     serve_snapshot(monkeypatch, *_many(80))
@@ -148,7 +156,8 @@ def test_the_warning_of_a_place_is_over_the_budget_whole_and_within_it_for_a_too
     note = _note_of(answer)
     assert "`geometry`" in note
     assert "`area_names`" in note
-    assert "All 1 warnings are returned" in note
+    assert "The warning is returned." in note
+    assert "All 1 warnings" not in note
 
 
 @pytest.mark.usefixtures("kiel_only")
@@ -180,6 +189,15 @@ def test_what_the_client_receives_is_within_the_budget(fmt: str) -> None:
 
     assert not result.is_error, result.content
     assert _received(result) <= ANSWER_BUDGET
+    # an answer that is within the budget by being empty is no answer: warnings are in it, and the note says it was cut
+    text = json.dumps(result.structured_content)
+    if fmt == "csv":
+        assert text.count("\\n") > 5
+        assert "answer-truncated" in text
+    else:
+        answer = result.structured_content["result"]
+        assert len(answer["alerts" if fmt == "json" else "features"]) > 5
+        assert _note_of(answer)
     # the whole snapshot is far more than a client takes
     assert _compact(_rest_client().get("/api/alerts", params={"format": "json"}).text) > 10 * ANSWER_BUDGET
 
@@ -239,9 +257,62 @@ def test_a_place_that_is_over_the_budget_says_how_to_narrow_it(monkeypatch: pyte
     monkeypatch.setattr(budget, "ANSWER_BUDGET", 9_000)
     answer = _tool_client().get("/api/alerts", params={"name": "Kiel"}).json()
     note = _note_of(answer)
-    assert "Ask for a smaller place" in note
+    assert "Ask for a smaller place: a more specific `name`, one area or its warn cell id." in note
     assert "Pass a place" not in note
+    # a name-only request has no point to speak of
+    assert "point" not in note.split("left out are:")[1]
     assert "the areas that match the name are kept" in note
+
+
+@pytest.mark.usefixtures("many")
+def test_the_advice_for_a_point_is_a_name_and_for_a_name_a_better_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A point cannot be narrowed but by a name (both must hold); a name by a more specific one."""
+    monkeypatch.setattr(budget, "ANSWER_BUDGET", 9_000)
+    answer = _tool_client().get("/api/alerts", params=_KIEL).json()
+    assert "add a `name` of one area to the point (both must hold)" in _note_of(answer)
+
+
+@pytest.mark.parametrize("fmt", ["json", "geojson", "csv"])
+@pytest.mark.usefixtures("broad")
+def test_a_broad_name_keeps_all_its_warnings_with_a_capped_list_of_areas(fmt: str) -> None:
+    """`Gemeinde` is in 1,644 areas of each of three warnings: full lists are 150,000 characters, capped ones fit."""
+    arguments = {"name": "Gemeinde", "format": fmt}
+    whole = _rest_client().get("/api/alerts", params=arguments)
+    # even slimmed of the polygon, the areas that match are over the budget: that is what the cap is for
+    assert len(whole.text) > 3 * ANSWER_BUDGET
+
+    result = _client_sees("alerts", arguments)
+
+    assert not result.is_error, result.content
+    assert _received(result) <= ANSWER_BUDGET
+    if fmt == "csv":
+        response = _tool_client().get("/api/alerts", params=arguments)
+        assert response.headers["x-wetterdienst-rows"] == "3"
+        assert f"the first {AREA_CAP} of the areas that match the name" in unquote(
+            response.headers["x-wetterdienst-truncated"]
+        )
+        return
+    answer = result.structured_content["result"]
+    alerts = answer["alerts"] if fmt == "json" else [f["properties"] for f in answer["features"]]
+    # every warning is kept, the worst first, and each has its areas capped
+    assert [alert["severity"] for alert in alerts] == ["Extreme", "Moderate", "Minor"]
+    assert [len(alert["area_names"]) for alert in alerts] == [AREA_CAP] * 3
+    assert all(name.startswith("Gemeinde") for alert in alerts for name in alert["area_names"])
+    assert answer["metadata"]["counts"]["rows"] == 3
+    note = _note_of(answer)
+    assert f"the first {AREA_CAP} of the areas that match the name are kept for each warning" in note
+    assert "wind gusts (1,644 match), wind gusts (1,644 match), wind gusts (1,644 match) have more" in note
+    assert "left out" in note
+    assert "The warning is returned" not in note
+    assert "All 3 warnings are returned." in note
+
+
+@pytest.mark.usefixtures("kiel_only")
+def test_a_name_with_few_areas_is_not_capped() -> None:
+    """The cap is for the names that would spill over: one area, or twenty, is kept as it is."""
+    answer = _tool_client().get("/api/alerts", params={"name": "Kiel"}).json()
+    assert "the first" not in _note_of(answer).split("(")[1]
+    assert answer["alerts"][0]["area_names"] == ["Stadt Kiel"]
 
 
 @pytest.mark.usefixtures("kiel_only")
@@ -265,7 +336,8 @@ def test_the_order_is_severity_then_urgency_then_onset() -> None:
             "name": list("abcdefg"),
         }
     )
-    assert budget._worst_first(df)["name"].to_list()  # noqa: SLF001 == ["b", "f", "d", "c", "a", "e", "g"]
+    ordered = budget._worst_first(df)["name"].to_list()  # noqa: SLF001
+    assert ordered == ["b", "f", "d", "c", "a", "e", "g"]
 
 
 # --- every format keeps its shape ---------------------------------------------------------------------------------
@@ -337,10 +409,20 @@ def _codes(response: Any) -> list[str]:  # noqa: ANN401
     return [w["code"] for w in response.json()["metadata"]["warnings"]]
 
 
-@pytest.mark.parametrize("fmt_params", [{}, {"latitude": 54.3233, "longitude": 10.1228}])
+@pytest.mark.parametrize(
+    ("fmt_params", "advice"),
+    [
+        pytest.param({}, "Ask by point (`latitude` and `longitude`) to be sure.", id="name-only"),
+        pytest.param(
+            {"latitude": 54.3233, "longitude": 10.1228},
+            "The point alone gives the warnings for the place: ask again without the name.",
+            id="with-a-point",
+        ),
+    ],
+)
 @pytest.mark.usefixtures("small")
 def test_a_name_that_matches_no_area_is_told_to_a_tool_and_never_reads_as_no_warning(
-    fmt_params: dict[str, Any],
+    fmt_params: dict[str, Any], advice: str
 ) -> None:
     """`Kiel, Stadt` is no area of any warning: the answer says the name matched nothing, in a warning of its own."""
     response = _tool_client().get("/api/alerts", params={**fmt_params, "name": "Kiel, Stadt"})
@@ -351,7 +433,9 @@ def test_a_name_that_matches_no_area_is_told_to_a_tool_and_never_reads_as_no_war
     message = answer["metadata"]["warnings"][1]["message"]
     assert "'Kiel, Stadt'" in message
     assert 'That is not "no warning" for the place' in message
-    assert "Ask by point" in message
+    assert advice in message
+    # a request that has a point is not told to ask by one
+    assert ("Ask by point" in message) is (not fmt_params)
 
 
 @pytest.mark.usefixtures("small")
@@ -416,7 +500,17 @@ def test_the_result_tells_whether_the_name_matched_an_area_of_the_snapshot(
 
 def test_the_tool_description_says_what_is_left_out() -> None:
     """The contract names the cut and the warning, so a model that reads the description is not surprised by them."""
-    schema = TestClient(restapi.app).get("/openapi.json").json()
-    description = schema["paths"]["/api/v1/alerts"]["get"]["description"]
+    pytest.importorskip("fastmcp")
+    from wetterdienst.ui.mcp import build_mcp_server  # noqa: PLC0415
+
+    async def read() -> str:
+        tools = await build_mcp_server(restapi.app).list_tools()
+        return next(tool for tool in tools if tool.name == "alerts").description or ""
+
+    description = asyncio.run(read())
     assert "answer-truncated" in description
     assert "no-area-matched" in description
+    # the REST document does not carry the tool's advice
+    rest = TestClient(restapi.app).get("/openapi.json").json()["paths"]["/api/v1/alerts"]["get"]["description"]
+    assert "answer-truncated" not in rest
+    assert "no-area-matched" not in rest
