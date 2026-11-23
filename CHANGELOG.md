@@ -30,9 +30,6 @@ Types of changes:
   pairs they found data in none of the 12 that answered 404 when asked alone (GH-3137), so the
   answers are the same, with fewer requests. No wind direction is read without its speed any more:
   an hourly `0` beside a speed of 0 is a calm (null, `raw:0`) in every request (GH-4321)
-- The `pdf` extra allows pypdf 7 (`>=6.21.4,<8`), which the DWD description PDFs are read with.
-  Nothing changes for a caller: the reader calls only `PdfReader`, `pages` and `extract_text`, which
-  7.0 leaves as they were (GH-4350)
 
 ### Fixed
 
@@ -42,6 +39,11 @@ Types of changes:
   so `range: soft` no longer returns it: filter on `raw:88`. The AEMET daily `dir` and `prec`
   descriptions and the KNMI 10-minute, monthly and annual `FXX` ones now carry the source's own
   words and codes (GH-4321)
+
+### Security
+
+- The `pdf` extra needs pypdf 7.1.1 (was 6.21.4): denial-of-service advisories on a crafted PDF
+  that the description reader reaches are fixed only in 7.x (GH-4350)
 
 ## [0.195.0] - 2026-11-22
 
