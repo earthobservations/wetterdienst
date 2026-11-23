@@ -2106,8 +2106,8 @@
           "pressure_air_site",
           "radiation_global_intensity_mean",
           "sunshine_duration",
+          "temperature_air_0_1m",
           "temperature_air_2m",
-          "temperature_air_mean_0_1m",
           "temperature_dew_point_2m",
           "temperature_wet_mean_2m",
           "visibility_mean",
@@ -3152,6 +3152,7 @@
       "soil_moisture_mean_winter_wheat_sand_00cm_60cm": "soil_moisture_mean_winter_cereals_sand_00cm_60cm",
       "soil_moisture_winterwheat_loamysilt_00cm_60cm": "soil_moisture_winter_cereals_loamy_silt_00cm_60cm",
       "soil_moisture_winterwheat_sand_00cm_60cm": "soil_moisture_winter_cereals_sand_00cm_60cm",
+      "temperature_air_mean_0_1m": "temperature_air_0_1m",
       "temperature_air_mean_2m_normal": "temperature_air_mean_minmax_2m_normal",
       "temperature_soil_mean_loamysand_0_05m": "temperature_soil_mean_loamy_sand_0_05m",
       "temperature_soil_mean_loamysilt_0_05m": "temperature_soil_mean_loamy_silt_0_05m",
@@ -3641,5 +3642,5 @@
     "parameters": {},
     "in_dataset": {}
   },
-  "x-release": "0.195.0"
+  "x-release": "0.196.0"
 }
