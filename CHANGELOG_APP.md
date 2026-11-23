@@ -16,6 +16,14 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Weather warnings]` The Forecast and the map's panel show no warnings box for a place outside
+  Germany any more, where it said that no warnings source covers the place. Inside Germany nothing
+  changes. The Forecast's credits say it in one plain line instead, in all eleven languages:
+  "Weather warnings: Germany only, from DWD". The Ask the weather question "Are there warnings
+  here?" still answers plainly for a place outside Germany (GH-4328).
+
 ### Fixed
 
 - `[Translations]` The fourth review of the translations corrects the texts added since the third

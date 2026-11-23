@@ -462,6 +462,11 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
               :station-coords="{ latitude: selectedStation.latitude, longitude: selectedStation.longitude }"
               :units="unitsOfForecast"
             />
+            <!-- the warnings are DWD's and cover Germany (GH-4328): a station elsewhere has no banner, and this line, with the credits, says why, so that a
+                 forecast without a warning is never read as a day without one -->
+            <p class="mt-1 px-1 text-sm text-muted" data-testid="meteogram-warnings-note">
+              {{ t('meteogram.warningsNote') }}
+            </p>
           </UCard>
 
           <!-- Empty state before selection -->
