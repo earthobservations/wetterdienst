@@ -63,3 +63,24 @@ export function answerPayloadTooLarge(event: H3Event, requestId: string, limit: 
     request_id: requestId,
   }
 }
+
+/**
+ * Answers a 500 problem, for a request the proxy could not forward as it was sent, and returns its body.
+ *
+ * @param event The request
+ * @param requestId The id the answer carries
+ * @returns The problem, for the handler to return
+ */
+export function answerInternalError(event: H3Event, requestId: string): ApiErrorResponse {
+  setResponseStatus(event, 500)
+  setResponseHeader(event, 'content-type', 'application/problem+json')
+  setResponseHeader(event, 'x-request-id', requestId)
+  return {
+    type: 'urn:wetterdienst:problem:internal-error',
+    title: 'Internal Server Error',
+    status: 500,
+    detail: 'The request could not be forwarded',
+    instance: `urn:wetterdienst:request:${requestId}`,
+    request_id: requestId,
+  }
+}

@@ -60,8 +60,11 @@ Types of changes:
 ### Security
 
 - `[MCP]` The `/mcp` proxy refuses a request body over 4 MiB, the backend's own limit, with a 413
-  before reading it (a declared `Content-Length`) or as soon as it passes the limit (a chunked
-  body), where it held a body of any size in memory first (GH-4362).
+  problem: a declared `Content-Length` before any of the body is read, a chunked body (best effort,
+  the connection is closed) as soon as it passes the limit. It held a body of any size in memory
+  first, and nuxt-security's request size limit answered 413 from 2 MB, with an h3 error. Both of
+  its checks on the body are off for `/mcp`, and a body that something has read before the proxy is
+  answered 500, never forwarded empty (GH-4362).
 
 ## [0.58.0] - 2026-11-22
 
