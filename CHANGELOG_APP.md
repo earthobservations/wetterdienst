@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Build]` The app needs Node 26 (`engines.node` is now `>=26.13.1`; the image and the CI run on
+  it) instead of Node 24. Run it from source with Node 26 (GH-4342).
+
+## [0.59.0] - 2026-11-23
+
+Paired with backend 0.196.0, which is live; it needs no route newer than 0.195.0.
+
 ### Added
 
 - `[Places]` The Forecast, Ask the weather and the Explorer's interpolation and summary find places by
@@ -29,8 +38,6 @@ Types of changes:
 
 ### Changed
 
-- `[Build]` The app needs Node 26 (`engines.node` is now `>=26.13.1`; the image and the CI run on
-  it) instead of Node 24. Run it from source with Node 26 (GH-4342).
 - `[Weather warnings]` The Forecast and the map's panel show no warnings box for a place outside
   Germany any more, where it said that no warnings source covers the place. Inside Germany nothing
   changes. The Forecast's credits say it in one plain line instead, in all eleven languages:
@@ -58,6 +65,21 @@ Types of changes:
   fresh snow, snow depth and values are one word within a language, and wrong sentences in ten
   languages are fixed. What only a native speaker can decide is listed in `app/i18n/TERMS.md`
   (GH-2610).
+
+### Security
+
+- `[Dependencies]` Nuxt is 4.6.4, with `@nuxt/nitro-server`, `@nuxt/vite-server`,
+  `@nuxt/vite-builder` and `@nuxt/schema`, which fixes the open Nuxt advisories. Overrides in
+  `pnpm-workspace.yaml` floor `node-forge` at 1.4.3, `minimatch` at 11.0.1 and `glob` at 14.0.2
+  (build and lint tooling only, no copy ships in the app). The search index is written as JSON
+  with `<`, `>`, `&`, `/`, U+2028 and U+2029 escaped instead of text built by hand. The app looks
+  and works the same (GH-4340).
+- `[MCP]` The `/mcp` proxy refuses a request body over 4 MiB, the backend's own limit, with a 413
+  problem: a declared `Content-Length` before any of the body is read, a chunked body (best effort,
+  the connection is closed) as soon as it passes the limit. It held a body of any size in memory
+  first, and nuxt-security's request size limit answered 413 from 2 MB, with an h3 error. Both of
+  its request checks (the XSS filter and the size limit) are off for `/mcp`, and a body that
+  something has read before the proxy is answered 500, never forwarded empty (GH-4362).
 
 ## [0.58.0] - 2026-11-22
 
@@ -2723,7 +2745,8 @@ Paired with backend 0.191.0, which it needs for the stripes' classes and the sta
 - Add Andreas Motl to authors list
 -
 
-[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.58.0...HEAD
+[Unreleased]: https://github.com/earthobservations/wetterdienst/compare/app-v0.59.0...HEAD
+[0.59.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.58.0...app-v0.59.0
 [0.58.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.57.0...app-v0.58.0
 [0.57.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.56.0...app-v0.57.0
 [0.56.0]: https://github.com/earthobservations/wetterdienst/compare/app-v0.55.0...app-v0.56.0

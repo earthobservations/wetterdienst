@@ -19,6 +19,9 @@ export default defineConfig({
           include: ['tests/unit/*.{test,spec}.ts'],
           environment: 'node',
           setupFiles: ['tests/setup/storage.ts'],
+          // nuxt-security's middleware, run as it is by `tests/unit/mcp-proxy-security.test.ts`, imports its own
+          // files without an extension, which Node does not resolve and Vite does
+          server: { deps: { inline: [/nuxt-security\/dist/] } },
         },
       },
       await defineVitestProject({

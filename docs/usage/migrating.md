@@ -1,7 +1,7 @@
 # Migrating from 0.139.0
 
-What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.195.0, collected from
-the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.195.0), grouped
+What to change in your code, scripts and deployment to move from wetterdienst 0.139.0 to 0.196.0, collected from
+the **Breaking** entries of the [changelog](../changelog.md) of the releases in between (0.140.0 to 0.196.0), grouped
 by what you touch, and checked against the code. The numbers are the issues the changelog names (`GH-2626`); the
 version says the release that made the change. For what stays stable from 1.0 on, see
 [Compatibility](compatibility.md).
@@ -13,19 +13,19 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 [Values, units and timestamps](#values-units-and-timestamps) and [Failures](#failures). If you come from a release
 before 0.139.0, read the **Breaking** entries up to it first.
 
-The web app is released as a pair with the backend: `app-v0.58.0` is the app of 0.195.0, where the stripes routes are
-gone (it needs the `station-ids` route of 0.195.0 for the search by WMO number, WIGOS identifier or ICAO code, draws
-the stripes itself from `stations` and `values`, and needs the radar routes of 0.194.0 for the Radar tool and the
+The web app is released as a pair with the backend: `app-v0.59.0` is the app of 0.196.0, where the stripes routes are
+gone (it needs the `station-ids` route of 0.195.0 for the search by WMO number, WIGOS identifier or ICAO code, draws the
+stripes itself from `stations` and `values`, and needs the radar routes of 0.194.0 for the Radar tool and the
 per-element lists of `noaa/ghcn` of 0.194.0 for the stripes' station list, the `provider` and `network` of the stripes
 of 0.192.0, the stripes' `reference`, `stripe_class` and `anomaly` and the stations' `wmo_id` of 0.191.0, the dataset
 `hourly/snow` of `dwd/mosmix` for the snow panel of the forecast, and otherwise no more of the backend than
 `app-v0.47.0`, the app of 0.186.0, which needs it: it asks for `unit_targets` on the stripes and reads the separate
-`providers` and `coverage`; `app-v0.57.0` went with 0.194.0 and works with 0.195.0, `app-v0.56.0` with 0.193.0 and
-works with 0.194.0, `app-v0.55.0` and `app-v0.54.0` with 0.192.0, `app-v0.53.0` with 0.191.0, `app-v0.52.0` with
-0.190.0, `app-v0.51.1` with 0.189.1, `app-v0.51.0` with 0.189.0, `app-v0.50.0` with 0.188.0, `app-v0.49.0` with 0.187.1,
-`app-v0.48.0` with 0.187.0 and `app-v0.46.0` with 0.185.0; every app before `app-v0.57.0` asks the stripes routes that
-0.195.0 removes, so it stays with the backend it went with). Upgrade both
-([The web app and the image](compatibility.md#the-web-app-and-the-image)).
+`providers` and `coverage`; `app-v0.58.0` went with 0.195.0 and works with 0.196.0, `app-v0.57.0` with 0.194.0 and works
+with 0.195.0, `app-v0.56.0` with 0.193.0 and works with 0.194.0, `app-v0.55.0` and `app-v0.54.0` with 0.192.0,
+`app-v0.53.0` with 0.191.0, `app-v0.52.0` with 0.190.0, `app-v0.51.1` with 0.189.1, `app-v0.51.0` with 0.189.0,
+`app-v0.50.0` with 0.188.0, `app-v0.49.0` with 0.187.1, `app-v0.48.0` with 0.187.0 and `app-v0.46.0` with 0.185.0; every
+app before `app-v0.57.0` asks the stripes routes that 0.195.0 removes, so it stays with the backend it went with).
+Upgrade both ([The web app and the image](compatibility.md#the-web-app-and-the-image)).
 
 Two things that still worked in 0.172.0 are removed in 0.173.0, earlier than announced for 1.0.0:
 `Wetterdienst(provider, network)` and `wetterdienst stripes values`. Write
@@ -163,9 +163,9 @@ this dataset`); the same applies to a name in a request, in a `parameter` filter
 `geo_station_distance` key. A name the source itself uses still selects its row (`wind_speed` of `metno/frost`,
 `wind_direction` of `eccc/observation` and of the Met Office hourly weather) and comes back under the new name. The
 rule is [The statistic in a name](../data/parameters.md#the-statistic-in-a-name), and its page lists every row of the
-0.195.0 renames by network, resolution and dataset.
+0.196.0 renames by network, resolution and dataset.
 
-Moves of the same parameter between 0.145.0 and 0.192.0 are shown from the name of 0.139.0 to the name of 0.195.0.
+Moves of the same parameter between 0.145.0 and 0.192.0 are shown from the name of 0.139.0 to the name of 0.196.0.
 
 These are hard breaks of the 0.x releases and stay refused, with their hint, after 1.0. A rename after 1.0 is different:
 the old name keeps working as an alias, with a warning, for at least two minor releases and goes only in a major
@@ -179,7 +179,7 @@ release ([Parameter names](compatibility.md#parameter-names-units-and-timestamps
 | `temperature_dew_point_mean_2m`, `temperature_air_mean_0_05m`, `temperature_wet_mean_2m`, `temperature_radiant_mean_2m` | `temperature_dew_point_2m`, `temperature_air_0_05m`, `temperature_wet_2m`, `temperature_radiant_2m` | the same rows (the road and SWSMOS dew points were renamed again, see the rows below) | 0.145.0 |
 | `temperature_soil_mean_0_02m` to `temperature_soil_mean_2m` | `temperature_soil_0_02m` to `temperature_soil_2m` | the same rows | 0.145.0 |
 | `temperature_surface_mean` | `temperature_surface` | `dwd/road`, `dwd/swsmos` | 0.145.0, GH-2660 |
-| `temperature_air_mean_0_1m` | `temperature_air_0_1m` | `knmi/observation` 10-minute `tg`, "Past 1 minute mean air temperature at 10 centimeters": a reading, aggregation `instant`, as its siblings `ta` and `td` | unreleased, GH-4330 |
+| `temperature_air_mean_0_1m` | `temperature_air_0_1m` | `knmi/observation` 10-minute `tg`, "Past 1 minute mean air temperature at 10 centimeters": a reading, aggregation `instant`, as its siblings `ta` and `td` | 0.196.0, GH-4330 |
 | `wind_speed`, `wind_direction` | `wind_speed_mean`, `wind_direction_mean` | rows whose source states the mean of the row's interval (46 rows, 13 networks) | 0.160.0, GH-3151 |
 | `wind_speed`, `wind_direction` | `wind_speed_mean_last_10min`, `wind_direction_mean_last_10min` | hourly means over the last 10 minutes: `aemet`, `dwd` (wind synoptic, POI), `fmi`, `knmi` (direction), `meteofrance` (observation and SYNOP), `metno/frost`, `smhi` | 0.145.0 to 0.160.0, GH-2697, GH-2707, GH-2733, GH-2835, GH-3151 |
 | `wind_speed`, `wind_direction` | `wind_speed_mean_last_2min`, `wind_direction_mean_last_2min` | `nws/observation`; `eccc/observation` hourly direction | 0.155.0, GH-2837, GH-2838 |
@@ -359,6 +359,7 @@ but the strings in `quality_flags` gain a token, and the stuck-sensor check keep
 | `metno/frost` `hourly` `wind_direction_mean_last_10min` `-3` ("No unique wind direction is given when winds are weak") and `snow_depth` `-3` ("Not possible to measure snowdepth"), hourly and daily | the wind direction: null as `rejected:range,raw:-3` with `plausibility={"range": "hard"}`, and with `soft` the value `-3.0` as `suspect:range`; the snow depth: the number `-3.0` cm, in any window (the range of the parameter allows it) | null with `raw:-3` for both, in any window, the code alone | **Breaking**: `range: soft` no longer returns the wind direction `-3`, and a snow depth of `-3` is no longer a depth. The `-3` is no longer a value in any window: to find these readings filter on `raw:-3` (at the default `drop_nulls` the null rows are dropped, so pass `drop_nulls=False`). No snow depth `-3` has been seen in about 150,000 readings. See [the Frost page](../data/provider/metno/frost/index.md#the-other-coded-values) | 0.185.0, GH-3137 |
 | `metno/frost` `hourly` `wind_direction_mean_last_10min` `0` beside a `wind_speed_mean_last_10min` of 0 (of the same time and height), which Frost writes for a calm ("360 degrees is north") | `0.0`, the calm as a bearing (1,014 of 1,068 zeros at 20 Norwegian stations, 359 of 372 at the foreign ones, stand beside a speed of 0) | null with `raw:0`, as for every other provider that writes a calm ([Special values](../data/special_values.md#wind)). A `0` beside a speed above 0 stays `0.0`, and so did a `0` of a parameter read by itself after a 404 of the whole dataset, which has no speed beside it (that reader is gone since GH-4321, so no direction is read without its speed). At a station with the wind at two heights (7 have a direction at both) a calm or a `-3` of the first, 10 m, height is the hour, and the bearing of the other height does not fill it: 79 calm hours at those stations from 2026-01-10 to 2026-01-24, 34 of which the other height would have filled; "first" is the first row of Frost's answer, which has the 10 m height first | **Breaking**: the calm hours of a stored series are null now, not `0.0`: a calm has no bearing. To find them pass `drop_nulls=False` and filter on `raw:0` (the default drops the null rows). A stored `0.0` beside a speed above 0 is unchanged | 0.185.0, GH-3833 |
 | `metoffice/observation` `hourly` `wind_direction_mean` `999` (2,333 of 775,720 readings, 1970 to 1995, all beside a mean wind of 1 to 6 knots; no MIDAS table words the code) | null as `rejected:range,raw:999` with `plausibility={"range": "hard"}`, and with `soft` the value `999.0` as `suspect:range` | null with `raw:999`, in any window, the code alone | **Breaking**: `range: soft` no longer returns `999.0`. To find these readings filter on `raw:999` (at the default `drop_nulls` the null rows are dropped, so pass `drop_nulls=False`) | 0.186.0, GH-3909 |
+| `aemet/observation` `daily` `wind_direction_gust_max` `88`, which AEMET states as "sin dato" (no data) in the units text of `dir`, as it does for the 99 | null as `rejected:range,raw:880` with `plausibility={"range": "hard"}`, and with `soft` the value `880.0` as `suspect:range` | null with `raw:88`, in any window, the code alone | **Breaking**: `range: soft` no longer returns `880.0`. To find these readings filter on `raw:88` (at the default `drop_nulls` the null rows are dropped, so pass `drop_nulls=False`) | 0.196.0, GH-4321 |
 | `metno/frost` `monthly` and `annual` values of a window that has not closed (the current month or year: the calendar one until its end, the `PT6H` sum until 06 UTC and the `PT18H` extremes until 18 UTC of its last day) | the value with Frost's `qualityCode` alone (`2` for every monthly row): nothing marked the month so far as partial | the value, with `completeness:Incomplete` after the `qualityCode` and before `raw:` (`2,completeness:Incomplete`), and a `window-not-closed` warning that says how many values are marked and when the earliest window closes. The token is the one `ea/hydrology` has; Frost writes only `Incomplete`, never `Complete`, so a closed period has no token, which is no claim that it is final | **Breaking** for a filter on `quality_flags` equal to the plain code: split the tokens (`str.split(",").list.first()`) or exclude the token. To keep closed periods only, filter on the token. See [the Frost page](../data/provider/metno/frost/index.md#windows-that-have-not-closed) | 0.185.0, GH-3856 |
 
 ## Command line

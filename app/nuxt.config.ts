@@ -302,6 +302,13 @@ export default defineNuxtConfig({
     // of the app now (GH-3094), a blob of the page's own before, which took the page's policy. nuxt-security sets
     // it for the page only, so the assets say it themselves.
     '/_nuxt/**': { headers: { 'Cross-Origin-Embedder-Policy': 'credentialless' } },
+    // The `/mcp` proxy owns the limit of a request body (`MAX_BODY_BYTES`, the backend's 4 MiB) and forwards the
+    // body of a POST (JSON-RPC, which the backend validates) as it came. nuxt-security's `xssValidator` reads the
+    // whole body before the proxy runs, with no limit, and leaves nothing in the stream to forward; its
+    // `requestSizeLimiter` answers 413 from 2,000,000 bytes, below the backend's limit. Both are off here (GH-4362).
+    // (`/mcp/**` matches `/mcp` as well; the plain key is belt and braces)
+    '/mcp': { security: { xssValidator: false, requestSizeLimiter: false } },
+    '/mcp/**': { security: { xssValidator: false, requestSizeLimiter: false } },
     // Who may frame `/widget` is not a rule of this list: see `server/plugins/widget-frame.ts`.
   },
 
