@@ -17,8 +17,8 @@ reference of the **old** cases is the strategy-4 comparison run of #4030, a secr
 record of strategies 1 to 4, not as a baseline). **A new baseline of `main` after the PR of the re-baseline (#4318) is the
 reference for the schema work (#4318) and the descriptions (#4319); it is not run yet.** Put its gist here when it is run, and
 **update this line when a strategy lands** (the new comparison becomes the reference). Nothing of the benchmark is in `.claude/`: it is no skill and no slash command, and a run
-writes nothing into the repository. **Until pull request #3544 is merged the benchmark exists only on its branch
-`feat/mcp-benchmark-skill`, not on `main`**: a checkout of `main` does not have this file; Part 2.1 says how to get it.
+writes nothing into the repository. The benchmark is on `main` (pull request #3544 was merged on 2026-11-19); Part 2.1 makes
+the copy you run.
 
 | file | what it is |
 | --- | --- |
@@ -82,7 +82,7 @@ Check each; if one fails, stop and ask (Part 7).
 | the issue you report on | `gh issue view <issue> -R earthobservations/wetterdienst --json state -q .state`, where `<issue>` is the number you were given (#4318 for the schema work, #4319 for the descriptions) | `OPEN`. **Not #3546**, which was closed on 2026-11-22: a run is not reported there. If you were given no issue, or it is closed, stop and ask. |
 | `git`, `uv`, `curl`, `lsof` | `uv --version` | present |
 | Python 3.13 for the server | `uv python find 3.13` | a path (it may be the Python of a repository's `.venv`: that is fine). The server runs on **3.13** (`UV_PYTHON=3.13`): the free-threaded 3.14 fails to build polars. |
-| a checkout of the repository to start from | `git rev-parse --show-toplevel` | a path; it need not have `benchmarks/mcp` (a checkout of `main` has not, until #3544 is merged): 2.1 makes the copy of the benchmark you use, `$REPO` |
+| a checkout of the repository to start from | `git rev-parse --show-toplevel` | a path; it need not have `benchmarks/mcp` (an old checkout has not): 2.1 makes the copy of the benchmark you use, `$REPO` |
 | the port | `lsof -nP -iTCP:7891 -sTCP:LISTEN` | **no output**: if something listens on 7891, it is not yours: stop and ask |
 
 ## Part 2. Set up
@@ -95,16 +95,15 @@ started in (any checkout of the repository):
 ```bash
 BENCH="${TMPDIR:-/tmp}/mcpbench-$(date -u +%Y%m%d)"
 mkdir -p "$BENCH"
-git fetch origin feat/mcp-benchmark-skill
-git worktree add --detach "$BENCH/repo" origin/feat/mcp-benchmark-skill
+git fetch origin main
+git worktree add --detach "$BENCH/repo" origin/main
 git -C "$BENCH/repo" rev-parse HEAD
 ls "$BENCH/repo/benchmarks/mcp/README.md"
 ```
 
-Replace `BENCH=...` by the directory you were given, if you were given one. The **detached worktree `$BENCH/repo` of the head
-of the pull request is the copy of the benchmark you run**: it is `$REPO` below, and its SHA is "the runbook at ..." in
-your comments. Once the pull request is merged, use `origin/main` instead of `origin/feat/mcp-benchmark-skill` (the
-branch may be gone: `gh pr view 3544 -R earthobservations/wetterdienst --json state -q .state` says `MERGED`). If your
+Replace `BENCH=...` by the directory you were given, if you were given one. The **detached worktree `$BENCH/repo` of `origin/main`
+is the copy of the benchmark you run**: it is `$REPO` below, and its SHA is "the runbook at ..." in
+your comments (if you were told to run another branch of the benchmark, fetch and add that one instead). If your
 README is not the one in `$BENCH/repo/benchmarks/mcp/README.md` (you were started from another copy), read that one and follow it.
 **`git fetch` can fail transiently (`Connection refused`): retry it once after 10 s; if it fails again, stop and ask.**
 

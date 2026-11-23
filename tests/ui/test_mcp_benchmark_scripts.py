@@ -5346,6 +5346,7 @@ def test_the_span_flags_a_forecast_figure_that_belongs_to_an_hour_before_the_cal
         ("2026-11-12T11:30:00+00:00", "2026-11-12T11:40:00+00:00"),
         ("2026-11-12T11:00:00+00:00", "2026-11-12T11:00:00+00:00"),
         ("2026-11-12T11:59:59+00:00", "2026-11-12T11:59:59+00:00"),
+        ("2026-11-12T17:00:00+05:30", "2026-11-12T17:10:00+05:30"),  # 11:30 UTC: the hour is UTC's, not the offset's
     ],
 )
 def test_a_forecast_figure_stamped_at_the_current_hour_of_the_call_counts_as_valid(called: str, now: str) -> None:
@@ -5560,7 +5561,7 @@ def test_a_tool_answer_the_server_cut_is_counted_apart_and_shown_in_the_digest_a
     assert f"{GLOSSARY} [small] repeat 1" in bench.report(results)
     results["runs"][0]["truncated_calls"] = 0
     assert "had their answer cut" not in bench.report(results)
-    assert bench.LOGIC_VERSION == 17
+    assert bench.LOGIC_VERSION == 18
 
 
 # ------------------------------------------------ the note of a cut answer and the next call, the transcript's time

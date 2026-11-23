@@ -84,9 +84,11 @@ CLEANUP_MIN_AGE = 600
 #: the longest a headless run may take, in seconds: below `CLEANUP_MIN_AGE`, since appending to a file does not move
 #: the mtime of the directory that holds it, and `cleanup` must not take a run in progress for an old one
 MAX_TIMEOUT = 540
-#: bump it when the arithmetic changes (what counts as a step, a checkpoint, a violation, an aggregate or a verdict):
+#: bump it when the arithmetic changes (what counts as a step, a checkpoint, a violation, an aggregate or a verdict;
+#: 18: a forecast figure stamped at the current hour of the call is valid, which changes the verdict of
+#: `future_only` facts although the cases keep their hashes):
 #: two results files of another logic version are not compared
-LOGIC_VERSION = 17
+LOGIC_VERSION = 18
 #: the tools the prompt names (`tests/ui/test_mcp_benchmark_cases.py` holds them to the server's)
 PROMPT_TOOLS = "alerts, auth, coverage, glossary, history, interpolate, issues, providers, stations, summarize, values"
 UTC = dt.timezone.utc  # noqa: UP017 - the script also runs on the python3 of a Mac, which is older than 3.11
@@ -3059,8 +3061,11 @@ def _is_temperature(name: str) -> bool:
 
 
 def _hour_of(moment: dt.datetime) -> dt.datetime:
-    """Give the start of the hour `moment` is in: a forecast answer starts there, so that hour still counts as valid."""
-    return moment.replace(minute=0, second=0, microsecond=0)
+    """Give the start of the hour `moment` is in, in UTC (a +05:30 offset must not shift it).
+
+    A forecast answer starts there, so that hour still counts as valid.
+    """
+    return moment.astimezone(UTC).replace(minute=0, second=0, microsecond=0)
 
 
 def span_of_values(
