@@ -35,6 +35,21 @@ Types of changes:
   "Weather warnings: Germany only, from DWD". The Ask the weather question "Are there warnings
   here?" still answers plainly for a place outside Germany (GH-4328).
 
+### Security
+
+- `[Dependencies]` Nuxt is 4.6.4, with `@nuxt/nitro-server`, `@nuxt/vite-server`,
+  `@nuxt/vite-builder` and `@nuxt/schema`, which fixes the open Nuxt advisories. Overrides in
+  `pnpm-workspace.yaml` floor `node-forge` at 1.4.3, `minimatch` at 11.0.1 and `glob` at 14.0.2
+  (build and lint tooling only, no copy ships in the app). The search index is written as JSON
+  with `<`, `>`, `&`, `/`, U+2028 and U+2029 escaped instead of text built by hand. The app looks
+  and works the same (GH-4340).
+- `[MCP]` The `/mcp` proxy refuses a request body over 4 MiB, the backend's own limit, with a 413
+  problem: a declared `Content-Length` before any of the body is read, a chunked body (best effort,
+  the connection is closed) as soon as it passes the limit. It held a body of any size in memory
+  first, and nuxt-security's request size limit answered 413 from 2 MB, with an h3 error. Both of
+  its request checks (the XSS filter and the size limit) are off for `/mcp`, and a body that
+  something has read before the proxy is answered 500, never forwarded empty (GH-4362).
+
 ### Fixed
 
 - `[German]` The glossary names `precipitation_amount` and its maximum labels "Niederschlagshöhe",

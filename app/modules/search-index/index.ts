@@ -1,5 +1,6 @@
 import { addVitePlugin, defineNuxtModule } from 'nuxt/kit'
 import { SEARCH_LOCALES, searchIndexFor, searchLabelsFor, searchSources } from './build'
+import { toJsLiteral, toJsonParseExpression } from './serialize'
 
 // The full-text index of the app's own pages (GH-3790), as modules of the bundle: `virtual:search-index/<locale>` is the
 // index of one language, built from the sources when the app is built, and `virtual:search-index/loaders` is the table
@@ -27,7 +28,7 @@ export default defineNuxtModule({
           return undefined
         const name = id.slice(RESOLVED.length)
         if (name === 'loaders') {
-          const entries = SEARCH_LOCALES.map(locale => `  ${JSON.stringify(locale)}: () => import(${JSON.stringify(`${PREFIX}${locale}`)}),`)
+          const entries = SEARCH_LOCALES.map(locale => `  ${toJsLiteral(locale)}: () => import(${toJsLiteral(`${PREFIX}${locale}`)}),`)
           return `export default {\n${entries.join('\n')}\n}\n`
         }
         if (!SEARCH_LOCALES.includes(name))
@@ -35,7 +36,7 @@ export default defineNuxtModule({
         for (const file of searchSources(name))
           this.addWatchFile(file)
         // `JSON.parse` of a string, which the engine reads faster than the same as a literal of that size
-        return `export default JSON.parse(${JSON.stringify(JSON.stringify(searchIndexFor(name)))})\nexport const labels = JSON.parse(${JSON.stringify(JSON.stringify(searchLabelsFor(name)))})\n`
+        return `export default ${toJsonParseExpression(searchIndexFor(name))}\nexport const labels = ${toJsonParseExpression(searchLabelsFor(name))}\n`
       },
     })
   },
