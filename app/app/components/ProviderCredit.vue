@@ -23,7 +23,8 @@ const props = withDefaults(defineProps<{
 
 const { data: providerList } = useProviders()
 const resolved = computed(() => props.terms ?? termsOfProvider(providerList.value?.providers, props.provider))
-const attribution = computed(() => resolved.value?.attribution || props.fallback)
+const creditLine = useCreditLine()
+const attribution = computed(() => creditLine(resolved.value?.attribution || props.fallback))
 const licence = computed(() => resolved.value?.license ? { name: resolved.value.license.name, href: safeHref(resolved.value.license.url) } : null)
 </script>
 

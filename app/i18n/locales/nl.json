@@ -749,7 +749,9 @@
     "openExplorer": "Openen in de verkenner"
   },
   "credit": {
-    "licence": "Licentie: {name} ({url})"
+    "licence": "Licentie: {name} ({url})",
+    "source": "Bron",
+    "dataSource": "Gegevensbron"
   },
   "processingNote": {
     "base": "Verwerkt door wetterdienst: de gegevens van de aanbieder zijn in een uniforme tabel gezet en de eenheden zijn omgerekend waar ze afwijken.",

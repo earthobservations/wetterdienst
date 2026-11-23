@@ -74,6 +74,42 @@ export function termsOfProvider(providers: readonly ({ provider: string } & Prov
   return found ? { attribution: found.attribution ?? null, license: found.license ?? null } : null
 }
 
+// -------------------------------------------------------------------------------------------- the label of a credit line (GH-4333)
+
+/**
+ * The leading labels of a provider's credit line that the app writes in the reader's language, with the key of `credit` that holds
+ * the word. A provider's credit line is its own ("Source: Deutscher Wetterdienst", "© SMHI", "GeoSphere Austria", a text in Polish),
+ * and only a label that is an English word the provider put before its name is the app's to translate; the words after it stay as
+ * the provider wrote them. The longer label comes first. These are the labels the credit lines of the backend's providers start with
+ * (`attribution` in the `metadata.py` of each provider: "Source:" at DWD, IPMA, MeteoSwiss and AEMET, "Data Source:" at ECCC).
+ */
+export const CREDIT_LABELS = [
+  { pattern: /^data source\s*:\s*/i, key: 'dataSource' },
+  { pattern: /^source\s*:\s*/i, key: 'source' },
+] as const
+
+/** The words of the labels in the reader's language, and the colon that follows a label there (`common.colon`: French sets a no-break space before it) */
+export interface CreditLabels {
+  source: string
+  dataSource: string
+  colon: string
+}
+
+/**
+ * A provider's credit line with its leading label in the reader's language: "Source: Deutscher Wetterdienst" is "Quelle: Deutscher
+ * Wetterdienst" in German. A credit line that starts with no known label, or is nothing but one, is returned as it is.
+ */
+export function localizedCredit(attribution: string, labels: CreditLabels): string {
+  for (const { pattern, key } of CREDIT_LABELS) {
+    const match = pattern.exec(attribution)
+    if (match) {
+      const rest = attribution.slice(match[0].length)
+      return rest.trim() === '' ? attribution : `${labels[key]}${labels.colon} ${rest}`
+    }
+  }
+  return attribution
+}
+
 /** The address of a licence's terms as a link, only where it is `http(s)`: the text comes from the API, and `javascript:` is never one */
 export const safeHref = (url: string | null | undefined): string | null => url && /^https?:\/\//i.test(url) ? url : null
 

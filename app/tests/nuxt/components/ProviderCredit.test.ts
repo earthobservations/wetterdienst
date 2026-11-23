@@ -1,5 +1,6 @@
 import { mountSuspended, registerEndpoint } from '@nuxt/test-utils/runtime'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { defineComponent, h } from 'vue'
 import { clearNuxtData } from '#app'
 import ProviderCredit from '~/components/ProviderCredit.vue'
 import { providersAnswer } from '../fixtures/providers'
@@ -71,5 +72,53 @@ describe('providerCredit', () => {
     const normal = await mountCredit({ provider: 'dwd' })
     await vi.waitFor(() => expect(line(normal).exists()).toBe(true))
     expect(line(normal).classes()).toContain('text-sm')
+  })
+})
+
+// The label of the credit line in the language of the page (GH-4333): "Source:" is the app's word, the provider's name after it is the provider's.
+describe('providerCredit in another language', () => {
+  const harnesses: Array<{ unmount: () => void }> = []
+  async function inLocale(code: 'de' | 'fr' | 'en') {
+    const harness = await mountSuspended(defineComponent({ setup: () => ({ setLocale: useI18n().setLocale }), render: () => h('div') }))
+    harnesses.push(harness)
+    await (harness.vm as unknown as { setLocale: (code: string) => Promise<void> }).setLocale(code)
+  }
+  afterEach(async () => {
+    await inLocale('en')
+    harnesses.splice(0).forEach(harness => harness.unmount())
+  })
+
+  it('says "Quelle:" on a German page, in front of DWD\'s own words, as DWD asks for it', async () => {
+    await inLocale('de')
+    const wrapper = await mountCredit({ provider: 'dwd' })
+    await vi.waitFor(() => expect(line(wrapper).exists()).toBe(true))
+    expect(line(wrapper).text()).toBe('Quelle: Deutscher Wetterdienst, Creative Commons Attribution 4.0 International')
+  })
+
+  it('says "Source :" on a French page, with the no-break space before the colon', async () => {
+    await inLocale('fr')
+    const wrapper = await mountCredit({ provider: 'dwd' })
+    await vi.waitFor(() => expect(line(wrapper).exists()).toBe(true))
+    expect(line(wrapper).text()).toBe('Source : Deutscher Wetterdienst, Creative Commons Attribution 4.0 International')
+  })
+
+  it('leaves the English page as it was, and a credit line with no known label as the provider wrote it', async () => {
+    await inLocale('en')
+    const english = await mountCredit({ provider: 'dwd' })
+    await vi.waitFor(() => expect(line(english).exists()).toBe(true))
+    expect(line(english).text()).toBe('Source: Deutscher Wetterdienst, Creative Commons Attribution 4.0 International')
+    await inLocale('de')
+    const own = await mountCredit({ terms: { attribution: '© SMHI', license: null } })
+    expect(line(own).text()).toBe('© SMHI')
+    const polish = await mountCredit({ terms: { attribution: 'Źródłem pochodzenia danych jest IMGW', license: null } })
+    expect(line(polish).text()).toBe('Źródłem pochodzenia danych jest IMGW')
+  })
+
+  it('writes the label of the fallback line too, and ECCC\'s "Data Source:" as the data source', async () => {
+    await inLocale('de')
+    const fallback = await mountCredit({ provider: 'aemet', fallback: 'Source: AEMET' })
+    expect(line(fallback).text()).toBe('Quelle: AEMET')
+    const eccc = await mountCredit({ terms: { attribution: 'Data Source: Environment and Climate Change Canada.', license: null } })
+    expect(line(eccc).text()).toBe('Datenquelle: Environment and Climate Change Canada.')
   })
 })
