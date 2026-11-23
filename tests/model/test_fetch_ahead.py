@@ -66,8 +66,9 @@ class _Handler(BaseHTTPRequestHandler):
             arrival = server.arrivals.setdefault(self.path, threading.Event())
         arrival.set()
         try:
-            if held is not None:
-                held.wait(timeout=20)
+            # answered late: a test that relies on the hold is on the racy ordering again, which it must hear of
+            if held is not None and not held.wait(timeout=20):
+                server.expired.append(self.path)
             if server.gate is not None and not self.path.startswith("/0/"):
                 server.gate.wait(timeout=20)
             time.sleep(server.delay(self.path))
@@ -105,6 +106,8 @@ class _Upstream(ThreadingHTTPServer):
         #: the files whose answer is held back until the test sets the event, and the files that have been asked for
         self.holds: dict[str, threading.Event] = {}
         self.arrivals: dict[str, threading.Event] = {}
+        #: the held files that were answered because 20 s were up, not because the test let them go
+        self.expired: list[str] = []
         self.lock = threading.Lock()
 
     @property
@@ -182,9 +185,13 @@ def upstream() -> Iterator[_Upstream]:
     try:
         yield server
     finally:
+        # a test that failed must not leave a handler (and the fetch thread that waits for it) held for 20 s
+        for event in list(server.holds.values()):
+            event.set()
         server.shutdown()
         server.server_close()
         thread.join(timeout=5)
+    assert server.expired == [], "a held answer was not let go in time: the test ran on the ordering it holds back"
 
 
 @pytest.fixture(autouse=True)
@@ -587,7 +594,7 @@ def test_nothing_more_is_fetched_ahead_after_a_429(
     results = reader.query()
     next(results)
     release.set()
-    assert watch.noted.wait(timeout=20)
+    assert watch.noted.wait(timeout=20), "no 429 was noted (has FetchAhead._note_rate_limit been bypassed?)"
     with pytest.raises(ProviderRateLimitError):
         next(results)
     upstream.settle()
@@ -615,13 +622,15 @@ def test_the_other_threads_stop_at_the_429_before_the_walk_comes_to_raise_it(
 
     results = reader.query()
     next(results)
-    assert upstream.arrival("/1/0").wait(timeout=20)
-    assert upstream.arrival("/2/0").wait(timeout=20)
+    assert upstream.arrival("/1/0").wait(timeout=20), "/1/0 was never asked for"
+    assert upstream.arrival("/2/0").wait(timeout=20), "/2/0 was never asked for"
     release_429.set()
-    assert watch.noted.wait(timeout=20)
+    assert watch.noted.wait(timeout=20), "no 429 was noted (has FetchAhead._note_rate_limit been bypassed?)"
     # the file of station 2 that is under way when the 429 comes is the last one it asks for
     release_second.set()
-    assert watch.ended("/2/0").wait(timeout=20)
+    assert watch.ended("/2/0").wait(timeout=20), (
+        "the fetch of station 2 did not end (has FetchAhead._fetch been bypassed?)"
+    )
 
     assert upstream.asked(2) == ["/2/0"]
     assert upstream.asked(1) == ["/1/0"]
@@ -647,7 +656,7 @@ def test_a_429_noted_while_planning_does_not_wait_for_the_download_of_the_statio
 
     results = reader.query()
     next(results)
-    assert upstream.arrival("/1/0").wait(timeout=20)
+    assert upstream.arrival("/1/0").wait(timeout=20), "/1/0 was never asked for"
     raised: list[BaseException] = []
 
     def walk() -> None:
@@ -721,7 +730,9 @@ def test_nothing_more_is_fetched_ahead_after_a_failure(
     results = reader.query()
     next(results)
     release.set()
-    assert watch.ended("/1/0").wait(timeout=20)
+    assert watch.ended("/1/0").wait(timeout=20), (
+        "the fetch of station 1 did not end (has FetchAhead._fetch been bypassed?)"
+    )
     with pytest.raises(DownloadError):
         next(results)
 
