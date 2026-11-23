@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import type { Station, Value, ValuesResponse } from '#shared/types/api'
+import type { PlaceMatch } from '#shared/utils/places'
+import type { PlaceInLink } from '~/utils/place-link'
+import type { NearStation } from '~/utils/place-stations'
 import type { RequestError } from '~/utils/request-error'
 import { nextTick } from 'vue'
 import Meteogram from '~/components/Meteogram.vue'
+import PlaceStations from '~/components/PlaceStations.vue'
 import StationPicker from '~/components/StationPicker.vue'
 import { formatRunTime } from '~/utils/format'
 import { meteogramSnowQuery, meteogramUnitsKey, meteogramValuesQuery, MOSMIX_METEOGRAM, snowStationsQuery } from '~/utils/meteogram'
+import { placeOfQuery, queryOfPlace } from '~/utils/place-link'
+import { NEAR_STATIONS_COUNT, stationForPlace, stationsNear } from '~/utils/place-stations'
 import { backendFailure, describeRequestError, failureOfError } from '~/utils/request-error'
 import { snowStationIds } from '~/utils/snow-stations'
 import { unitsOfAnswer } from '~/utils/units'
@@ -21,6 +27,11 @@ const route = useRoute()
 const router = useRouter()
 
 const selectedStation = ref<Station | null>(null)
+// the place found by its name that the station shown is the closest to (GH-3791), and the stations near it
+const place = ref<PlaceInLink | null>(null)
+const stationsNearPlace = ref<NearStation<Station>[]>([])
+const nearState = ref<'loading' | 'failed' | 'ready'>('ready')
+let nearTicket = 0
 const values = ref<any[]>([])
 // the unit of each parameter of the values, as the answer says (GH-3980)
 const units = ref<Record<string, string>>({})
@@ -131,8 +142,73 @@ function onPickerWants(wanted: boolean) {
 // Single-station picker: the picker hands over the one station picked; a pick replaces the one before, and none is
 // only handed over by code (the picker has no way to clear a single station)
 function onPick(picked: Station[]) {
+  // a station the reader picked (by name, on the map, by position) is no longer the place's: the place goes
+  place.value = null
+  stationsNearPlace.value = []
+  nearTicket++
   selectedStation.value = picked[0] ?? null
 }
+
+// ---- a place found by its name (GH-3791) ---------------------------------------------------------------------------
+// The station search also finds places. A place has no forecast of its own: the closest forecast station (MOSMIX) within reach (`PLACE_REACH_KM`) is shown,
+// with the others near it and how far each is; where none is within reach the page says so, names the nearest and shows no forecast as the place's. The
+// place is in the link (`lat`, `lon`, `placeName`, `placeRegion`) so that a shared link shows it without asking OpenStreetMap's search again.
+
+/** The forecast stations nearest to the place: the closest `NEAR_STATIONS_COUNT`, with their distances */
+async function loadNear(): Promise<void> {
+  const here = place.value
+  if (!here)
+    return
+  const ticket = ++nearTicket
+  nearState.value = 'loading'
+  stationsNearPlace.value = []
+  try {
+    const res = await $fetch<{ stations: Station[] }>('/api/stations', {
+      query: { ...locateNearest, latitude: here.latitude, longitude: here.longitude, rank: NEAR_STATIONS_COUNT },
+      ...API_FETCH,
+    })
+    if (ticket !== nearTicket)
+      return
+    stationsNearPlace.value = stationsNear(here, res.stations ?? [])
+    nearState.value = 'ready'
+  }
+  catch {
+    if (ticket === nearTicket)
+      nearState.value = 'failed'
+  }
+}
+
+/** A place chosen in the search: its closest forecast station is picked, or none where none is within reach (the one before is not the place's) */
+async function onPlace(match: PlaceMatch) {
+  cancelRestore()
+  place.value = { name: match.name, region: match.region, latitude: match.latitude, longitude: match.longitude }
+  selectedStation.value = null
+  await loadNear()
+  if (nearState.value === 'ready')
+    selectedStation.value = stationForPlace(stationsNearPlace.value)?.station ?? null
+}
+
+/** A station of the list under the place, chosen by the reader: the place stays, as the weather shown is still the one near it */
+function onPickNear(station: Station) {
+  selectedStation.value = station
+}
+
+/** The place the link names, shown without asking the search of places; its closest station is picked where the link names no station */
+async function applyPlaceFromUrl() {
+  const named = placeOfQuery(route.query)
+  place.value = named
+  if (!named) {
+    nearTicket++
+    stationsNearPlace.value = []
+    return
+  }
+  await loadNear()
+  if (nearState.value === 'ready' && !route.query.station && !selectedStation.value)
+    selectedStation.value = stationForPlace(stationsNearPlace.value)?.station ?? null
+}
+
+/** The keys of the link that name the place, where there is one */
+const placeQuery = () => place.value ? queryOfPlace(place.value) : {}
 
 /**
  * The snow forecast of a station, for the stations that have one (the list is asked for once, `snow-stations.ts`). Out of
@@ -244,7 +320,7 @@ watch(selectedStation, (station) => {
     availableIssues.value = []
     // A rejected navigation (e.g. superseded by a subsequent replace() before
     // this one resolves) would otherwise be an unhandled promise rejection.
-    void router.replace({ query: {} }).catch(() => {})
+    void router.replace({ query: placeQuery() }).catch(() => {})
   }
 })
 
@@ -264,10 +340,14 @@ watch([selectedStation, selectedIssue, unitsAsked], ([station]) => {
 })
 
 // Sync station + issue to URL (fires once when both change together)
-watch([selectedStation, selectedIssue], ([station, issue]) => {
-  if (!station)
+watch([selectedStation, selectedIssue, place], ([station, issue]) => {
+  if (!station) {
+    // a place with no station within reach is in the link all the same
+    if (place.value)
+      void router.replace({ query: placeQuery() }).catch(() => {})
     return
-  const q: Record<string, string> = { station: station.station_id }
+  }
+  const q: Record<string, string> = { station: station.station_id, ...placeQuery() }
   if (issue)
     q.issue = issue
   // Preserve display params managed by the Meteogram component
@@ -331,7 +411,10 @@ async function restoreFromUrl() {
     }
   }
 }
-onMounted(restoreFromUrl)
+onMounted(() => {
+  void restoreFromUrl()
+  void applyPlaceFromUrl()
+})
 // the page's own choice is written to the URL as well (the watch above): only a station it did not choose is loaded
 // and a station asked for already (whose answer may still be coming, or was a failure) is not asked for again
 watch(() => route.query.station, (stationId) => {
@@ -347,8 +430,12 @@ watch(() => route.query.station, (stationId) => {
     // a search back to the station that is shown, while one for another is still being looked up, is the later one
     cancelRestore()
   }
-  if (stationId && stationId !== selectedStation.value?.station_id && stationId !== requestedFromUrl)
+  if (stationId && stationId !== selectedStation.value?.station_id && stationId !== requestedFromUrl) {
+    // a link from elsewhere (the header's search) names a station and no place: the place of before is not this station's
+    if (!placeOfQuery(route.query) && place.value)
+      void applyPlaceFromUrl()
     void restoreFromUrl()
+  }
 })
 // a link to the station that is shown, without a run (the header's search), is the latest run, as for any other
 // station: the run follows the URL whenever the URL is at the station that is shown (also where its station changed
@@ -406,9 +493,20 @@ watch([() => route.query.station, () => route.query.issue?.toString() ?? ''], ([
               :loading="stationsLoading"
               :error="stationsFailed"
               :locate="locateNearest"
+              places
               @update:selected="onPick"
+              @update:place="onPlace"
               @update:open="onPickerWants"
               @update:mode="onPickerWants($event === 'map')"
+            />
+            <PlaceStations
+              v-if="place"
+              class="mt-3"
+              :place="place"
+              :near="stationsNearPlace"
+              :state="nearState"
+              :selected-id="selectedStation?.station_id"
+              @pick="onPickNear"
             />
           </UCard>
         </template>

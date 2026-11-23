@@ -131,7 +131,8 @@
       "pointNoDistance": "Verwachting voor {name}, het verwachtingspunt dichtst bij {place}.",
       "chart": "Regen per uur morgen, in {unit}",
       "none": "De verwachting voor {name} reikt nog niet tot morgen.",
-      "open": "Volledige verwachting openen"
+      "open": "Volledige verwachting openen",
+      "far": "Er is geen voorspellingspunt binnen {reach} km van {place}. Het dichtstbijzijnde, {name}, ligt op {distance} km en de voorspelling daarvan is niet de voorspelling voor {place}, dus er wordt er geen getoond."
     },
     "season": {
       "warmer": "Ja, {anomaly} {unit} warmer dan normaal.",
@@ -274,7 +275,10 @@
       "outside": "De waarschuwingen van de DWD gelden alleen voor Duitsland. Geen bron van waarschuwingen dekt {place}.",
       "open": "De waarschuwingen op de kaart tonen",
       "checked": "Opgevraagd: {time}."
-    }
+    },
+    "far": "Er is geen weerstation binnen {reach} km van {place}. Het dichtstbijzijnde, {station}, ligt op {distance} en wat het meet is niet het weer van {place}, dus er wordt geen antwoord gegeven.",
+    "stationUsed": "Afgelezen bij {station}, het weerstation dat het dichtst bij {place} ligt, op {distance}.",
+    "townNoStation": "Voor deze plaats is geen weerstation gevonden."
   },
   "seo": {
     "title": "Wetterdienst – open weer- en klimaatdata van nationale weerdiensten",
@@ -1126,7 +1130,8 @@
     "modeMap": "Kaart",
     "selectedStation": "Geselecteerd station:",
     "removeStation": "{name} uit de selectie verwijderen",
-    "announceList": "Stations zoeken"
+    "announceList": "Stations zoeken",
+    "stationsGroup": "Voorspellingsstations"
   },
   "location": {
     "button": "Mijn locatie gebruiken",
@@ -1149,6 +1154,31 @@
     "noneNear": "Er is geen station gevonden in de buurt van je locatie.",
     "lookupFailed": "Het dichtstbijzijnde station kon niet worden opgezocht. Probeer het opnieuw of gebruik het zoeken.",
     "here": "De vraag gaat over {name}, het station op {distance} van je locatie."
+  },
+  "place": {
+    "fieldLabel": "Zoek een plaats",
+    "fieldHelp": "Typ de naam van een stad, regio, berg of luchthaven; de positie vult de coördinaten in.",
+    "fieldPlaceholder": "De naam van een plaats …",
+    "searchOff": "Het zoeken naar plaatsen is op deze server uitgeschakeld.",
+    "typeHint": "Typ minstens drie letters van een naam.",
+    "forget": "Verwijderen",
+    "forgetPlace": "Verwijder de plaats {place} en behoud de coördinaten",
+    "notCorrected": "Een plaats heeft geen eigen hoogte, dus de temperatuur wordt niet voor de hoogte gecorrigeerd.",
+    "heightUnknown": "Hoogte niet opgegeven",
+    "height": "Hoogte {height} m",
+    "heightNote": "Een plaats heeft geen eigen hoogte: de waarden tussen haakjes zijn het hoogteverschil met het dichtstbijzijnde station.",
+    "looking": "Stations in de buurt van {place} zoeken …",
+    "failed": "De stations in de buurt van de plaats konden niet worden opgezocht. Kies een station of probeer de plaats opnieuw.",
+    "closest": "Getoond wordt {station}, het dichtstbijzijnde voorspellingsstation bij {place}, op {distance}.",
+    "noneNear": "Geen enkel voorspellingsstation ligt binnen {reach} km van {place}. Het dichtstbijzijnde, {station}, ligt op {distance}; de voorspelling daarvan is niet de voorspelling voor {place}, dus er wordt er geen getoond.",
+    "noneAtAll": "Er is geen voorspellingsstation gevonden in de buurt van {place}.",
+    "stationsLabel": "Voorspellingsstations in de buurt van {place}",
+    "closestTag": "dichtstbij",
+    "shown": "Getoond",
+    "show": "Tonen",
+    "showStation": "De voorspelling van {station} tonen",
+    "showAnyway": "Toch tonen",
+    "showAnywayStation": "De voorspelling van {station} toch tonen: het is niet de voorspelling voor {place}"
   },
   "interpolation": {
     "source": "Bron",

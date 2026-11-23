@@ -1,5 +1,4 @@
 <script setup lang="ts" generic="S extends StationPickerStation">
-import type { Point } from '~/utils/map-tool'
 // The one way to pick stations, for the explorer, the history, the forecast and the stripes (GH-3877): a toggle
 // "List | Map" over the one place where the choice is made, and the stations picked under it, so that a switch never
 // hides what was chosen: for several stations as chips (each takes its station out), in both modes; for one station
@@ -15,12 +14,19 @@ import type { Point } from '~/utils/map-tool'
 //
 // An action that belongs beside the toggle goes in the `actions` slot.
 //
+// Places (GH-3791): with `places`, the search of the list also finds places by name (OpenStreetMap's, through the app's server, as the header's search does:
+// from three letters, after a pause, never a position, with the credit under the list), in a group before the stations. A place is no station: choosing one
+// is handed to the caller (`update:place`), which shows the stations closest to it and picks one. The list is then filtered here, the same way the
+// menu does (accents and case apart), since the places are not the ones the menu's own filter would keep.
+//
 // "Use my location" (GH-3651): with `locate`, a row under the toggle offers to pick the station nearest to the reader
 // (components/UseMyLocation.vue; the position is rounded to about 1 km, and asked for on the press alone). `locate` is
 // the query of the `stations` request that is ranked by the position (`rank=1`: provider, network and parameters of
 // the stations this picker lists), or `'list'` where the picker holds the whole list already (the stripes' stations
 // have no ranking by position, and the list is at hand: nothing is sent). A station found is picked as a pick from the
 // search would be (added for several, in place of the one before for one), and its distance is told.
+import type { PlaceMatch } from '#shared/utils/places'
+import type { Point } from '~/utils/map-tool'
 import type { StationPickerStation } from '~/utils/station'
 import type { StationPickerMode, StationPickerTool } from '~/utils/station-picker-mode'
 import SegmentedControl from '~/components/SegmentedControl.vue'
@@ -46,6 +52,8 @@ const props = defineProps<{
   label?: string
   /** The nearest station to the reader's position is offered: the query of the ranked `stations` request, or `'list'` */
   locate?: Record<string, string | undefined> | 'list'
+  /** The search also finds places by name (GH-3791), which are handed over by `update:place` */
+  places?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -54,6 +62,8 @@ const emit = defineEmits<{
   'update:open': [open: boolean]
   /** The mode shown: once on setup, for the one remembered, then for each change */
   'update:mode': [mode: StationPickerMode]
+  /** A place was chosen in the search (with `places`): the caller finds the stations near it */
+  'update:place': [place: PlaceMatch]
 }>()
 
 defineSlots<{
@@ -159,7 +169,42 @@ function onFocusOut(event: FocusEvent) {
 
 // ---- what the search shows, and what it hands over ---------------------------------------------------------
 
-const items = computed(() => props.stations.map(station => ({ label: stationLabel(station), value: station.station_id })))
+const stationItems = computed(() => props.stations.map(station => ({ label: stationLabel(station), value: station.station_id })))
+
+// the places (GH-3791): asked for by the text of the search, while the list is the search and not the map
+const searchTerm = ref('')
+const placesWanted = computed(() => !!props.places && mode.value === 'list')
+const { places: placesFound, failed: placesFailed, off: placesOff } = usePlacesSearch(searchTerm, { enabled: placesWanted })
+const PLACE_PREFIX = 'place:'
+const placeItems = computed(() => !placesWanted.value || placesOff.value
+  ? []
+  : placesFound.value.map(place => ({
+      label: place.name,
+      description: [t(`shell.placeKinds.${place.kind}`), place.region].filter(Boolean).join(' · '),
+      value: `${PLACE_PREFIX}${place.id}`,
+      icon: 'i-ph-map-pin',
+    })))
+/** A text as the menu compares it: without accents and case */
+const folded = (text: string) => text.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase()
+/** The stations the typed text keeps: with places the menu's own filter is off (it would drop a place whose name is not in the text), so it is made here */
+const shownStations = computed(() => {
+  const term = folded(searchTerm.value.trim())
+  return !props.places || !term ? stationItems.value : stationItems.value.filter(item => folded(item.label).includes(term))
+})
+const items = computed(() => placeItems.value.length
+  ? [{ type: 'label' as const, label: t('shell.placesGroup') }, ...placeItems.value, ...(shownStations.value.length ? [{ type: 'label' as const, label: t('stationSelection.stationsGroup') }, ...shownStations.value] : [])]
+  : shownStations.value)
+
+// A virtualised list draws a heading (a label of the menu) as a bare element with `aria-setsize` and `aria-posinset`, which no role allows (axe: aria-allowed-attr, critical),
+// so the list that has places in it (and headings) is not virtualised: the text of three letters has already narrowed the stations to the ones it keeps.
+// What a screen reader is told of the search (the menu has no count of its own): how many results the text has, a moment after the last key, and
+// that the places could not be searched where they could not
+const resultCount = computed(() => placeItems.value.length + shownStations.value.length)
+const searchAnnounced = refDebounced(computed(() => {
+  if (!props.places || !open.value || !searchTerm.value.trim())
+    return ''
+  return `${t('shell.resultsCount', resultCount.value)}${placesFailed.value ? `. ${t('shell.placesFailed')}` : ''}`
+}), 600)
 
 // The search's model: the picked stations as items, an array for several and one item (or none) for one
 const selectedItems = computed({
@@ -169,6 +214,14 @@ const selectedItems = computed({
   },
   set: (value: { label: string, value: string } | { label: string, value: string }[] | undefined) => {
     const chosen = Array.isArray(value) ? value : value ? [value] : []
+    // a place is no pick of a station: it is handed over, and the pick stays as it was
+    const place = chosen.find(item => item.value.startsWith(PLACE_PREFIX))
+    if (place) {
+      const match = placesFound.value.find(found => `${PLACE_PREFIX}${found.id}` === place.value)
+      if (match)
+        emit('update:place', match)
+      return
+    }
     // the stations picked before are looked up too: the list may not be in yet where the pick was restored from a link
     const known = [...props.stations, ...props.selected]
     const stations = chosen
@@ -324,17 +377,23 @@ async function clearAll() {
         :id="selectId"
         v-model="selectedItems"
         v-model:open="open"
+        v-model:search-term="searchTerm"
         :items="items"
+        :ignore-filter="places"
         :multiple="multiple"
         :loading="loading"
         searchable
-        virtualize
+        :virtualize="!placeItems.length"
         color="primary"
         class="w-full"
         :class="{ 'needs-input': selected.length === 0 }"
         :placeholder="t('common.stationSearch')"
         :aria-describedby="selectedForLabel ? selectedLineId : undefined"
-      />
+      >
+        <template v-if="places" #content-bottom>
+          <PlacesCredit v-if="placeItems.length" class="border-t border-default px-3 py-2" />
+        </template>
+      </USelectMenu>
       <div v-else data-print="hide">
         <ClientOnly>
           <div v-if="loading && !stations.length" class="flex items-center justify-center gap-3 py-8 text-gray-500 dark:text-gray-400">
@@ -405,6 +464,10 @@ async function clearAll() {
     <!-- what a change of mode says to a screen reader -->
     <p class="sr-only" role="status" aria-live="polite">
       {{ announcement }}
+    </p>
+    <!-- how many results the text of the search has, with the places (GH-3791) -->
+    <p v-if="places" class="sr-only" role="status" aria-live="polite" data-testid="station-picker-results">
+      {{ searchAnnounced }}
     </p>
   </div>
 </template>

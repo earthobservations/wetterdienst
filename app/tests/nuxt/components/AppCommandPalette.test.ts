@@ -996,11 +996,63 @@ describe('the command palette finding places by name', () => {
     expect(wrapper.find(`[id="${group.attributes('aria-labelledby')}"]`).text()).toBe('Places')
   })
 
-  it('asks for no places in the place mode of "Ask the weather", whose results are stations', async () => {
-    const wrapper = await mountSuspended(AppCommandPalette, { attachTo: document.body, props: { mode: 'place' } })
-    mounted.push(wrapper)
-    await wrapper.find('input[role="combobox"]').setValue('paris')
-    await new Promise(resolve => setTimeout(resolve, 700))
-    expect(placeQueries).toEqual([])
+  // the place mode of "Ask the weather" (GH-3791): the places are the towns the questions can be about, before the stations
+  describe('in the place mode of "Ask the weather"', () => {
+    async function mountPlaceMode() {
+      const wrapper = await mountSuspended(AppCommandPalette, { attachTo: document.body, props: { mode: 'place' } })
+      mounted.push(wrapper)
+      return wrapper
+    }
+
+    it('finds towns by their name by the same rules as the search: from three letters, after a pause, never a position', async () => {
+      const wrapper = await mountPlaceMode()
+      const input = wrapper.find('input[role="combobox"]')
+      await input.setValue('pa')
+      await new Promise(resolve => setTimeout(resolve, 600))
+      expect(placeQueries).toEqual([])
+      await input.setValue('47.76 N 11.55')
+      await new Promise(resolve => setTimeout(resolve, 600))
+      expect(placeQueries).toEqual([])
+      await input.setValue('paris')
+      await vi.waitFor(() => expect(placeQueries).toEqual([{ q: 'paris', lang: 'en' }]))
+      await vi.waitFor(() => expect(wrapper.findAll('[role="group"]')[0]!.text()).toContain('Paris'))
+      expect(wrapper.findAll('[role="group"]')[0]!.attributes('aria-labelledby')).toBeTruthy()
+      // with the credit the licence asks for
+      expect(wrapper.find('[data-testid="places-credit"]').exists()).toBe(true)
+    })
+
+    it('hands the town chosen to the page and leaves the place as it was, which the page makes of it with its nearest station', async () => {
+      usePlace().place.value = DEFAULT_PLACE
+      const wrapper = await mountPlaceMode()
+      const input = wrapper.find('input[role="combobox"]')
+      await input.setValue('bad tölz')
+      await vi.waitFor(() => expect(wrapper.find('[role="option"]').exists()).toBe(true))
+      await vi.waitFor(() => expect(wrapper.find('[role="option"]').text()).toContain('Bad Tölz'))
+      // a click on it: the option the reader is on stays that one where the places arrive after the stations, as in the search
+      await wrapper.find('[role="option"]').trigger('click')
+      expect(wrapper.emitted('town')![0]![0]).toMatchObject({ id: 'N240109189', name: 'Bad Tölz', latitude: 47.7614, longitude: 11.5583 })
+      expect(wrapper.emitted('place')).toBeUndefined()
+      expect(wrapper.emitted('done')).toHaveLength(1)
+      // no navigation: the town is the place of the questions, not a point of the map
+      expect(navigateTo).not.toHaveBeenCalled()
+      expect(usePlace().place.value).toEqual(DEFAULT_PLACE)
+    })
+
+    it('says in the live region where the places could not be searched, and keeps the stations', async () => {
+      placesMode = 'fail'
+      const wrapper = await mountPlaceMode()
+      await wrapper.find('input[role="combobox"]').setValue('arkona')
+      await vi.waitFor(() => expect(wrapper.find('[role="status"]').text()).toContain('Places could not be searched just now'))
+      expect(wrapper.find('[role="option"]').text()).toContain('Arkona')
+    })
+
+    it('shows no town and asks no more where the operator has switched the search of places off', async () => {
+      placesMode = 'off'
+      const wrapper = await mountPlaceMode()
+      await wrapper.find('input[role="combobox"]').setValue('paris')
+      await vi.waitFor(() => expect(placeQueries).toHaveLength(1))
+      await new Promise(resolve => setTimeout(resolve, 100))
+      expect(wrapper.find('[data-testid="places-credit"]').exists()).toBe(false)
+    })
   })
 })

@@ -308,6 +308,10 @@
   :where(:root:not(.dark)) .text-error {
     color: var(--ui-color-error-700);
   }
+  /* and warning text shade 800 (Nuxt UI's 500 is 2 to 3:1 on white or on its tint: the "Required" badge of the date range of an interpolation, GH-3791) */
+  :where(:root:not(.dark)) .text-warning {
+    color: var(--ui-color-warning-800);
+  }
   :where(:root:not(.dark)) .hover\:text-primary\/75:hover {
     color: var(--color-brand-800);
   }

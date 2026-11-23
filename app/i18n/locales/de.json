@@ -131,7 +131,8 @@
       "pointNoDistance": "Vorhersage für {name}, den nächsten Vorhersagepunkt zu {place}.",
       "chart": "Regen pro Stunde morgen, in {unit}",
       "none": "Die Vorhersage für {name} reicht noch nicht bis morgen.",
-      "open": "Ganze Vorhersage öffnen"
+      "open": "Ganze Vorhersage öffnen",
+      "far": "Innerhalb von {reach} km um {place} gibt es keinen Vorhersagepunkt. Der nächste, {name}, ist {distance} km entfernt, und seine Vorhersage ist nicht die Vorhersage für {place}; deshalb wird keine gezeigt."
     },
     "season": {
       "warmer": "Ja, {anomaly} {unit} wärmer als sonst.",
@@ -274,7 +275,10 @@
       "outside": "Die Warnungen des DWD gelten nur für Deutschland. Keine Quelle für Warnungen deckt {place} ab.",
       "open": "Warnungen auf der Karte zeigen",
       "checked": "Abgefragt: {time}."
-    }
+    },
+    "far": "Innerhalb von {reach} km um {place} gibt es keine Wetterstation. Die nächste, {station}, ist {distance} entfernt, und was sie misst, ist nicht das Wetter von {place}; deshalb gibt es keine Antwort.",
+    "stationUsed": "Abgelesen bei {station}, der Wetterstation, die {place} am nächsten liegt, {distance} entfernt.",
+    "townNoStation": "Für diesen Ort wurde keine Wetterstation gefunden."
   },
   "seo": {
     "title": "Wetterdienst – offene Wetter- und Klimadaten von nationalen Wetterdiensten",
@@ -1126,7 +1130,8 @@
     "modeMap": "Karte",
     "selectedStation": "Ausgewählte Station:",
     "removeStation": "{name} aus der Auswahl entfernen",
-    "announceList": "Stationssuche"
+    "announceList": "Stationssuche",
+    "stationsGroup": "Vorhersagestationen"
   },
   "location": {
     "button": "Meinen Standort verwenden",
@@ -1149,6 +1154,31 @@
     "noneNear": "In der Nähe deines Standorts wurde keine Station gefunden.",
     "lookupFailed": "Die nächste Station konnte nicht abgefragt werden. Versuche es erneut oder nutze die Suche.",
     "here": "Gefragt wird nach {name}, der Station {distance} von deinem Standort entfernt."
+  },
+  "place": {
+    "fieldLabel": "Ort suchen",
+    "fieldHelp": "Tippe den Namen einer Stadt, Region, eines Bergs oder Flughafens; seine Position füllt die Koordinaten aus.",
+    "fieldPlaceholder": "Der Name eines Ortes …",
+    "searchOff": "Die Ortssuche ist auf diesem Server ausgeschaltet.",
+    "typeHint": "Tippe mindestens drei Buchstaben eines Namens.",
+    "forget": "Entfernen",
+    "forgetPlace": "Ort {place} entfernen und die Koordinaten behalten",
+    "notCorrected": "Ein Ort hat keine eigene Höhe, daher wird die Temperatur nicht auf die Höhe korrigiert.",
+    "heightUnknown": "Höhe nicht angegeben",
+    "height": "Höhe {height} m",
+    "heightNote": "Ein Ort hat keine eigene Höhe: Die Werte in Klammern sind der Höhenunterschied zur nächsten Station.",
+    "looking": "Suche Stationen in der Nähe von {place} …",
+    "failed": "Die Stationen in der Nähe des Ortes konnten nicht abgefragt werden. Wähle eine Station oder versuche den Ort noch einmal.",
+    "closest": "Gezeigt wird {station}, die nächste Vorhersagestation zu {place}, {distance} entfernt.",
+    "noneNear": "Keine Vorhersagestation liegt innerhalb von {reach} km um {place}. Die nächste, {station}, ist {distance} entfernt; ihre Vorhersage ist nicht die Vorhersage für {place}, deshalb wird keine gezeigt.",
+    "noneAtAll": "In der Nähe von {place} wurde keine Vorhersagestation gefunden.",
+    "stationsLabel": "Vorhersagestationen in der Nähe von {place}",
+    "closestTag": "nächste",
+    "shown": "Gezeigt",
+    "show": "Zeigen",
+    "showStation": "Vorhersage für {station} zeigen",
+    "showAnyway": "Trotzdem zeigen",
+    "showAnywayStation": "Vorhersage für {station} trotzdem zeigen: Das ist nicht die Vorhersage für {place}"
   },
   "interpolation": {
     "source": "Quelle",

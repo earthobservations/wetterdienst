@@ -22,7 +22,7 @@ import {
   USUAL_BAND,
 } from '../../answers'
 import { differenceIn } from '../../units'
-import { defineChip } from '../chip'
+import { defineChip, stationOf } from '../chip'
 
 // Was last summer, winter ... warmer than usual? DWD's monthly means of the place's station (GH-3518), for any season and
 // against any complete WMO normal from 1961-1990 onward (GH-3764, step 2a).
@@ -144,6 +144,7 @@ export const season = defineChip({
   renamedRules: { 'summer-mean': 'season-mean', 'reference-period': 'reference-choices', 'min-summers': 'min-seasons' },
   icon: 'i-ph-thermometer-hot',
   tool: 'explorer',
+  readsStation: true,
   quantity: 'temperature',
   choices: [SEASON, REFERENCE],
   // `?ask=summer` asked about the summer, and still does
@@ -301,7 +302,7 @@ export const season = defineChip({
       const span = normalSpan(answer.season, answer.normalFrom, answer.normalTo)
       const asked = normalSpan(answer.season, answer.asked.from, answer.asked.to)
       const lines: NumberLine[] = [
-        { id: 'station', params: { name: place.name, id: place.id } },
+        { id: 'station', params: { name: stationOf(place).name, id: place.id } },
         { id: 'season', params: { ...kind, year: answer.bars.find(bar => bar.highlight)?.label ?? answer.year, mean: number(answer.mean), unit } },
         {
           id: answer.fallback ? 'referenceFallback' : 'reference',

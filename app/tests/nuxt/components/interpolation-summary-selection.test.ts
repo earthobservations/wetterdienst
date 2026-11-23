@@ -547,3 +547,100 @@ describe('the interpolation\'s placeholders in the active language', () => {
     expect(wrapper.text()).toContain('47.9000, 8.0000')
   })
 })
+
+// A place found by its name fills the point (GH-3791): its position, to the four decimals a link keeps, and itself, to be shown with it. A place has no
+// height, so no elevation comes with it; where none is given the temperature is not corrected for height, which is said beside the point.
+describe('a place found by its name as the point', () => {
+  const badToelz = { id: 'N240109189', name: 'Bad Tölz', kind: 'town', region: 'Bayern, Germany', latitude: 47.76143, longitude: 11.55834 }
+
+  it('fills the coordinates with its position to four decimals and keeps the place with them, with no elevation', async () => {
+    const { wrapper, model, vm } = await selection('manual')
+    onTestFinished(() => wrapper.unmount())
+    vm.onPlace(badToelz)
+    await settle()
+    expect(model.value).toMatchObject({ source: 'manual', latitude: 47.7614, longitude: 11.5583, place: { name: 'Bad Tölz', region: 'Bayern, Germany', latitude: 47.7614, longitude: 11.5583 } })
+    expect(model.value.elevation).toBeUndefined()
+    // the boxes follow the model, and typing nothing over them leaves the place
+    expect(vm.latitudeInput).toBe('47.7614')
+    expect(vm.longitudeInput).toBe('11.5583')
+    expect(vm.elevationInput).toBe('')
+    expect(wrapper.find('[data-testid="interpolation-place-name"]').text()).toBe('Bad Tölz')
+    expect(wrapper.find('[data-testid="interpolation-place-region"]').text()).toBe('Bayern, Germany')
+  })
+
+  it('takes no elevation along, and leaves out one that was there: the readings are not brought to a height the place does not have', async () => {
+    const { wrapper, model, vm } = await selection('manual')
+    onTestFinished(() => wrapper.unmount())
+    vm.elevationInput = '1000'
+    await settle()
+    expect(model.value.elevation).toBe(1000)
+    vm.onPlace(badToelz)
+    await settle()
+    expect(model.value.elevation).toBeUndefined()
+    expect(vm.elevationInput).toBe('')
+  })
+
+  it('says the temperature is not corrected for height, until an elevation is typed, which is the reader\'s own', async () => {
+    const { wrapper, model, vm } = await selection('manual')
+    onTestFinished(() => wrapper.unmount())
+    expect(wrapper.find('[data-testid="interpolation-place-height"]').exists()).toBe(false)
+    vm.onPlace(badToelz)
+    await settle()
+    expect(wrapper.find('[data-testid="interpolation-place-height"]').text()).toBe('A place has no height of its own, so the temperature is not corrected for height.')
+    vm.elevationInput = '700'
+    await settle()
+    expect(model.value).toMatchObject({ elevation: 700, place: { name: 'Bad Tölz' } })
+    expect(wrapper.find('[data-testid="interpolation-place-height"]').exists()).toBe(false)
+  })
+
+  it('is no longer the place once a coordinate is typed over, and stays where the same position is typed', async () => {
+    const { wrapper, model, vm } = await selection('manual')
+    onTestFinished(() => wrapper.unmount())
+    vm.onPlace(badToelz)
+    await settle()
+    vm.latitudeInput = '47.7614'
+    await settle()
+    expect(model.value.place).toBeTruthy()
+    vm.latitudeInput = '48.1'
+    await settle()
+    expect(model.value).toMatchObject({ latitude: 48.1, longitude: 11.5583 })
+    expect(model.value.place).toBeUndefined()
+    expect(wrapper.find('[data-testid="interpolation-place"]').exists()).toBe(false)
+  })
+
+  it('is let go on a button that keeps the coordinates', async () => {
+    const { wrapper, model, vm } = await selection('manual')
+    onTestFinished(() => wrapper.unmount())
+    vm.onPlace(badToelz)
+    await settle()
+    const forget = wrapper.find('[data-testid="interpolation-place"] button')
+    expect(forget.attributes('aria-label')).toBe('Remove the place Bad Tölz and keep its coordinates')
+    await forget.trigger('click')
+    await settle()
+    expect(model.value.place).toBeUndefined()
+    expect(model.value).toMatchObject({ latitude: 47.7614, longitude: 11.5583 })
+  })
+
+  it('is let go where the point is given by a station instead, which has its own position and height', async () => {
+    const { wrapper, model, vm } = await selection('manual')
+    onTestFinished(() => wrapper.unmount())
+    vm.onPlace(badToelz)
+    await settle()
+    vm.setSource('station')
+    await settle()
+    expect(model.value.place).toBeUndefined()
+    vm.selectedStation = feldberg
+    await settle()
+    expect(model.value).toMatchObject({ source: 'station', latitude: 47.9, longitude: 8, elevation: 1000 })
+    expect(model.value.place).toBeUndefined()
+  })
+
+  it('offers the field that finds a place for the coordinates only, not for a station', async () => {
+    const { wrapper, vm } = await selection('manual')
+    onTestFinished(() => wrapper.unmount())
+    expect(wrapper.find('[data-testid="place-field"]').exists()).toBe(true)
+    vm.setSource('station')
+    await settle()
+    expect(wrapper.find('[data-testid="place-field"]').exists()).toBe(false)
+  })
+})

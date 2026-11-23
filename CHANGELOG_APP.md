@@ -16,6 +16,17 @@ Types of changes:
 
 ## [Unreleased]
 
+### Added
+
+- `[Places]` The Forecast, Ask the weather and the Explorer's interpolation and summary find places by
+  name (GH-3791). A place is used for the closest station: the Forecast picks the closest forecast
+  station and lists the others near it with distance and height, Ask the weather reads at the DWD
+  station nearest to a town and names it and its distance, and the Explorer fills the point with
+  the place and says the temperature is not corrected for height. Beyond 50 km no station is taken
+  for the place: the tool says so, names the nearest and gives no answer. A link carries `lat`,
+  `lon`, `placeName` and `placeRegion`, so a shared link shows the place without a search. What you
+  type there goes to Photon through the app's server, as in the search.
+
 ### Fixed
 
 - `[Translations]` The fourth review of the translations corrects the texts added since the third

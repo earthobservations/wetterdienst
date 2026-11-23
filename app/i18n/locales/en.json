@@ -131,7 +131,8 @@
       "pointNoDistance": "Forecast for {name}, the forecast point nearest to {place}.",
       "chart": "Rain per hour tomorrow, in {unit}",
       "none": "The forecast for {name} does not reach tomorrow yet.",
-      "open": "Open the full forecast"
+      "open": "Open the full forecast",
+      "far": "There is no forecast point within {reach} km of {place}. The nearest, {name}, is {distance} km away, and its forecast is not the forecast of {place}, so none is shown."
     },
     "season": {
       "warmer": "Yes, {anomaly} {unit} warmer than usual.",
@@ -274,7 +275,10 @@
       "outside": "DWD's warnings cover Germany only. No warnings source covers {place}.",
       "open": "Show the warnings on the map",
       "checked": "Checked: {time}."
-    }
+    },
+    "far": "There is no weather station within {reach} km of {place}. The nearest, {station}, is {distance} away, and what it measures is not the weather of {place}, so no answer is given.",
+    "stationUsed": "Read at {station}, the weather station nearest to {place}, {distance} away.",
+    "townNoStation": "No weather station could be found for this place."
   },
   "seo": {
     "title": "Wetterdienst – open weather and climate data from national weather services",
@@ -1126,7 +1130,8 @@
     "modeMap": "Map",
     "selectedStation": "Selected station:",
     "removeStation": "Remove {name} from the selection",
-    "announceList": "Station search"
+    "announceList": "Station search",
+    "stationsGroup": "Forecast stations"
   },
   "location": {
     "button": "Use my location",
@@ -1149,6 +1154,31 @@
     "noneNear": "No station was found near your position.",
     "lookupFailed": "The nearest station could not be looked up. Try again, or use the search.",
     "here": "Asking about {name}, the station {distance} from your position."
+  },
+  "place": {
+    "fieldLabel": "Find a place",
+    "fieldHelp": "Type the name of a town, region, mountain or airport; its position fills in the coordinates.",
+    "fieldPlaceholder": "The name of a place …",
+    "searchOff": "The search of places is switched off on this server.",
+    "typeHint": "Type at least three letters of a name.",
+    "forget": "Remove",
+    "forgetPlace": "Remove the place {place} and keep its coordinates",
+    "notCorrected": "A place has no height of its own, so the temperature is not corrected for height.",
+    "heightUnknown": "Height not given",
+    "height": "Height {height} m",
+    "heightNote": "A place has no height of its own: the values in brackets are the difference in height from the closest station.",
+    "looking": "Looking for stations near {place} …",
+    "failed": "The stations near the place could not be looked up. Choose a station or try the place again.",
+    "closest": "Showing {station}, the closest forecast station to {place}, {distance} away.",
+    "noneNear": "No forecast station is within {reach} km of {place}. The nearest, {station}, is {distance} away, so its forecast is not the forecast of {place} and none is shown.",
+    "noneAtAll": "No forecast station was found near {place}.",
+    "stationsLabel": "Forecast stations near {place}",
+    "closestTag": "closest",
+    "shown": "Shown",
+    "show": "Show",
+    "showStation": "Show the forecast of {station}",
+    "showAnyway": "Show anyway",
+    "showAnywayStation": "Show the forecast of {station} anyway: it is not the forecast of {place}"
   },
   "interpolation": {
     "source": "Source",

@@ -131,7 +131,8 @@
       "pointNoDistance": "Udsigt for {name}, udsigtspunktet nærmest {place}.",
       "chart": "Regn pr. time i morgen, i {unit}",
       "none": "Udsigten for {name} rækker endnu ikke til i morgen.",
-      "open": "Åbn hele udsigten"
+      "open": "Åbn hele udsigten",
+      "far": "Der er intet prognosepunkt inden for {reach} km af {place}. Det nærmeste, {name}, er {distance} km væk, og dets prognose er ikke prognosen for {place}, så ingen vises."
     },
     "season": {
       "warmer": "Ja, {anomaly} {unit} varmere end normalt.",
@@ -274,7 +275,10 @@
       "outside": "DWD's varsler dækker kun Tyskland. Ingen kilde til varsler dækker {place}.",
       "open": "Vis varslerne på kortet",
       "checked": "Hentet: {time}."
-    }
+    },
+    "far": "Der er ingen vejrstation inden for {reach} km af {place}. Den nærmeste, {station}, er {distance} væk, og det, den måler, er ikke vejret ved {place}, så der gives intet svar.",
+    "stationUsed": "Aflæst ved {station}, den vejrstation, der ligger nærmest {place}, {distance} væk.",
+    "townNoStation": "Der blev ikke fundet nogen vejrstation for dette sted."
   },
   "seo": {
     "title": "Wetterdienst – åbne vejr- og klimadata fra nationale vejrtjenester",
@@ -1126,7 +1130,8 @@
     "modeMap": "Kort",
     "selectedStation": "Valgt station:",
     "removeStation": "Fjern {name} fra valget",
-    "announceList": "Stationssøgning"
+    "announceList": "Stationssøgning",
+    "stationsGroup": "Prognosestationer"
   },
   "location": {
     "button": "Brug min placering",
@@ -1149,6 +1154,31 @@
     "noneNear": "Der blev ikke fundet nogen station i nærheden af din placering.",
     "lookupFailed": "Den nærmeste station kunne ikke slås op. Prøv igen, eller brug søgningen.",
     "here": "Der spørges om {name}, stationen {distance} fra din placering."
+  },
+  "place": {
+    "fieldLabel": "Find et sted",
+    "fieldHelp": "Skriv navnet på en by, region, bjerg eller lufthavn; dens position udfylder koordinaterne.",
+    "fieldPlaceholder": "Navnet på et sted …",
+    "searchOff": "Stedsøgningen er slået fra på denne server.",
+    "typeHint": "Skriv mindst tre bogstaver af et navn.",
+    "forget": "Fjern",
+    "forgetPlace": "Fjern stedet {place} og behold koordinaterne",
+    "notCorrected": "Et sted har ingen egen højde, så temperaturen korrigeres ikke for højde.",
+    "heightUnknown": "Højde ikke oplyst",
+    "height": "Højde {height} m",
+    "heightNote": "Et sted har ingen egen højde: tallene i parentes er højdeforskellen til den nærmeste station.",
+    "looking": "Leder efter stationer nær {place} …",
+    "failed": "Stationerne nær stedet kunne ikke slås op. Vælg en station, eller prøv stedet igen.",
+    "closest": "Viser {station}, den nærmeste prognosestation ved {place}, {distance} væk.",
+    "noneNear": "Ingen prognosestation ligger inden for {reach} km af {place}. Den nærmeste, {station}, er {distance} væk; dens prognose er ikke prognosen for {place}, så ingen vises.",
+    "noneAtAll": "Der blev ikke fundet nogen prognosestation nær {place}.",
+    "stationsLabel": "Prognosestationer nær {place}",
+    "closestTag": "nærmeste",
+    "shown": "Vist",
+    "show": "Vis",
+    "showStation": "Vis prognosen for {station}",
+    "showAnyway": "Vis alligevel",
+    "showAnywayStation": "Vis alligevel prognosen for {station}: det er ikke prognosen for {place}"
   },
   "interpolation": {
     "source": "Kilde",

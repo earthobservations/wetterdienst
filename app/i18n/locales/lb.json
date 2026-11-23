@@ -131,7 +131,8 @@
       "pointNoDistance": "Prognos fir {name}, den nootste Prognosepunkt bei {place}.",
       "chart": "Reen pro Stonn muer, an {unit}",
       "none": "D'Prognos fir {name} geet nach net bis muer.",
-      "open": "Ganz Prognos opmaachen"
+      "open": "Ganz Prognos opmaachen",
+      "far": "Bannent {reach} km vun {place} gëtt et kee Prognosepunkt. Deen nootsten, {name}, ass {distance} km ewech, a seng Prognos ass net d'Prognos fir {place}, dofir gëtt keng gewisen."
     },
     "season": {
       "warmer": "Jo, {anomaly} {unit} méi waarm wéi soss.",
@@ -274,7 +275,10 @@
       "outside": "D'Warnunge vum DWD gëllen nëmmen fir Däitschland. Keng Quell fir Warnunge deckt {place} of.",
       "open": "D'Warnunge op der Kaart weisen",
       "checked": "Offrufft: {time}."
-    }
+    },
+    "far": "Bannent {reach} km vun {place} gëtt et keng Wiederstatioun. Déi nootst, {station}, ass {distance} ewech, an dat, wat si moosst, ass net d'Wieder vun {place}, dofir gëtt et keng Äntwert.",
+    "stationUsed": "Gelies bei {station}, der Wiederstatioun, déi {place} am nootsten ass, {distance} ewech.",
+    "townNoStation": "Fir dës Plaz gouf keng Wiederstatioun fonnt."
   },
   "seo": {
     "title": "Wetterdienst – oppen Wieder- a Klimadaten vun nationale Wiederdéngschter",
@@ -1126,7 +1130,8 @@
     "modeMap": "Kaart",
     "selectedStation": "Ausgewielte Statioun:",
     "removeStation": "{name} ewechhuelen",
-    "announceList": "Statiounssich"
+    "announceList": "Statiounssich",
+    "stationsGroup": "Prognosestatiounen"
   },
   "location": {
     "button": "Meng Positioun benotzen",
@@ -1149,6 +1154,31 @@
     "noneNear": "Bei denger Positioun gouf keng Statioun fonnt.",
     "lookupFailed": "Déi nootst Statioun konnt net nogeschloe ginn. Probéier et nach eng Kéier oder benotz d'Sich.",
     "here": "D'Fro geet iwwer {name}, d'Statioun {distance} vun denger Positioun ewech."
+  },
+  "place": {
+    "fieldLabel": "Eng Plaz sichen",
+    "fieldHelp": "Schreif den Numm vun enger Stad, Regioun, engem Bierg oder Fluchhafen; seng Positioun fëllt d'Koordinaten aus.",
+    "fieldPlaceholder": "Den Numm vun enger Plaz …",
+    "searchOff": "D'Sich no Plazen ass op dësem Server ausgeschalt.",
+    "typeHint": "Schreif op d'mannst dräi Buschtawen vun engem Numm.",
+    "forget": "Ewechhuelen",
+    "forgetPlace": "D'Plaz {place} ewechhuelen an d'Koordinaten behalen",
+    "notCorrected": "Eng Plaz huet keng eege Héicht, dofir gëtt d'Temperatur net op d'Héicht korrigéiert.",
+    "heightUnknown": "Héicht net uginn",
+    "height": "Héicht {height} m",
+    "heightNote": "Eng Plaz huet keng eege Héicht: D'Wäerter an de Klammere sinn den Héichtenënnerscheed zu der nootster Statioun.",
+    "looking": "Sichen no Statiounen bei {place} …",
+    "failed": "D'Statioune bei der Plaz konnten net nogekuckt ginn. Wiel eng Statioun oder probéier d'Plaz nach eng Kéier.",
+    "closest": "Gewisen gëtt {station}, déi nootst Prognosestatioun bei {place}, {distance} ewech.",
+    "noneNear": "Keng Prognosestatioun läit bannent {reach} km vun {place}. Déi nootst, {station}, ass {distance} ewech; hir Prognos ass net d'Prognos fir {place}, dofir gëtt keng gewisen.",
+    "noneAtAll": "Bei {place} gouf keng Prognosestatioun fonnt.",
+    "stationsLabel": "Prognosestatioune bei {place}",
+    "closestTag": "nootst",
+    "shown": "Gewisen",
+    "show": "Weisen",
+    "showStation": "D'Prognos vun {station} weisen",
+    "showAnyway": "Trotzdeem weisen",
+    "showAnywayStation": "D'Prognos vun {station} trotzdeem weisen: Et ass net d'Prognos fir {place}"
   },
   "interpolation": {
     "source": "Quell",
