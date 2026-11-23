@@ -336,7 +336,7 @@ docker compose --profile app up        # the app alone
 The ports are published on `127.0.0.1`; `WETTERDIENST_BIND_HOST=0.0.0.0` in front of the command
 opens them to the network, see [Docker](docker.md#docker-compose).
 
-Without Docker, the backend is `wetterdienst restapi` (it listens on port 7890) and the app is run with Node 24 and
+Without Docker, the backend is `wetterdienst restapi` (it listens on port 7890) and the app is run with Node 26 and
 pnpm from the `app` directory (`pnpm install`, then `pnpm dev` for a development server or `pnpm build` and
 `pnpm preview`):
 
@@ -345,6 +345,13 @@ cd app
 pnpm install
 pnpm dev    # port 4000 on localhost, looking for the backend at http://localhost:7890/api
 ```
+
+The app is written against TypeScript 7 (`pnpm typecheck` runs `tsc` on the `.ts` code), but TypeScript 7 has no
+classic JavaScript API, which `vue-tsc`, typescript-eslint and `openapi-typescript` still load. Each of them gets
+TypeScript 6.0.3 as a dependency of its own (`app/.pnpmfile.cjs`), and `pnpm typecheck` checks the `.vue` files with
+`vue-tsc` on that copy. An editor's Vue language server needs the classic API too: point its TypeScript at the 6.0.3
+copy (in VS Code, `typescript.tsdk` set to `app/node_modules/.pnpm/vue-tsc@<version>/node_modules/typescript/lib`),
+not at the workspace's TypeScript 7.
 
 The app looks for the backend at `http://localhost:7890/api` unless `NUXT_API_BASE` says otherwise.
 The development server (with Nuxt DevTools) listens on `localhost`; `HOST=0.0.0.0 pnpm dev` opens it to the network.

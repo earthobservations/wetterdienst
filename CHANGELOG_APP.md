@@ -16,6 +16,11 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `[Build]` The app needs Node 26 (`engines.node` is now `>=26.13.1`; the image and the CI run on
+  it) instead of Node 24. Run it from source with Node 26 (GH-4342).
+
 ### Security
 
 - `[Server]` No request body is read whole before a route runs. nuxt-security's XSS validator is off

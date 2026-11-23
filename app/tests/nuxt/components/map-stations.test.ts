@@ -157,7 +157,7 @@ describe('mapStations marker focus', () => {
     const scrolled = vi.fn()
     marker.scrollIntoView = scrolled
     // happy-dom does not know :focus-visible: a key focuses the marker visibly, a click of the pointer does not
-    marker.matches = (selector: string) => selector === ':focus-visible' && focusVisible
+    marker.matches = ((selector: string) => selector === ':focus-visible' && focusVisible) as typeof marker.matches
     container.append(marker)
     const wrapper = await mountSuspended(MapStations, { props: { stations: [], selectedStations: [] } })
     const vm = wrapper.vm as any
