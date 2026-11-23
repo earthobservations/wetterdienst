@@ -13,19 +13,19 @@ parameter, column or parameter says `... was renamed to ...`. What cannot be ref
 [Values, units and timestamps](#values-units-and-timestamps) and [Failures](#failures). If you come from a release
 before 0.139.0, read the **Breaking** entries up to it first.
 
-The web app is released as a pair with the backend: `app-v0.58.0` is the app of 0.195.0, where the stripes routes are
-gone (it needs the `station-ids` route of 0.195.0 for the search by WMO number, WIGOS identifier or ICAO code, draws
-the stripes itself from `stations` and `values`, and needs the radar routes of 0.194.0 for the Radar tool and the
+The web app is released as a pair with the backend: `app-v0.59.0` is the app of 0.196.0, where the stripes routes are
+gone (it needs the `station-ids` route of 0.195.0 for the search by WMO number, WIGOS identifier or ICAO code, draws the
+stripes itself from `stations` and `values`, and needs the radar routes of 0.194.0 for the Radar tool and the
 per-element lists of `noaa/ghcn` of 0.194.0 for the stripes' station list, the `provider` and `network` of the stripes
 of 0.192.0, the stripes' `reference`, `stripe_class` and `anomaly` and the stations' `wmo_id` of 0.191.0, the dataset
 `hourly/snow` of `dwd/mosmix` for the snow panel of the forecast, and otherwise no more of the backend than
 `app-v0.47.0`, the app of 0.186.0, which needs it: it asks for `unit_targets` on the stripes and reads the separate
-`providers` and `coverage`; `app-v0.57.0` went with 0.194.0 and works with 0.195.0, `app-v0.56.0` with 0.193.0 and
-works with 0.194.0, `app-v0.55.0` and `app-v0.54.0` with 0.192.0, `app-v0.53.0` with 0.191.0, `app-v0.52.0` with
-0.190.0, `app-v0.51.1` with 0.189.1, `app-v0.51.0` with 0.189.0, `app-v0.50.0` with 0.188.0, `app-v0.49.0` with 0.187.1,
-`app-v0.48.0` with 0.187.0 and `app-v0.46.0` with 0.185.0; every app before `app-v0.57.0` asks the stripes routes that
-0.195.0 removes, so it stays with the backend it went with). Upgrade both
-([The web app and the image](compatibility.md#the-web-app-and-the-image)).
+`providers` and `coverage`; `app-v0.58.0` went with 0.195.0 and works with 0.196.0, `app-v0.57.0` with 0.194.0 and works
+with 0.195.0, `app-v0.56.0` with 0.193.0 and works with 0.194.0, `app-v0.55.0` and `app-v0.54.0` with 0.192.0,
+`app-v0.53.0` with 0.191.0, `app-v0.52.0` with 0.190.0, `app-v0.51.1` with 0.189.1, `app-v0.51.0` with 0.189.0,
+`app-v0.50.0` with 0.188.0, `app-v0.49.0` with 0.187.1, `app-v0.48.0` with 0.187.0 and `app-v0.46.0` with 0.185.0; every
+app before `app-v0.57.0` asks the stripes routes that 0.195.0 removes, so it stays with the backend it went with).
+Upgrade both ([The web app and the image](compatibility.md#the-web-app-and-the-image)).
 
 Two things that still worked in 0.172.0 are removed in 0.173.0, earlier than announced for 1.0.0:
 `Wetterdienst(provider, network)` and `wetterdienst stripes values`. Write
