@@ -21,19 +21,10 @@ from wetterdienst.util.response_warnings import begin_response
 
 UTC = dt.UTC
 LEFT_OUT = "other-window-left-out"
-AVAILABLE = {
-    "data": [
-        {
-            "validFrom": "1940-01-01T00:00:00Z",
-            "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0",
-        }
-    ]
-}
 
 
 def _read(
     monkeypatch: pytest.MonkeyPatch,
-    path: str,
     resolution: str,
     name: str,
     element: str,
@@ -41,15 +32,13 @@ def _read(
     start: dt.datetime,
     end: dt.datetime,
 ) -> pl.DataFrame:
-    """Give the values of `name` at SN18700 that Frost answers with `readings` (stamp, offset, value) by `path`."""
+    """Give the values of `name` at SN18700 that Frost answers with `readings` (stamp, offset, value)."""
     # a day that is long over: no window is open (GH-3856)
     monkeypatch.setattr(frost_api, "_now", lambda: dt.datetime(2030, 1, 1, tzinfo=UTC))
     requested = [(resolution, "data", name)]
-    if path == "single":
-        requested.append((resolution, "data", "wind_speed_mean"))
     values, _ = _values(
         monkeypatch,
-        _answered_by(path, _offset_answer(element, readings), AVAILABLE),
+        _answered_by(_offset_answer(element, readings)),
         requested,
         start=start,
         end=end,
@@ -58,10 +47,9 @@ def _read(
     return values.all().df.filter(pl.col("parameter") == name).sort("timestamp")
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 @pytest.mark.parametrize("off_midnight", [True, False], ids=["stamped-06:00", "stamped-00:00"])
 def test_metno_frost_two_dates_of_the_other_series_one_of_them_returned_are_one_date_left_out(
-    monkeypatch: pytest.MonkeyPatch, path: str, *, off_midnight: bool
+    monkeypatch: pytest.MonkeyPatch, *, off_midnight: bool
 ) -> None:
     """Test that the other series' 01-01 and 01-02 against a returned 01-01 count 1, stamped 00:00 or 06:00.
 
@@ -77,7 +65,6 @@ def test_metno_frost_two_dates_of_the_other_series_one_of_them_returned_are_one_
 
     df = _read(
         monkeypatch,
-        path,
         "daily",
         "temperature_air_mean_2m",
         "mean(air_temperature P1D)",
@@ -91,9 +78,8 @@ def test_metno_frost_two_dates_of_the_other_series_one_of_them_returned_are_one_
     assert "on 1 date that is not in the answer (SN18700 1)" in warning["message"]
 
 
-@pytest.mark.parametrize("path", ["batch", "single", "discovery"])
 def test_metno_frost_a_day_both_series_stamp_at_ten_is_returned_and_not_told_as_left_out(
-    monkeypatch: pytest.MonkeyPatch, path: str
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that a day whose `PT6H` (0.1) and `PT18H` (4.0) are both stamped 2026-11-07T10:00 is not left out.
 
@@ -104,7 +90,6 @@ def test_metno_frost_a_day_both_series_stamp_at_ten_is_returned_and_not_told_as_
 
     df = _read(
         monkeypatch,
-        path,
         "daily",
         "precipitation_amount",
         "sum(precipitation_amount P1D)",
@@ -128,7 +113,6 @@ def test_metno_frost_a_date_of_the_other_series_stamped_off_midnight_on_the_last
     """
     df = _read(
         monkeypatch,
-        "batch",
         "daily",
         "temperature_air_mean_2m",
         "mean(air_temperature P1D)",
@@ -142,9 +126,8 @@ def test_metno_frost_a_date_of_the_other_series_stamped_off_midnight_on_the_last
     assert "on 1 date that is not in the answer (SN18700 1)" in warning["message"]
 
 
-@pytest.mark.parametrize("path", ["batch", "discovery"])
 def test_metno_frost_a_month_of_the_other_series_stamped_off_the_first_is_the_month_returned(
-    monkeypatch: pytest.MonkeyPatch, path: str
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test that the key of a month is the month: a series stamped 2020-01-01T06:00 is that of the 00:00 one.
 
@@ -159,7 +142,6 @@ def test_metno_frost_a_month_of_the_other_series_stamped_off_the_first_is_the_mo
 
     df = _read(
         monkeypatch,
-        path,
         "monthly",
         "precipitation_amount",
         "sum(precipitation_amount P1M)",

@@ -2956,11 +2956,14 @@ describe('the weather warnings of DWD (GH-4295)', () => {
     await vi.waitFor(() => expect(wrapper.find('[data-testid="map-warnings-banner"] [data-testid="warning-title"]').text()).toBe('fog'))
   })
 
-  it('says for a place outside Germany that no warnings source covers it, and asks nothing for the list', async () => {
+  it('has no banner for a place outside Germany, and asks nothing for the list (GH-4328)', async () => {
     const wrapper = await mountMap()
     await listed(wrapper)
     stage.emit('pick', { latitude: 48.72, longitude: 2.38, tolerance: 0.5 })
-    await vi.waitFor(() => expect(wrapper.find('[data-testid="warnings-banner-summary"]').text()).toBe('DWD\'s warnings cover Germany only. No warnings source covers this place.'))
+    // the pick was taken, and the panel is about it, with no banner
+    await vi.waitFor(() => expect(wrapper.find('[data-testid="map-card-forecast"]').exists()).toBe(true))
+    expect(wrapper.find('[data-testid="warnings-banner"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="map-warnings-banner"]').exists()).toBe(false)
     // nothing was asked for: the snapshot is no use for a place DWD does not warn for
     expect(alertsAsked.count).toBe(0)
   })

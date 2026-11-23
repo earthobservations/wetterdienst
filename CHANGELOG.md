@@ -16,6 +16,15 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `metno/frost` takes a 404 or a 412 for a window as no data. The request for the whole dataset,
+  which asks every element, is asked once; the request for each parameter and the listing of the
+  time series that followed a 404 are gone. In a sample of 208 (station, element, resolution)
+  pairs they found data in none of the 12 that answered 404 when asked alone (GH-3137), so the
+  answers are the same, with fewer requests. No wind direction is read without its speed any more:
+  an hourly `0` beside a speed of 0 is a calm (null, `raw:0`) in every request (GH-4321)
+
 ### Fixed
 
 - **Breaking**: `aemet/observation` daily `wind_direction_gust_max` is null with `raw:88` where the

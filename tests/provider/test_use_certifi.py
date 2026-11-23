@@ -113,12 +113,7 @@ def _ea(monkeypatch: pytest.MonkeyPatch) -> Seen:
 
 
 def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> Seen:
-    """Request the station list, the values by each way to them, and the credential probe.
-
-    One hourly parameter is requested, out of a dataset of several: a 404 for the request of the
-    dataset is followed by the request of that parameter alone, and a 404 for that by the
-    discovery of its time series.
-    """
+    """Request the station list, the values (the 404 for the dataset is no data) and the credential probe."""
     from wetterdienst.provider.metno.frost import MetnoFrostRequest  # noqa: PLC0415
     from wetterdienst.provider.metno.frost import api as frost_api  # noqa: PLC0415
 
@@ -136,25 +131,12 @@ def _metno_frost(monkeypatch: pytest.MonkeyPatch) -> Seen:
             },
         ],
     }
-    available = {
-        "data": [
-            {
-                "validFrom": "2000-01-01T00:00:00Z",
-                "uri": "https://frost.met.no/observations/v0.jsonld?sources=SN18700:0&timeseriesids=0",
-            },
-        ],
-    }
 
     def answer(url: str) -> File:
         if "/sources/" in url:
             return _ok(url, json.dumps(sources).encode())
         if is_series_listing(url):
             return _ok(url, json.dumps(series_of("SN18700")).encode())
-        if "/availableTimeSeries/" in url:
-            return _ok(url, json.dumps(available).encode())
-        # no data for the window, which ends the discovered series without a further request
-        if "timeseriesids=" in url:
-            return File(url=url, content=FileNotFoundError(url), status=412)
         return File(url=url, content=FileNotFoundError(url), status=404)
 
     seen = _record(monkeypatch, frost_api, answer)
@@ -187,7 +169,7 @@ def _dwd_road(monkeypatch: pytest.MonkeyPatch) -> Seen:
     [
         pytest.param(_geosphere, 2, id="geosphere"),
         pytest.param(_ea, 3, id="ea"),
-        pytest.param(_metno_frost, 7, id="metno_frost"),
+        pytest.param(_metno_frost, 4, id="metno_frost"),
         pytest.param(
             _dwd_road,
             1,
