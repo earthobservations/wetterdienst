@@ -754,7 +754,9 @@
     "openExplorer": "Abrir en el explorador"
   },
   "credit": {
-    "licence": "Licencia: {name} ({url})"
+    "licence": "Licencia: {name} ({url})",
+    "source": "Fuente",
+    "dataSource": "Fuente de datos"
   },
   "processingNote": {
     "base": "Procesado por wetterdienst: los datos del proveedor se han reorganizado en una tabla uniforme y sus unidades se han convertido donde difieren.",
@@ -778,6 +780,7 @@
     "aboutButton": "Acerca del pronóstico",
     "aboutText1": "El pronóstico muestra una previsión meteorológica de varios días de DWD MOSMIX, un producto de posprocesamiento estadístico que combina la salida de modelos numéricos de predicción del tiempo con observaciones de estaciones para producir pronósticos horarios calibrados en más de 5000 ubicaciones de Alemania y de todo el mundo.",
     "aboutText2": "El gráfico muestra la temperatura y el punto de rocío, la velocidad del viento y las rachas con barbas de viento meteorológicas, la precipitación clasificada por fase (lluvia / mixta / nieve), la nubosidad por altitud y la presión atmosférica. Las franjas de día/noche se derivan de la ubicación geográfica de la estación. Selecciona cualquier estación del DWD por nombre o ID para cargar su pronóstico.",
+    "warningsNote": "Avisos meteorológicos: solo para Alemania, del DWD",
     "selectStation": "Seleccionar estación",
     "loading": "Obteniendo el pronóstico MOSMIX …",
     "openWidget": "Abrir como widget integrable",
@@ -1434,7 +1437,6 @@
     "bannerTitle": "Avisos meteorológicos para esta ubicación",
     "bannerSome": "Avisos del DWD para esta ubicación: {count}",
     "bannerNone": "Ningún aviso del DWD tiene una zona que contenga esta ubicación.",
-    "bannerOutside": "Los avisos del DWD cubren solo Alemania. Ninguna fuente de avisos cubre este lugar.",
     "bannerFailed": "No se pudieron cargar los avisos.",
     "bannerLoading": "Cargando los avisos …",
     "bannerListLabel": "Avisos para esta ubicación, los más graves primero",

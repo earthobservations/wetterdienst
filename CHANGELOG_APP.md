@@ -27,8 +27,23 @@ Types of changes:
   `lon`, `placeName` and `placeRegion`, so a shared link shows the place without a search. What you
   type there goes to Photon through the app's server, as in the search.
 
+### Changed
+
+- `[Weather warnings]` The Forecast and the map's panel show no warnings box for a place outside
+  Germany any more, where it said that no warnings source covers the place. Inside Germany nothing
+  changes. The Forecast's credits say it in one plain line instead, in all eleven languages:
+  "Weather warnings: Germany only, from DWD". The Ask the weather question "Are there warnings
+  here?" still answers plainly for a place outside Germany (GH-4328).
+
 ### Fixed
 
+- `[Credit lines]` A provider's credit line starts in the reader's language: "Source: Deutscher
+  Wetterdienst" reads "Quelle: Deutscher Wetterdienst" on a German page and "Source : Deutscher
+  Wetterdienst" on a French one, on every page that shows it (the forecast, the explorer, the
+  radar, the warnings, the map's credits, the stripes' table and the CSV of the explorer). The app
+  translates the label "Source:" and ECCC's "Data Source:" only and keeps the provider's own words
+  after it; a credit line with no such label ("© SMHI", a text in Polish) is shown as written, as
+  is the providers page's quotation to copy (GH-4333).
 - `[Translations]` The fourth review of the translations corrects the texts added since the third
   in the Radar, the warnings, the Meteogram, the stripes and the day and season questions. The
   methods page and its search entry no longer name "Ask the weather" in English in any language;

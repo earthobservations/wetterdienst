@@ -754,7 +754,9 @@
     "openExplorer": "Otwórz w eksploratorze"
   },
   "credit": {
-    "licence": "Licencja: {name} ({url})"
+    "licence": "Licencja: {name} ({url})",
+    "source": "Źródło",
+    "dataSource": "Źródło danych"
   },
   "processingNote": {
     "base": "Przetworzone przez wetterdienst: dane dostawcy ułożono w jednolitą tabelę, a ich jednostki przeliczono tam, gdzie się różnią.",
@@ -778,6 +780,7 @@
     "aboutButton": "O prognozie",
     "aboutText1": "Prognoza wyświetla kilkudniową prognozę pogody z DWD MOSMIX, produktu statystycznego przetwarzania końcowego, który łączy wyniki numerycznych modeli prognozy pogody z obserwacjami stacji, aby tworzyć skalibrowane prognozy godzinowe dla ponad 5000 lokalizacji w Niemczech i na całym świecie.",
     "aboutText2": "Wykres pokazuje temperaturę i punkt rosy, prędkość wiatru i porywy z meteorologicznymi proporczykami wiatru, opady sklasyfikowane według fazy (deszcz / mieszane / śnieg), zachmurzenie według wysokości oraz ciśnienie atmosferyczne. Pasy dzień/noc są wyznaczane na podstawie położenia geograficznego stacji. Wybierz dowolną stację DWD według nazwy lub identyfikatora, aby wczytać jej prognozę.",
+    "warningsNote": "Ostrzeżenia pogodowe: tylko dla Niemiec, od DWD",
     "selectStation": "Wybierz stację",
     "loading": "Pobieranie prognozy MOSMIX …",
     "openWidget": "Otwórz jako osadzalny widżet",
@@ -1434,7 +1437,6 @@
     "bannerTitle": "Ostrzeżenia pogodowe dla tej lokalizacji",
     "bannerSome": "Ostrzeżenia DWD dla tej lokalizacji: {count}",
     "bannerNone": "Żadne ostrzeżenie DWD nie ma obszaru, który zawiera tę lokalizację.",
-    "bannerOutside": "Ostrzeżenia DWD obejmują tylko Niemcy. Żadne źródło ostrzeżeń nie obejmuje tego miejsca.",
     "bannerFailed": "Nie udało się załadować ostrzeżeń.",
     "bannerLoading": "Ładowanie ostrzeżeń …",
     "bannerListLabel": "Ostrzeżenia dla tej lokalizacji, najgroźniejsze najpierw",

@@ -41,6 +41,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const creditLine = useCreditLine()
 const serverLimits = useServerLimits()
 const { parameterLabel, resolutionLabel, datasetLabel } = useParameterLabel()
 const { settings: appSettings } = useSettings()
@@ -729,7 +730,7 @@ async function downloadValues(format: 'csv' | 'json' | 'geojson') {
   // the credit and the note are in the file, as the stripes' table has them: comment lines before a CSV's header, a `metadata` member
   // before the `values` of the JSON, where a reader of `values` finds the rows as before
   const content = format === 'csv'
-    ? valuesToCsv(sortedValues.value, columns, creditLines(terms, (name, url) => t('credit.licence', { name, url }), note))
+    ? valuesToCsv(sortedValues.value, columns, creditLines(terms ? { ...terms, attribution: creditLine(terms.attribution) } : null, (name, url) => t('credit.licence', { name, url }), note))
     : valuesToJson(sortedValues.value, columns, {
         // the terms are written only where they are known: `license: null` says the provider states none, which an unknown is not
         ...(terms ? { provider: { attribution: terms.attribution || null, license: terms.license ? { name: terms.license.name, url: terms.license.url } : null } } : {}),

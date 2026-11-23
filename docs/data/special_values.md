@@ -29,10 +29,10 @@ value a code or its data rules out a bearing; a 0 that may be north is always th
 
 | situation | rule | providers |
 | --- | --- | --- |
-| a direction of 0 beside a speed of 0 of the same reading (a calm) | null, `raw:0` (as the source writes it, `raw:0.0`) | every provider whose source writes one: AEMET (hourly), DMI, DWD observation (10 minute and hourly `wind`, 10 minute `wind_extreme` beside the gust, the urban 10 minute `wind`, subdaily `wind` beside a force of 0), DWD POI, ECCC (hourly; daily beside a gust of 0), FMI, Geosphere, KNMI (hourly), Met Office (hourly), Météo-France observation and synop, MeteoSwiss, NOAA GHCN hourly, NWS, SMHI, MET Norway Frost (hourly; 359 of 372 zeros at the foreign stations, 1,014 of 1,068 at 20 Norwegian ones, beside the speed of the same height; a parameter read by itself after a 404 has no speed and keeps its 0, GH-3833) |
+| a direction of 0 beside a speed of 0 of the same reading (a calm) | null, `raw:0` (as the source writes it, `raw:0.0`) | every provider whose source writes one: AEMET (hourly), DMI, DWD observation (10 minute and hourly `wind`, 10 minute `wind_extreme` beside the gust, the urban 10 minute `wind`, subdaily `wind` beside a force of 0), DWD POI, ECCC (hourly; daily beside a gust of 0), FMI, Geosphere, KNMI (hourly), Met Office (hourly), Météo-France observation and synop, MeteoSwiss, NOAA GHCN hourly, NWS, SMHI, MET Norway Frost (hourly; 359 of 372 zeros at the foreign stations, 1,014 of 1,068 at 20 Norwegian ones, beside the speed of the same height, GH-3833) |
 | a direction of 0 beside a speed above 0 | the value 0, as a source may write north as 0 too; most write it 360 | the same providers. Geosphere and NWS write their 0 beside a speed of 0 only (every 0 of the files read), and null every 0 of the column; for KNMI see below |
 | a direction of 0 beside a speed the source does not give | the value 0 | the providers that read the speed beside the direction, all of the first row but Geosphere, KNMI and NWS |
-| a no-direction code: a code of a variable or indeterminate direction | null, with the code | DWD observation `990`, KNMI `990` (hourly) and `0` ("0=calm/variable", the monthly and annual vector mean direction), Météo-France observation `999` and daily `400`, Météo-France synop `400`, AEMET daily `99` (calm or variable), NOAA GHCN hourly `999`, NWS `VRB` (null from the source), MET Norway Frost `-3` ("No unique wind direction is given when winds are weak") |
+| a no-direction code: a code of a variable or indeterminate direction | null, with the code | DWD observation `990`, KNMI `990` (hourly) and `0` ("0=calm/variable", the monthly and annual vector mean direction), Météo-France observation `999` and daily `400`, Météo-France synop `400`, AEMET daily `99` (variable direction) and `88` ("sin dato", no data), NOAA GHCN hourly `999`, NWS `VRB` (null from the source), MET Norway Frost `-3` ("No unique wind direction is given when winds are weak") |
 | a no-direction code: a 0 the source names a code | null, `raw:0`, whatever the speed | DWD observation hourly `wind_synoptic` (the sheet's "Windrichtung uml.,windstill DD=00", a variable or calm wind), IPMA (the point 0 of eight, "no direction", where north is 1 or 9) |
 | a no-direction code: a 0 that is neither a calm nor north | null, `raw:0`, whatever the speed | DWD observation hourly `urban_wind`: 1,288 zeros in 295,005 hours, never beside a speed of 0, and the six 10 minute directions of such an hour are spread over the compass (GH-2809); north is written 360 |
 | north | 360, as written; a 0 beside a wind that blows stays 0 | all; IPMA's codes 1 and 9 for north are read as 360 |
@@ -120,18 +120,20 @@ These values are returned as the source writes them, with no token:
   are a judgement call: kept, as published, with no token (GH-3773);
 - a sunshine duration longer than the daylight but within its span plus 5 % (above that `range` rejects it; a station's sensor known to be stuck, RMI, is `stuck`'s).
 
-## Not checked against the live source
+## Checked late against the live source
 
-Some special values and descriptions of three providers were left unchecked against the source, which the issue
-[GH-3137](https://github.com/earthobservations/wetterdienst/issues/3137) lists as needing a key or a login (state of
-2026-11-22):
+[GH-3137](https://github.com/earthobservations/wetterdienst/issues/3137) listed three providers whose special values
+and descriptions needed a key or a login to check. Read on 2026-11-22 and 2026-11-23
+([GH-4321](https://github.com/earthobservations/wetterdienst/issues/4321)):
 
-- `metoffice/observation`: the stub serves the `NA` text only. A wind direction of 0 and the cloud code 9 are mapped as
-  the page above says, from the files read, and the MIDAS tables word no code 9 for the cloud;
-- `aemet` and the KNMI NetCDF files: a stub and the reader only. Whether KNMI's 10-minute `n` carries a 9 is not known,
-  as the text export has no 10-minute `n`;
-- the descriptions of `knmi`, `aemet` and `metoffice` were not compared with their source, as those of the other
-  providers were.
+- `aemet`: the reader against a live answer (Madrid Retiro, daily, monthly, annual and the latest hourly: the values
+  equal the raw rows), and its 39 descriptions against the `metadatos` of each answer. The units text of the daily
+  `dir` words the `88` ("sin dato") that the reader maps beside the `99`;
+- `knmi`: the descriptions against the collections' metadata of the EDR API (10-minute, monthly and annual) and the
+  headers of the daily and hourly text exports. The 10-minute `n` carries a 9 (fog, the sky invisible), which the
+  reader maps as the hourly one;
+- `metoffice/observation`: the descriptions against the MIDAS tables. The stub serves the `NA` text only; a wind
+  direction of 0 and the cloud code 9 are mapped as the page above says, from the files read, and the MIDAS tables
+  word no code 9 for the cloud.
 
-Until they are, the rules on this page apply to these providers as written. A code that a source documents and the
-library does not map shows as a value: report it as an issue.
+A code that a source documents and the library does not map shows as a value: report it as an issue.

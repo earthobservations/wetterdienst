@@ -977,13 +977,14 @@ const STATES: State[] = [
     },
   },
   {
-    // the Forecast's banner for a position outside Germany: no warnings source covers it
+    // the Forecast for a position outside Germany (GH-4328): no banner, and in the credits one line that the warnings are Germany's
     page: 'meteogram',
-    state: 'warnings-banner-outside',
+    state: 'warnings-note-outside',
     path: '/meteogram?station=01001',
     reach: async (page) => {
       await expect(forecastChart(page)).toBeVisible()
-      await expect(page.getByTestId('warnings-banner-summary')).toBeVisible()
+      await expect(page.getByTestId('meteogram-warnings-note')).toBeVisible()
+      await expect(page.getByTestId('warnings-banner')).toHaveCount(0)
     },
   },
   {

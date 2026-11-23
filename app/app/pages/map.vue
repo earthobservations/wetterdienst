@@ -76,6 +76,7 @@ import { drawn, drawnOf, inWarningBox, withoutOutline } from '~/utils/warnings'
 definePageMeta({ barsHide: false })
 
 const { t } = useI18n()
+const creditLine = useCreditLine()
 const formatLanguage = useFormatLanguage()
 // the title says which page this is: WCAG 2.4.2, and what a screen reader announces after a navigation
 useHead({ title: () => t('mapTool.title') })
@@ -345,7 +346,7 @@ const warningsChipLabel = computed(() => warningsOn.value && warningsCount.value
 /** The credit line of the outlines in the map's attribution, while they are drawn */
 const warningsCredit = computed(() => {
   const credit = warningsOn.value ? warnings.snapshot.value?.credit : null
-  return credit?.attribution ? [{ text: credit.attribution, license: credit.license ? { label: credit.license.spdx ?? credit.license.name, url: credit.license.url } : null }] : []
+  return credit?.attribution ? [{ text: creditLine(credit.attribution), license: credit.license ? { label: credit.license.spdx ?? credit.license.name, url: credit.license.url } : null }] : []
 })
 watch(warningsOn, (on) => {
   if (!on)

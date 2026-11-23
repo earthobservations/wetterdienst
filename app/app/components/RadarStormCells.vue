@@ -33,6 +33,7 @@ defineEmits<{ retry: [], centre: [cell: StormCell] }>()
 const on = defineModel<boolean>('on', { default: true })
 
 const { t } = useI18n()
+const creditLine = useCreditLine()
 const formatLanguage = useFormatLanguage()
 
 /** Whether the list shows every cell: it shows the most severe ten until the reader asks for more */
@@ -195,7 +196,7 @@ const CENTRE_HINT_ID = 'radar-cells-centre-hint'
         <p class="radar-card-note" data-testid="radar-cells-credit">
           {{ t('radar.cellsCredit') }}
           <template v-if="credit?.attribution">
-            {{ credit.attribution }}.
+            {{ creditLine(credit.attribution) }}.
           </template>
           <template v-if="credit?.license">
             {{ t('providers.licence') }}{{ t('common.colon') }}

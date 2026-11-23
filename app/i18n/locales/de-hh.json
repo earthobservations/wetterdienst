@@ -754,7 +754,9 @@
     "openExplorer": "In'n Explorer apenmaken"
   },
   "credit": {
-    "licence": "Lizenz: {name} ({url})"
+    "licence": "Lizenz: {name} ({url})",
+    "source": "Quell",
+    "dataSource": "Datenquell"
   },
   "processingNote": {
     "base": "Verarbeidt vun wetterdienst: De Daten vun den Anbeder sünd in eene eenheitliche Tabell bröcht un de Eenheiten ümrekent, wo se afwiekt.",
@@ -778,6 +780,7 @@
     "aboutButton": "Över de Utsicht",
     "aboutText1": "De Utsicht wiest een mehrdaagsche Wedderprognose ut DWD MOSMIX – een statistisch Verfahren, dat de Utgaven numerische Weddermodelle mit Stationsbeobachten kombineert un so kalibreerte stünnlich Utsichten för över 5000 Oorten in Düütschland un op de ganze Welt maakt.",
     "aboutText2": "Dat Diagramm wiest Temperatur un Daupunkt, Windgauheit un Bööen mit Windfahnen, na Phaas klassifizeerten Nedderslag (Regen / Mix / Snee), Bewölkung na Hööchd un den Luftdruck. Dag-/Nachtbänner ergeevt sik ut de geografische Laag vun de Station. Söök di een DWD-Station na Naam oder ID ut, denn warrt de Utsicht laadt.",
+    "warningsNote": "Wedderwarnungen: blots för Düütschland, vun den DWD",
     "selectStation": "Station utsöken",
     "loading": "MOSMIX-Utsicht laadt …",
     "openWidget": "As inbettbaret Widget apenmaken",
@@ -1434,7 +1437,6 @@
     "bannerTitle": "Wedderwarnungen för disse Positschoon",
     "bannerSome": "Warnungen vun den DWD för disse Positschoon: {count}",
     "bannerNone": "Keen Warnung vun den DWD hett en Gebeet, dat disse Positschoon in sik hett.",
-    "bannerOutside": "De Warnungen vun den DWD gellt blots för Düütschland. Keen Born för Warnungen deckt disse Stä af.",
     "bannerFailed": "De Warnungen kunnen nich laadt warrn.",
     "bannerLoading": "De Warnungen warrt laadt …",
     "bannerListLabel": "Warnungen för disse Positschoon, de swaarste toerst",

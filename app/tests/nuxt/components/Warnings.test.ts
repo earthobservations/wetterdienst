@@ -102,15 +102,14 @@ describe('the banner of a position', () => {
     expect(details.find('[data-testid="processing-note"]').exists()).toBe(true)
   })
 
-  it('is one line too while it loads, and for a place outside Germany, and a warning opens it', async () => {
+  it('is one line too while it loads, and a warning opens it', async () => {
     expect((await mountBanner(KIEL, source(null, { status: 'pending' }))).find('section').classes()).toContain('warnings-banner-compact')
-    expect((await mountBanner(JAN_MAYEN, source(alertsAnswer()))).find('section').classes()).toContain('warnings-banner-compact')
     const some = await mountBanner(KIEL, source(alertsAnswer()))
     expect(some.find('section').classes()).not.toContain('warnings-banner-compact')
     expect(some.find('#warnings-banner-title').classes()).not.toContain('sr-only')
   })
 
-  it('asks for nothing for a position outside Germany', async () => {
+  it('has no banner at all, and asks for nothing, for a position outside Germany (GH-4328)', async () => {
     const asked: string[] = []
     const origin = globalThis.$fetch
     ;(globalThis as { $fetch: unknown }).$fetch = ((url: string) => {
@@ -122,7 +121,12 @@ describe('the banner of a position', () => {
       mounted.push(outside)
       await new Promise(resolve => setTimeout(resolve, 50))
       expect(asked).toEqual([])
-      expect(outside.find('[data-testid="warnings-banner-summary"]').text()).toBe('DWD\'s warnings cover Germany only. No warnings source covers this place.')
+      expect(outside.find('section').exists()).toBe(false)
+      expect(outside.find('[data-testid="warnings-banner"]').exists()).toBe(false)
+      expect(outside.text()).toBe('')
+      // with the page's own snapshot in hand it is none either: the box is the rule, not the snapshot
+      const given = await mountBanner(JAN_MAYEN, source(alertsAnswer()))
+      expect(given.find('section').exists()).toBe(false)
     }
     finally {
       ;(globalThis as { $fetch: unknown }).$fetch = origin
@@ -169,13 +173,6 @@ describe('the banner of a position', () => {
     expect(later.find('[data-testid="warning-when"]').text()).toMatch(/^Announced · /)
     const now = await mountBanner(BERLIN, source(alertsAnswer()))
     expect(now.find('[data-testid="warning-when"]').text()).toMatch(/^In force · /)
-  })
-
-  it('says plainly that no warnings source covers a place outside Germany, and shows no list', async () => {
-    const wrapper = await mountBanner(JAN_MAYEN, source(alertsAnswer()))
-    expect(summary(wrapper)).toBe('DWD\'s warnings cover Germany only. No warnings source covers this place.')
-    expect(wrapper.find('[data-testid="warning-entry"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="provider-credit"]').exists()).toBe(false)
   })
 
   it('is loading until the snapshot comes, and a failure has a Retry', async () => {

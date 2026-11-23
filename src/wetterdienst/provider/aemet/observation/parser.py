@@ -12,6 +12,11 @@ from wetterdienst.model.quality_flags import Sentinel, null_sentinels
 # a trace, so 0.0, and keeps its text as the `raw` token of `quality_flags` (GH-3188)
 _TRACE = Sentinel("Ip", to=0.0)
 
+# the daily wind direction is in tens of degrees, and the unit text of `dir` in the `metadatos` of the answer words two
+# codes: "decenas de grado (99 = dirección variable)(88 = sin dato)". A 99 is a variable direction and an 88 is "sin
+# dato", no data; both are no bearing, and an 88 would be 880 degrees (GH-4321)
+_WIND_DIRECTION_CODES = Sentinel("99", "88")
+
 
 def parse_dms_coordinate(column: str) -> pl.Expr:
     """Parse an AEMET DMS coordinate string, e.g. "394924N" or "025309E", to decimal degrees."""
@@ -38,11 +43,15 @@ def parse_decimal_comma(column: str, *, trace: bool = False) -> tuple[pl.Expr, p
 
 
 def parse_wind_direction(column: str) -> tuple[pl.Expr, pl.Expr]:
-    """Parse an AEMET wind direction code (tens of degrees, 99 = calm/variable) into degrees.
+    """Parse an AEMET wind direction code (tens of degrees, 99 = variable, 88 = no data) into degrees.
 
-    Returns the value and the ``raw`` text for ``quality_flags``: the ``99`` is null and keeps its text.
+    Returns the value and the ``raw`` text for ``quality_flags``: the ``99`` and the ``88`` are null and keep it.
     """
-    code, raw = null_sentinels(pl.col(column).cast(pl.String).str.replace(",", "."), Sentinel("99"), non_numeric=True)
+    code, raw = null_sentinels(
+        pl.col(column).cast(pl.String).str.replace(",", "."),
+        _WIND_DIRECTION_CODES,
+        non_numeric=True,
+    )
     return code * 10, raw
 
 

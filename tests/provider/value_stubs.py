@@ -1837,16 +1837,19 @@ def _aemet_daily(monkeypatch: pytest.MonkeyPatch, drop_nulls: bool = True) -> pl
     # no value outside the physical range, and the hours as `Varias` (several) in the `hora*` fields, which are not
     # read; the hourly observation feed of 9,759 reports writes a calm as a `dv` of 0 (see `_aemet_hourly`), and has a
     # 37.7 degC at 04 UTC at Palencia (hr 76 %), one station's fault, not a sentinel
+    # The unit text of `dir` in the `metadatos` of the answer (read 2026-11-23, GH-4321) words both codes: "decenas de
+    # grado (99 = dirección variable)(88 = sin dato)", so an 88 is "sin dato", no data, and no 880 degrees
     records = [
         {"fecha": "2024-01-01", "tmed": "5,3", "prec": "0,0", "dir": "23", "velmedia": "3,1"},
         {"fecha": "2024-01-02", "tmed": "6,0", "prec": "Ip", "dir": "99", "velmedia": "2,0"},
+        {"fecha": "2024-01-03", "tmed": "4,1", "prec": "0,0", "dir": "88", "velmedia": "1,0"},
     ]
     payload = json.dumps(records).encode("latin-1")
     monkeypatch.setattr(aemet_api, "_fetch_datos", lambda *args, **kwargs: payload)  # noqa: ARG005
     request = AemetObservationRequest(
         parameters=[("daily", "data")],
         start=_day(2024, 1, 1),
-        end=_day(2024, 1, 2),
+        end=_day(2024, 1, 3),
         settings=_settings(auth={"aemet": "stub"}),
         options=_options(drop_nulls),
     )
@@ -3587,9 +3590,14 @@ STUBS = [
         "aemet/observation daily/data",
         _aemet_daily,
         reading=("temperature_air_mean_2m", 5.3),
-        sentinels=(("wind_direction_gust_max", 990.0),),
-        # a trace is 0.0 with the code beside it; a calm or variable wind has no direction
-        tokens=(("wind_direction_gust_max", "99", None), ("precipitation_amount", "Ip", 0.0)),
+        sentinels=(("wind_direction_gust_max", 990.0), ("wind_direction_gust_max", 880.0)),
+        # a trace is 0.0 with the code beside it; a variable direction (99) or none given (88, "sin dato") has no
+        # direction
+        tokens=(
+            ("wind_direction_gust_max", "99", None),
+            ("wind_direction_gust_max", "88", None),
+            ("precipitation_amount", "Ip", 0.0),
+        ),
     ),
     ValueStub(
         "dwd/derived hourly/radiation_global",

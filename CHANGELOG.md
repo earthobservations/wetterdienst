@@ -16,6 +16,24 @@ Types of changes:
 
 ## [Unreleased]
 
+### Changed
+
+- `metno/frost` takes a 404 or a 412 for a window as no data. The request for the whole dataset,
+  which asks every element, is asked once; the request for each parameter and the listing of the
+  time series that followed a 404 are gone. In a sample of 208 (station, element, resolution)
+  pairs they found data in none of the 12 that answered 404 when asked alone (GH-3137), so the
+  answers are the same, with fewer requests. No wind direction is read without its speed any more:
+  an hourly `0` beside a speed of 0 is a calm (null, `raw:0`) in every request (GH-4321)
+
+### Fixed
+
+- **Breaking**: `aemet/observation` daily `wind_direction_gust_max` is null with `raw:88` where the
+  source writes 88, "sin dato" (no data) in the units text of `dir`, as it is for the 99. It was
+  `rejected:range,raw:880` with `range: hard`, and 880.0 with `suspect:range` with `range: soft`,
+  so `range: soft` no longer returns it: filter on `raw:88`. The AEMET daily `dir` and `prec`
+  descriptions and the KNMI 10-minute, monthly and annual `FXX` ones now carry the source's own
+  words and codes (GH-4321)
+
 ## [0.195.0] - 2026-11-22
 
 ### Added

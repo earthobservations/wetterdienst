@@ -754,7 +754,9 @@
     "openExplorer": "Open in the explorer"
   },
   "credit": {
-    "licence": "Licence: {name} ({url})"
+    "licence": "Licence: {name} ({url})",
+    "source": "Source",
+    "dataSource": "Data source"
   },
   "processingNote": {
     "base": "Processed by wetterdienst: the provider's data was reshaped into a uniform table, and its units converted where they differ.",
@@ -778,6 +780,7 @@
     "aboutButton": "About the forecast",
     "aboutText1": "The forecast displays a multi-day weather forecast from DWD MOSMIX, a statistical post-processing product that combines numerical weather prediction model output with station observations to produce calibrated hourly forecasts at over 5000 locations across Germany and worldwide.",
     "aboutText2": "The chart shows temperature & dew point, wind speed & gusts with meteorological wind barbs, precipitation classified by phase (rain / mixed / snow), cloud cover by altitude, and atmospheric pressure. Day/night bands are derived from the station's geographic location. Select any DWD station by name or ID to load its forecast.",
+    "warningsNote": "Weather warnings: Germany only, from DWD",
     "selectStation": "Select station",
     "loading": "Fetching MOSMIX forecast …",
     "openWidget": "Open as embeddable widget",
@@ -1434,7 +1437,6 @@
     "bannerTitle": "Weather warnings for this position",
     "bannerSome": "Warnings of DWD for this position: {count}",
     "bannerNone": "No warning of DWD has an area that contains this position.",
-    "bannerOutside": "DWD's warnings cover Germany only. No warnings source covers this place.",
     "bannerFailed": "The warnings could not be loaded.",
     "bannerLoading": "Loading the warnings …",
     "bannerListLabel": "Warnings for this position, the most severe first",

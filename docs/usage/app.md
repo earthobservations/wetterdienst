@@ -195,11 +195,12 @@ community product, the whole snapshot of Germany) in three places, and in no oth
   is listed under "Warnings for areas the map cannot draw" and is never given an outline.
 - **The station or place picked, and the Forecast.** A banner lists the warnings whose polygon contains the position (the
   place picked on the map where a click picked one, else the station's position; in the Forecast the forecast point),
-  tested in the browser against the snapshot (an edge counts as inside, a hole as outside). On a quiet day, and outside
-  Germany, it is one line ("No DWD warning for this position · Checked: 14:07 · Source: Deutscher Wetterdienst", with a button
-  for the notes), so that the chart under it does not move; a warning opens it. The warnings that name only an
-  area are not matched to a position: the banner says that there are some and where the map lists them. Outside Germany and
-  the sea round it (the box of the network, 3° to 16° E and 47° to 56° N) it says that no warnings source covers the place.
+  tested in the browser against the snapshot (an edge counts as inside, a hole as outside). On a quiet day it is one line
+  ("No DWD warning for this position · Checked: 14:07 · Source: Deutscher Wetterdienst", with a button for the notes), so
+  that the chart under it does not move; a warning opens it. The warnings that name only an area are not matched to a
+  position: the banner says that there are some and where the map lists them. Outside Germany and the sea round it (the box
+  of the network, 3° to 16° E and 47° to 56° N) there is no banner, and nothing is asked for; the Forecast's credits say
+  instead, for every station, "Weather warnings: Germany only, from DWD".
 - **Ask the weather.** "Are there warnings here?" says whether a warning of DWD has an area that contains the place, quotes
   each in DWD's words and says that they are DWD's own; it rates nothing and says what to do only as DWD does. Its
   rules are on `/methods#warnings`: each is DWD's CAP profile, with the place in it, or marked as wetterdienst's own.

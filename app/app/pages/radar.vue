@@ -28,6 +28,7 @@ import { cellView } from '~/utils/storm-cells'
 // radar is the same picture for everyone, so the position goes to no request of the backend; it is only drawn.
 
 const { t } = useI18n()
+const creditLine = useCreditLine()
 const formatLanguage = useFormatLanguage()
 useHead({ title: () => t('radar.title') })
 
@@ -117,7 +118,7 @@ const radarCredit = computed(() => {
   if (!credit)
     return null
   const license = credit.license
-  return { text: credit.attribution ?? t('radar.creditRadar'), license: license ? { label: license.spdx ?? license.name, url: license.url } : null }
+  return { text: credit.attribution ? creditLine(credit.attribution) : t('radar.creditRadar'), license: license ? { label: license.spdx ?? license.name, url: license.url } : null }
 })
 
 // ---- the thunderstorm cells of DWD's radar (GH-4208) ---------------------------------------------------------------
@@ -140,7 +141,7 @@ const stormCredit = computed(() => {
   if (!credit?.attribution)
     return null
   const license = credit.license
-  return { text: credit.attribution, license: license ? { label: license.spdx ?? license.name, url: license.url } : null }
+  return { text: creditLine(credit.attribution), license: license ? { label: license.spdx ?? license.name, url: license.url } : null }
 })
 /** The credit lines of the map: one where the radar and the cells are DWD's under the same terms (they are), a line each where they are not; the cells' only while they are on the map */
 const credits = computed(() => {
@@ -394,7 +395,7 @@ const licenseLink = computed(() => loop.value?.credit?.license ?? null)
               <p class="radar-card-note">
                 {{ t('radar.creditRadar') }}
                 <template v-if="loop?.credit?.attribution">
-                  {{ loop.credit.attribution }}.
+                  {{ creditLine(loop.credit.attribution) }}.
                 </template>
                 <template v-if="licenseLink">
                   {{ t('providers.licence') }}{{ t('common.colon') }}

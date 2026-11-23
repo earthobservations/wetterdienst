@@ -754,7 +754,9 @@
     "openExplorer": "Im Explorer öffnen"
   },
   "credit": {
-    "licence": "Lizenz: {name} ({url})"
+    "licence": "Lizenz: {name} ({url})",
+    "source": "Quelle",
+    "dataSource": "Datenquelle"
   },
   "processingNote": {
     "base": "Aufbereitet von wetterdienst: Die Daten des Anbieters wurden in eine einheitliche Tabelle gebracht und ihre Einheiten umgerechnet, wo sie abweichen.",
@@ -778,6 +780,7 @@
     "aboutButton": "Über die Vorhersage",
     "aboutText1": "Die Vorhersage zeigt eine mehrtägige Wetterprognose aus DWD MOSMIX – einem statistischen Verfahren, das die Ausgaben numerischer Wettermodelle mit Stationsbeobachtungen kombiniert und so kalibrierte stündliche Vorhersagen für über 5000 Orte in Deutschland und weltweit erzeugt.",
     "aboutText2": "Das Diagramm zeigt Temperatur und Taupunkt, Windgeschwindigkeit und Böen mit Windfähnchen, nach Phase klassifizierten Niederschlag (Regen / Mix / Schnee), Bewölkung nach Höhe sowie den Luftdruck. Tag-/Nachtbänder ergeben sich aus der geografischen Lage der Station. Wähle eine DWD-Station nach Name oder ID, um die Vorhersage zu laden.",
+    "warningsNote": "Wetterwarnungen: nur für Deutschland, vom DWD",
     "selectStation": "Station auswählen",
     "loading": "MOSMIX-Vorhersage wird geladen …",
     "openWidget": "Als einbettbares Widget öffnen",
@@ -1434,7 +1437,6 @@
     "bannerTitle": "Wetterwarnungen für diese Position",
     "bannerSome": "Warnungen des DWD für diese Position: {count}",
     "bannerNone": "Keine Warnung des DWD hat ein Gebiet, das diese Position enthält.",
-    "bannerOutside": "Die Warnungen des DWD gelten nur für Deutschland. Keine Quelle für Warnungen deckt diesen Ort ab.",
     "bannerFailed": "Die Warnungen konnten nicht geladen werden.",
     "bannerLoading": "Die Warnungen werden geladen …",
     "bannerListLabel": "Warnungen für diese Position, die schwerste zuerst",

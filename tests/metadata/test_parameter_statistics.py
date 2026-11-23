@@ -337,9 +337,19 @@ _MEAN_WORD = re.compile(r"(?<![a-z])(?:mean(?!(?:\s+|_)sea(?![a-z]))|averag\w*|a
 # hourly sheets, which give the mean value of the 1 minute interval ending ten minutes before the hour
 _MEAN_WINDOW = re.compile(
     r"(?<![\d.])(\d+)[ -]?min(?:ute)?s?\b[ -]*(?:mean|average)|\b(?:mean|average) over (\d+)[ -]?min(?:ute)?s?\b"
-    r"|\b(?:mean|average) value of the (\d+)[ -]?min(?:ute)?s? interval\b",
+    r"|\b(?:mean|average) value of the (\d+)[ -]?min(?:ute)?s? interval\b"
+    # no number is one minute: KNMI's 10-minute "Past minute mean air temperature at 1.50 meters"
+    r"|\bpast (minute)[ -]*(?:mean|average)\b",
     re.IGNORECASE,
 )
+
+
+def _mean_window_of(match: re.Match[str]) -> int:
+    """Return the minutes of a `_MEAN_WINDOW` match: the number it states, or 1 for "past minute mean"."""
+    number = next((g for g in match.groups() if g and g.isdigit()), None)
+    return int(number) if number is not None else 1
+
+
 # the minutes a value of the resolution covers, for the resolutions that are a fixed number of them
 _INTERVAL_MINUTES = {
     "1_minute": 1,
@@ -366,7 +376,7 @@ def _states_a_mean(evidence: str, resolution: str) -> bool:
         return False
     interval = _INTERVAL_MINUTES.get(resolution)
     for match in _MEAN_WINDOW.finditer(evidence):
-        if interval is not None and int(match.group(1) or match.group(2) or match.group(3)) < interval:
+        if interval is not None and _mean_window_of(match) < interval:
             return False
     return True
 
@@ -404,6 +414,16 @@ def test_a_spot_name_does_not_carry_a_description_that_states_a_mean() -> None:
     assert not wrong, "\n".join(wrong)
 
 
+# a `_mean_` name whose source states a mean over a window shorter than the row's interval, by site, with the
+# reason. The table has a mean name at 10 cm (`temperature_air_mean_0_1m`) and no spot one, so a spot name would be
+# a new canonical parameter and a rename of the one a caller reads (GH-4321)
+_MEAN_NAME_OVER_A_SHORTER_WINDOW = {
+    "KnmiObservationMetadata 10_minutes/data/temperature_air_mean_0_1m [tg]": (
+        "KNMI's 10-minute `tg` is a 1-minute mean at 10 cm; the table has no spot name at that height"
+    ),
+}
+
+
 def test_a_sub_daily_mean_name_needs_a_description_that_states_a_mean() -> None:
     """Below daily resolution a `_mean_` temperature name is for a source that says it is a mean.
 
@@ -417,6 +437,7 @@ def test_a_sub_daily_mean_name_needs_a_description_that_states_a_mean() -> None:
             resolution not in _COARSE_RESOLUTIONS
             and _MEAN_NAME.match(parameter.name)
             and not _states_a_mean(evidence, resolution)
+            and site not in _MEAN_NAME_OVER_A_SHORTER_WINDOW
         ):
             wrong.append(f"{site}: named a mean, but the source says {evidence!r}")
     assert not wrong, "\n".join(wrong)

@@ -3699,11 +3699,18 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("annual", "data", "tm_max"): "Annual mean of the maximum temperatures.",
         ("annual", "data", "tm_mes"): "Annual mean temperature.",
         ("annual", "data", "tm_min"): "Annual mean of the minimum temperatures.",
-        ("daily", "data", "dir"): "Direction of the maximum gust.",
+        ("daily", "data", "dir"): (
+            "Direction of the maximum gust, in tens of degrees (returned in degrees). The source's units text "
+            'reads "99 = variable direction" and "88 = no data": both are no bearing and are null.'
+        ),
         ("daily", "data", "hrmax"): "Daily maximum relative humidity.",
         ("daily", "data", "hrmedia"): "Daily mean relative humidity.",
         ("daily", "data", "hrmin"): "Daily minimum relative humidity.",
-        ("daily", "data", "prec"): "Daily precipitation, from 07 to 07.",
+        ("daily", "data", "prec"): (
+            'Daily precipitation, from 07 to 07, in mm. The source\'s units text adds "Ip = less than 0.1 mm", '
+            'returned as 0.0, and "Acum = accumulated precipitation", an amount over several days and not '
+            "that day's, which is null."
+        ),
         ("daily", "data", "presmax"): "Maximum pressure at the station's reference level.",
         ("daily", "data", "presmin"): "Minimum pressure at the station's reference level.",
         ("daily", "data", "racha"): "Maximum wind gust.",
@@ -3778,22 +3785,34 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("hourly", "data", "ws_10min"): "Wind speed. Mean over 10 minutes.",
     },
     "KnmiObservationMetadata": {
-        ("10_minutes", "data", "dd"): "Wind Direction Mean with MD",
-        ("10_minutes", "data", "dr"): "Precipitation Duration (Rain Gauge)",
-        ("10_minutes", "data", "ff"): "Wind Speed at 10 m Mean with MD",
-        ("10_minutes", "data", "fx"): "Wind Gust at 10 m Maximum last Interval",
-        ("10_minutes", "data", "n"): "Total Cloud Cover",
-        ("10_minutes", "data", "p0"): "Air Pressure at Station Level 1 Min Mean",
-        ("10_minutes", "data", "pp"): "Air Pressure at Mean Sea Level 1 Min Mean",
-        ("10_minutes", "data", "qg"): "Global Solar Radiation Mean",
-        ("10_minutes", "data", "rg"): "Precipitation Intensity (Rain Gauge) Mean",
-        ("10_minutes", "data", "rh"): "Relative Humidity 1 Min Mean",
-        ("10_minutes", "data", "ss"): "Sunshine Duration",
-        ("10_minutes", "data", "ta"): "Air Temperature 1 Min Mean",
-        ("10_minutes", "data", "tb"): "Wet Bulb Temperature Mean",
-        ("10_minutes", "data", "td"): "Dew Point Temperature 1 Min Mean",
-        ("10_minutes", "data", "tg"): "Air Temperature 10 cm Mean",
-        ("10_minutes", "data", "vv"): "Horizontal Visibility Mean",
+        ("10_minutes", "data", "dd"): (
+            "Past 10 minute mean wind direction in degrees, measured at sensor height, with Marked Discontinuity (MD)"
+        ),
+        ("10_minutes", "data", "dr"): "Past 10 minute duration of precipitation in seconds, measured by rain gauge",
+        ("10_minutes", "data", "ff"): (
+            "Past 10 minute mean wind speed, representative for 10 meters, in meters per second, with Marked "
+            "Discontinuity (MD)"
+        ),
+        ("10_minutes", "data", "fx"): (
+            "Past 19 minute maximum wind gust, representative for 10 meters, in meters per second (as KNMI writes it)"
+        ),
+        ("10_minutes", "data", "n"): (
+            "Past 30 minute total cloud cover, in okta. The source words no code; the files carry a 9 at fog "
+            "visibilities (the sky is invisible), which is no cover and is null."
+        ),
+        ("10_minutes", "data", "p0"): "Past minute mean air pressure at station level",
+        ("10_minutes", "data", "pp"): "Past minute mean air pressure at mean sea level in hectopascal",
+        ("10_minutes", "data", "qg"): "Past 10 minute mean global solar radiation in watt per square meter",
+        ("10_minutes", "data", "rg"): (
+            "Past 10 minute mean precipitation intensity in millimeters per hour, measured by rain gauge"
+        ),
+        ("10_minutes", "data", "rh"): "Past minute mean relative humidity at 1.50 meters, in percentage",
+        ("10_minutes", "data", "ss"): "Past 10 minute duration of sunshine in minutes",
+        ("10_minutes", "data", "ta"): "Past minute mean air temperature at 1.50 meters, in degrees Celsius",
+        ("10_minutes", "data", "tb"): "Past 10 minute mean wet bulb temperature at 1.50 meters, in degrees Celsius",
+        ("10_minutes", "data", "td"): "Past minute mean dew point temperature at 1.50 meters, in degrees Celsius",
+        ("10_minutes", "data", "tg"): "Past 1 minute mean air temperature at 10 centimeters, in degrees Celsius",
+        ("10_minutes", "data", "vv"): "Past 10 minute mean horizontal visibility, in meters",
         ("annual", "data", "DDVEC"): (
             "Annual vector mean wind direction, representative for 10 meters, in degrees. Wind direction "
             "has been weighted with wind speed during aggregation. 360=north; 90=east; 180=south; "
@@ -3808,7 +3827,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("annual", "data", "FHX"): (
             "Annual maximum hourly wind speed, representative for 10 meters, in meters per second."
         ),
-        ("annual", "data", "FXX"): ("Annual maximum wind gust, representative for 10 meters, in meters per second."),
+        ("annual", "data", "FXX"): (
+            "Annual maximum wind gust, representative for 10 meters, in meters per second. "
+            "Highest 3 second average of the day (as KNMI writes it; the value is the year's)."
+        ),
         ("annual", "data", "NG"): ("Annual mean cloud cover, in okta. 9=sky invisible."),
         ("annual", "data", "PG"): ("Annual mean sea level pressure, in hectopascal."),
         ("annual", "data", "PN"): ("Annual minimum mean sea level pressure, in hectopascal."),
@@ -3888,7 +3910,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
         ("monthly", "data", "FHX"): (
             "Monthly maximum hourly wind speed, representative for 10 meters, in meters per second."
         ),
-        ("monthly", "data", "FXX"): ("Monthly maximum wind gust, representative for 10 meters, in meters per second."),
+        ("monthly", "data", "FXX"): (
+            "Monthly maximum wind gust, representative for 10 meters, in meters per second. "
+            "Highest 3 second mean of the year (as KNMI writes it; the value is the month's)."
+        ),
         ("monthly", "data", "NG"): ("Monthly mean cloud cover, in okta. 9=sky invisible."),
         ("monthly", "data", "PG"): ("Monthly mean sea level pressure, in hectopascal."),
         ("monthly", "data", "PN"): ("Monthly minimum mean sea level pressure, in hectopascal."),
@@ -4329,11 +4354,10 @@ SOURCE_DESCRIPTIONS: dict[str, dict[tuple[str, str, str], str]] = {
             "the direction from which the wind blows and is registered in degrees, where 360 degrees is north and 90 "
             "degrees is east. Code -3 means no unique wind direction is given when winds are weak (Frost's data "
             "clarifications), and is returned as null. A direction of 0 beside a wind speed of 0 (of the same time and "
-            "height) is a calm and is returned as null; a 0 beside a speed above 0 stays, and so does a 0 read by "
-            "itself after a 404 of the whole dataset. At a station with several heights the speed and the direction "
-            "are of one height: 10 m if it has both, else the nearest height that has both; a calm or a -3 there "
-            "is the answer for the hour: no other height fills it. Where no height has both, each is the 10 m one "
-            "first, else the nearest."
+            "height) is a calm and is returned as null; a 0 beside a speed above 0 stays. At a station with several "
+            "heights the speed and the direction are of one height: 10 m if it has both, else the nearest height that "
+            "has both; a calm or a -3 there is the answer for the hour: no other height fills it. Where no height has "
+            "both, each is the 10 m one first, else the nearest."
         ),
         ("hourly", "data", "wind_speed"): (
             "Mean wind speed is registered as a mean value of the wind speed over the last ten minutes before the "
